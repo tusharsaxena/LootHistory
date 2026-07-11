@@ -120,7 +120,6 @@ sudo luarocks install luacheck
 - [x] Milestone 5 — settings panel, slash CLI, minimap button (LibDBIcon + LDB).
 - [x] Milestone 6 (in progress): `ARCHITECTURE.md` + `README.md` authored (Task 6.1).
 - [ ] **Next (Task 6.2):** run `wow-addon:review` → first `reviews/<DATE>/` bundle; address blockers; final `luacheck .` + `lua tests/run.lua`; confirm `## Version: 0.1.0` consistent → tag-ready.
-- [ ] Fill `X-Curse-Project-ID` / `X-Wago-ID` in TOC before first publish.
 
 ---
 

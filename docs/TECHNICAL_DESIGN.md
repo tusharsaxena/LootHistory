@@ -1,7 +1,7 @@
 # Ka0s Loot History — Technical Design
 
 **Status:** Draft for v0.1.0 · **Substrate:** Ace3 · **Tier:** 2 (modular)
-**Authoritative conventions:** `CLAUDE_STANDARDS.md`, `CLAUDE_NEW_ADDON_CONTEXT.md`.
+**Authoritative conventions:** `CLAUDE.md` (repo conventions cheat-sheet) + the Ka0s WoW Addon Standard v1.1.
 
 This document is engineer-facing. It pins down interfaces, event flows, and data shapes. It intentionally avoids full implementations; snippets are signatures / pseudocode.
 

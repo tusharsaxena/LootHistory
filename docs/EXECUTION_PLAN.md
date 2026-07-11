@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Standard:** Ka0s WoW Addon Standard (`CLAUDE_STANDARDS.md`) — MUST comply except the one documented deviation below.
+- **Standard:** Ka0s WoW Addon Standard v1.1 — MUST comply except the one documented deviation below.
 - **Namespace:** every file starts `local addonName, NS = ...`. No `_G[addonName]`.
 - **SavedVariables:** `LootHistoryDB`, single global, account-wide data in `.global`, with `schemaVersion`.
 - **Slash:** `/lh` and `/loothistory` via AceConsole `:RegisterChatCommand`. No raw `SLASH_*`.
