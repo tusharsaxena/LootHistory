@@ -15,6 +15,7 @@ end
 
 function addon:OnEnable()
   self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnterWorld")
+  if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
 end
 
 -- Retention cleanup runs once per session, deferred off the login/zone spike.

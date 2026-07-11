@@ -51,3 +51,39 @@ test("Attribution: context survives repeated Consume (multi-line loot)", functio
   assertEqual(s1, "MPLUS")
   assertEqual(s2, "MPLUS")
 end)
+
+local CREATURE = "Creature-0-3299-2549-11-214506-000136DF91"
+local OBJECT   = "GameObject-0-3299-2549-11-221102-00003ABCDE"
+local ITEMGUID = "Item-970-0-40000012ABCDEF00"
+
+test("Attribution: ResolveLootSource creature → KILL + npcID", function()
+  local source, detail = NS.Attribution:ResolveLootSource(CREATURE, {})
+  assertEqual(source, "KILL")
+  assertEqual(detail.npcID, 214506)
+end)
+
+test("Attribution: ResolveLootSource creature in encounter → KILL + encounter detail", function()
+  local state = { encounter = { id = 2902, name = "Ovi'nax", difficulty = 16 } }
+  local source, detail = NS.Attribution:ResolveLootSource(CREATURE, state)
+  assertEqual(source, "KILL")
+  assertEqual(detail.npcID, 214506)
+  assertEqual(detail.encounterID, 2902)
+  assertEqual(detail.difficulty, 16)
+end)
+
+test("Attribution: ResolveLootSource GameObject in keystone → MPLUS + level", function()
+  local state = { keystone = { level = 12, mapID = 2657 } }
+  local source, detail = NS.Attribution:ResolveLootSource(OBJECT, state)
+  assertEqual(source, "MPLUS")
+  assertEqual(detail.keystoneLevel, 12)
+end)
+
+test("Attribution: ResolveLootSource GameObject otherwise → CONTAINER", function()
+  local source = NS.Attribution:ResolveLootSource(OBJECT, {})
+  assertEqual(source, "CONTAINER")
+end)
+
+test("Attribution: ResolveLootSource Item GUID → CONTAINER", function()
+  local source = NS.Attribution:ResolveLootSource(ITEMGUID, {})
+  assertEqual(source, "CONTAINER")
+end)
