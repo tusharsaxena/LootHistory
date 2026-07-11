@@ -8,23 +8,23 @@ local C = NS.Constants
 -- `group` names the panel section header; row order within a group drives the
 -- two-column pairing. `wide` forces a full-width row (see settings/Panel.lua).
 S.Schema = {
-  -- ── Ka0s Loot History ──
+  -- ── Master Controls ──
   { path = "settings.enabled", default = true, type = "boolean", widget = "CheckBox",
-    group = "Ka0s Loot History", label = "Enable collection",
+    group = "Master Controls", label = "Enable collection",
     tooltip = "Master switch for recording looted items.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
     end },
 
   { path = "minimap.hide", default = false, type = "boolean", widget = "CheckBox",
-    group = "Ka0s Loot History", label = "Hide minimap button",
+    group = "Master Controls", label = "Hide minimap button",
     tooltip = "Hide the LootHistory minimap button.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
     end },
 
   { path = "settings.windowScale", default = 1.0, type = "number", min = 0.6, max = 1.6, widget = "Slider",
-    group = "Ka0s Loot History", label = "Window scale",
+    group = "Master Controls", label = "Window scale",
     tooltip = "Scale of the History browser window.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
