@@ -211,3 +211,22 @@ test("Database: Purge wipes history and fires HistoryChanged", function()
   assertEqual(NS.Database:Count(), 0)
   assertTrue(firedHistoryChanged(sent))
 end)
+
+test("Database: StorageStats counts records, day span, and estimated bytes", function()
+  NS.db.global.history = {
+    { ts = 1000, char = "A-Realm", itemLink = "[Red]",  itemName = "Red" },
+    { ts = 1000 + 3 * 86400, char = "A-Realm", itemLink = "[Blue]", itemName = "Blue" },
+  }
+  local s = NS.Database:StorageStats(1000 + 3 * 86400)  -- inject `now` = last ts
+  assertEqual(s.count, 2)
+  assertEqual(s.days, 3)                 -- ceil((now - firstTs) / 86400)
+  assertTrue(s.bytes > 0)                -- overhead + string field lengths
+end)
+
+test("Database: StorageStats on empty history is zeroed", function()
+  NS.db.global.history = {}
+  local s = NS.Database:StorageStats(9999)
+  assertEqual(s.count, 0)
+  assertEqual(s.days, 0)
+  assertEqual(s.bytes, 0)
+end)

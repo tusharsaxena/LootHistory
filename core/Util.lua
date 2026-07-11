@@ -62,6 +62,18 @@ function Util.FormatMoney(copper)
   return table.concat(parts, " ")
 end
 
+-- Human-readable byte size: "820 B", "12.4 kB", "3.1 MB". Uses 1024 steps.
+function Util.FormatBytes(bytes)
+  bytes = bytes or 0
+  if bytes < 1024 then
+    return string.format("%d B", bytes)
+  elseif bytes < 1024 * 1024 then
+    return string.format("%.1f kB", bytes / 1024)
+  else
+    return string.format("%.1f MB", bytes / (1024 * 1024))
+  end
+end
+
 -- Shallow count of an array-or-map table.
 function Util.TableCount(t)
   local n = 0

@@ -208,6 +208,38 @@ function Database:Purge()
   fireHistoryChanged()
 end
 
+-- Rough per-record byte cost as written to the SavedVariables .lua file. WoW gives addons
+-- no way to read the real on-disk file size, so we estimate: a fixed overhead covering the
+-- record's key names, table syntax, and numeric fields, plus the length of each string field.
+local RECORD_OVERHEAD = 256
+local function estimateRecordBytes(r)
+  local n = RECORD_OVERHEAD
+  local strFields = { r.itemLink, r.itemName, r.sourceName, r.sourceDetail,
+                      r.zone, r.subzone, r.char, r.itemType, r.itemSubType }
+  for _, s in ipairs(strFields) do
+    if type(s) == "string" then n = n + #s end
+  end
+  return n
+end
+
+-- Storage summary for the settings panel: record count, span in days since the earliest
+-- record, and an ESTIMATED SavedVariables byte size (see estimateRecordBytes). `now` is
+-- injectable for tests; it defaults to time().
+function Database:StorageStats(now)
+  local history = NS.db.global.history
+  local firstTs, bytes = nil, 0
+  for _, r in ipairs(history) do
+    if r.ts and (not firstTs or r.ts < firstTs) then firstTs = r.ts end
+    bytes = bytes + estimateRecordBytes(r)
+  end
+  local days = 0
+  if firstTs then
+    now = now or time()
+    days = math.max(1, math.ceil((now - firstTs) / 86400))
+  end
+  return { count = #history, days = days, bytes = bytes }
+end
+
 -- Retention cleanup. Drops records older than settings.retentionDays (0 == Never).
 -- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it runs.
 function Database:PruneOld()

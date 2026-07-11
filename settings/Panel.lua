@@ -134,6 +134,58 @@ function P:BuildBody(frame)
     end
   end
 
+  -- ── History maintenance: live stats + purge ─────────────────────────────────
+  local histHeading = AceGUI:Create("Heading")
+  histHeading:SetText("History")
+  histHeading:SetFullWidth(true)
+  scroll:AddChild(histHeading)
+
+  local statsLabel = AceGUI:Create("Label")
+  statsLabel:SetFullWidth(true)
+  scroll:AddChild(statsLabel)
+
+  local function refreshStats()
+    local s = NS.Database:StorageStats()
+    local line1
+    if s.count == 0 then
+      line1 = "No items collected yet."
+    else
+      local count = (BreakUpLargeNumbers and BreakUpLargeNumbers(s.count)) or s.count
+      line1 = string.format("%s %s collected over %d %s.",
+        tostring(count), s.count == 1 and "item" or "items", s.days, s.days == 1 and "day" or "days")
+    end
+    -- \226\137\136 = "≈"  (real SavedVariables file size can't be read in-game; this is estimated)
+    statsLabel:SetText(line1 .. "\nDatabase size: \226\137\136 " .. NS.Util.FormatBytes(s.bytes) .. "  (estimated)")
+  end
+  P.refreshers[#P.refreshers + 1] = refreshStats
+
+  local purgeBtn = AceGUI:Create("Button")
+  purgeBtn:SetText("Purge history\226\128\166")   -- ellipsis: opens a confirm dialog
+  purgeBtn:SetWidth(220)
+  purgeBtn:SetCallback("OnClick", function()
+    if type(StaticPopup_Show) == "function" then
+      StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")
+    elseif NS.Database and NS.Database.Purge then
+      NS.Database:Purge()
+    end
+  end)
+  scroll:AddChild(purgeBtn)
+
+  -- Live-refresh the stats when history changes while the panel is open. Uses a private
+  -- AceEvent target (NOT NS.bus-as-self) so it can't clobber the Browser/Analytics
+  -- consumers that register the same messages on the shared bus.
+  if not P.__ev then
+    local AceEvent = LibStub and LibStub("AceEvent-3.0", true)
+    if AceEvent then
+      local ev = {}
+      AceEvent:Embed(ev)
+      local onChange = function() if frame:IsShown() then refreshStats() end end
+      ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
+      ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", onChange)
+      P.__ev = ev
+    end
+  end
+
   scroll:DoLayout()
 end
 
