@@ -87,8 +87,47 @@ function Database:Export(filter)
   return out
 end
 
--- Delete / PruneOld / Stats are implemented later in Milestone 2.
--- PruneOld is stubbed now so retention wiring and settings onChange are safe to call.
+local function fireHistoryChanged()
+  if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged") end
+end
+
+-- Delete a single row by index (from the table UI). Compacts the array; fires HistoryChanged.
+function Database:DeleteAt(index)
+  local history = NS.db.global.history
+  if type(index) ~= "number" or index < 1 or index > #history then return false end
+  table.remove(history, index)
+  fireHistoryChanged()
+  return true
+end
+
+-- Delete every record for which pred(record) is true. Rebuild-and-swap (no holes).
+-- Returns the number removed; fires HistoryChanged.
+function Database:Delete(pred)
+  local history = NS.db.global.history
+  local kept, removed = {}, 0
+  for _, r in ipairs(history) do
+    if pred(r) then
+      removed = removed + 1
+    else
+      kept[#kept + 1] = r
+    end
+  end
+  NS.db.global.history = kept
+  fireHistoryChanged()
+  return removed
+end
+
+-- Retention cleanup. Drops records older than settings.retentionDays (0 == Never).
+-- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it runs.
 function Database:PruneOld()
-  -- no-op until Task 2.3
+  local days = NS.db.global.settings.retentionDays
+  if not days or days == 0 then return end
+  local cutoff = time() - days * 86400
+  local history = NS.db.global.history
+  local kept = {}
+  for _, r in ipairs(history) do
+    if (r.ts or 0) >= cutoff then kept[#kept + 1] = r end
+  end
+  NS.db.global.history = kept
+  fireHistoryChanged()
 end

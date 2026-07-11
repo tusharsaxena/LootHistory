@@ -1,7 +1,7 @@
 local T = _G.LH_TEST
 local NS = T.NS
-local test, assertEqual, assertTrue =
-  T.test, T.assertEqual, T.assertTrue
+local test, assertEqual, assertTrue, assertFalse =
+  T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
 -- Capture bus messages fired during fn(); returns an array of { msg, ... } records.
 local function captureMessages(fn)
@@ -116,4 +116,63 @@ test("Database: Export returns metatable-free copies with all fields", function(
   assertEqual(out[2].sourceDetail.npcID, 55)
   -- respects the filter
   assertEqual(#NS.Database:Export({ source = "KILL" }), 2)
+end)
+
+local function firedHistoryChanged(sent)
+  for _, m in ipairs(sent) do
+    if m.msg == "Ka0s_LootHistory_HistoryChanged" then return true end
+  end
+  return false
+end
+
+test("Database: DeleteAt removes the row, compacts, fires HistoryChanged", function()
+  seed()
+  local sent = captureMessages(function()
+    assertTrue(NS.Database:DeleteAt(2))
+  end)
+  assertEqual(NS.Database:Count(), 3)
+  local h = NS.Database:History()
+  assertEqual(h[1].itemID, 1)
+  assertEqual(h[2].itemID, 3) -- row 2 gone; array stays dense
+  assertEqual(h[3].itemID, 4)
+  assertTrue(firedHistoryChanged(sent))
+end)
+
+test("Database: DeleteAt out-of-range returns false, no change", function()
+  seed()
+  assertFalse(NS.Database:DeleteAt(99))
+  assertFalse(NS.Database:DeleteAt(0))
+  assertEqual(NS.Database:Count(), 4)
+end)
+
+test("Database: Delete(pred) removes all matching, compacts, returns count", function()
+  seed()
+  local removed = NS.Database:Delete(function(r) return r.source == "KILL" end)
+  assertEqual(removed, 2)
+  assertEqual(NS.Database:Count(), 2)
+  local h = NS.Database:History()
+  assertEqual(h[1].itemID, 2)
+  assertEqual(h[2].itemID, 4)
+end)
+
+test("Database: PruneOld drops records older than retentionDays", function()
+  local now, day = os.time(), 86400
+  NS.db.global.history = {
+    { ts = now - 10 * day, itemID = 1 },
+    { ts = now - 40 * day, itemID = 2 },
+    { ts = now - 100 * day, itemID = 3 },
+  }
+  NS.db.global.settings.retentionDays = 30
+  local sent = captureMessages(function() NS.Database:PruneOld() end)
+  assertEqual(NS.Database:Count(), 1)
+  assertEqual(NS.Database:History()[1].itemID, 1)
+  assertTrue(firedHistoryChanged(sent))
+end)
+
+test("Database: PruneOld with retentionDays=0 keeps everything", function()
+  local now = os.time()
+  NS.db.global.history = { { ts = now - 999 * 86400, itemID = 1 } }
+  NS.db.global.settings.retentionDays = 0
+  NS.Database:PruneOld()
+  assertEqual(NS.Database:Count(), 1)
 end)
