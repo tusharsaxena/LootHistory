@@ -233,6 +233,14 @@ local function MakeDropdown(parent, width)
 
   function dd:SetOptions(opts) self._options = opts end
   function dd:SetValue(v, label) self._value = v; self.text:SetText(label or "") end
+  -- Set the value and derive its display label from the current options (used when applying a
+  -- saved view). Falls back to the raw value if the option isn't present.
+  function dd:SelectValue(v)
+    for _, o in ipairs(self._options or {}) do
+      if o.value == v then self:SetValue(o.value, o.label); return end
+    end
+    self:SetValue(v, tostring(v))
+  end
 
   dd:SetScript("OnClick", function(self2)
     local m = EnsureMenu()
@@ -270,6 +278,48 @@ local DATE_OPTIONS = {
   { value = "7d", label = "Last 7 days" },
   { value = "30d", label = "Last 30 days" },
 }
+local PLAYER_OPTIONS = {
+  { value = "current", label = "Current player" },
+  { value = "all", label = "All players" },
+}
+
+-- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
+-- session-only default of "current player"). This is the stock/reset baseline; the user's
+-- saved view lives in NS.db.global.savedView. `date` stores the range option (not an absolute
+-- `from`) so it recomputes correctly on each load.
+local STOCK_VIEW = {
+  groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
+  quality = "all", source = "all", itemType = "all", mapID = "all", date = "all", search = "",
+}
+local function savedViewOrStock()
+  local v = NS.db and NS.db.global and NS.db.global.savedView
+  if type(v) == "table" then return v end
+  return STOCK_VIEW
+end
+
+-- A small flat-skin text button for the filter bar (Clear / Save / Reset).
+local function makeBarButton(parent, text, width, onClick, tooltip)
+  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  b:SetSize(width, 20)
+  b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+  b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
+  b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
+  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetPoint("CENTER")
+  fs:SetText(text)
+  b:SetScript("OnEnter", function(self2)
+    fs:SetTextColor(1, 0.82, 0)
+    if tooltip then
+      GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
+      GameTooltip:AddLine(tooltip, 0.9, 0.9, 0.9, true)
+      GameTooltip:Show()
+    end
+  end)
+  b:SetScript("OnLeave", function() fs:SetTextColor(1, 1, 1); GameTooltip:Hide() end)
+  b:SetScript("OnClick", onClick)
+  return b
+end
 
 -- A date-range value → a `from` timestamp (nil = no lower bound). Today is the calendar day;
 -- 7d/30d are rolling windows.
@@ -371,11 +421,16 @@ function B:RefreshFilterOptions()
   dd.zone:SetOptions(zoneOptions())
 end
 
--- The table's dataset changed (e.g. entering/leaving test mode): clear filters, rebuild the
--- dropdowns from the new dataset, refresh the footer, and update the Test-Mode badge.
+-- The table's dataset changed (entering/leaving test mode): rebuild the dropdowns from the new
+-- dataset. In test mode show everything (stock view, all players, since test chars differ);
+-- leaving it, return to the saved view + current player.
 function B:OnDatasetChanged()
-  self:ClearFilters()          -- resets dropdown labels + search, applies the empty filter
-  self:RefreshFilterOptions()  -- repopulate source/char/zone from the new dataset
+  self:RefreshFilterOptions()
+  if NS.BrowserTable and NS.BrowserTable.testMode then
+    self:ApplyView(STOCK_VIEW, "all")
+  else
+    self:ApplyView(savedViewOrStock(), "current")
+  end
   self:UpdateFooter()
   self:UpdateTestBadge()
 end
@@ -386,20 +441,93 @@ function B:UpdateTestBadge()
   frame.testBadge:SetShown(NS.BrowserTable and NS.BrowserTable.testMode or false)
 end
 
--- Reset every filter control to its "All"/empty default (grouping is left untouched).
-function B:ClearFilters()
-  self.activeFilter = {}
+local function currentKey()
+  return NS.Util and NS.Util.PlayerKey and NS.Util.PlayerKey() or nil
+end
+
+-- The char filter is surfaced by two controls — the player toggle (Current/All) and the
+-- Character dropdown — so both funnel through here and stay in sync. char == nil = all players.
+function B:SetCharFilter(char)
+  self.activeFilter.char = char
+  local scope = (char == nil) and "all" or (char == currentKey() and "current" or "all")
   local dd = self._dd
   if dd then
-    dd.quality:SetValue("all", "Quality: All")
-    dd.source:SetValue("all", "Source: All")
-    dd.type:SetValue("all", "Type: All")
-    dd.char:SetValue("all", "Character: All")
-    dd.zone:SetValue("all", "Zone: All")
-    dd.date:SetValue("all", "Date: All")
+    if dd.player then
+      dd.player:SetValue(scope, scope == "current" and "Current player" or "All players")
+    end
+    if dd.char then
+      if char == nil then dd.char:SelectValue("all") else dd.char:SelectValue(char) end
+    end
   end
-  if self._search then self._search:SetText("") end
   ApplyFilter()
+end
+
+-- Capture the current group/sort/column-filters as a view table (excludes the player scope).
+function B:CaptureView()
+  local dd, BT = self._dd, NS.BrowserTable
+  return {
+    groupBy  = BT and BT.groupBy or "none",
+    sortKey  = BT and BT.sortKey or "date",
+    sortAsc  = BT and BT.sortAsc == true,
+    groupAsc = not (BT and BT.groupAsc == false),
+    quality  = (dd and dd.quality._value) or "all",
+    source   = (dd and dd.source._value) or "all",
+    itemType = (dd and dd.type._value) or "all",
+    mapID    = (dd and dd.zone._value) or "all",
+    date     = (dd and dd.date._value) or "all",
+    search   = (self._search and self._search:GetText()) or "",
+  }
+end
+
+-- Apply a saved/stock view: set the table's group + sort, the column-filter dropdowns, and the
+-- resolved filter. The player scope is NOT part of the view — it resets to `scope` (default
+-- "current"), keeping "current player" the per-session default. Calls ApplyFilter (refreshes).
+function B:ApplyView(view, scope)
+  view = view or STOCK_VIEW
+  self.activeFilter = {}
+  local BT = NS.BrowserTable
+  if BT then
+    BT.groupBy  = view.groupBy or "none"
+    BT.sortKey  = view.sortKey or "date"
+    BT.sortAsc  = view.sortAsc == true
+    BT.groupAsc = view.groupAsc ~= false
+  end
+  local dd = self._dd
+  if dd then
+    dd.group:SelectValue(view.groupBy or "none")
+    dd.quality:SelectValue(view.quality or "all")
+    dd.type:SelectValue(view.itemType or "all")
+    dd.source:SelectValue(view.source or "all")
+    dd.zone:SelectValue(view.mapID or "all")
+    dd.date:SelectValue(view.date or "all")
+  end
+  if self._search then self._search:SetText(view.search or "") end
+  if view.quality and view.quality ~= "all" then self.activeFilter.quality = view.quality end
+  if view.source and view.source ~= "all" then self.activeFilter.source = view.source end
+  if view.itemType and view.itemType ~= "all" then self.activeFilter.itemType = view.itemType end
+  if view.mapID and view.mapID ~= "all" then self.activeFilter.mapID = view.mapID end
+  if view.date and view.date ~= "all" then self.activeFilter.from = dateFrom(view.date) end
+  if view.search and view.search ~= "" then self.activeFilter.text = view.search end
+  if scope == "all" then self:SetCharFilter(nil) else self:SetCharFilter(currentKey()) end
+end
+
+-- Save the current view as the account-wide default; Reset drops it back to stock.
+function B:SaveView()
+  if NS.db and NS.db.global then
+    NS.db.global.savedView = self:CaptureView()
+    print("|cff33ff99" .. addonName .. "|r view saved as default.")
+  end
+end
+function B:ResetView()
+  if NS.db and NS.db.global then NS.db.global.savedView = nil end
+  self:ApplyView(STOCK_VIEW, "current")
+  print("|cff33ff99" .. addonName .. "|r view reset to stock defaults.")
+end
+
+-- Clear returns the filters/group/sort to the saved default (or stock), and the player scope
+-- to "current player".
+function B:ClearFilters()
+  self:ApplyView(savedViewOrStock(), "current")
 end
 
 -- Build the History tab chrome: two-row filter bar (top), table host (middle), footer (bottom).
@@ -422,25 +550,22 @@ function B:BuildHistory(pane)
   dd.group:SetValue("none", "Group: None")
   dd.group.onSelect = function(v) if NS.BrowserTable then NS.BrowserTable:SetGroupBy(v) end end
 
-  local clear = CreateFrame("Button", nil, bar, "BackdropTemplate")
-  clear:SetSize(52, 20)
+  -- Right cluster (row 1): Save · Reset · Clear (right-aligned).
+  local clear = makeBarButton(bar, "Clear", 52, function() B:ClearFilters() end,
+    "Clear filters and group/sort back to your saved view.")
   clear:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW1)
-  clear:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                      insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  clear:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  clear:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-  local cl = clear:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  cl:SetPoint("CENTER")
-  cl:SetText("Clear")
-  clear:SetScript("OnEnter", function() cl:SetTextColor(1, 0.82, 0) end)
-  clear:SetScript("OnLeave", function() cl:SetTextColor(1, 1, 1) end)
-  clear:SetScript("OnClick", function() B:ClearFilters() end)
+  local resetBtn = makeBarButton(bar, "Reset", 52, function() B:ResetView() end,
+    "Reset the saved view to stock defaults.")
+  resetBtn:SetPoint("RIGHT", clear, "LEFT", -6, 0)
+  local saveBtn = makeBarButton(bar, "Save", 48, function() B:SaveView() end,
+    "Save the current group, sort and filters as your default view.")
+  saveBtn:SetPoint("RIGHT", resetBtn, "LEFT", -6, 0)
 
-  -- Item-name search box, filling the gap between Group by and Clear (row 1).
+  -- Item-name search box, filling the gap between Group by and the Save button (row 1).
   local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   search:SetHeight(20)
   search:SetPoint("LEFT", dd.group, "RIGHT", 8, 0)
-  search:SetPoint("RIGHT", clear, "LEFT", -8, 0)
+  search:SetPoint("RIGHT", saveBtn, "LEFT", -8, 0)
   search:SetAutoFocus(false)
   search:SetFontObject("GameFontHighlightSmall")
   search:SetTextInsets(6, 6, 0, 0)
@@ -510,10 +635,15 @@ function B:BuildHistory(pane)
   dd.char = MakeDropdown(bar, 150)
   dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
   dd.char:SetValue("all", "Character: All")
-  dd.char.onSelect = function(v)
-    if v == "all" then B.activeFilter.char = nil else B.activeFilter.char = v end
-    ApplyFilter()
-  end
+  dd.char.onSelect = function(v) B:SetCharFilter(v == "all" and nil or v) end
+
+  -- Player scope toggle (row 2, right-aligned): Current player (session default) vs All players.
+  -- Shares the char filter with the Character dropdown via SetCharFilter.
+  dd.player = MakeDropdown(bar, 130)
+  dd.player:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
+  dd.player:SetOptions(PLAYER_OPTIONS)
+  dd.player:SetValue("current", "Current player")
+  dd.player.onSelect = function(v) B:SetCharFilter(v == "current" and currentKey() or nil) end
 
   -- Footer count.
   local footer = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -528,8 +658,8 @@ function B:BuildHistory(pane)
   if NS.BrowserTable and NS.BrowserTable.Attach then
     NS.BrowserTable:Attach(host)
   end
-  self:RefreshFilterOptions()
-  self:UpdateFooter()
+  self:RefreshFilterOptions()                     -- populate dropdown options first
+  self:ApplyView(savedViewOrStock(), "current")   -- open on the saved view + current player
 end
 
 -- ── Frame construction ─────────────────────────────────────────────────────────
@@ -589,16 +719,16 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.divider = divider
 
-  -- Small red close glyph, ElvUI style.
+  -- Red-X close button (the loot-roll "pass" texture — a clear, properly sized X).
   local close = CreateFrame("Button", nil, titleBar)
-  close:SetSize(20, 20)
-  close:SetPoint("TOPRIGHT", -6, -5)
-  local x = close:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  x:SetPoint("CENTER")
-  x:SetText("\195\151")  -- multiplication sign glyph
-  x:SetTextColor(0.9, 0.2, 0.2)
-  close:SetScript("OnEnter", function() x:SetTextColor(1, 0.35, 0.35) end)
-  close:SetScript("OnLeave", function() x:SetTextColor(0.9, 0.2, 0.2) end)
+  close:SetSize(24, 24)
+  close:SetPoint("TOPRIGHT", -5, -3)
+  local x = close:CreateTexture(nil, "OVERLAY")
+  x:SetAllPoints()
+  x:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
+  x:SetVertexColor(0.85, 0.85, 0.85)
+  close:SetScript("OnEnter", function() x:SetVertexColor(1, 1, 1) end)
+  close:SetScript("OnLeave", function() x:SetVertexColor(0.85, 0.85, 0.85) end)
   close:SetScript("OnClick", function() B:Hide() end)
   frame.closeButton = close
 
