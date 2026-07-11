@@ -18,15 +18,23 @@ local BOUND_STYLE = {
   UNBOUND   = { 0.6, 0.6, 0.6, 0.40 },   -- grey, faint
 }
 
--- Apply a padlock look to a texture, tolerant of missing art: prefer the LFG lock atlas,
--- else fall back to a solid chip so the Bound column is never blank.
-local LOCK_ATLAS = "UI-LFG-Lock"
+-- Apply a padlock look to a texture, tolerant of missing art: use the first lock atlas that
+-- actually exists on this client, else fall back to a solid chip so the column is never blank.
+local LOCK_ATLASES = {
+  "UI-LFG-Lock", "Professions-Recipe-Locked", "communities-icon-lock",
+  "collections-icon-lock", "greatVault-lock", "Warbands-Lock",
+  "services-icon-lock", "Garr_LockIcon", "GarrMission-Lock", "worldquest-icon-lock",
+}
 local function applyLockTexture(tex)
-  if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(LOCK_ATLAS) then
-    tex:SetAtlas(LOCK_ATLAS)
-  else
-    tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+  if C_Texture and C_Texture.GetAtlasInfo then
+    for _, atlas in ipairs(LOCK_ATLASES) do
+      if C_Texture.GetAtlasInfo(atlas) then
+        tex:SetAtlas(atlas)
+        return
+      end
+    end
   end
+  tex:SetTexture("Interface\\Buttons\\WHITE8X8") -- visible chip fallback (pending a real lock atlas)
 end
 
 -- Strip realm from "Name-Realm" for the compact Character column (full value in tooltip).
