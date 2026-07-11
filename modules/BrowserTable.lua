@@ -240,7 +240,8 @@ function BrowserTable:Attach(pane)
   -- (rowHost) aligned with the scroll viewport, so the ScrollFrame never clips them.
   local scroll = CreateFrame("ScrollFrame", "LootHistoryTableScroll", pane, "FauxScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
-  scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -24, 0)
+  -- Bottom raised 16px so the scrollbar's down-arrow clears the window resize grip.
+  scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -24, 16)
   scroll:SetScript("OnVerticalScroll", function(self2, offset)
     FauxScrollFrame_OnVerticalScroll(self2, offset, ROW_H, function() BrowserTable:Bind() end)
   end)

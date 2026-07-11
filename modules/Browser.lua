@@ -148,6 +148,7 @@ local function EnsureFrame()
   B._minW, B._minH = minW, minH
   frame:SetSize(minW, minH)
   frame:SetFrameStrata("HIGH")
+  frame:EnableMouse(true)   -- capture clicks over the whole window; no click-through to the world
   frame:SetMovable(true)
   frame:SetResizable(true)
   frame:SetClampedToScreen(true)
