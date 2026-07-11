@@ -18,6 +18,7 @@ read_globals = {
   "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText",
   "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CLASSIC",
   "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim",
+  "CombatLogGetCurrentEventInfo", "GetDetailedItemLevelInfo",
   "GameTooltip", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
   "FauxScrollFrame_Update", "FauxScrollFrame_GetOffset", "FauxScrollFrame_OnVerticalScroll",
   "ITEM_QUALITY_COLORS", "UISpecialFrames", "PlaySound",

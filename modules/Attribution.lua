@@ -57,9 +57,46 @@ function Attribution:ResolveLootSource(guid, state)
   return S.OTHER, nil
 end
 
+-- ── Kill-name cache (combat log deaths → creature name) ───────────────────────
+-- CHAT_MSG_LOOT/LOOT_OPENED expose the looted creature's GUID but not its name; we harvest
+-- name from UNIT_DIED/PARTY_KILL combat-log events and look it up by GUID at loot time.
+Attribution.nameCache = {}
+Attribution.nameOrder = {}
+local NAME_CACHE_CAP = 80
+
+function Attribution:CacheName(guid, name)
+  if not guid or not name then return end
+  if not self.nameCache[guid] then
+    self.nameOrder[#self.nameOrder + 1] = guid
+    if #self.nameOrder > NAME_CACHE_CAP then
+      local old = table.remove(self.nameOrder, 1)
+      self.nameCache[old] = nil
+    end
+  end
+  self.nameCache[guid] = name
+end
+
+-- Resolve the human sourceName for a stamped source. KILL uses the death-name cache;
+-- MAIL/TRADE/VENDOR/QUEST names are supplied by their own stampers. CONTAINER has no
+-- reliable name from a loot GUID, so it stays nil (renders as an em-dash).
+function Attribution:ResolveSourceName(source, guid)
+  if source == Constants.SourceType.KILL then
+    return self.nameCache[guid]
+  end
+  return nil
+end
+
 -- ── Runtime stampers (events → context) ───────────────────────────────────────
 -- Not invoked headlessly: Enable() is called from the addon OnEnable, so file-load in the
 -- test harness never touches WoW event/hook APIs.
+
+-- Harvest creature names from combat-log deaths for the kill-name cache.
+function Attribution:OnCombatLogEvent()
+  local _, subevent, _, _, _, _, _, destGUID, destName = CombatLogGetCurrentEventInfo()
+  if subevent == "UNIT_DIED" or subevent == "PARTY_KILL" then
+    self:CacheName(destGUID, destName)
+  end
+end
 
 -- LOOT_OPENED: stamp from the first slot's source GUID (all slots in one window share a source
 -- closely enough; TTL spans the resulting CHAT_MSG_LOOT burst).
@@ -69,7 +106,8 @@ function Attribution:OnLootOpened()
     local guid = GetLootSourceInfo and GetLootSourceInfo(slot)
     if guid then
       local source, detail = self:ResolveLootSource(guid, State)
-      self:Stamp(source, nil, detail, Constants.Confidence.CERTAIN)
+      local name = self:ResolveSourceName(source, guid)
+      self:Stamp(source, name, detail, Constants.Confidence.CERTAIN)
       return
     end
   end
@@ -139,6 +177,7 @@ function Attribution:Enable()
   self._enabled = true
 
   bus:RegisterEvent("LOOT_OPENED", function() self:OnLootOpened() end)
+  bus:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", function() self:OnCombatLogEvent() end)
   bus:RegisterEvent("ENCOUNTER_START", function(...) self:OnEncounterStart(...) end)
   bus:RegisterEvent("ENCOUNTER_END", function() self:OnEncounterEnd() end)
   bus:RegisterEvent("CHALLENGE_MODE_START", function() self:OnChallengeModeStart() end)

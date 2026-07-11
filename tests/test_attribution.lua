@@ -87,3 +87,19 @@ test("Attribution: ResolveLootSource Item GUID → CONTAINER", function()
   local source = NS.Attribution:ResolveLootSource(ITEMGUID, {})
   assertEqual(source, "CONTAINER")
 end)
+
+test("Attribution: CacheName feeds ResolveSourceName for KILL only", function()
+  NS.Attribution:CacheName(CREATURE, "Springpaw Lynx")
+  assertEqual(NS.Attribution:ResolveSourceName("KILL", CREATURE), "Springpaw Lynx")
+  assertEqual(NS.Attribution:ResolveSourceName("CONTAINER", CREATURE), nil)
+  assertEqual(NS.Attribution:ResolveSourceName("KILL", "Creature-unknown"), nil)
+end)
+
+test("Attribution: name cache is bounded and evicts oldest", function()
+  NS.Attribution.nameCache = {}
+  NS.Attribution.nameOrder = {}
+  for i = 1, 200 do NS.Attribution:CacheName("guid-" .. i, "name-" .. i) end
+  assertTrue(#NS.Attribution.nameOrder <= 80)
+  assertEqual(NS.Attribution:ResolveSourceName("KILL", "guid-1"), nil)     -- evicted
+  assertEqual(NS.Attribution:ResolveSourceName("KILL", "guid-200"), "name-200")
+end)
