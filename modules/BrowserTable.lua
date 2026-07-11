@@ -758,14 +758,8 @@ function BrowserTable:BindRow(row, entry, absIndex)
   local r = entry.record
   for _, col in ipairs(self.COLUMNS) do
     local fs = row.cells[col.key]
-    if col.key == "item" and r.confidence == "INFERRED" then
-      -- Dim dot before the name marks an inferred (uncertain) source; the row tooltip
-      -- explains it. The |c…|r on the dot survives the SetTextColor below (which only sets
-      -- the FontString's default colour), so the dot stays grey while the name stays quality-coloured.
-      fs:SetText("|cff9d9d9d\226\128\162|r " .. col.valueFn(r)) -- • bullet
-    else
-      fs:SetText(col.valueFn(r))
-    end
+    -- (INFERRED rows no longer get a dot before the item name; the row tooltip still notes it.)
+    fs:SetText(col.valueFn(r))
     if col.key == "item" or col.key == "quality" then
       fs:SetTextColor(qualityColor(r.quality))
     elseif col.key == "char" then
