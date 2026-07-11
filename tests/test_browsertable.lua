@@ -152,3 +152,20 @@ test("BrowserTable: groupBy none yields a flat row list", function()
   assertEqual(#list, 2)
   assertEqual(list[1].kind, "row")
 end)
+
+test("BrowserTable: test mode filters the synthetic dataset", function()
+  local BT = NS.BrowserTable
+  BT.testMode, BT.testData = true, nil
+  BT.groupBy, BT.collapsed, BT.filter = "none", {}, {}
+  local all = #BT:BuildDisplayList()
+  assertTrue(all > 0)
+
+  BT.filter = { source = "KILL" }
+  local killed = BT:BuildDisplayList()
+  assertTrue(#killed > 0)
+  assertTrue(#killed < all)                 -- the filter actually narrows the test data
+  for _, e in ipairs(killed) do assertEqual(e.record.source, "KILL") end
+  assertEqual(BT.matchCount, #killed)
+
+  BT.testMode, BT.testData, BT.filter = false, nil, {} -- restore shared state
+end)

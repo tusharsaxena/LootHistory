@@ -70,6 +70,12 @@ local function EnsureFrame()
   frame.log = log
 
   if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
+
+  -- Debug state tracks window visibility (session-only): showing the console enables logging;
+  -- closing it (X button or ESC via UISpecialFrames) disables logging. Reset every reload.
+  frame:HookScript("OnShow", function() NS.State.debug = true end)
+  frame:HookScript("OnHide", function() NS.State.debug = false end)
+
   frame:Hide()
   if type(UISpecialFrames) == "table" then
     table.insert(UISpecialFrames, "LootHistoryDebugWindow")
@@ -92,7 +98,7 @@ end
 
 -- Global debug sink. No-op (zero alloc) when debug is off; otherwise appends to the window.
 function NS.Debug(fmt, ...)
-  if not (NS.db and NS.db.global and NS.db.global.debug) then return end
+  if not (NS.State and NS.State.debug) then return end
   local msg = select("#", ...) > 0 and fmt:format(...) or fmt
   D:Add(msg)
 end

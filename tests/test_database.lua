@@ -70,6 +70,16 @@ test("Database: Query ignores a non-numeric quality (no crash, returns all)", fu
   assertEqual(#NS.Database:Query({ quality = "all" }), 4)
 end)
 
+test("Database: QueryList filters an arbitrary array, not the live history", function()
+  local recs = {
+    { quality = 4, source = "KILL",   itemName = "Sword" },
+    { quality = 1, source = "VENDOR", itemName = "Rag" },
+  }
+  assertEqual(#NS.Database:QueryList(recs, {}), 2)
+  assertEqual(#NS.Database:QueryList(recs, { source = "KILL" }), 1)
+  assertEqual(#NS.Database:QueryList(recs, { quality = 3 }), 1)
+end)
+
 test("Database: Query by source (string)", function()
   seed()
   assertEqual(#NS.Database:Query({ source = "KILL" }), 2)

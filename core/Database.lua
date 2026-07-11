@@ -38,10 +38,11 @@ function Database:Add(record)
   return index
 end
 
--- Return an array of records matching the filter spec. Fields, all optional (AND-combined):
+-- Filter an arbitrary record array by the filter spec. Fields, all optional (AND-combined):
 --   quality (min, >=) · source (string or set table) · char · mapID · from/to (ts, inclusive)
 --   · text (case-insensitive substring on itemName). Empty/nil filter returns all.
-function Database:Query(filter)
+-- Kept generic (not tied to the live history) so the Browser can filter its test dataset too.
+function Database:QueryList(records, filter)
   filter = filter or {}
   -- Only a numeric quality is a valid minimum; ignore anything else so a stray filter value
   -- (e.g. an "all" sentinel) can never crash the comparison below and take the window with it.
@@ -55,7 +56,7 @@ function Database:Query(filter)
   local text = filter.text and filter.text:lower() or nil
 
   local out = {}
-  for _, r in ipairs(NS.db.global.history) do
+  for _, r in ipairs(records) do
     local ok = true
     if minQ and (r.quality or 0) < minQ then ok = false end
     if ok and src then
@@ -76,6 +77,11 @@ function Database:Query(filter)
     if ok then out[#out + 1] = r end
   end
   return out
+end
+
+-- Query the live account-wide history.
+function Database:Query(filter)
+  return self:QueryList(NS.db.global.history, filter)
 end
 
 -- Plain, metatable-free copy of the (optionally filtered) history — the forward-compatible

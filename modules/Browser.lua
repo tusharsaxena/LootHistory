@@ -263,10 +263,19 @@ local GROUP_OPTIONS = {
   { value = "day", label = "Group: Day" },
 }
 
--- Distinct { value, label } option lists from the current history, each prefixed with "All".
+-- The dataset the filter bar reflects: the table's current records (test data in test mode,
+-- otherwise the live history) so dropdown options + the footer match what the table shows.
+local function dataset()
+  if NS.BrowserTable and NS.BrowserTable.CurrentRecords then
+    return NS.BrowserTable:CurrentRecords()
+  end
+  return NS.Database:History()
+end
+
+-- Distinct { value, label } option lists from the current dataset, each prefixed with "All".
 local function sourceOptions()
   local seen, out = {}, { { value = "all", label = "Source: All" } }
-  for _, r in ipairs(NS.Database:History()) do
+  for _, r in ipairs(dataset()) do
     local s = r.source
     if s and not seen[s] then
       seen[s] = true
@@ -277,7 +286,7 @@ local function sourceOptions()
 end
 local function charOptions()
   local seen, out = {}, { { value = "all", label = "Character: All" } }
-  for _, r in ipairs(NS.Database:History()) do
+  for _, r in ipairs(dataset()) do
     local c = r.char
     if c and not seen[c] then
       seen[c] = true
@@ -290,7 +299,7 @@ end
 local function zoneOptions()
   -- Query filters zones by mapID, so options carry mapID as value, zone name as label.
   local seen, out = {}, { { value = "all", label = "Zone: All" } }
-  for _, r in ipairs(NS.Database:History()) do
+  for _, r in ipairs(dataset()) do
     if r.mapID and not seen[r.mapID] then
       seen[r.mapID] = true
       out[#out + 1] = { value = r.mapID, label = r.zone or ("Map " .. r.mapID) }
@@ -309,17 +318,32 @@ end
 function B:UpdateFooter()
   if not self._footer then return end
   local shown = (NS.BrowserTable and NS.BrowserTable.matchCount) or 0
-  local total = (NS.Database and NS.Database.Count and NS.Database:Count()) or 0
+  local total = #dataset()
   self._footer:SetText(("Showing %d of %d"):format(shown, total))
 end
 
--- Recompute the data-driven dropdowns (source/char/zone) from the current history.
+-- Recompute the data-driven dropdowns (source/char/zone) from the current dataset.
 function B:RefreshFilterOptions()
   local dd = self._dd
   if not dd then return end
   dd.source:SetOptions(sourceOptions())
   dd.char:SetOptions(charOptions())
   dd.zone:SetOptions(zoneOptions())
+end
+
+-- The table's dataset changed (e.g. entering/leaving test mode): clear filters, rebuild the
+-- dropdowns from the new dataset, refresh the footer, and update the Test-Mode badge.
+function B:OnDatasetChanged()
+  self:ClearFilters()          -- resets dropdown labels + search, applies the empty filter
+  self:RefreshFilterOptions()  -- repopulate source/char/zone from the new dataset
+  self:UpdateFooter()
+  self:UpdateTestBadge()
+end
+
+-- Show/hide the bright-red "TEST MODE" badge beside the window title.
+function B:UpdateTestBadge()
+  if not (frame and frame.testBadge) then return end
+  frame.testBadge:SetShown(NS.BrowserTable and NS.BrowserTable.testMode or false)
 end
 
 -- Reset every filter control to its "All"/empty default (grouping is left untouched).
@@ -487,6 +511,14 @@ local function EnsureFrame()
   title:SetText("Ka0s Loot History")
   frame.title = title
 
+  -- Bright-red badge beside the title, shown only while the table is in test mode.
+  local testBadge = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  testBadge:SetPoint("LEFT", title, "RIGHT", 10, 0)
+  testBadge:SetText("TEST MODE")
+  testBadge:SetTextColor(1, 0.15, 0.15)
+  testBadge:Hide()
+  frame.testBadge = testBadge
+
   local divider = frame:CreateTexture(nil, "ARTWORK")
   divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
   divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
@@ -565,6 +597,7 @@ function B:Show()
   local f = EnsureFrame()
   f:Show()
   B:SelectTab(lastTab)
+  B:UpdateTestBadge()
 end
 
 function B:Hide()

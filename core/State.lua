@@ -10,5 +10,6 @@ State.lootContext = nil
 State.encounter = nil   -- { id, name, difficulty }
 State.keystone  = nil   -- { level, mapID }
 
--- Session flags.
+-- Session flags (runtime only; reset every load/reload — never persisted to SavedVariables).
 State.cleanupDone = false   -- retention prune runs once per session
+State.debug = false         -- debug console visibility == logging; toggled by /lh debug, default off

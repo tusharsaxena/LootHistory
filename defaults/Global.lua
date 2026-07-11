@@ -14,5 +14,5 @@ NS.defaults.global = {
     window           = {},     -- persisted position/size
   },
   minimap = { hide = false },  -- LibDBIcon state
-  debug = false,
+  -- debug is session-only (NS.State.debug), never persisted here.
 }

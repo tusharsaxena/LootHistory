@@ -36,9 +36,9 @@ S.Schema = {
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
     end },
 
-  { path = "debug", default = false, type = "boolean", widget = "CheckBox",
-    label = "Debug logging" },
 }
+-- NOTE: debug is intentionally NOT a Schema setting. It is a session-only flag (NS.State.debug)
+-- tied to the debug console's visibility; toggled by `/lh debug`, always off after a reload.
 
 function S:FindRow(path)
   for _, row in ipairs(S.Schema) do
@@ -109,12 +109,11 @@ NS.COMMANDS = {
   { name = "reset",    desc = "Reset one setting",     fn = function(a) NS.Slash:CliReset(a) end },
   { name = "resetall", desc = "Reset all settings",    fn = function() NS.Slash:CliResetAll() end },
   { name = "debug",    desc = "Toggle the debug console",  fn = function()
-      NS.db.global.debug = not NS.db.global.debug
-      if NS.DebugLog then
-        if NS.db.global.debug then NS.DebugLog:Show() else NS.DebugLog:Hide() end
-      end
-      print("|cff33ff99" .. addonName .. "|r debug " .. (NS.db.global.debug and "on" or "off"))
-      if NS.Debug then NS.Debug("debug logging enabled") end
+      -- Toggles the console; NS.State.debug follows the window's show/hide (session-only).
+      if NS.DebugLog then NS.DebugLog:Toggle() end
+      local on = NS.State and NS.State.debug
+      print("|cff33ff99" .. addonName .. "|r debug " .. (on and "on" or "off"))
+      if on and NS.Debug then NS.Debug("debug logging enabled") end
     end },
   { name = "test", desc = "Toggle a preview of every bound type", fn = function()
       local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()

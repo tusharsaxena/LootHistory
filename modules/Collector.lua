@@ -78,7 +78,7 @@ function Collector:OnChatMsgLoot(_, msg)
 
   NS.Database:Add(record)
 
-  if NS.db.global.debug and NS.Debug then
+  if NS.State.debug and NS.Debug then
     NS.Debug("loot: %s q%d ilvl=%s src=%s conf=%s",
       tostring(itemName), quality or 0, tostring(itemLevel or "-"), source, confidence)
   end

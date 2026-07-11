@@ -271,8 +271,15 @@ end
 
 function BrowserTable:ToggleTestMode()
   self.testMode = not self.testMode
+  self.testData = self.testMode and self:BuildTestData() or nil
   if NS.Browser and NS.Browser.Show then NS.Browser:Show() end
-  self:Refresh()
+  -- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the
+  -- new dataset, refresh the footer, and toggle the Test-Mode badge.
+  if NS.Browser and NS.Browser.OnDatasetChanged then
+    NS.Browser:OnDatasetChanged()
+  else
+    self:Refresh()
+  end
   return self.testMode
 end
 
@@ -365,11 +372,21 @@ function BrowserTable:GroupRecords(records)
   return list
 end
 
+-- The base dataset the table is showing: cached synthetic data in test mode, else live history.
+-- The filter bar (options + footer) reads this too, so filters work identically in both modes.
+function BrowserTable:CurrentRecords()
+  if self.testMode then
+    self.testData = self.testData or self:BuildTestData()
+    return self.testData
+  end
+  return NS.Database:History()
+end
+
 -- Filter -> sort -> group into the flat display list the virtualizer binds.
 -- matchCount is the number of records that passed the filter (the "X" the footer shows),
 -- captured before grouping inserts header entries.
 function BrowserTable:BuildDisplayList()
-  local records = self.testMode and self:BuildTestData() or NS.Database:Query(self.filter)
+  local records = NS.Database:QueryList(self:CurrentRecords(), self.filter)
   self.matchCount = #records
   return self:GroupRecords(self:SortRecords(records))
 end

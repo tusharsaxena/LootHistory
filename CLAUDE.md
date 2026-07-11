@@ -65,7 +65,7 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 5. **Attribution model** — `CHAT_MSG_LOOT` is the authoritative "item received (self)" signal; peripheral events stamp a short-lived `State.lootContext` that the collector consumes. Fallback = `OTHER`/`INFERRED`. See TECHNICAL_DESIGN §4.
 6. **Object pooling** for the table (standard §9.6). Never one frame per record.
 7. **Hot-path upvalues** — collector caches `enabled`/`qualityThreshold`/`excludedSources`, refreshed on `SettingsChanged` (standard §9.7).
-8. Persistent **debug** toggle (`NS.db.global.debug`), zero-allocation when off, `/lh debug`.
+8. **Session-only debug** toggle (`NS.State.debug`, default off, resets every reload — not persisted), zero-allocation when off, `/lh debug`. It tracks the debug console's visibility: `/lh debug` toggles the console; closing the console (X or ESC) turns debug off. The same applies to `/lh test` (`BrowserTable.testMode`, session-only).
 9. Files capped at 1500 LOC. Browser deliberately split into Browser/BrowserTable/Analytics.
 10. Options via Blizzard `Settings.RegisterCanvasLayoutCategory` + lazy raw AceGUI body. Never AceConfigDialog for content.
 
