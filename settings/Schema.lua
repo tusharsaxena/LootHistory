@@ -112,7 +112,7 @@ NS.COMMANDS = {
       NS.db.global.debug = not NS.db.global.debug
       print("|cff33ff99" .. addonName .. "|r debug " .. (NS.db.global.debug and "on" or "off"))
     end },
-  { name = "testmode", desc = "Toggle a preview of every bound type", fn = function()
+  { name = "test", desc = "Toggle a preview of every bound type", fn = function()
       local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()
       print("|cff33ff99" .. addonName .. "|r test mode " .. (on and "on" or "off"))
     end },
