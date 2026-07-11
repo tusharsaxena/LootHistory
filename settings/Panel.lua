@@ -17,13 +17,13 @@ local ADDON_TITLE   = "Ka0s Loot History"
 local ADDON_TAGLINE = "Records every item you loot, attributes its source, and lets you browse and analyse it."
 local LOGO_PATH     = "Interface\\AddOns\\LootHistory\\media\\logo\\loothistory.logo.tga"
 
--- Layout constants (Ka0s standard values).
-local PADDING_X     = 16
-local HEADER_TOP    = 16
-local HEADER_HEIGHT = 40
-local DEFAULTS_W    = 100
-local LOGO_SIZE     = 300
-local ROW_VSPACER   = 8
+-- Layout constants (Ka0s standard values; see WowAddonStandards §6.8).
+local PADDING_X     = 16   -- left/right edge inset for header, divider, body
+local HEADER_TOP    = 20   -- title + Defaults button inset from the panel top
+local HEADER_HEIGHT = 54   -- top → divider; body starts at HEADER_HEIGHT + 8
+local DEFAULTS_W    = 110  -- Defaults button width
+local LOGO_SIZE     = 300  -- landing-page logo display size
+local ROW_VSPACER   = 8    -- gap between two-column rows
 local SECTION_TOP_SPACER, SECTION_BOTTOM_SPACER, SECTION_HEADING_H = 10, 6, 26
 
 local mainCategoryID  -- parent "Ka0s Loot History" category (target of /lh config)
