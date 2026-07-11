@@ -57,6 +57,17 @@ function Compat.QualityFromLink(link)
   return qualityByHex[hex]
 end
 
+-- Localized quality label (Poor/Common/…). Falls back to a static English map headlessly
+-- and for unknown ids.
+local QUALITY_LABEL_EN = {
+  [0] = "Poor", [1] = "Common", [2] = "Uncommon", [3] = "Rare",
+  [4] = "Epic", [5] = "Legendary", [6] = "Artifact", [7] = "Heirloom", [8] = "WoW Token",
+}
+function Compat.QualityLabel(q)
+  q = q or 0
+  return _G["ITEM_QUALITY" .. q .. "_DESC"] or QUALITY_LABEL_EN[q] or tostring(q)
+end
+
 -- Resilient item info for an item link. Returns itemID, itemName, quality, falling back to
 -- the link's own display data when the item is not yet cached (GetItemInfo returns nil).
 function Compat.GetItemInfo(link)
@@ -64,7 +75,7 @@ function Compat.GetItemInfo(link)
   if C_Item and C_Item.GetItemInfoInstant then
     itemID = C_Item.GetItemInfoInstant(link)
   end
-  local name, quality
+  local name, _, quality
   if C_Item and C_Item.GetItemInfo then
     name, _, quality = C_Item.GetItemInfo(link)
   end

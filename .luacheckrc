@@ -17,6 +17,7 @@ read_globals = {
   "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CLASSIC",
   "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim",
   "GameTooltip", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
+  "FauxScrollFrame_Update", "FauxScrollFrame_GetOffset", "FauxScrollFrame_OnVerticalScroll",
   "ITEM_QUALITY_COLORS", "UISpecialFrames", "PlaySound",
   "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
   "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE",

@@ -57,6 +57,7 @@ dofile("tests/test_attribution.lua")
 dofile("tests/test_collector.lua")
 dofile("tests/test_database.lua")
 dofile("tests/test_stats.lua")
+dofile("tests/test_browsertable.lua")
 
 -- --- run ---
 local passed, failed = 0, 0

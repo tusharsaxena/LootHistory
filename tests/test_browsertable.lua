@@ -1,0 +1,40 @@
+local T = _G.LH_TEST
+local NS = T.NS
+local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
+
+local EMDASH = "\226\128\148"
+
+test("BrowserTable: CellText renders each column", function()
+  local r = { ts = 1000, itemName = "Sword", quantity = 3, quality = 4,
+              source = "KILL", sourceName = "Ovi'nax", zone = "Valley", char = "Ka0z-Realm" }
+  assertEqual(NS.BrowserTable:CellText("item", r), "Sword")
+  assertEqual(NS.BrowserTable:CellText("qty", r), "3")
+  assertEqual(NS.BrowserTable:CellText("quality", r), "Epic")
+  assertEqual(NS.BrowserTable:CellText("source", r), "Kill")
+  assertEqual(NS.BrowserTable:CellText("from", r), "Ovi'nax")
+  assertEqual(NS.BrowserTable:CellText("zone", r), "Valley")
+  assertEqual(NS.BrowserTable:CellText("char", r), "Ka0z") -- realm stripped for display
+  assertTrue(type(NS.BrowserTable:CellText("time", r)) == "string")
+end)
+
+test("BrowserTable: From column falls back to em-dash", function()
+  assertEqual(NS.BrowserTable:CellText("from", { source = "OTHER" }), EMDASH)
+end)
+
+test("BrowserTable: Item column falls back to link name then '?'", function()
+  local r = { itemLink = "|cff1eff00|Hitem:1::::|h[Linen Cloth]|h|r" }
+  assertEqual(NS.BrowserTable:CellText("item", r), "Linen Cloth")
+  assertEqual(NS.BrowserTable:CellText("item", {}), "?")
+end)
+
+test("BrowserTable: BuildDisplayList yields one row entry per filtered record", function()
+  T.seedDatabase() -- 4 records
+  NS.BrowserTable.filter = {}
+  local list = NS.BrowserTable:BuildDisplayList()
+  assertEqual(#list, 4)
+  assertEqual(list[1].kind, "row")
+  assertTrue(list[1].record ~= nil)
+
+  NS.BrowserTable.filter = { source = "KILL" }
+  assertEqual(#NS.BrowserTable:BuildDisplayList(), 2)
+end)
