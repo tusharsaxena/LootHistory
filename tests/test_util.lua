@@ -22,6 +22,41 @@ test("Util: SplitPath splits dotted paths", function()
   assertEqual(p[2], "qualityThreshold")
 end)
 
+do
+  local LINK = "|cff1eff00|Hitem:12345::::::::70:::::|h[Green Widget]|h|r"
+
+  test("Util: ParseSelfLoot single self-loot → link, qty 1", function()
+    local msg = string.format(T.mocks.LOOT_ITEM_SELF, LINK)
+    local link, qty = NS.Util.ParseSelfLoot(msg)
+    assertEqual(link, LINK)
+    assertEqual(qty, 1)
+  end)
+
+  test("Util: ParseSelfLoot multiple self-loot → link, qty N", function()
+    local msg = string.format(T.mocks.LOOT_ITEM_SELF_MULTIPLE, LINK, 3)
+    local link, qty = NS.Util.ParseSelfLoot(msg)
+    assertEqual(link, LINK)
+    assertEqual(qty, 3)
+  end)
+
+  test("Util: ParseSelfLoot pushed variant → link, qty", function()
+    local one = string.format(T.mocks.LOOT_ITEM_PUSHED_SELF, LINK)
+    local link, qty = NS.Util.ParseSelfLoot(one)
+    assertEqual(link, LINK)
+    assertEqual(qty, 1)
+
+    local many = string.format(T.mocks.LOOT_ITEM_PUSHED_SELF_MULTIPLE, LINK, 5)
+    local link2, qty2 = NS.Util.ParseSelfLoot(many)
+    assertEqual(link2, LINK)
+    assertEqual(qty2, 5)
+  end)
+
+  test("Util: ParseSelfLoot ignores another player's loot", function()
+    local msg = "Someone else receives loot: " .. LINK .. "."
+    assertEqual(NS.Util.ParseSelfLoot(msg), nil)
+  end)
+end
+
 test("Database: InitDB creates account-wide store", function()
   assertEqual(NS.db.global.schemaVersion, 1)
   assertTrue(type(NS.db.global.history) == "table")

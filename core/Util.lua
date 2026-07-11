@@ -38,3 +38,49 @@ function Util.TableCount(t)
   for _ in pairs(t) do n = n + 1 end
   return n
 end
+
+-- Convert a WoW loot global-string (e.g. "You receive loot: %sx%d.") into an anchored
+-- Lua pattern: literal text is escaped, %s → (.+) (item link), %d → (%d+) (quantity).
+local function toLootPattern(fmt)
+  local p = fmt:gsub("([%^%$%(%)%.%[%]%*%+%-%?%%])", "%%%1") -- escape magic chars (incl. %)
+  p = p:gsub("%%%%s", "(.+)")   -- escaped %s → link capture
+  p = p:gsub("%%%%d", "(%%d+)") -- escaped %d → quantity capture
+  return "^" .. p .. "$"
+end
+
+-- Self-loot patterns, compiled once from the localized global strings. Quantity-bearing
+-- variants come first: their (.+) is greedy, so a single-loot pattern would otherwise
+-- swallow the trailing "xN" of a multiple-loot line.
+local lootPatterns
+function Util.BuildLootPatterns()
+  local specs = {
+    { g = LOOT_ITEM_SELF_MULTIPLE,        hasQty = true },
+    { g = LOOT_ITEM_PUSHED_SELF_MULTIPLE, hasQty = true },
+    { g = LOOT_ITEM_SELF,                 hasQty = false },
+    { g = LOOT_ITEM_PUSHED_SELF,          hasQty = false },
+  }
+  local out = {}
+  for _, s in ipairs(specs) do
+    if s.g then
+      out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty }
+    end
+  end
+  lootPatterns = out
+  return out
+end
+
+-- Parse a CHAT_MSG_LOOT line. Returns itemLink, quantity for the player's own loot; nil otherwise.
+function Util.ParseSelfLoot(msg)
+  if not msg then return nil end
+  local pats = lootPatterns or Util.BuildLootPatterns()
+  for _, p in ipairs(pats) do
+    if p.hasQty then
+      local link, qty = msg:match(p.pattern)
+      if link then return link, tonumber(qty) or 1 end
+    else
+      local link = msg:match(p.pattern)
+      if link then return link, 1 end
+    end
+  end
+  return nil
+end
