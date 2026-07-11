@@ -739,9 +739,10 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.divider = divider
 
-  -- ElvUI-style thin × close glyph (class-coloured on hover).
+  -- ElvUI-style thin × close glyph (class-coloured on hover). Anchored to the title bar's
+  -- vertical centre so it lines up with the CENTER-anchored title and the gear.
   local close = B:MakeCloseButton(titleBar, function() B:Hide() end)
-  close:SetPoint("TOPRIGHT", -6, -5)
+  close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
   frame.closeButton = close
 
   -- Gear → Settings, left of the close glyph. Uses the stock options-cog texture

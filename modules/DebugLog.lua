@@ -44,7 +44,7 @@ local function EnsureFrame()
     close = CreateFrame("Button", nil, titleBar)
     close:SetScript("OnClick", function() D:Hide() end)
   end
-  close:SetPoint("TOPRIGHT", -6, -4)
+  close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)  -- vertical centre, aligned with the title
 
   local clear = CreateFrame("Button", nil, titleBar)
   clear:SetSize(42, 18)
