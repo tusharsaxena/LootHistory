@@ -90,6 +90,22 @@ local function charName(char)
   return char:match("^[^-]+") or char
 end
 
+-- Inline class icon (from the shared class-circles texture) for the Character column.
+local CLASS_ICON_TEX = "Interface\\TargetingFrame\\UI-Classes-Circles"
+local function classIconMarkup(classFile)
+  local c = classFile and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile]
+  if not (c and CreateTextureMarkup) then return "" end
+  return CreateTextureMarkup(CLASS_ICON_TEX, 256, 256, 13, 13,
+    c[1] * 256, c[2] * 256, c[3] * 256, c[4] * 256)
+end
+
+-- Class-colored, icon-prefixed display value for a looter.
+local function charDisplay(r)
+  local name = charName(r.char)
+  local icon = classIconMarkup(r.classFile)
+  return icon ~= "" and (icon .. " " .. name) or name
+end
+
 -- Column model. width 0 + flex=true means "absorb the remaining width" (the Item column).
 BrowserTable.COLUMNS = {
   { key = "date", label = "Date", width = 60, align = "LEFT",
@@ -100,9 +116,9 @@ BrowserTable.COLUMNS = {
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  { key = "char", label = "Character", width = 96, align = "LEFT",
-    desc = "Character who looted the item (realm in the item tooltip).",
-    valueFn = function(r) return charName(r.char) end,
+  { key = "char", label = "Character", width = 104, align = "LEFT",
+    desc = "Character who looted the item (class-colored; realm in the item tooltip).",
+    valueFn = function(r) return charDisplay(r) end,
     sortFn = function(r) return (r.char or ""):lower() end },
   { key = "ilvl", label = "iLvl", width = 40, align = "RIGHT",
     desc = "Item level (equippable gear only).",
@@ -127,6 +143,14 @@ BrowserTable.COLUMNS = {
     desc = "Item quality (Poor → Legendary).",
     valueFn = function(r) return NS.Compat.QualityLabel(r.quality) end,
     sortFn = function(r) return r.quality or 0 end },
+  { key = "type", label = "Type", width = 84, align = "LEFT",
+    desc = "Item type (subtype in the Item tooltip).",
+    valueFn = function(r) return r.itemType or "" end,
+    sortFn = function(r) return (r.itemType or ""):lower() end },
+  { key = "vendor", label = "Vendor", width = 76, align = "RIGHT",
+    desc = "Vendor sell price per unit.",
+    valueFn = function(r) return NS.Util.FormatMoney(r.sellPrice) end,
+    sortFn = function(r) return r.sellPrice or 0 end },
   { key = "source", label = "Source", width = 88, align = "LEFT",
     desc = "How the item was acquired (kill, container, mail, trade, …).",
     valueFn = function(r) return C.SourceLabel[r.source] or r.source or "Other" end,
@@ -165,6 +189,8 @@ local TEST_BINDINGS = {
   { key = "WARBAND", name = "Warbound" },
 }
 local TEST_SOURCES = { "KILL", "CONTAINER", "MPLUS", "QUEST", "VENDOR" }
+local TEST_CLASSES = { "WARRIOR", "MAGE", "ROGUE", "PRIEST", "DRUID", "PALADIN", "HUNTER" }
+local TEST_TYPES = { "Armor", "Weapon", "Consumable", "Tradegoods", "Quest" }
 
 function BrowserTable:BuildTestData()
   local now = time()
@@ -174,12 +200,16 @@ function BrowserTable:BuildTestData()
       local i = #out + 1
       out[i] = {
         ts = now - i * 137,
-        char = "Tester-Ravencrest",
+        char = TEST_CLASSES[((i - 1) % #TEST_CLASSES) + 1] .. "test-Ravencrest",
+        classFile = TEST_CLASSES[((i - 1) % #TEST_CLASSES) + 1],
         itemName = b.name .. " Sample " .. k,
         quality = ((i - 1) % 5) + 1,            -- Common..Legendary spread
         quantity = ((i % 3) == 0) and (i % 5 + 1) or 1,
         itemLevel = (k % 2 == 0) and (600 + ti * 4 + k) or nil, -- some gear, some not
         bound = b.key,
+        sellPrice = i * 137 + k * 11,           -- varied vendor prices
+        itemType = TEST_TYPES[((i - 1) % #TEST_TYPES) + 1],
+        itemSubType = "Sample",
         source = TEST_SOURCES[((i - 1) % #TEST_SOURCES) + 1],
         sourceName = (k == 1) and "Test Source" or nil,
         zone = "Test Zone " .. ti,
@@ -496,6 +526,9 @@ function BrowserTable:BindRow(row, entry, absIndex)
     fs:SetText(col.valueFn(r))
     if col.key == "item" or col.key == "quality" then
       fs:SetTextColor(qualityColor(r.quality))
+    elseif col.key == "char" then
+      local cc = RAID_CLASS_COLORS and r.classFile and RAID_CLASS_COLORS[r.classFile]
+      if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
     else
       fs:SetTextColor(0.9, 0.9, 0.9)
     end

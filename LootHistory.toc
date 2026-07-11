@@ -48,3 +48,4 @@ modules\Collector.lua
 modules\Browser.lua
 modules\BrowserTable.lua
 modules\Analytics.lua
+modules\DebugLog.lua

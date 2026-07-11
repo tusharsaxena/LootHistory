@@ -42,6 +42,20 @@ function Util.FormatDate(ts)
   return date("%m/%d/%y", ts or 0)
 end
 
+-- Format a copper amount as "Ng Ns Nc" (only non-zero parts). "" for nil/0.
+function Util.FormatMoney(copper)
+  copper = copper or 0
+  if copper <= 0 then return "" end
+  local g = math.floor(copper / 10000)
+  local s = math.floor((copper % 10000) / 100)
+  local c = copper % 100
+  local parts = {}
+  if g > 0 then parts[#parts + 1] = g .. "g" end
+  if s > 0 then parts[#parts + 1] = s .. "s" end
+  if c > 0 then parts[#parts + 1] = c .. "c" end
+  return table.concat(parts, " ")
+end
+
 -- Shallow count of an array-or-map table.
 function Util.TableCount(t)
   local n = 0

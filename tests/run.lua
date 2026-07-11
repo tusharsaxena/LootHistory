@@ -40,6 +40,7 @@ Loader.loadAll({
   "modules/Browser.lua",
   "modules/BrowserTable.lua",
   "modules/Analytics.lua",
+  "modules/DebugLog.lua",
 }, NS, mocks)
 
 NS:InitDB()

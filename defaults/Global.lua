@@ -3,7 +3,7 @@ local addonName, NS = ...
 -- Account-wide defaults. History and settings both live under `global` (see TECHNICAL_DESIGN §3.2).
 NS.defaults = NS.defaults or {}
 NS.defaults.global = {
-  schemaVersion = 2,
+  schemaVersion = 3,
   history = {},          -- array of loot records
   settings = {
     enabled          = true,

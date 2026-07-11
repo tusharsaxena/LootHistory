@@ -108,13 +108,24 @@ NS.COMMANDS = {
   { name = "list",     desc = "List all settings",     fn = function() NS.Slash:CliList() end },
   { name = "reset",    desc = "Reset one setting",     fn = function(a) NS.Slash:CliReset(a) end },
   { name = "resetall", desc = "Reset all settings",    fn = function() NS.Slash:CliResetAll() end },
-  { name = "debug",    desc = "Toggle debug logging",  fn = function()
+  { name = "debug",    desc = "Toggle the debug console",  fn = function()
       NS.db.global.debug = not NS.db.global.debug
+      if NS.DebugLog then
+        if NS.db.global.debug then NS.DebugLog:Show() else NS.DebugLog:Hide() end
+      end
       print("|cff33ff99" .. addonName .. "|r debug " .. (NS.db.global.debug and "on" or "off"))
+      if NS.Debug then NS.Debug("debug logging enabled") end
     end },
   { name = "test", desc = "Toggle a preview of every bound type", fn = function()
       local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()
       print("|cff33ff99" .. addonName .. "|r test mode " .. (on and "on" or "off"))
+    end },
+  { name = "purge", desc = "Delete ALL loot history (asks to confirm)", fn = function()
+      if type(StaticPopup_Show) == "function" then
+        StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")
+      elseif NS.Database and NS.Database.Purge then
+        NS.Database:Purge()
+      end
     end },
   { name = "help",     desc = "Show this help",        fn = function() NS.Slash:PrintHelp() end },
 }

@@ -29,6 +29,7 @@ return function()
 
   -- player / world
   M.UnitName = function() return "Mock" end
+  M.UnitClass = function() return "Mage", "MAGE", 8 end
   M.GetRealmName = function() return "Realm" end
   M.GetNormalizedRealmName = function() return "Realm" end
   M.GetZoneText = function() return "Testville" end

@@ -6,6 +6,21 @@ local function tag()
   return "|cff33ff99" .. addonName .. "|r "
 end
 
+-- Confirm dialog for /lh purge (destructive). Registered once; in-game only.
+if type(StaticPopupDialogs) == "table" then
+  StaticPopupDialogs["KA0S_LOOTHISTORY_PURGE"] = {
+    text = "Delete ALL Ka0s Loot History records? This cannot be undone.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function()
+      if NS.Database and NS.Database.Purge then NS.Database:Purge() end
+      print(tag() .. "history purged.")
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
+end
+
 function Sl:Register()
   NS.addon:RegisterChatCommand("lh", function(input) Sl:OnSlash(input) end)
   NS.addon:RegisterChatCommand("loothistory", function(input) Sl:OnSlash(input) end)

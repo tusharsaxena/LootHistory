@@ -115,33 +115,43 @@ function Compat.ScanBound(link)
   return nil
 end
 
--- Capture-time extras for a looted item: effective item level (equippable gear only) and
--- bound state ∈ { nil(unbound), "BOE", "BOP", "ACCOUNT", "WARBAND" }. A warband/account
--- tooltip wins over the plain bindType.
+-- Capture-time extras for a looted item. Returns:
+--   ilvl        effective item level (equippable weapons/armor only; nil otherwise)
+--   bound       nil(unbound) | "BOE" | "BOP" | "ACCOUNT" | "WARBAND" (warband/account wins)
+--   sellPrice   vendor sell price in copper (per unit)
+--   itemType    top-level type ("Armor", "Weapon", "Tradegoods", …)
+--   itemSubType finer subtype ("Cloth", "Sword", "Cooking", …)
 local ITEMCLASS_WEAPON, ITEMCLASS_ARMOR = 2, 4  -- Enum.ItemClass.Weapon / .Armor
 function Compat.GetItemExtras(link)
-  if not link then return nil, nil end
-  local ilvl, bound
+  if not link then return nil, nil, nil, nil, nil end
+  local ilvl, bound, sellPrice, itemType, itemSubType
 
-  -- Item level only for real gear. Reagents/consumables also carry an itemLevel, but it is
-  -- meaningless in a loot log, so gate on item class (weapon/armor), not just equipLoc.
+  local classID, equipLoc
   if C_Item and C_Item.GetItemInfoInstant then
-    local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(link)
+    local _, _, _, eLoc, _, cID = C_Item.GetItemInfoInstant(link)
+    classID, equipLoc = cID, eLoc
+  end
+
+  local bindType
+  if C_Item and C_Item.GetItemInfo then
+    local _, itemLevel
+    _, _, _, itemLevel, _, itemType, itemSubType, _, _, _, sellPrice, _, _, bindType =
+      C_Item.GetItemInfo(link)
+    -- ilvl only for real gear; reagents/consumables carry a meaningless itemLevel.
     if (classID == ITEMCLASS_WEAPON or classID == ITEMCLASS_ARMOR)
       and equipLoc and equipLoc ~= "" then
-      ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link))
-        or (C_Item.GetItemInfo and select(4, C_Item.GetItemInfo(link)))
+      ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link)) or itemLevel
     end
   end
 
   bound = Compat.ScanBound(link) -- WARBAND / ACCOUNT / nil
-  if not bound and C_Item and C_Item.GetItemInfo then
-    local bindType = select(14, C_Item.GetItemInfo(link))
+  if not bound then
     if bindType == 1 or bindType == 4 then
       bound = "BOP"                 -- bind on pickup / quest
     elseif bindType == 2 or bindType == 3 then
       bound = "BOE"                 -- bind on equip / on use
     end
   end
-  return ilvl, bound
+
+  return ilvl, bound, sellPrice, itemType, itemSubType
 end

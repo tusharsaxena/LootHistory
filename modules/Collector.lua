@@ -22,12 +22,16 @@ function Collector:BuildRecord(link, qty, ctx, env)
   return {
     ts           = env.ts,
     char         = env.char,
+    classFile    = env.classFile,   -- locale-independent class token, e.g. "MAGE"
     itemID       = env.itemID,
     itemLink     = link,
     itemName     = env.itemName,
     quality      = env.quality,
     itemLevel    = env.itemLevel,   -- effective ilvl for equippable items; nil otherwise
-    bound        = env.bound,       -- "SOULBOUND" | "WARBOUND" | nil
+    bound        = env.bound,       -- nil | "BOE" | "BOP" | "ACCOUNT" | "WARBAND"
+    sellPrice    = env.sellPrice,   -- vendor sell price (copper, per unit)
+    itemType     = env.itemType,
+    itemSubType  = env.itemSubType,
     quantity     = qty,
     source       = ctx.source,
     sourceName   = ctx.sourceName,
@@ -62,19 +66,21 @@ function Collector:OnChatMsgLoot(_, msg)
     return
   end
 
-  local itemLevel, bound = NS.Compat.GetItemExtras(link)
+  local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
   local zone, subzone = NS.Compat.GetZone()
+  local classFile = select(2, UnitClass("player"))
   local record = self:BuildRecord(link, qty,
     { source = source, sourceName = sourceName, sourceDetail = sourceDetail, confidence = confidence },
-    { ts = time(), char = NS.Util.PlayerKey(), itemID = itemID, itemName = itemName,
-      quality = quality, itemLevel = itemLevel, bound = bound,
+    { ts = time(), char = NS.Util.PlayerKey(), classFile = classFile,
+      itemID = itemID, itemName = itemName, quality = quality, itemLevel = itemLevel, bound = bound,
+      sellPrice = sellPrice, itemType = itemType, itemSubType = itemSubType,
       zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
 
   NS.Database:Add(record)
 
-  if NS.db.global.debug then
-    print(string.format("|cff33ff99%s|r loot: %s q%d src=%s conf=%s",
-      addonName, tostring(itemName), quality or 0, source, confidence))
+  if NS.db.global.debug and NS.Debug then
+    NS.Debug("loot: %s q%d ilvl=%s src=%s conf=%s",
+      tostring(itemName), quality or 0, tostring(itemLevel or "-"), source, confidence)
   end
 end
 
