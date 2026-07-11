@@ -20,10 +20,11 @@ local BOUND_STYLE = {
 
 -- Apply a padlock look to a texture, tolerant of missing art: use the first lock atlas that
 -- actually exists on this client, else fall back to a solid chip so the column is never blank.
+-- communities-icon-lock + greatVault-lock confirmed present on 11.x; the rest are fallbacks
+-- for other flavors/versions.
 local LOCK_ATLASES = {
-  "UI-LFG-Lock", "Professions-Recipe-Locked", "communities-icon-lock",
-  "collections-icon-lock", "greatVault-lock", "Warbands-Lock",
-  "services-icon-lock", "Garr_LockIcon", "GarrMission-Lock", "worldquest-icon-lock",
+  "communities-icon-lock", "greatVault-lock", "UI-LFG-Lock",
+  "Professions-Recipe-Locked", "collections-icon-lock",
 }
 local function applyLockTexture(tex)
   if C_Texture and C_Texture.GetAtlasInfo then
