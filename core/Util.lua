@@ -42,10 +42,15 @@ function Util.FormatDate(ts)
   return date("%m/%d/%y", ts or 0)
 end
 
--- Format a copper amount as "Ng Ns Nc" (only non-zero parts). "" for nil/0.
+-- Format a copper amount for display. In-game uses gold/silver/copper coin icon glyphs
+-- (GetCoinTextureString); headless falls back to "Ng Ns Nc" (only non-zero parts).
+-- "" for nil/0. Shared by the Vendor column and any future currency columns.
 function Util.FormatMoney(copper)
   copper = copper or 0
   if copper <= 0 then return "" end
+  if GetCoinTextureString then
+    return GetCoinTextureString(copper)
+  end
   local g = math.floor(copper / 10000)
   local s = math.floor((copper % 10000) / 100)
   local c = copper % 100

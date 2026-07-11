@@ -11,7 +11,7 @@ read_globals = {
   "_G", "LibStub", "CreateFrame", "UIParent", "GetTime", "time", "date",
   "UnitName", "UnitGUID", "UnitClass", "GetRealmName", "GetNormalizedRealmName",
   "RAID_CLASS_COLORS", "CLASS_ICON_TCOORDS", "StaticPopup_Show", "YES", "NO",
-  "GameFontHighlightSmall",
+  "GameFontHighlightSmall", "GetCoinTextureString",
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
   "ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "ITEM_BNETACCOUNTBOUND", "ITEM_BIND_TO_BNETACCOUNT",
