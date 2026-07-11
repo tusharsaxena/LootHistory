@@ -11,13 +11,23 @@ local HEADER_H = 20
 local EMDASH = "\226\128\148"
 local ITEM_MIN = 90   -- minimum width of the flex (Item) column
 local COL_GAP = 6
-local LOCK_TEX = "Interface\\PetBattles\\PetJournal\\PetJournal-LockIcon"
 -- Every row shows a lock; colour + opacity encode the binding state. {r, g, b, alpha}
 local BOUND_STYLE = {
   WARBOUND  = { 0.35, 0.55, 1.0, 1.0 },  -- blue, solid
   SOULBOUND = { 1.0, 1.0, 1.0, 1.0 },    -- white, solid
-  UNBOUND   = { 0.6, 0.6, 0.6, 0.30 },   -- grey, faint
+  UNBOUND   = { 0.6, 0.6, 0.6, 0.40 },   -- grey, faint
 }
+
+-- Apply a padlock look to a texture, tolerant of missing art: prefer the LFG lock atlas,
+-- else fall back to a solid chip so the Bound column is never blank.
+local LOCK_ATLAS = "UI-LFG-Lock"
+local function applyLockTexture(tex)
+  if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(LOCK_ATLAS) then
+    tex:SetAtlas(LOCK_ATLAS)
+  else
+    tex:SetTexture("Interface\\Buttons\\WHITE8X8")
+  end
+end
 
 -- Strip realm from "Name-Realm" for the compact Character column (full value in tooltip).
 local function charName(char)
@@ -145,8 +155,8 @@ function BrowserTable:AcquireRow()
 
   -- Bound-state lock icon (Bound column); tinted + shown per record in BindRow.
   local boundIcon = row:CreateTexture(nil, "OVERLAY")
-  boundIcon:SetSize(12, 14)
-  boundIcon:SetTexture(LOCK_TEX)
+  boundIcon:SetSize(14, 14)
+  applyLockTexture(boundIcon)
   boundIcon:Hide()
   row.boundIcon = boundIcon
 
@@ -273,9 +283,9 @@ function BrowserTable:MakeHeaderButton(col)
   btn:SetHeight(HEADER_H)
   if col.icon then
     local tex = btn:CreateTexture(nil, "OVERLAY")
-    tex:SetSize(12, 14)
+    tex:SetSize(14, 14)
     tex:SetPoint("CENTER")
-    tex:SetTexture(LOCK_TEX)
+    applyLockTexture(tex)
     tex:SetVertexColor(1, 1, 1) -- white lock as the Bound header
     btn.tex = tex
   else
