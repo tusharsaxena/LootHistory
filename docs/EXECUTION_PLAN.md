@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Standard:** Ka0s WoW Addon Standard v1.1 — MUST comply except the one documented deviation below.
+- **Standard:** Ka0s WoW Addon Standard v1.3 — MUST comply fully (the standalone window follows §6A; no deviations).
 - **Namespace:** every file starts `local addonName, NS = ...`. No `_G[addonName]`.
 - **SavedVariables:** `LootHistoryDB`, single global, account-wide data in `.global`, with `schemaVersion`.
 - **Slash:** `/lh` and `/loothistory` via AceConsole `:RegisterChatCommand`. No raw `SLASH_*`.
@@ -22,7 +22,7 @@
 - **License:** MIT. **Author:** add1kted2ka0s. **TOC Title:** `Ka0s Loot History`.
 - **Debug:** persistent (`NS.db.global.debug`), zero-allocation when off, `/lh debug`.
 - **Slash (standard-compliant):** bare `/lh` prints help; window display is explicit (`/lh show|hide|toggle`). *(Earlier revisions toggled on no-arg — that deviation was removed.)*
-- **Deviation:** Browser is a non-secure standalone frame (no combat gate); the Settings panel keeps the canonical combat-gated canvas pattern.
+- **§6A:** Browser is a non-secure standalone window (no combat gate) per §6A; the Settings panel keeps the §6 combat-gated canvas pattern.
 
 **Source-of-truth docs:** `docs/REQUIREMENTS.md`, `docs/TECHNICAL_DESIGN.md`, `docs/UX_DESIGN.md`. Task references like "(TD §4)" point at TECHNICAL_DESIGN sections.
 
@@ -212,7 +212,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 ## Milestone 6 — Docs, review, release v0.1.0
 
 ### Task 6.1 — ARCHITECTURE.md & README.md
-**Files:** Create `ARCHITECTURE.md` (Overview, Module Map, Settings Schema, Message Bus table w/ sender/payload/consumers, Slash Commands table, Event Subscriptions, Taint Notes, Deviations, Known Limitations) and `README.md` (Title, badges, Description, Features, Installation, Usage/slash table, Configuration, Version History). Sync CLAUDE.md TODOs.
+**Files:** Create `ARCHITECTURE.md` (Overview, Module Map, Settings Schema, Message Bus table w/ sender/payload/consumers, Slash Commands table, Event Subscriptions, Taint Notes, Standards compliance, Known Limitations) and `README.md` (Title, badges, Description, Features, Installation, Usage/slash table, Configuration, Version History). Sync CLAUDE.md TODOs.
 **Test:** run `wow-addon:sync-docs` drift check (5-claim). **Deliverable:** committed.
 
 ### Task 6.2 — Review bundle & version stamp
@@ -252,6 +252,6 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 | FR-B15..B21 analytics | 4.1–4.2 |
 | FR-S1..S5 settings/schema/slash/debug | 0.5, 5.1, 5.3 |
 | NFR-1..7 standards/perf/multiflavor/taint/l10n/LOC/export-ready | 0.1–0.4, 1.5, 2.2, 3.2, 6.x |
-| Deviations 1 & 2 | 0.5 (slash), 3.1 (non-secure frame) |
+| §7.4 slash + §6A window | 0.5 (slash), 3.1 (non-secure window) |
 
 All FR/NFR map to at least one task. No orphan requirements.

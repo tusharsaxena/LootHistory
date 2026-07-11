@@ -115,7 +115,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 
 ## 6. Non-functional requirements
 
-- **NFR-1** **Standards compliance** — conforms to the Ka0s WoW Addon Standard v1.1 (Ace3, Tier 2 layout, schema-as-single-source, closed message bus, Compat firewall, MIT, **vendored libs** in `libs/`, `.luacheckrc`). One documented deviation (see §8).
+- **NFR-1** **Standards compliance** — conforms to the Ka0s WoW Addon Standard v1.3 (Ace3, Tier 2 layout, schema-as-single-source, closed message bus, Compat firewall, MIT, **vendored libs** in `libs/`, `.luacheckrc`). No deviations; the standalone browser window follows §6A (see §8).
 - **NFR-2** **Performance** — capture is O(1) per loot event; cleanup runs once per session; the browser uses object pooling and cached upvalues for hot paths.
 - **NFR-3** **Multi-flavor** — single TOC with a multi-Interface line; flavor differences isolated in `Compat.lua`.
 - **NFR-4** **No taint** — the browser is a non-secure standalone frame; no protected/secure API misuse; no `:Hide()` on Blizzard frames.
@@ -134,13 +134,15 @@ A third capability — exporting the data to an AI companion skill that renders 
 
 ---
 
-## 8. Approved deviations from the Ka0s standard
+## 8. Standards compliance
 
-| Deviation | Standard rule | Rationale |
+No deviations. Notes on surfaces that follow the standard explicitly:
+
+| Surface | Standard | Note |
 |---|---|---|
-| History window is a **standalone non-secure frame**, not a Blizzard Settings canvas. | §6.1 canonical options pattern. | That pattern governs the *settings* panel (which does comply). A data browser is a distinct surface; being non-secure means no combat-lockdown gating is required. |
+| History window — a **standalone non-secure frame**, not a Blizzard Settings canvas. | §6A Standalone windows / data browsers. | §6A governs an addon's own main window; §6 governs the settings panel (which complies separately). Non-secure ⇒ no combat-lockdown gate. This addon is §6A's reference implementation. |
 
-> Note: bare `/lh` **prints help** and window display is explicit (`/lh show|hide|toggle`), so the addon now complies with §7.4 ("no-arg = help"). This was previously a deviation ("no-arg toggles the window") and has been removed.
+> Note: bare `/lh` **prints help** and window display is explicit (`/lh show|hide|toggle`) — complies with §7.4 ("no-arg = help").
 
 > Note: vendoring all libraries in `libs/` is **not** a deviation. Ka0s Standard **v1.1** (2026-07-11) makes vendoring mandatory suite-wide and forbids `.pkgmeta` externals; this addon complies.
 

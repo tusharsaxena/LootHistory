@@ -1,7 +1,7 @@
 # Ka0s Loot History — Technical Design
 
 **Status:** Draft for v0.1.0 · **Substrate:** Ace3 · **Tier:** 2 (modular)
-**Authoritative conventions:** `CLAUDE.md` (repo conventions cheat-sheet) + the Ka0s WoW Addon Standard v1.1.
+**Authoritative conventions:** `CLAUDE.md` (repo conventions cheat-sheet) + the Ka0s WoW Addon Standard v1.3.
 
 This document is engineer-facing. It pins down interfaces, event flows, and data shapes. It intentionally avoids full implementations; snippets are signatures / pseudocode.
 
@@ -23,13 +23,13 @@ Core architectural commitments:
 | Inter-module comms | **Closed message bus** — `Ka0s_LootHistory_*` named messages, one sender each. No cross-module table reach. |
 | Compat | All deprecated-API calls routed through `core/Compat.lua`. |
 
-### 1.1 Deliberate deviation from the standard
+### 1.1 Standards notes (no deviations)
 
 Documented here and echoed in `ARCHITECTURE.md`:
 
-1. **Browser is a non-secure standalone frame.** It is a plain `CreateFrame("Frame")` (movable/resizable), not a Blizzard Settings canvas and not a secure/protected frame. It therefore needs **no combat-lockdown gate** on open. The *Settings panel* (options) still uses the canonical `Settings.RegisterCanvasLayoutCategory` + lazy AceGUI body and **is** combat-gated per §6.2 of the standard.
+1. **Browser is a non-secure standalone window — follows §6A.** It is a plain `CreateFrame("Frame")` (movable/resizable), not a Blizzard Settings canvas and not a secure/protected frame — so it needs **no combat-lockdown gate** on open, per §6A (Standalone windows / data browsers). The *Settings panel* (options) uses the canonical `Settings.RegisterCanvasLayoutCategory` + lazy AceGUI body and **is** combat-gated per §6.2. This addon is §6A's reference implementation.
 
-> **Slash behavior (standard-compliant, not a deviation).** Bare `/lh` **prints help** per §7.4; window display is explicit (`/lh toggle`, `/lh show|hide`). Earlier revisions toggled the window on no-arg — that was a deviation and has been removed.
+> **Slash behavior.** Bare `/lh` **prints help** per §7.4; window display is explicit (`/lh toggle`, `/lh show|hide`).
 
 ---
 

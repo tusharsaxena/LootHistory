@@ -1,7 +1,7 @@
 # ARCHITECTURE — Ka0s Loot History
 
 Engineering reference for the addon: module map, data model, message bus, slash surface,
-event wiring, taint posture, and the one intentional deviation from the Ka0s standard.
+event wiring, taint posture, and standards compliance (the standalone window follows §6A).
 For product scope see `docs/REQUIREMENTS.md`; for design depth, `docs/TECHNICAL_DESIGN.md`.
 
 ---
@@ -168,7 +168,7 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Taint notes
 
-- The **browser is a plain non-secure `CreateFrame`** (Deviation 2) — it touches no protected
+- The **browser is a plain non-secure `CreateFrame`** (per §6A) — it touches no protected
   functions and needs no combat-lockdown gate. It can open/refresh in combat.
 - The **Settings panel** uses the canonical Blizzard `Settings.RegisterCanvasLayoutCategory`
   canvas with a **lazy, combat-gated** AceGUI body — it defers building/opening during combat.
@@ -179,18 +179,19 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ---
 
-## Deviations from the Ka0s standard
+## Standards compliance
 
-One intentional deviation (also recorded in `docs/REQUIREMENTS.md §8` and CLAUDE.md):
+No deviations from the Ka0s standard (also recorded in `docs/REQUIREMENTS.md §8` and CLAUDE.md).
+Two surface-specific notes:
 
-1. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no
-   combat-lockdown gate. The Settings panel still uses the canonical combat-gated canvas.
+1. **The standalone browser window follows §6A** (Standalone windows / data browsers): a non-secure
+   `CreateFrame`, so it needs no combat-lockdown gate — ESC via `UISpecialFrames`, persisted
+   position/size/scale, one `SKIN`/`ApplySkin` seam. This addon is §6A's reference implementation.
+   The Settings panel separately follows the §6 combat-gated canvas.
+2. **Bare `/lh` prints help** (standard §7.4); window display is explicit (`/lh toggle`,
+   `/lh show|hide`).
 
-> Bare `/lh` prints help (standard §7.4) and window display is explicit (`/lh toggle`,
-> `/lh show|hide`) — previously a deviation ("no-arg toggles the window"), now compliant.
-
-Vendored libraries are **not** a deviation — Ka0s Standard v1.1 makes vendoring the suite-wide
-rule.
+Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 
 ---
 

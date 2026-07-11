@@ -72,15 +72,15 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 
 ---
 
-## One approved deviation from the standard
+## Standards compliance (no deviations)
 
-Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`:
+Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`. Surface-specific notes:
 
-1. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no combat-lockdown gate. The *Settings panel* still uses the canonical combat-gated canvas pattern.
+1. **The standalone browser window follows §6A** (Standalone windows / data browsers): a non-secure `CreateFrame` — no combat-lockdown gate, ESC via `UISpecialFrames`, persisted position/size/scale, one `SKIN`/`ApplySkin` re-skin seam. Ka0s Loot History is §6A's reference implementation. The *Settings panel* separately follows the §6 combat-gated canvas pattern.
 
-> Bare `/lh` **prints help** (standard-compliant, §7.4). Window display is explicit: `/lh toggle` or `/lh show|hide`. (This was previously a deviation — "no-arg toggles the window" — but the addon now complies with the standard here.)
+> Bare `/lh` **prints help** (standard-compliant, §7.4). Window display is explicit: `/lh toggle` or `/lh show|hide`.
 
-(Vendored libs are **not** a deviation — Standard v1.1 makes vendoring the suite-wide rule.)
+(Vendored libs follow Standard v1.1 — vendoring is the suite-wide rule.)
 
 ---
 
@@ -134,5 +134,5 @@ sudo luarocks install luacheck
 
 - The **account-wide** storage decision (`.global`, `char` column). Switching to per-character profiles is a schema + query rewrite.
 - The **attribution context TTL / single-slot** design — it deliberately survives multiple `CHAT_MSG_LOOT` lines from one loot window.
-- The **deviation** above (non-secure browser frame) — it is intentional, not an oversight.
+- The **standalone non-secure browser window** (follows §6A) — non-secure by design, not an oversight.
 - `Database:Export` field shape — it is the forward-compatible v2 export contract.
