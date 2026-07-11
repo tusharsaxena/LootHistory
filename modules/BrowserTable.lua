@@ -16,7 +16,7 @@ local COL_GAP = 6
 local BOUND_STYLE = {
   UNBOUND = { 0.60, 0.60, 0.60, 0.40 }, -- not bound: faint grey
   BOE     = { 0.92, 0.92, 0.92, 0.95 }, -- bind on equip: off-white
-  BOP     = { 1.00, 0.82, 0.20, 1.00 }, -- bind on pickup: gold/yellow
+  BOP     = { 0.30, 0.82, 0.42, 1.00 }, -- bind on pickup: green (distinct from account orange)
   ACCOUNT = { 0.95, 0.52, 0.12, 1.00 }, -- account bound: orange
   WARBAND = { 0.30, 0.58, 0.98, 1.00 }, -- warbound: blue
 }
@@ -109,7 +109,7 @@ BrowserTable.COLUMNS = {
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
     sortFn = function(r) return r.itemLevel or 0 end },
   { key = "bound", label = "", width = 18, align = "CENTER", icon = true,
-    desc = "Binding: grey = not bound, white = Bind on Equip, gold = Bind on Pickup, "
+    desc = "Binding: grey = not bound, white = Bind on Equip, green = Bind on Pickup, "
       .. "orange = Account bound, blue = Warbound.",
     valueFn = function() return "" end,   -- rendered as an icon, not text
     sortFn = function(r) return r.bound or "" end },
