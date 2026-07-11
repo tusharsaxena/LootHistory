@@ -188,16 +188,17 @@ local function EnsureFrame()
   close:SetScript("OnClick", function() B:Hide() end)
   frame.closeButton = close
 
-  -- Gear → Settings, left of the close glyph.
+  -- Gear → Settings, left of the close glyph. Uses the stock options-cog texture
+  -- (the ⚙ glyph is not in the default WoW font).
   local gear = CreateFrame("Button", nil, titleBar)
-  gear:SetSize(20, 20)
-  gear:SetPoint("RIGHT", close, "LEFT", -2, 0)
-  local g = gear:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  g:SetPoint("CENTER")
-  g:SetText("\226\154\153")  -- gear glyph
-  g:SetTextColor(0.7, 0.7, 0.72)
-  gear:SetScript("OnEnter", function() g:SetTextColor(1, 0.82, 0) end)
-  gear:SetScript("OnLeave", function() g:SetTextColor(0.7, 0.7, 0.72) end)
+  gear:SetSize(16, 16)
+  gear:SetPoint("RIGHT", close, "LEFT", 0, 0)
+  local g = gear:CreateTexture(nil, "ARTWORK")
+  g:SetAllPoints()
+  g:SetTexture("Interface\\Buttons\\UI-OptionsButton")
+  g:SetVertexColor(0.8, 0.8, 0.82)
+  gear:SetScript("OnEnter", function() g:SetVertexColor(1, 0.82, 0) end)
+  gear:SetScript("OnLeave", function() g:SetVertexColor(0.8, 0.8, 0.82) end)
   gear:SetScript("OnClick", function() if NS.Panel and NS.Panel.Open then NS.Panel:Open() end end)
   frame.gearButton = gear
 

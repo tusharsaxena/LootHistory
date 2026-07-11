@@ -12,9 +12,9 @@ function P:Register()
   frame.OnDefault = function() if NS.Schema.CliResetAll then NS.Slash:CliResetAll() end end
   frame.OnRefresh = function() end
   local category = Settings.RegisterCanvasLayoutCategory(frame, "Ka0s Loot History")
-  category.ID = addonName
   Settings.RegisterAddOnCategory(category)
-  categoryID = category:GetID()
+  P.category = category
+  categoryID = category:GetID()   -- numeric; do NOT overwrite category.ID (breaks OpenToCategory)
   frame:SetScript("OnShow", function() P:BuildBody(frame) end)
 end
 

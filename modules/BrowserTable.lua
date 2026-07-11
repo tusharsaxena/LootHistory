@@ -90,10 +90,10 @@ function BrowserTable:AcquireRow()
     return row
   end
 
-  row = CreateFrame("Button", nil, self.scrollChild)
+  row = CreateFrame("Button", nil, self.rowHost)
   row:SetHeight(ROW_H)
-  row:SetPoint("LEFT", self.scrollChild, "LEFT", 0, 0)
-  row:SetPoint("RIGHT", self.scrollChild, "RIGHT", 0, 0)
+  row:SetPoint("LEFT", self.rowHost, "LEFT", 0, 0)
+  row:SetPoint("RIGHT", self.rowHost, "RIGHT", 0, 0)
 
   local stripe = row:CreateTexture(nil, "BACKGROUND")
   stripe:SetAllPoints()
@@ -125,10 +125,16 @@ function BrowserTable:AcquireRow()
   return row
 end
 
+-- Width available for columns (row host viewport), with a fallback before first layout.
+function BrowserTable:ContentWidth()
+  local w = self.rowHost and self.rowHost:GetWidth()
+  if not w or w <= 0 then return 780 end
+  return w
+end
+
 -- Position each cell by cumulative column widths; the flex column takes the slack.
 function BrowserTable:LayoutRowCells(row)
-  local total = self.scrollChild:GetWidth()
-  if not total or total <= 0 then total = 780 end
+  local total = self:ContentWidth()
   local fixed = 0
   for _, col in ipairs(self.COLUMNS) do
     if not col.flex then fixed = fixed + col.width + 6 end
@@ -161,28 +167,28 @@ function BrowserTable:Attach(pane)
   if self.frame then return end
   self.pane = pane
 
-  -- Header row.
+  -- Header row (right inset matches the row host so columns line up with the data cells).
   local header = CreateFrame("Frame", nil, pane)
   header:SetPoint("TOPLEFT", 0, 0)
-  header:SetPoint("TOPRIGHT", 0, 0)
+  header:SetPoint("TOPRIGHT", -24, 0)
   header:SetHeight(HEADER_H)
   self.headerFrame = header
 
-  -- Scroll frame + child that owns the pooled rows.
+  -- FauxScrollFrame drives the scrollbar + offset. Pooled rows live in a sibling overlay
+  -- (rowHost) aligned with the scroll viewport, so the ScrollFrame never clips them.
   local scroll = CreateFrame("ScrollFrame", "LootHistoryTableScroll", pane, "FauxScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
-  scroll:SetPoint("BOTTOMRIGHT", -24, 0)
+  scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -24, 0)
   scroll:SetScript("OnVerticalScroll", function(self2, offset)
     FauxScrollFrame_OnVerticalScroll(self2, offset, ROW_H, function() BrowserTable:Bind() end)
   end)
+  scroll:SetScript("OnSizeChanged", function() BrowserTable:Bind() end)
   self.scroll = scroll
 
-  local child = CreateFrame("Frame", nil, scroll)
-  child:SetSize(1, 1)
-  scroll:SetScrollChild(child)
-  child:SetPoint("TOPLEFT")
-  child:SetPoint("RIGHT", scroll, "RIGHT", 0, 0)
-  self.scrollChild = child
+  local host = CreateFrame("Frame", nil, pane)
+  host:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
+  host:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 0, 0)
+  self.rowHost = host
 
   self.rowPool = { active = {}, free = {} }
 
@@ -200,8 +206,7 @@ end
 function BrowserTable:BuildHeaderCells()
   local header = self.headerFrame
   header.cells = header.cells or {}
-  local total = self.scrollChild:GetWidth()
-  if not total or total <= 0 then total = 780 end
+  local total = self:ContentWidth()
   local fixed = 0
   for _, col in ipairs(self.COLUMNS) do
     if not col.flex then fixed = fixed + col.width + 6 end
@@ -236,10 +241,12 @@ end
 -- Bind the visible slice of the display list onto pooled rows.
 function BrowserTable:Bind()
   if not self.frame then return end
+  self:BuildHeaderCells()   -- keep header columns aligned with rows across resizes
   local list = self.displayList or {}
   local scroll = self.scroll
   local viewH = scroll:GetHeight()
-  local numVisible = math.max(1, math.floor((viewH or (ROW_H * 20)) / ROW_H))
+  if not viewH or viewH <= 0 then viewH = ROW_H * 20 end
+  local numVisible = math.max(1, math.floor(viewH / ROW_H))
 
   FauxScrollFrame_Update(scroll, #list, numVisible, ROW_H)
   local offset = FauxScrollFrame_GetOffset(scroll)
@@ -257,7 +264,7 @@ function BrowserTable:Bind()
     local entry = list[offset + i]
     if entry then
       local row = self:AcquireRow()
-      row:SetPoint("TOP", self.scrollChild, "TOP", 0, -(i - 1) * ROW_H)
+      row:SetPoint("TOP", self.rowHost, "TOP", 0, -(i - 1) * ROW_H)
       self:LayoutRowCells(row)
       self:BindRow(row, entry, offset + i)
       pool.active[#pool.active + 1] = row
