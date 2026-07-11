@@ -57,6 +57,16 @@ do
   end)
 end
 
+test("Util: FormatClock is HH:MM", function()
+  local ts = 1600000000
+  assertEqual(NS.Util.FormatClock(ts), os.date("%H:%M", ts))
+end)
+
+test("Util: FormatDate is MM/DD/YY", function()
+  local ts = 1600000000
+  assertEqual(NS.Util.FormatDate(ts), os.date("%m/%d/%y", ts))
+end)
+
 test("Database: InitDB creates account-wide store", function()
   assertEqual(NS.db.global.schemaVersion, 1)
   assertTrue(type(NS.db.global.history) == "table")

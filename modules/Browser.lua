@@ -19,8 +19,7 @@ local SKIN = {
   tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (grey)
   titleBarH   = 30,
   tabStripH   = 26,
-  minW        = 560,
-  minH        = 320,
+  defaultH    = 440,   -- default == minimum height
 }
 B.SKIN = SKIN
 
@@ -64,7 +63,9 @@ local function RestoreWindow()
   if w and w.point then
     frame:ClearAllPoints()
     frame:SetPoint(w.point, UIParent, w.point, w.x or 0, w.y or 0)
-    if w.w and w.h then frame:SetSize(w.w, w.h) end
+    if w.w and w.h then
+      frame:SetSize(math.max(B._minW or 0, w.w), math.max(B._minH or 0, w.h))
+    end
   else
     frame:SetPoint("CENTER")
   end
@@ -139,15 +140,21 @@ local function EnsureFrame()
   if frame then return frame end
 
   frame = CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")
-  frame:SetSize(820, 520)
+  -- Default size == minimum size: wide enough for every column, so it can grow but never
+  -- shrink into horizontal overflow. Width is derived from the column model.
+  local minW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
+    or 822
+  local minH = SKIN.defaultH
+  B._minW, B._minH = minW, minH
+  frame:SetSize(minW, minH)
   frame:SetFrameStrata("HIGH")
   frame:SetMovable(true)
   frame:SetResizable(true)
   frame:SetClampedToScreen(true)
   if frame.SetResizeBounds then
-    frame:SetResizeBounds(SKIN.minW, SKIN.minH)
+    frame:SetResizeBounds(minW, minH)
   elseif frame.SetMinResize then
-    frame:SetMinResize(SKIN.minW, SKIN.minH)
+    frame:SetMinResize(minW, minH)
   end
 
   -- Title bar (also the drag handle), flat with a divider line beneath it.

@@ -32,6 +32,16 @@ function Util.FormatTime(ts, nowTs)
   return date("%m/%d %H:%M", ts)
 end
 
+-- Clock-only (HH:MM) — used by the Time column now that Date is its own column.
+function Util.FormatClock(ts)
+  return date("%H:%M", ts or 0)
+end
+
+-- Compact date (MM/DD/YY) for the Date column.
+function Util.FormatDate(ts)
+  return date("%m/%d/%y", ts or 0)
+end
+
 -- Shallow count of an array-or-map table.
 function Util.TableCount(t)
   local n = 0

@@ -9,6 +9,8 @@ local C = NS.Constants
 local ROW_H = 18
 local HEADER_H = 20
 local EMDASH = "\226\128\148"
+local ITEM_MIN = 90   -- minimum width of the flex (Item) column
+local COL_GAP = 6
 
 -- Strip realm from "Name-Realm" for the compact Character column (full value in tooltip).
 local function charName(char)
@@ -18,8 +20,11 @@ end
 
 -- Column model. width 0 + flex=true means "absorb the remaining width" (the Item column).
 BrowserTable.COLUMNS = {
-  { key = "time", label = "Time", width = 68, align = "LEFT",
-    valueFn = function(r) return NS.Util.FormatTime(r.ts) end,
+  { key = "time", label = "Time", width = 44, align = "LEFT",
+    valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
+    sortFn = function(r) return r.ts or 0 end },
+  { key = "date", label = "Date", width = 60, align = "LEFT",
+    valueFn = function(r) return NS.Util.FormatDate(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
   { key = "item", label = "Item", width = 0, flex = true, align = "LEFT",
     valueFn = function(r)
@@ -121,6 +126,17 @@ function BrowserTable:AcquireRow()
   header:Hide()
   row.header = header
 
+  -- Hover → the full in-game item tooltip for this row's record.
+  row:SetScript("OnEnter", function(self2)
+    local e = self2.entry
+    if e and e.kind == "row" and e.record.itemLink then
+      GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
+      GameTooltip:SetHyperlink(e.record.itemLink)
+      GameTooltip:Show()
+    end
+  end)
+  row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
   self:LayoutRowCells(row)
   return row
 end
@@ -132,14 +148,25 @@ function BrowserTable:ContentWidth()
   return w
 end
 
+-- Minimum window width that shows every column without truncation: the sum of fixed column
+-- widths + gaps + the Item column's minimum + scrollbar gutter + pane margins. Browser uses
+-- this as both the default and the minimum window width so columns never overflow.
+function BrowserTable:MinFrameWidth()
+  local w = 0
+  for _, col in ipairs(self.COLUMNS) do
+    w = w + (col.flex and ITEM_MIN or col.width) + COL_GAP
+  end
+  return math.ceil(w + 24 + 12) -- scrollbar gutter + pane left/right margins
+end
+
 -- Position each cell by cumulative column widths; the flex column takes the slack.
 function BrowserTable:LayoutRowCells(row)
   local total = self:ContentWidth()
   local fixed = 0
   for _, col in ipairs(self.COLUMNS) do
-    if not col.flex then fixed = fixed + col.width + 6 end
+    if not col.flex then fixed = fixed + col.width + COL_GAP end
   end
-  local flexW = math.max(60, total - fixed)
+  local flexW = math.max(ITEM_MIN, total - fixed)
 
   local x = 0
   for _, col in ipairs(self.COLUMNS) do
@@ -148,7 +175,7 @@ function BrowserTable:LayoutRowCells(row)
     fs:ClearAllPoints()
     fs:SetPoint("LEFT", row, "LEFT", x, 0)
     fs:SetWidth(w)
-    x = x + w + 6
+    x = x + w + COL_GAP
   end
 end
 
@@ -209,9 +236,9 @@ function BrowserTable:BuildHeaderCells()
   local total = self:ContentWidth()
   local fixed = 0
   for _, col in ipairs(self.COLUMNS) do
-    if not col.flex then fixed = fixed + col.width + 6 end
+    if not col.flex then fixed = fixed + col.width + COL_GAP end
   end
-  local flexW = math.max(60, total - fixed)
+  local flexW = math.max(ITEM_MIN, total - fixed)
 
   local x = 0
   for _, col in ipairs(self.COLUMNS) do
