@@ -117,16 +117,26 @@ function Compat.ScanBound(link)
   return soulbound and "SOULBOUND" or nil
 end
 
--- Capture-time extras for a looted item: effective item level (equippable items only) and
+-- Capture-time extras for a looted item: effective item level (equippable gear only) and
 -- bound state. bindType==1 (BoP) implies soulbound; a warbound/account-bound tooltip wins.
+local ITEMCLASS_WEAPON, ITEMCLASS_ARMOR = 2, 4  -- Enum.ItemClass.Weapon / .Armor
 function Compat.GetItemExtras(link)
   if not link then return nil, nil end
   local ilvl, bound
-  if C_Item and C_Item.GetItemInfo then
-    local _, _, _, itemLevel, _, _, _, _, equipLoc, _, _, _, _, bindType = C_Item.GetItemInfo(link)
-    if equipLoc and equipLoc ~= "" then
-      ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link)) or itemLevel
+
+  -- Item level only for real gear. Reagents/consumables also carry an itemLevel, but it is
+  -- meaningless in a loot log, so gate on item class (weapon/armor), not just equipLoc.
+  if C_Item and C_Item.GetItemInfoInstant then
+    local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(link)
+    if (classID == ITEMCLASS_WEAPON or classID == ITEMCLASS_ARMOR)
+      and equipLoc and equipLoc ~= "" then
+      ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link))
+        or (C_Item.GetItemInfo and select(4, C_Item.GetItemInfo(link)))
     end
+  end
+
+  if C_Item and C_Item.GetItemInfo then
+    local bindType = select(14, C_Item.GetItemInfo(link))
     if bindType == 1 then bound = "SOULBOUND" end
   end
   local scanned = Compat.ScanBound(link)

@@ -12,9 +12,11 @@ local EMDASH = "\226\128\148"
 local ITEM_MIN = 90   -- minimum width of the flex (Item) column
 local COL_GAP = 6
 local LOCK_TEX = "Interface\\PetBattles\\PetJournal\\PetJournal-LockIcon"
-local BOUND_COLOR = {
-  SOULBOUND = { 0.75, 0.75, 0.75 }, -- grey lock
-  WARBOUND  = { 0.35, 0.55, 1.0 },  -- blue lock
+-- Every row shows a lock; colour + opacity encode the binding state. {r, g, b, alpha}
+local BOUND_STYLE = {
+  WARBOUND  = { 0.35, 0.55, 1.0, 1.0 },  -- blue, solid
+  SOULBOUND = { 1.0, 1.0, 1.0, 1.0 },    -- white, solid
+  UNBOUND   = { 0.6, 0.6, 0.6, 0.30 },   -- grey, faint
 }
 
 -- Strip realm from "Name-Realm" for the compact Character column (full value in tooltip).
@@ -26,40 +28,51 @@ end
 -- Column model. width 0 + flex=true means "absorb the remaining width" (the Item column).
 BrowserTable.COLUMNS = {
   { key = "date", label = "Date", width = 60, align = "LEFT",
+    desc = "Date the item was looted.",
     valueFn = function(r) return NS.Util.FormatDate(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
   { key = "time", label = "Time", width = 44, align = "LEFT",
+    desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  { key = "bound", label = "", width = 20, align = "CENTER", icon = true,
+  { key = "char", label = "Character", width = 96, align = "LEFT",
+    desc = "Character who looted the item (realm in the item tooltip).",
+    valueFn = function(r) return charName(r.char) end,
+    sortFn = function(r) return (r.char or ""):lower() end },
+  { key = "bound", label = "", width = 22, align = "CENTER", icon = true,
+    desc = "Binding: blue = Warbound, white = Soulbound, dim grey = not bound.",
     valueFn = function() return "" end,   -- rendered as an icon, not text
     sortFn = function(r) return r.bound or "" end },
   { key = "ilvl", label = "iLvl", width = 40, align = "RIGHT",
+    desc = "Item level (equippable gear only).",
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
     sortFn = function(r) return r.itemLevel or 0 end },
   { key = "item", label = "Item", width = 0, flex = true, align = "LEFT",
+    desc = "Item looted. Hover for its tooltip.",
     valueFn = function(r)
       return r.itemName or (r.itemLink and r.itemLink:match("%[(.-)%]")) or "?"
     end,
     sortFn = function(r) return (r.itemName or ""):lower() end },
   { key = "qty", label = "Qty", width = 40, align = "RIGHT",
+    desc = "Quantity looted in this event.",
     valueFn = function(r) return tostring(r.quantity or 1) end,
     sortFn = function(r) return r.quantity or 1 end },
   { key = "quality", label = "Quality", width = 74, align = "LEFT",
+    desc = "Item quality (Poor → Legendary).",
     valueFn = function(r) return NS.Compat.QualityLabel(r.quality) end,
     sortFn = function(r) return r.quality or 0 end },
   { key = "source", label = "Source", width = 88, align = "LEFT",
+    desc = "How the item was acquired (kill, container, mail, trade, …).",
     valueFn = function(r) return C.SourceLabel[r.source] or r.source or "Other" end,
     sortFn = function(r) return C.SourceLabel[r.source] or r.source or "" end },
   { key = "from", label = "From", width = 120, align = "LEFT",
+    desc = "Where it came from — mob, mail sender, trade partner, merchant, or quest.",
     valueFn = function(r) return r.sourceName or EMDASH end,
     sortFn = function(r) return (r.sourceName or ""):lower() end },
   { key = "zone", label = "Zone", width = 120, align = "LEFT",
+    desc = "Zone where the item was looted (subzone in the item tooltip).",
     valueFn = function(r) return r.zone or "" end,
     sortFn = function(r) return (r.zone or ""):lower() end },
-  { key = "char", label = "Character", width = 96, align = "LEFT",
-    valueFn = function(r) return charName(r.char) end,
-    sortFn = function(r) return (r.char or ""):lower() end },
 }
 
 local COLUMN_BY_KEY = {}
@@ -252,9 +265,39 @@ function BrowserTable:Attach(pane)
   self:Refresh()
 end
 
+-- Build one header button per column (text label, or a white lock for the icon column).
+-- Each shows a tooltip describing the column; buttons will drive sorting in 3.3.
+function BrowserTable:MakeHeaderButton(col)
+  local btn = CreateFrame("Button", nil, self.headerFrame)
+  btn:SetHeight(HEADER_H)
+  if col.icon then
+    local tex = btn:CreateTexture(nil, "OVERLAY")
+    tex:SetSize(12, 14)
+    tex:SetPoint("CENTER")
+    tex:SetTexture(LOCK_TEX)
+    tex:SetVertexColor(1, 1, 1) -- white lock as the Bound header
+    btn.tex = tex
+  else
+    local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    fs:SetPoint("LEFT", 0, 0)
+    fs:SetJustifyH(col.align)
+    fs:SetText(col.label)
+    fs:SetTextColor(1, 0.82, 0)
+    btn.fs = fs
+  end
+  btn:SetScript("OnEnter", function(self2)
+    GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(col.label ~= "" and col.label or "Bound", 1, 0.82, 0)
+    if col.desc then GameTooltip:AddLine(col.desc, 0.9, 0.9, 0.9, true) end
+    GameTooltip:Show()
+  end)
+  btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  return btn
+end
+
 function BrowserTable:BuildHeaderCells()
   local header = self.headerFrame
-  header.cells = header.cells or {}
+  header.buttons = header.buttons or {}
   local total = self:ContentWidth()
   local fixed = 0
   for _, col in ipairs(self.COLUMNS) do
@@ -265,17 +308,15 @@ function BrowserTable:BuildHeaderCells()
   local x = 0
   for _, col in ipairs(self.COLUMNS) do
     local w = col.flex and flexW or col.width
-    local fs = header.cells[col.key]
-    if not fs then
-      fs = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-      fs:SetJustifyH(col.align)
-      fs:SetText(col.label)
-      fs:SetTextColor(1, 0.82, 0)
-      header.cells[col.key] = fs
+    local btn = header.buttons[col.key]
+    if not btn then
+      btn = self:MakeHeaderButton(col)
+      header.buttons[col.key] = btn
     end
-    fs:ClearAllPoints()
-    fs:SetPoint("LEFT", header, "LEFT", x, 0)
-    fs:SetWidth(w)
+    btn:ClearAllPoints()
+    btn:SetPoint("LEFT", header, "LEFT", x, 0)
+    btn:SetWidth(w)
+    if btn.fs then btn.fs:SetWidth(w) end
     x = x + w + COL_GAP
   end
 end
@@ -345,12 +386,9 @@ function BrowserTable:BindRow(row, entry, absIndex)
     end
   end
 
-  -- Bound lock icon: grey soulbound, blue warbound, hidden if unbound.
-  local bc = BOUND_COLOR[r.bound]
-  if bc then
-    row.boundIcon:SetVertexColor(bc[1], bc[2], bc[3])
-    row.boundIcon:Show()
-  else
-    row.boundIcon:Hide()
-  end
+  -- Bound lock icon (always shown): blue = warbound, white = soulbound, faint grey = unbound.
+  local style = BOUND_STYLE[r.bound] or BOUND_STYLE.UNBOUND
+  row.boundIcon:SetVertexColor(style[1], style[2], style[3])
+  row.boundIcon:SetAlpha(style[4])
+  row.boundIcon:Show()
 end
