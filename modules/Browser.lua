@@ -403,8 +403,8 @@ function B:ClearFilters()
 end
 
 -- Build the History tab chrome: two-row filter bar (top), table host (middle), footer (bottom).
---   Row 1: Group · Quality · Source · Type
---   Row 2: Character · Zone · Date · [search…] · Clear
+--   Row 1: Group by · [search…] · Clear
+--   Row 2: column filters in table order — Date · Quality · Type · Source · Zone · Character
 function B:BuildHistory(pane)
   local ROW1, ROW2 = 0, -24
   local bar = CreateFrame("Frame", nil, pane)
@@ -415,70 +415,16 @@ function B:BuildHistory(pane)
   local dd = {}
   self._dd = dd
 
-  -- ── Row 1 ──
+  -- ── Row 1: Group by · Search · Clear ──
   dd.group = MakeDropdown(bar, 116)
   dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
   dd.group.onSelect = function(v) if NS.BrowserTable then NS.BrowserTable:SetGroupBy(v) end end
 
-  dd.quality = MakeDropdown(bar, 100)
-  dd.quality:SetPoint("LEFT", dd.group, "RIGHT", 6, 0)
-  dd.quality:SetOptions(QUALITY_OPTIONS)
-  dd.quality:SetValue("all", "Quality: All")
-  dd.quality.onSelect = function(v)
-    -- Explicit branch: `(v=="all") and nil or v` is the Lua ternary trap — with nil in the
-    -- middle it evaluates back to v, so "All" would never clear the filter.
-    if v == "all" then B.activeFilter.quality = nil else B.activeFilter.quality = v end
-    ApplyFilter()
-  end
-
-  dd.source = MakeDropdown(bar, 100)
-  dd.source:SetPoint("LEFT", dd.quality, "RIGHT", 6, 0)
-  dd.source:SetValue("all", "Source: All")
-  dd.source.onSelect = function(v)
-    if v == "all" then B.activeFilter.source = nil else B.activeFilter.source = v end
-    ApplyFilter()
-  end
-
-  dd.type = MakeDropdown(bar, 116)
-  dd.type:SetPoint("LEFT", dd.source, "RIGHT", 6, 0)
-  dd.type:SetValue("all", "Type: All")
-  dd.type.onSelect = function(v)
-    if v == "all" then B.activeFilter.itemType = nil else B.activeFilter.itemType = v end
-    ApplyFilter()
-  end
-
-  -- ── Row 2 ──
-  dd.char = MakeDropdown(bar, 150)
-  dd.char:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
-  dd.char:SetValue("all", "Character: All")
-  dd.char.onSelect = function(v)
-    if v == "all" then B.activeFilter.char = nil else B.activeFilter.char = v end
-    ApplyFilter()
-  end
-
-  dd.zone = MakeDropdown(bar, 120)
-  dd.zone:SetPoint("LEFT", dd.char, "RIGHT", 6, 0)
-  dd.zone:SetValue("all", "Zone: All")
-  dd.zone.onSelect = function(v)
-    if v == "all" then B.activeFilter.mapID = nil else B.activeFilter.mapID = v end
-    ApplyFilter()
-  end
-
-  dd.date = MakeDropdown(bar, 120)
-  dd.date:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
-  dd.date:SetOptions(DATE_OPTIONS)
-  dd.date:SetValue("all", "Date: All")
-  dd.date.onSelect = function(v)
-    if v == "all" then B.activeFilter.from = nil else B.activeFilter.from = dateFrom(v) end
-    ApplyFilter()
-  end
-
-  -- Clear button (bottom-right, row 2).
   local clear = CreateFrame("Button", nil, bar, "BackdropTemplate")
   clear:SetSize(52, 20)
-  clear:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
+  clear:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW1)
   clear:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
                       insets = { left = 1, right = 1, top = 1, bottom = 1 } })
   clear:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
@@ -490,10 +436,10 @@ function B:BuildHistory(pane)
   clear:SetScript("OnLeave", function() cl:SetTextColor(1, 1, 1) end)
   clear:SetScript("OnClick", function() B:ClearFilters() end)
 
-  -- Item-name search box, filling the gap between the Date dropdown and Clear (row 2).
+  -- Item-name search box, filling the gap between Group by and Clear (row 1).
   local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   search:SetHeight(20)
-  search:SetPoint("LEFT", dd.date, "RIGHT", 8, 0)
+  search:SetPoint("LEFT", dd.group, "RIGHT", 8, 0)
   search:SetPoint("RIGHT", clear, "LEFT", -8, 0)
   search:SetAutoFocus(false)
   search:SetFontObject("GameFontHighlightSmall")
@@ -514,6 +460,60 @@ function B:BuildHistory(pane)
   search:SetScript("OnEscapePressed", function(self2) self2:ClearFocus() end)
   search:SetScript("OnEnterPressed", function(self2) self2:ClearFocus() end)
   self._search = search
+
+  -- ── Row 2: column filters, left→right in the same order the columns appear in the table:
+  --   Date · Quality · Type · Source · Zone · Character ──
+  dd.date = MakeDropdown(bar, 120)
+  dd.date:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
+  dd.date:SetOptions(DATE_OPTIONS)
+  dd.date:SetValue("all", "Date: All")
+  dd.date.onSelect = function(v)
+    if v == "all" then B.activeFilter.from = nil else B.activeFilter.from = dateFrom(v) end
+    ApplyFilter()
+  end
+
+  dd.quality = MakeDropdown(bar, 100)
+  dd.quality:SetPoint("LEFT", dd.date, "RIGHT", 6, 0)
+  dd.quality:SetOptions(QUALITY_OPTIONS)
+  dd.quality:SetValue("all", "Quality: All")
+  dd.quality.onSelect = function(v)
+    -- Explicit branch: `(v=="all") and nil or v` is the Lua ternary trap — with nil in the
+    -- middle it evaluates back to v, so "All" would never clear the filter.
+    if v == "all" then B.activeFilter.quality = nil else B.activeFilter.quality = v end
+    ApplyFilter()
+  end
+
+  dd.type = MakeDropdown(bar, 116)
+  dd.type:SetPoint("LEFT", dd.quality, "RIGHT", 6, 0)
+  dd.type:SetValue("all", "Type: All")
+  dd.type.onSelect = function(v)
+    if v == "all" then B.activeFilter.itemType = nil else B.activeFilter.itemType = v end
+    ApplyFilter()
+  end
+
+  dd.source = MakeDropdown(bar, 100)
+  dd.source:SetPoint("LEFT", dd.type, "RIGHT", 6, 0)
+  dd.source:SetValue("all", "Source: All")
+  dd.source.onSelect = function(v)
+    if v == "all" then B.activeFilter.source = nil else B.activeFilter.source = v end
+    ApplyFilter()
+  end
+
+  dd.zone = MakeDropdown(bar, 120)
+  dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 6, 0)
+  dd.zone:SetValue("all", "Zone: All")
+  dd.zone.onSelect = function(v)
+    if v == "all" then B.activeFilter.mapID = nil else B.activeFilter.mapID = v end
+    ApplyFilter()
+  end
+
+  dd.char = MakeDropdown(bar, 150)
+  dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
+  dd.char:SetValue("all", "Character: All")
+  dd.char.onSelect = function(v)
+    if v == "all" then B.activeFilter.char = nil else B.activeFilter.char = v end
+    ApplyFilter()
+  end
 
   -- Footer count.
   local footer = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
