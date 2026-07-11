@@ -52,9 +52,9 @@ end
 -- colour on hover. Shared by the History and Debug windows.
 function B:MakeCloseButton(parent, onClick)
   local close = CreateFrame("Button", nil, parent)
-  close:SetSize(20, 20)
+  close:SetSize(22, 22)
   local x = close:CreateFontString(nil, "OVERLAY")
-  x:SetFont(STANDARD_TEXT_FONT, 18, "")
+  x:SetFont(STANDARD_TEXT_FONT, 24, "")  -- sized so the × reads about the same as the 16px gear
   x:SetPoint("CENTER", 0, 0)
   x:SetText("\195\151")  -- × multiplication sign (thin, ElvUI-like)
   x:SetTextColor(0.85, 0.85, 0.85)
