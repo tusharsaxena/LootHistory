@@ -1,0 +1,50 @@
+## Interface: 120000, 120001, 120005
+## Title: Ka0s Loot History
+## Notes: Records every item you loot, attributes its source, and browses the history.
+## Author: add1kted2ka0s
+## Version: 0.1.0
+## SavedVariables: LootHistoryDB
+## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0
+## DefaultState: enabled
+## Category-enUS: Misc
+## X-License: MIT
+## X-Curse-Project-ID: 0
+## X-Wago-ID: 0
+
+# Libraries (embedded via .pkgmeta externals; never committed to git)
+# libs\LibStub\LibStub.lua
+# libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+# libs\AceAddon-3.0\AceAddon-3.0.xml
+# libs\AceDB-3.0\AceDB-3.0.xml
+# libs\AceEvent-3.0\AceEvent-3.0.xml
+# libs\AceTimer-3.0\AceTimer-3.0.xml
+# libs\AceConsole-3.0\AceConsole-3.0.xml
+# libs\AceGUI-3.0\AceGUI-3.0.xml
+# libs\LibSharedMedia-3.0\lib.xml
+# libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+# libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+
+# core (Compat loads first)
+core\Compat.lua
+core\Constants.lua
+core\Namespace.lua
+core\State.lua
+core\Util.lua
+core\LootHistory.lua
+core\Database.lua
+
+# defaults + locales
+defaults\Global.lua
+locales\enUS.lua
+
+# settings
+settings\Schema.lua
+settings\Slash.lua
+settings\Panel.lua
+
+# modules (Attribution before Collector)
+modules\Attribution.lua
+modules\Collector.lua
+modules\Browser.lua
+modules\BrowserTable.lua
+modules\Analytics.lua

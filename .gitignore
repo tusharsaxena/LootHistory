@@ -1,0 +1,7 @@
+# Ace3 and other libraries are pulled via .pkgmeta externals — never committed.
+libs/
+
+# OS / editor cruft
+*.bak
+.DS_Store
+Thumbs.db

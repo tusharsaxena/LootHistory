@@ -1,0 +1,22 @@
+package-as: LootHistory
+
+externals:
+  libs/LibStub:                 { url: https://repos.curseforge.com/wow/ace3/trunk/LibStub,              tag: latest }
+  libs/CallbackHandler-1.0:     { url: https://repos.curseforge.com/wow/ace3/trunk/CallbackHandler-1.0,  tag: latest }
+  libs/AceAddon-3.0:            { url: https://repos.curseforge.com/wow/ace3/trunk/AceAddon-3.0,         tag: latest }
+  libs/AceDB-3.0:               { url: https://repos.curseforge.com/wow/ace3/trunk/AceDB-3.0,            tag: latest }
+  libs/AceEvent-3.0:            { url: https://repos.curseforge.com/wow/ace3/trunk/AceEvent-3.0,         tag: latest }
+  libs/AceTimer-3.0:            { url: https://repos.curseforge.com/wow/ace3/trunk/AceTimer-3.0,         tag: latest }
+  libs/AceConsole-3.0:          { url: https://repos.curseforge.com/wow/ace3/trunk/AceConsole-3.0,       tag: latest }
+  libs/AceGUI-3.0:              { url: https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0,           tag: latest }
+  libs/LibSharedMedia-3.0:      { url: https://repos.wowace.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0, tag: latest }
+  libs/LibDataBroker-1.1:       { url: https://repos.curseforge.com/wow/libdatabroker-1-1/trunk/LibDataBroker-1.1, tag: latest }
+  libs/LibDBIcon-1.0:           { url: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0, tag: latest }
+
+ignore:
+  - .luacheckrc
+  - reviews
+  - docs
+  - tests
+  - _dev
+  - "*.bak"
