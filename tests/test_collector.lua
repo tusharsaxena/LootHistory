@@ -9,9 +9,12 @@ test("Collector: BuildRecord populates every field", function()
   local ctx = { source = "KILL", sourceName = "Ovi'nax",
                 sourceDetail = { npcID = 214506 }, confidence = "CERTAIN" }
   local env = { ts = 1000, char = "Ka0z-Realm", itemID = 211296, itemName = "Vial of Fun",
-                quality = 4, zone = "Nerub-ar Palace", mapID = 2657, subzone = "The Hive" }
+                quality = 4, itemLevel = 489, bound = "WARBOUND",
+                zone = "Nerub-ar Palace", mapID = 2657, subzone = "The Hive" }
   local r = NS.Collector:BuildRecord(LINK, 3, ctx, env)
   assertEqual(r.ts, 1000)
+  assertEqual(r.itemLevel, 489)
+  assertEqual(r.bound, "WARBOUND")
   assertEqual(r.char, "Ka0z-Realm")
   assertEqual(r.itemID, 211296)
   assertEqual(r.itemLink, LINK)

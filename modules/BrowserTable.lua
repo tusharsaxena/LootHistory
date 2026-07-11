@@ -11,6 +11,11 @@ local HEADER_H = 20
 local EMDASH = "\226\128\148"
 local ITEM_MIN = 90   -- minimum width of the flex (Item) column
 local COL_GAP = 6
+local LOCK_TEX = "Interface\\PetBattles\\PetJournal\\PetJournal-LockIcon"
+local BOUND_COLOR = {
+  SOULBOUND = { 0.75, 0.75, 0.75 }, -- grey lock
+  WARBOUND  = { 0.35, 0.55, 1.0 },  -- blue lock
+}
 
 -- Strip realm from "Name-Realm" for the compact Character column (full value in tooltip).
 local function charName(char)
@@ -20,12 +25,18 @@ end
 
 -- Column model. width 0 + flex=true means "absorb the remaining width" (the Item column).
 BrowserTable.COLUMNS = {
-  { key = "time", label = "Time", width = 44, align = "LEFT",
-    valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
-    sortFn = function(r) return r.ts or 0 end },
   { key = "date", label = "Date", width = 60, align = "LEFT",
     valueFn = function(r) return NS.Util.FormatDate(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
+  { key = "time", label = "Time", width = 44, align = "LEFT",
+    valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
+    sortFn = function(r) return r.ts or 0 end },
+  { key = "bound", label = "", width = 20, align = "CENTER", icon = true,
+    valueFn = function() return "" end,   -- rendered as an icon, not text
+    sortFn = function(r) return r.bound or "" end },
+  { key = "ilvl", label = "iLvl", width = 40, align = "RIGHT",
+    valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
+    sortFn = function(r) return r.itemLevel or 0 end },
   { key = "item", label = "Item", width = 0, flex = true, align = "LEFT",
     valueFn = function(r)
       return r.itemName or (r.itemLink and r.itemLink:match("%[(.-)%]")) or "?"
@@ -119,6 +130,13 @@ function BrowserTable:AcquireRow()
     row.cells[col.key] = fs
   end
 
+  -- Bound-state lock icon (Bound column); tinted + shown per record in BindRow.
+  local boundIcon = row:CreateTexture(nil, "OVERLAY")
+  boundIcon:SetSize(12, 14)
+  boundIcon:SetTexture(LOCK_TEX)
+  boundIcon:Hide()
+  row.boundIcon = boundIcon
+
   -- Group-header styling (used in 3.4); hidden for data rows.
   local header = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   header:SetPoint("LEFT", 4, 0)
@@ -175,6 +193,10 @@ function BrowserTable:LayoutRowCells(row)
     fs:ClearAllPoints()
     fs:SetPoint("LEFT", row, "LEFT", x, 0)
     fs:SetWidth(w)
+    if col.icon and row.boundIcon then
+      row.boundIcon:ClearAllPoints()
+      row.boundIcon:SetPoint("CENTER", row, "LEFT", x + w / 2, 0)
+    end
     x = x + w + COL_GAP
   end
 end
@@ -254,7 +276,7 @@ function BrowserTable:BuildHeaderCells()
     fs:ClearAllPoints()
     fs:SetPoint("LEFT", header, "LEFT", x, 0)
     fs:SetWidth(w)
-    x = x + w + 6
+    x = x + w + COL_GAP
   end
 end
 
@@ -305,6 +327,7 @@ function BrowserTable:BindRow(row, entry, absIndex)
 
   if entry.kind == "header" then
     for _, col in ipairs(self.COLUMNS) do row.cells[col.key]:SetText("") end
+    row.boundIcon:Hide()
     row.header:Show()
     row.header:SetText(entry.label or "")
     return
@@ -320,5 +343,14 @@ function BrowserTable:BindRow(row, entry, absIndex)
     else
       fs:SetTextColor(0.9, 0.9, 0.9)
     end
+  end
+
+  -- Bound lock icon: grey soulbound, blue warbound, hidden if unbound.
+  local bc = BOUND_COLOR[r.bound]
+  if bc then
+    row.boundIcon:SetVertexColor(bc[1], bc[2], bc[3])
+    row.boundIcon:Show()
+  else
+    row.boundIcon:Hide()
   end
 end

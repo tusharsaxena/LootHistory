@@ -83,3 +83,53 @@ function Compat.GetItemInfo(link)
   quality = quality or Compat.QualityFromLink(link)
   return itemID, name, quality
 end
+
+-- Scan an item link's tooltip for account/warbound or soulbound text.
+-- Returns "WARBOUND", "SOULBOUND", or nil. Retail-only (C_TooltipInfo); nil elsewhere.
+local WARBOUND_STRINGS = {
+  ITEM_ACCOUNTBOUND_UNTIL_EQUIP, -- "Warbound until equipped"
+  ITEM_BNETACCOUNTBOUND,         -- "Warbound"
+  ITEM_BIND_TO_BNETACCOUNT,      -- "Warbound"/"Blizzard Account Bound" (older)
+  ITEM_ACCOUNTBOUND,             -- "Account Bound"
+}
+local SOULBOUND_STRINGS = {
+  ITEM_SOULBOUND,                -- "Soulbound"
+}
+local function lineMatchesAny(text, list)
+  for _, s in ipairs(list) do
+    if s and s ~= "" and text:find(s, 1, true) then return true end
+  end
+  return false
+end
+
+function Compat.ScanBound(link)
+  if not (link and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return nil end
+  local data = C_TooltipInfo.GetHyperlink(link)
+  if not (data and data.lines) then return nil end
+  local soulbound
+  for _, line in ipairs(data.lines) do
+    local text = line.leftText
+    if text then
+      if lineMatchesAny(text, WARBOUND_STRINGS) then return "WARBOUND" end
+      if lineMatchesAny(text, SOULBOUND_STRINGS) then soulbound = true end
+    end
+  end
+  return soulbound and "SOULBOUND" or nil
+end
+
+-- Capture-time extras for a looted item: effective item level (equippable items only) and
+-- bound state. bindType==1 (BoP) implies soulbound; a warbound/account-bound tooltip wins.
+function Compat.GetItemExtras(link)
+  if not link then return nil, nil end
+  local ilvl, bound
+  if C_Item and C_Item.GetItemInfo then
+    local _, _, _, itemLevel, _, _, _, _, equipLoc, _, _, _, _, bindType = C_Item.GetItemInfo(link)
+    if equipLoc and equipLoc ~= "" then
+      ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link)) or itemLevel
+    end
+    if bindType == 1 then bound = "SOULBOUND" end
+  end
+  local scanned = Compat.ScanBound(link)
+  if scanned then bound = scanned end
+  return ilvl, bound
+end

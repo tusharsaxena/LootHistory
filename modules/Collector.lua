@@ -26,6 +26,8 @@ function Collector:BuildRecord(link, qty, ctx, env)
     itemLink     = link,
     itemName     = env.itemName,
     quality      = env.quality,
+    itemLevel    = env.itemLevel,   -- effective ilvl for equippable items; nil otherwise
+    bound        = env.bound,       -- "SOULBOUND" | "WARBOUND" | nil
     quantity     = qty,
     source       = ctx.source,
     sourceName   = ctx.sourceName,
@@ -60,11 +62,13 @@ function Collector:OnChatMsgLoot(_, msg)
     return
   end
 
+  local itemLevel, bound = NS.Compat.GetItemExtras(link)
   local zone, subzone = NS.Compat.GetZone()
   local record = self:BuildRecord(link, qty,
     { source = source, sourceName = sourceName, sourceDetail = sourceDetail, confidence = confidence },
     { ts = time(), char = NS.Util.PlayerKey(), itemID = itemID, itemName = itemName,
-      quality = quality, zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
+      quality = quality, itemLevel = itemLevel, bound = bound,
+      zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
 
   NS.Database:Add(record)
 

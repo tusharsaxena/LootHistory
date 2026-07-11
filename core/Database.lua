@@ -9,7 +9,9 @@ end
 function NS:RunMigrations()
   local g = NS.db.global
   g.schemaVersion = g.schemaVersion or 1
-  -- if g.schemaVersion < 2 then <transform each record> ; g.schemaVersion = 2 end
+  -- v2: records gained optional itemLevel + bound fields. Additive and nil-safe, so old
+  -- records need no transform; they simply carry no ilvl/bound until re-looted.
+  if g.schemaVersion < 2 then g.schemaVersion = 2 end
 end
 
 NS.Database = NS.Database or {}
@@ -79,7 +81,8 @@ function Database:Export(filter)
   for _, r in ipairs(self:Query(filter or {})) do
     out[#out + 1] = {
       ts = r.ts, char = r.char, itemID = r.itemID, itemLink = r.itemLink,
-      itemName = r.itemName, quality = r.quality, quantity = r.quantity,
+      itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
+      quantity = r.quantity,
       source = r.source, sourceName = r.sourceName, sourceDetail = r.sourceDetail,
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
     }
