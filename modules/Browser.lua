@@ -544,7 +544,9 @@ function B:BuildHistory(pane)
   self._dd = dd
 
   -- ── Row 1: Group by · Search · Clear ──
-  dd.group = MakeDropdown(bar, 116)
+  -- Group width matches the Date dropdown directly below it (120); the player toggle at the
+  -- right of row 2 matches the Save+Reset+Clear button cluster above it (48+6+52+6+52 = 164).
+  dd.group = MakeDropdown(bar, 120)
   dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
@@ -639,7 +641,7 @@ function B:BuildHistory(pane)
 
   -- Player scope toggle (row 2, right-aligned): Current player (session default) vs All players.
   -- Shares the char filter with the Character dropdown via SetCharFilter.
-  dd.player = MakeDropdown(bar, 130)
+  dd.player = MakeDropdown(bar, 164)
   dd.player:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
   dd.player:SetOptions(PLAYER_OPTIONS)
   dd.player:SetValue("current", "Current player")
