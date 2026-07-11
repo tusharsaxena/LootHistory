@@ -3,6 +3,10 @@ NS.Browser = NS.Browser or {}
 local B = NS.Browser
 local frame
 
+local LDB_NAME = "Ka0s Loot History"  -- LibDataBroker object + LibDBIcon registration key
+local minimapObject                   -- the LDB launcher, created once on first Enable
+local DBIcon                          -- LibDBIcon-1.0, resolved lazily in SetupMinimap
+
 -- Flat "ElvUI-like" default skin: 1px black border + subtle inner line + dark, near-opaque
 -- flat background + centered gold title + small red close glyph. Built from stock Blizzard
 -- textures only (no ElvUI dependency).
@@ -808,13 +812,55 @@ function B:SetScale(v)
   if frame then frame:SetScale(v) end
 end
 
--- React to settings changes (scale) while the window exists.
+-- React to settings changes (window scale + minimap visibility) while the window exists.
 function B:OnSettingsChanged()
   if frame then frame:SetScale(NS.db.global.settings.windowScale or 1.0) end
+  self:SetMinimapHidden(NS.db.global.minimap and NS.db.global.minimap.hide)
 end
 
--- LibDBIcon wiring lands in Milestone 5.
-function B:SetMinimapHidden(_hide)
+-- ── Minimap button (LibDBIcon + LibDataBroker) ─────────────────────────────────
+-- A "launcher" data object: left-click toggles the window, right-click opens Settings,
+-- and the tooltip shows the live record count. Visibility lives in db.global.minimap
+-- (the same table the "Hide minimap button" setting writes), which LibDBIcon owns —
+-- so registration alone honors the persisted hide state across /reload.
+
+function B:SetupMinimap()
+  if minimapObject then return end  -- already registered this session
+  local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
+  DBIcon = DBIcon or (LibStub and LibStub("LibDBIcon-1.0", true))
+  if not (LDB and DBIcon) then return end
+
+  minimapObject = LDB:NewDataObject(LDB_NAME, {
+    type  = "launcher",
+    label = "Loot History",
+    icon  = "Interface\\Icons\\INV_Misc_Bag_08",
+    OnClick = function(_, button)
+      if button == "RightButton" then
+        if NS.Panel and NS.Panel.Open then NS.Panel:Open() end
+      else
+        B:Toggle()
+      end
+    end,
+    OnTooltipShow = function(tt)
+      tt:AddLine("Ka0s Loot History", 1, 0.82, 0)
+      local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
+      tt:AddLine(n == 1 and "1 record" or (n .. " records"), 0.7, 0.7, 0.7)
+      tt:AddLine(" ")
+      tt:AddLine("Left-click: open the history window", 0.5, 0.5, 0.5)
+      tt:AddLine("Right-click: open settings", 0.5, 0.5, 0.5)
+    end,
+  })
+
+  local mm = NS.db.global.minimap
+  if not mm then mm = { hide = false }; NS.db.global.minimap = mm end
+  DBIcon:Register(LDB_NAME, minimapObject, mm)
+end
+
+-- Show/hide the minimap button live (driven by the "Hide minimap button" setting).
+function B:SetMinimapHidden(hide)
+  if DBIcon and DBIcon:IsRegistered(LDB_NAME) then
+    if hide then DBIcon:Hide(LDB_NAME) else DBIcon:Show(LDB_NAME) end
+  end
 end
 
 -- Keep the History tab current when the underlying history changes (new loot, a row delete,
@@ -833,5 +879,6 @@ function B:Enable()
     NS.bus:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() B:OnSettingsChanged() end)
     NS.bus:RegisterMessage("Ka0s_LootHistory_HistoryChanged", function() B:OnHistoryChanged() end)
     NS.bus:RegisterMessage("Ka0s_LootHistory_RecordAdded", function() B:OnHistoryChanged() end)
+    B:SetupMinimap()
   end
 end
