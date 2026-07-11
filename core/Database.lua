@@ -43,7 +43,9 @@ end
 --   · text (case-insensitive substring on itemName). Empty/nil filter returns all.
 function Database:Query(filter)
   filter = filter or {}
-  local minQ = filter.quality
+  -- Only a numeric quality is a valid minimum; ignore anything else so a stray filter value
+  -- (e.g. an "all" sentinel) can never crash the comparison below and take the window with it.
+  local minQ = type(filter.quality) == "number" and filter.quality or nil
   local src = filter.source
   local srcIsSet = type(src) == "table"
   local char = filter.char

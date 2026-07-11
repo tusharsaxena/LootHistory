@@ -222,10 +222,12 @@ local function MakeDropdown(parent, width)
   fs:SetJustifyH("LEFT")
   dd.text = fs
 
-  local arrow = dd:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  arrow:SetPoint("RIGHT", -5, 0)
-  arrow:SetText("\226\150\188") -- ▼
-  arrow:SetTextColor(0.7, 0.7, 0.72)
+  -- Down-arrow texture (the ▼ glyph is not in the default WoW font, so it renders as a box).
+  local arrow = dd:CreateTexture(nil, "OVERLAY")
+  arrow:SetSize(12, 12)
+  arrow:SetPoint("RIGHT", -4, 0)
+  arrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+  arrow:SetVertexColor(0.7, 0.7, 0.72)
 
   function dd:SetOptions(opts) self._options = opts end
   function dd:SetValue(v, label) self._value = v; self.text:SetText(label or "") end
@@ -355,7 +357,9 @@ function B:BuildHistory(pane)
   dd.quality:SetOptions(QUALITY_OPTIONS)
   dd.quality:SetValue("all", "Quality: All")
   dd.quality.onSelect = function(v)
-    B.activeFilter.quality = (v == "all") and nil or v
+    -- Explicit branch: `(v=="all") and nil or v` is the Lua ternary trap — with nil in the
+    -- middle it evaluates back to v, so "All" would never clear the filter.
+    if v == "all" then B.activeFilter.quality = nil else B.activeFilter.quality = v end
     ApplyFilter()
   end
 
@@ -363,7 +367,7 @@ function B:BuildHistory(pane)
   dd.source:SetPoint("LEFT", dd.quality, "RIGHT", 6, 0)
   dd.source:SetValue("all", "Source: All")
   dd.source.onSelect = function(v)
-    B.activeFilter.source = (v == "all") and nil or v
+    if v == "all" then B.activeFilter.source = nil else B.activeFilter.source = v end
     ApplyFilter()
   end
 
@@ -371,7 +375,7 @@ function B:BuildHistory(pane)
   dd.char:SetPoint("LEFT", dd.source, "RIGHT", 6, 0)
   dd.char:SetValue("all", "Character: All")
   dd.char.onSelect = function(v)
-    B.activeFilter.char = (v == "all") and nil or v
+    if v == "all" then B.activeFilter.char = nil else B.activeFilter.char = v end
     ApplyFilter()
   end
 
@@ -379,7 +383,7 @@ function B:BuildHistory(pane)
   dd.zone:SetPoint("LEFT", dd.char, "RIGHT", 6, 0)
   dd.zone:SetValue("all", "Zone: All")
   dd.zone.onSelect = function(v)
-    B.activeFilter.mapID = (v == "all") and nil or v
+    if v == "all" then B.activeFilter.mapID = nil else B.activeFilter.mapID = v end
     ApplyFilter()
   end
 

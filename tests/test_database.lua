@@ -64,6 +64,12 @@ test("Database: Query by minimum quality (>=)", function()
   assertEqual(r[2].itemID, 3)
 end)
 
+test("Database: Query ignores a non-numeric quality (no crash, returns all)", function()
+  seed()
+  -- Regression: a stray "all" sentinel used to reach `r.quality < "all"` and error out.
+  assertEqual(#NS.Database:Query({ quality = "all" }), 4)
+end)
+
 test("Database: Query by source (string)", function()
   seed()
   assertEqual(#NS.Database:Query({ source = "KILL" }), 2)

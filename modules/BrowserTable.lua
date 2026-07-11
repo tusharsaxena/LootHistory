@@ -195,8 +195,11 @@ BrowserTable.sortAsc = false
 -- newest first); text columns start ascending (A→Z). Re-clicking a column toggles.
 local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, quality = true, vendor = true }
 
-local ARROW_ASC  = " |cffffd100\226\150\178|r"  -- ▲
-local ARROW_DESC = " |cffffd100\226\150\188|r"  -- ▼
+-- The default WoW font has no ▲/▼/▶ glyphs, so all arrows use inline texture markup instead.
+-- ":0" sizes the texture to the surrounding line height. These button textures ship in every
+-- flavor. Sort arrows use the up/down spinner arrows; group headers use +/- (see BindRow).
+local ARROW_ASC  = " |TInterface\\Buttons\\Arrow-Up-Up:0|t"
+local ARROW_DESC = " |TInterface\\Buttons\\Arrow-Down-Up:0|t"
 
 -- Grouping. "none" = flat table; otherwise records are partitioned under collapsible
 -- headers (see SetGroupBy). collapsed[key] = true hides a group's rows.
@@ -692,7 +695,9 @@ function BrowserTable:BindRow(row, entry, absIndex)
     for _, col in ipairs(self.COLUMNS) do row.cells[col.key]:SetText("") end
     row.boundIcon:Hide()
     row.header:Show()
-    local arrow = entry.collapsed and "\226\150\182" or "\226\150\188" -- ▶ collapsed / ▼ expanded
+    -- +/- box marks collapsed/expanded (font has no triangle glyphs; texture markup always works).
+    local arrow = entry.collapsed and "|TInterface\\Buttons\\UI-PlusButton-Up:0|t"
+      or "|TInterface\\Buttons\\UI-MinusButton-Up:0|t"
     row.header:SetText(arrow .. "  " .. (entry.label or "")
       .. "  |cff808080(" .. (entry.count or 0) .. ")|r")
     return
