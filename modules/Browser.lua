@@ -55,7 +55,7 @@ function B:MakeCloseButton(parent, onClick)
   close:SetSize(22, 22)
   local x = close:CreateFontString(nil, "OVERLAY")
   x:SetFont(STANDARD_TEXT_FONT, 24, "")  -- sized so the × reads about the same as the 16px gear
-  x:SetPoint("CENTER", 0, 0)
+  x:SetPoint("CENTER", 0, 2)  -- the × glyph sits low in its font box; nudge up to align with the gear
   x:SetText("\195\151")  -- × multiplication sign (thin, ElvUI-like)
   x:SetTextColor(0.85, 0.85, 0.85)
   local _, class = UnitClass("player")
