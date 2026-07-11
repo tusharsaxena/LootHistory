@@ -22,7 +22,7 @@ Agent context for this repo. Read this first, then `docs/TECHNICAL_DESIGN.md` fo
 - **Substrate:** Ace3 — AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI.
 - **Extra libs:** LibSharedMedia-3.0 (fonts), LibDataBroker-1.1 + LibDBIcon-1.0 (minimap). LibSerialize/LibDeflate deferred to the v2 export.
 - **Tier: 2 (modular)** — collector, attribution engine, DB, browser, analytics, settings warrant >8 files.
-- All Ace3 + LibDBIcon libs via `.pkgmeta` externals. **Never vendor or commit libs.**
+- All libraries are **vendored in `libs/`** and committed as part of the addon (project choice — deviates from standard §3.3/§13, which prefer `.pkgmeta` externals). Do not delete `libs/` or switch to externals without the user's say-so.
 
 ---
 
@@ -71,12 +71,13 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 
 ---
 
-## Two approved deviations from the standard
+## Three approved deviations from the standard
 
 Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`:
 
 1. **`/lh` with no args toggles the window** (not "prints help"). This is a browser-first addon; help is under `/lh help`.
 2. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no combat-lockdown gate. The *Settings panel* still uses the canonical combat-gated canvas pattern.
+3. **Libraries are vendored in `libs/`** and committed, rather than pulled via `.pkgmeta` externals (standard §3.3/§13). User preference — the addon ships fully self-contained.
 
 ---
 

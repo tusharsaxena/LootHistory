@@ -115,7 +115,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 
 ## 6. Non-functional requirements
 
-- **NFR-1** **Standards compliance** — conforms to the Ka0s WoW Addon Standard (Ace3, Tier 2 layout, schema-as-single-source, closed message bus, Compat firewall, MIT, `.pkgmeta` externals, `.luacheckrc`). Two documented deviations (see §8).
+- **NFR-1** **Standards compliance** — conforms to the Ka0s WoW Addon Standard (Ace3, Tier 2 layout, schema-as-single-source, closed message bus, Compat firewall, MIT, `.luacheckrc`). Three documented deviations (see §8), including vendored libraries in place of `.pkgmeta` externals.
 - **NFR-2** **Performance** — capture is O(1) per loot event; cleanup runs once per session; the browser uses object pooling and cached upvalues for hot paths.
 - **NFR-3** **Multi-flavor** — single TOC with a multi-Interface line; flavor differences isolated in `Compat.lua`.
 - **NFR-4** **No taint** — the browser is a non-secure standalone frame; no protected/secure API misuse; no `:Hide()` on Blizzard frames.
@@ -140,6 +140,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 |---|---|---|
 | `/lh` with no args **toggles the window** instead of printing help. | §7.3 "no-arg = help". | The primary user action is opening the window; help remains available via `/lh help`. Explicit user requirement. |
 | History window is a **standalone non-secure frame**, not a Blizzard Settings canvas. | §6.1 canonical options pattern. | That pattern governs the *settings* panel (which does comply). A data browser is a distinct surface; being non-secure means no combat-lockdown gating is required. |
+| Libraries are **vendored in `libs/`** and committed to git. | §3.3 / §13 (externals-only; never commit Ace3). | Explicit user requirement — the addon ships fully self-contained, no packager step needed to obtain libs. `.pkgmeta` declares no `externals:` block. |
 
 ---
 

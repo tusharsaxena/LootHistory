@@ -1,5 +1,4 @@
-# Ace3 and other libraries are pulled via .pkgmeta externals — never committed.
-libs/
+# Libraries are vendored in libs/ and committed as part of the addon (project choice).
 
 # OS / editor cruft
 *.bak

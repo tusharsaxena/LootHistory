@@ -551,7 +551,9 @@ Help output is generated from `COMMANDS` (no hand-maintained help string).
 | LibDataBroker-1.1 | LDB launcher object | external |
 | LibDBIcon-1.0 | minimap button | external |
 
-**Deferred (v2, not declared until export lands):** `LibSerialize`, `LibDeflate` for the AI export. All declared as `.pkgmeta` externals; **never vendored** (standard §3.3).
+**Deferred (v2):** `LibSerialize`, `LibDeflate` for the AI export.
+
+> **Deviation from standard §3.3/§13 (project choice):** all libraries are **vendored in `libs/` and committed to git**, not pulled as `.pkgmeta` externals — the addon ships fully self-contained. The "Embedding" column above therefore reads "vendored" in practice; `.pkgmeta` declares no `externals:` block. When the v2 export libs land, they are vendored the same way.
 
 ---
 
