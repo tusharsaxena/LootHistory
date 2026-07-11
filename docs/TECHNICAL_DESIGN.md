@@ -98,19 +98,20 @@ modules\Analytics.lua
 ### 2.2 TOC header (key fields)
 
 ```
-## Interface: 120000, 120001, 120005
+## Interface: 120007
 ## Title: Ka0s Loot History
 ## Notes: Records every item you loot, attributes its source, and browses the history.
 ## Author: add1kted2ka0s
 ## Version: 0.1.0
+## IconTexture: Interface\Icons\inv_holiday_christmas_present_03
 ## SavedVariables: LootHistoryDB
-## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0
 ## DefaultState: enabled
-## Category-enUS: Misc
+## Category-enUS: Bags & Inventory
 ## X-License: MIT
-## X-Curse-Project-ID: <tbd>
-## X-Wago-ID: <tbd>
 ```
+
+> No `## OptionalDeps` — all libraries are vendored in `libs/` and loaded from this TOC's
+> file list, so there is no external addon to order load against.
 
 ---
 

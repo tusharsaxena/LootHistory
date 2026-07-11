@@ -58,7 +58,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 
 ### Task 0.1 — Repo skeleton & metadata
 **Files:** Create `LootHistory.toc`, `.pkgmeta`, `.luacheckrc`, `LICENSE` (MIT full text), empty `media/`, `libs/` (empty).
-- TOC per TD §2.2 (Interface `120000, 120001, 120005`, Title `Ka0s Loot History`, SavedVariables `LootHistoryDB`, OptionalDeps Ace3+LibDataBroker-1.1+LibDBIcon-1.0+LibSharedMedia-3.0, Category-enUS `Misc`, X-License MIT, X-Curse-Project-ID/X-Wago-ID placeholders). Files listed in TD §2.1 load order.
+- TOC per TD §2.2 (Interface `120007`, Title `Ka0s Loot History`, SavedVariables `LootHistoryDB`, Category-enUS `Bags & Inventory`, X-License MIT; no OptionalDeps — all libs vendored). Files listed in TD §2.1 load order.
 - `.pkgmeta` externals: LibStub, CallbackHandler-1.0, AceAddon/DB/Event/Timer/Console/GUI-3.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0. `ignore:` reviews/_dev/docs internal.
 - `.luacheckrc` std lua51, `globals = { "LootHistoryDB" }`, read_globals for the WoW APIs used (C_Item, C_Map, GetLootSourceInfo, time, GetZoneText, GetSubZoneText, hooksecurefunc, GetInboxHeaderInfo, UnitName, etc.).
 **Test:** `luacheck .` passes (no lua files yet → trivially clean). **Deliverable:** metadata committed.
