@@ -31,7 +31,7 @@ S.Schema = {
     end },
 
   -- ── Data Collection ──
-  { path = "settings.qualityThreshold", default = 0, type = "number", widget = "Dropdown",
+  { path = "settings.qualityThreshold", default = 1, type = "number", widget = "Dropdown",
     group = "Data Collection", label = "Minimum quality", options = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
@@ -45,8 +45,11 @@ S.Schema = {
       if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     end },
 
-  { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck", wide = true,
-    group = "Data Collection", label = "Don't record from", options = C.SOURCE_OPTIONS,
+  -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
+  -- (invert=true) as "Record data from" so a checked box means "record this source".
+  { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
+    wide = true, invert = true,
+    group = "Data Collection", label = "Record data from", options = C.SOURCE_OPTIONS,
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
     end },

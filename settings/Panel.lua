@@ -169,8 +169,11 @@ local function makeSlider(ctx, row, parent, rel)
   return s
 end
 
--- Set-map of muted SourceType keys, rendered full-width as a wrapping checkbox grid.
+-- Set-map (excludedSources) rendered full-width as a wrapping checkbox grid. With
+-- row.invert, a *checked* box means the source is recorded (i.e. NOT in the muted set),
+-- so the stored value is the logical inverse of the checkbox state.
 local function makeMultiCheck(ctx, row, scroll)
+  local invert = row.invert
   local group = AceGUI:Create("InlineGroup")
   group:SetTitle(row.label); group:SetFullWidth(true); group:SetLayout("Flow")
   local boxes = {}
@@ -181,7 +184,8 @@ local function makeMultiCheck(ctx, row, scroll)
       local cur = NS.Schema:Get(row.path) or {}
       local copy = {}
       for k, val in pairs(cur) do copy[k] = val end
-      copy[opt.value] = v and true or nil
+      -- muted = checked when inverted, unchecked otherwise
+      copy[opt.value] = ((invert and not v) or (not invert and v)) or nil
       NS.Schema:Set(row.path, copy)
     end)
     group:AddChild(cb)
@@ -190,14 +194,19 @@ local function makeMultiCheck(ctx, row, scroll)
   scroll:AddChild(group)
   ctx.refreshers[#ctx.refreshers + 1] = function()
     local cur = NS.Schema:Get(row.path) or {}
-    for value, cb in pairs(boxes) do cb:SetValue(cur[value] and true or false) end
+    for value, cb in pairs(boxes) do
+      local muted = cur[value] and true or false
+      cb:SetValue(invert and not muted or (not invert and muted))
+    end
   end
 end
 
 -- ── Two-column schema render ────────────────────────────────────────────────────
 -- Rows pair into 50%/50% Flow lines. A row with widget=="MultiCheck" (or wide=true)
 -- breaks onto its own full-width line. Group changes emit a section heading.
-local function renderSchema(ctx)
+-- `companions` optionally maps a row's path → function(parentRow) that adds a widget
+-- (e.g. an action button) into the SAME row, right of the field, then flushes it.
+local function renderSchema(ctx, companions)
   local scroll = ensureScroll(ctx)
   local pendingRow
 
@@ -221,7 +230,13 @@ local function renderSchema(ctx)
       if row.widget == "CheckBox" then makeCheckbox(ctx, row, pendingRow, 0.5)
       elseif row.widget == "Dropdown" then makeDropdown(ctx, row, pendingRow, 0.5)
       elseif row.widget == "Slider" then makeSlider(ctx, row, pendingRow, 0.5) end
-      if pendingRow and #pendingRow.children >= 2 then flushRow() end
+      local comp = companions and companions[row.path]
+      if comp then
+        comp(pendingRow)
+        flushRow()
+      elseif #pendingRow.children >= 2 then
+        flushRow()
+      end
     end
   end
   flushRow()
@@ -360,7 +375,22 @@ function P:Register()
   ctx.panel:SetScript("OnShow", function()
     if not rendered then
       rendered = true
-      renderSchema(ctx)
+      -- "Reset All" sits to the right of Window scale; it wipes history AND settings.
+      renderSchema(ctx, {
+        ["settings.windowScale"] = function(parentRow)
+          local btn = AceGUI:Create("Button")
+          btn:SetText("Reset All")
+          btn:SetRelativeWidth(0.5)
+          btn:SetCallback("OnClick", function()
+            if type(StaticPopup_Show) == "function" then
+              StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
+            elseif NS.Slash and NS.Slash.ResetEverything then
+              NS.Slash:ResetEverything()
+            end
+          end)
+          parentRow:AddChild(btn)
+        end,
+      })
       renderHistory(ctx)
       if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
     end

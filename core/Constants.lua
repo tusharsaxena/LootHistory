@@ -46,7 +46,7 @@ C.RETENTION_OPTIONS = {
   { value = 90,  label = "90 days" },
   { value = 180, label = "180 days" },
   { value = 365, label = "365 days" },
-  { value = 0,   label = "Never" },
+  { value = 0,   label = "Always" },
 }
 
 -- Per-source mute options, derived from the source order.

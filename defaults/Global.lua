@@ -7,9 +7,9 @@ NS.defaults.global = {
   history = {},          -- array of loot records
   settings = {
     enabled          = true,
-    qualityThreshold = 0,      -- Poor (grey) and above — record everything (testing default)
+    qualityThreshold = 1,      -- Common (white) and above
     excludedSources  = {},     -- set of muted SourceType keys
-    retentionDays    = 30,     -- 0 == Never
+    retentionDays    = 30,     -- 0 == keep Always
     windowScale      = 1.0,
     window           = {},     -- persisted position/size
   },

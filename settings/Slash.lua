@@ -6,7 +6,7 @@ local function tag()
   return NS.PREFIX .. " "
 end
 
--- Confirm dialog for /lh purge (destructive). Registered once; in-game only.
+-- Confirm dialogs for destructive actions. Registered once; in-game only.
 if type(StaticPopupDialogs) == "table" then
   StaticPopupDialogs["KA0S_LOOTHISTORY_PURGE"] = {
     text = "Delete ALL Ka0s Loot History records? This cannot be undone.",
@@ -19,6 +19,21 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"] = {
+    text = "Reset ALL Ka0s Loot History settings AND delete ALL recorded history? This cannot be undone.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function() Sl:ResetEverything() end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
+end
+
+-- Full reset: wipe history AND restore every setting to its default.
+function Sl:ResetEverything()
+  if NS.Database and NS.Database.Purge then NS.Database:Purge() end
+  Sl:CliResetAll()   -- resets settings + prints the confirmation line
+  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
 end
 
 function Sl:Register()
