@@ -7,7 +7,10 @@ local C = NS.Constants
 -- Paths resolve against NS.db.global (account-wide), not .profile.
 S.Schema = {
   { path = "settings.enabled", default = true, type = "boolean", widget = "CheckBox",
-    label = "Enable collection" },
+    label = "Enable collection",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
+    end },
 
   { path = "settings.qualityThreshold", default = 0, type = "number", widget = "Dropdown",
     label = "Minimum quality", options = C.QUALITY_OPTIONS,
@@ -22,7 +25,10 @@ S.Schema = {
     end },
 
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
-    label = "Don't record from", options = C.SOURCE_OPTIONS },
+    label = "Don't record from", options = C.SOURCE_OPTIONS,
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
+    end },
 
   { path = "minimap.hide", default = false, type = "boolean", widget = "CheckBox",
     label = "Hide minimap button",
