@@ -1,0 +1,209 @@
+# ARCHITECTURE — Ka0s Loot History
+
+Engineering reference for the addon: module map, data model, message bus, slash surface,
+event wiring, taint posture, and the two intentional deviations from the Ka0s standard.
+For product scope see `docs/REQUIREMENTS.md`; for design depth, `docs/TECHNICAL_DESIGN.md`.
+
+---
+
+## Overview
+
+**Ka0s Loot History** passively records every item the player loots above a configurable
+quality threshold, attributes each drop to a **source** (kill / container / mail / trade /
+AH / quest / vendor / craft / roll / M+ / other), stores it account-wide, and presents it in
+a standalone browser window with a filter/sort/group table plus an Insights analytics view.
+
+The addon splits into two internal halves:
+
+- **Collector** (capture) — `CHAT_MSG_LOOT` is the authoritative "item received (self)"
+  signal. Peripheral events stamp a short-lived source **context** that the collector consumes
+  when the loot line arrives, then writes one record to an account-wide AceDB array.
+- **Browser** (view) — a non-secure standalone frame rendering a virtualized pooled-row table
+  (History) and a frame-based analytics view (Insights), driven off the same DB.
+
+Tier-2 Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI, plus
+LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0. All libraries are **vendored** in
+`libs/` and committed (Ka0s Standard v1.1 — externals forbidden).
+
+---
+
+## Module map
+
+Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat first) →
+`defaults/` → `locales/` → `settings/` → `modules/` (Attribution before Collector).
+
+| File | Role |
+|---|---|
+| `core/Compat.lua` | **Loads first.** Flavor flags (`IsRetail`/`IsClassic`, the only `WOW_PROJECT_ID` read) + every deprecated/varying-API shim: GUID decode, item/map/zone info, quality-from-link fallback. |
+| `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `Confidence`, `CONTEXT_TTL`, quality/retention/source option tables. |
+| `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
+| `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`. |
+| `core/Util.lua` | Pure helpers: time/money formatting, self-loot string parsing, `PlayerKey`, table ops. |
+| `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. |
+| `core/Database.lua` | AceDB init, migrations, `Add`/`Query`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`, retention. |
+| `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `settings`, `minimap`. |
+| `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
+| `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
+| `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge/reset-all confirm dialogs. |
+| `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
+| `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/name/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
+| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, `Consume`, exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
+| `modules/Browser.lua` | Window shell: frame/skin, tabs, filter bar, group-by, footer, LDB launcher + LibDBIcon minimap button. |
+| `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. |
+| `modules/Analytics.lua` | Insights tab: date-range scoped source/quality/time breakdowns + top zones/items from `Database:Stats`. |
+| `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
+
+---
+
+## Data model
+
+One record per loot event, stored densely in `LootHistoryDB.global.history` (deletion and
+retention rebuild-and-swap — no holes). `itemLink` is canonical; the denormalized item fields
+back fast table ops.
+
+```lua
+{
+  ts, char, classFile,                       -- when / who (classFile = locale-independent token)
+  itemID, itemLink, itemName, quality,       -- item identity
+  itemLevel, bound, sellPrice,               -- itemLevel: equippable only; bound: BOE|BOP|ACCOUNT|WARBAND
+  itemType, itemSubType, quantity,           -- item classification + stack size
+  source, sourceName, sourceDetail,          -- source ∈ Constants.SourceType
+  zone, mapID, subzone,                       -- where
+  confidence,                                 -- CERTAIN | INFERRED
+}
+```
+
+- **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
+  Switching that is a schema + query rewrite; see CLAUDE.md "Do not change without reason".
+- `schemaVersion` is currently **3**; `Database:RunMigrations` upgrades older saved variables
+  on load.
+- `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
+  export contract (do not change its field shape).
+
+**Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
+`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`.
+
+---
+
+## Settings schema
+
+`settings/Schema.lua` is the single source of truth — one row drives the AceDB default, the
+panel widget, and the slash get/set/list/reset behavior. Every mutation flows through
+`Schema:Set(path, value)` (validate → write to `NS.db.global` → `onChange`).
+
+| Path | Group | Widget | Default | Notes |
+|---|---|---|---|---|
+| `settings.enabled` | Master Controls | CheckBox | `true` | Master capture switch. Fires `SettingsChanged`. |
+| `minimap.hide` | Master Controls | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
+| `settings.windowScale` | Master Controls | Slider (0.6–1.6) | `1.0` | Browser window scale (applied live). |
+| `settings.qualityThreshold` | Data Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
+| `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
+| `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
+
+`settings.window` (persisted position/size) and `minimap` (LibDBIcon state) are storage-only,
+not user-facing rows. Debug is session-only (`NS.State.debug`) and never persisted.
+
+---
+
+## Message bus
+
+Closed `Ka0s_LootHistory_*` bus (AceEvent), exactly one sender per message. No cross-module
+table reach.
+
+| Message | Sender | Payload | Consumers |
+|---|---|---|---|
+| `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
+| `Ka0s_LootHistory_HistoryChanged` | `Database` (`DeleteAt`/`Delete`/`PruneOld`/`Purge`) | — | Browser, Analytics, Panel |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+
+> `windowScale` and `minimap.hide` changes are **not** broadcast on the bus — their `onChange`
+> calls `Browser:SetScale` / `Browser:SetMinimapHidden` directly. Only `enabled`, quality and
+> excludes (which affect capture) fan out via `SettingsChanged`.
+
+---
+
+## Slash commands
+
+Registered by `settings/Slash.lua` for both `/lh` and `/loothistory`. Bare `/lh` **toggles the
+window** (Deviation 1). Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same
+table.
+
+| Verb | Action |
+|---|---|
+| *(none)* | Toggle the window |
+| `show` / `hide` / `toggle` | Open / close / toggle the window |
+| `config` | Open the Settings panel |
+| `get <path>` | Print a setting value |
+| `set <path> <value>` | Set a setting value |
+| `list` | List all settings |
+| `reset <path>` | Reset one setting to its default |
+| `resetall` | Reset all settings to defaults |
+| `debug` | Toggle the debug console (session-only) |
+| `test` | Toggle a preview of every bound type in the table (session-only) |
+| `purge` | Delete ALL loot history (confirm dialog) |
+| `help` | Print the generated command index |
+
+---
+
+## Event subscriptions
+
+| Event / hook | Handler | Module |
+|---|---|---|
+| `PLAYER_ENTERING_WORLD` | `OnEnterWorld` (once-per-session prune) | `core/LootHistory.lua` |
+| `CHAT_MSG_LOOT` | `OnChatMsgLoot` (authoritative capture) | `modules/Collector.lua` |
+| `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
+| `COMBAT_LOG_EVENT_UNFILTERED` | `OnCombatLogEvent` (kill-name cache) | `modules/Attribution.lua` |
+| `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
+| `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context | `modules/Attribution.lua` |
+| `MERCHANT_SHOW` | vendor context | `modules/Attribution.lua` |
+| `TRADE_SHOW` / `TRADE_ACCEPT_UPDATE` | trade context | `modules/Attribution.lua` |
+| `QUEST_TURNED_IN` | quest-reward context | `modules/Attribution.lua` |
+| `hooksecurefunc("BuyMerchantItem")` | `StampVendor` | `modules/Attribution.lua` |
+| `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` | `modules/Attribution.lua` |
+
+All flavor-varying or deprecated calls behind these handlers are routed through
+`core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
+
+---
+
+## Taint notes
+
+- The **browser is a plain non-secure `CreateFrame`** (Deviation 2) — it touches no protected
+  functions and needs no combat-lockdown gate. It can open/refresh in combat.
+- The **Settings panel** uses the canonical Blizzard `Settings.RegisterCanvasLayoutCategory`
+  canvas with a **lazy, combat-gated** AceGUI body — it defers building/opening during combat.
+- Attribution uses `hooksecurefunc` (post-hooks only) on `BuyMerchantItem` / `TakeInboxItem` /
+  `AutoLootMailItem` — these observe, never replace, and carry no taint.
+- No secure templates, no protected action buttons, no `SetAttribute` — the addon is purely
+  observational, so it cannot taint the loot/combat path.
+
+---
+
+## Deviations from the Ka0s standard
+
+Two intentional deviations (also recorded in `docs/REQUIREMENTS.md §8` and CLAUDE.md):
+
+1. **Bare `/lh` toggles the window** rather than printing help. This is a browser-first addon;
+   help lives under `/lh help`.
+2. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no
+   combat-lockdown gate. The Settings panel still uses the canonical combat-gated canvas.
+
+Vendored libraries are **not** a deviation — Ka0s Standard v1.1 makes vendoring the suite-wide
+rule.
+
+---
+
+## Known limitations
+
+- **CONTAINER source name.** Chests, lockboxes and gathering nodes loot through a
+  GameObject/Item GUID with no reliable object name, so `sourceName` stays `nil` (rendered as an
+  em-dash in the "From" column). Tracked as a backlog item; the "From" column carries a `TODO`.
+- **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting
+  items more than ~1.5s apart from one open window can let later items fall back to
+  `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
+- **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned
+  post-v0.1.0.
+- **AI export is a seam only** in v0.1.0 — `Database:Export()` exists; the companion export
+  feature ships in v2.
+
+See `docs/EXECUTION_PLAN.md` → Backlog for the full post-v0.1.0 list.

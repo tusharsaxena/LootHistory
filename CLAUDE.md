@@ -49,6 +49,7 @@ modules/
   Browser.lua       -- window shell: frame, tabs, filter bar, group-by control, minimap/LDB
   BrowserTable.lua  -- virtualized pooled-row table: filter→group→sort→slice→bind pipeline
   Analytics.lua     -- Insights tab: source/quality/time breakdowns + top zones/items
+  DebugLog.lua      -- session-only debug console window (Copy/Clear); mirrors NS.Debug output
 docs/               -- REQUIREMENTS, TECHNICAL_DESIGN, UX_DESIGN, EXECUTION_PLAN
 ```
 
@@ -109,11 +110,15 @@ sudo luarocks install luacheck
 
 ## Current status / TODO
 
-- [x] Planning docs complete: REQUIREMENTS · TECHNICAL_DESIGN · UX_DESIGN · EXECUTION_PLAN · CLAUDE. (ARCHITECTURE + README are authored with the code in Milestone 6.)
-- [ ] **Next:** implement per `docs/EXECUTION_PLAN.md`, starting Milestone 0 (scaffold + test harness + loadable skeleton). No addon code exists yet.
-- [ ] Scaffold: TOC, `.pkgmeta`, `.luacheckrc`, folder tree, headless test harness.
-- [ ] Milestones 1–5 (capture → data layer → browser → insights → settings/polish).
-- [ ] Milestone 6: ARCHITECTURE.md, README.md, first `reviews/<DATE>/` bundle, version stamp.
+- [x] Planning docs complete: REQUIREMENTS · TECHNICAL_DESIGN · UX_DESIGN · EXECUTION_PLAN · CLAUDE.
+- [x] Milestone 0 — scaffold, headless test harness, loadable Tier-2 skeleton.
+- [x] Milestone 1 — capture pipeline (self-parse, GUID decode, attribution, collector gate/build/write).
+- [x] Milestone 2 — data layer (Add/Query/Delete/PruneOld/Stats/Export), retention.
+- [x] Milestone 3 — browser window + virtualized table (sort, group, filter, row actions).
+- [x] Milestone 4 — Insights analytics (range selector, stat cards, frame-based charts).
+- [x] Milestone 5 — settings panel, slash CLI, minimap button (LibDBIcon + LDB).
+- [x] Milestone 6 (in progress): `ARCHITECTURE.md` + `README.md` authored (Task 6.1).
+- [ ] **Next (Task 6.2):** run `wow-addon:review` → first `reviews/<DATE>/` bundle; address blockers; final `luacheck .` + `lua tests/run.lua`; confirm `## Version: 0.1.0` consistent → tag-ready.
 - [ ] Fill `X-Curse-Project-ID` / `X-Wago-ID` in TOC before first publish.
 
 ---
