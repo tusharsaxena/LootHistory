@@ -586,10 +586,21 @@ end
 function B:SetMinimapHidden(_hide)
 end
 
+-- Keep the History tab current when the underlying history changes (new loot, a row delete,
+-- retention prune). Only does work when the window is open on the History tab.
+function B:OnHistoryChanged()
+  if not (frame and frame:IsShown() and lastTab == "History") then return end
+  if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh() end
+  self:RefreshFilterOptions()
+  self:UpdateFooter()
+end
+
 -- Subscribe once the addon (bus) is available.
 function B:Enable()
   if NS.bus and not self._enabled then
     self._enabled = true
     NS.bus:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() B:OnSettingsChanged() end)
+    NS.bus:RegisterMessage("Ka0s_LootHistory_HistoryChanged", function() B:OnHistoryChanged() end)
+    NS.bus:RegisterMessage("Ka0s_LootHistory_RecordAdded", function() B:OnHistoryChanged() end)
   end
 end

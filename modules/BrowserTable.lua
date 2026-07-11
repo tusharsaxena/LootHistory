@@ -430,24 +430,39 @@ function BrowserTable:AcquireRow()
   header:Hide()
   row.header = header
 
-  -- Hover → the full in-game item tooltip for this row's record.
+  -- Hover → the full in-game item tooltip for this row's record; INFERRED rows get a note
+  -- explaining the source is a guess. A hint line advertises the click interactions.
   row:SetScript("OnEnter", function(self2)
     local e = self2.entry
     if e and e.kind == "row" and e.record.itemLink then
       GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
       GameTooltip:SetHyperlink(e.record.itemLink)
+      if e.record.confidence == "INFERRED" then
+        GameTooltip:AddLine("Source inferred (uncertain).", 0.62, 0.62, 0.62)
+      end
+      GameTooltip:AddLine("Shift-click to link · right-click for options", 0.5, 0.5, 0.5)
       GameTooltip:Show()
     end
   end)
   row:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-  -- Left-click a group header toggles its collapse. (Data-row interactions land in 3.6.)
+  -- Header left-click toggles collapse. Data rows: shift-left-click links the item to chat;
+  -- right-click opens the row action menu.
   row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   row:SetScript("OnClick", function(self2, button)
     local e = self2.entry
     if not e then return end
-    if e.kind == "header" and button == "LeftButton" then
-      BrowserTable:ToggleCollapse(e.key)
+    if e.kind == "header" then
+      if button == "LeftButton" then BrowserTable:ToggleCollapse(e.key) end
+      return
+    end
+    local link = e.record.itemLink
+    if button == "LeftButton" then
+      if IsShiftKeyDown() and link and ChatEdit_InsertLink then
+        ChatEdit_InsertLink(link)
+      end
+    elseif button == "RightButton" then
+      BrowserTable:ShowRowMenu(self2, e.record)
     end
   end)
 
@@ -687,7 +702,14 @@ function BrowserTable:BindRow(row, entry, absIndex)
   local r = entry.record
   for _, col in ipairs(self.COLUMNS) do
     local fs = row.cells[col.key]
-    fs:SetText(col.valueFn(r))
+    if col.key == "item" and r.confidence == "INFERRED" then
+      -- Dim dot before the name marks an inferred (uncertain) source; the row tooltip
+      -- explains it. The |c…|r on the dot survives the SetTextColor below (which only sets
+      -- the FontString's default colour), so the dot stays grey while the name stays quality-coloured.
+      fs:SetText("|cff9d9d9d\226\128\162|r " .. col.valueFn(r)) -- • bullet
+    else
+      fs:SetText(col.valueFn(r))
+    end
     if col.key == "item" or col.key == "quality" then
       fs:SetTextColor(qualityColor(r.quality))
     elseif col.key == "char" then
@@ -703,4 +725,80 @@ function BrowserTable:BindRow(row, entry, absIndex)
   row.boundIcon:SetVertexColor(style[1], style[2], style[3])
   row.boundIcon:SetAlpha(style[4])
   row.boundIcon:Show()
+end
+
+-- ── Row context menu (right-click) ───────────────────────────────────────────────
+-- A tiny flat-skin popup with per-row actions; an outside-click catcher dismisses it.
+local WHITE8X8 = "Interface\\Buttons\\WHITE8X8"
+local rowMenu
+local function EnsureRowMenu()
+  if rowMenu then return rowMenu end
+  rowMenu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+  rowMenu:SetFrameStrata("FULLSCREEN_DIALOG")
+  rowMenu:SetBackdrop({ bgFile = WHITE8X8, edgeFile = WHITE8X8, edgeSize = 1 })
+  rowMenu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
+  rowMenu:SetBackdropBorderColor(0, 0, 0, 1)
+  rowMenu:Hide()
+  rowMenu.buttons = {}
+
+  local catcher = CreateFrame("Button", nil, UIParent)
+  catcher:SetAllPoints(UIParent)
+  catcher:SetFrameStrata("FULLSCREEN")
+  catcher:Hide()
+  catcher:SetScript("OnClick", function() rowMenu:Hide() end)
+  catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  rowMenu.catcher = catcher
+  rowMenu:SetScript("OnHide", function() catcher:Hide() end)
+  return rowMenu
+end
+
+function BrowserTable:ShowRowMenu(anchor, record)
+  local m = EnsureRowMenu()
+  local MENU_ROW_H, W = 18, 150
+  local items = {
+    { label = "Link to chat", enabled = record.itemLink ~= nil, fn = function()
+        if record.itemLink and ChatEdit_InsertLink then ChatEdit_InsertLink(record.itemLink) end
+      end },
+    { label = "|cffff5555Delete|r", enabled = true, fn = function()
+        NS.Database:Delete(function(r) return r == record end) -- fires HistoryChanged
+        BrowserTable:Refresh() -- repaint immediately (in case nothing else listens)
+      end },
+  }
+
+  for _, b in ipairs(m.buttons) do b:Hide() end
+  for i, item in ipairs(items) do
+    local b = m.buttons[i]
+    if not b then
+      b = CreateFrame("Button", nil, m)
+      b:SetHeight(MENU_ROW_H)
+      local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      fs:SetPoint("LEFT", 8, 0)
+      fs:SetJustifyH("LEFT")
+      b.fs = fs
+      local hl = b:CreateTexture(nil, "HIGHLIGHT")
+      hl:SetAllPoints()
+      hl:SetColorTexture(1, 0.82, 0, 0.15)
+      m.buttons[i] = b
+    end
+    b:SetWidth(W)
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * MENU_ROW_H)
+    b.fs:SetText(item.label)
+    if item.enabled then
+      b.fs:SetTextColor(0.9, 0.9, 0.9)
+      b:EnableMouse(true)
+      b:SetScript("OnClick", function() m:Hide(); item.fn() end)
+    else
+      b.fs:SetTextColor(0.5, 0.5, 0.5)
+      b:EnableMouse(false)
+      b:SetScript("OnClick", nil)
+    end
+    b:Show()
+  end
+
+  m:SetSize(W, #items * MENU_ROW_H + 8)
+  m:ClearAllPoints()
+  m:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 4, 0)
+  m.catcher:Show()
+  m:Show()
 end
