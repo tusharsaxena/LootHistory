@@ -363,8 +363,11 @@ function BrowserTable:GroupRecords(records)
 end
 
 -- Filter -> sort -> group into the flat display list the virtualizer binds.
+-- matchCount is the number of records that passed the filter (the "X" the footer shows),
+-- captured before grouping inserts header entries.
 function BrowserTable:BuildDisplayList()
   local records = self.testMode and self:BuildTestData() or NS.Database:Query(self.filter)
+  self.matchCount = #records
   return self:GroupRecords(self:SortRecords(records))
 end
 
