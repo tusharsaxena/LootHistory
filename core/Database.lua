@@ -39,8 +39,9 @@ function Database:Add(record)
 end
 
 -- Filter an arbitrary record array by the filter spec. Fields, all optional (AND-combined):
---   quality (min, >=) · source (string or set table) · char · mapID · from/to (ts, inclusive)
---   · text (case-insensitive substring on itemName). Empty/nil filter returns all.
+--   quality (min, >=) · source (string or set table) · char · itemType · mapID
+--   · from/to (ts, inclusive) · text (case-insensitive substring on itemName).
+--   Empty/nil filter returns all.
 -- Kept generic (not tied to the live history) so the Browser can filter its test dataset too.
 function Database:QueryList(records, filter)
   filter = filter or {}
@@ -50,6 +51,7 @@ function Database:QueryList(records, filter)
   local src = filter.source
   local srcIsSet = type(src) == "table"
   local char = filter.char
+  local itype = filter.itemType
   local mapID = filter.mapID
   local from = filter.from
   local to = filter.to
@@ -67,6 +69,7 @@ function Database:QueryList(records, filter)
       end
     end
     if ok and char and r.char ~= char then ok = false end
+    if ok and itype and r.itemType ~= itype then ok = false end
     if ok and mapID and r.mapID ~= mapID then ok = false end
     if ok and from and (r.ts or 0) < from then ok = false end
     if ok and to and (r.ts or 0) > to then ok = false end

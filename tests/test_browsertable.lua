@@ -13,7 +13,7 @@ test("BrowserTable: CellText renders each column", function()
   assertEqual(NS.BrowserTable:CellText("source", r), "Kill")
   assertEqual(NS.BrowserTable:CellText("from", r), "Ovi'nax")
   assertEqual(NS.BrowserTable:CellText("zone", r), "Valley")
-  assertEqual(NS.BrowserTable:CellText("char", r), "Ka0z") -- realm stripped for display
+  assertEqual(NS.BrowserTable:CellText("char", r), "Ka0z-Realm") -- full Name-Realm shown
   assertEqual(NS.BrowserTable:CellText("time", r), os.date("%H:%M", r.ts))
   assertEqual(NS.BrowserTable:CellText("date", r), os.date("%m/%d/%y", r.ts))
 end)

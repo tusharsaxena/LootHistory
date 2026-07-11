@@ -84,12 +84,6 @@ function BrowserTable:AddBoundLegend(tooltip)
   end
 end
 
--- Strip realm from "Name-Realm" for the compact Character column (full value in tooltip).
-local function charName(char)
-  if not char then return "" end
-  return char:match("^[^-]+") or char
-end
-
 -- Inline class icon for the Character column. Prefer the classicon-<class> atlas (renders
 -- cleanly inline); fall back to the shared class-circles texture via CLASS_ICON_TCOORDS.
 local CLASS_ICON_TEX = "Interface\\TargetingFrame\\UI-Classes-Circles"
@@ -107,14 +101,17 @@ local function classIconMarkup(classFile)
   return ""
 end
 
--- Class-colored, icon-prefixed display value for a looter.
+-- Class-colored, icon-prefixed display value for a looter. Shows the full "Name-Realm" so
+-- same-named characters on different realms stay distinct.
 local function charDisplay(r)
-  local name = charName(r.char)
+  local name = r.char or ""
   local icon = classIconMarkup(r.classFile)
   return icon ~= "" and (icon .. " " .. name) or name
 end
 
 -- Column model. width 0 + flex=true means "absorb the remaining width" (the Item column).
+-- Order note: the Character column is intentionally LAST, and Vendor second-last. Any new
+-- columns (AH price, Pawn, …) should be inserted BEFORE Character so it stays the last column.
 BrowserTable.COLUMNS = {
   { key = "date", label = "Date", width = 60, align = "LEFT",
     desc = "Date the item was looted.",
@@ -124,10 +121,6 @@ BrowserTable.COLUMNS = {
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  { key = "char", label = "Character", width = 104, align = "LEFT",
-    desc = "Character who looted the item (class-colored; realm in the item tooltip).",
-    valueFn = function(r) return charDisplay(r) end,
-    sortFn = function(r) return (r.char or ""):lower() end },
   { key = "ilvl", label = "iLvl", width = 40, align = "RIGHT",
     desc = "Item level (equippable gear only).",
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
@@ -155,10 +148,6 @@ BrowserTable.COLUMNS = {
     desc = "Item type (subtype in the Item tooltip).",
     valueFn = function(r) return r.itemType or "" end,
     sortFn = function(r) return (r.itemType or ""):lower() end },
-  { key = "vendor", label = "Vendor", width = 76, align = "RIGHT",
-    desc = "Vendor sell price per unit.",
-    valueFn = function(r) return NS.Util.FormatMoney(r.sellPrice) end,
-    sortFn = function(r) return r.sellPrice or 0 end },
   { key = "source", label = "Source", width = 88, align = "LEFT",
     desc = "How the item was acquired (kill, container, mail, trade, …).",
     valueFn = function(r) return C.SourceLabel[r.source] or r.source or "Other" end,
@@ -171,6 +160,15 @@ BrowserTable.COLUMNS = {
     desc = "Zone where the item was looted (subzone in the item tooltip).",
     valueFn = function(r) return r.zone or "" end,
     sortFn = function(r) return (r.zone or ""):lower() end },
+  { key = "vendor", label = "Vendor", width = 76, align = "RIGHT",
+    desc = "Vendor sell price per unit.",
+    valueFn = function(r) return NS.Util.FormatMoney(r.sellPrice) end,
+    sortFn = function(r) return r.sellPrice or 0 end },
+  -- Character is always the last column (see order note above).
+  { key = "char", label = "Character", width = 150, align = "LEFT",
+    desc = "Character who looted the item — full Name-Realm, class-colored.",
+    valueFn = function(r) return charDisplay(r) end,
+    sortFn = function(r) return (r.char or ""):lower() end },
 }
 
 local COLUMN_BY_KEY = {}
@@ -216,7 +214,7 @@ local function groupOf(groupBy, r)
   elseif groupBy == "zone" then
     label = r.zone or "Unknown"; raw = label
   elseif groupBy == "char" then
-    raw = r.char or "Unknown"; label = charName(r.char) or raw
+    raw = r.char or "Unknown"; label = raw
   elseif groupBy == "quality" then
     label = NS.Compat.QualityLabel(r.quality); raw = "q" .. tostring(r.quality or 0)
   elseif groupBy == "day" then

@@ -19,7 +19,9 @@ local SKIN = {
   tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (grey)
   titleBarH   = 30,
   tabStripH   = 26,
-  defaultH    = 440,   -- default == minimum height
+  contentGap  = 14,    -- vertical spacing between the tab strip and the pane content
+  defaultH    = 700,   -- opening height — shows the full Insights view without scrolling
+  minH        = 460,   -- minimum height (content scrolls below this)
 }
 B.SKIN = SKIN
 
@@ -262,6 +264,27 @@ local GROUP_OPTIONS = {
   { value = "quality", label = "Group: Quality" },
   { value = "day", label = "Group: Day" },
 }
+local DATE_OPTIONS = {
+  { value = "all", label = "Date: All" },
+  { value = "today", label = "Today" },
+  { value = "7d", label = "Last 7 days" },
+  { value = "30d", label = "Last 30 days" },
+}
+
+-- A date-range value → a `from` timestamp (nil = no lower bound). Today is the calendar day;
+-- 7d/30d are rolling windows.
+local function dateFrom(value)
+  local now = time()
+  if value == "today" then
+    local t = date("*t", now)
+    return now - (t.hour * 3600 + t.min * 60 + t.sec)
+  elseif value == "7d" then
+    return now - 7 * 86400
+  elseif value == "30d" then
+    return now - 30 * 86400
+  end
+  return nil
+end
 
 -- The dataset the filter bar reflects: the table's current records (test data in test mode,
 -- otherwise the live history) so dropdown options + the footer match what the table shows.
@@ -272,41 +295,57 @@ local function dataset()
   return NS.Database:History()
 end
 
+-- Sort distinct options by label and prefix the "All" sentinel (kept first regardless of sort).
+local function withAll(allLabel, items)
+  table.sort(items, function(a, b) return a.label < b.label end)
+  table.insert(items, 1, { value = "all", label = allLabel })
+  return items
+end
+
 -- Distinct { value, label } option lists from the current dataset, each prefixed with "All".
 local function sourceOptions()
-  local seen, out = {}, { { value = "all", label = "Source: All" } }
+  local seen, items = {}, {}
   for _, r in ipairs(dataset()) do
     local s = r.source
     if s and not seen[s] then
       seen[s] = true
-      out[#out + 1] = { value = s, label = (NS.Constants.SourceLabel[s] or s) }
+      items[#items + 1] = { value = s, label = (NS.Constants.SourceLabel[s] or s) }
     end
   end
-  return out
+  return withAll("Source: All", items)
 end
 local function charOptions()
-  local seen, out = {}, { { value = "all", label = "Character: All" } }
+  local seen, items = {}, {}
   for _, r in ipairs(dataset()) do
     local c = r.char
     if c and not seen[c] then
       seen[c] = true
-      out[#out + 1] = { value = c, label = c }
+      items[#items + 1] = { value = c, label = c }
     end
   end
-  table.sort(out, function(a, b) return a.label < b.label end)
-  return out
+  return withAll("Character: All", items)
+end
+local function typeOptions()
+  local seen, items = {}, {}
+  for _, r in ipairs(dataset()) do
+    local ty = r.itemType
+    if ty and ty ~= "" and not seen[ty] then
+      seen[ty] = true
+      items[#items + 1] = { value = ty, label = ty }
+    end
+  end
+  return withAll("Type: All", items)
 end
 local function zoneOptions()
   -- Query filters zones by mapID, so options carry mapID as value, zone name as label.
-  local seen, out = {}, { { value = "all", label = "Zone: All" } }
+  local seen, items = {}, {}
   for _, r in ipairs(dataset()) do
     if r.mapID and not seen[r.mapID] then
       seen[r.mapID] = true
-      out[#out + 1] = { value = r.mapID, label = r.zone or ("Map " .. r.mapID) }
+      items[#items + 1] = { value = r.mapID, label = r.zone or ("Map " .. r.mapID) }
     end
   end
-  table.sort(out, function(a, b) return a.label < b.label end)
-  return out
+  return withAll("Zone: All", items)
 end
 
 -- Push the current filter to the table and refresh the footer count.
@@ -322,11 +361,12 @@ function B:UpdateFooter()
   self._footer:SetText(("Showing %d of %d"):format(shown, total))
 end
 
--- Recompute the data-driven dropdowns (source/char/zone) from the current dataset.
+-- Recompute the data-driven dropdowns (source/type/char/zone) from the current dataset.
 function B:RefreshFilterOptions()
   local dd = self._dd
   if not dd then return end
   dd.source:SetOptions(sourceOptions())
+  dd.type:SetOptions(typeOptions())
   dd.char:SetOptions(charOptions())
   dd.zone:SetOptions(zoneOptions())
 end
@@ -353,25 +393,31 @@ function B:ClearFilters()
   if dd then
     dd.quality:SetValue("all", "Quality: All")
     dd.source:SetValue("all", "Source: All")
+    dd.type:SetValue("all", "Type: All")
     dd.char:SetValue("all", "Character: All")
     dd.zone:SetValue("all", "Zone: All")
+    dd.date:SetValue("all", "Date: All")
   end
   if self._search then self._search:SetText("") end
   ApplyFilter()
 end
 
--- Build the History tab chrome: filter bar (top), table host (middle), footer (bottom).
+-- Build the History tab chrome: two-row filter bar (top), table host (middle), footer (bottom).
+--   Row 1: Group · Quality · Source · Type
+--   Row 2: Character · Zone · Date · [search…] · Clear
 function B:BuildHistory(pane)
+  local ROW1, ROW2 = 0, -24
   local bar = CreateFrame("Frame", nil, pane)
   bar:SetPoint("TOPLEFT", 0, 0)
   bar:SetPoint("TOPRIGHT", 0, 0)
-  bar:SetHeight(22)
+  bar:SetHeight(46)
 
   local dd = {}
   self._dd = dd
 
+  -- ── Row 1 ──
   dd.group = MakeDropdown(bar, 116)
-  dd.group:SetPoint("LEFT", 0, 0)
+  dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
   dd.group.onSelect = function(v) if NS.BrowserTable then NS.BrowserTable:SetGroupBy(v) end end
@@ -395,8 +441,17 @@ function B:BuildHistory(pane)
     ApplyFilter()
   end
 
-  dd.char = MakeDropdown(bar, 120)
-  dd.char:SetPoint("LEFT", dd.source, "RIGHT", 6, 0)
+  dd.type = MakeDropdown(bar, 116)
+  dd.type:SetPoint("LEFT", dd.source, "RIGHT", 6, 0)
+  dd.type:SetValue("all", "Type: All")
+  dd.type.onSelect = function(v)
+    if v == "all" then B.activeFilter.itemType = nil else B.activeFilter.itemType = v end
+    ApplyFilter()
+  end
+
+  -- ── Row 2 ──
+  dd.char = MakeDropdown(bar, 150)
+  dd.char:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
   dd.char:SetValue("all", "Character: All")
   dd.char.onSelect = function(v)
     if v == "all" then B.activeFilter.char = nil else B.activeFilter.char = v end
@@ -411,10 +466,19 @@ function B:BuildHistory(pane)
     ApplyFilter()
   end
 
-  -- Clear button (right-aligned).
+  dd.date = MakeDropdown(bar, 120)
+  dd.date:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
+  dd.date:SetOptions(DATE_OPTIONS)
+  dd.date:SetValue("all", "Date: All")
+  dd.date.onSelect = function(v)
+    if v == "all" then B.activeFilter.from = nil else B.activeFilter.from = dateFrom(v) end
+    ApplyFilter()
+  end
+
+  -- Clear button (bottom-right, row 2).
   local clear = CreateFrame("Button", nil, bar, "BackdropTemplate")
   clear:SetSize(52, 20)
-  clear:SetPoint("RIGHT", 0, 0)
+  clear:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
   clear:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
                       insets = { left = 1, right = 1, top = 1, bottom = 1 } })
   clear:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
@@ -426,10 +490,10 @@ function B:BuildHistory(pane)
   clear:SetScript("OnLeave", function() cl:SetTextColor(1, 1, 1) end)
   clear:SetScript("OnClick", function() B:ClearFilters() end)
 
-  -- Item-name search box, filling the gap between the zone dropdown and Clear.
+  -- Item-name search box, filling the gap between the Date dropdown and Clear (row 2).
   local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   search:SetHeight(20)
-  search:SetPoint("LEFT", dd.zone, "RIGHT", 8, 0)
+  search:SetPoint("LEFT", dd.date, "RIGHT", 8, 0)
   search:SetPoint("RIGHT", clear, "LEFT", -8, 0)
   search:SetAutoFocus(false)
   search:SetFontObject("GameFontHighlightSmall")
@@ -478,9 +542,9 @@ local function EnsureFrame()
   -- shrink into horizontal overflow. Width is derived from the column model.
   local minW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
     or 822
-  local minH = SKIN.defaultH
+  local minH = SKIN.minH
   B._minW, B._minH = minW, minH
-  frame:SetSize(minW, minH)
+  frame:SetSize(minW, SKIN.defaultH)  -- open at the (taller) default; can shrink to minH
   frame:SetFrameStrata("HIGH")
   frame:EnableMouse(true)   -- capture clicks over the whole window; no click-through to the world
   frame:SetMovable(true)
@@ -556,7 +620,7 @@ local function EnsureFrame()
   frame.panes = {}
   for _, name in ipairs(TABS) do
     local pane = CreateFrame("Frame", nil, frame)
-    pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -(SKIN.titleBarH + SKIN.tabStripH + 6))
+    pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -(SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap))
     pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 6)
     pane:Hide()
     frame.panes[name] = pane

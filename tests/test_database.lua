@@ -80,6 +80,17 @@ test("Database: QueryList filters an arbitrary array, not the live history", fun
   assertEqual(#NS.Database:QueryList(recs, { quality = 3 }), 1)
 end)
 
+test("Database: Query filters by itemType", function()
+  local recs = {
+    { itemType = "Armor",  itemName = "Helm" },
+    { itemType = "Weapon", itemName = "Axe" },
+    { itemType = "Armor",  itemName = "Boots" },
+  }
+  assertEqual(#NS.Database:QueryList(recs, { itemType = "Armor" }), 2)
+  assertEqual(#NS.Database:QueryList(recs, { itemType = "Weapon" }), 1)
+  assertEqual(#NS.Database:QueryList(recs, {}), 3)
+end)
+
 test("Database: Query by source (string)", function()
   seed()
   assertEqual(#NS.Database:Query({ source = "KILL" }), 2)
