@@ -36,16 +36,15 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.divider = divider
 
-  local close = CreateFrame("Button", nil, titleBar)
-  close:SetSize(24, 24)
-  close:SetPoint("TOPRIGHT", -5, -2)
-  local x = close:CreateTexture(nil, "OVERLAY")
-  x:SetAllPoints()
-  x:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
-  x:SetVertexColor(0.85, 0.85, 0.85)
-  close:SetScript("OnEnter", function() x:SetVertexColor(1, 1, 1) end)
-  close:SetScript("OnLeave", function() x:SetVertexColor(0.85, 0.85, 0.85) end)
-  close:SetScript("OnClick", function() D:Hide() end)
+  -- ElvUI-style thin × close glyph (class-coloured on hover); shared with the browser window.
+  local close
+  if NS.Browser and NS.Browser.MakeCloseButton then
+    close = NS.Browser:MakeCloseButton(titleBar, function() D:Hide() end)
+  else
+    close = CreateFrame("Button", nil, titleBar)
+    close:SetScript("OnClick", function() D:Hide() end)
+  end
+  close:SetPoint("TOPRIGHT", -6, -4)
 
   local clear = CreateFrame("Button", nil, titleBar)
   clear:SetSize(42, 18)

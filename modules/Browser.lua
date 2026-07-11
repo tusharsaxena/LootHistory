@@ -48,6 +48,24 @@ function B:ApplySkin(f)
   if f.divider then f.divider:SetColorTexture(unpack(SKIN.divider)) end
 end
 
+-- ElvUI-style close button: a thin × glyph, light grey by default and the player's class
+-- colour on hover. Shared by the History and Debug windows.
+function B:MakeCloseButton(parent, onClick)
+  local close = CreateFrame("Button", nil, parent)
+  close:SetSize(20, 20)
+  local x = close:CreateFontString(nil, "OVERLAY")
+  x:SetFont(STANDARD_TEXT_FONT, 18, "")
+  x:SetPoint("CENTER", 0, 0)
+  x:SetText("\195\151")  -- × multiplication sign (thin, ElvUI-like)
+  x:SetTextColor(0.85, 0.85, 0.85)
+  local _, class = UnitClass("player")
+  local cc = (class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]) or { r = 1, g = 0.82, b = 0 }
+  close:SetScript("OnEnter", function() x:SetTextColor(cc.r, cc.g, cc.b) end)
+  close:SetScript("OnLeave", function() x:SetTextColor(0.85, 0.85, 0.85) end)
+  close:SetScript("OnClick", onClick)
+  return close
+end
+
 -- ── Window position/size persistence ──────────────────────────────────────────
 -- settings.window = { point, x, y, w, h } relative to UIParent.
 
@@ -721,17 +739,9 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.divider = divider
 
-  -- Red-X close button (the loot-roll "pass" texture — a clear, properly sized X).
-  local close = CreateFrame("Button", nil, titleBar)
-  close:SetSize(24, 24)
-  close:SetPoint("TOPRIGHT", -5, -3)
-  local x = close:CreateTexture(nil, "OVERLAY")
-  x:SetAllPoints()
-  x:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
-  x:SetVertexColor(0.85, 0.85, 0.85)
-  close:SetScript("OnEnter", function() x:SetVertexColor(1, 1, 1) end)
-  close:SetScript("OnLeave", function() x:SetVertexColor(0.85, 0.85, 0.85) end)
-  close:SetScript("OnClick", function() B:Hide() end)
+  -- ElvUI-style thin × close glyph (class-coloured on hover).
+  local close = B:MakeCloseButton(titleBar, function() B:Hide() end)
+  close:SetPoint("TOPRIGHT", -6, -5)
   frame.closeButton = close
 
   -- Gear → Settings, left of the close glyph. Uses the stock options-cog texture

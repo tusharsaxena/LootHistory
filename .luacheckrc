@@ -25,7 +25,7 @@ read_globals = {
   "GameTooltip", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
   "FauxScrollFrame_Update", "FauxScrollFrame_GetOffset", "FauxScrollFrame_OnVerticalScroll",
   "CreateAtlasMarkup", "CreateTextureMarkup",
-  "ITEM_QUALITY_COLORS", "UISpecialFrames", "PlaySound",
+  "ITEM_QUALITY_COLORS", "UISpecialFrames", "PlaySound", "STANDARD_TEXT_FONT",
   "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
   "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE",
   "Settings", "CreateColor", "tinsert", "tremove", "wipe", "select",
