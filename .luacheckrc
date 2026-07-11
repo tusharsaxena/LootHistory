@@ -21,6 +21,7 @@ read_globals = {
   "CombatLogGetCurrentEventInfo", "GetDetailedItemLevelInfo",
   "GameTooltip", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
   "FauxScrollFrame_Update", "FauxScrollFrame_GetOffset", "FauxScrollFrame_OnVerticalScroll",
+  "CreateAtlasMarkup", "CreateTextureMarkup",
   "ITEM_QUALITY_COLORS", "UISpecialFrames", "PlaySound",
   "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
   "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE",

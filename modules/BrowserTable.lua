@@ -29,16 +29,59 @@ local LOCK_ATLASES = {
   "communities-icon-lock", "greatVault-lock", "UI-LFG-Lock",
   "Professions-Recipe-Locked", "collections-icon-lock",
 }
-local function applyLockTexture(tex)
+
+-- Resolve (once) the first lock atlas that exists on this client; false if none.
+local resolvedLockAtlas
+local function lockAtlas()
+  if resolvedLockAtlas ~= nil then return resolvedLockAtlas end
+  resolvedLockAtlas = false
   if C_Texture and C_Texture.GetAtlasInfo then
     for _, atlas in ipairs(LOCK_ATLASES) do
       if C_Texture.GetAtlasInfo(atlas) then
-        tex:SetAtlas(atlas)
-        return
+        resolvedLockAtlas = atlas
+        break
       end
     end
   end
-  tex:SetTexture("Interface\\Buttons\\WHITE8X8") -- visible chip fallback (pending a real lock atlas)
+  return resolvedLockAtlas
+end
+
+local function applyLockTexture(tex)
+  local atlas = lockAtlas()
+  if atlas then
+    tex:SetAtlas(atlas)
+  else
+    tex:SetTexture("Interface\\Buttons\\WHITE8X8") -- visible chip fallback (pending a real lock atlas)
+  end
+end
+
+-- Inline coloured lock (or chip) for tooltip text, tinted to a BOUND_STYLE colour.
+local function lockMarkup(style)
+  local r = math.floor((style[1] or 1) * 255)
+  local g = math.floor((style[2] or 1) * 255)
+  local b = math.floor((style[3] or 1) * 255)
+  local atlas = lockAtlas()
+  if atlas and CreateAtlasMarkup then
+    return CreateAtlasMarkup(atlas, 14, 14, 0, 0, r, g, b)
+  end
+  if CreateTextureMarkup then
+    return CreateTextureMarkup("Interface\\Buttons\\WHITE8X8", 8, 8, 12, 12, 0, 1, 0, 1, r, g, b)
+  end
+  return ""
+end
+
+-- Legend for the Bound column tooltip: one "[lock] - Label" line per state.
+local BOUND_LEGEND = {
+  { "UNBOUND", "Not Bound" },
+  { "BOE",     "Bind on Equip" },
+  { "BOP",     "Bind on Pickup" },
+  { "ACCOUNT", "Account Bound" },
+  { "WARBAND", "Warbound" },
+}
+function BrowserTable:AddBoundLegend(tooltip)
+  for _, entry in ipairs(BOUND_LEGEND) do
+    tooltip:AddLine(lockMarkup(BOUND_STYLE[entry[1]]) .. " - " .. entry[2], 0.9, 0.9, 0.9)
+  end
 end
 
 -- Strip realm from "Name-Realm" for the compact Character column (full value in tooltip).
@@ -356,7 +399,11 @@ function BrowserTable:MakeHeaderButton(col)
   btn:SetScript("OnEnter", function(self2)
     GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
     GameTooltip:AddLine(col.label ~= "" and col.label or "Bound", 1, 0.82, 0)
-    if col.desc then GameTooltip:AddLine(col.desc, 0.9, 0.9, 0.9, true) end
+    if col.icon then
+      BrowserTable:AddBoundLegend(GameTooltip)
+    elseif col.desc then
+      GameTooltip:AddLine(col.desc, 0.9, 0.9, 0.9, true)
+    end
     GameTooltip:Show()
   end)
   btn:SetScript("OnLeave", function() GameTooltip:Hide() end)

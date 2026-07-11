@@ -27,6 +27,15 @@ test("BrowserTable: Bound column renders no text (icon-driven)", function()
   assertEqual(NS.BrowserTable:CellText("bound", { bound = "BOP" }), "")
 end)
 
+test("BrowserTable: bound legend adds a line per state", function()
+  local lines = {}
+  local fakeTip = { AddLine = function(_, text) lines[#lines + 1] = text end }
+  NS.BrowserTable:AddBoundLegend(fakeTip)
+  assertEqual(#lines, 5)
+  assertTrue(lines[1]:find("Not Bound", 1, true) ~= nil)
+  assertTrue(lines[5]:find("Warbound", 1, true) ~= nil)
+end)
+
 test("BrowserTable: test data covers every bound state", function()
   local data = NS.BrowserTable:BuildTestData()
   assertTrue(#data >= 10)
