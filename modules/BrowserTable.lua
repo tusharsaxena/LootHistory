@@ -9,8 +9,8 @@ local C = NS.Constants
 local ROW_H = 18
 local HEADER_H = 20
 local EMDASH = "\226\128\148"
-local ITEM_MIN = 90   -- minimum width of the flex (Item) column
-local COL_GAP = 6
+local ITEM_MIN = 150  -- minimum width of the flex (Item) column
+local COL_GAP = 8     -- horizontal space between columns
 -- Every row shows a lock; colour + opacity encode the binding state. {r, g, b, alpha}
 -- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
 local BOUND_STYLE = {
@@ -113,19 +113,19 @@ end
 -- Order note: the Character column is intentionally LAST, and Vendor second-last. Any new
 -- columns (AH price, Pawn, …) should be inserted BEFORE Character so it stays the last column.
 BrowserTable.COLUMNS = {
-  { key = "date", label = "Date", width = 60, align = "LEFT",
+  { key = "date", label = "Date", width = 54, align = "LEFT",
     desc = "Date the item was looted.",
     valueFn = function(r) return NS.Util.FormatDate(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  { key = "time", label = "Time", width = 44, align = "LEFT",
+  { key = "time", label = "Time", width = 38, align = "LEFT",
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  { key = "ilvl", label = "iLvl", width = 40, align = "RIGHT",
+  { key = "ilvl", label = "iLvl", width = 34, align = "RIGHT",
     desc = "Item level (equippable gear only).",
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
     sortFn = function(r) return r.itemLevel or 0 end },
-  { key = "bound", label = "", width = 18, align = "CENTER", icon = true,
+  { key = "bound", label = "", width = 20, align = "CENTER", icon = true,
     desc = "Binding: grey = not bound, white = Bind on Equip, green = Bind on Pickup, "
       .. "orange = Account bound, blue = Warbound.",
     valueFn = function() return "" end,   -- rendered as an icon, not text
@@ -136,36 +136,36 @@ BrowserTable.COLUMNS = {
       return r.itemName or (r.itemLink and r.itemLink:match("%[(.-)%]")) or "?"
     end,
     sortFn = function(r) return (r.itemName or ""):lower() end },
-  { key = "qty", label = "Qty", width = 40, align = "RIGHT",
+  { key = "qty", label = "Qty", width = 34, align = "RIGHT",
     desc = "Quantity looted in this event.",
     valueFn = function(r) return tostring(r.quantity or 1) end,
     sortFn = function(r) return r.quantity or 1 end },
-  { key = "quality", label = "Quality", width = 74, align = "LEFT",
+  { key = "quality", label = "Quality", width = 64, align = "LEFT",
     desc = "Item quality (Poor → Legendary).",
     valueFn = function(r) return NS.Compat.QualityLabel(r.quality) end,
     sortFn = function(r) return r.quality or 0 end },
-  { key = "type", label = "Type", width = 84, align = "LEFT",
+  { key = "type", label = "Type", width = 76, align = "LEFT",
     desc = "Item type (subtype in the Item tooltip).",
     valueFn = function(r) return r.itemType or "" end,
     sortFn = function(r) return (r.itemType or ""):lower() end },
-  { key = "source", label = "Source", width = 88, align = "LEFT",
+  { key = "source", label = "Source", width = 64, align = "LEFT",
     desc = "How the item was acquired (kill, container, mail, trade, …).",
     valueFn = function(r) return C.SourceLabel[r.source] or r.source or "Other" end,
     sortFn = function(r) return C.SourceLabel[r.source] or r.source or "" end },
-  { key = "from", label = "From", width = 120, align = "LEFT",
+  { key = "from", label = "From", width = 96, align = "LEFT",
     desc = "Where it came from — mob, mail sender, trade partner, merchant, or quest.",
     valueFn = function(r) return r.sourceName or EMDASH end,
     sortFn = function(r) return (r.sourceName or ""):lower() end },
-  { key = "zone", label = "Zone", width = 120, align = "LEFT",
+  { key = "zone", label = "Zone", width = 100, align = "LEFT",
     desc = "Zone where the item was looted (subzone in the item tooltip).",
     valueFn = function(r) return r.zone or "" end,
     sortFn = function(r) return (r.zone or ""):lower() end },
-  { key = "vendor", label = "Vendor", width = 76, align = "RIGHT",
+  { key = "vendor", label = "Vendor", width = 72, align = "RIGHT",
     desc = "Vendor sell price per unit.",
     valueFn = function(r) return NS.Util.FormatMoney(r.sellPrice) end,
     sortFn = function(r) return r.sellPrice or 0 end },
   -- Character is always the last column (see order note above).
-  { key = "char", label = "Character", width = 150, align = "LEFT",
+  { key = "char", label = "Character", width = 132, align = "LEFT",
     desc = "Character who looted the item — full Name-Realm, class-colored.",
     valueFn = function(r) return charDisplay(r) end,
     sortFn = function(r) return (r.char or ""):lower() end },
@@ -200,9 +200,11 @@ local ARROW_ASC  = " |TInterface\\Buttons\\Arrow-Up-Up:0|t"
 local ARROW_DESC = " |TInterface\\Buttons\\Arrow-Down-Up:0|t"
 
 -- Grouping. "none" = flat table; otherwise records are partitioned under collapsible
--- headers (see SetGroupBy). collapsed[key] = true hides a group's rows.
+-- headers (see SetGroupBy). collapsed[key] = true hides a group's rows. groupAsc is the
+-- group-order direction (ascending by default), toggled by clicking the grouped column.
 BrowserTable.groupBy = "none"
 BrowserTable.collapsed = {}
+BrowserTable.groupAsc = true
 
 -- Group identity + display label for a record under the active group-by. The key is
 -- namespaced by group mode so the collapsed-state map never collides across modes (a
@@ -224,6 +226,11 @@ local function groupOf(groupBy, r)
   end
   return groupBy .. "\001" .. raw, label
 end
+
+-- groupBy mode → the table column it corresponds to (drives the header arrow + group-order
+-- toggle) and the human prefix shown in each group header ("Quality: Poor").
+local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", day = "date" }
+local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", day = "Day" }
 
 -- Synthetic dataset covering every binding state (multiple items each) plus varied quality,
 -- item level, and source — for eyeballing the table's look via /lh testmode.
@@ -304,11 +311,19 @@ function BrowserTable:SortRecords(records)
   return out
 end
 
--- Set the sort column: re-clicking the active column flips direction; a new column starts
--- descending for numeric columns, ascending for text.
+-- Handle a header click. If the table is grouped by this column, flip the GROUP order;
+-- otherwise set the row sort — re-clicking the active column flips direction, a new column
+-- starts descending for numeric columns and ascending for text.
 function BrowserTable:SetSort(key)
   local col = COLUMN_BY_KEY[key]
   if not col or not col.sortFn then return end
+  local groupedCol = self.groupBy ~= "none" and GROUP_COLUMN[self.groupBy] or nil
+  if key == groupedCol then
+    self.groupAsc = not self.groupAsc
+    self:UpdateHeaderArrows()
+    self:Refresh()
+    return
+  end
   if self.sortKey == key then
     self.sortAsc = not self.sortAsc
   else
@@ -332,9 +347,11 @@ function BrowserTable:ToggleCollapse(key)
 end
 
 -- Turn a (already-sorted) record array into the flat display list. With no grouping every
--- record is a { kind="row" } entry. With grouping, records are partitioned into groups in
--- first-appearance order (so the active sort holds within each group), each preceded by a
--- { kind="header" } entry carrying its label + count; a collapsed group emits only its header.
+-- record is a { kind="row" } entry. With grouping, records are partitioned into groups sorted
+-- by the grouping column's natural order (alphabetical for text, numeric for quality,
+-- chronological for day; direction = groupAsc). Each group is preceded by a { kind="header" }
+-- entry labelled "<Column>: <Value>" with its count; a collapsed group emits only its header.
+-- The active row sort still holds within each group.
 function BrowserTable:GroupRecords(records)
   local list = {}
   local groupBy = self.groupBy
@@ -345,17 +362,32 @@ function BrowserTable:GroupRecords(records)
     return list
   end
 
+  local colKey = GROUP_COLUMN[groupBy]
+  local col = colKey and COLUMN_BY_KEY[colKey]
+  local sortFn = col and col.sortFn
+  local prefix = GROUP_PREFIX[groupBy] or "?"
+
   local order, byKey = {}, {}
   for _, r in ipairs(records) do
-    local key, label = groupOf(groupBy, r)
+    local key, valueLabel = groupOf(groupBy, r)
     local g = byKey[key]
     if not g then
-      g = { key = key, label = label, rows = {} }
+      g = { key = key, label = prefix .. ": " .. valueLabel, rows = {},
+            sortKey = sortFn and sortFn(r) or valueLabel }
       byKey[key] = g
       order[#order + 1] = g
     end
     g.rows[#g.rows + 1] = r
   end
+
+  local asc = self.groupAsc ~= false
+  table.sort(order, function(a, b)
+    if a.sortKey ~= b.sortKey then
+      if asc then return a.sortKey < b.sortKey end
+      return a.sortKey > b.sortKey
+    end
+    return a.key < b.key
+  end)
 
   for _, g in ipairs(order) do
     local collapsed = self.collapsed[g.key] or false
@@ -622,11 +654,15 @@ end
 function BrowserTable:UpdateHeaderArrows()
   local header = self.headerFrame
   if not header or not header.buttons then return end
+  -- The grouped column shows the group-order arrow; the row-sort column shows the sort arrow.
+  local groupedCol = self.groupBy ~= "none" and GROUP_COLUMN[self.groupBy] or nil
   for key, btn in pairs(header.buttons) do
     if btn.fs then
       local col = COLUMN_BY_KEY[key]
       local label = col and col.label or ""
-      if key == self.sortKey then
+      if key == groupedCol then
+        label = label .. (self.groupAsc and ARROW_ASC or ARROW_DESC)
+      elseif key == self.sortKey then
         label = label .. (self.sortAsc and ARROW_ASC or ARROW_DESC)
       end
       btn.fs:SetText(label)

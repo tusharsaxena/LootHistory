@@ -118,17 +118,45 @@ test("BrowserTable: GroupRecords partitions into headers + rows with counts", fu
     { ts = 200, source = "KILL", zone = "B" },
     { ts = 100, source = "VENDOR", zone = "A" },
   }
-  BT.groupBy, BT.collapsed = "source", {}
+  BT.groupBy, BT.collapsed, BT.groupAsc = "source", {}, true
   local list = BT:GroupRecords(recs)
-  -- header(Kill), row, row, header(Vendor), row  = 5 entries
+  -- header(Kill), row, row, header(Vendor), row  = 5 entries; groups sorted alphabetically
   assertEqual(#list, 5)
   assertEqual(list[1].kind, "header")
-  assertEqual(list[1].label, "Kill")
+  assertEqual(list[1].label, "Source: Kill")  -- header is "<Column>: <Value>"
   assertEqual(list[1].count, 2)
   assertEqual(list[2].kind, "row")
   assertEqual(list[4].kind, "header")
-  assertEqual(list[4].label, "Vendor")
+  assertEqual(list[4].label, "Source: Vendor")
   assertEqual(list[4].count, 1)
+end)
+
+test("BrowserTable: group order toggles asc/desc, sorted by the grouped column", function()
+  local BT = NS.BrowserTable
+  local recs = {
+    { source = "VENDOR" }, { source = "KILL" }, { source = "CONTAINER" },
+  }
+  BT.groupBy, BT.collapsed = "source", {}
+
+  BT.groupAsc = true
+  local asc = BT:GroupRecords(recs)
+  assertEqual(asc[1].label, "Source: Container") -- Container < Kill < Vendor
+  assertEqual(asc[3].label, "Source: Kill")
+  assertEqual(asc[5].label, "Source: Vendor")
+
+  BT.groupAsc = false
+  local desc = BT:GroupRecords(recs)
+  assertEqual(desc[1].label, "Source: Vendor")
+  assertEqual(desc[5].label, "Source: Container")
+
+  -- Quality groups sort numerically (Poor→Epic), not alphabetically by label.
+  BT.groupBy, BT.groupAsc = "quality", true
+  local q = BT:GroupRecords({ { quality = 4 }, { quality = 0 }, { quality = 2 } })
+  assertEqual(q[1].label, "Quality: Poor")
+  assertEqual(q[3].label, "Quality: Uncommon")
+  assertEqual(q[5].label, "Quality: Epic")
+
+  BT.groupBy, BT.groupAsc = "none", true -- restore
 end)
 
 test("BrowserTable: collapsed group emits only its header", function()
