@@ -84,16 +84,15 @@ function Compat.GetItemInfo(link)
   return itemID, name, quality
 end
 
--- Scan an item link's tooltip for account/warbound or soulbound text.
--- Returns "WARBOUND", "SOULBOUND", or nil. Retail-only (C_TooltipInfo); nil elsewhere.
-local WARBOUND_STRINGS = {
+-- Scan an item link's tooltip for warband/account-bound text.
+-- Returns "WARBAND", "ACCOUNT", or nil. Retail-only (C_TooltipInfo); nil elsewhere.
+local WARBAND_STRINGS = {
   ITEM_ACCOUNTBOUND_UNTIL_EQUIP, -- "Warbound until equipped"
   ITEM_BNETACCOUNTBOUND,         -- "Warbound"
-  ITEM_BIND_TO_BNETACCOUNT,      -- "Warbound"/"Blizzard Account Bound" (older)
-  ITEM_ACCOUNTBOUND,             -- "Account Bound"
 }
-local SOULBOUND_STRINGS = {
-  ITEM_SOULBOUND,                -- "Soulbound"
+local ACCOUNT_STRINGS = {
+  ITEM_ACCOUNTBOUND,             -- "Account Bound"
+  ITEM_BIND_TO_BNETACCOUNT,      -- "Blizzard Account Bound" (legacy)
 }
 local function lineMatchesAny(text, list)
   for _, s in ipairs(list) do
@@ -106,19 +105,19 @@ function Compat.ScanBound(link)
   if not (link and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return nil end
   local data = C_TooltipInfo.GetHyperlink(link)
   if not (data and data.lines) then return nil end
-  local soulbound
   for _, line in ipairs(data.lines) do
     local text = line.leftText
     if text then
-      if lineMatchesAny(text, WARBOUND_STRINGS) then return "WARBOUND" end
-      if lineMatchesAny(text, SOULBOUND_STRINGS) then soulbound = true end
+      if lineMatchesAny(text, WARBAND_STRINGS) then return "WARBAND" end
+      if lineMatchesAny(text, ACCOUNT_STRINGS) then return "ACCOUNT" end
     end
   end
-  return soulbound and "SOULBOUND" or nil
+  return nil
 end
 
 -- Capture-time extras for a looted item: effective item level (equippable gear only) and
--- bound state. bindType==1 (BoP) implies soulbound; a warbound/account-bound tooltip wins.
+-- bound state ∈ { nil(unbound), "BOE", "BOP", "ACCOUNT", "WARBAND" }. A warband/account
+-- tooltip wins over the plain bindType.
 local ITEMCLASS_WEAPON, ITEMCLASS_ARMOR = 2, 4  -- Enum.ItemClass.Weapon / .Armor
 function Compat.GetItemExtras(link)
   if not link then return nil, nil end
@@ -135,11 +134,14 @@ function Compat.GetItemExtras(link)
     end
   end
 
-  if C_Item and C_Item.GetItemInfo then
+  bound = Compat.ScanBound(link) -- WARBAND / ACCOUNT / nil
+  if not bound and C_Item and C_Item.GetItemInfo then
     local bindType = select(14, C_Item.GetItemInfo(link))
-    if bindType == 1 then bound = "SOULBOUND" end
+    if bindType == 1 or bindType == 4 then
+      bound = "BOP"                 -- bind on pickup / quest
+    elseif bindType == 2 or bindType == 3 then
+      bound = "BOE"                 -- bind on equip / on use
+    end
   end
-  local scanned = Compat.ScanBound(link)
-  if scanned then bound = scanned end
   return ilvl, bound
 end

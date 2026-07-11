@@ -24,7 +24,17 @@ test("BrowserTable: iLvl column shows level only when present", function()
 end)
 
 test("BrowserTable: Bound column renders no text (icon-driven)", function()
-  assertEqual(NS.BrowserTable:CellText("bound", { bound = "SOULBOUND" }), "")
+  assertEqual(NS.BrowserTable:CellText("bound", { bound = "BOP" }), "")
+end)
+
+test("BrowserTable: test data covers every bound state", function()
+  local data = NS.BrowserTable:BuildTestData()
+  assertTrue(#data >= 10)
+  local seen = {}
+  for _, r in ipairs(data) do seen[r.bound or "UNBOUND"] = true end
+  for _, key in ipairs({ "UNBOUND", "BOE", "BOP", "ACCOUNT", "WARBAND" }) do
+    assertTrue(seen[key], "test data missing bound state " .. key)
+  end
 end)
 
 test("BrowserTable: From column falls back to em-dash", function()

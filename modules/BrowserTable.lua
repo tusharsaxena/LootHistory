@@ -12,10 +12,13 @@ local EMDASH = "\226\128\148"
 local ITEM_MIN = 90   -- minimum width of the flex (Item) column
 local COL_GAP = 6
 -- Every row shows a lock; colour + opacity encode the binding state. {r, g, b, alpha}
+-- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
 local BOUND_STYLE = {
-  WARBOUND  = { 0.35, 0.55, 1.0, 1.0 },  -- blue, solid
-  SOULBOUND = { 1.0, 1.0, 1.0, 1.0 },    -- white, solid
-  UNBOUND   = { 0.6, 0.6, 0.6, 0.40 },   -- grey, faint
+  UNBOUND = { 0.60, 0.60, 0.60, 0.40 }, -- not bound: faint grey
+  BOE     = { 0.92, 0.92, 0.92, 0.95 }, -- bind on equip: off-white
+  BOP     = { 1.00, 0.82, 0.20, 1.00 }, -- bind on pickup: gold/yellow
+  ACCOUNT = { 0.95, 0.52, 0.12, 1.00 }, -- account bound: orange
+  WARBAND = { 0.30, 0.58, 0.98, 1.00 }, -- warbound: blue
 }
 
 -- Apply a padlock look to a texture, tolerant of missing art: use the first lock atlas that
@@ -58,14 +61,15 @@ BrowserTable.COLUMNS = {
     desc = "Character who looted the item (realm in the item tooltip).",
     valueFn = function(r) return charName(r.char) end,
     sortFn = function(r) return (r.char or ""):lower() end },
-  { key = "bound", label = "", width = 22, align = "CENTER", icon = true,
-    desc = "Binding: blue = Warbound, white = Soulbound, dim grey = not bound.",
-    valueFn = function() return "" end,   -- rendered as an icon, not text
-    sortFn = function(r) return r.bound or "" end },
   { key = "ilvl", label = "iLvl", width = 40, align = "RIGHT",
     desc = "Item level (equippable gear only).",
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
     sortFn = function(r) return r.itemLevel or 0 end },
+  { key = "bound", label = "", width = 18, align = "CENTER", icon = true,
+    desc = "Binding: grey = not bound, white = Bind on Equip, gold = Bind on Pickup, "
+      .. "orange = Account bound, blue = Warbound.",
+    valueFn = function() return "" end,   -- rendered as an icon, not text
+    sortFn = function(r) return r.bound or "" end },
   { key = "item", label = "Item", width = 0, flex = true, align = "LEFT",
     desc = "Item looted. Hover for its tooltip.",
     valueFn = function(r)
@@ -106,10 +110,54 @@ end
 
 -- ── Pipeline ───────────────────────────────────────────────────────────────────
 BrowserTable.filter = {}
+BrowserTable.testMode = false
+
+-- Synthetic dataset covering every binding state (multiple items each) plus varied quality,
+-- item level, and source — for eyeballing the table's look via /lh testmode.
+local TEST_BINDINGS = {
+  { key = nil,       name = "Unbound" },
+  { key = "BOE",     name = "Bind on Equip" },
+  { key = "BOP",     name = "Bind on Pickup" },
+  { key = "ACCOUNT", name = "Account Bound" },
+  { key = "WARBAND", name = "Warbound" },
+}
+local TEST_SOURCES = { "KILL", "CONTAINER", "MPLUS", "QUEST", "VENDOR" }
+
+function BrowserTable:BuildTestData()
+  local now = time()
+  local out = {}
+  for ti, b in ipairs(TEST_BINDINGS) do
+    for k = 1, 3 do
+      local i = #out + 1
+      out[i] = {
+        ts = now - i * 137,
+        char = "Tester-Ravencrest",
+        itemName = b.name .. " Sample " .. k,
+        quality = ((i - 1) % 5) + 1,            -- Common..Legendary spread
+        quantity = ((i % 3) == 0) and (i % 5 + 1) or 1,
+        itemLevel = (k % 2 == 0) and (600 + ti * 4 + k) or nil, -- some gear, some not
+        bound = b.key,
+        source = TEST_SOURCES[((i - 1) % #TEST_SOURCES) + 1],
+        sourceName = (k == 1) and "Test Source" or nil,
+        zone = "Test Zone " .. ti,
+        mapID = ti,
+        confidence = "CERTAIN",
+      }
+    end
+  end
+  return out
+end
+
+function BrowserTable:ToggleTestMode()
+  self.testMode = not self.testMode
+  if NS.Browser and NS.Browser.Show then NS.Browser:Show() end
+  self:Refresh()
+  return self.testMode
+end
 
 -- Flat display list of { kind="row", record=r }. Grouping (3.4) inserts header entries.
 function BrowserTable:BuildDisplayList()
-  local records = NS.Database:Query(self.filter)
+  local records = self.testMode and self:BuildTestData() or NS.Database:Query(self.filter)
   local list = {}
   for _, r in ipairs(records) do
     list[#list + 1] = { kind = "row", record = r }
