@@ -233,6 +233,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
   - All optional deps: degrade gracefully when the addon isn't present.
 - [ ] **Column chooser.** Let the user reorder and show/hide table columns (the `BrowserTable.COLUMNS` model already carries per-column metadata; add a settings/table-header UI and persist the order + visibility).
 - [ ] **Purge history in Settings.** A "Clear all history" button (with confirm) in the options panel — mirrors the `/lh purge` slash command already implemented.
+- [ ] **Bundle a monospace font** (e.g. Fira Mono) in `media/` and register it via LibSharedMedia, for the debug console (WoW ships no monospace; the console currently uses the default font, whose tabular digits keep timestamps aligned).
 - [ ] **Configurable window styling.** The browser window ships a flat "ElvUI-like" default skin (1px black border + subtle inner line + dark flat background + gold title + red close glyph), centralized in `modules/Browser.lua`'s `SKIN` table and `B:ApplySkin(frame)`. Add settings to let the user customize **border** (color/thickness), **background** (color/alpha), and **font** (via LibSharedMedia), driven off that table with live re-skin. New Schema rows under an "Appearance" section; `ApplySkin` already exists as the single re-skin seam.
 - [ ] **AI export + companion skill** (the deferred v2 feature; `Database:Export()` seam already in place).
 

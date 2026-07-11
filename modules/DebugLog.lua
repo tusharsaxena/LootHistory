@@ -79,7 +79,8 @@ end
 
 function D:Add(msg)
   local f = EnsureFrame()
-  f.log:AddMessage(date("%H:%M:%S ") .. msg)
+  -- Grey, fixed-width timestamp + a "|" separator ("||" renders one literal pipe).
+  f.log:AddMessage(("|cff888888%s  ||  |r%s"):format(date("%H:%M:%S"), tostring(msg)))
 end
 
 function D:Show() EnsureFrame():Show() end

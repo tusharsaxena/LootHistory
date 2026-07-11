@@ -90,13 +90,21 @@ local function charName(char)
   return char:match("^[^-]+") or char
 end
 
--- Inline class icon (from the shared class-circles texture) for the Character column.
+-- Inline class icon for the Character column. Prefer the classicon-<class> atlas (renders
+-- cleanly inline); fall back to the shared class-circles texture via CLASS_ICON_TCOORDS.
 local CLASS_ICON_TEX = "Interface\\TargetingFrame\\UI-Classes-Circles"
 local function classIconMarkup(classFile)
-  local c = classFile and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile]
-  if not (c and CreateTextureMarkup) then return "" end
-  return CreateTextureMarkup(CLASS_ICON_TEX, 256, 256, 13, 13,
-    c[1] * 256, c[2] * 256, c[3] * 256, c[4] * 256)
+  if not classFile then return "" end
+  local atlas = "classicon-" .. classFile:lower()
+  if CreateAtlasMarkup and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
+    return CreateAtlasMarkup(atlas, 14, 14)
+  end
+  local c = CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile]
+  if c and CreateTextureMarkup then
+    return CreateTextureMarkup(CLASS_ICON_TEX, 256, 256, 14, 14,
+      c[1] * 256, c[2] * 256, c[3] * 256, c[4] * 256)
+  end
+  return ""
 end
 
 -- Class-colored, icon-prefixed display value for a looter.
