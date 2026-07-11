@@ -533,13 +533,13 @@ end
 function B:SaveView()
   if NS.db and NS.db.global then
     NS.db.global.savedView = self:CaptureView()
-    print("|cff33ff99" .. addonName .. "|r view saved as default.")
+    print(NS.PREFIX .. " view saved as default.")
   end
 end
 function B:ResetView()
   if NS.db and NS.db.global then NS.db.global.savedView = nil end
   self:ApplyView(STOCK_VIEW, "current")
-  print("|cff33ff99" .. addonName .. "|r view reset to stock defaults.")
+  print(NS.PREFIX .. " view reset to stock defaults.")
 end
 
 -- Clear returns the filters/group/sort to the saved default (or stock), and the player scope

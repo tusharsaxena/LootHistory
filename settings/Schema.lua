@@ -107,7 +107,7 @@ function S:Register()
   if not g then return end
   for _, row in ipairs(S.Schema) do
     if S:ReadPath(g, row.path) == nil and row.default == nil then
-      print("|cff33ff99" .. addonName .. "|r schema path missing default: " .. tostring(row.path))
+      print(NS.PREFIX .. " schema path missing default: " .. tostring(row.path))
     end
   end
 end
@@ -127,12 +127,12 @@ NS.COMMANDS = {
       -- Toggles the console; NS.State.debug follows the window's show/hide (session-only).
       if NS.DebugLog then NS.DebugLog:Toggle() end
       local on = NS.State and NS.State.debug
-      print("|cff33ff99" .. addonName .. "|r debug " .. (on and "on" or "off"))
+      print(NS.PREFIX .. " debug " .. (on and "on" or "off"))
       if on and NS.Debug then NS.Debug("debug logging enabled") end
     end },
   { name = "test", desc = "Toggle a preview of every bound type", fn = function()
       local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()
-      print("|cff33ff99" .. addonName .. "|r test mode " .. (on and "on" or "off"))
+      print(NS.PREFIX .. " test mode " .. (on and "on" or "off"))
     end },
   { name = "purge", desc = "Delete ALL loot history (asks to confirm)", fn = function()
       if type(StaticPopup_Show) == "function" then

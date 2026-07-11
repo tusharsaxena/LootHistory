@@ -371,7 +371,7 @@ end
 
 function P:Open()
   if InCombatLockdown and InCombatLockdown() then
-    print("|cff33ff99" .. addonName .. "|r Can't open settings in combat.")
+    print(NS.PREFIX .. " Can't open settings in combat.")
     return
   end
   if Settings and Settings.OpenToCategory and mainCategoryID then

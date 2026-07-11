@@ -3,7 +3,7 @@ NS.Slash = NS.Slash or {}
 local Sl = NS.Slash
 
 local function tag()
-  return "|cff33ff99" .. addonName .. "|r "
+  return NS.PREFIX .. " "
 end
 
 -- Confirm dialog for /lh purge (destructive). Registered once; in-game only.
@@ -26,7 +26,9 @@ function Sl:Register()
   NS.addon:RegisterChatCommand("loothistory", function(input) Sl:OnSlash(input) end)
 end
 
--- DEVIATION (docs/REQUIREMENTS §8): empty input toggles the window rather than printing help.
+-- DEVIATION (docs/REQUIREMENTS §8; Ka0s standard §7.4): empty input toggles the window
+-- rather than printing help. `/lh help` still prints the index. Only the verb is
+-- lower-cased; `rest` keeps its case so schema paths survive `/lh set <path> <value>`.
 function Sl:OnSlash(input)
   if input == nil or input:match("^%s*$") then
     return NS.Browser:Toggle()
@@ -36,13 +38,17 @@ function Sl:OnSlash(input)
   for _, cmd in ipairs(NS.COMMANDS) do
     if cmd.name == verb then return cmd.fn(rest) end
   end
+  print(tag() .. "unknown command '" .. tostring(verb) .. "'")
   Sl:PrintHelp()
 end
 
+-- Help index generated from NS.COMMANDS (Ka0s standard §7.4): a version/alias header,
+-- then one prefixed row per command — gold command, em-dash, white description.
 function Sl:PrintHelp()
-  print(tag() .. "commands:")
+  print(tag() .. "v" .. (NS.version or "") ..
+    " slash commands (|cffffff00/loothistory|r is an alias for |cffffff00/lh|r):")
   for _, cmd in ipairs(NS.COMMANDS) do
-    print(string.format("  /lh %s - %s", cmd.name, cmd.desc))
+    print(tag() .. ("|cffffff00/lh %s|r — |cffffffff%s|r"):format(cmd.name, cmd.desc))
   end
 end
 
