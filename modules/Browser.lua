@@ -48,14 +48,14 @@ function B:ApplySkin(f)
   if f.divider then f.divider:SetColorTexture(unpack(SKIN.divider)) end
 end
 
--- ElvUI-style close button: a thin × glyph, light grey by default and the player's class
--- colour on hover. Shared by the History and Debug windows.
+-- ElvUI-style thin × glyph close button, light grey by default and the player's class colour
+-- on hover. Shared by the History and Debug windows.
 function B:MakeCloseButton(parent, onClick)
   local close = CreateFrame("Button", nil, parent)
-  close:SetSize(22, 22)
+  close:SetSize(24, 24)
   local x = close:CreateFontString(nil, "OVERLAY")
-  x:SetFont(STANDARD_TEXT_FONT, 24, "")  -- sized so the × reads about the same as the 16px gear
-  x:SetPoint("CENTER", 0, 2)  -- the × glyph sits low in its font box; nudge up to align with the gear
+  x:SetFont(STANDARD_TEXT_FONT, 24, "")
+  x:SetPoint("CENTER", close, "CENTER", 0, 2)  -- the × sits low in its font box; nudge up
   x:SetText("\195\151")  -- × multiplication sign (thin, ElvUI-like)
   x:SetTextColor(0.85, 0.85, 0.85)
   local _, class = UnitClass("player")
@@ -740,24 +740,11 @@ local function EnsureFrame()
   frame.divider = divider
 
   -- ElvUI-style thin × close glyph (class-coloured on hover). Anchored to the title bar's
-  -- vertical centre so it lines up with the CENTER-anchored title and the gear.
+  -- vertical centre so it lines up with the CENTER-anchored title.
   local close = B:MakeCloseButton(titleBar, function() B:Hide() end)
   close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
   frame.closeButton = close
-
-  -- Gear → Settings, left of the close glyph. Uses the stock options-cog texture
-  -- (the ⚙ glyph is not in the default WoW font).
-  local gear = CreateFrame("Button", nil, titleBar)
-  gear:SetSize(16, 16)
-  gear:SetPoint("RIGHT", close, "LEFT", 0, 0)
-  local g = gear:CreateTexture(nil, "ARTWORK")
-  g:SetAllPoints()
-  g:SetTexture("Interface\\Buttons\\UI-OptionsButton")
-  g:SetVertexColor(0.8, 0.8, 0.82)
-  gear:SetScript("OnEnter", function() g:SetVertexColor(1, 0.82, 0) end)
-  gear:SetScript("OnLeave", function() g:SetVertexColor(0.8, 0.8, 0.82) end)
-  gear:SetScript("OnClick", function() if NS.Panel and NS.Panel.Open then NS.Panel:Open() end end)
-  frame.gearButton = gear
+  -- (Settings gear removed; open the options panel with /lh config.)
 
   -- Content panes, one per tab, filling below the tab strip.
   frame.panes = {}

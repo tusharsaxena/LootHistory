@@ -113,7 +113,7 @@ end
 -- Order note: the Character column is intentionally LAST, and Vendor second-last. Any new
 -- columns (AH price, Pawn, …) should be inserted BEFORE Character so it stays the last column.
 BrowserTable.COLUMNS = {
-  { key = "date", label = "Date", width = 54, align = "LEFT",
+  { key = "date", label = "Date", width = 76, align = "LEFT",
     desc = "Date the item was looted.",
     valueFn = function(r) return NS.Util.FormatDate(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
@@ -220,7 +220,8 @@ local function groupOf(groupBy, r)
   elseif groupBy == "quality" then
     label = NS.Compat.QualityLabel(r.quality); raw = "q" .. tostring(r.quality or 0)
   elseif groupBy == "day" then
-    label = date("%Y-%m-%d", r.ts or 0); raw = label
+    -- Key stays ISO (stable, unique per calendar day); label matches the Date column's format.
+    raw = date("%Y-%m-%d", r.ts or 0); label = NS.Util.FormatDate(r.ts or 0)
   else
     label = "?"; raw = "?"
   end

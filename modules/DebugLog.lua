@@ -3,15 +3,33 @@ NS.DebugLog = NS.DebugLog or {}
 local D = NS.DebugLog
 local frame
 
+-- Plain-text mirror of the log (no colour codes), for the Copy window. Capped like the log.
+D.buffer = D.buffer or {}
+local MAX_BUFFER = 500
+
+-- Small flat text button for the title bar (Copy / Clear).
+local function makeTextButton(parent, text, width, onClick)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(width, 18)
+  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  fs:SetPoint("CENTER")
+  fs:SetText(text)
+  fs:SetTextColor(0.7, 0.7, 0.72)
+  b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.82, 0) end)
+  b:SetScript("OnLeave", function() fs:SetTextColor(0.7, 0.7, 0.72) end)
+  b:SetScript("OnClick", onClick)
+  return b
+end
+
 -- A standalone debug console styled like the browser window. Debug output (NS.Debug) prints
 -- here instead of the chat frame.
 local function EnsureFrame()
   if frame then return frame end
 
   frame = CreateFrame("Frame", "LootHistoryDebugWindow", UIParent, "BackdropTemplate")
-  frame:SetSize(560, 320)
+  frame:SetSize(560, 344)
   frame:SetPoint("CENTER", 220, -80)
-  frame:SetFrameStrata("HIGH")
+  frame:SetFrameStrata("DIALOG")  -- above the History window (HIGH) so it's never hidden behind it
   frame:EnableMouse(true)
   frame:SetMovable(true)
   frame:SetClampedToScreen(true)
@@ -46,20 +64,16 @@ local function EnsureFrame()
   end
   close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)  -- vertical centre, aligned with the title
 
-  local clear = CreateFrame("Button", nil, titleBar)
-  clear:SetSize(42, 18)
+  local clear = makeTextButton(titleBar, "Clear", 42, function() D:Clear() end)
   clear:SetPoint("RIGHT", close, "LEFT", -6, 0)
-  local ct = clear:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  ct:SetPoint("CENTER")
-  ct:SetText("Clear")
-  ct:SetTextColor(0.7, 0.7, 0.72)
-  clear:SetScript("OnEnter", function() ct:SetTextColor(1, 0.82, 0) end)
-  clear:SetScript("OnLeave", function() ct:SetTextColor(0.7, 0.7, 0.72) end)
-  clear:SetScript("OnClick", function() if frame.log then frame.log:Clear() end end)
+
+  local copy = makeTextButton(titleBar, "Copy", 40, function() D:ShowCopy() end)
+  copy:SetPoint("RIGHT", clear, "LEFT", -6, 0)
 
   local log = CreateFrame("ScrollingMessageFrame", nil, frame)
   log:SetPoint("TOPLEFT", 8, -(26 + 6))
-  log:SetPoint("BOTTOMRIGHT", -8, 8)
+  -- Bottom inset raised so the newest line's descenders clear the window border (not clipped).
+  log:SetPoint("BOTTOMRIGHT", -8, 14)
   log:SetFontObject(GameFontHighlightSmall)
   log:SetJustifyH("LEFT")
   log:SetFading(false)
@@ -86,8 +100,87 @@ end
 
 function D:Add(msg)
   local f = EnsureFrame()
+  local ts = date("%H:%M:%S")
   -- Grey, fixed-width timestamp + a "|" separator ("||" renders one literal pipe).
-  f.log:AddMessage(("|cff888888%s  ||  |r%s"):format(date("%H:%M:%S"), tostring(msg)))
+  f.log:AddMessage(("|cff888888%s  ||  |r%s"):format(ts, tostring(msg)))
+  -- Mirror a plain-text copy into the buffer (for the Copy window), capped like the log.
+  D.buffer[#D.buffer + 1] = ts .. "  |  " .. tostring(msg)
+  if #D.buffer > MAX_BUFFER then table.remove(D.buffer, 1) end
+end
+
+-- Clear both the visible log and the copy buffer.
+function D:Clear()
+  if frame and frame.log then frame.log:Clear() end
+  wipe(D.buffer)
+end
+
+-- ── Copy window ────────────────────────────────────────────────────────────────
+-- A read-through EditBox holding the whole log as plain text; the user selects (auto-highlighted)
+-- and copies with Ctrl+C.
+local copyFrame
+local function EnsureCopyFrame()
+  if copyFrame then return copyFrame end
+
+  copyFrame = CreateFrame("Frame", "LootHistoryDebugCopyWindow", UIParent, "BackdropTemplate")
+  copyFrame:SetSize(560, 360)
+  copyFrame:SetPoint("CENTER")
+  copyFrame:SetFrameStrata("FULLSCREEN")  -- above the DIALOG-strata debug window
+  copyFrame:EnableMouse(true)
+  copyFrame:SetMovable(true)
+  copyFrame:SetClampedToScreen(true)
+
+  local tbar = CreateFrame("Frame", nil, copyFrame)
+  tbar:SetPoint("TOPLEFT", 1, -1)
+  tbar:SetPoint("TOPRIGHT", -1, -1)
+  tbar:SetHeight(26)
+  tbar:EnableMouse(true)
+  tbar:RegisterForDrag("LeftButton")
+  tbar:SetScript("OnDragStart", function() copyFrame:StartMoving() end)
+  tbar:SetScript("OnDragStop", function() copyFrame:StopMovingOrSizing() end)
+  local t = tbar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  t:SetPoint("CENTER")
+  t:SetText("Copy log \226\128\148 Ctrl+C, then Esc")
+  copyFrame.title = t
+
+  local cclose
+  if NS.Browser and NS.Browser.MakeCloseButton then
+    cclose = NS.Browser:MakeCloseButton(tbar, function() copyFrame:Hide() end)
+  else
+    cclose = CreateFrame("Button", nil, tbar)
+    cclose:SetScript("OnClick", function() copyFrame:Hide() end)
+  end
+  cclose:SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
+
+  local scroll = CreateFrame("ScrollFrame", "LootHistoryDebugCopyScroll", copyFrame, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 8, -30)
+  scroll:SetPoint("BOTTOMRIGHT", -28, 10)
+  copyFrame.scroll = scroll
+
+  local edit = CreateFrame("EditBox", nil, scroll)
+  edit:SetMultiLine(true)
+  edit:SetFontObject(GameFontHighlightSmall)
+  edit:SetAutoFocus(false)
+  edit:SetWidth(510)
+  edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); copyFrame:Hide() end)
+  scroll:SetScrollChild(edit)
+  copyFrame.edit = edit
+
+  if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(copyFrame) end
+  copyFrame:Hide()
+  if type(UISpecialFrames) == "table" then
+    table.insert(UISpecialFrames, "LootHistoryDebugCopyWindow")
+  end
+  return copyFrame
+end
+
+function D:ShowCopy()
+  local f = EnsureCopyFrame()
+  f.edit:SetWidth(f.scroll:GetWidth() > 0 and f.scroll:GetWidth() or 510)
+  f.edit:SetText(table.concat(D.buffer, "\n"))
+  f.edit:SetCursorPosition(0)
+  f:Show()
+  f.edit:SetFocus()
+  f.edit:HighlightText()
 end
 
 function D:Show() EnsureFrame():Show() end

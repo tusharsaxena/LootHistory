@@ -38,8 +38,9 @@ function Util.FormatClock(ts)
 end
 
 -- Compact date (MM/DD/YY) for the Date column.
+-- DD-MMM-YYYY (e.g. 11-Jul-2026) — unambiguous across locales (no US/EU MM/DD confusion).
 function Util.FormatDate(ts)
-  return date("%m/%d/%y", ts or 0)
+  return date("%d-%b-%Y", ts or 0)
 end
 
 -- Format a copper amount for display. In-game uses gold/silver/copper coin icon glyphs

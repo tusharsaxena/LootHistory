@@ -62,9 +62,9 @@ test("Util: FormatClock is HH:MM", function()
   assertEqual(NS.Util.FormatClock(ts), os.date("%H:%M", ts))
 end)
 
-test("Util: FormatDate is MM/DD/YY", function()
+test("Util: FormatDate is DD-MMM-YYYY", function()
   local ts = 1600000000
-  assertEqual(NS.Util.FormatDate(ts), os.date("%m/%d/%y", ts))
+  assertEqual(NS.Util.FormatDate(ts), os.date("%d-%b-%Y", ts))
 end)
 
 test("Util: FormatMoney shows non-zero parts", function()
