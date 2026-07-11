@@ -26,7 +26,7 @@ local LOGO_SIZE     = 300
 local ROW_VSPACER   = 8
 local SECTION_TOP_SPACER, SECTION_BOTTOM_SPACER, SECTION_HEADING_H = 10, 6, 26
 
-local subCategoryID   -- General subcategory (target of /lh config)
+local mainCategoryID  -- parent "Ka0s Loot History" category (target of /lh config)
 local registered
 
 -- ── Tooltip helper (AceGUI widget via SetCallback, plain frame via HookScript) ──
@@ -348,6 +348,7 @@ function P:Register()
   end)
   local mainCategory = Settings.RegisterCanvasLayoutCategory(mainCtx.panel, ADDON_TITLE)
   Settings.RegisterAddOnCategory(mainCategory)
+  mainCategoryID = mainCategory and mainCategory.GetID and mainCategory:GetID()
 
   -- General subcategory = the actual settings.
   local ctx = createPanel("LootHistoryGeneralPanel", "General", { defaultsButton = true })
@@ -365,8 +366,7 @@ function P:Register()
     end
     P:Refresh()
   end)
-  local sub = Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
-  subCategoryID = sub and sub.GetID and sub:GetID()
+  Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
 end
 
 function P:Open()
@@ -374,7 +374,7 @@ function P:Open()
     print("|cff33ff99" .. addonName .. "|r Can't open settings in combat.")
     return
   end
-  if Settings and Settings.OpenToCategory and subCategoryID then
-    Settings.OpenToCategory(subCategoryID)
+  if Settings and Settings.OpenToCategory and mainCategoryID then
+    Settings.OpenToCategory(mainCategoryID)
   end
 end
