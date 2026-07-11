@@ -52,6 +52,7 @@ _G.LH_TEST = {
 
 -- --- load test suites ---
 dofile("tests/test_util.lua")
+dofile("tests/test_compat.lua")
 
 -- --- run ---
 local passed, failed = 0, 0
