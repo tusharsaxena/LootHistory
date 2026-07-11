@@ -67,3 +67,46 @@ test("BrowserTable: BuildDisplayList yields one row entry per filtered record", 
   NS.BrowserTable.filter = { source = "KILL" }
   assertEqual(#NS.BrowserTable:BuildDisplayList(), 2)
 end)
+
+test("BrowserTable: SortRecords orders by active column, stable on ties", function()
+  local BT = NS.BrowserTable
+  local recs = {
+    { ts = 100, quality = 2, itemName = "b" },
+    { ts = 200, quality = 4, itemName = "a" },
+    { ts = 300, quality = 2, itemName = "c" },
+  }
+  BT.sortKey, BT.sortAsc = "quality", true
+  local asc = BT:SortRecords(recs)
+  assertEqual(asc[1].quality, 2)
+  assertEqual(asc[2].quality, 2)
+  assertEqual(asc[3].quality, 4)
+  -- stable: the two quality-2 rows keep input order (ts 100 before ts 300)
+  assertEqual(asc[1].ts, 100)
+  assertEqual(asc[2].ts, 300)
+
+  BT.sortAsc = false
+  local desc = BT:SortRecords(recs)
+  assertEqual(desc[1].quality, 4)
+  assertEqual(desc[3].quality, 2)
+
+  -- lexical sort on a text column
+  BT.sortKey, BT.sortAsc = "item", true
+  local byName = BT:SortRecords(recs)
+  assertEqual(byName[1].itemName, "a")
+  assertEqual(byName[3].itemName, "c")
+end)
+
+test("BrowserTable: SetSort toggles direction on same column, resets on new", function()
+  local BT = NS.BrowserTable
+  BT.sortKey, BT.sortAsc = "date", false  -- known starting state
+  BT:SetSort("item")          -- text column → ascending on first click
+  assertEqual(BT.sortKey, "item")
+  assertTrue(BT.sortAsc)
+  BT:SetSort("item")          -- re-click toggles
+  assertTrue(not BT.sortAsc)
+  BT:SetSort("qty")           -- numeric column → descending on first click
+  assertEqual(BT.sortKey, "qty")
+  assertTrue(not BT.sortAsc)
+  -- restore default sort for subsequent tests
+  BT.sortKey, BT.sortAsc = "date", false
+end)

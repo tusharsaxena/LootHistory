@@ -4,7 +4,7 @@ local BrowserTable = NS.BrowserTable
 local C = NS.Constants
 
 -- Virtualized pooled-row table over Database:Query — filter -> group -> sort -> slice -> bind
--- (see docs/TECHNICAL_DESIGN §7). Sorting lands in 3.3, grouping in 3.4.
+-- (see docs/TECHNICAL_DESIGN §7). Grouping lands in 3.4.
 
 local ROW_H = 18
 local HEADER_H = 20
@@ -187,6 +187,17 @@ end
 BrowserTable.filter = {}
 BrowserTable.testMode = false
 
+-- Active sort. Default: newest loot first (Date column, descending).
+BrowserTable.sortKey = "date"
+BrowserTable.sortAsc = false
+
+-- Columns whose sortFn yields a number. New sort on these starts descending (largest/
+-- newest first); text columns start ascending (A→Z). Re-clicking a column toggles.
+local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, quality = true, vendor = true }
+
+local ARROW_ASC  = " |cffffd100\226\150\178|r"  -- ▲
+local ARROW_DESC = " |cffffd100\226\150\188|r"  -- ▼
+
 -- Synthetic dataset covering every binding state (multiple items each) plus varied quality,
 -- item level, and source — for eyeballing the table's look via /lh testmode.
 local TEST_BINDINGS = {
@@ -236,9 +247,48 @@ function BrowserTable:ToggleTestMode()
   return self.testMode
 end
 
+-- Stable sort by the active column into a NEW array (records are not mutated). Lua 5.1's
+-- table.sort is not stable, so we tiebreak on the original index to keep equal keys in
+-- their prior (chronological) order.
+function BrowserTable:SortRecords(records)
+  local col = COLUMN_BY_KEY[self.sortKey]
+  if not col or not col.sortFn then return records end
+  local keyFn, asc = col.sortFn, self.sortAsc
+  local deco = {}
+  for i = 1, #records do
+    deco[i] = { r = records[i], i = i, k = keyFn(records[i]) }
+  end
+  table.sort(deco, function(a, b)
+    if a.k ~= b.k then
+      if asc then return a.k < b.k end
+      return a.k > b.k
+    end
+    return a.i < b.i
+  end)
+  local out = {}
+  for i = 1, #deco do out[i] = deco[i].r end
+  return out
+end
+
+-- Set the sort column: re-clicking the active column flips direction; a new column starts
+-- descending for numeric columns, ascending for text.
+function BrowserTable:SetSort(key)
+  local col = COLUMN_BY_KEY[key]
+  if not col or not col.sortFn then return end
+  if self.sortKey == key then
+    self.sortAsc = not self.sortAsc
+  else
+    self.sortKey = key
+    self.sortAsc = not NUMERIC_SORT[key]
+  end
+  self:UpdateHeaderArrows()
+  self:Refresh()
+end
+
 -- Flat display list of { kind="row", record=r }. Grouping (3.4) inserts header entries.
 function BrowserTable:BuildDisplayList()
   local records = self.testMode and self:BuildTestData() or NS.Database:Query(self.filter)
+  records = self:SortRecords(records)
   local list = {}
   for _, r in ipairs(records) do
     list[#list + 1] = { kind = "row", record = r }
@@ -415,7 +465,7 @@ function BrowserTable:Attach(pane)
 end
 
 -- Build one header button per column (text label, or a white lock for the icon column).
--- Each shows a tooltip describing the column; buttons will drive sorting in 3.3.
+-- Each shows a tooltip describing the column and sorts by that column on click.
 function BrowserTable:MakeHeaderButton(col)
   local btn = CreateFrame("Button", nil, self.headerFrame)
   btn:SetHeight(HEADER_H)
@@ -445,7 +495,25 @@ function BrowserTable:MakeHeaderButton(col)
     GameTooltip:Show()
   end)
   btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  btn:SetScript("OnClick", function() BrowserTable:SetSort(col.key) end)
   return btn
+end
+
+-- Repaint the sort arrow: the active column shows ▲/▼ after its label; others show label only.
+-- The icon (Bound) header has no label FontString, so it sorts but shows no arrow.
+function BrowserTable:UpdateHeaderArrows()
+  local header = self.headerFrame
+  if not header or not header.buttons then return end
+  for key, btn in pairs(header.buttons) do
+    if btn.fs then
+      local col = COLUMN_BY_KEY[key]
+      local label = col and col.label or ""
+      if key == self.sortKey then
+        label = label .. (self.sortAsc and ARROW_ASC or ARROW_DESC)
+      end
+      btn.fs:SetText(label)
+    end
+  end
 end
 
 function BrowserTable:BuildHeaderCells()
@@ -472,6 +540,7 @@ function BrowserTable:BuildHeaderCells()
     if btn.fs then btn.fs:SetWidth(w) end
     x = x + w + COL_GAP
   end
+  self:UpdateHeaderArrows()
 end
 
 -- Recompute the display list and repaint. Safe to call before Attach (no-op).
