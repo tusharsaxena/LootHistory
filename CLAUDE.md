@@ -92,11 +92,12 @@ Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`:
 
 ## Current status / TODO
 
-- [ ] Docs: REQUIREMENTS ✅ · TECHNICAL_DESIGN ✅ · UX_DESIGN (in progress) · EXECUTION_PLAN (next) · ARCHITECTURE (with code) · README (with code).
-- [ ] Scaffold: TOC, `.pkgmeta`, `.luacheckrc`, LICENSE, folder tree.
-- [ ] Implement per EXECUTION_PLAN milestones.
+- [x] Planning docs complete: REQUIREMENTS · TECHNICAL_DESIGN · UX_DESIGN · EXECUTION_PLAN · CLAUDE. (ARCHITECTURE + README are authored with the code in Milestone 6.)
+- [ ] **Next:** implement per `docs/EXECUTION_PLAN.md`, starting Milestone 0 (scaffold + test harness + loadable skeleton). No addon code exists yet.
+- [ ] Scaffold: TOC, `.pkgmeta`, `.luacheckrc`, folder tree, headless test harness.
+- [ ] Milestones 1–5 (capture → data layer → browser → insights → settings/polish).
+- [ ] Milestone 6: ARCHITECTURE.md, README.md, first `reviews/<DATE>/` bundle, version stamp.
 - [ ] Fill `X-Curse-Project-ID` / `X-Wago-ID` in TOC before first publish.
-- [ ] First `reviews/<DATE>/` bundle.
 
 ---
 
