@@ -221,6 +221,11 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 
 ---
 
+## Backlog (post-v0.1.0)
+
+- [ ] **Configurable window styling.** The browser window ships a flat "ElvUI-like" default skin (1px black border + subtle inner line + dark flat background + gold title + red close glyph), centralized in `modules/Browser.lua`'s `SKIN` table and `B:ApplySkin(frame)`. Add settings to let the user customize **border** (color/thickness), **background** (color/alpha), and **font** (via LibSharedMedia), driven off that table with live re-skin. New Schema rows under an "Appearance" section; `ApplySkin` already exists as the single re-skin seam.
+- [ ] **AI export + companion skill** (the deferred v2 feature; `Database:Export()` seam already in place).
+
 ## Self-review — spec coverage map
 
 | Requirement (REQUIREMENTS.md) | Task(s) |
