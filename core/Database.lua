@@ -87,6 +87,74 @@ function Database:Export(filter)
   return out
 end
 
+-- Aggregate the (optionally filtered) history in one O(n) pass. Returns count maps plus
+-- pre-sorted topZones/topItems and totals — the struct all Insights widgets consume (TD §8).
+function Database:Stats(filter)
+  local records = self:Query(filter or {})
+  local bySource, byQuality, byDay, byZone, byItem = {}, {}, {}, {}, {}
+  local chars = {}
+  local distinctItems, distinctChars = 0, 0
+  local firstTs, lastTs
+
+  for _, r in ipairs(records) do
+    local src = r.source or "OTHER"
+    bySource[src] = (bySource[src] or 0) + 1
+
+    local q = r.quality or 0
+    byQuality[q] = (byQuality[q] or 0) + 1
+
+    if r.ts then
+      local day = date("%Y-%m-%d", r.ts)
+      byDay[day] = (byDay[day] or 0) + 1
+      if not firstTs or r.ts < firstTs then firstTs = r.ts end
+      if not lastTs or r.ts > lastTs then lastTs = r.ts end
+    end
+
+    local zone = r.zone or "Unknown"
+    byZone[zone] = (byZone[zone] or 0) + 1
+
+    local id = r.itemID
+    if id ~= nil then
+      local e = byItem[id]
+      if e then
+        e.count = e.count + 1
+      else
+        byItem[id] = { itemID = id, itemName = r.itemName, quality = r.quality, count = 1 }
+        distinctItems = distinctItems + 1
+      end
+    end
+
+    if r.char and not chars[r.char] then
+      chars[r.char] = true
+      distinctChars = distinctChars + 1
+    end
+  end
+
+  local topZones = {}
+  for zone, count in pairs(byZone) do topZones[#topZones + 1] = { zone = zone, count = count } end
+  table.sort(topZones, function(a, b)
+    if a.count ~= b.count then return a.count > b.count end
+    return a.zone < b.zone
+  end)
+
+  local topItems = {}
+  for _, e in pairs(byItem) do topItems[#topItems + 1] = e end
+  table.sort(topItems, function(a, b)
+    if a.count ~= b.count then return a.count > b.count end
+    if (a.quality or 0) ~= (b.quality or 0) then return (a.quality or 0) > (b.quality or 0) end
+    return (a.itemID or 0) < (b.itemID or 0)
+  end)
+
+  return {
+    bySource = bySource, byQuality = byQuality, byDay = byDay,
+    byZone = byZone, byItem = byItem, topZones = topZones, topItems = topItems,
+    totals = {
+      records = #records, distinctItems = distinctItems, distinctChars = distinctChars,
+      firstTs = firstTs, lastTs = lastTs,
+    },
+  }
+end
+
 local function fireHistoryChanged()
   if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged") end
 end
