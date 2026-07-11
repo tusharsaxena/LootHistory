@@ -92,6 +92,21 @@ Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`:
 
 ---
 
+## Local dev & tests
+
+WoW runs **Lua 5.1**, so tests target it. Install the toolchain locally (Debian/Ubuntu/WSL):
+
+```
+sudo apt-get update && sudo apt-get install -y lua5.1 luarocks
+sudo luarocks install luacheck
+```
+
+- **Unit tests (headless):** `lua tests/run.lua` from the repo root — loads all source via `tests/loader.lua` + WoW-API mocks in `tests/wow_mock.lua`.
+- **Lint:** `luacheck .` — must report **0 errors** before every commit (config in `.luacheckrc`).
+- **Syntax-check one file:** `luac -p path/to/file.lua`.
+
+---
+
 ## Current status / TODO
 
 - [x] Planning docs complete: REQUIREMENTS · TECHNICAL_DESIGN · UX_DESIGN · EXECUTION_PLAN · CLAUDE. (ARCHITECTURE + README are authored with the code in Milestone 6.)

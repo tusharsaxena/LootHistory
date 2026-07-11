@@ -3,16 +3,17 @@ max_line_length = false
 codes = true
 exclude_files = { "libs/", "reviews/", "_dev/", "tests/" }
 ignore = {
-  "212/self",   -- unused argument self
-  "212/event",  -- unused argument event
+  "212/self",       -- unused argument self
+  "212/event",      -- unused argument event
+  "211/addonName",  -- mandated `local addonName, NS = ...` header; not every file uses addonName
 }
 read_globals = {
   "_G", "LibStub", "CreateFrame", "UIParent", "GetTime", "time", "date",
   "UnitName", "UnitGUID", "GetRealmName", "GetNormalizedRealmName",
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse",
-  "GetLootSourceInfo", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",
-  "BuyMerchantItem", "GetMerchantItemLink",
+  "GetLootSourceInfo", "GetNumLootItems", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",
+  "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText",
   "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CLASSIC",
   "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim",
   "GameTooltip", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
