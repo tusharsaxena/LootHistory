@@ -9,7 +9,7 @@ S.Schema = {
   { path = "settings.enabled", default = true, type = "boolean", widget = "CheckBox",
     label = "Enable collection" },
 
-  { path = "settings.qualityThreshold", default = 2, type = "number", widget = "Dropdown",
+  { path = "settings.qualityThreshold", default = 0, type = "number", widget = "Dropdown",
     label = "Minimum quality", options = C.QUALITY_OPTIONS,
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end

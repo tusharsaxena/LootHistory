@@ -7,7 +7,7 @@ NS.defaults.global = {
   history = {},          -- array of loot records
   settings = {
     enabled          = true,
-    qualityThreshold = 2,      -- Uncommon (green) and above
+    qualityThreshold = 0,      -- Poor (grey) and above — record everything (testing default)
     excludedSources  = {},     -- set of muted SourceType keys
     retentionDays    = 30,     -- 0 == Never
     windowScale      = 1.0,

@@ -29,6 +29,7 @@ C.CONTEXT_TTL = 1.5
 
 -- Minimum-quality options for the collector threshold (WoW item-quality ids).
 C.QUALITY_OPTIONS = {
+  { value = 0, label = "Poor (grey) and above" },
   { value = 1, label = "Common (white) and above" },
   { value = 2, label = "Uncommon (green) and above" },
   { value = 3, label = "Rare (blue) and above" },
