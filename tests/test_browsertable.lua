@@ -110,3 +110,45 @@ test("BrowserTable: SetSort toggles direction on same column, resets on new", fu
   -- restore default sort for subsequent tests
   BT.sortKey, BT.sortAsc = "date", false
 end)
+
+test("BrowserTable: GroupRecords partitions into headers + rows with counts", function()
+  local BT = NS.BrowserTable
+  local recs = {
+    { ts = 300, source = "KILL", zone = "A" },
+    { ts = 200, source = "KILL", zone = "B" },
+    { ts = 100, source = "VENDOR", zone = "A" },
+  }
+  BT.groupBy, BT.collapsed = "source", {}
+  local list = BT:GroupRecords(recs)
+  -- header(Kill), row, row, header(Vendor), row  = 5 entries
+  assertEqual(#list, 5)
+  assertEqual(list[1].kind, "header")
+  assertEqual(list[1].label, "Kill")
+  assertEqual(list[1].count, 2)
+  assertEqual(list[2].kind, "row")
+  assertEqual(list[4].kind, "header")
+  assertEqual(list[4].label, "Vendor")
+  assertEqual(list[4].count, 1)
+end)
+
+test("BrowserTable: collapsed group emits only its header", function()
+  local BT = NS.BrowserTable
+  local recs = {
+    { ts = 300, source = "KILL" },
+    { ts = 200, source = "KILL" },
+  }
+  BT.groupBy = "source"
+  local key = BT:GroupRecords(recs)[1].key
+  BT.collapsed = { [key] = true }
+  local list = BT:GroupRecords(recs)
+  assertEqual(#list, 1)                 -- header only, rows hidden
+  assertEqual(list[1].collapsed, true)
+end)
+
+test("BrowserTable: groupBy none yields a flat row list", function()
+  local BT = NS.BrowserTable
+  BT.groupBy, BT.collapsed = "none", {}
+  local list = BT:GroupRecords({ { ts = 1 }, { ts = 2 } })
+  assertEqual(#list, 2)
+  assertEqual(list[1].kind, "row")
+end)

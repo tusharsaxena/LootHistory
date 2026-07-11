@@ -198,6 +198,32 @@ local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, qualit
 local ARROW_ASC  = " |cffffd100\226\150\178|r"  -- ▲
 local ARROW_DESC = " |cffffd100\226\150\188|r"  -- ▼
 
+-- Grouping. "none" = flat table; otherwise records are partitioned under collapsible
+-- headers (see SetGroupBy). collapsed[key] = true hides a group's rows.
+BrowserTable.groupBy = "none"
+BrowserTable.collapsed = {}
+
+-- Group identity + display label for a record under the active group-by. The key is
+-- namespaced by group mode so the collapsed-state map never collides across modes (a
+-- zone named "Kill" vs the Kill source). \001 is an unprintable separator.
+local function groupOf(groupBy, r)
+  local raw, label
+  if groupBy == "source" then
+    label = C.SourceLabel[r.source] or r.source or "Other"; raw = label
+  elseif groupBy == "zone" then
+    label = r.zone or "Unknown"; raw = label
+  elseif groupBy == "char" then
+    raw = r.char or "Unknown"; label = charName(r.char) or raw
+  elseif groupBy == "quality" then
+    label = NS.Compat.QualityLabel(r.quality); raw = "q" .. tostring(r.quality or 0)
+  elseif groupBy == "day" then
+    label = date("%Y-%m-%d", r.ts or 0); raw = label
+  else
+    label = "?"; raw = "?"
+  end
+  return groupBy .. "\001" .. raw, label
+end
+
 -- Synthetic dataset covering every binding state (multiple items each) plus varied quality,
 -- item level, and source — for eyeballing the table's look via /lh testmode.
 local TEST_BINDINGS = {
@@ -285,15 +311,61 @@ function BrowserTable:SetSort(key)
   self:Refresh()
 end
 
--- Flat display list of { kind="row", record=r }. Grouping (3.4) inserts header entries.
-function BrowserTable:BuildDisplayList()
-  local records = self.testMode and self:BuildTestData() or NS.Database:Query(self.filter)
-  records = self:SortRecords(records)
+-- Set the active grouping ("none"/source/zone/char/quality/day) and repaint.
+function BrowserTable:SetGroupBy(key)
+  self.groupBy = key or "none"
+  self:Refresh()
+end
+
+-- Collapse/expand a group header (keyed by groupOf's namespaced key) and repaint.
+function BrowserTable:ToggleCollapse(key)
+  self.collapsed[key] = (not self.collapsed[key]) or nil
+  self:Refresh()
+end
+
+-- Turn a (already-sorted) record array into the flat display list. With no grouping every
+-- record is a { kind="row" } entry. With grouping, records are partitioned into groups in
+-- first-appearance order (so the active sort holds within each group), each preceded by a
+-- { kind="header" } entry carrying its label + count; a collapsed group emits only its header.
+function BrowserTable:GroupRecords(records)
   local list = {}
+  local groupBy = self.groupBy
+  if not groupBy or groupBy == "none" then
+    for _, r in ipairs(records) do
+      list[#list + 1] = { kind = "row", record = r }
+    end
+    return list
+  end
+
+  local order, byKey = {}, {}
   for _, r in ipairs(records) do
-    list[#list + 1] = { kind = "row", record = r }
+    local key, label = groupOf(groupBy, r)
+    local g = byKey[key]
+    if not g then
+      g = { key = key, label = label, rows = {} }
+      byKey[key] = g
+      order[#order + 1] = g
+    end
+    g.rows[#g.rows + 1] = r
+  end
+
+  for _, g in ipairs(order) do
+    local collapsed = self.collapsed[g.key] or false
+    list[#list + 1] = { kind = "header", key = g.key, label = g.label,
+                        count = #g.rows, collapsed = collapsed }
+    if not collapsed then
+      for _, r in ipairs(g.rows) do
+        list[#list + 1] = { kind = "row", record = r }
+      end
+    end
   end
   return list
+end
+
+-- Filter -> sort -> group into the flat display list the virtualizer binds.
+function BrowserTable:BuildDisplayList()
+  local records = self.testMode and self:BuildTestData() or NS.Database:Query(self.filter)
+  return self:GroupRecords(self:SortRecords(records))
 end
 
 function BrowserTable:SetFilter(filter)
@@ -365,6 +437,16 @@ function BrowserTable:AcquireRow()
     end
   end)
   row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- Left-click a group header toggles its collapse. (Data-row interactions land in 3.6.)
+  row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  row:SetScript("OnClick", function(self2, button)
+    local e = self2.entry
+    if not e then return end
+    if e.kind == "header" and button == "LeftButton" then
+      BrowserTable:ToggleCollapse(e.key)
+    end
+  end)
 
   self:LayoutRowCells(row)
   return row
@@ -592,7 +674,9 @@ function BrowserTable:BindRow(row, entry, absIndex)
     for _, col in ipairs(self.COLUMNS) do row.cells[col.key]:SetText("") end
     row.boundIcon:Hide()
     row.header:Show()
-    row.header:SetText(entry.label or "")
+    local arrow = entry.collapsed and "\226\150\182" or "\226\150\188" -- ▶ collapsed / ▼ expanded
+    row.header:SetText(arrow .. "  " .. (entry.label or "")
+      .. "  |cff808080(" .. (entry.count or 0) .. ")|r")
     return
   end
 
