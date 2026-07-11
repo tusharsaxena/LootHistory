@@ -23,12 +23,15 @@ function Database:Count()
   return #NS.db.global.history
 end
 
--- Append a record to the account-wide history; returns its index.
--- The Ka0s_LootHistory_RecordAdded message is added in Milestone 2 (Task 2.1).
+-- Append a record to the account-wide history; fire RecordAdded; return its index.
 function Database:Add(record)
   local history = NS.db.global.history
   history[#history + 1] = record
-  return #history
+  local index = #history
+  if NS.bus then
+    NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", record, index)
+  end
+  return index
 end
 
 -- Query / Delete / PruneOld / Export / Stats are implemented in Milestone 2.
