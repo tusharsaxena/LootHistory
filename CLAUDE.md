@@ -94,6 +94,13 @@ Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`:
 
 ---
 
+## Git workflow (Ka0s standard)
+
+- **No feature branches unless explicitly asked.** Work trunk-based: commit feature work directly to the default branch (`master`). Do **not** run `git checkout -b` / `git switch -c` on your own — only create a branch when the user asks for one. (Commit timing still follows the sub-milestone rule: commit when a plan Task is done and green, not at every checkpoint.)
+- **Never push** unless the user asks; the user pushes when ready.
+
+---
+
 ## Local dev & tests
 
 WoW runs **Lua 5.1**, so tests target it. Install the toolchain locally (Debian/Ubuntu/WSL):
