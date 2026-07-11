@@ -17,6 +17,7 @@ function addon:OnEnable()
   self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnterWorld")
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
+  if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
 end
 
 -- Retention cleanup runs once per session, deferred off the login/zone spike.
