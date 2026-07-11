@@ -553,7 +553,7 @@ Help output is generated from `COMMANDS` (no hand-maintained help string).
 
 **Deferred (v2):** `LibSerialize`, `LibDeflate` for the AI export.
 
-> **Deviation from standard §3.3/§13 (project choice):** all libraries are **vendored in `libs/` and committed to git**, not pulled as `.pkgmeta` externals — the addon ships fully self-contained. The "Embedding" column above therefore reads "vendored" in practice; `.pkgmeta` declares no `externals:` block. When the v2 export libs land, they are vendored the same way.
+> **Per Ka0s Standard v1.1 (§3.3/§13):** all libraries are **vendored in `libs/` and committed to git** (mandatory suite-wide; externals forbidden). The "Embedding" column above therefore reads "vendored"; `.pkgmeta` declares no `externals:` block. When the v2 export libs land, they are vendored the same way.
 
 ---
 

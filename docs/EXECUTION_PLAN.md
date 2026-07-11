@@ -17,7 +17,7 @@
 - **Schema-as-single-source:** one Schema table drives defaults + panel + slash; one write seam `Schema:Set`.
 - **Message bus:** `Ka0s_LootHistory_*`, exactly one sender per message.
 - **Compat firewall:** all deprecated/flavor-varying APIs in `core/Compat.lua`; no inline `WOW_PROJECT_ID`.
-- **Libs:** Ace3 + LibSharedMedia + LibDataBroker-1.1 + LibDBIcon-1.0 are **vendored in `libs/`** and committed (project choice; deviates from standard §3.3/§13). `.pkgmeta` declares no externals.
+- **Libs:** Ace3 + LibSharedMedia + LibDataBroker-1.1 + LibDBIcon-1.0 are **vendored in `libs/`** and committed (Ka0s Standard v1.1 — mandatory; externals forbidden). `.pkgmeta` declares no externals.
 - **File cap:** 1500 LOC per `.lua`.
 - **License:** MIT. **Author:** add1kted2ka0s. **TOC Title:** `Ka0s Loot History`.
 - **Debug:** persistent (`NS.db.global.debug`), zero-allocation when off, `/lh debug`.

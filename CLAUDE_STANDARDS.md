@@ -1,6 +1,11 @@
-# Ka0s WoW Addon Standard (v1.0, 2026-05-03)
+# Ka0s WoW Addon Standard (v1.1, 2026-07-11)
 
 **Status:** Source of truth. All `04_DEVIATIONS.md` audits and `05_NEW_ADDON_CONTEXT.md` template content derive from this document. When the standard changes, bump the date and version at the top.
+
+**Changelog**
+
+- **v1.1 (2026-07-11):** Reversed the library-embedding rule. Ka0s addons now **vendor all libraries in `libs/` and commit them**; `.pkgmeta` `externals:` for libs is forbidden. Rationale: fully self-contained, offline-installable addons. Affects §3.1, §3.3, §6.3, §13, §19. (v1.0 mandated externals.)
+- **v1.0 (2026-05-03):** Initial standard.
 
 **Audience:** future Ka0s and any agent (human or LLM) authoring or maintaining a Ka0s addon.
 
@@ -44,7 +49,7 @@ For utility-class addons (current example: WhatGroup at 3 files, prettychat at ~
   LICENSE                  -- MIT
   .luacheckrc
   .pkgmeta
-  libs/                    -- empty or only addon-specific micro-libs (Ace3 via externals)
+  libs/                    -- vendored Ace3 + other libs, committed to git (§3.3)
   media/                   -- textures/sounds shipped with the addon
 ```
 
@@ -84,7 +89,7 @@ Reference implementation: **KickCD**.
     <Feature>.lua          -- one file per feature module; max ~1500 LOC each
     ...
   media/
-  libs/                    -- empty when externals work; otherwise micro-libs only
+  libs/                    -- vendored Ace3 + other libs, committed to git (§3.3)
   docs/
   reviews/<YYYY-MM-DD>/    -- audit history
   README.md
@@ -156,14 +161,16 @@ Reference implementation: **KickCD**.
 
 | Lib | Purpose | Embedded as |
 |---|---|---|
-| LibStub | lib registry | external |
-| CallbackHandler-1.0 | Ace3 dependency | external |
-| AceAddon-3.0 | addon + module lifecycle | external |
-| AceDB-3.0 | profile / char / global SV | external |
-| AceEvent-3.0 | event subscription | external |
-| AceTimer-3.0 | timers | external |
-| AceConsole-3.0 | slash registration | external |
-| AceGUI-3.0 | options panel widgets | external |
+| LibStub | lib registry | vendored |
+| CallbackHandler-1.0 | Ace3 dependency | vendored |
+| AceAddon-3.0 | addon + module lifecycle | vendored |
+| AceDB-3.0 | profile / char / global SV | vendored |
+| AceEvent-3.0 | event subscription | vendored |
+| AceTimer-3.0 | timers | vendored |
+| AceConsole-3.0 | slash registration | vendored |
+| AceGUI-3.0 | options panel widgets | vendored |
+
+All libraries are **vendored in `libs/` and committed** (§3.3).
 
 ### 3.2 Common optional libs
 
@@ -177,11 +184,15 @@ Reference implementation: **KickCD**.
 | LibDeflate | export/import compression |
 | LibDBIcon-1.0 | minimap LDB icon |
 
-### 3.3 Externals over vendoring
+### 3.3 Vendoring over externals
 
-- **MUST** declare Ace3 libs as `externals:` in `.pkgmeta`. **MUST NOT** commit them to git.
-- **MAY** vendor a micro-lib that is not on CurseForge (e.g. an addon-private 80-line `ObjectPoolMixin`).
-- **MUST** delete any vendored lib that the addon does not actually `LibStub("X")`. Current dead weight to remove: AceConfig in 4 of 5 Ka0s addons; AceLocale, AceBucket, AceComm, AceHook, AceSerializer, AceTab, AceTimer in KickCD's `libs/`.
+Ka0s addons **MUST ship every library vendored in `libs/` and committed to git**. The addon must be fully self-contained — installable by copying the folder into `Interface/AddOns/` with no packager step required to obtain libraries.
+
+- **MUST** vendor all Ace3 and third-party libs under `libs/` and commit them. **MUST NOT** use `.pkgmeta` `externals:` to fetch libraries.
+- **MUST** use the standard folder-per-lib layout (`libs/AceAddon-3.0/AceAddon-3.0.xml`, `libs/LibStub/LibStub.lua`, …) and load libs **first** in the TOC — the lib's `.xml` where it ships one (it pulls the lib's `.lua` + any sub-files), the `.lua` otherwise.
+- **SHOULD** copy the folder-per-lib set from an existing Ka0s addon (e.g. KickCD's `libs/`) so lib versions stay consistent across the suite. Pull libs the suite doesn't yet vendor (LibDataBroker-1.1, LibDBIcon-1.0, …) from a current retail install or the upstream release.
+- **MUST** vendor only libs the addon actually `LibStub("X")` — vendor what you use, nothing more. Prune dead weight (e.g. AceConfig where only Profiles needs it; AceLocale/AceBucket/AceComm/AceHook/AceSerializer/AceTab where unloaded).
+- **MAY** vendor an addon-private micro-lib (e.g. an 80-line `ObjectPoolMixin`) the same way.
 
 ### 3.4 Lib registry pattern
 
@@ -369,7 +380,7 @@ end
 
 ### 6.3 Profiles sub-page
 
-- **MAY** ship a Profiles sub-category using AceDBOptions-3.0 + AceConfigDialog-3.0. **If included**, embed AceConfig only via externals — never vendor.
+- **MAY** ship a Profiles sub-category using AceDBOptions-3.0 + AceConfigDialog-3.0. **If included**, vendor AceConfig in `libs/` like every other lib (§3.3).
 - **SHOULD** be the **only** legitimate use of AceConfig in a Ka0s addon.
 
 ### 6.4 Lazy options loading (large addons)
@@ -581,38 +592,14 @@ end
 
 ## 13. Packaging (`.pkgmeta`)
 
-Every addon **MUST** ship `.pkgmeta` at the root. Reference: BigWigs (https://raw.githubusercontent.com/BigWigsMods/BigWigs/master/.pkgmeta).
+Every addon **MUST** ship `.pkgmeta` at the root for packager configuration (package name, ignore lists). Libraries are **vendored and committed** (§3.3), so `.pkgmeta` **MUST NOT** contain an `externals:` block.
 
 Minimum template:
 
 ```yaml
 package-as: <Addon>
 
-externals:
-  libs/LibStub:
-    url: https://repos.curseforge.com/wow/ace3/trunk/LibStub
-    tag: latest
-  libs/CallbackHandler-1.0:
-    url: https://repos.curseforge.com/wow/ace3/trunk/CallbackHandler-1.0
-    tag: latest
-  libs/AceAddon-3.0:
-    url: https://repos.curseforge.com/wow/ace3/trunk/AceAddon-3.0
-    tag: latest
-  libs/AceDB-3.0:
-    url: https://repos.curseforge.com/wow/ace3/trunk/AceDB-3.0
-    tag: latest
-  libs/AceEvent-3.0:
-    url: https://repos.curseforge.com/wow/ace3/trunk/AceEvent-3.0
-    tag: latest
-  libs/AceTimer-3.0:
-    url: https://repos.curseforge.com/wow/ace3/trunk/AceTimer-3.0
-    tag: latest
-  libs/AceConsole-3.0:
-    url: https://repos.curseforge.com/wow/ace3/trunk/AceConsole-3.0
-    tag: latest
-  libs/AceGUI-3.0:
-    url: https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0
-    tag: latest
+# Libraries are vendored in libs/ and committed to git — NOT fetched as externals.
 
 ignore:
   - .luacheckrc
@@ -622,8 +609,8 @@ ignore:
   - "*.bak"
 ```
 
-- **MUST** declare every Ace3 lib used as an external. **MUST NOT** commit Ace3 libs to git.
-- **MUST** ignore `reviews/`, `_dev/`, `docs/internal/`, lockfiles.
+- **MUST** vendor and commit every library the addon uses (§3.3). **MUST NOT** declare `externals:`; **MUST** commit `libs/` to git as part of the addon.
+- **MUST** ignore `reviews/`, `_dev/`, `docs/`, `tests/`, lockfiles in the package.
 - **SHOULD** use `enable-toc-creation: yes` if you ship multiple flavors that need separate TOCs.
 - **MAY** use `move-folders:` only when the repo is a monorepo for multiple addons (out of scope today; Bagnon-style future direction).
 
@@ -719,7 +706,7 @@ For quick reference, the rules above as a do-not list:
 4. AceConfig for non-Profiles content — use raw AceGUI.
 5. `SLASH_*` direct registration — use AceConsole.
 6. `if cmd == "x" then elseif ...` slash dispatcher — use schema + COMMANDS table.
-7. Vendoring Ace3 libs — use externals.
+7. `.pkgmeta` `externals:` for libraries — vendor and commit all libs instead (§3.3).
 8. Forking Ace libs — use `RegisterWidgetType` extension instead.
 9. `if WOW_PROJECT_ID == ...` ladders inline — branch in Compat.
 10. Direct calls to deprecated APIs — route through Compat.
@@ -742,7 +729,7 @@ Items recorded for future versions of this standard:
 
 - **Ka0s-Core sibling addon.** Long-term: extract Schema runtime, AceGUI panel scaffold, slash dispatcher, Compat templates into a single `Ka0s-Core` addon (Bagnon's BagBrother model). Out of scope for v1.
 - **Shared luacheckrc base.** A `Ka0s-luacheckrc.lua` symlinked into every addon.
-- **Shared `.pkgmeta` includes.** Once monorepo'd, externals declared once.
+- **Shared vendored libs.** Once monorepo'd, vendor each lib once at the repo root and share it across addons (Bagnon BagBrother model) rather than duplicating `libs/` per addon.
 - **Multi-zone profile model adoption** for KickCD and any future group-context addon.
 - **Object pool standard** packaged as a copyable micro-lib.
 

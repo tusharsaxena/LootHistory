@@ -1,4 +1,4 @@
-# New Ka0s Addon — Context Pack (v1.0, 2026-05-03)
+# New Ka0s Addon — Context Pack (v1.1, 2026-07-11)
 
 **Drop this file (or its contents) into the root of any new Ka0s addon as `CLAUDE.md` and you have a complete starter brief.** Self-contained — no external lookups required for an LLM or new contributor to scaffold a fully standards-compliant addon.
 
@@ -92,6 +92,12 @@ If unsure, start Tier 1; promote when file count would exceed 8. Tier 1 → Tier
 ## X-License: MIT
 ## X-Curse-Project-ID: <id>
 ## X-Wago-ID: <id>
+
+# Libraries first (vendored in libs/ — .xml where the lib ships one, else .lua):
+# libs\LibStub\LibStub.lua
+# libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+# libs\AceAddon-3.0\AceAddon-3.0.xml
+# ...(one line per lib you LibStub)
 
 # Tier 1: list files in dependency order
 Compat.lua
@@ -273,26 +279,19 @@ globals = {
 ```yaml
 package-as: <Addon>
 
-externals:
-  libs/LibStub:                 { url: https://repos.curseforge.com/wow/ace3/trunk/LibStub,                tag: latest }
-  libs/CallbackHandler-1.0:     { url: https://repos.curseforge.com/wow/ace3/trunk/CallbackHandler-1.0,   tag: latest }
-  libs/AceAddon-3.0:            { url: https://repos.curseforge.com/wow/ace3/trunk/AceAddon-3.0,          tag: latest }
-  libs/AceDB-3.0:               { url: https://repos.curseforge.com/wow/ace3/trunk/AceDB-3.0,             tag: latest }
-  libs/AceEvent-3.0:            { url: https://repos.curseforge.com/wow/ace3/trunk/AceEvent-3.0,          tag: latest }
-  libs/AceTimer-3.0:            { url: https://repos.curseforge.com/wow/ace3/trunk/AceTimer-3.0,          tag: latest }
-  libs/AceConsole-3.0:          { url: https://repos.curseforge.com/wow/ace3/trunk/AceConsole-3.0,        tag: latest }
-  libs/AceGUI-3.0:              { url: https://repos.curseforge.com/wow/ace3/trunk/AceGUI-3.0,            tag: latest }
-  libs/LibSharedMedia-3.0:      { url: https://repos.wowace.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0, tag: latest }
+# Libraries are vendored in libs/ and committed to git — NOT fetched as externals.
 
 ignore:
   - .luacheckrc
+  - .gitignore
   - reviews
-  - docs/internal
+  - docs
+  - tests
   - _dev
   - "*.bak"
 ```
 
-(Remove libs you don't use; reference `03_STANDARDS.md §3.2`.)
+Libraries are **vendored under `libs/` and committed** (`03_STANDARDS.md §3.3`). Copy the folder-per-lib set you actually `LibStub()` from an existing Ka0s addon (e.g. KickCD's `libs/`) so versions stay consistent across the suite, and list them **first** in the TOC (`.xml` where the lib ships one, `.lua` otherwise). Pull libs the suite doesn't yet vendor (LibDataBroker-1.1, LibDBIcon-1.0, …) from a current retail install or the upstream release.
 
 ---
 
@@ -313,7 +312,7 @@ ignore:
 13. Per-frame loops: cache db values into module locals, refresh via `M:RefreshUpvalues()` on settings change.
 14. ≥10 dynamic frames: use object pool (Acquire/Release/HideAll).
 15. File LOC cap: ~1500. Peel when exceeded.
-16. Externals not vendoring: declare Ace3 libs in `.pkgmeta` `externals:`. Never commit Ace3 to git.
+16. Vendor everything: commit all libs in `libs/`, loaded first in the TOC. Never use `.pkgmeta` `externals:` for libraries.
 17. Debug toggle persists in SV (`NS.db.global.debug`). Zero-allocation when off.
 18. Doc set: README, CLAUDE.md, ARCHITECTURE.md, LICENSE. No drift; sync before every release.
 19. Reviews: archive every audit under `reviews/<YYYY-MM-DD>/` with the 5-artifact bundle.
@@ -327,7 +326,7 @@ ignore:
 - AceConfigDialog for non-Profiles content.
 - Raw `SLASH_*` registration.
 - `if cmd == "x" then elseif ...` slash dispatchers.
-- Vendored Ace3 libs.
+- `.pkgmeta` `externals:` for libraries (Ka0s vendors and commits all libs).
 - Forking Ace libs.
 - `if WOW_PROJECT_ID ==` ladders inline (branch in Compat).
 - `:Hide()` on Blizzard frames you replace (reparent to hidden parent).
@@ -346,7 +345,7 @@ ignore:
 ## Definition of done (new addon ready for v0.1.0 release)
 
 - [ ] TOC has all 14 required fields including `X-Curse-Project-ID` and `X-Wago-ID`.
-- [ ] `.pkgmeta` with externals, no vendored Ace3.
+- [ ] `.pkgmeta` present with **no** `externals:` block; all libs vendored and committed under `libs/`.
 - [ ] `.luacheckrc` passes clean.
 - [ ] `Compat.lua` exists (even if scaffold).
 - [ ] `Locale.lua` exists with metatable fallback.
