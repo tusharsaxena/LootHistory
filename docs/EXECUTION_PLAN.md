@@ -226,6 +226,13 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 - [ ] **Tune attribution (M1 follow-up).** In-game smoke (2026-07-11) confirmed KILL attribution + quality gate, but surfaced two refinements:
   1. **Context lifetime.** Context is stamped once on `LOOT_OPENED` with a fixed 1.5s TTL, so *slow manual click-looting* (>1.5s between items in one window) lets later items fall back to `OTHER`/`INFERRED`. Consider keeping the context alive *while the loot window is open* — re-stamp/extend on each loot, expire on `LOOT_CLOSED` — instead of a fixed TTL. NOTE: CLAUDE.md flags the single-slot TTL as a deliberate design; revisit that note if changing.
   2. **Source-name resolution.** DONE for KILL (combat-log death-name cache → GUID lookup at loot) and already present for MAIL/TRADE/VENDOR/QUEST. STILL OPEN: **CONTAINER** (chests/lockboxes/gathering nodes) has no reliable name from a GameObject/Item loot GUID, so it stays `nil`/em-dash. Revisit if a source for object names is found.
+- [ ] **Addon interop.** Integrate with value/upgrade addons and show their data as columns/annotations:
+  - **Auctionator / TSM / other AH addons** — show market/AH value per item (fallback chain across whichever is installed).
+  - **Pawn** — show an **upgrade arrow** when the looted gear was an upgrade *at the time of looting* (evaluate against the character's equipped gear then and store the verdict on the record, since "now" may differ).
+  - **Loot Appraiser** and any other appraisal addons — pull their value estimates where available.
+  - All optional deps: degrade gracefully when the addon isn't present.
+- [ ] **Column chooser.** Let the user reorder and show/hide table columns (the `BrowserTable.COLUMNS` model already carries per-column metadata; add a settings/table-header UI and persist the order + visibility).
+- [ ] **Purge history in Settings.** A "Clear all history" button (with confirm) in the options panel — mirrors the `/lh purge` slash command already implemented.
 - [ ] **Configurable window styling.** The browser window ships a flat "ElvUI-like" default skin (1px black border + subtle inner line + dark flat background + gold title + red close glyph), centralized in `modules/Browser.lua`'s `SKIN` table and `B:ApplySkin(frame)`. Add settings to let the user customize **border** (color/thickness), **background** (color/alpha), and **font** (via LibSharedMedia), driven off that table with live re-skin. New Schema rows under an "Appearance" section; `ApplySkin` already exists as the single re-skin seam.
 - [ ] **AI export + companion skill** (the deferred v2 feature; `Database:Export()` seam already in place).
 
