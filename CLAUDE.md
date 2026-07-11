@@ -1,0 +1,108 @@
+# CLAUDE.md — Ka0s Loot History
+
+Agent context for this repo. Read this first, then `docs/TECHNICAL_DESIGN.md` for depth.
+
+---
+
+## What this addon is
+
+**Ka0s Loot History** records every item the player loots (above a configurable quality threshold), attributes each drop to a **source** (kill / container / mail / trade / AH / quest / vendor / craft / roll / M+ chest / other), stores it account-wide, and presents it in a standalone browser window with a filter/sort/group table plus an insights (analytics) view.
+
+- **Slash:** `/lh`, `/loothistory`
+- **SavedVariables:** `LootHistoryDB` (account-wide; data + settings live in `.global`)
+- **Author:** add1kted2ka0s · **License:** MIT
+- A future version adds AI export; v1 ships an export-ready DB seam only.
+
+> Internal-only terms **Collector** (capture) and **Browser** (view) are used in code/docs. User-facing copy says "Loot History", "History", "Insights".
+
+---
+
+## Stack & tier
+
+- **Substrate:** Ace3 — AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI.
+- **Extra libs:** LibSharedMedia-3.0 (fonts), LibDataBroker-1.1 + LibDBIcon-1.0 (minimap). LibSerialize/LibDeflate deferred to the v2 export.
+- **Tier: 2 (modular)** — collector, attribution engine, DB, browser, analytics, settings warrant >8 files.
+- All Ace3 + LibDBIcon libs via `.pkgmeta` externals. **Never vendor or commit libs.**
+
+---
+
+## Layout & key files
+
+```
+core/
+  Compat.lua        -- LOAD FIRST. flavor flags + all deprecated/varying API shims (GUID decode, item/map info)
+  Constants.lua     -- SourceType enum, quality/retention option tables, TTLs, defaults refs
+  Namespace.lua     -- bootstrap shared upvalues (NS.L, NS.C aliases)
+  State.lua         -- runtime state: lootContext, encounter/keystone context, session flags
+  Util.lua          -- pure helpers (time fmt, link/loot-string parsing, table ops, PlayerKey)
+  LootHistory.lua   -- AceAddon:NewAddon(NS,...); OnInitialize/OnEnable; PLAYER_ENTERING_WORLD
+  Database.lua      -- AceDB init, migrations, Add/Query/Delete/Export, retention prune
+defaults/Global.lua -- G = global defaults (history[], settings, schemaVersion, minimap)
+locales/enUS.lua    -- canonical strings; NS.L metatable fallback
+settings/
+  Schema.lua        -- one row per setting; Schema:Set single write seam; COMMANDS table
+  Panel.lua         -- Settings.RegisterCanvasLayoutCategory + lazy AceGUI body (combat-gated)
+  Slash.lua         -- AceConsole binding for /lh + /loothistory; dispatch from COMMANDS
+modules/
+  Attribution.lua   -- source-resolution engine; stamps & consumes the loot context (loads before Collector)
+  Collector.lua     -- CHAT_MSG_LOOT handler; self-filter + quality gate; builds & writes records
+  Browser.lua       -- window shell: frame, tabs, filter bar, group-by control, minimap/LDB
+  BrowserTable.lua  -- virtualized pooled-row table: filter→group→sort→slice→bind pipeline
+  Analytics.lua     -- Insights tab: source/quality/time breakdowns + top zones/items
+docs/               -- REQUIREMENTS, TECHNICAL_DESIGN, UX_DESIGN, EXECUTION_PLAN
+```
+
+Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales/` → `settings/` → `modules/` (Attribution before Collector).
+
+---
+
+## Conventions cheat-sheet (Ka0s standard)
+
+1. Every file begins `local addonName, NS = ...`. No `_G[addonName]`.
+2. **Schema-as-single-source** — `settings/Schema.lua` drives AceDB defaults, panel widgets, slash get/set/list/reset. Every mutation goes through `Schema:Set(path, value)` (validate → write → onChange). Paths resolve against `NS.db.global` (account-wide), not `.profile`.
+3. **Closed message bus** — `Ka0s_LootHistory_*` messages, exactly one sender each. No cross-module table reach. (`RecordAdded`, `HistoryChanged`, `SettingsChanged`.)
+4. **Compat firewall** — every deprecated/flavor-varying API call lives in `core/Compat.lua`; modules call `NS.Compat.X`. No inline `WOW_PROJECT_ID` branching.
+5. **Attribution model** — `CHAT_MSG_LOOT` is the authoritative "item received (self)" signal; peripheral events stamp a short-lived `State.lootContext` that the collector consumes. Fallback = `OTHER`/`INFERRED`. See TECHNICAL_DESIGN §4.
+6. **Object pooling** for the table (standard §9.6). Never one frame per record.
+7. **Hot-path upvalues** — collector caches `enabled`/`qualityThreshold`/`excludedSources`, refreshed on `SettingsChanged` (standard §9.7).
+8. Persistent **debug** toggle (`NS.db.global.debug`), zero-allocation when off, `/lh debug`.
+9. Files capped at 1500 LOC. Browser deliberately split into Browser/BrowserTable/Analytics.
+10. Options via Blizzard `Settings.RegisterCanvasLayoutCategory` + lazy raw AceGUI body. Never AceConfigDialog for content.
+
+---
+
+## Two approved deviations from the standard
+
+Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`:
+
+1. **`/lh` with no args toggles the window** (not "prints help"). This is a browser-first addon; help is under `/lh help`.
+2. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no combat-lockdown gate. The *Settings panel* still uses the canonical combat-gated canvas pattern.
+
+---
+
+## Data model (one record per loot event)
+
+`{ ts, char, itemID, itemLink, itemName, quality, quantity, source, sourceName, sourceDetail, zone, mapID, subzone, confidence }`
+
+- `itemLink` is canonical (exact tooltip). `itemID`/`itemName`/`quality` denormalized for fast table ops.
+- History is a dense array in `LootHistoryDB.global.history`; deletion/retention rebuild-and-swap (no holes).
+- `source ∈ Constants.SourceType`; `confidence ∈ { CERTAIN, INFERRED }`.
+
+---
+
+## Current status / TODO
+
+- [ ] Docs: REQUIREMENTS ✅ · TECHNICAL_DESIGN ✅ · UX_DESIGN (in progress) · EXECUTION_PLAN (next) · ARCHITECTURE (with code) · README (with code).
+- [ ] Scaffold: TOC, `.pkgmeta`, `.luacheckrc`, LICENSE, folder tree.
+- [ ] Implement per EXECUTION_PLAN milestones.
+- [ ] Fill `X-Curse-Project-ID` / `X-Wago-ID` in TOC before first publish.
+- [ ] First `reviews/<DATE>/` bundle.
+
+---
+
+## Do not change without reason
+
+- The **account-wide** storage decision (`.global`, `char` column). Switching to per-character profiles is a schema + query rewrite.
+- The **attribution context TTL / single-slot** design — it deliberately survives multiple `CHAT_MSG_LOOT` lines from one loot window.
+- The **two deviations** above — they are intentional, not oversights.
+- `Database:Export` field shape — it is the forward-compatible v2 export contract.
