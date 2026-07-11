@@ -5,41 +5,50 @@ local C = NS.Constants
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
 -- Paths resolve against NS.db.global (account-wide), not .profile.
+-- `group` names the panel section header; row order within a group drives the
+-- two-column pairing. `wide` forces a full-width row (see settings/Panel.lua).
 S.Schema = {
+  -- ── Ka0s Loot History ──
   { path = "settings.enabled", default = true, type = "boolean", widget = "CheckBox",
-    label = "Enable collection",
+    group = "Ka0s Loot History", label = "Enable collection",
+    tooltip = "Master switch for recording looted items.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
     end },
 
-  { path = "settings.qualityThreshold", default = 0, type = "number", widget = "Dropdown",
-    label = "Minimum quality", options = C.QUALITY_OPTIONS,
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
-    end },
-
-  { path = "settings.retentionDays", default = 30, type = "number", widget = "Dropdown",
-    label = "Keep history for", options = C.RETENTION_OPTIONS,
-    onChange = function()
-      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
-    end },
-
-  { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
-    label = "Don't record from", options = C.SOURCE_OPTIONS,
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
-    end },
-
   { path = "minimap.hide", default = false, type = "boolean", widget = "CheckBox",
-    label = "Hide minimap button",
+    group = "Ka0s Loot History", label = "Hide minimap button",
+    tooltip = "Hide the LootHistory minimap button.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
     end },
 
   { path = "settings.windowScale", default = 1.0, type = "number", min = 0.6, max = 1.6, widget = "Slider",
-    label = "Window scale",
+    group = "Ka0s Loot History", label = "Window scale",
+    tooltip = "Scale of the History browser window.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
+    end },
+
+  -- ── Data Collection ──
+  { path = "settings.qualityThreshold", default = 0, type = "number", widget = "Dropdown",
+    group = "Data Collection", label = "Minimum quality", options = C.QUALITY_OPTIONS,
+    tooltip = "Only record items at or above this quality.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
+    end },
+
+  { path = "settings.retentionDays", default = 30, type = "number", widget = "Dropdown",
+    group = "Data Collection", label = "Keep history for", options = C.RETENTION_OPTIONS,
+    tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
+    onChange = function()
+      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
+    end },
+
+  { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck", wide = true,
+    group = "Data Collection", label = "Don't record from", options = C.SOURCE_OPTIONS,
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
     end },
 
 }
