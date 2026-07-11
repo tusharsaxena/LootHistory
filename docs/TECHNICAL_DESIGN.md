@@ -23,12 +23,13 @@ Core architectural commitments:
 | Inter-module comms | **Closed message bus** — `Ka0s_LootHistory_*` named messages, one sender each. No cross-module table reach. |
 | Compat | All deprecated-API calls routed through `core/Compat.lua`. |
 
-### 1.1 Deliberate deviations from the standard
+### 1.1 Deliberate deviation from the standard
 
-Both are documented here and must be echoed in `ARCHITECTURE.md`:
+Documented here and echoed in `ARCHITECTURE.md`:
 
-1. **No-arg slash toggles the window.** The standard says `/<slash>` with no args prints help. Here `/lh` (no args) **toggles the browser window** — the primary user action — and `/lh help` prints help. Rationale: this is a browser-first addon; the toggle is the dominant verb. Help is still schema-generated, just under an explicit `help` verb.
-2. **Browser is a non-secure standalone frame.** It is a plain `CreateFrame("Frame")` (movable/resizable), not a Blizzard Settings canvas and not a secure/protected frame. It therefore needs **no combat-lockdown gate** on open. The *Settings panel* (options) still uses the canonical `Settings.RegisterCanvasLayoutCategory` + lazy AceGUI body and **is** combat-gated per §6.2 of the standard.
+1. **Browser is a non-secure standalone frame.** It is a plain `CreateFrame("Frame")` (movable/resizable), not a Blizzard Settings canvas and not a secure/protected frame. It therefore needs **no combat-lockdown gate** on open. The *Settings panel* (options) still uses the canonical `Settings.RegisterCanvasLayoutCategory` + lazy AceGUI body and **is** combat-gated per §6.2 of the standard.
+
+> **Slash behavior (standard-compliant, not a deviation).** Bare `/lh` **prints help** per §7.4; window display is explicit (`/lh toggle`, `/lh show|hide`). Earlier revisions toggled the window on no-arg — that was a deviation and has been removed.
 
 ---
 
@@ -523,9 +524,9 @@ NS.COMMANDS = {
   { name="debug",  desc="Toggle debug logging",    fn=function() NS.db.global.debug = not NS.db.global.debug end },
   { name="help",   desc="Show this help",          fn=function() S:PrintHelp() end },
 }
--- DEVIATION (§1.1): empty input toggles the window instead of printing help.
+-- Standard §7.4: empty input prints help. Window display is explicit (toggle/show/hide).
 function NS.addon:OnSlash(input)
-  if input == nil or input:match("^%s*$") then return NS.Browser:Toggle() end
+  if input == nil or input:match("^%s*$") then return S:PrintHelp() end
   local verb, rest = input:match("^(%S+)%s*(.-)$")
   for _, c in ipairs(NS.COMMANDS) do if c.name == verb then return c.fn(rest) end end
   S:PrintHelp()

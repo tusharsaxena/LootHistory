@@ -41,12 +41,12 @@ function Sl:Register()
   NS.addon:RegisterChatCommand("loothistory", function(input) Sl:OnSlash(input) end)
 end
 
--- DEVIATION (docs/REQUIREMENTS §8; Ka0s standard §7.4): empty input toggles the window
--- rather than printing help. `/lh help` still prints the index. Only the verb is
--- lower-cased; `rest` keeps its case so schema paths survive `/lh set <path> <value>`.
+-- Bare `/lh` prints the help index (Ka0s standard §7.4). Window display is explicit:
+-- `/lh toggle` or `/lh show|hide`. Only the verb is lower-cased; `rest` keeps its case
+-- so schema paths survive `/lh set <path> <value>`.
 function Sl:OnSlash(input)
   if input == nil or input:match("^%s*$") then
-    return NS.Browser:Toggle()
+    return Sl:PrintHelp()
   end
   local verb, rest = input:match("^(%S+)%s*(.-)$")
   verb = verb and verb:lower()

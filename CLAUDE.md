@@ -72,12 +72,13 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 
 ---
 
-## Two approved deviations from the standard
+## One approved deviation from the standard
 
 Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`:
 
-1. **`/lh` with no args toggles the window** (not "prints help"). This is a browser-first addon; help is under `/lh help`.
-2. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no combat-lockdown gate. The *Settings panel* still uses the canonical combat-gated canvas pattern.
+1. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no combat-lockdown gate. The *Settings panel* still uses the canonical combat-gated canvas pattern.
+
+> Bare `/lh` **prints help** (standard-compliant, §7.4). Window display is explicit: `/lh toggle` or `/lh show|hide`. (This was previously a deviation — "no-arg toggles the window" — but the addon now complies with the standard here.)
 
 (Vendored libs are **not** a deviation — Standard v1.1 makes vendoring the suite-wide rule.)
 
@@ -127,5 +128,5 @@ sudo luarocks install luacheck
 
 - The **account-wide** storage decision (`.global`, `char` column). Switching to per-character profiles is a schema + query rewrite.
 - The **attribution context TTL / single-slot** design — it deliberately survives multiple `CHAT_MSG_LOOT` lines from one loot window.
-- The **two deviations** above — they are intentional, not oversights.
+- The **deviation** above (non-secure browser frame) — it is intentional, not an oversight.
 - `Database:Export` field shape — it is the forward-compatible v2 export contract.

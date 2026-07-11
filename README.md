@@ -60,7 +60,7 @@ interchangeable.
 
 | Command | What it does |
 |---|---|
-| `/lh` | Toggle the history window |
+| `/lh` | Show the command help |
 | `/lh show` · `/lh hide` · `/lh toggle` | Open · close · toggle the window |
 | `/lh config` | Open the settings panel |
 | `/lh get <path>` | Print a setting's value |

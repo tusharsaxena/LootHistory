@@ -1,7 +1,7 @@
 # ARCHITECTURE — Ka0s Loot History
 
 Engineering reference for the addon: module map, data model, message bus, slash surface,
-event wiring, taint posture, and the two intentional deviations from the Ka0s standard.
+event wiring, taint posture, and the one intentional deviation from the Ka0s standard.
 For product scope see `docs/REQUIREMENTS.md`; for design depth, `docs/TECHNICAL_DESIGN.md`.
 
 ---
@@ -124,13 +124,13 @@ table reach.
 
 ## Slash commands
 
-Registered by `settings/Slash.lua` for both `/lh` and `/loothistory`. Bare `/lh` **toggles the
-window** (Deviation 1). Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same
-table.
+Registered by `settings/Slash.lua` for both `/lh` and `/loothistory`. Bare `/lh` **prints the
+help index** (standard-compliant); window display is explicit via `toggle`/`show`/`hide`. Verbs
+dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
 | Verb | Action |
 |---|---|
-| *(none)* | Toggle the window |
+| *(none)* | Print the help / command index |
 | `show` / `hide` / `toggle` | Open / close / toggle the window |
 | `config` | Open the Settings panel |
 | `get <path>` | Print a setting value |
@@ -181,12 +181,13 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Deviations from the Ka0s standard
 
-Two intentional deviations (also recorded in `docs/REQUIREMENTS.md §8` and CLAUDE.md):
+One intentional deviation (also recorded in `docs/REQUIREMENTS.md §8` and CLAUDE.md):
 
-1. **Bare `/lh` toggles the window** rather than printing help. This is a browser-first addon;
-   help lives under `/lh help`.
-2. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no
+1. **The browser is a standalone non-secure frame** (plain `CreateFrame`), so it needs no
    combat-lockdown gate. The Settings panel still uses the canonical combat-gated canvas.
+
+> Bare `/lh` prints help (standard §7.4) and window display is explicit (`/lh toggle`,
+> `/lh show|hide`) — previously a deviation ("no-arg toggles the window"), now compliant.
 
 Vendored libraries are **not** a deviation — Ka0s Standard v1.1 makes vendoring the suite-wide
 rule.

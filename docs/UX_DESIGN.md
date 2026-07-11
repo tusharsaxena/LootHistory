@@ -206,7 +206,7 @@ Each control writes through `Schema:Set`; changes apply immediately (scale live-
 
 | Action | Result |
 |---|---|
-| `/lh` | Toggle the window |
+| `/lh` | Show help |
 | `/lh show` / `hide` / `toggle` | Explicit window control |
 | `/lh config` | Open Settings |
 | Minimap left / right click | Toggle window / open Settings |

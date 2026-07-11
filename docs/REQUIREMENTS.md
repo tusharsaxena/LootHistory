@@ -76,7 +76,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 
 ### 4.1 Window
 - **FR-B1** A **standalone, movable, resizable** window, independent of the Blizzard options UI.
-- **FR-B2** Opened/closed via slash commands (`/lh`, `/lh show|hide|toggle`) and a **minimap button** (LibDBIcon).
+- **FR-B2** Opened/closed via slash commands (`/lh show|hide|toggle`) and a **minimap button** (LibDBIcon).
 - **FR-B3** Two tabs: **History** (the table) and **Insights** (analytics).
 - **FR-B4** Window scale is user-configurable.
 
@@ -107,7 +107,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 
 - **FR-S1** Options presented via the Blizzard Settings canvas + AceGUI body (Ka0s canonical pattern).
 - **FR-S2** Settings are **schema-driven** with a single write seam; the panel and slash commands both mutate through it.
-- **FR-S3** Slash verbs `/lh` and `/loothistory`. `/lh` with no args **toggles the window**; `/lh help` prints help.
+- **FR-S3** Slash verbs `/lh` and `/loothistory`. `/lh` with no args **prints help**; window display is explicit via `/lh show|hide|toggle`.
 - **FR-S4** Provide subcommands: `show`, `hide`, `toggle`, `config`, `get`, `set`, `list`, `reset`, `resetall`, `debug`, `help`.
 - **FR-S5** A persistent (SavedVariables) debug toggle with zero-allocation logging when off.
 
@@ -115,7 +115,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 
 ## 6. Non-functional requirements
 
-- **NFR-1** **Standards compliance** — conforms to the Ka0s WoW Addon Standard v1.1 (Ace3, Tier 2 layout, schema-as-single-source, closed message bus, Compat firewall, MIT, **vendored libs** in `libs/`, `.luacheckrc`). Two documented deviations (see §8).
+- **NFR-1** **Standards compliance** — conforms to the Ka0s WoW Addon Standard v1.1 (Ace3, Tier 2 layout, schema-as-single-source, closed message bus, Compat firewall, MIT, **vendored libs** in `libs/`, `.luacheckrc`). One documented deviation (see §8).
 - **NFR-2** **Performance** — capture is O(1) per loot event; cleanup runs once per session; the browser uses object pooling and cached upvalues for hot paths.
 - **NFR-3** **Multi-flavor** — single TOC with a multi-Interface line; flavor differences isolated in `Compat.lua`.
 - **NFR-4** **No taint** — the browser is a non-secure standalone frame; no protected/secure API misuse; no `:Hide()` on Blizzard frames.
@@ -138,8 +138,9 @@ A third capability — exporting the data to an AI companion skill that renders 
 
 | Deviation | Standard rule | Rationale |
 |---|---|---|
-| `/lh` with no args **toggles the window** instead of printing help. | §7.3 "no-arg = help". | The primary user action is opening the window; help remains available via `/lh help`. Explicit user requirement. |
 | History window is a **standalone non-secure frame**, not a Blizzard Settings canvas. | §6.1 canonical options pattern. | That pattern governs the *settings* panel (which does comply). A data browser is a distinct surface; being non-secure means no combat-lockdown gating is required. |
+
+> Note: bare `/lh` **prints help** and window display is explicit (`/lh show|hide|toggle`), so the addon now complies with §7.4 ("no-arg = help"). This was previously a deviation ("no-arg toggles the window") and has been removed.
 
 > Note: vendoring all libraries in `libs/` is **not** a deviation. Ka0s Standard **v1.1** (2026-07-11) makes vendoring mandatory suite-wide and forbids `.pkgmeta` externals; this addon complies.
 

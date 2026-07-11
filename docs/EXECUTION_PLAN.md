@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Standard:** Ka0s WoW Addon Standard (`CLAUDE_STANDARDS.md`) — MUST comply except the two documented deviations below.
+- **Standard:** Ka0s WoW Addon Standard (`CLAUDE_STANDARDS.md`) — MUST comply except the one documented deviation below.
 - **Namespace:** every file starts `local addonName, NS = ...`. No `_G[addonName]`.
 - **SavedVariables:** `LootHistoryDB`, single global, account-wide data in `.global`, with `schemaVersion`.
 - **Slash:** `/lh` and `/loothistory` via AceConsole `:RegisterChatCommand`. No raw `SLASH_*`.
@@ -21,8 +21,8 @@
 - **File cap:** 1500 LOC per `.lua`.
 - **License:** MIT. **Author:** add1kted2ka0s. **TOC Title:** `Ka0s Loot History`.
 - **Debug:** persistent (`NS.db.global.debug`), zero-allocation when off, `/lh debug`.
-- **Deviation 1:** `/lh` no-args toggles the window; help is `/lh help`.
-- **Deviation 2:** Browser is a non-secure standalone frame (no combat gate); the Settings panel keeps the canonical combat-gated canvas pattern.
+- **Slash (standard-compliant):** bare `/lh` prints help; window display is explicit (`/lh show|hide|toggle`). *(Earlier revisions toggled on no-arg — that deviation was removed.)*
+- **Deviation:** Browser is a non-secure standalone frame (no combat gate); the Settings panel keeps the canonical combat-gated canvas pattern.
 
 **Source-of-truth docs:** `docs/REQUIREMENTS.md`, `docs/TECHNICAL_DESIGN.md`, `docs/UX_DESIGN.md`. Task references like "(TD §4)" point at TECHNICAL_DESIGN sections.
 
@@ -54,7 +54,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 
 ## Milestone 0 — Scaffold & test harness (addon loads, `/lh` responds)
 
-**Deliverable:** The addon loads in-game with no errors, `/lh` toggles an (empty placeholder) frame, `/lh debug` works, and `lua tests/run.lua` runs green on a trivial Util test.
+**Deliverable:** The addon loads in-game with no errors, `/lh toggle` toggles an (empty placeholder) frame, `/lh debug` works, and `lua tests/run.lua` runs green on a trivial Util test.
 
 ### Task 0.1 — Repo skeleton & metadata
 **Files:** Create `LootHistory.toc`, `.pkgmeta`, `.luacheckrc`, `LICENSE` (MIT full text), empty `media/`, `libs/` (empty).
@@ -77,10 +77,10 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 **Test:** headless — load Database with mocked AceDB shim; assert `NS.db.global.schemaVersion == 1` and `history` is an empty table after InitDB. **Deliverable:** committed.
 
 ### Task 0.5 — Settings schema, slash dispatch, placeholder window
-**Files:** Create `settings/Schema.lua` (Schema rows per TD §9, `Schema:Set` write seam to `NS.db.global`, boot validation, `NS.COMMANDS`), `settings/Slash.lua` (register `lh`+`loothistory`, `OnSlash` with no-arg→`Browser:Toggle`, verb dispatch, generated help), `settings/Panel.lua` (canvas category registration; lazy body stub), and a minimal `modules/Browser.lua` stub exposing `Browser:Toggle/Show/Hide` that creates a bare frame.
+**Files:** Create `settings/Schema.lua` (Schema rows per TD §9, `Schema:Set` write seam to `NS.db.global`, boot validation, `NS.COMMANDS`), `settings/Slash.lua` (register `lh`+`loothistory`, `OnSlash` with no-arg→`PrintHelp`, verb dispatch, generated help), `settings/Panel.lua` (canvas category registration; lazy body stub), and a minimal `modules/Browser.lua` stub exposing `Browser:Toggle/Show/Hide` that creates a bare frame.
 **Interfaces produced:** `NS.Schema:Set(path,value)`, `NS.COMMANDS`, `NS.Browser:Toggle/Show/Hide`.
-**Test:** headless — assert `Schema:Set("settings.qualityThreshold", 4)` writes `NS.db.global.settings.qualityThreshold==4` and calls onChange; assert unknown path returns false. **Smoke:** in-game `/lh` opens/closes the bare frame; `/lh debug` toggles; `/lh help` lists verbs; `/reload` persists SV.
-**Milestone 0 acceptance:** loads clean (no Lua errors), `/lh` toggles frame, `luacheck` clean, `lua tests/run.lua` green.
+**Test:** headless — assert `Schema:Set("settings.qualityThreshold", 4)` writes `NS.db.global.settings.qualityThreshold==4` and calls onChange; assert unknown path returns false. **Smoke:** in-game `/lh` prints help; `/lh toggle` opens/closes the bare frame; `/lh debug` toggles; `/lh help` lists verbs; `/reload` persists SV.
+**Milestone 0 acceptance:** loads clean (no Lua errors), `/lh` prints help and `/lh toggle` toggles the frame, `luacheck` clean, `lua tests/run.lua` green.
 
 ---
 
@@ -235,6 +235,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 - [ ] **Purge history in Settings.** A "Clear all history" button (with confirm) in the options panel — mirrors the `/lh purge` slash command already implemented.
 - [ ] **Bundle a monospace font** (e.g. Fira Mono) in `media/` and register it via LibSharedMedia, for the debug console (WoW ships no monospace; the console currently uses the default font, whose tabular digits keep timestamps aligned).
 - [ ] **Configurable window styling.** The browser window ships a flat "ElvUI-like" default skin (1px black border + subtle inner line + dark flat background + gold title + red close glyph), centralized in `modules/Browser.lua`'s `SKIN` table and `B:ApplySkin(frame)`. Add settings to let the user customize **border** (color/thickness), **background** (color/alpha), and **font** (via LibSharedMedia), driven off that table with live re-skin. New Schema rows under an "Appearance" section; `ApplySkin` already exists as the single re-skin seam.
+- [ ] **More analytics (Insights expansion).** The current Insights tab covers source / quality / loot-over-time breakdowns plus top zones/items. Add further views driven off `Database:Stats` (single O(n) pass), e.g.: per-character comparison, item-value totals over time (once addon interop lands), loot rate (drops per hour/session), quality mix trend, rarest/most-valuable drops, and per-source yield. New charts should reuse the existing frame-based chart primitives in `modules/Analytics.lua` and the date-range scoping.
 - [ ] **AI export + companion skill** (the deferred v2 feature; `Database:Export()` seam already in place).
 
 ## Self-review — spec coverage map
