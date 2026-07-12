@@ -70,6 +70,21 @@ local function EnsureFrame()
   local copy = makeTextButton(titleBar, "Copy", 40, function() D:ShowCopy() end)
   copy:SetPoint("RIGHT", clear, "LEFT", -6, 0)
 
+  -- Left-aligned debug on/off toggle. Same flat look as Copy/Clear, but the resting colour
+  -- reflects state (green ON / red OFF); clicking flips state through the shared SetEnabled seam.
+  local toggleBtn = CreateFrame("Button", nil, titleBar)
+  toggleBtn:SetSize(80, 18)
+  toggleBtn:SetPoint("LEFT", titleBar, "LEFT", 8, 0)
+  local toggleFS = toggleBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  toggleFS:SetPoint("LEFT")
+  toggleBtn:SetScript("OnEnter", function() toggleFS:SetTextColor(1, 0.82, 0) end)
+  toggleBtn:SetScript("OnLeave", function() D:RefreshHeader() end)
+  local function onToggleClick() D:SetEnabled(not (NS.State and NS.State.debug)) end
+  toggleBtn:SetScript("OnClick", onToggleClick)
+  frame.debugToggle = toggleFS
+  frame.debugToggleBtn = toggleBtn
+  D._toggleClickForTest = onToggleClick   -- test seam (mock stubs GetScript)
+
   local log = CreateFrame("ScrollingMessageFrame", nil, frame)
   log:SetPoint("TOPLEFT", 8, -(26 + 6))
   -- Bottom inset raised so the newest line's descenders clear the window border (not clipped).
@@ -88,6 +103,8 @@ local function EnsureFrame()
 
   -- State no longer follows visibility; just keep the header label accurate when shown.
   frame:HookScript("OnShow", function() D:RefreshHeader() end)
+
+  D:RefreshHeader()
 
   frame:Hide()
   if type(UISpecialFrames) == "table" then

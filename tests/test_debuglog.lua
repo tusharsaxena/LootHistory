@@ -49,3 +49,12 @@ test("/lh debug (no arg) toggles the window, not state", function()
   debugCmd("")
   assertTrue(NS.State.debug == false, "bare toggle must not change state")
 end)
+
+test("header toggle click flips debug state", function()
+  NS.State.debug = false
+  NS.DebugLog:Show()
+  local click = NS.DebugLog._toggleClickForTest
+  assertTrue(type(click) == "function", "toggle click closure must be exposed")
+  click(); assertTrue(NS.State.debug == true, "click should turn state on")
+  click(); assertTrue(NS.State.debug == false, "second click should turn state off")
+end)
