@@ -20,18 +20,6 @@ function Util.SplitPath(path)
   return parts
 end
 
--- Format an epoch timestamp for table display: HH:MM if today, else MM/DD HH:MM.
-function Util.FormatTime(ts, nowTs)
-  ts = ts or 0
-  nowTs = nowTs or time()
-  local today = date("%Y%m%d", nowTs)
-  local sameDay = (date("%Y%m%d", ts) == today)
-  if sameDay then
-    return date("%H:%M", ts)
-  end
-  return date("%m/%d %H:%M", ts)
-end
-
 -- Clock-only (HH:MM) — used by the Time column now that Date is its own column.
 function Util.FormatClock(ts)
   return date("%H:%M", ts or 0)
@@ -88,13 +76,6 @@ function Util.FormatBytes(bytes)
   else
     return string.format("%.1f MB", bytes / (1024 * 1024))
   end
-end
-
--- Shallow count of an array-or-map table.
-function Util.TableCount(t)
-  local n = 0
-  for _ in pairs(t) do n = n + 1 end
-  return n
 end
 
 -- Convert a WoW loot global-string (e.g. "You receive loot: %sx%d.") into an anchored

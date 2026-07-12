@@ -229,7 +229,7 @@ local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality 
 local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", day = "Day" }
 
 -- Synthetic dataset covering every binding state (multiple items each) plus varied quality,
--- item level, and source — for eyeballing the table's look via /lh testmode.
+-- item level, and source — for eyeballing the table's look via /lh test.
 local TEST_BINDINGS = {
   { key = nil,       name = "Unbound" },
   { key = "BOE",     name = "Bind on Equip" },
