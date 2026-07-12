@@ -30,8 +30,9 @@ function Compat.GetZone()
   return zone, subzone
 end
 
--- GUID kinds that carry a creature/npc id in field 6 of the dash-split GUID.
-local UNIT_KINDS = { Creature = true, Vehicle = true, Pet = true, Vignette = true }
+-- GUID kinds that carry a creature/npc id in field 6 of the dash-split GUID. Exposed as the
+-- single source of truth; the attribution engine reads it to distinguish KILL from CONTAINER.
+Compat.UNIT_KINDS = { Creature = true, Vehicle = true, Pet = true, Vignette = true }
 
 -- Decode a WoW GUID → kind ("Creature"/"GameObject"/"Item"/...) and, for unit kinds,
 -- the npcID (field 6). Non-unit kinds return nil for the id.
@@ -39,7 +40,7 @@ function Compat.DecodeGUID(guid)
   if not guid then return nil end
   local kind = strsplit("-", guid)
   local npcID
-  if UNIT_KINDS[kind] then
+  if Compat.UNIT_KINDS[kind] then
     npcID = tonumber((select(6, strsplit("-", guid))))
   end
   return kind, npcID

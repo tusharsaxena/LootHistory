@@ -343,21 +343,6 @@ local function makeBarButton(parent, text, width, onClick, tooltip)
   return b
 end
 
--- A date-range value → a `from` timestamp (nil = no lower bound). Today is the calendar day;
--- 7d/30d are rolling windows.
-local function dateFrom(value)
-  local now = time()
-  if value == "today" then
-    local t = date("*t", now)
-    return now - (t.hour * 3600 + t.min * 60 + t.sec)
-  elseif value == "7d" then
-    return now - 7 * 86400
-  elseif value == "30d" then
-    return now - 30 * 86400
-  end
-  return nil
-end
-
 -- The dataset the filter bar reflects: the table's current records (test data in test mode,
 -- otherwise the live history) so dropdown options + the footer match what the table shows.
 local function dataset()
@@ -528,7 +513,7 @@ function B:ApplyView(view, scope)
   if view.source and view.source ~= "all" then self.activeFilter.source = view.source end
   if view.itemType and view.itemType ~= "all" then self.activeFilter.itemType = view.itemType end
   if view.mapID and view.mapID ~= "all" then self.activeFilter.mapID = view.mapID end
-  if view.date and view.date ~= "all" then self.activeFilter.from = dateFrom(view.date) end
+  if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
   if view.search and view.search ~= "" then self.activeFilter.text = view.search end
   if scope == "all" then self:SetCharFilter(nil) else self:SetCharFilter(currentKey()) end
 end
@@ -617,7 +602,7 @@ function B:BuildHistory(pane)
   dd.date:SetOptions(DATE_OPTIONS)
   dd.date:SetValue("all", "Date: All")
   dd.date.onSelect = function(v)
-    if v == "all" then B.activeFilter.from = nil else B.activeFilter.from = dateFrom(v) end
+    if v == "all" then B.activeFilter.from = nil else B.activeFilter.from = NS.Util.RangeFrom(v) end
     ApplyFilter()
   end
 

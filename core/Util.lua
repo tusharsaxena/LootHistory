@@ -43,6 +43,22 @@ function Util.FormatDate(ts)
   return date("%d-%b-%Y", ts or 0)
 end
 
+-- A date-range key → a `from` epoch timestamp (nil = no lower bound / "all"). "today" is the
+-- current calendar day; "7d"/"30d" are rolling windows. Shared by the Browser date filter and
+-- the Insights range selector so the two can't drift.
+function Util.RangeFrom(range)
+  local now = time()
+  if range == "today" then
+    local t = date("*t", now)
+    return now - (t.hour * 3600 + t.min * 60 + t.sec)
+  elseif range == "7d" then
+    return now - 7 * 86400
+  elseif range == "30d" then
+    return now - 30 * 86400
+  end
+  return nil
+end
+
 -- Format a copper amount for display. In-game uses gold/silver/copper coin icon glyphs
 -- (GetCoinTextureString); headless falls back to "Ng Ns Nc" (only non-zero parts).
 -- "" for nil/0. Shared by the Vendor column and any future currency columns.

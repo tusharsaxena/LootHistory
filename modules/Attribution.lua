@@ -37,14 +37,13 @@ end
 
 -- ── Pure source resolver ──────────────────────────────────────────────────────
 -- Map a loot-slot GUID + current instance state to a source + source-specific detail.
--- Testable without events; the LOOT_OPENED handler feeds it live GUIDs.
-local UNIT_KINDS = { Creature = true, Vehicle = true, Pet = true, Vignette = true }
-
+-- Testable without events; the LOOT_OPENED handler feeds it live GUIDs. The unit-kind set lives
+-- in Compat (single source of truth) so KILL detection can't drift from GUID decoding.
 function Attribution:ResolveLootSource(guid, state)
   state = state or State
   local S = Constants.SourceType
   local kind, npcID = NS.Compat.DecodeGUID(guid)
-  if UNIT_KINDS[kind] then
+  if NS.Compat.UNIT_KINDS[kind] then
     local detail = { npcID = npcID }
     if state.encounter then
       detail.encounterID = state.encounter.id

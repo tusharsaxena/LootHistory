@@ -17,6 +17,18 @@ test("Constants: source enum + order", function()
   assertTrue(muteable.KILL); assertTrue(muteable.VENDOR)
 end)
 
+test("Util: RangeFrom maps range keys to a lower-bound timestamp", function()
+  local now = os.time()
+  assertEqual(NS.Util.RangeFrom("all"), nil)          -- unbounded
+  assertEqual(NS.Util.RangeFrom("bogus"), nil)        -- unknown → unbounded
+  local d7 = NS.Util.RangeFrom("7d")
+  assertTrue(d7 ~= nil and (now - d7) >= 7 * 86400 - 5 and (now - d7) <= 7 * 86400 + 5)
+  local d30 = NS.Util.RangeFrom("30d")
+  assertTrue(d30 ~= nil and (now - d30) >= 30 * 86400 - 5 and (now - d30) <= 30 * 86400 + 5)
+  local today = NS.Util.RangeFrom("today")
+  assertTrue(today ~= nil and today <= now and (now - today) < 86400)  -- start of the calendar day
+end)
+
 test("Util: PlayerKey is Name-Realm", function()
   assertEqual(NS.Util.PlayerKey(), "Mock-Realm")
 end)

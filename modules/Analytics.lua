@@ -113,26 +113,14 @@ local function makeListRow(parent)
   return r
 end
 
--- Date-range options → a `from` timestamp for Database:Stats. "Today" is the calendar day;
--- 7d/30d are rolling windows; "all" is unbounded.
+-- Date-range options for the selector. The range key → `from` timestamp mapping lives in
+-- Util.RangeFrom (shared with the Browser date filter).
 local RANGES = {
   { value = "today", label = "Today" },
   { value = "7d",    label = "7 days" },
   { value = "30d",   label = "30 days" },
   { value = "all",   label = "All" },
 }
-local function rangeFrom(range)
-  local now = time()
-  if range == "today" then
-    local t = date("*t", now)
-    return now - (t.hour * 3600 + t.min * 60 + t.sec)
-  elseif range == "7d" then
-    return now - 7 * 86400
-  elseif range == "30d" then
-    return now - 30 * 86400
-  end
-  return nil -- all
-end
 
 -- The four stat cards, left→right.
 local CARD_DEFS = {
@@ -235,7 +223,7 @@ end
 
 function Analytics:Refresh()
   if not self.content then return end
-  local from = rangeFrom(self.range)
+  local from = NS.Util.RangeFrom(self.range)
   local stats = NS.Database:Stats(from and { from = from } or {})
   self.stats = stats
   self:UpdateCards(stats)
