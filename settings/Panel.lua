@@ -15,7 +15,7 @@ local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 
 local ADDON_TITLE   = "Ka0s Loot History"
 local ADDON_TAGLINE = "Records every item you loot, attributes its source, and lets you browse and analyse it."
-local LOGO_PATH     = "Interface\\AddOns\\LootHistory\\media\\logo\\loothistory.logo.tga"
+local LOGO_PATH     = "Interface\\AddOns\\LootHistory\\media\\logos\\loothistory.logo.tga"
 
 -- Layout constants (Ka0s standard values; see WowAddonStandards §6.8).
 local PADDING_X     = 16   -- left/right edge inset for header, divider, body
