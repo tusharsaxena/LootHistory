@@ -60,7 +60,7 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 ## Conventions cheat-sheet (Ka0s standard)
 
 1. Every file begins `local addonName, NS = ...`. No `_G[addonName]`.
-2. **Schema-as-single-source** — `settings/Schema.lua` drives AceDB defaults, panel widgets, slash get/set/list/reset. Every mutation goes through `Schema:Set(path, value)` (validate → write → onChange). Paths resolve against `NS.db.global` (account-wide), not `.profile`.
+2. **Schema-as-single-source** — `settings/Schema.lua` drives AceDB defaults, panel widgets, slash get/set/list/reset. Every user *setting* mutation goes through `Schema:Set(path, value)` (validate → write → deep-copy → onChange). Paths resolve against `NS.db.global` (account-wide), not `.profile`. **Carve-out:** the Browser's window geometry (`settings.window`) and saved table view (`savedView`) are view/window runtime state persisted directly to `NS.db.global` — they are intentionally *not* Schema rows and do not route through `Schema:Set`.
 3. **Closed message bus** — `Ka0s_LootHistory_*` messages, exactly one sender each. No cross-module table reach. (`RecordAdded`, `HistoryChanged`, `SettingsChanged`.)
 4. **Compat firewall** — every deprecated/flavor-varying API call lives in `core/Compat.lua`; modules call `NS.Compat.X`. No inline `WOW_PROJECT_ID` branching.
 5. **Attribution model** — `CHAT_MSG_LOOT` is the authoritative "item received (self)" signal; peripheral events stamp a short-lived `State.lootContext` that the collector consumes. Fallback = `OTHER`/`INFERRED`. See TECHNICAL_DESIGN §4.
