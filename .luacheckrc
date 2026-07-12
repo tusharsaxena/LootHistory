@@ -18,6 +18,7 @@ read_globals = {
   "ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "ITEM_BNETACCOUNTBOUND", "ITEM_BIND_TO_BNETACCOUNT",
   "ITEM_ACCOUNTBOUND", "ITEM_SOULBOUND",
   "GetLootSourceInfo", "GetNumLootItems", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",
+  "GetQuestReward", "GetQuestID",
   "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText",
   "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CLASSIC",
   "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim",

@@ -273,7 +273,7 @@ The context is intentionally **not** cleared after one consume: a `LOOT_OPENED` 
 | `TRADE` | `TRADE_ACCEPT_UPDATE` → complete (`UI_INFO_MESSAGE` = `ERR_TRADE_COMPLETE`) | |
 | `AH` | `AUCTION_HOUSE_PURCHASE_COMPLETED` / `C_AuctionHouse` won events | **planned** — no stamper yet; hidden from the mute list (`Constants.SOURCE_IMPLEMENTED`) |
 | `VENDOR` | `MERCHANT_SHOW` open + buy (`hooksecurefunc("BuyMerchantItem")` / money-decrease heuristic) | per-source-excludable (noisy) |
-| `QUEST` | `QUEST_TURNED_IN` / `QUEST_LOOT_RECEIVED` | reward items |
+| `QUEST` | `GetQuestReward` hook (client turn-in call, stamps before the reward pushes) + `QUEST_TURNED_IN` event (questID detail) | reward items; the event alone fires too late to catch the reward loot line |
 | `CRAFT` | player `UNIT_SPELLCAST_SUCCEEDED` for Disenchant/Milling/Prospecting | **partial** — disenchant/mill/prospect stamped; broad recipe crafting deferred (cast time can exceed the TTL, see TODO.md) |
 | `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | **planned** — no stamper yet; hidden from the mute list |
 | `OTHER` | (fallback) no fresh context | `INFERRED` |

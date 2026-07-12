@@ -116,3 +116,11 @@ test("Attribution: an unrelated player spell does not stamp CRAFT", function()
   NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 999999)
   assertEqual(NS.Attribution:Consume(), "OTHER")
 end)
+
+-- Quest rewards must be stamped from the GetQuestReward hook (client call, before the server
+-- pushes the reward loot); QUEST_TURNED_IN alone can fire after the reward line and miss it.
+test("Attribution: taking a quest reward stamps QUEST", function()
+  resetContext()
+  NS.Attribution:StampQuestReward()
+  assertEqual(NS.Attribution:Consume(), "QUEST")
+end)

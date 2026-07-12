@@ -160,11 +160,12 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
 | `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`) | `modules/Attribution.lua` |
 | `TRADE_ACCEPT_UPDATE` | trade context (on mutual accept) | `modules/Attribution.lua` |
-| `QUEST_TURNED_IN` | quest-reward context | `modules/Attribution.lua` |
+| `QUEST_TURNED_IN` | `OnQuestTurnedIn` (questID detail; the reward stamp itself comes from the `GetQuestReward` hook below) | `modules/Attribution.lua` |
 | `UNIT_SPELLCAST_SUCCEEDED` (player-only) | `OnSpellSucceeded` → CRAFT for disenchant/mill/prospect | `modules/Attribution.lua` |
 | `hooksecurefunc("BuyMerchantItem")` | `StampVendor` (vendor context) | `modules/Attribution.lua` |
 | `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` (mail context) | `modules/Attribution.lua` |
 | `hooksecurefunc(C_Container.UseContainerItem)` | `OnContainerItemUse` → CONTAINER (opening a lootable bag item) | `modules/Attribution.lua` |
+| `hooksecurefunc("GetQuestReward")` | `StampQuestReward` → QUEST (stamps before the reward pushes) | `modules/Attribution.lua` |
 
 All flavor-varying or deprecated calls behind these handlers are routed through
 `core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.

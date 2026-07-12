@@ -140,6 +140,16 @@ function Attribution:OnQuestTurnedIn(_, questID)
     Constants.Confidence.CERTAIN)
 end
 
+-- Quest reward taken. Stamped from the GetQuestReward hook (client call, runs before the server
+-- pushes the reward items) so the QUEST stamp is fresh when the reward loot line arrives —
+-- QUEST_TURNED_IN alone can fire after that line and miss it. Detail carries the quest ID when
+-- the quest frame still exposes it.
+function Attribution:StampQuestReward()
+  local questID = NS.Compat.CurrentQuestID()
+  self:Stamp(Constants.SourceType.QUEST,
+    (questID and questID > 0) and { questID = questID } or nil, Constants.Confidence.CERTAIN)
+end
+
 -- Register events + read-side hooks. Guarded so a missing API degrades gracefully per flavor.
 function Attribution:Enable()
   local bus = NS.addon
@@ -174,4 +184,5 @@ function Attribution:Enable()
     end
   end
   NS.Compat.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
+  NS.Compat.HookGetQuestReward(function() self:StampQuestReward() end)
 end

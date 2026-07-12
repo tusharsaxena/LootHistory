@@ -45,6 +45,21 @@ function Compat.ContainerItemHasLoot(bag, slot)
   return false
 end
 
+-- Hook the quest-reward turn-in. GetQuestReward is the client call that triggers the server
+-- turn-in, so a stamp here lands before the reward items push (the QUEST_TURNED_IN *event* can
+-- fire after the reward loot line and miss it). Calls fn() after each turn-in.
+function Compat.HookGetQuestReward(fn)
+  if type(GetQuestReward) == "function" then
+    hooksecurefunc("GetQuestReward", fn)
+  end
+end
+
+-- The quest ID of the quest currently open in the quest frame (nil / 0 when none).
+function Compat.CurrentQuestID()
+  if type(GetQuestID) == "function" then return GetQuestID() end
+  return nil
+end
+
 -- Current zone + subzone labels (subzone may be "").
 function Compat.GetZone()
   local zone = (GetZoneText and GetZoneText()) or ""
