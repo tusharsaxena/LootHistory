@@ -47,7 +47,6 @@ A third capability — exporting the data to an AI companion skill that renders 
   - `char` — capturing character as `Name-Realm`
   - `itemID`, `itemLink`, `itemName`, `quality`, `quantity`
   - `source` — attributed source enum (see 3.3)
-  - `sourceName` — human label for the source (creature name, mail sender, trade partner, container item, quest name)
   - `sourceDetail` — optional structured extras (npcID, encounterID, keystone level)
   - `zone`, `mapID`, `subzone` — drop location
   - `confidence` — `CERTAIN` or `INFERRED`

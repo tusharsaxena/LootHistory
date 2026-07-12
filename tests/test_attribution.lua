@@ -1,7 +1,6 @@
 local T = _G.LH_TEST
 local NS, mocks = T.NS, T.mocks
-local test, assertEqual, assertTrue =
-  T.test, T.assertEqual, T.assertTrue
+local test, assertEqual = T.test, T.assertEqual
 
 local function resetContext()
   NS.State.lootContext = nil
@@ -10,42 +9,40 @@ end
 
 test("Attribution: Consume returns stamped context within TTL", function()
   resetContext()
-  NS.Attribution:Stamp("KILL", "Broodtwister", { npcID = 214506 }, "CERTAIN")
-  local source, name, detail, confidence = NS.Attribution:Consume()
+  NS.Attribution:Stamp("KILL", { npcID = 214506 }, "CERTAIN")
+  local source, detail, confidence = NS.Attribution:Consume()
   assertEqual(source, "KILL")
-  assertEqual(name, "Broodtwister")
   assertEqual(detail.npcID, 214506)
   assertEqual(confidence, "CERTAIN")
 end)
 
 test("Attribution: Stamp defaults confidence to CERTAIN", function()
   resetContext()
-  NS.Attribution:Stamp("CONTAINER", "Lockbox")
-  local _, _, _, confidence = NS.Attribution:Consume()
+  NS.Attribution:Stamp("CONTAINER")
+  local _, _, confidence = NS.Attribution:Consume()
   assertEqual(confidence, "CERTAIN")
 end)
 
 test("Attribution: Consume falls back to OTHER/INFERRED past TTL", function()
   resetContext()
-  NS.Attribution:Stamp("KILL", "Broodtwister")
+  NS.Attribution:Stamp("KILL")
   mocks.__now = NS.Constants.CONTEXT_TTL + 1
-  local source, name, detail, confidence = NS.Attribution:Consume()
+  local source, detail, confidence = NS.Attribution:Consume()
   assertEqual(source, "OTHER")
-  assertEqual(name, nil)
   assertEqual(detail, nil)
   assertEqual(confidence, "INFERRED")
 end)
 
 test("Attribution: Consume with no stamp → OTHER/INFERRED", function()
   resetContext()
-  local source, _, _, confidence = NS.Attribution:Consume()
+  local source, _, confidence = NS.Attribution:Consume()
   assertEqual(source, "OTHER")
   assertEqual(confidence, "INFERRED")
 end)
 
 test("Attribution: context survives repeated Consume (multi-line loot)", function()
   resetContext()
-  NS.Attribution:Stamp("MPLUS", "Great Vault", { keystoneLevel = 12 })
+  NS.Attribution:Stamp("MPLUS", { keystoneLevel = 12 })
   local s1 = NS.Attribution:Consume()
   local s2 = NS.Attribution:Consume()
   assertEqual(s1, "MPLUS")
@@ -72,7 +69,7 @@ test("Attribution: ResolveLootSource creature in encounter → KILL + encounter 
 end)
 
 test("Attribution: ResolveLootSource GameObject in keystone → MPLUS + level", function()
-  local state = { keystone = { level = 12, mapID = 2657 } }
+  local state = { keystone = { level = 12 } }
   local source, detail = NS.Attribution:ResolveLootSource(OBJECT, state)
   assertEqual(source, "MPLUS")
   assertEqual(detail.keystoneLevel, 12)
@@ -86,20 +83,4 @@ end)
 test("Attribution: ResolveLootSource Item GUID → CONTAINER", function()
   local source = NS.Attribution:ResolveLootSource(ITEMGUID, {})
   assertEqual(source, "CONTAINER")
-end)
-
-test("Attribution: CacheName feeds ResolveSourceName for KILL only", function()
-  NS.Attribution:CacheName(CREATURE, "Springpaw Lynx")
-  assertEqual(NS.Attribution:ResolveSourceName("KILL", CREATURE), "Springpaw Lynx")
-  assertEqual(NS.Attribution:ResolveSourceName("CONTAINER", CREATURE), nil)
-  assertEqual(NS.Attribution:ResolveSourceName("KILL", "Creature-unknown"), nil)
-end)
-
-test("Attribution: name cache is bounded and evicts oldest", function()
-  NS.Attribution.nameCache = {}
-  NS.Attribution.nameOrder = {}
-  for i = 1, 200 do NS.Attribution:CacheName("guid-" .. i, "name-" .. i) end
-  assertTrue(#NS.Attribution.nameOrder <= 80)
-  assertEqual(NS.Attribution:ResolveSourceName("KILL", "guid-1"), nil)     -- evicted
-  assertEqual(NS.Attribution:ResolveSourceName("KILL", "guid-200"), "name-200")
 end)

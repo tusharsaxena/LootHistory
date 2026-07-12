@@ -6,7 +6,7 @@ local Collector = NS.Collector
 -- (see docs/TECHNICAL_DESIGN §5).
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (standard §9.7).
-local enabled, qualityThreshold, excludedSources = true, 2, {}
+local enabled, qualityThreshold, excludedSources = true, 1, {}
 
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
 
@@ -34,8 +34,7 @@ function Collector:BuildRecord(link, qty, ctx, env)
     itemSubType  = env.itemSubType,
     quantity     = qty,
     source       = ctx.source,
-    sourceName   = ctx.sourceName,
-    sourceDetail = ctx.sourceDetail,
+    sourceDetail = ctx.sourceDetail,   -- npcID / encounter / keystone / questID (not displayed)
     zone         = env.zone,
     mapID        = env.mapID,
     subzone      = env.subzone,
@@ -59,7 +58,7 @@ function Collector:OnChatMsgLoot(_, msg)
   if not link then return end
 
   local itemID, itemName, quality = NS.Compat.GetItemInfo(link)
-  local source, sourceName, sourceDetail, confidence = NS.Attribution:Consume()
+  local source, sourceDetail, confidence = NS.Attribution:Consume()
 
   if not self:ShouldRecord(quality, source,
     { qualityThreshold = qualityThreshold, excludedSources = excludedSources }) then
@@ -70,7 +69,7 @@ function Collector:OnChatMsgLoot(_, msg)
   local zone, subzone = NS.Compat.GetZone()
   local classFile = select(2, UnitClass("player"))
   local record = self:BuildRecord(link, qty,
-    { source = source, sourceName = sourceName, sourceDetail = sourceDetail, confidence = confidence },
+    { source = source, sourceDetail = sourceDetail, confidence = confidence },
     { ts = time(), char = NS.Util.PlayerKey(), classFile = classFile,
       itemID = itemID, itemName = itemName, quality = quality, itemLevel = itemLevel, bound = bound,
       sellPrice = sellPrice, itemType = itemType, itemSubType = itemSubType,

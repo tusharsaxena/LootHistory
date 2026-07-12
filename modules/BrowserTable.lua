@@ -8,7 +8,6 @@ local C = NS.Constants
 
 local ROW_H = 18
 local HEADER_H = 20
-local EMDASH = "\226\128\148"
 local ITEM_MIN = 150  -- minimum width of the flex (Item) column
 local COL_GAP = 8     -- horizontal space between columns
 -- Every row shows a lock; colour + opacity encode the binding state. {r, g, b, alpha}
@@ -152,13 +151,6 @@ BrowserTable.COLUMNS = {
     desc = "How the item was acquired (kill, container, mail, trade, …).",
     valueFn = function(r) return C.SourceLabel[r.source] or r.source or "Other" end,
     sortFn = function(r) return C.SourceLabel[r.source] or r.source or "" end },
-  -- TODO: revisit the "From" field — sourceName is nil (em-dash) for CONTAINER
-  -- loot (chests/lockboxes/nodes) and other sources without a reliable name.
-  -- See EXECUTION_PLAN backlog "Tune attribution → Source-name resolution".
-  { key = "from", label = "From", width = 96, align = "LEFT",
-    desc = "Where it came from — mob, mail sender, trade partner, merchant, or quest.",
-    valueFn = function(r) return r.sourceName or EMDASH end,
-    sortFn = function(r) return (r.sourceName or ""):lower() end },
   { key = "zone", label = "Zone", width = 100, align = "LEFT",
     desc = "Zone where the item was looted (subzone in the item tooltip).",
     valueFn = function(r) return r.zone or "" end,
@@ -268,7 +260,6 @@ function BrowserTable:BuildTestData()
         itemType = TEST_TYPES[((i - 1) % #TEST_TYPES) + 1],
         itemSubType = "Sample",
         source = TEST_SOURCES[((i - 1) % #TEST_SOURCES) + 1],
-        sourceName = (k == 1) and "Test Source" or nil,
         zone = "Test Zone " .. ti,
         mapID = ti,
         confidence = "CERTAIN",

@@ -14,6 +14,19 @@ function NS:RunMigrations()
   if g.schemaVersion < 2 then g.schemaVersion = 2 end
   -- v3: added classFile, sellPrice, itemType, itemSubType. Also additive/nil-safe.
   if g.schemaVersion < 3 then g.schemaVersion = 3 end
+  -- v4: removed the From column and its `sourceName` field (the combat-log name cache was
+  -- retired — the field was blank for the vast majority of loot: containers, delves, pushed
+  -- items). Strip it from existing records, drop a stale "from" sort, and clear the saved window
+  -- size so the (now narrower) window re-opens at its new default width.
+  if g.schemaVersion < 4 then
+    for _, r in ipairs(g.history) do r.sourceName = nil end
+    if g.settings and g.settings.window then
+      g.settings.window.w = nil
+      g.settings.window.h = nil
+    end
+    if g.savedView and g.savedView.sortKey == "from" then g.savedView.sortKey = "date" end
+    g.schemaVersion = 4
+  end
 end
 
 NS.Database = NS.Database or {}
@@ -88,7 +101,8 @@ function Database:Query(filter)
 end
 
 -- Plain, metatable-free copy of the (optionally filtered) history — the forward-compatible
--- v2 export contract (TECHNICAL_DESIGN §13). Do not change the field shape.
+-- v2 export contract (TECHNICAL_DESIGN §13). Field shape is stable except for schema bumps
+-- (v4 dropped the retired `sourceName`).
 function Database:Export(filter)
   local out = {}
   for _, r in ipairs(self:Query(filter or {})) do
@@ -97,7 +111,7 @@ function Database:Export(filter)
       itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
       sellPrice = r.sellPrice, itemType = r.itemType, itemSubType = r.itemSubType,
       quantity = r.quantity,
-      source = r.source, sourceName = r.sourceName, sourceDetail = r.sourceDetail,
+      source = r.source, sourceDetail = r.sourceDetail,
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
     }
   end
@@ -214,7 +228,7 @@ end
 local RECORD_OVERHEAD = 256
 local function estimateRecordBytes(r)
   local n = RECORD_OVERHEAD
-  local strFields = { r.itemLink, r.itemName, r.sourceName, r.sourceDetail,
+  local strFields = { r.itemLink, r.itemName,
                       r.zone, r.subzone, r.char, r.itemType, r.itemSubType }
   for _, s in ipairs(strFields) do
     if type(s) == "string" then n = n + #s end

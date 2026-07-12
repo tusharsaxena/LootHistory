@@ -6,8 +6,7 @@ local test, assertEqual, assertTrue, assertFalse =
 local LINK = "|cffa335ee|Hitem:211296::::::::80:::::|h[Vial of Fun]|h|r"
 
 test("Collector: BuildRecord populates every field", function()
-  local ctx = { source = "KILL", sourceName = "Ovi'nax",
-                sourceDetail = { npcID = 214506 }, confidence = "CERTAIN" }
+  local ctx = { source = "KILL", sourceDetail = { npcID = 214506 }, confidence = "CERTAIN" }
   local env = { ts = 1000, char = "Ka0z-Realm", itemID = 211296, itemName = "Vial of Fun",
                 quality = 4, itemLevel = 489, bound = "WARBAND",
                 zone = "Nerub-ar Palace", mapID = 2657, subzone = "The Hive" }
@@ -22,7 +21,6 @@ test("Collector: BuildRecord populates every field", function()
   assertEqual(r.quality, 4)
   assertEqual(r.quantity, 3)
   assertEqual(r.source, "KILL")
-  assertEqual(r.sourceName, "Ovi'nax")
   assertEqual(r.sourceDetail.npcID, 214506)
   assertEqual(r.zone, "Nerub-ar Palace")
   assertEqual(r.mapID, 2657)
@@ -58,7 +56,7 @@ test("Collector: end-to-end writes an attributed record", function()
   mocks.__now = 0
   NS.State.lootContext = nil
   NS.Collector:RefreshUpvalues()
-  NS.Attribution:Stamp("KILL", "Ovi'nax", { npcID = 214506 }, "CERTAIN")
+  NS.Attribution:Stamp("KILL", { npcID = 214506 }, "CERTAIN")
 
   local before = NS.Database:Count()
   local msg = string.format(mocks.LOOT_ITEM_SELF, LINK)
@@ -67,7 +65,7 @@ test("Collector: end-to-end writes an attributed record", function()
   assertEqual(NS.Database:Count(), before + 1)
   local r = NS.Database:History()[NS.Database:Count()]
   assertEqual(r.source, "KILL")
-  assertEqual(r.sourceName, "Ovi'nax")
+  assertEqual(r.sourceDetail.npcID, 214506)
   assertEqual(r.confidence, "CERTAIN")
   assertEqual(r.itemID, 211296)
   assertEqual(r.quality, 4)
@@ -81,7 +79,7 @@ test("Collector: end-to-end drops loot below the quality threshold", function()
   mocks.__now = 0
   NS.db.global.settings.qualityThreshold = 5   -- Legendary+; mock item is quality 4
   NS.Collector:RefreshUpvalues()
-  NS.Attribution:Stamp("KILL", "Ovi'nax", nil, "CERTAIN")
+  NS.Attribution:Stamp("KILL", nil, "CERTAIN")
 
   local before = NS.Database:Count()
   NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))

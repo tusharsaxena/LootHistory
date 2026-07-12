@@ -132,7 +132,6 @@ One record per **loot event** (not per item type — every acquisition is a row,
   quality     = 4,                 -- numeric Enum.ItemQuality; denormalized for fast filter/sort
   quantity    = 2,
   source      = "KILL",            -- SourceType enum (Constants.SourceType)
-  sourceName  = "Broodtwister Ovi'nax",  -- creature / mail sender / trade partner / container / quest
   sourceDetail= { npcID = 214506, encounterID = 2902, difficulty = 16 }, -- optional, source-specific
   zone        = "Nerub-ar Palace",
   mapID       = 2657,
@@ -205,7 +204,7 @@ When a loot window opens, iterate slots and read `GetLootSourceInfo(slot)` → r
 
 | GUID type prefix | Meaning | Stamped source | Extra |
 |---|---|---|---|
-| `Creature` / `Vehicle` / `Pet` | Killed mob | `KILL` | npcID (parsed from GUID field 6), name from tooltip/`sourceName` |
+| `Creature` / `Vehicle` / `Pet` | Killed mob | `KILL` | npcID (parsed from GUID field 6) |
 | `GameObject` | World object / chest / node | `CONTAINER` (or `MPLUS` if in a completed keystone, see §4.5) | objectID |
 | `Item` | Opened bag item (lockbox, container item) | `CONTAINER` | the container's own itemID/name |
 | `Vignette` | Rare/vignette | `KILL` | vignette-derived name |
@@ -263,20 +262,22 @@ The context is intentionally **not** cleared after one consume: a `LOOT_OPENED` 
 
 ### 4.4 Contextual stampers (events → source)
 
-| Source | Stamped by (events) | `sourceName` | Notes |
-|---|---|---|---|
-| `KILL` | `LOOT_OPENED` (Creature GUID) | creature name | + `encounterID`/`difficulty` from §4.5 |
-| `CONTAINER` | `LOOT_OPENED` (Item/GameObject GUID) | container item / object name | lockboxes, chests, nodes |
-| `MAIL` | `MAIL_INBOX_UPDATE` + `TakeInboxItem`/`AutoLootMailItem` hooked; sender via `GetInboxHeaderInfo` | mail sender | stamp just before taking attachment |
-| `TRADE` | `TRADE_ACCEPT_UPDATE` → complete (`UI_INFO_MESSAGE` = `ERR_TRADE_COMPLETE`) | trade partner (`UnitName("NPC")` at trade time) | partner cached on `TRADE_SHOW` |
-| `AH` | `AUCTION_HOUSE_PURCHASE_COMPLETED` / `C_AuctionHouse` won events | item / seller if available | |
-| `VENDOR` | `MERCHANT_SHOW` open + buy (`hooksecurefunc("BuyMerchantItem")` / money-decrease heuristic) | merchant name (`UnitName("NPC")`) | per-source-excludable (noisy) |
-| `QUEST` | `QUEST_TURNED_IN` / `QUEST_LOOT_RECEIVED` | quest title | reward items |
-| `CRAFT` | `LOOT_ITEM_PUSHED_SELF*` while `TradeSkillUI`/craft active, or "You create" string | recipe/profession | per-source-excludable |
-| `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | "Need"/"Greed"/"BonusRoll" + winner=self | group loot |
-| `OTHER` | (fallback) no fresh context | nil | `INFERRED` |
+| Source | Stamped by (events) | Notes |
+|---|---|---|
+| `KILL` | `LOOT_OPENED` (Creature GUID) | + `encounterID`/`difficulty` from §4.5 |
+| `CONTAINER` | `LOOT_OPENED` (Item/GameObject GUID) | lockboxes, chests, nodes |
+| `MAIL` | `MAIL_INBOX_UPDATE` + `TakeInboxItem`/`AutoLootMailItem` hooked | stamp just before taking attachment |
+| `TRADE` | `TRADE_ACCEPT_UPDATE` → complete (`UI_INFO_MESSAGE` = `ERR_TRADE_COMPLETE`) | |
+| `AH` | `AUCTION_HOUSE_PURCHASE_COMPLETED` / `C_AuctionHouse` won events | |
+| `VENDOR` | `MERCHANT_SHOW` open + buy (`hooksecurefunc("BuyMerchantItem")` / money-decrease heuristic) | per-source-excludable (noisy) |
+| `QUEST` | `QUEST_TURNED_IN` / `QUEST_LOOT_RECEIVED` | reward items |
+| `CRAFT` | `LOOT_ITEM_PUSHED_SELF*` while `TradeSkillUI`/craft active, or "You create" string | per-source-excludable |
+| `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | group loot |
+| `OTHER` | (fallback) no fresh context | `INFERRED` |
 
 Each stamper is a small handler in `Attribution.lua` registered via AceEvent. Merchant/trade/mail use `hooksecurefunc` on the take/buy calls so the stamp lands immediately before the resulting `CHAT_MSG_LOOT`.
+
+> **Schema v4:** the per-source *name* (`sourceName`, the "From" column) was retired — it was blank for the majority of real loot (containers, delves, pushed items) and the combat-log name cache that backed `KILL` names was removed with it. Stampers now set `source`/`sourceDetail` only. See the `core/Database.lua` v4 migration.
 
 ### 4.5 Encounter / difficulty context
 
@@ -310,14 +311,14 @@ function Collector:OnChatMsgLoot(_, msg, ...)
   local _, _, quality = C_Item.GetItemInfo(link)      -- via Compat; may fall back to link-color parse
   if (quality or 0) < NS.db.global.settings.qualityThreshold then return end
 
-  local source, sourceName, detail, confidence = NS.Attribution:Consume()
+  local source, detail, confidence = NS.Attribution:Consume()
   if NS.db.global.settings.excludedSources[source] then return end
 
   NS.Database:Add({
     ts = time(), char = NS.Util.PlayerKey(),
     itemID = itemID, itemLink = link, itemName = C_Item.GetItemNameByID and ... or link:match("%[(.-)%]"),
     quality = quality, quantity = qty,
-    source = source, sourceName = sourceName, sourceDetail = detail, confidence = confidence,
+    source = source, sourceDetail = detail, confidence = confidence,
     zone = GetZoneText(), mapID = C_Map.GetBestMapForUnit("player"), subzone = GetSubZoneText(),
   })
 end
@@ -419,7 +420,7 @@ Only the **visible slice** touches frames; filter/group/sort operate on lightwei
 
 - Header click sets `sortColumn`; re-clicking the same column toggles `sortDir` (asc↔desc). An arrow glyph marks the active header.
 - Sort is **stable** (`table.sort` is not, so decorate with original index as tiebreaker) so equal keys preserve insertion/time order.
-- Columns: `Time · Item(name) · Qty · Quality · Source · SourceName · Zone · Character`. Item sorts by `itemName`; Quality by numeric `quality`; Time by `ts`.
+- Columns: `Time · Item(name) · Qty · Quality · Source · Zone · Character`. Item sorts by `itemName`; Quality by numeric `quality`; Time by `ts`.
 
 ### 7.4 Grouping
 
@@ -605,7 +606,7 @@ function Database:Export(filter)
   for _, r in ipairs(self:Query(filter or {})) do
     out[#out+1] = { ts=r.ts, char=r.char, itemID=r.itemID, itemLink=r.itemLink,
                     itemName=r.itemName, quality=r.quality, quantity=r.quantity,
-                    source=r.source, sourceName=r.sourceName, sourceDetail=r.sourceDetail,
+                    source=r.source, sourceDetail=r.sourceDetail,
                     zone=r.zone, mapID=r.mapID, subzone=r.subzone, confidence=r.confidence }
   end
   return out

@@ -46,7 +46,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
 | `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge/reset-all confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
-| `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/name/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
+| `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, `Consume`, exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, filter bar, group-by, footer, LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. |
@@ -67,7 +67,7 @@ back fast table ops.
   itemID, itemLink, itemName, quality,       -- item identity
   itemLevel, bound, sellPrice,               -- itemLevel: equippable only; bound: BOE|BOP|ACCOUNT|WARBAND
   itemType, itemSubType, quantity,           -- item classification + stack size
-  source, sourceName, sourceDetail,          -- source ∈ Constants.SourceType
+  source, sourceDetail,                      -- source ∈ Constants.SourceType
   zone, mapID, subzone,                       -- where
   confidence,                                 -- CERTAIN | INFERRED
 }
@@ -75,7 +75,7 @@ back fast table ops.
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see CLAUDE.md "Do not change without reason".
-- `schemaVersion` is currently **3**; `Database:RunMigrations` upgrades older saved variables
+- `schemaVersion` is currently **4**; `Database:RunMigrations` upgrades older saved variables
   on load.
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
@@ -197,9 +197,11 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 
 ## Known limitations
 
-- **CONTAINER source name.** Chests, lockboxes and gathering nodes loot through a
-  GameObject/Item GUID with no reliable object name, so `sourceName` stays `nil` (rendered as an
-  em-dash in the "From" column). Tracked as a backlog item; the "From" column carries a `TODO`.
+- **No per-item source name.** The "From" column and its combat-log kill-name cache were removed
+  in schema v4: for the dominant real-world loot (containers, delves, pushed/quest items) no
+  reliable name was resolvable, so the column was almost always blank. Records keep `source` and
+  the machine-readable `sourceDetail` (npcID / encounter / keystone / questID); the human name is
+  no longer captured or displayed.
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.

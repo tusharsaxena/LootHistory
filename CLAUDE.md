@@ -86,7 +86,7 @@ Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`. Surface-specific
 
 ## Data model (one record per loot event)
 
-`{ ts, char, classFile, itemID, itemLink, itemName, quality, itemLevel, bound, sellPrice, itemType, itemSubType, quantity, source, sourceName, sourceDetail, zone, mapID, subzone, confidence }`
+`{ ts, char, classFile, itemID, itemLink, itemName, quality, itemLevel, bound, sellPrice, itemType, itemSubType, quantity, source, sourceDetail, zone, mapID, subzone, confidence }`
 
 - `itemLink` is canonical (exact tooltip). The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bound`, `sellPrice`, `itemType`, `itemSubType`) back fast table ops; `classFile` is the locale-independent class token for coloring.
 - History is a dense array in `LootHistoryDB.global.history`; deletion/retention rebuild-and-swap (no holes).

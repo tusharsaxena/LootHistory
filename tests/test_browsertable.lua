@@ -2,16 +2,14 @@ local T = _G.LH_TEST
 local NS = T.NS
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
-local EMDASH = "\226\128\148"
 
 test("BrowserTable: CellText renders each column", function()
   local r = { ts = 1000, itemName = "Sword", quantity = 3, quality = 4,
-              source = "KILL", sourceName = "Ovi'nax", zone = "Valley", char = "Ka0z-Realm" }
+              source = "KILL", zone = "Valley", char = "Ka0z-Realm" }
   assertEqual(NS.BrowserTable:CellText("item", r), "Sword")
   assertEqual(NS.BrowserTable:CellText("qty", r), "3")
   assertEqual(NS.BrowserTable:CellText("quality", r), "Epic")
   assertEqual(NS.BrowserTable:CellText("source", r), "Kill")
-  assertEqual(NS.BrowserTable:CellText("from", r), "Ovi'nax")
   assertEqual(NS.BrowserTable:CellText("zone", r), "Valley")
   assertEqual(NS.BrowserTable:CellText("char", r), "Ka0z-Realm") -- full Name-Realm shown
   assertEqual(NS.BrowserTable:CellText("time", r), os.date("%H:%M", r.ts))
@@ -46,9 +44,6 @@ test("BrowserTable: test data covers every bound state", function()
   end
 end)
 
-test("BrowserTable: From column falls back to em-dash", function()
-  assertEqual(NS.BrowserTable:CellText("from", { source = "OTHER" }), EMDASH)
-end)
 
 test("BrowserTable: Item column falls back to link name then '?'", function()
   local r = { itemLink = "|cff1eff00|Hitem:1::::|h[Linen Cloth]|h|r" }

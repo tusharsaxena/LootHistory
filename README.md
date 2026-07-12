@@ -1,8 +1,8 @@
 # Ka0s Loot History
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
-![WoW](https://img.shields.io/badge/WoW-12.0.x-informational)
-![License](https://img.shields.io/badge/license-MIT-green)
+![wow](https://img.shields.io/badge/WoW-Midnight_12.0.7-orange)
+![CurseForge Version](https://img.shields.io/curseforge/v/1530802)
+![license](https://img.shields.io/badge/license-MIT-green)
 
 **Records every item you loot, attributes where it came from, and lets you browse and analyze
 your loot history — account-wide.**

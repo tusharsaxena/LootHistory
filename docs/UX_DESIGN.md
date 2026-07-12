@@ -61,7 +61,6 @@ A single movable, resizable frame. Non-secure (usable in combat).
 | **Qty** | quantity (blank if 1 for calm density, or shown — configurable later; v1 shows always) | `quantity` | right |
 | **Quality** | quality label, quality-colored | `quality` (numeric) | left |
 | **Source** | source icon + short label (Kill/Container/Mail/Trade/AH/Quest/Vendor/Craft/Roll/M+/Other) | `source` | left |
-| **From** | `sourceName` (creature / sender / partner / container / quest); em-dash if none | `sourceName` | left |
 | **Zone** | zone name; subzone in tooltip | `zone` | left |
 | **Character** | `Name` (realm in tooltip); shown when account has >1 character | `char` | left |
 
