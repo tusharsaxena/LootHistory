@@ -21,3 +21,31 @@ test("FormatPlain tolerates a nil tag", function()
   local out = NS.DebugLog.FormatPlain("15:04:43", nil, "hi")
   assertEqual(out, "15:04:43  |  [          ] hi")
 end)
+
+local function debugCmd(rest)
+  for _, c in ipairs(NS.COMMANDS) do
+    if c.name == "debug" then return c.fn(rest) end
+  end
+  error("no debug command")
+end
+
+test("/lh debug on enables state", function()
+  NS.State.debug = false
+  debugCmd("on")
+  assertTrue(NS.State.debug == true, "state should be on")
+end)
+
+test("/lh debug off disables state", function()
+  NS.State.debug = true
+  debugCmd("off")
+  assertTrue(NS.State.debug == false, "state should be off")
+end)
+
+test("/lh debug (no arg) toggles the window, not state", function()
+  NS.State.debug = true
+  debugCmd("")
+  assertTrue(NS.State.debug == true, "bare toggle must not change state")
+  NS.State.debug = false
+  debugCmd("")
+  assertTrue(NS.State.debug == false, "bare toggle must not change state")
+end)

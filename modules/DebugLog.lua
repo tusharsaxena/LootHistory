@@ -86,10 +86,8 @@ local function EnsureFrame()
 
   if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
 
-  -- Debug state tracks window visibility (session-only): showing the console enables logging;
-  -- closing it (X button or ESC via UISpecialFrames) disables logging. Reset every reload.
-  frame:HookScript("OnShow", function() NS.State.debug = true end)
-  frame:HookScript("OnHide", function() NS.State.debug = false end)
+  -- State no longer follows visibility; just keep the header label accurate when shown.
+  frame:HookScript("OnShow", function() D:RefreshHeader() end)
 
   frame:Hide()
   if type(UISpecialFrames) == "table" then
@@ -195,6 +193,26 @@ function D:Hide() if frame then frame:Hide() end end
 function D:Toggle()
   local f = EnsureFrame()
   if f:IsShown() then f:Hide() else f:Show() end
+end
+
+-- Single seam for changing debug state. Slash command and header toggle both call this so the
+-- chat message and header label stay consistent. Session-only: NS.State.debug resets on reload.
+function D:SetEnabled(on)
+  on = not not on
+  NS.State.debug = on
+  D:RefreshHeader()
+  print(NS.PREFIX .. " debug " .. (on and "on" or "off"))
+  if on and NS.Debug then NS.Debug("Debug", "logging enabled") end
+end
+
+-- Updates the header toggle label to match NS.State.debug. Fully wired in the header task;
+-- safe no-op until the toggle fontstring exists.
+function D:RefreshHeader()
+  if not (frame and frame.debugToggle) then return end
+  local on = NS.State and NS.State.debug
+  frame.debugToggle:SetText(on and "Debug: ON" or "Debug: OFF")
+  if on then frame.debugToggle:SetTextColor(0.30, 0.85, 0.30)
+  else frame.debugToggle:SetTextColor(0.90, 0.30, 0.30) end
 end
 
 -- Global debug sink. No-op (zero alloc) when debug is off; otherwise appends to the window.

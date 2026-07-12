@@ -8,10 +8,18 @@ local function deepcopy(t)
   return r
 end
 
--- A universal frame stub: any method call is a no-op that returns the frame itself.
+-- A universal frame stub: any method call is a no-op that returns the frame itself. WoW frame
+-- API methods are always PascalCase (SetPoint, CreateTexture, HookScript, ...), so only those
+-- keys get a no-op function; any other (lowercase/custom) field access misses through to nil,
+-- letting addon code do `if not f.someCustomField then f.someCustomField = ... end` safely.
 local function stubFrame()
   local f = {}
-  setmetatable(f, { __index = function() return function() return f end end })
+  setmetatable(f, { __index = function(_, k)
+    if type(k) == "string" and k:match("^%u") then
+      return function() return f end
+    end
+    return nil
+  end })
   return f
 end
 

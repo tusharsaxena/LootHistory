@@ -137,12 +137,14 @@ NS.COMMANDS = {
   { name = "list",     desc = "List all settings",     fn = function() NS.Slash:CliList() end },
   { name = "reset",    desc = "Reset one setting",     fn = function(a) NS.Slash:CliReset(a) end },
   { name = "resetall", desc = "Reset all settings",    fn = function() NS.Slash:CliResetAll() end },
-  { name = "debug",    desc = "Toggle the debug console",  fn = function()
-      -- Toggles the console; NS.State.debug follows the window's show/hide (session-only).
-      if NS.DebugLog then NS.DebugLog:Toggle() end
-      local on = NS.State and NS.State.debug
-      print(NS.PREFIX .. " debug " .. (on and "on" or "off"))
-      if on and NS.Debug then NS.Debug("debug logging enabled") end
+  { name = "debug",    desc = "Toggle window; 'on'/'off' set logging",  fn = function(rest)
+      -- `/lh debug` toggles the window only (state untouched); `/lh debug on|off` sets the
+      -- session-only logging flag via the DebugLog seam. Logging runs even with the window closed.
+      local arg = rest and tostring(rest):lower():match("^%s*(%S*)") or ""
+      if not NS.DebugLog then return end
+      if arg == "on" then NS.DebugLog:SetEnabled(true)
+      elseif arg == "off" then NS.DebugLog:SetEnabled(false)
+      else NS.DebugLog:Toggle() end
     end },
   { name = "test", desc = "Toggle a preview of every bound type", fn = function()
       local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()

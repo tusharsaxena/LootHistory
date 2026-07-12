@@ -12,4 +12,4 @@ State.keystone  = nil   -- { level }
 
 -- Session flags (runtime only; reset every load/reload — never persisted to SavedVariables).
 State.cleanupDone = false   -- retention prune runs once per session
-State.debug = false         -- debug console visibility == logging; toggled by /lh debug, default off
+State.debug = false         -- session-only logging flag; independent of window visibility. /lh debug on|off; default off
