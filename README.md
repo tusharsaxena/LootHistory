@@ -3,6 +3,7 @@
 ![wow](https://img.shields.io/badge/WoW-Midnight_12.0.7-orange)
 ![CurseForge Version](https://img.shields.io/curseforge/v/1530802)
 ![license](https://img.shields.io/badge/license-MIT-green)
+[![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-blue)](https://github.com/tusharsaxena/WowAddonStandards)
 
 ![alt text](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -120,7 +121,7 @@ The loot context is single-slot and short-lived by design — it deliberately su
 
 ## Issues and feature requests
 
-All bugs, feature requests, and outstanding work are tracked at [https://github.com/tusharsaxena/loothistory/issues](https://github.com/tusharsaxena/loothistory/issues). <!-- TODO: confirm repo URL/slug --> Please file new reports there rather than as comments — the issue tracker is the single source of truth for the project's backlog.
+All bugs, feature requests, and outstanding work are tracked at [https://github.com/tusharsaxena/LootHistory/issues](https://github.com/tusharsaxena/LootHistory/issues). Please file new reports there rather than as comments — the issue tracker is the single source of truth for the project's backlog.
 
 ## Testing
 

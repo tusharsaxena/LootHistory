@@ -9,5 +9,6 @@ ignore:
   - reviews
   - docs
   - tests
+  - audit
   - _dev
   - "*.bak"
