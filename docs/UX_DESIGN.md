@@ -77,12 +77,22 @@ A single movable, resizable frame. Non-secure (usable in combat).
 
 The filter bar sits above the header. All filters combine with AND:
 
-- **Quality ▾** — "Any / Uncommon+ / Rare+ / Epic+ / Legendary" (minimum quality).
-- **Source ▾** — multi-select checklist of the source types present in the data.
-- **Character ▾** — single-select from characters present.
-- **Zone ▾** — single-select from zones present.
-- **🔍 search box** — case-insensitive substring match on item name; updates as you type (debounced).
-- **Clear ✕** — resets every filter and the search box.
+The five column dropdowns (Quality / Type / Source / Zone / Character) are **multi-select**: each
+item toggles on click (a ✓ marks it), the menu stays open so several can be picked in one visit,
+and the "…: All" row clears the whole set. The collapsed button summarizes as `…: All`, the single
+label, or `…: N selected`.
+
+- **Quality ▾** — "All / Common / Uncommon / Rare / Epic / Legendary"; each item tinted its quality
+  colour. Filters the **exact** qualities selected (not "and above" — that's the recording threshold
+  in Settings, a separate control).
+- **Type ▾** — the item types present in the data.
+- **Source ▾** — the source types present in the data.
+- **Zone ▾** — the zones present in the data.
+- **Character ▾** — the characters present; each item shows its inline class icon and class colour.
+  Paired with a **Current / All players** scope toggle (right of the bar) that shares the same
+  filter — selecting specific characters reads back as "N characters" on the toggle.
+- **🔍 search box** — case-insensitive substring match on item name; updates as you type.
+- **Clear ✕** — resets every filter back to the saved view and the scope to Current player.
 
 Dropdown option lists are derived from the current dataset, so they never show empty/irrelevant choices.
 

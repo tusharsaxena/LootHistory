@@ -438,14 +438,16 @@ The filter bar (`Browser.lua`) owns widgets that write into `activeFilter`:
 
 | Widget | Filter field |
 |---|---|
-| Quality dropdown (min quality) | `quality` (>=) |
-| Source dropdown (multi) | `source` (set membership) |
-| Character dropdown | `char` |
-| Zone dropdown | `mapID` |
+| Quality dropdown (**multi-select**) | `quality` — number = **exact** match, set table = membership |
+| Type dropdown (**multi-select**) | `itemType` — scalar or set |
+| Source dropdown (**multi-select**) | `source` — scalar or set |
+| Zone dropdown (**multi-select**) | `mapID` — scalar or set |
+| Character dropdown (**multi-select**) | `char` — scalar or set |
+| Player-scope toggle (Current / All players) | `char` (shares the field with the Character dropdown, via `Browser:SetCharSet`) |
 | Item-name search box | `text` (case-insensitive substring on `itemName`) |
 | Date-range selector | `from` / `to` (ts bounds) |
 
-Changing any widget rebuilds the pipeline (§7.2). Dropdown option lists are derived from the current dataset (distinct chars/zones/sources) so they stay relevant.
+The five column dropdowns (Quality / Type / Source / Zone / Character) are **multi-select**: clicking an option toggles it and keeps the menu open, the "All" row clears the set, and the chosen values are copied into the matching `activeFilter` field as a `{ [value]=true }` set (or a bare scalar / `nil`). `Database:QueryList` accepts either form for each of those fields — a scalar is equality, a set is membership; `quality` additionally treats a lone number as an **exact** match (not "that quality and above" — that "≥" semantic belongs only to the *recording* threshold `settings.qualityThreshold`, which is unrelated to this filter). Multi-selections are persisted in the saved view as sets (a legacy scalar still loads via a compatibility shim). Changing any widget rebuilds the pipeline (§7.2). Dropdown option lists are derived from the current dataset (distinct chars/zones/sources/types) so they stay relevant.
 
 ### 7.6 Row interactions
 

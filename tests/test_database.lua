@@ -97,6 +97,16 @@ test("Database: Query filters by itemType", function()
   assertEqual(#NS.Database:QueryList(recs, { itemType = "Armor" }), 2)
   assertEqual(#NS.Database:QueryList(recs, { itemType = "Weapon" }), 1)
   assertEqual(#NS.Database:QueryList(recs, {}), 3)
+  -- Multi-select: an itemType set matches any listed type.
+  assertEqual(#NS.Database:QueryList(recs, { itemType = { Armor = true, Weapon = true } }), 3)
+  assertEqual(#NS.Database:QueryList(recs, { itemType = { Weapon = true } }), 1)
+end)
+
+test("Database: Query by char/mapID set (multi-select membership)", function()
+  seed()
+  assertEqual(#NS.Database:Query({ char = { ["A-Realm"] = true, ["C-Realm"] = true } }), 3)
+  assertEqual(#NS.Database:Query({ mapID = { [10] = true, [20] = true } }), 4)
+  assertEqual(#NS.Database:Query({ mapID = { [20] = true } }), 2)
 end)
 
 test("Database: Query by source (string)", function()

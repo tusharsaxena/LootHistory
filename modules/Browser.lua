@@ -13,6 +13,9 @@ local DBIcon                          -- LibDBIcon-1.0, resolved lazily in Setup
 -- TODO (post-v0.1.0): make this skin user-configurable (border color/size, background color/
 -- alpha, font) via settings, driven off this table. See docs/EXECUTION_PLAN.md backlog.
 local WHITE = "Interface\\Buttons\\WHITE8X8"
+-- Inline check glyph for selected multi-select menu items (the default font has no ✓ glyph,
+-- so, like the sort arrows, it's texture markup sized to the line height).
+local CHECK_MARKUP = "|TInterface\\Buttons\\UI-CheckBox-Check:0|t "
 local SKIN = {
   bg          = { 0.06, 0.06, 0.08, 0.92 },  -- flat dark panel
   border      = { 0, 0, 0, 1 },              -- crisp 1px black outer border
@@ -219,11 +222,22 @@ local function EnsureMenu()
       b:SetWidth(w)
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW_H)
-      -- Optional inline icon (e.g. the class icon for a character) prefixes the label.
-      b.fs:SetText(opt.icon and opt.icon ~= "" and (opt.icon .. " " .. opt.label) or opt.label)
-      -- The active option is gold; otherwise an option may carry its own colour (quality colour,
-      -- class colour) and falls back to near-white.
-      if opt.value == dd._value then
+      -- Selection state: single-select highlights the one active value; multi-select highlights
+      -- every value in the set (and highlights "all" when the set is empty = no filter).
+      local selected
+      if dd.multi then
+        selected = (opt.value == "all") and (not next(dd._selected)) or (dd._selected[opt.value] or false)
+      else
+        selected = (opt.value == dd._value)
+      end
+      -- A leading check marks a selected multi-select item; an optional inline icon (e.g. a
+      -- character's class icon) prefixes the label.
+      local check = (dd.multi and selected) and CHECK_MARKUP or ""
+      local icon = (opt.icon and opt.icon ~= "") and (opt.icon .. " ") or ""
+      b.fs:SetText(check .. icon .. opt.label)
+      -- The active/selected option is gold; otherwise an option may carry its own colour
+      -- (quality colour, class colour) and falls back to near-white.
+      if selected then
         b.fs:SetTextColor(1, 0.82, 0)
       elseif opt.color then
         b.fs:SetTextColor(opt.color[1], opt.color[2], opt.color[3])
@@ -231,9 +245,16 @@ local function EnsureMenu()
         b.fs:SetTextColor(0.9, 0.9, 0.9)
       end
       b:SetScript("OnClick", function()
-        dd:SetValue(opt.value, opt.label)
-        menu:Hide()
-        if dd.onSelect then dd.onSelect(opt.value) end
+        if dd.multi then
+          -- Toggle in place; keep the menu open so several can be picked in one visit.
+          dd:ToggleSelected(opt.value)
+          menu:Populate(dd)
+          if dd.onMultiSelect then dd.onMultiSelect(dd._selected) end
+        else
+          dd:SetValue(opt.value, opt.label)
+          menu:Hide()
+          if dd.onSelect then dd.onSelect(opt.value) end
+        end
       end)
       b:Show()
     end
@@ -264,7 +285,11 @@ local function MakeDropdown(parent, width)
   arrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
   arrow:SetVertexColor(0.7, 0.7, 0.72)
 
-  function dd:SetOptions(opts) self._options = opts end
+  dd._selected = {}   -- multi-select value set (empty = "All"); only used when dd.multi is true
+  function dd:SetOptions(opts)
+    self._options = opts
+    if self.multi then self:UpdateMultiLabel() end
+  end
   function dd:SetValue(v, label) self._value = v; self.text:SetText(label or "") end
   -- Set the value and derive its display label from the current options (used when applying a
   -- saved view). Falls back to the raw value if the option isn't present.
@@ -273,6 +298,45 @@ local function MakeDropdown(parent, width)
       if o.value == v then self:SetValue(o.value, o.label); return end
     end
     self:SetValue(v, tostring(v))
+  end
+
+  -- ── Multi-select ──
+  -- Mark this dropdown multi-select: clicks toggle values into _selected (empty = no filter).
+  function dd:SetMulti(on) self.multi = on and true or false end
+  -- Replace the selection with a copy of `set` (nil/empty = All) and refresh the button label.
+  function dd:SetSelected(set)
+    local s = {}
+    if type(set) == "table" then for k, on in pairs(set) do if on then s[k] = true end end end
+    self._selected = s
+    self:UpdateMultiLabel()
+  end
+  -- Toggle one value; the "all" sentinel clears the whole set. Refreshes the button label.
+  function dd:ToggleSelected(value)
+    if value == "all" then
+      self._selected = {}
+    else
+      self._selected[value] = (not self._selected[value]) or nil
+    end
+    self:UpdateMultiLabel()
+  end
+  -- Collapsed-button summary: the "All" label when empty, the single option's label when one is
+  -- picked, else "<Prefix>: N selected" (prefix taken from the "all" sentinel, e.g. "Quality").
+  function dd:UpdateMultiLabel()
+    local n, firstLabel
+    for _, o in ipairs(self._options or {}) do
+      if o.value ~= "all" and self._selected[o.value] then
+        n = (n or 0) + 1
+        firstLabel = firstLabel or o.label
+      end
+    end
+    local allLabel = (self._options and self._options[1] and self._options[1].label) or "All"
+    if not n then
+      self.text:SetText(allLabel)
+    elseif n == 1 then
+      self.text:SetText(firstLabel)
+    else
+      self.text:SetText((allLabel:match("^(.-):") or allLabel) .. ": " .. n .. " selected")
+    end
   end
 
   dd:SetScript("OnClick", function(self2)
@@ -432,6 +496,28 @@ local function zoneOptions()
   return withAll("Zone: All", items)
 end
 
+-- Copy a multi-select set into a plain filter value: a fresh set when non-empty, else nil (no
+-- filter). Copied — not aliased to the dropdown's live set — so a later toggle can't mutate the
+-- filter behind the table's back.
+local function setToFilter(set)
+  local copy, n = {}, 0
+  if type(set) == "table" then for k in pairs(set) do copy[k] = true; n = n + 1 end end
+  return n > 0 and copy or nil
+end
+
+-- Normalize a stored view field into a selection set. Tolerates the legacy scalar form (a single
+-- value, or the "all" sentinel) alongside the current set form, so pre-multi-select saved views
+-- still load.
+local function asSet(v)
+  local s = {}
+  if type(v) == "table" then
+    for k, on in pairs(v) do if on then s[k] = true end end
+  elseif v ~= nil and v ~= "all" then
+    s[v] = true
+  end
+  return s
+end
+
 -- Push the current filter to the table and refresh the footer count.
 local function ApplyFilter()
   if NS.BrowserTable then NS.BrowserTable:SetFilter(B.activeFilter) end
@@ -480,26 +566,30 @@ local function currentKey()
 end
 
 -- The char filter is surfaced by two controls — the player toggle (Current/All) and the
--- Character dropdown — so both funnel through here and stay in sync. char == nil = all players.
-function B:SetCharFilter(char)
-  self.activeFilter.char = char
+-- multi-select Character dropdown — so both funnel through here and stay in sync. `set` is a
+-- { [char] = true } selection set; nil/empty = all players.
+function B:SetCharSet(set)
+  local filter = setToFilter(set)   -- fresh copy or nil (empty = no char filter = all players)
+  self.activeFilter.char = filter
   local dd = self._dd
   if dd then
+    if dd.char then dd.char:SetSelected(filter or {}) end
     if dd.player then
-      if char == nil then
+      if not filter then
         dd.player:SetValue("all", "All players")
-      elseif char == currentKey() then
-        dd.player:SetValue("current", "Current player")
       else
-        -- A specific non-current character is selected via the Character dropdown; neither scope
-        -- preset applies. Show a neutral label naming that character instead of contradicting the
-        -- single-character table with "All players". "custom" matches no PLAYER_OPTIONS value, so
-        -- the dropdown menu highlights nothing.
-        dd.player:SetValue("custom", (char:match("^[^-]+")) or char)
+        local n, only = 0, nil
+        for c in pairs(filter) do n = n + 1; only = c end
+        if n == 1 and only == currentKey() then
+          dd.player:SetValue("current", "Current player")
+        elseif n == 1 then
+          -- One specific non-current character: name it (no scope preset applies). "custom"
+          -- matches no PLAYER_OPTIONS value, so the player menu highlights nothing.
+          dd.player:SetValue("custom", (only:match("^[^-]+")) or only)
+        else
+          dd.player:SetValue("custom", n .. " characters")
+        end
       end
-    end
-    if dd.char then
-      if char == nil then dd.char:SelectValue("all") else dd.char:SelectValue(char) end
     end
   end
   ApplyFilter()
@@ -513,10 +603,13 @@ function B:CaptureView()
     sortKey  = BT and BT.sortKey or "date",
     sortAsc  = BT and BT.sortAsc == true,
     groupAsc = not (BT and BT.groupAsc == false),
-    quality  = (dd and dd.quality._value) or "all",
-    source   = (dd and dd.source._value) or "all",
-    itemType = (dd and dd.type._value) or "all",
-    mapID    = (dd and dd.zone._value) or "all",
+    -- Multi-select column filters are stored as selection sets (copies, so the saved view isn't
+    -- aliased to the live dropdown state). An empty {} means "All". Character scope is NOT part of
+    -- the view (it's the session-only Current/All default), so it isn't captured here.
+    quality  = setToFilter(dd and dd.quality._selected) or {},
+    source   = setToFilter(dd and dd.source._selected) or {},
+    itemType = setToFilter(dd and dd.type._selected) or {},
+    mapID    = setToFilter(dd and dd.zone._selected) or {},
     date     = (dd and dd.date._value) or "all",
     search   = (self._search and self._search:GetText()) or "",
   }
@@ -538,20 +631,27 @@ function B:ApplyView(view, scope)
   local dd = self._dd
   if dd then
     dd.group:SelectValue(view.groupBy or "none")
-    dd.quality:SelectValue(view.quality or "all")
-    dd.type:SelectValue(view.itemType or "all")
-    dd.source:SelectValue(view.source or "all")
-    dd.zone:SelectValue(view.mapID or "all")
+    dd.quality:SetSelected(asSet(view.quality))
+    dd.type:SetSelected(asSet(view.itemType))
+    dd.source:SetSelected(asSet(view.source))
+    dd.zone:SetSelected(asSet(view.mapID))
     dd.date:SelectValue(view.date or "all")
   end
   if self._search then self._search:SetText(view.search or "") end
-  if view.quality and view.quality ~= "all" then self.activeFilter.quality = view.quality end
-  if view.source and view.source ~= "all" then self.activeFilter.source = view.source end
-  if view.itemType and view.itemType ~= "all" then self.activeFilter.itemType = view.itemType end
-  if view.mapID and view.mapID ~= "all" then self.activeFilter.mapID = view.mapID end
+  self.activeFilter.quality  = setToFilter(asSet(view.quality))
+  self.activeFilter.source   = setToFilter(asSet(view.source))
+  self.activeFilter.itemType = setToFilter(asSet(view.itemType))
+  self.activeFilter.mapID    = setToFilter(asSet(view.mapID))
   if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
   if view.search and view.search ~= "" then self.activeFilter.text = view.search end
-  if scope == "all" then self:SetCharFilter(nil) else self:SetCharFilter(currentKey()) end
+  -- Character scope resets to `scope` (default "current"). SetCharSet also calls ApplyFilter,
+  -- so it is the single refresh that paints all the filter fields set just above.
+  if scope == "all" then
+    self:SetCharSet(nil)
+  else
+    local ck = currentKey()
+    self:SetCharSet(ck and { [ck] = true } or nil)
+  end
 end
 
 -- Save the current view as the account-wide default; Reset drops it back to stock.
@@ -642,57 +742,57 @@ function B:BuildHistory(pane)
     ApplyFilter()
   end
 
+  -- Quality/Type/Source/Zone/Character are multi-select: their onMultiSelect receives the current
+  -- selection set (empty = All), copied into the matching filter field. The "all" menu item clears.
   dd.quality = MakeDropdown(bar, 100)
   dd.quality:SetPoint("LEFT", dd.date, "RIGHT", 6, 0)
+  dd.quality:SetMulti(true)
   dd.quality:SetOptions(QUALITY_OPTIONS)
-  dd.quality:SetValue("all", "Quality: All")
-  dd.quality.onSelect = function(v)
-    -- Explicit branch: `(v=="all") and nil or v` is the Lua ternary trap — with nil in the
-    -- middle it evaluates back to v, so "All" would never clear the filter.
-    if v == "all" then B.activeFilter.quality = nil else B.activeFilter.quality = v end
+  dd.quality.onMultiSelect = function(set)
+    B.activeFilter.quality = setToFilter(set)
     ApplyFilter()
   end
 
   dd.type = MakeDropdown(bar, 116)
   dd.type:SetPoint("LEFT", dd.quality, "RIGHT", 6, 0)
-  dd.type:SetValue("all", "Type: All")
-  dd.type.onSelect = function(v)
-    if v == "all" then B.activeFilter.itemType = nil else B.activeFilter.itemType = v end
+  dd.type:SetMulti(true)
+  dd.type.onMultiSelect = function(set)
+    B.activeFilter.itemType = setToFilter(set)
     ApplyFilter()
   end
 
   dd.source = MakeDropdown(bar, 100)
   dd.source:SetPoint("LEFT", dd.type, "RIGHT", 6, 0)
-  dd.source:SetValue("all", "Source: All")
-  dd.source.onSelect = function(v)
-    if v == "all" then B.activeFilter.source = nil else B.activeFilter.source = v end
+  dd.source:SetMulti(true)
+  dd.source.onMultiSelect = function(set)
+    B.activeFilter.source = setToFilter(set)
     ApplyFilter()
   end
 
   dd.zone = MakeDropdown(bar, 120)
   dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 6, 0)
-  dd.zone:SetValue("all", "Zone: All")
-  dd.zone.onSelect = function(v)
-    if v == "all" then B.activeFilter.mapID = nil else B.activeFilter.mapID = v end
+  dd.zone:SetMulti(true)
+  dd.zone.onMultiSelect = function(set)
+    B.activeFilter.mapID = setToFilter(set)
     ApplyFilter()
   end
 
   dd.char = MakeDropdown(bar, 150)
   dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
-  dd.char:SetValue("all", "Character: All")
-  -- Explicit branch, NOT `v == "all" and nil or v` — that Lua ternary evaluates back to "all"
-  -- (nil is the false-y middle), so selecting "All" would set char = "all" and match no record.
-  dd.char.onSelect = function(v)
-    if v == "all" then B:SetCharFilter(nil) else B:SetCharFilter(v) end
-  end
+  dd.char:SetMulti(true)
+  -- SetCharSet reconciles the char filter + the player-scope toggle (which shares this filter).
+  dd.char.onMultiSelect = function(set) B:SetCharSet(set) end
 
   -- Player scope toggle (row 2, right-aligned): Current player (session default) vs All players.
-  -- Shares the char filter with the Character dropdown via SetCharFilter.
+  -- Single-select; shares the char filter with the Character dropdown via SetCharSet.
   dd.player = MakeDropdown(bar, 164)
   dd.player:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
   dd.player:SetOptions(PLAYER_OPTIONS)
   dd.player:SetValue("current", "Current player")
-  dd.player.onSelect = function(v) B:SetCharFilter(v == "current" and currentKey() or nil) end
+  dd.player.onSelect = function(v)
+    local ck = currentKey()
+    if v == "current" and ck then B:SetCharSet({ [ck] = true }) else B:SetCharSet(nil) end
+  end
 
   -- Footer count.
   local footer = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")

@@ -48,7 +48,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, `Consume`, exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
-| `modules/Browser.lua` | Window shell: frame/skin, tabs, filter bar, group-by, footer, LDB launcher + LibDBIcon minimap button. |
+| `modules/Browser.lua` | Window shell: frame/skin, tabs, multi-select filter bar (Quality/Type/Source/Zone/Character + player-scope, date, search), group-by, footer, LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. |
 | `modules/Analytics.lua` | Insights tab: date-range scoped stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`. Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
@@ -86,9 +86,9 @@ back fast table ops.
 `DISENCHANT`, `MILLING`, `PROSPECTING`. The enum is extended additively (renaming keys is forbidden
 — the export contract — but adding is forward-compatible), and only sources with a live stamper are
 exposed in the UI:
-`Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser Source
-dropdown self-scopes from live data. `ROLL`/`CRAFT` have no stamper yet (see Known
-limitations).
+`Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser's
+data-driven filter dropdowns (Source/Type/Zone/Character, all multi-select) self-scope from live
+data. `ROLL`/`CRAFT` have no stamper yet (see Known limitations).
 
 ---
 

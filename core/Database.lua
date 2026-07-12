@@ -27,10 +27,11 @@ function Database:Add(record)
   return index
 end
 
--- Filter an arbitrary record array by the filter spec. Fields, all optional (AND-combined):
---   quality (number = EXACT match; set table = membership) · source (string or set table)
---   · char · itemType · mapID · from/to (ts, inclusive) · text (case-insensitive substring
---   on itemName). Empty/nil filter returns all.
+-- Filter an arbitrary record array by the filter spec. Fields, all optional (AND-combined).
+-- source/char/itemType/mapID each accept a scalar (equality) OR a set table (membership, for
+-- the Browser's multi-select filters); quality accepts a number (EXACT match) or a set table.
+--   quality · source · char · itemType · mapID · from/to (ts, inclusive) · text (case-
+--   insensitive substring on itemName). Empty/nil filter returns all.
 -- Kept generic (not tied to the live history) so the Browser can filter its test dataset too.
 function Database:QueryList(records, filter)
   filter = filter or {}
@@ -42,8 +43,11 @@ function Database:QueryList(records, filter)
   local src = filter.source
   local srcIsSet = type(src) == "table"
   local char = filter.char
+  local charIsSet = type(char) == "table"
   local itype = filter.itemType
+  local itypeIsSet = type(itype) == "table"
   local mapID = filter.mapID
+  local mapIsSet = type(mapID) == "table"
   local from = filter.from
   local to = filter.to
   local text = filter.text and filter.text:lower() or nil
@@ -63,9 +67,18 @@ function Database:QueryList(records, filter)
         ok = false
       end
     end
-    if ok and char and r.char ~= char then ok = false end
-    if ok and itype and r.itemType ~= itype then ok = false end
-    if ok and mapID and r.mapID ~= mapID then ok = false end
+    if ok and char then
+      if charIsSet then if not char[r.char] then ok = false end
+      elseif r.char ~= char then ok = false end
+    end
+    if ok and itype then
+      if itypeIsSet then if not itype[r.itemType] then ok = false end
+      elseif r.itemType ~= itype then ok = false end
+    end
+    if ok and mapID then
+      if mapIsSet then if not mapID[r.mapID] then ok = false end
+      elseif r.mapID ~= mapID then ok = false end
+    end
     if ok and from and (r.ts or 0) < from then ok = false end
     if ok and to and (r.ts or 0) > to then ok = false end
     if ok and text then

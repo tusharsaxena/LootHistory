@@ -26,8 +26,9 @@ quality, character, and time breakdowns plus your top zones, items, and most val
 - **Per-source muting** — turn off recording for sources you don't care about.
 - **Browser window** — movable, resizable, scale-aware; a virtualized table that stays smooth
   with thousands of records.
-- **Filter / sort / group** — by quality, source, character, zone, or item-name search; sort any
-  column; group by source, zone, character, quality, or day.
+- **Filter / sort / group** — multi-select filters for quality, item type, source, zone, and
+  character (pick several at once), plus an item-name search and a Current/All players scope; sort
+  any column; group by source, zone, character, quality, or day.
 - **Row actions** — hover for the item tooltip, shift-click to link in chat, right-click to link
   or delete.
 - **Insights** — stat & highlight cards (records, vendor value, best/richest drop, busiest day)
