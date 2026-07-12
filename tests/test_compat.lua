@@ -37,6 +37,27 @@ test("Compat: GetActiveKeystoneLevel nil when API absent (headless)", function()
   assertEqual(NS.Compat.GetActiveKeystoneLevel(), nil)
 end)
 
+test("Compat: API-absent guards degrade to nil/false with no flavor flag", function()
+  -- The mock omits C_Container / C_TooltipInfo / SpellIsTargeting / C_Spell / GetSpellInfo /
+  -- GetInboxHeaderInfo / GetQuestID — mirroring an API that isn't present. Every shim must
+  -- degrade via a direct API-presence check (the Retail-only idiom), NOT via a WOW_PROJECT
+  -- game-flavor flag. This is the guarantee LH-10 locks in.
+  assertFalse(NS.Compat.ContainerItemHasLoot(0, 1))      -- C_Container absent
+  assertFalse(NS.Compat.IsSpellTargeting())              -- SpellIsTargeting absent
+  assertEqual(NS.Compat.ScanBound("[Item]"), nil)        -- C_TooltipInfo absent
+  assertEqual(NS.Compat.GetSpellName(13262), nil)        -- C_Spell + GetSpellInfo absent
+  assertEqual(NS.Compat.CurrentQuestID(), nil)           -- GetQuestID absent
+  local sender, subject = NS.Compat.GetMailHeader(1)     -- GetInboxHeaderInfo absent
+  assertEqual(sender, nil)
+  assertEqual(subject, nil)
+end)
+
+test("Compat: no game-flavor flags exposed (Retail-only addon)", function()
+  -- LH-10: IsRetail/IsClassic removed — feature code must not branch on game flavor.
+  assertEqual(NS.Compat.IsRetail, nil)
+  assertEqual(NS.Compat.IsClassic, nil)
+end)
+
 test("Compat: IsAuctionHouseMail matches AH sender + won-subject", function()
   local oHouse, oSubj = _G.AUCTION_HOUSE, _G.AUCTION_WON_MAIL_SUBJECT
   _G.AUCTION_HOUSE = "Auction House"

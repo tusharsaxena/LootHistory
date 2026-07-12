@@ -34,7 +34,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 
 | File | Role |
 |---|---|
-| `core/Compat.lua` | **Loads first.** Flavor flags (`IsRetail`/`IsClassic`, the only `WOW_PROJECT_ID` read) + every deprecated/varying-API shim: GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
+| `core/Compat.lua` | **Loads first.** The compat firewall: every deprecated/varying-API shim gated by direct `C_*`/global presence (no `WOW_PROJECT_ID` game-flavor branching — Retail-only) — GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
 | `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |

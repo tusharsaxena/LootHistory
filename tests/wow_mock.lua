@@ -31,9 +31,6 @@ return function()
   M.time = os.time
   M.date = os.date
   M.GetTime = function() return M.__now end
-  M.WOW_PROJECT_ID = 1
-  M.WOW_PROJECT_MAINLINE = 1
-  M.WOW_PROJECT_CLASSIC = 2
 
   -- player / world
   M.UnitName = function() return "Mock" end

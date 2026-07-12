@@ -2,9 +2,9 @@ local addonName, NS = ...
 NS.Compat = NS.Compat or {}
 local Compat = NS.Compat
 
--- Flavor flags. The only place WOW_PROJECT_ID is read; feature code branches on these.
-Compat.IsRetail  = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
-Compat.IsClassic = (WOW_PROJECT_ID == WOW_PROJECT_CLASSIC)
+-- Retail-only addon: no game-flavor branching. Every varying/deprecated API is gated by a
+-- direct C_*/global presence check below, so a shim degrades to nil/false when its API is
+-- absent — never by reading a game-flavor project id.
 
 -- Best-effort current map id for the player (nil if unavailable).
 function Compat.GetPlayerMapID()
@@ -14,8 +14,8 @@ function Compat.GetPlayerMapID()
   return nil
 end
 
--- Active M+ keystone level (nil if no keystone active or the API is absent). Retail-only;
--- the challenge-mode API does not exist on Classic flavors.
+-- Active M+ keystone level (nil if no keystone active or the API is absent). Guarded by
+-- C_ChallengeMode presence — degrades to nil when the challenge-mode API is unavailable.
 function Compat.GetActiveKeystoneLevel()
   if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
     return (C_ChallengeMode.GetActiveKeystoneInfo())

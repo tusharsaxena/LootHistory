@@ -1,7 +1,7 @@
 # Ka0s Loot History
 
 ![wow](https://img.shields.io/badge/WoW-Midnight_12.0.7-orange)
-![CurseForge Version](https://img.shields.io/curseforge/v/1530802)
+![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![license](https://img.shields.io/badge/license-MIT-green)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-blue)](https://github.com/tusharsaxena/WowAddonStandards)
 
