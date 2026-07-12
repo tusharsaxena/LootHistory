@@ -147,7 +147,7 @@ BrowserTable.COLUMNS = {
     desc = "Item type (subtype in the Item tooltip).",
     valueFn = function(r) return r.itemType or "" end,
     sortFn = function(r) return (r.itemType or ""):lower() end },
-  { key = "source", label = "Source", width = 64, align = "LEFT",
+  { key = "source", label = "Source", width = 96, align = "LEFT",
     desc = "How the item was acquired (kill, container, mail, trade, …).",
     valueFn = function(r) return C.SourceLabel[r.source] or r.source or "Other" end,
     sortFn = function(r) return C.SourceLabel[r.source] or r.source or "" end },
