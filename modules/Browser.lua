@@ -456,11 +456,20 @@ end
 -- Character dropdown — so both funnel through here and stay in sync. char == nil = all players.
 function B:SetCharFilter(char)
   self.activeFilter.char = char
-  local scope = (char == nil) and "all" or (char == currentKey() and "current" or "all")
   local dd = self._dd
   if dd then
     if dd.player then
-      dd.player:SetValue(scope, scope == "current" and "Current player" or "All players")
+      if char == nil then
+        dd.player:SetValue("all", "All players")
+      elseif char == currentKey() then
+        dd.player:SetValue("current", "Current player")
+      else
+        -- A specific non-current character is selected via the Character dropdown; neither scope
+        -- preset applies. Show a neutral label naming that character instead of contradicting the
+        -- single-character table with "All players". "custom" matches no PLAYER_OPTIONS value, so
+        -- the dropdown menu highlights nothing.
+        dd.player:SetValue("custom", (char:match("^[^-]+")) or char)
+      end
     end
     if dd.char then
       if char == nil then dd.char:SelectValue("all") else dd.char:SelectValue(char) end
