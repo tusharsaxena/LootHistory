@@ -3,3 +3,8 @@
 *.lua text eol=crlf
 *.xml text eol=crlf
 *.toc text eol=crlf
+
+# Vendored libraries are committed verbatim (Ka0s Standard v1.1). Leave their bytes
+# exactly as committed — no eol normalization — so they never show as renormalized
+# changes. This MUST come after the globs above so it wins for libs/.
+libs/** -text
