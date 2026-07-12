@@ -126,7 +126,7 @@ sudo luarocks install luacheck
 - [x] Milestone 4 — Insights analytics (range selector, stat cards, frame-based charts).
 - [x] Milestone 5 — settings panel, slash CLI, minimap button (LibDBIcon + LDB).
 - [x] Milestone 6 — `ARCHITECTURE.md` + `README.md` authored (Task 6.1); `wow-addon:review` run (`reviews/2026-07-11/`) and **all findings F-001…F-013 addressed** (Task 6.2). `luacheck .` = 0/0, `lua tests/run.lua` green (85), `## Version: 0.1.0` consistent.
-- [ ] **Next:** in-client smoke tests (`reviews/2026-07-11/03_SMOKE_TESTS.md`) — notably F-001 (confirm VENDOR/MAIL/TRADE record via `CHAT_MSG_LOOT`) — then tag 0.1.0.
+- [x] In-client smoke tests (`reviews/2026-07-11/03_SMOKE_TESTS.md`) **passed** — F-001 confirmed VENDOR/MAIL/TRADE record via `CHAT_MSG_LOOT`. **0.1.0 complete.** (No git tag by choice; version is stamped in the TOC / `NS.version`.)
 
 ---
 

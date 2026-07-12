@@ -217,7 +217,8 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 
 ### Task 6.2 — Review bundle & version stamp
 **Files:** Run `wow-addon:review` → `reviews/<DATE>/` 5-artifact bundle; address blockers; confirm `## Version: 0.1.0` consistent (TOC/README/CLAUDE). Final `luacheck .` + `lua tests/run.lua`.
-**Deliverable:** v0.1.0 tagged-ready; definition-of-done checklist (context pack) satisfied.
+**Status:** DONE — review run (`reviews/2026-07-11/`), all findings addressed; `luacheck .` 0/0, `lua tests/run.lua` green (85); version `0.1.0` consistent; in-client smoke (`03_SMOKE_TESTS.md`) **passed** (F-001 confirmed VENDOR/MAIL/TRADE record via `CHAT_MSG_LOOT`).
+**Deliverable:** v0.1.0 shipped at `## Version: 0.1.0` / `NS.version`. (No git tag — versioning is by the TOC stamp, by choice.)
 
 ---
 

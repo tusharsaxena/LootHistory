@@ -202,9 +202,9 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 
 - **Partial source coverage.** `AH`/`CRAFT`/`ROLL` are defined in the `SourceType` enum but have
   no stamper yet, so they can never be recorded; they are hidden from the mute list via
-  `SOURCE_IMPLEMENTED`. `VENDOR`/`MAIL`/`TRADE` have stampers but depend on the flow emitting a
-  `CHAT_MSG_LOOT` self-line — pending in-client verification (`reviews/2026-07-11/03_SMOKE_TESTS.md
-  §F-001`). Fuller capture (BAG_UPDATE diffing) is a backlog item.
+  `SOURCE_IMPLEMENTED`. `VENDOR`/`MAIL`/`TRADE` have stampers, confirmed recording in-client via
+  their `CHAT_MSG_LOOT` self-line (smoke §F-001, passed). Fuller/alternative capture (BAG_UPDATE
+  diffing for the AH/CRAFT/ROLL gaps) is a backlog item.
 - **No per-item source name.** The "From" column and its combat-log kill-name cache were removed:
   for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name was
   resolvable, so the column was almost always blank. Records keep `source` and the machine-readable

@@ -23,9 +23,9 @@ C.SourceLabel = {
 
 -- Sources with a live capture path today. AH/CRAFT/ROLL are specified in TECHNICAL_DESIGN §4.4
 -- but have no stamper yet, so they can never be recorded; they are hidden from the mute list
--- until wired. VENDOR/MAIL/TRADE do have stampers (they depend on the flow emitting a
--- CHAT_MSG_LOOT self-line — see reviews/2026-07-11/03_SMOKE_TESTS.md §F-001 for in-client
--- verification). The SourceType enum stays whole (export contract); only the option lists scope.
+-- until wired. VENDOR/MAIL/TRADE have stampers, confirmed recording in-client via their
+-- CHAT_MSG_LOOT self-line (smoke reviews/2026-07-11/03_SMOKE_TESTS.md §F-001, passed).
+-- The SourceType enum stays whole (export contract); only the option lists scope.
 C.SOURCE_IMPLEMENTED = {
   KILL = true, CONTAINER = true, MPLUS = true, QUEST = true,
   VENDOR = true, MAIL = true, TRADE = true, OTHER = true,
