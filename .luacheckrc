@@ -19,7 +19,7 @@ read_globals = {
   "ITEM_ACCOUNTBOUND", "ITEM_SOULBOUND",
   "GetLootSourceInfo", "GetNumLootItems", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",
   "GetQuestReward", "GetQuestID",
-  "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText",
+  "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText", "AUCTION_HOUSE",
   "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CLASSIC",
   "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
   "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",

@@ -1,7 +1,7 @@
 local T = _G.LH_TEST
 local NS = T.NS
-local test, assertEqual, assertTrue =
-  T.test, T.assertEqual, T.assertTrue
+local test, assertEqual, assertTrue, assertFalse =
+  T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
 test("Compat: DecodeGUID creature → kind + npcID", function()
   local kind, npcID = NS.Compat.DecodeGUID("Creature-0-3299-2549-11-214506-000136DF91")
@@ -35,6 +35,17 @@ end)
 test("Compat: GetActiveKeystoneLevel nil when API absent (headless)", function()
   -- No C_ChallengeMode in the mock → the firewall wrapper degrades to nil, not an error.
   assertEqual(NS.Compat.GetActiveKeystoneLevel(), nil)
+end)
+
+test("Compat: IsAuctionHouseMail matches AH sender + won-subject", function()
+  local oHouse, oSubj = _G.AUCTION_HOUSE, _G.AUCTION_WON_MAIL_SUBJECT
+  _G.AUCTION_HOUSE = "Auction House"
+  _G.AUCTION_WON_MAIL_SUBJECT = "Auction won: %s"
+  assertTrue(NS.Compat.IsAuctionHouseMail("Auction House", "whatever"))     -- sender match
+  assertTrue(NS.Compat.IsAuctionHouseMail("SomeNPC", "Auction won: Evercore Shade")) -- subject match
+  assertFalse(NS.Compat.IsAuctionHouseMail("Bob", "Hey there"))             -- neither
+  assertFalse(NS.Compat.IsAuctionHouseMail(nil, nil))
+  _G.AUCTION_HOUSE, _G.AUCTION_WON_MAIL_SUBJECT = oHouse, oSubj
 end)
 
 test("Compat: QualityLabel names qualities", function()

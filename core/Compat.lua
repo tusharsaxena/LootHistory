@@ -67,6 +67,38 @@ function Compat.IsSpellTargeting()
   return type(SpellIsTargeting) == "function" and SpellIsTargeting() or false
 end
 
+-- Sender + subject for an inbox mail row (nil when the API is absent).
+function Compat.GetMailHeader(mailIndex)
+  if type(GetInboxHeaderInfo) == "function" and mailIndex then
+    local _, _, sender, subject = GetInboxHeaderInfo(mailIndex)
+    return sender, subject
+  end
+  return nil, nil
+end
+
+-- Is this inbox mail from the Auction House? Locale-independent: matches the AH sender name
+-- (AUCTION_HOUSE global) or an AH mail subject prefix (won / expired / cancelled / invoice,
+-- built from the localized *_MAIL_SUBJECT globals). Rebuilt per call — mail-take is infrequent.
+local AH_SUBJECT_GLOBALS = {
+  "AUCTION_WON_MAIL_SUBJECT", "AUCTION_EXPIRED_MAIL_SUBJECT",
+  "AUCTION_REMOVED_MAIL_SUBJECT", "AUCTION_INVOICE_MAIL_SUBJECT",
+}
+function Compat.IsAuctionHouseMail(sender, subject)
+  if sender and sender ~= "" and type(AUCTION_HOUSE) == "string" and sender == AUCTION_HOUSE then
+    return true
+  end
+  if subject and subject ~= "" then
+    for _, name in ipairs(AH_SUBJECT_GLOBALS) do
+      local g = _G[name]
+      if type(g) == "string" then
+        local prefix = g:match("^(.-)%%s") or g   -- "Auction won: %s" → "Auction won: "
+        if prefix ~= "" and subject:sub(1, #prefix) == prefix then return true end
+      end
+    end
+  end
+  return false
+end
+
 -- Current zone + subzone labels (subzone may be "").
 function Compat.GetZone()
   local zone = (GetZoneText and GetZoneText()) or ""

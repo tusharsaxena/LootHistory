@@ -18,9 +18,9 @@ quality, character, and time breakdowns plus your top zones, items, and most val
 ## Features
 
 - **Passive capture** — records loot automatically from `CHAT_MSG_LOOT`; no clicking, no upkeep.
-- **Source attribution** — every drop is tagged Kill / Container / Mail / Trade / Auction /
-  Quest / Vendor / Craft / Roll / Mythic+ / Other, with a **confidence** marker for inferred
-  sources.
+- **Source attribution** — every drop is tagged Kill / Container / Mythic+ / Quest / Trade / Mail /
+  Auction House / Vendor / Disenchant / Milling / Prospecting / Other, with a **confidence** marker
+  for inferred sources.
 - **Account-wide history** — one shared log across all characters, with a Character column.
 - **Quality threshold** — only record at or above a quality you choose (Poor → Legendary).
 - **Per-source muting** — turn off recording for sources you don't care about.

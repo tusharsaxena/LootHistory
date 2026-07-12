@@ -82,10 +82,12 @@ back fast table ops.
   export contract (do not change its field shape).
 
 **Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
-`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`. The enum is deliberately
-whole (export contract), but only sources with a live stamper are exposed in the UI:
+`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`, plus the deconstruct sources
+`DISENCHANT`, `MILLING`, `PROSPECTING`. The enum is extended additively (renaming keys is forbidden
+— the export contract — but adding is forward-compatible), and only sources with a live stamper are
+exposed in the UI:
 `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser Source
-dropdown self-scopes from live data. `AH`/`ROLL` have no stamper yet (see Known
+dropdown self-scopes from live data. `ROLL`/`CRAFT` have no stamper yet (see Known
 limitations).
 
 ---
@@ -161,9 +163,9 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`) | `modules/Attribution.lua` |
 | `TRADE_ACCEPT_UPDATE` | trade context (on mutual accept) | `modules/Attribution.lua` |
 | `QUEST_TURNED_IN` | `OnQuestTurnedIn` (questID detail; the reward stamp itself comes from the `GetQuestReward` hook below) | `modules/Attribution.lua` |
-| `UNIT_SPELLCAST_SUCCEEDED` (player-only) | `OnSpellSucceeded` → CRAFT for disenchant/mill/prospect | `modules/Attribution.lua` |
+| `UNIT_SPELLCAST_SUCCEEDED` (player-only) | `OnSpellSucceeded` → DISENCHANT/MILLING/PROSPECTING by spell id | `modules/Attribution.lua` |
 | `hooksecurefunc("BuyMerchantItem")` | `StampVendor` (vendor context) | `modules/Attribution.lua` |
-| `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` (mail context) | `modules/Attribution.lua` |
+| `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` → MAIL, or AH for Auction-House mail | `modules/Attribution.lua` |
 | `hooksecurefunc(C_Container.UseContainerItem)` | `OnContainerItemUse` → CONTAINER (opening a lootable bag item) | `modules/Attribution.lua` |
 | `hooksecurefunc("GetQuestReward")` | `StampQuestReward` → QUEST (stamps before the reward pushes) | `modules/Attribution.lua` |
 
@@ -203,12 +205,12 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 
 ## Known limitations
 
-- **Partial source coverage.** `AH`/`ROLL` are defined in the `SourceType` enum but have no stamper
-  yet, so they can never be recorded; they are hidden from the mute list via `SOURCE_IMPLEMENTED`.
-  `CRAFT` covers disenchant/mill/prospect (via the player `UNIT_SPELLCAST_SUCCEEDED` spell IDs) but
-  **not** broad recipe crafting yet — a recipe's cast time can exceed the context TTL (see TODO).
-  `VENDOR`/`MAIL`/`TRADE` were confirmed recording in-client (smoke §F-001, passed). Fuller capture
-  (BAG_UPDATE diffing for the AH/ROLL gaps) is a backlog item.
+- **Partial source coverage.** `ROLL` and `CRAFT` are defined in the `SourceType` enum but have no
+  stamper yet (`CRAFT` is reserved for broad recipe crafting, whose cast time can exceed the context
+  TTL — see TODO), so they are hidden from the mute list via `SOURCE_IMPLEMENTED`. Deconstruct
+  abilities stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source (player `UNIT_SPELLCAST_SUCCEEDED`
+  by spell id), and `AH` is stamped from Auction-House mail. `VENDOR`/`MAIL`/`TRADE` were confirmed
+  recording in-client (smoke §F-001, passed). BAG_UPDATE-diff capture for the `ROLL` gap is backlog.
 - **No per-item source name.** The "From" column and its combat-log kill-name cache were removed:
   for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name was
   resolvable, so the column was almost always blank. Records keep `source` and the machine-readable

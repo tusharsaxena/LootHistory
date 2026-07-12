@@ -269,18 +269,19 @@ The context is intentionally **not** cleared after one consume: a `LOOT_OPENED` 
 |---|---|---|
 | `KILL` | `LOOT_OPENED` (Creature GUID) | + `encounterID`/`difficulty` from §4.5 |
 | `CONTAINER` | `LOOT_OPENED` (Item/GameObject GUID), or `C_Container.UseContainerItem` hook for a lootable bag item | lockboxes, chests, nodes, opened bag/goodie items |
-| `MAIL` | `MAIL_INBOX_UPDATE` + `TakeInboxItem`/`AutoLootMailItem` hooked | stamp just before taking attachment |
+| `MAIL` | `TakeInboxItem`/`AutoLootMailItem` hooked | stamp just before taking attachment; Auction-House mail is split off to `AH` (see below) |
 | `TRADE` | `TRADE_ACCEPT_UPDATE` → complete (`UI_INFO_MESSAGE` = `ERR_TRADE_COMPLETE`) | |
-| `AH` | `AUCTION_HOUSE_PURCHASE_COMPLETED` / `C_AuctionHouse` won events | **planned** — no stamper yet; hidden from the mute list (`Constants.SOURCE_IMPLEMENTED`) |
+| `AH` | Auction-House mail: the `TakeInboxItem` hook checks the mail sender/subject (`Compat.IsAuctionHouseMail`) and stamps `AH` instead of `MAIL` | won/returned auction items arrive by mail |
 | `VENDOR` | `MERCHANT_SHOW` open + buy (`hooksecurefunc("BuyMerchantItem")` / money-decrease heuristic) | per-source-excludable (noisy) |
 | `QUEST` | `GetQuestReward` hook (client turn-in call, stamps before the reward pushes) + `QUEST_TURNED_IN` event (questID detail) | reward items; the event alone fires too late to catch the reward loot line |
-| `CRAFT` | player `UNIT_SPELLCAST_SUCCEEDED` for Disenchant/Milling/Prospecting | **partial** — disenchant/mill/prospect stamped; broad recipe crafting deferred (cast time can exceed the TTL, see TODO.md) |
+| `DISENCHANT` / `MILLING` / `PROSPECTING` | player `UNIT_SPELLCAST_SUCCEEDED` for the deconstruct spell (13262 / 51005 / 31252) | each deconstruct ability stamps its **own** source, not a generic craft bucket |
+| `CRAFT` | (reserved) | **planned** — broad recipe crafting deferred; a recipe's cast time can exceed the TTL (see TODO.md) |
 | `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | **planned** — no stamper yet; hidden from the mute list |
 | `OTHER` | (fallback) no fresh context | `INFERRED` |
 
 Each stamper is a small handler in `Attribution.lua` registered via AceEvent. Merchant/trade/mail use `hooksecurefunc` on the take/buy calls so the stamp lands immediately before the resulting `CHAT_MSG_LOOT`.
 
-> **Coverage honesty (v0.1.0):** only sources with a live stamper are exposed in the UI. `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list (`Constants.SOURCE_OPTIONS`) so unreachable buckets aren't dead checkboxes; the Browser Source dropdown already self-scopes from live data. `AH`/`ROLL` are **planned** (marked above) — the `SourceType` enum stays whole (export contract) but they can't be recorded until stamped. `CRAFT` is **partial** (disenchant/mill/prospect only; recipe crafting is a TODO). `VENDOR`/`MAIL`/`TRADE` have stampers and were confirmed in-client to record via their `CHAT_MSG_LOOT` self-line (smoke `reviews/2026-07-11/03_SMOKE_TESTS.md §F-001`, passed). BAG_UPDATE-diff capture for the AH/ROLL gaps is tracked as backlog.
+> **Coverage honesty (v0.1.0):** only sources with a live stamper are exposed in the UI. `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list (`Constants.SOURCE_OPTIONS`) so unreachable buckets aren't dead checkboxes; the Browser Source dropdown already self-scopes from live data. `ROLL` and `CRAFT` are **planned** (no stamper — `CRAFT` is reserved for broad recipe crafting). Deconstruct abilities stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source, and `AH` is stamped from Auction-House mail. The `SourceType` enum is extended additively (adding keys keeps the export contract forward-compatible; only renaming is forbidden). `VENDOR`/`MAIL`/`TRADE` were confirmed in-client (smoke `reviews/2026-07-11/03_SMOKE_TESTS.md §F-001`, passed). BAG_UPDATE-diff capture for the `ROLL` gap is tracked as backlog.
 
 > **No per-source name:** the per-source *name* (`sourceName`, the "From" column) was retired — it was blank for the majority of real loot (containers, delves, pushed items) and the combat-log name cache that backed `KILL` names was removed with it. Stampers now set `source`/`sourceDetail` only.
 

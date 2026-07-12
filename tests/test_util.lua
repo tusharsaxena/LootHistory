@@ -7,15 +7,16 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceType.KILL, "KILL")
   assertEqual(NS.Constants.SourceType.OTHER, "OTHER")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
-  assertEqual(#NS.Constants.SourceOrder, 11)
+  assertEqual(#NS.Constants.SourceOrder, 14)   -- + DISENCHANT / MILLING / PROSPECTING
   -- Enum stays whole (export contract), but the mute options are scoped to sources with a live
-  -- capture path: AH/ROLL have no stamper yet and are hidden; CRAFT (disenchant/mill/prospect)
-  -- and CONTAINER (bag-item open) are wired.
-  assertEqual(#NS.Constants.SOURCE_OPTIONS, 9)
+  -- capture path: ROLL and CRAFT have no stamper yet and are hidden; deconstruct abilities and AH
+  -- (from Auction-House mail) are wired.
+  assertEqual(#NS.Constants.SOURCE_OPTIONS, 12)
   local muteable = {}
   for _, o in ipairs(NS.Constants.SOURCE_OPTIONS) do muteable[o.value] = true end
-  assertFalse(muteable.AH); assertFalse(muteable.ROLL)
-  assertTrue(muteable.KILL); assertTrue(muteable.VENDOR); assertTrue(muteable.CRAFT)
+  assertFalse(muteable.ROLL); assertFalse(muteable.CRAFT)
+  assertTrue(muteable.KILL); assertTrue(muteable.AH)
+  assertTrue(muteable.DISENCHANT); assertTrue(muteable.MILLING); assertTrue(muteable.PROSPECTING)
 end)
 
 test("Util: RangeFrom maps range keys to a lower-bound timestamp", function()

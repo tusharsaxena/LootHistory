@@ -6,7 +6,7 @@ Agent context for this repo. Read this first, then `docs/TECHNICAL_DESIGN.md` fo
 
 ## What this addon is
 
-**Ka0s Loot History** records every item the player loots (above a configurable quality threshold), attributes each drop to a **source** (kill / container / mail / trade / AH / quest / vendor / craft / roll / M+ chest / other), stores it account-wide, and presents it in a standalone browser window with a filter/sort/group table plus an insights (analytics) view.
+**Ka0s Loot History** records every item the player loots (above a configurable quality threshold), attributes each drop to a **source** (kill / container / mail / trade / AH / quest / vendor / disenchant / milling / prospecting / craft / roll / M+ chest / other), stores it account-wide, and presents it in a standalone browser window with a filter/sort/group table plus an insights (analytics) view.
 
 - **Slash:** `/lh`, `/loothistory`
 - **SavedVariables:** `LootHistoryDB` (account-wide; data + settings live in `.global`)

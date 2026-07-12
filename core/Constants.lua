@@ -2,33 +2,38 @@ local addonName, NS = ...
 NS.Constants = NS.Constants or {}
 local C = NS.Constants
 
--- Source enum. Values are the stored string keys (stable — do not rename; they are the export contract).
+-- Source enum. Values are the stored string keys (stable — do not RENAME; they are the export
+-- contract). Extending it is fine (additive/forward-compatible): DISENCHANT/MILLING/PROSPECTING
+-- are first-class deconstruct sources so the Source column reads the ability, not a generic "Craft".
 C.SourceType = {
   KILL = "KILL", CONTAINER = "CONTAINER", MAIL = "MAIL", TRADE = "TRADE",
   AH = "AH", QUEST = "QUEST", VENDOR = "VENDOR", CRAFT = "CRAFT",
   ROLL = "ROLL", MPLUS = "MPLUS", OTHER = "OTHER",
+  DISENCHANT = "DISENCHANT", MILLING = "MILLING", PROSPECTING = "PROSPECTING",
 }
 
 -- Display order for grouping/analytics (most to least "interesting").
 C.SourceOrder = {
   "KILL", "CONTAINER", "MPLUS", "ROLL", "QUEST",
-  "TRADE", "MAIL", "AH", "VENDOR", "CRAFT", "OTHER",
+  "TRADE", "MAIL", "AH", "VENDOR",
+  "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "OTHER",
 }
 
 -- Short human labels for the UI.
 C.SourceLabel = {
   KILL = "Kill", CONTAINER = "Container", MPLUS = "Mythic+", ROLL = "Roll", QUEST = "Quest",
-  TRADE = "Trade", MAIL = "Mail", AH = "Auction", VENDOR = "Vendor", CRAFT = "Craft", OTHER = "Other",
+  TRADE = "Trade", MAIL = "Mail", AH = "Auction House", VENDOR = "Vendor", CRAFT = "Craft",
+  DISENCHANT = "Disenchant", MILLING = "Milling", PROSPECTING = "Prospecting", OTHER = "Other",
 }
 
--- Sources with a live capture path today. AH/ROLL are specified in TECHNICAL_DESIGN §4.4 but have
--- no stamper yet, so they can never be recorded; they are hidden from the mute list until wired.
--- CRAFT covers disenchant/mill/prospect (broad recipe crafting is a TODO). VENDOR/MAIL/TRADE were
--- confirmed recording in-client (smoke reviews/2026-07-11/03_SMOKE_TESTS.md §F-001, passed).
--- The SourceType enum stays whole (export contract); only the option lists scope.
+-- Sources with a live capture path today. ROLL and CRAFT have no stamper yet (ROLL is specified in
+-- TECHNICAL_DESIGN §4.4; CRAFT is reserved for broad recipe crafting — a TODO), so they are hidden
+-- from the mute list until wired. Deconstruct abilities stamp their own source; AH is stamped from
+-- Auction-House mail. The SourceType enum stays whole (export contract); only the option lists scope.
 C.SOURCE_IMPLEMENTED = {
-  KILL = true, CONTAINER = true, MPLUS = true, QUEST = true,
-  VENDOR = true, MAIL = true, TRADE = true, CRAFT = true, OTHER = true,
+  KILL = true, CONTAINER = true, MPLUS = true, QUEST = true, VENDOR = true,
+  MAIL = true, TRADE = true, AH = true, OTHER = true,
+  DISENCHANT = true, MILLING = true, PROSPECTING = true,
 }
 
 -- Attribution confidence.

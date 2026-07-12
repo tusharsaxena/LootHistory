@@ -117,16 +117,37 @@ test("Attribution: applying a pending spell to a bag item does not stamp CONTAIN
   assertEqual(NS.Attribution:Consume(), "OTHER")
 end)
 
-test("Attribution: disenchant/mill/prospect spell stamps CRAFT", function()
+test("Attribution: deconstruct spells map to their own source", function()
   resetContext()
-  NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 13262) -- Disenchant
-  assertEqual(NS.Attribution:Consume(), "CRAFT")
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 13262) -- Disenchant
+  assertEqual(NS.Attribution:Consume(), "DISENCHANT")
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 51005) -- Milling
+  assertEqual(NS.Attribution:Consume(), "MILLING")
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 31252) -- Prospecting
+  assertEqual(NS.Attribution:Consume(), "PROSPECTING")
 end)
 
-test("Attribution: an unrelated player spell does not stamp CRAFT", function()
+test("Attribution: an unrelated player spell does not stamp a source", function()
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 999999)
   assertEqual(NS.Attribution:Consume(), "OTHER")
+end)
+
+test("Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL", function()
+  local oGet, oIs = NS.Compat.GetMailHeader, NS.Compat.IsAuctionHouseMail
+  resetContext()
+  NS.Compat.GetMailHeader = function() return "Auction House", "Auction won: Sword" end
+  NS.Compat.IsAuctionHouseMail = function() return true end
+  NS.Attribution:StampMail(1)
+  assertEqual(NS.Attribution:Consume(), "AH")
+  resetContext()
+  NS.Compat.GetMailHeader = function() return "Bob", "hi" end
+  NS.Compat.IsAuctionHouseMail = function() return false end
+  NS.Attribution:StampMail(1)
+  assertEqual(NS.Attribution:Consume(), "MAIL")
+  NS.Compat.GetMailHeader, NS.Compat.IsAuctionHouseMail = oGet, oIs
 end)
 
 -- Quest rewards must be stamped from the GetQuestReward hook (client call, before the server

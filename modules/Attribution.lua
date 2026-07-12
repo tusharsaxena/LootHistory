@@ -162,19 +162,24 @@ function Attribution:OnContainerItemUse(bag, slot)
   end
 end
 
--- Disenchant / Milling / Prospecting turn an item into materials that arrive as pushed loot right
--- when the cast SUCCEEDS (so the stamp is fresh within TTL). Attribute those to CRAFT. Broad
--- profession crafting (recipe casts) is not covered yet — its cast time can exceed the TTL; see
--- TODO.md. Every player cast is logged at debug so the actual spell IDs can be read in-client.
-local CRAFT_SPELLS = { [13262] = true, [51005] = true, [31252] = true } -- Disenchant / Milling / Prospecting
+-- Deconstruct abilities turn an item into materials that arrive as pushed loot right when the cast
+-- SUCCEEDS (so the stamp is fresh within TTL). Each maps to its OWN source (Disenchant/Milling/
+-- Prospecting) rather than a generic CRAFT. Broad recipe crafting is not covered (cast time can
+-- exceed the TTL; see TODO.md). Only Disenchant's id (13262) is confirmed in-client; Milling/
+-- Prospecting are the classic ids — every player cast is logged at debug to confirm current ones.
+local DECONSTRUCT = {
+  [13262] = "DISENCHANT",   -- Disenchant (Enchanting)
+  [51005] = "MILLING",      -- Milling (Inscription)
+  [31252] = "PROSPECTING",  -- Prospecting (Jewelcrafting)
+}
 function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
   if unit ~= "player" then return end
-  local craft = CRAFT_SPELLS[spellID] or false
+  local src = DECONSTRUCT[spellID]
   if NS.State.debug and NS.Debug then
-    NS.Debug("cast: player spell=%s craft=%s", tostring(spellID), tostring(craft))
+    NS.Debug("cast: player spell=%s deconstruct=%s", tostring(spellID), tostring(src or false))
   end
-  if craft then
-    self:Stamp(Constants.SourceType.CRAFT, nil, Constants.Confidence.CERTAIN, "craft-spell")
+  if src then
+    self:Stamp(Constants.SourceType[src], nil, Constants.Confidence.CERTAIN, "deconstruct:" .. src)
   end
 end
 
@@ -184,8 +189,18 @@ function Attribution:OnTradeAcceptUpdate(_, playerAccepted, targetAccepted)
   end
 end
 
-function Attribution:StampMail()
-  self:Stamp(Constants.SourceType.MAIL, nil, Constants.Confidence.CERTAIN, "mail-take")
+-- Taking a mail attachment. Auction-House mail (won auctions, expired/cancelled returns) is
+-- attributed to AH; everything else to MAIL. The mail's sender/subject decides (locale-independent
+-- via global strings — see Compat.IsAuctionHouseMail).
+function Attribution:StampMail(mailIndex)
+  local sender, subject = NS.Compat.GetMailHeader(mailIndex)
+  local isAH = NS.Compat.IsAuctionHouseMail(sender, subject)
+  if NS.State.debug and NS.Debug then
+    NS.Debug("mail-take idx=%s sender=%s subject=%s -> %s",
+      tostring(mailIndex), tostring(sender), tostring(subject), isAH and "AH" or "MAIL")
+  end
+  local source = isAH and Constants.SourceType.AH or Constants.SourceType.MAIL
+  self:Stamp(source, nil, Constants.Confidence.CERTAIN, isAH and "mail-ah" or "mail-take")
 end
 
 function Attribution:OnQuestTurnedIn(_, questID)
@@ -231,10 +246,10 @@ function Attribution:Enable()
       hooksecurefunc("BuyMerchantItem", function() self:StampVendor() end)
     end
     if type(TakeInboxItem) == "function" then
-      hooksecurefunc("TakeInboxItem", function() self:StampMail() end)
+      hooksecurefunc("TakeInboxItem", function(mailIndex) self:StampMail(mailIndex) end)
     end
     if type(AutoLootMailItem) == "function" then
-      hooksecurefunc("AutoLootMailItem", function() self:StampMail() end)
+      hooksecurefunc("AutoLootMailItem", function(mailIndex) self:StampMail(mailIndex) end)
     end
   end
   NS.Compat.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
