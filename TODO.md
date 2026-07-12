@@ -20,6 +20,12 @@ Actionable items outside the milestone tracker in `CLAUDE.md`. The post-v0.1.0 b
 
 ## Attribution
 
+- [ ] **Broad recipe-crafting attribution → CRAFT.** Disenchant/mill/prospect are stamped (their
+  spell SUCCEEDS right as the mats push, within TTL). General profession crafting is not: a recipe's
+  cast time can exceed the 1.5s context TTL, so a stamp at `C_TradeSkillUI.CraftRecipe` call time
+  would expire before the crafted item lands. Needs a craft-*completion* signal (or an "extend TTL
+  while a craft is in progress" mechanism) before hooking recipe crafting.
+
 - [ ] **Tune attribution context lifetime.** Context is stamped once on `LOOT_OPENED` with a fixed 1.5s TTL,
   so *slow manual click-looting* (>1.5s between items in one window) lets later items fall back to
   `OTHER`/`INFERRED`. Consider keeping the context alive *while the loot window is open* — re-stamp/extend on

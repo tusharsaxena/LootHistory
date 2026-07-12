@@ -99,10 +99,30 @@ function Attribution:OnChallengeModeCompleted()
 end
 
 -- Peripheral (non-loot-window) sources. Each stamps just before its resulting self-loot line.
--- Only VENDOR/MAIL/TRADE/QUEST are wired here; AH/CRAFT/ROLL are planned (no stamper yet) and are
--- hidden from the mute list via Constants.SOURCE_IMPLEMENTED. See TECHNICAL_DESIGN §4.4.
+-- KILL/CONTAINER/MPLUS/QUEST/VENDOR/MAIL/TRADE/CRAFT are wired; AH/ROLL are planned (no stamper
+-- yet) and hidden from the mute list via Constants.SOURCE_IMPLEMENTED. See TECHNICAL_DESIGN §4.4.
 function Attribution:StampVendor()
   self:Stamp(Constants.SourceType.VENDOR, nil, Constants.Confidence.CERTAIN)
+end
+
+-- Opening a container item from bags pushes its contents to inventory with no LOOT_OPENED / GUID.
+-- Stamp CONTAINER, but only when the used item actually has loot (so using a potion / equipping
+-- gear via UseContainerItem never mis-stamps).
+function Attribution:OnContainerItemUse(bag, slot)
+  if NS.Compat.ContainerItemHasLoot(bag, slot) then
+    self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN)
+  end
+end
+
+-- Disenchant / Milling / Prospecting turn an item into materials that arrive as pushed loot right
+-- when the cast SUCCEEDS (so the stamp is fresh within TTL). Attribute those to CRAFT. Broad
+-- profession crafting (recipe casts) is not covered yet — its cast time can exceed the TTL; see
+-- TODO.md. Spell IDs are stable across flavors.
+local CRAFT_SPELLS = { [13262] = true, [51005] = true, [31252] = true } -- Disenchant / Milling / Prospecting
+function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
+  if unit == "player" and CRAFT_SPELLS[spellID] then
+    self:Stamp(Constants.SourceType.CRAFT, nil, Constants.Confidence.CERTAIN)
+  end
 end
 
 function Attribution:OnTradeAcceptUpdate(_, playerAccepted, targetAccepted)
@@ -134,6 +154,14 @@ function Attribution:Enable()
   bus:RegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
   bus:RegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
 
+  -- Player-only spell-success via a dedicated RegisterUnitEvent frame — avoids the raid-wide
+  -- firehose a bare RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") would deliver (every nameplate cast).
+  local spellFrame = CreateFrame("Frame")
+  spellFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+  spellFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
+    self:OnSpellSucceeded(event, unit, castGUID, spellID)
+  end)
+
   if hooksecurefunc then
     if type(BuyMerchantItem) == "function" then
       hooksecurefunc("BuyMerchantItem", function() self:StampVendor() end)
@@ -145,4 +173,5 @@ function Attribution:Enable()
       hooksecurefunc("AutoLootMailItem", function() self:StampMail() end)
     end
   end
+  NS.Compat.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
 end

@@ -84,3 +84,35 @@ test("Attribution: ResolveLootSource Item GUID → CONTAINER", function()
   local source = NS.Attribution:ResolveLootSource(ITEMGUID, {})
   assertEqual(source, "CONTAINER")
 end)
+
+-- Opening a container item from bags pushes its contents with no LOOT_OPENED / GUID, so the
+-- UseContainerItem hook stamps CONTAINER — but only when the used item actually has loot.
+test("Attribution: opening a lootable bag item stamps CONTAINER", function()
+  resetContext()
+  local orig = NS.Compat.ContainerItemHasLoot
+  NS.Compat.ContainerItemHasLoot = function() return true end
+  NS.Attribution:OnContainerItemUse(0, 1)
+  NS.Compat.ContainerItemHasLoot = orig
+  assertEqual(NS.Attribution:Consume(), "CONTAINER")
+end)
+
+test("Attribution: using a non-lootable bag item does not stamp", function()
+  resetContext()
+  local orig = NS.Compat.ContainerItemHasLoot
+  NS.Compat.ContainerItemHasLoot = function() return false end
+  NS.Attribution:OnContainerItemUse(0, 1)
+  NS.Compat.ContainerItemHasLoot = orig
+  assertEqual(NS.Attribution:Consume(), "OTHER")  -- no fresh context → fallback
+end)
+
+test("Attribution: disenchant/mill/prospect spell stamps CRAFT", function()
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 13262) -- Disenchant
+  assertEqual(NS.Attribution:Consume(), "CRAFT")
+end)
+
+test("Attribution: an unrelated player spell does not stamp CRAFT", function()
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 999999)
+  assertEqual(NS.Attribution:Consume(), "OTHER")
+end)

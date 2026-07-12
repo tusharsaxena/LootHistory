@@ -21,14 +21,14 @@ C.SourceLabel = {
   TRADE = "Trade", MAIL = "Mail", AH = "Auction", VENDOR = "Vendor", CRAFT = "Craft", OTHER = "Other",
 }
 
--- Sources with a live capture path today. AH/CRAFT/ROLL are specified in TECHNICAL_DESIGN §4.4
--- but have no stamper yet, so they can never be recorded; they are hidden from the mute list
--- until wired. VENDOR/MAIL/TRADE have stampers, confirmed recording in-client via their
--- CHAT_MSG_LOOT self-line (smoke reviews/2026-07-11/03_SMOKE_TESTS.md §F-001, passed).
+-- Sources with a live capture path today. AH/ROLL are specified in TECHNICAL_DESIGN §4.4 but have
+-- no stamper yet, so they can never be recorded; they are hidden from the mute list until wired.
+-- CRAFT covers disenchant/mill/prospect (broad recipe crafting is a TODO). VENDOR/MAIL/TRADE were
+-- confirmed recording in-client (smoke reviews/2026-07-11/03_SMOKE_TESTS.md §F-001, passed).
 -- The SourceType enum stays whole (export contract); only the option lists scope.
 C.SOURCE_IMPLEMENTED = {
   KILL = true, CONTAINER = true, MPLUS = true, QUEST = true,
-  VENDOR = true, MAIL = true, TRADE = true, OTHER = true,
+  VENDOR = true, MAIL = true, TRADE = true, CRAFT = true, OTHER = true,
 }
 
 -- Attribution confidence.

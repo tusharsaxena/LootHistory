@@ -85,7 +85,7 @@ back fast table ops.
 `TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`. The enum is deliberately
 whole (export contract), but only sources with a live stamper are exposed in the UI:
 `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser Source
-dropdown self-scopes from live data. `AH`/`CRAFT`/`ROLL` have no stamper yet (see Known
+dropdown self-scopes from live data. `AH`/`ROLL` have no stamper yet (see Known
 limitations).
 
 ---
@@ -161,8 +161,10 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`) | `modules/Attribution.lua` |
 | `TRADE_ACCEPT_UPDATE` | trade context (on mutual accept) | `modules/Attribution.lua` |
 | `QUEST_TURNED_IN` | quest-reward context | `modules/Attribution.lua` |
+| `UNIT_SPELLCAST_SUCCEEDED` (player-only) | `OnSpellSucceeded` → CRAFT for disenchant/mill/prospect | `modules/Attribution.lua` |
 | `hooksecurefunc("BuyMerchantItem")` | `StampVendor` (vendor context) | `modules/Attribution.lua` |
 | `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` (mail context) | `modules/Attribution.lua` |
+| `hooksecurefunc(C_Container.UseContainerItem)` | `OnContainerItemUse` → CONTAINER (opening a lootable bag item) | `modules/Attribution.lua` |
 
 All flavor-varying or deprecated calls behind these handlers are routed through
 `core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
@@ -200,11 +202,12 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 
 ## Known limitations
 
-- **Partial source coverage.** `AH`/`CRAFT`/`ROLL` are defined in the `SourceType` enum but have
-  no stamper yet, so they can never be recorded; they are hidden from the mute list via
-  `SOURCE_IMPLEMENTED`. `VENDOR`/`MAIL`/`TRADE` have stampers, confirmed recording in-client via
-  their `CHAT_MSG_LOOT` self-line (smoke §F-001, passed). Fuller/alternative capture (BAG_UPDATE
-  diffing for the AH/CRAFT/ROLL gaps) is a backlog item.
+- **Partial source coverage.** `AH`/`ROLL` are defined in the `SourceType` enum but have no stamper
+  yet, so they can never be recorded; they are hidden from the mute list via `SOURCE_IMPLEMENTED`.
+  `CRAFT` covers disenchant/mill/prospect (via the player `UNIT_SPELLCAST_SUCCEEDED` spell IDs) but
+  **not** broad recipe crafting yet — a recipe's cast time can exceed the context TTL (see TODO).
+  `VENDOR`/`MAIL`/`TRADE` were confirmed recording in-client (smoke §F-001, passed). Fuller capture
+  (BAG_UPDATE diffing for the AH/ROLL gaps) is a backlog item.
 - **No per-item source name.** The "From" column and its combat-log kill-name cache were removed:
   for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name was
   resolvable, so the column was almost always blank. Records keep `source` and the machine-readable

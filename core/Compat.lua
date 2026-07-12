@@ -23,6 +23,28 @@ function Compat.GetActiveKeystoneLevel()
   return nil
 end
 
+-- Hook the "use a bag item" path. Opening a container item pushes its contents straight to bags
+-- with no LOOT_OPENED / source GUID, so attribution needs a stamp from here. Calls fn(bag, slot)
+-- after each use. Retail routes through C_Container; older clients expose a global.
+function Compat.HookUseContainerItem(fn)
+  if C_Container and C_Container.UseContainerItem then
+    hooksecurefunc(C_Container, "UseContainerItem", fn)
+  elseif type(UseContainerItem) == "function" then
+    hooksecurefunc("UseContainerItem", fn)
+  end
+end
+
+-- Does the bag item at (bag, slot) have openable loot (a container / lockbox)? False when unknown
+-- or the API is absent — so a non-container item (potion, gear) never mis-stamps as CONTAINER.
+function Compat.ContainerItemHasLoot(bag, slot)
+  local get = C_Container and C_Container.GetContainerItemInfo
+  if get then
+    local info = get(bag, slot)
+    if info and info.hasLoot then return true end
+  end
+  return false
+end
+
 -- Current zone + subzone labels (subzone may be "").
 function Compat.GetZone()
   local zone = (GetZoneText and GetZoneText()) or ""
