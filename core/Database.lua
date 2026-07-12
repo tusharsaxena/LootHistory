@@ -12,6 +12,15 @@ function Database:History()
   return NS.db.global.history
 end
 
+-- The dataset every read-path query (Query/Stats/Export, and thus the table + Insights tab)
+-- resolves against. In Browser test mode this is the synthetic preview dataset published to
+-- State by BrowserTable:ToggleTestMode, so the whole UI renders off the same fake data;
+-- otherwise it is the live account-wide history. Write paths (Add/prune) always target the
+-- real history directly and never see the override.
+function Database:ActiveHistory()
+  return (NS.State and NS.State.testRecords) or NS.db.global.history
+end
+
 function Database:Count()
   return #NS.db.global.history
 end
@@ -90,9 +99,9 @@ function Database:QueryList(records, filter)
   return out
 end
 
--- Query the live account-wide history.
+-- Query the active dataset (live history, or the test dataset in Browser test mode).
 function Database:Query(filter)
-  return self:QueryList(NS.db.global.history, filter)
+  return self:QueryList(self:ActiveHistory(), filter)
 end
 
 -- Plain, metatable-free copy of the (optionally filtered) history — the forward-compatible

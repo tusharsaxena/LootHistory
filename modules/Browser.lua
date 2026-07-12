@@ -553,6 +553,8 @@ function B:OnDatasetChanged()
   end
   self:UpdateFooter()
   self:UpdateTestBadge()
+  -- The Insights tab reads the same dataset; refresh it so a live Insights view reflects the swap.
+  if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end
 end
 
 -- Show/hide the bright-red "TEST MODE" badge beside the window title.

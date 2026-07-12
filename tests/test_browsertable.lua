@@ -34,14 +34,38 @@ test("BrowserTable: bound legend adds a line per state", function()
   assertTrue(lines[5]:find("Warbound", 1, true) ~= nil)
 end)
 
-test("BrowserTable: test data covers every bound state", function()
+test("BrowserTable: test data covers every bound state, source, quality, class", function()
   local data = NS.BrowserTable:BuildTestData()
-  assertTrue(#data >= 10)
-  local seen = {}
-  for _, r in ipairs(data) do seen[r.bound or "UNBOUND"] = true end
-  for _, key in ipairs({ "UNBOUND", "BOE", "BOP", "ACCOUNT", "WARBAND" }) do
-    assertTrue(seen[key], "test data missing bound state " .. key)
+  assertTrue(#data >= 100, "expected at least 100 test records, got " .. #data)
+
+  local bound, source, quality, class = {}, {}, {}, {}
+  local minTs, maxTs
+  for _, r in ipairs(data) do
+    bound[r.bound or "UNBOUND"] = true
+    source[r.source] = true
+    quality[r.quality] = true
+    class[r.classFile] = true
+    if not minTs or r.ts < minTs then minTs = r.ts end
+    if not maxTs or r.ts > maxTs then maxTs = r.ts end
   end
+
+  for _, key in ipairs({ "UNBOUND", "BOE", "BOP", "ACCOUNT", "WARBAND" }) do
+    assertTrue(bound[key], "test data missing bound state " .. key)
+  end
+  -- Every SourceType is represented (incl. the deconstruct/AH/ROLL/CRAFT sources).
+  for _, s in ipairs(NS.Constants.SourceOrder) do
+    assertTrue(source[s], "test data missing source " .. s)
+  end
+  -- Full quality spread Poor(0)..Legendary(5).
+  for q = 0, 5 do
+    assertTrue(quality[q], "test data missing quality " .. q)
+  end
+  -- A range of classes so class coloring / per-character breakdowns have variety.
+  local classCount = 0
+  for _ in pairs(class) do classCount = classCount + 1 end
+  assertTrue(classCount >= 10, "expected >=10 distinct classes, got " .. classCount)
+  -- Spans at least 14 days for the range selector / time charts.
+  assertTrue((maxTs - minTs) >= 14 * 86400, "test data should span >= 14 days")
 end)
 
 
@@ -178,7 +202,8 @@ end)
 
 test("BrowserTable: test mode filters the synthetic dataset", function()
   local BT = NS.BrowserTable
-  BT.testMode, BT.testData = true, nil
+  -- Test mode publishes the synthetic dataset to State; every read-path query resolves to it.
+  BT.testMode, NS.State.testRecords = true, BT:BuildTestData()
   BT.groupBy, BT.collapsed, BT.filter = "none", {}, {}
   local all = #BT:BuildDisplayList()
   assertTrue(all > 0)
@@ -190,5 +215,10 @@ test("BrowserTable: test mode filters the synthetic dataset", function()
   for _, e in ipairs(killed) do assertEqual(e.record.source, "KILL") end
   assertEqual(BT.matchCount, #killed)
 
-  BT.testMode, BT.testData, BT.filter = false, nil, {} -- restore shared state
+  -- Insights reads the same override: Stats aggregates the test dataset, not the live history.
+  local stats = NS.Database:Stats({})
+  assertEqual(stats.totals.records, all)
+  assertTrue(stats.bySource.KILL and stats.bySource.KILL > 0)
+
+  BT.testMode, NS.State.testRecords, BT.filter = false, nil, {} -- restore shared state
 end)

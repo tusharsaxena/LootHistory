@@ -37,10 +37,10 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `core/Compat.lua` | **Loads first.** Flavor flags (`IsRetail`/`IsClassic`, the only `WOW_PROJECT_ID` read) + every deprecated/varying-API shim: GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
 | `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
-| `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`. |
+| `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. |
-| `core/Database.lua` | AceDB init, `Add`/`Query`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`, retention. |
+| `core/Database.lua` | AceDB init, `Add`/`Query`/`ActiveHistory`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`, retention. `ActiveHistory` is the read seam that swaps in the test dataset (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `settings`, `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
@@ -80,6 +80,11 @@ back fast table ops.
   read `schemaVersion` to upgrade older saved variables when the first schema change lands).
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
+- **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
+  `CurrentRecords`) resolve their dataset through `Database:ActiveHistory()`, which returns
+  `State.testRecords` when `/lh test` is active and the live `.global.history` otherwise. This is
+  why toggling test mode drives both the History table and the Insights tab off the same synthetic
+  data. Write paths (`Add`, prune) always target the real history — they never see the override.
 
 **Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
 `TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`, plus the deconstruct sources
@@ -146,7 +151,7 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `reset <path>` | Reset one setting to its default |
 | `resetall` | Reset all settings to defaults |
 | `debug` | Toggle the debug console (session-only) |
-| `test` | Toggle a preview of every bound type in the table (session-only) |
+| `test` | Toggle a synthetic preview dataset for the table and Insights (session-only) |
 | `purge` | Delete ALL loot history (confirm dialog) |
 | `help` | Print the generated command index |
 

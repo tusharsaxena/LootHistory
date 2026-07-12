@@ -73,7 +73,7 @@ interchangeable.
 | `/lh resetall` | Reset all settings to defaults |
 | `/lh purge` | Delete ALL recorded history (asks to confirm) |
 | `/lh debug` | Toggle the debug console (session-only) |
-| `/lh test` | Toggle a preview of every item-binding type in the table (session-only) |
+| `/lh test` | Toggle a synthetic preview dataset for the table and Insights (session-only) |
 | `/lh help` | Show the full command list |
 
 Inside the window: click a column header to sort, use the filter bar to narrow results, pick a

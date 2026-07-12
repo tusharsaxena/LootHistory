@@ -146,7 +146,7 @@ NS.COMMANDS = {
       elseif arg == "off" then NS.DebugLog:SetEnabled(false)
       else NS.DebugLog:Toggle() end
     end },
-  { name = "test", desc = "Toggle a preview of every bound type", fn = function()
+  { name = "test", desc = "Toggle a synthetic preview dataset (table + Insights)", fn = function()
       local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()
       print(NS.PREFIX .. " test mode " .. (on and "on" or "off"))
     end },

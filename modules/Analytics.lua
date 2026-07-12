@@ -13,6 +13,10 @@ local WHITE = "Interface\\Buttons\\WHITE8X8"
 local BAR_H, BAR_GAP = 16, 3
 local SECTION_GAP = 16
 local DAYSTRIP_H = 46
+local STRIP_LABEL_H = 44   -- reserved space under a strip for the rotated x-axis labels
+local STRIP_AXIS_GAP = 2   -- gap between the bar bases and the separator line
+local STRIP_LABEL_GAP = 7  -- gap between the separator line and the label text
+local LABEL_X_ADJUST = -2  -- nudge to visually centre the rotated label under the bar (tunable)
 local LIST_ROW_H = 16
 local LABELW, VALW = 84, 92   -- fixed label/value columns in a horizontal bar; track fills the rest
 local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges stay readable
@@ -173,6 +177,13 @@ local function makeStripBar(parent)
   fill:SetPoint("BOTTOM", 0, 0)
   fill:SetColorTexture(0.40, 0.60, 0.95, 0.9)
   f.fill = fill
+  -- Vertical axis label under the bar, rotated 90° CCW so it reads bottom-to-top. It is
+  -- right-aligned to the axis line (top of the label at the line, hanging down) in renderStrip,
+  -- where its measured width sets the anchor offset.
+  local axis = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  axis:SetRotation(math.pi / 2)
+  axis:SetTextColor(0.7, 0.7, 0.72)
+  f.axis = axis
   f:SetScript("OnEnter", function(self2)
     if not self2.info then return end
     GameTooltip:SetOwner(self2, "ANCHOR_TOP")
@@ -191,7 +202,7 @@ local function makeListRow(parent)
   name:SetJustifyH("LEFT"); name:SetPoint("LEFT", 4, 0); name:SetWordWrap(false)
   r.name = name
   local count = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  count:SetJustifyH("RIGHT"); count:SetPoint("RIGHT", -4, 0)
+  count:SetJustifyH("RIGHT"); count:SetPoint("RIGHT", -4, 0); count:SetWordWrap(false)
   r.count = count
   return r
 end
@@ -408,7 +419,7 @@ function Analytics:BuildCharts(content)
   self.valueStrip = CreateFrame("Frame", nil, content)
   self.hourStrip  = CreateFrame("Frame", nil, content)
   self.zonePanel  = listPanel(content, "Top zones")
-  self.itemPanel  = listPanel(content, "Top items")
+  self.itemPanel  = listPanel(content, "Top items by count")
   self.itemValuePanel = listPanel(content, "Top items by value")
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   self.emptyText:SetText("No loot in this range.")
@@ -440,6 +451,13 @@ end
 -- Returns the new y cursor (skips the section entirely when rows is empty).
 function Analytics:renderBarSection(pool, header, rows, y, w, pad)
   if #rows == 0 then header:Hide(); return y end
+  -- Normalize so the largest bar always fills the track and the rest scale relative to it
+  -- (a no-op for sections already built max-relative). Bars are ordered by the caller.
+  local maxFrac = 0
+  for _, row in ipairs(rows) do if (row.frac or 0) > maxFrac then maxFrac = row.frac end end
+  if maxFrac > 0 then
+    for _, row in ipairs(rows) do row.frac = (row.frac or 0) / maxFrac end
+  end
   header:ClearAllPoints(); header:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); header:Show()
   y = y - 18
   local innerW = w - pad * 2
@@ -457,7 +475,8 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad)
   return y - SECTION_GAP
 end
 
--- Render a per-bucket vertical strip. buckets: ordered array of { info (hover), count }.
+-- Render a per-bucket vertical strip. buckets: ordered array of { info (hover), count, label }.
+-- Each bar carries a rotated x-axis label (thinned out when bars get too narrow to fit them).
 function Analytics:renderStrip(pool, header, strip, buckets, y, w, pad)
   if #buckets == 0 then header:Hide(); strip:Hide(); return y end
   header:ClearAllPoints(); header:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); header:Show()
@@ -468,8 +487,17 @@ function Analytics:renderStrip(pool, header, strip, buckets, y, w, pad)
   local n = #buckets
   local slot = n > 0 and (innerW / n) or innerW
   local barW = math.max(2, math.min(14, slot - 2))
+  local labelStride = math.max(1, math.ceil(11 / slot))  -- keep labels >= ~11px apart
   local maxC = 1
   for _, b in ipairs(buckets) do if b.count > maxC then maxC = b.count end end
+  -- Axis line separating the bars (above) from the labels (below), spanning the strip. Sits a
+  -- small gap below the bar bases so the bars don't touch it.
+  strip.axisLine = strip.axisLine or strip:CreateTexture(nil, "ARTWORK")
+  strip.axisLine:SetColorTexture(0.45, 0.45, 0.5, 0.8)
+  strip.axisLine:ClearAllPoints()
+  strip.axisLine:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", 0, -STRIP_AXIS_GAP)
+  strip.axisLine:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", 0, -STRIP_AXIS_GAP)
+  strip.axisLine:SetHeight(1); strip.axisLine:Show()
   for i, b in ipairs(buckets) do
     local f = acquire(pool, function() return makeStripBar(strip) end)
     f:ClearAllPoints()
@@ -478,13 +506,28 @@ function Analytics:renderStrip(pool, header, strip, buckets, y, w, pad)
     f.fill:SetSize(barW, math.max(1, (b.count / maxC) * (DAYSTRIP_H - 2)))
     f.fill:SetAlpha(b.count == 0 and 0.12 or 0.9)
     f.info = b.info
+    if b.label and ((i - 1) % labelStride == 0) then
+      f.axis:SetText(b.label)
+      -- Right-align the rotated label: its top (right end pre-rotation) sits a gap below the axis
+      -- line and it hangs straight down, so labels of different lengths all start at the line.
+      -- Centre x on the bar; the top offset = line gap (below bar) + label gap (below line).
+      local tw = f.axis:GetStringWidth() or 0
+      f.axis:ClearAllPoints()
+      f.axis:SetPoint("CENTER", f, "BOTTOMLEFT", barW / 2 + LABEL_X_ADJUST,
+        -(tw / 2) - STRIP_AXIS_GAP - STRIP_LABEL_GAP)
+      f.axis:Show()
+    else
+      f.axis:SetText(""); f.axis:Hide()
+    end
   end
-  return y - DAYSTRIP_H - SECTION_GAP
+  return y - DAYSTRIP_H - STRIP_LABEL_H - SECTION_GAP
 end
 
 -- Render a ranked list panel (top zones / items / value). rows: array of
---   { name, nameColor = {r,g,b}|nil, right (string) }, capped to 10. Returns new y.
-function Analytics:renderListPanel(pool, panel, rows, y, colW, pad)
+--   { name, nameColor = {r,g,b}|nil, right (string) }, capped to 10. `rightW` sizes the value
+--   column — money strings (coin glyphs) need more room than plain counts. Returns new y.
+function Analytics:renderListPanel(pool, panel, rows, y, colW, pad, rightW)
+  rightW = rightW or 48
   local n = math.min(10, #rows)
   local panelH = 20 + math.max(n, 1) * LIST_ROW_H + 4
   panel:ClearAllPoints(); panel:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
@@ -494,10 +537,10 @@ function Analytics:renderListPanel(pool, panel, rows, y, colW, pad)
     local r = acquire(pool, function() return makeListRow(panel) end)
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", panel, "TOPLEFT", 4, -20 - (i - 1) * LIST_ROW_H)
     r:SetWidth(colW - 8)
-    r.name:SetWidth(colW - 8 - 52); r.name:SetText(row.name)
+    r.name:SetWidth(math.max(1, colW - 8 - rightW - 6)); r.name:SetText(row.name)
     local nc = row.nameColor
     r.name:SetTextColor(nc and nc[1] or 0.9, nc and nc[2] or 0.9, nc and nc[3] or 0.9)
-    r.count:SetWidth(48); r.count:SetText(row.right); r.count:SetTextColor(0.8, 0.8, 0.82)
+    r.count:SetWidth(rightW); r.count:SetText(row.right); r.count:SetTextColor(0.8, 0.8, 0.82)
   end
   return panelH
 end
@@ -521,6 +564,13 @@ local function dayKeyList(firstTs, lastTs)
     keys = trimmed
   end
   return keys
+end
+
+-- "YYYY-MM-DD" → compact "M/D" for the per-day strip's x-axis labels.
+local function shortDay(k)
+  local m, d = k:match("^%d+%-(%d+)%-(%d+)$")
+  if m then return tonumber(m) .. "/" .. tonumber(d) end
+  return k
 end
 
 -- Sort a key→count map into a { key, count } array, count desc then key asc.
@@ -615,14 +665,17 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.itype, H.itype, rows, y, w, pad)
 
-  -- Loot by bound type (fixed order).
+  -- Loot by bound type — sorted high→low.
   rows = {}
+  local bRows = {}
   for _, bk in ipairs(BOUND_ORDER) do
     local c = stats.byBound[bk]
-    if c then
-      rows[#rows + 1] = { label = BOUND_LABEL[bk] or bk, color = BOUND_COLOR[bk] or NEUTRAL,
-        frac = c / total, value = tostring(c) }
-    end
+    if c then bRows[#bRows + 1] = { bk = bk, c = c } end
+  end
+  table.sort(bRows, function(a, b) if a.c ~= b.c then return a.c > b.c end return a.bk < b.bk end)
+  for _, e in ipairs(bRows) do
+    rows[#rows + 1] = { label = BOUND_LABEL[e.bk] or e.bk, color = BOUND_COLOR[e.bk] or NEUTRAL,
+      frac = e.c / total, value = tostring(e.c) }
   end
   y = self:renderBarSection(P.bound, H.bound, rows, y, w, pad)
 
@@ -648,8 +701,9 @@ function Analytics:LayoutCharts(y, w, pad)
   for _, k in ipairs(keys) do
     local c = stats.byDay[k] or 0
     local v = stats.valueByDay[k] or 0
-    dayB[#dayB + 1] = { info = k .. ":  " .. c, count = c }
-    valB[#valB + 1] = { info = k .. ":  " .. money(v), count = v }
+    local lbl = shortDay(k)
+    dayB[#dayB + 1] = { info = k .. ":  " .. c, count = c, label = lbl }
+    valB[#valB + 1] = { info = k .. ":  " .. money(v), count = v, label = lbl }
   end
   y = self:renderStrip(P.day, H.time, self.dayStrip, dayB, y, w, pad)
   y = self:renderStrip(P.vday, H.vtime, self.valueStrip, valB, y, w, pad)
@@ -658,7 +712,7 @@ function Analytics:LayoutCharts(y, w, pad)
   local hourB = {}
   for h = 0, 23 do
     local c = stats.byHour[h] or 0
-    hourB[#hourB + 1] = { info = string.format("%02d:00  %d", h, c), count = c }
+    hourB[#hourB + 1] = { info = string.format("%02d:00  %d", h, c), count = c, label = string.format("%02d", h) }
   end
   y = self:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
 
@@ -684,35 +738,29 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.keystone, H.keystone, rows, y, w, pad)
 
-  -- Attribution confidence.
+  -- Attribution confidence — sorted high→low.
   rows = {}
+  local cRows = {}
   for _, key in ipairs({ "CERTAIN", "INFERRED" }) do
     local c = stats.byConfidence[key]
-    if c then rows[#rows + 1] = { label = CONF_LABEL[key], color = CONF_COLOR[key],
-      frac = c / total, value = string.format("%d  %d%%", c, math.floor(c / total * 100 + 0.5)) } end
+    if c then cRows[#cRows + 1] = { key = key, c = c } end
+  end
+  table.sort(cRows, function(a, b) if a.c ~= b.c then return a.c > b.c end return a.key < b.key end)
+  for _, e in ipairs(cRows) do
+    rows[#rows + 1] = { label = CONF_LABEL[e.key], color = CONF_COLOR[e.key],
+      frac = e.c / total, value = string.format("%d  %d%%", e.c, math.floor(e.c / total * 100 + 0.5)) }
   end
   y = self:renderBarSection(P.conf, H.conf, rows, y, w, pad)
 
-  -- Top zones / Top items — two ranked columns.
+  -- Ranked lists — two half-width columns:
+  --   left  : Top items by value → Top zones (stacked)
+  --   right : Top items by count
   local colGap = 12
   local colW = math.floor((w - pad * 2 - colGap) / 2)
-  local zoneRows = {}
-  for i = 1, math.min(10, #stats.topZones) do
-    local z = stats.topZones[i]
-    zoneRows[#zoneRows + 1] = { name = z.zone, right = tostring(z.count) }
-  end
-  local itemRows = {}
-  for i = 1, math.min(10, #stats.topItems) do
-    local it = stats.topItems[i]
-    local star = ((it.quality or 1) >= 4) and starMarkup() or ""
-    itemRows[#itemRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
-      nameColor = qualityColor(it.quality or 1), right = tostring(it.count) }
-  end
-  local hZone = self:renderListPanel(P.zone, self.zonePanel, zoneRows, y, colW, pad)
-  local hItem = self:renderListPanel(P.item, self.itemPanel, itemRows, y, colW, pad + colW + colGap)
-  y = y - math.max(hZone, hItem) - SECTION_GAP
+  local leftX, rightX = pad, pad + colW + colGap
+  local MONEY_W = 110  -- value column wide enough for "Ng Ns Nc" coin strings (no wrapping)
 
-  -- Top items by value — full-width list.
+  -- Top items by value (left, top).
   local valRows = {}
   for i = 1, math.min(10, #stats.topItemsByValue) do
     local it = stats.topItemsByValue[i]
@@ -722,13 +770,34 @@ function Analytics:LayoutCharts(y, w, pad)
         nameColor = qualityColor(it.quality or 1), right = money(it.value) }
     end
   end
-  if #valRows > 0 then
-    local hVal = self:renderListPanel(P.itemval, self.itemValuePanel, valRows, y, w - pad * 2, pad)
-    y = y - hVal - 4
-  else
-    self.itemValuePanel:Hide()
-    y = y - 4
+
+  -- Top items by count (right, top).
+  local itemRows = {}
+  for i = 1, math.min(10, #stats.topItems) do
+    local it = stats.topItems[i]
+    local star = ((it.quality or 1) >= 4) and starMarkup() or ""
+    itemRows[#itemRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
+      nameColor = qualityColor(it.quality or 1), right = tostring(it.count) }
   end
 
+  -- Top zones (left, below the value list).
+  local zoneRows = {}
+  for i = 1, math.min(10, #stats.topZones) do
+    local z = stats.topZones[i]
+    zoneRows[#zoneRows + 1] = { name = z.zone, right = tostring(z.count) }
+  end
+
+  local zoneY = y
+  if #valRows > 0 then
+    local hVal = self:renderListPanel(P.itemval, self.itemValuePanel, valRows, y, colW, leftX, MONEY_W)
+    zoneY = y - hVal - SECTION_GAP
+  else
+    self.itemValuePanel:Hide()
+  end
+  local hItem = self:renderListPanel(P.item, self.itemPanel, itemRows, y, colW, rightX)
+  local hZone = self:renderListPanel(P.zone, self.zonePanel, zoneRows, zoneY, colW, leftX)
+
+  local leftH = (y - zoneY) + hZone -- top of column (y) down to the bottom of the zone panel
+  y = y - math.max(leftH, hItem) - SECTION_GAP
   return y
 end
