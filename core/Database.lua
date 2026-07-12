@@ -5,30 +5,6 @@ function NS:InitDB()
   NS.db = LibStub("AceDB-3.0"):New("LootHistoryDB", NS.defaults, true)
 end
 
--- Schema migration runner. Ships from day one even with no migrations yet.
-function NS:RunMigrations()
-  local g = NS.db.global
-  g.schemaVersion = g.schemaVersion or 1
-  -- v2: records gained optional itemLevel + bound fields. Additive and nil-safe, so old
-  -- records need no transform; they simply carry no ilvl/bound until re-looted.
-  if g.schemaVersion < 2 then g.schemaVersion = 2 end
-  -- v3: added classFile, sellPrice, itemType, itemSubType. Also additive/nil-safe.
-  if g.schemaVersion < 3 then g.schemaVersion = 3 end
-  -- v4: removed the From column and its `sourceName` field (the combat-log name cache was
-  -- retired — the field was blank for the vast majority of loot: containers, delves, pushed
-  -- items). Strip it from existing records, drop a stale "from" sort, and clear the saved window
-  -- size so the (now narrower) window re-opens at its new default width.
-  if g.schemaVersion < 4 then
-    for _, r in ipairs(g.history) do r.sourceName = nil end
-    if g.settings and g.settings.window then
-      g.settings.window.w = nil
-      g.settings.window.h = nil
-    end
-    if g.savedView and g.savedView.sortKey == "from" then g.savedView.sortKey = "date" end
-    g.schemaVersion = 4
-  end
-end
-
 NS.Database = NS.Database or {}
 local Database = NS.Database
 

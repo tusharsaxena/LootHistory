@@ -7,7 +7,6 @@ NS.bus = addon   -- closed message bus: SendMessage / RegisterMessage
 
 function addon:OnInitialize()
   NS:InitDB()
-  NS:RunMigrations()
   if NS.Schema and NS.Schema.Register then NS.Schema:Register() end
   if NS.Slash and NS.Slash.Register then NS.Slash:Register() end
   if NS.Panel and NS.Panel.Register then NS.Panel:Register() end

@@ -44,7 +44,6 @@ Loader.loadAll({
 }, NS, mocks)
 
 NS:InitDB()
-NS:RunMigrations()
 
 _G.LH_TEST = {
   NS = NS, mocks = mocks, test = test,
