@@ -32,6 +32,11 @@ test("Compat: DecodeGUID nil-safe", function()
   assertEqual(NS.Compat.DecodeGUID(nil), nil)
 end)
 
+test("Compat: GetActiveKeystoneLevel nil when API absent (headless)", function()
+  -- No C_ChallengeMode in the mock → the firewall wrapper degrades to nil, not an error.
+  assertEqual(NS.Compat.GetActiveKeystoneLevel(), nil)
+end)
+
 test("Compat: QualityLabel names qualities", function()
   assertEqual(NS.Compat.QualityLabel(0), "Poor")
   assertEqual(NS.Compat.QualityLabel(2), "Uncommon")

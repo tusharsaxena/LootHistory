@@ -89,17 +89,13 @@ function Attribution:OnEncounterEnd()
 end
 
 function Attribution:OnChallengeModeStart()
-  local level
-  if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
-    level = C_ChallengeMode.GetActiveKeystoneInfo()
-  end
-  State.keystone = { level = level }
+  State.keystone = { level = NS.Compat.GetActiveKeystoneLevel() }
 end
 
 function Attribution:OnChallengeModeCompleted()
   -- Keep the keystone context: the reward chest is looted shortly after completion.
-  if State.keystone and C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
-    State.keystone.level = C_ChallengeMode.GetActiveKeystoneInfo() or State.keystone.level
+  if State.keystone then
+    State.keystone.level = NS.Compat.GetActiveKeystoneLevel() or State.keystone.level
   end
 end
 

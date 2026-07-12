@@ -283,7 +283,7 @@ Each stamper is a small handler in `Attribution.lua` registered via AceEvent. Me
 
 ### 4.5 Encounter / difficulty context
 
-`ENCOUNTER_START(encounterID, name, difficultyID, groupSize)` and `ENCOUNTER_END` maintain `State.encounter = { id, name, difficulty }`. When a `KILL` context is stamped inside an active encounter, `sourceDetail.encounterID` / `sourceDetail.difficulty` are attached. `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` maintain `State.keystone = { level, mapID }`; a `GameObject`/end-of-run loot while a keystone is active/just-completed upgrades `CONTAINER` → `MPLUS` with `sourceDetail.keystoneLevel`.
+`ENCOUNTER_START(encounterID, name, difficultyID, groupSize)` and `ENCOUNTER_END` maintain `State.encounter = { id, name, difficulty }`. When a `KILL` context is stamped inside an active encounter, `sourceDetail.encounterID` / `sourceDetail.difficulty` are attached. `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` maintain `State.keystone = { level }` (read via `Compat.GetActiveKeystoneLevel()`); a `GameObject`/end-of-run loot while a keystone is active/just-completed upgrades `CONTAINER` → `MPLUS` with `sourceDetail.keystoneLevel`.
 
 ### 4.6 Confidence
 

@@ -14,6 +14,15 @@ function Compat.GetPlayerMapID()
   return nil
 end
 
+-- Active M+ keystone level (nil if no keystone active or the API is absent). Retail-only;
+-- the challenge-mode API does not exist on Classic flavors.
+function Compat.GetActiveKeystoneLevel()
+  if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
+    return (C_ChallengeMode.GetActiveKeystoneInfo())
+  end
+  return nil
+end
+
 -- Current zone + subzone labels (subzone may be "").
 function Compat.GetZone()
   local zone = (GetZoneText and GetZoneText()) or ""
