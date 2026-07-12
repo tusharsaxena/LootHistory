@@ -38,6 +38,13 @@ S.Schema = {
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
     end },
 
+  { path = "settings.excludeQuestItems", default = false, type = "boolean", widget = "CheckBox",
+    group = "Data Collection", label = "Exclude quest items",
+    tooltip = "Skip items of the Quest type (transient quest objects).",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
+    end },
+
   { path = "settings.retentionDays", default = 30, type = "number", widget = "Dropdown",
     group = "Data Collection", label = "Keep history for", options = C.RETENTION_OPTIONS,
     tooltip = "Automatically drop records older than this. 'Never' keeps everything.",

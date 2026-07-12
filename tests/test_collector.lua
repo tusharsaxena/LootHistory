@@ -123,3 +123,11 @@ test("Collector: end-to-end drops quest items when the filter is on", function()
   NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
   assertEqual(NS.Database:Count(), before + 1)
 end)
+
+test("Schema: excludeQuestItems row exists, defaults false, settable", function()
+  assertEqual(NS.Schema:Default("settings.excludeQuestItems"), false)
+  assertEqual(NS.defaults.global.settings.excludeQuestItems, false)
+  assertTrue(NS.Schema:Set("settings.excludeQuestItems", true))
+  assertEqual(NS.Schema:Get("settings.excludeQuestItems"), true)
+  NS.Schema:Set("settings.excludeQuestItems", false)   -- restore
+end)

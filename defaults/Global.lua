@@ -11,6 +11,7 @@ NS.defaults.global = {
   settings = {
     enabled          = true,
     qualityThreshold = 1,      -- Common (white) and above
+    excludeQuestItems = false,  -- opt-in: drop Quest-class items at capture
     excludedSources  = {},     -- set of muted SourceType keys
     retentionDays    = 30,     -- 0 == keep Always
     windowScale      = 1.0,
