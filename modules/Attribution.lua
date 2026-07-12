@@ -76,7 +76,7 @@ function Attribution:Stamp(source, detail, confidence, trigger)
     expires = GetTime() + Constants.CONTEXT_TTL,
   }
   if NS.State.debug and NS.Debug then
-    NS.Debug("stamp %s%s%s", source, trigger and (" via " .. trigger) or "", detailStr(detail))
+    NS.Debug("Attr", "stamp %s%s%s", source, trigger and (" via " .. trigger) or "", detailStr(detail))
   end
 end
 
@@ -86,12 +86,12 @@ function Attribution:Consume()
   local c = State.lootContext
   if c and c.expires >= GetTime() then
     if NS.State.debug and NS.Debug then
-      NS.Debug("consume -> %s (%s)%s", c.source, c.confidence, detailStr(c.detail))
+      NS.Debug("Attr", "consume -> %s (%s)%s", c.source, c.confidence, detailStr(c.detail))
     end
     return c.source, c.detail, c.confidence
   end
   if NS.State.debug and NS.Debug then
-    NS.Debug("consume -> OTHER (INFERRED) — no fresh context")
+    NS.Debug("Attr", "consume -> OTHER (INFERRED) — no fresh context")
   end
   return Constants.SourceType.OTHER, nil, Constants.Confidence.INFERRED
 end
@@ -134,7 +134,7 @@ function Attribution:OnLootOpened()
   -- spell just stamped rather than overwriting it with this, its own, mat window.
   local c = State.lootContext
   if c and c.expires >= GetTime() and DECONSTRUCT_SOURCE[c.source] then
-    if NS.State.debug and NS.Debug then NS.Debug("LOOT_OPENED kept %s (deconstruct mat window)", c.source) end
+    if NS.State.debug and NS.Debug then NS.Debug("Open", "LOOT_OPENED kept %s (deconstruct mat window)", c.source) end
     return
   end
   local n = (GetNumLootItems and GetNumLootItems()) or 0
@@ -143,32 +143,32 @@ function Attribution:OnLootOpened()
     if guid then
       local source, detail = self:ResolveLootSource(guid, State)
       if NS.State.debug and NS.Debug then
-        NS.Debug("LOOT_OPENED slot=%d guid=%s -> %s", slot, tostring(guid), source)
+        NS.Debug("Open", "LOOT_OPENED slot=%d guid=%s -> %s", slot, tostring(guid), source)
       end
       self:Stamp(source, detail, Constants.Confidence.CERTAIN, "LOOT_OPENED")
       return
     end
   end
-  if NS.State.debug and NS.Debug then NS.Debug("LOOT_OPENED (%d slots, no source GUID)", n) end
+  if NS.State.debug and NS.Debug then NS.Debug("Open", "LOOT_OPENED (%d slots, no source GUID)", n) end
 end
 
 function Attribution:OnEncounterStart(_, encounterID, encounterName, difficultyID)
   State.encounter = { id = encounterID, name = encounterName, difficulty = difficultyID }
   if NS.State.debug and NS.Debug then
-    NS.Debug("context: encounter start id=%s diff=%s (KILL loot now carries it)",
+    NS.Debug("Attr", "encounter start id=%s diff=%s (KILL loot now carries it)",
       tostring(encounterID), tostring(difficultyID))
   end
 end
 
 function Attribution:OnEncounterEnd()
   State.encounter = nil
-  if NS.State.debug and NS.Debug then NS.Debug("context: encounter end") end
+  if NS.State.debug and NS.Debug then NS.Debug("Attr", "encounter end") end
 end
 
 function Attribution:OnChallengeModeStart()
   State.keystone = { level = NS.Compat.GetActiveKeystoneLevel() }
   if NS.State.debug and NS.Debug then
-    NS.Debug("context: keystone start +%s (GameObject loot → MPLUS)", tostring(State.keystone.level))
+    NS.Debug("Attr", "keystone start +%s (GameObject loot → MPLUS)", tostring(State.keystone.level))
   end
 end
 
@@ -177,7 +177,7 @@ function Attribution:OnChallengeModeCompleted()
   if State.keystone then
     State.keystone.level = NS.Compat.GetActiveKeystoneLevel() or State.keystone.level
     if NS.State.debug and NS.Debug then
-      NS.Debug("context: keystone completed +%s (reward chest still MPLUS)", tostring(State.keystone.level))
+      NS.Debug("Attr", "keystone completed +%s (reward chest still MPLUS)", tostring(State.keystone.level))
     end
   end
 end
@@ -197,7 +197,7 @@ function Attribution:OnContainerItemUse(bag, slot)
   local hasLoot = NS.Compat.ContainerItemHasLoot(bag, slot)
   local targeting = NS.Compat.IsSpellTargeting()
   if NS.State.debug and NS.Debug then
-    NS.Debug("UseContainerItem bag=%s slot=%s hasLoot=%s spellTargeting=%s",
+    NS.Debug("Open", "UseContainerItem bag=%s slot=%s hasLoot=%s spellTargeting=%s",
       tostring(bag), tostring(slot), tostring(hasLoot), tostring(targeting))
   end
   if hasLoot and not targeting then
@@ -213,7 +213,7 @@ function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
   local name = NS.Compat.GetSpellName(spellID)
   local src = self:DeconstructSource(spellID, name)
   if NS.State.debug and NS.Debug then
-    NS.Debug("cast: player spell=%s name=%s deconstruct=%s",
+    NS.Debug("Cast", "player spell=%s name=%s deconstruct=%s",
       tostring(spellID), tostring(name), tostring(src or false))
   end
   if src then
@@ -234,7 +234,7 @@ function Attribution:StampMail(mailIndex)
   local sender, subject = NS.Compat.GetMailHeader(mailIndex)
   local isAH = NS.Compat.IsAuctionHouseMail(sender, subject)
   if NS.State.debug and NS.Debug then
-    NS.Debug("mail-take idx=%s sender=%s subject=%s -> %s",
+    NS.Debug("Mail", "mail-take idx=%s sender=%s subject=%s -> %s",
       tostring(mailIndex), tostring(sender), tostring(subject), isAH and "AH" or "MAIL")
   end
   local source = isAH and Constants.SourceType.AH or Constants.SourceType.MAIL

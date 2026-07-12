@@ -98,13 +98,20 @@ local function EnsureFrame()
   return frame
 end
 
-function D:Add(msg)
+-- Pure line formatter (no frames): "<ts>  |  [<tag>] <msg>". The tag is left-justified and
+-- padded/truncated to a fixed 10 chars INSIDE the brackets so the closing ] and all content align.
+function D.FormatPlain(ts, tag, msg)
+  return ("%s  |  [%-10.10s] %s"):format(tostring(ts), tostring(tag or ""), tostring(msg))
+end
+
+function D:Add(tag, msg)
   local f = EnsureFrame()
   local ts = date("%H:%M:%S")
-  -- Grey, fixed-width timestamp + a "|" separator ("||" renders one literal pipe).
-  f.log:AddMessage(("|cff888888%s  ||  |r%s"):format(ts, tostring(msg)))
+  -- Grey the timestamp / separator / bracketed tag; content in the default colour.
+  -- "||" renders one literal pipe inside a colour-coded segment.
+  f.log:AddMessage(("|cff888888%s  ||  [%-10.10s]|r %s"):format(ts, tostring(tag or ""), tostring(msg)))
   -- Mirror a plain-text copy into the buffer (for the Copy window), capped like the log.
-  D.buffer[#D.buffer + 1] = ts .. "  |  " .. tostring(msg)
+  D.buffer[#D.buffer + 1] = D.FormatPlain(ts, tag, msg)
   if #D.buffer > MAX_BUFFER then table.remove(D.buffer, 1) end
 end
 
@@ -191,8 +198,8 @@ function D:Toggle()
 end
 
 -- Global debug sink. No-op (zero alloc) when debug is off; otherwise appends to the window.
-function NS.Debug(fmt, ...)
+function NS.Debug(tag, fmt, ...)
   if not (NS.State and NS.State.debug) then return end
   local msg = select("#", ...) > 0 and fmt:format(...) or fmt
-  D:Add(msg)
+  D:Add(tag, msg)
 end
