@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1530802)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
-<!-- TODO: hero logo image — replace with the CurseForge/media CDN URL -->
+![alt text](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
 A passive loot-tracking addon for **World of Warcraft: Midnight**. Ka0s Loot History keeps a permanent, account-wide record of every item you loot (above a quality threshold you choose), works out **where each drop came from**, and gives you a standalone window to browse the full history and an Insights view to analyze it — so you always know what you picked up, when, and from what.
 
@@ -29,15 +29,19 @@ Every item you receive is captured passively from the loot stream and attributed
 
 **_The History browser_**
 
-<!-- TODO: screenshot — browser window with the filter bar, group-by control, and virtualized table -->
+![alt text](https://media.forgecdn.net/attachments/1788/920/loothistory-screenshot-01-png.png)
 
-**_Insights analytics_**
+![alt text](https://media.forgecdn.net/attachments/1788/921/loothistory-screenshot-02-png.png)
 
-<!-- TODO: screenshot — Insights tab with stat cards and breakdown charts -->
+**_Insights_**
+
+![alt text](https://media.forgecdn.net/attachments/1788/922/loothistory-screenshot-03-png.png)
+
+![alt text](https://media.forgecdn.net/attachments/1788/923/loothistory-screenshot-04-png.png)
 
 **_Settings panel_**
 
-<!-- TODO: screenshot — Blizzard Settings canvas for Ka0s Loot History -->
+![alt text](https://media.forgecdn.net/attachments/1788/924/loothistory-screenshot-05-png.png)
 
 ## Usage
 
