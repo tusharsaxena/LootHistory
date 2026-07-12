@@ -94,70 +94,143 @@ function Database:Export(filter)
   return out
 end
 
--- Aggregate the (optionally filtered) history in one O(n) pass. Returns count maps plus
--- pre-sorted topZones/topItems and totals — the struct all Insights widgets consume (TD §8).
+-- Aggregate the (optionally filtered) history in one O(n) pass. Returns count maps, value maps,
+-- per-character/type/bound/time breakdowns, pre-sorted top lists, and totals/highlights — the
+-- struct all Insights widgets consume (TD §8). "Value" is vendor value: sellPrice × quantity
+-- (captured at loot time; not market price). New fields are additive.
 function Database:Stats(filter)
   local records = self:Query(filter or {})
   local bySource, byQuality, byDay, byZone, byItem = {}, {}, {}, {}, {}
-  local chars = {}
+  local valueBySource, valueByDay, valueByZone = {}, {}, {}
+  local byChar, byType, byBound, byHour, byWeekday, byKeystone, byConfidence =
+    {}, {}, {}, {}, {}, {}, {}
   local distinctItems, distinctChars = 0, 0
   local firstTs, lastTs
+  local totalValue, totalQuantity, epicPlus = 0, 0, 0
+  local bestDrop, richestDrop
 
   for _, r in ipairs(records) do
+    local qty = r.quantity or 1
+    local value = (r.sellPrice or 0) * qty
+    totalValue = totalValue + value
+    totalQuantity = totalQuantity + qty
+
     local src = r.source or "OTHER"
     bySource[src] = (bySource[src] or 0) + 1
+    valueBySource[src] = (valueBySource[src] or 0) + value
 
     local q = r.quality or 0
     byQuality[q] = (byQuality[q] or 0) + 1
+    if q >= 4 then epicPlus = epicPlus + 1 end
 
     if r.ts then
       local day = date("%Y-%m-%d", r.ts)
       byDay[day] = (byDay[day] or 0) + 1
+      valueByDay[day] = (valueByDay[day] or 0) + value
+      local d = date("*t", r.ts)
+      byHour[d.hour] = (byHour[d.hour] or 0) + 1
+      byWeekday[d.wday - 1] = (byWeekday[d.wday - 1] or 0) + 1  -- Lua wday 1=Sun → key 0=Sun
       if not firstTs or r.ts < firstTs then firstTs = r.ts end
       if not lastTs or r.ts > lastTs then lastTs = r.ts end
     end
 
     local zone = r.zone or "Unknown"
     byZone[zone] = (byZone[zone] or 0) + 1
+    valueByZone[zone] = (valueByZone[zone] or 0) + value
+
+    local ty = r.itemType
+    if ty and ty ~= "" then byType[ty] = (byType[ty] or 0) + 1 end
+
+    local bk = r.bound or "UNBOUND"
+    byBound[bk] = (byBound[bk] or 0) + 1
+
+    local conf = r.confidence or "INFERRED"
+    byConfidence[conf] = (byConfidence[conf] or 0) + 1
+
+    local kl = r.sourceDetail and r.sourceDetail.keystoneLevel
+    if kl then byKeystone[kl] = (byKeystone[kl] or 0) + 1 end
 
     local id = r.itemID
     if id ~= nil then
       local e = byItem[id]
       if e then
         e.count = e.count + 1
+        e.value = e.value + value
       else
-        byItem[id] = { itemID = id, itemName = r.itemName, quality = r.quality, count = 1 }
+        byItem[id] = { itemID = id, itemName = r.itemName, quality = r.quality,
+                       count = 1, value = value }
         distinctItems = distinctItems + 1
       end
     end
 
-    if r.char and not chars[r.char] then
-      chars[r.char] = true
-      distinctChars = distinctChars + 1
+    local ch = r.char
+    if ch then
+      local ce = byChar[ch]
+      if ce then
+        ce.count = ce.count + 1
+        ce.value = ce.value + value
+      else
+        byChar[ch] = { char = ch, classFile = r.classFile, count = 1, value = value }
+        distinctChars = distinctChars + 1
+      end
+    end
+
+    -- Highlights: best gear (max itemLevel, ties → higher quality) + richest single drop.
+    local ilvl = r.itemLevel or 0
+    if ilvl > 0 and (not bestDrop or ilvl > bestDrop.itemLevel
+        or (ilvl == bestDrop.itemLevel and (r.quality or 0) > (bestDrop.quality or 0))) then
+      bestDrop = { itemName = r.itemName, quality = r.quality, itemLevel = ilvl, itemLink = r.itemLink }
+    end
+    if value > 0 and (not richestDrop or value > richestDrop.value) then
+      richestDrop = { itemName = r.itemName, quality = r.quality, value = value, itemLink = r.itemLink }
     end
   end
 
   local topZones = {}
-  for zone, count in pairs(byZone) do topZones[#topZones + 1] = { zone = zone, count = count } end
+  for zone, count in pairs(byZone) do
+    topZones[#topZones + 1] = { zone = zone, count = count, value = valueByZone[zone] or 0 }
+  end
   table.sort(topZones, function(a, b)
     if a.count ~= b.count then return a.count > b.count end
     return a.zone < b.zone
   end)
 
-  local topItems = {}
-  for _, e in pairs(byItem) do topItems[#topItems + 1] = e end
+  -- topItems and topItemsByValue share the same entry tables (from byItem) — two orderings.
+  local topItems, topItemsByValue = {}, {}
+  for _, e in pairs(byItem) do
+    topItems[#topItems + 1] = e
+    topItemsByValue[#topItemsByValue + 1] = e
+  end
   table.sort(topItems, function(a, b)
     if a.count ~= b.count then return a.count > b.count end
     if (a.quality or 0) ~= (b.quality or 0) then return (a.quality or 0) > (b.quality or 0) end
     return (a.itemID or 0) < (b.itemID or 0)
   end)
+  table.sort(topItemsByValue, function(a, b)
+    if a.value ~= b.value then return a.value > b.value end
+    if a.count ~= b.count then return a.count > b.count end
+    return (a.itemID or 0) < (b.itemID or 0)
+  end)
+
+  local activeDays, busiestDay = 0, nil
+  for day, count in pairs(byDay) do
+    activeDays = activeDays + 1
+    if not busiestDay or count > busiestDay.count then busiestDay = { day = day, count = count } end
+  end
 
   return {
     bySource = bySource, byQuality = byQuality, byDay = byDay,
-    byZone = byZone, byItem = byItem, topZones = topZones, topItems = topItems,
+    byZone = byZone, byItem = byItem, topZones = topZones,
+    topItems = topItems, topItemsByValue = topItemsByValue,
+    valueBySource = valueBySource, valueByDay = valueByDay, valueByZone = valueByZone,
+    byChar = byChar, byType = byType, byBound = byBound,
+    byHour = byHour, byWeekday = byWeekday, byKeystone = byKeystone, byConfidence = byConfidence,
     totals = {
       records = #records, distinctItems = distinctItems, distinctChars = distinctChars,
       firstTs = firstTs, lastTs = lastTs,
+      totalValue = totalValue, totalQuantity = totalQuantity,
+      activeDays = activeDays, busiestDay = busiestDay,
+      epicPlus = epicPlus, bestDrop = bestDrop, richestDrop = richestDrop,
     },
   }
 end

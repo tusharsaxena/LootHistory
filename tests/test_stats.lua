@@ -89,4 +89,73 @@ test("Stats: empty dataset yields zeroed totals", function()
   assertEqual(s.totals.firstTs, nil)
   assertEqual(#s.topItems, 0)
   assertEqual(#s.topZones, 0)
+  assertEqual(s.totals.totalValue, 0)
+  assertEqual(s.totals.epicPlus, 0)
+  assertEqual(s.totals.bestDrop, nil)
+  assertEqual(#s.topItemsByValue, 0)
+end)
+
+-- Richer seed exercising the value + breakdown fields.
+local function seedValueStats()
+  NS.db.global.history = {
+    { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 10, itemName = "Sword",
+      quality = 4, itemLevel = 200, bound = "BOP", sellPrice = 100, quantity = 1,
+      itemType = "Weapon", source = "KILL", zone = "Valley", confidence = "CERTAIN",
+      sourceDetail = { keystoneLevel = 10 } },
+    { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 20, itemName = "Herb",
+      quality = 1, sellPrice = 5, quantity = 20, itemType = "Tradegoods",
+      source = "CONTAINER", zone = "Valley", confidence = "INFERRED" },
+    { ts = T2, char = "B-Realm", classFile = "ROGUE", itemID = 30, itemName = "Ring",
+      quality = 3, itemLevel = 180, bound = "BOE", sellPrice = 50, quantity = 1,
+      itemType = "Armor", source = "KILL", zone = "Cavern", confidence = "CERTAIN" },
+  }
+end
+
+test("Stats: vendor value (sellPrice × quantity) totals + by source/zone", function()
+  seedValueStats()
+  local s = NS.Database:Stats({})
+  assertEqual(s.totals.totalValue, 250)      -- 100 + 5*20 + 50
+  assertEqual(s.totals.totalQuantity, 22)    -- 1 + 20 + 1
+  assertEqual(s.valueBySource.KILL, 150)     -- 100 + 50
+  assertEqual(s.valueBySource.CONTAINER, 100)
+  assertEqual(s.valueByZone.Valley, 200)
+  assertEqual(s.byItem[10].value, 100)
+end)
+
+test("Stats: byType / byBound / byChar / byConfidence / byKeystone", function()
+  seedValueStats()
+  local s = NS.Database:Stats({})
+  assertEqual(s.byType.Weapon, 1)
+  assertEqual(s.byType.Tradegoods, 1)
+  assertEqual(s.byBound.BOP, 1)
+  assertEqual(s.byBound.UNBOUND, 1)          -- the herb carries no bound
+  assertEqual(s.byChar["A-Realm"].count, 2)
+  assertEqual(s.byChar["A-Realm"].value, 200)
+  assertEqual(s.byChar["A-Realm"].classFile, "MAGE")
+  assertEqual(s.byConfidence.CERTAIN, 2)
+  assertEqual(s.byConfidence.INFERRED, 1)
+  assertEqual(s.byKeystone[10], 1)
+end)
+
+test("Stats: hour/weekday buckets sum to record count (TZ-independent)", function()
+  seedValueStats()
+  local s = NS.Database:Stats({})
+  local hSum, wSum = 0, 0
+  for _, c in pairs(s.byHour) do hSum = hSum + c end
+  for _, c in pairs(s.byWeekday) do wSum = wSum + c end
+  assertEqual(hSum, 3)
+  assertEqual(wSum, 3)
+end)
+
+test("Stats: highlights + topItemsByValue", function()
+  seedValueStats()
+  local s = NS.Database:Stats({})
+  assertEqual(s.totals.epicPlus, 1)                 -- only the q4 Sword
+  assertEqual(s.totals.bestDrop.itemName, "Sword")  -- ilvl 200 > 180
+  assertEqual(s.totals.richestDrop.value, 100)      -- Sword & Herb tie at 100; first wins
+  assertEqual(s.totals.busiestDay.count, 2)
+  assertEqual(s.totals.activeDays, 2)
+  -- value order: Sword(100) & Herb(100) tie → lower itemID first; Ring(50) last.
+  assertEqual(s.topItemsByValue[1].itemID, 10)
+  assertEqual(s.topItemsByValue[3].itemID, 30)
 end)
