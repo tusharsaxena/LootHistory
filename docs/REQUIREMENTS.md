@@ -67,7 +67,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 ### 3.5 Storage
 - **FR-C15** Data is stored **account-wide** in the addon SavedVariables global namespace (`LootHistoryDB.global`), so history from all characters is browsable together.
 - **FR-C16** Records carry a `char` field so per-character views are a filter, not separate storage.
-- **FR-C17** SavedVariables must declare a `schemaVersion` version stamp. A migration runner is a post-release concern — the addon is unreleased, so 0.1.0 ships the initial shape with no upgrade path; a runner is added when the first post-release schema change lands.
+- **FR-C17** SavedVariables must declare a `schemaVersion` version stamp, and a migration runner (`NS:RunMigrations`) ships and is invoked at init (from `InitDB`). 1.0.0 ships the initial shape (`1`); the runner is idempotent and its body only normalizes the stamp today, gaining upgrade steps in place when the first schema change lands.
 
 ---
 

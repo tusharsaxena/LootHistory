@@ -39,7 +39,7 @@ Documented here and echoed in `ARCHITECTURE.md`:
 LootHistory/
   LootHistory.toc
   core/
-    Compat.lua          -- LOAD FIRST. deprecated-API shims, IsRetail/IsClassic, GUID/loot helpers
+    Compat.lua          -- LOAD FIRST. deprecated/varying-API shims (C_* presence guards, Retail-only), GUID/loot helpers
     Constants.lua       -- SourceType enum, quality names, retention presets, defaults refs
     Namespace.lua       -- bootstrap shared upvalues; NS.L / NS.C aliases seam
     State.lua           -- runtime state: loot context, session flags, message bus handle
@@ -166,15 +166,15 @@ History is a **dense array** appended on each loot. Deletion (retention or manua
 
 ### 3.3 Schema versioning
 
-`schemaVersion` is a version stamp on the persisted DB; 0.1.0 ships the initial shape (`1`).
+`schemaVersion` is a version stamp on the persisted DB; 1.0.0 ships the initial shape (`1`).
 
-The addon is **unreleased**, so no migration runner ships — there are no old saved variables in
-the wild to upgrade. Migrations are a **post-release** concern: when the first schema change lands
-after release, add a runner in `core/Database.lua`, call it from `OnInitialize` after `InitDB`, and
-have it read `schemaVersion` to upgrade older DBs, e.g.:
+The migration runner **ships**: `NS:RunMigrations` in `core/Database.lua`, called from `InitDB`
+after `AceDB:New` (before any history read). It reads/writes `schemaVersion`, is idempotent, and is
+a safe no-op when the DB isn't ready. No schema change has shipped yet, so its body only normalizes
+the stamp to `1` today; a future schema change extends it in place, e.g.:
 
 ```lua
--- (post-release) core/Database.lua
+-- core/Database.lua — NS:RunMigrations()
 -- if g.schemaVersion < 2 then <transform each record> ; g.schemaVersion = 2 end
 ```
 
@@ -275,7 +275,7 @@ The context is intentionally **not** cleared after one consume: a `LOOT_OPENED` 
 | `VENDOR` | `MERCHANT_SHOW` open + buy (`hooksecurefunc("BuyMerchantItem")` / money-decrease heuristic) | per-source-excludable (noisy) |
 | `QUEST` | `GetQuestReward` hook (client turn-in call, stamps before the reward pushes) + `QUEST_TURNED_IN` event (questID detail) | reward items; the event alone fires too late to catch the reward loot line |
 | `DISENCHANT` / `MILLING` / `PROSPECTING` | player `UNIT_SPELLCAST_SUCCEEDED`, resolved by `Attribution:DeconstructSource` — spell-**name** family match (covers base / per-expansion / "Mass Mill\|Prospect" / future variants) with a per-expansion spell-**id** fallback | each deconstruct ability stamps its **own** source, not a generic craft bucket; the deconstruct's own loot window is kept from overwriting it. Name match is enUS (localization TODO) |
-| `CRAFT` | (reserved) | **planned** — broad recipe crafting deferred; a recipe's cast time can exceed the TTL (see TODO.md) |
+| `CRAFT` | (reserved) | **planned** — broad recipe crafting deferred; a recipe's cast time can exceed the TTL (tracked as a backlog issue) |
 | `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | **planned** — no stamper yet; hidden from the mute list |
 | `OTHER` | (fallback) no fresh context | `INFERRED` |
 
@@ -587,7 +587,7 @@ Each documented in `ARCHITECTURE.md` with sender/payload/consumers (standard §4
 **Compat (`core/Compat.lua`)** — every deprecated/flavor-varying API is shimmed here:
 - `Compat.DecodeGUID(guid)` — GUID type + npcID.
 - `Compat.GetItemInfo` — wraps `C_Item.GetItemInfo` with a link-color fallback for uncached items.
-- `Compat.IsRetail/IsClassic` — flavor flags (loot-source and AH APIs differ on Classic; `GetLootSourceInfo` exists on retail — Classic branches degrade `KILL`/`CONTAINER` gracefully).
+- No game-flavor flags. This is a Retail-only addon; every varying/deprecated API is gated by a direct `C_*`/global presence check, so a shim degrades to `nil`/false when its API is absent — never by reading `WOW_PROJECT_ID`.
 
 **Taint** — the addon creates only **non-secure** frames and never touches protected/secure templates, so it introduces no taint. It does **not** `:Hide()` Blizzard frames or replace globals. `hooksecurefunc` is used only for read-side stamping (`BuyMerchantItem`, `TakeInboxItem`) — post-hooks that never alter arguments or return values.
 

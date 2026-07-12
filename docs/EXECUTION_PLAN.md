@@ -224,14 +224,16 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 
 ## Backlog (post-v0.1.0)
 
-The post-v0.1.0 backlog has moved to **`TODO.md`** at the repo root (settings-panel items,
-attribution TTL tuning, Insights refinements, addon interop, UI polish, and the v2 AI export).
+The post-v0.1.0 backlog now lives in the **GitHub issue tracker**
+(<https://github.com/tusharsaxena/LootHistory/issues>) — settings-panel items, attribution TTL
+tuning, Insights refinements, addon interop, UI polish, and the v2 AI export. (It previously lived
+in a root `TODO.md`, removed in the 2026-07-12 standards remediation.)
 
 Landed since v0.1.0: the **Insights expansion** — vendor-value totals/by-source/by-zone/over-time,
 top items by value, per-character, item-type, bound-type, hour-of-day, weekday, Mythic+ keystone
 level, attribution confidence, quality mix, and highlight cards (all off the single `Database:Stats`
 pass). The remaining analytics refinements (quality-mix *trend* over time, top bosses/NPCs, and the
-interop-dependent market-value/upgrade-rate views) are tracked in `TODO.md`.
+interop-dependent market-value/upgrade-rate views) are tracked in the GitHub issue tracker.
 
 ## Self-review — spec coverage map
 
