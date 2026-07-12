@@ -25,6 +25,10 @@ local DEFAULTS_W    = 110  -- Defaults button width
 local LOGO_SIZE     = 300  -- landing-page logo display size
 local ROW_VSPACER   = 8    -- gap between two-column rows
 local SECTION_TOP_SPACER, SECTION_BOTTOM_SPACER, SECTION_HEADING_H = 10, 6, 26
+-- Cell-filling paired ACTION buttons inset to this (not 0.5) so their right border clears the
+-- ScrollFrame's clip (Ka0s standard §6.6/§6.8). Label-inset controls (checkbox/dropdown/slider)
+-- reserve that gutter already and stay at 0.5 — they're immune (§6.10).
+local BUTTON_PAIR_REL = 0.492
 
 local mainCategoryID  -- parent "Ka0s Loot History" category (target of /lh config)
 local registered
@@ -94,6 +98,67 @@ local function createPanel(name, title, opts)
   return { panel = panel, body = body, scroll = nil, refreshers = {}, lastGroup = nil }
 end
 
+-- LH-08 / Ka0s §6.10: keep the settings-panel scrollbar ALWAYS visible — and inert when the page
+-- fits — so the reserved right gutter, and therefore the body width, is identical across short and
+-- long subcategories. AceGUI's stock FixScroll hides the bar and reclaims the 20px gutter when
+-- content fits, which shifts body width between pages. This per-instance override keeps the bar
+-- shown and the gutter reserved at all times; when there's nothing to scroll it parks the thumb at
+-- the top and disables it (greyed). Mirrors the stock FixScroll math — note AceGUI's swapped names:
+-- `height` is the visible frame height, `viewheight` is the content height.
+local function installAlwaysShownScrollbar(scroll)
+  local bar = scroll.scrollbar
+  if not (bar and scroll.scrollframe and scroll.content) then return end
+
+  local function setInert(inert)
+    if inert then
+      if bar.Disable then bar:Disable() end
+    else
+      if bar.Enable then bar:Enable() end
+    end
+    local up, down = bar.ScrollUpButton, bar.ScrollDownButton
+    if up and up.SetEnabled then up:SetEnabled(not inert) end
+    if down and down.SetEnabled then down:SetEnabled(not inert) end
+  end
+
+  scroll.FixScroll = function(self)
+    if self.updateLock then return end
+    self.updateLock = true
+    local status = self.status or self.localstatus
+    local height, viewheight = self.scrollframe:GetHeight(), self.content:GetHeight()
+    local offset = status.offset or 0
+    -- Reserve the gutter + show the bar once (mirrors the stock "show" branch, minus the
+    -- auto-hide path). Once shown it stays shown, so the body never reflows between pages.
+    if not self.scrollBarShown then
+      self.scrollBarShown = true
+      self.scrollbar:Show()
+      self.scrollframe:SetPoint("BOTTOMRIGHT", -20, 0)
+      if self.content.original_width then
+        self.content.width = self.content.original_width - 20
+      end
+      self:DoLayout()
+    end
+    if viewheight < height + 2 then
+      -- content fits: park the thumb at the top and make the bar inert (greyed)
+      self.scrollbar:SetValue(0)
+      setInert(true)
+    else
+      -- content overflows: a normal, draggable scrollbar
+      setInert(false)
+      local value = (offset / (viewheight - height) * 1000)
+      if value > 1000 then value = 1000 end
+      self.scrollbar:SetValue(value)
+      self:SetScroll(value)
+      if value < 1000 then
+        self.content:ClearAllPoints()
+        self.content:SetPoint("TOPLEFT", 0, offset)
+        self.content:SetPoint("TOPRIGHT", 0, offset)
+        status.offset = offset
+      end
+    end
+    self.updateLock = nil
+  end
+end
+
 local function ensureScroll(ctx)
   if ctx.scroll then return ctx.scroll end
   local scroll = AceGUI:Create("ScrollFrame")
@@ -103,6 +168,7 @@ local function ensureScroll(ctx)
   scroll.frame:SetPoint("TOPLEFT",     ctx.body, "TOPLEFT",      PADDING_X - 4, -8)
   scroll.frame:SetPoint("BOTTOMRIGHT", ctx.body, "BOTTOMRIGHT", -(PADDING_X + 12), 8)
   scroll.frame:Show()
+  installAlwaysShownScrollbar(scroll)   -- §6.10 always-shown, inert-when-fits scrollbar
   ctx.scroll = scroll
   return scroll
 end
@@ -129,6 +195,16 @@ end
 -- ── Widget makers ───────────────────────────────────────────────────────────────
 local function applyWidth(w, rel)
   if rel then w:SetRelativeWidth(rel) else w:SetFullWidth(true) end
+end
+
+-- Shared maker for a paired action button (Reset All, Purge). Insets to BUTTON_PAIR_REL so the
+-- right border isn't shaved by the ScrollFrame clip (§6.6/§6.8) — the single seam for the width.
+local function makePairButton(text, onClick)
+  local btn = AceGUI:Create("Button")
+  btn:SetText(text)
+  btn:SetRelativeWidth(BUTTON_PAIR_REL)
+  if onClick then btn:SetCallback("OnClick", onClick) end
+  return btn
 end
 
 local function makeCheckbox(ctx, row, parent, rel)
@@ -254,10 +330,8 @@ local function renderHistory(ctx)
   statsLabel:SetRelativeWidth(0.5)
   rowFrame:AddChild(statsLabel)
 
-  local purgeBtn = AceGUI:Create("Button")
-  purgeBtn:SetText("Purge history\226\128\166")   -- ellipsis: opens a confirm dialog
-  purgeBtn:SetRelativeWidth(0.5)
-  purgeBtn:SetCallback("OnClick", function()
+  -- "Purge history…" — ellipsis: opens a confirm dialog.
+  local purgeBtn = makePairButton("Purge history\226\128\166", function()
     if type(StaticPopup_Show) == "function" then StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")
     elseif NS.Database and NS.Database.Purge then NS.Database:Purge() end
   end)
@@ -376,10 +450,7 @@ function P:Register()
       -- "Reset All" sits to the right of Window scale; it wipes history AND settings.
       renderSchema(ctx, {
         ["settings.windowScale"] = function(parentRow)
-          local btn = AceGUI:Create("Button")
-          btn:SetText("Reset All")
-          btn:SetRelativeWidth(0.5)
-          btn:SetCallback("OnClick", function()
+          local btn = makePairButton("Reset All", function()
             if type(StaticPopup_Show) == "function" then
               StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
             elseif NS.Slash and NS.Slash.ResetEverything then
