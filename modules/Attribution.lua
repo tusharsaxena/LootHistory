@@ -26,7 +26,7 @@ local Constants = NS.Constants
 -- too many ids (and growing every patch) to enumerate — but they all share a name family. The id
 -- table below is a locale-independent fallback for the primary per-expansion spells when the name is
 -- unavailable (uncached). Name matching is enUS; non-English clients rely on the id fallback
--- (localization is a TODO — see TODO.md).
+-- (full localization is tracked as a backlog issue).
 local DECONSTRUCT_ID = {
   [13262] = "DISENCHANT", [289991] = "DISENCHANT",
   -- Milling: generic + per-expansion

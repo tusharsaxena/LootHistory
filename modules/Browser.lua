@@ -80,7 +80,7 @@ end
 -- persisted directly to NS.db.global by the Browser — they are intentionally NOT Schema rows, so
 -- they don't route through Schema:Set. The "every mutation goes through Schema:Set" convention
 -- (CLAUDE §2) covers user settings only; §6A window geometry and the saved table view are
--- carved out. See CLAUDE.md.
+-- carved out. See docs/AGENT_CONTEXT.md.
 
 local function SaveWindow()
   if not frame then return end

@@ -74,7 +74,7 @@ back fast table ops.
 ```
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
-  Switching that is a schema + query rewrite; see CLAUDE.md "Do not change without reason".
+  Switching that is a schema + query rewrite; see AGENT_CONTEXT.md "Do not change without reason".
 - `schemaVersion` is a version stamp on the DB; 1.0.0 ships the initial shape (**1**). No schema
   change has shipped yet, so no migration runner exists — adding one is a post-release concern (it
   will read `schemaVersion` to upgrade older saved variables when the first schema change lands).
@@ -201,7 +201,7 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Standards compliance
 
-No deviations from the Ka0s standard (also recorded in `docs/REQUIREMENTS.md §8` and CLAUDE.md).
+No deviations from the Ka0s standard (also recorded in `REQUIREMENTS.md §8` and `AGENT_CONTEXT.md`).
 Two surface-specific notes:
 
 1. **The standalone browser window follows §6A** (Standalone windows / data browsers): a non-secure
