@@ -281,14 +281,12 @@ local function renderHistory(ctx)
   ctx.refreshers[#ctx.refreshers + 1] = refreshStats
   refreshStats()
 
-  -- Live-refresh while the panel is open. Uses a private AceEvent target (NOT
-  -- NS.bus-as-self) so it can't clobber the Browser/Analytics consumers registered
-  -- on the shared bus for the same messages.
+  -- Live-refresh while the panel is open. Uses a private bus target (NOT NS.bus-as-self) so it
+  -- can't clobber the Browser/Analytics consumers registered for the same messages. See
+  -- NS.NewBusTarget.
   if not P.__ev then
-    local AceEvent = LibStub and LibStub("AceEvent-3.0", true)
-    if AceEvent then
-      local ev = {}
-      AceEvent:Embed(ev)
+    local ev = NS.NewBusTarget()
+    if ev then
       local onChange = function() if ctx.panel:IsShown() then refreshStats() end end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
       ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", onChange)

@@ -12,10 +12,12 @@ local enabled, qualityThreshold, excludedSources, excludeQuestItems = true, 1, {
 
 -- Quality gate + per-source exclude + optional quest-item drop.
 -- cfg = { qualityThreshold, excludedSources, excludeQuestItems }.
+-- Returns true to record; on a drop returns (false, reason) where reason is one of
+-- "quality" / "source" / "quest" (surfaced by the debug "Drop" log for diagnosis).
 function Collector:ShouldRecord(quality, source, classID, cfg)
-  if (quality or 0) < cfg.qualityThreshold then return false end
-  if cfg.excludedSources and cfg.excludedSources[source] then return false end
-  if cfg.excludeQuestItems and classID == NS.Constants.ITEMCLASS_QUEST then return false end
+  if (quality or 0) < cfg.qualityThreshold then return false, "quality" end
+  if cfg.excludedSources and cfg.excludedSources[source] then return false, "source" end
+  if cfg.excludeQuestItems and classID == NS.Constants.ITEMCLASS_QUEST then return false, "quest" end
   return true
 end
 
@@ -63,9 +65,14 @@ function Collector:OnChatMsgLoot(_, msg)
   local itemID, itemName, quality, classID = NS.Compat.GetItemInfo(link)
   local source, sourceDetail, confidence = NS.Attribution:Consume()
 
-  if not self:ShouldRecord(quality, source, classID,
+  local ok, reason = self:ShouldRecord(quality, source, classID,
     { qualityThreshold = qualityThreshold, excludedSources = excludedSources,
-      excludeQuestItems = excludeQuestItems }) then
+      excludeQuestItems = excludeQuestItems })
+  if not ok then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Drop", "%s q%s class=%s src=%s reason=%s",
+        tostring(itemName), tostring(quality or 0), tostring(classID or "-"), tostring(source), tostring(reason))
+    end
     return
   end
 
@@ -93,5 +100,14 @@ function Collector:Enable()
   self._enabled = true
   self:RefreshUpvalues()
   bus:RegisterEvent("CHAT_MSG_LOOT", function(_, msg) self:OnChatMsgLoot(_, msg) end)
-  bus:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() self:RefreshUpvalues() end)
+  -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
+  -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
+  self.__ev = NS.NewBusTarget() or bus
+  self.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function(_, reason)
+    self:RefreshUpvalues()
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Cfg", "changed(%s) → enabled=%s q=%s quest=%s",
+        tostring(reason), tostring(enabled), tostring(qualityThreshold), tostring(excludeQuestItems))
+    end
+  end)
 end

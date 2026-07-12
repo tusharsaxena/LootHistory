@@ -441,8 +441,11 @@ function Analytics:BuildCharts(content)
     local function live()
       if self.pane and self.pane:IsVisible() then Analytics:Refresh() end
     end
-    NS.bus:RegisterMessage("Ka0s_LootHistory_RecordAdded", live)
-    NS.bus:RegisterMessage("Ka0s_LootHistory_HistoryChanged", live)
+    -- Private bus target (never the shared bus-as-self) so these don't clobber the Browser's
+    -- RecordAdded/HistoryChanged handlers on the same bus. See NS.NewBusTarget.
+    self.__ev = NS.NewBusTarget() or NS.bus
+    self.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", live)
+    self.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", live)
   end
 end
 

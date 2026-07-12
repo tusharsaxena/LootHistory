@@ -5,6 +5,19 @@ local addon = AceAddon:NewAddon(NS, addonName, "AceEvent-3.0", "AceTimer-3.0", "
 NS.addon = addon
 NS.bus = addon   -- closed message bus: SendMessage / RegisterMessage
 
+-- Bus-receiver factory. A module that CONSUMES Ka0s_LootHistory_* messages must register on its
+-- OWN AceEvent target, never on the shared bus-as-self: CallbackHandler keys callbacks by
+-- (message, target), so two consumers that share a target silently clobber each other — only the
+-- last registrant of a given message ever receives it. Each call returns a fresh AceEvent-embedded
+-- table (nil if AceEvent is unavailable); SendMessage on NS.bus still fans out to every target.
+function NS.NewBusTarget()
+  local AceEvent = LibStub and LibStub("AceEvent-3.0", true)
+  if not AceEvent then return nil end
+  local t = {}
+  AceEvent:Embed(t)
+  return t
+end
+
 function addon:OnInitialize()
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
   if LSM then LSM:Register("font", "JetBrains Mono", NS.Constants.FONT_MONO) end

@@ -109,6 +109,9 @@ function S:Set(path, value)
   if not row then return false, "unknown path: " .. tostring(path) end
   if row.validate and not row.validate(value) then return false, "invalid value" end
   S:WritePath(NS.db.global, path, deepcopy(value))
+  if NS.State and NS.State.debug and NS.Debug then
+    NS.Debug("Set", "%s = %s", tostring(path), tostring(value))
+  end
   if row.onChange then row.onChange(value) end
   return true
 end

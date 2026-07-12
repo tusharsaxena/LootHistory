@@ -1003,9 +1003,12 @@ end
 function B:Enable()
   if NS.bus and not self._enabled then
     self._enabled = true
-    NS.bus:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() B:OnSettingsChanged() end)
-    NS.bus:RegisterMessage("Ka0s_LootHistory_HistoryChanged", function() B:OnHistoryChanged() end)
-    NS.bus:RegisterMessage("Ka0s_LootHistory_RecordAdded", function() B:OnHistoryChanged() end)
+    -- Private bus target (never the shared bus-as-self) so these don't clobber the Collector's
+    -- SettingsChanged or Analytics' RecordAdded/HistoryChanged handlers. See NS.NewBusTarget.
+    B.__ev = NS.NewBusTarget() or NS.bus
+    B.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() B:OnSettingsChanged() end)
+    B.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", function() B:OnHistoryChanged() end)
+    B.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", function() B:OnHistoryChanged() end)
     B:SetupMinimap()
   end
 end

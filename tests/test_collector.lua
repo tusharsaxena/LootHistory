@@ -66,6 +66,20 @@ test("Collector: ShouldRecord unaffected for non-quest class when filter on", fu
   assertTrue(NS.Collector:ShouldRecord(4, "KILL", 0, cfg))
 end)
 
+test("Collector: ShouldRecord reports the drop reason", function()
+  local ok, reason = NS.Collector:ShouldRecord(0, "KILL", 0,
+    { qualityThreshold = 1, excludedSources = {}, excludeQuestItems = false })
+  assertFalse(ok); assertEqual(reason, "quality")
+
+  ok, reason = NS.Collector:ShouldRecord(4, "VENDOR", 0,
+    { qualityThreshold = 1, excludedSources = { VENDOR = true }, excludeQuestItems = false })
+  assertFalse(ok); assertEqual(reason, "source")
+
+  ok, reason = NS.Collector:ShouldRecord(4, "KILL", NS.Constants.ITEMCLASS_QUEST,
+    { qualityThreshold = 1, excludedSources = {}, excludeQuestItems = true })
+  assertFalse(ok); assertEqual(reason, "quest")
+end)
+
 test("Collector: end-to-end writes an attributed record", function()
   local mocks = T.mocks
   mocks.__now = 0
@@ -130,4 +144,35 @@ test("Schema: excludeQuestItems row exists, defaults true, settable", function()
   assertTrue(NS.Schema:Set("settings.excludeQuestItems", false))
   assertEqual(NS.Schema:Get("settings.excludeQuestItems"), false)
   NS.Schema:Set("settings.excludeQuestItems", true)   -- restore to default
+end)
+
+-- Regression for the bus-clobber bug: the Collector and another consumer (the Browser) both
+-- subscribe to SettingsChanged. CallbackHandler keys callbacks by (message, target), so if both
+-- register on the shared bus-as-self the second clobbers the first and the collector never
+-- refreshes on a live setting change (only a /reload fixed it). Private bus targets fix it.
+test("Collector: live SettingsChanged refreshes the collector alongside another bus consumer", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.qualityThreshold = 1
+  NS.db.global.settings.excludeQuestItems = true    -- start ON: a stale cached flag would drop the item
+  NS.Collector._enabled = nil                       -- allow (re-)enable in the harness
+  NS.Collector:Enable()                             -- collector caches excludeQuestItems = true
+
+  -- A competing consumer registers the SAME message on the shared bus, exactly as B:Enable does.
+  local browserGot = false
+  NS.bus:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() browserGot = true end)
+
+  -- Broadcast the change the way Schema:Set does (DB already written to false).
+  NS.db.global.settings.excludeQuestItems = false
+  NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter")
+
+  assertTrue(browserGot)                            -- the competing consumer still receives it
+
+  -- The collector must have refreshed to false: a quest-class item now records rather than drops.
+  mocks.__itemClassID = NS.Constants.ITEMCLASS_QUEST
+  NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Database:Count(), before + 1)
+  mocks.__itemClassID = 0
 end)

@@ -87,6 +87,28 @@ return function()
       }
     end,
   }
+  -- Message bus modeled on CallbackHandler: callbacks keyed by (event, target). Registering the
+  -- same message twice on one target overwrites (only the last survives); SendMessage fires to
+  -- every distinct target. This mirrors the real semantics so tests can catch same-target
+  -- clobbering — the exact bug that shipped when the bus was a bare no-op mock.
+  local msgRegistry = {}
+  M.__msgRegistry = msgRegistry
+  local function embedBus(obj)
+    obj.RegisterMessage = function(self, event, fn)
+      msgRegistry[event] = msgRegistry[event] or {}
+      msgRegistry[event][self] = fn
+    end
+    obj.UnregisterMessage = function(self, event)
+      if msgRegistry[event] then msgRegistry[event][self] = nil end
+    end
+    obj.SendMessage = function(_, event, ...)
+      local t = msgRegistry[event]
+      if not t then return end
+      for _, fn in pairs(t) do fn(event, ...) end
+    end
+    return obj
+  end
+
   libs["AceAddon-3.0"] = {
     NewAddon = function(_, target)
       target = target or {}
@@ -94,11 +116,16 @@ return function()
       target.RegisterEvent = noop
       target.UnregisterEvent = noop
       target.RegisterChatCommand = noop
-      target.RegisterMessage = noop
-      target.SendMessage = noop
       target.ScheduleTimer = function() return {} end
       target.CancelTimer = noop
-      return target
+      return embedBus(target)
+    end,
+  }
+  libs["AceEvent-3.0"] = {
+    Embed = function(_, obj)
+      obj.RegisterEvent = obj.RegisterEvent or function() end
+      obj.UnregisterEvent = obj.UnregisterEvent or function() end
+      return embedBus(obj)
     end,
   }
   M.LibStub = setmetatable(
