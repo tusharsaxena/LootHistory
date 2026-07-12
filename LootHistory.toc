@@ -2,7 +2,7 @@
 ## Title: Ka0s Loot History
 ## Notes: Records every item you loot, attributes its source, and browses the history.
 ## Author: add1kted2ka0s
-## Version: 0.1.0
+## Version: 1.0.0
 ## IconTexture: Interface\Icons\inv_holiday_christmas_present_03
 ## SavedVariables: LootHistoryDB
 ## DefaultState: enabled

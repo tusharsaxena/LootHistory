@@ -104,7 +104,7 @@ Everything the panel does is also available from the slash CLI (`/lh set`, `/lh 
 
 | Version | Notes |
 |---|---|
-| 0.1.0 | Initial release — passive capture with source attribution, account-wide history, filter/sort/group browser, Insights analytics, settings panel + slash CLI, minimap button. |
+| 1.0.0 | Initial release — passive capture with source attribution, account-wide history, filter/sort/group browser, Insights analytics, settings panel + slash CLI, minimap button. |
 
 ---
 

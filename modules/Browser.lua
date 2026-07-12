@@ -10,7 +10,7 @@ local DBIcon                          -- LibDBIcon-1.0, resolved lazily in Setup
 -- Flat "ElvUI-like" default skin: 1px black border + subtle inner line + dark, near-opaque
 -- flat background + centered gold title + small red close glyph. Built from stock Blizzard
 -- textures only (no ElvUI dependency).
--- TODO (post-v0.1.0): make this skin user-configurable (border color/size, background color/
+-- TODO (post-1.0.0): make this skin user-configurable (border color/size, background color/
 -- alpha, font) via settings, driven off this table. See docs/EXECUTION_PLAN.md backlog.
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 -- Inline check glyph for selected multi-select menu items (the default font has no ✓ glyph,

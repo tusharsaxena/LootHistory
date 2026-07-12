@@ -75,9 +75,9 @@ back fast table ops.
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see CLAUDE.md "Do not change without reason".
-- `schemaVersion` is a version stamp on the DB; 0.1.0 ships the initial shape (**1**). The addon
-  is unreleased, so no migration runner ships yet — adding one is a post-release concern (it will
-  read `schemaVersion` to upgrade older saved variables when the first schema change lands).
+- `schemaVersion` is a version stamp on the DB; 1.0.0 ships the initial shape (**1**). No schema
+  change has shipped yet, so no migration runner exists — adding one is a post-release concern (it
+  will read `schemaVersion` to upgrade older saved variables when the first schema change lands).
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
 - **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
@@ -225,8 +225,8 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
 - **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned
-  post-v0.1.0.
-- **AI export is a seam only** in v0.1.0 — `Database:Export()` exists; the companion export
+  post-1.0.0.
+- **AI export is a seam only** in v1.0.0 — `Database:Export()` exists; the companion export
   feature ships in v2.
 
-See `docs/EXECUTION_PLAN.md` → Backlog for the full post-v0.1.0 list.
+See `docs/EXECUTION_PLAN.md` → Backlog for the full post-1.0.0 list.
