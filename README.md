@@ -55,9 +55,9 @@ Install the addon with the Addon Manager of your choice (or drop the folder into
 |---------|--------------|
 | `/lh` | Show the command help index. |
 | `/lh show` / `hide` / `toggle` | Open / close / flip the History window. |
-| `/lh config` | Open the settings panel. Aliased as `/lh options`. |
+| `/lh config` | Open the settings panel. |
 | `/lh list` | Dump every schema-driven setting and its current value, grouped by section. |
-| `/lh get <path>` | Print one setting's value (e.g. `/lh get collection.minQuality`). |
+| `/lh get <path>` | Print one setting's value (e.g. `/lh get settings.qualityThreshold`). |
 | `/lh set <path> <value>` | Set a setting; flows through the same path the panel widget uses. Numbers clamp to range; dropdowns validate against the option list. |
 | `/lh reset <path>` | Reset one setting to its default. |
 | `/lh resetall` | Reset every setting to defaults. |
@@ -79,6 +79,7 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 **Data Collection**
 
 *   **Minimum quality** — only record items at or above this quality (Poor → Legendary; default **Common**). Applies at capture time — it never hides records already stored.
+*   **Exclude quest items** — skip Quest-type items (the transient objects picked up during quests). **On by default**; uncheck it to record them too. Applies at capture time and keys on the item's class, so it works on any client language.
 *   **Keep history for** — retention window. Records older than the chosen age are pruned once per session; choose **Always** to keep everything forever (default **30 days**). Retention is shared account-wide.
 *   **Record data from** — per-source recording toggles. Unchecking a source stops recording it. Only sources with a live capture path appear here — `Roll` and `Craft` are enum'd for the export contract but not yet stamped, so they're hidden.
 
@@ -110,7 +111,7 @@ The loot context is single-slot and short-lived by design — it deliberately su
 
 | Symptom | Fix |
 |---------|-----|
-| Nothing is being recorded. | (1) Check **Master Controls → Enable collection** is on. (2) The minimum quality may be filtering it — lower **Data Collection → Minimum quality** if you expect greys/whites. (3) The source may be muted under **Data Collection → Record data from**. |
+| Nothing is being recorded. | (1) Check **Master Controls → Enable collection** is on. (2) The minimum quality may be filtering it — lower **Data Collection → Minimum quality** if you expect greys/whites. (3) The source may be muted under **Data Collection → Record data from**. (4) Quest items are dropped by default — uncheck **Data Collection → Exclude quest items** to record them. |
 | The minimap button is gone. | It's hidden. Toggle **Master Controls → Hide minimap button** off, or open the window with `/lh toggle`. |
 | A drop landed under the wrong source (or "Other"). | Attribution relies on a short-lived context stamped by peripheral events; when no signal is live at loot time the drop falls back to **Other** / **Inferred**. Enable the debug console with `/lh debug` to see how a capture was attributed. |
 | The window is off-screen or the wrong size. | Position, size, and scale persist per account. Adjust **Master Controls → Window scale**, or drag the window back into view; it re-anchors on the next open. |

@@ -31,7 +31,7 @@ Agent context for this repo. Read this first, then `docs/TECHNICAL_DESIGN.md` fo
 ```
 core/
   Compat.lua        -- LOAD FIRST. flavor flags + all deprecated/varying API shims (GUID decode, item/map info)
-  Constants.lua     -- SourceType enum, quality/retention option tables, TTLs, defaults refs
+  Constants.lua     -- SourceType enum, quality/retention option tables, TTLs, ITEMCLASS_QUEST, defaults refs
   Namespace.lua     -- bootstrap shared upvalues (NS.L, NS.C aliases)
   State.lua         -- runtime state: lootContext, encounter/keystone context, session flags
   Util.lua          -- pure helpers (time fmt, link/loot-string parsing, table ops, PlayerKey)
@@ -45,7 +45,7 @@ settings/
   Slash.lua         -- AceConsole binding for /lh + /loothistory; dispatch from COMMANDS
 modules/
   Attribution.lua   -- source-resolution engine; stamps & consumes the loot context (loads before Collector)
-  Collector.lua     -- CHAT_MSG_LOOT handler; self-filter + quality gate; builds & writes records
+  Collector.lua     -- CHAT_MSG_LOOT handler; self-filter + quality/quest-item gate; builds & writes records
   Browser.lua       -- window shell: frame, tabs, filter bar, group-by control, minimap/LDB
   BrowserTable.lua  -- virtualized pooled-row table: filter→group→sort→slice→bind pipeline
   Analytics.lua     -- Insights tab: cards + value/source/quality/type/char/time breakdowns + top lists
@@ -61,11 +61,11 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 
 1. Every file begins `local addonName, NS = ...`. No `_G[addonName]`.
 2. **Schema-as-single-source** — `settings/Schema.lua` drives AceDB defaults, panel widgets, slash get/set/list/reset. Every user *setting* mutation goes through `Schema:Set(path, value)` (validate → write → deep-copy → onChange). Paths resolve against `NS.db.global` (account-wide), not `.profile`. **Carve-out:** the Browser's window geometry (`settings.window`) and saved table view (`savedView`) are view/window runtime state persisted directly to `NS.db.global` — they are intentionally *not* Schema rows and do not route through `Schema:Set`.
-3. **Closed message bus** — `Ka0s_LootHistory_*` messages, exactly one sender each. No cross-module table reach. (`RecordAdded`, `HistoryChanged`, `SettingsChanged`.)
+3. **Closed message bus** — `Ka0s_LootHistory_*` messages, exactly one sender each. No cross-module table reach. (`RecordAdded`, `HistoryChanged`, `SettingsChanged`.) **Receivers must register on their own `NS.NewBusTarget()`**, never on the shared `NS.bus`/`NS.addon` as `self` — CallbackHandler keys callbacks by `(message, target)`, so two consumers sharing a target clobber each other (only the last registrant receives the message).
 4. **Compat firewall** — every deprecated/flavor-varying API call lives in `core/Compat.lua`; modules call `NS.Compat.X`. No inline `WOW_PROJECT_ID` branching.
 5. **Attribution model** — `CHAT_MSG_LOOT` is the authoritative "item received (self)" signal; peripheral events stamp a short-lived `State.lootContext` that the collector consumes. Fallback = `OTHER`/`INFERRED`. See TECHNICAL_DESIGN §4. Only sources with a live stamper are exposed: `Constants.SOURCE_IMPLEMENTED` gates the mute UI — `AH`/`CRAFT`/`ROLL` are enum'd but not yet stamped (the `SourceType` enum stays whole as the export contract).
 6. **Object pooling** for the table (standard §9.6). Never one frame per record.
-7. **Hot-path upvalues** — collector caches `enabled`/`qualityThreshold`/`excludedSources`, refreshed on `SettingsChanged` (standard §9.7).
+7. **Hot-path upvalues** — collector caches `enabled`/`qualityThreshold`/`excludedSources`/`excludeQuestItems`, refreshed on `SettingsChanged` (standard §9.7). The quest-item gate keys on the locale-independent item class (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 8. **Session-only debug** flag (`NS.State.debug`, default off, resets every reload — not persisted), zero-allocation when off. State is **independent of window visibility**: `/lh debug` toggles the console window only; `/lh debug on|off` set the logging flag (capture runs even with the window closed); the header's `Debug: ON`/`OFF` toggle flips the same flag. Log lines use the tagged format `<ts> | [<tag>] <content>` via `NS.Debug(tag, fmt, ...)` — tag is one short word (rendered verbatim, no padding/truncation). The same session-only rule applies to `/lh test`: `BrowserTable:ToggleTestMode` publishes a synthetic dataset to `NS.State.testRecords`, and `Database:ActiveHistory` (the seam behind `Query`/`Stats`/`CurrentRecords`) swaps it in — so test mode drives both the History table and the Insights tab.
 9. Files capped at 1500 LOC. Browser deliberately split into Browser/BrowserTable/Analytics.
 10. Options via Blizzard `Settings.RegisterCanvasLayoutCategory` + lazy raw AceGUI body. Never AceConfigDialog for content.

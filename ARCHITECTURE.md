@@ -35,7 +35,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | File | Role |
 |---|---|
 | `core/Compat.lua` | **Loads first.** Flavor flags (`IsRetail`/`IsClassic`, the only `WOW_PROJECT_ID` read) + every deprecated/varying-API shim: GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
-| `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, quality/retention/source option tables. |
+| `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. |
@@ -47,7 +47,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge/reset-all confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
-| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, `Consume`, exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
+| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, quest-item gate (by item class), `Consume`, source-exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, multi-select filter bar (Quality/Type/Source/Zone/Character + player-scope, date, search), group-by, footer, LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. |
 | `modules/Analytics.lua` | Insights tab: date-range scoped stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`. Pooled bar/strip/list renderers. |
@@ -109,6 +109,7 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `minimap.hide` | Master Controls | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
 | `settings.windowScale` | Master Controls | Slider (0.6–1.6) | `1.0` | Browser window scale (applied live). |
 | `settings.qualityThreshold` | Data Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
+| `settings.excludeQuestItems` | Data Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
 | `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
 
@@ -122,15 +123,21 @@ not user-facing rows. Debug is session-only (`NS.State.debug`) and never persist
 Closed `Ka0s_LootHistory_*` bus (AceEvent), exactly one sender per message. No cross-module
 table reach.
 
+> **Receivers must register on a private bus target** (`NS.NewBusTarget()`), never on the shared
+> `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by `(message, target)`, so two
+> consumers of the same message that share a target silently clobber each other — only the last
+> registrant receives it. `SettingsChanged`, `RecordAdded`, and `HistoryChanged` each have multiple
+> consumers, so every consumer (Collector, Browser, Analytics, Panel) owns its own target.
+
 | Message | Sender | Payload | Consumers |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` (`DeleteAt`/`Delete`/`PruneOld`/`Purge`) | — | Browser, Analytics, Panel |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / questfilter / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 > `windowScale` and `minimap.hide` changes are **not** broadcast on the bus — their `onChange`
-> calls `Browser:SetScale` / `Browser:SetMinimapHidden` directly. Only `enabled`, quality and
-> excludes (which affect capture) fan out via `SettingsChanged`.
+> calls `Browser:SetScale` / `Browser:SetMinimapHidden` directly. Only `enabled`, quality,
+> quest-item filter and excludes (which affect capture) fan out via `SettingsChanged`.
 
 ---
 
