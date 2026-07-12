@@ -27,7 +27,7 @@ local function EnsureFrame()
   if frame then return frame end
 
   frame = CreateFrame("Frame", "LootHistoryDebugWindow", UIParent, "BackdropTemplate")
-  frame:SetSize(560, 344)
+  frame:SetSize(700, 344)
   frame:SetPoint("CENTER", 220, -80)
   frame:SetFrameStrata("DIALOG")  -- above the History window (HIGH) so it's never hidden behind it
   frame:EnableMouse(true)
@@ -89,7 +89,7 @@ local function EnsureFrame()
   log:SetPoint("TOPLEFT", 8, -(26 + 6))
   -- Bottom inset raised so the newest line's descenders clear the window border (not clipped).
   log:SetPoint("BOTTOMRIGHT", -8, 14)
-  log:SetFont(NS.Constants.FONT_MONO, 12, "")
+  log:SetFont(NS.Constants.FONT_MONO, 11, "")
   log:SetJustifyH("LEFT")
   log:SetFading(false)
   log:SetMaxLines(500)
@@ -116,7 +116,7 @@ end
 -- Pure line formatter (no frames): "<ts>  |  [<tag>] <msg>". The tag is left-justified and
 -- padded/truncated to a fixed 10 chars INSIDE the brackets so the closing ] and all content align.
 function D.FormatPlain(ts, tag, msg)
-  return ("%s  |  [%-10.10s] %s"):format(tostring(ts), tostring(tag or ""), tostring(msg))
+  return ("%s | [%s] %s"):format(tostring(ts), tostring(tag or ""), tostring(msg))
 end
 
 function D:Add(tag, msg)
@@ -124,7 +124,7 @@ function D:Add(tag, msg)
   local ts = date("%H:%M:%S")
   -- Grey the timestamp / separator / bracketed tag; content in the default colour.
   -- "||" renders one literal pipe inside a colour-coded segment.
-  f.log:AddMessage(("|cff888888%s  ||  [%-10.10s]|r %s"):format(ts, tostring(tag or ""), tostring(msg)))
+  f.log:AddMessage(("|cff888888%s || [%s]|r %s"):format(ts, tostring(tag or ""), tostring(msg)))
   -- Mirror a plain-text copy into the buffer (for the Copy window), capped like the log.
   D.buffer[#D.buffer + 1] = D.FormatPlain(ts, tag, msg)
   if #D.buffer > MAX_BUFFER then table.remove(D.buffer, 1) end
@@ -180,7 +180,7 @@ local function EnsureCopyFrame()
 
   local edit = CreateFrame("EditBox", nil, scroll)
   edit:SetMultiLine(true)
-  edit:SetFont(NS.Constants.FONT_MONO, 12, "")
+  edit:SetFont(NS.Constants.FONT_MONO, 11, "")
   edit:SetAutoFocus(false)
   edit:SetWidth(510)
   edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); copyFrame:Hide() end)
