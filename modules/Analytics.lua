@@ -2,9 +2,11 @@ local addonName, NS = ...
 NS.Analytics = NS.Analytics or {}
 local Analytics = NS.Analytics
 
--- Insights tab: stat cards + source/quality/time breakdowns + top zones/items, scoped by a
--- date-range selector (see docs/UX_DESIGN §4, docs/TECHNICAL_DESIGN §8). Everything is driven
--- off a single Database:Stats(filter) pass; widgets are pooled and re-laid-out on resize.
+-- Insights tab: stat/highlight cards + a stack of breakdown sections (source, value, quality,
+-- item type, bound type, per-character, time-of-day/week, M+ keystone, confidence) plus top
+-- zones/items/value lists, scoped by a date-range selector (docs/UX_DESIGN §4, TD §8). Everything
+-- is driven off a single Database:Stats(filter) pass; widgets are pooled and re-laid-out on resize.
+-- "Value" is vendor value (sellPrice × quantity), not market price.
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 
@@ -14,6 +16,7 @@ local DAYSTRIP_H = 46
 local LIST_ROW_H = 16
 local LABELW, VALW = 84, 92   -- fixed label/value columns in a horizontal bar; track fills the rest
 local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges stay readable
+local NEUTRAL = { 0.55, 0.62, 0.72 }
 
 -- Per-source bar colours (no such table in Constants; kept local to the chart).
 local SOURCE_COLOR = {
@@ -24,6 +27,20 @@ local SOURCE_COLOR = {
   VENDOR    = { 0.70, 0.70, 0.75 }, CRAFT     = { 0.55, 0.80, 0.70 },
   OTHER     = { 0.55, 0.55, 0.60 },
 }
+
+-- Bound-type display labels + colours.
+local BOUND_LABEL = {
+  BOP = "Soulbound", BOE = "BoE", ACCOUNT = "Account", WARBAND = "Warbound", UNBOUND = "Unbound",
+}
+local BOUND_COLOR = {
+  BOP = { 0.85, 0.45, 0.45 }, BOE = { 0.55, 0.80, 0.60 }, ACCOUNT = { 0.60, 0.70, 0.90 },
+  WARBAND = { 0.80, 0.65, 0.40 }, UNBOUND = { 0.60, 0.60, 0.65 },
+}
+local BOUND_ORDER = { "BOP", "BOE", "WARBAND", "ACCOUNT", "UNBOUND" }
+
+local WEEKDAY = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
+local CONF_LABEL = { CERTAIN = "Certain", INFERRED = "Inferred" }
+local CONF_COLOR = { CERTAIN = { 0.45, 0.75, 0.55 }, INFERRED = { 0.80, 0.70, 0.40 } }
 
 -- Gold star before epic+ items in the Top-items list. Uses whichever star atlas exists on this
 -- client; falls back to no star (the quality colour still marks it) so it never renders a box.
@@ -40,7 +57,31 @@ local function starMarkup()
   return resolvedStar
 end
 
--- Simple show/hide object pools shared by the chart widgets.
+-- Class colour for a per-character bar (falls back to a neutral grey).
+local function classColor(classFile)
+  local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
+  if c then return { c.r, c.g, c.b } end
+  return { 0.7, 0.7, 0.72 }
+end
+
+-- Item-quality colour as an {r,g,b} triple (falls back to neutral grey).
+local function qualityColor(q)
+  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q or 1]
+  if c then return { c.r, c.g, c.b } end
+  return { 0.6, 0.6, 0.6 }
+end
+
+-- Short character label ("Name-Realm" → "Name") for narrow per-character bars.
+local function shortChar(key) return (key and key:match("^[^-]+")) or key or "?" end
+
+-- Vendor value → display string (coin glyphs in-game, "Ng Ns Nc" headless; "0" when zero).
+local function money(copper)
+  copper = copper or 0
+  if copper <= 0 then return "0" end
+  return NS.Util.FormatMoney(copper)
+end
+
+-- ── Widget primitives (pooled) ─────────────────────────────────────────────────────
 local function acquire(pool, factory)
   local o = table.remove(pool.free)
   if not o then o = factory() end
@@ -83,8 +124,48 @@ local function positionBar(bar, content, pad, y, barW, frac)
   bar.fill:SetSize(math.max(1, trackW * math.min(1, frac)), BAR_H - 4)
 end
 
--- One vertical bar in the per-day strip; hovering shows the day + count.
-local function makeDayBar(parent)
+-- A single horizontal bar split into coloured segments (used for the Quality-mix composition).
+local function makeStackedBar(parent)
+  local bar = CreateFrame("Frame", nil, parent)
+  bar:SetHeight(BAR_H)
+  local label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  label:SetJustifyH("LEFT")
+  bar.label = label
+  local track = bar:CreateTexture(nil, "BACKGROUND")
+  track:SetColorTexture(1, 1, 1, 0.06)
+  bar.track = track
+  local value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  value:SetJustifyH("RIGHT")
+  bar.value = value
+  bar.segs = {}
+  for i = 1, 9 do bar.segs[i] = bar:CreateTexture(nil, "ARTWORK") end
+  return bar
+end
+
+-- segments: ordered array of { frac (0..1 of the track), color = {r,g,b} }; fracs sum ≤ 1.
+local function positionStacked(bar, content, pad, y, barW, segments)
+  bar:ClearAllPoints(); bar:SetPoint("TOPLEFT", content, "TOPLEFT", pad, y); bar:SetWidth(barW)
+  bar.label:ClearAllPoints(); bar.label:SetPoint("LEFT", 0, 0); bar.label:SetWidth(LABELW)
+  bar.value:ClearAllPoints(); bar.value:SetPoint("RIGHT", 0, 0); bar.value:SetWidth(VALW)
+  local trackW = math.max(1, barW - LABELW - VALW - 12)
+  bar.track:ClearAllPoints(); bar.track:SetPoint("LEFT", LABELW + 6, 0); bar.track:SetSize(trackW, BAR_H - 4)
+  local x = 0
+  for i = 1, #bar.segs do
+    local seg, sd = bar.segs[i], segments[i]
+    if sd and sd.frac and sd.frac > 0 then
+      local segW = math.max(1, trackW * math.min(1, sd.frac))
+      seg:ClearAllPoints(); seg:SetPoint("LEFT", bar.track, "LEFT", x, 0); seg:SetSize(segW, BAR_H - 4)
+      seg:SetColorTexture(sd.color[1], sd.color[2], sd.color[3], 0.95)
+      seg:Show()
+      x = x + segW
+    else
+      seg:Hide()
+    end
+  end
+end
+
+-- One vertical bar in a per-bucket strip; hovering shows the bucket's info line.
+local function makeStripBar(parent)
   local f = CreateFrame("Frame", nil, parent)
   local fill = f:CreateTexture(nil, "ARTWORK")
   fill:SetPoint("BOTTOM", 0, 0)
@@ -100,7 +181,7 @@ local function makeDayBar(parent)
   return f
 end
 
--- A ranked-list row: name (left, may be quality-coloured) + count (right).
+-- A ranked-list row: name (left, may be quality-coloured) + count/value (right).
 local function makeListRow(parent)
   local r = CreateFrame("Frame", nil, parent)
   r:SetHeight(LIST_ROW_H)
@@ -122,12 +203,19 @@ local RANGES = {
   { value = "all",   label = "All" },
 }
 
--- The four stat cards, left→right.
+-- Stat / highlight cards, in row order (4 columns per row; `wide` spans 2). `str` cards hold a
+-- string (smaller font). Value strings are produced in UpdateCards.
 local CARD_DEFS = {
   { key = "records", label = "records" },
   { key = "items",   label = "distinct items" },
   { key = "chars",   label = "characters" },
-  { key = "span",    label = "date range" },
+  { key = "value",   label = "vendor value", str = true },
+  { key = "active",  label = "active days" },
+  { key = "epic",    label = "epic+ drops" },
+  { key = "best",    label = "best drop (ilvl)" },
+  { key = "richest", label = "richest drop", str = true },
+  { key = "span",    label = "date range", str = true, wide = true },
+  { key = "busy",    label = "busiest day", str = true, wide = true },
 }
 
 Analytics.range = "30d"
@@ -174,7 +262,7 @@ function Analytics:Attach(pane)
   self.content = content
   scroll:SetScript("OnSizeChanged", function() Analytics:Layout() end)
 
-  -- Stat cards.
+  -- Cards.
   self.cards = {}
   for _, def in ipairs(CARD_DEFS) do
     local card = CreateFrame("Frame", nil, content, "BackdropTemplate")
@@ -182,9 +270,8 @@ function Analytics:Attach(pane)
                        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
     card:SetBackdropColor(0.1, 0.1, 0.12, 0.85)
     card:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-    -- The span card holds a longer string, so it uses a smaller number font.
-    local num = card:CreateFontString(nil, "OVERLAY",
-      def.key == "span" and "GameFontNormal" or "GameFontNormalHuge")
+    -- String cards hold a longer value, so they use a smaller number font.
+    local num = card:CreateFontString(nil, "OVERLAY", def.str and "GameFontNormal" or "GameFontNormalHuge")
     num:SetPoint("TOP", 0, -9)
     num:SetPoint("LEFT", 2, 0)
     num:SetPoint("RIGHT", -2, 0)
@@ -232,14 +319,21 @@ end
 
 function Analytics:UpdateCards(stats)
   local t = stats.totals
+  local dash = "\226\128\148" -- em-dash
   self.cards.records.num:SetText(tostring(t.records))
   self.cards.items.num:SetText(tostring(t.distinctItems))
   self.cards.chars.num:SetText(tostring(t.distinctChars))
-  local span = "\226\128\148" -- em-dash
+  self.cards.value.num:SetText(money(t.totalValue))
+  self.cards.active.num:SetText(tostring(t.activeDays))
+  self.cards.epic.num:SetText(tostring(t.epicPlus))
+  self.cards.best.num:SetText(t.bestDrop and tostring(t.bestDrop.itemLevel) or dash)
+  self.cards.richest.num:SetText(t.richestDrop and money(t.richestDrop.value) or dash)
+  local span = dash
   if t.firstTs and t.lastTs then
     span = NS.Util.FormatDate(t.firstTs) .. "  \226\128\147  " .. NS.Util.FormatDate(t.lastTs) -- – en-dash
   end
   self.cards.span.num:SetText(span)
+  self.cards.busy.num:SetText(t.busiestDay and (t.busiestDay.day .. "  (" .. t.busiestDay.count .. ")") or dash)
 end
 
 -- Position everything top-down given the current content width; set the scroll child height.
@@ -249,19 +343,21 @@ function Analytics:Layout()
   if not w or w <= 0 then w = 780 end
   self.content:SetWidth(w)
 
-  local PAD, GAP = 8, 8
-  local cardW = math.floor((w - PAD * 2 - GAP * 3) / 4)
+  local PAD, GAP, COLS = 8, 8, 4
+  local colW = math.floor((w - PAD * 2 - GAP * (COLS - 1)) / COLS)
   local cardH = 52
-  local x = PAD
+  local col, rowY = 0, -PAD
   for _, def in ipairs(CARD_DEFS) do
+    local span = def.wide and 2 or 1
+    if col + span > COLS then col = 0; rowY = rowY - cardH - GAP end
     local c = self.cards[def.key]
     c.frame:ClearAllPoints()
-    c.frame:SetPoint("TOPLEFT", self.content, "TOPLEFT", x, -PAD)
-    c.frame:SetSize(cardW, cardH)
-    x = x + cardW + GAP
+    c.frame:SetPoint("TOPLEFT", self.content, "TOPLEFT", PAD + col * (colW + GAP), rowY)
+    c.frame:SetSize(colW * span + GAP * (span - 1), cardH)
+    col = col + span
   end
 
-  local y = -PAD - cardH - 14
+  local y = rowY - cardH - 14
   y = self:LayoutCharts(y, w, PAD)
   self.content:SetHeight(math.max(1, -y + PAD))
 end
@@ -289,23 +385,41 @@ local function listPanel(parent, title)
   return p
 end
 
--- Build the persistent chart chrome (section headers, day strip, top-list panels, pools) once.
+-- Build the persistent chart chrome (section headers, strips, list panels, pools) once.
 function Analytics:BuildCharts(content)
   self.headers = {
     source  = sectionHeader(content, "Loot by source"),
+    vsource = sectionHeader(content, "Vendor value by source"),
     quality = sectionHeader(content, "Quality distribution"),
+    qmix    = sectionHeader(content, "Quality mix"),
+    itype   = sectionHeader(content, "Loot by item type"),
+    bound   = sectionHeader(content, "Loot by bound type"),
+    char    = sectionHeader(content, "Loot by character"),
     time    = sectionHeader(content, "Loot over time (per day)"),
+    vtime   = sectionHeader(content, "Vendor value over time (per day)"),
+    hour    = sectionHeader(content, "Loot by hour of day"),
+    weekday = sectionHeader(content, "Loot by weekday"),
+    keystone = sectionHeader(content, "Mythic+ loot by keystone level"),
+    conf    = sectionHeader(content, "Attribution confidence"),
   }
-  self.dayStrip = CreateFrame("Frame", nil, content)
-  self.zonePanel = listPanel(content, "Top zones")
-  self.itemPanel = listPanel(content, "Top items")
+  self.dayStrip   = CreateFrame("Frame", nil, content)
+  self.valueStrip = CreateFrame("Frame", nil, content)
+  self.hourStrip  = CreateFrame("Frame", nil, content)
+  self.zonePanel  = listPanel(content, "Top zones")
+  self.itemPanel  = listPanel(content, "Top items")
+  self.itemValuePanel = listPanel(content, "Top items by value")
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   self.emptyText:SetText("No loot in this range.")
   self.emptyText:Hide()
   self.pool = {
-    source = { free = {}, active = {} }, quality = { free = {}, active = {} },
-    day    = { free = {}, active = {} }, zone    = { free = {}, active = {} },
-    item   = { free = {}, active = {} },
+    source = { free = {}, active = {} }, vsource = { free = {}, active = {} },
+    quality = { free = {}, active = {} }, qmix = { free = {}, active = {} },
+    itype  = { free = {}, active = {} }, bound   = { free = {}, active = {} },
+    char   = { free = {}, active = {} }, day     = { free = {}, active = {} },
+    vday   = { free = {}, active = {} }, hour    = { free = {}, active = {} },
+    weekday = { free = {}, active = {} }, keystone = { free = {}, active = {} },
+    conf   = { free = {}, active = {} }, zone    = { free = {}, active = {} },
+    item   = { free = {}, active = {} }, itemval = { free = {}, active = {} },
   }
 
   -- Live-update while the Insights tab is visible (new loot / deletes / prune).
@@ -319,135 +433,300 @@ function Analytics:BuildCharts(content)
   end
 end
 
+-- Render a horizontal-bar section: header + one bar per row. rows: ordered array of
+--   { label, labelColor = {r,g,b}|nil, color = {r,g,b}, frac (0..1), value = string }.
+-- Returns the new y cursor (skips the section entirely when rows is empty).
+function Analytics:renderBarSection(pool, header, rows, y, w, pad)
+  if #rows == 0 then header:Hide(); return y end
+  header:ClearAllPoints(); header:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); header:Show()
+  y = y - 18
+  local innerW = w - pad * 2
+  for _, row in ipairs(rows) do
+    local bar = acquire(pool, function() return makeBar(self.content) end)
+    bar.fill:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
+    bar.label:SetText(row.label)
+    local lc = row.labelColor
+    bar.label:SetTextColor(lc and lc[1] or 0.9, lc and lc[2] or 0.9, lc and lc[3] or 0.9)
+    bar.value:SetText(row.value)
+    bar.value:SetTextColor(0.8, 0.8, 0.82)
+    positionBar(bar, self.content, pad, y, innerW, row.frac)
+    y = y - (BAR_H + BAR_GAP)
+  end
+  return y - SECTION_GAP
+end
+
+-- Render a per-bucket vertical strip. buckets: ordered array of { info (hover), count }.
+function Analytics:renderStrip(pool, header, strip, buckets, y, w, pad)
+  if #buckets == 0 then header:Hide(); strip:Hide(); return y end
+  header:ClearAllPoints(); header:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); header:Show()
+  y = y - 18
+  local innerW = w - pad * 2
+  strip:ClearAllPoints(); strip:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
+  strip:SetSize(innerW, DAYSTRIP_H); strip:Show()
+  local n = #buckets
+  local slot = n > 0 and (innerW / n) or innerW
+  local barW = math.max(2, math.min(14, slot - 2))
+  local maxC = 1
+  for _, b in ipairs(buckets) do if b.count > maxC then maxC = b.count end end
+  for i, b in ipairs(buckets) do
+    local f = acquire(pool, function() return makeStripBar(strip) end)
+    f:ClearAllPoints()
+    f:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", (i - 1) * slot, 0)
+    f:SetSize(barW, DAYSTRIP_H)
+    f.fill:SetSize(barW, math.max(1, (b.count / maxC) * (DAYSTRIP_H - 2)))
+    f.fill:SetAlpha(b.count == 0 and 0.12 or 0.9)
+    f.info = b.info
+  end
+  return y - DAYSTRIP_H - SECTION_GAP
+end
+
+-- Render a ranked list panel (top zones / items / value). rows: array of
+--   { name, nameColor = {r,g,b}|nil, right (string) }, capped to 10. Returns new y.
+function Analytics:renderListPanel(pool, panel, rows, y, colW, pad)
+  local n = math.min(10, #rows)
+  local panelH = 20 + math.max(n, 1) * LIST_ROW_H + 4
+  panel:ClearAllPoints(); panel:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
+  panel:SetSize(colW, panelH); panel:Show()
+  for i = 1, n do
+    local row = rows[i]
+    local r = acquire(pool, function() return makeListRow(panel) end)
+    r:ClearAllPoints(); r:SetPoint("TOPLEFT", panel, "TOPLEFT", 4, -20 - (i - 1) * LIST_ROW_H)
+    r:SetWidth(colW - 8)
+    r.name:SetWidth(colW - 8 - 52); r.name:SetText(row.name)
+    local nc = row.nameColor
+    r.name:SetTextColor(nc and nc[1] or 0.9, nc and nc[2] or 0.9, nc and nc[3] or 0.9)
+    r.count:SetWidth(48); r.count:SetText(row.right); r.count:SetTextColor(0.8, 0.8, 0.82)
+  end
+  return panelH
+end
+
+-- Hide every chart section (used for the empty-range state).
+function Analytics:HideAllCharts()
+  for _, h in pairs(self.headers) do h:Hide() end
+  self.dayStrip:Hide(); self.valueStrip:Hide(); self.hourStrip:Hide()
+  self.zonePanel:Hide(); self.itemPanel:Hide(); self.itemValuePanel:Hide()
+end
+
+-- Build the firstTs..lastTs day-key list (gaps included), capped to MAX_DAY_BARS most recent.
+local function dayKeyList(firstTs, lastTs)
+  local keys = {}
+  if not (firstTs and lastTs) then return keys end
+  local function dayStart(ts) local d = date("*t", ts); return ts - (d.hour * 3600 + d.min * 60 + d.sec) end
+  for ts = dayStart(firstTs), dayStart(lastTs), 86400 do keys[#keys + 1] = date("%Y-%m-%d", ts) end
+  if #keys > MAX_DAY_BARS then
+    local trimmed = {}
+    for i = #keys - MAX_DAY_BARS + 1, #keys do trimmed[#trimmed + 1] = keys[i] end
+    keys = trimmed
+  end
+  return keys
+end
+
+-- Sort a key→count map into a { key, count } array, count desc then key asc.
+local function sortedByCount(map)
+  local rows = {}
+  for k, c in pairs(map) do rows[#rows + 1] = { key = k, count = c } end
+  table.sort(rows, function(a, b)
+    if a.count ~= b.count then return a.count > b.count end
+    return tostring(a.key) < tostring(b.key)
+  end)
+  return rows
+end
+
 -- Bind + position every chart off self.stats for the given width; return the final y cursor.
 function Analytics:LayoutCharts(y, w, pad)
-  local stats, content, P = self.stats, self.content, self.pool
-  releaseAll(P.source); releaseAll(P.quality); releaseAll(P.day)
-  releaseAll(P.zone);   releaseAll(P.item)
-  local H = self.headers
+  local stats, P = self.stats, self.pool
+  for _, name in ipairs({ "source", "vsource", "quality", "qmix", "itype", "bound", "char",
+                          "day", "vday", "hour", "weekday", "keystone", "conf", "zone", "item", "itemval" }) do
+    releaseAll(P[name])
+  end
 
   if not stats or stats.totals.records == 0 then
-    H.source:Hide(); H.quality:Hide(); H.time:Hide()
-    self.dayStrip:Hide(); self.zonePanel:Hide(); self.itemPanel:Hide()
+    self:HideAllCharts()
     self.emptyText:ClearAllPoints()
-    self.emptyText:SetPoint("TOP", content, "TOP", 0, y - 10)
+    self.emptyText:SetPoint("TOP", self.content, "TOP", 0, y - 10)
     self.emptyText:Show()
     return y - 50
   end
   self.emptyText:Hide()
-  local innerW = w - pad * 2
-  local total = stats.totals.records
+  local H, total = self.headers, stats.totals.records
+  local rows
 
-  -- Loot by source — bars sorted by count desc, length = share of all records.
-  H.source:ClearAllPoints(); H.source:SetPoint("TOPLEFT", content, "TOPLEFT", pad, y); H.source:Show()
-  y = y - 18
-  local srcRows = {}
-  for src, count in pairs(stats.bySource) do srcRows[#srcRows + 1] = { src = src, count = count } end
-  table.sort(srcRows, function(a, b)
-    if a.count ~= b.count then return a.count > b.count end
-    return a.src < b.src
-  end)
-  for _, row in ipairs(srcRows) do
-    local bar = acquire(P.source, function() return makeBar(content) end)
-    local col = SOURCE_COLOR[row.src] or { 0.6, 0.6, 0.65 }
-    bar.fill:SetColorTexture(col[1], col[2], col[3], 0.95)
-    bar.label:SetText(NS.Constants.SourceLabel[row.src] or row.src)
-    bar.label:SetTextColor(0.9, 0.9, 0.9)
-    bar.value:SetText(string.format("%d  %d%%", row.count, math.floor(row.count / total * 100 + 0.5)))
-    bar.value:SetTextColor(0.8, 0.8, 0.82)
-    positionBar(bar, content, pad, y, innerW, row.count / total)
-    y = y - (BAR_H + BAR_GAP)
+  -- Loot by source — length = share of all records.
+  rows = {}
+  for _, e in ipairs(sortedByCount(stats.bySource)) do
+    rows[#rows + 1] = {
+      label = NS.Constants.SourceLabel[e.key] or e.key, color = SOURCE_COLOR[e.key] or NEUTRAL,
+      frac = e.count / total, value = string.format("%d  %d%%", e.count, math.floor(e.count / total * 100 + 0.5)),
+    }
   end
-  y = y - SECTION_GAP
+  y = self:renderBarSection(P.source, H.source, rows, y, w, pad)
+
+  -- Vendor value by source — length relative to the biggest bucket.
+  rows = {}
+  local vMax = 1
+  for _, v in pairs(stats.valueBySource) do if v > vMax then vMax = v end end
+  local vsrc = {}
+  for src, v in pairs(stats.valueBySource) do vsrc[#vsrc + 1] = { src = src, v = v } end
+  table.sort(vsrc, function(a, b) return a.v > b.v end)
+  for _, e in ipairs(vsrc) do
+    if e.v > 0 then
+      rows[#rows + 1] = { label = NS.Constants.SourceLabel[e.src] or e.src,
+        color = SOURCE_COLOR[e.src] or NEUTRAL, frac = e.v / vMax, value = money(e.v) }
+    end
+  end
+  y = self:renderBarSection(P.vsource, H.vsource, rows, y, w, pad)
 
   -- Quality distribution — bars in quality order, length relative to the biggest bucket.
-  H.quality:ClearAllPoints(); H.quality:SetPoint("TOPLEFT", content, "TOPLEFT", pad, y); H.quality:Show()
-  y = y - 18
+  rows = {}
   local qRows, qMax = {}, 1
-  for q, count in pairs(stats.byQuality) do
-    qRows[#qRows + 1] = { q = q, count = count }
-    if count > qMax then qMax = count end
-  end
+  for q, c in pairs(stats.byQuality) do qRows[#qRows + 1] = { q = q, c = c }; if c > qMax then qMax = c end end
   table.sort(qRows, function(a, b) return a.q < b.q end)
-  for _, row in ipairs(qRows) do
-    local bar = acquire(P.quality, function() return makeBar(content) end)
-    local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[row.q]
-    if c then bar.fill:SetColorTexture(c.r, c.g, c.b, 0.95) else bar.fill:SetColorTexture(0.6, 0.6, 0.6, 0.95) end
-    bar.label:SetText(NS.Compat.QualityLabel(row.q))
-    if c then bar.label:SetTextColor(c.r, c.g, c.b) else bar.label:SetTextColor(0.9, 0.9, 0.9) end
-    bar.value:SetText(tostring(row.count))
-    bar.value:SetTextColor(0.8, 0.8, 0.82)
-    positionBar(bar, content, pad, y, innerW, row.count / qMax)
-    y = y - (BAR_H + BAR_GAP)
+  for _, e in ipairs(qRows) do
+    local col = qualityColor(e.q)
+    rows[#rows + 1] = { label = NS.Compat.QualityLabel(e.q), labelColor = col, color = col,
+      frac = e.c / qMax, value = tostring(e.c) }
   end
-  y = y - SECTION_GAP
+  y = self:renderBarSection(P.quality, H.quality, rows, y, w, pad)
 
-  -- Loot over time — a per-day bar strip across firstTs..lastTs (gaps filled with 0).
-  H.time:ClearAllPoints(); H.time:SetPoint("TOPLEFT", content, "TOPLEFT", pad, y); H.time:Show()
-  y = y - 18
-  local days = {}
-  local t = stats.totals
-  if t.firstTs and t.lastTs then
-    local function dayStart(ts) local d = date("*t", ts); return ts - (d.hour * 3600 + d.min * 60 + d.sec) end
-    for ts = dayStart(t.firstTs), dayStart(t.lastTs), 86400 do
-      local key = date("%Y-%m-%d", ts)
-      days[#days + 1] = { key = key, count = stats.byDay[key] or 0 }
-    end
-    if #days > MAX_DAY_BARS then
-      local trimmed = {}
-      for i = #days - MAX_DAY_BARS + 1, #days do trimmed[#trimmed + 1] = days[i] end
-      days = trimmed
-    end
+  -- Quality mix — one bar, segmented low→high quality by share of records.
+  local segs = {}
+  for q = 0, 8 do
+    local c = stats.byQuality[q]
+    if c then segs[#segs + 1] = { frac = c / total, color = qualityColor(q) } end
   end
-  local strip = self.dayStrip
-  strip:ClearAllPoints(); strip:SetPoint("TOPLEFT", content, "TOPLEFT", pad, y)
-  strip:SetSize(innerW, DAYSTRIP_H); strip:Show()
-  local n = #days
-  local slot = n > 0 and (innerW / n) or innerW
-  local barW = math.max(2, math.min(14, slot - 2))
-  local maxC = 1
-  for _, d in ipairs(days) do if d.count > maxC then maxC = d.count end end
-  for i, d in ipairs(days) do
-    local f = acquire(P.day, function() return makeDayBar(strip) end)
-    f:ClearAllPoints()
-    f:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", (i - 1) * slot, 0)
-    f:SetSize(barW, DAYSTRIP_H)
-    f.fill:SetSize(barW, math.max(1, (d.count / maxC) * (DAYSTRIP_H - 2)))
-    f.fill:SetAlpha(d.count == 0 and 0.12 or 0.9)
-    f.info = d.key .. ":  " .. d.count
+  if #segs > 0 then
+    H.qmix:ClearAllPoints(); H.qmix:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); H.qmix:Show()
+    y = y - 18
+    local bar = acquire(P.qmix, function() return makeStackedBar(self.content) end)
+    bar.label:SetText("All loot"); bar.label:SetTextColor(0.9, 0.9, 0.9)
+    bar.value:SetText(tostring(total)); bar.value:SetTextColor(0.8, 0.8, 0.82)
+    positionStacked(bar, self.content, pad, y, w - pad * 2, segs)
+    y = y - (BAR_H + BAR_GAP) - SECTION_GAP
+  else
+    H.qmix:Hide()
   end
-  y = y - DAYSTRIP_H - SECTION_GAP
 
-  -- Top zones / Top items — two ranked columns (top 10 each).
+  -- Loot by item type.
+  rows = {}
+  for _, e in ipairs(sortedByCount(stats.byType)) do
+    rows[#rows + 1] = { label = e.key, color = { 0.5, 0.7, 0.9 }, frac = e.count / total, value = tostring(e.count) }
+  end
+  y = self:renderBarSection(P.itype, H.itype, rows, y, w, pad)
+
+  -- Loot by bound type (fixed order).
+  rows = {}
+  for _, bk in ipairs(BOUND_ORDER) do
+    local c = stats.byBound[bk]
+    if c then
+      rows[#rows + 1] = { label = BOUND_LABEL[bk] or bk, color = BOUND_COLOR[bk] or NEUTRAL,
+        frac = c / total, value = tostring(c) }
+    end
+  end
+  y = self:renderBarSection(P.bound, H.bound, rows, y, w, pad)
+
+  -- Loot by character — class-coloured, sorted by count desc; value shows count + vendor value.
+  rows = {}
+  local chRows = {}
+  for _, ce in pairs(stats.byChar) do chRows[#chRows + 1] = ce end
+  table.sort(chRows, function(a, b)
+    if a.count ~= b.count then return a.count > b.count end
+    return a.char < b.char
+  end)
+  local chMax = 1
+  for _, ce in ipairs(chRows) do if ce.count > chMax then chMax = ce.count end end
+  for _, ce in ipairs(chRows) do
+    rows[#rows + 1] = { label = shortChar(ce.char), color = classColor(ce.classFile),
+      frac = ce.count / chMax, value = tostring(ce.count) }
+  end
+  y = self:renderBarSection(P.char, H.char, rows, y, w, pad)
+
+  -- Loot over time + vendor value over time — two per-day strips over the same day range.
+  local keys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
+  local dayB, valB = {}, {}
+  for _, k in ipairs(keys) do
+    local c = stats.byDay[k] or 0
+    local v = stats.valueByDay[k] or 0
+    dayB[#dayB + 1] = { info = k .. ":  " .. c, count = c }
+    valB[#valB + 1] = { info = k .. ":  " .. money(v), count = v }
+  end
+  y = self:renderStrip(P.day, H.time, self.dayStrip, dayB, y, w, pad)
+  y = self:renderStrip(P.vday, H.vtime, self.valueStrip, valB, y, w, pad)
+
+  -- Loot by hour of day — 24 fixed buckets.
+  local hourB = {}
+  for h = 0, 23 do
+    local c = stats.byHour[h] or 0
+    hourB[#hourB + 1] = { info = string.format("%02d:00  %d", h, c), count = c }
+  end
+  y = self:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
+
+  -- Loot by weekday — Sun..Sat.
+  rows = {}
+  local wMax = 1
+  for _, c in pairs(stats.byWeekday) do if c > wMax then wMax = c end end
+  for d = 0, 6 do
+    local c = stats.byWeekday[d]
+    if c then rows[#rows + 1] = { label = WEEKDAY[d], color = { 0.45, 0.65, 0.9 }, frac = c / wMax, value = tostring(c) } end
+  end
+  y = self:renderBarSection(P.weekday, H.weekday, rows, y, w, pad)
+
+  -- Mythic+ loot by keystone level (only when there's keyed loot).
+  rows = {}
+  local klRows = {}
+  for lvl, c in pairs(stats.byKeystone) do klRows[#klRows + 1] = { lvl = lvl, c = c } end
+  table.sort(klRows, function(a, b) return a.lvl > b.lvl end)
+  local klMax = 1
+  for _, e in ipairs(klRows) do if e.c > klMax then klMax = e.c end end
+  for _, e in ipairs(klRows) do
+    rows[#rows + 1] = { label = "+" .. e.lvl, color = SOURCE_COLOR.MPLUS, frac = e.c / klMax, value = tostring(e.c) }
+  end
+  y = self:renderBarSection(P.keystone, H.keystone, rows, y, w, pad)
+
+  -- Attribution confidence.
+  rows = {}
+  for _, key in ipairs({ "CERTAIN", "INFERRED" }) do
+    local c = stats.byConfidence[key]
+    if c then rows[#rows + 1] = { label = CONF_LABEL[key], color = CONF_COLOR[key],
+      frac = c / total, value = string.format("%d  %d%%", c, math.floor(c / total * 100 + 0.5)) } end
+  end
+  y = self:renderBarSection(P.conf, H.conf, rows, y, w, pad)
+
+  -- Top zones / Top items — two ranked columns.
   local colGap = 12
-  local colW = math.floor((innerW - colGap) / 2)
-  local nZones = math.min(10, #stats.topZones)
-  local nItems = math.min(10, #stats.topItems)
-  local panelH = 20 + math.max(nZones, nItems, 1) * LIST_ROW_H + 4
-
-  local zp, ip = self.zonePanel, self.itemPanel
-  zp:ClearAllPoints(); zp:SetPoint("TOPLEFT", content, "TOPLEFT", pad, y); zp:SetSize(colW, panelH); zp:Show()
-  ip:ClearAllPoints(); ip:SetPoint("TOPLEFT", content, "TOPLEFT", pad + colW + colGap, y); ip:SetSize(colW, panelH); ip:Show()
-
-  for i = 1, nZones do
+  local colW = math.floor((w - pad * 2 - colGap) / 2)
+  local zoneRows = {}
+  for i = 1, math.min(10, #stats.topZones) do
     local z = stats.topZones[i]
-    local r = acquire(P.zone, function() return makeListRow(zp) end)
-    r:ClearAllPoints(); r:SetPoint("TOPLEFT", zp, "TOPLEFT", 4, -20 - (i - 1) * LIST_ROW_H); r:SetWidth(colW - 8)
-    r.name:SetWidth(colW - 8 - 44); r.name:SetText(z.zone); r.name:SetTextColor(0.9, 0.9, 0.9)
-    r.count:SetWidth(40); r.count:SetText(tostring(z.count)); r.count:SetTextColor(0.8, 0.8, 0.82)
+    zoneRows[#zoneRows + 1] = { name = z.zone, right = tostring(z.count) }
   end
-  for i = 1, nItems do
+  local itemRows = {}
+  for i = 1, math.min(10, #stats.topItems) do
     local it = stats.topItems[i]
-    local r = acquire(P.item, function() return makeListRow(ip) end)
-    r:ClearAllPoints(); r:SetPoint("TOPLEFT", ip, "TOPLEFT", 4, -20 - (i - 1) * LIST_ROW_H); r:SetWidth(colW - 8)
-    local q = it.quality or 1
-    local star = (q >= 4) and starMarkup() or ""
-    r.name:SetWidth(colW - 8 - 44)
-    r.name:SetText(star .. (it.itemName or ("item " .. (it.itemID or "?"))))
-    local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-    if c then r.name:SetTextColor(c.r, c.g, c.b) else r.name:SetTextColor(0.9, 0.9, 0.9) end
-    r.count:SetWidth(40); r.count:SetText(tostring(it.count)); r.count:SetTextColor(0.8, 0.8, 0.82)
+    local star = ((it.quality or 1) >= 4) and starMarkup() or ""
+    itemRows[#itemRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
+      nameColor = qualityColor(it.quality or 1), right = tostring(it.count) }
+  end
+  local hZone = self:renderListPanel(P.zone, self.zonePanel, zoneRows, y, colW, pad)
+  local hItem = self:renderListPanel(P.item, self.itemPanel, itemRows, y, colW, pad + colW + colGap)
+  y = y - math.max(hZone, hItem) - SECTION_GAP
+
+  -- Top items by value — full-width list.
+  local valRows = {}
+  for i = 1, math.min(10, #stats.topItemsByValue) do
+    local it = stats.topItemsByValue[i]
+    if (it.value or 0) > 0 then
+      local star = ((it.quality or 1) >= 4) and starMarkup() or ""
+      valRows[#valRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
+        nameColor = qualityColor(it.quality or 1), right = money(it.value) }
+    end
+  end
+  if #valRows > 0 then
+    local hVal = self:renderListPanel(P.itemval, self.itemValuePanel, valRows, y, w - pad * 2, pad)
+    y = y - hVal - 4
+  else
+    self.itemValuePanel:Hide()
+    y = y - 4
   end
 
-  return y - panelH - 4
+  return y
 end
