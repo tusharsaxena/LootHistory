@@ -1,0 +1,5 @@
+# Pin CRLF for addon source shipped to Windows WoW clients (F-012 hardening).
+# Lua/XML/TOC are checked out with CRLF regardless of the committer's platform.
+*.lua text eol=crlf
+*.xml text eol=crlf
+*.toc text eol=crlf
