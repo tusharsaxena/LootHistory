@@ -136,3 +136,4 @@ Run these before tagging a release or after refreshing libs / bumping `## Interf
 | Version | Date | Highlights |
 |---------|------|------------|
 | 1.0.0 | 2026-07-12 | Initial release: passive `CHAT_MSG_LOOT` capture with source attribution and Certain/Inferred confidence; account-wide history with a Character column; standalone virtualized browser with multi-select filters (quality / type / source / zone / character), item-name search, Current/All scope, click-to-sort, group-by, and row actions (tooltip / link / delete); Insights analytics — stat & highlight cards plus range-scoped breakdowns by source, vendor value, quality, type, bound, character, hour, weekday, keystone level, and confidence, with top zones / items; schema-driven settings panel with full `/lh` slash parity, per-source muting, quality threshold, and retention; minimap button (LibDBIcon + LDB); forward-compatible `Database:Export()` seam for the v2 AI export. |
+
