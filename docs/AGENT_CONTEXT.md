@@ -31,13 +31,13 @@ first, then `TECHNICAL_DESIGN.md` for depth.
 
 ```
 core/
-  Compat.lua        -- LOAD FIRST. flavor flags + all deprecated/varying API shims (GUID decode, item/map info)
+  Compat.lua        -- LOAD FIRST. deprecated/varying-API shims, C_*-presence-guarded (Retail-only, no flavor flags): GUID decode, item/map info
   Constants.lua     -- SourceType enum, quality/retention option tables, TTLs, ITEMCLASS_QUEST, defaults refs
   Namespace.lua     -- bootstrap shared upvalues (NS.L, NS.C aliases)
   State.lua         -- runtime state: lootContext, encounter/keystone context, session flags
   Util.lua          -- pure helpers (time fmt, link/loot-string parsing, table ops, PlayerKey)
   LootHistory.lua   -- AceAddon:NewAddon(NS,...); OnInitialize/OnEnable; PLAYER_ENTERING_WORLD
-  Database.lua      -- AceDB init, Add/Query/Delete/Export, retention prune
+  Database.lua      -- AceDB InitDB + RunMigrations seam, Add/Query/Delete/Export, retention prune
 defaults/Global.lua -- G = global defaults (history[], settings, schemaVersion, minimap)
 locales/enUS.lua    -- canonical strings; NS.L metatable fallback
 settings/
@@ -51,7 +51,7 @@ modules/
   BrowserTable.lua  -- virtualized pooled-row table: filter→group→sort→slice→bind pipeline
   Analytics.lua     -- Insights tab: cards + value/source/quality/type/char/time breakdowns + top lists
   DebugLog.lua      -- session-only debug console window (Copy/Clear); mirrors NS.Debug output
-docs/               -- REQUIREMENTS, TECHNICAL_DESIGN, UX_DESIGN, EXECUTION_PLAN
+docs/               -- ARCHITECTURE, AGENT_CONTEXT (this file), REQUIREMENTS, TECHNICAL_DESIGN, UX_DESIGN, EXECUTION_PLAN
 ```
 
 Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales/` → `settings/` → `modules/` (Attribution before Collector).
@@ -75,7 +75,7 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 
 ## Standards compliance (no deviations)
 
-Documented in `ARCHITECTURE.md` and `docs/REQUIREMENTS.md §8`. Surface-specific notes:
+Documented in `ARCHITECTURE.md` and `REQUIREMENTS.md §8`. Surface-specific notes:
 
 1. **The standalone browser window follows §6A** (Standalone windows / data browsers): a non-secure `CreateFrame` — no combat-lockdown gate, ESC via `UISpecialFrames`, persisted position/size/scale, one `SKIN`/`ApplySkin` re-skin seam. Ka0s Loot History is §6A's reference implementation. The *Settings panel* separately follows the §6 combat-gated canvas pattern.
 
@@ -129,6 +129,7 @@ sudo luarocks install luacheck
 - [x] Milestone 6 — `ARCHITECTURE.md` + `README.md` authored (Task 6.1); `wow-addon:review` run (`reviews/2026-07-11/`) and **all findings F-001…F-013 addressed** (Task 6.2). `luacheck .` = 0/0, `lua tests/run.lua` green (85), `## Version: 0.1.0` consistent.
 - [x] In-client smoke tests (`reviews/2026-07-11/03_SMOKE_TESTS.md`) **passed** — F-001 confirmed VENDOR/MAIL/TRADE record via `CHAT_MSG_LOOT`. **0.1.0 complete.** (No git tag by choice; version is stamped in the TOC / `NS.version`.)
 - [x] **1.0.0 shipped** — public initial release. Version bumped `0.1.0` → `1.0.0` (`## Version` in the TOC + `NS.version` in `core/Namespace.lua`); `## Interface: 120007` (Midnight 12.0.7). See README → Version History for the feature summary.
+- [x] **Standards audit + remediation (2026-07-12)** — audited against the Ka0s WoW Addon Standard (`audit/2026-07-12/`); all 12 deviations LH-01…LH-12 closed: docs to the §15 root shape (this brief moved here from root `CLAUDE.md`; `ARCHITECTURE.md` → `docs/`), TOC §2.1 metadata + canonical listing, `media/logos/`, the `NS:RunMigrations` schema-migration seam, no game-flavor flags (Retail-only `C_*` guards), and §6.6/§6.10 panel conformance. The post-1.0.0 backlog moved from the old root `TODO.md` to GitHub issues #1–#12. `luacheck .` = 0/0, `lua tests/run.lua` green (124).
 
 ---
 
