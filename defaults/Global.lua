@@ -3,9 +3,9 @@ local addonName, NS = ...
 -- Account-wide defaults. History and settings both live under `global` (see TECHNICAL_DESIGN §3.2).
 NS.defaults = NS.defaults or {}
 NS.defaults.global = {
-  -- Version stamp for the persisted DB. 1.0.0 ships as the initial shape (1). A migration
-  -- runner is a post-release concern: no schema change has shipped yet, so no upgrade path is
-  -- needed. When the first schema change ships, add a runner that reads this field.
+  -- Version stamp for the persisted DB. 1.0.0 ships as the initial shape (1). NS:RunMigrations
+  -- (core/Database.lua) reads/writes this field once at init — the idempotent seam future schema
+  -- changes hook into; today its body is a no-op beyond stamping version 1.
   schemaVersion = 1,
   history = {},          -- array of loot records
   settings = {

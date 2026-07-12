@@ -3,6 +3,18 @@ local addonName, NS = ...
 -- AceDB init. Account-wide: all history + settings live in NS.db.global.
 function NS:InitDB()
   NS.db = LibStub("AceDB-3.0"):New("LootHistoryDB", NS.defaults, true)
+  NS:RunMigrations()   -- normalize the persisted schema before any history read
+end
+
+-- Schema-migration runner (Ka0s Standard §2.2/§5.1). Reads/writes db.global.schemaVersion and
+-- ships even with an effectively empty body — the *seam* is the requirement: future schema
+-- changes get a single, idempotent upgrade path invoked once at init, before any read of
+-- db.global.history. Safe no-op when the DB isn't ready yet.
+function NS:RunMigrations()
+  local g = NS.db and NS.db.global
+  if not g then return end
+  g.schemaVersion = g.schemaVersion or 1
+  -- future: if g.schemaVersion < 2 then ...upgrade...; g.schemaVersion = 2 end
 end
 
 NS.Database = NS.Database or {}

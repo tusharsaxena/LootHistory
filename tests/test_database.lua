@@ -248,3 +248,29 @@ test("Database: StorageStats on empty history is zeroed", function()
   assertEqual(s.days, 0)
   assertEqual(s.bytes, 0)
 end)
+
+-- ── RunMigrations: the schema-migration seam (Ka0s Standard §2.2/§5.1) ─────────────
+test("Database: RunMigrations sets schemaVersion when absent", function()
+  NS.db.global.schemaVersion = nil
+  NS:RunMigrations()
+  assertEqual(NS.db.global.schemaVersion, 1)
+end)
+
+test("Database: RunMigrations leaves an already-current DB unchanged", function()
+  NS.db.global.schemaVersion = 1
+  NS:RunMigrations()
+  assertEqual(NS.db.global.schemaVersion, 1)
+end)
+
+test("Database: RunMigrations is idempotent across repeated runs", function()
+  NS.db.global.schemaVersion = nil
+  NS:RunMigrations(); NS:RunMigrations(); NS:RunMigrations()
+  assertEqual(NS.db.global.schemaVersion, 1)
+end)
+
+test("Database: RunMigrations is a safe no-op when the DB is absent", function()
+  local saved = NS.db
+  NS.db = nil
+  NS:RunMigrations()   -- must not error with no db.global to touch
+  NS.db = saved
+end)
