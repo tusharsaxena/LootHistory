@@ -60,6 +60,13 @@ function Compat.CurrentQuestID()
   return nil
 end
 
+-- Is the cursor holding a spell awaiting a target (e.g. Disenchant/Enchant about to be applied
+-- to a bag item)? Used to tell "opening a container" apart from "applying a spell to an item",
+-- both of which route through UseContainerItem. False when the API is absent.
+function Compat.IsSpellTargeting()
+  return type(SpellIsTargeting) == "function" and SpellIsTargeting() or false
+end
+
 -- Current zone + subzone labels (subzone may be "").
 function Compat.GetZone()
   local zone = (GetZoneText and GetZoneText()) or ""

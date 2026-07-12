@@ -105,6 +105,18 @@ test("Attribution: using a non-lootable bag item does not stamp", function()
   assertEqual(NS.Attribution:Consume(), "OTHER")  -- no fresh context → fallback
 end)
 
+-- Clicking a bag item as a spell target (Disenchant/Enchant) routes through UseContainerItem too;
+-- the pending-spell guard must keep that from being read as opening a container.
+test("Attribution: applying a pending spell to a bag item does not stamp CONTAINER", function()
+  resetContext()
+  local origHas, origTgt = NS.Compat.ContainerItemHasLoot, NS.Compat.IsSpellTargeting
+  NS.Compat.ContainerItemHasLoot = function() return true end
+  NS.Compat.IsSpellTargeting = function() return true end
+  NS.Attribution:OnContainerItemUse(0, 1)
+  NS.Compat.ContainerItemHasLoot, NS.Compat.IsSpellTargeting = origHas, origTgt
+  assertEqual(NS.Attribution:Consume(), "OTHER")
+end)
+
 test("Attribution: disenchant/mill/prospect spell stamps CRAFT", function()
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 13262) -- Disenchant

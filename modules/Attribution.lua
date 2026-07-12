@@ -6,23 +6,43 @@ local Attribution = NS.Attribution
 -- consumes it on CHAT_MSG_LOOT (see docs/TECHNICAL_DESIGN §4).
 --
 -- Sources are resolved from the loot GUID's *kind* (Creature → KILL, GameObject → CONTAINER/
--- MPLUS, Item → CONTAINER) plus peripheral stampers (vendor/mail/trade/quest). The engine no
--- longer resolves a human "source name" — the From column and its combat-log name cache were
--- removed (loot from delves/containers/pushed items rarely had a resolvable name, so the column
--- was almost always blank). sourceDetail (npcID / encounter / keystone / questID) is retained.
+-- MPLUS, Item → CONTAINER) plus peripheral stampers (vendor/mail/trade/quest/container/craft). The
+-- engine no longer resolves a human "source name" — the From column and its combat-log name cache
+-- were removed. sourceDetail (npcID / encounter / keystone / questID) is retained.
+--
+-- Every stamp/consume and each trigger logs to the session debug console when `/lh debug` is on
+-- (NS.State.debug); the logging is gated at the call site so nothing is built when debug is off
+-- (standard §8). Turn it on and reproduce a loot to trace exactly which path attributes an item.
 
 local State = NS.State
 local Constants = NS.Constants
 
+-- Compact one-line summary of a sourceDetail table, for the debug trace. Only called inside a
+-- `NS.State.debug` guard, so it never allocates when debug is off.
+local function detailStr(d)
+  if not d then return "" end
+  local p = {}
+  if d.npcID then p[#p + 1] = "npc=" .. d.npcID end
+  if d.encounterID then p[#p + 1] = "enc=" .. d.encounterID end
+  if d.difficulty then p[#p + 1] = "diff=" .. d.difficulty end
+  if d.keystoneLevel then p[#p + 1] = "key=+" .. d.keystoneLevel end
+  if d.questID then p[#p + 1] = "quest=" .. d.questID end
+  return #p > 0 and (" [" .. table.concat(p, " ") .. "]") or ""
+end
+
 -- Stamp the single-slot loot context. Consumed by the collector on the next self-loot line(s)
 -- within CONTEXT_TTL. Not cleared on consume: one loot window emits many lines sharing a source.
-function Attribution:Stamp(source, detail, confidence)
+-- `trigger` is an optional label for the debug trace only.
+function Attribution:Stamp(source, detail, confidence, trigger)
   State.lootContext = {
     source = source,
     detail = detail,
     confidence = confidence or Constants.Confidence.CERTAIN,
     expires = GetTime() + Constants.CONTEXT_TTL,
   }
+  if NS.State.debug and NS.Debug then
+    NS.Debug("stamp %s%s%s", source, trigger and (" via " .. trigger) or "", detailStr(detail))
+  end
 end
 
 -- Read the current context. Returns source, detail, confidence when fresh;
@@ -30,7 +50,13 @@ end
 function Attribution:Consume()
   local c = State.lootContext
   if c and c.expires >= GetTime() then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("consume -> %s (%s)%s", c.source, c.confidence, detailStr(c.detail))
+    end
     return c.source, c.detail, c.confidence
+  end
+  if NS.State.debug and NS.Debug then
+    NS.Debug("consume -> OTHER (INFERRED) — no fresh context")
   end
   return Constants.SourceType.OTHER, nil, Constants.Confidence.INFERRED
 end
@@ -73,28 +99,43 @@ function Attribution:OnLootOpened()
     local guid = GetLootSourceInfo and GetLootSourceInfo(slot)
     if guid then
       local source, detail = self:ResolveLootSource(guid, State)
-      self:Stamp(source, detail, Constants.Confidence.CERTAIN)
+      if NS.State.debug and NS.Debug then
+        NS.Debug("LOOT_OPENED slot=%d guid=%s -> %s", slot, tostring(guid), source)
+      end
+      self:Stamp(source, detail, Constants.Confidence.CERTAIN, "LOOT_OPENED")
       return
     end
   end
+  if NS.State.debug and NS.Debug then NS.Debug("LOOT_OPENED (%d slots, no source GUID)", n) end
 end
 
 function Attribution:OnEncounterStart(_, encounterID, encounterName, difficultyID)
   State.encounter = { id = encounterID, name = encounterName, difficulty = difficultyID }
+  if NS.State.debug and NS.Debug then
+    NS.Debug("context: encounter start id=%s diff=%s (KILL loot now carries it)",
+      tostring(encounterID), tostring(difficultyID))
+  end
 end
 
 function Attribution:OnEncounterEnd()
   State.encounter = nil
+  if NS.State.debug and NS.Debug then NS.Debug("context: encounter end") end
 end
 
 function Attribution:OnChallengeModeStart()
   State.keystone = { level = NS.Compat.GetActiveKeystoneLevel() }
+  if NS.State.debug and NS.Debug then
+    NS.Debug("context: keystone start +%s (GameObject loot → MPLUS)", tostring(State.keystone.level))
+  end
 end
 
 function Attribution:OnChallengeModeCompleted()
   -- Keep the keystone context: the reward chest is looted shortly after completion.
   if State.keystone then
     State.keystone.level = NS.Compat.GetActiveKeystoneLevel() or State.keystone.level
+    if NS.State.debug and NS.Debug then
+      NS.Debug("context: keystone completed +%s (reward chest still MPLUS)", tostring(State.keystone.level))
+    end
   end
 end
 
@@ -102,42 +143,54 @@ end
 -- KILL/CONTAINER/MPLUS/QUEST/VENDOR/MAIL/TRADE/CRAFT are wired; AH/ROLL are planned (no stamper
 -- yet) and hidden from the mute list via Constants.SOURCE_IMPLEMENTED. See TECHNICAL_DESIGN §4.4.
 function Attribution:StampVendor()
-  self:Stamp(Constants.SourceType.VENDOR, nil, Constants.Confidence.CERTAIN)
+  self:Stamp(Constants.SourceType.VENDOR, nil, Constants.Confidence.CERTAIN, "vendor-buy")
 end
 
 -- Opening a container item from bags pushes its contents to inventory with no LOOT_OPENED / GUID.
--- Stamp CONTAINER, but only when the used item actually has loot (so using a potion / equipping
--- gear via UseContainerItem never mis-stamps).
+-- Stamp CONTAINER, but only when the used item actually has loot AND we're not applying a pending
+-- spell to it (clicking a bag item as a Disenchant/Enchant target also routes through
+-- UseContainerItem — that must NOT be read as opening a container).
 function Attribution:OnContainerItemUse(bag, slot)
-  if NS.Compat.ContainerItemHasLoot(bag, slot) then
-    self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN)
+  local hasLoot = NS.Compat.ContainerItemHasLoot(bag, slot)
+  local targeting = NS.Compat.IsSpellTargeting()
+  if NS.State.debug and NS.Debug then
+    NS.Debug("UseContainerItem bag=%s slot=%s hasLoot=%s spellTargeting=%s",
+      tostring(bag), tostring(slot), tostring(hasLoot), tostring(targeting))
+  end
+  if hasLoot and not targeting then
+    self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN, "container-open")
   end
 end
 
 -- Disenchant / Milling / Prospecting turn an item into materials that arrive as pushed loot right
 -- when the cast SUCCEEDS (so the stamp is fresh within TTL). Attribute those to CRAFT. Broad
 -- profession crafting (recipe casts) is not covered yet — its cast time can exceed the TTL; see
--- TODO.md. Spell IDs are stable across flavors.
+-- TODO.md. Every player cast is logged at debug so the actual spell IDs can be read in-client.
 local CRAFT_SPELLS = { [13262] = true, [51005] = true, [31252] = true } -- Disenchant / Milling / Prospecting
 function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
-  if unit == "player" and CRAFT_SPELLS[spellID] then
-    self:Stamp(Constants.SourceType.CRAFT, nil, Constants.Confidence.CERTAIN)
+  if unit ~= "player" then return end
+  local craft = CRAFT_SPELLS[spellID] or false
+  if NS.State.debug and NS.Debug then
+    NS.Debug("cast: player spell=%s craft=%s", tostring(spellID), tostring(craft))
+  end
+  if craft then
+    self:Stamp(Constants.SourceType.CRAFT, nil, Constants.Confidence.CERTAIN, "craft-spell")
   end
 end
 
 function Attribution:OnTradeAcceptUpdate(_, playerAccepted, targetAccepted)
   if playerAccepted == 1 and targetAccepted == 1 then
-    self:Stamp(Constants.SourceType.TRADE, nil, Constants.Confidence.CERTAIN)
+    self:Stamp(Constants.SourceType.TRADE, nil, Constants.Confidence.CERTAIN, "trade-complete")
   end
 end
 
 function Attribution:StampMail()
-  self:Stamp(Constants.SourceType.MAIL, nil, Constants.Confidence.CERTAIN)
+  self:Stamp(Constants.SourceType.MAIL, nil, Constants.Confidence.CERTAIN, "mail-take")
 end
 
 function Attribution:OnQuestTurnedIn(_, questID)
   self:Stamp(Constants.SourceType.QUEST, questID and { questID = questID } or nil,
-    Constants.Confidence.CERTAIN)
+    Constants.Confidence.CERTAIN, "QUEST_TURNED_IN")
 end
 
 -- Quest reward taken. Stamped from the GetQuestReward hook (client call, runs before the server
@@ -147,7 +200,8 @@ end
 function Attribution:StampQuestReward()
   local questID = NS.Compat.CurrentQuestID()
   self:Stamp(Constants.SourceType.QUEST,
-    (questID and questID > 0) and { questID = questID } or nil, Constants.Confidence.CERTAIN)
+    (questID and questID > 0) and { questID = questID } or nil,
+    Constants.Confidence.CERTAIN, "GetQuestReward")
 end
 
 -- Register events + read-side hooks. Guarded so a missing API degrades gracefully per flavor.

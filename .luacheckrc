@@ -21,7 +21,7 @@ read_globals = {
   "GetQuestReward", "GetQuestID",
   "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText",
   "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CLASSIC",
-  "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim",
+  "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
   "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",
   "CombatLogGetCurrentEventInfo", "GetDetailedItemLevelInfo",
   "GameTooltip", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
