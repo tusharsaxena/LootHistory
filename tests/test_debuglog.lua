@@ -22,6 +22,11 @@ test("FormatPlain tolerates a nil tag", function()
   assertEqual(out, "15:04:43 | [] hi")
 end)
 
+test("FormatColored colors the timestamp and tag; pipe and content default", function()
+  local out = NS.DebugLog.FormatColored("15:04:43", "Cast", "player spell=3365")
+  assertEqual(out, "|cff6f8faf15:04:43|r || |cffc9a66b[Cast]|r player spell=3365")
+end)
+
 local function debugCmd(rest)
   for _, c in ipairs(NS.COMMANDS) do
     if c.name == "debug" then return c.fn(rest) end

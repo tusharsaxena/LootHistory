@@ -113,18 +113,25 @@ local function EnsureFrame()
   return frame
 end
 
--- Pure line formatter (no frames): "<ts>  |  [<tag>] <msg>". The tag is left-justified and
--- padded/truncated to a fixed 10 chars INSIDE the brackets so the closing ] and all content align.
+-- Pure plain-text line formatter (no frames, no colour codes): "<ts> | [<tag>] <msg>".
+-- This is what the Copy buffer mirrors — clean text with the tag rendered verbatim.
 function D.FormatPlain(ts, tag, msg)
   return ("%s | [%s] %s"):format(tostring(ts), tostring(tag or ""), tostring(msg))
+end
+
+-- Pure colour-coded line formatter for the console view. The timestamp is muted steel-blue
+-- (6f8faf) and the [tag] is muted tan/gold (c9a66b) — distinct but easy on a dark backdrop;
+-- the "|" separator and the message stay in the frame's default colour (white). "||" renders
+-- one literal pipe inside the colour-coded string.
+function D.FormatColored(ts, tag, msg)
+  return ("|cff6f8faf%s|r || |cffc9a66b[%s]|r %s"):format(
+    tostring(ts), tostring(tag or ""), tostring(msg))
 end
 
 function D:Add(tag, msg)
   local f = EnsureFrame()
   local ts = date("%H:%M:%S")
-  -- Grey the timestamp / separator / bracketed tag; content in the default colour.
-  -- "||" renders one literal pipe inside a colour-coded segment.
-  f.log:AddMessage(("|cff888888%s || [%s]|r %s"):format(ts, tostring(tag or ""), tostring(msg)))
+  f.log:AddMessage(D.FormatColored(ts, tag, msg))
   -- Mirror a plain-text copy into the buffer (for the Copy window), capped like the log.
   D.buffer[#D.buffer + 1] = D.FormatPlain(ts, tag, msg)
   if #D.buffer > MAX_BUFFER then table.remove(D.buffer, 1) end
