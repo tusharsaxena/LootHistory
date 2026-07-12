@@ -84,7 +84,7 @@ A third capability — exporting the data to an AI companion skill that renders 
 - **FR-B6** The Item column shows the item icon and quality-colored name; hovering shows the full item tooltip.
 - **FR-B7** **Sort** by any column (click header; toggles ascending/descending with an arrow indicator).
 - **FR-B8** **Filter** by any column: **multi-select** dropdowns for quality (exact qualities), item type, source, zone, and character (plus a Current/All players scope), and a free-text item-name search. A clear-filters control resets all.
-- **FR-B9** **Group** by a chosen column (None / Source / Zone / Character / Quality / Day), rendering collapsible group headers with per-group counts.
+- **FR-B9** **Group** by a chosen column (None / Day / Quality / Type / Source / Zone / Character), rendering collapsible group headers with per-group counts.
 - **FR-B10** Right-click a row for actions: **link item to chat**, **delete this entry**.
 - **FR-B11** Show a footer summary (visible/total record counts).
 - **FR-B12** Handle the **empty state** gracefully (no data / no matches).

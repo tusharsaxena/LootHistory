@@ -216,6 +216,8 @@ local function groupOf(groupBy, r)
     label = r.zone or "Unknown"; raw = label
   elseif groupBy == "char" then
     raw = r.char or "Unknown"; label = raw
+  elseif groupBy == "type" then
+    label = r.itemType or "Unknown"; raw = label
   elseif groupBy == "quality" then
     label = NS.Compat.QualityLabel(r.quality); raw = "q" .. tostring(r.quality or 0)
   elseif groupBy == "day" then
@@ -229,8 +231,8 @@ end
 
 -- groupBy mode → the table column it corresponds to (drives the header arrow + group-order
 -- toggle) and the human prefix shown in each group header ("Quality: Poor").
-local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", day = "date" }
-local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", day = "Day" }
+local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", type = "type", day = "date" }
+local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", type = "Type", day = "Day" }
 
 -- Synthetic dataset for /lh test. A deliberately NON-uniform spread so the Insights charts read
 -- like real play: weighted-random sources/qualities/classes/zones/types/timestamps, a handful of

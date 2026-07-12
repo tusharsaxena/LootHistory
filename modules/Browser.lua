@@ -369,13 +369,15 @@ local QUALITY_OPTIONS = {
   { value = 4, label = "Epic",      color = qualityColor(4) },
   { value = 5, label = "Legendary", color = qualityColor(5) },
 }
+-- Ordered to mirror the table's column layout: Date, Quality, Type, Source, Zone, Character.
 local GROUP_OPTIONS = {
   { value = "none", label = "Group: None" },
+  { value = "day", label = "Group: Day" },
+  { value = "quality", label = "Group: Quality" },
+  { value = "type", label = "Group: Type" },
   { value = "source", label = "Group: Source" },
   { value = "zone", label = "Group: Zone" },
   { value = "char", label = "Group: Character" },
-  { value = "quality", label = "Group: Quality" },
-  { value = "day", label = "Group: Day" },
 }
 local DATE_OPTIONS = {
   { value = "all", label = "Date: All" },

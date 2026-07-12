@@ -98,9 +98,9 @@ Dropdown option lists are derived from the current dataset, so they never show e
 
 ### 3.4 Grouping
 
-- **Group by ▾** — None / Source / Zone / Character / Quality / Day.
+- **Group by ▾** — None / Day / Quality / Type / Source / Zone / Character (ordered to match the table's columns).
 - When grouping is on, rows are bucketed under **collapsible headers**: `▼ Kill — 412 items` (click to collapse to `▶`). Counts reflect the active filter.
-- Group order: by count descending (Source/Zone/Character/Quality) or chronological (Day, newest first). Collapse state is remembered while the window stays open.
+- Group order: by the grouped column's natural value — alphabetical (Type/Source/Zone/Character), by quality rank (Quality), or chronological (Day). Direction is toggled by clicking the grouped column header; collapse state is remembered while the window stays open.
 
 ### 3.5 Row interactions
 

@@ -430,7 +430,7 @@ Only the **visible slice** touches frames; filter/group/sort operate on lightwei
 
 ### 7.4 Grouping
 
-`groupByKey ∈ { None, Source, Zone, Character, Quality, Day }`. When not `None`, records are bucketed by the key; each bucket emits a **collapsible header row** (`▶/▼ label — N items`) followed by its rows. Collapsed state per group key is held in `BrowserTable.collapsed[groupValue]`. `Day` buckets by `date("%Y-%m-%d", ts)`. Group headers participate in the same pooled-row rendering (a row is either a header or a data row, discriminated by `kind`).
+`groupByKey ∈ { None, Day, Quality, Type, Source, Zone, Character }` (ordered to mirror the table's column layout). When not `None`, records are bucketed by the key; each bucket emits a **collapsible header row** (`▶/▼ label — N items`) followed by its rows. Groups are ordered by the grouped column's natural value (`GroupRecords` sortKey = that column's `sortFn` — alphabetical for text, numeric for Quality, chronological for Day), direction = `groupAsc` (toggled by clicking the grouped column header). Collapsed state per group key is held in `BrowserTable.collapsed[groupValue]`. `Day` buckets by `date("%Y-%m-%d", ts)`. Group headers participate in the same pooled-row rendering (a row is either a header or a data row, discriminated by `kind`).
 
 ### 7.5 Per-column filter model
 
