@@ -129,6 +129,19 @@ test("Attribution: deconstruct spells map to their own source", function()
   assertEqual(NS.Attribution:Consume(), "PROSPECTING")
 end)
 
+test("Attribution: deconstruct's own loot window does not clobber its source", function()
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 13262)  -- stamp DISENCHANT
+  -- The mats arrive via a LOOT_OPENED window with an Item source GUID (→ CONTAINER); it must not
+  -- overwrite the fresher, more specific deconstruct stamp.
+  local oNum, oSrc = mocks.GetNumLootItems, mocks.GetLootSourceInfo
+  mocks.GetNumLootItems = function() return 1 end
+  mocks.GetLootSourceInfo = function() return "Item-3725-0-40000009EFF76790" end
+  NS.Attribution:OnLootOpened()
+  mocks.GetNumLootItems, mocks.GetLootSourceInfo = oNum, oSrc
+  assertEqual(NS.Attribution:Consume(), "DISENCHANT")
+end)
+
 test("Attribution: an unrelated player spell does not stamp a source", function()
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 999999)

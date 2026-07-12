@@ -17,6 +17,17 @@ local Attribution = NS.Attribution
 local State = NS.State
 local Constants = NS.Constants
 
+-- Deconstruct abilities: spell id → its own source. Their materials arrive through a loot window
+-- whose Item source GUID would otherwise resolve to CONTAINER (see OnLootOpened), so the source
+-- set is also used to stop that window from clobbering the deconstruct stamp.
+local DECONSTRUCT = {
+  [13262] = "DISENCHANT",   -- Disenchant (Enchanting)
+  [51005] = "MILLING",      -- Milling (Inscription)
+  [31252] = "PROSPECTING",  -- Prospecting (Jewelcrafting)
+}
+local DECONSTRUCT_SOURCE = {}
+for _, s in pairs(DECONSTRUCT) do DECONSTRUCT_SOURCE[s] = true end
+
 -- Compact one-line summary of a sourceDetail table, for the debug trace. Only called inside a
 -- `NS.State.debug` guard, so it never allocates when debug is off.
 local function detailStr(d)
@@ -94,6 +105,14 @@ end
 -- LOOT_OPENED: stamp from the first slot's source GUID (all slots in one window share a source
 -- closely enough; TTL spans the resulting CHAT_MSG_LOOT burst).
 function Attribution:OnLootOpened()
+  -- A deconstruct (disenchant/mill/prospect) delivers its materials through a loot window whose
+  -- Item source GUID would resolve to CONTAINER. Keep the more specific deconstruct context the
+  -- spell just stamped rather than overwriting it with this, its own, mat window.
+  local c = State.lootContext
+  if c and c.expires >= GetTime() and DECONSTRUCT_SOURCE[c.source] then
+    if NS.State.debug and NS.Debug then NS.Debug("LOOT_OPENED kept %s (deconstruct mat window)", c.source) end
+    return
+  end
   local n = (GetNumLootItems and GetNumLootItems()) or 0
   for slot = 1, n do
     local guid = GetLootSourceInfo and GetLootSourceInfo(slot)
@@ -162,16 +181,10 @@ function Attribution:OnContainerItemUse(bag, slot)
   end
 end
 
--- Deconstruct abilities turn an item into materials that arrive as pushed loot right when the cast
--- SUCCEEDS (so the stamp is fresh within TTL). Each maps to its OWN source (Disenchant/Milling/
--- Prospecting) rather than a generic CRAFT. Broad recipe crafting is not covered (cast time can
--- exceed the TTL; see TODO.md). Only Disenchant's id (13262) is confirmed in-client; Milling/
--- Prospecting are the classic ids — every player cast is logged at debug to confirm current ones.
-local DECONSTRUCT = {
-  [13262] = "DISENCHANT",   -- Disenchant (Enchanting)
-  [51005] = "MILLING",      -- Milling (Inscription)
-  [31252] = "PROSPECTING",  -- Prospecting (Jewelcrafting)
-}
+-- Deconstruct abilities turn an item into materials that arrive right when the cast SUCCEEDS (so
+-- the stamp is fresh within TTL). Each maps to its OWN source (Disenchant/Milling/Prospecting)
+-- rather than a generic CRAFT (see the DECONSTRUCT table up top). Only Disenchant's id (13262) is
+-- confirmed in-client; every player cast is logged at debug to confirm the current mill/prospect ids.
 function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
   if unit ~= "player" then return end
   local src = DECONSTRUCT[spellID]
