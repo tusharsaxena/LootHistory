@@ -36,7 +36,7 @@ core/
   State.lua         -- runtime state: lootContext, encounter/keystone context, session flags
   Util.lua          -- pure helpers (time fmt, link/loot-string parsing, table ops, PlayerKey)
   LootHistory.lua   -- AceAddon:NewAddon(NS,...); OnInitialize/OnEnable; PLAYER_ENTERING_WORLD
-  Database.lua      -- AceDB init, migrations, Add/Query/Delete/Export, retention prune
+  Database.lua      -- AceDB init, Add/Query/Delete/Export, retention prune
 defaults/Global.lua -- G = global defaults (history[], settings, schemaVersion, minimap)
 locales/enUS.lua    -- canonical strings; NS.L metatable fallback
 settings/
@@ -63,7 +63,7 @@ Load order (TOC): `core/Compat` → rest of `core/` → `defaults/` → `locales
 2. **Schema-as-single-source** — `settings/Schema.lua` drives AceDB defaults, panel widgets, slash get/set/list/reset. Every user *setting* mutation goes through `Schema:Set(path, value)` (validate → write → deep-copy → onChange). Paths resolve against `NS.db.global` (account-wide), not `.profile`. **Carve-out:** the Browser's window geometry (`settings.window`) and saved table view (`savedView`) are view/window runtime state persisted directly to `NS.db.global` — they are intentionally *not* Schema rows and do not route through `Schema:Set`.
 3. **Closed message bus** — `Ka0s_LootHistory_*` messages, exactly one sender each. No cross-module table reach. (`RecordAdded`, `HistoryChanged`, `SettingsChanged`.)
 4. **Compat firewall** — every deprecated/flavor-varying API call lives in `core/Compat.lua`; modules call `NS.Compat.X`. No inline `WOW_PROJECT_ID` branching.
-5. **Attribution model** — `CHAT_MSG_LOOT` is the authoritative "item received (self)" signal; peripheral events stamp a short-lived `State.lootContext` that the collector consumes. Fallback = `OTHER`/`INFERRED`. See TECHNICAL_DESIGN §4.
+5. **Attribution model** — `CHAT_MSG_LOOT` is the authoritative "item received (self)" signal; peripheral events stamp a short-lived `State.lootContext` that the collector consumes. Fallback = `OTHER`/`INFERRED`. See TECHNICAL_DESIGN §4. Only sources with a live stamper are exposed: `Constants.SOURCE_IMPLEMENTED` gates the mute UI — `AH`/`CRAFT`/`ROLL` are enum'd but not yet stamped (the `SourceType` enum stays whole as the export contract).
 6. **Object pooling** for the table (standard §9.6). Never one frame per record.
 7. **Hot-path upvalues** — collector caches `enabled`/`qualityThreshold`/`excludedSources`, refreshed on `SettingsChanged` (standard §9.7).
 8. **Session-only debug** toggle (`NS.State.debug`, default off, resets every reload — not persisted), zero-allocation when off, `/lh debug`. It tracks the debug console's visibility: `/lh debug` toggles the console; closing the console (X or ESC) turns debug off. The same applies to `/lh test` (`BrowserTable.testMode`, session-only).
@@ -125,8 +125,8 @@ sudo luarocks install luacheck
 - [x] Milestone 3 — browser window + virtualized table (sort, group, filter, row actions).
 - [x] Milestone 4 — Insights analytics (range selector, stat cards, frame-based charts).
 - [x] Milestone 5 — settings panel, slash CLI, minimap button (LibDBIcon + LDB).
-- [x] Milestone 6 (in progress): `ARCHITECTURE.md` + `README.md` authored (Task 6.1).
-- [ ] **Next (Task 6.2):** run `wow-addon:review` → first `reviews/<DATE>/` bundle; address blockers; final `luacheck .` + `lua tests/run.lua`; confirm `## Version: 0.1.0` consistent → tag-ready.
+- [x] Milestone 6 — `ARCHITECTURE.md` + `README.md` authored (Task 6.1); `wow-addon:review` run (`reviews/2026-07-11/`) and **all findings F-001…F-013 addressed** (Task 6.2). `luacheck .` = 0/0, `lua tests/run.lua` green (85), `## Version: 0.1.0` consistent.
+- [ ] **Next:** in-client smoke tests (`reviews/2026-07-11/03_SMOKE_TESTS.md`) — notably F-001 (confirm VENDOR/MAIL/TRADE record via `CHAT_MSG_LOOT`) — then tag 0.1.0.
 
 ---
 

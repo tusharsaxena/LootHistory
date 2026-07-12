@@ -45,7 +45,7 @@ LootHistory/
     State.lua           -- runtime state: loot context, session flags, message bus handle
     Util.lua            -- pure helpers (time formatting, link parsing, table ops)
     LootHistory.lua     -- AceAddon:NewAddon(NS, ...); OnInitialize/OnEnable
-    Database.lua        -- AceDB init, migrations, Add/Query/Delete/Export, retention cleanup
+    Database.lua        -- AceDB init, Add/Query/Delete/Export, retention cleanup
   defaults/
     Global.lua          -- G = global defaults table (history[], settings, schemaVersion)
   locales/
@@ -164,18 +164,21 @@ G = {
 
 History is a **dense array** appended on each loot. Deletion (retention or manual) compacts via rebuild (see §6.3) to avoid array holes. Records are plain tables — no metatables — so they serialize cleanly for the deferred export.
 
-### 3.3 Migration runner
+### 3.3 Schema versioning
+
+`schemaVersion` is a version stamp on the persisted DB; 0.1.0 ships the initial shape (`1`).
+
+The addon is **unreleased**, so no migration runner ships — there are no old saved variables in
+the wild to upgrade. Migrations are a **post-release** concern: when the first schema change lands
+after release, add a runner in `core/Database.lua`, call it from `OnInitialize` after `InitDB`, and
+have it read `schemaVersion` to upgrade older DBs, e.g.:
 
 ```lua
--- core/Database.lua
-function NS:RunMigrations()
-  local g = NS.db.global
-  g.schemaVersion = g.schemaVersion or 1
-  -- if g.schemaVersion < 2 then <transform each record> ; g.schemaVersion = 2 end
-end
+-- (post-release) core/Database.lua
+-- if g.schemaVersion < 2 then <transform each record> ; g.schemaVersion = 2 end
 ```
 
-Ships from day one even though v1 has no migrations yet (standard §5.1). Any field addition/rename to §3.1 bumps `schemaVersion` and adds a block here.
+Any field addition/rename to §3.1 bumps `schemaVersion` and adds a block there at that time.
 
 ---
 
@@ -279,7 +282,7 @@ Each stamper is a small handler in `Attribution.lua` registered via AceEvent. Me
 
 > **Coverage honesty (v0.1.0):** only sources with a live stamper are exposed in the UI. `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list (`Constants.SOURCE_OPTIONS`) so unreachable buckets aren't dead checkboxes; the Browser Source dropdown already self-scopes from live data. `AH`/`CRAFT`/`ROLL` are **planned** (marked above) — the `SourceType` enum stays whole (export contract) but they can't be recorded until stamped. `VENDOR`/`MAIL`/`TRADE` have stampers but assume the flow emits a `CHAT_MSG_LOOT` self-line; that assumption is pending in-client verification (`reviews/2026-07-11/03_SMOKE_TESTS.md §F-001`). If a flow is confirmed silent, drop it from `SOURCE_IMPLEMENTED` and track BAG_UPDATE-diff capture as backlog.
 
-> **Schema v4:** the per-source *name* (`sourceName`, the "From" column) was retired — it was blank for the majority of real loot (containers, delves, pushed items) and the combat-log name cache that backed `KILL` names was removed with it. Stampers now set `source`/`sourceDetail` only. See the `core/Database.lua` v4 migration.
+> **No per-source name:** the per-source *name* (`sourceName`, the "From" column) was retired — it was blank for the majority of real loot (containers, delves, pushed items) and the combat-log name cache that backed `KILL` names was removed with it. Stampers now set `source`/`sourceDetail` only.
 
 ### 4.5 Encounter / difficulty context
 

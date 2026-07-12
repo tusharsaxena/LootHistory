@@ -34,13 +34,13 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 
 | File | Role |
 |---|---|
-| `core/Compat.lua` | **Loads first.** Flavor flags (`IsRetail`/`IsClassic`, the only `WOW_PROJECT_ID` read) + every deprecated/varying-API shim: GUID decode, item/map/zone info, quality-from-link fallback. |
-| `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `Confidence`, `CONTEXT_TTL`, quality/retention/source option tables. |
+| `core/Compat.lua` | **Loads first.** Flavor flags (`IsRetail`/`IsClassic`, the only `WOW_PROJECT_ID` read) + every deprecated/varying-API shim: GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
+| `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`. |
-| `core/Util.lua` | Pure helpers: time/money formatting, self-loot string parsing, `PlayerKey`, table ops. |
+| `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. |
-| `core/Database.lua` | AceDB init, migrations, `Add`/`Query`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`, retention. |
+| `core/Database.lua` | AceDB init, `Add`/`Query`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`, retention. |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `settings`, `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
@@ -75,13 +75,18 @@ back fast table ops.
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see CLAUDE.md "Do not change without reason".
-- `schemaVersion` is currently **4**; `Database:RunMigrations` upgrades older saved variables
-  on load.
+- `schemaVersion` is a version stamp on the DB; 0.1.0 ships the initial shape (**1**). The addon
+  is unreleased, so no migration runner ships yet — adding one is a post-release concern (it will
+  read `schemaVersion` to upgrade older saved variables when the first schema change lands).
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
 
 **Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
-`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`.
+`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`. The enum is deliberately
+whole (export contract), but only sources with a live stamper are exposed in the UI:
+`Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser Source
+dropdown self-scopes from live data. `AH`/`CRAFT`/`ROLL` have no stamper yet (see Known
+limitations).
 
 ---
 
@@ -152,14 +157,12 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `PLAYER_ENTERING_WORLD` | `OnEnterWorld` (once-per-session prune) | `core/LootHistory.lua` |
 | `CHAT_MSG_LOOT` | `OnChatMsgLoot` (authoritative capture) | `modules/Collector.lua` |
 | `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
-| `COMBAT_LOG_EVENT_UNFILTERED` | `OnCombatLogEvent` (kill-name cache) | `modules/Attribution.lua` |
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
-| `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context | `modules/Attribution.lua` |
-| `MERCHANT_SHOW` | vendor context | `modules/Attribution.lua` |
-| `TRADE_SHOW` / `TRADE_ACCEPT_UPDATE` | trade context | `modules/Attribution.lua` |
+| `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`) | `modules/Attribution.lua` |
+| `TRADE_ACCEPT_UPDATE` | trade context (on mutual accept) | `modules/Attribution.lua` |
 | `QUEST_TURNED_IN` | quest-reward context | `modules/Attribution.lua` |
-| `hooksecurefunc("BuyMerchantItem")` | `StampVendor` | `modules/Attribution.lua` |
-| `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` | `modules/Attribution.lua` |
+| `hooksecurefunc("BuyMerchantItem")` | `StampVendor` (vendor context) | `modules/Attribution.lua` |
+| `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` (mail context) | `modules/Attribution.lua` |
 
 All flavor-varying or deprecated calls behind these handlers are routed through
 `core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
@@ -197,11 +200,16 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 
 ## Known limitations
 
-- **No per-item source name.** The "From" column and its combat-log kill-name cache were removed
-  in schema v4: for the dominant real-world loot (containers, delves, pushed/quest items) no
-  reliable name was resolvable, so the column was almost always blank. Records keep `source` and
-  the machine-readable `sourceDetail` (npcID / encounter / keystone / questID); the human name is
-  no longer captured or displayed.
+- **Partial source coverage.** `AH`/`CRAFT`/`ROLL` are defined in the `SourceType` enum but have
+  no stamper yet, so they can never be recorded; they are hidden from the mute list via
+  `SOURCE_IMPLEMENTED`. `VENDOR`/`MAIL`/`TRADE` have stampers but depend on the flow emitting a
+  `CHAT_MSG_LOOT` self-line — pending in-client verification (`reviews/2026-07-11/03_SMOKE_TESTS.md
+  §F-001`). Fuller capture (BAG_UPDATE diffing) is a backlog item.
+- **No per-item source name.** The "From" column and its combat-log kill-name cache were removed:
+  for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name was
+  resolvable, so the column was almost always blank. Records keep `source` and the machine-readable
+  `sourceDetail` (npcID / encounter / keystone / questID); the human name is no longer captured or
+  displayed.
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.

@@ -73,7 +73,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 **Test:** `tests/test_util.lua` asserts `Constants.SourceType.KILL == "KILL"` and `Util.PlayerKey()` returns `Name-Realm` (mock UnitName). **Deliverable:** committed.
 
 ### Task 0.4 — AceAddon registration, Database init, defaults, locale
-**Files:** Create `core/LootHistory.lua` (`AceAddon:NewAddon(NS, addonName, "AceEvent-3.0","AceTimer-3.0","AceConsole-3.0")`, OnInitialize→InitDB/RunMigrations/Schema:Register/Panel:Register, OnEnable→register PLAYER_ENTERING_WORLD), `core/Database.lua` (InitDB, RunMigrations empty-but-present, `NS.defaults`), `defaults/Global.lua` (G table: schemaVersion=1, history={}, settings mirror of Schema defaults, debug=false, minimap={hide=false}), `locales/enUS.lua` (NS.L metatable fallback).
+**Files:** Create `core/LootHistory.lua` (`AceAddon:NewAddon(NS, addonName, "AceEvent-3.0","AceTimer-3.0","AceConsole-3.0")`, OnInitialize→InitDB/Schema:Register/Panel:Register, OnEnable→register PLAYER_ENTERING_WORLD), `core/Database.lua` (InitDB, `NS.defaults`), `defaults/Global.lua` (G table: schemaVersion=1, history={}, settings mirror of Schema defaults, debug=false, minimap={hide=false}), `locales/enUS.lua` (NS.L metatable fallback). (Unreleased addon → no migration runner; migrations are a post-release concern.)
 **Test:** headless — load Database with mocked AceDB shim; assert `NS.db.global.schemaVersion == 1` and `history` is an empty table after InitDB. **Deliverable:** committed.
 
 ### Task 0.5 — Settings schema, slash dispatch, placeholder window
@@ -225,7 +225,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 
 - [ ] **Tune attribution (M1 follow-up).** In-game smoke (2026-07-11) confirmed KILL attribution + quality gate, but surfaced two refinements:
   1. **Context lifetime.** Context is stamped once on `LOOT_OPENED` with a fixed 1.5s TTL, so *slow manual click-looting* (>1.5s between items in one window) lets later items fall back to `OTHER`/`INFERRED`. Consider keeping the context alive *while the loot window is open* — re-stamp/extend on each loot, expire on `LOOT_CLOSED` — instead of a fixed TTL. NOTE: CLAUDE.md flags the single-slot TTL as a deliberate design; revisit that note if changing.
-  2. ~~**Source-name resolution.**~~ RESOLVED BY REMOVAL (schema v4): the "From" column and its `sourceName` field were retired — the name was blank for the majority of real loot (containers, delves, pushed items), and the combat-log death-name cache that backed `KILL` names was removed with it. Attribution now records `source`/`sourceDetail` only.
+  2. ~~**Source-name resolution.**~~ RESOLVED BY REMOVAL: the "From" column and its `sourceName` field were retired — the name was blank for the majority of real loot (containers, delves, pushed items), and the combat-log death-name cache that backed `KILL` names was removed with it. Attribution now records `source`/`sourceDetail` only.
 - [ ] **Addon interop.** Integrate with value/upgrade addons and show their data as columns/annotations:
   - **Auctionator / TSM / other AH addons** — show market/AH value per item (fallback chain across whichever is installed).
   - **Pawn** — show an **upgrade arrow** when the looted gear was an upgrade *at the time of looting* (evaluate against the character's equipped gear then and store the verdict on the record, since "now" may differ).
@@ -246,7 +246,7 @@ Each task below ends with: write/adjust unit test (where logic is pure) → run 
 | FR-C6..C8 record fields / itemLink / name | 1.5 (BuildRecord), 2.1 |
 | FR-C9..C12 attribution + confidence + excludes | 1.2–1.5 |
 | FR-C13..C14 retention + Never | 2.3 |
-| FR-C15..C17 account-wide storage + schemaVersion + migrations | 0.4, 2.1 |
+| FR-C15..C17 account-wide storage + schemaVersion | 0.4, 2.1 |
 | FR-B1..B4 window/open/tabs/scale | 3.1, 5.2 |
 | FR-B5..B14 table columns/sort/filter/group/menu/empty/inferred/virtualized | 3.2–3.6 |
 | FR-B15..B21 analytics | 4.1–4.2 |
