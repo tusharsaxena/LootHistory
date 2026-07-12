@@ -54,3 +54,10 @@ test("Compat: QualityLabel names qualities", function()
   assertEqual(NS.Compat.QualityLabel(4), "Epic")
   assertEqual(NS.Compat.QualityLabel(nil), "Poor")
 end)
+
+test("Compat: GetItemInfo surfaces the item class id", function()
+  T.mocks.__itemClassID = 12
+  local _, _, _, classID = NS.Compat.GetItemInfo("|cffffffff|Hitem:1::::::::80:::::|h[X]|h|r")
+  assertEqual(classID, 12)
+  T.mocks.__itemClassID = 0   -- restore default
+end)

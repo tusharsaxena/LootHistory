@@ -163,12 +163,14 @@ function Compat.QualityLabel(q)
   return _G["ITEM_QUALITY" .. q .. "_DESC"] or QUALITY_LABEL_EN[q] or tostring(q)
 end
 
--- Resilient item info for an item link. Returns itemID, itemName, quality, falling back to
--- the link's own display data when the item is not yet cached (GetItemInfo returns nil).
+-- Resilient item info for an item link. Returns itemID, itemName, quality, classID, falling
+-- back to the link's own display data when the item is not yet cached (GetItemInfo returns nil).
+-- classID is the locale-independent item class (Enum.ItemClass.*); nil when uncached/unknown.
 function Compat.GetItemInfo(link)
-  local itemID
+  local itemID, classID
   if C_Item and C_Item.GetItemInfoInstant then
     itemID = C_Item.GetItemInfoInstant(link)
+    classID = select(6, C_Item.GetItemInfoInstant(link))
   end
   local name, _, quality
   if C_Item and C_Item.GetItemInfo then
@@ -176,7 +178,7 @@ function Compat.GetItemInfo(link)
   end
   name = name or (link and link:match("%[(.-)%]"))
   quality = quality or Compat.QualityFromLink(link)
-  return itemID, name, quality
+  return itemID, name, quality, classID
 end
 
 -- Scan an item link's tooltip for warband/account-bound text.

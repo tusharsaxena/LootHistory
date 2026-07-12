@@ -45,8 +45,9 @@ return function()
   M.InCombatLockdown = function() return false end
   M.C_Map = { GetBestMapForUnit = function() return 2657 end }
   M.C_Timer = { After = function() end }
+  M.__itemClassID = 0   -- overridable per-test item class (Enum.ItemClass); 0 = Consumable
   M.C_Item = {
-    GetItemInfoInstant = function() return 211296 end,
+    GetItemInfoInstant = function() return 211296, nil, nil, nil, nil, M.__itemClassID end,
     GetItemInfo = function(link) return "Item Name", link, 4 end,
   }
   M.GetLootSourceInfo = function() return nil end
