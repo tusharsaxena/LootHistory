@@ -6,14 +6,16 @@ local Collector = NS.Collector
 -- (see docs/TECHNICAL_DESIGN §5).
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (standard §9.7).
-local enabled, qualityThreshold, excludedSources = true, 1, {}
+local enabled, qualityThreshold, excludedSources, excludeQuestItems = true, 1, {}, false
 
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
 
--- Quality gate + per-source exclude. cfg = { qualityThreshold, excludedSources }.
-function Collector:ShouldRecord(quality, source, cfg)
+-- Quality gate + per-source exclude + optional quest-item drop.
+-- cfg = { qualityThreshold, excludedSources, excludeQuestItems }.
+function Collector:ShouldRecord(quality, source, classID, cfg)
   if (quality or 0) < cfg.qualityThreshold then return false end
   if cfg.excludedSources and cfg.excludedSources[source] then return false end
+  if cfg.excludeQuestItems and classID == NS.Constants.ITEMCLASS_QUEST then return false end
   return true
 end
 
@@ -50,6 +52,7 @@ function Collector:RefreshUpvalues()
   enabled = s.enabled
   qualityThreshold = s.qualityThreshold
   excludedSources = s.excludedSources or {}
+  excludeQuestItems = s.excludeQuestItems
 end
 
 function Collector:OnChatMsgLoot(_, msg)
@@ -57,11 +60,12 @@ function Collector:OnChatMsgLoot(_, msg)
   local link, qty = NS.Util.ParseSelfLoot(msg)
   if not link then return end
 
-  local itemID, itemName, quality = NS.Compat.GetItemInfo(link)
+  local itemID, itemName, quality, classID = NS.Compat.GetItemInfo(link)
   local source, sourceDetail, confidence = NS.Attribution:Consume()
 
-  if not self:ShouldRecord(quality, source,
-    { qualityThreshold = qualityThreshold, excludedSources = excludedSources }) then
+  if not self:ShouldRecord(quality, source, classID,
+    { qualityThreshold = qualityThreshold, excludedSources = excludedSources,
+      excludeQuestItems = excludeQuestItems }) then
     return
   end
 

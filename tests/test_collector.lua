@@ -30,25 +30,40 @@ end)
 
 test("Collector: ShouldRecord passes at/above threshold", function()
   local cfg = { qualityThreshold = 2, excludedSources = {} }
-  assertTrue(NS.Collector:ShouldRecord(2, "KILL", cfg))
-  assertTrue(NS.Collector:ShouldRecord(4, "KILL", cfg))
+  assertTrue(NS.Collector:ShouldRecord(2, "KILL", 0, cfg))
+  assertTrue(NS.Collector:ShouldRecord(4, "KILL", 0, cfg))
 end)
 
 test("Collector: ShouldRecord rejects below threshold", function()
   local cfg = { qualityThreshold = 2, excludedSources = {} }
-  assertFalse(NS.Collector:ShouldRecord(1, "KILL", cfg))
-  assertFalse(NS.Collector:ShouldRecord(0, "KILL", cfg))
+  assertFalse(NS.Collector:ShouldRecord(1, "KILL", 0, cfg))
+  assertFalse(NS.Collector:ShouldRecord(0, "KILL", 0, cfg))
 end)
 
 test("Collector: ShouldRecord rejects excluded source", function()
   local cfg = { qualityThreshold = 2, excludedSources = { VENDOR = true } }
-  assertFalse(NS.Collector:ShouldRecord(4, "VENDOR", cfg))
-  assertTrue(NS.Collector:ShouldRecord(4, "KILL", cfg))
+  assertFalse(NS.Collector:ShouldRecord(4, "VENDOR", 0, cfg))
+  assertTrue(NS.Collector:ShouldRecord(4, "KILL", 0, cfg))
 end)
 
 test("Collector: ShouldRecord treats nil quality as 0", function()
   local cfg = { qualityThreshold = 1, excludedSources = {} }
-  assertFalse(NS.Collector:ShouldRecord(nil, "KILL", cfg))
+  assertFalse(NS.Collector:ShouldRecord(nil, "KILL", 0, cfg))
+end)
+
+test("Collector: ShouldRecord drops quest items when excludeQuestItems on", function()
+  local cfg = { qualityThreshold = 1, excludedSources = {}, excludeQuestItems = true }
+  assertFalse(NS.Collector:ShouldRecord(4, "KILL", NS.Constants.ITEMCLASS_QUEST, cfg))
+end)
+
+test("Collector: ShouldRecord keeps quest items when excludeQuestItems off", function()
+  local cfg = { qualityThreshold = 1, excludedSources = {}, excludeQuestItems = false }
+  assertTrue(NS.Collector:ShouldRecord(4, "KILL", NS.Constants.ITEMCLASS_QUEST, cfg))
+end)
+
+test("Collector: ShouldRecord unaffected for non-quest class when filter on", function()
+  local cfg = { qualityThreshold = 1, excludedSources = {}, excludeQuestItems = true }
+  assertTrue(NS.Collector:ShouldRecord(4, "KILL", 0, cfg))
 end)
 
 test("Collector: end-to-end writes an attributed record", function()
@@ -87,4 +102,24 @@ test("Collector: end-to-end drops loot below the quality threshold", function()
 
   NS.db.global.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
+end)
+
+test("Collector: end-to-end drops quest items when the filter is on", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  mocks.__itemClassID = NS.Constants.ITEMCLASS_QUEST
+  NS.db.global.settings.excludeQuestItems = true
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Database:Count(), before)   -- quest item dropped
+
+  -- restore: filter off, non-quest class → records again
+  NS.db.global.settings.excludeQuestItems = false
+  mocks.__itemClassID = 0
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Database:Count(), before + 1)
 end)

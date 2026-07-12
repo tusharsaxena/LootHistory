@@ -169,8 +169,8 @@ end
 function Compat.GetItemInfo(link)
   local itemID, classID
   if C_Item and C_Item.GetItemInfoInstant then
-    itemID = C_Item.GetItemInfoInstant(link)
-    classID = select(6, C_Item.GetItemInfoInstant(link))
+    local _
+    itemID, _, _, _, _, classID = C_Item.GetItemInfoInstant(link)
   end
   local name, _, quality
   if C_Item and C_Item.GetItemInfo then
