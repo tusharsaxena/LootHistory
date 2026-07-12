@@ -48,7 +48,7 @@ modules/
   Collector.lua     -- CHAT_MSG_LOOT handler; self-filter + quality gate; builds & writes records
   Browser.lua       -- window shell: frame, tabs, filter bar, group-by control, minimap/LDB
   BrowserTable.lua  -- virtualized pooled-row table: filter→group→sort→slice→bind pipeline
-  Analytics.lua     -- Insights tab: source/quality/time breakdowns + top zones/items
+  Analytics.lua     -- Insights tab: cards + value/source/quality/type/char/time breakdowns + top lists
   DebugLog.lua      -- session-only debug console window (Copy/Clear); mirrors NS.Debug output
 docs/               -- REQUIREMENTS, TECHNICAL_DESIGN, UX_DESIGN, EXECUTION_PLAN
 ```

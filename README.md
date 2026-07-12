@@ -10,8 +10,8 @@ your loot history — account-wide.**
 Ka0s Loot History quietly watches what you pick up, works out the **source** of each drop (a
 mob kill, a container, mail, a trade, the auction house, a quest, a vendor, a craft, a group
 roll, or a Mythic+ chest), and stores it across all your characters. Open a standalone window
-to filter, sort, and group the full history, or switch to **Insights** for source / quality /
-time breakdowns and your top zones and items.
+to filter, sort, and group the full history, or switch to **Insights** for source, vendor-value,
+quality, character, and time breakdowns plus your top zones, items, and most valuable drops.
 
 ---
 
@@ -30,8 +30,10 @@ time breakdowns and your top zones and items.
   column; group by source, zone, character, quality, or day.
 - **Row actions** — hover for the item tooltip, shift-click to link in chat, right-click to link
   or delete.
-- **Insights** — stat cards plus source breakdown, quality distribution, loot-over-time, and top
-  zones / items, scoped by a date range and updated live.
+- **Insights** — stat & highlight cards (records, vendor value, best/richest drop, busiest day)
+  plus breakdowns by source, **vendor value** (by source, over time, top items by value),
+  quality, item type, bound type, character, hour of day, weekday, Mythic+ keystone level, and
+  attribution confidence, with top zones / items — all scoped by a date range and updated live.
 - **Retention** — auto-drop records older than a chosen age, or keep everything forever.
 - **Minimap button** — left-click opens the window, right-click opens settings.
 - **Export-ready** — a forward-compatible `Database:Export()` seam for the v2 AI export feature.

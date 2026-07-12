@@ -50,7 +50,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, `Consume`, exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, filter bar, group-by, footer, LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. |
-| `modules/Analytics.lua` | Insights tab: date-range scoped source/quality/time breakdowns + top zones/items from `Database:Stats`. |
+| `modules/Analytics.lua` | Insights tab: date-range scoped stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`. Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
 ---
