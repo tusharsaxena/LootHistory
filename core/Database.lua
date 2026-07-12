@@ -28,15 +28,17 @@ function Database:Add(record)
 end
 
 -- Filter an arbitrary record array by the filter spec. Fields, all optional (AND-combined):
---   quality (min, >=) · source (string or set table) · char · itemType · mapID
---   · from/to (ts, inclusive) · text (case-insensitive substring on itemName).
---   Empty/nil filter returns all.
+--   quality (number = EXACT match; set table = membership) · source (string or set table)
+--   · char · itemType · mapID · from/to (ts, inclusive) · text (case-insensitive substring
+--   on itemName). Empty/nil filter returns all.
 -- Kept generic (not tied to the live history) so the Browser can filter its test dataset too.
 function Database:QueryList(records, filter)
   filter = filter or {}
-  -- Only a numeric quality is a valid minimum; ignore anything else so a stray filter value
-  -- (e.g. an "all" sentinel) can never crash the comparison below and take the window with it.
-  local minQ = type(filter.quality) == "number" and filter.quality or nil
+  -- A numeric quality matches that quality exactly; a set table matches any listed quality
+  -- (multi-select). Anything else (e.g. a stray "all" sentinel) is ignored so it can never
+  -- crash the comparison below and take the window with it.
+  local qIsSet = type(filter.quality) == "table"
+  local qExact = type(filter.quality) == "number" and filter.quality or nil
   local src = filter.source
   local srcIsSet = type(src) == "table"
   local char = filter.char
@@ -49,7 +51,11 @@ function Database:QueryList(records, filter)
   local out = {}
   for _, r in ipairs(records) do
     local ok = true
-    if minQ and (r.quality or 0) < minQ then ok = false end
+    if qIsSet then
+      if not filter.quality[r.quality] then ok = false end
+    elseif qExact and (r.quality or 0) ~= qExact then
+      ok = false
+    end
     if ok and src then
       if srcIsSet then
         if not src[r.source] then ok = false end

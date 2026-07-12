@@ -219,9 +219,14 @@ local function EnsureMenu()
       b:SetWidth(w)
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW_H)
-      b.fs:SetText(opt.label)
+      -- Optional inline icon (e.g. the class icon for a character) prefixes the label.
+      b.fs:SetText(opt.icon and opt.icon ~= "" and (opt.icon .. " " .. opt.label) or opt.label)
+      -- The active option is gold; otherwise an option may carry its own colour (quality colour,
+      -- class colour) and falls back to near-white.
       if opt.value == dd._value then
         b.fs:SetTextColor(1, 0.82, 0)
+      elseif opt.color then
+        b.fs:SetTextColor(opt.color[1], opt.color[2], opt.color[3])
       else
         b.fs:SetTextColor(0.9, 0.9, 0.9)
       end
@@ -283,14 +288,22 @@ local function MakeDropdown(parent, width)
   return dd
 end
 
+-- Item-quality colour as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
+local function qualityColor(q)
+  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+  if c then return { c.r, c.g, c.b } end
+  return nil
+end
+
 -- Static option sets. "all" is the sentinel for "no filter"; onSelect maps it to nil.
+-- Quality filters an EXACT quality (not "that and above"); each item is tinted its quality colour.
 local QUALITY_OPTIONS = {
   { value = "all", label = "Quality: All" },
-  { value = 1, label = "Common+" },
-  { value = 2, label = "Uncommon+" },
-  { value = 3, label = "Rare+" },
-  { value = 4, label = "Epic+" },
-  { value = 5, label = "Legendary+" },
+  { value = 1, label = "Common",    color = qualityColor(1) },
+  { value = 2, label = "Uncommon",  color = qualityColor(2) },
+  { value = 3, label = "Rare",      color = qualityColor(3) },
+  { value = 4, label = "Epic",      color = qualityColor(4) },
+  { value = 5, label = "Legendary", color = qualityColor(5) },
 }
 local GROUP_OPTIONS = {
   { value = "none", label = "Group: None" },
@@ -383,7 +396,15 @@ local function charOptions()
     local c = r.char
     if c and not seen[c] then
       seen[c] = true
-      items[#items + 1] = { value = c, label = c }
+      -- Carry the class token so the menu item can show the inline class icon + class colour,
+      -- matching the Character column.
+      local icon = (NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
+        and NS.BrowserTable:ClassIconMarkup(r.classFile)) or ""
+      local cc = r.classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[r.classFile]
+      items[#items + 1] = {
+        value = c, label = c, icon = icon,
+        color = cc and { cc.r, cc.g, cc.b } or nil,
+      }
     end
   end
   return withAll("Character: All", items)
@@ -659,7 +680,11 @@ function B:BuildHistory(pane)
   dd.char = MakeDropdown(bar, 150)
   dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
   dd.char:SetValue("all", "Character: All")
-  dd.char.onSelect = function(v) B:SetCharFilter(v == "all" and nil or v) end
+  -- Explicit branch, NOT `v == "all" and nil or v` — that Lua ternary evaluates back to "all"
+  -- (nil is the false-y middle), so selecting "All" would set char = "all" and match no record.
+  dd.char.onSelect = function(v)
+    if v == "all" then B:SetCharFilter(nil) else B:SetCharFilter(v) end
+  end
 
   -- Player scope toggle (row 2, right-aligned): Current player (session default) vs All players.
   -- Shares the char filter with the Character dropdown via SetCharFilter.

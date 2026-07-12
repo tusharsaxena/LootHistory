@@ -56,12 +56,20 @@ test("Database: Query empty filter returns all", function()
   assertEqual(#NS.Database:Query(), 4)
 end)
 
-test("Database: Query by minimum quality (>=)", function()
+test("Database: Query by exact quality", function()
   seed()
   local r = NS.Database:Query({ quality = 3 })
-  assertEqual(#r, 2)
+  assertEqual(#r, 1)
   assertEqual(r[1].itemID, 2)
-  assertEqual(r[2].itemID, 3)
+end)
+
+test("Database: Query by quality set (multi-select membership)", function()
+  seed()
+  -- qualities present: 1, 3, 4, 2 → selecting {2,4} matches itemIDs 3 and 4.
+  local r = NS.Database:Query({ quality = { [2] = true, [4] = true } })
+  assertEqual(#r, 2)
+  assertEqual(r[1].itemID, 3)
+  assertEqual(r[2].itemID, 4)
 end)
 
 test("Database: Query ignores a non-numeric quality (no crash, returns all)", function()
@@ -77,7 +85,7 @@ test("Database: QueryList filters an arbitrary array, not the live history", fun
   }
   assertEqual(#NS.Database:QueryList(recs, {}), 2)
   assertEqual(#NS.Database:QueryList(recs, { source = "KILL" }), 1)
-  assertEqual(#NS.Database:QueryList(recs, { quality = 3 }), 1)
+  assertEqual(#NS.Database:QueryList(recs, { quality = 4 }), 1)
 end)
 
 test("Database: Query filters by itemType", function()

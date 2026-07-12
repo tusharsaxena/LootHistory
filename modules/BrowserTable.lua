@@ -100,6 +100,10 @@ local function classIconMarkup(classFile)
   return ""
 end
 
+-- Exposed for the Browser's Character dropdown, so its menu items carry the same inline class
+-- icon the Character column renders.
+function BrowserTable:ClassIconMarkup(classFile) return classIconMarkup(classFile) end
+
 -- Class-colored, icon-prefixed display value for a looter. Shows the full "Name-Realm" so
 -- same-named characters on different realms stay distinct.
 local function charDisplay(r)
