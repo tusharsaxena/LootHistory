@@ -35,7 +35,7 @@ verified at **every** commit. No SavedVariables migration was triggered; `schema
 | LH-02 | ✅ Closed | Root `CLAUDE.md` reduced to a ~15-line stub (tier + standard link + docs pointer); full brief moved to `docs/AGENT_CONTEXT.md`. | `CLAUDE.md`, `docs/AGENT_CONTEXT.md` |
 | LH-03 | ✅ Closed | `ARCHITECTURE.md` → `docs/ARCHITECTURE.md` (`git mv`); inbound refs repointed. | `docs/ARCHITECTURE.md`, `modules/Browser.lua` |
 | LH-04 | ✅ Closed | `media/logo/` → `media/logos/` (typed subfolder); `LOGO_PATH` repointed. | `media/logos/*`, `settings/Panel.lua` |
-| LH-05 | ✅ Closed | TOC: added `OptionalDeps`, `X-Standard`, `X-Curse-Project-ID: 1530802`; `Category-enUS: Misc`. `X-Wago-ID` intentionally omitted (see §1). | `LootHistory.toc` |
+| LH-05 | ✅ Closed | TOC: added `OptionalDeps`, `X-Standard`, `X-Curse-Project-ID: 1607560`; `Category-enUS: Misc`. `X-Wago-ID` intentionally omitted (see §1). | `LootHistory.toc` |
 | LH-06 | ✅ Closed | Canonical section comments (`# Libraries/Core/Defaults/Locales/Settings/Modules`), Locales split from Defaults; load order preserved (settings before modules, §1.2). | `LootHistory.toc` |
 | LH-07 | ✅ Closed | Added `NS:RunMigrations()` (idempotent; safe no-op when DB absent); called from `InitDB` after AceDB init. TDD: 4 new cases. | `core/Database.lua`, `defaults/Global.lua`, `tests/test_database.lua` |
 | LH-08 | ✅ Closed | Per-instance `FixScroll` rebind (`installAlwaysShownScrollbar`) — bar always shown, gutter always reserved, inert (parked + greyed) when the page fits. | `settings/Panel.lua` |
@@ -198,6 +198,10 @@ the TOC load, or the SavedVariables file — these do. Run on **Retail (Midnight
 ## 7. Residual / follow-ups (not defects)
 
 - **`X-Wago-ID`** — add when the addon is listed on Wago (§1).
+- **`X-Curse-Project-ID` corrected to `1607560`.** The audit inputs (`01`–`05`) recorded `1530802`
+  (a misread of the README CurseForge badge, which actually points at `1607560`); the shipped TOC
+  value was corrected to `1607560` per the author. The frozen `01`–`05` bundle still shows the
+  original (incorrect) value as the historical audit record.
 - **Backlog** now lives in GitHub issues #1–#12 (was `TODO.md`). Notably **#1** (Reset All →
   reset-settings-only) is a behavior change the audit deliberately left out of scope.
 - A **re-audit** (new `audit/<date>/`) should reuse `LH-01…LH-12` and find them all resolved.
