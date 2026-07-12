@@ -20,6 +20,13 @@ Actionable items outside the milestone tracker in `CLAUDE.md`. The post-v0.1.0 b
 
 ## Attribution
 
+- [ ] **Localize deconstruct name-matching.** `Attribution:DeconstructSource` detects
+  disenchant/milling/prospecting (incl. the many "Mass Mill/Prospect" variants) by matching the
+  spell **name** against English substrings ("Disenchant", "Milling", "Mass Mill", "Prospecting",
+  "Mass Prospect"). Non-English clients fall back to the per-expansion spell-**id** table, which
+  misses Mass variants and future ids. For full i18n, derive the localized family names at runtime
+  (e.g. from the base spell ids via `Compat.GetSpellName`) instead of hardcoded English substrings.
+
 - [ ] **Broad recipe-crafting attribution → CRAFT.** Disenchant/mill/prospect are stamped (their
   spell SUCCEEDS right as the mats push, within TTL). General profession crafting is not: a recipe's
   cast time can exceed the 1.5s context TTL, so a stamp at `C_TradeSkillUI.CraftRecipe` call time

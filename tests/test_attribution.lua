@@ -129,19 +129,21 @@ test("Attribution: deconstruct spells map to their own source", function()
   assertEqual(NS.Attribution:Consume(), "PROSPECTING")
 end)
 
-test("Attribution: expansion-specific mill/prospect ids map to the same source", function()
-  resetContext()
-  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 1269575) -- Midnight Milling
-  assertEqual(NS.Attribution:Consume(), "MILLING")
-  resetContext()
-  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 382981)  -- Dragon Isles Milling
-  assertEqual(NS.Attribution:Consume(), "MILLING")
-  resetContext()
-  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 1231127) -- Midnight Prospecting
-  assertEqual(NS.Attribution:Consume(), "PROSPECTING")
-  resetContext()
-  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 302710)  -- Shadowlands Prospecting
-  assertEqual(NS.Attribution:Consume(), "PROSPECTING")
+test("Attribution: DeconstructSource matches ability families by name", function()
+  local A = NS.Attribution
+  assertEqual(A:DeconstructSource(13262, "Disenchant"), "DISENCHANT")
+  assertEqual(A:DeconstructSource(289991, "Disenchanting"), "DISENCHANT")
+  assertEqual(A:DeconstructSource(51005, "Milling"), "MILLING")
+  assertEqual(A:DeconstructSource(382981, "Dragon Isles Milling"), "MILLING")
+  assertEqual(A:DeconstructSource(434926, "Mass Mill Mycobloom"), "MILLING")  -- not in the id table
+  assertEqual(A:DeconstructSource(31252, "Prospecting"), "PROSPECTING")
+  assertEqual(A:DeconstructSource(434018, "Algari Prospecting"), "PROSPECTING")
+  assertEqual(A:DeconstructSource(225904, "Mass Prospect Felslate"), "PROSPECTING") -- not in the id table
+  assertEqual(A:DeconstructSource(12345, "Fireball"), nil)
+  -- id fallback when the name is unavailable (uncached / non-enUS)
+  assertEqual(A:DeconstructSource(1269575, nil), "MILLING")
+  assertEqual(A:DeconstructSource(374627, nil), "PROSPECTING")
+  assertEqual(A:DeconstructSource(99999, nil), nil)
 end)
 
 test("Attribution: deconstruct's own loot window does not clobber its source", function()

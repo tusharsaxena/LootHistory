@@ -67,6 +67,15 @@ function Compat.IsSpellTargeting()
   return type(SpellIsTargeting) == "function" and SpellIsTargeting() or false
 end
 
+-- Localized spell name for a spell id (nil if unavailable). Lets attribution detect deconstruct
+-- casts by name family across the many milling/prospecting/Mass variants. Retail moved to C_Spell.
+function Compat.GetSpellName(spellID)
+  if not spellID then return nil end
+  if C_Spell and C_Spell.GetSpellName then return C_Spell.GetSpellName(spellID) end
+  if type(GetSpellInfo) == "function" then return (GetSpellInfo(spellID)) end
+  return nil
+end
+
 -- Sender + subject for an inbox mail row (nil when the API is absent).
 function Compat.GetMailHeader(mailIndex)
   if type(GetInboxHeaderInfo) == "function" and mailIndex then

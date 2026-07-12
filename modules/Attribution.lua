@@ -17,33 +17,40 @@ local Attribution = NS.Attribution
 local State = NS.State
 local Constants = NS.Constants
 
--- Deconstruct abilities: spell id → its own source. Their materials arrive through a loot window
--- whose Item source GUID would otherwise resolve to CONTAINER (see OnLootOpened), so the source
--- set is also used to stop that window from clobbering the deconstruct stamp.
+-- Deconstruct abilities (Disenchant / Milling / Prospecting) each stamp their OWN source. Their
+-- materials arrive through a loot window whose Item source GUID would otherwise resolve to CONTAINER
+-- (see OnLootOpened), so DECONSTRUCT_SOURCE also stops that window from clobbering the stamp.
 --
--- Milling and Prospecting are no longer single global spells — modern retail splits them into
--- generic + expansion-specific variants, so every known id maps to the same source. If a mill/
--- prospect ever records as OTHER, the `/lh debug` "cast: player spell=…" line reveals the missing
--- id to add here.
-local DECONSTRUCT = {
-  -- Disenchant (Enchanting) — one spell across eras.
-  [13262]   = "DISENCHANT",
-  -- Milling (Inscription).
-  [51005]   = "MILLING",       -- generic / classic
-  [382981]  = "MILLING",       -- Dragon Isles
-  [1269575] = "MILLING",       -- Midnight
-  -- Prospecting (Jewelcrafting).
-  [31252]   = "PROSPECTING",   -- base / classic (generic)
-  [1231127] = "PROSPECTING",   -- Midnight
-  [374627]  = "PROSPECTING",   -- Dragon Isles
-  [302710]  = "PROSPECTING",   -- Shadowlands
-  [382980]  = "PROSPECTING",   -- Outland
-  [382979]  = "PROSPECTING",   -- Northrend
-  [382975]  = "PROSPECTING",   -- Legion
-  [382977]  = "PROSPECTING",   -- Pandaria
+-- Detection is primarily by spell NAME family (see DeconstructSource): modern retail has split
+-- Milling/Prospecting into generic + per-expansion + per-herb/ore "Mass Mill/Prospect" spells — far
+-- too many ids (and growing every patch) to enumerate — but they all share a name family. The id
+-- table below is a locale-independent fallback for the primary per-expansion spells when the name is
+-- unavailable (uncached). Name matching is enUS; non-English clients rely on the id fallback
+-- (localization is a TODO — see TODO.md).
+local DECONSTRUCT_ID = {
+  [13262] = "DISENCHANT", [289991] = "DISENCHANT",
+  -- Milling: generic + per-expansion
+  [51005] = "MILLING", [382981] = "MILLING", [434913] = "MILLING", [1269575] = "MILLING",
+  -- Prospecting: base + per-expansion
+  [31252] = "PROSPECTING", [434018] = "PROSPECTING", [1231127] = "PROSPECTING",
+  [374627] = "PROSPECTING", [302710] = "PROSPECTING", [382980] = "PROSPECTING",
+  [382979] = "PROSPECTING", [382971] = "PROSPECTING", [382977] = "PROSPECTING",
+  [382973] = "PROSPECTING", [382975] = "PROSPECTING", [382972] = "PROSPECTING",
 }
-local DECONSTRUCT_SOURCE = {}
-for _, s in pairs(DECONSTRUCT) do DECONSTRUCT_SOURCE[s] = true end
+-- The deconstruct source names, for the OnLootOpened guard.
+local DECONSTRUCT_SOURCE = { DISENCHANT = true, MILLING = true, PROSPECTING = true }
+
+-- Map a completed player cast to a deconstruct source, or nil. Name-family match first (covers
+-- base / per-expansion / "Mass Mill|Prospect" / future variants, enUS), then the per-expansion id
+-- fallback (locale-independent). Testable without events.
+function Attribution:DeconstructSource(spellID, name)
+  if name and name ~= "" then
+    if name:find("Disenchant") then return "DISENCHANT" end
+    if name:find("Milling") or name:find("^Mass Mill") then return "MILLING" end
+    if name:find("Prospecting") or name:find("^Mass Prospect") then return "PROSPECTING" end
+  end
+  return DECONSTRUCT_ID[spellID]
+end
 
 -- Compact one-line summary of a sourceDetail table, for the debug trace. Only called inside a
 -- `NS.State.debug` guard, so it never allocates when debug is off.
@@ -198,15 +205,16 @@ function Attribution:OnContainerItemUse(bag, slot)
   end
 end
 
--- Deconstruct abilities turn an item into materials that arrive right when the cast SUCCEEDS (so
--- the stamp is fresh within TTL). Each maps to its OWN source (Disenchant/Milling/Prospecting)
--- rather than a generic CRAFT (see the DECONSTRUCT table up top). Only Disenchant's id (13262) is
--- confirmed in-client; every player cast is logged at debug to confirm the current mill/prospect ids.
+-- Deconstruct abilities turn an item into materials that arrive right when the cast SUCCEEDS (so the
+-- stamp is fresh within TTL). Each maps to its OWN source via DeconstructSource (name family + id
+-- fallback). Every player cast is logged at debug (spell id + name) to spot any missed variant.
 function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
   if unit ~= "player" then return end
-  local src = DECONSTRUCT[spellID]
+  local name = NS.Compat.GetSpellName(spellID)
+  local src = self:DeconstructSource(spellID, name)
   if NS.State.debug and NS.Debug then
-    NS.Debug("cast: player spell=%s deconstruct=%s", tostring(spellID), tostring(src or false))
+    NS.Debug("cast: player spell=%s name=%s deconstruct=%s",
+      tostring(spellID), tostring(name), tostring(src or false))
   end
   if src then
     self:Stamp(Constants.SourceType[src], nil, Constants.Confidence.CERTAIN, "deconstruct:" .. src)
