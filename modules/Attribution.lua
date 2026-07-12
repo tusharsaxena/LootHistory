@@ -104,6 +104,8 @@ function Attribution:OnChallengeModeCompleted()
 end
 
 -- Peripheral (non-loot-window) sources. Each stamps just before its resulting self-loot line.
+-- Only VENDOR/MAIL/TRADE/QUEST are wired here; AH/CRAFT/ROLL are planned (no stamper yet) and are
+-- hidden from the mute list via Constants.SOURCE_IMPLEMENTED. See TECHNICAL_DESIGN §4.4.
 function Attribution:StampVendor()
   self:Stamp(Constants.SourceType.VENDOR, nil, Constants.Confidence.CERTAIN)
 end

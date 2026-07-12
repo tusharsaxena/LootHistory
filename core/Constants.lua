@@ -21,6 +21,16 @@ C.SourceLabel = {
   TRADE = "Trade", MAIL = "Mail", AH = "Auction", VENDOR = "Vendor", CRAFT = "Craft", OTHER = "Other",
 }
 
+-- Sources with a live capture path today. AH/CRAFT/ROLL are specified in TECHNICAL_DESIGN §4.4
+-- but have no stamper yet, so they can never be recorded; they are hidden from the mute list
+-- until wired. VENDOR/MAIL/TRADE do have stampers (they depend on the flow emitting a
+-- CHAT_MSG_LOOT self-line — see reviews/2026-07-11/03_SMOKE_TESTS.md §F-001 for in-client
+-- verification). The SourceType enum stays whole (export contract); only the option lists scope.
+C.SOURCE_IMPLEMENTED = {
+  KILL = true, CONTAINER = true, MPLUS = true, QUEST = true,
+  VENDOR = true, MAIL = true, TRADE = true, OTHER = true,
+}
+
 -- Attribution confidence.
 C.Confidence = { CERTAIN = "CERTAIN", INFERRED = "INFERRED" }
 
@@ -49,10 +59,13 @@ C.RETENTION_OPTIONS = {
   { value = 0,   label = "Always" },
 }
 
--- Per-source mute options, derived from the source order.
+-- Per-source mute options, derived from the source order. Only sources with a live capture path
+-- (SOURCE_IMPLEMENTED) are offered — an unreachable bucket would be a dead checkbox in the panel.
 C.SOURCE_OPTIONS = {}
 for _, s in ipairs(C.SourceOrder) do
-  C.SOURCE_OPTIONS[#C.SOURCE_OPTIONS + 1] = { value = s, label = C.SourceLabel[s] }
+  if C.SOURCE_IMPLEMENTED[s] then
+    C.SOURCE_OPTIONS[#C.SOURCE_OPTIONS + 1] = { value = s, label = C.SourceLabel[s] }
+  end
 end
 
 -- Convenience aliases.

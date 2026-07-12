@@ -8,7 +8,13 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceType.OTHER, "OTHER")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
   assertEqual(#NS.Constants.SourceOrder, 11)
-  assertEqual(#NS.Constants.SOURCE_OPTIONS, 11)
+  -- Enum stays whole (export contract), but the mute options are scoped to sources with a live
+  -- capture path (F-001): AH/CRAFT/ROLL have no stamper yet and are hidden.
+  assertEqual(#NS.Constants.SOURCE_OPTIONS, 8)
+  local muteable = {}
+  for _, o in ipairs(NS.Constants.SOURCE_OPTIONS) do muteable[o.value] = true end
+  assertFalse(muteable.AH); assertFalse(muteable.CRAFT); assertFalse(muteable.ROLL)
+  assertTrue(muteable.KILL); assertTrue(muteable.VENDOR)
 end)
 
 test("Util: PlayerKey is Name-Realm", function()

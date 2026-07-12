@@ -268,14 +268,16 @@ The context is intentionally **not** cleared after one consume: a `LOOT_OPENED` 
 | `CONTAINER` | `LOOT_OPENED` (Item/GameObject GUID) | lockboxes, chests, nodes |
 | `MAIL` | `MAIL_INBOX_UPDATE` + `TakeInboxItem`/`AutoLootMailItem` hooked | stamp just before taking attachment |
 | `TRADE` | `TRADE_ACCEPT_UPDATE` → complete (`UI_INFO_MESSAGE` = `ERR_TRADE_COMPLETE`) | |
-| `AH` | `AUCTION_HOUSE_PURCHASE_COMPLETED` / `C_AuctionHouse` won events | |
+| `AH` | `AUCTION_HOUSE_PURCHASE_COMPLETED` / `C_AuctionHouse` won events | **planned** — no stamper yet; hidden from the mute list (`Constants.SOURCE_IMPLEMENTED`) |
 | `VENDOR` | `MERCHANT_SHOW` open + buy (`hooksecurefunc("BuyMerchantItem")` / money-decrease heuristic) | per-source-excludable (noisy) |
 | `QUEST` | `QUEST_TURNED_IN` / `QUEST_LOOT_RECEIVED` | reward items |
-| `CRAFT` | `LOOT_ITEM_PUSHED_SELF*` while `TradeSkillUI`/craft active, or "You create" string | per-source-excludable |
-| `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | group loot |
+| `CRAFT` | `LOOT_ITEM_PUSHED_SELF*` while `TradeSkillUI`/craft active, or "You create" string | **planned** — no stamper yet; hidden from the mute list |
+| `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | **planned** — no stamper yet; hidden from the mute list |
 | `OTHER` | (fallback) no fresh context | `INFERRED` |
 
 Each stamper is a small handler in `Attribution.lua` registered via AceEvent. Merchant/trade/mail use `hooksecurefunc` on the take/buy calls so the stamp lands immediately before the resulting `CHAT_MSG_LOOT`.
+
+> **Coverage honesty (v0.1.0):** only sources with a live stamper are exposed in the UI. `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list (`Constants.SOURCE_OPTIONS`) so unreachable buckets aren't dead checkboxes; the Browser Source dropdown already self-scopes from live data. `AH`/`CRAFT`/`ROLL` are **planned** (marked above) — the `SourceType` enum stays whole (export contract) but they can't be recorded until stamped. `VENDOR`/`MAIL`/`TRADE` have stampers but assume the flow emits a `CHAT_MSG_LOOT` self-line; that assumption is pending in-client verification (`reviews/2026-07-11/03_SMOKE_TESTS.md §F-001`). If a flow is confirmed silent, drop it from `SOURCE_IMPLEMENTED` and track BAG_UPDATE-diff capture as backlog.
 
 > **Schema v4:** the per-source *name* (`sourceName`, the "From" column) was retired — it was blank for the majority of real loot (containers, delves, pushed items) and the combat-log name cache that backed `KILL` names was removed with it. Stampers now set `source`/`sourceDetail` only. See the `core/Database.lua` v4 migration.
 
