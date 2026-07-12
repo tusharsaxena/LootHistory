@@ -85,12 +85,23 @@ function S:WritePath(root, path, value)
   node[parts[#parts]] = value
 end
 
+-- Deep-copy table values so the write-path never stores (or hands out) a live reference to a
+-- schema `default` table. Without this, `S:Set(path, row.default)` on a reset would alias the DB
+-- to the shared default table (e.g. settings.excludedSources = {}), so any in-place mutation of
+-- the stored set would silently poison the default for the rest of the session.
+local function deepcopy(v)
+  if type(v) ~= "table" then return v end
+  local out = {}
+  for k, val in pairs(v) do out[k] = deepcopy(val) end
+  return out
+end
+
 -- Single write seam. Panel widgets and slash `set` both route through here.
 function S:Set(path, value)
   local row = S:FindRow(path)
   if not row then return false, "unknown path: " .. tostring(path) end
   if row.validate and not row.validate(value) then return false, "invalid value" end
-  S:WritePath(NS.db.global, path, value)
+  S:WritePath(NS.db.global, path, deepcopy(value))
   if row.onChange then row.onChange(value) end
   return true
 end
@@ -101,7 +112,7 @@ end
 
 function S:Default(path)
   local row = S:FindRow(path)
-  return row and row.default
+  return row and deepcopy(row.default)
 end
 
 -- Boot validation: every schema path must resolve against the defaults table.

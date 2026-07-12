@@ -114,3 +114,17 @@ test("Schema: nested minimap path writes", function()
   assertTrue(ok)
   assertEqual(NS.db.global.minimap.hide, true)
 end)
+
+test("Schema: reset does not alias the table-typed default (F-003)", function()
+  local def = NS.Schema:Default("settings.excludedSources")
+  NS.Schema:Set("settings.excludedSources", def)
+  -- Mutating the stored set in place must not poison the schema default.
+  NS.db.global.settings.excludedSources.KILL = true
+  local fresh = NS.Schema:Default("settings.excludedSources")
+  assertTrue(fresh.KILL == nil)
+  -- Two Default() calls must not share identity either.
+  assertFalse(NS.Schema:Default("settings.excludedSources")
+    == NS.Schema:Default("settings.excludedSources"))
+  -- Restore shared DB state for tests that follow (they mute by excludedSources).
+  NS.Schema:Set("settings.excludedSources", {})
+end)
