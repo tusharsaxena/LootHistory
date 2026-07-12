@@ -124,10 +124,10 @@ test("Collector: end-to-end drops quest items when the filter is on", function()
   assertEqual(NS.Database:Count(), before + 1)
 end)
 
-test("Schema: excludeQuestItems row exists, defaults false, settable", function()
-  assertEqual(NS.Schema:Default("settings.excludeQuestItems"), false)
-  assertEqual(NS.defaults.global.settings.excludeQuestItems, false)
-  assertTrue(NS.Schema:Set("settings.excludeQuestItems", true))
-  assertEqual(NS.Schema:Get("settings.excludeQuestItems"), true)
-  NS.Schema:Set("settings.excludeQuestItems", false)   -- restore
+test("Schema: excludeQuestItems row exists, defaults true, settable", function()
+  assertEqual(NS.Schema:Default("settings.excludeQuestItems"), true)
+  assertEqual(NS.defaults.global.settings.excludeQuestItems, true)
+  assertTrue(NS.Schema:Set("settings.excludeQuestItems", false))
+  assertEqual(NS.Schema:Get("settings.excludeQuestItems"), false)
+  NS.Schema:Set("settings.excludeQuestItems", true)   -- restore to default
 end)
