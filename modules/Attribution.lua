@@ -20,10 +20,27 @@ local Constants = NS.Constants
 -- Deconstruct abilities: spell id → its own source. Their materials arrive through a loot window
 -- whose Item source GUID would otherwise resolve to CONTAINER (see OnLootOpened), so the source
 -- set is also used to stop that window from clobbering the deconstruct stamp.
+--
+-- Milling and Prospecting are no longer single global spells — modern retail splits them into
+-- generic + expansion-specific variants, so every known id maps to the same source. If a mill/
+-- prospect ever records as OTHER, the `/lh debug` "cast: player spell=…" line reveals the missing
+-- id to add here.
 local DECONSTRUCT = {
-  [13262] = "DISENCHANT",   -- Disenchant (Enchanting)
-  [51005] = "MILLING",      -- Milling (Inscription)
-  [31252] = "PROSPECTING",  -- Prospecting (Jewelcrafting)
+  -- Disenchant (Enchanting) — one spell across eras.
+  [13262]   = "DISENCHANT",
+  -- Milling (Inscription).
+  [51005]   = "MILLING",       -- generic / classic
+  [382981]  = "MILLING",       -- Dragon Isles
+  [1269575] = "MILLING",       -- Midnight
+  -- Prospecting (Jewelcrafting).
+  [31252]   = "PROSPECTING",   -- base / classic (generic)
+  [1231127] = "PROSPECTING",   -- Midnight
+  [374627]  = "PROSPECTING",   -- Dragon Isles
+  [302710]  = "PROSPECTING",   -- Shadowlands
+  [382980]  = "PROSPECTING",   -- Outland
+  [382979]  = "PROSPECTING",   -- Northrend
+  [382975]  = "PROSPECTING",   -- Legion
+  [382977]  = "PROSPECTING",   -- Pandaria
 }
 local DECONSTRUCT_SOURCE = {}
 for _, s in pairs(DECONSTRUCT) do DECONSTRUCT_SOURCE[s] = true end

@@ -122,10 +122,25 @@ test("Attribution: deconstruct spells map to their own source", function()
   NS.Attribution:OnSpellSucceeded(nil, "player", "c", 13262) -- Disenchant
   assertEqual(NS.Attribution:Consume(), "DISENCHANT")
   resetContext()
-  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 51005) -- Milling
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 51005) -- Milling (generic)
   assertEqual(NS.Attribution:Consume(), "MILLING")
   resetContext()
-  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 31252) -- Prospecting
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 31252) -- Prospecting (generic)
+  assertEqual(NS.Attribution:Consume(), "PROSPECTING")
+end)
+
+test("Attribution: expansion-specific mill/prospect ids map to the same source", function()
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 1269575) -- Midnight Milling
+  assertEqual(NS.Attribution:Consume(), "MILLING")
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 382981)  -- Dragon Isles Milling
+  assertEqual(NS.Attribution:Consume(), "MILLING")
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 1231127) -- Midnight Prospecting
+  assertEqual(NS.Attribution:Consume(), "PROSPECTING")
+  resetContext()
+  NS.Attribution:OnSpellSucceeded(nil, "player", "c", 302710)  -- Shadowlands Prospecting
   assertEqual(NS.Attribution:Consume(), "PROSPECTING")
 end)
 

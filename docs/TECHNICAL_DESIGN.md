@@ -274,7 +274,7 @@ The context is intentionally **not** cleared after one consume: a `LOOT_OPENED` 
 | `AH` | Auction-House mail: the `TakeInboxItem` hook checks the mail sender/subject (`Compat.IsAuctionHouseMail`) and stamps `AH` instead of `MAIL` | won/returned auction items arrive by mail |
 | `VENDOR` | `MERCHANT_SHOW` open + buy (`hooksecurefunc("BuyMerchantItem")` / money-decrease heuristic) | per-source-excludable (noisy) |
 | `QUEST` | `GetQuestReward` hook (client turn-in call, stamps before the reward pushes) + `QUEST_TURNED_IN` event (questID detail) | reward items; the event alone fires too late to catch the reward loot line |
-| `DISENCHANT` / `MILLING` / `PROSPECTING` | player `UNIT_SPELLCAST_SUCCEEDED` for the deconstruct spell (13262 / 51005 / 31252) | each deconstruct ability stamps its **own** source, not a generic craft bucket |
+| `DISENCHANT` / `MILLING` / `PROSPECTING` | player `UNIT_SPELLCAST_SUCCEEDED` for a deconstruct spell (Disenchant is 13262; milling/prospecting have generic + per-expansion ids — see the `DECONSTRUCT` table in `Attribution.lua`) | each deconstruct ability stamps its **own** source, not a generic craft bucket; the deconstruct's own loot window is kept from overwriting it |
 | `CRAFT` | (reserved) | **planned** — broad recipe crafting deferred; a recipe's cast time can exceed the TTL (see TODO.md) |
 | `ROLL` | `START_LOOT_ROLL` / `LOOT_ROLL_WON` | **planned** — no stamper yet; hidden from the mute list |
 | `OTHER` | (fallback) no fresh context | `INFERRED` |
