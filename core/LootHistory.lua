@@ -6,6 +6,8 @@ NS.addon = addon
 NS.bus = addon   -- closed message bus: SendMessage / RegisterMessage
 
 function addon:OnInitialize()
+  local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+  if LSM then LSM:Register("font", "JetBrains Mono", NS.Constants.FONT_MONO) end
   NS:InitDB()
   if NS.Schema and NS.Schema.Register then NS.Schema:Register() end
   if NS.Slash and NS.Slash.Register then NS.Slash:Register() end

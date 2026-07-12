@@ -39,6 +39,10 @@ C.SOURCE_IMPLEMENTED = {
 -- Attribution confidence.
 C.Confidence = { CERTAIN = "CERTAIN", INFERRED = "INFERRED" }
 
+-- Vendored monospace font (JetBrains Mono, OFL) used by the debug console. Path is the in-game
+-- addon-relative form; the file lives at media/fonts/ in the repo.
+C.FONT_MONO = "Interface\\AddOns\\LootHistory\\media\\fonts\\JetBrainsMono-Regular.ttf"
+
 -- Seconds a stamped loot context stays fresh before CHAT_MSG_LOOT falls back to OTHER.
 C.CONTEXT_TTL = 1.5
 
