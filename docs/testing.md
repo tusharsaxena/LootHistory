@@ -51,7 +51,7 @@ See [module-map.md](module-map.md) for the source files behind each suite and [c
 
 ## Lint
 
-`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "reviews/", "_dev/", "tests/", "audit/" }` (vendored libraries, review/audit bundles, and the tests themselves are not linted). To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
+`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "_dev/", "tests/" }` (vendored libraries and the tests themselves are not linted; the `docs/reviews/` and `docs/audits/` bundles are Markdown-only, so `luacheck` never scans them). To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
 
 ## The green gate
 

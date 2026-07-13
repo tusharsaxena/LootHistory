@@ -18,8 +18,8 @@ structural or convention decision — fetch the repo when the answer isn't obvio
 > **Deviation rule (MUST).** If you find — or are about to introduce — anything that deviates from the
 > standard, **stop and flag it to the user.** Never silently conform, and never silently deviate. The
 > user decides whether it is a deviation to fix **in this addon**, or a case where the **standard's own
-> definition** should change. Record the resolution (a dated `audit/<date>/` bundle, or a note in the
-> relevant `docs/` file).
+> definition** should change. Record the resolution (a dated `docs/audits/<date>/` bundle, or a note in
+> the relevant `docs/` file).
 
 ## Full agent context lives in `docs/`
 

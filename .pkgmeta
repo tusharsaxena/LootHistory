@@ -6,9 +6,7 @@ package-as: LootHistory
 ignore:
   - .luacheckrc
   - .gitignore
-  - reviews
   - docs
   - tests
-  - audit
   - _dev
   - "*.bak"

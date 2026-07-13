@@ -36,7 +36,7 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   repo when unsure; run `wow-addon:standards-audit`) before structural/convention changes. If anything
   deviates from the standard, **stop and flag it to the user** — never silently conform or silently
   deviate. The user decides whether to fix the deviation here or change the standard's own definition;
-  record the resolution (a dated `audit/<date>/` bundle or a `docs/` note).
+  record the resolution (a dated `docs/audits/<date>/` bundle or a `docs/` note).
 - **Account-wide storage is load-bearing.** All history + settings live in `LootHistoryDB.global`
   (`char` is a column, not separate storage). Switching to per-character profiles is a schema + query
   rewrite. See [saved-variables.md](saved-variables.md).
