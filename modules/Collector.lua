@@ -3,7 +3,7 @@ NS.Collector = NS.Collector or {}
 local Collector = NS.Collector
 
 -- Owns the acquisition path: CHAT_MSG_LOOT self-filter, quality gate, record build + write
--- (see docs/TECHNICAL_DESIGN §5).
+-- (see docs/attribution.md).
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (standard §9.7).
 local enabled, qualityThreshold, excludedSources, excludeQuestItems = true, 1, {}, false

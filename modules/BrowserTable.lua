@@ -4,7 +4,7 @@ local BrowserTable = NS.BrowserTable
 local C = NS.Constants
 
 -- Virtualized pooled-row table over Database:Query — filter -> group -> sort -> slice -> bind
--- (see docs/TECHNICAL_DESIGN §7). Grouping lands in 3.4.
+-- (see docs/browser.md).
 
 local ROW_H = 18
 local HEADER_H = 20

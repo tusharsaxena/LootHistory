@@ -27,7 +27,7 @@ C.SourceLabel = {
 }
 
 -- Sources with a live capture path today. ROLL and CRAFT have no stamper yet (ROLL is specified in
--- TECHNICAL_DESIGN §4.4; CRAFT is reserved for broad recipe crafting — a TODO), so they are hidden
+-- docs/attribution.md; CRAFT is reserved for broad recipe crafting — a TODO), so they are hidden
 -- from the mute list until wired. Deconstruct abilities stamp their own source; AH is stamped from
 -- Auction-House mail. The SourceType enum stays whole (export contract); only the option lists scope.
 C.SOURCE_IMPLEMENTED = {

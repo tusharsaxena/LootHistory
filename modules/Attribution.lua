@@ -3,7 +3,7 @@ NS.Attribution = NS.Attribution or {}
 local Attribution = NS.Attribution
 
 -- Source-resolution engine. Stamps a short-lived loot context from peripheral events and
--- consumes it on CHAT_MSG_LOOT (see docs/TECHNICAL_DESIGN §4).
+-- consumes it on CHAT_MSG_LOOT (see docs/attribution.md).
 --
 -- Sources are resolved from the loot GUID's *kind* (Creature → KILL, GameObject → CONTAINER/
 -- MPLUS, Item → CONTAINER) plus peripheral stampers (vendor/mail/trade/quest/container/craft). The
@@ -184,7 +184,7 @@ end
 
 -- Peripheral (non-loot-window) sources. Each stamps just before its resulting self-loot line.
 -- KILL/CONTAINER/MPLUS/QUEST/VENDOR/MAIL/TRADE/CRAFT are wired; AH/ROLL are planned (no stamper
--- yet) and hidden from the mute list via Constants.SOURCE_IMPLEMENTED. See TECHNICAL_DESIGN §4.4.
+-- yet) and hidden from the mute list via Constants.SOURCE_IMPLEMENTED. See docs/attribution.md.
 function Attribution:StampVendor()
   self:Stamp(Constants.SourceType.VENDOR, nil, Constants.Confidence.CERTAIN, "vendor-buy")
 end

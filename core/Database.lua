@@ -117,7 +117,7 @@ function Database:Query(filter)
 end
 
 -- Plain, metatable-free copy of the (optionally filtered) history — the forward-compatible
--- v2 export contract (TECHNICAL_DESIGN §13). Field shape is stable except for schema bumps
+-- v2 export contract (see docs/data-model.md). Field shape is stable except for schema bumps
 -- (v4 dropped the retired `sourceName`).
 function Database:Export(filter)
   local out = {}
@@ -136,7 +136,7 @@ end
 
 -- Aggregate the (optionally filtered) history in one O(n) pass. Returns count maps, value maps,
 -- per-character/type/bound/time breakdowns, pre-sorted top lists, and totals/highlights — the
--- struct all Insights widgets consume (TD §8). "Value" is vendor value: sellPrice × quantity
+-- struct all Insights widgets consume (see docs/browser.md). "Value" is vendor value: sellPrice × quantity
 -- (captured at loot time; not market price). New fields are additive.
 function Database:Stats(filter)
   local records = self:Query(filter or {})

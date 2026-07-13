@@ -1,6 +1,6 @@
 local addonName, NS = ...
 
--- Account-wide defaults. History and settings both live under `global` (see TECHNICAL_DESIGN §3.2).
+-- Account-wide defaults. History and settings both live under `global` (see docs/saved-variables.md).
 NS.defaults = NS.defaults or {}
 NS.defaults.global = {
   -- Version stamp for the persisted DB. 1.0.0 ships as the initial shape (1). NS:RunMigrations

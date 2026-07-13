@@ -4,7 +4,7 @@ local Analytics = NS.Analytics
 
 -- Insights tab: stat/highlight cards + a stack of breakdown sections (source, value, quality,
 -- item type, bound type, per-character, time-of-day/week, M+ keystone, confidence) plus top
--- zones/items/value lists, scoped by a date-range selector (docs/UX_DESIGN §4, TD §8). Everything
+-- zones/items/value lists, scoped by a date-range selector (see docs/browser.md). Everything
 -- is driven off a single Database:Stats(filter) pass; widgets are pooled and re-laid-out on resize.
 -- "Value" is vendor value (sellPrice × quantity), not market price.
 

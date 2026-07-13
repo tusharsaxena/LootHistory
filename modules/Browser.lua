@@ -11,7 +11,7 @@ local DBIcon                          -- LibDBIcon-1.0, resolved lazily in Setup
 -- flat background + centered gold title + small red close glyph. Built from stock Blizzard
 -- textures only (no ElvUI dependency).
 -- TODO (post-1.0.0): make this skin user-configurable (border color/size, background color/
--- alpha, font) via settings, driven off this table. See docs/EXECUTION_PLAN.md backlog.
+-- alpha, font) via settings, driven off this table. Tracked as a GitHub issue.
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 -- Inline check glyph for selected multi-select menu items (the default font has no ✓ glyph,
 -- so, like the sort arrows, it's texture markup sized to the line height).
@@ -80,7 +80,7 @@ end
 -- persisted directly to NS.db.global by the Browser — they are intentionally NOT Schema rows, so
 -- they don't route through Schema:Set. The "every mutation goes through Schema:Set" convention
 -- (CLAUDE §2) covers user settings only; §6A window geometry and the saved table view are
--- carved out. See docs/AGENT_CONTEXT.md.
+-- carved out. See docs/agent-context.md.
 
 local function SaveWindow()
   if not frame then return end

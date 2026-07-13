@@ -2,7 +2,7 @@
 
 Engineering reference for the addon: module map, data model, message bus, slash surface,
 event wiring, taint posture, and standards compliance (the standalone window follows §6A).
-For product scope see `docs/REQUIREMENTS.md`; for design depth, `docs/TECHNICAL_DESIGN.md`.
+For scope see [`scope.md`](scope.md); for the working brief and the full doc index see [`agent-context.md`](agent-context.md). Topic docs sit alongside this file in `docs/`.
 
 ---
 
@@ -74,7 +74,7 @@ back fast table ops.
 ```
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
-  Switching that is a schema + query rewrite; see AGENT_CONTEXT.md "Do not change without reason".
+  Switching that is a schema + query rewrite; see [`agent-context.md`](agent-context.md) "Do not change without reason".
 - `schemaVersion` is a version stamp on the DB; 1.0.0 ships the initial shape (**1**).
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
   before any history read) and normalizes `schemaVersion` — the idempotent seam future schema
@@ -202,7 +202,7 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Standards compliance
 
-No deviations from the Ka0s standard (also recorded in `REQUIREMENTS.md §8` and `AGENT_CONTEXT.md`).
+No deviations from the Ka0s standard (also recorded in [`scope.md`](scope.md) and [`agent-context.md`](agent-context.md)).
 Two surface-specific notes:
 
 1. **The standalone browser window follows §6A** (Standalone windows / data browsers): a non-secure
@@ -237,4 +237,4 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 - **AI export is a seam only** in v1.0.0 — `Database:Export()` exists; the companion export
   feature ships in v2.
 
-See `docs/EXECUTION_PLAN.md` → Backlog for the full post-1.0.0 list.
+See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full post-1.0.0 backlog.
