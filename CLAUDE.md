@@ -8,6 +8,19 @@ English only. Ace3 throughout.
 
 This addon adheres to the **Ka0s WoW Addon Standard** — <https://github.com/tusharsaxena/WowAddonStandards>.
 
+## Standards compliance
+
+The **Ka0s WoW Addon Standard** (link above) is the **living source of truth** for this repo's
+structure, conventions, TOC/packaging, saved-variables, and UI patterns. Consult it before any
+structural or convention decision — fetch the repo when the answer isn't obvious, and run the
+`wow-addon:standards-audit` skill to audit the whole addon against it.
+
+> **Deviation rule (MUST).** If you find — or are about to introduce — anything that deviates from the
+> standard, **stop and flag it to the user.** Never silently conform, and never silently deviate. The
+> user decides whether it is a deviation to fix **in this addon**, or a case where the **standard's own
+> definition** should change. Record the resolution (a dated `audit/<date>/` bundle, or a note in the
+> relevant `docs/` file).
+
 ## Full agent context lives in `docs/`
 
 This root file is a stub (per standard §15.2). Read these before touching code:
@@ -21,6 +34,9 @@ This root file is a stub (per standard §15.2). Read these before touching code:
 
 ## Hard rules (full text in [docs/agent-context.md](docs/agent-context.md))
 
+- **Flag standards deviations.** If anything deviates from the Ka0s Standard, surface it to the user
+  rather than silently conforming or silently deviating — the user decides deviation-vs-standard-change.
+  See **Standards compliance** above.
 - **Never auto-stage / commit / push.** The user controls `git add` / `commit` / `push`. Leave edits
   in the working tree; don't touch the index. (`/wow-addon:commit` is the one explicit exception.)
 - **Never bump the version** (TOC `## Version`, `NS.version`, README badge/history) without an
