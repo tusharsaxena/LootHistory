@@ -88,7 +88,7 @@ matching) has an id-based fallback; see [attribution.md](attribution.md).
 Headless harness under `tests/` runs with **`lua tests/run.lua`** (a `wow_mock.lua` stubs the WoW API
 + a `(message,target)`-keyed bus so receivers are testable; it deliberately omits several `C_*` APIs
 so the compat presence-guards are exercised). Lint with **`luacheck .`**. Both must be green before
-committing (124 tests as of 1.1.0). Details: [testing.md](testing.md). Manual in-game validation:
+committing (152 tests). Details: [testing.md](testing.md). Manual in-game validation:
 [smoke-tests.md](smoke-tests.md).
 
 ## Module publishing pattern

@@ -2,6 +2,7 @@ local addonName, NS = ...
 NS.Browser = NS.Browser or {}
 local B = NS.Browser
 local frame
+local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
 local LDB_NAME = "Ka0s Loot History"  -- LibDataBroker object + LibDBIcon registration key
 local minimapObject                   -- the LDB launcher, created once on first Enable
@@ -662,13 +663,13 @@ end
 function B:SaveView()
   if NS.db and NS.db.global then
     NS.db.global.savedView = self:CaptureView()
-    print(NS.PREFIX .. " view saved as default.")
+    print("view saved as default.")
   end
 end
 function B:ResetView()
   if NS.db and NS.db.global then NS.db.global.savedView = nil end
   self:ApplyView(STOCK_VIEW, "current")
-  print(NS.PREFIX .. " view reset to stock defaults.")
+  print("view reset to stock defaults.")
 end
 
 -- Clear returns the filters/group/sort to the saved default (or stock), and the player scope

@@ -59,6 +59,7 @@ dofile("tests/test_database.lua")
 dofile("tests/test_stats.lua")
 dofile("tests/test_browsertable.lua")
 dofile("tests/test_debuglog.lua")
+dofile("tests/test_slash.lua")
 
 -- --- run ---
 local passed, failed = 0, 0

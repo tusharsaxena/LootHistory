@@ -38,7 +38,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
-| `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. |
+| `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. Also the shared **secret-safe chat printer** — `NS.Print` (+ `IsConcatSafe`/`SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua`. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
 | `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`, retention. `ActiveHistory` is the read seam that swaps in the test dataset (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `settings`, `minimap`. |
@@ -153,6 +153,7 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | *(none)* | Print the help / command index |
 | `show` / `hide` / `toggle` | Open / close / toggle the window |
 | `config` | Open the Settings panel |
+| `version` | Print the addon version (`[LH] v<version>`, read from TOC metadata) |
 | `get <path>` | Print a setting value |
 | `set <path> <value>` | Set a setting value |
 | `list` | List all settings |

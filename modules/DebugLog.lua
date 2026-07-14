@@ -2,6 +2,7 @@ local addonName, NS = ...
 NS.DebugLog = NS.DebugLog or {}
 local D = NS.DebugLog
 local frame
+local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
 -- Plain-text mirror of the log (no colour codes), for the Copy window. Capped like the log.
 D.buffer = D.buffer or {}
@@ -225,7 +226,7 @@ function D:SetEnabled(on)
   on = not not on
   NS.State.debug = on
   D:RefreshHeader()
-  print(NS.PREFIX .. " debug " .. (on and "on" or "off"))
+  print("debug " .. (on and "on" or "off"))
   if on and NS.Debug then NS.Debug("Debug", "logging enabled") end
 end
 
@@ -239,9 +240,19 @@ function D:RefreshHeader()
   else frame.debugToggle:SetTextColor(0.90, 0.30, 0.30) end
 end
 
--- Global debug sink. No-op (zero alloc) when debug is off; otherwise appends to the window.
+-- Global debug sink. No-op (zero alloc) when debug is off; otherwise formats the line and appends
+-- to the window. Every message arg is routed through NS.SafeToString BEFORE it reaches
+-- string.format, so a combat-protected "secret" value (events-frames-taint-§8) logs as "<secret>"
+-- instead of raising the format call — the classic combat crash. Because every arg arrives as a
+-- string, the sink's format strings use %s for every placeholder (never %d/%f).
 function NS.Debug(tag, fmt, ...)
   if not (NS.State and NS.State.debug) then return end
-  local msg = select("#", ...) > 0 and fmt:format(...) or fmt
+  local n = select("#", ...)
+  local msg = fmt
+  if n > 0 then
+    local parts = {}
+    for i = 1, n do parts[i] = NS.SafeToString((select(i, ...))) end
+    msg = fmt:format(unpack(parts))
+  end
   D:Add(tag, msg)
 end

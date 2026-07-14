@@ -68,6 +68,8 @@ return function()
   M.UIParent = stubFrame()
   M.CreateFrame = function() return stubFrame() end
   M.UISpecialFrames = {}
+  -- Chat sink for NS.Print (core/Util.lua). No-op by default; tests override AddMessage to capture.
+  M.DEFAULT_CHAT_FRAME = { AddMessage = function() end }
   M.Settings = {
     RegisterCanvasLayoutCategory = function() return { GetID = function() return 1 end } end,
     RegisterAddOnCategory = function() end,

@@ -30,24 +30,25 @@ Intentionally minimal, defined inline in `tests/run.lua`: `test(name, fn)` regis
 
 ## The suites
 
-Eight files, loaded in this order, **124 tests** total:
+Nine files, loaded in this order, **152 tests** total:
 
 | Suite | Covers |
 |-------|--------|
-| `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey` |
+| `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey`; the secret-safe printer (`IsConcatSafe`/`SafeToString`/`NS.Print`, reclaimed from AceConsole) |
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
 | `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence |
 | `test_collector.lua` | `CHAT_MSG_LOOT` gate — self-filter, quality/quest-item threshold, record build |
 | `test_database.lua` | Add/Query/Delete/PruneOld, retention rebuild-and-swap |
 | `test_stats.lua` | `Stats`/aggregation feeding the Insights tab |
 | `test_browsertable.lua` | filter→group→sort→slice pipeline, group headers/counts, test mode |
-| `test_debuglog.lua` | `NS.Debug` tagged format, session-only flag, `/lh debug` toggles |
+| `test_debuglog.lua` | `NS.Debug` tagged format + secret-safe sink, session-only flag, `/lh debug` toggles |
+| `test_slash.lua` | `/lh list`/`get`/`set` §5 output — `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, `/lh version` |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 
 ## Current status
 
-`124 passed, 0 failed, 124 total`. Re-verify anytime with the tail of `lua tests/run.lua`.
+`152 passed, 0 failed, 152 total`. Re-verify anytime with the tail of `lua tests/run.lua`.
 
 ## Lint
 
@@ -58,7 +59,7 @@ See [module-map.md](module-map.md) for the source files behind each suite and [c
 Both checks run before every commit:
 
 ```
-lua tests/run.lua     # 124 passed, 0 failed
+lua tests/run.lua     # 152 passed, 0 failed
 luacheck .            # 0 warnings / 0 errors in 18 files
 ```
 

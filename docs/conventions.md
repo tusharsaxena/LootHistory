@@ -22,14 +22,14 @@ the small-scale rules those documents assume.
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:107`).
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:109`).
   That seam is: look the row up → run its optional `validate` → `WritePath` a **deep copy** of the
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:95`).
+  `settings/Schema.lua:97`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:111`,`:120`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:113`,`:121`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-out.** The Browser's window geometry (`settings.window` — point/size, `modules/Browser.lua:88`)
   and its saved table view (`savedView`, `modules/Browser.lua:664`) are view/window *runtime* state,
@@ -41,11 +41,11 @@ the small-scale rules those documents assume.
 - Cross-module signalling uses `Ka0s_LootHistory_*` messages on `NS.bus` (the AceAddon object,
   `core/LootHistory.lua:6`) — `RecordAdded`, `HistoryChanged`, `SettingsChanged`. Each message has
   exactly one sender. Modules never reach into another module's tables; they listen for a message.
-- **Receivers register on their own target from `NS.NewBusTarget()`** (`core/LootHistory.lua:13`),
+- **Receivers register on their own target from `NS.NewBusTarget()`** (`core/LootHistory.lua:20`),
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:361`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:373`). Full contract
   in [message-bus.md](message-bus.md).
 
 ## Compat firewall
@@ -72,18 +72,33 @@ the small-scale rules those documents assume.
   (`modules/Collector.lua:51`). The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
+## Chat output: one shared secret-safe printer
+
+- Every chat line goes through the single shared printer `NS.Print` (`core/Util.lua`). Each file
+  that emits chat does `local print = NS.Print` and calls `print("message")` — **never** the global
+  `print()`, **never** a hand-written `NS.PREFIX` tag, **never** `..`-concatenated args. `NS.Print`
+  prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes each arg through `NS.SafeToString`
+  so a combat-protected "secret" value logs as `<secret>` instead of raising (events-frames-taint-§8).
+- Because `NewAddon(NS, …, "AceConsole-3.0")` embeds an AceConsole `:Print` that would clobber the
+  Util printer, `core/LootHistory.lua` **reclaims** `NS.Print = NS.Util.print` right after `NewAddon`
+  (architecture-§2). Don't reorder that.
+
 ## Session-only debug
 
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before formatting anything
-  (`modules/DebugLog.lua:243`).
+  (`modules/DebugLog.lua:249`).
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed); the header's
-  `Debug: ON`/`OFF` control flips the same flag (`settings/Schema.lua:150`).
+  `Debug: ON`/`OFF` control flips the same flag (`settings/Schema.lua:153`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
-  `<ts> | [<tag>] <content>` (`D.FormatPlain`, `modules/DebugLog.lua:118`). `tag` is one short word,
+  `<ts> | [<tag>] <content>` (`D.FormatPlain`, `modules/DebugLog.lua:119`). `tag` is one short word,
   printed verbatim — no padding, no truncation.
+- `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
+  `NS.SafeToString` before it reaches `string.format`, so a combat-protected "secret" value logs as
+  `<secret>` rather than crashing the sink. Because args arrive pre-stringified, its format strings
+  use `%s` for every placeholder (never `%d`/`%f`).
 
 ## File size cap
 
@@ -95,21 +110,21 @@ the small-scale rules those documents assume.
 
 - The settings panel is a Blizzard `Settings.RegisterCanvasLayoutCategory` parent (the landing page)
   plus a `RegisterCanvasLayoutSubcategory` "General" body built lazily from raw AceGUI widgets
-  (`settings/Panel.lua:421`). **AceConfigDialog is never used for content** — there is no
+  (`settings/Panel.lua:433`). **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` is combat-gated
-  (`settings/Panel.lua:472`), matching the Ka0s §6 canvas pattern (the standalone browser window
+  (`settings/Panel.lua:484`), matching the Ka0s §6 canvas pattern (the standalone browser window
   follows the separate §6A non-secure pattern).
 
 ## Panel layout: §6.6 / §6.10 conformance
 
 - **Right-edge inset (§6.6/§6.8).** Cell-filling *action* buttons (Reset All, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip
-  (`settings/Panel.lua:31`, applied in `makePairButton`, `settings/Panel.lua:202`). Label-inset
+  (`settings/Panel.lua:31`, applied in `makePairButton`, `settings/Panel.lua:214`). Label-inset
   controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` — they are
   immune (§6.10). `BUTTON_PAIR_REL` is the single seam for that width; don't hard-code it per button.
 - **Always-shown scrollbar (§6.10).** `installAlwaysShownScrollbar` overrides AceGUI's stock
   `FixScroll` so the panel scrollbar is *always* visible and the 20px right gutter is *always*
-  reserved (`settings/Panel.lua:108`). AceGUI would otherwise hide the bar and reclaim the gutter
+  reserved (`settings/Panel.lua:109`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's
   nothing to scroll the override parks the thumb at the top and greys the bar inert, so the body
   width is identical across every subcategory. More on the panel in

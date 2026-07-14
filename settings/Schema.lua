@@ -2,6 +2,7 @@ local addonName, NS = ...
 NS.Schema = NS.Schema or {}
 local S = NS.Schema
 local C = NS.Constants
+local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
 -- Paths resolve against NS.db.global (account-wide), not .profile.
@@ -24,6 +25,7 @@ S.Schema = {
     end },
 
   { path = "settings.windowScale", default = 1.0, type = "number", min = 0.6, max = 1.6, widget = "Slider",
+    fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
     group = "Master Controls", label = "Window scale",
     tooltip = "Scale of the History browser window.",
     onChange = function(v)
@@ -131,7 +133,7 @@ function S:Register()
   if not g then return end
   for _, row in ipairs(S.Schema) do
     if S:ReadPath(g, row.path) == nil and row.default == nil then
-      print(NS.PREFIX .. " schema path missing default: " .. tostring(row.path))
+      print("schema path missing default: " .. tostring(row.path))
     end
   end
 end
@@ -142,6 +144,7 @@ NS.COMMANDS = {
   { name = "hide",     desc = "Close the window",      fn = function() NS.Browser:Hide() end },
   { name = "toggle",   desc = "Toggle the window",     fn = function() NS.Browser:Toggle() end },
   { name = "config",   desc = "Open settings",         fn = function() if NS.Panel then NS.Panel:Open() end end },
+  { name = "version",  desc = "Print addon version",   fn = function() NS.Slash:CliVersion() end },
   { name = "get",      desc = "Get a setting value",   fn = function(a) NS.Slash:CliGet(a) end },
   { name = "set",      desc = "Set a setting value",   fn = function(a) NS.Slash:CliSet(a) end },
   { name = "list",     desc = "List all settings",     fn = function() NS.Slash:CliList() end },
@@ -158,7 +161,7 @@ NS.COMMANDS = {
     end },
   { name = "test", desc = "Toggle a synthetic preview dataset (table + Insights)", fn = function()
       local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()
-      print(NS.PREFIX .. " test mode " .. (on and "on" or "off"))
+      print("test mode " .. (on and "on" or "off"))
     end },
   { name = "purge", desc = "Delete ALL loot history (asks to confirm)", fn = function()
       if type(StaticPopup_Show) == "function" then

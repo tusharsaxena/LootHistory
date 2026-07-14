@@ -252,3 +252,16 @@ function Compat.GetItemExtras(link)
 
   return ilvl, bound, sellPrice, itemType, itemSubType
 end
+
+-- Addon TOC metadata field (e.g. "Version"), read from the packaged manifest so `/lh version`
+-- can't drift from the TOC. Retail moved the getter to C_AddOns; falls back to the bare global,
+-- then nil when neither is present.
+function Compat.GetAddOnMetadata(name, field)
+  if C_AddOns and C_AddOns.GetAddOnMetadata then
+    return C_AddOns.GetAddOnMetadata(name, field)
+  end
+  if type(GetAddOnMetadata) == "function" then
+    return GetAddOnMetadata(name, field)
+  end
+  return nil
+end

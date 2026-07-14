@@ -2,7 +2,7 @@
 
 Catalog of WoW Midnight (Interface 120007, 12.0.7) behaviors that Ka0s Loot History handles. **Read this before touching capture, attribution, or item-info code.** Every quirk below is dealt with in `core/Compat.lua` (the compat firewall — see [compat-layer.md](compat-layer.md)); attribution wiring that consumes them lives in `modules/Attribution.lua` (see [attribution.md](attribution.md)).
 
-> **Not a secret-value handler.** Unlike KickCD, LH does **not** touch cooldown/cast timings or any of 12.0's "secret value" protected returns — it reads loot, item, mail, and quest data, none of which are secret-tainted. There is no `issecretvalue` guard anywhere in this addon, and none is needed.
+> **Not a secret-value *reader* — but its output seam is still secret-safe.** Unlike KickCD, LH does **not** read cooldown/cast timings or any of 12.0's "secret value" protected returns; it reads loot, item, mail, and quest data, none of which are secret-tainted. So no capture/attribution path ever holds a secret. **However**, the shared chat printer (`NS.Print`) and debug sink (`NS.Debug`) are still built secret-safe — every argument routes through `NS.SafeToString` (`core/Util.lua`) before it reaches `table.concat`/`string.format`, so a value that *is* secret logs as `<secret>` instead of crashing. This is the Ka0s standard's single-seam mandate (events-frames-taint-§8): the guard lives once in the shared helpers and every call site inherits it, regardless of whether this addon happens to feed it a secret today. There is no per-call-site `issecretvalue` handling, and there should be none.
 
 ## Retail-only: presence guards, not flavor branching
 

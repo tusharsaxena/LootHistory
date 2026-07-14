@@ -40,8 +40,8 @@ Sent from four schema-row `onChange` handlers in [`settings/Schema.lua`](../sett
 
 Two schema rows deliberately skip the bus and drive their side effect directly in `onChange`:
 
-- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:22`).
-- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:29`).
+- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:23`).
+- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:31`).
 
 Neither emits `SettingsChanged`, because nothing else needs to react — they are one-consumer, view-only knobs. (Likewise `retentionDays` fires `HistoryChanged` via `PruneOld`, not `SettingsChanged`.) Keeping these off the bus means flipping the minimap button or the window scale never cascades into a Collector upvalue refresh or a table rebuild.
 
@@ -49,7 +49,7 @@ Neither emits `SettingsChanged`, because nothing else needs to react — they ar
 
 **Every consumer must register on its OWN `NS.NewBusTarget()` — never on the shared `NS.bus` / `NS.addon` as `self`.** This is the single hardest rule on the bus and it is load-bearing.
 
-`NS.NewBusTarget()` (`core/LootHistory.lua:13`) returns a fresh, AceEvent-embedded table. `NS.bus:SendMessage(...)` still fans out to every embedded target, so a private target receives broadcasts exactly like the shared object would — but it owns its own callback slots.
+`NS.NewBusTarget()` (`core/LootHistory.lua:20`) returns a fresh, AceEvent-embedded table. `NS.bus:SendMessage(...)` still fans out to every embedded target, so a private target receives broadcasts exactly like the shared object would — but it owns its own callback slots.
 
 The reason: **CallbackHandler keys registered callbacks by `(message, target)`.** If two modules both did `NS.bus:RegisterMessage("Ka0s_LootHistory_HistoryChanged", handler)`, they would share the single target `NS.bus`, so the second registration would overwrite the first under the same `(message, target)` key — and only the last registrant would ever be called. The bug is silent: no error, the message still fires, but one module's handler simply never runs.
 
@@ -58,7 +58,7 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` a
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:105`).
 - Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1010`).
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:446`).
-- Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:362`).
+- Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:374`).
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.
 

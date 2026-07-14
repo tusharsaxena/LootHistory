@@ -26,6 +26,7 @@ Load-first (`core/Compat.lua` heads the TOC) so every later module can reference
 | `Compat.GetItemInfo(link)` | `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` | Resilient `itemID, itemName, quality, classID` for a link, falling back to the link's own display text and `QualityFromLink` when the item is not yet cached (so records never lose the name/quality). `classID` is the locale-independent `Enum.ItemClass.*`. |
 | `Compat.ScanBound(link)` | `C_TooltipInfo.GetHyperlink` | Scans the link's tooltip lines for warband/account-bound text, returning `"WARBAND"`, `"ACCOUNT"`, or `nil`. Retail-only; `nil` when `C_TooltipInfo` is absent. |
 | `Compat.GetItemExtras(link)` | `C_Item.GetItemInfoInstant` + `.GetItemInfo` + `.GetDetailedItemLevelInfo` + `ScanBound` | Capture-time extras in one call: effective `ilvl` (equippable weapons/armor only — reagents/consumables carry a meaningless itemLevel), `bound` (warband/account wins over BOP/BOE from `bindType`), per-unit `sellPrice`, and `itemType`/`itemSubType`. |
+| `Compat.GetAddOnMetadata(name, field)` | `C_AddOns.GetAddOnMetadata` → global `GetAddOnMetadata` | Reads a TOC metadata field (e.g. `"Version"` for `/lh version`) from the packaged manifest so it can't drift from the code; `nil` when neither getter is present. |
 
 ## Boundary rule
 

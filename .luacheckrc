@@ -8,13 +8,14 @@ ignore = {
   "211/addonName",  -- mandated `local addonName, NS = ...` header; not every file uses addonName
 }
 read_globals = {
-  "_G", "LibStub", "CreateFrame", "UIParent", "GetTime", "time", "date",
+  "_G", "LibStub", "CreateFrame", "UIParent", "GetTime", "time", "date", "DEFAULT_CHAT_FRAME",
   "UnitName", "UnitGUID", "UnitClass", "GetRealmName", "GetNormalizedRealmName",
   "RAID_CLASS_COLORS", "CLASS_ICON_TCOORDS", "StaticPopup_Show", "YES", "NO",
   "GameFontHighlightSmall", "GetCoinTextureString", "BreakUpLargeNumbers",
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
   "C_Container", "UseContainerItem", "C_Spell", "GetSpellInfo",
+  "C_AddOns", "GetAddOnMetadata",
   "ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "ITEM_BNETACCOUNTBOUND", "ITEM_BIND_TO_BNETACCOUNT",
   "ITEM_ACCOUNTBOUND", "ITEM_SOULBOUND",
   "GetLootSourceInfo", "GetNumLootItems", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",

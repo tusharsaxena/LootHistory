@@ -1,6 +1,7 @@
 local addonName, NS = ...
 NS.Panel = NS.Panel or {}
 local P = NS.Panel
+local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 
@@ -118,6 +119,17 @@ local function installAlwaysShownScrollbar(scroll)
     local up, down = bar.ScrollUpButton, bar.ScrollDownButton
     if up and up.SetEnabled then up:SetEnabled(not inert) end
     if down and down.SetEnabled then down:SetEnabled(not inert) end
+  end
+
+  -- Wheel-scroll must be inert when the page fits. AceGUI's stock MoveScroll only gates on
+  -- `scrollBarShown`, which this override keeps permanently true (to reserve the gutter) — so
+  -- without this guard the wheel would still drift the parked thumb on a short page even though
+  -- there's nothing to scroll (LH-08 / smoke-test S-4). Mirror FixScroll's fits check and no-op.
+  local stockMoveScroll = scroll.MoveScroll
+  scroll.MoveScroll = function(self, value)
+    local height, viewheight = self.scrollframe:GetHeight(), self.content:GetHeight()
+    if viewheight < height + 2 then return end
+    return stockMoveScroll(self, value)
   end
 
   scroll.FixScroll = function(self)
@@ -470,7 +482,7 @@ end
 
 function P:Open()
   if InCombatLockdown and InCombatLockdown() then
-    print(NS.PREFIX .. " Can't open settings in combat.")
+    print("Can't open settings in combat.")
     return
   end
   if Settings and Settings.OpenToCategory and mainCategoryID then

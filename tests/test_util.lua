@@ -3,6 +3,58 @@ local NS = T.NS
 local test, assertEqual, assertTrue, assertFalse =
   T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
+-- ── Secret-safe printer (events-frames-taint-§8) ──────────────────────────────────────────────
+-- A stand-in for a combat "secret" value: it models BOTH halves of the real trap — the `..`
+-- operator SUCCEEDS (silently propagating secretness), while table.concat RAISES. A `..`-based
+-- probe would wrongly report this as safe; NS.IsConcatSafe must probe table.concat.
+local secretMock = setmetatable({}, {
+  __concat = function() return "secret-propagated" end,
+})
+
+test("IsConcatSafe: true for number/string, false for an un-concatenable value", function()
+  assertTrue(NS.IsConcatSafe(1234) == true, "numbers concat fine")
+  assertTrue(NS.IsConcatSafe("hi") == true, "strings concat fine")
+  assertTrue(NS.IsConcatSafe(secretMock) == false, "secret-like value must be flagged unsafe")
+end)
+
+test("SafeToString: passes normal values through tostring", function()
+  assertEqual(NS.SafeToString(1234), "1234")
+  assertEqual(NS.SafeToString("hi"), "hi")
+  assertEqual(NS.SafeToString(nil), "nil")
+  assertEqual(NS.SafeToString(true), "true")
+end)
+
+test("SafeToString: renders a secret value as <secret> instead of raising", function()
+  assertEqual(NS.SafeToString(secretMock), "<secret>")
+end)
+
+test("NS.Print: writes a cyan-tagged, space-joined line to the chat sink", function()
+  local cf = T.mocks.DEFAULT_CHAT_FRAME
+  local old, got = cf.AddMessage, nil
+  cf.AddMessage = function(_, msg) got = msg end
+  NS.Print("hello", "world")
+  cf.AddMessage = old
+  assertEqual(got, NS.PREFIX .. " hello world")
+end)
+
+test("NS.Print: tolerates a secret arg (no concat crash), renders it <secret>", function()
+  local cf = T.mocks.DEFAULT_CHAT_FRAME
+  local old, got = cf.AddMessage, nil
+  cf.AddMessage = function(_, msg) got = msg end
+  local ok = pcall(NS.Print, "value:", secretMock)
+  cf.AddMessage = old
+  assertTrue(ok, "Print must not raise on a secret arg")
+  assertTrue(got:find("value: <secret>", 1, true) ~= nil,
+    "the secret arg should render as <secret>: " .. tostring(got))
+end)
+
+test("NS.Print is reclaimed from AceConsole's :Print mixin (architecture-§2)", function()
+  -- NewAddon(NS, …, "AceConsole-3.0") embeds :Print onto NS, clobbering the Util printer;
+  -- core/LootHistory.lua reclaims it from NS.Util.print. Without that, /lh lines lose the tag.
+  assertTrue(NS.Print == NS.Util.print,
+    "NS.Print must be the secret-safe Util printer, not AceConsole's embedded mixin")
+end)
+
 test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceType.KILL, "KILL")
   assertEqual(NS.Constants.SourceType.OTHER, "OTHER")

@@ -57,6 +57,7 @@ Install the addon with the Addon Manager of your choice (or drop the folder into
 | `/lh` | Show the command help index. |
 | `/lh show` / `hide` / `toggle` | Open / close / flip the History window. |
 | `/lh config` | Open the settings panel. |
+| `/lh version` | Print the addon version. |
 | `/lh list` | Dump every schema-driven setting and its current value, grouped by section. |
 | `/lh get <path>` | Print one setting's value (e.g. `/lh get settings.qualityThreshold`). |
 | `/lh set <path> <value>` | Set a setting; flows through the same path the panel widget uses. Numbers clamp to range; dropdowns validate against the option list. |

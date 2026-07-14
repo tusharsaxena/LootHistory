@@ -27,6 +27,31 @@ test("FormatColored colors the timestamp and tag; pipe and content default", fun
   assertEqual(out, "|cff6f8faf15:04:43|r || |cffc9a66b[Cast]|r player spell=3365")
 end)
 
+-- Secret-safe sink (events-frames-taint-§8): a combat "secret" arg must reach string.format only
+-- through NS.SafeToString, so it logs as <secret> instead of raising. Modelled as a table (which
+-- table.concat / string.format reject) — the same shape a real secret trips on.
+local secretMock = setmetatable({}, { __concat = function() return "secret-propagated" end })
+
+test("NS.Debug renders a secret message arg as <secret> without raising", function()
+  NS.State.debug = true
+  local before = #NS.DebugLog.buffer
+  local ok = pcall(NS.Debug, "UNIT", "value=%s", secretMock)
+  assertTrue(ok, "NS.Debug must not raise on a secret arg")
+  assertTrue(#NS.DebugLog.buffer > before, "a line was logged")
+  local last = NS.DebugLog.buffer[#NS.DebugLog.buffer]
+  assertTrue(last:find("value=<secret>", 1, true) ~= nil,
+    "secret arg should render as <secret>: " .. tostring(last))
+  NS.State.debug = false
+end)
+
+test("NS.Debug formats ordinary args (numbers included) through %s", function()
+  NS.State.debug = true
+  NS.Debug("Tag", "a=%s b=%s", 1, "two")
+  local last = NS.DebugLog.buffer[#NS.DebugLog.buffer]
+  assertTrue(last:find("a=1 b=two", 1, true) ~= nil, "normal format: " .. tostring(last))
+  NS.State.debug = false
+end)
+
 local function debugCmd(rest)
   for _, c in ipairs(NS.COMMANDS) do
     if c.name == "debug" then return c.fn(rest) end
