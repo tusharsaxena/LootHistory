@@ -133,7 +133,7 @@ local F = NS.Foo
 
 - The **account-wide** storage decision (`.global`, `char` column).
 - The **attribution context TTL / single-slot** design.
-- The **standalone non-secure browser window** (follows §6A) — non-secure by design.
+- The **standalone non-secure browser window** (follows standalone-windows) — non-secure by design.
 - `Database:Export` field shape — the forward-compatible v2 export contract.
 
 ## Doc index
@@ -149,7 +149,7 @@ Topic-specific detail lives in `docs/`. Read on demand — these are not auto-lo
 | The three `Ka0s_LootHistory_*` messages (sender / payload / consumers) | [message-bus.md](message-bus.md) | Touching anything that sends or listens. |
 | Capture + source-attribution engine (`lootContext`, stampers, gates) | [attribution.md](attribution.md) | **Required** before touching capture/source code. |
 | Browser window, virtualized table, Insights analytics | [browser.md](browser.md) | Touching the window/table/charts. |
-| Schema-driven canvas settings panel (§6.6/§6.10 layout) | [settings-panel.md](settings-panel.md) | Adding an option or a custom widget. |
+| Schema-driven canvas settings panel (options-ui-§6/§10 layout) | [settings-panel.md](settings-panel.md) | Adding an option or a custom widget. |
 | `/lh` slash dispatch (`COMMANDS`, generated help, CLI) | [slash-dispatch.md](slash-dispatch.md) | Adding or modifying a slash verb. |
 | `Compat.*` API-shim catalogue | [compat-layer.md](compat-layer.md) | Wrapping a Blizzard API; reasoning about taint. |
 | Midnight (12.0) gotchas (GUID decode, tooltip scans, uncached fallback) | [midnight-quirks.md](midnight-quirks.md) | Patch-day breakage; capture edge cases. |

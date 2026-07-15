@@ -42,7 +42,7 @@ The deep-copy (`settings/Schema.lua:101`) matters for the two table-valued setti
 
 Two pieces of persisted state live in `db.global` but are written **directly**, bypassing `Schema:Set` — they are window/view runtime state, not user settings, and are intentionally not Schema rows (`modules/Browser.lua:79`):
 
-- **`settings.window`** — the browser window geometry `{ point, x, y, w, h }` relative to UIParent. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:85`), restored by `RestoreWindow` on show (`modules/Browser.lua:94`). This is the §6A standalone-window position/size persistence.
+- **`settings.window`** — the browser window geometry `{ point, x, y, w, h }` relative to UIParent. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:85`), restored by `RestoreWindow` on show (`modules/Browser.lua:94`). This is the standalone-windows window position/size persistence.
 - **`savedView`** — the saved table view: group-by, sort keys, and the multi-select column filters (quality / source / type / zone) plus the date range and search text. Captured by `B:CaptureView` (`modules/Browser.lua:603`), written by `B:SaveView` (`modules/Browser.lua:662`), cleared to `nil` by `B:ResetView` (`modules/Browser.lua:668`). Player scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:397`).
 
 Note `settings.windowScale` **is** a Schema row (Master Controls slider) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state.

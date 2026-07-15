@@ -43,7 +43,7 @@ inventory and the authoritative count):
 | `test_stats.lua` | `Stats`/aggregation feeding the Insights tab |
 | `test_browsertable.lua` | filter→group→sort→slice pipeline, group headers/counts, test mode |
 | `test_debuglog.lua` | `NS.Debug` tagged format + secret-safe sink, session-only flag, `/lh debug` toggles |
-| `test_slash.lua` | `/lh list`/`get`/`set` §5 output — `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, `/lh version` |
+| `test_slash.lua` | `/lh list`/`get`/`set` slash-commands-§5 output — `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, `/lh version` |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 

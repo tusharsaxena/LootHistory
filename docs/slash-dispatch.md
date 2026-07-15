@@ -6,7 +6,7 @@ One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.
 
 The dispatcher (`Sl:OnSlash`, `settings/Slash.lua:44`):
 
-- Bare `/lh` → `Sl:PrintHelp` (standard §7.4). Window display is **explicit** — bare `/lh` prints help, never opens the window; use `/lh toggle` or `/lh show|hide`.
+- Bare `/lh` → `Sl:PrintHelp` (standard slash-commands-§4). Window display is **explicit** — bare `/lh` prints help, never opens the window; use `/lh toggle` or `/lh show|hide`.
 - `/lh <known>` → runs that row's `fn(rest)`.
 - `/lh <unknown>` → `unknown command '<verb>'` then the help index.
 

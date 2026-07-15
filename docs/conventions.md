@@ -60,14 +60,14 @@ the small-scale rules those documents assume.
 ## Table rendering: object pooling
 
 - The history table pools row frames — filter → group → sort → slice → **bind** into a fixed set of
-  reused rows in `modules/BrowserTable.lua`. Never create one frame per record (Ka0s standard §9.6);
+  reused rows in `modules/BrowserTable.lua`. Never create one frame per record (Ka0s standard standalone-windows);
   a 50k-row history must not spawn 50k frames.
 
 ## Collector hot-path upvalues
 
 - The collector caches its gate config as file-level upvalues — `enabled`, `qualityThreshold`,
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:9`) — so the `CHAT_MSG_LOOT`
-  handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard §9.7). They
+  handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
   (`modules/Collector.lua:51`). The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
@@ -102,7 +102,7 @@ the small-scale rules those documents assume.
 
 ## File size cap
 
-- Source files are capped at **1500 LOC** (Ka0s standard §9). The browser is deliberately split
+- Source files are capped at **1500 LOC** (Ka0s standard layout-§1). The browser is deliberately split
   three ways to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table),
   `Analytics.lua` (Insights) — the largest sitting near ~1000 lines.
 
@@ -112,17 +112,17 @@ the small-scale rules those documents assume.
   plus a `RegisterCanvasLayoutSubcategory` "General" body built lazily from raw AceGUI widgets
   (`settings/Panel.lua:433`). **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` is combat-gated
-  (`settings/Panel.lua:484`), matching the Ka0s §6 canvas pattern (the standalone browser window
-  follows the separate §6A non-secure pattern).
+  (`settings/Panel.lua:484`), matching the Ka0s options-ui-§2 canvas pattern (the standalone browser window
+  follows the separate standalone-windows non-secure pattern).
 
-## Panel layout: §6.6 / §6.10 conformance
+## Panel layout: options-ui-§6/§10 conformance
 
-- **Right-edge inset (§6.6/§6.8).** Cell-filling *action* buttons (Reset All, Purge history) inset
+- **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset All, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip
   (`settings/Panel.lua:31`, applied in `makePairButton`, `settings/Panel.lua:214`). Label-inset
   controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` — they are
-  immune (§6.10). `BUTTON_PAIR_REL` is the single seam for that width; don't hard-code it per button.
-- **Always-shown scrollbar (§6.10).** `installAlwaysShownScrollbar` overrides AceGUI's stock
+  immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't hard-code it per button.
+- **Always-shown scrollbar (options-ui-§10).** `installAlwaysShownScrollbar` overrides AceGUI's stock
   `FixScroll` so the panel scrollbar is *always* visible and the 20px right gutter is *always*
   reserved (`settings/Panel.lua:109`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's

@@ -2,14 +2,14 @@
 
 The standalone loot browser is a single non-secure window with two views — **History** (the table) and **Insights** (analytics). `modules/Browser.lua` owns the window shell; `modules/BrowserTable.lua` owns the History table; `modules/Analytics.lua` owns the Insights tab. All three read the same dataset through `Database:ActiveHistory` (see [data-model.md](data-model.md)), so `/lh test` swaps synthetic data under both views at once.
 
-## The §6A standalone window
+## The standalone window (standalone-windows)
 
-`EnsureFrame` (`Browser.lua:820`) builds one plain `CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")` — the Ka0s Standard §6A pattern for standalone data browsers, of which this addon is the reference implementation. It is **non-secure by design**: no `SecureFrameTemplate`, no `InCombatLockdown` gate, so the window opens and repaints freely in combat. (The *settings* panel is separately §6 combat-gated; the browser is not.)
+`EnsureFrame` (`Browser.lua:820`) builds one plain `CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")` — the Ka0s Standard standalone-windows pattern for standalone data browsers, of which this addon is the reference implementation. It is **non-secure by design**: no `SecureFrameTemplate`, no `InCombatLockdown` gate, so the window opens and repaints freely in combat. (The *settings* panel is separately options-ui-§2 combat-gated; the browser is not.)
 
-The frame is `HIGH` strata, mouse-enabled (no click-through to the world), movable, resizable, and `SetClampedToScreen(true)` (`Browser.lua:831-840`). Four §6A obligations are wired in `EnsureFrame`:
+The frame is `HIGH` strata, mouse-enabled (no click-through to the world), movable, resizable, and `SetClampedToScreen(true)` (`Browser.lua:831-840`). Four standalone-windows obligations are wired in `EnsureFrame`:
 
 - **ESC to close** — `LootHistoryWindow` is appended to `UISpecialFrames` (`Browser.lua:917`), so Escape hides it via the stock path. Because that path calls `frame:Hide()` directly (not `B:Hide()`), an `OnHide` hook closes any open dropdown menu (`Browser.lua:910`).
-- **Persisted position / size** — `SaveWindow` / `RestoreWindow` (`Browser.lua:85-105`) write `settings.window = { point, x, y, w, h }` to `NS.db.global` on drag-stop and resize-stop, and restore it on open. Restore floors width/height at the frame minimums (`B._minW`/`B._minH`). This geometry is a §2 carve-out: it is written straight to `NS.db.global`, **not** through `Schema:Set` (see [settings-panel.md](settings-panel.md)).
+- **Persisted position / size** — `SaveWindow` / `RestoreWindow` (`Browser.lua:85-105`) write `settings.window = { point, x, y, w, h }` to `NS.db.global` on drag-stop and resize-stop, and restore it on open. Restore floors width/height at the frame minimums (`B._minW`/`B._minH`). This geometry is an architecture-§5 carve-out: it is written straight to `NS.db.global`, **not** through `Schema:Set` (see [settings-panel.md](settings-panel.md)).
 - **Persisted scale** — applied from `settings.windowScale` on build (`Browser.lua:914`) and live-updated by `OnSettingsChanged` when the scale setting changes (`Browser.lua:945`).
 - **One re-skin seam** — the flat "ElvUI-like" look lives in a single `SKIN` table (`Browser.lua:19`, exposed as `B.SKIN`) applied by `B:ApplySkin(f)` (`Browser.lua:36`). Everything — window, dropdowns, menus, buttons — is drawn from the stock `WHITE8X8` texture with no ElvUI dependency. `ApplySkin` is deliberately separate from construction so a future settings panel can re-skin live; the class-coloured `×` close glyph (`MakeCloseButton`, `Browser.lua:60`) is shared with the debug window.
 
@@ -38,7 +38,7 @@ The **date dropdown** is single-select (Today / Last 7 days / Last 30 days / All
 
 **Player scope.** The Character filter is surfaced by two controls that share one filter field — the multi-select Character dropdown and a `Current player` / `All players` toggle. Both funnel through `B:SetCharSet` (`Browser.lua:575`), which reconciles them: it writes the char filter, mirrors the selection into the dropdown, and derives the toggle's label ("Current player" when the one pick is the current character, a named character, "N characters", or "All players"). Player scope is a **session-only default of "current player"** and is deliberately *not* part of a saved view.
 
-**Saved views.** A "view" = group-by + sort + the five column filters + date + search (but **not** player scope). `B:CaptureView` (`Browser.lua:603`) snapshots it; `SaveView` writes it to `NS.db.global.savedView`, `ResetView` clears it back to `STOCK_VIEW` (`Browser.lua:397`), and `ClearFilters` re-applies the saved-or-stock view. `B:ApplyView` (`Browser.lua:625`) is the single seam that paints every filter field, the table's group/sort, and the resolved filter, then resets scope. Like `settings.window`, `savedView` is a §2 carve-out persisted straight to `NS.db.global`. `asSet` (`Browser.lua:513`) tolerates the legacy scalar form so pre-multi-select saved views still load.
+**Saved views.** A "view" = group-by + sort + the five column filters + date + search (but **not** player scope). `B:CaptureView` (`Browser.lua:603`) snapshots it; `SaveView` writes it to `NS.db.global.savedView`, `ResetView` clears it back to `STOCK_VIEW` (`Browser.lua:397`), and `ClearFilters` re-applies the saved-or-stock view. `B:ApplyView` (`Browser.lua:625`) is the single seam that paints every filter field, the table's group/sort, and the resolved filter, then resets scope. Like `settings.window`, `savedView` is an architecture-§5 carve-out persisted straight to `NS.db.global`. `asSet` (`Browser.lua:513`) tolerates the legacy scalar form so pre-multi-select saved views still load.
 
 ### Footer
 
@@ -70,7 +70,7 @@ The **Bound column** renders no text — it draws a tinted padlock (`BOUND_STYLE
 
 ### Object pooling
 
-`AcquireRow` (`BrowserTable.lua:544`) pops a free row from `rowPool` or builds a new pooled `Button` (one FontString per column + a stripe, highlight, bound-lock texture and group-header FontString). `ReleaseAllRows` (`BrowserTable.lua:672`) hides every active row and returns it to the free list before each bind — so the frame count is bounded by the viewport, never by history size (Standard §9.6). Column geometry is recomputed by `LayoutRowCells` (`BrowserTable.lua:649`) and `BuildHeaderCells` (`BrowserTable.lua:780`) — the flex Item column takes `total − fixed`, and `Bind` re-lays the header on every pass so header and rows stay aligned across resizes.
+`AcquireRow` (`BrowserTable.lua:544`) pops a free row from `rowPool` or builds a new pooled `Button` (one FontString per column + a stripe, highlight, bound-lock texture and group-header FontString). `ReleaseAllRows` (`BrowserTable.lua:672`) hides every active row and returns it to the free list before each bind — so the frame count is bounded by the viewport, never by history size (Standard standalone-windows). Column geometry is recomputed by `LayoutRowCells` (`BrowserTable.lua:649`) and `BuildHeaderCells` (`BrowserTable.lua:780`) — the flex Item column takes `total − fixed`, and `Bind` re-lays the header on every pass so header and rows stay aligned across resizes.
 
 ### Row actions
 
@@ -131,7 +131,7 @@ Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTa
 
 `BuildTestData` (`BrowserTable.lua:328`) generates a deliberately **non-uniform** spread — weighted-random sources / qualities / classes / zones / types / timestamps, a handful of "hot" items over a long tail, keystone and evening-hour peaks — so the charts read like real play. It uses a deterministic Park–Miller LCG with a fixed seed (`testRng`, `BrowserTable.lua:308`), **not** `math.random`, so the dataset is byte-identical every run and the headless tests stay stable. A coverage seed pass first guarantees every source / quality / class / binding appears and the range spans more than 14 days regardless of the dice.
 
-Test mode is session-only: it resets on `/reload` and is never persisted (Standard §8, same rule as the debug flag).
+Test mode is session-only: it resets on `/reload` and is never persisted (Standard debug-logging-§5, same rule as the debug flag).
 
 ---
 

@@ -92,7 +92,7 @@ Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.l
 
 ### Hot-path upvalues
 
-The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard §9.7). `Collector:RefreshUpvalues` (`modules/Collector.lua:51`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:106`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
+The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard events-frames-taint-§7). `Collector:RefreshUpvalues` (`modules/Collector.lua:51`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:106`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
 
 ## Wired vs enum'd sources
 
@@ -109,4 +109,4 @@ The whole design assumes the peripheral event and its loot line fall within `CON
 
 ## Tracing attribution
 
-Every stamp, consume, and trigger logs to the session debug console when `/lh debug` is on (`NS.State.debug`), each guarded at the call site so nothing is built when debug is off (standard §8). Turn it on and reproduce a loot to see the exact path — e.g. `[Open] LOOT_OPENED 3 slots -> KILL`, `[Attr] stamp KILL via LOOT_OPENED [npc=… enc=…]`, `[Attr] consume -> KILL (CERTAIN)`, or `[Drop] … reason=quality`. A `LOOT_OPENED` window logs exactly one coalesced `[Open]` summary line regardless of slot count, not one line per slot. The pure seams (`ResolveLootSource`, `DeconstructSource`, `ShouldRecord`, `BuildRecord`) are unit-tested headlessly without touching WoW event APIs.
+Every stamp, consume, and trigger logs to the session debug console when `/lh debug` is on (`NS.State.debug`), each guarded at the call site so nothing is built when debug is off (standard debug-logging-§4). Turn it on and reproduce a loot to see the exact path — e.g. `[Open] LOOT_OPENED 3 slots -> KILL`, `[Attr] stamp KILL via LOOT_OPENED [npc=… enc=…]`, `[Attr] consume -> KILL (CERTAIN)`, or `[Drop] … reason=quality`. A `LOOT_OPENED` window logs exactly one coalesced `[Open]` summary line regardless of slot count, not one line per slot. The pure seams (`ResolveLootSource`, `DeconstructSource`, `ShouldRecord`, `BuildRecord`) are unit-tested headlessly without touching WoW event APIs.

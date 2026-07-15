@@ -41,7 +41,7 @@ Load-bearing choices that look like candidates for "improvement" but are intenti
 
 - **Account-wide storage** (`.global` + a `char` column), not per-character AceDB profiles. Switching would be a schema + query rewrite; the account-wide view is the product.
 - **Single-slot attribution context with a fixed TTL.** The source stamp deliberately survives multiple `CHAT_MSG_LOOT` lines from one loot window rather than being consumed by the first line.
-- **Non-secure standalone browser window** (Standard §6A). Non-secure by design — no combat-lockdown gate, ESC via `UISpecialFrames`, persisted geometry — not an oversight. This addon is §6A's reference implementation.
+- **Non-secure standalone browser window** (Standard standalone-windows). Non-secure by design — no combat-lockdown gate, ESC via `UISpecialFrames`, persisted geometry — not an oversight. This addon is standalone-windows's reference implementation.
 - **`Database:Export` field shape.** It is the forward-compatible v2 export contract; the `SourceType` enum stays whole (including the not-yet-stamped `CRAFT` / `ROLL`) for the same reason.
 
 ## Known limitations

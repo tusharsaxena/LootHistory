@@ -1,7 +1,7 @@
 # ARCHITECTURE — Ka0s Loot History
 
 Engineering reference for the addon: module map, data model, message bus, slash surface,
-event wiring, taint posture, and standards compliance (the standalone window follows §6A).
+event wiring, taint posture, and standards compliance (the standalone window follows standalone-windows).
 For scope see [`scope.md`](scope.md); for the working brief and the full doc index see [`agent-context.md`](agent-context.md). Topic docs sit alongside this file in `docs/`.
 
 ---
@@ -190,7 +190,7 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Taint notes
 
-- The **browser is a plain non-secure `CreateFrame`** (per §6A) — it touches no protected
+- The **browser is a plain non-secure `CreateFrame`** (per standalone-windows) — it touches no protected
   functions and needs no combat-lockdown gate. It can open/refresh in combat.
 - The **Settings panel** uses the canonical Blizzard `Settings.RegisterCanvasLayoutCategory`
   canvas with a **lazy, combat-gated** AceGUI body — it defers building/opening during combat.
@@ -206,11 +206,11 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 No deviations from the Ka0s standard (also recorded in [`scope.md`](scope.md) and [`agent-context.md`](agent-context.md)).
 Two surface-specific notes:
 
-1. **The standalone browser window follows §6A** (Standalone windows / data browsers): a non-secure
+1. **The standalone browser window follows standalone-windows** (Standalone windows / data browsers): a non-secure
    `CreateFrame`, so it needs no combat-lockdown gate — ESC via `UISpecialFrames`, persisted
-   position/size/scale, one `SKIN`/`ApplySkin` seam. This addon is §6A's reference implementation.
-   The Settings panel separately follows the §6 combat-gated canvas.
-2. **Bare `/lh` prints help** (standard §7.4); window display is explicit (`/lh toggle`,
+   position/size/scale, one `SKIN`/`ApplySkin` seam. This addon is standalone-windows's reference implementation.
+   The Settings panel separately follows the options-ui-§2 combat-gated canvas.
+2. **Bare `/lh` prints help** (standard slash-commands-§4); window display is explicit (`/lh toggle`,
    `/lh show|hide`).
 
 Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
