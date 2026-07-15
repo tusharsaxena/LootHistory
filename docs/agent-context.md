@@ -91,8 +91,9 @@ matching) has an id-based fallback; see [attribution.md](attribution.md).
 Headless harness under `tests/` runs with **`lua tests/run.lua`** (a `wow_mock.lua` stubs the WoW API
 + a `(message,target)`-keyed bus so receivers are testable; it deliberately omits several `C_*` APIs
 so the compat presence-guards are exercised). Lint with **`luacheck .`**. Both must be green before
-committing (152 tests). Details: [testing.md](testing.md). Manual in-game validation:
-[smoke-tests.md](smoke-tests.md).
+committing; the authoritative case count and full per-case inventory live in
+[test-cases.md](test-cases.md) (`lua tests/run.lua --list`). Details: [testing.md](testing.md).
+Manual in-game validation: [smoke-tests.md](smoke-tests.md).
 
 ## Module publishing pattern
 
@@ -153,6 +154,6 @@ Topic-specific detail lives in `docs/`. Read on demand — these are not auto-lo
 | `Compat.*` API-shim catalogue | [compat-layer.md](compat-layer.md) | Wrapping a Blizzard API; reasoning about taint. |
 | Midnight (12.0) gotchas (GUID decode, tooltip scans, uncached fallback) | [midnight-quirks.md](midnight-quirks.md) | Patch-day breakage; capture edge cases. |
 | Coding conventions / boundaries | [conventions.md](conventions.md) | Style / boundary questions. |
-| Headless test harness + lint gate | [testing.md](testing.md) | Adding tests; understanding the mock. |
+| Headless test harness + lint gate; generated case inventory | [testing.md](testing.md) · [test-cases.md](test-cases.md) | Adding tests; understanding the mock; the case list. |
 | In-game smoke tests | [smoke-tests.md](smoke-tests.md) | After any change; before a release. |
 | Design overview / invariants / taint notes | [ARCHITECTURE.md](ARCHITECTURE.md) | Designing a cross-module change. |
