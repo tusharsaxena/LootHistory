@@ -48,6 +48,7 @@ Companion docs:
 | 12 | Debug console | `/lh debug` window + session-only logging | [Debug console](#12-debug-console) |
 | 13 | Retention | `PruneOld` on login + onChange | [Retention prune](#13-retention-prune) |
 | 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
+| 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
 
 ---
 
@@ -375,6 +376,19 @@ are **independent**.
   `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
   (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.
 
+### 15. Debug console coverage
+
+Confirms every debug tag fires and, critically, that the coalescing seams really emit **one line,
+not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`, then:
+
+- Log in → one `[Init]` line (schemaVersion + record count).
+- Loot a threshold item → one `[Loot]`; a sub-threshold item → one `[Drop]`.
+- Open a corpse/chest with many slots → exactly one `[Open] LOOT_OPENED N slots -> …`, not N lines.
+- Change a setting (panel or `/lh set …`) → exactly one `[Set] <path> = <value>`, no `[Cfg]`.
+- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row → one `[Data] deleted row @…`.
+- Open the browser → `[UI] window shown`; switch to Insights → `[UI] tab -> Insights` + one `[Insights] computed …`.
+- Type in the table's search / change group/sort → one `[Table] rendered M/T rows (…)` per change, never per row.
+
 ---
 
 ## When to run which subset
@@ -383,9 +397,11 @@ are **independent**.
   `modules/Attribution.lua`, or `core/Compat.lua` needs the source matrix.
 - **Browser / table edits:** 2, 5, 6, 8. `modules/Browser.lua` / `BrowserTable.lua` / `Analytics.lua`.
 - **Settings / schema edits:** 9, 10, plus §4's mute/quality gates for any new Data-Collection row.
-- **Pre-release / TOC bump:** the **entire suite** — the 14 scenarios span every system the addon
+- **Pre-release / TOC bump:** the **entire suite** — the 15 scenarios span every system the addon
   owns. Always finish with the headless gate green: `luacheck .` (0/0) and `lua tests/run.lua` (see
   [testing.md](testing.md)).
+- **Debug/logging edits:** 12, 15. Anything touching `NS.Debug` call sites or `modules/DebugLog.lua`
+  needs the tag-coverage + coalescing checklist.
 
 If a smoke test fails, capture the offending line from BugSack / the Lua error frame plus the exact
 slash sequence that produced it, and file an issue at the tracker referenced in
