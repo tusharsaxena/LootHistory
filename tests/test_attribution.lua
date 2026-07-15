@@ -129,21 +129,55 @@ test("Attribution: deconstruct spells map to their own source", function()
   assertEqual(NS.Attribution:Consume(), "PROSPECTING")
 end)
 
-test("Attribution: DeconstructSource matches ability families by name", function()
+test("Attribution: DeconstructSource resolves enumerated ids locale-independently", function()
   local A = NS.Attribution
+  -- Id-first: every enumerated spell attributes regardless of the (localized) name.
   assertEqual(A:DeconstructSource(13262, "Disenchant"), "DISENCHANT")
   assertEqual(A:DeconstructSource(289991, "Disenchanting"), "DISENCHANT")
   assertEqual(A:DeconstructSource(51005, "Milling"), "MILLING")
   assertEqual(A:DeconstructSource(382981, "Dragon Isles Milling"), "MILLING")
-  assertEqual(A:DeconstructSource(434926, "Mass Mill Mycobloom"), "MILLING")  -- not in the id table
+  assertEqual(A:DeconstructSource(434926, "Mass Mill Mycobloom"), "MILLING")
   assertEqual(A:DeconstructSource(31252, "Prospecting"), "PROSPECTING")
   assertEqual(A:DeconstructSource(434018, "Algari Prospecting"), "PROSPECTING")
-  assertEqual(A:DeconstructSource(225904, "Mass Prospect Felslate"), "PROSPECTING") -- not in the id table
+  assertEqual(A:DeconstructSource(225904, "Mass Prospect Felslate"), "PROSPECTING")
+  -- Unknown id + no name (headless GetSpellName) → no match.
   assertEqual(A:DeconstructSource(12345, "Fireball"), nil)
-  -- id fallback when the name is unavailable (uncached / non-enUS)
-  assertEqual(A:DeconstructSource(1269575, nil), "MILLING")
+  assertEqual(A:DeconstructSource(1269575, nil), "MILLING")   -- id fallback, name unavailable
   assertEqual(A:DeconstructSource(374627, nil), "PROSPECTING")
   assertEqual(A:DeconstructSource(99999, nil), nil)
+end)
+
+-- Un-enumerated per-herb/expansion variants are matched by their *localized* name family, resolved
+-- from seed spellIDs via C_Spell — proving the check follows the client locale and never depends on
+-- an English literal (Ka0s Standard localization-§4 / anti-pattern #37). GetSpellName is stubbed to
+-- return the locale-specific seed names the live client would.
+test("Attribution: DeconstructSource matches un-enumerated variants by localized name family", function()
+  local A = NS.Attribution
+  local orig = NS.Compat.GetSpellName
+
+  -- enUS client: seed names give the "Milling"/"Prospecting" word and the "Mass Mill/Prospect" stem.
+  NS.Compat.GetSpellName = function(id)
+    local n = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
+                [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
+    return n[id]
+  end
+  assertEqual(A:DeconstructSource(990001, "Mass Mill Arthran"), "MILLING")        -- unknown id, "Mass Mill" stem
+  assertEqual(A:DeconstructSource(990002, "Mass Prospect Aqirite"), "PROSPECTING")-- unknown id, "Mass Prospect" stem
+  assertEqual(A:DeconstructSource(990003, "Khaz Algar Milling"), "MILLING")       -- embeds "Milling"
+  assertEqual(A:DeconstructSource(990004, "Fireball"), nil)                       -- no family word
+
+  -- deDE client: the same code follows the localized seed names — no enUS literal is ever compared.
+  NS.Compat.GetSpellName = function(id)
+    local n = { [13262] = "Entzaubern", [51005] = "Mahlen", [31252] = "Prospektieren",
+                [434926] = "Mahlen von Mycobloom", [225904] = "Prospektieren von Felslit" }
+    return n[id]
+  end
+  assertEqual(A:DeconstructSource(990010, "Entzaubern"), "DISENCHANT")
+  assertEqual(A:DeconstructSource(990011, "Dracheninsel-Mahlen"), "MILLING")      -- embeds "Mahlen"
+  assertEqual(A:DeconstructSource(990012, "Algari-Prospektieren"), "PROSPECTING") -- embeds "Prospektieren"
+  assertEqual(A:DeconstructSource(990013, "Feuerball"), nil)
+
+  NS.Compat.GetSpellName = orig
 end)
 
 test("Attribution: deconstruct's own loot window does not clobber its source", function()

@@ -21,35 +21,66 @@ local Constants = NS.Constants
 -- materials arrive through a loot window whose Item source GUID would otherwise resolve to CONTAINER
 -- (see OnLootOpened), so DECONSTRUCT_SOURCE also stops that window from clobbering the stamp.
 --
--- Detection is primarily by spell NAME family (see DeconstructSource): modern retail has split
--- Milling/Prospecting into generic + per-expansion + per-herb/ore "Mass Mill/Prospect" spells — far
--- too many ids (and growing every patch) to enumerate — but they all share a name family. The id
--- table below is a locale-independent fallback for the primary per-expansion spells when the name is
--- unavailable (uncached). Name matching is enUS; non-English clients rely on the id fallback
--- (full localization is tracked as a backlog issue).
+-- Detection is by spell id first (DECONSTRUCT_ID, locale-independent), then by a NAME family for the
+-- variants too numerous to enumerate: modern retail has split Milling/Prospecting into generic +
+-- per-expansion + per-herb/ore "Mass Mill/Prospect" spells — far too many ids (and growing every
+-- patch) to list — but they share a localized name family. Crucially the family is matched against
+-- the *localized* name of a seed spell (resolved at match time via C_Spell), NEVER a hardcoded
+-- English literal: GetSpellName returns the client-locale name, so "Milling" on enUS becomes
+-- "Mahlen" on deDE and the check follows the player's language automatically
+-- (Ka0s Standard localization-§4 / anti-pattern #37).
 local DECONSTRUCT_ID = {
   [13262] = "DISENCHANT", [289991] = "DISENCHANT",
-  -- Milling: generic + per-expansion
+  -- Milling: generic + per-expansion + a representative per-herb "Mass Mill" (seed for the name family)
   [51005] = "MILLING", [382981] = "MILLING", [434913] = "MILLING", [1269575] = "MILLING",
-  -- Prospecting: base + per-expansion
+  [434926] = "MILLING",
+  -- Prospecting: base + per-expansion + a representative per-ore "Mass Prospect" (name-family seed)
   [31252] = "PROSPECTING", [434018] = "PROSPECTING", [1231127] = "PROSPECTING",
   [374627] = "PROSPECTING", [302710] = "PROSPECTING", [382980] = "PROSPECTING",
   [382979] = "PROSPECTING", [382971] = "PROSPECTING", [382977] = "PROSPECTING",
   [382973] = "PROSPECTING", [382975] = "PROSPECTING", [382972] = "PROSPECTING",
+  [225904] = "PROSPECTING",
 }
 -- The deconstruct source names, for the OnLootOpened guard.
 local DECONSTRUCT_SOURCE = { DISENCHANT = true, MILLING = true, PROSPECTING = true }
 
--- Map a completed player cast to a deconstruct source, or nil. Name-family match first (covers
--- base / per-expansion / "Mass Mill|Prospect" / future variants, enUS), then the per-expansion id
--- fallback (locale-independent). Testable without events.
+-- Name-family seeds: a stable spellID per source whose *localized* name is matched (substring, as a
+-- prefix stem) against the cast's *localized* name — so any base / per-expansion variant that embeds
+-- the family word attributes correctly on every client locale. `dropLast` strips the seed name's
+-- final word: the per-herb/ore "Mass Mill <Herb>" / "Mass Prospect <Ore>" families share a localized
+-- command prefix ("Mass Mill", "Massenmahlen …", …), so we match that prefix rather than enumerate
+-- every herb/ore. All names come from C_Spell at match time — zero English literals in the compare.
+local NAME_SEEDS = {
+  { source = "DISENCHANT",  id = 13262 },                    -- "Disenchant" (prefix of "Disenchanting")
+  { source = "MILLING",     id = 51005 },                    -- "Milling"
+  { source = "MILLING",     id = 434926, dropLast = true },  -- "Mass Mill <Herb>"
+  { source = "PROSPECTING", id = 31252 },                    -- "Prospecting"
+  { source = "PROSPECTING", id = 225904, dropLast = true },  -- "Mass Prospect <Ore>"
+}
+
+-- The localized match token for a seed: its client-locale spell name, optionally minus its final
+-- word (the per-herb/ore suffix), trimmed and lowercased. nil when the name is not yet cached.
+local function seedToken(seed)
+  local name = NS.Compat.GetSpellName(seed.id)
+  if not name or name == "" then return nil end
+  if seed.dropLast then name = name:gsub("%s+%S+%s*$", "") end
+  name = name:gsub("^%s+", ""):gsub("%s+$", ""):lower()
+  return name ~= "" and name or nil
+end
+
+-- Map a completed player cast to a deconstruct source, or nil. Id match first (locale-independent),
+-- then the localized name-family match for un-enumerated variants. Testable without events.
 function Attribution:DeconstructSource(spellID, name)
+  local byId = DECONSTRUCT_ID[spellID]
+  if byId then return byId end
   if name and name ~= "" then
-    if name:find("Disenchant") then return "DISENCHANT" end
-    if name:find("Milling") or name:find("^Mass Mill") then return "MILLING" end
-    if name:find("Prospecting") or name:find("^Mass Prospect") then return "PROSPECTING" end
+    local cast = name:lower()
+    for _, seed in ipairs(NAME_SEEDS) do
+      local tok = seedToken(seed)
+      if tok and cast:find(tok, 1, true) then return seed.source end
+    end
   end
-  return DECONSTRUCT_ID[spellID]
+  return nil
 end
 
 -- Compact one-line summary of a sourceDetail table, for the debug trace. Only called inside a

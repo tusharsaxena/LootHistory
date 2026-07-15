@@ -6,7 +6,7 @@ What Ka0s Loot History is, what's in scope, and what's not. The user-facing cont
 
 Ka0s Loot History is a WoW addon with two responsibilities: **capture** every item the player personally loots (above a configurable quality threshold), attributing each drop to a **source**; and **browse & analyze** that history in a standalone window with a filter/sort/group table plus an Insights (analytics) view. Storage is account-wide, so loot from every character is browsable together. Designed as a personal loot ledger — not a group-loot / loot-council tool.
 
-Capture is passive and silent: the authoritative "item received (self)" signal is `CHAT_MSG_LOOT`, and peripheral events stamp a short-lived source context the collector consumes (see [attribution.md](attribution.md)). The window is a non-secure standalone frame, independent of the Blizzard options UI; the settings panel is a separate Blizzard Settings canvas. The message contract between collector, database, browser, analytics, and settings is documented in [architecture.md](architecture.md).
+Capture is passive and silent: the authoritative "item received (self)" signal is `CHAT_MSG_LOOT`, and peripheral events stamp a short-lived source context the collector consumes (see [attribution.md](attribution.md)). The window is a non-secure standalone frame, independent of the Blizzard options UI; the settings panel is a separate Blizzard Settings canvas. The message contract between collector, database, browser, analytics, and settings is documented in [architecture.md](ARCHITECTURE.md).
 
 Target client: WoW 12.0.7 (Midnight), Retail-only (`## Interface: 120007`). Mainline branch: `master`. English-only.
 
@@ -16,7 +16,7 @@ Display name in the addon list and the Settings panel: `Ka0s Loot History`. The 
 
 ## In scope
 
-- **Passive capture** of every item the player personally loots — self only, items only (anything with an itemID). A configurable **quality threshold** (default Uncommon+) and an optional **quest-item filter** gate recording; a master enable switch stops all capture.
+- **Passive capture** of every item the player personally loots — self only, items only (anything with an itemID). A configurable **quality threshold** (default Common+) and an optional **quest-item filter** gate recording; a master enable switch stops all capture.
 - **Source attribution** into `Constants.SourceType`: `KILL`, `CONTAINER`, `MAIL`, `TRADE`, `AH`, `QUEST`, `VENDOR`, `MPLUS`, `DISENCHANT`, `MILLING`, `PROSPECTING`, plus `CRAFT` / `ROLL` (enum'd, not yet stamped) and an `OTHER` fallback — each tagged `CERTAIN` or `INFERRED` confidence. Users may **mute** individual sources; only sources with a live stamper (`Constants.SOURCE_IMPLEMENTED`) appear in the mute UI.
 - **Account-wide history** stored as a dense array in `LootHistoryDB.global.history`, with a `char` column so per-character views are a filter, not separate storage. Automatic **retention** prune runs once per session (default 30 days; configurable, including Never).
 - **Standalone browser window** — movable, resizable, scale-configurable — with a History table (multi-select filters for quality / type / source / zone / character, a Current/All scope, item-name search, click-to-sort, group-by, and row actions) and an Insights tab (range-scoped breakdowns and top lists). Rendered with pooled/virtualized rows. See [browser.md](browser.md).

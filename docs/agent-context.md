@@ -83,8 +83,10 @@ header toggle both route through it; the window's visibility is independent of t
 ## Locale
 
 `locales/enUS.lua` exports `NS.L`, a key-returning metatable. English is the only shipped locale — a
-shell, not localization plumbing. The one locale-sensitive capture path (deconstruct spell-name
-matching) has an id-based fallback; see [attribution.md](attribution.md).
+shell, not localization plumbing. The one capture path that touches game-data strings (deconstruct
+spell detection) resolves by spell id first and, for un-enumerated variants, matches the cast's
+*localized* name against tokens derived from seed spellIDs — locale-independent, no English literals;
+see [attribution.md](attribution.md).
 
 ## Testing & lint gate
 

@@ -66,7 +66,7 @@ Loot History**.
 - Login and `/reload` complete with **no Lua errors**. Every TOC file loads (Compat first, then the
   rest of `core/`, defaults, locales, settings, then modules with Attribution before Collector).
 - `/lh` (bare) prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
-  `COMMANDS` entry (show/hide/toggle/config/get/set/list/reset/resetall/debug/test/purge/help). Every
+  `COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
   `settings`, `minimap`, and `schemaVersion = 1`.
@@ -149,8 +149,9 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 - With **Exclude quest items** on, Quest-class items are dropped (`reason=quest`, keyed on the
   locale-independent item class `12`, not the localized type string); unchecking it lets them record.
 - With **Kill** unchecked, kill loot is dropped (`reason=source`); re-checking restores capture. The
-  mute list offers **only implemented sources** (Kill, Container, Mythic+, Roll, Quest, Trade, Mail,
-  Auction House, Vendor, Other) — no dead AH/Craft checkbox beyond the enum'd set.
+  mute list offers **only implemented sources** (Kill, Container, Mythic+, Quest, Trade, Mail,
+  Auction House, Vendor, Disenchant, Milling, Prospecting, Other) — no dead Roll/Craft checkbox
+  beyond the enum'd set.
 - All three gates react **live** to the setting change (upvalues refresh on `SettingsChanged`); no
   `/reload` needed.
 

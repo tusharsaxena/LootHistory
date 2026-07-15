@@ -46,7 +46,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Compat: QualityLabel names qualities
 - Compat: GetItemInfo surfaces the item class id
 
-### test_attribution.lua (20)
+### test_attribution.lua (21)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -62,7 +62,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Attribution: using a non-lootable bag item does not stamp
 - Attribution: applying a pending spell to a bag item does not stamp CONTAINER
 - Attribution: deconstruct spells map to their own source
-- Attribution: DeconstructSource matches ability families by name
+- Attribution: DeconstructSource resolves enumerated ids locale-independently
+- Attribution: DeconstructSource matches un-enumerated variants by localized name family
 - Attribution: deconstruct's own loot window does not clobber its source
 - OnLootOpened logs ONE coalesced summary, not one line per slot
 - Attribution: an unrelated player spell does not stamp a source
@@ -205,11 +206,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 |-------|------:|
 | test_util.lua | 23 |
 | test_compat.lua | 11 |
-| test_attribution.lua | 20 |
+| test_attribution.lua | 21 |
 | test_collector.lua | 15 |
 | test_database.lua | 33 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 15 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 20 |
-| **Total** | **166** |
+| **Total** | **167** |
