@@ -42,7 +42,9 @@ The **date dropdown** is single-select (Today / Last 7 days / Last 30 days / All
 
 ### Footer
 
-`B:UpdateFooter` (`Browser.lua:529`) prints `"Showing X of Y"`, where X is `BrowserTable.matchCount` (records that passed the filter, captured before grouping) and Y is `#dataset()` — the table's current dataset, so both numbers track test mode.
+`B:UpdateFooter` (`Browser.lua:532`) prints `"Showing X of Y"` at the footer's bottom-left, where X is `BrowserTable.matchCount` (records that passed the filter, captured before grouping) and Y is `#dataset()` — the table's current dataset, so both numbers track test mode.
+
+`B:UpdateDbSize` (`Browser.lua:542`) prints the estimated stored size — `"Database ≈ <size>"` — right-aligned at the footer's bottom-right, from `Database:StorageStats().bytes` (the same estimate the settings panel shows) through `Util.FormatBytes`. It reflects the **real** persisted history (not the test dataset) and is recomputed only where storage can change or the view (re)opens — `SelectTab("History")`, `OnHistoryChanged`, and `OnDatasetChanged` — **never** on a filter keystroke (filtering can't change what's stored), so the per-keystroke path stays allocation-light.
 
 ### LDB launcher + minimap button
 

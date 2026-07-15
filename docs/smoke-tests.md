@@ -174,8 +174,11 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 **Pass.**
 - Every sort direction and every group mode renders without error; the group order mirrors the column
   order (Day, Quality, Type, Source, Zone, Character).
-- Each filter narrows the visible rows; the footer reads **"Showing X of Y"** and updates live as
-  filters change. Multi-select filters combine (intersection with the others).
+- Each filter narrows the visible rows; the footer reads **"Showing X of Y"** (bottom-left) and
+  updates live as filters change. Multi-select filters combine (intersection with the others).
+- The footer's bottom-right reads **"Database ≈ <size>"** (e.g. `≈ 12.4 kB`), right-aligned, matching
+  the settings panel's storage estimate. It does **not** change as filters change (it tracks stored
+  history, not the filtered view); it updates after looting a new item or deleting a row.
 - Search matches item names; clearing it restores the unsearched set.
 - Right-click **Delete** removes the row (fires `HistoryChanged`; the table + footer refresh and the
   array is rebuilt dense, no holes). **Link to chat** and **Shift-click** both insert the item link

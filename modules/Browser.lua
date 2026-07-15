@@ -137,6 +137,7 @@ function B:SelectTab(name)
     NS.BrowserTable:Refresh()
     B:RefreshFilterOptions()
     B:UpdateFooter()
+    B:UpdateDbSize()
   elseif name == "Insights" and NS.Analytics and NS.Analytics.Refresh then
     NS.Analytics:Refresh()
   end
@@ -535,6 +536,15 @@ function B:UpdateFooter()
   self._footer:SetText(("Showing %d of %d"):format(shown, total))
 end
 
+-- Estimated SavedVariables size of the stored history (the same estimate the settings panel
+-- shows, Database:StorageStats). Recomputed only when history changes or the window (re)opens —
+-- never on a filter keystroke, since filtering can't change what's stored. \226\137\136 = "≈".
+function B:UpdateDbSize()
+  if not self._dbFooter then return end
+  local bytes = (NS.Database and NS.Database.StorageStats and NS.Database:StorageStats().bytes) or 0
+  self._dbFooter:SetText(("Database \226\137\136 %s"):format(NS.Util.FormatBytes(bytes)))
+end
+
 -- Recompute the data-driven dropdowns (source/type/char/zone) from the current dataset.
 function B:RefreshFilterOptions()
   local dd = self._dd
@@ -556,6 +566,7 @@ function B:OnDatasetChanged()
     self:ApplyView(savedViewOrStock(), "current")
   end
   self:UpdateFooter()
+  self:UpdateDbSize()
   self:UpdateTestBadge()
   -- The Insights tab reads the same dataset; refresh it so a live Insights view reflects the swap.
   if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end
@@ -805,6 +816,15 @@ function B:BuildHistory(pane)
   footer:SetPoint("BOTTOMLEFT", 2, 2)
   self._footer = footer
 
+  -- Estimated storage size, right-aligned opposite the count (mirrors the settings panel's
+  -- storage estimate). Anchored BOTTOMRIGHT so it grows leftward, clear of "Showing X of Y".
+  -- x = -20 keeps the text left of the 16px resize grip (frame BOTTOMRIGHT -2) so they don't overlap.
+  local dbFooter = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  dbFooter:SetPoint("BOTTOMRIGHT", -20, 2)
+  dbFooter:SetJustifyH("RIGHT")
+  self._dbFooter = dbFooter
+  self:UpdateDbSize()
+
   -- Table host between the filter bar and the footer.
   local host = CreateFrame("Frame", nil, pane)
   host:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -4)
@@ -1009,6 +1029,7 @@ function B:OnHistoryChanged()
   if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh() end
   self:RefreshFilterOptions()
   self:UpdateFooter()
+  self:UpdateDbSize()
 end
 
 -- Subscribe once the addon (bus) is available.
