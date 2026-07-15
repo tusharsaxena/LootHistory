@@ -6,7 +6,8 @@ local buildMocks = dofile("tests/wow_mock.lua")
 
 -- --- tiny test framework (exposed to test files via _G.LH_TEST) ---
 local tests = {}
-local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn } end
+local currentSuite = nil
+local function test(name, fn) tests[#tests + 1] = { name = name, fn = fn, suite = currentSuite } end
 
 local function fail(msg, level) error(msg, (level or 1) + 1) end
 local function assertEqual(got, want, msg)
@@ -50,16 +51,48 @@ _G.LH_TEST = {
   assertEqual = assertEqual, assertTrue = assertTrue, assertFalse = assertFalse,
 }
 
--- --- load test suites ---
-dofile("tests/test_util.lua")
-dofile("tests/test_compat.lua")
-dofile("tests/test_attribution.lua")
-dofile("tests/test_collector.lua")
-dofile("tests/test_database.lua")
-dofile("tests/test_stats.lua")
-dofile("tests/test_browsertable.lua")
-dofile("tests/test_debuglog.lua")
-dofile("tests/test_slash.lua")
+-- --- load test suites (order is load-order-sensitive; keep as-is) ---
+local SUITE_FILES = {
+  "test_util.lua", "test_compat.lua", "test_attribution.lua",
+  "test_collector.lua", "test_database.lua", "test_stats.lua",
+  "test_browsertable.lua", "test_debuglog.lua", "test_slash.lua",
+}
+for _, s in ipairs(SUITE_FILES) do
+  currentSuite = s
+  dofile("tests/" .. s)
+end
+currentSuite = nil
+
+-- --- inventory mode: emit docs/test-cases.md and exit without running ---
+if arg and arg[1] == "--list" then
+  local order, byS = {}, {}
+  for _, t in ipairs(tests) do
+    if not byS[t.suite] then byS[t.suite] = {}; order[#order + 1] = t.suite end
+    local b = byS[t.suite]; b[#b + 1] = t.name
+  end
+  print("# Test Cases")
+  print("")
+  print("The full inventory of every headless test case, grouped by suite. This file is the")
+  print("**authoritative pass count** for the addon.")
+  print("")
+  print("**Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`")
+  print("whenever the suite changes (see [testing.md](testing.md)).")
+  print("")
+  for _, s in ipairs(order) do
+    local b = byS[s]
+    print(string.format("### %s (%d)", s, #b))
+    print("")
+    for _, n in ipairs(b) do print("- " .. n) end
+    print("")
+  end
+  print("## Totals")
+  print("")
+  print("| Suite | Cases |")
+  print("|-------|------:|")
+  for _, s in ipairs(order) do print(string.format("| %s | %d |", s, #byS[s])) end
+  print(string.format("| **Total** | **%d** |", #tests))
+  os.exit(0)
+end
 
 -- --- run ---
 local passed, failed = 0, 0
