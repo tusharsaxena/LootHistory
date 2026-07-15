@@ -60,6 +60,9 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   Collector, refreshed on `SettingsChanged`.
 - **`Database:Export` field shape is the v2 export contract** — do not change it. See
   [data-model.md](data-model.md).
+- **Keep the test inventory & README badge in sync.** Any suite change (case added/removed/renamed
+  or count moved) MUST regenerate `docs/test-cases.md` via `lua tests/run.lua --list` and update the
+  README `tests` badge in the same change. See [testing.md](testing.md) and [test-cases.md](test-cases.md).
 
 ## Compat seam
 

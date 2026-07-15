@@ -2,6 +2,7 @@
 
 ![wow](https://img.shields.io/badge/WoW-Midnight_12.0.7-orange)
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
+![tests](https://img.shields.io/badge/tests-166%2F166_passing-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-green)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-blue)](https://github.com/tusharsaxena/WowAddonStandards)
 

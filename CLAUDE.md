@@ -49,6 +49,9 @@ This root file is a stub (per standard §15.2). Read these before touching code:
 - **Schema-as-single-source**: `settings/Schema.lua` drives AceDB defaults, panel widgets, and the
   slash CLI; every user-setting mutation goes through `Schema:Set` (window geometry is the carve-out).
 - **Debug is session-only** (`NS.State.debug`, never persisted); it routes to the on-screen console.
+- **Test inventory & badge stay in sync.** When the suite changes (a case added/removed/renamed, or
+  the pass count moves), regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`)
+  and update the README `tests` badge count in the same change. See [docs/testing.md](docs/testing.md).
 
 ## Local verification (standard §14A)
 
