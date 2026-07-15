@@ -804,11 +804,26 @@ function BrowserTable:BuildHeaderCells()
   self:UpdateHeaderArrows()
 end
 
+-- Pure one-line render summary for the [Table] trace. filterCount = number of active
+-- filter keys; sortAsc drives the direction word. No frames, no side effects.
+function BrowserTable.RenderSummary(matchCount, total, filterCount, groupBy, sortKey, sortAsc)
+  return ("rendered %s/%s rows (group=%s, sort=%s %s, filters=%s)"):format(
+    tostring(matchCount), tostring(total), tostring(groupBy or "none"),
+    tostring(sortKey), sortAsc and "asc" or "desc", tostring(filterCount or 0))
+end
+
 -- Recompute the display list and repaint. Safe to call before Attach (no-op).
 function BrowserTable:Refresh()
   if not self.frame then return end
   self.displayList = self:BuildDisplayList()
   self:Bind()
+  if NS.State.debug and NS.Debug then
+    local total = #(NS.Database:ActiveHistory() or {})
+    local fc = 0
+    for _ in pairs(self.filter or {}) do fc = fc + 1 end
+    NS.Debug("Table", "%s", BrowserTable.RenderSummary(
+      self.matchCount or 0, total, fc, self.groupBy, self.sortKey, self.sortAsc))
+  end
 end
 
 -- Bind the visible slice of the display list onto pooled rows.

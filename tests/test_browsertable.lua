@@ -222,3 +222,12 @@ test("BrowserTable: test mode filters the synthetic dataset", function()
 
   BT.testMode, NS.State.testRecords, BT.filter = false, nil, {} -- restore shared state
 end)
+
+test("BrowserTable.RenderSummary is a single coalesced line", function()
+  local s = NS.BrowserTable.RenderSummary(84, 1423, 2, "zone", "date", false)
+  assertTrue(s:find("84/1423 rows", 1, true) ~= nil, "reports matched/total")
+  assertTrue(s:find("group=zone", 1, true) ~= nil, "reports group")
+  assertTrue(s:find("sort=date desc", 1, true) ~= nil, "reports sort key + direction")
+  assertTrue(s:find("filters=2", 1, true) ~= nil, "reports active filter count")
+  assertTrue(s:find("\n") == nil, "one line only, no newline")
+end)

@@ -159,3 +159,7 @@ test("Stats: highlights + topItemsByValue", function()
   assertEqual(s.topItemsByValue[1].itemID, 10)
   assertEqual(s.topItemsByValue[3].itemID, 30)
 end)
+
+test("Analytics.SummaryLine formats range and count", function()
+  assertEqual(NS.Analytics.SummaryLine("30d", 1423), "computed range=30d, 1423 records")
+end)

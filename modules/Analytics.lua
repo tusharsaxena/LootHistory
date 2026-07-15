@@ -321,6 +321,11 @@ end
 
 -- ── Refresh + layout ──────────────────────────────────────────────────────────────
 
+-- Pure one-line summary for the [Insights] trace.
+function Analytics.SummaryLine(range, count)
+  return ("computed range=%s, %s records"):format(tostring(range), tostring(count))
+end
+
 function Analytics:Refresh()
   if not self.content then return end
   local from = NS.Util.RangeFrom(self.range)
@@ -328,6 +333,9 @@ function Analytics:Refresh()
   self.stats = stats
   self:UpdateCards(stats)
   self:Layout() -- Layout → LayoutCharts binds the charts off self.stats
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Insights", "%s", Analytics.SummaryLine(self.range, stats.totals.records))
+  end
 end
 
 function Analytics:UpdateCards(stats)

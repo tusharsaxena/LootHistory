@@ -140,6 +140,7 @@ function B:SelectTab(name)
   elseif name == "Insights" and NS.Analytics and NS.Analytics.Refresh then
     NS.Analytics:Refresh()
   end
+  if NS.State.debug and NS.Debug then NS.Debug("UI", "tab -> %s", tostring(name)) end
 end
 
 local function CreateTabStrip()
@@ -907,8 +908,16 @@ local function EnsureFrame()
   frame.resizeGrip = grip
 
   -- Close any open dropdown menu whenever the window hides (covers the ESC/UISpecialFrames
-  -- path, which calls frame:Hide() directly instead of B:Hide()).
-  frame:HookScript("OnHide", function() if menu then menu:Hide() end end)
+  -- path, which calls frame:Hide() directly instead of B:Hide()). Also the single seam for the
+  -- [UI] show/hide trace — fires once per visibility change regardless of call path (B:Show/
+  -- B:Hide, ESC, or a raw frame:Hide()).
+  frame:HookScript("OnShow", function()
+    if NS.State.debug and NS.Debug then NS.Debug("UI", "window shown") end
+  end)
+  frame:HookScript("OnHide", function()
+    if menu then menu:Hide() end
+    if NS.State.debug and NS.Debug then NS.Debug("UI", "window hidden") end
+  end)
 
   B:ApplySkin(frame)
   RestoreWindow()
