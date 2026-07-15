@@ -83,6 +83,9 @@ return function()
       return {
         global = deepcopy(defaults and defaults.global or {}),
         profile = deepcopy(defaults and defaults.profile or {}),
+        -- Account-wide addon: created in-game with defaultProfile=true, so the profile is always
+        -- the fixed "Default". Mirror that here so the [Init] summary renders a real profile name.
+        GetCurrentProfile = function() return "Default" end,
       }
     end,
   }

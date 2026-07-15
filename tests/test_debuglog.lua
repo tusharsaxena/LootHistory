@@ -88,3 +88,58 @@ test("header toggle click flips debug state", function()
   click(); assertTrue(NS.State.debug == true, "click should turn state on")
   click(); assertTrue(NS.State.debug == false, "second click should turn state off")
 end)
+
+-- ── SetEnabled seam: colour-coded chat ack + [Init] summary (debug-logging-§5) ──
+local function capture(fn)
+  local out = {}
+  local cf = T.mocks.DEFAULT_CHAT_FRAME
+  local old = cf.AddMessage
+  cf.AddMessage = function(_, msg) out[#out + 1] = msg end
+  local ok, err = pcall(fn)
+  cf.AddMessage = old
+  if not ok then error(err) end
+  return out
+end
+
+test("SetEnabled(true) prints a green-coded ON ack through the NS.PREFIX printer", function()
+  local out = capture(function() NS.DebugLog:SetEnabled(true) end)
+  assertEqual(out[1], NS.PREFIX .. " debug logging |cff40ff40ON|r")
+  NS.State.debug = false
+end)
+
+test("SetEnabled(false) prints a red-coded OFF ack", function()
+  local out = capture(function() NS.DebugLog:SetEnabled(false) end)
+  assertEqual(out[1], NS.PREFIX .. " debug logging |cffff4040OFF|r")
+end)
+
+test("SetEnabled(true) appends the [Init] summary right after the enable bracket", function()
+  NS.State.debug = false
+  local before = #NS.DebugLog.buffer
+  NS.DebugLog:SetEnabled(true)
+  local buf = NS.DebugLog.buffer
+  assertEqual(#buf, before + 2, "enable appends exactly the bracket + [Init] lines")
+  assertTrue(buf[before + 1]:find("[Debug] logging enabled", 1, true) ~= nil,
+    "enable bracket first: " .. tostring(buf[before + 1]))
+  assertTrue(buf[before + 2]:find("[Init]", 1, true) ~= nil,
+    "[Init] line follows: " .. tostring(buf[before + 2]))
+  assertTrue(buf[before + 2]:find(NS.InitSummary(), 1, true) ~= nil,
+    "[Init] carries the session summary: " .. tostring(buf[before + 2]))
+  NS.State.debug = false
+end)
+
+test("SetEnabled(false) appends a [Debug] logging disabled line after the flag flips off", function()
+  NS.State.debug = true
+  local before = #NS.DebugLog.buffer
+  NS.DebugLog:SetEnabled(false)
+  local buf = NS.DebugLog.buffer
+  assertTrue(NS.State.debug == false, "flag must be off")
+  assertEqual(#buf, before + 1, "disable appends exactly one console line")
+  assertTrue(buf[#buf]:find("[Debug] logging disabled", 1, true) ~= nil,
+    "disable line via raw append: " .. tostring(buf[#buf]))
+end)
+
+test("InitSummary reports name, version, schema, active profile, and record count", function()
+  local n = #NS.db.global.history   -- order-independent: read the live count, don't hard-code it
+  assertEqual(NS.InitSummary(),
+    ("%s v%s, schema v1, profile 'Default', %d records"):format(NS.name, NS.version, n))
+end)

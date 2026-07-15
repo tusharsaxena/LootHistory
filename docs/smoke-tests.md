@@ -341,8 +341,11 @@ are **independent**.
 - `/lh debug on` enables logging; loot emits a tagged `<ts> | [Loot] …` line (and gated drops emit
   `[Drop] …`). `/lh debug off` stops logging. Logging runs **even with the window closed** — reopening
   the window shows the lines captured while it was hidden.
+- Each state change prints a colour-coded chat ack — `[LH] debug logging |cff40ff40ON|r` (green) /
+  `|cffff4040OFF|r` (red) — and appends a console line at **both** transitions: `[Debug] logging enabled`
+  on enable (immediately followed by the `[Init]` summary, below) and `[Debug] logging disabled` on disable.
 - **Copy** opens an editbox of plain text; **Clear** empties the log; **ESC** closes the window; the
-  header **Debug: ON/OFF** toggle flips the same session flag as `/lh debug on|off`.
+  header **Debug: ON/OFF** toggle flips the same session flag as `/lh debug on|off` (same ack + lines).
 - After `/reload`, debug logging is back **off** and the console is closed.
 
 ### 13. Retention prune
@@ -381,7 +384,8 @@ are **independent**.
 Confirms every debug tag fires and, critically, that the coalescing seams really emit **one line,
 not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`, then:
 
-- Log in → one `[Init]` line (schemaVersion + record count).
+- Enable debug (`/lh debug on` or the header toggle) → one `[Init]` line **on enable, not at login**
+  (the flag is session-only and off at login): `[Init] LootHistory v<ver>, schema v<n>, profile 'Default', <r> records`.
 - Loot a threshold item → one `[Loot]`; a sub-threshold item → one `[Drop]`.
 - Open a corpse/chest with many slots → exactly one `[Open] LOOT_OPENED N slots -> …`, not N lines.
 - Change a setting (panel or `/lh set …`) → exactly one `[Set] <path> = <value>`, no `[Cfg]`.

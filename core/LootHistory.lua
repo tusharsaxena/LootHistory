@@ -39,7 +39,9 @@ function addon:OnEnable()
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
-  if NS.State.debug and NS.Debug then NS.Debug("Init", "%s", NS.BootSummary()) end
+  -- No [Init] line here: the debug flag is session-only and off at login, so a boot-time summary
+  -- would always be gated off and never render. It rides the DebugLog:SetEnabled seam instead,
+  -- emitted when capture is actually enabled (debug-logging-§5/§8).
 end
 
 -- Retention cleanup runs once per session, deferred off the login/zone spike.

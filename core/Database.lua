@@ -22,17 +22,23 @@ function NS:RunMigrations()
   --   end
 end
 
--- Pure boot summary for the [Init] line. Reads current DB state; no side effects.
-function NS.BootSummary()
-  local g = NS.db and NS.db.global
-  local v = g and g.schemaVersion or 0
-  local n = (g and g.history and #g.history) or 0
-  return ("DB ready schemaVersion=%s records=%s"):format(tostring(v), tostring(n))
-end
-
 -- Pure migration summary for the [Migrate] line.
 function NS.MigrationSummary(from, to, rows)
   return ("v%s -> v%s, %s rows touched"):format(tostring(from), tostring(to), tostring(rows))
+end
+
+-- Pure [Init] session summary for the SetEnabled seam (debug-logging-§5/§8): addon name + version,
+-- schema/DB version, active profile, and record count — e.g.
+-- "LootHistory v1.1.0, schema v1, profile 'Default', 1423 records".
+-- Guarded so it can't error before the DB is ready (db.global / GetCurrentProfile may be absent).
+-- All values are plain constants/counts, so a raw tostring is secret-safe here.
+function NS.InitSummary()
+  local g = NS.db and NS.db.global
+  local schema = (g and g.schemaVersion) or 0
+  local profile = (NS.db and NS.db.GetCurrentProfile and NS.db:GetCurrentProfile()) or "?"
+  local records = (g and g.history and #g.history) or 0
+  return ("%s v%s, schema v%s, profile '%s', %s records"):format(
+    tostring(NS.name), tostring(NS.version), tostring(schema), tostring(profile), tostring(records))
 end
 
 NS.Database = NS.Database or {}

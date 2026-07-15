@@ -226,8 +226,19 @@ function D:SetEnabled(on)
   on = not not on
   NS.State.debug = on
   D:RefreshHeader()
-  print("debug " .. (on and "on" or "off"))
-  if on and NS.Debug then NS.Debug("Debug", "logging enabled") end
+  -- Colour-coded chat ack (debug-logging-§5): ON green (40ff40) / OFF red (ff4040), mirroring the
+  -- title-bar "Debug: ON/OFF" toggle so the flag reads identically in chat and on the console header.
+  print("debug logging " .. (on and "|cff40ff40ON|r" or "|cffff4040OFF|r"))
+  -- Console line at BOTH transitions (debug-logging-§5) so the log itself records when capture
+  -- started and stopped. Written through the raw append (D:Add), never the flag-gated NS.Debug sink:
+  -- the disable line has to land AFTER the flag has flipped off, which the gated sink would swallow.
+  D:Add("Debug", on and "logging enabled" or "logging disabled")
+  if on then
+    -- [Init] session summary immediately after the enable bracket. Emitted here on enable — NOT at
+    -- login/OnEnable — because the flag is session-only and off at login, so a load-time summary
+    -- would always be gated off and never render (debug-logging-§5/§8).
+    D:Add("Init", NS.InitSummary())
+  end
 end
 
 -- Updates the header toggle label to match NS.State.debug. Fully wired in the header task;
