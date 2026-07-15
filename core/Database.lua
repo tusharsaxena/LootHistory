@@ -18,7 +18,7 @@ function NS:RunMigrations()
   --   if g.schemaVersion < 2 then
   --     local n = migrateV1toV2(g)            -- returns rows touched
   --     g.schemaVersion = 2
-  --     if NS.State.debug and NS.Debug then NS.Debug("Migrate", NS.MigrationSummary(1, 2, n)) end
+  --     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(1, 2, n)) end
   --   end
 end
 
