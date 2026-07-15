@@ -230,6 +230,50 @@ test("Database: Purge wipes history and fires HistoryChanged", function()
   assertTrue(firedHistoryChanged(sent))
 end)
 
+test("Database: PruneOld returns removed count and logs [Prune]", function()
+  seed()
+  NS.db.global.settings.retentionDays = 30
+  NS.State.debug = true
+  local before = #NS.DebugLog.buffer
+  local removed = NS.Database:PruneOld()
+  assertTrue(type(removed) == "number", "PruneOld returns a number")
+  assertTrue(#NS.DebugLog.buffer > before, "a [Prune] line was logged")
+  assertTrue(NS.DebugLog.buffer[#NS.DebugLog.buffer]:find("[Prune]", 1, true) ~= nil,
+    "last line is tagged [Prune]")
+  NS.State.debug = false
+end)
+
+test("Database: PruneOld is zero-alloc and silent when debug is off", function()
+  seed()
+  NS.db.global.settings.retentionDays = 30
+  NS.State.debug = false
+  local before = #NS.DebugLog.buffer
+  NS.Database:PruneOld()
+  assertEqual(#NS.DebugLog.buffer, before, "no line logged when debug off")
+end)
+
+test("Database: Purge returns removed count and logs [Data]", function()
+  seed()
+  NS.State.debug = true
+  local n = NS.Database:Purge()
+  assertTrue(type(n) == "number" and n > 0, "Purge returns the removed count")
+  assertTrue(NS.DebugLog.buffer[#NS.DebugLog.buffer]:find("[Data]", 1, true) ~= nil,
+    "last line is tagged [Data]")
+  NS.State.debug = false
+end)
+
+test("Database: DeleteAt logs [Data] with the deleted row's ts", function()
+  seed()
+  NS.State.debug = true
+  local ts = NS.db.global.history[1].ts
+  assertTrue(NS.Database:DeleteAt(1))
+  assertTrue(NS.DebugLog.buffer[#NS.DebugLog.buffer]:find("[Data]", 1, true) ~= nil,
+    "last line is tagged [Data]")
+  assertTrue(NS.DebugLog.buffer[#NS.DebugLog.buffer]:find(tostring(ts), 1, true) ~= nil,
+    "the deleted row's ts appears in the line")
+  NS.State.debug = false
+end)
+
 test("Database: StorageStats counts records, day span, and estimated bytes", function()
   NS.db.global.history = {
     { ts = 1000, char = "A-Realm", itemLink = "[Red]",  itemName = "Red" },

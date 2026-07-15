@@ -283,8 +283,12 @@ end
 function Database:DeleteAt(index)
   local history = NS.db.global.history
   if type(index) ~= "number" or index < 1 or index > #history then return false end
+  local ts = history[index] and history[index].ts
   table.remove(history, index)
   fireHistoryChanged()
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Data", "deleted row @%s", tostring(ts))
+  end
   return true
 end
 
@@ -305,10 +309,15 @@ function Database:Delete(pred)
   return removed
 end
 
--- Wipe all history (the /lh purge command). Fires HistoryChanged.
+-- Wipe all history (the /lh purge command). Fires HistoryChanged. Returns the count removed.
 function Database:Purge()
+  local removed = #NS.db.global.history
   NS.db.global.history = {}
   fireHistoryChanged()
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Data", "purge-all removed %s rows", tostring(removed))
+  end
+  return removed
 end
 
 -- Rough per-record byte cost as written to the SavedVariables .lua file. WoW gives addons
@@ -347,13 +356,18 @@ end
 -- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it runs.
 function Database:PruneOld()
   local days = NS.db.global.settings.retentionDays
-  if not days or days == 0 then return end
+  if not days or days == 0 then return 0 end
   local cutoff = time() - days * 86400
   local history = NS.db.global.history
   local kept = {}
   for _, r in ipairs(history) do
     if (r.ts or 0) >= cutoff then kept[#kept + 1] = r end
   end
+  local removed = #history - #kept
   NS.db.global.history = kept
   fireHistoryChanged()
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Prune", "retention %sd: removed %s rows", tostring(days), tostring(removed))
+  end
+  return removed
 end
