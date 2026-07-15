@@ -14,7 +14,25 @@ function NS:RunMigrations()
   local g = NS.db and NS.db.global
   if not g then return end
   g.schemaVersion = g.schemaVersion or 1
-  -- future: if g.schemaVersion < 2 then ...upgrade...; g.schemaVersion = 2 end
+  -- future: when a real upgrade lands, bump and log, e.g.:
+  --   if g.schemaVersion < 2 then
+  --     local n = migrateV1toV2(g)            -- returns rows touched
+  --     g.schemaVersion = 2
+  --     if NS.State.debug and NS.Debug then NS.Debug("Migrate", NS.MigrationSummary(1, 2, n)) end
+  --   end
+end
+
+-- Pure boot summary for the [Init] line. Reads current DB state; no side effects.
+function NS.BootSummary()
+  local g = NS.db and NS.db.global
+  local v = g and g.schemaVersion or 0
+  local n = (g and g.history and #g.history) or 0
+  return ("DB ready schemaVersion=%s records=%s"):format(tostring(v), tostring(n))
+end
+
+-- Pure migration summary for the [Migrate] line.
+function NS.MigrationSummary(from, to, rows)
+  return ("v%s -> v%s, %s rows touched"):format(tostring(from), tostring(to), tostring(rows))
 end
 
 NS.Database = NS.Database or {}

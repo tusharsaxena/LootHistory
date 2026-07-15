@@ -318,3 +318,15 @@ test("Database: RunMigrations is a safe no-op when the DB is absent", function()
   NS:RunMigrations()   -- must not error with no db.global to touch
   NS.db = saved
 end)
+
+test("NS.BootSummary reports schemaVersion and record count", function()
+  seed()
+  NS.db.global.schemaVersion = 1
+  local s = NS.BootSummary()
+  assertTrue(s:find("schemaVersion=1", 1, true) ~= nil, "reports schemaVersion")
+  assertTrue(s:find("records=", 1, true) ~= nil, "reports record count")
+end)
+
+test("NS.MigrationSummary formats from/to/rows", function()
+  assertEqual(NS.MigrationSummary(1, 2, 1423), "v1 -> v2, 1423 rows touched")
+end)

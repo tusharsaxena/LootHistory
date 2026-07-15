@@ -39,6 +39,7 @@ function addon:OnEnable()
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
+  if NS.State.debug and NS.Debug then NS.Debug("Init", "%s", NS.BootSummary()) end
 end
 
 -- Retention cleanup runs once per session, deferred off the login/zone spike.
