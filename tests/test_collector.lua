@@ -176,3 +176,31 @@ test("Collector: live SettingsChanged refreshes the collector alongside another 
   assertEqual(NS.Database:Count(), before + 1)
   mocks.__itemClassID = 0
 end)
+
+test("Collector SettingsChanged does not emit a redundant [Cfg] echo", function()
+  NS.Collector._enabled = nil                       -- allow (re-)enable in the harness
+  NS.Collector:Enable()                             -- registers the SettingsChanged handler
+
+  -- Spy on RefreshUpvalues so the test independently proves the handler actually ran,
+  -- rather than relying on the absence of a [Cfg] line (which is trivially true if the
+  -- handler never fires at all, e.g. a future regression drops the RegisterMessage).
+  local called = false
+  local realRefreshUpvalues = NS.Collector.RefreshUpvalues
+  NS.Collector.RefreshUpvalues = function(self, ...)
+    called = true
+    return realRefreshUpvalues(self, ...)
+  end
+
+  NS.State.debug = true
+  local before = #NS.DebugLog.buffer
+  NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "test")
+
+  NS.Collector.RefreshUpvalues = realRefreshUpvalues
+  NS.State.debug = false
+
+  assertTrue(called, "SettingsChanged handler must call RefreshUpvalues")
+  for i = before + 1, #NS.DebugLog.buffer do
+    assertTrue(NS.DebugLog.buffer[i]:find("[Cfg]", 1, true) == nil,
+      "no [Cfg] line after a settings change")
+  end
+end)

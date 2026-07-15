@@ -103,11 +103,7 @@ function Collector:Enable()
   -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
   -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
   self.__ev = NS.NewBusTarget() or bus
-  self.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function(_, reason)
+  self.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function(_, _reason)
     self:RefreshUpvalues()
-    if NS.State.debug and NS.Debug then
-      NS.Debug("Cfg", "changed(%s) → enabled=%s q=%s quest=%s",
-        tostring(reason), tostring(enabled), tostring(qualityThreshold), tostring(excludeQuestItems))
-    end
   end)
 end
