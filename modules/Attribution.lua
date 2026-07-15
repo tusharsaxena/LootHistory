@@ -143,7 +143,8 @@ function Attribution:OnLootOpened()
     if guid then
       local source, detail = self:ResolveLootSource(guid, State)
       if NS.State.debug and NS.Debug then
-        NS.Debug("Open", "LOOT_OPENED slot=%s guid=%s -> %s", slot, tostring(guid), source)
+        NS.Debug("Open", "LOOT_OPENED %s slots -> %s%s", tostring(n), tostring(source),
+          detailStr(detail))
       end
       self:Stamp(source, detail, Constants.Confidence.CERTAIN, "LOOT_OPENED")
       return

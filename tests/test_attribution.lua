@@ -1,6 +1,6 @@
 local T = _G.LH_TEST
 local NS, mocks = T.NS, T.mocks
-local test, assertEqual = T.test, T.assertEqual
+local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
 local function resetContext()
   NS.State.lootContext = nil
@@ -157,6 +157,30 @@ test("Attribution: deconstruct's own loot window does not clobber its source", f
   NS.Attribution:OnLootOpened()
   mocks.GetNumLootItems, mocks.GetLootSourceInfo = oNum, oSrc
   assertEqual(NS.Attribution:Consume(), "DISENCHANT")
+end)
+
+test("OnLootOpened logs ONE coalesced summary, not one line per slot", function()
+  resetContext()
+  local oNum, oSrc = mocks.GetNumLootItems, mocks.GetLootSourceInfo
+  mocks.GetNumLootItems = function() return 5 end
+  mocks.GetLootSourceInfo = function() return "Creature-0-0-0-0-31146-000000AAAA" end
+  NS.State.debug = true
+  local before = #NS.DebugLog.buffer
+  NS.Attribution:OnLootOpened()
+  local added, openLine = 0, nil
+  for i = before + 1, #NS.DebugLog.buffer do
+    if NS.DebugLog.buffer[i]:find("[Open]", 1, true) then
+      added = added + 1
+      openLine = NS.DebugLog.buffer[i]
+    end
+  end
+  assertEqual(added, 1, "exactly one [Open] line for a 5-slot window")
+  -- Stamp() logs its own [Attr] line right after, so check the [Open] line itself rather than
+  -- the buffer's absolute-last entry.
+  assertTrue(openLine ~= nil and openLine:find("5 slots ->", 1, true) ~= nil,
+    "the summary reports the slot count")
+  NS.State.debug = false
+  mocks.GetNumLootItems, mocks.GetLootSourceInfo = oNum, oSrc
 end)
 
 test("Attribution: an unrelated player spell does not stamp a source", function()
