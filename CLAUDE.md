@@ -1,6 +1,6 @@
 # CLAUDE.md — Ka0s Loot History
 
-**Tier 2** (modular) WoW addon. Passively records every item you loot above a quality threshold,
+**Ka0s WoW addon.** Passively records every item you loot above a quality threshold,
 attributes each drop to a **source** (kill / container / mail / trade / AH / quest / vendor /
 deconstruct / M+ / …), stores it account-wide, and presents it in a standalone browser window with a
 filter/sort/group table plus an Insights analytics view. Target client: WoW 12.0.7 (Midnight).

@@ -21,7 +21,7 @@ The addon splits into two internal halves:
 - **Browser** (view) — a non-secure standalone frame rendering a virtualized pooled-row table
   (History) and a frame-based analytics view (Insights), driven off the same DB.
 
-Tier-2 Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI, plus
+Modular Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI, plus
 LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0. All libraries are **vendored** in
 `libs/` and committed (Ka0s Standard v1.1 — externals forbidden).
 

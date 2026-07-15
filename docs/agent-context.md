@@ -10,7 +10,7 @@ above a configurable quality threshold, attributes each drop to a **source** (ki
 trade, AH, quest, vendor, disenchant/milling/prospecting, M+ chest, other) with a **confidence**
 (`CERTAIN`/`INFERRED`), stores it **account-wide**, and presents it in a standalone browser window: a
 virtualized History table plus an Insights analytics view. Slash: `/lh`, `/loothistory`. English only.
-Ace3 throughout. Ka0s WoW Addon Standard, Tier 2. Current version **1.1.0**.
+Ace3 throughout. Ka0s WoW Addon Standard. Current version **1.1.0**.
 
 > Internal-only terms **Collector** (capture) and **Browser** (view) are used in code/docs. User-facing
 > copy says "Loot History", "History", "Insights".
@@ -24,7 +24,7 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   loads first; `core/LootHistory.lua` promotes the table with
   `AceAddon:NewAddon(NS, addonName, "AceEvent-3.0","AceTimer-3.0","AceConsole-3.0")` and stores
   `NS.addon` / `NS.bus`. There is **no `_G.LootHistory`**.
-- **Tier-2 layout.** `core/` (Compat, Constants, Namespace, State, Util, the AceAddon entry, Database),
+- **Modular layout.** `core/` (Compat, Constants, Namespace, State, Util, the AceAddon entry, Database),
   `modules/` (Attribution, Collector, Browser, BrowserTable, Analytics, DebugLog), `settings/` (Schema,
   Slash, Panel), `defaults/`, `locales/`. `LootHistory.toc` is the load-order source of truth. See
   [module-map.md](module-map.md).
