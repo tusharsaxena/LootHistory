@@ -25,9 +25,9 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   `AceAddon:NewAddon(NS, addonName, "AceEvent-3.0","AceTimer-3.0","AceConsole-3.0")` and stores
   `NS.addon` / `NS.bus`. There is **no `_G.LootHistory`**.
 - **Modular layout.** `core/` (Compat, Constants, Namespace, State, Util, the AceAddon entry, Database),
-  `modules/` (Attribution, Collector, Browser, BrowserTable, Export, Analytics, DebugLog), `settings/` (Schema,
-  Slash, Panel), `defaults/`, `locales/`. `LootHistory.toc` is the load-order source of truth. See
-  [module-map.md](module-map.md).
+  `modules/` (Attribution, Filters, Collector, Browser, BrowserTable, Export, Analytics, DebugLog),
+  `settings/` (Schema, Slash, Panel), `defaults/`, `locales/`. `LootHistory.toc` is the load-order
+  source of truth. See [module-map.md](module-map.md).
 
 ## Hard rules
 
@@ -54,8 +54,10 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   [compat-layer.md](compat-layer.md).
 - **Schema-as-single-source.** `settings/Schema.lua` drives AceDB defaults, panel widgets, and the
   slash CLI; every user-setting mutation goes through `Schema:Set` (validate → write to `NS.db.global`
-  → onChange). The Browser's window geometry (`settings.window`) and saved table view (`savedView`)
-  are the carve-out — persisted directly, not schema rows.
+  → onChange). Carve-outs (persisted directly, not schema rows): the Browser's window geometry
+  (`settings.window`), the saved table view (`savedView`), and the `blacklist`/`whitelist` item-id
+  lists (owned by `NS.Filters` — a dynamic id-set has no schema widget; flagged + accepted, see
+  [saved-variables.md](saved-variables.md)).
 - **Object pooling** for the History table (never one frame per record); **hot-path upvalues** in the
   Collector, refreshed on `SettingsChanged`.
 - **`Database:Export` field shape is the v2 export contract** — do not change it. See

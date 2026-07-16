@@ -19,14 +19,18 @@ The default height (`SKIN.defaultH = 700`) opens tall enough to show the full In
 
 ### Tabs
 
-`TABS = { "History", "Insights" }` (`Browser.lua:108`). Each tab is a content pane created up front but built lazily: `BuildPane` (`Browser.lua:112`) calls `B:BuildHistory(pane)` or `NS.Analytics:Attach(pane)` only the first time a tab is shown. `B:SelectTab` (`Browser.lua:123`) toggles pane visibility, recolours the tab labels (gold active / grey idle), moves the underline, and refreshes the newly shown view — the History tab re-runs `BrowserTable:Refresh` + `RefreshFilterOptions` + `UpdateFooter`; the Insights tab re-runs `Analytics:Refresh`. `lastTab` is remembered within a session so re-opening the window returns to the last-used view.
+`TABS = { "History", "Insights" }` (`Browser.lua:108`). Each tab is a content pane created up front but built lazily: `BuildPane` calls `B:BuildTable(pane)` (attaches the History table) or `NS.Analytics:Attach(pane)` (attaches the charts) only the first time a tab is shown — the panes now hold **only** their view, because the filter bar and footer are shared window chrome (see below). `B:SelectTab` (`Browser.lua:123`) toggles pane visibility, recolours the tab labels (gold active / grey idle), moves the underline, and refreshes the newly shown view against the shared filter — History re-runs `BrowserTable:Refresh` + `RefreshFilterOptions`, Insights re-runs `Analytics:Refresh`, and both then repaint the shared footer. `lastTab` is remembered within a session. `B:Show` eager-builds the History pane so the table (and thus `matchCount`) exists even when the window opens straight onto Insights.
 
-### Filter bar
+### Filter bar — a browser-wide singleton (issue #13)
 
-`B:BuildHistory` (`Browser.lua:687`) lays out a **two-row** filter bar in the History pane, ordered to mirror the table's columns:
+The filter bar and footer are **shared window chrome, not per-tab**: one filter drives the History table **and** the Insights charts, so you always know which slice of your loot you're looking at across both views. `EnsureFrame` anchors a `filterHost` frame below the tab strip and above the panes, then calls `B:BuildFilterBar(filterHost)` once; the footer is created directly on the frame. Layout top-to-bottom is: title bar · tab strip · **filter bar** · panes · **footer**.
+
+`B:BuildFilterBar` lays out a **two-row** bar, ordered to mirror the table's columns:
 
 - **Row 1** — Group-by dropdown · item-name search box · right-aligned `Save` · `Reset` · `Clear` buttons.
-- **Row 2** — the column filters left→right in table order: Date · Bound · Quality · Type · SubType · Source · Zone · Character, plus a right-aligned `Export` button.
+- **Row 2** — the column filters left→right in table order: Date · Bound · Quality · Type · SubType · Source · Zone · Character, plus a right-aligned tab-aware `Export` button.
+
+Group-by, sort, and Save/Reset/Clear are table-view concerns; they're part of the shared bar but only affect the History table (harmless on Insights). Every filter change funnels through `ApplyFilter`, which pushes to `BrowserTable:SetFilter` (keeping `matchCount` + the footer current for both tabs) and, when Insights is the visible tab, re-runs `Analytics:Refresh`. `B:CurrentFilter()` hands Analytics a plain copy of `B.activeFilter` (the exact field shape `Database:QueryList` consumes), so the charts and the table filter by identical criteria.
 
 All dropdowns are a custom flat-skin control (`MakeDropdown`, `Browser.lua:267`) rather than Blizzard's `UIDropDownMenu` — this keeps the look consistent and avoids the protected-call taint surface. One shared popup menu (`EnsureMenu`, `Browser.lua:184`) is reused by every dropdown, with a full-screen catcher that closes it on an outside click.
 
@@ -40,11 +44,16 @@ The **date dropdown** is single-select (Today / Last 7 days / Last 30 days / All
 
 **Saved views.** A "view" = group-by + sort + the column filters (bound / quality / type / subtype / source / zone) + date + search (but **not** character scope). `B:CaptureView` (`Browser.lua:620`) snapshots it; `SaveView` writes it to `NS.db.global.savedView`, `ResetView` clears it back to `STOCK_VIEW` (`Browser.lua:410`), and `ClearFilters` re-applies the saved-or-stock view. `B:ApplyView` (`Browser.lua:644`) is the single seam that paints every filter field, the table's group/sort, and the resolved filter, then resets scope. Like `settings.window`, `savedView` is an architecture-§5 carve-out persisted straight to `NS.db.global`. `asSet` (`Browser.lua:538`) tolerates the legacy scalar form so pre-multi-select saved views still load.
 
-**Export.** The right-aligned `Export` button opens the export modal (`NS.Export:Open`, `modules/Export.lua`), handing it two dataset providers: **All Data** (`Database:Export({})` — the whole active history) and **Current View** (`BrowserTable:OrderedFilteredRecords` — the filtered records in current sort/group order). The modal offers **Export to CSV** — which serializes the chosen dataset (`Export:CSV`) into a read-only copy window (Ctrl+C to copy) — and a greyed **Export to AI** placeholder (`Export:AIPrompt` stub) for a future formatted-report export. The CSV leads with `ts` followed by human `date` (DD-MMM-YYYY) and `time` (HH:MM); renamed raw columns sit beside a readable sibling — human `quality` label before `qualityRaw`, formatted `sellPrice` ("Ng Ns Nc") before `sellPriceRaw` (copper) — `bound` is the friendly label, and a `wowheadLink` (built from the item's bonus IDs) is last. `itemLink`, `sourceDetail`, `mapID`, `subzone` and `confidence` are intentionally not exported. Export is called directly by the Browser and registers no bus message; its copy window is deliberately separate from the debug copy window so their layouts can diverge.
+**Export (tab-aware, issue #15).** The right-aligned `Export` button routes through `B:OpenExport`, which picks the modal for the active tab. Both modes share the same skinned modal (`NS.Export:Open`, `modules/Export.lua`) — a **Data Set** dropdown (**All Data** vs **Current View**), an **Export to CSV** button, and a greyed **Export to AI** placeholder (`Export:AIPrompt` stub) — driven by a per-open `config = { mode, providers, csv }`:
+
+- **History tab** — exports loot **rows**. Providers: All Data (`Database:Export({})`) and Current View (`BrowserTable:OrderedFilteredRecords`, the filtered records in current sort/group order). Serializer: `Export:CSV`. That CSV leads with `ts` followed by human `date` (DD-MMM-YYYY) and `time` (HH:MM); renamed raw columns sit beside a readable sibling — human `quality` label before `qualityRaw`, formatted `sellPrice` ("Ng Ns Nc") before `sellPriceRaw` (copper) — `bound` is the friendly label, and a `wowheadLink` (built from the item's bonus IDs) is last. `itemLink`, `sourceDetail`, `mapID`, `subzone` and `confidence` are intentionally omitted.
+- **Insights tab** — exports the **analytics summary**. Providers compute a `Database:Stats` result over All Data (`Stats({})`) or Current View (`Stats(B:CurrentFilter())`, honouring the shared filter). Serializer: `Export:InsightsCSV` — a sectioned `Section,Label,Count,Value` CSV mirroring the Insights view (summary cards, then each breakdown: by source/quality/type/bound/character/weekday/hour/keystone/confidence, the top zones/items lists, and per-day activity). The AI report is still a placeholder.
+
+Export is called directly by the Browser and registers no bus message; its copy window (Ctrl+C to copy) is deliberately separate from the debug copy window so their layouts can diverge.
 
 ### Footer
 
-`B:UpdateFooter` (`Browser.lua:532`) prints `"Showing X of Y"` at the footer's bottom-left, where X is `BrowserTable.matchCount` (records that passed the filter, captured before grouping) and Y is `#dataset()` — the table's current dataset, so both numbers track test mode.
+The footer is **shared window chrome** (issue #13), created on the frame by `EnsureFrame` and shown on both tabs. `B:UpdateFooter` prints `"Showing X of Y"` at the bottom-left, where X is `BrowserTable.matchCount` (records that passed the filter, captured before grouping) and Y is `#dataset()` — the current dataset, so both numbers track test mode and reflect the same shared filter regardless of tab.
 
 `B:UpdateDbSize` (`Browser.lua:542`) prints the estimated stored size — `"Database ≈ <size>"` — right-aligned at the footer's bottom-right, from `Database:StorageStats().bytes` (the same estimate the settings panel shows) through `Util.FormatBytes`. It reflects the **real** persisted history (not the test dataset) and is recomputed only where storage can change or the view (re)opens — `SelectTab("History")`, `OnHistoryChanged`, and `OnDatasetChanged` — **never** on a filter keystroke (filtering can't change what's stored), so the per-keystroke path stays allocation-light.
 
@@ -82,17 +91,17 @@ Each pooled row wires three interactions (`AcquireRow`, `BrowserTable.lua:592-62
 
 - **Hover** → the full in-game item tooltip via `GameTooltip:SetHyperlink(record.itemLink)`; INFERRED rows get a "Source inferred (uncertain)." note, plus a hint line advertising the click actions.
 - **Shift-left-click** → `ChatEdit_InsertLink(link)` links the item to chat.
-- **Right-click** → `ShowRowMenu` (`BrowserTable.lua:912`), a tiny flat-skin popup with **Link to chat** and **Delete**. Delete calls `NS.Database:Delete(pred)` (which fires `HistoryChanged`) and repaints immediately.
+- **Right-click** → `ShowRowMenu` (`BrowserTable.lua`), a tiny flat-skin popup with **Link to chat**, **Blacklist item**, and **Delete**. **Blacklist item** (issue #14) calls `NS.Filters:AddBlacklist(record.itemID)` — every row of that id vanishes from the browser immediately (data kept; restore it from Settings ▸ Filters). There is deliberately no whitelist action here (whitelisting is about items that were *not* recorded, so there's no row to act on). **Delete** calls `NS.Database:Delete(pred)` (which fires `HistoryChanged`) and repaints immediately.
 
 A group header's left-click toggles its collapse instead.
 
 ## Insights tab — Analytics
 
-`Analytics:Attach` (`Analytics.lua:238`) builds a fixed date-range selector above a `UIPanelScrollFrameTemplate`, a row of stat/highlight cards, and a stack of breakdown sections. Everything is **driven off a single `Database:Stats(filter)` pass** (`Analytics:Refresh`, `Analytics.lua:324`) — one O(n) aggregation whose result struct feeds every card, bar, strip and list.
+`Analytics:Attach` (`Analytics.lua`) builds a `UIPanelScrollFrameTemplate` filling the pane, a row of stat/highlight cards, and a stack of breakdown sections. Everything is **driven off a single `Database:Stats(filter)` pass** (`Analytics:Refresh`) — one O(n) aggregation whose result struct feeds every card, bar, strip and list.
 
-### Date range
+### Scope — the shared filter (issue #13)
 
-Four buttons — Today / 7 days / 30 days / All (`RANGES`, `Analytics.lua:212`; default `"30d"`). `SetRange` maps the key to a `from` timestamp through the same `NS.Util.RangeFrom` the History date filter uses, then re-runs `Stats` and re-lays out. The range is **independent** of the History tab's date filter.
+Insights has **no range selector of its own**. `Analytics:Refresh` scopes every stat by the browser's shared filter — `Database:Stats(NS.Browser:CurrentFilter())` — so the Insights view and the History table always reflect the exact same criteria (the shared Date dropdown, plus every column filter). An empty filter aggregates the whole visible history. Analytics live-refreshes while it's the visible tab (its own `RecordAdded`/`HistoryChanged` bus subscription) and whenever the shared filter changes on the Insights tab (`ApplyFilter`).
 
 ### Stat & highlight cards
 

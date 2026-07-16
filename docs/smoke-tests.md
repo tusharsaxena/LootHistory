@@ -40,8 +40,8 @@ Companion docs:
 | 4 | Gates | Quality threshold, quest-item gate, source mute | [Collection gates](#4-collection-gates) |
 | 5 | History table | Filter / sort / group / search / row actions | [History table operations](#5-history-table-operations) |
 | 6 | Saved view | Save / Reset / Clear, character scope | [Saved view + character scope](#6-saved-view--character-scope) |
-| 6a | Export | CSV copy window, All Data / Current View | [Export](#6a-export) |
-| 7 | Insights | Range selector, cards, breakdowns | [Insights tab](#7-insights-tab) |
+| 6a | Export | Tab-aware CSV copy window, All Data / Current View | [Export](#6a-export) |
+| 7 | Insights | Shared filter scope, cards, breakdowns | [Insights tab](#7-insights-tab) |
 | 8 | Test mode | Synthetic dataset drives both tabs | [`/lh test` synthetic preview](#8-lh-test-synthetic-preview) |
 | 9 | Settings panel | Schema widgets ↔ CLI parity | [Settings panel + CLI parity](#9-settings-panel--cli-parity) |
 | 10 | Panel chrome | §6.10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
@@ -50,6 +50,7 @@ Companion docs:
 | 13 | Retention | `PruneOld` on login + onChange | [Retention prune](#13-retention-prune) |
 | 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
 | 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
+| 16 | Blacklist & whitelist | Capture gate + hide/restore + Filters management UI | [Blacklist & whitelist](#16-blacklist--whitelist) |
 
 ---
 
@@ -217,43 +218,55 @@ session default of "current player"), persisted to `savedView`.
 
 ### 6a. Export
 
-**Setup.** A history with a spread of items (or `/lh test`, §8). `/lh show` → History tab.
+**Setup.** A history with a spread of items (or `/lh test`, §8). `/lh show`.
 
-**Steps.**
-- Click the **Export** button (row-2, right). The export modal opens.
+The **Export** button is **tab-aware** (issue #15): it lives in the shared filter bar, and what it
+exports depends on which tab is showing.
+
+**Steps (History tab).**
+- On the **History** tab, click **Export** (right of row 2). The modal title reads **Export**.
 - Leave the **Data set** dropdown on **All Data** and click **Export to CSV**. Review the copy window;
   press Ctrl+C, Esc.
-- Reopen Export, open the **Data set** dropdown (it spans the full button-row width) and pick **Current
-  View** (apply a filter first so it differs from All Data), then click **Export to CSV** again.
-- Hover **Export to AI**.
+- Reopen Export, pick **Current View** (apply a filter first so it differs), then **Export to CSV** again.
+
+**Steps (Insights tab).**
+- Switch to the **Insights** tab, click **Export**. The modal title reads **Export Insights**.
+- Export **All Data** and **Current View** (with a filter applied) to CSV in turn.
+- Hover **Export to AI** in either modal.
 
 **Pass.**
-- The CSV copy window opens with a header row
+- **History export** — the CSV copy window opens with the loot-row header
   (`ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,sellPrice,sellPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink`)
-  and one row per record. Text is auto-highlighted; Ctrl+C copies it; Esc closes.
-- **All Data** exports the whole history; **Current View** exports only the filtered rows in the
-  on-screen order (fewer rows when a filter is active).
-- `date` reads DD-MMM-YYYY and `time` reads HH:MM; `quality` is a label (e.g. `Epic`) beside numeric
-  `qualityRaw`; `sellPrice` reads `Ng Ns Nc` beside copper `sellPriceRaw`; `bound` reads a friendly
-  label (Not Bound / Bind on Equip / …); item names containing commas are wrapped in quotes; and
-  `wowheadLink` is a `https://www.wowhead.com/item=…` URL (with `?bonus=…` when the item has bonus IDs).
-- The `itemLink`, `sourceDetail`, `mapID`, `subzone` and `confidence` fields are **not** exported.
-- **Export to AI** is greyed and shows a **"Coming soon"** tooltip; it does nothing when clicked.
-- Both the export modal and the CSV copy window open **centered on the History window** (not the
-  screen) — move the History window off-center and reopen Export to confirm. The copy window's
-  background is opaque enough that the world/UI behind does not bleed through the CSV text.
+  and one row per record. `date` reads DD-MMM-YYYY and `time` reads HH:MM; `quality` is a label beside
+  numeric `qualityRaw`; `sellPrice` reads `Ng Ns Nc` beside copper `sellPriceRaw`; `bound` is a friendly
+  label; comma-bearing item names are quoted; `wowheadLink` is a `wowhead.com/item=…` URL (with
+  `?bonus=…` when the item has bonus IDs). `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence`
+  are **not** exported.
+- **Insights export** — the CSV instead has the analytics header `Section,Label,Count,Value` and
+  mirrors the Insights view: a **Summary** block (records, distinct items, characters, vendor value,
+  active days, epic+, best iLvl, richest, date range, busiest day) then **By Source / Quality / Item
+  Type / Bound Type / Character / Weekday / Hour / Keystone**, **Attribution Confidence**, **Top Zones**,
+  **Top Items by Count / Value**, and **By Day**. Values render `Ng Ns Nc`.
+- **All Data** covers the whole (visible) history; **Current View** honours the **shared filter** — so
+  narrowing the filter bar shrinks *both* the History and the Insights export.
+- Text is auto-highlighted; Ctrl+C copies; Esc closes. **Export to AI** is greyed with a **"Coming
+  soon"** tooltip in both modes.
+- Both the modal and the copy window open **centered on the History window** (not the screen).
 
 ### 7. Insights tab
 
 **Setup.** A history spanning several days (or `/lh test`, §8). `/lh show` → **Insights** tab.
 
 **Steps.**
-- Cycle the **Range** selector: Today / 7 days / 30 days / All.
+- Adjust the **shared filter bar** (Date dropdown, or any column filter / search).
 - Read the stat cards and scroll the breakdown sections.
 
 **Pass.**
-- The range selector re-scopes **all** cards and charts; no error on any range, and the empty-range
-  state (e.g. Today with no loot) hides the chart sections cleanly instead of erroring.
+- Insights has **no range selector of its own** (issue #13): the shared filter bar scopes **all** cards
+  and charts. Changing the Date dropdown, a column filter, or the search box on the Insights tab
+  re-scopes the whole view live; switching tabs keeps the same filter, so the History table and the
+  Insights charts always show the same slice. The empty state (a filter matching nothing) hides the
+  chart sections cleanly instead of erroring.
 - The stat cards populate: **records, distinct items, characters, vendor value, active days, epic+
   drops, best drop (ilvl), richest drop, date range, busiest day**. "Vendor value" is
   `sellPrice × quantity`, not market price.
@@ -430,6 +443,39 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 - `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row → one `[Data] deleted row @…`.
 - Open the browser → `[UI] window shown`; switch to Insights → `[UI] tab -> Insights` + one `[Insights] computed …`.
 - Type in the table's search / change group/sort → one `[Table] rendered M/T rows (…)` per change, never per row.
+- Add/remove a blacklist or whitelist id (with debug on) → one `[Filters] blacklist=B whitelist=W` line.
+
+### 16. Blacklist & whitelist
+
+Covers the item-id filter lists (issue #14): the capture gate, the hide-without-delete behaviour, and
+the Settings ▸ Filters management UI. **Setup:** a real history with at least one repeated item.
+
+**Steps.**
+- In the History tab, right-click a row and choose **Blacklist item**.
+- Open **Settings ▸ Filters** (`/lh config` → Filters). In the **Blacklist** section, note the item.
+- Loot that same item again (or `/lh test` won't help here — use a live drop).
+- In the Filters page, click **Remove** on that item.
+- In the **Whitelist** section, add an item id that would normally be dropped (below your quality
+  threshold, or from a muted source), then loot it.
+- Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
+- Enter garbage (e.g. `abc`) into an add box and submit.
+
+**Pass.**
+- **Blacklist item** (right-click) removes **every** row of that item from the table immediately, and
+  the footer's "Showing X of Y" both drop — but the database size does **not** shrink (nothing is
+  deleted). A chat line confirms "blacklisted …".
+- While blacklisted, looting that item records **nothing** (no new row; a `[Drop] … reason=blacklist`
+  line with debug on).
+- Clicking **Remove** in the Filters page brings the hidden rows **back** into the table (restore works
+  because the data was never deleted).
+- A **whitelisted** id records **even when it would normally be dropped** (below threshold / muted
+  source / quest item) — the new row appears.
+- Adding an id to one list **removes it from the other** (an id is never on both). The Filters page's
+  two lists update live; each entry shows the item name (or `Item <id>` until the client caches it)
+  with a **Remove** button; the empty state reads `(none)`.
+- Garbage input is rejected with a chat hint and adds nothing.
+- The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in
+  the browser's filter dropdowns (it is core logic, not a user-selectable display filter).
 
 ---
 
@@ -437,9 +483,12 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 
 - **Pre-commit (capture/attribution edits):** 1, 3, 4. Anything touching `modules/Collector.lua`,
   `modules/Attribution.lua`, or `core/Compat.lua` needs the source matrix.
-- **Browser / table edits:** 2, 5, 6, 8. `modules/Browser.lua` / `BrowserTable.lua` / `Analytics.lua`.
+- **Browser / table edits:** 2, 5, 6, 6a, 7, 8. `modules/Browser.lua` / `BrowserTable.lua` /
+  `Analytics.lua` / `Export.lua` — the shared filter bar and tab-aware Export cross all of these.
 - **Settings / schema edits:** 9, 10, plus §4's mute/quality gates for any new Data-Collection row.
-- **Pre-release / TOC bump:** the **entire suite** — the 15 scenarios span every system the addon
+- **Blacklist/whitelist edits:** 16, plus §4 (the capture gate) — `modules/Filters.lua`,
+  `modules/Collector.lua`, `settings/Panel.lua`'s Filters page.
+- **Pre-release / TOC bump:** the **entire suite** — the 16 scenarios span every system the addon
   owns. Always finish with the headless gate green: `luacheck .` (0/0) and `lua tests/run.lua` (see
   [testing.md](testing.md)).
 - **Debug/logging edits:** 12, 15. Anything touching `NS.Debug` call sites or `modules/DebugLog.lua`

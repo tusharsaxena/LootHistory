@@ -16,9 +16,10 @@ local F = NS.Filters
 -- blacklist checks can never contradict.
 --
 -- Every mutation writes a FRESH table back to NS.db.global (copy-on-write) so it never mutates an
--- AceDB shared-default table in place, then fires two bus messages: SettingsChanged (so the
--- Collector refreshes its cached lists) and HistoryChanged (so the browser re-queries and hidden
--- rows appear/disappear). Both are existing messages — no new bus channel (message-bus rule).
+-- AceDB shared-default table in place, then propagates the change WITHOUT adding a second bus
+-- sender (message-bus's "one sender per message" invariant): it re-caches the Collector's list
+-- upvalues by a direct call, and broadcasts HistoryChanged through Database's own emitter so the
+-- browser + Insights re-query and hidden rows appear/disappear.
 
 local function currentSet(key)
   return (NS.db and NS.db.global and NS.db.global[key]) or {}
@@ -43,13 +44,13 @@ function F:IsWhitelisted(id)
   return id ~= nil and currentSet("whitelist")[id] == true
 end
 
--- Broadcast a list change: the Collector re-caches on SettingsChanged, the browser (table +
--- Insights) re-queries on HistoryChanged so hidden rows update live.
-function F:_notify(reason)
-  if NS.bus then
-    NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", reason or "filters")
-    NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged")
-  end
+-- Propagate a list change. Re-cache the Collector's list upvalues by a direct cross-module call
+-- (not a bus message — the lists aren't schema settings, and the Collector is the only capture-side
+-- consumer), then broadcast HistoryChanged through Database's sole emitter so the browser + Insights
+-- re-query and hidden rows update. No second sender is introduced for either message.
+function F:_notify(reason)   -- luacheck: ignore reason
+  if NS.Collector and NS.Collector.RefreshUpvalues then NS.Collector:RefreshUpvalues() end
+  if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
   if NS.State and NS.State.debug and NS.Debug then
     NS.Debug("Filters", "blacklist=%d whitelist=%d",
       self:Count(self:Blacklist()), self:Count(self:Whitelist()))

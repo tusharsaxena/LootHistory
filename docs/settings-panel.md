@@ -1,11 +1,12 @@
 # Settings panel — schema-driven Blizzard canvas
 
-The settings surface is registered into Blizzard's **Settings** UI as two canvas categories, both built by `createPanel` in `settings/Panel.lua`:
+The settings surface is registered into Blizzard's **Settings** UI as a parent category with two subcategories, all built by `createPanel` in `settings/Panel.lua`:
 
-* A **parent category** ("Ka0s Loot History") renders the **landing page** — logo, one-line tagline, and the slash-command list (`Settings.RegisterCanvasLayoutCategory`, `Panel.lua:448`). This is the target of `/lh config` and a right-click on the minimap button.
-* A **General subcategory** holds the actual settings (`Settings.RegisterCanvasLayoutSubcategory`, `Panel.lua:480`). Its header reads `Ka0s Loot History |A forwardarrow|a General` (`buildHeader`, `Panel.lua:58`).
+* A **parent category** ("Ka0s Loot History") renders the **landing page** — logo, one-line tagline, and the slash-command list (`Settings.RegisterCanvasLayoutCategory`). This is the target of `/lh config` and a right-click on the minimap button.
+* A **General subcategory** holds the schema-driven settings (`Settings.RegisterCanvasLayoutSubcategory`). Its header reads `Ka0s Loot History |A forwardarrow|a General`.
+* A **Filters subcategory** holds the blacklist / whitelist management UI (issue #14) — a custom, non-schema page (see below).
 
-Both share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:69`), and — on the General subcategory only — a `Defaults` button pinned top-right (an AceGUI `Button`, so its handler is wired with `defaultsBtn:SetCallback("OnClick", …)`, not `:SetScript`; `Panel.lua:456`).
+All share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:69`), and — on the General subcategory only — a `Defaults` button pinned top-right (an AceGUI `Button`, so its handler is wired with `defaultsBtn:SetCallback("OnClick", …)`, not `:SetScript`; `Panel.lua:456`).
 
 `createPanel` returns a `ctx` table (`{ panel, body, scroll, refreshers, lastGroup }`) that every layout helper threads through. `ctx.scroll` is the AceGUI `ScrollFrame` hosting the schema widgets, created lazily on first widget add (`ensureScroll`, `Panel.lua:174`). The General ctx is stashed at `P.general` so `P:Refresh` can re-sync widgets after a slash-cmd write.
 
@@ -56,7 +57,7 @@ Every setting mutation — panel widget and `/lh set` alike — routes through `
 2. **write** — `WritePath` into `NS.db.global`, storing a `deepcopy` of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`; `Schema.lua:101`).
 3. **onChange** — fire the row's hook. Most publish a `Ka0s_LootHistory_SettingsChanged` bus message; `windowScale`/`minimap.hide` reach into the Browser, `retentionDays` triggers `Database:PruneOld`.
 
-`Schema:Get` reads back from `NS.db.global`. Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry and saved view are the deliberate carve-out — they persist straight to `NS.db.global`, not through `Schema:Set`; see [saved-variables.md](saved-variables.md) and [conventions.md](conventions.md).)
+`Schema:Get` reads back from `NS.db.global`. Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view, and the `blacklist`/`whitelist` id lists are the deliberate carve-outs — they persist straight to `NS.db.global`, not through `Schema:Set`; see [saved-variables.md](saved-variables.md) and [conventions.md](conventions.md).)
 
 ## Combat-gated, lazily rendered body
 
@@ -73,6 +74,17 @@ Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = fa
 ## Reset All companion
 
 `renderSchema` accepts a `companions` map keyed by row `path`; the General panel passes one entry for `settings.windowScale` that adds a **Reset All** button into that same row (`Panel.lua:463`). It opens the `KA0S_LOOTHISTORY_RESETALL` StaticPopup → `Slash:ResetEverything` (`Slash.lua:30`), which **wipes history *and* restores every setting to default**, then refreshes the panel. It shares the exact helper `/lh resetall` funnels through, so popup and CLI cannot diverge. The header's own **Defaults** button (`P:RestoreDefaults`, `Panel.lua:427`) calls the same `CliResetAll` path.
+
+## Filters subcategory — blacklist / whitelist (issue #14)
+
+A **second subcategory, "Filters"**, is a deliberately non-schema page: a dynamic list of item ids has no Schema widget to express, so `buildFilters` builds custom AceGUI instead of `renderSchema`. One page, two sections (`makeFilterSection`):
+
+* **Blacklist** — ids that are never recorded and whose existing rows are hidden from the browser (nothing deleted; remove an id to restore its rows).
+* **Whitelist** — ids that are always recorded, bypassing the quality / source / quest gates.
+
+Each section is a heading + description + an **add row** (an `EditBox` accepting a bare item id **or** a shift-clicked item link, parsed by `NS.Filters:ParseItemID`, plus an `Add` button) + a **live list** (`rebuildFilterList`) of the current ids, each a label (`NS.Compat.ItemNameQuality` resolves the name; a background `LoadItem` fills in names not yet cached) with a **Remove** button. Adds/removes go through `NS.Filters` (`modules/Filters.lua`), which mutates copy-on-write and fires `SettingsChanged` + `HistoryChanged`. The page live-rebuilds both lists on a **private `NS.NewBusTarget()`** (`HistoryChanged`), so the History right-click **Blacklist item** action reflects here immediately while the panel is open.
+
+The lists are **core app logic**, so there is intentionally no user-facing blacklist/whitelist *display* filter in the browser — blacklisted rows simply vanish and whitelisted ids simply always record.
 
 ## Ka0s options-ui-§6/§8/§10 details this panel implements
 

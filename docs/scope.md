@@ -54,8 +54,8 @@ Boundaries that are real today but are not deliberate non-goals — they are pla
 
 ## Backlog
 
-The backlog lives in the GitHub issue tracker (issues #1–#12):
+The backlog lives in the GitHub issue tracker:
 
   https://github.com/tusharsaxena/LootHistory/issues
 
-BAG_UPDATE-diff capture for the `ROLL` gap, revisiting the single-slot TTL, value/upgrade addon interop, and the v2 AI export are all tracked there.
+BAG_UPDATE-diff capture for the `ROLL` gap, revisiting the single-slot TTL, value/upgrade addon interop, and the v2 AI export are all tracked there. Shipped from the tracker: shared filters across History + Insights (#13), the item-id blacklist/whitelist (#14), and tab-aware Export with an Insights CSV (#15).

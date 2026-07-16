@@ -67,20 +67,29 @@ test("Filters: adding an id already present is a no-op (returns false)", functio
   clear()
 end)
 
-test("Filters: change fires SettingsChanged + HistoryChanged", function()
+test("Filters: change fires HistoryChanged (via Database) and re-caches the Collector", function()
   clear()
   local sent = {}
-  local orig = NS.bus.SendMessage
+  local origSend = NS.bus.SendMessage
   NS.bus.SendMessage = function(_, msg) sent[#sent + 1] = msg end
+  -- Spy on the direct Collector re-cache (the lists are not a bus SettingsChanged sender).
+  local recached = false
+  local realRefresh = NS.Collector.RefreshUpvalues
+  NS.Collector.RefreshUpvalues = function(self, ...) recached = true; return realRefresh(self, ...) end
+
   F:AddBlacklist(321)
-  NS.bus.SendMessage = orig
-  local gotSettings, gotHistory = false, false
+
+  NS.bus.SendMessage = origSend
+  NS.Collector.RefreshUpvalues = realRefresh
+
+  local gotHistory, gotSettings = false, false
   for _, m in ipairs(sent) do
-    if m == "Ka0s_LootHistory_SettingsChanged" then gotSettings = true end
     if m == "Ka0s_LootHistory_HistoryChanged" then gotHistory = true end
+    if m == "Ka0s_LootHistory_SettingsChanged" then gotSettings = true end
   end
-  assertTrue(gotSettings, "SettingsChanged fired")
   assertTrue(gotHistory, "HistoryChanged fired")
+  assertFalse(gotSettings, "no second SettingsChanged sender")
+  assertTrue(recached, "Collector re-cached its list upvalues")
   clear()
 end)
 

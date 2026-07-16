@@ -31,10 +31,12 @@ the small-scale rules those documents assume.
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
   `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:113`,`:121`).
   Nothing in the addon touches `NS.db.profile`.
-- **Carve-out.** The Browser's window geometry (`settings.window` — point/size, `modules/Browser.lua:88`)
-  and its saved table view (`savedView`, `modules/Browser.lua:664`) are view/window *runtime* state,
-  not user settings. They are persisted straight to `NS.db.global` and intentionally have **no**
-  schema row and do **not** go through `Schema:Set`. Don't "fix" this by adding rows for them.
+- **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
+  (`savedView`), and the `blacklist`/`whitelist` item-id lists (owned by `NS.Filters`,
+  `modules/Filters.lua`) are runtime/data state, not user settings. They are persisted straight to
+  `NS.db.global` and intentionally have **no** schema row and do **not** go through `Schema:Set` — a
+  dynamic id-set can't be a schema widget. Don't "fix" this by adding rows for them. See
+  [saved-variables.md](saved-variables.md) for the full carve-out list and the standards note.
 
 ## Messaging: a closed bus, one target per receiver
 

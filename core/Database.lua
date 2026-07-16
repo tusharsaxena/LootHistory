@@ -326,6 +326,13 @@ local function fireHistoryChanged()
   if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged") end
 end
 
+-- Public HistoryChanged emitter for non-Database owners of a visible-history change (the
+-- blacklist/whitelist lists in NS.Filters call this after mutating db.global). Keeps Database the
+-- single sending module for this message (message-bus's one-sender-per-message invariant).
+function Database:FireHistoryChanged()
+  fireHistoryChanged()
+end
+
 -- Delete a single row by index (from the table UI). Compacts the array; fires HistoryChanged.
 function Database:DeleteAt(index)
   local history = NS.db.global.history

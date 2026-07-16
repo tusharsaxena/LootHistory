@@ -114,11 +114,13 @@ Every read-path query resolves against `Database:ActiveHistory` (`core/Database.
 
 ```lua
 function Database:ActiveHistory()
-  return (NS.State and NS.State.testRecords) or NS.db.global.history
+  return (NS.State and NS.State.testRecords) or self:VisibleHistory()
 end
 ```
 
 `NS.State.testRecords` (`core/State.lua:16`) is a session-only synthetic dataset published by `/lh test` (`BrowserTable:ToggleTestMode`). When set, `Query`, `Stats`, `Export`, and thus the History table **and** the Insights tab all render off the same fake data. Write paths (`Add`, the delete/prune family) always target the real `history` and never see the override.
+
+`Database:VisibleHistory` (`core/Database.lua`) is the live-history view with **blacklisted item ids hidden** (issue #14). Blacklisting never deletes — the id is filtered out of every display/query path here, so removing it from `db.global.blacklist` restores its rows. When the blacklist is empty (the common case) it returns the raw `history` array unchanged (no allocation), so the hot read path pays nothing until a blacklist exists. The blacklist/whitelist lists are owned by `NS.Filters` (`modules/Filters.lua`); the whitelist affects only the capture gate (`Collector:ShouldRecord`), not display. See [saved-variables.md](saved-variables.md).
 
 `Database:Query(filter)` (`core/Database.lua:139`) runs the generic `QueryList` (`core/Database.lua:81`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:165`) aggregates the filtered result in one O(n) pass for Insights.
 

@@ -49,7 +49,9 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 ## Usage
 
-Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view. The **Export** button copies your history out as CSV — either everything or just the current filtered view.
+Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view. The filter bar is **shared** between both tabs, so the same narrowing applies to the table and the charts at once — you always know which slice of your loot you're looking at.
+
+The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Don't want an item tracked? Right-click its row and choose **Blacklist item** — it disappears from view immediately (nothing is deleted; restore it any time from the Filters settings).
 
 ### Slash commands
 
@@ -73,7 +75,7 @@ Install it like any other addon and log in. Recording starts right away — ther
 
 ### Settings panel
 
-Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. There are two groups:
+Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. The **General** page has two groups (below), and a separate **Filters** page manages the blacklist/whitelist:
 
 **Master Controls**
 
@@ -87,6 +89,11 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 *   **Exclude quest items** — skip the temporary items you pick up during quests. **On by default**; uncheck it to record them too.
 *   **Keep history for** — how long to keep records. Older ones are cleared out once per session; choose **Always** to keep everything (default **30 days**).
 *   **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here.
+
+**Filters** (its own page)
+
+*   **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). Blacklisted items are never recorded, and any you've *already* recorded are hidden from the browser — nothing is deleted, so removing an item from the list brings its rows back.
+*   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). Adding an item to one list removes it from the other.
 
 ## How attribution works
 

@@ -79,7 +79,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: mutations write a fresh table (no shared-default aliasing)
 - Filters: AddBlacklist rejects non-numeric input
 - Filters: adding an id already present is a no-op (returns false)
-- Filters: change fires SettingsChanged + HistoryChanged
+- Filters: change fires HistoryChanged (via Database) and re-caches the Collector
 - Filters: SortedIDs returns ids ascending
 - Filters: ParseItemID reads a number, an item link, and an itemString
 

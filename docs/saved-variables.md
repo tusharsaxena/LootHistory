@@ -12,6 +12,8 @@ Defaults are declared in `defaults/Global.lua`; AceDB merges them under `db.glob
 db.global = {
   schemaVersion = 1,           -- DB schema stamp; NS:RunMigrations reads/writes this
   history = {},                -- dense array of loot records (one per loot event)
+  blacklist = {},              -- { [itemID]=true } — never record + hide existing rows (carve-out)
+  whitelist = {},              -- { [itemID]=true } — always record, bypassing the gates (carve-out)
   settings = {
     enabled          = true,   -- master capture switch
     qualityThreshold = 1,      -- record Common (white) and above
@@ -40,10 +42,13 @@ The deep-copy (`settings/Schema.lua:101`) matters for the two table-valued setti
 
 ### Storage-only carve-outs
 
-Two pieces of persisted state live in `db.global` but are written **directly**, bypassing `Schema:Set` — they are window/view runtime state, not user settings, and are intentionally not Schema rows (`modules/Browser.lua:80`):
+Four pieces of persisted state live in `db.global` but are written **directly**, bypassing `Schema:Set` — they are runtime/data state, not user settings, and are intentionally not Schema rows (`modules/Browser.lua:80`):
 
 - **`settings.window`** — the browser window geometry `{ point, x, y, w, h }` relative to UIParent. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:86`), restored by `RestoreWindow` on show (`modules/Browser.lua:95`). This is the standalone-windows window position/size persistence.
-- **`savedView`** — the saved table view: group-by, sort keys, and the multi-select column filters (bound / quality / type / subtype / source / zone) plus the date range and search text. Captured by `B:CaptureView` (`modules/Browser.lua:620`), written by `B:SaveView` (`modules/Browser.lua:685`), cleared to `nil` by `B:ResetView` (`modules/Browser.lua:691`). Character scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:410`).
+- **`savedView`** — the saved table view: group-by, sort keys, and the multi-select column filters (bound / quality / type / subtype / source / zone) plus the date range and search text. Captured by `B:CaptureView`, written by `B:SaveView`, cleared to `nil` by `B:ResetView`. Character scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:410`).
+- **`blacklist` / `whitelist`** — the item-id filter lists (issue #14). A dynamic id-set has no Schema widget to drive, so they are managed by `NS.Filters` (`modules/Filters.lua`) — copy-on-write mutation, then `SettingsChanged` (the Collector re-caches) + `HistoryChanged` (the browser re-queries). Blacklisted ids are dropped at capture and hidden from every view by `Database:VisibleHistory` (kept in `history` — removing the id restores them); whitelisted ids always record, bypassing the quality/source/quest gates. An id lives on at most one list. See [data-model.md](data-model.md) and [settings-panel.md](settings-panel.md).
+
+> **Standards note (carve-out).** These four bypass the schema-as-single-source rule (CLAUDE §2, "every user-setting mutation goes through `Schema:Set`"). `window`/`savedView`/`windowScale` were the pre-existing precedent; `blacklist`/`whitelist` extend it for the same reason (runtime data, not a schema-expressible widget). Flagged and accepted per the deviation rule; ratify or revise here.
 
 Note `settings.windowScale` **is** a Schema row (Master Controls slider) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state.
 
