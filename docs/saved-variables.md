@@ -26,7 +26,7 @@ db.global = {
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:293`, `:348`). Each record's field shape is documented in [data-model.md](data-model.md).
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:321`, `:381`). Each record's field shape is documented in [data-model.md](data-model.md).
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:59`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
@@ -40,10 +40,10 @@ The deep-copy (`settings/Schema.lua:101`) matters for the two table-valued setti
 
 ### Storage-only carve-outs
 
-Two pieces of persisted state live in `db.global` but are written **directly**, bypassing `Schema:Set` — they are window/view runtime state, not user settings, and are intentionally not Schema rows (`modules/Browser.lua:79`):
+Two pieces of persisted state live in `db.global` but are written **directly**, bypassing `Schema:Set` — they are window/view runtime state, not user settings, and are intentionally not Schema rows (`modules/Browser.lua:80`):
 
-- **`settings.window`** — the browser window geometry `{ point, x, y, w, h }` relative to UIParent. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:85`), restored by `RestoreWindow` on show (`modules/Browser.lua:94`). This is the standalone-windows window position/size persistence.
-- **`savedView`** — the saved table view: group-by, sort keys, and the multi-select column filters (quality / source / type / zone) plus the date range and search text. Captured by `B:CaptureView` (`modules/Browser.lua:603`), written by `B:SaveView` (`modules/Browser.lua:662`), cleared to `nil` by `B:ResetView` (`modules/Browser.lua:668`). Player scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:397`).
+- **`settings.window`** — the browser window geometry `{ point, x, y, w, h }` relative to UIParent. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:86`), restored by `RestoreWindow` on show (`modules/Browser.lua:95`). This is the standalone-windows window position/size persistence.
+- **`savedView`** — the saved table view: group-by, sort keys, and the multi-select column filters (quality / source / type / zone) plus the date range and search text. Captured by `B:CaptureView` (`modules/Browser.lua:616`), written by `B:SaveView` (`modules/Browser.lua:675`), cleared to `nil` by `B:ResetView` (`modules/Browser.lua:681`). Player scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:404`).
 
 Note `settings.windowScale` **is** a Schema row (Master Controls slider) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state.
 
@@ -55,4 +55,4 @@ Note `settings.windowScale` **is** a Schema row (Master Controls slider) even th
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:348`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:53`).
+`Database:PruneOld` (`core/Database.lua:381`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:53`).

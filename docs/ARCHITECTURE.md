@@ -23,7 +23,7 @@ The addon splits into two internal halves:
 
 Modular Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI, plus
 LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0. All libraries are **vendored** in
-`libs/` and committed (Ka0s Standard v1.1 — externals forbidden).
+`libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden).
 
 ---
 
@@ -75,7 +75,7 @@ back fast table ops.
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see [`agent-context.md`](agent-context.md) "Do not change without reason".
-- `schemaVersion` is a version stamp on the DB; 1.0.0 ships the initial shape (**1**).
+- `schemaVersion` is a version stamp on the DB; the initial shipped shape is **1**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
   before any history read) and normalizes `schemaVersion` — the idempotent seam future schema
   changes hook into. No schema change has shipped yet, so its body is a no-op beyond stamping **1**.
@@ -213,7 +213,7 @@ Two surface-specific notes:
 2. **Bare `/lh` prints help** (standard slash-commands-§4); window display is explicit (`/lh toggle`,
    `/lh show|hide`).
 
-Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
+Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule).
 
 ---
 
@@ -233,9 +233,8 @@ Vendored libraries follow Ka0s Standard v1.1 (vendoring is the suite-wide rule).
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
-- **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned
-  post-1.0.0.
-- **AI export is a seam only** in v1.0.0 — `Database:Export()` exists; the companion export
-  feature ships in v2.
+- **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned.
+- **AI export is a seam only** — `Database:Export()` exists; the companion export
+  feature is future work.
 
-See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full post-1.0.0 backlog.
+See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.

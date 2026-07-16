@@ -54,7 +54,7 @@ Boundaries that are real today but are not deliberate non-goals — they are pla
 
 ## Backlog
 
-The post-1.0.0 backlog lives in the GitHub issue tracker (issues #1–#12):
+The backlog lives in the GitHub issue tracker (issues #1–#12):
 
   https://github.com/tusharsaxena/LootHistory/issues
 

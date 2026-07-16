@@ -161,7 +161,7 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 §8). `/lh show` → History tab.
 
 **Steps.**
-- **Sort:** click each column header (Date, iLvl, Item, Qty, Quality, Type, Source, Zone, Vendor,
+- **Sort:** click each column header (Date, Time, iLvl, Item, Qty, Quality, Type, Source, Zone, Vendor,
   Character); click again to flip ascending/descending. The active column shows a sort arrow.
 - **Group by:** cycle the **Group by** dropdown through None / Day / Quality / Type / Source / Zone /
   Character. Collapse and expand a group header (left-click).
@@ -367,7 +367,7 @@ are **independent**.
   window immediately (rebuild-and-swap, no holes); the table and footer refresh.
 - `PruneOld` also runs **~5s after login** (`PLAYER_ENTERING_WORLD` deferred), so stale records are
   pruned on a fresh session even without touching the setting.
-- **"Never"** retention keeps everything (no prune). No error at either prune path.
+- **"Always"** retention keeps everything (no prune). No error at either prune path.
 
 ### 14. SavedVariables integrity
 

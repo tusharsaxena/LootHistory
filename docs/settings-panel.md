@@ -3,9 +3,9 @@
 The settings surface is registered into Blizzard's **Settings** UI as two canvas categories, both built by `createPanel` in `settings/Panel.lua`:
 
 * A **parent category** ("Ka0s Loot History") renders the **landing page** — logo, one-line tagline, and the slash-command list (`Settings.RegisterCanvasLayoutCategory`, `Panel.lua:448`). This is the target of `/lh config` and a right-click on the minimap button.
-* A **General subcategory** holds the actual settings (`Settings.RegisterCanvasLayoutSubcategory`, `Panel.lua:468`). Its header reads `Ka0s Loot History |A forwardarrow|a General` (`buildHeader`, `Panel.lua:58`).
+* A **General subcategory** holds the actual settings (`Settings.RegisterCanvasLayoutSubcategory`, `Panel.lua:480`). Its header reads `Ka0s Loot History |A forwardarrow|a General` (`buildHeader`, `Panel.lua:58`).
 
-Both share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:67`), and — on the General subcategory only — a `Defaults` button pinned top-right (an AceGUI `Button`, so its handler is wired with `defaultsBtn:SetCallback("OnClick", …)`, not `:SetScript`; `Panel.lua:456`).
+Both share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:69`), and — on the General subcategory only — a `Defaults` button pinned top-right (an AceGUI `Button`, so its handler is wired with `defaultsBtn:SetCallback("OnClick", …)`, not `:SetScript`; `Panel.lua:456`).
 
 `createPanel` returns a `ctx` table (`{ panel, body, scroll, refreshers, lastGroup }`) that every layout helper threads through. `ctx.scroll` is the AceGUI `ScrollFrame` hosting the schema widgets, created lazily on first widget add (`ensureScroll`, `Panel.lua:174`). The General ctx is stashed at `P.general` so `P:Refresh` can re-sync widgets after a slash-cmd write.
 
@@ -35,7 +35,7 @@ Seven rows ship today (`Schema.lua:10`): `settings.enabled`, `minimap.hide`, `se
 
 ## Widget primitives and the two-column render
 
-`renderSchema` (`Panel.lua:285`) walks `NS.Schema.Schema` and pairs rows into 50%/50% Flow lines inside the shared `ScrollFrame`. A `group` change flushes the pending row and emits a section `Heading` (centred `GameFontNormalLarge` label flanked by dividers; `section`, `Panel.lua:195`). Widgets dispatch by `row.widget`:
+`renderSchema` (`Panel.lua:297`) walks `NS.Schema.Schema` and pairs rows into 50%/50% Flow lines inside the shared `ScrollFrame`. A `group` change flushes the pending row and emits a section `Heading` (centred `GameFontNormalLarge` label flanked by dividers; `section`, `Panel.lua:195`). Widgets dispatch by `row.widget`:
 
 | `widget` | AceGUI primitive | Maker |
 |---|---|---|
@@ -60,19 +60,19 @@ Every setting mutation — panel widget and `/lh set` alike — routes through `
 
 ## Combat-gated, lazily rendered body
 
-Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = false` guard, `Panel.lua:447`). At registration time (`PLAYER_LOGIN`) `ctx.body` has zero width, so a List-layout pass would size every full-width child to zero. `OnShow` renders once, calls `ctx.scroll:DoLayout()`, and thereafter only re-runs `P:Refresh` to re-sync values. Opening the panel is combat-gated: `P:Open` refuses while `InCombatLockdown()` and prints a notice (`Panel.lua:484`). (The standalone browser window is separately non-secure and *not* combat-gated — that is the standalone-windows pattern, distinct from this options-ui-§2 canvas panel.)
+Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = false` guard, `Panel.lua:458`). At registration time (`PLAYER_LOGIN`) `ctx.body` has zero width, so a List-layout pass would size every full-width child to zero. `OnShow` renders once, calls `ctx.scroll:DoLayout()`, and thereafter only re-runs `P:Refresh` to re-sync values. Opening the panel is combat-gated: `P:Open` refuses while `InCombatLockdown()` and prints a notice (`Panel.lua:483`). (The standalone browser window is separately non-secure and *not* combat-gated — that is the standalone-windows pattern, distinct from this options-ui-§2 canvas panel.)
 
 ## History maintenance section
 
 `renderHistory` (`Panel.lua:334`) appends a "History" section unique to this addon: a live stats label paired with a **Purge history…** button.
 
-* **Stats label** reads from `Database:StorageStats` (`Database.lua:331`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:364`).
+* **Stats label** reads from `Database:StorageStats` (`Database.lua:364`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:365`).
 * **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (`Panel.lua:346`, popup at `Slash.lua:8`).
 * **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:374`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [conventions.md](conventions.md)).
 
 ## Reset All companion
 
-`renderSchema` accepts a `companions` map keyed by row `path`; the General panel passes one entry for `settings.windowScale` that adds a **Reset All** button into that same row (`Panel.lua:451`). It opens the `KA0S_LOOTHISTORY_RESETALL` StaticPopup → `Slash:ResetEverything` (`Slash.lua:30`), which **wipes history *and* restores every setting to default**, then refreshes the panel. It shares the exact helper `/lh resetall` funnels through, so popup and CLI cannot diverge. The header's own **Defaults** button (`P:RestoreDefaults`, `Panel.lua:427`) calls the same `CliResetAll` path.
+`renderSchema` accepts a `companions` map keyed by row `path`; the General panel passes one entry for `settings.windowScale` that adds a **Reset All** button into that same row (`Panel.lua:463`). It opens the `KA0S_LOOTHISTORY_RESETALL` StaticPopup → `Slash:ResetEverything` (`Slash.lua:30`), which **wipes history *and* restores every setting to default**, then refreshes the panel. It shares the exact helper `/lh resetall` funnels through, so popup and CLI cannot diverge. The header's own **Defaults** button (`P:RestoreDefaults`, `Panel.lua:427`) calls the same `CliResetAll` path.
 
 ## Ka0s options-ui-§6/§8/§10 details this panel implements
 
