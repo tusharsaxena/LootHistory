@@ -166,8 +166,12 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 - **Group by:** cycle the **Group by** dropdown through None / Day / Quality / Type / Source / Zone /
   Character. Collapse and expand a group header (left-click).
 - **Filters:** exercise each row-2 dropdown — **Date** (single-select: All / Today / Last 7 days /
-  Last 30 days), and the multi-select **Quality**, **Type**, **Source**, **Zone**, **Character** (pick
-  two values in one, confirm the collapsed label reads "N selected").
+  Last 30 days), and the multi-select **Bound**, **Quality**, **Type**, **Source**, **Zone**,
+  **Character** (pick two values in one, confirm the collapsed label reads "N selected").
+- **Bound filter:** open **Bound** and pick **Not Bound**, then add **Bind on Equip**. The five options
+  (Not Bound / Bind on Equip / Bind on Pickup / Account Bound / Warbound) match the Bound column's
+  header-tooltip legend. Confirm the visible rows' lock colours match the selected states, and that
+  **Not Bound** matches rows with no lock.
 - **Search:** type into **Search items…**; clear it.
 - **Row actions:** right-click a row → context menu (**Link to chat**, **Delete**). Shift-left-click a
   row. Hover a row.
@@ -185,29 +189,51 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
   array is rebuilt dense, no holes). **Link to chat** and **Shift-click** both insert the item link
   into the chat edit box. Hovering shows the item tooltip.
 
-### 6. Saved view + player scope
+### 6. Saved view + character scope
 
-The saved "view" = group + sort + column filters (NOT the player scope, which is a session default of
-"current player"), persisted to `savedView`.
+The saved "view" = group + sort + column filters incl. Bound (NOT the character scope, which is a
+session default of "current player"), persisted to `savedView`.
 
 **Setup.** History with loot from **≥2 characters** on the account.
 
 **Steps.**
-- Set a distinctive group/sort/filter combination. Click **Save**.
+- Set a distinctive group/sort/filter combination (include a **Bound** selection). Click **Save**.
 - Change the filters, then click **Clear**.
 - Click **Reset**.
-- Player toggle (row-2 right): pick **All players**, then a single specific non-current character via
-  the **Character** dropdown, then **Current player**.
+- **Character** dropdown (row-2): open it — the window is scoped to the current player on open. Add a
+  second character, then clear back to the current player only.
 - `/reload`, `/lh show`.
 
 **Pass.**
-- **Save** stores the current group/sort/filters as the account default ("view saved as default.").
-- **Clear** returns filters/group/sort to the saved view and the player scope to Current player.
+- **Save** stores the current group/sort/filters (including Bound) as the account default ("view saved
+  as default.").
+- **Clear** returns filters/group/sort to the saved view and the character scope to the current player.
 - **Reset** drops the saved view back to stock defaults ("view reset to stock defaults.").
-- The **player toggle and Character dropdown stay in sync**: choosing "All players" empties the char
-  filter; choosing one non-current character makes the toggle read that character's name (not a false
-  "All players"); "Current player" scopes to the logged-in character only.
-- After `/reload`, the window opens on the **saved view + current player**.
+- The **Bound selection survives Save → Clear → reload** as part of the view.
+- After `/reload`, the window opens on the **saved view + current player** (the Character dropdown shows
+  the logged-in character selected). There is no longer a Current/All-players toggle — the Character
+  dropdown alone controls scope.
+
+### 6a. Export
+
+**Setup.** A history with a spread of items (or `/lh test`, §8). `/lh show` → History tab.
+
+**Steps.**
+- Click the **Export** button (row-2, right). The export modal opens.
+- Leave **Data set: All Data** and click **Export to CSV**. Review the copy window; press Ctrl+C, Esc.
+- Reopen Export, toggle **Data set** to **Current View** (apply a filter first so it differs from All
+  Data), and click **Export to CSV** again.
+- Hover **Export to AI**.
+
+**Pass.**
+- The CSV copy window opens with a header row (`ts,char,…,subzone,confidence,date,wowheadLink`) and one
+  row per record. Text is auto-highlighted; Ctrl+C copies it; Esc closes.
+- **All Data** exports the whole history; **Current View** exports only the filtered rows in the
+  on-screen order (fewer rows when a filter is active).
+- The `date` column reads DD-MMM-YYYY, `bound` reads a friendly label (Not Bound / Bind on Equip / …),
+  item names containing commas are wrapped in quotes, and `wowheadLink` is a `https://www.wowhead.com/item=…`
+  URL (with `?bonus=…` when the item has bonus IDs).
+- **Export to AI** is greyed and shows a **"Coming soon"** tooltip; it does nothing when clicked.
 
 ### 7. Insights tab
 
