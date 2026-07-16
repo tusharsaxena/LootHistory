@@ -117,6 +117,18 @@ local frame, copyFrame
 local providers            -- { allData = fn, currentView = fn }, set by :Open
 local dataset = "allData"  -- current Data Set selection
 
+-- Center a popup on the History window (falling back to the screen when it isn't built/shown).
+-- Re-applied on each open so the popup always lands over the browser wherever the user moved it.
+local function centerOnBrowser(f)
+  f:ClearAllPoints()
+  local win = NS.Browser and NS.Browser.GetWindow and NS.Browser:GetWindow()
+  if win and win:IsShown() then
+    f:SetPoint("CENTER", win, "CENTER", 0, 0)
+  else
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+  end
+end
+
 -- Export's own read-only copy window: Ctrl+C to copy, Esc to close.
 local function EnsureCopyFrame()
   if copyFrame then return copyFrame end
@@ -154,6 +166,9 @@ local function EnsureCopyFrame()
   copyFrame.scroll, copyFrame.edit = scroll, edit
 
   if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(copyFrame) end
+  -- Denser than the shared skin (0.92): the CSV is dense monospace text, so bump to 0.95 alpha so
+  -- the world/UI behind doesn't bleed through and hurt legibility.
+  copyFrame:SetBackdropColor(0.06, 0.06, 0.08, 0.95)
   copyFrame:Hide()
   if type(UISpecialFrames) == "table" then
     table.insert(UISpecialFrames, "LootHistoryExportCopyWindow")
@@ -163,6 +178,7 @@ end
 
 local function ShowCopy(text)
   local f = EnsureCopyFrame()
+  centerOnBrowser(f)
   f.edit:SetWidth(f.scroll:GetWidth() > 0 and f.scroll:GetWidth() or 590)
   f.edit:SetText(text)
   f.edit:SetCursorPosition(0)
@@ -263,10 +279,13 @@ local function EnsureFrame()
   return frame
 end
 
--- Build (once) and show the export modal, wiring the dataset providers.
+-- Build (once) and show the export modal, wiring the dataset providers. Always re-centers on the
+-- History window.
 function E:Open(p)
   providers = p or {}
-  EnsureFrame():Show()
+  local f = EnsureFrame()
+  centerOnBrowser(f)
+  f:Show()
 end
 
 -- Placeholder for the AI-report export (built later): will bundle `records` into a report prompt.

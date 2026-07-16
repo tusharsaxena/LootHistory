@@ -238,6 +238,9 @@ session default of "current player"), persisted to `savedView`.
   `wowheadLink` is a `https://www.wowhead.com/item=…` URL (with `?bonus=…` when the item has bonus IDs).
 - The `itemLink`, `sourceDetail`, `mapID`, `subzone` and `confidence` fields are **not** exported.
 - **Export to AI** is greyed and shows a **"Coming soon"** tooltip; it does nothing when clicked.
+- Both the export modal and the CSV copy window open **centered on the History window** (not the
+  screen) — move the History window off-center and reopen Export to confirm. The copy window's
+  background is opaque enough that the world/UI behind does not bleed through the CSV text.
 
 ### 7. Insights tab
 

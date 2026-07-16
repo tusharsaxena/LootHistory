@@ -973,6 +973,10 @@ function B:Toggle()
   if f:IsShown() then f:Hide() else B:Show() end
 end
 
+-- The History window frame (or nil if never built). Lets sibling modules (e.g. Export) anchor
+-- their own popups to the browser window rather than the screen.
+function B:GetWindow() return frame end
+
 function B:SetScale(v)
   if frame then frame:SetScale(v) end
 end
