@@ -355,6 +355,10 @@ local function MakeDropdown(parent, width)
   return dd
 end
 
+-- Shared factory so other modules (e.g. Export) can build a flat-skin dropdown that reuses the
+-- same popup menu machinery. Returns the same `dd` control MakeDropdown produces.
+function B:MakeDropdown(parent, width) return MakeDropdown(parent, width) end
+
 -- Item-quality colour as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
 local function qualityColor(q)
   local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]

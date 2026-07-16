@@ -201,27 +201,15 @@ local function makeButton(parent, text, width, onClick, enabled)
   return b
 end
 
--- Two-option Data Set selector (All Data / Current View) — a flat button that toggles on click.
-local function makeDatasetToggle(parent)
-  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  b:SetSize(180, 24)
-  b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  fs:SetPoint("LEFT", 8, 0)
-  local function paint()
-    fs:SetText("Data set: " .. (dataset == "allData" and "All Data" or "Current View"))
-  end
-  b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.82, 0) end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(1, 1, 1) end)
-  b:SetScript("OnClick", function()
-    dataset = (dataset == "allData") and "currentView" or "allData"
-    paint()
-  end)
-  paint()
-  return b
+-- Data Set dropdown options (All Data / Current View). The collapsed button shows a "Data set:"
+-- prefix; the menu rows show the bare labels.
+local DATASET_OPTIONS = {
+  { value = "allData", label = "All Data" },
+  { value = "currentView", label = "Current View" },
+}
+local function datasetLabel(v)
+  for _, o in ipairs(DATASET_OPTIONS) do if o.value == v then return o.label end end
+  return v
 end
 
 local function EnsureFrame()
@@ -229,7 +217,9 @@ local function EnsureFrame()
   frame = CreateFrame("Frame", "LootHistoryExportWindow", UIParent, "BackdropTemplate")
   frame:SetSize(340, 150)
   frame:SetPoint("CENTER")
-  frame:SetFrameStrata("FULLSCREEN")
+  -- DIALOG (below the dropdown menu's FULLSCREEN catcher) so an outside click closes the Data Set
+  -- menu; the copy window (FULLSCREEN) still opens above this modal.
+  frame:SetFrameStrata("DIALOG")
   frame:EnableMouse(true); frame:SetMovable(true); frame:SetClampedToScreen(true)
 
   local tbar = CreateFrame("Frame", nil, frame)
@@ -244,8 +234,18 @@ local function EnsureFrame()
       :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
   end
 
-  local toggle = makeDatasetToggle(frame)
-  toggle:SetPoint("TOP", 0, -40)
+  -- Data Set dropdown, spanning the full button-row width (CSV left edge → AI right edge).
+  local ds = NS.Browser:MakeDropdown(frame, 148)
+  ds:SetHeight(24)
+  ds:ClearAllPoints()
+  ds:SetPoint("TOPLEFT", 16, -40)
+  ds:SetPoint("TOPRIGHT", -16, -40)
+  ds:SetOptions(DATASET_OPTIONS)
+  ds:SetValue(dataset, "Data set: " .. datasetLabel(dataset))
+  ds.onSelect = function(v)
+    dataset = v
+    ds:SetValue(v, "Data set: " .. datasetLabel(v))
+  end
 
   local csvBtn = makeButton(frame, "Export to CSV", 148, function()
     ShowCopy(E:CSV(selectedRecords()))

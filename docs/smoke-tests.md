@@ -220,9 +220,10 @@ session default of "current player"), persisted to `savedView`.
 
 **Steps.**
 - Click the **Export** button (row-2, right). The export modal opens.
-- Leave **Data set: All Data** and click **Export to CSV**. Review the copy window; press Ctrl+C, Esc.
-- Reopen Export, toggle **Data set** to **Current View** (apply a filter first so it differs from All
-  Data), and click **Export to CSV** again.
+- Leave the **Data set** dropdown on **All Data** and click **Export to CSV**. Review the copy window;
+  press Ctrl+C, Esc.
+- Reopen Export, open the **Data set** dropdown (it spans the full button-row width) and pick **Current
+  View** (apply a filter first so it differs from All Data), then click **Export to CSV** again.
 - Hover **Export to AI**.
 
 **Pass.**
