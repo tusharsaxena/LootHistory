@@ -223,6 +223,23 @@ test("BrowserTable: test mode filters the synthetic dataset", function()
   BT.testMode, NS.State.testRecords, BT.filter = false, nil, {} -- restore shared state
 end)
 
+test("BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers", function()
+  local BT = NS.BrowserTable
+  local savedFilter, savedGroup = BT.filter, BT.groupBy
+  NS.db.global.history = {
+    { ts = 300, itemID = 3, quality = 4, source = "KILL", char = "A" },
+    { ts = 100, itemID = 1, quality = 2, source = "KILL", char = "A" },
+    { ts = 200, itemID = 2, quality = 4, source = "KILL", char = "A" },
+  }
+  BT.groupBy, BT.sortKey, BT.sortAsc = "none", "date", true
+  BT:SetFilter({ quality = { [4] = true } })
+  local out = BT:OrderedFilteredRecords()
+  assertEqual(#out, 2)             -- only the two epics
+  assertEqual(out[1].itemID, 2)    -- ts 200 before ts 300 ascending
+  assertEqual(out[2].itemID, 3)
+  BT.filter, BT.groupBy = savedFilter, savedGroup
+end)
+
 test("BrowserTable.RenderSummary is a single coalesced line", function()
   local s = NS.BrowserTable.RenderSummary(84, 1423, 2, "zone", "date", false)
   assertTrue(s:find("84/1423 rows", 1, true) ~= nil, "reports matched/total")

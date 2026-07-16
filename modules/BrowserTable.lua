@@ -533,6 +533,16 @@ function BrowserTable:SetFilter(filter)
   self:Refresh()
 end
 
+-- The filtered records in current sort/group order (group headers dropped) — the "Current View"
+-- dataset the Export modal serializes. Mirrors what the table shows on screen.
+function BrowserTable:OrderedFilteredRecords()
+  local out = {}
+  for _, entry in ipairs(self:BuildDisplayList()) do
+    if entry.kind == "row" then out[#out + 1] = entry.record end
+  end
+  return out
+end
+
 -- ── Pooled rows ─────────────────────────────────────────────────────────────────
 
 local function qualityColor(q)
