@@ -162,15 +162,18 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
 
-### test_export.lua (8)
+### test_export.lua (11)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
 - Export: WowheadLink falls back to itemID, then empty
-- Export: CSV header has all fields plus date + wowheadLink
+- Export: CSV header order — ts,date,time first; renamed raw + human siblings; link last
+- Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence
 - Export: CSV row emits friendly bound + quotes commas
-- Export: CSV date column is FormatDate(ts)
+- Export: CSV date + time columns are FormatDate/FormatClock(ts)
+- Export: CSV quality is human label beside numeric qualityRaw
+- Export: CSV sellPrice is 'Ng Ns Nc' beside raw copper
 - Export: CSV emits one header + one row per record, CRLF-terminated
 
 ### test_debuglog.lua (16)
@@ -226,7 +229,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_database.lua | 36 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
-| test_export.lua | 8 |
+| test_export.lua | 11 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 20 |
-| **Total** | **179** |
+| **Total** | **182** |

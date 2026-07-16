@@ -14,17 +14,14 @@ local BOUND_LABEL = {
 }
 function E:BoundLabel(token) return BOUND_LABEL[token or "NONE"] or tostring(token) end
 
--- CSV columns: the 19 export-contract fields (Database:Export order) + two derived columns
--- (a human DD-MMM-YYYY `date` and a `wowheadLink`), appended last.
-local FIELDS = {
-  "ts", "char", "classFile", "itemID", "itemLink", "itemName", "quality", "itemLevel", "bound",
-  "sellPrice", "itemType", "itemSubType", "quantity", "source", "sourceDetail", "zone", "mapID",
-  "subzone", "confidence",
-}
-local HEADER = {}
-for i, f in ipairs(FIELDS) do HEADER[i] = f end
-HEADER[#HEADER + 1] = "date"
-HEADER[#HEADER + 1] = "wowheadLink"
+-- Plain-text money for CSV: always "Ng Ns Nc" (never the in-game coin-texture markup that
+-- Util.FormatMoney emits). "" for nil so a missing sellPrice stays blank.
+local function money(copper)
+  if copper == nil then return "" end
+  copper = tonumber(copper) or 0
+  return string.format("%dg %ds %dc",
+    math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100)
+end
 
 -- Split a colon-delimited itemString into fields, preserving empty fields (a trailing sentinel
 -- guarantees the final field is captured). "1:2::4" -> { "1", "2", "", "4" }.
@@ -70,19 +67,41 @@ local function csvField(v)
   return s
 end
 
--- Serialize records to a CSV string (header + one row each, CRLF-terminated). `ts` stays epoch;
--- `bound` is emitted as its friendly label; `date` (DD-MMM-YYYY) and `wowheadLink` are appended.
+-- CSV columns: { header, value(record) }. `ts` is followed by human `date` (DD-MMM-YYYY) and
+-- `time` (HH:MM). Renamed raw columns carry a *Raw suffix beside a human sibling: human `quality`
+-- (label) before `qualityRaw` (number), human `sellPrice` ("Ng Ns Nc") before `sellPriceRaw`
+-- (copper). `bound` is the friendly label; `wowheadLink` (from the item's bonus IDs) is last.
+-- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
+local COLUMNS = {
+  { "ts",           function(r) return r.ts end },
+  { "date",         function(r) return NS.Util.FormatDate(r.ts) end },
+  { "time",         function(r) return NS.Util.FormatClock(r.ts) end },
+  { "char",         function(r) return r.char end },
+  { "classFile",    function(r) return r.classFile end },
+  { "itemID",       function(r) return r.itemID end },
+  { "itemName",     function(r) return r.itemName end },
+  { "quality",      function(r) return NS.Compat.QualityLabel(r.quality) end },
+  { "qualityRaw",   function(r) return r.quality end },
+  { "itemLevel",    function(r) return r.itemLevel end },
+  { "bound",        function(r) return E:BoundLabel(r.bound) end },
+  { "sellPrice",    function(r) return money(r.sellPrice) end },
+  { "sellPriceRaw", function(r) return r.sellPrice end },
+  { "itemType",     function(r) return r.itemType end },
+  { "itemSubType",  function(r) return r.itemSubType end },
+  { "quantity",     function(r) return r.quantity end },
+  { "source",       function(r) return r.source end },
+  { "zone",         function(r) return r.zone end },
+  { "wowheadLink",  function(r) return E:WowheadLink(r) end },
+}
+local HEADER = {}
+for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
+
+-- Serialize records to a CSV string (header + one row each, CRLF-terminated).
 function E:CSV(records)
   local lines = { table.concat(HEADER, ",") }
   for _, r in ipairs(records or {}) do
     local cells = {}
-    for i, f in ipairs(FIELDS) do
-      local v = r[f]
-      if f == "bound" then v = self:BoundLabel(r.bound) end
-      cells[i] = csvField(v)
-    end
-    cells[#cells + 1] = csvField(NS.Util.FormatDate(r.ts))
-    cells[#cells + 1] = csvField(self:WowheadLink(r))
+    for i, c in ipairs(COLUMNS) do cells[i] = csvField(c[2](r)) end
     lines[#lines + 1] = table.concat(cells, ",")
   end
   return table.concat(lines, "\r\n") .. "\r\n"

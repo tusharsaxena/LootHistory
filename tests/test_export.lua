@@ -28,11 +28,19 @@ test("Export: WowheadLink falls back to itemID, then empty", function()
   assertEqual(NS.Export:WowheadLink({}), "")
 end)
 
-test("Export: CSV header has all fields plus date + wowheadLink", function()
+test("Export: CSV header order — ts,date,time first; renamed raw + human siblings; link last", function()
   local csv = NS.Export:CSV({})
   local header = csv:match("^(.-)\r\n")
-  assertTrue(header:find("^ts,char,") ~= nil, "starts with ts,char")
-  assertTrue(header:find(",subzone,confidence,date,wowheadLink$") ~= nil, "ends with derived cols")
+  assertEqual(header,
+    "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound," ..
+    "sellPrice,sellPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink")
+end)
+
+test("Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence", function()
+  local header = NS.Export:CSV({}):match("^(.-)\r\n")
+  for _, col in ipairs({ "itemLink", "sourceDetail", "mapID", "subzone", "confidence" }) do
+    assertTrue(header:find(col, 1, true) == nil, col .. " must not be a column")
+  end
 end)
 
 test("Export: CSV row emits friendly bound + quotes commas", function()
@@ -42,10 +50,23 @@ test("Export: CSV row emits friendly bound + quotes commas", function()
   assertTrue(csv:find("Bind on Pickup", 1, true) ~= nil, "friendly bound label")
 end)
 
-test("Export: CSV date column is FormatDate(ts)", function()
-  local rec = { ts = 1000, itemID = 1 }
-  local csv = NS.Export:CSV({ rec })
+test("Export: CSV date + time columns are FormatDate/FormatClock(ts)", function()
+  local csv = NS.Export:CSV({ { ts = 1000, itemID = 1 } })
   assertTrue(csv:find(NS.Util.FormatDate(1000), 1, true) ~= nil, "date column present")
+  assertTrue(csv:find(NS.Util.FormatClock(1000), 1, true) ~= nil, "time column present")
+end)
+
+test("Export: CSV quality is human label beside numeric qualityRaw", function()
+  local row = NS.Export:CSV({ { ts = 1, quality = 4, itemID = 1 } }):match("\r\n(.-)\r\n")
+  assertTrue(row:find(NS.Compat.QualityLabel(4), 1, true) ~= nil, "human quality label present")
+  assertTrue(row:find(",4,", 1, true) ~= nil, "numeric qualityRaw present")
+end)
+
+test("Export: CSV sellPrice is 'Ng Ns Nc' beside raw copper", function()
+  -- 12g 34s 56c = 123456 copper.
+  local row = NS.Export:CSV({ { ts = 1, sellPrice = 123456, itemID = 1 } }):match("\r\n(.-)\r\n")
+  assertTrue(row:find("12g 34s 56c", 1, true) ~= nil, "formatted money present")
+  assertTrue(row:find(",123456,", 1, true) ~= nil, "raw copper present")
 end)
 
 test("Export: CSV emits one header + one row per record, CRLF-terminated", function()

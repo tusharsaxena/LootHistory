@@ -226,13 +226,16 @@ session default of "current player"), persisted to `savedView`.
 - Hover **Export to AI**.
 
 **Pass.**
-- The CSV copy window opens with a header row (`ts,char,…,subzone,confidence,date,wowheadLink`) and one
-  row per record. Text is auto-highlighted; Ctrl+C copies it; Esc closes.
+- The CSV copy window opens with a header row
+  (`ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,sellPrice,sellPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink`)
+  and one row per record. Text is auto-highlighted; Ctrl+C copies it; Esc closes.
 - **All Data** exports the whole history; **Current View** exports only the filtered rows in the
   on-screen order (fewer rows when a filter is active).
-- The `date` column reads DD-MMM-YYYY, `bound` reads a friendly label (Not Bound / Bind on Equip / …),
-  item names containing commas are wrapped in quotes, and `wowheadLink` is a `https://www.wowhead.com/item=…`
-  URL (with `?bonus=…` when the item has bonus IDs).
+- `date` reads DD-MMM-YYYY and `time` reads HH:MM; `quality` is a label (e.g. `Epic`) beside numeric
+  `qualityRaw`; `sellPrice` reads `Ng Ns Nc` beside copper `sellPriceRaw`; `bound` reads a friendly
+  label (Not Bound / Bind on Equip / …); item names containing commas are wrapped in quotes; and
+  `wowheadLink` is a `https://www.wowhead.com/item=…` URL (with `?bonus=…` when the item has bonus IDs).
+- The `itemLink`, `sourceDetail`, `mapID`, `subzone` and `confidence` fields are **not** exported.
 - **Export to AI** is greyed and shows a **"Coming soon"** tooltip; it does nothing when clicked.
 
 ### 7. Insights tab
