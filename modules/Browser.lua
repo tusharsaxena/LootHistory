@@ -109,13 +109,16 @@ end
 local TABS = { "History", "Insights" }
 local lastTab = "History"   -- remembered within a session
 
--- Lazily let the owning modules build their pane content the first time it's shown.
+-- Lazily let the owning modules build their pane content the first time it's shown. The filter bar
+-- and footer are NOT here — they are shared window chrome built once in EnsureFrame (issue #13), so
+-- both panes render off the same singleton filter. Each pane holds only its view: the table
+-- (History) or the analytics charts (Insights).
 local function BuildPane(name)
   local pane = frame.panes[name]
   if pane._built then return end
   pane._built = true
   if name == "History" then
-    B:BuildHistory(pane)
+    B:BuildTable(pane)
   elseif name == "Insights" and NS.Analytics and NS.Analytics.Attach then
     NS.Analytics:Attach(pane)
   end
@@ -131,16 +134,16 @@ function B:SelectTab(name)
     frame.tabs[t].underline:SetShown(active)
   end
   BuildPane(name)
-  -- Refresh the table when the History tab is (re)shown so it reflects current data;
-  -- rebuild the data-driven filter dropdowns and footer against the latest history.
+  -- Refresh the newly shown view against the shared filter, then repaint the shared footer/DB size
+  -- (issue #13: both read the same filter, so they're kept current on either tab).
   if name == "History" and NS.BrowserTable and NS.BrowserTable.Refresh then
     NS.BrowserTable:Refresh()
     B:RefreshFilterOptions()
-    B:UpdateFooter()
-    B:UpdateDbSize()
   elseif name == "Insights" and NS.Analytics and NS.Analytics.Refresh then
     NS.Analytics:Refresh()
   end
+  B:UpdateFooter()
+  B:UpdateDbSize()
   if NS.State.debug and NS.Debug then NS.Debug("UI", "tab -> %s", tostring(name)) end
 end
 
@@ -545,10 +548,27 @@ local function asSet(v)
   return s
 end
 
--- Push the current filter to the table and refresh the footer count.
+-- Push the current filter to the table and refresh the footer count. The filter is a singleton
+-- for the whole browser (issue #13): it always drives the table (keeping matchCount + the footer
+-- current for both tabs), and it drives the Insights charts live while the Insights tab is the one
+-- on screen. Switching to Insights re-runs Analytics:Refresh against this same filter (SelectTab),
+-- so a filter changed while viewing History is already reflected when Insights is next shown —
+-- without paying for an Insights relayout on every History-side keystroke.
 local function ApplyFilter()
   if NS.BrowserTable then NS.BrowserTable:SetFilter(B.activeFilter) end
   B:UpdateFooter()
+  if lastTab == "Insights" and NS.Analytics and NS.Analytics.Refresh and NS.Analytics.pane then
+    NS.Analytics:Refresh()
+  end
+end
+
+-- The active filter as a plain copy, for Analytics:Stats (issue #13). Shares the exact field shape
+-- Database:QueryList consumes (quality/source/itemType/itemSubType/mapID/bound/char/from/text), so
+-- the Insights view and the History table always filter by identical criteria.
+function B:CurrentFilter()
+  local out = {}
+  for k, v in pairs(self.activeFilter or {}) do out[k] = v end
+  return out
 end
 
 function B:UpdateFooter()
@@ -700,15 +720,15 @@ function B:ClearFilters()
   self:ApplyView(savedViewOrStock(), "current")
 end
 
--- Build the History tab chrome: two-row filter bar (top), table host (middle), footer (bottom).
---   Row 1: Group by · [search…] · Clear
---   Row 2: column filters in table order — Date · Quality · Type · Source · Zone · Character
-function B:BuildHistory(pane)
+-- Build the SHARED, singleton filter bar (issue #13) into `bar` — a window-level host anchored
+-- once in EnsureFrame, above both tab panes, so a single filter drives the History table AND the
+-- Insights charts. The footer is shared window chrome too (built in EnsureFrame); this function
+-- owns only the two rows of controls:
+--   Row 1: Group by · [search…] · Save · Reset · Clear
+--   Row 2: column filters in table order — Date · Bound · Quality · Type · SubType · Source ·
+--          Zone · Character · Export
+function B:BuildFilterBar(bar)
   local ROW1, ROW2 = 0, -24
-  local bar = CreateFrame("Frame", nil, pane)
-  bar:SetPoint("TOPLEFT", 0, 0)
-  bar:SetPoint("TOPRIGHT", 0, 0)
-  bar:SetHeight(46)
 
   local dd = {}
   self._dd = dd
@@ -835,44 +855,52 @@ function B:BuildHistory(pane)
   -- box creation above). -ROW2 lifts the top-right corner from row 2 back up into row 1.
   search:SetPoint("TOPRIGHT", dd.char, "TOPRIGHT", 0, -ROW2)
 
-  -- Export button (row 2, right-aligned): opens the export modal (CSV now, AI later). 164px matches
-  -- the Save+Reset+Clear span above it (48+6+52+6+52), so its left edge lines up with Save's; the
-  -- min window width keeps it clear of the Character dropdown.
-  local exportBtn = makeBarButton(bar, "Export", 164, function()
-    NS.Export:Open({
-      allData     = function() return NS.Database:Export({}) end,
-      currentView = function()
-        return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
-          and NS.BrowserTable:OrderedFilteredRecords()) or {}
-      end,
-    })
-  end, "Export your loot history to CSV or an AI report.")
+  -- Export button (row 2, right-aligned): tab-aware (issue #15). On History it exports loot rows
+  -- (All Data / Current View → CSV); on Insights it exports the analytics summary (issue #15's
+  -- Insights CSV, AI report later). Both respect the shared filter. 164px matches the Save+Reset+
+  -- Clear span above it (48+6+52+6+52), so its left edge lines up with Save's.
+  local exportBtn = makeBarButton(bar, "Export", 164, function() B:OpenExport() end,
+    "Export the current tab — loot rows (History) or the analytics summary (Insights).")
   exportBtn:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
+end
 
-  -- Footer count.
-  local footer = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  footer:SetPoint("BOTTOMLEFT", 2, 2)
-  self._footer = footer
+-- Route the Export button to the right modal for the active tab (issue #15). History exports the
+-- loot rows; Insights exports the analytics summary computed off the SAME shared filter.
+function B:OpenExport()
+  if lastTab == "Insights" then
+    NS.Export:Open({
+      mode = "insights",
+      providers = {
+        allData     = function() return NS.Database:Stats({}) end,
+        currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
+      },
+      csv = function(stats) return NS.Export:InsightsCSV(stats) end,
+    })
+  else
+    NS.Export:Open({
+      mode = "history",
+      providers = {
+        allData     = function() return NS.Database:Export({}) end,
+        currentView = function()
+          return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
+            and NS.BrowserTable:OrderedFilteredRecords()) or {}
+        end,
+      },
+      csv = function(records) return NS.Export:CSV(records) end,
+    })
+  end
+end
 
-  -- Estimated storage size, right-aligned opposite the count (mirrors the settings panel's
-  -- storage estimate). Anchored BOTTOMRIGHT so it grows leftward, clear of "Showing X of Y".
-  -- x = -20 keeps the text left of the 16px resize grip (frame BOTTOMRIGHT -2) so they don't overlap.
-  local dbFooter = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  dbFooter:SetPoint("BOTTOMRIGHT", -20, 2)
-  dbFooter:SetJustifyH("RIGHT")
-  self._dbFooter = dbFooter
-  self:UpdateDbSize()
-
-  -- Table host between the filter bar and the footer.
+-- Attach the virtualized History table to its pane (issue #13: the pane now holds only the table;
+-- the filter bar + footer are shared chrome). The table reads B.activeFilter through
+-- BrowserTable.filter, already set by the shared bar's ApplyView.
+function B:BuildTable(pane)
   local host = CreateFrame("Frame", nil, pane)
-  host:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -4)
-  host:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", 0, 14)
-
+  host:SetPoint("TOPLEFT", pane, "TOPLEFT", 0, 0)
+  host:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", 0, 0)
   if NS.BrowserTable and NS.BrowserTable.Attach then
     NS.BrowserTable:Attach(host)
   end
-  self:RefreshFilterOptions()                     -- populate dropdown options first
-  self:ApplyView(savedViewOrStock(), "current")   -- open on the saved view + current player
 end
 
 -- ── Frame construction ─────────────────────────────────────────────────────────
@@ -944,17 +972,49 @@ local function EnsureFrame()
   frame.closeButton = close
   -- (Settings gear removed; open the options panel with /lh config.)
 
-  -- Content panes, one per tab, filling below the tab strip.
+  -- Shared window chrome (issue #13): one singleton filter bar above both panes, and one shared
+  -- footer below them. Layout from the top: title bar · tab strip · content gap · FILTER BAR ·
+  -- panes · FOOTER. The panes now hold only their view (table / charts).
+  local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18
+  local barTop  = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap
+  local paneTop = barTop + FILTERBAR_H + FILTER_GAP
+
+  -- Content panes, one per tab, filling between the shared filter bar and the shared footer.
   frame.panes = {}
   for _, name in ipairs(TABS) do
     local pane = CreateFrame("Frame", nil, frame)
-    pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -(SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap))
-    pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 6)
+    pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -paneTop)
+    pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
     pane:Hide()
     frame.panes[name] = pane
   end
 
   CreateTabStrip()
+
+  -- Shared singleton filter bar host, anchored below the tab strip and above the panes.
+  local filterHost = CreateFrame("Frame", nil, frame)
+  filterHost:SetPoint("TOPLEFT",  frame, "TOPLEFT",   6, -barTop)
+  filterHost:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -barTop)
+  filterHost:SetHeight(FILTERBAR_H)
+  frame.filterHost = filterHost
+
+  -- Shared footer: "Showing X of Y" (bottom-left) + estimated DB size (bottom-right). Both track
+  -- the shared filter, so they read the same on either tab. x=-20 keeps the size text left of the
+  -- 16px resize grip (frame BOTTOMRIGHT -2) so they never overlap.
+  local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 3)
+  B._footer = footer
+  local dbFooter = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  dbFooter:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -20, 3)
+  dbFooter:SetJustifyH("RIGHT")
+  B._dbFooter = dbFooter
+
+  -- Build the shared filter controls, populate their options, and apply the saved view (opens
+  -- scoped to the current player). The table/charts attach lazily per tab and pick up this filter.
+  B:BuildFilterBar(filterHost)
+  B:RefreshFilterOptions()
+  B:ApplyView(savedViewOrStock(), "current")
+  B:UpdateDbSize()
 
   -- Resize grip, bottom-right.
   local grip = CreateFrame("Button", nil, frame)
@@ -996,6 +1056,9 @@ end
 function B:Show()
   local f = EnsureFrame()
   f:Show()
+  -- Eager-build the History pane so the table attaches and matchCount is fresh — the shared footer
+  -- (issue #13) then reads correctly even when the window opens straight onto the Insights tab.
+  BuildPane("History")
   B:SelectTab(lastTab)
   B:UpdateTestBadge()
 end
@@ -1069,11 +1132,15 @@ function B:SetMinimapHidden(hide)
   end
 end
 
--- Keep the History tab current when the underlying history changes (new loot, a row delete,
--- retention prune). Only does work when the window is open on the History tab.
+-- Keep the browser current when the underlying history changes (new loot, a row delete, retention
+-- prune, or a blacklist/whitelist edit — issue #14). The shared filter bar + footer (issue #13)
+-- refresh on either tab; the table repaints only when it's the visible tab. Insights live-refreshes
+-- itself through its own bus subscription.
 function B:OnHistoryChanged()
-  if not (frame and frame:IsShown() and lastTab == "History") then return end
-  if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh() end
+  if not (frame and frame:IsShown()) then return end
+  if lastTab == "History" and NS.BrowserTable and NS.BrowserTable.Refresh then
+    NS.BrowserTable:Refresh()
+  end
   self:RefreshFilterOptions()
   self:UpdateFooter()
   self:UpdateDbSize()

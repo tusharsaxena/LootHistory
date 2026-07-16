@@ -207,15 +207,6 @@ local function makeListRow(parent)
   return r
 end
 
--- Date-range options for the selector. The range key → `from` timestamp mapping lives in
--- Util.RangeFrom (shared with the Browser date filter).
-local RANGES = {
-  { value = "today", label = "Today" },
-  { value = "7d",    label = "7 days" },
-  { value = "30d",   label = "30 days" },
-  { value = "all",   label = "All" },
-}
-
 -- Stat / highlight cards, in row order (4 columns per row; `wide` spans 2). `str` cards hold a
 -- string (smaller font). Value strings are produced in UpdateCards.
 local CARD_DEFS = {
@@ -231,42 +222,16 @@ local CARD_DEFS = {
   { key = "busy",    label = "busiest day", str = true, wide = true },
 }
 
-Analytics.range = "30d"
-
 -- ── Build ────────────────────────────────────────────────────────────────────────
 
 function Analytics:Attach(pane)
   if self.pane then return end
   self.pane = pane
 
-  -- Range selector (fixed above the scroll).
-  local bar = CreateFrame("Frame", nil, pane)
-  bar:SetPoint("TOPLEFT", 0, 0)
-  bar:SetPoint("TOPRIGHT", 0, 0)
-  bar:SetHeight(22)
-  local lbl = bar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  lbl:SetPoint("LEFT", 2, 0)
-  lbl:SetText("Range:")
-  lbl:SetTextColor(0.8, 0.8, 0.82)
-
-  self.rangeButtons = {}
-  local x = 48
-  for _, r in ipairs(RANGES) do
-    local b = CreateFrame("Button", nil, bar)
-    b:SetSize(58, 20)
-    b:SetPoint("LEFT", x, 0)
-    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    fs:SetPoint("CENTER")
-    fs:SetText(r.label)
-    b.fs = fs
-    b:SetScript("OnClick", function() Analytics:SetRange(r.value) end)
-    self.rangeButtons[r.value] = b
-    x = x + 62
-  end
-
-  -- Scrollable content host.
+  -- No range selector here (issue #13): the Insights view is scoped by the browser's shared filter
+  -- bar (its Date dropdown + every column filter), so the charts fill the whole pane below.
   local scroll = CreateFrame("ScrollFrame", "LootHistoryInsightsScroll", pane, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -4)
+  scroll:SetPoint("TOPLEFT", pane, "TOPLEFT", 0, 0)
   scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -26, 4)
   self.scroll = scroll
   local content = CreateFrame("Frame", nil, scroll)
@@ -297,44 +262,28 @@ function Analytics:Attach(pane)
   end
 
   self:BuildCharts(content)
-  self:UpdateRangeButtons()
   self:Refresh()
-end
-
--- ── Range control ─────────────────────────────────────────────────────────────────
-
-function Analytics:SetRange(range)
-  self.range = range
-  self:UpdateRangeButtons()
-  self:Refresh()
-end
-
-function Analytics:UpdateRangeButtons()
-  for val, b in pairs(self.rangeButtons or {}) do
-    if val == self.range then
-      b.fs:SetTextColor(1, 0.82, 0)
-    else
-      b.fs:SetTextColor(0.7, 0.7, 0.72)
-    end
-  end
 end
 
 -- ── Refresh + layout ──────────────────────────────────────────────────────────────
 
 -- Pure one-line summary for the [Insights] trace.
-function Analytics.SummaryLine(range, count)
-  return ("computed range=%s, %s records"):format(tostring(range), tostring(count))
+function Analytics.SummaryLine(scope, count)
+  return ("computed range=%s, %s records"):format(tostring(scope), tostring(count))
 end
 
 function Analytics:Refresh()
   if not self.content then return end
-  local from = NS.Util.RangeFrom(self.range)
-  local stats = NS.Database:Stats(from and { from = from } or {})
+  -- Scope by the browser's shared filter (issue #13) so the Insights view and the History table
+  -- always reflect the exact same criteria; empty filter = the whole (visible) history.
+  local filter = (NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter()) or {}
+  local stats = NS.Database:Stats(filter)
   self.stats = stats
   self:UpdateCards(stats)
   self:Layout() -- Layout → LayoutCharts binds the charts off self.stats
   if NS.State.debug and NS.Debug then
-    NS.Debug("Insights", "%s", Analytics.SummaryLine(self.range, stats.totals.records))
+    local scope = next(filter) and "filtered" or "all"
+    NS.Debug("Insights", "%s", Analytics.SummaryLine(scope, stats.totals.records))
   end
 end
 

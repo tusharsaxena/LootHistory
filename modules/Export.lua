@@ -107,6 +107,104 @@ function E:CSV(records)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 
+-- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
+-- The Insights tab's Export produces an ANALYTICS csv — a flat, sectioned dump that mirrors the
+-- Insights view (summary cards + each breakdown + the ranked lists) rather than raw loot rows.
+-- Columns: Section, Label, Count, Value (Value = plain "Ng Ns Nc" vendor value; blank when a row
+-- has no value dimension). Pure — takes a Database:Stats result, returns text; unit-tested.
+
+local BOUND_LABEL_CSV = {
+  BOP = "Soulbound", BOE = "BoE", ACCOUNT = "Account", WARBAND = "Warbound", UNBOUND = "Unbound",
+}
+local WEEKDAY_CSV = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
+local CONF_LABEL_CSV = { CERTAIN = "Certain", INFERRED = "Inferred" }
+
+-- Count-map → array of { label, count, value } sorted count-desc then label-asc. `labelOf` maps a
+-- raw key to a display label; `valueMap` (optional) supplies the value column per key.
+local function rankedRows(map, labelOf, valueMap)
+  local rows = {}
+  for key, count in pairs(map or {}) do
+    rows[#rows + 1] = { label = labelOf and labelOf(key) or tostring(key),
+      count = count, value = valueMap and valueMap[key] or nil, _k = key }
+  end
+  table.sort(rows, function(a, b)
+    if a.count ~= b.count then return a.count > b.count end
+    return tostring(a.label) < tostring(b.label)
+  end)
+  return rows
+end
+
+function E:InsightsCSV(stats)
+  stats = stats or {}
+  local t = stats.totals or {}
+  local lines = { "Section,Label,Count,Value" }
+  local function row(section, label, count, valueCopper)
+    lines[#lines + 1] = table.concat({
+      csvField(section), csvField(label),
+      count ~= nil and csvField(count) or "",
+      valueCopper ~= nil and csvField(money(valueCopper)) or "",
+    }, ",")
+  end
+  local function section(name, rows)
+    for _, r in ipairs(rows) do row(name, r.label, r.count, r.value) end
+  end
+
+  -- Summary (the stat/highlight cards).
+  local dash = ""
+  row("Summary", "Records", t.records or 0)
+  row("Summary", "Distinct items", t.distinctItems or 0)
+  row("Summary", "Characters", t.distinctChars or 0)
+  row("Summary", "Vendor value", nil, t.totalValue or 0)
+  row("Summary", "Active days", t.activeDays or 0)
+  row("Summary", "Epic+ drops", t.epicPlus or 0)
+  row("Summary", "Best drop iLvl", t.bestDrop and t.bestDrop.itemLevel or dash)
+  row("Summary", "Richest drop", nil, t.richestDrop and t.richestDrop.value or 0)
+  if t.firstTs and t.lastTs then
+    row("Summary", "Date range", NS.Util.FormatDate(t.firstTs) .. " to " .. NS.Util.FormatDate(t.lastTs))
+  end
+  if t.busiestDay then row("Summary", "Busiest day", t.busiestDay.day .. " (" .. t.busiestDay.count .. ")") end
+
+  local srcLabel = function(k) return NS.Constants.SourceLabel[k] or k end
+  section("By Source", rankedRows(stats.bySource, srcLabel, stats.valueBySource))
+  section("By Quality", rankedRows(stats.byQuality, function(q) return NS.Compat.QualityLabel(q) end))
+  section("By Item Type", rankedRows(stats.byType))
+  section("By Bound Type", rankedRows(stats.byBound, function(b) return BOUND_LABEL_CSV[b] or b end))
+
+  -- Per-character carries both count and value (byChar entries are { char, count, value }).
+  local charRows = {}
+  for _, ce in pairs(stats.byChar or {}) do
+    charRows[#charRows + 1] = { label = ce.char, count = ce.count, value = ce.value }
+  end
+  table.sort(charRows, function(a, b)
+    if a.count ~= b.count then return a.count > b.count end
+    return tostring(a.label) < tostring(b.label)
+  end)
+  section("By Character", charRows)
+
+  section("By Weekday", rankedRows(stats.byWeekday, function(d) return WEEKDAY_CSV[d] or tostring(d) end))
+  section("By Hour", rankedRows(stats.byHour, function(h) return string.format("%02d:00", h) end))
+  section("By Keystone", rankedRows(stats.byKeystone, function(l) return "+" .. l end))
+  section("Attribution Confidence", rankedRows(stats.byConfidence, function(c) return CONF_LABEL_CSV[c] or c end))
+
+  for _, z in ipairs(stats.topZones or {}) do row("Top Zones", z.zone, z.count, z.value) end
+  for _, it in ipairs(stats.topItems or {}) do
+    row("Top Items by Count", it.itemName or ("item " .. tostring(it.itemID)), it.count, it.value)
+  end
+  for _, it in ipairs(stats.topItemsByValue or {}) do
+    row("Top Items by Value", it.itemName or ("item " .. tostring(it.itemID)), it.count, it.value)
+  end
+
+  -- Per-day activity (chronological), count + value.
+  local dayKeys = {}
+  for day in pairs(stats.byDay or {}) do dayKeys[#dayKeys + 1] = day end
+  table.sort(dayKeys)
+  for _, day in ipairs(dayKeys) do
+    row("By Day", day, stats.byDay[day], (stats.valueByDay or {})[day] or 0)
+  end
+
+  return table.concat(lines, "\r\n") .. "\r\n"
+end
+
 -- ── Export modal ────────────────────────────────────────────────────────────────
 -- A small skinned window: a Data Set selector (All Data / Current View) plus Export-to-CSV and
 -- Export-to-AI (placeholder) buttons. Reuses the Browser's flat skin + close glyph. Both output
@@ -114,7 +212,10 @@ end
 -- so its layout can evolve independently).
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local frame, copyFrame
-local providers            -- { allData = fn, currentView = fn }, set by :Open
+-- Per-open config (issue #15): { mode = "history"|"insights", providers = { allData, currentView },
+-- csv = function(dataset) return text end }. `mode` only picks the window title/labels; `csv` is the
+-- serializer for whichever dataset the Data Set dropdown selects. Set by :Open.
+local config = {}
 local dataset = "allData"  -- current Data Set selection
 
 -- Center a popup on the History window (falling back to the screen when it isn't built/shown).
@@ -185,9 +286,10 @@ local function ShowCopy(text)
   f:Show(); f.edit:SetFocus(); f.edit:HighlightText()
 end
 
--- Records for the current Data Set selection (empty array if the provider is missing).
-local function selectedRecords()
-  local fn = providers and providers[dataset]
+-- The data for the current Data Set selection (records for History, a Stats result for Insights).
+-- Empty table if the provider is missing.
+local function selectedData()
+  local fn = config.providers and config.providers[dataset]
   return (fn and fn()) or {}
 end
 
@@ -245,6 +347,7 @@ local function EnsureFrame()
   tbar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
   local t = tbar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   t:SetPoint("CENTER"); t:SetText("Export")
+  frame.titleFS = t
   if NS.Browser and NS.Browser.MakeCloseButton then
     NS.Browser:MakeCloseButton(tbar, function() frame:Hide() end)
       :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
@@ -264,7 +367,8 @@ local function EnsureFrame()
   end
 
   local csvBtn = makeButton(frame, "Export to CSV", 148, function()
-    ShowCopy(E:CSV(selectedRecords()))
+    local serialize = config.csv or function(d) return E:CSV(d) end
+    ShowCopy(serialize(selectedData()))
   end, true)
   csvBtn:SetPoint("TOPLEFT", 16, -80)
 
@@ -279,16 +383,20 @@ local function EnsureFrame()
   return frame
 end
 
--- Build (once) and show the export modal, wiring the dataset providers. Always re-centers on the
--- History window.
-function E:Open(p)
-  providers = p or {}
+-- Build (once) and show the export modal for the given config (issue #15). `cfg.mode` picks the
+-- title (History = loot rows, Insights = analytics summary); `cfg.providers` feeds the Data Set
+-- dropdown; `cfg.csv` serializes the selected dataset. Always re-centers on the History window.
+function E:Open(cfg)
+  config = cfg or {}
   local f = EnsureFrame()
+  if f.titleFS then
+    f.titleFS:SetText(config.mode == "insights" and "Export Insights" or "Export")
+  end
   centerOnBrowser(f)
   f:Show()
 end
 
--- Placeholder for the AI-report export (built later): will bundle `records` into a report prompt.
-function E:AIPrompt(records)  -- luacheck: ignore records
+-- Placeholder for the AI-report export (built later): will bundle the dataset into a report prompt.
+function E:AIPrompt(data)  -- luacheck: ignore data
   return ""
 end

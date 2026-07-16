@@ -185,7 +185,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
 
-### test_export.lua (11)
+### test_export.lua (16)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -198,6 +198,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: CSV quality is human label beside numeric qualityRaw
 - Export: CSV sellPrice is 'Ng Ns Nc' beside raw copper
 - Export: CSV emits one header + one row per record, CRLF-terminated
+- Export: InsightsCSV header is Section,Label,Count,Value; CRLF-terminated
+- Export: InsightsCSV summary reports the record count
+- Export: InsightsCSV By Source uses labels + carries the value column
+- Export: InsightsCSV quotes a label containing a comma
+- Export: InsightsCSV omits blacklisted items (via Stats/ActiveHistory)
 
 ### test_debuglog.lua (16)
 
@@ -253,7 +258,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_database.lua | 40 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
-| test_export.lua | 11 |
+| test_export.lua | 16 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 20 |
-| **Total** | **202** |
+| **Total** | **207** |

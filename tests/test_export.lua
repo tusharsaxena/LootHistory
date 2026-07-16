@@ -74,3 +74,53 @@ test("Export: CSV emits one header + one row per record, CRLF-terminated", funct
   local n = select(2, csv:gsub("\r\n", "\r\n"))
   assertEqual(n, 3)  -- header + 2 rows, each CRLF-terminated
 end)
+
+-- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
+-- Build a Stats result off a tiny known history so the analytics-CSV assertions are deterministic.
+local function insightsStats()
+  NS.db.global.blacklist = {}
+  NS.db.global.history = {
+    { ts = 1000, char = "A-Realm", itemID = 1, itemName = "Red, Potion",
+      quality = 4, source = "KILL",      mapID = 10, zone = "Zone A", sellPrice = 500, quantity = 1 },
+    { ts = 2000, char = "A-Realm", itemID = 2, itemName = "Blue Cloak",
+      quality = 2, source = "KILL",      mapID = 10, zone = "Zone A", sellPrice = 100, quantity = 2 },
+    { ts = 3000, char = "B-Realm", itemID = 3, itemName = "Green Ring",
+      quality = 3, source = "CONTAINER", mapID = 20, zone = "Zone B", sellPrice = 50,  quantity = 1 },
+  }
+  return NS.Database:Stats({})
+end
+
+test("Export: InsightsCSV header is Section,Label,Count,Value; CRLF-terminated", function()
+  local csv = NS.Export:InsightsCSV(insightsStats())
+  assertEqual(csv:match("^(.-)\r\n"), "Section,Label,Count,Value")
+  assertTrue(csv:sub(-2) == "\r\n", "CRLF-terminated")
+end)
+
+test("Export: InsightsCSV summary reports the record count", function()
+  local csv = NS.Export:InsightsCSV(insightsStats())
+  assertTrue(csv:find("Summary,Records,3,", 1, true) ~= nil, "records row present")
+end)
+
+test("Export: InsightsCSV By Source uses labels + carries the value column", function()
+  local csv = NS.Export:InsightsCSV(insightsStats())
+  -- Kill has 2 records; value = 500*1 + 100*2 = 700 copper → "0g 7s 0c" (Export money format).
+  assertTrue(csv:find("By Source,Kill,2,0g 7s 0c", 1, true) ~= nil, "source label + count + value")
+  assertTrue(csv:find("By Source,Container,1,", 1, true) ~= nil, "second source present")
+end)
+
+test("Export: InsightsCSV quotes a label containing a comma", function()
+  local csv = NS.Export:InsightsCSV(insightsStats())
+  assertTrue(csv:find('"Red, Potion"', 1, true) ~= nil, "comma-bearing item name quoted")
+end)
+
+test("Export: InsightsCSV omits blacklisted items (via Stats/ActiveHistory)", function()
+  NS.db.global.blacklist = {}
+  NS.db.global.history = {
+    { ts = 1, char = "A-Realm", itemID = 1, itemName = "Kept",   quality = 3, source = "KILL", quantity = 1 },
+    { ts = 2, char = "A-Realm", itemID = 2, itemName = "Hidden", quality = 3, source = "KILL", quantity = 1 },
+  }
+  NS.db.global.blacklist = { [2] = true }
+  local csv = NS.Export:InsightsCSV(NS.Database:Stats({}))
+  assertTrue(csv:find("Summary,Records,1,", 1, true) ~= nil, "blacklisted record excluded")
+  NS.db.global.blacklist = {}
+end)
