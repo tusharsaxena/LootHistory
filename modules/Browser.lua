@@ -835,10 +835,10 @@ function B:BuildHistory(pane)
   -- box creation above). -ROW2 lifts the top-right corner from row 2 back up into row 1.
   search:SetPoint("TOPRIGHT", dd.char, "TOPRIGHT", 0, -ROW2)
 
-  -- Export button (row 2, right-aligned): opens the export modal (CSV now, AI later).
-  -- 134px keeps the row-2 cluster clear of the button at minimum window width now that Zone matches
-  -- Character; the button stays right-aligned (right edge unchanged).
-  local exportBtn = makeBarButton(bar, "Export", 134, function()
+  -- Export button (row 2, right-aligned): opens the export modal (CSV now, AI later). 164px matches
+  -- the Save+Reset+Clear span above it (48+6+52+6+52), so its left edge lines up with Save's; the
+  -- min window width keeps it clear of the Character dropdown.
+  local exportBtn = makeBarButton(bar, "Export", 164, function()
     NS.Export:Open({
       allData     = function() return NS.Database:Export({}) end,
       currentView = function()
