@@ -756,7 +756,7 @@ function B:BuildHistory(pane)
 
   -- Bound (multi-select): binding-state filter. "NONE" matches unbound records.
   dd.bound = MakeDropdown(bar, 96)
-  dd.bound:SetPoint("LEFT", dd.date, "RIGHT", 6, 0)
+  dd.bound:SetPoint("LEFT", dd.date, "RIGHT", 8, 0)
   dd.bound:SetMulti(true)
   dd.bound:SetOptions(BOUND_OPTIONS)
   dd.bound.onMultiSelect = function(set)
@@ -767,7 +767,7 @@ function B:BuildHistory(pane)
   -- Quality/Type/Source/Zone/Character are multi-select: their onMultiSelect receives the current
   -- selection set (empty = All), copied into the matching filter field. The "all" menu item clears.
   dd.quality = MakeDropdown(bar, 100)
-  dd.quality:SetPoint("LEFT", dd.bound, "RIGHT", 6, 0)
+  dd.quality:SetPoint("LEFT", dd.bound, "RIGHT", 8, 0)
   dd.quality:SetMulti(true)
   dd.quality:SetOptions(QUALITY_OPTIONS)
   dd.quality.onMultiSelect = function(set)
@@ -775,8 +775,8 @@ function B:BuildHistory(pane)
     ApplyFilter()
   end
 
-  dd.type = MakeDropdown(bar, 116)
-  dd.type:SetPoint("LEFT", dd.quality, "RIGHT", 6, 0)
+  dd.type = MakeDropdown(bar, 112)
+  dd.type:SetPoint("LEFT", dd.quality, "RIGHT", 8, 0)
   dd.type:SetMulti(true)
   dd.type.onMultiSelect = function(set)
     B.activeFilter.itemType = setToFilter(set)
@@ -784,23 +784,23 @@ function B:BuildHistory(pane)
   end
 
   dd.source = MakeDropdown(bar, 100)
-  dd.source:SetPoint("LEFT", dd.type, "RIGHT", 6, 0)
+  dd.source:SetPoint("LEFT", dd.type, "RIGHT", 8, 0)
   dd.source:SetMulti(true)
   dd.source.onMultiSelect = function(set)
     B.activeFilter.source = setToFilter(set)
     ApplyFilter()
   end
 
-  dd.zone = MakeDropdown(bar, 120)
-  dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 6, 0)
+  dd.zone = MakeDropdown(bar, 116)
+  dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 8, 0)
   dd.zone:SetMulti(true)
   dd.zone.onMultiSelect = function(set)
     B.activeFilter.mapID = setToFilter(set)
     ApplyFilter()
   end
 
-  dd.char = MakeDropdown(bar, 150)
-  dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
+  dd.char = MakeDropdown(bar, 146)
+  dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 8, 0)
   dd.char:SetMulti(true)
   -- SetCharSet keeps the char filter in sync (the window opens scoped to the current player).
   dd.char.onMultiSelect = function(set) B:SetCharSet(set) end
