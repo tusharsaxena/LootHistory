@@ -181,6 +181,27 @@ function Compat.GetItemInfo(link)
   return itemID, name, quality, classID
 end
 
+-- Resolve an item id to a display name + quality for the filter-management UI (issue #14).
+-- Returns (name, quality); name is nil when the item is not yet cached (the caller shows an
+-- "Item <id>" placeholder). C_Item.GetItemInfo accepts a bare id as well as a link.
+function Compat.ItemNameQuality(id)
+  if not id then return nil end
+  if C_Item and C_Item.GetItemInfo then
+    local name, _, quality = C_Item.GetItemInfo(id)
+    return name, quality
+  end
+  return nil
+end
+
+-- Request the server to cache an item id so a later ItemNameQuality resolves; `cb` fires once
+-- the item is loaded (no-op when the API is absent). Used by the filter panel to fill in names
+-- that weren't cached on first paint.
+function Compat.LoadItem(id, cb)
+  if not (id and C_Item and C_Item.RequestLoadItemDataByID) then return end
+  C_Item.RequestLoadItemDataByID(id)
+  if cb and C_Timer and C_Timer.After then C_Timer.After(0.4, cb) end
+end
+
 -- Scan an item link's tooltip for warband/account-bound text.
 -- Returns "WARBAND", "ACCOUNT", or nil. Retail-only (C_TooltipInfo); nil elsewhere.
 local WARBAND_STRINGS = {

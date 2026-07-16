@@ -381,6 +381,126 @@ local function renderHistory(ctx)
   end
 end
 
+-- ── Filters sub-page: blacklist / whitelist item-id management (issue #14) ────────
+-- A single sub-page with two sections. Each: a short description, an "add" row (item id or a
+-- shift-clicked link) and a live list of current ids with a Remove button per row. The lists are
+-- core app logic, so there is deliberately no way to toggle a blacklist/whitelist *display* filter
+-- — blacklisted rows just vanish from the browser and whitelisted ids always record.
+
+-- Display name for an id: "Name  (id)" once cached, "Item id" until the client caches it (a
+-- background load is kicked off so a later rebuild fills the name in).
+local function filterEntryLabel(id, onCached)
+  local name, quality = NS.Compat.ItemNameQuality(id)
+  if not name then
+    if NS.Compat.LoadItem then NS.Compat.LoadItem(id, onCached) end
+    return "|cffaaaaaaItem " .. id .. "|r"
+  end
+  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality or 1]
+  local hex = c and c.color and c.color:GenerateHexColor()
+  local shown = hex and ("|c" .. hex .. name .. "|r") or name
+  return shown .. "  |cff808080(" .. id .. ")|r"
+end
+
+-- Rebuild `listGroup` from the ids currently on `listKey`. Each row: item label + Remove button.
+local function rebuildFilterList(ctx, listGroup, listKey)
+  listGroup:ReleaseChildren()
+  local set = (listKey == "blacklist") and NS.Filters:Blacklist() or NS.Filters:Whitelist()
+  local ids = NS.Filters:SortedIDs(set)
+  if #ids == 0 then
+    local empty = AceGUI:Create("Label")
+    empty:SetFullWidth(true)
+    empty:SetText("|cff808080(none)|r")
+    listGroup:AddChild(empty)
+  else
+    for _, id in ipairs(ids) do
+      local rowG = AceGUI:Create("SimpleGroup")
+      rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
+      local lbl = AceGUI:Create("Label")
+      lbl:SetRelativeWidth(0.78)
+      lbl:SetText(filterEntryLabel(id, function()
+        if ctx.panel:IsShown() then rebuildFilterList(ctx, listGroup, listKey) end
+      end))
+      rowG:AddChild(lbl)
+      local rm = AceGUI:Create("Button")
+      rm:SetText("Remove"); rm:SetRelativeWidth(0.20)
+      rm:SetCallback("OnClick", function()
+        if listKey == "blacklist" then NS.Filters:RemoveBlacklist(id) else NS.Filters:RemoveWhitelist(id) end
+        rebuildFilterList(ctx, listGroup, listKey)
+        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+      end)
+      rowG:AddChild(rm)
+      listGroup:AddChild(rowG)
+    end
+  end
+  if listGroup.DoLayout then listGroup:DoLayout() end
+end
+
+-- One section (blacklist or whitelist): heading, description, add-row, live list.
+local function makeFilterSection(ctx, listKey, title, desc)
+  local scroll = ensureScroll(ctx)
+  section(ctx, title)
+
+  local descLabel = AceGUI:Create("Label")
+  descLabel:SetFullWidth(true); descLabel:SetText(desc)
+  scroll:AddChild(descLabel)
+  addSpacer(scroll, 6)
+
+  local listGroup = AceGUI:Create("SimpleGroup")
+  listGroup:SetLayout("List"); listGroup:SetFullWidth(true)
+
+  local addRow = AceGUI:Create("SimpleGroup")
+  addRow:SetLayout("Flow"); addRow:SetFullWidth(true)
+  local box = AceGUI:Create("EditBox")
+  box:SetLabel("Add item id or link"); box:SetRelativeWidth(0.78)
+  local function submit()
+    local id = NS.Filters:ParseItemID(box:GetText())
+    if not id then
+      if NS.Print then NS.Print("enter a numeric item id (or shift-click an item link).") end
+      return
+    end
+    if listKey == "blacklist" then NS.Filters:AddBlacklist(id) else NS.Filters:AddWhitelist(id) end
+    box:SetText("")
+    rebuildFilterList(ctx, listGroup, listKey)
+    if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+  end
+  box:SetCallback("OnEnterPressed", function() submit() end)
+  addRow:AddChild(box)
+  local addBtn = AceGUI:Create("Button")
+  addBtn:SetText("Add"); addBtn:SetRelativeWidth(0.20)
+  addBtn:SetCallback("OnClick", submit)
+  addRow:AddChild(addBtn)
+  scroll:AddChild(addRow)
+  addSpacer(scroll, 4)
+
+  scroll:AddChild(listGroup)
+
+  -- Rebuild on first paint and whenever the lists change elsewhere (e.g. the History right-click
+  -- Blacklist action) while this page is open.
+  local function refresh() if ctx.panel:IsShown() then rebuildFilterList(ctx, listGroup, listKey) end end
+  ctx.refreshers[#ctx.refreshers + 1] = function() rebuildFilterList(ctx, listGroup, listKey) end
+  return refresh
+end
+
+local function buildFilters(ctx)
+  local blRefresh = makeFilterSection(ctx, "blacklist", "Blacklist",
+    "Items here are never recorded, and any already-recorded rows are hidden from the browser "
+    .. "(nothing is deleted — remove an id to restore its rows).")
+  local wlRefresh = makeFilterSection(ctx, "whitelist", "Whitelist",
+    "Items here are always recorded, even if they fall below your quality threshold, come from a "
+    .. "muted source, or are quest items. Adding an id to one list removes it from the other.")
+
+  -- Live-update both lists when they change from elsewhere (the History right-click Blacklist),
+  -- on a private bus target (never NS.bus-as-self) so it can't clobber other consumers.
+  if not P.__evFilters then
+    local ev = NS.NewBusTarget()
+    if ev then
+      local onChange = function() blRefresh(); wlRefresh() end
+      ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
+      P.__evFilters = ev
+    end
+  end
+end
+
 -- ── Landing page: logo + tagline + slash-command list ───────────────────────────
 local function buildMainContent(ctx)
   local scroll = ensureScroll(ctx)
@@ -478,6 +598,21 @@ function P:Register()
     P:Refresh()
   end)
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
+
+  -- Filters subcategory = blacklist / whitelist item-id management (issue #14).
+  local fctx = createPanel("LootHistoryFiltersPanel", "Filters", { defaultsButton = false })
+  P.filters = fctx
+  local fRendered = false
+  fctx.panel:SetScript("OnShow", function()
+    if not fRendered then
+      fRendered = true
+      buildFilters(fctx)
+      if fctx.scroll and fctx.scroll.DoLayout then fctx.scroll:DoLayout() end
+    end
+    for _, fn in ipairs(fctx.refreshers) do pcall(fn) end
+    if fctx.scroll and fctx.scroll.DoLayout then fctx.scroll:DoLayout() end
+  end)
+  Settings.RegisterCanvasLayoutSubcategory(mainCategory, fctx.panel, "Filters")
 end
 
 function P:Open()
