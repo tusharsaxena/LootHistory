@@ -733,11 +733,14 @@ function B:BuildHistory(pane)
     "Save the current group, sort and filters as your default view.")
   saveBtn:SetPoint("RIGHT", resetBtn, "LEFT", -6, 0)
 
-  -- Item-name search box, filling the gap between Group by and the Save button (row 1).
+  -- Item-name search box (row 1). Its LEFT sits beside Group; its RIGHT is pinned to the row-2
+  -- Character dropdown's right edge below it (set once dd.char exists) so the two right edges stay
+  -- aligned at every window width — top-corner anchoring keeps the box in row 1 despite the
+  -- row-2 reference (the -ROW2 y-offset lifts it back up). The Save/Reset/Clear cluster sits to
+  -- its right; the min window width guarantees they never overlap.
   local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   search:SetHeight(20)
-  search:SetPoint("LEFT", dd.group, "RIGHT", 8, 0)
-  search:SetPoint("RIGHT", saveBtn, "LEFT", -8, 0)
+  search:SetPoint("TOPLEFT", dd.group, "TOPRIGHT", 8, 0)
   search:SetAutoFocus(false)
   search:SetFontObject("GameFontHighlightSmall")
   search:SetTextInsets(6, 6, 0, 0)
@@ -828,6 +831,10 @@ function B:BuildHistory(pane)
   -- SetCharSet keeps the char filter in sync (the window opens scoped to the current player).
   dd.char.onMultiSelect = function(set) B:SetCharSet(set) end
 
+  -- Pin the row-1 Search box's right edge to the Character dropdown's right edge (see the search
+  -- box creation above). -ROW2 lifts the top-right corner from row 2 back up into row 1.
+  search:SetPoint("TOPRIGHT", dd.char, "TOPRIGHT", 0, -ROW2)
+
   -- Export button (row 2, right-aligned): opens the export modal (CSV now, AI later).
   -- 134px keeps the row-2 cluster clear of the button at minimum window width now that Zone matches
   -- Character; the button stays right-aligned (right edge unchanged).
@@ -878,10 +885,10 @@ local function EnsureFrame()
   -- shrink into horizontal overflow. Width is derived from the column model.
   local minW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
     or 822
-  -- The filter bar wants a hair more width than the table alone: at this width the row-1 Search
-  -- box's right edge (Save cluster left − 8) lines up with the row-2 Character dropdown's right
-  -- edge. Character right edge = 976 (Date→…→Character chain) and the Save/Reset/Clear cluster is
-  -- 164 + an 8px gap = 172, plus 12px pane margins → 1160. Take the wider of the two floors.
+  -- The filter bar wants a hair more width than the table alone: the row-1 Search box's right edge
+  -- is pinned to the row-2 Character dropdown's right edge (x=976, the Date→…→Character chain), and
+  -- the right-aligned Save/Reset/Clear cluster (164 + an 8px gap = 172) must clear it. 976 + 172 +
+  -- 12px pane margins → 1160. Take the wider of this and the column-derived floor.
   minW = math.max(minW, 1160)
   local minH = SKIN.minH
   B._minW, B._minH = minW, minH
