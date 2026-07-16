@@ -161,13 +161,13 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 §8). `/lh show` → History tab.
 
 **Steps.**
-- **Sort:** click each column header (Date, Time, iLvl, Item, Qty, Quality, Type, Source, Zone, Vendor,
-  Character); click again to flip ascending/descending. The active column shows a sort arrow.
+- **Sort:** click each column header (Date, Time, iLvl, Item, Qty, Quality, Type, SubType, Source, Zone,
+  Vendor, Character); click again to flip ascending/descending. The active column shows a sort arrow.
 - **Group by:** cycle the **Group by** dropdown through None / Day / Quality / Type / Source / Zone /
   Character. Collapse and expand a group header (left-click).
 - **Filters:** exercise each row-2 dropdown — **Date** (single-select: All / Today / Last 7 days /
-  Last 30 days), and the multi-select **Bound**, **Quality**, **Type**, **Source**, **Zone**,
-  **Character** (pick two values in one, confirm the collapsed label reads "N selected").
+  Last 30 days), and the multi-select **Bound**, **Quality**, **Type**, **SubType**, **Source**,
+  **Zone**, **Character** (pick two values in one, confirm the collapsed label reads "N selected").
 - **Bound filter:** open **Bound** and pick **Not Bound**, then add **Bind on Equip**. The five options
   (Not Bound / Bind on Equip / Bind on Pickup / Account Bound / Warbound) match the Bound column's
   header-tooltip legend. Confirm the visible rows' lock colours match the selected states, and that

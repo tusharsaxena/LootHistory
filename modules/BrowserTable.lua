@@ -151,6 +151,10 @@ BrowserTable.COLUMNS = {
     desc = "Item type (subtype in the Item tooltip).",
     valueFn = function(r) return r.itemType or "" end,
     sortFn = function(r) return (r.itemType or ""):lower() end },
+  { key = "subtype", label = "SubType", width = 100, align = "LEFT",
+    desc = "Item subtype (e.g. Cloth, One-Handed Swords, Potion).",
+    valueFn = function(r) return r.itemSubType or "" end,
+    sortFn = function(r) return (r.itemSubType or ""):lower() end },
   { key = "source", label = "Source", width = 96, align = "LEFT",
     desc = "How the item was acquired (kill, container, mail, trade, …).",
     valueFn = function(r) return C.SourceLabel[r.source] or r.source or "Other" end,
@@ -277,6 +281,18 @@ local TEST_TYPE_W = {
   { "Armor", 22 }, { "Consumable", 20 }, { "Tradegoods", 18 }, { "Weapon", 14 },
   { "Quest", 10 }, { "Gem", 8 }, { "Recipe", 6 },
 }
+-- Representative subtypes per item type, so the SubType column/filter has variety in test mode.
+-- Chosen deterministically off idBase (never the RNG stream) to keep the synthetic data stable.
+local TEST_SUBTYPES = {
+  Armor      = { "Cloth", "Leather", "Mail", "Plate" },
+  Weapon     = { "One-Handed Swords", "Daggers", "Staves", "Bows" },
+  Consumable = { "Potion", "Food & Drink", "Flask" },
+  Tradegoods = { "Herb", "Cloth", "Metal & Stone", "Leather" },
+  Gem        = { "Cut Gem", "Uncut Gem" },
+  Recipe     = { "Tailoring", "Alchemy", "Blacksmithing" },
+  Quest      = { "Quest" },
+}
+local TEST_SUBTYPES_MISC = { "Other", "Junk" }
 local TEST_KEY_W = {  -- keystone levels cluster around the mid keys
   { 2, 4 }, { 3, 6 }, { 4, 8 }, { 5, 10 }, { 6, 11 }, { 7, 12 }, { 8, 11 }, { 9, 9 },
   { 10, 8 }, { 11, 6 }, { 12, 5 }, { 13, 4 }, { 14, 3 }, { 15, 2 }, { 16, 1 }, { 18, 1 }, { 20, 1 },
@@ -357,7 +373,10 @@ function BrowserTable:BuildTestData()
       bound = b.key,
       sellPrice = (q * q + 1) * (200 + rng(1800)) + rng(500), -- wide, quality-skewed value spread
       itemType = ty,
-      itemSubType = "Sample",
+      itemSubType = (function()
+        local list = TEST_SUBTYPES[ty] or TEST_SUBTYPES_MISC
+        return list[(idBase % #list) + 1]
+      end)(),
       source = source,
       sourceDetail = (source == "MPLUS") and { keystoneLevel = testPick(rng, TEST_KEY_W) } or nil,
       zone = zone.name,

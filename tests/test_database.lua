@@ -102,6 +102,19 @@ test("Database: Query filters by itemType", function()
   assertEqual(#NS.Database:QueryList(recs, { itemType = { Weapon = true } }), 1)
 end)
 
+test("Database: Query filters by itemSubType", function()
+  local recs = {
+    { itemSubType = "Cloth", itemName = "Helm" },
+    { itemSubType = "Plate", itemName = "Boots" },
+    { itemSubType = "Cloth", itemName = "Robe" },
+  }
+  assertEqual(#NS.Database:QueryList(recs, { itemSubType = "Cloth" }), 2)
+  assertEqual(#NS.Database:QueryList(recs, {}), 3)
+  -- Multi-select: a subtype set matches any listed subtype.
+  assertEqual(#NS.Database:QueryList(recs, { itemSubType = { Cloth = true, Plate = true } }), 3)
+  assertEqual(#NS.Database:QueryList(recs, { itemSubType = { Plate = true } }), 1)
+end)
+
 test("Database: QueryList bound=NONE matches unbound records", function()
   local recs = {
     { bound = nil, itemID = 1 }, { bound = "BOE", itemID = 2 }, { bound = "BOP", itemID = 3 },

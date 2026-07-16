@@ -88,7 +88,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 
-### test_database.lua (36)
+### test_database.lua (37)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -98,6 +98,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: Query ignores a non-numeric quality (no crash, returns all)
 - Database: QueryList filters an arbitrary array, not the live history
 - Database: Query filters by itemType
+- Database: Query filters by itemSubType
 - Database: QueryList bound=NONE matches unbound records
 - Database: QueryList bound set unions tokens
 - Database: QueryList ignores non-table bound filter
@@ -226,10 +227,10 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_compat.lua | 11 |
 | test_attribution.lua | 21 |
 | test_collector.lua | 15 |
-| test_database.lua | 36 |
+| test_database.lua | 37 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
 | test_export.lua | 11 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 20 |
-| **Total** | **182** |
+| **Total** | **183** |

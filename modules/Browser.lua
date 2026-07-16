@@ -409,8 +409,8 @@ local BOUND_OPTIONS = {
 -- `from`) so it recomputes correctly on each load.
 local STOCK_VIEW = {
   groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
-  quality = "all", source = "all", itemType = "all", mapID = "all", date = "all", bound = "all",
-  search = "",
+  quality = "all", source = "all", itemType = "all", itemSubType = "all", mapID = "all",
+  date = "all", bound = "all", search = "",
 }
 local function savedViewOrStock()
   local v = NS.db and NS.db.global and NS.db.global.savedView
@@ -500,6 +500,17 @@ local function typeOptions()
   end
   return withAll("Type: All", items)
 end
+local function subtypeOptions()
+  local seen, items = {}, {}
+  for _, r in ipairs(dataset()) do
+    local st = r.itemSubType
+    if st and st ~= "" and not seen[st] then
+      seen[st] = true
+      items[#items + 1] = { value = st, label = st }
+    end
+  end
+  return withAll("SubType: All", items)
+end
 local function zoneOptions()
   -- Query filters zones by mapID, so options carry mapID as value, zone name as label.
   local seen, items = {}, {}
@@ -562,6 +573,7 @@ function B:RefreshFilterOptions()
   if not dd then return end
   dd.source:SetOptions(sourceOptions())
   dd.type:SetOptions(typeOptions())
+  dd.subtype:SetOptions(subtypeOptions())
   dd.char:SetOptions(charOptions())
   dd.zone:SetOptions(zoneOptions())
 end
@@ -615,11 +627,12 @@ function B:CaptureView()
     -- Multi-select column filters are stored as selection sets (copies, so the saved view isn't
     -- aliased to the live dropdown state). An empty {} means "All". Character scope is NOT part of
     -- the view (it's the session-only Current/All default), so it isn't captured here.
-    quality  = setToFilter(dd and dd.quality._selected) or {},
-    source   = setToFilter(dd and dd.source._selected) or {},
-    itemType = setToFilter(dd and dd.type._selected) or {},
-    mapID    = setToFilter(dd and dd.zone._selected) or {},
-    bound    = setToFilter(dd and dd.bound._selected) or {},
+    quality     = setToFilter(dd and dd.quality._selected) or {},
+    source      = setToFilter(dd and dd.source._selected) or {},
+    itemType    = setToFilter(dd and dd.type._selected) or {},
+    itemSubType = setToFilter(dd and dd.subtype._selected) or {},
+    mapID       = setToFilter(dd and dd.zone._selected) or {},
+    bound       = setToFilter(dd and dd.bound._selected) or {},
     date     = (dd and dd.date._value) or "all",
     search   = (self._search and self._search:GetText()) or "",
   }
@@ -643,17 +656,19 @@ function B:ApplyView(view, scope)
     dd.group:SelectValue(view.groupBy or "none")
     dd.quality:SetSelected(asSet(view.quality))
     dd.type:SetSelected(asSet(view.itemType))
+    dd.subtype:SetSelected(asSet(view.itemSubType))
     dd.source:SetSelected(asSet(view.source))
     dd.zone:SetSelected(asSet(view.mapID))
     dd.bound:SetSelected(asSet(view.bound))
     dd.date:SelectValue(view.date or "all")
   end
   if self._search then self._search:SetText(view.search or "") end
-  self.activeFilter.quality  = setToFilter(asSet(view.quality))
-  self.activeFilter.source   = setToFilter(asSet(view.source))
-  self.activeFilter.itemType = setToFilter(asSet(view.itemType))
-  self.activeFilter.mapID    = setToFilter(asSet(view.mapID))
-  self.activeFilter.bound    = setToFilter(asSet(view.bound))
+  self.activeFilter.quality     = setToFilter(asSet(view.quality))
+  self.activeFilter.source      = setToFilter(asSet(view.source))
+  self.activeFilter.itemType    = setToFilter(asSet(view.itemType))
+  self.activeFilter.itemSubType = setToFilter(asSet(view.itemSubType))
+  self.activeFilter.mapID       = setToFilter(asSet(view.mapID))
+  self.activeFilter.bound       = setToFilter(asSet(view.bound))
   if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
   if view.search and view.search ~= "" then self.activeFilter.text = view.search end
   -- Character scope resets to `scope` (default "current"). SetCharSet also calls ApplyFilter,
@@ -744,7 +759,7 @@ function B:BuildHistory(pane)
   self._search = search
 
   -- ── Row 2: column filters, left→right in the same order the columns appear in the table:
-  --   Date · Bound · Quality · Type · Source · Zone · Character ──
+  --   Date · Bound · Quality · Type · SubType · Source · Zone · Character ──
   dd.date = MakeDropdown(bar, 120)
   dd.date:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
   dd.date:SetOptions(DATE_OPTIONS)
@@ -783,8 +798,16 @@ function B:BuildHistory(pane)
     ApplyFilter()
   end
 
+  dd.subtype = MakeDropdown(bar, 100)
+  dd.subtype:SetPoint("LEFT", dd.type, "RIGHT", 8, 0)
+  dd.subtype:SetMulti(true)
+  dd.subtype.onMultiSelect = function(set)
+    B.activeFilter.itemSubType = setToFilter(set)
+    ApplyFilter()
+  end
+
   dd.source = MakeDropdown(bar, 100)
-  dd.source:SetPoint("LEFT", dd.type, "RIGHT", 8, 0)
+  dd.source:SetPoint("LEFT", dd.subtype, "RIGHT", 8, 0)
   dd.source:SetMulti(true)
   dd.source.onMultiSelect = function(set)
     B.activeFilter.source = setToFilter(set)

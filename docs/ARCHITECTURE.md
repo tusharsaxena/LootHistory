@@ -48,7 +48,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, quest-item gate (by item class), `Consume`, source-exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
-| `modules/Browser.lua` | Window shell: frame/skin, tabs, multi-select filter bar (Bound/Quality/Type/Source/Zone/Character, date, search), group-by, footer, `Export` button, LDB launcher + LibDBIcon minimap button. |
+| `modules/Browser.lua` | Window shell: frame/skin, tabs, multi-select filter bar (Bound/Quality/Type/SubType/Source/Zone/Character, date, search), group-by, footer, `Export` button, LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. `OrderedFilteredRecords` exposes the on-screen order for export. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`): Data Set dropdown (All Data / Current View), CSV serialization (`CSV` — human `date`/`time`, `quality`/`sellPrice` labels beside `*Raw` columns, friendly `bound`, trailing `wowheadLink`), `WowheadLink` builder, own copy window, and an `AIPrompt` stub. Called directly by the Browser; no bus message. |
 | `modules/Analytics.lua` | Insights tab: date-range scoped stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`. Pooled bar/strip/list renderers. |
@@ -94,7 +94,7 @@ back fast table ops.
 — the export contract — but adding is forward-compatible), and only sources with a live stamper are
 exposed in the UI:
 `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser's
-data-driven filter dropdowns (Source/Type/Zone/Character, all multi-select) self-scope from live
+data-driven filter dropdowns (Source/Type/SubType/Zone/Character, all multi-select) self-scope from live
 data. `ROLL`/`CRAFT` have no stamper yet (see Known limitations).
 
 ---
