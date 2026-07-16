@@ -48,8 +48,9 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, quest-item gate (by item class), `Consume`, source-exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
-| `modules/Browser.lua` | Window shell: frame/skin, tabs, multi-select filter bar (Quality/Type/Source/Zone/Character + player-scope, date, search), group-by, footer, LDB launcher + LibDBIcon minimap button. |
-| `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. |
+| `modules/Browser.lua` | Window shell: frame/skin, tabs, multi-select filter bar (Bound/Quality/Type/Source/Zone/Character, date, search), group-by, footer, `Export` button, LDB launcher + LibDBIcon minimap button. |
+| `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. `OrderedFilteredRecords` exposes the on-screen order for export. |
+| `modules/Export.lua` | Export modal (`NS.Export:Open`): Data Set toggle (All Data / Current View), CSV serialization (`CSV` — 19 fields + derived `date`/`wowheadLink`, friendly `bound` label), `WowheadLink` builder, own copy window, and an `AIPrompt` stub. Called directly by the Browser; no bus message. |
 | `modules/Analytics.lua` | Insights tab: date-range scoped stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`. Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
@@ -234,7 +235,8 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
 - **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned.
-- **AI export is a seam only** — `Database:Export()` exists; the companion export
-  feature is future work.
+- **AI export is a stub only** — the Export modal ships CSV export today; the **Export to AI**
+  button is a greyed placeholder backed by an `Export:AIPrompt` stub (report-prompt construction
+  is future work).
 
 See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.

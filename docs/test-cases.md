@@ -88,7 +88,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 
-### test_database.lua (33)
+### test_database.lua (36)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -98,6 +98,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: Query ignores a non-numeric quality (no crash, returns all)
 - Database: QueryList filters an arbitrary array, not the live history
 - Database: Query filters by itemType
+- Database: QueryList bound=NONE matches unbound records
+- Database: QueryList bound set unions tokens
+- Database: QueryList ignores non-table bound filter
 - Database: Query by char/mapID set (multi-select membership)
 - Database: Query by source (string)
 - Database: Query by source (set membership)
@@ -140,7 +143,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Stats: highlights + topItemsByValue
 - Analytics.SummaryLine formats range and count
 
-### test_browsertable.lua (15)
+### test_browsertable.lua (16)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -156,7 +159,19 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: collapsed group emits only its header
 - BrowserTable: groupBy none yields a flat row list
 - BrowserTable: test mode filters the synthetic dataset
+- BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
+
+### test_export.lua (8)
+
+- Export: BoundLabel maps tokens and nil
+- Export: WowheadLink with bonus IDs
+- Export: WowheadLink without bonuses is bare
+- Export: WowheadLink falls back to itemID, then empty
+- Export: CSV header has all fields plus date + wowheadLink
+- Export: CSV row emits friendly bound + quotes commas
+- Export: CSV date column is FormatDate(ts)
+- Export: CSV emits one header + one row per record, CRLF-terminated
 
 ### test_debuglog.lua (16)
 
@@ -208,9 +223,10 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_compat.lua | 11 |
 | test_attribution.lua | 21 |
 | test_collector.lua | 15 |
-| test_database.lua | 33 |
+| test_database.lua | 36 |
 | test_stats.lua | 13 |
-| test_browsertable.lua | 15 |
+| test_browsertable.lua | 16 |
+| test_export.lua | 8 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 20 |
-| **Total** | **167** |
+| **Total** | **179** |
