@@ -39,7 +39,8 @@ Companion docs:
 | 3 | Capture + attribution | `CHAT_MSG_LOOT`, gates, source stamping | [Capture + source attribution](#3-capture--source-attribution) |
 | 4 | Gates | Quality threshold, quest-item gate, source mute | [Collection gates](#4-collection-gates) |
 | 5 | History table | Filter / sort / group / search / row actions | [History table operations](#5-history-table-operations) |
-| 6 | Saved view | Save / Reset / Clear, player scope | [Saved view + player scope](#6-saved-view--player-scope) |
+| 6 | Saved view | Save / Reset / Clear, character scope | [Saved view + character scope](#6-saved-view--character-scope) |
+| 6a | Export | CSV copy window, All Data / Current View | [Export](#6a-export) |
 | 7 | Insights | Range selector, cards, breakdowns | [Insights tab](#7-insights-tab) |
 | 8 | Test mode | Synthetic dataset drives both tabs | [`/lh test` synthetic preview](#8-lh-test-synthetic-preview) |
 | 9 | Settings panel | Schema widgets ↔ CLI parity | [Settings panel + CLI parity](#9-settings-panel--cli-parity) |

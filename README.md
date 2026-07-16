@@ -49,7 +49,7 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 ## Usage
 
-Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view.
+Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view. The **Export** button copies your history out as CSV — either everything or just the current filtered view.
 
 ### Slash commands
 

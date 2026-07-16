@@ -25,7 +25,7 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   `AceAddon:NewAddon(NS, addonName, "AceEvent-3.0","AceTimer-3.0","AceConsole-3.0")` and stores
   `NS.addon` / `NS.bus`. There is **no `_G.LootHistory`**.
 - **Modular layout.** `core/` (Compat, Constants, Namespace, State, Util, the AceAddon entry, Database),
-  `modules/` (Attribution, Collector, Browser, BrowserTable, Analytics, DebugLog), `settings/` (Schema,
+  `modules/` (Attribution, Collector, Browser, BrowserTable, Export, Analytics, DebugLog), `settings/` (Schema,
   Slash, Panel), `defaults/`, `locales/`. `LootHistory.toc` is the load-order source of truth. See
   [module-map.md](module-map.md).
 

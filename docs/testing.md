@@ -30,7 +30,7 @@ Intentionally minimal, defined inline in `tests/run.lua`: `test(name, fn)` regis
 
 ## The suites
 
-Nine files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Ten files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
@@ -41,7 +41,8 @@ inventory and the authoritative count):
 | `test_collector.lua` | `CHAT_MSG_LOOT` gate — self-filter, quality/quest-item threshold, record build |
 | `test_database.lua` | Add/Query/Delete/PruneOld, retention rebuild-and-swap |
 | `test_stats.lua` | `Stats`/aggregation feeding the Insights tab |
-| `test_browsertable.lua` | filter→group→sort→slice pipeline, group headers/counts, test mode |
+| `test_browsertable.lua` | filter→group→sort→slice pipeline, group headers/counts, test mode, `OrderedFilteredRecords` |
+| `test_export.lua` | `Export:CSV` columns/quoting, friendly `bound`/`date`, `WowheadLink` bonus-ID parsing |
 | `test_debuglog.lua` | `NS.Debug` tagged format + secret-safe sink, session-only flag, `/lh debug` toggles |
 | `test_slash.lua` | `/lh list`/`get`/`set` slash-commands-§5 output — `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, `/lh version` |
 
