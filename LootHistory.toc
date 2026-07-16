@@ -50,5 +50,6 @@ modules\Attribution.lua
 modules\Collector.lua
 modules\Browser.lua
 modules\BrowserTable.lua
+modules\Export.lua
 modules\Analytics.lua
 modules\DebugLog.lua
