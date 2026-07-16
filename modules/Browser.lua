@@ -388,9 +388,15 @@ local DATE_OPTIONS = {
   { value = "7d", label = "Last 7 days" },
   { value = "30d", label = "Last 30 days" },
 }
-local PLAYER_OPTIONS = {
-  { value = "current", label = "Current player" },
-  { value = "all", label = "All players" },
+-- Binding-state filter. "NONE" matches unbound records (r.bound == nil); the other values match
+-- their bound tokens. Labels mirror the Bound column's tooltip legend (BrowserTable BOUND_LEGEND).
+local BOUND_OPTIONS = {
+  { value = "all", label = "Bound: All" },
+  { value = "NONE", label = "Not Bound" },
+  { value = "BOE", label = "Bind on Equip" },
+  { value = "BOP", label = "Bind on Pickup" },
+  { value = "ACCOUNT", label = "Account Bound" },
+  { value = "WARBAND", label = "Warbound" },
 }
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
@@ -399,7 +405,8 @@ local PLAYER_OPTIONS = {
 -- `from`) so it recomputes correctly on each load.
 local STOCK_VIEW = {
   groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
-  quality = "all", source = "all", itemType = "all", mapID = "all", date = "all", search = "",
+  quality = "all", source = "all", itemType = "all", mapID = "all", date = "all", bound = "all",
+  search = "",
 }
 local function savedViewOrStock()
   local v = NS.db and NS.db.global and NS.db.global.savedView
@@ -589,26 +596,7 @@ function B:SetCharSet(set)
   local filter = setToFilter(set)   -- fresh copy or nil (empty = no char filter = all players)
   self.activeFilter.char = filter
   local dd = self._dd
-  if dd then
-    if dd.char then dd.char:SetSelected(filter or {}) end
-    if dd.player then
-      if not filter then
-        dd.player:SetValue("all", "All players")
-      else
-        local n, only = 0, nil
-        for c in pairs(filter) do n = n + 1; only = c end
-        if n == 1 and only == currentKey() then
-          dd.player:SetValue("current", "Current player")
-        elseif n == 1 then
-          -- One specific non-current character: name it (no scope preset applies). "custom"
-          -- matches no PLAYER_OPTIONS value, so the player menu highlights nothing.
-          dd.player:SetValue("custom", (only:match("^[^-]+")) or only)
-        else
-          dd.player:SetValue("custom", n .. " characters")
-        end
-      end
-    end
-  end
+  if dd and dd.char then dd.char:SetSelected(filter or {}) end
   ApplyFilter()
 end
 
@@ -627,6 +615,7 @@ function B:CaptureView()
     source   = setToFilter(dd and dd.source._selected) or {},
     itemType = setToFilter(dd and dd.type._selected) or {},
     mapID    = setToFilter(dd and dd.zone._selected) or {},
+    bound    = setToFilter(dd and dd.bound._selected) or {},
     date     = (dd and dd.date._value) or "all",
     search   = (self._search and self._search:GetText()) or "",
   }
@@ -652,6 +641,7 @@ function B:ApplyView(view, scope)
     dd.type:SetSelected(asSet(view.itemType))
     dd.source:SetSelected(asSet(view.source))
     dd.zone:SetSelected(asSet(view.mapID))
+    dd.bound:SetSelected(asSet(view.bound))
     dd.date:SelectValue(view.date or "all")
   end
   if self._search then self._search:SetText(view.search or "") end
@@ -659,6 +649,7 @@ function B:ApplyView(view, scope)
   self.activeFilter.source   = setToFilter(asSet(view.source))
   self.activeFilter.itemType = setToFilter(asSet(view.itemType))
   self.activeFilter.mapID    = setToFilter(asSet(view.mapID))
+  self.activeFilter.bound    = setToFilter(asSet(view.bound))
   if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
   if view.search and view.search ~= "" then self.activeFilter.text = view.search end
   -- Character scope resets to `scope` (default "current"). SetCharSet also calls ApplyFilter,
@@ -749,7 +740,7 @@ function B:BuildHistory(pane)
   self._search = search
 
   -- ── Row 2: column filters, left→right in the same order the columns appear in the table:
-  --   Date · Quality · Type · Source · Zone · Character ──
+  --   Date · Bound · Quality · Type · Source · Zone · Character ──
   dd.date = MakeDropdown(bar, 120)
   dd.date:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
   dd.date:SetOptions(DATE_OPTIONS)
@@ -759,10 +750,20 @@ function B:BuildHistory(pane)
     ApplyFilter()
   end
 
+  -- Bound (multi-select): binding-state filter. "NONE" matches unbound records.
+  dd.bound = MakeDropdown(bar, 96)
+  dd.bound:SetPoint("LEFT", dd.date, "RIGHT", 6, 0)
+  dd.bound:SetMulti(true)
+  dd.bound:SetOptions(BOUND_OPTIONS)
+  dd.bound.onMultiSelect = function(set)
+    B.activeFilter.bound = setToFilter(set)
+    ApplyFilter()
+  end
+
   -- Quality/Type/Source/Zone/Character are multi-select: their onMultiSelect receives the current
   -- selection set (empty = All), copied into the matching filter field. The "all" menu item clears.
   dd.quality = MakeDropdown(bar, 100)
-  dd.quality:SetPoint("LEFT", dd.date, "RIGHT", 6, 0)
+  dd.quality:SetPoint("LEFT", dd.bound, "RIGHT", 6, 0)
   dd.quality:SetMulti(true)
   dd.quality:SetOptions(QUALITY_OPTIONS)
   dd.quality.onMultiSelect = function(set)
@@ -797,19 +798,20 @@ function B:BuildHistory(pane)
   dd.char = MakeDropdown(bar, 150)
   dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 6, 0)
   dd.char:SetMulti(true)
-  -- SetCharSet reconciles the char filter + the player-scope toggle (which shares this filter).
+  -- SetCharSet keeps the char filter in sync (the window opens scoped to the current player).
   dd.char.onMultiSelect = function(set) B:SetCharSet(set) end
 
-  -- Player scope toggle (row 2, right-aligned): Current player (session default) vs All players.
-  -- Single-select; shares the char filter with the Character dropdown via SetCharSet.
-  dd.player = MakeDropdown(bar, 164)
-  dd.player:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
-  dd.player:SetOptions(PLAYER_OPTIONS)
-  dd.player:SetValue("current", "Current player")
-  dd.player.onSelect = function(v)
-    local ck = currentKey()
-    if v == "current" and ck then B:SetCharSet({ [ck] = true }) else B:SetCharSet(nil) end
-  end
+  -- Export button (row 2, right-aligned): opens the export modal (CSV now, AI later).
+  local exportBtn = makeBarButton(bar, "Export", 164, function()
+    NS.Export:Open({
+      allData     = function() return NS.Database:Export({}) end,
+      currentView = function()
+        return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
+          and NS.BrowserTable:OrderedFilteredRecords()) or {}
+      end,
+    })
+  end, "Export your loot history to CSV or an AI report.")
+  exportBtn:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
 
   -- Footer count.
   local footer = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
