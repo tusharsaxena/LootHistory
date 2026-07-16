@@ -185,6 +185,33 @@ test("Database: Query combines predicates (AND)", function()
   assertEqual(r[1].itemID, 3)
 end)
 
+test("Database: VisibleHistory hides blacklisted ids but keeps them in history", function()
+  seed()
+  NS.db.global.blacklist = { [2] = true, [4] = true }
+  local vis = NS.Database:VisibleHistory()
+  assertEqual(#vis, 2)
+  assertEqual(vis[1].itemID, 1)
+  assertEqual(vis[2].itemID, 3)
+  assertEqual(#NS.db.global.history, 4)   -- nothing deleted
+  NS.db.global.blacklist = {}
+end)
+
+test("Database: VisibleHistory returns the raw array unchanged when blacklist is empty", function()
+  seed()
+  NS.db.global.blacklist = {}
+  assertTrue(NS.Database:VisibleHistory() == NS.db.global.history)  -- no allocation
+end)
+
+test("Database: Query/Stats/Export all exclude blacklisted ids via ActiveHistory", function()
+  seed()
+  NS.db.global.blacklist = { [3] = true }
+  assertEqual(#NS.Database:Query({}), 3)
+  assertEqual(NS.Database:Stats({}).totals.records, 3)
+  assertEqual(#NS.Database:Export({}), 3)
+  NS.db.global.blacklist = {}
+  assertEqual(#NS.Database:Query({}), 4)   -- restored once un-blacklisted
+end)
+
 test("Database: Export returns metatable-free copies with all fields", function()
   seed()
   local out = NS.Database:Export({})

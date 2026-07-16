@@ -48,13 +48,28 @@ function Database:History()
   return NS.db.global.history
 end
 
+-- Live history with blacklisted items (issue #14) hidden. Blacklisting never deletes: the id is
+-- filtered out of every display/query path here, so removing it from the blacklist restores the
+-- rows. Returns the raw array unchanged (no allocation) when the blacklist is empty — the common
+-- case — so the hot read path pays nothing until a blacklist exists.
+function Database:VisibleHistory()
+  local history = NS.db.global.history
+  local bl = NS.db.global.blacklist
+  if not bl or not next(bl) then return history end
+  local out = {}
+  for _, r in ipairs(history) do
+    if not bl[r.itemID] then out[#out + 1] = r end
+  end
+  return out
+end
+
 -- The dataset every read-path query (Query/Stats/Export, and thus the table + Insights tab)
 -- resolves against. In Browser test mode this is the synthetic preview dataset published to
 -- State by BrowserTable:ToggleTestMode, so the whole UI renders off the same fake data;
--- otherwise it is the live account-wide history. Write paths (Add/prune) always target the
--- real history directly and never see the override.
+-- otherwise it is the live account-wide history with blacklisted items hidden (VisibleHistory).
+-- Write paths (Add/prune) always target the real history directly and never see the override.
 function Database:ActiveHistory()
-  return (NS.State and NS.State.testRecords) or NS.db.global.history
+  return (NS.State and NS.State.testRecords) or self:VisibleHistory()
 end
 
 function Database:Count()

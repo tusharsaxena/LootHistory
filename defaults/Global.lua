@@ -8,6 +8,13 @@ NS.defaults.global = {
   -- changes hook into; today its body is a no-op beyond stamping version 1.
   schemaVersion = 1,
   history = {},          -- array of loot records
+  -- Item-id filter lists (issue #14). Blacklisted ids are never recorded and their existing rows
+  -- are hidden from every view (but kept in history — restorable by removing the id). Whitelisted
+  -- ids are always recorded, bypassing the quality/source/quest gates. Managed via a custom UI
+  -- (settings ▸ Filters) + the History right-click menu — NOT Schema rows, so they are an
+  -- architecture-§5 carve-out like `window`/`savedView` (mutated directly, not via Schema:Set).
+  blacklist = {},        -- { [itemID] = true } — drop on capture + hide existing rows
+  whitelist = {},        -- { [itemID] = true } — always record, even below the gates
   settings = {
     enabled          = true,
     qualityThreshold = 1,      -- Common (white) and above

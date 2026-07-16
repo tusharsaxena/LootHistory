@@ -7,14 +7,20 @@ local Collector = NS.Collector
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (standard §9.7).
 local enabled, qualityThreshold, excludedSources, excludeQuestItems = true, 1, {}, false
+local blacklist, whitelist = {}, {}
 
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
 
--- Quality gate + per-source exclude + optional quest-item drop.
--- cfg = { qualityThreshold, excludedSources, excludeQuestItems }.
--- Returns true to record; on a drop returns (false, reason) where reason is one of
--- "quality" / "source" / "quest" (surfaced by the debug "Drop" log for diagnosis).
+-- Whitelist/blacklist override (issue #14) + quality gate + per-source exclude + optional
+-- quest-item drop. cfg = { qualityThreshold, excludedSources, excludeQuestItems, itemID,
+-- blacklist, whitelist }. The id lists win over every gate: a whitelisted id always records
+-- (even below threshold / from a muted source / a quest item), a blacklisted id never does.
+-- Returns true to record; on a drop returns (false, reason) — "blacklist"/"quality"/"source"/
+-- "quest" (surfaced by the debug "Drop" log for diagnosis).
 function Collector:ShouldRecord(quality, source, classID, cfg)
+  local id = cfg.itemID
+  if id and cfg.whitelist and cfg.whitelist[id] then return true end
+  if id and cfg.blacklist and cfg.blacklist[id] then return false, "blacklist" end
   if (quality or 0) < cfg.qualityThreshold then return false, "quality" end
   if cfg.excludedSources and cfg.excludedSources[source] then return false, "source" end
   if cfg.excludeQuestItems and classID == NS.Constants.ITEMCLASS_QUEST then return false, "quest" end
@@ -49,12 +55,15 @@ end
 -- ── Runtime path ──────────────────────────────────────────────────────────────
 
 function Collector:RefreshUpvalues()
-  local s = NS.db and NS.db.global and NS.db.global.settings
+  local g = NS.db and NS.db.global
+  local s = g and g.settings
   if not s then return end
   enabled = s.enabled
   qualityThreshold = s.qualityThreshold
   excludedSources = s.excludedSources or {}
   excludeQuestItems = s.excludeQuestItems
+  blacklist = g.blacklist or {}
+  whitelist = g.whitelist or {}
 end
 
 function Collector:OnChatMsgLoot(_, msg)
@@ -67,7 +76,8 @@ function Collector:OnChatMsgLoot(_, msg)
 
   local ok, reason = self:ShouldRecord(quality, source, classID,
     { qualityThreshold = qualityThreshold, excludedSources = excludedSources,
-      excludeQuestItems = excludeQuestItems })
+      excludeQuestItems = excludeQuestItems, itemID = itemID,
+      blacklist = blacklist, whitelist = whitelist })
   if not ok then
     if NS.State.debug and NS.Debug then
       NS.Debug("Drop", "%s q%s class=%s src=%s reason=%s",

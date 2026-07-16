@@ -80,6 +80,64 @@ test("Collector: ShouldRecord reports the drop reason", function()
   assertFalse(ok); assertEqual(reason, "quest")
 end)
 
+test("Collector: ShouldRecord whitelist forces a below-threshold item to record", function()
+  local cfg = { qualityThreshold = 5, excludedSources = {}, itemID = 42, whitelist = { [42] = true } }
+  assertTrue(NS.Collector:ShouldRecord(0, "KILL", 0, cfg))   -- quality 0 < threshold 5, but whitelisted
+end)
+
+test("Collector: ShouldRecord whitelist forces a muted-source item to record", function()
+  local cfg = { qualityThreshold = 1, excludedSources = { VENDOR = true },
+                itemID = 42, whitelist = { [42] = true } }
+  assertTrue(NS.Collector:ShouldRecord(4, "VENDOR", 0, cfg))
+end)
+
+test("Collector: ShouldRecord blacklist drops a passing item with reason 'blacklist'", function()
+  local cfg = { qualityThreshold = 1, excludedSources = {}, itemID = 42, blacklist = { [42] = true } }
+  local ok, reason = NS.Collector:ShouldRecord(4, "KILL", 0, cfg)
+  assertFalse(ok); assertEqual(reason, "blacklist")
+end)
+
+test("Collector: ShouldRecord id lists ignore other item ids", function()
+  local cfg = { qualityThreshold = 1, excludedSources = {}, itemID = 99,
+                blacklist = { [42] = true }, whitelist = { [7] = true } }
+  assertTrue(NS.Collector:ShouldRecord(4, "KILL", 0, cfg))
+end)
+
+test("Collector: end-to-end drops a blacklisted item, records after un-blacklisting", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.qualityThreshold = 1
+  NS.Filters:AddBlacklist(211296)   -- the mock item id
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Database:Count(), before)   -- blacklisted → dropped
+
+  NS.Filters:RemoveBlacklist(211296)
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Database:Count(), before + 1)
+end)
+
+test("Collector: end-to-end whitelist records an item below the quality threshold", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.qualityThreshold = 5   -- mock item is quality 4 → would drop
+  NS.Filters:AddWhitelist(211296)
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Database:Count(), before + 1)   -- whitelisted → recorded despite the gate
+
+  NS.Filters:RemoveWhitelist(211296)
+  NS.db.global.settings.qualityThreshold = 2     -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
 test("Collector: end-to-end writes an attributed record", function()
   local mocks = T.mocks
   mocks.__now = 0
