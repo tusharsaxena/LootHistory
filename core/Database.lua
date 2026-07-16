@@ -93,6 +93,7 @@ function Database:QueryList(records, filter)
   local itypeIsSet = type(itype) == "table"
   local mapID = filter.mapID
   local mapIsSet = type(mapID) == "table"
+  local boundSet = type(filter.bound) == "table" and filter.bound or nil
   local from = filter.from
   local to = filter.to
   local text = filter.text and filter.text:lower() or nil
@@ -124,6 +125,7 @@ function Database:QueryList(records, filter)
       if mapIsSet then if not mapID[r.mapID] then ok = false end
       elseif r.mapID ~= mapID then ok = false end
     end
+    if ok and boundSet and not boundSet[r.bound or "NONE"] then ok = false end
     if ok and from and (r.ts or 0) < from then ok = false end
     if ok and to and (r.ts or 0) > to then ok = false end
     if ok and text then

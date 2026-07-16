@@ -102,6 +102,30 @@ test("Database: Query filters by itemType", function()
   assertEqual(#NS.Database:QueryList(recs, { itemType = { Weapon = true } }), 1)
 end)
 
+test("Database: QueryList bound=NONE matches unbound records", function()
+  local recs = {
+    { bound = nil, itemID = 1 }, { bound = "BOE", itemID = 2 }, { bound = "BOP", itemID = 3 },
+  }
+  local out = NS.Database:QueryList(recs, { bound = { NONE = true } })
+  assertEqual(#out, 1)
+  assertEqual(out[1].itemID, 1)
+end)
+
+test("Database: QueryList bound set unions tokens", function()
+  local recs = {
+    { bound = nil, itemID = 1 }, { bound = "BOE", itemID = 2 },
+    { bound = "ACCOUNT", itemID = 3 }, { bound = "WARBAND", itemID = 4 },
+  }
+  local out = NS.Database:QueryList(recs, { bound = { BOE = true, WARBAND = true } })
+  assertEqual(#out, 2)
+end)
+
+test("Database: QueryList ignores non-table bound filter", function()
+  local recs = { { bound = "BOE", itemID = 2 }, { bound = nil, itemID = 1 } }
+  local out = NS.Database:QueryList(recs, { bound = "BOE" })
+  assertEqual(#out, 2)  -- scalar bound ignored, all returned
+end)
+
 test("Database: Query by char/mapID set (multi-select membership)", function()
   seed()
   assertEqual(#NS.Database:Query({ char = { ["A-Realm"] = true, ["C-Realm"] = true } }), 3)
