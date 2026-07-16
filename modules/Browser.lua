@@ -878,6 +878,11 @@ local function EnsureFrame()
   -- shrink into horizontal overflow. Width is derived from the column model.
   local minW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
     or 822
+  -- The filter bar wants a hair more width than the table alone: at this width the row-1 Search
+  -- box's right edge (Save cluster left − 8) lines up with the row-2 Character dropdown's right
+  -- edge. Character right edge = 976 (Date→…→Character chain) and the Save/Reset/Clear cluster is
+  -- 164 + an 8px gap = 172, plus 12px pane margins → 1160. Take the wider of the two floors.
+  minW = math.max(minW, 1160)
   local minH = SKIN.minH
   B._minW, B._minH = minW, minH
   frame:SetSize(minW, SKIN.defaultH)  -- open at the (taller) default; can shrink to minH
