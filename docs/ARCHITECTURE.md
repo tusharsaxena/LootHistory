@@ -223,12 +223,13 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Standards compliance
 
-One open deviation is **flagged for the user to ratify** (per the deviation rule): the `blacklist` /
-`whitelist` item-id lists (issue #14) are persistent state managed outside `Schema:Set` — a fourth
-carve-out alongside `settings.window`, `savedView`, and `settings.windowScale`'s geometry sibling. A
-dynamic id-set has no schema widget to express, so `NS.Filters` mutates `NS.db.global` directly, as
-the pre-existing carve-outs do. Recorded in [`saved-variables.md`](saved-variables.md) under the
-"Standards note"; ratify or revise there. No other deviations.
+No open deviations from the Ka0s standard. One carve-out was raised and **ratified (2026-07-17)**:
+the `blacklist` / `whitelist` item-id lists (issue #14) are persistent state managed outside
+`Schema:Set` — a fourth carve-out alongside `settings.window`, `savedView`, and
+`settings.windowScale`'s geometry sibling. A dynamic, unbounded id-set has no schema widget to
+express, so `NS.Filters` mutates `NS.db.global` directly, exactly as the pre-existing carve-outs do;
+it is accepted as the same class, and the standard's own definition was left unchanged. Recorded in
+[`saved-variables.md`](saved-variables.md) under the "Standards note".
 
 Two surface-specific notes:
 

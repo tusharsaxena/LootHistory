@@ -56,7 +56,7 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   slash CLI; every user-setting mutation goes through `Schema:Set` (validate → write to `NS.db.global`
   → onChange). Carve-outs (persisted directly, not schema rows): the Browser's window geometry
   (`settings.window`), the saved table view (`savedView`), and the `blacklist`/`whitelist` item-id
-  lists (owned by `NS.Filters` — a dynamic id-set has no schema widget; flagged + accepted, see
+  lists (owned by `NS.Filters` — a dynamic id-set has no schema widget; a ratified carve-out, see
   [saved-variables.md](saved-variables.md)).
 - **Object pooling** for the History table (never one frame per record); **hot-path upvalues** in the
   Collector, refreshed on `SettingsChanged`.
