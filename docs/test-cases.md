@@ -259,6 +259,13 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 
+### test_schema.lua (4)
+
+- Schema: debugConsole row is session-only, in Master Controls
+- Schema: setting debugConsole toggles the window, never writes db.global
+- Schema: getting debugConsole reflects the window visibility
+- Schema: a normal (persisted) row still writes db.global
+
 ## Totals
 
 | Suite | Cases |
@@ -274,4 +281,5 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_export.lua | 18 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
-| **Total** | **220** |
+| test_schema.lua | 4 |
+| **Total** | **224** |

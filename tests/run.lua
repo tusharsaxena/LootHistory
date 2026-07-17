@@ -58,6 +58,7 @@ local SUITE_FILES = {
   "test_util.lua", "test_compat.lua", "test_attribution.lua",
   "test_filters.lua", "test_collector.lua", "test_database.lua", "test_stats.lua",
   "test_browsertable.lua", "test_export.lua", "test_debuglog.lua", "test_slash.lua",
+  "test_schema.lua",
 }
 for _, s in ipairs(SUITE_FILES) do
   currentSuite = s

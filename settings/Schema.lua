@@ -24,6 +24,19 @@ S.Schema = {
       if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
     end },
 
+  -- Session-only row (never persisted): its value is the debug console WINDOW's visibility, not the
+  -- NS.State.debug logging flag. get/set route to NS.DebugLog (Show/Hide/IsShown); Schema:Set skips
+  -- the db.global write for sessionOnly rows. `soloRow` puts it on its own panel row (below the
+  -- Enable / Hide-minimap pair). Mirrors `/lh debug` (no-arg), which toggles the window too.
+  { path = "state.debugConsole", sessionOnly = true, default = false, type = "boolean",
+    widget = "CheckBox", soloRow = true, group = "Master Controls", label = "Debug console",
+    tooltip = "Show or hide the on-screen debug console window. Session-only \226\128\148 resets on reload.",
+    get = function() return NS.DebugLog ~= nil and NS.DebugLog:IsShown() end,
+    set = function(v)
+      if not NS.DebugLog then return end
+      if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
+    end },
+
   { path = "settings.windowScale", default = 1.0, type = "number", min = 0.6, max = 1.6, widget = "Slider",
     fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
     group = "Master Controls", label = "Window scale",
@@ -64,8 +77,10 @@ S.Schema = {
     end },
 
 }
--- NOTE: debug is intentionally NOT a Schema setting. It is a session-only flag (NS.State.debug)
--- tied to the debug console's visibility; toggled by `/lh debug`, always off after a reload.
+-- NOTE: the debug LOGGING flag (NS.State.debug) is NOT a schema setting — session-only, set via
+-- `/lh debug on|off`, always off after a reload. The debug CONSOLE WINDOW's visibility IS the
+-- `state.debugConsole` row above: a session-only schema row (rendered in the panel, driven through
+-- Schema:Get/Set) whose value lives in the DebugLog window state and is never written to db.global.
 
 function S:FindRow(path)
   for _, row in ipairs(S.Schema) do
@@ -110,7 +125,12 @@ function S:Set(path, value)
   local row = S:FindRow(path)
   if not row then return false, "unknown path: " .. tostring(path) end
   if row.validate and not row.validate(value) then return false, "invalid value" end
-  S:WritePath(NS.db.global, path, deepcopy(value))
+  if row.sessionOnly then
+    -- Session-only rows (e.g. state.debugConsole) never touch db.global; the row's set() applies it.
+    if row.set then row.set(value) end
+  else
+    S:WritePath(NS.db.global, path, deepcopy(value))
+  end
   if NS.State and NS.State.debug and NS.Debug then
     NS.Debug("Set", "%s = %s", tostring(path), tostring(value))
   end
@@ -119,6 +139,8 @@ function S:Set(path, value)
 end
 
 function S:Get(path)
+  local row = S:FindRow(path)
+  if row and row.get then return row.get() end
   return S:ReadPath(NS.db.global, path)
 end
 
@@ -132,7 +154,8 @@ function S:Register()
   local g = NS.defaults and NS.defaults.global
   if not g then return end
   for _, row in ipairs(S.Schema) do
-    if S:ReadPath(g, row.path) == nil and row.default == nil then
+    -- Session-only rows (state.debugConsole) have no db-backed default to resolve — skip them.
+    if not row.sessionOnly and S:ReadPath(g, row.path) == nil and row.default == nil then
       print("schema path missing default: " .. tostring(row.path))
     end
   end

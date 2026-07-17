@@ -32,11 +32,13 @@ All share the same gold header design: a `GameFontNormalHuge` title on the left,
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-Seven rows ship today (`Schema.lua:10`): `settings.enabled`, `minimap.hide`, `settings.windowScale` (Master Controls); `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.retentionDays`, `settings.excludedSources` (Data Collection). Debug is deliberately **not** a schema row — it is a session-only flag (`NS.State.debug`), toggled via `/lh debug on|off`, never persisted (`Schema.lua:67`).
+Eight rows ship today (`Schema.lua:10`): `settings.enabled`, `minimap.hide`, `state.debugConsole`, `settings.windowScale` (Master Controls); `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.retentionDays`, `settings.excludedSources` (Data Collection).
+
+**Session-only rows.** Most rows persist to `NS.db.global`, but a row marked `sessionOnly = true` carries `get`/`set` accessors and is **never written to the DB** — `Schema:Set` routes to `row.set` instead of `WritePath`, `Schema:Get` reads `row.get`, and `Register` skips its default check. `state.debugConsole` (label "Debug console") is the one such row: it toggles the debug console **window's visibility** via `NS.DebugLog:Show/Hide/IsShown` — *not* the `NS.State.debug` logging flag (that stays non-schema, set via `/lh debug on|off`). It mirrors `/lh debug` (no-arg); `DebugLog` calls `NS.Panel:Refresh()` on show/hide so the checkbox stays in sync when the window is toggled elsewhere. This is a flagged deviation from schema-persist-everything (see [agent-context.md](agent-context.md)).
 
 ## Widget primitives and the two-column render
 
-`renderSchema` (`Panel.lua:297`) walks `NS.Schema.Schema` and pairs rows into 50%/50% Flow lines inside the shared `ScrollFrame`. A `group` change flushes the pending row and emits a section `Heading` (centred `GameFontNormalLarge` label flanked by dividers; `section`, `Panel.lua:195`). Widgets dispatch by `row.widget`:
+`renderSchema` (`Panel.lua:297`) walks `NS.Schema.Schema` and pairs rows into 50%/50% Flow lines inside the shared `ScrollFrame`. A `group` change flushes the pending row and emits a section `Heading` (centred `GameFontNormalLarge` label flanked by dividers; `section`, `Panel.lua:195`). A `MultiCheck` or `row.wide` row takes a full-width line of its own; a `row.soloRow` row flushes any half-filled pending line and then sits alone on its row (used by `state.debugConsole`, so the Master Controls section reads `[Enable collection] [Hide minimap button]` / `[Debug console]` / `[Window scale]`). Widgets dispatch by `row.widget`:
 
 | `widget` | AceGUI primitive | Maker |
 |---|---|---|

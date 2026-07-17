@@ -311,6 +311,11 @@ History** (both must land on the same category).
   and watch the slider.
 - Change **Minimum quality**, **Keep history for**, and toggle checkboxes in **Record data from** and
   **Hide minimap button** / **Exclude quest items**.
+- **Debug console** (Master Controls, on its own row below Enable/Hide-minimap): check it — the debug
+  console **window** opens; uncheck it — the window hides. Confirm it does **not** change the debug
+  **logging** state (`/lh get state.debugConsole` reports window visibility; logging is still governed
+  by `/lh debug on|off`). Toggle the window via `/lh debug` (no arg) and the console's own close
+  button — the checkbox tracks it. Reload: the checkbox is unchecked (session-only, never persisted).
 - `/lh list` — spot-check every panel row is present with its current value.
 - `/lh set windowScale 9` (out of range); `/lh set windowScale abc` (non-number).
 - `/lh reset settings.qualityThreshold`; `/lh reset settings.excludedSources`.
@@ -319,9 +324,12 @@ History** (both must land on the same category).
 **Pass.**
 - Each panel write and each `/lh set` write the **same** value and fire `SettingsChanged`; an open
   panel widget reflects a slash write live, and vice-versa. `/lh get` echoes the stored value.
-- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`,
+- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`,
   `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
   `settings.retentionDays`, `settings.excludedSources`).
+- The **Debug console** checkbox reflects the console window's visibility (not the logging flag),
+  never persists across a reload, and stays in sync when the window is toggled by `/lh debug` or the
+  window's close button.
 - Out-of-range numbers clamp to the row's `min`/`max` (windowScale bounds 0.6–1.6); a non-number
   prints "expected a number" and is rejected.
 - `/lh reset <path>` returns that one row to its default (deep-copied — resetting

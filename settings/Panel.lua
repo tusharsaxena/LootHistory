@@ -314,6 +314,8 @@ local function renderSchema(ctx, companions)
       flushRow()
       makeMultiCheck(ctx, row, scroll)
     else
+      -- soloRow widgets sit alone on their own row: flush any half-filled row first so they start fresh.
+      if row.soloRow then flushRow() end
       if not pendingRow then pendingRow = startRow() end
       if row.widget == "CheckBox" then makeCheckbox(ctx, row, pendingRow, 0.5)
       elseif row.widget == "Dropdown" then makeDropdown(ctx, row, pendingRow, 0.5)
@@ -322,7 +324,7 @@ local function renderSchema(ctx, companions)
       if comp then
         comp(pendingRow)
         flushRow()
-      elseif #pendingRow.children >= 2 then
+      elseif row.soloRow or #pendingRow.children >= 2 then
         flushRow()
       end
     end

@@ -213,12 +213,18 @@ function D:ShowCopy()
   f.edit:HighlightText()
 end
 
-function D:Show() EnsureFrame():Show() end
-function D:Hide() if frame then frame:Hide() end end
-function D:Toggle()
-  local f = EnsureFrame()
-  if f:IsShown() then f:Hide() else f:Show() end
+-- Keep the settings panel's "Debug console" checkbox in step with the window's visibility. Direct
+-- call (not a bus message — the closed bus carries only the three Ka0s_LootHistory_* messages); a
+-- no-op until the panel is built. Re-reads all panel widgets, which is cheap and read-only.
+local function syncPanel()
+  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
 end
+
+-- Window visibility (distinct from the NS.State.debug logging flag). False until the frame is built.
+function D:IsShown() return frame ~= nil and frame:IsShown() and true or false end
+function D:Show() EnsureFrame():Show(); syncPanel() end
+function D:Hide() if frame then frame:Hide() end; syncPanel() end
+function D:Toggle() if D:IsShown() then D:Hide() else D:Show() end end
 
 -- Single seam for changing debug state. Slash command and header toggle both call this so the
 -- chat message and header label stay consistent. Session-only: NS.State.debug resets on reload.

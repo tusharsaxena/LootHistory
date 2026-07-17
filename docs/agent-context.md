@@ -37,6 +37,11 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   deviates from the standard, **stop and flag it to the user** — never silently conform or silently
   deviate. The user decides whether to fix the deviation here or change the standard's own definition;
   record the resolution (a dated `docs/audits/<date>/` bundle or a `docs/` note).
+  - **Flagged deviation (2026-07-17):** the schema gained a `sessionOnly` row kind (`get`/`set`
+    accessors, never written to `db.global`) so the "Debug console" window-visibility toggle can live
+    in the settings panel while honouring "debug is session-only, never persisted." Extends
+    schema-as-single-source rather than breaking it (the toggle is a real schema row); flagged for the
+    next standards-audit. See [settings-panel.md](settings-panel.md).
 - **Account-wide storage is load-bearing.** All history + settings live in `LootHistoryDB.global`
   (`char` is a column, not separate storage). Switching to per-character profiles is a schema + query
   rewrite. See [saved-variables.md](saved-variables.md).
