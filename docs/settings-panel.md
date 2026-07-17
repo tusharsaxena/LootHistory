@@ -80,7 +80,7 @@ Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = fa
 A **second subcategory, "Filters"**, is a deliberately non-schema page: a dynamic list of item ids has no Schema widget to express, so `buildFilters` builds custom AceGUI instead of `renderSchema`. One page, two sections (`makeFilterSection`):
 
 * **Blacklist** — ids that are never recorded and whose existing rows are hidden from the browser (nothing deleted; remove an id to restore its rows).
-* **Whitelist** — ids that are always recorded, bypassing the quality / source / quest gates.
+* **Whitelist** — ids that are always recorded, bypassing the quality / source / quest gates. Rows kept *only* by the whitelist are hidden again when the id is removed (the action is undoable, symmetric with the blacklist).
 
 Each section is a heading + description + an **add row** (an `EditBox` accepting a bare item id **or** a shift-clicked item link, parsed by `NS.Filters:ParseItemID`, plus an `Add` button) + a **live list** (`rebuildFilterList`) of the current ids, each a label (`NS.Compat.ItemNameQuality` resolves the name; a background `LoadItem` fills in names not yet cached) with a **Remove** button. Adds/removes go through `NS.Filters` (`modules/Filters.lua`), which mutates copy-on-write and fires `SettingsChanged` + `HistoryChanged`. The page live-rebuilds both lists on a **private `NS.NewBusTarget()`** (`HistoryChanged`), so the History right-click **Blacklist item** action reflects here immediately while the panel is open.
 

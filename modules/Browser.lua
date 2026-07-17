@@ -867,9 +867,12 @@ end
 -- Route the Export button to the right modal for the active tab (issue #15). History exports the
 -- loot rows; Insights exports the analytics summary computed off the SAME shared filter.
 function B:OpenExport()
+  -- Title tracks the invoking tab ("Export History" / "Export Insights") and generalizes to any
+  -- future tab name — the tab that opens the modal supplies its own label.
+  local title = "Export " .. tostring(lastTab)
   if lastTab == "Insights" then
     NS.Export:Open({
-      mode = "insights",
+      title = title,
       providers = {
         allData     = function() return NS.Database:Stats({}) end,
         currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
@@ -878,7 +881,7 @@ function B:OpenExport()
     })
   else
     NS.Export:Open({
-      mode = "history",
+      title = title,
       providers = {
         allData     = function() return NS.Database:Export({}) end,
         currentView = function()

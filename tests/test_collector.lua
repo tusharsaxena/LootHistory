@@ -97,6 +97,17 @@ test("Collector: ShouldRecord blacklist drops a passing item with reason 'blackl
   assertFalse(ok); assertEqual(reason, "blacklist")
 end)
 
+test("Collector: ShouldRecord flags a whitelist rescue but not a normal pass", function()
+  -- Below threshold + whitelisted → passes, and reports "whitelist" (the caller flags the row).
+  local ok, why = NS.Collector:ShouldRecord(0, "KILL", 0,
+    { qualityThreshold = 5, excludedSources = {}, itemID = 42, whitelist = { [42] = true } })
+  assertTrue(ok); assertEqual(why, "whitelist")
+  -- Passes the gate on its own while also whitelisted → no "whitelist" flag (not a rescue).
+  ok, why = NS.Collector:ShouldRecord(4, "KILL", 0,
+    { qualityThreshold = 1, excludedSources = {}, itemID = 42, whitelist = { [42] = true } })
+  assertTrue(ok); assertEqual(why, nil)
+end)
+
 test("Collector: ShouldRecord id lists ignore other item ids", function()
   local cfg = { qualityThreshold = 1, excludedSources = {}, itemID = 99,
                 blacklist = { [42] = true }, whitelist = { [7] = true } }
@@ -121,7 +132,7 @@ test("Collector: end-to-end drops a blacklisted item, records after un-blacklist
   assertEqual(NS.Database:Count(), before + 1)
 end)
 
-test("Collector: end-to-end whitelist records an item below the quality threshold", function()
+test("Collector: end-to-end whitelist records below threshold, hidden after un-whitelisting", function()
   local mocks = T.mocks
   mocks.__now = 0
   NS.db.global.settings.qualityThreshold = 5   -- mock item is quality 4 → would drop
@@ -130,12 +141,22 @@ test("Collector: end-to-end whitelist records an item below the quality threshol
   NS.Attribution:Stamp("KILL", nil, "CERTAIN")
 
   local before = NS.Database:Count()
+  local visBefore = #NS.Database:VisibleHistory()
   NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
-  assertEqual(NS.Database:Count(), before + 1)   -- whitelisted → recorded despite the gate
+  assertEqual(NS.Database:Count(), before + 1)          -- whitelisted → recorded despite the gate
+  assertEqual(#NS.Database:VisibleHistory(), visBefore + 1)  -- and shown
 
+  -- The recorded row carries the viaWhitelist annotation.
+  assertTrue(NS.Database:History()[NS.Database:Count()].viaWhitelist == true)
+
+  -- Remove from the whitelist → the row is HIDDEN (the reported bug) but NOT deleted.
   NS.Filters:RemoveWhitelist(211296)
+  assertEqual(NS.Database:Count(), before + 1)              -- still stored
+  assertEqual(#NS.Database:VisibleHistory(), visBefore)     -- but no longer visible
+
   NS.db.global.settings.qualityThreshold = 2     -- restore
   NS.Collector:RefreshUpvalues()
+  NS.Database:Purge()                            -- clean up the synthetic row + the index
 end)
 
 test("Collector: end-to-end writes an attributed record", function()

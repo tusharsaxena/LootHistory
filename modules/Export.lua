@@ -212,9 +212,10 @@ end
 -- so its layout can evolve independently).
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local frame, copyFrame
--- Per-open config (issue #15): { mode = "history"|"insights", providers = { allData, currentView },
--- csv = function(dataset) return text end }. `mode` only picks the window title/labels; `csv` is the
--- serializer for whichever dataset the Data Set dropdown selects. Set by :Open.
+-- Per-open config (issue #15): { title = "Export …", providers = { allData, currentView },
+-- csv = function(dataset) return text end }. `title` is the window header the invoking tab supplies
+-- ("Export History" / "Export Insights", and any future tab); `csv` is the serializer for whichever
+-- dataset the Data Set dropdown selects. Set by :Open.
 local config = {}
 local dataset = "allData"  -- current Data Set selection
 
@@ -383,15 +384,13 @@ local function EnsureFrame()
   return frame
 end
 
--- Build (once) and show the export modal for the given config (issue #15). `cfg.mode` picks the
--- title (History = loot rows, Insights = analytics summary); `cfg.providers` feeds the Data Set
--- dropdown; `cfg.csv` serializes the selected dataset. Always re-centers on the History window.
+-- Build (once) and show the export modal for the given config (issue #15). `cfg.title` is the
+-- header supplied by the invoking tab; `cfg.providers` feeds the Data Set dropdown; `cfg.csv`
+-- serializes the selected dataset. Always re-centers on the History window.
 function E:Open(cfg)
   config = cfg or {}
   local f = EnsureFrame()
-  if f.titleFS then
-    f.titleFS:SetText(config.mode == "insights" and "Export Insights" or "Export")
-  end
+  if f.titleFS then f.titleFS:SetText(config.title or "Export") end
   centerOnBrowser(f)
   f:Show()
 end

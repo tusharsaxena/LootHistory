@@ -83,7 +83,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: SortedIDs returns ids ascending
 - Filters: ParseItemID reads a number, an item link, and an itemString
 
-### test_collector.lua (21)
+### test_collector.lua (22)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -97,9 +97,10 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: ShouldRecord whitelist forces a below-threshold item to record
 - Collector: ShouldRecord whitelist forces a muted-source item to record
 - Collector: ShouldRecord blacklist drops a passing item with reason 'blacklist'
+- Collector: ShouldRecord flags a whitelist rescue but not a normal pass
 - Collector: ShouldRecord id lists ignore other item ids
 - Collector: end-to-end drops a blacklisted item, records after un-blacklisting
-- Collector: end-to-end whitelist records an item below the quality threshold
+- Collector: end-to-end whitelist records below threshold, hidden after un-whitelisting
 - Collector: end-to-end writes an attributed record
 - Collector: end-to-end drops loot below the quality threshold
 - Collector: end-to-end drops quest items when the filter is on
@@ -107,7 +108,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 
-### test_database.lua (40)
+### test_database.lua (41)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -129,7 +130,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: Query by case-insensitive text substring
 - Database: Query combines predicates (AND)
 - Database: VisibleHistory hides blacklisted ids but keeps them in history
-- Database: VisibleHistory returns the raw array unchanged when blacklist is empty
+- Database: VisibleHistory returns the raw array unchanged when nothing is hidden
+- Database: VisibleHistory hides a viaWhitelist row once its id leaves the whitelist
 - Database: Query/Stats/Export all exclude blacklisted ids via ActiveHistory
 - Database: Export returns metatable-free copies with all fields
 - Database: DeleteAt removes the row, compacts, fires HistoryChanged
@@ -254,11 +256,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_compat.lua | 11 |
 | test_attribution.lua | 21 |
 | test_filters.lua | 10 |
-| test_collector.lua | 21 |
-| test_database.lua | 40 |
+| test_collector.lua | 22 |
+| test_database.lua | 41 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
 | test_export.lua | 16 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 20 |
-| **Total** | **207** |
+| **Total** | **209** |

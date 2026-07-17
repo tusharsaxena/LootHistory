@@ -224,13 +224,13 @@ The **Export** button is **tab-aware** (issue #15): it lives in the shared filte
 exports depends on which tab is showing.
 
 **Steps (History tab).**
-- On the **History** tab, click **Export** (right of row 2). The modal title reads **Export**.
+- On the **History** tab, click **Export** (right of row 2). The modal header reads **Export History**.
 - Leave the **Data set** dropdown on **All Data** and click **Export to CSV**. Review the copy window;
   press Ctrl+C, Esc.
 - Reopen Export, pick **Current View** (apply a filter first so it differs), then **Export to CSV** again.
 
 **Steps (Insights tab).**
-- Switch to the **Insights** tab, click **Export**. The modal title reads **Export Insights**.
+- Switch to the **Insights** tab, click **Export**. The modal header reads **Export Insights**.
 - Export **All Data** and **Current View** (with a filter applied) to CSV in turn.
 - Hover **Export to AI** in either modal.
 
@@ -451,12 +451,13 @@ Covers the item-id filter lists (issue #14): the capture gate, the hide-without-
 the Settings ▸ Filters management UI. **Setup:** a real history with at least one repeated item.
 
 **Steps.**
-- In the History tab, right-click a row and choose **Blacklist item**.
+- In the History tab, right-click a row and choose **Blacklist item**. Note the popup's **gold border**.
 - Open **Settings ▸ Filters** (`/lh config` → Filters). In the **Blacklist** section, note the item.
 - Loot that same item again (or `/lh test` won't help here — use a live drop).
 - In the Filters page, click **Remove** on that item.
 - In the **Whitelist** section, add an item id that would normally be dropped (below your quality
-  threshold, or from a muted source), then loot it.
+  threshold, or from a muted source), then loot it so a row appears.
+- Now **Remove** that id from the whitelist and re-check the History table.
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
 - Enter garbage (e.g. `abc`) into an add box and submit.
 
@@ -470,6 +471,9 @@ the Settings ▸ Filters management UI. **Setup:** a real history with at least 
   because the data was never deleted).
 - A **whitelisted** id records **even when it would normally be dropped** (below threshold / muted
   source / quest item) — the new row appears.
+- **Removing** that id from the whitelist **hides the rows it added** — the row(s) recorded only because
+  of the whitelist disappear from the table (but the database size doesn't shrink — re-adding the id
+  brings them back). This is symmetric with the blacklist and is the fix for the un-whitelist bug.
 - Adding an id to one list **removes it from the other** (an id is never on both). The Filters page's
   two lists update live; each entry shows the item name (or `Item <id>` until the client caches it)
   with a **Remove** button; the empty state reads `(none)`.

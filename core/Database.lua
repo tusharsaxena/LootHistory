@@ -4,6 +4,7 @@ local addonName, NS = ...
 function NS:InitDB()
   NS.db = LibStub("AceDB-3.0"):New("LootHistoryDB", NS.defaults, true)
   NS:RunMigrations()   -- normalize the persisted schema before any history read
+  NS.Database:RebuildWhitelistIndex()   -- session index for the whitelist-orphan hide (issue #14)
 end
 
 -- Schema-migration runner (Ka0s Standard §2.2/§5.1). Reads/writes db.global.schemaVersion and
@@ -48,17 +49,50 @@ function Database:History()
   return NS.db.global.history
 end
 
--- Live history with blacklisted items (issue #14) hidden. Blacklisting never deletes: the id is
--- filtered out of every display/query path here, so removing it from the blacklist restores the
--- rows. Returns the raw array unchanged (no allocation) when the blacklist is empty — the common
--- case — so the hot read path pays nothing until a blacklist exists.
+-- Session index of item ids that have at least one record kept ONLY because it was whitelisted
+-- (r.viaWhitelist). Lets VisibleHistory keep its no-alloc fast path unless there is actually
+-- something to hide. Derived from history (not persisted): rebuilt at init, maintained by Add.
+-- A whitelist "orphan" — a viaWhitelist id no longer on the whitelist — is what must be hidden.
+function Database:RebuildWhitelistIndex()
+  local via = {}
+  for _, r in ipairs(NS.db.global.history) do
+    if r.viaWhitelist and r.itemID then via[r.itemID] = true end
+  end
+  NS.State.viaWhitelistIDs = via
+  return via
+end
+
+-- True when some viaWhitelist id is no longer on the whitelist (so its rows must be hidden). Cheap:
+-- iterates only the (small) set of ever-whitelist-rescued ids.
+local function whitelistOrphanExists()
+  local via = NS.State and NS.State.viaWhitelistIDs
+  if not via then return false end
+  local wl = NS.db.global.whitelist
+  for id in pairs(via) do
+    if not (wl and wl[id]) then return true end
+  end
+  return false
+end
+
+-- Live history with hidden items (issue #14) filtered out — nothing is ever deleted:
+--   * blacklisted ids are hidden (removing the id restores their rows);
+--   * a row recorded ONLY via the whitelist (r.viaWhitelist) is hidden once its id leaves the
+--     whitelist (re-adding the id restores it) — symmetric with the blacklist, so "undo whitelist"
+--     removes exactly the rows the whitelist added.
+-- Returns the raw array unchanged (no allocation) when there is nothing to hide — the common case —
+-- so the hot read path pays nothing until a blacklist or a whitelist orphan exists.
 function Database:VisibleHistory()
-  local history = NS.db.global.history
-  local bl = NS.db.global.blacklist
-  if not bl or not next(bl) then return history end
+  local g = NS.db.global
+  local history = g.history
+  local bl = g.blacklist
+  local hasBl = bl and next(bl) ~= nil
+  local hideWl = whitelistOrphanExists()
+  if not hasBl and not hideWl then return history end
+  local wl = g.whitelist or {}
   local out = {}
   for _, r in ipairs(history) do
-    if not bl[r.itemID] then out[#out + 1] = r end
+    local hidden = (hasBl and bl[r.itemID]) or (r.viaWhitelist and not wl[r.itemID])
+    if not hidden then out[#out + 1] = r end
   end
   return out
 end
@@ -81,6 +115,12 @@ function Database:Add(record)
   local history = NS.db.global.history
   history[#history + 1] = record
   local index = #history
+  -- Keep the whitelist-orphan index current for a row kept only via the whitelist (issue #14).
+  if record.viaWhitelist and record.itemID then
+    local via = NS.State.viaWhitelistIDs or {}
+    via[record.itemID] = true
+    NS.State.viaWhitelistIDs = via
+  end
   if NS.bus then
     NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", record, index)
   end
@@ -339,6 +379,7 @@ function Database:DeleteAt(index)
   if type(index) ~= "number" or index < 1 or index > #history then return false end
   local ts = history[index] and history[index].ts
   table.remove(history, index)
+  self:RebuildWhitelistIndex()   -- a viaWhitelist row may have gone
   fireHistoryChanged()
   if NS.State.debug and NS.Debug then
     NS.Debug("Data", "deleted row @%s", tostring(ts))
@@ -359,6 +400,7 @@ function Database:Delete(pred)
     end
   end
   NS.db.global.history = kept
+  self:RebuildWhitelistIndex()
   fireHistoryChanged()
   return removed
 end
@@ -367,6 +409,7 @@ end
 function Database:Purge()
   local removed = #NS.db.global.history
   NS.db.global.history = {}
+  NS.State.viaWhitelistIDs = {}
   fireHistoryChanged()
   if NS.State.debug and NS.Debug then
     NS.Debug("Data", "purge-all removed %s rows", tostring(removed))
@@ -419,6 +462,7 @@ function Database:PruneOld()
   end
   local removed = #history - #kept
   NS.db.global.history = kept
+  self:RebuildWhitelistIndex()
   fireHistoryChanged()
   if NS.State.debug and NS.Debug then
     NS.Debug("Prune", "retention %sd: removed %s rows", tostring(days), tostring(removed))

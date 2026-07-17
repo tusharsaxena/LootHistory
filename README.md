@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
-![Tests](https://img.shields.io/badge/Tests-207%2F207_passing-green)
+![Tests](https://img.shields.io/badge/Tests-209%2F209_passing-green)
 
 ![alt text](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -93,7 +93,7 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 **Filters** (its own page)
 
 *   **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). Blacklisted items are never recorded, and any you've *already* recorded are hidden from the browser — nothing is deleted, so removing an item from the list brings its rows back.
-*   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). Adding an item to one list removes it from the other.
+*   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). Removing an item from the whitelist hides the rows it added (nothing is deleted — re-add it to bring them back), the mirror image of the blacklist. Adding an item to one list removes it from the other.
 
 ## How attribution works
 

@@ -938,7 +938,7 @@ local function EnsureRowMenu()
   rowMenu:SetFrameStrata("FULLSCREEN_DIALOG")
   rowMenu:SetBackdrop({ bgFile = WHITE8X8, edgeFile = WHITE8X8, edgeSize = 1 })
   rowMenu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
-  rowMenu:SetBackdropBorderColor(0, 0, 0, 1)
+  rowMenu:SetBackdropBorderColor(1, 0.82, 0, 1)  -- gold edge so the menu reads against the world
   rowMenu:Hide()
   rowMenu.buttons = {}
 

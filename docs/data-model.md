@@ -58,6 +58,8 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:25`):
 
 The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bound`, `sellPrice`, `itemType`, `itemSubType`) exist so the [browser](./browser.md) table can filter/sort/group thousands of rows without touching item links or the item cache; `itemLink` remains the source of truth for the tooltip.
 
+One optional, sparse field is not in the table above: `viaWhitelist = true` marks a row that was kept **only** because its item id was whitelisted (issue #14) — it fails the normal collection gate. It drives the "undo the whitelist hides its rows" behaviour in `Database:VisibleHistory` (below) and is intentionally **not** part of the `Database:Export` contract (it's internal housekeeping, not loot data).
+
 ## Storage: a dense array
 
 All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [saved-variables.md](./saved-variables.md)). `Database:Add` (`core/Database.lua:65`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
@@ -120,7 +122,12 @@ end
 
 `NS.State.testRecords` (`core/State.lua:16`) is a session-only synthetic dataset published by `/lh test` (`BrowserTable:ToggleTestMode`). When set, `Query`, `Stats`, `Export`, and thus the History table **and** the Insights tab all render off the same fake data. Write paths (`Add`, the delete/prune family) always target the real `history` and never see the override.
 
-`Database:VisibleHistory` (`core/Database.lua`) is the live-history view with **blacklisted item ids hidden** (issue #14). Blacklisting never deletes — the id is filtered out of every display/query path here, so removing it from `db.global.blacklist` restores its rows. When the blacklist is empty (the common case) it returns the raw `history` array unchanged (no allocation), so the hot read path pays nothing until a blacklist exists. The blacklist/whitelist lists are owned by `NS.Filters` (`modules/Filters.lua`); the whitelist affects only the capture gate (`Collector:ShouldRecord`), not display. See [saved-variables.md](saved-variables.md).
+`Database:VisibleHistory` (`core/Database.lua`) is the live-history view with **hidden rows filtered out** (issue #14) — nothing is ever deleted:
+
+- **blacklisted ids** are hidden; removing the id from `db.global.blacklist` restores its rows;
+- a row recorded **only because it was whitelisted** carries a `viaWhitelist = true` annotation, and is hidden once its id leaves `db.global.whitelist` — so "undo the whitelist" removes exactly the rows the whitelist added, and re-adding the id restores them (symmetric with the blacklist).
+
+The `viaWhitelist` flag is set by `Collector` when the item failed the normal gate (quality / source / quest) and only passed because it was whitelisted; an item that passes the gate on its own is never flagged. To keep the read path cheap, `VisibleHistory` returns the raw `history` array unchanged (no allocation) when there is nothing to hide — gated by a session index `NS.State.viaWhitelistIDs` (`Database:RebuildWhitelistIndex`, rebuilt at init and after every history mutation) that flags whether any whitelist "orphan" exists. The blacklist/whitelist lists are owned by `NS.Filters` (`modules/Filters.lua`). See [saved-variables.md](saved-variables.md).
 
 `Database:Query(filter)` (`core/Database.lua:139`) runs the generic `QueryList` (`core/Database.lua:81`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:165`) aggregates the filtered result in one O(n) pass for Insights.
 

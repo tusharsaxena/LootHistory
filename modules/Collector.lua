@@ -11,20 +11,30 @@ local blacklist, whitelist = {}, {}
 
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
 
--- Whitelist/blacklist override (issue #14) + quality gate + per-source exclude + optional
--- quest-item drop. cfg = { qualityThreshold, excludedSources, excludeQuestItems, itemID,
--- blacklist, whitelist }. The id lists win over every gate: a whitelisted id always records
--- (even below threshold / from a muted source / a quest item), a blacklisted id never does.
--- Returns true to record; on a drop returns (false, reason) — "blacklist"/"quality"/"source"/
--- "quest" (surfaced by the debug "Drop" log for diagnosis).
+-- The normal collection gate (no id lists). Returns nil when the item passes, else the drop
+-- reason "quality"/"source"/"quest".
+local function gateReason(quality, source, classID, cfg)
+  if (quality or 0) < cfg.qualityThreshold then return "quality" end
+  if cfg.excludedSources and cfg.excludedSources[source] then return "source" end
+  if cfg.excludeQuestItems and classID == NS.Constants.ITEMCLASS_QUEST then return "quest" end
+  return nil
+end
+
+-- Whitelist/blacklist override (issue #14) + the normal gate. cfg = { qualityThreshold,
+-- excludedSources, excludeQuestItems, itemID, blacklist, whitelist }. A blacklisted id is an
+-- absolute veto; otherwise the item records if it passes the gate, OR — failing the gate — if it
+-- is whitelisted. Returns:
+--   true              — passes normally
+--   true, "whitelist" — failed the gate but the whitelist forced it in (the caller flags the row
+--                       so removing the id later can hide it again — see Database:VisibleHistory)
+--   false, reason     — dropped ("blacklist"/"quality"/"source"/"quest"), surfaced by the Drop log
 function Collector:ShouldRecord(quality, source, classID, cfg)
   local id = cfg.itemID
-  if id and cfg.whitelist and cfg.whitelist[id] then return true end
   if id and cfg.blacklist and cfg.blacklist[id] then return false, "blacklist" end
-  if (quality or 0) < cfg.qualityThreshold then return false, "quality" end
-  if cfg.excludedSources and cfg.excludedSources[source] then return false, "source" end
-  if cfg.excludeQuestItems and classID == NS.Constants.ITEMCLASS_QUEST then return false, "quest" end
-  return true
+  local reason = gateReason(quality, source, classID, cfg)
+  if not reason then return true end                                    -- passes the normal gate
+  if id and cfg.whitelist and cfg.whitelist[id] then return true, "whitelist" end  -- rescued
+  return false, reason
 end
 
 -- Assemble a loot record. ctx = attribution result; env = item/location/time fields.
@@ -85,6 +95,10 @@ function Collector:OnChatMsgLoot(_, msg)
     end
     return
   end
+  -- reason == "whitelist" here means the item ONLY passed because it is whitelisted (it fails the
+  -- normal gate). Flag the row so that un-whitelisting the id can hide it again — the "annotation in
+  -- the db so the action can be undone" from issue #14. Items that pass the gate normally get no flag.
+  local viaWhitelist = (reason == "whitelist") or nil
 
   local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
   local zone, subzone = NS.Compat.GetZone()
@@ -95,6 +109,7 @@ function Collector:OnChatMsgLoot(_, msg)
       itemID = itemID, itemName = itemName, quality = quality, itemLevel = itemLevel, bound = bound,
       sellPrice = sellPrice, itemType = itemType, itemSubType = itemSubType,
       zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
+  record.viaWhitelist = viaWhitelist   -- kept only because whitelisted (issue #14); nil otherwise
 
   NS.Database:Add(record)
 
