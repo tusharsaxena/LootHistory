@@ -10,7 +10,7 @@ comes out consistent and correct. This document is the authoritative spec — fo
 
 ### 1 — Fetch the template verbatim
 
-<https://raw.githubusercontent.com/tusharsaxena/LootHistory/master/docs/ai-export-template.html>
+<https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/docs/ai-export-template.html>
 
 It is a **complete, working sample report**. Reproduce it **exactly** — every byte of the `<head>`,
 the `<style>`, the engine `<script>`, the embedded logo / Wowhead data-URIs, and all markup and class

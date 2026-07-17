@@ -211,7 +211,7 @@ end
 -- data contract, so the prompt stays small) + the History and Insights CSVs for the selected dataset.
 -- Pure/unit-tested; the modal below feeds it the two serialized CSVs.
 local GUIDELINE_URL =
-  "https://raw.githubusercontent.com/tusharsaxena/LootHistory/master/docs/ai-export-guideline.md"
+  "https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/docs/ai-export-guideline.md"
 local AI_LARGE_ROWS = 4000
 
 function E:AIPrompt(historyCSV, insightsCSV, opts)
