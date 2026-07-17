@@ -388,16 +388,15 @@ local DATE_OPTIONS = {
   { value = "7d", label = "Last 7 days" },
   { value = "30d", label = "Last 30 days" },
 }
--- Binding-state filter. "NONE" matches unbound records (r.bound == nil); the other values match
--- their bound tokens. Labels mirror the Bound column's tooltip legend (BrowserTable BOUND_LEGEND).
-local BOUND_OPTIONS = {
-  { value = "all", label = "Bound: All" },
-  { value = "NONE", label = "Not Bound" },
-  { value = "BOE", label = "Bind on Equip" },
-  { value = "BOP", label = "Bind on Pickup" },
-  { value = "ACCOUNT", label = "Account Bound" },
-  { value = "WARBAND", label = "Warbound" },
+-- Binding-state filter labels + fixed display order. "NONE" matches unbound records (r.bound == nil);
+-- the other tokens match their bound state. Labels mirror the Bound column's tooltip legend
+-- (BrowserTable BOUND_LEGEND). Data-driven like the other value filters (see boundOptions): only the
+-- states actually present in the dataset are offered, kept in this logical order (not data order).
+local BOUND_LABEL = {
+  NONE = "Not Bound", BOE = "Bind on Equip", BOP = "Bind on Pickup",
+  ACCOUNT = "Account Bound", WARBAND = "Warbound",
 }
+local BOUND_ORDER = { "NONE", "BOE", "BOP", "ACCOUNT", "WARBAND" }
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
 -- session-only default of "current player"). This is the stock/reset baseline; the user's
@@ -535,6 +534,18 @@ local function qualityOptions()
   table.insert(items, 1, { value = "all", label = "Quality: All" })
   return items
 end
+-- Distinct binding states present in the dataset (nil → the "NONE" sentinel), kept in the fixed
+-- BOUND_ORDER (not data order). Data-driven like the other value filters, so e.g. Warbound only
+-- appears once some loot is warbound. "all" (kept first) is the no-filter sentinel.
+local function boundOptions()
+  local present = {}
+  for _, r in ipairs(dataset()) do present[r.bound or "NONE"] = true end
+  local items = { { value = "all", label = "Bound: All" } }
+  for _, k in ipairs(BOUND_ORDER) do
+    if present[k] then items[#items + 1] = { value = k, label = BOUND_LABEL[k] } end
+  end
+  return items
+end
 
 -- Copy a multi-select set into a plain filter value: a fresh set when non-empty, else nil (no
 -- filter). Copied — not aliased to the dropdown's live set — so a later toggle can't mutate the
@@ -601,6 +612,7 @@ end
 function B:RefreshFilterOptions()
   local dd = self._dd
   if not dd then return end
+  dd.bound:SetOptions(boundOptions())
   dd.quality:SetOptions(qualityOptions())
   dd.source:SetOptions(sourceOptions())
   dd.type:SetOptions(typeOptions())
@@ -807,7 +819,7 @@ function B:BuildFilterBar(bar)
   dd.bound = MakeDropdown(bar, 96)
   dd.bound:SetPoint("LEFT", dd.date, "RIGHT", 8, 0)
   dd.bound:SetMulti(true)
-  dd.bound:SetOptions(BOUND_OPTIONS)
+  dd.bound:SetOptions(boundOptions())
   dd.bound.onMultiSelect = function(set)
     B.activeFilter.bound = setToFilter(set)
     ApplyFilter()
