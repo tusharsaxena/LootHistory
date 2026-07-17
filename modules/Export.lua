@@ -335,8 +335,62 @@ local function selectedData()
   return (fn and fn()) or {}
 end
 
+-- The History records + Insights stats for the current Data Set, for the AI export (which bundles
+-- BOTH datasets regardless of which tab opened the modal). Empty fallbacks if a provider is missing.
+local function selectedAIData()
+  local h = config.ai and config.ai.history and config.ai.history[dataset]
+  local i = config.ai and config.ai.insights and config.ai.insights[dataset]
+  return (h and h()) or {}, (i and i()) or {}
+end
+
+-- The Export-to-AI help popup: a small skinned window explaining how to use the pasted prompt.
+local helpFrame
+local function EnsureHelpFrame()
+  if helpFrame then return helpFrame end
+  helpFrame = CreateFrame("Frame", "LootHistoryExportHelpWindow", UIParent, "BackdropTemplate")
+  helpFrame:SetSize(440, 300)
+  helpFrame:SetPoint("CENTER")
+  helpFrame:SetFrameStrata("FULLSCREEN")
+  helpFrame:EnableMouse(true); helpFrame:SetMovable(true); helpFrame:SetClampedToScreen(true)
+
+  local tbar = CreateFrame("Frame", nil, helpFrame)
+  tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(26)
+  tbar:EnableMouse(true); tbar:RegisterForDrag("LeftButton")
+  tbar:SetScript("OnDragStart", function() helpFrame:StartMoving() end)
+  tbar:SetScript("OnDragStop", function() helpFrame:StopMovingOrSizing() end)
+  local t = tbar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  t:SetPoint("CENTER"); t:SetText("Export to AI \226\128\148 how it works")
+  if NS.Browser and NS.Browser.MakeCloseButton then
+    NS.Browser:MakeCloseButton(tbar, function() helpFrame:Hide() end)
+      :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
+  end
+
+  local body = helpFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  body:SetPoint("TOPLEFT", 16, -34); body:SetPoint("BOTTOMRIGHT", -16, 14)
+  body:SetJustifyH("LEFT"); body:SetJustifyV("TOP"); body:SetSpacing(3)
+  body:SetText(table.concat({
+    "|cffe8c56bExport to AI|r turns your loot into a beautiful, shareable web page.",
+    "",
+    "1. Click |cffe8c56bExport to AI|r, then Ctrl+C to copy the whole prompt.",
+    "2. Paste it into an AI chat that can browse the web \226\128\148 Claude, ChatGPT, or Gemini.",
+    "   (Web access must be ON: the prompt links to a design guide the AI reads.)",
+    "3. The AI replies with a single self-contained HTML file \226\128\148 your report.",
+    "   In Claude you can publish it as an Artifact to get a shareable link.",
+    "",
+    "It always bundles |cffe8c56bboth|r your History and Insights, and honors the",
+    "Data Set choice (All Data vs Current View).",
+  }, "\n"))
+
+  if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(helpFrame) end
+  helpFrame:Hide()
+  if type(UISpecialFrames) == "table" then
+    table.insert(UISpecialFrames, "LootHistoryExportHelpWindow")
+  end
+  return helpFrame
+end
+
 -- Flat-skin button matching the Browser bar buttons. enabled=false greys it, disables the click,
--- and shows a "Coming soon" tooltip (the AI placeholder).
+-- and shows a "Coming soon" tooltip (kept for any future disabled action).
 local function makeButton(parent, text, width, onClick, enabled)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(width, 24)
@@ -375,7 +429,7 @@ end
 local function EnsureFrame()
   if frame then return frame end
   frame = CreateFrame("Frame", "LootHistoryExportWindow", UIParent, "BackdropTemplate")
-  frame:SetSize(340, 150)
+  frame:SetSize(372, 150)
   frame:SetPoint("CENTER")
   -- DIALOG (below the dropdown menu's FULLSCREEN catcher) so an outside click closes the Data Set
   -- menu; the copy window (FULLSCREEN) still opens above this modal.
@@ -408,14 +462,22 @@ local function EnsureFrame()
     ds:SetValue(v, "Data set: " .. datasetLabel(v))
   end
 
-  local csvBtn = makeButton(frame, "Export to CSV", 148, function()
+  local csvBtn = makeButton(frame, "Export to CSV", 150, function()
     local serialize = config.csv or function(d) return E:CSV(d) end
     ShowCopy(serialize(selectedData()))
   end, true)
   csvBtn:SetPoint("TOPLEFT", 16, -80)
 
-  local aiBtn = makeButton(frame, "Export to AI", 148, nil, false)
-  aiBtn:SetPoint("TOPRIGHT", -16, -80)
+  -- Export to AI bundles BOTH datasets (history + insights) for the selected Data Set.
+  local aiBtn = makeButton(frame, "Export to AI", 150, function()
+    local records, stats = selectedAIData()
+    ShowCopy(E:AIPrompt(E:CSV(records), E:InsightsCSV(stats), { rows = #records }))
+  end, true)
+  aiBtn:SetPoint("TOPLEFT", 178, -80)
+
+  -- Small "?" help button at the far right of the AI button row.
+  local helpBtn = makeButton(frame, "?", 22, function() EnsureHelpFrame():Show() end, true)
+  helpBtn:SetPoint("TOPRIGHT", -16, -80)
 
   if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
   frame:Hide()
