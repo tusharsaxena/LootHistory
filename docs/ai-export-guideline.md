@@ -60,6 +60,13 @@ Headings use the serif; body the sans; all numbers, timestamps, money, and table
 - One centered container, `max-width:1220px`, uniform side padding (~26px), used by **every** section
   so all content shares the same left/right boundary. Full-bleed backgrounds (hero, sticky bars,
   footer) may span the viewport, but their inner content sits in that same container.
+- **Do not zero the container's horizontal padding in a section's own rules.** A common bug: a
+  full-bleed section's inner element also carries the container class, then sets a `padding` shorthand
+  (e.g. `padding:40px 0`) for its top/bottom spacing — which silently drops the 26px side padding, so
+  that section's content bleeds 26px wider than every card section and visibly crosses the boundary.
+  Set only `padding-top`/`padding-bottom` there, or give the inner element its own class; keep the
+  side padding intact for **every** section (verify the hero headline, filter bar, and footer share the
+  exact left/right edge of the cards).
 - `*{box-sizing:border-box}`. Put `min-width:0` on every flex/grid child. `max-width:100%` on media.
   Long strings wrap: `overflow-wrap:anywhere` on text that can be long (item names, zones).
 - Wide content (the history table, any wide chart) scrolls **inside its own** `overflow-x:auto`
