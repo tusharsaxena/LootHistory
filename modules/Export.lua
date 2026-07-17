@@ -206,10 +206,10 @@ function E:InsightsCSV(stats)
 end
 
 -- ── AI report prompt (issue #12) ─────────────────────────────────────────────────
--- Assembles the "Export to AI" prompt: short framing + a link to the in-repo design guideline
--- (the "pure pointer" — the guideline carries the full design system and the embedded logos, so the
--- prompt stays small) + the History and Insights CSVs for the selected dataset. Pure/unit-tested; the
--- modal below feeds it the two serialized CSVs.
+-- Assembles the "Export to AI" prompt: short framing + a link to the in-repo guideline (the "pure
+-- pointer" — the guideline points the AI at a ready-made HTML template to fill in and defines the
+-- data contract, so the prompt stays small) + the History and Insights CSVs for the selected dataset.
+-- Pure/unit-tested; the modal below feeds it the two serialized CSVs.
 local GUIDELINE_URL =
   "https://raw.githubusercontent.com/tusharsaxena/LootHistory/master/docs/ai-export-guideline.md"
 local AI_LARGE_ROWS = 4000
@@ -220,8 +220,8 @@ function E:AIPrompt(historyCSV, insightsCSV, opts)
     "You are given a World of Warcraft loot-history export from the \"Ka0s Loot History\" addon.",
     "Build ONE single, self-contained HTML file that presents this data as a beautiful, interactive report.",
     "",
-    "Follow this design guideline EXACTLY — fetch and read it first. It defines the theme, sections,",
-    "colors, charts, interactions, and the embedded logos to use:",
+    "Follow this guideline EXACTLY — fetch and read it first. It points you at a ready-made HTML",
+    "template to fill in (the styling, charts and interactions are fixed) and defines the data contract:",
     GUIDELINE_URL,
     "",
     "Rules:",
@@ -230,7 +230,8 @@ function E:AIPrompt(historyCSV, insightsCSV, opts)
     "- Title the report literally: \"Ka0s Loot History \226\128\148 <realm>, <date range>\", taking the realm",
     "  and date range from the data.",
     "- Two datasets follow as CSV: the full loot HISTORY (one row per drop) and a pre-computed INSIGHTS",
-    "  summary. Render both exactly as the guideline specifies.",
+    "  summary. The guideline explains how to turn HISTORY into the template's data array, and how to",
+    "  use INSIGHTS when you write the analysis section.",
   }
   if (opts.rows or 0) > AI_LARGE_ROWS then
     lines[#lines + 1] =
