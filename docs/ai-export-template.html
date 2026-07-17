@@ -85,8 +85,9 @@
   .hoard .val small{font-size:.5em; color:var(--gold-dim)}
 
   .kpis{display:grid; grid-template-columns:repeat(7,1fr); gap:12px; margin:6px 0 20px}
-  .kpi{background:linear-gradient(180deg,var(--panel),var(--void-2));
-    border:1px solid var(--edge-soft); border-radius:12px; padding:14px; position:relative}
+  .kpi{background-image:radial-gradient(150px 150px at 100% 0, rgba(180,139,255,.16), transparent 70%),
+                       linear-gradient(180deg,var(--panel),var(--void-2));
+    border:1px solid var(--edge-soft); border-radius:12px; padding:14px; position:relative; overflow:hidden}
   .kpi::before{content:""; position:absolute; left:0; top:12px; bottom:12px; width:3px; border-radius:3px;
     background:linear-gradient(var(--arcane),var(--arcane-deep))}
   .kpi .n{font-family:var(--serif); font-size:26px; color:var(--ink); line-height:1}
@@ -160,8 +161,9 @@
   .bar{display:grid; grid-template-columns:116px 1fr 116px; align-items:center; gap:12px}
   .bar .k{font-size:12.5px; color:var(--ink-2); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .bar .track{height:17px; background:rgba(255,255,255,.055); border-radius:5px; overflow:hidden}
-  .bar .fill{display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,#b98f3d,var(--gold));
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 0 10px rgba(232,197,107,.18)}
+  /* default bar fill = arcane (matches the activity chart); semantic charts override below */
+  .bar .fill{display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--arcane-deep),var(--arcane));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 0 10px rgba(180,139,255,.22)}
   .bar .v{font-family:var(--mono); font-size:12px; color:var(--ink); text-align:left}
   .bar .v small{color:var(--muted); font-size:11px}
   .fq-poor{background:linear-gradient(90deg,#787878,var(--q-poor))!important}
@@ -201,14 +203,19 @@
   .spark .col .d{font-family:var(--mono); font-size:11px; color:var(--muted)}
   .spark .col .cc{font-family:var(--mono); font-size:11px; color:var(--ink)}
 
-  /* top items list */
+  /* top items list — ranked, with a proportional mini-bar under each item name */
   .toplist{display:flex; flex-direction:column}
-  .toplist .it{display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--edge-soft)}
+  .toplist .it{display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--edge-soft)}
   .toplist .it:last-child{border-bottom:0}
-  .toplist .rk{font-family:var(--mono); font-size:12px; color:var(--muted-2); width:20px}
-  .toplist .nm{flex:1; font-size:13.5px}
-  .toplist .mut{font-size:11.5px; color:var(--muted); font-family:var(--mono)}
-  .toplist .val{font-family:var(--mono); font-size:12.5px; color:var(--gold)}
+  .toplist .rk{font-family:var(--mono); font-size:12px; color:var(--muted-2); width:18px; flex:0 0 auto; text-align:right}
+  .toplist .col{flex:1; min-width:0}
+  .toplist .nm{font-size:13px; overflow-wrap:anywhere}
+  .toplist .mut{font-size:11px; color:var(--muted); font-family:var(--mono)}
+  .toplist .mini{display:block; height:3px; margin-top:6px; background:rgba(255,255,255,.05); border-radius:2px; overflow:hidden}
+  .toplist .mini i{display:block; height:100%; border-radius:2px;
+    background:linear-gradient(90deg,var(--arcane-deep),var(--arcane)); box-shadow:0 0 8px rgba(180,139,255,.25)}
+  .toplist .val{font-family:var(--mono); font-size:12.5px; color:var(--gold); flex:0 0 auto; white-space:nowrap}
+  .toplist .val.cnt2{color:var(--muted)}
 
   /* item links (WoW-styled) */
   .il{cursor:pointer; position:relative; text-shadow:0 0 10px currentColor; -webkit-text-stroke:0}
@@ -825,7 +832,8 @@ function bars(list,opt){opt=opt||{};var max=Math.max.apply(null,list.map(functio
   return '<div class="bars">'+list.map(function(x){
     var kcls=x.kcls?' '+x.kcls:'',kstyle=x.kstyle?' style="'+x.kstyle+'"':'';
     var fcls=x.fcls?' '+x.fcls:'',fstyle='width:'+(x.n/max*100).toFixed(1)+'%'+(x.fstyle?'; '+x.fstyle:'');
-    return '<div class="bar"><span class="k'+kcls+'"'+kstyle+'>'+esc(x.label)+'</span>'+
+    var tip=x.tip?' data-gtip="'+esc(x.tip)+'"':'';
+    return '<div class="bar"'+tip+'><span class="k'+kcls+'"'+kstyle+'>'+esc(x.label)+'</span>'+
       '<span class="track"><span class="fill'+fcls+'" style="'+fstyle+'"></span></span>'+
       '<span class="v">'+x.v+'</span></div>';}).join('')+'</div>';}
 
@@ -852,54 +860,59 @@ function renderInsights(rows){
   /* where loot came from */
   var src=groupBy(rows,function(r){return srcName(r.s);}).sort(function(a,b){return b.count-a.count;});
   out.push(card("sp8","Where the loot came from","Drops by attributed source · hover a bar for its vendor value",
-    bars(src.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>'};})),
+    bars(src.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};})),
     "Each drop is attributed to a source: a kill, a container, mail, the Auction House, a Mythic+ chest, and so on."));
   /* bind state */
   var bm={};rows.forEach(function(r){var c=bindCat(r.b);bm[c]=(bm[c]||0)+1;});
-  var bl=BIND_ORDER.filter(function(c){return bm[c];}).map(function(c){return {label:c,n:bm[c],v:bm[c],kcls:"kb-"+bindCls(bindLabelFor(c)),fcls:"fb-"+bindCls(bindLabelFor(c))};});
+  var bl=BIND_ORDER.filter(function(c){return bm[c];}).map(function(c){return {label:c,n:bm[c],v:bm[c],kcls:"kb-"+bindCls(bindLabelFor(c)),fcls:"fb-"+bindCls(bindLabelFor(c)),tip:c+'|'+bm[c]+' drops'};});
   out.push(card("sp4","Bind state","Tradeable vs locked · colored by bind type",bars(bl)));
   /* quality */
   var qm={};rows.forEach(function(r){qm[r.q]=(qm[r.q]||0)+1;});
-  var ql=QORDER.filter(function(q){return qm[q];}).map(function(q){return {label:q,n:qm[q],v:qm[q],kcls:qCls(q),fcls:fqCls(q)};});
+  var ql=QORDER.filter(function(q){return qm[q];}).map(function(q){return {label:q,n:qm[q],v:qm[q],kcls:qCls(q),fcls:fqCls(q),tip:q+'|'+qm[q]+' drops'};});
   out.push(card("sp6","Quality distribution","Sorted by quality · colored by WoW item quality",bars(ql)));
   /* item types */
   var ty=groupBy(rows,function(r){return r.ty;}).sort(function(a,b){return b.count-a.count;});
-  out.push(card("sp6","Item types","What kind of loot dropped",bars(ty.map(function(g){return {label:g.key,n:g.count,v:g.count};}))));
+  out.push(card("sp6","Item types","What kind of loot dropped",bars(ty.map(function(g){return {label:g.key,n:g.count,v:g.count,tip:g.key+'|'+g.count+' drops'};}))));
   /* loot by character */
   var chd={};var ch=groupBy(rows,function(r){chd[r.c]=r.cl;return r.c;}).sort(function(a,b){return b.count-a.count;});
   out.push(card("sp8","Loot by character","Drops per character · class-colored · value in gold",
     bars(ch.map(function(g){var cf=chd[g.key];return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',
-      kstyle:"color:"+clsVar(cf),fstyle:"background:linear-gradient(90deg,"+clsDark(cf)+","+clsVar(cf)+")"};})),
+      kstyle:"color:"+clsVar(cf),fstyle:"background:linear-gradient(90deg,"+clsDark(cf)+","+clsVar(cf)+")",tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};})),
     "Bar color is the character's class color; the gold figure is vendor value harvested."));
   /* top zones */
   var zo=groupBy(rows,function(r){return r.z;}).sort(function(a,b){return b.count-a.count;}).slice(0,5);
   out.push(card("sp4","Top zones by haul","Drops &amp; vendor value per zone",
-    bars(zo.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>'};}))));
+    bars(zo.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};}))));
   /* activity over time */
   var dd={},order=[];rows.forEach(function(r){if(!(r.d in dd)){dd[r.d]={c:0};order.push(r.d);}dd[r.d].c++;});
   order.sort(function(a,b){return tsKey({d:a,t:"00:00"})-tsKey({d:b,t:"00:00"});});
   var maxd=Math.max.apply(null,order.map(function(d){return dd[d].c;}).concat([1]));
   var spark='<div class="spark">'+order.map(function(d){var p=d.split("-");
-    return '<div class="col"><span class="cc">'+dd[d].c+'</span><span class="stk" style="height:'+(dd[d].c/maxd*100).toFixed(0)+'%"></span><span class="d">'+p[1]+' '+p[0]+'</span></div>';}).join('')+'</div>';
+    return '<div class="col" data-gtip="'+p[1]+' '+p[0]+'|'+dd[d].c+' drops"><span class="cc">'+dd[d].c+'</span><span class="stk" style="height:'+(dd[d].c/maxd*100).toFixed(0)+'%"></span><span class="d">'+p[1]+' '+p[0]+'</span></div>';}).join('')+'</div>';
   out.push(card("sp6","Activity over time","Drops per day · hover a bar for the day",spark));
   /* heatmap */
   out.push(card("sp6","When you loot","Weekday × hour of day · server time",heatmap(rows),
     "Each square is one weekday × hour; brighter = more drops in that slot."));
   /* richest drops */
   var byItem=groupBy(rows,function(r){return r.n;});
-  var rich=byItem.slice().sort(function(a,b){return b.value-a.value;}).slice(0,5);
+  var rich=byItem.slice().sort(function(a,b){return b.value-a.value;}).slice(0,10);
   out.push(card("sp6","Richest drops","Top items by vendor value · hover for the tooltip",toplist(rich,true)));
   /* most-looted */
-  var most=byItem.slice().sort(function(a,b){return b.qty-a.qty;}).slice(0,5);
+  var most=byItem.slice().sort(function(a,b){return b.qty-a.qty;}).slice(0,10);
   out.push(card("sp6","Most-looted items","Top items by number of drops",toplist(most,false)));
   $("#rpt-insights").innerHTML=out.join('');
 }
 function bindLabelFor(cat){for(var k in BIND){if(BIND[k][0]===cat)return k;}return "Not Bound";}
-function toplist(list,withVal){return '<div class="toplist">'+list.map(function(g,i){
-  var mut=g.qty>1||!withVal?'<span class="mut">×'+g.qty+'</span>':'';
-  var nm='<span class="nm">'+ilink(g.rep)+(withVal&&g.qty>1?' '+mut:'')+'</span>';
-  var tail=withVal?'<span class="val">'+moneyGS(g.value)+'</span>':mut;
-  return '<div class="it"><span class="rk">'+(i+1)+'</span>'+nm+tail+'</div>';}).join('')+'</div>';}
+function toplist(list,withVal){
+  var max=Math.max.apply(null,list.map(function(g){return withVal?g.value:g.qty;}).concat([1]));
+  return '<div class="toplist">'+list.map(function(g,i){
+    var metric=withVal?g.value:g.qty, w=(metric/max*100).toFixed(1);
+    var xq=(withVal&&g.qty>1)?' <span class="mut">×'+g.qty+'</span>':'';
+    var tail=withVal?'<span class="val">'+moneyGS(g.value)+'</span>':'<span class="val cnt2">×'+g.qty+'</span>';
+    return '<div class="it"><span class="rk">'+(i+1)+'</span>'+
+      '<span class="col"><span class="nm">'+ilink(g.rep)+xq+'</span>'+
+      '<span class="mini"><i style="width:'+w+'%"></i></span></span>'+
+      tail+'</div>';}).join('')+'</div>';}
 function heatmap(rows){
   var grid=[];for(var i=0;i<7*24;i++)grid.push(0);
   rows.forEach(function(r){var wd=weekday(r),hr=+r.t.slice(0,2);grid[wd*24+hr]++;});
@@ -907,7 +920,7 @@ function heatmap(rows){
   var WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   var cells='';for(var w=0;w<7;w++){for(var h=0;h<24;h++){var n=grid[w*24+h];
     var lv=n===0?'':(n/max>.75?' l4':n/max>.5?' l3':n/max>.25?' l2':' l1');
-    cells+='<div class="c'+lv+'" data-heat="'+WD[w]+' '+(h<10?'0'+h:h)+':00|'+n+' drop'+(n===1?'':'s')+'"></div>';}}
+    cells+='<div class="c'+lv+'" data-gtip="'+WD[w]+' '+(h<10?'0'+h:h)+':00|'+n+' drop'+(n===1?'':'s')+'"></div>';}}
   var days='<div class="days">'+WD.map(function(d){return '<span>'+d+'</span>';}).join('')+'</div>';
   return '<div class="heat"><div></div>'+
     '<div class="hours"><span>00</span><span>03</span><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span></div>'+
@@ -1032,15 +1045,16 @@ function initHead(){
   $("#rpt-tfoot").addEventListener("click",function(e){var btn=e.target.closest(".pgb");if(!btn||btn.disabled)return;
     PAGE+=(btn.dataset.pg==="next"?1:-1);renderTable(filtered());});
 }
-/* ---- styled heatmap tooltip (the item-tooltip treatment, lighter content) ---- */
-function initHeatTip(){
+/* ---- styled chart tooltip (item-tooltip treatment) for any [data-gtip] element:
+       bars, activity columns, heatmap cells. Content = "Header|Line". ---- */
+function initChartTips(){
   var t=document.createElement("div");t.className="gtip";document.body.appendChild(t);
   function pos(e){var pad=14,w=t.offsetWidth,h=t.offsetHeight,x=e.clientX+pad,y=e.clientY+pad;
     if(x+w>innerWidth-8)x=e.clientX-w-pad;if(y+h>innerHeight-8)y=e.clientY-h-pad;t.style.left=x+"px";t.style.top=y+"px";}
-  document.addEventListener("mouseover",function(e){var c=e.target.closest(".heat .c[data-heat]");if(!c)return;
-    var p=c.getAttribute("data-heat").split("|");t.innerHTML='<div class="h">'+p[0]+'</div><div class="l">'+p[1]+'</div>';t.classList.add("show");pos(e);});
+  document.addEventListener("mouseover",function(e){var c=e.target.closest("[data-gtip]");if(!c)return;
+    var p=c.getAttribute("data-gtip").split("|");t.innerHTML='<div class="h">'+esc(p[0])+'</div><div class="l">'+esc(p[1]||"")+'</div>';t.classList.add("show");pos(e);});
   document.addEventListener("mousemove",function(e){if(t.classList.contains("show"))pos(e);});
-  document.addEventListener("mouseout",function(e){if(e.target.closest(".heat .c[data-heat]"))t.classList.remove("show");});
+  document.addEventListener("mouseout",function(e){if(e.target.closest("[data-gtip]"))t.classList.remove("show");});
 }
 function updateHeadArrows(){
   $$("#rpt-thead th[data-c]").forEach(function(th){var i=+th.dataset.c,ar=$(".ar",th);
@@ -1064,7 +1078,7 @@ function initHeader(){
 }
 
 /* ============================ BOOT ============================ */
-initHeader();initFilterBar();initHead();initHeatTip();render();
+initHeader();initFilterBar();initHead();initChartTips();render();
 })();
 </script>
 </body>
