@@ -51,7 +51,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, flagging the row `viaWhitelist`), `Consume`, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`), LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
-| `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window; `AIPrompt` stub. Called directly by the Browser; no bus message. |
+| `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv, ai }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. **Export to AI** (`AIPrompt`) bundles BOTH CSVs for the selected Data Set into a prompt that points at `docs/ai-export-guideline.md` (pure pointer — no network from the addon) plus a "?" help popup. Called directly by the Browser; no bus message. |
 | `modules/Analytics.lua` | Insights tab: stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
@@ -261,8 +261,8 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
 - **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned.
-- **AI export is a stub only** — the tab-aware Export modal ships CSV today (loot rows from History,
-  a sectioned analytics dump from Insights); the **Export to AI** button is a greyed placeholder
-  backed by an `Export:AIPrompt` stub (report-prompt construction is future work).
+- **AI export depends on the AI tool's web access** — the prompt is a *pure pointer* to
+  `docs/ai-export-guideline.md` (raw on `master`), so a paste target with browsing disabled produces a
+  generic report instead of the themed one. The help popup states web access is required.
 
 See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.

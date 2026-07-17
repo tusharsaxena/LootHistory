@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
-![Tests](https://img.shields.io/badge/Tests-209%2F209_passing-green)
+![Tests](https://img.shields.io/badge/Tests-211%2F211_passing-green)
 
 ![alt text](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -52,6 +52,14 @@ Most items are filed with certainty, straight from what the game reported. When 
 Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view. The filter bar is **shared** between both tabs, so the same narrowing applies to the table and the charts at once — you always know which slice of your loot you're looking at.
 
 The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Don't want an item tracked? Right-click its row and choose **Blacklist item** — it disappears from view immediately (nothing is deleted; restore it any time from the Filters settings).
+
+### Export to AI
+
+The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into a web-enabled AI chat — **Claude, ChatGPT, or Gemini** — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and an AI-written "What the data says" analysis. Copy the prompt (Ctrl+C), paste it into the AI, and it replies with the HTML file; in Claude you can publish it as an Artifact to get a shareable link.
+
+Unlike Export to CSV, Export to AI always bundles **both** your History and Insights (one report shows everything), and it honours the **Data Set** choice — all data, or just your current filtered view. The **?** beside the button explains the steps in-game. The AI tool needs **web access enabled**: the prompt links to a design guide the AI reads to style the report.
+
+> Example report: _(link coming soon)_
 
 ### Slash commands
 

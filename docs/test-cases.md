@@ -187,7 +187,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
 
-### test_export.lua (16)
+### test_export.lua (18)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -205,6 +205,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: InsightsCSV By Source uses labels + carries the value column
 - Export: InsightsCSV quotes a label containing a comma
 - Export: InsightsCSV omits blacklisted items (via Stats/ActiveHistory)
+- Export: AIPrompt embeds guideline URL, both CSV blocks, and framing
+- Export: AIPrompt large-dataset note gated on opts.rows
 
 ### test_debuglog.lua (16)
 
@@ -260,7 +262,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_database.lua | 41 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
-| test_export.lua | 16 |
+| test_export.lua | 18 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 20 |
-| **Total** | **209** |
+| **Total** | **211** |
