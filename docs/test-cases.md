@@ -70,7 +70,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
 - Attribution: taking a quest reward stamps QUEST
 
-### test_filters.lua (10)
+### test_filters.lua (16)
 
 - Filters: AddBlacklist stores the id; IsBlacklisted sees it
 - Filters: AddBlacklist accepts a numeric string
@@ -80,6 +80,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: AddBlacklist rejects non-numeric input
 - Filters: adding an id already present is a no-op (returns false)
 - Filters: change fires HistoryChanged (via Database) and re-caches the Collector
+- Filters: ClearList empties one list and returns the count removed
+- Filters: ClearList on an empty or unknown list is a no-op returning 0
+- Filters: ClearList writes a fresh table (no shared-default aliasing)
+- Filters: ClearAll empties both lists and returns the total removed
+- Filters: ClearAll with both lists empty is a no-op returning 0
+- Filters: ClearList fires HistoryChanged and re-caches the Collector
 - Filters: SortedIDs returns ids ascending
 - Filters: ParseItemID reads a number, an item link, and an itemString
 
@@ -227,7 +233,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - SetEnabled(false) appends a [Debug] logging disabled line after the flag flips off
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (20)
+### test_slash.lua (23)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -248,6 +254,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - /lh set on an unknown path prints Setting not found
 - /lh version prints the cyan-tagged v<version> line
 - NS.COMMANDS registers a version verb
+- /lh reset on a table setting echoes (none), not a raw table pointer
+- /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
+- Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 
 ## Totals
@@ -257,12 +266,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_util.lua | 23 |
 | test_compat.lua | 11 |
 | test_attribution.lua | 21 |
-| test_filters.lua | 10 |
+| test_filters.lua | 16 |
 | test_collector.lua | 22 |
 | test_database.lua | 41 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
 | test_export.lua | 18 |
 | test_debuglog.lua | 16 |
-| test_slash.lua | 20 |
-| **Total** | **211** |
+| test_slash.lua | 23 |
+| **Total** | **220** |

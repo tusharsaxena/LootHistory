@@ -52,6 +52,20 @@ Four pieces of persisted state live in `db.global` but are written **directly**,
 
 Note `settings.windowScale` **is** a Schema row (Master Controls slider) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state.
 
+### Reset semantics
+
+Three reset surfaces write these tables; each reaches a deliberately different scope so the carve-outs above are never silently missed (audit 2026-07-17):
+
+| Reset | Trigger | Schema settings | `blacklist`/`whitelist` | `savedView` | `settings.window` | `history` |
+|-------|---------|:---:|:---:|:---:|:---:|:---:|
+| **Non-destructive** | "Defaults" button · `/lh resetall` (`Sl:CliResetAll`) | ✓ | ✓ (`Filters:ClearAll`) | — | — | — |
+| **Destructive** | "Reset All" button → confirm (`Sl:ResetEverything`) | ✓ | ✓ | ✓ (`Browser:ResetView`) | ✓ (`Browser:ResetWindow`) | ✓ (`Database:Purge`) |
+| **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — |
+
+- The **blacklist/whitelist** are user-configured filter *settings*, so both settings resets clear them — the non-destructive path never deletes history, it only un-hides blacklisted rows / drops whitelist-only rows. `Filters:ClearList` / `Filters:ClearAll` do a single copy-on-write replace + one `_notify`.
+- **`savedView` and window geometry** are view/runtime state, so only the confirm-gated **Reset All** touches them (matching its "cannot be undone" wording). `savedView` also has its own filter-bar **Reset** button (`Browser:ResetView`).
+- The Filters sub-page carries per-list **Clear all** buttons (confirm-gated, `KA0S_LOOTHISTORY_CLEAR_BLACKLIST`/`_WHITELIST`) so a list can be emptied without a full settings reset.
+
 ## Init and migration lifecycle
 
 `NS:InitDB` (`core/Database.lua:4`) creates the AceDB store, then immediately calls `NS:RunMigrations` to normalize the persisted schema **before any history read**.

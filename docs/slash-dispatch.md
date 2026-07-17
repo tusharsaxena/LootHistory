@@ -28,7 +28,7 @@ Every chat line routes through the single shared printer **`NS.Print`** (`core/U
 | `set <path> <value>` | Type-aware write to one setting | Schema-driven; `Sl:CliSet`. |
 | `list` | Dump every schema-driven setting with its current value | Schema-driven; `Sl:CliList`. |
 | `reset <path>` | Reset one setting to its default | Schema-driven; `Sl:CliReset`. |
-| `resetall` | Reset **all** settings to defaults | `Sl:CliResetAll`. No confirmation; settings only (does not touch history). |
+| `resetall` | Reset **all** settings to defaults | `Sl:CliResetAll`. No confirmation; settings + filter lists, non-destructive (does not touch history, savedView, or window geometry). |
 | `debug [on\|off]` | Toggle the debug console window; `on`/`off` set the logging flag | Session-only. See below. |
 | `test` | Toggle a synthetic preview dataset (table + Insights) | Session-only; `BrowserTable:ToggleTestMode`. |
 | `purge` | Delete ALL loot history | Confirm dialog. See below. |
@@ -47,8 +47,8 @@ Every chat line routes through the single shared printer **`NS.Print`** (`core/U
 - **`get <path>`** — `Sl:CliGet`. Prints the single-line `FormatKV` echo for the path. A missing/empty argument prints `Usage: /lh get <path>`; an unknown path prints `Setting not found: <path>`.
 - **`set <path> <value>`** — `Sl:CliSet`. Looks up the row with `Schema:FindRow` (unknown → `Setting not found: <path>`). Coerces the raw string by the row's declared `type`: `number` via `tonumber` (rejects non-numbers), `boolean` from `true`/`1`/`on`/`yes`. The coerced value goes to `Schema:Set`, which validates and fires the row's `onChange`; on failure it prints `error: <err>`. On success it **reads back the stored value** and echoes it via `FormatKV`, so the line reflects any clamping/coercion.
 - **`list`** — `Sl:CliList` (via the pure, testable `Sl:BuildListLines`). Prints a green `Available settings` header, then one azure `[group]` header per schema group in a declared order (LootHistory's single-panel section headers stand in for the standard's `[page]` headers), then an indented `FormatKV` row per setting. New settings appear automatically as schema rows are added.
-- **`reset <path>`** — `Sl:CliReset` (`settings/Slash.lua:183`). Resolves the row's default with `Schema:Default` (deep-copied), writes it via `Schema:Set`, and prints `<path> reset to <default>`. Rejects an unknown path.
-- **`resetall`** — `Sl:CliResetAll` (`settings/Slash.lua:192`). Walks every schema row, writing each back to its `default`, and prints `all settings reset to defaults`. This is settings-only and **has no confirmation prompt** — it does not delete recorded history.
+- **`reset <path>`** — `Sl:CliReset`. Resolves the row's default with `Schema:Default` (deep-copied), writes it via `Schema:Set`, and prints `<path> reset to <default>` — the value echoed through `Sl.FormatSchemaValue` so a table setting reads `(none)`, not a raw pointer. Rejects an unknown path.
+- **`resetall`** — `Sl:CliResetAll`. Walks every schema row, writing each back to its `default`, then clears the `blacklist`/`whitelist` filter lists via `Filters:ClearAll`, and prints `all settings reset to defaults`. This is **non-destructive** (**no confirmation prompt**) — it does not delete recorded history, and leaves `savedView` / window geometry alone. See [saved-variables.md](saved-variables.md#reset-semantics).
 
 ## Session-only `debug`
 
@@ -64,6 +64,7 @@ The flag is never persisted to SavedVariables and resets to off on every `/reloa
 Two `StaticPopupDialogs` entries are registered once at load, in-game only (`settings/Slash.lua:7`):
 
 - **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:166`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history" button raises the same popup (`settings/Panel.lua:347`).
-- **`KA0S_LOOTHISTORY_RESETALL`** — the confirm behind the Settings panel's **"Reset All"** button (`settings/Panel.lua:467`), *not* the `resetall` slash verb. Accepting runs `Sl:ResetEverything` (`settings/Slash.lua:30`), which wipes history (`Database:Purge`) **and** restores every setting (`CliResetAll`), then refreshes the panel. This is the destructive both-at-once reset; the `/lh resetall` verb only resets settings and prompts for nothing.
+- **`KA0S_LOOTHISTORY_RESETALL`** — the confirm behind the Settings panel's **"Reset All"** button, *not* the `resetall` slash verb. Accepting runs `Sl:ResetEverything` (`settings/Slash.lua`), which wipes history (`Database:Purge`), restores every setting **and** clears the filter lists (`CliResetAll`), then drops `savedView` to stock (`Browser:ResetView`) and recenters the window (`Browser:ResetWindow`), then refreshes the panel. This is the total destructive reset; the `/lh resetall` verb only resets settings + filter lists and prompts for nothing.
+- **`KA0S_LOOTHISTORY_CLEAR_BLACKLIST`** / **`KA0S_LOOTHISTORY_CLEAR_WHITELIST`** — the confirms behind the Filters sub-page's per-list **"Clear all"** buttons. Accepting calls `Filters:ClearList(<list>)`; the panel refreshes via its `HistoryChanged` listener. Non-destructive — clearing the blacklist un-hides its rows again.
 
 See [saved-variables.md](saved-variables.md) for what `purge` and the reset actions clear in `LootHistoryDB.global`.

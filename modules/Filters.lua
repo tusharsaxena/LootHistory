@@ -97,6 +97,29 @@ function F:AddWhitelist(id)    return self:_move("whitelist", id) end
 function F:RemoveBlacklist(id) return self:_remove("blacklist", id) end
 function F:RemoveWhitelist(id) return self:_remove("whitelist", id) end
 
+-- Empty one list in a single copy-on-write write (a fresh {} replaces the stored set, never mutating
+-- the AceDB default in place), then propagate exactly like a per-id change. Returns the number of ids
+-- removed; a no-op (unknown key or already-empty list) returns 0 without firing _notify.
+function F:ClearList(listKey)
+  if listKey ~= "blacklist" and listKey ~= "whitelist" then return 0 end
+  local removed = self:Count(currentSet(listKey))
+  if removed == 0 then return 0 end
+  NS.db.global[listKey] = {}
+  self:_notify(listKey)
+  return removed
+end
+
+-- Empty BOTH lists with a single _notify (one HistoryChanged / one Collector re-cache). Returns the
+-- total ids removed across the two. Used by the settings reset paths (Slash:CliResetAll).
+function F:ClearAll()
+  local removed = self:Count(self:Blacklist()) + self:Count(self:Whitelist())
+  if removed == 0 then return 0 end
+  NS.db.global.blacklist = {}
+  NS.db.global.whitelist = {}
+  self:_notify("clearall")
+  return removed
+end
+
 -- Sorted array of the ids on a list, for a stable management-UI order.
 function F:SortedIDs(set)
   local ids = {}

@@ -24,12 +24,45 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- Bulk-clear confirms for the two item-id filter lists (issue #14). Non-destructive: nothing is
+  -- deleted from history — clearing the blacklist just un-hides its rows again. The Filters panel
+  -- refreshes itself via the HistoryChanged listener fired by Filters:ClearList, so OnAccept only
+  -- has to clear and report.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_CLEAR_BLACKLIST"] = {
+    text = "Clear ALL item ids from the blacklist? Their hidden rows will reappear in the browser.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function()
+      local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("blacklist")) or 0
+      print(("blacklist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
+  StaticPopupDialogs["KA0S_LOOTHISTORY_CLEAR_WHITELIST"] = {
+    text = "Clear ALL item ids from the whitelist?",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function()
+      local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("whitelist")) or 0
+      print(("whitelist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
 end
 
--- Full reset: wipe history AND restore every setting to its default.
+-- Full reset (the confirm-gated "Reset All"): wipe history AND restore every persisted piece of
+-- account state to its stock shape. CliResetAll covers the schema settings + the filter lists; this
+-- adds the two view/window carve-outs that the non-destructive resets deliberately leave alone —
+-- savedView (back to stock) and the window geometry (recentered) — so "Reset ALL" is truly total.
 function Sl:ResetEverything()
   if NS.Database and NS.Database.Purge then NS.Database:Purge() end
-  Sl:CliResetAll()   -- resets settings + prints the confirmation line
+  Sl:CliResetAll()   -- resets settings + filter lists + prints the confirmation line
+  if NS.Browser then
+    if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
+    if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
+  end
   if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
 end
 
@@ -183,15 +216,23 @@ end
 function Sl:CliReset(arg)
   local path = arg and tostring(arg):match("^%S+") or nil
   if not path then print("usage: /lh reset <path>"); return end
+  local row = NS.Schema:FindRow(path)
   local def = NS.Schema:Default(path)
-  if def == nil then print("unknown setting: " .. path); return end
+  if not row or def == nil then print("unknown setting: " .. path); return end
   NS.Schema:Set(path, def)
-  print(path .. " reset to " .. tostring(def))
+  -- Echo through the shared formatter so a table default (excludedSources) reads "(none)", not a
+  -- raw "table: 0x..." pointer (slash-commands-§5 value formatting).
+  print(path .. " reset to " .. Sl.FormatSchemaValue(row, def))
 end
 
+-- Reset every user setting to its default. Covers the schema rows AND the two item-id filter lists
+-- (blacklist/whitelist) — the lists are user-configured settings even though they are a storage
+-- carve-out (no Schema widget). Non-destructive: history, savedView and window geometry are left
+-- untouched (the destructive Sl:ResetEverything handles those).
 function Sl:CliResetAll()
   for _, row in ipairs(NS.Schema.Schema) do
     NS.Schema:Set(row.path, row.default)
   end
+  if NS.Filters and NS.Filters.ClearAll then NS.Filters:ClearAll() end
   print("all settings reset to defaults")
 end

@@ -147,6 +147,41 @@ test("NS.COMMANDS registers a version verb", function()
   assertTrue(found ~= nil, "a 'version' command must be registered")
 end)
 
+-- ── reset verbs: reset / resetall / ResetEverything ──
+
+test("/lh reset on a table setting echoes (none), not a raw table pointer", function()
+  NS.Schema:Set("settings.excludedSources", { KILL = true })
+  local out = capture(function() Sl:CliReset("settings.excludedSources") end)
+  assertEqual(out[1], NS.PREFIX .. " settings.excludedSources reset to (none)")
+  assertEqual(Sl.FormatSchemaValue(NS.Schema:FindRow("settings.excludedSources"),
+    NS.Schema:Get("settings.excludedSources")), "(none)", "value actually reset to empty")
+end)
+
+test("/lh resetall also clears the blacklist and whitelist (non-destructive settings reset)", function()
+  NS.Filters:AddBlacklist(101)
+  NS.Filters:AddWhitelist(202)
+  local out = capture(function() Sl:CliResetAll() end)
+  assertEqual(out[1], NS.PREFIX .. " all settings reset to defaults")
+  assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
+  assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")
+end)
+
+test("Reset All (ResetEverything) purges history and clears settings + filter lists + view + window", function()
+  NS.db.global.history = { { id = 1 } }
+  NS.db.global.savedView = { groupBy = "source" }
+  NS.db.global.settings.window = { point = "TOPLEFT", x = 5, y = 5, w = 800, h = 600 }
+  NS.Filters:AddBlacklist(303)
+  NS.Schema:Set("settings.qualityThreshold", 4)
+
+  capture(function() Sl:ResetEverything() end)
+
+  assertEqual(#NS.db.global.history, 0, "history purged")
+  assertEqual(NS.db.global.savedView, nil, "savedView cleared")
+  assertEqual(next(NS.db.global.settings.window), nil, "window geometry cleared")
+  assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
+  assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1, "schema setting back to default")
+end)
+
 -- ── prefix colour (slash-commands-§4): the shared tag must be cyan ──
 
 test("NS.PREFIX is the mandated cyan [LH] tag", function()

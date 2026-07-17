@@ -731,10 +731,26 @@ function B:SaveView()
     print("view saved as default.")
   end
 end
-function B:ResetView()
+-- Drop the saved view back to stock. `silent` suppresses the chat line when called programmatically
+-- (the destructive "Reset All" prints its own single confirmation) — the filter-bar Reset button
+-- calls it with no argument and keeps the message.
+function B:ResetView(silent)
   if NS.db and NS.db.global then NS.db.global.savedView = nil end
   self:ApplyView(STOCK_VIEW, "current")
-  print("view reset to stock defaults.")
+  if not silent then print("view reset to stock defaults.") end
+end
+
+-- Reset the persisted window geometry (the settings.window storage-only carve-out) and recenter the
+-- live frame. Used only by the destructive "Reset All" — window position is runtime state, so the
+-- non-destructive settings resets deliberately leave it alone.
+function B:ResetWindow()
+  if NS.db and NS.db.global and NS.db.global.settings then
+    NS.db.global.settings.window = {}
+  end
+  if frame then
+    frame:ClearAllPoints()
+    RestoreWindow()   -- empty geometry → RestoreWindow centers the frame
+  end
 end
 
 -- Clear returns the filters/group/sort to the saved default (or stock), and the player scope

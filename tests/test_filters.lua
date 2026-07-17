@@ -93,6 +93,70 @@ test("Filters: change fires HistoryChanged (via Database) and re-caches the Coll
   clear()
 end)
 
+test("Filters: ClearList empties one list and returns the count removed", function()
+  clear()
+  F:AddBlacklist(1); F:AddBlacklist(2); F:AddBlacklist(3)
+  F:AddWhitelist(9)
+  assertEqual(F:ClearList("blacklist"), 3)
+  assertEqual(F:Count(F:Blacklist()), 0)
+  assertTrue(F:IsWhitelisted(9), "ClearList blacklist leaves the whitelist intact")
+  clear()
+end)
+
+test("Filters: ClearList on an empty or unknown list is a no-op returning 0", function()
+  clear()
+  assertEqual(F:ClearList("blacklist"), 0)   -- already empty
+  assertEqual(F:ClearList("bogus"), 0)        -- unknown key
+  clear()
+end)
+
+test("Filters: ClearList writes a fresh table (no shared-default aliasing)", function()
+  clear()
+  F:AddBlacklist(5)
+  local before = NS.db.global.blacklist
+  F:ClearList("blacklist")
+  assertTrue(NS.db.global.blacklist ~= before, "blacklist table replaced, not mutated in place")
+  clear()
+end)
+
+test("Filters: ClearAll empties both lists and returns the total removed", function()
+  clear()
+  F:AddBlacklist(1); F:AddBlacklist(2)
+  F:AddWhitelist(3)
+  assertEqual(F:ClearAll(), 3)
+  assertEqual(F:Count(F:Blacklist()), 0)
+  assertEqual(F:Count(F:Whitelist()), 0)
+  clear()
+end)
+
+test("Filters: ClearAll with both lists empty is a no-op returning 0", function()
+  clear()
+  assertEqual(F:ClearAll(), 0)
+  clear()
+end)
+
+test("Filters: ClearList fires HistoryChanged and re-caches the Collector", function()
+  clear()
+  F:AddBlacklist(77)
+  local sent = {}
+  local origSend = NS.bus.SendMessage
+  NS.bus.SendMessage = function(_, msg) sent[#sent + 1] = msg end
+  local recached = false
+  local realRefresh = NS.Collector.RefreshUpvalues
+  NS.Collector.RefreshUpvalues = function(self, ...) recached = true; return realRefresh(self, ...) end
+
+  F:ClearList("blacklist")
+
+  NS.bus.SendMessage = origSend
+  NS.Collector.RefreshUpvalues = realRefresh
+
+  local gotHistory = false
+  for _, m in ipairs(sent) do if m == "Ka0s_LootHistory_HistoryChanged" then gotHistory = true end end
+  assertTrue(gotHistory, "HistoryChanged fired")
+  assertTrue(recached, "Collector re-cached its list upvalues")
+  clear()
+end)
+
 test("Filters: SortedIDs returns ids ascending", function()
   clear()
   F:AddBlacklist(30); F:AddBlacklist(10); F:AddBlacklist(20)

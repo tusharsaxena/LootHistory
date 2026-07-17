@@ -472,6 +472,25 @@ local function makeFilterSection(ctx, listKey, title, desc)
   scroll:AddChild(addRow)
   addSpacer(scroll, 4)
 
+  -- Bulk "Clear all" for this list (confirm-gated). The list view refreshes itself via the
+  -- HistoryChanged listener that Filters:ClearList fires, so the button only shows the popup.
+  local clearRow = AceGUI:Create("SimpleGroup")
+  clearRow:SetLayout("Flow"); clearRow:SetFullWidth(true)
+  local clearBtn = AceGUI:Create("Button")
+  clearBtn:SetText("Clear all"); clearBtn:SetRelativeWidth(0.30)
+  clearBtn:SetCallback("OnClick", function()
+    local popup = (listKey == "blacklist") and "KA0S_LOOTHISTORY_CLEAR_BLACKLIST"
+      or "KA0S_LOOTHISTORY_CLEAR_WHITELIST"
+    if type(StaticPopup_Show) == "function" then
+      StaticPopup_Show(popup)
+    elseif NS.Filters and NS.Filters.ClearList then
+      NS.Filters:ClearList(listKey)
+    end
+  end)
+  clearRow:AddChild(clearBtn)
+  scroll:AddChild(clearRow)
+  addSpacer(scroll, 4)
+
   scroll:AddChild(listGroup)
 
   -- Rebuild on first paint and whenever the lists change elsewhere (e.g. the History right-click
