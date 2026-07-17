@@ -893,9 +893,24 @@ function B:OpenExport()
   -- Title tracks the invoking tab ("Export History" / "Export Insights") and generalizes to any
   -- future tab name — the tab that opens the modal supplies its own label.
   local title = "Export " .. tostring(lastTab)
+  -- The AI export (issue #12) bundles BOTH datasets for the selected Data Set — identical on every
+  -- tab, since one report shows History and Insights together. Export to CSV stays tab-specific.
+  local ai = {
+    history = {
+      allData     = function() return NS.Database:Export({}) end,
+      currentView = function()
+        return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
+          and NS.BrowserTable:OrderedFilteredRecords()) or {}
+      end,
+    },
+    insights = {
+      allData     = function() return NS.Database:Stats({}) end,
+      currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
+    },
+  }
   if lastTab == "Insights" then
     NS.Export:Open({
-      title = title,
+      title = title, ai = ai,
       providers = {
         allData     = function() return NS.Database:Stats({}) end,
         currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
@@ -904,7 +919,7 @@ function B:OpenExport()
     })
   else
     NS.Export:Open({
-      title = title,
+      title = title, ai = ai,
       providers = {
         allData     = function() return NS.Database:Export({}) end,
         currentView = function()
