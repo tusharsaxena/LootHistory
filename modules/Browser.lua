@@ -370,15 +370,8 @@ local function qualityColor(q)
 end
 
 -- Static option sets. "all" is the sentinel for "no filter"; onSelect maps it to nil.
--- Quality filters an EXACT quality (not "that and above"); each item is tinted its quality colour.
-local QUALITY_OPTIONS = {
-  { value = "all", label = "Quality: All" },
-  { value = 1, label = "Common",    color = qualityColor(1) },
-  { value = 2, label = "Uncommon",  color = qualityColor(2) },
-  { value = 3, label = "Rare",      color = qualityColor(3) },
-  { value = 4, label = "Epic",      color = qualityColor(4) },
-  { value = 5, label = "Legendary", color = qualityColor(5) },
-}
+-- (Quality is data-driven — see qualityOptions below — so any quality the history actually contains,
+-- Heirloom / Poor / Artifact included, shows up and absent ones don't clutter.)
 -- Ordered to mirror the table's column layout: Date, Quality, Type, Source, Zone, Character.
 local GROUP_OPTIONS = {
   { value = "none", label = "Group: None" },
@@ -525,6 +518,23 @@ local function zoneOptions()
   end
   return withAll("Zone: All", items)
 end
+-- Distinct qualities present in the dataset, in quality order (Poor → … → Heirloom), each tinted
+-- its quality colour. Data-driven (not a fixed 1–5 list) so Heirloom/Poor/Artifact appear whenever
+-- the history contains them — matching the Insights "Quality distribution". Quality filters an
+-- EXACT quality (not "that and above"). "all" (kept first) is the no-filter sentinel.
+local function qualityOptions()
+  local seen, items = {}, {}
+  for _, r in ipairs(dataset()) do
+    local q = r.quality
+    if q ~= nil and not seen[q] then
+      seen[q] = true
+      items[#items + 1] = { value = q, label = NS.Compat.QualityLabel(q), color = qualityColor(q) }
+    end
+  end
+  table.sort(items, function(a, b) return a.value < b.value end)
+  table.insert(items, 1, { value = "all", label = "Quality: All" })
+  return items
+end
 
 -- Copy a multi-select set into a plain filter value: a fresh set when non-empty, else nil (no
 -- filter). Copied — not aliased to the dropdown's live set — so a later toggle can't mutate the
@@ -591,6 +601,7 @@ end
 function B:RefreshFilterOptions()
   local dd = self._dd
   if not dd then return end
+  dd.quality:SetOptions(qualityOptions())
   dd.source:SetOptions(sourceOptions())
   dd.type:SetOptions(typeOptions())
   dd.subtype:SetOptions(subtypeOptions())
@@ -807,7 +818,7 @@ function B:BuildFilterBar(bar)
   dd.quality = MakeDropdown(bar, 100)
   dd.quality:SetPoint("LEFT", dd.bound, "RIGHT", 8, 0)
   dd.quality:SetMulti(true)
-  dd.quality:SetOptions(QUALITY_OPTIONS)
+  dd.quality:SetOptions(qualityOptions())
   dd.quality.onMultiSelect = function(set)
     B.activeFilter.quality = setToFilter(set)
     ApplyFilter()
