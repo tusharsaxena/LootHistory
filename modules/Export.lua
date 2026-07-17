@@ -205,6 +205,47 @@ function E:InsightsCSV(stats)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 
+-- ── AI report prompt (issue #12) ─────────────────────────────────────────────────
+-- Assembles the "Export to AI" prompt: short framing + a link to the in-repo design guideline
+-- (the "pure pointer" — the guideline carries the full design system and the embedded logos, so the
+-- prompt stays small) + the History and Insights CSVs for the selected dataset. Pure/unit-tested; the
+-- modal below feeds it the two serialized CSVs.
+local GUIDELINE_URL =
+  "https://raw.githubusercontent.com/tusharsaxena/LootHistory/master/docs/ai-export-guideline.md"
+local AI_LARGE_ROWS = 4000
+
+function E:AIPrompt(historyCSV, insightsCSV, opts)
+  opts = opts or {}
+  local lines = {
+    "You are given a World of Warcraft loot-history export from the \"Ka0s Loot History\" addon.",
+    "Build ONE single, self-contained HTML file that presents this data as a beautiful, interactive report.",
+    "",
+    "Follow this design guideline EXACTLY — fetch and read it first. It defines the theme, sections,",
+    "colors, charts, interactions, and the embedded logos to use:",
+    GUIDELINE_URL,
+    "",
+    "Rules:",
+    "- Output only the HTML file, nothing else. It must be fully self-contained: all CSS and JS inline,",
+    "  no external requests, no CDNs, no web fonts (use system fonts only).",
+    "- Title the report literally: \"Ka0s Loot History \226\128\148 <realm>, <date range>\", taking the realm",
+    "  and date range from the data.",
+    "- Two datasets follow as CSV: the full loot HISTORY (one row per drop) and a pre-computed INSIGHTS",
+    "  summary. Render both exactly as the guideline specifies.",
+  }
+  if (opts.rows or 0) > AI_LARGE_ROWS then
+    lines[#lines + 1] =
+      "- NOTE: this is a large export. If your AI tool truncates it, re-export using the modal's"
+    lines[#lines + 1] =
+      "  \"Current View\" data set to narrow the loot before exporting."
+  end
+  lines[#lines + 1] = ""
+  lines[#lines + 1] = "=== HISTORY (CSV) ==="
+  lines[#lines + 1] = historyCSV or ""
+  lines[#lines + 1] = "=== INSIGHTS (CSV) ==="
+  lines[#lines + 1] = insightsCSV or ""
+  return table.concat(lines, "\n")
+end
+
 -- ── Export modal ────────────────────────────────────────────────────────────────
 -- A small skinned window: a Data Set selector (All Data / Current View) plus Export-to-CSV and
 -- Export-to-AI (placeholder) buttons. Reuses the Browser's flat skin + close glyph. Both output
@@ -393,9 +434,4 @@ function E:Open(cfg)
   if f.titleFS then f.titleFS:SetText(config.title or "Export") end
   centerOnBrowser(f)
   f:Show()
-end
-
--- Placeholder for the AI-report export (built later): will bundle the dataset into a report prompt.
-function E:AIPrompt(data)  -- luacheck: ignore data
-  return ""
 end

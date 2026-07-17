@@ -124,3 +124,21 @@ test("Export: InsightsCSV omits blacklisted items (via Stats/ActiveHistory)", fu
   assertTrue(csv:find("Summary,Records,1,", 1, true) ~= nil, "blacklisted record excluded")
   NS.db.global.blacklist = {}
 end)
+
+test("Export: AIPrompt embeds guideline URL, both CSV blocks, and framing", function()
+  local p = NS.Export:AIPrompt("H1,H2\r\nx,y\r\n", "Section,Label\r\nSummary,Records\r\n", {})
+  assertTrue(p:find("ai-export-guideline.md", 1, true) ~= nil, "references the guideline")
+  assertTrue(p:find("=== HISTORY (CSV) ===", 1, true) ~= nil, "history marker")
+  assertTrue(p:find("=== INSIGHTS (CSV) ===", 1, true) ~= nil, "insights marker")
+  assertTrue(p:find("H1,H2", 1, true) ~= nil, "history csv embedded")
+  assertTrue(p:find("Summary,Records", 1, true) ~= nil, "insights csv embedded")
+  assertTrue(p:find("self-contained", 1, true) ~= nil, "self-contained rule stated")
+  assertTrue(p:find("Ka0s Loot History", 1, true) ~= nil, "literal title instruction")
+end)
+
+test("Export: AIPrompt large-dataset note gated on opts.rows", function()
+  local small = NS.Export:AIPrompt("h\r\n", "i\r\n", { rows = 10 })
+  assertTrue(small:find("Current View", 1, true) == nil, "no note for small exports")
+  local big = NS.Export:AIPrompt("h\r\n", "i\r\n", { rows = 99999 })
+  assertTrue(big:find("Current View", 1, true) ~= nil, "note appears for large exports")
+end)
