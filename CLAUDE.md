@@ -47,7 +47,9 @@ This root file is a stub (per standard §15.2). Read these before touching code:
 - **Compat firewall**: every varying/deprecated API lives in `core/Compat.lua` and is gated by
   `C_*`/global presence — Retail-only, no `WOW_PROJECT_ID` game-flavor branching.
 - **Schema-as-single-source**: `settings/Schema.lua` drives AceDB defaults, panel widgets, and the
-  slash CLI; every user-setting mutation goes through `Schema:Set` (window geometry is the carve-out).
+  slash CLI; every user-setting mutation goes through `Schema:Set`. Carve-outs (written straight to
+  `NS.db.global`): window geometry, `savedView`, and the `blacklist`/`whitelist` id lists (via
+  `NS.Filters`) — the last is flagged pending ratification (see `docs/saved-variables.md`).
 - **Debug is session-only** (`NS.State.debug`, never persisted); it routes to the on-screen console.
 - **Test inventory & badge stay in sync.** When the suite changes (a case added/removed/renamed, or
   the pass count moves), regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`)

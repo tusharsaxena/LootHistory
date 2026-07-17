@@ -30,28 +30,29 @@ LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0. All libraries are **ven
 ## Module map
 
 Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat first) →
-`defaults/` → `locales/` → `settings/` → `modules/` (Attribution before Collector).
+`defaults/` → `locales/` → `settings/` → `modules/` (Attribution and Filters before Collector).
 
 | File | Role |
 |---|---|
 | `core/Compat.lua` | **Loads first.** The compat firewall: every deprecated/varying-API shim gated by direct `C_*`/global presence (no `WOW_PROJECT_ID` game-flavor branching — Retail-only) — GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
 | `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
-| `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
+| `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, the session-only `testRecords` (the `/lh test` synthetic dataset), and `viaWhitelistIDs` (the derived whitelist-orphan index for `VisibleHistory`). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. Also the shared **secret-safe chat printer** — `NS.Print` (+ `IsConcatSafe`/`SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua`. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
-| `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`, retention. `ActiveHistory` is the read seam that swaps in the test dataset (see Data model). |
-| `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `settings`, `minimap`. |
+| `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`VisibleHistory`/`RebuildWhitelistIndex`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset, over `VisibleHistory` which hides blacklisted + un-whitelisted-orphan rows (see Data model). |
+| `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `settings`, `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
 | `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge/reset-all confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
-| `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Collector. |
-| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, quality gate, quest-item gate (by item class), `Consume`, source-exclude check, `BuildRecord`, `Database:Add`. Caches hot-path upvalues. |
-| `modules/Browser.lua` | Window shell: frame/skin, tabs, multi-select filter bar (Bound/Quality/Type/SubType/Source/Zone/Character, date, search), group-by, footer, `Export` button, LDB launcher + LibDBIcon minimap button. |
-| `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions. `OrderedFilteredRecords` exposes the on-screen order for export. |
-| `modules/Export.lua` | Export modal (`NS.Export:Open`): Data Set dropdown (All Data / Current View), CSV serialization (`CSV` — human `date`/`time`, `quality`/`sellPrice` labels beside `*Raw` columns, friendly `bound`, trailing `wowheadLink`), `WowheadLink` builder, own copy window, and an `AIPrompt` stub. Called directly by the Browser; no bus message. |
-| `modules/Analytics.lua` | Insights tab: date-range scoped stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`. Pooled bar/strip/list renderers. |
+| `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
+| `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists (issue #14) — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID`. On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
+| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, flagging the row `viaWhitelist`), `Consume`, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
+| `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`), LDB launcher + LibDBIcon minimap button. |
+| `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
+| `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window; `AIPrompt` stub. Called directly by the Browser; no bus message. |
+| `modules/Analytics.lua` | Insights tab: stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
 ---
@@ -71,6 +72,7 @@ back fast table ops.
   source, sourceDetail,                      -- source ∈ Constants.SourceType
   zone, mapID, subzone,                       -- where
   confidence,                                 -- CERTAIN | INFERRED
+  viaWhitelist,                               -- optional/sparse: true if kept only via the whitelist (issue #14)
 }
 ```
 
@@ -84,9 +86,15 @@ back fast table ops.
   export contract (do not change its field shape).
 - **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
   `CurrentRecords`) resolve their dataset through `Database:ActiveHistory()`, which returns
-  `State.testRecords` when `/lh test` is active and the live `.global.history` otherwise. This is
-  why toggling test mode drives both the History table and the Insights tab off the same synthetic
-  data. Write paths (`Add`, prune) always target the real history — they never see the override.
+  `State.testRecords` when `/lh test` is active and `VisibleHistory()` otherwise. This is why
+  toggling test mode drives both the History table and the Insights tab off the same synthetic data.
+  Write paths (`Add`, prune) always target the real history — they never see the override.
+- **Hidden-row read seam (issue #14).** `VisibleHistory()` filters the live history: **blacklisted**
+  ids are hidden (removing the id restores their rows), and a row kept **only** via the whitelist
+  (`viaWhitelist`) is hidden once its id leaves the whitelist (re-adding restores it) — nothing is
+  ever deleted. It returns the raw array unchanged (no allocation) when there is nothing to hide,
+  gated by the `State.viaWhitelistIDs` index (`RebuildWhitelistIndex`, rebuilt at init + on every
+  history mutation). The lists live in `.global.{blacklist,whitelist}`, owned by `NS.Filters`.
 
 **Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
 `TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`, plus the deconstruct sources
@@ -94,8 +102,10 @@ back fast table ops.
 — the export contract — but adding is forward-compatible), and only sources with a live stamper are
 exposed in the UI:
 `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser's
-data-driven filter dropdowns (Source/Type/SubType/Zone/Character, all multi-select) self-scope from live
-data. `ROLL`/`CRAFT` have no stamper yet (see Known limitations).
+data-driven filter dropdowns (Bound/Quality/Source/Type/SubType/Zone/Character, all multi-select)
+self-scope from live data — each offers only the values the history actually contains (so Heirloom,
+Poor, Warbound, etc. appear only when present). `ROLL`/`CRAFT` have no stamper yet (see Known
+limitations).
 
 ---
 
@@ -115,8 +125,12 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
 
-`settings.window` (persisted position/size) and `minimap` (LibDBIcon state) are storage-only,
-not user-facing rows. Debug is session-only (`NS.State.debug`) and never persisted.
+`settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
+(LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced
+in the settings **Filters** subcategory) are storage/data state written straight to `NS.db.global`,
+**not** Schema rows and not routed through `Schema:Set` — an accepted carve-out (see Standards
+compliance, and [`saved-variables.md`](saved-variables.md)). Debug is session-only (`NS.State.debug`)
+and never persisted.
 
 ---
 
@@ -134,8 +148,13 @@ table reach.
 | Message | Sender | Payload | Consumers |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
-| `Ka0s_LootHistory_HistoryChanged` | `Database` (`DeleteAt`/`Delete`/`PruneOld`/`Purge`) | — | Browser, Analytics, Panel |
+| `Ka0s_LootHistory_HistoryChanged` | `Database` (`DeleteAt`/`Delete`/`PruneOld`/`Purge`, and the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit) | — | Browser, Analytics, Panel (History stats + Filters page) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / questfilter / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+
+> A blacklist/whitelist edit stays within the one-sender rule: it re-caches the Collector via a
+> **direct** `Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) and broadcasts
+> `HistoryChanged` through `Database:FireHistoryChanged()` (so `Database` remains that message's sole
+> sender). The Panel's Filters page subscribes to `HistoryChanged` on its own second bus target.
 
 > `windowScale` and `minimap.hide` changes are **not** broadcast on the bus — their `onChange`
 > calls `Browser:SetScale` / `Browser:SetMinimapHidden` directly. Only `enabled`, quality,
@@ -204,7 +223,13 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Standards compliance
 
-No deviations from the Ka0s standard (also recorded in [`scope.md`](scope.md) and [`agent-context.md`](agent-context.md)).
+One open deviation is **flagged for the user to ratify** (per the deviation rule): the `blacklist` /
+`whitelist` item-id lists (issue #14) are persistent state managed outside `Schema:Set` — a fourth
+carve-out alongside `settings.window`, `savedView`, and `settings.windowScale`'s geometry sibling. A
+dynamic id-set has no schema widget to express, so `NS.Filters` mutates `NS.db.global` directly, as
+the pre-existing carve-outs do. Recorded in [`saved-variables.md`](saved-variables.md) under the
+"Standards note"; ratify or revise there. No other deviations.
+
 Two surface-specific notes:
 
 1. **The standalone browser window follows standalone-windows** (Standalone windows / data browsers): a non-secure
@@ -235,8 +260,8 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
 - **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned.
-- **AI export is a stub only** — the Export modal ships CSV export today; the **Export to AI**
-  button is a greyed placeholder backed by an `Export:AIPrompt` stub (report-prompt construction
-  is future work).
+- **AI export is a stub only** — the tab-aware Export modal ships CSV today (loot rows from History,
+  a sectioned analytics dump from Insights); the **Export to AI** button is a greyed placeholder
+  backed by an `Export:AIPrompt` stub (report-prompt construction is future work).
 
 See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.
