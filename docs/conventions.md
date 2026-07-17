@@ -108,6 +108,26 @@ the small-scale rules those documents assume.
   three ways to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table),
   `Analytics.lua` (Insights) — the largest sitting near ~1000 lines.
 
+## Media: Blizzard defaults, with one ratified font exception
+
+- **Fonts, textures, and borders default to Blizzard-shipped media.** Text uses stock `GameFont*`
+  font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:65`);
+  every texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
+  `UI-CheckBox-Check`, `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
+  `WHITE8X8` drawn as 1px edges, coloured from the flat `SKIN` table (`modules/Browser.lua:19`).
+  The one non-Blizzard asset outside media is the addon's own logo in the settings panel
+  (`settings/Panel.lua:530`) — branding art, not a re-skinnable surface.
+- **Ratified exception — the monospace console font (audited 2026-07-17).** The debug console and
+  the export/debug copy boxes render in the vendored **JetBrains Mono** (`Constants.FONT_MONO`,
+  used at `modules/DebugLog.lua:93`,`:191` and `modules/Export.lua:305`). This is a **deliberate,
+  ratified deviation** from Blizzard-default-only: WoW ships **no monospace font object**, and
+  column-aligned copy/paste text needs one. The font is OFL-licensed and vendored at
+  `media/fonts/`; init registers it with LibSharedMedia (`core/LootHistory.lua:30`) purely to
+  *publish* it — nothing reads a font setting. Do not re-flag this as a standards deviation.
+- **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
+  only for the registration above (no `Fetch`/`List`). Making the flat `SKIN` user-configurable is
+  a tracked post-1.0.0 idea (`modules/Browser.lua:14`), not a gap to close now.
+
 ## Options UI: Blizzard canvas, never AceConfigDialog
 
 - The settings panel is a Blizzard `Settings.RegisterCanvasLayoutCategory` parent (the landing page)
