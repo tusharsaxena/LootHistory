@@ -248,3 +248,22 @@ test("BrowserTable.RenderSummary is a single coalesced line", function()
   assertTrue(s:find("filters=2", 1, true) ~= nil, "reports active filter count")
   assertTrue(s:find("\n") == nil, "one line only, no newline")
 end)
+
+test("BrowserTable: auction column formats auctionPrice and sorts numerically", function()
+  assertEqual(NS.BrowserTable:CellText("auction", { auctionPrice = 12345 }),
+    NS.Util.FormatMoney(12345))
+  assertEqual(NS.BrowserTable:CellText("auction", {}), "")   -- FormatMoney(nil) => ""
+  -- column ordering: auction sits immediately before char (last), after vendor.
+  local keys = {}
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do keys[#keys + 1] = c.key end
+  local vi, ai, ci
+  for i, k in ipairs(keys) do
+    if k == "vendor" then vi = i elseif k == "auction" then ai = i elseif k == "char" then ci = i end
+  end
+  assertTrue(vi and ai and ci and vi < ai and ai < ci, "expected vendor < auction < char")
+end)
+
+test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)", function()
+  assertTrue(NS.BrowserTable:MinFrameWidth() >= 1212,
+    "AH column must widen the frame past the old 1160 floor")
+end)

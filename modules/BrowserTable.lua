@@ -167,6 +167,10 @@ BrowserTable.COLUMNS = {
     desc = "Vendor sell price per unit.",
     valueFn = function(r) return NS.Util.FormatMoney(r.sellPrice) end,
     sortFn = function(r) return r.sellPrice or 0 end },
+  { key = "auction", label = "AH", width = 72, align = "RIGHT",
+    desc = "Auction-house price per unit at loot time (from your AH pricing addon).",
+    valueFn = function(r) return NS.Util.FormatMoney(r.auctionPrice) end,
+    sortFn = function(r) return r.auctionPrice or 0 end },
   -- Character is always the last column (see order note above).
   { key = "char", label = "Character", width = 132, align = "LEFT",
     desc = "Character who looted the item — full Name-Realm, class-colored.",
@@ -194,7 +198,7 @@ BrowserTable.sortAsc = false
 
 -- Columns whose sortFn yields a number. New sort on these starts descending (largest/
 -- newest first); text columns start ascending (A→Z). Re-clicking a column toggles.
-local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, quality = true, vendor = true }
+local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, quality = true, vendor = true, auction = true }
 
 -- The default WoW font has no ▲/▼/▶ glyphs, so all arrows use inline texture markup instead.
 -- ":0" sizes the texture to the surrounding line height. These button textures ship in every
@@ -372,6 +376,8 @@ function BrowserTable:BuildTestData()
       itemLevel = isGear and (560 + q * 12 + rng(40)) or nil, -- gear only; scales with quality
       bound = b.key,
       sellPrice = (q * q + 1) * (200 + rng(1800)) + rng(500), -- wide, quality-skewed value spread
+      auctionPrice = (rng(100) <= 70) and ((q * q + 1) * (600 + rng(6000)) + rng(1500)) or nil,
+      priceSource = (rng(100) <= 70) and ({ "auctionator", "tsm:dbmarket", "oribos:market" })[rng(3)] or nil,
       itemType = ty,
       itemSubType = (function()
         local list = TEST_SUBTYPES[ty] or TEST_SUBTYPES_MISC
