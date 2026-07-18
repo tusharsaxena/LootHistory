@@ -13,7 +13,7 @@ WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard
 
 ### The loader
 
-`tests/loader.lua` `loadfile`s each source path and `setfenv`s the chunk into an environment whose `__index` resolves WoW globals to the mock set first, then falls back to real `_G`. Each chunk is called with `("LootHistory", NS)` — exactly the `local addonName, NS = ...` header every file expects. `loadAll` walks the TOC-ordered path list (`core/Compat` first, Attribution before Collector), so load-order bugs surface here just as they would in-game.
+`tests/loader.lua` `loadfile`s each source path and `setfenv`s the chunk into an environment whose `__index` resolves WoW globals to the mock set first, then falls back to real `_G`. Each chunk is called with `("LootHistory", NS)` — exactly the `local addonName, NS = ...` header every file expects. `loadAll` walks the TOC-ordered path list (`locales/enUS` first, then `core/Compat`, Attribution before Collector, settings last), so load-order bugs surface here just as they would in-game.
 
 ### The mock (deliberately partial)
 

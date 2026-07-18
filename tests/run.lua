@@ -24,6 +24,7 @@ local mocks = buildMocks()
 local NS = {}
 
 Loader.loadAll({
+  "locales/enUS.lua",
   "core/Compat.lua",
   "core/Constants.lua",
   "core/Namespace.lua",
@@ -32,10 +33,6 @@ Loader.loadAll({
   "core/LootHistory.lua",
   "core/Database.lua",
   "defaults/Global.lua",
-  "locales/enUS.lua",
-  "settings/Schema.lua",
-  "settings/Slash.lua",
-  "settings/Panel.lua",
   "modules/Attribution.lua",
   "modules/Filters.lua",
   "modules/Collector.lua",
@@ -44,6 +41,9 @@ Loader.loadAll({
   "modules/Export.lua",
   "modules/Analytics.lua",
   "modules/DebugLog.lua",
+  "settings/Schema.lua",
+  "settings/Slash.lua",
+  "settings/Panel.lua",
 }, NS, mocks)
 
 NS:InitDB()

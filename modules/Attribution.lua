@@ -12,7 +12,7 @@ local Attribution = NS.Attribution
 --
 -- Every stamp/consume and each trigger logs to the session debug console when `/lh debug` is on
 -- (NS.State.debug); the logging is gated at the call site so nothing is built when debug is off
--- (standard §8). Turn it on and reproduce a loot to trace exactly which path attributes an item.
+-- (debug-logging). Turn it on and reproduce a loot to trace exactly which path attributes an item.
 
 local State = NS.State
 local Constants = NS.Constants

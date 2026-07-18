@@ -29,8 +29,8 @@ LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0. All libraries are **ven
 
 ## Module map
 
-Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat first) →
-`defaults/` → `locales/` → `settings/` → `modules/` (Attribution and Filters before Collector).
+Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `core/` (Compat first) →
+`defaults/` → `modules/` (Attribution and Filters before Collector) → `settings/` (last).
 
 | File | Role |
 |---|---|
@@ -44,7 +44,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `settings`, `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
-| `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge/reset-all confirm dialogs. |
+| `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge / reset-all / filter-list-clear confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
 | `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID`. On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |

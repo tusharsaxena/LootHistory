@@ -80,8 +80,8 @@ end
 -- NOTE: settings.window and savedView (see savedViewOrStock below) are view/window runtime state
 -- persisted directly to NS.db.global by the Browser — they are intentionally NOT Schema rows, so
 -- they don't route through Schema:Set. The "every mutation goes through Schema:Set" convention
--- (CLAUDE §2) covers user settings only; §6A window geometry and the saved table view are
--- carved out. See docs/agent-context.md.
+-- (CLAUDE §2) covers user settings only; window geometry (standalone-windows) and the saved table
+-- view are carved out. See docs/agent-context.md.
 
 local function SaveWindow()
   if not frame then return end

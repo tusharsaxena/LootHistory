@@ -12,7 +12,7 @@ Companion docs:
 - What each slash verb dispatches to: [slash-dispatch.md](slash-dispatch.md).
 - Source-resolution model (how a drop gets its source + confidence): [attribution.md](attribution.md).
 - Window/table internals referenced throughout: [browser.md](browser.md).
-- Settings panel widgets + the §6.10 scrollbar/button rules: [settings-panel.md](settings-panel.md).
+- Settings panel widgets + the options-ui-§10 scrollbar/button rules: [settings-panel.md](settings-panel.md).
 
 ## Conventions
 
@@ -22,7 +22,7 @@ Companion docs:
 - **Chat banner** — every line the addon prints starts with a cyan `[LH]` (`NS.PREFIX`). A line
   missing the banner, or a doubled `[LH][LH]`, is a bug.
 - **Slash roots** — `/lh` and `/loothistory` are equivalent; the examples use `/lh`. **Bare `/lh`
-  prints the help index** (Ka0s §7.4) — it does *not* open the window; use `/lh toggle|show|hide`.
+  prints the help index** (slash-commands-§4) — it does *not* open the window; use `/lh toggle|show|hide`.
 - **"Loot at/above threshold"** means loot an item whose quality is ≥ the `Minimum quality` setting
   (default Common). `CHAT_MSG_LOOT` (self lines only) is the authoritative capture signal — anything
   that produces a "You receive loot:" line is a candidate: mob kills, containers/nodes, vendor buys,
@@ -35,7 +35,7 @@ Companion docs:
 | # | Area | Surfaces | Scenario |
 |---|------|----------|----------|
 | 1 | Cold load | TOC load order, `OnInitialize`/`OnEnable`, help printer | [Fresh install + first login](#1-fresh-install--first-login) |
-| 2 | Window | §6A frame, ESC, position/size/scale persistence | [The history window](#2-the-history-window) |
+| 2 | Window | standalone-windows frame, ESC, position/size/scale persistence | [The history window](#2-the-history-window) |
 | 3 | Capture + attribution | `CHAT_MSG_LOOT`, gates, source stamping | [Capture + source attribution](#3-capture--source-attribution) |
 | 4 | Gates | Quality threshold, quest-item gate, source mute | [Collection gates](#4-collection-gates) |
 | 5 | History table | Filter / sort / group / search / row actions | [History table operations](#5-history-table-operations) |
@@ -44,7 +44,7 @@ Companion docs:
 | 7 | Insights | Shared filter scope, cards, breakdowns | [Insights tab](#7-insights-tab) |
 | 8 | Test mode | Synthetic dataset drives both tabs | [`/lh test` synthetic preview](#8-lh-test-synthetic-preview) |
 | 9 | Settings panel | Schema widgets ↔ CLI parity | [Settings panel + CLI parity](#9-settings-panel--cli-parity) |
-| 10 | Panel chrome | §6.10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
+| 10 | Panel chrome | options-ui-§10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
 | 11 | Minimap | LibDBIcon show/hide, click actions | [Minimap button](#11-minimap-button) |
 | 12 | Debug console | `/lh debug` window + session-only logging | [Debug console](#12-debug-console) |
 | 13 | Retention | `PruneOld` on login + onChange | [Retention prune](#13-retention-prune) |
@@ -65,8 +65,8 @@ Loot History**.
 - Run `/reload`, then `/lh`.
 
 **Pass.**
-- Login and `/reload` complete with **no Lua errors**. Every TOC file loads (Compat first, then the
-  rest of `core/`, defaults, locales, settings, then modules with Attribution before Collector).
+- Login and `/reload` complete with **no Lua errors**. Every TOC file loads (locales first, then
+  `core/` with Compat first, defaults, then modules with Attribution before Collector, and settings last).
 - `/lh` (bare) prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
   `COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
@@ -80,7 +80,7 @@ Loot History**.
 
 ### 2. The history window
 
-The standalone window follows Standard §6A: a non-secure `CreateFrame`, ESC-closable via
+The standalone window follows the Standard's standalone-windows section: a non-secure `CreateFrame`, ESC-closable via
 `UISpecialFrames`, with persisted position/size/scale. It is **not** combat-gated.
 
 **Setup.** Any character with the addon loaded.
@@ -343,7 +343,7 @@ History** (both must land on the same category).
 
 ### 10. Panel chrome + confirm dialogs
 
-Covers the §6.10 always-shown scrollbar and the un-clipped paired action buttons, plus the two
+Covers the options-ui-§10 always-shown scrollbar and the un-clipped paired action buttons, plus the two
 destructive-action confirm dialogs.
 
 **Setup.** `/lh config` → the panel body.

@@ -8,7 +8,7 @@ English only. Ace3 throughout.
 
 This addon adheres to the **Ka0s WoW Addon Standard** — <https://github.com/tusharsaxena/WowAddonStandards>.
 
-## Standards compliance
+## Standards compliance (read first)
 
 The **Ka0s WoW Addon Standard** (link above) is the **living source of truth** for this repo's
 structure, conventions, TOC/packaging, saved-variables, and UI patterns. Consult it before any
@@ -23,7 +23,7 @@ structural or convention decision — fetch the repo when the answer isn't obvio
 
 ## Full agent context lives in `docs/`
 
-This root file is a stub (per standard §15.2). Read these before touching code:
+This root file is a stub (per documentation-§2). Read these before touching code:
 
 - **[docs/agent-context.md](docs/agent-context.md)** — the full working-notes brief: hard rules,
   module-publishing pattern, response style, working environment, and the doc index. **Start here.**
@@ -55,7 +55,7 @@ This root file is a stub (per standard §15.2). Read these before touching code:
   the pass count moves), regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`)
   and update the README `tests` badge count in the same change. See [docs/testing.md](docs/testing.md).
 
-## Local verification (standard §14A)
+## Local verification (standard: testing)
 
 - Unit tests: `lua tests/run.lua` (headless, exits non-zero on failure).
 - Lint: `luacheck .` (0 errors).

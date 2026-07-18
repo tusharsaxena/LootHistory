@@ -50,6 +50,20 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- The Filters subcategory's top-right "Defaults" button (options-ui-§5) clears BOTH lists in one
+  -- action — their default state is empty. Non-destructive like the per-list clears: stored history
+  -- is never touched. The panel refreshes itself via the HistoryChanged listener Filters:ClearAll fires.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_CLEAR_FILTERS"] = {
+    text = "Reset the item-id filters to defaults (clear BOTH the blacklist and whitelist)? Your existing history is unaffected.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function()
+      local n = (NS.Filters and NS.Filters.ClearAll and NS.Filters:ClearAll()) or 0
+      print(("filters reset (%d %s cleared)."):format(n, n == 1 and "id" or "ids"))
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
 end
 
 -- Full reset (the confirm-gated "Reset All"): wipe history AND restore every persisted piece of
@@ -71,7 +85,7 @@ function Sl:Register()
   NS.addon:RegisterChatCommand("loothistory", function(input) Sl:OnSlash(input) end)
 end
 
--- Bare `/lh` prints the help index (Ka0s standard §7.4). Window display is explicit:
+-- Bare `/lh` prints the help index (slash-commands-§4). Window display is explicit:
 -- `/lh toggle` or `/lh show|hide`. Only the verb is lower-cased; `rest` keeps its case
 -- so schema paths survive `/lh set <path> <value>`.
 function Sl:OnSlash(input)
@@ -87,7 +101,7 @@ function Sl:OnSlash(input)
   Sl:PrintHelp()
 end
 
--- Help index generated from NS.COMMANDS (Ka0s standard §7.4): a version/alias header,
+-- Help index generated from NS.COMMANDS (slash-commands-§4): a version/alias header,
 -- then one prefixed row per command — gold command, em-dash, white description.
 function Sl:PrintHelp()
   print("v" .. (NS.version or "") ..

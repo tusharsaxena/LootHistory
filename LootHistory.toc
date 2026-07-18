@@ -25,6 +25,9 @@ libs\LibSharedMedia-3.0\lib.xml
 libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 
+# Locales
+locales\enUS.lua
+
 # Core (Compat loads first)
 core\Compat.lua
 core\Constants.lua
@@ -37,14 +40,6 @@ core\Database.lua
 # Defaults
 defaults\Global.lua
 
-# Locales
-locales\enUS.lua
-
-# Settings
-settings\Schema.lua
-settings\Slash.lua
-settings\Panel.lua
-
 # Modules (Attribution before Collector)
 modules\Attribution.lua
 modules\Filters.lua
@@ -54,3 +49,8 @@ modules\BrowserTable.lua
 modules\Export.lua
 modules\Analytics.lua
 modules\DebugLog.lua
+
+# Settings
+settings\Schema.lua
+settings\Slash.lua
+settings\Panel.lua

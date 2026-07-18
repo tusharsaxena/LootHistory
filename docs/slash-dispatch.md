@@ -61,10 +61,11 @@ The flag is never persisted to SavedVariables and resets to off on every `/reloa
 
 ## Confirm dialogs
 
-Two `StaticPopupDialogs` entries are registered once at load, in-game only (`settings/Slash.lua:7`):
+Five `StaticPopupDialogs` entries are registered once at load, in-game only (`settings/Slash.lua:7`):
 
 - **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:191`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history" button raises the same popup (`settings/Panel.lua:348`).
 - **`KA0S_LOOTHISTORY_RESETALL`** — the confirm behind the Settings panel's **"Reset All"** button, *not* the `resetall` slash verb. Accepting runs `Sl:ResetEverything` (`settings/Slash.lua`), which wipes history (`Database:Purge`), restores every setting **and** clears the filter lists (`CliResetAll`), then drops `savedView` to stock (`Browser:ResetView`) and recenters the window (`Browser:ResetWindow`), then refreshes the panel. This is the total destructive reset; the `/lh resetall` verb only resets settings + filter lists and prompts for nothing.
 - **`KA0S_LOOTHISTORY_CLEAR_BLACKLIST`** / **`KA0S_LOOTHISTORY_CLEAR_WHITELIST`** — the confirms behind the Filters sub-page's per-list **"Clear all"** buttons. Accepting calls `Filters:ClearList(<list>)`; the panel refreshes via its `HistoryChanged` listener. Non-destructive — clearing a list only empties its id-set; stored history is untouched (blacklisting affected future captures only).
+- **`KA0S_LOOTHISTORY_CLEAR_FILTERS`** — the confirm behind the Filters subcategory's top-right **"Defaults"** button (its default state is two empty lists). Accepting calls `Filters:ClearAll()`, clearing **both** the blacklist and whitelist in one action; the panel refreshes via the same `HistoryChanged` listener. Non-destructive — stored history is untouched.
 
 See [saved-variables.md](saved-variables.md) for what `purge` and the reset actions clear in `LootHistoryDB.global`.

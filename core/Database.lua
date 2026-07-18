@@ -6,7 +6,7 @@ function NS:InitDB()
   NS:RunMigrations()   -- normalize the persisted schema before any history read
 end
 
--- Schema-migration runner (Ka0s Standard §2.2/§5.1). Reads/writes db.global.schemaVersion and
+-- Schema-migration runner (toc-file-§2 / savedvariables-§1). Reads/writes db.global.schemaVersion and
 -- ships even with an effectively empty body — the *seam* is the requirement: future schema
 -- changes get a single, idempotent upgrade path invoked once at init, before any read of
 -- db.global.history. Safe no-op when the DB isn't ready yet.

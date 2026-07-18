@@ -18,7 +18,7 @@ local ADDON_TITLE   = "Ka0s Loot History"
 local ADDON_TAGLINE = "Records every item you loot, attributes its source, and lets you browse and analyse it."
 local LOGO_PATH     = "Interface\\AddOns\\LootHistory\\media\\logos\\loothistory.logo.tga"
 
--- Layout constants (Ka0s standard values; see WowAddonStandards §6.8).
+-- Layout constants (Ka0s standard values; see WowAddonStandards options-ui-§8).
 local PADDING_X     = 16   -- left/right edge inset for header, divider, body
 local HEADER_TOP    = 20   -- title + Defaults button inset from the panel top
 local HEADER_HEIGHT = 54   -- top → divider; body starts at HEADER_HEIGHT + 8
@@ -27,8 +27,8 @@ local LOGO_SIZE     = 300  -- landing-page logo display size
 local ROW_VSPACER   = 8    -- gap between two-column rows
 local SECTION_TOP_SPACER, SECTION_BOTTOM_SPACER, SECTION_HEADING_H = 10, 6, 26
 -- Cell-filling paired ACTION buttons inset to this (not 0.5) so their right border clears the
--- ScrollFrame's clip (Ka0s standard §6.6/§6.8). Label-inset controls (checkbox/dropdown/slider)
--- reserve that gutter already and stay at 0.5 — they're immune (§6.10).
+-- ScrollFrame's clip (options-ui-§6/§8). Label-inset controls (checkbox/dropdown/slider)
+-- reserve that gutter already and stay at 0.5 — they're immune (options-ui-§10).
 local BUTTON_PAIR_REL = 0.492
 
 local mainCategoryID  -- parent "Ka0s Loot History" category (target of /lh config)
@@ -99,7 +99,7 @@ local function createPanel(name, title, opts)
   return { panel = panel, body = body, scroll = nil, refreshers = {}, lastGroup = nil }
 end
 
--- LH-08 / Ka0s §6.10: keep the settings-panel scrollbar ALWAYS visible — and inert when the page
+-- LH-08 / options-ui-§10: keep the settings-panel scrollbar ALWAYS visible — and inert when the page
 -- fits — so the reserved right gutter, and therefore the body width, is identical across short and
 -- long subcategories. AceGUI's stock FixScroll hides the bar and reclaims the 20px gutter when
 -- content fits, which shifts body width between pages. This per-instance override keeps the bar
@@ -180,7 +180,7 @@ local function ensureScroll(ctx)
   scroll.frame:SetPoint("TOPLEFT",     ctx.body, "TOPLEFT",      PADDING_X - 4, -8)
   scroll.frame:SetPoint("BOTTOMRIGHT", ctx.body, "BOTTOMRIGHT", -(PADDING_X + 12), 8)
   scroll.frame:Show()
-  installAlwaysShownScrollbar(scroll)   -- §6.10 always-shown, inert-when-fits scrollbar
+  installAlwaysShownScrollbar(scroll)   -- options-ui-§10 always-shown, inert-when-fits scrollbar
   ctx.scroll = scroll
   return scroll
 end
@@ -210,7 +210,7 @@ local function applyWidth(w, rel)
 end
 
 -- Shared maker for a paired action button (Reset All, Purge). Insets to BUTTON_PAIR_REL so the
--- right border isn't shaved by the ScrollFrame clip (§6.6/§6.8) — the single seam for the width.
+-- right border isn't shaved by the ScrollFrame clip (options-ui-§6/§8) — the single seam for the width.
 local function makePairButton(text, onClick)
   local btn = AceGUI:Create("Button")
   btn:SetText(text)
@@ -621,8 +621,19 @@ function P:Register()
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
 
   -- Filters subcategory = blacklist / whitelist item-id management (issue #14).
-  local fctx = createPanel("LootHistoryFiltersPanel", "Filters", { defaultsButton = false })
+  local fctx = createPanel("LootHistoryFiltersPanel", "Filters", { defaultsButton = true })
   P.filters = fctx
+  -- Defaults here = clear both id-lists (their stock state is empty), confirm-gated. The page holds
+  -- no Schema rows, so this is the "restore defaults" for what it manages.
+  if fctx.panel.defaultsBtn then
+    fctx.panel.defaultsBtn:SetCallback("OnClick", function()
+      if type(StaticPopup_Show) == "function" then
+        StaticPopup_Show("KA0S_LOOTHISTORY_CLEAR_FILTERS")
+      elseif NS.Filters and NS.Filters.ClearAll then
+        NS.Filters:ClearAll()
+      end
+    end)
+  end
   local fRendered = false
   fctx.panel:SetScript("OnShow", function()
     if not fRendered then
@@ -638,7 +649,9 @@ end
 
 function P:Open()
   if InCombatLockdown and InCombatLockdown() then
-    print("Can't open settings in combat.")
+    -- options-ui-§2: refuse in combat (Blizzard's category-switch is protected). Grey notice, early
+    -- return — never defer-and-replay on PLAYER_REGEN_ENABLED. \226\128\148 = em-dash.
+    print("|cff808080cannot open settings during combat \226\128\148 Blizzard's category-switch is protected|r")
     return
   end
   if Settings and Settings.OpenToCategory and mainCategoryID then

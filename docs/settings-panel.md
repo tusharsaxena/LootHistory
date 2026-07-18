@@ -86,6 +86,8 @@ A **second subcategory, "Filters"**, is a deliberately non-schema page: a dynami
 
 Each section is a heading + description + an **add row** (an `EditBox` accepting a bare item id **or** a shift-clicked item link, parsed by `NS.Filters:ParseItemID`, plus an `Add` button) + a **Clear all** button (confirm-gated → `Filters:ClearList`, for emptying the list without a full settings reset) + a **live list** (`rebuildFilterList`) of the current ids, each a label (`NS.Compat.ItemNameQuality` resolves the name; a background `LoadItem` fills in names not yet cached) with a **Remove** button. Adds/removes go through `NS.Filters` (`modules/Filters.lua`), which mutates copy-on-write and fires `SettingsChanged` + `HistoryChanged`. The page live-rebuilds both lists on a **private `NS.NewBusTarget()`** (`HistoryChanged`), so the History right-click **Blacklist item** action reflects here immediately while the panel is open.
 
+Like every subcategory, the Filters page also carries a top-right **Defaults** button (options-ui-§5). Here it means "reset the filters to their stock state" — both lists empty — so it is confirm-gated (`KA0S_LOOTHISTORY_CLEAR_FILTERS`) and clears **both** lists at once via `NS.Filters:ClearAll`, distinct from the two per-section **Clear all** buttons which each empty one list. It live-refreshes through the same `HistoryChanged` listener.
+
 The lists are **core app logic** and act point-in-time, so there is intentionally no user-facing blacklist/whitelist *display* filter in the browser — blacklisting an id only stops future captures, and whitelisting an id only rescues future loots that would otherwise fail the gate; neither list ever hides or restores an already-stored row.
 
 ## Ka0s options-ui-§6/§8/§10 details this panel implements

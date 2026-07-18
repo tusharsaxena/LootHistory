@@ -65,6 +65,7 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 - The **blacklist/whitelist** are user-configured filter *settings*, so both settings resets clear them — the non-destructive path clears the two id-sets (copy-on-write replace + one `_notify`) but never touches `history`; since the lists are point-in-time only, there is nothing in `history` left to reconcile. `Filters:ClearList` / `Filters:ClearAll` do a single copy-on-write replace + one `_notify`.
 - **`savedView` and window geometry** are view/runtime state, so only the confirm-gated **Reset All** touches them (matching its "cannot be undone" wording). `savedView` also has its own filter-bar **Reset** button (`Browser:ResetView`).
 - The Filters sub-page carries per-list **Clear all** buttons (confirm-gated, `KA0S_LOOTHISTORY_CLEAR_BLACKLIST`/`_WHITELIST`) so a list can be emptied without a full settings reset.
+- The Filters subcategory's own header **Defaults** button (`KA0S_LOOTHISTORY_CLEAR_FILTERS` → `Filters:ClearAll`) clears **both** id-lists at once but touches **nothing else** — not the schema settings, `savedView`, window, or `history`. (The "Defaults" in the matrix above is the **General** page's button, which resets schema settings *and* the lists.)
 
 ## Init and migration lifecycle
 
