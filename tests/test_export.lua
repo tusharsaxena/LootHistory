@@ -141,6 +141,8 @@ test("Export: AIPrompt embeds guideline URL, both CSV blocks, and framing", func
     "warns that a guideline copy without the tool is a stale cache")
   assertTrue(p:find("web_fetch", 1, true) ~= nil,
     "forbids web_fetch of the template in the prompt itself")
+  assertTrue(p:find("cache%-buster") ~= nil or p:find("curl", 1, true) ~= nil,
+    "stale-cache recovery names a cache-bypassing fetch, not a plain re-fetch")
 end)
 
 test("Export: AIPrompt large-dataset note gated on opts.rows", function()

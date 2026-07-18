@@ -1,6 +1,6 @@
 # Ka0s Loot History — AI Report Guideline
 
-*Guideline v1.1.0 rev3 · 2026-07-18*
+*Guideline v1.1.0 rev4 · 2026-07-18*
 
 You are turning a **Ka0s Loot History** loot export into a **single, self-contained, interactive HTML
 report**. You do **not** design or build the report from scratch — you **fill in a ready-made
@@ -28,16 +28,22 @@ one of those steps by hand is slow and error-prone; the tool is deterministic an
 `tools/build_report.py`
 (<https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/tools/build_report.py>)
 
-1. **Get the export onto disk without retyping it.** Best: have the user **attach/upload the export as a
-   file** (ChatGPT / Gemini / Claude Desktop), or paste it in **Claude Code**, which auto-stores a large
-   paste as a file. Use that file directly. If you were only handed the export as inline chat text and
-   your environment did not file it, write it to disk **once, verbatim** — never regenerate the rows.
+1. **Get the export onto disk without retyping it.** **First check whether the paste is already a file** —
+   many environments auto-store a large paste or an upload (an uploads directory, or a path the tool hands
+   you: ChatGPT / Gemini / Claude Desktop attachments, Claude Code's auto-filed paste). If it is, point
+   `--prompt` at **that file directly and write nothing** — this is by far the fastest path, and it skips
+   all re-emission. **Only if the export truly is not on disk** (inline chat text your environment did not
+   file), write it **once, verbatim** — never regenerate the rows. In that write-once case you only need
+   the **HISTORY block plus the INSIGHTS `Summary` rows**: the assembler cross-checks nothing else, so do
+   **not** re-type the rest of INSIGHTS (`By Source`, `By Quality`, `Top Items…`, `By Day`, …) — it's a
+   card-writing reference you already have in context, and re-emitting it is wasted work.
 2. Download `build_report.py` (the URL above) into that working directory.
 3. Write your analysis cards (see **Write the analysis cards** below) to `cards.html`.
 4. Run:
    `python3 build_report.py --prompt export.txt --cards cards.html -o report.html`
-   It self-extracts both the `=== HISTORY (CSV) ===` and `=== INSIGHTS (CSV) ===` blocks (so you never
-   split, retype, or count the data), builds `H`, downloads the template in full, splices your cards,
+   It self-extracts the `=== HISTORY (CSV) ===` block and, if present, the `=== INSIGHTS (CSV) ===` block
+   (INSIGHTS is optional — it only drives the Summary cross-check; a HISTORY-only file still builds a full
+   report and PASSes), builds `H`, downloads the template in full, splices your cards,
    and validates everything — record count, distinct items, characters, epic+, best iLvl, richest drop,
    busiest day, **vendor value = Σ(v×qty)**, ≥10 cards, no external requests, no literal `\u`/`\x`
    escapes in your cards, and a byte-for-byte head/engine/footer match against the template. It prints
@@ -46,10 +52,22 @@ one of those steps by hand is slow and error-prone; the tool is deterministic an
 
 Then output the report per the **Output contract** below.
 
-The tool's **PASS** already reconciles every Summary figure (records, distinct items, characters, epic+,
-best iLvl, richest drop, busiest day, vendor value = Σ(v×qty)), counts your cards, and scans for external
-requests, literal escapes, and template sample-name leaks — and it prints an itemized checklist of each.
-You do **not** need to re-run those checks by hand; trust the checklist and cite it.
+### Run it once, and trust it — do not re-verify
+
+The assembler is **first-party, deterministic, and unit-tested**, and its **PASS is the complete and only
+validation you need.** It already reconciles every Summary figure (records, distinct items, characters,
+epic+, best iLvl, richest drop, busiest day, vendor value = Σ(v×qty)), counts your cards, and scans for
+external requests, literal escapes, and template sample-name leaks — and prints an itemized checklist of
+each.
+
+- **Trust the inputs.** HISTORY and INSIGHTS were computed by the addon and are authoritative — do not
+  second-guess or re-derive them.
+- **Do NOT reconcile the data yourself — not before running the tool, not after.** No independent Python
+  recount of the Summary figures, no post-run self-containment re-scan, no "cheap insurance" double-check.
+  The tool already does every one of these; repeating them by hand is **forbidden** and adds nothing but
+  wasted time.
+- **A green PASS is done.** Cite its checklist and move on. Only a **FAIL** warrants action — fix exactly
+  what it names and re-run.
 
 ## Write the analysis cards — ***CRITICAL*** (both paths)
 
@@ -101,7 +119,9 @@ Two CSV blocks follow the prompt (both for the user's selected Data Set — All 
   Type`, `By Bound Type`, `By Character`, `By Weekday`, `By Hour`, `By Keystone`, `Attribution
   Confidence`, `Top Zones`, `Top Items by Count`, `Top Items by Value`, `By Day`). The engine
   recomputes the charts from `H`, so you do **not** need INSIGHTS for them — use it as a fast reference
-  while **writing** the analysis cards.
+  while **writing** the analysis cards. The assembler reads only the **`Summary`** section (for its
+  cross-check); every other INSIGHTS section is purely a reading aid — never re-type them into the export
+  file (see step 1).
 
 > **Value math.** Every value/gold KPI aggregates as **Σ(v × qty)**, not Σ(v) — stacked rows (e.g. a
 > potion ×40) multiply. The engine does this for you; if you validate a parse against the INSIGHTS

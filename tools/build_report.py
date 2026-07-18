@@ -71,12 +71,20 @@ INSIGHTS_MARK = "=== INSIGHTS (CSV) ==="
 
 
 def extract_blocks(prompt_text):
-    """Split the pasted prompt into (history_csv, insights_csv)."""
-    if HISTORY_MARK not in prompt_text or INSIGHTS_MARK not in prompt_text:
-        raise ValueError("prompt is missing the HISTORY/INSIGHTS markers")
+    """Split the pasted prompt into (history_csv, insights_csv).
+
+    HISTORY is required. INSIGHTS is OPTIONAL (v4): the assembler only ever
+    cross-checks the INSIGHTS *Summary*, so a prompt carrying just the HISTORY
+    block — or HISTORY + a Summary-only INSIGHTS — is valid. When the INSIGHTS
+    marker is absent, insights is "" and the cross-check is skipped (the report
+    is built from HISTORY alone regardless)."""
+    if HISTORY_MARK not in prompt_text:
+        raise ValueError("prompt is missing the HISTORY marker")
     after_h = prompt_text.split(HISTORY_MARK, 1)[1]
-    history, insights = after_h.split(INSIGHTS_MARK, 1)
-    return history.strip("\n") + "\n", insights.strip("\n") + "\n"
+    if INSIGHTS_MARK in after_h:
+        history, insights = after_h.split(INSIGHTS_MARK, 1)
+        return history.strip("\n") + "\n", insights.strip("\n") + "\n"
+    return after_h.strip("\n") + "\n", ""
 
 
 def parse_money(s):
@@ -321,6 +329,7 @@ def build_report(prompt_text, cards, template, min_cards=10):
     history_csv, insights_csv = extract_blocks(prompt_text)
     realm, rows = parse_history_csv(history_csv)
     insights = parse_insights(insights_csv)
+    insights_present = bool(insights)   # empty when no INSIGHTS block was given
     errs = list(validate_against_insights(rows, insights))
     html = splice(template, realm, emit_h_body(rows), cards)
     n = card_count(html)
@@ -339,6 +348,7 @@ def build_report(prompt_text, cards, template, min_cards=10):
         "figures": computed_figures(rows),
         "cards": n, "min_cards": min_cards,
         "external": ext, "escapes": esc, "leak": leak,
+        "insights_present": insights_present,
     }
     return html, errs, info
 
@@ -346,10 +356,12 @@ def build_report(prompt_text, cards, template, min_cards=10):
 def _print_pass_summary(info):
     f = info["figures"]
     best = f["best_ilvl"] if f["best_ilvl"] is not None else "n/a"
+    label = ("vs INSIGHTS" if info.get("insights_present", True)
+             else "figures (no INSIGHTS block — cross-check skipped)")
     print("PASS — checks green:")
-    print("  vs INSIGHTS: Records %d | Distinct %d | Chars %d | Epic+ %d | "
+    print("  %s: Records %d | Distinct %d | Chars %d | Epic+ %d | "
           "Best iLvl %s | Richest %s | Busiest %s(%d) | Vendor sum(v*qty) %s"
-          % (f["records"], f["distinct"], f["characters"], f["epic_plus"],
+          % (label, f["records"], f["distinct"], f["characters"], f["epic_plus"],
              best, _fmt_money(f["richest"]), f["busiest_day"], f["busiest_n"],
              _fmt_money(f["vendor"])))
 

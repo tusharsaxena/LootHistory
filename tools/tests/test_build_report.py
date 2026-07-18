@@ -79,6 +79,16 @@ class TestExtractAndInsights(unittest.TestCase):
         self.assertTrue(ins.startswith("Section,Label"))
         self.assertIn("Vendor value", ins)
 
+    def test_extract_blocks_history_only(self):
+        # v4: INSIGHTS is optional. A HISTORY-only prompt yields insights "".
+        hist, ins = br.extract_blocks("intro\n" + br.HISTORY_MARK + "\n" + HISTORY)
+        self.assertTrue(hist.startswith("ts,date,time"))
+        self.assertEqual(ins, "")
+
+    def test_extract_blocks_missing_history_raises(self):
+        with self.assertRaises(ValueError):
+            br.extract_blocks("no markers here at all")
+
     def test_parse_money(self):
         self.assertEqual(br.parse_money("10g 8s 0c"), 100800)
         self.assertEqual(br.parse_money("0g 0s 7c"), 7)
@@ -367,6 +377,31 @@ class TestPassSummary(unittest.TestCase):
         self.assertEqual(info["cards"], 2)
         self.assertEqual(info["leak"], [])
         self.assertEqual(info["figures"]["records"], 3)
+
+    def test_build_report_without_insights_block(self):
+        # v4 lever B: a HISTORY-only prompt (no INSIGHTS) still builds & passes;
+        # the cross-check is simply skipped and the flag records that.
+        prompt = "intro\n" + br.HISTORY_MARK + "\n" + HISTORY
+        html, errs, info = br.build_report(prompt, NEW_CARDS, STUB_TEMPLATE,
+                                           min_cards=2)
+        self.assertEqual(errs, [])
+        self.assertFalse(info["insights_present"])
+        self.assertEqual(info["figures"]["records"], 3)
+        self.assertIn('"c":"Aria"', html)
+
+    def test_summary_only_insights_still_validates(self):
+        # A Summary-only INSIGHTS (the v4 minimal fallback) cross-checks cleanly.
+        summary_only = (
+            "Section,Label,Count,Value\r\n"
+            "Summary,Records,3,\r\n"
+            "Summary,Vendor value,,10g 8s 0c\r\n"
+        )
+        prompt = (br.HISTORY_MARK + "\n" + HISTORY +
+                  br.INSIGHTS_MARK + "\n" + summary_only)
+        _, errs, info = br.build_report(prompt, NEW_CARDS, STUB_TEMPLATE,
+                                        min_cards=2)
+        self.assertEqual(errs, [])
+        self.assertTrue(info["insights_present"])
 
     def test_main_prints_itemized_checklist_on_pass(self):
         d = tempfile.mkdtemp()
