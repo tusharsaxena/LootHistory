@@ -91,7 +91,7 @@ Each pooled row wires three interactions (`AcquireRow`, `BrowserTable.lua:621-65
 
 - **Hover** → the full in-game item tooltip via `GameTooltip:SetHyperlink(record.itemLink)`; INFERRED rows get a "Source inferred (uncertain)." note, plus a hint line advertising the click actions.
 - **Shift-left-click** → `ChatEdit_InsertLink(link)` links the item to chat.
-- **Right-click** → `ShowRowMenu` (`BrowserTable.lua`), a tiny flat-skin popup (gold border so it reads against the 3D world) with **Link to chat**, **Blacklist item**, and **Delete**. **Blacklist item** (issue #14) calls `NS.Filters:AddBlacklist(record.itemID)` — every row of that id vanishes from the browser immediately (data kept; restore it from Settings ▸ Filters). There is deliberately no whitelist action here (whitelisting is about items that were *not* recorded, so there's no row to act on). **Delete** calls `NS.Database:Delete(pred)` (which fires `HistoryChanged`) and repaints immediately.
+- **Right-click** → `ShowRowMenu` (`BrowserTable.lua`), a tiny flat-skin popup (gold border so it reads against the 3D world) with **Link to chat**, **Blacklist item**, and **Delete**. **Blacklist item** (issue #14) calls `NS.Filters:AddBlacklist(record.itemID)` — point-in-time, so the clicked row (and every other stored row of that id) stays in the browser; only *future* loots of the id are dropped. Use **Delete** to remove existing rows. There is deliberately no whitelist action here (whitelisting is about items that were *not* recorded, so there's no row to act on). **Delete** calls `NS.Database:Delete(pred)` (which fires `HistoryChanged`) and repaints immediately.
 
 A group header's left-click toggles its collapse instead.
 
