@@ -20,8 +20,8 @@ python3 tools/build_report.py --prompt prompt.txt --cards cards.html -o report.h
 - `--template` — a local template path; omitted, it downloads the template in full.
 
 It transcribes `H`, cross-checks the parse against INSIGHTS (records, distinct
-items, characters, epic+, best iLvl, richest drop, busiest day, and vendor value
-= Σ(v×qty)), enforces ≥10 cards, scans for external requests, and confirms the
+items, characters, epic+, best iLvl, richest drop, busiest day, and value
+= Σ(val×qty)), enforces ≥10 cards, scans for external requests, and confirms the
 head/engine/footer are byte-identical to the template — printing PASS/FAIL and
 exiting non-zero on any failure.
 

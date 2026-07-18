@@ -6,7 +6,7 @@ The full inventory of every headless test case, grouped by suite. This file is t
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`
 whenever the suite changes (see [testing.md](testing.md)).
 
-### test_util.lua (23)
+### test_util.lua (24)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -31,6 +31,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: Set unknown path returns false
 - Schema: nested minimap path writes
 - Schema: reset does not alias the table-typed default (F-003)
+- Util: RecordValue prefers auctionPrice, falls back to sellPrice, else nil
 
 ### test_compat.lua (11)
 
@@ -89,7 +90,17 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: SortedIDs returns ids ascending
 - Filters: ParseItemID reads a number, an item link, and an itemString
 
-### test_collector.lua (22)
+### test_auctionprice.lua (7)
+
+- AuctionPrice: Auctionator hit returns price + tag
+- AuctionPrice: falls through Auctionator(nil) to TSM
+- AuctionPrice: falls through to OribosExchange
+- AuctionPrice: no providers present returns nil, nil
+- AuctionPrice: a provider that errors is skipped, not fatal
+- AuctionPrice: disabled master switch returns nil
+- AuctionPrice: priority reorder puts TSM first
+
+### test_collector.lua (23)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -113,6 +124,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: excludeQuestItems row exists, defaults true, settable
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
+- Collector: BuildRecord carries auctionPrice + priceSource from env
 
 ### test_database.lua (41)
 
@@ -158,7 +170,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - NS.MigrationSummary formats from/to/rows
 - Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
 
-### test_stats.lua (13)
+### test_stats.lua (14)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -173,8 +185,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Stats: hour/weekday buckets sum to record count (TZ-independent)
 - Stats: highlights + topItemsByValue
 - Analytics.SummaryLine formats range and count
+- Stats: value uses auctionPrice when present, else sellPrice
 
-### test_browsertable.lua (16)
+### test_browsertable.lua (18)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -192,14 +205,17 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: test mode filters the synthetic dataset
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
+- BrowserTable: auction column formats auctionPrice and sorts numerically
+- BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
 
-### test_export.lua (18)
+### test_export.lua (20)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
 - Export: WowheadLink falls back to itemID, then empty
 - Export: CSV header order — ts,date,time first; renamed raw + human siblings; link last
+- Export: CSV auction/value columns — auction present and vendor fallback
 - Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence
 - Export: CSV row emits friendly bound + quotes commas
 - Export: CSV date + time columns are FormatDate/FormatClock(ts)
@@ -213,6 +229,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)
 - Export: AIPrompt embeds guideline URL, both CSV blocks, and framing
 - Export: AIPrompt large-dataset note gated on opts.rows
+- Export: AIPrompt explains three price types and when to use value
 
 ### test_debuglog.lua (16)
 
@@ -259,27 +276,29 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 
-### test_schema.lua (4)
+### test_schema.lua (5)
 
 - Schema: debugConsole row is session-only, in Master Controls
 - Schema: setting debugConsole toggles the window, never writes db.global
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row still writes db.global
+- Schema: auction rows exist with the Auction House Price group and defaults
 
 ## Totals
 
 | Suite | Cases |
 |-------|------:|
-| test_util.lua | 23 |
+| test_util.lua | 24 |
 | test_compat.lua | 11 |
 | test_attribution.lua | 21 |
 | test_filters.lua | 16 |
-| test_collector.lua | 22 |
+| test_auctionprice.lua | 7 |
+| test_collector.lua | 23 |
 | test_database.lua | 41 |
-| test_stats.lua | 13 |
-| test_browsertable.lua | 16 |
-| test_export.lua | 18 |
+| test_stats.lua | 14 |
+| test_browsertable.lua | 18 |
+| test_export.lua | 20 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
-| test_schema.lua | 4 |
-| **Total** | **224** |
+| test_schema.lua | 5 |
+| **Total** | **239** |

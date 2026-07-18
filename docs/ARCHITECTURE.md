@@ -46,13 +46,14 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `c
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
 | `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge / reset-all / filter-list-clear confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
+| `modules/AuctionPrice.lua` | `NS.AuctionPrice:Lookup(itemLink, itemID)`: reads an AH price for a just-looted item from installed third-party pricing addons, in a user-configurable, first-hit-wins cascade (Auctionator → TSM → OribosExchange by default, `settings.auction.*`). Every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the cascade continues. Returns `price, tag` (both `nil` when no enabled provider has a price). Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
 | `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID`. On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
-| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
+| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, an `AuctionPrice:Lookup` call to stamp `auctionPrice`/`priceSource`, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`), LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv, ai }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. **Export to AI** (`AIPrompt`) bundles BOTH CSVs for the selected Data Set into a prompt that points at `docs/ai-export-guideline.md` (pure pointer — no network from the addon), which in turn instructs the AI to fetch and fill the ready-made `docs/ai-export-template.html` (a data-driven report whose engine renders KPIs, charts and the history browser from the loot rows); plus a "?" help popup. Called directly by the Browser; no bus message. |
-| `modules/Analytics.lua` | Insights tab: stat/highlight cards + breakdowns (source, vendor value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
+| `modules/Analytics.lua` | Insights tab: stat/highlight cards + breakdowns (source, value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
 ---
@@ -68,6 +69,7 @@ back fast table ops.
   ts, char, classFile,                       -- when / who (classFile = locale-independent token)
   itemID, itemLink, itemName, quality,       -- item identity
   itemLevel, bound, sellPrice,               -- itemLevel: equippable only; bound: BOE|BOP|ACCOUNT|WARBAND
+  auctionPrice, priceSource,                  -- AH snapshot (copper, per unit) + provenance; both nil if unpriced
   itemType, itemSubType, quantity,           -- item classification + stack size
   source, sourceDetail,                      -- source ∈ Constants.SourceType
   zone, mapID, subzone,                       -- where
@@ -84,6 +86,14 @@ back fast table ops.
   filtering no longer hides stored rows) without deleting any records.
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
+- **`auctionPrice`/`priceSource` are optional record fields, added with no `schemaVersion` bump
+  and no migration.** `auctionPrice` (copper, per unit) is an AH price snapshot taken at loot time
+  by `modules/AuctionPrice.lua`'s cascade (Auctionator → TSM → OribosExchange, user-configurable,
+  first-hit-wins); `priceSource` is its provenance tag. Both are `nil` when no enabled provider had
+  a price — including every record written before this feature, which simply falls back to
+  vendor. There is **no stored `value` field**: every "worth" figure (Insights, the browser Value
+  column, CSV/AI export) is derived on read via `Util.RecordValue(record)` — `auctionPrice` if
+  present, else `sellPrice`, else `nil` — never persisted. See [data-model.md](data-model.md).
 - **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
   `CurrentRecords`) resolve their dataset through `Database:ActiveHistory()`, which returns
   `State.testRecords` when `/lh test` is active and the raw account-wide history otherwise. This is
@@ -128,6 +138,10 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `settings.excludeQuestItems` | Data Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
 | `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
+| `settings.auction.enabled` | Auction House Price | CheckBox | `true` | Master switch for the AH-price cascade (`modules/AuctionPrice.lua`); `false` short-circuits `Lookup` to `nil, nil`. |
+| `settings.auction.tsmSource` | Auction House Price | Dropdown | `"dbmarket"` | Which TSM price key the cascade requests when it reaches TSM. |
+| `settings.auction.auctionator` / `.tsm` / `.oribos` | Auction House Price | CheckBox | `true` | Per-provider on/off. |
+| `settings.auction.priorityAuctionator` / `.priorityTSM` / `.priorityOribos` | Auction House Price | Dropdown | `1` / `2` / `3` | Cascade order (1 = probed first); ties broken by canonical order. |
 
 `settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
 (LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced
@@ -234,6 +248,19 @@ the `blacklist` / `whitelist` item-id lists (issue #14) are persistent state man
 express, so `NS.Filters` mutates `NS.db.global` directly, exactly as the pre-existing carve-outs do;
 it is accepted as the same class, and the standard's own definition was left unchanged. Recorded in
 [`saved-variables.md`](saved-variables.md) under the "Standards note".
+
+A second carve-out was raised and **ratified (2026-07-18)** for the AH-price integration: the
+third-party pricing-addon shims (`Auctionator` / `TSM_API` / `OEMarketInfo` presence + call
+wrapping) live in `modules/AuctionPrice.lua`, **deliberately outside** `core/Compat.lua`.
+`core/Compat.lua` is defined as the *Blizzard*-API compat firewall (deprecated/varying `C_*`/global
+shims); a cascade over **other addons'** APIs is a different kind of boundary — optional,
+config-driven, multi-provider, and irrelevant to every non-pricing module — so folding it into
+Compat would blur that file's one job. The Ka0s Standard does not currently define a boundary for
+third-party (non-Blizzard) addon interop, so this is recorded as a resolved gap rather than a
+deviation: `AuctionPrice` is the addon's third-party-integration boundary, presence-gated exactly
+like Compat's own shims (each provider call is `pcall`-wrapped so a broken/absent addon degrades to
+`nil` and the cascade continues), but it is its own module because its subject is not a Blizzard
+API. The standard's own definition was left unchanged.
 
 Two surface-specific notes:
 

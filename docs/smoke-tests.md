@@ -132,8 +132,8 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
 - Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
   a Lua error, never a missing row.
 - The denormalized columns render correctly: item link (exact tooltip), quality colour, iLvl, bound
-  glyph (BoE/BoP/Account/Warband), vendor value, type, zone, and the Character column (class icon +
-  class colour).
+  glyph (BoE/BoP/Account/Warband), the Vendor and AH price columns, type, zone, and the Character
+  column (class icon + class colour).
 
 ### 4. Collection gates
 
@@ -238,14 +238,15 @@ exports depends on which tab is showing.
 
 **Pass.**
 - **History export** — the CSV copy window opens with the loot-row header
-  (`ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,sellPrice,sellPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink`)
+  (`ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,sellPrice,sellPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource,itemType,itemSubType,quantity,source,zone,wowheadLink`)
   and one row per record. `date` reads DD-MMM-YYYY and `time` reads HH:MM; `quality` is a label beside
-  numeric `qualityRaw`; `sellPrice` reads `Ng Ns Nc` beside copper `sellPriceRaw`; `bound` is a friendly
-  label; comma-bearing item names are quoted; `wowheadLink` is a `wowhead.com/item=…` URL (with
-  `?bonus=…` when the item has bonus IDs). `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence`
-  are **not** exported.
+  numeric `qualityRaw`; `sellPrice`/`auctionPrice`/`value` read `Ng Ns Nc` beside their copper `*Raw`
+  columns (`auctionPrice`/`auctionPriceRaw` blank when no priced provider had a price); `value` is the
+  derived worth (`auctionPrice` if present, else `sellPrice`); `bound` is a friendly label; comma-bearing
+  item names are quoted; `wowheadLink` is a `wowhead.com/item=…` URL (with `?bonus=…` when the item has
+  bonus IDs). `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence` are **not** exported.
 - **Insights export** — the CSV instead has the analytics header `Section,Label,Count,Value` and
-  mirrors the Insights view: a **Summary** block (records, distinct items, characters, vendor value,
+  mirrors the Insights view: a **Summary** block (records, distinct items, characters, value,
   active days, epic+, best iLvl, richest, date range, busiest day) then **By Source / Quality / Item
   Type / Bound Type / Character / Weekday / Hour / Keystone**, **Attribution Confidence**, **Top Zones**,
   **Top Items by Count / Value**, and **By Day**. Values render `Ng Ns Nc`.
@@ -269,12 +270,12 @@ exports depends on which tab is showing.
   re-scopes the whole view live; switching tabs keeps the same filter, so the History table and the
   Insights charts always show the same slice. The empty state (a filter matching nothing) hides the
   chart sections cleanly instead of erroring.
-- The stat cards populate: **records, distinct items, characters, vendor value, active days, epic+
-  drops, best drop (ilvl), richest drop, date range, busiest day**. "Vendor value" is
-  `sellPrice × quantity`, not market price.
-- The breakdown sections render as horizontal bars / ranked lists: **Loot by source, Vendor value by
+- The stat cards populate: **records, distinct items, characters, value, active days, epic+
+  drops, best drop (ilvl), richest drop, date range, busiest day**. "Value" is the derived worth
+  (`auctionPrice` if captured at loot time, else `sellPrice`) `× quantity` — not raw vendor price.
+- The breakdown sections render as horizontal bars / ranked lists: **Loot by source, Value by
   source, Quality distribution, Quality mix, Loot by item type, Loot by bound type, Loot by character,
-  Loot over time (per day), Vendor value over time (per day), Loot by hour of day, Loot by weekday,
+  Loot over time (per day), Value over time (per day), Loot by hour of day, Loot by weekday,
   Mythic+ loot by keystone level, Attribution confidence**, plus **Top zones**, **Top items by count**,
   and **Top items by value**.
 - Looting an item with Insights open updates the cards live (the tab reacts to `RecordAdded`).

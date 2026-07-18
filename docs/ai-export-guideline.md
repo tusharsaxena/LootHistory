@@ -1,6 +1,6 @@
 # Ka0s Loot History — AI Report Guideline
 
-*Guideline v1.1.0 rev5 · 2026-07-18*
+*Guideline v1.1.0 rev6 · 2026-07-18*
 
 You are turning a **Ka0s Loot History** loot export into a **single, self-contained, interactive HTML
 report**. You do **not** design or build the report from scratch — you **fill in a ready-made
@@ -45,7 +45,7 @@ one of those steps by hand is slow and error-prone; the tool is deterministic an
    (INSIGHTS is optional — it only drives the Summary cross-check; a HISTORY-only file still builds a full
    report and PASSes), builds `H`, downloads the template in full, splices your cards,
    and validates everything — record count, distinct items, characters, epic+, best iLvl, richest drop,
-   busiest day, **vendor value = Σ(v×qty)**, ≥10 cards, no external requests, no literal `\u`/`\x`
+   busiest day, **value = Σ(val×qty)**, ≥10 cards, no external requests, no literal `\u`/`\x`
    escapes in your cards, and a byte-for-byte head/engine/footer match against the template. It prints
    **PASS/FAIL** and exits non-zero on any issue. Fix what it reports and re-run.
    (In a repo checkout the script is at `tools/build_report.py`; `--template PATH` accepts a local copy.)
@@ -56,7 +56,7 @@ Then output the report per the **Output contract** below.
 
 The assembler is **first-party, deterministic, and unit-tested**, and its **PASS is the complete and only
 validation you need.** It already reconciles every Summary figure (records, distinct items, characters,
-epic+, best iLvl, richest drop, busiest day, vendor value = Σ(v×qty)), counts your cards, and scans for
+epic+, best iLvl, richest drop, busiest day, value = Σ(val×qty)), counts your cards, and scans for
 external requests, literal escapes, and template sample-name leaks — and prints an itemized checklist of
 each.
 

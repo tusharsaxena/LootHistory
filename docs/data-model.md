@@ -21,6 +21,8 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
   itemLevel    = 639,
   bound        = "BOP",
   sellPrice    = 25000,
+  auctionPrice = 41200,             -- AH price snapshot (copper, per unit); nil if no priced provider
+  priceSource  = "tsm:dbmarket",    -- provenance tag; nil when auctionPrice is nil
   itemType     = "Armor",
   itemSubType  = "Cloth",
   quantity     = 1,
@@ -46,7 +48,9 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
 | `quality` | Numeric `Enum.ItemQuality` (0 Poor … 5 Legendary). Denormalized for fast filter/sort and the quality breakdown. |
 | `itemLevel` | Effective item level for equippable items; `nil` otherwise. |
 | `bound` | Bind state: `nil` \| `"BOE"` \| `"BOP"` \| `"ACCOUNT"` \| `"WARBAND"`. |
-| `sellPrice` | Vendor sell price in **copper, per unit** (captured at loot time — not market price). "Value" throughout Insights is `sellPrice × quantity`. |
+| `sellPrice` | Vendor sell price in **copper, per unit** (captured at loot time — not market price). The guaranteed floor of "value" — see `Util.RecordValue` below. |
+| `auctionPrice` | Auction-house price snapshot in **copper, per unit**, taken at loot time by `NS.AuctionPrice:Lookup` (`modules/AuctionPrice.lua`) from whichever pricing addon answers first in the configured cascade (Auctionator → TSM → OribosExchange by default; user-configurable, first-hit-wins). **`nil`** when no enabled provider had a price (no pricing addon installed, item unpriced, cascade disabled, or every provider errored). Never re-priced after capture — it is a point-in-time snapshot, not a live market feed. |
+| `priceSource` | Provenance tag for `auctionPrice`: `"auctionator"`, `"tsm:<source>"` (e.g. `"tsm:dbmarket"`, keyed by the configured TSM price source), or `"oribos:market"` / `"oribos:region"`. **`nil`** whenever `auctionPrice` is `nil`. |
 | `itemType` / `itemSubType` | Localized item class / subclass strings (e.g. `Armor` / `Cloth`); back the type breakdown and the type filter. |
 | `quantity` | Stack size for this loot event (the `%d` from `CHAT_MSG_LOOT`; `1` for the singular line). |
 | `source` | `SourceType` enum key (see below) — how the item arrived, resolved by the attribution engine. See [attribution.md](./attribution.md). |
@@ -56,7 +60,30 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
 | `subzone` | Optional finer sub-area string. |
 | `confidence` | `Confidence` enum key — `CERTAIN` when a live source stamp was adopted, `INFERRED` on the `OTHER` fallback. |
 
-The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bound`, `sellPrice`, `itemType`, `itemSubType`) exist so the [browser](./browser.md) table can filter/sort/group thousands of rows without touching item links or the item cache; `itemLink` remains the source of truth for the tooltip.
+The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bound`, `sellPrice`, `auctionPrice`, `itemType`, `itemSubType`) exist so the [browser](./browser.md) table can filter/sort/group thousands of rows without touching item links or the item cache; `itemLink` remains the source of truth for the tooltip.
+
+### Derived value — `Util.RecordValue`, never stored
+
+There is **no `value` field on the record.** Every "worth" figure — the Insights Value breakdown,
+the browser's Value column, the CSV/AI export — computes it on read via `Util.RecordValue(record)`
+(`core/Util.lua`):
+
+```lua
+function Util.RecordValue(record)
+  if record == nil then return nil end
+  local a = record.auctionPrice
+  if a ~= nil then return a end
+  return record.sellPrice
+end
+```
+
+Auction price wins when present (per-unit copper snapshot at loot time); otherwise it falls back to
+`sellPrice`; `nil` only when both are `nil`. Aggregate worth is always `RecordValue(r) * quantity`,
+never `RecordValue(r)` alone. This is a **derived read, not a schema change**: `auctionPrice`/
+`priceSource` are plain optional record fields, added with **no `schemaVersion` bump and no
+migration**. Records written before this feature simply have `auctionPrice = nil` and
+`priceSource = nil`, so `RecordValue` falls straight through to their `sellPrice` — old rows keep
+working with no backfill needed.
 
 Filtering is point-in-time: a row rescued by the whitelist (it failed the normal collection gate but its item id was whitelisted) is written as a plain record, indistinguishable from any other — there is no per-record marker for how it got in, and no field is stripped from `Database:Export`.
 
@@ -140,7 +167,7 @@ still requires `Database:Delete`). The blacklist/whitelist lists are owned by `N
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·
-sellPrice · itemType · itemSubType · quantity · source · sourceDetail ·
+sellPrice · auctionPrice · priceSource · itemType · itemSubType · quantity · source · sourceDetail ·
 zone · mapID · subzone · confidence
 ```
 

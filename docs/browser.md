@@ -105,7 +105,7 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 
 ### Stat & highlight cards
 
-`CARD_DEFS` (`Analytics.lua:212`) — 4 columns per row, `wide` cards spanning 2: records, distinct items, characters, vendor value, active days, epic+ drops, best drop (ilvl), richest drop, date range (wide), busiest day (wide). `UpdateCards` (`Analytics.lua:290`) reads them straight from `stats.totals`; string cards (value, richest, span, busy) use a smaller font. "Vendor value" throughout is `sellPrice × quantity` captured at loot time — **not** market price.
+`CARD_DEFS` (`Analytics.lua:212`) — 4 columns per row, `wide` cards spanning 2: records, distinct items, characters, value, active days, epic+ drops, best drop (ilvl), richest drop, date range (wide), busiest day (wide). `UpdateCards` (`Analytics.lua:290`) reads them straight from `stats.totals`; string cards (value, richest, span, busy) use a smaller font. "Value" throughout Insights is the **derived** per-record worth (`Util.RecordValue` — auction price snapshot if captured, else vendor sell price) `× quantity`, never the raw vendor price alone. See [data-model.md](data-model.md).
 
 ### Breakdown sections
 
@@ -114,14 +114,14 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 | Section | Source field | Renderer |
 |---|---|---|
 | Loot by source | `bySource` (share of records) | horizontal bars, per-source colour |
-| Vendor value by source | `valueBySource` | horizontal bars |
+| Value by source | `valueBySource` | horizontal bars |
 | Quality distribution | `byQuality` (quality order) | horizontal bars, quality colour |
 | Quality mix | `byQuality` | one segmented stacked bar |
 | Loot by item type | `byType` | horizontal bars |
 | Loot by bound type | `byBound` (`BOUND_ORDER`) | horizontal bars |
 | Loot by character | `byChar` | class-coloured horizontal bars |
 | Loot over time (per day) | `byDay` | vertical strip |
-| Vendor value over time (per day) | `valueByDay` | vertical strip |
+| Value over time (per day) | `valueByDay` | vertical strip |
 | Loot by hour of day | `byHour` (24 buckets) | vertical strip |
 | Loot by weekday | `byWeekday` (Sun–Sat) | horizontal bars |
 | Mythic+ loot by keystone level | `byKeystone` | horizontal bars (only when keyed loot exists) |

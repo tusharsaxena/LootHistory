@@ -30,7 +30,7 @@ Intentionally minimal, defined inline in `tests/run.lua`: `test(name, fn)` regis
 
 ## The suites
 
-Twelve files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Thirteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
@@ -39,6 +39,7 @@ inventory and the authoritative count):
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
 | `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence |
 | `test_filters.lua` | `NS.Filters` blacklist/whitelist id lists — add/remove (mutually exclusive, copy-on-write), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID` |
+| `test_auctionprice.lua` | `NS.AuctionPrice:Lookup` cascade — per-provider hits (Auctionator/TSM/OribosExchange), fall-through on a miss, `pcall`-wrapped provider errors skipped not fatal, master on/off switch, priority reorder |
 | `test_collector.lua` | `CHAT_MSG_LOOT` gate — self-filter, quality/quest-item threshold, record build |
 | `test_database.lua` | Add/Query/Delete/PruneOld, retention rebuild-and-swap |
 | `test_stats.lua` | `Stats`/aggregation feeding the Insights tab |
@@ -102,5 +103,5 @@ test suite (not part of the Lua green gate, not shipped in the addon):
 cd tools && python3 -m unittest discover -s tests
 ```
 
-These cover the CSV→`H` transcription, the INSIGHTS cross-check (including vendor
-value = Σ(v×qty)), the splice, and the verbatim head/tail verification.
+These cover the CSV→`H` transcription, the INSIGHTS cross-check (including
+value = Σ(val×qty)), the splice, and the verbatim head/tail verification.
