@@ -247,6 +247,17 @@ class TestRealTemplate(unittest.TestCase):
         self.assertEqual(br.card_count(out), 10)
         self.assertEqual(br.verify_verbatim(tpl, out), [])
 
+    def test_static_title_is_neutral_placeholder(self):
+        with open(REAL_TEMPLATE, encoding="utf-8") as f:
+            tpl = f.read()
+        self.assertIn("<title>Ka0s Loot History</title>", tpl)
+        self.assertNotIn("12–17 Jul", tpl)
+
+    def test_sample_blocks_carry_replace_wholesale_note(self):
+        with open(REAL_TEMPLATE, encoding="utf-8") as f:
+            tpl = f.read()
+        self.assertIn("REPLACES", tpl)
+
 
 class TestCardEscapes(unittest.TestCase):
     def test_real_glyphs_and_accents_pass_clean(self):
