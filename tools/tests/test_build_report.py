@@ -246,5 +246,43 @@ class TestRealTemplate(unittest.TestCase):
         self.assertEqual(br.verify_verbatim(tpl, out), [])
 
 
+class TestCardEscapes(unittest.TestCase):
+    def test_real_glyphs_and_accents_pass_clean(self):
+        cards = ('<div class="card sp6"><div class="llm-tag">◆ The week</div>'
+                 '<p>Aellâ ran with Chopstîx — nice.</p></div>')
+        self.assertEqual(br.scan_card_escapes(cards), [])
+
+    def test_literal_unicode_escape_is_flagged(self):
+        # F7: cards embedded as a raw string leave "◆" as 6 literal chars.
+        cards = '<div class="card sp6"><div class="llm-tag">\\u25c6 The week</div></div>'
+        found = br.scan_card_escapes(cards)
+        self.assertIn("\\u25c6", found)
+
+    def test_literal_hex_escape_is_flagged(self):
+        cards = '<div class="card sp6"><p>Aell\\xe2 the warrior</p></div>'
+        self.assertTrue(br.scan_card_escapes(cards))
+
+
+class TestCardEscapesEndToEnd(unittest.TestCase):
+    def _run(self, cards_text):
+        d = tempfile.mkdtemp()
+        for name, data in (("prompt.txt", PROMPT), ("cards.html", cards_text),
+                           ("tpl.html", STUB_TEMPLATE)):
+            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                f.write(data)
+        return br.main(["--prompt", os.path.join(d, "prompt.txt"),
+                        "--cards", os.path.join(d, "cards.html"),
+                        "--template", os.path.join(d, "tpl.html"),
+                        "-o", os.path.join(d, "r.html"), "--min-cards", "2"])
+
+    def test_main_fails_on_literal_escape_in_cards(self):
+        bad = NEW_CARDS.replace("NEW ONE", "\\u25c6 NEW ONE")
+        self.assertEqual(self._run(bad), 1)
+
+    def test_main_passes_on_real_glyph_in_cards(self):
+        good = NEW_CARDS.replace("NEW ONE", "◆ NEW ONE")
+        self.assertEqual(self._run(good), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

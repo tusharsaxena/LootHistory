@@ -184,6 +184,17 @@ def scan_external(html):
     return [label for pat, label in EXTERNAL_PATTERNS if re.search(pat, html)]
 
 
+CARD_ESCAPE_RE = re.compile(r"\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}")
+
+
+def scan_card_escapes(cards):
+    """Literal \\uXXXX / \\xNN escape sequences in the cards file (F7): a sign
+    the cards were embedded as a raw/escaped string, so a glyph like the ◆ tag
+    was written as its 6-char escape instead of the real character. Returns the
+    offending tokens (empty list => clean)."""
+    return CARD_ESCAPE_RE.findall(cards)
+
+
 GRID_OPEN = '<div class="grid">'
 H_OPEN = "const H = [\n"
 H_CLOSE = "\n];"
@@ -274,6 +285,8 @@ def build_report(prompt_text, cards, template, min_cards=10):
     if n < min_cards:
         errs.append("analysis cards: %d found, need >= %d" % (n, min_cards))
     errs += ["external request: " + x for x in scan_external(html)]
+    errs += ["literal escape in cards (use the real glyph, not %s): %s" % (x, x)
+             for x in scan_card_escapes(cards)]
     errs += verify_verbatim(template, html)
     return html, errs
 
