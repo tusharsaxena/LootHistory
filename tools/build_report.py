@@ -8,6 +8,7 @@ filling the fixed template. Stdlib only — runs unmodified in any code sandbox.
 import csv
 import io
 import json
+import re
 
 HKEYS = ["d", "t", "c", "cl", "id", "n", "q", "qr", "il", "b",
          "v", "ty", "st", "qty", "s", "z", "wh"]
@@ -60,3 +61,37 @@ def emit_h_body(rows):
     lines = [json.dumps(o, ensure_ascii=False, separators=(",", ":"))
              for o in rows]
     return ",\n".join(lines)
+
+
+HISTORY_MARK = "=== HISTORY (CSV) ==="
+INSIGHTS_MARK = "=== INSIGHTS (CSV) ==="
+
+
+def extract_blocks(prompt_text):
+    """Split the pasted prompt into (history_csv, insights_csv)."""
+    if HISTORY_MARK not in prompt_text or INSIGHTS_MARK not in prompt_text:
+        raise ValueError("prompt is missing the HISTORY/INSIGHTS markers")
+    after_h = prompt_text.split(HISTORY_MARK, 1)[1]
+    history, insights = after_h.split(INSIGHTS_MARK, 1)
+    return history.strip("\n") + "\n", insights.strip("\n") + "\n"
+
+
+def parse_money(s):
+    """'10g 8s 0c' -> copper int. Missing parts default to 0."""
+    m = re.search(r"(-?\d+)\s*g\s*(\d+)\s*s\s*(\d+)\s*c", s or "")
+    if not m:
+        return 0
+    g, si, c = (int(x) for x in m.groups())
+    return g * 10000 + si * 100 + c
+
+
+def parse_insights(text):
+    """{(section, label): {'count': str, 'value': str}}."""
+    out = {}
+    reader = csv.DictReader(io.StringIO(text))
+    for r in reader:
+        out[(r["Section"], r["Label"])] = {
+            "count": (r.get("Count") or "").strip(),
+            "value": (r.get("Value") or "").strip(),
+        }
+    return out
