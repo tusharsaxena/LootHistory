@@ -1,6 +1,6 @@
 # Ka0s Loot History — AI Report Guideline
 
-*Guideline v3.2 · 2026-07-18*
+*Guideline v1.1.0 rev3 · 2026-07-18*
 
 You are turning a **Ka0s Loot History** loot export into a **single, self-contained, interactive HTML
 report**. You do **not** design or build the report from scratch — you **fill in a ready-made
@@ -67,11 +67,12 @@ Write the real glyph (`◆`, accented names like `Chopstîx`) directly — **nev
 `\u25c6` (the assembler rejects those). Vary the ◆ tag, the count, and the prose. The Section III grid is
 a **fixed 2-up layout** — every card is exactly half-width and any `sp4` / `sp6` / `sp8` class is ignored,
 so don't try to size cards. In your prose, colour character names with `style="color:var(--c-<class>)"`
-and render item names as links exactly like the sample cards do:
+and render item names exactly like the sample cards do — a quality-coloured `.il` **span** that carries
+the tooltip in `data-tt` (no link, no `href`; the pipe order is
+`name|quality|ilvl|bind|Type — Subtype|sell|source`):
 
 ```html
-<a class="il qt-<quality>" href="<wowheadLink>" target="_blank" rel="noopener"
-   data-tt="Name|quality|ilvl|bind|Type — Subtype|Ng Ns Nc|Source">Name</a>
+<span class="il qt-<quality>" data-tt="Name|quality|ilvl|bind|Type — Subtype|Ng Ns Nc|Source">Name</span>
 ```
 
 No disclaimers. Use the **INSIGHTS** block as a fast reference while writing (it also carries attribution

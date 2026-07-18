@@ -247,6 +247,18 @@ class TestRealTemplate(unittest.TestCase):
         self.assertEqual(br.card_count(out), 10)
         self.assertEqual(br.verify_verbatim(tpl, out), [])
 
+    def test_sample_cards_use_span_il_not_anchor_links(self):
+        # The guideline tells the AI to render card item names exactly like the
+        # samples: a quality-colored .il SPAN carrying data-tt, never an <a href>
+        # wowhead link (the engine's table uses <a class="il"> — cards do not).
+        # Guards the guideline<->template contract and keeps cards link-free.
+        with open(REAL_TEMPLATE, encoding="utf-8") as f:
+            tpl = f.read()
+        sec = tpl[tpl.index(br.SEC):tpl.index(br.SEC_END, tpl.index(br.SEC))]
+        self.assertIn('<span class="il ', sec)
+        self.assertNotIn('<a class="il', sec)
+        self.assertNotIn('href="http', sec)
+
     def test_static_title_is_neutral_placeholder(self):
         with open(REAL_TEMPLATE, encoding="utf-8") as f:
             tpl = f.read()
