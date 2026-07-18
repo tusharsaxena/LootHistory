@@ -294,7 +294,8 @@ end
 -- breaks onto its own full-width line. Group changes emit a section heading.
 -- `companions` optionally maps a row's path → function(parentRow) that adds a widget
 -- (e.g. an action button) into the SAME row, right of the field, then flushes it.
-local function renderSchema(ctx, companions)
+local function renderSchema(ctx, companions, opts)
+  opts = opts or {}
   local scroll = ensureScroll(ctx)
   local pendingRow
 
@@ -306,26 +307,30 @@ local function renderSchema(ctx, companions)
   end
 
   for _, row in ipairs(NS.Schema.Schema) do
-    if row.group and row.group ~= ctx.lastGroup then
-      flushRow(); section(ctx, row.group); ctx.lastGroup = row.group
-    end
+    local include = not ((opts.only and row.group ~= opts.only)
+      or (opts.skip and row.group and opts.skip[row.group]))
+    if include then
+      if row.group and row.group ~= ctx.lastGroup then
+        flushRow(); section(ctx, row.group); ctx.lastGroup = row.group
+      end
 
-    if row.widget == "MultiCheck" or row.wide then
-      flushRow()
-      makeMultiCheck(ctx, row, scroll)
-    else
-      -- soloRow widgets sit alone on their own row: flush any half-filled row first so they start fresh.
-      if row.soloRow then flushRow() end
-      if not pendingRow then pendingRow = startRow() end
-      if row.widget == "CheckBox" then makeCheckbox(ctx, row, pendingRow, 0.5)
-      elseif row.widget == "Dropdown" then makeDropdown(ctx, row, pendingRow, 0.5)
-      elseif row.widget == "Slider" then makeSlider(ctx, row, pendingRow, 0.5) end
-      local comp = companions and companions[row.path]
-      if comp then
-        comp(pendingRow)
+      if row.widget == "MultiCheck" or row.wide then
         flushRow()
-      elseif row.soloRow or #pendingRow.children >= 2 then
-        flushRow()
+        makeMultiCheck(ctx, row, scroll)
+      else
+        -- soloRow widgets sit alone on their own row: flush any half-filled row first so they start fresh.
+        if row.soloRow then flushRow() end
+        if not pendingRow then pendingRow = startRow() end
+        if row.widget == "CheckBox" then makeCheckbox(ctx, row, pendingRow, 0.5)
+        elseif row.widget == "Dropdown" then makeDropdown(ctx, row, pendingRow, 0.5)
+        elseif row.widget == "Slider" then makeSlider(ctx, row, pendingRow, 0.5) end
+        local comp = companions and companions[row.path]
+        if comp then
+          comp(pendingRow)
+          flushRow()
+        elseif row.soloRow or #pendingRow.children >= 2 then
+          flushRow()
+        end
       end
     end
   end
@@ -612,7 +617,7 @@ function P:Register()
           end)
           parentRow:AddChild(btn)
         end,
-      })
+      }, { skip = { ["Auction House Price"] = true } })
       renderHistory(ctx)
       if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
     end
@@ -645,6 +650,28 @@ function P:Register()
     if fctx.scroll and fctx.scroll.DoLayout then fctx.scroll:DoLayout() end
   end)
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, fctx.panel, "Filters")
+
+  -- Auction House Price subcategory = the AH-price cascade settings (own page).
+  local actx = createPanel("LootHistoryAuctionPanel", "Auction House Price", { defaultsButton = true })
+  P.auction = actx
+  if actx.panel.defaultsBtn then
+    actx.panel.defaultsBtn:SetCallback("OnClick", function()
+      for _, r in ipairs(NS.Schema.Schema) do
+        if r.group == "Auction House Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
+      end
+      for _, fn in ipairs(actx.refreshers) do pcall(fn) end
+    end)
+  end
+  local aRendered = false
+  actx.panel:SetScript("OnShow", function()
+    if not aRendered then
+      aRendered = true
+      renderSchema(actx, nil, { only = "Auction House Price" })
+      if actx.scroll and actx.scroll.DoLayout then actx.scroll:DoLayout() end
+    end
+    for _, fn in ipairs(actx.refreshers) do pcall(fn) end
+  end)
+  Settings.RegisterCanvasLayoutSubcategory(mainCategory, actx.panel, "Auction House Price")
 end
 
 function P:Open()
