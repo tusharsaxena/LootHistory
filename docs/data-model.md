@@ -58,7 +58,7 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
 
 The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bound`, `sellPrice`, `itemType`, `itemSubType`) exist so the [browser](./browser.md) table can filter/sort/group thousands of rows without touching item links or the item cache; `itemLink` remains the source of truth for the tooltip.
 
-One optional, sparse field is not in the table above: `viaWhitelist = true` marks a row that was kept **only** because its item id was whitelisted (issue #14) — it fails the normal collection gate. It drives the "undo the whitelist hides its rows" behaviour in `Database:VisibleHistory` (below) and is intentionally **not** part of the `Database:Export` contract (it's internal housekeeping, not loot data).
+Filtering is point-in-time: a row rescued by the whitelist (it failed the normal collection gate but its item id was whitelisted) is written as a plain record, indistinguishable from any other — there is no per-record marker for how it got in, and no field is stripped from `Database:Export`.
 
 ## Storage: a dense array
 
@@ -116,18 +116,21 @@ Every read-path query resolves against `Database:ActiveHistory` (`core/Database.
 
 ```lua
 function Database:ActiveHistory()
-  return (NS.State and NS.State.testRecords) or self:VisibleHistory()
+  return (NS.State and NS.State.testRecords) or NS.db.global.history
 end
 ```
 
 `NS.State.testRecords` (`core/State.lua:16`) is a session-only synthetic dataset published by `/lh test` (`BrowserTable:ToggleTestMode`). When set, `Query`, `Stats`, `Export`, and thus the History table **and** the Insights tab all render off the same fake data. Write paths (`Add`, the delete/prune family) always target the real `history` and never see the override.
 
-`Database:VisibleHistory` (`core/Database.lua`) is the live-history view with **hidden rows filtered out** (issue #14) — nothing is ever deleted:
-
-- **blacklisted ids** are hidden; removing the id from `db.global.blacklist` restores its rows;
-- a row recorded **only because it was whitelisted** carries a `viaWhitelist = true` annotation, and is hidden once its id leaves `db.global.whitelist` — so "undo the whitelist" removes exactly the rows the whitelist added, and re-adding the id restores them (symmetric with the blacklist).
-
-The `viaWhitelist` flag is set by `Collector` when the item failed the normal gate (quality / source / quest) and only passed because it was whitelisted; an item that passes the gate on its own is never flagged. To keep the read path cheap, `VisibleHistory` returns the raw `history` array unchanged (no allocation) when there is nothing to hide — gated by a session index `NS.State.viaWhitelistIDs` (`Database:RebuildWhitelistIndex`, rebuilt at init and after every history mutation) that flags whether any whitelist "orphan" exists. The blacklist/whitelist lists are owned by `NS.Filters` (`modules/Filters.lua`). See [saved-variables.md](saved-variables.md).
+**Blacklist/whitelist filtering is point-in-time (decided at capture), not a read-time filter.**
+`modules/Collector.lua`'s gate runs on every `CHAT_MSG_LOOT`: a **blacklisted** id is an absolute
+veto and the item is never written; a **whitelisted** id that would otherwise fail the normal gate
+is rescued and written as a plain row. `ActiveHistory` (and therefore `Query`/`Stats`/`Export`)
+always return the raw, already-stored history — there is no per-record hide flag and nothing is
+ever filtered out at read time. Editing either list only changes what happens to *future* loots;
+it never hides, restores, or otherwise touches rows already in `db.global.history` (removing a row
+still requires `Database:Delete`). The blacklist/whitelist lists are owned by `NS.Filters`
+(`modules/Filters.lua`). See [saved-variables.md](saved-variables.md).
 
 `Database:Query(filter)` (`core/Database.lua:202`) runs the generic `QueryList` (`core/Database.lua:136`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:228`) aggregates the filtered result in one O(n) pass for Insights.
 

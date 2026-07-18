@@ -383,11 +383,11 @@ local function renderHistory(ctx)
   end
 end
 
--- ── Filters sub-page: blacklist / whitelist item-id management (issue #14) ────────
+-- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
 -- A single sub-page with two sections. Each: a short description, an "add" row (item id or a
 -- shift-clicked link) and a live list of current ids with a Remove button per row. The lists are
--- core app logic, so there is deliberately no way to toggle a blacklist/whitelist *display* filter
--- — blacklisted rows just vanish from the browser and whitelisted ids always record.
+-- core app logic and act point-in-time: blacklisted ids are dropped at loot time and whitelisted
+-- ids are always recorded — neither list ever hides or restores an already-stored row.
 
 -- Display name for an id: "Name  (id)" once cached, "Item id" until the client caches it (a
 -- background load is kicked off so a later rebuild fills the name in).
@@ -504,8 +504,8 @@ end
 
 local function buildFilters(ctx)
   local blRefresh = makeFilterSection(ctx, "blacklist", "Blacklist",
-    "Items here are never recorded, and any already-recorded rows are hidden from the browser "
-    .. "(nothing is deleted — remove an id to restore its rows).")
+    "Items here are never recorded when looted from now on. Existing rows are left untouched "
+    .. "(this only affects future loots — delete old rows from the history table if you want them gone).")
   local wlRefresh = makeFilterSection(ctx, "whitelist", "Whitelist",
     "Items here are always recorded, even if they fall below your quality threshold, come from a "
     .. "muted source, or are quest items. Adding an id to one list removes it from the other.")

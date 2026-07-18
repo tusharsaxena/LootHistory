@@ -37,18 +37,18 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 | `core/Compat.lua` | **Loads first.** The compat firewall: every deprecated/varying-API shim gated by direct `C_*`/global presence (no `WOW_PROJECT_ID` game-flavor branching — Retail-only) — GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
 | `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap: sets `NS.name`, `NS.version`, `NS.PREFIX`. (`NS.L` is published by `locales/enUS.lua`; module tables self-publish idempotently.) |
-| `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, the session-only `testRecords` (the `/lh test` synthetic dataset), and `viaWhitelistIDs` (the derived whitelist-orphan index for `VisibleHistory`). |
+| `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. Also the shared **secret-safe chat printer** — `NS.Print` (+ `IsConcatSafe`/`SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua`. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
-| `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`VisibleHistory`/`RebuildWhitelistIndex`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset, over `VisibleHistory` which hides blacklisted + un-whitelisted-orphan rows (see Data model). |
+| `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `settings`, `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
 | `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge/reset-all confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
-| `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists (issue #14) — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID`. On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
-| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, flagging the row `viaWhitelist`), `Consume`, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
+| `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID`. On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
+| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`), LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv, ai }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. **Export to AI** (`AIPrompt`) bundles BOTH CSVs for the selected Data Set into a prompt that points at `docs/ai-export-guideline.md` (pure pointer — no network from the addon), which in turn instructs the AI to fetch and fill the ready-made `docs/ai-export-template.html` (a data-driven report whose engine renders KPIs, charts and the history browser from the loot rows); plus a "?" help popup. Called directly by the Browser; no bus message. |
@@ -72,7 +72,6 @@ back fast table ops.
   source, sourceDetail,                      -- source ∈ Constants.SourceType
   zone, mapID, subzone,                       -- where
   confidence,                                 -- CERTAIN | INFERRED
-  viaWhitelist,                               -- optional/sparse: true if kept only via the whitelist (issue #14)
 }
 ```
 
@@ -86,15 +85,18 @@ back fast table ops.
   export contract (do not change its field shape).
 - **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
   `CurrentRecords`) resolve their dataset through `Database:ActiveHistory()`, which returns
-  `State.testRecords` when `/lh test` is active and `VisibleHistory()` otherwise. This is why
-  toggling test mode drives both the History table and the Insights tab off the same synthetic data.
-  Write paths (`Add`, prune) always target the real history — they never see the override.
-- **Hidden-row read seam (issue #14).** `VisibleHistory()` filters the live history: **blacklisted**
-  ids are hidden (removing the id restores their rows), and a row kept **only** via the whitelist
-  (`viaWhitelist`) is hidden once its id leaves the whitelist (re-adding restores it) — nothing is
-  ever deleted. It returns the raw array unchanged (no allocation) when there is nothing to hide,
-  gated by the `State.viaWhitelistIDs` index (`RebuildWhitelistIndex`, rebuilt at init + on every
-  history mutation). The lists live in `.global.{blacklist,whitelist}`, owned by `NS.Filters`.
+  `State.testRecords` when `/lh test` is active and the raw account-wide history otherwise. This is
+  why toggling test mode drives both the History table and the Insights tab off the same synthetic
+  data. Write paths (`Add`, prune) always target the real history — they never see the override.
+- **Blacklist/whitelist filtering is point-in-time (decided at capture).** The gate in
+  `modules/Collector.lua` runs on every `CHAT_MSG_LOOT`: a **blacklisted** id is an absolute veto
+  and the item is never written; a **whitelisted** id that would otherwise fail the normal gate is
+  rescued and written as a plain row, indistinguishable from any other. There is no per-record hide
+  flag and no derived read-time filter — `Database:ActiveHistory()`/`Query` always return the raw,
+  already-stored history. Editing either list only changes what happens to *future* loots; it never
+  hides, restores, or otherwise touches rows already in `.global.history` (deleting a row still
+  requires `Database:Delete`). The lists live in `.global.{blacklist,whitelist}`, owned by
+  `NS.Filters`.
 
 **Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
 `TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`, plus the deconstruct sources

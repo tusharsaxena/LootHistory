@@ -960,9 +960,9 @@ function BrowserTable:ShowRowMenu(anchor, record)
     { label = "Link to chat", enabled = record.itemLink ~= nil, fn = function()
         if record.itemLink and ChatEdit_InsertLink then ChatEdit_InsertLink(record.itemLink) end
       end },
-    -- Blacklist this item (issue #14): hide it and every other row of the same id from view (data
-    -- kept — restore it from Settings ▸ Filters). No whitelist here: whitelisting is about items
-    -- that were NOT recorded, so there's no row to act on. Fires HistoryChanged → the row vanishes.
+    -- Blacklist this item: stop recording future loots of this id. Point-in-time — the row you
+    -- clicked (and other existing rows of the same id) stay in the history; use Delete to remove
+    -- them. Manage the list in Settings ▸ Filters.
     { label = "Blacklist item", enabled = record.itemID ~= nil, fn = function()
         if NS.Filters and NS.Filters:AddBlacklist(record.itemID) and NS.Print then
           NS.Print(("blacklisted %s. Manage in Settings \226\150\184 Filters."):format(

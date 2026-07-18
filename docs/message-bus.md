@@ -7,7 +7,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:114`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
-| `Ka0s_LootHistory_HistoryChanged` | `Database` — `DeleteAt` / `Delete` / `PruneOld` / `Purge`, and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit), all via `fireHistoryChanged` ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + Filters page) |
+| `Ka0s_LootHistory_HistoryChanged` | `Database` — `DeleteAt` / `Delete` / `PruneOld` / `Purge`, and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings page's list UI), all via `fireHistoryChanged` ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + Filters page) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` row `onChange` ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 Exactly one sender is allowed per message — the table is sender-authoritative.
@@ -20,13 +20,13 @@ Note the write path fires against the *real* history only. Browser test mode swa
 
 ## `Ka0s_LootHistory_HistoryChanged` payload
 
-The bulk-mutation counterpart to `RecordAdded`: no payload, meaning "the history array (or what's *visible* of it) changed structurally — re-query from scratch." Every emission routes through the private `fireHistoryChanged` helper in `core/Database.lua`, so `Database` stays the single sending module:
+The bulk-mutation counterpart to `RecordAdded`: no payload, meaning "the history array changed structurally — re-query from scratch." Every emission routes through the private `fireHistoryChanged` helper in `core/Database.lua`, so `Database` stays the single sending module:
 
 - `Database:DeleteAt(index)` — single-row delete from the table UI (compacts the array).
 - `Database:Delete(pred)` — predicate delete.
 - `Database:Purge()` — the `/lh purge` wipe.
 - `Database:PruneOld()` — retention rebuild-and-swap (also invoked from the `retentionDays` setting's `onChange`, so a retention change surfaces as `HistoryChanged`, not `SettingsChanged`).
-- `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit (issue #14). A list change doesn't touch `history`, but it changes what `VisibleHistory` returns, so the browser + Insights must re-query — hence the same message. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
+- `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit. Filtering is point-in-time, so a list edit never changes what a query returns for already-stored rows; the message exists so the Settings ▸ Filters page's live id list re-renders. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
 
 Because deletion and retention rebuild-and-swap (no holes; see [data-model.md](data-model.md)), indices are not stable across a `HistoryChanged`, which is why the payload is empty — subscribers must re-read, not patch by index.
 
