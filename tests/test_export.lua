@@ -133,7 +133,8 @@ test("Export: AIPrompt embeds guideline URL, both CSV blocks, and framing", func
   assertTrue(p:find("H1,H2", 1, true) ~= nil, "history csv embedded")
   assertTrue(p:find("Summary,Records", 1, true) ~= nil, "insights csv embedded")
   assertTrue(p:find("self-contained", 1, true) ~= nil, "self-contained rule stated")
-  assertTrue(p:find("Ka0s Loot History", 1, true) ~= nil, "literal title instruction")
+  assertTrue(p:find("<date range>", 1, true) == nil, "no hand-title instruction (F2)")
+  assertTrue(p:find("engine derives", 1, true) ~= nil, "states the engine derives the title (F2)")
 end)
 
 test("Export: AIPrompt large-dataset note gated on opts.rows", function()
