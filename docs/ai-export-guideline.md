@@ -1,5 +1,7 @@
 # Ka0s Loot History — AI Report Guideline
 
+*Guideline v3.2 · 2026-07-18*
+
 You are turning a **Ka0s Loot History** loot export into a **single, self-contained, interactive HTML
 report**. You do **not** design or build the report from scratch — you **fill in a ready-made
 template**. The template already carries the entire look, the charts, the History browser, the
@@ -44,6 +46,11 @@ one of those steps by hand is slow and error-prone; the tool is deterministic an
 
 Then output the report per the **Output contract** below.
 
+The tool's **PASS** already reconciles every Summary figure (records, distinct items, characters, epic+,
+best iLvl, richest drop, busiest day, vendor value = Σ(v×qty)), counts your cards, and scans for external
+requests, literal escapes, and template sample-name leaks — and it prints an itemized checklist of each.
+You do **not** need to re-run those checks by hand; trust the checklist and cite it.
+
 ## Write the analysis cards — ***CRITICAL*** (both paths)
 
 This is the **one part of the report that is NOT data-driven and NOT produced by the engine** — the tool
@@ -79,7 +86,9 @@ confidence and keystone levels that are good narrative material and are not in t
   analysis prose.
 - The `<title>` and hero `<h1>` come out as `Ka0s Loot History` with the realm + date range derived by
   the engine — leave that alone. (The engine derives the title, realm and date range at runtime from the
-  data; do not hand-edit them.)
+  data; do not hand-edit them.) The static `<title>` shipped in the template is only a placeholder — the
+  engine overwrites the title, realm, and date range at load from the data. Never hand-edit it, even if
+  the placeholder's date range looks wrong.
 
 ## The data you're given
 
