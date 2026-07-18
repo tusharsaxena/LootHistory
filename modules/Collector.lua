@@ -25,8 +25,8 @@ end
 -- absolute veto; otherwise the item records if it passes the gate, OR — failing the gate — if it
 -- is whitelisted. Returns:
 --   true              — passes normally
---   true, "whitelist" — failed the gate but the whitelist forced it in (the caller flags the row
---                       so removing the id later can hide it again — see Database:VisibleHistory)
+--   true, "whitelist" — failed the gate but the whitelist forced it in (recorded as a plain
+--                       point-in-time row; later whitelist changes never revisit it)
 --   false, reason     — dropped ("blacklist"/"quality"/"source"/"quest"), surfaced by the Drop log
 function Collector:ShouldRecord(quality, source, classID, cfg)
   local id = cfg.itemID
@@ -95,10 +95,6 @@ function Collector:OnChatMsgLoot(_, msg)
     end
     return
   end
-  -- reason == "whitelist" here means the item ONLY passed because it is whitelisted (it fails the
-  -- normal gate). Flag the row so that un-whitelisting the id can hide it again — the "annotation in
-  -- the db so the action can be undone" from issue #14. Items that pass the gate normally get no flag.
-  local viaWhitelist = (reason == "whitelist") or nil
 
   local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
   local zone, subzone = NS.Compat.GetZone()
@@ -109,7 +105,6 @@ function Collector:OnChatMsgLoot(_, msg)
       itemID = itemID, itemName = itemName, quality = quality, itemLevel = itemLevel, bound = bound,
       sellPrice = sellPrice, itemType = itemType, itemSubType = itemSubType,
       zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
-  record.viaWhitelist = viaWhitelist   -- kept only because whitelisted (issue #14); nil otherwise
 
   NS.Database:Add(record)
 

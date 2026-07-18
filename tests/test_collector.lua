@@ -132,31 +132,30 @@ test("Collector: end-to-end drops a blacklisted item, records after un-blacklist
   assertEqual(NS.Database:Count(), before + 1)
 end)
 
-test("Collector: end-to-end whitelist records below threshold, hidden after un-whitelisting", function()
+test("Collector: whitelist records below threshold as a plain point-in-time row", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 5   -- mock item is quality 4 → would drop
+  NS.db.global.settings.qualityThreshold = 5   -- mock item is quality 4 -> would drop
   NS.Filters:AddWhitelist(211296)
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("KILL", nil, "CERTAIN")
 
   local before = NS.Database:Count()
-  local visBefore = #NS.Database:VisibleHistory()
   NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
-  assertEqual(NS.Database:Count(), before + 1)          -- whitelisted → recorded despite the gate
-  assertEqual(#NS.Database:VisibleHistory(), visBefore + 1)  -- and shown
+  assertEqual(NS.Database:Count(), before + 1)   -- whitelisted -> recorded despite the gate
 
-  -- The recorded row carries the viaWhitelist annotation.
-  assertTrue(NS.Database:History()[NS.Database:Count()].viaWhitelist == true)
+  -- Point-in-time: the row carries NO viaWhitelist annotation.
+  local row = NS.Database:History()[NS.Database:Count()]
+  assertTrue(row.viaWhitelist == nil)
 
-  -- Remove from the whitelist → the row is HIDDEN (the reported bug) but NOT deleted.
+  -- Removing the id from the whitelist does NOT hide or delete the already-recorded row.
   NS.Filters:RemoveWhitelist(211296)
-  assertEqual(NS.Database:Count(), before + 1)              -- still stored
-  assertEqual(#NS.Database:VisibleHistory(), visBefore)     -- but no longer visible
+  assertEqual(NS.Database:Count(), before + 1)                 -- still stored
+  assertEqual(#NS.Database:ActiveHistory(), before + 1)        -- still visible
 
-  NS.db.global.settings.qualityThreshold = 2     -- restore
+  NS.db.global.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
-  NS.Database:Purge()                            -- clean up the synthetic row + the index
+  NS.Database:Purge()                          -- clean up the synthetic row
 end)
 
 test("Collector: end-to-end writes an attributed record", function()
