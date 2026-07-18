@@ -397,19 +397,19 @@ end)
 test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 1)
+  assertEqual(NS.db.global.schemaVersion, 2)
 end)
 
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
-  NS.db.global.schemaVersion = 1
+  NS.db.global.schemaVersion = 2
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 1)
+  assertEqual(NS.db.global.schemaVersion, 2)
 end)
 
 test("Database: RunMigrations is idempotent across repeated runs", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations(); NS:RunMigrations(); NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 1)
+  assertEqual(NS.db.global.schemaVersion, 2)
 end)
 
 test("Database: RunMigrations is a safe no-op when the DB is absent", function()
@@ -421,4 +421,16 @@ end)
 
 test("NS.MigrationSummary formats from/to/rows", function()
   assertEqual(NS.MigrationSummary(1, 2, 1423), "v1 -> v2, 1423 rows touched")
+end)
+
+test("Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion", function()
+  NS.db.global.schemaVersion = 1
+  NS.db.global.history = {
+    { ts = 1, itemID = 4, itemName = "Normal", quality = 3 },
+    { ts = 2, itemID = 5, itemName = "Was via whitelist", quality = 0, viaWhitelist = true },
+  }
+  NS:RunMigrations()
+  assertEqual(NS.db.global.schemaVersion, 2)
+  assertTrue(NS.db.global.history[2].viaWhitelist == nil)  -- field stripped
+  assertEqual(#NS.db.global.history, 2)                    -- nothing deleted
 end)

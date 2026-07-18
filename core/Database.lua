@@ -15,12 +15,17 @@ function NS:RunMigrations()
   local g = NS.db and NS.db.global
   if not g then return end
   g.schemaVersion = g.schemaVersion or 1
-  -- future: when a real upgrade lands, bump and log, e.g.:
-  --   if g.schemaVersion < 2 then
-  --     local n = migrateV1toV2(g)            -- returns rows touched
-  --     g.schemaVersion = 2
-  --     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(1, 2, n)) end
-  --   end
+  -- v1 -> v2: point-in-time filtering (removed soft-add/soft-delete). Strip the retired
+  -- per-record `viaWhitelist` flag; rows are never hidden/resurrected after capture. Non-
+  -- destructive — no rows are deleted (see docs/superpowers/specs/2026-07-18-*).
+  if g.schemaVersion < 2 then
+    local n = 0
+    for _, r in ipairs(g.history or {}) do
+      if r.viaWhitelist ~= nil then r.viaWhitelist = nil; n = n + 1 end
+    end
+    g.schemaVersion = 2
+    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(1, 2, n)) end
+  end
 end
 
 -- Pure migration summary for the [Migrate] line.
