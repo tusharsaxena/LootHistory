@@ -21,10 +21,12 @@ This repo ships a deterministic assembler that does the transcription, splice, a
 `tools/build_report.py` (<https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/tools/build_report.py>)
 
 1. Save the pasted export to a file (or use the attached file) — do **not** retype it.
-2. Write your analysis cards (step 3 below) to `cards.html`.
-3. Run: `python3 build_report.py --prompt export.txt --cards cards.html -o report.html`
+2. Download `build_report.py` (the URL above) into that same working directory.
+3. Write your analysis cards (step 3 below) to `cards.html`.
+4. Run: `python3 build_report.py --prompt export.txt --cards cards.html -o report.html`
    It self-extracts both CSVs, builds `H`, splices your cards, validates everything (including
    vendor value = Σ(v×qty)), and prints PASS/FAIL. Fix any reported issue and re-run.
+   (In a repo checkout the script lives at `tools/build_report.py`.)
 
 If you **cannot** run code, follow the manual steps below.
 
