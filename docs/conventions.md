@@ -151,3 +151,12 @@ the small-scale rules those documents assume.
   nothing to scroll the override parks the thumb at the top and greys the bar inert, so the body
   width is identical across every subcategory. More on the panel in
   [settings-panel.md](settings-panel.md).
+
+## Dev tooling — `tools/` (ratified Standard exception)
+
+The `tools/` directory holds **development-time helper scripts** (currently
+`build_report.py`, the AI-report assembler). It is a deliberate exception to the
+Ka0s WoW Addon Standard's addon-layout expectations: nothing in `tools/` is
+listed in the `.toc` or shipped to players — it exists only to support
+maintainers and the "Export to AI" workflow. Python is used (not Lua) so the
+same script runs inside an AI code sandbox. Ratified 2026-07-18.

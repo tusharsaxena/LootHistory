@@ -92,3 +92,15 @@ sudo luarocks install luacheck
 ```
 
 `lua` must resolve to the 5.1 interpreter (`lua5.1`). `luac -p` uses the matching 5.1 compiler for single-file syntax checks.
+
+## Tooling tests (Python)
+
+`tools/` ships one dev-time helper, `build_report.py`, with its own stdlib-only
+test suite (not part of the Lua green gate, not shipped in the addon):
+
+```
+cd tools && python3 -m unittest discover -s tests
+```
+
+These cover the CSV→`H` transcription, the INSIGHTS cross-check (including vendor
+value = Σ(v×qty)), the splice, and the verbatim head/tail verification.
