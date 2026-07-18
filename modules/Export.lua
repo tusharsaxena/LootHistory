@@ -86,6 +86,11 @@ local COLUMNS = {
   { "bound",        function(r) return E:BoundLabel(r.bound) end },
   { "sellPrice",    function(r) return money(r.sellPrice) end },
   { "sellPriceRaw", function(r) return r.sellPrice end },
+  { "auctionPrice", function(r) return money(r.auctionPrice) end },
+  { "auctionPriceRaw", function(r) return r.auctionPrice end },
+  { "value",        function(r) return money(NS.Util.RecordValue(r)) end },
+  { "valueRaw",     function(r) return NS.Util.RecordValue(r) end },
+  { "priceSource",  function(r) return r.priceSource end },
   { "itemType",     function(r) return r.itemType end },
   { "itemSubType",  function(r) return r.itemSubType end },
   { "quantity",     function(r) return r.quantity end },
@@ -110,7 +115,7 @@ end
 -- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
 -- The Insights tab's Export produces an ANALYTICS csv — a flat, sectioned dump that mirrors the
 -- Insights view (summary cards + each breakdown + the ranked lists) rather than raw loot rows.
--- Columns: Section, Label, Count, Value (Value = plain "Ng Ns Nc" vendor value; blank when a row
+-- Columns: Section, Label, Count, Value (Value = plain "Ng Ns Nc" value; blank when a row
 -- has no value dimension). Pure — takes a Database:Stats result, returns text; unit-tested.
 
 local BOUND_LABEL_CSV = {
@@ -154,7 +159,7 @@ function E:InsightsCSV(stats)
   row("Summary", "Records", t.records or 0)
   row("Summary", "Distinct items", t.distinctItems or 0)
   row("Summary", "Characters", t.distinctChars or 0)
-  row("Summary", "Vendor value", nil, t.totalValue or 0)
+  row("Summary", "Value", nil, t.totalValue or 0)
   row("Summary", "Active days", t.activeDays or 0)
   row("Summary", "Epic+ drops", t.epicPlus or 0)
   row("Summary", "Best drop iLvl", t.bestDrop and t.bestDrop.itemLevel or dash)

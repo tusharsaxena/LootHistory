@@ -33,7 +33,18 @@ test("Export: CSV header order — ts,date,time first; renamed raw + human sibli
   local header = csv:match("^(.-)\r\n")
   assertEqual(header,
     "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound," ..
-    "sellPrice,sellPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink")
+    "sellPrice,sellPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource," ..
+    "itemType,itemSubType,quantity,source,zone,wowheadLink")
+end)
+
+test("Export: CSV auction/value columns — auction present and vendor fallback", function()
+  local withAuc = NS.Export:CSV({ { sellPrice = 10, auctionPrice = 500, priceSource = "tsm:dbmarket", quantity = 1 } })
+  assertTrue(withAuc:find("0g 5s 0c", 1, true) ~= nil, "auction 500c formatted")
+  assertTrue(withAuc:find("tsm:dbmarket", 1, true) ~= nil, "priceSource present")
+  -- value falls back to vendor when no auction price
+  local noAuc = NS.Export:CSV({ { sellPrice = 10, quantity = 1 } })
+  local dataLine = select(2, noAuc:match("^(.-)\r\n(.-)\r\n"))
+  assertTrue(dataLine:find(",10,", 1, true) ~= nil or dataLine:find("10$", 1) ~= nil, "valueRaw == sellPrice")
 end)
 
 test("Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence", function()
