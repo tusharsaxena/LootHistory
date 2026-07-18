@@ -24,12 +24,12 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
-  -- Bulk-clear confirms for the two item-id filter lists (issue #14). Non-destructive: nothing is
-  -- deleted from history — clearing the blacklist just un-hides its rows again. The Filters panel
-  -- refreshes itself via the HistoryChanged listener fired by Filters:ClearList, so OnAccept only
-  -- has to clear and report.
+  -- Bulk-clear confirms for the two item-id filter lists (issue #14). Non-destructive: clearing a
+  -- list only empties its id-set — stored history is never touched (filtering is point-in-time, so
+  -- there are no hidden rows to reconcile). The Filters panel refreshes itself via the
+  -- HistoryChanged listener fired by Filters:ClearList, so OnAccept only has to clear and report.
   StaticPopupDialogs["KA0S_LOOTHISTORY_CLEAR_BLACKLIST"] = {
-    text = "Clear ALL item ids from the blacklist? Their hidden rows will reappear in the browser.",
+    text = "Clear ALL item ids from the blacklist? Future loots of them will be recorded again; your existing history is unaffected.",
     button1 = YES or "Yes",
     button2 = NO or "No",
     OnAccept = function()
