@@ -32,7 +32,7 @@
   html{scroll-behavior:smooth}
   body{
     margin:0; background:var(--void); color:var(--ink); font-family:var(--sans);
-    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
     background-image:
       radial-gradient(1100px 620px at 78% -8%, rgba(140,86,220,.20), transparent 60%),
       radial-gradient(900px 520px at 8% 4%, rgba(224,17,95,.10), transparent 55%);
@@ -50,9 +50,9 @@
   .topnav .brand .brand-logo{width:26px; height:26px; border-radius:7px; border:1px solid var(--gold-deep);
     background:var(--crest) center/cover; display:inline-block; flex:0 0 auto}
   .topnav nav{display:flex; gap:4px; margin-left:auto}
-  .topnav nav a{font-size:12.5px; color:var(--ink-2); padding:7px 13px; border-radius:8px; letter-spacing:.02em}
+  .topnav nav a{font-size:12.5px; color:var(--gold-dim); padding:7px 13px; border-radius:8px; letter-spacing:.02em}
   .topnav nav a:hover{background:rgba(180,139,255,.1); color:var(--ink)}
-  .topnav nav a .n{font-family:var(--mono); font-size:10px; color:var(--gold-dim); margin-right:6px}
+  .topnav nav a .n{font-family:var(--mono); font-size:10px; color:var(--ink-2); margin-right:6px}
 
   /* ---------- Hero ---------- */
   .hero{position:relative; overflow:hidden; border-bottom:1px solid var(--edge)}
@@ -98,8 +98,8 @@
   /* ---------- Section chrome ---------- */
   section{padding:38px 0; scroll-margin-top:calc(var(--navH) + var(--barH) + 10px)}
   .sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:20px}
-  .sec-head .idx{font-family:var(--mono); font-size:12px; color:var(--gold-dim); letter-spacing:.2em}
-  .sec-head h2{font-size:27px; color:var(--ink)}
+  .sec-head .idx{font-family:var(--mono); font-size:12px; color:var(--ink); letter-spacing:.2em}
+  .sec-head h2{font-size:27px; color:var(--gold-dim)}
   .sec-head .rule{flex:1; height:1px; background:linear-gradient(90deg,var(--edge),transparent)}
   .sec-head .hint{font-size:12.5px; color:var(--muted)}
 
@@ -148,6 +148,10 @@
                      linear-gradient(180deg,var(--panel),var(--void-2));
     border:1px solid var(--edge); border-radius:14px; padding:18px 18px 16px; box-shadow:var(--shadow)}
   .card.sp4{grid-column:span 4} .card.sp8{grid-column:span 8} .card.sp12{grid-column:span 12}
+  /* Section III ("What the data says") is a rigid 2-up grid: every card is exactly half-width and the
+     sp4/sp6/sp8 span classes are ignored, so the LLM's card-size choices can't distort the layout. */
+  #llm .grid{grid-template-columns:repeat(2,1fr)}
+  #llm .grid .card,#llm .grid .card.sp4,#llm .grid .card.sp8,#llm .grid .card.sp12{grid-column:auto}
   .card h3{font-size:16px; color:var(--ink); text-shadow:0 0 14px rgba(180,139,255,.4); display:flex; align-items:center; gap:9px}
   .card h3 .q{font-size:11.5px; color:var(--muted-2); font-family:var(--mono); cursor:help; text-shadow:none}
   /* Insights card titles adopt the "What the data says" tag look (arcane mono, glowy) */
@@ -241,14 +245,17 @@
 
   /* ---------- History table ---------- */
   .tablecard{background:linear-gradient(180deg,var(--panel),var(--void-2));
-    border:1px solid var(--edge-soft); border-radius:14px; overflow:hidden; box-shadow:var(--shadow)}
+    border:1px solid var(--edge-soft); border-radius:14px; box-shadow:var(--shadow)}
   .thead-row{display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--edge); flex-wrap:wrap; gap:10px}
   .thead-row .grp{display:flex; gap:8px; align-items:center; font-size:12.5px; color:var(--muted)}
-  .tscroll{overflow-x:auto}
+  /* overflow must stay visible on the table's ancestors so the sticky header below
+     pins to the viewport (below the topnav + filter bar) rather than to a scroll box. */
+  .tscroll{overflow:visible}
   table{width:100%; border-collapse:collapse; font-size:11.5px; min-width:1010px}
   thead th{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
     color:var(--muted); text-align:left; padding:8px 9px; border-bottom:1px solid var(--edge);
-    cursor:pointer; white-space:nowrap; user-select:none; background:rgba(0,0,0,.2)}
+    cursor:pointer; white-space:nowrap; user-select:none; background:#16111f;
+    position:sticky; top:calc(var(--navH) + var(--barH)); z-index:5}
   thead th .ar{color:var(--muted-2)}
   thead th.active{color:var(--ink)} thead th.active .ar{color:var(--gold)}
   tbody td{padding:7px 9px; border-bottom:1px solid var(--edge-soft); color:var(--ink-2); white-space:nowrap}
@@ -311,6 +318,7 @@
 
   @media (max-width:980px){
     .kpis{grid-template-columns:repeat(3,1fr)} .card,.card.sp4,.card.sp8{grid-column:span 12}
+    #llm .grid{grid-template-columns:1fr}
     .hoard{text-align:left} .topnav nav{gap:0}
   }
 </style>
@@ -425,7 +433,7 @@
         <tbody id="rpt-tbody"></tbody>
       </table>
       </div>
-      <div class="tfoot"><span>Hover an item for its tooltip · click the Wowhead rocket to open it on Wowhead</span><span class="mono" id="rpt-tfoot"></span></div>
+      <div class="tfoot"><span>Hover an item for its tooltip</span><span class="mono" id="rpt-tfoot"></span></div>
     </div>
   </div>
 </section>
@@ -436,9 +444,10 @@
      below exist ONLY to lock the look & feel. Replace them with AT LEAST 10 of your
      own, written from your analysis of H: patterns, standout drops, rhythm, economy,
      crafting, character spotlights, keystone, warband flow, recommendations. This is
-     where you have the MOST latitude — vary the ◆ tag, the card sizes (sp4/sp6/sp8),
-     the count and the prose. Keep the .card + .llm-tag + <h3> + <p> shape, class-color
-     character names, and quality-colored .il item links (with data-tt). No disclaimers. -->
+     where you have the MOST latitude — vary the ◆ tag, the count and the prose. The grid
+     is a FIXED 2-up layout: every card is exactly half-width and any sp4/sp6/sp8 class is
+     ignored, so do not try to size cards. Keep the .card + .llm-tag + <h3> + <p> shape,
+     class-color character names, and quality-colored .il item links (with data-tt). No disclaimers. -->
 <!-- SAMPLE analysis cards: the assembler REPLACES this <section> wholesale. Never hand-edit — edited samples ship stale numbers. -->
 <section id="llm">
   <div class="wrap">
@@ -936,7 +945,7 @@ var COL=[{h:"Time",k:function(r){return tsKey(r);},s:true},{h:"Character",k:func
   {h:"Bound",k:function(r){return bindCat(r.b).toLowerCase();},s:true},
   {h:"iLvl",k:function(r){return r.il||-1;},s:true},{h:"Type",k:function(r){return r.ty.toLowerCase();},s:true},
   {h:"Subtype",k:function(r){return r.st.toLowerCase();},s:true},{h:"Source",k:function(r){return srcName(r.s).toLowerCase();},s:true},
-  {h:"Zone",k:function(r){return r.z.toLowerCase();},s:true},{h:"Value",k:function(r){return rowVal(r);},s:true,right:true},{h:"",s:false}];
+  {h:"Zone",k:function(r){return r.z.toLowerCase();},s:true},{h:"Value",k:function(r){return rowVal(r);},s:true,right:true}];
 var SORT={col:0,dir:-1}, GROUP="", GROUPCOL={char:1,source:7,quality:3,type:5,subtype:6,zone:8};
 function rowHTML(r){
   return '<tr><td class="mono">'+timeCell(r)+'</td>'+
@@ -946,10 +955,9 @@ function rowHTML(r){
     '<td style="color:'+bindColorOf(r.b)+'">'+esc(bindCat(r.b))+'</td>'+
     '<td class="num">'+ilvl(r)+'</td><td>'+esc(r.ty)+'</td><td>'+esc(r.st)+'</td>'+
     '<td><span class="badge'+(SRCBADGE[r.s]?' '+SRCBADGE[r.s]:'')+'">'+esc(srcBadgeText(r.s))+'</span></td>'+
-    '<td>'+esc(r.z)+'</td><td class="num">'+moneyFull(rowVal(r))+'</td>'+
-    '<td><a class="whlink" href="'+esc(r.wh)+'" target="_blank" rel="noopener"><span class="wh-ico" role="img" aria-label="Wowhead"></span></a></td></tr>';
+    '<td>'+esc(r.z)+'</td><td class="num">'+moneyFull(rowVal(r))+'</td></tr>';
 }
-var PAGE=1, PAGESIZE=25;
+var PAGE=1, PAGESIZE=50;
 function renderTable(rows){
   var s=rows.slice(),c=COL[SORT.col];
   s.sort(function(a,b){var ka=c.k(a),kb=c.k(b);return (ka<kb?-1:ka>kb?1:0)*SORT.dir;});

@@ -64,9 +64,10 @@ keystone, warband flow, recommendations. Keep each card's shape:
 ```
 
 Write the real glyph (`◆`, accented names like `Chopstîx`) directly — **never** a literal escape such as
-`\u25c6` (the assembler rejects those). Vary the ◆ tag, the size (`sp4` / `sp6` / `sp8`), the count, and
-the prose. In your prose, colour character names with `style="color:var(--c-<class>)"` and render item
-names as links exactly like the sample cards do:
+`\u25c6` (the assembler rejects those). Vary the ◆ tag, the count, and the prose. The Section III grid is
+a **fixed 2-up layout** — every card is exactly half-width and any `sp4` / `sp6` / `sp8` class is ignored,
+so don't try to size cards. In your prose, colour character names with `style="color:var(--c-<class>)"`
+and render item names as links exactly like the sample cards do:
 
 ```html
 <a class="il qt-<quality>" href="<wowheadLink>" target="_blank" rel="noopener"
