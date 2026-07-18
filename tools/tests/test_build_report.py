@@ -29,8 +29,10 @@ class TestCsvToH(unittest.TestCase):
         self.assertEqual(rows[0], {
             "d": "12-Jul-2026", "t": "20:00", "c": "Aria", "cl": "MAGE",
             "id": 111, "n": "Big Sword", "q": "Epic", "qr": 4, "il": 246,
-            "b": "Bind on Pickup", "v": 100000, "ty": "Weapon", "st": "Sword",
+            "b": "Bind on Pickup", "v": 100000, "a": None, "val": 100000,
+            "ty": "Weapon", "st": "Sword",
             "qty": 1, "s": "KILL", "z": "Town", "wh": "https://wh/111",
+            "src": "",
         })
 
     def test_blank_itemlevel_is_null(self):
@@ -56,7 +58,7 @@ INSIGHTS = (
     "Summary,Records,3,\r\n"
     "Summary,Distinct items,2,\r\n"
     "Summary,Characters,2,\r\n"
-    "Summary,Vendor value,,10g 8s 0c\r\n"
+    "Summary,Value,,10g 8s 0c\r\n"
     "Summary,Epic+ drops,1,\r\n"
     "Summary,Best drop iLvl,246,\r\n"
     "Summary,Richest drop,,10g 0s 0c\r\n"
@@ -77,7 +79,7 @@ class TestExtractAndInsights(unittest.TestCase):
         self.assertIn("Big Sword", hist)
         self.assertNotIn("=== INSIGHTS", hist)
         self.assertTrue(ins.startswith("Section,Label"))
-        self.assertIn("Vendor value", ins)
+        self.assertIn("Summary,Value", ins)
 
     def test_extract_blocks_history_only(self):
         # v4: INSIGHTS is optional. A HISTORY-only prompt yields insights "".
@@ -96,7 +98,7 @@ class TestExtractAndInsights(unittest.TestCase):
     def test_parse_insights_lookup(self):
         ins = br.parse_insights(INSIGHTS)
         self.assertEqual(ins[("Summary", "Records")]["count"], "3")
-        self.assertEqual(ins[("Summary", "Vendor value")]["value"], "10g 8s 0c")
+        self.assertEqual(ins[("Summary", "Value")]["value"], "10g 8s 0c")
 
 
 GOOD_HTML = (
@@ -121,11 +123,11 @@ class TestValidation(unittest.TestCase):
     def test_insights_crosscheck_clean(self):
         self.assertEqual(br.validate_against_insights(self.rows, self.ins), [])
 
-    def test_insights_crosscheck_detects_vendor_mismatch(self):
+    def test_insights_crosscheck_detects_value_mismatch(self):
         bad = dict(self.ins)
-        bad[("Summary", "Vendor value")] = {"count": "", "value": "99g 0s 0c"}
+        bad[("Summary", "Value")] = {"count": "", "value": "99g 0s 0c"}
         errs = br.validate_against_insights(self.rows, bad)
-        self.assertTrue(any("Vendor value" in e for e in errs))
+        self.assertTrue(any("Value" in e for e in errs))
 
     def test_card_count(self):
         self.assertEqual(br.card_count(GOOD_HTML), 2)
@@ -368,7 +370,7 @@ class TestPassSummary(unittest.TestCase):
         self.assertEqual(f["characters"], 2)
         self.assertEqual(f["epic_plus"], 1)
         self.assertEqual(f["best_ilvl"], 246)
-        self.assertEqual(f["vendor"], 100000 * 1 + 100 * 5 + 100 * 3)
+        self.assertEqual(f["value"], 100000 * 1 + 100 * 5 + 100 * 3)
 
     def test_build_report_returns_info(self):
         html, errs, info = br.build_report(PROMPT, NEW_CARDS, STUB_TEMPLATE,
@@ -394,7 +396,7 @@ class TestPassSummary(unittest.TestCase):
         summary_only = (
             "Section,Label,Count,Value\r\n"
             "Summary,Records,3,\r\n"
-            "Summary,Vendor value,,10g 8s 0c\r\n"
+            "Summary,Value,,10g 8s 0c\r\n"
         )
         prompt = (br.HISTORY_MARK + "\n" + HISTORY +
                   br.INSIGHTS_MARK + "\n" + summary_only)
@@ -419,9 +421,33 @@ class TestPassSummary(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("checks green", s)
         self.assertIn("Records 3", s)
-        self.assertIn("Vendor", s)
+        self.assertIn("Value", s)
         self.assertIn("sample-leak none", s)
         self.assertIn("PASS — wrote", s)   # original line intact
+
+
+def test_history_row_has_auction_value_source():
+    csv_text = ("date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,"
+                "sellPrice,sellPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource,"
+                "itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
+                "12-Jul-2026,20:37,Stormhoof-Ravencrest,SHAMAN,1,Thing,Rare,3,,Not Bound,"
+                "1g 0s 0c,10000,5g 0s 0c,50000,5g 0s 0c,50000,tsm:dbmarket,"
+                "Armor,Mail,2,KILL,Zone,https://wowhead.com/item=1\r\n")
+    _realm, rows = br.parse_history_csv(csv_text)
+    assert rows[0]["a"] == 50000
+    assert rows[0]["val"] == 50000
+    assert rows[0]["src"] == "tsm:dbmarket"
+
+
+def test_value_crosscheck_uses_val_times_qty():
+    rows = [{"v": 10000, "a": 50000, "val": 50000, "qty": 2, "id": 1, "c": "X", "qr": 3, "il": None, "d": "d"}]
+    # computed = val * qty = 50000 * 2 = 100000c = "10g 0s 0c"; deliberately
+    # mismatched here (brief's original "10g 0s 0c" fixture value is actually
+    # equal to the computed figure, so it could never fail — bumped to 99g to
+    # produce a genuine mismatch).
+    insights = {("Summary", "Value"): {"count": "", "value": "99g 0s 0c"}}
+    errs = br.validate_against_insights(rows, insights)
+    assert any("Value" in e for e in errs)
 
 
 if __name__ == "__main__":

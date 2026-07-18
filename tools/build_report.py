@@ -14,7 +14,7 @@ import sys
 import urllib.request
 
 HKEYS = ["d", "t", "c", "cl", "id", "n", "q", "qr", "il", "b",
-         "v", "ty", "st", "qty", "s", "z", "wh"]
+         "v", "a", "val", "ty", "st", "qty", "s", "z", "wh", "src"]
 
 
 def _int_or_none(s):
@@ -45,12 +45,16 @@ def parse_history_csv(text):
             "il": _int_or_none(r["itemLevel"]),
             "b": r["bound"],
             "v": int(r["sellPriceRaw"]),
+            "a": _int_or_none(r.get("auctionPriceRaw")),
+            "val": _int_or_none(r.get("valueRaw")) if (r.get("valueRaw") or "").strip() != ""
+                   else int(r["sellPriceRaw"]),
             "ty": r["itemType"],
             "st": r["itemSubType"],
             "qty": int(r["quantity"]),
             "s": (r["source"] or "").strip().upper(),
             "z": r["zone"],
             "wh": r["wowheadLink"],
+            "src": (r.get("priceSource") or "").strip(),
         })
     realm = ""
     if realms:
@@ -149,12 +153,12 @@ def validate_against_insights(rows, insights):
     if ils:
         check_count("Best drop iLvl", max(ils))
 
-    # Vendor value = sum(v * qty)  (F1)
-    s = summ("Vendor value")
+    # Value = sum(val * qty)  — the derived auction-or-vendor worth
+    s = summ("Value")
     if s and s["value"]:
-        computed = sum(o["v"] * o["qty"] for o in rows)
+        computed = sum(o["val"] * o["qty"] for o in rows)
         if computed != parse_money(s["value"]):
-            errs.append("Vendor value: computed %s, INSIGHTS says %s"
+            errs.append("Value: computed %s, INSIGHTS says %s"
                         % (_fmt_money(computed), s["value"]))
 
     # Richest drop = max per-unit v
@@ -320,7 +324,7 @@ def computed_figures(rows):
         "richest": max((o["v"] for o in rows), default=0),
         "busiest_day": busiest_day,
         "busiest_n": busiest_n,
-        "vendor": sum(o["v"] * o["qty"] for o in rows),
+        "value": sum(o["val"] * o["qty"] for o in rows),
     }
 
 
@@ -360,10 +364,10 @@ def _print_pass_summary(info):
              else "figures (no INSIGHTS block — cross-check skipped)")
     print("PASS — checks green:")
     print("  %s: Records %d | Distinct %d | Chars %d | Epic+ %d | "
-          "Best iLvl %s | Richest %s | Busiest %s(%d) | Vendor sum(v*qty) %s"
+          "Best iLvl %s | Richest %s | Busiest %s(%d) | Value sum(val*qty) %s"
           % (label, f["records"], f["distinct"], f["characters"], f["epic_plus"],
              best, _fmt_money(f["richest"]), f["busiest_day"], f["busiest_n"],
-             _fmt_money(f["vendor"])))
+             _fmt_money(f["value"])))
 
     def none(xs):
         return "none" if not xs else ",".join(xs)
