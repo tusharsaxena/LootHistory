@@ -83,6 +83,18 @@ for _, s in ipairs(C.SourceOrder) do
   end
 end
 
+-- Auction cascade priority slots (1 = probed first).
+C.AUCTION_PRIORITY_OPTIONS = {
+  { value = 1, label = "1st" }, { value = 2, label = "2nd" }, { value = 3, label = "3rd" },
+}
+-- TSM price sources exposed to GetCustomPriceValue (see docs/ai-export-guideline.md / TSM docs).
+C.TSM_SOURCE_OPTIONS = {
+  { value = "dbmarket",          label = "Market value (dbmarket)" },
+  { value = "dbminbuyout",       label = "Min buyout (dbminbuyout)" },
+  { value = "dbregionmarketavg", label = "Region market avg (dbregionmarketavg)" },
+  { value = "dbhistorical",      label = "Historical (dbhistorical)" },
+}
+
 -- Convenience aliases.
 NS.SourceType = C.SourceType
 NS.Confidence = C.Confidence

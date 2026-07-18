@@ -53,3 +53,13 @@ test("Schema: a normal (persisted) row still writes db.global", function()
   assertEqual(NS.Schema:Get("settings.enabled"), false)
   NS.Schema:Set("settings.enabled", true) -- restore default
 end)
+
+test("Schema: auction rows exist with the Auction House Price group and defaults", function()
+  local NS2 = NS
+  local row = NS2.Schema:FindRow("settings.auction.enabled")
+  assertTrue(row ~= nil, "settings.auction.enabled row missing")
+  assertEqual(row.group, "Auction House Price")
+  assertEqual(NS2.Schema:Default("settings.auction.enabled"), true)
+  assertEqual(NS2.Schema:Default("settings.auction.tsmSource"), "dbmarket")
+  assertEqual(NS2.Schema:Default("settings.auction.priorityTSM"), 2)
+end)

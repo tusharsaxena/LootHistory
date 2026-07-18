@@ -24,6 +24,12 @@ NS.defaults.global = {
     retentionDays    = 30,     -- 0 == keep Always
     windowScale      = 1.0,
     window           = {},     -- persisted position/size
+    auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
+      enabled = true,
+      auctionator = true, tsm = true, oribos = true,
+      priorityAuctionator = 1, priorityTSM = 2, priorityOribos = 3,
+      tsmSource = "dbmarket",
+    },
   },
   minimap = { hide = false },  -- LibDBIcon state
   -- debug is session-only (NS.State.debug), never persisted here.
