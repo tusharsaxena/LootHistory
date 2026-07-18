@@ -6,16 +6,39 @@ template**. The template already carries the entire look, the charts, the Histor
 filters, the tooltips, and the embedded logos; keeping it fixed is the whole point, so every report
 comes out consistent and correct. This document is the authoritative spec — follow it exactly.
 
-## How to build the report
+## Before you start — get the data onto disk, don't retype it
+
+The export you were given (the two CSV blocks below) can be large. If you are working in a tool that
+can run code, **do not reproduce the data by typing it into a heredoc or a file-write** — that wastes
+minutes re-emitting data you already have. Instead, use the copy that is already on disk: an uploaded/
+attached file, or the file your environment created for a large paste. If the user pasted the export
+inline, ask them to attach it as a file. Then point the assembler (below) at that file.
+
+## Fastest path — if you can run code
+
+This repo ships a deterministic assembler that does the transcription, splice, and validation for you:
+
+`tools/build_report.py` (<https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/tools/build_report.py>)
+
+1. Save the pasted export to a file (or use the attached file) — do **not** retype it.
+2. Write your analysis cards (step 3 below) to `cards.html`.
+3. Run: `python3 build_report.py --prompt export.txt --cards cards.html -o report.html`
+   It self-extracts both CSVs, builds `H`, splices your cards, validates everything (including
+   vendor value = Σ(v×qty)), and prints PASS/FAIL. Fix any reported issue and re-run.
+
+If you **cannot** run code, follow the manual steps below.
+
+## How to build the report (manual)
 
 ### 1 — Fetch the template verbatim
 
 <https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/docs/ai-export-template.html>
 
-It is a **complete, working sample report**. Reproduce it **exactly** — every byte of the `<head>`,
-the `<style>`, the engine `<script>`, the embedded logo / Wowhead data-URIs, and all markup and class
-names — and change **only** the two things in steps 2 and 3. Do not restyle, rename classes, add
-libraries, or touch the engine.
+It is a **complete, working sample report** (~169 KB). **Download it in full** (e.g. `curl -o` /
+`wget`) — a size-capped fetch silently truncates it, and you cannot reproduce a file you only partly
+received. Reproduce it **exactly** — every byte of the `<head>`, the `<style>`, the engine `<script>`,
+the embedded logo / Wowhead data-URIs, and all markup and class names — and change **only** the two
+things in steps 2 and 3. Do not restyle, rename classes, add libraries, or touch the engine.
 
 ### 2 — Replace the sample data (`REALM` + `H`)
 
@@ -57,6 +80,15 @@ Map them from the **HISTORY** CSV columns:
 | `wh` | `wowheadLink`   | the ready-made URL |
 
 You compute and lay out **nothing** here — just faithfully transcribe every row.
+
+The sample rows in the template end each line with a trailing comma (valid JavaScript). If you emit
+`H` yourself, either match that style or — better — emit a strict-JSON array (no trailing comma) so
+your own `JSON.parse` validation passes cleanly (F4). When counting your analysis cards, match
+`<div class="card` — grepping the bare token `card` also hits a CSS rule and over-counts (F5).
+
+> **Value math (F1).** Every value/gold KPI aggregates as **Σ(v × qty)**, not Σ(v) — stacked rows
+> (e.g. a potion ×40) multiply. The engine does this for you; if you validate your parse against the
+> INSIGHTS **Vendor value**, remember to multiply by `qty` or you will chase a phantom gap.
 
 ### 3 — Hand-write the "What the data says" section — ***CRITICAL***
 
