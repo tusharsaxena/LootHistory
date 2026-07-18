@@ -664,7 +664,7 @@ def verify_verbatim(template, output):
 - [ ] **Step 4: Run to verify pass**
 
 Run: `cd tools && python3 -m unittest tests.test_build_report -v`
-Expected: PASS (18 tests).
+Expected: PASS (17 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -818,7 +818,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run to verify pass**
 
 Run: `cd tools && python3 -m unittest tests.test_build_report -v`
-Expected: PASS (20 tests).
+Expected: PASS (19 tests).
 
 - [ ] **Step 5: Make the script executable and smoke-run `--help`**
 
