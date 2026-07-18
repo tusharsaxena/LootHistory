@@ -6,7 +6,7 @@ The design question the engine answers: WoW gives you a reliable "you looted ite
 
 ## The authoritative signal: `CHAT_MSG_LOOT`
 
-`CHAT_MSG_LOOT` is the one authoritative "item received (self)" signal, and the only event that writes a record. `Collector:OnChatMsgLoot` (`modules/Collector.lua:60`) runs `NS.Util.ParseSelfLoot(msg)` (`core/Util.lua:112`), which matches the line against the localized self-loot global strings (`LOOT_ITEM_SELF_MULTIPLE`, `LOOT_ITEM_PUSHED_SELF_MULTIPLE`, `LOOT_ITEM_SELF`, `LOOT_ITEM_PUSHED_SELF`) compiled once into anchored Lua patterns. Lines that aren't the player's own loot (party members, "created", etc.) don't match and return `nil` — that is the **self-filter**. Quantity-bearing patterns are tried first because their greedy `(.+)` link capture would otherwise swallow the trailing `xN` of a multiple-loot line.
+`CHAT_MSG_LOOT` is the one authoritative "item received (self)" signal, and the only event that writes a record. `Collector:OnChatMsgLoot` (`modules/Collector.lua:79`) runs `NS.Util.ParseSelfLoot(msg)` (`core/Util.lua:112`), which matches the line against the localized self-loot global strings (`LOOT_ITEM_SELF_MULTIPLE`, `LOOT_ITEM_PUSHED_SELF_MULTIPLE`, `LOOT_ITEM_SELF`, `LOOT_ITEM_PUSHED_SELF`) compiled once into anchored Lua patterns. Lines that aren't the player's own loot (party members, "created", etc.) don't match and return `nil` — that is the **self-filter**. Quantity-bearing patterns are tried first because their greedy `(.+)` link capture would otherwise swallow the trailing `xN` of a multiple-loot line.
 
 Everything else — LOOT_OPENED, trade, mail, casts, merchant, container use, quest turn-in — is *peripheral*. None of it writes a record; it only stamps context.
 
@@ -30,7 +30,7 @@ State.lootContext = {
 
 Two deliberate properties of this single-slot design (see [Do not change without reason](../CLAUDE.md)):
 
-1. **`CONTEXT_TTL` is ~1.5s** (`core/Constants.lua:51`). Long enough to bridge the gap between the peripheral event and the loot line it explains, short enough that an unrelated later loot doesn't inherit a stale source.
+1. **`CONTEXT_TTL` is ~1.5s** (`core/Constants.lua:53`). Long enough to bridge the gap between the peripheral event and the loot line it explains, short enough that an unrelated later loot doesn't inherit a stale source.
 2. **Consume does not clear the slot.** One loot window emits many `CHAT_MSG_LOOT` lines that all share a source — a kill dropping four items, a bag with six stacks. Clearing on first consume would attribute only the first line and drop the rest to `OTHER`. The context intentionally survives the whole burst; the TTL, not consumption, ends it.
 
 Confidence is `CERTAIN` for every live stamper and `INFERRED` only on the fallback path — so `confidence == INFERRED` is exactly "no fresh context existed when this item landed." See [data-model.md](data-model.md) for how `source` / `sourceDetail` / `confidence` are stored.
@@ -80,7 +80,7 @@ The cast succeeds right as the materials are produced, so the stamp is fresh wit
 
 ## The collector's gates
 
-Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confidence)`, it decides whether to record. The pure seam `Collector:ShouldRecord` (`modules/Collector.lua:17`) applies three gates in order and, on a drop, returns a reason for the debug log:
+Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confidence)`, it decides whether to record. The pure seam `Collector:ShouldRecord` (`modules/Collector.lua:31`) applies three gates in order and, on a drop, returns a reason for the debug log:
 
 1. **Quality** — `quality < qualityThreshold` → drop (`"quality"`). Threshold options in `Constants.QUALITY_OPTIONS`.
 2. **Excluded source** — the item's source is muted in `excludedSources` → drop (`"source"`).
@@ -88,11 +88,11 @@ Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confi
 
 The `CHAT_MSG_LOOT` self-filter (`ParseSelfLoot` returning `nil`) is the implicit gate ahead of all three.
 
-Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.lua:25`) — one record per loot event — and handed to `NS.Database:Add`. Item extras (ilvl, bound, sell price, type/subtype) come from `NS.Compat.GetItemExtras`; the `classFile` colouring token from `UnitClass("player")`.
+Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`) — one record per loot event — and handed to `NS.Database:Add`. Item extras (ilvl, bound, sell price, type/subtype) come from `NS.Compat.GetItemExtras`; the `classFile` colouring token from `UnitClass("player")`.
 
 ### Hot-path upvalues
 
-The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard events-frames-taint-§7). `Collector:RefreshUpvalues` (`modules/Collector.lua:51`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:106`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
+The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard events-frames-taint-§7). `Collector:RefreshUpvalues` (`modules/Collector.lua:67`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:131`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
 
 ## Wired vs enum'd sources
 
@@ -101,7 +101,7 @@ The three gate settings plus `enabled` are cached as file-local upvalues (`modul
 - **Live today:** `KILL`, `CONTAINER`, `MPLUS`, `QUEST`, `VENDOR`, `MAIL`, `TRADE`, `AH`, `DISENCHANT`, `MILLING`, `PROSPECTING`, `OTHER`.
 - **Enum'd but not stamped:** `CRAFT` (reserved for broad recipe crafting) and `ROLL` (specified but unwired).
 
-`Constants.SOURCE_IMPLEMENTED` (`core/Constants.lua:33`) is the gate: it lists only sources with a live capture path, and drives `SOURCE_OPTIONS` (`core/Constants.lua:77`) so the settings panel's per-source **mute list** never shows a dead checkbox for an unreachable bucket. The enum stays whole for the export seam; only the option lists scope down. See [compat-layer.md](compat-layer.md) for the shims and [module-map.md](module-map.md) for where these modules sit.
+`Constants.SOURCE_IMPLEMENTED` (`core/Constants.lua:33`) is the gate: it lists only sources with a live capture path, and drives `SOURCE_OPTIONS` (`core/Constants.lua:79`) so the settings panel's per-source **mute list** never shows a dead checkbox for an unreachable bucket. The enum stays whole for the export seam; only the option lists scope down. See [compat-layer.md](compat-layer.md) for the shims and [module-map.md](module-map.md) for where these modules sit.
 
 ## Known limitation
 

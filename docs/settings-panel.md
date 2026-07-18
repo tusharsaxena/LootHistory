@@ -6,7 +6,7 @@ The settings surface is registered into Blizzard's **Settings** UI as a parent c
 * A **General subcategory** holds the schema-driven settings (`Settings.RegisterCanvasLayoutSubcategory`). Its header reads `Ka0s Loot History |A forwardarrow|a General`.
 * A **Filters subcategory** holds the blacklist / whitelist management UI (issue #14) — a custom, non-schema page (see below).
 
-All share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:69`), and — on the General subcategory only — a `Defaults` button pinned top-right (an AceGUI `Button`, so its handler is wired with `defaultsBtn:SetCallback("OnClick", …)`, not `:SetScript`; `Panel.lua:456`).
+All share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:69`), and — on the General subcategory only — a `Defaults` button pinned top-right (an AceGUI `Button`, so its handler is wired with `defaultsBtn:SetCallback("OnClick", …)`, not `:SetScript`; `Panel.lua:597`).
 
 `createPanel` returns a `ctx` table (`{ panel, body, scroll, refreshers, lastGroup }`) that every layout helper threads through. `ctx.scroll` is the AceGUI `ScrollFrame` hosting the schema widgets, created lazily on first widget add (`ensureScroll`, `Panel.lua:174`). The General ctx is stashed at `P.general` so `P:Refresh` can re-sync widgets after a slash-cmd write.
 
@@ -47,13 +47,13 @@ Eight rows ship today (`Schema.lua:10`): `settings.enabled`, `minimap.hide`, `st
 | `Slider` | `Slider` (`row.min`/`max`) | `makeSlider` (`Panel.lua:247`) |
 | `MultiCheck` | `InlineGroup` of `CheckBox`es | `makeMultiCheck` (`Panel.lua:263`) |
 
-A `wide` / `MultiCheck` row breaks onto its own full-width line. `settings.excludedSources` is the one MultiCheck: it stores a **set of muted sources**, but renders `invert = true` as "Record data from", so a *checked* box means "record this source" and the stored value is the logical inverse of the box state (`Panel.lua:274`).
+A `wide` / `MultiCheck` row breaks onto its own full-width line. `settings.excludedSources` is the one MultiCheck: it stores a **set of muted sources**, but renders `invert = true` as "Record data from", so a *checked* box means "record this source" and the stored value is the logical inverse of the box state (`Panel.lua:276`).
 
 Each maker pushes a **refresher closure** onto `ctx.refreshers` so the widget can re-sync its display after a Defaults reset or a `/lh set`. Tooltips attach via `attachTooltip` (`Panel.lua:38`), which handles both AceGUI widgets (`SetCallback`) and plain frames (`HookScript`).
 
 ## The `Schema:Set` write seam
 
-Every setting mutation — panel widget and `/lh set` alike — routes through `NS.Schema:Set(path, value)` (`Schema.lua:109`):
+Every setting mutation — panel widget and `/lh set` alike — routes through `NS.Schema:Set(path, value)` (`Schema.lua:124`):
 
 1. **validate** — reject unknown paths; run the row's optional `validate`.
 2. **write** — `WritePath` into `NS.db.global`, storing a `deepcopy` of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`; `Schema.lua:101`).
@@ -63,15 +63,15 @@ Every setting mutation — panel widget and `/lh set` alike — routes through `
 
 ## Combat-gated, lazily rendered body
 
-Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = false` guard, `Panel.lua:458`). At registration time (`PLAYER_LOGIN`) `ctx.body` has zero width, so a List-layout pass would size every full-width child to zero. `OnShow` renders once, calls `ctx.scroll:DoLayout()`, and thereafter only re-runs `P:Refresh` to re-sync values. Opening the panel is combat-gated: `P:Open` refuses while `InCombatLockdown()` and prints a notice (`Panel.lua:483`). (The standalone browser window is separately non-secure and *not* combat-gated — that is the standalone-windows pattern, distinct from this options-ui-§2 canvas panel.)
+Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = false` guard, `Panel.lua:599`). At registration time (`PLAYER_LOGIN`) `ctx.body` has zero width, so a List-layout pass would size every full-width child to zero. `OnShow` renders once, calls `ctx.scroll:DoLayout()`, and thereafter only re-runs `P:Refresh` to re-sync values. Opening the panel is combat-gated: `P:Open` refuses while `InCombatLockdown()` and prints a notice (`Panel.lua:639`). (The standalone browser window is separately non-secure and *not* combat-gated — that is the standalone-windows pattern, distinct from this options-ui-§2 canvas panel.)
 
 ## History maintenance section
 
-`renderHistory` (`Panel.lua:334`) appends a "History" section unique to this addon: a live stats label paired with a **Purge history…** button.
+`renderHistory` (`Panel.lua:336`) appends a "History" section unique to this addon: a live stats label paired with a **Purge history…** button.
 
-* **Stats label** reads from `Database:StorageStats` (`Database.lua:364`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:365`).
-* **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (`Panel.lua:346`, popup at `Slash.lua:8`).
-* **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:374`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [conventions.md](conventions.md)).
+* **Stats label** reads from `Database:StorageStats` (`Database.lua:437`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:365`).
+* **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (`Panel.lua:348`, popup at `Slash.lua:8`).
+* **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:376`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [conventions.md](conventions.md)).
 
 ## Reset All companion
 

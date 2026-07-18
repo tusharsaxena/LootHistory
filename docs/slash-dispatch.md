@@ -1,10 +1,10 @@
 # Slash dispatch
 
-One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.lua:142`. Each row is `{ name, desc, fn }` — the same rows dispatch verbs and generate help text, so adding a command is a one-row append.
+One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.lua:165`. Each row is `{ name, desc, fn }` — the same rows dispatch verbs and generate help text, so adding a command is a one-row append.
 
-`/lh` and `/loothistory` are both registered through AceConsole's `RegisterChatCommand` (`settings/Slash.lua:36`) and dispatch to the same `Sl:OnSlash` handler — `/loothistory` is the long-form alias; all help text and docs use the short form.
+`/lh` and `/loothistory` are both registered through AceConsole's `RegisterChatCommand` (`settings/Slash.lua:69`) and dispatch to the same `Sl:OnSlash` handler — `/loothistory` is the long-form alias; all help text and docs use the short form.
 
-The dispatcher (`Sl:OnSlash`, `settings/Slash.lua:44`):
+The dispatcher (`Sl:OnSlash`, `settings/Slash.lua:77`):
 
 - Bare `/lh` → `Sl:PrintHelp` (standard slash-commands-§4). Window display is **explicit** — bare `/lh` prints help, never opens the window; use `/lh toggle` or `/lh show|hide`.
 - `/lh <known>` → runs that row's `fn(rest)`.
@@ -36,7 +36,7 @@ Every chat line routes through the single shared printer **`NS.Print`** (`core/U
 
 ## Generated help
 
-`Sl:PrintHelp` (`settings/Slash.lua:59`) prints a version/alias header — `v<NS.version> slash commands (/loothistory is an alias for /lh)` — then one prefixed row per `NS.COMMANDS` entry: a gold command, an em-dash, and a white description. Because the help index and the dispatcher read the same table, they can never drift.
+`Sl:PrintHelp` (`settings/Slash.lua:92`) prints a version/alias header — `v<NS.version> slash commands (/loothistory is an alias for /lh)` — then one prefixed row per `NS.COMMANDS` entry: a gold command, an em-dash, and a white description. Because the help index and the dispatcher read the same table, they can never drift.
 
 ## Schema-reflecting CLI
 
@@ -52,18 +52,18 @@ Every chat line routes through the single shared printer **`NS.Print`** (`core/U
 
 ## Session-only `debug`
 
-The `debug` handler (`settings/Schema.lua:153`) drives the debug console independently of the logging flag:
+The `debug` handler (`settings/Schema.lua:176`) drives the debug console independently of the logging flag:
 
 - `/lh debug` → `DebugLog:Toggle()` — flips the console **window** only; the logging flag is untouched.
 - `/lh debug on` / `/lh debug off` → `DebugLog:SetEnabled(true/false)` — sets the session-only logging flag `NS.State.debug`. Capture runs even with the window closed.
 
-The flag is never persisted to SavedVariables and resets to off on every `/reload`. `debug` is deliberately **not** a Schema row (`settings/Schema.lua:67`). See [testing.md](testing.md) for the debug console and the `/lh test` synthetic dataset.
+The flag is never persisted to SavedVariables and resets to off on every `/reload`. `debug` is deliberately **not** a Schema row (`settings/Schema.lua:80`). See [testing.md](testing.md) for the debug console and the `/lh test` synthetic dataset.
 
 ## Confirm dialogs
 
 Two `StaticPopupDialogs` entries are registered once at load, in-game only (`settings/Slash.lua:7`):
 
-- **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:166`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history" button raises the same popup (`settings/Panel.lua:347`).
+- **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:191`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history" button raises the same popup (`settings/Panel.lua:348`).
 - **`KA0S_LOOTHISTORY_RESETALL`** — the confirm behind the Settings panel's **"Reset All"** button, *not* the `resetall` slash verb. Accepting runs `Sl:ResetEverything` (`settings/Slash.lua`), which wipes history (`Database:Purge`), restores every setting **and** clears the filter lists (`CliResetAll`), then drops `savedView` to stock (`Browser:ResetView`) and recenters the window (`Browser:ResetWindow`), then refreshes the panel. This is the total destructive reset; the `/lh resetall` verb only resets settings + filter lists and prompts for nothing.
 - **`KA0S_LOOTHISTORY_CLEAR_BLACKLIST`** / **`KA0S_LOOTHISTORY_CLEAR_WHITELIST`** — the confirms behind the Filters sub-page's per-list **"Clear all"** buttons. Accepting calls `Filters:ClearList(<list>)`; the panel refreshes via its `HistoryChanged` listener. Non-destructive — clearing the blacklist un-hides its rows again.
 

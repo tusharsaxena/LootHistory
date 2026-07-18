@@ -30,7 +30,7 @@ Intentionally minimal, defined inline in `tests/run.lua`: `test(name, fn)` regis
 
 ## The suites
 
-Ten files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Twelve files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
@@ -38,6 +38,7 @@ inventory and the authoritative count):
 | `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey`; the secret-safe printer (`IsConcatSafe`/`SafeToString`/`NS.Print`, reclaimed from AceConsole) |
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
 | `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence |
+| `test_filters.lua` | `NS.Filters` blacklist/whitelist id lists — add/remove (mutually exclusive, copy-on-write), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID` |
 | `test_collector.lua` | `CHAT_MSG_LOOT` gate — self-filter, quality/quest-item threshold, record build |
 | `test_database.lua` | Add/Query/Delete/PruneOld, retention rebuild-and-swap |
 | `test_stats.lua` | `Stats`/aggregation feeding the Insights tab |
@@ -45,6 +46,7 @@ inventory and the authoritative count):
 | `test_export.lua` | `Export:CSV` columns/quoting, friendly `bound`/`date`, `WowheadLink` bonus-ID parsing |
 | `test_debuglog.lua` | `NS.Debug` tagged format + secret-safe sink, session-only flag, `/lh debug` toggles |
 | `test_slash.lua` | `/lh list`/`get`/`set` slash-commands-§5 output — `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, `/lh version` |
+| `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through, `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global` |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 

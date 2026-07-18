@@ -22,14 +22,14 @@ the small-scale rules those documents assume.
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:109`).
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:124`).
   That seam is: look the row up → run its optional `validate` → `WritePath` a **deep copy** of the
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:97`).
+  `settings/Schema.lua:112`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:113`,`:121`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:124`,`:141`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
   (`savedView`), and the `blacklist`/`whitelist` item-id lists (owned by `NS.Filters`,
@@ -47,7 +47,7 @@ the small-scale rules those documents assume.
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:373`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:376`). Full contract
   in [message-bus.md](message-bus.md).
 
 ## Compat firewall
@@ -71,7 +71,7 @@ the small-scale rules those documents assume.
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:9`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:51`). The quest-item gate keys on the locale-independent item class
+  (`modules/Collector.lua:131`). The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
 ## Chat output: one shared secret-safe printer
@@ -90,10 +90,10 @@ the small-scale rules those documents assume.
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before formatting anything
-  (`modules/DebugLog.lua:249`).
+  (`modules/DebugLog.lua:265`).
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed); the header's
-  `Debug: ON`/`OFF` control flips the same flag (`settings/Schema.lua:153`).
+  `Debug: ON`/`OFF` control flips the same flag (`settings/Schema.lua:176`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
   `<ts> | [<tag>] <content>` (`D.FormatPlain`, `modules/DebugLog.lua:119`). `tag` is one short word,
   printed verbatim — no padding, no truncation.
@@ -114,9 +114,9 @@ the small-scale rules those documents assume.
   font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:65`);
   every texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-CheckBox-Check`, `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
-  `WHITE8X8` drawn as 1px edges, coloured from the flat `SKIN` table (`modules/Browser.lua:19`).
+  `WHITE8X8` drawn as 1px edges, coloured from the flat `SKIN` table (`modules/Browser.lua:20`).
   The one non-Blizzard asset outside media is the addon's own logo in the settings panel
-  (`settings/Panel.lua:530`) — branding art, not a re-skinnable surface.
+  (`settings/Panel.lua:532`) — branding art, not a re-skinnable surface.
 - **Ratified exception — the monospace console font (audited 2026-07-17).** The debug console and
   the export/debug copy boxes render in the vendored **JetBrains Mono** (`Constants.FONT_MONO`,
   used at `modules/DebugLog.lua:93`,`:191` and `modules/Export.lua:305`). This is a **deliberate,
@@ -132,16 +132,16 @@ the small-scale rules those documents assume.
 
 - The settings panel is a Blizzard `Settings.RegisterCanvasLayoutCategory` parent (the landing page)
   plus a `RegisterCanvasLayoutSubcategory` "General" body built lazily from raw AceGUI widgets
-  (`settings/Panel.lua:433`). **AceConfigDialog is never used for content** — there is no
+  (`settings/Panel.lua:621`). **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` is combat-gated
-  (`settings/Panel.lua:484`), matching the Ka0s options-ui-§2 canvas pattern (the standalone browser window
+  (`settings/Panel.lua:639`), matching the Ka0s options-ui-§2 canvas pattern (the standalone browser window
   follows the separate standalone-windows non-secure pattern).
 
 ## Panel layout: options-ui-§6/§10 conformance
 
 - **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset All, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip
-  (`settings/Panel.lua:31`, applied in `makePairButton`, `settings/Panel.lua:214`). Label-inset
+  (`settings/Panel.lua:32`, applied in `makePairButton`, `settings/Panel.lua:214`). Label-inset
   controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` — they are
   immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't hard-code it per button.
 - **Always-shown scrollbar (options-ui-§10).** `installAlwaysShownScrollbar` overrides AceGUI's stock

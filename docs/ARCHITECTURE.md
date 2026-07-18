@@ -36,7 +36,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `core/` (Compat f
 |---|---|
 | `core/Compat.lua` | **Loads first.** The compat firewall: every deprecated/varying-API shim gated by direct `C_*`/global presence (no `WOW_PROJECT_ID` game-flavor branching — Retail-only) — GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
 | `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), quality/retention/source option tables. |
-| `core/Namespace.lua` | Bootstrap shared upvalues (`NS.L`, `NS.C` aliases). |
+| `core/Namespace.lua` | Bootstrap: sets `NS.name`, `NS.version`, `NS.PREFIX`. (`NS.L` is published by `locales/enUS.lua`; module tables self-publish idempotently.) |
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, the session-only `testRecords` (the `/lh test` synthetic dataset), and `viaWhitelistIDs` (the derived whitelist-orphan index for `VisibleHistory`). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. Also the shared **secret-safe chat printer** — `NS.Print` (+ `IsConcatSafe`/`SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua`. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
@@ -119,6 +119,7 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 |---|---|---|---|---|
 | `settings.enabled` | Master Controls | CheckBox | `true` | Master capture switch. Fires `SettingsChanged`. |
 | `minimap.hide` | Master Controls | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
+| `state.debugConsole` | Master Controls | CheckBox | `false` | **Session-only** (`sessionOnly`): shows/hides the debug console; never persisted (`get`/`set` proxy `NS.DebugLog`). |
 | `settings.windowScale` | Master Controls | Slider (0.6–1.6) | `1.0` | Browser window scale (applied live). |
 | `settings.qualityThreshold` | Data Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
 | `settings.excludeQuestItems` | Data Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
