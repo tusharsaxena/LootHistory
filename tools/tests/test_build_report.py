@@ -284,5 +284,45 @@ class TestCardEscapesEndToEnd(unittest.TestCase):
         self.assertEqual(self._run(good), 0)
 
 
+class TestSampleLeak(unittest.TestCase):
+    def test_sample_names_extracted_from_template_h(self):
+        tpl = STUB_TEMPLATE.replace('{"old":1}',
+                                    '{"c":"Stormhoof"},\n{"c":"Ragebrand"}')
+        self.assertEqual(br.sample_names(tpl), ["Ragebrand", "Stormhoof"])
+
+    def test_sample_names_empty_when_no_c_key(self):
+        # STUB's sample H has no "c" key -> nothing to leak-scan against.
+        self.assertEqual(br.sample_names(STUB_TEMPLATE), [])
+
+    def test_scan_sample_leak_flags_leaked_name(self):
+        cards = '<div class="card sp6"><p>Ragebrand looted a lot.</p></div>'
+        self.assertEqual(br.scan_sample_leak(cards, ["Stormhoof", "Ragebrand"]),
+                         ["Ragebrand"])
+
+    def test_scan_sample_leak_clean_for_real_names(self):
+        cards = '<div class="card sp6"><p>Aellâ and Chopstîx.</p></div>'
+        self.assertEqual(br.scan_sample_leak(cards, ["Stormhoof", "Ragebrand"]), [])
+
+    def test_real_template_sample_names_include_known_pseudonyms(self):
+        with open(REAL_TEMPLATE, encoding="utf-8") as f:
+            names = br.sample_names(f.read())
+        self.assertIn("Stormhoof", names)
+        self.assertIn("Ragebrand", names)
+
+    def test_main_fails_when_card_leaks_a_sample_name(self):
+        d = tempfile.mkdtemp()
+        tpl = STUB_TEMPLATE.replace('{"old":1}', '{"c":"Stormhoof"}')
+        bad = NEW_CARDS.replace("NEW ONE", "Stormhoof NEW ONE")
+        for name, data in (("prompt.txt", PROMPT), ("cards.html", bad),
+                           ("tpl.html", tpl)):
+            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                f.write(data)
+        code = br.main(["--prompt", os.path.join(d, "prompt.txt"),
+                        "--cards", os.path.join(d, "cards.html"),
+                        "--template", os.path.join(d, "tpl.html"),
+                        "-o", os.path.join(d, "r.html"), "--min-cards", "2"])
+        self.assertEqual(code, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

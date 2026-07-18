@@ -200,6 +200,25 @@ H_OPEN = "const H = [\n"
 H_CLOSE = "\n];"
 REALM_RE = re.compile(r'const REALM = "[^"]*";')
 
+SAMPLE_C_RE = re.compile(r'"c":"([^"]+)"')
+
+
+def sample_names(template):
+    """Distinct sample character names inside the template's OWN sample H block
+    (F6). Data-driven so it stays correct if the shipped sample is ever swapped —
+    used to catch a stale-sample name leaking into hand-authored cards."""
+    s = template.index(H_OPEN) + len(H_OPEN)
+    e = template.index(H_CLOSE, s)
+    return sorted(set(SAMPLE_C_RE.findall(template[s:e])))
+
+
+def scan_sample_leak(cards, names):
+    """Sample character names that leaked into the analysis cards — a sign the
+    cards were edited from the samples instead of replaced wholesale. Scoped to
+    the cards (the one hand-authored region); the real H legitimately holds real
+    names. Returns the offending names (empty == clean)."""
+    return [n for n in names if n in cards]
+
 
 def _card_span(html):
     """(start, end) of the sample-card region: from just after the grid's
@@ -287,6 +306,9 @@ def build_report(prompt_text, cards, template, min_cards=10):
     errs += ["external request: " + x for x in scan_external(html)]
     errs += ["literal escape in cards (use the real glyph, not %s): %s" % (x, x)
              for x in scan_card_escapes(cards)]
+    errs += ["sample-data leak (cards edited from the template sample, not "
+             "replaced wholesale): " + x
+             for x in scan_sample_leak(cards, sample_names(template))]
     errs += verify_verbatim(template, html)
     return html, errs
 
