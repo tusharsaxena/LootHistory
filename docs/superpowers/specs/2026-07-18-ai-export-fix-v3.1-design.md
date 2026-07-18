@@ -32,9 +32,10 @@ Re-bucketing the log's seven findings against the current repo:
 | F6 | Assertion fired too early | Self-inflicted in a hand-rolled script. Impossible if the tool is used. |
 | F7 | Card glyphs as literal escapes | Self-inflicted in a hand-rolled script. Impossible if the tool is used (`--cards` takes an HTML file, not a Python string). |
 | F3 | Title date-range "tension" | Not a real conflict — `modules/Export.lua:230` already says "leave the title alone." The agent *misread* "the engine derives the date range from the data" as an instruction to hand-title. Wording-clarity nit only. |
-| F1 | HISTORY "By Source" ≠ INSIGHTS "By Source" by one row (and the pasted data shows Records 302 in INSIGHTS) | **The one genuinely new substantive finding.** Both sides read the same `r.source` (`core/Database.lua:245`, `modules/Export.lua:92`), so a one-row split points at the two blocks being computed over slightly different record sets/moments. Attribution/stats correctness item — **out of scope here.** |
+| F1 | HISTORY "By Source" ≠ INSIGHTS "By Source" by one row; records 301 vs 302 | **Not a real addon bug — a model hand-count slip.** Both blocks come from *one* deterministic pass: `Database:Export` (HISTORY) and `Database:Stats` (INSIGHTS) both iterate `self:Query({})` and read the same `r.source`, written once at loot time by `Attribution:Stamp` and never re-derived on read (`core/Database.lua:211/217/229/245`). The HISTORY row count *is* `#records`; `Summary,Records` *is* `#records` from the same query. So the two blocks cannot truly disagree — the log's `110/34` vs `109/35` and `301` vs `302` are the agent's own off-by-one re-derivation, the same hand-work class as F6/F7 that the tool does mechanically. F1 therefore **reinforces** the adoption thesis rather than being a separate bug. See §6 for the one genuine (latent) parity nit found nearby. |
 
-**Core insight:** 5 of 7 findings reduce to "the agent did not run the tool we already ship." The slow
+**Core insight:** 6 of 7 findings (all but the F3 wording nit) reduce to "the agent did not run the tool
+we already ship" — including F1, whose "disagreement" is just the hand-count the tool does mechanically. The slow
 step and the truncated fetch the user flagged are the same story — both vanish the moment the tool runs
 (`--prompt` self-extracts both CSVs; `load_template` downloads the full 169 KB itself, no `web_fetch`).
 So v3.1 is a **behavioural-adoption** fix, not a new-code fix: make the tool the mandatory, first,
@@ -55,7 +56,9 @@ skimmed. Hence a pointer belongs in the prompt too (read before the guideline).
    and update `tests/test_export.lua`. Caveat recorded: prompt text is baked into the installed addon,
    so it only reaches runs after the user updates in-game; the live-fetched guideline is the immediate
    lever.
-4. **F1 out of scope.** Recommended as a separate follow-up (its own branch); not widened into v3.1.
+4. **F1 is a model miscount, not a bug** (see the table and §6). Do not chase it as a data-correctness
+   defect. The only real thing found nearby — a latent nil-`source` parity gap between `Export` and
+   `Stats` — is folded into v3.1 as a trivial one-liner (§6), not a separate branch.
 
 ## Design
 
@@ -117,10 +120,27 @@ dataset as output tokens.** The data must reach disk **without passing back thro
 - Add one unit test in `tools/tests/test_build_report.py` (positive: literal escapes rejected; negative:
   real UTF-8 glyphs pass). Keep it stdlib `unittest`.
 
+### 6. nil-`source` parity between HISTORY and INSIGHTS (`core/Database.lua`) — the one real F1-adjacent nit
+
+Tracing F1 surfaced a genuine (latent) asymmetry: for a row whose `source` is nil/blank,
+`Database:Stats` coerces it — `local src = r.source or "OTHER"` (`Database.lua:245`) → counts as **Other**
+— while `Database:Export` writes it raw — `source = r.source` (`Database.lua:217`) → the HISTORY CSV cell
+is **blank**. That is the *only* way the two export blocks could actually diverge, and it does not bite
+today (no blank-`source` row observed in the pasted data), but it is a correctness gap.
+
+- Fix: make `Database:Export` coerce `source = r.source or "OTHER"`, matching `Stats`, so the two blocks
+  are guaranteed source-consistent regardless of data.
+- Guard it with a `tests/` unit case: a record with nil `source` exports as `OTHER` (not blank) and its
+  By-Source bucket matches what `Stats` reports. This may add one Lua test case → if the case count
+  moves, regenerate `docs/test-cases.md` and bump the README `tests` badge in the same change.
+- This is a data-path *consistency* fix, not a schema or behaviour change; the CSV contract is unchanged
+  (a source column that was already meant to be one of the SourceType labels).
+
 ## Out of scope
 
-- **F1 / the 301-vs-302 record + one-row source discrepancy** — real, now reproducible from the pasted
-  data, but an attribution/stats correctness item. Separate follow-up branch, not v3.1.
+- **Chasing F1 as a data-correctness bug** — it is a model hand-count artifact (see the table and §6),
+  fully addressed by forcing the tool; there is nothing to fix in the aggregation itself beyond the §6
+  nil-`source` parity one-liner.
 - No change to the addon data path (CSV stays; no pre-built `H` in the prompt).
 - No engine, styling, or runtime-behaviour change. No version bump.
 
@@ -135,5 +155,8 @@ dataset as output tokens.** The data must reach disk **without passing back thro
 - `modules/Export.lua` `AIPrompt` carries a tool pointer; `tests/test_export.lua` passes; the Lua case
   count is unchanged (or the badge/`test-cases.md` are regenerated if it moved).
 - `build_report.py` rejects a cards file containing literal `\u`/`\x` escapes, with a test proving it.
-- `luacheck .` clean, `lua tests/run.lua` green, `python3 -m unittest discover -s tools/tests` green.
-- F1 recorded as a follow-up.
+- `Database:Export` coerces nil `source` → `OTHER` (matching `Stats`), with a Lua test proving HISTORY
+  and INSIGHTS stay source-consistent for a blank-`source` row.
+- `luacheck .` clean, `lua tests/run.lua` green, `python3 -m unittest discover -s tools/tests` green;
+  test-cases.md/badge regenerated if the Lua case count moved.
+- F1 recorded in the spec as a non-bug (model miscount), so it is not re-chased later.
