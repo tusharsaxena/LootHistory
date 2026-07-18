@@ -4,3 +4,7 @@
 *.bak
 .DS_Store
 Thumbs.db
+
+# Python bytecode (tools/ dev tooling)
+__pycache__/
+*.pyc
