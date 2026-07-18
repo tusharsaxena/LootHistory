@@ -214,7 +214,7 @@ function Database:Export(filter)
       itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
       sellPrice = r.sellPrice, itemType = r.itemType, itemSubType = r.itemSubType,
       quantity = r.quantity,
-      source = r.source, sourceDetail = r.sourceDetail,
+      source = r.source or "OTHER", sourceDetail = r.sourceDetail,
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
     }
   end

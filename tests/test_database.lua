@@ -250,6 +250,19 @@ test("Database: Export returns metatable-free copies with all fields", function(
   assertEqual(#NS.Database:Export({ source = "KILL" }), 2)
 end)
 
+test("Database: Export coerces a nil source to OTHER (parity with Stats bySource)", function()
+  -- A row with no source must export as OTHER, not blank, so the HISTORY CSV and the
+  -- INSIGHTS "By Source" (which already coerces r.source or "OTHER") stay consistent.
+  NS.db.global.history = {
+    { ts = 1, char = "A-Realm", itemID = 1, itemName = "No Source", quality = 3 },
+    { ts = 2, char = "A-Realm", itemID = 2, itemName = "Killed", quality = 3, source = "KILL" },
+  }
+  local out = NS.Database:Export({})
+  assertEqual(out[1].source, "OTHER")   -- was nil (blank cell) before the parity fix
+  -- Both blocks now agree: the nil-source row lands in the OTHER bucket on each side.
+  assertEqual(NS.Database:Stats({}).bySource.OTHER, 1)
+end)
+
 local function firedHistoryChanged(sent)
   for _, m in ipairs(sent) do
     if m.msg == "Ka0s_LootHistory_HistoryChanged" then return true end
