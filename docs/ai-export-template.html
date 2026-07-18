@@ -262,7 +262,7 @@
   .tscroll{overflow:visible}
   /* Fixed layout + <colgroup> widths keep every column a constant size regardless of the data
      on the current page/filter; nowrap cells ellipsize rather than reflow the whole table. */
-  table{width:100%; border-collapse:collapse; font-size:11.5px; min-width:1010px; table-layout:fixed}
+  table{width:100%; border-collapse:collapse; font-size:11.5px; min-width:1080px; table-layout:fixed}
   thead th{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
     color:var(--muted); text-align:left; padding:8px 9px; border-bottom:1px solid var(--edge);
     cursor:pointer; white-space:nowrap; user-select:none; background:#16111f;
@@ -375,7 +375,7 @@
 
 <!-- ============ HERO ============
      Data-driven: the engine fills #rpt-sub (realm + date range), #rpt-hoard (total
-     vendor value) and #rpt-kpis (the 7 tiles) from H. The H1 stays literal. -->
+     value) and #rpt-kpis (the 7 tiles) from H. The H1 stays literal. -->
 <header class="hero">
   <div class="wrap hero-inner">
     <span class="crest" role="img" aria-label="Ka0s Loot History"></span>
@@ -384,7 +384,7 @@
       <p class="sub" id="rpt-sub"></p>
     </div>
     <div class="hoard">
-      <div class="lab">Vendor value harvested</div>
+      <div class="lab">Value harvested</div>
       <div class="val" id="rpt-hoard"></div>
     </div>
   </div>
@@ -444,11 +444,11 @@
       <div class="tscroll">
       <table>
         <!-- Fixed column widths (order matches COL): Time, Character, Item, Qual, Bound,
-             iLvl, Type, Subtype, Source, Zone, Value. Keep in sync with COL if columns change. -->
+             iLvl, Type, Subtype, Source, Zone, AH, Value. Keep in sync with COL if columns change. -->
         <colgroup>
           <col style="width:122px"><col style="width:104px"><col style="width:170px"><col style="width:84px">
           <col style="width:92px"><col style="width:54px"><col style="width:92px"><col style="width:116px">
-          <col style="width:110px"><col style="width:120px"><col style="width:102px">
+          <col style="width:110px"><col style="width:120px"><col style="width:102px"><col style="width:102px">
         </colgroup>
         <thead><tr id="rpt-thead"></tr></thead>
         <tbody id="rpt-tbody"></tbody>
@@ -846,7 +846,7 @@ function moneyFull(c){c=c||0;return gold(c)+"g "+Math.floor((c%10000)/100)+"s "+
 
 /* ---- html helpers ---- */
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
-function rowVal(r){return (r.v||0)*(r.qty||1);}
+function rowVal(r){return ((r.val!=null?r.val:(r.v||0)))*(r.qty||1);}
 function tsKey(r){var p=r.d.split("-");return 2026*1e8+ (MONI[p[1]]||0)*1e6 + (+p[0])*1e4 + (+r.t.slice(0,2))*100 + (+r.t.slice(3,5));}
 function weekday(r){var p=r.d.split("-");return new Date(+p[2],MONI[p[1]]||0,+p[0]).getDay();}
 function timeCell(r){var p=r.d.split("-");return p[0]+" "+p[1]+" &middot; "+r.t;}
@@ -889,7 +889,7 @@ function renderInsights(rows){
   var out=[];
   /* where loot came from */
   var src=groupBy(rows,function(r){return srcName(r.s);}).sort(function(a,b){return b.count-a.count;});
-  out.push(card("sp8","Where the loot came from","Drops by attributed source · hover a bar for its vendor value",
+  out.push(card("sp8","Where the loot came from","Drops by attributed source · hover a bar for its value",
     bars(src.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};})),
     "Each drop is attributed to a source: a kill, a container, mail, the Auction House, a Mythic+ chest, and so on."));
   /* bind state */
@@ -908,10 +908,10 @@ function renderInsights(rows){
   out.push(card("sp8","Loot by character","Drops per character · class-colored · value in gold",
     bars(ch.map(function(g){var cf=chd[g.key];return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',
       kstyle:"color:"+clsVar(cf),fstyle:"background:linear-gradient(90deg,"+clsDark(cf)+","+clsVar(cf)+")",tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};})),
-    "Bar color is the character's class color; the gold figure is vendor value harvested."));
+    "Bar color is the character's class color; the gold figure is value harvested."));
   /* top zones */
   var zo=groupBy(rows,function(r){return r.z;}).sort(function(a,b){return b.count-a.count;}).slice(0,5);
-  out.push(card("sp4","Top zones by haul","Drops &amp; vendor value per zone",
+  out.push(card("sp4","Top zones by haul","Drops &amp; value per zone",
     bars(zo.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};}))));
   /* activity over time */
   var dd={},order=[];rows.forEach(function(r){if(!(r.d in dd)){dd[r.d]={c:0};order.push(r.d);}dd[r.d].c++;});
@@ -926,7 +926,7 @@ function renderInsights(rows){
   /* richest drops */
   var byItem=groupBy(rows,function(r){return r.n;});
   var rich=byItem.slice().sort(function(a,b){return b.value-a.value;}).slice(0,10);
-  out.push(card("sp6","Richest drops","Top items by vendor value · hover for the tooltip",toplist(rich,true)));
+  out.push(card("sp6","Richest drops","Top items by value · hover for the tooltip",toplist(rich,true)));
   /* most-looted */
   var most=byItem.slice().sort(function(a,b){return b.qty-a.qty;}).slice(0,10);
   out.push(card("sp6","Most-looted items","Top items by number of drops",toplist(most,false)));
@@ -964,7 +964,9 @@ var COL=[{h:"Time",k:function(r){return tsKey(r);},s:true},{h:"Character",k:func
   {h:"Bound",k:function(r){return bindCat(r.b).toLowerCase();},s:true},
   {h:"iLvl",k:function(r){return r.il||-1;},s:true},{h:"Type",k:function(r){return r.ty.toLowerCase();},s:true},
   {h:"Subtype",k:function(r){return r.st.toLowerCase();},s:true},{h:"Source",k:function(r){return srcName(r.s).toLowerCase();},s:true},
-  {h:"Zone",k:function(r){return r.z.toLowerCase();},s:true},{h:"Value",k:function(r){return rowVal(r);},s:true,right:true}];
+  {h:"Zone",k:function(r){return r.z.toLowerCase();},s:true},
+  {h:"AH",k:function(r){return r.a||0;},s:true,right:true},
+  {h:"Value",k:function(r){return rowVal(r);},s:true,right:true}];
 var SORT={col:0,dir:-1}, GROUP="", GROUPCOL={char:1,source:7,quality:3,type:5,subtype:6,zone:8};
 function rowHTML(r){
   return '<tr><td class="mono">'+timeCell(r)+'</td>'+
@@ -974,7 +976,9 @@ function rowHTML(r){
     '<td style="color:'+bindColorOf(r.b)+'">'+esc(bindCat(r.b))+'</td>'+
     '<td class="num">'+ilvl(r)+'</td><td>'+esc(r.ty)+'</td><td>'+esc(r.st)+'</td>'+
     '<td><span class="badge'+(SRCBADGE[r.s]?' '+SRCBADGE[r.s]:'')+'">'+esc(srcBadgeText(r.s))+'</span></td>'+
-    '<td>'+esc(r.z)+'</td><td class="num">'+moneyFull(rowVal(r))+'</td></tr>';
+    '<td>'+esc(r.z)+'</td>'+
+    '<td class="num">'+(r.a!=null?moneyFull(r.a):'—')+'</td>'+
+    '<td class="num">'+moneyFull(rowVal(r))+'</td></tr>';
 }
 var PAGE=1, PAGESIZE=50;
 function renderTable(rows){
