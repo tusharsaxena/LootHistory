@@ -114,7 +114,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 
-### test_database.lua (41)
+### test_database.lua (42)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -140,6 +140,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: VisibleHistory hides a viaWhitelist row once its id leaves the whitelist
 - Database: Query/Stats/Export all exclude blacklisted ids via ActiveHistory
 - Database: Export returns metatable-free copies with all fields
+- Database: Export coerces a nil source to OTHER (parity with Stats bySource)
 - Database: DeleteAt removes the row, compacts, fires HistoryChanged
 - Database: DeleteAt out-of-range returns false, no change
 - Database: Delete(pred) removes all matching, compacts, returns count
@@ -275,11 +276,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_attribution.lua | 21 |
 | test_filters.lua | 16 |
 | test_collector.lua | 22 |
-| test_database.lua | 41 |
+| test_database.lua | 42 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
 | test_export.lua | 18 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 4 |
-| **Total** | **224** |
+| **Total** | **225** |
