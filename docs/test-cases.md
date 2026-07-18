@@ -106,7 +106,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: ShouldRecord flags a whitelist rescue but not a normal pass
 - Collector: ShouldRecord id lists ignore other item ids
 - Collector: end-to-end drops a blacklisted item, records after un-blacklisting
-- Collector: end-to-end whitelist records below threshold, hidden after un-whitelisting
+- Collector: whitelist records below threshold as a plain point-in-time row
 - Collector: end-to-end writes an attributed record
 - Collector: end-to-end drops loot below the quality threshold
 - Collector: end-to-end drops quest items when the filter is on
@@ -114,7 +114,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 
-### test_database.lua (42)
+### test_database.lua (41)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -135,10 +135,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: Query by ts range (from/to inclusive)
 - Database: Query by case-insensitive text substring
 - Database: Query combines predicates (AND)
-- Database: VisibleHistory hides blacklisted ids but keeps them in history
-- Database: VisibleHistory returns the raw array unchanged when nothing is hidden
-- Database: VisibleHistory hides a viaWhitelist row once its id leaves the whitelist
-- Database: Query/Stats/Export all exclude blacklisted ids via ActiveHistory
+- Database: blacklist does NOT hide already-stored rows (point-in-time)
+- Database: ActiveHistory returns raw history (no hide, same reference)
 - Database: Export returns metatable-free copies with all fields
 - Database: Export coerces a nil source to OTHER (parity with Stats bySource)
 - Database: DeleteAt removes the row, compacts, fires HistoryChanged
@@ -158,6 +156,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
 - NS.MigrationSummary formats from/to/rows
+- Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
 
 ### test_stats.lua (13)
 
@@ -211,7 +210,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: InsightsCSV summary reports the record count
 - Export: InsightsCSV By Source uses labels + carries the value column
 - Export: InsightsCSV quotes a label containing a comma
-- Export: InsightsCSV omits blacklisted items (via Stats/ActiveHistory)
+- Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)
 - Export: AIPrompt embeds guideline URL, both CSV blocks, and framing
 - Export: AIPrompt large-dataset note gated on opts.rows
 
@@ -276,11 +275,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_attribution.lua | 21 |
 | test_filters.lua | 16 |
 | test_collector.lua | 22 |
-| test_database.lua | 42 |
+| test_database.lua | 41 |
 | test_stats.lua | 13 |
 | test_browsertable.lua | 16 |
 | test_export.lua | 18 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 4 |
-| **Total** | **225** |
+| **Total** | **224** |
