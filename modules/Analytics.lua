@@ -80,7 +80,7 @@ end
 -- Short character label ("Name-Realm" → "Name") for narrow per-character bars.
 local function shortChar(key) return (key and key:match("^[^-]+")) or key or "?" end
 
--- Vendor value → display string (coin glyphs in-game, "Ng Ns Nc" headless; "0" when zero).
+-- Value → display string (coin glyphs in-game, "Ng Ns Nc" headless; "0" when zero).
 local function money(copper)
   copper = copper or 0
   if copper <= 0 then return "0" end
@@ -213,7 +213,7 @@ local CARD_DEFS = {
   { key = "records", label = "records" },
   { key = "items",   label = "distinct items" },
   { key = "chars",   label = "characters" },
-  { key = "value",   label = "vendor value", str = true },
+  { key = "value",   label = "value", str = true },
   { key = "active",  label = "active days" },
   { key = "epic",    label = "epic+ drops" },
   { key = "best",    label = "best drop (ilvl)" },
@@ -359,14 +359,14 @@ end
 function Analytics:BuildCharts(content)
   self.headers = {
     source  = sectionHeader(content, "Loot by source"),
-    vsource = sectionHeader(content, "Vendor value by source"),
+    vsource = sectionHeader(content, "Value by source"),
     quality = sectionHeader(content, "Quality distribution"),
     qmix    = sectionHeader(content, "Quality mix"),
     itype   = sectionHeader(content, "Loot by item type"),
     bound   = sectionHeader(content, "Loot by bound type"),
     char    = sectionHeader(content, "Loot by character"),
     time    = sectionHeader(content, "Loot over time (per day)"),
-    vtime   = sectionHeader(content, "Vendor value over time (per day)"),
+    vtime   = sectionHeader(content, "Value over time (per day)"),
     hour    = sectionHeader(content, "Loot by hour of day"),
     weekday = sectionHeader(content, "Loot by weekday"),
     keystone = sectionHeader(content, "Mythic+ loot by keystone level"),
