@@ -135,6 +135,8 @@ test("Export: AIPrompt embeds guideline URL, both CSV blocks, and framing", func
   assertTrue(p:find("self-contained", 1, true) ~= nil, "self-contained rule stated")
   assertTrue(p:find("<date range>", 1, true) == nil, "no hand-title instruction (F2)")
   assertTrue(p:find("engine derives", 1, true) ~= nil, "states the engine derives the title (F2)")
+  assertTrue(p:find("build_report.py", 1, true) ~= nil,
+    "points code-capable agents at the shipped assembler")
 end)
 
 test("Export: AIPrompt large-dataset note gated on opts.rows", function()
