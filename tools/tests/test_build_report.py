@@ -220,5 +220,31 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual(code, 1)
 
 
+REAL_TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "..",
+                             "docs", "ai-export-template.html")
+
+
+class TestRealTemplate(unittest.TestCase):
+    def _cards(self):
+        return "\n".join('<div class="card sp4">c%d</div>' % i for i in range(10))
+
+    def _splice_real(self):
+        with open(REAL_TEMPLATE, encoding="utf-8") as f:
+            tpl = f.read()
+        _, rows = br.parse_history_csv(HISTORY)
+        return tpl, br.splice(tpl, "Frostmourne", br.emit_h_body(rows), self._cards())
+
+    def test_llm_section_divs_stay_balanced(self):
+        _, out = self._splice_real()
+        sec = out[out.index(br.SEC):out.index(br.SEC_END, out.index(br.SEC))]
+        self.assertEqual(sec.count("<div"), sec.count("</div>"),
+                         "llm section <div>/</div> must stay balanced after splice")
+
+    def test_card_count_and_verbatim_hold_on_real_template(self):
+        tpl, out = self._splice_real()
+        self.assertEqual(br.card_count(out), 10)
+        self.assertEqual(br.verify_verbatim(tpl, out), [])
+
+
 if __name__ == "__main__":
     unittest.main()

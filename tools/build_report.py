@@ -191,11 +191,25 @@ REALM_RE = re.compile(r'const REALM = "[^"]*";')
 
 
 def _card_span(html):
+    """(start, end) of the sample-card region: from just after the grid's
+    opening tag to the grid's OWN matching </div>. Scans <div> nesting forward
+    so a grid wrapped in other <div>s (as in the real template) is handled — a
+    plain rindex would wrongly pick an enclosing wrapper's close."""
     s = html.index(SEC)
     go = html.index(GRID_OPEN, s) + len(GRID_OPEN)
-    e = html.index(SEC_END, go)
-    gc = html.rindex("</div>", go, e)   # the grid's own closing </div>
-    return go, gc
+    depth, i = 1, go
+    while depth > 0:
+        nxt_open = html.find("<div", i)
+        nxt_close = html.find("</div>", i)
+        if nxt_close == -1:
+            raise ValueError("unbalanced <div> after grid open")
+        if nxt_open != -1 and nxt_open < nxt_close:
+            depth += 1
+            i = nxt_open + 4
+        else:
+            depth -= 1
+            i = nxt_close + 6
+    return go, i - 6
 
 
 def _h_span(html):
