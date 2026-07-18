@@ -128,13 +128,24 @@ available immediately from `CHAT_MSG_LOOT`; `itemID` is derived as it is today.
 - Add `"auction"` to the `NUMERIC_SORT` set (descending-first like vendor).
 - The `/lh test` data generator adds a synthetic `auctionPrice` (and a plausible `priceSource`)
   alongside the synthetic `sellPrice`.
+- **Window sizing:** the browser window's default width and `minResize`/min-width must grow to
+  accommodate the extra ~72px column so the table doesn't clip or force horizontal crowding. Adjust
+  wherever the window's size/`SetResizeBounds` (or equivalent) and the default geometry are defined,
+  and confirm the saved-geometry carve-out still restores sanely (a user's persisted narrower width
+  should be clamped up to the new minimum on load).
 
 The browser shows the **AH** column only (per step 6); `value` is an Insights/export concept.
 
 ## 7. Settings (Schema-driven)
 
+All auction settings live on their **own settings sub-page/category** titled **"Auction House
+Price"** (or similar), separate from the existing settings groups, so the ~8 new rows don't crowd the
+current panel. Implementation must first confirm how the settings panel groups/sub-pages are built
+from `settings/Schema.lua` (category/group field, AceConfig `type="group"`, or the panel's own
+sectioning) and add the new sub-page through that existing mechanism — not a bespoke one.
+
 New rows in `settings/Schema.lua` (drive AceDB defaults, panel widgets, and slash CLI; all mutations
-via `Schema:Set`):
+via `Schema:Set`), grouped under the new sub-page:
 
 - `auction.enabled` — master toggle (default true).
 - Per addon (Auctionator, TSM, Oribos): an **enable** toggle (default all true) and a **priority**
