@@ -194,3 +194,10 @@ test("Schema: reset does not alias the table-typed default (F-003)", function()
   -- Restore shared DB state for tests that follow (they mute by excludedSources).
   NS.Schema:Set("settings.excludedSources", {})
 end)
+
+test("Util: RecordValue prefers auctionPrice, falls back to sellPrice, else nil", function()
+  assertEqual(NS.Util.RecordValue({ auctionPrice = 500, sellPrice = 10 }), 500)
+  assertEqual(NS.Util.RecordValue({ sellPrice = 10 }), 10)
+  assertEqual(NS.Util.RecordValue({ auctionPrice = 0, sellPrice = 10 }), 0) -- 0 is a real price, not nil
+  assertEqual(NS.Util.RecordValue({}), nil)
+end)

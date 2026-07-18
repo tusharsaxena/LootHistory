@@ -66,6 +66,16 @@ function Util.FormatMoney(copper)
   return table.concat(parts, " ")
 end
 
+-- Derived per-unit worth of a record: the auction price snapshot if we captured one,
+-- else the vendor sell price, else nil. The single definition of "value" (never stored;
+-- see docs/data-model.md). Note: 0 is a real captured price, so test against nil, not falsiness.
+function Util.RecordValue(record)
+  if record == nil then return nil end
+  local a = record.auctionPrice
+  if a ~= nil then return a end
+  return record.sellPrice
+end
+
 -- Human-readable byte size: "820 B", "12.4 kB", "3.1 MB". Uses 1024 steps.
 function Util.FormatBytes(bytes)
   bytes = bytes or 0
