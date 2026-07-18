@@ -181,5 +181,44 @@ class TestSplice(unittest.TestCase):
         self.assertTrue(br.verify_verbatim(STUB_TEMPLATE, out))
 
 
+import os
+import tempfile
+
+
+class TestEndToEnd(unittest.TestCase):
+    def test_main_builds_and_validates(self):
+        d = tempfile.mkdtemp()
+        pr = os.path.join(d, "prompt.txt")
+        cards = os.path.join(d, "cards.html")
+        tpl = os.path.join(d, "tpl.html")
+        out = os.path.join(d, "report.html")
+        with open(pr, "w", encoding="utf-8") as f:
+            f.write(PROMPT)
+        with open(cards, "w", encoding="utf-8") as f:
+            f.write(NEW_CARDS)
+        with open(tpl, "w", encoding="utf-8") as f:
+            f.write(STUB_TEMPLATE)
+        code = br.main(["--prompt", pr, "--cards", cards,
+                        "--template", tpl, "-o", out, "--min-cards", "2"])
+        self.assertEqual(code, 0)
+        html = open(out, encoding="utf-8").read()
+        self.assertIn('const REALM = "Frostmourne";', html)
+        self.assertIn('"c":"Aria"', html)
+        self.assertNotIn("SAMPLE A", html)
+
+    def test_main_fails_on_min_cards(self):
+        # STUB has the section but NEW_CARDS supplies only 2 -> below the >=10 gate
+        d = tempfile.mkdtemp()
+        for name, data in (("prompt.txt", PROMPT), ("cards.html", NEW_CARDS),
+                           ("tpl.html", STUB_TEMPLATE)):
+            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                f.write(data)
+        code = br.main(["--prompt", os.path.join(d, "prompt.txt"),
+                        "--cards", os.path.join(d, "cards.html"),
+                        "--template", os.path.join(d, "tpl.html"),
+                        "-o", os.path.join(d, "r.html"), "--min-cards", "10"])
+        self.assertEqual(code, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

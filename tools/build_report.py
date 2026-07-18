@@ -5,10 +5,13 @@ Turns the pasted "Export to AI" prompt (HISTORY + INSIGHTS CSV blocks) plus an
 LLM-authored analysis-cards file into a validated, self-contained report.html by
 filling the fixed template. Stdlib only — runs unmodified in any code sandbox.
 """
+import argparse
 import csv
 import io
 import json
 import re
+import sys
+import urllib.request
 
 HKEYS = ["d", "t", "c", "cl", "id", "n", "q", "qr", "il", "b",
          "v", "ty", "st", "qty", "s", "z", "wh"]
@@ -233,3 +236,70 @@ def verify_verbatim(template, output):
     if template[template.index(H_CLOSE):] != output[output.index(H_CLOSE):]:
         errs.append("engine/footer tail differs from template")
     return errs
+
+
+TEMPLATE_URL = ("https://raw.githubusercontent.com/tusharsaxena/LootHistory/"
+                "refs/heads/master/docs/ai-export-template.html")
+
+
+def load_template(path_or_none):
+    if path_or_none:
+        return open(path_or_none, encoding="utf-8").read()
+    with urllib.request.urlopen(TEMPLATE_URL) as resp:   # full download, no cap
+        return resp.read().decode("utf-8")
+
+
+def build_report(prompt_text, cards, template, min_cards=10):
+    """Returns (html, errors). errors empty => valid report."""
+    history_csv, insights_csv = extract_blocks(prompt_text)
+    realm, rows = parse_history_csv(history_csv)
+    insights = parse_insights(insights_csv)
+    errs = list(validate_against_insights(rows, insights))
+    html = splice(template, realm, emit_h_body(rows), cards)
+    n = card_count(html)
+    if n < min_cards:
+        errs.append("analysis cards: %d found, need >= %d" % (n, min_cards))
+    errs += ["external request: " + x for x in scan_external(html)]
+    errs += verify_verbatim(template, html)
+    return html, errs
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Assemble a Ka0s Loot History AI report.")
+    src = ap.add_argument_group("data source (either --prompt, or both CSVs)")
+    src.add_argument("--prompt", help="the pasted addon prompt file (self-extracts both CSVs)")
+    src.add_argument("--history", help="HISTORY CSV file (alternative to --prompt)")
+    src.add_argument("--insights", help="INSIGHTS CSV file (alternative to --prompt)")
+    ap.add_argument("--cards", required=True, help="LLM-authored analysis cards HTML")
+    ap.add_argument("--template", help="local template path (default: full download)")
+    ap.add_argument("-o", "--out", required=True, help="output report path")
+    ap.add_argument("--min-cards", type=int, default=10)
+    args = ap.parse_args(argv)
+
+    if args.prompt:
+        prompt_text = open(args.prompt, encoding="utf-8").read()
+    elif args.history and args.insights:
+        prompt_text = (HISTORY_MARK + "\n" + open(args.history, encoding="utf-8").read()
+                       + "\n" + INSIGHTS_MARK + "\n"
+                       + open(args.insights, encoding="utf-8").read())
+    else:
+        ap.error("provide --prompt, or both --history and --insights")
+
+    cards = open(args.cards, encoding="utf-8").read()
+    template = load_template(args.template)
+    html, errs = build_report(prompt_text, cards, template, args.min_cards)
+
+    with open(args.out, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    if errs:
+        print("FAIL — %d issue(s):" % len(errs))
+        for e in errs:
+            print("  - " + e)
+        return 1
+    print("PASS — wrote %s (%d bytes)" % (args.out, len(html.encode("utf-8"))))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
