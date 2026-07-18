@@ -34,7 +34,7 @@ end
 
 -- Pure [Init] session summary for the SetEnabled seam (debug-logging-§5/§8): addon name + version,
 -- schema/DB version, active profile, and record count — e.g.
--- "LootHistory v1.1.0, schema v1, profile 'Default', 1423 records".
+-- "LootHistory v1.1.0, schema v2, profile 'Default', 1423 records".
 -- Guarded so it can't error before the DB is ready (db.global / GetCurrentProfile may be absent).
 -- All values are plain constants/counts, so a raw tostring is secret-safe here.
 function NS.InitSummary()

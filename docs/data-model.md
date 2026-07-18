@@ -62,15 +62,15 @@ Filtering is point-in-time: a row rescued by the whitelist (it failed the normal
 
 ## Storage: a dense array
 
-All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [saved-variables.md](./saved-variables.md)). `Database:Add` (`core/Database.lua:114`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
+All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [saved-variables.md](./saved-variables.md)). `Database:Add` (`core/Database.lua:69`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
 
 ### Rebuild-and-swap on delete
 
-Deletion never leaves holes. `Database:DeleteAt` (`core/Database.lua:377`) uses `table.remove` (which compacts), while every predicate/bulk path **rebuilds a fresh array and swaps it in**:
+Deletion never leaves holes. `Database:DeleteAt` (`core/Database.lua:326`) uses `table.remove` (which compacts), while every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
-- `Database:Delete(pred)` (`core/Database.lua:392`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:454`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
-- `Database:Purge()` (`core/Database.lua:409`) — replace with `{}`.
+- `Database:Delete(pred)` (`core/Database.lua:340`) — keep everything where `pred(r)` is false.
+- `Database:PruneOld()` (`core/Database.lua:400`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:Purge()` (`core/Database.lua:356`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -99,7 +99,7 @@ Companion tables in the same file: `SourceOrder` (display order for grouping/ana
 
 `schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **2** by the migration below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
-`NS:RunMigrations` (`core/Database.lua:14`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The **v1→v2** migration ships in its body: it strips the retired per-record `viaWhitelist` field from every stored row and bumps the stamp to `2`. It deletes no records — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight:
+`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The **v1→v2** migration ships in its body: it strips the retired per-record `viaWhitelist` field from every stored row and bumps the stamp to `2`. It deletes no records — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight:
 
 ```lua
 -- core/Database.lua — NS:RunMigrations()
@@ -112,7 +112,7 @@ It is a safe no-op when the DB isn't ready yet, and idempotent once a DB is alre
 
 ### ActiveHistory — the test-mode swap
 
-Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:105`), **not** `history` directly:
+Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:60`), **not** `history` directly:
 
 ```lua
 function Database:ActiveHistory()
@@ -132,11 +132,11 @@ it never hides, restores, or otherwise touches rows already in `db.global.histor
 still requires `Database:Delete`). The blacklist/whitelist lists are owned by `NS.Filters`
 (`modules/Filters.lua`). See [saved-variables.md](saved-variables.md).
 
-`Database:Query(filter)` (`core/Database.lua:202`) runs the generic `QueryList` (`core/Database.lua:136`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:228`) aggregates the filtered result in one O(n) pass for Insights.
+`Database:Query(filter)` (`core/Database.lua:151`) runs the generic `QueryList` (`core/Database.lua:85`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:177`) aggregates the filtered result in one O(n) pass for Insights.
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:209`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:158`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·

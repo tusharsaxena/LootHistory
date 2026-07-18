@@ -71,7 +71,9 @@ Loot History**.
   `COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
-  `settings`, `minimap`, and `schemaVersion = 1`.
+  `settings`, `minimap`, and `schemaVersion = 2`. (The seed value is 1; `NS:RunMigrations` — invoked
+  from `InitDB` before any read — applies the v1→v2 migration on a brand-new DB immediately, so the
+  value persisted after the very first init is already 2.)
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
   `settings.excludedSources = table: …` (empty), `minimap.hide = false`.
@@ -432,8 +434,9 @@ are **independent**.
 - Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
 
 **Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 1` — `RunMigrations` (invoked from `InitDB`) set/kept
-  the version at 1 with **no unintended bump**.
+- `LootHistoryDB["global"]["schemaVersion"] = 2` — `RunMigrations` (invoked from `InitDB`) applied
+  the v1→v2 migration (strips the retired `viaWhitelist` field) and bumped the stamp to 2;
+  re-running it on an already-v2 DB is a no-op (idempotent).
 - `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
   `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
   (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.

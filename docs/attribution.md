@@ -92,7 +92,7 @@ Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.l
 
 ### Hot-path upvalues
 
-The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard events-frames-taint-§7). `Collector:RefreshUpvalues` (`modules/Collector.lua:67`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:131`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
+The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard events-frames-taint-§7). `Collector:RefreshUpvalues` (`modules/Collector.lua:67`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:126`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
 
 ## Wired vs enum'd sources
 

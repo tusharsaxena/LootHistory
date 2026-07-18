@@ -5,7 +5,8 @@ NS.defaults = NS.defaults or {}
 NS.defaults.global = {
   -- Version stamp for the persisted DB. 1.0.0 ships as the initial shape (1). NS:RunMigrations
   -- (core/Database.lua) reads/writes this field once at init — the idempotent seam future schema
-  -- changes hook into; today its body is a no-op beyond stamping version 1.
+  -- changes hook into; NS:RunMigrations runs once at init and ships a v1→v2 migration that strips
+  -- the retired per-record `viaWhitelist` field and bumps the stamp to 2 (non-destructive).
   schemaVersion = 1,
   history = {},          -- array of loot records
   -- Item-id filter lists (issue #14). Blacklisted ids are never recorded and their existing rows

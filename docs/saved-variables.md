@@ -10,7 +10,7 @@ Defaults are declared in `defaults/Global.lua`; AceDB merges them under `db.glob
 
 ```lua
 db.global = {
-  schemaVersion = 1,           -- DB schema stamp; NS:RunMigrations reads/writes this
+  schemaVersion = 2,           -- DB schema stamp; seeded 1, carried to 2 by NS:RunMigrations at init
   history = {},                -- dense array of loot records (one per loot event)
   blacklist = {},              -- { [itemID]=true } — dropped at capture; existing rows untouched (carve-out)
   whitelist = {},              -- { [itemID]=true } — always record, bypassing the gates (carve-out)
@@ -28,7 +28,7 @@ db.global = {
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:392`, `:454`). Each record's field shape is documented in [data-model.md](data-model.md).
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:340`, `:400`). Each record's field shape is documented in [data-model.md](data-model.md).
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:72`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
@@ -70,8 +70,8 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 
 `NS:InitDB` (`core/Database.lua:4`) creates the AceDB store, then immediately calls `NS:RunMigrations` to normalize the persisted schema **before any history read**.
 
-`NS:RunMigrations` (`core/Database.lua:14`) is the idempotent schema-upgrade seam required by the Ka0s Standard. It reads and writes `db.global.schemaVersion`, runs once at init — from `InitDB`, after the AceDB store is ready, before any history read — and is a safe no-op when the DB isn't ready. It currently ships one migration, gated on `schemaVersion < 2`: it strips the retired per-record `viaWhitelist` field (a leftover from the old soft-add model) from every stored row, then bumps the stamp to `2`. The migration deletes no records — it only clears a field — and is idempotent: once a DB is already at `schemaVersion` `2`, re-running it is a no-op. The `defaults/Global.lua` seed value legitimately stays `1` for brand-new DBs; live DBs are carried to `2` by this migration on their first load after upgrade.
+`NS:RunMigrations` (`core/Database.lua:13`) is the idempotent schema-upgrade seam required by the Ka0s Standard. It reads and writes `db.global.schemaVersion`, runs once at init — from `InitDB`, after the AceDB store is ready, before any history read — and is a safe no-op when the DB isn't ready. It currently ships one migration, gated on `schemaVersion < 2`: it strips the retired per-record `viaWhitelist` field (a leftover from the old soft-add model) from every stored row, then bumps the stamp to `2`. The migration deletes no records — it only clears a field — and is idempotent: once a DB is already at `schemaVersion` `2`, re-running it is a no-op. The `defaults/Global.lua` seed value legitimately stays `1` for brand-new DBs; live DBs are carried to `2` by this migration on their first load after upgrade.
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:454`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:66`).
+`Database:PruneOld` (`core/Database.lua:400`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:66`).

@@ -71,7 +71,7 @@ the small-scale rules those documents assume.
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:9`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:131`). The quest-item gate keys on the locale-independent item class
+  (`modules/Collector.lua:126`). The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
 ## Chat output: one shared secret-safe printer

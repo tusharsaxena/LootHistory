@@ -32,7 +32,7 @@ All share the same gold header design: a `GameFontNormalHuge` title on the left,
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-Eight rows ship today (`Schema.lua:10`): `settings.enabled`, `minimap.hide`, `state.debugConsole`, `settings.windowScale` (Master Controls); `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.retentionDays`, `settings.excludedSources` (Data Collection).
+Eight rows ship today (`Schema.lua:11`): `settings.enabled`, `minimap.hide`, `state.debugConsole`, `settings.windowScale` (Master Controls); `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.retentionDays`, `settings.excludedSources` (Data Collection).
 
 **Session-only rows.** Most rows persist to `NS.db.global`, but a row marked `sessionOnly = true` carries `get`/`set` accessors and is **never written to the DB** — `Schema:Set` routes to `row.set` instead of `WritePath`, `Schema:Get` reads `row.get`, and `Register` skips its default check. `state.debugConsole` (label "Debug console") is the one such row: it toggles the debug console **window's visibility** via `NS.DebugLog:Show/Hide/IsShown` — *not* the `NS.State.debug` logging flag (that stays non-schema, set via `/lh debug on|off`). It mirrors `/lh debug` (no-arg); `DebugLog` calls `NS.Panel:Refresh()` on show/hide so the checkbox stays in sync when the window is toggled elsewhere. This is a flagged deviation from schema-persist-everything (see [agent-context.md](agent-context.md)).
 
@@ -69,7 +69,7 @@ Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = fa
 
 `renderHistory` (`Panel.lua:336`) appends a "History" section unique to this addon: a live stats label paired with a **Purge history…** button.
 
-* **Stats label** reads from `Database:StorageStats` (`Database.lua:437`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:365`).
+* **Stats label** reads from `Database:StorageStats` (`Database.lua:383`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:365`).
 * **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (`Panel.lua:348`, popup at `Slash.lua:8`).
 * **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:376`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [conventions.md](conventions.md)).
 
