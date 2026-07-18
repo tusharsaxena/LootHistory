@@ -35,6 +35,7 @@ Loader.loadAll({
   "defaults/Global.lua",
   "modules/Attribution.lua",
   "modules/Filters.lua",
+  "modules/AuctionPrice.lua",
   "modules/Collector.lua",
   "modules/Browser.lua",
   "modules/BrowserTable.lua",
@@ -56,7 +57,7 @@ _G.LH_TEST = {
 -- --- load test suites (order is load-order-sensitive; keep as-is) ---
 local SUITE_FILES = {
   "test_util.lua", "test_compat.lua", "test_attribution.lua",
-  "test_filters.lua", "test_collector.lua", "test_database.lua", "test_stats.lua",
+  "test_filters.lua", "test_auctionprice.lua", "test_collector.lua", "test_database.lua", "test_stats.lua",
   "test_browsertable.lua", "test_export.lua", "test_debuglog.lua", "test_slash.lua",
   "test_schema.lua",
 }

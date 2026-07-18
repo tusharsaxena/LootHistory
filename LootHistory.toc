@@ -43,6 +43,7 @@ defaults\Global.lua
 # Modules (Attribution before Collector)
 modules\Attribution.lua
 modules\Filters.lua
+modules\AuctionPrice.lua
 modules\Collector.lua
 modules\Browser.lua
 modules\BrowserTable.lua
