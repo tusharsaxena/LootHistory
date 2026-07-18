@@ -6,7 +6,7 @@ local F = NS.Filters
 --
 --   * Blacklist — ids that must NOT be recorded even if they pass the collection gates. Point-in-
 --     time only: it decides future captures, not what happens to rows already stored — nothing is
---     ever hidden or deleted at read time.
+--     ever hidden, deleted, or otherwise touched at read time.
 --   * Whitelist — ids that must ALWAYS be recorded, bypassing the quality / source / quest gates.
 --
 -- The two lists are stored account-wide in NS.db.global.{blacklist,whitelist} (NOT settings, NOT
@@ -19,7 +19,8 @@ local F = NS.Filters
 -- AceDB shared-default table in place, then propagates the change WITHOUT adding a second bus
 -- sender (message-bus's "one sender per message" invariant): it re-caches the Collector's list
 -- upvalues by a direct call, and broadcasts HistoryChanged through Database's own emitter so the
--- browser + Insights re-query and hidden rows appear/disappear.
+-- browser + Insights re-query to refresh their counts/lists (point-in-time: no existing row is
+-- ever hidden or revealed by a list change).
 
 local function currentSet(key)
   return (NS.db and NS.db.global and NS.db.global[key]) or {}
@@ -47,7 +48,7 @@ end
 -- Propagate a list change. Re-cache the Collector's list upvalues by a direct cross-module call
 -- (not a bus message — the lists aren't schema settings, and the Collector is the only capture-side
 -- consumer), then broadcast HistoryChanged through Database's sole emitter so the browser + Insights
--- re-query and hidden rows update. No second sender is introduced for either message.
+-- re-query to refresh their counts/lists. No second sender is introduced for either message.
 function F:_notify(reason)   -- luacheck: ignore reason
   if NS.Collector and NS.Collector.RefreshUpvalues then NS.Collector:RefreshUpvalues() end
   if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
