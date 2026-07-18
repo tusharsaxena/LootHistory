@@ -53,7 +53,7 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view. The filter bar is **shared** between both tabs, so the same narrowing applies to the table and the charts at once — you always know which slice of your loot you're looking at.
 
-The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Don't want an item tracked? Right-click its row and choose **Blacklist item** — it disappears from view immediately (nothing is deleted; restore it any time from the Filters settings).
+The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Don't want an item tracked going forward? Right-click its row and choose **Blacklist item** — the clicked row stays put (nothing is deleted or hidden), but future loots of that item are skipped. Delete a row from the table if you want it gone.
 
 ### Export to AI
 
@@ -102,8 +102,8 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 
 **Filters** (its own page)
 
-*   **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). Blacklisted items are never recorded, and any you've *already* recorded are hidden from the browser — nothing is deleted, so removing an item from the list brings its rows back.
-*   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). Removing an item from the whitelist hides the rows it added (nothing is deleted — re-add it to bring them back), the mirror image of the blacklist. Adding an item to one list removes it from the other.
+*   **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). This is point-in-time: once an id is blacklisted, future loots of it are skipped and never recorded, but rows you've *already* recorded are left exactly where they are — editing the list doesn't touch stored history. Delete a row manually if you want it gone.
+*   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). While an id is whitelisted, every future loot of it is recorded as a normal row, bypassing those gates. Removing the id afterward only stops *future* loots from bypassing the gates again — rows it already added stay put. Adding an item to one list removes it from the other; an id is never on both.
 
 ## How attribution works
 

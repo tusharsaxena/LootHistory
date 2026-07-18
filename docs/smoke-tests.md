@@ -50,7 +50,7 @@ Companion docs:
 | 13 | Retention | `PruneOld` on login + onChange | [Retention prune](#13-retention-prune) |
 | 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
 | 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
-| 16 | Blacklist & whitelist | Capture gate + hide/restore + Filters management UI | [Blacklist & whitelist](#16-blacklist--whitelist) |
+| 16 | Blacklist & whitelist | Capture gate (point-in-time) + Filters management UI | [Blacklist & whitelist](#16-blacklist--whitelist) |
 
 ---
 
@@ -455,14 +455,15 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 
 ### 16. Blacklist & whitelist
 
-Covers the item-id filter lists (issue #14): the capture gate, the hide-without-delete behaviour, and
-the Settings ▸ Filters management UI. **Setup:** a real history with at least one repeated item.
+Covers the item-id filter lists (issue #14): the capture gate and the Settings ▸ Filters management
+UI. This is **point-in-time** filtering — editing either list only changes what happens to *future*
+loots; it never touches rows already stored. **Setup:** a real history with at least one repeated item.
 
 **Steps.**
 - In the History tab, right-click a row and choose **Blacklist item**. Note the popup's **gold border**.
 - Open **Settings ▸ Filters** (`/lh config` → Filters). In the **Blacklist** section, note the item.
 - Loot that same item again (or `/lh test` won't help here — use a live drop).
-- In the Filters page, click **Remove** on that item.
+- In the Filters page, click **Remove** on that item, then loot the item once more.
 - In the **Whitelist** section, add an item id that would normally be dropped (below your quality
   threshold, or from a muted source), then loot it so a row appears.
 - Now **Remove** that id from the whitelist and re-check the History table.
@@ -470,22 +471,25 @@ the Settings ▸ Filters management UI. **Setup:** a real history with at least 
 - Enter garbage (e.g. `abc`) into an add box and submit.
 
 **Pass.**
-- **Blacklist item** (right-click) removes **every** row of that item from the table immediately, and
-  the footer's "Showing X of Y" both drop — but the database size does **not** shrink (nothing is
-  deleted). A chat line confirms "blacklisted …".
-- While blacklisted, looting that item records **nothing** (no new row; a `[Drop] … reason=blacklist`
-  line with debug on).
-- Clicking **Remove** in the Filters page brings the hidden rows **back** into the table (restore works
-  because the data was never deleted).
+- **Blacklist item** (right-click) adds the id to the blacklist, but the **clicked row stays in the
+  table** — blacklisting only stops *future* captures; it never hides or deletes what's already
+  stored. A chat line confirms "blacklisted …".
+- While blacklisted, looting that item records **nothing new** (no new row; a
+  `[Drop] … reason=blacklist` line with debug on). Existing rows of that id are unaffected throughout.
+- Clicking **Remove** in the Filters page brings **nothing back** — nothing was ever hidden, so there
+  is nothing to restore. Looting the item again afterward records normally, confirming the gate is
+  lifted for future loots only.
 - A **whitelisted** id records **even when it would normally be dropped** (below threshold / muted
-  source / quest item) — the new row appears.
-- **Removing** that id from the whitelist **hides the rows it added** — the row(s) recorded only because
-  of the whitelist disappear from the table (but the database size doesn't shrink — re-adding the id
-  brings them back). This is symmetric with the blacklist and is the fix for the un-whitelist bug.
+  source / quest item) — the new row appears as a normal, plain row.
+- **Removing** that id from the whitelist afterward leaves the row(s) it added **exactly where they
+  are** — nothing is hidden or deleted. Only *future* loots of that id go back through the normal
+  gates (and are dropped again if they don't pass).
 - Adding an id to one list **removes it from the other** (an id is never on both). The Filters page's
   two lists update live; each entry shows the item name (or `Item <id>` until the client caches it)
   with a **Remove** button; the empty state reads `(none)`.
 - Garbage input is rejected with a chat hint and adds nothing.
+- To remove existing rows of a blacklisted (or any) item, use the row's **Delete** action — list
+  membership never does this for you.
 - The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in
   the browser's filter dropdowns (it is core logic, not a user-selectable display filter).
 

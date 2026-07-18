@@ -70,7 +70,7 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 
 `NS:InitDB` (`core/Database.lua:4`) creates the AceDB store, then immediately calls `NS:RunMigrations` to normalize the persisted schema **before any history read**.
 
-`NS:RunMigrations` (`core/Database.lua:14`) is the idempotent schema-upgrade seam required by the Ka0s Standard. It reads and writes `db.global.schemaVersion`, and ships even with an effectively empty body — the *seam* is the requirement, so a future schema change gets a single upgrade path invoked once at init. Today it stamps `schemaVersion = 1` and does nothing else; it is a safe no-op when the DB isn't ready.
+`NS:RunMigrations` (`core/Database.lua:14`) is the idempotent schema-upgrade seam required by the Ka0s Standard. It reads and writes `db.global.schemaVersion`, runs once at init — from `InitDB`, after the AceDB store is ready, before any history read — and is a safe no-op when the DB isn't ready. It currently ships one migration, gated on `schemaVersion < 2`: it strips the retired per-record `viaWhitelist` field (a leftover from the old soft-add model) from every stored row, then bumps the stamp to `2`. The migration deletes no records — it only clears a field — and is idempotent: once a DB is already at `schemaVersion` `2`, re-running it is a no-op. The `defaults/Global.lua` seed value legitimately stays `1` for brand-new DBs; live DBs are carried to `2` by this migration on their first load after upgrade.
 
 ## Retention prune
 
