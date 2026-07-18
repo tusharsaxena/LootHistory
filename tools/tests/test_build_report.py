@@ -87,5 +87,45 @@ class TestExtractAndInsights(unittest.TestCase):
         self.assertEqual(ins[("Summary", "Vendor value")]["value"], "10g 8s 0c")
 
 
+GOOD_HTML = (
+    '<section id="llm"><div class="grid">'
+    '<div class="card sp6">one</div>'
+    '<div class="card sp4">two</div>'
+    "</div></section>"
+    '<a href="https://www.wowhead.com/item=111">Big Sword</a>'
+)
+BAD_HTML = (
+    '<section id="llm"><div class="card sp6">only</div></section>'
+    '<script src="https://cdn.example.com/x.js"></script>'
+    '<link href="https://x/y.css" rel="stylesheet">'
+)
+
+
+class TestValidation(unittest.TestCase):
+    def setUp(self):
+        _, self.rows = br.parse_history_csv(HISTORY)
+        self.ins = br.parse_insights(INSIGHTS)
+
+    def test_insights_crosscheck_clean(self):
+        self.assertEqual(br.validate_against_insights(self.rows, self.ins), [])
+
+    def test_insights_crosscheck_detects_vendor_mismatch(self):
+        bad = dict(self.ins)
+        bad[("Summary", "Vendor value")] = {"count": "", "value": "99g 0s 0c"}
+        errs = br.validate_against_insights(self.rows, bad)
+        self.assertTrue(any("Vendor value" in e for e in errs))
+
+    def test_card_count(self):
+        self.assertEqual(br.card_count(GOOD_HTML), 2)
+
+    def test_scan_external_clean(self):
+        self.assertEqual(br.scan_external(GOOD_HTML), [])
+
+    def test_scan_external_flags_script_and_link(self):
+        found = br.scan_external(BAD_HTML)
+        self.assertIn("script src", found)
+        self.assertIn("<link href>", found)
+
+
 if __name__ == "__main__":
     unittest.main()

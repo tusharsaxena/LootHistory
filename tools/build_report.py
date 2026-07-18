@@ -95,3 +95,87 @@ def parse_insights(text):
             "value": (r.get("Value") or "").strip(),
         }
     return out
+
+
+SEC = '<section id="llm">'
+SEC_END = "</section>"
+
+EXTERNAL_PATTERNS = [
+    (r"<script[^>]+src=", "script src"),
+    (r"<link[^>]+href=", "<link href>"),
+    (r"@import", "@import"),
+    (r"url\(\s*https?:", "url(http)"),
+    (r"\bfetch\s*\(", "fetch()"),
+    (r"XMLHttpRequest", "XHR"),
+    (r"<img[^>]+src=", "<img src>"),
+    (r"@font-face", "@font-face"),
+]
+
+
+def _fmt_money(c):
+    return "%dg %ds %dc" % (c // 10000, (c % 10000) // 100, c % 100)
+
+
+def validate_against_insights(rows, insights):
+    """Cross-check the transcribed rows against the INSIGHTS Summary.
+    Returns a list of human-readable mismatch messages (empty == OK)."""
+    errs = []
+
+    def summ(label):
+        return insights.get(("Summary", label))
+
+    def check_count(label, actual):
+        s = summ(label)
+        if s and s["count"] != "" and str(actual) != s["count"]:
+            errs.append("%s: computed %s, INSIGHTS says %s"
+                        % (label, actual, s["count"]))
+
+    check_count("Records", len(rows))
+    check_count("Distinct items", len({o["id"] for o in rows}))
+    check_count("Characters", len({o["c"] for o in rows}))
+    check_count("Epic+ drops", sum(1 for o in rows if o["qr"] >= 4))
+    ils = [o["il"] for o in rows if o["il"] is not None]
+    if ils:
+        check_count("Best drop iLvl", max(ils))
+
+    # Vendor value = sum(v * qty)  (F1)
+    s = summ("Vendor value")
+    if s and s["value"]:
+        computed = sum(o["v"] * o["qty"] for o in rows)
+        if computed != parse_money(s["value"]):
+            errs.append("Vendor value: computed %s, INSIGHTS says %s"
+                        % (_fmt_money(computed), s["value"]))
+
+    # Richest drop = max per-unit v
+    s = summ("Richest drop")
+    if s and s["value"] and rows:
+        richest = max(o["v"] for o in rows)
+        if richest != parse_money(s["value"]):
+            errs.append("Richest drop: computed %s, INSIGHTS says %s"
+                        % (_fmt_money(richest), s["value"]))
+
+    # Busiest day: compare the count inside "Day (N)"
+    s = summ("Busiest day")
+    if s and s["count"]:
+        m = re.search(r"\((\d+)\)", s["count"])
+        if m:
+            counts = {}
+            for o in rows:
+                counts[o["d"]] = counts.get(o["d"], 0) + 1
+            busiest = max(counts.values()) if counts else 0
+            if busiest != int(m.group(1)):
+                errs.append("Busiest day: computed %d, INSIGHTS says %s"
+                            % (busiest, m.group(1)))
+    return errs
+
+
+def card_count(html):
+    """Count analysis cards inside the llm section (F5: match the div, not the
+    bare 'card' token that also appears in a CSS ::before rule)."""
+    start = html.index(SEC)
+    end = html.index(SEC_END, start)
+    return html[start:end].count('<div class="card')
+
+
+def scan_external(html):
+    return [label for pat, label in EXTERNAL_PATTERNS if re.search(pat, html)]
