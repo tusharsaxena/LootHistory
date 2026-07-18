@@ -97,16 +97,16 @@ Companion tables in the same file: `SourceOrder` (display order for grouping/ana
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, seeded to `1` in `defaults/Global.lua:9`. It lives alongside `history`/`settings`/`minimap` under `global`.
+`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **2** by the migration below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
-`NS:RunMigrations` (`core/Database.lua:14`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. Today its body only normalizes the stamp to `1` — no schema change has shipped — but the seam is the requirement: a future field addition/rename bumps the version and lands its transform in one place:
+`NS:RunMigrations` (`core/Database.lua:14`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The **v1→v2** migration ships in its body: it strips the retired per-record `viaWhitelist` field from every stored row and bumps the stamp to `2`. It deletes no records — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight:
 
 ```lua
 -- core/Database.lua — NS:RunMigrations()
--- if g.schemaVersion < 2 then <transform each record> ; g.schemaVersion = 2 end
+-- if g.schemaVersion < 2 then <strip r.viaWhitelist from each record> ; g.schemaVersion = 2 end
 ```
 
-It is a safe no-op when the DB isn't ready yet.
+It is a safe no-op when the DB isn't ready yet, and idempotent once a DB is already at v2.
 
 ## Read seams
 

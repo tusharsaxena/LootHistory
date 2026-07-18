@@ -77,10 +77,11 @@ back fast table ops.
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see [`agent-context.md`](agent-context.md) "Do not change without reason".
-- `schemaVersion` is a version stamp on the DB; the initial shipped shape is **1**.
+- `schemaVersion` is a version stamp on the DB; the current shipped shape is **2**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
-  before any history read) and normalizes `schemaVersion` — the idempotent seam future schema
-  changes hook into. No schema change has shipped yet, so its body is a no-op beyond stamping **1**.
+  before any history read) — the idempotent seam future schema changes hook into. The **v1→v2**
+  migration ships here: it strips the retired per-record `viaWhitelist` field (point-in-time
+  filtering no longer hides stored rows) without deleting any records.
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
 - **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
