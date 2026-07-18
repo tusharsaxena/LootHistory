@@ -293,8 +293,31 @@ def load_template(path_or_none):
         return resp.read().decode("utf-8")
 
 
+def computed_figures(rows):
+    """The reconciliation figures the tool checks, for the PASS summary."""
+    ils = [o["il"] for o in rows if o["il"] is not None]
+    counts = {}
+    for o in rows:
+        counts[o["d"]] = counts.get(o["d"], 0) + 1
+    busiest_day, busiest_n = "", 0
+    if counts:
+        busiest_day = max(counts, key=counts.get)
+        busiest_n = counts[busiest_day]
+    return {
+        "records": len(rows),
+        "distinct": len({o["id"] for o in rows}),
+        "characters": len({o["c"] for o in rows}),
+        "epic_plus": sum(1 for o in rows if o["qr"] >= 4),
+        "best_ilvl": max(ils) if ils else None,
+        "richest": max((o["v"] for o in rows), default=0),
+        "busiest_day": busiest_day,
+        "busiest_n": busiest_n,
+        "vendor": sum(o["v"] * o["qty"] for o in rows),
+    }
+
+
 def build_report(prompt_text, cards, template, min_cards=10):
-    """Returns (html, errors). errors empty => valid report."""
+    """Returns (html, errors, info). errors empty => valid report."""
     history_csv, insights_csv = extract_blocks(prompt_text)
     realm, rows = parse_history_csv(history_csv)
     insights = parse_insights(insights_csv)
@@ -303,14 +326,40 @@ def build_report(prompt_text, cards, template, min_cards=10):
     n = card_count(html)
     if n < min_cards:
         errs.append("analysis cards: %d found, need >= %d" % (n, min_cards))
-    errs += ["external request: " + x for x in scan_external(html)]
+    ext = scan_external(html)
+    errs += ["external request: " + x for x in ext]
+    esc = scan_card_escapes(cards)
     errs += ["literal escape in cards (use the real glyph, not %s): %s" % (x, x)
-             for x in scan_card_escapes(cards)]
+             for x in esc]
+    leak = scan_sample_leak(cards, sample_names(template))
     errs += ["sample-data leak (cards edited from the template sample, not "
-             "replaced wholesale): " + x
-             for x in scan_sample_leak(cards, sample_names(template))]
+             "replaced wholesale): " + x for x in leak]
     errs += verify_verbatim(template, html)
-    return html, errs
+    info = {
+        "figures": computed_figures(rows),
+        "cards": n, "min_cards": min_cards,
+        "external": ext, "escapes": esc, "leak": leak,
+    }
+    return html, errs, info
+
+
+def _print_pass_summary(info):
+    f = info["figures"]
+    best = f["best_ilvl"] if f["best_ilvl"] is not None else "n/a"
+    print("PASS — checks green:")
+    print("  vs INSIGHTS: Records %d | Distinct %d | Chars %d | Epic+ %d | "
+          "Best iLvl %s | Richest %s | Busiest %s(%d) | Vendor sum(v*qty) %s"
+          % (f["records"], f["distinct"], f["characters"], f["epic_plus"],
+             best, _fmt_money(f["richest"]), f["busiest_day"], f["busiest_n"],
+             _fmt_money(f["vendor"])))
+
+    def none(xs):
+        return "none" if not xs else ",".join(xs)
+
+    print("  cards %d (min %d) | external %s | escapes %s | sample-leak %s | "
+          "head/engine/footer byte-identical"
+          % (info["cards"], info["min_cards"], none(info["external"]),
+             none(info["escapes"]), none(info["leak"])))
 
 
 def main(argv=None):
@@ -336,7 +385,7 @@ def main(argv=None):
 
     cards = open(args.cards, encoding="utf-8").read()
     template = load_template(args.template)
-    html, errs = build_report(prompt_text, cards, template, args.min_cards)
+    html, errs, info = build_report(prompt_text, cards, template, args.min_cards)
 
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(html)
@@ -346,6 +395,7 @@ def main(argv=None):
         for e in errs:
             print("  - " + e)
         return 1
+    _print_pass_summary(info)
     print("PASS — wrote %s (%d bytes)" % (args.out, len(html.encode("utf-8"))))
     return 0
 

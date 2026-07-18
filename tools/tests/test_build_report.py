@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import unittest
 
@@ -322,6 +324,46 @@ class TestSampleLeak(unittest.TestCase):
                         "--template", os.path.join(d, "tpl.html"),
                         "-o", os.path.join(d, "r.html"), "--min-cards", "2"])
         self.assertEqual(code, 1)
+
+
+class TestPassSummary(unittest.TestCase):
+    def test_computed_figures(self):
+        _, rows = br.parse_history_csv(HISTORY)
+        f = br.computed_figures(rows)
+        self.assertEqual(f["records"], 3)
+        self.assertEqual(f["distinct"], 2)
+        self.assertEqual(f["characters"], 2)
+        self.assertEqual(f["epic_plus"], 1)
+        self.assertEqual(f["best_ilvl"], 246)
+        self.assertEqual(f["vendor"], 100000 * 1 + 100 * 5 + 100 * 3)
+
+    def test_build_report_returns_info(self):
+        html, errs, info = br.build_report(PROMPT, NEW_CARDS, STUB_TEMPLATE,
+                                           min_cards=2)
+        self.assertEqual(errs, [])
+        self.assertEqual(info["cards"], 2)
+        self.assertEqual(info["leak"], [])
+        self.assertEqual(info["figures"]["records"], 3)
+
+    def test_main_prints_itemized_checklist_on_pass(self):
+        d = tempfile.mkdtemp()
+        for name, data in (("prompt.txt", PROMPT), ("cards.html", NEW_CARDS),
+                           ("tpl.html", STUB_TEMPLATE)):
+            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+                f.write(data)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = br.main(["--prompt", os.path.join(d, "prompt.txt"),
+                            "--cards", os.path.join(d, "cards.html"),
+                            "--template", os.path.join(d, "tpl.html"),
+                            "-o", os.path.join(d, "r.html"), "--min-cards", "2"])
+        s = buf.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("checks green", s)
+        self.assertIn("Records 3", s)
+        self.assertIn("Vendor", s)
+        self.assertIn("sample-leak none", s)
+        self.assertIn("PASS — wrote", s)   # original line intact
 
 
 if __name__ == "__main__":
