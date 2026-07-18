@@ -4,9 +4,9 @@ local F = NS.Filters
 
 -- Item-id blacklist / whitelist (issue #14).
 --
---   * Blacklist — ids that must NOT be recorded even if they pass the collection gates, and whose
---     already-stored rows are hidden from every view. Nothing is deleted: Database:VisibleHistory
---     filters blacklisted ids out at the single read seam, so removing the id restores the rows.
+--   * Blacklist — ids that must NOT be recorded even if they pass the collection gates. Point-in-
+--     time only: it decides future captures, not what happens to rows already stored — nothing is
+--     ever hidden or deleted at read time.
 --   * Whitelist — ids that must ALWAYS be recorded, bypassing the quality / source / quest gates.
 --
 -- The two lists are stored account-wide in NS.db.global.{blacklist,whitelist} (NOT settings, NOT

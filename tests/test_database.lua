@@ -185,54 +185,20 @@ test("Database: Query combines predicates (AND)", function()
   assertEqual(r[1].itemID, 3)
 end)
 
-test("Database: VisibleHistory hides blacklisted ids but keeps them in history", function()
-  seed()
-  NS.db.global.blacklist = { [2] = true, [4] = true }
-  local vis = NS.Database:VisibleHistory()
-  assertEqual(#vis, 2)
-  assertEqual(vis[1].itemID, 1)
-  assertEqual(vis[2].itemID, 3)
-  assertEqual(#NS.db.global.history, 4)   -- nothing deleted
-  NS.db.global.blacklist = {}
-end)
-
-test("Database: VisibleHistory returns the raw array unchanged when nothing is hidden", function()
-  seed()
-  NS.db.global.blacklist = {}
-  NS.Database:RebuildWhitelistIndex()   -- seeded rows have no viaWhitelist flag → empty index
-  assertTrue(NS.Database:VisibleHistory() == NS.db.global.history)  -- no allocation
-end)
-
-test("Database: VisibleHistory hides a viaWhitelist row once its id leaves the whitelist", function()
-  NS.db.global.blacklist = {}
-  NS.db.global.whitelist = { [5] = true }
-  NS.db.global.history = {
-    { ts = 1, itemID = 4, itemName = "Normal", quality = 3 },
-    { ts = 2, itemID = 5, itemName = "Only via whitelist", quality = 0, viaWhitelist = true },
-  }
-  NS.Database:RebuildWhitelistIndex()
-  -- Still whitelisted → both visible.
-  assertEqual(#NS.Database:VisibleHistory(), 2)
-  -- Remove id 5 from the whitelist → its viaWhitelist row is hidden (but not deleted).
-  NS.db.global.whitelist = {}
-  assertEqual(#NS.Database:VisibleHistory(), 1)
-  assertEqual(NS.Database:VisibleHistory()[1].itemID, 4)
-  assertEqual(#NS.db.global.history, 2)   -- nothing deleted
-  -- Re-add id 5 → the row returns.
-  NS.db.global.whitelist = { [5] = true }
-  assertEqual(#NS.Database:VisibleHistory(), 2)
-  NS.db.global.whitelist = {}
-  NS.State.viaWhitelistIDs = {}
-end)
-
-test("Database: Query/Stats/Export all exclude blacklisted ids via ActiveHistory", function()
+test("Database: blacklist does NOT hide already-stored rows (point-in-time)", function()
   seed()
   NS.db.global.blacklist = { [3] = true }
-  assertEqual(#NS.Database:Query({}), 3)
-  assertEqual(NS.Database:Stats({}).totals.records, 3)
-  assertEqual(#NS.Database:Export({}), 3)
+  assertEqual(#NS.Database:Query({}), 4)              -- existing rows stay visible
+  assertEqual(NS.Database:Stats({}).totals.records, 4)
+  assertEqual(#NS.Database:Export({}), 4)
   NS.db.global.blacklist = {}
-  assertEqual(#NS.Database:Query({}), 4)   -- restored once un-blacklisted
+end)
+
+test("Database: ActiveHistory returns raw history (no hide, same reference)", function()
+  seed()
+  NS.db.global.blacklist = { [2] = true }
+  assertTrue(NS.Database:ActiveHistory() == NS.db.global.history)  -- no allocation, no filtering
+  NS.db.global.blacklist = {}
 end)
 
 test("Database: Export returns metatable-free copies with all fields", function()

@@ -113,15 +113,15 @@ test("Export: InsightsCSV quotes a label containing a comma", function()
   assertTrue(csv:find('"Red, Potion"', 1, true) ~= nil, "comma-bearing item name quoted")
 end)
 
-test("Export: InsightsCSV omits blacklisted items (via Stats/ActiveHistory)", function()
+test("Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)", function()
   NS.db.global.blacklist = {}
   NS.db.global.history = {
     { ts = 1, char = "A-Realm", itemID = 1, itemName = "Kept",   quality = 3, source = "KILL", quantity = 1 },
-    { ts = 2, char = "A-Realm", itemID = 2, itemName = "Hidden", quality = 3, source = "KILL", quantity = 1 },
+    { ts = 2, char = "A-Realm", itemID = 2, itemName = "Blacklisted after capture", quality = 3, source = "KILL", quantity = 1 },
   }
   NS.db.global.blacklist = { [2] = true }
   local csv = NS.Export:InsightsCSV(NS.Database:Stats({}))
-  assertTrue(csv:find("Summary,Records,1,", 1, true) ~= nil, "blacklisted record excluded")
+  assertTrue(csv:find("Summary,Records,2,", 1, true) ~= nil, "both stored records still present")
   NS.db.global.blacklist = {}
 end)
 
