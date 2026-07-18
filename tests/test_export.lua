@@ -162,3 +162,13 @@ test("Export: AIPrompt large-dataset note gated on opts.rows", function()
   local big = NS.Export:AIPrompt("h\r\n", "i\r\n", { rows = 99999 })
   assertTrue(big:find("Current View", 1, true) ~= nil, "note appears for large exports")
 end)
+
+test("Export: AIPrompt explains three price types and when to use value", function()
+  local p = NS.Export:AIPrompt("h\r\n", "i\r\n", {})
+  assertTrue(p:find("THREE prices", 1, true) ~= nil, "mentions THREE prices")
+  assertTrue(p:find("vendor", 1, true) ~= nil, "explains vendor (v)")
+  assertTrue(p:find("auction", 1, true) ~= nil, "explains auction (a)")
+  assertTrue(p:find("Use VALUE", 1, true) ~= nil, "directs to use VALUE for worth figures")
+  assertTrue(p:find("Σ(val", 1, true) ~= nil or p:find("aggregates", 1, true) ~= nil,
+    "explains the aggregation method")
+end)

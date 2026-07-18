@@ -247,6 +247,9 @@ function E:AIPrompt(historyCSV, insightsCSV, opts)
     "- Two datasets follow as CSV: the full loot HISTORY (one row per drop) and a pre-computed INSIGHTS",
     "  summary. The guideline explains how to turn HISTORY into the template's data array, and how to",
     "  use INSIGHTS when you write the analysis section.",
+    "- Each HISTORY row carries THREE prices: vendor (v), auction (a, may be blank), and value",
+    "  (val = auction-if-present-else-vendor). Use VALUE for every worth/gold figure and ranking;",
+    "  mention vendor or auction only when specifically contrasting them. The engine aggregates Σ(val×qty).",
   }
   if (opts.rows or 0) > AI_LARGE_ROWS then
     lines[#lines + 1] =
