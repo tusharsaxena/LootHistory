@@ -50,6 +50,8 @@ function Collector:BuildRecord(link, qty, ctx, env)
     itemLevel    = env.itemLevel,   -- effective ilvl for equippable items; nil otherwise
     bound        = env.bound,       -- nil | "BOE" | "BOP" | "ACCOUNT" | "WARBAND"
     sellPrice    = env.sellPrice,   -- vendor sell price (copper, per unit)
+    auctionPrice = env.auctionPrice, -- AH price snapshot (copper, per unit); nil if no provider
+    priceSource  = env.priceSource,  -- provenance tag, e.g. "tsm:dbmarket"; nil if no price
     itemType     = env.itemType,
     itemSubType  = env.itemSubType,
     quantity     = qty,
@@ -97,13 +99,15 @@ function Collector:OnChatMsgLoot(_, msg)
   end
 
   local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
+  local auctionPrice, priceSource = NS.AuctionPrice:Lookup(link, itemID)
   local zone, subzone = NS.Compat.GetZone()
   local classFile = select(2, UnitClass("player"))
   local record = self:BuildRecord(link, qty,
     { source = source, sourceDetail = sourceDetail, confidence = confidence },
     { ts = time(), char = NS.Util.PlayerKey(), classFile = classFile,
       itemID = itemID, itemName = itemName, quality = quality, itemLevel = itemLevel, bound = bound,
-      sellPrice = sellPrice, itemType = itemType, itemSubType = itemSubType,
+      sellPrice = sellPrice, auctionPrice = auctionPrice, priceSource = priceSource,
+      itemType = itemType, itemSubType = itemSubType,
       zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
 
   NS.Database:Add(record)

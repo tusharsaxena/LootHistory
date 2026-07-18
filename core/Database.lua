@@ -161,7 +161,8 @@ function Database:Export(filter)
     out[#out + 1] = {
       ts = r.ts, char = r.char, classFile = r.classFile, itemID = r.itemID, itemLink = r.itemLink,
       itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
-      sellPrice = r.sellPrice, itemType = r.itemType, itemSubType = r.itemSubType,
+      sellPrice = r.sellPrice, auctionPrice = r.auctionPrice, priceSource = r.priceSource,
+      itemType = r.itemType, itemSubType = r.itemSubType,
       quantity = r.quantity,
       source = r.source or "OTHER", sourceDetail = r.sourceDetail,
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
