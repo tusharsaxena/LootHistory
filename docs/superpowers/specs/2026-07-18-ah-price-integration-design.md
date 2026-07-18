@@ -1,0 +1,231 @@
+# Design — Auction-House Price Integration
+
+**Date:** 2026-07-18
+**Branch:** `feature/ah-price-integration`
+**Issue:** [#8 — Addon interop: integrate with value/upgrade addons](https://github.com/tusharsaxena/LootHistory/issues/8) (AH-value half only; Pawn is out of scope)
+**Status:** Approved for planning
+
+## 1. Summary
+
+Ka0s Loot History records vendor sell price (`sellPrice`, copper, per unit) on every
+loot record. This feature adds an **auction-house price** snapshot captured at loot time by
+reading from installed AH-pricing addons via their public Lua APIs, plus a derived **value**
+(auction-price-if-present-else-vendor) used as the headline worth of a drop throughout the UI,
+exports, and analytics.
+
+Everything is a **point-in-time snapshot**, consistent with the addon's existing philosophy:
+`auctionPrice` is captured at loot and never recomputed; `value` is derived from the two stored
+snapshot fields (`auctionPrice`, `sellPrice`).
+
+## 2. Scope
+
+**In scope**
+
+- Read AH price at loot time from a **fall-through cascade** of three addons.
+- Store `auctionPrice` (copper, per unit) and `priceSource` (provenance tag) on each record.
+- A derived `value = auctionPrice or sellPrice` (per unit), surfaced everywhere.
+- New "AH" column in the in-game browser (after vendor).
+- Insights analytics switch from vendor value to `value`.
+- CSV export gains auction/value/priceSource columns.
+- AI export (guideline, `build_report.py`, HTML template, prompt) becomes three-price-type aware.
+- User-configurable cascade (enable/disable per addon, priority order, TSM source key) via Schema.
+- Tests + docs.
+
+**Out of scope**
+
+- Pawn / upgrade-arrow interop (the other half of issue #8 — separate future work).
+- RECrystallize (not on CurseForge; dropped from the cascade).
+- Auctioneer (no Midnight 12.0.x build — dead on Retail).
+- Backfilling historical AH prices (impossible — old records keep `auctionPrice = nil`).
+
+## 3. Addon research outcome (steps 1–3)
+
+Four AH addons are alive on Midnight 12.0.x with a readable Lua price API; we integrate the
+**top three by install base** and exclude RECrystallize.
+
+| Addon | CF downloads (2026-07-18) | Price call | Returns | Freshness |
+|---|---|---|---|---|
+| Auctionator | ~194.7M | `Auctionator.API.v1.GetAuctionPriceByItemID(callerID, itemID)` | copper realm min-buyout, or nil | days (cap 21) |
+| TSM | ~62.3M | `TSM_API.GetCustomPriceValue(key, itemString)` (`key` default `"dbmarket"`) | copper, or nil+err | none at runtime |
+| OribosExchange | ~3.07M | `OEMarketInfo(itemLinkOrID, tbl)` → `tbl.market` (fallback `tbl.region`) | copper, nil field = unknown | `age` (sec), `days` |
+
+All three calls are **synchronous** (they read local addon DBs), so capture needs no async plumbing.
+
+**Cascade order (default):** Auctionator → TSM → OribosExchange — ordered by install base, i.e.
+"most likely to be installed, probed first." User-customizable (§7).
+
+**TSM price key (default):** `dbmarket` (smoothed ~14-day market value, widest coverage).
+User-customizable to `dbminbuyout`, `dbregionmarketavg`, etc. (§7).
+
+**Semantics caveat (accepted):** the "auction price" meaning varies by source — Auctionator is a
+spot **min-buyout**, TSM `dbmarket` and Oribos `market` are **market values**. `priceSource` records
+which basis produced each number, so the mix is transparent downstream.
+
+## 4. Data model
+
+New fields on the loot record (`Collector:BuildRecord`, `modules/Collector.lua`):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `auctionPrice` | number \| nil | AH price in **copper, per unit**, snapshotted at loot. `nil` when no enabled addon returned a price. |
+| `priceSource` | string \| nil | Provenance tag: `"auctionator"`, `"tsm:dbmarket"` (key reflects the configured source), `"oribos:market"`. `nil` when no price. |
+
+**`value` is derived, not stored** (open item #1 → derived). A helper
+`NS.Util.RecordValue(r) = r.auctionPrice or r.sellPrice` (may be nil if both are nil) is the single
+definition of a drop's per-unit worth. Rationale: `value` is fully determined by two already-stored
+snapshot fields, so persisting it would be redundant state that can drift, and it would force a data
+migration. It still appears as a "value column" everywhere; it is simply computed on read.
+
+**Migration:** none required. Old records have no `auctionPrice` (nil) and therefore
+`RecordValue` falls back to `sellPrice` automatically. `schemaVersion` is **not** bumped.
+
+**Export allowlist:** `Database:Export` (`core/Database.lua`) must add `auctionPrice` and
+`priceSource` to its explicit field allowlist so they survive export/round-trip.
+
+## 5. Price capture — the cascade
+
+New module **`modules/AuctionPrice.lua`**, published as `NS.AuctionPrice` (follows the module-
+publishing pattern; registers its own `NS.NewBusTarget()` if it needs bus messages — it likely does
+not, being a pure query helper).
+
+**Public surface**
+
+```
+NS.AuctionPrice:Lookup(itemLink, itemID) -> price:number|nil, sourceTag:string|nil
+```
+
+**Behavior**
+
+1. If `auction.enabled` is false, return `nil, nil`.
+2. Build the ordered list of **enabled** providers, sorted by configured priority.
+3. For each provider in order, call its presence-gated shim; the first non-nil price wins and its
+   tag is returned.
+4. Return `nil, nil` if none produced a price.
+
+**Provider shims** (all in `AuctionPrice.lua`, each presence-gated; open item #2 → new module, not
+Compat.lua — Compat stays Blizzard-API-only):
+
+- **Auctionator:** guard `Auctionator and Auctionator.API and Auctionator.API.v1`; call
+  `GetAuctionPriceByItemID(callerID, itemID)` (callerID = addon name). Returns copper or nil.
+- **TSM:** guard `TSM_API`; `itemString = TSM_API.ToItemString(itemLink)`; then
+  `TSM_API.GetCustomPriceValue(configuredKey, itemString)` wrapped in `pcall` (it errors on bad
+  input). Returns copper or nil. Tag = `"tsm:<key>"`.
+- **OribosExchange:** guard `OEMarketInfo`; call `OEMarketInfo(itemLink, tbl)`; read `tbl.market`,
+  fall back to `tbl.region`. Tag = `"oribos:market"` or `"oribos:region"`.
+
+**Capture site:** `Collector:BuildRecord` calls `NS.AuctionPrice:Lookup(itemLink, itemID)` right
+after `GetItemExtras`, writing `auctionPrice` and `priceSource` into the record. `itemLink` is
+available immediately from `CHAT_MSG_LOOT`; `itemID` is derived as it is today.
+
+## 6. In-game browser (step 6)
+
+`modules/BrowserTable.lua`:
+
+- New `COLUMNS` entry `key = "auction"`, `label = "AH"`, width ~72, `align = "RIGHT"`,
+  `valueFn = NS.Util.FormatMoney(r.auctionPrice)`, `sortFn = r.auctionPrice or 0`.
+- Inserted **after the `vendor` entry and before the `char` entry** (honors the documented "new
+  columns before Character" rule).
+- Add `"auction"` to the `NUMERIC_SORT` set (descending-first like vendor).
+- The `/lh test` data generator adds a synthetic `auctionPrice` (and a plausible `priceSource`)
+  alongside the synthetic `sellPrice`.
+
+The browser shows the **AH** column only (per step 6); `value` is an Insights/export concept.
+
+## 7. Settings (Schema-driven)
+
+New rows in `settings/Schema.lua` (drive AceDB defaults, panel widgets, and slash CLI; all mutations
+via `Schema:Set`):
+
+- `auction.enabled` — master toggle (default true).
+- Per addon (Auctionator, TSM, Oribos): an **enable** toggle (default all true) and a **priority**
+  select (1/2/3; defaults 1/2/3 respectively = install-base order).
+- `auction.tsmSource` — select of TSM keys (`dbmarket` default; `dbminbuyout`,
+  `dbregionmarketavg`, and other common keys).
+
+`AuctionPrice:Lookup` reads these to build the ordered enabled-provider list. Because prices are
+snapshotted at loot, changing any of these affects only **future** loots — consistent with the
+point-in-time model.
+
+## 8. Insights analytics (step 7)
+
+`core/Database.lua` `Database:Stats` replaces `sellPrice × quantity` with `RecordValue(r) × quantity`
+in every rollup: `totalValue`, `valueBySource`, `valueByDay`, `valueByZone`, `byItem.value`,
+`byChar.value`, `richestDrop`, `topItemsByValue`.
+
+`modules/Analytics.lua` relabels the vendor-value card and chart headers ("Vendor value by source",
+"Vendor value over time", richest, top items by value) to **"value"** wording. Vendor value is no
+longer surfaced as its own distinct metric (open item → "replace").
+
+## 9. CSV export (step 8)
+
+`modules/Export.lua` history `COLUMNS`, immediately after `sellPrice`/`sellPriceRaw`:
+
+- `auctionPrice` (formatted `money`) + `auctionPriceRaw` (copper)
+- `value` (formatted `money`, via `RecordValue`) + `valueRaw` (copper)
+- `priceSource` (string; empty when nil)
+
+`E:InsightsCSV` value rows switch to `RecordValue`-based totals to match Insights (§8).
+
+## 10. AI export (steps 9–10)
+
+- **`docs/ai-export-guideline.md`** — extend the column contract with short keys: `a` (auction,
+  copper), `val` (value, copper), `src` (priceSource). Rewrite value-math notes so LLM insights
+  compute worth on `val`. Add a "three price types" section: **vendor** = guaranteed sell floor,
+  **auction** = market snapshot at loot (may be nil), **value** = best-available worth
+  (`auction or vendor`) — and when to use each.
+- **`tools/build_report.py`** — map `a`/`val`/`src` in the CSV→JSON row builder; aggregate and
+  cross-check on `value` (replacing the vendor aggregate as the headline, keeping vendor available);
+  update footer summaries and validation.
+- **`docs/ai-export-template.html`** — add the AH column to the history table, switch the value
+  tiles and Insights section to `value`, add the new short keys to the sample row objects and COL
+  list.
+- **`E:AIPrompt`** (`modules/Export.lua`) — embed the updated CSV and add the three-price-type
+  framing so the model knows which price to use where.
+
+## 11. Tests & docs (hard rules)
+
+- **New** `tests/test_auctionprice.lua` — cascade order, per-addon enable/disable, priority
+  reordering, presence-gating (addon absent → nil), fall-through to next provider, first-hit-wins,
+  provenance tag correctness, disabled master toggle.
+- **Mocks** — add stub `TSM_API`, `Auctionator.API.v1`, and `OEMarketInfo` to `tests/wow_mock.lua`.
+- **Update** `tests/test_stats.lua` (value math via `RecordValue`, incl. mixed auction/vendor/nil
+  rows), `tests/test_export.lua` (new header + formatting), `tests/test_browsertable.lua` (AH
+  column), `tools/tests/test_build_report.py` (value aggregation/cross-checks).
+- Regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`) and bump the
+  README `tests` badge count in the same change.
+- Run `lua tests/run.lua` and `luacheck .` green before each commit.
+- **Docs** — update `docs/data-model.md` (new fields + derived value), `docs/ARCHITECTURE.md`
+  (AuctionPrice module, cascade), and record the open-item #2 resolution (third-party integration
+  boundaries are outside Compat's scope) in the relevant doc.
+
+## 12. Standards note (deviation rule)
+
+The Compat-firewall rule (`core/Compat.lua` holds every varying/deprecated **Blizzard** API, gated
+by `C_*`/global presence) was consulted. Third-party addon APIs (`TSM_API`, `Auctionator`,
+`OEMarketInfo`) are a **different category** — external integrations, not WoW API version drift. Per
+the user's decision (open item #2), their presence-gated shims live in the new `AuctionPrice` module,
+and Compat stays Blizzard-only. This boundary is not currently addressed by the Ka0s Standard; the
+resolution is recorded here and in `docs/ARCHITECTURE.md` rather than changing the standard.
+
+## 13. Resolved decisions
+
+| # | Decision | Choice |
+|---|---|---|
+| Cascade scope | How many addons | Full cascade of top 3 (Auctionator, TSM, Oribos); drop RECrystallize |
+| Priority order | Probe order | By install base: Auctionator → TSM → OribosExchange (user-customizable) |
+| TSM source | Which key | `dbmarket` default, user-configurable |
+| Provenance | Store source? | Yes — compact `priceSource` tag |
+| Insights | Replace vs both | Replace vendor value with `value` |
+| Open #1 | value stored vs derived | Derived (`NS.Util.RecordValue`) |
+| Open #2 | shim location | New `AuctionPrice` module (Compat stays Blizzard-only) |
+| Open #3 | field names | `auctionPrice` + `priceSource` |
+
+## 14. Risks / notes
+
+- **Item cache timing:** the AH lookups need `itemLink`/`itemID`, both present at `CHAT_MSG_LOOT`
+  time; no dependency on `GetItemInfo` being cached. If a provider's own DB isn't loaded yet it
+  simply returns nil and the cascade falls through — graceful.
+- **API stability:** Auctionator's `GetAuctionAge…` is outside its documented v1 set; we do **not**
+  depend on it (freshness isn't used in the chosen install-base order), so no exposure.
+- **Provenance drift:** `priceSource` for TSM embeds the configured key at capture time, so records
+  captured under different TSM-key settings remain self-describing.
