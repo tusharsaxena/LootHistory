@@ -127,5 +127,59 @@ class TestValidation(unittest.TestCase):
         self.assertIn("<link href>", found)
 
 
+STUB_TEMPLATE = (
+    '<title>Ka0s Loot History</title>\n'
+    "HEAD-CONTENT\n"
+    '<section id="llm">\n'
+    '  <div class="grid">\n'
+    '      <div class="card sp6">SAMPLE A</div>\n'
+    '      <div class="card sp6">SAMPLE B</div>\n'
+    "  </div>\n"
+    "</section>\n"
+    "MIDDLE-ENGINE\n"
+    'const REALM = "Frostmourne";\n'
+    "const H = [\n"
+    '{"old":1},\n'
+    "];\n"
+    "TAIL-ENGINE-FOOTER\n"
+)
+
+NEW_CARDS = (
+    '      <div class="card sp6">NEW ONE</div>\n'
+    '      <div class="card sp4">NEW TWO</div>'
+)
+
+
+class TestSplice(unittest.TestCase):
+    def _build(self, realm="Illidan"):
+        _, rows = br.parse_history_csv(HISTORY.replace("Frostmourne", realm))
+        body = br.emit_h_body(rows)
+        return br.splice(STUB_TEMPLATE, realm, body, NEW_CARDS)
+
+    def test_splice_replaces_h_and_realm(self):
+        out = self._build()
+        self.assertIn('const REALM = "Illidan";', out)
+        self.assertNotIn('{"old":1}', out)
+        self.assertIn('"c":"Aria"', out)
+        # H body is valid JSON, no trailing comma
+        s = out.index("const H = [\n") + len("const H = [\n")
+        e = out.index("\n];", s)
+        self.assertEqual(len(json.loads("[" + out[s:e] + "]")), 3)
+
+    def test_splice_replaces_cards(self):
+        out = self._build()
+        self.assertNotIn("SAMPLE A", out)
+        self.assertIn("NEW ONE", out)
+        self.assertEqual(br.card_count(out), 2)
+
+    def test_verify_verbatim_passes_for_clean_splice(self):
+        out = self._build()
+        self.assertEqual(br.verify_verbatim(STUB_TEMPLATE, out), [])
+
+    def test_verify_verbatim_flags_head_tamper(self):
+        out = self._build().replace("HEAD-CONTENT", "HACKED")
+        self.assertTrue(br.verify_verbatim(STUB_TEMPLATE, out))
+
+
 if __name__ == "__main__":
     unittest.main()

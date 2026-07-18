@@ -179,3 +179,57 @@ def card_count(html):
 
 def scan_external(html):
     return [label for pat, label in EXTERNAL_PATTERNS if re.search(pat, html)]
+
+
+GRID_OPEN = '<div class="grid">'
+H_OPEN = "const H = [\n"
+H_CLOSE = "\n];"
+REALM_RE = re.compile(r'const REALM = "[^"]*";')
+
+
+def _card_span(html):
+    s = html.index(SEC)
+    go = html.index(GRID_OPEN, s) + len(GRID_OPEN)
+    e = html.index(SEC_END, go)
+    gc = html.rindex("</div>", go, e)   # the grid's own closing </div>
+    return go, gc
+
+
+def _h_span(html):
+    s = html.index(H_OPEN) + len(H_OPEN)
+    e = html.index(H_CLOSE, s)
+    return s, e
+
+
+def splice(template, realm, h_body, cards):
+    html = template
+    cs, ce = _card_span(html)
+    html = html[:cs] + "\n" + cards.strip("\n") + "\n  " + html[ce:]
+    hs, he = _h_span(html)
+    html = html[:hs] + h_body + html[he:]
+    html = REALM_RE.sub("const REALM = %s;" % json.dumps(realm), html, count=1)
+    return html
+
+
+def _llm_section_end(html):
+    s = html.index(SEC)
+    return html.index(SEC_END, s) + len(SEC_END)
+
+
+def verify_verbatim(template, output):
+    """Head (up to the llm section), the region between the llm section and the
+    H block (REALM value masked), and the tail (from '];' on) must all be
+    byte-identical — i.e. only the cards and the H rows changed."""
+    def mask(s):
+        return REALM_RE.sub("const REALM = <R>;", s)
+
+    errs = []
+    if template[:template.index(SEC)] != output[:output.index(SEC)]:
+        errs.append("head before the analysis section differs from template")
+    mid_t = mask(template[_llm_section_end(template):template.index(H_OPEN)])
+    mid_o = mask(output[_llm_section_end(output):output.index(H_OPEN)])
+    if mid_t != mid_o:
+        errs.append("region between analysis section and data block differs")
+    if template[template.index(H_CLOSE):] != output[output.index(H_CLOSE):]:
+        errs.append("engine/footer tail differs from template")
+    return errs
