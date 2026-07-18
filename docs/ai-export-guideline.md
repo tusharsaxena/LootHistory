@@ -1,6 +1,6 @@
 # Ka0s Loot History — AI Report Guideline
 
-*Guideline v1.1.0 rev4 · 2026-07-18*
+*Guideline v1.1.0 rev5 · 2026-07-18*
 
 You are turning a **Ka0s Loot History** loot export into a **single, self-contained, interactive HTML
 report**. You do **not** design or build the report from scratch — you **fill in a ready-made
@@ -123,10 +123,12 @@ Two CSV blocks follow the prompt (both for the user's selected Data Set — All 
   cross-check); every other INSIGHTS section is purely a reading aid — never re-type them into the export
   file (see step 1).
 
-> **Value math.** Every value/gold KPI aggregates as **Σ(v × qty)**, not Σ(v) — stacked rows (e.g. a
-> potion ×40) multiply. The engine does this for you; if you validate a parse against the INSIGHTS
-> **Vendor value**, remember to multiply by `qty` or you will chase a phantom gap. (The assembler
-> already checks this.)
+> **Three price types.** Each row carries **`v`** (vendor sell price — a guaranteed floor),
+> **`a`** (auction price snapshot at loot — may be `null`), and **`val`** (the derived value:
+> `a` if present, else `v`). **Use `val` for every worth/gold KPI and ranking** — aggregate as
+> **Σ(val × qty)**, not Σ(val). The engine does this for you; the assembler cross-checks the
+> INSIGHTS **Value** row against Σ(val×qty). Reserve `v` for "what a vendor pays" callouts and
+> `a` for explicit market-price commentary.
 
 ---
 
@@ -159,7 +161,7 @@ renders the title, KPIs, **every** Insights chart, the facet filters, and the Hi
 alone, so the **keys must match exactly**:
 
 ```js
-{d, t, c, cl, id, n, q, qr, il, b, v, ty, st, qty, s, z, wh}
+{d, t, c, cl, id, n, q, qr, il, b, v, a, val, ty, st, qty, s, z, wh, src}
 ```
 
 Map them from the **HISTORY** CSV columns:
@@ -177,12 +179,15 @@ Map them from the **HISTORY** CSV columns:
 | `il` | `itemLevel`     | number, or `null` if blank |
 | `b`  | `bound`         | label: `Not Bound`, `Bind on Equip`, `Bind on Pickup`, `Account Bound`, `Warbound` |
 | `v`  | `sellPriceRaw`  | copper (number) — the engine does **all** money math |
+| `a`  | `auctionPriceRaw` | copper (number) or `null` — AH price snapshot at loot; `null` when no addon had one |
+| `val`| `valueRaw`      | copper (number) — **the value to use for worth**: auction price if present, else vendor |
 | `ty` | `itemType`      | |
 | `st` | `itemSubType`   | |
 | `qty`| `quantity`      | number |
 | `s`  | `source`        | UPPER: `KILL CONTAINER MAIL TRADE AH QUEST VENDOR DISENCHANT MPLUS OTHER` (a blank source → `OTHER`) |
 | `z`  | `zone`          | |
 | `wh` | `wowheadLink`   | the ready-made URL |
+| `src`| `priceSource`   | e.g. `"tsm:dbmarket"`, `"auctionator"`, `"oribos:market"`; blank when no AH price |
 
 You compute and lay out **nothing** here — just faithfully transcribe every row.
 
