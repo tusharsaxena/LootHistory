@@ -14,6 +14,11 @@ by hand**, plus a handful of guideline ambiguities it had to resolve empirically
 
 Observed from the log:
 
+- **The dataset was re-emitted to disk by hand — the single slowest step (~5 min).** The
+  "Write the full HISTORY CSV to disk and count rows" step spans `05:44:43` → `05:49:30` (~4m47s).
+  Writing a file and `wc -l` are instant; the ~5 minutes is the **model generating 262 CSV rows as
+  output tokens** into a heredoc — re-typing, verbatim, data it was already handed in the pasted
+  prompt. The cost is output-token re-emission, not disk I/O or parsing.
 - **Ad-hoc scripts, regenerated every run.** `gen.py` transcribed the HISTORY CSV back into the `H`
   JS array (a pure CSV→JSON round-trip of the addon's own data); `splice.py` spliced cards + `H` into
   the template.
@@ -47,6 +52,28 @@ analysis cards.** Transcription, splice, validation, and title derivation are al
    dev-tooling, not part of the shipped addon payload (`.toc`). Record the resolution in `docs/`.
 
 ## Design
+
+### 0. Eliminate dataset re-emission — the ~5-minute step (highest-value fix)
+
+The slowest step in the log was the model re-typing the entire dataset into a heredoc so a script
+could read it. The data must reach disk **without passing back through the model's output**. Note this
+is a *delivery/workflow* fix, not a data-path change — the CSV prompt format is unchanged.
+
+- **Primary: file delivery.** Recommend, in both `docs/ai-export-guideline.md` and the addon help text
+  (`modules/Export.lua` help frame and the `?` button), that the user hand the export to the AI **as a
+  file** — upload/attach it in ChatGPT / Gemini / Claude, or in Claude Code paste it (large pastes are
+  auto-stored as a file). It is then on disk from the start; the agent reads the path. Zero
+  re-emission.
+- **Guardrail: an explicit "do not re-emit" rule** in the guideline's run-code path — do **not**
+  reproduce the dataset via a heredoc or a `Write`; point `build-report.py --prompt` at the file the
+  environment already has.
+- **Tool self-extracts** both `=== HISTORY ===` / `=== INSIGHTS ===` blocks and counts rows itself, so
+  the model never splits, retypes, or counts the data.
+- **Known limit:** if an agent is handed the data *only* as inline chat text and its harness does not
+  auto-file large pastes, some re-emission is unavoidable — which is why file delivery is the primary
+  recommendation, not merely an optimization.
+
+Net: the data-to-disk step drops from ~thousands of output tokens (~5 min) to one short command line.
 
 ### 1. `tools/build-report.py` — deterministic assembler + validator
 
@@ -140,6 +167,8 @@ mention the tooling and how to run its tests.
 
 - A code-capable agent produces a valid report from the pasted prompt with **one** `build-report.py`
   invocation — no ad-hoc scripts, no multi-pass validation debugging.
+- The dataset is never re-emitted to disk by the model: the guideline + addon help recommend file
+  delivery and forbid heredoc/`Write` reproduction of the data, so the former ~5-minute step is gone.
 - `build-report.py` exits non-zero and explains itself on any contract violation.
 - Python unit tests pass; `lua tests/run.lua` and `luacheck .` stay green.
 - The guideline no longer contains the F1/F2/F4/F5 ambiguities; F3 is documented.
