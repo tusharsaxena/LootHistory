@@ -163,3 +163,17 @@ end)
 test("Analytics.SummaryLine formats range and count", function()
   assertEqual(NS.Analytics.SummaryLine("30d", 1423), "computed range=30d, 1423 records")
 end)
+
+test("Stats: value uses auctionPrice when present, else sellPrice", function()
+  local recs = {
+    { ts = 1, quality = 3, quantity = 2, sellPrice = 10, auctionPrice = 100, source = "KILL", itemID = 1, char = "A-R" },
+    { ts = 2, quality = 3, quantity = 1, sellPrice = 50,                      source = "KILL", itemID = 2, char = "A-R" },
+  }
+  NS.State.testRecords = recs
+  local s = NS.Database:Stats()
+  NS.State.testRecords = nil
+  -- 100*2 (auction) + 50*1 (vendor fallback) = 250
+  assertEqual(s.totals.totalValue, 250)
+  assertEqual(s.valueBySource.KILL, 250)
+  assertEqual(s.totals.richestDrop.value, 200)   -- the auction-priced stack
+end)
