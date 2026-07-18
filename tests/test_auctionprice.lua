@@ -29,6 +29,25 @@ test("AuctionPrice: Auctionator hit returns price + tag", function()
   end)
 end)
 
+test("AuctionPrice: falls through Auctionator(0) to TSM", function()
+  -- A 0 price is a "no data" signal from Auctionator, not a real price; treating it
+  -- as truthy (Lua's 0 is truthy) would mask a positive vendor sellPrice downstream.
+  withGlobals({
+    Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 0 end } } },
+    TSM_API = {
+      ToItemString = function(_link) return "i:210501" end,
+      GetCustomPriceValue = function(key, itemStr)
+        if key == "dbmarket" and itemStr == "i:210501" then return 5000 end
+        return nil
+      end,
+    },
+  }, function()
+    local p, tag = NS.AuctionPrice:Lookup(LINK, 210501)
+    assertEqual(p, 5000)
+    assertEqual(tag, "tsm:dbmarket")
+  end)
+end)
+
 test("AuctionPrice: falls through Auctionator(nil) to TSM", function()
   withGlobals({
     Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return nil end } } },

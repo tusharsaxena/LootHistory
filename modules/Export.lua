@@ -70,7 +70,10 @@ end
 -- CSV columns: { header, value(record) }. `ts` is followed by human `date` (DD-MMM-YYYY) and
 -- `time` (HH:MM). Renamed raw columns carry a *Raw suffix beside a human sibling: human `quality`
 -- (label) before `qualityRaw` (number), human `sellPrice` ("Ng Ns Nc") before `sellPriceRaw`
--- (copper). `bound` is the friendly label; `wowheadLink` (from the item's bonus IDs) is last.
+-- (copper). `bound` is the friendly label. Following the vendor columns, the AH-price feature adds
+-- `auctionPrice`/`auctionPriceRaw` (the looked-up auction price, human/copper), `value`/`valueRaw`
+-- (NS.Util.RecordValue: auction-or-vendor, human/copper), and `priceSource` (the provider tag, e.g.
+-- "tsm:dbmarket", or "" when unpriced). `wowheadLink` (from the item's bonus IDs) is last.
 -- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
 local COLUMNS = {
   { "ts",           function(r) return r.ts end },

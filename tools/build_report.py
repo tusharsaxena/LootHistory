@@ -161,10 +161,10 @@ def validate_against_insights(rows, insights):
             errs.append("Value: computed %s, INSIGHTS says %s"
                         % (_fmt_money(computed), s["value"]))
 
-    # Richest drop = max per-unit v
+    # Richest drop = max(val * qty) — stack-total auction-or-vendor worth
     s = summ("Richest drop")
     if s and s["value"] and rows:
-        richest = max(o["v"] for o in rows)
+        richest = max(o["val"] * o["qty"] for o in rows)
         if richest != parse_money(s["value"]):
             errs.append("Richest drop: computed %s, INSIGHTS says %s"
                         % (_fmt_money(richest), s["value"]))
@@ -321,7 +321,7 @@ def computed_figures(rows):
         "characters": len({o["c"] for o in rows}),
         "epic_plus": sum(1 for o in rows if o["qr"] >= 4),
         "best_ilvl": max(ils) if ils else None,
-        "richest": max((o["v"] for o in rows), default=0),
+        "richest": max((o["val"] * o["qty"] for o in rows), default=0),
         "busiest_day": busiest_day,
         "busiest_n": busiest_n,
         "value": sum(o["val"] * o["qty"] for o in rows),

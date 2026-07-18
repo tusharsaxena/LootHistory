@@ -439,6 +439,38 @@ def test_history_row_has_auction_value_source():
     assert rows[0]["src"] == "tsm:dbmarket"
 
 
+def test_richest_crosscheck_uses_val_times_qty_stack_total_mixed_auction():
+    # Finding 1: richest-drop cross-check must key off val*qty (auction-or-vendor
+    # stack-total), not the raw per-unit vendor "v". Row A has no auction price
+    # (val falls back to v) and qty 1; row B has an auction price with qty 3, so
+    # its stack-total (30000*3=90000c) dwarfs its own per-unit v (2000c) and A's
+    # v (5000c) — a max(v)-based check would wrongly pick 5000c here.
+    rows = [
+        {"v": 5000, "a": None, "val": 5000, "qty": 1,
+         "id": 1, "c": "A", "qr": 1, "il": None, "d": "d"},
+        {"v": 2000, "a": 30000, "val": 30000, "qty": 3,
+         "id": 2, "c": "A", "qr": 1, "il": None, "d": "d"},
+    ]
+    # correct richest = max(val*qty) = max(5000*1, 30000*3) = 90000c = "9g 0s 0c"
+    good = {("Summary", "Richest drop"): {"count": "", "value": "9g 0s 0c"}}
+    assert br.validate_against_insights(rows, good) == []
+
+    wrong = {("Summary", "Richest drop"): {"count": "", "value": "1g 0s 0c"}}
+    errs = br.validate_against_insights(rows, wrong)
+    assert any("Richest drop" in e for e in errs)
+
+
+def test_computed_figures_richest_uses_val_times_qty():
+    rows = [
+        {"v": 5000, "a": None, "val": 5000, "qty": 1,
+         "id": 1, "c": "A", "qr": 1, "il": None, "d": "d"},
+        {"v": 2000, "a": 30000, "val": 30000, "qty": 3,
+         "id": 2, "c": "A", "qr": 1, "il": None, "d": "d"},
+    ]
+    f = br.computed_figures(rows)
+    assert f["richest"] == 90000
+
+
 def test_value_crosscheck_uses_val_times_qty():
     rows = [{"v": 10000, "a": 50000, "val": 50000, "qty": 2, "id": 1, "c": "X", "qr": 3, "il": None, "d": "d"}]
     # computed = val * qty = 50000 * 2 = 100000c = "10g 0s 0c"; deliberately

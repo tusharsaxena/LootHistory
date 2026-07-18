@@ -18,7 +18,7 @@ local function fetchAuctionator(itemLink, itemID)
   elseif itemLink and api.GetAuctionPriceByItemLink then
     price = api.GetAuctionPriceByItemLink(addonName, itemLink)
   end
-  if price then return price, "auctionator" end
+  if price and price > 0 then return price, "auctionator" end
   return nil
 end
 
