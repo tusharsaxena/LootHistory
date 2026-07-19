@@ -773,18 +773,26 @@ function B:BuildFilterBar(bar)
   self._dd = dd
 
   -- ── Row 1: Group by · Search · Clear ──
-  -- Group width matches the Date dropdown directly below it (120); the player toggle at the
-  -- right of row 2 matches the Save+Reset+Clear button cluster above it (48+6+52+6+52 = 164).
+  -- Group width matches the Date dropdown directly below it (120); the Save+Reset+Clear cluster
+  -- is anchored above the Export button (not the bar's right edge) — its span (48+6+52+6+52 = 164)
+  -- exactly matches Export's 164px width, so the cluster sits flush above it.
   dd.group = MakeDropdown(bar, 120)
   dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
   dd.group.onSelect = function(v) if NS.BrowserTable then NS.BrowserTable:SetGroupBy(v) end end
 
+  -- Export button is created here (row 1, ahead of its row-2 position further down) so the
+  -- Save/Reset/Clear cluster below can anchor its top-right corner to it; SetPoint only needs the
+  -- frame to exist, not to be positioned yet — its own anchor (to dd.char) is set once dd.char
+  -- exists, in the Row 2 section below.
+  local exportBtn = makeBarButton(bar, "Export", 164, function() B:OpenExport() end,
+    "Export the current tab — loot rows (History) or the analytics summary (Insights).")
+
   -- Right cluster (row 1): Save · Reset · Clear (right-aligned).
   local clear = makeBarButton(bar, "Clear", 52, function() B:ClearFilters() end,
     "Clear filters and group/sort back to your saved view.")
-  clear:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW1)
+  clear:SetPoint("TOPRIGHT", exportBtn, "TOPRIGHT", 0, ROW1 - ROW2)
   local resetBtn = makeBarButton(bar, "Reset", 52, function() B:ResetView() end,
     "Reset the saved view to stock defaults.")
   resetBtn:SetPoint("RIGHT", clear, "LEFT", -6, 0)
@@ -894,13 +902,12 @@ function B:BuildFilterBar(bar)
   -- box creation above). -ROW2 lifts the top-right corner from row 2 back up into row 1.
   search:SetPoint("TOPRIGHT", dd.char, "TOPRIGHT", 0, -ROW2)
 
-  -- Export button (row 2, right-aligned): tab-aware (issue #15). On History it exports loot rows
-  -- (All Data / Current View → CSV); on Insights it exports the analytics summary (issue #15's
-  -- Insights CSV, AI report later). Both respect the shared filter. 164px matches the Save+Reset+
-  -- Clear span above it (48+6+52+6+52), so its left edge lines up with Save's.
-  local exportBtn = makeBarButton(bar, "Export", 164, function() B:OpenExport() end,
-    "Export the current tab — loot rows (History) or the analytics summary (Insights).")
-  exportBtn:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, ROW2)
+  -- Export button (row 2): tab-aware (issue #15). On History it exports loot rows (All Data /
+  -- Current View → CSV); on Insights it exports the analytics summary (issue #15's Insights CSV,
+  -- AI report later). Both respect the shared filter. Anchored immediately right of the Character
+  -- dropdown (8px gap) rather than the bar's far-right edge; the Save/Reset/Clear cluster above it
+  -- is re-anchored to Export's top-right corner (see `clear` above), so the two rows stay aligned.
+  exportBtn:SetPoint("LEFT", dd.char, "RIGHT", 8, 0)
 end
 
 -- Route the Export button to the right modal for the active tab (issue #15). History exports the
