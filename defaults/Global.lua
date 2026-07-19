@@ -26,9 +26,15 @@ NS.defaults.global = {
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,
-      auctionator = true, tsm = true, oribos = true,
-      priorityAuctionator = 1, priorityTSM = 2, priorityOribos = 3,
-      tsmSource = "dbmarket",
+      capture = {   -- which price keys to gather (set of tags)
+        ["auctionator:minbuyout"] = true, ["tsm:dbmarket"] = true, ["tsm:dbminbuyout"] = true,
+        ["tsm:dbregionmarketavg"] = true, ["tsm:dbregionminbuyoutavg"] = true,
+        ["oribos:market"] = true, ["oribos:region"] = true,
+      },
+      priority = {  -- ordered provider:key selection list (carve-out; reordered via the panel UI)
+        "tsm:dbmarket", "auctionator:minbuyout", "oribos:market",
+        "tsm:dbminbuyout", "tsm:dbregionmarketavg", "tsm:dbregionminbuyoutavg", "oribos:region",
+      },
     },
   },
   minimap = { hide = false },  -- LibDBIcon state

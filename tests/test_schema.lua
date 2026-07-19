@@ -60,6 +60,21 @@ test("Schema: auction rows exist with the Auction House Price group and defaults
   assertTrue(row ~= nil, "settings.auction.enabled row missing")
   assertEqual(row.group, "Auction House Price")
   assertEqual(NS2.Schema:Default("settings.auction.enabled"), true)
-  assertEqual(NS2.Schema:Default("settings.auction.tsmSource"), "dbmarket")
-  assertEqual(NS2.Schema:Default("settings.auction.priorityTSM"), 2)
+end)
+
+test("Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone", function()
+  local NS2 = NS
+  local row = NS2.Schema:FindRow("settings.auction.capture")
+  assertTrue(row ~= nil, "settings.auction.capture row missing")
+  assertEqual(row.group, "Auction House Price")
+  assertEqual(row.widget, "MultiCheck")
+  assertEqual(NS2.Schema:Default("settings.auction.capture")["tsm:dbmarket"], true)
+
+  assertTrue(NS2.Schema:FindRow("settings.auction.tsmSource") == nil, "tsmSource row should be removed")
+  assertTrue(NS2.Schema:FindRow("settings.auction.auctionator") == nil, "auctionator row should be removed")
+  assertTrue(NS2.Schema:FindRow("settings.auction.priorityAuctionator") == nil, "priorityAuctionator row should be removed")
+  assertTrue(NS2.Schema:FindRow("settings.auction.tsm") == nil, "tsm row should be removed")
+  assertTrue(NS2.Schema:FindRow("settings.auction.priorityTSM") == nil, "priorityTSM row should be removed")
+  assertTrue(NS2.Schema:FindRow("settings.auction.oribos") == nil, "oribos row should be removed")
+  assertTrue(NS2.Schema:FindRow("settings.auction.priorityOribos") == nil, "priorityOribos row should be removed")
 end)

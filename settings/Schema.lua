@@ -79,33 +79,14 @@ S.Schema = {
   -- ── Auction House Price ──  (own settings sub-page; see settings/Panel.lua)
   { path = "settings.auction.enabled", default = true, type = "boolean", widget = "CheckBox",
     group = "Auction House Price", label = "Enable AH pricing",
-    tooltip = "Record an auction-house price on each loot, read from installed pricing addons." },
-  { path = "settings.auction.tsmSource", default = "dbmarket", type = "string", widget = "Dropdown",
-    group = "Auction House Price", label = "TSM price source", options = C.TSM_SOURCE_OPTIONS,
-    tooltip = "Which TSM price the cascade requests when it reaches TSM." },
-
-  { path = "settings.auction.auctionator", default = true, type = "boolean", widget = "CheckBox",
-    group = "Auction House Price", label = "Use Auctionator",
-    tooltip = "Include Auctionator in the price cascade." },
-  { path = "settings.auction.priorityAuctionator", default = 1, type = "number", widget = "Dropdown",
-    group = "Auction House Price", label = "Auctionator priority", options = C.AUCTION_PRIORITY_OPTIONS,
-    tooltip = "Cascade position for Auctionator (1 = probed first)." },
-
-  { path = "settings.auction.tsm", default = true, type = "boolean", widget = "CheckBox",
-    group = "Auction House Price", label = "Use TSM",
-    tooltip = "Include TradeSkillMaster in the price cascade." },
-  { path = "settings.auction.priorityTSM", default = 2, type = "number", widget = "Dropdown",
-    group = "Auction House Price", label = "TSM priority", options = C.AUCTION_PRIORITY_OPTIONS,
-    tooltip = "Cascade position for TSM (1 = probed first)." },
-
-  { path = "settings.auction.oribos", default = true, type = "boolean", widget = "CheckBox",
-    group = "Auction House Price", label = "Use OribosExchange",
-    tooltip = "Include OribosExchange in the price cascade." },
-  { path = "settings.auction.priorityOribos", default = 3, type = "number", widget = "Dropdown",
-    group = "Auction House Price", label = "OribosExchange priority", options = C.AUCTION_PRIORITY_OPTIONS,
-    tooltip = "Cascade position for OribosExchange (1 = probed first)." },
+    tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
+  { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
+    widget = "MultiCheck", wide = true, group = "Auction House Price", label = "Capture these prices",
+    options = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 
 }
+-- NOTE: `settings.auction.priority` (the ordered cascade selection list) is a carve-out array —
+-- NOT a schema row — managed directly by the settings panel UI (R6). See docs/saved-variables.md.
 -- NOTE: the debug LOGGING flag (NS.State.debug) is NOT a schema setting — session-only, set via
 -- `/lh debug on|off`, always off after a reload. The debug CONSOLE WINDOW's visibility IS the
 -- `state.debugConsole` row above: a session-only schema row (rendered in the panel, driven through

@@ -58,6 +58,20 @@ test("AuctionPrice: GatherAll only captures keys in the capture set", function()
   NS.db.global.settings.auction = nil
 end)
 
+test("AuctionPrice: MovePriority swaps adjacent entries and respects bounds", function()
+  NS.db.global.settings.auction = { enabled = true, priority = { "a", "b", "c" } }
+  local ok = NS.AuctionPrice:MovePriority(1, 1)
+  assertEqual(ok, true)
+  local p = NS.AuctionPrice:GetPriority()
+  assertEqual(p[1], "b"); assertEqual(p[2], "a"); assertEqual(p[3], "c")
+
+  assertEqual(NS.AuctionPrice:MovePriority(1, -1), false)  -- can't move first entry up
+  assertEqual(NS.AuctionPrice:MovePriority(3, 1), false)   -- can't move last entry down
+  assertEqual(NS.AuctionPrice:MovePriority(0, 1), false)   -- out of range low
+  assertEqual(NS.AuctionPrice:MovePriority(4, -1), false)  -- out of range high
+  NS.db.global.settings.auction = nil
+end)
+
 test("AuctionPrice: GatherAll returns nil when nothing gathered / disabled", function()
   assertEqual(NS.AuctionPrice:GatherAll(LINK, 210501), nil)
   NS.db.global.settings.auction = { enabled = false }

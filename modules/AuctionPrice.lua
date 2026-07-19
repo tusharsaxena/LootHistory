@@ -94,3 +94,17 @@ function AuctionPrice:Pick(map)
   end
   return nil, nil
 end
+
+-- Priority-list accessors used by the settings panel (R6) to render/reorder the cascade.
+function AuctionPrice:GetPriority()
+  local s = NS.db.global.settings.auction
+  s.priority = s.priority or {}
+  return s.priority
+end
+function AuctionPrice:MovePriority(index, delta)   -- delta = -1 up / +1 down
+  local p = self:GetPriority()
+  local j = index + delta
+  if index < 1 or index > #p or j < 1 or j > #p then return false end
+  p[index], p[j] = p[j], p[index]
+  return true
+end
