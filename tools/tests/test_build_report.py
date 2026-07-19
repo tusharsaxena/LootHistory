@@ -428,7 +428,7 @@ class TestPassSummary(unittest.TestCase):
 
 def test_history_row_has_auction_value_source():
     csv_text = ("date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,"
-                "sellPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource,"
+                "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,"
                 "itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
                 "12-Jul-2026,20:37,Stormhoof-Ravencrest,SHAMAN,1,Thing,Rare,3,,Not Bound,"
                 "1g 0s 0c,10000,5g 0s 0c,50000,5g 0s 0c,50000,tsm:dbmarket,"

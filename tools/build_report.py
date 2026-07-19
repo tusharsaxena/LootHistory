@@ -54,7 +54,7 @@ def parse_history_csv(text):
             "s": (r["source"] or "").strip().upper(),
             "z": r["zone"],
             "wh": r["wowheadLink"],
-            "src": (r.get("priceSource") or "").strip(),
+            "src": (r.get("auctionSource") or "").strip(),
         })
     realm = ""
     if realms:
