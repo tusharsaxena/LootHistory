@@ -407,3 +407,75 @@ the data says" report):
 | CSV | detail | All captured sub-prices as separate dynamic columns; everything else uses computed price |
 | Gather scope | present vs enabled | Gather all configured-to-capture keys from present providers |
 | Template fit | approach | Shrink table font + rebalance widths |
+
+---
+
+# Revision 3 — AH Price settings UX overhaul + template auction data
+
+**Date:** 2026-07-19
+**Status:** Approved for planning
+**Applies on top of:** Rev-2 (branch `feature/ah-price-integration`, unmerged).
+**Reuse reference:** the user's own `../ConsumableMaster` addon — all row icons there are Blizzard
+textures referenced by name (no bundled media), reused here by name.
+
+## R3.1 Settings sub-page rename
+"Auction House Price" subcategory → **"AH Price"** (the canvas subcategory display name, the schema
+`group` string, the General-skip filter, and the Defaults handler's group check).
+
+## R3.2 Icons (all Blizzard textures, no media copied)
+- Up/down arrows: `Interface\ChatFrame\UI-ChatIcon-ScrollUp-Up` / `...-ScrollDown-Up` (fixes the
+  broken `▲`/`▼` text glyphs — Friz Quadrata renders them as tofu boxes).
+- Data-collected status: green check `Interface\RaidFrame\ReadyCheck-Ready` / red X `...-NotReady`.
+- Info: `Interface\FriendsFrame\InformationIcon`, tooltip via `GameTooltip` SetOwner/SetText/AddLine(wrap)
+  on OnEnter/OnLeave.
+
+## R3.3 Data Collection section (was the "Capture these prices" MultiCheck)
+Rendered as a **custom nested list** (not the stock MultiCheck), grouped by provider display name
+(**Auctionator**, **Tradeskill Master**, **Oribos Exchange**), each key a checkbox toggling the
+capture set (`settings.auction.capture`), with an **info (i) icon** per key whose tooltip explains the
+data point. The capture data stays schema-backed (`settings.auction.capture`, for defaults/slash), but
+the panel renders this custom section instead of the MultiCheck widget (the schema row is skipped in
+`renderSchema` for the panel and rendered custom).
+
+## R3.4 Priority section
+- Heading renamed to **"Priority (top = preferred)"**.
+- Each row: `[status ✓/✗]  [Addon Source]  [Data Source]  [▲]  [▼]  [☑ enabled]`:
+  - **Two label columns** — addon source (provider display name) and data source (short key label),
+    e.g. `Tradeskill Master | Market Value`.
+  - **Texture arrows** (R3.2) reordering via the existing `MovePriority`.
+  - **Enable checkbox** — include/exclude this entry from selection (new state; see R3.5).
+  - **Status ✓/✗** — green check if this entry's source is in the capture set, red X if not (an
+    uncollected entry can never win). Read-only, from the capture set.
+- A **legend**: `✓ collected   ✗ not collected`.
+
+## R3.5 Data-model addition — priority enable/disable
+`settings.auction.priorityDisabled = { [tag] = true }` (default empty; a carve-out alongside
+`priority`). `AuctionPrice:Pick` **skips** tags present in `priorityDisabled`. Helpers
+`AuctionPrice:IsPriorityEnabled(tag)` / `SetPriorityEnabled(tag, on)`. The ordered `priority` array is
+unchanged. The Defaults button clears `priorityDisabled` too.
+
+## R3.6 Explanatory text (per the reference screenshot)
+Short intros: **Data Collection** = which prices are recorded on every drop (more = more to compare,
+small storage cost); **Priority** = of the collected prices, which one is shown as *the* auction price
+(top wins), independent of collection, and only ranks what's collected.
+
+## R3.7 Constants additions
+`C.AUCTION_PROVIDER_NAMES = { auctionator="Auctionator", tsm="Tradeskill Master", oribos="Oribos Exchange" }`.
+Each `C.AUCTION_KEYS` entry gains `data` (short data-source label, e.g. "Market Value", "Min Buyout")
+and `desc` (info-tooltip text explaining the data point).
+
+## R3.8 Template sample auction data
+In `docs/ai-export-template.html`'s sample `H` array, for every row whose `b` is `"Not Bound"` or
+`"Bind on Equip"`, inject `a = round(v × r)` where r is a random multiplier in [2.0, 10.0] (one
+decimal), and `val = max(a, v)` — so the Auction column populates and the report's value/charts reflect
+it. Done by a one-off transform script over the rows; other bind types get no `a` (Auction shows "—").
+The sample `H` block is not byte-verified by the assembler, so this is safe.
+
+## R3.9 Resolved decisions (Rev 3)
+| Decision | Choice |
+|---|---|
+| Priority enable state | `priorityDisabled` set carve-out; Pick skips disabled |
+| Status ✓/✗ meaning | read from capture set (collected vs not) — not new state |
+| Icon widgets | Blizzard textures via AceGUI Icon widgets (no ConsumableMaster files ported) |
+| Template `a` rows | Not Bound + Bind on Equip only; also set `val = max(a,v)` |
+| Priority label | split into Addon Source + Data Source columns |
