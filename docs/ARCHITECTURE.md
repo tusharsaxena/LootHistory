@@ -92,7 +92,10 @@ back fast table ops.
   pricing addon (Auctionator / TSM / OribosExchange), not just one. It is `nil` when nothing was
   captured — including every record written before this feature. There is no stored `priceSource`
   field: a single price is resolved at *read time* by `AuctionPrice:Pick(map)`, which walks the
-  user's configured priority list and returns the first present key (`price, tag`). There is **no
+  user's configured priority list and returns the first present key (`price, tag`), skipping any
+  entry the user has disabled (`settings.auction.priorityDisabled`, a per-tag carve-out sibling of
+  `priority` — see [saved-variables.md](saved-variables.md)) even if a price for it was captured.
+  There is **no
   stored `value` field** either: every "worth" figure (Insights, the browser Value column, CSV/AI
   export) is derived on read via `Util.RecordValue(record)` — the **higher of** the picked auction
   price and `vendorPrice`, `nil` only when both are absent — never persisted. See
@@ -141,10 +144,13 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `settings.excludeQuestItems` | Data Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
 | `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
-| `settings.auction.enabled` | Auction House Price | CheckBox | `true` | Master switch for the AH-price cascade (`modules/AuctionPrice.lua`); `false` short-circuits `Lookup` to `nil, nil`. |
-| `settings.auction.tsmSource` | Auction House Price | Dropdown | `"dbmarket"` | Which TSM price key the cascade requests when it reaches TSM. |
-| `settings.auction.auctionator` / `.tsm` / `.oribos` | Auction House Price | CheckBox | `true` | Per-provider on/off. |
-| `settings.auction.priorityAuctionator` / `.priorityTSM` / `.priorityOribos` | Auction House Price | Dropdown | `1` / `2` / `3` | Cascade order (1 = probed first); ties broken by canonical order. |
+| `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch for the AH-price cascade (`modules/AuctionPrice.lua`); `false` short-circuits `Pick` to `nil, nil`. |
+| `settings.auction.capture` | AH Price | MultiCheck (`panelSkip`) | `Constants.AUCTION_CAPTURE_DEFAULT` | Which `"provider:key"` prices to gather at loot time; schema-backed for the default/slash CLI, but rendered by the panel's own "Data Collection" section (`settings/Panel.lua` `buildAuctionCapture`), grouped by provider with a per-row info tooltip. |
+
+`settings.auction.priority` (ordered `"provider:key"` cascade) and `settings.auction.priorityDisabled`
+(`{ [tag]=true }`, per-entry enable/disable) are carve-outs, not Schema rows — see the "AH Price"
+subcategory's own Priority section (`buildAuctionPriority`, up/down move arrows + an enable checkbox
+per row) and [`saved-variables.md`](saved-variables.md).
 
 `settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
 (LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced
@@ -301,5 +307,12 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
   `docs/ai-export-guideline.md` (raw on `master`), which itself points at `docs/ai-export-template.html`;
   a paste target with browsing disabled can fetch neither, so it produces a generic report instead of
   the themed one. The help popup states web access is required.
+- **Optional execution-log companion artifact.** If the Export-to-AI prompt is edited to include
+  `execution_log=true` (or `execution log=true`, case-insensitive, anywhere in the prompt), the
+  guideline instructs the AI to *also* fetch `docs/ai-export-execution-log-template.html` and fill it
+  in as a second, AI-authored artifact narrating its own build steps/findings — a companion to the
+  report, not a replacement or a change to it. It is not produced by `build_report.py`; the addon
+  itself never generates or reads it. See [ai-export-guideline.md](ai-export-guideline.md)
+  "Optional: execution-log artifact".
 
 See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.

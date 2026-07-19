@@ -54,7 +54,7 @@ test("Schema: a normal (persisted) row still writes db.global", function()
   NS.Schema:Set("settings.enabled", true) -- restore default
 end)
 
-test("Schema: auction rows exist with the Auction House Price group and defaults", function()
+test("Schema: auction rows exist with the AH Price group and defaults", function()
   local NS2 = NS
   local row = NS2.Schema:FindRow("settings.auction.enabled")
   assertTrue(row ~= nil, "settings.auction.enabled row missing")

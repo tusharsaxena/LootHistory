@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
-![Tests](https://img.shields.io/badge/Tests-241%2F241_passing-green)
+![Tests](https://img.shields.io/badge/Tests-242%2F242_passing-green)
 
 > Maintainer tooling lives in [`tools/`](tools/) (dev-only, not shipped) — see [`tools/README.md`](tools/README.md).
 
@@ -61,6 +61,8 @@ The Export window also has an **Export to AI** button. It copies a ready-made pr
 
 Unlike Export to CSV, Export to AI always bundles **both** your History and Insights (one report shows everything), and it honours the **Data Set** choice — all data, or just your current filtered view. The **?** beside the button explains the steps in-game. The AI tool needs **web access enabled**: the prompt links to a design guide the AI reads to style the report.
 
+If you add `execution_log=true` anywhere in the prompt before pasting it, the AI also produces a second, companion artifact: a build execution log documenting how it put the report together. It's optional and doesn't change the report itself.
+
 > Example report: _(link coming soon)_
 
 ### Slash commands
@@ -85,7 +87,7 @@ Unlike Export to CSV, Export to AI always bundles **both** your History and Insi
 
 ### Settings panel
 
-Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. The **General** page has three groups (below), and a separate **Filters** page manages the blacklist/whitelist:
+Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. The **General** page has two groups (below), and **Filters** and **AH Price** each get their own page.
 
 **Master Controls**
 
@@ -100,11 +102,11 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 *   **Keep history for** — how long to keep records. Older ones are cleared out once per session; choose **Always** to keep everything (default **30 days**).
 *   **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here.
 
-**Auction House Price**
+**AH Price** (its own page)
 
 *   **Enable AH pricing** — the master on/off switch for reading prices from Auctionator, TSM, and OribosExchange. Turn it off and every drop's value falls back to its vendor sell price.
-*   **Capture these prices** — pick exactly which prices to gather at loot time (e.g. TSM's market value versus its region average).
-*   **Priority list** — the order the addon checks when more than one captured price is available for the same item; drag to reorder. The first price found on the list wins.
+*   **Data Collection** — tick which prices to gather at loot time (e.g. TSM's market value versus its region average), grouped by which addon supplies them. Each price has an **ⓘ** info icon explaining what it means.
+*   **Priority** — the order the addon checks when more than one captured price is available for the same item; use the up/down arrows to reorder. Untick a row to disable it without removing it from the list — a ✗ next to a row means that source isn't being collected (so it can never win), while a ✓ means it is. The first *enabled and collected* price on the list wins.
 
 **Filters** (its own page)
 
@@ -115,7 +117,7 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 
 If you have **Auctionator**, **TSM**, or **OribosExchange** installed, the addon reads an auction price for each item the moment you loot it — whichever of those you have running. You don't need all three; it works with just one, and quietly skips pricing altogether if you have none.
 
-You choose which price counts most: **Settings ▸ Auction House Price** has a priority list, so if more than one pricing addon has a price for an item, the one higher on your list wins. You can also choose exactly **which prices to capture** — for example, TSM's market value versus its region average — if you want to be picky about the source.
+You choose which price counts most: **Settings ▸ AH Price** has a priority list, so if more than one pricing addon has a price for an item, the one higher on your list wins — reorder it with the up/down arrows. You can also choose exactly **which prices to capture** — for example, TSM's market value versus its region average — if you want to be picky about the source. Each priority entry can be individually ticked on or off, and shows a ✓ or ✗ for whether that source is actually being collected, so you can see at a glance which parts of your priority order can ever win.
 
 Every drop's **value**, shown throughout the History table and Insights, is simply the **higher of its vendor sell price and its auction price** — so a valuable item never reads as worth less than what a vendor would pay for it.
 
