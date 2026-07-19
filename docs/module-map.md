@@ -37,21 +37,21 @@ Ka0s Loot History (AceAddon: NS promoted in place)
 │                          NS.COMMANDS slash dispatch table.
 │   ├── Slash.lua        — AceConsole /lh + /loothistory binding; help from NS.COMMANDS;
 │                          schema-driven get/set/list/reset CLI; purge/reset confirm popups.
-│   └── Panel.lua        — Settings.RegisterCanvasLayoutCategory landing page + General
-│                          subcategory; lazy AceGUI two-column schema render; History stats.
+│   └── Panel.lua        — Settings.RegisterCanvasLayoutCategory landing page + General /
+│                          Filters / AH Price subcategories; lazy schema render; History stats.
 └── modules/
     ├── Attribution.lua  — source-resolution engine: stamps a short-lived loot context
                            from peripheral events/hooks, consumes it on CHAT_MSG_LOOT.
                            Loads BEFORE Collector.
     ├── Filters.lua      — NS.Filters: blacklist/whitelist item-id lists (add/remove, parse id
                            from link, notify). Loads before Collector. Data-only, no Enable.
-    ├── AuctionPrice.lua — NS.AuctionPrice:Lookup(itemLink, itemID): first-hit-wins AH-price
-                           cascade over installed pricing addons (Auctionator/TSM/OribosExchange,
-                           user-configurable via settings.auction.*). Third-party integration
-                           boundary — presence-gated, deliberately outside core/Compat.lua.
-                           Loads before Collector.
+    ├── AuctionPrice.lua — NS.AuctionPrice: GatherAll(itemLink, itemID) captures every enabled
+                           provider:key price into a nested map; Pick(map) resolves one at read
+                           time via the settings.auction.priority cascade. Installed pricing addons
+                           (Auctionator/TSM/OribosExchange). Third-party integration boundary —
+                           presence-gated, deliberately outside core/Compat.lua. Loads before Collector.
     ├── Collector.lua     — CHAT_MSG_LOOT handler: self-filter → whitelist/blacklist + quality/
-                           source/quest gate → AuctionPrice:Lookup → build record →
+                           source/quest gate → AuctionPrice:GatherAll → build record →
                            Database:Add. Hot-path upvalues.
     ├── Browser.lua       — standalone-windows window shell: frame, skin, tabs, SHARED filter bar +
                            footer, saved view, tab-aware Export, minimap (LDB+LibDBIcon). Bus sub.
@@ -91,7 +91,7 @@ See [data-model.md](data-model.md) for the record shape, [message-bus.md](messag
 19. `modules/DebugLog.lua` — **loads last** of `modules/`. `NS.DebugLog`, the session-only debug console (`LootHistoryDebugWindow`, DIALOG strata, styled by `Browser:ApplySkin`) with a `ScrollingMessageFrame` log in JetBrains Mono, Copy/Clear buttons, and a header `Debug: ON/OFF` toggle. Defines the global sink `NS.Debug(tag, fmt, …)` (`DebugLog.lua:248-262`) — zero-allocation no-op when `NS.State.debug` is off, otherwise appends a tagged `<ts> | [<tag>] <content>` line. `D:SetEnabled` is the single state seam shared by `/lh debug on|off` and the header toggle. It loads after the other modules only reference `NS.Debug` at runtime inside `NS.State.debug` guards, so the late definition never matters.
 20. `settings/Schema.lua` — `NS.Schema` (alias `S`): one row per setting (`S.Schema`, `Schema.lua:11-79`) driving AceDB defaults, panel widgets, and the slash CLI. `S:Set(path, value)` is the single user-setting write seam — validate → deep-copy → write to `NS.db.global` → `onChange` (`Schema.lua:124-139`); the deep-copy stops a reset from aliasing the DB to a shared default table. Also owns `NS.COMMANDS`, the slash dispatch/help table (`Schema.lua:165-197`). `debug` is intentionally not a Schema row. Settings load **after** modules — nothing in `modules/` reads `NS.Schema`/`NS.COMMANDS` at file-load, only inside functions at runtime.
 21. `settings/Slash.lua` — `NS.Slash`. Registers `/lh` and `/loothistory` via AceConsole (`Slash.lua:69-72`), dispatches the verb against `NS.COMMANDS`, and generates the help index from it (bare `/lh` prints help — Ka0s slash-commands-§4). Provides the schema-driven `CliGet` / `CliSet` / `CliList` (via the pure `BuildListLines`, with the shared `FormatSchemaValue` / `FormatKV` helpers) / `CliReset` / `CliResetAll` / `CliVersion`, the `ResetEverything` full wipe, and registers the purge / reset-all / list-clear `StaticPopupDialogs` confirm dialogs at file-load (`Slash.lua:7-64`). See [slash-dispatch.md](slash-dispatch.md).
-22. `settings/Panel.lua` — `NS.Panel`. Registers the parent `Settings.RegisterCanvasLayoutCategory` (a logo + tagline + slash-command landing page) plus two subcategories: `General` (the schema settings) and `Filters` (blacklist/whitelist item-id management — a custom non-schema page: add-by-id/link box + a live list with Remove per id, driven by `NS.Filters`). Renders `NS.Schema.Schema` into a lazy two-column AceGUI grid (checkbox/dropdown/slider/multi-check makers), a live History stats + Purge section, and the always-shown-scrollbar patch (Ka0s options-ui-§10). Both subcategories carry a header **Defaults** button (options-ui-§5): General's runs the non-destructive `CliResetAll`; Filters' clears both id-lists (confirm-gated `KA0S_LOOTHISTORY_CLEAR_FILTERS` → `NS.Filters:ClearAll`). Writes route through `NS.Schema:Set` (schema rows) or `NS.Filters` (the lists); `P:Open` is combat-gated. See [settings-panel.md](settings-panel.md).
+22. `settings/Panel.lua` — `NS.Panel`. Registers the parent `Settings.RegisterCanvasLayoutCategory` (a logo + tagline + slash-command landing page) plus three subcategories: `General` (the schema settings), `Filters` (blacklist/whitelist item-id management — a custom non-schema page: add-by-id/link box + a live list with Remove per id, driven by `NS.Filters`), and `AH Price` (the master `enabled` schema toggle + a **frame-light unified price table**, `buildAuctionTable`: FontString text columns + reused row slots so it stays ~50 frames — the previous ~213-frame page froze the Settings canvas on tab-transition; per-row Enabled checkbox writes the single collect-and-rank `settings.auction.capture` flag, reorder arrows drive `settings.auction.priority`). Renders `NS.Schema.Schema` into a lazy two-column AceGUI grid (checkbox/dropdown/slider/multi-check makers), a live History stats + Purge section, and the always-shown-scrollbar patch (Ka0s options-ui-§10). Structural refreshes are split from scalar ones (options-ui-§11): scalar widgets re-sync in place every `OnShow`, structural list rebuilds are gated to first-paint / on-screen edit / a dirty flag. Each subcategory carries a header **Defaults** button (options-ui-§5): General's runs the non-destructive `CliResetAll` (and recentres the window); Filters' clears both id-lists (confirm-gated → `NS.Filters:ClearAll`); AH Price's resets its schema rows + priority order. Writes route through `NS.Schema:Set` (schema rows) or `NS.Filters` (the lists); `P:Open` is combat-gated. See [settings-panel.md](settings-panel.md).
 
 ## AceAddon lifecycle
 

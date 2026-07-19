@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
-![Tests](https://img.shields.io/badge/Tests-245%2F245_passing-green)
+![Tests](https://img.shields.io/badge/Tests-243%2F243_passing-green)
 
 > Maintainer tooling lives in [`tools/`](tools/) (dev-only, not shipped) — see [`tools/README.md`](tools/README.md).
 
@@ -105,8 +105,7 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 **AH Price** (its own page)
 
 *   **Enable AH pricing** — the master on/off switch for reading prices from Auctionator, TSM, and OribosExchange. Turn it off and every drop's value falls back to its vendor sell price.
-*   **Data Collection** — tick which prices to gather at loot time (e.g. TSM's market value versus its region average), grouped by which addon supplies them. Each price has an **ⓘ** info icon explaining what it means.
-*   **Priority** — the order the addon checks when more than one captured price is available for the same item; use the up/down arrows to reorder. Untick a row to disable it without removing it from the list — a ✗ next to a row means that source isn't being collected (so it can never win), while a ✓ means it is. The first *enabled and collected* price on the list wins.
+*   **Price Sources** — one table listing every price your installed addons can supply. **Tick** a source to collect its price at loot time *and* enter it into the ranking; the highest-ranked source you have a price for is the value shown. Reorder ticked sources with the up/down arrows. Each row shows the addon, the price module (with an **ⓘ** explaining what it means), a ✓/✗ tick, and a status — *Collecting data*, *Not collecting data*, or *Addon not installed*. Ticked sources sort to the top, the ones you don't collect fall below them, and anything whose addon isn't installed drops to the bottom, greyed out.
 
 **Filters** (its own page)
 
@@ -117,7 +116,7 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 
 If you have **Auctionator**, **TSM**, or **OribosExchange** installed, the addon reads an auction price for each item the moment you loot it — whichever of those you have running. You don't need all three; it works with just one, and quietly skips pricing altogether if you have none.
 
-You choose which price counts most: **Settings ▸ AH Price** has a priority list, so if more than one pricing addon has a price for an item, the one higher on your list wins — reorder it with the up/down arrows. You can also choose exactly **which prices to capture** — for example, TSM's market value versus its region average — if you want to be picky about the source. Each priority entry can be individually ticked on or off, and shows a ✓ or ✗ for whether that source is actually being collected, so you can see at a glance which parts of your priority order can ever win.
+You choose which prices count: **Settings ▸ AH Price** lists every price your installed addons can supply — for example, TSM's market value versus its region average — in one table. Tick the ones you want (a ticked source is both collected *and* ranked) and drag them into your preferred order with the up/down arrows; if more than one has a price for the same item, the highest-ranked ticked source wins. Sources you leave unticked, or whose addon isn't installed, drop to the bottom.
 
 Every drop's **value**, shown throughout the History table and Insights, is simply the **higher of its vendor sell price and its auction price** — so a valuable item never reads as worth less than what a vendor would pay for it.
 

@@ -115,13 +115,6 @@ function AuctionPrice:GetPriority()
   s.priority = s.priority or {}
   return s.priority
 end
-function AuctionPrice:MovePriority(index, delta)   -- delta = -1 up / +1 down
-  local p = self:GetPriority()
-  local j = index + delta
-  if index < 1 or index > #p or j < 1 or j > #p then return false end
-  p[index], p[j] = p[j], p[index]
-  return true
-end
 
 -- Ensure the stored priority array holds every known AUCTION_KEYS tag exactly once (append missing
 -- at the end in AUCTION_KEYS order; drop tags no longer known). No migration — branch unmerged.
@@ -149,11 +142,4 @@ function AuctionPrice:SwapPriorityTags(tagA, tagB)
   if not (ia and ib) then return false end
   p[ia], p[ib] = p[ib], p[ia]
   return true
-end
-
--- Whether a tag is enabled = whether its price is collected. Collection and priority-participation
--- are a single flag now (settings.auction.capture), toggled by the AH Price table's checkbox.
-function AuctionPrice:IsEnabled(tag)
-  local s = NS.db.global.settings.auction
-  return (s and s.capture and s.capture[tag]) and true or false
 end

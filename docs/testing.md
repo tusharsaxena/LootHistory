@@ -39,7 +39,7 @@ inventory and the authoritative count):
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
 | `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence |
 | `test_filters.lua` | `NS.Filters` blacklist/whitelist id lists — add/remove (mutually exclusive, copy-on-write), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID` |
-| `test_auctionprice.lua` | `NS.AuctionPrice:Lookup` cascade — per-provider hits (Auctionator/TSM/OribosExchange), fall-through on a miss, `pcall`-wrapped provider errors skipped not fatal, master on/off switch, priority reorder |
+| `test_auctionprice.lua` | `GatherAll` captures every enabled `provider:key` price into a nested map (per-provider Auctionator/TSM/OribosExchange, `pcall`-guarded so a broken addon is skipped not fatal, gated on the capture set + master switch, `nil` when nothing gathered); `Pick` resolves one via the `settings.auction.priority` cascade (reorder-aware, first present wins); `IsProviderAvailable`; `ReconcilePriority` appends missing / drops unknown tags; `SwapPriorityTags` reorders |
 | `test_collector.lua` | `CHAT_MSG_LOOT` gate — self-filter, quality/quest-item threshold, record build |
 | `test_database.lua` | Add/Query/Delete/PruneOld, retention rebuild-and-swap |
 | `test_stats.lua` | `Stats`/aggregation feeding the Insights tab |

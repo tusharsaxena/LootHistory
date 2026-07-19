@@ -90,14 +90,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: SortedIDs returns ids ascending
 - Filters: ParseItemID reads a number, an item link, and an itemString
 
-### test_auctionprice.lua (10)
+### test_auctionprice.lua (8)
 
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
 - AuctionPrice: Pick respects a reordered priority list
-- AuctionPrice: IsEnabled reflects the single collect/enable flag (capture)
 - AuctionPrice: GatherAll only captures keys in the capture set
-- AuctionPrice: MovePriority swaps adjacent entries and respects bounds
 - AuctionPrice: GatherAll returns nil when nothing gathered / disabled
 - AuctionPrice: IsProviderAvailable reflects addon globals
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
@@ -298,7 +296,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_compat.lua | 11 |
 | test_attribution.lua | 21 |
 | test_filters.lua | 16 |
-| test_auctionprice.lua | 10 |
+| test_auctionprice.lua | 8 |
 | test_collector.lua | 23 |
 | test_database.lua | 42 |
 | test_stats.lua | 14 |
@@ -307,4 +305,4 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 6 |
-| **Total** | **245** |
+| **Total** | **243** |

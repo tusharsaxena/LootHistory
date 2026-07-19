@@ -45,16 +45,6 @@ test("AuctionPrice: Pick respects a reordered priority list", function()
   NS.db.global.settings.auction = nil
 end)
 
-test("AuctionPrice: IsEnabled reflects the single collect/enable flag (capture)", function()
-  -- Collection and priority-participation are one flag now: an enabled tag is collected AND ranked,
-  -- so Pick only ever sees collected tags in the map — there is no separate 'disabled-but-collected'.
-  NS.db.global.settings.auction = { enabled = true,
-    capture = { ["tsm:dbmarket"] = true }, priority = { "tsm:dbmarket", "oribos:market" } }
-  assertEqual(NS.AuctionPrice:IsEnabled("tsm:dbmarket"), true)
-  assertEqual(NS.AuctionPrice:IsEnabled("oribos:market"), false)
-  NS.db.global.settings.auction = nil
-end)
-
 test("AuctionPrice: GatherAll only captures keys in the capture set", function()
   NS.db.global.settings.auction = { enabled = true, capture = { ["oribos:market"] = true } }
   withGlobals({ OEMarketInfo = function(_i, t) t.market = 51000; t.region = 53000 end,
@@ -65,20 +55,6 @@ test("AuctionPrice: GatherAll only captures keys in the capture set", function()
     assertEqual(m.auctionator, nil)       -- not in capture set
     assertEqual(m.oribos.region, nil)     -- not in capture set
   end)
-  NS.db.global.settings.auction = nil
-end)
-
-test("AuctionPrice: MovePriority swaps adjacent entries and respects bounds", function()
-  NS.db.global.settings.auction = { enabled = true, priority = { "a", "b", "c" } }
-  local ok = NS.AuctionPrice:MovePriority(1, 1)
-  assertEqual(ok, true)
-  local p = NS.AuctionPrice:GetPriority()
-  assertEqual(p[1], "b"); assertEqual(p[2], "a"); assertEqual(p[3], "c")
-
-  assertEqual(NS.AuctionPrice:MovePriority(1, -1), false)  -- can't move first entry up
-  assertEqual(NS.AuctionPrice:MovePriority(3, 1), false)   -- can't move last entry down
-  assertEqual(NS.AuctionPrice:MovePriority(0, 1), false)   -- out of range low
-  assertEqual(NS.AuctionPrice:MovePriority(4, -1), false)  -- out of range high
   NS.db.global.settings.auction = nil
 end)
 
