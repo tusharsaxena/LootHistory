@@ -308,7 +308,8 @@ local function renderSchema(ctx, companions, opts)
 
   for _, row in ipairs(NS.Schema.Schema) do
     local include = not ((opts.only and row.group ~= opts.only)
-      or (opts.skip and row.group and opts.skip[row.group]))
+      or (opts.skip and row.group and opts.skip[row.group])
+      or row.panelSkip)   -- panelSkip rows render via a bespoke section, not the generic path
     if include then
       if row.group and row.group ~= ctx.lastGroup then
         flushRow(); section(ctx, row.group); ctx.lastGroup = row.group
@@ -620,6 +621,65 @@ local function rebuildPriorityList(ctx, listGroup)
   if listGroup.DoLayout then listGroup:DoLayout() end
 end
 
+-- Section: custom "Data Collection" checklist — which prices to record on every drop. Unlike the
+-- generic MultiCheck, keys are grouped under their provider's display name, each with an info (i)
+-- icon whose tooltip explains the data point. Bound directly to the auction.capture set (a ratified
+-- carve-out; the schema row carries panelSkip so renderSchema leaves it to us). Toggling a box runs
+-- the page refreshers so the Priority list's collected/not-collected status icons update in step.
+local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"
+
+local function buildAuctionCapture(ctx)
+  local scroll = ensureScroll(ctx)
+  section(ctx, "Data Collection")
+
+  local descLabel = AceGUI:Create("Label")
+  descLabel:SetFullWidth(true)
+  descLabel:SetText("Choose which prices to record on every drop. Collecting more gives you more to "
+    .. "compare later, at a small storage cost. This is separate from priority.")
+  scroll:AddChild(descLabel)
+  addSpacer(scroll, 6)
+
+  local boxes = {}          -- tag -> checkbox, for the refresher
+  local seenProvider = false
+  local lastProv
+  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
+    local tag = k.provider .. ":" .. k.key
+    if k.provider ~= lastProv then
+      lastProv = k.provider
+      if seenProvider then addSpacer(scroll, 4) end
+      seenProvider = true
+      local head = AceGUI:Create("Label")
+      head:SetFullWidth(true)
+      head:SetText("|cffe8c56b" .. (NS.Constants.AUCTION_PROVIDER_NAMES[k.provider] or k.provider) .. "|r")
+      scroll:AddChild(head)
+    end
+
+    local rowG = AceGUI:Create("SimpleGroup")
+    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
+
+    local cb = AceGUI:Create("CheckBox")
+    cb:SetLabel(k.data); cb:SetWidth(240)
+    cb:SetValue((NS.db.global.settings.auction.capture or {})[tag] == true)
+    cb:SetCallback("OnValueChanged", function(_, _, v)
+      local c = NS.db.global.settings.auction.capture or {}
+      c[tag] = v or nil
+      NS.db.global.settings.auction.capture = c
+      for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- refresh priority ✓/✗ status too
+    end)
+    rowG:AddChild(cb)
+
+    rowG:AddChild(iconButton(INFO_ICON, 16, k.label, k.desc, nil, false))
+
+    scroll:AddChild(rowG)
+    boxes[tag] = cb
+  end
+
+  ctx.refreshers[#ctx.refreshers + 1] = function()
+    local cur = NS.db.global.settings.auction.capture or {}
+    for tag, cb in pairs(boxes) do cb:SetValue(cur[tag] == true) end
+  end
+end
+
 -- Section: heading, description, legend, live reorderable list. Mirrors makeFilterSection's
 -- heading/list/refresh shape (options-ui custom-list pattern) but for the priority array
 -- instead of an id-set — rows carry texture move arrows + an enable checkbox instead of Remove.
@@ -630,8 +690,8 @@ local function buildAuctionPriority(ctx)
   local descLabel = AceGUI:Create("Label")
   descLabel:SetFullWidth(true)
   descLabel:SetText("Of the prices you collect, this order decides which one is shown (top wins). "
-    .. "Untick a row to skip it; a red \226\156\151 means that source isn't being collected, so it "
-    .. "can never win.")
+    .. "Untick a row to skip it; a red |T" .. NOTREADY .. ":14|t means that source isn't being "
+    .. "collected, so it can never win.")
   scroll:AddChild(descLabel)
   addSpacer(scroll, 4)
 
@@ -797,7 +857,8 @@ function P:Register()
   actx.panel:SetScript("OnShow", function()
     if not aRendered then
       aRendered = true
-      renderSchema(actx, nil, { only = "AH Price" })
+      renderSchema(actx, nil, { only = "AH Price" })   -- the `enabled` checkbox (capture row is panelSkip)
+      buildAuctionCapture(actx)
       buildAuctionPriority(actx)
       if actx.scroll and actx.scroll.DoLayout then actx.scroll:DoLayout() end
     end

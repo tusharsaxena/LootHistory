@@ -80,8 +80,11 @@ S.Schema = {
   { path = "settings.auction.enabled", default = true, type = "boolean", widget = "CheckBox",
     group = "AH Price", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
+  -- panelSkip: the settings panel renders this as the custom "Data Collection" section
+  -- (settings/Panel.lua buildAuctionCapture), not the generic MultiCheck. The row stays
+  -- schema-backed so its default resolves and the slash CLI can still read/write it.
   { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
-    widget = "MultiCheck", wide = true, group = "AH Price", label = "Capture these prices",
+    widget = "MultiCheck", wide = true, panelSkip = true, group = "AH Price", label = "Capture these prices",
     options = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 
 }
