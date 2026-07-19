@@ -388,6 +388,11 @@ the data says" report):
   dynamic CSV columns, `RecordValue` on the map shape. Update every `sellPrice` test to `vendorPrice`.
 - Regenerate `docs/test-cases.md` + README badge; update `docs/data-model.md`, `docs/ARCHITECTURE.md`,
   `docs/ai-export-guideline.md` (the `v` key now comes from `vendorPriceRaw`), `docs/testing.md`.
+- **README end-user section (plain language, no internals):** a new user-facing section in `README.md`
+  explaining AH pricing — which addons are supported (Auctionator, TSM, OribosExchange), that it reads
+  their price data at loot time, how the **priority list** decides which auction price is shown, and
+  how the **overall value** is computed (the higher of vendor price and auction price). Written for a
+  player, not a developer — no field names, code, or map internals.
 
 ## R2.11 Resolved decisions (Rev 2)
 
