@@ -262,7 +262,7 @@
   .tscroll{overflow:visible}
   /* Fixed layout + <colgroup> widths keep every column a constant size regardless of the data
      on the current page/filter; nowrap cells ellipsize rather than reflow the whole table. */
-  table{width:100%; border-collapse:collapse; font-size:11.5px; min-width:1080px; table-layout:fixed}
+  table{width:100%; border-collapse:collapse; font-size:10.5px; min-width:1118px; table-layout:fixed}
   thead th{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
     color:var(--muted); text-align:left; padding:8px 9px; border-bottom:1px solid var(--edge);
     cursor:pointer; white-space:nowrap; user-select:none; background:#16111f;
@@ -444,11 +444,11 @@
       <div class="tscroll">
       <table>
         <!-- Fixed column widths (order matches COL): Time, Character, Item, Qual, Bound,
-             iLvl, Type, Subtype, Source, Zone, AH, Value. Keep in sync with COL if columns change. -->
+             iLvl, Type, Subtype, Source, Zone, Vendor, Auction. Keep in sync with COL if columns change. -->
         <colgroup>
-          <col style="width:122px"><col style="width:104px"><col style="width:170px"><col style="width:84px">
-          <col style="width:92px"><col style="width:54px"><col style="width:92px"><col style="width:116px">
-          <col style="width:110px"><col style="width:120px"><col style="width:102px"><col style="width:102px">
+          <col style="width:114px"><col style="width:92px"><col style="width:150px"><col style="width:72px">
+          <col style="width:80px"><col style="width:48px"><col style="width:80px"><col style="width:100px">
+          <col style="width:98px"><col style="width:104px"><col style="width:90px"><col style="width:90px">
         </colgroup>
         <thead><tr id="rpt-thead"></tr></thead>
         <tbody id="rpt-tbody"></tbody>
@@ -849,7 +849,7 @@ function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"
 function rowVal(r){return ((r.val!=null?r.val:(r.v||0)))*(r.qty||1);}
 function tsKey(r){var p=r.d.split("-");return 2026*1e8+ (MONI[p[1]]||0)*1e6 + (+p[0])*1e4 + (+r.t.slice(0,2))*100 + (+r.t.slice(3,5));}
 function weekday(r){var p=r.d.split("-");return new Date(+p[2],MONI[p[1]]||0,+p[0]).getDay();}
-function timeCell(r){var p=r.d.split("-");return p[0]+" "+p[1]+" &middot; "+r.t;}
+function timeCell(r){var p=r.d.split("-");return p[0]+" "+p[1]+" "+r.t;}
 function ilvl(r){return r.il==null?"—":r.il;}
 function dataTT(r){return esc([r.n,r.q.toLowerCase(),ilvl(r),r.b,r.ty+" — "+r.st,moneyFull(r.v),srcName(r.s)].join("|"));}
 function ilink(r){return '<a class="il '+qCls(r.q)+'" href="'+esc(r.wh)+'" target="_blank" rel="noopener" data-tt="'+dataTT(r)+'">'+esc(r.n)+'</a>';}
@@ -965,8 +965,8 @@ var COL=[{h:"Time",k:function(r){return tsKey(r);},s:true},{h:"Character",k:func
   {h:"iLvl",k:function(r){return r.il||-1;},s:true},{h:"Type",k:function(r){return r.ty.toLowerCase();},s:true},
   {h:"Subtype",k:function(r){return r.st.toLowerCase();},s:true},{h:"Source",k:function(r){return srcName(r.s).toLowerCase();},s:true},
   {h:"Zone",k:function(r){return r.z.toLowerCase();},s:true},
-  {h:"AH",k:function(r){return r.a||0;},s:true,right:true},
-  {h:"Value",k:function(r){return rowVal(r);},s:true,right:true}];
+  {h:"Vendor",k:function(r){return r.v||0;},s:true,right:true},
+  {h:"Auction",k:function(r){return r.a||0;},s:true,right:true}];
 var SORT={col:0,dir:-1}, GROUP="", GROUPCOL={char:1,source:7,quality:3,type:5,subtype:6,zone:8};
 function rowHTML(r){
   return '<tr><td class="mono">'+timeCell(r)+'</td>'+
@@ -977,8 +977,8 @@ function rowHTML(r){
     '<td class="num">'+ilvl(r)+'</td><td>'+esc(r.ty)+'</td><td>'+esc(r.st)+'</td>'+
     '<td><span class="badge'+(SRCBADGE[r.s]?' '+SRCBADGE[r.s]:'')+'">'+esc(srcBadgeText(r.s))+'</span></td>'+
     '<td>'+esc(r.z)+'</td>'+
-    '<td class="num">'+(r.a!=null?moneyFull(r.a):'—')+'</td>'+
-    '<td class="num">'+moneyFull(rowVal(r))+'</td></tr>';
+    '<td class="num">'+moneyFull(r.v)+'</td>'+
+    '<td class="num">'+(r.a!=null?moneyFull(r.a):'—')+'</td></tr>';
 }
 var PAGE=1, PAGESIZE=50;
 function renderTable(rows){
