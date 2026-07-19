@@ -31,6 +31,14 @@ Every item you pick up is filed under a source:
 
 Most items are filed with certainty, straight from what the game reported. When there's no clear signal, the item is still recorded — filed under **Other** and marked as a best guess rather than dropped. Each row shows whether its source is **Certain** or **Inferred** so you can tell the two apart.
 
+## What's new in 1.1.0
+
+*   **Export to AI** — a new **Export to AI** button turns your loot into a polished, WoW-themed HTML report, complete with an interactive browser, an Insights dashboard, and a written "what the data says" analysis. It works with **Claude** (Desktop, Code, and Web) today; ChatGPT, Gemini, and other assistants need different handling and are planned for a later release.
+*   **Auction-house values** — with Auctionator, TSM, or OribosExchange installed, every drop is now valued at the **higher of its vendor and auction price** and shown in a new **AH Price** column. A dedicated **AH Price** settings page lets you pick and rank which price sources count.
+*   **Blacklist & Whitelist** — a new **Filters** page lets you permanently skip items you never want tracked, or force-record items that would normally be ignored — added by item id or shift-clicked link.
+*   **Shared, richer filtering** — the filter bar is now **shared** between the History and Insights tabs, so one narrowing applies to both. New **Bound** and **Sub-Type** filters (and a Sub-Type column), plus **Group by Type**, give you finer control.
+*   **Insights by real value** — the Insights breakdowns now rank and total your loot by **market value** (auction-or-vendor), not just its vendor sell price.
+
 ## Screenshots
 
 **_The History browser_**
@@ -57,9 +65,9 @@ The **Export** button follows the tab you're on: on **History** it copies your l
 
 ### Export to AI
 
-The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into a web-enabled AI chat — **Claude, ChatGPT, or Gemini** — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and an AI-written "What the data says" analysis. Copy the prompt (Ctrl+C), paste it into the AI, and it replies with the HTML file; in Claude you can publish it as an Artifact to get a shareable link.
+The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into **Claude** — Desktop, Code, or Web — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and an AI-written "What the data says" analysis. Copy the prompt (Ctrl+C), paste it into Claude, and it replies with the HTML file; you can then publish it as an Artifact to get a shareable link. Right now Export to AI is built for Claude only — ChatGPT, Gemini, and other assistants need different handling and are planned for a later release.
 
-Unlike Export to CSV, Export to AI always bundles **both** your History and Insights (one report shows everything), and it honours the **Data Set** choice — all data, or just your current filtered view. The **?** beside the button explains the steps in-game. The AI tool needs **web access enabled**: the prompt links to a design guide the AI reads to style the report.
+Unlike Export to CSV, Export to AI always bundles **both** your History and Insights (one report shows everything), and it honours the **Data Set** choice — all data, or just your current filtered view. The **?** beside the button explains the steps in-game. Claude needs **web access enabled**: the prompt links to a design guide it reads to style the report.
 
 If you add `execution_log=true` anywhere in the prompt before pasting it, the AI also produces a second, companion artifact: a build execution log documenting how it put the report together. It's optional and doesn't change the report itself.
 
@@ -158,5 +166,7 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| 1.1.0 | 2026-07-12 | Settings panel polish — the scrollbar no longer shifts the layout between pages, and the Reset All / Purge buttons are no longer cut off at the edge. |
+| 1.1.0 | Unreleased | **Export to AI** report (Claude — Desktop, Code, and Web); **auction-house values** via Auctionator / TSM / OribosExchange, shown in a new AH Price column with its own settings page; **Blacklist / Whitelist** item filters; a **shared** History/Insights filter bar with new **Bound** and **Sub-Type** filters and **Group by Type**; Insights valued at market price. Plus settings-panel polish — the scrollbar no longer shifts the layout between pages, and Reset All / Purge are no longer clipped. |
+| 1.0.2 | 2026-07-12 | **Exclude quest items** — a new opt-out setting (on by default) that skips the temporary items you pick up during quests. Uncheck it to record them too. |
+| 1.0.1 | 2026-07-12 | Maintenance republish — a packaging-only change to refresh the CurseForge listing. No functional changes. |
 | 1.0.0 | 2026-07-12 | Initial release: passive loot capture with source attribution and a Certain/Inferred confidence marker; account-wide history with a Character column; a standalone browser with filters (quality, type, source, zone, character), name search, sorting, and grouping; an Insights tab with breakdowns and highlights; a settings panel with full `/lh` slash support and per-source toggles; and a minimap button. |
