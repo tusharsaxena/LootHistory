@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Execution Log — Ka0s Loot History report build</title>
+<style>
+:root{
+  --bg:#0d0f14; --panel:#141821; --panel2:#191e29; --line:#252c3a;
+  --ink:#e7ecf3; --dim:#94a0b4; --faint:#5f6b7e;
+  --amber:#e8a13c; --think:#7aa2ff; --tool:#4fd6a0; --text:#c9b6ff;
+  --hi:#ff6b6b; --med:#e8a13c; --low:#5f6b7e;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:15px}
+.wrap{max-width:960px;margin:0 auto;padding:32px 20px 80px}
+header.top{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:26px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin:0 0 8px}
+h1{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--dim);font-size:14px;margin:0}
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 14px;min-width:96px}
+.stat b{display:block;font-family:var(--mono);font-size:20px;color:var(--amber);line-height:1.1}
+.stat span{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
+h2.sec{font-size:13px;font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--dim);margin-bottom:24px}
+.note code{color:var(--ink)}
+p{margin:0 0 12px}
+/* findings */
+.finding{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.finding p{margin:8px 0 0;color:var(--dim);font-size:14px}
+.finding.f-high{border-left:3px solid var(--hi)}
+.finding.f-med{border-left:3px solid var(--med)}
+.finding.f-low{border-left:3px solid var(--low)}
+.fh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fnum{font-family:var(--mono);font-size:12px;color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:2px 7px}
+.ftitle{font-weight:600;font-size:15px;color:var(--ink);flex:1;min-width:200px}
+.fsev{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px}
+.sev-high{background:rgba(255,107,107,.14);color:#ff9a9a}
+.sev-med{background:rgba(232,161,60,.14);color:var(--amber)}
+.sev-low{background:rgba(148,160,180,.12);color:var(--dim)}
+code{font-family:var(--mono);font-size:.86em;background:var(--panel2);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+/* timeline */
+.tl{position:relative;margin-top:6px}
+.step{position:relative;padding:0 0 4px 118px;margin-bottom:14px}
+.meta{position:absolute;left:0;top:0;width:104px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.ts{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.dur{font-family:var(--mono);font-size:10.5px;color:var(--amber);opacity:.9;white-space:nowrap}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:20px;white-space:nowrap}
+.tg-think{background:rgba(122,162,255,.12);color:var(--think)}
+.tg-text{background:rgba(201,182,255,.12);color:var(--text)}
+.tg-tool{background:rgba(79,214,160,.12);color:var(--tool)}
+.body{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 14px;font-size:13.5px;color:var(--ink)}
+.step.think .body{color:var(--dim);border-left:2px solid var(--think)}
+.step.text .body{border-left:2px solid var(--text)}
+.step.tool .body{border-left:2px solid var(--tool)}
+pre.cmd{margin:9px 0 0;background:#0a0c11;border:1px solid var(--line);border-radius:6px;padding:9px 11px;font-family:var(--mono);font-size:12px;color:var(--dim);overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12px;font-family:var(--mono)}
+@media(max-width:620px){
+  .step{padding-left:0}
+  .meta{position:static;width:auto;flex-direction:row;text-align:left;margin-bottom:7px;gap:8px;align-items:center}
+}
+</style></head>
+<body><div class="wrap">
+
+<!--
+  ============================================================================
+  EXECUTION-LOG TEMPLATE  \u00B7  Ka0s Loot History
+  ----------------------------------------------------------------------------
+  This is a FILL-IN SCAFFOLD, not a finished log. The <head>, the entire
+  <style> block, every CSS class, the section headings, and the
+  header/stats/note/footer structure are FIXED \u2014 do not edit them. Replace only
+  the SAMPLE content marked with `<!-- FILL: ... -->` comments below:
+    \u00B7 the 5 .stats counts   \u00B7 the Verdict paragraph
+    \u00B7 one .finding card per instruction-accuracy finding (F1, F2, \u2026)
+    \u00B7 one .step per reasoning/action step, in time order
+  Keep it fully self-contained (inline CSS only, no external requests). The
+  sample values below are placeholders that demonstrate each format exactly
+  once \u2014 overwrite them for the real run.
+  ============================================================================
+-->
+<header class="top">
+  <p class="kicker">Execution Log &middot; Instruction-Accuracy Review</p>
+  <h1>Ka0s Loot History &mdash; report build</h1>
+  <p class="sub">Chronological record of every reasoning and action step taken while executing the pasted build instructions, with timestamps and per-step durations, prepared so the instruction set can be assessed for clarity and correctness. Timestamps are approximate and monotonic; each &Delta; duration is derived from the interval to the next logged step.</p>
+  <!-- FILL: recompute these counts for this run (logged steps / reasoning / tool calls / findings / elapsed span). -->
+  <div class="stats">
+    <div class="stat"><b>NN</b><span>logged steps</span></div>
+    <div class="stat"><b>N</b><span>reasoning</span></div>
+    <div class="stat"><b>N</b><span>tool calls</span></div>
+    <div class="stat"><b>N</b><span>findings</span></div>
+    <div class="stat"><b>~Nm</b><span>HH:MM:SS&ndash;HH:MM:SS</span></div>
+  </div>
+</header>
+
+<div class="note">Timestamps are <strong>approximate and monotonic</strong> (container-local, <code>HH:MM:SS.mmm</code>). Per-step wall-clock instrumentation is typically not available, so the <span style="color:var(--amber)">&Delta; durations</span> shown below each timestamp are <strong>derived from the interval to the next logged step</strong> rather than being millisecond-recorded execution instants. Be honest about this &mdash; do not present derived intervals as instrument readings, and regenerate every figure for the run being logged.</div>
+
+<h2 class="sec">Verdict</h2>
+
+<!-- FILL: 1-2 paragraphs \u2014 did the build follow the instructions and validate; call out the most consequential instruction-accuracy findings by number. -->
+<p>Summarise the outcome here: did the build follow the pasted instructions end-to-end, and did it validate (assembler <strong>PASS</strong>, or which checks raised issues)? Name the single most consequential instruction-accuracy finding (e.g. <strong>F1</strong>) and note whether the remaining findings are genuine ambiguities or points where the instruction set is well-designed. Keep it grounded in what actually happened this run &mdash; cite real counts and the exit status rather than copying figures across from another run.</p>
+
+<h2 class="sec">Findings on instruction accuracy</h2>
+
+<!-- FILL: one .finding card per instruction-accuracy finding (F1, F2, \u2026). Severity class = f-high (material) / f-med (ambiguous) / f-low (well-designed|guidance|minor); .fsev label matches. -->
+<div class="finding f-high">
+  <div class="fh"><span class="fnum">F1</span><span class="ftitle">Material finding &mdash; an instruction that was wrong, missing, or actively needed to avoid a real defect</span><span class="fsev sev-high">material</span></div>
+  <p>Describe a <strong>material</strong> instruction-accuracy issue: something in the instruction set that, if taken at face value, would have produced a wrong or broken result &mdash; or a warning/workaround the prompt required to sidestep a genuine failure. State what happened, why it mattered, and where the root cause really sits (in the instructions, or upstream).</p>
+</div>
+
+<div class="finding f-med">
+  <div class="fh"><span class="fnum">F2</span><span class="ftitle">Ambiguous finding &mdash; two instructions in tension, or an under-specified rule</span><span class="fsev sev-med">ambiguous</span></div>
+  <p>Describe an <strong>ambiguous</strong> point: two rules that conflict, or an instruction open to more than one reading, and how it was resolved this run. Note what wording would remove the ambiguity.</p>
+</div>
+
+<div class="finding f-low">
+  <div class="fh"><span class="fnum">F3</span><span class="ftitle">Minor / well-designed &mdash; a place the instruction set is right, or a small nit</span><span class="fsev sev-low">well-designed</span></div>
+  <p>Use <code>f-low</code> for a low-severity note: a point where the instructions are notably well-designed (they pre-empt a defect class), a piece of sound guidance, or a minor nit worth recording. The <code>.fsev</code> label can read <em>well-designed</em>, <em>guidance</em>, or <em>minor</em> to match.</p>
+</div>
+
+<h2 class="sec">Step-by-step execution timeline</h2>
+<div class="tl">
+
+<!-- FILL: one .step per reasoning/action step, in time order. class = step think|text|tool; .tag = thinking|said|<tool name>; .meta has .ts (HH:MM:SS.mmm) then a .dur (\u0394 interval to the next step); tool steps may include a <pre class="cmd"> block. -->
+<div class="step text"><div class="meta"><span class="ts">HH:MM:SS.mmm</span><span class="dur">&Delta; N.Ns</span><span class="tag tg-text">said</span></div><div class="body">A <code>text</code> step (tag <em>said</em>) records something said to the user &mdash; e.g. restating the two deliverables, or narrating the next action before taking it.</div></div>
+
+<div class="step think"><div class="meta"><span class="ts">HH:MM:SS.mmm</span><span class="dur">&Delta; N.Ns</span><span class="tag tg-think">thinking</span></div><div class="body">A <code>think</code> step (tag <em>thinking</em>) records reasoning &mdash; a decision, a plan, or how an ambiguity was resolved. Cross-reference the relevant finding inline where useful <em>(&rarr; F2)</em>.</div></div>
+
+<div class="step tool"><div class="meta"><span class="ts">HH:MM:SS.mmm</span><span class="dur">&Delta; N.Ns</span><span class="tag tg-tool">web_fetch</span></div><div class="body">A <code>tool</code> step names the tool in its tag and describes the action; a command or URL goes in a <code>pre.cmd</code> block.<pre class="cmd">https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/docs/ai-export-guideline.md</pre></div></div>
+
+<div class="step tool"><div class="meta"><span class="ts">HH:MM:SS.mmm</span><span class="dur">&Delta; N.Ns</span><span class="tag tg-tool">bash_tool</span></div><div class="body">Another tool step &mdash; e.g. downloading the assembler and confirming its size.<pre class="cmd">curl -sSL "https://raw.githubusercontent.com/tusharsaxena/LootHistory/master/tools/build_report.py" -o build_report.py
+wc -c build_report.py</pre></div></div>
+
+<div class="step tool"><div class="meta"><span class="ts">HH:MM:SS.mmm</span><span class="dur">&Delta; N.Ns</span><span class="tag tg-tool">bash_tool</span></div><div class="body">The one-command build + validate + template download the guideline mandates.<pre class="cmd">python3 build_report.py --prompt export.txt --cards cards.html -o report.html</pre></div></div>
+
+<div class="step text"><div class="meta"><span class="ts">HH:MM:SS.mmm</span><span class="dur">&Delta; &mdash;</span><span class="tag tg-text">said</span></div><div class="body">The final <code>text</code> step confirms delivery. The last step&rsquo;s <code>.dur</code> is <code>&Delta; &mdash;</code> (there is no next step to measure against).</div></div>
+
+</div>
+
+<footer>Generated as a companion trace to the Ka0s Loot History report &middot; built via tools/build_report.py (assembler PASS) &middot; self-contained, no external resources</footer>
+
+</div></body></html>

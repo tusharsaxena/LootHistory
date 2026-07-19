@@ -1,6 +1,6 @@
 # Ka0s Loot History — AI Report Guideline
 
-*Guideline v1.1.0 rev6 · 2026-07-18*
+*Guideline v1.1.0 rev7 · 2026-07-19*
 
 You are turning a **Ka0s Loot History** loot export into a **single, self-contained, interactive HTML
 report**. You do **not** design or build the report from scratch — you **fill in a ready-made
@@ -109,6 +109,45 @@ confidence and keystone levels that are good narrative material and are not in t
   data; do not hand-edit them.) The static `<title>` shipped in the template is only a placeholder — the
   engine overwrites the title, realm, and date range at load from the data. Never hand-edit it, even if
   the placeholder's date range looks wrong.
+
+## Optional: execution-log artifact
+
+**Trigger.** If the prompt contains, **anywhere** and **case-insensitively**, `execution_log=true`
+**or** `execution log=true`, you must ALSO produce a **second** artifact: a timestamped execution log of
+this build. If the trigger is absent, do not produce it.
+
+**It does NOT change the report.** The report is still built exactly as specified above (via the
+assembler) — same file, same validation, same **Output contract**. The execution log is a **companion**
+artifact and is **AI-authored** (a narrative of *your own* reasoning and action steps). It is **not**
+produced by `build_report.py`, and it must not alter the report in any way.
+
+**Scope note — no contract violation.** The report's "output only the HTML file, nothing else" rule
+scopes the **report** artifact itself. An explicit request for a companion execution log is a legitimate
+*second* deliverable and does not violate that contract; the "only the HTML" constraint governs the
+shape of the report, not the surrounding deliverables.
+
+**How to build it.** Use the shipped template `docs/ai-export-execution-log-template.html`
+(raw URL:
+<https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/docs/ai-export-execution-log-template.html>).
+**Fetch it in full** (`curl -o` / `wget`, exactly as you would the report template — do **not**
+hand-recreate the CSS), then fill in **only** the SAMPLE regions marked with `<!-- FILL: ... -->`:
+
+- **`.stats` counts** — recompute the 5 boxes for this run (logged steps / reasoning / tool calls /
+  findings / elapsed span).
+- **Verdict** — 1–2 paragraphs: did the build follow the instructions and validate (assembler PASS or
+  issues); call out the most consequential instruction-accuracy findings by number.
+- **Findings** — one `.finding` card per instruction-accuracy finding (`F1`, `F2`, …). Severity class
+  `f-high` (material) / `f-med` (ambiguous) / `f-low` (well-designed | guidance | minor); the `.fsev`
+  label matches.
+- **Timeline** — one `.step` per reasoning/action step, in time order:
+  `class="step think|text|tool"`; a `.meta` holding a `.ts` (`HH:MM:SS.mmm`) then a `.dur`
+  (`Δ` = the interval to the **next** step); a `.tag` (`tg-think` = *thinking* / `tg-text` = *said* /
+  `tg-tool` = the tool name); and a `.body` (tool steps may embed a `<pre class="cmd">` command block).
+
+Keep every CSS class and the entire `<head>`/`<style>` unchanged, and keep the file **fully
+self-contained** (inline CSS only, **no external requests**). Timestamps are **approximate and
+monotonic** and the `Δ` durations are **derived from the interval to the next step** — be honest about
+this; do not fabricate instrument readings.
 
 ## The data you're given
 
