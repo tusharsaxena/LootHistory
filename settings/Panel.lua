@@ -527,6 +527,84 @@ local function buildFilters(ctx)
   end
 end
 
+-- ── Auction House price-priority reorder list (R6) ──────────────────────────────
+-- Resolve a "provider:key" priority tag to its C.AUCTION_KEYS label; falls back to the raw
+-- tag if the key isn't found (e.g. a stale entry from a provider that's since been removed).
+local function auctionKeyLabel(tag)
+  local prov, key = tag:match("^(.-):(.+)$")
+  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
+    if k.provider == prov and k.key == key then return k.label end
+  end
+  return tag
+end
+
+-- Rebuild `listGroup` from the current priority order. Each row: label + \226\150\178/\226\150\188 move
+-- buttons (mirrors rebuildFilterList's label+action-button row shape).
+local function rebuildPriorityList(ctx, listGroup)
+  listGroup:ReleaseChildren()
+  local priority = NS.AuctionPrice:GetPriority()
+  if #priority == 0 then
+    local empty = AceGUI:Create("Label")
+    empty:SetFullWidth(true)
+    empty:SetText("|cff808080(none)|r")
+    listGroup:AddChild(empty)
+  else
+    for i, tag in ipairs(priority) do
+      local rowG = AceGUI:Create("SimpleGroup")
+      rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
+      local lbl = AceGUI:Create("Label")
+      lbl:SetRelativeWidth(0.68)
+      lbl:SetText(auctionKeyLabel(tag))
+      rowG:AddChild(lbl)
+
+      local upBtn = AceGUI:Create("Button")
+      upBtn:SetText("\226\150\178"); upBtn:SetRelativeWidth(0.15)   -- \226\150\178 = up-move
+      upBtn:SetDisabled(i == 1)
+      upBtn:SetCallback("OnClick", function()
+        NS.AuctionPrice:MovePriority(i, -1)
+        rebuildPriorityList(ctx, listGroup)
+        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+      end)
+      rowG:AddChild(upBtn)
+
+      local downBtn = AceGUI:Create("Button")
+      downBtn:SetText("\226\150\188"); downBtn:SetRelativeWidth(0.15)  -- \226\150\188 = down-move
+      downBtn:SetDisabled(i == #priority)
+      downBtn:SetCallback("OnClick", function()
+        NS.AuctionPrice:MovePriority(i, 1)
+        rebuildPriorityList(ctx, listGroup)
+        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+      end)
+      rowG:AddChild(downBtn)
+
+      listGroup:AddChild(rowG)
+    end
+  end
+  if listGroup.DoLayout then listGroup:DoLayout() end
+end
+
+-- Section: heading, description, live reorderable list. Mirrors makeFilterSection's
+-- heading/list/refresh shape (options-ui custom-list pattern) but for the priority array
+-- instead of an id-set — rows carry \226\150\178/\226\150\188 move buttons instead of Remove.
+local function buildAuctionPriority(ctx)
+  local scroll = ensureScroll(ctx)
+  section(ctx, "Price priority (top = preferred)")
+
+  local descLabel = AceGUI:Create("Label")
+  descLabel:SetFullWidth(true)
+  descLabel:SetText("When an item has more than one captured price, the highest entry below wins. "
+    .. "Use the arrows to reorder.")
+  scroll:AddChild(descLabel)
+  addSpacer(scroll, 6)
+
+  local listGroup = AceGUI:Create("SimpleGroup")
+  listGroup:SetLayout("List"); listGroup:SetFullWidth(true)
+  scroll:AddChild(listGroup)
+
+  rebuildPriorityList(ctx, listGroup)
+  ctx.refreshers[#ctx.refreshers + 1] = function() rebuildPriorityList(ctx, listGroup) end
+end
+
 -- ── Landing page: logo + tagline + slash-command list ───────────────────────────
 local function buildMainContent(ctx)
   local scroll = ensureScroll(ctx)
@@ -667,6 +745,7 @@ function P:Register()
     if not aRendered then
       aRendered = true
       renderSchema(actx, nil, { only = "Auction House Price" })
+      buildAuctionPriority(actx)
       if actx.scroll and actx.scroll.DoLayout then actx.scroll:DoLayout() end
     end
     for _, fn in ipairs(actx.refreshers) do pcall(fn) end
