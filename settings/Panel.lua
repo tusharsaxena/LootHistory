@@ -623,9 +623,10 @@ end
 
 -- Section: custom "Data Collection" checklist — which prices to record on every drop. Unlike the
 -- generic MultiCheck, keys are grouped under their provider's display name, each with an info (i)
--- icon whose tooltip explains the data point. Bound directly to the auction.capture set (a ratified
--- carve-out; the schema row carries panelSkip so renderSchema leaves it to us). Toggling a box runs
--- the page refreshers so the Priority list's collected/not-collected status icons update in step.
+-- icon whose tooltip explains the data point. Bound to the auction.capture schema row, which is
+-- mutated via Schema:Set (only settings.auction.priority is a ratified carve-out); the row carries
+-- panelSkip so renderSchema leaves it to us. Toggling a box runs the page refreshers so the Priority
+-- list's collected/not-collected status icons update in step.
 local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"
 
 local function buildAuctionCapture(ctx)
@@ -661,9 +662,9 @@ local function buildAuctionCapture(ctx)
     cb:SetLabel(k.data); cb:SetWidth(240)
     cb:SetValue((NS.db.global.settings.auction.capture or {})[tag] == true)
     cb:SetCallback("OnValueChanged", function(_, _, v)
-      local c = NS.db.global.settings.auction.capture or {}
+      local c = NS.Schema:Get("settings.auction.capture") or {}
       c[tag] = v or nil
-      NS.db.global.settings.auction.capture = c
+      NS.Schema:Set("settings.auction.capture", c)
       for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- refresh priority ✓/✗ status too
     end)
     rowG:AddChild(cb)
