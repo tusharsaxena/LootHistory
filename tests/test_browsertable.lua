@@ -258,6 +258,14 @@ test("BrowserTable: auction column shows the picked price from the map", functio
 end)
 
 test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)", function()
-  assertTrue(NS.BrowserTable:MinFrameWidth() >= 1212,
-    "AH column must widen the frame past the old 1160 floor")
+  -- R4-6 narrowed Date 76→66 and Time 38→32 (−16px), so the column-derived floor dropped from
+  -- 1212 to 1196 — still comfortably past the old 1160 toolbar floor and wide enough for the AH
+  -- column. B:MinWidth() takes the wider of this and the toolbar-fit floor (TOOLBAR_MIN 1116), and
+  -- the static Export button fills the slack to the bar's right edge: (1196-12) - (976+8) = 200.
+  assertEqual(NS.BrowserTable:MinFrameWidth(), 1196)
+  assertTrue(NS.BrowserTable:MinFrameWidth() >= 1160,
+    "AH column must keep the frame past the old 1160 floor")
+  assertEqual(NS.Browser:MinWidth(), 1196)
+  assertTrue(NS.Browser:MinWidth() >= 1116, "must be at least the toolbar-fit floor")
+  assertEqual(NS.Browser:ExportWidth(), 200)
 end)

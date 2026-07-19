@@ -33,6 +33,35 @@ local SKIN = {
 }
 B.SKIN = SKIN
 
+-- ── Toolbar geometry (single source of truth) ──────────────────────────────────
+-- The 8 row-2 filter dropdowns pack left from the pane's left edge; their combined span
+-- (fixed widths + inter-gaps) never changes. The row-2 Export button and the row-1
+-- Save/Reset/Clear cluster above it fill the slack from the Character dropdown's right edge
+-- to the window's right edge AT MIN WIDTH, and are STATIC — they don't grow when the window
+-- widens (the extra space opens up on the right). Both EnsureFrame (the window floor) and
+-- BuildFilterBar (Export/cluster sizing) read B:MinWidth() / DROPDOWNS_W here, so the window
+-- floor and the toolbar packing can never drift apart.
+--   Row-2 dropdowns: Date120 Bound96 Quality100 Type112 SubType100 Source100 Zone146 Character146
+local DROPDOWNS_W = 120 + 96 + 100 + 112 + 100 + 100 + 146 + 146 + 7 * 8   -- = 976 (widths + 7×8 gaps)
+local EXPORT_MIN  = 120                                                    -- Export never narrower than this
+local TOOLBAR_MIN = DROPDOWNS_W + 8 + EXPORT_MIN + 12                      -- dropdowns + gap + min Export + pane margins = 1116
+
+-- Minimum (and default-open) window width: the wider of the column-derived table floor
+-- (BrowserTable:MinFrameWidth) and the toolbar-fit floor (TOOLBAR_MIN). Shared by EnsureFrame
+-- and the filter-bar builder so Export/cluster geometry stays consistent with the frame size.
+function B:MinWidth()
+  local colW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
+    or 822
+  return math.max(colW, TOOLBAR_MIN)
+end
+
+-- Static Export button width: fills from the Character dropdown's right edge (+8px gap) to the
+-- bar's right edge at min width, clamped to EXPORT_MIN. (minW-12) is the bar inner width at min
+-- (6px pane margin each side); minus the dropdown span + gap leaves exactly the Export width.
+function B:ExportWidth()
+  return math.max(EXPORT_MIN, (self:MinWidth() - 12) - (DROPDOWNS_W + 8))
+end
+
 -- Apply the flat skin to the window. Kept separate so a future settings panel can re-skin live.
 function B:ApplySkin(f)
   f:SetBackdrop({
@@ -783,9 +812,10 @@ function B:BuildFilterBar(bar)
   self._dd = dd
 
   -- ── Row 1: Group by · Search · Clear ──
-  -- Group width matches the Date dropdown directly below it (120); the Save+Reset+Clear cluster
-  -- is anchored above the Export button (not the bar's right edge) — its span (48+6+52+6+52 = 164)
-  -- exactly matches Export's 164px width, so the cluster sits flush above it.
+  -- Group width matches the Date dropdown directly below it (120); the Save+Reset+Clear cluster is
+  -- anchored above the Export button (not the bar's right edge) and resized so its span (three
+  -- buttons + two 6px gaps) exactly matches Export's width (B:ExportWidth), so the cluster sits
+  -- flush above it and both stay static as the window widens.
   dd.group = MakeDropdown(bar, 120)
   dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
   dd.group:SetOptions(GROUP_OPTIONS)
@@ -795,18 +825,24 @@ function B:BuildFilterBar(bar)
   -- Export button is created here (row 1, ahead of its row-2 position further down) so the
   -- Save/Reset/Clear cluster below can anchor its top-right corner to it; SetPoint only needs the
   -- frame to exist, not to be positioned yet — its own anchor (to dd.char) is set once dd.char
-  -- exists, in the Row 2 section below.
-  local exportBtn = makeBarButton(bar, "Export", 164, function() B:OpenExport() end,
+  -- exists, in the Row 2 section below. Its width is static (B:ExportWidth): at min window width it
+  -- fills from the Character dropdown's right edge to the bar's right edge; it does NOT grow when
+  -- the window widens (no right anchor to the bar).
+  local exportW = B:ExportWidth()
+  local exportBtn = makeBarButton(bar, "Export", exportW, function() B:OpenExport() end,
     "Export the current tab — loot rows (History) or the analytics summary (Insights).")
 
-  -- Right cluster (row 1): Save · Reset · Clear (right-aligned).
-  local clear = makeBarButton(bar, "Clear", 52, function() B:ClearFilters() end,
+  -- Right cluster (row 1): Save · Reset · Clear, spanning exactly exportW so its right edge sits
+  -- flush above Export's. Three buttons + two 6px gaps = exportW: Clear/Reset each take
+  -- floor((exportW-12)/3); Save takes the remainder so the widths sum exactly. Static (no growth).
+  local btnW = math.floor((exportW - 12) / 3)
+  local clear = makeBarButton(bar, "Clear", btnW, function() B:ClearFilters() end,
     "Clear filters and group/sort back to your saved view.")
   clear:SetPoint("TOPRIGHT", exportBtn, "TOPRIGHT", 0, ROW1 - ROW2)
-  local resetBtn = makeBarButton(bar, "Reset", 52, function() B:ResetView() end,
+  local resetBtn = makeBarButton(bar, "Reset", btnW, function() B:ResetView() end,
     "Reset the saved view to stock defaults.")
   resetBtn:SetPoint("RIGHT", clear, "LEFT", -6, 0)
-  local saveBtn = makeBarButton(bar, "Save", 48, function() B:SaveView() end,
+  local saveBtn = makeBarButton(bar, "Save", exportW - 12 - 2 * btnW, function() B:SaveView() end,
     "Save the current group, sort and filters as your default view.")
   saveBtn:SetPoint("RIGHT", resetBtn, "LEFT", -6, 0)
 
@@ -992,14 +1028,14 @@ local function EnsureFrame()
 
   frame = CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")
   -- Default size == minimum size: wide enough for every column, so it can grow but never
-  -- shrink into horizontal overflow. Width is derived from the column model.
-  local minW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
-    or 822
-  -- The filter bar wants a hair more width than the table alone: the row-1 Search box's right edge
-  -- is pinned to the row-2 Character dropdown's right edge (x=976, the Date→…→Character chain), and
-  -- the right-aligned Save/Reset/Clear cluster (164 + an 8px gap = 172) must clear it. 976 + 172 +
-  -- 12px pane margins → 1160. Take the wider of this and the column-derived floor.
-  minW = math.max(minW, 1160)
+  -- shrink into horizontal overflow. B:MinWidth() is the single source of truth — the wider of
+  -- the column-derived table floor (BrowserTable:MinFrameWidth) and the toolbar-fit floor
+  -- (TOOLBAR_MIN = the 8 row-2 dropdowns 976 + an 8px gap + a min Export 120 + 12px pane margins).
+  -- The old hard 1160 floor is gone: with the toolbar now packed left and the Export button + the
+  -- Save/Reset/Clear cluster filling the slack to the right edge (static), the window may shrink to
+  -- whichever floor is larger. The filter bar reads the SAME helper (B:ExportWidth), so the Export/
+  -- cluster geometry and this frame width can't drift.
+  local minW = B:MinWidth()
   local minH = SKIN.minH
   B._minW, B._minH = minW, minH
   frame:SetSize(minW, SKIN.defaultH)  -- open at the (taller) default; can shrink to minH

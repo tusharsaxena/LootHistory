@@ -116,11 +116,11 @@ end
 -- Order note: the Character column is intentionally LAST, and Vendor second-last. Any new
 -- columns (AH price, Pawn, …) should be inserted BEFORE Character so it stays the last column.
 BrowserTable.COLUMNS = {
-  { key = "date", label = "Date", width = 76, align = "LEFT",
+  { key = "date", label = "Date", width = 66, align = "LEFT",
     desc = "Date the item was looted.",
     valueFn = function(r) return NS.Util.FormatDate(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  { key = "time", label = "Time", width = 38, align = "LEFT",
+  { key = "time", label = "Time", width = 32, align = "LEFT",
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
