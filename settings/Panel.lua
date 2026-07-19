@@ -643,23 +643,38 @@ local function buildAuctionCapture(ctx)
   local boxes = {}          -- tag -> checkbox, for the refresher
   local seenProvider = false
   local lastProv
+  local provAvail = false    -- availability of the current provider group (computed once per heading)
   for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
     local tag = k.provider .. ":" .. k.key
     if k.provider ~= lastProv then
       lastProv = k.provider
-      if seenProvider then addSpacer(scroll, 4) end
+      -- More breathing room above each subsequent heading; a little above the first one too.
+      addSpacer(scroll, seenProvider and 10 or 4)
       seenProvider = true
+      -- Availability drives the whole group's presentation: an uninstalled provider is shown but
+      -- inert. IsProviderAvailable is false in the headless test env (no addon globals) — fine.
+      provAvail = NS.AuctionPrice:IsProviderAvailable(k.provider)
       local head = AceGUI:Create("Label")
       head:SetFullWidth(true)
-      head:SetText("|cffe8c56b" .. (NS.Constants.AUCTION_PROVIDER_NAMES[k.provider] or k.provider) .. "|r")
+      local name = NS.Constants.AUCTION_PROVIDER_NAMES[k.provider] or k.provider
+      local suffix = provAvail and "" or " |cff808080(not installed)|r"
+      head:SetText("|cffe8c56b" .. name .. "|r" .. suffix)
       scroll:AddChild(head)
     end
 
     local rowG = AceGUI:Create("SimpleGroup")
     rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
 
+    -- Small fixed-width empty label indents the row under its (flush-left) heading.
+    local indent = AceGUI:Create("Label")
+    indent:SetText(""); indent:SetWidth(14)
+    rowG:AddChild(indent)
+
     local cb = AceGUI:Create("CheckBox")
-    cb:SetLabel(k.data); cb:SetWidth(240)
+    cb:SetLabel(k.data)
+    -- Size the box to its label so the info icon trails the text with a small gap (check + gap ≈ 30),
+    -- rather than sitting at a fixed column. cb.text is the label fontstring (AceGUI CheckBox).
+    cb:SetWidth((cb.text and cb.text:GetStringWidth() or 80) + 30)
     cb:SetValue((NS.db.global.settings.auction.capture or {})[tag] == true)
     cb:SetCallback("OnValueChanged", function(_, _, v)
       local src = NS.Schema:Get("settings.auction.capture") or {}
@@ -669,9 +684,11 @@ local function buildAuctionCapture(ctx)
       NS.Schema:Set("settings.auction.capture", c)
       for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- refresh priority ✓/✗ status too
     end)
+    if not provAvail then cb:SetDisabled(true) end   -- non-interactable + greyed label when uninstalled
     rowG:AddChild(cb)
 
-    rowG:AddChild(iconButton(INFO_ICON, 16, k.label, k.desc, nil, false))
+    -- Info icon follows the label; dim it when the provider is unavailable so the row reads as inert.
+    rowG:AddChild(iconButton(INFO_ICON, 16, k.label, k.desc, nil, not provAvail))
 
     scroll:AddChild(rowG)
     boxes[tag] = cb
