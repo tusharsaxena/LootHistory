@@ -317,8 +317,14 @@ local function MakeDropdown(parent, width)
     self:UpdateMultiLabel()
   end
   -- Toggle one value; the "all" sentinel clears the whole set. Refreshes the button label.
+  -- `presets` (optional, per-dropdown: { [value] = function(dd) ... end }) lets specific option
+  -- values REPLACE the selection instead of toggling into it — e.g. the Character dropdown's
+  -- "current" item, a one-click "only me" preset. A preset function is responsible for setting
+  -- `dd._selected` itself; UpdateMultiLabel then runs as usual.
   function dd:ToggleSelected(value)
-    if value == "all" then
+    if self.presets and self.presets[value] then
+      self.presets[value](self)
+    elseif value == "all" then
       self._selected = {}
     else
       self._selected[value] = (not self._selected[value]) or nil
@@ -482,7 +488,11 @@ local function charOptions()
       }
     end
   end
-  return withAll("Character: All", items)
+  local opts = withAll("Character: All", items)
+  -- "Current" is a one-click preset (see dd.char.presets below), not a real char value — inserted
+  -- right after the "All" sentinel so the menu reads All / Current / <each character>.
+  table.insert(opts, 2, { value = "current", label = "Current" })
+  return opts
 end
 local function typeOptions()
   local seen, items = {}, {}
@@ -895,6 +905,14 @@ function B:BuildFilterBar(bar)
   dd.char = MakeDropdown(bar, 146)
   dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 8, 0)
   dd.char:SetMulti(true)
+  -- "Current" is a preset, not a toggle: it REPLACES the selection with just the current player's
+  -- key (a one-click "only me"), nil-guarded so it's a no-op if PlayerKey() is unavailable.
+  dd.char.presets = {
+    current = function(ddSelf)
+      local ck = currentKey()
+      ddSelf._selected = ck and { [ck] = true } or {}
+    end,
+  }
   -- SetCharSet keeps the char filter in sync (the window opens scoped to the current player).
   dd.char.onMultiSelect = function(set) B:SetCharSet(set) end
 
