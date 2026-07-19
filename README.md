@@ -6,8 +6,6 @@
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
 ![Tests](https://img.shields.io/badge/Tests-245%2F245_passing-green)
 
-> Maintainer tooling lives in [`tools/`](tools/) (dev-only, not shipped) — see [`tools/README.md`](tools/README.md).
-
 ![alt text](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
 Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It quietly records every item you pick up and works out where each one came from — a kill, a chest, the mailbox, the auction house, and so on. Open its window any time to browse your full loot history, or switch to the **Insights** tab to see it broken down by source, value, quality, and more.
@@ -43,19 +41,21 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 **_The History browser_**
 
-![alt text](https://media.forgecdn.net/attachments/1788/920/loothistory-screenshot-01-png.png)
+![alt text](https://media.forgecdn.net/attachments/1804/899/loothistory-screenshot-01-png.png)
 
-![alt text](https://media.forgecdn.net/attachments/1788/921/loothistory-screenshot-02-png.png)
+![alt text](https://media.forgecdn.net/attachments/1804/900/loothistory-screenshot-02-png.png)
 
 **_Insights_**
 
-![alt text](https://media.forgecdn.net/attachments/1788/922/loothistory-screenshot-03-png.png)
+![alt text](https://media.forgecdn.net/attachments/1804/901/loothistory-screenshot-03-png.png)
 
-![alt text](https://media.forgecdn.net/attachments/1788/923/loothistory-screenshot-04-png.png)
+![alt text](https://media.forgecdn.net/attachments/1804/902/loothistory-screenshot-04-png.png)
 
 **_Settings panel_**
 
-![alt text](https://media.forgecdn.net/attachments/1788/924/loothistory-screenshot-05-png.png)
+![alt text](https://media.forgecdn.net/attachments/1804/903/loothistory-screenshot-05-png.png)
+
+![alt text](https://media.forgecdn.net/attachments/1804/904/loothistory-screenshot-06-png.png)
 
 ## Usage
 
@@ -65,13 +65,27 @@ The **Export** button follows the tab you're on: on **History** it copies your l
 
 ### Export to AI
 
-The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into **Claude** — Desktop, Code, or Web — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and an AI-written "What the data says" analysis. Copy the prompt (Ctrl+C), paste it into Claude, and it replies with the HTML file; you can then publish it as an Artifact to get a shareable link. Right now Export to AI is built for Claude only — ChatGPT, Gemini, and other assistants need different handling and are planned for a later release.
+The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into **Claude** — Desktop, Code, or Web — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and an AI-written "What the data says" analysis. Copy the prompt (Ctrl+C), paste it into Claude, and it replies with the HTML file; you can then publish it as an Artifact to get a shareable link. 
 
 Unlike Export to CSV, Export to AI always bundles **both** your History and Insights (one report shows everything), and it honours the **Data Set** choice — all data, or just your current filtered view. The **?** beside the button explains the steps in-game. Claude needs **web access enabled**: the prompt links to a design guide it reads to style the report.
 
-If you add `execution_log=true` anywhere in the prompt before pasting it, the AI also produces a second, companion artifact: a build execution log documenting how it put the report together. It's optional and doesn't change the report itself.
+Right now Export to AI is built for Claude only — ChatGPT, Gemini, and other assistants need different handling and are planned for a later release.
 
-> Example report: _(link coming soon)_
+> Example report: [link](https://claude.ai/public/artifacts/a6d520a4-e7b3-423e-8d7c-0035c52331a5)
+
+#### Screenshots
+
+**_Insights_**
+
+![alt text](https://media.forgecdn.net/attachments/1804/905/loothistory-screenshot-07-png.png)
+
+**_History Browser_**
+
+![alt text](https://media.forgecdn.net/attachments/1804/906/loothistory-screenshot-08-png.png)
+
+**_LLM Insights_**
+
+![alt text](https://media.forgecdn.net/attachments/1804/907/loothistory-screenshot-09-png.png)
 
 ### Slash commands
 
@@ -166,7 +180,7 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| 1.1.0 | Unreleased | **Export to AI** report (Claude — Desktop, Code, and Web); **auction-house values** via Auctionator / TSM / OribosExchange, shown in a new AH Price column with its own settings page; **Blacklist / Whitelist** item filters; a **shared** History/Insights filter bar with new **Bound** and **Sub-Type** filters and **Group by Type**; Insights valued at market price. Plus settings-panel polish — the scrollbar no longer shifts the layout between pages, and Reset All / Purge are no longer clipped. |
+| 1.1.0 | 2026-07-20 | **Export to AI** report (Claude — Desktop, Code, and Web); **auction-house values** via Auctionator / TSM / OribosExchange, shown in a new AH Price column with its own settings page; **Blacklist / Whitelist** item filters; a **shared** History/Insights filter bar with new **Bound** and **Sub-Type** filters and **Group by Type**; Insights valued at market price. Plus settings-panel polish — the scrollbar no longer shifts the layout between pages, and Reset All / Purge are no longer clipped. |
 | 1.0.2 | 2026-07-12 | **Exclude quest items** — a new opt-out setting (on by default) that skips the temporary items you pick up during quests. Uncheck it to record them too. |
 | 1.0.1 | 2026-07-12 | Maintenance republish — a packaging-only change to refresh the CurseForge listing. No functional changes. |
 | 1.0.0 | 2026-07-12 | Initial release: passive loot capture with source attribution and a Certain/Inferred confidence marker; account-wide history with a Character column; a standalone browser with filters (quality, type, source, zone, character), name search, sorting, and grouping; an Insights tab with breakdowns and highlights; a settings panel with full `/lh` slash support and per-source toggles; and a minimap button. |
