@@ -144,7 +144,7 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `settings.excludeQuestItems` | Data Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
 | `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
-| `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch for the AH-price cascade (`modules/AuctionPrice.lua`); `false` short-circuits `Pick` to `nil, nil`. |
+| `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
 | `settings.auction.capture` | AH Price | MultiCheck (`panelSkip`) | `Constants.AUCTION_CAPTURE_DEFAULT` | Which `"provider:key"` prices to gather at loot time; schema-backed for the default/slash CLI, but rendered by the panel's own "Data Collection" section (`settings/Panel.lua` `buildAuctionCapture`), grouped by provider with a per-row info tooltip. |
 
 `settings.auction.priority` (ordered `"provider:key"` cascade) and `settings.auction.priorityDisabled`

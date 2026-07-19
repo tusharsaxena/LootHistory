@@ -662,7 +662,9 @@ local function buildAuctionCapture(ctx)
     cb:SetLabel(k.data); cb:SetWidth(240)
     cb:SetValue((NS.db.global.settings.auction.capture or {})[tag] == true)
     cb:SetCallback("OnValueChanged", function(_, _, v)
-      local c = NS.Schema:Get("settings.auction.capture") or {}
+      local src = NS.Schema:Get("settings.auction.capture") or {}
+      local c = {}
+      for key, val in pairs(src) do c[key] = val end
       c[tag] = v or nil
       NS.Schema:Set("settings.auction.capture", c)
       for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- refresh priority ✓/✗ status too
