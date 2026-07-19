@@ -238,11 +238,14 @@ exports depends on which tab is showing.
 
 **Pass.**
 - **History export** — the CSV copy window opens with the loot-row header
-  (`ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,sellPrice,sellPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource,itemType,itemSubType,quantity,source,zone,wowheadLink`)
+  (`ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`)
   and one row per record. `date` reads DD-MMM-YYYY and `time` reads HH:MM; `quality` is a label beside
-  numeric `qualityRaw`; `sellPrice`/`auctionPrice`/`value` read `Ng Ns Nc` beside their copper `*Raw`
-  columns (`auctionPrice`/`auctionPriceRaw` blank when no priced provider had a price); `value` is the
-  derived worth (`auctionPrice` if present, else `sellPrice`); `bound` is a friendly label; comma-bearing
+  numeric `qualityRaw`; `vendorPrice`/`auctionPrice`/`value` read `Ng Ns Nc` beside their copper `*Raw`
+  columns (`auctionPrice`/`auctionPriceRaw` blank when no captured price is selectable by the priority
+  list); `value` is the derived worth (the higher of the picked auction price and `vendorPrice`);
+  `auctionSource` is the picked price's provenance tag (e.g. `tsm:dbmarket`), blank when unpriced; the
+  `auc_<provider>_<key>` columns are the raw copper value the addon actually captured for every
+  configured price key, independent of which one was picked; `bound` is a friendly label; comma-bearing
   item names are quoted; `wowheadLink` is a `wowhead.com/item=…` URL (with `?bonus=…` when the item has
   bonus IDs). `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence` are **not** exported.
 - **Insights export** — the CSV instead has the analytics header `Section,Label,Count,Value` and
@@ -272,7 +275,7 @@ exports depends on which tab is showing.
   chart sections cleanly instead of erroring.
 - The stat cards populate: **records, distinct items, characters, value, active days, epic+
   drops, best drop (ilvl), richest drop, date range, busiest day**. "Value" is the derived worth
-  (`auctionPrice` if captured at loot time, else `sellPrice`) `× quantity` — not raw vendor price.
+  (the higher of the picked auction price and `vendorPrice`) `× quantity` — not raw vendor price alone.
 - The breakdown sections render as horizontal bars / ranked lists: **Loot by source, Value by
   source, Quality distribution, Quality mix, Loot by item type, Loot by bound type, Loot by character,
   Loot over time (per day), Value over time (per day), Loot by hour of day, Loot by weekday,

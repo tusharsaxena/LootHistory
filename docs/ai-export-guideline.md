@@ -187,7 +187,7 @@ Map them from the **HISTORY** CSV columns:
 | `s`  | `source`        | UPPER: `KILL CONTAINER MAIL TRADE AH QUEST VENDOR DISENCHANT MPLUS OTHER` (a blank source → `OTHER`) |
 | `z`  | `zone`          | |
 | `wh` | `wowheadLink`   | the ready-made URL |
-| `src`| `priceSource`   | e.g. `"tsm:dbmarket"`, `"auctionator"`, `"oribos:market"`; blank when no AH price |
+| `src`| `auctionSource` | e.g. `"tsm:dbmarket"`, `"auctionator:minbuyout"`, `"oribos:market"`; blank when no AH price |
 
 You compute and lay out **nothing** here — just faithfully transcribe every row.
 

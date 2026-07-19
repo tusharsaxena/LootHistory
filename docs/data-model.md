@@ -20,9 +20,11 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
   quality      = 4,
   itemLevel    = 639,
   bound        = "BOP",
-  sellPrice    = 25000,
-  auctionPrice = 41200,             -- AH price snapshot (copper, per unit); nil if no priced provider
-  priceSource  = "tsm:dbmarket",    -- provenance tag; nil when auctionPrice is nil
+  vendorPrice  = 25000,             -- vendor sell price, copper per unit (renamed from sellPrice in v3)
+  auctionPrice = {                  -- nested map provider -> key -> copper (nil if nothing captured)
+    tsm = { dbmarket = 41200, dbminbuyout = 39500 },
+    oribos = { market = 40800 },
+  },
   itemType     = "Armor",
   itemSubType  = "Cloth",
   quantity     = 1,
@@ -48,9 +50,8 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
 | `quality` | Numeric `Enum.ItemQuality` (0 Poor … 5 Legendary). Denormalized for fast filter/sort and the quality breakdown. |
 | `itemLevel` | Effective item level for equippable items; `nil` otherwise. |
 | `bound` | Bind state: `nil` \| `"BOE"` \| `"BOP"` \| `"ACCOUNT"` \| `"WARBAND"`. |
-| `sellPrice` | Vendor sell price in **copper, per unit** (captured at loot time — not market price). The guaranteed floor of "value" — see `Util.RecordValue` below. |
-| `auctionPrice` | Auction-house price snapshot in **copper, per unit**, taken at loot time by `NS.AuctionPrice:Lookup` (`modules/AuctionPrice.lua`) from whichever pricing addon answers first in the configured cascade (Auctionator → TSM → OribosExchange by default; user-configurable, first-hit-wins). **`nil`** when no enabled provider had a price (no pricing addon installed, item unpriced, cascade disabled, or every provider errored). Never re-priced after capture — it is a point-in-time snapshot, not a live market feed. |
-| `priceSource` | Provenance tag for `auctionPrice`: `"auctionator"`, `"tsm:<source>"` (e.g. `"tsm:dbmarket"`, keyed by the configured TSM price source), or `"oribos:market"` / `"oribos:region"`. **`nil`** whenever `auctionPrice` is `nil`. |
+| `vendorPrice` | Vendor sell price in **copper, per unit** (captured at loot time — not market price). Renamed from `sellPrice` by the v2→v3 migration (see below). Half of the "value" comparison — see `Util.RecordValue` below. |
+| `auctionPrice` | **Nested map** `provider → key → copper` (e.g. `{ tsm = { dbmarket = 41200 }, oribos = { market = 40800 } }`), captured at loot time by `NS.AuctionPrice:GatherAll` (`modules/AuctionPrice.lua`) — every configured capture key from every installed pricing addon (Auctionator / TSM / OribosExchange), not just one. **`nil`** when nothing was captured (no pricing addon installed, item unpriced, the capture set is empty, or every provider errored). A single price for display/comparison is chosen at *read time* by `NS.AuctionPrice:Pick(map)`, which walks the user's configured priority list and returns the first key present (`price, tag`); it is never re-priced after capture — the map is a point-in-time snapshot, not a live market feed. There is no `priceSource` record field: `Pick`'s `tag` return *is* the provenance, computed on read, not stored. |
 | `itemType` / `itemSubType` | Localized item class / subclass strings (e.g. `Armor` / `Cloth`); back the type breakdown and the type filter. |
 | `quantity` | Stack size for this loot event (the `%d` from `CHAT_MSG_LOOT`; `1` for the singular line). |
 | `source` | `SourceType` enum key (see below) — how the item arrived, resolved by the attribution engine. See [attribution.md](./attribution.md). |
@@ -60,7 +61,7 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
 | `subzone` | Optional finer sub-area string. |
 | `confidence` | `Confidence` enum key — `CERTAIN` when a live source stamp was adopted, `INFERRED` on the `OTHER` fallback. |
 
-The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bound`, `sellPrice`, `auctionPrice`, `itemType`, `itemSubType`) exist so the [browser](./browser.md) table can filter/sort/group thousands of rows without touching item links or the item cache; `itemLink` remains the source of truth for the tooltip.
+The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bound`, `vendorPrice`, `auctionPrice`, `itemType`, `itemSubType`) exist so the [browser](./browser.md) table can filter/sort/group thousands of rows without touching item links or the item cache; `itemLink` remains the source of truth for the tooltip.
 
 ### Derived value — `Util.RecordValue`, never stored
 
@@ -71,19 +72,18 @@ the browser's Value column, the CSV/AI export — computes it on read via `Util.
 ```lua
 function Util.RecordValue(record)
   if record == nil then return nil end
-  local a = record.auctionPrice
-  if a ~= nil then return a end
-  return record.sellPrice
+  local a = record.auctionPrice and NS.AuctionPrice:Pick(record.auctionPrice) or nil
+  local v = record.vendorPrice
+  if a and v then return math.max(a, v) end
+  return a or v
 end
 ```
 
-Auction price wins when present (per-unit copper snapshot at loot time); otherwise it falls back to
-`sellPrice`; `nil` only when both are `nil`. Aggregate worth is always `RecordValue(r) * quantity`,
-never `RecordValue(r)` alone. This is a **derived read, not a schema change**: `auctionPrice`/
-`priceSource` are plain optional record fields, added with **no `schemaVersion` bump and no
-migration**. Records written before this feature simply have `auctionPrice = nil` and
-`priceSource = nil`, so `RecordValue` falls straight through to their `sellPrice` — old rows keep
-working with no backfill needed.
+`AuctionPrice:Pick` resolves the nested `auctionPrice` map down to a single copper figure via the
+user's configured priority list (first present key wins); `RecordValue` then takes the **higher of**
+that picked auction price and `vendorPrice` — a valuable item never reads as worth less than what a
+vendor would pay for it. `nil` only when both `vendorPrice` and every captured auction price are
+`nil`. Aggregate worth is always `RecordValue(r) * quantity`, never `RecordValue(r)` alone.
 
 Filtering is point-in-time: a row rescued by the whitelist (it failed the normal collection gate but its item id was whitelisted) is written as a plain record, indistinguishable from any other — there is no per-record marker for how it got in, and no field is stripped from `Database:Export`.
 
@@ -124,16 +124,19 @@ Companion tables in the same file: `SourceOrder` (display order for grouping/ana
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **2** by the migration below. It lives alongside `history`/`settings`/`minimap` under `global`.
+`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **3** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
-`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The **v1→v2** migration ships in its body: it strips the retired per-record `viaWhitelist` field from every stored row and bumps the stamp to `2`. It deletes no records — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight:
+`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. Two migrations ship in its body:
 
 ```lua
 -- core/Database.lua — NS:RunMigrations()
 -- if g.schemaVersion < 2 then <strip r.viaWhitelist from each record> ; g.schemaVersion = 2 end
+-- if g.schemaVersion < 3 then <rename each record's sellPrice -> vendorPrice> ; g.schemaVersion = 3 end
 ```
 
-It is a safe no-op when the DB isn't ready yet, and idempotent once a DB is already at v2.
+The **v1→v2** migration strips the retired per-record `viaWhitelist` field from every stored row — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight. The **v2→v3** migration (Rev-2 AH-price integration) renames the per-record `sellPrice` field to `vendorPrice` on every stored row — non-destructive, the value is preserved, only the key changes (making room for the derived `value` model's vendor/auction naming). Neither migration deletes any records.
+
+Both are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v3.
 
 ## Read seams
 
@@ -167,7 +170,7 @@ still requires `Database:Delete`). The blacklist/whitelist lists are owned by `N
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·
-sellPrice · auctionPrice · priceSource · itemType · itemSubType · quantity · source · sourceDetail ·
+vendorPrice · auctionPrice · itemType · itemSubType · quantity · source · sourceDetail ·
 zone · mapID · subzone · confidence
 ```
 

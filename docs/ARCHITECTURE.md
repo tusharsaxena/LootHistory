@@ -46,10 +46,10 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `c
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
 | `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge / reset-all / filter-list-clear confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
-| `modules/AuctionPrice.lua` | `NS.AuctionPrice:Lookup(itemLink, itemID)`: reads an AH price for a just-looted item from installed third-party pricing addons, in a user-configurable, first-hit-wins cascade (Auctionator → TSM → OribosExchange by default, `settings.auction.*`). Every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the cascade continues. Returns `price, tag` (both `nil` when no enabled provider has a price). Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
+| `modules/AuctionPrice.lua` | `NS.AuctionPrice:GatherAll(itemLink, itemID)` reads an AH price for a just-looted item from every installed third-party pricing addon (Auctionator / TSM / OribosExchange), capturing **every configured key** into a nested `provider → key → copper` map (`settings.auction.capture`), not just one; every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the gather continues. `NS.AuctionPrice:Pick(map)` is the read-time seam that selects one price from that map via the user-configurable `settings.auction.priority` cascade (first present key wins), returning `price, tag`. Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
 | `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID`. On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
-| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, an `AuctionPrice:Lookup` call to stamp `auctionPrice`/`priceSource`, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
+| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, an `AuctionPrice:GatherAll` call to stamp the record's `auctionPrice` map, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`), LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv, ai }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. **Export to AI** (`AIPrompt`) bundles BOTH CSVs for the selected Data Set into a prompt that points at `docs/ai-export-guideline.md` (pure pointer — no network from the addon), which in turn instructs the AI to fetch and fill the ready-made `docs/ai-export-template.html` (a data-driven report whose engine renders KPIs, charts and the history browser from the loot rows); plus a "?" help popup. Called directly by the Browser; no bus message. |
@@ -68,8 +68,8 @@ back fast table ops.
 {
   ts, char, classFile,                       -- when / who (classFile = locale-independent token)
   itemID, itemLink, itemName, quality,       -- item identity
-  itemLevel, bound, sellPrice,               -- itemLevel: equippable only; bound: BOE|BOP|ACCOUNT|WARBAND
-  auctionPrice, priceSource,                  -- AH snapshot (copper, per unit) + provenance; both nil if unpriced
+  itemLevel, bound, vendorPrice,             -- itemLevel: equippable only; bound: BOE|BOP|ACCOUNT|WARBAND
+  auctionPrice,                              -- nested map provider -> key -> copper; nil if nothing captured
   itemType, itemSubType, quantity,           -- item classification + stack size
   source, sourceDetail,                      -- source ∈ Constants.SourceType
   zone, mapID, subzone,                       -- where
@@ -79,21 +79,24 @@ back fast table ops.
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see [`agent-context.md`](agent-context.md) "Do not change without reason".
-- `schemaVersion` is a version stamp on the DB; the current shipped shape is **2**.
+- `schemaVersion` is a version stamp on the DB; the current shipped shape is **3**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
   before any history read) — the idempotent seam future schema changes hook into. The **v1→v2**
-  migration ships here: it strips the retired per-record `viaWhitelist` field (point-in-time
-  filtering no longer hides stored rows) without deleting any records.
+  migration strips the retired per-record `viaWhitelist` field (point-in-time filtering no longer
+  hides stored rows); the **v2→v3** migration (Rev-2) renames each record's `sellPrice` field to
+  `vendorPrice`. Neither deletes any records.
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
-- **`auctionPrice`/`priceSource` are optional record fields, added with no `schemaVersion` bump
-  and no migration.** `auctionPrice` (copper, per unit) is an AH price snapshot taken at loot time
-  by `modules/AuctionPrice.lua`'s cascade (Auctionator → TSM → OribosExchange, user-configurable,
-  first-hit-wins); `priceSource` is its provenance tag. Both are `nil` when no enabled provider had
-  a price — including every record written before this feature, which simply falls back to
-  vendor. There is **no stored `value` field**: every "worth" figure (Insights, the browser Value
-  column, CSV/AI export) is derived on read via `Util.RecordValue(record)` — `auctionPrice` if
-  present, else `sellPrice`, else `nil` — never persisted. See [data-model.md](data-model.md).
+- **`auctionPrice` is a nested map, `provider → key → copper`**, captured at loot time by
+  `modules/AuctionPrice.lua`'s `GatherAll` — every configured capture key from every installed
+  pricing addon (Auctionator / TSM / OribosExchange), not just one. It is `nil` when nothing was
+  captured — including every record written before this feature. There is no stored `priceSource`
+  field: a single price is resolved at *read time* by `AuctionPrice:Pick(map)`, which walks the
+  user's configured priority list and returns the first present key (`price, tag`). There is **no
+  stored `value` field** either: every "worth" figure (Insights, the browser Value column, CSV/AI
+  export) is derived on read via `Util.RecordValue(record)` — the **higher of** the picked auction
+  price and `vendorPrice`, `nil` only when both are absent — never persisted. See
+  [data-model.md](data-model.md).
 - **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
   `CurrentRecords`) resolve their dataset through `Database:ActiveHistory()`, which returns
   `State.testRecords` when `/lh test` is active and the raw account-wide history otherwise. This is
@@ -291,7 +294,9 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
-- **No value/upgrade addon interop yet** (Auctionator/TSM/Pawn/Loot Appraiser) — planned.
+- **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
+  (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
+  [data-model.md](data-model.md).
 - **AI export depends on the AI tool's web access** — the prompt is a *pure pointer* to
   `docs/ai-export-guideline.md` (raw on `master`), which itself points at `docs/ai-export-template.html`;
   a paste target with browsing disabled can fetch neither, so it produces a generic report instead of

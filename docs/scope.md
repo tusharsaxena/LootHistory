@@ -50,7 +50,7 @@ Boundaries that are real today but are not deliberate non-goals — they are pla
 
 - **Partial source coverage.** `ROLL` and `CRAFT` are in the `SourceType` enum but have no stamper yet, so they are hidden from the mute list. `CRAFT` is reserved for broad recipe crafting, whose cast time can exceed the context TTL. Deconstruct abilities stamp their own `DISENCHANT` / `MILLING` / `PROSPECTING` source, and `AH` is stamped from Auction-House mail.
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting items more than ~1.5s apart from a single open window can let later items fall back to `OTHER` / `INFERRED`.
-- **No value / upgrade addon interop** (Auctionator / TSM / Pawn / Loot Appraiser). Vendor `sellPrice` is captured, but no third-party market value or upgrade scoring is read.
+- **No upgrade-scoring addon interop** (Pawn / Loot Appraiser). Vendor `vendorPrice` and, since the Rev-2 AH-price integration, auction-house prices from Auctionator / TSM / OribosExchange are both captured — see [ARCHITECTURE.md](ARCHITECTURE.md) and [data-model.md](data-model.md) — but no third-party upgrade/BiS scoring is read.
 
 ## Backlog
 

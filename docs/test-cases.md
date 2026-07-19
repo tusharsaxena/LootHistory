@@ -31,7 +31,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: Set unknown path returns false
 - Schema: nested minimap path writes
 - Schema: reset does not alias the table-typed default (F-003)
-- Util: RecordValue prefers auctionPrice, falls back to sellPrice, else nil
+- Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
 
 ### test_compat.lua (11)
 
@@ -90,15 +90,14 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: SortedIDs returns ids ascending
 - Filters: ParseItemID reads a number, an item link, and an itemString
 
-### test_auctionprice.lua (7)
+### test_auctionprice.lua (6)
 
-- AuctionPrice: Auctionator hit returns price + tag
-- AuctionPrice: falls through Auctionator(nil) to TSM
-- AuctionPrice: falls through to OribosExchange
-- AuctionPrice: no providers present returns nil, nil
-- AuctionPrice: a provider that errors is skipped, not fatal
-- AuctionPrice: disabled master switch returns nil
-- AuctionPrice: priority reorder puts TSM first
+- AuctionPrice: GatherAll collects all captured keys into a nested map
+- AuctionPrice: Pick walks the priority list, first present wins
+- AuctionPrice: Pick respects a reordered priority list
+- AuctionPrice: GatherAll only captures keys in the capture set
+- AuctionPrice: MovePriority swaps adjacent entries and respects bounds
+- AuctionPrice: GatherAll returns nil when nothing gathered / disabled
 
 ### test_collector.lua (23)
 
@@ -124,9 +123,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: excludeQuestItems row exists, defaults true, settable
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
-- Collector: BuildRecord carries auctionPrice + priceSource from env
+- Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (41)
+### test_database.lua (42)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -169,6 +168,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: RunMigrations is a safe no-op when the DB is absent
 - NS.MigrationSummary formats from/to/rows
 - Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
+- Migrate: v2->v3 renames sellPrice to vendorPrice
 
 ### test_stats.lua (14)
 
@@ -180,12 +180,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Stats: topZones / topItems ordered by count desc
 - Stats: respects the filter
 - Stats: empty dataset yields zeroed totals
-- Stats: vendor value (sellPrice × quantity) totals + by source/zone
+- Stats: vendor value (vendorPrice × quantity) totals + by source/zone
 - Stats: byType / byBound / byChar / byConfidence / byKeystone
 - Stats: hour/weekday buckets sum to record count (TZ-independent)
 - Stats: highlights + topItemsByValue
 - Analytics.SummaryLine formats range and count
-- Stats: value uses auctionPrice when present, else sellPrice
+- Stats: value uses auctionPrice when present, else vendorPrice
 
 ### test_browsertable.lua (18)
 
@@ -205,22 +205,23 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: test mode filters the synthetic dataset
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
-- BrowserTable: auction column formats auctionPrice and sorts numerically
+- BrowserTable: auction column shows the picked price from the map
 - BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
 
-### test_export.lua (20)
+### test_export.lua (21)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
 - Export: WowheadLink falls back to itemID, then empty
-- Export: CSV header order — ts,date,time first; renamed raw + human siblings; link last
+- Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last
 - Export: CSV auction/value columns — auction present and vendor fallback
+- Export: CSV emits picked price/tag + matching raw sub-columns for a nested auctionPrice map
 - Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence
 - Export: CSV row emits friendly bound + quotes commas
 - Export: CSV date + time columns are FormatDate/FormatClock(ts)
 - Export: CSV quality is human label beside numeric qualityRaw
-- Export: CSV sellPrice is 'Ng Ns Nc' beside raw copper
+- Export: CSV vendorPrice is 'Ng Ns Nc' beside raw copper
 - Export: CSV emits one header + one row per record, CRLF-terminated
 - Export: InsightsCSV header is Section,Label,Count,Value; CRLF-terminated
 - Export: InsightsCSV summary reports the record count
@@ -276,13 +277,14 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 
-### test_schema.lua (5)
+### test_schema.lua (6)
 
 - Schema: debugConsole row is session-only, in Master Controls
 - Schema: setting debugConsole toggles the window, never writes db.global
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row still writes db.global
 - Schema: auction rows exist with the Auction House Price group and defaults
+- Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 
 ## Totals
 
@@ -292,13 +294,13 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_compat.lua | 11 |
 | test_attribution.lua | 21 |
 | test_filters.lua | 16 |
-| test_auctionprice.lua | 7 |
+| test_auctionprice.lua | 6 |
 | test_collector.lua | 23 |
-| test_database.lua | 41 |
+| test_database.lua | 42 |
 | test_stats.lua | 14 |
 | test_browsertable.lua | 18 |
-| test_export.lua | 20 |
+| test_export.lua | 21 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
-| test_schema.lua | 5 |
-| **Total** | **239** |
+| test_schema.lua | 6 |
+| **Total** | **241** |

@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
-![Tests](https://img.shields.io/badge/Tests-239%2F239_passing-green)
+![Tests](https://img.shields.io/badge/Tests-241%2F241_passing-green)
 
 > Maintainer tooling lives in [`tools/`](tools/) (dev-only, not shipped) — see [`tools/README.md`](tools/README.md).
 
@@ -85,7 +85,7 @@ Unlike Export to CSV, Export to AI always bundles **both** your History and Insi
 
 ### Settings panel
 
-Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. The **General** page has two groups (below), and a separate **Filters** page manages the blacklist/whitelist:
+Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. The **General** page has three groups (below), and a separate **Filters** page manages the blacklist/whitelist:
 
 **Master Controls**
 
@@ -100,10 +100,24 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 *   **Keep history for** — how long to keep records. Older ones are cleared out once per session; choose **Always** to keep everything (default **30 days**).
 *   **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here.
 
+**Auction House Price**
+
+*   **Enable AH pricing** — the master on/off switch for reading prices from Auctionator, TSM, and OribosExchange. Turn it off and every drop's value falls back to its vendor sell price.
+*   **Capture these prices** — pick exactly which prices to gather at loot time (e.g. TSM's market value versus its region average).
+*   **Priority list** — the order the addon checks when more than one captured price is available for the same item; drag to reorder. The first price found on the list wins.
+
 **Filters** (its own page)
 
 *   **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). This is point-in-time: once an id is blacklisted, future loots of it are skipped and never recorded, but rows you've *already* recorded are left exactly where they are — editing the list doesn't touch stored history. Delete a row manually if you want it gone.
 *   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). While an id is whitelisted, every future loot of it is recorded as a normal row, bypassing those gates. Removing the id afterward only stops *future* loots from bypassing the gates again — rows it already added stay put. Adding an item to one list removes it from the other; an id is never on both.
+
+## Auction-house pricing
+
+If you have **Auctionator**, **TSM**, or **OribosExchange** installed, the addon reads an auction price for each item the moment you loot it — whichever of those you have running. You don't need all three; it works with just one, and quietly skips pricing altogether if you have none.
+
+You choose which price counts most: **Settings ▸ Auction House Price** has a priority list, so if more than one pricing addon has a price for an item, the one higher on your list wins. You can also choose exactly **which prices to capture** — for example, TSM's market value versus its region average — if you want to be picky about the source.
+
+Every drop's **value**, shown throughout the History table and Insights, is simply the **higher of its vendor sell price and its auction price** — so a valuable item never reads as worth less than what a vendor would pay for it.
 
 ## How attribution works
 

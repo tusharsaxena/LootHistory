@@ -10,7 +10,7 @@ Defaults are declared in `defaults/Global.lua`; AceDB merges them under `db.glob
 
 ```lua
 db.global = {
-  schemaVersion = 2,           -- DB schema stamp; seeded 1, carried to 2 by NS:RunMigrations at init
+  schemaVersion = 3,           -- DB schema stamp; seeded 1, carried to 3 by NS:RunMigrations at init
   history = {},                -- dense array of loot records (one per loot event)
   blacklist = {},              -- { [itemID]=true } — dropped at capture; existing rows untouched (carve-out)
   whitelist = {},              -- { [itemID]=true } — always record, bypassing the gates (carve-out)
@@ -77,7 +77,7 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 
 `NS:InitDB` (`core/Database.lua:4`) creates the AceDB store, then immediately calls `NS:RunMigrations` to normalize the persisted schema **before any history read**.
 
-`NS:RunMigrations` (`core/Database.lua:13`) is the idempotent schema-upgrade seam required by the Ka0s Standard. It reads and writes `db.global.schemaVersion`, runs once at init — from `InitDB`, after the AceDB store is ready, before any history read — and is a safe no-op when the DB isn't ready. It currently ships one migration, gated on `schemaVersion < 2`: it strips the retired per-record `viaWhitelist` field (a leftover from the old soft-add model) from every stored row, then bumps the stamp to `2`. The migration deletes no records — it only clears a field — and is idempotent: once a DB is already at `schemaVersion` `2`, re-running it is a no-op. The `defaults/Global.lua` seed value legitimately stays `1` for brand-new DBs; live DBs are carried to `2` by this migration on their first load after upgrade.
+`NS:RunMigrations` (`core/Database.lua:13`) is the idempotent schema-upgrade seam required by the Ka0s Standard. It reads and writes `db.global.schemaVersion`, runs once at init — from `InitDB`, after the AceDB store is ready, before any history read — and is a safe no-op when the DB isn't ready. It currently ships two migrations: gated on `schemaVersion < 2`, it strips the retired per-record `viaWhitelist` field (a leftover from the old soft-add model) from every stored row, then bumps the stamp to `2`; gated on `schemaVersion < 3`, it renames each stored record's `sellPrice` field to `vendorPrice` (Rev-2 AH-price integration), then bumps the stamp to `3`. Neither migration deletes any records — the first only clears a field, the second only renames one — and both are idempotent: re-running either on a DB already at that version is a no-op. The `defaults/Global.lua` seed value legitimately stays `1` for brand-new DBs; live DBs are carried to `3` by these migrations on their first load after upgrade.
 
 ## Retention prune
 

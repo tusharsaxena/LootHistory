@@ -38,7 +38,7 @@ Matching is done with `text:find(s, 1, true)` (plain, locale-independent via the
 - `name` falls back to the link's `[…]` bracket text.
 - `quality` falls back to `Compat.QualityFromLink` — parsing the link's `|cffRRGGBB` color prefix and reversing it through a hex→quality-id map built from `ITEM_QUALITY_COLORS` (`:135-153`).
 
-So an uncached loot line still records the correct item id, name, and quality; the denormalized gear fields (ilvl, sellPrice, subtype) simply come back `nil` until the item caches. `classID` is the locale-independent `Enum.ItemClass` token used for the quest-item gate (`Constants.ITEMCLASS_QUEST = 12`, `core/Constants.lua:44`).
+So an uncached loot line still records the correct item id, name, and quality; the denormalized gear fields (ilvl, vendorPrice, subtype) simply come back `nil` until the item caches. `classID` is the locale-independent `Enum.ItemClass` token used for the quest-item gate (`Constants.ITEMCLASS_QUEST = 12`, `core/Constants.lua:44`).
 
 ## AH-mail detection — localized *_MAIL_SUBJECT globals
 
