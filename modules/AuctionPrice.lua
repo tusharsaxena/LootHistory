@@ -2,80 +2,95 @@ local addonName, NS = ...   -- luacheck: ignore addonName
 NS.AuctionPrice = NS.AuctionPrice or {}
 local AuctionPrice = NS.AuctionPrice
 
--- Reads AH price for a just-looted item from installed pricing addons, in a user-configurable
--- fall-through cascade (Auctionator -> TSM -> OribosExchange by default). Third-party integration
--- boundary — presence-gated here, deliberately NOT in core/Compat.lua (Blizzard-API-only). Every
--- provider call is wrapped so a broken/absent addon degrades to nil and the cascade continues.
--- Returns copper price + a compact provenance tag; both nil when no enabled provider has a price.
+-- Reads AH prices for a just-looted item from installed pricing addons. Captures EVERY configured
+-- price key into a nested map (provider -> key -> copper); a read-time Pick selects one via the
+-- configurable priority list. Presence-gated + pcall-guarded per provider (third-party boundary —
+-- deliberately not in core/Compat.lua).
 
--- ── Provider fetchers (each: (itemLink, itemID, tsmSource) -> price|nil, tag|nil) ──
-local function fetchAuctionator(itemLink, itemID)
+-- One fetch per provider (batches that provider's captured keys). Each returns a { key = copper } sub-map
+-- (only positive prices), or nil. `keys` is the set of key-names wanted for that provider.
+local function fetchAuctionator(keys, itemLink, itemID)
+  if not keys["minbuyout"] then return nil end
   local api = Auctionator and Auctionator.API and Auctionator.API.v1
   if not api then return nil end
   local price
-  if itemID and api.GetAuctionPriceByItemID then
-    price = api.GetAuctionPriceByItemID(addonName, itemID)
-  elseif itemLink and api.GetAuctionPriceByItemLink then
-    price = api.GetAuctionPriceByItemLink(addonName, itemLink)
-  end
-  if price and price > 0 then return price, "auctionator" end
+  if itemID and api.GetAuctionPriceByItemID then price = api.GetAuctionPriceByItemID(addonName, itemID)
+  elseif itemLink and api.GetAuctionPriceByItemLink then price = api.GetAuctionPriceByItemLink(addonName, itemLink) end
+  if price and price > 0 then return { minbuyout = price } end
   return nil
 end
 
-local function fetchTSM(itemLink, _itemID, tsmSource)
+local function fetchTSM(keys, itemLink)
   if not (TSM_API and TSM_API.GetCustomPriceValue and TSM_API.ToItemString) then return nil end
-  local key = tsmSource or "dbmarket"
   local itemStr = TSM_API.ToItemString(itemLink)
   if not itemStr then return nil end
-  local price = TSM_API.GetCustomPriceValue(key, itemStr)
-  if price and price > 0 then return price, "tsm:" .. key end
-  return nil
+  local out
+  for key in pairs(keys) do
+    local price = TSM_API.GetCustomPriceValue(key, itemStr)
+    if price and price > 0 then out = out or {}; out[key] = price end
+  end
+  return out
 end
 
-local function fetchOribos(itemLink, itemID)
+local function fetchOribos(keys, itemLink, itemID)
   if type(OEMarketInfo) ~= "function" then return nil end
   local info = {}
   OEMarketInfo(itemLink or itemID, info)
-  if info.market and info.market > 0 then return info.market, "oribos:market" end
-  if info.region and info.region > 0 then return info.region, "oribos:region" end
-  return nil
+  local out, any
+  if keys["market"] and info.market and info.market > 0 then out = {}; out.market = info.market; any = true end
+  if keys["region"] and info.region and info.region > 0 then
+    out = out or {}; out.region = info.region; any = true
+  end
+  return any and out or nil
 end
 
--- Canonical providers (order = install-base default). settingKey/priorityKey index settings.auction.
-local PROVIDERS = {
-  { id = "auctionator", settingKey = "auctionator", priorityKey = "priorityAuctionator", fetch = fetchAuctionator },
-  { id = "tsm",         settingKey = "tsm",         priorityKey = "priorityTSM",         fetch = fetchTSM },
-  { id = "oribos",      settingKey = "oribos",      priorityKey = "priorityOribos",      fetch = fetchOribos },
-}
+local PROVIDER_FETCH = { auctionator = fetchAuctionator, tsm = fetchTSM, oribos = fetchOribos }
 
--- Resolve live settings into an ordered, enabled provider list. Missing settings.auction ⇒
--- feature on, canonical order, dbmarket.
-local function resolve()
+local function cfg()
   local s = NS.db and NS.db.global and NS.db.global.settings and NS.db.global.settings.auction
   if s and s.enabled == false then return nil end
-  local tsmSource = (s and s.tsmSource) or "dbmarket"
-  local list = {}
-  for i, p in ipairs(PROVIDERS) do
-    local enabled = not s or s[p.settingKey] ~= false     -- default enabled
-    if enabled then
-      local priority = (s and tonumber(s[p.priorityKey])) or i
-      list[#list + 1] = { fetch = p.fetch, priority = priority, canon = i }
-    end
-  end
-  table.sort(list, function(a, b)
-    if a.priority ~= b.priority then return a.priority < b.priority end
-    return a.canon < b.canon
-  end)
-  return list, tsmSource
+  local capture = (s and s.capture) or NS.Constants.AUCTION_CAPTURE_DEFAULT
+  local priority = (s and s.priority) or NS.Constants.AUCTION_PRIORITY_DEFAULT
+  return capture, priority
 end
 
--- Public: first enabled provider (in priority order) that returns a price wins.
-function AuctionPrice:Lookup(itemLink, itemID)
-  local list, tsmSource = resolve()
-  if not list then return nil, nil end
-  for _, p in ipairs(list) do
-    local ok, price, tag = pcall(p.fetch, itemLink, itemID, tsmSource)
-    if ok and price then return price, tag end
+-- Group the capture set (tags) into { provider = { key = true } }.
+local function wantedByProvider(capture)
+  local out = {}
+  for tag, on in pairs(capture) do
+    if on then
+      local prov, key = tag:match("^(.-):(.+)$")
+      if prov and key then out[prov] = out[prov] or {}; out[prov][key] = true end
+    end
+  end
+  return out
+end
+
+-- Capture every configured key. Returns { provider = { key = copper } } or nil if empty.
+function AuctionPrice:GatherAll(itemLink, itemID)
+  local capture = (cfg())
+  if not capture then return nil end
+  local wanted = wantedByProvider(capture)
+  local map
+  for prov, keys in pairs(wanted) do
+    local fetch = PROVIDER_FETCH[prov]
+    if fetch then
+      local ok, sub = pcall(fetch, keys, itemLink, itemID)
+      if ok and sub and next(sub) then map = map or {}; map[prov] = sub end
+    end
+  end
+  return map
+end
+
+-- Select one price from the map via the priority list. Returns price, tag ("provider:key").
+function AuctionPrice:Pick(map)
+  if type(map) ~= "table" then return nil, nil end
+  local _, priority = cfg()
+  priority = priority or NS.Constants.AUCTION_PRIORITY_DEFAULT
+  for _, tag in ipairs(priority) do
+    local prov, key = tag:match("^(.-):(.+)$")
+    local v = prov and key and map[prov] and map[prov][key]
+    if v then return v, tag end
   end
   return nil, nil
 end

@@ -49,9 +49,8 @@ function Collector:BuildRecord(link, qty, ctx, env)
     quality      = env.quality,
     itemLevel    = env.itemLevel,   -- effective ilvl for equippable items; nil otherwise
     bound        = env.bound,       -- nil | "BOE" | "BOP" | "ACCOUNT" | "WARBAND"
-    vendorPrice  = env.vendorPrice, -- vendor sell price (copper, per unit)
-    auctionPrice = env.auctionPrice, -- AH price snapshot (copper, per unit); nil if no provider
-    priceSource  = env.priceSource,  -- provenance tag, e.g. "tsm:dbmarket"; nil if no price
+    vendorPrice  = env.vendorPrice,  -- vendor sell price (copper, per unit)
+    auctionPrice = env.auctionPrice, -- nested map provider->key->copper, or nil
     itemType     = env.itemType,
     itemSubType  = env.itemSubType,
     quantity     = qty,
@@ -99,14 +98,14 @@ function Collector:OnChatMsgLoot(_, msg)
   end
 
   local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
-  local auctionPrice, priceSource = NS.AuctionPrice:Lookup(link, itemID)
+  local auctionPrice = NS.AuctionPrice:GatherAll(link, itemID)
   local zone, subzone = NS.Compat.GetZone()
   local classFile = select(2, UnitClass("player"))
   local record = self:BuildRecord(link, qty,
     { source = source, sourceDetail = sourceDetail, confidence = confidence },
     { ts = time(), char = NS.Util.PlayerKey(), classFile = classFile,
       itemID = itemID, itemName = itemName, quality = quality, itemLevel = itemLevel, bound = bound,
-      vendorPrice = sellPrice, auctionPrice = auctionPrice, priceSource = priceSource,
+      vendorPrice = sellPrice, auctionPrice = auctionPrice,
       itemType = itemType, itemSubType = itemSubType,
       zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
 
@@ -115,6 +114,17 @@ function Collector:OnChatMsgLoot(_, msg)
   if NS.State.debug and NS.Debug then
     NS.Debug("Loot", "%s q%s ilvl=%s src=%s conf=%s",
       tostring(itemName), quality or 0, tostring(itemLevel or "-"), source, confidence)
+
+    local parts = {}
+    if auctionPrice then
+      for prov, sub in pairs(auctionPrice) do
+        for k, v in pairs(sub) do parts[#parts + 1] = prov .. ":" .. k .. "=" .. tostring(v) end
+      end
+    end
+    table.sort(parts)
+    local pp, ptag = NS.AuctionPrice:Pick(auctionPrice)
+    NS.Debug("AHPrice", "%s | gathered: %s | pick: %s(%s)", tostring(itemName),
+      (#parts > 0 and table.concat(parts, " ") or "none"), tostring(pp or "-"), tostring(ptag or "-"))
   end
 end
 

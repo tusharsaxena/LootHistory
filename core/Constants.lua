@@ -95,6 +95,32 @@ C.TSM_SOURCE_OPTIONS = {
   { value = "dbhistorical",      label = "Historical (dbhistorical)" },
 }
 
+-- Every AH price data point the addon can capture. tag = provider..":"..key. Drives the capture
+-- menu, GatherAll's fetch loop, the CSV sub-columns, and the priority defaults.
+C.AUCTION_KEYS = {
+  { provider = "auctionator", key = "minbuyout",            label = "Auctionator \226\128\148 Min buyout" },
+  { provider = "tsm",         key = "dbmarket",             label = "TSM \226\128\148 Market value" },
+  { provider = "tsm",         key = "dbminbuyout",          label = "TSM \226\128\148 Min buyout" },
+  { provider = "tsm",         key = "dbregionmarketavg",    label = "TSM \226\128\148 Region market avg" },
+  { provider = "tsm",         key = "dbregionminbuyoutavg", label = "TSM \226\128\148 Region min-buyout avg" },
+  { provider = "tsm",         key = "dbhistorical",         label = "TSM \226\128\148 Historical" },
+  { provider = "tsm",         key = "dbrecent",             label = "TSM \226\128\148 Recent" },
+  { provider = "tsm",         key = "dbregionhistorical",   label = "TSM \226\128\148 Region historical" },
+  { provider = "tsm",         key = "dbregionsaleavg",      label = "TSM \226\128\148 Region sale avg" },
+  { provider = "oribos",      key = "market",               label = "OribosExchange \226\128\148 Market" },
+  { provider = "oribos",      key = "region",               label = "OribosExchange \226\128\148 Region" },
+}
+-- Curated defaults (which keys are captured, and the selection priority order).
+C.AUCTION_CAPTURE_DEFAULT = {
+  ["auctionator:minbuyout"] = true, ["tsm:dbmarket"] = true, ["tsm:dbminbuyout"] = true,
+  ["tsm:dbregionmarketavg"] = true, ["tsm:dbregionminbuyoutavg"] = true,
+  ["oribos:market"] = true, ["oribos:region"] = true,
+}
+C.AUCTION_PRIORITY_DEFAULT = {
+  "tsm:dbmarket", "auctionator:minbuyout", "oribos:market",
+  "tsm:dbminbuyout", "tsm:dbregionmarketavg", "tsm:dbregionminbuyoutavg", "oribos:region",
+}
+
 -- Convenience aliases.
 NS.SourceType = C.SourceType
 NS.Confidence = C.Confidence

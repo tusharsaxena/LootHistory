@@ -283,11 +283,10 @@ test("Collector SettingsChanged does not emit a redundant [Cfg] echo", function(
   end
 end)
 
-test("Collector: BuildRecord carries auctionPrice + priceSource from env", function()
-  local rec = NS.Collector:BuildRecord("[Link]", 2,
-    { source = "KILL", confidence = "CERTAIN" },
-    { ts = 1, vendorPrice = 10, auctionPrice = 500, priceSource = "tsm:dbmarket" })
-  assertEqual(rec.auctionPrice, 500)
-  assertEqual(rec.priceSource, "tsm:dbmarket")
+test("Collector: BuildRecord stores the auctionPrice map, no priceSource", function()
+  local rec = NS.Collector:BuildRecord("[L]", 1, { source = "KILL", confidence = "CERTAIN" },
+    { ts = 1, vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } } })
+  assertEqual(rec.auctionPrice.tsm.dbmarket, 500)
+  assertEqual(rec.priceSource, nil)
   assertEqual(rec.vendorPrice, 10)
 end)
