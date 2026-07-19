@@ -71,9 +71,12 @@ end
 -- `time` (HH:MM). Renamed raw columns carry a *Raw suffix beside a human sibling: human `quality`
 -- (label) before `qualityRaw` (number), human `vendorPrice` ("Ng Ns Nc") before `vendorPriceRaw`
 -- (copper). `bound` is the friendly label. Following the vendor columns, the AH-price feature adds
--- `auctionPrice`/`auctionPriceRaw` (the looked-up auction price, human/copper), `value`/`valueRaw`
--- (NS.Util.RecordValue: auction-or-vendor, human/copper), and `priceSource` (the provider tag, e.g.
--- "tsm:dbmarket", or "" when unpriced). `wowheadLink` (from the item's bonus IDs) is last.
+-- the COMPUTED `auctionPrice`/`auctionPriceRaw` (NS.AuctionPrice:Pick's price, human/copper),
+-- `value`/`valueRaw` (NS.Util.RecordValue: auction-or-vendor, human/copper), and `auctionSource`
+-- (Pick's tag, e.g. "tsm:dbmarket", or "" when unpriced). After the vendor/source/zone block, one
+-- RAW `auc_<provider>_<key>` column is appended per NS.Constants.AUCTION_KEYS entry (deterministic,
+-- capture-config order) exposing every price the addon actually captured, independent of which one
+-- Pick chose. `wowheadLink` (from the item's bonus IDs) is last.
 -- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
 local COLUMNS = {
   { "ts",           function(r) return r.ts end },
@@ -89,18 +92,25 @@ local COLUMNS = {
   { "bound",        function(r) return E:BoundLabel(r.bound) end },
   { "vendorPrice",    function(r) return money(r.vendorPrice) end },
   { "vendorPriceRaw", function(r) return r.vendorPrice end },
-  { "auctionPrice", function(r) return money(r.auctionPrice) end },
-  { "auctionPriceRaw", function(r) return r.auctionPrice end },
-  { "value",        function(r) return money(NS.Util.RecordValue(r)) end },
-  { "valueRaw",     function(r) return NS.Util.RecordValue(r) end },
-  { "priceSource",  function(r) return r.priceSource end },
+  { "auctionPrice",   function(r) return money((NS.AuctionPrice:Pick(r.auctionPrice))) end },
+  { "auctionPriceRaw",function(r) return (NS.AuctionPrice:Pick(r.auctionPrice)) end },
+  { "value",          function(r) return money(NS.Util.RecordValue(r)) end },
+  { "valueRaw",       function(r) return NS.Util.RecordValue(r) end },
+  { "auctionSource",  function(r) return select(2, NS.AuctionPrice:Pick(r.auctionPrice)) end },
   { "itemType",     function(r) return r.itemType end },
   { "itemSubType",  function(r) return r.itemSubType end },
   { "quantity",     function(r) return r.quantity end },
   { "source",       function(r) return r.source end },
   { "zone",         function(r) return r.zone end },
-  { "wowheadLink",  function(r) return E:WowheadLink(r) end },
 }
+-- One raw column per captured provider:key (deterministic — Constants.AUCTION_KEYS order), inserted
+-- here (before wowheadLink is appended below) so wowheadLink stays the final column.
+for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
+  local prov, key = k.provider, k.key
+  COLUMNS[#COLUMNS + 1] = { "auc_" .. prov .. "_" .. key,
+    function(r) return r.auctionPrice and r.auctionPrice[prov] and r.auctionPrice[prov][key] or nil end }
+end
+COLUMNS[#COLUMNS + 1] = { "wowheadLink", function(r) return E:WowheadLink(r) end }
 local HEADER = {}
 for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 

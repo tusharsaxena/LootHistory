@@ -28,23 +28,61 @@ test("Export: WowheadLink falls back to itemID, then empty", function()
   assertEqual(NS.Export:WowheadLink({}), "")
 end)
 
-test("Export: CSV header order — ts,date,time first; renamed raw + human siblings; link last", function()
+test("Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last", function()
   local csv = NS.Export:CSV({})
   local header = csv:match("^(.-)\r\n")
   assertEqual(header,
     "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound," ..
-    "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource," ..
-    "itemType,itemSubType,quantity,source,zone,wowheadLink")
+    "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource," ..
+    "itemType,itemSubType,quantity,source,zone," ..
+    "auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg," ..
+    "auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical," ..
+    "auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region," ..
+    "wowheadLink")
 end)
 
 test("Export: CSV auction/value columns — auction present and vendor fallback", function()
-  local withAuc = NS.Export:CSV({ { vendorPrice = 10, auctionPrice = 500, priceSource = "tsm:dbmarket", quantity = 1 } })
+  local withAuc = NS.Export:CSV({
+    { vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } }, quantity = 1 },
+  })
   assertTrue(withAuc:find("0g 5s 0c", 1, true) ~= nil, "auction 500c formatted")
-  assertTrue(withAuc:find("tsm:dbmarket", 1, true) ~= nil, "priceSource present")
+  assertTrue(withAuc:find("tsm:dbmarket", 1, true) ~= nil, "auctionSource present")
   -- value falls back to vendor when no auction price
   local noAuc = NS.Export:CSV({ { vendorPrice = 10, quantity = 1 } })
   local dataLine = select(2, noAuc:match("^(.-)\r\n(.-)\r\n"))
   assertTrue(dataLine:find(",10,", 1, true) ~= nil or dataLine:find("10$", 1) ~= nil, "valueRaw == vendorPrice")
+end)
+
+test("Export: CSV emits picked price/tag + matching raw sub-columns for a nested auctionPrice map", function()
+  local rec = {
+    vendorPrice = 10,
+    auctionPrice = {
+      auctionator = { minbuyout = 400 },
+      tsm = { dbmarket = 500, dbminbuyout = 450 },
+      oribos = { market = 480 },
+    },
+    quantity = 1,
+  }
+  local csv = NS.Export:CSV({ rec })
+  local dataLine = select(2, csv:match("^(.-)\r\n(.-)\r\n"))
+  local cells = {}
+  for cell in (dataLine .. ","):gmatch("(.-),") do cells[#cells + 1] = cell end
+  -- header index: auctionPriceRaw=15 (1-based), auctionSource=17, auc_auctionator_minbuyout=21
+  local header = csv:match("^(.-)\r\n")
+  local hcells = {}
+  for cell in (header .. ","):gmatch("(.-),") do hcells[#hcells + 1] = cell end
+  local function cellFor(name)
+    for i, h in ipairs(hcells) do if h == name then return cells[i] end end
+    return nil
+  end
+  -- default priority (Constants.AUCTION_PRIORITY_DEFAULT) picks tsm:dbmarket first
+  assertEqual(cellFor("auctionPriceRaw"), "500")
+  assertEqual(cellFor("auctionSource"), "tsm:dbmarket")
+  assertEqual(cellFor("auc_auctionator_minbuyout"), "400")
+  assertEqual(cellFor("auc_tsm_dbmarket"), "500")
+  assertEqual(cellFor("auc_tsm_dbminbuyout"), "450")
+  assertEqual(cellFor("auc_oribos_market"), "480")
+  assertEqual(cellFor("auc_tsm_dbregionmarketavg"), "")
 end)
 
 test("Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence", function()
