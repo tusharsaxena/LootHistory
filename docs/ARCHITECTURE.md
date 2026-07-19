@@ -92,9 +92,9 @@ back fast table ops.
   pricing addon (Auctionator / TSM / OribosExchange), not just one. It is `nil` when nothing was
   captured — including every record written before this feature. There is no stored `priceSource`
   field: a single price is resolved at *read time* by `AuctionPrice:Pick(map)`, which walks the
-  user's configured priority list and returns the first present key (`price, tag`), skipping any
-  entry the user has disabled (`settings.auction.priorityDisabled`, a per-tag carve-out sibling of
-  `priority` — see [saved-variables.md](saved-variables.md)) even if a price for it was captured.
+  user's configured priority list and returns the first present key (`price, tag`). The map only
+  holds *collected* keys — collection and priority-participation are one flag (`settings.auction.capture`)
+  — so `Pick` needs no separate disabled-set (see [saved-variables.md](saved-variables.md)).
   There is **no
   stored `value` field** either: every "worth" figure (Insights, the browser Value column, CSV/AI
   export) is derived on read via `Util.RecordValue(record)` — the **higher of** the picked auction
@@ -145,12 +145,13 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
 | `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
-| `settings.auction.capture` | AH Price | MultiCheck (`panelSkip`) | `Constants.AUCTION_CAPTURE_DEFAULT` | Which `"provider:key"` prices to gather at loot time; schema-backed for the default/slash CLI, but rendered by the panel's own "Data Collection" section (`settings/Panel.lua` `buildAuctionCapture`), grouped by provider with a per-row info tooltip. |
+| `settings.auction.capture` | AH Price | MultiCheck (`panelSkip`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source: a ticked source is gathered at loot time *and* participates in the priority cascade. Schema-backed for the default/slash CLI, but rendered by the AH Price sub-page's unified price table (`settings/Panel.lua` `buildAuctionTable`) as the per-row Enabled checkbox. |
 
-`settings.auction.priority` (ordered `"provider:key"` cascade) and `settings.auction.priorityDisabled`
-(`{ [tag]=true }`, per-entry enable/disable) are carve-outs, not Schema rows — see the "AH Price"
-subcategory's own Priority section (`buildAuctionPriority`, up/down move arrows + an enable checkbox
-per row) and [`saved-variables.md`](saved-variables.md).
+`settings.auction.priority` (ordered `"provider:key"` cascade) is a carve-out, not a Schema row — see
+the "AH Price" subcategory's unified price table (`buildAuctionTable`: a frame-light, reused-slot table
+with per-row tick / addon / price-module / reorder-arrows / enable-checkbox / status columns) and
+[`saved-variables.md`](saved-variables.md). (The former per-tag `priorityDisabled` carve-out was
+removed — collection and priority are now the single `capture` flag.)
 
 `settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
 (LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced

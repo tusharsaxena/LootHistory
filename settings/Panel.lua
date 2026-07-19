@@ -96,7 +96,11 @@ local function createPanel(name, title, opts)
   body:SetPoint("TOPLEFT",     panel, "TOPLEFT",     0, -(HEADER_HEIGHT + 8))
   body:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
 
-  return { panel = panel, body = body, scroll = nil, refreshers = {}, lastGroup = nil }
+  -- `refreshers` re-sync scalar widget *values* in place (cheap, run on every OnShow); `rebuilders`
+  -- tear down + recreate list rows (structural — expensive). Per options-ui-§11 a structural rebuild
+  -- runs only on first paint, on an on-screen edit, or when `dirty` marks an off-screen change — never
+  -- on every OnShow (that is anti-pattern #39, the ~1s tab-click freeze).
+  return { panel = panel, body = body, scroll = nil, refreshers = {}, rebuilders = {}, dirty = false, lastGroup = nil }
 end
 
 -- LH-08 / options-ui-§10: keep the settings-panel scrollbar ALWAYS visible — and inert when the page
@@ -389,6 +393,15 @@ local function renderHistory(ctx)
   end
 end
 
+-- Run a page's structural rebuilders (list rows) + relayout, and clear its dirty flag. Called on
+-- first paint, on an on-screen edit, and on the next OnShow after an off-screen change — the gate
+-- that keeps AceGUI teardown+rebuild off every tab click (options-ui-§11 / anti-pattern #39).
+local function runRebuilders(ctx)
+  for _, fn in ipairs(ctx.rebuilders or {}) do pcall(fn) end
+  ctx.dirty = false
+  if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+end
+
 -- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
 -- A single sub-page with two sections. Each: a short description, an "add" row (item id or a
 -- shift-clicked link) and a live list of current ids with a Remove button per row. The lists are
@@ -501,40 +514,63 @@ local function makeFilterSection(ctx, listKey, title, desc)
 
   scroll:AddChild(listGroup)
 
-  -- Rebuild on first paint and whenever the lists change elsewhere (e.g. the History right-click
-  -- Blacklist action) while this page is open.
-  local function refresh() if ctx.panel:IsShown() then rebuildFilterList(ctx, listGroup, listKey) end end
-  ctx.refreshers[#ctx.refreshers + 1] = function() rebuildFilterList(ctx, listGroup, listKey) end
-  return refresh
+  -- A structural rebuild (rows added/removed), so it registers as a *rebuilder*: it fires on first
+  -- paint, on an on-screen edit, and on the next OnShow after an off-screen change — never on every
+  -- OnShow. Off-screen changes arrive on the HistoryChanged bus in buildFilters, which flags dirty.
+  ctx.rebuilders[#ctx.rebuilders + 1] = function() rebuildFilterList(ctx, listGroup, listKey) end
 end
 
 local function buildFilters(ctx)
-  local blRefresh = makeFilterSection(ctx, "blacklist", "Blacklist",
+  makeFilterSection(ctx, "blacklist", "Blacklist",
     "Items here are never recorded when looted from now on. Existing rows are left untouched "
     .. "(this only affects future loots — delete old rows from the history table if you want them gone).")
-  local wlRefresh = makeFilterSection(ctx, "whitelist", "Whitelist",
+  makeFilterSection(ctx, "whitelist", "Whitelist",
     "Items here are always recorded, even if they fall below your quality threshold, come from a "
     .. "muted source, or are quest items. Adding an id to one list removes it from the other.")
 
   -- Live-update both lists when they change from elsewhere (the History right-click Blacklist),
-  -- on a private bus target (never NS.bus-as-self) so it can't clobber other consumers.
+  -- on a private bus target (never NS.bus-as-self) so it can't clobber other consumers. While the
+  -- page is on screen we repaint immediately; while it is hidden we only flag it dirty, so the next
+  -- OnShow repaints once instead of every tab click paying an AceGUI teardown+rebuild (options-ui-§11).
   if not P.__evFilters then
     local ev = NS.NewBusTarget()
     if ev then
-      local onChange = function() blRefresh(); wlRefresh() end
+      local onChange = function()
+        if ctx.panel:IsShown() then runRebuilders(ctx) else ctx.dirty = true end
+      end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
       P.__evFilters = ev
     end
   end
 end
 
--- ── Auction House price-priority reorder list (R6) ──────────────────────────────
--- Blizzard art (no files shipped): status ✓/✗ + move arrows. Text glyphs (\226\150\178/\226\150\188)
--- render as tofu boxes in this font, so the arrows are real textures rather than characters.
-local READY    = "Interface\\RaidFrame\\ReadyCheck-Ready"
-local NOTREADY = "Interface\\RaidFrame\\ReadyCheck-NotReady"
-local ARR_UP   = "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp-Up"
-local ARR_DN   = "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up"
+-- ── Auction House price table (unified collect + priority) ───────────────────────
+-- ONE frame-light table replaces the old Data Collection + Priority sections. Every text column is a
+-- FontString (a region, not a frame); only the genuinely-interactive cells (enable checkbox, ⓘ info,
+-- ▲▼ reorder arrows) are real frames, and the row slots + their frames are created ONCE and reused on
+-- every refresh — never re-allocated. This is load-bearing: the Blizzard Settings canvas runs a
+-- super-linear pass over a panel's frames on tab-transition, so the previous ~213-frame AH page froze
+-- the client ~1.7s when you navigated away from it (see docs/settings-panel.md). Blizzard art, no
+-- files shipped: green/red ReadyCheck ticks + ChatFrame scroll arrows.
+local READY     = "Interface\\RaidFrame\\ReadyCheck-Ready"      -- green tick: collecting
+local NOTREADY  = "Interface\\RaidFrame\\ReadyCheck-NotReady"   -- red mark: off / not installed
+local ARR_UP    = "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp-Up"
+local ARR_DN    = "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up"
+local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"
+
+-- Shared column x-offsets (px from each row's left edge). Headers and every cell anchor to the same
+-- values so the columns line up: [tick] [Addon] [Price Module] [Order ▲▼] [On ☑] [Status]. The ⓘ is
+-- NOT a fixed column — it trails each row's Price Module text (positioned per-row in the refresh).
+local ACOL = { tick = 2, addon = 26, module = 148, order = 330, enabled = 384, status = 414 }
+local AROW_H, AHEAD_H = 22, 32   -- row pitch; AHEAD_H = header→first-row gap (roomy header band)
+local HEAD_Y = -8                -- header baseline inside the host (gap above the header)
+local GOLD_RGB = { 0.91, 0.77, 0.42 }
+-- Extremely-muted Status colours: collecting = green, not collecting = yellow, not installed = red.
+local STATUS_RGB = {
+  collecting    = { 0.46, 0.60, 0.46 },
+  notcollecting = { 0.66, 0.62, 0.42 },
+  notinstalled  = { 0.62, 0.45, 0.45 },
+}
 
 -- Human name for the addon behind a "provider:key" tag (e.g. "auctionator:minbuyout" → "Auctionator").
 local function providerNameOf(tag)
@@ -551,236 +587,206 @@ local function dataLabelOf(tag)
   return key or tag
 end
 
--- A small AceGUI "Icon" button showing a Blizzard texture with a GameTooltip. When `disabled`,
--- the image is dimmed and the OnClick is dropped (used at the list ends for the move arrows).
-local function iconButton(image, size, tooltipLabel, tooltipBody, onClick, disabled)
-  local widget = AceGUI:Create("Icon")
-  widget:SetImage(image)
-  widget:SetImageSize(size, size)
-  widget:SetLabel("")
-  widget:SetWidth(size + 8)
-  if disabled then
-    if widget.image then widget.image:SetVertexColor(0.4, 0.4, 0.4) end
-  elseif onClick then
-    widget:SetCallback("OnClick", function() onClick() end)
+-- Label/desc for a tag's ⓘ tooltip.
+local function keyMetaOf(tag)
+  local prov, key = tag:match("^(.-):(.+)$")
+  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
+    if k.provider == prov and k.key == key then return k.label, k.desc end
   end
-  widget:SetCallback("OnEnter", function()
-    if not (GameTooltip and widget.frame) then return end
-    GameTooltip:SetOwner(widget.frame, "ANCHOR_RIGHT")
-    GameTooltip:SetText(tooltipLabel, 1, 1, 1)
-    if tooltipBody then GameTooltip:AddLine(tooltipBody, nil, nil, nil, true) end
-    GameTooltip:Show()
-  end)
-  widget:SetCallback("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-  return widget
+  return tag, nil
 end
 
--- Rebuild `listGroup` from the current priority order. Each row:
--- [status ✓/✗] [Addon source] [Data source] [▲] [▼] [☑ enabled] — arrows are textures, not glyphs.
--- All 11 known tags render (ReconcilePriority guarantees them). Rows partition into two groups, each
--- in priority-array order: COLLECTED (capture[tag]) first, then UNCOLLECTED at the bottom. Only the
--- collected group has working arrows — they reorder WITHIN that group (swap with the neighbouring
--- collected tag), since an uncollected source can never win regardless of rank.
-local function rebuildPriorityList(ctx, listGroup)
-  listGroup:ReleaseChildren()
+-- GameTooltip on hover, shared by the ⓘ and arrow buttons. `getTitle`/`getBody` are read on enter so
+-- a reused slot always shows its current tag's text.
+local function tipScripts(btn, getTitle, getBody)
+  btn:SetScript("OnEnter", function()
+    if not GameTooltip then return end
+    local title = getTitle and getTitle()
+    if not title or title == "" then return end
+    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title, 1, 1, 1)
+    local body = getBody and getBody()
+    if body then GameTooltip:AddLine(body, nil, nil, nil, true) end
+    GameTooltip:Show()
+  end)
+  btn:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+end
+
+-- Lazily create a slot's ▲▼ arrow buttons (only slots that ever become active pay for them). Anchored
+-- at the slot's fixed row y; created once, reused. Their OnClick is (re)wired per refresh.
+local function ensureArrows(ctx, r, slotIndex)
+  if r.up then return end
+  local hf = ctx._priHost
+  local y = -(AHEAD_H + (slotIndex - 1) * AROW_H) - 3
+  local function mk(tex, dx)
+    local b = CreateFrame("Button", nil, hf)
+    b:SetSize(16, 16)
+    b:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.order + dx, y)
+    local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints(); t:SetTexture(tex); b.tex = t
+    return b
+  end
+  r.up   = mk(ARR_UP, 0)
+  r.down = mk(ARR_DN, 17)
+  tipScripts(r.up,   function() return "Rank higher" end)
+  tipScripts(r.down, function() return "Rank lower" end)
+end
+
+-- Re-partition the tags into three groups and repaint the reused row slots. Group order (each keeps
+-- the natural priority-array order within it): Collecting → Not collecting → Addon not installed.
+-- Only the Collecting group (top) is reorderable.
+local function refreshAuctionTable(ctx)
+  local rows = ctx._priRows
+  if not rows then return end
+  local hf = ctx._priHost
   local priority = NS.AuctionPrice:ReconcilePriority()
   local capture = NS.db.global.settings.auction.capture or {}
 
-  -- Partition, preserving priority-array order within each group.
-  local collected, uncollected = {}, {}
+  local collecting, notCollecting, notInstalled = {}, {}, {}
   for _, tag in ipairs(priority) do
-    if capture[tag] then collected[#collected + 1] = tag
-    else uncollected[#uncollected + 1] = tag end
+    local prov = tag:match("^(.-):")
+    if not NS.AuctionPrice:IsProviderAvailable(prov) then notInstalled[#notInstalled + 1] = tag
+    elseif capture[tag] then collecting[#collecting + 1] = tag
+    else notCollecting[#notCollecting + 1] = tag end
   end
+  local order = {}
+  for _, t in ipairs(collecting)    do order[#order + 1] = t end
+  for _, t in ipairs(notCollecting) do order[#order + 1] = t end
+  for _, t in ipairs(notInstalled)  do order[#order + 1] = t end
+  local nActive = #collecting
 
-  -- Shared cell builders keep the two row kinds column-aligned. `muted` greys the text labels.
-  local function addLabels(rowG, tag, statusTex, muted)
-    local status = AceGUI:Create("Label"); status:SetRelativeWidth(0.06)
-    status:SetText("|T" .. statusTex .. ":16|t")
-    rowG:AddChild(status)
+  for i, tag in ipairs(order) do
+    local r = rows[i]
+    local prov = tag:match("^(.-):")
+    local avail = NS.AuctionPrice:IsProviderAvailable(prov)
+    local on = capture[tag] and true or false
+    local live = on and avail          -- collecting right now
+    r._tag = tag
 
-    local addon = AceGUI:Create("Label"); addon:SetRelativeWidth(0.22)
-    local dataTxt = dataLabelOf(tag)
-    local addonTxt = providerNameOf(tag)
-    if muted then addonTxt = "|cff808080" .. addonTxt .. "|r"; dataTxt = "|cff808080" .. dataTxt .. "|r" end
-    addon:SetText(addonTxt); rowG:AddChild(addon)
-    local data = AceGUI:Create("Label"); data:SetRelativeWidth(0.42)
-    data:SetText(dataTxt); rowG:AddChild(data)
+    r.tick:SetText("|T" .. (live and READY or NOTREADY) .. ":16|t")
+
+    -- Addon name: no per-provider colour any more — just near-white, dimmed when inactive.
+    r.addon:SetText(providerNameOf(tag))
+    local ag = live and 0.86 or 0.5
+    r.addon:SetTextColor(ag, ag, ag)
+
+    local mg = live and 0.9 or 0.5
+    r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(mg, mg, mg)
+    -- ⓘ trails the Price Module text with a small gap (per-row, since the text width varies).
+    local mw = r.module:GetStringWidth() or 0
+    r.info:ClearAllPoints()
+    r.info:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.module + mw + 6, r._y - 3)
+
+    local sc = (not avail) and STATUS_RGB.notinstalled
+      or (on and STATUS_RGB.collecting or STATUS_RGB.notcollecting)
+    r.status:SetText((not avail) and "Addon not installed" or (on and "Collecting data" or "Not collecting data"))
+    r.status:SetTextColor(sc[1], sc[2], sc[3])
+
+    r.info.tex:SetVertexColor(live and 1 or 0.55, live and 1 or 0.55, live and 1 or 0.55)
+
+    -- Enabled box: checked only when actually collecting (an uninstalled source reads unchecked),
+    -- and non-interactive when the addon isn't present.
+    r.check:SetValue(live)
+    r.check:SetDisabled(not avail)
+
+    -- Reorder arrows: only the active (top) group reorders, within itself. Inactive rows hide them.
+    if i <= nActive then
+      ensureArrows(ctx, r, i)
+      local canUp, canDn = i > 1, i < nActive
+      local upTag, dnTag = order[i - 1], order[i + 1]
+      r.up:Show(); r.down:Show()
+      r.up.tex:SetVertexColor(canUp and 1 or 0.35, canUp and 1 or 0.35, canUp and 1 or 0.35)
+      r.down.tex:SetVertexColor(canDn and 1 or 0.35, canDn and 1 or 0.35, canDn and 1 or 0.35)
+      r.up:SetScript("OnClick", canUp and function()
+        NS.AuctionPrice:SwapPriorityTags(tag, upTag); runRebuilders(ctx)
+      end or nil)
+      r.down:SetScript("OnClick", canDn and function()
+        NS.AuctionPrice:SwapPriorityTags(tag, dnTag); runRebuilders(ctx)
+      end or nil)
+    elseif r.up then
+      r.up:Hide(); r.down:Hide()
+    end
   end
-
-  local function addEnableCheckbox(rowG, tag)
-    local cb = AceGUI:Create("CheckBox"); cb:SetLabel(""); cb:SetRelativeWidth(0.08)
-    cb:SetValue(NS.AuctionPrice:IsPriorityEnabled(tag))
-    cb:SetCallback("OnValueChanged", function(_, _, v) NS.AuctionPrice:SetPriorityEnabled(tag, v) end)
-    rowG:AddChild(cb)
-  end
-
-  -- Collected rows: working arrows swap this tag with its previous/next COLLECTED neighbour; the ▲
-  -- is disabled on the first collected row and the ▼ on the last (group ends).
-  for pos, tag in ipairs(collected) do
-    local rowG = AceGUI:Create("SimpleGroup")
-    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
-    addLabels(rowG, tag, READY, false)
-
-    local prevTag, nextTag = collected[pos - 1], collected[pos + 1]
-    rowG:AddChild(iconButton(ARR_UP, 18, "Move up", "Rank this price higher.", prevTag and function()
-      NS.AuctionPrice:SwapPriorityTags(tag, prevTag)
-      rebuildPriorityList(ctx, listGroup)
-      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-    end or nil, prevTag == nil))
-    rowG:AddChild(iconButton(ARR_DN, 18, "Move down", "Rank this price lower.", nextTag and function()
-      NS.AuctionPrice:SwapPriorityTags(tag, nextTag)
-      rebuildPriorityList(ctx, listGroup)
-      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-    end or nil, nextTag == nil))
-
-    addEnableCheckbox(rowG, tag)
-    listGroup:AddChild(rowG)
-  end
-
-  -- Uncollected rows sit at the bottom: muted labels, ✗ status, both arrows dimmed and inert (an
-  -- uncollected source can never win, so there is nothing to rank). The enable box shows but is moot.
-  for _, tag in ipairs(uncollected) do
-    local rowG = AceGUI:Create("SimpleGroup")
-    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
-    addLabels(rowG, tag, NOTREADY, true)
-    rowG:AddChild(iconButton(ARR_UP, 18, "Move up", "Not collected \226\128\148 can't be ranked.", nil, true))
-    rowG:AddChild(iconButton(ARR_DN, 18, "Move down", "Not collected \226\128\148 can't be ranked.", nil, true))
-    addEnableCheckbox(rowG, tag)
-    listGroup:AddChild(rowG)
-  end
-
-  if #priority == 0 then
-    local empty = AceGUI:Create("Label")
-    empty:SetFullWidth(true)
-    empty:SetText("|cff808080(none)|r")
-    listGroup:AddChild(empty)
-  end
-  if listGroup.DoLayout then listGroup:DoLayout() end
 end
 
--- Section: custom "Data Collection" checklist — which prices to record on every drop. Unlike the
--- generic MultiCheck, keys are grouped under their provider's display name, each with an info (i)
--- icon whose tooltip explains the data point. Bound to the auction.capture schema row, which is
--- mutated via Schema:Set (only settings.auction.priority is a ratified carve-out); the row carries
--- panelSkip so renderSchema leaves it to us. Toggling a box runs the page refreshers so the Priority
--- list's collected/not-collected status icons update in step.
-local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"
-
-local function buildAuctionCapture(ctx)
+-- Build the unified AH Price table: a description, gold left-aligned column headers, and 11 reusable
+-- row slots (one per known price source). Slots + their interactive frames are created ONCE here;
+-- refreshAuctionTable repaints them in place on every enable-toggle / reorder / Defaults, so no frame
+-- is ever re-allocated. Native FontStrings carry all text; only the checkbox, ⓘ and arrows are frames.
+local function buildAuctionTable(ctx)
   local scroll = ensureScroll(ctx)
-  section(ctx, "Data Collection")
+  section(ctx, "Price Sources")
 
   local descLabel = AceGUI:Create("Label")
   descLabel:SetFullWidth(true)
-  descLabel:SetText("Choose which prices to record on every drop. Collecting more gives you more to "
-    .. "compare later, at a small storage cost. This is separate from priority.")
+  descLabel:SetText("Tick a source to collect its price at loot time; ticked sources are ranked "
+    .. "top-to-bottom (use the arrows) and the highest-ranked one you have a price for is the value "
+    .. "shown. Sources you don't collect, or whose addon isn't installed, drop to the bottom.")
   scroll:AddChild(descLabel)
-  addSpacer(scroll, 6)
+  addSpacer(scroll, 8)
 
-  local boxes = {}          -- tag -> checkbox, for the refresher
-  local seenProvider = false
-  local lastProv
-  local provAvail = false    -- availability of the current provider group (computed once per heading)
-  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
-    local tag = k.provider .. ":" .. k.key
-    if k.provider ~= lastProv then
-      lastProv = k.provider
-      -- More breathing room above each subsequent heading; a little above the first one too.
-      addSpacer(scroll, seenProvider and 10 or 4)
-      seenProvider = true
-      -- Availability drives the whole group's presentation: an uninstalled provider is shown but
-      -- inert. IsProviderAvailable is false in the headless test env (no addon globals) — fine.
-      provAvail = NS.AuctionPrice:IsProviderAvailable(k.provider)
-      local head = AceGUI:Create("Label")
-      head:SetFullWidth(true)
-      local name = NS.Constants.AUCTION_PROVIDER_NAMES[k.provider] or k.provider
-      local suffix = provAvail and "" or " |cff808080(not installed)|r"
-      head:SetText("|cffe8c56b" .. name .. "|r" .. suffix)
-      scroll:AddChild(head)
+  local N = #NS.Constants.AUCTION_KEYS
+  local host = AceGUI:Create("SimpleGroup")
+  host:SetLayout(nil); host:SetFullWidth(true)
+  host:SetHeight(AHEAD_H + AROW_H * N + 8)
+  scroll:AddChild(host)
+  local hf = host.frame
+  ctx._priHost = hf
+
+  -- Gold, left-aligned column headers at the shared offsets (a roomy band above the first row).
+  local function header(x, text)
+    local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    fs:SetPoint("TOPLEFT", hf, "TOPLEFT", x, HEAD_Y); fs:SetJustifyH("LEFT")
+    fs:SetText(text); fs:SetTextColor(GOLD_RGB[1], GOLD_RGB[2], GOLD_RGB[3])
+  end
+  header(ACOL.addon, "Addon"); header(ACOL.module, "Price Module")
+  header(ACOL.order, "Order"); header(ACOL.enabled, "On"); header(ACOL.status, "Status")
+
+  -- Reusable row slots (created once). Text = FontStrings; ⓘ + an AceGUI checkbox are per-slot frames,
+  -- arrows are created lazily by ensureArrows only for slots that become active. Cells are nudged down
+  -- from the row's top edge so text/controls sit vertically centred in the ~22px band.
+  local rows = {}
+  for i = 1, N do
+    local y = -(AHEAD_H + (i - 1) * AROW_H)
+    local r = { _y = y }
+    local function fs(x, dy)
+      local f = hf:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+      f:SetPoint("TOPLEFT", hf, "TOPLEFT", x, y + dy); f:SetJustifyH("LEFT"); return f
     end
+    r.tick = fs(ACOL.tick, -4); r.addon = fs(ACOL.addon, -5)
+    r.module = fs(ACOL.module, -5); r.status = fs(ACOL.status, -5)
 
-    local rowG = AceGUI:Create("SimpleGroup")
-    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
+    local info = CreateFrame("Button", nil, hf)
+    info:SetSize(16, 16); info:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.module, y - 3)   -- repositioned per row
+    local itex = info:CreateTexture(nil, "ARTWORK"); itex:SetAllPoints(); itex:SetTexture(INFO_ICON)
+    info.tex = itex; r.info = info
+    tipScripts(info, function() return (keyMetaOf(r._tag or "")) end,
+                     function() return (select(2, keyMetaOf(r._tag or ""))) end)
 
-    -- Small fixed-width empty label indents the row under its (flush-left) heading.
-    local indent = AceGUI:Create("Label")
-    indent:SetText(""); indent:SetWidth(14)
-    rowG:AddChild(indent)
-
+    -- AceGUI CheckBox (the standard gold-tick control used across the panel) rather than a raw
+    -- UICheckButtonTemplate — the template left a scaling artifact at this size.
     local cb = AceGUI:Create("CheckBox")
-    cb:SetLabel(k.data)
-    -- Size the box to its label so the info icon trails the text with a small gap (check + gap ≈ 30),
-    -- rather than sitting at a fixed column. cb.text is the label fontstring (AceGUI CheckBox).
-    cb:SetWidth((cb.text and cb.text:GetStringWidth() or 80) + 30)
-    cb:SetValue((NS.db.global.settings.auction.capture or {})[tag] == true)
-    cb:SetCallback("OnValueChanged", function(_, _, v)
+    cb:SetLabel("")
+    cb.frame:SetParent(hf); cb.frame:ClearAllPoints()
+    cb.frame:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.enabled, y - 1); cb.frame:SetWidth(26)
+    cb.frame:Show()
+    cb:SetCallback("OnValueChanged", function(_, _, val)
+      local tag = r._tag
+      if not tag then return end
       local src = NS.Schema:Get("settings.auction.capture") or {}
       local c = {}
-      for key, val in pairs(src) do c[key] = val end
-      c[tag] = v or nil
+      for k, v in pairs(src) do c[k] = v end
+      c[tag] = val or nil
       NS.Schema:Set("settings.auction.capture", c)
-      for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- refresh priority ✓/✗ status too
+      runRebuilders(ctx)
     end)
-    if not provAvail then cb:SetDisabled(true) end   -- non-interactable + greyed label when uninstalled
-    rowG:AddChild(cb)
+    r.check = cb
 
-    -- Info icon follows the label; dim it when the provider is unavailable so the row reads as inert.
-    rowG:AddChild(iconButton(INFO_ICON, 16, k.label, k.desc, nil, not provAvail))
-
-    scroll:AddChild(rowG)
-    boxes[tag] = cb
+    rows[i] = r
   end
+  ctx._priRows = rows
 
-  ctx.refreshers[#ctx.refreshers + 1] = function()
-    local cur = NS.db.global.settings.auction.capture or {}
-    for tag, cb in pairs(boxes) do cb:SetValue(cur[tag] == true) end
-  end
-end
-
--- Section: heading, description, legend, live reorderable list. Mirrors makeFilterSection's
--- heading/list/refresh shape (options-ui custom-list pattern) but for the priority array
--- instead of an id-set — rows carry texture move arrows + an enable checkbox instead of Remove.
-local function buildAuctionPriority(ctx)
-  local scroll = ensureScroll(ctx)
-  section(ctx, "Priority (top = preferred)")
-
-  local descLabel = AceGUI:Create("Label")
-  descLabel:SetFullWidth(true)
-  descLabel:SetText("Of the prices you collect, this order decides which one is shown (top wins). "
-    .. "Untick a row to skip it; a red |T" .. NOTREADY .. ":14|t means that source isn't being "
-    .. "collected, so it can never win.")
-  scroll:AddChild(descLabel)
-  addSpacer(scroll, 4)
-
-  local legend = AceGUI:Create("Label")
-  legend:SetFullWidth(true)
-  legend:SetText("|T" .. READY .. ":16|t collected    |T" .. NOTREADY .. ":16|t not collected")
-  scroll:AddChild(legend)
-  addSpacer(scroll, 6)   -- gap between the legend and the column headers below
-
-  -- Muted column headers, aligned to the row columns (status / Addon / Price data / arrows / On).
-  local headerRow = AceGUI:Create("SimpleGroup")
-  headerRow:SetLayout("Flow"); headerRow:SetFullWidth(true)
-  local function headerCell(text, rel)
-    local l = AceGUI:Create("Label"); l:SetRelativeWidth(rel)
-    l:SetText(text ~= "" and ("|cff808080" .. text .. "|r") or "")
-    headerRow:AddChild(l)
-  end
-  headerCell("", 0.06)          -- over the ✓/✗ status glyph
-  headerCell("Addon", 0.22)
-  headerCell("Price data", 0.42)
-  headerCell("Order", 0.14)     -- over the ▲/▼ move arrows
-  headerCell("On", 0.08)        -- over the enable checkbox
-  scroll:AddChild(headerRow)
-  addSpacer(scroll, 6)
-
-  local listGroup = AceGUI:Create("SimpleGroup")
-  listGroup:SetLayout("List"); listGroup:SetFullWidth(true)
-  scroll:AddChild(listGroup)
-
-  rebuildPriorityList(ctx, listGroup)
-  ctx.refreshers[#ctx.refreshers + 1] = function() rebuildPriorityList(ctx, listGroup) end
+  ctx.rebuilders[#ctx.rebuilders + 1] = function() refreshAuctionTable(ctx) end
+  refreshAuctionTable(ctx)   -- first paint
 end
 
 -- ── Landing page: logo + tagline + slash-command list ───────────────────────────
@@ -828,6 +834,8 @@ end
 
 function P:RestoreDefaults()
   if NS.Slash and NS.Slash.CliResetAll then NS.Slash:CliResetAll() end
+  -- Defaults also recentres the window (position is part of "stock state"); history/view are left alone.
+  if NS.Browser and NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
   P:Refresh()
 end
 
@@ -900,10 +908,13 @@ function P:Register()
     if not fRendered then
       fRendered = true
       buildFilters(fctx)
-      if fctx.scroll and fctx.scroll.DoLayout then fctx.scroll:DoLayout() end
+      runRebuilders(fctx)          -- first paint of both id-lists
+    elseif fctx.dirty then
+      runRebuilders(fctx)          -- lists changed while hidden → repaint once (options-ui-§11)
     end
+    -- Scalar re-sync only (none on this page today; kept for symmetry). The structural list rebuild
+    -- above is gated so a plain tab click with no change costs nothing — no per-click freeze.
     for _, fn in ipairs(fctx.refreshers) do pcall(fn) end
-    if fctx.scroll and fctx.scroll.DoLayout then fctx.scroll:DoLayout() end
   end)
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, fctx.panel, "Filters")
 
@@ -915,28 +926,26 @@ function P:Register()
       for _, r in ipairs(NS.Schema.Schema) do
         if r.group == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
       end
-      -- Priority is a carve-out array (not schema-driven), so the Defaults button must reset
-      -- it separately. Clear-and-refill the SAME table so any UI closure holding the array
-      -- reference (e.g. rebuildPriorityList's upvalue) still sees the new contents.
+      -- Priority order is a carve-out array (not schema-driven), so reset it separately. Clear-and-
+      -- refill the SAME table so the table's closure sees the new contents. (`capture` — the enabled
+      -- set — is a schema row in the "AH Price" group, so the loop above already reset it.)
       local dp = NS.Constants.AUCTION_PRIORITY_DEFAULT
       local p = NS.AuctionPrice:GetPriority()
       for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
       for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
-      -- Enable-state is a separate carve-out (priorityDisabled set); Defaults = all enabled.
-      NS.db.global.settings.auction.priorityDisabled = {}
-      for _, fn in ipairs(actx.refreshers) do pcall(fn) end
+      for _, fn in ipairs(actx.refreshers) do pcall(fn) end   -- scalar: re-sync the master `enabled` box
+      runRebuilders(actx)                                     -- structural: repaint the price table
     end)
   end
   local aRendered = false
   actx.panel:SetScript("OnShow", function()
     if not aRendered then
       aRendered = true
-      renderSchema(actx, nil, { only = "AH Price" })   -- the `enabled` checkbox (capture row is panelSkip)
-      buildAuctionCapture(actx)
-      buildAuctionPriority(actx)
+      renderSchema(actx, nil, { only = "AH Price" })   -- the master `enabled` checkbox
+      buildAuctionTable(actx)
       if actx.scroll and actx.scroll.DoLayout then actx.scroll:DoLayout() end
     end
-    for _, fn in ipairs(actx.refreshers) do pcall(fn) end
+    for _, fn in ipairs(actx.refreshers) do pcall(fn) end   -- scalar re-sync (the `enabled` checkbox)
   end)
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, actx.panel, "AH Price")
 end

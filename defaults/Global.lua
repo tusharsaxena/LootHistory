@@ -35,7 +35,6 @@ NS.defaults.global = {
         "tsm:dbmarket", "auctionator:minbuyout", "oribos:market",
         "tsm:dbminbuyout", "tsm:dbregionmarketavg", "tsm:dbregionminbuyoutavg", "oribos:region",
       },
-      priorityDisabled = {},  -- set of priority tags temporarily skipped by Pick (carve-out)
     },
   },
   minimap = { hide = false },  -- LibDBIcon state

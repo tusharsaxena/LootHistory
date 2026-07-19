@@ -82,21 +82,17 @@ function AuctionPrice:GatherAll(itemLink, itemID)
   return map
 end
 
--- Select one price from the map via the priority list. Returns price, tag ("provider:key").
--- Tags present in settings.auction.priorityDisabled are skipped (temporarily disabled cascade
--- entries; distinct from removing them from the priority list outright).
+-- Select one price from the map via the priority list. Returns price, tag ("provider:key"). The
+-- map only ever holds *collected* (enabled) keys — collection and priority are one flag now — so
+-- Pick simply returns the highest-ranked tag that has data.
 function AuctionPrice:Pick(map)
   if type(map) ~= "table" then return nil, nil end
   local _, priority = cfg()
   priority = priority or NS.Constants.AUCTION_PRIORITY_DEFAULT
-  local s = NS.db.global.settings.auction
-  local disabled = (s and s.priorityDisabled) or {}
   for _, tag in ipairs(priority) do
-    if not disabled[tag] then
-      local prov, key = tag:match("^(.-):(.+)$")
-      local v = prov and key and map[prov] and map[prov][key]
-      if v then return v, tag end
-    end
+    local prov, key = tag:match("^(.-):(.+)$")
+    local v = prov and key and map[prov] and map[prov][key]
+    if v then return v, tag end
   end
   return nil, nil
 end
@@ -155,14 +151,9 @@ function AuctionPrice:SwapPriorityTags(tagA, tagB)
   return true
 end
 
--- Priority-disabled accessors: a tag can stay in the priority order but be temporarily skipped
--- by Pick (e.g. a provider's data looked unreliable) without losing its place in the list.
-function AuctionPrice:IsPriorityEnabled(tag)
+-- Whether a tag is enabled = whether its price is collected. Collection and priority-participation
+-- are a single flag now (settings.auction.capture), toggled by the AH Price table's checkbox.
+function AuctionPrice:IsEnabled(tag)
   local s = NS.db.global.settings.auction
-  return not (s and s.priorityDisabled and s.priorityDisabled[tag])
-end
-function AuctionPrice:SetPriorityEnabled(tag, on)
-  local s = NS.db.global.settings.auction
-  s.priorityDisabled = s.priorityDisabled or {}
-  s.priorityDisabled[tag] = (not on) or nil
+  return (s and s.capture and s.capture[tag]) and true or false
 end

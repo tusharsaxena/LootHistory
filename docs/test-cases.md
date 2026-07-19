@@ -95,7 +95,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
 - AuctionPrice: Pick respects a reordered priority list
-- AuctionPrice: Pick skips priority-disabled tags
+- AuctionPrice: IsEnabled reflects the single collect/enable flag (capture)
 - AuctionPrice: GatherAll only captures keys in the capture set
 - AuctionPrice: MovePriority swaps adjacent entries and respects bounds
 - AuctionPrice: GatherAll returns nil when nothing gathered / disabled

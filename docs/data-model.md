@@ -80,9 +80,9 @@ end
 ```
 
 `AuctionPrice:Pick` resolves the nested `auctionPrice` map down to a single copper figure via the
-user's configured priority list (first present key wins), **skipping any entry the user has disabled**
-(`settings.auction.priorityDisabled`) even if a price for it was captured — a disabled entry can never
-win, it just stays in the list, ready to be re-enabled; `RecordValue` then takes the **higher of**
+user's configured priority list (first present key wins). The map only ever holds *collected* keys
+(collection and priority-participation are one flag now — `settings.auction.capture`), so `Pick`
+simply returns the highest-ranked source that has a price; `RecordValue` then takes the **higher of**
 that picked auction price and `vendorPrice` — a valuable item never reads as worth less than what a
 vendor would pay for it. `nil` only when both `vendorPrice` and every captured auction price are
 `nil`. Aggregate worth is always `RecordValue(r) * quantity`, never `RecordValue(r)` alone.

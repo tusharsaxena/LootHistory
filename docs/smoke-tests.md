@@ -476,6 +476,9 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 - Now **Remove** that id from the whitelist and re-check the History table.
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
 - Enter garbage (e.g. `abc`) into an add box and submit.
+- **Refresh perf (anti-pattern #39):** with a non-trivial blacklist (a dozen+ ids), click away to
+  another subcategory and back to **Filters** several times in a row. Then, with the panel closed,
+  right-click **Blacklist item** on a History row, and re-open **Filters**.
 
 **Pass.**
 - **Blacklist item** (right-click) adds the id to the blacklist, but the **clicked row stays in the
@@ -499,6 +502,11 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   membership never does this for you.
 - The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in
   the browser's filter dropdowns (it is core logic, not a user-selectable display filter).
+- **Refresh perf:** repeatedly re-opening the Filters tab is **instant** — no per-click stutter or
+  freeze even with a long blacklist (the list rebuild is gated to first paint / on-screen edits /
+  dirty, per options-ui-§11; re-showing an unchanged page does no AceGUI teardown+rebuild). After a
+  right-click **Blacklist item** made while the page was closed, re-opening Filters shows the new id
+  (the off-screen change flagged the page dirty, so the next `OnShow` repaints exactly once).
 
 ---
 

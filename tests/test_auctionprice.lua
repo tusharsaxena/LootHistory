@@ -45,14 +45,13 @@ test("AuctionPrice: Pick respects a reordered priority list", function()
   NS.db.global.settings.auction = nil
 end)
 
-test("AuctionPrice: Pick skips priority-disabled tags", function()
+test("AuctionPrice: IsEnabled reflects the single collect/enable flag (capture)", function()
+  -- Collection and priority-participation are one flag now: an enabled tag is collected AND ranked,
+  -- so Pick only ever sees collected tags in the map — there is no separate 'disabled-but-collected'.
   NS.db.global.settings.auction = { enabled = true,
-    priority = { "tsm:dbmarket", "oribos:market" }, priorityDisabled = { ["tsm:dbmarket"] = true } }
-  local price, tag = NS.AuctionPrice:Pick({ tsm = { dbmarket = 500 }, oribos = { market = 700 } })
-  assertEqual(price, 700); assertEqual(tag, "oribos:market")   -- tsm:dbmarket disabled, skipped
-  NS.AuctionPrice:SetPriorityEnabled("tsm:dbmarket", true)     -- re-enable
-  assertEqual(NS.db.global.settings.auction.priorityDisabled["tsm:dbmarket"], nil)
-  assertEqual(NS.AuctionPrice:IsPriorityEnabled("oribos:market"), true)
+    capture = { ["tsm:dbmarket"] = true }, priority = { "tsm:dbmarket", "oribos:market" } }
+  assertEqual(NS.AuctionPrice:IsEnabled("tsm:dbmarket"), true)
+  assertEqual(NS.AuctionPrice:IsEnabled("oribos:market"), false)
   NS.db.global.settings.auction = nil
 end)
 

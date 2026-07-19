@@ -123,14 +123,15 @@ end
 
 local function RestoreWindow()
   local w = NS.db and NS.db.global.settings.window
+  frame:ClearAllPoints()
   if w and w.point then
-    frame:ClearAllPoints()
     frame:SetPoint(w.point, UIParent, w.point, w.x or 0, w.y or 0)
     if w.w and w.h then
       frame:SetSize(math.max(B._minW or 0, w.w), math.max(B._minH or 0, w.h))
     end
   else
-    frame:SetPoint("CENTER")
+    -- Default (fresh install / after a settings reset): dead-centre of the screen, H and V.
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
 end
 
@@ -258,9 +259,12 @@ local function EnsureMenu()
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW_H)
       -- Selection state: single-select highlights the one active value; multi-select highlights
-      -- every value in the set (and highlights "all" when the set is empty = no filter).
+      -- every value in the set (and highlights "all" when the set is empty = no filter). An option
+      -- may carry its own `isActive` (e.g. the "Character: Current" preset) to decide its highlight.
       local selected
-      if dd.multi then
+      if opt.isActive then
+        selected = opt.isActive(dd) and true or false
+      elseif dd.multi then
         selected = (opt.value == "all") and (not next(dd._selected)) or (dd._selected[opt.value] or false)
       else
         selected = (opt.value == dd._value)
@@ -518,9 +522,19 @@ local function charOptions()
     end
   end
   local opts = withAll("Character: All", items)
-  -- "Current" is a one-click preset (see dd.char.presets below), not a real char value — inserted
-  -- right after the "All" sentinel so the menu reads All / Current / <each character>.
-  table.insert(opts, 2, { value = "current", label = "Current" })
+  -- "Character: Current" is a one-click preset (see dd.char.presets below), not a real char value —
+  -- inserted right after the "All" sentinel so the menu reads All / Current / <each character>. Its
+  -- `isActive` lights it gold (like "All") when the selection is exactly the current player.
+  table.insert(opts, 2, {
+    value = "current", label = "Character: Current",
+    isActive = function(dd)
+      local ck = NS.Util and NS.Util.PlayerKey and NS.Util.PlayerKey()
+      local sel = dd._selected or {}
+      if not (ck and sel[ck]) then return false end
+      for k in pairs(sel) do if k ~= ck then return false end end   -- exactly {current}
+      return true
+    end,
+  })
   return opts
 end
 local function typeOptions()
