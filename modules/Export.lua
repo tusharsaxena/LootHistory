@@ -352,7 +352,7 @@ local function EnsureCopyFrame()
       :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
   end
 
-  local scroll = CreateFrame("ScrollFrame", "LootHistoryExportCopyScroll", copyFrame,
+  local scroll = CreateFrame("ScrollFrame", nil, copyFrame,
     "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", 8, -30); scroll:SetPoint("BOTTOMRIGHT", -28, 10)
   local edit = CreateFrame("EditBox", nil, scroll)

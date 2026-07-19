@@ -731,7 +731,7 @@ function BrowserTable:Attach(pane)
 
   -- FauxScrollFrame drives the scrollbar + offset. Pooled rows live in a sibling overlay
   -- (rowHost) aligned with the scroll viewport, so the ScrollFrame never clips them.
-  local scroll = CreateFrame("ScrollFrame", "LootHistoryTableScroll", pane, "FauxScrollFrameTemplate")
+  local scroll = CreateFrame("ScrollFrame", nil, pane, "FauxScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
   -- Bottom raised 16px so the scrollbar's down-arrow clears the window resize grip.
   scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -24, 16)

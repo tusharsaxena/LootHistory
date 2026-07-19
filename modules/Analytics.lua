@@ -230,7 +230,7 @@ function Analytics:Attach(pane)
 
   -- No range selector here (issue #13): the Insights view is scoped by the browser's shared filter
   -- bar (its Date dropdown + every column filter), so the charts fill the whole pane below.
-  local scroll = CreateFrame("ScrollFrame", "LootHistoryInsightsScroll", pane, "UIPanelScrollFrameTemplate")
+  local scroll = CreateFrame("ScrollFrame", nil, pane, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", pane, "TOPLEFT", 0, 0)
   scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -26, 4)
   self.scroll = scroll

@@ -85,9 +85,9 @@ local function buildHeader(panel, title, opts)
 end
 
 -- ── CreatePanel — a Frame for RegisterCanvasLayout(Sub)category + ctx ───────────
-local function createPanel(name, title, opts)
+local function createPanel(title, opts)
   opts = opts or {}
-  local panel = CreateFrame("Frame", name)
+  local panel = CreateFrame("Frame", nil)
   panel.name = title
   panel:Hide()
   buildHeader(panel, title, opts)
@@ -847,7 +847,7 @@ function P:Register()
   registered = true
 
   -- Parent category = landing page.
-  local mainCtx = createPanel("LootHistoryMainPanel", ADDON_TITLE, { isMain = true })
+  local mainCtx = createPanel(ADDON_TITLE, { isMain = true })
   local mainRendered = false
   mainCtx.panel:SetScript("OnShow", function()
     if mainRendered then return end
@@ -860,7 +860,7 @@ function P:Register()
   mainCategoryID = mainCategory and mainCategory.GetID and mainCategory:GetID()
 
   -- General subcategory = the actual settings.
-  local ctx = createPanel("LootHistoryGeneralPanel", "General", { defaultsButton = true })
+  local ctx = createPanel("General", { defaultsButton = true })
   P.general = ctx
   if ctx.panel.defaultsBtn then
     ctx.panel.defaultsBtn:SetCallback("OnClick", function() P:RestoreDefaults() end)
@@ -890,7 +890,7 @@ function P:Register()
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
 
   -- Filters subcategory = blacklist / whitelist item-id management (issue #14).
-  local fctx = createPanel("LootHistoryFiltersPanel", "Filters", { defaultsButton = true })
+  local fctx = createPanel("Filters", { defaultsButton = true })
   P.filters = fctx
   -- Defaults here = clear both id-lists (their stock state is empty), confirm-gated. The page holds
   -- no Schema rows, so this is the "restore defaults" for what it manages.
@@ -919,7 +919,7 @@ function P:Register()
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, fctx.panel, "Filters")
 
   -- AH Price subcategory = the AH-price cascade settings (own page).
-  local actx = createPanel("LootHistoryAuctionPanel", "AH Price", { defaultsButton = true })
+  local actx = createPanel("AH Price", { defaultsButton = true })
   P.auction = actx
   if actx.panel.defaultsBtn then
     actx.panel.defaultsBtn:SetCallback("OnClick", function()

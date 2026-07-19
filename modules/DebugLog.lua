@@ -181,7 +181,7 @@ local function EnsureCopyFrame()
   end
   cclose:SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
 
-  local scroll = CreateFrame("ScrollFrame", "LootHistoryDebugCopyScroll", copyFrame, "UIPanelScrollFrameTemplate")
+  local scroll = CreateFrame("ScrollFrame", nil, copyFrame, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", 8, -30)
   scroll:SetPoint("BOTTOMRIGHT", -28, 10)
   copyFrame.scroll = scroll
