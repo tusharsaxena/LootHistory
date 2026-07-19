@@ -168,9 +168,9 @@ BrowserTable.COLUMNS = {
     valueFn = function(r) return NS.Util.FormatMoney(r.vendorPrice) end,
     sortFn = function(r) return r.vendorPrice or 0 end },
   { key = "auction", label = "AH", width = 72, align = "RIGHT",
-    desc = "Auction-house price per unit at loot time (from your AH pricing addon).",
-    valueFn = function(r) return NS.Util.FormatMoney(r.auctionPrice) end,
-    sortFn = function(r) return r.auctionPrice or 0 end },
+    desc = "Auction-house price per unit at loot time (chosen by your price-priority order).",
+    valueFn = function(r) return NS.Util.FormatMoney((NS.AuctionPrice:Pick(r.auctionPrice))) end,
+    sortFn = function(r) return (NS.AuctionPrice:Pick(r.auctionPrice)) or 0 end },
   -- Character is always the last column (see order note above).
   { key = "char", label = "Character", width = 132, align = "LEFT",
     desc = "Character who looted the item — full Name-Realm, class-colored.",
@@ -376,8 +376,11 @@ function BrowserTable:BuildTestData()
       itemLevel = isGear and (560 + q * 12 + rng(40)) or nil, -- gear only; scales with quality
       bound = b.key,
       vendorPrice = (q * q + 1) * (200 + rng(1800)) + rng(500), -- wide, quality-skewed value spread
-      auctionPrice = (rng(100) <= 70) and ((q * q + 1) * (600 + rng(6000)) + rng(1500)) or nil,
-      priceSource = (rng(100) <= 70) and ({ "auctionator", "tsm:dbmarket", "oribos:market" })[rng(3)] or nil,
+      auctionPrice = (rng(100) <= 70) and {
+        tsm = { dbmarket = (q * q + 1) * (600 + rng(6000)) + rng(1500),
+                dbminbuyout = (q * q + 1) * (400 + rng(5000)) },
+        oribos = { market = (q * q + 1) * (500 + rng(6000)) },
+      } or nil,
       itemType = ty,
       itemSubType = (function()
         local list = TEST_SUBTYPES[ty] or TEST_SUBTYPES_MISC
