@@ -45,6 +45,17 @@ test("AuctionPrice: Pick respects a reordered priority list", function()
   NS.db.global.settings.auction = nil
 end)
 
+test("AuctionPrice: Pick skips priority-disabled tags", function()
+  NS.db.global.settings.auction = { enabled = true,
+    priority = { "tsm:dbmarket", "oribos:market" }, priorityDisabled = { ["tsm:dbmarket"] = true } }
+  local price, tag = NS.AuctionPrice:Pick({ tsm = { dbmarket = 500 }, oribos = { market = 700 } })
+  assertEqual(price, 700); assertEqual(tag, "oribos:market")   -- tsm:dbmarket disabled, skipped
+  NS.AuctionPrice:SetPriorityEnabled("tsm:dbmarket", true)     -- re-enable
+  assertEqual(NS.db.global.settings.auction.priorityDisabled["tsm:dbmarket"], nil)
+  assertEqual(NS.AuctionPrice:IsPriorityEnabled("oribos:market"), true)
+  NS.db.global.settings.auction = nil
+end)
+
 test("AuctionPrice: GatherAll only captures keys in the capture set", function()
   NS.db.global.settings.auction = { enabled = true, capture = { ["oribos:market"] = true } }
   withGlobals({ OEMarketInfo = function(_i, t) t.market = 51000; t.region = 53000 end,

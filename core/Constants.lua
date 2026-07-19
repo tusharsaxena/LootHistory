@@ -83,20 +83,24 @@ for _, s in ipairs(C.SourceOrder) do
   end
 end
 
+-- Human-readable provider names, keyed by AUCTION_KEYS' provider id.
+C.AUCTION_PROVIDER_NAMES = { auctionator = "Auctionator", tsm = "Tradeskill Master", oribos = "Oribos Exchange" }
+
 -- Every AH price data point the addon can capture. tag = provider..":"..key. Drives the capture
--- menu, GatherAll's fetch loop, the CSV sub-columns, and the priority defaults.
+-- menu, GatherAll's fetch loop, the CSV sub-columns, and the priority defaults. `data` is a short
+-- column/label form; `desc` is the settings-panel tooltip explaining what the number means.
 C.AUCTION_KEYS = {
-  { provider = "auctionator", key = "minbuyout",            label = "Auctionator \226\128\148 Min buyout" },
-  { provider = "tsm",         key = "dbmarket",             label = "TSM \226\128\148 Market value" },
-  { provider = "tsm",         key = "dbminbuyout",          label = "TSM \226\128\148 Min buyout" },
-  { provider = "tsm",         key = "dbregionmarketavg",    label = "TSM \226\128\148 Region market avg" },
-  { provider = "tsm",         key = "dbregionminbuyoutavg", label = "TSM \226\128\148 Region min-buyout avg" },
-  { provider = "tsm",         key = "dbhistorical",         label = "TSM \226\128\148 Historical" },
-  { provider = "tsm",         key = "dbrecent",             label = "TSM \226\128\148 Recent" },
-  { provider = "tsm",         key = "dbregionhistorical",   label = "TSM \226\128\148 Region historical" },
-  { provider = "tsm",         key = "dbregionsaleavg",      label = "TSM \226\128\148 Region sale avg" },
-  { provider = "oribos",      key = "market",               label = "OribosExchange \226\128\148 Market" },
-  { provider = "oribos",      key = "region",               label = "OribosExchange \226\128\148 Region" },
+  { provider="auctionator", key="minbuyout",            label="Auctionator \226\128\148 Min buyout",        data="Min Buyout",            desc="The lowest current buyout on your realm's auction house, from Auctionator's last scan." },
+  { provider="tsm",         key="dbmarket",             label="TSM \226\128\148 Market value",               data="Market Value",          desc="TSM's smoothed market value for your realm (roughly a 14-day average) \226\128\148 its best 'what's it worth' number." },
+  { provider="tsm",         key="dbminbuyout",          label="TSM \226\128\148 Min buyout",                 data="Min Buyout",            desc="The lowest buyout on your realm from TSM's most recent scan." },
+  { provider="tsm",         key="dbregionmarketavg",    label="TSM \226\128\148 Region market avg",          data="Region Market Avg",     desc="Average market value across your whole region (from the TSM Desktop App) \226\128\148 wide coverage even for items you never scanned." },
+  { provider="tsm",         key="dbregionminbuyoutavg", label="TSM \226\128\148 Region min-buyout avg",      data="Region Min-Buyout Avg", desc="Average of the lowest buyouts across your region." },
+  { provider="tsm",         key="dbhistorical",         label="TSM \226\128\148 Historical",                 data="Historical",            desc="TSM's long-term historical average for your realm (roughly 60\226\128\14890 days)." },
+  { provider="tsm",         key="dbrecent",             label="TSM \226\128\148 Recent",                     data="Recent",                desc="The value from TSM's most recent realm scan (more volatile than market value)." },
+  { provider="tsm",         key="dbregionhistorical",   label="TSM \226\128\148 Region historical",          data="Region Historical",     desc="TSM's long-term historical average across your region." },
+  { provider="tsm",         key="dbregionsaleavg",      label="TSM \226\128\148 Region sale avg",            data="Region Sale Avg",       desc="The average price items actually SOLD for across your region (realized sales, not listings)." },
+  { provider="oribos",      key="market",               label="OribosExchange \226\128\148 Market",         data="Market",                desc="OribosExchange's realm market value, from its imported region/realm dataset." },
+  { provider="oribos",      key="region",               label="OribosExchange \226\128\148 Region",         data="Region",                desc="OribosExchange's region-wide market value." },
 }
 -- Capture checklist options for the settings panel MultiCheck row (value = "provider:key" tag).
 C.AUCTION_CAPTURE_OPTIONS = {}
