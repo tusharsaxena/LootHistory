@@ -114,8 +114,11 @@ C.AUCTION_CAPTURE_DEFAULT = {
   ["oribos:market"] = true, ["oribos:region"] = true,
 }
 C.AUCTION_PRIORITY_DEFAULT = {
+  -- default-collected (in AUCTION_CAPTURE_DEFAULT) first
   "tsm:dbmarket", "auctionator:minbuyout", "oribos:market",
   "tsm:dbminbuyout", "tsm:dbregionmarketavg", "tsm:dbregionminbuyoutavg", "oribos:region",
+  -- default-uncollected last
+  "tsm:dbhistorical", "tsm:dbrecent", "tsm:dbregionhistorical", "tsm:dbregionsaleavg",
 }
 
 -- Convenience aliases.

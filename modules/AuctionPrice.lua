@@ -101,6 +101,18 @@ function AuctionPrice:Pick(map)
   return nil, nil
 end
 
+-- True iff the given provider's addon is loaded/present (its API globals exist).
+function AuctionPrice:IsProviderAvailable(provider)
+  if provider == "auctionator" then
+    return (Auctionator and Auctionator.API and Auctionator.API.v1) and true or false
+  elseif provider == "tsm" then
+    return (TSM_API and TSM_API.GetCustomPriceValue and TSM_API.ToItemString) and true or false
+  elseif provider == "oribos" then
+    return type(OEMarketInfo) == "function"
+  end
+  return false
+end
+
 -- Priority-list accessors used by the settings panel (R6) to render/reorder the cascade.
 function AuctionPrice:GetPriority()
   local s = NS.db.global.settings.auction
@@ -112,6 +124,34 @@ function AuctionPrice:MovePriority(index, delta)   -- delta = -1 up / +1 down
   local j = index + delta
   if index < 1 or index > #p or j < 1 or j > #p then return false end
   p[index], p[j] = p[j], p[index]
+  return true
+end
+
+-- Ensure the stored priority array holds every known AUCTION_KEYS tag exactly once (append missing
+-- at the end in AUCTION_KEYS order; drop tags no longer known). No migration — branch unmerged.
+function AuctionPrice:ReconcilePriority()
+  local p = self:GetPriority()
+  local known, seen = {}, {}
+  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do known[k.provider .. ":" .. k.key] = true end
+  local out = {}
+  for _, tag in ipairs(p) do
+    if known[tag] and not seen[tag] then out[#out + 1] = tag; seen[tag] = true end
+  end
+  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
+    local tag = k.provider .. ":" .. k.key
+    if not seen[tag] then out[#out + 1] = tag; seen[tag] = true end
+  end
+  for i = #p, 1, -1 do p[i] = nil end        -- rewrite in place (keep the same table reference)
+  for i, tag in ipairs(out) do p[i] = tag end
+  return p
+end
+
+function AuctionPrice:SwapPriorityTags(tagA, tagB)
+  local p = self:GetPriority()
+  local ia, ib
+  for i, t in ipairs(p) do if t == tagA then ia = i elseif t == tagB then ib = i end end
+  if not (ia and ib) then return false end
+  p[ia], p[ib] = p[ib], p[ia]
   return true
 end
 

@@ -1,6 +1,6 @@
 local T = _G.LH_TEST
 local NS = T.NS
-local test, assertEqual = T.test, T.assertEqual
+local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
 -- Provider globals are injected per-test and torn down so cases don't leak into each other.
 local function withGlobals(g, fn)
@@ -89,5 +89,36 @@ test("AuctionPrice: GatherAll returns nil when nothing gathered / disabled", fun
   withGlobals({ OEMarketInfo = function(_i, t) t.market = 1 end }, function()
     assertEqual(NS.AuctionPrice:GatherAll(LINK, 210501), nil)
   end)
+  NS.db.global.settings.auction = nil
+end)
+
+test("AuctionPrice: IsProviderAvailable reflects addon globals", function()
+  assertFalse(NS.AuctionPrice:IsProviderAvailable("tsm"))
+  withGlobals({ TSM_API = { GetCustomPriceValue = function() end, ToItemString = function() end } }, function()
+    assertTrue(NS.AuctionPrice:IsProviderAvailable("tsm"))
+  end)
+  withGlobals({ OEMarketInfo = function() end }, function()
+    assertTrue(NS.AuctionPrice:IsProviderAvailable("oribos"))
+  end)
+end)
+
+test("AuctionPrice: ReconcilePriority appends missing tags and drops unknown", function()
+  NS.db.global.settings.auction = { priority = { "tsm:dbmarket", "bogus:x" } }
+  local p = NS.AuctionPrice:ReconcilePriority()
+  assertEqual(p[1], "tsm:dbmarket")                 -- kept, order preserved
+  local set = {}; for _, t in ipairs(p) do set[t] = true end
+  assertEqual(set["bogus:x"], nil)                  -- unknown dropped
+  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do  -- every known tag present
+    assertTrue(set[k.provider .. ":" .. k.key], "missing " .. k.provider .. ":" .. k.key)
+  end
+  NS.db.global.settings.auction = nil
+end)
+
+test("AuctionPrice: SwapPriorityTags swaps positions", function()
+  NS.db.global.settings.auction = { priority = { "a:1", "b:2", "c:3" } }
+  assertTrue(NS.AuctionPrice:SwapPriorityTags("a:1", "b:2"))
+  local p = NS.AuctionPrice:GetPriority()
+  assertEqual(p[1], "b:2"); assertEqual(p[2], "a:1")
+  assertFalse(NS.AuctionPrice:SwapPriorityTags("a:1", "zzz"))  -- missing tag
   NS.db.global.settings.auction = nil
 end)
