@@ -479,3 +479,48 @@ The sample `H` block is not byte-verified by the assembler, so this is safe.
 | Icon widgets | Blizzard textures via AceGUI Icon widgets (no ConsumableMaster files ported) |
 | Template `a` rows | Not Bound + Bind on Equip only; also set `val = max(a,v)` |
 | Priority label | split into Addon Source + Data Source columns |
+
+---
+
+# Revision 4 — AH Price settings UI polish
+
+**Date:** 2026-07-19
+**Status:** Approved for planning (batch of visual refinements on the Rev-3 "AH Price" page).
+**Note:** all icons remain Blizzard textures (no media). In-game rendering is smoke-tested only, so exact
+px values are best-effort and refined during the user's smoke pass.
+
+## R4.1 Data Collection section (`buildAuctionCapture`)
+- **Indent** the per-key checkbox rows a little under their provider heading (heading stays flush-left).
+- **More vertical spacing above** each provider heading.
+- **Info (ⓘ) icon follows the label text** (small gap) rather than sitting in a fixed column — size each
+  checkbox to its rendered label width so the icon trails the text.
+- **Addon-not-detected:** if a provider's global isn't present (`AuctionPrice:IsProviderAvailable(provider)`
+  false), mark its heading "(not installed)", **disable** its checkboxes (non-interactable), and **mute**
+  its label fonts — a clear visual that data can't be collected from it.
+
+## R4.2 Priority section (`rebuildPriorityList` / `buildAuctionPriority`)
+- **Bring the Data-source column closer to the Addon column:** narrow the Addon column and widen the Data
+  column by the same amount so the arrows/enable checkbox keep their position.
+- **Column headers** above the list (muted, matching the row columns), with a gap kept to the legend.
+- **All sources present, uncollected at the bottom:** the priority list shows **every** `AUCTION_KEYS`
+  source. Sources not currently collected (capture off) render at the **bottom**, muted, with no reorder
+  arrows (they can never win). Collected sources render on top in priority order with working ▲/▼ that
+  reorder among the collected group only.
+
+## R4.3 Data-model / helper additions
+- Expand `C.AUCTION_PRIORITY_DEFAULT` to all 11 `AUCTION_KEYS` tags — the 7 default-collected first, the 4
+  default-uncollected last.
+- `AuctionPrice:IsProviderAvailable(provider)` — true iff that addon's global(s) are present.
+- `AuctionPrice:ReconcilePriority()` — ensures the stored `priority` array contains every known tag
+  (appends any missing at the end; drops unknown). Called from `GetPriority`/render so all sources always
+  appear even after the default expansion (no migration; branch unmerged).
+- `AuctionPrice:SwapPriorityTags(tagA, tagB)` — swap two tags' positions in the `priority` array (so the
+  partitioned display's ▲/▼ reorder collected sources correctly).
+
+## R4.4 Resolved decisions (Rev 4)
+| Decision | Choice |
+|---|---|
+| #17 completeness | Priority shows all 11 sources; uncollected sink to the bottom (muted, no arrows); collected keep arrows |
+| #14 "closer" | Narrow Addon col + widen Data col equally (arrows/enable fixed) |
+| #19 not-detected | Heading "(not installed)" + disabled checkboxes + muted fonts |
+| Priority default | Expanded to all 11 (default-collected first, default-uncollected last) |
