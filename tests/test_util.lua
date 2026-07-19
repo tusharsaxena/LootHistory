@@ -195,9 +195,12 @@ test("Schema: reset does not alias the table-typed default (F-003)", function()
   NS.Schema:Set("settings.excludedSources", {})
 end)
 
-test("Util: RecordValue prefers auctionPrice, falls back to vendorPrice, else nil", function()
-  assertEqual(NS.Util.RecordValue({ auctionPrice = 500, vendorPrice = 10 }), 500)
-  assertEqual(NS.Util.RecordValue({ vendorPrice = 10 }), 10)
-  assertEqual(NS.Util.RecordValue({ auctionPrice = 0, vendorPrice = 10 }), 0) -- 0 is a real price, not nil
+test("Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists", function()
+  NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbmarket" } }
+  assertEqual(NS.Util.RecordValue({ vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } } }), 500)
+  assertEqual(NS.Util.RecordValue({ vendorPrice = 800, auctionPrice = { tsm = { dbmarket = 500 } } }), 800) -- vendor higher
+  assertEqual(NS.Util.RecordValue({ vendorPrice = 10 }), 10)                       -- no auction
+  assertEqual(NS.Util.RecordValue({ auctionPrice = { tsm = { dbmarket = 500 } } }), 500) -- no vendor
   assertEqual(NS.Util.RecordValue({}), nil)
+  NS.db.global.settings.auction = nil
 end)

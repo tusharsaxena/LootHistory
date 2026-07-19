@@ -66,14 +66,14 @@ function Util.FormatMoney(copper)
   return table.concat(parts, " ")
 end
 
--- Derived per-unit worth of a record: the auction price snapshot if we captured one,
--- else the vendor sell price, else nil. The single definition of "value" (never stored;
--- see docs/data-model.md). Note: 0 is a real captured price, so test against nil, not falsiness.
+-- Derived per-unit worth: the higher of the picked auction price and the vendor price (auction can
+-- be below vendor). Pick chooses WHICH auction number via the priority list. nil if neither exists.
 function Util.RecordValue(record)
   if record == nil then return nil end
-  local a = record.auctionPrice
-  if a ~= nil then return a end
-  return record.vendorPrice
+  local a = record.auctionPrice and NS.AuctionPrice:Pick(record.auctionPrice) or nil
+  local v = record.vendorPrice
+  if a and v then return math.max(a, v) end
+  return a or v
 end
 
 -- Human-readable byte size: "820 B", "12.4 kB", "3.1 MB". Uses 1024 steps.

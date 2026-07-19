@@ -166,8 +166,8 @@ end)
 
 test("Stats: value uses auctionPrice when present, else vendorPrice", function()
   local recs = {
-    { ts = 1, quality = 3, quantity = 2, vendorPrice = 10, auctionPrice = 100, source = "KILL", itemID = 1, char = "A-R" },
-    { ts = 2, quality = 3, quantity = 1, vendorPrice = 50,                      source = "KILL", itemID = 2, char = "A-R" },
+    { ts = 1, quality = 3, quantity = 2, vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 100 } }, source = "KILL", itemID = 1, char = "A-R" },
+    { ts = 2, quality = 3, quantity = 1, vendorPrice = 50,                                            source = "KILL", itemID = 2, char = "A-R" },
   }
   NS.State.testRecords = recs
   local s = NS.Database:Stats()
