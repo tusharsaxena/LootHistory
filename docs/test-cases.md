@@ -210,13 +210,15 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: auction column shows the picked price from the map
 - BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
 
-### test_export.lua (21)
+### test_export.lua (23)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
 - Export: WowheadLink falls back to itemID, then empty
 - Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last
+- Export: AICSV header keeps computed price cols but drops the raw auc_ columns
+- Export: AICSV still emits the picked auction price/source, just not the raw sub-columns
 - Export: CSV auction/value columns — auction present and vendor fallback
 - Export: CSV emits picked price/tag + matching raw sub-columns for a nested auctionPrice map
 - Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence
@@ -301,8 +303,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_database.lua | 42 |
 | test_stats.lua | 14 |
 | test_browsertable.lua | 18 |
-| test_export.lua | 21 |
+| test_export.lua | 23 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 6 |
-| **Total** | **243** |
+| **Total** | **245** |

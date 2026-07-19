@@ -78,6 +78,8 @@ end
 -- capture-config order) exposing every price the addon actually captured, independent of which one
 -- Pick chose. `wowheadLink` (from the item's bonus IDs) is last.
 -- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
+-- Export-to-CSV (E:CSV) emits every column; the Export-to-AI prompt (E:AICSV) drops the raw
+-- auc_ columns to keep the prompt small — the report engine never consumes those snapshots.
 local COLUMNS = {
   { "ts",           function(r) return r.ts end },
   { "date",         function(r) return NS.Util.FormatDate(r.ts) end },
@@ -114,15 +116,37 @@ COLUMNS[#COLUMNS + 1] = { "wowheadLink", function(r) return E:WowheadLink(r) end
 local HEADER = {}
 for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 
--- Serialize records to a CSV string (header + one row each, CRLF-terminated).
-function E:CSV(records)
-  local lines = { table.concat(HEADER, ",") }
+-- AI-export column set: the full COLUMNS minus the raw per-provider `auc_<provider>_<key>`
+-- columns (the computed auctionPrice/auctionPriceRaw/value/valueRaw/auctionSource are kept).
+-- The AI report never consumes the raw provider snapshots, so dropping them keeps the
+-- Export-to-AI prompt small; Export-to-CSV still emits the complete dump via COLUMNS.
+local AI_COLUMNS, AI_HEADER = {}, {}
+for _, c in ipairs(COLUMNS) do
+  if not c[1]:find("^auc_") then
+    AI_COLUMNS[#AI_COLUMNS + 1] = c
+    AI_HEADER[#AI_HEADER + 1] = c[1]
+  end
+end
+
+-- Serialize records against a column set to a CSV string (header + one row each, CRLF-terminated).
+local function serializeCSV(records, columns, header)
+  local lines = { table.concat(header, ",") }
   for _, r in ipairs(records or {}) do
     local cells = {}
-    for i, c in ipairs(COLUMNS) do cells[i] = csvField(c[2](r)) end
+    for i, c in ipairs(columns) do cells[i] = csvField(c[2](r)) end
     lines[#lines + 1] = table.concat(cells, ",")
   end
   return table.concat(lines, "\r\n") .. "\r\n"
+end
+
+-- Full CSV dump (Export-to-CSV): every column, including the raw per-provider auc_ columns.
+function E:CSV(records)
+  return serializeCSV(records, COLUMNS, HEADER)
+end
+
+-- Reduced CSV for the AI prompt: drops the raw per-provider auc_ columns (see AI_COLUMNS).
+function E:AICSV(records)
+  return serializeCSV(records, AI_COLUMNS, AI_HEADER)
 end
 
 -- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
@@ -506,7 +530,7 @@ local function EnsureFrame()
   -- Export to AI bundles BOTH datasets (history + insights) for the selected Data Set.
   local aiBtn = makeButton(frame, "Export to AI", 150, function()
     local records, stats = selectedAIData()
-    ShowCopy(E:AIPrompt(E:CSV(records), E:InsightsCSV(stats), { rows = #records }))
+    ShowCopy(E:AIPrompt(E:AICSV(records), E:InsightsCSV(stats), { rows = #records }))
   end, true)
   aiBtn:SetPoint("TOPLEFT", 178, -80)
 

@@ -41,6 +41,25 @@ test("Export: CSV header order — ts,date,time first; computed + per-key auctio
     "wowheadLink")
 end)
 
+test("Export: AICSV header keeps computed price cols but drops the raw auc_ columns", function()
+  local header = NS.Export:AICSV({}):match("^(.-)\r\n")
+  assertEqual(header,
+    "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound," ..
+    "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource," ..
+    "itemType,itemSubType,quantity,source,zone," ..
+    "wowheadLink")
+  assertTrue(header:find("auc_", 1, true) == nil, "no raw auc_ columns in the AI CSV")
+end)
+
+test("Export: AICSV still emits the picked auction price/source, just not the raw sub-columns", function()
+  local csv = NS.Export:AICSV({
+    { vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } }, quantity = 1 },
+  })
+  assertTrue(csv:find("0g 5s 0c", 1, true) ~= nil, "picked auction price formatted")
+  assertTrue(csv:find("tsm:dbmarket", 1, true) ~= nil, "auctionSource present")
+  assertTrue(csv:find(",500,", 1, true) ~= nil, "auctionPriceRaw present")
+end)
+
 test("Export: CSV auction/value columns — auction present and vendor fallback", function()
   local withAuc = NS.Export:CSV({
     { vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } }, quantity = 1 },
