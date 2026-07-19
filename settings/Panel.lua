@@ -737,6 +737,13 @@ function P:Register()
       for _, r in ipairs(NS.Schema.Schema) do
         if r.group == "Auction House Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
       end
+      -- Priority is a carve-out array (not schema-driven), so the Defaults button must reset
+      -- it separately. Clear-and-refill the SAME table so any UI closure holding the array
+      -- reference (e.g. rebuildPriorityList's upvalue) still sees the new contents.
+      local dp = NS.Constants.AUCTION_PRIORITY_DEFAULT
+      local p = NS.AuctionPrice:GetPriority()
+      for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
+      for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
       for _, fn in ipairs(actx.refreshers) do pcall(fn) end
     end)
   end

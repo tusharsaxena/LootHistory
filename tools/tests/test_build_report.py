@@ -7,7 +7,7 @@ import build_report as br
 
 HISTORY = (
     "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,"
-    "bound,sellPrice,vendorPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
+    "bound,vendorPrice,vendorPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
     "100,12-Jul-2026,20:00,Aria-Frostmourne,mage,111,Big Sword,Epic,4,246,"
     "Bind on Pickup,10g 0s 0c,100000,Weapon,Sword,1,KILL,Town,https://wh/111\r\n"
     "200,12-Jul-2026,21:00,Aria-Frostmourne,mage,222,Herb,Common,1,,"
@@ -43,6 +43,17 @@ class TestCsvToH(unittest.TestCase):
         _, rows = br.parse_history_csv(HISTORY)
         self.assertEqual(rows[2]["s"], "OTHER")
         self.assertEqual(rows[2]["cl"], "WARRIOR")
+
+    def test_blank_vendor_price_raw_parses_as_zero(self):
+        history_blank_vendor = (
+            "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,"
+            "bound,vendorPrice,vendorPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
+            "400,14-Jul-2026,08:00,Aria-Frostmourne,mage,333,Uncached Trinket,Rare,3,240,"
+            "Bind on Pickup,,,Trinket,,1,KILL,Town,https://wh/333\r\n"
+        )
+        _, rows = br.parse_history_csv(history_blank_vendor)
+        self.assertEqual(rows[0]["v"], 0)
+        self.assertEqual(rows[0]["val"], 0)
 
     def test_emit_h_body_is_valid_json_no_trailing_comma(self):
         _, rows = br.parse_history_csv(HISTORY)
