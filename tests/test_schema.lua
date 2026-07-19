@@ -58,7 +58,7 @@ test("Schema: auction rows exist with the Auction House Price group and defaults
   local NS2 = NS
   local row = NS2.Schema:FindRow("settings.auction.enabled")
   assertTrue(row ~= nil, "settings.auction.enabled row missing")
-  assertEqual(row.group, "Auction House Price")
+  assertEqual(row.group, "AH Price")
   assertEqual(NS2.Schema:Default("settings.auction.enabled"), true)
 end)
 
@@ -66,7 +66,7 @@ test("Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows 
   local NS2 = NS
   local row = NS2.Schema:FindRow("settings.auction.capture")
   assertTrue(row ~= nil, "settings.auction.capture row missing")
-  assertEqual(row.group, "Auction House Price")
+  assertEqual(row.group, "AH Price")
   assertEqual(row.widget, "MultiCheck")
   assertEqual(NS2.Schema:Default("settings.auction.capture")["tsm:dbmarket"], true)
 

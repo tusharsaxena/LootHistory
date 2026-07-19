@@ -76,12 +76,12 @@ S.Schema = {
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
     end },
 
-  -- ── Auction House Price ──  (own settings sub-page; see settings/Panel.lua)
+  -- ── AH Price ──  (own settings sub-page; see settings/Panel.lua)
   { path = "settings.auction.enabled", default = true, type = "boolean", widget = "CheckBox",
-    group = "Auction House Price", label = "Enable AH pricing",
+    group = "AH Price", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
   { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
-    widget = "MultiCheck", wide = true, group = "Auction House Price", label = "Capture these prices",
+    widget = "MultiCheck", wide = true, group = "AH Price", label = "Capture these prices",
     options = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 
 }

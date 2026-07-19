@@ -528,73 +528,117 @@ local function buildFilters(ctx)
 end
 
 -- ── Auction House price-priority reorder list (R6) ──────────────────────────────
--- Resolve a "provider:key" priority tag to its C.AUCTION_KEYS label; falls back to the raw
--- tag if the key isn't found (e.g. a stale entry from a provider that's since been removed).
-local function auctionKeyLabel(tag)
-  local prov, key = tag:match("^(.-):(.+)$")
-  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
-    if k.provider == prov and k.key == key then return k.label end
-  end
-  return tag
+-- Blizzard art (no files shipped): status ✓/✗ + move arrows. Text glyphs (\226\150\178/\226\150\188)
+-- render as tofu boxes in this font, so the arrows are real textures rather than characters.
+local READY    = "Interface\\RaidFrame\\ReadyCheck-Ready"
+local NOTREADY = "Interface\\RaidFrame\\ReadyCheck-NotReady"
+local ARR_UP   = "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp-Up"
+local ARR_DN   = "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up"
+
+-- Human name for the addon behind a "provider:key" tag (e.g. "auctionator:minbuyout" → "Auctionator").
+local function providerNameOf(tag)
+  local prov = tag:match("^(.-):")
+  return (prov and NS.Constants.AUCTION_PROVIDER_NAMES[prov]) or prov or tag
 end
 
--- Rebuild `listGroup` from the current priority order. Each row: label + \226\150\178/\226\150\188 move
--- buttons (mirrors rebuildFilterList's label+action-button row shape).
+-- Short data-point label for a "provider:key" tag (the `data` column form from AUCTION_KEYS).
+local function dataLabelOf(tag)
+  local prov, key = tag:match("^(.-):(.+)$")
+  for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
+    if k.provider == prov and k.key == key then return k.data or k.label end
+  end
+  return key or tag
+end
+
+-- A small AceGUI "Icon" button showing a Blizzard texture with a GameTooltip. When `disabled`,
+-- the image is dimmed and the OnClick is dropped (used at the list ends for the move arrows).
+local function iconButton(image, size, tooltipLabel, tooltipBody, onClick, disabled)
+  local widget = AceGUI:Create("Icon")
+  widget:SetImage(image)
+  widget:SetImageSize(size, size)
+  widget:SetLabel("")
+  widget:SetWidth(size + 8)
+  if disabled then
+    if widget.image then widget.image:SetVertexColor(0.4, 0.4, 0.4) end
+  elseif onClick then
+    widget:SetCallback("OnClick", function() onClick() end)
+  end
+  widget:SetCallback("OnEnter", function()
+    if not (GameTooltip and widget.frame) then return end
+    GameTooltip:SetOwner(widget.frame, "ANCHOR_RIGHT")
+    GameTooltip:SetText(tooltipLabel, 1, 1, 1)
+    if tooltipBody then GameTooltip:AddLine(tooltipBody, nil, nil, nil, true) end
+    GameTooltip:Show()
+  end)
+  widget:SetCallback("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  return widget
+end
+
+-- Rebuild `listGroup` from the current priority order. Each row:
+-- [status ✓/✗] [Addon source] [Data source] [▲] [▼] [☑ enabled] — arrows are textures, not glyphs.
 local function rebuildPriorityList(ctx, listGroup)
   listGroup:ReleaseChildren()
   local priority = NS.AuctionPrice:GetPriority()
+  local capture = NS.db.global.settings.auction.capture or {}
+  for i, tag in ipairs(priority) do
+    local rowG = AceGUI:Create("SimpleGroup")
+    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
+
+    local status = AceGUI:Create("Label"); status:SetRelativeWidth(0.06)
+    status:SetText(capture[tag] and ("|T" .. READY .. ":16|t") or ("|T" .. NOTREADY .. ":16|t"))
+    rowG:AddChild(status)
+
+    local addon = AceGUI:Create("Label"); addon:SetRelativeWidth(0.34)
+    addon:SetText(providerNameOf(tag)); rowG:AddChild(addon)
+    local data = AceGUI:Create("Label"); data:SetRelativeWidth(0.30)
+    data:SetText(dataLabelOf(tag)); rowG:AddChild(data)
+
+    rowG:AddChild(iconButton(ARR_UP, 18, "Move up", "Rank this price higher.", (i > 1) and function()
+      NS.AuctionPrice:MovePriority(i, -1)
+      rebuildPriorityList(ctx, listGroup)
+      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+    end or nil, i == 1))
+    rowG:AddChild(iconButton(ARR_DN, 18, "Move down", "Rank this price lower.", (i < #priority) and function()
+      NS.AuctionPrice:MovePriority(i, 1)
+      rebuildPriorityList(ctx, listGroup)
+      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+    end or nil, i == #priority))
+
+    local cb = AceGUI:Create("CheckBox"); cb:SetLabel(""); cb:SetRelativeWidth(0.08)
+    cb:SetValue(NS.AuctionPrice:IsPriorityEnabled(tag))
+    cb:SetCallback("OnValueChanged", function(_, _, v) NS.AuctionPrice:SetPriorityEnabled(tag, v) end)
+    rowG:AddChild(cb)
+
+    listGroup:AddChild(rowG)
+  end
   if #priority == 0 then
     local empty = AceGUI:Create("Label")
     empty:SetFullWidth(true)
     empty:SetText("|cff808080(none)|r")
     listGroup:AddChild(empty)
-  else
-    for i, tag in ipairs(priority) do
-      local rowG = AceGUI:Create("SimpleGroup")
-      rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
-      local lbl = AceGUI:Create("Label")
-      lbl:SetRelativeWidth(0.68)
-      lbl:SetText(auctionKeyLabel(tag))
-      rowG:AddChild(lbl)
-
-      local upBtn = AceGUI:Create("Button")
-      upBtn:SetText("\226\150\178"); upBtn:SetRelativeWidth(0.15)   -- \226\150\178 = up-move
-      upBtn:SetDisabled(i == 1)
-      upBtn:SetCallback("OnClick", function()
-        NS.AuctionPrice:MovePriority(i, -1)
-        rebuildPriorityList(ctx, listGroup)
-        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-      end)
-      rowG:AddChild(upBtn)
-
-      local downBtn = AceGUI:Create("Button")
-      downBtn:SetText("\226\150\188"); downBtn:SetRelativeWidth(0.15)  -- \226\150\188 = down-move
-      downBtn:SetDisabled(i == #priority)
-      downBtn:SetCallback("OnClick", function()
-        NS.AuctionPrice:MovePriority(i, 1)
-        rebuildPriorityList(ctx, listGroup)
-        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-      end)
-      rowG:AddChild(downBtn)
-
-      listGroup:AddChild(rowG)
-    end
   end
   if listGroup.DoLayout then listGroup:DoLayout() end
 end
 
--- Section: heading, description, live reorderable list. Mirrors makeFilterSection's
+-- Section: heading, description, legend, live reorderable list. Mirrors makeFilterSection's
 -- heading/list/refresh shape (options-ui custom-list pattern) but for the priority array
--- instead of an id-set — rows carry \226\150\178/\226\150\188 move buttons instead of Remove.
+-- instead of an id-set — rows carry texture move arrows + an enable checkbox instead of Remove.
 local function buildAuctionPriority(ctx)
   local scroll = ensureScroll(ctx)
-  section(ctx, "Price priority (top = preferred)")
+  section(ctx, "Priority (top = preferred)")
 
   local descLabel = AceGUI:Create("Label")
   descLabel:SetFullWidth(true)
-  descLabel:SetText("When an item has more than one captured price, the highest entry below wins. "
-    .. "Use the arrows to reorder.")
+  descLabel:SetText("Of the prices you collect, this order decides which one is shown (top wins). "
+    .. "Untick a row to skip it; a red \226\156\151 means that source isn't being collected, so it "
+    .. "can never win.")
   scroll:AddChild(descLabel)
+  addSpacer(scroll, 4)
+
+  local legend = AceGUI:Create("Label")
+  legend:SetFullWidth(true)
+  legend:SetText("|T" .. READY .. ":16|t collected    |T" .. NOTREADY .. ":16|t not collected")
+  scroll:AddChild(legend)
   addSpacer(scroll, 6)
 
   local listGroup = AceGUI:Create("SimpleGroup")
@@ -695,7 +739,7 @@ function P:Register()
           end)
           parentRow:AddChild(btn)
         end,
-      }, { skip = { ["Auction House Price"] = true } })
+      }, { skip = { ["AH Price"] = true } })
       renderHistory(ctx)
       if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
     end
@@ -729,13 +773,13 @@ function P:Register()
   end)
   Settings.RegisterCanvasLayoutSubcategory(mainCategory, fctx.panel, "Filters")
 
-  -- Auction House Price subcategory = the AH-price cascade settings (own page).
-  local actx = createPanel("LootHistoryAuctionPanel", "Auction House Price", { defaultsButton = true })
+  -- AH Price subcategory = the AH-price cascade settings (own page).
+  local actx = createPanel("LootHistoryAuctionPanel", "AH Price", { defaultsButton = true })
   P.auction = actx
   if actx.panel.defaultsBtn then
     actx.panel.defaultsBtn:SetCallback("OnClick", function()
       for _, r in ipairs(NS.Schema.Schema) do
-        if r.group == "Auction House Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
+        if r.group == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
       end
       -- Priority is a carve-out array (not schema-driven), so the Defaults button must reset
       -- it separately. Clear-and-refill the SAME table so any UI closure holding the array
@@ -744,6 +788,8 @@ function P:Register()
       local p = NS.AuctionPrice:GetPriority()
       for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
       for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
+      -- Enable-state is a separate carve-out (priorityDisabled set); Defaults = all enabled.
+      NS.db.global.settings.auction.priorityDisabled = {}
       for _, fn in ipairs(actx.refreshers) do pcall(fn) end
     end)
   end
@@ -751,13 +797,13 @@ function P:Register()
   actx.panel:SetScript("OnShow", function()
     if not aRendered then
       aRendered = true
-      renderSchema(actx, nil, { only = "Auction House Price" })
+      renderSchema(actx, nil, { only = "AH Price" })
       buildAuctionPriority(actx)
       if actx.scroll and actx.scroll.DoLayout then actx.scroll:DoLayout() end
     end
     for _, fn in ipairs(actx.refreshers) do pcall(fn) end
   end)
-  Settings.RegisterCanvasLayoutSubcategory(mainCategory, actx.panel, "Auction House Price")
+  Settings.RegisterCanvasLayoutSubcategory(mainCategory, actx.panel, "AH Price")
 end
 
 function P:Open()
