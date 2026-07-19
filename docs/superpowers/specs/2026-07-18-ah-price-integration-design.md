@@ -301,8 +301,22 @@ excluded from the menu. TSM `dbglobal*` variants exist but are omitted from the 
 
 - **Point-in-time data, live selection:** the prices are snapshotted at loot, but *which* one is shown
   follows the current priority setting — reordering the list re-picks every historical row instantly.
-- `NS.Util.RecordValue(r) = (Pick(r.auctionPrice)) or r.vendorPrice` — the single "value" definition,
-  used by Stats/browser/CSV/AI. (Reads `vendorPrice`; migration guarantees it exists.)
+- **`value` = the higher of vendor and the picked auction price.** `Pick` chooses *which* auction
+  number to use (priority list, unchanged); the final value then takes the **max** of that and
+  `vendorPrice`, because an item's auction price can legitimately be *below* its vendor price and the
+  drop's worth is the best you could realize:
+
+  ```lua
+  function NS.Util.RecordValue(r)
+    local a = NS.AuctionPrice:Pick(r.auctionPrice)   -- picked auction price (copper) or nil
+    local v = r.vendorPrice                           -- copper or nil
+    if a and v then return math.max(a, v) end         -- both present → higher wins
+    return a or v                                     -- else whichever exists (or nil)
+  end
+  ```
+
+  This is the single "value" definition used by Stats / browser / CSV `value` / AI `val` / template
+  `rowVal`. (Reads `vendorPrice`; migration guarantees it exists.)
 
 ## R2.4 Capture (`AuctionPrice`)
 
@@ -380,6 +394,7 @@ the data says" report):
 | # | Decision | Choice |
 |---|---|---|
 | Structure | scalar vs map | Nested `provider → key → copper` map |
+| Value rule | auction-else-vendor vs max | `value = max(pickedAuction, vendorPrice)` when both exist; else whichever exists |
 | Capture set | which keys | Curated default (Auctionator minbuyout; TSM dbmarket/dbminbuyout/dbregionmarketavg/dbregionminbuyoutavg; Oribos market/region); **configurable** |
 | Selection | how chosen | Configurable ordered `provider:key` priority list, `Pick` first-present-wins, live |
 | priceSource | keep? | Dropped (derived at read) |
