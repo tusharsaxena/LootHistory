@@ -44,10 +44,10 @@ def parse_history_csv(text):
             "qr": int(r["qualityRaw"]),
             "il": _int_or_none(r["itemLevel"]),
             "b": r["bound"],
-            "v": int(r["sellPriceRaw"]),
+            "v": int(r["vendorPriceRaw"]),
             "a": _int_or_none(r.get("auctionPriceRaw")),
             "val": _int_or_none(r.get("valueRaw")) if (r.get("valueRaw") or "").strip() != ""
-                   else int(r["sellPriceRaw"]),
+                   else int(r["vendorPriceRaw"]),
             "ty": r["itemType"],
             "st": r["itemSubType"],
             "qty": int(r["quantity"]),

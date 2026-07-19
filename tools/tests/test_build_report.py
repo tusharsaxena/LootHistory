@@ -7,7 +7,7 @@ import build_report as br
 
 HISTORY = (
     "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,"
-    "bound,sellPrice,sellPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
+    "bound,sellPrice,vendorPriceRaw,itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
     "100,12-Jul-2026,20:00,Aria-Frostmourne,mage,111,Big Sword,Epic,4,246,"
     "Bind on Pickup,10g 0s 0c,100000,Weapon,Sword,1,KILL,Town,https://wh/111\r\n"
     "200,12-Jul-2026,21:00,Aria-Frostmourne,mage,222,Herb,Common,1,,"
@@ -428,7 +428,7 @@ class TestPassSummary(unittest.TestCase):
 
 def test_history_row_has_auction_value_source():
     csv_text = ("date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,"
-                "sellPrice,sellPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource,"
+                "sellPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource,"
                 "itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
                 "12-Jul-2026,20:37,Stormhoof-Ravencrest,SHAMAN,1,Thing,Rare,3,,Not Bound,"
                 "1g 0s 0c,10000,5g 0s 0c,50000,5g 0s 0c,50000,tsm:dbmarket,"

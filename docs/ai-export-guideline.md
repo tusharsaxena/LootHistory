@@ -178,7 +178,7 @@ Map them from the **HISTORY** CSV columns:
 | `qr` | `qualityRaw`    | number 0–7 |
 | `il` | `itemLevel`     | number, or `null` if blank |
 | `b`  | `bound`         | label: `Not Bound`, `Bind on Equip`, `Bind on Pickup`, `Account Bound`, `Warbound` |
-| `v`  | `sellPriceRaw`  | copper (number) — the engine does **all** money math |
+| `v`  | `vendorPriceRaw`  | copper (number) — the engine does **all** money math |
 | `a`  | `auctionPriceRaw` | copper (number) or `null` — AH price snapshot at loot; `null` when no addon had one |
 | `val`| `valueRaw`      | copper (number) — **the value to use for worth**: auction price if present, else vendor |
 | `ty` | `itemType`      | |
