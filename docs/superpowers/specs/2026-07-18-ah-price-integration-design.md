@@ -240,3 +240,150 @@ resolution is recorded here and in `docs/ARCHITECTURE.md` rather than changing t
   depend on it (freshness isn't used in the chosen install-base order), so no exposure.
 - **Provenance drift:** `priceSource` for TSM embeds the configured key at capture time, so records
   captured under different TSM-key settings remain self-describing.
+
+---
+
+# Revision 2 — Multi-source price capture, configurable selection, vendor rename, template fixes
+
+**Date:** 2026-07-19
+**Status:** Approved for planning (supersedes the Rev-1 parts noted below)
+**Applies on top of:** the implemented Rev-1 branch `feature/ah-price-integration` (unmerged).
+
+Rev 1 stored a single first-hit auction price (`auctionPrice` number + `priceSource` tag). Rev 2
+captures **every** price data point from **every** available addon into a nested map, and makes both
+*what is captured* and *which captured value is used* configurable at runtime — reordering the
+selection re-picks the entire history/Insights view live. It also renames `sellPrice`→`vendorPrice`,
+explodes all captured sub-prices into the CSV, adds gather-time debug, and fixes the AI template's
+History table.
+
+## R2.1 Data model
+
+```lua
+{
+  vendorPrice  = 3737,               -- RENAMED from sellPrice (copper, per unit)
+  auctionPrice = {                   -- nested map: provider -> { priceKey -> copper }; nil if none gathered
+    auctionator = { minbuyout = 48000 },
+    tsm = { dbmarket=50000, dbminbuyout=47000, dbregionmarketavg=52000, dbregionminbuyoutavg=51500 },
+    oribos = { market=51000, region=53000 },
+  },
+  -- priceSource: REMOVED (the shown source is recomputed at read time)
+}
+```
+
+- **`vendorPrice`** replaces `sellPrice` everywhere (record, capture, stats, export, browser, tests, docs).
+- **`auctionPrice`** is a two-level map (provider → priceKey → copper). Only prices actually gathered
+  appear; a provider/key absent for an item is simply omitted. `nil` (or empty) when nothing gathered.
+- **`priceSource` is dropped.** The "shown" auction price is derived at read time (R2.3).
+- **No auctionPrice migration needed** (Rev-1's scalar shape never shipped — branch is unmerged).
+
+## R2.2 Available price data points (research)
+
+Curated capture set per addon and the full menu the capture-config exposes:
+
+| Provider | priceKey | Meaning | In default capture set |
+|---|---|---|---|
+| `auctionator` | `minbuyout` | realm lowest buyout (its only auction statistic) | ✅ |
+| `tsm` | `dbmarket` | smoothed ~14d realm market value | ✅ |
+| `tsm` | `dbminbuyout` | last-scan realm lowest buyout | ✅ |
+| `tsm` | `dbregionmarketavg` | region market average | ✅ |
+| `tsm` | `dbregionminbuyoutavg` | region avg of min-buyouts | ✅ |
+| `tsm` | `dbhistorical`, `dbrecent`, `dbregionhistorical`, `dbregionsaleavg` | other realm/region copper prices | ⬜ available, off by default |
+| `oribos` | `market` | realm market value | ✅ |
+| `oribos` | `region` | region market value | ✅ |
+
+TSM `dbregionsalerate` (decimal) and `dbregionsoldperday` (count) are **not** copper prices and are
+excluded from the menu. TSM `dbglobal*` variants exist but are omitted from the default menu.
+
+## R2.3 Selection (read-time `Pick`)
+
+`NS.AuctionPrice:Pick(auctionPriceMap) -> price, tag` walks the configured **priority list of
+`provider:key` entries** and returns the first entry present in the map (e.g. `(50000, "tsm:dbmarket")`).
+
+- **Point-in-time data, live selection:** the prices are snapshotted at loot, but *which* one is shown
+  follows the current priority setting — reordering the list re-picks every historical row instantly.
+- `NS.Util.RecordValue(r) = (Pick(r.auctionPrice)) or r.vendorPrice` — the single "value" definition,
+  used by Stats/browser/CSV/AI. (Reads `vendorPrice`; migration guarantees it exists.)
+
+## R2.4 Capture (`AuctionPrice`)
+
+- `NS.AuctionPrice:GatherAll(itemLink, itemID) -> map` queries every **configured-to-capture**
+  `provider:key`, presence-gated + pcall-guarded per provider. TSM issues one `GetCustomPriceValue`
+  per captured TSM key; Auctionator one call; Oribos one `OEMarketInfo` (yields market+region). Returns
+  the nested map (nil/empty when nothing found). Called from `Collector` at loot; result stored on the record.
+- Provider capability tables declare each provider's known keys (drives the capture menu + fetch loop).
+- Rev-1's `AuctionPrice:Lookup` (first-hit) is replaced by `GatherAll` + `Pick`.
+
+## R2.5 Settings (reworks Rev-1 tasks 4–5)
+
+The Rev-1 rows (per-provider enable, per-provider priority dropdowns, `tsmSource`) are **replaced** by:
+
+- `auction.enabled` — master toggle (kept).
+- **Capture set** — a checklist of every known `provider:key`; checked entries are gathered. Default =
+  the ✅ set in R2.2. (Schema-backed; rendered on the Auction House Price sub-page.)
+- **Computation priority** — an **ordered list of `provider:key` entries**; first present wins in
+  `Pick`. Rendered as a custom ordered-list widget (up/down rows) on the sub-page, modeled on the
+  existing Filters list UI (AceConfig can't reorder natively). Stored as an array carve-out under
+  `NS.db.global.settings.auction` (documented, like `blacklist`/`savedView`).
+
+Only captured keys can meaningfully appear in the priority list; a priority entry whose key isn't
+captured simply never matches.
+
+## R2.6 Surfaces
+
+- **In-game browser, Insights, Export-to-AI:** use the single **computed** auction price (`Pick`) and
+  `value` (`RecordValue`). Field rename `sellPrice`→`vendorPrice` threads through. (In-game column
+  labels/order unchanged in this rev; only the value source changes.)
+- **Export-to-CSV (full detail):** columns become `vendorPrice`/`vendorPriceRaw`, computed
+  `auctionPrice`/`auctionPriceRaw`, `value`/`valueRaw`, `auctionSource` (picked tag), **plus one raw
+  column per captured `provider:key`** (e.g. `auc_tsm_dbmarket`, `auc_oribos_region`). The auction
+  sub-columns are **dynamic** — generated from the capture set, sorted deterministically.
+- **AI assembler (`build_report.py`):** reads the renamed `vendorPriceRaw` for `v` and the computed
+  `auctionPriceRaw`/`valueRaw` for `a`/`val`; the dynamic sub-columns are CSV-only and ignored by the AI.
+
+## R2.7 Debug at loot
+
+Add a debug line at capture logging **every** gathered `provider:key = price` and the `Pick` result
+(the selected tag+price), next to the existing `[Loot]` line. Emits only when `NS.State.debug`.
+
+## R2.8 Migration
+
+`schemaVersion` v2 → v3: for each record, `r.vendorPrice = r.sellPrice; r.sellPrice = nil`
+(non-destructive rename — no value lost). Idempotent; runs once at init before any read.
+
+## R2.9 AI template (`docs/ai-export-template.html`) fixes
+
+The template's rendered **History browser** tab (screenshot: the "Insights / History browser / What
+the data says" report):
+
+1. **Fit the columns:** the current last column overflows the table. Fix by **reducing the table font
+   and rebalancing column widths** so all columns fit inside the table (chosen approach — not
+   row-wrapping, not resizing the page window).
+2. **Time format:** `17 Jul · 12:55` → `17 Jul 12:55` (replace the `·` separator with a space).
+3. **"Value" column → "Vendor":** the current last column renders the *computed* value (`rowVal`);
+   repoint it to **`vendorPrice`** (via the `v` row key) and rename the header **"Vendor"**.
+4. **"AH" column → "Auction".**
+5. **Order:** … **Vendor** (second-last), **Auction** (last).
+
+(The hero "Value harvested" total and the Insights charts continue to use the derived value via
+`rowVal` — only the two table columns change to show the raw vendor/auction prices.)
+
+## R2.10 Tests & docs
+
+- New/updated unit tests: `GatherAll` (multi-key, presence-gating, pcall), `Pick` (priority order,
+  fallthrough, missing-key), capture-config + priority-config plumbing, the v2→v3 migration, the
+  dynamic CSV columns, `RecordValue` on the map shape. Update every `sellPrice` test to `vendorPrice`.
+- Regenerate `docs/test-cases.md` + README badge; update `docs/data-model.md`, `docs/ARCHITECTURE.md`,
+  `docs/ai-export-guideline.md` (the `v` key now comes from `vendorPriceRaw`), `docs/testing.md`.
+
+## R2.11 Resolved decisions (Rev 2)
+
+| # | Decision | Choice |
+|---|---|---|
+| Structure | scalar vs map | Nested `provider → key → copper` map |
+| Capture set | which keys | Curated default (Auctionator minbuyout; TSM dbmarket/dbminbuyout/dbregionmarketavg/dbregionminbuyoutavg; Oribos market/region); **configurable** |
+| Selection | how chosen | Configurable ordered `provider:key` priority list, `Pick` first-present-wins, live |
+| priceSource | keep? | Dropped (derived at read) |
+| Vendor field | rename? | `sellPrice`→`vendorPrice` + v2→v3 migration |
+| CSV | detail | All captured sub-prices as separate dynamic columns; everything else uses computed price |
+| Gather scope | present vs enabled | Gather all configured-to-capture keys from present providers |
+| Template fit | approach | Shrink table font + rebalance widths |
