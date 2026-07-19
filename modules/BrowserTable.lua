@@ -165,8 +165,8 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return (r.zone or ""):lower() end },
   { key = "vendor", label = "Vendor", width = 72, align = "RIGHT",
     desc = "Vendor sell price per unit.",
-    valueFn = function(r) return NS.Util.FormatMoney(r.sellPrice) end,
-    sortFn = function(r) return r.sellPrice or 0 end },
+    valueFn = function(r) return NS.Util.FormatMoney(r.vendorPrice) end,
+    sortFn = function(r) return r.vendorPrice or 0 end },
   { key = "auction", label = "AH", width = 72, align = "RIGHT",
     desc = "Auction-house price per unit at loot time (from your AH pricing addon).",
     valueFn = function(r) return NS.Util.FormatMoney(r.auctionPrice) end,
@@ -375,7 +375,7 @@ function BrowserTable:BuildTestData()
       quantity = qty,
       itemLevel = isGear and (560 + q * 12 + rng(40)) or nil, -- gear only; scales with quality
       bound = b.key,
-      sellPrice = (q * q + 1) * (200 + rng(1800)) + rng(500), -- wide, quality-skewed value spread
+      vendorPrice = (q * q + 1) * (200 + rng(1800)) + rng(500), -- wide, quality-skewed value spread
       auctionPrice = (rng(100) <= 70) and ((q * q + 1) * (600 + rng(6000)) + rng(1500)) or nil,
       priceSource = (rng(100) <= 70) and ({ "auctionator", "tsm:dbmarket", "oribos:market" })[rng(3)] or nil,
       itemType = ty,

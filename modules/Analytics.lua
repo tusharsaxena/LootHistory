@@ -6,7 +6,7 @@ local Analytics = NS.Analytics
 -- item type, bound type, per-character, time-of-day/week, M+ keystone, confidence) plus top
 -- zones/items/value lists, scoped by a date-range selector (see docs/browser.md). Everything
 -- is driven off a single Database:Stats(filter) pass; widgets are pooled and re-laid-out on resize.
--- "Value" is vendor value (sellPrice × quantity), not market price.
+-- "Value" is vendor value (vendorPrice × quantity), not market price.
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 

@@ -99,19 +99,19 @@ end)
 local function seedValueStats()
   NS.db.global.history = {
     { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 10, itemName = "Sword",
-      quality = 4, itemLevel = 200, bound = "BOP", sellPrice = 100, quantity = 1,
+      quality = 4, itemLevel = 200, bound = "BOP", vendorPrice = 100, quantity = 1,
       itemType = "Weapon", source = "KILL", zone = "Valley", confidence = "CERTAIN",
       sourceDetail = { keystoneLevel = 10 } },
     { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 20, itemName = "Herb",
-      quality = 1, sellPrice = 5, quantity = 20, itemType = "Tradegoods",
+      quality = 1, vendorPrice = 5, quantity = 20, itemType = "Tradegoods",
       source = "CONTAINER", zone = "Valley", confidence = "INFERRED" },
     { ts = T2, char = "B-Realm", classFile = "ROGUE", itemID = 30, itemName = "Ring",
-      quality = 3, itemLevel = 180, bound = "BOE", sellPrice = 50, quantity = 1,
+      quality = 3, itemLevel = 180, bound = "BOE", vendorPrice = 50, quantity = 1,
       itemType = "Armor", source = "KILL", zone = "Cavern", confidence = "CERTAIN" },
   }
 end
 
-test("Stats: vendor value (sellPrice × quantity) totals + by source/zone", function()
+test("Stats: vendor value (vendorPrice × quantity) totals + by source/zone", function()
   seedValueStats()
   local s = NS.Database:Stats({})
   assertEqual(s.totals.totalValue, 250)      -- 100 + 5*20 + 50
@@ -164,10 +164,10 @@ test("Analytics.SummaryLine formats range and count", function()
   assertEqual(NS.Analytics.SummaryLine("30d", 1423), "computed range=30d, 1423 records")
 end)
 
-test("Stats: value uses auctionPrice when present, else sellPrice", function()
+test("Stats: value uses auctionPrice when present, else vendorPrice", function()
   local recs = {
-    { ts = 1, quality = 3, quantity = 2, sellPrice = 10, auctionPrice = 100, source = "KILL", itemID = 1, char = "A-R" },
-    { ts = 2, quality = 3, quantity = 1, sellPrice = 50,                      source = "KILL", itemID = 2, char = "A-R" },
+    { ts = 1, quality = 3, quantity = 2, vendorPrice = 10, auctionPrice = 100, source = "KILL", itemID = 1, char = "A-R" },
+    { ts = 2, quality = 3, quantity = 1, vendorPrice = 50,                      source = "KILL", itemID = 2, char = "A-R" },
   }
   NS.State.testRecords = recs
   local s = NS.Database:Stats()

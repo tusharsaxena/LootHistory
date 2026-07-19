@@ -31,7 +31,7 @@ end)
 
 test("AuctionPrice: falls through Auctionator(0) to TSM", function()
   -- A 0 price is a "no data" signal from Auctionator, not a real price; treating it
-  -- as truthy (Lua's 0 is truthy) would mask a positive vendor sellPrice downstream.
+  -- as truthy (Lua's 0 is truthy) would mask a positive vendorPrice downstream.
   withGlobals({
     Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 0 end } } },
     TSM_API = {

@@ -15,7 +15,7 @@ local BOUND_LABEL = {
 function E:BoundLabel(token) return BOUND_LABEL[token or "NONE"] or tostring(token) end
 
 -- Plain-text money for CSV: always "Ng Ns Nc" (never the in-game coin-texture markup that
--- Util.FormatMoney emits). "" for nil so a missing sellPrice stays blank.
+-- Util.FormatMoney emits). "" for nil so a missing vendorPrice stays blank.
 local function money(copper)
   if copper == nil then return "" end
   copper = tonumber(copper) or 0
@@ -69,7 +69,7 @@ end
 
 -- CSV columns: { header, value(record) }. `ts` is followed by human `date` (DD-MMM-YYYY) and
 -- `time` (HH:MM). Renamed raw columns carry a *Raw suffix beside a human sibling: human `quality`
--- (label) before `qualityRaw` (number), human `sellPrice` ("Ng Ns Nc") before `sellPriceRaw`
+-- (label) before `qualityRaw` (number), human `vendorPrice` ("Ng Ns Nc") before `vendorPriceRaw`
 -- (copper). `bound` is the friendly label. Following the vendor columns, the AH-price feature adds
 -- `auctionPrice`/`auctionPriceRaw` (the looked-up auction price, human/copper), `value`/`valueRaw`
 -- (NS.Util.RecordValue: auction-or-vendor, human/copper), and `priceSource` (the provider tag, e.g.
@@ -87,8 +87,8 @@ local COLUMNS = {
   { "qualityRaw",   function(r) return r.quality end },
   { "itemLevel",    function(r) return r.itemLevel end },
   { "bound",        function(r) return E:BoundLabel(r.bound) end },
-  { "sellPrice",    function(r) return money(r.sellPrice) end },
-  { "sellPriceRaw", function(r) return r.sellPrice end },
+  { "vendorPrice",    function(r) return money(r.vendorPrice) end },
+  { "vendorPriceRaw", function(r) return r.vendorPrice end },
   { "auctionPrice", function(r) return money(r.auctionPrice) end },
   { "auctionPriceRaw", function(r) return r.auctionPrice end },
   { "value",        function(r) return money(NS.Util.RecordValue(r)) end },

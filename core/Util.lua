@@ -73,7 +73,7 @@ function Util.RecordValue(record)
   if record == nil then return nil end
   local a = record.auctionPrice
   if a ~= nil then return a end
-  return record.sellPrice
+  return record.vendorPrice
 end
 
 -- Human-readable byte size: "820 B", "12.4 kB", "3.1 MB". Uses 1024 steps.

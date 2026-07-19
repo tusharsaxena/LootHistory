@@ -33,18 +33,18 @@ test("Export: CSV header order — ts,date,time first; renamed raw + human sibli
   local header = csv:match("^(.-)\r\n")
   assertEqual(header,
     "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound," ..
-    "sellPrice,sellPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource," ..
+    "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,priceSource," ..
     "itemType,itemSubType,quantity,source,zone,wowheadLink")
 end)
 
 test("Export: CSV auction/value columns — auction present and vendor fallback", function()
-  local withAuc = NS.Export:CSV({ { sellPrice = 10, auctionPrice = 500, priceSource = "tsm:dbmarket", quantity = 1 } })
+  local withAuc = NS.Export:CSV({ { vendorPrice = 10, auctionPrice = 500, priceSource = "tsm:dbmarket", quantity = 1 } })
   assertTrue(withAuc:find("0g 5s 0c", 1, true) ~= nil, "auction 500c formatted")
   assertTrue(withAuc:find("tsm:dbmarket", 1, true) ~= nil, "priceSource present")
   -- value falls back to vendor when no auction price
-  local noAuc = NS.Export:CSV({ { sellPrice = 10, quantity = 1 } })
+  local noAuc = NS.Export:CSV({ { vendorPrice = 10, quantity = 1 } })
   local dataLine = select(2, noAuc:match("^(.-)\r\n(.-)\r\n"))
-  assertTrue(dataLine:find(",10,", 1, true) ~= nil or dataLine:find("10$", 1) ~= nil, "valueRaw == sellPrice")
+  assertTrue(dataLine:find(",10,", 1, true) ~= nil or dataLine:find("10$", 1) ~= nil, "valueRaw == vendorPrice")
 end)
 
 test("Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence", function()
@@ -73,9 +73,9 @@ test("Export: CSV quality is human label beside numeric qualityRaw", function()
   assertTrue(row:find(",4,", 1, true) ~= nil, "numeric qualityRaw present")
 end)
 
-test("Export: CSV sellPrice is 'Ng Ns Nc' beside raw copper", function()
+test("Export: CSV vendorPrice is 'Ng Ns Nc' beside raw copper", function()
   -- 12g 34s 56c = 123456 copper.
-  local row = NS.Export:CSV({ { ts = 1, sellPrice = 123456, itemID = 1 } }):match("\r\n(.-)\r\n")
+  local row = NS.Export:CSV({ { ts = 1, vendorPrice = 123456, itemID = 1 } }):match("\r\n(.-)\r\n")
   assertTrue(row:find("12g 34s 56c", 1, true) ~= nil, "formatted money present")
   assertTrue(row:find(",123456,", 1, true) ~= nil, "raw copper present")
 end)
@@ -92,11 +92,11 @@ local function insightsStats()
   NS.db.global.blacklist = {}
   NS.db.global.history = {
     { ts = 1000, char = "A-Realm", itemID = 1, itemName = "Red, Potion",
-      quality = 4, source = "KILL",      mapID = 10, zone = "Zone A", sellPrice = 500, quantity = 1 },
+      quality = 4, source = "KILL",      mapID = 10, zone = "Zone A", vendorPrice = 500, quantity = 1 },
     { ts = 2000, char = "A-Realm", itemID = 2, itemName = "Blue Cloak",
-      quality = 2, source = "KILL",      mapID = 10, zone = "Zone A", sellPrice = 100, quantity = 2 },
+      quality = 2, source = "KILL",      mapID = 10, zone = "Zone A", vendorPrice = 100, quantity = 2 },
     { ts = 3000, char = "B-Realm", itemID = 3, itemName = "Green Ring",
-      quality = 3, source = "CONTAINER", mapID = 20, zone = "Zone B", sellPrice = 50,  quantity = 1 },
+      quality = 3, source = "CONTAINER", mapID = 20, zone = "Zone B", vendorPrice = 50,  quantity = 1 },
   }
   return NS.Database:Stats({})
 end

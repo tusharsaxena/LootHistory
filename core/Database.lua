@@ -25,6 +25,15 @@ function NS:RunMigrations()
     g.schemaVersion = 2
     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(1, 2, n)) end
   end
+  -- v2 -> v3: rename per-record sellPrice -> vendorPrice (non-destructive; value preserved).
+  if g.schemaVersion < 3 then
+    local n = 0
+    for _, r in ipairs(g.history or {}) do
+      if r.sellPrice ~= nil then r.vendorPrice = r.sellPrice; r.sellPrice = nil; n = n + 1 end
+    end
+    g.schemaVersion = 3
+    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(2, 3, n)) end
+  end
 end
 
 -- Pure migration summary for the [Migrate] line.
@@ -161,7 +170,7 @@ function Database:Export(filter)
     out[#out + 1] = {
       ts = r.ts, char = r.char, classFile = r.classFile, itemID = r.itemID, itemLink = r.itemLink,
       itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
-      sellPrice = r.sellPrice, auctionPrice = r.auctionPrice, priceSource = r.priceSource,
+      vendorPrice = r.vendorPrice, auctionPrice = r.auctionPrice, priceSource = r.priceSource,
       itemType = r.itemType, itemSubType = r.itemSubType,
       quantity = r.quantity,
       source = r.source or "OTHER", sourceDetail = r.sourceDetail,
@@ -173,7 +182,7 @@ end
 
 -- Aggregate the (optionally filtered) history in one O(n) pass. Returns count maps, value maps,
 -- per-character/type/bound/time breakdowns, pre-sorted top lists, and totals/highlights — the
--- struct all Insights widgets consume (see docs/browser.md). "Value" is the derived value: (auctionPrice or sellPrice) × quantity
+-- struct all Insights widgets consume (see docs/browser.md). "Value" is the derived value: (auctionPrice or vendorPrice) × quantity
 -- (captured at loot time). New fields are additive.
 function Database:Stats(filter)
   local records = self:Query(filter or {})

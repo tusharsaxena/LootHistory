@@ -286,8 +286,8 @@ end)
 test("Collector: BuildRecord carries auctionPrice + priceSource from env", function()
   local rec = NS.Collector:BuildRecord("[Link]", 2,
     { source = "KILL", confidence = "CERTAIN" },
-    { ts = 1, sellPrice = 10, auctionPrice = 500, priceSource = "tsm:dbmarket" })
+    { ts = 1, vendorPrice = 10, auctionPrice = 500, priceSource = "tsm:dbmarket" })
   assertEqual(rec.auctionPrice, 500)
   assertEqual(rec.priceSource, "tsm:dbmarket")
-  assertEqual(rec.sellPrice, 10)
+  assertEqual(rec.vendorPrice, 10)
 end)
