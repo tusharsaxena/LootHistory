@@ -577,41 +577,79 @@ end
 
 -- Rebuild `listGroup` from the current priority order. Each row:
 -- [status ✓/✗] [Addon source] [Data source] [▲] [▼] [☑ enabled] — arrows are textures, not glyphs.
+-- All 11 known tags render (ReconcilePriority guarantees them). Rows partition into two groups, each
+-- in priority-array order: COLLECTED (capture[tag]) first, then UNCOLLECTED at the bottom. Only the
+-- collected group has working arrows — they reorder WITHIN that group (swap with the neighbouring
+-- collected tag), since an uncollected source can never win regardless of rank.
 local function rebuildPriorityList(ctx, listGroup)
   listGroup:ReleaseChildren()
-  local priority = NS.AuctionPrice:GetPriority()
+  local priority = NS.AuctionPrice:ReconcilePriority()
   local capture = NS.db.global.settings.auction.capture or {}
-  for i, tag in ipairs(priority) do
-    local rowG = AceGUI:Create("SimpleGroup")
-    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
 
+  -- Partition, preserving priority-array order within each group.
+  local collected, uncollected = {}, {}
+  for _, tag in ipairs(priority) do
+    if capture[tag] then collected[#collected + 1] = tag
+    else uncollected[#uncollected + 1] = tag end
+  end
+
+  -- Shared cell builders keep the two row kinds column-aligned. `muted` greys the text labels.
+  local function addLabels(rowG, tag, statusTex, muted)
     local status = AceGUI:Create("Label"); status:SetRelativeWidth(0.06)
-    status:SetText(capture[tag] and ("|T" .. READY .. ":16|t") or ("|T" .. NOTREADY .. ":16|t"))
+    status:SetText("|T" .. statusTex .. ":16|t")
     rowG:AddChild(status)
 
-    local addon = AceGUI:Create("Label"); addon:SetRelativeWidth(0.34)
-    addon:SetText(providerNameOf(tag)); rowG:AddChild(addon)
-    local data = AceGUI:Create("Label"); data:SetRelativeWidth(0.30)
-    data:SetText(dataLabelOf(tag)); rowG:AddChild(data)
+    local addon = AceGUI:Create("Label"); addon:SetRelativeWidth(0.22)
+    local dataTxt = dataLabelOf(tag)
+    local addonTxt = providerNameOf(tag)
+    if muted then addonTxt = "|cff808080" .. addonTxt .. "|r"; dataTxt = "|cff808080" .. dataTxt .. "|r" end
+    addon:SetText(addonTxt); rowG:AddChild(addon)
+    local data = AceGUI:Create("Label"); data:SetRelativeWidth(0.42)
+    data:SetText(dataTxt); rowG:AddChild(data)
+  end
 
-    rowG:AddChild(iconButton(ARR_UP, 18, "Move up", "Rank this price higher.", (i > 1) and function()
-      NS.AuctionPrice:MovePriority(i, -1)
-      rebuildPriorityList(ctx, listGroup)
-      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-    end or nil, i == 1))
-    rowG:AddChild(iconButton(ARR_DN, 18, "Move down", "Rank this price lower.", (i < #priority) and function()
-      NS.AuctionPrice:MovePriority(i, 1)
-      rebuildPriorityList(ctx, listGroup)
-      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-    end or nil, i == #priority))
-
+  local function addEnableCheckbox(rowG, tag)
     local cb = AceGUI:Create("CheckBox"); cb:SetLabel(""); cb:SetRelativeWidth(0.08)
     cb:SetValue(NS.AuctionPrice:IsPriorityEnabled(tag))
     cb:SetCallback("OnValueChanged", function(_, _, v) NS.AuctionPrice:SetPriorityEnabled(tag, v) end)
     rowG:AddChild(cb)
+  end
 
+  -- Collected rows: working arrows swap this tag with its previous/next COLLECTED neighbour; the ▲
+  -- is disabled on the first collected row and the ▼ on the last (group ends).
+  for pos, tag in ipairs(collected) do
+    local rowG = AceGUI:Create("SimpleGroup")
+    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
+    addLabels(rowG, tag, READY, false)
+
+    local prevTag, nextTag = collected[pos - 1], collected[pos + 1]
+    rowG:AddChild(iconButton(ARR_UP, 18, "Move up", "Rank this price higher.", prevTag and function()
+      NS.AuctionPrice:SwapPriorityTags(tag, prevTag)
+      rebuildPriorityList(ctx, listGroup)
+      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+    end or nil, prevTag == nil))
+    rowG:AddChild(iconButton(ARR_DN, 18, "Move down", "Rank this price lower.", nextTag and function()
+      NS.AuctionPrice:SwapPriorityTags(tag, nextTag)
+      rebuildPriorityList(ctx, listGroup)
+      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+    end or nil, nextTag == nil))
+
+    addEnableCheckbox(rowG, tag)
     listGroup:AddChild(rowG)
   end
+
+  -- Uncollected rows sit at the bottom: muted labels, ✗ status, both arrows dimmed and inert (an
+  -- uncollected source can never win, so there is nothing to rank). The enable box shows but is moot.
+  for _, tag in ipairs(uncollected) do
+    local rowG = AceGUI:Create("SimpleGroup")
+    rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
+    addLabels(rowG, tag, NOTREADY, true)
+    rowG:AddChild(iconButton(ARR_UP, 18, "Move up", "Not collected \226\128\148 can't be ranked.", nil, true))
+    rowG:AddChild(iconButton(ARR_DN, 18, "Move down", "Not collected \226\128\148 can't be ranked.", nil, true))
+    addEnableCheckbox(rowG, tag)
+    listGroup:AddChild(rowG)
+  end
+
   if #priority == 0 then
     local empty = AceGUI:Create("Label")
     empty:SetFullWidth(true)
@@ -719,6 +757,22 @@ local function buildAuctionPriority(ctx)
   legend:SetFullWidth(true)
   legend:SetText("|T" .. READY .. ":16|t collected    |T" .. NOTREADY .. ":16|t not collected")
   scroll:AddChild(legend)
+  addSpacer(scroll, 6)   -- gap between the legend and the column headers below
+
+  -- Muted column headers, aligned to the row columns (status / Addon / Price data / arrows / On).
+  local headerRow = AceGUI:Create("SimpleGroup")
+  headerRow:SetLayout("Flow"); headerRow:SetFullWidth(true)
+  local function headerCell(text, rel)
+    local l = AceGUI:Create("Label"); l:SetRelativeWidth(rel)
+    l:SetText(text ~= "" and ("|cff808080" .. text .. "|r") or "")
+    headerRow:AddChild(l)
+  end
+  headerCell("", 0.06)          -- over the ✓/✗ status glyph
+  headerCell("Addon", 0.22)
+  headerCell("Price data", 0.42)
+  headerCell("Order", 0.14)     -- over the ▲/▼ move arrows
+  headerCell("On", 0.08)        -- over the enable checkbox
+  scroll:AddChild(headerRow)
   addSpacer(scroll, 6)
 
   local listGroup = AceGUI:Create("SimpleGroup")
