@@ -6,7 +6,7 @@
 [![Standard](https://img.shields.io/badge/Ka0s-WoW%20Addon%20Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
 ![Tests](https://img.shields.io/badge/Tests-245%2F245_passing-green)
 
-![alt text](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
+![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
 Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It quietly records every item you pick up and works out where each one came from — a kill, a chest, the mailbox, the auction house, and so on. Open its window any time to browse your full loot history, or switch to the **Insights** tab to see it broken down by source, value, quality, and more.
 
@@ -39,23 +39,23 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 ## Screenshots
 
-**_The History browser_**
+**_History browser_**
 
-![alt text](https://media.forgecdn.net/attachments/1804/899/loothistory-screenshot-01-png.png)
+![History browser](https://media.forgecdn.net/attachments/1804/899/loothistory-screenshot-01-png.png)
 
-![alt text](https://media.forgecdn.net/attachments/1804/900/loothistory-screenshot-02-png.png)
+![History browser](https://media.forgecdn.net/attachments/1804/900/loothistory-screenshot-02-png.png)
 
 **_Insights_**
 
-![alt text](https://media.forgecdn.net/attachments/1804/901/loothistory-screenshot-03-png.png)
+![Insights](https://media.forgecdn.net/attachments/1804/901/loothistory-screenshot-03-png.png)
 
-![alt text](https://media.forgecdn.net/attachments/1804/902/loothistory-screenshot-04-png.png)
+![Insights](https://media.forgecdn.net/attachments/1804/902/loothistory-screenshot-04-png.png)
 
-**_Settings panel_**
+**_Settings Panel_**
 
-![alt text](https://media.forgecdn.net/attachments/1804/903/loothistory-screenshot-05-png.png)
+![Settings Panel](https://media.forgecdn.net/attachments/1804/903/loothistory-screenshot-05-png.png)
 
-![alt text](https://media.forgecdn.net/attachments/1804/904/loothistory-screenshot-06-png.png)
+![Settings Panel](https://media.forgecdn.net/attachments/1804/904/loothistory-screenshot-06-png.png)
 
 ## Usage
 
@@ -65,27 +65,27 @@ The **Export** button follows the tab you're on: on **History** it copies your l
 
 ### Export to AI
 
-The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into **Claude** — Desktop, Code, or Web — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and an AI-written "What the data says" analysis. Copy the prompt (Ctrl+C), paste it into Claude, and it replies with the HTML file; you can then publish it as an Artifact to get a shareable link. 
+The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into **Claude** — Desktop, Code, or Web — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and a LLM-written analysis. Copy the prompt (Ctrl+C), paste it into Claude, and it replies with the HTML file; you can then publish it as an Artifact to get a shareable link. 
 
 Unlike Export to CSV, Export to AI always bundles **both** your History and Insights (one report shows everything), and it honours the **Data Set** choice — all data, or just your current filtered view. The **?** beside the button explains the steps in-game. Claude needs **web access enabled**: the prompt links to a design guide it reads to style the report.
 
-Right now Export to AI is built for Claude only — ChatGPT, Gemini, and other assistants need different handling and are planned for a later release.
+Example report: [link](https://claude.ai/public/artifacts/a6d520a4-e7b3-423e-8d7c-0035c52331a5)
 
-> Example report: [link](https://claude.ai/public/artifacts/a6d520a4-e7b3-423e-8d7c-0035c52331a5)
+> Right now Export to AI is built for _**Claude**_ only — ChatGPT, Gemini, and other LLMs need different handling and are planned for a later release.
 
 #### Screenshots
 
 **_Insights_**
 
-![alt text](https://media.forgecdn.net/attachments/1804/905/loothistory-screenshot-07-png.png)
+![Insights](https://media.forgecdn.net/attachments/1804/905/loothistory-screenshot-07-png.png)
 
 **_History Browser_**
 
-![alt text](https://media.forgecdn.net/attachments/1804/906/loothistory-screenshot-08-png.png)
+![History Browser](https://media.forgecdn.net/attachments/1804/906/loothistory-screenshot-08-png.png)
 
 **_LLM Insights_**
 
-![alt text](https://media.forgecdn.net/attachments/1804/907/loothistory-screenshot-09-png.png)
+![LLM Insights](https://media.forgecdn.net/attachments/1804/907/loothistory-screenshot-09-png.png)
 
 ### Slash commands
 
