@@ -399,9 +399,17 @@ are **independent**.
 - `/lh debug on`; loot something at/above threshold. `/lh debug off`.
 - Close the console window, `/lh debug on`, loot again, then `/lh debug` to reopen the window.
 - In the console: press **Copy**, then **Clear**; press **ESC**; toggle the header **Debug: ON/OFF**.
+- With logging on and the window full of lines: **drag the right-edge scrollbar** up and down, and
+  **mousewheel** over the log. Watch the **bottom-right line counter** (`N / 500 lines`) as new lines
+  arrive and after **Clear**.
 - `/reload`.
 
 **Pass.**
+- The right-edge **scrollbar** scrolls the log; dragging the thumb and the mousewheel stay in sync
+  (moving one moves the other's position). The thumb sits at the **bottom** when viewing the newest
+  line and at the **top** for the oldest. When every line fits, the track is still shown but inert.
+- The **bottom status bar** reads `N / 500 lines`, ticking up as lines are captured (capped at 500),
+  and resetting to `0 / 500 lines` after **Clear**.
 - Bare `/lh debug` toggles the console **window only** (logging flag untouched).
 - `/lh debug on` enables logging; loot emits a tagged `<ts> | [Loot] …` line (and gated drops emit
   `[Drop] …`). `/lh debug off` stops logging. Logging runs **even with the window closed** — reopening
