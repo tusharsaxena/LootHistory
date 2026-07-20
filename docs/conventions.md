@@ -152,6 +152,19 @@ the small-scale rules those documents assume.
   width is identical across every subcategory. More on the panel in
   [settings-panel.md](settings-panel.md).
 
+## Minimum-quality threshold: a non-monotonic Heirloom option (ratified exception)
+
+- **Ratified exception (2026-07-20).** The "Minimum quality" setting is a *monotonic floor* — the
+  collector records loot where `quality >= threshold` (`modules/Collector.lua`, `gateReason`), so a
+  clean ladder would run Poor(0) → Legendary(5) and stop. `C.QUALITY_OPTIONS`
+  (`core/Constants.lua`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
+  explicit request. Because Heirloom's item-quality id (7) sorts *above* Legendary(5) and
+  Artifact(6), selecting it floors capture at 7 — recording **only Heirlooms and WoW Tokens** and
+  gating out Epics/Legendaries. That is the intended, user-chosen behaviour, **not** a bug: do not
+  "correct" the ladder back to 0–5, and do not re-flag it as a standards deviation. Artifact(6) and
+  Token(8) remain omitted (no meaningful floor). Option labels colour only the quality name via the
+  same `ITEM_QUALITY_COLORS` tint the History Browser uses.
+
 ## Dev tooling — `tools/` (ratified Standard exception)
 
 The `tools/` directory holds **development-time helper scripts** (currently

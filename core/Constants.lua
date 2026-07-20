@@ -52,15 +52,30 @@ C.FONT_MONO = "Interface\\AddOns\\LootHistory\\media\\fonts\\JetBrainsMono-Regul
 -- Seconds a stamped loot context stays fresh before CHAT_MSG_LOOT falls back to OTHER.
 C.CONTEXT_TTL = 1.5
 
--- Minimum-quality options for the collector threshold (WoW item-quality ids).
-C.QUALITY_OPTIONS = {
-  { value = 0, label = "Poor (grey) and above" },
-  { value = 1, label = "Common (white) and above" },
-  { value = 2, label = "Uncommon (green) and above" },
-  { value = 3, label = "Rare (blue) and above" },
-  { value = 4, label = "Epic (purple) and above" },
-  { value = 5, label = "Legendary (orange) and above" },
+-- Minimum-quality options for the collector threshold (WoW item-quality ids). The gate is a
+-- monotonic "quality >= threshold" (Collector:gateReason). The ladder runs Poor(0)..Legendary(5),
+-- then Heirloom(7) appended by explicit user choice. NOTE Heirloom's id (7) sits ABOVE Legendary,
+-- so selecting it floors capture at 7 — i.e. only Heirlooms/Tokens, gating out Epics/Legendaries.
+-- This is intentional, not a bug: leave it (ratified exception, see docs/conventions.md).
+-- Artifact(6)/Token(8) stay omitted. Only the quality name is quality-coloured (the History
+-- Browser's ITEM_QUALITY_COLORS tint); " and above" stays default.
+-- rrggbb fallback for headless builds where ITEM_QUALITY_COLORS is absent (colour is cosmetic there).
+local QUALITY_HEX_FALLBACK = {
+  [0] = "9d9d9d", [1] = "ffffff", [2] = "1eff00", [3] = "0070dd", [4] = "a335ee",
+  [5] = "ff8000", [7] = "e6cc80",
 }
+local function qualityHex(q)
+  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+  if c and c.hex then return c.hex:sub(-6) end
+  return QUALITY_HEX_FALLBACK[q]
+end
+C.QUALITY_OPTIONS = {}
+for _, q in ipairs({ 0, 1, 2, 3, 4, 5, 7 }) do
+  C.QUALITY_OPTIONS[#C.QUALITY_OPTIONS + 1] = {
+    value = q,
+    label = ("|cff%s%s|r and above"):format(qualityHex(q), NS.Compat.QualityLabel(q)),
+  }
+end
 
 -- Retention presets; 0 means "Never" (cleanup disabled).
 C.RETENTION_OPTIONS = {
