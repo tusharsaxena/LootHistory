@@ -180,6 +180,57 @@ test("Attribution: DeconstructSource matches un-enumerated variants by localized
   NS.Compat.GetSpellName = orig
 end)
 
+-- The handler fires on every player cast, so a repeated spell (a combat rotation) must resolve
+-- from the per-spellID memo, not re-run GetSpellName + the name-family loop each time.
+test("Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell skips re-resolution", function()
+  resetContext()
+  local A = NS.Attribution
+  local orig = NS.Compat.GetSpellName
+  local calls = {}
+  local names = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
+                  [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate",
+                  [990300] = "Fireball" }   -- a non-deconstruct cast; seeds resolve, so its miss caches
+  NS.Compat.GetSpellName = function(id) calls[id] = (calls[id] or 0) + 1; return names[id] end
+
+  A:OnSpellSucceeded(nil, "player", "c", 990300)          -- first sight: resolves + caches the negative
+  assertEqual(A:Consume(), "OTHER")
+  local firstLookups = calls[990300]
+  assertTrue(firstLookups >= 1, "cast name is looked up on first sight")
+
+  resetContext()
+  A:OnSpellSucceeded(nil, "player", "c", 990300)          -- repeats must hit the cache...
+  A:OnSpellSucceeded(nil, "player", "c", 990300)
+  assertEqual(A:Consume(), "OTHER")
+  assertEqual(calls[990300], firstLookups, "memoized: no extra GetSpellName for a repeated spell")
+
+  NS.Compat.GetSpellName = orig
+end)
+
+-- A conclusive result is frozen: once a spellID resolved to a source, later name changes (or a
+-- transiently uncached name) can't flip it. Guards the memo against a false negative freezing in.
+test("Attribution: a memoized deconstruct source survives a later name change", function()
+  resetContext()
+  local A = NS.Attribution
+  local orig = NS.Compat.GetSpellName
+  local castName = "Mass Mill Arthran"                    -- matches the MILLING name family
+  NS.Compat.GetSpellName = function(id)
+    if id == 990400 then return castName end
+    local n = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
+                [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
+    return n[id]
+  end
+
+  A:OnSpellSucceeded(nil, "player", "c", 990400)          -- caches MILLING (name-family hit is conclusive)
+  assertEqual(A:Consume(), "MILLING")
+
+  castName = "Fireball"                                   -- would NOT match if re-resolved
+  resetContext()
+  A:OnSpellSucceeded(nil, "player", "c", 990400)
+  assertEqual(A:Consume(), "MILLING", "positive result is memoized, not recomputed")
+
+  NS.Compat.GetSpellName = orig
+end)
+
 test("Attribution: deconstruct's own loot window does not clobber its source", function()
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "c", 13262)  -- stamp DISENCHANT

@@ -12,14 +12,14 @@ LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branc
 
 A dash-split WoW GUID (`Creature-0-…-<npcID>-…`) carries the creature/npc id in **field 6**, but only for *unit* kinds. `Compat.UNIT_KINDS` is the single source of truth for which kinds those are — `Creature`, `Vehicle`, `Pet`, `Vignette` (`core/Compat.lua:120`). `Compat.DecodeGUID` splits the GUID, returns the leading `kind`, and pulls field 6 as `npcID` **only** when the kind is in that set; non-unit kinds return `nil` for the id (`:124-132`).
 
-The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:134-154`):
+The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:145-165`):
 
 - **unit kind** (`UNIT_KINDS`) → `KILL`, detail `{ npcID }` (plus encounter id/difficulty when an encounter is live).
 - **`GameObject`** → `MPLUS` when a keystone context is active, else `CONTAINER`.
 - **`Item`** → `CONTAINER` (a lootable Item-GUID, e.g. a disenchant/mill mat window).
 - anything else → `OTHER`.
 
-The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:19`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS (`modules/Attribution.lua:200-215`).
+The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:19`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS (`modules/Attribution.lua:211-226`).
 
 ## Warband / account-bound tooltip scanning (C_TooltipInfo)
 
@@ -47,8 +47,8 @@ Auction-House proceeds arrive as mail, and LH attributes them to `AH` rather tha
 - sender equals the `AUCTION_HOUSE` global, **or**
 - subject starts with the prefix of any of `AUCTION_WON_MAIL_SUBJECT`, `AUCTION_EXPIRED_MAIL_SUBJECT`, `AUCTION_REMOVED_MAIL_SUBJECT`, `AUCTION_INVOICE_MAIL_SUBJECT` (each global like `"Auction won: %s"` is trimmed at `%s` to `"Auction won: "` and prefix-matched).
 
-`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:80-86`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:265-274`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:33-37`), unlike CRAFT/ROLL which are enum'd but not yet wired.
+`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:80-86`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:291-300`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:33-37`), unlike CRAFT/ROLL which are enum'd but not yet wired.
 
 ## C_Spell moved the spell-name lookup
 
-Attribution detects deconstruct casts (Disenchant / Milling / Prospecting), and Retail relocated the spell-name lookup to `C_Spell`. `Compat.GetSpellName` prefers `C_Spell.GetSpellName(spellID)` and falls back to the legacy `GetSpellInfo` when present (`core/Compat.lua:72-77`). `Attribution:DeconstructSource` resolves by **spell id first** — the locale-independent `DECONSTRUCT_ID` table — then, for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants, falls back to a **localized name-family** match: the cast's *localized* name is compared against reference tokens derived at match time from seed spellIDs via `GetSpellName` (`NAME_SEEDS`), so the check follows the client locale and never compares against a hardcoded English literal (`modules/Attribution.lua:32-84`). This is locale-independent on every client (Ka0s Standard localization-§4 / anti-pattern #37), not enUS-only.
+Attribution detects deconstruct casts (Disenchant / Milling / Prospecting), and Retail relocated the spell-name lookup to `C_Spell`. `Compat.GetSpellName` prefers `C_Spell.GetSpellName(spellID)` and falls back to the legacy `GetSpellInfo` when present (`core/Compat.lua:72-77`). `Attribution:DeconstructSource` resolves by **spell id first** — the locale-independent `DECONSTRUCT_ID` table — then, for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants, falls back to a **localized name-family** match: the cast's *localized* name is compared against reference tokens derived at match time from seed spellIDs via `GetSpellName` (`NAME_SEEDS`), so the check follows the client locale and never compares against a hardcoded English literal (`modules/Attribution.lua:32-97`). This is locale-independent on every client (Ka0s Standard localization-§4 / anti-pattern #37), not enUS-only.

@@ -47,7 +47,7 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
 | `itemID` | Numeric item id. Denormalized from the link for fast filter/sort/group without parsing links or hitting an uncached `GetItemInfo`. |
 | `itemLink` | **Canonical.** Reconstructs the *exact* tooltip (upgrade track, bonus IDs, crafted stats) via `SetHyperlink`; never re-derivable from `itemID` alone. |
 | `itemName` | Denormalized name — backs text search and display without a cache lookup. |
-| `quality` | Numeric `Enum.ItemQuality` (0 Poor … 5 Legendary). Denormalized for fast filter/sort and the quality breakdown. |
+| `quality` | Numeric `Enum.ItemQuality` (0 Poor … 5 Legendary; Heirloom/Artifact also occur and show up in the filters and Insights). Denormalized for fast filter/sort and the quality breakdown. |
 | `itemLevel` | Effective item level for equippable items; `nil` otherwise. |
 | `bound` | Bind state: `nil` \| `"BOE"` \| `"BOP"` \| `"ACCOUNT"` \| `"WARBAND"`. |
 | `vendorPrice` | Vendor sell price in **copper, per unit** (captured at loot time — not market price). Renamed from `sellPrice` by the v2→v3 migration (see below). Half of the "value" comparison — see `Util.RecordValue` below. |

@@ -70,17 +70,28 @@ end
 
 -- Map a completed player cast to a deconstruct source, or nil. Id match first (locale-independent),
 -- then the localized name-family match for un-enumerated variants. Testable without events.
+--
+-- Second return `conclusive`: whether this answer is stable enough for OnSpellSucceeded to memoize.
+-- An id match or a name-family hit is always conclusive. A *negative* is conclusive only when the
+-- cast had a name AND every seed name resolved this call — otherwise the miss may just be a
+-- not-yet-cached seed/cast name, so the caller must retry rather than freeze it.
 function Attribution:DeconstructSource(spellID, name)
   local byId = DECONSTRUCT_ID[spellID]
-  if byId then return byId end
+  if byId then return byId, true end
   if name and name ~= "" then
     local cast = name:lower()
+    local allSeedsResolved = true
     for _, seed in ipairs(NAME_SEEDS) do
       local tok = seedToken(seed)
-      if tok and cast:find(tok, 1, true) then return seed.source end
+      if tok then
+        if cast:find(tok, 1, true) then return seed.source, true end
+      else
+        allSeedsResolved = false
+      end
     end
+    return nil, allSeedsResolved
   end
-  return nil
+  return nil, false
 end
 
 -- Compact one-line summary of a sourceDetail table, for the debug trace. Only called inside a
@@ -239,17 +250,32 @@ end
 
 -- Deconstruct abilities turn an item into materials that arrive right when the cast SUCCEEDS (so the
 -- stamp is fresh within TTL). Each maps to its OWN source via DeconstructSource (name family + id
--- fallback). Every player cast is logged at debug (spell id + name) to spot any missed variant.
+-- fallback). This fires on EVERY player cast, so it must stay cheap: the (spellID -> source) mapping
+-- is immutable for a session, so we memoize per spellID and the steady-state cost is one table
+-- lookup — no GetSpellName call, no name-family loop, no allocation on a repeated cast (e.g. a combat
+-- rotation). Only conclusive results are cached (see DeconstructSource): a positive always, a
+-- negative only once the seed names have resolved, so a not-yet-cached name can't freeze a wrong miss.
+-- Debug logs ONLY the deconstruct hits (not the non-deconstruct majority) — no per-cast spam.
 function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
   if unit ~= "player" then return end
-  local name = NS.Compat.GetSpellName(spellID)
-  local src = self:DeconstructSource(spellID, name)
-  if NS.State.debug and NS.Debug then
-    NS.Debug("Cast", "player spell=%s name=%s deconstruct=%s",
-      tostring(spellID), tostring(name), tostring(src or false))
+  local cache = self._deconCache
+  if not cache then cache = {}; self._deconCache = cache end
+  local memo = cache[spellID]
+  local src
+  if memo ~= nil then
+    src = memo or nil                          -- false sentinel = "known non-deconstruct"
+  else
+    local name = NS.Compat.GetSpellName(spellID)
+    local resolved, conclusive = self:DeconstructSource(spellID, name)
+    src = resolved
+    if conclusive then cache[spellID] = resolved or false end
   end
   if src then
     self:Stamp(Constants.SourceType[src], nil, Constants.Confidence.CERTAIN, "deconstruct:" .. src)
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Cast", "player spell=%s name=%s -> %s",
+        tostring(spellID), tostring(NS.Compat.GetSpellName(spellID)), src)
+    end
   end
 end
 
