@@ -194,10 +194,14 @@ function Database:Stats(filter)
   local firstTs, lastTs
   local totalValue, totalQuantity, epicPlus = 0, 0, 0
   local bestDrop, richestDrop
+  local byCurrency, currencySourceMatrix, currencyByChar, currencyByDay = {}, {}, {}, {}
+  local currencyDistinct, currencyEvents = 0, 0
+  local biggestHaul
 
   for _, r in ipairs(records) do
     local qty = r.quantity or 1
     local value = (NS.Util.RecordValue(r) or 0) * qty
+    local isCurrency = r.currencyID ~= nil
     totalValue = totalValue + value
     totalQuantity = totalQuantity + qty
 
@@ -205,9 +209,11 @@ function Database:Stats(filter)
     bySource[src] = (bySource[src] or 0) + 1
     valueBySource[src] = (valueBySource[src] or 0) + value
 
-    local q = r.quality or 0
-    byQuality[q] = (byQuality[q] or 0) + 1
-    if q >= 4 then epicPlus = epicPlus + 1 end
+    if not isCurrency then
+      local q = r.quality or 0
+      byQuality[q] = (byQuality[q] or 0) + 1
+      if q >= 4 then epicPlus = epicPlus + 1 end
+    end
 
     if r.ts then
       local day = date("%Y-%m-%d", r.ts)
@@ -224,11 +230,15 @@ function Database:Stats(filter)
     byZone[zone] = (byZone[zone] or 0) + 1
     valueByZone[zone] = (valueByZone[zone] or 0) + value
 
-    local ty = r.itemType
-    if ty and ty ~= "" then byType[ty] = (byType[ty] or 0) + 1 end
+    if not isCurrency then
+      local ty = r.itemType
+      if ty and ty ~= "" then byType[ty] = (byType[ty] or 0) + 1 end
+    end
 
-    local bk = r.bound or "UNBOUND"
-    byBound[bk] = (byBound[bk] or 0) + 1
+    if not isCurrency then
+      local bk = r.bound or "UNBOUND"
+      byBound[bk] = (byBound[bk] or 0) + 1
+    end
 
     local conf = r.confidence or "INFERRED"
     byConfidence[conf] = (byConfidence[conf] or 0) + 1
@@ -236,16 +246,18 @@ function Database:Stats(filter)
     local kl = r.sourceDetail and r.sourceDetail.keystoneLevel
     if kl then byKeystone[kl] = (byKeystone[kl] or 0) + 1 end
 
-    local id = r.itemID
-    if id ~= nil then
-      local e = byItem[id]
-      if e then
-        e.count = e.count + 1
-        e.value = e.value + value
-      else
-        byItem[id] = { itemID = id, itemName = r.itemName, quality = r.quality,
-                       count = 1, value = value }
-        distinctItems = distinctItems + 1
+    if not isCurrency then
+      local id = r.itemID
+      if id ~= nil then
+        local e = byItem[id]
+        if e then
+          e.count = e.count + 1
+          e.value = e.value + value
+        else
+          byItem[id] = { itemID = id, itemName = r.itemName, quality = r.quality,
+                         count = 1, value = value }
+          distinctItems = distinctItems + 1
+        end
       end
     end
 
@@ -261,14 +273,42 @@ function Database:Stats(filter)
       end
     end
 
-    -- Highlights: best gear (max itemLevel, ties → higher quality) + richest single drop.
-    local ilvl = r.itemLevel or 0
-    if ilvl > 0 and (not bestDrop or ilvl > bestDrop.itemLevel
-        or (ilvl == bestDrop.itemLevel and (r.quality or 0) > (bestDrop.quality or 0))) then
-      bestDrop = { itemName = r.itemName, quality = r.quality, itemLevel = ilvl, itemLink = r.itemLink }
+    if isCurrency then
+      currencyEvents = currencyEvents + 1
+      local cname = r.itemName or ("currency " .. tostring(r.currencyID))
+      if byCurrency[cname] == nil then currencyDistinct = currencyDistinct + 1 end
+      byCurrency[cname] = (byCurrency[cname] or 0) + qty
+
+      local m = currencySourceMatrix[cname]
+      if not m then m = {}; currencySourceMatrix[cname] = m end
+      m[src] = (m[src] or 0) + qty
+
+      if r.char then
+        local cc = currencyByChar[r.char]
+        if cc then cc.quantity = cc.quantity + qty
+        else currencyByChar[r.char] = { char = r.char, classFile = r.classFile, quantity = qty } end
+      end
+
+      if r.ts then
+        local cday = date("%Y-%m-%d", r.ts)
+        currencyByDay[cday] = (currencyByDay[cday] or 0) + qty
+      end
+
+      if not biggestHaul or qty > biggestHaul.quantity then
+        biggestHaul = { name = cname, quantity = qty }
+      end
     end
-    if value > 0 and (not richestDrop or value > richestDrop.value) then
-      richestDrop = { itemName = r.itemName, quality = r.quality, value = value, itemLink = r.itemLink }
+
+    if not isCurrency then
+      -- Highlights: best gear (max itemLevel, ties → higher quality) + richest single drop.
+      local ilvl = r.itemLevel or 0
+      if ilvl > 0 and (not bestDrop or ilvl > bestDrop.itemLevel
+          or (ilvl == bestDrop.itemLevel and (r.quality or 0) > (bestDrop.quality or 0))) then
+        bestDrop = { itemName = r.itemName, quality = r.quality, itemLevel = ilvl, itemLink = r.itemLink }
+      end
+      if value > 0 and (not richestDrop or value > richestDrop.value) then
+        richestDrop = { itemName = r.itemName, quality = r.quality, value = value, itemLink = r.itemLink }
+      end
     end
   end
 
@@ -311,6 +351,9 @@ function Database:Stats(filter)
     valueBySource = valueBySource, valueByDay = valueByDay, valueByZone = valueByZone,
     byChar = byChar, byType = byType, byBound = byBound,
     byHour = byHour, byWeekday = byWeekday, byKeystone = byKeystone, byConfidence = byConfidence,
+    byCurrency = byCurrency, currencySourceMatrix = currencySourceMatrix,
+    currencyByChar = currencyByChar, currencyByDay = currencyByDay,
+    currencyTotals = { distinct = currencyDistinct, events = currencyEvents, biggestHaul = biggestHaul },
     totals = {
       records = #records, distinctItems = distinctItems, distinctChars = distinctChars,
       firstTs = firstTs, lastTs = lastTs,

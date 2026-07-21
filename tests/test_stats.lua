@@ -177,3 +177,46 @@ test("Stats: value uses auctionPrice when present, else vendorPrice", function()
   assertEqual(s.valueBySource.KILL, 250)
   assertEqual(s.totals.richestDrop.value, 200)   -- the auction-priced stack
 end)
+
+test("Stats: currency enriches activity charts but not item charts", function()
+  local recs = {
+    { ts = 1000, char = "A-R", classFile = "MAGE", source = "KILL", confidence = "CERTAIN",
+      itemID = 111, itemName = "Sword", quality = 4, itemLevel = 500, itemType = "Weapon",
+      itemSubType = "Sword", bound = "BOP", quantity = 1, zone = "Z1" },
+    { ts = 1000, char = "A-R", classFile = "MAGE", source = "MPLUS", confidence = "CERTAIN",
+      currencyID = 3008, itemName = "Valorstones", itemType = "Currency",
+      itemSubType = "The War Within", quantity = 40, zone = "Z1" },
+    { ts = 1000, char = "B-R", classFile = "ROGUE", source = "QUEST", confidence = "CERTAIN",
+      currencyID = 3008, itemName = "Valorstones", itemType = "Currency", quantity = 10, zone = "Z1" },
+    { ts = 1000, char = "A-R", classFile = "MAGE", source = "MPLUS", confidence = "CERTAIN",
+      currencyID = 2914, itemName = "Crest", itemType = "Currency", quantity = 3, zone = "Z1" },
+  }
+  NS.State.testRecords = recs
+  local s = NS.Database:Stats({})
+  NS.State.testRecords = nil
+
+  -- Item-centric aggregates ignore currency:
+  assertEqual(s.totals.distinctItems, 1)            -- only the Sword
+  assertEqual(s.byQuality[4], 1)                    -- currency (nil quality) not bucketed as 0
+  assertTrue(s.byQuality[0] == nil)
+  assertTrue(s.byType["Currency"] == nil)           -- currency kept out of the item-type chart
+  assertTrue(s.byType["Weapon"] == 1)
+  assertEqual(s.totals.epicPlus, 1)
+
+  -- Activity charts include currency records (4 records total across 3 sources):
+  assertEqual(s.totals.records, 4)
+  assertEqual(s.bySource["MPLUS"], 2)               -- two currency records from M+
+  assertEqual(s.bySource["QUEST"], 1)
+
+  -- Currency aggregates:
+  assertEqual(s.byCurrency["Valorstones"], 50)      -- 40 + 10
+  assertEqual(s.byCurrency["Crest"], 3)
+  assertEqual(s.currencySourceMatrix["Valorstones"]["MPLUS"], 40)
+  assertEqual(s.currencySourceMatrix["Valorstones"]["QUEST"], 10)
+  assertEqual(s.currencyByChar["A-R"].quantity, 43) -- 40 + 3
+  assertEqual(s.currencyByDay[os.date("%Y-%m-%d", 1000)], 53)
+  assertEqual(s.currencyTotals.distinct, 2)
+  assertEqual(s.currencyTotals.events, 3)
+  assertEqual(s.currencyTotals.biggestHaul.name, "Valorstones")
+  assertEqual(s.currencyTotals.biggestHaul.quantity, 40)
+end)
