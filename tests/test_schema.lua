@@ -78,3 +78,15 @@ test("Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows 
   assertTrue(NS2.Schema:FindRow("settings.auction.oribos") == nil, "oribos row should be removed")
   assertTrue(NS2.Schema:FindRow("settings.auction.priorityOribos") == nil, "priorityOribos row should be removed")
 end)
+
+test("Schema: recordCurrency row exists, defaults true, settable", function()
+  assertEqual(NS.Schema:Default("settings.recordCurrency"), true)
+  assertEqual(NS.defaults.global.settings.recordCurrency, true)
+  assertTrue(NS.Schema:Set("settings.recordCurrency", false))
+  assertEqual(NS.Schema:Get("settings.recordCurrency"), false)
+  NS.Schema:Set("settings.recordCurrency", true)   -- restore default
+end)
+
+test("Constants: CURRENCY_TYPE is \"Currency\"", function()
+  assertEqual(NS.Constants.CURRENCY_TYPE, "Currency")
+end)

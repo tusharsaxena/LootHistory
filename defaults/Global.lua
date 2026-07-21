@@ -20,6 +20,7 @@ NS.defaults.global = {
     enabled          = true,
     qualityThreshold = 1,      -- Common (white) and above
     excludeQuestItems = true,  -- on by default (opt-out): drop Quest-class items at capture
+    recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
     excludedSources  = {},     -- set of muted SourceType keys
     retentionDays    = 30,     -- 0 == keep Always
     windowScale      = 1.0,

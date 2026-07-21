@@ -47,6 +47,10 @@ C.Confidence = { CERTAIN = "CERTAIN", INFERRED = "INFERRED" }
 -- collector's optional quest-item filter gates on this, never the localized itemType string.
 C.ITEMCLASS_QUEST = 12
 
+-- The itemType string used for currency records (they reuse the item Type/SubType columns). Real
+-- items never carry this GetItemInfo type, so it doubles as a display label and a Type-filter value.
+C.CURRENCY_TYPE = "Currency"
+
 -- Vendored monospace font (JetBrains Mono, OFL) used by the debug console and copy boxes. Path is
 -- the in-game addon-relative form; the file lives at media/fonts/ in the repo. This is a ratified
 -- exception to the Blizzard-default-only media rule — WoW ships no monospace font object. See the

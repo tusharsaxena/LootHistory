@@ -60,6 +60,14 @@ S.Schema = {
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
     end },
 
+  { path = "settings.recordCurrency", default = true, type = "boolean", widget = "CheckBox",
+    group = "Data Collection", label = "Record currency",
+    tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
+      "Obeys the per-source mute list; ignores the minimum-quality filter.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "currency") end
+    end },
+
   { path = "settings.retentionDays", default = 30, type = "number", widget = "Dropdown",
     group = "Data Collection", label = "Keep history for", options = C.RETENTION_OPTIONS,
     tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
