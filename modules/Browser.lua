@@ -572,8 +572,9 @@ local function zoneOptions()
 end
 -- Distinct qualities present in the dataset, in quality order (Poor → … → Heirloom), each tinted
 -- its quality colour. Data-driven (not a fixed 1–5 list) so Heirloom/Poor/Artifact appear whenever
--- the history contains them — matching the Insights "Quality distribution". Quality filters an
--- EXACT quality (not "that and above"). "all" (kept first) is the no-filter sentinel.
+-- the history contains them. NB currency rows carry a quality too, so their tiers appear here as
+-- well — unlike the Insights "Quality distribution", which stays item-only (excludes currency).
+-- Quality filters an EXACT quality (not "that and above"). "all" (kept first) is the no-filter sentinel.
 local function qualityOptions()
   local seen, items = {}, {}
   for _, r in ipairs(dataset()) do
