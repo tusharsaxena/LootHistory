@@ -14,6 +14,7 @@ read_globals = {
   "GameFontHighlightSmall", "GetCoinTextureString", "BreakUpLargeNumbers",
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
+  "C_CurrencyInfo",
   "C_Container", "UseContainerItem", "C_Spell", "GetSpellInfo",
   "C_AddOns", "GetAddOnMetadata",
   "Auctionator", "TSM_API", "OEMarketInfo",   -- third-party AH-pricing addon globals (presence-gated)

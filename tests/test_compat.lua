@@ -82,3 +82,22 @@ test("Compat: GetItemInfo surfaces the item class id", function()
   assertEqual(classID, 12)
   T.mocks.__itemClassID = 0   -- restore default
 end)
+
+test("Compat: CurrencyLinkID parses the id from a currency link", function()
+  assertEqual(NS.Compat.CurrencyLinkID("|cffffffff|Hcurrency:3008::|h[Valorstones]|h|r"), 3008)
+  assertEqual(NS.Compat.CurrencyLinkID("|Hitem:12345::|h[Nope]|h"), nil)
+  assertEqual(NS.Compat.CurrencyLinkID(nil), nil)
+end)
+
+test("Compat: GetCurrencyInfoFromLink returns id, name, icon", function()
+  local id, name, icon = NS.Compat.GetCurrencyInfoFromLink("|Hcurrency:3008::|h[Valorstones]|h")
+  assertEqual(id, 3008)
+  assertEqual(name, "Valorstones")
+  assertEqual(icon, 100000 + 3008)
+end)
+
+test("Compat: CurrencyCategory resolves a currency to its list header", function()
+  assertEqual(NS.Compat.CurrencyCategory(3008), "The War Within")
+  assertEqual(NS.Compat.CurrencyCategory(2914), "The War Within")
+  assertEqual(NS.Compat.CurrencyCategory(999999), nil)   -- unknown id -> nil
+end)

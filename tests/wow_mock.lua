@@ -49,6 +49,30 @@ return function()
   }
   M.GetLootSourceInfo = function() return nil end
 
+  -- Currency API mock. GetCurrencyListSize / GetCurrencyListInfo / GetCurrencyListLink model a tiny
+  -- currency window: one expansion header ("The War Within") then two currencies under it, so the
+  -- category resolver has headers to walk. GetCurrencyInfoFromLink returns name + icon by id.
+  M.__currencyNames = { [3008] = "Valorstones", [2914] = "Weathered Harbinger Crest" }
+  M.C_CurrencyInfo = {
+    GetCurrencyListSize = function() return 3 end,
+    GetCurrencyListInfo = function(i)
+      if i == 1 then return { name = "The War Within", isHeader = true } end
+      if i == 2 then return { name = M.__currencyNames[3008], isHeader = false } end
+      if i == 3 then return { name = M.__currencyNames[2914], isHeader = false } end
+      return nil
+    end,
+    GetCurrencyListLink = function(i)
+      if i == 2 then return "|Hcurrency:3008::|h[Valorstones]|h" end
+      if i == 3 then return "|Hcurrency:2914::|h[Weathered Harbinger Crest]|h" end
+      return nil
+    end,
+    GetCurrencyInfoFromLink = function(link)
+      local id = tonumber(link and link:match("|?H?currency:(%d+)"))
+      if not id then return nil end
+      return { name = M.__currencyNames[id], iconFileID = 100000 + id }
+    end,
+  }
+
   -- strings
   M.LOOT_ITEM_SELF = "You receive loot: %s."
   M.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."

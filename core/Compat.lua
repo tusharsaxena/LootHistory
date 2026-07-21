@@ -274,6 +274,58 @@ function Compat.GetItemExtras(link)
   return ilvl, bound, sellPrice, itemType, itemSubType
 end
 
+-- Currency id parsed from a |Hcurrency:ID:...|h link. Locale-independent; nil when absent.
+function Compat.CurrencyLinkID(link)
+  if not link then return nil end
+  return tonumber(link:match("|?H?currency:(%d+)"))
+end
+
+-- Resolve a currency link to id, name, iconFileID. Id + name come from the link itself (so this
+-- works headlessly / before the client caches the currency); C_CurrencyInfo enriches name + icon
+-- when present. icon is nil when the API is absent.
+function Compat.GetCurrencyInfoFromLink(link)
+  local id = Compat.CurrencyLinkID(link)
+  local name = link and link:match("%[(.-)%]")
+  local icon
+  if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfoFromLink then
+    local info = C_CurrencyInfo.GetCurrencyInfoFromLink(link)
+    if info then
+      name = info.name or name
+      icon = info.iconFileID
+    end
+  end
+  return id, name, icon
+end
+
+-- currencyID -> category (the currency window's expansion/type header, e.g. "The War Within").
+-- Built once by walking the currency list and tracking the most recent header, then cached for the
+-- session. nil when the API is absent or the id isn't in the list. Cheap after the first call.
+local currencyCategoryCache
+local function buildCurrencyCategoryCache()
+  currencyCategoryCache = {}
+  local api = C_CurrencyInfo
+  if not (api and api.GetCurrencyListSize and api.GetCurrencyListInfo and api.GetCurrencyListLink) then
+    return
+  end
+  local header
+  for i = 1, (api.GetCurrencyListSize() or 0) do
+    local info = api.GetCurrencyListInfo(i)
+    if info then
+      if info.isHeader then
+        header = info.name
+      else
+        local id = Compat.CurrencyLinkID(api.GetCurrencyListLink(i))
+        if id and header then currencyCategoryCache[id] = header end
+      end
+    end
+  end
+end
+function Compat.CurrencyCategory(currencyID)
+  if not currencyID then return nil end
+  if not currencyCategoryCache then buildCurrencyCategoryCache() end
+  return currencyCategoryCache[currencyID]
+end
+
 -- Addon TOC metadata field (e.g. "Version"), read from the packaged manifest so `/lh version`
 -- can't drift from the TOC. Retail moved the getter to C_AddOns; falls back to the bare global,
 -- then nil when neither is present.
