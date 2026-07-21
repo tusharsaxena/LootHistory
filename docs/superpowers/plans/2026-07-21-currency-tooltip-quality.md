@@ -20,7 +20,7 @@
 
 ---
 
-### Task Q1: Store currency quality at capture + v3→v4 backfill migration
+### Task 1: Store currency quality at capture + v3→v4 backfill migration
 
 **Files:**
 - Modify: `tests/wow_mock.lua` (add `quality` to the `C_CurrencyInfo.GetCurrencyInfo` mock)
@@ -156,7 +156,7 @@ git commit -m "feat(currency): store quality at capture + v3->v4 backfill migrat
 
 ---
 
-### Task Q2: Currency tooltip on row hover
+### Task 2: Currency tooltip on row hover
 
 **Files:**
 - Modify: `modules/BrowserTable.lua` (row `OnEnter`)
@@ -208,7 +208,7 @@ git commit -m "feat(currency): in-game currency tooltip on History row hover"
 
 ---
 
-### Task Q3: Docs, smoke, badge
+### Task 3: Docs, smoke, badge
 
 **Files:** `docs/data-model.md`, `docs/scope.md`, `docs/smoke-tests.md`, `docs/superpowers/specs/2026-07-21-currency-capture-design.md`, `docs/test-cases.md`, `README.md`.
 
@@ -239,7 +239,7 @@ git commit -m "docs(currency): quality colour + tooltip + backfill migration; sm
 
 ## Self-Review
 
-- **Coverage:** quality store+migration (Q1), tooltip (Q2), docs/badge (Q3) — matches the approved design (store-at-capture + one-time migration backfill; tooltip via SetCurrencyByID). ✓
-- **Breaking-test callouts:** Q1 explicitly updates the two existing assertions that storing quality / bumping schemaVersion invalidates (`test_collector` currency `quality`, `test_util` `schemaVersion`), and reminds the implementer to grep for others. ✓
+- **Coverage:** quality store+migration (Task 1), tooltip (Task 2), docs/badge (Task 3) — matches the approved design (store-at-capture + one-time migration backfill; tooltip via SetCurrencyByID). ✓
+- **Breaking-test callouts:** Task 1 explicitly updates the two existing assertions that storing quality / bumping schemaVersion invalidates (`test_collector` currency `quality`, `test_util` `schemaVersion`), and reminds the implementer to grep for others. ✓
 - **Placeholder scan:** none. ✓
-- **Type consistency:** `CurrencyQuality(currencyID) -> number|nil`, `record.quality`, `schemaVersion == 4` used consistently across Q1→Q3. ✓
+- **Type consistency:** `CurrencyQuality(currencyID) -> number|nil`, `record.quality`, `schemaVersion == 4` used consistently across Tasks 1-3. ✓
