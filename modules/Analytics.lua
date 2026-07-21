@@ -371,6 +371,10 @@ function Analytics:BuildCharts(content)
     weekday = sectionHeader(content, "Loot by weekday"),
     keystone = sectionHeader(content, "Mythic+ loot by keystone level"),
     conf    = sectionHeader(content, "Attribution confidence"),
+    currencyTitle = sectionHeader(content, "Currency"),
+    currencySrc   = sectionHeader(content, "Currency by source"),
+    currencyChar  = sectionHeader(content, "Currency by character"),
+    currencyTime  = sectionHeader(content, "Currency over time (per day)"),
   }
   self.dayStrip   = CreateFrame("Frame", nil, content)
   self.valueStrip = CreateFrame("Frame", nil, content)
@@ -378,6 +382,8 @@ function Analytics:BuildCharts(content)
   self.zonePanel  = listPanel(content, "Top zones")
   self.itemPanel  = listPanel(content, "Top items by count")
   self.itemValuePanel = listPanel(content, "Top items by value")
+  self.currencyPanel = listPanel(content, "Currency collected")
+  self.currencyStrip = CreateFrame("Frame", nil, content)
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   self.emptyText:SetText("No loot in this range.")
   self.emptyText:Hide()
@@ -390,6 +396,8 @@ function Analytics:BuildCharts(content)
     weekday = { free = {}, active = {} }, keystone = { free = {}, active = {} },
     conf   = { free = {}, active = {} }, zone    = { free = {}, active = {} },
     item   = { free = {}, active = {} }, itemval = { free = {}, active = {} },
+    curlist = { free = {}, active = {} }, cursrc = { free = {}, active = {} },
+    curchar = { free = {}, active = {} }, curday = { free = {}, active = {} },
   }
 
   -- Live-update while the Insights tab is visible (new loot / deletes / prune).
@@ -430,6 +438,25 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad)
     bar.value:SetText(row.value)
     bar.value:SetTextColor(0.8, 0.8, 0.82)
     positionBar(bar, self.content, pad, y, innerW, row.frac)
+    y = y - (BAR_H + BAR_GAP)
+  end
+  return y - SECTION_GAP
+end
+
+-- Render a section where each row is a horizontal STACKED bar (one per currency). rows: ordered
+--   { label, value (string), segments = { {frac (0..1 of the track), color = {r,g,b}}, ... } }.
+-- `frac`s are already max-relative (the caller divides by the largest currency total), so the
+-- longest bar fills the track and each segment is that source's share of the track. Empty → skipped.
+function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
+  if #rows == 0 then header:Hide(); return y end
+  header:ClearAllPoints(); header:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); header:Show()
+  y = y - 18
+  local innerW = w - pad * 2
+  for _, row in ipairs(rows) do
+    local bar = acquire(pool, function() return makeStackedBar(self.content) end)
+    bar.label:SetText(row.label); bar.label:SetTextColor(0.9, 0.9, 0.9)
+    bar.value:SetText(row.value); bar.value:SetTextColor(0.8, 0.8, 0.82)
+    positionStacked(bar, self.content, pad, y, innerW, row.segments)
     y = y - (BAR_H + BAR_GAP)
   end
   return y - SECTION_GAP
@@ -510,6 +537,7 @@ function Analytics:HideAllCharts()
   for _, h in pairs(self.headers) do h:Hide() end
   self.dayStrip:Hide(); self.valueStrip:Hide(); self.hourStrip:Hide()
   self.zonePanel:Hide(); self.itemPanel:Hide(); self.itemValuePanel:Hide()
+  self.currencyPanel:Hide(); self.currencyStrip:Hide()
 end
 
 -- Build the firstTs..lastTs day-key list (gaps included), capped to MAX_DAY_BARS most recent.
@@ -548,7 +576,8 @@ end
 function Analytics:LayoutCharts(y, w, pad)
   local stats, P = self.stats, self.pool
   for _, name in ipairs({ "source", "vsource", "quality", "qmix", "itype", "bound", "char",
-                          "day", "vday", "hour", "weekday", "keystone", "conf", "zone", "item", "itemval" }) do
+                          "day", "vday", "hour", "weekday", "keystone", "conf", "zone", "item", "itemval",
+                          "curlist", "cursrc", "curchar", "curday" }) do
     releaseAll(P[name])
   end
 
@@ -711,6 +740,71 @@ function Analytics:LayoutCharts(y, w, pad)
       frac = e.c / total, value = string.format("%d  %d%%", e.c, math.floor(e.c / total * 100 + 0.5)) }
   end
   y = self:renderBarSection(P.conf, H.conf, rows, y, w, pad)
+
+  -- ── Currency ──────────────────────────────────────────────────────────────────
+  local ct = stats.currencyTotals or { distinct = 0, events = 0 }
+  if ct.events and ct.events > 0 then
+    -- Block title carries the highlights (distinct types + biggest single haul).
+    local title = "Currency"
+    if ct.distinct then title = title .. string.format("  \226\128\148  %d type%s", ct.distinct, ct.distinct == 1 and "" or "s") end
+    if ct.biggestHaul then title = title .. string.format("  \226\128\148  biggest: %s +%d", ct.biggestHaul.name, ct.biggestHaul.quantity) end
+    H.currencyTitle:SetText(title)
+    H.currencyTitle:ClearAllPoints(); H.currencyTitle:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); H.currencyTitle:Show()
+    y = y - 22
+
+    -- Top currencies by quantity (ranked list, full width).
+    local curRows = {}
+    for _, e in ipairs(sortedByCount(stats.byCurrency)) do
+      curRows[#curRows + 1] = { name = e.key, right = tostring(e.count) }
+    end
+    local hCur = self:renderListPanel(P.curlist, self.currencyPanel, curRows, y, w - pad * 2, pad, 70)
+    y = y - hCur - SECTION_GAP
+
+    -- Currency by source: one stacked bar per currency, segments coloured by source.
+    local curMax = 1
+    for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMax then curMax = curTotal end end
+    local stackRows = {}
+    for _, e in ipairs(sortedByCount(stats.byCurrency)) do
+      local perSrc = stats.currencySourceMatrix[e.key] or {}
+      local order = {}
+      for srcKey in pairs(perSrc) do order[#order + 1] = srcKey end
+      table.sort(order, function(a, b) return (perSrc[a] or 0) > (perSrc[b] or 0) end)
+      local curSegs = {}
+      for _, srcKey in ipairs(order) do
+        curSegs[#curSegs + 1] = { frac = (perSrc[srcKey] or 0) / curMax, color = SOURCE_COLOR[srcKey] or NEUTRAL }
+      end
+      stackRows[#stackRows + 1] = { label = e.key, value = tostring(e.count), segments = curSegs }
+    end
+    y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)
+
+    -- Currency by character (class-coloured bars).
+    local ccList, ccMax = {}, 1
+    for _, ce in pairs(stats.currencyByChar) do
+      ccList[#ccList + 1] = ce
+      if ce.quantity > ccMax then ccMax = ce.quantity end
+    end
+    table.sort(ccList, function(a, b)
+      if a.quantity ~= b.quantity then return a.quantity > b.quantity end
+      return a.char < b.char
+    end)
+    local ccRows = {}
+    for _, ce in ipairs(ccList) do
+      ccRows[#ccRows + 1] = { label = shortChar(ce.char), color = classColor(ce.classFile),
+        frac = ce.quantity / ccMax, value = tostring(ce.quantity) }
+    end
+    y = self:renderBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
+
+    -- Currency over time (per-day strip of total currency quantity).
+    local ckeys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
+    local curDayB = {}
+    for _, k in ipairs(ckeys) do
+      local c = stats.currencyByDay[k] or 0
+      curDayB[#curDayB + 1] = { info = k .. ":  " .. c, count = c, label = shortDay(k) }
+    end
+    y = self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
+  else
+    self.currencyPanel:Hide(); self.currencyStrip:Hide()
+  end
 
   -- Ranked lists — two half-width columns:
   --   left  : Top items by value → Top zones (stacked)
