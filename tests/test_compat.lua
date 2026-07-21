@@ -107,3 +107,9 @@ test("Compat: CurrencyName resolves via C_CurrencyInfo, nil when unknown", funct
   assertEqual(NS.Compat.CurrencyName(999999), nil)
   assertEqual(NS.Compat.CurrencyName(nil), nil)
 end)
+
+test("Compat: CurrencyQuality returns the tier, nil when unknown", function()
+  assertEqual(NS.Compat.CurrencyQuality(3008), 4)
+  assertEqual(NS.Compat.CurrencyQuality(999999), nil)
+  assertEqual(NS.Compat.CurrencyQuality(nil), nil)
+end)

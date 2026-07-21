@@ -34,6 +34,21 @@ function NS:RunMigrations()
     g.schemaVersion = 3
     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(2, 3, n)) end
   end
+  -- v3 -> v4: backfill currency-record quality (rows with currencyID but no quality) from
+  -- C_CurrencyInfo, so the History browser can colour the currency name + fill the Quality column
+  -- for currencies looted before quality was captured. In-game only (C_CurrencyInfo); a currency the
+  -- client can't resolve at init stays nil. Non-destructive.
+  if g.schemaVersion < 4 then
+    local n = 0
+    for _, r in ipairs(g.history or {}) do
+      if r.currencyID and r.quality == nil then
+        local q = NS.Compat.CurrencyQuality(r.currencyID)
+        if q ~= nil then r.quality = q; n = n + 1 end
+      end
+    end
+    g.schemaVersion = 4
+    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(3, 4, n)) end
+  end
 end
 
 -- Pure migration summary for the [Migrate] line.

@@ -337,6 +337,17 @@ function Compat.CurrencyName(currencyID)
   return nil
 end
 
+-- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.
+-- Colours the currency name + fills the Quality column, and drives the v3->v4 backfill migration.
+function Compat.CurrencyQuality(currencyID)
+  if not currencyID then return nil end
+  if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if info then return info.quality end
+  end
+  return nil
+end
+
 -- Addon TOC metadata field (e.g. "Version"), read from the packaged manifest so `/lh version`
 -- can't drift from the TOC. Retail moved the getter to C_AddOns; falls back to the bare global,
 -- then nil when neither is present.

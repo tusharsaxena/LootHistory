@@ -183,6 +183,7 @@ function Collector:OnChatMsgCurrency(_, msg)
     ts = time(), char = NS.Util.PlayerKey(), classFile = select(2, UnitClass("player")),
     currencyID = currencyID, itemName = name,
     itemType = NS.Constants.CURRENCY_TYPE, itemSubType = NS.Compat.CurrencyCategory(currencyID),
+    quality = NS.Compat.CurrencyQuality(currencyID),
     quantity = qty,
     source = source, sourceDetail = sourceDetail, confidence = confidence,
     zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone,

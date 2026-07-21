@@ -383,19 +383,19 @@ end)
 test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 3)
+  assertEqual(NS.db.global.schemaVersion, 4)
 end)
 
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
-  NS.db.global.schemaVersion = 3
+  NS.db.global.schemaVersion = 4
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 3)
+  assertEqual(NS.db.global.schemaVersion, 4)
 end)
 
 test("Database: RunMigrations is idempotent across repeated runs", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations(); NS:RunMigrations(); NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 3)
+  assertEqual(NS.db.global.schemaVersion, 4)
 end)
 
 test("Database: RunMigrations is a safe no-op when the DB is absent", function()
@@ -416,7 +416,7 @@ test("Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
     { ts = 2, itemID = 5, itemName = "Was via whitelist", quality = 0, viaWhitelist = true },
   }
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 3)
+  assertEqual(NS.db.global.schemaVersion, 4)
   assertTrue(NS.db.global.history[2].viaWhitelist == nil)  -- field stripped
   assertEqual(#NS.db.global.history, 2)                    -- nothing deleted
 end)
@@ -426,7 +426,24 @@ test("Migrate: v2->v3 renames sellPrice to vendorPrice", function()
   g.schemaVersion = 2
   g.history = { { itemName = "X", sellPrice = 250, quantity = 1 } }
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 3)
+  assertEqual(g.schemaVersion, 4)
   assertEqual(g.history[1].vendorPrice, 250)
   assertEqual(g.history[1].sellPrice, nil)
+end)
+
+test("Migrations: v3->v4 backfills currency-record quality", function()
+  local g = NS.db.global
+  local savedVer, savedHist = g.schemaVersion, g.history
+  g.history = {
+    { currencyID = 3008, itemName = "Valorstones", itemType = "Currency", quantity = 5 }, -- no quality
+    { itemID = 111, itemName = "Sword", quality = 4 },                                     -- item untouched
+    { currencyID = 2914, itemName = "Crest", itemType = "Currency", quality = 3 },         -- already set
+  }
+  g.schemaVersion = 3
+  NS:RunMigrations()
+  assertEqual(g.schemaVersion, 4)
+  assertEqual(g.history[1].quality, 4)   -- backfilled from the mock (Epic)
+  assertEqual(g.history[2].quality, 4)   -- item unchanged
+  assertEqual(g.history[3].quality, 3)   -- already-set currency unchanged
+  g.history, g.schemaVersion = savedHist, savedVer   -- restore shared state
 end)

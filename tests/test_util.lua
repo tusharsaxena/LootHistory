@@ -251,7 +251,7 @@ test("Util: FormatBytes scales B / kB / MB", function()
 end)
 
 test("Database: InitDB creates account-wide store", function()
-  assertEqual(NS.db.global.schemaVersion, 3)
+  assertEqual(NS.db.global.schemaVersion, 4)
   assertTrue(type(NS.db.global.history) == "table")
   assertEqual(#NS.db.global.history, 0)
   assertEqual(NS.db.global.settings.qualityThreshold, 1)   -- default: Common (white) and above

@@ -286,7 +286,7 @@ test("Collector: end-to-end records a currency line as Type=Currency", function(
   assertEqual(r.source, "MPLUS")
   assertEqual(r.confidence, "CERTAIN")
   assertEqual(r.itemID, nil)
-  assertEqual(r.quality, nil)
+  assertEqual(r.quality, 4)   -- currency quality now stored at capture (from C_CurrencyInfo mock)
 
   NS.db.global.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
