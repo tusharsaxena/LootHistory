@@ -53,11 +53,13 @@ S.Schema = {
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
     end },
 
-  { path = "settings.excludeQuestItems", default = true, type = "boolean", widget = "CheckBox",
-    group = "Data Collection", label = "Exclude quest items",
-    tooltip = "Skip items of the Quest type (transient quest objects).",
+  -- Row order drives the two-column panel pairing: the two dropdowns (Minimum quality | Keep history
+  -- for) pair on the top line, the two checkboxes (Record currency | Exclude quest items) below.
+  { path = "settings.retentionDays", default = 30, type = "number", widget = "Dropdown",
+    group = "Data Collection", label = "Keep history for", options = C.RETENTION_OPTIONS,
+    tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
+      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     end },
 
   { path = "settings.recordCurrency", default = true, type = "boolean", widget = "CheckBox",
@@ -68,11 +70,11 @@ S.Schema = {
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "currency") end
     end },
 
-  { path = "settings.retentionDays", default = 30, type = "number", widget = "Dropdown",
-    group = "Data Collection", label = "Keep history for", options = C.RETENTION_OPTIONS,
-    tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
+  { path = "settings.excludeQuestItems", default = true, type = "boolean", widget = "CheckBox",
+    group = "Data Collection", label = "Exclude quest items",
+    tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
-      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
     end },
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
