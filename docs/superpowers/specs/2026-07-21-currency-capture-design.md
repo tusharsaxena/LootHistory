@@ -95,8 +95,10 @@ The `recordCurrency` flag is cached as a Collector upvalue and refreshed on
   "loot by …" activity charts (currency is genuinely looted). (Currency has no value, so it
   contributes 0 to the value-weighted variants — already handled since `RecordValue` returns nil.)
 - **New currency aggregates:**
-  - `byCurrency` — `currencyName → total quantity`.
-  - `currencyBySource` — `source → total currency quantity`.
+  - `byCurrency` — `currencyName → total quantity` (per-currency totals; equals the row sums of the
+    matrix below).
+  - `currencySourceMatrix` — `currencyName → { source → quantity }`: the 2-D per-currency-per-source
+    breakdown that drives the stacked chart (§7) and the CSV detail rows (§10).
   - `currencyByChar` — `char → { char, classFile, quantity }`.
   - `currencyByDay` — `dayKey → total currency quantity`.
   - `currencyTotals` — `{ distinct = <count of currency types>, events = <currency record count>,
@@ -110,7 +112,13 @@ bar/list/strip primitives:
 - **Highlight cards:** `distinct currencies`, `biggest haul` (e.g. `Valorstones +500`). (No grand
   total — summing different currencies is meaningless.)
 - **Top currencies by quantity** — ranked list (currency name → total quantity).
-- **Currency by source** — bar section, total currency quantity per source ("where it comes from").
+- **Currency by source (per-currency stacked)** — one horizontal **stacked bar per currency**: bar
+  length = that currency's total quantity (relative to the largest currency), segmented and coloured
+  by **source** using the same `SOURCE_COLOR` palette as the "Loot by source" chart above (so the
+  colours read consistently and no separate legend is needed). This is the per-currency-per-source
+  drilldown — one chart shows both how much of each currency you collected *and* where each one came
+  from. Reuses the existing `makeStackedBar` / `positionStacked` primitives (today used for the
+  quality mix) via a new "stacked bar section" renderer that lays out one stacked bar per row.
 - **Currency by character** — bar section, class-coloured, total currency quantity per character
   (the account-wide angle).
 - **Currency over time (per day)** — a per-day strip of total currency quantity, normalized to the
@@ -145,8 +153,10 @@ group next to `excludeQuestItems`. Flows through `Schema:Set`; appears in the Bl
   already blank out for currency.
 
 **Insights CSV (`E:InsightsCSV`) — new flat sections** mirroring §7:
-`Currency Collected` (top by qty), `Currency by Source`, `Currency by Character`, `Currency by Day`
-(chronological), plus `Summary` rows for `Distinct currencies` and `Biggest haul`.
+`Currency Collected` (top by qty); `Currency by Source` = one row per **currency × source** pair
+(Label = `"<currency> / <source>"`, Count = quantity — the flat serialization of
+`currencySourceMatrix`, the drilldown detail); `Currency by Character`; `Currency by Day`
+(chronological); plus `Summary` rows for `Distinct currencies` and `Biggest haul`.
 
 **Export-to-AI: deferred.** To keep the AI path byte-for-byte unchanged this version, **exclude
 `currencyID` from `AI_COLUMNS`** (same mechanism that already excludes the raw `auc_` columns), so
@@ -175,12 +185,13 @@ The harness has no `C_CurrencyInfo`; Compat shims degrade and are mock-injected 
   source from context; respects the `recordCurrency` master toggle and the source mute; is **not**
   dropped by the quality gate.
 - `Database:Stats`: currency **excluded** from quality/ilvl/bound/top-items/value aggregates;
-  **included** in bySource/byDay counts; `byCurrency` / `currencyBySource` / `currencyByChar` /
-  `currencyByDay` / `currencyTotals` computed correctly.
+  **included** in bySource/byDay counts; `byCurrency` / `currencySourceMatrix` / `currencyByChar` /
+  `currencyByDay` / `currencyTotals` computed correctly (matrix row-sums equal `byCurrency`).
 - Schema: `recordCurrency` row exists, defaults true, settable.
 - Export: `E:CSV` emits a currency row with `Type=Currency` / `currencyID` / quantity and blank
-  item/price/quality cells; `E:InsightsCSV` includes the four currency sections + summary rows;
-  `E:AICSV` **omits** `currencyID` (AI output unchanged).
+  item/price/quality cells; `E:InsightsCSV` includes the currency sections — including one
+  `Currency by Source` row per currency×source pair — plus summary rows; `E:AICSV` **omits**
+  `currencyID` (AI output unchanged).
 
 Update `docs/test-cases.md` (regenerate) and the README test badge in the same change.
 
@@ -192,7 +203,9 @@ Update `docs/test-cases.md` (regenerate) and the README test badge in the same c
 - `modules/Collector.lua` — `CHAT_MSG_CURRENCY` registration, `OnChatMsgCurrency`, currency gate,
   `recordCurrency` upvalue.
 - `core/Database.lua` — currency-aware `Stats` + the five new currency aggregates.
-- `modules/Analytics.lua` — currency Insights block (cards + list + bars + strip).
+- `modules/Analytics.lua` — currency Insights block (cards + list + per-currency stacked-source
+  chart + char bars + over-time strip); a small "stacked bar section" renderer over the existing
+  `makeStackedBar` / `positionStacked` primitives.
 - `modules/BrowserTable.lua` — null-safe currency cell rendering.
 - `modules/Export.lua` — `currencyID` column, null-safe cells, currency Insights CSV sections,
   `AI_COLUMNS` exclusion, `TODO(currency-ai)`.
@@ -207,5 +220,3 @@ Update `docs/test-cases.md` (regenerate) and the README test badge in the same c
   per-drop rows. Separate design.
 - **Export-to-AI for currency** — teach `ai-export-guideline.md` + the HTML report template about
   currency rows, then include `currencyID` in `AI_COLUMNS`. Tracked via `TODO(currency-ai)`.
-- **Per-currency-per-source drilldown in Insights** — reachable today via the History table
-  (`Type=Currency` + Source column); a dedicated nested chart is out of v1.
