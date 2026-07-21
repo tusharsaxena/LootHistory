@@ -54,6 +54,9 @@ return function()
   M.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
   M.LOOT_ITEM_PUSHED_SELF = "You receive item: %s."
   M.LOOT_ITEM_PUSHED_SELF_MULTIPLE = "You receive item: %sx%d."
+  -- Bonus-roll self strings carry NO trailing period in live GlobalStrings.lua.
+  M.LOOT_ITEM_BONUS_ROLL_SELF = "You receive bonus loot: %s"
+  M.LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE = "You receive bonus loot: %sx%d"
   M.ITEM_QUALITY_COLORS = setmetatable({}, {
     __index = function() return { r = 1, g = 1, b = 1, hex = "ffffffff" } end,
   })

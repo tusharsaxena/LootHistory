@@ -8,31 +8,33 @@ local C = NS.Constants
 C.SourceType = {
   KILL = "KILL", CONTAINER = "CONTAINER", MAIL = "MAIL", TRADE = "TRADE",
   AH = "AH", QUEST = "QUEST", VENDOR = "VENDOR", CRAFT = "CRAFT",
-  ROLL = "ROLL", MPLUS = "MPLUS", OTHER = "OTHER",
+  ROLL = "ROLL", BONUS_ROLL = "BONUS_ROLL", MPLUS = "MPLUS", OTHER = "OTHER",
   DISENCHANT = "DISENCHANT", MILLING = "MILLING", PROSPECTING = "PROSPECTING",
 }
 
 -- Display order for grouping/analytics (most to least "interesting").
 C.SourceOrder = {
-  "KILL", "CONTAINER", "MPLUS", "ROLL", "QUEST",
+  "KILL", "CONTAINER", "MPLUS", "BONUS_ROLL", "ROLL", "QUEST",
   "TRADE", "MAIL", "AH", "VENDOR",
   "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "OTHER",
 }
 
 -- Short human labels for the UI.
 C.SourceLabel = {
-  KILL = "Kill", CONTAINER = "Container", MPLUS = "Mythic+", ROLL = "Roll", QUEST = "Quest",
+  KILL = "Kill", CONTAINER = "Container", MPLUS = "Mythic+", BONUS_ROLL = "Bonus Roll",
+  ROLL = "Roll", QUEST = "Quest",
   TRADE = "Trade", MAIL = "Mail", AH = "Auction House", VENDOR = "Vendor", CRAFT = "Craft",
   DISENCHANT = "Disenchant", MILLING = "Milling", PROSPECTING = "Prospecting", OTHER = "Other",
 }
 
--- Sources with a live capture path today. ROLL and CRAFT have no stamper yet (ROLL is specified in
--- docs/attribution.md; CRAFT is reserved for broad recipe crafting — a TODO), so they are hidden
--- from the mute list until wired. Deconstruct abilities stamp their own source; AH is stamped from
--- Auction-House mail. The SourceType enum stays whole (export contract); only the option lists scope.
+-- Sources with a live capture path today. ROLL and CRAFT have no stamper yet (ROLL is reserved for
+-- generic group/need-greed rolls; CRAFT is reserved for broad recipe crafting — a TODO), so they
+-- are hidden from the mute list until wired. BONUS_ROLL IS wired (from the bonus-roll loot line);
+-- deconstruct abilities stamp their own source; AH is stamped from Auction-House mail. The
+-- SourceType enum stays whole (export contract); only the option lists scope.
 C.SOURCE_IMPLEMENTED = {
   KILL = true, CONTAINER = true, MPLUS = true, QUEST = true, VENDOR = true,
-  MAIL = true, TRADE = true, AH = true, OTHER = true,
+  MAIL = true, TRADE = true, AH = true, BONUS_ROLL = true, OTHER = true,
   DISENCHANT = true, MILLING = true, PROSPECTING = true,
 }
 

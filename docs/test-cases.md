@@ -6,7 +6,7 @@ The full inventory of every headless test case, grouped by suite. This file is t
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`
 whenever the suite changes (see [testing.md](testing.md)).
 
-### test_util.lua (24)
+### test_util.lua (27)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -22,6 +22,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Util: ParseSelfLoot multiple self-loot → link, qty N
 - Util: ParseSelfLoot pushed variant → link, qty
 - Util: ParseSelfLoot ignores another player's loot
+- Util: ParseSelfLoot flags a bonus-roll self-loot line
+- Util: ParseSelfLoot leaves the bonus flag unset for normal loot
+- Util: ParseSelfLoot ignores another player's bonus roll
 - Util: FormatClock is HH:MM
 - Util: FormatDate is DD-MMM-YYYY
 - Util: FormatMoney shows non-zero parts
@@ -103,7 +106,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
 - AuctionPrice: SwapPriorityTags swaps positions
 
-### test_collector.lua (23)
+### test_collector.lua (24)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -122,6 +125,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: end-to-end drops a blacklisted item, records after un-blacklisting
 - Collector: whitelist records below threshold as a plain point-in-time row
 - Collector: end-to-end writes an attributed record
+- Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context
 - Collector: end-to-end drops loot below the quality threshold
 - Collector: end-to-end drops quest items when the filter is on
 - Schema: excludeQuestItems row exists, defaults true, settable
@@ -296,12 +300,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 
 | Suite | Cases |
 |-------|------:|
-| test_util.lua | 24 |
+| test_util.lua | 27 |
 | test_compat.lua | 11 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 16 |
 | test_auctionprice.lua | 8 |
-| test_collector.lua | 23 |
+| test_collector.lua | 24 |
 | test_database.lua | 42 |
 | test_stats.lua | 14 |
 | test_browsertable.lua | 18 |
@@ -309,4 +313,4 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 6 |
-| **Total** | **247** |
+| **Total** | **251** |

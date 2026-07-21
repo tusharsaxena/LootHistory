@@ -58,16 +58,18 @@ end)
 test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceType.KILL, "KILL")
   assertEqual(NS.Constants.SourceType.OTHER, "OTHER")
+  assertEqual(NS.Constants.SourceType.BONUS_ROLL, "BONUS_ROLL")
+  assertEqual(NS.Constants.SourceLabel.BONUS_ROLL, "Bonus Roll")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
-  assertEqual(#NS.Constants.SourceOrder, 14)   -- + DISENCHANT / MILLING / PROSPECTING
+  assertEqual(#NS.Constants.SourceOrder, 15)   -- + DISENCHANT / MILLING / PROSPECTING + BONUS_ROLL
   -- Enum stays whole (export contract), but the mute options are scoped to sources with a live
-  -- capture path: ROLL and CRAFT have no stamper yet and are hidden; deconstruct abilities and AH
-  -- (from Auction-House mail) are wired.
-  assertEqual(#NS.Constants.SOURCE_OPTIONS, 12)
+  -- capture path: ROLL and CRAFT have no stamper yet and are hidden; deconstruct abilities, AH
+  -- (from Auction-House mail) and BONUS_ROLL (from the bonus-roll loot line) are wired.
+  assertEqual(#NS.Constants.SOURCE_OPTIONS, 13)
   local muteable = {}
   for _, o in ipairs(NS.Constants.SOURCE_OPTIONS) do muteable[o.value] = true end
   assertFalse(muteable.ROLL); assertFalse(muteable.CRAFT)
-  assertTrue(muteable.KILL); assertTrue(muteable.AH)
+  assertTrue(muteable.KILL); assertTrue(muteable.AH); assertTrue(muteable.BONUS_ROLL)
   assertTrue(muteable.DISENCHANT); assertTrue(muteable.MILLING); assertTrue(muteable.PROSPECTING)
 end)
 
@@ -125,6 +127,32 @@ do
 
   test("Util: ParseSelfLoot ignores another player's loot", function()
     local msg = "Someone else receives loot: " .. LINK .. "."
+    assertEqual(NS.Util.ParseSelfLoot(msg), nil)
+  end)
+
+  test("Util: ParseSelfLoot flags a bonus-roll self-loot line", function()
+    local one = string.format(T.mocks.LOOT_ITEM_BONUS_ROLL_SELF, LINK)
+    local link, qty, bonus = NS.Util.ParseSelfLoot(one)
+    assertEqual(link, LINK)
+    assertEqual(qty, 1)
+    assertTrue(bonus == true, "single bonus-roll line must set the bonus flag")
+
+    local many = string.format(T.mocks.LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE, LINK, 4)
+    local link2, qty2, bonus2 = NS.Util.ParseSelfLoot(many)
+    assertEqual(link2, LINK)
+    assertEqual(qty2, 4)
+    assertTrue(bonus2 == true, "multiple bonus-roll line must set the bonus flag")
+  end)
+
+  test("Util: ParseSelfLoot leaves the bonus flag unset for normal loot", function()
+    local _, _, bonus = NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_SELF, LINK))
+    assertFalse(bonus)
+    local _, _, bonus2 = NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_PUSHED_SELF, LINK))
+    assertFalse(bonus2)
+  end)
+
+  test("Util: ParseSelfLoot ignores another player's bonus roll", function()
+    local msg = "Someone else receives bonus loot: " .. LINK
     assertEqual(NS.Util.ParseSelfLoot(msg), nil)
   end)
 end

@@ -79,11 +79,20 @@ end
 
 function Collector:OnChatMsgLoot(_, msg)
   if not enabled then return end
-  local link, qty = NS.Util.ParseSelfLoot(msg)
+  local link, qty, bonus = NS.Util.ParseSelfLoot(msg)
   if not link then return end
 
   local itemID, itemName, quality, classID = NS.Compat.GetItemInfo(link)
-  local source, sourceDetail, confidence = NS.Attribution:Consume()
+  -- A bonus-roll loot line is self-identifying: attribute it to BONUS_ROLL directly rather than
+  -- reading the peripheral context, which by now is stale (the roll resolves seconds after the kill)
+  -- or would mis-inherit the boss's KILL stamp. Everything else consumes the stamped context.
+  local source, sourceDetail, confidence
+  if bonus then
+    source, sourceDetail, confidence =
+      NS.Constants.SourceType.BONUS_ROLL, nil, NS.Constants.Confidence.CERTAIN
+  else
+    source, sourceDetail, confidence = NS.Attribution:Consume()
+  end
 
   local ok, reason = self:ShouldRecord(quality, source, classID,
     { qualityThreshold = qualityThreshold, excludedSources = excludedSources,

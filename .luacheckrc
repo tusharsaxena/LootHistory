@@ -31,6 +31,7 @@ read_globals = {
   "ITEM_QUALITY_COLORS", "UISpecialFrames", "PlaySound", "STANDARD_TEXT_FONT",
   "LOOT_ITEM_SELF", "LOOT_ITEM_SELF_MULTIPLE",
   "LOOT_ITEM_PUSHED_SELF", "LOOT_ITEM_PUSHED_SELF_MULTIPLE",
+  "LOOT_ITEM_BONUS_ROLL_SELF", "LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE",
   "Settings", "CreateColor", "tinsert", "tremove", "wipe", "select",
 }
 globals = {

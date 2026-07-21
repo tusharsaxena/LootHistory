@@ -181,6 +181,28 @@ test("Collector: end-to-end writes an attributed record", function()
   assertEqual(r.mapID, 2657)
 end)
 
+test("Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+  -- A fresh, unrelated KILL context is present: the bonus-roll line must NOT inherit it — the loot
+  -- string itself is the authoritative "this is a bonus roll" signal.
+  NS.Attribution:Stamp("KILL", { npcID = 999 }, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_BONUS_ROLL_SELF, LINK))
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.source, "BONUS_ROLL")
+  assertEqual(r.sourceDetail, nil)
+  assertEqual(r.confidence, "CERTAIN")
+  assertEqual(r.itemID, 211296)
+
+  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
 test("Collector: end-to-end drops loot below the quality threshold", function()
   local mocks = T.mocks
   mocks.__now = 0
