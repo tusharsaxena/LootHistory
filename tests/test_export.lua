@@ -224,7 +224,7 @@ test("Export: InsightsCSV includes currency sections", function()
   }
   local csv = NS.Export:InsightsCSV(stats)
   assertTrue(csv:find("Currency Collected,Valorstones,50", 1, true) ~= nil, "top currencies row")
-  assertTrue(csv:find("Currency by Source,Valorstones / MPLUS,40", 1, true) ~= nil, "currency x source row")
+  assertTrue(csv:find("Currency by Source,Valorstones / Mythic+,40", 1, true) ~= nil, "currency x source row")
   assertTrue(csv:find("Distinct currencies", 1, true) ~= nil, "summary distinct row")
   assertTrue(csv:find("Biggest haul", 1, true) ~= nil, "summary biggest-haul row")
 end)

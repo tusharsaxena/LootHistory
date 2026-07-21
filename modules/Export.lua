@@ -260,7 +260,7 @@ function E:InsightsCSV(stats)
     for s in pairs(perSrc) do srcs[#srcs + 1] = s end
     table.sort(srcs, function(a, b) return (perSrc[a] or 0) > (perSrc[b] or 0) end)
     for _, s in ipairs(srcs) do
-      row("Currency by Source", cname .. " / " .. s, perSrc[s])
+      row("Currency by Source", cname .. " / " .. srcLabel(s), perSrc[s])
     end
   end
   local curCharRows = {}
