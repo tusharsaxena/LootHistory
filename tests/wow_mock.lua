@@ -64,6 +64,13 @@ return function()
   M.LOOT_ITEM_REFUND_MULTIPLE = "You are refunded: %sx%d."
   -- Roll-won line ("You won: <item>", no trailing period), used to stamp ROLL context.
   M.LOOT_ROLL_YOU_WON = "You won: %s"
+  -- Currency gain strings (CHAT_MSG_CURRENCY). Single has no qty; multiples carry xN, and the
+  -- bonus/overflow variants append a parenthetical (the overflow one embeds a second %s = the
+  -- currency name, which the parser ignores).
+  M.CURRENCY_GAINED = "You receive currency: %s"
+  M.CURRENCY_GAINED_MULTIPLE = "You receive currency: %sx%d"
+  M.CURRENCY_GAINED_MULTIPLE_BONUS = "You receive currency: %sx%d (Bonus Objective)"
+  M.CURRENCY_GAINED_MULTIPLE_OVERFLOW = "You receive currency: %sx%d (You've earned the maximum amount of %s)"
   M.ITEM_QUALITY_COLORS = setmetatable({}, {
     __index = function() return { r = 1, g = 1, b = 1, hex = "ffffffff" } end,
   })

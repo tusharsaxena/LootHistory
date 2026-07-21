@@ -194,6 +194,33 @@ do
     -- Another player's win ("%s won: %s") must not match the self-only "You won:" pattern.
     assertEqual(NS.Util.ParseRollWon("Someone won: " .. LINK), nil)
   end)
+
+  local CURR = "|cffffffff|Hcurrency:3008::|h[Valorstones]|h|r"
+
+  test("Util: ParseSelfCurrency single currency line -> link, qty 1", function()
+    local link, qty = NS.Util.ParseSelfCurrency(string.format(T.mocks.CURRENCY_GAINED, CURR))
+    assertEqual(link, CURR)
+    assertEqual(qty, 1)
+  end)
+
+  test("Util: ParseSelfCurrency multiple currency line -> link, qty N", function()
+    local link, qty = NS.Util.ParseSelfCurrency(string.format(T.mocks.CURRENCY_GAINED_MULTIPLE, CURR, 45))
+    assertEqual(link, CURR)
+    assertEqual(qty, 45)
+  end)
+
+  test("Util: ParseSelfCurrency bonus + overflow variants -> link, qty", function()
+    local l1, q1 = NS.Util.ParseSelfCurrency(string.format(T.mocks.CURRENCY_GAINED_MULTIPLE_BONUS, CURR, 10))
+    assertEqual(l1, CURR); assertEqual(q1, 10)
+    local l2, q2 = NS.Util.ParseSelfCurrency(
+      string.format(T.mocks.CURRENCY_GAINED_MULTIPLE_OVERFLOW, CURR, 5, "Valorstones"))
+    assertEqual(l2, CURR); assertEqual(q2, 5)
+  end)
+
+  test("Util: ParseSelfCurrency ignores item loot and other players", function()
+    assertEqual(NS.Util.ParseSelfCurrency(string.format(T.mocks.LOOT_ITEM_SELF, LINK)), nil)
+    assertEqual(NS.Util.ParseSelfCurrency("Someone receives currency: " .. CURR), nil)
+  end)
 end
 
 test("Util: FormatClock is HH:MM", function()

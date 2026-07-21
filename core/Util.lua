@@ -166,6 +166,43 @@ function Util.ParseRollWon(msg)
   return msg:match(pat)
 end
 
+-- Self-currency patterns, compiled once from the CHAT_MSG_CURRENCY global strings. Quantity-bearing
+-- variants (incl. the bonus/overflow parenthetical forms) come first so the greedy single-pattern
+-- (.+) can't swallow a trailing "xN (...)". The overflow global embeds a second %s (the currency
+-- name); toLootPattern turns it into a third capture that ParseSelfCurrency simply ignores.
+local currencyPatterns
+function Util.BuildCurrencyPatterns()
+  local specs = {
+    { g = CURRENCY_GAINED_MULTIPLE_OVERFLOW, hasQty = true },
+    { g = CURRENCY_GAINED_MULTIPLE_BONUS,    hasQty = true },
+    { g = CURRENCY_GAINED_MULTIPLE,          hasQty = true },
+    { g = CURRENCY_GAINED,                   hasQty = false },
+  }
+  local out = {}
+  for _, s in ipairs(specs) do
+    if s.g then out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty } end
+  end
+  currencyPatterns = out
+  return out
+end
+
+-- Parse a CHAT_MSG_CURRENCY line. Returns currencyLink, quantity for the player's own currency
+-- gain; nil otherwise (another player's line, or a non-currency message).
+function Util.ParseSelfCurrency(msg)
+  if not msg then return nil end
+  local pats = currencyPatterns or Util.BuildCurrencyPatterns()
+  for _, p in ipairs(pats) do
+    if p.hasQty then
+      local link, qty = msg:match(p.pattern)
+      if link then return link, tonumber(qty) or 1 end
+    else
+      local link = msg:match(p.pattern)
+      if link then return link, 1 end
+    end
+  end
+  return nil
+end
+
 -- ── Secret-safe chat printer (Ka0s standard events-frames-taint-§8) ──────────────────────────
 -- In combat, retail protects combat-sensitive returns (unit absorb/health totals, threat, some
 -- aura amounts) as "secret" values. A secret survives tostring() AND the `..` operator (which
