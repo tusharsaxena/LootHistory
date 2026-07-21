@@ -16,7 +16,7 @@ Display name in the addon list and the Settings panel: `Ka0s Loot History`. The 
 
 ## In scope
 
-- **Passive capture** of every item the player personally loots — self only, items only (anything with an itemID). A configurable **quality threshold** (default Common+) and an optional **quest-item filter** gate recording; a master enable switch stops all capture.
+- **Passive capture** of every item the player personally loots — self only (items with an itemID; currency is captured separately — see below). A configurable **quality threshold** (default Common+) and an optional **quest-item filter** gate recording; a master enable switch stops all capture.
 - **Source attribution** into `Constants.SourceType`: `KILL`, `CONTAINER`, `MAIL`, `TRADE`, `AH`, `QUEST`, `VENDOR`, `MPLUS`, `BONUS_ROLL`, `ROLL`, `CRAFT`, `REFUND`, `DISENCHANT`, `MILLING`, `PROSPECTING`, and an `OTHER` fallback — each tagged `CERTAIN` or `INFERRED` confidence. Every source has a live capture path, so all appear in the **mute** UI (`Constants.SOURCE_IMPLEMENTED`).
 - **Currency capture** (Valorstones, crests, etc.) as `Type=Currency` history rows — attributed to the same sources as items, obeying the per-source mute list and a `Record currency` master toggle, but exempt from the quality/quest gates. Surfaced in the History table, a dedicated Insights currency block, and CSV export. Export-to-AI for currency is deferred. (This reverses the earlier "currencies out of scope" decision — ratified 2026-07-21.)
 - **Account-wide history** stored as a dense array in `LootHistoryDB.global.history`, with a `char` column so per-character views are a filter, not separate storage. Automatic **retention** prune runs once per session (default 30 days; configurable, including Never).

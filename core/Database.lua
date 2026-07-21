@@ -168,7 +168,7 @@ function Database:Export(filter)
   local out = {}
   for _, r in ipairs(self:Query(filter or {})) do
     out[#out + 1] = {
-      ts = r.ts, char = r.char, classFile = r.classFile, itemID = r.itemID, itemLink = r.itemLink,
+      ts = r.ts, char = r.char, classFile = r.classFile, itemID = r.itemID, currencyID = r.currencyID, itemLink = r.itemLink,
       itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
       vendorPrice = r.vendorPrice, auctionPrice = r.auctionPrice,
       itemType = r.itemType, itemSubType = r.itemSubType,

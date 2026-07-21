@@ -803,6 +803,7 @@ function Analytics:LayoutCharts(y, w, pad)
     end
     y = self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
   else
+    H.currencyTitle:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
     self.currencyPanel:Hide(); self.currencyStrip:Hide()
   end
 

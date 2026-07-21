@@ -149,7 +149,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (42)
+### test_database.lua (43)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -173,6 +173,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: blacklist does NOT hide already-stored rows (point-in-time)
 - Database: ActiveHistory returns raw history (no hide, same reference)
 - Database: Export returns metatable-free copies with all fields
+- Database: Export carries currencyID through for currency rows
 - Database: Export coerces a nil source to OTHER (parity with Stats bySource)
 - Database: DeleteAt removes the row, compacts, fires HistoryChanged
 - Database: DeleteAt out-of-range returns false, no change
@@ -234,7 +235,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
 - BrowserTable: quality column is blank for a currency row
 
-### test_export.lua (26)
+### test_export.lua (27)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -258,6 +259,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)
 - Export: CSV emits a currency row with currencyID and blank item cells
 - Export: AICSV omits the currencyID column
+- Export: AICSV drops currency rows entirely (item-only, currency AI support deferred)
 - Export: InsightsCSV includes currency sections
 - Export: AIPrompt embeds guideline URL, both CSV blocks, and framing
 - Export: AIPrompt large-dataset note gated on opts.rows
@@ -329,11 +331,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_filters.lua | 16 |
 | test_auctionprice.lua | 8 |
 | test_collector.lua | 30 |
-| test_database.lua | 42 |
+| test_database.lua | 43 |
 | test_stats.lua | 15 |
 | test_browsertable.lua | 19 |
-| test_export.lua | 26 |
+| test_export.lua | 27 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 8 |
-| **Total** | **274** |
+| **Total** | **276** |

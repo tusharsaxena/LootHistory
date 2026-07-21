@@ -158,11 +158,12 @@ group next to `excludeQuestItems`. Flows through `Schema:Set`; appears in the Bl
 `currencySourceMatrix`, the drilldown detail); `Currency by Character`; `Currency by Day`
 (chronological); plus `Summary` rows for `Distinct currencies` and `Biggest haul`.
 
-**Export-to-AI: deferred.** To keep the AI path byte-for-byte unchanged this version, **exclude
-`currencyID` from `AI_COLUMNS`** (same mechanism that already excludes the raw `auc_` columns), so
-`E:AICSV` / `E:AIPrompt` output does not change. The AI report engine does not understand currency
-rows yet. Leave a `TODO(currency-ai)` marker in `Export.lua` and a one-line backlog note in
-`docs/scope.md`.
+**Export-to-AI: deferred.** `E:AICSV` excludes `currencyID` from `AI_COLUMNS` (same mechanism that
+already excludes the raw `auc_` columns) *and* filters currency rows out of the AI **history** CSV
+entirely, so per-row item output is unchanged. The shared **Insights** CSV in the AI bundle may still
+include the new currency summary sections, which the current report template doesn't specially
+render — full AI currency support is deferred (`TODO(currency-ai)` in `Export.lua`, backlog note in
+`docs/scope.md`).
 
 Both CSVs are produced by the **existing Export modal** buttons (History tab + Insights tab), so no
 new export UI.

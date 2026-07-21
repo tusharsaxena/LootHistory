@@ -213,6 +213,19 @@ test("Export: AICSV omits the currencyID column", function()
   assertTrue(header:find("currencyID", 1, true) == nil, "AI CSV must not carry currencyID")
 end)
 
+test("Export: AICSV drops currency rows entirely (item-only, currency AI support deferred)", function()
+  local rows = {
+    { ts = 1, itemID = 1, itemName = "Red Sword", quantity = 1, source = "KILL" },
+    { ts = 2, currencyID = 3008, itemName = "Valorstones", itemType = "Currency",
+      quantity = 40, source = "MPLUS" },
+  }
+  local csv = NS.Export:AICSV(rows)
+  local header = csv:match("^[^\r\n]+")
+  assertTrue(header:find("currencyID", 1, true) == nil, "no currencyID column")
+  assertTrue(csv:find("Red Sword", 1, true) ~= nil, "item row present")
+  assertTrue(csv:find("Valorstones", 1, true) == nil, "currency row excluded")
+end)
+
 test("Export: InsightsCSV includes currency sections", function()
   local stats = {
     totals = { records = 0 },

@@ -216,6 +216,26 @@ test("Database: Export returns metatable-free copies with all fields", function(
   assertEqual(#NS.Database:Export({ source = "KILL" }), 2)
 end)
 
+test("Database: Export carries currencyID through for currency rows", function()
+  -- Regression: Export used to rebuild each record from an explicit field whitelist that
+  -- omitted currencyID, so currency rows exported with a blank/unidentifiable ID.
+  NS.db.global.history = {
+    { ts = 1, char = "A-Realm", itemID = 1, itemName = "Red Potion", quality = 3, source = "KILL" },
+    { ts = 2, char = "A-Realm", currencyID = 3008, itemName = "Valorstones",
+      itemType = "Currency", quantity = 40, source = "KILL" },
+  }
+  local out = NS.Database:Export({})
+  assertEqual(#out, 2)
+  local currencyRow
+  for _, r in ipairs(out) do
+    if r.itemType == "Currency" then currencyRow = r end
+  end
+  assertTrue(currencyRow ~= nil, "currency row present in export")
+  assertEqual(currencyRow.currencyID, 3008)
+  assertEqual(currencyRow.itemID, nil)
+  assertEqual(currencyRow.itemType, "Currency")
+end)
+
 test("Database: Export coerces a nil source to OTHER (parity with Stats bySource)", function()
   -- A row with no source must export as OTHER, not blank, so the HISTORY CSV and the
   -- INSIGHTS "By Source" (which already coerces r.source or "OTHER") stay consistent.

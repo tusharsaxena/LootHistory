@@ -149,8 +149,14 @@ function E:CSV(records)
 end
 
 -- Reduced CSV for the AI prompt: drops the raw per-provider auc_ columns (see AI_COLUMNS).
+-- AI export is item-only (currency AI support deferred, TODO(currency-ai)): drop currency rows so
+-- the report engine never sees item-less Type=Currency rows it can't render.
 function E:AICSV(records)
-  return serializeCSV(records, AI_COLUMNS, AI_HEADER)
+  local items = {}
+  for _, r in ipairs(records or {}) do
+    if r.currencyID == nil then items[#items + 1] = r end
+  end
+  return serializeCSV(items, AI_COLUMNS, AI_HEADER)
 end
 
 -- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
