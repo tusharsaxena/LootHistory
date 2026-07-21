@@ -45,6 +45,15 @@ function F:IsWhitelisted(id)
   return id ~= nil and currentSet("whitelist")[id] == true
 end
 
+-- Currency blacklist — currency ids that must NOT be recorded when looted (point-in-time, like the
+-- item lists). Stored separately from the item blacklist because itemID and currencyID share the
+-- numeric namespace. Blacklist only: there is no currency whitelist.
+function F:CurrencyBlacklist() return currentSet("currencyBlacklist") end
+function F:IsCurrencyBlacklisted(id)
+  id = tonumber(id)
+  return id ~= nil and currentSet("currencyBlacklist")[id] == true
+end
+
 -- Propagate a list change. Re-cache the Collector's list upvalues by a direct cross-module call
 -- (not a bus message — the lists aren't schema settings, and the Collector is the only capture-side
 -- consumer), then broadcast HistoryChanged through Database's sole emitter so the browser + Insights
@@ -98,11 +107,23 @@ function F:AddWhitelist(id)    return self:_move("whitelist", id) end
 function F:RemoveBlacklist(id) return self:_remove("blacklist", id) end
 function F:RemoveWhitelist(id) return self:_remove("whitelist", id) end
 
+-- Add / remove a currency id on the currency blacklist. No sibling reconciliation (blacklist only).
+function F:AddCurrencyBlacklist(id)
+  id = tonumber(id)
+  if not id then return false end
+  local target = currentSet("currencyBlacklist")
+  if target[id] then return false end
+  local t = setCopy(target); t[id] = true; NS.db.global.currencyBlacklist = t
+  self:_notify("currencyBlacklist")
+  return true
+end
+function F:RemoveCurrencyBlacklist(id) return self:_remove("currencyBlacklist", id) end
+
 -- Empty one list in a single copy-on-write write (a fresh {} replaces the stored set, never mutating
 -- the AceDB default in place), then propagate exactly like a per-id change. Returns the number of ids
 -- removed; a no-op (unknown key or already-empty list) returns 0 without firing _notify.
 function F:ClearList(listKey)
-  if listKey ~= "blacklist" and listKey ~= "whitelist" then return 0 end
+  if listKey ~= "blacklist" and listKey ~= "whitelist" and listKey ~= "currencyBlacklist" then return 0 end
   local removed = self:Count(currentSet(listKey))
   if removed == 0 then return 0 end
   NS.db.global[listKey] = {}
@@ -114,9 +135,11 @@ end
 -- total ids removed across the two. Used by the settings reset paths (Slash:CliResetAll).
 function F:ClearAll()
   local removed = self:Count(self:Blacklist()) + self:Count(self:Whitelist())
+    + self:Count(self:CurrencyBlacklist())
   if removed == 0 then return 0 end
   NS.db.global.blacklist = {}
   NS.db.global.whitelist = {}
+  NS.db.global.currencyBlacklist = {}
   self:_notify("clearall")
   return removed
 end
@@ -136,6 +159,18 @@ function F:ParseItemID(input)
   if type(input) ~= "string" then return nil end
   input = input:match("^%s*(.-)%s*$")
   local fromLink = input:match("|Hitem:(%d+)") or input:match("^item:(%d+)")
+  if fromLink then return tonumber(fromLink) end
+  return tonumber(input)
+end
+
+-- Extract a currency id from free-form input: a bare number, or a currency link the user shift-
+-- clicked. Returns a number, or nil. (A currency add-box is unambiguously for currencies, so a bare
+-- number is treated as a currencyID; an item link does not match.)
+function F:ParseCurrencyID(input)
+  if type(input) == "number" then return input end
+  if type(input) ~= "string" then return nil end
+  input = input:match("^%s*(.-)%s*$")
+  local fromLink = input:match("|Hcurrency:(%d+)") or input:match("^currency:(%d+)")
   if fromLink then return tonumber(fromLink) end
   return tonumber(input)
 end

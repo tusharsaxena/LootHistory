@@ -101,3 +101,9 @@ test("Compat: CurrencyCategory resolves a currency to its list header", function
   assertEqual(NS.Compat.CurrencyCategory(2914), "The War Within")
   assertEqual(NS.Compat.CurrencyCategory(999999), nil)   -- unknown id -> nil
 end)
+
+test("Compat: CurrencyName resolves via C_CurrencyInfo, nil when unknown", function()
+  assertEqual(NS.Compat.CurrencyName(3008), "Valorstones")
+  assertEqual(NS.Compat.CurrencyName(999999), nil)
+  assertEqual(NS.Compat.CurrencyName(nil), nil)
+end)

@@ -16,6 +16,7 @@ NS.defaults.global = {
   -- architecture-§5 carve-out like `window`/`savedView` (mutated directly, not via Schema:Set).
   blacklist = {},        -- { [itemID] = true } — drop on capture + hide existing rows
   whitelist = {},        -- { [itemID] = true } — always record, even below the gates
+  currencyBlacklist = {},  -- { [currencyID] = true } — currencies never recorded on capture
   settings = {
     enabled          = true,
     qualityThreshold = 1,      -- Common (white) and above

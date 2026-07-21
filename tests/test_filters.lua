@@ -172,3 +172,44 @@ test("Filters: ParseItemID reads a number, an item link, and an itemString", fun
   assertEqual(F:ParseItemID("item:6948:0:0"), 6948)
   assertEqual(F:ParseItemID("nonsense"), nil)
 end)
+
+test("Filters: currency blacklist add / remove / query", function()
+  NS.db.global.currencyBlacklist = {}
+  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertTrue(NS.Filters:AddCurrencyBlacklist(3008))
+  assertTrue(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertFalse(NS.Filters:AddCurrencyBlacklist(3008))   -- already present -> no change
+  assertTrue(NS.Filters:RemoveCurrencyBlacklist(3008))
+  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertFalse(NS.Filters:RemoveCurrencyBlacklist(3008)) -- absent -> no change
+end)
+
+test("Filters: currency blacklist is independent of the item id lists", function()
+  NS.db.global.blacklist = {}; NS.db.global.currencyBlacklist = {}
+  NS.Filters:AddBlacklist(3008)            -- item id 3008
+  NS.Filters:AddCurrencyBlacklist(3008)    -- currency id 3008 (same number, different namespace)
+  assertTrue(NS.Filters:IsBlacklisted(3008))
+  assertTrue(NS.Filters:IsCurrencyBlacklisted(3008))
+  NS.Filters:RemoveCurrencyBlacklist(3008)
+  assertTrue(NS.Filters:IsBlacklisted(3008))          -- item list untouched
+  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  NS.db.global.blacklist = {}
+end)
+
+test("Filters: ClearList and ClearAll include the currency blacklist", function()
+  NS.db.global.currencyBlacklist = {}; NS.db.global.blacklist = {}; NS.db.global.whitelist = {}
+  NS.Filters:AddCurrencyBlacklist(3008); NS.Filters:AddCurrencyBlacklist(2914)
+  assertEqual(NS.Filters:ClearList("currencyBlacklist"), 2)
+  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  NS.Filters:AddBlacklist(1); NS.Filters:AddWhitelist(2); NS.Filters:AddCurrencyBlacklist(3008)
+  local removed = NS.Filters:ClearAll()
+  assertEqual(removed, 3)
+  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+end)
+
+test("Filters: ParseCurrencyID reads a currency link or a bare number", function()
+  assertEqual(NS.Filters:ParseCurrencyID("|cffffffff|Hcurrency:3008::|h[Valorstones]|h|r"), 3008)
+  assertEqual(NS.Filters:ParseCurrencyID("  2914  "), 2914)
+  assertEqual(NS.Filters:ParseCurrencyID("|Hitem:5::|h[x]|h"), nil)   -- an item link is not a currency
+  assertEqual(NS.Filters:ParseCurrencyID("abc"), nil)
+end)

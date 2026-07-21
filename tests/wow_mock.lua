@@ -71,6 +71,11 @@ return function()
       if not id then return nil end
       return { name = M.__currencyNames[id], iconFileID = 100000 + id }
     end,
+    GetCurrencyInfo = function(id)
+      local name = M.__currencyNames[id]
+      if not name then return nil end
+      return { name = name, iconFileID = 100000 + id, quantity = 0 }
+    end,
   }
 
   -- strings

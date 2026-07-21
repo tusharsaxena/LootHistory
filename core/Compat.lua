@@ -326,6 +326,17 @@ function Compat.CurrencyCategory(currencyID)
   return currencyCategoryCache[currencyID]
 end
 
+-- Display name for a currency id (nil when uncached / API absent). Used by the Filters panel to
+-- label a stored currency-blacklist entry.
+function Compat.CurrencyName(currencyID)
+  if not currencyID then return nil end
+  if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if info then return info.name end
+  end
+  return nil
+end
+
 -- Addon TOC metadata field (e.g. "Version"), read from the packaged manifest so `/lh version`
 -- can't drift from the TOC. Retail moved the getter to C_AddOns; falls back to the bare global,
 -- then nil when neither is present.
