@@ -9,9 +9,10 @@ For scope see [`scope.md`](scope.md); for the working brief and the full doc ind
 ## Overview
 
 **Ka0s Loot History** passively records every item the player loots above a configurable
-quality threshold, attributes each drop to a **source** (kill / container / mail / trade /
-AH / quest / vendor / craft / roll / M+ / other), stores it account-wide, and presents it in
-a standalone browser window with a filter/sort/group table plus an Insights analytics view.
+quality threshold, attributes each drop to a **source** (kill / container / M+ / bonus roll /
+roll / quest / trade / mail / AH / vendor / deconstruct / craft / refund / other), stores it
+account-wide, and presents it in a standalone browser window with a filter/sort/group table plus
+an Insights analytics view.
 
 The addon splits into two internal halves:
 
@@ -116,15 +117,15 @@ back fast table ops.
   `NS.Filters`.
 
 **Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
-`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `MPLUS`, `OTHER`, plus the deconstruct sources
-`DISENCHANT`, `MILLING`, `PROSPECTING`. The enum is extended additively (renaming keys is forbidden
-— the export contract — but adding is forward-compatible), and only sources with a live stamper are
-exposed in the UI:
+`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `BONUS_ROLL`, `MPLUS`, `REFUND`, `OTHER`, plus the
+deconstruct sources `DISENCHANT`, `MILLING`, `PROSPECTING`. The enum is extended additively (renaming
+keys is forbidden — the export contract — but adding is forward-compatible), and only sources with a
+live stamper are exposed in the UI:
 `Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser's
 data-driven filter dropdowns (Bound/Quality/Source/Type/SubType/Zone/Character, all multi-select)
 self-scope from live data — each offers only the values the history actually contains (so Heirloom,
-Poor, Warbound, etc. appear only when present). `ROLL`/`CRAFT` have no stamper yet (see Known
-limitations).
+Poor, Warbound, etc. appear only when present). Every source now has a live capture path, so all
+appear in the mute list (see [attribution.md](attribution.md) for how each is attributed).
 
 ---
 
@@ -287,12 +288,14 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
 
 ## Known limitations
 
-- **Partial source coverage.** `ROLL` and `CRAFT` are defined in the `SourceType` enum but have no
-  stamper yet (`CRAFT` is reserved for broad recipe crafting, whose cast time can exceed the context
-  TTL — see TODO), so they are hidden from the mute list via `SOURCE_IMPLEMENTED`. Deconstruct
-  abilities stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source (player `UNIT_SPELLCAST_SUCCEEDED`
-  by spell id), and `AH` is stamped from Auction-House mail. `VENDOR`/`MAIL`/`TRADE` were confirmed
-  recording in-client (smoke §F-001, passed). BAG_UPDATE-diff capture for the `ROLL` gap is backlog.
+- **Full source coverage.** Every `SourceType` member has a live capture path. Deconstruct abilities
+  stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source (player `UNIT_SPELLCAST_SUCCEEDED` by
+  spell id); `AH` is stamped from Auction-House mail; `BONUS_ROLL`/`CRAFT`/`REFUND` are attributed
+  straight from their self-identifying loot lines; `ROLL` is stamped from the "You won:" roll line
+  just before the item's receive line (see [attribution.md](attribution.md)). `VENDOR`/`MAIL`/`TRADE`
+  were confirmed recording in-client (smoke §F-001, passed). NB: the `ROLL` path assumes the client
+  emits `LOOT_ROLL_YOU_WON` ("You won:") rather than the compact "no-spam" roll variant — verify
+  in-game (smoke §F-009).
 - **No per-item source name.** The "From" column and its combat-log kill-name cache were removed:
   for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name was
   resolvable, so the column was almost always blank. Records keep `source` and the machine-readable

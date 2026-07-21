@@ -57,6 +57,13 @@ return function()
   -- Bonus-roll self strings carry NO trailing period in live GlobalStrings.lua.
   M.LOOT_ITEM_BONUS_ROLL_SELF = "You receive bonus loot: %s"
   M.LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE = "You receive bonus loot: %sx%d"
+  -- Created (crafted) and refunded self strings — these DO carry a trailing period in live GlobalStrings.
+  M.LOOT_ITEM_CREATED_SELF = "You create: %s."
+  M.LOOT_ITEM_CREATED_SELF_MULTIPLE = "You create: %sx%d."
+  M.LOOT_ITEM_REFUND = "You are refunded: %s."
+  M.LOOT_ITEM_REFUND_MULTIPLE = "You are refunded: %sx%d."
+  -- Roll-won line ("You won: <item>", no trailing period), used to stamp ROLL context.
+  M.LOOT_ROLL_YOU_WON = "You won: %s"
   M.ITEM_QUALITY_COLORS = setmetatable({}, {
     __index = function() return { r = 1, g = 1, b = 1, hex = "ffffffff" } end,
   })

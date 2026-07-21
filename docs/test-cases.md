@@ -6,7 +6,7 @@ The full inventory of every headless test case, grouped by suite. This file is t
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`
 whenever the suite changes (see [testing.md](testing.md)).
 
-### test_util.lua (27)
+### test_util.lua (30)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -22,9 +22,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Util: ParseSelfLoot multiple self-loot → link, qty N
 - Util: ParseSelfLoot pushed variant → link, qty
 - Util: ParseSelfLoot ignores another player's loot
-- Util: ParseSelfLoot flags a bonus-roll self-loot line
-- Util: ParseSelfLoot leaves the bonus flag unset for normal loot
+- Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL
+- Util: ParseSelfLoot tags a created (crafted) self-loot line as CRAFT
+- Util: ParseSelfLoot tags a refund self-loot line as REFUND
+- Util: ParseSelfLoot leaves the source tag nil for normal loot
 - Util: ParseSelfLoot ignores another player's bonus roll
+- Util: ParseRollWon matches the player's roll-won line, else nil
 - Util: FormatClock is HH:MM
 - Util: FormatDate is DD-MMM-YYYY
 - Util: FormatMoney shows non-zero parts
@@ -106,7 +109,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
 - AuctionPrice: SwapPriorityTags swaps positions
 
-### test_collector.lua (24)
+### test_collector.lua (27)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -126,6 +129,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: whitelist records below threshold as a plain point-in-time row
 - Collector: end-to-end writes an attributed record
 - Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context
+- Collector: end-to-end attributes a created line to CRAFT, overriding context
+- Collector: end-to-end attributes a refund line to REFUND
+- Collector: a roll-won line writes no record but stamps ROLL for the receive line
 - Collector: end-to-end drops loot below the quality threshold
 - Collector: end-to-end drops quest items when the filter is on
 - Schema: excludeQuestItems row exists, defaults true, settable
@@ -300,12 +306,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 
 | Suite | Cases |
 |-------|------:|
-| test_util.lua | 27 |
+| test_util.lua | 30 |
 | test_compat.lua | 11 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 16 |
 | test_auctionprice.lua | 8 |
-| test_collector.lua | 24 |
+| test_collector.lua | 27 |
 | test_database.lua | 42 |
 | test_stats.lua | 14 |
 | test_browsertable.lua | 18 |
@@ -313,4 +319,4 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 6 |
-| **Total** | **251** |
+| **Total** | **257** |

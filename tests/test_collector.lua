@@ -203,6 +203,67 @@ test("Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overridi
   NS.Collector:RefreshUpvalues()
 end)
 
+test("Collector: end-to-end attributes a created line to CRAFT, overriding context", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("KILL", { npcID = 999 }, "CERTAIN")   -- stale, unrelated context
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_CREATED_SELF, LINK))
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.source, "CRAFT")
+  assertEqual(r.sourceDetail, nil)
+  assertEqual(r.confidence, "CERTAIN")
+
+  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
+test("Collector: end-to-end attributes a refund line to REFUND", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.State.lootContext = nil
+  NS.db.global.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_REFUND, LINK))
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.source, "REFUND")
+  assertEqual(r.confidence, "CERTAIN")
+
+  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
+test("Collector: a roll-won line writes no record but stamps ROLL for the receive line", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+  -- A stale KILL context is present; the roll-won stamp must supersede it for the receive line.
+  NS.Attribution:Stamp("KILL", { npcID = 999 }, "CERTAIN")
+
+  local before = NS.Database:Count()
+  -- 1) The roll-won announcement itself records nothing.
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ROLL_YOU_WON, LINK))
+  assertEqual(NS.Database:Count(), before)
+
+  -- 2) The item's own receive line arrives next and consumes the ROLL context.
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.source, "ROLL")
+  assertEqual(r.confidence, "CERTAIN")
+
+  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
 test("Collector: end-to-end drops loot below the quality threshold", function()
   local mocks = T.mocks
   mocks.__now = 0

@@ -223,7 +223,7 @@ Map them from the **HISTORY** CSV columns:
 | `ty` | `itemType`      | |
 | `st` | `itemSubType`   | |
 | `qty`| `quantity`      | number |
-| `s`  | `source`        | UPPER: `KILL CONTAINER MAIL TRADE AH QUEST VENDOR DISENCHANT MPLUS OTHER` (a blank source → `OTHER`) |
+| `s`  | `source`        | UPPER: `KILL CONTAINER MPLUS BONUS_ROLL ROLL QUEST TRADE MAIL AH VENDOR DISENCHANT MILLING PROSPECTING CRAFT REFUND OTHER` (a blank source → `OTHER`) |
 | `z`  | `zone`          | |
 | `wh` | `wowheadLink`   | the ready-made URL |
 | `src`| `auctionSource` | e.g. `"tsm:dbmarket"`, `"auctionator:minbuyout"`, `"oribos:market"`; blank when no AH price |

@@ -47,7 +47,7 @@ Auction-House proceeds arrive as mail, and LH attributes them to `AH` rather tha
 - sender equals the `AUCTION_HOUSE` global, **or**
 - subject starts with the prefix of any of `AUCTION_WON_MAIL_SUBJECT`, `AUCTION_EXPIRED_MAIL_SUBJECT`, `AUCTION_REMOVED_MAIL_SUBJECT`, `AUCTION_INVOICE_MAIL_SUBJECT` (each global like `"Auction won: %s"` is trimmed at `%s` to `"Auction won: "` and prefix-matched).
 
-`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:80-86`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:291-300`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:33-37`), unlike CRAFT/ROLL which are enum'd but not yet wired.
+`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:80-86`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:291-300`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:37-41`), as does every other source now that CRAFT/ROLL/REFUND are wired.
 
 ## C_Spell moved the spell-name lookup
 

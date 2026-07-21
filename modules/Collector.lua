@@ -79,17 +79,27 @@ end
 
 function Collector:OnChatMsgLoot(_, msg)
   if not enabled then return end
-  local link, qty, bonus = NS.Util.ParseSelfLoot(msg)
+
+  -- A roll-won line ("You won: <item>") is not a receipt — the item arrives a moment later on its own
+  -- "You receive loot:" line. Stamp ROLL context so that imminent line attributes to the roll rather
+  -- than inheriting a stale kill/container stamp, then wait for it (no record is written here).
+  if NS.Util.ParseRollWon(msg) then
+    NS.Attribution:StampRoll()
+    return
+  end
+
+  local link, qty, directSource = NS.Util.ParseSelfLoot(msg)
   if not link then return end
 
   local itemID, itemName, quality, classID = NS.Compat.GetItemInfo(link)
-  -- A bonus-roll loot line is self-identifying: attribute it to BONUS_ROLL directly rather than
-  -- reading the peripheral context, which by now is stale (the roll resolves seconds after the kill)
-  -- or would mis-inherit the boss's KILL stamp. Everything else consumes the stamped context.
+  -- Some loot lines are self-identifying: the line itself names the source (a bonus roll, a crafted
+  -- "You create", a token/vendor refund), so we attribute it directly with CERTAIN confidence rather
+  -- than reading the peripheral context — which by now may be stale or belong to an unrelated kill.
+  -- Everything else consumes the stamped context (which a roll-won stamp above may have set to ROLL).
   local source, sourceDetail, confidence
-  if bonus then
+  if directSource then
     source, sourceDetail, confidence =
-      NS.Constants.SourceType.BONUS_ROLL, nil, NS.Constants.Confidence.CERTAIN
+      NS.Constants.SourceType[directSource], nil, NS.Constants.Confidence.CERTAIN
   else
     source, sourceDetail, confidence = NS.Attribution:Consume()
   end

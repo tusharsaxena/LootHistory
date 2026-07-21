@@ -125,10 +125,21 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
 | 5 | Take an item attachment from mail | **Mail** | CERTAIN/INFERRED |
 | 6 | Complete a trade that gives you an item | **Trade** | CERTAIN/INFERRED |
 | 7 | Loot a Mythic+ end-of-run chest | **Mythic+** | CERTAIN |
+| 8 | Spend a bonus/seal roll on a boss kill | **Bonus Roll** | CERTAIN |
+| 9 | Win a group need/greed/transmog roll | **Roll** | CERTAIN |
+| 10 | Craft an item (any tradeskill "You create") | **Craft** | CERTAIN |
+| 11 | Refund a token/vendor purchase within the buyback timer | **Refund** | CERTAIN |
 
 **Pass.**
 - Rows 1-3 attribute to Kill/Container/Quest. Rows 4-7 record with the listed source (these were the
   F-001 in-client confirmations for VENDOR/MAIL/TRADE via `CHAT_MSG_LOOT`).
+- Rows 8/10/11 attribute from the self-identifying loot line itself (bonus loot / "You create" /
+  "You are refunded"), overriding any stale kill/container context. §F-009: **Row 9 is the one to
+  watch** — the `ROLL` source is stamped from the `LOOT_ROLL_YOU_WON` ("You won:") line that precedes
+  the item's receive line. With debug on (§12), confirm a `[Attr] stamp ROLL via roll-won` line
+  appears just before the item's `[Loot] … src=ROLL`. If instead the item records as the boss's
+  Kill/Container source, the client is emitting the compact "no-spam" roll variant and the ROLL path
+  needs a follow-up (see ARCHITECTURE Known limitations).
 - Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
   a Lua error, never a missing row.
 - The denormalized columns render correctly: item link (exact tooltip), quality colour, iLvl, bound
@@ -153,9 +164,9 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 - With **Exclude quest items** on, Quest-class items are dropped (`reason=quest`, keyed on the
   locale-independent item class `12`, not the localized type string); unchecking it lets them record.
 - With **Kill** unchecked, kill loot is dropped (`reason=source`); re-checking restores capture. The
-  mute list offers **only implemented sources** (Kill, Container, Mythic+, Quest, Trade, Mail,
-  Auction House, Vendor, Disenchant, Milling, Prospecting, Other) — no dead Roll/Craft checkbox
-  beyond the enum'd set.
+  mute list offers **every source** — Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail,
+  Auction House, Vendor, Disenchant, Milling, Prospecting, Craft, Refund, Other — now that all have a
+  live capture path.
 - All three gates react **live** to the setting change (upvalues refresh on `SettingsChanged`); no
   `/reload` needed.
 

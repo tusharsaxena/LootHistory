@@ -99,45 +99,71 @@ end
 
 -- Self-loot patterns, compiled once from the localized global strings. Quantity-bearing
 -- variants come first: their (.+) is greedy, so a single-loot pattern would otherwise
--- swallow the trailing "xN" of a multiple-loot line. The bonus-roll variants
--- (LOOT_ITEM_BONUS_ROLL_SELF[_MULTIPLE]) carry a `bonus` flag: the loot line itself is the
--- authoritative, locale-independent "this is a bonus roll" signal, so the collector attributes
--- them to BONUS_ROLL directly rather than reading the peripheral loot context (see attribution.md).
+-- swallow the trailing "xN" of a multiple-loot line. Some variants carry a `source` tag: their
+-- loot line is itself the authoritative, locale-independent proof of the source — a bonus roll
+-- (LOOT_ITEM_BONUS_ROLL_SELF), a crafted item (LOOT_ITEM_CREATED_SELF, "You create"), or a token/
+-- vendor refund (LOOT_ITEM_REFUND, "You are refunded") — so the collector attributes them directly
+-- to that source rather than reading the peripheral loot context (see attribution.md).
 local lootPatterns
 function Util.BuildLootPatterns()
   local specs = {
     { g = LOOT_ITEM_SELF_MULTIPLE,             hasQty = true },
     { g = LOOT_ITEM_PUSHED_SELF_MULTIPLE,      hasQty = true },
-    { g = LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE,  hasQty = true,  bonus = true },
+    { g = LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE,  hasQty = true,  source = "BONUS_ROLL" },
+    { g = LOOT_ITEM_CREATED_SELF_MULTIPLE,     hasQty = true,  source = "CRAFT" },
+    { g = LOOT_ITEM_REFUND_MULTIPLE,           hasQty = true,  source = "REFUND" },
     { g = LOOT_ITEM_SELF,                      hasQty = false },
     { g = LOOT_ITEM_PUSHED_SELF,               hasQty = false },
-    { g = LOOT_ITEM_BONUS_ROLL_SELF,           hasQty = false, bonus = true },
+    { g = LOOT_ITEM_BONUS_ROLL_SELF,           hasQty = false, source = "BONUS_ROLL" },
+    { g = LOOT_ITEM_CREATED_SELF,              hasQty = false, source = "CRAFT" },
+    { g = LOOT_ITEM_REFUND,                    hasQty = false, source = "REFUND" },
   }
   local out = {}
   for _, s in ipairs(specs) do
     if s.g then
-      out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty, bonus = s.bonus }
+      out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty, source = s.source }
     end
   end
   lootPatterns = out
   return out
 end
 
--- Parse a CHAT_MSG_LOOT line. Returns itemLink, quantity, isBonus for the player's own loot;
--- nil otherwise. `isBonus` is true only for a bonus-roll line (else nil).
+-- Parse a CHAT_MSG_LOOT line. Returns itemLink, quantity, source for the player's own loot;
+-- nil otherwise. `source` is a self-identifying SourceType string ("BONUS_ROLL"/"CRAFT"/"REFUND")
+-- for the tagged variants, else nil (the collector then reads the peripheral context).
 function Util.ParseSelfLoot(msg)
   if not msg then return nil end
   local pats = lootPatterns or Util.BuildLootPatterns()
   for _, p in ipairs(pats) do
     if p.hasQty then
       local link, qty = msg:match(p.pattern)
-      if link then return link, tonumber(qty) or 1, p.bonus end
+      if link then return link, tonumber(qty) or 1, p.source end
     else
       local link = msg:match(p.pattern)
-      if link then return link, 1, p.bonus end
+      if link then return link, 1, p.source end
     end
   end
   return nil
+end
+
+-- The roll-won line ("You won: <item>", LOOT_ROLL_YOU_WON) announces that YOU won a group need/
+-- greed/transmog roll. It is NOT itself a receipt — no record is written on it; the item arrives a
+-- moment later on a normal "You receive loot:" line. The collector uses this to stamp ROLL context
+-- so that imminent receive line attributes to the roll rather than inheriting a stale kill/container
+-- stamp. Compiled once, like the self-loot patterns (false = the global string is absent).
+local rollWonPattern
+function Util.RollWonPattern()
+  rollWonPattern = LOOT_ROLL_YOU_WON and toLootPattern(LOOT_ROLL_YOU_WON) or false
+  return rollWonPattern
+end
+
+-- Returns the item link if `msg` is the player's own roll-won line, else nil.
+function Util.ParseRollWon(msg)
+  if not msg then return nil end
+  local pat = rollWonPattern
+  if pat == nil then pat = Util.RollWonPattern() end
+  if not pat then return nil end
+  return msg:match(pat)
 end
 
 -- ── Secret-safe chat printer (Ka0s standard events-frames-taint-§8) ──────────────────────────

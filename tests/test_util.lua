@@ -60,15 +60,17 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceType.OTHER, "OTHER")
   assertEqual(NS.Constants.SourceType.BONUS_ROLL, "BONUS_ROLL")
   assertEqual(NS.Constants.SourceLabel.BONUS_ROLL, "Bonus Roll")
+  assertEqual(NS.Constants.SourceType.REFUND, "REFUND")
+  assertEqual(NS.Constants.SourceLabel.REFUND, "Refund")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
-  assertEqual(#NS.Constants.SourceOrder, 15)   -- + DISENCHANT / MILLING / PROSPECTING + BONUS_ROLL
-  -- Enum stays whole (export contract), but the mute options are scoped to sources with a live
-  -- capture path: ROLL and CRAFT have no stamper yet and are hidden; deconstruct abilities, AH
-  -- (from Auction-House mail) and BONUS_ROLL (from the bonus-roll loot line) are wired.
-  assertEqual(#NS.Constants.SOURCE_OPTIONS, 13)
+  assertEqual(#NS.Constants.SourceOrder, 16)   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND
+  -- Every enum member now has a live capture path, so all are offered in the mute list: CRAFT (from
+  -- "You create"), REFUND (from "You are refunded") and ROLL (from the "You won:" roll line) joined
+  -- the wired sources (deconstruct abilities, AH from mail, BONUS_ROLL from the bonus-roll line).
+  assertEqual(#NS.Constants.SOURCE_OPTIONS, 16)
   local muteable = {}
   for _, o in ipairs(NS.Constants.SOURCE_OPTIONS) do muteable[o.value] = true end
-  assertFalse(muteable.ROLL); assertFalse(muteable.CRAFT)
+  assertTrue(muteable.ROLL); assertTrue(muteable.CRAFT); assertTrue(muteable.REFUND)
   assertTrue(muteable.KILL); assertTrue(muteable.AH); assertTrue(muteable.BONUS_ROLL)
   assertTrue(muteable.DISENCHANT); assertTrue(muteable.MILLING); assertTrue(muteable.PROSPECTING)
 end)
@@ -130,30 +132,67 @@ do
     assertEqual(NS.Util.ParseSelfLoot(msg), nil)
   end)
 
-  test("Util: ParseSelfLoot flags a bonus-roll self-loot line", function()
+  test("Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL", function()
     local one = string.format(T.mocks.LOOT_ITEM_BONUS_ROLL_SELF, LINK)
-    local link, qty, bonus = NS.Util.ParseSelfLoot(one)
+    local link, qty, src = NS.Util.ParseSelfLoot(one)
     assertEqual(link, LINK)
     assertEqual(qty, 1)
-    assertTrue(bonus == true, "single bonus-roll line must set the bonus flag")
+    assertEqual(src, "BONUS_ROLL")
 
     local many = string.format(T.mocks.LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE, LINK, 4)
-    local link2, qty2, bonus2 = NS.Util.ParseSelfLoot(many)
+    local link2, qty2, src2 = NS.Util.ParseSelfLoot(many)
     assertEqual(link2, LINK)
     assertEqual(qty2, 4)
-    assertTrue(bonus2 == true, "multiple bonus-roll line must set the bonus flag")
+    assertEqual(src2, "BONUS_ROLL")
   end)
 
-  test("Util: ParseSelfLoot leaves the bonus flag unset for normal loot", function()
-    local _, _, bonus = NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_SELF, LINK))
-    assertFalse(bonus)
-    local _, _, bonus2 = NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_PUSHED_SELF, LINK))
-    assertFalse(bonus2)
+  test("Util: ParseSelfLoot tags a created (crafted) self-loot line as CRAFT", function()
+    local one = string.format(T.mocks.LOOT_ITEM_CREATED_SELF, LINK)
+    local link, qty, src = NS.Util.ParseSelfLoot(one)
+    assertEqual(link, LINK)
+    assertEqual(qty, 1)
+    assertEqual(src, "CRAFT")
+
+    local many = string.format(T.mocks.LOOT_ITEM_CREATED_SELF_MULTIPLE, LINK, 2)
+    local link2, qty2, src2 = NS.Util.ParseSelfLoot(many)
+    assertEqual(link2, LINK)
+    assertEqual(qty2, 2)   -- the "xN" is NOT swallowed by the singular pattern (quantity variants first)
+    assertEqual(src2, "CRAFT")
+  end)
+
+  test("Util: ParseSelfLoot tags a refund self-loot line as REFUND", function()
+    local one = string.format(T.mocks.LOOT_ITEM_REFUND, LINK)
+    local link, qty, src = NS.Util.ParseSelfLoot(one)
+    assertEqual(link, LINK)
+    assertEqual(qty, 1)
+    assertEqual(src, "REFUND")
+
+    local many = string.format(T.mocks.LOOT_ITEM_REFUND_MULTIPLE, LINK, 6)
+    local link2, qty2, src2 = NS.Util.ParseSelfLoot(many)
+    assertEqual(link2, LINK)
+    assertEqual(qty2, 6)
+    assertEqual(src2, "REFUND")
+  end)
+
+  test("Util: ParseSelfLoot leaves the source tag nil for normal loot", function()
+    local _, _, src = NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_SELF, LINK))
+    assertEqual(src, nil)
+    local _, _, src2 = NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_PUSHED_SELF, LINK))
+    assertEqual(src2, nil)
   end)
 
   test("Util: ParseSelfLoot ignores another player's bonus roll", function()
     local msg = "Someone else receives bonus loot: " .. LINK
     assertEqual(NS.Util.ParseSelfLoot(msg), nil)
+  end)
+
+  test("Util: ParseRollWon matches the player's roll-won line, else nil", function()
+    local won = string.format(T.mocks.LOOT_ROLL_YOU_WON, LINK)
+    assertEqual(NS.Util.ParseRollWon(won), LINK)
+    -- A normal receive line is not a roll-won line.
+    assertEqual(NS.Util.ParseRollWon(string.format(T.mocks.LOOT_ITEM_SELF, LINK)), nil)
+    -- Another player's win ("%s won: %s") must not match the self-only "You won:" pattern.
+    assertEqual(NS.Util.ParseRollWon("Someone won: " .. LINK), nil)
   end)
 end
 

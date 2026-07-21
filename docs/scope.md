@@ -17,7 +17,7 @@ Display name in the addon list and the Settings panel: `Ka0s Loot History`. The 
 ## In scope
 
 - **Passive capture** of every item the player personally loots — self only, items only (anything with an itemID). A configurable **quality threshold** (default Common+) and an optional **quest-item filter** gate recording; a master enable switch stops all capture.
-- **Source attribution** into `Constants.SourceType`: `KILL`, `CONTAINER`, `MAIL`, `TRADE`, `AH`, `QUEST`, `VENDOR`, `MPLUS`, `DISENCHANT`, `MILLING`, `PROSPECTING`, plus `CRAFT` / `ROLL` (enum'd, not yet stamped) and an `OTHER` fallback — each tagged `CERTAIN` or `INFERRED` confidence. Users may **mute** individual sources; only sources with a live stamper (`Constants.SOURCE_IMPLEMENTED`) appear in the mute UI.
+- **Source attribution** into `Constants.SourceType`: `KILL`, `CONTAINER`, `MAIL`, `TRADE`, `AH`, `QUEST`, `VENDOR`, `MPLUS`, `BONUS_ROLL`, `ROLL`, `CRAFT`, `REFUND`, `DISENCHANT`, `MILLING`, `PROSPECTING`, and an `OTHER` fallback — each tagged `CERTAIN` or `INFERRED` confidence. Every source has a live capture path, so all appear in the **mute** UI (`Constants.SOURCE_IMPLEMENTED`).
 - **Account-wide history** stored as a dense array in `LootHistoryDB.global.history`, with a `char` column so per-character views are a filter, not separate storage. Automatic **retention** prune runs once per session (default 30 days; configurable, including Never).
 - **Standalone browser window** — movable, resizable, scale-configurable — with a History table (multi-select filters for quality / type / source / zone / character, a Current/All scope, item-name search, click-to-sort, group-by, and row actions) and an Insights tab (range-scoped breakdowns and top lists). Rendered with pooled/virtualized rows. See [browser.md](browser.md).
 - **Schema-driven settings** — one Blizzard Settings canvas plus a `/lh` slash CLI, both mutating through the single `Schema:Set` write seam. See [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md).
@@ -42,14 +42,14 @@ Load-bearing choices that look like candidates for "improvement" but are intenti
 - **Account-wide storage** (`.global` + a `char` column), not per-character AceDB profiles. Switching would be a schema + query rewrite; the account-wide view is the product.
 - **Single-slot attribution context with a fixed TTL.** The source stamp deliberately survives multiple `CHAT_MSG_LOOT` lines from one loot window rather than being consumed by the first line.
 - **Non-secure standalone browser window** (Standard standalone-windows). Non-secure by design — no combat-lockdown gate, ESC via `UISpecialFrames`, persisted geometry — not an oversight. This addon is standalone-windows's reference implementation.
-- **`Database:Export` field shape.** It is the forward-compatible v2 export contract; the `SourceType` enum stays whole (including the not-yet-stamped `CRAFT` / `ROLL`) for the same reason.
+- **`Database:Export` field shape.** It is the forward-compatible v2 export contract; the `SourceType` enum stays whole (keys are additive, never renamed) for the same reason.
 
 ## Known limitations
 
 Boundaries that are real today but are not deliberate non-goals — they are places the current version stops short.
 
-- **Partial source coverage.** `ROLL` and `CRAFT` are in the `SourceType` enum but have no stamper yet, so they are hidden from the mute list. `CRAFT` is reserved for broad recipe crafting, whose cast time can exceed the context TTL. Deconstruct abilities stamp their own `DISENCHANT` / `MILLING` / `PROSPECTING` source, and `AH` is stamped from Auction-House mail.
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting items more than ~1.5s apart from a single open window can let later items fall back to `OTHER` / `INFERRED`.
+- **Roll-win line assumption.** The `ROLL` source is stamped from `LOOT_ROLL_YOU_WON` ("You won:"). If a client emits the compact "no-spam" roll variant instead, a rolled item falls back to whatever context is fresh (usually the kill/container it dropped from). Verify in-game (smoke §F-009).
 - **No upgrade-scoring addon interop** (Pawn / Loot Appraiser). Vendor `vendorPrice` and, since the Rev-2 AH-price integration, auction-house prices from Auctionator / TSM / OribosExchange are both captured — see [ARCHITECTURE.md](ARCHITECTURE.md) and [data-model.md](data-model.md) — but no third-party upgrade/BiS scoring is read.
 
 ## Backlog
@@ -58,4 +58,4 @@ The backlog lives in the GitHub issue tracker:
 
   https://github.com/tusharsaxena/LootHistory/issues
 
-BAG_UPDATE-diff capture for the `ROLL` gap, revisiting the single-slot TTL, value/upgrade addon interop, and the v2 AI export are all tracked there. Shipped from the tracker: shared filters across History + Insights (#13), the item-id blacklist/whitelist (#14), and tab-aware Export with an Insights CSV (#15).
+Revisiting the single-slot TTL, value/upgrade addon interop, and the v2 AI export are all tracked there. Shipped from the tracker: shared filters across History + Insights (#13), the item-id blacklist/whitelist (#14), and tab-aware Export with an Insights CSV (#15).

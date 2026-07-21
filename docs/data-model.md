@@ -111,12 +111,12 @@ Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_Loot
 
 ```
 KILL · CONTAINER · MAIL · TRADE · AH · QUEST · VENDOR · CRAFT · ROLL
-MPLUS · OTHER · DISENCHANT · MILLING · PROSPECTING
+BONUS_ROLL · MPLUS · REFUND · OTHER · DISENCHANT · MILLING · PROSPECTING
 ```
 
 Companion tables in the same file: `SourceOrder` (display order for grouping/analytics, `core/Constants.lua:16`) and `SourceLabel` (short UI labels, `core/Constants.lua:23`).
 
-`SOURCE_IMPLEMENTED` (`core/Constants.lua:33`) marks the subset with a **live stamper** today; it gates the per-source mute UI. `ROLL` and `CRAFT` are enum'd but not yet stamped, so they are hidden from the option list — the enum stays whole because it is the export contract. See [attribution.md](./attribution.md).
+`SOURCE_IMPLEMENTED` (`core/Constants.lua:37`) marks the sources with a **live capture path**; it gates the per-source mute UI. Every source now qualifies, so all appear in the option list — the enum stays whole because it is the export contract. See [attribution.md](./attribution.md).
 
 ### Confidence
 

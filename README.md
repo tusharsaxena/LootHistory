@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
-![Tests](https://img.shields.io/badge/Tests-251%2F251_passing-green)
+![Tests](https://img.shields.io/badge/Tests-257%2F257_passing-green)
 
 ![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -156,7 +156,7 @@ If a signal is there, the item is filed under that source and marked **Certain**
 | Does this track loot for my whole account or just one character? | The whole account. There's one shared history with a Character column, so every character adds to and reads from the same log. |
 | Does it record other players' loot? | No. Only items **you** pick up are recorded. |
 | What does the "confidence" marker mean? | Each item is marked **Certain** or **Inferred**. Most are Certain, filed straight from what the game reported. When the source can't be worked out, the item is still kept — filed under **Other** and marked Inferred. |
-| Why don't I see Roll or Craft as recording toggles? | Those two sources exist in the data, but the addon can't detect them live yet, so they aren't shown as toggles. Every source it can detect — including Disenchant, Milling, and Prospecting — can be turned on or off under **Data Collection → Record data from**. |
+| Which sources can I toggle on or off? | Every source the addon records — Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft, and Refund — can be turned on or off individually under **Data Collection → Record data from**. |
 | Will raising the quality threshold hide items I already looted? | No. The threshold only affects new items. What you've already recorded stays until it's cleared by the retention setting or deleted by hand. |
 | Do I need another addon to see auction values? | Only if you want them. Prices come from **Auctionator**, **TSM**, or **OribosExchange** if you have one installed; with none, every value falls back to the vendor sell price. The value shown is always the higher of the vendor and auction price. |
 | How do I stop tracking one specific item — or force-track one below my threshold? | Use **Settings ▸ Filters**. Blacklist an item's id to skip it from now on; whitelist one to always record it even when it's below your quality threshold, from a muted source, or a quest item. Both are point-in-time: they change future loots only and never touch rows you've already recorded. |

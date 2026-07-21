@@ -6,9 +6,15 @@ The design question the engine answers: WoW gives you a reliable "you looted ite
 
 ## The authoritative signal: `CHAT_MSG_LOOT`
 
-`CHAT_MSG_LOOT` is the one authoritative "item received (self)" signal, and the only event that writes a record. `Collector:OnChatMsgLoot` (`modules/Collector.lua:80`) runs `NS.Util.ParseSelfLoot(msg)` (`core/Util.lua:122`), which matches the line against the localized self-loot global strings (`LOOT_ITEM_SELF_MULTIPLE`, `LOOT_ITEM_PUSHED_SELF_MULTIPLE`, `LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE`, `LOOT_ITEM_SELF`, `LOOT_ITEM_PUSHED_SELF`, `LOOT_ITEM_BONUS_ROLL_SELF`) compiled once into anchored Lua patterns. Lines that aren't the player's own loot (party members, "created", etc.) don't match and return `nil` — that is the **self-filter**. Quantity-bearing patterns are tried first because their greedy `(.+)` link capture would otherwise swallow the trailing `xN` of a multiple-loot line.
+`CHAT_MSG_LOOT` is the one authoritative "item received (self)" signal, and the only event that writes a record. `Collector:OnChatMsgLoot` runs `NS.Util.ParseSelfLoot(msg)`, which matches the line against the localized self-loot global strings (`LOOT_ITEM_SELF_MULTIPLE`, `LOOT_ITEM_PUSHED_SELF_MULTIPLE`, `LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE`, `LOOT_ITEM_CREATED_SELF_MULTIPLE`, `LOOT_ITEM_REFUND_MULTIPLE`, then the singular `LOOT_ITEM_SELF`, `LOOT_ITEM_PUSHED_SELF`, `LOOT_ITEM_BONUS_ROLL_SELF`, `LOOT_ITEM_CREATED_SELF`, `LOOT_ITEM_REFUND`) compiled once into anchored Lua patterns. Lines that aren't the player's own loot (party members, etc.) don't match and return `nil` — that is the **self-filter**. Quantity-bearing patterns are tried first because their greedy `(.+)` link capture would otherwise swallow the trailing `xN` of a multiple-loot line.
 
-The bonus-roll variants (`LOOT_ITEM_BONUS_ROLL_SELF[_MULTIPLE]`) additionally return a third value, `isBonus`. Unlike every other source — reconstructed from *peripheral* context — a bonus roll is **self-identifying**: the loot line itself is the authoritative, locale-independent proof, so the parse carries the signal and the collector attributes it to `BONUS_ROLL` directly, bypassing `Consume`. This is deliberate: the roll resolves seconds after the kill, well past `CONTEXT_TTL`, so a context read would return stale `OTHER` — or worse, mis-inherit the boss's still-fresh `KILL` stamp.
+### Self-identifying loot lines
+
+Some self-loot lines name their own source: a bonus roll (`LOOT_ITEM_BONUS_ROLL_SELF`), a crafted item (`LOOT_ITEM_CREATED_SELF`, *"You create"*), or a token/vendor refund (`LOOT_ITEM_REFUND`, *"You are refunded"*). For these, `ParseSelfLoot` returns a third value — a `source` tag string — and the collector attributes the record to that source directly with `CERTAIN` confidence, **bypassing `Consume`**. This is deliberate: a bonus roll resolves seconds after the kill (well past `CONTEXT_TTL`), so a context read would return stale `OTHER` — or worse, mis-inherit the boss's still-fresh `KILL` stamp; a "You create" / refund line has no meaningful peripheral context at all.
+
+### Roll wins are a two-line dance
+
+Winning a group need/greed/transmog roll is the one source where the announcement and the item are *separate* lines. The roll-won line (`LOOT_ROLL_YOU_WON`, *"You won: X"*) arrives first, then the item is delivered a moment later on an ordinary `LOOT_ITEM_SELF` receive line. So the collector treats the win line as a **stamp, not a record**: `Util.ParseRollWon` detects it, `Attribution:StampRoll()` marks `ROLL` context, and `OnChatMsgLoot` returns without writing. The imminent receive line then `Consume`s that `ROLL` stamp instead of inheriting a stale kill/container context. This avoids the double-count that would occur if we recorded both the win line and the receive line.
 
 Everything else — LOOT_OPENED, trade, mail, casts, merchant, container use, quest turn-in — is *peripheral*. None of it writes a record; it only stamps context.
 
@@ -100,12 +106,14 @@ The three gate settings plus `enabled` are cached as file-local upvalues (`modul
 
 ## Wired vs enum'd sources
 
-`Constants.SourceType` (`core/Constants.lua:8`) is the whole enum and the stable **export contract** — keys are never renamed. But not every enum member has a live stamper:
+`Constants.SourceType` (`core/Constants.lua:8`) is the whole enum and the stable **export contract** — keys are never renamed. Every member now has a live capture path, but they fall into three kinds by *how* they are attributed:
 
-- **Live today:** `KILL`, `CONTAINER`, `MPLUS`, `BONUS_ROLL`, `QUEST`, `VENDOR`, `MAIL`, `TRADE`, `AH`, `DISENCHANT`, `MILLING`, `PROSPECTING`, `OTHER`. `BONUS_ROLL` is the odd one out — attributed from the loot line itself (see [The authoritative signal](#the-authoritative-signal-chat_msg_loot)), not from a peripheral stamper.
-- **Enum'd but not stamped:** `CRAFT` (reserved for broad recipe crafting) and `ROLL` (reserved for generic group / need-greed rolls — distinct from `BONUS_ROLL`, the seal-of-fate bonus-roll reward).
+- **Peripheral stamp:** `KILL`, `CONTAINER`, `MPLUS`, `QUEST`, `VENDOR`, `MAIL`, `TRADE`, `AH`, `DISENCHANT`, `MILLING`, `PROSPECTING` — reconstructed from a preceding event and read back via `Consume` (see [The single-slot context](#the-single-slot-context)).
+- **Self-identifying loot line:** `BONUS_ROLL`, `CRAFT`, `REFUND` — attributed straight from the loot line, no peripheral context (see [Self-identifying loot lines](#self-identifying-loot-lines)).
+- **Two-line stamp:** `ROLL` — the "You won:" line stamps context and the follow-up receive line consumes it (see [Roll wins are a two-line dance](#roll-wins-are-a-two-line-dance)). Distinct from `BONUS_ROLL`, the seal-of-fate bonus-roll reward.
+- **Fallback:** `OTHER` — no fresh context and no self-identifying line.
 
-`Constants.SOURCE_IMPLEMENTED` (`core/Constants.lua:33`) is the gate: it lists only sources with a live capture path, and drives `SOURCE_OPTIONS` (`core/Constants.lua:94`) so the settings panel's per-source **mute list** never shows a dead checkbox for an unreachable bucket. The enum stays whole for the export seam; only the option lists scope down. See [compat-layer.md](compat-layer.md) for the shims and [module-map.md](module-map.md) for where these modules sit.
+`Constants.SOURCE_IMPLEMENTED` (`core/Constants.lua:35`) is the gate: it lists sources with a live capture path, and drives `SOURCE_OPTIONS` so the settings panel's per-source **mute list** never shows a dead checkbox. With every source now wired, all appear in the mute list. The enum stays whole for the export seam. See [compat-layer.md](compat-layer.md) for the shims and [module-map.md](module-map.md) for where these modules sit.
 
 ## Known limitation
 

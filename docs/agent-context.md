@@ -6,8 +6,9 @@ Read this before touching code. The root [CLAUDE.md](../CLAUDE.md) is a stub tha
 ## What this addon is
 
 A passive loot tracker for WoW: Midnight (Interface 120007). It records every item the player loots
-above a configurable quality threshold, attributes each drop to a **source** (kill, container, mail,
-trade, AH, quest, vendor, disenchant/milling/prospecting, M+ chest, other) with a **confidence**
+above a configurable quality threshold, attributes each drop to a **source** (kill, container, M+ chest,
+bonus roll, roll, quest, trade, mail, AH, vendor, disenchant/milling/prospecting, craft, refund, other)
+with a **confidence**
 (`CERTAIN`/`INFERRED`), stores it **account-wide**, and presents it in a standalone browser window: a
 virtualized History table plus an Insights analytics view. Slash: `/lh`, `/loothistory`. English only.
 Ace3 throughout. Ka0s WoW Addon Standard. Current version **1.1.0**.

@@ -226,10 +226,18 @@ function Attribution:OnChallengeModeCompleted()
 end
 
 -- Peripheral (non-loot-window) sources. Each stamps just before its resulting self-loot line.
--- KILL/CONTAINER/MPLUS/QUEST/VENDOR/MAIL/TRADE/CRAFT are wired; AH/ROLL are planned (no stamper
--- yet) and hidden from the mute list via Constants.SOURCE_IMPLEMENTED. See docs/attribution.md.
+-- KILL/CONTAINER/MPLUS/QUEST/VENDOR/MAIL/TRADE/AH are wired here; deconstruct sources stamp from the
+-- cast. BONUS_ROLL/CRAFT/REFUND need no stamper — their loot line self-identifies (see Collector).
 function Attribution:StampVendor()
   self:Stamp(Constants.SourceType.VENDOR, nil, Constants.Confidence.CERTAIN, "vendor-buy")
+end
+
+-- A won group-loot roll. The roll-won chat line ("You won: <item>") arrives just before that item's
+-- own receive line, so stamping ROLL here lets the receive line attribute to the roll instead of a
+-- stale kill/container context. Triggered from the collector's CHAT_MSG_LOOT handler — the roll-won
+-- line rides that same event — rather than a peripheral event of its own.
+function Attribution:StampRoll()
+  self:Stamp(Constants.SourceType.ROLL, nil, Constants.Confidence.CERTAIN, "roll-won")
 end
 
 -- Opening a container item from bags pushes its contents to inventory with no LOOT_OPENED / GUID.
