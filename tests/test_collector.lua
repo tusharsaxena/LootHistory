@@ -323,6 +323,25 @@ test("Collector: a muted source drops its currency too", function()
   NS.Collector:RefreshUpvalues()
 end)
 
+test("Collector: a blacklisted currency is dropped, records after un-blacklisting", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.recordCurrency = true
+  NS.db.global.currencyBlacklist = {}
+  NS.Filters:AddCurrencyBlacklist(3008)     -- the mock currency id
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED, CURRENCY_LINK))
+  assertEqual(NS.Database:Count(), before)   -- blacklisted -> dropped
+
+  NS.Filters:RemoveCurrencyBlacklist(3008)
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED, CURRENCY_LINK))
+  assertEqual(NS.Database:Count(), before + 1)
+end)
+
 test("Collector: end-to-end drops loot below the quality threshold", function()
   local mocks = T.mocks
   mocks.__now = 0

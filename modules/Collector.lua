@@ -8,6 +8,7 @@ local Collector = NS.Collector
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (events-frames-taint-§7).
 local enabled, qualityThreshold, excludedSources, excludeQuestItems = true, 1, {}, false
 local recordCurrency = true
+local currencyBlacklist = {}
 local blacklist, whitelist = {}, {}
 
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
@@ -75,6 +76,7 @@ function Collector:RefreshUpvalues()
   excludedSources = s.excludedSources or {}
   excludeQuestItems = s.excludeQuestItems
   recordCurrency = s.recordCurrency
+  currencyBlacklist = g.currencyBlacklist or {}
   blacklist = g.blacklist or {}
   whitelist = g.whitelist or {}
 end
@@ -150,8 +152,9 @@ function Collector:OnChatMsgLoot(_, msg)
 end
 
 -- CHAT_MSG_CURRENCY: currency loot. Reuses the same attribution context as items (currency fires in
--- the same loot window), but takes a slimmer gate — the recordCurrency master toggle + the per-source
--- mute list only; the quality threshold, quest filter, and itemID blacklist don't apply to currency.
+-- the same loot window), but takes a slimmer gate — the recordCurrency master toggle, the per-source
+-- mute list, and the currency-specific blacklist; the quality threshold, quest filter, and itemID
+-- blacklist don't apply to currency.
 function Collector:OnChatMsgCurrency(_, msg)
   if not enabled or not recordCurrency then return end
   local link, qty = NS.Util.ParseSelfCurrency(msg)
@@ -159,6 +162,13 @@ function Collector:OnChatMsgCurrency(_, msg)
 
   local currencyID, name = NS.Compat.GetCurrencyInfoFromLink(link)
   if not currencyID then return end
+
+  if currencyBlacklist[currencyID] then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Drop", "currency %s id=%s reason=blacklist", tostring(name), tostring(currencyID))
+    end
+    return
+  end
 
   local source, sourceDetail, confidence = NS.Attribution:Consume()
   if excludedSources[source] then
