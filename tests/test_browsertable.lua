@@ -269,3 +269,13 @@ test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)", functio
   assertTrue(NS.Browser:MinWidth() >= 1116, "must be at least the toolbar-fit floor")
   assertEqual(NS.Browser:ExportWidth(), 200)
 end)
+
+test("BrowserTable: quality column is blank for a currency row", function()
+  local colByKey = {}
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do colByKey[c.key] = c end
+  local currencyRow = { currencyID = 3008, itemName = "Valorstones", itemType = "Currency", quantity = 40 }
+  local itemRow = { itemID = 111, itemName = "Sword", quality = 4 }
+  assertEqual(colByKey.quality.valueFn(currencyRow), "")           -- no misleading "Poor"
+  assertEqual(colByKey.quality.valueFn(itemRow), NS.Compat.QualityLabel(4))
+  assertEqual(colByKey.type.valueFn(currencyRow), "Currency")      -- Type filter works
+end)
