@@ -978,6 +978,13 @@ function BrowserTable:ShowRowMenu(anchor, record)
             record.itemName or ("item " .. tostring(record.itemID))))
         end
       end },
+    -- Blacklist this currency: stop recording future loots of this currency id. Point-in-time.
+    { label = "Blacklist currency", enabled = record.currencyID ~= nil, fn = function()
+        if NS.Filters and NS.Filters:AddCurrencyBlacklist(record.currencyID) and NS.Print then
+          NS.Print(("blacklisted %s. Manage in Settings \226\150\184 Filters."):format(
+            record.itemName or ("currency " .. tostring(record.currencyID))))
+        end
+      end },
     { label = "|cffff5555Delete|r", enabled = true, fn = function()
         NS.Database:Delete(function(r) return r == record end) -- fires HistoryChanged
         BrowserTable:Refresh() -- repaint immediately (in case nothing else listens)

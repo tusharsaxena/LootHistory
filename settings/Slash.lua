@@ -50,6 +50,17 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  StaticPopupDialogs["KA0S_LOOTHISTORY_CLEAR_CURRENCY"] = {
+    text = "Clear ALL currency ids from the blacklist? Future loots of them will be recorded again; your existing history is unaffected.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function()
+      local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("currencyBlacklist")) or 0
+      print(("currency blacklist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
   -- The Filters subcategory's top-right "Defaults" button (options-ui-§5) clears BOTH lists in one
   -- action — their default state is empty. Non-destructive like the per-list clears: stored history
   -- is never touched. The panel refreshes itself via the HistoryChanged listener Filters:ClearAll fires.

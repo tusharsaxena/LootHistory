@@ -422,10 +422,22 @@ local function filterEntryLabel(id, onCached)
   return shown .. "  |cff808080(" .. id .. ")|r"
 end
 
+-- Label for a currency-blacklist entry: the currency's name (grey id suffix), or a placeholder.
+local function currencyEntryLabel(id)
+  local name = NS.Compat.CurrencyName and NS.Compat.CurrencyName(id)
+  if not name then return "|cffaaaaaaCurrency " .. id .. "|r" end
+  return name .. "  |cff808080(" .. id .. ")|r"
+end
+
 -- Rebuild `listGroup` from the ids currently on `listKey`. Each row: item label + Remove button.
 local function rebuildFilterList(ctx, listGroup, listKey)
   listGroup:ReleaseChildren()
-  local set = (listKey == "blacklist") and NS.Filters:Blacklist() or NS.Filters:Whitelist()
+  local set
+  if listKey == "currencyBlacklist" then
+    set = NS.Filters:CurrencyBlacklist()
+  else
+    set = (listKey == "blacklist") and NS.Filters:Blacklist() or NS.Filters:Whitelist()
+  end
   local ids = NS.Filters:SortedIDs(set)
   if #ids == 0 then
     local empty = AceGUI:Create("Label")
@@ -438,14 +450,24 @@ local function rebuildFilterList(ctx, listGroup, listKey)
       rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
       local lbl = AceGUI:Create("Label")
       lbl:SetRelativeWidth(0.78)
-      lbl:SetText(filterEntryLabel(id, function()
-        if ctx.panel:IsShown() then rebuildFilterList(ctx, listGroup, listKey) end
-      end))
+      if listKey == "currencyBlacklist" then
+        lbl:SetText(currencyEntryLabel(id))
+      else
+        lbl:SetText(filterEntryLabel(id, function()
+          if ctx.panel:IsShown() then rebuildFilterList(ctx, listGroup, listKey) end
+        end))
+      end
       rowG:AddChild(lbl)
       local rm = AceGUI:Create("Button")
       rm:SetText("Remove"); rm:SetRelativeWidth(0.20)
       rm:SetCallback("OnClick", function()
-        if listKey == "blacklist" then NS.Filters:RemoveBlacklist(id) else NS.Filters:RemoveWhitelist(id) end
+        if listKey == "currencyBlacklist" then
+          NS.Filters:RemoveCurrencyBlacklist(id)
+        elseif listKey == "blacklist" then
+          NS.Filters:RemoveBlacklist(id)
+        else
+          NS.Filters:RemoveWhitelist(id)
+        end
         rebuildFilterList(ctx, listGroup, listKey)
         if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
       end)
@@ -472,8 +494,21 @@ local function makeFilterSection(ctx, listKey, title, desc)
   local addRow = AceGUI:Create("SimpleGroup")
   addRow:SetLayout("Flow"); addRow:SetFullWidth(true)
   local box = AceGUI:Create("EditBox")
-  box:SetLabel("Add item id or link"); box:SetRelativeWidth(0.78)
+  box:SetLabel(listKey == "currencyBlacklist" and "Add currency id or link" or "Add item id or link")
+  box:SetRelativeWidth(0.78)
   local function submit()
+    if listKey == "currencyBlacklist" then
+      local id = NS.Filters:ParseCurrencyID(box:GetText())
+      if not id then
+        if NS.Print then NS.Print("enter a numeric currency id (or shift-click a currency link).") end
+        return
+      end
+      NS.Filters:AddCurrencyBlacklist(id)
+      box:SetText("")
+      rebuildFilterList(ctx, listGroup, listKey)
+      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+      return
+    end
     local id = NS.Filters:ParseItemID(box:GetText())
     if not id then
       if NS.Print then NS.Print("enter a numeric item id (or shift-click an item link).") end
@@ -500,8 +535,14 @@ local function makeFilterSection(ctx, listKey, title, desc)
   local clearBtn = AceGUI:Create("Button")
   clearBtn:SetText("Clear all"); clearBtn:SetRelativeWidth(0.30)
   clearBtn:SetCallback("OnClick", function()
-    local popup = (listKey == "blacklist") and "KA0S_LOOTHISTORY_CLEAR_BLACKLIST"
-      or "KA0S_LOOTHISTORY_CLEAR_WHITELIST"
+    local popup
+    if listKey == "currencyBlacklist" then
+      popup = "KA0S_LOOTHISTORY_CLEAR_CURRENCY"
+    elseif listKey == "blacklist" then
+      popup = "KA0S_LOOTHISTORY_CLEAR_BLACKLIST"
+    else
+      popup = "KA0S_LOOTHISTORY_CLEAR_WHITELIST"
+    end
     if type(StaticPopup_Show) == "function" then
       StaticPopup_Show(popup)
     elseif NS.Filters and NS.Filters.ClearList then
@@ -527,6 +568,9 @@ local function buildFilters(ctx)
   makeFilterSection(ctx, "whitelist", "Whitelist",
     "Items here are always recorded, even if they fall below your quality threshold, come from a "
     .. "muted source, or are quest items. Adding an id to one list removes it from the other.")
+  makeFilterSection(ctx, "currencyBlacklist", "Blacklisted currencies",
+    "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
+    .. "Point-in-time — existing rows are left untouched.")
 
   -- Live-update both lists when they change from elsewhere (the History right-click Blacklist),
   -- on a private bus target (never NS.bus-as-self) so it can't clobber other consumers. While the
