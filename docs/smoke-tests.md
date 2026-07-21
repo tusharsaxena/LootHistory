@@ -71,9 +71,10 @@ Loot History**.
   `COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
-  `settings`, `minimap`, and `schemaVersion = 2`. (The seed value is 1; `NS:RunMigrations` — invoked
-  from `InitDB` before any read — applies the v1→v2 migration on a brand-new DB immediately, so the
-  value persisted after the very first init is already 2.)
+  `settings`, `minimap`, and `schemaVersion = 4`. (The seed value is 1; `NS:RunMigrations` — invoked
+  from `InitDB` before any read — applies the v1→v2, v2→v3, and v3→v4 migrations back-to-back on a
+  brand-new DB immediately, so the value persisted after the very first init is already 4. The v3→v4
+  currency-quality backfill touches 0 rows here since `history` is empty.)
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
   `settings.excludedSources = table: …` (empty), `minimap.hide = false`.
@@ -147,12 +148,22 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   glyph (BoE/BoP/Account/Warband), the Vendor and AH price columns, type, zone, and the Character
   column (class icon + class colour).
 - With debug on (§12), a currency loot logs `[Currency] <name> x<n> id=<id> src=<source>` and adds a
-  `Type=Currency` row (blank iLvl/Bound/Quality/Vendor/AH cells; the Type filter isolates it). Turning
+  `Type=Currency` row (blank iLvl/Bound/Vendor/AH cells; the Type filter isolates it). Turning
   off **Record currency** stops new currency rows; muting a source stops that source's currency too.
   The Insights tab shows a **Currency** block (top currencies, currency-by-source stacked bars,
   currency-by-character, currency-over-time). §F-010: verify the currency **category** (SubType) reads
   a real header like "The War Within" — if it's blank, `Compat.CurrencyCategory` couldn't resolve the
   currency-list headers on this client and needs a look.
+- **Currency quality (name colour + Quality column).** The currency row's **Name** cell is coloured by
+  its own `C_CurrencyInfo` quality tier (not blank/white), and the **Quality** column shows that
+  tier's label — the same rendering the History table already gives item rows. Hovering the row shows
+  the **in-game currency tooltip** (`GameTooltip:SetCurrencyByID`), not an item tooltip and not a
+  blank tooltip.
+- **v3→v4 backfill.** With currency rows already in history from **before** this change (looted while
+  on an older build, so their `quality` is nil), run `/reload`. After reload, those older currency
+  rows go from **white/blank Name + blank Quality** to **coloured Name + filled Quality** — the
+  migration backfilled `quality` in place without adding or removing any rows. (If no pre-change
+  currency rows are available, this step can be skipped — see §14 for the schema-stamp confirmation.)
 
 ### 4. Collection gates
 
@@ -465,9 +476,10 @@ are **independent**.
 - Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
 
 **Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 2` — `RunMigrations` (invoked from `InitDB`) applied
-  the v1→v2 migration (strips the retired `viaWhitelist` field) and bumped the stamp to 2;
-  re-running it on an already-v2 DB is a no-op (idempotent).
+- `LootHistoryDB["global"]["schemaVersion"] = 4` — `RunMigrations` (invoked from `InitDB`) applied
+  the v1→v2 (strips the retired `viaWhitelist` field), v2→v3 (`sellPrice` → `vendorPrice`), and v3→v4
+  (backfills currency-record `quality` from `C_CurrencyInfo`) migrations and bumped the stamp to 4;
+  re-running it on an already-v4 DB is a no-op (idempotent).
 - `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
   `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
   (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.

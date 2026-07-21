@@ -46,7 +46,10 @@ A currency record in `global.history`:
   itemType    = "Currency",                    -- drives the existing Type filter for free
   itemSubType = "The War Within",              -- live game category, drives SubType filter
   quantity    = 45,                            -- amount looted
-  -- itemID / itemLink / quality / itemLevel / bound / vendorPrice / auctionPrice = nil
+  quality     = 3,                             -- NEW: the currency's own C_CurrencyInfo quality tier
+                                                -- (drives the History Name colour + Quality column;
+                                                -- still excluded from item-centric quality aggregates)
+  -- itemID / itemLink / itemLevel / bound / vendorPrice / auctionPrice = nil
 }
 ```
 

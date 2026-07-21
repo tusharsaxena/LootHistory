@@ -121,11 +121,16 @@ Companion tables in the same file: `SourceOrder` (display order for grouping/ana
 ### Currency records
 
 A currency loot is stored as a history record with `currencyID` (the structural signal),
-`itemType = "Currency"`, `itemSubType = <live currency category>`, `itemName` (currency name) and
-`quantity`; all item-only fields (`itemID`, `itemLink`, `quality`, `itemLevel`, `bound`, prices) are
-nil. `itemID == nil && currencyID ~= nil` distinguishes a currency row. Currency is excluded from the
-item-centric Insights charts (quality/ilvl/bound/top-items/value) but counts in the activity charts
-(by source/day/character) and drives its own currency Insights sections.
+`itemType = "Currency"`, `itemSubType = <live currency category>`, `itemName` (currency name),
+`quantity`, and now `quality` — the currency's **own** `C_CurrencyInfo` quality tier, captured at
+loot time. `quality` drives the History table's Name-cell colour and fills the Quality column for
+currency rows the same way it does for items, and hovering a currency row shows the in-game currency
+tooltip (`GameTooltip:SetCurrencyByID`). All other item-only fields (`itemID`, `itemLink`,
+`itemLevel`, `bound`, prices) remain nil. `itemID == nil && currencyID ~= nil` distinguishes a
+currency row. Currency is still excluded from the item-centric Insights charts
+(quality/ilvl/bound/top-items/value) — its `quality` is a currency-tier value, not comparable to item
+quality — but counts in the activity charts (by source/day/character) and drives its own currency
+Insights sections.
 
 ### Confidence
 
@@ -135,19 +140,20 @@ item-centric Insights charts (quality/ilvl/bound/top-items/value) but counts in 
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **3** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
+`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **4** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
-`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. Two migrations ship in its body:
+`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. Three migrations ship in its body:
 
 ```lua
 -- core/Database.lua — NS:RunMigrations()
 -- if g.schemaVersion < 2 then <strip r.viaWhitelist from each record> ; g.schemaVersion = 2 end
 -- if g.schemaVersion < 3 then <rename each record's sellPrice -> vendorPrice> ; g.schemaVersion = 3 end
+-- if g.schemaVersion < 4 then <backfill currency-record quality from C_CurrencyInfo> ; g.schemaVersion = 4 end
 ```
 
-The **v1→v2** migration strips the retired per-record `viaWhitelist` field from every stored row — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight. The **v2→v3** migration (Rev-2 AH-price integration) renames the per-record `sellPrice` field to `vendorPrice` on every stored row — non-destructive, the value is preserved, only the key changes (making room for the derived `value` model's vendor/auction naming). Neither migration deletes any records.
+The **v1→v2** migration strips the retired per-record `viaWhitelist` field from every stored row — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight. The **v2→v3** migration (Rev-2 AH-price integration) renames the per-record `sellPrice` field to `vendorPrice` on every stored row — non-destructive, the value is preserved, only the key changes (making room for the derived `value` model's vendor/auction naming). The **v3→v4** migration (currency quality) backfills `quality` on every stored currency row (`currencyID` set, `quality` still nil) from `C_CurrencyInfo`, so currency looted before this change gets the same Name-colour + Quality-column treatment as currency looted after it; a currency the client can't resolve at init stays nil. None of the three migrations deletes any records.
 
-Both are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v3.
+All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v4.
 
 ## Read seams
 
