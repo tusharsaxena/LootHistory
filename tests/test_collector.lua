@@ -264,6 +264,65 @@ test("Collector: a roll-won line writes no record but stamps ROLL for the receiv
   NS.Collector:RefreshUpvalues()
 end)
 
+local CURRENCY_LINK = "|cffffffff|Hcurrency:3008::|h[Valorstones]|h|r"
+
+test("Collector: end-to-end records a currency line as Type=Currency", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.State.lootContext = nil
+  NS.db.global.settings.qualityThreshold = 5   -- high: proves currency ignores the quality gate
+  NS.db.global.settings.recordCurrency = true
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("MPLUS", { keystoneLevel = 12 }, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED_MULTIPLE, CURRENCY_LINK, 45))
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.itemType, "Currency")
+  assertEqual(r.currencyID, 3008)
+  assertEqual(r.itemName, "Valorstones")
+  assertEqual(r.quantity, 45)
+  assertEqual(r.source, "MPLUS")
+  assertEqual(r.confidence, "CERTAIN")
+  assertEqual(r.itemID, nil)
+  assertEqual(r.quality, nil)
+
+  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
+test("Collector: recordCurrency off drops currency", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.recordCurrency = false
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED, CURRENCY_LINK))
+  assertEqual(NS.Database:Count(), before)
+
+  NS.db.global.settings.recordCurrency = true   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
+test("Collector: a muted source drops its currency too", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.recordCurrency = true
+  NS.db.global.settings.excludedSources = { MPLUS = true }
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED, CURRENCY_LINK))
+  assertEqual(NS.Database:Count(), before)
+
+  NS.db.global.settings.excludedSources = {}   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
 test("Collector: end-to-end drops loot below the quality threshold", function()
   local mocks = T.mocks
   mocks.__now = 0

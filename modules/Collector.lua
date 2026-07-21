@@ -7,6 +7,7 @@ local Collector = NS.Collector
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (events-frames-taint-§7).
 local enabled, qualityThreshold, excludedSources, excludeQuestItems = true, 1, {}, false
+local recordCurrency = true
 local blacklist, whitelist = {}, {}
 
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
@@ -73,6 +74,7 @@ function Collector:RefreshUpvalues()
   qualityThreshold = s.qualityThreshold
   excludedSources = s.excludedSources or {}
   excludeQuestItems = s.excludeQuestItems
+  recordCurrency = s.recordCurrency
   blacklist = g.blacklist or {}
   whitelist = g.whitelist or {}
 end
@@ -147,12 +149,49 @@ function Collector:OnChatMsgLoot(_, msg)
   end
 end
 
+-- CHAT_MSG_CURRENCY: currency loot. Reuses the same attribution context as items (currency fires in
+-- the same loot window), but takes a slimmer gate — the recordCurrency master toggle + the per-source
+-- mute list only; the quality threshold, quest filter, and itemID blacklist don't apply to currency.
+function Collector:OnChatMsgCurrency(_, msg)
+  if not enabled or not recordCurrency then return end
+  local link, qty = NS.Util.ParseSelfCurrency(msg)
+  if not link then return end
+
+  local currencyID, name = NS.Compat.GetCurrencyInfoFromLink(link)
+  if not currencyID then return end
+
+  local source, sourceDetail, confidence = NS.Attribution:Consume()
+  if excludedSources[source] then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Drop", "currency %s src=%s reason=source", tostring(name), tostring(source))
+    end
+    return
+  end
+
+  local zone, subzone = NS.Compat.GetZone()
+  local record = {
+    ts = time(), char = NS.Util.PlayerKey(), classFile = select(2, UnitClass("player")),
+    currencyID = currencyID, itemName = name,
+    itemType = NS.Constants.CURRENCY_TYPE, itemSubType = NS.Compat.CurrencyCategory(currencyID),
+    quantity = qty,
+    source = source, sourceDetail = sourceDetail, confidence = confidence,
+    zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone,
+  }
+  NS.Database:Add(record)
+
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Currency", "%s x%s id=%s src=%s conf=%s",
+      tostring(name), tostring(qty), tostring(currencyID), source, confidence)
+  end
+end
+
 function Collector:Enable()
   local bus = NS.addon
   if not bus or self._enabled then return end
   self._enabled = true
   self:RefreshUpvalues()
   bus:RegisterEvent("CHAT_MSG_LOOT", function(_, msg) self:OnChatMsgLoot(_, msg) end)
+  bus:RegisterEvent("CHAT_MSG_CURRENCY", function(_, msg) self:OnChatMsgCurrency(_, msg) end)
   -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
   -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
   self.__ev = NS.NewBusTarget() or bus
