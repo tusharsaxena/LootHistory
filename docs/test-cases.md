@@ -6,7 +6,7 @@ The full inventory of every headless test case, grouped by suite. This file is t
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`
 whenever the suite changes (see [testing.md](testing.md)).
 
-### test_util.lua (30)
+### test_util.lua (34)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -28,6 +28,10 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Util: ParseSelfLoot leaves the source tag nil for normal loot
 - Util: ParseSelfLoot ignores another player's bonus roll
 - Util: ParseRollWon matches the player's roll-won line, else nil
+- Util: ParseSelfCurrency single currency line -> link, qty 1
+- Util: ParseSelfCurrency multiple currency line -> link, qty N
+- Util: ParseSelfCurrency bonus + overflow variants -> link, qty
+- Util: ParseSelfCurrency ignores item loot and other players
 - Util: FormatClock is HH:MM
 - Util: FormatDate is DD-MMM-YYYY
 - Util: FormatMoney shows non-zero parts
@@ -39,7 +43,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: reset does not alias the table-typed default (F-003)
 - Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
 
-### test_compat.lua (11)
+### test_compat.lua (14)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -52,6 +56,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Compat: IsAuctionHouseMail matches AH sender + won-subject
 - Compat: QualityLabel names qualities
 - Compat: GetItemInfo surfaces the item class id
+- Compat: CurrencyLinkID parses the id from a currency link
+- Compat: GetCurrencyInfoFromLink returns id, name, icon
+- Compat: CurrencyCategory resolves a currency to its list header
 
 ### test_attribution.lua (23)
 
@@ -109,7 +116,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
 - AuctionPrice: SwapPriorityTags swaps positions
 
-### test_collector.lua (27)
+### test_collector.lua (30)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -132,6 +139,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: end-to-end attributes a created line to CRAFT, overriding context
 - Collector: end-to-end attributes a refund line to REFUND
 - Collector: a roll-won line writes no record but stamps ROLL for the receive line
+- Collector: end-to-end records a currency line as Type=Currency
+- Collector: recordCurrency off drops currency
+- Collector: a muted source drops its currency too
 - Collector: end-to-end drops loot below the quality threshold
 - Collector: end-to-end drops quest items when the filter is on
 - Schema: excludeQuestItems row exists, defaults true, settable
@@ -184,7 +194,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
 - Migrate: v2->v3 renames sellPrice to vendorPrice
 
-### test_stats.lua (14)
+### test_stats.lua (15)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -200,8 +210,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Stats: highlights + topItemsByValue
 - Analytics.SummaryLine formats range and count
 - Stats: value uses auctionPrice when present, else vendorPrice
+- Stats: currency enriches activity charts but not item charts
 
-### test_browsertable.lua (18)
+### test_browsertable.lua (19)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -221,8 +232,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable.RenderSummary is a single coalesced line
 - BrowserTable: auction column shows the picked price from the map
 - BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
+- BrowserTable: quality column is blank for a currency row
 
-### test_export.lua (23)
+### test_export.lua (26)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -244,6 +256,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: InsightsCSV By Source uses labels + carries the value column
 - Export: InsightsCSV quotes a label containing a comma
 - Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)
+- Export: CSV emits a currency row with currencyID and blank item cells
+- Export: AICSV omits the currencyID column
+- Export: InsightsCSV includes currency sections
 - Export: AIPrompt embeds guideline URL, both CSV blocks, and framing
 - Export: AIPrompt large-dataset note gated on opts.rows
 - Export: AIPrompt explains three price types and when to use value
@@ -293,7 +308,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 
-### test_schema.lua (6)
+### test_schema.lua (8)
 
 - Schema: debugConsole row is session-only, in Master Controls
 - Schema: setting debugConsole toggles the window, never writes db.global
@@ -301,22 +316,24 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: a normal (persisted) row still writes db.global
 - Schema: auction rows exist with the AH Price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
+- Schema: recordCurrency row exists, defaults true, settable
+- Constants: CURRENCY_TYPE is "Currency"
 
 ## Totals
 
 | Suite | Cases |
 |-------|------:|
-| test_util.lua | 30 |
-| test_compat.lua | 11 |
+| test_util.lua | 34 |
+| test_compat.lua | 14 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 16 |
 | test_auctionprice.lua | 8 |
-| test_collector.lua | 27 |
+| test_collector.lua | 30 |
 | test_database.lua | 42 |
-| test_stats.lua | 14 |
-| test_browsertable.lua | 18 |
-| test_export.lua | 23 |
+| test_stats.lua | 15 |
+| test_browsertable.lua | 19 |
+| test_export.lua | 26 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
-| test_schema.lua | 6 |
-| **Total** | **257** |
+| test_schema.lua | 8 |
+| **Total** | **274** |

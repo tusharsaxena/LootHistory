@@ -18,6 +18,15 @@ Winning a group need/greed/transmog roll is the one source where the announcemen
 
 Everything else — LOOT_OPENED, trade, mail, casts, merchant, container use, quest turn-in — is *peripheral*. None of it writes a record; it only stamps context.
 
+### Currency
+
+Currency rides a parallel signal: `CHAT_MSG_CURRENCY` → `Collector:OnChatMsgCurrency` →
+`Util.ParseSelfCurrency`. It reuses the **same peripheral context** as items (`Attribution:Consume`)
+for its source, since currency is delivered inside the same loot window. Currency records carry
+`currencyID` + `itemType = "Currency"` (never an `itemID`), take a slimmer gate (the `recordCurrency`
+master toggle + the per-source mute list; no quality/quest/blacklist gate), and are stored in the same
+`global.history` array. See [data-model.md](data-model.md) and the currency-capture spec.
+
 ## The single-slot context
 
 Peripheral events call `Attribution:Stamp(source, detail, confidence, trigger)` (`modules/Attribution.lua:113`), which overwrites one slot on `State.lootContext` (`core/State.lua:7`):

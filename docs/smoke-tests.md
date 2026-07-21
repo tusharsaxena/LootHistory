@@ -129,6 +129,7 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
 | 9 | Win a group need/greed/transmog roll | **Roll** | CERTAIN |
 | 10 | Craft an item (any tradeskill "You create") | **Craft** | CERTAIN |
 | 11 | Refund a token/vendor purchase within the buyback timer | **Refund** | CERTAIN |
+| 12 | Loot currency (M+ chest, world quest, PvP, etc.) with **Record currency** on | **Currency** row, `Type=Currency`, source from context | CERTAIN |
 
 **Pass.**
 - Rows 1-3 attribute to Kill/Container/Quest. Rows 4-7 record with the listed source (these were the
@@ -145,6 +146,13 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
 - The denormalized columns render correctly: item link (exact tooltip), quality colour, iLvl, bound
   glyph (BoE/BoP/Account/Warband), the Vendor and AH price columns, type, zone, and the Character
   column (class icon + class colour).
+- With debug on (§12), a currency loot logs `[Currency] <name> x<n> id=<id> src=<source>` and adds a
+  `Type=Currency` row (blank iLvl/Bound/Quality/Vendor/AH cells; the Type filter isolates it). Turning
+  off **Record currency** stops new currency rows; muting a source stops that source's currency too.
+  The Insights tab shows a **Currency** block (top currencies, currency-by-source stacked bars,
+  currency-by-character, currency-over-time). §F-010: verify the currency **category** (SubType) reads
+  a real header like "The War Within" — if it's blank, `Compat.CurrencyCategory` couldn't resolve the
+  currency-list headers on this client and needs a look.
 
 ### 4. Collection gates
 

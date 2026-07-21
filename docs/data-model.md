@@ -118,6 +118,15 @@ Companion tables in the same file: `SourceOrder` (display order for grouping/ana
 
 `SOURCE_IMPLEMENTED` (`core/Constants.lua:37`) marks the sources with a **live capture path**; it gates the per-source mute UI. Every source now qualifies, so all appear in the option list — the enum stays whole because it is the export contract. See [attribution.md](./attribution.md).
 
+### Currency records
+
+A currency loot is stored as a history record with `currencyID` (the structural signal),
+`itemType = "Currency"`, `itemSubType = <live currency category>`, `itemName` (currency name) and
+`quantity`; all item-only fields (`itemID`, `itemLink`, `quality`, `itemLevel`, `bound`, prices) are
+nil. `itemID == nil && currencyID ~= nil` distinguishes a currency row. Currency is excluded from the
+item-centric Insights charts (quality/ilvl/bound/top-items/value) but counts in the activity charts
+(by source/day/character) and drives its own currency Insights sections.
+
 ### Confidence
 
 `Constants.Confidence` (`core/Constants.lua:40`): `CERTAIN` \| `INFERRED`. Surfaces attribution uncertainty in the UI and lets the export flag inferred rows.

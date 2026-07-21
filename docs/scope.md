@@ -18,6 +18,7 @@ Display name in the addon list and the Settings panel: `Ka0s Loot History`. The 
 
 - **Passive capture** of every item the player personally loots — self only, items only (anything with an itemID). A configurable **quality threshold** (default Common+) and an optional **quest-item filter** gate recording; a master enable switch stops all capture.
 - **Source attribution** into `Constants.SourceType`: `KILL`, `CONTAINER`, `MAIL`, `TRADE`, `AH`, `QUEST`, `VENDOR`, `MPLUS`, `BONUS_ROLL`, `ROLL`, `CRAFT`, `REFUND`, `DISENCHANT`, `MILLING`, `PROSPECTING`, and an `OTHER` fallback — each tagged `CERTAIN` or `INFERRED` confidence. Every source has a live capture path, so all appear in the **mute** UI (`Constants.SOURCE_IMPLEMENTED`).
+- **Currency capture** (Valorstones, crests, etc.) as `Type=Currency` history rows — attributed to the same sources as items, obeying the per-source mute list and a `Record currency` master toggle, but exempt from the quality/quest gates. Surfaced in the History table, a dedicated Insights currency block, and CSV export. Export-to-AI for currency is deferred. (This reverses the earlier "currencies out of scope" decision — ratified 2026-07-21.)
 - **Account-wide history** stored as a dense array in `LootHistoryDB.global.history`, with a `char` column so per-character views are a filter, not separate storage. Automatic **retention** prune runs once per session (default 30 days; configurable, including Never).
 - **Standalone browser window** — movable, resizable, scale-configurable — with a History table (multi-select filters for quality / type / source / zone / character, a Current/All scope, item-name search, click-to-sort, group-by, and row actions) and an Insights tab (range-scoped breakdowns and top lists). Rendered with pooled/virtualized rows. See [browser.md](browser.md).
 - **Schema-driven settings** — one Blizzard Settings canvas plus a `/lh` slash CLI, both mutating through the single `Schema:Set` write seam. See [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md).
@@ -29,7 +30,7 @@ Display name in the addon list and the Settings panel: `Ka0s Loot History`. The 
 These have been considered and explicitly declined for the current version.
 
 - **AI export feature.** v1.x ships the `Database:Export()` seam only; the companion skill that renders the exported data into a formatted document is deferred to v2. The DB shape is designed so it drops in without a schema migration.
-- **Gold and currencies.** Capture is scoped to items (anything with an itemID). Tracking currency or money is out.
+- **Gold.** Capture of looted money (copper) is out — high-frequency and its-own-value, better modelled as aggregated Insights tallies than per-drop rows. See the deferred design.
 - **Other players' loot / group-loot council data.** The addon is a personal ledger — `CHAT_MSG_LOOT` self-lines only.
 - **Cross-account sync or cloud storage.** Storage is local SavedVariables.
 - **Per-item human-readable source name.** The old "From" column and its combat-log kill-name cache were removed — for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name resolved, so the column was almost always blank. Records keep the machine-readable `sourceDetail` (npcID / encounterID / keystone level / questID); the human name is not captured or displayed.
