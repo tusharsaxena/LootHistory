@@ -625,14 +625,25 @@ function BrowserTable:AcquireRow()
   header:Hide()
   row.header = header
 
-  -- Hover → the full in-game item tooltip for this row's record; INFERRED rows get a note
-  -- explaining the source is a guess. A hint line advertises the click interactions.
+  -- Hover → the full in-game item tooltip for this row's record (or the currency tooltip for
+  -- currency rows); INFERRED rows get a note explaining the source is a guess. A hint line
+  -- advertises the click interactions.
   row:SetScript("OnEnter", function(self2)
     local e = self2.entry
-    if e and e.kind == "row" and e.record.itemLink then
+    if not (e and e.kind == "row") then return end
+    local r = e.record
+    local shown = false
+    if r.itemLink then
       GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
-      GameTooltip:SetHyperlink(e.record.itemLink)
-      if e.record.confidence == "INFERRED" then
+      GameTooltip:SetHyperlink(r.itemLink)
+      shown = true
+    elseif r.currencyID and GameTooltip.SetCurrencyByID then
+      GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
+      GameTooltip:SetCurrencyByID(r.currencyID)
+      shown = true
+    end
+    if shown then
+      if r.confidence == "INFERRED" then
         GameTooltip:AddLine("Source inferred (uncertain).", 0.62, 0.62, 0.62)
       end
       GameTooltip:AddLine("Shift-click to link · right-click for options", 0.5, 0.5, 0.5)
