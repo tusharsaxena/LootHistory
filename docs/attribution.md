@@ -24,8 +24,11 @@ Currency rides a parallel signal: `CHAT_MSG_CURRENCY` → `Collector:OnChatMsgCu
 `Util.ParseSelfCurrency`. It reuses the **same peripheral context** as items (`Attribution:Consume`)
 for its source, since currency is delivered inside the same loot window. Currency records carry
 `currencyID` + `itemType = "Currency"` (never an `itemID`), take a slimmer gate (the `recordCurrency`
-master toggle + the per-source mute list; no quality/quest/blacklist gate), and are stored in the same
-`global.history` array. See [data-model.md](data-model.md) and the currency-capture spec.
+master toggle + the per-source mute list; no quality/quest gate), and are stored in the same
+`global.history` array. The gate does check its own **currency blacklist** —
+`global.currencyBlacklist`, a separate id-set from the item blacklist/whitelist — so a
+currency-blacklisted id is dropped at capture the same way a blacklisted item id is. See
+[data-model.md](data-model.md) and the currency-capture spec.
 
 ## The single-slot context
 

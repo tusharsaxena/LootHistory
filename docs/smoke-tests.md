@@ -535,6 +535,13 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   right-click **Blacklist item** made while the page was closed, re-opening Filters shows the new id
   (the off-screen change flagged the page dirty, so the next `OnShow` repaints exactly once).
 
+**Currency blacklist.** Separate id-set from the item blacklist/whitelist above (keyed by
+currencyID, no currency whitelist). In the History tab, right-click a currency row and choose
+**Blacklist currency**. Loot that same currency again — no new row records. Open **Settings ▸
+Filters ▸ Blacklisted currencies**; the id appears with its name resolved. Click **Remove** on it,
+then loot the currency again — it records normally. Re-add it and use **Clear all** on the
+currencies section (confirm popup) — the list empties and future loots of it record again.
+
 ---
 
 ## When to run which subset

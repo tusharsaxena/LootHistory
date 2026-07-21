@@ -173,6 +173,12 @@ it never hides, restores, or otherwise touches rows already in `db.global.histor
 still requires `Database:Delete`). The blacklist/whitelist lists are owned by `NS.Filters`
 (`modules/Filters.lua`). See [saved-variables.md](saved-variables.md).
 
+`global.currencyBlacklist` (`{ [currencyID]=true }`) is a third carve-out set, alongside `blacklist`/
+`whitelist`, but keyed by **currencyID** rather than itemID — a separate namespace, since the two ids
+can collide. It is **blacklist-only** (there is no currency whitelist) and, like the item lists, is
+strictly point-in-time: a blacklisted currency id is dropped at capture and never written to
+`history`; existing currency rows are never hidden or removed.
+
 `Database:Query(filter)` (`core/Database.lua:151`) runs the generic `QueryList` (`core/Database.lua:85`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:177`) aggregates the filtered result in one O(n) pass for Insights.
 
 ### Export — the v2 contract

@@ -65,7 +65,7 @@ if type(StaticPopupDialogs) == "table" then
   -- action — their default state is empty. Non-destructive like the per-list clears: stored history
   -- is never touched. The panel refreshes itself via the HistoryChanged listener Filters:ClearAll fires.
   StaticPopupDialogs["KA0S_LOOTHISTORY_CLEAR_FILTERS"] = {
-    text = "Reset the item-id filters to defaults (clear BOTH the blacklist and whitelist)? Your existing history is unaffected.",
+    text = "Reset all loot filters to defaults (clear the item blacklist, whitelist, AND the currency blacklist)? Your existing history is unaffected.",
     button1 = YES or "Yes",
     button2 = NO or "No",
     OnAccept = function()

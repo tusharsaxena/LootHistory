@@ -43,7 +43,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: reset does not alias the table-typed default (F-003)
 - Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
 
-### test_compat.lua (14)
+### test_compat.lua (15)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -59,6 +59,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Compat: CurrencyLinkID parses the id from a currency link
 - Compat: GetCurrencyInfoFromLink returns id, name, icon
 - Compat: CurrencyCategory resolves a currency to its list header
+- Compat: CurrencyName resolves via C_CurrencyInfo, nil when unknown
 
 ### test_attribution.lua (23)
 
@@ -86,7 +87,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
 - Attribution: taking a quest reward stamps QUEST
 
-### test_filters.lua (16)
+### test_filters.lua (20)
 
 - Filters: AddBlacklist stores the id; IsBlacklisted sees it
 - Filters: AddBlacklist accepts a numeric string
@@ -104,6 +105,10 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: ClearList fires HistoryChanged and re-caches the Collector
 - Filters: SortedIDs returns ids ascending
 - Filters: ParseItemID reads a number, an item link, and an itemString
+- Filters: currency blacklist add / remove / query
+- Filters: currency blacklist is independent of the item id lists
+- Filters: ClearList and ClearAll include the currency blacklist
+- Filters: ParseCurrencyID reads a currency link or a bare number
 
 ### test_auctionprice.lua (8)
 
@@ -116,7 +121,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
 - AuctionPrice: SwapPriorityTags swaps positions
 
-### test_collector.lua (30)
+### test_collector.lua (31)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -142,6 +147,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: end-to-end records a currency line as Type=Currency
 - Collector: recordCurrency off drops currency
 - Collector: a muted source drops its currency too
+- Collector: a blacklisted currency is dropped, records after un-blacklisting
 - Collector: end-to-end drops loot below the quality threshold
 - Collector: end-to-end drops quest items when the filter is on
 - Schema: excludeQuestItems row exists, defaults true, settable
@@ -326,11 +332,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 | Suite | Cases |
 |-------|------:|
 | test_util.lua | 34 |
-| test_compat.lua | 14 |
+| test_compat.lua | 15 |
 | test_attribution.lua | 23 |
-| test_filters.lua | 16 |
+| test_filters.lua | 20 |
 | test_auctionprice.lua | 8 |
-| test_collector.lua | 30 |
+| test_collector.lua | 31 |
 | test_database.lua | 43 |
 | test_stats.lua | 15 |
 | test_browsertable.lua | 19 |
@@ -338,4 +344,4 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 8 |
-| **Total** | **276** |
+| **Total** | **282** |
