@@ -32,7 +32,7 @@ test("Export: CSV header order — ts,date,time first; computed + per-key auctio
   local csv = NS.Export:CSV({})
   local header = csv:match("^(.-)\r\n")
   assertEqual(header,
-    "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound," ..
+    "ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound," ..
     "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource," ..
     "itemType,itemSubType,quantity,source,zone," ..
     "auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg," ..
@@ -191,6 +191,42 @@ test("Export: InsightsCSV includes already-stored rows regardless of blacklist (
   local csv = NS.Export:InsightsCSV(NS.Database:Stats({}))
   assertTrue(csv:find("Summary,Records,2,", 1, true) ~= nil, "both stored records still present")
   NS.db.global.blacklist = {}
+end)
+
+test("Export: CSV emits a currency row with currencyID and blank item cells", function()
+  local rows = { { ts = 1000, char = "A-R", currencyID = 3008, itemName = "Valorstones",
+                   itemType = "Currency", itemSubType = "The War Within", quantity = 40,
+                   source = "MPLUS", zone = "Z1" } }
+  local csv = NS.Export:CSV(rows)
+  local header = csv:match("^[^\r\n]+")
+  assertTrue(header:find("currencyID", 1, true) ~= nil, "header has currencyID column")
+  local dataLine = select(3, csv:find("\r\n(.-)\r\n"))
+  assertTrue(csv:find(",3008,", 1, true) ~= nil or csv:find(",3008\r", 1, true) ~= nil, "currencyID value present")
+  assertTrue(csv:find("Valorstones", 1, true) ~= nil, "currency name present")
+  -- quality label must be blank (not "Poor") for the currency row
+  assertTrue(csv:find(",Poor,", 1, true) == nil, "no misleading Poor quality for currency")
+end)
+
+test("Export: AICSV omits the currencyID column", function()
+  local csv = NS.Export:AICSV({ { ts = 1, itemID = 1, itemName = "x", quantity = 1, source = "KILL" } })
+  local header = csv:match("^[^\r\n]+")
+  assertTrue(header:find("currencyID", 1, true) == nil, "AI CSV must not carry currencyID")
+end)
+
+test("Export: InsightsCSV includes currency sections", function()
+  local stats = {
+    totals = { records = 0 },
+    byCurrency = { Valorstones = 50 },
+    currencySourceMatrix = { Valorstones = { MPLUS = 40, QUEST = 10 } },
+    currencyByChar = { ["A-R"] = { char = "A-R", quantity = 43 } },
+    currencyByDay = { ["2026-07-21"] = 53 },
+    currencyTotals = { distinct = 1, events = 2, biggestHaul = { name = "Valorstones", quantity = 40 } },
+  }
+  local csv = NS.Export:InsightsCSV(stats)
+  assertTrue(csv:find("Currency Collected,Valorstones,50", 1, true) ~= nil, "top currencies row")
+  assertTrue(csv:find("Currency by Source,Valorstones / MPLUS,40", 1, true) ~= nil, "currency x source row")
+  assertTrue(csv:find("Distinct currencies", 1, true) ~= nil, "summary distinct row")
+  assertTrue(csv:find("Biggest haul", 1, true) ~= nil, "summary biggest-haul row")
 end)
 
 test("Export: AIPrompt embeds guideline URL, both CSV blocks, and framing", function()

@@ -87,8 +87,9 @@ local COLUMNS = {
   { "char",         function(r) return r.char end },
   { "classFile",    function(r) return r.classFile end },
   { "itemID",       function(r) return r.itemID end },
+  { "currencyID",   function(r) return r.currencyID end },
   { "itemName",     function(r) return r.itemName end },
-  { "quality",      function(r) return NS.Compat.QualityLabel(r.quality) end },
+  { "quality",      function(r) return r.quality ~= nil and NS.Compat.QualityLabel(r.quality) or "" end },
   { "qualityRaw",   function(r) return r.quality end },
   { "itemLevel",    function(r) return r.itemLevel end },
   { "bound",        function(r) return E:BoundLabel(r.bound) end },
@@ -120,9 +121,12 @@ for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 -- columns (the computed auctionPrice/auctionPriceRaw/value/valueRaw/auctionSource are kept).
 -- The AI report never consumes the raw provider snapshots, so dropping them keeps the
 -- Export-to-AI prompt small; Export-to-CSV still emits the complete dump via COLUMNS.
+-- TODO(currency-ai): teach ai-export-guideline.md + the report template about currency rows, then
+-- stop excluding currencyID here so Export-to-AI can carry currency. Until then the AI path is
+-- item-only and its output is unchanged by this feature.
 local AI_COLUMNS, AI_HEADER = {}, {}
 for _, c in ipairs(COLUMNS) do
-  if not c[1]:find("^auc_") then
+  if not c[1]:find("^auc_") and c[1] ~= "currencyID" then
     AI_COLUMNS[#AI_COLUMNS + 1] = c
     AI_HEADER[#AI_HEADER + 1] = c[1]
   end
@@ -242,6 +246,40 @@ function E:InsightsCSV(stats)
   table.sort(dayKeys)
   for _, day in ipairs(dayKeys) do
     row("By Day", day, stats.byDay[day], (stats.valueByDay or {})[day] or 0)
+  end
+
+  -- Currency (issue: currency capture). Top currencies by quantity, then one row per currency×source,
+  -- then per-character and per-day, plus the highlight summary rows.
+  section("Currency Collected", rankedRows(stats.byCurrency))
+  local matrix = stats.currencySourceMatrix or {}
+  local curNames = {}
+  for cname in pairs(matrix) do curNames[#curNames + 1] = cname end
+  table.sort(curNames)
+  for _, cname in ipairs(curNames) do
+    local perSrc, srcs = matrix[cname], {}
+    for s in pairs(perSrc) do srcs[#srcs + 1] = s end
+    table.sort(srcs, function(a, b) return (perSrc[a] or 0) > (perSrc[b] or 0) end)
+    for _, s in ipairs(srcs) do
+      row("Currency by Source", cname .. " / " .. s, perSrc[s])
+    end
+  end
+  local curCharRows = {}
+  for _, ce in pairs(stats.currencyByChar or {}) do
+    curCharRows[#curCharRows + 1] = { label = ce.char, count = ce.quantity }
+  end
+  table.sort(curCharRows, function(a, b)
+    if a.count ~= b.count then return a.count > b.count end
+    return tostring(a.label) < tostring(b.label)
+  end)
+  section("Currency by Character", curCharRows)
+  local curDayKeys = {}
+  for day in pairs(stats.currencyByDay or {}) do curDayKeys[#curDayKeys + 1] = day end
+  table.sort(curDayKeys)
+  for _, day in ipairs(curDayKeys) do row("Currency by Day", day, stats.currencyByDay[day]) end
+  local ctot = stats.currencyTotals or {}
+  row("Summary", "Distinct currencies", ctot.distinct or 0)
+  if ctot.biggestHaul then
+    row("Summary", "Biggest haul", ctot.biggestHaul.name .. " +" .. ctot.biggestHaul.quantity)
   end
 
   return table.concat(lines, "\r\n") .. "\r\n"
