@@ -154,10 +154,12 @@ end
 -- CHAT_MSG_CURRENCY: currency loot. Reuses the same attribution context as items (currency fires in
 -- the same loot window), but takes a slimmer gate — the recordCurrency master toggle, the per-source
 -- mute list, and the currency-specific blacklist; the quality threshold, quest filter, and itemID
--- blacklist don't apply to currency.
+-- blacklist don't apply to currency. A currency-vendor refund arrives here (not on CHAT_MSG_LOOT) as
+-- a self-identifying "You are refunded" line — attributed to REFUND directly, bypassing the context
+-- (which by then holds the stale VENDOR stamp from the purchase).
 function Collector:OnChatMsgCurrency(_, msg)
   if not enabled or not recordCurrency then return end
-  local link, qty = NS.Util.ParseSelfCurrency(msg)
+  local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
   if not link then return end
 
   local currencyID, name = NS.Compat.GetCurrencyInfoFromLink(link)
@@ -170,7 +172,13 @@ function Collector:OnChatMsgCurrency(_, msg)
     return
   end
 
-  local source, sourceDetail, confidence = NS.Attribution:Consume()
+  local source, sourceDetail, confidence
+  if directSource then
+    source, sourceDetail, confidence =
+      NS.Constants.SourceType[directSource], nil, NS.Constants.Confidence.CERTAIN
+  else
+    source, sourceDetail, confidence = NS.Attribution:Consume()
+  end
   if excludedSources[source] then
     if NS.State.debug and NS.Debug then
       NS.Debug("Drop", "currency %s src=%s reason=source", tostring(name), tostring(source))

@@ -217,6 +217,17 @@ do
     assertEqual(l2, CURR); assertEqual(q2, 5)
   end)
 
+  test("Util: ParseSelfCurrency tags a refunded currency line as REFUND", function()
+    -- A currency-vendor refund returns the currency on CHAT_MSG_CURRENCY as a "You are refunded"
+    -- line (LOOT_ITEM_REFUND*), not a "You receive currency" line — self-identifying, like the
+    -- refund/craft/bonus-roll item lines. Multiple form first (its qty must not be swallowed).
+    local link, qty, src =
+      NS.Util.ParseSelfCurrency(string.format(T.mocks.LOOT_ITEM_REFUND_MULTIPLE, CURR, 100))
+    assertEqual(link, CURR); assertEqual(qty, 100); assertEqual(src, "REFUND")
+    local l1, q1, s1 = NS.Util.ParseSelfCurrency(string.format(T.mocks.LOOT_ITEM_REFUND, CURR))
+    assertEqual(l1, CURR); assertEqual(q1, 1); assertEqual(s1, "REFUND")
+  end)
+
   test("Util: ParseSelfCurrency ignores item loot and other players", function()
     assertEqual(NS.Util.ParseSelfCurrency(string.format(T.mocks.LOOT_ITEM_SELF, LINK)), nil)
     assertEqual(NS.Util.ParseSelfCurrency("Someone receives currency: " .. CURR), nil)

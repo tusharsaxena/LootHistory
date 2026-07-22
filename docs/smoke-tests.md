@@ -129,14 +129,18 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
 | 8 | Spend a bonus/seal roll on a boss kill | **Bonus Roll** | CERTAIN |
 | 9 | Win a group need/greed/transmog roll | **Roll** | CERTAIN |
 | 10 | Craft an item (any tradeskill "You create") | **Craft** | CERTAIN |
-| 11 | Refund a token/vendor purchase within the buyback timer | **Refund** | CERTAIN |
+| 11 | Refund a **currency**-paid vendor purchase within the buyback timer (get the currency back) | **Refund** — a `Type=Currency` row for the returned currency | CERTAIN |
 | 12 | Loot currency (M+ chest, world quest, PvP, etc.) with **Record currency** on | **Currency** row, `Type=Currency`, source from context | CERTAIN |
 
 **Pass.**
 - Rows 1-3 attribute to Kill/Container/Quest. Rows 4-7 record with the listed source (these were the
   F-001 in-client confirmations for VENDOR/MAIL/TRADE via `CHAT_MSG_LOOT`).
-- Rows 8/10/11 attribute from the self-identifying loot line itself (bonus loot / "You create" /
-  "You are refunded"), overriding any stale kill/container context. §F-009: **Row 9 is the one to
+- Rows 8/10 attribute from the self-identifying loot line itself (bonus loot / "You create"),
+  overriding any stale kill/container context. **Row 11 (Refund)** is confirmed in-client: refunding a
+  currency-paid purchase returns the currency on `CHAT_MSG_CURRENCY` as a *"You are refunded: [currency]xN"*
+  line (not `CHAT_MSG_LOOT`), so it records as a `Type=Currency` row with `source=Refund`, CERTAIN —
+  overriding the stale `VENDOR` stamp from the purchase. With debug on (§12) it logs `[Currency] … src=REFUND`.
+  (Refunds that return an **item** are not yet exercised — tracked as a follow-up issue.) §F-009: **Row 9 is the one to
   watch** — the `ROLL` source is stamped from the `LOOT_ROLL_YOU_WON` ("You won:") line that precedes
   the item's receive line. With debug on (§12), confirm a `[Attr] stamp ROLL via roll-won` line
   appears just before the item's `[Loot] … src=ROLL`. If instead the item records as the boss's

@@ -170,34 +170,40 @@ end
 -- variants (incl. the bonus/overflow parenthetical forms) come first so the greedy single-pattern
 -- (.+) can't swallow a trailing "xN (...)". The overflow global embeds a second %s (the currency
 -- name); toLootPattern turns it into a third capture that ParseSelfCurrency simply ignores.
+-- A currency-vendor refund returns the currency on THIS channel (not CHAT_MSG_LOOT) as a
+-- "You are refunded" line (LOOT_ITEM_REFUND*); like the item refund/craft/bonus-roll lines it is
+-- self-identifying, so its `source` tag lets the collector attribute REFUND directly (see Collector).
 local currencyPatterns
 function Util.BuildCurrencyPatterns()
   local specs = {
     { g = CURRENCY_GAINED_MULTIPLE_OVERFLOW, hasQty = true },
     { g = CURRENCY_GAINED_MULTIPLE_BONUS,    hasQty = true },
     { g = CURRENCY_GAINED_MULTIPLE,          hasQty = true },
+    { g = LOOT_ITEM_REFUND_MULTIPLE,         hasQty = true,  source = "REFUND" },
     { g = CURRENCY_GAINED,                   hasQty = false },
+    { g = LOOT_ITEM_REFUND,                  hasQty = false, source = "REFUND" },
   }
   local out = {}
   for _, s in ipairs(specs) do
-    if s.g then out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty } end
+    if s.g then out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty, source = s.source } end
   end
   currencyPatterns = out
   return out
 end
 
--- Parse a CHAT_MSG_CURRENCY line. Returns currencyLink, quantity for the player's own currency
--- gain; nil otherwise (another player's line, or a non-currency message).
+-- Parse a CHAT_MSG_CURRENCY line. Returns currencyLink, quantity, source for the player's own
+-- currency gain; nil otherwise (another player's line, or a non-currency message). `source` is
+-- "REFUND" for a self-identifying refund line, else nil (the collector then reads the context).
 function Util.ParseSelfCurrency(msg)
   if not msg then return nil end
   local pats = currencyPatterns or Util.BuildCurrencyPatterns()
   for _, p in ipairs(pats) do
     if p.hasQty then
       local link, qty = msg:match(p.pattern)
-      if link then return link, tonumber(qty) or 1 end
+      if link then return link, tonumber(qty) or 1, p.source end
     else
       local link = msg:match(p.pattern)
-      if link then return link, 1 end
+      if link then return link, 1, p.source end
     end
   end
   return nil

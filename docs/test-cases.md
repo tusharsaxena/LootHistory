@@ -6,7 +6,7 @@ The full inventory of every headless test case, grouped by suite. This file is t
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`
 whenever the suite changes (see [testing.md](testing.md)).
 
-### test_util.lua (34)
+### test_util.lua (35)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -31,6 +31,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Util: ParseSelfCurrency single currency line -> link, qty 1
 - Util: ParseSelfCurrency multiple currency line -> link, qty N
 - Util: ParseSelfCurrency bonus + overflow variants -> link, qty
+- Util: ParseSelfCurrency tags a refunded currency line as REFUND
 - Util: ParseSelfCurrency ignores item loot and other players
 - Util: FormatClock is HH:MM
 - Util: FormatDate is DD-MMM-YYYY
@@ -122,7 +123,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
 - AuctionPrice: SwapPriorityTags swaps positions
 
-### test_collector.lua (31)
+### test_collector.lua (33)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -149,6 +150,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector: recordCurrency off drops currency
 - Collector: a muted source drops its currency too
 - Collector: a blacklisted currency is dropped, records after un-blacklisting
+- Collector: a currency refund line records as Type=Currency, source REFUND
+- Collector: a muted REFUND source drops the refunded currency
 - Collector: end-to-end drops loot below the quality threshold
 - Collector: end-to-end drops quest items when the filter is on
 - Schema: excludeQuestItems row exists, defaults true, settable
@@ -333,12 +336,12 @@ whenever the suite changes (see [testing.md](testing.md)).
 
 | Suite | Cases |
 |-------|------:|
-| test_util.lua | 34 |
+| test_util.lua | 35 |
 | test_compat.lua | 16 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 8 |
-| test_collector.lua | 31 |
+| test_collector.lua | 33 |
 | test_database.lua | 44 |
 | test_stats.lua | 15 |
 | test_browsertable.lua | 19 |
@@ -346,4 +349,4 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 8 |
-| **Total** | **284** |
+| **Total** | **287** |

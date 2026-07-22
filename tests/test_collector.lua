@@ -342,6 +342,43 @@ test("Collector: a blacklisted currency is dropped, records after un-blacklistin
   assertEqual(NS.Database:Count(), before + 1)
 end)
 
+test("Collector: a currency refund line records as Type=Currency, source REFUND", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.State.lootContext = nil
+  NS.db.global.settings.recordCurrency = true
+  NS.db.global.settings.excludedSources = {}
+  NS.Collector:RefreshUpvalues()
+  -- The purchase left a fresh VENDOR stamp; the self-identifying refund line must override it
+  -- (CERTAIN), not inherit VENDOR.
+  NS.Attribution:Stamp("VENDOR", nil, "CERTAIN")
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.LOOT_ITEM_REFUND_MULTIPLE, CURRENCY_LINK, 100))
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.itemType, "Currency")
+  assertEqual(r.currencyID, 3008)
+  assertEqual(r.quantity, 100)
+  assertEqual(r.source, "REFUND")
+  assertEqual(r.confidence, "CERTAIN")
+end)
+
+test("Collector: a muted REFUND source drops the refunded currency", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.global.settings.recordCurrency = true
+  NS.db.global.settings.excludedSources = { REFUND = true }
+  NS.Collector:RefreshUpvalues()
+
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.LOOT_ITEM_REFUND, CURRENCY_LINK))
+  assertEqual(NS.Database:Count(), before)
+
+  NS.db.global.settings.excludedSources = {}   -- restore
+  NS.Collector:RefreshUpvalues()
+end)
+
 test("Collector: end-to-end drops loot below the quality threshold", function()
   local mocks = T.mocks
   mocks.__now = 0

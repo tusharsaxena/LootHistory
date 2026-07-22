@@ -30,6 +30,16 @@ master toggle + the per-source mute list; no quality/quest gate), and are stored
 currency-blacklisted id is dropped at capture the same way a blacklisted item id is. See
 [data-model.md](data-model.md) and the currency-capture spec.
 
+A **currency-vendor refund** rides this channel too: when you refund a purchase paid for with a
+currency, the game returns the currency on `CHAT_MSG_CURRENCY` as a *"You are refunded"* line
+(`LOOT_ITEM_REFUND` / `LOOT_ITEM_REFUND_MULTIPLE`) — **not** on `CHAT_MSG_LOOT`. So `ParseSelfCurrency`
+also carries the two refund patterns and tags them `REFUND`; like the self-identifying item lines,
+the collector then attributes `REFUND` directly with `CERTAIN` confidence, **bypassing `Consume`** (by
+then the context holds the stale `VENDOR` stamp from the purchase). The result is a `Type = Currency`
+row with `source = REFUND`. (Refunds that return an *item* would instead surface on `CHAT_MSG_LOOT` via
+the loot-path `LOOT_ITEM_REFUND` handling — see the item-refund follow-up issue; that path is retained
+but was not the case observed on modern currency vendors.)
+
 ## The single-slot context
 
 Peripheral events call `Attribution:Stamp(source, detail, confidence, trigger)` (`modules/Attribution.lua:113`), which overwrites one slot on `State.lootContext` (`core/State.lua:7`):
