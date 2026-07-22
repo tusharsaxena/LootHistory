@@ -109,7 +109,9 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 
 ### Breakdown sections
 
-`LayoutCharts` (`Analytics.lua:548`) binds and positions each section top-down off `self.stats`, returning the running y-cursor (empty sections are skipped entirely). The sections, in order:
+`LayoutCharts` (`Analytics.lua:644`) binds and positions each section top-down off `self.stats`, returning the running y-cursor (empty sections are skipped entirely). The sections sit under two full-width dividers (`sectionDivider`, `Analytics.lua:370`) — a centered gold title flanked by rule lines — that split the pane into **LOOT** and **CURRENCY**:
+
+**LOOT** — every item-centric chart, plus the Top zones/items panels (moved under this divider so the whole item side of Insights is one block):
 
 | Section | Source field | Renderer |
 |---|---|---|
@@ -128,15 +130,27 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 | Attribution confidence | `byConfidence` | horizontal bars |
 | Top zones / Top items by count / Top items by value | `topZones` / `topItems` / `topItemsByValue` | ranked list panels |
 
-Three pooled renderers back all of these:
+**CURRENCY** — only shown when the filtered range has at least one currency event (`stats.currencyTotals.events > 0`); its title carries the highlight summary (distinct types, biggest single haul):
 
-- **`renderBarSection`** (`Analytics.lua:412`) — a header + one horizontal bar per row (fixed label + track/fill + value). It normalises so the largest bar fills the track and the rest scale relative to it.
-- **`renderStrip`** (`Analytics.lua:440`) — a per-bucket vertical strip with an axis line and rotated x-axis labels (thinned out when bars get narrow); each bar's hover shows the bucket's info line. The per-day strips share a `firstTs..lastTs` day-key list (gaps included) from `dayKeyList`, capped to the most recent `MAX_DAY_BARS = 60`.
-- **`renderListPanel`** (`Analytics.lua:489`) — a ranked list panel capped at 10 rows; item rows are quality-coloured with a gold star before epic+ items (`starMarkup`, resolved against a fallback atlas list). The two item lists share the same entry tables from `stats.byItem` — two orderings, count-desc and value-desc.
+| Section | Source field | Renderer |
+|---|---|---|
+| Currency Collected | `byCurrency` (qty per currency) | horizontal bars, neutral colour |
+| Currency by Source | `currencyBySource` (source → total qty across all currencies) | horizontal bars, per-source colour |
+| Currency by Type × Source | `byCurrency` + `currencySourceMatrix` (qty per currency, segmented by source) | stacked horizontal bars + a colour legend (`renderLegend`) below |
+| Currency by character | `currencyByChar` | class-coloured horizontal bars |
+| Currency over time (per day) | `currencyByDay` | vertical strip |
 
-Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:384`); `LayoutCharts` releases all pools up front, then re-acquires only the widgets it needs, so no chart holds a widget per data point. `Analytics:Layout` (`Analytics.lua:310`) sets the scroll child height from the final y-cursor. If the range has no records, `HideAllCharts` runs and an empty-state label shows.
+Five pooled renderers back these sections:
 
-Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTarget()` (`Analytics.lua:403`) and live-refreshes only while the Insights tab is visible.
+- **`renderBarSection`** (`Analytics.lua:472`) — a header + one horizontal bar per row (fixed label + track/fill + value). It normalises so the largest bar fills the track and the rest scale relative to it.
+- **`renderStackedBarSection`** (`Analytics.lua:502`) — like `renderBarSection`, but each row is one stacked bar whose segments are pre-computed fractions of a shared max (so bar length still compares currencies against each other, while each bar's own segments show its per-source split). Backs **Currency by Type × Source**.
+- **`renderLegend`** (`Analytics.lua:518`) — a wrapped row of colour-swatch + label chips, wrapping to a new line when it runs out of width. Draws the source-colour key immediately below **Currency by Type × Source** (a stacked bar carries no per-segment labels, so the legend is the only place the source colours are named).
+- **`renderStrip`** (`Analytics.lua:534`) — a per-bucket vertical strip with an axis line and rotated x-axis labels (thinned out when bars get narrow); each bar's hover shows the bucket's info line. The per-day strips share a `firstTs..lastTs` day-key list (gaps included) from `dayKeyList`, capped to the most recent `MAX_DAY_BARS = 60`.
+- **`renderListPanel`** (`Analytics.lua:583`) — a ranked list panel capped at 10 rows; item rows are quality-coloured with a gold star before epic+ items (`starMarkup`, resolved against a fallback atlas list). The two item lists share the same entry tables from `stats.byItem` — two orderings, count-desc and value-desc.
+
+Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:441`); `LayoutCharts` releases all pools up front, then re-acquires only the widgets it needs, so no chart holds a widget per data point. `Analytics:Layout` (`Analytics.lua:334`) sets the scroll child height from the final y-cursor. If the range has no records, `HideAllCharts` runs and an empty-state label shows (both dividers hide with it).
+
+Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTarget()` (`Analytics.lua:463`) and live-refreshes only while the Insights tab is visible.
 
 ## `/lh test` — synthetic preview
 

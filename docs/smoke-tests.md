@@ -281,11 +281,13 @@ exports depends on which tab is showing.
 **Steps (Insights tab).**
 - Switch to the **Insights** tab, click **Export**. The modal header reads **Export Insights**.
 - Export **All Data** and **Current View** (with a filter applied) to CSV in turn.
-- Hover **Export to AI** in either modal.
+- With a history that includes currency loot (`/lh test`, §8, covers this), click **Export to AI** in
+  either modal; copy the prompt out and run it through the guideline's assembler against the attached
+  export.
 
 **Pass.**
 - **History export** — the CSV copy window opens with the loot-row header
-  (`ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`)
+  (`ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`)
   and one row per record. `date` reads DD-MMM-YYYY and `time` reads HH:MM; `quality` is a label beside
   numeric `qualityRaw`; `vendorPrice`/`auctionPrice`/`value` read `Ng Ns Nc` beside their copper `*Raw`
   columns (`auctionPrice`/`auctionPriceRaw` blank when no captured price is selectable by the priority
@@ -294,16 +296,28 @@ exports depends on which tab is showing.
   `auc_<provider>_<key>` columns are the raw copper value the addon actually captured for every
   configured price key, independent of which one was picked; `bound` is a friendly label; comma-bearing
   item names are quoted; `wowheadLink` is a `wowhead.com/item=…` URL (with `?bonus=…` when the item has
-  bonus IDs). `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence` are **not** exported.
+  bonus IDs). Currency rows carry `currencyID` (and leave `itemID` blank) alongside the same columns as
+  item rows. `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence` are **not** exported.
 - **Insights export** — the CSV instead has the analytics header `Section,Label,Count,Value` and
   mirrors the Insights view: a **Summary** block (records, distinct items, characters, value,
-  active days, epic+, best iLvl, richest, date range, busiest day) then **By Source / Quality / Item
+  active days, epic+, best iLvl, richest, date range, busiest day, plus **distinct currencies** and
+  **biggest haul** when the range has currency) then **By Source / Quality / Item
   Type / Bound Type / Character / Weekday / Hour / Keystone**, **Attribution Confidence**, **Top Zones**,
-  **Top Items by Count / Value**, and **By Day**. Values render `Ng Ns Nc`.
+  **Top Items by Count / Value**, **By Day**, and — when the range has currency loot — **Currency
+  Collected** (qty per currency), **Currency by Type x Source** (one row per currency × source it was
+  received from), **Currency by Source** (source → total qty across every currency, the same shape the
+  Currency by Source chart plots), **Currency by Character**, and **Currency by Day**. Values render
+  `Ng Ns Nc`.
 - **All Data** covers the whole (visible) history; **Current View** honours the **shared filter** — so
   narrowing the filter bar shrinks *both* the History and the Insights export.
-- Text is auto-highlighted; Ctrl+C copies; Esc closes. **Export to AI** is greyed with a **"Coming
-  soon"** tooltip in both modes.
+- Text is auto-highlighted; Ctrl+C copies; Esc closes.
+- **Export to AI** bundles both the History and Insights CSVs (for the selected Data Set) into a prompt
+  that points at `docs/ai-export-guideline.md`; the History CSV it carries includes a `currencyID`
+  column, so currency rows ride the same export as item rows end-to-end. Run the guideline's assembler
+  (`python3 tools/build_report.py …`) against an export that includes currency loot: it must **PASS**,
+  and the resulting report must show a **Currency** section (fed by the Insights currency rows above)
+  plus currency rows mixed into its History table (fed by the `currencyID` column). See
+  `tools/README.md` / `docs/ai-export-guideline.md` for the assembler invocation.
 - Both the modal and the copy window open **centered on the History window** (not the screen).
 
 ### 7. Insights tab
@@ -323,11 +337,24 @@ exports depends on which tab is showing.
 - The stat cards populate: **records, distinct items, characters, value, active days, epic+
   drops, best drop (ilvl), richest drop, date range, busiest day**. "Value" is the derived worth
   (the higher of the picked auction price and `vendorPrice`) `× quantity` — not raw vendor price alone.
-- The breakdown sections render as horizontal bars / ranked lists: **Loot by source, Value by
+- The breakdown sections sit under two full-width dividers — a centered gold **LOOT** title, then all
+  the item-centric charts and ranked lists, then a centered gold **CURRENCY** title with the currency
+  charts. Under **LOOT**: horizontal bars / strips / ranked lists for **Loot by source, Value by
   source, Quality distribution, Quality mix, Loot by item type, Loot by bound type, Loot by character,
   Loot over time (per day), Value over time (per day), Loot by hour of day, Loot by weekday,
   Mythic+ loot by keystone level, Attribution confidence**, plus **Top zones**, **Top items by count**,
-  and **Top items by value**.
+  and **Top items by value** (all moved under this divider, alongside the rest of the item charts).
+- Loot an item, then a currency (or use `/lh test`, §8, which seeds both) with Insights open on a
+  history/filter that includes currency loot: the **CURRENCY** divider appears below **LOOT**, its
+  title carrying a highlight summary (distinct currency types, biggest single haul), followed by
+  **Currency Collected** (one neutral-coloured bar per currency, length = qty), **Currency by Source**
+  (one bar per source, length = that source's total qty summed across every currency, source-coloured
+  like the loot-by-source chart), **Currency by Type × Source** (one *stacked* bar per currency,
+  segments coloured by the source it came from, with a colour-swatch **legend** naming each source
+  directly below the chart), **Currency by character** (class-coloured bars), and **Currency over
+  time** (a per-day strip, mirroring Loot over time). Narrow the filter to a range with **no** currency
+  loot (e.g. a single day before you started collecting currency) and confirm the whole **CURRENCY**
+  block — divider included — disappears cleanly while **LOOT** still renders.
 - Looting an item with Insights open updates the cards live (the tab reacts to `RecordAdded`).
 
 ### 8. `/lh test` synthetic preview

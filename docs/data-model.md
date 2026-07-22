@@ -132,7 +132,12 @@ glyph. The remaining item-only fields (`itemID`, `itemLink`, `itemLevel`, prices
 currency row. Currency is still excluded from the item-centric Insights charts
 (quality/ilvl/bound/top-items/value) — its `quality` is a currency-tier value, not comparable to item
 quality — but counts in the activity charts (by source/day/character) and drives its own currency
-Insights sections.
+Insights sections, which sit under a dedicated **CURRENCY** divider below the item charts' **LOOT**
+divider (see [browser.md](./browser.md)). `Database:Stats` computes these off the same filtered pass as
+the item stats: `byCurrency` (qty per currency name), `currencySourceMatrix` (currency name →
+source → qty), `currencyBySource` (source → total qty summed across every currency — the source-only
+view the Currency by Source chart and the Insights/AI-export "Currency by Source" CSV sections read),
+`currencyByChar`, `currencyByDay`, and `currencyTotals` (`distinct`, `events`, `biggestHaul`).
 
 ### Confidence
 
