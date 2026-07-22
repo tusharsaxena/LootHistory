@@ -237,7 +237,7 @@ test("Export: InsightsCSV includes currency sections", function()
   }
   local csv = NS.Export:InsightsCSV(stats)
   assertTrue(csv:find("Currency Collected,Valorstones,50", 1, true) ~= nil, "top currencies row")
-  assertTrue(csv:find("Currency by Source,Valorstones / Mythic+,40", 1, true) ~= nil, "currency x source row")
+  assertTrue(csv:find("Currency by Type x Source,Valorstones / Mythic+,40", 1, true) ~= nil, "currency x source row")
   assertTrue(csv:find("Distinct currencies", 1, true) ~= nil, "summary distinct row")
   assertTrue(csv:find("Biggest haul", 1, true) ~= nil, "summary biggest-haul row")
 end)
@@ -277,4 +277,21 @@ test("Export: AIPrompt explains three price types and when to use value", functi
   assertTrue(p:find("Use VALUE", 1, true) ~= nil, "directs to use VALUE for worth figures")
   assertTrue(p:find("Σ(val", 1, true) ~= nil or p:find("aggregates", 1, true) ~= nil,
     "explains the aggregation method")
+end)
+
+test("Export: InsightsCSV renames the per-currency breakdown to Currency by Type x Source", function()
+  local s = insightsStats()
+  s.currencySourceMatrix = { Badge = { VENDOR = 30, REFUND = 20 } }
+  s.currencyBySource = { VENDOR = 34, REFUND = 20 }
+  local csv = NS.Export:InsightsCSV(s)
+  assertTrue(csv:find("Currency by Type x Source,Badge / Vendor", 1, true) ~= nil)
+  assertTrue(csv:find("\r\nCurrency by Source,", 1, true) ~= nil)   -- the new source-total section exists
+end)
+
+test("Export: InsightsCSV Currency by Source rows carry the source total qty", function()
+  local s = insightsStats()
+  s.currencyBySource = { VENDOR = 34, REFUND = 20 }
+  local csv = NS.Export:InsightsCSV(s)
+  assertTrue(csv:find("Currency by Source,Vendor,34", 1, true) ~= nil)
+  assertTrue(csv:find("Currency by Source,Refund,20", 1, true) ~= nil)
 end)
