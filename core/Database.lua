@@ -49,6 +49,22 @@ function NS:RunMigrations()
     g.schemaVersion = 4
     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(3, 4, n)) end
   end
+
+  -- v4 -> v5: backfill currency-record bound (rows with currencyID but no bound) from C_CurrencyInfo —
+  -- "WARBAND" for a Warband-transferable currency, else "BOP" — so the History browser shows the bound
+  -- glyph for currencies looted before bound was captured. In-game only (C_CurrencyInfo); a currency
+  -- the client can't resolve at init stays nil. Non-destructive.
+  if g.schemaVersion < 5 then
+    local n = 0
+    for _, r in ipairs(g.history or {}) do
+      if r.currencyID and r.bound == nil then
+        local b = NS.Compat.CurrencyBound(r.currencyID)
+        if b ~= nil then r.bound = b; n = n + 1 end
+      end
+    end
+    g.schemaVersion = 5
+    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(4, 5, n)) end
+  end
 end
 
 -- Pure migration summary for the [Migrate] line.

@@ -53,6 +53,7 @@ return function()
   -- currency window: one expansion header ("The War Within") then two currencies under it, so the
   -- category resolver has headers to walk. GetCurrencyInfoFromLink returns name + icon by id.
   M.__currencyNames = { [3008] = "Valorstones", [2914] = "Weathered Harbinger Crest" }
+  M.__currencyTransferable = { [3008] = true }   -- 3008 is Warband-transferable; 2914 is not
   M.C_CurrencyInfo = {
     GetCurrencyListSize = function() return 3 end,
     GetCurrencyListInfo = function(i)
@@ -74,7 +75,8 @@ return function()
     GetCurrencyInfo = function(id)
       local name = M.__currencyNames[id]
       if not name then return nil end
-      return { name = name, iconFileID = 100000 + id, quantity = 0, quality = 4 }
+      return { name = name, iconFileID = 100000 + id, quantity = 0, quality = 4,
+        isAccountTransferable = M.__currencyTransferable[id] or false }
     end,
   }
 

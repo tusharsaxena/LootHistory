@@ -44,7 +44,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: reset does not alias the table-typed default (F-003)
 - Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
 
-### test_compat.lua (16)
+### test_compat.lua (17)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -62,6 +62,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Compat: CurrencyCategory resolves a currency to its list header
 - Compat: CurrencyName resolves via C_CurrencyInfo, nil when unknown
 - Compat: CurrencyQuality returns the tier, nil when unknown
+- Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
 
 ### test_attribution.lua (23)
 
@@ -159,7 +160,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (44)
+### test_database.lua (45)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -205,6 +206,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
 - Migrate: v2->v3 renames sellPrice to vendorPrice
 - Migrations: v3->v4 backfills currency-record quality
+- Migrations: v4->v5 backfills currency-record bound
 
 ### test_stats.lua (15)
 
@@ -337,16 +339,16 @@ whenever the suite changes (see [testing.md](testing.md)).
 | Suite | Cases |
 |-------|------:|
 | test_util.lua | 35 |
-| test_compat.lua | 16 |
+| test_compat.lua | 17 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 8 |
 | test_collector.lua | 33 |
-| test_database.lua | 44 |
+| test_database.lua | 45 |
 | test_stats.lua | 15 |
 | test_browsertable.lua | 19 |
 | test_export.lua | 27 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 8 |
-| **Total** | **287** |
+| **Total** | **289** |

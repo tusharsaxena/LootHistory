@@ -348,6 +348,20 @@ function Compat.CurrencyQuality(currencyID)
   return nil
 end
 
+-- Bound state for a currency, from C_CurrencyInfo: "WARBAND" for a Warband-transferable currency
+-- (the tooltip's "Warband Transferable" = `isAccountTransferable`), else "BOP" (currencies are
+-- otherwise soulbound). Returns nil when the API can't resolve the id (headless / uncached) so callers
+-- leave the Bound cell unset rather than mislabel. Drives the currency bound glyph at capture + the
+-- v4->v5 backfill migration.
+function Compat.CurrencyBound(currencyID)
+  if not currencyID then return nil end
+  if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if info then return info.isAccountTransferable and "WARBAND" or "BOP" end
+  end
+  return nil
+end
+
 -- Addon TOC metadata field (e.g. "Version"), read from the packaged manifest so `/lh version`
 -- can't drift from the TOC. Retail moved the getter to C_AddOns; falls back to the bare global,
 -- then nil when neither is present.

@@ -152,7 +152,7 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   glyph (BoE/BoP/Account/Warband), the Vendor and AH price columns, type, zone, and the Character
   column (class icon + class colour).
 - With debug on (§12), a currency loot logs `[Currency] <name> x<n> id=<id> src=<source>` and adds a
-  `Type=Currency` row (blank iLvl/Bound/Vendor/AH cells; the Type filter isolates it). Turning
+  `Type=Currency` row (blank iLvl/Vendor/AH cells; the Type filter isolates it). Turning
   off **Record currency** stops new currency rows; muting a source stops that source's currency too.
   The Insights tab shows a **Currency** block (top currencies, currency-by-source stacked bars,
   currency-by-character, currency-over-time). §F-010: verify the currency **category** (SubType) reads
@@ -163,11 +163,24 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   tier's label — the same rendering the History table already gives item rows. Hovering the row shows
   the **in-game currency tooltip** (`GameTooltip:SetCurrencyByID`), not an item tooltip and not a
   blank tooltip.
+- **Currency bound glyph.** The currency row shows a **Bound** lock glyph (not blank): **blue/Warbound**
+  for a Warband-transferable currency (tooltip *"Warband Transferable"*, e.g. Timewarped Badge) and
+  **green/Bind on Pickup** for a non-transferable one (e.g. Nebulous Voidcore). Captured at loot time
+  from `C_CurrencyInfo.isAccountTransferable` (`Compat.CurrencyBound`).
 - **v3→v4 backfill.** With currency rows already in history from **before** this change (looted while
   on an older build, so their `quality` is nil), run `/reload`. After reload, those older currency
   rows go from **white/blank Name + blank Quality** to **coloured Name + filled Quality** — the
   migration backfilled `quality` in place without adding or removing any rows. (If no pre-change
   currency rows are available, this step can be skipped — see §14 for the schema-stamp confirmation.)
+- **v4→v5 backfill (bound).** Same idea for the Bound column: currency rows captured **before** the
+  bound change have `bound = nil` (blank/faint-grey glyph). After `/reload`, the v4→v5 migration
+  backfills each resolvable currency's bound in place — Warband-transferable → **blue/Warbound**, else
+  **green/Bind on Pickup** — with no rows added or removed.
+
+> **Field-confirmed 2026-07-22** (basic flows, in-client): currency capture (`Type=Currency` rows) and
+> the currency-vendor **refund → `source=Refund`** flow both verified working. **Still owed:** the new
+> **currency bound glyph** at capture + the **v4→v5 bound backfill** (added after this test pass), plus
+> the §F-010 currency-category (SubType) resolution and the Insights currency block layout.
 
 ### 4. Collection gates
 

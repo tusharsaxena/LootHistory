@@ -192,6 +192,7 @@ function Collector:OnChatMsgCurrency(_, msg)
     currencyID = currencyID, itemName = name,
     itemType = NS.Constants.CURRENCY_TYPE, itemSubType = NS.Compat.CurrencyCategory(currencyID),
     quality = NS.Compat.CurrencyQuality(currencyID),
+    bound = NS.Compat.CurrencyBound(currencyID),   -- WARBAND (Warband-transferable) | BOP | nil
     quantity = qty,
     source = source, sourceDetail = sourceDetail, confidence = confidence,
     zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone,

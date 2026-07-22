@@ -113,3 +113,10 @@ test("Compat: CurrencyQuality returns the tier, nil when unknown", function()
   assertEqual(NS.Compat.CurrencyQuality(999999), nil)
   assertEqual(NS.Compat.CurrencyQuality(nil), nil)
 end)
+
+test("Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown", function()
+  assertEqual(NS.Compat.CurrencyBound(3008), "WARBAND")   -- Warband-transferable (mock)
+  assertEqual(NS.Compat.CurrencyBound(2914), "BOP")       -- not transferable -> soulbound
+  assertEqual(NS.Compat.CurrencyBound(999999), nil)       -- unresolved id -> nil
+  assertEqual(NS.Compat.CurrencyBound(nil), nil)
+end)
