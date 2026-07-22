@@ -397,6 +397,7 @@ function Analytics:BuildCharts(content)
     conf    = sectionHeader(content, "Attribution confidence"),
     currencyTitle = sectionHeader(content, "Currency"),
     currencyCollected = sectionHeader(content, "Currency Collected"),
+    currencyBySrc = sectionHeader(content, "Currency by Source"),
     currencySrc   = sectionHeader(content, "Currency by source"),
     currencyChar  = sectionHeader(content, "Currency by character"),
     currencyTime  = sectionHeader(content, "Currency over time (per day)"),
@@ -604,7 +605,7 @@ function Analytics:LayoutCharts(y, w, pad)
   local stats, P = self.stats, self.pool
   for _, name in ipairs({ "source", "vsource", "quality", "qmix", "itype", "bound", "char",
                           "day", "vday", "hour", "weekday", "keystone", "conf", "zone", "item", "itemval",
-                          "curcollected", "cursrc", "curchar", "curday" }) do
+                          "curcollected", "curbysrc", "cursrc", "curchar", "curday" }) do
     releaseAll(P[name])
   end
 
@@ -850,6 +851,16 @@ function Analytics:LayoutCharts(y, w, pad)
     end
     y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad)
 
+    -- Currency by Source — one bar per source, length = total qty relative to the largest.
+    local csMax = 1
+    for _, q in pairs(stats.currencyBySource or {}) do if q > csMax then csMax = q end end
+    local csRows = {}
+    for _, e in ipairs(sortedByCount(stats.currencyBySource or {})) do
+      csRows[#csRows + 1] = { label = NS.Constants.SourceLabel[e.key] or e.key,
+        color = SOURCE_COLOR[e.key] or NEUTRAL, frac = e.count / csMax, value = tostring(e.count) }
+    end
+    y = self:renderBarSection(P.curbysrc, H.currencyBySrc, csRows, y, w, pad)
+
     -- Currency by source: one stacked bar per currency, segments coloured by source.
     local curMax = 1
     for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMax then curMax = curTotal end end
@@ -893,7 +904,7 @@ function Analytics:LayoutCharts(y, w, pad)
     end
     y = self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
   else
-    H.currencyTitle:Hide(); H.currencyCollected:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
+    H.currencyTitle:Hide(); H.currencyCollected:Hide(); H.currencyBySrc:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
     self.currencyStrip:Hide()
     self.currencyDivider:Hide()
   end
