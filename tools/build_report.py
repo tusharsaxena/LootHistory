@@ -13,7 +13,7 @@ import re
 import sys
 import urllib.request
 
-HKEYS = ["d", "t", "c", "cl", "id", "n", "q", "qr", "il", "b",
+HKEYS = ["d", "t", "c", "cl", "id", "cid", "n", "q", "qr", "il", "b",
          "v", "a", "val", "ty", "st", "qty", "s", "z", "wh", "src"]
 
 
@@ -38,10 +38,11 @@ def parse_history_csv(text):
             "t": r["time"],
             "c": name,
             "cl": (r["classFile"] or "").strip().upper(),
-            "id": int(r["itemID"]),
+            "id": _int_or_none(r["itemID"]),
+            "cid": _int_or_none(r.get("currencyID")),
             "n": r["itemName"],
             "q": r["quality"],
-            "qr": int(r["qualityRaw"]),
+            "qr": _int_or_none(r["qualityRaw"]),
             "il": _int_or_none(r["itemLevel"]),
             "b": r["bound"],
             "v": _int_or_none(r["vendorPriceRaw"]) or 0,
@@ -146,9 +147,10 @@ def validate_against_insights(rows, insights):
                         % (label, actual, s["count"]))
 
     check_count("Records", len(rows))
-    check_count("Distinct items", len({o["id"] for o in rows}))
+    check_count("Distinct items", len({o["id"] for o in rows if o["id"] is not None}))
     check_count("Characters", len({o["c"] for o in rows}))
-    check_count("Epic+ drops", sum(1 for o in rows if o["qr"] >= 4))
+    check_count("Epic+ drops", sum(1 for o in rows
+                                    if o.get("cid") is None and (o["qr"] or 0) >= 4))
     ils = [o["il"] for o in rows if o["il"] is not None]
     if ils:
         check_count("Best drop iLvl", max(ils))
@@ -161,10 +163,11 @@ def validate_against_insights(rows, insights):
             errs.append("Value: computed %s, INSIGHTS says %s"
                         % (_fmt_money(computed), s["value"]))
 
-    # Richest drop = max(val * qty) — stack-total auction-or-vendor worth
+    # Richest drop = max(val * qty) — stack-total auction-or-vendor worth (item-only)
     s = summ("Richest drop")
-    if s and s["value"] and rows:
-        richest = max(o["val"] * o["qty"] for o in rows)
+    item_rows = [o for o in rows if o.get("cid") is None]
+    if s and s["value"] and item_rows:
+        richest = max(o["val"] * o["qty"] for o in item_rows)
         if richest != parse_money(s["value"]):
             errs.append("Richest drop: computed %s, INSIGHTS says %s"
                         % (_fmt_money(richest), s["value"]))
@@ -317,11 +320,13 @@ def computed_figures(rows):
         busiest_n = counts[busiest_day]
     return {
         "records": len(rows),
-        "distinct": len({o["id"] for o in rows}),
+        "distinct": len({o["id"] for o in rows if o["id"] is not None}),
         "characters": len({o["c"] for o in rows}),
-        "epic_plus": sum(1 for o in rows if o["qr"] >= 4),
+        "epic_plus": sum(1 for o in rows
+                          if o.get("cid") is None and (o["qr"] or 0) >= 4),
         "best_ilvl": max(ils) if ils else None,
-        "richest": max((o["val"] * o["qty"] for o in rows), default=0),
+        "richest": max((o["val"] * o["qty"] for o in rows if o.get("cid") is None),
+                        default=0),
         "busiest_day": busiest_day,
         "busiest_n": busiest_n,
         "value": sum(o["val"] * o["qty"] for o in rows),

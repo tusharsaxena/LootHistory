@@ -28,7 +28,7 @@ class TestCsvToH(unittest.TestCase):
         self.assertEqual(list(rows[0].keys()), br.HKEYS)
         self.assertEqual(rows[0], {
             "d": "12-Jul-2026", "t": "20:00", "c": "Aria", "cl": "MAGE",
-            "id": 111, "n": "Big Sword", "q": "Epic", "qr": 4, "il": 246,
+            "id": 111, "cid": None, "n": "Big Sword", "q": "Epic", "qr": 4, "il": 246,
             "b": "Bind on Pickup", "v": 100000, "a": None, "val": 100000,
             "ty": "Weapon", "st": "Sword",
             "qty": 1, "s": "KILL", "z": "Town", "wh": "https://wh/111",
@@ -491,6 +491,26 @@ def test_value_crosscheck_uses_val_times_qty():
     insights = {("Summary", "Value"): {"count": "", "value": "99g 0s 0c"}}
     errs = br.validate_against_insights(rows, insights)
     assert any("Value" in e for e in errs)
+
+
+def test_currency_row_parses_and_excludes_from_item_checks():
+    hist = (
+        "ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,"
+        "itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,"
+        "valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
+        "1,12-Jul-2026,20:00,Hero-Rlm,MAGE,555,,Sword,Epic,4,207,Bind on Pickup,"
+        "1g 0s 0c,10000,,,1g 0s 0c,10000,,Weapon,Sword,1,KILL,Zone,http://x\r\n"
+        "2,12-Jul-2026,20:01,Hero-Rlm,MAGE,,42,Badge,Rare,3,,Warbound,"
+        ",,,,,,,Currency,The War Within,50,VENDOR,Zone,\r\n"
+    )
+    realm, rows = br.parse_history_csv(hist)
+    assert len(rows) == 2
+    assert rows[1]["cid"] == 42 and rows[1]["id"] is None
+    fig = br.computed_figures(rows)
+    assert fig["records"] == 2          # currency counts as a record
+    assert fig["distinct"] == 1         # but not as a distinct item
+    assert fig["epic_plus"] == 1        # currency (Rare) not counted
+    assert fig["value"] == 10000        # currency contributes 0 value
 
 
 if __name__ == "__main__":
