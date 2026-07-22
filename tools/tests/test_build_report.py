@@ -500,7 +500,7 @@ def test_currency_row_parses_and_excludes_from_item_checks():
         "valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,wowheadLink\r\n"
         "1,12-Jul-2026,20:00,Hero-Rlm,MAGE,555,,Sword,Epic,4,207,Bind on Pickup,"
         "1g 0s 0c,10000,,,1g 0s 0c,10000,,Weapon,Sword,1,KILL,Zone,http://x\r\n"
-        "2,12-Jul-2026,20:01,Hero-Rlm,MAGE,,42,Badge,Rare,3,,Warbound,"
+        "2,12-Jul-2026,20:01,Hero-Rlm,MAGE,,42,Badge,Epic,4,,Warbound,"
         ",,,,,,,Currency,The War Within,50,VENDOR,Zone,\r\n"
     )
     realm, rows = br.parse_history_csv(hist)
@@ -509,7 +509,7 @@ def test_currency_row_parses_and_excludes_from_item_checks():
     fig = br.computed_figures(rows)
     assert fig["records"] == 2          # currency counts as a record
     assert fig["distinct"] == 1         # but not as a distinct item
-    assert fig["epic_plus"] == 1        # currency (Rare) not counted
+    assert fig["epic_plus"] == 1        # currency (Epic) excluded by cid guard
     assert fig["value"] == 10000        # currency contributes 0 value
 
 
