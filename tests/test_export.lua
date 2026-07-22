@@ -44,11 +44,24 @@ end)
 test("Export: AICSV header keeps computed price cols but drops the raw auc_ columns", function()
   local header = NS.Export:AICSV({}):match("^(.-)\r\n")
   assertEqual(header,
-    "ts,date,time,char,classFile,itemID,itemName,quality,qualityRaw,itemLevel,bound," ..
+    "ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound," ..
     "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource," ..
     "itemType,itemSubType,quantity,source,zone," ..
     "wowheadLink")
   assertTrue(header:find("auc_", 1, true) == nil, "no raw auc_ columns in the AI CSV")
+end)
+
+test("Export: AICSV header includes currencyID (currency now supported)", function()
+  local header = NS.Export:AICSV({}):match("^(.-)\r\n")
+  assertTrue(header:find("currencyID", 1, true) ~= nil)
+end)
+
+test("Export: AICSV keeps currency rows", function()
+  local csv = NS.Export:AICSV({
+    { ts = 1, char = "A-R", currencyID = 42, itemName = "Badge", quality = 3,
+      quantity = 7, source = "VENDOR", itemType = "Currency" },
+  })
+  assertTrue(csv:find("Badge", 1, true) ~= nil)   -- currency row is present, not dropped
 end)
 
 test("Export: AICSV still emits the picked auction price/source, just not the raw sub-columns", function()
@@ -207,13 +220,13 @@ test("Export: CSV emits a currency row with currencyID and blank item cells", fu
   assertTrue(csv:find(",Poor,", 1, true) == nil, "no misleading Poor quality for currency")
 end)
 
-test("Export: AICSV omits the currencyID column", function()
+test("Export: AICSV includes the currencyID column", function()
   local csv = NS.Export:AICSV({ { ts = 1, itemID = 1, itemName = "x", quantity = 1, source = "KILL" } })
   local header = csv:match("^[^\r\n]+")
-  assertTrue(header:find("currencyID", 1, true) == nil, "AI CSV must not carry currencyID")
+  assertTrue(header:find("currencyID", 1, true) ~= nil, "AI CSV now carries currencyID")
 end)
 
-test("Export: AICSV drops currency rows entirely (item-only, currency AI support deferred)", function()
+test("Export: AICSV keeps currency rows alongside item rows", function()
   local rows = {
     { ts = 1, itemID = 1, itemName = "Red Sword", quantity = 1, source = "KILL" },
     { ts = 2, currencyID = 3008, itemName = "Valorstones", itemType = "Currency",
@@ -221,9 +234,9 @@ test("Export: AICSV drops currency rows entirely (item-only, currency AI support
   }
   local csv = NS.Export:AICSV(rows)
   local header = csv:match("^[^\r\n]+")
-  assertTrue(header:find("currencyID", 1, true) == nil, "no currencyID column")
+  assertTrue(header:find("currencyID", 1, true) ~= nil, "currencyID column present")
   assertTrue(csv:find("Red Sword", 1, true) ~= nil, "item row present")
-  assertTrue(csv:find("Valorstones", 1, true) == nil, "currency row excluded")
+  assertTrue(csv:find("Valorstones", 1, true) ~= nil, "currency row now included")
 end)
 
 test("Export: InsightsCSV includes currency sections", function()

@@ -121,12 +121,10 @@ for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 -- columns (the computed auctionPrice/auctionPriceRaw/value/valueRaw/auctionSource are kept).
 -- The AI report never consumes the raw provider snapshots, so dropping them keeps the
 -- Export-to-AI prompt small; Export-to-CSV still emits the complete dump via COLUMNS.
--- TODO(currency-ai): teach ai-export-guideline.md + the report template about currency rows, then
--- stop excluding currencyID here so Export-to-AI can carry currency. Until then the AI path is
--- item-only and its output is unchanged by this feature.
+-- The AI path now carries currency rows (currencyID included); see ai-export-guideline.md.
 local AI_COLUMNS, AI_HEADER = {}, {}
 for _, c in ipairs(COLUMNS) do
-  if not c[1]:find("^auc_") and c[1] ~= "currencyID" then
+  if not c[1]:find("^auc_") then
     AI_COLUMNS[#AI_COLUMNS + 1] = c
     AI_HEADER[#AI_HEADER + 1] = c[1]
   end
@@ -149,14 +147,9 @@ function E:CSV(records)
 end
 
 -- Reduced CSV for the AI prompt: drops the raw per-provider auc_ columns (see AI_COLUMNS).
--- AI export is item-only (currency AI support deferred, TODO(currency-ai)): drop currency rows so
--- the report engine never sees item-less Type=Currency rows it can't render.
+-- Carries currency rows (currencyID populated) alongside item rows.
 function E:AICSV(records)
-  local items = {}
-  for _, r in ipairs(records or {}) do
-    if r.currencyID == nil then items[#items + 1] = r end
-  end
-  return serializeCSV(items, AI_COLUMNS, AI_HEADER)
+  return serializeCSV(records, AI_COLUMNS, AI_HEADER)
 end
 
 -- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
