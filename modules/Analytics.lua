@@ -207,6 +207,18 @@ local function makeListRow(parent)
   return r
 end
 
+-- A legend chip: colour swatch + label.
+local function makeSwatch(parent)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetHeight(14)
+  local sw = f:CreateTexture(nil, "ARTWORK"); sw:SetSize(10, 10)
+  sw:SetPoint("LEFT", f, "LEFT", 0, 0)
+  local fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetPoint("LEFT", sw, "RIGHT", 4, 0); fs:SetTextColor(0.8, 0.8, 0.82)
+  f.sw, f.fs = sw, fs
+  return f
+end
+
 -- Stat / highlight cards, in row order (4 columns per row; `wide` spans 2). `str` cards hold a
 -- string (smaller font). Value strings are produced in UpdateCards.
 local CARD_DEFS = {
@@ -398,7 +410,7 @@ function Analytics:BuildCharts(content)
     currencyTitle = sectionHeader(content, "Currency"),
     currencyCollected = sectionHeader(content, "Currency Collected"),
     currencyBySrc = sectionHeader(content, "Currency by Source"),
-    currencySrc   = sectionHeader(content, "Currency by source"),
+    currencySrc   = sectionHeader(content, "Currency by Type \195\151 Source"),
     currencyChar  = sectionHeader(content, "Currency by character"),
     currencyTime  = sectionHeader(content, "Currency over time (per day)"),
   }
@@ -423,7 +435,8 @@ function Analytics:BuildCharts(content)
     weekday = { free = {}, active = {} }, keystone = { free = {}, active = {} },
     conf   = { free = {}, active = {} }, zone    = { free = {}, active = {} },
     item   = { free = {}, active = {} }, itemval = { free = {}, active = {} },
-    curcollected = { free = {}, active = {} }, cursrc = { free = {}, active = {} },
+    curcollected = { free = {}, active = {} }, curbysrc = { free = {}, active = {} },
+    cursrc = { free = {}, active = {} }, curlegend = { free = {}, active = {} },
     curchar = { free = {}, active = {} }, curday = { free = {}, active = {} },
   }
 
@@ -487,6 +500,21 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
     y = y - (BAR_H + BAR_GAP)
   end
   return y - SECTION_GAP
+end
+
+-- Render a wrapped legend of colour-swatch + label chips. rows = { { label, color = {r,g,b} } }.
+function Analytics:renderLegend(pool, rows, y, w, pad)
+  local x, rowY, chipW = pad, y, 120
+  for _, row in ipairs(rows) do
+    if x + chipW > w - pad then x = pad; rowY = rowY - 16 end
+    local chip = acquire(pool, function() return makeSwatch(self.content) end)
+    chip.sw:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
+    chip.fs:SetText(row.label)
+    chip:ClearAllPoints(); chip:SetPoint("TOPLEFT", self.content, "TOPLEFT", x, rowY)
+    chip:SetWidth(chipW); chip:Show()
+    x = x + chipW
+  end
+  return rowY - 16 - SECTION_GAP
 end
 
 -- Render a per-bucket vertical strip. buckets: ordered array of { info (hover), count, label }.
@@ -605,7 +633,7 @@ function Analytics:LayoutCharts(y, w, pad)
   local stats, P = self.stats, self.pool
   for _, name in ipairs({ "source", "vsource", "quality", "qmix", "itype", "bound", "char",
                           "day", "vday", "hour", "weekday", "keystone", "conf", "zone", "item", "itemval",
-                          "curcollected", "curbysrc", "cursrc", "curchar", "curday" }) do
+                          "curcollected", "curbysrc", "cursrc", "curlegend", "curchar", "curday" }) do
     releaseAll(P[name])
   end
 
@@ -877,6 +905,13 @@ function Analytics:LayoutCharts(y, w, pad)
       stackRows[#stackRows + 1] = { label = e.key, value = tostring(e.count), segments = curSegs }
     end
     y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)
+
+    local legendRows = {}
+    for _, le in ipairs(sortedByCount(stats.currencyBySource or {})) do
+      legendRows[#legendRows + 1] = { label = NS.Constants.SourceLabel[le.key] or le.key,
+        color = SOURCE_COLOR[le.key] or NEUTRAL }
+    end
+    y = self:renderLegend(P.curlegend, legendRows, y, w, pad)
 
     -- Currency by character (class-coloured bars).
     local ccList, ccMax = {}, 1
