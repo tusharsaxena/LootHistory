@@ -543,6 +543,9 @@
 const REALM = "Frostmourne";
 // SAMPLE data: the assembler REPLACES REALM + the H array wholesale. Never hand-edit.
 const H = [
+{"d":"13-Jul-2026","t":"01:15","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":45,"s":"CONTAINER","z":"Sunkiller Sanctum","wh":""},
+{"d":"13-Jul-2026","t":"01:22","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":20,"s":"QUEST","z":"Sunkiller Sanctum","wh":""},
+{"d":"13-Jul-2026","t":"01:40","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3090,"n":"Weathered Undermine Crest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":3,"s":"MPLUS","z":"Silvermoon City","wh":""},
 {"d":"12-Jul-2026","t":"20:37","c":"Stormhoof","cl":"SHAMAN","id":256974,"n":"Rootspeaker's Footwraps","q":"Rare","qr":3,"il":224,"b":"Bind on Pickup","v":334732,"ty":"Armor","st":"Mail","qty":1,"s":"QUEST","z":"Silvermoon City","wh":"https://www.wowhead.com/item=256974?bonus=12770:6652:13578"},
 {"d":"12-Jul-2026","t":"20:37","c":"Stormhoof","cl":"SHAMAN","id":267654,"n":"Swirling Arcane Essence","q":"Rare","qr":3,"il":null,"b":"Bind on Pickup","v":0,"ty":"Miscellaneous","st":"Other","qty":1,"s":"DISENCHANT","z":"Silvermoon City","wh":"https://www.wowhead.com/item=267654"},
 {"d":"12-Jul-2026","t":"20:37","c":"Stormhoof","cl":"SHAMAN","id":243602,"n":"Radiant Shard","q":"Rare","qr":3,"il":null,"b":"Not Bound","v":9000,"ty":"Tradeskill","st":"Enchanting","qty":1,"s":"DISENCHANT","z":"Silvermoon City","wh":"https://www.wowhead.com/item=243602","a":45000,"val":45000},
@@ -823,6 +826,11 @@ function clsDark(cf){var h=(CLS[cf]||["","#888888"])[1]; var n=parseInt(h.slice(
 var SRC={KILL:"Kill",CONTAINER:"Container",MAIL:"Mail",TRADE:"Trade",AH:"Auction House",QUEST:"Quest",
   VENDOR:"Vendor",DISENCHANT:"Disenchant",MPLUS:"Mythic+",OTHER:"Other"};
 function srcName(s){return SRC[s]||s.charAt(0)+s.slice(1).toLowerCase();}
+/* per-source bar colours — hex mirror of the Lua SOURCE_COLOR (modules/Analytics.lua) */
+var SRCCOLOR={KILL:"#ad4542",CONTAINER:"#d45e00",MPLUS:"#874fa6",ROLL:"#339e3b",BONUS_ROLL:"#4066bd",
+  QUEST:"#a68200",TRADE:"#00a3a1",MAIL:"#008fe0",AH:"#c257ab",VENDOR:"#9c5900",CRAFT:"#00855c",
+  DISENCHANT:"#8570e6",MILLING:"#617500",PROSPECTING:"#007d9e",REFUND:"#d45282",OTHER:"#94949e"};
+function srcColor(s){return SRCCOLOR[s]||SRCCOLOR.OTHER;}
 var SRCBADGE={KILL:"kill",DISENCHANT:"disenchant",CONTAINER:"container",VENDOR:"vendor",AH:"vendor",MPLUS:"mplus",QUEST:"quest"};
 function srcBadgeText(s){return s==="AH"?"AH":srcName(s);}
 /* bind label -> [category label, class suffix] for the Bind-state chart */
@@ -853,6 +861,9 @@ function timeCell(r){var p=r.d.split("-");return p[0]+" "+p[1]+" "+r.t;}
 function ilvl(r){return r.il==null?"—":r.il;}
 function dataTT(r){return esc([r.n,r.q.toLowerCase(),ilvl(r),r.b,r.ty+" — "+r.st,moneyFull(r.v),srcName(r.s)].join("|"));}
 function ilink(r){return '<a class="il '+qCls(r.q)+'" href="'+esc(r.wh)+'" target="_blank" rel="noopener" data-tt="'+dataTT(r)+'">'+esc(r.n)+'</a>';}
+/* currency has no wowhead link — a quality-coloured span (not an anchor), tooltip only */
+function curName(r){return '<span class="il '+qCls(r.q)+'" data-tt="'+dataTT(r)+'">'+esc(r.n)+'</span>';}
+function nameCell(r){return r.cid!=null?curName(r):ilink(r);}
 
 /* ---- aggregation ---- */
 function groupBy(rows,keyFn){var m={},order=[];rows.forEach(function(r){var k=keyFn(r);
@@ -870,7 +881,8 @@ function bars(list,opt){opt=opt||{};var max=Math.max.apply(null,list.map(functio
 /* ============================ RENDERERS ============================ */
 function renderKPIs(rows){
   var days={},items={},chars={},epic=0,best=0,byDay={};
-  rows.forEach(function(r){days[r.d]=1;items[r.id]=1;chars[r.c]=1;if(r.qr>=4)epic++;if(r.il>best)best=r.il;byDay[r.d]=(byDay[r.d]||0)+1;});
+  rows.forEach(function(r){days[r.d]=1;chars[r.c]=1;byDay[r.d]=(byDay[r.d]||0)+1;
+    if(r.cid==null){items[r.id]=1;if(r.qr>=4)epic++;if(r.il>best)best=r.il;}});  /* currency excluded from item-only KPIs (mirrors Database:Stats) */
   var busiest=Math.max.apply(null,Object.keys(byDay).map(function(k){return byDay[k];}).concat([0]));
   var k=[["gold",rows.length,"Drops recorded"],["",Object.keys(items).length,"Distinct items"],
     ["",Object.keys(chars).length,"Characters"],["gold",epic,"Epic+ drops"],["",best||"—","Best drop iLvl"],
@@ -887,21 +899,25 @@ function card(span,title,cap,body,q){
 
 function renderInsights(rows){
   var out=[];
+  /* item-only vs currency split — mirrors Database:Stats (item charts exclude currency;
+     source/char/zone/day/hour charts count every record). */
+  var itemRows=rows.filter(function(r){return r.cid==null;});
+  var cur=rows.filter(function(r){return r.cid!=null;});
   /* where loot came from */
   var src=groupBy(rows,function(r){return srcName(r.s);}).sort(function(a,b){return b.count-a.count;});
   out.push(card("sp8","Where the loot came from","Drops by attributed source · hover a bar for its value",
     bars(src.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};})),
     "Each drop is attributed to a source: a kill, a container, mail, the Auction House, a Mythic+ chest, and so on."));
   /* bind state */
-  var bm={};rows.forEach(function(r){var c=bindCat(r.b);bm[c]=(bm[c]||0)+1;});
+  var bm={};itemRows.forEach(function(r){var c=bindCat(r.b);bm[c]=(bm[c]||0)+1;});
   var bl=BIND_ORDER.filter(function(c){return bm[c];}).map(function(c){return {label:c,n:bm[c],v:bm[c],kcls:"kb-"+bindCls(bindLabelFor(c)),fcls:"fb-"+bindCls(bindLabelFor(c)),tip:c+'|'+bm[c]+' drops'};});
   out.push(card("sp4","Bind state","Tradeable vs locked · colored by bind type",bars(bl)));
   /* quality */
-  var qm={};rows.forEach(function(r){qm[r.q]=(qm[r.q]||0)+1;});
+  var qm={};itemRows.forEach(function(r){qm[r.q]=(qm[r.q]||0)+1;});
   var ql=QORDER.filter(function(q){return qm[q];}).map(function(q){return {label:q,n:qm[q],v:qm[q],kcls:qCls(q),fcls:fqCls(q),tip:q+'|'+qm[q]+' drops'};});
   out.push(card("sp6","Quality distribution","Sorted by quality · colored by WoW item quality",bars(ql)));
   /* item types */
-  var ty=groupBy(rows,function(r){return r.ty;}).sort(function(a,b){return b.count-a.count;});
+  var ty=groupBy(itemRows,function(r){return r.ty;}).sort(function(a,b){return b.count-a.count;});
   out.push(card("sp6","Item types","What kind of loot dropped",bars(ty.map(function(g){return {label:g.key,n:g.count,v:g.count,tip:g.key+'|'+g.count+' drops'};}))));
   /* loot by character */
   var chd={};var ch=groupBy(rows,function(r){chd[r.c]=r.cl;return r.c;}).sort(function(a,b){return b.count-a.count;});
@@ -924,12 +940,37 @@ function renderInsights(rows){
   out.push(card("sp6","When you loot","Weekday × hour of day · server time",heatmap(rows),
     "Each square is one weekday × hour; brighter = more drops in that slot."));
   /* richest drops */
-  var byItem=groupBy(rows,function(r){return r.n;});
+  var byItem=groupBy(itemRows,function(r){return r.n;});
   var rich=byItem.slice().sort(function(a,b){return b.value-a.value;}).slice(0,10);
   out.push(card("sp6","Richest drops","Top items by value · hover for the tooltip",toplist(rich,true)));
   /* most-looted */
   var most=byItem.slice().sort(function(a,b){return b.qty-a.qty;}).slice(0,10);
   out.push(card("sp6","Most-looted items","Top items by number of drops",toplist(most,false)));
+  /* ---- currency (only when currency rows are present) ---- */
+  if(cur.length){
+    /* Currency collected — one bar per currency by total quantity, neutral fill */
+    var curCol=groupBy(cur,function(r){return r.n;}).sort(function(a,b){return b.qty-a.qty;});
+    out.push(card("sp6","Currency collected","Total quantity per currency",
+      bars(curCol.map(function(g){return {label:g.key,n:g.qty,v:comma(g.qty),tip:g.key+'|'+comma(g.qty)+' collected'};}))));
+    /* Currency by source — quantity per attributed source, colored by source */
+    var cbs={};cur.forEach(function(r){cbs[r.s]=(cbs[r.s]||0)+(r.qty||1);});
+    var cbsList=Object.keys(cbs).map(function(s){return {s:s,q:cbs[s]};}).sort(function(a,b){return b.q-a.q;});
+    out.push(card("sp6","Currency by source","Quantity per attributed source · colored by source",
+      bars(cbsList.map(function(e){return {label:srcName(e.s),n:e.q,v:comma(e.q),
+        fstyle:"background:"+srcColor(e.s),tip:srcName(e.s)+'|'+comma(e.q)};}))));
+    /* Currency by type × source — per-currency breakdown + a small source legend */
+    var byCS={},csOrder=[];
+    cur.forEach(function(r){if(!(r.n in byCS)){byCS[r.n]={};csOrder.push(r.n);}
+      byCS[r.n][r.s]=(byCS[r.n][r.s]||0)+(r.qty||1);});
+    var legend='<div class="cap" style="margin:0 0 12px">'+cbsList.map(function(e){
+      return '<span style="display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:middle;'+
+        'background:'+srcColor(e.s)+';margin:0 5px 0 0"></span>'+esc(srcName(e.s));}).join('&nbsp;&nbsp; ')+'</div>';
+    var breakdown=csOrder.map(function(cn){var m=byCS[cn];
+      var srcs=Object.keys(m).map(function(s){return {label:srcName(s),n:m[s],v:comma(m[s]),
+        fstyle:"background:"+srcColor(s),tip:cn+' · '+srcName(s)+'|'+comma(m[s])};}).sort(function(a,b){return b.n-a.n;});
+      return '<div class="cap" style="margin:12px 0 6px;color:var(--ink-2)">'+esc(cn)+'</div>'+bars(srcs);}).join('');
+    out.push(card("sp12","Currency by type × source","Where each currency came from",legend+breakdown));
+  }
   $("#rpt-insights").innerHTML=out.join('');
 }
 function bindLabelFor(cat){for(var k in BIND){if(BIND[k][0]===cat)return k;}return "Not Bound";}
@@ -969,16 +1010,17 @@ var COL=[{h:"Time",k:function(r){return tsKey(r);},s:true},{h:"Character",k:func
   {h:"Auction",k:function(r){return r.a||0;},s:true,right:true}];
 var SORT={col:0,dir:-1}, GROUP="", GROUPCOL={char:1,source:7,quality:3,type:5,subtype:6,zone:8};
 function rowHTML(r){
+  var cur=r.cid!=null;
   return '<tr><td class="mono">'+timeCell(r)+'</td>'+
     '<td><span class="charname" style="color:'+clsVar(r.cl)+'">'+esc(r.c)+'</span></td>'+
-    '<td class="item">'+ilink(r)+'</td>'+
+    '<td class="item">'+nameCell(r)+'</td>'+
     '<td class="'+qCls(r.q)+'">'+esc(r.q)+'</td>'+
     '<td style="color:'+bindColorOf(r.b)+'">'+esc(bindCat(r.b))+'</td>'+
     '<td class="num">'+ilvl(r)+'</td><td>'+esc(r.ty)+'</td><td>'+esc(r.st)+'</td>'+
     '<td><span class="badge'+(SRCBADGE[r.s]?' '+SRCBADGE[r.s]:'')+'">'+esc(srcBadgeText(r.s))+'</span></td>'+
     '<td>'+esc(r.z)+'</td>'+
-    '<td class="num">'+moneyFull(r.v)+'</td>'+
-    '<td class="num">'+(r.a!=null?moneyFull(r.a):'—')+'</td></tr>';
+    '<td class="num">'+(cur?'—':moneyFull(r.v))+'</td>'+
+    '<td class="num">'+(cur||r.a==null?'—':moneyFull(r.a))+'</td></tr>';
 }
 var PAGE=1, PAGESIZE=50;
 function renderTable(rows){
