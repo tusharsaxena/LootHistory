@@ -341,6 +341,30 @@ local function sectionHeader(parent, text)
   return fs
 end
 
+-- Full-width section divider: centered gold title flanked by horizontal rule lines (the
+-- "Slash Commands" separator look). Returns a frame; caller anchors its TOPLEFT on the y cursor.
+local function sectionDivider(parent, text)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetHeight(18)
+  local lineL = f:CreateTexture(nil, "ARTWORK")
+  lineL:SetColorTexture(1, 0.82, 0, 0.35)
+  lineL:SetHeight(1)
+  local lineR = f:CreateTexture(nil, "ARTWORK")
+  lineR:SetColorTexture(1, 0.82, 0, 0.35)
+  lineR:SetHeight(1)
+  local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  fs:SetPoint("CENTER", f, "CENTER", 0, 0)
+  fs:SetTextColor(1, 0.82, 0)
+  fs:SetText(text)
+  f.fs = fs
+  -- lines fill the space either side of the centered label (8px gap)
+  lineL:SetPoint("LEFT", f, "LEFT", 0, 0)
+  lineL:SetPoint("RIGHT", fs, "LEFT", -8, 0)
+  lineR:SetPoint("LEFT", fs, "RIGHT", 8, 0)
+  lineR:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+  return f
+end
+
 local function listPanel(parent, title)
   local p = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   p:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
@@ -376,6 +400,8 @@ function Analytics:BuildCharts(content)
     currencyChar  = sectionHeader(content, "Currency by character"),
     currencyTime  = sectionHeader(content, "Currency over time (per day)"),
   }
+  self.lootDivider = sectionDivider(content, "LOOT")
+  self.currencyDivider = sectionDivider(content, "CURRENCY")
   self.dayStrip   = CreateFrame("Frame", nil, content)
   self.valueStrip = CreateFrame("Frame", nil, content)
   self.hourStrip  = CreateFrame("Frame", nil, content)
@@ -538,6 +564,7 @@ function Analytics:HideAllCharts()
   self.dayStrip:Hide(); self.valueStrip:Hide(); self.hourStrip:Hide()
   self.zonePanel:Hide(); self.itemPanel:Hide(); self.itemValuePanel:Hide()
   self.currencyPanel:Hide(); self.currencyStrip:Hide()
+  self.lootDivider:Hide(); self.currencyDivider:Hide()
 end
 
 -- Build the firstTs..lastTs day-key list (gaps included), capped to MAX_DAY_BARS most recent.
@@ -591,6 +618,12 @@ function Analytics:LayoutCharts(y, w, pad)
   self.emptyText:Hide()
   local H, total = self.headers, stats.totals.records
   local rows
+
+  self.lootDivider:ClearAllPoints()
+  self.lootDivider:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
+  self.lootDivider:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -pad, y)
+  self.lootDivider:Show()
+  y = y - 24
 
   -- Loot by source — length = share of all records.
   rows = {}
@@ -741,9 +774,64 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.conf, H.conf, rows, y, w, pad)
 
+  -- Ranked lists — two half-width columns:
+  --   left  : Top items by value → Top zones (stacked)
+  --   right : Top items by count
+  local colGap = 12
+  local colW = math.floor((w - pad * 2 - colGap) / 2)
+  local leftX, rightX = pad, pad + colW + colGap
+  local MONEY_W = 110  -- value column wide enough for "Ng Ns Nc" coin strings (no wrapping)
+
+  -- Top items by value (left, top).
+  local valRows = {}
+  for i = 1, math.min(10, #stats.topItemsByValue) do
+    local it = stats.topItemsByValue[i]
+    if (it.value or 0) > 0 then
+      local star = ((it.quality or 1) >= 4) and starMarkup() or ""
+      valRows[#valRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
+        nameColor = qualityColor(it.quality or 1), right = money(it.value) }
+    end
+  end
+
+  -- Top items by count (right, top).
+  local itemRows = {}
+  for i = 1, math.min(10, #stats.topItems) do
+    local it = stats.topItems[i]
+    local star = ((it.quality or 1) >= 4) and starMarkup() or ""
+    itemRows[#itemRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
+      nameColor = qualityColor(it.quality or 1), right = tostring(it.count) }
+  end
+
+  -- Top zones (left, below the value list).
+  local zoneRows = {}
+  for i = 1, math.min(10, #stats.topZones) do
+    local z = stats.topZones[i]
+    zoneRows[#zoneRows + 1] = { name = z.zone, right = tostring(z.count) }
+  end
+
+  local zoneY = y
+  if #valRows > 0 then
+    local hVal = self:renderListPanel(P.itemval, self.itemValuePanel, valRows, y, colW, leftX, MONEY_W)
+    zoneY = y - hVal - SECTION_GAP
+  else
+    self.itemValuePanel:Hide()
+  end
+  local hItem = self:renderListPanel(P.item, self.itemPanel, itemRows, y, colW, rightX)
+  local hZone = self:renderListPanel(P.zone, self.zonePanel, zoneRows, zoneY, colW, leftX)
+
+  local leftH = (y - zoneY) + hZone -- top of column (y) down to the bottom of the zone panel
+  y = y - math.max(leftH, hItem) - SECTION_GAP
+  -- (fall through to Currency)
+
   -- ── Currency ──────────────────────────────────────────────────────────────────
   local ct = stats.currencyTotals or { distinct = 0, events = 0 }
   if ct.events and ct.events > 0 then
+    self.currencyDivider:ClearAllPoints()
+    self.currencyDivider:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
+    self.currencyDivider:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -pad, y)
+    self.currencyDivider:Show()
+    y = y - 24
+
     -- Block title carries the highlights (distinct types + biggest single haul).
     local title = "Currency"
     if ct.distinct then title = title .. string.format("  \226\128\148  %d type%s", ct.distinct, ct.distinct == 1 and "" or "s") end
@@ -805,54 +893,8 @@ function Analytics:LayoutCharts(y, w, pad)
   else
     H.currencyTitle:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
     self.currencyPanel:Hide(); self.currencyStrip:Hide()
+    self.currencyDivider:Hide()
   end
 
-  -- Ranked lists — two half-width columns:
-  --   left  : Top items by value → Top zones (stacked)
-  --   right : Top items by count
-  local colGap = 12
-  local colW = math.floor((w - pad * 2 - colGap) / 2)
-  local leftX, rightX = pad, pad + colW + colGap
-  local MONEY_W = 110  -- value column wide enough for "Ng Ns Nc" coin strings (no wrapping)
-
-  -- Top items by value (left, top).
-  local valRows = {}
-  for i = 1, math.min(10, #stats.topItemsByValue) do
-    local it = stats.topItemsByValue[i]
-    if (it.value or 0) > 0 then
-      local star = ((it.quality or 1) >= 4) and starMarkup() or ""
-      valRows[#valRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
-        nameColor = qualityColor(it.quality or 1), right = money(it.value) }
-    end
-  end
-
-  -- Top items by count (right, top).
-  local itemRows = {}
-  for i = 1, math.min(10, #stats.topItems) do
-    local it = stats.topItems[i]
-    local star = ((it.quality or 1) >= 4) and starMarkup() or ""
-    itemRows[#itemRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
-      nameColor = qualityColor(it.quality or 1), right = tostring(it.count) }
-  end
-
-  -- Top zones (left, below the value list).
-  local zoneRows = {}
-  for i = 1, math.min(10, #stats.topZones) do
-    local z = stats.topZones[i]
-    zoneRows[#zoneRows + 1] = { name = z.zone, right = tostring(z.count) }
-  end
-
-  local zoneY = y
-  if #valRows > 0 then
-    local hVal = self:renderListPanel(P.itemval, self.itemValuePanel, valRows, y, colW, leftX, MONEY_W)
-    zoneY = y - hVal - SECTION_GAP
-  else
-    self.itemValuePanel:Hide()
-  end
-  local hItem = self:renderListPanel(P.item, self.itemPanel, itemRows, y, colW, rightX)
-  local hZone = self:renderListPanel(P.zone, self.zonePanel, zoneRows, zoneY, colW, leftX)
-
-  local leftH = (y - zoneY) + hZone -- top of column (y) down to the bottom of the zone panel
-  y = y - math.max(leftH, hItem) - SECTION_GAP
   return y
 end
