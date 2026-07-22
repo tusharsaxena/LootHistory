@@ -396,6 +396,7 @@ function Analytics:BuildCharts(content)
     keystone = sectionHeader(content, "Mythic+ loot by keystone level"),
     conf    = sectionHeader(content, "Attribution confidence"),
     currencyTitle = sectionHeader(content, "Currency"),
+    currencyCollected = sectionHeader(content, "Currency Collected"),
     currencySrc   = sectionHeader(content, "Currency by source"),
     currencyChar  = sectionHeader(content, "Currency by character"),
     currencyTime  = sectionHeader(content, "Currency over time (per day)"),
@@ -408,7 +409,6 @@ function Analytics:BuildCharts(content)
   self.zonePanel  = listPanel(content, "Top zones")
   self.itemPanel  = listPanel(content, "Top items by count")
   self.itemValuePanel = listPanel(content, "Top items by value")
-  self.currencyPanel = listPanel(content, "Currency collected")
   self.currencyStrip = CreateFrame("Frame", nil, content)
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   self.emptyText:SetText("No loot in this range.")
@@ -422,7 +422,7 @@ function Analytics:BuildCharts(content)
     weekday = { free = {}, active = {} }, keystone = { free = {}, active = {} },
     conf   = { free = {}, active = {} }, zone    = { free = {}, active = {} },
     item   = { free = {}, active = {} }, itemval = { free = {}, active = {} },
-    curlist = { free = {}, active = {} }, cursrc = { free = {}, active = {} },
+    curcollected = { free = {}, active = {} }, cursrc = { free = {}, active = {} },
     curchar = { free = {}, active = {} }, curday = { free = {}, active = {} },
   }
 
@@ -563,7 +563,7 @@ function Analytics:HideAllCharts()
   for _, h in pairs(self.headers) do h:Hide() end
   self.dayStrip:Hide(); self.valueStrip:Hide(); self.hourStrip:Hide()
   self.zonePanel:Hide(); self.itemPanel:Hide(); self.itemValuePanel:Hide()
-  self.currencyPanel:Hide(); self.currencyStrip:Hide()
+  self.currencyStrip:Hide()
   self.lootDivider:Hide(); self.currencyDivider:Hide()
 end
 
@@ -604,7 +604,7 @@ function Analytics:LayoutCharts(y, w, pad)
   local stats, P = self.stats, self.pool
   for _, name in ipairs({ "source", "vsource", "quality", "qmix", "itype", "bound", "char",
                           "day", "vday", "hour", "weekday", "keystone", "conf", "zone", "item", "itemval",
-                          "curlist", "cursrc", "curchar", "curday" }) do
+                          "curcollected", "cursrc", "curchar", "curday" }) do
     releaseAll(P[name])
   end
 
@@ -840,13 +840,15 @@ function Analytics:LayoutCharts(y, w, pad)
     H.currencyTitle:ClearAllPoints(); H.currencyTitle:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); H.currencyTitle:Show()
     y = y - 22
 
-    -- Top currencies by quantity (ranked list, full width).
-    local curRows = {}
+    -- Currency Collected — one bar per currency, length = qty relative to the largest, neutral colour.
+    local curMaxCollected = 1
+    for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMaxCollected then curMaxCollected = curTotal end end
+    local collectedRows = {}
     for _, e in ipairs(sortedByCount(stats.byCurrency)) do
-      curRows[#curRows + 1] = { name = e.key, right = tostring(e.count) }
+      collectedRows[#collectedRows + 1] =
+        { label = e.key, color = NEUTRAL, frac = e.count / curMaxCollected, value = tostring(e.count) }
     end
-    local hCur = self:renderListPanel(P.curlist, self.currencyPanel, curRows, y, w - pad * 2, pad, 70)
-    y = y - hCur - SECTION_GAP
+    y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad)
 
     -- Currency by source: one stacked bar per currency, segments coloured by source.
     local curMax = 1
@@ -891,8 +893,8 @@ function Analytics:LayoutCharts(y, w, pad)
     end
     y = self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
   else
-    H.currencyTitle:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
-    self.currencyPanel:Hide(); self.currencyStrip:Hide()
+    H.currencyTitle:Hide(); H.currencyCollected:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
+    self.currencyStrip:Hide()
     self.currencyDivider:Hide()
   end
 
