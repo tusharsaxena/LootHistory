@@ -23,15 +23,27 @@ local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges sta
 local NEUTRAL = { 0.55, 0.62, 0.72 }
 
 -- Per-source bar colours (no such table in Constants; kept local to the chart).
+-- Palette derived via the dataviz skill: 15 hues spaced 24 degrees apart in OKLCH
+-- (dark-band L 0.62/0.53 alternating, C 0.17/0.14 alternating) run through a
+-- coprime-step reordering so every *adjacent* pair in that sequence clears the
+-- categorical gates on the dark surface (node scripts/validate_palette.js --mode
+-- dark: lightness band / chroma floor / CVD separation / normal-vision floor /
+-- contrast all PASS). Themed groups (roll variants, professions, economy) were
+-- then assigned to sequence-adjacent slots so the pairs most likely to sit next
+-- to each other in a sorted bar/legend are the ones proven furthest apart.
+-- 16 categorical keys exceeds the skill's validated 8-hue cap, so full all-pairs
+-- separation (any two slots as neighbours) is not achievable here - a documented,
+-- inherent limit, not an oversight; the existing direct value/count labels on
+-- every bar and legend entry are the required secondary encoding.
 local SOURCE_COLOR = {
-  KILL      = { 0.85, 0.35, 0.35 }, CONTAINER = { 0.85, 0.65, 0.30 },
-  MPLUS     = { 0.65, 0.45, 0.90 }, ROLL      = { 0.40, 0.75, 0.55 },
-  QUEST     = { 0.95, 0.82, 0.35 }, TRADE     = { 0.45, 0.70, 0.95 },
-  MAIL      = { 0.60, 0.75, 0.85 }, AH        = { 0.90, 0.55, 0.75 },
-  VENDOR    = { 0.70, 0.70, 0.75 }, CRAFT     = { 0.55, 0.80, 0.70 },
-  DISENCHANT = { 0.80, 0.50, 0.90 }, MILLING   = { 0.55, 0.75, 0.45 },
-  PROSPECTING = { 0.45, 0.75, 0.80 },
-  OTHER     = { 0.55, 0.55, 0.60 },
+  KILL        = { 0.68, 0.27, 0.26 }, CONTAINER  = { 0.83, 0.37, 0.00 },
+  MPLUS       = { 0.53, 0.31, 0.65 }, ROLL       = { 0.20, 0.62, 0.23 },
+  BONUS_ROLL  = { 0.25, 0.40, 0.74 }, QUEST      = { 0.65, 0.51, 0.00 },
+  TRADE       = { 0.00, 0.64, 0.63 }, MAIL       = { 0.00, 0.56, 0.88 },
+  AH          = { 0.76, 0.34, 0.67 }, VENDOR     = { 0.61, 0.35, 0.00 },
+  CRAFT       = { 0.00, 0.52, 0.36 }, DISENCHANT = { 0.52, 0.44, 0.90 },
+  MILLING     = { 0.38, 0.46, 0.00 }, PROSPECTING= { 0.00, 0.49, 0.62 },
+  REFUND      = { 0.83, 0.32, 0.51 }, OTHER      = { 0.58, 0.58, 0.62 },
 }
 
 -- Bound-type display labels + colours.
