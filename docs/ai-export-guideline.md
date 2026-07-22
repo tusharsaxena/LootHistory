@@ -1,6 +1,6 @@
 # Ka0s Loot History — AI Report Guideline
 
-*Guideline v1.1.0 rev7 · 2026-07-19*
+*Guideline v1.1.0 rev8 · 2026-07-22*
 
 You are turning a **Ka0s Loot History** loot export into a **single, self-contained, interactive HTML
 report**. You do **not** design or build the report from scratch — you **fill in a ready-made
@@ -156,8 +156,9 @@ Two CSV blocks follow the prompt (both for the user's selected Data Set — All 
 - **HISTORY** — one row per drop. This becomes `H`.
 - **INSIGHTS** — a pre-computed sectioned summary (`Summary`, `By Source`, `By Quality`, `By Item
   Type`, `By Bound Type`, `By Character`, `By Weekday`, `By Hour`, `By Keystone`, `Attribution
-  Confidence`, `Top Zones`, `Top Items by Count`, `Top Items by Value`, `By Day`). The engine
-  recomputes the charts from `H`, so you do **not** need INSIGHTS for them — use it as a fast reference
+  Confidence`, `Top Zones`, `Top Items by Count`, `Top Items by Value`, `By Day`, `Currency
+  Collected`, `Currency by Source`, `Currency by Type x Source`, `Currency by Character`, `Currency
+  by Day`). The engine recomputes the charts from `H`, so you do **not** need INSIGHTS for them — use it as a fast reference
   while **writing** the analysis cards. The assembler reads only the **`Summary`** section (for its
   cross-check); every other INSIGHTS section is purely a reading aid — never re-type them into the export
   file (see step 1).
@@ -211,7 +212,8 @@ Map them from the **HISTORY** CSV columns:
 | `t`  | `time`          | 24-hour `"HH:MM"`, e.g. `"20:37"` |
 | `c`  | `char`          | **name part only** — strip `-Realm`; take `REALM` from the realm part |
 | `cl` | `classFile`     | UPPER: `WARRIOR PALADIN DEATHKNIGHT SHAMAN WARLOCK MONK DRUID HUNTER MAGE PRIEST ROGUE DEMONHUNTER EVOKER` |
-| `id` | `itemID`        | number |
+| `id` | `itemID`        | number, or `null` for currency rows |
+| `cid`| `currencyID`    | number, or `null` for item rows |
 | `n`  | `itemName`      | |
 | `q`  | `quality`       | label: `Poor Common Uncommon Rare Epic Legendary Heirloom` |
 | `qr` | `qualityRaw`    | number 0–7 |
@@ -227,6 +229,8 @@ Map them from the **HISTORY** CSV columns:
 | `z`  | `zone`          | |
 | `wh` | `wowheadLink`   | the ready-made URL |
 | `src`| `auctionSource` | e.g. `"tsm:dbmarket"`, `"auctionator:minbuyout"`, `"oribos:market"`; blank when no AH price |
+
+**Currency rows vs. item rows.** A **currency row** has `id=null`, `cid` set to a currency ID, `type="Currency"`, `q` set to the currency tier (e.g. `"Rare"`), `b` set to the bound label, and **all of** `il`, `v`, `a`, `val` are `null` or `0`. Item rows have the opposite: `id` set, `cid=null`. Currency rows are **excluded** from every item-based worth calculation, KPI, and chart (best iLvl, value totals, top items by value, etc.) and instead drive a dedicated **Currency** section in the report, which covers collected currency totals, breakdowns by source and type, and per-character summaries.
 
 You compute and lay out **nothing** here — just faithfully transcribe every row.
 
