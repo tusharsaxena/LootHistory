@@ -220,3 +220,18 @@ test("Stats: currency enriches activity charts but not item charts", function()
   assertEqual(s.currencyTotals.biggestHaul.name, "Valorstones")
   assertEqual(s.currencyTotals.biggestHaul.quantity, 40)
 end)
+
+test("Stats: currencyBySource sums currency quantity per source across currencies", function()
+  NS.db.global.history = {
+    { ts = T1, char = "A-Realm", currencyID = 10, itemName = "Badge",
+      quantity = 30, source = "VENDOR" },
+    { ts = T1, char = "A-Realm", currencyID = 10, itemName = "Badge",
+      quantity = 20, source = "REFUND" },
+    { ts = T2, char = "A-Realm", currencyID = 11, itemName = "Voidcore",
+      quantity = 4, source = "VENDOR" },
+  }
+  local s = NS.Database:Stats({})
+  assertEqual(s.currencyBySource.VENDOR, 34)   -- 30 badge + 4 voidcore
+  assertEqual(s.currencyBySource.REFUND, 20)
+  assertEqual(s.currencyBySource.KILL, nil)
+end)

@@ -228,6 +228,7 @@ function Database:Stats(filter)
   local byCurrency, currencySourceMatrix, currencyByChar, currencyByDay = {}, {}, {}, {}
   local currencyDistinct, currencyEvents = 0, 0
   local biggestHaul
+  local currencyBySource = {}
 
   for _, r in ipairs(records) do
     local qty = r.quantity or 1
@@ -314,6 +315,8 @@ function Database:Stats(filter)
       if not m then m = {}; currencySourceMatrix[cname] = m end
       m[src] = (m[src] or 0) + qty
 
+      currencyBySource[src] = (currencyBySource[src] or 0) + qty
+
       if r.char then
         local cc = currencyByChar[r.char]
         if cc then cc.quantity = cc.quantity + qty
@@ -384,6 +387,7 @@ function Database:Stats(filter)
     byHour = byHour, byWeekday = byWeekday, byKeystone = byKeystone, byConfidence = byConfidence,
     byCurrency = byCurrency, currencySourceMatrix = currencySourceMatrix,
     currencyByChar = currencyByChar, currencyByDay = currencyByDay,
+    currencyBySource = currencyBySource,
     currencyTotals = { distinct = currencyDistinct, events = currencyEvents, biggestHaul = biggestHaul },
     totals = {
       records = #records, distinctItems = distinctItems, distinctChars = distinctChars,
