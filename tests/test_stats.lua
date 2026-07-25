@@ -178,7 +178,7 @@ test("Stats: value uses auctionPrice when present, else vendorPrice", function()
   assertEqual(s.totals.richestDrop.value, 200)   -- the auction-priced stack
 end)
 
-test("Stats: currency enriches activity charts but not item charts", function()
+test("Stats: currency stays out of the item/loot charts (its own section only)", function()
   local recs = {
     { ts = 1000, char = "A-R", classFile = "MAGE", source = "KILL", confidence = "CERTAIN",
       itemID = 111, itemName = "Sword", quality = 4, itemLevel = 500, itemType = "Weapon",
@@ -203,10 +203,17 @@ test("Stats: currency enriches activity charts but not item charts", function()
   assertTrue(s.byType["Weapon"] == 1)
   assertEqual(s.totals.epicPlus, 1)
 
-  -- Activity charts include currency records (4 records total across 3 sources):
+  -- The "records" KPI still counts everything (4), but Loot-by-source is items-only: the currency
+  -- records (MPLUS/QUEST here) do NOT appear, so per-character totals tally with the item charts.
   assertEqual(s.totals.records, 4)
-  assertEqual(s.bySource["MPLUS"], 2)               -- two currency records from M+
-  assertEqual(s.bySource["QUEST"], 1)
+  assertEqual(s.bySource["KILL"], 1)                -- only the item drop
+  assertTrue(s.bySource["MPLUS"] == nil)            -- currency excluded from Loot by source
+  assertTrue(s.bySource["QUEST"] == nil)
+  assertEqual(s.charBySource["A-R"]["KILL"], 1)     -- per-character source is items-only too
+  assertTrue(s.charBySource["A-R"]["MPLUS"] == nil)
+  assertEqual(s.byChar["A-R"].count, 1)             -- A-R looted 1 item (its 2 currency rows excluded)
+  assertEqual(s.byChar["B-R"].count, 0)             -- B-R only got currency → registered, count 0
+  assertEqual(s.totals.distinctChars, 2)            -- both characters still registered (class colours)
 
   -- Currency aggregates:
   assertEqual(s.byCurrency["Valorstones"], 50)      -- 40 + 10
@@ -234,4 +241,45 @@ test("Stats: currencyBySource sums currency quantity per source across currencie
   assertEqual(s.currencyBySource.VENDOR, 34)   -- 30 badge + 4 voidcore
   assertEqual(s.currencyBySource.REFUND, 20)
   assertEqual(s.currencyBySource.KILL, nil)
+end)
+
+test("Stats: currencyCharMatrix splits each character's currency by type", function()
+  local recs = {
+    { ts = 1000, char = "A-R", classFile = "MAGE", source = "MPLUS", confidence = "CERTAIN",
+      currencyID = 3008, itemName = "Valorstones", itemType = "Currency", quantity = 40, zone = "Z1" },
+    { ts = 1000, char = "A-R", classFile = "MAGE", source = "MPLUS", confidence = "CERTAIN",
+      currencyID = 2914, itemName = "Crest", itemType = "Currency", quantity = 3, zone = "Z1" },
+    { ts = 1000, char = "B-R", classFile = "ROGUE", source = "QUEST", confidence = "CERTAIN",
+      currencyID = 3008, itemName = "Valorstones", itemType = "Currency", quantity = 10, zone = "Z1" },
+  }
+  NS.State.testRecords = recs
+  local s = NS.Database:Stats({})
+  NS.State.testRecords = nil
+  assertEqual(s.currencyCharMatrix["A-R"]["Valorstones"], 40)
+  assertEqual(s.currencyCharMatrix["A-R"]["Crest"], 3)
+  assertEqual(s.currencyCharMatrix["B-R"]["Valorstones"], 10)
+  assertTrue(s.currencyCharMatrix["A-R"]["Nonexistent"] == nil)
+end)
+
+test("Stats: per-character category matrices split each char by category", function()
+  local recs = {
+    { ts = 1000, char = "A-R", classFile = "MAGE", source = "KILL", confidence = "CERTAIN",
+      itemID = 1, quality = 4, itemType = "Weapon", bound = "BOP", quantity = 1, vendorPrice = 100,
+      zone = "Z1", sourceDetail = { keystoneLevel = 10 } },
+    { ts = 1000, char = "A-R", classFile = "MAGE", source = "KILL", confidence = "CERTAIN",
+      itemID = 2, quality = 3, itemType = "Armor", bound = "BOP", quantity = 1, vendorPrice = 50, zone = "Z1" },
+    { ts = 1000, char = "B-R", classFile = "ROGUE", source = "QUEST", confidence = "INFERRED",
+      itemID = 3, quality = 2, itemType = "Armor", bound = "BOE", quantity = 1, vendorPrice = 10, zone = "Z1" },
+  }
+  NS.State.testRecords = recs
+  local s = NS.Database:Stats({})
+  NS.State.testRecords = nil
+  assertEqual(s.charBySource["A-R"]["KILL"], 2)
+  assertEqual(s.charBySource["B-R"]["QUEST"], 1)
+  assertEqual(s.charValueBySource["A-R"]["KILL"], 150) -- 100 + 50 vendor value
+  assertEqual(s.charByQuality["A-R"][4], 1)
+  assertEqual(s.charByQuality["A-R"][3], 1)
+  assertEqual(s.charByType["A-R"]["Weapon"], 1)
+  assertEqual(s.charByType["A-R"]["Armor"], 1)
+  assertEqual(s.charByBound["A-R"]["BOP"], 2)
 end)

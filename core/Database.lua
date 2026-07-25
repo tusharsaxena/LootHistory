@@ -221,14 +221,26 @@ function Database:Stats(filter)
   local valueBySource, valueByDay, valueByZone = {}, {}, {}
   local byChar, byType, byBound, byHour, byWeekday, byKeystone, byConfidence =
     {}, {}, {}, {}, {}, {}, {}
+  -- Per-character × category matrices (feed the "… by Character" stacked companion charts). Each
+  -- mirrors its parent aggregation's guards; { [charKey] = { [categoryKey] = magnitude } }.
+  local charBySource, charValueBySource, charByQuality, charByType, charByBound =
+        {}, {}, {}, {}, {}
   local distinctItems, distinctChars = 0, 0
   local firstTs, lastTs
   local totalValue, totalQuantity, epicPlus = 0, 0, 0
   local bestDrop, richestDrop
   local byCurrency, currencySourceMatrix, currencyByChar, currencyByDay = {}, {}, {}, {}
+  local currencyCharMatrix = {}
   local currencyDistinct, currencyEvents = 0, 0
   local biggestHaul
   local currencyBySource = {}
+
+  -- Nested-table increment used by the per-character category matrices.
+  local function bump(matrix, k1, k2, amt)
+    if k1 == nil or k2 == nil then return end
+    local m = matrix[k1]; if not m then m = {}; matrix[k1] = m end
+    m[k2] = (m[k2] or 0) + amt
+  end
 
   for _, r in ipairs(records) do
     local qty = r.quantity or 1
@@ -237,13 +249,23 @@ function Database:Stats(filter)
     totalValue = totalValue + value
     totalQuantity = totalQuantity + qty
 
+    local ch = r.char
+
+    -- Loot-by-source / value / per-character charts are items-only: currency has its own CURRENCY
+    -- section, so counting it here would make per-character totals disagree with the item-attribute
+    -- companions (Bound/Quality/Type by Character). `src` is still read below for the currency charts.
     local src = r.source or "OTHER"
-    bySource[src] = (bySource[src] or 0) + 1
-    valueBySource[src] = (valueBySource[src] or 0) + value
+    if not isCurrency then
+      bySource[src] = (bySource[src] or 0) + 1
+      valueBySource[src] = (valueBySource[src] or 0) + value
+      bump(charBySource, ch, src, 1)
+      bump(charValueBySource, ch, src, value)
+    end
 
     if not isCurrency then
       local q = r.quality or 0
       byQuality[q] = (byQuality[q] or 0) + 1
+      bump(charByQuality, ch, q, 1)
       if q >= 4 then epicPlus = epicPlus + 1 end
     end
 
@@ -264,12 +286,13 @@ function Database:Stats(filter)
 
     if not isCurrency then
       local ty = r.itemType
-      if ty and ty ~= "" then byType[ty] = (byType[ty] or 0) + 1 end
+      if ty and ty ~= "" then byType[ty] = (byType[ty] or 0) + 1; bump(charByType, ch, ty, 1) end
     end
 
     if not isCurrency then
       local bk = r.bound or "UNBOUND"
       byBound[bk] = (byBound[bk] or 0) + 1
+      bump(charByBound, ch, bk, 1)
     end
 
     local conf = r.confidence or "INFERRED"
@@ -293,15 +316,18 @@ function Database:Stats(filter)
       end
     end
 
-    local ch = r.char
     if ch then
+      -- Register every character (for the class-colour lookup + the "characters" KPI), but count and
+      -- value only their items — "Loot by character" is items-only so it tallies with the item charts.
       local ce = byChar[ch]
-      if ce then
+      if not ce then
+        ce = { char = ch, classFile = r.classFile, count = 0, value = 0 }
+        byChar[ch] = ce
+        distinctChars = distinctChars + 1
+      end
+      if not isCurrency then
         ce.count = ce.count + 1
         ce.value = ce.value + value
-      else
-        byChar[ch] = { char = ch, classFile = r.classFile, count = 1, value = value }
-        distinctChars = distinctChars + 1
       end
     end
 
@@ -321,6 +347,7 @@ function Database:Stats(filter)
         local cc = currencyByChar[r.char]
         if cc then cc.quantity = cc.quantity + qty
         else currencyByChar[r.char] = { char = r.char, classFile = r.classFile, quantity = qty } end
+        bump(currencyCharMatrix, r.char, cname, qty)
       end
 
       if r.ts then
@@ -385,8 +412,11 @@ function Database:Stats(filter)
     valueBySource = valueBySource, valueByDay = valueByDay, valueByZone = valueByZone,
     byChar = byChar, byType = byType, byBound = byBound,
     byHour = byHour, byWeekday = byWeekday, byKeystone = byKeystone, byConfidence = byConfidence,
+    charBySource = charBySource, charValueBySource = charValueBySource, charByQuality = charByQuality,
+    charByType = charByType, charByBound = charByBound,
     byCurrency = byCurrency, currencySourceMatrix = currencySourceMatrix,
     currencyByChar = currencyByChar, currencyByDay = currencyByDay,
+    currencyCharMatrix = currencyCharMatrix,
     currencyBySource = currencyBySource,
     currencyTotals = { distinct = currencyDistinct, events = currencyEvents, biggestHaul = biggestHaul },
     totals = {

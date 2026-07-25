@@ -50,11 +50,12 @@ end
 -- Format a copper amount for display. In-game uses gold/silver/copper coin icon glyphs
 -- (GetCoinTextureString); headless falls back to "Ng Ns Nc" (only non-zero parts).
 -- "" for nil/0. Shared by the Vendor column and any future currency columns.
-function Util.FormatMoney(copper)
+function Util.FormatMoney(copper, coinHeight)
   copper = copper or 0
   if copper <= 0 then return "" end
   if GetCoinTextureString then
-    return GetCoinTextureString(copper)
+    -- coinHeight (optional) sizes the gold/silver/copper icon glyphs; nil = client default.
+    return GetCoinTextureString(copper, coinHeight)
   end
   local g = math.floor(copper / 10000)
   local s = math.floor((copper % 10000) / 100)

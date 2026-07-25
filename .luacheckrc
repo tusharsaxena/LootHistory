@@ -26,7 +26,7 @@ read_globals = {
   "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
   "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",
   "CombatLogGetCurrentEventInfo", "GetDetailedItemLevelInfo",
-  "GameTooltip", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
+  "GameTooltip", "GetCursorPosition", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
   "FauxScrollFrame_Update", "FauxScrollFrame_GetOffset", "FauxScrollFrame_OnVerticalScroll",
   "CreateAtlasMarkup", "CreateTextureMarkup",
   "ITEM_QUALITY_COLORS", "UISpecialFrames", "PlaySound", "STANDARD_TEXT_FONT",

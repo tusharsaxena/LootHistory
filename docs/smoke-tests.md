@@ -154,8 +154,8 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
 - With debug on (§12), a currency loot logs `[Currency] <name> x<n> id=<id> src=<source>` and adds a
   `Type=Currency` row (blank iLvl/Vendor/AH cells; the Type filter isolates it). Turning
   off **Record currency** stops new currency rows; muting a source stops that source's currency too.
-  The Insights tab shows a **Currency** block (top currencies, currency-by-source stacked bars,
-  currency-by-character, currency-over-time). §F-010: verify the currency **category** (SubType) reads
+  The Insights tab shows a **Currency** block (top currencies, currency-by-type×source stacked bars,
+  currency-by-character×type, currency-over-time). §F-010: verify the currency **category** (SubType) reads
   a real header like "The War Within" — if it's blank, `Compat.CurrencyCategory` couldn't resolve the
   currency-list headers on this client and needs a look.
 - **Currency quality (name colour + Quality column).** The currency row's **Name** cell is coloured by
@@ -305,8 +305,8 @@ exports depends on which tab is showing.
   Type / Bound Type / Character / Weekday / Hour / Keystone**, **Attribution Confidence**, **Top Zones**,
   **Top Items by Count / Value**, **By Day**, and — when the range has currency loot — **Currency
   Collected** (qty per currency), **Currency by Type x Source** (one row per currency × source it was
-  received from), **Currency by Source** (source → total qty across every currency, the same shape the
-  Currency by Source chart plots), **Currency by Character**, and **Currency by Day**. Values render
+  received from), **Currency by Source** (source → total qty across every currency — an export-only
+  section; the dashboard no longer plots this chart), **Currency by Character**, and **Currency by Day**. Values render
   `Ng Ns Nc`.
 - **All Data** covers the whole (visible) history; **Current View** honours the **shared filter** — so
   narrowing the filter bar shrinks *both* the History and the Insights export.
@@ -337,24 +337,77 @@ exports depends on which tab is showing.
 - The stat cards populate: **records, distinct items, characters, value, active days, epic+
   drops, best drop (ilvl), richest drop, date range, busiest day**. "Value" is the derived worth
   (the higher of the picked auction price and `vendorPrice`) `× quantity` — not raw vendor price alone.
-- The breakdown sections sit under two full-width dividers — a centered gold **LOOT** title, then all
-  the item-centric charts and ranked lists, then a centered gold **CURRENCY** title with the currency
-  charts. Under **LOOT**: horizontal bars / strips / ranked lists for **Loot by source, Value by
-  source, Quality distribution, Quality mix, Loot by item type, Loot by bound type, Loot by character,
-  Loot over time (per day), Value over time (per day), Loot by hour of day, Loot by weekday,
-  Mythic+ loot by keystone level, Attribution confidence**, plus **Top zones**, **Top items by count**,
-  and **Top items by value** (all moved under this divider, alongside the rest of the item charts).
+- **Headline font parity.** All KPI card values — including **value**, **richest drop**, **date range**,
+  and **busiest day** — render at the **same big size** as **records** / **distinct items** (no card is
+  smaller than the others). A long value stays on **one line**: it shrinks just enough to fit the card,
+  never wraps or clips off the edge.
+- **Smaller coin glyphs.** The gold/silver/copper icons in Insights money strings (value card, richest
+  drop, Value By Source, etc.) are **~25% smaller** than before — less chunky next to the text.
+- **Bigger, thicker section dividers.** The gold **LOOT** and **CURRENCY** separator titles are **~50%
+  larger** and their flanking rule lines **~25% thicker** than the sub-section headers.
+- **Title Case + renamed titles.** Every sub-section title is Title Case (e.g. "Loot By Source",
+  "Loot By Hour Of Day", "Top Items By Count"). The companions read **"Loot By Character × Source /
+  Quality / Item Type / Bound Type"** (and **"Value By Character × Source"**); the quality parent is
+  **"Loot By Quality"**.
+- The breakdown sections sit under two full-width dividers — a centered gold **LOOT** title, then the
+  item charts and ranked lists, then a centered gold **CURRENCY** title. Under **LOOT**, in order:
+  **Loot By Character** (now the **first** chart), **Loot By Source**, **Loot By Character × Source**,
+  **Value By Source**, **Value By Character × Source**, **Loot By Quality**, **Loot By Character ×
+  Quality**, **Loot By Item Type**, **Loot By Character × Item Type**, **Loot By Bound Type**, **Loot By
+  Character × Bound Type**, **Loot Over Time**, **Value Over Time**, **Loot By Hour Of Day**, **Loot By
+  Weekday**, then **Top Zones / Top Items By Count / Top Items By Value**. Confirm the old **Quality
+  mix**, **Mythic+ loot by keystone level**, and **Attribution confidence** charts are **gone** (the
+  keystone/confidence data remains in the Export).
+- **"… × Character" companions.** Immediately below each of the five categorical loot charts sits its
+  matching **stacked** companion — Loot By Character × Source / Quality / Item Type / Bound Type, and
+  Value By Character × Source — character on the Y axis, segments reusing the parent chart's category
+  colours. A companion with no data hides itself.
+- **Coloured item-type / weekday / currency bars.** "Loot By Item Type", "Loot By Weekday", and
+  "Currency Collected" bars are now **distinctly coloured per category** (item type / day / currency),
+  not a single flat colour. Item-type and currency colours match their × Character companions.
+- **Bar-coloured labels.** On single-bar charts the row label text is coloured to **match its bar**
+  (e.g. Loot By Source labels take each source's colour). Exceptions keep their own colour: Loot By
+  Quality (quality colour) and per-character bars (class colour). Stacked-bar labels are unchanged.
+- **Palette + non-adjacency.** Categories without a predefined colour (item types, currencies,
+  weekdays) draw from a standard **inverse-VIBGYOR** palette assigned by sort rank, so **no two similar
+  colours sit next to each other** in a chart or legend (contrast the old look where adjacent
+  currencies could be near-identical).
+- **Companion segment order.** In each × Character companion the stacked segments run in the **same
+  order as the parent chart's Y axis** — e.g. Loot By Character × Bound Type segments follow the same
+  order the bars appear in Loot By Bound Type; Value By Character × Source follows the value-desc order.
+- **Legends below every categorical chart.** Every single-bar categorical chart (Loot by source, Value
+  by source, Quality distribution, Loot by item type, Loot by bound type, Currency Collected) **and**
+  every stacked companion now shows a **colour-swatch legend** beneath it. Each legend's swatches
+  **start at the bars' left edge**, aligned under the bars (not under the text-label column).
+- **Legend label truncation.** Long legend labels (e.g. "Artisan Enchanter's Moxie", "Midnight
+  Enchanting Knowledge") are **truncated with a "…"** so chips don't overlap; hovering a legend chip
+  shows the **full label**.
+- **Totals tally (items-only LOOT).** Currency is **excluded** from the LOOT charts, so a character's
+  total in **Loot by character** equals the sum of that character's segments in **Loot by Character ×
+  Source**, **Bound by Character**, **Quality by Character**, etc. (e.g. if Chopstix reads 384 in Loot
+  by character, its Bound-by-Character segments sum to 384). The headline **records** KPI still counts
+  currency (so it can exceed the Loot-by-source total); the CURRENCY section carries all currency.
+- **Label truncation + tooltips.** In both LOOT and CURRENCY sections, a long row label (currency /
+  source / item-type / character name) is **cut to ~16 chars with a "…"** instead of wrapping to a
+  second line, and **hovering the row label shows a tooltip with the full name**. Confirm the
+  previously clumped 2-line labels (e.g. "Artisan Enchanter's Moxie") now sit on one line.
+- **Cursor-anchored tooltips.** Every Insights hover tooltip (row labels and segments) appears just
+  **above-and-right of the cursor**, not pinned to the row's far-right edge.
+- **Per-segment tooltips.** Hovering an individual coloured segment of any stacked bar (Character ×
+  Source, Currency by Type × Source, Currency by Character × Type, Quality mix, etc.) shows a tooltip
+  naming that segment: **"&lt;category&gt;: &lt;value&gt;"** (e.g. "Kill: 45", "Valorstones: 40").
 - Loot an item, then a currency (or use `/lh test`, §8, which seeds both) with Insights open on a
-  history/filter that includes currency loot: the **CURRENCY** divider appears below **LOOT**, its
-  title carrying a highlight summary (distinct currency types, biggest single haul), followed by
-  **Currency Collected** (one neutral-coloured bar per currency, length = qty), **Currency by Source**
-  (one bar per source, length = that source's total qty summed across every currency, source-coloured
-  like the loot-by-source chart), **Currency by Type × Source** (one *stacked* bar per currency,
-  segments coloured by the source it came from, with a colour-swatch **legend** naming each source
-  directly below the chart), **Currency by character** (class-coloured bars), and **Currency over
-  time** (a per-day strip, mirroring Loot over time). Narrow the filter to a range with **no** currency
-  loot (e.g. a single day before you started collecting currency) and confirm the whole **CURRENCY**
-  block — divider included — disappears cleanly while **LOOT** still renders.
+  history/filter that includes currency loot: the **CURRENCY** divider appears below **LOOT** (the old
+  "Currency — N types — biggest: …" summary line is **gone**), followed by
+  **Currency Collected** (one distinctly-coloured bar per currency, length = qty, with a legend),
+  **Currency by Type × Source** (one *stacked* bar per currency, segments coloured by the source it
+  came from, with a source **legend** below), and **Currency by Character × Type** (one *stacked* bar per character,
+  one segment per currency, **each currency a distinct colour**, with a per-currency **legend**
+  below), then **Currency over time** (a per-day strip). Confirm the old **Currency by Source** bar
+  chart is **gone** and the old flat "Currency by character" bar is **replaced** by the stacked
+  Character × Type chart. Narrow the filter to a range with **no** currency loot (e.g. a single day
+  before you started collecting currency) and confirm the whole **CURRENCY** block — divider included —
+  disappears cleanly while **LOOT** still renders.
 - Looting an item with Insights open updates the cards live (the tab reacts to `RecordAdded`).
 
 ### 8. `/lh test` synthetic preview

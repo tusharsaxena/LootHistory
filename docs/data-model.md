@@ -129,15 +129,26 @@ currency tooltip (`GameTooltip:SetCurrencyByID`). `bound` is `"WARBAND"` for a W
 currency (`C_CurrencyInfo.isAccountTransferable`) and `"BOP"` otherwise, driving the Bound-column lock
 glyph. The remaining item-only fields (`itemID`, `itemLink`, `itemLevel`, prices) remain nil.
 `itemID == nil && currencyID ~= nil` distinguishes a
-currency row. Currency is still excluded from the item-centric Insights charts
-(quality/ilvl/bound/top-items/value) — its `quality` is a currency-tier value, not comparable to item
-quality — but counts in the activity charts (by source/day/character) and drives its own currency
-Insights sections, which sit under a dedicated **CURRENCY** divider below the item charts' **LOOT**
-divider (see [browser.md](./browser.md)). `Database:Stats` computes these off the same filtered pass as
+currency row. Currency is excluded from every **LOOT** chart — the item-attribute charts
+(quality/ilvl/bound/type/top-items) *and* the Loot-by-source / value / per-character charts — so
+per-character totals tally across the section; it drives its own **CURRENCY** sections instead (under a
+dedicated divider below the **LOOT** divider — see [browser.md](./browser.md)). Currency still counts
+in the time/activity strips (`byDay`/`byHour`/`byWeekday`/`byZone`) and the headline `records`/`characters`
+KPIs. `Database:Stats` computes these off the same filtered pass as
 the item stats: `byCurrency` (qty per currency name), `currencySourceMatrix` (currency name →
-source → qty), `currencyBySource` (source → total qty summed across every currency — the source-only
-view the Currency by Source chart and the Insights/AI-export "Currency by Source" CSV sections read),
-`currencyByChar`, `currencyByDay`, and `currencyTotals` (`distinct`, `events`, `biggestHaul`).
+source → qty), `currencyCharMatrix` (character → currency name → qty — feeds the **Currency by
+Character × Type** stacked chart), `currencyBySource` (source → total qty summed across every
+currency — now read **only** by the Insights/AI-export "Currency by Source" CSV section; its
+in-dashboard chart was removed), `currencyByChar`, `currencyByDay`, and `currencyTotals`
+(`distinct`, `events`, `biggestHaul`).
+
+`Database:Stats` also computes five per-character × category matrices (`char → category → magnitude`)
+that back the "… by Character" stacked companion charts, **all items-only**: `charBySource`,
+`charValueBySource`, `charByQuality`, `charByType`, `charByBound`. `byChar` registers every character
+(for the class-colour lookup and the `characters` KPI) but its `count`/`value` are items-only, so a
+currency-only character is registered with `count = 0` and is skipped by "Loot by character".
+(`byKeystone`/`byConfidence` feed the Export only — their dashboard charts and per-character companions
+were removed.)
 
 ### Confidence
 

@@ -18,7 +18,11 @@ local STRIP_AXIS_GAP = 2   -- gap between the bar bases and the separator line
 local STRIP_LABEL_GAP = 7  -- gap between the separator line and the label text
 local LABEL_X_ADJUST = -2  -- nudge to visually centre the rotated label under the bar (tunable)
 local LIST_ROW_H = 16
-local LABELW, VALW = 84, 92   -- fixed label/value columns in a horizontal bar; track fills the rest
+local LABELW, VALW = 108, 92   -- fixed label/value columns in a horizontal bar; track fills the rest
+local LABEL_MAXCHARS = 16      -- cap a bar/row label to this many glyphs (+ ellipsis) so it fits LABELW
+local LEGEND_MAXCHARS = 13     -- cap a legend chip label to this many glyphs (+ ellipsis) to fit the chip
+local MAX_STACK_SEGS = 9       -- segment ceiling per stacked bar (matches makeStackedBar's texture pool)
+local MIN_HEADLINE_SIZE = 11   -- floor for the shrink-to-fit KPI headline font
 local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges stay readable
 local NEUTRAL = { 0.55, 0.62, 0.72 }
 
@@ -57,8 +61,6 @@ local BOUND_COLOR = {
 local BOUND_ORDER = { "BOP", "BOE", "WARBAND", "ACCOUNT", "UNBOUND" }
 
 local WEEKDAY = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
-local CONF_LABEL = { CERTAIN = "Certain", INFERRED = "Inferred" }
-local CONF_COLOR = { CERTAIN = { 0.45, 0.75, 0.55 }, INFERRED = { 0.80, 0.70, 0.40 } }
 
 -- Gold star before epic+ items in the Top-items list. Uses whichever star atlas exists on this
 -- client; falls back to no star (the quality colour still marks it) so it never renders a box.
@@ -92,11 +94,116 @@ end
 -- Short character label ("Name-Realm" → "Name") for narrow per-character bars.
 local function shortChar(key) return (key and key:match("^[^-]+")) or key or "?" end
 
+-- Shrink a headline number's font only when its rendered string would overflow the card, so long
+-- money strings stay on one line while normal values keep the full headline size. Pure + testable.
+function Analytics._fitFontSize(stringWidth, maxWidth, baseSize, minSize)
+  if not stringWidth or stringWidth <= 0 or stringWidth <= maxWidth then return baseSize end
+  return math.max(minSize, baseSize * maxWidth / stringWidth)
+end
+
+-- Standard categorical palette for charts NOT tied to a predefined colour (class / bound / quality /
+-- source all keep their own maps). Sequence is inverse-VIBGYOR (R→O→Y→G→B→I→V) so neighbouring
+-- entries are rainbow-distinct — never two lookalikes side by side — then the same rainbow in a
+-- lighter band and a darker band (21 total). Colours are assigned by a category's rank in its chart's
+-- sort order (paletteColor), so consecutive bars/segments always draw from adjacent, dissimilar hues.
+local PALETTE = {
+  { 0.90, 0.25, 0.25 }, { 0.95, 0.55, 0.15 }, { 0.88, 0.82, 0.22 }, { 0.35, 0.75, 0.38 },
+  { 0.28, 0.55, 0.90 }, { 0.42, 0.38, 0.82 }, { 0.72, 0.42, 0.86 },
+  { 0.97, 0.58, 0.58 }, { 0.98, 0.76, 0.50 }, { 0.94, 0.90, 0.55 }, { 0.60, 0.87, 0.63 },
+  { 0.58, 0.76, 0.97 }, { 0.68, 0.64, 0.92 }, { 0.86, 0.68, 0.94 },
+  { 0.62, 0.18, 0.18 }, { 0.70, 0.40, 0.10 }, { 0.60, 0.56, 0.12 }, { 0.18, 0.52, 0.28 },
+  { 0.15, 0.38, 0.66 }, { 0.28, 0.24, 0.58 }, { 0.50, 0.28, 0.62 },
+}
+-- 1-based rank → palette colour (cycles). Pure + testable.
+function Analytics.paletteColor(rank)
+  return PALETTE[((rank - 1) % #PALETTE) + 1]
+end
+-- Build a { categoryKey → palette colour } map from an ordered list of keys (rank = list position),
+-- so a category keeps one colour across the charts that share the same order (e.g. a currency in both
+-- Currency Collected and Currency by Character × Type).
+local function paletteMap(orderedKeys)
+  local m = {}
+  for i, k in ipairs(orderedKeys) do m[k] = Analytics.paletteColor(i) end
+  return m
+end
+
+-- Cap a bar/row label to a fixed glyph count with a trailing ellipsis. English-only labels, so a
+-- byte-based sub is safe (see CLAUDE.md: English only). Pure + testable.
+function Analytics._truncate(text, maxChars)
+  text = text or ""
+  if #text <= maxChars then return text, false end
+  return text:sub(1, maxChars - 1) .. "\226\128\166", true
+end
+
+-- Reduce a character's per-category magnitudes to at most maxSegs stacked segments: keep the top
+-- (maxSegs-1) by magnitude, lump any remainder into a single "__OTHER__" segment, then order the
+-- kept segments by their global rank in catOrder ("__OTHER__" always last). Pure + testable.
+function Analytics._charStackSegments(catMags, catOrder, maxSegs)
+  local list, total = {}, 0
+  for k, v in pairs(catMags) do
+    if v and v > 0 then list[#list + 1] = { key = k, mag = v }; total = total + v end
+  end
+  table.sort(list, function(a, b)
+    if a.mag ~= b.mag then return a.mag > b.mag end
+    return tostring(a.key) < tostring(b.key)
+  end)
+  local kept, otherMag = {}, 0
+  if #list > maxSegs then
+    for i = 1, maxSegs - 1 do kept[#kept + 1] = list[i] end
+    for i = maxSegs, #list do otherMag = otherMag + list[i].mag end
+  else
+    for i = 1, #list do kept[#kept + 1] = list[i] end
+  end
+  local rank = {}
+  for i, k in ipairs(catOrder) do rank[k] = i end
+  table.sort(kept, function(a, b) return (rank[a.key] or math.huge) < (rank[b.key] or math.huge) end)
+  if otherMag > 0 then kept[#kept + 1] = { key = "__OTHER__", mag = otherMag } end
+  return kept, total
+end
+
+-- Build renderStackedBarSection rows from a char→{cat→mag} matrix. Per-char total drives row width
+-- (frac = mag / rowMax); segment colours come from colorFn(catKey) with "__OTHER__" → NEUTRAL; the
+-- row label is the short character name, class-coloured. Each segment carries a "<category>: <value>"
+-- hover tip via labelFn(catKey). Rows sorted by total desc then name asc.
+function Analytics._buildCharStackRows(matrix, byCharMap, catOrder, colorFn, valueFmt, labelFn)
+  labelFn = labelFn or tostring
+  local rowMax, totals = 1, {}
+  for ch, mags in pairs(matrix) do
+    local _, total = Analytics._charStackSegments(mags, catOrder, MAX_STACK_SEGS)
+    totals[ch] = total
+    if total > rowMax then rowMax = total end
+  end
+  local rows = {}
+  for ch, mags in pairs(matrix) do
+    local segs = Analytics._charStackSegments(mags, catOrder, MAX_STACK_SEGS)
+    local segments = {}
+    for _, s in ipairs(segs) do
+      local isOther = s.key == "__OTHER__"
+      local color = isOther and NEUTRAL or (colorFn(s.key) or NEUTRAL)
+      local name = isOther and "Other" or labelFn(s.key)
+      segments[#segments + 1] = { frac = s.mag / rowMax, color = color,
+        tip = name .. ": " .. valueFmt(s.mag) }
+    end
+    local classFile = byCharMap and byCharMap[ch] and byCharMap[ch].classFile
+    rows[#rows + 1] = { label = shortChar(ch), labelColor = classColor(classFile),
+      value = valueFmt(totals[ch]), segments = segments, _total = totals[ch] }
+  end
+  table.sort(rows, function(a, b)
+    if a._total ~= b._total then return a._total > b._total end
+    return a.label < b.label
+  end)
+  return rows
+end
+
+-- Coin-glyph height for Insights money strings — ~25% smaller than the client default (~14px) so the
+-- gold/silver/copper icons don't dominate the bar/card text.
+local COIN_H = 10
+
 -- Value → display string (coin glyphs in-game, "Ng Ns Nc" headless; "0" when zero).
 local function money(copper)
   copper = copper or 0
   if copper <= 0 then return "0" end
-  return NS.Util.FormatMoney(copper)
+  return NS.Util.FormatMoney(copper, COIN_H)
 end
 
 -- ── Widget primitives (pooled) ─────────────────────────────────────────────────────
@@ -110,6 +217,21 @@ end
 local function releaseAll(pool)
   for _, o in ipairs(pool.active) do o:Hide() end
   wipe(pool.active)
+end
+
+-- Show a one-line tooltip pinned just above-and-right of the cursor (offset +5,+5), rather than
+-- anchored to the (far-right) row edge. GetCursorPosition returns physical pixels, so divide by the
+-- UIParent scale before placing against UIParent's bottom-left.
+local function showCursorTooltip(owner, text, r, g, b)
+  if not text or text == "" then return end
+  GameTooltip:SetOwner(owner, "ANCHOR_NONE")
+  local scale = UIParent:GetEffectiveScale()
+  local cx, cy = GetCursorPosition()
+  GameTooltip:ClearAllPoints()
+  GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", cx / scale + 5, cy / scale + 5)
+  GameTooltip:ClearLines()
+  GameTooltip:AddLine(text, r or 1, g or 1, b or 1)
+  GameTooltip:Show()
 end
 
 -- A horizontal bar row: fixed label (left) + value (right), track + fill between them.
@@ -127,6 +249,10 @@ local function makeBar(parent)
   local value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   value:SetJustifyH("RIGHT")
   bar.value = value
+  label:SetWordWrap(false)
+  bar:EnableMouse(true)
+  bar:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullLabel, 1, 0.82, 0) end)
+  bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
   return bar
 end
 
@@ -155,12 +281,27 @@ local function makeStackedBar(parent)
   local value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   value:SetJustifyH("RIGHT")
   bar.value = value
+  -- Each segment is a mouse-enabled frame (not a bare texture) so it can carry its own hover
+  -- tooltip ("<category>: <value>"). The frame's texture fills it.
   bar.segs = {}
-  for i = 1, 9 do bar.segs[i] = bar:CreateTexture(nil, "ARTWORK") end
+  for i = 1, 9 do
+    local seg = CreateFrame("Frame", nil, bar)
+    seg:EnableMouse(true)
+    local tex = seg:CreateTexture(nil, "ARTWORK")
+    tex:SetAllPoints(seg)
+    seg.tex = tex
+    seg:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._info, 1, 1, 1) end)
+    seg:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    bar.segs[i] = seg
+  end
+  label:SetWordWrap(false)
+  bar:EnableMouse(true)
+  bar:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullLabel, 1, 0.82, 0) end)
+  bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
   return bar
 end
 
--- segments: ordered array of { frac (0..1 of the track), color = {r,g,b} }; fracs sum ≤ 1.
+-- segments: ordered array of { frac (0..1 of the track), color = {r,g,b}, tip = string|nil }.
 local function positionStacked(bar, content, pad, y, barW, segments)
   bar:ClearAllPoints(); bar:SetPoint("TOPLEFT", content, "TOPLEFT", pad, y); bar:SetWidth(barW)
   bar.label:ClearAllPoints(); bar.label:SetPoint("LEFT", 0, 0); bar.label:SetWidth(LABELW)
@@ -173,7 +314,8 @@ local function positionStacked(bar, content, pad, y, barW, segments)
     if sd and sd.frac and sd.frac > 0 then
       local segW = math.max(1, trackW * math.min(1, sd.frac))
       seg:ClearAllPoints(); seg:SetPoint("LEFT", bar.track, "LEFT", x, 0); seg:SetSize(segW, BAR_H - 4)
-      seg:SetColorTexture(sd.color[1], sd.color[2], sd.color[3], 0.95)
+      seg.tex:SetColorTexture(sd.color[1], sd.color[2], sd.color[3], 0.95)
+      seg._info = sd.tip
       seg:Show()
       x = x + segW
     else
@@ -216,6 +358,9 @@ local function makeListRow(parent)
   local count = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   count:SetJustifyH("RIGHT"); count:SetPoint("RIGHT", -4, 0); count:SetWordWrap(false)
   r.count = count
+  r:EnableMouse(true)
+  r:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullName, 1, 1, 1) end)
+  r:SetScript("OnLeave", function() GameTooltip:Hide() end)
   return r
 end
 
@@ -227,7 +372,11 @@ local function makeSwatch(parent)
   sw:SetPoint("LEFT", f, "LEFT", 0, 0)
   local fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   fs:SetPoint("LEFT", sw, "RIGHT", 4, 0); fs:SetTextColor(0.8, 0.8, 0.82)
+  fs:SetJustifyH("LEFT"); fs:SetWordWrap(false)
   f.sw, f.fs = sw, fs
+  f:EnableMouse(true)
+  f:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._full, 0.9, 0.9, 0.9) end)
+  f:SetScript("OnLeave", function() GameTooltip:Hide() end)
   return f
 end
 
@@ -237,13 +386,13 @@ local CARD_DEFS = {
   { key = "records", label = "records" },
   { key = "items",   label = "distinct items" },
   { key = "chars",   label = "characters" },
-  { key = "value",   label = "value", str = true },
+  { key = "value",   label = "value", str = true, bigStr = true },
   { key = "active",  label = "active days" },
   { key = "epic",    label = "epic+ drops" },
   { key = "best",    label = "best drop (ilvl)" },
-  { key = "richest", label = "richest drop", str = true },
-  { key = "span",    label = "date range", str = true, wide = true },
-  { key = "busy",    label = "busiest day", str = true, wide = true },
+  { key = "richest", label = "richest drop", str = true, bigStr = true },
+  { key = "span",    label = "date range", str = true, bigStr = true, wide = true },
+  { key = "busy",    label = "busiest day", str = true, bigStr = true, wide = true },
 }
 
 -- ── Build ────────────────────────────────────────────────────────────────────────
@@ -272,8 +421,11 @@ function Analytics:Attach(pane)
                        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
     card:SetBackdropColor(0.1, 0.1, 0.12, 0.85)
     card:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-    -- String cards hold a longer value, so they use a smaller number font.
-    local num = card:CreateFontString(nil, "OVERLAY", def.str and "GameFontNormal" or "GameFontNormalHuge")
+    -- Plain string cards (date range / busiest day) hold a long value → small font. The `value`
+    -- and `richest` cards keep the big headline font (bigStr) and shrink-to-fit in Layout instead.
+    local fontTemplate = (def.str and not def.bigStr) and "GameFontNormal" or "GameFontNormalHuge"
+    local num = card:CreateFontString(nil, "OVERLAY", fontTemplate)
+    if def.bigStr then num:SetWordWrap(false) end
     num:SetPoint("TOP", 0, -9)
     num:SetPoint("LEFT", 2, 0)
     num:SetPoint("RIGHT", -2, 0)
@@ -282,7 +434,12 @@ function Analytics:Attach(pane)
     local cl = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     cl:SetPoint("BOTTOM", 0, 7)
     cl:SetText(def.label)
-    self.cards[def.key] = { frame = card, num = num }
+    local entry = { frame = card, num = num, bigStr = def.bigStr }
+    if def.bigStr then
+      local file, size, flags = num:GetFont()
+      entry.fontFile, entry.baseSize, entry.fontFlags = file, size, flags
+    end
+    self.cards[def.key] = entry
   end
 
   self:BuildCharts(content)
@@ -348,6 +505,12 @@ function Analytics:Layout()
     c.frame:ClearAllPoints()
     c.frame:SetPoint("TOPLEFT", self.content, "TOPLEFT", PAD + col * (colW + GAP), rowY)
     c.frame:SetSize(colW * span + GAP * (span - 1), cardH)
+    if c.bigStr and c.baseSize then
+      c.num:SetFont(c.fontFile, c.baseSize, c.fontFlags) -- reset to base, then shrink if it overflows
+      local maxW = colW * span + GAP * (span - 1) - 12   -- card inner width (small padding)
+      local size = Analytics._fitFontSize(c.num:GetStringWidth(), maxW, c.baseSize, MIN_HEADLINE_SIZE)
+      if size < c.baseSize then c.num:SetFont(c.fontFile, size, c.fontFlags) end
+    end
     col = col + span
   end
 
@@ -369,14 +532,16 @@ end
 -- "Slash Commands" separator look). Returns a frame; caller anchors its TOPLEFT on the y cursor.
 local function sectionDivider(parent, text)
   local f = CreateFrame("Frame", nil, parent)
-  f:SetHeight(18)
+  f:SetHeight(26) -- taller to fit the enlarged title
   local lineL = f:CreateTexture(nil, "ARTWORK")
   lineL:SetColorTexture(1, 0.82, 0, 0.35)
-  lineL:SetHeight(1)
+  lineL:SetHeight(1.25) -- 25% thicker rule
   local lineR = f:CreateTexture(nil, "ARTWORK")
   lineR:SetColorTexture(1, 0.82, 0, 0.35)
-  lineR:SetHeight(1)
+  lineR:SetHeight(1.25)
   local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  local file, size, flags = fs:GetFont()
+  fs:SetFont(file, size * 1.5, flags) -- 50% larger title
   fs:SetPoint("CENTER", f, "CENTER", 0, 0)
   fs:SetTextColor(1, 0.82, 0)
   fs:SetText(text)
@@ -406,50 +571,61 @@ end
 -- Build the persistent chart chrome (section headers, strips, list panels, pools) once.
 function Analytics:BuildCharts(content)
   self.headers = {
-    source  = sectionHeader(content, "Loot by source"),
-    vsource = sectionHeader(content, "Value by source"),
-    quality = sectionHeader(content, "Quality distribution"),
-    qmix    = sectionHeader(content, "Quality mix"),
-    itype   = sectionHeader(content, "Loot by item type"),
-    bound   = sectionHeader(content, "Loot by bound type"),
-    char    = sectionHeader(content, "Loot by character"),
-    time    = sectionHeader(content, "Loot over time (per day)"),
-    vtime   = sectionHeader(content, "Value over time (per day)"),
-    hour    = sectionHeader(content, "Loot by hour of day"),
-    weekday = sectionHeader(content, "Loot by weekday"),
-    keystone = sectionHeader(content, "Mythic+ loot by keystone level"),
-    conf    = sectionHeader(content, "Attribution confidence"),
-    currencyTitle = sectionHeader(content, "Currency"),
+    char    = sectionHeader(content, "Loot By Character"),
+    source  = sectionHeader(content, "Loot By Source"),
+    charBySource = sectionHeader(content, "Loot By Character \195\151 Source"),
+    vsource = sectionHeader(content, "Value By Source"),
+    charValueSource = sectionHeader(content, "Value By Character \195\151 Source"),
+    quality = sectionHeader(content, "Loot By Quality"),
+    charQuality = sectionHeader(content, "Loot By Character \195\151 Quality"),
+    itype   = sectionHeader(content, "Loot By Item Type"),
+    charType = sectionHeader(content, "Loot By Character \195\151 Item Type"),
+    bound   = sectionHeader(content, "Loot By Bound Type"),
+    charBound = sectionHeader(content, "Loot By Character \195\151 Bound Type"),
+    time    = sectionHeader(content, "Loot Over Time (Per Day)"),
+    vtime   = sectionHeader(content, "Value Over Time (Per Day)"),
+    hour    = sectionHeader(content, "Loot By Hour Of Day"),
+    weekday = sectionHeader(content, "Loot By Weekday"),
     currencyCollected = sectionHeader(content, "Currency Collected"),
-    currencyBySrc = sectionHeader(content, "Currency by Source"),
-    currencySrc   = sectionHeader(content, "Currency by Type \195\151 Source"),
-    currencyChar  = sectionHeader(content, "Currency by character"),
-    currencyTime  = sectionHeader(content, "Currency over time (per day)"),
+    currencySrc   = sectionHeader(content, "Currency By Type \195\151 Source"),
+    currencyChar  = sectionHeader(content, "Currency By Character \195\151 Type"),
+    currencyTime  = sectionHeader(content, "Currency Over Time (Per Day)"),
   }
   self.lootDivider = sectionDivider(content, "LOOT")
   self.currencyDivider = sectionDivider(content, "CURRENCY")
   self.dayStrip   = CreateFrame("Frame", nil, content)
   self.valueStrip = CreateFrame("Frame", nil, content)
   self.hourStrip  = CreateFrame("Frame", nil, content)
-  self.zonePanel  = listPanel(content, "Top zones")
-  self.itemPanel  = listPanel(content, "Top items by count")
-  self.itemValuePanel = listPanel(content, "Top items by value")
+  self.zonePanel  = listPanel(content, "Top Zones")
+  self.itemPanel  = listPanel(content, "Top Items By Count")
+  self.itemValuePanel = listPanel(content, "Top Items By Value")
   self.currencyStrip = CreateFrame("Frame", nil, content)
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   self.emptyText:SetText("No loot in this range.")
   self.emptyText:Hide()
   self.pool = {
     source = { free = {}, active = {} }, vsource = { free = {}, active = {} },
-    quality = { free = {}, active = {} }, qmix = { free = {}, active = {} },
+    quality = { free = {}, active = {} },
     itype  = { free = {}, active = {} }, bound   = { free = {}, active = {} },
     char   = { free = {}, active = {} }, day     = { free = {}, active = {} },
     vday   = { free = {}, active = {} }, hour    = { free = {}, active = {} },
-    weekday = { free = {}, active = {} }, keystone = { free = {}, active = {} },
-    conf   = { free = {}, active = {} }, zone    = { free = {}, active = {} },
+    weekday = { free = {}, active = {} },
+    zone    = { free = {}, active = {} },
     item   = { free = {}, active = {} }, itemval = { free = {}, active = {} },
-    curcollected = { free = {}, active = {} }, curbysrc = { free = {}, active = {} },
+    curcollected = { free = {}, active = {} }, curcollectedleg = { free = {}, active = {} },
     cursrc = { free = {}, active = {} }, curlegend = { free = {}, active = {} },
-    curchar = { free = {}, active = {} }, curday = { free = {}, active = {} },
+    curchar = { free = {}, active = {} }, curcharlegend = { free = {}, active = {} },
+    curday = { free = {}, active = {} },
+    -- Legends for the single-bar categorical charts.
+    sourceleg = { free = {}, active = {} }, vsourceleg = { free = {}, active = {} },
+    qualityleg = { free = {}, active = {} }, itypeleg = { free = {}, active = {} },
+    boundleg = { free = {}, active = {} },
+    -- Per-character × category companion stacked bars + their colour legends (one pool each).
+    chsource = { free = {}, active = {} }, chsourceleg = { free = {}, active = {} },
+    chvsource = { free = {}, active = {} }, chvsourceleg = { free = {}, active = {} },
+    chquality = { free = {}, active = {} }, chqualityleg = { free = {}, active = {} },
+    chtype = { free = {}, active = {} }, chtypeleg = { free = {}, active = {} },
+    chbound = { free = {}, active = {} }, chboundleg = { free = {}, active = {} },
   }
 
   -- Live-update while the Insights tab is visible (new loot / deletes / prune).
@@ -469,7 +645,11 @@ end
 -- Render a horizontal-bar section: header + one bar per row. rows: ordered array of
 --   { label, labelColor = {r,g,b}|nil, color = {r,g,b}, frac (0..1), value = string }.
 -- Returns the new y cursor (skips the section entirely when rows is empty).
-function Analytics:renderBarSection(pool, header, rows, y, w, pad)
+-- rows: ordered { label, labelColor = {r,g,b}|nil, color = {r,g,b}, frac (0..1), value = string }.
+-- The label text is coloured to match its bar (row.color) unless the caller gives an explicit
+-- labelColor (e.g. quality colour) — this makes single bars self-legending. legendPool (optional)
+-- draws a category legend below the bars (each row's label + colour).
+function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
   if #rows == 0 then header:Hide(); return y end
   -- Normalize so the largest bar always fills the track and the rest scale relative to it
   -- (a no-op for sections already built max-relative). Bars are ordered by the caller.
@@ -484,13 +664,19 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad)
   for _, row in ipairs(rows) do
     local bar = acquire(pool, function() return makeBar(self.content) end)
     bar.fill:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
-    bar.label:SetText(row.label)
-    local lc = row.labelColor
-    bar.label:SetTextColor(lc and lc[1] or 0.9, lc and lc[2] or 0.9, lc and lc[3] or 0.9)
+    bar._fullLabel = row.label
+    bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
+    local lc = row.labelColor or row.color -- default the label colour to its bar colour
+    bar.label:SetTextColor(lc[1] or 0.9, lc[2] or 0.9, lc[3] or 0.9)
     bar.value:SetText(row.value)
     bar.value:SetTextColor(0.8, 0.8, 0.82)
     positionBar(bar, self.content, pad, y, innerW, row.frac)
     y = y - (BAR_H + BAR_GAP)
+  end
+  if legendPool then
+    local leg = {}
+    for _, row in ipairs(rows) do leg[#leg + 1] = { label = row.label, color = row.color } end
+    return self:renderLegend(legendPool, leg, y, w, pad)
   end
   return y - SECTION_GAP
 end
@@ -506,7 +692,10 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
   local innerW = w - pad * 2
   for _, row in ipairs(rows) do
     local bar = acquire(pool, function() return makeStackedBar(self.content) end)
-    bar.label:SetText(row.label); bar.label:SetTextColor(0.9, 0.9, 0.9)
+    bar._fullLabel = row.label
+    bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
+    local lc = row.labelColor
+    bar.label:SetTextColor(lc and lc[1] or 0.9, lc and lc[2] or 0.9, lc and lc[3] or 0.9)
     bar.value:SetText(row.value); bar.value:SetTextColor(0.8, 0.8, 0.82)
     positionStacked(bar, self.content, pad, y, innerW, row.segments)
     y = y - (BAR_H + BAR_GAP)
@@ -515,18 +704,37 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
 end
 
 -- Render a wrapped legend of colour-swatch + label chips. rows = { { label, color = {r,g,b} } }.
+-- Chips start at the track's left edge (aligned under the bars, not the text labels). Long labels
+-- are truncated with an ellipsis; hovering a chip shows the full label.
 function Analytics:renderLegend(pool, rows, y, w, pad)
-  local x, rowY, chipW = pad, y, 120
+  local x0 = pad + LABELW + 6 -- align the legend with where the bars/track begin
+  local x, rowY, chipW = x0, y, 120
   for _, row in ipairs(rows) do
-    if x + chipW > w - pad then x = pad; rowY = rowY - 16 end
+    if x + chipW > w - pad then x = x0; rowY = rowY - 16 end
     local chip = acquire(pool, function() return makeSwatch(self.content) end)
     chip.sw:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
-    chip.fs:SetText(row.label)
+    chip._full = row.label
+    chip.fs:SetWidth(chipW - 16)
+    chip.fs:SetText((Analytics._truncate(row.label, LEGEND_MAXCHARS)))
     chip:ClearAllPoints(); chip:SetPoint("TOPLEFT", self.content, "TOPLEFT", x, rowY)
     chip:SetWidth(chipW); chip:Show()
     x = x + chipW
   end
   return rowY - 16 - SECTION_GAP
+end
+
+-- Render a "… by Character" companion: a per-character stacked bar (segments = a chart's categories,
+-- coloured by colorFn, hover-tipped via labelFn) plus a colour-swatch legend naming each category.
+-- catOrder is the global category order; colorFn(k)/labelFn(k) map a category key to colour/label.
+function Analytics:renderCharCompanion(poolKey, legendKey, header, matrix, catOrder, colorFn, labelFn, valueFmt, y, w, pad)
+  local rows = Analytics._buildCharStackRows(matrix or {}, self.stats.byChar, catOrder, colorFn, valueFmt, labelFn)
+  y = self:renderStackedBarSection(self.pool[poolKey], header, rows, y, w, pad)
+  if #rows > 0 then
+    local legend = {}
+    for _, k in ipairs(catOrder) do legend[#legend + 1] = { label = labelFn(k), color = colorFn(k) } end
+    y = self:renderLegend(self.pool[legendKey], legend, y, w, pad)
+  end
+  return y
 end
 
 -- Render a per-bucket vertical strip. buckets: ordered array of { info (hover), count, label }.
@@ -592,6 +800,7 @@ function Analytics:renderListPanel(pool, panel, rows, y, colW, pad, rightW)
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", panel, "TOPLEFT", 4, -20 - (i - 1) * LIST_ROW_H)
     r:SetWidth(colW - 8)
     r.name:SetWidth(math.max(1, colW - 8 - rightW - 6)); r.name:SetText(row.name)
+    r._fullName = row.name
     local nc = row.nameColor
     r.name:SetTextColor(nc and nc[1] or 0.9, nc and nc[2] or 0.9, nc and nc[3] or 0.9)
     r.count:SetWidth(rightW); r.count:SetText(row.right); r.count:SetTextColor(0.8, 0.8, 0.82)
@@ -643,9 +852,12 @@ end
 -- Bind + position every chart off self.stats for the given width; return the final y cursor.
 function Analytics:LayoutCharts(y, w, pad)
   local stats, P = self.stats, self.pool
-  for _, name in ipairs({ "source", "vsource", "quality", "qmix", "itype", "bound", "char",
-                          "day", "vday", "hour", "weekday", "keystone", "conf", "zone", "item", "itemval",
-                          "curcollected", "curbysrc", "cursrc", "curlegend", "curchar", "curday" }) do
+  for _, name in ipairs({ "source", "vsource", "quality", "itype", "bound", "char",
+                          "day", "vday", "hour", "weekday", "zone", "item", "itemval",
+                          "curcollected", "curcollectedleg", "cursrc", "curlegend", "curchar", "curcharlegend", "curday",
+                          "sourceleg", "vsourceleg", "qualityleg", "itypeleg", "boundleg",
+                          "chsource", "chsourceleg", "chvsource", "chvsourceleg", "chquality", "chqualityleg",
+                          "chtype", "chtypeleg", "chbound", "chboundleg" }) do
     releaseAll(P[name])
   end
 
@@ -664,88 +876,13 @@ function Analytics:LayoutCharts(y, w, pad)
   self.lootDivider:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
   self.lootDivider:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -pad, y)
   self.lootDivider:Show()
-  y = y - 24
+  y = y - 30
 
-  -- Loot by source — length = share of all records.
-  rows = {}
-  for _, e in ipairs(sortedByCount(stats.bySource)) do
-    rows[#rows + 1] = {
-      label = NS.Constants.SourceLabel[e.key] or e.key, color = SOURCE_COLOR[e.key] or NEUTRAL,
-      frac = e.count / total, value = string.format("%d  %d%%", e.count, math.floor(e.count / total * 100 + 0.5)),
-    }
-  end
-  y = self:renderBarSection(P.source, H.source, rows, y, w, pad)
-
-  -- Vendor value by source — length relative to the biggest bucket.
-  rows = {}
-  local vMax = 1
-  for _, v in pairs(stats.valueBySource) do if v > vMax then vMax = v end end
-  local vsrc = {}
-  for src, v in pairs(stats.valueBySource) do vsrc[#vsrc + 1] = { src = src, v = v } end
-  table.sort(vsrc, function(a, b) return a.v > b.v end)
-  for _, e in ipairs(vsrc) do
-    if e.v > 0 then
-      rows[#rows + 1] = { label = NS.Constants.SourceLabel[e.src] or e.src,
-        color = SOURCE_COLOR[e.src] or NEUTRAL, frac = e.v / vMax, value = money(e.v) }
-    end
-  end
-  y = self:renderBarSection(P.vsource, H.vsource, rows, y, w, pad)
-
-  -- Quality distribution — bars in quality order, length relative to the biggest bucket.
-  rows = {}
-  local qRows, qMax = {}, 1
-  for q, c in pairs(stats.byQuality) do qRows[#qRows + 1] = { q = q, c = c }; if c > qMax then qMax = c end end
-  table.sort(qRows, function(a, b) return a.q < b.q end)
-  for _, e in ipairs(qRows) do
-    local col = qualityColor(e.q)
-    rows[#rows + 1] = { label = NS.Compat.QualityLabel(e.q), labelColor = col, color = col,
-      frac = e.c / qMax, value = tostring(e.c) }
-  end
-  y = self:renderBarSection(P.quality, H.quality, rows, y, w, pad)
-
-  -- Quality mix — one bar, segmented low→high quality by share of records.
-  local segs = {}
-  for q = 0, 8 do
-    local c = stats.byQuality[q]
-    if c then segs[#segs + 1] = { frac = c / total, color = qualityColor(q) } end
-  end
-  if #segs > 0 then
-    H.qmix:ClearAllPoints(); H.qmix:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); H.qmix:Show()
-    y = y - 18
-    local bar = acquire(P.qmix, function() return makeStackedBar(self.content) end)
-    bar.label:SetText("All loot"); bar.label:SetTextColor(0.9, 0.9, 0.9)
-    bar.value:SetText(tostring(total)); bar.value:SetTextColor(0.8, 0.8, 0.82)
-    positionStacked(bar, self.content, pad, y, w - pad * 2, segs)
-    y = y - (BAR_H + BAR_GAP) - SECTION_GAP
-  else
-    H.qmix:Hide()
-  end
-
-  -- Loot by item type.
-  rows = {}
-  for _, e in ipairs(sortedByCount(stats.byType)) do
-    rows[#rows + 1] = { label = e.key, color = { 0.5, 0.7, 0.9 }, frac = e.count / total, value = tostring(e.count) }
-  end
-  y = self:renderBarSection(P.itype, H.itype, rows, y, w, pad)
-
-  -- Loot by bound type — sorted high→low.
-  rows = {}
-  local bRows = {}
-  for _, bk in ipairs(BOUND_ORDER) do
-    local c = stats.byBound[bk]
-    if c then bRows[#bRows + 1] = { bk = bk, c = c } end
-  end
-  table.sort(bRows, function(a, b) if a.c ~= b.c then return a.c > b.c end return a.bk < b.bk end)
-  for _, e in ipairs(bRows) do
-    rows[#rows + 1] = { label = BOUND_LABEL[e.bk] or e.bk, color = BOUND_COLOR[e.bk] or NEUTRAL,
-      frac = e.c / total, value = tostring(e.c) }
-  end
-  y = self:renderBarSection(P.bound, H.bound, rows, y, w, pad)
-
-  -- Loot by character — class-coloured, sorted by count desc; value shows count + vendor value.
+  -- Loot by character (first chart in the LOOT section) — class-coloured, sorted by count desc.
+  -- byChar registers currency-only characters with count 0 (for class colours elsewhere); skip them.
   rows = {}
   local chRows = {}
-  for _, ce in pairs(stats.byChar) do chRows[#chRows + 1] = ce end
+  for _, ce in pairs(stats.byChar) do if ce.count > 0 then chRows[#chRows + 1] = ce end end
   table.sort(chRows, function(a, b)
     if a.count ~= b.count then return a.count > b.count end
     return a.char < b.char
@@ -757,6 +894,101 @@ function Analytics:LayoutCharts(y, w, pad)
       frac = ce.count / chMax, value = tostring(ce.count) }
   end
   y = self:renderBarSection(P.char, H.char, rows, y, w, pad)
+
+  -- Loot by source — length = share of all records.
+  rows = {}
+  for _, e in ipairs(sortedByCount(stats.bySource)) do
+    rows[#rows + 1] = {
+      label = NS.Constants.SourceLabel[e.key] or e.key, color = SOURCE_COLOR[e.key] or NEUTRAL,
+      frac = e.count / total, value = string.format("%d  %d%%", e.count, math.floor(e.count / total * 100 + 0.5)),
+    }
+  end
+  y = self:renderBarSection(P.source, H.source, rows, y, w, pad, P.sourceleg)
+
+  -- Loot by Character × Source — companion. Segment order matches the parent's Y axis (count desc).
+  local srcOrder = {}
+  for _, e in ipairs(sortedByCount(stats.bySource)) do srcOrder[#srcOrder + 1] = e.key end
+  local function srcColor(k) return SOURCE_COLOR[k] or NEUTRAL end
+  local function srcLabel(k) return NS.Constants.SourceLabel[k] or k end
+  y = self:renderCharCompanion("chsource", "chsourceleg", H.charBySource, stats.charBySource,
+    srcOrder, srcColor, srcLabel, function(t) return tostring(t) end, y, w, pad)
+
+  -- Vendor value by source — length relative to the biggest bucket, ordered by value desc.
+  rows = {}
+  local vMax = 1
+  for _, v in pairs(stats.valueBySource) do if v > vMax then vMax = v end end
+  local vsrc = {}
+  for src, v in pairs(stats.valueBySource) do vsrc[#vsrc + 1] = { src = src, v = v } end
+  table.sort(vsrc, function(a, b) if a.v ~= b.v then return a.v > b.v end return a.src < b.src end)
+  local vsrcOrder = {}
+  for _, e in ipairs(vsrc) do
+    vsrcOrder[#vsrcOrder + 1] = e.src
+    if e.v > 0 then
+      rows[#rows + 1] = { label = NS.Constants.SourceLabel[e.src] or e.src,
+        color = SOURCE_COLOR[e.src] or NEUTRAL, frac = e.v / vMax, value = money(e.v) }
+    end
+  end
+  y = self:renderBarSection(P.vsource, H.vsource, rows, y, w, pad, P.vsourceleg)
+
+  -- Value by Character × Source — companion. Segment order matches the parent's Y axis (value desc).
+  y = self:renderCharCompanion("chvsource", "chvsourceleg", H.charValueSource, stats.charValueBySource,
+    vsrcOrder, srcColor, srcLabel, function(t) return money(t) end, y, w, pad)
+
+  -- Quality distribution — bars in quality order, length relative to the biggest bucket.
+  rows = {}
+  local qRows, qMax = {}, 1
+  for q, c in pairs(stats.byQuality) do qRows[#qRows + 1] = { q = q, c = c }; if c > qMax then qMax = c end end
+  table.sort(qRows, function(a, b) return a.q < b.q end)
+  for _, e in ipairs(qRows) do
+    local col = qualityColor(e.q)
+    rows[#rows + 1] = { label = NS.Compat.QualityLabel(e.q), labelColor = col, color = col,
+      frac = e.c / qMax, value = tostring(e.c) }
+  end
+  y = self:renderBarSection(P.quality, H.quality, rows, y, w, pad, P.qualityleg)
+
+  -- Loot by Character × Quality — companion, segments coloured by item quality (parent order).
+  local qOrder = {}
+  for q = 0, 8 do if stats.byQuality[q] then qOrder[#qOrder + 1] = q end end
+  y = self:renderCharCompanion("chquality", "chqualityleg", H.charQuality, stats.charByQuality,
+    qOrder, function(q) return qualityColor(q) end, function(q) return NS.Compat.QualityLabel(q) end,
+    function(t) return tostring(t) end, y, w, pad)
+
+  -- Loot by item type — bars coloured per type from the standard palette (rank = sort order); the
+  -- Character × Item Type companion reuses the same map so a type keeps its colour across both.
+  local tyKeys = {}
+  for _, e in ipairs(sortedByCount(stats.byType)) do tyKeys[#tyKeys + 1] = e.key end
+  local typeColor = paletteMap(tyKeys)
+  rows = {}
+  for _, e in ipairs(sortedByCount(stats.byType)) do
+    rows[#rows + 1] = { label = e.key, color = typeColor[e.key] or NEUTRAL,
+      frac = e.count / total, value = tostring(e.count) }
+  end
+  y = self:renderBarSection(P.itype, H.itype, rows, y, w, pad, P.itypeleg)
+
+  y = self:renderCharCompanion("chtype", "chtypeleg", H.charType, stats.charByType,
+    tyKeys, function(k) return typeColor[k] or NEUTRAL end, function(k) return k end,
+    function(t) return tostring(t) end, y, w, pad)
+
+  -- Loot by bound type — sorted count desc; the companion reuses this exact order for its segments.
+  rows = {}
+  local bRows = {}
+  for _, bk in ipairs(BOUND_ORDER) do
+    local c = stats.byBound[bk]
+    if c then bRows[#bRows + 1] = { bk = bk, c = c } end
+  end
+  table.sort(bRows, function(a, b) if a.c ~= b.c then return a.c > b.c end return a.bk < b.bk end)
+  local boundOrder = {}
+  for _, e in ipairs(bRows) do
+    boundOrder[#boundOrder + 1] = e.bk
+    rows[#rows + 1] = { label = BOUND_LABEL[e.bk] or e.bk, color = BOUND_COLOR[e.bk] or NEUTRAL,
+      frac = e.c / total, value = tostring(e.c) }
+  end
+  y = self:renderBarSection(P.bound, H.bound, rows, y, w, pad, P.boundleg)
+
+  -- Loot by Character × Bound Type — companion. Segment order matches the parent's Y axis (count desc).
+  y = self:renderCharCompanion("chbound", "chboundleg", H.charBound, stats.charByBound,
+    boundOrder, function(k) return BOUND_COLOR[k] or NEUTRAL end,
+    function(k) return BOUND_LABEL[k] or k end, function(t) return tostring(t) end, y, w, pad)
 
   -- Loot over time + vendor value over time — two per-day strips over the same day range.
   local keys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
@@ -779,41 +1011,16 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
 
-  -- Loot by weekday — Sun..Sat.
+  -- Loot by weekday — Sun..Sat, each day a unique palette colour (Sun=rank 1 … Sat=rank 7).
   rows = {}
   local wMax = 1
   for _, c in pairs(stats.byWeekday) do if c > wMax then wMax = c end end
   for d = 0, 6 do
     local c = stats.byWeekday[d]
-    if c then rows[#rows + 1] = { label = WEEKDAY[d], color = { 0.45, 0.65, 0.9 }, frac = c / wMax, value = tostring(c) } end
+    if c then rows[#rows + 1] = { label = WEEKDAY[d], color = Analytics.paletteColor(d + 1),
+      frac = c / wMax, value = tostring(c) } end
   end
   y = self:renderBarSection(P.weekday, H.weekday, rows, y, w, pad)
-
-  -- Mythic+ loot by keystone level (only when there's keyed loot).
-  rows = {}
-  local klRows = {}
-  for lvl, c in pairs(stats.byKeystone) do klRows[#klRows + 1] = { lvl = lvl, c = c } end
-  table.sort(klRows, function(a, b) return a.lvl > b.lvl end)
-  local klMax = 1
-  for _, e in ipairs(klRows) do if e.c > klMax then klMax = e.c end end
-  for _, e in ipairs(klRows) do
-    rows[#rows + 1] = { label = "+" .. e.lvl, color = SOURCE_COLOR.MPLUS, frac = e.c / klMax, value = tostring(e.c) }
-  end
-  y = self:renderBarSection(P.keystone, H.keystone, rows, y, w, pad)
-
-  -- Attribution confidence — sorted high→low.
-  rows = {}
-  local cRows = {}
-  for _, key in ipairs({ "CERTAIN", "INFERRED" }) do
-    local c = stats.byConfidence[key]
-    if c then cRows[#cRows + 1] = { key = key, c = c } end
-  end
-  table.sort(cRows, function(a, b) if a.c ~= b.c then return a.c > b.c end return a.key < b.key end)
-  for _, e in ipairs(cRows) do
-    rows[#rows + 1] = { label = CONF_LABEL[e.key], color = CONF_COLOR[e.key],
-      frac = e.c / total, value = string.format("%d  %d%%", e.c, math.floor(e.c / total * 100 + 0.5)) }
-  end
-  y = self:renderBarSection(P.conf, H.conf, rows, y, w, pad)
 
   -- Ranked lists — two half-width columns:
   --   left  : Top items by value → Top zones (stacked)
@@ -871,37 +1078,24 @@ function Analytics:LayoutCharts(y, w, pad)
     self.currencyDivider:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
     self.currencyDivider:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -pad, y)
     self.currencyDivider:Show()
-    y = y - 24
+    y = y - 30
 
-    -- Block title carries the highlights (distinct types + biggest single haul).
-    local title = "Currency"
-    if ct.distinct then title = title .. string.format("  \226\128\148  %d type%s", ct.distinct, ct.distinct == 1 and "" or "s") end
-    if ct.biggestHaul then title = title .. string.format("  \226\128\148  biggest: %s +%d", ct.biggestHaul.name, ct.biggestHaul.quantity) end
-    H.currencyTitle:SetText(title)
-    H.currencyTitle:ClearAllPoints(); H.currencyTitle:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y); H.currencyTitle:Show()
-    y = y - 22
-
-    -- Currency Collected — one bar per currency, length = qty relative to the largest, neutral colour.
+    -- Currency Collected — one bar per currency, coloured per currency from the standard palette
+    -- (rank = qty order). curColor is shared with Currency by Character × Type so a currency keeps one
+    -- colour across both charts.
+    local curKeys = {}
+    for _, e in ipairs(sortedByCount(stats.byCurrency)) do curKeys[#curKeys + 1] = e.key end
+    local curColor = paletteMap(curKeys)
     local curMaxCollected = 1
     for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMaxCollected then curMaxCollected = curTotal end end
     local collectedRows = {}
     for _, e in ipairs(sortedByCount(stats.byCurrency)) do
-      collectedRows[#collectedRows + 1] =
-        { label = e.key, color = NEUTRAL, frac = e.count / curMaxCollected, value = tostring(e.count) }
+      collectedRows[#collectedRows + 1] = { label = e.key, color = curColor[e.key] or NEUTRAL,
+        frac = e.count / curMaxCollected, value = tostring(e.count) }
     end
-    y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad)
+    y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad, P.curcollectedleg)
 
-    -- Currency by Source — one bar per source, length = total qty relative to the largest.
-    local csMax = 1
-    for _, q in pairs(stats.currencyBySource or {}) do if q > csMax then csMax = q end end
-    local csRows = {}
-    for _, e in ipairs(sortedByCount(stats.currencyBySource or {})) do
-      csRows[#csRows + 1] = { label = NS.Constants.SourceLabel[e.key] or e.key,
-        color = SOURCE_COLOR[e.key] or NEUTRAL, frac = e.count / csMax, value = tostring(e.count) }
-    end
-    y = self:renderBarSection(P.curbysrc, H.currencyBySrc, csRows, y, w, pad)
-
-    -- Currency by source: one stacked bar per currency, segments coloured by source.
+    -- Currency by Type × Source: one stacked bar per currency, segments coloured by source.
     local curMax = 1
     for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMax then curMax = curTotal end end
     local stackRows = {}
@@ -912,7 +1106,8 @@ function Analytics:LayoutCharts(y, w, pad)
       table.sort(order, function(a, b) return (perSrc[a] or 0) > (perSrc[b] or 0) end)
       local curSegs = {}
       for _, srcKey in ipairs(order) do
-        curSegs[#curSegs + 1] = { frac = (perSrc[srcKey] or 0) / curMax, color = SOURCE_COLOR[srcKey] or NEUTRAL }
+        curSegs[#curSegs + 1] = { frac = (perSrc[srcKey] or 0) / curMax, color = SOURCE_COLOR[srcKey] or NEUTRAL,
+          tip = (NS.Constants.SourceLabel[srcKey] or srcKey) .. ": " .. (perSrc[srcKey] or 0) }
       end
       stackRows[#stackRows + 1] = { label = e.key, value = tostring(e.count), segments = curSegs }
     end
@@ -925,22 +1120,20 @@ function Analytics:LayoutCharts(y, w, pad)
     end
     y = self:renderLegend(P.curlegend, legendRows, y, w, pad)
 
-    -- Currency by character (class-coloured bars).
-    local ccList, ccMax = {}, 1
-    for _, ce in pairs(stats.currencyByChar) do
-      ccList[#ccList + 1] = ce
-      if ce.quantity > ccMax then ccMax = ce.quantity end
+    -- Currency by Character × Type — one stacked bar per character, segmented by currency (each a
+    -- distinct palette colour, shared with Currency Collected via curColor). Currencies ordered by
+    -- global qty so a given currency keeps a consistent segment position across character rows.
+    local ccRows = Analytics._buildCharStackRows(stats.currencyCharMatrix, stats.byChar, curKeys,
+      function(cname) return curColor[cname] or NEUTRAL end, function(t) return tostring(t) end,
+      function(cname) return cname end)
+    y = self:renderStackedBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
+
+    -- Legend: one swatch per currency, matching the segment colours.
+    local curCharLegend = {}
+    for _, cname in ipairs(curKeys) do
+      curCharLegend[#curCharLegend + 1] = { label = cname, color = curColor[cname] or NEUTRAL }
     end
-    table.sort(ccList, function(a, b)
-      if a.quantity ~= b.quantity then return a.quantity > b.quantity end
-      return a.char < b.char
-    end)
-    local ccRows = {}
-    for _, ce in ipairs(ccList) do
-      ccRows[#ccRows + 1] = { label = shortChar(ce.char), color = classColor(ce.classFile),
-        frac = ce.quantity / ccMax, value = tostring(ce.quantity) }
-    end
-    y = self:renderBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
+    y = self:renderLegend(P.curcharlegend, curCharLegend, y, w, pad)
 
     -- Currency over time (per-day strip of total currency quantity).
     local ckeys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
@@ -951,7 +1144,7 @@ function Analytics:LayoutCharts(y, w, pad)
     end
     y = self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
   else
-    H.currencyTitle:Hide(); H.currencyCollected:Hide(); H.currencyBySrc:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
+    H.currencyCollected:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
     self.currencyStrip:Hide()
     self.currencyDivider:Hide()
   end

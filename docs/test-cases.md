@@ -208,7 +208,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Migrations: v3->v4 backfills currency-record quality
 - Migrations: v4->v5 backfills currency-record bound
 
-### test_stats.lua (16)
+### test_stats.lua (18)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -224,8 +224,10 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Stats: highlights + topItemsByValue
 - Analytics.SummaryLine formats range and count
 - Stats: value uses auctionPrice when present, else vendorPrice
-- Stats: currency enriches activity charts but not item charts
+- Stats: currency stays out of the item/loot charts (its own section only)
 - Stats: currencyBySource sums currency quantity per source across currencies
+- Stats: currencyCharMatrix splits each character's currency by type
+- Stats: per-character category matrices split each char by category
 
 ### test_browsertable.lua (19)
 
@@ -339,6 +341,21 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
 
+### test_analytics.lua (12)
+
+- Analytics._fitFontSize: fits within width returns base size
+- Analytics._fitFontSize: overflow scales down proportionally
+- Analytics._fitFontSize: clamps to the minimum floor
+- Analytics._fitFontSize: zero/negative width returns base
+- Analytics.paletteColor: rank 1 is the first palette entry
+- Analytics.paletteColor: adjacent ranks differ
+- Analytics.paletteColor: cycles past the palette length
+- Analytics._truncate: short text passes through
+- Analytics._truncate: long text is cut with an ellipsis
+- Analytics._truncate: exactly maxChars passes through
+- Analytics._charStackSegments: keeps all when within cap
+- Analytics._charStackSegments: collapses overflow into __OTHER__
+
 ## Totals
 
 | Suite | Cases |
@@ -350,10 +367,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_auctionprice.lua | 8 |
 | test_collector.lua | 33 |
 | test_database.lua | 45 |
-| test_stats.lua | 16 |
+| test_stats.lua | 18 |
 | test_browsertable.lua | 19 |
 | test_export.lua | 31 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 8 |
-| **Total** | **294** |
+| test_analytics.lua | 12 |
+| **Total** | **308** |

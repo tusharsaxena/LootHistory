@@ -215,10 +215,14 @@ function E:InsightsCSV(stats)
   section("By Item Type", rankedRows(stats.byType))
   section("By Bound Type", rankedRows(stats.byBound, function(b) return BOUND_LABEL_CSV[b] or b end))
 
-  -- Per-character carries both count and value (byChar entries are { char, count, value }).
+  -- Per-character carries both count and value (byChar entries are { char, count, value }). byChar
+  -- registers currency-only characters with count 0 (for class colours in the UI) — skip those here
+  -- so "By Character" stays items-only, matching the dashboard.
   local charRows = {}
   for _, ce in pairs(stats.byChar or {}) do
-    charRows[#charRows + 1] = { label = ce.char, count = ce.count, value = ce.value }
+    if (ce.count or 0) > 0 then
+      charRows[#charRows + 1] = { label = ce.char, count = ce.count, value = ce.value }
+    end
   end
   table.sort(charRows, function(a, b)
     if a.count ~= b.count then return a.count > b.count end

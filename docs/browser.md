@@ -111,40 +111,52 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 
 `LayoutCharts` (`Analytics.lua:644`) binds and positions each section top-down off `self.stats`, returning the running y-cursor (empty sections are skipped entirely). The sections sit under two full-width dividers (`sectionDivider`, `Analytics.lua:370`) — a centered gold title flanked by rule lines — that split the pane into **LOOT** and **CURRENCY**:
 
-**LOOT** — every item-centric chart, plus the Top zones/items panels (moved under this divider so the whole item side of Insights is one block):
+**LOOT** — every item-centric chart, plus the Top zones/items panels (moved under this divider so the whole item side of Insights is one block). The source/character/value charts here are **items-only** — currency is excluded so per-character totals tally with the item-attribute charts (currency lives entirely in the CURRENCY section). The headline **records** KPI still counts everything.
+
+Section titles are Title Case; charts render top-down in this order:
 
 | Section | Source field | Renderer |
 |---|---|---|
-| Loot by source | `bySource` (share of records) | horizontal bars, per-source colour |
-| Value by source | `valueBySource` | horizontal bars |
-| Quality distribution | `byQuality` (quality order) | horizontal bars, quality colour |
-| Quality mix | `byQuality` | one segmented stacked bar |
-| Loot by item type | `byType` | horizontal bars |
-| Loot by bound type | `byBound` (`BOUND_ORDER`) | horizontal bars |
-| Loot by character | `byChar` | class-coloured horizontal bars |
-| Loot over time (per day) | `byDay` | vertical strip |
-| Value over time (per day) | `valueByDay` | vertical strip |
-| Loot by hour of day | `byHour` (24 buckets) | vertical strip |
-| Loot by weekday | `byWeekday` (Sun–Sat) | horizontal bars |
-| Mythic+ loot by keystone level | `byKeystone` | horizontal bars (only when keyed loot exists) |
-| Attribution confidence | `byConfidence` | horizontal bars |
-| Top zones / Top items by count / Top items by value | `topZones` / `topItems` / `topItemsByValue` | ranked list panels |
+| Loot By Character | `byChar` (items only, count > 0) | class-coloured horizontal bars (first chart) |
+| Loot By Source | `bySource` (items only) | horizontal bars, per-source colour + legend |
+| Loot By Character × Source | `charBySource` (items only) | stacked bars (Y = character, segments coloured like Loot By Source, order = parent's) + legend |
+| Value By Source | `valueBySource` (items only) | horizontal bars, per-source colour, order by value desc + legend |
+| Value By Character × Source | `charValueBySource` (items only) | stacked bars (segment magnitude = vendor value, order = parent's value-desc) + legend |
+| Loot By Quality | `byQuality` (quality order) | horizontal bars, quality colour + legend |
+| Loot By Character × Quality | `charByQuality` | stacked bars (segments quality-coloured) + legend |
+| Loot By Item Type | `byType` | horizontal bars, standard-palette colour per type (rank = count order) + legend |
+| Loot By Character × Item Type | `charByType` | stacked bars (same per-type palette colours) + legend |
+| Loot By Bound Type | `byBound` (`BOUND_ORDER`, sorted count desc) | horizontal bars, bound colour + legend |
+| Loot By Character × Bound Type | `charByBound` | stacked bars (segments bound-coloured, order = parent's count-desc) + legend |
+| Loot Over Time (Per Day) | `byDay` | vertical strip |
+| Value Over Time (Per Day) | `valueByDay` | vertical strip |
+| Loot By Hour Of Day | `byHour` (24 buckets) | vertical strip |
+| Loot By Weekday | `byWeekday` (Sun–Sat) | horizontal bars, one palette colour per day |
+| Top Zones / Top Items By Count / Top Items By Value | `topZones` / `topItems` / `topItemsByValue` | ranked list panels |
 
-**CURRENCY** — only shown when the filtered range has at least one currency event (`stats.currencyTotals.events > 0`); its title carries the highlight summary (distinct types, biggest single haul):
+Each "… × Character" companion (`renderCharCompanion`) is placed immediately below its parent: the character is on the Y axis (short name, class-coloured label) and the X axis is one stacked bar segmented by that parent chart's categories, in the **same order as the parent's Y axis** and reusing its segment colours. A character spanning more than 9 categories keeps its top 8 and lumps the rest into a neutral **Other** segment (`Analytics._charStackSegments`).
+
+Every categorical bar chart (single-bar and companion) draws a **colour-swatch legend** below it, aligned to the bars' left edge (not the text labels). On single-bar charts the label text is coloured to match its bar (`renderBarSection` defaults `labelColor` to the bar colour) unless the caller sets an explicit colour (quality already colours its own labels; per-character bars stay class-coloured). `byKeystone` (Mythic+ by keystone level) and `byConfidence` (attribution confidence) are still computed and feed the **Export**, but their in-dashboard charts (and per-character companions) were removed; the old **Quality mix** stacked bar was also removed.
+
+**CURRENCY** — only shown when the filtered range has at least one currency event (`stats.currencyTotals.events > 0`), introduced by the gold **CURRENCY** divider (the old "Currency — N types — biggest: …" summary line was removed):
 
 | Section | Source field | Renderer |
 |---|---|---|
-| Currency Collected | `byCurrency` (qty per currency) | horizontal bars, neutral colour |
-| Currency by Source | `currencyBySource` (source → total qty across all currencies) | horizontal bars, per-source colour |
-| Currency by Type × Source | `byCurrency` + `currencySourceMatrix` (qty per currency, segmented by source) | stacked horizontal bars + a colour legend (`renderLegend`) below |
-| Currency by character | `currencyByChar` | class-coloured horizontal bars |
-| Currency over time (per day) | `currencyByDay` | vertical strip |
+| Currency Collected | `byCurrency` (qty per currency) | horizontal bars, standard-palette colour per currency (rank = qty order) + legend |
+| Currency By Type × Source | `byCurrency` + `currencySourceMatrix` (qty per currency, segmented by source) | stacked horizontal bars + a source-colour legend (`renderLegend`) below |
+| Currency By Character × Type | `currencyCharMatrix` (qty per character → currency) | stacked bars (Y = character, one segment per currency, same palette colours as Currency Collected) + a per-currency legend below |
+| Currency Over Time (Per Day) | `currencyByDay` | vertical strip |
 
-Five pooled renderers back these sections:
+> `currencyBySource` (source → total qty across all currencies) is still computed and feeds the **Export** "Currency by Source" section, but no longer has an in-dashboard chart.
+
+These pooled renderers back the sections:
 
 - **`renderBarSection`** (`Analytics.lua:472`) — a header + one horizontal bar per row (fixed label + track/fill + value). It normalises so the largest bar fills the track and the rest scale relative to it.
-- **`renderStackedBarSection`** (`Analytics.lua:502`) — like `renderBarSection`, but each row is one stacked bar whose segments are pre-computed fractions of a shared max (so bar length still compares currencies against each other, while each bar's own segments show its per-source split). Backs **Currency by Type × Source**.
-- **`renderLegend`** (`Analytics.lua:518`) — a wrapped row of colour-swatch + label chips, wrapping to a new line when it runs out of width. Draws the source-colour key immediately below **Currency by Type × Source** (a stacked bar carries no per-segment labels, so the legend is the only place the source colours are named).
+- **`renderStackedBarSection`** (`Analytics.lua`) — like `renderBarSection`, but each row is one stacked bar whose segments are pre-computed fractions of a shared max. Backs **Currency by Type × Source**, **Currency by Character × Type**, and all five **… by Character** loot companions. Honours an optional `row.labelColor` (class-colours the character-row labels). Each segment is a mouse-enabled frame carrying a `tip` (`"<category>: <value>"`) shown on hover.
+- **`renderLegend`** (`Analytics.lua`) — a wrapped row of colour-swatch + label chips, drawn below **every** categorical bar chart (single-bar and stacked). Chips start at the bars' left edge (`pad + LABELW + 6`), not the text-label column. Long chip labels are truncated to `LEGEND_MAXCHARS` with an ellipsis; hovering a chip shows the full label. `renderBarSection` takes an optional `legendPool` to draw one from its own rows.
+- **`renderCharCompanion`** (`Analytics.lua`) — wraps `_buildCharStackRows` + `renderStackedBarSection` + `renderLegend` for the five loot companions (colour + label + value formatter per chart).
+
+Labels on bar/stacked-bar rows are capped to `LABEL_MAXCHARS` glyphs with an ellipsis (`Analytics._truncate`) and carry a hover tooltip with the full name; the label column was widened (`LABELW`) to reduce truncation. All Insights hover tooltips (row labels and stacked segments) are pinned just above-and-right of the cursor (`showCursorTooltip`), not the row's far-right edge. Categories with **no predefined palette** (item types, currencies, weekdays — everything except class / bound / quality / source) are coloured from a shared standard palette (`Analytics.paletteColor`, built into a per-chart `{key → colour}` map by `paletteMap`): the sequence is inverse-VIBGYOR (R→O→Y→G→B→I→V) plus a lighter and a darker band (21 colours), assigned by a category's **rank in its chart's sort order** so consecutive bars/segments are always drawn from adjacent, dissimilar hues. Money strings in Insights use ~25%-smaller coin glyphs (`FormatMoney(copper, COIN_H)`).
 - **`renderStrip`** (`Analytics.lua:534`) — a per-bucket vertical strip with an axis line and rotated x-axis labels (thinned out when bars get narrow); each bar's hover shows the bucket's info line. The per-day strips share a `firstTs..lastTs` day-key list (gaps included) from `dayKeyList`, capped to the most recent `MAX_DAY_BARS = 60`.
 - **`renderListPanel`** (`Analytics.lua:583`) — a ranked list panel capped at 10 rows; item rows are quality-coloured with a gold star before epic+ items (`starMarkup`, resolved against a fallback atlas list). The two item lists share the same entry tables from `stats.byItem` — two orderings, count-desc and value-desc.
 
