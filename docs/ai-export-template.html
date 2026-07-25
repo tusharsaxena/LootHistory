@@ -155,8 +155,13 @@
   .card{grid-column:span 6; min-width:0; position:relative; overflow:hidden;
     background-image:radial-gradient(150px 150px at 100% 0, rgba(180,139,255,.16), transparent 70%),
                      linear-gradient(180deg,var(--panel),var(--void-2));
-    border:1px solid var(--edge); border-radius:14px; padding:18px 18px 16px; box-shadow:var(--shadow)}
+    border:1px solid var(--edge); border-radius:14px; padding:16px 14px 14px; box-shadow:var(--shadow)}
   .card.sp4{grid-column:span 4} .card.sp8{grid-column:span 8} .card.sp12{grid-column:span 12}
+  /* full-width themed LOOT / CURRENCY section separator (mirrors the in-game insights dividers) */
+  .rpt-divider{grid-column:1/-1; display:flex; align-items:center; gap:16px; margin:14px 2px 0}
+  .rpt-divider span{flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(180,139,255,.45),transparent)}
+  .rpt-divider b{font-family:var(--mono); font-size:19px; font-weight:700; letter-spacing:.34em;
+    color:#e8c56b; text-shadow:0 0 16px rgba(232,197,107,.55)}
   /* Section III ("What the data says") is a rigid 2-up grid: every card is exactly half-width and the
      sp4/sp6/sp8 span classes are ignored, so the LLM's card-size choices can't distort the layout. */
   #llm .grid{grid-template-columns:repeat(2,1fr)}
@@ -171,12 +176,16 @@
 
   /* bar rows — fixed value column so every track shares the same width */
   .bars{display:flex; flex-direction:column; gap:9px}
-  .bar{display:grid; grid-template-columns:116px 1fr 116px; align-items:center; gap:12px}
+  .bar{display:grid; grid-template-columns:96px 1fr 90px; align-items:center; gap:10px}
   .bar .k{font-size:12.5px; color:var(--ink-2); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .bar .track{height:17px; background:rgba(255,255,255,.055); border-radius:5px; overflow:hidden}
   /* default bar fill = arcane (matches the activity chart); semantic charts override below */
   .bar .fill{display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--arcane-deep),var(--arcane));
     box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 0 10px rgba(180,139,255,.22)}
+  /* stacked bar: one track split into coloured category segments (the "× character" companions) */
+  .bar .stack{display:flex; height:100%; border-radius:5px; overflow:hidden}
+  .bar .stack .seg{height:100%; min-width:1px}
+  .bar .stack .seg:hover{filter:brightness(1.15)}
   .bar .v{font-family:var(--mono); font-size:12px; color:var(--ink); text-align:left}
   .bar .v small{color:var(--muted); font-size:11px}
   .fq-poor{background:linear-gradient(90deg,#787878,var(--q-poor))!important}
@@ -485,6 +494,8 @@
       <div class="card sp4"><div class="llm-tag">◆ Keystone</div><h3>A +7 in the bag</h3><p>Two Mythic Keystones surfaced, topping out at <b>+7</b>. The single Mythic+ run (Maisara Caverns) returned the best value-per-drop of any source — a hint your time is better spent there.</p></div>
       <div class="card sp6"><div class="llm-tag">◆ Warband economy</div><h3>Gear flows to <b style="color:var(--c-warrior)">Ragebrand</b></h3><p>Warbound caches looted on <b style="color:var(--c-dk)">Grimfrost</b> were mailed to and opened on <b style="color:var(--c-warrior)">Ragebrand</b> — the Void-Touched Armaments set. Your main is the account's gear sink; the alts are collectors and couriers.</p></div>
       <div class="card sp6"><div class="llm-tag">◆ What to do next</div><h3>Bank the shards, run more keys</h3><p>Three moves: (1) stop vendoring — your <span class="il qt-rare" data-tt="Umbra Shard|rare|—|Not Bound|Tradeskill — Enchanting|0g 0s 0c|Disenchant">Umbra Shards</span> and <span class="il qt-epic" data-tt="Refulgent Crystal|epic|—|Not Bound|Tradeskill — Enchanting|1g 5s 0c|Disenchant">Refulgent Crystals</span> are AH gold; (2) push more Mythic+ for value-dense drops; (3) if you want gear, most of this week's Epics were sharded — consider equipping before disenchanting.</p></div>
+      <div class="card sp6"><div class="llm-tag">◆ Currency economy</div><h3><b style="color:var(--q-epic)">Voidlight Marl</b> is the currency you actually farm</h3><p>Across <b>19 currencies</b>, three do the heavy lifting: <b style="color:var(--q-epic)">Voidlight Marl</b> (<b>3,486</b>), <b style="color:var(--q-uncommon)">Resonance Crystals</b> (<b>2,440</b>) and <b style="color:var(--q-rare)">Field Accolade</b> (<b>2,421</b>) — together <b>~85%</b> of everything collected. Most flows in from <b>Quest</b> and <b>Container</b> turn-ins, with <b>Mythic+</b> feeding the upgrade crests (Weathered/Carved/Runed). The long tail — Coffer Key Shards down to <b>4</b> Runed Crests — is incidental.</p></div>
+      <div class="card sp6"><div class="llm-tag">◆ Currency by character</div><h3>Currency pools on <b style="color:var(--c-warrior)">Ragebrand</b>, same as the loot</h3><p><b style="color:var(--c-warrior)">Ragebrand</b> holds <b>4,153</b> currency to <b style="color:var(--c-shaman)">Stormhoof</b>'s <b>2,908</b>, and the rest of the warband trails off fast (<b style="color:var(--c-monk)">Mistpaw</b> at <b>273</b>). If a currency is account-wide (Account Bound), that skew is cosmetic — but time-gated per-character caps like the upgrade crests are worth spreading, since alts are leaving weekly Mythic+ crest income on the table.</p></div>
     </div>
   </div>
 </section>
@@ -539,13 +550,98 @@
 
 <!-- Sample loot data. In a real export the addon injects H (all history rows) + REALM. -->
 <script>
-// Sample loot history (250 rows). In a real export the addon injects this array.
+// Sample loot history (~267 rows, incl. currency across several characters/types to exercise every
+// Insights card). In a real export the addon REPLACES this array wholesale.
 const REALM = "Frostmourne";
 // SAMPLE data: the assembler REPLACES REALM + the H array wholesale. Never hand-edit.
 const H = [
 {"d":"13-Jul-2026","t":"01:15","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":45,"s":"CONTAINER","z":"Sunkiller Sanctum","wh":""},
 {"d":"13-Jul-2026","t":"01:22","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":20,"s":"QUEST","z":"Sunkiller Sanctum","wh":""},
 {"d":"13-Jul-2026","t":"01:40","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3090,"n":"Weathered Undermine Crest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":3,"s":"MPLUS","z":"Silvermoon City","wh":""},
+{"d":"14-Jul-2026","t":"21:10","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3090,"n":"Weathered Undermine Crest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":12,"s":"MPLUS","z":"The Grudge Pit","wh":""},
+{"d":"15-Jul-2026","t":"19:05","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3091,"n":"Carved Undermine Crest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":6,"s":"MPLUS","z":"The Grudge Pit","wh":""},
+{"d":"15-Jul-2026","t":"19:40","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":340,"s":"KILL","z":"Temple of Sethraliss","wh":""},
+{"d":"13-Jul-2026","t":"14:22","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":55,"s":"MPLUS","z":"Silvermoon City","wh":""},
+{"d":"14-Jul-2026","t":"14:31","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3091,"n":"Carved Undermine Crest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":9,"s":"MPLUS","z":"Silvermoon City","wh":""},
+{"d":"16-Jul-2026","t":"22:18","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3092,"n":"Runed Undermine Crest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":4,"s":"MPLUS","z":"Silvermoon City","wh":""},
+{"d":"15-Jul-2026","t":"11:02","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":80,"s":"QUEST","z":"Silvermoon City","wh":""},
+{"d":"16-Jul-2026","t":"12:44","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3090,"n":"Weathered Undermine Crest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":15,"s":"MPLUS","z":"Silvermoon City","wh":""},
+{"d":"16-Jul-2026","t":"13:01","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":520,"s":"CONTAINER","z":"Silvermoon City","wh":""},
+{"d":"14-Jul-2026","t":"09:15","c":"Dawnward","cl":"PALADIN","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":40,"s":"REFUND","z":"Silvermoon City","wh":""},
+{"d":"17-Jul-2026","t":"10:33","c":"Dawnward","cl":"PALADIN","id":null,"cid":3091,"n":"Carved Undermine Crest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":7,"s":"MPLUS","z":"Silvermoon City","wh":""},
+{"d":"13-Jul-2026","t":"08:20","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":25,"s":"MAIL","z":"Silvermoon City","wh":""},
+{"d":"17-Jul-2026","t":"20:47","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":180,"s":"KILL","z":"Temple of Sethraliss","wh":""},
+{"d":"23-Jul-2026","t":"09:46","c":"Thornheart","cl":"DRUID","id":null,"cid":3200,"n":"Voidlight Marl","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1646,"s":"REFUND","z":"Sunkiller Sanctum","wh":""},
+{"d":"13-Jul-2026","t":"01:28","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3200,"n":"Voidlight Marl","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":455,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"12-Jul-2026","t":"06:15","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3200,"n":"Voidlight Marl","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1385,"s":"QUEST","z":"The Grudge Pit","wh":""},
+{"d":"22-Jul-2026","t":"18:56","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3201,"n":"Field Accolade","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1116,"s":"CONTAINER","z":"Temple of Sethraliss","wh":""},
+{"d":"14-Jul-2026","t":"17:57","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3201,"n":"Field Accolade","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":766,"s":"KILL","z":"The Grudge Pit","wh":""},
+{"d":"16-Jul-2026","t":"13:20","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3201,"n":"Field Accolade","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":186,"s":"QUEST","z":"Temple of Sethraliss","wh":""},
+{"d":"19-Jul-2026","t":"09:14","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3201,"n":"Field Accolade","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":353,"s":"MPLUS","z":"Nexus-Point Xenas","wh":""},
+{"d":"11-Jul-2026","t":"17:45","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3202,"n":"Coffer Key Shards","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":173,"s":"QUEST","z":"Temple of Sethraliss","wh":""},
+{"d":"15-Jul-2026","t":"04:23","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3202,"n":"Coffer Key Shards","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":187,"s":"QUEST","z":"Temple of Sethraliss","wh":""},
+{"d":"22-Jul-2026","t":"01:09","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3202,"n":"Coffer Key Shards","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":82,"s":"QUEST","z":"Silvermoon City","wh":""},
+{"d":"22-Jul-2026","t":"17:58","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":3202,"n":"Coffer Key Shards","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":58,"s":"VENDOR","z":"Sunkiller Sanctum","wh":""},
+{"d":"14-Jul-2026","t":"17:09","c":"Mistpaw","cl":"MONK","id":null,"cid":1166,"n":"Timewarped Badge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":47,"s":"CONTAINER","z":"The Grudge Pit","wh":""},
+{"d":"13-Jul-2026","t":"13:42","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":1166,"n":"Timewarped Badge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":74,"s":"VENDOR","z":"Temple of Sethraliss","wh":""},
+{"d":"20-Jul-2026","t":"16:59","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":1166,"n":"Timewarped Badge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":46,"s":"MPLUS","z":"The Grudge Pit","wh":""},
+{"d":"11-Jul-2026","t":"19:59","c":"Dawnward","cl":"PALADIN","id":null,"cid":1166,"n":"Timewarped Badge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":29,"s":"CONTAINER","z":"Sunkiller Sanctum","wh":""},
+{"d":"24-Jul-2026","t":"11:15","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":1166,"n":"Timewarped Badge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":34,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"11-Jul-2026","t":"06:18","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3203,"n":"Myth Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":85,"s":"CONTAINER","z":"Silvermoon City","wh":""},
+{"d":"22-Jul-2026","t":"02:43","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3203,"n":"Myth Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":78,"s":"CONTAINER","z":"Dorn Bastion","wh":""},
+{"d":"19-Jul-2026","t":"21:05","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3203,"n":"Myth Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":27,"s":"KILL","z":"Nexus-Point Xenas","wh":""},
+{"d":"13-Jul-2026","t":"13:09","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":3203,"n":"Myth Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":14,"s":"MPLUS","z":"Silvermoon City","wh":""},
+{"d":"18-Jul-2026","t":"02:43","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3203,"n":"Myth Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":22,"s":"KILL","z":"Sunkiller Sanctum","wh":""},
+{"d":"11-Jul-2026","t":"09:21","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3204,"n":"Hero Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":40,"s":"QUEST","z":"The Grudge Pit","wh":""},
+{"d":"23-Jul-2026","t":"20:38","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3204,"n":"Hero Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":53,"s":"MPLUS","z":"The Grudge Pit","wh":""},
+{"d":"22-Jul-2026","t":"21:52","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3204,"n":"Hero Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":16,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"24-Jul-2026","t":"22:18","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3204,"n":"Hero Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":10,"s":"CONTAINER","z":"Dorn Bastion","wh":""},
+{"d":"14-Jul-2026","t":"08:03","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":3204,"n":"Hero Dawncrest","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":16,"s":"CONTAINER","z":"Dorn Bastion","wh":""},
+{"d":"19-Jul-2026","t":"09:30","c":"Thornheart","cl":"DRUID","id":null,"cid":3205,"n":"Artisan Enchanter's Moxie","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":27,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"13-Jul-2026","t":"07:36","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3205,"n":"Artisan Enchanter's Moxie","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":23,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"13-Jul-2026","t":"22:30","c":"Dawnward","cl":"PALADIN","id":null,"cid":3205,"n":"Artisan Enchanter's Moxie","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":14,"s":"QUEST","z":"Silvermoon City","wh":""},
+{"d":"25-Jul-2026","t":"10:05","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3205,"n":"Artisan Enchanter's Moxie","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":4,"s":"KILL","z":"Sunkiller Sanctum","wh":""},
+{"d":"16-Jul-2026","t":"00:52","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":3205,"n":"Artisan Enchanter's Moxie","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":2,"s":"QUEST","z":"Sunkiller Sanctum","wh":""},
+{"d":"24-Jul-2026","t":"12:09","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3205,"n":"Artisan Enchanter's Moxie","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":5,"s":"MPLUS","z":"The Grudge Pit","wh":""},
+{"d":"16-Jul-2026","t":"23:38","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3206,"n":"Champion Dawncrest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":29,"s":"CONTAINER","z":"Temple of Sethraliss","wh":""},
+{"d":"21-Jul-2026","t":"11:45","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3206,"n":"Champion Dawncrest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":15,"s":"CONTAINER","z":"Temple of Sethraliss","wh":""},
+{"d":"12-Jul-2026","t":"17:23","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3206,"n":"Champion Dawncrest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":10,"s":"QUEST","z":"Temple of Sethraliss","wh":""},
+{"d":"15-Jul-2026","t":"06:50","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3207,"n":"Adventurer Dawncrest","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":19,"s":"QUEST","z":"Temple of Sethraliss","wh":""},
+{"d":"18-Jul-2026","t":"05:17","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3207,"n":"Adventurer Dawncrest","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":4,"s":"CONTAINER","z":"The Grudge Pit","wh":""},
+{"d":"25-Jul-2026","t":"07:29","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3207,"n":"Adventurer Dawncrest","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":3,"s":"REFUND","z":"Dorn Bastion","wh":""},
+{"d":"14-Jul-2026","t":"18:56","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3207,"n":"Adventurer Dawncrest","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":4,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"11-Jul-2026","t":"20:00","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3207,"n":"Adventurer Dawncrest","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"12-Jul-2026","t":"02:04","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3207,"n":"Adventurer Dawncrest","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":3,"s":"CONTAINER","z":"The Grudge Pit","wh":""},
+{"d":"14-Jul-2026","t":"22:56","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3208,"n":"Veteran Dawncrest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":13,"s":"CONTAINER","z":"Dorn Bastion","wh":""},
+{"d":"11-Jul-2026","t":"08:22","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":3208,"n":"Veteran Dawncrest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":9,"s":"VENDOR","z":"Dorn Bastion","wh":""},
+{"d":"17-Jul-2026","t":"03:25","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3208,"n":"Veteran Dawncrest","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":8,"s":"KILL","z":"Silvermoon City","wh":""},
+{"d":"20-Jul-2026","t":"23:23","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3209,"n":"Community Coupons","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":13,"s":"CONTAINER","z":"Temple of Sethraliss","wh":""},
+{"d":"17-Jul-2026","t":"23:32","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3209,"n":"Community Coupons","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":7,"s":"KILL","z":"The Grudge Pit","wh":""},
+{"d":"15-Jul-2026","t":"22:13","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3209,"n":"Community Coupons","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":9,"s":"QUEST","z":"Temple of Sethraliss","wh":""},
+{"d":"10-Jul-2026","t":"02:15","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3210,"n":"Midnight Enchanting Knowledge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":3,"s":"CONTAINER","z":"Dorn Bastion","wh":""},
+{"d":"25-Jul-2026","t":"09:47","c":"Thornheart","cl":"DRUID","id":null,"cid":3210,"n":"Midnight Enchanting Knowledge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":7,"s":"QUEST","z":"Silvermoon City","wh":""},
+{"d":"19-Jul-2026","t":"02:52","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3210,"n":"Midnight Enchanting Knowledge","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":5,"s":"REFUND","z":"Nexus-Point Xenas","wh":""},
+{"d":"13-Jul-2026","t":"16:53","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3211,"n":"Nebulous Voidcore","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":3,"s":"REFUND","z":"Nexus-Point Xenas","wh":""},
+{"d":"18-Jul-2026","t":"21:53","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3211,"n":"Nebulous Voidcore","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":3,"s":"QUEST","z":"The Grudge Pit","wh":""},
+{"d":"16-Jul-2026","t":"14:17","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":3211,"n":"Nebulous Voidcore","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"VENDOR","z":"Dorn Bastion","wh":""},
+{"d":"25-Jul-2026","t":"06:05","c":"Dawnward","cl":"PALADIN","id":null,"cid":3211,"n":"Nebulous Voidcore","q":"Epic","qr":4,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"REFUND","z":"Temple of Sethraliss","wh":""},
+{"d":"20-Jul-2026","t":"10:32","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3212,"n":"Restored Coffer Key","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"QUEST","z":"Sunkiller Sanctum","wh":""},
+{"d":"18-Jul-2026","t":"05:52","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3212,"n":"Restored Coffer Key","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"CONTAINER","z":"Nexus-Point Xenas","wh":""},
+{"d":"18-Jul-2026","t":"17:00","c":"Voidwhisper","cl":"WARLOCK","id":null,"cid":3212,"n":"Restored Coffer Key","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"MPLUS","z":"The Grudge Pit","wh":""},
+{"d":"21-Jul-2026","t":"20:58","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3212,"n":"Restored Coffer Key","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"QUEST","z":"Temple of Sethraliss","wh":""},
+{"d":"19-Jul-2026","t":"10:19","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3212,"n":"Restored Coffer Key","q":"Rare","qr":3,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":1,"s":"KILL","z":"The Grudge Pit","wh":""},
+{"d":"10-Jul-2026","t":"16:35","c":"Dawnward","cl":"PALADIN","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":360,"s":"QUEST","z":"Silvermoon City","wh":""},
+{"d":"13-Jul-2026","t":"15:24","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":117,"s":"CONTAINER","z":"Nexus-Point Xenas","wh":""},
+{"d":"12-Jul-2026","t":"14:39","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":236,"s":"QUEST","z":"The Grudge Pit","wh":""},
+{"d":"25-Jul-2026","t":"09:15","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":50,"s":"REFUND","z":"Sunkiller Sanctum","wh":""},
+{"d":"16-Jul-2026","t":"05:29","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":60,"s":"QUEST","z":"Dorn Bastion","wh":""},
+{"d":"19-Jul-2026","t":"17:50","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":3008,"n":"Valorstones","q":"Common","qr":1,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":77,"s":"CONTAINER","z":"Sunkiller Sanctum","wh":""},
+{"d":"14-Jul-2026","t":"03:28","c":"Grimfrost","cl":"DEATHKNIGHT","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":408,"s":"KILL","z":"Temple of Sethraliss","wh":""},
+{"d":"23-Jul-2026","t":"06:38","c":"Ragebrand","cl":"WARRIOR","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":465,"s":"VENDOR","z":"The Grudge Pit","wh":""},
+{"d":"12-Jul-2026","t":"08:22","c":"Mistpaw","cl":"MONK","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":226,"s":"KILL","z":"Dorn Bastion","wh":""},
+{"d":"17-Jul-2026","t":"16:02","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":168,"s":"MPLUS","z":"Temple of Sethraliss","wh":""},
+{"d":"24-Jul-2026","t":"09:17","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":45,"s":"CONTAINER","z":"Silvermoon City","wh":""},
+{"d":"17-Jul-2026","t":"05:48","c":"Stormhoof","cl":"SHAMAN","id":null,"cid":2815,"n":"Resonance Crystals","q":"Uncommon","qr":2,"il":null,"b":"Account Bound","v":0,"a":null,"val":0,"ty":"Currency","st":"Player Power","qty":88,"s":"KILL","z":"The Grudge Pit","wh":""},
 {"d":"12-Jul-2026","t":"20:37","c":"Stormhoof","cl":"SHAMAN","id":256974,"n":"Rootspeaker's Footwraps","q":"Rare","qr":3,"il":224,"b":"Bind on Pickup","v":334732,"ty":"Armor","st":"Mail","qty":1,"s":"QUEST","z":"Silvermoon City","wh":"https://www.wowhead.com/item=256974?bonus=12770:6652:13578"},
 {"d":"12-Jul-2026","t":"20:37","c":"Stormhoof","cl":"SHAMAN","id":267654,"n":"Swirling Arcane Essence","q":"Rare","qr":3,"il":null,"b":"Bind on Pickup","v":0,"ty":"Miscellaneous","st":"Other","qty":1,"s":"DISENCHANT","z":"Silvermoon City","wh":"https://www.wowhead.com/item=267654"},
 {"d":"12-Jul-2026","t":"20:37","c":"Stormhoof","cl":"SHAMAN","id":243602,"n":"Radiant Shard","q":"Rare","qr":3,"il":null,"b":"Not Bound","v":9000,"ty":"Tradeskill","st":"Enchanting","qty":1,"s":"DISENCHANT","z":"Silvermoon City","wh":"https://www.wowhead.com/item=243602","a":45000,"val":45000},
@@ -839,7 +935,8 @@ var BIND={"Not Bound":["Unbound","unbound"],"Bind on Pickup":["Soulbound","soulb
 var BIND_ORDER=["Unbound","Soulbound","Account","Warbound","BoE"];
 function bindCat(b){return (BIND[b]||["Unbound","unbound"])[0];}
 function bindCls(b){return (BIND[b]||["Unbound","unbound"])[1];}
-var BINDCOLOR={unbound:"#9a9a9a",soulbound:"#4dd16b",account:"#f2851f",warband:"#4d94fa",boe:"#dcdcdc"};
+/* bind colours — hex mirror of the in-game insights BOUND_COLOR (modules/Analytics.lua) */
+var BINDCOLOR={unbound:"#9999a6",soulbound:"#d97373",account:"#99b3e6",warband:"#cca666",boe:"#8ccc99"};
 function bindColorOf(b){return BINDCOLOR[bindCls(b)];}
 var QORDER=["Heirloom","Legendary","Epic","Rare","Uncommon","Common","Poor"]; // highest first
 function qCls(q){return "qt-"+q.toLowerCase();}
@@ -878,6 +975,60 @@ function bars(list,opt){opt=opt||{};var max=Math.max.apply(null,list.map(functio
       '<span class="track"><span class="fill'+fcls+'" style="'+fstyle+'"></span></span>'+
       '<span class="v">'+x.v+'</span></div>';}).join('')+'</div>';}
 
+/* Standard categorical palette (hex mirror of Lua PALETTE, modules/Analytics.lua) — inverse-VIBGYOR
+   R→O→Y→G→B→I→V plus a lighter and a darker band, assigned by sort rank so neighbours never look
+   alike. Used for categories with no fixed colour (item types, currencies). */
+var PALETTE=["#e64040","#f28c26","#e0d138","#59bf61","#478ce6","#6b61d1","#b86bdb",
+  "#f79494","#fac28c","#f0e68c","#99de9f","#94c2f7","#ada3eb","#dbaeed",
+  "#9e2e2e","#b36619","#99901f","#2e8547","#265ea8","#473d94","#80479e"];
+function palColor(rank){return PALETTE[(rank-1)%PALETTE.length];}       /* 1-based */
+function palMap(keys){var m={};keys.forEach(function(k,i){m[k]=palColor(i+1);});return m;}
+function qColor(q){return "var(--q-"+String(q).toLowerCase()+")";}      /* quality word -> css var */
+
+/* wrapped colour-swatch legend (items: [{label,color}]) — aligns under the bar tracks */
+function legendRow(items){
+  return '<div class="cap" style="margin:0 0 12px">'+items.map(function(e){
+    return '<span style="display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:middle;'+
+      'background:'+e.color+';margin:0 5px 0 0"></span>'+esc(e.label);}).join('&nbsp;&nbsp; ')+'</div>';
+}
+
+/* Generic horizontal STACKED-bar chart: one bar per OUTER group (character or currency), split into
+   category segments coloured by catColor (global category order) + a legend. Mirrors the panel.
+   outerKey(r)->key, outerLabel(key,rep)->text, outerStyle(key,rep)->label css colour ("" = default),
+   catKey(r)->key, catLabel(key)->text, catColor(key)->css colour, mag(r)->number, fmt(n)->string. */
+function stackedCard(span,title,cap,rows,outerKey,outerLabel,outerStyle,catKey,catLabel,catColor,mag,fmt){
+  var m={},order=[],catTot={};
+  rows.forEach(function(r){var ok=outerKey(r);
+    if(!(ok in m)){m[ok]={total:0,cats:{},rep:r};order.push(ok);}
+    var g=m[ok],k=catKey(r),v=mag(r);g.cats[k]=(g.cats[k]||0)+v;g.total+=v;catTot[k]=(catTot[k]||0)+v;});
+  if(!order.length)return "";
+  var max=Math.max.apply(null,order.map(function(ok){return m[ok].total;}).concat([1]));
+  var catOrder=Object.keys(catTot).sort(function(a,b){return catTot[b]-catTot[a];});
+  var rank={};catOrder.forEach(function(k,i){rank[k]=i;});
+  var body='<div class="bars">'+order.map(function(ok){return {ok:ok,g:m[ok]};})
+    .sort(function(a,b){return b.g.total-a.g.total;}).map(function(o){var g=o.g,lab=outerLabel(o.ok,g.rep);
+    var segs=Object.keys(g.cats).sort(function(a,b){return (rank[a]||0)-(rank[b]||0);}).map(function(k){
+      return '<span class="seg" data-gtip="'+esc(lab+' · '+catLabel(k))+'|'+esc(fmt(g.cats[k]))+'"'+
+        ' style="width:'+(g.cats[k]/g.total*100).toFixed(2)+'%;background:'+catColor(k)+'"></span>';}).join('');
+    var st=outerStyle(o.ok,g.rep);
+    /* bar-level tip (label/track hover shows the total); each segment keeps its own tip via closest() */
+    return '<div class="bar" data-gtip="'+esc(lab)+'|'+esc(fmt(g.total))+'"><span class="k"'+(st?' style="color:'+st+'"':'')+'>'+esc(lab)+'</span>'+
+      '<span class="track"><span class="stack" style="width:'+(g.total/max*100).toFixed(1)+'%">'+segs+'</span></span>'+
+      '<span class="v">'+esc(fmt(g.total))+'</span></div>';}).join('')+'</div>';
+  var legend=legendRow(catOrder.map(function(k){return {label:catLabel(k),color:catColor(k)};}));
+  return card(span,title,cap,legend+body);
+}
+/* char-keyed convenience wrapper: label = character name, class-coloured. */
+function charBreakdownCard(span,title,cap,rows,catKey,catLabel,catColor,mag,fmt){
+  return stackedCard(span,title,cap,rows,function(r){return r.c;},function(k,rep){return rep.c;},
+    function(k,rep){return clsVar(rep.cl);},catKey,catLabel,catColor,mag,fmt);
+}
+/* full-width themed section divider (arcane rule + centred label), mirrors the in-game LOOT/CURRENCY
+   separators. Returns a grid-spanning element. */
+function sectionDivider(label){
+  return '<div class="rpt-divider"><span></span><b>'+esc(label)+'</b><span></span></div>';
+}
+
 /* ============================ RENDERERS ============================ */
 function renderKPIs(rows){
   var days={},items={},chars={},epic=0,best=0,byDay={};
@@ -899,77 +1050,90 @@ function card(span,title,cap,body,q){
 
 function renderInsights(rows){
   var out=[];
-  /* item-only vs currency split — mirrors Database:Stats (item charts exclude currency;
-     source/char/zone/day/hour charts count every record). */
+  /* items-only vs currency split — mirrors the panel (loot charts exclude currency; currency has its
+     own section). Every insights card is half-width (sp6) so parent + companion sit side-by-side. */
   var itemRows=rows.filter(function(r){return r.cid==null;});
   var cur=rows.filter(function(r){return r.cid!=null;});
-  /* where loot came from */
-  var src=groupBy(rows,function(r){return srcName(r.s);}).sort(function(a,b){return b.count-a.count;});
-  out.push(card("sp8","Where the loot came from","Drops by attributed source · hover a bar for its value",
-    bars(src.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};})),
-    "Each drop is attributed to a source: a kill, a container, mail, the Auction House, a Mythic+ chest, and so on."));
-  /* bind state */
-  var bm={};itemRows.forEach(function(r){var c=bindCat(r.b);bm[c]=(bm[c]||0)+1;});
-  var bl=BIND_ORDER.filter(function(c){return bm[c];}).map(function(c){return {label:c,n:bm[c],v:bm[c],kcls:"kb-"+bindCls(bindLabelFor(c)),fcls:"fb-"+bindCls(bindLabelFor(c)),tip:c+'|'+bm[c]+' drops'};});
-  out.push(card("sp4","Bind state","Tradeable vs locked · colored by bind type",bars(bl)));
-  /* quality */
-  var qm={};itemRows.forEach(function(r){qm[r.q]=(qm[r.q]||0)+1;});
-  var ql=QORDER.filter(function(q){return qm[q];}).map(function(q){return {label:q,n:qm[q],v:qm[q],kcls:qCls(q),fcls:fqCls(q),tip:q+'|'+qm[q]+' drops'};});
-  out.push(card("sp6","Quality distribution","Sorted by quality · colored by WoW item quality",bars(ql)));
-  /* item types */
-  var ty=groupBy(itemRows,function(r){return r.ty;}).sort(function(a,b){return b.count-a.count;});
-  out.push(card("sp6","Item types","What kind of loot dropped",bars(ty.map(function(g){return {label:g.key,n:g.count,v:g.count,tip:g.key+'|'+g.count+' drops'};}))));
-  /* loot by character */
-  var chd={};var ch=groupBy(rows,function(r){chd[r.c]=r.cl;return r.c;}).sort(function(a,b){return b.count-a.count;});
-  out.push(card("sp8","Loot by character","Drops per character · class-colored · value in gold",
+  var one=function(){return 1;};  /* per-drop magnitude for count-based companions */
+  out.push(sectionDivider("LOOT"));
+  /* Loot By Character (items-only, the panel's first chart) */
+  var chd={};var ch=groupBy(itemRows,function(r){chd[r.c]=r.cl;return r.c;}).sort(function(a,b){return b.count-a.count;});
+  out.push(card("sp6","Loot By Character","Drops per character · class-colored · value in gold",
     bars(ch.map(function(g){var cf=chd[g.key];return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',
       kstyle:"color:"+clsVar(cf),fstyle:"background:linear-gradient(90deg,"+clsDark(cf)+","+clsVar(cf)+")",tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};})),
-    "Bar color is the character's class color; the gold figure is value harvested."));
-  /* top zones */
-  var zo=groupBy(rows,function(r){return r.z;}).sort(function(a,b){return b.count-a.count;}).slice(0,5);
-  out.push(card("sp4","Top zones by haul","Drops &amp; value per zone",
-    bars(zo.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};}))));
-  /* activity over time */
+    "Bar color is the character's class color; the gold figure is value harvested. Currency is excluded (see the Currency section)."));
+  /* Loot By Source + its × Character companion — bar + label coloured per source (SRCCOLOR) */
+  var src=groupBy(itemRows,function(r){return r.s;}).sort(function(a,b){return b.count-a.count;});
+  out.push(card("sp6","Loot By Source","Drops by attributed source · items only · hover a bar for its value",
+    bars(src.map(function(g){var col=srcColor(g.key);return {label:srcName(g.key),n:g.count,
+      v:g.count+' <small>· '+moneyG(g.value)+'</small>',kstyle:"color:"+col,fstyle:"background:"+col,
+      tip:srcName(g.key)+'|'+g.count+' drops · '+moneyG(g.value)};})),
+    "Each drop is attributed to a source: a kill, a container, mail, the Auction House, a Mythic+ chest, and so on."));
+  out.push(charBreakdownCard("sp6","Loot By Character × Source","Each character's drops split by source",
+    itemRows,function(r){return r.s;},srcName,srcColor,one,comma));
+  /* Value By Character × Source — same split, weighted by value */
+  out.push(charBreakdownCard("sp6","Value By Character × Source","Each character's value split by source",
+    itemRows,function(r){return r.s;},srcName,srcColor,rowVal,moneyG));
+  /* Loot By Quality + companion */
+  var qm={};itemRows.forEach(function(r){qm[r.q]=(qm[r.q]||0)+1;});
+  var ql=QORDER.filter(function(q){return qm[q];}).map(function(q){return {label:q,n:qm[q],v:qm[q],kcls:qCls(q),fcls:fqCls(q),tip:q+'|'+qm[q]+' drops'};});
+  out.push(card("sp6","Loot By Quality","Sorted by quality · colored by WoW item quality",bars(ql)));
+  out.push(charBreakdownCard("sp6","Loot By Character × Quality","Each character's drops split by item quality",
+    itemRows,function(r){return r.q;},function(k){return k;},qColor,one,comma));
+  /* Loot By Item Type + companion, coloured from the standard palette by rank */
+  var ty=groupBy(itemRows,function(r){return r.ty;}).sort(function(a,b){return b.count-a.count;});
+  var tyColor=palMap(ty.map(function(g){return g.key;}));
+  out.push(card("sp6","Loot By Item Type","What kind of loot dropped · colored per type",
+    bars(ty.map(function(g){return {label:g.key,n:g.count,v:g.count,kstyle:"color:"+tyColor[g.key],fstyle:"background:"+tyColor[g.key],tip:g.key+'|'+g.count+' drops'};}))));
+  out.push(charBreakdownCard("sp6","Loot By Character × Item Type","Each character's drops split by item type",
+    itemRows,function(r){return r.ty;},function(k){return k;},function(k){return tyColor[k]||PALETTE[0];},one,comma));
+  /* Loot By Bound Type + companion (colours mirror the in-game BOUND_COLOR) */
+  var bm={};itemRows.forEach(function(r){var c=bindCat(r.b);bm[c]=(bm[c]||0)+1;});
+  var bl=BIND_ORDER.filter(function(c){return bm[c];}).map(function(c){var col=bindColorOf(bindLabelFor(c));
+    return {label:c,n:bm[c],v:bm[c],kstyle:"color:"+col,fstyle:"background:"+col,tip:c+'|'+bm[c]+' drops'};});
+  out.push(card("sp6","Loot By Bound Type","Tradeable vs locked · colored by bind type",bars(bl)));
+  out.push(charBreakdownCard("sp6","Loot By Character × Bound Type","Each character's drops split by bind type",
+    itemRows,function(r){return bindCat(r.b);},function(k){return k;},function(k){return bindColorOf(bindLabelFor(k));},one,comma));
+  /* time + zones + top items */
   var dd={},order=[];rows.forEach(function(r){if(!(r.d in dd)){dd[r.d]={c:0};order.push(r.d);}dd[r.d].c++;});
   order.sort(function(a,b){return tsKey({d:a,t:"00:00"})-tsKey({d:b,t:"00:00"});});
   var maxd=Math.max.apply(null,order.map(function(d){return dd[d].c;}).concat([1]));
   var spark='<div class="spark">'+order.map(function(d){var p=d.split("-");
     return '<div class="col" data-gtip="'+p[1]+' '+p[0]+'|'+dd[d].c+' drops"><span class="cc">'+dd[d].c+'</span><span class="stk" style="height:'+(dd[d].c/maxd*100).toFixed(0)+'%"></span><span class="d">'+p[1]+' '+p[0]+'</span></div>';}).join('')+'</div>';
-  out.push(card("sp6","Activity over time","Drops per day · hover a bar for the day",spark));
-  /* heatmap */
-  out.push(card("sp6","When you loot","Weekday × hour of day · server time",heatmap(rows),
+  out.push(card("sp6","Loot Over Time","Drops per day · hover a bar for the day",spark));
+  out.push(card("sp6","Loot By Weekday × Hour","When you loot · server time",heatmap(rows),
     "Each square is one weekday × hour; brighter = more drops in that slot."));
-  /* richest drops */
+  /* Top Items By Value | Top Items By Count paired, then Top Zones below (mirrors the panel) */
   var byItem=groupBy(itemRows,function(r){return r.n;});
-  var rich=byItem.slice().sort(function(a,b){return b.value-a.value;}).slice(0,10);
-  out.push(card("sp6","Richest drops","Top items by value · hover for the tooltip",toplist(rich,true)));
-  /* most-looted */
-  var most=byItem.slice().sort(function(a,b){return b.qty-a.qty;}).slice(0,10);
-  out.push(card("sp6","Most-looted items","Top items by number of drops",toplist(most,false)));
-  /* ---- currency (only when currency rows are present) ---- */
+  out.push(card("sp6","Top Items By Value","Top items by value · hover for the tooltip",toplist(byItem.slice().sort(function(a,b){return b.value-a.value;}).slice(0,10),true)));
+  out.push(card("sp6","Top Items By Count","Top items by number of drops",toplist(byItem.slice().sort(function(a,b){return b.qty-a.qty;}).slice(0,10),false)));
+  var zo=groupBy(rows,function(r){return r.z;}).sort(function(a,b){return b.count-a.count;}).slice(0,8);
+  out.push(card("sp6","Top Zones","Drops &amp; value per zone",
+    bars(zo.map(function(g){return {label:g.key,n:g.count,v:g.count+' <small>· '+moneyG(g.value)+'</small>',tip:g.key+'|'+g.count+' drops · '+moneyG(g.value)};}))));
+  /* ---- CURRENCY (only when currency rows are present) ---- */
   if(cur.length){
-    /* Currency collected — one bar per currency by total quantity, neutral fill */
+    out.push(sectionDivider("CURRENCY"));
+    /* Currency Collected — one bar per currency, coloured per currency (palette) */
     var curCol=groupBy(cur,function(r){return r.n;}).sort(function(a,b){return b.qty-a.qty;});
-    out.push(card("sp6","Currency collected","Total quantity per currency",
-      bars(curCol.map(function(g){return {label:g.key,n:g.qty,v:comma(g.qty),tip:g.key+'|'+comma(g.qty)+' collected'};}))));
-    /* Currency by source — quantity per attributed source, colored by source */
-    var cbs={};cur.forEach(function(r){cbs[r.s]=(cbs[r.s]||0)+(r.qty||1);});
-    var cbsList=Object.keys(cbs).map(function(s){return {s:s,q:cbs[s]};}).sort(function(a,b){return b.q-a.q;});
-    out.push(card("sp6","Currency by source","Quantity per attributed source · colored by source",
-      bars(cbsList.map(function(e){return {label:srcName(e.s),n:e.q,v:comma(e.q),
-        fstyle:"background:"+srcColor(e.s),tip:srcName(e.s)+'|'+comma(e.q)};}))));
-    /* Currency by type × source — per-currency breakdown + a small source legend */
-    var byCS={},csOrder=[];
-    cur.forEach(function(r){if(!(r.n in byCS)){byCS[r.n]={};csOrder.push(r.n);}
-      byCS[r.n][r.s]=(byCS[r.n][r.s]||0)+(r.qty||1);});
-    var legend='<div class="cap" style="margin:0 0 12px">'+cbsList.map(function(e){
-      return '<span style="display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:middle;'+
-        'background:'+srcColor(e.s)+';margin:0 5px 0 0"></span>'+esc(srcName(e.s));}).join('&nbsp;&nbsp; ')+'</div>';
-    var breakdown=csOrder.map(function(cn){var m=byCS[cn];
-      var srcs=Object.keys(m).map(function(s){return {label:srcName(s),n:m[s],v:comma(m[s]),
-        fstyle:"background:"+srcColor(s),tip:cn+' · '+srcName(s)+'|'+comma(m[s])};}).sort(function(a,b){return b.n-a.n;});
-      return '<div class="cap" style="margin:12px 0 6px;color:var(--ink-2)">'+esc(cn)+'</div>'+bars(srcs);}).join('');
-    out.push(card("sp12","Currency by type × source","Where each currency came from",legend+breakdown));
+    var curColor=palMap(curCol.map(function(g){return g.key;}));
+    out.push(card("sp6","Currency Collected","Total quantity per currency · colored per currency",
+      bars(curCol.map(function(g){return {label:g.key,n:g.qty,v:comma(g.qty),
+        kstyle:"color:"+curColor[g.key],fstyle:"background:"+curColor[g.key],tip:g.key+'|'+comma(g.qty)+' collected'};}))));
+    /* Currency By Type × Source — one STACKED bar per currency, segments coloured by source */
+    out.push(stackedCard("sp6","Currency By Type × Source","Where each currency came from",cur,
+      function(r){return r.n;},function(k){return k;},function(k,rep){return qColor(rep.q);},
+      function(r){return r.s;},srcName,srcColor,function(r){return r.qty||1;},comma));
+    /* Currency By Character × Type — per-character stacked split by currency (palette colours) */
+    out.push(charBreakdownCard("sp6","Currency By Character × Type","Each character's currency split by type",
+      cur,function(r){return r.n;},function(k){return k;},function(k){return curColor[k]||PALETTE[0];},
+      function(r){return r.qty||1;},comma));
+    /* Currency Over Time — total quantity collected per day */
+    var cdd={},cord=[];cur.forEach(function(r){if(!(r.d in cdd)){cdd[r.d]=0;cord.push(r.d);}cdd[r.d]+=(r.qty||1);});
+    cord.sort(function(a,b){return tsKey({d:a,t:"00:00"})-tsKey({d:b,t:"00:00"});});
+    var cmax=Math.max.apply(null,cord.map(function(d){return cdd[d];}).concat([1]));
+    var cspark='<div class="spark">'+cord.map(function(d){var p=d.split("-");
+      return '<div class="col" data-gtip="'+p[1]+' '+p[0]+'|'+comma(cdd[d])+' collected"><span class="cc">'+comma(cdd[d])+'</span><span class="stk" style="height:'+(cdd[d]/cmax*100).toFixed(0)+'%"></span><span class="d">'+p[1]+' '+p[0]+'</span></div>';}).join('')+'</div>';
+    out.push(card("sp6","Currency Over Time","Currency collected per day",cspark));
   }
   $("#rpt-insights").innerHTML=out.join('');
 }

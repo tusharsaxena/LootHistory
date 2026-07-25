@@ -75,7 +75,12 @@ This is the **one part of the report that is NOT data-driven and NOT produced by
 cannot write it for you. The template ships **sample** cards inside `<section id="llm">` **only to lock
 the look & feel**. You **must** delete the samples and write **at least 10 cards of your own**, from your
 own analysis of the data — patterns, standout drops, rhythm, economy, crafting, character spotlights,
-keystone, warband flow, recommendations. Keep each card's shape:
+warband flow, recommendations. **When the data has any currency rows (`cid` set), write one or two
+cards about the currency economy** (the sample deck ships two — "Currency economy" and "Currency by
+character" — as a model): which currencies dominate, where they come from (Quest / Mythic+ / Container
+/ Refund / …), how they split across characters, and any imbalance worth calling out (e.g. a main
+hoarding the upgrade crests while alts leave weekly caps on the table). Colour currency names with the
+quality-tier span (`style="color:var(--q-<tier>)"`, e.g. Epic-tier crests). Keep each card's shape:
 
 ```html
 <div class="card sp6"><div class="llm-tag">◆ Your Tag</div><h3>Your headline</h3><p>…</p></div>
@@ -93,8 +98,10 @@ the tooltip in `data-tt` (no link, no `href`; the pipe order is
 <span class="il qt-<quality>" data-tt="Name|quality|ilvl|bind|Type — Subtype|Ng Ns Nc|Source">Name</span>
 ```
 
-No disclaimers. Use the **INSIGHTS** block as a fast reference while writing (it also carries attribution
-confidence and keystone levels that are good narrative material and are not in the HISTORY rows).
+No disclaimers. Use the **INSIGHTS** block as a fast reference while writing — it carries the same
+per-character × source / quality / item-type / bind breakdowns and the currency splits (Currency
+Collected, Currency by Type × Source, Currency by Character × Type) that the engine renders as charts,
+so you can quote figures without re-deriving them from HISTORY.
 
 ## Output contract (non-negotiable)
 
@@ -233,7 +240,7 @@ Map them from the **HISTORY** CSV columns:
 | `wh` | `wowheadLink`   | the ready-made URL |
 | `src`| `auctionSource` | e.g. `"tsm:dbmarket"`, `"auctionator:minbuyout"`, `"oribos:market"`; blank when no AH price |
 
-**Currency rows vs. item rows.** A **currency row** has `id=null`, `cid` set to a currency ID, `type="Currency"`, `q` set to the currency tier (e.g. `"Rare"`), `b` set to the bound label, and **all of** `il`, `v`, `a`, `val` are `null` or `0`. Item rows have the opposite: `id` set, `cid=null`. Currency rows are **excluded** from every item-based worth calculation, KPI, and chart (best iLvl, value totals, top items by value, etc.) and instead drive a dedicated **Currency** section in the report, which covers collected currency totals, breakdowns by source and type, and per-character summaries.
+**Currency rows vs. item rows.** A **currency row** has `id=null`, `cid` set to a currency ID, `type="Currency"`, `q` set to the currency tier (e.g. `"Rare"`), `b` set to the bound label, and **all of** `il`, `v`, `a`, `val` are `null` or `0`. Item rows have the opposite: `id` set, `cid=null`. Currency rows are **excluded** from every item-based worth calculation and item chart (best iLvl, value totals, top items by value, quality/type/bind, and the loot-by-source / character charts — all items-only). They instead drive the report's dedicated **Currency** cards: **Currency collected** (total per currency), **Currency by type × source** (where each currency came from), **Currency by character × type** (each character's currency split, stacked), and **Currency over time**. The engine builds all of these from `H` automatically — you compute nothing.
 
 You compute and lay out **nothing** here — just faithfully transcribe every row.
 
