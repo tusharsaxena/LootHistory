@@ -154,11 +154,14 @@ this; do not fabricate instrument readings.
 Two CSV blocks follow the prompt (both for the user's selected Data Set — All Data or Current View):
 
 - **HISTORY** — one row per drop. This becomes `H`.
-- **INSIGHTS** — a pre-computed sectioned summary (`Summary`, `By Source`, `By Quality`, `By Item
-  Type`, `By Bound Type`, `By Character`, `By Weekday`, `By Hour`, `By Keystone`, `Attribution
-  Confidence`, `Top Zones`, `Top Items by Count`, `Top Items by Value`, `By Day`, `Currency
-  Collected`, `Currency by Source`, `Currency by Type x Source`, `Currency by Character`, `Currency
-  by Day`). The engine recomputes the charts from `H`, so you do **not** need INSIGHTS for them — use it as a fast reference
+- **INSIGHTS** — a pre-computed sectioned summary that mirrors the dashboard exactly (`Summary`,
+  `By Source`, `By Character x Source`, `By Quality`, `By Character x Quality`, `By Item Type`,
+  `By Character x Item Type`, `By Bound Type`, `By Character x Bound Type`, `By Character`, `By Weekday`,
+  `By Hour`, `Top Zones`, `Top Items by Count`, `Top Items by Value`, `By Day`, `Currency Collected`,
+  `Currency by Type x Source`, `Currency by Character x Type`, `Currency by Day`). The `… x …` sections
+  are the panel's per-character companion charts (rows `Char / Category`). All loot sections are
+  items-only (currency is separate).
+  The engine recomputes the charts from `H`, so you do **not** need INSIGHTS for them — use it as a fast reference
   while **writing** the analysis cards. The assembler reads only the **`Summary`** section (for its
   cross-check); every other INSIGHTS section is purely a reading aid — never re-type them into the export
   file (see step 1).

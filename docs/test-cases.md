@@ -279,11 +279,11 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: AICSV includes the currencyID column
 - Export: AICSV keeps currency rows alongside item rows
 - Export: InsightsCSV includes currency sections
+- Export: InsightsCSV includes the per-character × category companions
 - Export: AIPrompt embeds guideline URL, both CSV blocks, and framing
 - Export: AIPrompt large-dataset note gated on opts.rows
 - Export: AIPrompt explains three price types and when to use value
-- Export: InsightsCSV renames the per-currency breakdown to Currency by Type x Source
-- Export: InsightsCSV Currency by Source rows carry the source total qty
+- Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
 
 ### test_debuglog.lua (16)
 

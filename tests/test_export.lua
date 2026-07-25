@@ -244,6 +244,7 @@ test("Export: InsightsCSV includes currency sections", function()
     totals = { records = 0 },
     byCurrency = { Valorstones = 50 },
     currencySourceMatrix = { Valorstones = { MPLUS = 40, QUEST = 10 } },
+    currencyCharMatrix = { ["A-R"] = { Valorstones = 43 } },
     currencyByChar = { ["A-R"] = { char = "A-R", quantity = 43 } },
     currencyByDay = { ["2026-07-21"] = 53 },
     currencyTotals = { distinct = 1, events = 2, biggestHaul = { name = "Valorstones", quantity = 40 } },
@@ -251,8 +252,24 @@ test("Export: InsightsCSV includes currency sections", function()
   local csv = NS.Export:InsightsCSV(stats)
   assertTrue(csv:find("Currency Collected,Valorstones,50", 1, true) ~= nil, "top currencies row")
   assertTrue(csv:find("Currency by Type x Source,Valorstones / Mythic+,40", 1, true) ~= nil, "currency x source row")
-  assertTrue(csv:find("Distinct currencies", 1, true) ~= nil, "summary distinct row")
-  assertTrue(csv:find("Biggest haul", 1, true) ~= nil, "summary biggest-haul row")
+  assertTrue(csv:find("Currency by Character x Type,A-R / Valorstones,43", 1, true) ~= nil, "currency x character row")
+  -- Panel parity: the flat "Currency by Character", "Currency by Source", and the currency Summary
+  -- rows were dropped so the export matches the dashboard exactly.
+  assertTrue(csv:find("\r\nCurrency by Character,", 1, true) == nil, "no flat currency-by-character section")
+  assertTrue(csv:find("Currency by Source", 1, true) == nil, "no currency-by-source section")
+  assertTrue(csv:find("Distinct currencies", 1, true) == nil, "no currency summary rows")
+  assertTrue(csv:find("Biggest haul", 1, true) == nil, "no biggest-haul summary row")
+end)
+
+test("Export: InsightsCSV includes the per-character × category companions", function()
+  local csv = NS.Export:InsightsCSV(insightsStats())
+  -- A-Realm looted 2 KILL items worth 500 + 100*2 = 700 copper → "0g 7s 0c".
+  assertTrue(csv:find("By Character x Source,A-Realm / Kill,2,0g 7s 0c", 1, true) ~= nil,
+    "char × source carries count + value")
+  assertTrue(csv:find("By Character x Bound Type,A-Realm / Unbound,2", 1, true) ~= nil,
+    "char × bound present")
+  assertTrue(csv:find("By Character x Item Type,B-Realm /", 1, true) == nil,
+    "no itemType matrix row when records carry no itemType")
 end)
 
 test("Export: AIPrompt embeds guideline URL, both CSV blocks, and framing", function()
@@ -292,19 +309,11 @@ test("Export: AIPrompt explains three price types and when to use value", functi
     "explains the aggregation method")
 end)
 
-test("Export: InsightsCSV renames the per-currency breakdown to Currency by Type x Source", function()
+test("Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)", function()
   local s = insightsStats()
   s.currencySourceMatrix = { Badge = { VENDOR = 30, REFUND = 20 } }
   s.currencyBySource = { VENDOR = 34, REFUND = 20 }
   local csv = NS.Export:InsightsCSV(s)
   assertTrue(csv:find("Currency by Type x Source,Badge / Vendor", 1, true) ~= nil)
-  assertTrue(csv:find("\r\nCurrency by Source,", 1, true) ~= nil)   -- the new source-total section exists
-end)
-
-test("Export: InsightsCSV Currency by Source rows carry the source total qty", function()
-  local s = insightsStats()
-  s.currencyBySource = { VENDOR = 34, REFUND = 20 }
-  local csv = NS.Export:InsightsCSV(s)
-  assertTrue(csv:find("Currency by Source,Vendor,34", 1, true) ~= nil)
-  assertTrue(csv:find("Currency by Source,Refund,20", 1, true) ~= nil)
+  assertTrue(csv:find("Currency by Source", 1, true) == nil)  -- dropped to match the panel
 end)

@@ -162,7 +162,6 @@ local BOUND_LABEL_CSV = {
   BOP = "Soulbound", BOE = "BoE", ACCOUNT = "Account", WARBAND = "Warbound", UNBOUND = "Unbound",
 }
 local WEEKDAY_CSV = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
-local CONF_LABEL_CSV = { CERTAIN = "Certain", INFERRED = "Inferred" }
 
 -- Count-map → array of { label, count, value } sorted count-desc then label-asc. `labelOf` maps a
 -- raw key to a display label; `valueMap` (optional) supplies the value column per key.
@@ -193,6 +192,34 @@ function E:InsightsCSV(stats)
   local function section(name, rows)
     for _, r in ipairs(rows) do row(name, r.label, r.count, r.value) end
   end
+  -- Emit a { char → { catKey → magnitude } } matrix — the panel's "× Character" companion charts —
+  -- as "Char / CategoryLabel" rows: Count = magnitude, Value = optional parallel value-matrix cell.
+  -- Characters sorted by total desc then name; categories within a char by magnitude desc.
+  local function charMatrix(name, matrix, labelOf, valueMatrix)
+    local chars = {}
+    for ch, cats in pairs(matrix or {}) do
+      local total = 0
+      for _, m in pairs(cats) do total = total + m end
+      chars[#chars + 1] = { ch = ch, total = total, cats = cats }
+    end
+    table.sort(chars, function(a, b)
+      if a.total ~= b.total then return a.total > b.total end
+      return tostring(a.ch) < tostring(b.ch)
+    end)
+    for _, c in ipairs(chars) do
+      local keys = {}
+      for k in pairs(c.cats) do keys[#keys + 1] = k end
+      table.sort(keys, function(a, b)
+        if c.cats[a] ~= c.cats[b] then return c.cats[a] > c.cats[b] end
+        return tostring(a) < tostring(b)
+      end)
+      local vm = valueMatrix and valueMatrix[c.ch]
+      for _, k in ipairs(keys) do
+        row(name, tostring(c.ch) .. " / " .. (labelOf and labelOf(k) or tostring(k)),
+          c.cats[k], vm and vm[k] or nil)
+      end
+    end
+  end
 
   -- Summary (the stat/highlight cards).
   local dash = ""
@@ -210,10 +237,18 @@ function E:InsightsCSV(stats)
   if t.busiestDay then row("Summary", "Busiest day", t.busiestDay.day .. " (" .. t.busiestDay.count .. ")") end
 
   local srcLabel = function(k) return NS.Constants.SourceLabel[k] or k end
+  local qualityLabel = function(q) return NS.Compat.QualityLabel(q) end
+  local boundLabel = function(b) return BOUND_LABEL_CSV[b] or b end
+  -- LOOT breakdowns, each followed by its per-character "× Character" companion (mirrors the panel).
+  -- All items-only (currency is excluded upstream in Database:Stats).
   section("By Source", rankedRows(stats.bySource, srcLabel, stats.valueBySource))
-  section("By Quality", rankedRows(stats.byQuality, function(q) return NS.Compat.QualityLabel(q) end))
+  charMatrix("By Character x Source", stats.charBySource, srcLabel, stats.charValueBySource)
+  section("By Quality", rankedRows(stats.byQuality, qualityLabel))
+  charMatrix("By Character x Quality", stats.charByQuality, qualityLabel)
   section("By Item Type", rankedRows(stats.byType))
-  section("By Bound Type", rankedRows(stats.byBound, function(b) return BOUND_LABEL_CSV[b] or b end))
+  charMatrix("By Character x Item Type", stats.charByType)
+  section("By Bound Type", rankedRows(stats.byBound, boundLabel))
+  charMatrix("By Character x Bound Type", stats.charByBound, boundLabel)
 
   -- Per-character carries both count and value (byChar entries are { char, count, value }). byChar
   -- registers currency-only characters with count 0 (for class colours in the UI) — skip those here
@@ -232,8 +267,6 @@ function E:InsightsCSV(stats)
 
   section("By Weekday", rankedRows(stats.byWeekday, function(d) return WEEKDAY_CSV[d] or tostring(d) end))
   section("By Hour", rankedRows(stats.byHour, function(h) return string.format("%02d:00", h) end))
-  section("By Keystone", rankedRows(stats.byKeystone, function(l) return "+" .. l end))
-  section("Attribution Confidence", rankedRows(stats.byConfidence, function(c) return CONF_LABEL_CSV[c] or c end))
 
   for _, z in ipairs(stats.topZones or {}) do row("Top Zones", z.zone, z.count, z.value) end
   for _, it in ipairs(stats.topItems or {}) do
@@ -266,25 +299,12 @@ function E:InsightsCSV(stats)
       row("Currency by Type x Source", cname .. " / " .. srcLabel(s), perSrc[s])
     end
   end
-  section("Currency by Source", rankedRows(stats.currencyBySource, srcLabel))
-  local curCharRows = {}
-  for _, ce in pairs(stats.currencyByChar or {}) do
-    curCharRows[#curCharRows + 1] = { label = ce.char, count = ce.quantity }
-  end
-  table.sort(curCharRows, function(a, b)
-    if a.count ~= b.count then return a.count > b.count end
-    return tostring(a.label) < tostring(b.label)
-  end)
-  section("Currency by Character", curCharRows)
+  -- Per-character currency split by type — the panel's "Currency by Character × Type" companion.
+  charMatrix("Currency by Character x Type", stats.currencyCharMatrix)
   local curDayKeys = {}
   for day in pairs(stats.currencyByDay or {}) do curDayKeys[#curDayKeys + 1] = day end
   table.sort(curDayKeys)
   for _, day in ipairs(curDayKeys) do row("Currency by Day", day, stats.currencyByDay[day]) end
-  local ctot = stats.currencyTotals or {}
-  row("Summary", "Distinct currencies", ctot.distinct or 0)
-  if ctot.biggestHaul then
-    row("Summary", "Biggest haul", ctot.biggestHaul.name .. " +" .. ctot.biggestHaul.quantity)
-  end
 
   return table.concat(lines, "\r\n") .. "\r\n"
 end

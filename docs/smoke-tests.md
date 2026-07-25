@@ -299,15 +299,18 @@ exports depends on which tab is showing.
   bonus IDs). Currency rows carry `currencyID` (and leave `itemID` blank) alongside the same columns as
   item rows. `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence` are **not** exported.
 - **Insights export** — the CSV instead has the analytics header `Section,Label,Count,Value` and
-  mirrors the Insights view: a **Summary** block (records, distinct items, characters, value,
-  active days, epic+, best iLvl, richest, date range, busiest day, plus **distinct currencies** and
-  **biggest haul** when the range has currency) then **By Source / Quality / Item
-  Type / Bound Type / Character / Weekday / Hour / Keystone**, **Attribution Confidence**, **Top Zones**,
-  **Top Items by Count / Value**, **By Day**, and — when the range has currency loot — **Currency
-  Collected** (qty per currency), **Currency by Type x Source** (one row per currency × source it was
-  received from), **Currency by Source** (source → total qty across every currency — an export-only
-  section; the dashboard no longer plots this chart), **Currency by Character**, and **Currency by Day**. Values render
-  `Ng Ns Nc`.
+  mirrors the Insights panel **exactly**: a **Summary** block (records, distinct items, characters,
+  value, active days, epic+, best iLvl, richest, date range, busiest day — the KPI cards), then
+  **By Source**, **By Character x Source**, **By Quality**, **By Character x Quality**, **By Item Type**,
+  **By Character x Item Type**, **By Bound Type**, **By Character x Bound Type**, **By Character**,
+  **By Weekday**, **By Hour**, **Top Zones**, **Top Items by Count / Value**, **By Day**, and — when the
+  range has currency loot — **Currency Collected** (qty per currency), **Currency by Type x Source**
+  (one row per currency × source), **Currency by Character x Type**, and **Currency by Day**. Values
+  render `Ng Ns Nc`. The **`… x …`** sections are the per-character companions (`Char / Category` rows;
+  the source variant also carries its value). All loot sections are **items-only** (currency counts
+  only in its own Currency sections), so a character's total tallies across them. Confirm the export
+  has **no** By Keystone, Attribution Confidence, Currency by Source, flat Currency by Character, or
+  currency Summary rows — the dashboard dropped those, so the export does too.
 - **All Data** covers the whole (visible) history; **Current View** honours the **shared filter** — so
   narrowing the filter bar shrinks *both* the History and the Insights export.
 - Text is auto-highlighted; Ctrl+C copies; Esc closes.
