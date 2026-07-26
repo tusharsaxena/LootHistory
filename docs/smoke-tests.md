@@ -1,6 +1,6 @@
 # Smoke tests
 
-Manual end-to-end smoke tests for **Ka0s Loot History** (v1.1.0). Run before claiming a non-trivial
+Manual end-to-end smoke tests for **Ka0s Loot History** (v1.2.0). Run before claiming a non-trivial
 change works, before tagging a release, and after refreshing `libs/` or bumping `## Interface:`. The
 headless harness (`lua tests/run.lua` + `luacheck .`, see [testing.md](testing.md)) covers the pure
 logic; everything below can only be verified **in-game** on the live client — **Retail (Midnight
@@ -281,9 +281,6 @@ exports depends on which tab is showing.
 **Steps (Insights tab).**
 - Switch to the **Insights** tab, click **Export**. The modal header reads **Export Insights**.
 - Export **All Data** and **Current View** (with a filter applied) to CSV in turn.
-- With a history that includes currency loot (`/lh test`, §8, covers this), click **Export to AI** in
-  either modal; copy the prompt out and run it through the guideline's assembler against the attached
-  export.
 
 **Pass.**
 - **History export** — the CSV copy window opens with the loot-row header
@@ -314,13 +311,6 @@ exports depends on which tab is showing.
 - **All Data** covers the whole (visible) history; **Current View** honours the **shared filter** — so
   narrowing the filter bar shrinks *both* the History and the Insights export.
 - Text is auto-highlighted; Ctrl+C copies; Esc closes.
-- **Export to AI** bundles both the History and Insights CSVs (for the selected Data Set) into a prompt
-  that points at `docs/ai-export-guideline.md`; the History CSV it carries includes a `currencyID`
-  column, so currency rows ride the same export as item rows end-to-end. Run the guideline's assembler
-  (`python3 tools/build_report.py …`) against an export that includes currency loot: it must **PASS**,
-  and the resulting report must show a **Currency** section (fed by the Insights currency rows above)
-  plus currency rows mixed into its History table (fed by the `currencyID` column). See
-  `tools/README.md` / `docs/ai-export-guideline.md` for the assembler invocation.
 - Both the modal and the copy window open **centered on the History window** (not the screen).
 
 ### 7. Insights tab

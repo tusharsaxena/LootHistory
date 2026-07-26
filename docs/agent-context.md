@@ -12,7 +12,7 @@ bonus roll, roll, quest, trade, mail, AH, vendor, disenchant/milling/prospecting
 with a **confidence**
 (`CERTAIN`/`INFERRED`), stores it **account-wide**, and presents it in a standalone browser window: a
 virtualized History table plus an Insights analytics view. Slash: `/lh`, `/loothistory`. English only.
-Ace3 throughout. Ka0s WoW Addon Standard. Current version **1.1.0**.
+Ace3 throughout. Ka0s WoW Addon Standard. Current version **1.2.0**.
 
 > Internal-only terms **Collector** (capture) and **Browser** (view) are used in code/docs. User-facing
 > copy says "Loot History", "History", "Insights".

@@ -78,8 +78,6 @@ end
 -- capture-config order) exposing every price the addon actually captured, independent of which one
 -- Pick chose. `wowheadLink` (from the item's bonus IDs) is last.
 -- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
--- Export-to-CSV (E:CSV) emits every column; the Export-to-AI prompt (E:AICSV) drops the raw
--- auc_ columns to keep the prompt small — the report engine never consumes those snapshots.
 local COLUMNS = {
   { "ts",           function(r) return r.ts end },
   { "date",         function(r) return NS.Util.FormatDate(r.ts) end },
@@ -117,19 +115,6 @@ COLUMNS[#COLUMNS + 1] = { "wowheadLink", function(r) return E:WowheadLink(r) end
 local HEADER = {}
 for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 
--- AI-export column set: the full COLUMNS minus the raw per-provider `auc_<provider>_<key>`
--- columns (the computed auctionPrice/auctionPriceRaw/value/valueRaw/auctionSource are kept).
--- The AI report never consumes the raw provider snapshots, so dropping them keeps the
--- Export-to-AI prompt small; Export-to-CSV still emits the complete dump via COLUMNS.
--- The AI path now carries currency rows (currencyID included); see ai-export-guideline.md.
-local AI_COLUMNS, AI_HEADER = {}, {}
-for _, c in ipairs(COLUMNS) do
-  if not c[1]:find("^auc_") then
-    AI_COLUMNS[#AI_COLUMNS + 1] = c
-    AI_HEADER[#AI_HEADER + 1] = c[1]
-  end
-end
-
 -- Serialize records against a column set to a CSV string (header + one row each, CRLF-terminated).
 local function serializeCSV(records, columns, header)
   local lines = { table.concat(header, ",") }
@@ -141,15 +126,9 @@ local function serializeCSV(records, columns, header)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 
--- Full CSV dump (Export-to-CSV): every column, including the raw per-provider auc_ columns.
+-- Full CSV dump: every column, including the raw per-provider auc_ columns.
 function E:CSV(records)
   return serializeCSV(records, COLUMNS, HEADER)
-end
-
--- Reduced CSV for the AI prompt: drops the raw per-provider auc_ columns (see AI_COLUMNS).
--- Carries currency rows (currencyID populated) alongside item rows.
-function E:AICSV(records)
-  return serializeCSV(records, AI_COLUMNS, AI_HEADER)
 end
 
 -- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
@@ -309,66 +288,11 @@ function E:InsightsCSV(stats)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 
--- ── AI report prompt (issue #12) ─────────────────────────────────────────────────
--- Assembles the "Export to AI" prompt: short framing + a link to the in-repo guideline (the "pure
--- pointer" — the guideline points the AI at a ready-made HTML template to fill in and defines the
--- data contract, so the prompt stays small) + the History and Insights CSVs for the selected dataset.
--- Pure/unit-tested; the modal below feeds it the two serialized CSVs.
-local GUIDELINE_URL =
-  "https://raw.githubusercontent.com/tusharsaxena/LootHistory/refs/heads/master/docs/ai-export-guideline.md"
-local AI_LARGE_ROWS = 4000
-
-function E:AIPrompt(historyCSV, insightsCSV, opts)
-  opts = opts or {}
-  local lines = {
-    "You are given a World of Warcraft loot-history export from the \"Ka0s Loot History\" addon.",
-    "Build ONE single, self-contained HTML file that presents this data as a beautiful, interactive report.",
-    "",
-    "Follow this guideline EXACTLY — fetch and read it first. It points you at a ready-made HTML",
-    "template to fill in (the styling, charts and interactions are fixed) and defines the data contract:",
-    GUIDELINE_URL,
-    "",
-    "If you can run code (Claude Code, Claude Desktop with code, ChatGPT code interpreter): the guideline",
-    "has you build with the shipped assembler tools/build_report.py — run that in ONE command; do not",
-    "hand-transcribe the data or write your own build/splice scripts. Hand this export to the AI as a FILE",
-    "(attach/upload it, or paste in Claude Code which auto-files a large paste) and point the tool at it —",
-    "do not retype the data. The guideline you fetch describes that assembler; if the copy you receive",
-    "does not mention build_report.py you fetched a stale CDN cache — bypass the cache for a fresh copy",
-    "(curl/wget it in your code sandbox, or add a ?v= cache-buster; a plain re-fetch through the same",
-    "tool just returns the stale copy). Either way THIS prompt is authoritative: the assembler builds,",
-    "validates, AND downloads the template itself in one command, so never web_fetch the template.",
-    "",
-    "Rules:",
-    "- Output only the HTML file, nothing else. It must be fully self-contained: all CSS and JS inline,",
-    "  no external requests, no CDNs, no web fonts (use system fonts only).",
-    "- Leave the <title> and hero heading alone: the engine derives the title, realm and date range",
-    "  at runtime from the data. Do not hand-edit them.",
-    "- Two datasets follow as CSV: the full loot HISTORY (one row per drop) and a pre-computed INSIGHTS",
-    "  summary. The guideline explains how to turn HISTORY into the template's data array, and how to",
-    "  use INSIGHTS when you write the analysis section.",
-    "- Each HISTORY row carries THREE prices: vendor (v), auction (a, may be blank), and value",
-    "  (val = auction-if-present-else-vendor). Use VALUE for every worth/gold figure and ranking;",
-    "  mention vendor or auction only when specifically contrasting them. The engine aggregates Σ(val×qty).",
-  }
-  if (opts.rows or 0) > AI_LARGE_ROWS then
-    lines[#lines + 1] =
-      "- NOTE: this is a large export. If your AI tool truncates it, re-export using the modal's"
-    lines[#lines + 1] =
-      "  \"Current View\" data set to narrow the loot before exporting."
-  end
-  lines[#lines + 1] = ""
-  lines[#lines + 1] = "=== HISTORY (CSV) ==="
-  lines[#lines + 1] = historyCSV or ""
-  lines[#lines + 1] = "=== INSIGHTS (CSV) ==="
-  lines[#lines + 1] = insightsCSV or ""
-  return table.concat(lines, "\n")
-end
-
 -- ── Export modal ────────────────────────────────────────────────────────────────
--- A small skinned window: a Data Set selector (All Data / Current View) plus Export-to-CSV and
--- Export-to-AI (placeholder) buttons. Reuses the Browser's flat skin + close glyph. Both output
--- windows write into Export's OWN copy window (deliberately not shared with the debug copy window,
--- so its layout can evolve independently).
+-- A small skinned window: a Data Set selector (All Data / Current View) plus an Export-to-CSV
+-- button. Reuses the Browser's flat skin + close glyph. The output window writes into Export's OWN
+-- copy window (deliberately not shared with the debug copy window, so its layout can evolve
+-- independently).
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local frame, copyFrame
 -- Per-open config (issue #15): { title = "Export …", providers = { allData, currentView },
@@ -453,66 +377,8 @@ local function selectedData()
   return (fn and fn()) or {}
 end
 
--- The History records + Insights stats for the current Data Set, for the AI export (which bundles
--- BOTH datasets regardless of which tab opened the modal). Empty fallbacks if a provider is missing.
-local function selectedAIData()
-  local h = config.ai and config.ai.history and config.ai.history[dataset]
-  local i = config.ai and config.ai.insights and config.ai.insights[dataset]
-  return (h and h()) or {}, (i and i()) or {}
-end
-
--- The Export-to-AI help popup: a small skinned window explaining how to use the pasted prompt.
-local helpFrame
-local function EnsureHelpFrame()
-  if helpFrame then return helpFrame end
-  helpFrame = CreateFrame("Frame", "LootHistoryExportHelpWindow", UIParent, "BackdropTemplate")
-  helpFrame:SetSize(440, 300)
-  helpFrame:SetPoint("CENTER")
-  helpFrame:SetFrameStrata("FULLSCREEN")
-  helpFrame:EnableMouse(true); helpFrame:SetMovable(true); helpFrame:SetClampedToScreen(true)
-
-  local tbar = CreateFrame("Frame", nil, helpFrame)
-  tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(26)
-  tbar:EnableMouse(true); tbar:RegisterForDrag("LeftButton")
-  tbar:SetScript("OnDragStart", function() helpFrame:StartMoving() end)
-  tbar:SetScript("OnDragStop", function() helpFrame:StopMovingOrSizing() end)
-  local t = tbar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  t:SetPoint("CENTER"); t:SetText("Export to AI \226\128\148 how it works")
-  if NS.Browser and NS.Browser.MakeCloseButton then
-    NS.Browser:MakeCloseButton(tbar, function() helpFrame:Hide() end)
-      :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
-  end
-
-  local body = helpFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  body:SetPoint("TOPLEFT", 16, -34); body:SetPoint("BOTTOMRIGHT", -16, 14)
-  body:SetJustifyH("LEFT"); body:SetJustifyV("TOP"); body:SetSpacing(3)
-  body:SetText(table.concat({
-    "|cffe8c56bExport to AI|r turns your loot into a beautiful, shareable web page.",
-    "",
-    "1. Click |cffe8c56bExport to AI|r, then Ctrl+C to copy the whole prompt.",
-    "   |cffe8c56bBest: save it as a .txt and attach that file|r to the AI chat (or paste it in Claude",
-    "   Code, which auto-files a big paste). That avoids truncation and lets a code-capable AI",
-    "   read the data from disk with its assembler tool instead of slowly retyping it.",
-    "2. Paste it into an AI chat that can browse the web \226\128\148 Claude, ChatGPT, or Gemini.",
-    "   (Web access must be ON: the prompt links to a design guide the AI reads.)",
-    "3. The AI replies with a single self-contained HTML file \226\128\148 your report.",
-    "   In Claude you can publish it as an Artifact to get a shareable link.",
-    "",
-    "It always bundles |cffe8c56bboth|r your History and Insights, and honors the",
-    "Data Set choice (All Data vs Current View).",
-  }, "\n"))
-
-  if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(helpFrame) end
-  helpFrame:Hide()
-  if type(UISpecialFrames) == "table" then
-    table.insert(UISpecialFrames, "LootHistoryExportHelpWindow")
-  end
-  return helpFrame
-end
-
--- Flat-skin button matching the Browser bar buttons. enabled=false greys it, disables the click,
--- and shows a "Coming soon" tooltip (kept for any future disabled action).
-local function makeButton(parent, text, width, onClick, enabled)
+-- Flat-skin button matching the Browser bar buttons.
+local function makeButton(parent, text, width, onClick)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(width, 24)
   b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
@@ -521,18 +387,9 @@ local function makeButton(parent, text, width, onClick, enabled)
   b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   fs:SetPoint("CENTER"); fs:SetText(text)
-  if enabled == false then
-    fs:SetTextColor(0.5, 0.5, 0.5)
-    b:SetScript("OnEnter", function(self2)
-      GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
-      GameTooltip:AddLine("Coming soon", 0.9, 0.9, 0.9); GameTooltip:Show()
-    end)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  else
-    b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.82, 0) end)
-    b:SetScript("OnLeave", function() fs:SetTextColor(1, 1, 1) end)
-    b:SetScript("OnClick", onClick)
-  end
+  b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.82, 0) end)
+  b:SetScript("OnLeave", function() fs:SetTextColor(1, 1, 1) end)
+  b:SetScript("OnClick", onClick)
   return b
 end
 
@@ -570,7 +427,7 @@ local function EnsureFrame()
       :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
   end
 
-  -- Data Set dropdown, spanning the full button-row width (CSV left edge → AI right edge).
+  -- Data Set dropdown, spanning the full button-row width.
   local ds = NS.Browser:MakeDropdown(frame, 148)
   ds:SetHeight(24)
   ds:ClearAllPoints()
@@ -583,22 +440,13 @@ local function EnsureFrame()
     ds:SetValue(v, "Data set: " .. datasetLabel(v))
   end
 
+  -- Export-to-CSV button, spanning the full row (aligned under the Data Set dropdown).
   local csvBtn = makeButton(frame, "Export to CSV", 150, function()
     local serialize = config.csv or function(d) return E:CSV(d) end
     ShowCopy(serialize(selectedData()))
-  end, true)
+  end)
   csvBtn:SetPoint("TOPLEFT", 16, -80)
-
-  -- Export to AI bundles BOTH datasets (history + insights) for the selected Data Set.
-  local aiBtn = makeButton(frame, "Export to AI", 150, function()
-    local records, stats = selectedAIData()
-    ShowCopy(E:AIPrompt(E:AICSV(records), E:InsightsCSV(stats), { rows = #records }))
-  end, true)
-  aiBtn:SetPoint("TOPLEFT", 178, -80)
-
-  -- Small "?" help button at the far right of the AI button row.
-  local helpBtn = makeButton(frame, "?", 22, function() EnsureHelpFrame():Show() end, true)
-  helpBtn:SetPoint("TOPRIGHT", -16, -80)
+  csvBtn:SetPoint("TOPRIGHT", -16, -80)
 
   if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
   frame:Hide()

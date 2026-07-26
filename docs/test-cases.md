@@ -251,17 +251,13 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
 - BrowserTable: quality column is blank for a currency row
 
-### test_export.lua (31)
+### test_export.lua (22)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
 - Export: WowheadLink falls back to itemID, then empty
 - Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last
-- Export: AICSV header keeps computed price cols but drops the raw auc_ columns
-- Export: AICSV header includes currencyID (currency now supported)
-- Export: AICSV keeps currency rows
-- Export: AICSV still emits the picked auction price/source, just not the raw sub-columns
 - Export: CSV auction/value columns — auction present and vendor fallback
 - Export: CSV emits picked price/tag + matching raw sub-columns for a nested auctionPrice map
 - Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence
@@ -276,13 +272,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: InsightsCSV quotes a label containing a comma
 - Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)
 - Export: CSV emits a currency row with currencyID and blank item cells
-- Export: AICSV includes the currencyID column
-- Export: AICSV keeps currency rows alongside item rows
 - Export: InsightsCSV includes currency sections
 - Export: InsightsCSV includes the per-character × category companions
-- Export: AIPrompt embeds guideline URL, both CSV blocks, and framing
-- Export: AIPrompt large-dataset note gated on opts.rows
-- Export: AIPrompt explains three price types and when to use value
 - Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
 
 ### test_debuglog.lua (16)
@@ -369,9 +360,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_database.lua | 45 |
 | test_stats.lua | 18 |
 | test_browsertable.lua | 19 |
-| test_export.lua | 31 |
+| test_export.lua | 22 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 8 |
 | test_analytics.lua | 12 |
-| **Total** | **308** |
+| **Total** | **299** |

@@ -53,7 +53,7 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `c
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, an `AuctionPrice:GatherAll` call to stamp the record's `auctionPrice` map, `BuildRecord`, `Database:Add`. Also the **`CHAT_MSG_CURRENCY` handler** (`OnChatMsgCurrency`): a slimmer gate (`recordCurrency` master toggle → per-source mute → currency blacklist; no quality/quest/itemID checks) that writes a `Type=Currency` row. Caches hot-path upvalues (incl. the id lists, `recordCurrency`, `currencyBlacklist`). |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`), LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
-| `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv, ai }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. **Export to AI** (`AIPrompt`) bundles BOTH CSVs for the selected Data Set (the history CSV via `AICSV`, which drops the raw per-provider `auc_` columns to keep the prompt small) into a prompt that points at `docs/ai-export-guideline.md` (pure pointer — no network from the addon), which in turn instructs the AI to fetch and fill the ready-made `docs/ai-export-template.html` (a data-driven report whose engine renders KPIs, charts and the history browser from the loot rows); plus a "?" help popup. Called directly by the Browser; no bus message. |
+| `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. Called directly by the Browser; no bus message. |
 | `modules/Analytics.lua` | Insights tab, split by two dividers into a **LOOT** block (items-only stat/highlight cards + breakdowns: source, value, quality, item type, bound type, per-character companions, hour/weekday + per-day strips, top zones/items/value) and a **CURRENCY** block (Currency Collected, Currency by Type × Source, Currency by Character × Type, currency-per-day) shown only when the range has currency events — all from one `Database:Stats` pass, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
@@ -103,7 +103,7 @@ back fast table ops.
   holds *collected* keys — collection and priority-participation are one flag (`settings.auction.capture`)
   — so `Pick` needs no separate disabled-set (see [saved-variables.md](saved-variables.md)).
   There is **no
-  stored `value` field** either: every "worth" figure (Insights, the browser Value column, CSV/AI
+  stored `value` field** either: every "worth" figure (Insights, the browser Value column, CSV
   export) is derived on read via `Util.RecordValue(record)` — the **higher of** the picked auction
   price and `vendorPrice`, `nil` only when both are absent — never persisted. See
   [data-model.md](data-model.md).
@@ -317,16 +317,5 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
   [data-model.md](data-model.md).
-- **AI export depends on the AI tool's web access** — the prompt is a *pure pointer* to
-  `docs/ai-export-guideline.md` (raw on `master`), which itself points at `docs/ai-export-template.html`;
-  a paste target with browsing disabled can fetch neither, so it produces a generic report instead of
-  the themed one. The help popup states web access is required.
-- **Optional execution-log companion artifact.** If the Export-to-AI prompt is edited to include
-  `execution_log=true` (or `execution log=true`, case-insensitive, anywhere in the prompt), the
-  guideline instructs the AI to *also* fetch `docs/ai-export-execution-log-template.html` and fill it
-  in as a second, AI-authored artifact narrating its own build steps/findings — a companion to the
-  report, not a replacement or a change to it. It is not produced by `build_report.py`; the addon
-  itself never generates or reads it. See [ai-export-guideline.md](ai-export-guideline.md)
-  "Optional: execution-log artifact".
 
 See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.

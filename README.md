@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 [![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
-![Tests](https://img.shields.io/badge/Tests-308%2F308_passing-green)
+![Tests](https://img.shields.io/badge/Tests-299%2F299_passing-green)
 
 ![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -29,13 +29,12 @@ Every item you pick up is filed under a source:
 
 Most items are filed with certainty, straight from what the game reported. When there's no clear signal, the item is still recorded — filed under **Other** and marked as a best guess rather than dropped. Each row shows whether its source is **Certain** or **Inferred** so you can tell the two apart.
 
-## What's new in 1.1.0
+## What's new in 1.2.0
 
-*   **Export to AI** — a new **Export to AI** button turns your loot into a polished, WoW-themed HTML report, complete with an interactive browser, an Insights dashboard, and a written "what the data says" analysis. It works with **Claude** (Desktop, Code, and Web) today; ChatGPT, Gemini, and other assistants need different handling and are planned for a later release.
-*   **Auction-house values** — with Auctionator, TSM, or OribosExchange installed, every drop is now valued at the **higher of its vendor and auction price** and shown in a new **AH Price** column. A dedicated **AH Price** settings page lets you pick and rank which price sources count.
-*   **Blacklist & Whitelist** — a new **Filters** page lets you permanently skip items you never want tracked, or force-record items that would normally be ignored — added by item id or shift-clicked link.
-*   **Shared, richer filtering** — the filter bar is now **shared** between the History and Insights tabs, so one narrowing applies to both. New **Bound** and **Sub-Type** filters (and a Sub-Type column), plus **Group by Type**, give you finer control.
-*   **Insights by real value** — the Insights breakdowns now rank and total your loot by **market value** (auction-or-vendor), not just its vendor sell price.
+*   **Currency capture** — Valorstones, crests, and other currencies are now recorded as their own history rows, attributed to the same sources as items (with a **Record currency** master toggle). Each carries its quality tier — the **Name** and **Quality** cells colour like items do — and hovering a row shows the in-game currency tooltip. A dedicated **Currency** section in Insights breaks them down by type, source, character, and day, and currencies can be **blacklisted**.
+*   **Insights dashboard overhaul** — the analytics view is reorganized into **Loot** and **Currency** sections, adds per-character companion charts beside each breakdown, and gets a more distinct source palette with chart legends.
+*   **More loot sources** — **Bonus Roll**, **Craft**, **Roll**, and **Refund** are now attributed and can be muted individually alongside the existing sources.
+*   **Export to AI removed** — the AI-report export has been retired. **Export to CSV** stays, for both the History rows and the Insights summary.
 
 ## Screenshots
 
@@ -61,31 +60,7 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view. The filter bar is **shared** between both tabs, so the same narrowing applies to the table and the charts at once — you always know which slice of your loot you're looking at.
 
-The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Don't want an item tracked going forward? Right-click its row and choose **Blacklist item** — the clicked row stays put (nothing is deleted or hidden), but future loots of that item are skipped. Delete a row from the table if you want it gone.
-
-### Export to AI
-
-The Export window also has an **Export to AI** button. It copies a ready-made prompt that you paste into **Claude** — Desktop, Code, or Web — to get back a single, self-contained HTML page: a gorgeous, WoW-themed report of your loot with an interactive history browser, an Insights dashboard, and a LLM-written analysis. Copy the prompt (Ctrl+C), paste it into Claude, and it replies with the HTML file; you can then publish it as an Artifact to get a shareable link. 
-
-Unlike Export to CSV, Export to AI always bundles **both** your History and Insights (one report shows everything), and it honours the **Data Set** choice — all data, or just your current filtered view. The **?** beside the button explains the steps in-game. Claude needs **web access enabled**: the prompt links to a design guide it reads to style the report.
-
-Example report: [link](https://claude.ai/public/artifacts/a6d520a4-e7b3-423e-8d7c-0035c52331a5)
-
-> Right now Export to AI is built for _**Claude**_ only — ChatGPT, Gemini, and other LLMs need different handling and are planned for a later release.
-
-#### Screenshots
-
-**_Insights_**
-
-![Insights](https://media.forgecdn.net/attachments/1804/905/loothistory-screenshot-07-png.png)
-
-**_History Browser_**
-
-![History Browser](https://media.forgecdn.net/attachments/1804/906/loothistory-screenshot-08-png.png)
-
-**_LLM Insights_**
-
-![LLM Insights](https://media.forgecdn.net/attachments/1804/907/loothistory-screenshot-09-png.png)
+The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Both honour the **Data Set** choice — all data, or just your current filtered view. Don't want an item tracked going forward? Right-click its row and choose **Blacklist item** — the clicked row stays put (nothing is deleted or hidden), but future loots of that item are skipped. Delete a row from the table if you want it gone.
 
 ### Slash commands
 
@@ -160,7 +135,7 @@ If a signal is there, the item is filed under that source and marked **Certain**
 | Will raising the quality threshold hide items I already looted? | No. The threshold only affects new items. What you've already recorded stays until it's cleared by the retention setting or deleted by hand. |
 | Do I need another addon to see auction values? | Only if you want them. Prices come from **Auctionator**, **TSM**, or **OribosExchange** if you have one installed; with none, every value falls back to the vendor sell price. The value shown is always the higher of the vendor and auction price. |
 | How do I stop tracking one specific item — or force-track one below my threshold? | Use **Settings ▸ Filters**. Blacklist an item's id to skip it from now on; whitelist one to always record it even when it's below your quality threshold, from a muted source, or a quest item. Both are point-in-time: they change future loots only and never touch rows you've already recorded. |
-| What does "Export to AI" do — does it send my loot anywhere? | No. It builds a text report (your history plus the Insights summary and instructions) and opens a box for you to copy by hand. Nothing leaves the game; you paste it into an AI chat yourself. **Export to CSV** works the same way. |
+| Does "Export to CSV" send my loot anywhere? | No. It builds the CSV text and opens a box for you to copy by hand. Nothing leaves the game; whatever you do with the copied text is up to you. |
 | Do my filters and sorting stick between sessions? | Only if you save them. The filter bar's **Save** button stores the current group, sort, and filters as your account-wide default view; **Clear** returns to that view, and **Reset** drops the saved view back to stock. |
 | How do I wipe everything and start clean? | `/lh purge` deletes all history (with a confirmation). To reset your settings but keep the history, use `/lh resetall`. |
 | What is `/lh test` for? | It loads a sample dataset into the window and Insights so you can see how they look without real loot. It's temporary, never saved, and clears when you run it again. |
@@ -174,7 +149,7 @@ If a signal is there, the item is filed under that source and marked **Certain**
 | The minimap button is gone. | It's hidden. Turn **Master Controls → Hide minimap button** off, or open the window with `/lh toggle`. |
 | An item landed under the wrong source (or "Other"). | When nothing tells the addon where an item came from, it falls back to **Other** / **Inferred**. Open the debug console with `/lh debug` to see how an item was filed. |
 | The AH Price / value column is blank, or just matches the vendor price. | You need **Auctionator**, **TSM**, or **OribosExchange** installed, **AH Price → Enable AH pricing** on, and at least one price source ticked. Even then a price only appears once that addon actually has one for the item (for example after its next scan); until then the value falls back to the vendor sell price. |
-| I clicked Export to CSV / Export to AI but nothing was copied. | The addon can't write to your system clipboard. A box opens with the text already selected — press **Ctrl+C** to copy it, then **Esc** to close. |
+| I clicked Export to CSV but nothing was copied. | The addon can't write to your system clipboard. A box opens with the text already selected — press **Ctrl+C** to copy it, then **Esc** to close. |
 | An item I don't want keeps being recorded. | Blacklist its id under **Settings ▸ Filters** (or shift-click its link into the box). Future loots are skipped; rows you've already recorded stay until you delete them. |
 | Rows are missing from the table. | A column filter or the search box is probably narrowing it. Press **Clear** on the filter bar to return to your saved view. Filters and sorting only persist between sessions if you pressed **Save**. |
 | `/lh debug on` doesn't open the debug window. | `on` / `off` control debug **logging** (session-only, off after every reload), not the window. Show the window with `/lh debug` (no argument) or the **Master Controls → Debug console** toggle; logging can run with the window closed. |
@@ -190,6 +165,7 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.2.0 | 2026-07-26 | **Currency capture** — currencies recorded as their own rows with a dedicated Insights section, in-game tooltips, quality colours, and blacklisting<br>**Insights dashboard overhaul** — Loot/Currency sections, per-character companion charts, refreshed source palette and legends<br>**More loot sources** — Bonus Roll, Craft, Roll, Refund<br>**Removed Export to AI** — Export to CSV remains for History and Insights |
 | 1.1.0 | 2026-07-20 | **Export to AI** report (Claude — Desktop, Code, and Web); **auction-house values** via Auctionator / TSM / OribosExchange, shown in a new AH Price column with its own settings page; **Blacklist / Whitelist** item filters; a **shared** History/Insights filter bar with new **Bound** and **Sub-Type** filters and **Group by Type**; Insights valued at market price. Plus settings-panel polish — the scrollbar no longer shifts the layout between pages, and Reset All / Purge are no longer clipped. |
 | 1.0.2 | 2026-07-12 | **Exclude quest items** — a new opt-out setting (on by default) that skips the temporary items you pick up during quests. Uncheck it to record them too. |
 | 1.0.1 | 2026-07-12 | Maintenance republish — a packaging-only change to refresh the CurseForge listing. No functional changes. |

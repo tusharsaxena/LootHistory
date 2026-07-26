@@ -41,38 +41,6 @@ test("Export: CSV header order — ts,date,time first; computed + per-key auctio
     "wowheadLink")
 end)
 
-test("Export: AICSV header keeps computed price cols but drops the raw auc_ columns", function()
-  local header = NS.Export:AICSV({}):match("^(.-)\r\n")
-  assertEqual(header,
-    "ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound," ..
-    "vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource," ..
-    "itemType,itemSubType,quantity,source,zone," ..
-    "wowheadLink")
-  assertTrue(header:find("auc_", 1, true) == nil, "no raw auc_ columns in the AI CSV")
-end)
-
-test("Export: AICSV header includes currencyID (currency now supported)", function()
-  local header = NS.Export:AICSV({}):match("^(.-)\r\n")
-  assertTrue(header:find("currencyID", 1, true) ~= nil)
-end)
-
-test("Export: AICSV keeps currency rows", function()
-  local csv = NS.Export:AICSV({
-    { ts = 1, char = "A-R", currencyID = 42, itemName = "Badge", quality = 3,
-      quantity = 7, source = "VENDOR", itemType = "Currency" },
-  })
-  assertTrue(csv:find("Badge", 1, true) ~= nil)   -- currency row is present, not dropped
-end)
-
-test("Export: AICSV still emits the picked auction price/source, just not the raw sub-columns", function()
-  local csv = NS.Export:AICSV({
-    { vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } }, quantity = 1 },
-  })
-  assertTrue(csv:find("0g 5s 0c", 1, true) ~= nil, "picked auction price formatted")
-  assertTrue(csv:find("tsm:dbmarket", 1, true) ~= nil, "auctionSource present")
-  assertTrue(csv:find(",500,", 1, true) ~= nil, "auctionPriceRaw present")
-end)
-
 test("Export: CSV auction/value columns — auction present and vendor fallback", function()
   local withAuc = NS.Export:CSV({
     { vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } }, quantity = 1 },
@@ -220,25 +188,6 @@ test("Export: CSV emits a currency row with currencyID and blank item cells", fu
   assertTrue(csv:find(",Poor,", 1, true) == nil, "no misleading Poor quality for currency")
 end)
 
-test("Export: AICSV includes the currencyID column", function()
-  local csv = NS.Export:AICSV({ { ts = 1, itemID = 1, itemName = "x", quantity = 1, source = "KILL" } })
-  local header = csv:match("^[^\r\n]+")
-  assertTrue(header:find("currencyID", 1, true) ~= nil, "AI CSV now carries currencyID")
-end)
-
-test("Export: AICSV keeps currency rows alongside item rows", function()
-  local rows = {
-    { ts = 1, itemID = 1, itemName = "Red Sword", quantity = 1, source = "KILL" },
-    { ts = 2, currencyID = 3008, itemName = "Valorstones", itemType = "Currency",
-      quantity = 40, source = "MPLUS" },
-  }
-  local csv = NS.Export:AICSV(rows)
-  local header = csv:match("^[^\r\n]+")
-  assertTrue(header:find("currencyID", 1, true) ~= nil, "currencyID column present")
-  assertTrue(csv:find("Red Sword", 1, true) ~= nil, "item row present")
-  assertTrue(csv:find("Valorstones", 1, true) ~= nil, "currency row now included")
-end)
-
 test("Export: InsightsCSV includes currency sections", function()
   local stats = {
     totals = { records = 0 },
@@ -270,43 +219,6 @@ test("Export: InsightsCSV includes the per-character × category companions", fu
     "char × bound present")
   assertTrue(csv:find("By Character x Item Type,B-Realm /", 1, true) == nil,
     "no itemType matrix row when records carry no itemType")
-end)
-
-test("Export: AIPrompt embeds guideline URL, both CSV blocks, and framing", function()
-  local p = NS.Export:AIPrompt("H1,H2\r\nx,y\r\n", "Section,Label\r\nSummary,Records\r\n", {})
-  assertTrue(p:find("ai-export-guideline.md", 1, true) ~= nil, "references the guideline")
-  assertTrue(p:find("=== HISTORY (CSV) ===", 1, true) ~= nil, "history marker")
-  assertTrue(p:find("=== INSIGHTS (CSV) ===", 1, true) ~= nil, "insights marker")
-  assertTrue(p:find("H1,H2", 1, true) ~= nil, "history csv embedded")
-  assertTrue(p:find("Summary,Records", 1, true) ~= nil, "insights csv embedded")
-  assertTrue(p:find("self-contained", 1, true) ~= nil, "self-contained rule stated")
-  assertTrue(p:find("<date range>", 1, true) == nil, "no hand-title instruction (F2)")
-  assertTrue(p:find("engine derives", 1, true) ~= nil, "states the engine derives the title (F2)")
-  assertTrue(p:find("build_report.py", 1, true) ~= nil,
-    "points code-capable agents at the shipped assembler")
-  assertTrue(p:find("stale", 1, true) ~= nil,
-    "warns that a guideline copy without the tool is a stale cache")
-  assertTrue(p:find("web_fetch", 1, true) ~= nil,
-    "forbids web_fetch of the template in the prompt itself")
-  assertTrue(p:find("cache%-buster") ~= nil or p:find("curl", 1, true) ~= nil,
-    "stale-cache recovery names a cache-bypassing fetch, not a plain re-fetch")
-end)
-
-test("Export: AIPrompt large-dataset note gated on opts.rows", function()
-  local small = NS.Export:AIPrompt("h\r\n", "i\r\n", { rows = 10 })
-  assertTrue(small:find("Current View", 1, true) == nil, "no note for small exports")
-  local big = NS.Export:AIPrompt("h\r\n", "i\r\n", { rows = 99999 })
-  assertTrue(big:find("Current View", 1, true) ~= nil, "note appears for large exports")
-end)
-
-test("Export: AIPrompt explains three price types and when to use value", function()
-  local p = NS.Export:AIPrompt("h\r\n", "i\r\n", {})
-  assertTrue(p:find("THREE prices", 1, true) ~= nil, "mentions THREE prices")
-  assertTrue(p:find("vendor", 1, true) ~= nil, "explains vendor (v)")
-  assertTrue(p:find("auction", 1, true) ~= nil, "explains auction (a)")
-  assertTrue(p:find("Use VALUE", 1, true) ~= nil, "directs to use VALUE for worth figures")
-  assertTrue(p:find("Σ(val", 1, true) ~= nil or p:find("aggregates", 1, true) ~= nil,
-    "explains the aggregation method")
 end)
 
 test("Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)", function()

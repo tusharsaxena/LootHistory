@@ -972,8 +972,8 @@ function B:BuildFilterBar(bar)
   search:SetPoint("TOPRIGHT", dd.char, "TOPRIGHT", 0, -ROW2)
 
   -- Export button (row 2): tab-aware (issue #15). On History it exports loot rows (All Data /
-  -- Current View → CSV); on Insights it exports the analytics summary (issue #15's Insights CSV,
-  -- AI report later). Both respect the shared filter. Anchored immediately right of the Character
+  -- Current View → CSV); on Insights it exports the analytics summary (issue #15's Insights CSV).
+  -- Both respect the shared filter. Anchored immediately right of the Character
   -- dropdown (8px gap) rather than the bar's far-right edge; the Save/Reset/Clear cluster above it
   -- is re-anchored to Export's top-right corner (see `clear` above), so the two rows stay aligned.
   exportBtn:SetPoint("LEFT", dd.char, "RIGHT", 8, 0)
@@ -983,26 +983,12 @@ end
 -- loot rows; Insights exports the analytics summary computed off the SAME shared filter.
 function B:OpenExport()
   -- Title tracks the invoking tab ("Export History" / "Export Insights") and generalizes to any
-  -- future tab name — the tab that opens the modal supplies its own label.
+  -- future tab name — the tab that opens the modal supplies its own label. Export to CSV is
+  -- tab-specific: History exports the loot rows, Insights the analytics summary.
   local title = "Export " .. tostring(lastTab)
-  -- The AI export (issue #12) bundles BOTH datasets for the selected Data Set — identical on every
-  -- tab, since one report shows History and Insights together. Export to CSV stays tab-specific.
-  local ai = {
-    history = {
-      allData     = function() return NS.Database:Export({}) end,
-      currentView = function()
-        return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
-          and NS.BrowserTable:OrderedFilteredRecords()) or {}
-      end,
-    },
-    insights = {
-      allData     = function() return NS.Database:Stats({}) end,
-      currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
-    },
-  }
   if lastTab == "Insights" then
     NS.Export:Open({
-      title = title, ai = ai,
+      title = title,
       providers = {
         allData     = function() return NS.Database:Stats({}) end,
         currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
@@ -1011,7 +997,7 @@ function B:OpenExport()
     })
   else
     NS.Export:Open({
-      title = title, ai = ai,
+      title = title,
       providers = {
         allData     = function() return NS.Database:Export({}) end,
         currentView = function()

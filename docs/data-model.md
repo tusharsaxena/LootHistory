@@ -66,7 +66,7 @@ The denormalized item fields (`itemID`, `itemName`, `quality`, `itemLevel`, `bou
 ### Derived value — `Util.RecordValue`, never stored
 
 There is **no `value` field on the record.** Every "worth" figure — the Insights Value breakdown,
-the browser's Value column, the CSV/AI export — computes it on read via `Util.RecordValue(record)`
+the browser's Value column, the CSV export — computes it on read via `Util.RecordValue(record)`
 (`core/Util.lua`):
 
 ```lua
@@ -138,8 +138,8 @@ KPIs. `Database:Stats` computes these off the same filtered pass as
 the item stats: `byCurrency` (qty per currency name), `currencySourceMatrix` (currency name →
 source → qty), `currencyCharMatrix` (character → currency name → qty — feeds the **Currency by
 Character × Type** stacked chart), `currencyBySource` (source → total qty summed across every
-currency — now read **only** by the Insights/AI-export "Currency by Source" CSV section; its
-in-dashboard chart was removed), `currencyByChar`, `currencyByDay`, and `currencyTotals`
+currency — its in-dashboard chart was removed but the aggregate is still computed),
+`currencyByChar`, `currencyByDay`, and `currencyTotals`
 (`distinct`, `events`, `biggestHaul`).
 
 `Database:Stats` also computes five per-character × category matrices (`char → category → magnitude`)
@@ -216,4 +216,4 @@ vendorPrice · auctionPrice · itemType · itemSubType · quantity · source · 
 zone · mapID · subzone · confidence
 ```
 
-v1 ships this seam but no serializer/UI; the v2 AI export builds on top of it. See [module-map.md](./module-map.md) for where the pieces live.
+The CSV/Insights export (`modules/Export.lua`) serializes on top of this seam. See [module-map.md](./module-map.md) for where the pieces live.
