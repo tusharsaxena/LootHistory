@@ -71,17 +71,42 @@ local function buildHeader(panel, title, opts)
   divider:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PADDING_X, -HEADER_HEIGHT)
   divider:SetVertexColor(titleFS:GetTextColor())   -- track the title's gold
 
-  if opts.defaultsButton and AceGUI then
-    local btn = AceGUI:Create("Button")
-    btn:SetText("Defaults")
-    btn:SetWidth(DEFAULTS_W)
-    btn.frame:SetParent(panel)
-    btn.frame:ClearAllPoints()
-    btn.frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PADDING_X, -HEADER_TOP)
-    btn.frame:Show()
-    panel.defaultsBtn = btn
-  end
+  -- The button itself is built LAZILY (ensureDefaultsButton, below), never here: buildHeader runs
+  -- from P:Register during OnInitialize, which is far too early. See the note on that function.
+  panel.wantsDefaultsButton = opts.defaultsButton and true or false
   return titleFS, divider
+end
+
+-- Build the header's Defaults button, once, on the panel's FIRST OnShow.
+--
+-- It MUST stay an AceGUI Button (options-ui-§5) — but *when* it is created matters as much as
+-- *what* creates it. AceGUI is a SHARED library: UI-skinning addons restyle its widgets by hooking
+-- `RegisterAsWidget`, so a widget created before that hook is installed keeps Blizzard's stock
+-- `UI-Panel-Button-Up` art — the red stone button — for the whole session, while everything created
+-- afterwards comes out skinned.
+--
+-- `P:Register()` runs in OnInitialize (ADDON_LOADED), i.e. during load, so building the button
+-- there is a race against every other addon's load order — one this addon loses the moment a folder
+-- is renamed or a skin is added, from identical code. That is exactly why the page BODY's buttons
+-- (built lazily on first OnShow) looked right while this one could not be relied on.
+--
+-- Deferring creation to first OnShow removes the race: by then every addon has loaded. Do NOT
+-- "simplify" this back to registration time (anti-patterns #42). It is the same lazy rule
+-- options-ui-§1 already applies to the panel body, for a related reason.
+local function ensureDefaultsButton(panel)
+  if panel.defaultsBtn or not panel.wantsDefaultsButton or not AceGUI then return end
+  local btn = AceGUI:Create("Button")
+  if not (btn and btn.frame) then return end
+  btn:SetText("Defaults")
+  btn:SetWidth(DEFAULTS_W)
+  btn.frame:SetParent(panel)
+  btn.frame:ClearAllPoints()
+  btn.frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PADDING_X, -HEADER_TOP)
+  btn.frame:Show()
+  panel.defaultsBtn = btn
+  -- The click handler is declared at registration time, before the button exists, so it is parked
+  -- on the panel as `defaultsOnClick` and wired up here.
+  if panel.defaultsOnClick then btn:SetCallback("OnClick", panel.defaultsOnClick) end
 end
 
 -- ── CreatePanel — a Frame for RegisterCanvasLayout(Sub)category + ctx ───────────
@@ -906,11 +931,10 @@ function P:Register()
   -- General subcategory = the actual settings.
   local ctx = createPanel("General", { defaultsButton = true })
   P.general = ctx
-  if ctx.panel.defaultsBtn then
-    ctx.panel.defaultsBtn:SetCallback("OnClick", function() P:RestoreDefaults() end)
-  end
+  ctx.panel.defaultsOnClick = function() P:RestoreDefaults() end
   local rendered = false
   ctx.panel:SetScript("OnShow", function()
+    ensureDefaultsButton(ctx.panel)
     if not rendered then
       rendered = true
       -- "Reset All" sits to the right of Window scale; it wipes history AND settings.
@@ -938,17 +962,16 @@ function P:Register()
   P.filters = fctx
   -- Defaults here = clear both id-lists (their stock state is empty), confirm-gated. The page holds
   -- no Schema rows, so this is the "restore defaults" for what it manages.
-  if fctx.panel.defaultsBtn then
-    fctx.panel.defaultsBtn:SetCallback("OnClick", function()
-      if type(StaticPopup_Show) == "function" then
-        StaticPopup_Show("KA0S_LOOTHISTORY_CLEAR_FILTERS")
-      elseif NS.Filters and NS.Filters.ClearAll then
-        NS.Filters:ClearAll()
-      end
-    end)
+  fctx.panel.defaultsOnClick = function()
+    if type(StaticPopup_Show) == "function" then
+      StaticPopup_Show("KA0S_LOOTHISTORY_CLEAR_FILTERS")
+    elseif NS.Filters and NS.Filters.ClearAll then
+      NS.Filters:ClearAll()
+    end
   end
   local fRendered = false
   fctx.panel:SetScript("OnShow", function()
+    ensureDefaultsButton(fctx.panel)
     if not fRendered then
       fRendered = true
       buildFilters(fctx)
@@ -965,24 +988,23 @@ function P:Register()
   -- AH Price subcategory = the AH-price cascade settings (own page).
   local actx = createPanel("AH Price", { defaultsButton = true })
   P.auction = actx
-  if actx.panel.defaultsBtn then
-    actx.panel.defaultsBtn:SetCallback("OnClick", function()
-      for _, r in ipairs(NS.Schema.Schema) do
-        if r.group == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
-      end
-      -- Priority order is a carve-out array (not schema-driven), so reset it separately. Clear-and-
-      -- refill the SAME table so the table's closure sees the new contents. (`capture` — the enabled
-      -- set — is a schema row in the "AH Price" group, so the loop above already reset it.)
-      local dp = NS.Constants.AUCTION_PRIORITY_DEFAULT
-      local p = NS.AuctionPrice:GetPriority()
-      for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
-      for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
-      for _, fn in ipairs(actx.refreshers) do pcall(fn) end   -- scalar: re-sync the master `enabled` box
-      runRebuilders(actx)                                     -- structural: repaint the price table
-    end)
+  actx.panel.defaultsOnClick = function()
+    for _, r in ipairs(NS.Schema.Schema) do
+      if r.group == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
+    end
+    -- Priority order is a carve-out array (not schema-driven), so reset it separately. Clear-and-
+    -- refill the SAME table so the table's closure sees the new contents. (`capture` — the enabled
+    -- set — is a schema row in the "AH Price" group, so the loop above already reset it.)
+    local dp = NS.Constants.AUCTION_PRIORITY_DEFAULT
+    local p = NS.AuctionPrice:GetPriority()
+    for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
+    for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
+    for _, fn in ipairs(actx.refreshers) do pcall(fn) end   -- scalar: re-sync the master `enabled` box
+    runRebuilders(actx)                                     -- structural: repaint the price table
   end
   local aRendered = false
   actx.panel:SetScript("OnShow", function()
+    ensureDefaultsButton(actx.panel)
     if not aRendered then
       aRendered = true
       renderSchema(actx, nil, { only = "AH Price" })   -- the master `enabled` checkbox
