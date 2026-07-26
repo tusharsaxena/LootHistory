@@ -32,10 +32,11 @@ the small-scale rules those documents assume.
   `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:124`,`:141`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
-  (`savedView`), and the `blacklist`/`whitelist` item-id lists (owned by `NS.Filters`,
-  `modules/Filters.lua`) are runtime/data state, not user settings. They are persisted straight to
+  (`savedView`), the `blacklist`/`whitelist`/`currencyBlacklist` id lists (owned by `NS.Filters`,
+  `modules/Filters.lua`), and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
+  runtime/data state, not user settings. They are persisted straight to
   `NS.db.global` and intentionally have **no** schema row and do **not** go through `Schema:Set` — a
-  dynamic id-set can't be a schema widget. Don't "fix" this by adding rows for them. See
+  dynamic id-set or an ordered list can't be a schema widget. Don't "fix" this by adding rows for them. See
   [saved-variables.md](saved-variables.md) for the full carve-out list and the standards note.
 
 ## Messaging: a closed bus, one target per receiver

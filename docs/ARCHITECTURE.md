@@ -36,25 +36,25 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `c
 | File | Role |
 |---|---|
 | `core/Compat.lua` | **Loads first.** The compat firewall: every deprecated/varying-API shim gated by direct `C_*`/global presence (no `WOW_PROJECT_ID` game-flavor branching — Retail-only) — GUID decode + `UNIT_KINDS`, item/map/zone info, active keystone level, quality-from-link fallback. |
-| `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), quality/retention/source option tables. |
+| `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), `CURRENCY_TYPE` (the `"Currency"` type label for currency rows), `AUCTION_KEYS` (the AH-price key catalogue), `FONT_MONO`, quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap: sets `NS.name`, `NS.version`, `NS.PREFIX`. (`NS.L` is published by `locales/enUS.lua`; module tables self-publish idempotently.) |
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. Also the shared **secret-safe chat printer** — `NS.Print` (+ `IsConcatSafe`/`SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua`. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
 | `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`DeleteAt`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
-| `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `settings`, `minimap`. |
+| `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `currencyBlacklist`, `settings` (incl. `recordCurrency` and the `auction` cascade), `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
 | `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge / reset-all / filter-list-clear confirm dialogs. |
 | `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
 | `modules/AuctionPrice.lua` | `NS.AuctionPrice:GatherAll(itemLink, itemID)` reads an AH price for a just-looted item from every installed third-party pricing addon (Auctionator / TSM / OribosExchange), capturing **every configured key** into a nested `provider → key → copper` map (`settings.auction.capture`), not just one; every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the gather continues. `NS.AuctionPrice:Pick(map)` is the read-time seam that selects one price from that map via the user-configurable `settings.auction.priority` cascade (first present key wins), returning `price, tag`. Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
-| `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID`. On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
-| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, an `AuctionPrice:GatherAll` call to stamp the record's `auctionPrice` map, `BuildRecord`, `Database:Add`. Caches hot-path upvalues (incl. the id lists). |
+| `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `IsBlacklisted`/`IsWhitelisted`, `SortedIDs`, `ParseItemID` — **plus the currency blacklist** (`AddCurrencyBlacklist`/`RemoveCurrencyBlacklist`, `IsCurrencyBlacklisted`, `ParseCurrencyID`; blacklist-only, keyed by `currencyID`). On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
+| `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, an `AuctionPrice:GatherAll` call to stamp the record's `auctionPrice` map, `BuildRecord`, `Database:Add`. Also the **`CHAT_MSG_CURRENCY` handler** (`OnChatMsgCurrency`): a slimmer gate (`recordCurrency` master toggle → per-source mute → currency blacklist; no quality/quest/itemID checks) that writes a `Type=Currency` row. Caches hot-path upvalues (incl. the id lists, `recordCurrency`, `currencyBlacklist`). |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`), LDB launcher + LibDBIcon minimap button. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv, ai }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. **Export to AI** (`AIPrompt`) bundles BOTH CSVs for the selected Data Set (the history CSV via `AICSV`, which drops the raw per-provider `auc_` columns to keep the prompt small) into a prompt that points at `docs/ai-export-guideline.md` (pure pointer — no network from the addon), which in turn instructs the AI to fetch and fill the ready-made `docs/ai-export-template.html` (a data-driven report whose engine renders KPIs, charts and the history browser from the loot rows); plus a "?" help popup. Called directly by the Browser; no bus message. |
-| `modules/Analytics.lua` | Insights tab: stat/highlight cards + breakdowns (source, value, quality, item type, bound type, character, hour/weekday, M+ keystone, confidence) + top zones/items/value from `Database:Stats`, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
+| `modules/Analytics.lua` | Insights tab, split by two dividers into a **LOOT** block (items-only stat/highlight cards + breakdowns: source, value, quality, item type, bound type, per-character companions, hour/weekday + per-day strips, top zones/items/value) and a **CURRENCY** block (Currency Collected, Currency by Type × Source, Currency by Character × Type, currency-per-day) shown only when the range has currency events — all from one `Database:Stats` pass, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
 | `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
 ---
@@ -68,24 +68,30 @@ back fast table ops.
 ```lua
 {
   ts, char, classFile,                       -- when / who (classFile = locale-independent token)
-  itemID, itemLink, itemName, quality,       -- item identity
+  itemID, currencyID, itemLink, itemName, quality,  -- identity (currencyID set ⇒ a currency row; itemID nil)
   itemLevel, bound, vendorPrice,             -- itemLevel: equippable only; bound: BOE|BOP|ACCOUNT|WARBAND
   auctionPrice,                              -- nested map provider -> key -> copper; nil if nothing captured
-  itemType, itemSubType, quantity,           -- item classification + stack size
+  itemType, itemSubType, quantity,           -- item classification + stack size (itemType = "Currency" for currency rows)
   source, sourceDetail,                      -- source ∈ Constants.SourceType
   zone, mapID, subzone,                       -- where
   confidence,                                 -- CERTAIN | INFERRED
 }
 ```
 
+> **Currency rows** reuse the same record shape with `currencyID` set (and `itemID`/`itemLink`/
+> `itemLevel`/prices `nil`), `itemType = "Currency"`, `itemSubType` = the currency category, plus the
+> currency's own `quality` and `bound` — see [data-model.md](data-model.md).
+
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see [`agent-context.md`](agent-context.md) "Do not change without reason".
-- `schemaVersion` is a version stamp on the DB; the current shipped shape is **3**.
+- `schemaVersion` is a version stamp on the DB; the current shipped shape is **5**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
   before any history read) — the idempotent seam future schema changes hook into. The **v1→v2**
   migration strips the retired per-record `viaWhitelist` field (point-in-time filtering no longer
   hides stored rows); the **v2→v3** migration (Rev-2) renames each record's `sellPrice` field to
-  `vendorPrice`. Neither deletes any records.
+  `vendorPrice`; the **v3→v4** migration backfills each currency row's `quality` from
+  `C_CurrencyInfo`; the **v4→v5** migration backfills each currency row's `bound`. None deletes any
+  records (the currency backfills only add a field where the client can resolve it).
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
 - **`auctionPrice` is a nested map, `provider → key → copper`**, captured at loot time by
@@ -144,6 +150,7 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `settings.qualityThreshold` | Data Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
 | `settings.excludeQuestItems` | Data Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
 | `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
+| `settings.recordCurrency` | Data Collection | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
 | `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
 | `settings.auction.capture` | AH Price | MultiCheck (`panelSkip`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source: a ticked source is gathered at loot time *and* participates in the priority cascade. Schema-backed for the default/slash CLI, but rendered by the AH Price sub-page's unified price table (`settings/Panel.lua` `buildAuctionTable`) as the per-row Enabled checkbox. |
@@ -178,7 +185,7 @@ table reach.
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` (`DeleteAt`/`Delete`/`PruneOld`/`Purge`, and the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit) | — | Browser, Analytics, Panel (History stats + Filters page) |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / questfilter / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / questfilter / currency / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 > A blacklist/whitelist edit stays within the one-sender rule: it re-caches the Collector via a
 > **direct** `Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) and broadcasts
@@ -255,7 +262,10 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 No open deviations from the Ka0s standard. One carve-out was raised and **ratified (2026-07-17)**:
 the `blacklist` / `whitelist` item-id lists (issue #14) are persistent state managed outside
 `Schema:Set` — a fourth carve-out alongside `settings.window`, `savedView`, and
-`settings.windowScale`'s geometry sibling. A dynamic, unbounded id-set has no schema widget to
+`settings.windowScale`'s geometry sibling. The later `currencyBlacklist` (a currencyID-keyed,
+blacklist-only sibling) and the `settings.auction.priority` ordered cascade join the same class —
+a dynamic id-set or an ordered list has no fixed schema widget to express — all managed by
+`NS.Filters` / `NS.AuctionPrice` writing `NS.db.global` directly. A dynamic, unbounded id-set has no schema widget to
 express, so `NS.Filters` mutates `NS.db.global` directly, exactly as the pre-existing carve-outs do;
 it is accepted as the same class, and the standard's own definition was left unchanged. Recorded in
 [`saved-variables.md`](saved-variables.md) under the "Standards note".

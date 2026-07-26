@@ -34,9 +34,9 @@ Because deletion and retention rebuild-and-swap (no holes; see [data-model.md](d
 
 ## `Ka0s_LootHistory_SettingsChanged` payload
 
-Sent from four schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), each with a distinct `reason` string: `"enabled"` (line 17), `"quality"` (line 53), `"questfilter"` (line 60), and `"excludes"` (line 76). These are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
+Sent from five schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), each with a distinct `reason` string: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, and `"excludes"`. These are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
 
-- **Collector** (`modules/Collector.lua:126`) calls `RefreshUpvalues()`, re-caching `enabled` / `qualityThreshold` / `excludeQuestItems` / `excludedSources` off the settings table so the `CHAT_MSG_LOOT` hot path never touches the DB.
+- **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `enabled` / `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
 - **Browser** (`modules/Browser.lua:1213`) calls `OnSettingsChanged()` to reflect the change in the open window.
 
 ### What does NOT broadcast

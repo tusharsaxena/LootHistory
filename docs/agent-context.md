@@ -6,7 +6,8 @@ Read this before touching code. The root [CLAUDE.md](../CLAUDE.md) is a stub tha
 ## What this addon is
 
 A passive loot tracker for WoW: Midnight (Interface 120007). It records every item the player loots
-above a configurable quality threshold, attributes each drop to a **source** (kill, container, M+ chest,
+above a configurable quality threshold (and, optionally, looted **currency** as `Type=Currency` rows),
+attributes each drop to a **source** (kill, container, M+ chest,
 bonus roll, roll, quest, trade, mail, AH, vendor, disenchant/milling/prospecting, craft, refund, other)
 with a **confidence**
 (`CERTAIN`/`INFERRED`), stores it **account-wide**, and presents it in a standalone browser window: a
@@ -26,9 +27,9 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
   `AceAddon:NewAddon(NS, addonName, "AceEvent-3.0","AceTimer-3.0","AceConsole-3.0")` and stores
   `NS.addon` / `NS.bus`. There is **no `_G.LootHistory`**.
 - **Modular layout.** `core/` (Compat, Constants, Namespace, State, Util, the AceAddon entry, Database),
-  `modules/` (Attribution, Filters, Collector, Browser, BrowserTable, Export, Analytics, DebugLog),
-  `settings/` (Schema, Slash, Panel), `defaults/`, `locales/`. `LootHistory.toc` is the load-order
-  source of truth. See [module-map.md](module-map.md).
+  `modules/` (Attribution, Filters, AuctionPrice, Collector, Browser, BrowserTable, Export, Analytics,
+  DebugLog), `settings/` (Schema, Slash, Panel), `defaults/`, `locales/`. `LootHistory.toc` is the
+  load-order source of truth. See [module-map.md](module-map.md).
 
 ## Hard rules
 
@@ -61,9 +62,10 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
 - **Schema-as-single-source.** `settings/Schema.lua` drives AceDB defaults, panel widgets, and the
   slash CLI; every user-setting mutation goes through `Schema:Set` (validate → write to `NS.db.global`
   → onChange). Carve-outs (persisted directly, not schema rows): the Browser's window geometry
-  (`settings.window`), the saved table view (`savedView`), and the `blacklist`/`whitelist` item-id
-  lists (owned by `NS.Filters` — a dynamic id-set has no schema widget; a ratified carve-out, see
-  [saved-variables.md](saved-variables.md)).
+  (`settings.window`), the saved table view (`savedView`), the `blacklist`/`whitelist`/`currencyBlacklist`
+  id lists (owned by `NS.Filters`), and the `settings.auction.priority` cascade (owned by
+  `NS.AuctionPrice`) — a dynamic id-set or an ordered list has no schema widget; all ratified carve-outs,
+  see [saved-variables.md](saved-variables.md).
 - **Object pooling** for the History table (never one frame per record); **hot-path upvalues** in the
   Collector, refreshed on `SettingsChanged`.
 - **`Database:Export` field shape is the v2 export contract** — do not change it. See
@@ -124,7 +126,7 @@ local F = NS.Foo
   `/mnt/d/Profile/Users/Tushar/Documents/GIT/LootHistory/` are the same repo. Either path works.
 - **Git remote.** `origin` = <https://github.com/tusharsaxena/LootHistory>. Work trunk-based on
   `master`; the user pushes when ready.
-- **Vendored libs.** `libs/` is committed (Ace3 + LibSharedMedia + LDB + LibDBIcon) per Standard v1.1
+- **Vendored libs.** `libs/` is committed (Ace3 + LibSharedMedia + LDB + LibDBIcon) per Standard v2.0.0
   — never switch to `.pkgmeta` externals.
 
 ## Response style for this repo
