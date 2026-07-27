@@ -105,6 +105,30 @@ return function()
   M.ITEM_QUALITY_COLORS = setmetatable({}, {
     __index = function() return { r = 1, g = 1, b = 1, hex = "ffffffff" } end,
   })
+  -- Real class colours for the four tokens the suites exercise; any other token misses to nil so
+  -- the addon's neutral-grey fallback is the one under test, exactly as in-game for an unknown class.
+  M.RAID_CLASS_COLORS = {
+    MAGE    = { r = 0.25, g = 0.78, b = 0.92 },
+    WARRIOR = { r = 0.78, g = 0.61, b = 0.43 },
+    ROGUE   = { r = 1.00, g = 0.96, b = 0.41 },
+    PRIEST  = { r = 1.00, g = 1.00, b = 1.00 },
+  }
+  -- WoW's table-clear global (Lua 5.1 has no equivalent), used by the Analytics widget pools.
+  M.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
+
+  -- Inline-markup APIs. GetAtlasInfo knows only the atlases this client would actually ship, so an
+  -- unknown atlas takes the addon's fallback branch here exactly as it would in game — that
+  -- branching is the point (the class icon and the Insights star both depend on it).
+  M.__atlases = { ["classicon-mage"] = true, ["classicon-warrior"] = true,
+                  ["classicon-rogue"] = true, ["classicon-priest"] = true,
+                  ["PetJournal-FavoritesIcon"] = true }
+  M.C_Texture = { GetAtlasInfo = function(a) return M.__atlases[a] and { width = 14, height = 14 } or nil end }
+  M.CreateAtlasMarkup = function(a, w, h) return ("|A:%s:%d:%d|a"):format(a, w or 0, h or 0) end
+  M.CreateTextureMarkup = function(file, _, _, w, h) return ("|T%s:%d:%d|t"):format(file, w or 0, h or 0) end
+  M.CLASS_ICON_TCOORDS = {
+    MAGE = { 0.25, 0.49, 0, 0.25 }, WARRIOR = { 0, 0.25, 0, 0.25 },
+    ROGUE = { 0.49, 0.74, 0, 0.25 }, PRIEST = { 0.49, 0.74, 0.25, 0.5 },
+  }
   M.strtrim = function(s) return (tostring(s):gsub("^%s*(.-)%s*$", "%1")) end
   M.strsplit = function(sep, s)
     local parts = {}

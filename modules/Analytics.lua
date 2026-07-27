@@ -123,9 +123,14 @@ end
 -- Currency Collected and Currency by Character × Type).
 local function paletteMap(orderedKeys)
   local m = {}
-  for i, k in ipairs(orderedKeys) do m[k] = Analytics.paletteColor(i) end
+  for i, k in ipairs(orderedKeys or {}) do m[k] = Analytics.paletteColor(i) end
   return m
 end
+-- Published for the headless suite alongside the other pure helpers below.
+Analytics._paletteMap  = paletteMap
+Analytics._shortChar   = shortChar
+Analytics._classColor  = classColor
+Analytics._qualityColor = qualityColor
 
 -- Cap a bar/row label to a fixed glyph count with a trailing ellipsis. English-only labels, so a
 -- byte-based sub is safe (see CLAUDE.md: English only). Pure + testable.
@@ -861,6 +866,12 @@ local function sortedByCount(map)
   end)
   return rows
 end
+
+-- Published for the headless suite (pure).
+Analytics._dayKeyList   = dayKeyList
+Analytics._shortDay     = shortDay
+Analytics._sortedByCount = sortedByCount
+Analytics._money        = money
 
 -- Bind + position every chart off self.stats for the given width; return the final y cursor.
 function Analytics:LayoutCharts(y, w, pad)

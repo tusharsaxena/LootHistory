@@ -102,7 +102,9 @@ see [attribution.md](attribution.md).
 
 Headless harness under `tests/` runs with **`lua tests/run.lua`** (a `wow_mock.lua` stubs the WoW API
 + a `(message,target)`-keyed bus so receivers are testable; it deliberately omits several `C_*` APIs
-so the compat presence-guards are exercised). Lint with **`luacheck .`**. Both must be green before
+so the compat presence-guards are exercised). The frame-heavy modules are covered through their
+underscore-published pure helpers (see the module-publishing exception below); the frames themselves
+belong to [smoke-tests.md](smoke-tests.md). Lint with **`luacheck .`**. Both must be green before
 committing; the authoritative case count and full per-case inventory live in
 [test-cases.md](test-cases.md) (`lua tests/run.lua --list`). Details: [testing.md](testing.md).
 Manual in-game validation: [smoke-tests.md](smoke-tests.md).
@@ -119,6 +121,10 @@ local F = NS.Foo
 
 - Never overwrite an existing `NS.Foo` without `or {}` — another file may have reached it first.
 - Expose the public API on `F` (or `NS.Foo`); keep helpers `local` to the file.
+- **One exception:** a pure helper inside a frame-heavy module (`Browser`, `BrowserTable`,
+  `Analytics`) may be published as `F._name` next to its `local` definition so the headless suite can
+  drive the exact function the UI binds. Underscore-prefixed = test seam, not public API; nothing
+  outside the module and `tests/` may call it. See [testing.md](testing.md).
 
 ## Working environment
 

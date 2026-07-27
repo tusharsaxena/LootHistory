@@ -6,6 +6,34 @@ The full inventory of every headless test case, grouped by suite. This file is t
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`
 whenever the suite changes (see [testing.md](testing.md)).
 
+### test_constants.lua (25)
+
+- Constants: every SourceType value equals its key (the stable stored form)
+- Constants: every SourceType member appears in the display order
+- Constants: the display order lists no source twice and invents none
+- Constants: every SourceType member has a non-empty display label
+- Constants: SourceLabel carries no label for a non-source key
+- Constants: the deconstruct abilities are first-class sources, not folded into CRAFT
+- Constants: every source has a live capture path (SOURCE_IMPLEMENTED is total)
+- Constants: SOURCE_IMPLEMENTED claims nothing outside the enum
+- Constants: the mute options are the implemented sources, in display order
+- Constants: the confidence enum is exactly CERTAIN/INFERRED, key == value
+- Constants: the aliases point at the very same enum tables
+- Constants: the quest item class is the locale-independent numeric id 12
+- Constants: the context TTL is a short positive window
+- Constants: the mono font resolves inside this addon's media folder
+- Constants: the quality ladder is Poor..Legendary then Heirloom, skipping 6 and 8
+- Constants: every quality option carries a coloured '<name> and above' label
+- Constants: the retention presets ascend and end on 'Always' (0 = disabled)
+- Constants: every auction key is fully described
+- Constants: auction tags are unique
+- Constants: every auction provider has a human-readable name
+- Constants: the capture options mirror AUCTION_KEYS one-for-one, in order
+- Constants: the priority cascade covers every auction key exactly once
+- Constants: the default-captured keys all sort ahead of the uncaptured ones
+- Constants: every default-captured tag is a real auction key
+- Constants: the currency pseudo-type is the reserved 'Currency' string
+
 ### test_util.lua (35)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
@@ -113,7 +141,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Filters: ClearList and ClearAll include the currency blacklist
 - Filters: ParseCurrencyID reads a currency link or a bare number
 
-### test_auctionprice.lua (8)
+### test_auctionprice.lua (23)
 
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
@@ -123,6 +151,21 @@ whenever the suite changes (see [testing.md](testing.md)).
 - AuctionPrice: IsProviderAvailable reflects addon globals
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
 - AuctionPrice: SwapPriorityTags swaps positions
+- AuctionPrice: Pick on a record with no price map yields nothing
+- AuctionPrice: Pick ignores a provider present but empty
+- AuctionPrice: Pick skips a tag the map does not carry
+- AuctionPrice: Pick still works when the stored priority list is empty
+- AuctionPrice: the default cascade prefers TSM market value over a min buyout
+- AuctionPrice: a provider that throws cannot break the capture
+- AuctionPrice: a provider returning zero or negative prices records nothing
+- AuctionPrice: GatherAll with no pricing addon installed returns nil
+- AuctionPrice: Auctionator falls back to the item link when there is no id
+- AuctionPrice: IsProviderAvailable is false for an unknown provider name
+- AuctionPrice: ReconcilePriority de-duplicates without reordering the survivors
+- AuctionPrice: ReconcilePriority always ends up covering every known key once
+- AuctionPrice: ReconcilePriority rewrites in place, keeping the same table
+- AuctionPrice: GetPriority creates the array on first use
+- AuctionPrice: SwapPriorityTags refuses a tag that is not in the list
 
 ### test_collector.lua (33)
 
@@ -229,7 +272,51 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browsertable.lua (19)
+### test_browser.lua (41)
+
+- Browser.MinWidth is wide enough for both the columns and the toolbar
+- Browser.ExportWidth exactly consumes the bar remainder at minimum width
+- Browser.ExportWidth never falls below its floor
+- Browser.setToFilter turns a selection set into a filter value
+- Browser.setToFilter maps an empty selection to nil (no filter at all)
+- Browser.setToFilter copies rather than aliases the live selection
+- Browser.asSet passes a stored set through, dropping the false entries
+- Browser.asSet promotes the legacy scalar form to a one-entry set
+- Browser.asSet maps the 'all' sentinel and nil to an empty set
+- Browser.asSet round-trips through setToFilter for the stock (unfiltered) view
+- Browser.withAll sorts by label and keeps the All sentinel first
+- Browser.withAll on an empty dataset still offers the All sentinel
+- Browser: source options are the distinct sources, human-labelled, All first
+- Browser: type options skip the blank itemType
+- Browser: subtype options skip the blank itemSubType
+- Browser: zone options are keyed by mapID and de-duplicated
+- Browser: a zone with no recorded name falls back to 'Map <id>'
+- Browser: quality options run in quality order, not label order
+- Browser: quality options carry the quality tint
+- Browser: bound options follow the fixed binding order, not data order
+- Browser: an unbound record surfaces as the NONE sentinel
+- Browser: character options list each looter once, All then Current first
+- Browser: character options carry the class colour and icon markup
+- Browser: the Current preset lights up only for exactly the logged-in character
+- Browser: the stock view filters nothing and sorts newest-first
+- Browser: with no saved view, Clear falls back to the stock view
+- Browser: a saved view wins over stock
+- Browser: a corrupt (non-table) saved view degrades to stock rather than erroring
+- Browser.ApplyView pushes the view's group and sort onto the table
+- Browser.ApplyView resolves each stored set into the active filter
+- Browser.ApplyView turns a date range into an absolute lower bound
+- Browser.ApplyView carries the search text into the filter
+- Browser.ApplyView scopes to the current player by default, not to everyone
+- Browser.ApplyView discards whatever the previous view filtered
+- Browser.SetCharSet drives the char filter, and an empty set clears it
+- Browser.CurrentFilter hands out a copy, not the live filter
+- Browser.CaptureView records the table's group and sort state
+- Browser.CaptureView stores unset column filters as empty sets, never nil
+- Browser.CaptureView omits the character scope (it is session-only)
+- Browser.SaveView then ResetView clears the stored default
+- Browser.ResetWindow empties the persisted geometry carve-out
+
+### test_browsertable.lua (51)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -250,6 +337,38 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: auction column shows the picked price from the map
 - BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
 - BrowserTable: quality column is blank for a currency row
+- BrowserTable: group keys are namespaced, so a zone can share a source's name
+- BrowserTable: a missing zone/character/type groups under 'Unknown'
+- BrowserTable: day groups key on the ISO date but read as the Date column
+- BrowserTable: day groups run chronologically, not alphabetically
+- BrowserTable: records with no quality group under an em-dash
+- BrowserTable: ToggleCollapse flips a group shut and open again
+- BrowserTable: collapsing one group leaves its siblings open
+- BrowserTable: SetGroupBy sets the mode, and nil means flat
+- BrowserTable: clicking the grouped column flips the group order, not the row sort
+- BrowserTable: grouping by day maps the click to the Date column
+- BrowserTable: an unsortable or unknown column key is ignored
+- BrowserTable: SortRecords returns a new array and leaves the input alone
+- BrowserTable: sorting by a column no record fills still keeps every row
+- BrowserTable: the vendor and auction columns sort by copper, not by their text
+- BrowserTable: an unknown column key renders as empty text
+- BrowserTable: an unrecognised source still shows something in the Source column
+- BrowserTable: the vendor column is blank when no price was recorded
+- BrowserTable: the auction column is blank when no price map was captured
+- BrowserTable: quantity defaults to 1 when a record omits it
+- BrowserTable: type and subtype cells are blank rather than nil-crashing
+- BrowserTable: the Character cell prefixes a class icon when the class is known
+- BrowserTable: ClassIconMarkup is empty for an unknown class
+- BrowserTable: every column is fully described and uniquely keyed
+- BrowserTable: Character is the last column and Item is the flexing one
+- BrowserTable: every column except the flexing one reserves a width
+- BrowserTable: the synthetic dataset is byte-identical between builds
+- BrowserTable: every synthetic record carries the fields the table and charts read
+- BrowserTable: only gear carries an item level in the synthetic dataset
+- BrowserTable: only Mythic+ records carry a keystone level
+- BrowserTable: synthetic confidence is always one of the two enum values
+- BrowserTable: every synthetic auction map is pickable by the priority cascade
+- BrowserTable: a large all-ties sort keeps every row in its original order
 
 ### test_export.lua (22)
 
@@ -321,7 +440,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 
-### test_schema.lua (8)
+### test_schema.lua (30)
 
 - Schema: debugConsole row is session-only, in Master Controls
 - Schema: setting debugConsole toggles the window, never writes db.global
@@ -331,8 +450,30 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
+- Schema: every row is uniquely pathed and fully described
+- Schema: every row's default matches its declared type
+- Schema: FindRow resolves a known path and rejects an unknown one
+- Schema: every persisted path resolves against the shipped defaults
+- Schema: the shipped default equals the schema's declared default
+- Schema: every dropdown row offers options, and its default is one of them
+- Schema: every MultiCheck row offers options
+- Schema: the slider default sits inside its own bounds
+- Schema: only the session-only rows carry their own get/set
+- Schema.ReadPath walks a nested path and stops safely at a missing branch
+- Schema.WritePath creates the intermediate tables it needs
+- Schema.WritePath replaces a non-table sitting in the way
+- Schema.Set refuses an unknown path and reports why
+- Schema.Set stores a deep copy, never a reference to the caller's table
+- Schema.Default hands out a copy of a table default, not the shared one
+- Schema.Default returns nil for an unknown path
+- Schema.Set runs the row's onChange with the new value
+- Schema.Set honours a row's validate guard and leaves the DB untouched
+- Schema.Get on an unknown path reads through rather than erroring
+- Schema: every setting round-trips through Set then Get
+- Schema: every declared command is uniquely named and dispatchable
+- Schema: the settings CLI verbs are all present
 
-### test_analytics.lua (15)
+### test_analytics.lua (57)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -349,23 +490,67 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Analytics._truncate: exactly maxChars passes through
 - Analytics._charStackSegments: keeps all when within cap
 - Analytics._charStackSegments: collapses overflow into __OTHER__
+- Analytics._charStackSegments: kept segments follow the global category order
+- Analytics._charStackSegments: __OTHER__ always draws last
+- Analytics._charStackSegments: a category outside the order sinks to the end
+- Analytics._charStackSegments: the total counts every magnitude, kept or lumped
+- Analytics._charStackSegments: zero and negative magnitudes are dropped
+- Analytics._charStackSegments: an empty character yields no segments
+- Analytics._charStackSegments: equal magnitudes break the tie by key, not by chance
+- Analytics._buildCharStackRows: rows run by total descending
+- Analytics._buildCharStackRows: labels are shortened and class-coloured
+- Analytics._buildCharStackRows: the busiest character's bar is full width
+- Analytics._buildCharStackRows: every row is scaled against that same maximum
+- Analytics._buildCharStackRows: each segment's tip states the category and its value
+- Analytics._buildCharStackRows: the row value is the character's total
+- Analytics._buildCharStackRows: an unknown class falls back to neutral grey
+- Analytics._buildCharStackRows: an empty matrix yields no rows
+- Analytics._paletteMap: colours are assigned by list position
+- Analytics._paletteMap: a key outside the list has no colour
+- Analytics._paletteMap: an empty or missing list maps nothing
+- Analytics._paletteMap: the same ordering yields the same colours across charts
+- Analytics.paletteColor: every entry is a valid rgb triple
+- Analytics._shortChar: drops the realm from a Name-Realm key
+- Analytics._shortChar: a missing character reads '?'
+- Analytics._classColor: a known class returns its class colour
+- Analytics._classColor: an unknown or missing class falls back to neutral grey
+- Analytics._qualityColor: returns an rgb triple for a real quality
+- Analytics._money: zero and negative values read as a plain '0'
+- Analytics._money: a real amount renders its gold/silver/copper parts
+- Analytics._money: zero-valued denominations are omitted
+- Analytics._dayKeyList: spans first to last day inclusive
+- Analytics._dayKeyList: a day with no loot still gets a (zero) bar
+- Analytics._dayKeyList: a single day yields exactly one key
+- Analytics._dayKeyList: caps a long range to the 60 most recent days
+- Analytics._dayKeyList: an empty history yields no keys
+- Analytics._shortDay: a day key shortens to M/D with no leading zeros
+- Analytics._shortDay: an unrecognised key passes through untouched
+- Analytics._sortedByCount: orders by count descending
+- Analytics._sortedByCount: equal counts break the tie by key ascending
+- Analytics._sortedByCount: an empty map yields no rows
+- Analytics._sortedByCount: numeric keys sort without a type error
+- Analytics._truncate: reports whether it cut
+- Analytics._truncate: a nil label becomes an empty string
+- Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 
 ## Totals
 
 | Suite | Cases |
 |-------|------:|
+| test_constants.lua | 25 |
 | test_util.lua | 35 |
 | test_compat.lua | 17 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
-| test_auctionprice.lua | 8 |
+| test_auctionprice.lua | 23 |
 | test_collector.lua | 33 |
 | test_database.lua | 45 |
 | test_stats.lua | 18 |
-| test_browsertable.lua | 19 |
+| test_browser.lua | 41 |
+| test_browsertable.lua | 51 |
 | test_export.lua | 22 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
-| test_schema.lua | 8 |
-| test_analytics.lua | 15 |
-| **Total** | **302** |
+| test_schema.lua | 30 |
+| test_analytics.lua | 57 |
+| **Total** | **479** |

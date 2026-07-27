@@ -1,6 +1,7 @@
 local T = _G.LH_TEST
 local NS = T.NS
-local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
+local test, assertEqual, assertTrue, assertFalse =
+  T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
 
 test("BrowserTable: CellText renders each column", function()
@@ -279,4 +280,328 @@ test("BrowserTable: quality column is blank for a currency row", function()
   assertEqual(colByKey.quality.valueFn(currencyRow), "")           -- no misleading "Poor"
   assertEqual(colByKey.quality.valueFn(itemRow), NS.Compat.QualityLabel(4))
   assertEqual(colByKey.type.valueFn(currencyRow), "Currency")      -- Type filter works
+end)
+
+-- ── Grouping: keys, labels and edge cases ──────────────────────────────────────
+
+-- The shared table state is global to the addon, so every case below parks and restores it.
+local function withTableState(fn)
+  local BT = NS.BrowserTable
+  local g, c, ga, sk, sa = BT.groupBy, BT.collapsed, BT.groupAsc, BT.sortKey, BT.sortAsc
+  local ok, err = pcall(fn)
+  BT.groupBy, BT.collapsed, BT.groupAsc = g, c, ga
+  BT.sortKey, BT.sortAsc = sk, sa
+  if not ok then error(err, 0) end
+end
+
+test("BrowserTable: group keys are namespaced, so a zone can share a source's name", function()
+  withTableState(function()
+    -- A zone literally called "Kill" must not collapse together with the Kill source.
+    local BT = NS.BrowserTable
+    BT.collapsed, BT.groupAsc = {}, true
+    BT.groupBy = "source"
+    local srcKey = BT:GroupRecords({ { source = "KILL", zone = "Kill" } })[1].key
+    BT.groupBy = "zone"
+    local zoneKey = BT:GroupRecords({ { source = "KILL", zone = "Kill" } })[1].key
+    assertTrue(srcKey ~= zoneKey, "collapsed state must never collide across group modes")
+  end)
+end)
+
+test("BrowserTable: a missing zone/character/type groups under 'Unknown'", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.collapsed, BT.groupAsc = {}, true
+    for mode, prefix in pairs({ zone = "Zone", char = "Character", type = "Type" }) do
+      BT.groupBy = mode
+      assertEqual(BT:GroupRecords({ { ts = 1 } })[1].label, prefix .. ": Unknown")
+    end
+  end)
+end)
+
+test("BrowserTable: day groups key on the ISO date but read as the Date column", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.collapsed, BT.groupAsc = "day", {}, true
+    local ts = 1700000000
+    local header = BT:GroupRecords({ { ts = ts } })[1]
+    assertEqual(header.label, "Day: " .. NS.Util.FormatDate(ts))
+    assertTrue(header.key:find(os.date("%Y-%m-%d", ts), 1, true) ~= nil,
+      "the stable key stays ISO so collapsed state survives a format change")
+  end)
+end)
+
+test("BrowserTable: day groups run chronologically, not alphabetically", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.collapsed, BT.groupAsc = "day", {}, true
+    local day = 86400
+    local base = 1700000000
+    local list = BT:GroupRecords({ { ts = base + 2 * day }, { ts = base }, { ts = base + day } })
+    assertEqual(list[1].label, "Day: " .. NS.Util.FormatDate(base))
+    assertEqual(list[5].label, "Day: " .. NS.Util.FormatDate(base + 2 * day))
+  end)
+end)
+
+test("BrowserTable: records with no quality group under an em-dash", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.collapsed, BT.groupAsc = "quality", {}, true
+    assertEqual(BT:GroupRecords({ { ts = 1 } })[1].label, "Quality: \226\128\148")
+  end)
+end)
+
+test("BrowserTable: ToggleCollapse flips a group shut and open again", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.collapsed, BT.groupAsc = "source", {}, true
+    local recs = { { source = "KILL" }, { source = "KILL" } }
+    local key = BT:GroupRecords(recs)[1].key
+    BT:ToggleCollapse(key)
+    assertEqual(#BT:GroupRecords(recs), 1, "a collapsed group emits its header only")
+    BT:ToggleCollapse(key)
+    assertEqual(#BT:GroupRecords(recs), 3, "reopening restores the rows")
+    assertEqual(BT.collapsed[key], nil, "the reopened key is cleared, not left as false")
+  end)
+end)
+
+test("BrowserTable: collapsing one group leaves its siblings open", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.collapsed, BT.groupAsc = "source", {}, true
+    local recs = { { source = "KILL" }, { source = "VENDOR" } }
+    BT:ToggleCollapse(BT:GroupRecords(recs)[1].key)
+    local list = BT:GroupRecords(recs)
+    assertEqual(#list, 3)          -- Kill header, Vendor header, Vendor row
+    assertTrue(list[1].collapsed)
+    assertTrue(not list[2].collapsed)
+  end)
+end)
+
+test("BrowserTable: SetGroupBy sets the mode, and nil means flat", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT:SetGroupBy("zone")
+    assertEqual(BT.groupBy, "zone")
+    BT:SetGroupBy(nil)
+    assertEqual(BT.groupBy, "none")
+  end)
+end)
+
+-- ── Sorting ────────────────────────────────────────────────────────────────────
+
+test("BrowserTable: clicking the grouped column flips the group order, not the row sort", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.groupAsc = "source", true
+    BT.sortKey, BT.sortAsc = "date", false
+    BT:SetSort("source")
+    assertFalse(BT.groupAsc, "the group order flipped")
+    assertEqual(BT.sortKey, "date", "the row sort was left alone")
+    assertFalse(BT.sortAsc)
+  end)
+end)
+
+test("BrowserTable: grouping by day maps the click to the Date column", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.groupAsc = "day", true
+    BT:SetSort("date")
+    assertFalse(BT.groupAsc, "Day grouping is driven by the Date header")
+  end)
+end)
+
+test("BrowserTable: an unsortable or unknown column key is ignored", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.groupBy = "none"
+    BT.sortKey, BT.sortAsc = "date", false
+    BT:SetSort("nosuchcolumn")
+    assertEqual(BT.sortKey, "date")
+    assertFalse(BT.sortAsc)
+  end)
+end)
+
+test("BrowserTable: SortRecords returns a new array and leaves the input alone", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.sortKey, BT.sortAsc = "qty", true
+    local recs = { { quantity = 3 }, { quantity = 1 } }
+    local sorted = BT:SortRecords(recs)
+    assertTrue(sorted ~= recs, "the caller's array is not the sorted one")
+    assertEqual(recs[1].quantity, 3, "the input order is untouched")
+    assertEqual(sorted[1].quantity, 1)
+  end)
+end)
+
+test("BrowserTable: sorting by a column no record fills still keeps every row", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.sortKey, BT.sortAsc = "ilvl", false
+    local sorted = BT:SortRecords({ { ts = 1 }, { ts = 2 }, { ts = 3 } })
+    assertEqual(#sorted, 3, "missing values sort as 0 rather than dropping the row")
+    assertEqual(sorted[1].ts, 1, "an all-equal sort preserves the original order")
+  end)
+end)
+
+test("BrowserTable: the vendor and auction columns sort by copper, not by their text", function()
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.sortKey, BT.sortAsc = "vendor", false
+    -- "9c" sorts above "1g 0s 0c" lexically; numerically it must not.
+    local sorted = BT:SortRecords({ { vendorPrice = 9 }, { vendorPrice = 10000 } })
+    assertEqual(sorted[1].vendorPrice, 10000)
+  end)
+end)
+
+-- ── Cell rendering edges ───────────────────────────────────────────────────────
+
+test("BrowserTable: an unknown column key renders as empty text", function()
+  assertEqual(NS.BrowserTable:CellText("nosuchcolumn", { itemName = "Sword" }), "")
+end)
+
+test("BrowserTable: an unrecognised source still shows something in the Source column", function()
+  assertEqual(NS.BrowserTable:CellText("source", { source = "FUTURE_SOURCE" }), "FUTURE_SOURCE")
+  assertEqual(NS.BrowserTable:CellText("source", {}), "Other")
+end)
+
+test("BrowserTable: the vendor column is blank when no price was recorded", function()
+  assertEqual(NS.BrowserTable:CellText("vendor", {}), "")
+  assertEqual(NS.BrowserTable:CellText("vendor", { vendorPrice = 0 }), "")
+end)
+
+test("BrowserTable: the auction column is blank when no price map was captured", function()
+  assertEqual(NS.BrowserTable:CellText("auction", {}), "")
+end)
+
+test("BrowserTable: quantity defaults to 1 when a record omits it", function()
+  assertEqual(NS.BrowserTable:CellText("qty", {}), "1")
+end)
+
+test("BrowserTable: type and subtype cells are blank rather than nil-crashing", function()
+  assertEqual(NS.BrowserTable:CellText("type", {}), "")
+  assertEqual(NS.BrowserTable:CellText("subtype", {}), "")
+end)
+
+test("BrowserTable: the Character cell prefixes a class icon when the class is known", function()
+  local withClass = NS.BrowserTable:CellText("char", { char = "Ka0z-Realm", classFile = "MAGE" })
+  local without  = NS.BrowserTable:CellText("char", { char = "Ka0z-Realm" })
+  assertEqual(without, "Ka0z-Realm", "an unknown class renders the bare name")
+  assertTrue(#withClass > #without, "a known class prefixes inline icon markup")
+  assertTrue(withClass:find("Ka0z-Realm", 1, true) ~= nil, "the full Name-Realm is still shown")
+end)
+
+test("BrowserTable: ClassIconMarkup is empty for an unknown class", function()
+  assertEqual(NS.BrowserTable:ClassIconMarkup(nil), "")
+  assertEqual(NS.BrowserTable:ClassIconMarkup("NOTACLASS"), "")
+end)
+
+-- ── Column model ───────────────────────────────────────────────────────────────
+
+test("BrowserTable: every column is fully described and uniquely keyed", function()
+  local seen = {}
+  for _, col in ipairs(NS.BrowserTable.COLUMNS) do
+    assertFalse(seen[col.key], col.key .. " is defined twice")
+    seen[col.key] = true
+    assertTrue(type(col.valueFn) == "function", col.key .. " has no value function")
+    assertTrue(type(col.desc) == "string" and col.desc ~= "", col.key .. " has no tooltip")
+    assertTrue(type(col.align) == "string", col.key .. " has no alignment")
+  end
+end)
+
+test("BrowserTable: Character is the last column and Item is the flexing one", function()
+  -- Documented ordering contract: new columns are inserted BEFORE Character.
+  local cols = NS.BrowserTable.COLUMNS
+  assertEqual(cols[#cols].key, "char")
+  local flex
+  for _, col in ipairs(cols) do if col.flex then flex = col.key end end
+  assertEqual(flex, "item", "exactly the Item column absorbs the spare width")
+end)
+
+test("BrowserTable: every column except the flexing one reserves a width", function()
+  for _, col in ipairs(NS.BrowserTable.COLUMNS) do
+    if col.flex then
+      assertEqual(col.width, 0)
+    else
+      assertTrue(col.width > 0, col.key .. " needs a fixed width")
+    end
+  end
+end)
+
+-- ── Synthetic dataset ──────────────────────────────────────────────────────────
+
+test("BrowserTable: the synthetic dataset is byte-identical between builds", function()
+  -- A fixed-seed PRNG (not math.random) is what keeps the /lh test data — and these tests — stable.
+  local a, b = NS.BrowserTable:BuildTestData(), NS.BrowserTable:BuildTestData()
+  assertEqual(#a, #b)
+  for i = 1, #a do
+    assertEqual(a[i].itemName, b[i].itemName, "record " .. i .. " differs")
+    assertEqual(a[i].source, b[i].source)
+    assertEqual(a[i].quality, b[i].quality)
+    assertEqual(a[i].vendorPrice, b[i].vendorPrice)
+  end
+end)
+
+test("BrowserTable: every synthetic record carries the fields the table and charts read", function()
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    assertTrue(type(r.ts) == "number" and r.ts > 0)
+    assertTrue(type(r.char) == "string" and r.char:find("-", 1, true) ~= nil, "char is Name-Realm")
+    assertTrue(type(r.itemName) == "string" and r.itemName ~= "")
+    assertTrue(type(r.itemID) == "number")
+    assertTrue(type(r.quantity) == "number" and r.quantity >= 1)
+    assertTrue(type(r.vendorPrice) == "number" and r.vendorPrice > 0)
+    assertTrue(type(r.mapID) == "number")
+    assertTrue(type(r.zone) == "string" and r.zone ~= "")
+  end
+end)
+
+test("BrowserTable: only gear carries an item level in the synthetic dataset", function()
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    local isGear = r.itemType == "Armor" or r.itemType == "Weapon"
+    if isGear then
+      assertTrue(r.itemLevel ~= nil, "gear must have an ilvl")
+    else
+      assertEqual(r.itemLevel, nil, r.itemType .. " must not have an ilvl")
+    end
+  end
+end)
+
+test("BrowserTable: only Mythic+ records carry a keystone level", function()
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    if r.source ~= "MPLUS" then
+      assertEqual(r.sourceDetail, nil, "a non-M+ drop has no keystone detail")
+    end
+  end
+end)
+
+test("BrowserTable: synthetic confidence is always one of the two enum values", function()
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    assertTrue(r.confidence == "CERTAIN" or r.confidence == "INFERRED", "got " .. tostring(r.confidence))
+  end
+end)
+
+test("BrowserTable: every synthetic auction map is pickable by the priority cascade", function()
+  local priced = 0
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    if r.auctionPrice then
+      local price = NS.AuctionPrice:Pick(r.auctionPrice)
+      assertTrue(price ~= nil and price > 0, "a captured map must yield a price")
+      priced = priced + 1
+    end
+  end
+  assertTrue(priced > 0, "some synthetic drops must carry AH prices")
+end)
+
+test("BrowserTable: a large all-ties sort keeps every row in its original order", function()
+  -- Lua 5.1's table.sort is not stable, and its quicksort only scrambles at size. Three rows can
+  -- come out ordered by luck; forty cannot — this is what pins the explicit index tiebreak.
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.sortKey, BT.sortAsc = "quality", false
+    local recs = {}
+    for i = 1, 40 do recs[i] = { ts = i, quality = 3 } end
+    local sorted = BT:SortRecords(recs)
+    for i = 1, 40 do
+      assertEqual(sorted[i].ts, i, "row " .. i .. " moved despite an equal sort key")
+    end
+  end)
 end)

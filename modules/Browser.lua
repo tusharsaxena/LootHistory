@@ -635,6 +635,19 @@ local function asSet(v)
   return s
 end
 
+-- Pure helpers published for the headless suite (tests/test_browser.lua). The UI binds through
+-- these exact functions, so a test that pins their behaviour pins the shipped behaviour. Read-only
+-- from outside the module — nothing here mutates browser state.
+B._stockView    = STOCK_VIEW
+B._savedViewOrStock = savedViewOrStock
+B._setToFilter  = setToFilter
+B._asSet        = asSet
+B._withAll      = withAll
+B._options = {
+  source = sourceOptions, char = charOptions, itemType = typeOptions,
+  itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
+}
+
 -- Push the current filter to the table and refresh the footer count. The filter is a singleton
 -- for the whole browser (issue #13): it always drives the table (keeping matchCount + the footer
 -- current for both tabs), and it drives the Insights charts live while the Insights tab is the one

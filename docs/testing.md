@@ -19,10 +19,21 @@ WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard
 
 `tests/wow_mock.lua` stubs **only what the addon touches at load and test time** — `CreateFrame` returns a universal frame stub (any PascalCase method is a self-returning no-op; lowercase/custom fields miss through to `nil`), plus `UnitClass`, `C_Map`, `C_Item`, the `LOOT_ITEM_*` format strings, `Settings`, and the Ace libraries.
 
-Two design choices make the mock earn its keep rather than merely satisfy `require`:
+Three design choices make the mock earn its keep rather than merely satisfy `require`:
 
-- **It omits several `C_*` APIs on purpose** — e.g. `C_Container`, `C_ChallengeMode`, `C_AuctionHouse`, `C_TooltipInfo`, `C_Texture`, `C_Spell`. `core/Compat.lua` presence-guards each of these before calling, so their absence drives the compat shims down their **degraded path** every run. The tests therefore prove the fallbacks work, not just the happy path.
+- **It omits several `C_*` APIs on purpose** — e.g. `C_Container`, `C_ChallengeMode`, `C_AuctionHouse`, `C_TooltipInfo`, `C_Spell`. `core/Compat.lua` presence-guards each of these before calling, so their absence drives the compat shims down their **degraded path** every run. The tests therefore prove the fallbacks work, not just the happy path.
 - **The message bus is modeled on CallbackHandler**, keyed by `(message, target)`. Registering the same message twice on one target overwrites (only the last survives); `SendMessage` fires once per distinct target. This mirrors the real semantics so a same-target clobber — the exact bug that shipped when the bus was a bare no-op mock — is catchable, and enforces the convention that receivers register on their own `NS.NewBusTarget()`.
+- **`C_Texture.GetAtlasInfo` knows only a short whitelist of atlases** (the four class icons the suites use, plus one star). No compat shim reads it — the atlas lookups live in `modules/BrowserTable.lua` and `modules/Analytics.lua` — and both of them branch on the *result*, so a selective registry exercises the found path AND the `CLASS_ICON_TCOORDS` / no-star fallback in the same run. `RAID_CLASS_COLORS` is whitelisted the same way, so the neutral-grey fallback for an unknown class stays under test.
+
+### Testing UI modules headlessly
+
+`modules/Browser.lua`, `modules/BrowserTable.lua` and `modules/Analytics.lua` are mostly frame
+construction, but the decisions inside them — which options a dropdown offers, how a view resolves
+into a query filter, how a stacked bar apportions its segments — are pure and worth pinning. Those
+helpers are **published on the module table under a leading underscore** (`B._asSet`,
+`Analytics._dayKeyList`, …) next to their definitions, so the suite drives the exact function the UI
+binds rather than a copy of its logic. The frame work itself — rendering, drag, resize, taint —
+stays in [smoke-tests.md](smoke-tests.md), which complements rather than replaces these suites.
 
 ### The test framework
 
@@ -30,11 +41,12 @@ Intentionally minimal, defined inline in `tests/run.lua`: `test(name, fn)` regis
 
 ## The suites
 
-Thirteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Sixteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
 |-------|--------|
+| `test_constants.lua` | enum + derived-table invariants — `SourceType` key==value (the export contract), `SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` totality, the derived `SOURCE_OPTIONS`, the quality ladder + retention presets, and the auction key catalogue (unique tags, capture options mirror the keys, the priority cascade covers every key exactly once with the captured ones ranked first) |
 | `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey`; the secret-safe printer (`IsConcatSafe`/`SafeToString`/`NS.Print`, reclaimed from AceConsole) |
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
 | `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence |
@@ -43,11 +55,13 @@ inventory and the authoritative count):
 | `test_collector.lua` | `CHAT_MSG_LOOT` gate — self-filter, quality/quest-item threshold, record build |
 | `test_database.lua` | Add/Query/Delete/PruneOld, retention rebuild-and-swap |
 | `test_stats.lua` | `Stats`/aggregation feeding the Insights tab |
-| `test_browsertable.lua` | filter→group→sort→slice pipeline, group headers/counts, test mode, `OrderedFilteredRecords` |
+| `test_browser.lua` | the filter bar's pure surface — toolbar/window width floors, `setToFilter`/`asSet` (copy-not-alias, legacy scalar views, the `all` sentinel), every data-driven option builder (distinctness, sort order, blank/missing values, the `Character: Current` preset), and the saved view: `ApplyView`/`CaptureView`/`SaveView`/`ResetView`/`SetCharSet`/`CurrentFilter` |
+| `test_browsertable.lua` | filter→group→sort→slice pipeline, group headers/counts + namespaced collapse keys, sort direction rules (numeric vs text, grouped-column click flips group order) and stability under an all-ties sort, cell rendering edges, the column model contract (Character last, Item flexes), test mode + the fixed-seed synthetic dataset's determinism and field invariants, `OrderedFilteredRecords` |
 | `test_export.lua` | `Export:CSV` columns/quoting, friendly `bound`/`date`, `WowheadLink` bonus-ID parsing |
 | `test_debuglog.lua` | `NS.Debug` tagged format + secret-safe sink, session-only flag, `/lh debug` toggles |
 | `test_slash.lua` | `/lh list`/`get`/`set` slash-commands-§5 output — `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, `/lh version` |
-| `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through, `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global` |
+| `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through (deep-copied, never aliased), `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global`; plus the schema's own shape: unique paths, defaults matching both their declared type and `defaults/Global.lua`, dropdown defaults being selectable, slider defaults inside their range, every setting round-tripping, and the `NS.COMMANDS` table |
+| `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labelling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 
