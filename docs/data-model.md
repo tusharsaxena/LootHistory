@@ -95,11 +95,11 @@ All history lives at `LootHistoryDB.global.history` — an account-wide dense ar
 
 ### Rebuild-and-swap on delete
 
-Deletion never leaves holes. `Database:DeleteAt` (`core/Database.lua:444`) uses `table.remove` (which compacts), while every predicate/bulk path **rebuilds a fresh array and swaps it in**:
+Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
-- `Database:Delete(pred)` (`core/Database.lua:340`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:400`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
-- `Database:Purge()` (`core/Database.lua:356`) — replace with `{}`.
+- `Database:Delete(pred)` (`core/Database.lua:445`) — keep everything where `pred(r)` is false.
+- `Database:PruneOld()` (`core/Database.lua:505`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:Purge()` (`core/Database.lua:461`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -208,7 +208,7 @@ strictly point-in-time: a blacklisted currency id is dropped at capture and neve
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:158`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:198`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·

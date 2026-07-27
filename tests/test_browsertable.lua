@@ -3,27 +3,38 @@ local NS = T.NS
 local test, assertEqual, assertTrue, assertFalse =
   T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
+-- The UI binds a cell by finding its column and calling valueFn; these cases drive that exact
+-- path through the public COLUMNS model.
+local function cell(key, record)
+  for _, col in ipairs(NS.BrowserTable.COLUMNS) do
+    if col.key == key then return col.valueFn(record) end
+  end
+  error("no such column: " .. tostring(key))
+end
+
+
+
 
 test("BrowserTable: CellText renders each column", function()
   local r = { ts = 1000, itemName = "Sword", quantity = 3, quality = 4,
               source = "KILL", zone = "Valley", char = "Ka0z-Realm" }
-  assertEqual(NS.BrowserTable:CellText("item", r), "Sword")
-  assertEqual(NS.BrowserTable:CellText("qty", r), "3")
-  assertEqual(NS.BrowserTable:CellText("quality", r), "Epic")
-  assertEqual(NS.BrowserTable:CellText("source", r), "Kill")
-  assertEqual(NS.BrowserTable:CellText("zone", r), "Valley")
-  assertEqual(NS.BrowserTable:CellText("char", r), "Ka0z-Realm") -- full Name-Realm shown
-  assertEqual(NS.BrowserTable:CellText("time", r), os.date("%H:%M", r.ts))
-  assertEqual(NS.BrowserTable:CellText("date", r), os.date("%d-%b-%Y", r.ts))
+  assertEqual(cell("item", r), "Sword")
+  assertEqual(cell("qty", r), "3")
+  assertEqual(cell("quality", r), "Epic")
+  assertEqual(cell("source", r), "Kill")
+  assertEqual(cell("zone", r), "Valley")
+  assertEqual(cell("char", r), "Ka0z-Realm") -- full Name-Realm shown
+  assertEqual(cell("time", r), os.date("%H:%M", r.ts))
+  assertEqual(cell("date", r), os.date("%d-%b-%Y", r.ts))
 end)
 
 test("BrowserTable: iLvl column shows level only when present", function()
-  assertEqual(NS.BrowserTable:CellText("ilvl", { itemLevel = 489 }), "489")
-  assertEqual(NS.BrowserTable:CellText("ilvl", {}), "")
+  assertEqual(cell("ilvl", { itemLevel = 489 }), "489")
+  assertEqual(cell("ilvl", {}), "")
 end)
 
 test("BrowserTable: Bound column renders no text (icon-driven)", function()
-  assertEqual(NS.BrowserTable:CellText("bound", { bound = "BOP" }), "")
+  assertEqual(cell("bound", { bound = "BOP" }), "")
 end)
 
 test("BrowserTable: bound legend adds a line per state", function()
@@ -72,8 +83,8 @@ end)
 
 test("BrowserTable: Item column falls back to link name then '?'", function()
   local r = { itemLink = "|cff1eff00|Hitem:1::::|h[Linen Cloth]|h|r" }
-  assertEqual(NS.BrowserTable:CellText("item", r), "Linen Cloth")
-  assertEqual(NS.BrowserTable:CellText("item", {}), "?")
+  assertEqual(cell("item", r), "Linen Cloth")
+  assertEqual(cell("item", {}), "?")
 end)
 
 test("BrowserTable: BuildDisplayList yields one row entry per filtered record", function()
@@ -252,9 +263,9 @@ end)
 
 test("BrowserTable: auction column shows the picked price from the map", function()
   NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbmarket" } }
-  assertEqual(NS.BrowserTable:CellText("auction", { auctionPrice = { tsm = { dbmarket = 12345 } } }),
+  assertEqual(cell("auction", { auctionPrice = { tsm = { dbmarket = 12345 } } }),
     NS.Util.FormatMoney(12345))
-  assertEqual(NS.BrowserTable:CellText("auction", {}), "")
+  assertEqual(cell("auction", {}), "")
   NS.db.global.settings.auction = nil
 end)
 
@@ -455,36 +466,32 @@ end)
 
 -- ── Cell rendering edges ───────────────────────────────────────────────────────
 
-test("BrowserTable: an unknown column key renders as empty text", function()
-  assertEqual(NS.BrowserTable:CellText("nosuchcolumn", { itemName = "Sword" }), "")
-end)
-
 test("BrowserTable: an unrecognised source still shows something in the Source column", function()
-  assertEqual(NS.BrowserTable:CellText("source", { source = "FUTURE_SOURCE" }), "FUTURE_SOURCE")
-  assertEqual(NS.BrowserTable:CellText("source", {}), "Other")
+  assertEqual(cell("source", { source = "FUTURE_SOURCE" }), "FUTURE_SOURCE")
+  assertEqual(cell("source", {}), "Other")
 end)
 
 test("BrowserTable: the vendor column is blank when no price was recorded", function()
-  assertEqual(NS.BrowserTable:CellText("vendor", {}), "")
-  assertEqual(NS.BrowserTable:CellText("vendor", { vendorPrice = 0 }), "")
+  assertEqual(cell("vendor", {}), "")
+  assertEqual(cell("vendor", { vendorPrice = 0 }), "")
 end)
 
 test("BrowserTable: the auction column is blank when no price map was captured", function()
-  assertEqual(NS.BrowserTable:CellText("auction", {}), "")
+  assertEqual(cell("auction", {}), "")
 end)
 
 test("BrowserTable: quantity defaults to 1 when a record omits it", function()
-  assertEqual(NS.BrowserTable:CellText("qty", {}), "1")
+  assertEqual(cell("qty", {}), "1")
 end)
 
 test("BrowserTable: type and subtype cells are blank rather than nil-crashing", function()
-  assertEqual(NS.BrowserTable:CellText("type", {}), "")
-  assertEqual(NS.BrowserTable:CellText("subtype", {}), "")
+  assertEqual(cell("type", {}), "")
+  assertEqual(cell("subtype", {}), "")
 end)
 
 test("BrowserTable: the Character cell prefixes a class icon when the class is known", function()
-  local withClass = NS.BrowserTable:CellText("char", { char = "Ka0z-Realm", classFile = "MAGE" })
-  local without  = NS.BrowserTable:CellText("char", { char = "Ka0z-Realm" })
+  local withClass = cell("char", { char = "Ka0z-Realm", classFile = "MAGE" })
+  local without  = cell("char", { char = "Ka0z-Realm" })
   assertEqual(without, "Ka0z-Realm", "an unknown class renders the bare name")
   assertTrue(#withClass > #without, "a known class prefixes inline icon markup")
   assertTrue(withClass:find("Ka0z-Realm", 1, true) ~= nil, "the full Name-Realm is still shown")

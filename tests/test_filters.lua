@@ -11,29 +11,29 @@ local function clear()
   NS.db.global.whitelist = {}
 end
 
-test("Filters: AddBlacklist stores the id; IsBlacklisted sees it", function()
+test("Filters: AddBlacklist stores the id in the blacklist set", function()
   clear()
   assertTrue(F:AddBlacklist(4242))
-  assertTrue(F:IsBlacklisted(4242))
-  assertFalse(F:IsWhitelisted(4242))
+  assertTrue(F:Blacklist()[tonumber(4242)] == true)
+  assertFalse(F:Whitelist()[tonumber(4242)] == true)
   clear()
 end)
 
 test("Filters: AddBlacklist accepts a numeric string", function()
   clear()
   assertTrue(F:AddBlacklist("4242"))
-  assertTrue(F:IsBlacklisted(4242))
-  assertTrue(F:IsBlacklisted("4242"))
+  assertTrue(F:Blacklist()[tonumber(4242)] == true)
+  assertTrue(F:Blacklist()[tonumber("4242")] == true)
   clear()
 end)
 
 test("Filters: adding to one list removes the id from the other", function()
   clear()
   F:AddWhitelist(500)
-  assertTrue(F:IsWhitelisted(500))
+  assertTrue(F:Whitelist()[tonumber(500)] == true)
   F:AddBlacklist(500)                  -- moves it
-  assertTrue(F:IsBlacklisted(500))
-  assertFalse(F:IsWhitelisted(500))
+  assertTrue(F:Blacklist()[tonumber(500)] == true)
+  assertFalse(F:Whitelist()[tonumber(500)] == true)
   clear()
 end)
 
@@ -41,7 +41,7 @@ test("Filters: Remove drops the id", function()
   clear()
   F:AddBlacklist(7)
   assertTrue(F:RemoveBlacklist(7))
-  assertFalse(F:IsBlacklisted(7))
+  assertFalse(F:Blacklist()[tonumber(7)] == true)
   clear()
 end)
 
@@ -99,7 +99,7 @@ test("Filters: ClearList empties one list and returns the count removed", functi
   F:AddWhitelist(9)
   assertEqual(F:ClearList("blacklist"), 3)
   assertEqual(F:Count(F:Blacklist()), 0)
-  assertTrue(F:IsWhitelisted(9), "ClearList blacklist leaves the whitelist intact")
+  assertTrue(F:Whitelist()[tonumber(9)] == true, "ClearList blacklist leaves the whitelist intact")
   clear()
 end)
 
@@ -175,12 +175,12 @@ end)
 
 test("Filters: currency blacklist add / remove / query", function()
   NS.db.global.currencyBlacklist = {}
-  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
   assertTrue(NS.Filters:AddCurrencyBlacklist(3008))
-  assertTrue(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertTrue(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
   assertFalse(NS.Filters:AddCurrencyBlacklist(3008))   -- already present -> no change
   assertTrue(NS.Filters:RemoveCurrencyBlacklist(3008))
-  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
   assertFalse(NS.Filters:RemoveCurrencyBlacklist(3008)) -- absent -> no change
 end)
 
@@ -188,11 +188,11 @@ test("Filters: currency blacklist is independent of the item id lists", function
   NS.db.global.blacklist = {}; NS.db.global.currencyBlacklist = {}
   NS.Filters:AddBlacklist(3008)            -- item id 3008
   NS.Filters:AddCurrencyBlacklist(3008)    -- currency id 3008 (same number, different namespace)
-  assertTrue(NS.Filters:IsBlacklisted(3008))
-  assertTrue(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertTrue(NS.Filters:Blacklist()[tonumber(3008)] == true)
+  assertTrue(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
   NS.Filters:RemoveCurrencyBlacklist(3008)
-  assertTrue(NS.Filters:IsBlacklisted(3008))          -- item list untouched
-  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertTrue(NS.Filters:Blacklist()[tonumber(3008)] == true)          -- item list untouched
+  assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
   NS.db.global.blacklist = {}
 end)
 
@@ -200,11 +200,11 @@ test("Filters: ClearList and ClearAll include the currency blacklist", function(
   NS.db.global.currencyBlacklist = {}; NS.db.global.blacklist = {}; NS.db.global.whitelist = {}
   NS.Filters:AddCurrencyBlacklist(3008); NS.Filters:AddCurrencyBlacklist(2914)
   assertEqual(NS.Filters:ClearList("currencyBlacklist"), 2)
-  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
   NS.Filters:AddBlacklist(1); NS.Filters:AddWhitelist(2); NS.Filters:AddCurrencyBlacklist(3008)
   local removed = NS.Filters:ClearAll()
   assertEqual(removed, 3)
-  assertFalse(NS.Filters:IsCurrencyBlacklisted(3008))
+  assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
 end)
 
 test("Filters: ParseCurrencyID reads a currency link or a bare number", function()

@@ -60,7 +60,7 @@ State.lootContext = {
 
 Two deliberate properties of this single-slot design (see [Do not change without reason](../CLAUDE.md)):
 
-1. **`CONTEXT_TTL` is ~1.5s** (`core/Constants.lua:53`). Long enough to bridge the gap between the peripheral event and the loot line it explains, short enough that an unrelated later loot doesn't inherit a stale source.
+1. **`CONTEXT_TTL` is ~1.5s** (`core/Constants.lua:61`). Long enough to bridge the gap between the peripheral event and the loot line it explains, short enough that an unrelated later loot doesn't inherit a stale source.
 2. **Consume does not clear the slot.** One loot window emits many `CHAT_MSG_LOOT` lines that all share a source — a kill dropping four items, a bag with six stacks. Clearing on first consume would attribute only the first line and drop the rest to `OTHER`. The context intentionally survives the whole burst; the TTL, not consumption, ends it.
 
 Confidence is `CERTAIN` for every live stamper and `INFERRED` only on the fallback path — so `confidence == INFERRED` is exactly "no fresh context existed when this item landed." See [data-model.md](data-model.md) for how `source` / `sourceDetail` / `confidence` are stored.
@@ -124,7 +124,7 @@ Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.l
 
 ### Hot-path upvalues
 
-The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard events-frames-taint-§7). `Collector:RefreshUpvalues` (`modules/Collector.lua:70`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:126`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
+The three gate settings plus `enabled` are cached as file-local upvalues (`modules/Collector.lua:9`), not re-read from the DB on every loot line (standard events-frames-taint-§7). `Collector:RefreshUpvalues` (`modules/Collector.lua:70`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:9`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
 
 ## Wired vs enum'd sources
 

@@ -181,13 +181,6 @@ BrowserTable.COLUMNS = {
 local COLUMN_BY_KEY = {}
 for _, col in ipairs(BrowserTable.COLUMNS) do COLUMN_BY_KEY[col.key] = col end
 
--- Pure cell text for a column key + record (unit-tested; the UI binds via the same path).
-function BrowserTable:CellText(key, record)
-  local col = COLUMN_BY_KEY[key]
-  if not col then return "" end
-  return col.valueFn(record)
-end
-
 -- ── Pipeline ───────────────────────────────────────────────────────────────────
 BrowserTable.filter = {}
 BrowserTable.testMode = false

@@ -256,26 +256,6 @@ local function firedHistoryChanged(sent)
   return false
 end
 
-test("Database: DeleteAt removes the row, compacts, fires HistoryChanged", function()
-  seed()
-  local sent = captureMessages(function()
-    assertTrue(NS.Database:DeleteAt(2))
-  end)
-  assertEqual(NS.Database:Count(), 3)
-  local h = NS.Database:History()
-  assertEqual(h[1].itemID, 1)
-  assertEqual(h[2].itemID, 3) -- row 2 gone; array stays dense
-  assertEqual(h[3].itemID, 4)
-  assertTrue(firedHistoryChanged(sent))
-end)
-
-test("Database: DeleteAt out-of-range returns false, no change", function()
-  seed()
-  assertFalse(NS.Database:DeleteAt(99))
-  assertFalse(NS.Database:DeleteAt(0))
-  assertEqual(NS.Database:Count(), 4)
-end)
-
 test("Database: Delete(pred) removes all matching, compacts, returns count", function()
   seed()
   local removed = NS.Database:Delete(function(r) return r.source == "KILL" end)
@@ -345,18 +325,6 @@ test("Database: Purge returns removed count and logs [Data]", function()
   assertTrue(type(n) == "number" and n > 0, "Purge returns the removed count")
   assertTrue(NS.DebugLog.buffer[#NS.DebugLog.buffer]:find("[Data]", 1, true) ~= nil,
     "last line is tagged [Data]")
-  NS.State.debug = false
-end)
-
-test("Database: DeleteAt logs [Data] with the deleted row's ts", function()
-  seed()
-  NS.State.debug = true
-  local ts = NS.db.global.history[1].ts
-  assertTrue(NS.Database:DeleteAt(1))
-  assertTrue(NS.DebugLog.buffer[#NS.DebugLog.buffer]:find("[Data]", 1, true) ~= nil,
-    "last line is tagged [Data]")
-  assertTrue(NS.DebugLog.buffer[#NS.DebugLog.buffer]:find(tostring(ts), 1, true) ~= nil,
-    "the deleted row's ts appears in the line")
   NS.State.debug = false
 end)
 

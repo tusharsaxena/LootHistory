@@ -120,7 +120,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 
 ### test_filters.lua (20)
 
-- Filters: AddBlacklist stores the id; IsBlacklisted sees it
+- Filters: AddBlacklist stores the id in the blacklist set
 - Filters: AddBlacklist accepts a numeric string
 - Filters: adding to one list removes the id from the other
 - Filters: Remove drops the id
@@ -203,7 +203,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (45)
+### test_database.lua (42)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -229,8 +229,6 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: Export returns metatable-free copies with all fields
 - Database: Export carries currencyID through for currency rows
 - Database: Export coerces a nil source to OTHER (parity with Stats bySource)
-- Database: DeleteAt removes the row, compacts, fires HistoryChanged
-- Database: DeleteAt out-of-range returns false, no change
 - Database: Delete(pred) removes all matching, compacts, returns count
 - Database: PruneOld drops records older than retentionDays
 - Database: PruneOld with retentionDays=0 keeps everything
@@ -238,7 +236,6 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Database: PruneOld returns removed count and logs [Prune]
 - Database: PruneOld is zero-alloc and silent when debug is off
 - Database: Purge returns removed count and logs [Data]
-- Database: DeleteAt logs [Data] with the deleted row's ts
 - Database: StorageStats counts records, day span, and estimated bytes
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
@@ -316,7 +313,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Browser.SaveView then ResetView clears the stored default
 - Browser.ResetWindow empties the persisted geometry carve-out
 
-### test_browsertable.lua (51)
+### test_browsertable.lua (50)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -351,7 +348,6 @@ whenever the suite changes (see [testing.md](testing.md)).
 - BrowserTable: SortRecords returns a new array and leaves the input alone
 - BrowserTable: sorting by a column no record fills still keeps every row
 - BrowserTable: the vendor and auction columns sort by copper, not by their text
-- BrowserTable: an unknown column key renders as empty text
 - BrowserTable: an unrecognised source still shows something in the Source column
 - BrowserTable: the vendor column is blank when no price was recorded
 - BrowserTable: the auction column is blank when no price map was captured
@@ -544,13 +540,13 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 23 |
 | test_collector.lua | 33 |
-| test_database.lua | 45 |
+| test_database.lua | 42 |
 | test_stats.lua | 18 |
 | test_browser.lua | 41 |
-| test_browsertable.lua | 51 |
+| test_browsertable.lua | 50 |
 | test_export.lua | 22 |
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 30 |
 | test_analytics.lua | 57 |
-| **Total** | **479** |
+| **Total** | **475** |

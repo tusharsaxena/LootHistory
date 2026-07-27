@@ -2,7 +2,7 @@
 
 One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.lua:189`. Each row is `{ name, desc, fn }` — the same rows dispatch verbs and generate help text, so adding a command is a one-row append.
 
-`/lh` and `/loothistory` are both registered through AceConsole's `RegisterChatCommand` (`settings/Slash.lua:69`) and dispatch to the same `Sl:OnSlash` handler — `/loothistory` is the long-form alias; all help text and docs use the short form.
+`/lh` and `/loothistory` are both registered through AceConsole's `RegisterChatCommand` (`settings/Slash.lua:95`) and dispatch to the same `Sl:OnSlash` handler — `/loothistory` is the long-form alias; all help text and docs use the short form.
 
 The dispatcher (`Sl:OnSlash`, `settings/Slash.lua:102`):
 
@@ -52,18 +52,18 @@ Every chat line routes through the single shared printer **`NS.Print`** (`core/U
 
 ## Session-only `debug`
 
-The `debug` handler (`settings/Schema.lua:176`) drives the debug console independently of the logging flag:
+The `debug` handler (`settings/Schema.lua:200`) drives the debug console independently of the logging flag:
 
 - `/lh debug` → `DebugLog:Toggle()` — flips the console **window** only; the logging flag is untouched.
 - `/lh debug on` / `/lh debug off` → `DebugLog:SetEnabled(true/false)` — sets the session-only logging flag `NS.State.debug`. Capture runs even with the window closed.
 
-The flag is never persisted to SavedVariables and resets to off on every `/reload`. `debug` is deliberately **not** a Schema row (`settings/Schema.lua:80`). See [testing.md](testing.md) for the debug console and the `/lh test` synthetic dataset.
+The flag is never persisted to SavedVariables and resets to off on every `/reload`. `debug` is deliberately **not** a Schema row (`settings/Schema.lua:104`). See [testing.md](testing.md) for the debug console and the `/lh test` synthetic dataset.
 
 ## Confirm dialogs
 
 Six `StaticPopupDialogs` entries are registered once at load, in-game only (`settings/Slash.lua:7`):
 
-- **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:191`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history" button raises the same popup (`settings/Panel.lua:348`).
+- **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:213`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history" button raises the same popup (`settings/Panel.lua:384`).
 - **`KA0S_LOOTHISTORY_RESETALL`** — the confirm behind the Settings panel's **"Reset All"** button, *not* the `resetall` slash verb. Accepting runs `Sl:ResetEverything` (`settings/Slash.lua`), which wipes history (`Database:Purge`), restores every setting **and** clears the filter lists (`CliResetAll`), then drops `savedView` to stock (`Browser:ResetView`) and recenters the window (`Browser:ResetWindow`), then refreshes the panel. This is the total destructive reset; the `/lh resetall` verb only resets settings + filter lists and prompts for nothing.
 - **`KA0S_LOOTHISTORY_CLEAR_BLACKLIST`** / **`KA0S_LOOTHISTORY_CLEAR_WHITELIST`** / **`KA0S_LOOTHISTORY_CLEAR_CURRENCY`** — the confirms behind the Filters sub-page's per-list **"Clear all"** buttons (item blacklist, whitelist, and the currency blacklist). Accepting calls `Filters:ClearList(<list>)`; the panel refreshes via its `HistoryChanged` listener. Non-destructive — clearing a list only empties its id-set; stored history is untouched (blacklisting affected future captures only).
 - **`KA0S_LOOTHISTORY_CLEAR_FILTERS`** — the confirm behind the Filters subcategory's top-right **"Defaults"** button (its default state is empty lists). Accepting calls `Filters:ClearAll()`, clearing the blacklist, whitelist, **and** currency blacklist in one action; the panel refreshes via the same `HistoryChanged` listener. Non-destructive — stored history is untouched.

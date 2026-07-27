@@ -27,9 +27,9 @@ the small-scale rules those documents assume.
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:112`).
+  `settings/Schema.lua:136`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:124`,`:141`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:165`,`:148`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
   (`savedView`), the `blacklist`/`whitelist`/`currencyBlacklist` id lists (owned by `NS.Filters`,
@@ -94,7 +94,7 @@ the small-scale rules those documents assume.
   (`modules/DebugLog.lua:350`).
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed); the header's
-  `Debug: ON`/`OFF` control flips the same flag (`settings/Schema.lua:176`).
+  `Debug: ON`/`OFF` control flips the same flag (`settings/Schema.lua:200`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
   `<ts> | [<tag>] <content>` (`D.FormatPlain`, `modules/DebugLog.lua:174`). `tag` is one short word,
   printed verbatim — no padding, no truncation.
@@ -112,7 +112,7 @@ the small-scale rules those documents assume.
 ## Media: Blizzard defaults, with one ratified font exception
 
 - **Fonts, textures, and borders default to Blizzard-shipped media.** Text uses stock `GameFont*`
-  font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:65`);
+  font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:94`);
   every texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-CheckBox-Check`, `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
   `WHITE8X8` drawn as 1px edges, coloured from the flat `SKIN` table (`modules/Browser.lua:20`).

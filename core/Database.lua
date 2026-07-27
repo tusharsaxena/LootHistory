@@ -440,19 +440,6 @@ function Database:FireHistoryChanged()
   fireHistoryChanged()
 end
 
--- Delete a single row by index (from the table UI). Compacts the array; fires HistoryChanged.
-function Database:DeleteAt(index)
-  local history = NS.db.global.history
-  if type(index) ~= "number" or index < 1 or index > #history then return false end
-  local ts = history[index] and history[index].ts
-  table.remove(history, index)
-  fireHistoryChanged()
-  if NS.State.debug and NS.Debug then
-    NS.Debug("Data", "deleted row @%s", tostring(ts))
-  end
-  return true
-end
-
 -- Delete every record for which pred(record) is true. Rebuild-and-swap (no holes).
 -- Returns the number removed; fires HistoryChanged.
 function Database:Delete(pred)

@@ -36,23 +36,10 @@ end
 function F:Blacklist() return currentSet("blacklist") end
 function F:Whitelist() return currentSet("whitelist") end
 
-function F:IsBlacklisted(id)
-  id = tonumber(id)
-  return id ~= nil and currentSet("blacklist")[id] == true
-end
-function F:IsWhitelisted(id)
-  id = tonumber(id)
-  return id ~= nil and currentSet("whitelist")[id] == true
-end
-
 -- Currency blacklist — currency ids that must NOT be recorded when looted (point-in-time, like the
 -- item lists). Stored separately from the item blacklist because itemID and currencyID share the
 -- numeric namespace. Blacklist only: there is no currency whitelist.
 function F:CurrencyBlacklist() return currentSet("currencyBlacklist") end
-function F:IsCurrencyBlacklisted(id)
-  id = tonumber(id)
-  return id ~= nil and currentSet("currencyBlacklist")[id] == true
-end
 
 -- Propagate a list change. Re-cache the Collector's list upvalues by a direct cross-module call
 -- (not a bus message — the lists aren't schema settings, and the Collector is the only capture-side

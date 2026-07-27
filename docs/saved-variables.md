@@ -35,17 +35,17 @@ db.global = {
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:518`, `:400`). Each record's field shape is documented in [data-model.md](data-model.md).
-- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:72`).
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:445`, `:505`). Each record's field shape is documented in [data-model.md](data-model.md).
+- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:82`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
-Debug is **session-only** (`NS.State.debug`) and is deliberately **never persisted** here — it resets to off on every reload (`defaults/Global.lua:28`, `settings/Schema.lua:80`).
+Debug is **session-only** (`NS.State.debug`) and is deliberately **never persisted** here — it resets to off on every reload (`defaults/Global.lua:43`, `settings/Schema.lua:104`).
 
 ## The `Schema:Set` write seam
 
-Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:124` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
+Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:148` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
 
-The deep-copy (`settings/Schema.lua:116`) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
+The deep-copy (`settings/Schema.lua:140`) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
 
 ### Storage-only carve-outs
 
@@ -83,4 +83,4 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:518`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:66`).
+`Database:PruneOld` (`core/Database.lua:505`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:66`).
