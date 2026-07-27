@@ -91,12 +91,12 @@ the small-scale rules those documents assume.
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before formatting anything
-  (`modules/DebugLog.lua:265`).
+  (`modules/DebugLog.lua:350`).
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed); the header's
   `Debug: ON`/`OFF` control flips the same flag (`settings/Schema.lua:176`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
-  `<ts> | [<tag>] <content>` (`D.FormatPlain`, `modules/DebugLog.lua:119`). `tag` is one short word,
+  `<ts> | [<tag>] <content>` (`D.FormatPlain`, `modules/DebugLog.lua:174`). `tag` is one short word,
   printed verbatim — no padding, no truncation.
 - `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
   `NS.SafeToString` before it reaches `string.format`, so a combat-protected "secret" value logs as
@@ -120,7 +120,7 @@ the small-scale rules those documents assume.
   (`settings/Panel.lua:532`) — branding art, not a re-skinnable surface.
 - **Ratified exception — the monospace console font (audited 2026-07-17).** The debug console and
   the export/debug copy boxes render in the vendored **JetBrains Mono** (`Constants.FONT_MONO`,
-  used at `modules/DebugLog.lua:93`,`:191` and `modules/Export.lua:305`). This is a **deliberate,
+  used at `modules/DebugLog.lua:97`,`:275` and `modules/Export.lua:346`). This is a **deliberate,
   ratified deviation** from Blizzard-default-only: WoW ships **no monospace font object**, and
   column-aligned copy/paste text needs one. The font is OFL-licensed and vendored at
   `media/fonts/`; init registers it with LibSharedMedia (`core/LootHistory.lua:30`) purely to
@@ -142,7 +142,7 @@ the small-scale rules those documents assume.
 
 - **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset All, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip
-  (`settings/Panel.lua:32`, applied in `makePairButton`, `settings/Panel.lua:214`). Label-inset
+  (`settings/Panel.lua:32`, applied in `makePairButton`, `settings/Panel.lua:243`). Label-inset
   controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` — they are
   immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't hard-code it per button.
 - **Always-shown scrollbar (options-ui-§10).** `installAlwaysShownScrollbar` overrides AceGUI's stock

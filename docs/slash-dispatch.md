@@ -1,10 +1,10 @@
 # Slash dispatch
 
-One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.lua:165`. Each row is `{ name, desc, fn }` — the same rows dispatch verbs and generate help text, so adding a command is a one-row append.
+One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.lua:189`. Each row is `{ name, desc, fn }` — the same rows dispatch verbs and generate help text, so adding a command is a one-row append.
 
 `/lh` and `/loothistory` are both registered through AceConsole's `RegisterChatCommand` (`settings/Slash.lua:69`) and dispatch to the same `Sl:OnSlash` handler — `/loothistory` is the long-form alias; all help text and docs use the short form.
 
-The dispatcher (`Sl:OnSlash`, `settings/Slash.lua:77`):
+The dispatcher (`Sl:OnSlash`, `settings/Slash.lua:102`):
 
 - Bare `/lh` → `Sl:PrintHelp` (standard slash-commands-§4). Window display is **explicit** — bare `/lh` prints help, never opens the window; use `/lh toggle` or `/lh show|hide`.
 - `/lh <known>` → runs that row's `fn(rest)`.
@@ -36,7 +36,7 @@ Every chat line routes through the single shared printer **`NS.Print`** (`core/U
 
 ## Generated help
 
-`Sl:PrintHelp` (`settings/Slash.lua:92`) prints a version/alias header — `v<NS.version> slash commands (/loothistory is an alias for /lh)` — then one prefixed row per `NS.COMMANDS` entry: a gold command, an em-dash, and a white description. Because the help index and the dispatcher read the same table, they can never drift.
+`Sl:PrintHelp` (`settings/Slash.lua:117`) prints a version/alias header — `v<NS.version> slash commands (/loothistory is an alias for /lh)` — then one prefixed row per `NS.COMMANDS` entry: a gold command, an em-dash, and a white description. Because the help index and the dispatcher read the same table, they can never drift.
 
 ## Schema-reflecting CLI
 

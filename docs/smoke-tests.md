@@ -261,9 +261,11 @@ session default of "current player"), persisted to `savedView`.
 - **Clear** returns filters/group/sort to the saved view and the character scope to the current player.
 - **Reset** drops the saved view back to stock defaults ("view reset to stock defaults.").
 - The **Bound selection survives Save → Clear → reload** as part of the view.
-- After `/reload`, the window opens on the **saved view + current player** (the Character dropdown shows
-  the logged-in character selected). There is no longer a Current/All-players toggle — the Character
-  dropdown alone controls scope.
+- After `/reload`, the window opens on the **saved view + current player**: the Character dropdown's
+  collapsed button reads **"Character: Current"** and its menu lights that entry gold. This must hold
+  **even on a character with no recorded loot** (the footer reads "Showing 0 of N") — a stale build read
+  "Character: All" there, because the character had no data row to build a menu option from. There is no
+  longer a Current/All-players toggle — the Character dropdown alone controls scope.
 
 ### 6a. Export
 
@@ -384,6 +386,12 @@ exports depends on which tab is showing.
   source / item-type / character name) is **cut to ~16 chars with a "…"** instead of wrapping to a
   second line, and **hovering the row label shows a tooltip with the full name**. Confirm the
   previously clumped 2-line labels (e.g. "Artisan Enchanter's Moxie") now sit on one line.
+- **Every tooltip carries its value.** Hover a horizontal bar row, a stacked-bar row, a ranked-list row
+  (Top Zones / Top Items / Top by Value) and a bar-section legend chip: each reads
+  **"&lt;full label&gt;:  &lt;value&gt;"**, and the value matches the number printed on that row
+  (money rows keep their coin glyphs). Check one row whose label is ellipsised and one whose value
+  column is clipped — the tooltip must show both in full. The only label-only tooltips are the legend
+  chips under the "… by Character" companion charts, which have no single value.
 - **Cursor-anchored tooltips.** Every Insights hover tooltip (row labels and segments) appears just
   **above-and-right of the cursor**, not pinned to the row's far-right edge.
 - **Per-segment tooltips.** Hovering an individual coloured segment of any stacked bar (Character ×

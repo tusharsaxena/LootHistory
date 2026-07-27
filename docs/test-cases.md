@@ -332,7 +332,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
 
-### test_analytics.lua (12)
+### test_analytics.lua (15)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -341,6 +341,9 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Analytics.paletteColor: rank 1 is the first palette entry
 - Analytics.paletteColor: adjacent ranks differ
 - Analytics.paletteColor: cycles past the palette length
+- Analytics._tipText: joins the full label and its value
+- Analytics._tipText: label alone when there is no value
+- Analytics._tipText: value alone when there is no label
 - Analytics._truncate: short text passes through
 - Analytics._truncate: long text is cut with an ellipsis
 - Analytics._truncate: exactly maxChars passes through
@@ -364,5 +367,5 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_debuglog.lua | 16 |
 | test_slash.lua | 23 |
 | test_schema.lua | 8 |
-| test_analytics.lua | 12 |
-| **Total** | **299** |
+| test_analytics.lua | 15 |
+| **Total** | **302** |

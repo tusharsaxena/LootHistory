@@ -6,7 +6,7 @@ One record per loot event, the dense-array history it lives in, the `SourceType`
 
 Every acquisition is **one row** — records are keyed only by array position, never deduplicated by item. Timestamps and every column are therefore first-class for sort/filter; aggregation (group-by, Insights) is a *view* concern, never a storage concern. Records are plain tables with **no metatables**, so they serialize cleanly for the deferred v2 export.
 
-Assembled by `Collector:BuildRecord` (`modules/Collector.lua:41`):
+Assembled by `Collector:BuildRecord` (`modules/Collector.lua:43`):
 
 ```lua
 -- a single entry in LootHistoryDB.global.history[]
@@ -91,11 +91,11 @@ Filtering is point-in-time: a row rescued by the whitelist (it failed the normal
 
 ## Storage: a dense array
 
-All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [saved-variables.md](./saved-variables.md)). `Database:Add` (`core/Database.lua:69`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
+All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [saved-variables.md](./saved-variables.md)). `Database:Add` (`core/Database.lua:109`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
 
 ### Rebuild-and-swap on delete
 
-Deletion never leaves holes. `Database:DeleteAt` (`core/Database.lua:326`) uses `table.remove` (which compacts), while every predicate/bulk path **rebuilds a fresh array and swaps it in**:
+Deletion never leaves holes. `Database:DeleteAt` (`core/Database.lua:444`) uses `table.remove` (which compacts), while every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
 - `Database:Delete(pred)` (`core/Database.lua:340`) — keep everything where `pred(r)` is false.
 - `Database:PruneOld()` (`core/Database.lua:400`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
@@ -114,7 +114,7 @@ KILL · CONTAINER · MAIL · TRADE · AH · QUEST · VENDOR · CRAFT · ROLL
 BONUS_ROLL · MPLUS · REFUND · OTHER · DISENCHANT · MILLING · PROSPECTING
 ```
 
-Companion tables in the same file: `SourceOrder` (display order for grouping/analytics, `core/Constants.lua:16`) and `SourceLabel` (short UI labels, `core/Constants.lua:23`).
+Companion tables in the same file: `SourceOrder` (display order for grouping/analytics, `core/Constants.lua:17`) and `SourceLabel` (short UI labels, `core/Constants.lua:24`).
 
 `SOURCE_IMPLEMENTED` (`core/Constants.lua:37`) marks the sources with a **live capture path**; it gates the per-source mute UI. Every source now qualifies, so all appear in the option list — the enum stays whole because it is the export contract. See [attribution.md](./attribution.md).
 
@@ -152,7 +152,7 @@ were removed.)
 
 ### Confidence
 
-`Constants.Confidence` (`core/Constants.lua:40`): `CERTAIN` \| `INFERRED`. Surfaces attribution uncertainty in the UI and lets the export flag inferred rows.
+`Constants.Confidence` (`core/Constants.lua:44`): `CERTAIN` \| `INFERRED`. Surfaces attribution uncertainty in the UI and lets the export flag inferred rows.
 
 > Not part of the record, but related: `Constants.ITEMCLASS_QUEST = 12` (`core/Constants.lua:44`) is the locale-independent `Enum.ItemClass.Questitem` id the collector's optional quest-item gate keys on — never the localized `itemType` string.
 
@@ -178,7 +178,7 @@ All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is alr
 
 ### ActiveHistory — the test-mode swap
 
-Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:60`), **not** `history` directly:
+Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:100`), **not** `history` directly:
 
 ```lua
 function Database:ActiveHistory()
@@ -204,7 +204,7 @@ can collide. It is **blacklist-only** (there is no currency whitelist) and, like
 strictly point-in-time: a blacklisted currency id is dropped at capture and never written to
 `history`; existing currency rows are never hidden or removed.
 
-`Database:Query(filter)` (`core/Database.lua:151`) runs the generic `QueryList` (`core/Database.lua:85`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:177`) aggregates the filtered result in one O(n) pass for Insights.
+`Database:Query(filter)` (`core/Database.lua:151`) runs the generic `QueryList` (`core/Database.lua:125`) — an AND-combined filter over quality / source / char / itemType / mapID (scalar equality or set membership), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:177`) aggregates the filtered result in one O(n) pass for Insights.
 
 ### Export — the v2 contract
 

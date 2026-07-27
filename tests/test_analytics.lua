@@ -33,6 +33,20 @@ test("Analytics.paletteColor: cycles past the palette length", function()
   assertEqual(a[1], b[1]); assertEqual(a[2], b[2]); assertEqual(a[3], b[3]) -- 21-colour palette wraps
 end)
 
+-- ── _tipText (hover text = full label + the value it encodes) ───────────────────────
+test("Analytics._tipText: joins the full label and its value", function()
+  assertEqual(NS.Analytics._tipText("Artisan Enchanter's Moxie", "412"),
+    "Artisan Enchanter's Moxie:  412")
+end)
+test("Analytics._tipText: label alone when there is no value", function()
+  assertEqual(NS.Analytics._tipText("Valorstones", nil), "Valorstones")
+  assertEqual(NS.Analytics._tipText("Valorstones", ""), "Valorstones")
+end)
+test("Analytics._tipText: value alone when there is no label", function()
+  assertEqual(NS.Analytics._tipText("", "17"), "17")
+  assertEqual(NS.Analytics._tipText(nil, "17"), "17")
+end)
+
 -- ── _truncate ───────────────────────────────────────────────────────────────────────
 test("Analytics._truncate: short text passes through", function()
   local s, t = NS.Analytics._truncate("Valorstones", 16)

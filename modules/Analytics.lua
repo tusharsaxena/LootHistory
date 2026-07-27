@@ -219,6 +219,16 @@ local function releaseAll(pool)
   wipe(pool.active)
 end
 
+-- Hover text for a chart element: the FULL (untruncated) label plus the value it encodes, so a
+-- tooltip always states the number as well as the name — on-chart value text is clipped to its
+-- column and the label itself is truncated. Label-only when the element carries no value.
+function Analytics._tipText(label, value)
+  label = label or ""
+  if value == nil or value == "" then return label end
+  if label == "" then return tostring(value) end
+  return label .. ":  " .. value
+end
+
 -- Show a one-line tooltip pinned just above-and-right of the cursor (offset +5,+5), rather than
 -- anchored to the (far-right) row edge. GetCursorPosition returns physical pixels, so divide by the
 -- UIParent scale before placing against UIParent's bottom-left.
@@ -664,7 +674,7 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
   for _, row in ipairs(rows) do
     local bar = acquire(pool, function() return makeBar(self.content) end)
     bar.fill:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
-    bar._fullLabel = row.label
+    bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
     local lc = row.labelColor or row.color -- default the label colour to its bar colour
     bar.label:SetTextColor(lc[1] or 0.9, lc[2] or 0.9, lc[3] or 0.9)
@@ -675,7 +685,7 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
   end
   if legendPool then
     local leg = {}
-    for _, row in ipairs(rows) do leg[#leg + 1] = { label = row.label, color = row.color } end
+    for _, row in ipairs(rows) do leg[#leg + 1] = { label = row.label, color = row.color, value = row.value } end
     return self:renderLegend(legendPool, leg, y, w, pad)
   end
   return y - SECTION_GAP
@@ -692,7 +702,7 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
   local innerW = w - pad * 2
   for _, row in ipairs(rows) do
     local bar = acquire(pool, function() return makeStackedBar(self.content) end)
-    bar._fullLabel = row.label
+    bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
     local lc = row.labelColor
     bar.label:SetTextColor(lc and lc[1] or 0.9, lc and lc[2] or 0.9, lc and lc[3] or 0.9)
@@ -703,7 +713,8 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
   return y - SECTION_GAP
 end
 
--- Render a wrapped legend of colour-swatch + label chips. rows = { { label, color = {r,g,b} } }.
+-- Render a wrapped legend of colour-swatch + label chips.
+-- rows = { { label, color = {r,g,b}, value = string|nil } }.
 -- Chips start at the track's left edge (aligned under the bars, not the text labels). Long labels
 -- are truncated with an ellipsis; hovering a chip shows the full label.
 function Analytics:renderLegend(pool, rows, y, w, pad)
@@ -713,7 +724,9 @@ function Analytics:renderLegend(pool, rows, y, w, pad)
     if x + chipW > w - pad then x = x0; rowY = rowY - 16 end
     local chip = acquire(pool, function() return makeSwatch(self.content) end)
     chip.sw:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
-    chip._full = row.label
+    -- `value` is only present for legends mirroring a bar section (a category key built from
+    -- catOrder has no single value) — _tipText then falls back to the label alone.
+    chip._full = Analytics._tipText(row.label, row.value)
     chip.fs:SetWidth(chipW - 16)
     chip.fs:SetText((Analytics._truncate(row.label, LEGEND_MAXCHARS)))
     chip:ClearAllPoints(); chip:SetPoint("TOPLEFT", self.content, "TOPLEFT", x, rowY)
@@ -800,7 +813,7 @@ function Analytics:renderListPanel(pool, panel, rows, y, colW, pad, rightW)
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", panel, "TOPLEFT", 4, -20 - (i - 1) * LIST_ROW_H)
     r:SetWidth(colW - 8)
     r.name:SetWidth(math.max(1, colW - 8 - rightW - 6)); r.name:SetText(row.name)
-    r._fullName = row.name
+    r._fullName = Analytics._tipText(row.name, row.right)
     local nc = row.nameColor
     r.name:SetTextColor(nc and nc[1] or 0.9, nc and nc[2] or 0.9, nc and nc[3] or 0.9)
     r.count:SetWidth(rightW); r.count:SetText(row.right); r.count:SetTextColor(0.8, 0.8, 0.82)

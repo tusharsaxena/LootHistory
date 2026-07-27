@@ -1,14 +1,17 @@
 # Settings panel — schema-driven Blizzard canvas
 
-The settings surface is registered into Blizzard's **Settings** UI as a parent category with two subcategories, all built by `createPanel` in `settings/Panel.lua`:
+The settings surface is registered into Blizzard's **Settings** UI as a parent category with three subcategories, all built by `createPanel` in `settings/Panel.lua`:
 
 * A **parent category** ("Ka0s Loot History") renders the **landing page** — logo, one-line tagline, and the slash-command list (`Settings.RegisterCanvasLayoutCategory`). This is the target of `/lh config` and a right-click on the minimap button.
 * A **General subcategory** holds the schema-driven settings (`Settings.RegisterCanvasLayoutSubcategory`). Its header reads `Ka0s Loot History |A forwardarrow|a General`.
 * A **Filters subcategory** holds the blacklist / whitelist management UI (issue #14) — a custom, non-schema page (see below).
+* An **AH Price subcategory** holds the auction-price master toggle + the unified price table (see below).
 
-All share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:69`), and — on the General subcategory only — a `Defaults` button pinned top-right (an AceGUI `Button`, so its handler is wired with `defaultsBtn:SetCallback("OnClick", …)`, not `:SetScript`; `Panel.lua:597`).
+All share the same gold header design: a `GameFontNormalHuge` title on the left, an `Options_HorizontalDivider` atlas tinted to the title's gold underneath (`Panel.lua:69`), and — on all three subcategories — a `Defaults` button pinned top-right.
 
-`createPanel` returns a `ctx` table (`{ panel, body, scroll, refreshers, lastGroup }`) that every layout helper threads through. `ctx.scroll` is the AceGUI `ScrollFrame` hosting the schema widgets, created lazily on first widget add (`ensureScroll`, `Panel.lua:174`). The General ctx is stashed at `P.general` so `P:Refresh` can re-sync widgets after a slash-cmd write.
+That button is an AceGUI `Button` (options-ui-§5), so its handler is wired with `SetCallback("OnClick", …)`, not `:SetScript` — but it is **built lazily, on the panel's first `OnShow`** (`ensureDefaultsButton`, `Panel.lua:96`), never at registration time. `buildHeader` only records the intent (`panel.wantsDefaultsButton`) and the click handler is parked on the panel as `panel.defaultsOnClick` until the button exists. The reason is a load-order race: AceGUI is a **shared** library that UI-skinning addons restyle by hooking `RegisterAsWidget`, and `P:Register()` runs in `OnInitialize` (ADDON_LOADED) — a widget created there can miss the hook and keep Blizzard's stock red-stone `UI-Panel-Button-Up` art for the session, which is exactly why the lazily-built page-body buttons looked right while this one did not. First `OnShow` is after every addon has loaded, so the race is gone. Do not "simplify" it back to registration time (anti-patterns #42).
+
+`createPanel` returns a `ctx` table (`{ panel, body, scroll, refreshers, lastGroup }`) that every layout helper threads through. `ctx.scroll` is the AceGUI `ScrollFrame` hosting the schema widgets, created lazily on first widget add (`ensureScroll`, `Panel.lua:203`). The General ctx is stashed at `P.general` so `P:Refresh` can re-sync widgets after a slash-cmd write.
 
 ## `NS.Schema.Schema` is the single source of truth
 
@@ -38,14 +41,14 @@ Eleven rows ship today (`Schema.lua:11`): `settings.enabled`, `minimap.hide`, `s
 
 ## Widget primitives and the two-column render
 
-`renderSchema` (`Panel.lua:297`) walks `NS.Schema.Schema` and pairs rows into 50%/50% Flow lines inside the shared `ScrollFrame`. A `group` change flushes the pending row and emits a section `Heading` (centred `GameFontNormalLarge` label flanked by dividers; `section`, `Panel.lua:195`). A `MultiCheck` or `row.wide` row takes a full-width line of its own; a `row.soloRow` row flushes any half-filled pending line and then sits alone on its row (used by `state.debugConsole`, so the Master Controls section reads `[Enable collection] [Hide minimap button]` / `[Debug console]` / `[Window scale]`). Widgets dispatch by `row.widget`:
+`renderSchema` (`Panel.lua:326`) walks `NS.Schema.Schema` and pairs rows into 50%/50% Flow lines inside the shared `ScrollFrame`. A `group` change flushes the pending row and emits a section `Heading` (centred `GameFontNormalLarge` label flanked by dividers; `section`, `Panel.lua:224`). A `MultiCheck` or `row.wide` row takes a full-width line of its own; a `row.soloRow` row flushes any half-filled pending line and then sits alone on its row (used by `state.debugConsole`, so the Master Controls section reads `[Enable collection] [Hide minimap button]` / `[Debug console]` / `[Window scale]`). Widgets dispatch by `row.widget`:
 
 | `widget` | AceGUI primitive | Maker |
 |---|---|---|
-| `CheckBox` | `CheckBox` | `makeCheckbox` (`Panel.lua:222`) |
-| `Dropdown` | `Dropdown` (list from `row.options`) | `makeDropdown` (`Panel.lua:233`) |
-| `Slider` | `Slider` (`row.min`/`max`) | `makeSlider` (`Panel.lua:247`) |
-| `MultiCheck` | `InlineGroup` of `CheckBox`es | `makeMultiCheck` (`Panel.lua:263`) |
+| `CheckBox` | `CheckBox` | `makeCheckbox` (`Panel.lua:251`) |
+| `Dropdown` | `Dropdown` (list from `row.options`) | `makeDropdown` (`Panel.lua:262`) |
+| `Slider` | `Slider` (`row.min`/`max`) | `makeSlider` (`Panel.lua:276`) |
+| `MultiCheck` | `InlineGroup` of `CheckBox`es | `makeMultiCheck` (`Panel.lua:292`) |
 
 A `wide` / `MultiCheck` row breaks onto its own full-width line. `settings.excludedSources` is the one MultiCheck: it stores a **set of muted sources**, but renders `invert = true` as "Record data from", so a *checked* box means "record this source" and the stored value is the logical inverse of the box state (`Panel.lua:276`).
 
@@ -67,9 +70,9 @@ Schema rendering is **deferred to the panel's `OnShow`** (a `local rendered = fa
 
 ## History maintenance section
 
-`renderHistory` (`Panel.lua:336`) appends a "History" section unique to this addon: a live stats label paired with a **Purge history…** button.
+`renderHistory` (`Panel.lua:371`) appends a "History" section unique to this addon: a live stats label paired with a **Purge history…** button.
 
-* **Stats label** reads from `Database:StorageStats` (`Database.lua:383`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:365`).
+* **Stats label** reads from `Database:StorageStats` (`Database.lua:501`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:365`).
 * **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (`Panel.lua:348`, popup at `Slash.lua:8`).
 * **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:376`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [conventions.md](conventions.md)).
 
@@ -100,6 +103,6 @@ The lists are **core app logic** and act point-in-time, so there is intentionall
 
 ## Ka0s options-ui-§6/§8/§10 details this panel implements
 
-**Paired ACTION-button inset (`BUTTON_PAIR_REL = 0.492`).** Both cell-filling action buttons — Reset All and Purge — are created by `makePairButton` (`Panel.lua:214`) at relative width `0.492`, *not* `0.5`. A button whose fill reaches the cell's right edge has its right border shaved by the `ScrollFrame` clip; the ~0.8% inset clears it (options-ui-§6/§8). Label-inset controls (CheckBox / Dropdown / Slider) stay at `0.5` — their label gutter already reserves the space, so they're immune (options-ui-§10).
+**Paired ACTION-button inset (`BUTTON_PAIR_REL = 0.492`).** Both cell-filling action buttons — Reset All and Purge — are created by `makePairButton` (`Panel.lua:243`) at relative width `0.492`, *not* `0.5`. A button whose fill reaches the cell's right edge has its right border shaved by the `ScrollFrame` clip; the ~0.8% inset clears it (options-ui-§6/§8). Label-inset controls (CheckBox / Dropdown / Slider) stay at `0.5` — their label gutter already reserves the space, so they're immune (options-ui-§10).
 
-**Always-shown, inert-when-fits scrollbar (options-ui-§10).** `installAlwaysShownScrollbar` (`Panel.lua:109`) rebinds the AceGUI `ScrollFrame`'s `FixScroll` per instance so the scrollbar is shown **once and stays shown**, reserving the 20px right gutter permanently. Stock `FixScroll` hides the bar and reclaims the gutter when content fits, which would shift the body width between the short landing page and the taller General page. The override keeps the gutter reserved so every page's body shares one right-edge x-coordinate; when content fits it parks the thumb at the top and disables the bar and its step buttons (greyed). Because `scrollBarShown` stays permanently true, the override **also** rebinds `MoveScroll` per instance to no-op when the page fits — otherwise AceGUI's stock wheel handler (which only gates on `scrollBarShown`) would drift the parked thumb on a short page with nothing to scroll (smoke-test S-4). The original math is otherwise mirrored (note AceGUI's swapped names: `height` = visible frame height, `viewheight` = content height).
+**Always-shown, inert-when-fits scrollbar (options-ui-§10).** `installAlwaysShownScrollbar` (`Panel.lua:138`) rebinds the AceGUI `ScrollFrame`'s `FixScroll` per instance so the scrollbar is shown **once and stays shown**, reserving the 20px right gutter permanently. Stock `FixScroll` hides the bar and reclaims the gutter when content fits, which would shift the body width between the short landing page and the taller General page. The override keeps the gutter reserved so every page's body shares one right-edge x-coordinate; when content fits it parks the thumb at the top and disables the bar and its step buttons (greyed). Because `scrollBarShown` stays permanently true, the override **also** rebinds `MoveScroll` per instance to no-op when the page fits — otherwise AceGUI's stock wheel handler (which only gates on `scrollBarShown`) would drift the parked thumb on a short page with nothing to scroll (smoke-test S-4). The original math is otherwise mirrored (note AceGUI's swapped names: `height` = visible frame height, `viewheight` = content height).
