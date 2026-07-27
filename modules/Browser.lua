@@ -367,12 +367,24 @@ local function MakeDropdown(parent, width)
   -- Collapsed-button summary: the "All" label when empty, the single option's label when one is
   -- picked, else "<Prefix>: N selected" (prefix taken from the "all" sentinel, e.g. "Quality").
   function dd:UpdateMultiLabel()
-    local n, firstLabel
+    -- A preset option that reports itself active names the whole selection (e.g. "Character:
+    -- Current"). Checked first because the label must hold even when the selected value has no
+    -- option row — the option lists are data-driven, so a character with no loot in the current
+    -- dataset isn't listed, and the button would otherwise fall back to "All".
     for _, o in ipairs(self._options or {}) do
-      if o.value ~= "all" and self._selected[o.value] then
-        n = (n or 0) + 1
-        firstLabel = firstLabel or o.label
-      end
+      if o.isActive and o.isActive(self) then self.text:SetText(o.label); return end
+    end
+    -- Label every selected value: from its option row when present, else the raw value, so a
+    -- selection that isn't in the current option list still counts and reads sensibly.
+    local labels = {}
+    for k in pairs(self._selected) do labels[k] = tostring(k) end
+    for _, o in ipairs(self._options or {}) do
+      if o.value ~= "all" and labels[o.value] ~= nil then labels[o.value] = o.label end
+    end
+    local n, firstLabel
+    for _, lbl in pairs(labels) do
+      n = (n or 0) + 1
+      firstLabel = firstLabel or lbl
     end
     local allLabel = (self._options and self._options[1] and self._options[1].label) or "All"
     if not n then
