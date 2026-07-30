@@ -73,9 +73,9 @@ The **Export** button follows the tab you're on: on **History** it copies your l
 | `/lh config` | Open the settings panel. |
 | `/lh version` | Show the addon version. |
 | `/lh list` | List every setting and its current value. |
-| `/lh get <path>` | Show one setting's value (e.g. `/lh get settings.qualityThreshold`). |
-| `/lh set <path> <value>` | Change a setting. Out-of-range numbers are clamped; invalid choices are rejected. |
-| `/lh reset <path>` | Reset one setting to its default. |
+| `/lh get path` | Show one setting's value (e.g. `/lh get settings.qualityThreshold`). |
+| `/lh set path value` | Change a setting. Out-of-range numbers are clamped; invalid choices are rejected. |
+| `/lh reset path` | Reset one setting to its default. |
 | `/lh resetall` | Reset every setting to its default. |
 | `/lh purge` | Delete all recorded history (asks you to confirm first). |
 | `/lh debug` | Toggle the debug console window. `/lh debug on` / `off` turn debug logging on or off (session-only) — separate from showing the window. |
