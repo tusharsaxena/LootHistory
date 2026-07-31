@@ -67,14 +67,21 @@ Loot History**.
 **Pass.**
 - Login and `/reload` complete with **no Lua errors**. Every TOC file loads (locales first, then
   `core/` with Compat first, defaults, then modules with Attribution before Collector, and settings last).
+- **Load-order regression check** (the 2026-07-18 TOC reorder, audit LH-13). The TOC section order is
+  `Libraries → Locales → Core → Defaults → Modules → Settings`, so `settings/` now loads *after*
+  `modules/`. Confirm nothing depends on that having been the other way round: no Lua error on login
+  or `/reload`, `/lh` prints the help index (above), and **Ka0s Loot History appears in the Blizzard
+  options list** (Esc → Options → AddOns) with its General / Filters / AH Price sub-pages present.
+  The headless suite loads in this same order, but the real TOC load path is not unit-testable.
 - `/lh` (bare) prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
   `COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
-  `settings`, `minimap`, and `schemaVersion = 4`. (The seed value is 1; `NS:RunMigrations` — invoked
-  from `InitDB` before any read — applies the v1→v2, v2→v3, and v3→v4 migrations back-to-back on a
-  brand-new DB immediately, so the value persisted after the very first init is already 4. The v3→v4
-  currency-quality backfill touches 0 rows here since `history` is empty.)
+  `settings`, `minimap`, and `schemaVersion = 5`. (The seed value is 1; `NS:RunMigrations` — invoked
+  from `InitDB` before any read — applies the v1→v2, v2→v3, v3→v4, and v4→v5 migrations back-to-back
+  on a brand-new DB immediately, so the value persisted after the very first init is already 5. The
+  v3→v4 currency-quality and v4→v5 currency-bound backfills touch 0 rows here since `history` is
+  empty.)
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
   `settings.excludedSources = table: …` (empty), `minimap.hide = false`.
@@ -574,10 +581,11 @@ are **independent**.
 - Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
 
 **Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 4` — `RunMigrations` (invoked from `InitDB`) applied
-  the v1→v2 (strips the retired `viaWhitelist` field), v2→v3 (`sellPrice` → `vendorPrice`), and v3→v4
-  (backfills currency-record `quality` from `C_CurrencyInfo`) migrations and bumped the stamp to 4;
-  re-running it on an already-v4 DB is a no-op (idempotent).
+- `LootHistoryDB["global"]["schemaVersion"] = 5` — `RunMigrations` (invoked from `InitDB`) applied
+  the v1→v2 (strips the retired `viaWhitelist` field), v2→v3 (`sellPrice` → `vendorPrice`), v3→v4
+  (backfills currency-record `quality` from `C_CurrencyInfo`), and v4→v5 (backfills currency-record
+  `bound` from `C_CurrencyInfo`) migrations and bumped the stamp to 5; re-running it on an already-v5
+  DB is a no-op (idempotent).
 - `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
   `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
   (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.

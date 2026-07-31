@@ -313,7 +313,8 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
   displayed.
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting
   items more than ~1.5s apart from one open window can let later items fall back to
-  `OTHER`/`INFERRED`. Revisiting the single-slot TTL is a backlog item.
+  `OTHER`/`INFERRED`. The single-slot context with a fixed TTL is a settled design decision, not an
+  open backlog item — see [scope.md](scope.md) *Resolved design decisions*.
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
   [data-model.md](data-model.md).

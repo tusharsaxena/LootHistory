@@ -4,7 +4,7 @@ One record per loot event, the dense-array history it lives in, the `SourceType`
 
 ## The loot record
 
-Every acquisition is **one row** — records are keyed only by array position, never deduplicated by item. Timestamps and every column are therefore first-class for sort/filter; aggregation (group-by, Insights) is a *view* concern, never a storage concern. Records are plain tables with **no metatables**, so they serialize cleanly for the deferred v2 export.
+Every acquisition is **one row** — records are keyed only by array position, never deduplicated by item. Timestamps and every column are therefore first-class for sort/filter; aggregation (group-by, Insights) is a *view* concern, never a storage concern. Records are plain tables with **no metatables**, so they serialize cleanly for `Database:Export`.
 
 Assembled by `Collector:BuildRecord` (`modules/Collector.lua:43`):
 
