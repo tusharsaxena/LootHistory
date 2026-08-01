@@ -3,7 +3,11 @@ NS.Panel = NS.Panel or {}
 local P = NS.Panel
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
-local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
+-- The LibKa0s-Options-1.0 instance: the canvas shell, the page registry, the lazy Defaults button,
+-- the five widget makers, the two-column flow engine and the always-shown scrollbar patch. Wired in
+-- settings/OptionsSetup.lua, which loads immediately before this file and is where every descriptor
+-- decision (and every declined surface) is written down.
+local O = NS.Options
 
 -- Ka0s settings-panel pattern (shared across Ka0s addons; see WowAddonStandards):
 --   * A parent canvas category renders the LANDING PAGE — logo + one-liner +
@@ -12,290 +16,46 @@ local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 --     header ("Ka0s Loot History ▸ General"), a Defaults button, and a gold divider.
 --   * Bodies render schema rows into a TWO-COLUMN grid (50%/50% Flow rows);
 --     section headings (AceGUI Heading, centred label flanked by dividers) group them.
--- Writes route through NS.Schema:Set (validate → write → onChange); reads via :Get.
+-- All of the above is now the library's. Writes still route through NS.Schema:Set (validate → write
+-- → onChange); reads via :Get — the descriptor points at both.
 
-local ADDON_TITLE   = "Ka0s Loot History"
 local ADDON_TAGLINE = "Records every item you loot, attributes its source, and lets you browse and analyse it."
 local LOGO_PATH     = "Interface\\AddOns\\LootHistory\\media\\logos\\loothistory.logo.tga"
-
--- Layout constants (Ka0s standard values; see WowAddonStandards options-ui-§8).
-local PADDING_X     = 16   -- left/right edge inset for header, divider, body
-local HEADER_TOP    = 20   -- title + Defaults button inset from the panel top
-local HEADER_HEIGHT = 54   -- top → divider; body starts at HEADER_HEIGHT + 8
-local DEFAULTS_W    = 110  -- Defaults button width
 local LOGO_SIZE     = 300  -- landing-page logo display size
-local ROW_VSPACER   = 8    -- gap between two-column rows
-local SECTION_TOP_SPACER, SECTION_BOTTOM_SPACER, SECTION_HEADING_H = 10, 6, 26
--- Cell-filling paired ACTION buttons inset to this (not 0.5) so their right border clears the
--- ScrollFrame's clip (options-ui-§6/§8). Label-inset controls (checkbox/dropdown/slider)
--- reserve that gutter already and stay at 0.5 — they're immune (options-ui-§10).
-local BUTTON_PAIR_REL = 0.492
 
-local mainCategoryID  -- parent "Ka0s Loot History" category (target of /lh config)
-local registered
+-- The layout constants moved to LibKa0s-Options-1.0's own LAYOUT table, which carries the SAME
+-- numbers this file used to declare (PADDING_X 16, HEADER_TOP 20, HEADER_HEIGHT 54, DEFAULTS_W 110,
+-- ROW_VSPACER 8, the 10/6/26 section triple, BUTTON_PAIR_REL 0.492). The three this file's own page
+-- code still needs are re-exported on the instance so host layout stays in lockstep with the engine.
 
--- ── Tooltip helper (AceGUI widget via SetCallback, plain frame via HookScript) ──
-local function attachTooltip(widget, label, tooltip)
-  if not widget or not tooltip then return end
-  local anchor = widget.frame or widget
-  if not anchor then return end
-  local function show()
-    if not GameTooltip then return end
-    GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
-    if label and label ~= "" then GameTooltip:SetText(label, 1, 1, 1) end
-    GameTooltip:AddLine(tooltip, nil, nil, nil, true)
-    GameTooltip:Show()
-  end
-  local function hide() if GameTooltip then GameTooltip:Hide() end end
-  if widget.SetCallback then
-    widget:SetCallback("OnEnter", show); widget:SetCallback("OnLeave", hide)
-  elseif widget.HookScript then
-    widget:HookScript("OnEnter", show); widget:HookScript("OnLeave", hide)
-  end
-end
-
--- ── Header: "Ka0s Loot History ▸ <title>" + Defaults button + gold divider ──────
-local function buildHeader(panel, title, opts)
-  local displayTitle = title
-  if not opts.isMain then
-    displayTitle = ADDON_TITLE .. " |A:common-icon-forwardarrow:16:16|a " .. title
-  end
-
-  local titleFS = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-  titleFS:SetPoint("TOPLEFT", panel, "TOPLEFT", PADDING_X, -HEADER_TOP)
-  titleFS:SetText(displayTitle)
-
-  local divider = panel:CreateTexture(nil, "ARTWORK")
-  divider:SetAtlas("Options_HorizontalDivider", true)
-  divider:SetPoint("TOPLEFT",  panel, "TOPLEFT",   PADDING_X, -HEADER_HEIGHT)
-  divider:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PADDING_X, -HEADER_HEIGHT)
-  divider:SetVertexColor(titleFS:GetTextColor())   -- track the title's gold
-
-  -- The button itself is built LAZILY (ensureDefaultsButton, below), never here: buildHeader runs
-  -- from P:Register during OnInitialize, which is far too early. See the note on that function.
-  panel.wantsDefaultsButton = opts.defaultsButton and true or false
-  return titleFS, divider
-end
-
--- Build the header's Defaults button, once, on the panel's FIRST OnShow.
---
--- It MUST stay an AceGUI Button (options-ui-§5) — but *when* it is created matters as much as
--- *what* creates it. AceGUI is a SHARED library: UI-skinning addons restyle its widgets by hooking
--- `RegisterAsWidget`, so a widget created before that hook is installed keeps Blizzard's stock
--- `UI-Panel-Button-Up` art — the red stone button — for the whole session, while everything created
--- afterwards comes out skinned.
---
--- `P:Register()` runs in OnInitialize (ADDON_LOADED), i.e. during load, so building the button
--- there is a race against every other addon's load order — one this addon loses the moment a folder
--- is renamed or a skin is added, from identical code. That is exactly why the page BODY's buttons
--- (built lazily on first OnShow) looked right while this one could not be relied on.
---
--- Deferring creation to first OnShow removes the race: by then every addon has loaded. Do NOT
--- "simplify" this back to registration time (anti-patterns #42). It is the same lazy rule
--- options-ui-§1 already applies to the panel body, for a related reason.
-local function ensureDefaultsButton(panel)
-  if panel.defaultsBtn or not panel.wantsDefaultsButton or not AceGUI then return end
-  local btn = AceGUI:Create("Button")
-  if not (btn and btn.frame) then return end
-  btn:SetText("Defaults")
-  btn:SetWidth(DEFAULTS_W)
-  btn.frame:SetParent(panel)
-  btn.frame:ClearAllPoints()
-  btn.frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PADDING_X, -HEADER_TOP)
-  btn.frame:Show()
-  panel.defaultsBtn = btn
-  -- The click handler is declared at registration time, before the button exists, so it is parked
-  -- on the panel as `defaultsOnClick` and wired up here.
-  if panel.defaultsOnClick then btn:SetCallback("OnClick", panel.defaultsOnClick) end
-end
-
--- ── CreatePanel — a Frame for RegisterCanvasLayout(Sub)category + ctx ───────────
-local function createPanel(title, opts)
-  opts = opts or {}
-  local panel = CreateFrame("Frame", nil)
-  panel.name = title
-  panel:Hide()
-  buildHeader(panel, title, opts)
-
-  local body = CreateFrame("Frame", nil, panel)
-  body:SetPoint("TOPLEFT",     panel, "TOPLEFT",     0, -(HEADER_HEIGHT + 8))
-  body:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
-
-  -- `refreshers` re-sync scalar widget *values* in place (cheap, run on every OnShow); `rebuilders`
-  -- tear down + recreate list rows (structural — expensive). Per options-ui-§11 a structural rebuild
-  -- runs only on first paint, on an on-screen edit, or when `dirty` marks an off-screen change — never
-  -- on every OnShow (that is anti-pattern #39, the ~1s tab-click freeze).
-  return { panel = panel, body = body, scroll = nil, refreshers = {}, rebuilders = {}, dirty = false, lastGroup = nil }
-end
-
--- LH-08 / options-ui-§10: keep the settings-panel scrollbar ALWAYS visible — and inert when the page
--- fits — so the reserved right gutter, and therefore the body width, is identical across short and
--- long subcategories. AceGUI's stock FixScroll hides the bar and reclaims the 20px gutter when
--- content fits, which shifts body width between pages. This per-instance override keeps the bar
--- shown and the gutter reserved at all times; when there's nothing to scroll it parks the thumb at
--- the top and disables it (greyed). Mirrors the stock FixScroll math — note AceGUI's swapped names:
--- `height` is the visible frame height, `viewheight` is the content height.
-local function installAlwaysShownScrollbar(scroll)
-  local bar = scroll.scrollbar
-  if not (bar and scroll.scrollframe and scroll.content) then return end
-
-  local function setInert(inert)
-    if inert then
-      if bar.Disable then bar:Disable() end
-    else
-      if bar.Enable then bar:Enable() end
-    end
-    local up, down = bar.ScrollUpButton, bar.ScrollDownButton
-    if up and up.SetEnabled then up:SetEnabled(not inert) end
-    if down and down.SetEnabled then down:SetEnabled(not inert) end
-  end
-
-  -- Wheel-scroll must be inert when the page fits. AceGUI's stock MoveScroll only gates on
-  -- `scrollBarShown`, which this override keeps permanently true (to reserve the gutter) — so
-  -- without this guard the wheel would still drift the parked thumb on a short page even though
-  -- there's nothing to scroll (LH-08 / smoke-test S-4). Mirror FixScroll's fits check and no-op.
-  local stockMoveScroll = scroll.MoveScroll
-  scroll.MoveScroll = function(self, value)
-    local height, viewheight = self.scrollframe:GetHeight(), self.content:GetHeight()
-    if viewheight < height + 2 then return end
-    return stockMoveScroll(self, value)
-  end
-
-  scroll.FixScroll = function(self)
-    if self.updateLock then return end
-    self.updateLock = true
-    local status = self.status or self.localstatus
-    local height, viewheight = self.scrollframe:GetHeight(), self.content:GetHeight()
-    local offset = status.offset or 0
-    -- Reserve the gutter + show the bar once (mirrors the stock "show" branch, minus the
-    -- auto-hide path). Once shown it stays shown, so the body never reflows between pages.
-    if not self.scrollBarShown then
-      self.scrollBarShown = true
-      self.scrollbar:Show()
-      self.scrollframe:SetPoint("BOTTOMRIGHT", -20, 0)
-      if self.content.original_width then
-        self.content.width = self.content.original_width - 20
-      end
-      self:DoLayout()
-    end
-    if viewheight < height + 2 then
-      -- content fits: park the thumb at the top and make the bar inert (greyed)
-      self.scrollbar:SetValue(0)
-      setInert(true)
-    else
-      -- content overflows: a normal, draggable scrollbar
-      setInert(false)
-      local value = (offset / (viewheight - height) * 1000)
-      if value > 1000 then value = 1000 end
-      self.scrollbar:SetValue(value)
-      self:SetScroll(value)
-      if value < 1000 then
-        self.content:ClearAllPoints()
-        self.content:SetPoint("TOPLEFT", 0, offset)
-        self.content:SetPoint("TOPRIGHT", 0, offset)
-        status.offset = offset
-      end
-    end
-    self.updateLock = nil
-  end
-end
-
-local function ensureScroll(ctx)
-  if ctx.scroll then return ctx.scroll end
-  local scroll = AceGUI:Create("ScrollFrame")
-  scroll:SetLayout("List")
-  scroll.frame:SetParent(ctx.body)
-  scroll.frame:ClearAllPoints()
-  scroll.frame:SetPoint("TOPLEFT",     ctx.body, "TOPLEFT",      PADDING_X - 4, -8)
-  scroll.frame:SetPoint("BOTTOMRIGHT", ctx.body, "BOTTOMRIGHT", -(PADDING_X + 12), 8)
-  scroll.frame:Show()
-  installAlwaysShownScrollbar(scroll)   -- options-ui-§10 always-shown, inert-when-fits scrollbar
-  ctx.scroll = scroll
-  return scroll
-end
-
-local function addSpacer(scroll, height)
-  local sp = AceGUI:Create("SimpleGroup")
-  sp:SetLayout(nil); sp:SetFullWidth(true); sp:SetHeight(height)
-  scroll:AddChild(sp)
-end
-
--- Section heading: centred gold label flanked by side dividers (Ka0s standard).
-local function section(ctx, label)
-  local scroll = ensureScroll(ctx)
-  if ctx.lastGroup ~= nil then addSpacer(scroll, SECTION_TOP_SPACER) end
-  local h = AceGUI:Create("Heading")
-  h:SetText(label); h:SetFullWidth(true); h:SetHeight(SECTION_HEADING_H)
-  if h.label and h.label.SetFontObject and _G.GameFontNormalLarge then
-    h.label:SetFontObject(_G.GameFontNormalLarge)
-  end
-  scroll:AddChild(h)
-  addSpacer(scroll, SECTION_BOTTOM_SPACER)
-end
-
--- ── Widget makers ───────────────────────────────────────────────────────────────
-local function applyWidth(w, rel)
-  if rel then w:SetRelativeWidth(rel) else w:SetFullWidth(true) end
-end
-
--- Shared maker for a paired action button (Reset All, Purge). Insets to BUTTON_PAIR_REL so the
--- right border isn't shaved by the ScrollFrame clip (options-ui-§6/§8) — the single seam for the width.
+-- ── Shared maker for a paired action button (Reset All, Purge) ───────────────────
+-- Insets to BUTTON_PAIR_REL rather than a flat 0.5 so the right border isn't shaved by the
+-- ScrollFrame clip (options-ui-§6/§8). Kept host-side: the library's InlineButtonPair builds its own
+-- Flow row, and both of this addon's uses need a bare button to drop into a row someone else owns.
 local function makePairButton(text, onClick)
-  local btn = AceGUI:Create("Button")
+  local btn = NS.AceGUI:Create("Button")
   btn:SetText(text)
-  btn:SetRelativeWidth(BUTTON_PAIR_REL)
+  btn:SetRelativeWidth(O.BUTTON_PAIR_REL)
   if onClick then btn:SetCallback("OnClick", onClick) end
   return btn
 end
 
-local function makeCheckbox(ctx, row, parent, rel)
-  local cb = AceGUI:Create("CheckBox")
-  cb:SetLabel(row.label); applyWidth(cb, rel)
-  cb:SetCallback("OnValueChanged", function(_, _, v) NS.Schema:Set(row.path, v and true or false) end)
-  attachTooltip(cb, row.label, row.tooltip)
-  parent:AddChild(cb)
-  ctx.refreshers[#ctx.refreshers + 1] = function() cb:SetValue(NS.Schema:Get(row.path) and true or false) end
-  cb:SetValue(NS.Schema:Get(row.path) and true or false)
-  return cb
-end
-
-local function makeDropdown(ctx, row, parent, rel)
-  local dd = AceGUI:Create("Dropdown")
-  dd:SetLabel(row.label); applyWidth(dd, rel)
-  local list, order = {}, {}
-  for i, opt in ipairs(row.values) do list[opt.value] = opt.text; order[i] = opt.value end
-  dd:SetList(list, order)
-  dd:SetCallback("OnValueChanged", function(_, _, key) NS.Schema:Set(row.path, key) end)
-  attachTooltip(dd, row.label, row.tooltip)
-  parent:AddChild(dd)
-  ctx.refreshers[#ctx.refreshers + 1] = function() dd:SetValue(NS.Schema:Get(row.path)) end
-  dd:SetValue(NS.Schema:Get(row.path))
-  return dd
-end
-
-local function makeSlider(ctx, row, parent, rel)
-  local s = AceGUI:Create("Slider")
-  s:SetLabel(row.label)
-  s:SetSliderValues(row.min or 0, row.max or 1, row.step or 0.05)
-  applyWidth(s, rel)
-  s:SetCallback("OnMouseUp", function(_, _, v) NS.Schema:Set(row.path, v) end)
-  attachTooltip(s, row.label, row.tooltip)
-  parent:AddChild(s)
-  ctx.refreshers[#ctx.refreshers + 1] = function() s:SetValue(NS.Schema:Get(row.path) or row.default) end
-  s:SetValue(NS.Schema:Get(row.path) or row.default)
-  return s
-end
-
--- Set-map (excludedSources) rendered full-width as a wrapping checkbox grid. With
--- row.invert, a *checked* box means the source is recorded (i.e. NOT in the muted set),
--- so the stored value is the logical inverse of the checkbox state.
+-- ── The inverted set picker (host-drawn) ────────────────────────────────────────
+-- A set-map rendered full-width as a wrapping checkbox grid. With row.invert, a *checked* box means
+-- the source is recorded (i.e. NOT in the muted set), so the stored value is the logical inverse of
+-- the checkbox state.
+--
+-- DECLINED from the library, deliberately: its five makers are checkbox / slider / dropdown /
+-- editbox / colour picker, and an inverted set picker is none of them. The row carries `skipRender`
+-- so the schema, the CLI and every reset still see it, and it is drawn from `afterGroup` below —
+-- which fires after its group's last row is flushed, i.e. exactly where it used to sit.
 local function makeMultiCheck(ctx, row, scroll)
   local invert = row.invert
-  local group = AceGUI:Create("InlineGroup")
+  local group = NS.AceGUI:Create("InlineGroup")
   group:SetTitle(row.label); group:SetFullWidth(true); group:SetLayout("Flow")
   local boxes = {}
   for _, opt in ipairs(row.values) do
-    local cb = AceGUI:Create("CheckBox")
+    local cb = NS.AceGUI:Create("CheckBox")
     cb:SetLabel(opt.text); cb:SetWidth(150)
     cb:SetCallback("OnValueChanged", function(_, _, v)
       local cur = NS.Schema:Get(row.path) or {}
@@ -318,64 +78,16 @@ local function makeMultiCheck(ctx, row, scroll)
   end
 end
 
--- ── Two-column schema render ────────────────────────────────────────────────────
--- Rows pair into 50%/50% Flow lines. A row with widget=="MultiCheck" (or wide=true)
--- breaks onto its own full-width line. Group changes emit a section heading.
--- `companions` optionally maps a row's path → function(parentRow) that adds a widget
--- (e.g. an action button) into the SAME row, right of the field, then flushes it.
-local function renderSchema(ctx, companions, opts)
-  opts = opts or {}
-  local scroll = ensureScroll(ctx)
-  local pendingRow
-
-  local function flushRow()
-    if pendingRow then scroll:AddChild(pendingRow); addSpacer(scroll, ROW_VSPACER); pendingRow = nil end
-  end
-  local function startRow()
-    local r = AceGUI:Create("SimpleGroup"); r:SetLayout("Flow"); r:SetFullWidth(true); return r
-  end
-
-  for _, row in ipairs(NS.Schema.Schema) do
-    local include = not ((opts.only and row.group ~= opts.only)
-      or (opts.skip and row.group and opts.skip[row.group])
-      or row.skipRender)   -- skipRender rows render via a bespoke section, not the generic path
-    if include then
-      if row.group and row.group ~= ctx.lastGroup then
-        flushRow(); section(ctx, row.group); ctx.lastGroup = row.group
-      end
-
-      if row.widget == "MultiCheck" or row.wide then
-        flushRow()
-        makeMultiCheck(ctx, row, scroll)
-      else
-        -- solo widgets sit alone on their own row: flush any half-filled row first so they start fresh.
-        if row.solo then flushRow() end
-        if not pendingRow then pendingRow = startRow() end
-        if row.widget == "CheckBox" then makeCheckbox(ctx, row, pendingRow, 0.5)
-        elseif row.widget == "Dropdown" then makeDropdown(ctx, row, pendingRow, 0.5)
-        elseif row.widget == "Slider" then makeSlider(ctx, row, pendingRow, 0.5) end
-        local comp = companions and companions[row.path]
-        if comp then
-          comp(pendingRow)
-          flushRow()
-        elseif row.solo or #pendingRow.children >= 2 then
-          flushRow()
-        end
-      end
-    end
-  end
-  flushRow()
-end
 
 -- ── History maintenance section: live DB stats + purge (Ka0s Loot History only) ──
 local function renderHistory(ctx)
-  local scroll = ensureScroll(ctx)
-  section(ctx, "History")
+  local scroll = O.EnsureScroll(ctx)
+  O.Section(ctx, "History")
 
-  local rowFrame = AceGUI:Create("SimpleGroup")
+  local rowFrame = NS.AceGUI:Create("SimpleGroup")
   rowFrame:SetLayout("Flow"); rowFrame:SetFullWidth(true)
 
-  local statsLabel = AceGUI:Create("Label")
+  local statsLabel = NS.AceGUI:Create("Label")
   statsLabel:SetRelativeWidth(0.5)
   rowFrame:AddChild(statsLabel)
 
@@ -465,15 +177,15 @@ local function rebuildFilterList(ctx, listGroup, listKey)
   end
   local ids = NS.Filters:SortedIDs(set)
   if #ids == 0 then
-    local empty = AceGUI:Create("Label")
+    local empty = NS.AceGUI:Create("Label")
     empty:SetFullWidth(true)
     empty:SetText("|cff808080(none)|r")
     listGroup:AddChild(empty)
   else
     for _, id in ipairs(ids) do
-      local rowG = AceGUI:Create("SimpleGroup")
+      local rowG = NS.AceGUI:Create("SimpleGroup")
       rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
-      local lbl = AceGUI:Create("Label")
+      local lbl = NS.AceGUI:Create("Label")
       lbl:SetRelativeWidth(0.78)
       if listKey == "currencyBlacklist" then
         lbl:SetText(currencyEntryLabel(id))
@@ -483,7 +195,7 @@ local function rebuildFilterList(ctx, listGroup, listKey)
         end))
       end
       rowG:AddChild(lbl)
-      local rm = AceGUI:Create("Button")
+      local rm = NS.AceGUI:Create("Button")
       rm:SetText("Remove"); rm:SetRelativeWidth(0.20)
       rm:SetCallback("OnClick", function()
         if listKey == "currencyBlacklist" then
@@ -505,27 +217,27 @@ end
 
 -- One section (blacklist or whitelist): heading, description, add-row, live list.
 local function makeFilterSection(ctx, listKey, title, desc)
-  local scroll = ensureScroll(ctx)
-  section(ctx, title)
+  local scroll = O.EnsureScroll(ctx)
+  O.Section(ctx, title)
 
-  local descLabel = AceGUI:Create("Label")
+  local descLabel = NS.AceGUI:Create("Label")
   descLabel:SetFullWidth(true); descLabel:SetText(desc)
   scroll:AddChild(descLabel)
-  addSpacer(scroll, 6)
+  O.AddSpacer(scroll, 6)
 
-  local listGroup = AceGUI:Create("SimpleGroup")
+  local listGroup = NS.AceGUI:Create("SimpleGroup")
   listGroup:SetLayout("List"); listGroup:SetFullWidth(true)
 
-  local addRow = AceGUI:Create("SimpleGroup")
+  local addRow = NS.AceGUI:Create("SimpleGroup")
   addRow:SetLayout("Flow"); addRow:SetFullWidth(true)
-  local box = AceGUI:Create("EditBox")
+  local box = NS.AceGUI:Create("EditBox")
   box:SetLabel(listKey == "currencyBlacklist" and "Add currency id or link" or "Add item id or link")
   box:SetRelativeWidth(0.78)
   local function submit()
     if listKey == "currencyBlacklist" then
       local id = NS.Filters:ParseCurrencyID(box:GetText())
       if not id then
-        if NS.Print then NS.Print("enter a numeric currency id (or shift-click a currency link).") end
+        print("enter a numeric currency id (or shift-click a currency link).")
         return
       end
       NS.Filters:AddCurrencyBlacklist(id)
@@ -536,7 +248,7 @@ local function makeFilterSection(ctx, listKey, title, desc)
     end
     local id = NS.Filters:ParseItemID(box:GetText())
     if not id then
-      if NS.Print then NS.Print("enter a numeric item id (or shift-click an item link).") end
+      print("enter a numeric item id (or shift-click an item link).")
       return
     end
     if listKey == "blacklist" then NS.Filters:AddBlacklist(id) else NS.Filters:AddWhitelist(id) end
@@ -546,18 +258,18 @@ local function makeFilterSection(ctx, listKey, title, desc)
   end
   box:SetCallback("OnEnterPressed", function() submit() end)
   addRow:AddChild(box)
-  local addBtn = AceGUI:Create("Button")
+  local addBtn = NS.AceGUI:Create("Button")
   addBtn:SetText("Add"); addBtn:SetRelativeWidth(0.20)
   addBtn:SetCallback("OnClick", submit)
   addRow:AddChild(addBtn)
   scroll:AddChild(addRow)
-  addSpacer(scroll, 4)
+  O.AddSpacer(scroll, 4)
 
   -- Bulk "Clear all" for this list (confirm-gated). The list view refreshes itself via the
   -- HistoryChanged listener that Filters:ClearList fires, so the button only shows the popup.
-  local clearRow = AceGUI:Create("SimpleGroup")
+  local clearRow = NS.AceGUI:Create("SimpleGroup")
   clearRow:SetLayout("Flow"); clearRow:SetFullWidth(true)
-  local clearBtn = AceGUI:Create("Button")
+  local clearBtn = NS.AceGUI:Create("Button")
   clearBtn:SetText("Clear all"); clearBtn:SetRelativeWidth(0.30)
   clearBtn:SetCallback("OnClick", function()
     local popup
@@ -576,7 +288,7 @@ local function makeFilterSection(ctx, listKey, title, desc)
   end)
   clearRow:AddChild(clearBtn)
   scroll:AddChild(clearRow)
-  addSpacer(scroll, 4)
+  O.AddSpacer(scroll, 4)
 
   scroll:AddChild(listGroup)
 
@@ -782,19 +494,19 @@ end
 -- refreshAuctionTable repaints them in place on every enable-toggle / reorder / Defaults, so no frame
 -- is ever re-allocated. Native FontStrings carry all text; only the checkbox, ⓘ and arrows are frames.
 local function buildAuctionTable(ctx)
-  local scroll = ensureScroll(ctx)
-  section(ctx, "Price Sources")
+  local scroll = O.EnsureScroll(ctx)
+  O.Section(ctx, "Price Sources")
 
-  local descLabel = AceGUI:Create("Label")
+  local descLabel = NS.AceGUI:Create("Label")
   descLabel:SetFullWidth(true)
   descLabel:SetText("Tick a source to collect its price at loot time; ticked sources are ranked "
     .. "top-to-bottom (use the arrows) and the highest-ranked one you have a price for is the value "
     .. "shown. Sources you don't collect, or whose addon isn't installed, drop to the bottom.")
   scroll:AddChild(descLabel)
-  addSpacer(scroll, 8)
+  O.AddSpacer(scroll, 8)
 
   local N = #NS.Constants.AUCTION_KEYS
-  local host = AceGUI:Create("SimpleGroup")
+  local host = NS.AceGUI:Create("SimpleGroup")
   host:SetLayout(nil); host:SetFullWidth(true)
   host:SetHeight(AHEAD_H + AROW_H * N + 8)
   scroll:AddChild(host)
@@ -833,7 +545,7 @@ local function buildAuctionTable(ctx)
 
     -- AceGUI CheckBox (the standard gold-tick control used across the panel) rather than a raw
     -- UICheckButtonTemplate — the template left a scaling artifact at this size.
-    local cb = AceGUI:Create("CheckBox")
+    local cb = NS.AceGUI:Create("CheckBox")
     cb:SetLabel("")
     cb.frame:SetParent(hf); cb.frame:ClearAllPoints()
     cb.frame:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.enabled, y - 1); cb.frame:SetWidth(26)
@@ -860,32 +572,32 @@ end
 
 -- ── Landing page: logo + tagline + slash-command list ───────────────────────────
 local function buildMainContent(ctx)
-  local scroll = ensureScroll(ctx)
+  local scroll = O.EnsureScroll(ctx)
 
-  local logoGroup = AceGUI:Create("SimpleGroup")
+  local logoGroup = NS.AceGUI:Create("SimpleGroup")
   logoGroup:SetLayout(nil); logoGroup:SetFullWidth(true); logoGroup:SetHeight(LOGO_SIZE)
   local tex = logoGroup.frame:CreateTexture(nil, "ARTWORK")
   tex:SetTexture(LOGO_PATH)
   tex:SetSize(LOGO_SIZE, LOGO_SIZE)
   tex:SetPoint("TOPLEFT", logoGroup.frame, "TOPLEFT", 0, 0)
   scroll:AddChild(logoGroup)
-  addSpacer(scroll, 8)
+  O.AddSpacer(scroll, 8)
 
-  local desc = AceGUI:Create("Label")
+  local desc = NS.AceGUI:Create("Label")
   desc:SetFullWidth(true); desc:SetText(ADDON_TAGLINE)
   if desc.label and desc.label.SetFontObject and _G.GameFontHighlight then
     desc.label:SetFontObject(_G.GameFontHighlight)
   end
   scroll:AddChild(desc)
-  addSpacer(scroll, 12)
+  O.AddSpacer(scroll, 12)
 
-  local heading = AceGUI:Create("Heading")
-  heading:SetFullWidth(true); heading:SetHeight(SECTION_HEADING_H); heading:SetText("Slash Commands")
+  local heading = NS.AceGUI:Create("Heading")
+  heading:SetFullWidth(true); heading:SetHeight(O.SECTION_HEADING_H); heading:SetText("Slash Commands")
   if heading.label and heading.label.SetFontObject and _G.GameFontNormalLarge then
     heading.label:SetFontObject(_G.GameFontNormalLarge)
   end
   scroll:AddChild(heading)
-  addSpacer(scroll, 6)
+  O.AddSpacer(scroll, 6)
 
   -- CONVERGENCE (LibKa0s adoption). This page used to carry its OWN command-row formatter — double
   -- spaces around the em dash, the dash explicitly white-wrapped, the description left bare — while
@@ -893,17 +605,83 @@ local function buildMainContent(ctx)
   -- through lib.FormatRow: single spaces, no colour span on the dash, the description white.
   -- Deliberate and user-visible; do not "fix" it back. See docs/pending/LEDGER.md, LIBKA0S-09.
   for _, line in ipairs(NS.Slash.LandingRows and NS.Slash:LandingRows() or {}) do
-    local labelRow = AceGUI:Create("Label")
+    local labelRow = NS.AceGUI:Create("Label")
     labelRow:SetFullWidth(true)
     labelRow:SetText(line)
     scroll:AddChild(labelRow)
   end
 end
 
+-- ── Flow-engine hooks ───────────────────────────────────────────────────────────
+--
+-- Hoisted to file scope rather than rebuilt per render, which the library explicitly supports: it
+-- keeps its one-shot bookkeeping in call-local sets, so a second render of the same page fires both
+-- again instead of silently dropping them.
+
+-- Attaches the "Reset All" action button as the RIGHT half of the Window scale row. It fires only
+-- when that path is currently the lone widget on its line, which it always is here: the row above it
+-- (`state.debugConsole`) is `solo` and flushes after itself.
+local PAIR_WITH = {
+  ["settings.windowScale"] = function(_, rowGroup)
+    rowGroup:AddChild(makePairButton("Reset All", function()
+      if type(StaticPopup_Show) == "function" then
+        StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
+      elseif NS.Slash and NS.Slash.ResetEverything then
+        NS.Slash:ResetEverything()
+      end
+    end))
+  end,
+}
+
+-- The muted-source picker, drawn after Data Collection's last row — which is the `skipRender` row it
+-- represents, so it lands exactly where the generic path used to put it.
+local AFTER_GROUP = {
+  ["Data Collection"] = function(ctx)
+    local row = NS.Schema:FindRow("settings.excludedSources")
+    local scroll = O.EnsureScroll(ctx)
+    if row and scroll then makeMultiCheck(ctx, row, scroll) end
+  end,
+}
+
+-- ── Renderers ───────────────────────────────────────────────────────────────────
+--
+-- Each is declared through O.SetRenderer, which owns WHEN it runs: the page's first show, and again
+-- after a structural refresh marked it dirty while hidden. Every one starts by releasing the
+-- previous render's children, because a renderer the library may re-run must be idempotent.
+
+local function renderGeneral(ctx)
+  O.ClearScroll(ctx)
+  -- Everything except the AH Price group, which is its own sub-page. Passed as an explicit list
+  -- rather than through RenderSchema, because this page spans two schema groups.
+  local rows = {}
+  for _, row in ipairs(NS.Schema.Schema) do
+    if row.group ~= "AH Price" then rows[#rows + 1] = row end
+  end
+  O.RenderRows(ctx, rows, AFTER_GROUP, PAIR_WITH)
+  renderHistory(ctx)
+  if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+end
+
+local function renderFilters(ctx)
+  O.ClearScroll(ctx)
+  ctx.rebuilders = {}   -- ClearScroll reassigns the library's refreshers; these are this addon's
+  buildFilters(ctx)
+  runRebuilders(ctx)    -- first paint of all three id-lists
+end
+
+function P.BuildMain(ctx)
+  O.ClearScroll(ctx)
+  buildMainContent(ctx)
+  if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+end
+
 -- ── Refresh / Defaults ──────────────────────────────────────────────────────────
+
+--- Scalar re-sync across every registered page: widgets re-read their values, nothing is rebuilt.
+--- Wider than what it replaced, which only ever refreshed the General page — so the AH Price page's
+--- master checkbox now tracks a `/lh set` too.
 function P:Refresh()
-  if not P.general or not P.general.refreshers then return end
-  for _, fn in ipairs(P.general.refreshers) do pcall(fn) end
+  O.RefreshScalars()
 end
 
 function P:RestoreDefaults()
@@ -914,121 +692,94 @@ function P:RestoreDefaults()
 end
 
 -- ── Registration ────────────────────────────────────────────────────────────────
+local registered
+
 function P:Register()
   if registered then return end
-  if not (AceGUI and Settings and Settings.RegisterCanvasLayoutCategory
-          and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
-  -- Parent category = landing page.
-  local mainCtx = createPanel(ADDON_TITLE, { isMain = true })
-  local mainRendered = false
-  mainCtx.panel:SetScript("OnShow", function()
-    if mainRendered then return end
-    mainRendered = true
-    buildMainContent(mainCtx)
-    if mainCtx.scroll and mainCtx.scroll.DoLayout then mainCtx.scroll:DoLayout() end
+  -- The three sub-pages. Each builder runs once, in order, inside O.CreateOptionsPanel — after the
+  -- db is ready and after AceGUI has been resolved and handed to this file as NS.AceGUI. A builder
+  -- that raises is reported by key and costs only itself.
+  O.RegisterOptionsPage("General", "General", function(mainCategory)
+    local ctx = O.CreatePanel(nil, "General", { pageKey = "General", defaultsButton = true })
+    P.general = ctx
+    ctx.rebuilders = {}
+    ctx.panel.defaultsOnClick = function() P:RestoreDefaults() end
+    O.SetRenderer(ctx, renderGeneral)
+    Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
   end)
-  local mainCategory = Settings.RegisterCanvasLayoutCategory(mainCtx.panel, ADDON_TITLE)
-  Settings.RegisterAddOnCategory(mainCategory)
-  mainCategoryID = mainCategory and mainCategory.GetID and mainCategory:GetID()
 
-  -- General subcategory = the actual settings.
-  local ctx = createPanel("General", { defaultsButton = true })
-  P.general = ctx
-  ctx.panel.defaultsOnClick = function() P:RestoreDefaults() end
-  local rendered = false
-  ctx.panel:SetScript("OnShow", function()
-    ensureDefaultsButton(ctx.panel)
-    if not rendered then
-      rendered = true
-      -- "Reset All" sits to the right of Window scale; it wipes history AND settings.
-      renderSchema(ctx, {
-        ["settings.windowScale"] = function(parentRow)
-          local btn = makePairButton("Reset All", function()
-            if type(StaticPopup_Show) == "function" then
-              StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
-            elseif NS.Slash and NS.Slash.ResetEverything then
-              NS.Slash:ResetEverything()
-            end
-          end)
-          parentRow:AddChild(btn)
-        end,
-      }, { skip = { ["AH Price"] = true } })
-      renderHistory(ctx)
-      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+  -- Filters = blacklist / whitelist / currency-blacklist id management (issue #14).
+  O.RegisterOptionsPage("Filters", "Filters", function(mainCategory)
+    local ctx = O.CreatePanel(nil, "Filters", { pageKey = "Filters", defaultsButton = true })
+    P.filters = ctx
+    ctx.rebuilders = {}
+    -- The page holds no schema rows, so "restore defaults" here means clearing all three id-lists
+    -- (their stock state is empty), confirm-gated.
+    ctx.panel.defaultsOnClick = function()
+      if type(StaticPopup_Show) == "function" then
+        StaticPopup_Show("KA0S_LOOTHISTORY_CLEAR_FILTERS")
+      elseif NS.Filters and NS.Filters.ClearAll then
+        NS.Filters:ClearAll()
+      end
     end
-    P:Refresh()
+    O.SetRenderer(ctx, renderFilters)
+    Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "Filters")
   end)
-  Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
 
-  -- Filters subcategory = blacklist / whitelist item-id management (issue #14).
-  local fctx = createPanel("Filters", { defaultsButton = true })
-  P.filters = fctx
-  -- Defaults here = clear both id-lists (their stock state is empty), confirm-gated. The page holds
-  -- no Schema rows, so this is the "restore defaults" for what it manages.
-  fctx.panel.defaultsOnClick = function()
-    if type(StaticPopup_Show) == "function" then
-      StaticPopup_Show("KA0S_LOOTHISTORY_CLEAR_FILTERS")
-    elseif NS.Filters and NS.Filters.ClearAll then
-      NS.Filters:ClearAll()
+  -- AH Price = the price-source table and the cascade. This is the one page that keeps its OWN
+  -- OnShow rather than going through O.SetRenderer, and the reason is structural: the library's
+  -- renderer contract is "re-run me and I redraw the page", which means a ClearScroll releasing
+  -- every AceGUI child back to the pool. This page parents eleven reusable row slots of raw
+  -- FontStrings and Buttons to an AceGUI SimpleGroup's frame, created ONCE and repainted in place;
+  -- releasing that group would orphan them. The ~213-frame version of this page froze the client
+  -- ~1.7s on tab-transition and the pooling is what fixed it (docs/settings-panel.md).
+  --
+  -- Everything else on it is still the library's: the canvas, the breadcrumb header, the lazy
+  -- Defaults button, the scroll, the section heading and the schema row.
+  O.RegisterOptionsPage("AH Price", "AH Price", function(mainCategory)
+    local ctx = O.CreatePanel(nil, "AH Price", { pageKey = "AH Price", defaultsButton = true })
+    P.auction = ctx
+    ctx.rebuilders = {}
+    ctx.panel.defaultsOnClick = function()
+      for _, r in ipairs(NS.Schema.Schema) do
+        if r.group == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
+      end
+      -- Priority order is a carve-out array (not schema-driven), so reset it separately. Clear-and-
+      -- refill the SAME table so the table's closure sees the new contents. (`capture` — the enabled
+      -- set — is a schema row in the "AH Price" group, so the loop above already reset it.)
+      local dp = NS.Constants.AUCTION_PRIORITY_DEFAULT
+      local p = NS.AuctionPrice:GetPriority()
+      for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
+      for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
+      for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- scalar: re-sync the master `enabled` box
+      runRebuilders(ctx)                                     -- structural: repaint the price table
     end
-  end
-  local fRendered = false
-  fctx.panel:SetScript("OnShow", function()
-    ensureDefaultsButton(fctx.panel)
-    if not fRendered then
-      fRendered = true
-      buildFilters(fctx)
-      runRebuilders(fctx)          -- first paint of both id-lists
-    elseif fctx.dirty then
-      runRebuilders(fctx)          -- lists changed while hidden → repaint once (options-ui-§11)
-    end
-    -- Scalar re-sync only (none on this page today; kept for symmetry). The structural list rebuild
-    -- above is gated so a plain tab click with no change costs nothing — no per-click freeze.
-    for _, fn in ipairs(fctx.refreshers) do pcall(fn) end
-  end)
-  Settings.RegisterCanvasLayoutSubcategory(mainCategory, fctx.panel, "Filters")
 
-  -- AH Price subcategory = the AH-price cascade settings (own page).
-  local actx = createPanel("AH Price", { defaultsButton = true })
-  P.auction = actx
-  actx.panel.defaultsOnClick = function()
-    for _, r in ipairs(NS.Schema.Schema) do
-      if r.group == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
-    end
-    -- Priority order is a carve-out array (not schema-driven), so reset it separately. Clear-and-
-    -- refill the SAME table so the table's closure sees the new contents. (`capture` — the enabled
-    -- set — is a schema row in the "AH Price" group, so the loop above already reset it.)
-    local dp = NS.Constants.AUCTION_PRIORITY_DEFAULT
-    local p = NS.AuctionPrice:GetPriority()
-    for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
-    for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
-    for _, fn in ipairs(actx.refreshers) do pcall(fn) end   -- scalar: re-sync the master `enabled` box
-    runRebuilders(actx)                                     -- structural: repaint the price table
-  end
-  local aRendered = false
-  actx.panel:SetScript("OnShow", function()
-    ensureDefaultsButton(actx.panel)
-    if not aRendered then
-      aRendered = true
-      renderSchema(actx, nil, { only = "AH Price" })   -- the master `enabled` checkbox
-      buildAuctionTable(actx)
-      if actx.scroll and actx.scroll.DoLayout then actx.scroll:DoLayout() end
-    end
-    for _, fn in ipairs(actx.refreshers) do pcall(fn) end   -- scalar re-sync (the `enabled` checkbox)
+    local aRendered = false
+    ctx.panel:SetScript("OnShow", function()
+      O.EnsureDefaultsButton(ctx.panel)
+      if not aRendered then
+        aRendered = true
+        O.RenderSchema(ctx, "AH Price")   -- the master `enabled` checkbox; `capture` is skipRender
+        buildAuctionTable(ctx)
+        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
+      end
+      for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- scalar re-sync (the `enabled` checkbox)
+    end)
+    Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "AH Price")
   end)
-  Settings.RegisterCanvasLayoutSubcategory(mainCategory, actx.panel, "AH Price")
+
+  -- Resolves AceGUI, hands it over as NS.AceGUI, registers the main canvas (whose body is the
+  -- landing page, drawn on its first OnShow through the descriptor's buildMain) and then runs every
+  -- builder above.
+  O.CreateOptionsPanel()
 end
 
 function P:Open()
-  if InCombatLockdown and InCombatLockdown() then
-    -- options-ui-§2: refuse in combat (Blizzard's category-switch is protected). Grey notice, early
-    -- return — never defer-and-replay on PLAYER_REGEN_ENABLED. \226\128\148 = em-dash.
-    print("|cff808080cannot open settings during combat \226\128\148 Blizzard's category-switch is protected|r")
-    return
-  end
-  if Settings and Settings.OpenToCategory and mainCategoryID then
-    Settings.OpenToCategory(mainCategoryID)
-  end
+  -- The combat refusal lives in the library now, and it is wider than what it replaced: it also
+  -- fires when the Blizzard AddOns sidebar reaches a page directly, which bypassed this guard
+  -- entirely (options-ui-§2). It still refuses rather than deferring-and-replaying.
+  O.OpenOptionsPanel()
 end

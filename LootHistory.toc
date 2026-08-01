@@ -56,4 +56,5 @@ modules\Analytics.lua
 # Settings
 settings\Schema.lua
 settings\Slash.lua
+settings\OptionsSetup.lua
 settings\Panel.lua

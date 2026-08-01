@@ -27,6 +27,11 @@ local AceGUI = mocks.__libs["AceGUI-3.0"]
 local rendered = {}
 local function show(panel)
   local before = #AceGUI.__created
+  -- Show() as well as firing the handler. The mock tracks visibility without firing OnShow, and the
+  -- refresh fan-out deliberately skips a page that is not on screen (it flags it dirty instead), so
+  -- a page that was never Shown would silently ignore every Refresh and the cases below would pass
+  -- on a panel that does nothing.
+  panel:Show()
   panel:__fire("OnShow")
   if not rendered[panel] then
     local out = {}
@@ -123,6 +128,18 @@ test("Panel: a slider is given the row's own min/max", function()
   local row = NS.Schema:FindRow("settings.windowScale")
   assertEqual(s.min, row.min)
   assertEqual(s.max, row.max)
+end)
+
+test("Panel: the Reset All action button pairs with the Window scale row", function()
+  -- An ACTION button, not a setting, attached as the right half of a named row. It is the only
+  -- entry point to the confirm-gated total reset from the panel, so a render that quietly stopped
+  -- drawing it would remove a destructive action's only visible affordance.
+  local created = show(mocks.__subcategories["General"])
+  local btn = findByLabel(created, "Reset All")
+  assertTrue(btn ~= nil, "the Reset All button must be drawn")
+  assertEqual(btn.type, "Button")
+  -- Inset rather than a flat half, so its right border clears the ScrollFrame clip (options-ui-§8).
+  assertEqual(btn.relativeWidth, NS.Options.BUTTON_PAIR_REL)
 end)
 
 test("Panel: the section headings are the schema groups, in declaration order", function()
@@ -312,9 +329,15 @@ end)
 
 test("Panel: the AH Price page renders only its own schema group", function()
   local created = show(mocks.__subcategories["AH Price"])
-  if #created == 0 then created = AceGUI.__created end
   assertTrue(findByLabel(created, "Enable AH pricing") ~= nil,
     "the master enable checkbox is the one schema row this page draws")
+  -- The other half, and the one that fails if the page filter stops filtering: no row belonging to
+  -- another group may appear here. Without this the page could draw the entire schema and pass.
+  for _, label in ipairs({ "Enable collection", "Minimum quality", "Window scale",
+                           "Record currency", "Hide minimap button" }) do
+    assertTrue(findByLabel(created, label) == nil,
+      label .. " belongs to another page and must not be drawn on AH Price")
+  end
 end)
 
 -- ── the landing page ─────────────────────────────────────────────────────────────────────────

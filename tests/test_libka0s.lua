@@ -226,3 +226,47 @@ test("the vendored copy carries the library's MIT licence", function()
   assertTrue(f ~= nil, "libs/LibKa0s/LICENSE is missing: the folder was not copied whole")
   if f then f:close() end
 end)
+
+-- ── module coverage: which majors this addon actually wires ──────────────────────────────────
+--
+-- Presence, not depth — depth is what the per-module suites assert. This exists so that a seam
+-- file quietly failing to resolve its major (a mis-typed name, a vendored copy that did not
+-- register) is a red case rather than a silently degraded addon that still passes everything else.
+
+test("the four adopted majors all resolved, and the seams are wired to them", function()
+  for _, major in ipairs({ "LibKa0s-Core-1.0", "LibKa0s-DebugLog-1.0",
+                           "LibKa0s-Slash-1.0", "LibKa0s-Options-1.0" }) do
+    assertTrue(T.mocks.LibStub(major, true) ~= nil, major .. " did not register")
+  end
+  -- Reached through the addon's own keys rather than through LibStub, so a seam that resolved the
+  -- library and then failed to publish it is caught too.
+  assertTrue(NS.Print ~= nil and NS.SafeToString ~= nil, "Core seam not published")
+  assertTrue(NS.DebugLog ~= nil and NS.Debug ~= nil, "DebugLog seam not published")
+  assertTrue(NS.Slash.CliList ~= nil and NS.Slash.LandingRows ~= nil, "Slash seam not published")
+  assertTrue(NS.Options ~= nil and NS.Options.RenderRows ~= nil, "Options seam not published")
+end)
+
+test("every seam file resolves its major with the silent flag", function()
+  -- LibStub without `, true` RAISES on a missing library. A seam whose whole purpose is to degrade
+  -- would then take the addon down in exactly the install its stub exists for — and headlessly it
+  -- would look fine, because a lookup table that never raises resolves to nil and passes.
+  for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua",
+                          "settings/Slash.lua", "settings/OptionsSetup.lua" }) do
+    local src = Loader.readFile(path)
+    local found = false
+    for call in src:gmatch('LibStub%("LibKa0s%-[A-Za-z]+%-1%.0"[^)]*%)') do
+      found = true
+      assertTrue(call:find(", true", 1, true) ~= nil,
+        path .. " resolves a LibKa0s major without the silent flag: " .. call)
+    end
+    assertTrue(found, path .. " resolves no LibKa0s major at all")
+  end
+end)
+
+test("the Options page registry built every page this addon declares", function()
+  local built = {}
+  for _, page in ipairs(NS.Options.__pages()) do built[page.key] = true end
+  for _, key in ipairs({ "General", "Filters", "AH Price" }) do
+    assertTrue(built[key], key .. " did not build (a raising builder is reported and skipped)")
+  end
+end)
