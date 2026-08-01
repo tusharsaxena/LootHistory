@@ -139,9 +139,37 @@ return function()
     function f:SetHeight(height) h = height or h; return self end
     function f:GetWidth() return w end
     function f:GetHeight() return h end
+    -- A FontString getter used in ARITHMETIC: settings/Panel.lua positions each AH-table row's
+    -- info icon at `ACOL.module + r.module:GetStringWidth() + 6`, and the kit's blanket
+    -- "any PascalCase method returns the frame" hands that a table. Same class of fidelity gap the
+    -- kit already fixes for GetWidth/GetHeight; this addon is the first to need the third.
+    function f:GetStringWidth() return 0 end
     return f
   end
   M.CreateFrame = function() return M.__stubFrame() end
+
+  -- ── AceGUI container methods this addon uses ───────────────────────────────
+  -- The kit's widget factory models the setters LibKa0s's own makers call. The inverted set picker
+  -- in settings/Panel.lua draws into an AceGUI InlineGroup, whose SetTitle has no LibKa0s consumer
+  -- and so is not modelled. Added by wrapping Create rather than by registering a widget type, so
+  -- every widget keeps the base's recorders and __fire.
+  local aceGUI = M.__libs["AceGUI-3.0"]
+  local stockCreate = aceGUI.Create
+  function aceGUI:Create(wtype)
+    local w = stockCreate(self, wtype)
+    if w.SetTitle == nil then
+      function w:SetTitle(v) self.titleText = v; return self end
+    end
+    -- A widget's `frame` comes from the kit's own stubFrame, not from the one extended above, so
+    -- the arithmetic-safe getter has to be stamped on here too. settings/Panel.lua's AH table
+    -- parents raw FontStrings to an AceGUI SimpleGroup's frame and measures them.
+    -- rawget, not a plain index: the frame stub's metatable answers EVERY PascalCase key with a
+    -- function, so a plain `== nil` guard is never true and this stamp would silently never happen.
+    if w.frame and rawget(w.frame, "GetStringWidth") == nil then
+      function w.frame:GetStringWidth() return 0 end
+    end
+    return w
+  end
 
   -- ── the message bus ────────────────────────────────────────────────────────
   -- The kit's AceAddon fake does not embed AceEvent, because not every host asks for it. This addon

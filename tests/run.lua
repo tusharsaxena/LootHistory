@@ -30,6 +30,11 @@ Loader.loadAll({
 Loader.loadAll(Loader.tocFiles("LootHistory.toc"), NS, mocks)
 
 NS:InitDB()
+-- The lifecycle kick the client's OnInitialize does. Register() only builds the canvas frames and
+-- registers the Blizzard categories — every page BODY is still deferred to its first OnShow, which
+-- tests/test_panel.lua drives explicitly through the mock's recorded script handlers.
+NS.Schema:Register()
+NS.Panel:Register()
 
 _G.LH_TEST = Kit.expose{ NS = NS, mocks = mocks, Loader = Loader }
 
@@ -40,6 +45,6 @@ Kit.run{
     "test_constants", "test_util", "test_compat", "test_attribution",
     "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
     "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
-    "test_schema", "test_analytics", "test_libka0s",
+    "test_schema", "test_analytics", "test_panel", "test_libka0s",
   },
 }
