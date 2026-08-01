@@ -140,10 +140,11 @@ local function runRebuilders(ctx)
 end
 
 -- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
--- A single sub-page with two sections. Each: a short description, an "add" row (item id or a
--- shift-clicked link) and a live list of current ids with a Remove button per row. The lists are
--- core app logic and act point-in-time: blacklisted ids are dropped at loot time and whitelisted
--- ids are always recorded — neither list ever hides or restores an already-stored row.
+-- A single sub-page with three sections (item blacklist, item whitelist, currency blacklist).
+-- Each: a short description, an "add" row (an id or a shift-clicked link) and a live list of
+-- current ids with a Remove button per row. The lists are core app logic and act point-in-time:
+-- blacklisted ids are dropped at loot time and whitelisted ids are always recorded — neither list
+-- ever hides or restores an already-stored row.
 
 -- Display name for an id: "Name  (id)" once cached, "Item id" until the client caches it (a
 -- background load is kicked off so a later rebuild fills the name in).
@@ -696,6 +697,12 @@ local registered
 
 function P:Register()
   if registered then return end
+  -- The library registers the MAIN canvas itself and survives a missing Settings API silently, but
+  -- each of the three builders below calls RegisterCanvasLayoutSubcategory directly — and a builder
+  -- that raises is pcall'd and REPORTED by key, so a client without the API would print three
+  -- errors instead of doing nothing. Bail once, up front, exactly as this function always did.
+  if not (Settings and Settings.RegisterCanvasLayoutCategory
+          and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
   -- The three sub-pages. Each builder runs once, in order, inside O.CreateOptionsPanel — after the

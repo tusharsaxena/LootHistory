@@ -74,7 +74,7 @@ Loot History**.
   options list** (Esc → Options → AddOns) with its General / Filters / AH Price sub-pages present.
   The headless suite loads in this same order, but the real TOC load path is not unit-testable.
 - `/lh` (bare) prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
-  `COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help). Every
+  `NS.COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help — fourteen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
   `settings`, `minimap`, and `schemaVersion = 5`. (The seed value is 1; `NS:RunMigrations` — invoked
@@ -660,6 +660,107 @@ Filters ▸ Blacklisted currencies**; the id appears with its name resolved. Cli
 then loot the currency again — it records normally. Re-add it and use **Clear all** on the
 currencies section (confirm popup) — the list empties and future loots of it record again.
 
+### 17. LibKa0s adoption
+
+Four of LibKa0s's five majors are wired here — `Core` (the printer), `DebugLog` (the console),
+`Slash` (the dispatcher and CLI) and `Options` (the settings canvas). Everything in this section is
+invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
+and whether anything on the panel moved. See [pending/LEDGER.md](pending/LEDGER.md) LIBKA0S-01
+through LIBKA0S-17 for what was adopted and what was declined.
+
+**17a. The degraded install.** Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to
+`libs/LibKa0s.off` and `/reload`.
+
+1. **Zero Lua errors.** Not one, at load or after. This is the whole point of the branch.
+2. Type `/lh list`. The output must be **complete** — every schema row, grouped, exactly as it reads
+   with the library present. (The list is generated from `NS.Schema.Schema`, which the library never
+   owned, so a truncated list means a stub answered where it should have deferred.)
+3. The **first** line the addon prints carries the notice:
+   `[LH] The LibKa0s library is missing from this installation of Ka0s Loot History (expected in
+   libs/LibKa0s); running on reduced built-in fallbacks.`
+   Print several more lines (`/lh version`, `/lh get settings.enabled`) — the notice must appear
+   **exactly once** for the session, not on every line.
+4. `/lh debug on` still flips logging (the flag is this addon's, not the library's) and says
+   `…, so the debug console window is unavailable.` `/lh config` says
+   `…, so the settings panel is unavailable.` Each sentence starts with the **same cause clause**,
+   word for word, as step 3 — that is deliberate: a user running several Ka0s addons on a broken
+   install should read one explanation, not four.
+5. Loot something. It still records — capture never depended on the library.
+6. **Rename the folder back** and `/reload` before continuing.
+
+**17b. The `L` trap — no SCREAMING_SNAKE on screen.** This addon passes no locale table to any
+descriptor, so every library string should render as English prose. A regression renders the *key*
+instead, for every string at once, and only in game.
+
+Walk the whole surface and confirm **not one** all-caps underscored token is visible:
+
+- `/lh` (the help index): the header reads `v1.2.0 — slash commands (/loothistory is an alias for
+  /lh)` and each row is a gold `/lh <verb>`, an em dash, a white description — **not** `HELP_HEADER`
+  or `UNKNOWN_COMMAND`.
+- `/lh list`, `/lh get settings.enabled`, `/lh set settings.enabled maybe` (which must refuse),
+  `/lh reset settings.windowScale`, `/lh resetall`.
+- `/lh debug` → the console window: the title reads **Loot History — Debug**, the header toggle
+  reads **Debug: ON** / **Debug: OFF**, the buttons read **Copy** and **Clear**, the status line
+  reads `N / 500 lines`, and the copy window's title reads **Copy log — Ctrl+C, then Esc**.
+- **Settings ▸** each of the four pages: the Defaults button reads **Defaults**; every checkbox,
+  dropdown and slider label is English.
+
+**17c. Nothing moved (the parity check).** The layout constants and the breadcrumb separator were
+already identical to the library's, so **anything that looks different here is the finding**.
+
+1. Open **Settings ▸ Ka0s Loot History**. The landing page shows the logo, the tagline, a **Slash
+   Commands** heading and one row per command.
+2. **The one deliberate change:** those landing rows now use the same formatter the chat help does —
+   **single** spaces around the em dash, the dash no longer white-wrapped, the description white.
+   They previously had double spaces and a bare description. Everything else on the page is
+   unchanged.
+3. Click through **General**, **Filters** and **AH Price**. Each header reads
+   `Ka0s Loot History ▸ <Page>` with the gold divider under it and a **Defaults** button top-right.
+   The two-column pairing is unchanged: Enable collection | Hide minimap button, then Debug console
+   alone, then Window scale | Reset All; then Minimum quality | Keep history for, then Record
+   currency | Exclude quest items, then the full-width **Record data from** grid.
+4. The scrollbar is present and greyed on a short page, live on a long one, and **the body's right
+   edge does not shift** as you click between pages (options-ui-§10).
+5. On **AH Price**, click away to another page and back several times. There must be **no freeze** —
+   that page's eleven row slots are pooled, and `SetRenderer` is deliberately declined on it for
+   exactly this reason (LIBKA0S-15).
+
+**17d. What the library newly fixes.** Three of these never worked before; confirm they do now.
+
+1. **The Settings window's own footer Defaults control.** Open **Settings ▸ Ka0s Loot History ▸
+   General**, change **Minimum quality**, then use the Blizzard Settings window's *own* defaults
+   control at the bottom (not the header button). It must reset, exactly as the header **Defaults**
+   button does. It did nothing before.
+2. **The combat guard on the sidebar path.** Enter combat (a target dummy is enough). Open the
+   Blizzard **AddOns** list and click **Ka0s Loot History ▸ General** directly. The Settings window
+   closes and chat says
+   `cannot open settings during combat — Blizzard's category-switch is protected`. Previously only
+   `/lh config` was guarded and this path was not. `/lh config` in combat must refuse the same way.
+   Leave combat: both work again, and **nothing replays itself** — the panel must not open on its
+   own the moment combat drops.
+3. **Esc syncs the console checkbox.** Open the console (`/lh debug`), then open **Settings ▸
+   General** and confirm **Debug console** is ticked. Close the console with **Esc** (or its **×**),
+   then look at the checkbox again — it must now be unticked. It used to stay stale, because only
+   the addon's own `Show`/`Hide` synced it.
+
+**17e. The console's own chrome.** The console keeps this addon's window style, not the library's —
+that is what the `applySkin` / `makeCloseButton` hooks are for. Open `/lh debug` and confirm: the
+flat 1px black border with the subtle lighter inner line, the **gold** title, the grey divider under
+the title bar, and a **24×24 thin ×** in the top-right that turns your **class colour** on hover —
+not a small fixed-red ×. **Copy** and **Clear** sit to its left with an even gap; none of the three
+overlaps.
+
+**17f. Destructive verbs still ask.** `reset` is path-scoped and always was here, so nothing lost a
+guard — but check both entry points of each destructive action anyway:
+
+- `/lh purge` → confirm popup. Cancel: history intact. **Settings ▸ General ▸ Purge history…** →
+  the same popup.
+- **Settings ▸ General ▸ Reset All** → the "settings AND history" popup. Cancel: nothing changes.
+- **Settings ▸ Filters ▸ Defaults** → the clear-all-filters popup, and each list's own **Clear all**
+  → its own popup.
+- `/lh resetall` is non-destructive (settings + the id-lists only, history untouched) and correctly
+  does **not** ask.
+
 ---
 
 ## When to run which subset
@@ -671,11 +772,15 @@ currencies section (confirm popup) — the list empties and future loots of it r
 - **Settings / schema edits:** 9, 10, plus §4's mute/quality gates for any new Data-Collection row.
 - **Blacklist/whitelist edits:** 16, plus §4 (the capture gate) — `modules/Filters.lua`,
   `modules/Collector.lua`, `settings/Panel.lua`'s Filters page.
-- **Pre-release / TOC bump:** the **entire suite** — the 16 scenarios span every system the addon
+- **LibKa0s / library edits:** 17, plus 9, 10 and 12. Anything touching `core/CoreSetup.lua`,
+  `core/DebugLogSetup.lua`, `settings/Slash.lua`, `settings/OptionsSetup.lua` or a re-vendor of
+  `libs/LibKa0s/` — and **always** 17a, which is the only check that a degraded install still works.
+- **Pre-release / TOC bump:** the **entire suite** — the 17 scenarios span every system the addon
   owns. Always finish with the headless gate green: `luacheck .` (0/0) and `lua tests/run.lua` (see
   [testing.md](testing.md)).
-- **Debug/logging edits:** 12, 15. Anything touching `NS.Debug` call sites or `modules/DebugLog.lua`
-  needs the tag-coverage + coalescing checklist.
+- **Debug/logging edits:** 12, 15. Anything touching `NS.Debug` call sites or
+  `core/DebugLogSetup.lua` needs the tag-coverage + coalescing checklist — and 17b, since the
+  console's strings are the library's now.
 
 If a smoke test fails, capture the offending line from BugSack / the Lua error frame plus the exact
 slash sequence that produced it, and file an issue at the tracker referenced in
