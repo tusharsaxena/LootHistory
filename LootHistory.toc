@@ -36,6 +36,7 @@ core\Namespace.lua
 core\State.lua
 core\Util.lua
 core\CoreSetup.lua
+core\DebugLogSetup.lua
 core\LootHistory.lua
 core\Database.lua
 
@@ -51,7 +52,6 @@ modules\Browser.lua
 modules\BrowserTable.lua
 modules\Export.lua
 modules\Analytics.lua
-modules\DebugLog.lua
 
 # Settings
 settings\Schema.lua

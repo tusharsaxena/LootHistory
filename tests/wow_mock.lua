@@ -122,6 +122,27 @@ return function()
     return unpack(parts)
   end
 
+  -- ── frames that remember their size ────────────────────────────────────────
+  -- The kit's stub answers 0 from GetWidth forever and deliberately leaves the setters undefined
+  -- (so a suite can spy on them by rawsetting a recorder). Nothing here spies on a setter, and one
+  -- contract this addon depends on is only observable through the pair: LibKa0s-DebugLog-1.0
+  -- DERIVES the console's Copy/Clear title-bar offsets from the width of the close button
+  -- `makeCloseButton` returns, and this addon's button is 24 wide where Core's is 18. With a
+  -- GetWidth stuck at 0 the library falls back to 18 and the derivation — the entire reason that
+  -- descriptor field matters to this host — is untestable.
+  local kitFrame = M.__stubFrame
+  M.__stubFrame = function()
+    local f = kitFrame()
+    local w, h = 0, 0
+    function f:SetSize(width, height) w, h = width or w, height or h; return self end
+    function f:SetWidth(width) w = width or w; return self end
+    function f:SetHeight(height) h = height or h; return self end
+    function f:GetWidth() return w end
+    function f:GetHeight() return h end
+    return f
+  end
+  M.CreateFrame = function() return M.__stubFrame() end
+
   -- ── the message bus ────────────────────────────────────────────────────────
   -- The kit's AceAddon fake does not embed AceEvent, because not every host asks for it. This addon
   -- does: `AceAddon:NewAddon(NS, name, "AceEvent-3.0", ...)` embeds the (message, target) bus onto
