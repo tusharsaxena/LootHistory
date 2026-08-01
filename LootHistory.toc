@@ -35,6 +35,7 @@ core\Constants.lua
 core\Namespace.lua
 core\State.lua
 core\Util.lua
+core\CoreSetup.lua
 core\LootHistory.lua
 core\Database.lua
 

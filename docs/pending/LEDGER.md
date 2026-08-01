@@ -40,3 +40,17 @@ the marker is the affordance. There is deliberately no red — nothing here is a
 | CODE-01 | `d01fce77` | `modules/Browser.lua:14` | 🟡 deferred | 2026-07-31 | The marker's own condition (post-1.0.0) has not been reached and it names where it is tracked. Same item as ISS-11. |
 | ISS-11 | `acdd09b7` | GitHub issue #11 | 🟡 deferred | 2026-07-31 | Configurable window styling — real feature work, backlog. Same item as CODE-01; issue stays open. |
 | ISS-09 | `95cc66bc` | GitHub issue #9 | 🟡 deferred | 2026-07-31 | Column chooser — ordinary unbuilt backlog, not unfinished work. Would require making the fixed column geometry (and its numeric test asserts) dynamic. Issue stays open. |
+
+## LibKa0s adoption (2026-08-01)
+
+The decisions taken while adopting the shared [LibKa0s](https://github.com/tusharsaxena/LibKa0s)
+library, one row per call, written when the call was made. A **declined** surface is recorded for
+the same reason an adopted one is: an unrecorded decision is indistinguishable from an oversight,
+and the next consistency sweep would "fix" it. Naming the upstream minor that unblocked a row is
+what makes "why now?" answerable later.
+
+| ID | Evidence hash | Source | Decision | Date | Rationale |
+|---|---|---|---|---|---|
+| LIBKA0S-01 | `29e9751b` | `core/CoreSetup.lua`, `core/Util.lua` | 🟢 done | 2026-08-01 | `LibKa0s-Core-1.0`'s printer and secret-safe stringifier adopted; the ~37-line block that owned them in `core/Util.lua` deleted. A pure refactor at the seam — this addon's guard was already the `table.concat` probe with the same `<secret>` sentinel the library ships, so not one rendered byte moves. `NS.Print` and `NS.Util.print` are BOTH published, because `core/LootHistory.lua`'s AceConsole reclaim reads the latter back over the former; a seam publishing only `NS.Print` is silently undone by that reclaim while appearing to work. |
+| LIBKA0S-02 | `1f034b40` | `modules/Browser.lua:68-105`, `libs/LibKa0s/Core.lua:80-115` | 🔵 wont-do | 2026-08-01 | Core's window chrome (`SKIN` / `ApplySkin` / `MakeCloseButton`) **declined**. This addon draws every window with a flat 1px `WHITE8X8` double border, a synthesised inner-border child frame, a gold title tint and a 24x24 class-coloured × glyph; Core's is a 12px `UI-Tooltip-Border` and an 18x18 fixed-red ×. Adopting it would redesign the History browser, which is not a library migration. The console keeps this addon's chrome through DebugLog minor 4's `applySkin` / `makeCloseButton` hooks (LIBKA0S-05), so nothing drifts. |
+| LIBKA0S-03 | `246dd001` | `tests/run.lua`, `tests/wow_mock.lua`, `tests/_kit/` | 🟢 done | 2026-08-01 | The shared test kit adopted: `tests/loader.lua` deleted, `tests/run.lua` moved onto `Kit.expose`/`Kit.run`, and `tests/wow_mock.lua` reduced to an extender over `mock_base.lua`. Required rather than cosmetic — the old mock's LibStub had **no `NewLibrary`**, so no vendored LibKa0s file could have registered at all. Three behaviours the base models that the old mock did not now run for real: the AceConsole `:Print` clobber (which makes the `NS.Print` reclaim a live assertion instead of a vacuous one), a fireable AceGUI widget factory, and `Settings.RegisterCanvasLayoutSubcategory`. `NewAddon` is wrapped locally to embed the AceEvent bus, which the real mixin list does and the base fake deliberately leaves to the host. |

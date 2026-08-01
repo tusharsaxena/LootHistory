@@ -40,6 +40,6 @@ Kit.run{
     "test_constants", "test_util", "test_compat", "test_attribution",
     "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
     "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
-    "test_schema", "test_analytics",
+    "test_schema", "test_analytics", "test_libka0s",
   },
 }
