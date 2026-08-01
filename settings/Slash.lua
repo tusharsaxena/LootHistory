@@ -91,173 +91,151 @@ function Sl:ResetEverything()
   if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
 end
 
-function Sl:Register()
-  NS.addon:RegisterChatCommand("lh", function(input) Sl:OnSlash(input) end)
-  NS.addon:RegisterChatCommand("loothistory", function(input) Sl:OnSlash(input) end)
-end
 
--- Bare `/lh` prints the help index (slash-commands-§4). Window display is explicit:
--- `/lh toggle` or `/lh show|hide`. Only the verb is lower-cased; `rest` keeps its case
--- so schema paths survive `/lh set <path> <value>`.
-function Sl:OnSlash(input)
-  if input == nil or input:match("^%s*$") then
-    return Sl:PrintHelp()
-  end
-  local verb, rest = input:match("^(%S+)%s*(.-)$")
-  verb = verb and verb:lower()
-  for _, cmd in ipairs(NS.COMMANDS) do
-    if cmd.name == verb then return cmd.fn(rest) end
-  end
-  print("unknown command '" .. tostring(verb) .. "'")
-  Sl:PrintHelp()
-end
+-- ── LibKa0s-Slash-1.0 seam ─────────────────────────────────────────────────────────────────────
+--
+-- The dispatcher, the help renderer, the landing rows, the schema CLI and the type-aware value
+-- parser are all the library's now. What stays here is what is genuinely this addon's: the confirm
+-- popups above, the total-reset composition above, the chat-command registration, and the two
+-- adapters below (`FormatSchemaValue` for the set-valued rows the library has no type for, and the
+-- filter-list half of `resetall`).
 
--- Help index generated from NS.COMMANDS (slash-commands-§4): a version/alias header,
--- then one prefixed row per command — gold command, em-dash, white description.
-function Sl:PrintHelp()
-  print("v" .. (NS.version or "") ..
-    " slash commands (|cffffff00/loothistory|r is an alias for |cffffff00/lh|r)")
-  for _, cmd in ipairs(NS.COMMANDS) do
-    print(("|cffffff00/lh %s|r — |cffffffff%s|r"):format(cmd.name, cmd.desc))
-  end
-end
+local lib = LibStub and LibStub("LibKa0s-Slash-1.0", true)
 
--- --- Schema-driven CLI: list / get / set / version (slash-commands-§5 output format) ---
-
--- Shared value formatter for list/get/set so the three can never diverge. Type-aware and
--- schema-driven: a row's optional `fmt` formats numbers (e.g. windowScale "%.2fx" → "1.00x");
--- booleans render true/false; a table setting (the excludedSources set) renders as a sorted
--- {a, b} of its present keys, or "(none)" when empty. Enums stay raw (their stored value).
+-- Type-aware value formatter for the two rows the library cannot render on its own.
+--
+-- `type = "table"` is not one of the library's four types, so `lib.FormatValue` falls through to
+-- Core's SafeToString — which probes table.concat, fails, and answers "<secret>". That would tell a
+-- user that `settings.excludedSources` is combat-protected. Slash **minor 5**'s `format` hook is the
+-- supported answer to exactly this (it was added for BankLedger's muted-store set), so the branch
+-- lives here and everything else is handed straight back to the library. Kept as a public member
+-- because settings/Panel.lua and the suite both read it.
 function Sl.FormatSchemaValue(row, v)
   if v == nil then return "nil" end
-  if row and row.fmt and type(v) == "number" then return row.fmt:format(v) end
-  if row and row.type == "boolean" then return v and "true" or "false" end
   if row and row.type == "table" then
     if type(v) ~= "table" then return tostring(v) end
     local keys = {}
     for k, on in pairs(v) do if on then keys[#keys + 1] = tostring(k) end end
     table.sort(keys)
-    if #keys == 0 then return "(none)" end
+    if #keys == 0 then return lib and lib.STRINGS.NONE or "(none)" end
     return "{" .. table.concat(keys, ", ") .. "}"
   end
+  -- Everything else — bool, number (through the row's `fmt`), string — is the library's, so the
+  -- CLI and the settings panel cannot render the same value two ways.
+  if lib then return lib.FormatValue(row, v) end
   return tostring(v)
 end
 
--- Shared coloured `key = value` line — gold key, white value, ` = ` left default — reused by the
--- list rows and the get/set echo so the colouring can't drift (slash-commands-§5).
-function Sl.FormatKV(path, valueStr)
-  return ("|cffffff00%s|r = |cffffffff%s|r"):format(tostring(path), tostring(valueStr))
-end
-
--- Declared group order for `/lh list` (slash-commands-§5 "stable, declared page order"). LootHistory
--- is a single-panel addon, so its schema groups (the panel section headers) stand in for the
--- standard's `[page]` headers; any group not named here is appended in first-seen order.
-local LIST_GROUP_ORDER = { "Master Controls", "Data Collection" }
-
--- Build the `/lh list` lines (tag-less content; CliList prints each through NS.Print, which
--- prepends the cyan tag) as a pure array, so the output shape is unit-testable without capturing
--- chat. Header green, [group] headers azure, value rows via FormatKV — two-space indent on group
--- headers, four-space on value rows (slash-commands-§5).
-function Sl:BuildListLines()
-  local lines = { "|cff33ff99Available settings|r" }
-
-  local byGroup, seenOrder = {}, {}
-  for _, row in ipairs(NS.Schema.Schema) do
-    local g = row.group or "?"
-    if not byGroup[g] then byGroup[g] = {}; seenOrder[#seenOrder + 1] = g end
-    byGroup[g][#byGroup[g] + 1] = row
+if not lib then
+  -- Degrade, not error. `/lh` is registered unconditionally (Sl:Register below runs from
+  -- OnInitialize whatever the install looks like), so every verb the dispatcher would have owned
+  -- has to answer with an honest line rather than a nil-index error. The seven host verbs in
+  -- NS.COMMANDS are unaffected — they never went through the library — so they are dispatched here
+  -- by the same positional walk the library does.
+  local function unavailable()
+    NS.Print(NS.LIBKA0S_MISSING .. ", so the slash command interface is unavailable.")
   end
-
-  local emitted = {}
-  local function emit(g)
-    if emitted[g] or not byGroup[g] then return end
-    emitted[g] = true
-    lines[#lines + 1] = "  |cff3399ff[" .. g .. "]|r"
-    for _, row in ipairs(byGroup[g]) do
-      local v = NS.Schema:Get(row.path)
-      lines[#lines + 1] = "    " .. Sl.FormatKV(row.path, Sl.FormatSchemaValue(row, v))
+  Sl.FormatKV = function(path, valueStr)
+    return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
+  end
+  Sl.HelpRows, Sl.LandingRows = function() return {} end, function() return {} end
+  Sl.BuildListLines = function() return {} end
+  Sl.PrintHelp = unavailable
+  Sl.CliList, Sl.CliGet, Sl.CliSet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
+    unavailable, unavailable, unavailable
+  Sl.CliResetAll = function()
+    if NS.Filters and NS.Filters.ClearAll then NS.Filters:ClearAll() end
+    unavailable()
+  end
+  function Sl:OnSlash(input)
+    local verb = input and input:match("^(%S+)")
+    local rest = input and input:match("^%S+%s*(.-)$") or ""
+    for _, entry in ipairs(NS.COMMANDS) do
+      if entry[1] == (verb or ""):lower() then return entry[3](rest) end
     end
+    unavailable()
   end
-
-  for _, g in ipairs(LIST_GROUP_ORDER) do emit(g) end
-  for _, g in ipairs(seenOrder) do emit(g) end
-  return lines
+  function Sl:Register()
+    NS.addon:RegisterChatCommand("lh", function(input) Sl:OnSlash(input) end)
+    NS.addon:RegisterChatCommand("loothistory", function(input) Sl:OnSlash(input) end)
+  end
+  return
 end
 
-function Sl:CliList()
-  for _, line in ipairs(Sl:BuildListLines()) do print(line) end
-end
+-- Re-exported so settings/Panel.lua and the suite reach ONE key/value formatter. Gold key, white
+-- value, no trailing colon — identical in shape to what this file used to own, with the hex digits
+-- now in the library's upper case.
+Sl.FormatKV = lib.FormatKV
 
-function Sl:CliGet(arg)
-  local path = (strtrim and strtrim(tostring(arg or "")) or tostring(arg or "")):match("^(%S+)")
-  if not path then
-    print("Usage: /lh get <path>")
-    return
-  end
-  local row = NS.Schema:FindRow(path)
-  if not row then
-    print("Setting not found: " .. path)
-    return
-  end
-  print(Sl.FormatKV(path, Sl.FormatSchemaValue(row, NS.Schema:Get(path))))
-end
+local Dispatcher = lib:New({
+  slash        = "/lh",
+  slashAliases = { "/loothistory" },
+  commands     = NS.COMMANDS,
 
-function Sl:CliSet(arg)
-  local path, raw = tostring(arg or ""):match("^(%S+)%s+(.+)$")
-  if not path then
-    print("Usage: /lh set <path> <value>  (try /lh list)")
-    return
-  end
-  local row = NS.Schema:FindRow(path)
-  if not row then
-    print("Setting not found: " .. path)
-    return
-  end
-  local value = raw
-  if row.type == "number" then
-    value = tonumber(raw)
-    if not value then print("expected a number"); return end
-  elseif row.type == "boolean" then
-    value = (raw == "true" or raw == "1" or raw == "on" or raw == "yes")
-  end
-  local ok, err = NS.Schema:Set(path, value)
-  if ok then
-    -- Read back the stored value so the echo reflects any clamping/coercion (slash-commands-§5).
-    print(Sl.FormatKV(path, Sl.FormatSchemaValue(row, NS.Schema:Get(path))))
-  else
-    print("error: " .. tostring(err))
-  end
-end
+  -- Late-bound, so it survives core/LootHistory.lua's AceConsole reclaim of NS.Print.
+  print = function(line) NS.Print(line) end,
 
--- `/lh version` → the canonical single-line version answer every Ka0s addon shares
--- (slash-commands-§3). Read from the TOC metadata so it can't drift from the packaged manifest,
--- with the in-code constant as fallback.
-function Sl:CliVersion()
-  local v = (NS.Compat and NS.Compat.GetAddOnMetadata and NS.Compat.GetAddOnMetadata(NS.name, "Version"))
-    or NS.version or "?"
-  print("v" .. tostring(v))
-end
+  -- Read from the TOC metadata so it cannot drift from the packaged manifest, with the in-code
+  -- constant as the fallback (slash-commands-§3).
+  version = function()
+    return (NS.Compat and NS.Compat.GetAddOnMetadata and NS.Compat.GetAddOnMetadata(NS.name, "Version"))
+      or NS.version or "?"
+  end,
 
-function Sl:CliReset(arg)
-  local path = arg and tostring(arg):match("^%S+") or nil
-  if not path then print("usage: /lh reset <path>"); return end
-  local row = NS.Schema:FindRow(path)
-  local def = NS.Schema:Default(path)
-  if not row or def == nil then print("unknown setting: " .. path); return end
-  NS.Schema:Set(path, def)
-  -- Echo through the shared formatter so a table default (excludedSources) reads "(none)", not a
-  -- raw "table: 0x..." pointer (slash-commands-§5 value formatting).
-  print(path .. " reset to " .. Sl.FormatSchemaValue(row, def))
-end
+  -- The schema CLI, wired to this addon's single write seam. Every `set` a user types takes the
+  -- same path a panel click does: validate -> write -> onChange -> debug line.
+  get          = function(path) return NS.Schema:Get(path) end,
+  set          = function(path, v) NS.Schema:Set(path, v) end,
+  findRow      = function(path) return NS.Schema:FindRow(path) end,
+  allRows      = function() return NS.Schema.Schema end,
+  applyDefault = function(row) NS.Schema:Set(row.path, NS.Schema:Default(row.path)) end,
 
--- Reset every user setting to its default. Covers the schema rows AND the two item-id filter lists
--- (blacklist/whitelist) — the lists are user-configured settings even though they are a storage
--- carve-out (no Schema widget). Non-destructive: history, savedView and window geometry are left
--- untouched (the destructive Sl:ResetEverything handles those).
+  -- `/lh list` groups by the panel section header. The library's default is `row.page`, which this
+  -- addon has no concept of — it is a single-panel addon, so its schema `group` values ARE the
+  -- headings, and using them keeps the listing in the same order and under the same names the
+  -- settings panel shows.
+  groupKey = function(row) return row.group or "?" end,
+
+  -- The set-valued rows, per the note on FormatSchemaValue above.
+  format = function(row, v) return Sl.FormatSchemaValue(row, v) end,
+})
+
+-- ── the surface the rest of the addon calls ────────────────────────────────────────────────────
+--
+-- Bound onto NS.Slash by name rather than replacing it, because ~20 call sites across the schema
+-- table, the settings panel and the suite already reach for `NS.Slash:CliList()` and friends.
+
+Sl.OnSlash        = function(_, msg)  return Dispatcher:OnSlash(msg)  end
+Sl.PrintHelp      = function()        return Dispatcher:PrintHelp()   end
+Sl.HelpHeader     = function()        return Dispatcher:HelpHeader()  end
+Sl.HelpRows       = function()        return Dispatcher:HelpRows()    end
+Sl.BuildListLines = function()        return Dispatcher:BuildListLines() end
+Sl.CliList        = function()        return Dispatcher:CliList()     end
+Sl.CliGet         = function(_, rest) return Dispatcher:CliGet(rest)  end
+Sl.CliSet         = function(_, rest) return Dispatcher:CliSet(rest)  end
+Sl.CliReset       = function(_, rest) return Dispatcher:CliReset(rest) end
+Sl.CliVersion     = function()        return Dispatcher:CliVersion()  end
+
+--- The settings landing page's command rows: the same rows as the chat help, in the same colours
+--- and spacing, without the two-space indent a chat line needs to sit under a header.
+---
+--- CONVERGENCE. settings/Panel.lua used to carry its own formatter for this — double spaces around
+--- the em dash, the dash explicitly white-wrapped, the description bare — divergent from the chat
+--- help two files away for no reason anyone recorded. Both now render through lib.FormatRow.
+function Sl:LandingRows() return Dispatcher:LandingRows() end
+
+--- Reset every user setting to its default.
+---
+--- Wraps rather than re-exports, because the two item-id filter lists are user-configured settings
+--- that carry no schema row (they are a storage carve-out managed by NS.Filters), so the library's
+--- row walk cannot see them. Cleared FIRST so the library's acknowledgement is the last line
+--- printed and reads as the summary of everything that happened.
 function Sl:CliResetAll()
-  for _, row in ipairs(NS.Schema.Schema) do
-    NS.Schema:Set(row.path, row.default)
-  end
   if NS.Filters and NS.Filters.ClearAll then NS.Filters:ClearAll() end
-  print("all settings reset to defaults")
+  Dispatcher:CliResetAll()
+end
+
+function Sl:Register()
+  NS.addon:RegisterChatCommand("lh", function(input) Sl:OnSlash(input) end)
+  NS.addon:RegisterChatCommand("loothistory", function(input) Sl:OnSlash(input) end)
 end

@@ -54,7 +54,7 @@ end)
 
 local function debugCmd(rest)
   for _, c in ipairs(NS.COMMANDS) do
-    if c.name == "debug" then return c.fn(rest) end
+    if c[1] == "debug" then return c[3](rest) end
   end
   error("no debug command")
 end

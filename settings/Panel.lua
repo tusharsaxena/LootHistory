@@ -263,7 +263,7 @@ local function makeDropdown(ctx, row, parent, rel)
   local dd = AceGUI:Create("Dropdown")
   dd:SetLabel(row.label); applyWidth(dd, rel)
   local list, order = {}, {}
-  for i, opt in ipairs(row.options) do list[opt.value] = opt.label; order[i] = opt.value end
+  for i, opt in ipairs(row.values) do list[opt.value] = opt.text; order[i] = opt.value end
   dd:SetList(list, order)
   dd:SetCallback("OnValueChanged", function(_, _, key) NS.Schema:Set(row.path, key) end)
   attachTooltip(dd, row.label, row.tooltip)
@@ -294,9 +294,9 @@ local function makeMultiCheck(ctx, row, scroll)
   local group = AceGUI:Create("InlineGroup")
   group:SetTitle(row.label); group:SetFullWidth(true); group:SetLayout("Flow")
   local boxes = {}
-  for _, opt in ipairs(row.options) do
+  for _, opt in ipairs(row.values) do
     local cb = AceGUI:Create("CheckBox")
-    cb:SetLabel(opt.label); cb:SetWidth(150)
+    cb:SetLabel(opt.text); cb:SetWidth(150)
     cb:SetCallback("OnValueChanged", function(_, _, v)
       local cur = NS.Schema:Get(row.path) or {}
       local copy = {}
@@ -338,7 +338,7 @@ local function renderSchema(ctx, companions, opts)
   for _, row in ipairs(NS.Schema.Schema) do
     local include = not ((opts.only and row.group ~= opts.only)
       or (opts.skip and row.group and opts.skip[row.group])
-      or row.panelSkip)   -- panelSkip rows render via a bespoke section, not the generic path
+      or row.skipRender)   -- skipRender rows render via a bespoke section, not the generic path
     if include then
       if row.group and row.group ~= ctx.lastGroup then
         flushRow(); section(ctx, row.group); ctx.lastGroup = row.group
@@ -348,8 +348,8 @@ local function renderSchema(ctx, companions, opts)
         flushRow()
         makeMultiCheck(ctx, row, scroll)
       else
-        -- soloRow widgets sit alone on their own row: flush any half-filled row first so they start fresh.
-        if row.soloRow then flushRow() end
+        -- solo widgets sit alone on their own row: flush any half-filled row first so they start fresh.
+        if row.solo then flushRow() end
         if not pendingRow then pendingRow = startRow() end
         if row.widget == "CheckBox" then makeCheckbox(ctx, row, pendingRow, 0.5)
         elseif row.widget == "Dropdown" then makeDropdown(ctx, row, pendingRow, 0.5)
@@ -358,7 +358,7 @@ local function renderSchema(ctx, companions, opts)
         if comp then
           comp(pendingRow)
           flushRow()
-        elseif row.soloRow or #pendingRow.children >= 2 then
+        elseif row.solo or #pendingRow.children >= 2 then
           flushRow()
         end
       end
@@ -887,10 +887,15 @@ local function buildMainContent(ctx)
   scroll:AddChild(heading)
   addSpacer(scroll, 6)
 
-  for _, cmd in ipairs(NS.COMMANDS or {}) do
+  -- CONVERGENCE (LibKa0s adoption). This page used to carry its OWN command-row formatter — double
+  -- spaces around the em dash, the dash explicitly white-wrapped, the description left bare — while
+  -- settings/Slash.lua two files away already rendered the same data another way. Both now go
+  -- through lib.FormatRow: single spaces, no colour span on the dash, the description white.
+  -- Deliberate and user-visible; do not "fix" it back. See docs/pending/LEDGER.md, LIBKA0S-09.
+  for _, line in ipairs(NS.Slash.LandingRows and NS.Slash:LandingRows() or {}) do
     local labelRow = AceGUI:Create("Label")
     labelRow:SetFullWidth(true)
-    labelRow:SetText(("|cffffff00/lh %s|r  |cffffffff\226\128\148|r  %s"):format(cmd.name, cmd.desc))
+    labelRow:SetText(line)
     scroll:AddChild(labelRow)
   end
 end

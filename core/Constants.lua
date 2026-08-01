@@ -60,6 +60,14 @@ C.FONT_MONO = "Interface\\AddOns\\LootHistory\\media\\fonts\\JetBrainsMono-Regul
 -- Seconds a stamped loot context stays fresh before CHAT_MSG_LOOT falls back to OTHER.
 C.CONTEXT_TTL = 1.5
 
+-- ── Schema enum option tables ────────────────────────────────────────────────────────────────
+-- The four `*_OPTIONS` tables below are the ordered-array enum shape BOTH LibKa0s majors read off a
+-- schema row's `values`: an array of { value =, text = }, where POSITION is the display order.
+-- `text` rather than `label` is load-bearing — `LibKa0s-Slash-1.0`'s parser and
+-- `LibKa0s-Options-1.0`'s dropdown maker both fall back to `tostring(item.value)` when `text` is
+-- absent, so a row named the old way renders every entry as its raw stored value with nothing to
+-- say it went wrong.
+
 -- Minimum-quality options for the collector threshold (WoW item-quality ids). The gate is a
 -- monotonic "quality >= threshold" (Collector:gateReason). The ladder runs Poor(0)..Legendary(5),
 -- then Heirloom(7) appended by explicit user choice. NOTE Heirloom's id (7) sits ABOVE Legendary,
@@ -81,20 +89,20 @@ C.QUALITY_OPTIONS = {}
 for _, q in ipairs({ 0, 1, 2, 3, 4, 5, 7 }) do
   C.QUALITY_OPTIONS[#C.QUALITY_OPTIONS + 1] = {
     value = q,
-    label = ("|cff%s%s|r and above"):format(qualityHex(q), NS.Compat.QualityLabel(q)),
+    text = ("|cff%s%s|r and above"):format(qualityHex(q), NS.Compat.QualityLabel(q)),
   }
 end
 
 -- Retention presets; 0 means "Never" (cleanup disabled).
 C.RETENTION_OPTIONS = {
-  { value = 7,   label = "7 days" },
-  { value = 14,  label = "14 days" },
-  { value = 30,  label = "30 days" },
-  { value = 60,  label = "60 days" },
-  { value = 90,  label = "90 days" },
-  { value = 180, label = "180 days" },
-  { value = 365, label = "365 days" },
-  { value = 0,   label = "Always" },
+  { value = 7,   text = "7 days" },
+  { value = 14,  text = "14 days" },
+  { value = 30,  text = "30 days" },
+  { value = 60,  text = "60 days" },
+  { value = 90,  text = "90 days" },
+  { value = 180, text = "180 days" },
+  { value = 365, text = "365 days" },
+  { value = 0,   text = "Always" },
 }
 
 -- Per-source mute options, derived from the source order. Only sources with a live capture path
@@ -102,7 +110,7 @@ C.RETENTION_OPTIONS = {
 C.SOURCE_OPTIONS = {}
 for _, s in ipairs(C.SourceOrder) do
   if C.SOURCE_IMPLEMENTED[s] then
-    C.SOURCE_OPTIONS[#C.SOURCE_OPTIONS + 1] = { value = s, label = C.SourceLabel[s] }
+    C.SOURCE_OPTIONS[#C.SOURCE_OPTIONS + 1] = { value = s, text = C.SourceLabel[s] }
   end
 end
 
@@ -128,7 +136,7 @@ C.AUCTION_KEYS = {
 -- Capture checklist options for the settings panel MultiCheck row (value = "provider:key" tag).
 C.AUCTION_CAPTURE_OPTIONS = {}
 for i, k in ipairs(C.AUCTION_KEYS) do
-  C.AUCTION_CAPTURE_OPTIONS[i] = { value = k.provider .. ":" .. k.key, label = k.label }
+  C.AUCTION_CAPTURE_OPTIONS[i] = { value = k.provider .. ":" .. k.key, text = k.label }
 end
 -- Curated defaults (which keys are captured, and the selection priority order).
 C.AUCTION_CAPTURE_DEFAULT = {
