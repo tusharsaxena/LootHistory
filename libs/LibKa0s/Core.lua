@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -73,28 +73,101 @@ end
 
 -- ── the window chrome seam ─────────────────────────────────────────────────────────────────
 
--- The one skin every Ka0s window wears. `bg` and `border` travel in the same table as the backdrop
--- fields because the three calls are one decision: a copy that took the backdrop but not the
--- colors is exactly the drift this exists to prevent. WoW's backdrop system reads only the fields
--- it knows, so the two extra keys are inert when the table is handed to SetBackdrop.
+-- The one skin every Ka0s window wears: a flat 1px BLACK outer edge with a 1px light-grey highlight
+-- synthesised just inside it (the "double edge"), a gold title, and a grey divider under the title
+-- bar. Every colour travels in the same table as the backdrop fields because they are one decision:
+-- a copy that took the backdrop but not the colours is exactly the drift this exists to prevent.
+-- WoW's backdrop system reads only the fields it knows, so the extra keys are inert when the table
+-- is handed to SetBackdrop.
+--
+-- WHY THESE VALUES, and not the 12px UI-Tooltip-Border this shipped with through v1.2.0: two hosts
+-- (BankLedger and LootHistory) had already arrived at this treatment independently for their own
+-- windows and passed `applySkin` to keep their consoles matching them, while the three hosts on the
+-- library default kept the tooltip border. Side by side, the five consoles did not read as one suite
+-- of addons — which is the entire thing a shared skin exists to deliver. The definition moved to
+-- where the majority of the surface already was. See standalone-windows in the Ka0s WoW Addon
+-- Standard, which now specifies these values normatively.
 lib.SKIN = {
   bgFile = "Interface\\Buttons\\WHITE8x8",
-  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-  edgeSize = 12,
-  insets = { left = 3, right = 3, top = 3, bottom = 3 },
-  bg = { 0.06, 0.06, 0.07, 0.95 },
+  -- A flat white texture TINTED black by `border` below, not border art: art at edgeSize 12 reads
+  -- as a soft brown frame, and the Ka0s window edge is a hard 1px line.
+  edgeFile = "Interface\\Buttons\\WHITE8x8",
+  edgeSize = 1,
+  insets = { left = 1, right = 1, top = 1, bottom = 1 },
+  bg = { 0.06, 0.06, 0.08, 0.92 },
   border = { 0, 0, 0, 1 },
+  -- The three that used to be unexpressible. They are not backdrop fields — an inner-border child
+  -- frame, a FontString tint and a texture colour are CALLS — which is why `ApplySkin` grew to make
+  -- them rather than the table growing to describe them.
+  innerBorder = { 0.24, 0.24, 0.27, 0.85 },
+  divider     = { 0.24, 0.24, 0.27, 0.85 },
+  title       = { 1.0, 0.82, 0.0 },
 }
 
 --- Wear the skin. A no-op on a frame with no SetBackdrop — a frame created without the
 --- BackdropTemplate inherit is undecorated, not broken, and a missing skin is not worth erroring
 --- over in the middle of building someone's window.
-function lib.ApplySkin(frame)
+---
+--- `skin` is optional and defaults to `lib.SKIN`. It exists so a host that overrides the skin —
+--- DebugLog's descriptor `skin` field is the only one today — reaches THIS implementation rather
+--- than a second copy of the same five calls somewhere else, which is how a title tint ends up
+--- applied on one window and not its twin.
+---
+--- Every step past the backdrop is guarded on the key being present, so a caller passing a plain
+--- WoW backdrop table (no `bg`, no `innerBorder`, …) gets a plain backdrop rather than a raise
+--- midway through building a window that is not yet hidden or Esc-wired.
+function lib.ApplySkin(frame, skin)
   if not frame or not frame.SetBackdrop then return end
-  frame:SetBackdrop(lib.SKIN)
-  frame:SetBackdropColor(lib.SKIN.bg[1], lib.SKIN.bg[2], lib.SKIN.bg[3], lib.SKIN.bg[4])
-  frame:SetBackdropBorderColor(lib.SKIN.border[1], lib.SKIN.border[2], lib.SKIN.border[3],
-    lib.SKIN.border[4])
+  skin = type(skin) == "table" and skin or lib.SKIN
+
+  frame:SetBackdrop(skin)
+  if type(skin.bg) == "table" then
+    frame:SetBackdropColor(skin.bg[1], skin.bg[2], skin.bg[3], skin.bg[4])
+  end
+  if type(skin.border) == "table" then
+    frame:SetBackdropBorderColor(skin.border[1], skin.border[2], skin.border[3], skin.border[4])
+  end
+
+  -- The 1px inner highlight, inset one pixel on both axes so it sits INSIDE the black edge rather
+  -- than on top of it. Built once and re-tinted thereafter: ApplySkin is called again whenever a
+  -- window is re-skinned, and a second child frame would stack a second line on the same pixel.
+  -- Decided on the TYPE of what the frame answered, never on its truthiness. A frame is a table
+  -- with a metatable, and this library cannot assume what that metatable does with a key it has
+  -- never heard of: a consumer's test mock answers EVERY key with a function, so `frame.innerBorder`
+  -- read back truthy, `if not frame.innerBorder` never fired, and the tint below then indexed a
+  -- function and raised — taking fourteen of that addon's cases down on the first re-vendor.
+  if type(skin.innerBorder) == "table" and type(CreateFrame) == "function" then
+    if type(frame.innerBorder) ~= "table" then
+      local inner = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+      if type(inner) == "table" then
+        if inner.SetPoint then
+          inner:SetPoint("TOPLEFT", 1, -1)
+          inner:SetPoint("BOTTOMRIGHT", -1, 1)
+        end
+        if inner.SetBackdrop then
+          inner:SetBackdrop({ edgeFile = skin.edgeFile, edgeSize = 1 })
+        end
+        frame.innerBorder = inner
+      end
+    end
+    local inner = frame.innerBorder
+    if type(inner) == "table" and type(inner.SetBackdropBorderColor) == "function" then
+      inner:SetBackdropBorderColor(skin.innerBorder[1], skin.innerBorder[2],
+        skin.innerBorder[3], skin.innerBorder[4])
+    end
+  end
+
+  -- Both optional on the frame, not just in the skin: the copy window and the perf panel carry a
+  -- title and no divider, and a bare frame carries neither. Same type-not-truthiness rule.
+  if type(skin.title) == "table" and type(frame.title) == "table"
+      and type(frame.title.SetTextColor) == "function" then
+    frame.title:SetTextColor(skin.title[1], skin.title[2], skin.title[3])
+  end
+  if type(skin.divider) == "table" and type(frame.divider) == "table"
+      and type(frame.divider.SetColorTexture) == "function" then
+    frame.divider:SetColorTexture(skin.divider[1], skin.divider[2], skin.divider[3],
+      skin.divider[4])
+  end
 end
 
 --- The thin × a Ka0s window closes with. Returns nil when CreateFrame is unavailable (a headless

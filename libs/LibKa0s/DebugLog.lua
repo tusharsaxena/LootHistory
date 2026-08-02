@@ -24,7 +24,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 4
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -217,26 +217,21 @@ function lib:New(d)
     return lib.STRINGS[key]
   end
 
-  -- The color arrays are guarded separately from the backdrop table. `skin` is documented as
-  -- "overrides Core.SKIN", and the obvious reading of that is a plain WoW backdrop table — which
-  -- has no `bg` or `border`, those being Core's own additions. Indexing them blind would raise
-  -- midway through building a window that is not yet hidden or Esc-wired, leaving a visible console
-  -- nobody can close and an EnsureFrame that will never rebuild it.
-  local function defaultApplySkin(f)
-    if not f or not f.SetBackdrop then return end
-    f:SetBackdrop(skin)
-    if type(skin.bg) == "table" then
-      f:SetBackdropColor(skin.bg[1], skin.bg[2], skin.bg[3], skin.bg[4])
-    end
-    if type(skin.border) == "table" then
-      f:SetBackdropBorderColor(skin.border[1], skin.border[2], skin.border[3], skin.border[4])
-    end
-  end
+  -- ONE implementation, in Core, reached with this instance's skin. It draws the whole Ka0s window
+  -- edge — the flat 1px black border, the 1px grey inner highlight, the gold title and the grey
+  -- divider — and guards every step on the key being present, so a host passing a plain WoW backdrop
+  -- table (no `bg`, no `innerBorder`, …) gets a plain backdrop rather than a raise midway through
+  -- building a window that is not yet hidden or Esc-wired.
+  --
+  -- It used to be a local copy of the three backdrop calls, on the reasoning that a table can only
+  -- describe backdrop FIELDS while an inner border, a title tint and a divider tint are CALLS. That
+  -- reasoning was right and the conclusion was wrong: the calls belong in the shared implementation,
+  -- driven off the shared table, rather than in whichever host happens to want them.
+  local function defaultApplySkin(f) core.ApplySkin(f, skin) end
 
-  -- `skin` is a TABLE and therefore reaches only what a backdrop is: the three calls above. Some
-  -- hosts' windows do more than that — a synthesised inner-border child frame, a title tint, a
-  -- divider tint — and none of those is a field, so no table can express them. Such a host passes
-  -- `applySkin` instead and owns the whole job for both windows.
+  -- `applySkin` remains, and still owns the WHOLE job for both windows when a host supplies it —
+  -- for chrome that differs in SHAPE rather than in colour, and for a host that wants its console
+  -- to track its own re-skin seam rather than this library's.
   --
   -- It is handed the fully-built frame, so `frame.title` and `frame.divider` are already assigned
   -- and a host's existing "tint whatever this window has" helper works unmodified.
@@ -293,7 +288,12 @@ function lib:New(d)
     divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
     divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
     divider:SetHeight(1)
-    divider:SetColorTexture(0, 0, 0, 1)
+    -- Coloured from the skin rather than hardcoded black. `applySkin` runs at the end of this
+    -- function and tints it again, so this value only shows on a host whose own applySkin ignores
+    -- the divider — and black under a grey-inner-bordered window is exactly the mismatch this
+    -- release exists to remove.
+    local dc = type(skin.divider) == "table" and skin.divider or { 0, 0, 0, 1 }
+    divider:SetColorTexture(dc[1], dc[2], dc[3], dc[4])
     frame.divider = divider
 
     -- The three title-bar controls read Copy | Clear | Close, left to right. Anchored to the bar's

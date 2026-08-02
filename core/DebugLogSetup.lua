@@ -113,10 +113,11 @@ NS.DebugLog = lib:New({
   -- frame-build time, long after modules/Browser.lua has run, which is the only reason a core/ file
   -- may reach for a member of a module that loads after it.
 
-  -- Owns the WHOLE skin job for the console and the copy window alike. A table `skin` could not
-  -- express this: the inner-border child frame, the gold title tint and the grey divider tint are
-  -- calls, not backdrop fields. The library hands over a fully-built frame with `title` and
-  -- `divider` already assigned, which is exactly what B:ApplySkin reads.
+  -- Routes both windows through THIS addon's own re-skin seam. As of Core minor 3 the library's
+  -- default draws the same edge, so this no longer changes what is rendered — it keeps the console
+  -- tracking `modules/Browser.lua` if that file's SKIN is ever retuned, which is one of the two
+  -- purposes standalone-windows-§2 sanctions the hook for. The library hands over a fully-built
+  -- frame with `title` and `divider` already assigned, which is exactly what B:ApplySkin reads.
   applySkin = function(frame)
     if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
   end,

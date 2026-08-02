@@ -743,8 +743,10 @@ already identical to the library's, so **anything that looks different here is t
    then look at the checkbox again — it must now be unticked. It used to stay stale, because only
    the addon's own `Show`/`Hide` synced it.
 
-**17e. The console's own chrome.** The console keeps this addon's window style, not the library's —
-that is what the `applySkin` / `makeCloseButton` hooks are for. Open `/lh debug` and confirm: the
+**17e. The console's own chrome.** As of LibKa0s v1.3.0 this IS the library's style too — the Ka0s
+window edge is specified normatively in standalone-windows-§2 and `Core.SKIN` carries it, so the
+three sibling addons that used to draw a 12px tooltip border now match. Put two Ka0s consoles on
+screen at once and they must be indistinguishable. Open `/lh debug` and confirm: the
 flat 1px black border with the subtle lighter inner line, the **gold** title, the grey divider under
 the title bar, and a **24×24 thin ×** in the top-right that turns your **class colour** on hover —
 not a small fixed-red ×. **Copy** and **Clear** sit to its left with an even gap; none of the three

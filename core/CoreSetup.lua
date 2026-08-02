@@ -7,12 +7,14 @@ local addonName, NS = ...
 -- ships. Adopting Core is therefore a pure refactor at the seam: every rendered byte is unchanged,
 -- and what is gained is that one implementation now serves the whole collection.
 --
--- The WINDOW CHROME half of Core (SKIN / MakeCloseButton / ApplySkin) is deliberately NOT adopted.
--- This addon draws every window with its own flat 1px WHITE8X8 double border, a synthesised inner
--- border, a gold title tint and a 24x24 class-coloured close glyph (modules/Browser.lua) — a
--- different design from Core's 12px UI-Tooltip-Border and 18x18 fixed-red x. Taking Core's skin
--- would redesign the History window; the console keeps this addon's chrome through DebugLog's
--- applySkin / makeCloseButton descriptor hooks instead. See docs/pending/LEDGER.md, LIBKA0S-02.
+-- The WINDOW CHROME half of Core is no longer a different design. As of Core minor 3 (LibKa0s
+-- v1.3.0) `Core.SKIN` IS this addon's treatment — the flat 1px black edge, the 1px grey inner
+-- highlight, the gold title and the grey divider — because the Ka0s WoW Addon Standard adopted
+-- it normatively (standalone-windows-§2) after five debug consoles side by side split into two
+-- looks. `modules/Browser.lua`'s B:ApplySkin therefore agrees with Core's by value rather than
+-- diverging from it, and stays the addon's own re-skin seam for its own windows. What is still
+-- declined is `Core.MakeCloseButton`: an 18x18 fixed-red x against this addon's 24x24
+-- class-coloured glyph. See docs/pending/LEDGER.md, LIBKA0S-02 and LIBKA0S-18.
 --
 -- ── LOAD ORDER (all four constraints bind; see docs/module-map.md) ──────────────────────────────
 --   AFTER  core/Namespace.lua   — NS.PREFIX is the tag, passed verbatim as a plain string.
