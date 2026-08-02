@@ -8,6 +8,17 @@
 
 local Kit = {}
 
+--- The kit revision. A plain integer, bumped on every released change to ANY file in `testkit/`,
+--- because the three files vendor as one folder and are never adopted separately.
+---
+--- This is NOT a LibStub minor and does NOT make the kit a library: nothing registers it, no load
+--- order depends on it, and two copies never negotiate — the vendoring gate is byte-identity, not
+--- version comparison (`tests/test_kitsync.lua`). What it buys is the one question byte-identity
+--- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
+--- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
+--- consumer can say so itself, and its API document has a name.
+Kit.VERSION = 1
+
 local tests = {}
 local currentSuite  -- basename (no extension) of the suite file currently being dofile'd
 
@@ -63,6 +74,7 @@ end
 --- keeps its existing global name and key set and no suite file has to change.
 function Kit.expose(t)
   t = t or {}
+  t.KIT_VERSION = Kit.VERSION
   t.test        = Kit.test
   t.fail        = Kit.fail
   t.assertEqual = Kit.assertEqual

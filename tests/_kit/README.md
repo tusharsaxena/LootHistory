@@ -3,6 +3,15 @@
 The shared headless test harness for the Ka0s addon collection: the test registry and assertions,
 the source loader, and the universal half of the WoW-API mock.
 
+**The full surface — every function, every mock seam, every fidelity rule — is documented in the
+LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
+<https://github.com/tusharsaxena/LibKa0s/tree/master/docs/api/testkit>. This file covers what the kit
+*is* and how to vendor it; that directory is the reference, and is the source of truth.
+
+The link is absolute on purpose. This file is byte-identical in eight places — here, this repo's
+`tests/_kit/`, and each consumer's — so a relative path that resolved from one would be broken in
+the other seven.
+
 ## It is not a library
 
 `testkit/` is **not** a LibStub major and **must never ship**.
@@ -10,6 +19,12 @@ the source loader, and the universal half of the WoW-API mock.
 - It has no `MAJOR`/`MINOR`, registers nothing with LibStub, and is never loaded by the client. The
   per-file-minor rule in `library-stack` does not apply to it, and a standards audit **MUST NOT**
   flag the missing version registry.
+- It does carry a plain revision integer, `Kit.VERSION` at the top of `framework.lua`, exposed to
+  suites as `KIT_VERSION`. That is **not** a LibStub minor and does not make this a library:
+  nothing registers it, no load order depends on it, and two copies never negotiate — the vendoring
+  gate below is byte-identity, not version comparison. It answers the one question byte-identity
+  cannot answer alone: *which* kit is a given consumer holding. One number covers all three files,
+  because they vendor as one folder and are never adopted separately.
 - It is vendored to `<Addon>/tests/_kit/`, not to `libs/`. `libs/` is the ship payload inside
   `#@no-lib-strip@`; anything there gets zipped. Under `tests/` the **existing** `- tests` entry in
   every addon's `.pkgmeta` already excludes it, so adopting the kit needs no packaging change and
