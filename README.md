@@ -159,7 +159,7 @@ If a signal is there, the item is filed under that source and marked **Certain**
 
 ## Bundled libraries
 
-Everything this addon needs ships inside it — nothing else has to be installed. Alongside Ace3, LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0, it bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.3.1 (MIT), the shared library behind the chat printer, the debug console, the slash-command interface and the settings panel.
+Everything this addon needs ships inside it — nothing else has to be installed. Alongside Ace3, LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0, it bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.4.0 (MIT), the shared library behind the chat printer, the debug console, the slash-command interface and the settings panel.
 
 ## Issues and feature requests
 
