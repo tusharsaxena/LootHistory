@@ -191,18 +191,22 @@ test("ConsoleCheckbox composes this addon's slash prefix into its tooltip", func
   NS.State.debug = false
 end)
 
-test("the title bar makes room for this addon's 24-wide close button", function()
-  -- A provisional library surface with (until now) one consumer: DebugLog minor 4 derives the
-  -- Copy/Clear offsets from the width of whatever `makeCloseButton` returned. Core's x is 18 wide
-  -- and this addon's is 24, so a hard-coded chain would have put Clear's right edge exactly on the
-  -- close button's left edge and eaten the 6px gap. Asserted rather than assumed, because being the
-  -- second host on a surface is where an assumption that held for one shape breaks.
+test("the console closes with the LIBRARY's x, not this addon's 24-wide one", function()
+  -- The console and the copy window are the library's windows, so they wear Core's thin 18x18 x.
+  -- This addon's own 24x24 class-coloured glyph stays on the windows it belongs to; passing it
+  -- through the `makeCloseButton` hook is what made these two windows look unlike every other
+  -- Ka0s addon's (docs/pending/LEDGER.md, LIBKA0S-19).
+  --
+  -- The offsets are DERIVED from the returned button's width, and this addon's mock records
+  -- SetSize as real state, so Core's `SetSize(18, 18)` is genuinely measured here rather than
+  -- falling through to the library's 18-wide default. That is the one thing LibKa0s's own suite
+  -- cannot do — its mock answers 0 from GetWidth, so both paths give it the same number.
   NS.DebugLog:Show()
   local offsets = NS.DebugLog._frameForTest.titleBarOffsets
   assertTrue(offsets ~= nil, "the library must record the computed offsets; an anchor cannot be read back")
   assertEqual(offsets.close, -6)
-  assertEqual(offsets.clear, -36, "PAD + 24 + PAD, not the -30 a Core-width button would give")
-  assertEqual(offsets.copy, -84, "clear - CLEAR_W - PAD")
+  assertEqual(offsets.clear, -30, "PAD + 18 + PAD — a 24-wide button would give -36")
+  assertEqual(offsets.copy, -78, "clear - CLEAR_W - PAD")
 end)
 
 test("the copy window's buffer text is the whole buffer, in order", function()

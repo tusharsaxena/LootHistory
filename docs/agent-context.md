@@ -83,7 +83,7 @@ User-facing reference: [../README.md](../README.md). Design overview + invariant
     *consequence* ("…, so the settings panel is unavailable."). Every seam degrades to a stub rather
     than erroring at load — recording loot needs none of them. Asserted verbatim in
     `tests/test_libka0s.lua`.
-  - Adoption decisions **LIBKA0S-01..17** — what was taken, what was declined and why — are recorded
+  - Adoption decisions **LIBKA0S-01..19** — what was taken, what was declined and why — are recorded
     in [pending/LEDGER.md](pending/LEDGER.md). Read the relevant row before re-litigating a seam.
 - **Schema-as-single-source.** `settings/Schema.lua` drives AceDB defaults, panel widgets, and the
   slash CLI; every user-setting mutation goes through `Schema:Set` (validate → write to `NS.db.global`
@@ -128,9 +128,13 @@ console header toggle and the settings checkbox all read one truth; the window's
 independent of the flag. Emit via `NS.Debug(tag, fmt, ...)` (the library's `Debug`, republished as a
 plain bindable function under the name ~40 call sites already use) — tagged
 `<ts> | [<tag>] <content>`, zero-alloc gate when disabled. **No raw `print(...)`** on hot paths. The
-window **chrome** is still this addon's: `applySkin` and `makeCloseButton` are descriptor hooks
-resolving `NS.Browser` at **frame-build time** — closures, never load-time locals, since
-`modules/Browser.lua` loads long after `core/`; hoisting either lookup silently loses the skin.
+window **chrome** is split, and the split is the point: `applySkin` is a descriptor hook resolving
+`NS.Browser` at **frame-build time** — a closure, never a load-time local, since
+`modules/Browser.lua` loads long after `core/`, and hoisting the lookup silently loses the skin —
+while **`makeCloseButton` is deliberately not passed**. The window *edge* is shared across every
+Ka0s window (`Core.SKIN`), but the *close control* on a library-drawn window is the library's, so
+the console and the copy window wear Core's thin 18×18 × and the History browser keeps this addon's
+24×24 class-coloured one (standalone-windows-§2; `docs/pending/LEDGER.md` LIBKA0S-19).
 `/lh test` publishes a synthetic dataset to `NS.State.testRecords`, which `Database:ActiveHistory`
 swaps in for both the table and Insights (also session-only).
 
@@ -180,7 +184,7 @@ local F = NS.Foo
   true)`), publishes the library's product under the `NS.*` name the rest of the addon already calls,
   and carries a stub branch answering every member reached on the degraded path. What this addon
   keeps re-enters through a descriptor hook wherever the library offers one — the console chrome
-  (`applySkin`/`makeCloseButton`), the set-valued formatter (`format`), the landing-page body — never
+  (`applySkin`), the set-valued formatter (`format`), the landing-page body — never
   through a fork of the library; the rest sits beside the descriptor as host code the library never
   sees (`settings/Slash.lua`'s confirm popups, `Sl:ResetEverything`, the `Sl:CliResetAll` wrapper
   that also clears the three id lists, and `Sl:Register`).

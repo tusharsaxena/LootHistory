@@ -24,7 +24,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 5
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -169,9 +169,18 @@ end
 ---                         divider tint); `skin` is a table and can only reach backdrop fields.
 ---                         Called on the fully-built frame, after the Hide and the Esc wiring.
 ---   makeCloseButton function optional, minor 4. function(parent, onClick) -> button or nil.
----                         Overrides Core's x for BOTH windows, for a host whose other windows
----                         close with a different one. May answer nil, as Core's own does. The
----                         Copy/Clear offsets are derived from the returned button's width.
+---                         Overrides Core's x on BOTH windows. May answer nil, as Core's own
+---                         does. The Copy/Clear offsets are derived from the returned button's
+---                         width, so a wider button pushes them out of its way.
+---
+---                         RARELY THE RIGHT FIELD, and it has no consumer today. These are the
+---                         LIBRARY's windows, so they wear the library's close glyph; a host
+---                         whose own main window closes with something else MUST NOT push that
+---                         difference onto them (standalone-windows in the Ka0s WoW Addon
+---                         Standard). Two adopters passed their 24x24 class-coloured x here
+---                         and shipped diagnostic windows that did not match the other three's.
+---                         Pass this only for a close control that is genuinely DIFFERENT IN
+---                         KIND — not merely the host's own.
 function lib:New(d)
   d = type(d) == "table" and d or {}
   for _, field in ipairs({ "name", "title", "font", "isEnabled", "setEnabled" }) do
@@ -237,10 +246,14 @@ function lib:New(d)
   -- and a host's existing "tint whatever this window has" helper works unmodified.
   local applySkin = type(d.applySkin) == "function" and d.applySkin or defaultApplySkin
 
-  -- Same argument, for the x. Core's is 18x18 with a fixed red hover; a host whose other windows
-  -- close with a wider, class-coloured one would have its console alone drift away from them.
-  -- Defaults to Core's, through the same forwarder `lib.MakeCloseButton` uses, so a host that says
-  -- nothing is unaffected and still tracks a Core upgraded underneath an unchanged DebugLog.
+  -- The x. Defaults to Core's, through the same forwarder `lib.MakeCloseButton` uses, so a host
+  -- that says nothing still tracks a Core upgraded underneath an unchanged DebugLog.
+  --
+  -- The default is almost always what a host wants, and the descriptor field reads as though it
+  -- is not: two adopters passed their main window's 24x24 class-coloured x here on the reasoning
+  -- that all their windows should match, and ended up with diagnostic windows that matched their
+  -- own addon and no other. These windows are the LIBRARY's; the edge is shared across every
+  -- Ka0s window (Core.SKIN) but the close control on a library window is the library's.
   local makeCloseButton = type(d.makeCloseButton) == "function" and d.makeCloseButton
     or lib.MakeCloseButton
 

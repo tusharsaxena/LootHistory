@@ -748,9 +748,12 @@ window edge is specified normatively in standalone-windows-§2 and `Core.SKIN` c
 three sibling addons that used to draw a 12px tooltip border now match. Put two Ka0s consoles on
 screen at once and they must be indistinguishable. Open `/lh debug` and confirm: the
 flat 1px black border with the subtle lighter inner line, the **gold** title, the grey divider under
-the title bar, and a **24×24 thin ×** in the top-right that turns your **class colour** on hover —
-not a small fixed-red ×. **Copy** and **Clear** sit to its left with an even gap; none of the three
-overlaps.
+the title bar — and Core's **thin 18×18 ×** in the top-right, the same one every other Ka0s addon's
+console wears. It is deliberately **not** this addon's own 24×24 class-coloured glyph: the History
+window keeps that one, and these two windows are the library's (standalone-windows-§2 — the edge is
+shared across every Ka0s window, the close control on a library-drawn window is the library's).
+**Copy** and **Clear** sit to its left with an even gap; none of the three overlaps. Check the copy
+window (**Copy**) as well — it takes the same ×.
 
 **17f. Destructive verbs still ask.** `reset` is path-scoped and always was here, so nothing lost a
 guard — but check both entry points of each destructive action anyway:

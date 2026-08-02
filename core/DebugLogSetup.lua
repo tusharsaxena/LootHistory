@@ -122,14 +122,12 @@ NS.DebugLog = lib:New({
     if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
   end,
 
-  -- The same x every other window in this addon closes with — 24x24, light grey, class-coloured on
-  -- hover — rather than Core's 18x18 fixed red. Answering nil is allowed and is what Core's own
-  -- factory does where CreateFrame is unavailable.
-  makeCloseButton = function(parent, onClick)
-    if NS.Browser and NS.Browser.MakeCloseButton then
-      return NS.Browser:MakeCloseButton(parent, onClick)
-    end
-  end,
+  -- NO `makeCloseButton`. The console and the copy window are the LIBRARY's windows, so they wear
+  -- the library's close glyph — Core's thin 18x18 x — and this addon's own 24x24 class-coloured one
+  -- stays on the windows it belongs to (`modules/Browser.lua`). Passing it here is what shipped two
+  -- adopters' diagnostic windows looking unlike the other three's, and standalone-windows-§2 now
+  -- makes the split explicit: the window EDGE is shared across every Ka0s window, the CLOSE CONTROL
+  -- on a library-drawn window is the library's. `applySkin` above is the opposite case and stays.
 })
 
 -- The gated sink, republished under the name ~40 call sites across seven files already use. A plain

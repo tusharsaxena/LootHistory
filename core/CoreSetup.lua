@@ -13,8 +13,10 @@ local addonName, NS = ...
 -- it normatively (standalone-windows-§2) after five debug consoles side by side split into two
 -- looks. `modules/Browser.lua`'s B:ApplySkin therefore agrees with Core's by value rather than
 -- diverging from it, and stays the addon's own re-skin seam for its own windows. What is still
--- declined is `Core.MakeCloseButton`: an 18x18 fixed-red x against this addon's 24x24
--- class-coloured glyph. See docs/pending/LEDGER.md, LIBKA0S-02 and LIBKA0S-18.
+-- declined is `Core.MakeCloseButton` for THIS addon's own windows: the History browser closes
+-- with a 24x24 class-coloured glyph, not Core's 18x18 x. The library's own windows — the debug
+-- console and its copy window — wear Core's, which is the split standalone-windows-§2 draws.
+-- See docs/pending/LEDGER.md, LIBKA0S-02, LIBKA0S-18 and LIBKA0S-19.
 --
 -- ── LOAD ORDER (all four constraints bind; see docs/module-map.md) ──────────────────────────────
 --   AFTER  core/Namespace.lua   — NS.PREFIX is the tag, passed verbatim as a plain string.
