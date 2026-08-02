@@ -243,6 +243,6 @@ Topic-specific detail lives in `docs/`. Read on demand — these are not auto-lo
 | Coding conventions / boundaries | [conventions.md](conventions.md) | Style / boundary questions. |
 | Headless test harness + lint gate; the shared `tests/_kit/`; generated case inventory | [testing.md](testing.md) · [test-cases.md](test-cases.md) | Adding tests; understanding the mock; the case list. |
 | The four `diff -r` checks proving `libs/LibKa0s` and `tests/_kit` have not forked from `../LibKa0s` | [testing.md#the-vendor-gate](testing.md#the-vendor-gate) | Before/after re-vendoring; a suite that passes here but not upstream. |
-| Deferred/declined decisions, incl. the LibKa0s adoption record LIBKA0S-01..17 | [pending/LEDGER.md](pending/LEDGER.md) | Re-litigating a seam; "why isn't X adopted?"; deferring an item. |
+| Deferred/declined decisions, incl. the LibKa0s adoption record LIBKA0S-01..19 | [pending/LEDGER.md](pending/LEDGER.md) | Re-litigating a seam; "why isn't X adopted?"; deferring an item. |
 | In-game smoke tests | [smoke-tests.md](smoke-tests.md) | After any change; before a release. |
 | Design overview / invariants / taint notes | [ARCHITECTURE.md](ARCHITECTURE.md) | Designing a cross-module change. |

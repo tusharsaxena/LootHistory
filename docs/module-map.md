@@ -1,6 +1,6 @@
 # Module map
 
-Where each responsibility lives in the source tree, plus the TOC load order and the AceAddon lifecycle hooks. `LootHistory.toc` is the source of truth for load order — match this map to it before editing. 22 source files across `core/`, `defaults/`, `locales/`, `settings/`, `modules/`; the internal-only terms **Collector** (capture) and **Browser** (view) are used throughout.
+Where each responsibility lives in the source tree, plus the TOC load order and the AceAddon lifecycle hooks. `LootHistory.toc` is the source of truth for load order — match this map to it before editing. 23 source files across `core/`, `defaults/`, `locales/`, `settings/`, `modules/`; the internal-only terms **Collector** (capture) and **Browser** (view) are used throughout.
 
 ## Directory tree
 
