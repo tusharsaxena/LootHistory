@@ -24,7 +24,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 6
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -515,7 +515,25 @@ function lib:New(d)
     if n > 0 then
       local parts = {}
       for i = 1, n do parts[i] = safeToString((select(i, ...))) end
-      msg = fmt:format(unpack(parts))
+      -- pcall'd, and the fallback is the point rather than belt-and-braces. `safeToString` answers
+      -- a STRING, so a host logging a combat-protected value through a NUMERIC slot —
+      -- `NS.Debug("Absorb", "total=%d", UnitGetTotalAbsorbs("player"))` — hands the sentinel to
+      -- `%d`, and string.format raises on it exactly as the unguarded secret would have. That put
+      -- the raise back on precisely the path this sink exists to protect (debug-logging-§4), and on
+      -- a repeating ticker it takes the feature down until /reload. Found by WhatGroup, whose
+      -- hand-written sink had guarded it and whose suite went red on the first load of this one.
+      --
+      -- On failure the line still LANDS: the format string verbatim, then the stringified
+      -- arguments, space-joined. Dropping it would be the other way to lose the diagnostic, and an
+      -- unfilled format is more useful to read than nothing. A satisfiable format is untouched.
+      local ok, out = pcall(string.format, fmt, unpack(parts))
+      if ok then
+        msg = out
+      else
+        local joined = { safeToString(fmt) }
+        for i = 1, n do joined[i + 1] = parts[i] end
+        msg = table.concat(joined, " ")
+      end
     end
     D:Add(tag, msg)
   end
