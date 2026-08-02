@@ -52,6 +52,16 @@ This root file is a stub (per documentation-§2). Read these before touching cod
   lists (via `NS.Filters`), and the `settings.auction.priority` cascade (via `NS.AuctionPrice`) — all
   ratified carve-outs (see `docs/saved-variables.md`).
 - **Debug is session-only** (`NS.State.debug`, never persisted); it routes to the on-screen console.
+- **Never edit `libs/` or `tests/_kit/`.** Both are vendored copies of
+  [LibKa0s](https://github.com/tusharsaxena/LibKa0s), the Ka0s shared library this addon wires four
+  majors of (`Core`, `DebugLog`, `Slash`, `Options`; `Perf` is declined — `docs/pending/LEDGER.md`,
+  LIBKA0S-17). A library problem is fixed in the sibling repo `../LibKa0s`, released with that
+  file's `MINOR` bumped, and **re-vendored whole-folder** — a local patch is a fork nobody knows
+  about, and the next re-vendor silently reverts it. The four seam files are `core/CoreSetup.lua`,
+  `core/DebugLogSetup.lua`, `settings/Slash.lua` and `settings/OptionsSetup.lua`; each degrades
+  rather than errors when its major is absent, and each explains the absence through the one shared
+  `NS.LIBKA0S_MISSING` clause `core/CoreSetup.lua` publishes. See
+  [docs/testing.md](docs/testing.md#the-vendor-gate) for the four diffs that keep the copies honest.
 - **Test inventory & badge stay in sync.** When the suite changes (a case added/removed/renamed, or
   the pass count moves), regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`)
   and update the README `tests` badge count in the same change. See [docs/testing.md](docs/testing.md).

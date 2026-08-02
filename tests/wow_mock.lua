@@ -1,47 +1,30 @@
--- Minimal WoW-API mock set for headless unit tests. Returns a builder so each run gets
--- a fresh, isolated environment. Only what the addon touches at load/test time is stubbed.
+-- LootHistory's WoW-API mock: a thin EXTENDER over the shared LibKa0s test kit.
+--
+-- `tests/_kit/mock_base.lua` owns the universal half — frames, timers, LibStub (with a real
+-- NewLibrary, which the vendored LibKa0s modules register through), the Ace fakes, the fireable
+-- AceGUI widget factory and the Blizzard Settings canvas recorder. Everything below is what only
+-- this addon touches: the loot/currency global strings, the item and currency APIs, the inline
+-- markup helpers, and the character/zone identity its suites assert on.
+--
+-- Never edit tests/_kit/ — it is vendored byte-for-byte from ../LibKa0s/testkit (see docs/testing.md).
 
-local function deepcopy(t)
-  if type(t) ~= "table" then return t end
-  local r = {}
-  for k, v in pairs(t) do r[k] = deepcopy(v) end
-  return r
-end
-
--- A universal frame stub: any method call is a no-op that returns the frame itself. WoW frame
--- API methods are always PascalCase (SetPoint, CreateTexture, HookScript, ...), so only those
--- keys get a no-op function; any other (lowercase/custom) field access misses through to nil,
--- letting addon code do `if not f.someCustomField then f.someCustomField = ... end` safely.
-local function stubFrame()
-  local f = {}
-  setmetatable(f, { __index = function(_, k)
-    if type(k) == "string" and k:match("^%u") then
-      return function() return f end
-    end
-    return nil
-  end })
-  return f
-end
+local base = dofile("tests/_kit/mock_base.lua")
 
 return function()
-  local M = {}
+  local M = base()
 
-  -- time / misc
-  M.__now = 0
-  M.time = os.time
-  M.date = os.date
-  M.GetTime = function() return M.__now end
-
-  -- player / world
+  -- ── identity the suites assert on ───────────────────────────────────────────
+  -- The kit's defaults are "Testchar"/"Testrealm"; LootHistory's suites were written against
+  -- Mock-Realm and a Mage, and the stored `char` column is part of the export contract.
   M.UnitName = function() return "Mock" end
   M.UnitClass = function() return "Mage", "MAGE", 8 end
   M.GetRealmName = function() return "Realm" end
   M.GetNormalizedRealmName = function() return "Realm" end
   M.GetZoneText = function() return "Testville" end
   M.GetSubZoneText = function() return "" end
-  M.InCombatLockdown = function() return false end
+
+  -- ── item / map / loot APIs ─────────────────────────────────────────────────
   M.C_Map = { GetBestMapForUnit = function() return 2657 end }
-  M.C_Timer = { After = function() end }
   M.__itemClassID = 0   -- overridable per-test item class (Enum.ItemClass); 0 = Consumable
   M.C_Item = {
     GetItemInfoInstant = function() return 211296, nil, nil, nil, nil, M.__itemClassID end,
@@ -80,7 +63,7 @@ return function()
     end,
   }
 
-  -- strings
+  -- ── loot / currency global strings ─────────────────────────────────────────
   M.LOOT_ITEM_SELF = "You receive loot: %s."
   M.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
   M.LOOT_ITEM_PUSHED_SELF = "You receive item: %s."
@@ -102,6 +85,7 @@ return function()
   M.CURRENCY_GAINED_MULTIPLE = "You receive currency: %sx%d"
   M.CURRENCY_GAINED_MULTIPLE_BONUS = "You receive currency: %sx%d (Bonus Objective)"
   M.CURRENCY_GAINED_MULTIPLE_OVERFLOW = "You receive currency: %sx%d (You've earned the maximum amount of %s)"
+
   M.ITEM_QUALITY_COLORS = setmetatable({}, {
     __index = function() return { r = 1, g = 1, b = 1, hex = "ffffffff" } end,
   })
@@ -113,12 +97,11 @@ return function()
     ROGUE   = { r = 1.00, g = 0.96, b = 0.41 },
     PRIEST  = { r = 1.00, g = 1.00, b = 1.00 },
   }
-  -- WoW's table-clear global (Lua 5.1 has no equivalent), used by the Analytics widget pools.
-  M.wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 
-  -- Inline-markup APIs. GetAtlasInfo knows only the atlases this client would actually ship, so an
-  -- unknown atlas takes the addon's fallback branch here exactly as it would in game — that
-  -- branching is the point (the class icon and the Insights star both depend on it).
+  -- ── inline markup ──────────────────────────────────────────────────────────
+  -- GetAtlasInfo knows only the atlases this client would actually ship, so an unknown atlas takes
+  -- the addon's fallback branch here exactly as it would in game — that branching is the point (the
+  -- class icon and the Insights star both depend on it).
   M.__atlases = { ["classicon-mage"] = true, ["classicon-warrior"] = true,
                   ["classicon-rogue"] = true, ["classicon-priest"] = true,
                   ["PetJournal-FavoritesIcon"] = true }
@@ -129,6 +112,9 @@ return function()
     MAGE = { 0.25, 0.49, 0, 0.25 }, WARRIOR = { 0, 0.25, 0, 0.25 },
     ROGUE = { 0.49, 0.74, 0, 0.25 }, PRIEST = { 0.49, 0.74, 0.25, 0.5 },
   }
+
+  -- WoW string helpers the kit deliberately omits (see tests/_kit/mock_base.lua's header): this
+  -- addon calls both, so they live here with the suites that exercise them.
   M.strtrim = function(s) return (tostring(s):gsub("^%s*(.-)%s*$", "%1")) end
   M.strsplit = function(sep, s)
     local parts = {}
@@ -136,76 +122,66 @@ return function()
     return unpack(parts)
   end
 
-  -- UI
-  M.UIParent = stubFrame()
-  M.CreateFrame = function() return stubFrame() end
-  M.UISpecialFrames = {}
-  -- Chat sink for NS.Print (core/Util.lua). No-op by default; tests override AddMessage to capture.
-  M.DEFAULT_CHAT_FRAME = { AddMessage = function() end }
-  M.Settings = {
-    RegisterCanvasLayoutCategory = function() return { GetID = function() return 1 end } end,
-    RegisterAddOnCategory = function() end,
-    OpenToCategory = function() end,
-  }
+  -- ── frames that remember their size ────────────────────────────────────────
+  -- The kit's stub answers 0 from GetWidth forever and deliberately leaves the setters undefined
+  -- (so a suite can spy on them by rawsetting a recorder). Nothing here spies on a setter, and one
+  -- contract this addon depends on is only observable through the pair: LibKa0s-DebugLog-1.0
+  -- DERIVES the console's Copy/Clear title-bar offsets from the width of the close button
+  -- `makeCloseButton` returns, and this addon's button is 24 wide where Core's is 18. With a
+  -- GetWidth stuck at 0 the library falls back to 18 and the derivation — the entire reason that
+  -- descriptor field matters to this host — is untestable.
+  local kitFrame = M.__stubFrame
+  M.__stubFrame = function()
+    local f = kitFrame()
+    local w, h = 0, 0
+    function f:SetSize(width, height) w, h = width or w, height or h; return self end
+    function f:SetWidth(width) w = width or w; return self end
+    function f:SetHeight(height) h = height or h; return self end
+    function f:GetWidth() return w end
+    function f:GetHeight() return h end
+    -- A FontString getter used in ARITHMETIC: settings/Panel.lua positions each AH-table row's
+    -- info icon at `ACOL.module + r.module:GetStringWidth() + 6`, and the kit's blanket
+    -- "any PascalCase method returns the frame" hands that a table. Same class of fidelity gap the
+    -- kit already fixes for GetWidth/GetHeight; this addon is the first to need the third.
+    function f:GetStringWidth() return 0 end
+    return f
+  end
+  M.CreateFrame = function() return M.__stubFrame() end
 
-  -- LibStub + Ace library mocks
-  local libs = {}
-  libs["AceDB-3.0"] = {
-    New = function(_, _name, defaults)
-      return {
-        global = deepcopy(defaults and defaults.global or {}),
-        profile = deepcopy(defaults and defaults.profile or {}),
-        -- Account-wide addon: created in-game with defaultProfile=true, so the profile is always
-        -- the fixed "Default". Mirror that here so the [Init] summary renders a real profile name.
-        GetCurrentProfile = function() return "Default" end,
-      }
-    end,
-  }
-  -- Message bus modeled on CallbackHandler: callbacks keyed by (event, target). Registering the
-  -- same message twice on one target overwrites (only the last survives); SendMessage fires to
-  -- every distinct target. This mirrors the real semantics so tests can catch same-target
-  -- clobbering — the exact bug that shipped when the bus was a bare no-op mock.
-  local msgRegistry = {}
-  M.__msgRegistry = msgRegistry
-  local function embedBus(obj)
-    obj.RegisterMessage = function(self, event, fn)
-      msgRegistry[event] = msgRegistry[event] or {}
-      msgRegistry[event][self] = fn
+  -- ── AceGUI container methods this addon uses ───────────────────────────────
+  -- The kit's widget factory models the setters LibKa0s's own makers call. The inverted set picker
+  -- in settings/Panel.lua draws into an AceGUI InlineGroup, whose SetTitle has no LibKa0s consumer
+  -- and so is not modelled. Added by wrapping Create rather than by registering a widget type, so
+  -- every widget keeps the base's recorders and __fire.
+  local aceGUI = M.__libs["AceGUI-3.0"]
+  local stockCreate = aceGUI.Create
+  function aceGUI:Create(wtype)
+    local w = stockCreate(self, wtype)
+    if w.SetTitle == nil then
+      function w:SetTitle(v) self.titleText = v; return self end
     end
-    obj.UnregisterMessage = function(self, event)
-      if msgRegistry[event] then msgRegistry[event][self] = nil end
+    -- A widget's `frame` comes from the kit's own stubFrame, not from the one extended above, so
+    -- the arithmetic-safe getter has to be stamped on here too. settings/Panel.lua's AH table
+    -- parents raw FontStrings to an AceGUI SimpleGroup's frame and measures them.
+    -- rawget, not a plain index: the frame stub's metatable answers EVERY PascalCase key with a
+    -- function, so a plain `== nil` guard is never true and this stamp would silently never happen.
+    if w.frame and rawget(w.frame, "GetStringWidth") == nil then
+      function w.frame:GetStringWidth() return 0 end
     end
-    obj.SendMessage = function(_, event, ...)
-      local t = msgRegistry[event]
-      if not t then return end
-      for _, fn in pairs(t) do fn(event, ...) end
-    end
-    return obj
+    return w
   end
 
-  libs["AceAddon-3.0"] = {
-    NewAddon = function(_, target)
-      target = target or {}
-      local noop = function() end
-      target.RegisterEvent = noop
-      target.UnregisterEvent = noop
-      target.RegisterChatCommand = noop
-      target.ScheduleTimer = function() return {} end
-      target.CancelTimer = noop
-      return embedBus(target)
-    end,
-  }
-  libs["AceEvent-3.0"] = {
-    Embed = function(_, obj)
-      obj.RegisterEvent = obj.RegisterEvent or function() end
-      obj.UnregisterEvent = obj.UnregisterEvent or function() end
-      return embedBus(obj)
-    end,
-  }
-  M.LibStub = setmetatable(
-    { GetLibrary = function(_, n) return libs[n] end },
-    { __call = function(_, n) return libs[n] end }
-  )
+  -- ── the message bus ────────────────────────────────────────────────────────
+  -- The kit's AceAddon fake does not embed AceEvent, because not every host asks for it. This addon
+  -- does: `AceAddon:NewAddon(NS, name, "AceEvent-3.0", ...)` embeds the (message, target) bus onto
+  -- the addon object, and NS.bus IS that object. Wrap NewAddon so the mock models the real embed —
+  -- including the clobber semantics the kit's AceEvent fake already reproduces.
+  local aceAddon = M.__libs["AceAddon-3.0"]
+  local stockNewAddon = aceAddon.NewAddon
+  aceAddon.NewAddon = function(self, target, ...)
+    local obj = stockNewAddon(self, target, ...)
+    return M.__libs["AceEvent-3.0"]:Embed(obj)
+  end
 
   return M
 end

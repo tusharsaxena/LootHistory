@@ -23,15 +23,21 @@ The addon splits into two internal halves:
   (History) and a frame-based analytics view (Insights), driven off the same DB.
 
 Modular Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI, plus
-LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0. All libraries are **vendored** in
-`libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden).
+LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
+**[LibKa0s](https://github.com/tusharsaxena/LibKa0s)** — the Ka0s-owned shared library behind the
+chat printer, the debug console, the slash-command interface and the settings canvas. All libraries
+are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
+vendored **whole-folder**, because four of its five majors resolve `LibKa0s-Core-1.0` before
+registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
 
 ## Module map
 
 Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `core/` (Compat first) →
-`defaults/` → `modules/` (Attribution and Filters before Collector) → `settings/` (last).
+`defaults/` → `modules/` (Attribution and Filters before Collector) → `settings/` (last). Two
+LibKa0s seams sit inside `core/`, and their positions are load-bearing rather than tidy — see
+`core/CoreSetup.lua` below and [module-map.md](module-map.md) for the four constraints that pin them.
 
 | File | Role |
 |---|---|
@@ -39,14 +45,17 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `c
 | `core/Constants.lua` | `SourceType` enum, `SourceOrder`/`SourceLabel`, `SOURCE_IMPLEMENTED` (coverage gate), `Confidence`, `CONTEXT_TTL`, `ITEMCLASS_QUEST` (Quest item-class id for the capture filter), `CURRENCY_TYPE` (the `"Currency"` type label for currency rows), `AUCTION_KEYS` (the AH-price key catalogue), `FONT_MONO`, quality/retention/source option tables. |
 | `core/Namespace.lua` | Bootstrap: sets `NS.name`, `NS.version`, `NS.PREFIX`. (`NS.L` is published by `locales/enUS.lua`; module tables self-publish idempotently.) |
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
-| `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. Also the shared **secret-safe chat printer** — `NS.Print` (+ `IsConcatSafe`/`SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua`. |
+| `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. |
+| `core/CoreSetup.lua` | The **`LibKa0s-Core-1.0`** seam. Publishes the shared **secret-safe chat printer** — `NS.Print` / `NS.Format` / `NS.Util.print` (+ `IsConcatSafe` / `SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua` — which is why this file publishes to **both** keys. It also publishes **`NS.LIBKA0S_MISSING`**: one cause clause, appended to by every other LibKa0s seam in the addon, set outside the `if not lib` branch because they read it on both paths. A cross-file contract, not an implementation detail. Core's window-chrome half is declined; `modules/Browser.lua` owns this addon's skin. |
+| `core/DebugLogSetup.lua` | The **`LibKa0s-DebugLog-1.0`** seam: `NS.DebugLog` and the global `NS.Debug` sink. Replaced the 359-line `modules/DebugLog.lua`. Keeps this addon's own window chrome through the `applySkin` / `makeCloseButton` hooks, passed as closures resolved at frame-build time. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
 | `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `currencyBlacklist`, `settings` (incl. `recordCurrency` and the `auction` cascade), `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
-| `settings/Slash.lua` | AceConsole `/lh` + `/loothistory`; verb dispatch from `NS.COMMANDS`; generated help; purge / reset-all / filter-list-clear confirm dialogs. |
-| `settings/Panel.lua` | `Settings.RegisterCanvasLayoutCategory` landing page + lazy AceGUI body (combat-gated), driven by Schema, with live DB stats. |
+| `settings/Slash.lua` | The **`LibKa0s-Slash-1.0`** seam. AceConsole `/lh` + `/loothistory`; the dispatcher, help header/rows, landing rows, schema CLI and type-aware parser are the library's, reading the host's positional `NS.COMMANDS`. Host-owned: the purge / reset-all / filter-list-clear confirm dialogs, `ResetEverything`, the `CliResetAll` wrapper that also clears the id-lists, and `FormatSchemaValue` — the descriptor's `format` hook for `type = "table"`, the one row type the library has none for. |
+| `settings/OptionsSetup.lua` | The **`LibKa0s-Options-1.0`** seam: the canvas shell, breadcrumb header, lazy Defaults button, page registry, scroll + always-shown-scrollbar patch, widget makers, two-column flow engine, `SetRenderer` and the two refresh tiers. Where every declined surface is recorded. Must load before `settings/Panel.lua`. |
+| `settings/Panel.lua` | The page builders on top of that seam: the landing page, General, Filters and AH Price, plus the live DB stats block and the two widgets the library has no maker for (the inverted set picker and the pooled AH price table). |
 | `modules/AuctionPrice.lua` | `NS.AuctionPrice:GatherAll(itemLink, itemID)` reads an AH price for a just-looted item from every installed third-party pricing addon (Auctionator / TSM / OribosExchange), capturing **every configured key** into a nested `provider → key → copper` map (`settings.auction.capture`), not just one; every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the gather continues. `NS.AuctionPrice:Pick(map)` is the read-time seam that selects one price from that map via the user-configurable `settings.auction.priority` cascade (first present key wins), returning `price, tag`. Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
 | `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `Blacklist`/`Whitelist` (the live id sets), `SortedIDs`, `ParseItemID` — **plus the currency blacklist** (`AddCurrencyBlacklist`/`RemoveCurrencyBlacklist`, `CurrencyBlacklist`, `ParseCurrencyID`; blacklist-only, keyed by `currencyID`). On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
@@ -55,7 +64,6 @@ Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `c
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`), config-driven per invoking tab (`{ title, providers, csv }`): Data Set dropdown (All Data / Current View); `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; own copy window. Called directly by the Browser; no bus message. |
 | `modules/Analytics.lua` | Insights tab, split by two dividers into a **LOOT** block (items-only stat/highlight cards + breakdowns: source, value, quality, item type, bound type, per-character companions, hour/weekday + per-day strips, top zones/items/value) and a **CURRENCY** block (Currency Collected, Currency by Type × Source, Currency by Character × Type, currency-per-day) shown only when the range has currency events — all from one `Database:Stats` pass, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
-| `modules/DebugLog.lua` | Session-only debug console window (Copy/Clear); mirrors `NS.Debug` output. Visibility drives `NS.State.debug`. |
 
 ---
 
@@ -153,7 +161,7 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 | `settings.recordCurrency` | Data Collection | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
 | `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
 | `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
-| `settings.auction.capture` | AH Price | MultiCheck (`panelSkip`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source: a ticked source is gathered at loot time *and* participates in the priority cascade. Schema-backed for the default/slash CLI, but rendered by the AH Price sub-page's unified price table (`settings/Panel.lua` `buildAuctionTable`) as the per-row Enabled checkbox. |
+| `settings.auction.capture` | AH Price | MultiCheck (`skipRender`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source: a ticked source is gathered at loot time *and* participates in the priority cascade. Schema-backed for the default/slash CLI, but rendered by the AH Price sub-page's unified price table (`settings/Panel.lua` `buildAuctionTable`) as the per-row Enabled checkbox. |
 
 `settings.auction.priority` (ordered `"provider:key"` cascade) is a carve-out, not a Schema row — see
 the "AH Price" subcategory's unified price table (`buildAuctionTable`: a frame-light, reused-slot table

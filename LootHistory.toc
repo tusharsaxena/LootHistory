@@ -24,6 +24,7 @@ libs\AceGUI-3.0\AceGUI-3.0.xml
 libs\LibSharedMedia-3.0\lib.xml
 libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+libs\LibKa0s\LibKa0s.xml
 
 # Locales
 locales\enUS.lua
@@ -34,6 +35,8 @@ core\Constants.lua
 core\Namespace.lua
 core\State.lua
 core\Util.lua
+core\CoreSetup.lua
+core\DebugLogSetup.lua
 core\LootHistory.lua
 core\Database.lua
 
@@ -49,9 +52,9 @@ modules\Browser.lua
 modules\BrowserTable.lua
 modules\Export.lua
 modules\Analytics.lua
-modules\DebugLog.lua
 
 # Settings
 settings\Schema.lua
 settings\Slash.lua
+settings\OptionsSetup.lua
 settings\Panel.lua

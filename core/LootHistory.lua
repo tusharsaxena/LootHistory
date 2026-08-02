@@ -7,7 +7,7 @@ NS.bus = addon   -- closed message bus: SendMessage / RegisterMessage
 
 -- Reclaim NS.Print from AceConsole. NewAddon(NS, …, "AceConsole-3.0") embeds AceConsole's mixins
 -- directly onto NS, and its :Print method OVERWRITES the secret-safe, cyan-[LH]-prefixed NS.Print
--- defined in core/Util.lua — after which every `local print = NS.Print` call site would render
+-- published by core/CoreSetup.lua — after which every `local print = NS.Print` call site would render
 -- AceConsole's green "|cff33ff99<msg>|r:" form (no tag, trailing colon) and lose secret-safety. The
 -- embed never touches NS.Util.print, so restore the real printer from it (architecture-§2).
 if NS.Util and NS.Util.print then NS.Print = NS.Util.print end

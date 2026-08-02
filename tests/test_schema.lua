@@ -109,8 +109,15 @@ test("Schema: every row is uniquely pathed and fully described", function()
 end)
 
 test("Schema: every row's default matches its declared type", function()
+  -- The declared type is LibKa0s's vocabulary rather than Lua's: both majors dispatch on "bool",
+  -- and "table" is this addon's own set-valued type that neither of them knows (it is rendered
+  -- through the Slash descriptor's `format` hook and drawn by a host-owned MultiCheck).
+  local LUA_TYPE = { bool = "boolean", number = "number", table = "table", string = "string" }
   for _, row in ipairs(S.Schema) do
-    assertEqual(type(row.default), row.type, row.path .. "'s default is the wrong type")
+    local want = LUA_TYPE[row.type]
+    assertTrue(want ~= nil,
+      row.path .. " declares a type no LibKa0s major reads: " .. tostring(row.type))
+    assertEqual(type(row.default), want, row.path .. "'s default is the wrong type")
   end
 end)
 
@@ -140,22 +147,22 @@ test("Schema: the shipped default equals the schema's declared default", functio
   end
 end)
 
-test("Schema: every dropdown row offers options, and its default is one of them", function()
+test("Schema: every dropdown row offers values, and its default is one of them", function()
   for _, row in ipairs(S.Schema) do
     if row.widget == "Dropdown" then
-      assertTrue(type(row.options) == "table" and #row.options > 0, row.path .. " has no options")
+      assertTrue(type(row.values) == "table" and #row.values > 0, row.path .. " has no values")
       local found = false
-      for _, o in ipairs(row.options) do if o.value == row.default then found = true end end
+      for _, o in ipairs(row.values) do if o.value == row.default then found = true end end
       assertTrue(found, row.path .. "'s default is not a selectable option")
     end
   end
 end)
 
-test("Schema: every MultiCheck row offers options", function()
+test("Schema: every MultiCheck row offers values", function()
   for _, row in ipairs(S.Schema) do
     if row.widget == "MultiCheck" then
       assertEqual(row.type, "table", row.path .. " must store a set")
-      assertTrue(#row.options > 0, row.path .. " has no options")
+      assertTrue(#row.values > 0, row.path .. " has no values")
     end
   end
 end)
@@ -258,11 +265,11 @@ test("Schema: every setting round-trips through Set then Get", function()
   for _, row in ipairs(S.Schema) do
     if not row.sessionOnly then
       local before = S:Get(row.path)
-      if row.type == "boolean" then
+      if row.type == "bool" then
         S:Set(row.path, not before)
         assertEqual(S:Get(row.path), not before, row.path .. " did not round-trip")
       elseif row.type == "number" then
-        local probe = row.options and row.options[#row.options].value
+        local probe = row.values and row.values[#row.values].value
           or (row.min and (row.min + row.max) / 2) or 7
         S:Set(row.path, probe)
         assertEqual(S:Get(row.path), probe, row.path .. " did not round-trip")
@@ -280,17 +287,21 @@ end)
 test("Schema: every declared command is uniquely named and dispatchable", function()
   local seen = {}
   for _, cmd in ipairs(NS.COMMANDS) do
-    assertTrue(type(cmd.name) == "string" and cmd.name ~= "", "a command has no name")
-    assertFalse(seen[cmd.name], cmd.name .. " is declared twice")
-    seen[cmd.name] = true
-    assertTrue(type(cmd.desc) == "string" and cmd.desc ~= "", cmd.name .. " has no help text")
-    assertEqual(type(cmd.fn), "function", cmd.name .. " has no handler")
+    -- Positional { name, description, handler } triples: the shape LibKa0s-Slash-1.0 reads. The
+    -- table stays the host's and is passed in, so the options major can render the same rows
+    -- without either library resolving the other.
+    local name, desc, fn = cmd[1], cmd[2], cmd[3]
+    assertTrue(type(name) == "string" and name ~= "", "a command has no name")
+    assertFalse(seen[name], name .. " is declared twice")
+    seen[name] = true
+    assertTrue(type(desc) == "string" and desc ~= "", name .. " has no help text")
+    assertEqual(type(fn), "function", name .. " has no handler")
   end
 end)
 
 test("Schema: the settings CLI verbs are all present", function()
   local byName = {}
-  for _, cmd in ipairs(NS.COMMANDS) do byName[cmd.name] = true end
+  for _, cmd in ipairs(NS.COMMANDS) do byName[cmd[1]] = true end
   for _, verb in ipairs({ "get", "set", "list", "reset", "resetall", "help" }) do
     assertTrue(byName[verb], "/lh " .. verb .. " is missing")
   end

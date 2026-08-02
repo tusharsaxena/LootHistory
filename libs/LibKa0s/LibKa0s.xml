@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="Core.lua"/>
+	<Script file="DebugLog.lua"/>
+	<Script file="Slash.lua"/>
+	<Script file="Options.lua"/>
+	<Script file="OptionsWidgets.lua"/>
+	<Script file="OptionsScroll.lua"/>
+	<Script file="Perf.lua"/>
+	<Script file="PerfPanel.lua"/>
+</Ui>

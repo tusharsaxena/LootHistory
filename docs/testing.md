@@ -4,26 +4,38 @@ WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard
 
 ## The harness
 
-`lua tests/run.lua`, run **from the repo root**, is the whole show. `tests/run.lua` does four things:
+`lua tests/run.lua`, run **from the repo root**, is the whole show. Most of it is not this repo's: the test registry, the assertions, the `--list` renderer, the source loader and the universal half of the WoW-API mock all come from the **shared LibKa0s test kit**, vendored byte-for-byte at `tests/_kit/` (see [The vendor gate](#the-vendor-gate)). What stays here is only what is genuinely per-addon.
 
-1. Builds a fresh WoW-API mock set via `tests/wow_mock.lua` (a builder — one isolated environment per run).
-2. Loads every source file in TOC order through `tests/loader.lua` into a shared `NS` table, then calls `NS:InitDB()` — mirroring the in-game load + `OnInitialize`.
-3. Exposes the tiny test framework and the built environment on the `_G.LH_TEST` handoff table (`NS`, `mocks`, `test`, `assertEqual`, `assertTrue`, `assertFalse`).
-4. `dofile`s each suite, runs every registered test under `pcall`, prints `PASS`/`FAIL` per test and a `N passed, N failed, N total` tail, and exits non-zero if anything failed.
+`tests/run.lua` does four things:
+
+1. Builds a fresh WoW-API mock set via `tests/wow_mock.lua` — a thin **extender** over `tests/_kit/mock_base.lua`, and a builder, so each run gets one isolated environment.
+2. Loads every file of `LibKa0s.xml` in XML order, then every addon source file **derived from the TOC** via `Loader.tocFiles("LootHistory.toc")`, into a shared `NS` table. Then calls `NS:InitDB()`, `NS.Schema:Register()` and `NS.Panel:Register()` — mirroring the in-game load plus `OnInitialize`.
+3. Exposes the kit's registry and assertions merged into the `_G.LH_TEST` handoff table via `Kit.expose` (`NS`, `mocks`, `Loader`, `test`, `assertEqual`, `assertTrue`, `assertFalse`, `assertNil`, `assertNear`, `assertError`, `fail`).
+4. Hands the suite list to `Kit.run`, which loads each suite, runs every registered case under `pcall`, prints `PASS`/`FAIL` per case and a `N passed, N failed, N total` tail, and exits non-zero if anything failed.
+
+The addon load list is **derived from the TOC rather than hand-maintained**, which is what stops the runner's order drifting from the client's. `libs\` lines are skipped (the client pulls those through their own XML, which the loader cannot see), so the vendored LibKa0s files are the one list still spelled out explicitly — and `tests/test_libka0s.lua` cross-checks its length against `LibKa0s.xml`.
 
 ### The loader
 
-`tests/loader.lua` `loadfile`s each source path and `setfenv`s the chunk into an environment whose `__index` resolves WoW globals to the mock set first, then falls back to real `_G`. Each chunk is called with `("LootHistory", NS)` — exactly the `local addonName, NS = ...` header every file expects. `loadAll` walks the TOC-ordered path list (`locales/enUS` first, then `core/Compat`, Attribution before Collector, settings last), so load-order bugs surface here just as they would in-game.
+`tests/_kit/loader.lua` `loadfile`s each source path and `setfenv`s the chunk into an environment whose `__index` resolves WoW globals to the mock set first, then falls back to real `_G`, and whose `__newindex` lands writes in `_G` so a SavedVariables global or a `StaticPopupDialogs` registration behaves like the real client. Each addon chunk is called with `("LootHistory", NS)` — exactly the `local addonName, NS = ...` header every file expects — and each library chunk with no arguments, exactly as the client calls it.
 
-### The mock (deliberately partial)
+### The mock
 
-`tests/wow_mock.lua` stubs **only what the addon touches at load and test time** — `CreateFrame` returns a universal frame stub (any PascalCase method is a self-returning no-op; lowercase/custom fields miss through to `nil`), plus `UnitClass`, `C_Map`, `C_Item`, the `LOOT_ITEM_*` format strings, `Settings`, and the Ace libraries.
+`tests/_kit/mock_base.lua` owns the universal half: frames (with recorded script handlers and a `__fire` seam), timers, `LibStub` with a real `NewLibrary` and strict about the silent flag, the Ace fakes, a fireable AceGUI widget factory, and the Blizzard Settings canvas recorder. `tests/wow_mock.lua` adds only what this addon touches — the loot and currency global strings, the item and currency APIs, the inline-markup helpers, the character identity its suites assert on, and three local extensions:
+
+- **The AceEvent embed.** The kit's `AceAddon` fake does not embed the message bus, because not every host asks for it. This addon does (`NewAddon(NS, name, "AceEvent-3.0", …)`), and `NS.bus` *is* that object, so `NewAddon` is wrapped locally to model the real embed.
+- **Frames that remember their size.** The kit's stub answers `0` from `GetWidth` forever. `LibKa0s-DebugLog-1.0` *derives* the console's Copy/Clear title-bar offsets from the width of the close button this addon supplies (24, where Core's is 18), so without a size-recording stub that derivation — the entire reason the `makeCloseButton` descriptor field matters here — is untestable.
+- **`GetStringWidth` and `InlineGroup:SetTitle`.** The AH price table positions each row's info icon at `ACOL.module + GetStringWidth() + 6`, and the kit's blanket "any PascalCase method returns the frame" hands that a table; the inverted set picker draws into an AceGUI `InlineGroup`, whose `SetTitle` has no LibKa0s consumer and so is not modelled.
+
+Never edit `tests/_kit/`. A kit problem is a finding to fix in `../LibKa0s` and re-vendor; a local patch is a fork nobody knows about, and the next re-vendor silently reverts it.
 
 Three design choices make the mock earn its keep rather than merely satisfy `require`:
 
 - **It omits several `C_*` APIs on purpose** — e.g. `C_Container`, `C_ChallengeMode`, `C_AuctionHouse`, `C_TooltipInfo`, `C_Spell`. `core/Compat.lua` presence-guards each of these before calling, so their absence drives the compat shims down their **degraded path** every run. The tests therefore prove the fallbacks work, not just the happy path.
 - **The message bus is modeled on CallbackHandler**, keyed by `(message, target)`. Registering the same message twice on one target overwrites (only the last survives); `SendMessage` fires once per distinct target. This mirrors the real semantics so a same-target clobber — the exact bug that shipped when the bus was a bare no-op mock — is catchable, and enforces the convention that receivers register on their own `NS.NewBusTarget()`.
 - **`C_Texture.GetAtlasInfo` knows only a short whitelist of atlases** (the four class icons the suites use, plus one star). No compat shim reads it — the atlas lookups live in `modules/BrowserTable.lua` and `modules/Analytics.lua` — and both of them branch on the *result*, so a selective registry exercises the found path AND the `CLASS_ICON_TCOORDS` / no-star fallback in the same run. `RAID_CLASS_COLORS` is whitelisted the same way, so the neutral-grey fallback for an unknown class stays under test.
+
+One behaviour the kit models that this addon's own mock never did: **AceConsole's `Embed` clobbers a same-named custom `Print`**. `core/LootHistory.lua` reclaims `NS.Print` from `NS.Util.print` because of it (architecture-§2), and that reclaim is now a live assertion rather than a vacuous one.
 
 ### Testing UI modules headlessly
 
@@ -37,11 +49,13 @@ stays in [smoke-tests.md](smoke-tests.md), which complements rather than replace
 
 ### The test framework
 
-Intentionally minimal, defined inline in `tests/run.lua`: `test(name, fn)` registers a case; `assertEqual(got, want, msg)`, `assertTrue(cond, msg)`, and `assertFalse(cond, msg)` are the only assertions. Failures `error` with a source-level line, and the runner catches them per test so one failure never masks the rest.
+`tests/_kit/framework.lua`, shared across the Ka0s collection. `test(name, fn)` registers a case; the assertions are `assertEqual`, `assertTrue`, `assertFalse`, `assertNil`, `assertNear` (never compare computed geometry with `==`) and `assertError` (which returns the message, so a case can assert on *what* raised rather than merely *that* something did). Failures `error` with the caller's line, and the runner catches them per case so one failure never masks the rest.
+
+It is **collect-then-run**: `test()` only records, and nothing executes until `Kit.run`. `--list` is then a pure filter over the same registry and cannot disagree with what actually runs — which is what makes `docs/test-cases.md` authoritative rather than a second code path through the same file.
 
 ## The suites
 
-Sixteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Eighteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
@@ -59,11 +73,39 @@ inventory and the authoritative count):
 | `test_browsertable.lua` | filter→group→sort→slice pipeline, group headers/counts + namespaced collapse keys, sort direction rules (numeric vs text, grouped-column click flips group order) and stability under an all-ties sort, cell rendering edges, the column model contract (Character last, Item flexes), test mode + the fixed-seed synthetic dataset's determinism and field invariants, `OrderedFilteredRecords` |
 | `test_export.lua` | `Export:CSV` columns/quoting, friendly `bound`/`date`, `WowheadLink` bonus-ID parsing |
 | `test_debuglog.lua` | `NS.Debug` tagged format + secret-safe sink, session-only flag, `/lh debug` toggles |
-| `test_slash.lua` | `/lh list`/`get`/`set` slash-commands-§5 output — `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, `/lh version` |
+| `test_slash.lua` | the `LibKa0s-Slash-1.0` dispatcher — `/lh list`/`get`/`set`/`reset`/`resetall`/`version` output (slash-commands-§5), `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, the type-aware parser (enum refusal, slider clamping, boolean refusal), the `format` hook that keeps a set-valued row from rendering as `<secret>`, and both convergences: `reset` is path-scoped, and `LandingRows`/`HelpRows` are the one formatter differing only by the chat indent |
 | `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through (deep-copied, never aliased), `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global`; plus the schema's own shape: unique paths, defaults matching both their declared type and `defaults/Global.lua`, dropdown defaults being selectable, slider defaults inside their range, every setting round-tripping, and the `NS.COMMANDS` table |
 | `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labelling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
 
+Two of the eighteen exist because of the LibKa0s adoption:
+
+| Suite | Covers |
+|-------|--------|
+| `test_panel.lua` | the settings panel, which had **no suite at all** before the `LibKa0s-Options-1.0` adoption — parent + sub-page registration and its idempotence, the deferred first-`OnShow` body render, one widget per non-skipped row at the 50/50 width, `CheckBox`/`Dropdown`/`Slider` dispatch, dropdown lists populated from the row's `values` in declared order, slider bounds, section headings as the schema groups, the three write paths reaching `NS.Schema:Set`, an external write mirrored back by `Refresh`, the inverted muted-source picker in both directions, the lazy Defaults button (asserted **absent** before first show, which is the half that makes it a guard), each page's Defaults handler including the carve-out priority cascade, the AH page's pooled row slots and page filtering, the landing page's command rows matching `lib.FormatRow` byte for byte, and the combat refusal |
+| `test_libka0s.lua` | the adoption seams themselves — the shared `NS.LIBKA0S_MISSING` cause clause asserted verbatim and on **both** paths, a degraded install exercised by loading every TOC file over a mock set that has never seen `libs/LibKa0s` (rather than by hand-stubbing a branch), the `L`-trap source guard with its own case driving all three spellings, the Core and Options library tripwires that stand in where a module cannot express the trap, module coverage, the silent-flag check on every seam's `LibStub` call, and vendor fidelity |
+
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
+
+## The vendor gate
+
+`libs/LibKa0s/` and `tests/_kit/` are **vendored copies** of a library this project also authors, which makes keeping them in sync an ongoing job rather than a one-time copy. None of the gates above can see a stale one: the library's own suite passes against the library, and this addon's passes against a stale copy that still works. Only a diff can say so.
+
+Run all four, from this repo's root, with `../LibKa0s` checked out beside it:
+
+```
+diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # content — MUST be empty
+diff -r ../LibKa0s/LibKa0s libs/LibKa0s                        # bytes  — SHOULD be empty
+diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # content — MUST be empty
+diff -r ../LibKa0s/testkit tests/_kit                          # bytes  — SHOULD be empty
+```
+
+Read the difference between each pair, because the two answers mean different things:
+
+- **Both empty.** In sync. Nothing to do.
+- **Content differs.** A copy has genuinely **forked**, which is the forbidden state. The fix is to re-vendor whole-folder (`cp -r ../LibKa0s/LibKa0s/. libs/LibKa0s/`), never to hand-patch `libs/` — a local patch is a fork nobody knows about, and the next re-vendor silently reverts it.
+- **Content empty, bytes differ.** **Nothing has forked.** The two checkouts merely disagree about line endings. `.gitattributes` pins `*.lua text eol=crlf` while git stores the blobs as LF, so a working tree holding either ending round-trips to the same blob and `git status` stays clean on both sides — the state is invisible and self-perpetuating. Renormalise whichever side drifted (`git add --renormalize .`; if the working tree does not flip, delete the affected paths and `git checkout -- .` to pull them back through the filter). Re-vendoring will not converge it, and editing `libs/` to settle it creates a fork to fix a fork that was not there.
+
+Never edit anything under `libs/` or `tests/_kit/`. A library problem is fixed in `../LibKa0s`, released with its file `MINOR` bumped, and re-vendored back — see that repo's `docs/releasing.md`.
 
 ## Current status
 
@@ -84,16 +126,20 @@ The inventory doc and the badge are part of the change, not a follow-up.
 
 ## Lint
 
-`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "_dev/", "tests/" }` (vendored libraries and the tests themselves are not linted; the `docs/reviews/` and `docs/audits/` bundles are Markdown-only, so `luacheck` never scans them). To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
+`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/" }` (vendored libraries and the tests themselves are not linted; the `docs/` bundles are Markdown-only anyway). **That figure is scoped, not repo-wide** — it currently covers 23 files, and every LibKa0s seam file (`core/CoreSetup.lua`, `core/DebugLogSetup.lua`, `settings/Slash.lua`, `settings/OptionsSetup.lua`) is inside that set, which is what makes a clean run mean something. To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
 
 ## The green gate
 
 Both checks run before every commit:
 
 ```
-lua tests/run.lua     # all suites green (count: docs/test-cases.md)
-luacheck .            # 0 warnings / 0 errors
+lua tests/run.lua                                              # all suites green (count: docs/test-cases.md)
+luacheck .                                                     # 0 warnings / 0 errors
+diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
+diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
 ```
+
+The two diffs need `../LibKa0s` checked out beside this repo; see [The vendor gate](#the-vendor-gate) for the byte-level halves and what each answer means.
 
 A commit ships only when both are green.
 

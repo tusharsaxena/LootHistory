@@ -75,7 +75,7 @@ test("Constants: the mute options are the implemented sources, in display order"
     if C.SOURCE_IMPLEMENTED[s] then
       i = i + 1
       assertEqual(C.SOURCE_OPTIONS[i].value, s, "mute option " .. i .. " out of order")
-      assertEqual(C.SOURCE_OPTIONS[i].label, C.SourceLabel[s])
+      assertEqual(C.SOURCE_OPTIONS[i].text, C.SourceLabel[s])
     end
   end
   assertEqual(#C.SOURCE_OPTIONS, i, "no extra mute options")
@@ -118,19 +118,19 @@ test("Constants: the quality ladder is Poor..Legendary then Heirloom, skipping 6
   for i, want in ipairs({ 0, 1, 2, 3, 4, 5, 7 }) do assertEqual(values[i], want) end
 end)
 
-test("Constants: every quality option carries a coloured '<name> and above' label", function()
+test("Constants: every quality option carries a coloured '<name> and above' text", function()
   for _, o in ipairs(C.QUALITY_OPTIONS) do
     assertTrue(type(o.value) == "number", "value is the quality id")
-    assertTrue(o.label:find("|cff", 1, true) == 1, "the quality name is colour-wrapped")
-    assertTrue(o.label:find(" and above", 1, true) ~= nil, "the threshold reads 'and above'")
-    assertTrue(o.label:find("|r", 1, true) ~= nil, "the colour is closed")
+    assertTrue(o.text:find("|cff", 1, true) == 1, "the quality name is colour-wrapped")
+    assertTrue(o.text:find(" and above", 1, true) ~= nil, "the threshold reads 'and above'")
+    assertTrue(o.text:find("|r", 1, true) ~= nil, "the colour is closed")
   end
 end)
 
 test("Constants: the retention presets ascend and end on 'Always' (0 = disabled)", function()
   local last = C.RETENTION_OPTIONS[#C.RETENTION_OPTIONS]
   assertEqual(last.value, 0)
-  assertEqual(last.label, "Always")
+  assertEqual(last.text, "Always")
   for i = 2, #C.RETENTION_OPTIONS - 1 do
     assertTrue(C.RETENTION_OPTIONS[i].value > C.RETENTION_OPTIONS[i - 1].value,
       "day presets ascend")
@@ -168,7 +168,7 @@ test("Constants: the capture options mirror AUCTION_KEYS one-for-one, in order",
   assertEqual(#C.AUCTION_CAPTURE_OPTIONS, #C.AUCTION_KEYS)
   for i, k in ipairs(C.AUCTION_KEYS) do
     assertEqual(C.AUCTION_CAPTURE_OPTIONS[i].value, k.provider .. ":" .. k.key)
-    assertEqual(C.AUCTION_CAPTURE_OPTIONS[i].label, k.label)
+    assertEqual(C.AUCTION_CAPTURE_OPTIONS[i].text, k.label)
   end
 end)
 

@@ -1,10 +1,10 @@
 # Test Cases
 
-The full inventory of every headless test case, grouped by suite. This file is the
-**authoritative pass count** for the addon.
+The full inventory of every headless test case in this repo, grouped by the suite file it
+lives in. The `## Totals` table below is the **authoritative pass count** — the README test
+badge and any count quoted in the docs must agree with it.
 
-**Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`
-whenever the suite changes (see [testing.md](testing.md)).
+**Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
 ### test_constants.lua (25)
 
@@ -23,7 +23,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Constants: the context TTL is a short positive window
 - Constants: the mono font resolves inside this addon's media folder
 - Constants: the quality ladder is Poor..Legendary then Heirloom, skipping 6 and 8
-- Constants: every quality option carries a coloured '<name> and above' label
+- Constants: every quality option carries a coloured '<name> and above' text
 - Constants: the retention presets ascend and end on 'Always' (0 = disabled)
 - Constants: every auction key is fully described
 - Constants: auction tags are unique
@@ -391,7 +391,7 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Export: InsightsCSV includes the per-character × category companions
 - Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
 
-### test_debuglog.lua (16)
+### test_debuglog.lua (21)
 
 - FONT_MONO constant is a JetBrains Mono TTF path
 - FormatPlain wraps the tag in brackets with single-space separators
@@ -408,9 +408,14 @@ whenever the suite changes (see [testing.md](testing.md)).
 - SetEnabled(false) prints a red-coded OFF ack
 - SetEnabled(true) appends the [Init] summary right after the enable bracket
 - SetEnabled(false) appends a [Debug] logging disabled line after the flag flips off
+- the console title renders the library's TITLE_SUFFIX as prose, not as its key
+- every DebugLog string this addon renders resolves to prose, not to a key
+- ConsoleCheckbox composes this addon's slash prefix into its tooltip
+- the title bar makes room for this addon's 24-wide close button
+- the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (23)
+### test_slash.lua (34)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -435,6 +440,17 @@ whenever the suite changes (see [testing.md](testing.md)).
 - /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
 - Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
+- every Slash string this addon renders resolves to prose, not to a key
+- the help header names /loothistory as the alias for /lh
+- LandingRows and HelpRows are the same rows, differing only by the chat indent
+- a command row is gold command, single-spaced em dash, white description
+- reset is path-scoped and resetall is the global verb (no page-shaped form)
+- set refuses a value outside a numeric enum instead of storing it
+- set clamps a number to its slider range and echoes what was stored
+- set refuses a bool it cannot read rather than silently storing false
+- the set-valued row renders through the format hook, never as <secret>
+- OnSlash dispatches a host verb and lower-cases only the verb
+- an unknown verb says so and then prints the help index
 
 ### test_schema.lua (30)
 
@@ -451,8 +467,8 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Schema: FindRow resolves a known path and rejects an unknown one
 - Schema: every persisted path resolves against the shipped defaults
 - Schema: the shipped default equals the schema's declared default
-- Schema: every dropdown row offers options, and its default is one of them
-- Schema: every MultiCheck row offers options
+- Schema: every dropdown row offers values, and its default is one of them
+- Schema: every MultiCheck row offers values
 - Schema: the slider default sits inside its own bounds
 - Schema: only the session-only rows carry their own get/set
 - Schema.ReadPath walks a nested path and stops safely at a missing branch
@@ -529,6 +545,53 @@ whenever the suite changes (see [testing.md](testing.md)).
 - Analytics._truncate: a nil label becomes an empty string
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 
+### test_panel.lua (24)
+
+- Panel: the parent category and all three sub-pages are registered
+- Panel: registration is idempotent
+- Panel: each sub-page carries the addon's name for the Blizzard left tree
+- Panel: the General page renders one widget per non-skipped schema row, paired 50/50
+- Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
+- Panel: a dropdown is populated from the row's values, in declared order
+- Panel: a slider is given the row's own min/max
+- Panel: the Reset All action button pairs with the Window scale row
+- Panel: the section headings are the schema groups, in declaration order
+- Panel: clicking a checkbox writes through NS.Schema:Set
+- Panel: choosing a dropdown entry writes the stored value
+- Panel: releasing a slider writes the stored value
+- Panel: an external write is mirrored back by Refresh
+- Panel: the muted-source picker is INVERTED — a ticked box means 'record this source'
+- Panel: the Defaults button is built on first OnShow, not at registration
+- Panel: the General page's Defaults click restores every schema default
+- Panel: the AH Price page's Defaults click restores the capture set AND the priority order
+- Panel: the Filters page lists the ids on each list and can remove one
+- Panel: the Filters page's Defaults click clears every id list
+- Panel: the AH Price page draws one reusable row slot per known price source
+- Panel: the AH Price page renders only its own schema group
+- Panel: the landing page renders one label per slash command, through the ONE row formatter
+- Panel: the landing page shows the tagline
+- Panel: Open refuses during combat and never defers-and-replays
+
+### test_libka0s.lua (17)
+
+- NS.LIBKA0S_MISSING is the shared cause clause, verbatim
+- the cause clause is published on the HEALTHY path too, not only when the lib is absent
+- degraded install: every addon file loads with LibKa0s absent, with no error
+- degraded install: the Core stub still prints a tagged, secret-safe line
+- degraded install: the notice explains the absence through the shared cause clause, once
+- degraded install: the Core stub answers every member the addon calls
+- the L-trap matcher flags the value, not one spelling (all three forms)
+- no descriptor in this addon is handed NS.L
+- tripwire — LibKa0s-Core-1.0 ships no STRINGS table
+- tripwire — Core.lua's source names neither STRINGS nor a descriptor L
+- tripwire — Options.lua reads no descriptor L
+- no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
+- every file of LibKa0s.xml is vendored and loads
+- the vendored copy carries the library's MIT licence
+- the four adopted majors all resolved, and the seams are wired to them
+- every seam file resolves its major with the silent flag
+- the Options page registry built every page this addon declares
+
 ## Totals
 
 | Suite | Cases |
@@ -545,8 +608,10 @@ whenever the suite changes (see [testing.md](testing.md)).
 | test_browser.lua | 41 |
 | test_browsertable.lua | 50 |
 | test_export.lua | 22 |
-| test_debuglog.lua | 16 |
-| test_slash.lua | 23 |
+| test_debuglog.lua | 21 |
+| test_slash.lua | 34 |
 | test_schema.lua | 30 |
 | test_analytics.lua | 57 |
-| **Total** | **475** |
+| test_panel.lua | 24 |
+| test_libka0s.lua | 17 |
+| **Total** | **532** |
