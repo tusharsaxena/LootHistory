@@ -411,7 +411,7 @@ badge and any count quoted in the docs must agree with it.
 - the console title renders the library's TITLE_SUFFIX as prose, not as its key
 - every DebugLog string this addon renders resolves to prose, not to a key
 - ConsoleCheckbox composes this addon's slash prefix into its tooltip
-- the title bar makes room for this addon's 24-wide close button
+- the console closes with the LIBRARY's x, not this addon's 24-wide one
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
@@ -592,6 +592,11 @@ badge and any count quoted in the docs must agree with it.
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 
+### test_vendor_sync.lua (2)
+
+- libs/LibKa0s is the LibKa0s release the README says this addon bundles
+- tests/_kit is the test kit that shipped with that release
+
 ## Totals
 
 | Suite | Cases |
@@ -614,4 +619,5 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 57 |
 | test_panel.lua | 24 |
 | test_libka0s.lua | 17 |
-| **Total** | **532** |
+| test_vendor_sync.lua | 2 |
+| **Total** | **534** |

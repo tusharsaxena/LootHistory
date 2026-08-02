@@ -46,5 +46,6 @@ Kit.run{
     "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
     "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
     "test_schema", "test_analytics", "test_panel", "test_libka0s",
+    "test_vendor_sync",
   },
 }
