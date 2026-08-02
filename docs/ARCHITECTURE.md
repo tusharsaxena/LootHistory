@@ -2,7 +2,7 @@
 
 Engineering reference for the addon: module map, data model, message bus, slash surface,
 event wiring, taint posture, and standards compliance (the standalone window follows standalone-windows).
-For scope see [`scope.md`](scope.md); for the working brief and the full doc index see [`agent-context.md`](agent-context.md). Topic docs sit alongside this file in `docs/`.
+For scope see [`scope.md`](scope.md); the full doc index is the last section of this file. Topic docs sit alongside this file in `docs/`.
 
 ---
 
@@ -47,7 +47,7 @@ LibKa0s seams sit inside `core/`, and their positions are load-bearing rather th
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. |
 | `core/CoreSetup.lua` | The **`LibKa0s-Core-1.0`** seam. Publishes the shared **secret-safe chat printer** — `NS.Print` / `NS.Format` / `NS.Util.print` (+ `IsConcatSafe` / `SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua` — which is why this file publishes to **both** keys. It also publishes **`NS.LIBKA0S_MISSING`**: one cause clause, appended to by every other LibKa0s seam in the addon, set outside the `if not lib` branch because they read it on both paths. A cross-file contract, not an implementation detail. Core's window-chrome half is declined; `modules/Browser.lua` owns this addon's skin. |
-| `core/DebugLogSetup.lua` | The **`LibKa0s-DebugLog-1.0`** seam: `NS.DebugLog` and the global `NS.Debug` sink. Replaced the 359-line `modules/DebugLog.lua`. Keeps this addon's own window chrome through the `applySkin` / `makeCloseButton` hooks, passed as closures resolved at frame-build time. |
+| `core/DebugLogSetup.lua` | The **`LibKa0s-DebugLog-1.0`** seam: `NS.DebugLog` and the global `NS.Debug` sink. Replaced the 359-line `modules/DebugLog.lua`. The window chrome is deliberately split: `applySkin` **is** passed, as a closure resolving `NS.Browser` at frame-build time (hoisting it into a load-time local silently loses the skin — `modules/Browser.lua` loads long after `core/`), while **`makeCloseButton` is deliberately not passed**. The window *edge* is shared across every Ka0s window; the *close control* on a library-drawn window is the library's, so the console and the copy window wear Core's thin 18×18 × and the History browser keeps this addon's 24×24 class-coloured one (standalone-windows-§2; `docs/pending/LEDGER.md` LIBKA0S-19, asserted in `tests/test_debuglog.lua`). |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
 | `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `currencyBlacklist`, `settings` (incl. `recordCurrency` and the `auction` cascade), `minimap`. |
@@ -91,7 +91,7 @@ back fast table ops.
 > currency's own `quality` and `bound` — see [data-model.md](data-model.md).
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
-  Switching that is a schema + query rewrite; see [`agent-context.md`](agent-context.md) "Do not change without reason".
+  Switching that is a schema + query rewrite; see [`scope.md`](scope.md) *Resolved design decisions*.
 - `schemaVersion` is a version stamp on the DB; the current shipped shape is **5**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
   before any history read) — the idempotent seam future schema changes hook into. The **v1→v2**
@@ -291,6 +291,13 @@ like Compat's own shims (each provider call is `pcall`-wrapped so a broken/absen
 `nil` and the cascade continues), but it is its own module because its subject is not a Blizzard
 API. The standard's own definition was left unchanged.
 
+A third was raised and **flagged (2026-07-17)**, and is still open for the next standards-audit: the
+schema gained a **`sessionOnly` row kind** (`get`/`set` accessors, never written to `db.global`) so the
+"Debug console" window-visibility toggle can live in the settings panel while honouring "debug is
+session-only, never persisted". It extends schema-as-single-source rather than breaking it — the toggle
+is a real schema row — but it is a row that deliberately never reaches the DB. See
+[`settings-panel.md`](settings-panel.md).
+
 Two surface-specific notes:
 
 1. **The standalone browser window follows standalone-windows** (Standalone windows / data browsers): a non-secure
@@ -328,3 +335,28 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
   [data-model.md](data-model.md).
 
 See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.
+
+---
+
+## Doc index
+
+Topic-specific detail lives alongside this file in `docs/`. Read on demand — these are not auto-loaded.
+
+| Topic | File | When to read |
+|-------|------|--------------|
+| Scope (in / out / resolved design decisions), backlog pointer | [scope.md](scope.md) | Evaluating a feature request. |
+| Per-file responsibility map + TOC load order + lifecycle | [module-map.md](module-map.md) | "Which file owns X?" / "When does Y run?" |
+| Loot-record shape, enums, `schemaVersion`, export contract | [data-model.md](data-model.md) | Adding/changing a record field. |
+| `LootHistoryDB` shape, settings, storage-only carve-outs, retention | [saved-variables.md](saved-variables.md) | Adding persistent state. |
+| The three `Ka0s_LootHistory_*` messages (sender / payload / consumers) | [message-bus.md](message-bus.md) | Touching anything that sends or listens. |
+| Capture + source-attribution engine (`lootContext`, stampers, gates) | [attribution.md](attribution.md) | **Required** before touching capture/source code. |
+| Browser window, virtualized table, Insights analytics | [browser.md](browser.md) | Touching the window/table/charts. |
+| Schema-driven canvas settings panel — the `LibKa0s-Options-1.0` seam, page builders, the LibKa0s row vocabulary, the two host-drawn surfaces | [settings-panel.md](settings-panel.md) | Adding an option or a custom widget. |
+| `/lh` slash dispatch — the `LibKa0s-Slash-1.0` seam, positional `NS.COMMANDS`, generated help, schema CLI | [slash-dispatch.md](slash-dispatch.md) | Adding or modifying a slash verb. |
+| `Compat.*` API-shim catalogue | [compat-layer.md](compat-layer.md) | Wrapping a Blizzard API; reasoning about taint. |
+| Midnight (12.0) gotchas (GUID decode, tooltip scans, uncached fallback) | [midnight-quirks.md](midnight-quirks.md) | Patch-day breakage; capture edge cases. |
+| Coding conventions / boundaries (namespace preamble, module publishing, pooling, hot-path upvalues) | [conventions.md](conventions.md) | Style / boundary questions. |
+| Headless test harness + lint gate; the shared `tests/_kit/`; generated case inventory | [testing.md](testing.md) · [test-cases.md](test-cases.md) | Adding tests; understanding the mock; the case list. |
+| The four `diff -r` checks proving `libs/LibKa0s` and `tests/_kit` have not forked from `../LibKa0s` | [testing.md#the-vendor-gate](testing.md#the-vendor-gate) | Before/after re-vendoring; a suite that passes here but not upstream. |
+| Deferred/declined decisions, incl. the LibKa0s adoption record LIBKA0S-01..19 | [pending/LEDGER.md](pending/LEDGER.md) | Re-litigating a seam; "why isn't X adopted?"; deferring an item. |
+| In-game smoke tests | [smoke-tests.md](smoke-tests.md) | After any change; before a release. |

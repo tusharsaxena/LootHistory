@@ -153,3 +153,5 @@ sudo luarocks install luacheck
 ```
 
 `lua` must resolve to the 5.1 interpreter (`lua5.1`). `luac -p` uses the matching 5.1 compiler for single-file syntax checks.
+
+Two environment facts the gate depends on: this repo is reachable at **both** `/home/tushar/GIT/LootHistory/` and `/mnt/d/Profile/Users/Tushar/Documents/GIT/LootHistory/` (the same working copy under WSL — either path works), and **`../LibKa0s` must be checked out beside it** or two of the four vendor-gate diffs cannot run.

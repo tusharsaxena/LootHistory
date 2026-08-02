@@ -38,7 +38,7 @@ These have been considered and explicitly declined for the current version.
 
 ## Resolved design decisions
 
-Load-bearing choices that look like candidates for "improvement" but are intentional. Do not change these without a documented reason (mirrored in [agent-context.md](agent-context.md)).
+Load-bearing choices that look like candidates for "improvement" but are intentional. Do not change these without a documented reason.
 
 - **Account-wide storage** (`.global` + a `char` column), not per-character AceDB profiles. Switching would be a schema + query rewrite; the account-wide view is the product.
 - **Single-slot attribution context with a fixed TTL.** The source stamp deliberately survives multiple `CHAT_MSG_LOOT` lines from one loot window rather than being consumed by the first line.

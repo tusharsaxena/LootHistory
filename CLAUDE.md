@@ -21,18 +21,21 @@ structural or convention decision — fetch the repo when the answer isn't obvio
 > definition** should change. Record the resolution (a dated `docs/audits/<date>/` bundle, or a note in
 > the relevant `docs/` file).
 
-## Full agent context lives in `docs/`
+## Full context lives in `docs/`
 
 This root file is a stub (per documentation-§2). Read these before touching code:
 
-- **[docs/agent-context.md](docs/agent-context.md)** — the full working-notes brief: hard rules,
-  module-publishing pattern, response style, working environment, and the doc index. **Start here.**
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — design overview: module map, data model,
-  message bus, slash surface, event wiring, taint notes, known limitations.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — what this addon is: module map, data model,
+  message bus, slash surface, event wiring, taint notes, known limitations, and the **doc index**
+  covering every topic doc. **Start here.**
+- **[docs/testing.md](docs/testing.md)** — how to verify: the headless harness, the mock, the
+  vendor gate, lint, the green gate.
+- **[docs/conventions.md](docs/conventions.md)** — the file-by-file rules: namespace preamble,
+  module publishing, object pooling, hot-path upvalues.
 - **[docs/attribution.md](docs/attribution.md)** — required reading before touching capture/source
   code (the `CHAT_MSG_LOOT` + `lootContext` engine).
 
-## Hard rules (full text in [docs/agent-context.md](docs/agent-context.md))
+## Hard rules
 
 - **Flag standards deviations.** If anything deviates from the Ka0s Standard, surface it to the user
   rather than silently conforming or silently deviating — the user decides deviation-vs-standard-change.
@@ -65,6 +68,13 @@ This root file is a stub (per documentation-§2). Read these before touching cod
 - **Test inventory & badge stay in sync.** When the suite changes (a case added/removed/renamed, or
   the pass count moves), regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`)
   and update the README `tests` badge count in the same change. See [docs/testing.md](docs/testing.md).
+
+## Response style
+
+- **Terse.** State the change, not the deliberation; point at code as `file_path:line_number`.
+- **No summaries the user can read off the diff**, and no new docs or planning files unless asked.
+- **Comments explain the non-obvious *why*** (a Blizzard quirk, a subtle invariant) — never what
+  well-named code already says.
 
 ## Local verification (standard: testing)
 
