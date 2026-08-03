@@ -21,6 +21,23 @@ structural or convention decision — fetch the repo when the answer isn't obvio
 > definition** should change. Record the resolution (a dated `docs/audits/<date>/` bundle, or a note in
 > the relevant `docs/` file).
 
+## The `docs/` set — there is no `agent-context.md`
+
+The canonical `docs/` set is exactly three files: **`ARCHITECTURE.md`** (what this addon is),
+**`testing.md`** (how to verify) and **`smoke-tests.md`** (in-game checks) — plus the generated
+`test-cases.md` and the topic-detail docs.
+
+**`docs/agent-context.md` does not exist in this repo and MUST NOT be created.** The standard
+deleted it in **v2.17.0**; shipping it is **anti-pattern #49**. It held `NEW_ADDON_CONTEXT.md` —
+the scaffolding pack — which is fetched at runtime and never stored: a copy in the repo describes
+the addon on the day it was born, forever, and because it loads as *working context* a stale copy
+does not go quiet, it gets **followed** (documentation-§3). This root `CLAUDE.md` is the repo's
+only agent brief.
+
+Older audit bundles, review bundles, ledgers and plans under `docs/` predate v2.17.0 and still
+name the file, and some describe a four-file or a pre-v2.3.0 `agent-context.md`-based set. Those
+are **frozen history** — never treat them as a live requirement, and never "restore" the file.
+
 ## Full context lives in `docs/`
 
 This root file is a stub (per documentation-§2). Read these before touching code:
