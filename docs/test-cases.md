@@ -217,7 +217,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (51)
+### test_database.lua (55)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -231,10 +231,12 @@ badge and any count quoted in the docs must agree with it.
 - Database: QueryList bound=NONE matches unbound records
 - Database: QueryList bound set unions tokens
 - Database: QueryList ignores non-table bound filter
-- Database: Query by char/mapID set (multi-select membership)
+- Database: Query by char/zone set (multi-select membership)
+- Database: Query by zone spans every map id that carries the name
+- Database: Query by zone buckets nameless records under the empty name
 - Database: Query by source (string)
 - Database: Query by source (set membership)
-- Database: Query by char and by mapID
+- Database: Query by char and by zone
 - Database: Query by ts range (from/to inclusive)
 - Database: Query by case-insensitive text substring
 - Database: Query combines predicates (AND)
@@ -263,6 +265,8 @@ badge and any count quoted in the docs must agree with it.
 - Migrations: v4->v5 backfills currency-record bound
 - Migrations: v5->v6 parks the retired ACCOUNT rows on WARBAND
 - Migrations: the warbound split is armed, never run inline
+- Migrations: v7->v8 rewrites a saved mapID filter as the zone names those ids carried
+- Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in the history
 - Database: ArmBoundRepair re-arms on a revision bump, and only then
 - Database: RepairBoundStates raises rows to the state the tooltip witnesses
 - Database: RepairBoundStates promotes a BOE row the bind type filed too loosely
@@ -271,11 +275,12 @@ badge and any count quoted in the docs must agree with it.
 - Database: RepairBoundStates resets the give-up budget on a pass that fixed something
 - Database: RepairBoundStates gives up after the attempt cap
 
-### test_stats.lua (18)
+### test_stats.lua (19)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
 - Stats: byZone counts
+- Stats: a missing or blank zone counts under one Unknown bucket
 - Stats: byItem aggregates by itemID with name/quality
 - Stats: totals (records/distinct/first/last)
 - Stats: topZones / topItems ordered by count desc
@@ -309,8 +314,8 @@ badge and any count quoted in the docs must agree with it.
 - Browser: source options are the distinct sources, human-labelled, All first
 - Browser: type options skip the blank itemType
 - Browser: subtype options skip the blank itemSubType
-- Browser: zone options are keyed by mapID and de-duplicated
-- Browser: a zone with no recorded name falls back to 'Map <id>'
+- Browser: zone options are keyed by name, so one zone lists once per name
+- Browser: zones with no recorded name share one 'Unknown' bucket
 - Browser: quality options run in quality order, not label order
 - Browser: quality options carry the quality tint
 - Browser: bound options follow the fixed binding order, not data order
@@ -336,7 +341,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser.SaveView then ResetView clears the stored default
 - Browser.ResetWindow empties the persisted geometry carve-out
 
-### test_browsertable.lua (50)
+### test_browsertable.lua (51)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -359,6 +364,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: quality column is blank for a currency row
 - BrowserTable: group keys are namespaced, so a zone can share a source's name
 - BrowserTable: a missing zone/character/type groups under 'Unknown'
+- BrowserTable: a blank zone string groups under 'Unknown' too, not a nameless group
 - BrowserTable: day groups key on the ISO date but read as the Date column
 - BrowserTable: day groups run chronologically, not alphabetically
 - BrowserTable: records with no quality group under an em-dash
@@ -631,10 +637,10 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 23 |
 | test_collector.lua | 33 |
-| test_database.lua | 51 |
-| test_stats.lua | 18 |
+| test_database.lua | 55 |
+| test_stats.lua | 19 |
 | test_browser.lua | 41 |
-| test_browsertable.lua | 50 |
+| test_browsertable.lua | 51 |
 | test_export.lua | 22 |
 | test_debuglog.lua | 21 |
 | test_slash.lua | 34 |
@@ -643,4 +649,4 @@ badge and any count quoted in the docs must agree with it.
 | test_panel.lua | 24 |
 | test_libka0s.lua | 17 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **557** |
+| **Total** | **563** |

@@ -226,6 +226,14 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 - **Filters:** exercise each row-2 dropdown — **Date** (single-select: All / Today / Last 7 days /
   Last 30 days), and the multi-select **Bound**, **Quality**, **Type**, **SubType**, **Source**,
   **Zone**, **Character** (pick two values in one, confirm the collapsed label reads "N selected").
+- **Zone filter:** open **Zone** in a history that includes a multi-floor dungeon (Halls of Atonement,
+  Dire Maul, The Deadmines …). Confirm each zone name appears **exactly once** — the menu keys on the
+  name, not `mapID`, so a dungeon's floors no longer list one entry each — and that picking it shows
+  every row looted anywhere in that zone. If any row has no captured zone, one **Unknown** entry
+  appears and selects exactly those rows.
+- **Saved view upgrade:** with a view saved before this change (its Zone filter stored map ids),
+  `/reload` and re-open the browser. The Zone dropdown must come back selecting the same zones by
+  name (schema v7→v8), never silently unfiltered.
 - **Bound filter:** open **Bound** and pick **Not Bound**, then add **Bind on Equip**. The five
   options (Not Bound / Bind on Equip / Bind on Pickup / Warbound / Warbound Until Equipped) match
   the Bound column's header-tooltip legend. Confirm the visible rows' lock colours match the selected states, and that

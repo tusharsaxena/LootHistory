@@ -96,6 +96,27 @@ function NS:RunMigrations()
     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(6, 7, 0)) end
   end
 
+  -- v7 -> v8: the Zone filter moved from mapID to the zone NAME (one named zone spans many
+  -- UiMapIDs — every dungeon floor has its own — so the id-keyed menu listed a zone once per
+  -- floor and each entry filtered only part of it). Translate a saved view's mapID set into the
+  -- names those ids were recorded under, else the stored view would filter on a field nothing
+  -- reads and silently show everything. Ids absent from the history resolve to nothing and drop.
+  if g.schemaVersion < 8 then
+    local n = 0
+    local view = g.savedView
+    if type(view) == "table" and type(view.mapID) == "table" then
+      local names = {}
+      for _, r in ipairs(g.history or {}) do
+        if r.mapID ~= nil and view.mapID[r.mapID] then names[r.zone or ""] = true end
+      end
+      view.zone = next(names) and names or nil
+      view.mapID = nil
+      n = 1
+    end
+    g.schemaVersion = 8
+    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(7, 8, n)) end
+  end
+
   NS:ArmBoundRepair(g)
 end
 
@@ -236,10 +257,13 @@ function Database:Add(record)
 end
 
 -- Filter an arbitrary record array by the filter spec. Fields, all optional (AND-combined).
--- source/char/itemType/mapID each accept a scalar (equality) OR a set table (membership, for
+-- source/char/itemType/zone each accept a scalar (equality) OR a set table (membership, for
 -- the Browser's multi-select filters); quality accepts a number (EXACT match) or a set table.
---   quality · source · char · itemType · mapID · from/to (ts, inclusive) · text (case-
+--   quality · source · char · itemType · zone · from/to (ts, inclusive) · text (case-
 --   insensitive substring on itemName). Empty/nil filter returns all.
+-- `zone` matches the zone NAME, not mapID: one named zone spans many UiMapIDs (each dungeon floor
+-- and sub-map carries its own), so an id-keyed filter splits a single zone into several. A record
+-- with no captured name matches the empty string — the "Unknown" bucket.
 -- Kept generic (not tied to the live history) so the Browser can filter its test dataset too.
 function Database:QueryList(records, filter)
   filter = filter or {}
@@ -256,8 +280,8 @@ function Database:QueryList(records, filter)
   local itypeIsSet = type(itype) == "table"
   local isub = filter.itemSubType
   local isubIsSet = type(isub) == "table"
-  local mapID = filter.mapID
-  local mapIsSet = type(mapID) == "table"
+  local zone = filter.zone
+  local zoneIsSet = type(zone) == "table"
   local boundSet = type(filter.bound) == "table" and filter.bound or nil
   local from = filter.from
   local to = filter.to
@@ -290,9 +314,10 @@ function Database:QueryList(records, filter)
       if isubIsSet then if not isub[r.itemSubType] then ok = false end
       elseif r.itemSubType ~= isub then ok = false end
     end
-    if ok and mapID then
-      if mapIsSet then if not mapID[r.mapID] then ok = false end
-      elseif r.mapID ~= mapID then ok = false end
+    if ok and zone then
+      local name = r.zone or ""
+      if zoneIsSet then if not zone[name] then ok = false end
+      elseif name ~= zone then ok = false end
     end
     if ok and boundSet and not boundSet[r.bound or "NONE"] then ok = false end
     if ok and from and (r.ts or 0) < from then ok = false end
@@ -399,7 +424,9 @@ function Database:Stats(filter)
       if not lastTs or r.ts > lastTs then lastTs = r.ts end
     end
 
-    local zone = r.zone or "Unknown"
+    -- "" (what Compat.GetZone answers with no zone text yet) buckets with nil, matching the Zone
+    -- filter's single Unknown option — otherwise a blank-labelled row sits beside Unknown.
+    local zone = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
     byZone[zone] = (byZone[zone] or 0) + 1
     valueByZone[zone] = (valueByZone[zone] or 0) + value
 

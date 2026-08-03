@@ -92,7 +92,7 @@ back fast table ops.
 
 - **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
   Switching that is a schema + query rewrite; see [`scope.md`](scope.md) *Resolved design decisions*.
-- `schemaVersion` is a version stamp on the DB; the current shipped shape is **5**.
+- `schemaVersion` is a version stamp on the DB; the current shipped shape is **8**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
   before any history read) — the idempotent seam future schema changes hook into. The **v1→v2**
   migration strips the retired per-record `viaWhitelist` field (point-in-time filtering no longer

@@ -224,5 +224,5 @@ end)
 test("InitSummary reports name, version, schema, active profile, and record count", function()
   local n = #NS.db.global.history   -- order-independent: read the live count, don't hard-code it
   assertEqual(NS.InitSummary(),
-    ("%s v%s, schema v7, profile 'Default', %d records"):format(NS.name, NS.version, n))
+    ("%s v%s, schema v8, profile 'Default', %d records"):format(NS.name, NS.version, n))
 end)

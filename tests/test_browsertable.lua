@@ -329,6 +329,16 @@ test("BrowserTable: a missing zone/character/type groups under 'Unknown'", funct
   end)
 end)
 
+test("BrowserTable: a blank zone string groups under 'Unknown' too, not a nameless group", function()
+  withTableState(function()
+    -- Compat.GetZone answers "" (not nil) when the client has no zone text yet, so an empty string
+    -- must land in the same bucket as a missing one — the Zone filter's Unknown option covers both.
+    local BT = NS.BrowserTable
+    BT.groupBy, BT.collapsed, BT.groupAsc = "zone", {}, true
+    assertEqual(BT:GroupRecords({ { ts = 1, zone = "" } })[1].label, "Zone: Unknown")
+  end)
+end)
+
 test("BrowserTable: day groups key on the ISO date but read as the Date column", function()
   withTableState(function()
     local BT = NS.BrowserTable

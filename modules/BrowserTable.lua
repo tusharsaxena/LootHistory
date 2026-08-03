@@ -219,7 +219,8 @@ local function groupOf(groupBy, r)
   if groupBy == "source" then
     label = C.SourceLabel[r.source] or r.source or "Other"; raw = label
   elseif groupBy == "zone" then
-    label = r.zone or "Unknown"; raw = label
+    -- "" buckets with nil (Compat.GetZone answers "" with no zone text), as in Stats/the Zone filter.
+    label = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"; raw = label
   elseif groupBy == "char" then
     raw = r.char or "Unknown"; label = raw
   elseif groupBy == "type" then

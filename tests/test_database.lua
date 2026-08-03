@@ -37,14 +37,15 @@ end)
 -- Deterministic seed for Query/Export/Delete/Prune tests (bypasses Add + its message).
 local function seed()
   NS.db.global.history = {
+    -- maps 10 and 11 are two floors of the same named zone: the zone filter must treat them as one.
     { ts = 1000, char = "A-Realm", itemID = 1, itemName = "Red Potion",
-      quality = 1, source = "KILL",      mapID = 10 },
+      quality = 1, source = "KILL",      mapID = 10, zone = "Dire Maul" },
     { ts = 2000, char = "B-Realm", itemID = 2, itemName = "Blue Cloak",
-      quality = 3, source = "CONTAINER", mapID = 20, sourceDetail = { npcID = 55 } },
+      quality = 3, source = "CONTAINER", mapID = 20, zone = "Oribos", sourceDetail = { npcID = 55 } },
     { ts = 3000, char = "A-Realm", itemID = 3, itemName = "Red Sword",
-      quality = 4, source = "KILL",      mapID = 10 },
+      quality = 4, source = "KILL",      mapID = 11, zone = "Dire Maul" },
     { ts = 4000, char = "C-Realm", itemID = 4, itemName = "Green Ring",
-      quality = 2, source = "VENDOR",    mapID = 20 },
+      quality = 2, source = "VENDOR",    mapID = 20, zone = "Oribos" },
   }
   return NS.db.global.history
 end
@@ -139,11 +140,23 @@ test("Database: QueryList ignores non-table bound filter", function()
   assertEqual(#out, 2)  -- scalar bound ignored, all returned
 end)
 
-test("Database: Query by char/mapID set (multi-select membership)", function()
+test("Database: Query by char/zone set (multi-select membership)", function()
   seed()
   assertEqual(#NS.Database:Query({ char = { ["A-Realm"] = true, ["C-Realm"] = true } }), 3)
-  assertEqual(#NS.Database:Query({ mapID = { [10] = true, [20] = true } }), 4)
-  assertEqual(#NS.Database:Query({ mapID = { [20] = true } }), 2)
+  assertEqual(#NS.Database:Query({ zone = { ["Dire Maul"] = true, Oribos = true } }), 4)
+  assertEqual(#NS.Database:Query({ zone = { Oribos = true } }), 2)
+end)
+
+test("Database: Query by zone spans every map id that carries the name", function()
+  seed()
+  -- Dire Maul is recorded under two map ids (10 and 11); the name matches both.
+  assertEqual(#NS.Database:Query({ zone = "Dire Maul" }), 2)
+end)
+
+test("Database: Query by zone buckets nameless records under the empty name", function()
+  local recs = { { ts = 1, zone = "Oribos" }, { ts = 2, mapID = 99 } }
+  assertEqual(#NS.Database:QueryList(recs, { zone = { [""] = true } }), 1)
+  assertEqual(#NS.Database:QueryList(recs, { zone = "" }), 1)
 end)
 
 test("Database: Query by source (string)", function()
@@ -157,10 +170,10 @@ test("Database: Query by source (set membership)", function()
   assertEqual(#NS.Database:Query({ source = { KILL = true, VENDOR = true } }), 3)
 end)
 
-test("Database: Query by char and by mapID", function()
+test("Database: Query by char and by zone", function()
   seed()
   assertEqual(#NS.Database:Query({ char = "A-Realm" }), 2)
-  assertEqual(#NS.Database:Query({ mapID = 20 }), 2)
+  assertEqual(#NS.Database:Query({ zone = "Oribos" }), 2)
 end)
 
 test("Database: Query by ts range (from/to inclusive)", function()
@@ -351,19 +364,19 @@ end)
 test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 7)
+  assertEqual(NS.db.global.schemaVersion, 8)
 end)
 
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
   NS.db.global.schemaVersion = 6
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 7)
+  assertEqual(NS.db.global.schemaVersion, 8)
 end)
 
 test("Database: RunMigrations is idempotent across repeated runs", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations(); NS:RunMigrations(); NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 7)
+  assertEqual(NS.db.global.schemaVersion, 8)
 end)
 
 test("Database: RunMigrations is a safe no-op when the DB is absent", function()
@@ -384,7 +397,7 @@ test("Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
     { ts = 2, itemID = 5, itemName = "Was via whitelist", quality = 0, viaWhitelist = true },
   }
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 7)
+  assertEqual(NS.db.global.schemaVersion, 8)
   assertTrue(NS.db.global.history[2].viaWhitelist == nil)  -- field stripped
   assertEqual(#NS.db.global.history, 2)                    -- nothing deleted
 end)
@@ -394,7 +407,7 @@ test("Migrate: v2->v3 renames sellPrice to vendorPrice", function()
   g.schemaVersion = 2
   g.history = { { itemName = "X", sellPrice = 250, quantity = 1 } }
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 7)
+  assertEqual(g.schemaVersion, 8)
   assertEqual(g.history[1].vendorPrice, 250)
   assertEqual(g.history[1].sellPrice, nil)
 end)
@@ -409,7 +422,7 @@ test("Migrations: v3->v4 backfills currency-record quality", function()
   }
   g.schemaVersion = 3
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 7)
+  assertEqual(g.schemaVersion, 8)
   assertEqual(g.history[1].quality, 4)   -- backfilled from the mock (Epic)
   assertEqual(g.history[2].quality, 4)   -- item unchanged
   assertEqual(g.history[3].quality, 3)   -- already-set currency unchanged
@@ -427,7 +440,7 @@ test("Migrations: v4->v5 backfills currency-record bound", function()
   }
   g.schemaVersion = 4
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 7)
+  assertEqual(g.schemaVersion, 8)
   assertEqual(g.history[1].bound, "WARBAND")  -- 3008 is Warband-transferable (mock)
   assertEqual(g.history[2].bound, "BOP")      -- 2914 is not -> soulbound
   assertEqual(g.history[3].bound, "BOE")      -- item unchanged
@@ -450,7 +463,7 @@ test("Migrations: v5->v6 parks the retired ACCOUNT rows on WARBAND", function()
   g.savedView = { bound = { ACCOUNT = true, BOE = true } }
   g.schemaVersion = 5
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 7)
+  assertEqual(g.schemaVersion, 8)
   assertEqual(g.history[1].bound, "WARBAND")
   assertEqual(g.history[2].bound, "WARBAND")
   assertEqual(g.history[3].bound, "BOE")
@@ -472,10 +485,46 @@ test("Migrations: the warbound split is armed, never run inline", function()
   g.boundRepairPending, g.boundRepairRevision = nil, nil
   g.schemaVersion = 6
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 7)
+  assertEqual(g.schemaVersion, 8)
   assertTrue(g.boundRepairPending, "the repair must still be pending after the migration")
   g.boundRepairPending, g.boundRepairAttempts = nil, nil
   g.schemaVersion, g.boundRepairRevision = savedVer, savedRev
+end)
+
+test("Migrations: v7->v8 rewrites a saved mapID filter as the zone names those ids carried", function()
+  local g = NS.db.global
+  local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
+  -- Maps 10 and 11 are two floors of one zone; the saved view pinned only one of them, and the
+  -- name-keyed filter it becomes now covers both — which is the whole point of the change.
+  g.history = {
+    { itemID = 1, mapID = 10, zone = "Dire Maul" },
+    { itemID = 2, mapID = 11, zone = "Dire Maul" },
+    { itemID = 3, mapID = 20, zone = "Oribos" },
+    { itemID = 4, mapID = 30 },                         -- no captured name -> the Unknown bucket
+  }
+  g.savedView = { mapID = { [10] = true, [30] = true }, bound = { BOE = true } }
+  g.schemaVersion = 7
+  NS:RunMigrations()
+  assertEqual(g.schemaVersion, 8)
+  assertEqual(g.savedView.mapID, nil, "the retired field must not linger")
+  assertTrue(g.savedView.zone["Dire Maul"])
+  assertTrue(g.savedView.zone[""], "a nameless map resolves to the Unknown bucket")
+  assertEqual(g.savedView.zone.Oribos, nil, "an unselected zone must not be pulled in")
+  assertTrue(g.savedView.bound.BOE, "the rest of the view is untouched")
+  g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView
+end)
+
+test("Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in the history", function()
+  -- Resolving to nothing must clear the filter, not leave an empty set that matches no rows.
+  local g = NS.db.global
+  local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
+  g.history = { { itemID = 1, mapID = 10, zone = "Dire Maul" } }
+  g.savedView = { mapID = { [999] = true } }
+  g.schemaVersion = 7
+  NS:RunMigrations()
+  assertEqual(g.savedView.zone, nil)
+  assertEqual(g.savedView.mapID, nil)
+  g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView
 end)
 
 test("Database: ArmBoundRepair re-arms on a revision bump, and only then", function()

@@ -17,7 +17,7 @@ local FIXTURE = {
     mapID = 1, zone = "Amirdrassil", itemName = "Axe" },
   { ts = 3000, char = "Ka0z-Realm",  classFile = "MAGE",    source = "KILL",
     itemType = "",       itemSubType = "",      quality = 0, bound = nil,
-    mapID = 1, zone = "Amirdrassil", itemName = "Rag" },
+    mapID = 7, zone = "Amirdrassil", itemName = "Rag" },   -- same zone name, a second floor's map id
   { ts = 4000, char = "Nomad-Other", classFile = nil,       source = "AH",
     itemType = "Consumable", itemSubType = "Potion", quality = 1, bound = "WARBAND",
     mapID = 3, zone = nil, itemName = "Flask" },
@@ -162,23 +162,25 @@ test("Browser: subtype options skip the blank itemSubType", function()
   end)
 end)
 
-test("Browser: zone options are keyed by mapID and de-duplicated", function()
+test("Browser: zone options are keyed by name, so one zone lists once per name", function()
   withFixture(FIXTURE, function()
     local opts = B._options.zone()
-    assertEqual(#opts, 4, "map 1 is looted twice but lists once")
+    -- Amirdrassil is recorded under two map ids (a dungeon's floors each carry their own UiMapID);
+    -- keying by name is what stops it listing twice. All + Amirdrassil + Valdrakken + Unknown.
+    assertEqual(#opts, 4)
     local byValue = {}
     for _, o in ipairs(opts) do byValue[o.value] = o.label end
-    -- The query filters on mapID, so the VALUE must be the id, not the name.
-    assertEqual(byValue[1], "Amirdrassil")
-    assertEqual(byValue[2], "Valdrakken")
+    -- The query filters on the zone NAME, so the value must be the name, not a map id.
+    assertEqual(byValue["Amirdrassil"], "Amirdrassil")
+    assertEqual(byValue["Valdrakken"], "Valdrakken")
   end)
 end)
 
-test("Browser: a zone with no recorded name falls back to 'Map <id>'", function()
+test("Browser: zones with no recorded name share one 'Unknown' bucket", function()
   withFixture(FIXTURE, function()
     local byValue = {}
     for _, o in ipairs(B._options.zone()) do byValue[o.value] = o.label end
-    assertEqual(byValue[3], "Map 3")
+    assertEqual(byValue[""], "Unknown")
   end)
 end)
 
@@ -260,7 +262,7 @@ test("Browser: the stock view filters nothing and sorts newest-first", function(
   assertEqual(v.groupBy, "none")
   assertEqual(v.sortKey, "date")
   assertFalse(v.sortAsc, "the default table reads newest loot first")
-  for _, k in ipairs({ "quality", "source", "itemType", "itemSubType", "mapID", "bound", "date" }) do
+  for _, k in ipairs({ "quality", "source", "itemType", "itemSubType", "zone", "bound", "date" }) do
     assertEqual(v[k], "all", k .. " must start unfiltered")
   end
   assertEqual(v.search, "")
@@ -392,7 +394,7 @@ test("Browser.CaptureView stores unset column filters as empty sets, never nil",
   withFixture(FIXTURE, function()
     B._dd = nil
     local v = B:CaptureView()
-    for _, k in ipairs({ "quality", "source", "itemType", "itemSubType", "mapID", "bound" }) do
+    for _, k in ipairs({ "quality", "source", "itemType", "itemSubType", "zone", "bound" }) do
       assertEqual(type(v[k]), "table", k .. " is a set even when nothing is selected")
       assertEqual(next(v[k]), nil)
     end

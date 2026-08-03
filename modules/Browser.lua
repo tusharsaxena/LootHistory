@@ -455,7 +455,7 @@ local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
 -- `from`) so it recomputes correctly on each load.
 local STOCK_VIEW = {
   groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
-  quality = "all", source = "all", itemType = "all", itemSubType = "all", mapID = "all",
+  quality = "all", source = "all", itemType = "all", itemSubType = "all", zone = "all",
   date = "all", bound = "all", search = "",
 }
 local function savedViewOrStock()
@@ -571,13 +571,18 @@ local function subtypeOptions()
   end
   return withAll("SubType: All", items)
 end
+-- Keyed by zone NAME, not mapID: a single named zone spans many UiMapIDs — every dungeon floor and
+-- sub-map has its own — so keying by id listed "Halls of Atonement" once per floor, each entry
+-- filtering only part of the zone. The name is also what the Zone column, group-by-zone and the
+-- Insights "Top Zones" list already key on, so all four now agree. Records with no captured name
+-- share one "Unknown" bucket (the empty string, which is what QueryList matches them on).
 local function zoneOptions()
-  -- Query filters zones by mapID, so options carry mapID as value, zone name as label.
   local seen, items = {}, {}
   for _, r in ipairs(dataset()) do
-    if r.mapID and not seen[r.mapID] then
-      seen[r.mapID] = true
-      items[#items + 1] = { value = r.mapID, label = r.zone or ("Map " .. r.mapID) }
+    local z = r.zone or ""
+    if not seen[z] then
+      seen[z] = true
+      items[#items + 1] = { value = z, label = (z ~= "" and z) or "Unknown" }
     end
   end
   return withAll("Zone: All", items)
@@ -663,7 +668,7 @@ local function ApplyFilter()
 end
 
 -- The active filter as a plain copy, for Analytics:Stats (issue #13). Shares the exact field shape
--- Database:QueryList consumes (quality/source/itemType/itemSubType/mapID/bound/char/from/text), so
+-- Database:QueryList consumes (quality/source/itemType/itemSubType/zone/bound/char/from/text), so
 -- the Insights view and the History table always filter by identical criteria.
 function B:CurrentFilter()
   local out = {}
@@ -753,7 +758,7 @@ function B:CaptureView()
     source      = setToFilter(dd and dd.source._selected) or {},
     itemType    = setToFilter(dd and dd.type._selected) or {},
     itemSubType = setToFilter(dd and dd.subtype._selected) or {},
-    mapID       = setToFilter(dd and dd.zone._selected) or {},
+    zone        = setToFilter(dd and dd.zone._selected) or {},
     bound       = setToFilter(dd and dd.bound._selected) or {},
     date     = (dd and dd.date._value) or "all",
     search   = (self._search and self._search:GetText()) or "",
@@ -780,7 +785,7 @@ function B:ApplyView(view, scope)
     dd.type:SetSelected(asSet(view.itemType))
     dd.subtype:SetSelected(asSet(view.itemSubType))
     dd.source:SetSelected(asSet(view.source))
-    dd.zone:SetSelected(asSet(view.mapID))
+    dd.zone:SetSelected(asSet(view.zone))
     dd.bound:SetSelected(asSet(view.bound))
     dd.date:SelectValue(view.date or "all")
   end
@@ -789,7 +794,7 @@ function B:ApplyView(view, scope)
   self.activeFilter.source      = setToFilter(asSet(view.source))
   self.activeFilter.itemType    = setToFilter(asSet(view.itemType))
   self.activeFilter.itemSubType = setToFilter(asSet(view.itemSubType))
-  self.activeFilter.mapID       = setToFilter(asSet(view.mapID))
+  self.activeFilter.zone        = setToFilter(asSet(view.zone))
   self.activeFilter.bound       = setToFilter(asSet(view.bound))
   if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
   if view.search and view.search ~= "" then self.activeFilter.text = view.search end
@@ -974,7 +979,7 @@ function B:BuildFilterBar(bar)
   dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 8, 0)
   dd.zone:SetMulti(true)
   dd.zone.onMultiSelect = function(set)
-    B.activeFilter.mapID = setToFilter(set)
+    B.activeFilter.zone = setToFilter(set)
     ApplyFilter()
   end
 
