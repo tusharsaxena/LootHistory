@@ -41,7 +41,7 @@ the small-scale rules those documents assume.
 
 ## Messaging: a closed bus, one target per receiver
 
-- Cross-module signalling uses `Ka0s_LootHistory_*` messages on `NS.bus` (the AceAddon object,
+- Cross-module signaling uses `Ka0s_LootHistory_*` messages on `NS.bus` (the AceAddon object,
   `core/LootHistory.lua:6`) — `RecordAdded`, `HistoryChanged`, `SettingsChanged`. Each message has
   exactly one sender. Modules never reach into another module's tables; they listen for a message.
 - **Receivers register on their own target from `NS.NewBusTarget()`** (`core/LootHistory.lua:20`),
@@ -111,7 +111,7 @@ the small-scale rules those documents assume.
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
   is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:43`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
-  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:93`; the coloured console
+  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:93`; the colored console
   variant is `lib.FormatColored`, `:101`). `tag` is one short word, printed verbatim — no padding,
   no truncation.
 - `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
@@ -131,7 +131,7 @@ the small-scale rules those documents assume.
   font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:94`);
   every texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-CheckBox-Check`, `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
-  `WHITE8X8` drawn as 1px edges, coloured from the flat `SKIN` table (`modules/Browser.lua:20`).
+  `WHITE8X8` drawn as 1px edges, colored from the flat `SKIN` table (`modules/Browser.lua:20`).
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:579`) — branding art, not a re-skinnable surface.
 - **Ratified exception — the monospace console font (audited 2026-07-17).** The debug console and
@@ -178,7 +178,7 @@ the small-scale rules those documents assume.
   reserved (`libs/LibKa0s/OptionsScroll.lua:46`, applied to every ScrollFrame `O.EnsureScroll`
   creates, `libs/LibKa0s/Options.lua:330`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's
-  nothing to scroll the override parks the thumb at the top and greys the bar inert, so the body
+  nothing to scroll the override parks the thumb at the top and grays the bar inert, so the body
   width is identical across every subcategory. More on the panel in
   [settings-panel.md](settings-panel.md).
 
@@ -190,7 +190,7 @@ the small-scale rules those documents assume.
   (`core/Constants.lua:88`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
   explicit request. Because Heirloom's item-quality id (7) sorts *above* Legendary(5) and
   Artifact(6), selecting it floors capture at 7 — recording **only Heirlooms and WoW Tokens** and
-  gating out Epics/Legendaries. That is the intended, user-chosen behaviour, **not** a bug: do not
+  gating out Epics/Legendaries. That is the intended, user-chosen behavior, **not** a bug: do not
   "correct" the ladder back to 0–5, and do not re-flag it as a standards deviation. Artifact(6) and
-  Token(8) remain omitted (no meaningful floor). Each entry's `text` colours only the quality name,
+  Token(8) remain omitted (no meaningful floor). Each entry's `text` colors only the quality name,
   via the same `ITEM_QUALITY_COLORS` tint the History Browser uses.

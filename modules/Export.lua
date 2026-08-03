@@ -231,7 +231,7 @@ function E:InsightsCSV(stats)
   charMatrix("By Character x Bound Type", stats.charByBound, boundLabel)
 
   -- Per-character carries both count and value (byChar entries are { char, count, value }). byChar
-  -- registers currency-only characters with count 0 (for class colours in the UI) — skip those here
+  -- registers currency-only characters with count 0 (for class colors in the UI) — skip those here
   -- so "By Character" stays items-only, matching the dashboard.
   local charRows = {}
   for _, ce in pairs(stats.byChar or {}) do

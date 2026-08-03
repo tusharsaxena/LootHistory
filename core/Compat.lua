@@ -86,7 +86,7 @@ function Compat.GetMailHeader(mailIndex)
 end
 
 -- Is this inbox mail from the Auction House? Locale-independent: matches the AH sender name
--- (AUCTION_HOUSE global) or an AH mail subject prefix (won / expired / cancelled / invoice,
+-- (AUCTION_HOUSE global) or an AH mail subject prefix (won / expired / canceled / invoice,
 -- built from the localized *_MAIL_SUBJECT globals). Rebuilt per call — mail-take is infrequent.
 local AH_SUBJECT_GLOBALS = {
   "AUCTION_WON_MAIL_SUBJECT", "AUCTION_EXPIRED_MAIL_SUBJECT",
@@ -443,7 +443,7 @@ function Compat.CurrencyName(currencyID)
 end
 
 -- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.
--- Colours the currency name + fills the Quality column, and drives the v3->v4 backfill migration.
+-- Colors the currency name + fills the Quality column, and drives the v3->v4 backfill migration.
 function Compat.CurrencyQuality(currencyID)
   if not currencyID then return nil end
   if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then

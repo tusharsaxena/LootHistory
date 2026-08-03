@@ -285,13 +285,13 @@ test("Panel: the Filters page lists the ids on each list and can remove one", fu
     NS.Panel.filters.dirty = true
     created = show(mocks.__subcategories["Filters"])
   end
-  local labelled
+  local labeled
   for _, w in ipairs(AceGUI.__created) do
     if w.type == "Label" and type(w.text) == "string" and w.text:find("12345", 1, true) then
-      labelled = w
+      labeled = w
     end
   end
-  assertTrue(labelled ~= nil, "a blacklisted id must appear as a row on the Filters page")
+  assertTrue(labeled ~= nil, "a blacklisted id must appear as a row on the Filters page")
 
   local remove
   for _, w in ipairs(AceGUI.__created) do

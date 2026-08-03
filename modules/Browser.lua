@@ -24,7 +24,7 @@ local SKIN = {
   divider     = { 0.24, 0.24, 0.27, 0.85 },  -- title separator
   title       = { 1.0, 0.82, 0.0 },          -- Blizzard gold
   tabActive   = { 1.0, 0.82, 0.0 },          -- active tab label (gold)
-  tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (grey)
+  tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (gray)
   titleBarH   = 30,
   tabStripH   = 26,
   contentGap  = 14,    -- vertical spacing between the tab strip and the pane content
@@ -85,7 +85,7 @@ function B:ApplySkin(f)
   if f.divider then f.divider:SetColorTexture(unpack(SKIN.divider)) end
 end
 
--- ElvUI-style thin × glyph close button, light grey by default and the player's class colour
+-- ElvUI-style thin × glyph close button, light gray by default and the player's class color
 -- on hover. Shared by the History and Debug windows.
 function B:MakeCloseButton(parent, onClick)
   local close = CreateFrame("Button", nil, parent)
@@ -130,7 +130,7 @@ local function RestoreWindow()
       frame:SetSize(math.max(B._minW or 0, w.w), math.max(B._minH or 0, w.h))
     end
   else
-    -- Default (fresh install / after a settings reset): dead-centre of the screen, H and V.
+    -- Default (fresh install / after a settings reset): dead-center of the screen, H and V.
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
 end
@@ -274,8 +274,8 @@ local function EnsureMenu()
       local check = (dd.multi and selected) and CHECK_MARKUP or ""
       local icon = (opt.icon and opt.icon ~= "") and (opt.icon .. " ") or ""
       b.fs:SetText(check .. icon .. opt.label)
-      -- The active/selected option is gold; otherwise an option may carry its own colour
-      -- (quality colour, class colour) and falls back to near-white.
+      -- The active/selected option is gold; otherwise an option may carry its own color
+      -- (quality color, class color) and falls back to near-white.
       if selected then
         b.fs:SetTextColor(1, 0.82, 0)
       elseif opt.color then
@@ -413,7 +413,7 @@ end
 -- same popup menu machinery. Returns the same `dd` control MakeDropdown produces.
 function B:MakeDropdown(parent, width) return MakeDropdown(parent, width) end
 
--- Item-quality colour as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
+-- Item-quality color as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
 local function qualityColor(q)
   local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
   if c then return { c.r, c.g, c.b } end
@@ -522,7 +522,7 @@ local function charOptions()
     local c = r.char
     if c and not seen[c] then
       seen[c] = true
-      -- Carry the class token so the menu item can show the inline class icon + class colour,
+      -- Carry the class token so the menu item can show the inline class icon + class color,
       -- matching the Character column.
       local icon = (NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
         and NS.BrowserTable:ClassIconMarkup(r.classFile)) or ""
@@ -588,7 +588,7 @@ local function zoneOptions()
   return withAll("Zone: All", items)
 end
 -- Distinct qualities present in the dataset, in quality order (Poor → … → Heirloom), each tinted
--- its quality colour. Data-driven (not a fixed 1–5 list) so Heirloom/Poor/Artifact appear whenever
+-- its quality color. Data-driven (not a fixed 1–5 list) so Heirloom/Poor/Artifact appear whenever
 -- the history contains them. NB currency rows carry a quality too, so their tiers appear here as
 -- well — unlike the Insights "Quality distribution", which stays item-only (excludes currency).
 -- Quality filters an EXACT quality (not "that and above"). "all" (kept first) is the no-filter sentinel.
@@ -641,7 +641,7 @@ local function asSet(v)
 end
 
 -- Pure helpers published for the headless suite (tests/test_browser.lua). The UI binds through
--- these exact functions, so a test that pins their behaviour pins the shipped behaviour. Read-only
+-- these exact functions, so a test that pins their behavior pins the shipped behavior. Read-only
 -- from outside the module — nothing here mutates browser state.
 B._stockView    = STOCK_VIEW
 B._savedViewOrStock = savedViewOrStock
@@ -1114,8 +1114,8 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.divider = divider
 
-  -- ElvUI-style thin × close glyph (class-coloured on hover). Anchored to the title bar's
-  -- vertical centre so it lines up with the CENTER-anchored title.
+  -- ElvUI-style thin × close glyph (class-colored on hover). Anchored to the title bar's
+  -- vertical center so it lines up with the CENTER-anchored title.
   local close = B:MakeCloseButton(titleBar, function() B:Hide() end)
   close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
   frame.closeButton = close
@@ -1187,7 +1187,7 @@ local function EnsureFrame()
     if NS.State.debug and NS.Debug then NS.Debug("UI", "window shown") end
     -- Give the pending bound-state repair another pass here. By the time the user opens the
     -- window the item cache is warm, which is exactly what the login passes may have lacked —
-    -- and this is the moment the wrong lock colour would be looked at. No-op once it completes.
+    -- and this is the moment the wrong lock color would be looked at. No-op once it completes.
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
   end)
   frame:HookScript("OnHide", function()

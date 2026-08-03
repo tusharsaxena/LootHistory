@@ -219,9 +219,9 @@ test("every file of LibKa0s.xml is vendored and loads", function()
     "tests/run.lua's explicit lib load list and LibKa0s.xml disagree about how many files ship")
 end)
 
-test("the vendored copy carries the library's MIT licence", function()
+test("the vendored copy carries the library's MIT license", function()
   -- LICENSE ships INSIDE the payload as of v1.1.1, so a whole-folder copy carries it. Its absence
-  -- means someone vendored file-by-file, which is the manoeuvre cross-major skew comes from.
+  -- means someone vendored file-by-file, which is the maneuver cross-major skew comes from.
   local f = io.open("libs/LibKa0s/LICENSE", "r")
   assertTrue(f ~= nil, "libs/LibKa0s/LICENSE is missing: the folder was not copied whole")
   if f then f:close() end

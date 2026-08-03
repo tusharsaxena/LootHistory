@@ -16,7 +16,7 @@ local DAYSTRIP_H = 46
 local STRIP_LABEL_H = 44   -- reserved space under a strip for the rotated x-axis labels
 local STRIP_AXIS_GAP = 2   -- gap between the bar bases and the separator line
 local STRIP_LABEL_GAP = 7  -- gap between the separator line and the label text
-local LABEL_X_ADJUST = -2  -- nudge to visually centre the rotated label under the bar (tunable)
+local LABEL_X_ADJUST = -2  -- nudge to visually center the rotated label under the bar (tunable)
 local LIST_ROW_H = 16
 local LABELW, VALW = 108, 92   -- fixed label/value columns in a horizontal bar; track fills the rest
 local LABEL_MAXCHARS = 16      -- cap a bar/row label to this many glyphs (+ ellipsis) so it fits LABELW
@@ -26,7 +26,7 @@ local MIN_HEADLINE_SIZE = 11   -- floor for the shrink-to-fit KPI headline font
 local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges stay readable
 local NEUTRAL = { 0.55, 0.62, 0.72 }
 
--- Per-source bar colours (no such table in Constants; kept local to the chart).
+-- Per-source bar colors (no such table in Constants; kept local to the chart).
 -- Palette derived via the dataviz skill: 15 hues spaced 24 degrees apart in OKLCH
 -- (dark-band L 0.62/0.53 alternating, C 0.17/0.14 alternating) run through a
 -- coprime-step reordering so every *adjacent* pair in that sequence clears the
@@ -36,7 +36,7 @@ local NEUTRAL = { 0.55, 0.62, 0.72 }
 -- then assigned to sequence-adjacent slots so the pairs most likely to sit next
 -- to each other in a sorted bar/legend are the ones proven furthest apart.
 -- 16 categorical keys exceeds the skill's validated 8-hue cap, so full all-pairs
--- separation (any two slots as neighbours) is not achievable here - a documented,
+-- separation (any two slots as neighbors) is not achievable here - a documented,
 -- inherent limit, not an oversight; the existing direct value/count labels on
 -- every bar and legend entry are the required secondary encoding.
 local SOURCE_COLOR = {
@@ -50,7 +50,7 @@ local SOURCE_COLOR = {
   REFUND      = { 0.83, 0.32, 0.51 }, OTHER      = { 0.58, 0.58, 0.62 },
 }
 
--- Bound-type display labels + colours.
+-- Bound-type display labels + colors.
 local BOUND_LABEL = {
   BOP = "Soulbound", BOE = "BoE", WARBAND = "Warbound", WARBAND_UE = "Warbound (UE)",
   UNBOUND = "Unbound",
@@ -66,7 +66,7 @@ local BOUND_ORDER = { "BOP", "BOE", "WARBAND", "WARBAND_UE", "UNBOUND" }
 local WEEKDAY = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
 
 -- Gold star before epic+ items in the Top-items list. Uses whichever star atlas exists on this
--- client; falls back to no star (the quality colour still marks it) so it never renders a box.
+-- client; falls back to no star (the quality color still marks it) so it never renders a box.
 local STAR_ATLASES = { "PetJournal-FavoritesIcon", "auctionhouse-icon-favorite", "communities-icon-star" }
 local resolvedStar
 local function starMarkup()
@@ -80,14 +80,14 @@ local function starMarkup()
   return resolvedStar
 end
 
--- Class colour for a per-character bar (falls back to a neutral grey).
+-- Class color for a per-character bar (falls back to a neutral gray).
 local function classColor(classFile)
   local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
   if c then return { c.r, c.g, c.b } end
   return { 0.7, 0.7, 0.72 }
 end
 
--- Item-quality colour as an {r,g,b} triple (falls back to neutral grey).
+-- Item-quality color as an {r,g,b} triple (falls back to neutral gray).
 local function qualityColor(q)
   local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q or 1]
   if c then return { c.r, c.g, c.b } end
@@ -104,10 +104,10 @@ function Analytics._fitFontSize(stringWidth, maxWidth, baseSize, minSize)
   return math.max(minSize, baseSize * maxWidth / stringWidth)
 end
 
--- Standard categorical palette for charts NOT tied to a predefined colour (class / bound / quality /
--- source all keep their own maps). Sequence is inverse-VIBGYOR (R→O→Y→G→B→I→V) so neighbouring
+-- Standard categorical palette for charts NOT tied to a predefined color (class / bound / quality /
+-- source all keep their own maps). Sequence is inverse-VIBGYOR (R→O→Y→G→B→I→V) so neighboring
 -- entries are rainbow-distinct — never two lookalikes side by side — then the same rainbow in a
--- lighter band and a darker band (21 total). Colours are assigned by a category's rank in its chart's
+-- lighter band and a darker band (21 total). Colors are assigned by a category's rank in its chart's
 -- sort order (paletteColor), so consecutive bars/segments always draw from adjacent, dissimilar hues.
 local PALETTE = {
   { 0.90, 0.25, 0.25 }, { 0.95, 0.55, 0.15 }, { 0.88, 0.82, 0.22 }, { 0.35, 0.75, 0.38 },
@@ -117,12 +117,12 @@ local PALETTE = {
   { 0.62, 0.18, 0.18 }, { 0.70, 0.40, 0.10 }, { 0.60, 0.56, 0.12 }, { 0.18, 0.52, 0.28 },
   { 0.15, 0.38, 0.66 }, { 0.28, 0.24, 0.58 }, { 0.50, 0.28, 0.62 },
 }
--- 1-based rank → palette colour (cycles). Pure + testable.
+-- 1-based rank → palette color (cycles). Pure + testable.
 function Analytics.paletteColor(rank)
   return PALETTE[((rank - 1) % #PALETTE) + 1]
 end
--- Build a { categoryKey → palette colour } map from an ordered list of keys (rank = list position),
--- so a category keeps one colour across the charts that share the same order (e.g. a currency in both
+-- Build a { categoryKey → palette color } map from an ordered list of keys (rank = list position),
+-- so a category keeps one color across the charts that share the same order (e.g. a currency in both
 -- Currency Collected and Currency by Character × Type).
 local function paletteMap(orderedKeys)
   local m = {}
@@ -170,8 +170,8 @@ function Analytics._charStackSegments(catMags, catOrder, maxSegs)
 end
 
 -- Build renderStackedBarSection rows from a char→{cat→mag} matrix. Per-char total drives row width
--- (frac = mag / rowMax); segment colours come from colorFn(catKey) with "__OTHER__" → NEUTRAL; the
--- row label is the short character name, class-coloured. Each segment carries a "<category>: <value>"
+-- (frac = mag / rowMax); segment colors come from colorFn(catKey) with "__OTHER__" → NEUTRAL; the
+-- row label is the short character name, class-colored. Each segment carries a "<category>: <value>"
 -- hover tip via labelFn(catKey). Rows sorted by total desc then name asc.
 function Analytics._buildCharStackRows(matrix, byCharMap, catOrder, colorFn, valueFmt, labelFn)
   labelFn = labelFn or tostring
@@ -286,7 +286,7 @@ local function positionBar(bar, content, pad, y, barW, frac)
   bar.fill:SetSize(math.max(1, trackW * math.min(1, frac)), BAR_H - 4)
 end
 
--- A single horizontal bar split into coloured segments (used for the Quality-mix composition).
+-- A single horizontal bar split into colored segments (used for the Quality-mix composition).
 local function makeStackedBar(parent)
   local bar = CreateFrame("Frame", nil, parent)
   bar:SetHeight(BAR_H)
@@ -366,7 +366,7 @@ local function makeStripBar(parent)
   return f
 end
 
--- A ranked-list row: name (left, may be quality-coloured) + count/value (right).
+-- A ranked-list row: name (left, may be quality-colored) + count/value (right).
 local function makeListRow(parent)
   local r = CreateFrame("Frame", nil, parent)
   r:SetHeight(LIST_ROW_H)
@@ -382,7 +382,7 @@ local function makeListRow(parent)
   return r
 end
 
--- A legend chip: colour swatch + label.
+-- A legend chip: color swatch + label.
 local function makeSwatch(parent)
   local f = CreateFrame("Frame", nil, parent)
   f:SetHeight(14)
@@ -638,7 +638,7 @@ function Analytics:BuildCharts(content)
     sourceleg = { free = {}, active = {} }, vsourceleg = { free = {}, active = {} },
     qualityleg = { free = {}, active = {} }, itypeleg = { free = {}, active = {} },
     boundleg = { free = {}, active = {} },
-    -- Per-character × category companion stacked bars + their colour legends (one pool each).
+    -- Per-character × category companion stacked bars + their color legends (one pool each).
     chsource = { free = {}, active = {} }, chsourceleg = { free = {}, active = {} },
     chvsource = { free = {}, active = {} }, chvsourceleg = { free = {}, active = {} },
     chquality = { free = {}, active = {} }, chqualityleg = { free = {}, active = {} },
@@ -664,9 +664,9 @@ end
 --   { label, labelColor = {r,g,b}|nil, color = {r,g,b}, frac (0..1), value = string }.
 -- Returns the new y cursor (skips the section entirely when rows is empty).
 -- rows: ordered { label, labelColor = {r,g,b}|nil, color = {r,g,b}, frac (0..1), value = string }.
--- The label text is coloured to match its bar (row.color) unless the caller gives an explicit
--- labelColor (e.g. quality colour) — this makes single bars self-legending. legendPool (optional)
--- draws a category legend below the bars (each row's label + colour).
+-- The label text is colored to match its bar (row.color) unless the caller gives an explicit
+-- labelColor (e.g. quality color) — this makes single bars self-legending. legendPool (optional)
+-- draws a category legend below the bars (each row's label + color).
 function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
   if #rows == 0 then header:Hide(); return y end
   -- Normalize so the largest bar always fills the track and the rest scale relative to it
@@ -684,7 +684,7 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
     bar.fill:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
     bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
-    local lc = row.labelColor or row.color -- default the label colour to its bar colour
+    local lc = row.labelColor or row.color -- default the label color to its bar color
     bar.label:SetTextColor(lc[1] or 0.9, lc[2] or 0.9, lc[3] or 0.9)
     bar.value:SetText(row.value)
     bar.value:SetTextColor(0.8, 0.8, 0.82)
@@ -721,7 +721,7 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
   return y - SECTION_GAP
 end
 
--- Render a wrapped legend of colour-swatch + label chips.
+-- Render a wrapped legend of color-swatch + label chips.
 -- rows = { { label, color = {r,g,b}, value = string|nil } }.
 -- Chips start at the track's left edge (aligned under the bars, not the text labels). Long labels
 -- are truncated with an ellipsis; hovering a chip shows the full label.
@@ -745,8 +745,8 @@ function Analytics:renderLegend(pool, rows, y, w, pad)
 end
 
 -- Render a "… by Character" companion: a per-character stacked bar (segments = a chart's categories,
--- coloured by colorFn, hover-tipped via labelFn) plus a colour-swatch legend naming each category.
--- catOrder is the global category order; colorFn(k)/labelFn(k) map a category key to colour/label.
+-- colored by colorFn, hover-tipped via labelFn) plus a color-swatch legend naming each category.
+-- catOrder is the global category order; colorFn(k)/labelFn(k) map a category key to color/label.
 function Analytics:renderCharCompanion(poolKey, legendKey, header, matrix, catOrder, colorFn, labelFn, valueFmt, y, w, pad)
   local rows = Analytics._buildCharStackRows(matrix or {}, self.stats.byChar, catOrder, colorFn, valueFmt, labelFn)
   y = self:renderStackedBarSection(self.pool[poolKey], header, rows, y, w, pad)
@@ -793,7 +793,7 @@ function Analytics:renderStrip(pool, header, strip, buckets, y, w, pad)
       f.axis:SetText(b.label)
       -- Right-align the rotated label: its top (right end pre-rotation) sits a gap below the axis
       -- line and it hangs straight down, so labels of different lengths all start at the line.
-      -- Centre x on the bar; the top offset = line gap (below bar) + label gap (below line).
+      -- Center x on the bar; the top offset = line gap (below bar) + label gap (below line).
       local tw = f.axis:GetStringWidth() or 0
       f.axis:ClearAllPoints()
       f.axis:SetPoint("CENTER", f, "BOTTOMLEFT", barW / 2 + LABEL_X_ADJUST,
@@ -905,8 +905,8 @@ function Analytics:LayoutCharts(y, w, pad)
   self.lootDivider:Show()
   y = y - 30
 
-  -- Loot by character (first chart in the LOOT section) — class-coloured, sorted by count desc.
-  -- byChar registers currency-only characters with count 0 (for class colours elsewhere); skip them.
+  -- Loot by character (first chart in the LOOT section) — class-colored, sorted by count desc.
+  -- byChar registers currency-only characters with count 0 (for class colors elsewhere); skip them.
   rows = {}
   local chRows = {}
   for _, ce in pairs(stats.byChar) do if ce.count > 0 then chRows[#chRows + 1] = ce end end
@@ -973,15 +973,15 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.quality, H.quality, rows, y, w, pad, P.qualityleg)
 
-  -- Loot by Character × Quality — companion, segments coloured by item quality (parent order).
+  -- Loot by Character × Quality — companion, segments colored by item quality (parent order).
   local qOrder = {}
   for q = 0, 8 do if stats.byQuality[q] then qOrder[#qOrder + 1] = q end end
   y = self:renderCharCompanion("chquality", "chqualityleg", H.charQuality, stats.charByQuality,
     qOrder, function(q) return qualityColor(q) end, function(q) return NS.Compat.QualityLabel(q) end,
     function(t) return tostring(t) end, y, w, pad)
 
-  -- Loot by item type — bars coloured per type from the standard palette (rank = sort order); the
-  -- Character × Item Type companion reuses the same map so a type keeps its colour across both.
+  -- Loot by item type — bars colored per type from the standard palette (rank = sort order); the
+  -- Character × Item Type companion reuses the same map so a type keeps its color across both.
   local tyKeys = {}
   for _, e in ipairs(sortedByCount(stats.byType)) do tyKeys[#tyKeys + 1] = e.key end
   local typeColor = paletteMap(tyKeys)
@@ -1038,7 +1038,7 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
 
-  -- Loot by weekday — Sun..Sat, each day a unique palette colour (Sun=rank 1 … Sat=rank 7).
+  -- Loot by weekday — Sun..Sat, each day a unique palette color (Sun=rank 1 … Sat=rank 7).
   rows = {}
   local wMax = 1
   for _, c in pairs(stats.byWeekday) do if c > wMax then wMax = c end end
@@ -1107,9 +1107,9 @@ function Analytics:LayoutCharts(y, w, pad)
     self.currencyDivider:Show()
     y = y - 30
 
-    -- Currency Collected — one bar per currency, coloured per currency from the standard palette
+    -- Currency Collected — one bar per currency, colored per currency from the standard palette
     -- (rank = qty order). curColor is shared with Currency by Character × Type so a currency keeps one
-    -- colour across both charts.
+    -- color across both charts.
     local curKeys = {}
     for _, e in ipairs(sortedByCount(stats.byCurrency)) do curKeys[#curKeys + 1] = e.key end
     local curColor = paletteMap(curKeys)
@@ -1122,7 +1122,7 @@ function Analytics:LayoutCharts(y, w, pad)
     end
     y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad, P.curcollectedleg)
 
-    -- Currency by Type × Source: one stacked bar per currency, segments coloured by source.
+    -- Currency by Type × Source: one stacked bar per currency, segments colored by source.
     local curMax = 1
     for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMax then curMax = curTotal end end
     local stackRows = {}
@@ -1148,14 +1148,14 @@ function Analytics:LayoutCharts(y, w, pad)
     y = self:renderLegend(P.curlegend, legendRows, y, w, pad)
 
     -- Currency by Character × Type — one stacked bar per character, segmented by currency (each a
-    -- distinct palette colour, shared with Currency Collected via curColor). Currencies ordered by
+    -- distinct palette color, shared with Currency Collected via curColor). Currencies ordered by
     -- global qty so a given currency keeps a consistent segment position across character rows.
     local ccRows = Analytics._buildCharStackRows(stats.currencyCharMatrix, stats.byChar, curKeys,
       function(cname) return curColor[cname] or NEUTRAL end, function(t) return tostring(t) end,
       function(cname) return cname end)
     y = self:renderStackedBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
 
-    -- Legend: one swatch per currency, matching the segment colours.
+    -- Legend: one swatch per currency, matching the segment colors.
     local curCharLegend = {}
     for _, cname in ipairs(curKeys) do
       curCharLegend[#curCharLegend + 1] = { label = cname, color = curColor[cname] or NEUTRAL }

@@ -216,7 +216,7 @@ Sl.CliSet         = function(_, rest) return Dispatcher:CliSet(rest)  end
 Sl.CliReset       = function(_, rest) return Dispatcher:CliReset(rest) end
 Sl.CliVersion     = function()        return Dispatcher:CliVersion()  end
 
---- The settings landing page's command rows: the same rows as the chat help, in the same colours
+--- The settings landing page's command rows: the same rows as the chat help, in the same colors
 --- and spacing, without the two-space indent a chat line needs to sit under a header.
 ---
 --- CONVERGENCE. settings/Panel.lua used to carry its own formatter for this — double spaces around
@@ -228,7 +228,7 @@ function Sl:LandingRows() return Dispatcher:LandingRows() end
 ---
 --- Wraps rather than re-exports, because the two item-id filter lists are user-configured settings
 --- that carry no schema row (they are a storage carve-out managed by NS.Filters), so the library's
---- row walk cannot see them. Cleared FIRST so the library's acknowledgement is the last line
+--- row walk cannot see them. Cleared FIRST so the library's acknowledgment is the last line
 --- printed and reads as the summary of everything that happened.
 function Sl:CliResetAll()
   if NS.Filters and NS.Filters.ClearAll then NS.Filters:ClearAll() end

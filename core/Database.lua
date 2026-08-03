@@ -35,7 +35,7 @@ function NS:RunMigrations()
     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(2, 3, n)) end
   end
   -- v3 -> v4: backfill currency-record quality (rows with currencyID but no quality) from
-  -- C_CurrencyInfo, so the History browser can colour the currency name + fill the Quality column
+  -- C_CurrencyInfo, so the History browser can color the currency name + fill the Quality column
   -- for currencies looted before quality was captured. In-game only (C_CurrencyInfo); a currency the
   -- client can't resolve at init stays nil. Non-destructive.
   if g.schemaVersion < 4 then
@@ -70,7 +70,7 @@ function NS:RunMigrations()
   -- Retail has had no account-bound wording distinct from Warbound since 11.0 (every
   -- ITEM_*ACCOUNTBOUND* global reads "Warbound"), and the old scanner filed *all* warbound loot
   -- under ACCOUNT because "Binds to Warband" sat in its account list — so every stored ACCOUNT row
-  -- is a mislabelled warbound drop of one kind or the other. Which kind isn't recoverable from the
+  -- is a mislabeled warbound drop of one kind or the other. Which kind isn't recoverable from the
   -- record, so park every such row on the plain WARBAND state and let the deferred repair below
   -- (RepairBoundStates) split it once the client can answer. Any saved Bound filter naming the
   -- retired token follows too, else the view would match nothing. Non-destructive.
@@ -123,7 +123,7 @@ end
 -- Arming is versioned by REVISION, not by schemaVersion, because this repair has been wrong more
 -- than once and each fix has to re-run it on DBs that already ran (and cleared) a broken pass.
 -- Tying that to the schema stamp meant a migration per bug; a revision constant re-arms on the next
--- login when it is bumped, and stays a no-op otherwise. Bump it whenever the repair's *judgement*
+-- login when it is bumped, and stays a no-op otherwise. Bump it whenever the repair's *judgment*
 -- changes — not when unrelated code moves.
 --   1  the original: read the bind type alone, which lies for warbound caches (reports OnEquip)
 --   2  read both signals, and treat only a readable tooltip as settling a row
@@ -425,7 +425,7 @@ function Database:Stats(filter)
     end
 
     -- "" (what Compat.GetZone answers with no zone text yet) buckets with nil, matching the Zone
-    -- filter's single Unknown option — otherwise a blank-labelled row sits beside Unknown.
+    -- filter's single Unknown option — otherwise a blank-labeled row sits beside Unknown.
     local zone = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
     byZone[zone] = (byZone[zone] or 0) + 1
     valueByZone[zone] = (valueByZone[zone] or 0) + value
@@ -463,7 +463,7 @@ function Database:Stats(filter)
     end
 
     if ch then
-      -- Register every character (for the class-colour lookup + the "characters" KPI), but count and
+      -- Register every character (for the class-color lookup + the "characters" KPI), but count and
       -- value only their items — "Loot by character" is items-only so it tallies with the item charts.
       local ce = byChar[ch]
       if not ce then

@@ -246,7 +246,7 @@ test("Schema.Set runs the row's onChange with the new value", function()
   S:Set("settings.windowScale", S:Default("settings.windowScale"))
 end)
 
-test("Schema.Set honours a row's validate guard and leaves the DB untouched", function()
+test("Schema.Set honors a row's validate guard and leaves the DB untouched", function()
   local row = S:FindRow("settings.windowScale")
   local before = S:Get("settings.windowScale")
   row.validate = function(v) return v ~= 99 end

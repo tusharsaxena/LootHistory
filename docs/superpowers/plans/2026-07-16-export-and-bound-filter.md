@@ -362,7 +362,7 @@ local function selectedRecords()
   return (fn and fn()) or {}
 end
 
--- Small flat-skin button matching the Browser bar buttons; `enabled=false` greys it and disables click.
+-- Small flat-skin button matching the Browser bar buttons; `enabled=false` grays it and disables click.
 local function makeButton(parent, text, width, onClick, enabled)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(width, 24)

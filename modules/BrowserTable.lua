@@ -10,10 +10,10 @@ local ROW_H = 18
 local HEADER_H = 20
 local ITEM_MIN = 150  -- minimum width of the flex (Item) column
 local COL_GAP = 8     -- horizontal space between columns
--- Every row shows a lock; colour + opacity encode the binding state. {r, g, b, alpha}
+-- Every row shows a lock; color + opacity encode the binding state. {r, g, b, alpha}
 -- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
 local BOUND_STYLE = {
-  UNBOUND    = { 0.60, 0.60, 0.60, 0.40 }, -- not bound: faint grey
+  UNBOUND    = { 0.60, 0.60, 0.60, 0.40 }, -- not bound: faint gray
   BOE        = { 0.92, 0.92, 0.92, 0.95 }, -- bind on equip: off-white
   BOP        = { 0.30, 0.82, 0.42, 1.00 }, -- bind on pickup: green
   WARBAND    = { 0.30, 0.58, 0.98, 1.00 }, -- warbound: blue
@@ -57,7 +57,7 @@ local function applyLockTexture(tex)
   end
 end
 
--- Inline coloured lock (or chip) for tooltip text, tinted to a BOUND_STYLE colour.
+-- Inline colored lock (or chip) for tooltip text, tinted to a BOUND_STYLE color.
 local function lockMarkup(style)
   local r = math.floor((style[1] or 1) * 255)
   local g = math.floor((style[2] or 1) * 255)
@@ -132,7 +132,7 @@ BrowserTable.COLUMNS = {
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
     sortFn = function(r) return r.itemLevel or 0 end },
   { key = "bound", label = "", width = 20, align = "CENTER", icon = true,
-    desc = "Binding: grey = not bound, white = Bind on Equip, green = Bind on Pickup, "
+    desc = "Binding: gray = not bound, white = Bind on Equip, green = Bind on Pickup, "
       .. "blue = Warbound, orange = Warbound until equipped.",
     valueFn = function() return "" end,   -- rendered as an icon, not text
     -- Sort the ladder explicitly (BOUND_RANK), not by the token text: the display order is a
@@ -488,7 +488,7 @@ end
 -- record is a { kind="row" } entry. With grouping, records are partitioned into groups sorted
 -- by the grouping column's natural order (alphabetical for text, numeric for quality,
 -- chronological for day; direction = groupAsc). Each group is preceded by a { kind="header" }
--- entry labelled "<Column>: <Value>" with its count; a collapsed group emits only its header.
+-- entry labeled "<Column>: <Value>" with its count; a collapsed group emits only its header.
 -- The active row sort still holds within each group.
 function BrowserTable:GroupRecords(records)
   local list = {}
@@ -940,7 +940,7 @@ function BrowserTable:BindRow(row, entry, absIndex)
     end
   end
 
-  -- Bound lock icon (always shown): blue = warbound, white = soulbound, faint grey = unbound.
+  -- Bound lock icon (always shown): blue = warbound, white = soulbound, faint gray = unbound.
   local style = BOUND_STYLE[r.bound] or BOUND_STYLE.UNBOUND
   row.boundIcon:SetVertexColor(style[1], style[2], style[3])
   row.boundIcon:SetAlpha(style[4])

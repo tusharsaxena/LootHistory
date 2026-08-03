@@ -335,7 +335,7 @@ In `modules/BrowserTable.lua`, in `BrowserTable:ShowRowMenu`, in the `items` tab
 In `settings/Panel.lua`, near `filterEntryLabel` (the item-name label used by `rebuildFilterList`), add a currency variant that resolves the name via `NS.Compat.CurrencyName`, else `"Currency <id>"`:
 
 ```lua
--- Label for a currency-blacklist entry: the currency's name (grey id suffix), or a placeholder.
+-- Label for a currency-blacklist entry: the currency's name (gray id suffix), or a placeholder.
 local function currencyEntryLabel(id)
   local name = NS.Compat.CurrencyName and NS.Compat.CurrencyName(id)
   if not name then return "|cffaaaaaaCurrency " .. id .. "|r" end

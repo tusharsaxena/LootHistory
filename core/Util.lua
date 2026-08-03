@@ -213,4 +213,4 @@ end
 -- The secret-safe stringifier (NS.IsConcatSafe / NS.SafeToString) and the shared cyan-[LH] chat
 -- printer (NS.Print / NS.Util.print) used to live here. They are now LibKa0s-Core-1.0's, wired in
 -- core/CoreSetup.lua — which loads immediately after this file and before every consumer that
--- captures the printer at file scope. Behaviour is unchanged, including the "<secret>" sentinel.
+-- captures the printer at file scope. Behavior is unchanged, including the "<secret>" sentinel.

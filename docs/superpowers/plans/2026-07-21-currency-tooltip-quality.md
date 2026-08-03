@@ -1,10 +1,10 @@
-# Currency Tooltip + Quality Colour Implementation Plan
+# Currency Tooltip + Quality Color Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** In the History browser, (1) show the in-game currency tooltip on hover over a currency row, and (2) colour the currency Name + fill the Quality column using the currency's quality tier — storing quality at capture, and backfilling existing rows once via a migration.
+**Goal:** In the History browser, (1) show the in-game currency tooltip on hover over a currency row, and (2) color the currency Name + fill the Quality column using the currency's quality tier — storing quality at capture, and backfilling existing rows once via a migration.
 
-**Architecture:** A currency's quality tier comes from `C_CurrencyInfo`. Store it on the record at capture (`record.quality`). The History table already colours the Item/Quality cells via `qualityColor(r.quality)` and shows the Quality label, so once quality is stored those work with no render change. A one-time `v3 → v4` schema migration backfills `quality` on currency rows looted before this change. The row hover gains a currency branch using `GameTooltip:SetCurrencyByID`.
+**Architecture:** A currency's quality tier comes from `C_CurrencyInfo`. Store it on the record at capture (`record.quality`). The History table already colors the Item/Quality cells via `qualityColor(r.quality)` and shows the Quality label, so once quality is stored those work with no render change. A one-time `v3 → v4` schema migration backfills `quality` on currency rows looted before this change. The row hover gains a currency branch using `GameTooltip:SetCurrencyByID`.
 
 **Tech stack:** Lua 5.1, Ace3, headless `lua tests/run.lua` + `luacheck`.
 
@@ -101,7 +101,7 @@ In `core/Compat.lua`, next to `CurrencyName` / `GetCurrencyInfoFromLink`:
 
 ```lua
 -- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.
--- Colours the currency name + fills the Quality column, and drives the v3->v4 backfill migration.
+-- Colors the currency name + fills the Quality column, and drives the v3->v4 backfill migration.
 function Compat.CurrencyQuality(currencyID)
   if not currencyID then return nil end
   if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
@@ -126,7 +126,7 @@ In `core/Database.lua`, in `NS:RunMigrations`, after the `if g.schemaVersion < 3
 
 ```lua
   -- v3 -> v4: backfill currency-record quality (rows with currencyID but no quality) from
-  -- C_CurrencyInfo, so the History browser can colour the currency name + fill the Quality column
+  -- C_CurrencyInfo, so the History browser can color the currency name + fill the Quality column
   -- for currencies looted before quality was captured. In-game only (C_CurrencyInfo); a currency the
   -- client can't resolve at init stays nil. Non-destructive.
   if g.schemaVersion < 4 then
@@ -214,13 +214,13 @@ git commit -m "feat(currency): in-game currency tooltip on History row hover"
 
 - [ ] **Step 1: Update the docs**
 
-- `docs/superpowers/specs/2026-07-21-currency-capture-design.md` §3: the record shape comment says `quality … = nil` — amend to note currency now stores its `C_CurrencyInfo` quality (for the name colour + Quality column), still excluded from item-centric quality aggregates.
+- `docs/superpowers/specs/2026-07-21-currency-capture-design.md` §3: the record shape comment says `quality … = nil` — amend to note currency now stores its `C_CurrencyInfo` quality (for the name color + Quality column), still excluded from item-centric quality aggregates.
 - `docs/data-model.md`: note currency records now carry `quality` (the currency's tier), and the `v3 → v4` migration backfills it for pre-existing rows.
-- `docs/scope.md`: extend the currency bullet to mention the coloured name + Quality column + hover tooltip.
+- `docs/scope.md`: extend the currency bullet to mention the colored name + Quality column + hover tooltip.
 
 - [ ] **Step 2: Add smoke steps**
 
-In `docs/smoke-tests.md`, add to the currency scenario: hovering a currency row shows the **in-game currency tooltip**; the currency **Name is quality-coloured** and the **Quality column shows the tier**; after a `/reload` the **v3→v4 migration backfills** quality on currency rows looted before this change (older rows go from white/blank to coloured/filled). If the `schemaVersion` is quoted anywhere in §1 as an old value, update it to `4`.
+In `docs/smoke-tests.md`, add to the currency scenario: hovering a currency row shows the **in-game currency tooltip**; the currency **Name is quality-colored** and the **Quality column shows the tier**; after a `/reload` the **v3→v4 migration backfills** quality on currency rows looted before this change (older rows go from white/blank to colored/filled). If the `schemaVersion` is quoted anywhere in §1 as an old value, update it to `4`.
 
 - [ ] **Step 3: Regenerate inventory + bump badge**
 
@@ -232,7 +232,7 @@ Run `lua tests/run.lua` (0 failures) + `luacheck .` (0/0); confirm badge == inve
 
 ```bash
 git add docs/data-model.md docs/scope.md docs/smoke-tests.md docs/superpowers/specs/2026-07-21-currency-capture-design.md docs/test-cases.md README.md
-git commit -m "docs(currency): quality colour + tooltip + backfill migration; smoke + badge"
+git commit -m "docs(currency): quality color + tooltip + backfill migration; smoke + badge"
 ```
 
 ---

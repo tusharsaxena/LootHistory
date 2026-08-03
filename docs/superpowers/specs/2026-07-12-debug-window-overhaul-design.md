@@ -83,7 +83,7 @@ chars is truncated by the format, so authors must pick a tag that fits.
 | `mail-take …`                             | `Mail`    |
 | `debug logging enabled`                   | `Debug`   |
 
-The plain-text Copy buffer mirrors the exact same formatted line (minus colour
+The plain-text Copy buffer mirrors the exact same formatted line (minus color
 codes), so copied logs read identically to the on-screen log.
 
 ---
@@ -117,10 +117,10 @@ Chat messages on state change are preserved exactly as today (e.g.
 
 - A flat text control on the **left** side of the title bar, left-aligned,
   styled like the existing Copy/Clear text buttons (same `makeTextButton` look:
-  small font, grey idle, gold on hover).
+  small font, gray idle, gold on hover).
 - Label reflects state: **`Debug: ON`** in green (`0, 1, 0`-ish) when on,
-  **`Debug: OFF`** in red (`1, 0.2, 0.2`-ish) when off. The colour is the resting
-  colour; hover still lightens as with the other buttons.
+  **`Debug: OFF`** in red (`1, 0.2, 0.2`-ish) when off. The color is the resting
+  color; hover still lightens as with the other buttons.
 - Click flips `NS.State.debug` via the same `SetEnabled` seam used by the slash
   command → prints the chat message and re-renders the label.
 - The label refreshes on **every** state change, whether triggered by the click
@@ -144,7 +144,7 @@ Chat messages on state change are preserved exactly as today (e.g.
 - `settings/Schema.lua` (`COMMANDS.debug`) + `settings/Slash.lua` — parse
   `on`/`off`/empty for `/lh debug`.
 - `tests/` — cover the tag formatting helper and the `on`/`off`/toggle dispatch.
-- Docs: update `CLAUDE.md` convention note (§8 debug behaviour) to match the new
+- Docs: update `CLAUDE.md` convention note (§8 debug behavior) to match the new
   `/lh debug on|off|toggle` semantics.
 
 ## Testing
@@ -162,6 +162,6 @@ Chat messages on state change are preserved exactly as today (e.g.
 ## Follow-up (separate, after user is satisfied)
 
 Promote the font-shipping pattern, the tagged log-line convention, and the
-decoupled debug-state + header-toggle behaviour into
+decoupled debug-state + header-toggle behavior into
 `../WowAddonStandards/standards/` so all Ka0s addons can adopt it. Not part of
-this implementation; done only once the user confirms the look and behaviour.
+this implementation; done only once the user confirms the look and behavior.

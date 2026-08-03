@@ -25,7 +25,7 @@ The addon load list is **derived from the TOC rather than hand-maintained**, whi
 
 - **The AceEvent embed.** The kit's `AceAddon` fake does not embed the message bus, because not every host asks for it. This addon does (`NewAddon(NS, name, "AceEvent-3.0", …)`), and `NS.bus` *is* that object, so `NewAddon` is wrapped locally to model the real embed.
 - **Frames that remember their size.** The kit's stub answers `0` from `GetWidth` forever. `LibKa0s-DebugLog-1.0` *derives* the console's Copy/Clear title-bar offsets from the width of the close button this addon supplies (24, where Core's is 18), so without a size-recording stub that derivation — the entire reason the `makeCloseButton` descriptor field matters here — is untestable.
-- **`GetStringWidth` and `InlineGroup:SetTitle`.** The AH price table positions each row's info icon at `ACOL.module + GetStringWidth() + 6`, and the kit's blanket "any PascalCase method returns the frame" hands that a table; the inverted set picker draws into an AceGUI `InlineGroup`, whose `SetTitle` has no LibKa0s consumer and so is not modelled.
+- **`GetStringWidth` and `InlineGroup:SetTitle`.** The AH price table positions each row's info icon at `ACOL.module + GetStringWidth() + 6`, and the kit's blanket "any PascalCase method returns the frame" hands that a table; the inverted set picker draws into an AceGUI `InlineGroup`, whose `SetTitle` has no LibKa0s consumer and so is not modeled.
 
 Never edit `tests/_kit/`. A kit problem is a finding to fix in `../LibKa0s` and re-vendor; a local patch is a fork nobody knows about, and the next re-vendor silently reverts it.
 
@@ -33,9 +33,9 @@ Three design choices make the mock earn its keep rather than merely satisfy `req
 
 - **It omits several `C_*` APIs on purpose** — e.g. `C_Container`, `C_ChallengeMode`, `C_AuctionHouse`, `C_TooltipInfo`, `C_Spell`. `core/Compat.lua` presence-guards each of these before calling, so their absence drives the compat shims down their **degraded path** every run. The tests therefore prove the fallbacks work, not just the happy path.
 - **The message bus is modeled on CallbackHandler**, keyed by `(message, target)`. Registering the same message twice on one target overwrites (only the last survives); `SendMessage` fires once per distinct target. This mirrors the real semantics so a same-target clobber — the exact bug that shipped when the bus was a bare no-op mock — is catchable, and enforces the convention that receivers register on their own `NS.NewBusTarget()`.
-- **`C_Texture.GetAtlasInfo` knows only a short whitelist of atlases** (the four class icons the suites use, plus one star). No compat shim reads it — the atlas lookups live in `modules/BrowserTable.lua` and `modules/Analytics.lua` — and both of them branch on the *result*, so a selective registry exercises the found path AND the `CLASS_ICON_TCOORDS` / no-star fallback in the same run. `RAID_CLASS_COLORS` is whitelisted the same way, so the neutral-grey fallback for an unknown class stays under test.
+- **`C_Texture.GetAtlasInfo` knows only a short whitelist of atlases** (the four class icons the suites use, plus one star). No compat shim reads it — the atlas lookups live in `modules/BrowserTable.lua` and `modules/Analytics.lua` — and both of them branch on the *result*, so a selective registry exercises the found path AND the `CLASS_ICON_TCOORDS` / no-star fallback in the same run. `RAID_CLASS_COLORS` is whitelisted the same way, so the neutral-gray fallback for an unknown class stays under test.
 
-One behaviour the kit models that this addon's own mock never did: **AceConsole's `Embed` clobbers a same-named custom `Print`**. `core/LootHistory.lua` reclaims `NS.Print` from `NS.Util.print` because of it (architecture-§2), and that reclaim is now a live assertion rather than a vacuous one.
+One behavior the kit models that this addon's own mock never did: **AceConsole's `Embed` clobbers a same-named custom `Print`**. `core/LootHistory.lua` reclaims `NS.Print` from `NS.Util.print` because of it (architecture-§2), and that reclaim is now a live assertion rather than a vacuous one.
 
 ### Testing UI modules headlessly
 
@@ -60,7 +60,7 @@ inventory and the authoritative count):
 
 | Suite | Covers |
 |-------|--------|
-| `test_constants.lua` | enum + derived-table invariants — `SourceType` key==value (the export contract), `SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` totality, the derived `SOURCE_OPTIONS`, the quality ladder + retention presets, and the auction key catalogue (unique tags, capture options mirror the keys, the priority cascade covers every key exactly once with the captured ones ranked first) |
+| `test_constants.lua` | enum + derived-table invariants — `SourceType` key==value (the export contract), `SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` totality, the derived `SOURCE_OPTIONS`, the quality ladder + retention presets, and the auction key catalog (unique tags, capture options mirror the keys, the priority cascade covers every key exactly once with the captured ones ranked first) |
 | `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey`; the secret-safe printer (`IsConcatSafe`/`SafeToString`/`NS.Print`, reclaimed from AceConsole) |
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
 | `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence |
@@ -75,7 +75,7 @@ inventory and the authoritative count):
 | `test_debuglog.lua` | `NS.Debug` tagged format + secret-safe sink, session-only flag, `/lh debug` toggles |
 | `test_slash.lua` | the `LibKa0s-Slash-1.0` dispatcher — `/lh list`/`get`/`set`/`reset`/`resetall`/`version` output (slash-commands-§5), `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, the type-aware parser (enum refusal, slider clamping, boolean refusal), the `format` hook that keeps a set-valued row from rendering as `<secret>`, and both convergences: `reset` is path-scoped, and `LandingRows`/`HelpRows` are the one formatter differing only by the chat indent |
 | `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through (deep-copied, never aliased), `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global`; plus the schema's own shape: unique paths, defaults matching both their declared type and `defaults/Global.lua`, dropdown defaults being selectable, slider defaults inside their range, every setting round-tripping, and the `NS.COMMANDS` table |
-| `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labelling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
+| `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labeling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
 
 Two of the eighteen exist because of the LibKa0s adoption:
 
@@ -103,7 +103,7 @@ Read the difference between each pair, because the two answers mean different th
 
 - **Both empty.** In sync. Nothing to do.
 - **Content differs.** A copy has genuinely **forked**, which is the forbidden state. The fix is to re-vendor whole-folder (`cp -r ../LibKa0s/LibKa0s/. libs/LibKa0s/`), never to hand-patch `libs/` — a local patch is a fork nobody knows about, and the next re-vendor silently reverts it.
-- **Content empty, bytes differ.** **Nothing has forked.** The two checkouts merely disagree about line endings. `.gitattributes` pins `*.lua text eol=crlf` while git stores the blobs as LF, so a working tree holding either ending round-trips to the same blob and `git status` stays clean on both sides — the state is invisible and self-perpetuating. Renormalise whichever side drifted (`git add --renormalize .`; if the working tree does not flip, delete the affected paths and `git checkout -- .` to pull them back through the filter). Re-vendoring will not converge it, and editing `libs/` to settle it creates a fork to fix a fork that was not there.
+- **Content empty, bytes differ.** **Nothing has forked.** The two checkouts merely disagree about line endings. `.gitattributes` pins `*.lua text eol=crlf` while git stores the blobs as LF, so a working tree holding either ending round-trips to the same blob and `git status` stays clean on both sides — the state is invisible and self-perpetuating. Renormalize whichever side drifted (`git add --renormalize .`; if the working tree does not flip, delete the affected paths and `git checkout -- .` to pull them back through the filter). Re-vendoring will not converge it, and editing `libs/` to settle it creates a fork to fix a fork that was not there.
 
 Never edit anything under `libs/` or `tests/_kit/`. A library problem is fixed in `../LibKa0s`, released with its file `MINOR` bumped, and re-vendored back — see that repo's `docs/releasing.md`.
 

@@ -73,9 +73,9 @@ C.CONTEXT_TTL = 1.5
 -- then Heirloom(7) appended by explicit user choice. NOTE Heirloom's id (7) sits ABOVE Legendary,
 -- so selecting it floors capture at 7 — i.e. only Heirlooms/Tokens, gating out Epics/Legendaries.
 -- This is intentional, not a bug: leave it (ratified exception, see docs/conventions.md).
--- Artifact(6)/Token(8) stay omitted. Only the quality name is quality-coloured (the History
+-- Artifact(6)/Token(8) stay omitted. Only the quality name is quality-colored (the History
 -- Browser's ITEM_QUALITY_COLORS tint); " and above" stays default.
--- rrggbb fallback for headless builds where ITEM_QUALITY_COLORS is absent (colour is cosmetic there).
+-- rrggbb fallback for headless builds where ITEM_QUALITY_COLORS is absent (color is cosmetic there).
 local QUALITY_HEX_FALLBACK = {
   [0] = "9d9d9d", [1] = "ffffff", [2] = "1eff00", [3] = "0070dd", [4] = "a335ee",
   [5] = "ff8000", [7] = "e6cc80",

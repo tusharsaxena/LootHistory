@@ -14,7 +14,7 @@ The dispatcher is the library's (`libs/LibKa0s/Slash.lua:505`), bound onto `NS.S
 
 Only the verb is lower-cased; the remainder (`rest`) keeps its original case *and* its internal spacing, so schema paths like `settings.qualityThreshold` survive unchanged through `/lh set <path> <value>`. The `debug` handler additionally lower-cases its own `on`/`off` subargument (`settings/Schema.lua:227`).
 
-Every chat line routes through the single shared printer **`NS.Print`**, published from `LibKa0s-Core-1.0` in `core/CoreSetup.lua:97`, which prepends the mandated **cyan** `NS.PREFIX` `|cff00ffff[LH]|r` banner (`core/Namespace.lua:10`) and secret-stringifies each argument (events-frames-taint-§8) so a combat-protected "secret" value logs as `<secret>` instead of raising. Every file that emits chat does `local print = NS.Print` — call sites never call the global `print()`, never hand-write the tag, and never `..`-concatenate args before the printer. The dispatcher reaches it **late-bound** (`print = function(line) NS.Print(line) end`, `settings/Slash.lua:176`) so it survives `core/LootHistory.lua`'s reclaim of `NS.Print` from AceConsole's `:Print` mixin (architecture-§2). Cyan is the Ka0s house colour every addon shares for its chat tag (slash-commands-§4).
+Every chat line routes through the single shared printer **`NS.Print`**, published from `LibKa0s-Core-1.0` in `core/CoreSetup.lua:97`, which prepends the mandated **cyan** `NS.PREFIX` `|cff00ffff[LH]|r` banner (`core/Namespace.lua:10`) and secret-stringifies each argument (events-frames-taint-§8) so a combat-protected "secret" value logs as `<secret>` instead of raising. Every file that emits chat does `local print = NS.Print` — call sites never call the global `print()`, never hand-write the tag, and never `..`-concatenate args before the printer. The dispatcher reaches it **late-bound** (`print = function(line) NS.Print(line) end`, `settings/Slash.lua:176`) so it survives `core/LootHistory.lua`'s reclaim of `NS.Print` from AceConsole's `:Print` mixin (architecture-§2). Cyan is the Ka0s house color every addon shares for its chat tag (slash-commands-§4).
 
 ## What is the library's, and what stays here
 
@@ -64,7 +64,7 @@ then one prefixed row per `NS.COMMANDS` entry, each **indented two spaces** so i
 [LH]   |cFFFFFF00/lh show|r — |cFFFFFFFFOpen the window|r
 ```
 
-**Convergence — one command-row formatter, chat and panel.** The settings landing page used to carry its own version of that row: double spaces around the em dash, the dash itself wrapped in white, the description left bare — divergent from the chat help two files away for no reason anyone recorded. Both now render through `lib.FormatRow` (`libs/LibKa0s/Slash.lua:68`) via `Sl:LandingRows` (`settings/Slash.lua:225`), which is the chat form minus the indent — a leading indent reads as a mistake on a panel label, not as structure. User-visible on the landing page: single spaces, no colour span on the dash, the description now white. Deliberate; do not "fix" it back (`docs/pending/LEDGER.md`, LIBKA0S-09).
+**Convergence — one command-row formatter, chat and panel.** The settings landing page used to carry its own version of that row: double spaces around the em dash, the dash itself wrapped in white, the description left bare — divergent from the chat help two files away for no reason anyone recorded. Both now render through `lib.FormatRow` (`libs/LibKa0s/Slash.lua:68`) via `Sl:LandingRows` (`settings/Slash.lua:225`), which is the chat form minus the indent — a leading indent reads as a mistake on a panel label, not as structure. User-visible on the landing page: single spaces, no color span on the dash, the description now white. Deliberate; do not "fix" it back (`docs/pending/LEDGER.md`, LIBKA0S-09).
 
 Because the help index, the landing page and the dispatcher all read the same table, they can never drift.
 
@@ -74,7 +74,7 @@ Because the help index, the landing page and the dispatcher all read the same ta
 
 `list`, `get`, `set` and `reset` share the Ka0s canonical output shape (slash-commands-§5), produced by two shared helpers so the four can never drift:
 
-- **`Sl.FormatKV(path, valueStr)`** — re-exported straight from `lib.FormatKV` (`libs/LibKa0s/Slash.lua:74`): the coloured `key = value` line, gold key, white value, no trailing colon. Identical in shape to what this file used to own, with the hex digits now in the library's **upper** case — `|cFFFFFF00settings.enabled|r = |cFFFFFFFFtrue|r`.
+- **`Sl.FormatKV(path, valueStr)`** — re-exported straight from `lib.FormatKV` (`libs/LibKa0s/Slash.lua:74`): the colored `key = value` line, gold key, white value, no trailing colon. Identical in shape to what this file used to own, with the hex digits now in the library's **upper** case — `|cFFFFFF00settings.enabled|r = |cFFFFFFFFtrue|r`.
 - **`Sl.FormatSchemaValue(row, v)`** — the type-aware value renderer. `type = "table"` is not one of the library's four types, so `lib.FormatValue` would fall through to Core's `SafeToString`, probe `table.concat`, fail, and answer `<secret>` — telling a user that `settings.excludedSources` is combat-protected. That one branch lives here (a sorted `{KILL, MAIL}` key set, or `(none)` when empty) and everything else is handed back to `lib.FormatValue` (`libs/LibKa0s/Slash.lua:87`): a row's optional `fmt` formats numbers (`windowScale` `%.2fx` → `1.00x`), booleans → `true`/`false`, enums stay raw. It is wired in as the descriptor's `format` hook, so the CLI and the settings panel cannot render the same value two ways.
 
 - **`get <path>`** — `Sl:CliGet`. Prints the single-line `FormatKV` echo for the path. A missing argument prints `Usage: /lh get <path>`; an unknown path prints `Setting not found: <path>`.
@@ -87,7 +87,7 @@ Because the help index, the landing page and the dispatcher all read the same ta
 
 ### The type-aware parser
 
-`lib.ParseValue` (`libs/LibKa0s/Slash.lua:243`) replaces bare coercion, on the principle that a CLI which silently accepts a value it cannot honour is worse than one that refuses. Failure prints `Invalid value for <path>` and then the reason on a two-space-indented second line; the old value survives untouched.
+`lib.ParseValue` (`libs/LibKa0s/Slash.lua:243`) replaces bare coercion, on the principle that a CLI which silently accepts a value it cannot honor is worse than one that refuses. Failure prints `Invalid value for <path>` and then the reason on a two-space-indented second line; the old value survives untouched.
 
 - **`bool`** — `true`/`1`/`on`/`yes` and `false`/`0`/`off`/`no`. Anything else is **refused** rather than silently stored as `false`: `/lh set settings.enabled maybe` → `Invalid value for settings.enabled` / `  expected true/false/on/off/1/0/yes/no`.
 - **`number`, plain (a `Slider` row)** — **clamped** to the row's `min`/`max`, because a user typing a scale larger than the panel allows means "as large as it goes". `/lh set settings.windowScale 99` stores `1.6` and echoes `settings.windowScale = 1.60x`.

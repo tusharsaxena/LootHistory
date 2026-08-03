@@ -45,7 +45,7 @@ end)
 
 test("Stats: a missing or blank zone counts under one Unknown bucket", function()
   -- "" is what Compat.GetZone answers before the client has zone text; it must not become its own
-  -- blank-labelled Top Zones row alongside the nil one.
+  -- blank-labeled Top Zones row alongside the nil one.
   local s = NS.Database:Stats({})
   local saved = NS.db.global.history
   NS.db.global.history = { { ts = 1, quality = 1 }, { ts = 2, quality = 1, zone = "" } }
@@ -225,7 +225,7 @@ test("Stats: currency stays out of the item/loot charts (its own section only)",
   assertTrue(s.charBySource["A-R"]["MPLUS"] == nil)
   assertEqual(s.byChar["A-R"].count, 1)             -- A-R looted 1 item (its 2 currency rows excluded)
   assertEqual(s.byChar["B-R"].count, 0)             -- B-R only got currency → registered, count 0
-  assertEqual(s.totals.distinctChars, 2)            -- both characters still registered (class colours)
+  assertEqual(s.totals.distinctChars, 2)            -- both characters still registered (class colors)
 
   -- Currency aggregates:
   assertEqual(s.byCurrency["Valorstones"], 50)      -- 40 + 10

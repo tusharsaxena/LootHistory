@@ -293,7 +293,7 @@ function Attribution:OnTradeAcceptUpdate(_, playerAccepted, targetAccepted)
   end
 end
 
--- Taking a mail attachment. Auction-House mail (won auctions, expired/cancelled returns) is
+-- Taking a mail attachment. Auction-House mail (won auctions, expired/canceled returns) is
 -- attributed to AH; everything else to MAIL. The mail's sender/subject decides (locale-independent
 -- via global strings — see Compat.IsAuctionHouseMail).
 function Attribution:StampMail(mailIndex)

@@ -21,7 +21,7 @@ Target client WoW 12.0.7, Ace3, English-only, account-wide storage — unchanged
   dropdown already expresses any character subset, so the toggle is redundant UI.
 - Users want their data out of the addon: into a spreadsheet (CSV) and, later, into an AI prompt that
   produces a formatted report.
-- Binding state is shown per-row (the coloured lock) and is a natural thing to filter on, but there is
+- Binding state is shown per-row (the colored lock) and is a natural thing to filter on, but there is
   no filter for it today.
 
 ## 1. Filter bar changes (`modules/Browser.lua`)
@@ -37,7 +37,7 @@ Target client WoW 12.0.7, Ace3, English-only, account-wide storage — unchanged
 
 ### Add the Export button
 
-- A `makeBarButton` labelled **Export**, placed in the vacated row-2 right slot (`TOPRIGHT`, ~164px wide),
+- A `makeBarButton` labeled **Export**, placed in the vacated row-2 right slot (`TOPRIGHT`, ~164px wide),
   with a tooltip ("Export your loot history to CSV or an AI report.").
 - `onClick` → `NS.Export:Open(providers)` where `providers` is:
   ```lua
@@ -109,13 +109,13 @@ Builds (once) and shows the export modal. `providers` holds the two dataset acce
   OR Export builds a small purpose-made 2-option control. Chosen during implementation; either keeps the
   flat skin consistent.
 - **Export to CSV** button → `Export:CSV(selectedRecords)` → shows the result in Export's own copy window.
-- **Export to AI** button → placeholder: disabled (greyed) with a "Coming soon" tooltip, backed by a
+- **Export to AI** button → placeholder: disabled (grayed) with a "Coming soon" tooltip, backed by a
   `Export:AIPrompt(records)` stub to be built later.
 
 ### Export's own copy window
 
 Export builds and owns **its own** copy window (a read-only multiline `EditBox`, Ctrl+C to copy, Esc to
-close), modelled on the debug copy window but **not shared with it** — so its layout can evolve
+close), modeled on the debug copy window but **not shared with it** — so its layout can evolve
 independently. `DebugLog.lua` is not touched. Frame name `LootHistoryExportCopyWindow`, registered in
 `UISpecialFrames`.
 

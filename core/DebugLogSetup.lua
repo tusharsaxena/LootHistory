@@ -9,8 +9,8 @@ local addonName, NS = ...
 --
 -- The window CHROME is the part that used to force a decline, and it no longer does. DebugLog minor
 -- 4 added `applySkin` and `makeCloseButton`, both defaulting to what minor 3 did, precisely so a
--- host like this one — a flat 1px WHITE8X8 double border with a synthesised inner border, a gold
--- title tint, a grey divider and a 24x24 class-coloured x — could keep its own chrome instead of
+-- host like this one — a flat 1px WHITE8X8 double border with a synthesized inner border, a gold
+-- title tint, a gray divider and a 24x24 class-colored x — could keep its own chrome instead of
 -- turning down a module whose formatters it already shares. Both hooks are passed below.
 --
 -- ── LOAD ORDER ─────────────────────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ NS.DebugLog = lib:New({
   end,
 
   -- NO `makeCloseButton`. The console and the copy window are the LIBRARY's windows, so they wear
-  -- the library's close glyph — Core's thin 18x18 x — and this addon's own 24x24 class-coloured one
+  -- the library's close glyph — Core's thin 18x18 x — and this addon's own 24x24 class-colored one
   -- stays on the windows it belongs to (`modules/Browser.lua`). Passing it here is what shipped two
   -- adopters' diagnostic windows looking unlike the other three's, and standalone-windows-§2 now
   -- makes the split explicit: the window EDGE is shared across every Ka0s window, the CLOSE CONTROL

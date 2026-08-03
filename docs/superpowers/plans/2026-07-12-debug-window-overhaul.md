@@ -187,7 +187,7 @@ In `modules/DebugLog.lua`, replace the current `D:Add` (lines 101-109):
 function D:Add(msg)
   local f = EnsureFrame()
   local ts = date("%H:%M:%S")
-  -- Grey, fixed-width timestamp + a "|" separator ("||" renders one literal pipe).
+  -- Gray, fixed-width timestamp + a "|" separator ("||" renders one literal pipe).
   f.log:AddMessage(("|cff888888%s  ||  |r%s"):format(ts, tostring(msg)))
   -- Mirror a plain-text copy into the buffer (for the Copy window), capped like the log.
   D.buffer[#D.buffer + 1] = ts .. "  |  " .. tostring(msg)
@@ -205,8 +205,8 @@ end
 function D:Add(tag, msg)
   local f = EnsureFrame()
   local ts = date("%H:%M:%S")
-  -- Grey the timestamp / separator / bracketed tag; content in the default colour.
-  -- "||" renders one literal pipe inside a colour-coded segment.
+  -- Gray the timestamp / separator / bracketed tag; content in the default color.
+  -- "||" renders one literal pipe inside a color-coded segment.
   f.log:AddMessage(("|cff888888%s  ||  [%-10.10s]|r %s"):format(ts, tostring(tag or ""), tostring(msg)))
   -- Mirror a plain-text copy into the buffer (for the Copy window), capped like the log.
   D.buffer[#D.buffer + 1] = D.FormatPlain(ts, tag, msg)
@@ -540,9 +540,9 @@ Expected: `header toggle click flips debug state` FAILS — `_toggleClickForTest
 
 - [ ] **Step 3: Build the header toggle in `EnsureFrame`**
 
-In `modules/DebugLog.lua`, inside `EnsureFrame`, after the `copy` button is created (current line 71, `copy:SetPoint(...)`), add the left-aligned toggle. It reuses the flat look of `makeTextButton` but manages its own resting colour (green/red) instead of grey:
+In `modules/DebugLog.lua`, inside `EnsureFrame`, after the `copy` button is created (current line 71, `copy:SetPoint(...)`), add the left-aligned toggle. It reuses the flat look of `makeTextButton` but manages its own resting color (green/red) instead of gray:
 ```lua
-  -- Left-aligned debug on/off toggle. Same flat look as Copy/Clear, but the resting colour
+  -- Left-aligned debug on/off toggle. Same flat look as Copy/Clear, but the resting color
   -- reflects state (green ON / red OFF); clicking flips state through the shared SetEnabled seam.
   local toggleBtn = CreateFrame("Button", nil, titleBar)
   toggleBtn:SetSize(80, 18)
@@ -557,7 +557,7 @@ In `modules/DebugLog.lua`, inside `EnsureFrame`, after the `copy` button is crea
   frame.debugToggleBtn = toggleBtn
   D._toggleClickForTest = onToggleClick   -- test seam (mock stubs GetScript)
 ```
-Then, just before `frame:Hide()` (current line 94), initialise the label:
+Then, just before `frame:Hide()` (current line 94), initialize the label:
 ```lua
   D:RefreshHeader()
 ```
@@ -587,7 +587,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Docs — update CLAUDE.md debug behaviour note
+### Task 5: Docs — update CLAUDE.md debug behavior note
 
 **Files:**
 - Modify: `CLAUDE.md` (convention cheat-sheet item 8)
@@ -625,4 +625,4 @@ Run the in-client smoke checks from the spec's Testing section:
 3. Click the header toggle → `Debug: OFF` red + chat message; `/lh debug` again toggles the window without changing state.
 4. `/reload` → state resets to off.
 
-Only once the user confirms the look and behaviour: promote the font-shipping pattern, the tagged log convention, and the decoupled-state + header-toggle behaviour into `../WowAddonStandards/standards/`. That is a separate effort, not part of this plan.
+Only once the user confirms the look and behavior: promote the font-shipping pattern, the tagged log convention, and the decoupled-state + header-toggle behavior into `../WowAddonStandards/standards/`. That is a separate effort, not part of this plan.

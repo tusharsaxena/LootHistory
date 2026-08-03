@@ -23,7 +23,7 @@ badge and any count quoted in the docs must agree with it.
 - Constants: the context TTL is a short positive window
 - Constants: the mono font resolves inside this addon's media folder
 - Constants: the quality ladder is Poor..Legendary then Heirloom, skipping 6 and 8
-- Constants: every quality option carries a coloured '<name> and above' text
+- Constants: every quality option carries a colored '<name> and above' text
 - Constants: the retention presets ascend and end on 'Always' (0 = disabled)
 - Constants: every auction key is fully described
 - Constants: auction tags are unique
@@ -311,7 +311,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser.asSet round-trips through setToFilter for the stock (unfiltered) view
 - Browser.withAll sorts by label and keeps the All sentinel first
 - Browser.withAll on an empty dataset still offers the All sentinel
-- Browser: source options are the distinct sources, human-labelled, All first
+- Browser: source options are the distinct sources, human-labeled, All first
 - Browser: type options skip the blank itemType
 - Browser: subtype options skip the blank itemSubType
 - Browser: zone options are keyed by name, so one zone lists once per name
@@ -321,7 +321,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser: bound options follow the fixed binding order, not data order
 - Browser: an unbound record surfaces as the NONE sentinel
 - Browser: character options list each looter once, All then Current first
-- Browser: character options carry the class colour and icon markup
+- Browser: character options carry the class color and icon markup
 - Browser: the Current preset lights up only for exactly the logged-in character
 - Browser: the stock view filters nothing and sorts newest-first
 - Browser: with no saved view, Clear falls back to the stock view
@@ -377,7 +377,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: SortRecords returns a new array and leaves the input alone
 - BrowserTable: sorting by a column no record fills still keeps every row
 - BrowserTable: the vendor and auction columns sort by copper, not by their text
-- BrowserTable: an unrecognised source still shows something in the Source column
+- BrowserTable: an unrecognized source still shows something in the Source column
 - BrowserTable: the vendor column is blank when no price was recorded
 - BrowserTable: the auction column is blank when no price map was captured
 - BrowserTable: quantity defaults to 1 when a record omits it
@@ -452,7 +452,7 @@ badge and any count quoted in the docs must agree with it.
 - FormatSchemaValue renders an empty table setting as (none)
 - FormatSchemaValue renders a table setting as a sorted key set
 - FormatSchemaValue omits falsy keys from a table setting
-- FormatKV colours the key gold and the value white with a default separator
+- FormatKV colors the key gold and the value white with a default separator
 - list header is the green 'Available settings' line, no trailing colon
 - list emits azure [group] headers in the declared order
 - list value rows use FormatKV under their group, four-space indented
@@ -508,7 +508,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema.Default hands out a copy of a table default, not the shared one
 - Schema.Default returns nil for an unknown path
 - Schema.Set runs the row's onChange with the new value
-- Schema.Set honours a row's validate guard and leaves the DB untouched
+- Schema.Set honors a row's validate guard and leaves the DB untouched
 - Schema.Get on an unknown path reads through rather than erroring
 - Schema: every setting round-trips through Set then Get
 - Schema: every declared command is uniquely named and dispatchable
@@ -539,22 +539,22 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._charStackSegments: an empty character yields no segments
 - Analytics._charStackSegments: equal magnitudes break the tie by key, not by chance
 - Analytics._buildCharStackRows: rows run by total descending
-- Analytics._buildCharStackRows: labels are shortened and class-coloured
+- Analytics._buildCharStackRows: labels are shortened and class-colored
 - Analytics._buildCharStackRows: the busiest character's bar is full width
 - Analytics._buildCharStackRows: every row is scaled against that same maximum
 - Analytics._buildCharStackRows: each segment's tip states the category and its value
 - Analytics._buildCharStackRows: the row value is the character's total
-- Analytics._buildCharStackRows: an unknown class falls back to neutral grey
+- Analytics._buildCharStackRows: an unknown class falls back to neutral gray
 - Analytics._buildCharStackRows: an empty matrix yields no rows
-- Analytics._paletteMap: colours are assigned by list position
-- Analytics._paletteMap: a key outside the list has no colour
+- Analytics._paletteMap: colors are assigned by list position
+- Analytics._paletteMap: a key outside the list has no color
 - Analytics._paletteMap: an empty or missing list maps nothing
-- Analytics._paletteMap: the same ordering yields the same colours across charts
+- Analytics._paletteMap: the same ordering yields the same colors across charts
 - Analytics.paletteColor: every entry is a valid rgb triple
 - Analytics._shortChar: drops the realm from a Name-Realm key
 - Analytics._shortChar: a missing character reads '?'
-- Analytics._classColor: a known class returns its class colour
-- Analytics._classColor: an unknown or missing class falls back to neutral grey
+- Analytics._classColor: a known class returns its class color
+- Analytics._classColor: an unknown or missing class falls back to neutral gray
 - Analytics._qualityColor: returns an rgb triple for a real quality
 - Analytics._money: zero and negative values read as a plain '0'
 - Analytics._money: a real amount renders its gold/silver/copper parts
@@ -565,7 +565,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._dayKeyList: caps a long range to the 60 most recent days
 - Analytics._dayKeyList: an empty history yields no keys
 - Analytics._shortDay: a day key shortens to M/D with no leading zeros
-- Analytics._shortDay: an unrecognised key passes through untouched
+- Analytics._shortDay: an unrecognized key passes through untouched
 - Analytics._sortedByCount: orders by count descending
 - Analytics._sortedByCount: equal counts break the tie by key ascending
 - Analytics._sortedByCount: an empty map yields no rows
@@ -616,7 +616,7 @@ badge and any count quoted in the docs must agree with it.
 - tripwire — Options.lua reads no descriptor L
 - no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
 - every file of LibKa0s.xml is vendored and loads
-- the vendored copy carries the library's MIT licence
+- the vendored copy carries the library's MIT license
 - the four adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares

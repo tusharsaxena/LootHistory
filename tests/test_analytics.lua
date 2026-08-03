@@ -31,7 +31,7 @@ test("Analytics.paletteColor: adjacent ranks differ", function()
 end)
 test("Analytics.paletteColor: cycles past the palette length", function()
   local a, b = NS.Analytics.paletteColor(1), NS.Analytics.paletteColor(22)
-  assertEqual(a[1], b[1]); assertEqual(a[2], b[2]); assertEqual(a[3], b[3]) -- 21-colour palette wraps
+  assertEqual(a[1], b[1]); assertEqual(a[2], b[2]); assertEqual(a[3], b[3]) -- 21-color palette wraps
 end)
 
 -- ── _tipText (hover text = full label + the value it encodes) ───────────────────────
@@ -153,12 +153,12 @@ test("Analytics._buildCharStackRows: rows run by total descending", function()
   assertEqual(rows[2].label, "Alt")
 end)
 
-test("Analytics._buildCharStackRows: labels are shortened and class-coloured", function()
+test("Analytics._buildCharStackRows: labels are shortened and class-colored", function()
   local rows = A._buildCharStackRows(MATRIX, BYCHAR, ORDER, color, fmt)
   assertEqual(rows[1].label, "Ka0z", "the realm is dropped from the bar label")
   assertEqual(#rows[1].labelColor, 3)
   assertFalse(rows[1].labelColor[1] == rows[2].labelColor[1],
-    "a Mage and a Warrior must not share a bar-label colour")
+    "a Mage and a Warrior must not share a bar-label color")
 end)
 
 test("Analytics._buildCharStackRows: the busiest character's bar is full width", function()
@@ -187,7 +187,7 @@ test("Analytics._buildCharStackRows: the row value is the character's total", fu
   assertEqual(rows[2].value, "5")
 end)
 
-test("Analytics._buildCharStackRows: an unknown class falls back to neutral grey", function()
+test("Analytics._buildCharStackRows: an unknown class falls back to neutral gray", function()
   local rows = A._buildCharStackRows({ ["Ghost-Realm"] = { KILL = 1 } }, {}, ORDER, color, fmt)
   assertEqual(rows[1].labelColor[1], 0.7)
 end)
@@ -198,13 +198,13 @@ end)
 
 -- ── Palette map ────────────────────────────────────────────────────────────────
 
-test("Analytics._paletteMap: colours are assigned by list position", function()
+test("Analytics._paletteMap: colors are assigned by list position", function()
   local m = A._paletteMap({ "Cloth", "Herb", "Ore" })
   assertEqual(m.Cloth[1], A.paletteColor(1)[1])
   assertEqual(m.Ore[1], A.paletteColor(3)[1])
 end)
 
-test("Analytics._paletteMap: a key outside the list has no colour", function()
+test("Analytics._paletteMap: a key outside the list has no color", function()
   assertEqual(A._paletteMap({ "Cloth" }).Ore, nil)
 end)
 
@@ -213,8 +213,8 @@ test("Analytics._paletteMap: an empty or missing list maps nothing", function()
   assertEqual(next(A._paletteMap(nil)), nil)
 end)
 
-test("Analytics._paletteMap: the same ordering yields the same colours across charts", function()
-  -- This is what keeps a currency the same colour in both currency charts.
+test("Analytics._paletteMap: the same ordering yields the same colors across charts", function()
+  -- This is what keeps a currency the same color in both currency charts.
   local a, b = A._paletteMap({ "x", "y" }), A._paletteMap({ "x", "y" })
   assertEqual(a.y[1], b.y[1]); assertEqual(a.y[2], b.y[2]); assertEqual(a.y[3], b.y[3])
 end)
@@ -227,7 +227,7 @@ test("Analytics.paletteColor: every entry is a valid rgb triple", function()
   end
 end)
 
--- ── Colour + label helpers ─────────────────────────────────────────────────────
+-- ── Color + label helpers ─────────────────────────────────────────────────────
 
 test("Analytics._shortChar: drops the realm from a Name-Realm key", function()
   assertEqual(A._shortChar("Ka0z-Ravencrest"), "Ka0z")
@@ -238,13 +238,13 @@ test("Analytics._shortChar: a missing character reads '?'", function()
   assertEqual(A._shortChar(nil), "?")
 end)
 
-test("Analytics._classColor: a known class returns its class colour", function()
+test("Analytics._classColor: a known class returns its class color", function()
   local c = A._classColor("MAGE")
   assertEqual(#c, 3)
   assertFalse(c[1] == 0.7 and c[2] == 0.7, "a known class must not use the fallback")
 end)
 
-test("Analytics._classColor: an unknown or missing class falls back to neutral grey", function()
+test("Analytics._classColor: an unknown or missing class falls back to neutral gray", function()
   assertEqual(A._classColor("NOTACLASS")[1], 0.7)
   assertEqual(A._classColor(nil)[1], 0.7)
 end)
@@ -310,7 +310,7 @@ test("Analytics._shortDay: a day key shortens to M/D with no leading zeros", fun
   assertEqual(A._shortDay("2026-11-21"), "11/21")
 end)
 
-test("Analytics._shortDay: an unrecognised key passes through untouched", function()
+test("Analytics._shortDay: an unrecognized key passes through untouched", function()
   assertEqual(A._shortDay("Unknown"), "Unknown")
 end)
 

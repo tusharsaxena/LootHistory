@@ -89,8 +89,8 @@ NS.Options = lib:New({
   end,
   allRows = function() return NS.Schema.Schema end,
 
-  -- Backs the colour picker's 50 ms drag throttle. No schema row is a colour today, so nothing
-  -- reaches it — passed anyway because a future colour row would otherwise commit every frame, and
+  -- Backs the color picker's 50 ms drag throttle. No schema row is a color today, so nothing
+  -- reaches it — passed anyway because a future color row would otherwise commit every frame, and
   -- a missing throttle is invisible until someone drags a swatch.
   scheduleTimer = function(fn, delay)
     if C_Timer and C_Timer.After then C_Timer.After(delay, fn) end

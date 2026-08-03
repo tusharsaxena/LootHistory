@@ -95,8 +95,8 @@ return function()
   M.ITEM_QUALITY_COLORS = setmetatable({}, {
     __index = function() return { r = 1, g = 1, b = 1, hex = "ffffffff" } end,
   })
-  -- Real class colours for the four tokens the suites exercise; any other token misses to nil so
-  -- the addon's neutral-grey fallback is the one under test, exactly as in-game for an unknown class.
+  -- Real class colors for the four tokens the suites exercise; any other token misses to nil so
+  -- the addon's neutral-gray fallback is the one under test, exactly as in-game for an unknown class.
   M.RAID_CLASS_COLORS = {
     MAGE    = { r = 0.25, g = 0.78, b = 0.92 },
     WARRIOR = { r = 0.78, g = 0.61, b = 0.43 },
@@ -157,7 +157,7 @@ return function()
   -- ── AceGUI container methods this addon uses ───────────────────────────────
   -- The kit's widget factory models the setters LibKa0s's own makers call. The inverted set picker
   -- in settings/Panel.lua draws into an AceGUI InlineGroup, whose SetTitle has no LibKa0s consumer
-  -- and so is not modelled. Added by wrapping Create rather than by registering a widget type, so
+  -- and so is not modeled. Added by wrapping Create rather than by registering a widget type, so
   -- every widget keeps the base's recorders and __fire.
   local aceGUI = M.__libs["AceGUI-3.0"]
   local stockCreate = aceGUI.Create

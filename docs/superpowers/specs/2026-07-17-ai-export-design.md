@@ -31,7 +31,7 @@ accents. Display type = inscriptional serif via **system fonts only** (Palatino/
 Georgia); body = system sans; data = system mono. **No web fonts, no CDNs, no external requests** —
 required for a self-contained file (and a Claude artifact's CSP). **Quality-color is the organizing
 system** (item names, quality chart, richest-drops); **class colors** for characters everywhere;
-**bind-state colors** mirror the addon (`BrowserTable.lua`: Unbound grey, Soulbound green, Account
+**bind-state colors** mirror the addon (`BrowserTable.lua`: Unbound gray, Soulbound green, Account
 orange, Warbound blue, BoE off-white). Charts are **inline SVG/CSS only** — magnitude rankings use one
 gold hue; only Quality and Character charts use semantic palettes, each directly labeled (passes the
 dataviz CVD checks). Signature: the real logo in the hero + a WoW **item-tooltip on hover**.

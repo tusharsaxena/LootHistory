@@ -827,7 +827,7 @@ In `LayoutCharts`, immediately **before** the `-- Ranked lists — two half-widt
     local hCur = self:renderListPanel(P.curlist, self.currencyPanel, curRows, y, w - pad * 2, pad, 70)
     y = y - hCur - SECTION_GAP
 
-    -- Currency by source: one stacked bar per currency, segments coloured by source.
+    -- Currency by source: one stacked bar per currency, segments colored by source.
     local curMax = 1
     for _, total in pairs(stats.byCurrency) do if total > curMax then curMax = total end end
     local stackRows = {}
@@ -844,7 +844,7 @@ In `LayoutCharts`, immediately **before** the `-- Ranked lists — two half-widt
     end
     y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)
 
-    -- Currency by character (class-coloured bars).
+    -- Currency by character (class-colored bars).
     local ccList, ccMax = {}, 1
     for _, ce in pairs(stats.currencyByChar) do
       ccList[#ccList + 1] = ce
@@ -1132,7 +1132,7 @@ In `docs/scope.md`, under `## Out of scope`, change the `**Gold and currencies.*
 to:
 
 ```markdown
-- **Gold.** Capture of looted money (copper) is out — high-frequency and its-own-value, better modelled as aggregated Insights tallies than per-drop rows. See the deferred design.
+- **Gold.** Capture of looted money (copper) is out — high-frequency and its-own-value, better modeled as aggregated Insights tallies than per-drop rows. See the deferred design.
 ```
 
 Then add, under the `## Passive capture`/in-scope list (after the source-attribution bullet), a currency bullet:

@@ -529,7 +529,7 @@ end)
 
 test("Database: ArmBoundRepair re-arms on a revision bump, and only then", function()
   -- Versioning the arming by revision rather than schemaVersion is what lets a fix to the repair's
-  -- judgement re-run it on a DB that already ran — and cleared — a broken pass, with no migration.
+  -- judgment re-run it on a DB that already ran — and cleared — a broken pass, with no migration.
   local g = NS.db.global
   local savedRev = g.boundRepairRevision
   g.boundRepairRevision, g.boundRepairPending = nil, nil

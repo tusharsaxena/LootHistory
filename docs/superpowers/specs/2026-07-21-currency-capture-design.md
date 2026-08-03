@@ -47,7 +47,7 @@ A currency record in `global.history`:
   itemSubType = "The War Within",              -- live game category, drives SubType filter
   quantity    = 45,                            -- amount looted
   quality     = 3,                             -- NEW: the currency's own C_CurrencyInfo quality tier
-                                                -- (drives the History Name colour + Quality column;
+                                                -- (drives the History Name color + Quality column;
                                                 -- still excluded from item-centric quality aggregates)
   -- itemID / itemLink / itemLevel / bound / vendorPrice / auctionPrice = nil
 }
@@ -116,13 +116,13 @@ bar/list/strip primitives:
   total — summing different currencies is meaningless.)
 - **Top currencies by quantity** — ranked list (currency name → total quantity).
 - **Currency by source (per-currency stacked)** — one horizontal **stacked bar per currency**: bar
-  length = that currency's total quantity (relative to the largest currency), segmented and coloured
+  length = that currency's total quantity (relative to the largest currency), segmented and colored
   by **source** using the same `SOURCE_COLOR` palette as the "Loot by source" chart above (so the
-  colours read consistently and no separate legend is needed). This is the per-currency-per-source
+  colors read consistently and no separate legend is needed). This is the per-currency-per-source
   drilldown — one chart shows both how much of each currency you collected *and* where each one came
   from. Reuses the existing `makeStackedBar` / `positionStacked` primitives (today used for the
   quality mix) via a new "stacked bar section" renderer that lays out one stacked bar per row.
-- **Currency by character** — bar section, class-coloured, total currency quantity per character
+- **Currency by character** — bar section, class-colored, total currency quantity per character
   (the account-wide angle).
 - **Currency over time (per day)** — a per-day strip of total currency quantity, normalized to the
   tallest day (reads as *activity*). Respects the shared filter, so narrowing to one currency (e.g.

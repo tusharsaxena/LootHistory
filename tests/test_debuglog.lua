@@ -28,7 +28,7 @@ test("FormatColored colors the timestamp and tag; pipe and content default", fun
 end)
 
 -- Secret-safe sink (events-frames-taint-§8): a combat "secret" arg must reach string.format only
--- through NS.SafeToString, so it logs as <secret> instead of raising. Modelled as a table (which
+-- through NS.SafeToString, so it logs as <secret> instead of raising. Modeled as a table (which
 -- table.concat / string.format reject) — the same shape a real secret trips on.
 local secretMock = setmetatable({}, { __concat = function() return "secret-propagated" end })
 
@@ -89,7 +89,7 @@ test("header toggle click flips debug state", function()
   click(); assertTrue(NS.State.debug == false, "second click should turn state off")
 end)
 
--- ── SetEnabled seam: colour-coded chat ack + [Init] summary (debug-logging-§5) ──
+-- ── SetEnabled seam: color-coded chat ack + [Init] summary (debug-logging-§5) ──
 local function capture(fn)
   local out = {}
   local cf = T.mocks.DEFAULT_CHAT_FRAME
@@ -193,7 +193,7 @@ end)
 
 test("the console closes with the LIBRARY's x, not this addon's 24-wide one", function()
   -- The console and the copy window are the library's windows, so they wear Core's thin 18x18 x.
-  -- This addon's own 24x24 class-coloured glyph stays on the windows it belongs to; passing it
+  -- This addon's own 24x24 class-colored glyph stays on the windows it belongs to; passing it
   -- through the `makeCloseButton` hook is what made these two windows look unlike every other
   -- Ka0s addon's (docs/pending/LEDGER.md, LIBKA0S-19).
   --

@@ -31,7 +31,7 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 ## What's new in 1.2.0
 
-*   **Currency capture** — Valorstones, crests, and other currencies are now recorded as their own history rows, attributed to the same sources as items (with a **Record currency** master toggle). Each carries its quality tier — the **Name** and **Quality** cells colour like items do — and hovering a row shows the in-game currency tooltip. A dedicated **Currency** section in Insights breaks them down by type, source, character, and day, and currencies can be **blacklisted**.
+*   **Currency capture** — Valorstones, crests, and other currencies are now recorded as their own history rows, attributed to the same sources as items (with a **Record currency** master toggle). Each carries its quality tier — the **Name** and **Quality** cells color like items do — and hovering a row shows the in-game currency tooltip. A dedicated **Currency** section in Insights breaks them down by type, source, character, and day, and currencies can be **blacklisted**.
 *   **Insights dashboard overhaul** — the analytics view is reorganized into **Loot** and **Currency** sections, adds per-character companion charts beside each breakdown, and gets a more distinct source palette with chart legends.
 *   **More loot sources** — **Bonus Roll**, **Craft**, **Roll**, and **Refund** are now attributed and can be muted individually alongside the existing sources.
 *   **Export to AI removed** — the AI-report export has been retired. **Export to CSV** stays, for both the History rows and the Insights summary.
@@ -60,7 +60,7 @@ Most items are filed with certainty, straight from what the game reported. When 
 
 Install it like any other addon and log in. Recording starts right away — there's nothing to set up. Open the History window by left-clicking the minimap button or typing `/lh`. Click a column header to sort, use the filter bar to narrow the list, pick a **Group by** to collapse rows together, and switch to the **Insights** tab for the analytics view. The filter bar is **shared** between both tabs, so the same narrowing applies to the table and the charts at once — you always know which slice of your loot you're looking at.
 
-The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Both honour the **Data Set** choice — all data, or just your current filtered view. Don't want an item tracked going forward? Right-click its row and choose **Blacklist item** — the clicked row stays put (nothing is deleted or hidden), but future loots of that item are skipped. Delete a row from the table if you want it gone.
+The **Export** button follows the tab you're on: on **History** it copies your loot rows out as CSV (everything or just the current filtered view); on **Insights** it copies the analytics summary as a CSV that mirrors the charts. Both honor the **Data Set** choice — all data, or just your current filtered view. Don't want an item tracked going forward? Right-click its row and choose **Blacklist item** — the clicked row stays put (nothing is deleted or hidden), but future loots of that item are skipped. Delete a row from the table if you want it gone.
 
 ### Slash commands
 
@@ -103,7 +103,7 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 **AH Price** (its own page)
 
 *   **Enable AH pricing** — the master on/off switch for reading prices from Auctionator, TSM, and OribosExchange. Turn it off and every drop's value falls back to its vendor sell price.
-*   **Price Sources** — one table listing every price your installed addons can supply. **Tick** a source to collect its price at loot time *and* enter it into the ranking; the highest-ranked source you have a price for is the value shown. Reorder ticked sources with the up/down arrows. Each row shows the addon, the price module (with an **ⓘ** explaining what it means), a ✓/✗ tick, and a status — *Collecting data*, *Not collecting data*, or *Addon not installed*. Ticked sources sort to the top, the ones you don't collect fall below them, and anything whose addon isn't installed drops to the bottom, greyed out.
+*   **Price Sources** — one table listing every price your installed addons can supply. **Tick** a source to collect its price at loot time *and* enter it into the ranking; the highest-ranked source you have a price for is the value shown. Reorder ticked sources with the up/down arrows. Each row shows the addon, the price module (with an **ⓘ** explaining what it means), a ✓/✗ tick, and a status — *Collecting data*, *Not collecting data*, or *Addon not installed*. Ticked sources sort to the top, the ones you don't collect fall below them, and anything whose addon isn't installed drops to the bottom, grayed out.
 
 **Filters** (its own page)
 
@@ -145,7 +145,7 @@ If a signal is there, the item is filed under that source and marked **Certain**
 
 | Symptom | Fix |
 |---------|-----|
-| Nothing is being recorded. | Check that **Master Controls → Enable collection** is on. If you expect greys or whites, lower **Data Collection → Minimum quality**. The source may be turned off under **Record data from**. Quest items are skipped by default — uncheck **Exclude quest items** to record them. The item may also be blacklisted under **Settings ▸ Filters**. |
+| Nothing is being recorded. | Check that **Master Controls → Enable collection** is on. If you expect grays or whites, lower **Data Collection → Minimum quality**. The source may be turned off under **Record data from**. Quest items are skipped by default — uncheck **Exclude quest items** to record them. The item may also be blacklisted under **Settings ▸ Filters**. |
 | The minimap button is gone. | It's hidden. Turn **Master Controls → Hide minimap button** off, or open the window with `/lh toggle`. |
 | An item landed under the wrong source (or "Other"). | When nothing tells the addon where an item came from, it falls back to **Other** / **Inferred**. Open the debug console with `/lh debug` to see how an item was filed. |
 | The AH Price / value column is blank, or just matches the vendor price. | You need **Auctionator**, **TSM**, or **OribosExchange** installed, **AH Price → Enable AH pricing** on, and at least one price source ticked. Even then a price only appears once that addon actually has one for the item (for example after its next scan); until then the value falls back to the vendor sell price. |
@@ -169,7 +169,7 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| 1.2.0 | 2026-07-26 | **Currency capture** — currencies recorded as their own rows with a dedicated Insights section, in-game tooltips, quality colours, and blacklisting<br>**Insights dashboard overhaul** — Loot/Currency sections, per-character companion charts, refreshed source palette and legends<br>**More loot sources** — Bonus Roll, Craft, Roll, Refund<br>**Removed Export to AI** — Export to CSV remains for History and Insights |
+| 1.2.0 | 2026-07-26 | **Currency capture** — currencies recorded as their own rows with a dedicated Insights section, in-game tooltips, quality colors, and blacklisting<br>**Insights dashboard overhaul** — Loot/Currency sections, per-character companion charts, refreshed source palette and legends<br>**More loot sources** — Bonus Roll, Craft, Roll, Refund<br>**Removed Export to AI** — Export to CSV remains for History and Insights |
 | 1.1.0 | 2026-07-20 | **Export to AI** report (Claude — Desktop, Code, and Web); **auction-house values** via Auctionator / TSM / OribosExchange, shown in a new AH Price column with its own settings page; **Blacklist / Whitelist** item filters; a **shared** History/Insights filter bar with new **Bound** and **Sub-Type** filters and **Group by Type**; Insights valued at market price. Plus settings-panel polish — the scrollbar no longer shifts the layout between pages, and Reset All / Purge are no longer clipped. |
 | 1.0.2 | 2026-07-12 | **Exclude quest items** — a new opt-out setting (on by default) that skips the temporary items you pick up during quests. Uncheck it to record them too. |
 | 1.0.1 | 2026-07-12 | Maintenance republish — a packaging-only change to refresh the CurseForge listing. No functional changes. |

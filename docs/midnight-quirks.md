@@ -23,7 +23,7 @@ The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from 
 
 ## Warbound bind state — two unreliable signals, merged
 
-Bind state above BOE/BOP — warbound, in its two flavours — has **two** sources, and *neither one is sufficient by itself*. Reading only one is the bug this section exists to prevent; it has been shipped twice.
+Bind state above BOE/BOP — warbound, in its two flavors — has **two** sources, and *neither one is sufficient by itself*. Reading only one is the bug this section exists to prevent; it has been shipped twice.
 
 **Signal A: the structured bind type.** `C_Item.GetItemInfo`'s 14th return is `Enum.ItemBind`, and 11.0 added the account values: `7` ToWoWAccount and `8` ToBnetAccount → `"WARBAND"`, `9` ToBnetAccountUntilEquipped → `"WARBAND_UE"` (`Compat.BindState`). Locale-free and needs no tooltip — but **Blizzard does not keep it honest**: item `278014`, a cache whose tooltip plainly reads "Binds to Warband until equipped", reports **`2` (OnEquip)** here. Verified in-game, not inferred. So a warbound answer from the bind type is trustworthy; its *silence* proves nothing.
 

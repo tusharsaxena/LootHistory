@@ -155,7 +155,7 @@ No stored palette. Add a helper `currencyColor(name) -> {r,g,b}`:
 - Memoize per name in a module-local cache table so a currency keeps one color within a session and
   across every chart that shows it.
 - `NEUTRAL` is reserved for the "Other" aggregate segment (§6.2) — the generator must not emit a
-  near-neutral grey; the fixed S/L above avoids that.
+  near-neutral gray; the fixed S/L above avoids that.
 
 **Testable seam:** `_hslToRgb` and the name→hue hash are pure and unit-tested (determinism +
 distinctness of a few sample names).
@@ -300,7 +300,7 @@ New unit tests:
 
 1. `_truncate`: under-cap passes through unchanged; over-cap yields `maxChars` glyphs ending in `…`
    and `wasTruncated = true`; boundary at exactly `maxChars`.
-2. `_hslToRgb`: known HSL→RGB conversions (red/green/blue/grey) within tolerance.
+2. `_hslToRgb`: known HSL→RGB conversions (red/green/blue/gray) within tolerance.
 3. `currencyColor`: deterministic (same name → same color across calls); distinct sample names →
    visibly different hues; never returns near-`NEUTRAL`.
 4. `_fitFontSize`: string within width → base size; string wider than max → scaled size

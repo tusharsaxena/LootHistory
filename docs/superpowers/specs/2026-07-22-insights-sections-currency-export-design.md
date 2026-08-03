@@ -4,12 +4,12 @@
 
 ## Goal
 
-Reorganise the in-game **Insights** tab into two clearly divided sections — **Loot** and
+Reorganize the in-game **Insights** tab into two clearly divided sections — **Loot** and
 **Currency** — augment the Currency section with better charts, and propagate the currency changes
 through **both** data exports (Insights CSV and the full **Export to AI** report, closing the
 long-deferred `TODO(currency-ai)`).
 
-Purely additive/reorganising: no capture, message-bus, or saved-variable schema changes.
+Purely additive/reorganizing: no capture, message-bus, or saved-variable schema changes.
 
 ## Decisions (ratified with the user)
 
@@ -17,8 +17,8 @@ Purely additive/reorganising: no capture, message-bus, or saved-variable schema 
   rest of the currency section, which sums quantity).
 - **Shared source palette**: improve the global `SOURCE_COLOR` map to be more distinct (applies to
   "Loot by source" and both currency-source charts alike) and add the two sources currently missing
-  from it — **REFUND** and **BONUS_ROLL** (today they fall back to grey).
-- **Currency Collected** bars use a **single neutral colour** (a magnitude chart, not per-currency).
+  from it — **REFUND** and **BONUS_ROLL** (today they fall back to gray).
+- **Currency Collected** bars use a **single neutral color** (a magnitude chart, not per-currency).
 - **No** separate "Top currencies" ranked-list panel (the Currency Collected bar chart covers it).
 - **Export to AI**: **full** currency support, folded into this spec.
 
@@ -65,31 +65,31 @@ when `stats.currencyTotals.events == 0`.
 ### 1c. Currency charts
 
 - **Currency Collected** (replaces the `renderListPanel` list): a `renderBarSection` chart — one bar
-  per currency (y-axis), `frac = qty / maxCurrencyQty`, value = amount, **single neutral colour**
+  per currency (y-axis), `frac = qty / maxCurrencyQty`, value = amount, **single neutral color**
   (`NEUTRAL`). Sorted qty desc.
 - **Currency by Source** (new): a `renderBarSection` chart — one bar per source, `frac = srcQty /
-  maxSrcQty`, value = total qty, coloured from the shared `SOURCE_COLOR`. Data from the new
+  maxSrcQty`, value = total qty, colored from the shared `SOURCE_COLOR`. Data from the new
   `stats.currencyBySource` (see Part 2). Sorted qty desc.
 - **Currency by Type × Source** (renamed from "Currency by source"): the existing
-  `renderStackedBarSection` (one stacked bar per currency, segments coloured by source), unchanged in
+  `renderStackedBarSection` (one stacked bar per currency, segments colored by source), unchanged in
   data. Header text becomes `"Currency by Type × Source"`. A **legend** is rendered directly beneath
   it.
 - **Currency by character** / **Currency over time**: unchanged, kept in the section.
 
-The `Currency — N types — biggest: …` highlight text becomes a small grey subtitle line under the
+The `Currency — N types — biggest: …` highlight text becomes a small gray subtitle line under the
 Currency divider (was the block header).
 
 ### 1d. Legend
 
-New helper `renderLegend(pool, rows, y, w, pad)` renders a wrap of **colour-swatch + source-label**
+New helper `renderLegend(pool, rows, y, w, pad)` renders a wrap of **color-swatch + source-label**
 entries under the Type × Source chart. Rows = the union of sources present in the currency data, sorted
-by total qty desc (same order/colour as Currency by Source, so the two read as one key). Uses a small
+by total qty desc (same order/color as Currency by Source, so the two read as one key). Uses a small
 frame pool like the other renderers.
 
 ### 1e. Palette (`SOURCE_COLOR`)
 
 Redesign the RGB values for distinctness on the dark background and **add `REFUND` and `BONUS_ROLL`**.
-Actual colours chosen following the **dataviz** skill's categorical-palette guidance (distinct hues,
+Actual colors chosen following the **dataviz** skill's categorical-palette guidance (distinct hues,
 adequate separation, readable fills). The set of source keys to cover:
 `KILL, CONTAINER, MPLUS, ROLL, BONUS_ROLL, QUEST, TRADE, MAIL, AH, VENDOR, CRAFT, DISENCHANT, MILLING,
 PROSPECTING, REFUND, OTHER`.
@@ -145,7 +145,7 @@ Pure function, extended unit tests.
 - Add a **Currency** subsection to the Insights tab mirroring the in-game section: Currency Collected,
   Currency by Source, Currency by Type × Source, Currency by character, Currency by day — computed
   client-side from the currency rows in `H`.
-- Render currency rows in the **History table** with blank item-only cells (name coloured by currency
+- Render currency rows in the **History table** with blank item-only cells (name colored by currency
   quality, source/zone/char/qty populated).
 - Refresh the shipped **sample `H`** with a couple of currency rows so the template's own sample report
   exercises the currency path.
@@ -192,7 +192,7 @@ Each phase lands green (tests + luacheck) before the next.
 ## Risks / open points
 
 - **Palette distinctness** with 16 source keys on a dark background is the main visual risk — dataviz
-  guidance mitigates; the legend + self-labeled Currency-by-Source bars make colours legible even if two
+  guidance mitigates; the legend + self-labeled Currency-by-Source bars make colors legible even if two
   hues are close.
 - **AI template engine** is the largest, most intricate change (1151-line self-contained HTML). Isolated
   as the final phase; the sample-data refresh + an assembler PASS on a currency export is the gate.

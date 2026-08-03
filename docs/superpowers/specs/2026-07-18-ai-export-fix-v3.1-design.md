@@ -38,7 +38,7 @@ Re-bucketing the log's seven findings against the current repo:
 we already ship" — including F1, whose "disagreement" is just the hand-count the tool does mechanically. The slow
 step and the truncated fetch the user flagged are the same story — both vanish the moment the tool runs
 (`--prompt` self-extracts both CSVs; `load_template` downloads the full 169 KB itself, no `web_fetch`).
-So v3.1 is a **behavioural-adoption** fix, not a new-code fix: make the tool the mandatory, first,
+So v3.1 is a **behavioral-adoption** fix, not a new-code fix: make the tool the mandatory, first,
 unmissable path and remove every "manual" affordance that lets a capable agent wander off it.
 
 The pasted prompt also confirms the addon prompt (`AIPrompt`) contains **no pointer to the tool at all** —
@@ -51,7 +51,7 @@ skimmed. Hence a pointer belongs in the prompt too (read before the guideline).
    the agent run `build_report.py`.
 2. **Force level: mandatory ("MUST").** A code-capable agent MUST run the tool; hand-transcription,
    hand-written splice/build scripts, and `web_fetch` of the template are explicitly forbidden. The
-   manual path is relabelled a fallback for genuinely code-incapable environments only.
+   manual path is relabeled a fallback for genuinely code-incapable environments only.
 3. **Prompt pointer: yes (belt & suspenders).** Add a tool pointer to `AIPrompt` in `modules/Export.lua`
    and update `tests/test_export.lua`. Caveat recorded: prompt text is baked into the installed addon,
    so it only reaches runs after the user updates in-game; the live-fetched guideline is the immediate
@@ -99,7 +99,7 @@ dataset as output tokens.** The data must reach disk **without passing back thro
   rows itself.
 - **Honest limit (unchanged from v3, stated plainly):** if the user pastes inline **and** the
   environment does not auto-file large pastes, the model must write the file once — unavoidable. That is
-  exactly why file-attachment is the loud primary instruction, not merely an optimisation.
+  exactly why file-attachment is the loud primary instruction, not merely an optimization.
 
 ### 4. Addon prompt pointer (`modules/Export.lua` `AIPrompt`)
 
@@ -133,7 +133,7 @@ today (no blank-`source` row observed in the pasted data), but it is a correctne
 - Guard it with a `tests/` unit case: a record with nil `source` exports as `OTHER` (not blank) and its
   By-Source bucket matches what `Stats` reports. This may add one Lua test case → if the case count
   moves, regenerate `docs/test-cases.md` and bump the README `tests` badge in the same change.
-- This is a data-path *consistency* fix, not a schema or behaviour change; the CSV contract is unchanged
+- This is a data-path *consistency* fix, not a schema or behavior change; the CSV contract is unchanged
   (a source column that was already meant to be one of the SourceType labels).
 
 ## Out of scope
@@ -142,7 +142,7 @@ today (no blank-`source` row observed in the pasted data), but it is a correctne
   fully addressed by forcing the tool; there is nothing to fix in the aggregation itself beyond the §6
   nil-`source` parity one-liner.
 - No change to the addon data path (CSV stays; no pre-built `H` in the prompt).
-- No engine, styling, or runtime-behaviour change. No version bump.
+- No engine, styling, or runtime-behavior change. No version bump.
 
 ## Success criteria
 

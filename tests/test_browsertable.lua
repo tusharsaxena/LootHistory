@@ -476,7 +476,7 @@ end)
 
 -- ── Cell rendering edges ───────────────────────────────────────────────────────
 
-test("BrowserTable: an unrecognised source still shows something in the Source column", function()
+test("BrowserTable: an unrecognized source still shows something in the Source column", function()
   assertEqual(cell("source", { source = "FUTURE_SOURCE" }), "FUTURE_SOURCE")
   assertEqual(cell("source", {}), "Other")
 end)

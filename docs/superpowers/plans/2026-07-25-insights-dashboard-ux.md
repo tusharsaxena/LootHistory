@@ -205,7 +205,7 @@ end
 - Produces:
   - `Analytics._hslToRgb(h, s, l) -> r, g, b` — pure; h,s,l and r,g,b all in [0,1].
   - `Analytics.currencyColor(name) -> {r, g, b}` — deterministic per name, memoized, never
-    near-`NEUTRAL` grey (fixed S/L keeps it saturated).
+    near-`NEUTRAL` gray (fixed S/L keeps it saturated).
 
 - [ ] **Step 1: Write the failing tests.** Append to `tests/test_analytics.lua`:
 
@@ -216,9 +216,9 @@ test("Analytics._hslToRgb: pure red", function()
   local r, g, b = NS.Analytics._hslToRgb(0, 1, 0.5)
   assertTrue(approx(r, 1) and approx(g, 0) and approx(b, 0), "expected ~(1,0,0)")
 end)
-test("Analytics._hslToRgb: zero saturation is grey", function()
+test("Analytics._hslToRgb: zero saturation is gray", function()
   local r, g, b = NS.Analytics._hslToRgb(0.3, 0, 0.5)
-  assertTrue(approx(r, 0.5) and approx(g, 0.5) and approx(b, 0.5), "expected mid grey")
+  assertTrue(approx(r, 0.5) and approx(g, 0.5) and approx(b, 0.5), "expected mid gray")
 end)
 test("Analytics.currencyColor: deterministic per name", function()
   local a = NS.Analytics.currencyColor("Valorstones")
@@ -237,7 +237,7 @@ end)
 - [ ] **Step 3: Implement.** In `modules/Analytics.lua`:
 
 ```lua
--- HSL→RGB (all components 0..1). Pure; used by the per-currency colour generator.
+-- HSL→RGB (all components 0..1). Pure; used by the per-currency color generator.
 function Analytics._hslToRgb(h, s, l)
   if s <= 0 then return l, l, l end
   local function hue(p, q, t)
@@ -252,9 +252,9 @@ function Analytics._hslToRgb(h, s, l)
   return hue(p, q, h + 1/3), hue(p, q, h), hue(p, q, h - 1/3)
 end
 
--- Deterministic distinct colour per currency name (stable across sessions, independent of which
+-- Deterministic distinct color per currency name (stable across sessions, independent of which
 -- currencies are present). Hash the name, walk the hue by the golden angle so distinct names land
--- far apart; fixed S/L keeps every colour saturated (never near NEUTRAL grey). Memoized per name.
+-- far apart; fixed S/L keeps every color saturated (never near NEUTRAL gray). Memoized per name.
 local currencyColorCache = {}
 function Analytics.currencyColor(name)
   name = name or "?"
@@ -438,7 +438,7 @@ end)
     (keep the key `currencyChar` to minimize churn; only the display text changes).
   - Keep pool key `curchar` (~452) — it now holds stacked bars.
   - Replace the entire "Currency by character" render block (~928–943) with a stacked render.
-    Currency names form the category axis; colours from `Analytics.currencyColor`. Order currencies
+    Currency names form the category axis; colors from `Analytics.currencyColor`. Order currencies
     by global total (desc) so segment positions stay consistent across character rows:
 
 ```lua
@@ -451,7 +451,7 @@ end)
       function(total) return tostring(total) end)
     y = self:renderStackedBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
 
-    -- Legend: one swatch per currency (same colours as the segments).
+    -- Legend: one swatch per currency (same colors as the segments).
     local curLegend = {}
     for _, cname in ipairs(curOrder) do
       curLegend[#curLegend + 1] = { label = cname, color = Analytics.currencyColor(cname) }
@@ -674,7 +674,7 @@ end
   `LayoutCharts` (and the `curcharlegend` from Task 5).
 
 - [ ] **Step 7: Render each companion right below its parent.** In `LayoutCharts`, immediately after
-  each parent `renderBarSection`/quality-mix block, insert the companion. Colour functions per chart:
+  each parent `renderBarSection`/quality-mix block, insert the companion. Color functions per chart:
 
 ```lua
   -- after Loot by source (~677):
@@ -686,17 +686,17 @@ end
 
   where `charSourceOrder` is the global source order (reuse `sortedByCount(stats.bySource)` mapped to
   keys). Build each order array once from the parent's own sorted data:
-  - Source / Value-source: `keys of sortedByCount(stats.bySource)` → colour `SOURCE_COLOR`.
+  - Source / Value-source: `keys of sortedByCount(stats.bySource)` → color `SOURCE_COLOR`.
     Value-source `valueFmt = money`.
-  - Quality: order `= {0..8 present, ascending}`; colour `qualityColor`; `valueFmt = tostring`.
-  - Item type: `keys of sortedByCount(stats.byType)`; colour `function() return {0.5,0.7,0.9} end`
-    (match the parent's fixed type colour at ~727); `tostring`.
-  - Bound: `BOUND_ORDER`; colour `function(k) return BOUND_COLOR[k] or NEUTRAL end`; `tostring`.
-  - Keystone: keys of `stats.byKeystone` sorted desc; colour `function() return SOURCE_COLOR.MPLUS end`
+  - Quality: order `= {0..8 present, ascending}`; color `qualityColor`; `valueFmt = tostring`.
+  - Item type: `keys of sortedByCount(stats.byType)`; color `function() return {0.5,0.7,0.9} end`
+    (match the parent's fixed type color at ~727); `tostring`.
+  - Bound: `BOUND_ORDER`; color `function(k) return BOUND_COLOR[k] or NEUTRAL end`; `tostring`.
+  - Keystone: keys of `stats.byKeystone` sorted desc; color `function() return SOURCE_COLOR.MPLUS end`
     (match parent ~800); `tostring`.
-  - Confidence: `{ "CERTAIN", "INFERRED" }`; colour `function(k) return CONF_COLOR[k] end`; `tostring`.
+  - Confidence: `{ "CERTAIN", "INFERRED" }`; color `function(k) return CONF_COLOR[k] end`; `tostring`.
 
-  Each companion uses the SAME colour lookup as its parent so segments match the parent bars.
+  Each companion uses the SAME color lookup as its parent so segments match the parent bars.
   A companion with an empty matrix renders nothing (`renderStackedBarSection` hides on `#rows == 0`).
 
 - [ ] **Step 8: Update `HideAllCharts`.** It iterates `self.headers` generically (~604), so the 7 new
@@ -732,8 +732,8 @@ end
 
 - [ ] **Step 1: `docs/browser.md`** — remove the "Currency by Source" chart row (~138); rename the
   "Currency by character" row (~140) to "Currency by Character × Type" with source
-  `currencyCharMatrix` + per-currency colour legend; add 7 rows for the "… by Character" companions
-  (matrix `charBySource`/etc, stacked, parent colours). Keep the note that `currencyBySource` still
+  `currencyCharMatrix` + per-currency color legend; add 7 rows for the "… by Character" companions
+  (matrix `charBySource`/etc, stacked, parent colors). Keep the note that `currencyBySource` still
   feeds the Export "Currency by Source" section.
 - [ ] **Step 2: `docs/data-model.md`** — under the Stats section (~137), add `currencyCharMatrix` and
   the 7 `char*` matrices; note `currencyBySource` is now export-only (no dashboard chart).
@@ -742,9 +742,9 @@ end
   "N passed" — use N). Same change as Step 3.
 - [ ] **Step 5: `docs/smoke-tests.md`** — add in-game checks: (a) `value`/`richest` headline font
   matches `records`, no overflow/wrap; (b) no "Currency by Source" chart; (c) "Currency by
-  Character × Type" stacked + distinct per-currency colours + legend; (d) long labels truncate with
+  Character × Type" stacked + distinct per-currency colors + legend; (d) long labels truncate with
   "…" and hover shows the full name, in BOTH sections; (e) all 7 "… by Character" companions appear
-  directly below their parent with matching segment colours.
+  directly below their parent with matching segment colors.
 - [ ] **Step 6: Final verification** — `lua tests/run.lua` (green, count matches badge) and
   `luacheck .` (0 errors).
 - [ ] **Step 7: Leave everything in the working tree; report the diff summary + owed in-game smoke.**
@@ -757,7 +757,7 @@ end
 - Headline font → Task 1. ✓
 - Delete Currency-by-Source (chart only; aggregation kept for Export) → Task 2 (+ corrected the
   spec's "pending grep" — grep done, Export reads it, aggregation stays). ✓
-- Currency by Character × Type + generated per-currency colours → Tasks 3 (colour) + 5 (agg+render). ✓
+- Currency by Character × Type + generated per-currency colors → Tasks 3 (color) + 5 (agg+render). ✓
 - Truncation + tooltips both sections → Task 4. ✓
 - 7 companions → Tasks 6 (7 matrices) + 7 (helper + render). ✓
 - Testing / badge / docs / smoke → Tasks 1,3,4,5,6,7 (unit) + Task 9 (docs/badge/smoke). ✓

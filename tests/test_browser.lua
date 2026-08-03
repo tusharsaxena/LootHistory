@@ -132,7 +132,7 @@ end)
 
 -- ── Data-driven option builders ────────────────────────────────────────────────
 
-test("Browser: source options are the distinct sources, human-labelled, All first", function()
+test("Browser: source options are the distinct sources, human-labeled, All first", function()
   withFixture(FIXTURE, function()
     local opts = B._options.source()
     assertEqual(opts[1].value, "all")
@@ -198,7 +198,7 @@ end)
 test("Browser: quality options carry the quality tint", function()
   withFixture(FIXTURE, function()
     local opts = B._options.quality()
-    assertTrue(opts[2].color ~= nil, "each real quality is colour-tinted")
+    assertTrue(opts[2].color ~= nil, "each real quality is color-tinted")
     assertEqual(opts[1].color, nil, "the All sentinel is not tinted")
   end)
 end)
@@ -231,11 +231,11 @@ test("Browser: character options list each looter once, All then Current first",
   end)
 end)
 
-test("Browser: character options carry the class colour and icon markup", function()
+test("Browser: character options carry the class color and icon markup", function()
   withFixture(FIXTURE, function()
     local byValue = {}
     for _, o in ipairs(B._options.char()) do byValue[o.value] = o end
-    assertTrue(byValue["Ka0z-Realm"].color ~= nil, "a known class is colour-tinted")
+    assertTrue(byValue["Ka0z-Realm"].color ~= nil, "a known class is color-tinted")
     assertTrue(byValue["Ka0z-Realm"].icon ~= "", "a known class carries inline icon markup")
     assertEqual(byValue["Nomad-Other"].color, nil, "an unknown class stays untinted")
     assertEqual(byValue["Nomad-Other"].icon, "", "an unknown class carries no icon")

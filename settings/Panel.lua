@@ -15,11 +15,11 @@ local O = NS.Options
 --   * Each settings group is a canvas SUBCATEGORY ("General") with a breadcrumb
 --     header ("Ka0s Loot History ▸ General"), a Defaults button, and a gold divider.
 --   * Bodies render schema rows into a TWO-COLUMN grid (50%/50% Flow rows);
---     section headings (AceGUI Heading, centred label flanked by dividers) group them.
+--     section headings (AceGUI Heading, centered label flanked by dividers) group them.
 -- All of the above is now the library's. Writes still route through NS.Schema:Set (validate → write
 -- → onChange); reads via :Get — the descriptor points at both.
 
-local ADDON_TAGLINE = "Records every item you loot, attributes its source, and lets you browse and analyse it."
+local ADDON_TAGLINE = "Records every item you loot, attributes its source, and lets you browse and analyze it."
 local LOGO_PATH     = "Interface\\AddOns\\LootHistory\\media\\logos\\loothistory.logo.tga"
 local LOGO_SIZE     = 300  -- landing-page logo display size
 
@@ -46,7 +46,7 @@ end
 -- the checkbox state.
 --
 -- DECLINED from the library, deliberately: its five makers are checkbox / slider / dropdown /
--- editbox / colour picker, and an inverted set picker is none of them. The row carries `skipRender`
+-- editbox / color picker, and an inverted set picker is none of them. The row carries `skipRender`
 -- so the schema, the CLI and every reset still see it, and it is drawn from `afterGroup` below —
 -- which fires after its group's last row is flushed, i.e. exactly where it used to sit.
 local function makeMultiCheck(ctx, row, scroll)
@@ -160,7 +160,7 @@ local function filterEntryLabel(id, onCached)
   return shown .. "  |cff808080(" .. id .. ")|r"
 end
 
--- Label for a currency-blacklist entry: the currency's name (grey id suffix), or a placeholder.
+-- Label for a currency-blacklist entry: the currency's name (gray id suffix), or a placeholder.
 local function currencyEntryLabel(id)
   local name = NS.Compat.CurrencyName and NS.Compat.CurrencyName(id)
   if not name then return "|cffaaaaaaCurrency " .. id .. "|r" end
@@ -347,7 +347,7 @@ local ACOL = { tick = 2, addon = 26, module = 148, order = 330, enabled = 384, s
 local AROW_H, AHEAD_H = 22, 32   -- row pitch; AHEAD_H = header→first-row gap (roomy header band)
 local HEAD_Y = -8                -- header baseline inside the host (gap above the header)
 local GOLD_RGB = { 0.91, 0.77, 0.42 }
--- Extremely-muted Status colours: collecting = green, not collecting = yellow, not installed = red.
+-- Extremely-muted Status colors: collecting = green, not collecting = yellow, not installed = red.
 local STATUS_RGB = {
   collecting    = { 0.46, 0.60, 0.46 },
   notcollecting = { 0.66, 0.62, 0.42 },
@@ -446,7 +446,7 @@ local function refreshAuctionTable(ctx)
 
     r.tick:SetText("|T" .. (live and READY or NOTREADY) .. ":16|t")
 
-    -- Addon name: no per-provider colour any more — just near-white, dimmed when inactive.
+    -- Addon name: no per-provider color any more — just near-white, dimmed when inactive.
     r.addon:SetText(providerNameOf(tag))
     local ag = live and 0.86 or 0.5
     r.addon:SetTextColor(ag, ag, ag)
@@ -525,7 +525,7 @@ local function buildAuctionTable(ctx)
 
   -- Reusable row slots (created once). Text = FontStrings; ⓘ + an AceGUI checkbox are per-slot frames,
   -- arrows are created lazily by ensureArrows only for slots that become active. Cells are nudged down
-  -- from the row's top edge so text/controls sit vertically centred in the ~22px band.
+  -- from the row's top edge so text/controls sit vertically centered in the ~22px band.
   local rows = {}
   for i = 1, N do
     local y = -(AHEAD_H + (i - 1) * AROW_H)
@@ -603,7 +603,7 @@ local function buildMainContent(ctx)
   -- CONVERGENCE (LibKa0s adoption). This page used to carry its OWN command-row formatter — double
   -- spaces around the em dash, the dash explicitly white-wrapped, the description left bare — while
   -- settings/Slash.lua two files away already rendered the same data another way. Both now go
-  -- through lib.FormatRow: single spaces, no colour span on the dash, the description white.
+  -- through lib.FormatRow: single spaces, no color span on the dash, the description white.
   -- Deliberate and user-visible; do not "fix" it back. See docs/pending/LEDGER.md, LIBKA0S-09.
   for _, line in ipairs(NS.Slash.LandingRows and NS.Slash:LandingRows() or {}) do
     local labelRow = NS.AceGUI:Create("Label")
@@ -687,7 +687,7 @@ end
 
 function P:RestoreDefaults()
   if NS.Slash and NS.Slash.CliResetAll then NS.Slash:CliResetAll() end
-  -- Defaults also recentres the window (position is part of "stock state"); history/view are left alone.
+  -- Defaults also recenters the window (position is part of "stock state"); history/view are left alone.
   if NS.Browser and NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
   P:Refresh()
 end

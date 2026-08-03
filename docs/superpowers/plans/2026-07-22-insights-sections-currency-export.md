@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Reorganise the in-game Insights tab into Loot/Currency sections with improved currency charts, and propagate currency end-to-end through both data exports (Insights CSV + the full Export-to-AI report).
+**Goal:** Reorganize the in-game Insights tab into Loot/Currency sections with improved currency charts, and propagate currency end-to-end through both data exports (Insights CSV + the full Export-to-AI report).
 
 **Architecture:** Additive changes to `modules/Analytics.lua` (dividers, reorder, currency charts, legend, palette), one new stat in `core/Database.lua`, Insights-CSV + AI-CSV changes in `modules/Export.lua`, and full currency handling in the AI report assets (`docs/ai-export-guideline.md`, `docs/ai-export-template.html`, `tools/build_report.py`). No capture, message-bus, or AceDB-schema changes.
 
@@ -200,7 +200,7 @@ Keep `self.currencyPanel` allocation for now (removed if unused after Task; safe
 
 - [ ] **Step 3: Replace the "Top currencies" list render (~line 755-761)** with a bar section:
 ```lua
-    -- Currency Collected — one bar per currency, length = qty relative to the largest, neutral colour.
+    -- Currency Collected — one bar per currency, length = qty relative to the largest, neutral color.
     local curMax = 1
     for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMax then curMax = curTotal end end
     local collectedRows = {}
@@ -215,7 +215,7 @@ Keep `self.currencyPanel` allocation for now (removed if unused after Task; safe
 
 Run: `luacheck modules/Analytics.lua 2>&1 | tail -1`
 Expected: OK.
-Smoke: the "Currency collected" list is now a neutral-colour horizontal bar chart titled "Currency Collected", one bar per currency, sorted qty desc.
+Smoke: the "Currency collected" list is now a neutral-color horizontal bar chart titled "Currency Collected", one bar per currency, sorted qty desc.
 
 - [ ] **Step 5: Commit**
 
@@ -253,7 +253,7 @@ Add `"curbysrc"` to the pool release list (Step 2 pattern from Task 3).
     y = self:renderBarSection(P.curbysrc, H.currencyBySrc, csRows, y, w, pad)
 ```
 
-- [ ] **Step 3: Lint + smoke** — `luacheck modules/Analytics.lua`; smoke: a "Currency by Source" bar chart appears, one source per bar, coloured by source, total-quantity length.
+- [ ] **Step 3: Lint + smoke** — `luacheck modules/Analytics.lua`; smoke: a "Currency by Source" bar chart appears, one source per bar, colored by source, total-quantity length.
 
 - [ ] **Step 4: Commit**
 ```bash
@@ -274,7 +274,7 @@ git commit -m "feat(insights): Currency by Source chart (total qty per source)"
 ```
 (`\195\151` = "×".)
 
-- [ ] **Step 2: Add a `makeSwatch` + `renderLegend` helper** (near the other `make*`/`render*` helpers, ~line 198/420). A legend row = colour swatch + label, wrapped across the width.
+- [ ] **Step 2: Add a `makeSwatch` + `renderLegend` helper** (near the other `make*`/`render*` helpers, ~line 198/420). A legend row = color swatch + label, wrapped across the width.
 
 ```lua
 local function makeSwatch(parent)
@@ -289,7 +289,7 @@ local function makeSwatch(parent)
 end
 ```
 ```lua
--- Render a wrapped legend of colour-swatch + label chips. rows = { { label, color = {r,g,b} } }.
+-- Render a wrapped legend of color-swatch + label chips. rows = { { label, color = {r,g,b} } }.
 function Analytics:renderLegend(pool, rows, y, w, pad)
   local x, rowY, chipW = pad, y, 120
   for _, row in ipairs(rows) do
@@ -306,7 +306,7 @@ end
 ```
 Add `"curlegend"` to the pool release list.
 
-- [ ] **Step 3: Render the legend right after the stacked chart** (`y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)`), using the same source order/colours as Currency by Source:
+- [ ] **Step 3: Render the legend right after the stacked chart** (`y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)`), using the same source order/colors as Currency by Source:
 ```lua
     local legendRows = {}
     for _, e in ipairs(sortedByCount(stats.currencyBySource or {})) do
@@ -316,7 +316,7 @@ Add `"curlegend"` to the pool release list.
     y = self:renderLegend(P.curlegend, legendRows, y, w, pad)
 ```
 
-- [ ] **Step 4: Lint + smoke** — `luacheck modules/Analytics.lua`; smoke: the stacked chart is titled "Currency by Type × Source" and a colour legend (swatch + source name) sits under it, colours matching Currency by Source.
+- [ ] **Step 4: Lint + smoke** — `luacheck modules/Analytics.lua`; smoke: the stacked chart is titled "Currency by Type × Source" and a color legend (swatch + source name) sits under it, colors matching Currency by Source.
 
 - [ ] **Step 5: Commit**
 ```bash
@@ -348,7 +348,7 @@ local SOURCE_COLOR = {
 }
 ```
 
-- [ ] **Step 3: Lint + smoke** — `luacheck modules/Analytics.lua`; smoke: Loot by source, Currency by Source, and the Type×Source legend all use the new distinct colours, and Refund/Bonus Roll are no longer grey.
+- [ ] **Step 3: Lint + smoke** — `luacheck modules/Analytics.lua`; smoke: Loot by source, Currency by Source, and the Type×Source legend all use the new distinct colors, and Refund/Bonus Roll are no longer gray.
 
 - [ ] **Step 4: Commit**
 ```bash
@@ -539,11 +539,11 @@ git commit -m "feat(ai-export): build_report.py parses currency rows, excludes f
 
 - [ ] **Step 3: Add a Currency subsection to `renderInsights`** (append cards before `$("#rpt-insights").innerHTML=out.join('')`), computed from `var cur=rows.filter(function(r){return r.cid!=null;});` — render only when `cur.length`:
   - **Currency Collected** — `bars()` of `groupBy(cur, function(r){return r.n;})` by qty, neutral fill.
-  - **Currency by Source** — `bars()` of currency qty grouped by `srcName(r.s)`, coloured via a source→colour map (add a `SRCCOLOR` JS object mirroring the Lua `SOURCE_COLOR`, hex form).
-  - **Currency by Type × Source** — a stacked/segmented bar per currency (or, to reuse `bars()`, one grouped card per currency); include a small legend of source colours.
+  - **Currency by Source** — `bars()` of currency qty grouped by `srcName(r.s)`, colored via a source→color map (add a `SRCCOLOR` JS object mirroring the Lua `SOURCE_COLOR`, hex form).
+  - **Currency by Type × Source** — a stacked/segmented bar per currency (or, to reuse `bars()`, one grouped card per currency); include a small legend of source colors.
   - Reuse the existing `bars()`/`toplist()` helpers where possible; keep classes/styling intact (no new CSS).
 
-- [ ] **Step 4: Render currency rows in the History table.** In `rowHTML` (971), branch on `r.cid!=null`: name cell = currency name coloured by quality (no `href`, since `r.wh` is empty — render a `<span class="il qt-<q>">` not an `<a>`); iLvl/Vendor/Auction cells show `—`; Type="Currency", Subtype=category, Source badge + Zone as normal. Ensure `dataTT`/`ilink` are not called with a broken link for currency (guard `ilink` or add `curName(r)`).
+- [ ] **Step 4: Render currency rows in the History table.** In `rowHTML` (971), branch on `r.cid!=null`: name cell = currency name colored by quality (no `href`, since `r.wh` is empty — render a `<span class="il qt-<q>">` not an `<a>`); iLvl/Vendor/Auction cells show `—`; Type="Currency", Subtype=category, Source badge + Zone as normal. Ensure `dataTT`/`ilink` are not called with a broken link for currency (guard `ilink` or add `curName(r)`).
 
 - [ ] **Step 5: Build + validate.** Produce a currency-bearing export (in-game `/lh` → Export → AI on an account with currency, or hand-craft `history.csv` + `insights.csv`), then:
 ```bash

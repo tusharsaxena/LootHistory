@@ -45,7 +45,7 @@ end)
 
 test("Constants: SourceLabel carries no label for a non-source key", function()
   for k in pairs(C.SourceLabel) do
-    assertTrue(C.SourceType[k] ~= nil, k .. " is labelled but is not a source")
+    assertTrue(C.SourceType[k] ~= nil, k .. " is labeled but is not a source")
   end
 end)
 
@@ -118,12 +118,12 @@ test("Constants: the quality ladder is Poor..Legendary then Heirloom, skipping 6
   for i, want in ipairs({ 0, 1, 2, 3, 4, 5, 7 }) do assertEqual(values[i], want) end
 end)
 
-test("Constants: every quality option carries a coloured '<name> and above' text", function()
+test("Constants: every quality option carries a colored '<name> and above' text", function()
   for _, o in ipairs(C.QUALITY_OPTIONS) do
     assertTrue(type(o.value) == "number", "value is the quality id")
-    assertTrue(o.text:find("|cff", 1, true) == 1, "the quality name is colour-wrapped")
+    assertTrue(o.text:find("|cff", 1, true) == 1, "the quality name is color-wrapped")
     assertTrue(o.text:find(" and above", 1, true) ~= nil, "the threshold reads 'and above'")
-    assertTrue(o.text:find("|r", 1, true) ~= nil, "the colour is closed")
+    assertTrue(o.text:find("|r", 1, true) ~= nil, "the color is closed")
   end
 end)
 
@@ -137,7 +137,7 @@ test("Constants: the retention presets ascend and end on 'Always' (0 = disabled)
   end
 end)
 
--- ── Auction-price key catalogue ────────────────────────────────────────────────
+-- ── Auction-price key catalog ────────────────────────────────────────────────
 
 test("Constants: every auction key is fully described", function()
   for _, k in ipairs(C.AUCTION_KEYS) do

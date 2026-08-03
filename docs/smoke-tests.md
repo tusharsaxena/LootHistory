@@ -155,9 +155,9 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   needs a follow-up (see ARCHITECTURE Known limitations).
 - Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
   a Lua error, never a missing row.
-- The denormalized columns render correctly: item link (exact tooltip), quality colour, iLvl, bound
+- The denormalized columns render correctly: item link (exact tooltip), quality color, iLvl, bound
   glyph (BoE/BoP/Warbound/Warbound-until-equipped), the Vendor and AH price columns, type, zone,
-  and the Character column (class icon + class colour).
+  and the Character column (class icon + class color).
 - With debug on (§12), a currency loot logs `[Currency] <name> x<n> id=<id> src=<source>` and adds a
   `Type=Currency` row (blank iLvl/Vendor/AH cells; the Type filter isolates it). Turning
   off **Record currency** stops new currency rows; muting a source stops that source's currency too.
@@ -165,7 +165,7 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   currency-by-character×type, currency-over-time). §F-010: verify the currency **category** (SubType) reads
   a real header like "The War Within" — if it's blank, `Compat.CurrencyCategory` couldn't resolve the
   currency-list headers on this client and needs a look.
-- **Currency quality (name colour + Quality column).** The currency row's **Name** cell is coloured by
+- **Currency quality (name color + Quality column).** The currency row's **Name** cell is colored by
   its own `C_CurrencyInfo` quality tier (not blank/white), and the **Quality** column shows that
   tier's label — the same rendering the History table already gives item rows. Hovering the row shows
   the **in-game currency tooltip** (`GameTooltip:SetCurrencyByID`), not an item tooltip and not a
@@ -176,11 +176,11 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   from `C_CurrencyInfo.isAccountTransferable` (`Compat.CurrencyBound`).
 - **v3→v4 backfill.** With currency rows already in history from **before** this change (looted while
   on an older build, so their `quality` is nil), run `/reload`. After reload, those older currency
-  rows go from **white/blank Name + blank Quality** to **coloured Name + filled Quality** — the
+  rows go from **white/blank Name + blank Quality** to **colored Name + filled Quality** — the
   migration backfilled `quality` in place without adding or removing any rows. (If no pre-change
   currency rows are available, this step can be skipped — see §14 for the schema-stamp confirmation.)
 - **v4→v5 backfill (bound).** Same idea for the Bound column: currency rows captured **before** the
-  bound change have `bound = nil` (blank/faint-grey glyph). After `/reload`, the v4→v5 migration
+  bound change have `bound = nil` (blank/faint-gray glyph). After `/reload`, the v4→v5 migration
   backfills each resolvable currency's bound in place — Warband-transferable → **blue/Warbound**, else
   **green/Bind on Pickup** — with no rows added or removed.
 
@@ -236,7 +236,7 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
   name (schema v7→v8), never silently unfiltered.
 - **Bound filter:** open **Bound** and pick **Not Bound**, then add **Bind on Equip**. The five
   options (Not Bound / Bind on Equip / Bind on Pickup / Warbound / Warbound Until Equipped) match
-  the Bound column's header-tooltip legend. Confirm the visible rows' lock colours match the selected states, and that
+  the Bound column's header-tooltip legend. Confirm the visible rows' lock colors match the selected states, and that
   **Not Bound** matches rows with no lock.
 - **Search:** type into **Search items…**; clear it.
 - **Row actions:** right-click a row → context menu (**Link to chat**, **Delete**). Shift-left-click a
@@ -325,7 +325,7 @@ exports depends on which tab is showing.
   only in its own Currency sections), so a character's total tallies across them. Confirm the export
   has **no** By Keystone, Attribution Confidence, Currency by Source, flat Currency by Character, or
   currency Summary rows — the dashboard dropped those, so the export does too.
-- **All Data** covers the whole (visible) history; **Current View** honours the **shared filter** — so
+- **All Data** covers the whole (visible) history; **Current View** honors the **shared filter** — so
   narrowing the filter bar shrinks *both* the History and the Insights export.
 - Text is auto-highlighted; Ctrl+C copies; Esc closes.
 - Both the modal and the copy window open **centered on the History window** (not the screen).
@@ -371,23 +371,23 @@ exports depends on which tab is showing.
 - **"… × Character" companions.** Immediately below each of the five categorical loot charts sits its
   matching **stacked** companion — Loot By Character × Source / Quality / Item Type / Bound Type, and
   Value By Character × Source — character on the Y axis, segments reusing the parent chart's category
-  colours. A companion with no data hides itself.
-- **Coloured item-type / weekday / currency bars.** "Loot By Item Type", "Loot By Weekday", and
-  "Currency Collected" bars are now **distinctly coloured per category** (item type / day / currency),
-  not a single flat colour. Item-type and currency colours match their × Character companions.
-- **Bar-coloured labels.** On single-bar charts the row label text is coloured to **match its bar**
-  (e.g. Loot By Source labels take each source's colour). Exceptions keep their own colour: Loot By
-  Quality (quality colour) and per-character bars (class colour). Stacked-bar labels are unchanged.
-- **Palette + non-adjacency.** Categories without a predefined colour (item types, currencies,
+  colors. A companion with no data hides itself.
+- **Colored item-type / weekday / currency bars.** "Loot By Item Type", "Loot By Weekday", and
+  "Currency Collected" bars are now **distinctly colored per category** (item type / day / currency),
+  not a single flat color. Item-type and currency colors match their × Character companions.
+- **Bar-colored labels.** On single-bar charts the row label text is colored to **match its bar**
+  (e.g. Loot By Source labels take each source's color). Exceptions keep their own color: Loot By
+  Quality (quality color) and per-character bars (class color). Stacked-bar labels are unchanged.
+- **Palette + non-adjacency.** Categories without a predefined color (item types, currencies,
   weekdays) draw from a standard **inverse-VIBGYOR** palette assigned by sort rank, so **no two similar
-  colours sit next to each other** in a chart or legend (contrast the old look where adjacent
+  colors sit next to each other** in a chart or legend (contrast the old look where adjacent
   currencies could be near-identical).
 - **Companion segment order.** In each × Character companion the stacked segments run in the **same
   order as the parent chart's Y axis** — e.g. Loot By Character × Bound Type segments follow the same
   order the bars appear in Loot By Bound Type; Value By Character × Source follows the value-desc order.
 - **Legends below every categorical chart.** Every single-bar categorical chart (Loot by source, Value
   by source, Quality distribution, Loot by item type, Loot by bound type, Currency Collected) **and**
-  every stacked companion now shows a **colour-swatch legend** beneath it. Each legend's swatches
+  every stacked companion now shows a **color-swatch legend** beneath it. Each legend's swatches
   **start at the bars' left edge**, aligned under the bars (not under the text-label column).
 - **Legend label truncation.** Long legend labels (e.g. "Artisan Enchanter's Moxie", "Midnight
   Enchanting Knowledge") are **truncated with a "…"** so chips don't overlap; hovering a legend chip
@@ -409,16 +409,16 @@ exports depends on which tab is showing.
   chips under the "… by Character" companion charts, which have no single value.
 - **Cursor-anchored tooltips.** Every Insights hover tooltip (row labels and segments) appears just
   **above-and-right of the cursor**, not pinned to the row's far-right edge.
-- **Per-segment tooltips.** Hovering an individual coloured segment of any stacked bar (Character ×
+- **Per-segment tooltips.** Hovering an individual colored segment of any stacked bar (Character ×
   Source, Currency by Type × Source, Currency by Character × Type, Quality mix, etc.) shows a tooltip
   naming that segment: **"&lt;category&gt;: &lt;value&gt;"** (e.g. "Kill: 45", "Valorstones: 40").
 - Loot an item, then a currency (or use `/lh test`, §8, which seeds both) with Insights open on a
   history/filter that includes currency loot: the **CURRENCY** divider appears below **LOOT** (the old
   "Currency — N types — biggest: …" summary line is **gone**), followed by
-  **Currency Collected** (one distinctly-coloured bar per currency, length = qty, with a legend),
-  **Currency by Type × Source** (one *stacked* bar per currency, segments coloured by the source it
+  **Currency Collected** (one distinctly-colored bar per currency, length = qty, with a legend),
+  **Currency by Type × Source** (one *stacked* bar per currency, segments colored by the source it
   came from, with a source **legend** below), and **Currency by Character × Type** (one *stacked* bar per character,
-  one segment per currency, **each currency a distinct colour**, with a per-currency **legend**
+  one segment per currency, **each currency a distinct color**, with a per-currency **legend**
   below), then **Currency over time** (a per-day strip). Confirm the old **Currency by Source** bar
   chart is **gone** and the old flat "Currency by character" bar is **replaced** by the stacked
   Character × Type chart. Narrow the filter to a range with **no** currency loot (e.g. a single day
@@ -504,11 +504,11 @@ destructive-action confirm dialogs.
 - `/lh purge` from chat.
 
 **Pass.**
-- The scrollbar is **always shown**: on a short page the bar renders parked at the top and **greyed /
+- The scrollbar is **always shown**: on a short page the bar renders parked at the top and **grayed /
   disabled** (it does not auto-hide), so the right gutter is always reserved and the body's left/right
   margins **don't jump** between a short and a long subpage.
 - **Reset All** and **Purge history…** each draw their **full right border** (not shaved by the scroll
-  gutter) and line up cleanly with their left-hand neighbour — no spill past the panel edge
+  gutter) and line up cleanly with their left-hand neighbor — no spill past the panel edge
   (`BUTTON_PAIR_REL` pairing via `makePairButton`).
 - **Purge history…** raises `KA0S_LOOTHISTORY_PURGE` ("Delete ALL … records? This cannot be undone.");
   Cancel leaves the data intact, Accept wipes history and prints "history purged."
@@ -557,7 +557,7 @@ are **independent**.
 - `/lh debug on` enables logging; loot emits a tagged `<ts> | [Loot] …` line (and gated drops emit
   `[Drop] …`). `/lh debug off` stops logging. Logging runs **even with the window closed** — reopening
   the window shows the lines captured while it was hidden.
-- Each state change prints a colour-coded chat ack — `[LH] debug logging |cff40ff40ON|r` (green) /
+- Each state change prints a color-coded chat ack — `[LH] debug logging |cff40ff40ON|r` (green) /
   `|cffff4040OFF|r` (red) — and appends a console line at **both** transitions: `[Debug] logging enabled`
   on enable (immediately followed by the `[Init]` summary, below) and `[Debug] logging disabled` on disable.
 - **Copy** opens an editbox of plain text; **Clear** empties the log; **ESC** closes the window; the
@@ -727,7 +727,7 @@ already identical to the library's, so **anything that looks different here is t
    The two-column pairing is unchanged: Enable collection | Hide minimap button, then Debug console
    alone, then Window scale | Reset All; then Minimum quality | Keep history for, then Record
    currency | Exclude quest items, then the full-width **Record data from** grid.
-4. The scrollbar is present and greyed on a short page, live on a long one, and **the body's right
+4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
    edge does not shift** as you click between pages (options-ui-§10).
 5. On **AH Price**, click away to another page and back several times. There must be **no freeze** —
    that page's eleven row slots are pooled, and `SetRenderer` is deliberately declined on it for
@@ -755,9 +755,9 @@ already identical to the library's, so **anything that looks different here is t
 window edge is specified normatively in standalone-windows-§2 and `Core.SKIN` carries it, so the
 three sibling addons that used to draw a 12px tooltip border now match. Put two Ka0s consoles on
 screen at once and they must be indistinguishable. Open `/lh debug` and confirm: the
-flat 1px black border with the subtle lighter inner line, the **gold** title, the grey divider under
+flat 1px black border with the subtle lighter inner line, the **gold** title, the gray divider under
 the title bar — and Core's **thin 18×18 ×** in the top-right, the same one every other Ka0s addon's
-console wears. It is deliberately **not** this addon's own 24×24 class-coloured glyph: the History
+console wears. It is deliberately **not** this addon's own 24×24 class-colored glyph: the History
 window keeps that one, and these two windows are the library's (standalone-windows-§2 — the edge is
 shared across every Ka0s window, the close control on a library-drawn window is the library's).
 **Copy** and **Clear** sit to its left with an even gap; none of the three overlaps. Check the copy

@@ -35,12 +35,12 @@ end)
 
 -- ── FormatKV: shared gold-key / white-value line (slash-commands-§5) ──
 
-test("FormatKV colours the key gold and the value white with a default separator", function()
+test("FormatKV colors the key gold and the value white with a default separator", function()
   assertEqual(Sl.FormatKV("settings.enabled", "true"),
     "|cFFFFFF00settings.enabled|r = |cFFFFFFFFtrue|r")
 end)
 
--- ── BuildListLines: grouped, coloured, prefixed list output (slash-commands-§5) ──
+-- ── BuildListLines: grouped, colored, prefixed list output (slash-commands-§5) ──
 
 local function findLine(lines, needle)
   for _, l in ipairs(lines) do if l:find(needle, 1, true) then return l end end
@@ -169,7 +169,7 @@ test("/lh resetall also clears the blacklist and whitelist (non-destructive sett
   NS.Filters:AddBlacklist(101)
   NS.Filters:AddWhitelist(202)
   local out = capture(function() Sl:CliResetAll() end)
-  -- RENDERED CHANGE: the acknowledgement is the library's, capital A. The filter-list half is not
+  -- RENDERED CHANGE: the acknowledgment is the library's, capital A. The filter-list half is not
   -- the library's and cannot be — the two item-id lists are a storage carve-out with no schema row,
   -- so NS.Slash:CliResetAll wraps the library verb to clear them first.
   assertEqual(out[1], NS.PREFIX .. " All settings reset to defaults")
@@ -193,7 +193,7 @@ test("Reset All (ResetEverything) purges history and clears settings + filter li
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1, "schema setting back to default")
 end)
 
--- ── prefix colour (slash-commands-§4): the shared tag must be cyan ──
+-- ── prefix color (slash-commands-§4): the shared tag must be cyan ──
 
 test("NS.PREFIX is the mandated cyan [LH] tag", function()
   assertEqual(NS.PREFIX, "|cff00ffff[LH]|r")
@@ -217,7 +217,7 @@ test("every Slash string this addon renders resolves to prose, not to a key", fu
   assertEqual(#rendered, 5, "all five must resolve, or the loop below runs over a short list")
   for _, s in ipairs(rendered) do
     assertTrue(type(s) == "string" and s ~= "", "unresolved string")
-    -- The cyan tag and the colour codes are stripped so a key would be the only thing left that
+    -- The cyan tag and the color codes are stripped so a key would be the only thing left that
     -- could match; without this the pattern could never fire on a tagged line and the case would
     -- be one that cannot fail.
     local bare = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
@@ -257,7 +257,7 @@ test("a command row is gold command, single-spaced em dash, white description", 
   assertEqual(first, "|cFFFFFF00/lh show|r \226\128\148 |cFFFFFFFFOpen the window|r")
   assertEqual(first, lib.FormatRow("/lh show", "Open the window"))
   -- The divergence that is gone: the old landing form put TWO spaces either side of the dash and
-  -- wrapped the dash itself in white while leaving the description uncoloured.
+  -- wrapped the dash itself in white while leaving the description uncolored.
   assertTrue(first:find("|r  |cffffffff\226\128\148|r  ", 1, true) == nil,
     "the double-spaced, white-wrapped-dash landing form must not come back")
 end)

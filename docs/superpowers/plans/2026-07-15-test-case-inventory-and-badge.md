@@ -27,7 +27,7 @@
 - Modify: `tests/run.lua`
 
 **Interfaces:**
-- Produces: `lua tests/run.lua --list` → prints the full inventory Markdown to stdout and `os.exit(0)` without running tests. Default `lua tests/run.lua` behaviour (run + `PASS`/`FAIL` + `N passed, N failed, N total` tail + non-zero exit on failure) is unchanged.
+- Produces: `lua tests/run.lua --list` → prints the full inventory Markdown to stdout and `os.exit(0)` without running tests. Default `lua tests/run.lua` behavior (run + `PASS`/`FAIL` + `N passed, N failed, N total` tail + non-zero exit on failure) is unchanged.
 
 > **Note on TDD:** this task modifies the test *runner itself*, so it has no separate unit test — the runner cannot cleanly assert on its own CLI. Verification is running both modes and eyeballing output (Steps 4–6). This is the one justified deviation from the write-a-failing-test-first loop; every later addon task that touches product/doc content keeps normal verification.
 
@@ -337,7 +337,7 @@ hand-runnable — no CI is required or expected**.
   and update the README badge **as part of the same change**, never as a deferred follow-up.
 
 This complements §4: the green gate proves the suite passes on every commit; the inventory and badge
-make the coverage **visible and honest**, and are the standing defence against the count drift that
+make the coverage **visible and honest**, and are the standing defense against the count drift that
 silently creeps into hand-maintained status lines.
 ```
 

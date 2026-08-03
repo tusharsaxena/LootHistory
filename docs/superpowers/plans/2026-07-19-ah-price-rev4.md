@@ -136,11 +136,11 @@ Apply, matching existing AceGUI idioms:
 4. **#19 addon-not-detected:** for each provider, compute `local avail = NS.AuctionPrice:IsProviderAvailable(k.provider)` once per provider group. If NOT available:
    - Heading text: append a muted " |cff808080(not installed)|r" to the provider heading.
    - Checkbox: `cb:SetDisabled(true)` (non-interactable).
-   - Mute: grey the label — AceGUI CheckBox greys its label when disabled; additionally dim the row's info icon (pass a `disabled`-style dim, or set the icon's `.image:SetVertexColor(0.4,0.4,0.4)`), so the whole row reads as inactive.
+   - Mute: gray the label — AceGUI CheckBox grays its label when disabled; additionally dim the row's info icon (pass a `disabled`-style dim, or set the icon's `.image:SetVertexColor(0.4,0.4,0.4)`), so the whole row reads as inactive.
    - (Do NOT change capture data for unavailable providers — just present them as inactive.)
 
 - [ ] **Step 1:** Read the current `buildAuctionCapture`. Apply the four changes above.
-- [ ] **Step 2: Verify** — `luacheck .` 0/0; `lua tests/run.lua` green (file loads). In-game smoke (deferred): rows indent under headings; spacing above headings; ⓘ sits right after each label; an uninstalled addon shows "(not installed)", greyed, non-clickable checkboxes.
+- [ ] **Step 2: Verify** — `luacheck .` 0/0; `lua tests/run.lua` green (file loads). In-game smoke (deferred): rows indent under headings; spacing above headings; ⓘ sits right after each label; an uninstalled addon shows "(not installed)", grayed, non-clickable checkboxes.
 - [ ] **Step 3: Commit** — `git commit -am "feat(settings): Data Collection indent/spacing, info-follows-text, addon-not-detected muting"`
 
 ---
@@ -150,13 +150,13 @@ Apply, matching existing AceGUI idioms:
 **Files:** `settings/Panel.lua` (`rebuildPriorityList` ~580-622, `buildAuctionPriority` ~689-712).
 
 1. **#14 closer columns:** in each row, change the Addon column `SetRelativeWidth(0.34)` → `0.22` and the Data column `SetRelativeWidth(0.30)` → `0.42` (Addon narrows, Data widens by the same amount, so the ▲/▼/checkbox keep their x position; Data text starts closer to Addon text).
-2. **#15 column headers:** in `buildAuctionPriority`, after the legend, add a small gap then a muted header row matching the row columns — status(blank, 0.06) + "Addon" (0.22) + "Price data" (0.42) + a blank/"Order" over the arrows + "On" over the checkbox (small/grey font, e.g. `GameFontDisableSmall`-like via `|cff808080…|r`). Keep the existing legend→header gap.
+2. **#15 column headers:** in `buildAuctionPriority`, after the legend, add a small gap then a muted header row matching the row columns — status(blank, 0.06) + "Addon" (0.22) + "Price data" (0.42) + a blank/"Order" over the arrows + "On" over the checkbox (small/gray font, e.g. `GameFontDisableSmall`-like via `|cff808080…|r`). Keep the existing legend→header gap.
 3. **#17 all sources, uncollected at bottom:** rewrite `rebuildPriorityList` to:
    - `local priority = NS.AuctionPrice:ReconcilePriority()` (ensures all 11 tags present).
    - `local capture = NS.db.global.settings.auction.capture or {}`.
    - Partition into `collected` (tags with `capture[tag]`) and `uncollected` (the rest), each **in priority-array order**. Display = `collected` then `uncollected`.
    - Render collected rows normally (status ✓, working ▲/▼, enable checkbox). The ▲/▼ reorder **within the collected group**: up swaps this tag with the previous collected tag (`NS.AuctionPrice:SwapPriorityTags(thisTag, prevCollectedTag)`), down with the next collected tag; disable up on the first collected row and down on the last collected row. After a swap, `rebuildPriorityList` + `DoLayout`.
-   - Render uncollected rows **muted** (grey the Addon/Data labels, e.g. wrap in `|cff808080…|r`), status ✗, **no functional arrows** (dim both), enable checkbox may be shown but is moot (optional: still allow enable toggle). They sit at the bottom.
+   - Render uncollected rows **muted** (gray the Addon/Data labels, e.g. wrap in `|cff808080…|r`), status ✗, **no functional arrows** (dim both), enable checkbox may be shown but is moot (optional: still allow enable toggle). They sit at the bottom.
    - Keep the `#priority == 0` empty-state guard (now unlikely, but harmless).
    - The enable checkbox and status logic are unchanged except grouping.
 
