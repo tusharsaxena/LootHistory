@@ -44,13 +44,19 @@ function addon:OnEnable()
   -- emitted when capture is actually enabled (debug-logging-§5/§8).
 end
 
--- Retention cleanup runs once per session, deferred off the login/zone spike.
+-- Retention cleanup runs once per session, deferred off the login/zone spike. The warbound-state
+-- repair rides the same deferral and then runs again a little later: it needs the item cache, which
+-- is cold at login, and the first pass is what warms it (see Database:RepairBoundStates).
 function addon:OnEnterWorld()
   if NS.State.cleanupDone then return end
   NS.State.cleanupDone = true
   if C_Timer and C_Timer.After then
     C_Timer.After(5, function()
       if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
+      if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
+    end)
+    C_Timer.After(20, function()
+      if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
     end)
   end
 end

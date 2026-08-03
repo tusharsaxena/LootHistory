@@ -65,6 +65,61 @@ function NS:RunMigrations()
     g.schemaVersion = 5
     if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(4, 5, n)) end
   end
+
+  -- v5 -> v6: retire the "ACCOUNT" bind state, splitting warbound into WARBAND / WARBAND_UE.
+  -- Retail has had no account-bound wording distinct from Warbound since 11.0 (every
+  -- ITEM_*ACCOUNTBOUND* global reads "Warbound"), and the old scanner filed *all* warbound loot
+  -- under ACCOUNT because "Binds to Warband" sat in its account list — so every stored ACCOUNT row
+  -- is a mislabelled warbound drop of one kind or the other. Which kind isn't recoverable from the
+  -- record, so park every such row on the plain WARBAND state and let the deferred repair below
+  -- (RepairBoundStates) split it once the client can answer. Any saved Bound filter naming the
+  -- retired token follows too, else the view would match nothing. Non-destructive.
+  if g.schemaVersion < 6 then
+    local n = 0
+    for _, r in ipairs(g.history or {}) do
+      if r.bound == "ACCOUNT" then r.bound = "WARBAND"; n = n + 1 end
+    end
+    local view = g.savedView
+    if type(view) == "table" and type(view.bound) == "table" and view.bound.ACCOUNT then
+      view.bound.ACCOUNT = nil
+      view.bound.WARBAND, view.bound.WARBAND_UE = true, true
+    end
+    g.schemaVersion = 6
+    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(5, 6, n)) end
+  end
+
+  -- v6 -> v7: hand the warbound split to the deferred repair below. It can't be done inline —
+  -- migrations run from InitDB at ADDON_LOADED with a cold item cache, so a one-shot pass here
+  -- learns nothing and then bumps the stamp, burning the only chance to fix anything.
+  if g.schemaVersion < 7 then
+    g.schemaVersion = 7
+    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(6, 7, 0)) end
+  end
+
+  NS:ArmBoundRepair(g)
+end
+
+-- Arming is versioned by REVISION, not by schemaVersion, because this repair has been wrong more
+-- than once and each fix has to re-run it on DBs that already ran (and cleared) a broken pass.
+-- Tying that to the schema stamp meant a migration per bug; a revision constant re-arms on the next
+-- login when it is bumped, and stays a no-op otherwise. Bump it whenever the repair's *judgement*
+-- changes — not when unrelated code moves.
+--   1  the original: read the bind type alone, which lies for warbound caches (reports OnEquip)
+--   2  read both signals, and treat only a readable tooltip as settling a row
+--   3  don't count RETRIEVING_ITEM_INFO as a readable tooltip, and require the item data cached
+--   4  match bind wordings as whole lines: "Warbound Cache of …" is an item NAME, and a substring
+--      match hit it on line 1, settling the row as plain warbound before the real bind line
+local BOUND_REPAIR_REVISION = 4
+function NS:ArmBoundRepair(g)
+  g = g or (NS.db and NS.db.global)
+  if not g then return false end
+  if g.boundRepairRevision == BOUND_REPAIR_REVISION then return false end
+  g.boundRepairRevision = BOUND_REPAIR_REVISION
+  g.boundRepairPending, g.boundRepairAttempts = true, nil
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Migrate", "bound repair armed (revision %s)", tostring(BOUND_REPAIR_REVISION))
+  end
+  return true
 end
 
 -- Pure migration summary for the [Migrate] line.
@@ -88,6 +143,70 @@ end
 
 NS.Database = NS.Database or {}
 local Database = NS.Database
+
+-- How many *fruitless* passes the WARBAND repair gets before it gives up (two run per login, plus
+-- one per window open). An id the client never resolves — a removed item — would otherwise keep the
+-- job pending for the life of the DB.
+local BOUND_REPAIR_MAX_ATTEMPTS = 10
+
+-- Rows examined per pass. Each one costs a GetItemInfo plus a tooltip build, and a large history
+-- has hundreds of candidates — enough to be felt as a hitch on the frame that opens the window.
+-- Whatever the budget doesn't reach stays pending and is picked up by the next pass.
+local BOUND_REPAIR_PER_PASS = 200
+
+-- Deferred half of the v6->v9 migration: raise every under-classified row to the warbound state it
+-- really has. Candidates are the parked WARBAND rows and the BOE rows — BOE because the bind type
+-- lies about these items (a warbound cache reports 2/OnEquip), so a capture that trusted it filed
+-- them one state too loose. Each row is re-read through Compat.ItemBindState (both signals) and
+-- merged with BestBound, which only ever moves a row toward the more specific warbound state — a
+-- genuine BoE reads back BOE and stays put. A row the client can't answer for at all is requested
+-- and left for the next pass; the job clears once none remain, or after BOUND_REPAIR_MAX_ATTEMPTS
+-- fruitless passes. Candidates need an id OR a link, so a row missing one is repaired by the other.
+-- Returns fixed, pending, candidates (for the tests and the debug line).
+local REPAIR_CANDIDATE = { WARBAND = true, BOE = true }
+function Database:RepairBoundStates()
+  local g = NS.db and NS.db.global
+  if not (g and g.boundRepairPending) then return 0, 0, 0 end
+  local fixed, pending, candidates, examined = 0, 0, 0, 0
+  for _, r in ipairs(g.history or {}) do
+    if REPAIR_CANDIDATE[r.bound] and (r.itemID or r.itemLink) then
+      candidates = candidates + 1
+      if examined >= BOUND_REPAIR_PER_PASS then
+        pending = pending + 1     -- past the per-pass budget: not looked at, so not resolved
+      else
+        examined = examined + 1
+        local state, settled = NS.Compat.ItemBindState(r.itemID or r.itemLink, r.itemLink)
+        if not settled then
+          -- Unsettled means the TOOLTIP wasn't readable. A bind type of BOE is not evidence the
+          -- row isn't warbound (it lies for these items), so it must not end the row's retries.
+          pending = pending + 1
+          NS.Compat.LoadItem(r.itemID)   -- warm the cache so the next pass can answer
+        else
+          local merged = NS.Compat.BestBound(r.bound, state)
+          if merged ~= r.bound then
+            r.bound = merged
+            fixed = fixed + 1
+          end
+        end
+      end
+    end
+  end
+  -- The cap counts *fruitless* passes, not passes: a run that fixed something proves the client is
+  -- answering, so the job has earned its full budget again for whatever is still unresolved.
+  g.boundRepairAttempts = fixed > 0 and 0 or (g.boundRepairAttempts or 0) + 1
+  if pending == 0 or g.boundRepairAttempts >= BOUND_REPAIR_MAX_ATTEMPTS then
+    g.boundRepairPending, g.boundRepairAttempts = nil, nil
+  end
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Migrate", "bound repair: %s fixed, %s pending, %s candidates (attempt %s)",
+      tostring(fixed), tostring(pending), tostring(candidates), tostring(g.boundRepairAttempts or 0))
+  end
+  -- The window can already be open when a pass lands, and it renders the bound column off these
+  -- rows — repaint it rather than leave stale locks until the next open.
+  if fixed > 0 and NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged") end
+  return fixed, pending, candidates
+end
+
 
 function Database:History()
   return NS.db.global.history

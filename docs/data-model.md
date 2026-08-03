@@ -49,7 +49,7 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua:43`):
 | `itemName` | Denormalized name — backs text search and display without a cache lookup. |
 | `quality` | Numeric `Enum.ItemQuality` (0 Poor … 5 Legendary; Heirloom/Artifact also occur and show up in the filters and Insights). Denormalized for fast filter/sort and the quality breakdown. |
 | `itemLevel` | Effective item level for equippable items; `nil` otherwise. |
-| `bound` | Bind state: `nil` \| `"BOE"` \| `"BOP"` \| `"ACCOUNT"` \| `"WARBAND"`. |
+| `bound` | Bind state: `nil` \| `"BOE"` \| `"BOP"` \| `"WARBAND"` \| `"WARBAND_UE"` (warbound until equipped). |
 | `vendorPrice` | Vendor sell price in **copper, per unit** (captured at loot time — not market price). Renamed from `sellPrice` by the v2→v3 migration (see below). Half of the "value" comparison — see `Util.RecordValue` below. |
 | `auctionPrice` | **Nested map** `provider → key → copper` (e.g. `{ tsm = { dbmarket = 41200 }, oribos = { market = 40800 } }`), captured at loot time by `NS.AuctionPrice:GatherAll` (`modules/AuctionPrice.lua`) — every configured capture key from every installed pricing addon (Auctionator / TSM / OribosExchange), not just one. **`nil`** when nothing was captured (no pricing addon installed, item unpriced, the capture set is empty, or every provider errored). A single price for display/comparison is chosen at *read time* by `NS.AuctionPrice:Pick(map)`, which walks the user's configured priority list and returns the first key present (`price, tag`); it is never re-priced after capture — the map is a point-in-time snapshot, not a live market feed. There is no `priceSource` record field: `Pick`'s `tag` return *is* the provenance, computed on read, not stored. |
 | `itemType` / `itemSubType` | Localized item class / subclass strings (e.g. `Armor` / `Cloth`); back the type breakdown and the type filter. |
@@ -99,6 +99,7 @@ Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh arr
 
 - `Database:Delete(pred)` (`core/Database.lua:445`) — keep everything where `pred(r)` is false.
 - `Database:PruneOld()` (`core/Database.lua:505`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:RepairBoundStates()` (`core/Database.lua:160`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
 - `Database:Purge()` (`core/Database.lua:461`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
@@ -158,9 +159,9 @@ were removed.)
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **5** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
+`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **7** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
-`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. Four migrations ship in its body:
+`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. Six migrations ship in its body:
 
 ```lua
 -- core/Database.lua — NS:RunMigrations()
@@ -168,11 +169,13 @@ were removed.)
 -- if g.schemaVersion < 3 then <rename each record's sellPrice -> vendorPrice> ; g.schemaVersion = 3 end
 -- if g.schemaVersion < 4 then <backfill currency-record quality from C_CurrencyInfo> ; g.schemaVersion = 4 end
 -- if g.schemaVersion < 5 then <backfill currency-record bound from C_CurrencyInfo>   ; g.schemaVersion = 5 end
+-- if g.schemaVersion < 6 then <re-scan retired ACCOUNT rows -> WARBAND / WARBAND_UE>  ; g.schemaVersion = 6 end
+-- if g.schemaVersion < 7 then <hand the warbound split to the deferred repair>        ; g.schemaVersion = 7 end
 ```
 
-The **v1→v2** migration strips the retired per-record `viaWhitelist` field from every stored row — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight. The **v2→v3** migration (Rev-2 AH-price integration) renames the per-record `sellPrice` field to `vendorPrice` on every stored row — non-destructive, the value is preserved, only the key changes (making room for the derived `value` model's vendor/auction naming). The **v3→v4** migration (currency quality) backfills `quality` on every stored currency row (`currencyID` set, `quality` still nil) from `C_CurrencyInfo`, so currency looted before this change gets the same Name-colour + Quality-column treatment as currency looted after it; a currency the client can't resolve at init stays nil. The **v4→v5** migration (currency bound) likewise backfills `bound` on every stored currency row (`currencyID` set, `bound` still nil) — `"WARBAND"` for a Warband-transferable currency, else `"BOP"` — so currency looted before the change gets the Bound-glyph too; unresolved ids stay nil. None of the four migrations deletes any records.
+The **v1→v2** migration strips the retired per-record `viaWhitelist` field from every stored row — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight. The **v2→v3** migration (Rev-2 AH-price integration) renames the per-record `sellPrice` field to `vendorPrice` on every stored row — non-destructive, the value is preserved, only the key changes (making room for the derived `value` model's vendor/auction naming). The **v3→v4** migration (currency quality) backfills `quality` on every stored currency row (`currencyID` set, `quality` still nil) from `C_CurrencyInfo`, so currency looted before this change gets the same Name-colour + Quality-column treatment as currency looted after it; a currency the client can't resolve at init stays nil. The **v4→v5** migration (currency bound) likewise backfills `bound` on every stored currency row (`currencyID` set, `bound` still nil) — `"WARBAND"` for a Warband-transferable currency, else `"BOP"` — so currency looted before the change gets the Bound-glyph too; unresolved ids stay nil. The **v5→v6** migration retires the `"ACCOUNT"` bind state: Retail has had no account-bound wording distinct from Warbound since 11.0, so every stored `ACCOUNT` row is a mislabelled warbound drop of one kind or the other (see [midnight-quirks.md](midnight-quirks.md)). Which kind isn't recoverable from the record, so it parks them all on `"WARBAND"` and rewrites a `savedView` Bound filter naming the retired token (else the restored view would match nothing). The **v6→v7** migration then hands the split to a deferred repair, whose arming is versioned by its own `boundRepairRevision` rather than by the schema stamp — that job has been wrong more than once, and each fix has to re-run it on DBs that already ran and cleared a broken pass ([saved-variables.md](saved-variables.md)). **Neither does the work inline, and that is the point:** migrations run from `InitDB` at `ADDON_LOADED`, when the item cache is cold — `C_Item.GetItemInfo` answers nothing and the tooltip carries no bind line — so a one-shot pass reads "no rows to fix" and then bumps the stamp, burning the only chance. Instead they set `boundRepairPending`, and `Database:RepairBoundStates` (deferred: twice per session after login, plus every window open) does the split off both bind signals, keeping the flag until every candidate row is **settled** (item cached *and* a real tooltip, not the `RETRIEVING_ITEM_INFO` placeholder) or the fruitless-pass cap is hit. None of the six migrations deletes any records.
 
-All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v5.
+All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v7.
 
 ## Read seams
 

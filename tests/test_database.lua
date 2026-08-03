@@ -351,19 +351,19 @@ end)
 test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 5)
+  assertEqual(NS.db.global.schemaVersion, 7)
 end)
 
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
-  NS.db.global.schemaVersion = 5
+  NS.db.global.schemaVersion = 6
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 5)
+  assertEqual(NS.db.global.schemaVersion, 7)
 end)
 
 test("Database: RunMigrations is idempotent across repeated runs", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations(); NS:RunMigrations(); NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 5)
+  assertEqual(NS.db.global.schemaVersion, 7)
 end)
 
 test("Database: RunMigrations is a safe no-op when the DB is absent", function()
@@ -384,7 +384,7 @@ test("Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
     { ts = 2, itemID = 5, itemName = "Was via whitelist", quality = 0, viaWhitelist = true },
   }
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 5)
+  assertEqual(NS.db.global.schemaVersion, 7)
   assertTrue(NS.db.global.history[2].viaWhitelist == nil)  -- field stripped
   assertEqual(#NS.db.global.history, 2)                    -- nothing deleted
 end)
@@ -394,7 +394,7 @@ test("Migrate: v2->v3 renames sellPrice to vendorPrice", function()
   g.schemaVersion = 2
   g.history = { { itemName = "X", sellPrice = 250, quantity = 1 } }
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 5)
+  assertEqual(g.schemaVersion, 7)
   assertEqual(g.history[1].vendorPrice, 250)
   assertEqual(g.history[1].sellPrice, nil)
 end)
@@ -409,7 +409,7 @@ test("Migrations: v3->v4 backfills currency-record quality", function()
   }
   g.schemaVersion = 3
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 5)
+  assertEqual(g.schemaVersion, 7)
   assertEqual(g.history[1].quality, 4)   -- backfilled from the mock (Epic)
   assertEqual(g.history[2].quality, 4)   -- item unchanged
   assertEqual(g.history[3].quality, 3)   -- already-set currency unchanged
@@ -427,10 +427,201 @@ test("Migrations: v4->v5 backfills currency-record bound", function()
   }
   g.schemaVersion = 4
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 5)
+  assertEqual(g.schemaVersion, 7)
   assertEqual(g.history[1].bound, "WARBAND")  -- 3008 is Warband-transferable (mock)
   assertEqual(g.history[2].bound, "BOP")      -- 2914 is not -> soulbound
   assertEqual(g.history[3].bound, "BOE")      -- item unchanged
   assertEqual(g.history[4].bound, "BOP")      -- already-set currency unchanged
   g.history, g.schemaVersion = savedHist, savedVer   -- restore shared state
+end)
+
+test("Migrations: v5->v6 parks the retired ACCOUNT rows on WARBAND", function()
+  local g = NS.db.global
+  local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
+  -- The old scanner filed both warbound kinds as ACCOUNT, so the record can't say which. The
+  -- migration parks them all on WARBAND; the deferred repair splits out the UE ones once the
+  -- client can answer (it can't here, at ADDON_LOADED).
+  g.history = {
+    { itemID = 1, bound = "ACCOUNT" },
+    { itemID = 2, bound = "ACCOUNT" },
+    { itemID = 3, bound = "BOE" },
+    { itemID = 4 },                                     -- unbound, untouched
+  }
+  g.savedView = { bound = { ACCOUNT = true, BOE = true } }
+  g.schemaVersion = 5
+  NS:RunMigrations()
+  assertEqual(g.schemaVersion, 7)
+  assertEqual(g.history[1].bound, "WARBAND")
+  assertEqual(g.history[2].bound, "WARBAND")
+  assertEqual(g.history[3].bound, "BOE")
+  assertEqual(g.history[4].bound, nil)
+  -- A saved Bound filter naming the retired token must follow, or the view silently matches nothing.
+  assertTrue(g.savedView.bound.WARBAND)
+  assertTrue(g.savedView.bound.WARBAND_UE)
+  assertEqual(g.savedView.bound.ACCOUNT, nil)
+  assertTrue(g.savedView.bound.BOE)
+  g.boundRepairPending, g.boundRepairAttempts = nil, nil
+  g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView
+end)
+
+test("Migrations: the warbound split is armed, never run inline", function()
+  -- Migrations run at ADDON_LOADED with a cold item cache, so an inline pass would find nothing to
+  -- fix and then bump the stamp — burning the only chance. The flag survives to the deferred pass.
+  local g = NS.db.global
+  local savedVer, savedRev = g.schemaVersion, g.boundRepairRevision
+  g.boundRepairPending, g.boundRepairRevision = nil, nil
+  g.schemaVersion = 6
+  NS:RunMigrations()
+  assertEqual(g.schemaVersion, 7)
+  assertTrue(g.boundRepairPending, "the repair must still be pending after the migration")
+  g.boundRepairPending, g.boundRepairAttempts = nil, nil
+  g.schemaVersion, g.boundRepairRevision = savedVer, savedRev
+end)
+
+test("Database: ArmBoundRepair re-arms on a revision bump, and only then", function()
+  -- Versioning the arming by revision rather than schemaVersion is what lets a fix to the repair's
+  -- judgement re-run it on a DB that already ran — and cleared — a broken pass, with no migration.
+  local g = NS.db.global
+  local savedRev = g.boundRepairRevision
+  g.boundRepairRevision, g.boundRepairPending = nil, nil
+  assertTrue(NS:ArmBoundRepair(g), "an unstamped DB arms")
+  assertTrue(g.boundRepairPending)
+  g.boundRepairPending, g.boundRepairAttempts = nil, 4
+  assertFalse(NS:ArmBoundRepair(g), "the same revision is a no-op")
+  assertEqual(g.boundRepairPending, nil)
+  g.boundRepairRevision = -1                       -- an older revision: a fix landed
+  assertTrue(NS:ArmBoundRepair(g))
+  assertTrue(g.boundRepairPending)
+  assertEqual(g.boundRepairAttempts, nil, "a re-arm gives the job a fresh budget")
+  g.boundRepairPending, g.boundRepairAttempts, g.boundRepairRevision = nil, nil, savedRev
+end)
+
+-- Tooltips, keyed by the hyperlink the repair builds ("item:<id>" for an id-only row). A link with
+-- no entry models a tooltip the client hasn't built yet: unreadable, so the row stays pending.
+local function withTooltips(byLink, fn)
+  local saved = _G.C_TooltipInfo
+  _G.C_TooltipInfo = { GetHyperlink = function(link)
+    local text = byLink[link]
+    if not text then return { lines = { { leftText = "" } } } end
+    return { lines = { { leftText = text } } }
+  end }
+  local ok, err = pcall(fn)
+  _G.C_TooltipInfo = saved
+  if not ok then error(err, 0) end
+end
+
+test("Database: RepairBoundStates raises rows to the state the tooltip witnesses", function()
+  local g = NS.db.global
+  local savedHist = g.history
+  -- 101 is the real-world shape: the bind type says OnEquip (2) and only the tooltip knows better.
+  T.mocks.__itemBindTypes[101] = 2
+  T.mocks.__itemBindTypes[104] = 2
+  withTooltips({
+    ["item:101"] = "Binds to Warband until equipped",
+    ["item:102"] = "Binds to Warband",
+    ["item:104"] = "Binds when equipped",
+  }, function()
+    g.history = {
+      { itemID = 101, bound = "WARBAND" },       -- really UE
+      { itemID = 102, bound = "WARBAND" },       -- really plain: stays
+      { itemID = 103, bound = "WARBAND" },       -- tooltip unreadable -> pending, not resolved
+      { bound = "WARBAND", currencyID = 3008 },  -- currency row: no id/link, never a candidate
+      { itemID = 104, bound = "BOE" },           -- a genuine BoE reads back BoE and stays
+    }
+    g.boundRepairPending, g.boundRepairAttempts = true, nil
+    local fixed, pending, candidates = NS.Database:RepairBoundStates()
+    assertEqual(candidates, 4)
+    assertEqual(fixed, 1)
+    assertEqual(pending, 1)
+    assertEqual(g.history[1].bound, "WARBAND_UE")
+    assertEqual(g.history[2].bound, "WARBAND")
+    assertEqual(g.history[3].bound, "WARBAND")
+    assertEqual(g.history[4].bound, "WARBAND")
+    assertEqual(g.history[5].bound, "BOE")
+    assertTrue(g.boundRepairPending, "a row still unresolved keeps the job armed for the next pass")
+  end)
+  T.mocks.__itemBindTypes[101], T.mocks.__itemBindTypes[104] = nil, nil
+  g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
+end)
+
+test("Database: RepairBoundStates promotes a BOE row the bind type filed too loosely", function()
+  -- The regression this guards: trusting bindType==2 for a warbound cache stored it as BoE.
+  local g = NS.db.global
+  local savedHist = g.history
+  T.mocks.__itemBindTypes[110] = 2
+  withTooltips({ ["item:110"] = "Binds to Warband until equipped" }, function()
+    g.history = { { itemID = 110, bound = "BOE" } }
+    g.boundRepairPending, g.boundRepairAttempts = true, nil
+    NS.Database:RepairBoundStates()
+    assertEqual(g.history[1].bound, "WARBAND_UE")
+  end)
+  T.mocks.__itemBindTypes[110] = nil
+  g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
+end)
+
+test("Database: a readable tooltip settles a row even when the bind type says otherwise", function()
+  -- The v7->v8 job cleared itself in one pass because bindType answered "BOE" for every row and it
+  -- counted that as resolution. Only tooltip readability may end a row's retries.
+  local g = NS.db.global
+  local savedHist = g.history
+  T.mocks.__itemBindTypes[201] = 2
+  g.history = { { itemID = 201, bound = "WARBAND" } }
+  g.boundRepairPending, g.boundRepairAttempts = true, nil
+  local _, pendingNoTooltip = NS.Database:RepairBoundStates()   -- no C_TooltipInfo in the mock
+  assertEqual(pendingNoTooltip, 1, "bindType alone must not settle the row")
+  assertTrue(g.boundRepairPending)
+  withTooltips({ ["item:201"] = "Binds to Warband until equipped" }, function()
+    NS.Database:RepairBoundStates()
+  end)
+  assertEqual(g.boundRepairPending, nil)
+  assertEqual(g.history[1].bound, "WARBAND_UE")
+  -- And a cleared job is a no-op, not a re-scan.
+  local fixed, pending = NS.Database:RepairBoundStates()
+  assertEqual(fixed, 0)
+  assertEqual(pending, 0)
+  T.mocks.__itemBindTypes[201] = nil
+  g.history = savedHist
+end)
+
+test("Database: RepairBoundStates repairs a row that has only a link", function()
+  -- Not every stored row carries an itemID; requiring one made the job skip them silently.
+  local g = NS.db.global
+  local savedHist = g.history
+  local savedTI = _G.C_TooltipInfo
+  _G.C_TooltipInfo = { GetHyperlink = function()
+    return { lines = { { leftText = "Binds to Warband until equipped" } } }
+  end }
+  g.history = { { bound = "WARBAND", itemLink = "[Cache]" } }
+  g.boundRepairPending, g.boundRepairAttempts = true, nil
+  local fixed, _, candidates = NS.Database:RepairBoundStates()
+  assertEqual(candidates, 1)
+  assertEqual(fixed, 1)
+  assertEqual(g.history[1].bound, "WARBAND_UE")
+  _G.C_TooltipInfo = savedTI
+  g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
+end)
+
+test("Database: RepairBoundStates resets the give-up budget on a pass that fixed something", function()
+  local g = NS.db.global
+  local savedHist = g.history
+  g.history = { { itemID = 301, bound = "WARBAND" }, { itemID = 999999, bound = "WARBAND" } }
+  g.boundRepairPending, g.boundRepairAttempts = true, 9   -- one pass from giving up
+  withTooltips({ ["item:301"] = "Binds to Warband until equipped" }, function()
+    NS.Database:RepairBoundStates()   -- 301 resolves; 999999 has no tooltip yet
+  end)
+  assertEqual(g.boundRepairAttempts, 0, "progress buys the job its budget back")
+  assertTrue(g.boundRepairPending)
+  g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
+end)
+
+test("Database: RepairBoundStates gives up after the attempt cap", function()
+  -- An id the client never resolves (a removed item) must not keep the job armed forever.
+  local g = NS.db.global
+  local savedHist = g.history
+  g.history = { { itemID = 999999, bound = "WARBAND" } }
+  g.boundRepairPending, g.boundRepairAttempts = true, nil
+  for _ = 1, 10 do NS.Database:RepairBoundStates() end
+  assertEqual(g.boundRepairPending, nil)
+  assertEqual(g.history[1].bound, "WARBAND")   -- never downgraded, just left as looted
+  g.history = savedHist
 end)

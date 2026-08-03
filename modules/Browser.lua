@@ -445,9 +445,9 @@ local DATE_OPTIONS = {
 -- states actually present in the dataset are offered, kept in this logical order (not data order).
 local BOUND_LABEL = {
   NONE = "Not Bound", BOE = "Bind on Equip", BOP = "Bind on Pickup",
-  ACCOUNT = "Account Bound", WARBAND = "Warbound",
+  WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
 }
-local BOUND_ORDER = { "NONE", "BOE", "BOP", "ACCOUNT", "WARBAND" }
+local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
 -- session-only default of "current player"). This is the stock/reset baseline; the user's
@@ -1180,6 +1180,10 @@ local function EnsureFrame()
   -- B:Hide, ESC, or a raw frame:Hide()).
   frame:HookScript("OnShow", function()
     if NS.State.debug and NS.Debug then NS.Debug("UI", "window shown") end
+    -- Give the pending bound-state repair another pass here. By the time the user opens the
+    -- window the item cache is warm, which is exactly what the login passes may have lacked —
+    -- and this is the moment the wrong lock colour would be looked at. No-op once it completes.
+    if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
   end)
   frame:HookScript("OnHide", function()
     if menu then menu:Hide() end

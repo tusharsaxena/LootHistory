@@ -156,8 +156,8 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
 - Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
   a Lua error, never a missing row.
 - The denormalized columns render correctly: item link (exact tooltip), quality colour, iLvl, bound
-  glyph (BoE/BoP/Account/Warband), the Vendor and AH price columns, type, zone, and the Character
-  column (class icon + class colour).
+  glyph (BoE/BoP/Warbound/Warbound-until-equipped), the Vendor and AH price columns, type, zone,
+  and the Character column (class icon + class colour).
 - With debug on (§12), a currency loot logs `[Currency] <name> x<n> id=<id> src=<source>` and adds a
   `Type=Currency` row (blank iLvl/Vendor/AH cells; the Type filter isolates it). Turning
   off **Record currency** stops new currency rows; muting a source stops that source's currency too.
@@ -226,9 +226,9 @@ Three independent gates run before a record is written (`Collector:ShouldRecord`
 - **Filters:** exercise each row-2 dropdown — **Date** (single-select: All / Today / Last 7 days /
   Last 30 days), and the multi-select **Bound**, **Quality**, **Type**, **SubType**, **Source**,
   **Zone**, **Character** (pick two values in one, confirm the collapsed label reads "N selected").
-- **Bound filter:** open **Bound** and pick **Not Bound**, then add **Bind on Equip**. The five options
-  (Not Bound / Bind on Equip / Bind on Pickup / Account Bound / Warbound) match the Bound column's
-  header-tooltip legend. Confirm the visible rows' lock colours match the selected states, and that
+- **Bound filter:** open **Bound** and pick **Not Bound**, then add **Bind on Equip**. The five
+  options (Not Bound / Bind on Equip / Bind on Pickup / Warbound / Warbound Until Equipped) match
+  the Bound column's header-tooltip legend. Confirm the visible rows' lock colours match the selected states, and that
   **Not Bound** matches rows with no lock.
 - **Search:** type into **Search items…**; clear it.
 - **Row actions:** right-click a row → context menu (**Link to chat**, **Delete**). Shift-left-click a

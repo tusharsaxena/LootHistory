@@ -13,12 +13,15 @@ local COL_GAP = 8     -- horizontal space between columns
 -- Every row shows a lock; colour + opacity encode the binding state. {r, g, b, alpha}
 -- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
 local BOUND_STYLE = {
-  UNBOUND = { 0.60, 0.60, 0.60, 0.40 }, -- not bound: faint grey
-  BOE     = { 0.92, 0.92, 0.92, 0.95 }, -- bind on equip: off-white
-  BOP     = { 0.30, 0.82, 0.42, 1.00 }, -- bind on pickup: green (distinct from account orange)
-  ACCOUNT = { 0.95, 0.52, 0.12, 1.00 }, -- account bound: orange
-  WARBAND = { 0.30, 0.58, 0.98, 1.00 }, -- warbound: blue
+  UNBOUND    = { 0.60, 0.60, 0.60, 0.40 }, -- not bound: faint grey
+  BOE        = { 0.92, 0.92, 0.92, 0.95 }, -- bind on equip: off-white
+  BOP        = { 0.30, 0.82, 0.42, 1.00 }, -- bind on pickup: green
+  WARBAND    = { 0.30, 0.58, 0.98, 1.00 }, -- warbound: blue
+  WARBAND_UE = { 0.95, 0.52, 0.12, 1.00 }, -- warbound until equipped: orange
 }
+-- The one ladder for the binding states: filter menu, legend and column sort all read this order.
+-- Warbound sits second-to-last and warbound-until-equipped last.
+local BOUND_RANK = { UNBOUND = 1, BOE = 2, BOP = 3, WARBAND = 4, WARBAND_UE = 5 }
 
 -- Apply a padlock look to a texture, tolerant of missing art: use the first lock atlas that
 -- actually exists on this client, else fall back to a solid chip so the column is never blank.
@@ -71,11 +74,11 @@ end
 
 -- Legend for the Bound column tooltip: one "[lock] - Label" line per state.
 local BOUND_LEGEND = {
-  { "UNBOUND", "Not Bound" },
-  { "BOE",     "Bind on Equip" },
-  { "BOP",     "Bind on Pickup" },
-  { "ACCOUNT", "Account Bound" },
-  { "WARBAND", "Warbound" },
+  { "UNBOUND",    "Not Bound" },
+  { "BOE",        "Bind on Equip" },
+  { "BOP",        "Bind on Pickup" },
+  { "WARBAND",    "Warbound" },
+  { "WARBAND_UE", "Warbound Until Equipped" },
 }
 function BrowserTable:AddBoundLegend(tooltip)
   for _, entry in ipairs(BOUND_LEGEND) do
@@ -130,9 +133,11 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return r.itemLevel or 0 end },
   { key = "bound", label = "", width = 20, align = "CENTER", icon = true,
     desc = "Binding: grey = not bound, white = Bind on Equip, green = Bind on Pickup, "
-      .. "orange = Account bound, blue = Warbound.",
+      .. "blue = Warbound, orange = Warbound until equipped.",
     valueFn = function() return "" end,   -- rendered as an icon, not text
-    sortFn = function(r) return r.bound or "" end },
+    -- Sort the ladder explicitly (BOUND_RANK), not by the token text: the display order is a
+    -- product decision, not an alphabetical accident.
+    sortFn = function(r) return BOUND_RANK[r.bound or "UNBOUND"] or 0 end },
   { key = "item", label = "Item", width = 0, flex = true, align = "LEFT",
     desc = "Item looted. Hover for its tooltip.",
     valueFn = function(r)
@@ -244,9 +249,9 @@ local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", qua
 local TEST_BINDINGS = {
   { key = nil,       name = "Unbound" },
   { key = "BOE",     name = "Bind on Equip" },
-  { key = "BOP",     name = "Bind on Pickup" },
-  { key = "ACCOUNT", name = "Account Bound" },
-  { key = "WARBAND", name = "Warbound" },
+  { key = "BOP",        name = "Bind on Pickup" },
+  { key = "WARBAND",    name = "Warbound" },
+  { key = "WARBAND_UE", name = "Warbound Until Equipped" },
 }
 local TEST_CLASSES = {
   "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN",

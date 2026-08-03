@@ -21,14 +21,26 @@ The attribution engine keys loot-source resolution off that kind so KILL detecti
 
 The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:19`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS (`modules/Attribution.lua:211-226`).
 
-## Warband / account-bound tooltip scanning (C_TooltipInfo)
+## Warbound bind state — two unreliable signals, merged
 
-Bind state above BOE/BOP — Warbound and Account Bound — isn't in `C_Item.GetItemInfo`'s return tuple; it only appears as tooltip text. `Compat.ScanBound` pulls the structured tooltip via `C_TooltipInfo.GetHyperlink(link)` and scans `line.leftText` for the localized global strings (`core/Compat.lua:222-234`):
+Bind state above BOE/BOP — warbound, in its two flavours — has **two** sources, and *neither one is sufficient by itself*. Reading only one is the bug this section exists to prevent; it has been shipped twice.
 
-- `"WARBAND"` ← `ITEM_ACCOUNTBOUND_UNTIL_EQUIP` ("Warbound until equipped") or `ITEM_BNETACCOUNTBOUND` ("Warbound").
-- `"ACCOUNT"` ← `ITEM_ACCOUNTBOUND` ("Account Bound") or `ITEM_BIND_TO_BNETACCOUNT` (legacy).
+**Signal A: the structured bind type.** `C_Item.GetItemInfo`'s 14th return is `Enum.ItemBind`, and 11.0 added the account values: `7` ToWoWAccount and `8` ToBnetAccount → `"WARBAND"`, `9` ToBnetAccountUntilEquipped → `"WARBAND_UE"` (`Compat.BindState`). Locale-free and needs no tooltip — but **Blizzard does not keep it honest**: item `278014`, a cache whose tooltip plainly reads "Binds to Warband until equipped", reports **`2` (OnEquip)** here. Verified in-game, not inferred. So a warbound answer from the bind type is trustworthy; its *silence* proves nothing.
 
-Matching is done with `text:find(s, 1, true)` (plain, locale-independent via the globals, `:215-217`). This is Retail-only: absent `C_TooltipInfo`, `ScanBound` returns `nil` and `GetItemExtras` falls back to the numeric `bindType` (1/4 → BOP, 2/3 → BOE); a warband/account result always wins over the plain bind type (`:257-272`). See the `bound` field in [data-model.md](data-model.md).
+**Signal B: the tooltip text.** `GetItemInfo` also answers nothing at all for an item the client hasn't cached (bindType included), which for a just-looted item is the common case — so `Compat.ScanBound` pulls the structured tooltip via `C_TooltipInfo.GetHyperlink(link)` and reads `line.leftText`:
+
+- `"WARBAND_UE"` ← `ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP` ("Binds to Warband until equipped") or `ITEM_ACCOUNTBOUND_UNTIL_EQUIP` ("Warbound until equipped").
+- `"WARBAND"` ← `ITEM_BIND_TO_BNETACCOUNT` / `ITEM_BIND_TO_ACCOUNT` ("Binds to Warband") or `ITEM_BNETACCOUNTBOUND` / `ITEM_ACCOUNTBOUND` ("Warbound").
+
+**Neither is authoritative alone**, so `Compat.BestBound` merges them by specificity (`WARBAND_UE` > `WARBAND` > the rest) and whichever signal *sees* warbound wins; a warbound verdict is never demoted to BoE/BoP. `ScanBound` also returns a second value, `readable` — a nil state means both "not warbound" and "the client hasn't built this tooltip yet", and any job that retries rows must not confuse the two (`Compat.ItemBindState` combines it with "is the item data cached" into `settled`).
+
+**The readability trap:** an uncached item does *not* hand back an empty tooltip. It hands back a perfectly legible one reading `RETRIEVING_ITEM_INFO` ("Retrieving item information") and nothing else. Treating that as readable is how a repair pass declares every row settled while learning nothing — it is excluded explicitly in `ScanBound`.
+
+Four traps live in the tooltip signal. **There is no account-bound state any more:** Warbands (11.0) retextualized *every* `ITEM_*ACCOUNTBOUND*` global to "Warbound", so a scanner that keeps an account list ends up filing warbound loot under it — which is exactly what the retired `"ACCOUNT"` token was. Each state has **two wordings**: `Binds to Warband…` while the item is still transferable, the bare `Warbound…` once it is bound — so the "Binds to…" forms must be matched too. And **the two `…_UNTIL_EQUIP` globals are not dependable at runtime**: a live client can hand back `nil` for them, and because both UE wordings *contain* their plain counterpart, keying the UE state on those globals alone silently degrades every warbound-until-equipped drop to plain warbound.
+
+**A bind line is a WHOLE line.** Substring matching is the fourth way this has broken: `Warbound Cache of Void-Touched Armaments: Boots` is an item *name*, so a `find` for "warbound" hits line 1 and classifies the item as plain warbound before the real `Binds to Warband until equipped` line is ever reached. The six wordings are therefore matched as **complete lines** (trimmed, case-insensitive), with one deliberate exception: a line *starting* with `binds to warband` also counts, since no item name opens that way.
+
+So the scan is deliberately **two steps per line, not longest-match-first**: decide *whether* the line is a warbound line (whole-line match against the six globals, or the four known wordings, or the `binds to warband` prefix), then decide *which* state from the `until equipped` qualifier — UE globals first, literal fallback second. Globals resolve by name at scan time, and the literal fallbacks are safe because this addon is English-only. Absent `C_TooltipInfo` entirely, `ScanBound` returns `nil` and the record simply stores whatever the bind type gave. See the `bound` field in [data-model.md](data-model.md), and the deferred repair in [saved-variables.md](saved-variables.md) — a migration cannot read either source, because it runs at `ADDON_LOADED` with a cold item cache.
 
 ## Item-info uncached fallback — link-color quality
 

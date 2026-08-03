@@ -26,9 +26,15 @@ return function()
   -- ── item / map / loot APIs ─────────────────────────────────────────────────
   M.C_Map = { GetBestMapForUnit = function() return 2657 end }
   M.__itemClassID = 0   -- overridable per-test item class (Enum.ItemClass); 0 = Consumable
+  -- Per-item Enum.ItemBind value (GetItemInfo's 14th return), keyed by the id or link a test
+  -- passes. Empty by default, so an item the test hasn't described reads as uncached-for-binding.
+  M.__itemBindTypes = {}
   M.C_Item = {
     GetItemInfoInstant = function() return 211296, nil, nil, nil, nil, M.__itemClassID end,
-    GetItemInfo = function(link) return "Item Name", link, 4 end,
+    GetItemInfo = function(link)
+      return "Item Name", link, 4, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+        M.__itemBindTypes[link]
+    end,
   }
   M.GetLootSourceInfo = function() return nil end
 

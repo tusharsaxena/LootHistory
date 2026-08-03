@@ -61,7 +61,7 @@ test("BrowserTable: test data covers every bound state, source, quality, class",
     if not maxTs or r.ts > maxTs then maxTs = r.ts end
   end
 
-  for _, key in ipairs({ "UNBOUND", "BOE", "BOP", "ACCOUNT", "WARBAND" }) do
+  for _, key in ipairs({ "UNBOUND", "BOE", "BOP", "WARBAND", "WARBAND_UE" }) do
     assertTrue(bound[key], "test data missing bound state " .. key)
   end
   -- Every SourceType is represented (incl. the deconstruct/AH/ROLL/CRAFT sources).

@@ -49,7 +49,7 @@ LibKa0s seams sit inside `core/`, and their positions are load-bearing rather th
 | `core/CoreSetup.lua` | The **`LibKa0s-Core-1.0`** seam. Publishes the shared **secret-safe chat printer** — `NS.Print` / `NS.Format` / `NS.Util.print` (+ `IsConcatSafe` / `SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua` — which is why this file publishes to **both** keys. It also publishes **`NS.LIBKA0S_MISSING`**: one cause clause, appended to by every other LibKa0s seam in the addon, set outside the `if not lib` branch because they read it on both paths. A cross-file contract, not an implementation detail. Core's window-chrome half is declined; `modules/Browser.lua` owns this addon's skin. |
 | `core/DebugLogSetup.lua` | The **`LibKa0s-DebugLog-1.0`** seam: `NS.DebugLog` and the global `NS.Debug` sink. Replaced the 359-line `modules/DebugLog.lua`. The window chrome is deliberately split: `applySkin` **is** passed, as a closure resolving `NS.Browser` at frame-build time (hoisting it into a load-time local silently loses the skin — `modules/Browser.lua` loads long after `core/`), while **`makeCloseButton` is deliberately not passed**. The window *edge* is shared across every Ka0s window; the *close control* on a library-drawn window is the library's, so the console and the copy window wear Core's thin 18×18 × and the History browser keeps this addon's 24×24 class-coloured one (standalone-windows-§2; `docs/pending/LEDGER.md` LIBKA0S-19, asserted in `tests/test_debuglog.lua`). |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
-| `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam), `Add`/`Query`/`ActiveHistory`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
+| `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam) + `RepairBoundStates` (the deferred warbound-state split a migration can't do, armed by `ArmBoundRepair`), `Add`/`Query`/`ActiveHistory`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `currencyBlacklist`, `settings` (incl. `recordCurrency` and the `auction` cascade), `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
@@ -77,7 +77,7 @@ back fast table ops.
 {
   ts, char, classFile,                       -- when / who (classFile = locale-independent token)
   itemID, currencyID, itemLink, itemName, quality,  -- identity (currencyID set ⇒ a currency row; itemID nil)
-  itemLevel, bound, vendorPrice,             -- itemLevel: equippable only; bound: BOE|BOP|ACCOUNT|WARBAND
+  itemLevel, bound, vendorPrice,             -- itemLevel: equippable only; bound: BOE|BOP|WARBAND|WARBAND_UE
   auctionPrice,                              -- nested map provider -> key -> copper; nil if nothing captured
   itemType, itemSubType, quantity,           -- item classification + stack size (itemType = "Currency" for currency rows)
   source, sourceDetail,                      -- source ∈ Constants.SourceType
@@ -234,7 +234,7 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
 | Event / hook | Handler | Module |
 |---|---|---|
-| `PLAYER_ENTERING_WORLD` | `OnEnterWorld` (once-per-session prune) | `core/LootHistory.lua` |
+| `PLAYER_ENTERING_WORLD` | `OnEnterWorld` (once-per-session prune + the deferred bound-state repair) | `core/LootHistory.lua` |
 | `CHAT_MSG_LOOT` | `OnChatMsgLoot` (authoritative capture) | `modules/Collector.lua` |
 | `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |

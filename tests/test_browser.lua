@@ -208,7 +208,7 @@ test("Browser: bound options follow the fixed binding order, not data order", fu
     assertEqual(vals[1], "all")
     assertEqual(vals[2], "NONE"); assertEqual(vals[3], "BOE")
     assertEqual(vals[4], "BOP");  assertEqual(vals[5], "WARBAND")
-    assertEqual(#vals, 5, "ACCOUNT is absent from the data, so absent from the menu")
+    assertEqual(#vals, 5, "WARBAND_UE is absent from the data, so absent from the menu")
   end)
 end)
 

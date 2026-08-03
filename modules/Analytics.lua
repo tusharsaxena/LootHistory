@@ -52,13 +52,16 @@ local SOURCE_COLOR = {
 
 -- Bound-type display labels + colours.
 local BOUND_LABEL = {
-  BOP = "Soulbound", BOE = "BoE", ACCOUNT = "Account", WARBAND = "Warbound", UNBOUND = "Unbound",
+  BOP = "Soulbound", BOE = "BoE", WARBAND = "Warbound", WARBAND_UE = "Warbound (UE)",
+  UNBOUND = "Unbound",
 }
+-- Warbound/until-equipped take the Bound column's blue/orange so the two views read alike.
 local BOUND_COLOR = {
-  BOP = { 0.85, 0.45, 0.45 }, BOE = { 0.55, 0.80, 0.60 }, ACCOUNT = { 0.60, 0.70, 0.90 },
-  WARBAND = { 0.80, 0.65, 0.40 }, UNBOUND = { 0.60, 0.60, 0.65 },
+  BOP = { 0.85, 0.45, 0.45 }, BOE = { 0.55, 0.80, 0.60 },
+  WARBAND = { 0.30, 0.58, 0.98 }, WARBAND_UE = { 0.95, 0.52, 0.12 },
+  UNBOUND = { 0.60, 0.60, 0.65 },
 }
-local BOUND_ORDER = { "BOP", "BOE", "WARBAND", "ACCOUNT", "UNBOUND" }
+local BOUND_ORDER = { "BOP", "BOE", "WARBAND", "WARBAND_UE", "UNBOUND" }
 
 local WEEKDAY = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
 

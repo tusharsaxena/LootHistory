@@ -50,7 +50,7 @@ function Collector:BuildRecord(link, qty, ctx, env)
     itemName     = env.itemName,
     quality      = env.quality,
     itemLevel    = env.itemLevel,   -- effective ilvl for equippable items; nil otherwise
-    bound        = env.bound,       -- nil | "BOE" | "BOP" | "ACCOUNT" | "WARBAND"
+    bound        = env.bound,       -- nil | "BOE" | "BOP" | "WARBAND" | "WARBAND_UE"
     vendorPrice  = env.vendorPrice,  -- vendor sell price (copper, per unit)
     auctionPrice = env.auctionPrice, -- nested map provider->key->copper, or nil
     itemType     = env.itemType,

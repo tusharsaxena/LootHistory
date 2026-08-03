@@ -19,7 +19,7 @@ read_globals = {
   "C_AddOns", "GetAddOnMetadata",
   "Auctionator", "TSM_API", "OEMarketInfo",   -- third-party AH-pricing addon globals (presence-gated)
   "ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "ITEM_BNETACCOUNTBOUND", "ITEM_BIND_TO_BNETACCOUNT",
-  "ITEM_ACCOUNTBOUND", "ITEM_SOULBOUND",
+  "ITEM_ACCOUNTBOUND", "ITEM_SOULBOUND", "RETRIEVING_ITEM_INFO",
   "GetLootSourceInfo", "GetNumLootItems", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",
   "GetQuestReward", "GetQuestID",
   "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText", "AUCTION_HOUSE",

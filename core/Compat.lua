@@ -202,40 +202,148 @@ function Compat.LoadItem(id, cb)
   if cb and C_Timer and C_Timer.After then C_Timer.After(0.4, cb) end
 end
 
--- Scan an item link's tooltip for warband/account-bound text.
--- Returns "WARBAND", "ACCOUNT", or nil. Retail-only (C_TooltipInfo); nil elsewhere.
-local WARBAND_STRINGS = {
-  ITEM_ACCOUNTBOUND_UNTIL_EQUIP, -- "Warbound until equipped"
-  ITEM_BNETACCOUNTBOUND,         -- "Warbound"
+-- Scan an item link's tooltip for warbound text.
+-- Returns "WARBAND_UE" (warbound until equipped), "WARBAND", or nil. Retail-only (C_TooltipInfo).
+--
+-- Blizzard retired the separate "Account Bound" wording in 11.0 when Warbands landed — every
+-- ITEM_*ACCOUNTBOUND* global now reads *Warbound* — so the two states a tooltip can express are
+-- warbound and warbound-until-equipped. Each has two wordings: the "Binds to Warband…" form while
+-- the item is still transferable, and the bare "Warbound…" form once it sits in a character's bags.
+--
+-- Detection is two steps per line, and NOT "match the longer global first". The two
+-- `…_UNTIL_EQUIP` globals are not dependable at runtime — a live client can hand back nil for
+-- them — so keying the equip-limited state on those globals alone silently degrades every
+-- warbound-until-equipped drop to plain warbound (both wordings contain the shorter one). So:
+-- decide *whether* the line is warbound from any of the six globals, then decide *which* state
+-- from the "until equipped" qualifier, globals-first with a literal fallback. Literals are safe
+-- here — this addon is English-only (CLAUDE.md) — and only ever widen what the globals catch.
+-- A bind line is a WHOLE line — matching a substring anywhere in the tooltip is what broke this:
+-- "Warbound Cache of Void-Touched Armaments: Boots" is an item NAME, and a `find` for "warbound"
+-- hits it on line 1, classifying the item as plain warbound before the real bind line is ever
+-- reached. So the six wordings are matched as complete lines (trimmed, case-insensitive), with one
+-- deliberate exception: a line *starting* with "binds to warband" also counts, because no item name
+-- opens that way, and that keeps a trailing-suffix variant of that family from being missed.
+local WARBAND_ANY_GLOBALS = {
+  "ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP", -- "Binds to Warband until equipped"
+  "ITEM_ACCOUNTBOUND_UNTIL_EQUIP",    -- "Warbound until equipped"
+  "ITEM_BIND_TO_BNETACCOUNT",         -- "Binds to Warband"
+  "ITEM_BIND_TO_ACCOUNT",             -- "Binds to Warband"
+  "ITEM_BNETACCOUNTBOUND",            -- "Warbound"
+  "ITEM_ACCOUNTBOUND",                -- "Warbound"
 }
-local ACCOUNT_STRINGS = {
-  ITEM_ACCOUNTBOUND,             -- "Account Bound"
-  ITEM_BIND_TO_BNETACCOUNT,      -- "Blizzard Account Bound" (legacy)
+local WARBAND_UE_GLOBALS = {
+  "ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP",
+  "ITEM_ACCOUNTBOUND_UNTIL_EQUIP",
 }
-local function lineMatchesAny(text, list)
-  for _, s in ipairs(list) do
-    if s and s ~= "" and text:find(s, 1, true) then return true end
+-- Whole-line wordings, lower-cased. The globals cover these too when the client exposes them;
+-- these are the fallback for the ones it leaves nil (English-only addon, see CLAUDE.md).
+local WARBAND_LINES = {
+  ["binds to warband until equipped"] = "WARBAND_UE",
+  ["warbound until equipped"]         = "WARBAND_UE",
+  ["binds to warband"]                = "WARBAND",
+  ["warbound"]                        = "WARBAND",
+}
+local BIND_TO_WARBAND_PREFIX = "binds to warband"
+local UE_LITERAL = "until equipped"
+
+local function lineIsAny(text, globals)
+  for _, name in ipairs(globals) do
+    local s = _G[name]
+    if s and s ~= "" and text == s then return true end
   end
   return false
 end
 
+local function isWarbandLine(text, lower)
+  if lineIsAny(text, WARBAND_ANY_GLOBALS) then return true end
+  if WARBAND_LINES[lower] then return true end
+  return lower:sub(1, #BIND_TO_WARBAND_PREFIX) == BIND_TO_WARBAND_PREFIX
+end
+
+-- Returns state, readable. `readable` says whether the tooltip was actually built — a caller can't
+-- tell "not warbound" from "the client hasn't built this tooltip yet" from a nil state alone, and
+-- for the items whose bind type lies (below) the tooltip is the ONLY witness, so that difference
+-- decides whether a repair pass retries the row or considers it settled.
+--
+-- An uncached item does NOT yield an empty tooltip: it yields a perfectly readable one that says
+-- RETRIEVING_ITEM_INFO ("Retrieving item information") and nothing else. Counting that as readable
+-- is how a repair pass "settles" every row while learning nothing — so it is excluded explicitly.
 function Compat.ScanBound(link)
-  if not (link and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return nil end
+  if not (link and C_TooltipInfo and C_TooltipInfo.GetHyperlink) then return nil, false end
   local data = C_TooltipInfo.GetHyperlink(link)
-  if not (data and data.lines) then return nil end
+  if not (data and data.lines) then return nil, false end
+  local retrieving = RETRIEVING_ITEM_INFO
+  local readable = false
   for _, line in ipairs(data.lines) do
     local text = line.leftText
-    if text then
-      if lineMatchesAny(text, WARBAND_STRINGS) then return "WARBAND" end
-      if lineMatchesAny(text, ACCOUNT_STRINGS) then return "ACCOUNT" end
+    if text and text ~= "" and not (retrieving and retrieving ~= "" and text:find(retrieving, 1, true)) then
+      readable = true
+      local lower = text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+      if isWarbandLine(text, lower) then
+        if lineIsAny(text, WARBAND_UE_GLOBALS) or lower:find(UE_LITERAL, 1, true) then
+          return "WARBAND_UE", true
+        end
+        return "WARBAND", true
+      end
     end
   end
-  return nil
+  return nil, readable
+end
+
+-- Bind state from `C_Item.GetItemInfo`'s 14th return (`Enum.ItemBind`). A corroborating signal,
+-- NOT the authority: it is locale-free and needs no tooltip, but Blizzard does not keep it honest
+-- for warbound items — item 278014, a cache whose tooltip reads "Binds to Warband until equipped",
+-- reports 2 (OnEquip) here. So a warbound answer from this is trustworthy, but its silence proves
+-- nothing, and the tooltip is the only witness for those items (see docs/midnight-quirks.md).
+-- 11.0 added the three account values; 5 and 6 are Blizzard's own Unused1/Unused2.
+local BIND_STATE = {
+  [1] = "BOP",        -- OnAcquire
+  [2] = "BOE",        -- OnEquip
+  [3] = "BOE",        -- OnUse
+  [4] = "BOP",        -- Quest
+  [7] = "WARBAND",    -- ToWoWAccount
+  [8] = "WARBAND",    -- ToBnetAccount           ("Binds to Warband")
+  [9] = "WARBAND_UE", -- ToBnetAccountUntilEquipped ("Binds to Warband until equipped")
+}
+function Compat.BindState(bindType)
+  return bindType and BIND_STATE[bindType] or nil
+end
+
+-- The more specific of two bind verdicts. The two sources disagree in one direction only — one of
+-- them sees warbound and the other doesn't — so rank by specificity and take the winner rather than
+-- letting call order decide. Never demotes a warbound answer to BOE/BOP.
+local BOUND_SPECIFICITY = { WARBAND_UE = 3, WARBAND = 2 }
+function Compat.BestBound(a, b)
+  if not a then return b end
+  if not b then return a end
+  local ra = BOUND_SPECIFICITY[a] or 1
+  local rb = BOUND_SPECIFICITY[b] or 1
+  return rb > ra and b or a
+end
+
+-- Bind state for a stored row, from both signals merged by BestBound. Returns state, settled —
+-- `settled` is true once the tooltip was readable, which is what a caller must wait for: the bind
+-- type answering "BOE" is not evidence that a row ISN'T warbound. `link` is optional; pass it when
+-- the record has one, since the tooltip needs a link.
+function Compat.ItemBindState(item, link)
+  if not item then return nil, false end
+  local typed, cached
+  if C_Item and C_Item.GetItemInfo then
+    local name, _, _, _, _, _, _, _, _, _, _, _, _, bindType = C_Item.GetItemInfo(item)
+    typed, cached = Compat.BindState(bindType), name ~= nil
+  end
+  -- A row may hold only an id, and the tooltip needs a link — "item:<id>" is a valid hyperlink for
+  -- GetHyperlink, so an id-only row is still witnessable rather than permanently unsettled.
+  local hyperlink = link or (type(item) == "number" and ("item:" .. item)) or item
+  local scanned, readable = Compat.ScanBound(hyperlink)
+  -- Settled needs BOTH: the item data cached (so `typed` means something) and a real tooltip (so
+  -- the absence of a warbound line means something). Either alone has already fooled this addon.
+  return Compat.BestBound(typed, scanned), (readable and cached) or false
 end
 
 -- Capture-time extras for a looted item. Returns:
 --   ilvl        effective item level (equippable weapons/armor only; nil otherwise)
---   bound       nil(unbound) | "BOE" | "BOP" | "ACCOUNT" | "WARBAND" (warband/account wins)
+--   bound       nil(unbound) | "BOE" | "BOP" | "WARBAND" | "WARBAND_UE"
 --   sellPrice   vendor sell price in copper (per unit)
 --   itemType    top-level type ("Armor", "Weapon", "Tradegoods", …)
 --   itemSubType finer subtype ("Cloth", "Sword", "Cooking", …)
@@ -262,14 +370,11 @@ function Compat.GetItemExtras(link)
     end
   end
 
-  bound = Compat.ScanBound(link) -- WARBAND / ACCOUNT / nil
-  if not bound then
-    if bindType == 1 or bindType == 4 then
-      bound = "BOP"                 -- bind on pickup / quest
-    elseif bindType == 2 or bindType == 3 then
-      bound = "BOE"                 -- bind on equip / on use
-    end
-  end
+  -- Both signals, most-specific wins (BestBound). Neither is reliable alone: GetItemInfo answers
+  -- nothing at all for an uncached item, and the tooltip can be unreadable or word the state in a
+  -- form whose global the client left nil. Whichever one *does* see warbound is believed.
+  local scanned = Compat.ScanBound(link)   -- drop the `readable` flag: capture stores what it has
+  bound = Compat.BestBound(Compat.BindState(bindType), scanned)
 
   return ilvl, bound, sellPrice, itemType, itemSubType
 end

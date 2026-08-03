@@ -72,7 +72,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: reset does not alias the table-typed default (F-003)
 - Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
 
-### test_compat.lua (17)
+### test_compat.lua (31)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -83,6 +83,20 @@ badge and any count quoted in the docs must agree with it.
 - Compat: API-absent guards degrade to nil/false with no flavor flag
 - Compat: no game-flavor flags exposed (Retail-only addon)
 - Compat: IsAuctionHouseMail matches AH sender + won-subject
+- Compat: an item NAME containing 'Warbound' is not a bind line
+- Compat: ScanBound separates warbound from warbound-until-equipped
+- Compat: ScanBound still splits UE when the …_UNTIL_EQUIP globals are nil
+- Compat: ScanBound reads warbound wording with every global absent
+- Compat: BindState maps every Enum.ItemBind value to a bind token
+- Compat: GetItemExtras reads the bind state off bindType when it names one
+- Compat: GetItemExtras believes the tooltip when bindType understates it
+- Compat: an uncached item's 'Retrieving item information' tooltip is NOT readable
+- Compat: ItemBindState isn't settled until the item data is cached too
+- Compat: ScanBound reports whether the tooltip was readable at all
+- Compat: GetItemExtras falls back to the tooltip when the item isn't cached
+- Compat: ItemBindState resolves an id, nil when the client can't answer
+- Compat: ItemBindState takes the tooltip's verdict when bindType has none
+- Compat: BestBound keeps the more specific verdict, never demotes warbound
 - Compat: QualityLabel names qualities
 - Compat: GetItemInfo surfaces the item class id
 - Compat: CurrencyLinkID parses the id from a currency link
@@ -203,7 +217,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (42)
+### test_database.lua (51)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -247,6 +261,15 @@ badge and any count quoted in the docs must agree with it.
 - Migrate: v2->v3 renames sellPrice to vendorPrice
 - Migrations: v3->v4 backfills currency-record quality
 - Migrations: v4->v5 backfills currency-record bound
+- Migrations: v5->v6 parks the retired ACCOUNT rows on WARBAND
+- Migrations: the warbound split is armed, never run inline
+- Database: ArmBoundRepair re-arms on a revision bump, and only then
+- Database: RepairBoundStates raises rows to the state the tooltip witnesses
+- Database: RepairBoundStates promotes a BOE row the bind type filed too loosely
+- Database: a readable tooltip settles a row even when the bind type says otherwise
+- Database: RepairBoundStates repairs a row that has only a link
+- Database: RepairBoundStates resets the give-up budget on a pass that fixed something
+- Database: RepairBoundStates gives up after the attempt cap
 
 ### test_stats.lua (18)
 
@@ -603,12 +626,12 @@ badge and any count quoted in the docs must agree with it.
 |-------|------:|
 | test_constants.lua | 25 |
 | test_util.lua | 35 |
-| test_compat.lua | 17 |
+| test_compat.lua | 31 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 23 |
 | test_collector.lua | 33 |
-| test_database.lua | 42 |
+| test_database.lua | 51 |
 | test_stats.lua | 18 |
 | test_browser.lua | 41 |
 | test_browsertable.lua | 50 |
@@ -620,4 +643,4 @@ badge and any count quoted in the docs must agree with it.
 | test_panel.lua | 24 |
 | test_libka0s.lua | 17 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **534** |
+| **Total** | **557** |

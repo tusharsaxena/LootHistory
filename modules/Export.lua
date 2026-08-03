@@ -10,7 +10,7 @@ local E = NS.Export
 -- Friendly bind-state labels, matching the Bound column's tooltip legend. nil/"NONE" = Not Bound.
 local BOUND_LABEL = {
   NONE = "Not Bound", BOE = "Bind on Equip", BOP = "Bind on Pickup",
-  ACCOUNT = "Account Bound", WARBAND = "Warbound",
+  WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
 }
 function E:BoundLabel(token) return BOUND_LABEL[token or "NONE"] or tostring(token) end
 
@@ -138,7 +138,8 @@ end
 -- has no value dimension). Pure — takes a Database:Stats result, returns text; unit-tested.
 
 local BOUND_LABEL_CSV = {
-  BOP = "Soulbound", BOE = "BoE", ACCOUNT = "Account", WARBAND = "Warbound", UNBOUND = "Unbound",
+  BOP = "Soulbound", BOE = "BoE", WARBAND = "Warbound", WARBAND_UE = "Warbound (UE)",
+  UNBOUND = "Unbound",
 }
 local WEEKDAY_CSV = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
 
