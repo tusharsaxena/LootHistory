@@ -1,0 +1,565 @@
+  PASS  Constants: every SourceType value equals its key (the stable stored form)
+  PASS  Constants: every SourceType member appears in the display order
+  PASS  Constants: the display order lists no source twice and invents none
+  PASS  Constants: every SourceType member has a non-empty display label
+  PASS  Constants: SourceLabel carries no label for a non-source key
+  PASS  Constants: the deconstruct abilities are first-class sources, not folded into CRAFT
+  PASS  Constants: every source has a live capture path (SOURCE_IMPLEMENTED is total)
+  PASS  Constants: SOURCE_IMPLEMENTED claims nothing outside the enum
+  PASS  Constants: the mute options are the implemented sources, in display order
+  PASS  Constants: the confidence enum is exactly CERTAIN/INFERRED, key == value
+  PASS  Constants: the aliases point at the very same enum tables
+  PASS  Constants: the quest item class is the locale-independent numeric id 12
+  PASS  Constants: the context TTL is a short positive window
+  PASS  Constants: the mono font resolves inside this addon's media folder
+  PASS  Constants: the quality ladder is Poor..Legendary then Heirloom, skipping 6 and 8
+  PASS  Constants: every quality option carries a colored '<name> and above' text
+  PASS  Constants: the retention presets ascend and end on 'Always' (0 = disabled)
+  PASS  Constants: every auction key is fully described
+  PASS  Constants: auction tags are unique
+  PASS  Constants: every auction provider has a human-readable name
+  PASS  Constants: the capture options mirror AUCTION_KEYS one-for-one, in order
+  PASS  Constants: the priority cascade covers every auction key exactly once
+  PASS  Constants: the default-captured keys all sort ahead of the uncaptured ones
+  PASS  Constants: every default-captured tag is a real auction key
+  PASS  Constants: the currency pseudo-type is the reserved 'Currency' string
+  PASS  IsConcatSafe: true for number/string, false for an un-concatenable value
+  PASS  SafeToString: passes normal values through tostring
+  PASS  SafeToString: renders a secret value as <secret> instead of raising
+  PASS  NS.Print: writes a cyan-tagged, space-joined line to the chat sink
+  PASS  NS.Print: tolerates a secret arg (no concat crash), renders it <secret>
+  PASS  NS.Print is reclaimed from AceConsole's :Print mixin (architecture-§2)
+  PASS  Constants: source enum + order
+  PASS  Util: RangeFrom maps range keys to a lower-bound timestamp
+  PASS  Util: PlayerKey is Name-Realm
+  PASS  Util: SplitPath splits dotted paths
+  PASS  Util: ParseSelfLoot single self-loot → link, qty 1
+  PASS  Util: ParseSelfLoot multiple self-loot → link, qty N
+  PASS  Util: ParseSelfLoot pushed variant → link, qty
+  PASS  Util: ParseSelfLoot ignores another player's loot
+  PASS  Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL
+  PASS  Util: ParseSelfLoot tags a created (crafted) self-loot line as CRAFT
+  PASS  Util: ParseSelfLoot tags a refund self-loot line as REFUND
+  PASS  Util: ParseSelfLoot leaves the source tag nil for normal loot
+  PASS  Util: ParseSelfLoot ignores another player's bonus roll
+  PASS  Util: ParseRollWon matches the player's roll-won line, else nil
+  PASS  Util: ParseSelfCurrency single currency line -> link, qty 1
+  PASS  Util: ParseSelfCurrency multiple currency line -> link, qty N
+  PASS  Util: ParseSelfCurrency bonus + overflow variants -> link, qty
+  PASS  Util: ParseSelfCurrency tags a refunded currency line as REFUND
+  PASS  Util: ParseSelfCurrency ignores item loot and other players
+  PASS  Util: FormatClock is HH:MM
+  PASS  Util: FormatDate is DD-MMM-YYYY
+  PASS  Util: FormatMoney shows non-zero parts
+  PASS  Util: FormatBytes scales B / kB / MB
+  PASS  Database: InitDB creates account-wide store
+  PASS  Schema: Set writes through the single seam
+  PASS  Schema: Set unknown path returns false
+  PASS  Schema: nested minimap path writes
+  PASS  Schema: reset does not alias the table-typed default (F-003)
+  PASS  Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
+  PASS  Compat: DecodeGUID creature → kind + npcID
+  PASS  Compat: DecodeGUID GameObject → kind, no npcID
+  PASS  Compat: DecodeGUID Item → kind, no npcID
+  PASS  Compat: DecodeGUID Vehicle/Pet count as unit kinds
+  PASS  Compat: DecodeGUID nil-safe
+  PASS  Compat: GetActiveKeystoneLevel nil when API absent (headless)
+  PASS  Compat: API-absent guards degrade to nil/false with no flavor flag
+  PASS  Compat: no game-flavor flags exposed (Retail-only addon)
+  PASS  Compat: IsAuctionHouseMail matches AH sender + won-subject
+  PASS  Compat: an item NAME containing 'Warbound' is not a bind line
+  PASS  Compat: ScanBound separates warbound from warbound-until-equipped
+  PASS  Compat: ScanBound still splits UE when the …_UNTIL_EQUIP globals are nil
+  PASS  Compat: ScanBound reads warbound wording with every global absent
+  PASS  Compat: BindState maps every Enum.ItemBind value to a bind token
+  PASS  Compat: GetItemExtras reads the bind state off bindType when it names one
+  PASS  Compat: GetItemExtras believes the tooltip when bindType understates it
+  PASS  Compat: an uncached item's 'Retrieving item information' tooltip is NOT readable
+  PASS  Compat: ItemBindState isn't settled until the item data is cached too
+  PASS  Compat: ScanBound reports whether the tooltip was readable at all
+  PASS  Compat: GetItemExtras falls back to the tooltip when the item isn't cached
+  PASS  Compat: ItemBindState resolves an id, nil when the client can't answer
+  PASS  Compat: ItemBindState takes the tooltip's verdict when bindType has none
+  PASS  Compat: BestBound keeps the more specific verdict, never demotes warbound
+  PASS  Compat: QualityLabel names qualities
+  PASS  Compat: GetItemInfo surfaces the item class id
+  PASS  Compat: CurrencyLinkID parses the id from a currency link
+  PASS  Compat: GetCurrencyInfoFromLink returns id, name, icon
+  PASS  Compat: CurrencyCategory resolves a currency to its list header
+  PASS  Compat: CurrencyName resolves via C_CurrencyInfo, nil when unknown
+  PASS  Compat: CurrencyQuality returns the tier, nil when unknown
+  PASS  Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
+  PASS  Attribution: Consume returns stamped context within TTL
+  PASS  Attribution: Stamp defaults confidence to CERTAIN
+  PASS  Attribution: Consume falls back to OTHER/INFERRED past TTL
+  PASS  Attribution: Consume with no stamp → OTHER/INFERRED
+  PASS  Attribution: context survives repeated Consume (multi-line loot)
+  PASS  Attribution: ResolveLootSource creature → KILL + npcID
+  PASS  Attribution: ResolveLootSource creature in encounter → KILL + encounter detail
+  PASS  Attribution: ResolveLootSource GameObject in keystone → MPLUS + level
+  PASS  Attribution: ResolveLootSource GameObject otherwise → CONTAINER
+  PASS  Attribution: ResolveLootSource Item GUID → CONTAINER
+  PASS  Attribution: opening a lootable bag item stamps CONTAINER
+  PASS  Attribution: using a non-lootable bag item does not stamp
+  PASS  Attribution: applying a pending spell to a bag item does not stamp CONTAINER
+  PASS  Attribution: deconstruct spells map to their own source
+  PASS  Attribution: DeconstructSource resolves enumerated ids locale-independently
+  PASS  Attribution: DeconstructSource matches un-enumerated variants by localized name family
+  PASS  Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell skips re-resolution
+  PASS  Attribution: a memoized deconstruct source survives a later name change
+  PASS  Attribution: deconstruct's own loot window does not clobber its source
+  PASS  OnLootOpened logs ONE coalesced summary, not one line per slot
+  PASS  Attribution: an unrelated player spell does not stamp a source
+  PASS  Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
+  PASS  Attribution: taking a quest reward stamps QUEST
+  PASS  Filters: AddBlacklist stores the id in the blacklist set
+  PASS  Filters: AddBlacklist accepts a numeric string
+  PASS  Filters: adding to one list removes the id from the other
+  PASS  Filters: Remove drops the id
+  PASS  Filters: mutations write a fresh table (no shared-default aliasing)
+  PASS  Filters: AddBlacklist rejects non-numeric input
+  PASS  Filters: adding an id already present is a no-op (returns false)
+  PASS  Filters: change fires HistoryChanged (via Database) and re-caches the Collector
+  PASS  Filters: ClearList empties one list and returns the count removed
+  PASS  Filters: ClearList on an empty or unknown list is a no-op returning 0
+  PASS  Filters: ClearList writes a fresh table (no shared-default aliasing)
+  PASS  Filters: ClearAll empties both lists and returns the total removed
+  PASS  Filters: ClearAll with both lists empty is a no-op returning 0
+  PASS  Filters: ClearList fires HistoryChanged and re-caches the Collector
+  PASS  Filters: SortedIDs returns ids ascending
+  PASS  Filters: ParseItemID reads a number, an item link, and an itemString
+  PASS  Filters: currency blacklist add / remove / query
+  PASS  Filters: currency blacklist is independent of the item id lists
+  PASS  Filters: ClearList and ClearAll include the currency blacklist
+  PASS  Filters: ParseCurrencyID reads a currency link or a bare number
+  PASS  AuctionPrice: GatherAll collects all captured keys into a nested map
+  PASS  AuctionPrice: Pick walks the priority list, first present wins
+  PASS  AuctionPrice: Pick respects a reordered priority list
+  PASS  AuctionPrice: GatherAll only captures keys in the capture set
+  PASS  AuctionPrice: GatherAll returns nil when nothing gathered / disabled
+  PASS  AuctionPrice: IsProviderAvailable reflects addon globals
+  PASS  AuctionPrice: ReconcilePriority appends missing tags and drops unknown
+  PASS  AuctionPrice: SwapPriorityTags swaps positions
+  PASS  AuctionPrice: Pick on a record with no price map yields nothing
+  PASS  AuctionPrice: Pick ignores a provider present but empty
+  PASS  AuctionPrice: Pick skips a tag the map does not carry
+  PASS  AuctionPrice: Pick still works when the stored priority list is empty
+  PASS  AuctionPrice: the default cascade prefers TSM market value over a min buyout
+  PASS  AuctionPrice: a provider that throws cannot break the capture
+  PASS  AuctionPrice: a provider returning zero or negative prices records nothing
+  PASS  AuctionPrice: GatherAll with no pricing addon installed returns nil
+  PASS  AuctionPrice: Auctionator falls back to the item link when there is no id
+  PASS  AuctionPrice: IsProviderAvailable is false for an unknown provider name
+  PASS  AuctionPrice: ReconcilePriority de-duplicates without reordering the survivors
+  PASS  AuctionPrice: ReconcilePriority always ends up covering every known key once
+  PASS  AuctionPrice: ReconcilePriority rewrites in place, keeping the same table
+  PASS  AuctionPrice: GetPriority creates the array on first use
+  PASS  AuctionPrice: SwapPriorityTags refuses a tag that is not in the list
+  PASS  Collector: BuildRecord populates every field
+  PASS  Collector: ShouldRecord passes at/above threshold
+  PASS  Collector: ShouldRecord rejects below threshold
+  PASS  Collector: ShouldRecord rejects excluded source
+  PASS  Collector: ShouldRecord treats nil quality as 0
+  PASS  Collector: ShouldRecord drops quest items when excludeQuestItems on
+  PASS  Collector: ShouldRecord keeps quest items when excludeQuestItems off
+  PASS  Collector: ShouldRecord unaffected for non-quest class when filter on
+  PASS  Collector: ShouldRecord reports the drop reason
+  PASS  Collector: ShouldRecord whitelist forces a below-threshold item to record
+  PASS  Collector: ShouldRecord whitelist forces a muted-source item to record
+  PASS  Collector: ShouldRecord blacklist drops a passing item with reason 'blacklist'
+  PASS  Collector: ShouldRecord flags a whitelist rescue but not a normal pass
+  PASS  Collector: ShouldRecord id lists ignore other item ids
+  PASS  Collector: end-to-end drops a blacklisted item, records after un-blacklisting
+  PASS  Collector: whitelist records below threshold as a plain point-in-time row
+  PASS  Collector: end-to-end writes an attributed record
+  PASS  Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context
+  PASS  Collector: end-to-end attributes a created line to CRAFT, overriding context
+  PASS  Collector: end-to-end attributes a refund line to REFUND
+  PASS  Collector: a roll-won line writes no record but stamps ROLL for the receive line
+  PASS  Collector: end-to-end records a currency line as Type=Currency
+  PASS  Collector: recordCurrency off drops currency
+  PASS  Collector: a muted source drops its currency too
+  PASS  Collector: a blacklisted currency is dropped, records after un-blacklisting
+  PASS  Collector: a currency refund line records as Type=Currency, source REFUND
+  PASS  Collector: a muted REFUND source drops the refunded currency
+  PASS  Collector: end-to-end drops loot below the quality threshold
+  PASS  Collector: end-to-end drops quest items when the filter is on
+  PASS  Schema: excludeQuestItems row exists, defaults true, settable
+  PASS  Collector: live SettingsChanged refreshes the collector alongside another bus consumer
+  PASS  Collector SettingsChanged does not emit a redundant [Cfg] echo
+  PASS  Collector: BuildRecord stores the auctionPrice map, no priceSource
+  PASS  Database: Add appends, increments Count, returns index
+  PASS  Database: Add fires RecordAdded with record + index
+  PASS  Database: Query empty filter returns all
+  PASS  Database: Query by exact quality
+  PASS  Database: Query by quality set (multi-select membership)
+  PASS  Database: Query ignores a non-numeric quality (no crash, returns all)
+  PASS  Database: QueryList filters an arbitrary array, not the live history
+  PASS  Database: Query filters by itemType
+  PASS  Database: Query filters by itemSubType
+  PASS  Database: QueryList bound=NONE matches unbound records
+  PASS  Database: QueryList bound set unions tokens
+  PASS  Database: QueryList ignores non-table bound filter
+  PASS  Database: Query by char/zone set (multi-select membership)
+  PASS  Database: Query by zone spans every map id that carries the name
+  PASS  Database: Query by zone buckets nameless records under the empty name
+  PASS  Database: Query by source (string)
+  PASS  Database: Query by source (set membership)
+  PASS  Database: Query by char and by zone
+  PASS  Database: Query by ts range (from/to inclusive)
+  PASS  Database: Query by case-insensitive text substring
+  PASS  Database: Query combines predicates (AND)
+  PASS  Database: blacklist does NOT hide already-stored rows (point-in-time)
+  PASS  Database: ActiveHistory returns raw history (no hide, same reference)
+  PASS  Database: Export returns metatable-free copies with all fields
+  PASS  Database: Export carries currencyID through for currency rows
+  PASS  Database: Export coerces a nil source to OTHER (parity with Stats bySource)
+  PASS  Database: Delete(pred) removes all matching, compacts, returns count
+  PASS  Database: PruneOld drops records older than retentionDays
+  PASS  Database: PruneOld with retentionDays=0 keeps everything
+  PASS  Database: Purge wipes history and fires HistoryChanged
+  PASS  Database: PruneOld returns removed count and logs [Prune]
+  PASS  Database: PruneOld is zero-alloc and silent when debug is off
+  PASS  Database: Purge returns removed count and logs [Data]
+  PASS  Database: StorageStats counts records, day span, and estimated bytes
+  PASS  Database: StorageStats on empty history is zeroed
+  PASS  Database: RunMigrations sets schemaVersion when absent
+  PASS  Database: RunMigrations leaves an already-current DB unchanged
+  PASS  Database: RunMigrations is idempotent across repeated runs
+  PASS  Database: RunMigrations is a safe no-op when the DB is absent
+  PASS  NS.MigrationSummary formats from/to/rows
+  PASS  Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
+  PASS  Migrate: v2->v3 renames sellPrice to vendorPrice
+  PASS  Migrations: v3->v4 backfills currency-record quality
+  PASS  Migrations: v4->v5 backfills currency-record bound
+  PASS  Migrations: v5->v6 parks the retired ACCOUNT rows on WARBAND
+  PASS  Migrations: the warbound split is armed, never run inline
+  PASS  Migrations: v7->v8 rewrites a saved mapID filter as the zone names those ids carried
+  PASS  Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in the history
+  PASS  Database: ArmBoundRepair re-arms on a revision bump, and only then
+  PASS  Database: RepairBoundStates raises rows to the state the tooltip witnesses
+  PASS  Database: RepairBoundStates promotes a BOE row the bind type filed too loosely
+  PASS  Database: a readable tooltip settles a row even when the bind type says otherwise
+  PASS  Database: RepairBoundStates repairs a row that has only a link
+  PASS  Database: RepairBoundStates resets the give-up budget on a pass that fixed something
+  PASS  Database: RepairBoundStates gives up after the attempt cap
+  PASS  Stats: bySource / byQuality counts
+  PASS  Stats: byDay buckets via date()
+  PASS  Stats: byZone counts
+  PASS  Stats: a missing or blank zone counts under one Unknown bucket
+  PASS  Stats: byItem aggregates by itemID with name/quality
+  PASS  Stats: totals (records/distinct/first/last)
+  PASS  Stats: topZones / topItems ordered by count desc
+  PASS  Stats: respects the filter
+  PASS  Stats: empty dataset yields zeroed totals
+  PASS  Stats: vendor value (vendorPrice × quantity) totals + by source/zone
+  PASS  Stats: byType / byBound / byChar / byConfidence / byKeystone
+  PASS  Stats: hour/weekday buckets sum to record count (TZ-independent)
+  PASS  Stats: highlights + topItemsByValue
+  PASS  Analytics.SummaryLine formats range and count
+  PASS  Stats: value uses auctionPrice when present, else vendorPrice
+  PASS  Stats: currency stays out of the item/loot charts (its own section only)
+  PASS  Stats: currencyBySource sums currency quantity per source across currencies
+  PASS  Stats: currencyCharMatrix splits each character's currency by type
+  PASS  Stats: per-character category matrices split each char by category
+  PASS  Browser.MinWidth is wide enough for both the columns and the toolbar
+  PASS  Browser.ExportWidth exactly consumes the bar remainder at minimum width
+  PASS  Browser.ExportWidth never falls below its floor
+  PASS  Browser.setToFilter turns a selection set into a filter value
+  PASS  Browser.setToFilter maps an empty selection to nil (no filter at all)
+  PASS  Browser.setToFilter copies rather than aliases the live selection
+  PASS  Browser.asSet passes a stored set through, dropping the false entries
+  PASS  Browser.asSet promotes the legacy scalar form to a one-entry set
+  PASS  Browser.asSet maps the 'all' sentinel and nil to an empty set
+  PASS  Browser.asSet round-trips through setToFilter for the stock (unfiltered) view
+  PASS  Browser.withAll sorts by label and keeps the All sentinel first
+  PASS  Browser.withAll on an empty dataset still offers the All sentinel
+  PASS  Browser: source options are the distinct sources, human-labeled, All first
+  PASS  Browser: type options skip the blank itemType
+  PASS  Browser: subtype options skip the blank itemSubType
+  PASS  Browser: zone options are keyed by name, so one zone lists once per name
+  PASS  Browser: zones with no recorded name share one 'Unknown' bucket
+  PASS  Browser: quality options run in quality order, not label order
+  PASS  Browser: quality options carry the quality tint
+  PASS  Browser: bound options follow the fixed binding order, not data order
+  PASS  Browser: an unbound record surfaces as the NONE sentinel
+  PASS  Browser: character options list each looter once, All then Current first
+  PASS  Browser: character options carry the class color and icon markup
+  PASS  Browser: the Current preset lights up only for exactly the logged-in character
+  PASS  Browser: the stock view filters nothing and sorts newest-first
+  PASS  Browser: with no saved view, Clear falls back to the stock view
+  PASS  Browser: a saved view wins over stock
+  PASS  Browser: a corrupt (non-table) saved view degrades to stock rather than erroring
+  PASS  Browser.ApplyView pushes the view's group and sort onto the table
+  PASS  Browser.ApplyView resolves each stored set into the active filter
+  PASS  Browser.ApplyView turns a date range into an absolute lower bound
+  PASS  Browser.ApplyView carries the search text into the filter
+  PASS  Browser.ApplyView scopes to the current player by default, not to everyone
+  PASS  Browser.ApplyView discards whatever the previous view filtered
+  PASS  Browser.SetCharSet drives the char filter, and an empty set clears it
+  PASS  Browser.CurrentFilter hands out a copy, not the live filter
+  PASS  Browser.CaptureView records the table's group and sort state
+  PASS  Browser.CaptureView stores unset column filters as empty sets, never nil
+  PASS  Browser.CaptureView omits the character scope (it is session-only)
+  PASS  Browser.SaveView then ResetView clears the stored default
+  PASS  Browser.ResetWindow empties the persisted geometry carve-out
+  PASS  BrowserTable: CellText renders each column
+  PASS  BrowserTable: iLvl column shows level only when present
+  PASS  BrowserTable: Bound column renders no text (icon-driven)
+  PASS  BrowserTable: bound legend adds a line per state
+  PASS  BrowserTable: test data covers every bound state, source, quality, class
+  PASS  BrowserTable: Item column falls back to link name then '?'
+  PASS  BrowserTable: BuildDisplayList yields one row entry per filtered record
+  PASS  BrowserTable: SortRecords orders by active column, stable on ties
+  PASS  BrowserTable: SetSort toggles direction on same column, resets on new
+  PASS  BrowserTable: GroupRecords partitions into headers + rows with counts
+  PASS  BrowserTable: group order toggles asc/desc, sorted by the grouped column
+  PASS  BrowserTable: collapsed group emits only its header
+  PASS  BrowserTable: groupBy none yields a flat row list
+  PASS  BrowserTable: test mode filters the synthetic dataset
+  PASS  BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
+  PASS  BrowserTable.RenderSummary is a single coalesced line
+  PASS  BrowserTable: auction column shows the picked price from the map
+  PASS  BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
+  PASS  BrowserTable: quality column is blank for a currency row
+  PASS  BrowserTable: group keys are namespaced, so a zone can share a source's name
+  PASS  BrowserTable: a missing zone/character/type groups under 'Unknown'
+  PASS  BrowserTable: a blank zone string groups under 'Unknown' too, not a nameless group
+  PASS  BrowserTable: day groups key on the ISO date but read as the Date column
+  PASS  BrowserTable: day groups run chronologically, not alphabetically
+  PASS  BrowserTable: records with no quality group under an em-dash
+  PASS  BrowserTable: ToggleCollapse flips a group shut and open again
+  PASS  BrowserTable: collapsing one group leaves its siblings open
+  PASS  BrowserTable: SetGroupBy sets the mode, and nil means flat
+  PASS  BrowserTable: clicking the grouped column flips the group order, not the row sort
+  PASS  BrowserTable: grouping by day maps the click to the Date column
+  PASS  BrowserTable: an unsortable or unknown column key is ignored
+  PASS  BrowserTable: SortRecords returns a new array and leaves the input alone
+  PASS  BrowserTable: sorting by a column no record fills still keeps every row
+  PASS  BrowserTable: the vendor and auction columns sort by copper, not by their text
+  PASS  BrowserTable: an unrecognized source still shows something in the Source column
+  PASS  BrowserTable: the vendor column is blank when no price was recorded
+  PASS  BrowserTable: the auction column is blank when no price map was captured
+  PASS  BrowserTable: quantity defaults to 1 when a record omits it
+  PASS  BrowserTable: type and subtype cells are blank rather than nil-crashing
+  PASS  BrowserTable: the Character cell prefixes a class icon when the class is known
+  PASS  BrowserTable: ClassIconMarkup is empty for an unknown class
+  PASS  BrowserTable: every column is fully described and uniquely keyed
+  PASS  BrowserTable: Character is the last column and Item is the flexing one
+  PASS  BrowserTable: every column except the flexing one reserves a width
+  PASS  BrowserTable: the synthetic dataset is byte-identical between builds
+  PASS  BrowserTable: every synthetic record carries the fields the table and charts read
+  PASS  BrowserTable: only gear carries an item level in the synthetic dataset
+  PASS  BrowserTable: only Mythic+ records carry a keystone level
+  PASS  BrowserTable: synthetic confidence is always one of the two enum values
+  PASS  BrowserTable: every synthetic auction map is pickable by the priority cascade
+  PASS  BrowserTable: a large all-ties sort keeps every row in its original order
+  PASS  Export: BoundLabel maps tokens and nil
+  PASS  Export: WowheadLink with bonus IDs
+  PASS  Export: WowheadLink without bonuses is bare
+  PASS  Export: WowheadLink falls back to itemID, then empty
+  PASS  Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last
+  PASS  Export: CSV auction/value columns — auction present and vendor fallback
+  PASS  Export: CSV emits picked price/tag + matching raw sub-columns for a nested auctionPrice map
+  PASS  Export: CSV omits itemLink, sourceDetail, mapID, subzone, confidence
+  PASS  Export: CSV row emits friendly bound + quotes commas
+  PASS  Export: CSV date + time columns are FormatDate/FormatClock(ts)
+  PASS  Export: CSV quality is human label beside numeric qualityRaw
+  PASS  Export: CSV vendorPrice is 'Ng Ns Nc' beside raw copper
+  PASS  Export: CSV emits one header + one row per record, CRLF-terminated
+  PASS  Export: InsightsCSV header is Section,Label,Count,Value; CRLF-terminated
+  PASS  Export: InsightsCSV summary reports the record count
+  PASS  Export: InsightsCSV By Source uses labels + carries the value column
+  PASS  Export: InsightsCSV quotes a label containing a comma
+  PASS  Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)
+  PASS  Export: CSV emits a currency row with currencyID and blank item cells
+  PASS  Export: InsightsCSV includes currency sections
+  PASS  Export: InsightsCSV includes the per-character × category companions
+  PASS  Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
+  PASS  FONT_MONO constant is a JetBrains Mono TTF path
+  PASS  FormatPlain wraps the tag in brackets with single-space separators
+  PASS  FormatPlain renders the tag verbatim (no padding or truncation)
+  PASS  FormatPlain tolerates a nil tag
+  PASS  FormatColored colors the timestamp and tag; pipe and content default
+  PASS  NS.Debug renders a secret message arg as <secret> without raising
+  PASS  NS.Debug formats ordinary args (numbers included) through %s
+  PASS  /lh debug on enables state
+  PASS  /lh debug off disables state
+  PASS  /lh debug (no arg) toggles the window, not state
+  PASS  header toggle click flips debug state
+  PASS  SetEnabled(true) prints a green-coded ON ack through the NS.PREFIX printer
+  PASS  SetEnabled(false) prints a red-coded OFF ack
+  PASS  SetEnabled(true) appends the [Init] summary right after the enable bracket
+  PASS  SetEnabled(false) appends a [Debug] logging disabled line after the flag flips off
+  PASS  the console title renders the library's TITLE_SUFFIX as prose, not as its key
+  PASS  every DebugLog string this addon renders resolves to prose, not to a key
+  PASS  ConsoleCheckbox composes this addon's slash prefix into its tooltip
+  PASS  the console closes with the LIBRARY's x, not this addon's 24-wide one
+  PASS  the copy window's buffer text is the whole buffer, in order
+  PASS  InitSummary reports name, version, schema, active profile, and record count
+  PASS  FormatSchemaValue renders booleans as true/false
+  PASS  FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
+  PASS  FormatSchemaValue leaves plain (enum) numbers raw
+  PASS  FormatSchemaValue renders an empty table setting as (none)
+  PASS  FormatSchemaValue renders a table setting as a sorted key set
+  PASS  FormatSchemaValue omits falsy keys from a table setting
+  PASS  FormatKV colors the key gold and the value white with a default separator
+  PASS  list header is the green 'Available settings' line, no trailing colon
+  PASS  list emits azure [group] headers in the declared order
+  PASS  list value rows use FormatKV under their group, four-space indented
+  PASS  list renders windowScale with its scale fmt
+  PASS  CliList prints the header through NS.Print, cyan-tagged
+  PASS  /lh get echoes a single FormatKV line for a known path
+  PASS  /lh get with no argument prints a Usage line
+  PASS  /lh get on an unknown path prints Setting not found
+  PASS  /lh set echoes the stored value read back after writing
+  PASS  /lh set on an unknown path prints Setting not found
+  PASS  /lh version prints the cyan-tagged v<version> line
+  PASS  NS.COMMANDS registers a version verb
+  PASS  /lh reset on a table setting echoes (none), not a raw table pointer
+  PASS  /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
+  PASS  Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
+  PASS  NS.PREFIX is the mandated cyan [LH] tag
+  PASS  every Slash string this addon renders resolves to prose, not to a key
+  PASS  the help header names /loothistory as the alias for /lh
+  PASS  LandingRows and HelpRows are the same rows, differing only by the chat indent
+  PASS  a command row is gold command, single-spaced em dash, white description
+  PASS  reset is path-scoped and resetall is the global verb (no page-shaped form)
+  PASS  set refuses a value outside a numeric enum instead of storing it
+  PASS  set clamps a number to its slider range and echoes what was stored
+  PASS  set refuses a bool it cannot read rather than silently storing false
+  PASS  the set-valued row renders through the format hook, never as <secret>
+  PASS  OnSlash dispatches a host verb and lower-cases only the verb
+  PASS  an unknown verb says so and then prints the help index
+  PASS  Schema: debugConsole row is session-only, in Master Controls
+  PASS  Schema: setting debugConsole toggles the window, never writes db.global
+  PASS  Schema: getting debugConsole reflects the window visibility
+  PASS  Schema: a normal (persisted) row still writes db.global
+  PASS  Schema: auction rows exist with the AH Price group and defaults
+  PASS  Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
+  PASS  Schema: recordCurrency row exists, defaults true, settable
+  PASS  Constants: CURRENCY_TYPE is "Currency"
+  PASS  Schema: every row is uniquely pathed and fully described
+  PASS  Schema: every row's default matches its declared type
+  PASS  Schema: FindRow resolves a known path and rejects an unknown one
+  PASS  Schema: every persisted path resolves against the shipped defaults
+  PASS  Schema: the shipped default equals the schema's declared default
+  PASS  Schema: every dropdown row offers values, and its default is one of them
+  PASS  Schema: every MultiCheck row offers values
+  PASS  Schema: the slider default sits inside its own bounds
+  PASS  Schema: only the session-only rows carry their own get/set
+  PASS  Schema.ReadPath walks a nested path and stops safely at a missing branch
+  PASS  Schema.WritePath creates the intermediate tables it needs
+  PASS  Schema.WritePath replaces a non-table sitting in the way
+  PASS  Schema.Set refuses an unknown path and reports why
+  PASS  Schema.Set stores a deep copy, never a reference to the caller's table
+  PASS  Schema.Default hands out a copy of a table default, not the shared one
+  PASS  Schema.Default returns nil for an unknown path
+  PASS  Schema.Set runs the row's onChange with the new value
+  PASS  Schema.Set honors a row's validate guard and leaves the DB untouched
+  PASS  Schema.Get on an unknown path reads through rather than erroring
+  PASS  Schema: every setting round-trips through Set then Get
+  PASS  Schema: every declared command is uniquely named and dispatchable
+  PASS  Schema: the settings CLI verbs are all present
+  PASS  Analytics._fitFontSize: fits within width returns base size
+  PASS  Analytics._fitFontSize: overflow scales down proportionally
+  PASS  Analytics._fitFontSize: clamps to the minimum floor
+  PASS  Analytics._fitFontSize: zero/negative width returns base
+  PASS  Analytics.paletteColor: rank 1 is the first palette entry
+  PASS  Analytics.paletteColor: adjacent ranks differ
+  PASS  Analytics.paletteColor: cycles past the palette length
+  PASS  Analytics._tipText: joins the full label and its value
+  PASS  Analytics._tipText: label alone when there is no value
+  PASS  Analytics._tipText: value alone when there is no label
+  PASS  Analytics._truncate: short text passes through
+  PASS  Analytics._truncate: long text is cut with an ellipsis
+  PASS  Analytics._truncate: exactly maxChars passes through
+  PASS  Analytics._charStackSegments: keeps all when within cap
+  PASS  Analytics._charStackSegments: collapses overflow into __OTHER__
+  PASS  Analytics._charStackSegments: kept segments follow the global category order
+  PASS  Analytics._charStackSegments: __OTHER__ always draws last
+  PASS  Analytics._charStackSegments: a category outside the order sinks to the end
+  PASS  Analytics._charStackSegments: the total counts every magnitude, kept or lumped
+  PASS  Analytics._charStackSegments: zero and negative magnitudes are dropped
+  PASS  Analytics._charStackSegments: an empty character yields no segments
+  PASS  Analytics._charStackSegments: equal magnitudes break the tie by key, not by chance
+  PASS  Analytics._buildCharStackRows: rows run by total descending
+  PASS  Analytics._buildCharStackRows: labels are shortened and class-colored
+  PASS  Analytics._buildCharStackRows: the busiest character's bar is full width
+  PASS  Analytics._buildCharStackRows: every row is scaled against that same maximum
+  PASS  Analytics._buildCharStackRows: each segment's tip states the category and its value
+  PASS  Analytics._buildCharStackRows: the row value is the character's total
+  PASS  Analytics._buildCharStackRows: an unknown class falls back to neutral gray
+  PASS  Analytics._buildCharStackRows: an empty matrix yields no rows
+  PASS  Analytics._paletteMap: colors are assigned by list position
+  PASS  Analytics._paletteMap: a key outside the list has no color
+  PASS  Analytics._paletteMap: an empty or missing list maps nothing
+  PASS  Analytics._paletteMap: the same ordering yields the same colors across charts
+  PASS  Analytics.paletteColor: every entry is a valid rgb triple
+  PASS  Analytics._shortChar: drops the realm from a Name-Realm key
+  PASS  Analytics._shortChar: a missing character reads '?'
+  PASS  Analytics._classColor: a known class returns its class color
+  PASS  Analytics._classColor: an unknown or missing class falls back to neutral gray
+  PASS  Analytics._qualityColor: returns an rgb triple for a real quality
+  PASS  Analytics._money: zero and negative values read as a plain '0'
+  PASS  Analytics._money: a real amount renders its gold/silver/copper parts
+  PASS  Analytics._money: zero-valued denominations are omitted
+  PASS  Analytics._dayKeyList: spans first to last day inclusive
+  PASS  Analytics._dayKeyList: a day with no loot still gets a (zero) bar
+  PASS  Analytics._dayKeyList: a single day yields exactly one key
+  PASS  Analytics._dayKeyList: caps a long range to the 60 most recent days
+  PASS  Analytics._dayKeyList: an empty history yields no keys
+  PASS  Analytics._shortDay: a day key shortens to M/D with no leading zeros
+  PASS  Analytics._shortDay: an unrecognized key passes through untouched
+  PASS  Analytics._sortedByCount: orders by count descending
+  PASS  Analytics._sortedByCount: equal counts break the tie by key ascending
+  PASS  Analytics._sortedByCount: an empty map yields no rows
+  PASS  Analytics._sortedByCount: numeric keys sort without a type error
+  PASS  Analytics._truncate: reports whether it cut
+  PASS  Analytics._truncate: a nil label becomes an empty string
+  PASS  Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
+  PASS  Panel: the parent category and all three sub-pages are registered
+  PASS  Panel: registration is idempotent
+  PASS  Panel: each sub-page carries the addon's name for the Blizzard left tree
+  PASS  Panel: the General page renders one widget per non-skipped schema row, paired 50/50
+  PASS  Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
+  PASS  Panel: a dropdown is populated from the row's values, in declared order
+  PASS  Panel: a slider is given the row's own min/max
+  PASS  Panel: the Reset All action button pairs with the Window scale row
+  PASS  Panel: the section headings are the schema groups, in declaration order
+  PASS  Panel: clicking a checkbox writes through NS.Schema:Set
+  PASS  Panel: choosing a dropdown entry writes the stored value
+  PASS  Panel: releasing a slider writes the stored value
+  PASS  Panel: an external write is mirrored back by Refresh
+  PASS  Panel: the muted-source picker is INVERTED — a ticked box means 'record this source'
+  PASS  Panel: the Defaults button is built on first OnShow, not at registration
+  PASS  Panel: the General page's Defaults click restores every schema default
+  PASS  Panel: the AH Price page's Defaults click restores the capture set AND the priority order
+  PASS  Panel: the Filters page lists the ids on each list and can remove one
+  PASS  Panel: the Filters page's Defaults click clears every id list
+  PASS  Panel: the AH Price page draws one reusable row slot per known price source
+  PASS  Panel: the AH Price page renders only its own schema group
+  PASS  Panel: the landing page renders one label per slash command, through the ONE row formatter
+  PASS  Panel: the landing page shows the tagline
+  PASS  Panel: Open refuses during combat and never defers-and-replays
+  PASS  NS.LIBKA0S_MISSING is the shared cause clause, verbatim
+  PASS  the cause clause is published on the HEALTHY path too, not only when the lib is absent
+  PASS  degraded install: every addon file loads with LibKa0s absent, with no error
+  PASS  degraded install: the Core stub still prints a tagged, secret-safe line
+  PASS  degraded install: the notice explains the absence through the shared cause clause, once
+  PASS  degraded install: the Core stub answers every member the addon calls
+  PASS  the L-trap matcher flags the value, not one spelling (all three forms)
+  PASS  no descriptor in this addon is handed NS.L
+  PASS  tripwire — LibKa0s-Core-1.0 ships no STRINGS table
+  PASS  tripwire — Core.lua's source names neither STRINGS nor a descriptor L
+  PASS  tripwire — Options.lua reads no descriptor L
+  PASS  no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
+  PASS  every file of LibKa0s.xml is vendored and loads
+  PASS  the vendored copy carries the library's MIT license
+  PASS  the four adopted majors all resolved, and the seams are wired to them
+  PASS  every seam file resolves its major with the silent flag
+  PASS  the Options page registry built every page this addon declares
+  PASS  libs/LibKa0s is the LibKa0s release the README says this addon bundles
+  PASS  tests/_kit is the test kit that shipped with that release
+
+563 passed, 0 failed, 563 total

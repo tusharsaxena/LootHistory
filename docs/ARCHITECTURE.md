@@ -375,5 +375,5 @@ Topic-specific detail lives alongside this file in `docs/`. Read on demand — t
 | The four `diff -r` checks proving `libs/LibKa0s` and `tests/_kit` have not forked from `../LibKa0s` | [testing.md#the-vendor-gate](testing.md#the-vendor-gate) | Before/after re-vendoring; a suite that passes here but not upstream. |
 | Deferred/declined decisions, incl. the LibKa0s adoption record LIBKA0S-01..19 | [pending/LEDGER.md](pending/LEDGER.md) | Re-litigating a seam; "why isn't X adopted?"; deferring an item. |
 | In-game smoke tests | [smoke-tests.md](smoke-tests.md) | After any change; before a release. |
-| Generated `lizard` complexity report + its watch list | [complexity.md](complexity.md) | Deciding what to peel; regenerate it and read the diff at every release (`performance-§10`). |
+| Automated test records + the complexity watch list | [automated-tests/RESULTS.md](automated-tests/RESULTS.md) | Deciding what to peel; regenerate it and read the diff at every release (`performance-§10`). |
 | Toolchain contract — what to install to run, test and release this addon (WSL2/Ubuntu) | [../DEPENDENCIES.md](../DEPENDENCIES.md) | Setting up a new machine; adding or dropping a tool. |

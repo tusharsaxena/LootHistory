@@ -1,7 +1,8 @@
 # LibKa0s testkit
 
 The shared headless test harness for the Ka0s addon collection: the test registry and assertions,
-the source loader, and the universal half of the WoW-API mock.
+the source loader, the universal half of the WoW-API mock, and the consolidated automated-test
+runner.
 
 **The full surface — every function, every mock seam, every fidelity rule — is documented in the
 LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
@@ -11,6 +12,36 @@ LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
 The link is absolute on purpose. This file is byte-identical in eight places — here, this repo's
 `tests/_kit/`, and each consumer's — so a relative path that resolved from one would be broken in
 the other seven.
+
+## `run-automated-tests.sh`
+
+The collection's consolidated automated-test runner, and the only executable in the kit. It runs the
+four out-of-game suites and records every result as one frozen bundle under
+`docs/automated-tests/<YYYY-MM-DD-HHMMSS>/`, then rolls the run into `docs/automated-tests/RESULTS.md`
+(see `automated-tests` in the standard).
+
+```sh
+tests/_kit/run-automated-tests.sh                            # all four, writes a bundle
+tests/_kit/run-automated-tests.sh --suite lint --suite tests # a subset
+tests/_kit/run-automated-tests.sh --no-bundle                # print only, write nothing
+```
+
+It lives here rather than in each addon for the same reason the rest of the kit does: it must be
+byte-identical everywhere, and the vendoring gate below already enforces exactly that. Two things
+about it are load-bearing:
+
+- **`lint` and `tests` gate; `perf` and `complexity` do not.** They are measured, recorded and
+  diffed, never used to fail the run. `performance-§9`/`§10` are explicit that a wall-clock or
+  complexity threshold which fails a run teaches everyone to reach for `--no-verify`, after which
+  the gate protects nothing and the habit remains.
+- **A missing tool is a skip, not a failure**, and a skip is recorded as one — so a green run that
+  actually measured nothing cannot read as a green run that measured everything.
+
+**It is LF, and it must stay LF.** Every other file in this collection is CRLF, pinned by
+`.gitattributes`. A `#!/usr/bin/env bash` line followed by CRLF makes the kernel look for an
+interpreter literally named `bash\r`, so a CRLF-pinned repo that ships a `.sh` **MUST** carve it out
+with `*.sh text eol=lf` — here and in every consumer. Without that line the vendored copy is broken
+on every checkout, not in one contributor's.
 
 ## It is not a library
 
@@ -38,9 +69,13 @@ Same discipline as the library itself:
 
 ```sh
 cp -r testkit/. <Addon>/tests/_kit/
+chmod +x <Addon>/tests/_kit/run-automated-tests.sh   # cp does not always carry the bit
 diff -r testkit <Addon>/tests/_kit             # must be empty
 cd <Addon> && lua tests/run.lua && luacheck .
 ```
+
+The consumer's `.gitattributes` needs `*.sh text eol=lf` before the first re-vendor, or the runner
+arrives CRLF and cannot execute.
 
 Run the first two from the library repo's root, the same cwd `docs/releasing.md` assumes — the two
 files give the same commands and must not disagree about where you are standing.

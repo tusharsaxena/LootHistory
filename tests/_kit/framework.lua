@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 1
+Kit.VERSION = 2
 
 local tests = {}
 local currentSuite  -- basename (no extension) of the suite file currently being dofile'd

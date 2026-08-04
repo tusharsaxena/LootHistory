@@ -143,35 +143,42 @@ The two diffs need `../LibKa0s` checked out beside this repo; see [The vendor ga
 
 A commit ships only when both are green.
 
-## The complexity report — a release checkpoint
+## Automated test records — the consolidated run
 
-`docs/complexity.md` is the standing answer to "where is this addon getting hard to change?". It is
-**generated, never hand-edited**, and its value is in the diff between two releases — one report is
-a page of numbers; the same function going from CCN 20 to CCN 40 since the last tag is a finding.
+All four out-of-game suites go through one vendored runner, and every run is recorded
+(`automated-tests`):
 
-**Regenerate it and read the diff as part of every release** — in the same change that bumps the
-version and rolls the README's `## What's new` and `## Version History` forward, **before** the tag:
-
-```
-lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .   > (report body of docs/complexity.md)
+```sh
+tests/_kit/run-automated-tests.sh                            # all four, writes a bundle
+tests/_kit/run-automated-tests.sh --suite complexity          # a subset
+tests/_kit/run-automated-tests.sh --suite lint --suite tests --no-bundle   # the green gate; writes nothing
 ```
 
-Run it from the repo root and use **exactly** that invocation — no extra flags, no re-tuned
-thresholds, no narrowing to a subfolder. A locally "improved" command produces a report that cannot
-be compared with the one before it, which is the only thing the file is for. Then update the watch
-list above the raw output: every function `lizard` warned on and every file in the 1000–1500 LOC
-band, each with a one-line disposition, and call out anything that **newly** crossed a threshold
-since the previous report.
+| Suite | Command | Gates? |
+|---|---|---|
+| `lint` | `luacheck .` | **yes** |
+| `tests` | `lua tests/run.lua` | **yes** |
+| `perf` | `lua tests/perf.lua` | no — recorded only |
+| `complexity` | `lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .` | no — recorded only |
 
-**This is a release step, not a commit gate.** Nothing here gates a commit on complexity, and
-nothing should: a threshold that fails a build turns a signal into an obstacle to route around. The
-green gate stays exactly the two checks above. If `lizard` is not installed, the committed report is
-**stale, not wrong** — leave it in place with its original header (which dates itself) and say so in
-the release notes rather than deleting it or editing its numbers by hand.
+**`perf` and `complexity` never fail a run.** They are measured, recorded and diffed — a threshold
+that fails a run teaches everyone to reach for `--no-verify`, after which the gate protects nothing
+and the habit remains. They contribute `amber`, which is a signal rather than a stop. **A missing
+tool is a skip recorded with its reason**, never a pass.
 
-The rule, with its reasoning, is `performance-§10` of the
-[Ka0s WoW Addon Standard](https://github.com/tusharsaxena/WowAddonStandards); this section does not
-restate it.
+The runner is **vendored** from `LibKa0s`'s `testkit/`; never edit `tests/_kit/`. A kit fix goes
+upstream and is re-vendored.
+
+**At release, not at commit.** A full bundle is produced as part of every version bump, before the
+tag, with an `ANALYSIS.md` write-up. Commits are gated on lint + tests only.
+
+Results live in [`automated-tests/`](./automated-tests/): `RESULTS.md` is one row per run across all
+four suites plus the current complexity watch list — **one file, overwritten in place**, so its git
+history is the trend line — and each `<YYYY-MM-DD-HHMMSS>/` is a frozen bundle of that run's raw
+output. Bundles are never edited and never pruned.
+
+`docs/complexity.md` was this addon's standalone complexity report through standard v2.18.0; it is
+**retired** — its raw output is each bundle's `complexity.txt` and its trend line is `RESULTS.md`.
 
 ## Toolchain install
 

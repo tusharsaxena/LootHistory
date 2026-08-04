@@ -1,0 +1,25 @@
+Checking core/Compat.lua                          [0m[32m[1mOK[0m
+Checking core/Constants.lua                       [0m[32m[1mOK[0m
+Checking core/CoreSetup.lua                       [0m[32m[1mOK[0m
+Checking core/Database.lua                        [0m[32m[1mOK[0m
+Checking core/DebugLogSetup.lua                   [0m[32m[1mOK[0m
+Checking core/LootHistory.lua                     [0m[32m[1mOK[0m
+Checking core/Namespace.lua                       [0m[32m[1mOK[0m
+Checking core/State.lua                           [0m[32m[1mOK[0m
+Checking core/Util.lua                            [0m[32m[1mOK[0m
+Checking defaults/Global.lua                      [0m[32m[1mOK[0m
+Checking locales/enUS.lua                         [0m[32m[1mOK[0m
+Checking modules/Analytics.lua                    [0m[32m[1mOK[0m
+Checking modules/Attribution.lua                  [0m[32m[1mOK[0m
+Checking modules/AuctionPrice.lua                 [0m[32m[1mOK[0m
+Checking modules/Browser.lua                      [0m[32m[1mOK[0m
+Checking modules/BrowserTable.lua                 [0m[32m[1mOK[0m
+Checking modules/Collector.lua                    [0m[32m[1mOK[0m
+Checking modules/Export.lua                       [0m[32m[1mOK[0m
+Checking modules/Filters.lua                      [0m[32m[1mOK[0m
+Checking settings/OptionsSetup.lua                [0m[32m[1mOK[0m
+Checking settings/Panel.lua                       [0m[32m[1mOK[0m
+Checking settings/Schema.lua                      [0m[32m[1mOK[0m
+Checking settings/Slash.lua                       [0m[32m[1mOK[0m
+
+Total: [0m[0m[1m0[0m warnings / [0m[0m[1m0[0m errors in 23 files
