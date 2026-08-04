@@ -143,6 +143,36 @@ The two diffs need `../LibKa0s` checked out beside this repo; see [The vendor ga
 
 A commit ships only when both are green.
 
+## The complexity report — a release checkpoint
+
+`docs/complexity.md` is the standing answer to "where is this addon getting hard to change?". It is
+**generated, never hand-edited**, and its value is in the diff between two releases — one report is
+a page of numbers; the same function going from CCN 20 to CCN 40 since the last tag is a finding.
+
+**Regenerate it and read the diff as part of every release** — in the same change that bumps the
+version and rolls the README's `## What's new` and `## Version History` forward, **before** the tag:
+
+```
+lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .   > (report body of docs/complexity.md)
+```
+
+Run it from the repo root and use **exactly** that invocation — no extra flags, no re-tuned
+thresholds, no narrowing to a subfolder. A locally "improved" command produces a report that cannot
+be compared with the one before it, which is the only thing the file is for. Then update the watch
+list above the raw output: every function `lizard` warned on and every file in the 1000–1500 LOC
+band, each with a one-line disposition, and call out anything that **newly** crossed a threshold
+since the previous report.
+
+**This is a release step, not a commit gate.** Nothing here gates a commit on complexity, and
+nothing should: a threshold that fails a build turns a signal into an obstacle to route around. The
+green gate stays exactly the two checks above. If `lizard` is not installed, the committed report is
+**stale, not wrong** — leave it in place with its original header (which dates itself) and say so in
+the release notes rather than deleting it or editing its numbers by hand.
+
+The rule, with its reasoning, is `performance-§10` of the
+[Ka0s WoW Addon Standard](https://github.com/tusharsaxena/WowAddonStandards); this section does not
+restate it.
+
 ## Toolchain install
 
 The suite needs Lua 5.1 and luacheck (Debian/Ubuntu/WSL):
@@ -153,5 +183,9 @@ sudo luarocks install luacheck
 ```
 
 `lua` must resolve to the 5.1 interpreter (`lua5.1`). `luac -p` uses the matching 5.1 compiler for single-file syntax checks.
+
+The full toolchain — including `lizard` for the report above, which needs `pipx` rather than `pip`
+on Ubuntu 24.04 — lives in the root **[DEPENDENCIES.md](../DEPENDENCIES.md)**, with a verification
+command per tool. That file says *what to install*; this one says *how to verify*.
 
 Two environment facts the gate depends on: this repo is reachable at **both** `/home/tushar/GIT/LootHistory/` and `/mnt/d/Profile/Users/Tushar/Documents/GIT/LootHistory/` (the same working copy under WSL — either path works), and **`../LibKa0s` must be checked out beside it** or two of the four vendor-gate diffs cannot run.
