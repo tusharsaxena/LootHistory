@@ -308,16 +308,33 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
         printf '}\n'
     } > "$OUT/manifest.json"
 
-    cell() { [ "${ST[$1]}" = "skip" ] && printf 'skip' || printf '%s' "$2"; }
-    ROW="| [\`$STAMP\`]($STAMP/) | $ADDON_VERSION | $(cell lint "$LINT_WARN/$LINT_ERR") | $(cell tests "$TESTS_PASS/$TESTS_TOTAL") | $(cell perf "${ST[perf]}") | $(cell complexity "$CCN_WARN") | $(cell complexity "$CCN_MAX") | **$VERDICT** |"
+    # A suite that was not SELECTED renders as an em dash, not as its zeroed counters. A subset
+    # run whose row reads "0/0" for tests is indistinguishable from a full run that found no tests,
+    # and the trend line would carry that lie forever. `skip` (tool absent) stays distinct from
+    # `—` (not asked for): they are different facts about why a number is missing.
+    cell() {
+        case "${ST[$1]}" in
+            skip)   printf 'skip' ;;
+            notrun) printf '—' ;;
+            *)      printf '%s' "$2" ;;
+        esac
+    }
+    ROW="| [\`$STAMP\`]($STAMP/) | $ADDON_VERSION | $(cell lint "$LINT_WARN/$LINT_ERR") | $(cell lint "$LINT_FILES") | $(cell tests "$TESTS_PASS/$TESTS_TOTAL") | $(cell perf "${ST[perf]}") | $(cell complexity "$CCN_NLOC") | $(cell complexity "$CCN_FUNCS") | $(cell complexity "$CCN_AVG_NLOC") | $(cell complexity "$CCN_AVG") | $(cell complexity "$CCN_MAX") | $(cell complexity "$CCN_WARN") | **$VERDICT** |"
 
     RESULTS="docs/automated-tests/RESULTS.md"
-    HEADER='| Run | Version | Lint w/e | Tests | Perf | CCN warn | Max CCN | Verdict |'
+    HEADER='| Run | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |'
+    RULE='|---|---|---|---|---|---|---|---|---|---|---|---|---|'
     if [ -f "$RESULTS" ] && grep -qF "$HEADER" "$RESULTS"; then
         awk -v row="$ROW" -v hdr="$HEADER" '
             {print}
             $0 == hdr {getline sep; print sep; print row}
         ' "$RESULTS" > "$RESULTS.tmp" && mv "$RESULTS.tmp" "$RESULTS"
+    elif [ -f "$RESULTS" ]; then
+        # The file exists but its header is not this one — an older column set. Recreating it here
+        # would silently drop every previous row, which is the one thing a trend line must never do.
+        # Say so and leave the file alone; the new row is still in the bundle's manifest.json.
+        echo "  WARNING: $RESULTS has an older column set — not touching it." >&2
+        echo "           Migrate its header to the current one and re-run, or the row is lost." >&2
     else
         {
             printf '# Automated test results\n\n'
@@ -325,8 +342,11 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
             printf '<!-- This file is OVERWRITTEN IN PLACE — the git history of this one path is the trend line. -->\n\n'
             printf 'One row per run. The frozen evidence for each is in the dated folder beside this file;\n'
             printf 'the analysis of a given run is its `ANALYSIS.md`.\n\n'
+            printf '**`lint` and `tests` gate. `perf` and `complexity` are recorded and never fail a run** —\n'
+            printf 'they are read and compared, not thresholded. A `skip` is a suite that did not run at all,\n'
+            printf 'which is never the same as a pass.\n\n'
             printf '%s\n' "$HEADER"
-            printf '|---|---|---|---|---|---|---|---|\n'
+            printf '%s\n' "$RULE"
             printf '%s\n' "$ROW"
         } > "$RESULTS"
     fi

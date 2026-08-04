@@ -1,8 +1,9 @@
-# Analysis — 20260804-122650
+# Analysis — 20260804-182216
 
 - **Addon:** LootHistory 1.2.0
 - **Verdict:** green
-- **Commit:** ae0d7d1fbeb4 (master), dirty
+- **Commit:** 75ed7c01630e (master), dirty
+- **Started:** 2026-08-04T18:22:16+05:30
 - **Previous run:** none — this is the first recorded run
 
 ## Headline
@@ -55,9 +56,9 @@ the first one that can say something moved, and this record is what it will be r
 | `NS:RunMigrations` | 56 | `core/Database.lua` | **Accepted, by design.** The CCN *is* the migration count; it can only rise. |
 | `Database:RepairBoundStates` | 23 | `core/Database.lua` | **Accepted for now.** The repair "has been wrong more than once"; leave it one readable pass. |
 
-Six further entries in `modules/Browser.lua` / `BrowserTable.lua` accepted with reasons recorded at 2026-08-04. `Database:Stats` (was 75, the worst in the repo) is **gone** — peeled this session into eleven named helpers, max CCN 13.
+Six further entries in `modules/Browser.lua` / `BrowserTable.lua` accepted with reasons recorded 2026-08-04. `Database:Stats` (was 75, the worst in the repo) is **gone** — peeled into eleven named helpers, max CCN 13.
 
-**Files in the 1000–1500 band:** `modules/Browser.lua` (1314) — already tracked as LH-31; `modules/Analytics.lua` (1180) — **peel next, now unblocked** by the `Database:Stats` work; `modules/BrowserTable.lua` (1040) — accepted.
+**Files in the 1000–1500 band:** `modules/Browser.lua` (1314) — already tracked as LH-31; `modules/Analytics.lua` (1180) — **peel next, now unblocked**; `modules/BrowserTable.lua` (1040) — accepted.
 
 ## Actions
 
