@@ -52,13 +52,27 @@ the first one that can say something moved, and this record is what it will be r
 
 ## Complexity watch list
 
-| `Database:QueryList` | 58 | `core/Database.lua` | **Accepted.** A filter-predicate chain, one branch per field, on the browser's per-keystroke path. |
-| `NS:RunMigrations` | 56 | `core/Database.lua` | **Accepted, by design.** The CCN *is* the migration count; it can only rise. |
-| `Database:RepairBoundStates` | 23 | `core/Database.lua` | **Accepted for now.** The repair "has been wrong more than once"; leave it one readable pass. |
+### Functions `lizard` warned on
 
-Six further entries in `modules/Browser.lua` / `BrowserTable.lua` accepted with reasons recorded 2026-08-04. `Database:Stats` (was 75, the worst in the repo) is **gone** — peeled into eleven named helpers, max CCN 13.
+| Function | CCN | Location | Disposition |
+|---|---|---|---|
+| `Database:QueryList` | 58 | `core/Database.lua` | **Accepted.** A filter-predicate chain — one branch per filter field, each independent and short, on the path the browser calls on every filter change. |
+| `NS:RunMigrations` | 56 | `core/Database.lua` | **Accepted, by design.** A strictly ordered ladder of schema steps; the CCN *is* the migration count and can only rise. Do not read growth here as decay. |
+| `Database:RepairBoundStates` | 23 | `core/Database.lua` | **Accepted for now.** The warband/BoE repair; its comment records that it "has been wrong more than once", which argues for one readable pass. |
+| `B:CaptureView` | 23 | `modules/Browser.lua` | **Accepted.** One guard per captured field; read and pinned together with its inverse `B:ApplyView`. |
+| `menu:Populate` | 20 | `modules/Browser.lua` | **Accepted.** Dropdown row construction, one branch per widget decision, run on menu open. |
+| `dd:UpdateMultiLabel` | 19 | `modules/Browser.lua` | **Accepted.** The collapsed-button label rule; every branch is a documented display case, all pinned in `tests/test_browser.lua`. |
+| `groupOf` | 19 | `modules/BrowserTable.lua` | **Accepted.** One branch per group-by mode, with the namespaced key that stops collapse state colliding between modes. |
+| `B:ApplyView` | 17 | `modules/Browser.lua` | **Accepted.** The restore half of `CaptureView`, plus the deliberate carve-out that player scope is not part of a saved view. |
+| `make` | 16 | `modules/BrowserTable.lua` | **Accepted — test mode only.** The fixed-seed synthetic record builder; never runs for a player. |
 
-**Files in the 1000–1500 band:** `modules/Browser.lua` (1314) — already tracked as LH-31; `modules/Analytics.lua` (1180) — **peel next, now unblocked**; `modules/BrowserTable.lua` (1040) — accepted.
+### Files by `layout-§1` band
+
+| Band | File | LOC | Disposition |
+|---|---|---|---|
+| 1000–1500 (on notice) | `modules/Browser.lua` | 1314 | **Already tracked as `LH-31`.** The window shell, filter bar and dropdown widget kit; if it needs peeling the seam is the widget kit into a sibling file. |
+| 1000–1500 (on notice) | `modules/Analytics.lua` | 1180 | **Peel next — now unblocked.** It was gated on the `Database:Stats` work, which has landed. Split renderers from the formatting/segmenting helpers. |
+| 1000–1500 (on notice) | `modules/BrowserTable.lua` | 1040 | **Accepted.** Just over the line, and already three clean layers. Watch it; do nothing yet. |
 
 ## Actions
 
