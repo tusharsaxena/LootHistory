@@ -27,7 +27,7 @@ the small-scale rules those documents assume.
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:148`).
+  `settings/Schema.lua:160`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
   `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:180`,`:168`).
   Nothing in the addon touches `NS.db.profile`.
@@ -82,7 +82,7 @@ the small-scale rules those documents assume.
   `:103`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
   **never** the global `print()`, **never** a hand-written `NS.PREFIX` tag, **never**
   `..`-concatenated args. `NS.Print` prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes
-  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:88` —
+  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:92` —
   so a combat-protected "secret" value logs as `<secret>` instead of raising (events-frames-taint-§8).
 - **`core/CoreSetup.lua` must load before every file that captures the printer at file scope**
   (`modules/Browser.lua`, `settings/Schema.lua`, `settings/Slash.lua`, `settings/Panel.lua` all do
@@ -100,13 +100,13 @@ the small-scale rules those documents assume.
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
-  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:498`). The console is LibKa0s-DebugLog-1.0's; the sink is
+  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:511`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
-  (`core/DebugLogSetup.lua:136`), which is also where `NS.DebugLog` is instantiated.
+  (`core/DebugLogSetup.lua:135`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
   `settings/Schema.lua:224`); the header's `Debug: ON`/`OFF` control flips the same flag
-  (`libs/LibKa0s/DebugLog.lua:340`). The flag stays the **host's** throughout — the descriptor hands
+  (`libs/LibKa0s/DebugLog.lua:353`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:87`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
   is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:43`).
@@ -123,7 +123,7 @@ the small-scale rules those documents assume.
 
 - Source files are capped at **1500 LOC** (Ka0s standard layout-§1). The browser is deliberately split
   three ways to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table),
-  `Analytics.lua` (Insights) — the largest sitting near ~1300 lines.
+  `Analytics.lua` (Insights) — the largest, `Browser.lua`, sitting near ~1370 lines.
 
 ## Media: Blizzard defaults, with one ratified font exception
 
@@ -139,7 +139,7 @@ the small-scale rules those documents assume.
   `core/Constants.lua:58`). The console gets it as the DebugLog descriptor's `font` field
   (`core/DebugLogSetup.lua:82`), which the library holds on the descriptor and applies when the
   console frame is first built (`EnsureFrame`) — to the log frame, the line counter and the copy box
-  (`libs/LibKa0s/DebugLog.lua:354`,`:403`,`:461`); the export copy
+  (`libs/LibKa0s/DebugLog.lua:367`,`:416`,`:474`); the export copy
   box sets it directly (`modules/Export.lua:346`). This is a **deliberate,
   ratified deviation** from Blizzard-default-only: WoW ships **no monospace font object**, and
   column-aligned copy/paste text needs one. The font is OFL-licensed and vendored at
@@ -156,11 +156,11 @@ the small-scale rules those documents assume.
   from raw AceGUI widgets. The canvas shell, the page registry, the lazy Defaults button, the five
   widget makers and the two-column flow engine are LibKa0s-Options-1.0's, wired in
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the three pages and owns their bodies
-  (`settings/Panel.lua:697`). **AceConfigDialog is never used for content** — there is no
+  (`settings/Panel.lua:717`). **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:786`), whose combat gate lives in the library
-  (`libs/LibKa0s/Options.lua:614`) and now also fires on a page's `OnShow`
-  (`libs/LibKa0s/Options.lua:446`), so reaching a page straight from the Blizzard AddOns sidebar is
+  `O.OpenOptionsPanel` (`settings/Panel.lua:791`), whose combat gate lives in the library
+  (`libs/LibKa0s/Options.lua:637`) and now also fires on a page's `OnShow`
+  (`libs/LibKa0s/Options.lua:463`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
   pattern (the standalone browser window follows the separate standalone-windows non-secure pattern).
 
@@ -168,15 +168,15 @@ the small-scale rules those documents assume.
 
 - **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset All, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
-  constant is the library's (`libs/LibKa0s/Options.lua:64`), re-exported on the instance as
+  constant is the library's (`libs/LibKa0s/Options.lua:76`), re-exported on the instance as
   `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:35`).
   Label-inset controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` —
   they are immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't
   hard-code it per button.
 - **Always-shown scrollbar (options-ui-§10).** `PatchAlwaysShowScrollbar` overrides AceGUI's stock
   `FixScroll` so the panel scrollbar is *always* visible and the 20px right gutter is *always*
-  reserved (`libs/LibKa0s/OptionsScroll.lua:46`, applied to every ScrollFrame `O.EnsureScroll`
-  creates, `libs/LibKa0s/Options.lua:330`). AceGUI would otherwise hide the bar and reclaim the gutter
+  reserved (`libs/LibKa0s/OptionsScroll.lua:83`, applied to every ScrollFrame `O.EnsureScroll`
+  creates, `libs/LibKa0s/Options.lua:322`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's
   nothing to scroll the override parks the thumb at the top and grays the bar inert, so the body
   width is identical across every subcategory. More on the panel in

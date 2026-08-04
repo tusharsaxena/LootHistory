@@ -97,10 +97,10 @@ All history lives at `LootHistoryDB.global.history` — an account-wide dense ar
 
 Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
-- `Database:Delete(pred)` (`core/Database.lua:698`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:758`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:Delete(pred)` (`core/Database.lua:718`) — keep everything where `pred(r)` is false.
+- `Database:PruneOld()` (`core/Database.lua:778`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
 - `Database:RepairBoundStates()` (`core/Database.lua:258`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
-- `Database:Purge()` (`core/Database.lua:714`) — replace with `{}`.
+- `Database:Purge()` (`core/Database.lua:734`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -210,11 +210,11 @@ can collide. It is **blacklist-only** (there is no currency whitelist) and, like
 strictly point-in-time: a blacklisted currency id is dropped at capture and never written to
 `history`; existing currency rows are never hidden or removed.
 
-`Database:Query(filter)` (`core/Database.lua:406`) runs the generic `QueryList` (`core/Database.lua:375`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:631`) aggregates the filtered result in one O(n) pass for Insights.
+`Database:Query(filter)` (`core/Database.lua:426`) runs the generic `QueryList` (`core/Database.lua:401`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:651`) aggregates the filtered result in one O(n) pass for Insights.
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:413`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:433`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·
