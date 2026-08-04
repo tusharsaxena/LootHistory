@@ -217,6 +217,72 @@ B.activeFilter = {}
 -- One shared popup menu, reused by every dropdown; a full-screen catcher closes it on an
 -- outside click. Menu sits above the HIGH-strata window; the catcher one strata below it.
 local menu
+local ROW_H = 16   -- menu row height; acquireRow and Populate size and stack against this
+
+-- Lazily build menu row `i`, or hand back the existing one. Buttons are RECYCLED across every
+-- dropdown, so this only ever does construction — everything per-populate (width, anchor, text,
+-- color, OnClick) is re-set by Populate on each call.
+local function acquireRow(m, i)
+  local b = m.buttons[i]
+  if not b then
+    b = CreateFrame("Button", nil, m)
+    b:SetHeight(ROW_H)
+    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fs:SetPoint("LEFT", 8, 0)
+    fs:SetPoint("RIGHT", -8, 0)
+    fs:SetJustifyH("LEFT")
+    b.fs = fs
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 0.82, 0, 0.15)
+    m.buttons[i] = b
+  end
+  return b
+end
+
+-- Selection state: single-select highlights the one active value; multi-select highlights
+-- every value in the set (and highlights "all" when the set is empty = no filter). An option
+-- may carry its own `isActive` (e.g. the "Character: Current" preset) to decide its highlight.
+local function optionSelected(dd, opt)
+  if opt.isActive then
+    return opt.isActive(dd) and true or false
+  elseif dd.multi then
+    return (opt.value == "all") and (not next(dd._selected)) or (dd._selected[opt.value] or false)
+  end
+  return (opt.value == dd._value)
+end
+
+-- Paint one row: a leading check marks a selected multi-select item; an optional inline icon
+-- (e.g. a character's class icon) prefixes the label. The active/selected option is gold;
+-- otherwise an option may carry its own color (quality color, class color) and falls back to
+-- near-white.
+local function styleOption(b, dd, opt, selected)
+  local check = (dd.multi and selected) and CHECK_MARKUP or ""
+  local icon = (opt.icon and opt.icon ~= "") and (opt.icon .. " ") or ""
+  b.fs:SetText(check .. icon .. opt.label)
+  if selected then
+    b.fs:SetTextColor(1, 0.82, 0)
+  elseif opt.color then
+    b.fs:SetTextColor(opt.color[1], opt.color[2], opt.color[3])
+  else
+    b.fs:SetTextColor(0.9, 0.9, 0.9)
+  end
+end
+
+-- One row click: multi-select toggles in place and keeps the menu open so several can be picked
+-- in one visit; single-select commits the value and closes.
+local function optionClicked(m, dd, opt)
+  if dd.multi then
+    dd:ToggleSelected(opt.value)
+    m:Populate(dd)
+    if dd.onMultiSelect then dd.onMultiSelect(dd._selected) end
+  else
+    dd:SetValue(opt.value, opt.label)
+    m:Hide()
+    if dd.onSelect then dd.onSelect(opt.value) end
+  end
+end
+
 local function EnsureMenu()
   if menu then return menu end
   menu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
@@ -236,70 +302,56 @@ local function EnsureMenu()
   menu:SetScript("OnHide", function() catcher:Hide() end)
 
   function menu:Populate(dd)
-    local ROW_H = 16
     for _, b in ipairs(self.buttons) do b:Hide() end
     local opts = dd._options or {}
     local w = math.max(dd:GetWidth(), 90)
     for i, opt in ipairs(opts) do
-      local b = self.buttons[i]
-      if not b then
-        b = CreateFrame("Button", nil, self)
-        b:SetHeight(ROW_H)
-        local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        fs:SetPoint("LEFT", 8, 0)
-        fs:SetPoint("RIGHT", -8, 0)
-        fs:SetJustifyH("LEFT")
-        b.fs = fs
-        local hl = b:CreateTexture(nil, "HIGHLIGHT")
-        hl:SetAllPoints()
-        hl:SetColorTexture(1, 0.82, 0, 0.15)
-        self.buttons[i] = b
-      end
+      local b = acquireRow(self, i)
       b:SetWidth(w)
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW_H)
-      -- Selection state: single-select highlights the one active value; multi-select highlights
-      -- every value in the set (and highlights "all" when the set is empty = no filter). An option
-      -- may carry its own `isActive` (e.g. the "Character: Current" preset) to decide its highlight.
-      local selected
-      if opt.isActive then
-        selected = opt.isActive(dd) and true or false
-      elseif dd.multi then
-        selected = (opt.value == "all") and (not next(dd._selected)) or (dd._selected[opt.value] or false)
-      else
-        selected = (opt.value == dd._value)
-      end
-      -- A leading check marks a selected multi-select item; an optional inline icon (e.g. a
-      -- character's class icon) prefixes the label.
-      local check = (dd.multi and selected) and CHECK_MARKUP or ""
-      local icon = (opt.icon and opt.icon ~= "") and (opt.icon .. " ") or ""
-      b.fs:SetText(check .. icon .. opt.label)
-      -- The active/selected option is gold; otherwise an option may carry its own color
-      -- (quality color, class color) and falls back to near-white.
-      if selected then
-        b.fs:SetTextColor(1, 0.82, 0)
-      elseif opt.color then
-        b.fs:SetTextColor(opt.color[1], opt.color[2], opt.color[3])
-      else
-        b.fs:SetTextColor(0.9, 0.9, 0.9)
-      end
-      b:SetScript("OnClick", function()
-        if dd.multi then
-          -- Toggle in place; keep the menu open so several can be picked in one visit.
-          dd:ToggleSelected(opt.value)
-          menu:Populate(dd)
-          if dd.onMultiSelect then dd.onMultiSelect(dd._selected) end
-        else
-          dd:SetValue(opt.value, opt.label)
-          menu:Hide()
-          if dd.onSelect then dd.onSelect(opt.value) end
-        end
-      end)
+      styleOption(b, dd, opt, optionSelected(dd, opt))
+      b:SetScript("OnClick", function() optionClicked(menu, dd, opt) end)
       b:Show()
     end
     self:SetSize(w, #opts * ROW_H + 8)
   end
   return menu
+end
+
+-- A preset option that reports itself active names the whole selection (e.g. "Character:
+-- Current"). Checked first because the label must hold even when the selected value has no
+-- option row — the option lists are data-driven, so a character with no loot in the current
+-- dataset isn't listed, and the button would otherwise fall back to "All".
+local function activePresetLabel(dd)
+  for _, o in ipairs(dd._options or {}) do
+    if o.isActive and o.isActive(dd) then return o.label end
+  end
+  return nil
+end
+
+-- Label every selected value: from its option row when present, else the raw value, so a
+-- selection that isn't in the current option list still counts and reads sensibly.
+local function selectionLabels(dd)
+  local labels = {}
+  for k in pairs(dd._selected) do labels[k] = tostring(k) end
+  for _, o in ipairs(dd._options or {}) do
+    if o.value ~= "all" and labels[o.value] ~= nil then labels[o.value] = o.label end
+  end
+  return labels
+end
+
+-- The collapsed text for a labeled selection: the "All" label when nothing is picked, the single
+-- selection's label when one is, else "<Prefix>: N selected" (prefix = the All label up to its colon).
+local function summarizeSelection(labels, allLabel)
+  local n, firstLabel
+  for _, lbl in pairs(labels) do
+    n = (n or 0) + 1
+    firstLabel = firstLabel or lbl
+  end
+  if not n then return allLabel end
+  if n == 1 then return firstLabel end
+  return (allLabel:match("^(.-):") or allLabel) .. ": " .. n .. " selected"
 end
 
 -- A dropdown button: shows the current label + a ▼; clicking opens the shared menu.
@@ -367,33 +419,10 @@ local function MakeDropdown(parent, width)
   -- Collapsed-button summary: the "All" label when empty, the single option's label when one is
   -- picked, else "<Prefix>: N selected" (prefix taken from the "all" sentinel, e.g. "Quality").
   function dd:UpdateMultiLabel()
-    -- A preset option that reports itself active names the whole selection (e.g. "Character:
-    -- Current"). Checked first because the label must hold even when the selected value has no
-    -- option row — the option lists are data-driven, so a character with no loot in the current
-    -- dataset isn't listed, and the button would otherwise fall back to "All".
-    for _, o in ipairs(self._options or {}) do
-      if o.isActive and o.isActive(self) then self.text:SetText(o.label); return end
-    end
-    -- Label every selected value: from its option row when present, else the raw value, so a
-    -- selection that isn't in the current option list still counts and reads sensibly.
-    local labels = {}
-    for k in pairs(self._selected) do labels[k] = tostring(k) end
-    for _, o in ipairs(self._options or {}) do
-      if o.value ~= "all" and labels[o.value] ~= nil then labels[o.value] = o.label end
-    end
-    local n, firstLabel
-    for _, lbl in pairs(labels) do
-      n = (n or 0) + 1
-      firstLabel = firstLabel or lbl
-    end
+    local preset = activePresetLabel(self)
+    if preset then self.text:SetText(preset); return end
     local allLabel = (self._options and self._options[1] and self._options[1].label) or "All"
-    if not n then
-      self.text:SetText(allLabel)
-    elseif n == 1 then
-      self.text:SetText(firstLabel)
-    else
-      self.text:SetText((allLabel:match("^(.-):") or allLabel) .. ": " .. n .. " selected")
-    end
+    self.text:SetText(summarizeSelection(selectionLabels(self), allLabel))
   end
 
   dd:SetScript("OnClick", function(self2)
@@ -648,6 +677,7 @@ B._savedViewOrStock = savedViewOrStock
 B._setToFilter  = setToFilter
 B._asSet        = asSet
 B._withAll      = withAll
+B._optionSelected = optionSelected   -- the menu's highlight decision; the rest of a row is frames
 B._options = {
   source = sourceOptions, char = charOptions, itemType = typeOptions,
   itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
@@ -743,34 +773,51 @@ function B:SetCharSet(set)
   ApplyFilter()
 end
 
--- Capture the current group/sort/column-filters as a view table (excludes the player scope).
-function B:CaptureView()
-  local dd, BT = self._dd, NS.BrowserTable
+-- The six multi-select column filters, as { view key, dropdown key } in the order the widgets are
+-- laid out. One ordered descriptor drives all three passes — capture, the dropdown push and the
+-- filter resolution — so a seventh column filter is one entry here rather than three edits. The
+-- activeFilter key IS the view key for all six, which is why one list serves them all.
+local VIEW_FILTERS = {
+  { "quality", "quality" }, { "itemType", "type" }, { "itemSubType", "subtype" },
+  { "source", "source" }, { "zone", "zone" }, { "bound", "bound" },
+}
+
+-- The table's own group/sort state. With no table yet (headless, pre-UI) every field reads its
+-- stock value.
+local function captureTableState(BT)
   return {
     groupBy  = BT and BT.groupBy or "none",
     sortKey  = BT and BT.sortKey or "date",
     sortAsc  = BT and BT.sortAsc == true,
     groupAsc = not (BT and BT.groupAsc == false),
-    -- Multi-select column filters are stored as selection sets (copies, so the saved view isn't
-    -- aliased to the live dropdown state). An empty {} means "All". Character scope is NOT part of
-    -- the view (it's the session-only Current/All default), so it isn't captured here.
-    quality     = setToFilter(dd and dd.quality._selected) or {},
-    source      = setToFilter(dd and dd.source._selected) or {},
-    itemType    = setToFilter(dd and dd.type._selected) or {},
-    itemSubType = setToFilter(dd and dd.subtype._selected) or {},
-    zone        = setToFilter(dd and dd.zone._selected) or {},
-    bound       = setToFilter(dd and dd.bound._selected) or {},
-    date     = (dd and dd.date._value) or "all",
-    search   = (self._search and self._search:GetText()) or "",
   }
+end
+
+-- Multi-select column filters are stored as selection sets (copies, so the saved view isn't
+-- aliased to the live dropdown state). An empty {} means "All" — never nil.
+local function captureFilters(dd, out)
+  for i = 1, #VIEW_FILTERS do
+    local f = VIEW_FILTERS[i]
+    out[f[1]] = setToFilter(dd and dd[f[2]]._selected) or {}
+  end
+end
+
+-- Capture the current group/sort/column-filters as a view table (excludes the player scope).
+-- Character scope is NOT part of the view (it's the session-only Current/All default).
+function B:CaptureView()
+  local dd = self._dd
+  local v = captureTableState(NS.BrowserTable)
+  captureFilters(dd, v)
+  v.date   = (dd and dd.date._value) or "all"
+  v.search = (self._search and self._search:GetText()) or ""
+  return v
 end
 
 -- Apply a saved/stock view: set the table's group + sort, the column-filter dropdowns, and the
 -- resolved filter. The player scope is NOT part of the view — it resets to `scope` (default
 -- "current"), keeping "current player" the per-session default. Calls ApplyFilter (refreshes).
-function B:ApplyView(view, scope)
-  view = view or STOCK_VIEW
-  self.activeFilter = {}
+-- Push the view's group + sort onto the table, if there is one yet.
+local function applyTableState(view)
   local BT = NS.BrowserTable
   if BT then
     BT.groupBy  = view.groupBy or "none"
@@ -778,26 +825,37 @@ function B:ApplyView(view, scope)
     BT.sortAsc  = view.sortAsc == true
     BT.groupAsc = view.groupAsc ~= false
   end
-  local dd = self._dd
-  if dd then
-    dd.group:SelectValue(view.groupBy or "none")
-    dd.quality:SetSelected(asSet(view.quality))
-    dd.type:SetSelected(asSet(view.itemType))
-    dd.subtype:SetSelected(asSet(view.itemSubType))
-    dd.source:SetSelected(asSet(view.source))
-    dd.zone:SetSelected(asSet(view.zone))
-    dd.bound:SetSelected(asSet(view.bound))
-    dd.date:SelectValue(view.date or "all")
+end
+
+-- Push the view onto the widgets so the toolbar reads what the filter does.
+local function applyDropdowns(dd, view)
+  dd.group:SelectValue(view.groupBy or "none")
+  for i = 1, #VIEW_FILTERS do
+    local f = VIEW_FILTERS[i]
+    dd[f[2]]:SetSelected(asSet(view[f[1]]))
   end
-  if self._search then self._search:SetText(view.search or "") end
-  self.activeFilter.quality     = setToFilter(asSet(view.quality))
-  self.activeFilter.source      = setToFilter(asSet(view.source))
-  self.activeFilter.itemType    = setToFilter(asSet(view.itemType))
-  self.activeFilter.itemSubType = setToFilter(asSet(view.itemSubType))
-  self.activeFilter.zone        = setToFilter(asSet(view.zone))
-  self.activeFilter.bound       = setToFilter(asSet(view.bound))
+  dd.date:SelectValue(view.date or "all")
+end
+
+-- Resolve the view's stored fields into the query filter. Tolerates the legacy scalar form via
+-- asSet; an unselected column applies no filter at all (nil, not an empty set).
+local function resolveFilter(self, view)
+  for i = 1, #VIEW_FILTERS do
+    local vk = VIEW_FILTERS[i][1]
+    self.activeFilter[vk] = setToFilter(asSet(view[vk]))
+  end
   if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
   if view.search and view.search ~= "" then self.activeFilter.text = view.search end
+end
+
+function B:ApplyView(view, scope)
+  view = view or STOCK_VIEW
+  self.activeFilter = {}
+  applyTableState(view)
+  local dd = self._dd
+  if dd then applyDropdowns(dd, view) end
+  if self._search then self._search:SetText(view.search or "") end
+  resolveFilter(self, view)
   -- Character scope resets to `scope` (default "current"). SetCharSet also calls ApplyFilter,
   -- so it is the single refresh that paints all the filter fields set just above.
   if scope == "all" then
