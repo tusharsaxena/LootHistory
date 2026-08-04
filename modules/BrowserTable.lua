@@ -211,28 +211,45 @@ BrowserTable.groupBy = "none"
 BrowserTable.collapsed = {}
 BrowserTable.groupAsc = true
 
+-- One handler per group-by mode, returning (raw key part, display label) in that order. The
+-- table and its closures are module-level, built once at load: groupOf runs once per record on
+-- every group build, so nothing here may allocate per call. Adding a group mode is one entry
+-- here plus one in GROUP_COLUMN/GROUP_PREFIX below.
+local GROUP_OF = {
+  source = function(r)
+    local label = C.SourceLabel[r.source] or r.source or "Other"
+    return label, label
+  end,
+  -- "" buckets with nil (Compat.GetZone answers "" with no zone text), as in Stats/the Zone filter.
+  zone = function(r)
+    local label = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
+    return label, label
+  end,
+  char = function(r)
+    local raw = r.char or "Unknown"
+    return raw, raw
+  end,
+  type = function(r)
+    local label = r.itemType or "Unknown"
+    return label, label
+  end,
+  quality = function(r)
+    return "q" .. tostring(r.quality or "-"),
+           r.quality ~= nil and NS.Compat.QualityLabel(r.quality) or "\226\128\148"
+  end,
+  -- Key stays ISO (stable, unique per calendar day); label matches the Date column's format.
+  day = function(r)
+    return date("%Y-%m-%d", r.ts or 0), NS.Util.FormatDate(r.ts or 0)
+  end,
+}
+
 -- Group identity + display label for a record under the active group-by. The key is
 -- namespaced by group mode so the collapsed-state map never collides across modes (a
 -- zone named "Kill" vs the Kill source). \001 is an unprintable separator.
 local function groupOf(groupBy, r)
-  local raw, label
-  if groupBy == "source" then
-    label = C.SourceLabel[r.source] or r.source or "Other"; raw = label
-  elseif groupBy == "zone" then
-    -- "" buckets with nil (Compat.GetZone answers "" with no zone text), as in Stats/the Zone filter.
-    label = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"; raw = label
-  elseif groupBy == "char" then
-    raw = r.char or "Unknown"; label = raw
-  elseif groupBy == "type" then
-    label = r.itemType or "Unknown"; raw = label
-  elseif groupBy == "quality" then
-    label = r.quality ~= nil and NS.Compat.QualityLabel(r.quality) or "\226\128\148"; raw = "q" .. tostring(r.quality or "-")
-  elseif groupBy == "day" then
-    -- Key stays ISO (stable, unique per calendar day); label matches the Date column's format.
-    raw = date("%Y-%m-%d", r.ts or 0); label = NS.Util.FormatDate(r.ts or 0)
-  else
-    label = "?"; raw = "?"
-  end
+  local fn = GROUP_OF[groupBy]
+  local raw, label = "?", "?"
+  if fn then raw, label = fn(r) end
   return groupBy .. "\001" .. raw, label
 end
 
@@ -344,52 +361,92 @@ local function testPick(rng, weighted)
   return weighted[#weighted][1]
 end
 
+-- The per-field derivations behind one synthetic record. Each takes the PRNG explicitly (no
+-- upvalue capture) and every one of them draws a FIXED number of values in a fixed order — the
+-- generated dataset is only byte-identical run to run because the call order into `rng` never
+-- moves, so these must be called from `make` in exactly the sequence written there.
+
+-- Skewed item pool: ~45% of drops land on one of the hot items, the rest on the long tail.
+local function testItemID(rng)
+  return (rng(100) <= 45) and rng(TEST_HOT_ITEMS)
+         or (TEST_HOT_ITEMS + rng(#TEST_ITEM_NAMES - TEST_HOT_ITEMS))
+end
+
+-- Seconds back from now: weighted day (a third of drops cluster onto the last few days) plus an
+-- evening-leaning hour-of-day.
+local function testAge(rng)
+  local dayOffset = rng(TEST_SPAN_DAYS) - 1
+  if rng(3) == 1 then dayOffset = rng(5) - 1 end
+  local secInto = testPick(rng, TEST_HOUR_W) * 3600 + (rng(60) - 1) * 60 + (rng(60) - 1)
+  return dayOffset * TEST_DAY + secInto
+end
+
+-- Gear drops one at a time; junk stacks, and the cheapest junk stacks highest.
+local function testQuantity(rng, q, isGear)
+  if isGear then return 1 end
+  return (q <= 1) and (1 + rng(19)) or (1 + rng(4))
+end
+
+local function testVendorPrice(rng, q)
+  return (q * q + 1) * (200 + rng(1800)) + rng(500) -- wide, quality-skewed value spread
+end
+
+-- ~70% of drops carry an AH price map; the other 30% draw nothing at all.
+local function testAuctionPrice(rng, q)
+  return (rng(100) <= 70) and {
+    tsm = { dbmarket = (q * q + 1) * (600 + rng(6000)) + rng(1500),
+            dbminbuyout = (q * q + 1) * (400 + rng(5000)) },
+    oribos = { market = (q * q + 1) * (500 + rng(6000)) },
+  } or nil
+end
+
+-- Subtype is a deterministic function of the item id, so a given item always looks the same.
+local function testSubType(ty, idBase)
+  local list = TEST_SUBTYPES[ty] or TEST_SUBTYPES_MISC
+  return list[(idBase % #list) + 1]
+end
+
 function BrowserTable:BuildTestData()
   local now = time()
   local rng = testRng(0x10A75AFE)   -- fixed seed → identical dataset every run
   local out = {}
 
-  -- Build one record from the pivot values; everything else is derived and jittered.
+  -- Build one record from the pivot values; everything else is derived and jittered. The locals
+  -- below are drawn in the order the record constructor used to evaluate them — do not reorder.
   local function make(source, q, cls, bindIdx)
     local b      = TEST_BINDINGS[bindIdx]
     local zone   = TEST_ZONES[testPick(rng, TEST_ZONE_W)]
     local ty     = testPick(rng, TEST_TYPE_W)
     local isGear = (ty == "Armor" or ty == "Weapon")
-    -- Skewed item pool: ~45% of drops land on one of the hot items, the rest on the long tail.
-    local idBase = (rng(100) <= 45) and rng(TEST_HOT_ITEMS)
-                   or (TEST_HOT_ITEMS + rng(#TEST_ITEM_NAMES - TEST_HOT_ITEMS))
-    -- Timestamp: weighted day (a third of drops cluster onto the last few days) + evening hour.
-    local dayOffset = rng(TEST_SPAN_DAYS) - 1
-    if rng(3) == 1 then dayOffset = rng(5) - 1 end
-    local secInto = testPick(rng, TEST_HOUR_W) * 3600 + (rng(60) - 1) * 60 + (rng(60) - 1)
-    local qty = 1
-    if not isGear then qty = (q <= 1) and (1 + rng(19)) or (1 + rng(4)) end
+    local idBase = testItemID(rng)
+    local age    = testAge(rng)
+    local qty    = testQuantity(rng, q, isGear)
+    -- gear only; scales with quality. The short-circuit is load-bearing: non-gear must draw nothing.
+    local ilvl    = isGear and (560 + q * 12 + rng(40)) or nil
+    local vendor  = testVendorPrice(rng, q)
+    local auction = testAuctionPrice(rng, q)
+    local subType = testSubType(ty, idBase)
+    local detail  = (source == "MPLUS") and { keystoneLevel = testPick(rng, TEST_KEY_W) } or nil
+    local conf    = (rng(100) <= 14) and "INFERRED" or "CERTAIN"
     out[#out + 1] = {
-      ts = now - dayOffset * TEST_DAY - secInto,
+      ts = now - age,
       char = cls:sub(1, 1) .. cls:sub(2):lower() .. "-Ravencrest",
       classFile = cls,
       itemID = 100000 + idBase,
       itemName = TEST_ITEM_NAMES[idBase],
       quality = q,
       quantity = qty,
-      itemLevel = isGear and (560 + q * 12 + rng(40)) or nil, -- gear only; scales with quality
+      itemLevel = ilvl,
       bound = b.key,
-      vendorPrice = (q * q + 1) * (200 + rng(1800)) + rng(500), -- wide, quality-skewed value spread
-      auctionPrice = (rng(100) <= 70) and {
-        tsm = { dbmarket = (q * q + 1) * (600 + rng(6000)) + rng(1500),
-                dbminbuyout = (q * q + 1) * (400 + rng(5000)) },
-        oribos = { market = (q * q + 1) * (500 + rng(6000)) },
-      } or nil,
+      vendorPrice = vendor,
+      auctionPrice = auction,
       itemType = ty,
-      itemSubType = (function()
-        local list = TEST_SUBTYPES[ty] or TEST_SUBTYPES_MISC
-        return list[(idBase % #list) + 1]
-      end)(),
+      itemSubType = subType,
       source = source,
-      sourceDetail = (source == "MPLUS") and { keystoneLevel = testPick(rng, TEST_KEY_W) } or nil,
+      sourceDetail = detail,
       zone = zone.name,
       mapID = zone.mapID,
-      confidence = (rng(100) <= 14) and "INFERRED" or "CERTAIN",
+      confidence = conf,
     }
   end
 
