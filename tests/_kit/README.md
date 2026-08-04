@@ -17,7 +17,7 @@ the other seven.
 
 The collection's consolidated automated-test runner, and the only executable in the kit. It runs the
 four out-of-game suites and records every result as one frozen bundle under
-`docs/automated-tests/<YYYY-MM-DD-HHMMSS>/`, then rolls the run into `docs/automated-tests/RESULTS.md`
+`docs/automated-tests/<YYYYMMDD-HHMMSS>/`, then rolls the run into `docs/automated-tests/RESULTS.md`
 (see `automated-tests` in the standard).
 
 ```sh

@@ -174,7 +174,7 @@ tag, with an `ANALYSIS.md` write-up. Commits are gated on lint + tests only.
 
 Results live in [`automated-tests/`](./automated-tests/): `RESULTS.md` is one row per run across all
 four suites plus the current complexity watch list — **one file, overwritten in place**, so its git
-history is the trend line — and each `<YYYY-MM-DD-HHMMSS>/` is a frozen bundle of that run's raw
+history is the trend line — and each `<YYYYMMDD-HHMMSS>/` is a frozen bundle of that run's raw
 output. Bundles are never edited and never pruned.
 
 `docs/complexity.md` was this addon's standalone complexity report through standard v2.18.0; it is

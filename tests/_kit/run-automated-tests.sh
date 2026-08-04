@@ -3,7 +3,7 @@
 # run-automated-tests.sh — the Ka0s collection's consolidated automated-test runner.
 #
 # Runs the four out-of-game suites and records every result as one frozen bundle under
-# docs/automated-tests/<YYYY-MM-DD-HHMMSS>/, then rolls the run into docs/automated-tests/RESULTS.md.
+# docs/automated-tests/<YYYYMMDD-HHMMSS>/, then rolls the run into docs/automated-tests/RESULTS.md.
 #
 #   lint        luacheck .                     GATING
 #   tests       lua tests/run.lua              GATING
@@ -66,8 +66,11 @@ ADDON="$(basename "$TOC" .toc)"
 ADDON_VERSION="$(grep -i '^## Version:' "$TOC" 2>/dev/null | head -1 | sed 's/^## *[Vv]ersion: *//' | tr -d '\r' || true)"
 [ -z "$ADDON_VERSION" ] && ADDON_VERSION="unknown"
 
-STAMP="$(date -u +%Y-%m-%d-%H%M%S)"
-STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# LOCAL time, not UTC: a record is read by the person who ran it, and a folder name that
+# disagrees with their clock costs a mental conversion on every glance. startedAt keeps an
+# explicit UTC offset so the instant stays unambiguous once the record outlives the machine.
+STAMP="$(date +%Y%m%d-%H%M%S)"
+STARTED_AT="$(date +%Y-%m-%dT%H:%M:%S%:z)"
 OUT="docs/automated-tests/$STAMP"
 RUN_START=$(date +%s)
 
@@ -78,6 +81,8 @@ LUA_VERSION=""
 [ -n "$LUA" ] && LUA_VERSION="$($LUA -v 2>&1 | head -1 | tr -d '\r')"
 LUACHECK_VERSION=""
 command -v luacheck >/dev/null 2>&1 && LUACHECK_VERSION="$(luacheck --version 2>/dev/null | head -1 | tr -d '\r')"
+NOCOLOR=""
+[ -n "$LUACHECK_VERSION" ] && luacheck --help 2>&1 | grep -q -- "--no-color" && NOCOLOR="--no-color"
 LIZARD_VERSION=""
 command -v lizard >/dev/null 2>&1 && LIZARD_VERSION="$(lizard --version 2>/dev/null | head -1 | tr -d '\r')"
 
@@ -97,7 +102,12 @@ TESTS_PASS=0; TESTS_FAIL=0; TESTS_TOTAL=0
 PERF_SCENARIOS=0; PERF_FAILED=0
 CCN_WARN=0; CCN_NLOC=0; CCN_FUNCS=0; CCN_AVG=0; CCN_MAX=0; CCN_BAND=0; CCN_OVER=0
 
-emit() { if [ "$WRITE_BUNDLE" -eq 1 ]; then cat > "$OUT/$1"; else cat > /dev/null; fi; }
+# Strip ANSI colour before writing. luacheck and the harness colour their output when they
+# think a terminal is attached, and the raw escapes ('\033[32m\033[1mOK') land verbatim in the
+# artifact — unreadable in an editor and noise in any diff between two runs. The parsers below
+# already strip for their own use; the stored evidence gets the same treatment.
+strip_ansi() { sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/\r$//'; }
+emit() { if [ "$WRITE_BUNDLE" -eq 1 ]; then strip_ansi > "$OUT/$1"; else cat > /dev/null; fi; }
 
 # ── lint ────────────────────────────────────────────────────────────────────────────────────────
 if wants lint; then
@@ -107,7 +117,9 @@ if wants lint; then
     elif [ -z "$LUACHECK_VERSION" ]; then
         ST[lint]="skip"; NOTE[lint]="luacheck not on PATH — install: pipx install luacheck"
     else
-        raw="$(luacheck . 2>&1)"; rc=$?
+        # $NOCOLOR is belt and braces with strip_ansi: where the flag exists nothing colours the
+        # output in the first place, and where it does not, strip_ansi still cleans it.
+        raw="$(luacheck . $NOCOLOR 2>&1)"; rc=$?
         printf '%s\n' "$raw" | emit lint.txt
         line="$(printf '%s\n' "$raw" | sed 's/\x1b\[[0-9;]*m//g' | grep -E '^Total: ' | tail -1)"
         LINT_WARN=$(printf '%s' "$line" | grep -oE '[0-9]+ warning' | grep -oE '[0-9]+' || echo 0)
@@ -151,7 +163,8 @@ if wants tests; then
         # The generated inventory travels with the run it describes, so a bundle answers
         # "which cases existed at this point" without a second checkout.
         if [ "$WRITE_BUNDLE" -eq 1 ]; then
-            $LUA tests/run.lua --list > "$OUT/test-cases.md" 2>/dev/null || rm -f "$OUT/test-cases.md"
+            $LUA tests/run.lua --list 2>/dev/null | strip_ansi > "$OUT/test-cases.md" \
+                || rm -f "$OUT/test-cases.md"
         fi
     fi
     DUR[tests]=$(( $(date +%s) - t0 ))

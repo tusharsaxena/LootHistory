@@ -36,7 +36,7 @@ run that measured nothing cannot be mistaken for a green run that measured every
 
 - **`RESULTS.md`** — one row per run across all four suites, plus the current complexity watch list.
   **One file, overwritten in place**: the git history of that single path is the trend line.
-- **`<YYYY-MM-DD-HHMMSS>/`** — one frozen bundle per run: `manifest.json`, one file per suite, and
+- **`<YYYYMMDD-HHMMSS>/`** — one frozen bundle per run: `manifest.json`, one file per suite, and
   `ANALYSIS.md` (the write-up). Bundles are **never edited** once written and **never pruned**.
 
 Offline perf records live in the bundle with the run that produced them. **In-game** captures cannot
