@@ -94,7 +94,9 @@ back fast table ops.
   Switching that is a schema + query rewrite; see [`scope.md`](scope.md) *Resolved design decisions*.
 - `schemaVersion` is a version stamp on the DB; the current shipped shape is **8**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
-  before any history read) — the idempotent seam future schema changes hook into. Seven migrations
+  before any history read) — the idempotent seam future schema changes hook into. The steps live in
+  the module-level `MIGRATIONS` array it walks, one entry per step, so a new one is an appended
+  entry rather than an edit to the runner (see [data-model.md](data-model.md)). Seven migrations
   ship: **v1→v2** strips the retired per-record `viaWhitelist` field (point-in-time filtering no
   longer hides stored rows); **v2→v3** (Rev-2) renames each record's `sellPrice` field to
   `vendorPrice`; **v3→v4** backfills each currency row's `quality` from `C_CurrencyInfo`; **v4→v5**

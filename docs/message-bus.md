@@ -6,7 +6,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
-| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:249`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
+| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:287`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge`, and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings page's list UI), all via `fireHistoryChanged` ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + Filters page) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` row `onChange` ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
@@ -14,9 +14,9 @@ Exactly one sender is allowed per message — the table is sender-authoritative.
 
 ## `Ka0s_LootHistory_RecordAdded` payload
 
-Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:249`). The payload is `(record, index)`: the full record table (see [data-model.md](data-model.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
+Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:287`). The payload is `(record, index)`: the full record table (see [data-model.md](data-model.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
 
-Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:240`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
+Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:278`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
 
 ## `Ka0s_LootHistory_HistoryChanged` payload
 
@@ -36,14 +36,14 @@ Because deletion and retention rebuild-and-swap (no holes; see [data-model.md](d
 Sent from five schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), each with a distinct `reason` string: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, and `"excludes"`. These are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
 
 - **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `enabled` / `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
-- **Browser** (`modules/Browser.lua:1229`) calls `OnSettingsChanged()` to reflect the change in the open window.
+- **Browser** (`modules/Browser.lua:1296`) calls `OnSettingsChanged()` to reflect the change in the open window.
 
 ### What does NOT broadcast
 
 Two schema rows deliberately skip the bus and drive their side effect directly in `onChange`:
 
-- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:24`).
-- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:45`).
+- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:32`).
+- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:52`).
 
 Neither emits `SettingsChanged`, because nothing else needs to react — they are one-consumer, view-only knobs. (Likewise `retentionDays` fires `HistoryChanged` via `PruneOld`, not `SettingsChanged`.) Keeping these off the bus means flipping the minimap button or the window scale never cascades into a Collector upvalue refresh or a table rebuild.
 
@@ -58,9 +58,9 @@ The reason: **CallbackHandler keys registered callbacks by `(message, target)`.*
 Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters page) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters page's live list rebuild):
 
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:217`).
-- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1299`).
-- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:654`).
-- Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:411`).
+- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1366`).
+- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:657`).
+- Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:123`).
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.
 

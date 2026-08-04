@@ -15,7 +15,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local SCROLL_MINOR = 2
+local SCROLL_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own. The scroll counter alone is not enough:
 -- two vendored copies can ship the same scroll minor over different Options.lua minors, and then
 -- the higher shell wins the LibStub race while the first-loaded copy's patch stays attached to it.
@@ -38,6 +38,43 @@ local GUTTER = 20
 local THUMB_ON  = { 1, 1, 1, 1 }
 local THUMB_OFF = { 0.5, 0.5, 0.5, 0.6 }
 
+-- Call an optional method on an optional object. TRUTHINESS, deliberately, not
+-- `type(...) == "function"`: every handle below can legitimately be nil (a headless scrollbar has
+-- no thumb and no step buttons), and the fixtures assign plain fields, so a type test would change
+-- what ships.
+local function callIf(obj, method, ...)
+  if obj and obj[method] then obj[method](obj, ...) end
+end
+
+-- The scrollbar's thumb texture, when it has one to give.
+local function thumbOf(scrollbar)
+  return scrollbar and scrollbar.GetThumbTexture and scrollbar:GetThumbTexture() or nil
+end
+
+-- The two step buttons Blizzard parents to a NAMED scrollbar, found the only way there is: by
+-- name. A nameless bar (which is what a headless one is) has neither, and nil is a valid answer
+-- everywhere they are used.
+local function stepButtons(scrollbar)
+  local sbName = scrollbar and scrollbar.GetName and scrollbar:GetName() or nil
+  if not sbName then return nil, nil end
+  return _G[sbName .. "ScrollUpButton"] or nil, _G[sbName .. "ScrollDownButton"] or nil
+end
+
+-- Lay the widget out as if the bar were always visible: bar shown, the scrollframe pulled in by the
+-- gutter, and the content width inset to match. The same three blocks appear inside the FixScroll
+-- override below and are deliberately NOT shared with it — that one re-checks `self.scrollBarShown`
+-- first and only re-forces the layout when something else un-shown it.
+local function forceGutter(scroll, scrollbar)
+  scroll.scrollBarShown = true
+  if scrollbar then scrollbar:Show() end
+  if scroll.scrollframe then
+    scroll.scrollframe:SetPoint("BOTTOMRIGHT", -GUTTER, 0)
+  end
+  if scroll.content and scroll.content.original_width then
+    scroll.content.width = scroll.content.original_width - GUTTER
+  end
+end
+
 --- Patch one AceGUI ScrollFrame in place. Idempotent, and reversible on OnRelease.
 ---
 --- The marker is `_ka0sAlwaysScrollbar` rather than a per-addon name: AceGUI pools ScrollFrames
@@ -57,13 +94,21 @@ function lib.PatchAlwaysShowScrollbar(scroll)
   -- its own behavior back when AceGUI recycles it.
   scroll.__stockFixScroll = origFixScroll
 
-  local scrollbar = scroll.scrollbar
-  local thumb     = scrollbar and scrollbar.GetThumbTexture and scrollbar:GetThumbTexture() or nil
-  local sbName    = scrollbar and scrollbar.GetName and scrollbar:GetName() or nil
-  local upBtn     = sbName and _G[sbName .. "ScrollUpButton"]   or nil
-  local downBtn   = sbName and _G[sbName .. "ScrollDownButton"] or nil
+  local scrollbar      = scroll.scrollbar
+  local thumb          = thumbOf(scrollbar)
+  local upBtn, downBtn = stepButtons(scrollbar)
 
   local currentEnabled
+
+  -- ONE parameterized apply for both directions. The two used to be written out as mirror images,
+  -- which is four optional-object dances twice over, and mirrored branches drift apart one guard at
+  -- a time. Call ORDER is the contract here and is unchanged: bar, thumb tint, up, down.
+  local function applyState(action, tint)
+    callIf(scrollbar, action)
+    callIf(thumb, "SetVertexColor", unpack(tint))
+    callIf(upBtn, action)
+    callIf(downBtn, action)
+  end
 
   local function setEnabled(want)
     if currentEnabled == want then return end
@@ -71,27 +116,16 @@ function lib.PatchAlwaysShowScrollbar(scroll)
     if not scrollbar then return end
 
     if want then
-      if scrollbar.Enable then scrollbar:Enable() end
-      if thumb and thumb.SetVertexColor then thumb:SetVertexColor(unpack(THUMB_ON)) end
-      if upBtn   and upBtn.Enable   then upBtn:Enable()   end
-      if downBtn and downBtn.Enable then downBtn:Enable() end
+      applyState("Enable", THUMB_ON)
     else
+      -- Unguarded and BEFORE the disable, unlike everything applyState does: parking the thumb at
+      -- the top is what makes a shown-but-inert bar read as inert.
       scrollbar:SetValue(0)
-      if scrollbar.Disable then scrollbar:Disable() end
-      if thumb and thumb.SetVertexColor then thumb:SetVertexColor(unpack(THUMB_OFF)) end
-      if upBtn   and upBtn.Disable   then upBtn:Disable()   end
-      if downBtn and downBtn.Disable then downBtn:Disable() end
+      applyState("Disable", THUMB_OFF)
     end
   end
 
-  scroll.scrollBarShown = true
-  if scrollbar then scrollbar:Show() end
-  if scroll.scrollframe then
-    scroll.scrollframe:SetPoint("BOTTOMRIGHT", -GUTTER, 0)
-  end
-  if scroll.content and scroll.content.original_width then
-    scroll.content.width = scroll.content.original_width - GUTTER
-  end
+  forceGutter(scroll, scrollbar)
 
   scroll.FixScroll = function(self)
     if self.updateLock then return end

@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 5
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -75,46 +75,120 @@ function lib.FormatKV(path, valueStr)
   return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
 end
 
---- Render a stored value for display, by the row's declared type.
----
---- Every branch guards its input through the Core seam BEFORE the value reaches a format. The
---- invariant that would make that unnecessary, that a stored settings value is never a
---- combat-protected value, is true of every host today, but it is written down nowhere and
---- enforced nowhere: a host whose `d.get` returns a derived or live value (an absorb total, a
---- health fraction) hands us a secret, and a secret RAISES inside `string.format` exactly as it
---- does inside `table.concat`. Guarding the input rather than the output keeps every rendered
---- byte of an ordinary value identical.
-function lib.FormatValue(row, v)
-  row = row or {}
-  if v == nil then return "nil" end
-  if row.type == "color" and type(v) == "table" then
-    -- Both stored shapes, because the collection genuinely holds both: AbsorbTracker keeps
-    -- { r =, g =, b =, a = } and the Ka0s options colour widget writes { r, g, b, a }
-    -- POSITIONALLY. The named keys win when present, so a host that stores them is rendered
-    -- exactly as before; a positional table used to read as all-zero.
-    --
-    -- A host whose storage is neither shape passes colorDecode on the descriptor. This fallback
-    -- exists so the common case needs no descriptor at all — the CLI is often the first thing
-    -- wired up, and rendering every colour as {0.00, 0.00, 0.00, 1.00} is a poor first impression
-    -- of a library that had no hook to fix it.
-    --
-    -- The table itself is never concat-safe; it is the four COMPONENTS that reach %.2f.
-    local r = v.r or v[1] or 0
-    local g = v.g or v[2] or 0
-    local b = v.b or v[3] or 0
-    local a = v.a or v[4] or 1
-    if not (core.IsConcatSafe(r) and core.IsConcatSafe(g)
-            and core.IsConcatSafe(b) and core.IsConcatSafe(a)) then return core.SECRET end
+-- One row per colour channel: named key, positional index, default. Both stored shapes are read,
+-- because the collection genuinely holds both: AbsorbTracker keeps { r =, g =, b =, a = } and the
+-- Ka0s options colour widget writes { r, g, b, a } POSITIONALLY. The named key wins when present,
+-- so a host that stores them is rendered exactly as before; a positional table used to read as
+-- all-zero.
+--
+-- A host whose storage is neither shape passes colorDecode on the descriptor. This fallback exists
+-- so the common case needs no descriptor at all — the CLI is often the first thing wired up, and
+-- rendering every colour as {0.00, 0.00, 0.00, 1.00} is a poor first impression of a library that
+-- had no hook to fix it.
+--
+-- Module-level, built once at load: nothing here is allocated per rendered value.
+local COLOR_KEYS = { { "r", 1, 0 }, { "g", 2, 0 }, { "b", 3, 0 }, { "a", 4, 1 } }
+
+-- One channel as a NUMBER, or nil when it is a secret. The table itself is never concat-safe; it
+-- is the four COMPONENTS that reach %.2f. Never returns false: the `or` chain ends in a numeric
+-- default, so nil unambiguously means "unsafe".
+local function colorChannel(v, k)
+  local n = v[k[1]] or v[k[2]] or k[3]
+  if not core.IsConcatSafe(n) then return nil end
+  return n
+end
+
+-- One formatter per declared row type. A formatter returns the rendered string, or nil to fall
+-- through to core.SafeToString — which is how a non-table `color`, a non-empty `string` and an
+-- unknown row type all reach the same generic renderer they always have.
+--
+-- Every formatter guards its input through the Core seam BEFORE the value reaches a format. The
+-- invariant that would make that unnecessary, that a stored settings value is never a
+-- combat-protected value, is true of every host today, but it is written down nowhere and
+-- enforced nowhere: a host whose `d.get` returns a derived or live value (an absorb total, a
+-- health fraction) hands us a secret, and a secret RAISES inside `string.format` exactly as it
+-- does inside `table.concat`. Guarding the input rather than the output keeps every rendered
+-- byte of an ordinary value identical.
+local FORMATTERS = {
+  color = function(_, v)
+    if type(v) ~= "table" then return nil end
+    local r = colorChannel(v, COLOR_KEYS[1])
+    local g = colorChannel(v, COLOR_KEYS[2])
+    local b = colorChannel(v, COLOR_KEYS[3])
+    local a = colorChannel(v, COLOR_KEYS[4])
+    if not (r and g and b and a) then return core.SECRET end
     return ("{%.2f, %.2f, %.2f, %.2f}"):format(r, g, b, a)
-  end
-  if row.type == "number" then
+  end,
+
+  number = function(row, v)
     if not core.IsConcatSafe(v) then return core.SECRET end
     if row.fmt then return row.fmt:format(v) end
     return tostring(v)
-  end
-  if row.type == "bool" then return v and "true" or "false" end
-  if row.type == "string" and v == "" then return lib.STRINGS.NONE end
+  end,
+
+  bool = function(_, v) return v and "true" or "false" end,
+
+  string = function(_, v)
+    if v == "" then return lib.STRINGS.NONE end
+    return nil
+  end,
+}
+
+--- Render a stored value for display, by the row's declared type.
+function lib.FormatValue(row, v)
+  row = row or {}
+  if v == nil then return "nil" end
+  local f = FORMATTERS[row.type]
+  -- No formatter can return false, so the `and` is a plain "call it if there is one".
+  local s = f and f(row, v)
+  if s ~= nil then return s end
   return core.SafeToString(v)
+end
+
+-- ── the command primitives ─────────────────────────────────────────────────────────────────
+--
+-- The vocabulary a sub-command level needs: split the verb off, look it up, render its rows. Two
+-- hosts had already copied byte-identical `lowerFirst`/`findCommand` file-locals out of this
+-- dispatcher and hand-rolled a SECOND row format beside the library's own, which is precisely the
+-- drift the shared formatter exists to end. The DISPATCHER itself is deliberately not here — its
+-- control flow is genuinely per-host — but the vocabulary it runs on is.
+
+--- Split `rest` into its leading verb and everything after it.
+---
+--- The verb is LOWERCASED and the remainder's case is PRESERVED, and the asymmetry is the
+--- contract, not an oversight: a verb is an identifier, while the remainder is user data —
+--- AceDB profile names and schema paths are both case-sensitive, so folding them would resolve
+--- something the user did not name. The remainder also keeps its internal spacing, because a
+--- color is several tokens.
+function lib.SplitVerb(rest)
+  local verb, remainder = (rest or ""):match("^(%S*)%s*(.*)$")
+  return (verb or ""):lower(), remainder or ""
+end
+
+--- Find one entry in an ordered { name, description, handler } array, or nil.
+---
+--- The same row shape the `commands` descriptor field has always taken, so a sub level reuses this
+--- major's existing vocabulary rather than inventing one. Compares verbatim: callers lowercase
+--- through lib.SplitVerb first.
+function lib.FindCommand(list, name)
+  if type(list) ~= "table" then return nil end
+  for _, entry in ipairs(list) do
+    if entry[1] == name then return entry end
+  end
+end
+
+--- Render one command list as rows, prefixed by the chat command that reaches them.
+---
+--- `indent` defaults to "" — the indent belongs to whoever is rendering, exactly as it does for
+--- lib.FormatRow. Every level, top and sub, renders through this one formatter by construction.
+function lib.CommandRows(prefix, commands, indent)
+  indent = indent or ""
+  local out = {}
+  if type(commands) ~= "table" then return out end
+  for _, entry in ipairs(commands) do
+    out[#out + 1] = indent .. lib.FormatRow(prefix .. " " .. entry[1], entry[2])
+  end
+  return out
 end
 
 -- ── the parser ─────────────────────────────────────────────────────────────────────────────
@@ -128,11 +202,26 @@ end
 -- itself be nil would be indistinguishable from an error — none exists, and adding one would be a
 -- contract change, not a new type.
 
+-- The exact eight-word set lib.STRINGS.ERR_BOOL already advertises. Module-level and booleans
+-- only, so a miss is unambiguously nil rather than a stored false.
+local BOOL_WORDS = {
+  ["true"] = true,  ["1"] = true,  ["on"]  = true,  ["yes"] = true,
+  ["false"] = false, ["0"] = false, ["off"] = false, ["no"] = false,
+}
+
+--- One boolean word, case-insensitively, or nil.
+---
+--- nil means "not a boolean word" — never "false" — which is what lets a caller implement
+--- toggle-on-absent rather than having to distinguish the two by re-reading the raw text.
+function lib.ParseBool(word)
+  if type(word) ~= "string" then return nil end
+  return BOOL_WORDS[word:lower()]
+end
+
 local function parseBool(args)
-  local s = (args[1] or ""):lower()
-  if s == "true"  or s == "1" or s == "on"  or s == "yes" then return true  end
-  if s == "false" or s == "0" or s == "off" or s == "no"  then return false end
-  return nil, lib.STRINGS.ERR_BOOL
+  local v = lib.ParseBool(args[1])
+  if v == nil then return nil, lib.STRINGS.ERR_BOOL end
+  return v
 end
 
 -- Both enum shapes the collection actually declares, normalised to one ordered list of
@@ -363,20 +452,12 @@ function lib:New(d)
 
   -- ── help ─────────────────────────────────────────────────────────────────────────────────
 
-  local function rows(indent)
-    local out = {}
-    for _, entry in ipairs(d.commands) do
-      out[#out + 1] = indent .. lib.FormatRow(d.slash .. " " .. entry[1], entry[2])
-    end
-    return out
-  end
-
   --- The chat form: indented, because each row sits under a header.
-  function Sl:HelpRows() return rows("  ") end
+  function Sl:HelpRows() return lib.CommandRows(d.slash, d.commands, "  ") end
 
   --- The panel form: identical colors and spacing, no indent. A landing page renders each row as
   --- its own label, where a leading indent reads as a mistake rather than as structure.
-  function Sl:LandingRows() return rows("") end
+  function Sl:LandingRows() return lib.CommandRows(d.slash, d.commands, "") end
 
   function Sl:HelpHeader()
     local version = type(d.version) == "function" and d.version() or "?"

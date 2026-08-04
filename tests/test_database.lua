@@ -89,6 +89,33 @@ test("Database: QueryList filters an arbitrary array, not the live history", fun
   assertEqual(#NS.Database:QueryList(recs, { quality = 4 }), 1)
 end)
 
+-- The three tests below pin the parts of the filter contract that QueryList's hoisting relies
+-- on. It decides ONCE PER CALL whether a clause is filtered at all and then skips it for every
+-- record; these are the values where "filtered" and "not filtered" are easy to get wrong.
+test("Database: QueryList treats quality 0 as a filter, not as an absent one", function()
+  -- 0 is TRUTHY in Lua, so Poor (quality 0) is a real selection and must not be read as
+  -- "no quality filter". A record with no quality at all reads as 0 under the exact form.
+  local recs = { { quality = 0, itemID = 1 }, { quality = 4, itemID = 2 }, { itemID = 3 } }
+  assertEqual(#NS.Database:QueryList(recs, { quality = 0 }), 2)
+  assertEqual(#NS.Database:QueryList(recs, { quality = 4 }), 1)
+end)
+
+test("Database: QueryList quality set matches the raw quality, exact quality defaults it to 0", function()
+  -- Deliberate asymmetry, kept from the original hand-written filter: the exact form reads a
+  -- missing quality as 0 and matches it, the set form looks the raw nil up and misses.
+  local recs = { { quality = 0, itemID = 1 }, { itemID = 3 } }
+  assertEqual(#NS.Database:QueryList(recs, { quality = 0 }), 2)
+  assertEqual(#NS.Database:QueryList(recs, { quality = { [0] = true } }), 1)
+end)
+
+test("Database: QueryList treats a falsy filter field as unfiltered", function()
+  local recs = { { source = "KILL" }, { source = "VENDOR" } }
+  assertEqual(#NS.Database:QueryList(recs, { source = false }), 2)
+  assertEqual(#NS.Database:QueryList(recs, { char = false, zone = false }), 2)
+  -- An empty text string, by contrast, IS truthy — it runs the substring test, which matches all.
+  assertEqual(#NS.Database:QueryList(recs, { text = "" }), 2)
+end)
+
 test("Database: Query filters by itemType", function()
   local recs = {
     { itemType = "Armor",  itemName = "Helm" },

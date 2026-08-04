@@ -1,0 +1,25 @@
+Checking core/Compat.lua                          OK
+Checking core/Constants.lua                       OK
+Checking core/CoreSetup.lua                       OK
+Checking core/Database.lua                        OK
+Checking core/DebugLogSetup.lua                   OK
+Checking core/LootHistory.lua                     OK
+Checking core/Namespace.lua                       OK
+Checking core/State.lua                           OK
+Checking core/Util.lua                            OK
+Checking defaults/Global.lua                      OK
+Checking locales/enUS.lua                         OK
+Checking modules/Analytics.lua                    OK
+Checking modules/Attribution.lua                  OK
+Checking modules/AuctionPrice.lua                 OK
+Checking modules/Browser.lua                      OK
+Checking modules/BrowserTable.lua                 OK
+Checking modules/Collector.lua                    OK
+Checking modules/Export.lua                       OK
+Checking modules/Filters.lua                      OK
+Checking settings/OptionsSetup.lua                OK
+Checking settings/Panel.lua                       OK
+Checking settings/Schema.lua                      OK
+Checking settings/Slash.lua                       OK
+
+Total: 0 warnings / 0 errors in 23 files

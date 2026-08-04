@@ -12,7 +12,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local WIDGETS_MINOR = 5
+local WIDGETS_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -112,6 +112,187 @@ local function snapToStep(value, mn, step)
   return math.floor((value - mn) / step + 0.5) * step + mn
 end
 
+-- ── the shared row plumbing ──────────────────────────────────────────────────────────────────
+--
+-- File-locals rather than closures inside the makers: they are created once at load and take the
+-- instance as an argument, so nothing is allocated per render.
+
+--- Apply a _G font-object NAME to an AceGUI text widget's FontString.
+---
+--- Guarded three ways because all three misses are real: AceGUI's Label only grows its `.label`
+--- once it has been laid out, a widget mock may have neither, and a font object a client does not
+--- ship resolves to nil. None of them may cost the page. The NAME is taken rather than the object
+--- because a host declares its landing spec at file scope, where the font globals may not exist yet.
+local function applyLabelFont(widget, fontName)
+  if not fontName then return end
+  local fs = widget.label
+  if fs and fs.SetFontObject and _G[fontName] then
+    fs:SetFontObject(_G[fontName])
+  end
+end
+
+--- One full-width Flow row — the container the two-column engine packs a pair of widgets into.
+--- Byte-identical in RenderGrid and RenderRows before it was hoisted here.
+local function startRow(O)
+  local r = O.AceGUI:Create("SimpleGroup")
+  r:SetLayout("Flow")
+  r:SetFullWidth(true)
+  return r
+end
+
+--- Render one row (or one bespoke item) through `fn`, absorbing a raise and reporting it against
+--- the row's path. Vararg because the two callers pass different argument shapes: a schema row goes
+--- through O.RenderField(ctx, row, parent, relW), a bespoke item through its own
+--- make(ctx, parent, relW).
+---
+--- Each ROW is guarded, not just the page. One corrupt saved value, or one `values` function that
+--- raises because the media library it queries is half-loaded, used to take the whole page down
+--- from inside AceGUI's layout pass — every row after it never drew, and the user saw a panel that
+--- simply stopped mid-way with no error naming the row. The page-level guard added in Options minor
+--- 3 catches a raising BUILDER; this catches a raising ROW, which is the more common failure and
+--- the one a host cannot pre-empt.
+local function renderRowGuarded(printer, path, fn, ...)
+  local ok, err = pcall(fn, ...)
+  if not ok then
+    printer(lib.STRINGS.ROW_FAILED:format(tostring(path or "?"), tostring(err)))
+  end
+  return ok
+end
+
+--- Emit a section heading when `row` opens a group the page has not drawn yet, and advance the
+--- tracker. The previous group's tail row is flushed FIRST, or the heading lands above a widget
+--- that belongs above IT.
+local function startGroup(O, ctx, row, flushRow)
+  if not (row.group and row.group ~= ctx.lastGroup) then return end
+  flushRow()
+  O.Section(ctx, row.group)
+  ctx.lastGroup = row.group
+end
+
+--- Claim a host hook for `key`, or nil if there is none or it has already run this render.
+---
+--- The lookup and the marking are ONE step on purpose. RenderRows honours two hook tables — pairWith
+--- and afterGroup — and both are "fire at most once per render, and only if it actually fired";
+--- splitting the two halves is how a caller ends up marking a hook it never ran, or running one it
+--- already marked. `fired` is the LIBRARY's call-local ledger, never the host's table: see the note
+--- in O.RenderRows for why consuming the host's entries silently breaks a second render.
+local function takeOnce(hooks, fired, key)
+  if not (hooks and key) then return nil end
+  local hook = hooks[key]
+  if not hook or fired[key] then return nil end
+  fired[key] = true
+  return hook
+end
+
+--- Draw one schema row into the pending Flow line, then attach its pairWith partner if it has one.
+--- Returns the line and its widget count, because both advance and the caller decides on them.
+---
+--- The partner attaches only while the row is the LONE widget on its line: attaching to a line that
+--- already holds two would make it three-wide and break the 50/50 split for the rest of the page.
+--- A row whose render RAISED never counted, so it cannot pull a partner onto the line either.
+local function drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPair, printer)
+  if not pendingRow then pendingRow = startRow(O) end
+  if renderRowGuarded(printer, row.path, O.RenderField, ctx, row, pendingRow, HALF) then
+    pendingCount = pendingCount + 1
+  end
+  if pendingCount == 1 then
+    local pair = takeOnce(pairWith, firedPair, row.path)
+    if pair then
+      pair(ctx, pendingRow)
+      pendingCount = pendingCount + 1
+    end
+  end
+  return pendingRow, pendingCount
+end
+
+--- Close out a group on its LAST row — the next row opens a different group, or there is no next
+--- row — by running the host's afterGroup hook for it. The counterpart to startGroup, and the loop
+--- reads as the pair: open the group, draw the row, close the group.
+---
+--- The pending line is flushed FIRST. afterGroup draws buttons, and they belong on a fresh line
+--- rather than packed into the empty half of the group's tail row.
+local function endGroup(ctx, afterGroup, firedAfter, row, nextRow, flushRow)
+  if not (row.group and (not nextRow or nextRow.group ~= row.group)) then return end
+  local after = takeOnce(afterGroup, firedAfter, row.group)
+  if not after then return end
+  flushRow()
+  after(ctx)
+end
+
+-- ── the landing page ─────────────────────────────────────────────────────────────────────────
+--
+-- Three blocks, one file-local each, assembled by O.BuildLandingPage. Promoted out of three hosts
+-- that each carried a function literally named Helpers.BuildMainContent rendering the same page
+-- with the same four constants; the only differences were the logo path and where the one-liner
+-- came from, which is why both are spec DATA here.
+
+--- The logo block. A full-width SimpleGroup with its layout suppressed, holding a texture anchored
+--- TOPLEFT at its native size, so the art renders pixel-exact and left-aligned regardless of how
+--- wide the panel is.
+---
+--- The `.frame` handle and the texture it hands back are both guarded, for the same reason every
+--- other widget touch in this file is: an AceGUI widget mock has no backing frame, and a
+--- CreateTexture that answers nil is the shape a stubbed one takes. It matters MORE here than
+--- elsewhere — BuildLandingPage runs under the renderer's pcall, so one raise on the logo prints
+--- RENDER_FAILED and costs the notes and every section too, i.e. the whole page for the sake of a
+--- picture. The group and its spacer are added either way, so a missing texture leaves a gap where
+--- the art goes rather than re-flowing everything under it.
+local function landingLogo(O, scroll, spec)
+  if not spec.logo then return end
+
+  local size  = spec.logoSize or L.LANDING_LOGO
+  local group = O.AceGUI:Create("SimpleGroup")
+  group:SetLayout(nil)
+  group:SetFullWidth(true)
+  group:SetHeight(size)
+
+  local frame = group.frame
+  local tex   = frame and frame.CreateTexture and frame:CreateTexture(nil, "ARTWORK")
+  if tex then
+    tex:SetTexture(spec.logo)
+    tex:SetSize(size, size)
+    tex:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+  end
+  scroll:AddChild(group)
+
+  O.AddSpacer(scroll, L.LANDING_GAP_LOGO)
+end
+
+--- The one-liner under the logo.
+---
+--- Resolved at RENDER time when it is a function, because the usual source is the TOC's Notes field
+--- and a host that declares its spec at file scope cannot read that yet. An empty or absent
+--- one-liner skips the Label AND its spacer together — a lone gap under the logo reads as a broken
+--- margin rather than as a missing sentence.
+local function landingNotes(O, ctx, scroll, spec)
+  local notes = spec.notes
+  if type(notes) == "function" then notes = notes() end
+  if type(notes) ~= "string" or notes == "" then return end
+
+  O.TextRow(ctx, notes, { fontObject = "GameFontHighlight" })
+  O.AddSpacer(scroll, L.LANDING_GAP_DESC)
+end
+
+--- One heading plus its rows, per section.
+---
+--- `rows` is a FUNCTION, not an array, so a re-render picks up a command registered since the spec
+--- was declared: the list a host passes here is generated from its command table, which grows as
+--- other files load.
+---
+--- The heading goes through O.Section, which already emits SECTION_BOTTOM_SPACER under it — the
+--- same 6 the three hosts spelled MAIN_GAP_BELOW_HEAD, and what LANDING_GAP_HEAD names. A second
+--- spacer here would double that gap. ctx.lastGroup is advanced for the same reason RenderRows
+--- advances it: it is what puts SECTION_TOP_SPACER above the SECOND heading and not above the first.
+local function landingSections(O, ctx, spec)
+  for _, section in ipairs(spec.sections or {}) do
+    O.Section(ctx, section.heading)
+    ctx.lastGroup = section.heading
+    for _, line in ipairs(section.rows and section.rows() or {}) do
+      O.TextRow(ctx, line)
+    end
+  end
+end
+
 --- Attach the widget makers and the flow engine to one instance. Called at the end of lib:New, so
 --- every host gets its own closures over its own descriptor.
 function lib.__AttachWidgets(O, d)
@@ -209,6 +390,57 @@ function lib.__AttachWidgets(O, d)
 
     O.AddSpacer(scroll, L.SECTION_BOTTOM_SPACER)
     return h
+  end
+
+  --- A full-width line of text: one AceGUI Label added to the page's scroll, left-justified.
+  ---
+  --- `opts` is optional: `opts.fontObject` is a _G font-object NAME ("GameFontHighlight"), applied
+  --- only when both the FontString and the global exist; `opts.justify` defaults to "LEFT".
+  --- Returns nil, having drawn nothing, when AceGUI or the scroll is absent.
+  ---
+  --- This owns the `if w.label and w.label.SetJustifyH` / SetFontObject guard pair ONCE. That pair
+  --- was written out per text widget per host — 28 times across six repos — and every copy is a
+  --- place for one of the two halves to be forgotten, which fails silently and only in game.
+  function O.TextRow(ctx, text, opts)
+    local scroll = O.EnsureScroll(ctx)
+    if not scroll then return end
+
+    opts = opts or {}
+    local w = O.AceGUI:Create("Label")
+    w:SetFullWidth(true)
+    w:SetText(text)
+    applyLabelFont(w, opts.fontObject)
+    if w.label and w.label.SetJustifyH then
+      w.label:SetJustifyH(opts.justify or "LEFT")
+    end
+    scroll:AddChild(w)
+    return w
+  end
+
+  --- Render a whole landing-page body: logo, one-liner, then a heading and its rows per section.
+  ---
+  --- `spec`:
+  ---   logo      string             texture path. Omitted = no logo block.
+  ---   logoSize  number             defaults to LAYOUT.LANDING_LOGO.
+  ---   notes     string|function()  the one-liner; a function is called at RENDER time.
+  ---   sections  array of { heading = string, rows = function() -> array of string }
+  ---
+  --- The last host-side copy in a stack this major already owns end to end: EnsureScroll,
+  --- ClearScroll, AddSpacer and Section are all here, the rows come from LibKa0s-Slash-1.0's one
+  --- command-row formatter, and buildMain(ctx) is already the descriptor seam the page hangs off.
+  --- Three hosts kept a private body over it and drifted, which is the same class of drift — one
+  --- level up — that the shared row formatter exists to end.
+  function O.BuildLandingPage(ctx, spec)
+    -- The renderer owns the clear, not the registry: a landing page is re-rendered on every
+    -- re-show, and stacking a second copy of the logo under the first is what happens without it.
+    O.ClearScroll(ctx)
+    local scroll = O.EnsureScroll(ctx)
+    if not scroll then return end
+
+    spec = spec or {}
+    landingLogo(O, scroll, spec)
+    landingNotes(O, ctx, scroll, spec)
+    landingSections(O, ctx, spec)
   end
 
   --- Two side-by-side action buttons (not settings) sharing one Flow row, each inset to
@@ -552,12 +784,6 @@ function lib.__AttachWidgets(O, d)
     if not scroll then return end
     local pendingRow, pendingCount = nil, 0
 
-    local function startRow()
-      local r = O.AceGUI:Create("SimpleGroup")
-      r:SetLayout("Flow")
-      r:SetFullWidth(true)
-      return r
-    end
     local function flushRow()
       if pendingRow then
         scroll:AddChild(pendingRow)
@@ -570,27 +796,21 @@ function lib.__AttachWidgets(O, d)
     -- into live addon state, and a raise inside AceGUI's layout pass would cost every item after
     -- it.
     local function renderInto(item, parent, relativeWidth)
-      local ok, err
       if type(item.make) == "function" then
-        ok, err = pcall(item.make, ctx, parent, relativeWidth)
-      else
-        ok, err = pcall(O.RenderField, ctx, item, parent, relativeWidth)
+        return renderRowGuarded(print, item.path, item.make, ctx, parent, relativeWidth)
       end
-      if not ok then
-        print(lib.STRINGS.ROW_FAILED:format(tostring(item.path or "?"), tostring(err)))
-      end
-      return ok
+      return renderRowGuarded(print, item.path, O.RenderField, ctx, item, parent, relativeWidth)
     end
 
     for _, item in ipairs(items) do
       if item.wide then
         flushRow()
-        local r = startRow()
+        local r = startRow(O)
         renderInto(item, r, nil)
         scroll:AddChild(r)
         O.AddSpacer(scroll, L.ROW_VSPACER)
       else
-        if not pendingRow then pendingRow = startRow() end
+        if not pendingRow then pendingRow = startRow(O) end
         if renderInto(item, pendingRow, HALF) then
           pendingCount = pendingCount + 1
         end
@@ -619,55 +839,21 @@ function lib.__AttachWidgets(O, d)
       end
     end
 
-    local function startRow()
-      local r = O.AceGUI:Create("SimpleGroup")
-      r:SetLayout("Flow")
-      r:SetFullWidth(true)
-      return r
-    end
-
     for i, row in ipairs(rows) do
-      if row.group and row.group ~= ctx.lastGroup then
-        flushRow()                 -- the previous group's tail row
-        O.Section(ctx, row.group)
-        ctx.lastGroup = row.group
-      end
+      startGroup(O, ctx, row, flushRow)
 
       if not row.skipRender then
         if row.solo and pendingCount > 0 then
           flushRow()
         end
 
-        if not pendingRow then pendingRow = startRow() end
-        -- Each ROW is guarded, not just the page. One corrupt saved value, or one `values`
-        -- function that raises because the media library it queries is half-loaded, used to take
-        -- the whole page down from inside AceGUI's layout pass — every row after it never drew,
-        -- and the user saw a panel that simply stopped mid-way with no error naming the row.
-        -- The page-level guard added in Options minor 3 catches a raising BUILDER; this catches a
-        -- raising ROW, which is the more common failure and the one a host cannot pre-empt.
-        local ok, err = pcall(O.RenderField, ctx, row, pendingRow, HALF)
-        if ok then
-          pendingCount = pendingCount + 1
-        else
-          print(lib.STRINGS.ROW_FAILED:format(tostring(row.path or "?"), tostring(err)))
-        end
-        if pairWith and row.path and pairWith[row.path] and not firedPair[row.path]
-           and pendingCount == 1 then
-          pairWith[row.path](ctx, pendingRow)
-          firedPair[row.path] = true     -- one-shot, per RenderRows call
-          pendingCount = pendingCount + 1
-        end
+        pendingRow, pendingCount =
+          drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPair, print)
+
         if row.solo or pendingCount >= 2 then flushRow() end
       end
 
-      local nextRow = rows[i + 1]
-      if afterGroup and row.group
-         and (not nextRow or nextRow.group ~= row.group)
-         and afterGroup[row.group] and not firedAfter[row.group] then
-        flushRow()                 -- afterGroup buttons start on a fresh line
-        afterGroup[row.group](ctx)
-        firedAfter[row.group] = true -- one-shot, per RenderRows call
-      end
+      endGroup(ctx, afterGroup, firedAfter, row, rows[i + 1], flushRow)
     end
     flushRow()
     if scroll.DoLayout then scroll:DoLayout() end

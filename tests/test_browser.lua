@@ -422,6 +422,109 @@ test("Browser.SaveView then ResetView clears the stored default", function()
   end)
 end)
 
+-- ── Menu row highlight ─────────────────────────────────────────────────────────
+-- The popup menu itself is pure frames (backdrops, textures, font strings) and can't be observed
+-- headlessly, but the decision of WHICH row lights up gold is pure and is the part that carries
+-- the precedence rule, so it is pinned here.
+
+test("Browser: a single-select row is highlighted when it holds the current value", function()
+  local dd = { _value = "7d", _selected = {} }
+  assertTrue(B._optionSelected(dd, { value = "7d" }))
+  assertFalse(B._optionSelected(dd, { value = "30d" }))
+end)
+
+test("Browser: a multi-select row is highlighted when its value is in the selection", function()
+  local dd = { multi = true, _selected = { KILL = true } }
+  assertTrue(B._optionSelected(dd, { value = "KILL" }))
+  assertEqual(B._optionSelected(dd, { value = "AH" }), false, "an absent value is false, not nil")
+end)
+
+test("Browser: the multi-select All sentinel lights up only while nothing is selected", function()
+  assertTrue(B._optionSelected({ multi = true, _selected = {} }, { value = "all" }))
+  assertFalse(B._optionSelected({ multi = true, _selected = { KILL = true } }, { value = "all" }))
+end)
+
+test("Browser: an option's own isActive beats both selection rules", function()
+  -- The "Character: Current" preset decides its own highlight; it is checked first.
+  local yes = { value = "current", isActive = function() return true end }
+  local no  = { value = "current", isActive = function() return nil end }
+  assertTrue(B._optionSelected({ multi = true, _selected = { A = true } }, yes))
+  assertEqual(B._optionSelected({ multi = true, _selected = {} }, no), false,
+    "a nil verdict is normalized to false")
+end)
+
+-- ── Multi-select collapsed label ───────────────────────────────────────────────
+-- UpdateMultiLabel is a per-dropdown method built by the shared MakeDropdown factory, so the only
+-- way to reach it is to build a real dropdown. The frame stub returns itself from every capitalized
+-- call, which makes `dd.text` the dropdown frame itself; rawsetting SetText on it is the kit's
+-- supported way to spy on a setter, and it is the one seam onto the collapsed button text.
+local function labelFor(opts, selected)
+  local dd = B:MakeDropdown(nil, 100)
+  local shown
+  rawset(dd, "SetText", function(_, s) shown = s end)
+  dd:SetMulti(true)
+  dd._options = opts
+  dd._selected = selected
+  dd:UpdateMultiLabel()
+  return shown
+end
+
+local QUALITY_OPTS = {
+  { value = "all", label = "Quality: All" },
+  { value = 2, label = "Uncommon" },
+  { value = 4, label = "Epic" },
+}
+
+test("Browser: an empty multi-select reads as the All sentinel's own label", function()
+  assertEqual(labelFor(QUALITY_OPTS, {}), "Quality: All")
+end)
+
+test("Browser: a dropdown with no options at all still labels itself All", function()
+  assertEqual(labelFor(nil, {}), "All")
+end)
+
+test("Browser: one selected value reads as that option's label", function()
+  assertEqual(labelFor(QUALITY_OPTS, { [4] = true }), "Epic")
+end)
+
+test("Browser: a selected value with no option row falls back to its raw value", function()
+  -- Data-driven option lists only offer what the dataset contains, so a saved selection can
+  -- outlive its row. It must still read sensibly and still count.
+  assertEqual(labelFor(QUALITY_OPTS, { [7] = true }), "7")
+end)
+
+test("Browser: several selected values collapse to '<Prefix>: N selected'", function()
+  -- The prefix is the part of the All label before its colon.
+  assertEqual(labelFor(QUALITY_OPTS, { [2] = true, [4] = true }), "Quality: 2 selected")
+end)
+
+test("Browser: a colon-less All label is used whole as the count prefix", function()
+  local opts = { { value = "all", label = "All" }, { value = "a", label = "A" } }
+  assertEqual(labelFor(opts, { a = true, b = true }), "All: 2 selected")
+end)
+
+test("Browser: an off-list selection still counts toward the summary", function()
+  assertEqual(labelFor(QUALITY_OPTS, { [2] = true, [9] = true }), "Quality: 2 selected")
+end)
+
+test("Browser: an active preset option names the whole selection, beating the count", function()
+  -- Checked first and short-circuiting: the Character dropdown's "Current" preset must hold its
+  -- label even when the selected character has no row in the current option list.
+  local opts = {
+    { value = "all", label = "Character: All" },
+    { value = "current", label = "Character: Current", isActive = function() return true end },
+  }
+  assertEqual(labelFor(opts, { ["Ka0z-Realm"] = true, ["Alt-Realm"] = true }), "Character: Current")
+end)
+
+test("Browser: a preset that reports itself inactive does not name the selection", function()
+  local opts = {
+    { value = "all", label = "Character: All" },
+    { value = "current", label = "Character: Current", isActive = function() return false end },
+  }
+  assertEqual(labelFor(opts, {}), "Character: All")
+end)
+
 test("Browser.ResetWindow empties the persisted geometry carve-out", function()
   local saved = NS.db.global.settings.window
   NS.db.global.settings.window = { x = 100, y = 200, width = 1400 }
