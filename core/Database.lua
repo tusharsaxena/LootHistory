@@ -303,45 +303,45 @@ end
 -- and sub-map carries its own), so an id-keyed filter splits a single zone into several. A record
 -- with no captured name matches the empty string — the "Unknown" bucket.
 -- Kept generic (not tied to the live history) so the Browser can filter its test dataset too.
+--
+-- QueryList is the read path's hot loop: every filter change in the Browser re-runs it over the
+-- whole history. The rule the helpers below exist to respect is that NOTHING loop-invariant may
+-- be re-derived per record — not a `type()` test, not a `filter.<field>` lookup, not even the
+-- decision that a clause is unfiltered. QueryList hoists all of it into locals once per call and
+-- hands the results down as arguments; the helpers only ever touch `r` and those arguments. A
+-- descriptor table walked per record would put that work straight back into the loop, which is
+-- what this shape is guarding against.
+
+-- One scalar-or-set clause. `want` is the hoisted filter value and `isSet` its hoisted
+-- `type(want) == "table"`; the caller has already established that this clause is filtered.
+local function matchesField(have, want, isSet)
+  if isSet then return want[have] end
+  return have == want
+end
+
 -- A numeric quality matches that quality exactly; a set table matches any listed quality
 -- (multi-select). Anything else (e.g. a stray "all" sentinel) is ignored so it can never
 -- crash the comparison and take the window with it.
-local function matchQuality(filter, r)
-  local q = filter.quality
-  if type(q) == "table" then
-    if not q[r.quality] then return false end
-  elseif type(q) == "number" and (r.quality or 0) ~= q then
-    return false
-  end
+-- The two forms differ on a record with no quality: the exact form reads it as 0, the set form
+-- looks the raw nil up and misses. That asymmetry is the shipped behavior — do not "unify" it.
+local function matchQuality(r, qSet, qExact)
+  if qSet then return qSet[r.quality] end
+  if qExact then return (r.quality or 0) == qExact end
   return true
 end
 
--- The filter fields that accept a scalar (equality) OR a set table (membership), in the order
--- they were tested when each was written out by hand. `default` is the value a record substitutes
--- for a missing field: only `zone` has one ("" — the Unknown bucket). Module-level, walked by
--- index, so the per-record loop below allocates nothing.
-local SCALAR_OR_SET = {
-  { field = "source" },
-  { field = "char" },
-  { field = "itemType" },
-  { field = "itemSubType" },
-  { field = "zone", default = "" },
-}
-
-local function matchScalarOrSet(filter, r)
-  for i = 1, #SCALAR_OR_SET do
-    local d = SCALAR_OR_SET[i]
-    local want = filter[d.field]
-    if want then
-      local have = r[d.field]
-      if d.default ~= nil then have = have or d.default end
-      if type(want) == "table" then
-        if not want[have] then return false end
-      elseif have ~= want then
-        return false
-      end
-    end
-  end
+-- The clauses that accept a scalar (equality) OR a set table (membership), in the order they
+-- were tested when each was written out by hand. Each `x and ...` guard is the hoisted filter
+-- value, so an unfiltered clause costs one local test and no call.
+-- `zone` is the only one with a default: a record with no captured name matches "" — the
+-- "Unknown" bucket.
+local function matchScalarOrSet(r, src, srcIsSet, chr, chrIsSet, itype, itypeIsSet,
+                                isub, isubIsSet, zone, zoneIsSet)
+  if src and not matchesField(r.source, src, srcIsSet) then return false end
+  if chr and not matchesField(r.char, chr, chrIsSet) then return false end
+  if itype and not matchesField(r.itemType, itype, itypeIsSet) then return false end
+  if isub and not matchesField(r.itemSubType, isub, isubIsSet) then return false end
+  if zone and not matchesField(r.zone or "", zone, zoneIsSet) then return false end
   return true
 end
 
@@ -359,17 +359,44 @@ local function matchRange(r, boundSet, from, to, text)
   return true
 end
 
+-- Is any clause in a group actually filtered? Hoisted once per call so an unfiltered group is
+-- skipped by a local test instead of a call per record — the Browser's default open state is the
+-- no-filter query over the entire history, and it is the case that must stay cheapest.
+-- Lives here, not inline, because that many `or`s in QueryList is complexity QueryList doesn't need.
+local function anyFiltered(a, b, c, d, e)
+  return a or b or c or d or e
+end
+
 function Database:QueryList(records, filter)
   filter = filter or {}
-  local boundSet = type(filter.bound) == "table" and filter.bound or nil
+  local q = filter.quality
+  local qSet = type(q) == "table" and q
+  local qExact = type(q) == "number" and q
+  local src = filter.source
+  local srcIsSet = type(src) == "table"
+  local chr = filter.char
+  local chrIsSet = type(chr) == "table"
+  local itype = filter.itemType
+  local itypeIsSet = type(itype) == "table"
+  local isub = filter.itemSubType
+  local isubIsSet = type(isub) == "table"
+  local zone = filter.zone
+  local zoneIsSet = type(zone) == "table"
+  local boundSet = type(filter.bound) == "table" and filter.bound
   local from = filter.from
   local to = filter.to
-  local text = filter.text and filter.text:lower() or nil
+  local text = filter.text and filter.text:lower()
+
+  local anyQ = anyFiltered(qSet, qExact)
+  local anyScalar = anyFiltered(src, chr, itype, isub, zone)
+  local anyRange = anyFiltered(boundSet, from, to, text)
 
   local out = {}
   for _, r in ipairs(records) do
-    if matchQuality(filter, r) and matchScalarOrSet(filter, r)
-        and matchRange(r, boundSet, from, to, text) then
+    if (not anyQ or matchQuality(r, qSet, qExact))
+        and (not anyScalar or matchScalarOrSet(r, src, srcIsSet, chr, chrIsSet,
+                                               itype, itypeIsSet, isub, isubIsSet, zone, zoneIsSet))
+        and (not anyRange or matchRange(r, boundSet, from, to, text)) then
       out[#out + 1] = r
     end
   end

@@ -217,7 +217,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (55)
+### test_database.lua (58)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -226,6 +226,9 @@ badge and any count quoted in the docs must agree with it.
 - Database: Query by quality set (multi-select membership)
 - Database: Query ignores a non-numeric quality (no crash, returns all)
 - Database: QueryList filters an arbitrary array, not the live history
+- Database: QueryList treats quality 0 as a filter, not as an absent one
+- Database: QueryList quality set matches the raw quality, exact quality defaults it to 0
+- Database: QueryList treats a falsy filter field as unfiltered
 - Database: Query filters by itemType
 - Database: Query filters by itemSubType
 - Database: QueryList bound=NONE matches unbound records
@@ -297,7 +300,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (41)
+### test_browser.lua (54)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -339,6 +342,19 @@ badge and any count quoted in the docs must agree with it.
 - Browser.CaptureView stores unset column filters as empty sets, never nil
 - Browser.CaptureView omits the character scope (it is session-only)
 - Browser.SaveView then ResetView clears the stored default
+- Browser: a single-select row is highlighted when it holds the current value
+- Browser: a multi-select row is highlighted when its value is in the selection
+- Browser: the multi-select All sentinel lights up only while nothing is selected
+- Browser: an option's own isActive beats both selection rules
+- Browser: an empty multi-select reads as the All sentinel's own label
+- Browser: a dropdown with no options at all still labels itself All
+- Browser: one selected value reads as that option's label
+- Browser: a selected value with no option row falls back to its raw value
+- Browser: several selected values collapse to '<Prefix>: N selected'
+- Browser: a colon-less All label is used whole as the count prefix
+- Browser: an off-list selection still counts toward the summary
+- Browser: an active preset option names the whole selection, beating the count
+- Browser: a preset that reports itself inactive does not name the selection
 - Browser.ResetWindow empties the persisted geometry carve-out
 
 ### test_browsertable.lua (51)
@@ -637,9 +653,9 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 23 |
 | test_collector.lua | 33 |
-| test_database.lua | 55 |
+| test_database.lua | 58 |
 | test_stats.lua | 19 |
-| test_browser.lua | 41 |
+| test_browser.lua | 54 |
 | test_browsertable.lua | 51 |
 | test_export.lua | 22 |
 | test_debuglog.lua | 21 |
@@ -649,4 +665,4 @@ badge and any count quoted in the docs must agree with it.
 | test_panel.lua | 24 |
 | test_libka0s.lua | 17 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **563** |
+| **Total** | **579** |
