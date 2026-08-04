@@ -101,6 +101,7 @@ LINT_WARN=0; LINT_ERR=0; LINT_FILES=0
 TESTS_PASS=0; TESTS_FAIL=0; TESTS_TOTAL=0
 PERF_SCENARIOS=0; PERF_FAILED=0
 CCN_WARN=0; CCN_NLOC=0; CCN_FUNCS=0; CCN_AVG=0; CCN_MAX=0; CCN_BAND=0; CCN_OVER=0
+CCN_AVG_NLOC=0; CCN_AVG_TOKEN=0; CCN_FUN_RT=0; CCN_NLOC_RT=0
 
 # Strip ANSI colour before writing. luacheck and the harness colour their output when they
 # think a terminal is attached, and the raw escapes ('\033[32m\033[1mOK') land verbatim in the
@@ -210,11 +211,22 @@ if wants complexity; then
         # cannot be diffed against any other, which is the one property the fixed command protects.
         raw="$(lizard -l lua -x "./libs/*" -x "./tests/_kit/*" . 2>&1)"
         printf '%s\n' "$raw" | emit complexity.txt
+        # lizard's footer, whole:
+        #   Total nloc  Avg.NLOC  AvgCCN  Avg.token  Fun Cnt  Warning cnt  Fun Rt  nloc Rt
+        # All eight are recorded. The averages and the two ratios are what make one run comparable
+        # to another across a change in size -- a total that rose because the addon grew is a
+        # different fact from an average that rose because it got denser, and only the second is a
+        # complexity signal. Dropping them meant the analysis could only ever report totals.
         footer="$(printf '%s\n' "$raw" | tail -1)"
-        CCN_NLOC=$(printf '%s' "$footer" | awk '{print $1}');  [ -z "$CCN_NLOC" ] && CCN_NLOC=0
-        CCN_AVG=$(printf '%s'  "$footer" | awk '{print $3}');  [ -z "$CCN_AVG" ]  && CCN_AVG=0
-        CCN_FUNCS=$(printf '%s' "$footer" | awk '{print $5}'); [ -z "$CCN_FUNCS" ] && CCN_FUNCS=0
-        CCN_WARN=$(printf '%s' "$footer" | awk '{print $6}');  [ -z "$CCN_WARN" ] && CCN_WARN=0
+        fld() { printf '%s' "$footer" | awk -v n="$1" '{print $n}'; }
+        CCN_NLOC=$(fld 1);      [ -z "$CCN_NLOC" ]      && CCN_NLOC=0
+        CCN_AVG_NLOC=$(fld 2);  [ -z "$CCN_AVG_NLOC" ]  && CCN_AVG_NLOC=0
+        CCN_AVG=$(fld 3);       [ -z "$CCN_AVG" ]       && CCN_AVG=0
+        CCN_AVG_TOKEN=$(fld 4); [ -z "$CCN_AVG_TOKEN" ] && CCN_AVG_TOKEN=0
+        CCN_FUNCS=$(fld 5);     [ -z "$CCN_FUNCS" ]     && CCN_FUNCS=0
+        CCN_WARN=$(fld 6);      [ -z "$CCN_WARN" ]      && CCN_WARN=0
+        CCN_FUN_RT=$(fld 7);    [ -z "$CCN_FUN_RT" ]    && CCN_FUN_RT=0
+        CCN_NLOC_RT=$(fld 8);   [ -z "$CCN_NLOC_RT" ]   && CCN_NLOC_RT=0
         CCN_MAX=$(printf '%s\n' "$raw" | awk '/!!!! Warnings/{f=1} f && /@/ {if ($2+0>m) m=$2+0} END{print m+0}')
         # layout-§1: 1000–1500 is the on-notice band, >1500 is a bug. Counted here so the
         # manifest answers the layout question without a second pass over the tree.
@@ -247,7 +259,8 @@ fmt() {
         lint)       printf '%s warnings / %s errors in %s files' "$LINT_WARN" "$LINT_ERR" "$LINT_FILES" ;;
         tests)      printf '%s passed, %s failed, %s total' "$TESTS_PASS" "$TESTS_FAIL" "$TESTS_TOTAL" ;;
         perf)       printf '%s scenarios' "$PERF_SCENARIOS" ;;
-        complexity) printf '%s warnings, max CCN %s, %s NLOC / %s funcs' "$CCN_WARN" "$CCN_MAX" "$CCN_NLOC" "$CCN_FUNCS" ;;
+        complexity) printf '%s warnings (fun rate %s), %s NLOC / %s funcs, avg NLOC %s, avg CCN %s (max %s), avg tokens %s' \
+                        "$CCN_WARN" "$CCN_FUN_RT" "$CCN_NLOC" "$CCN_FUNCS" "$CCN_AVG_NLOC" "$CCN_AVG" "$CCN_MAX" "$CCN_AVG_TOKEN" ;;
     esac
 }
 echo "$ADDON $ADDON_VERSION — automated tests — $STAMP"
@@ -289,7 +302,7 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
         suite_json lint       ", \"warnings\": $LINT_WARN, \"errors\": $LINT_ERR, \"files\": $LINT_FILES, \"gating\": true"; printf ',\n'
         suite_json tests      ", \"passed\": $TESTS_PASS, \"failed\": $TESTS_FAIL, \"total\": $TESTS_TOTAL, \"gating\": true"; printf ',\n'
         suite_json perf       ", \"scenarios\": $PERF_SCENARIOS, \"gating\": false"; printf ',\n'
-        suite_json complexity ", \"warnings\": $CCN_WARN, \"maxCcn\": $CCN_MAX, \"nloc\": $CCN_NLOC, \"functions\": $CCN_FUNCS, \"avgCcn\": $CCN_AVG, \"bandFiles\": $CCN_BAND, \"overCapFiles\": $CCN_OVER, \"gating\": false"; printf '\n'
+        suite_json complexity ", \"warnings\": $CCN_WARN, \"maxCcn\": $CCN_MAX, \"nloc\": $CCN_NLOC, \"functions\": $CCN_FUNCS, \"avgCcn\": $CCN_AVG, \"avgNloc\": $CCN_AVG_NLOC, \"avgToken\": $CCN_AVG_TOKEN, \"warnFunRatio\": $CCN_FUN_RT, \"warnNlocRatio\": $CCN_NLOC_RT, \"bandFiles\": $CCN_BAND, \"overCapFiles\": $CCN_OVER, \"gating\": false"; printf '\n'
         printf '  },\n'
         printf '  "verdict": "%s"\n' "$VERDICT"
         printf '}\n'

@@ -1,8 +1,8 @@
-# Analysis — 20260804-114855
+# Analysis — 20260804-122650
 
 - **Addon:** LootHistory 1.2.0
 - **Verdict:** green
-- **Commit:** 6894e65763b3 (master), dirty
+- **Commit:** ae0d7d1fbeb4 (master), dirty
 - **Previous run:** none — this is the first recorded run
 
 ## Headline
@@ -15,14 +15,34 @@ improvement.
 
 ## Suites
 
-| Suite | Status | Result | Moved since previous run |
-|---|---|---|---|
-| lint | pass | 0 warnings / 0 errors in 23 files (`lint.txt`) | — first run |
-| tests | pass | 563 passed, 0 failed, 563 total (`tests.txt`) | — first run |
-| perf | skip | skip | — first run |
-| complexity | pass | 9 warnings, max CCN 58, 11196 NLOC / 1457 functions (`complexity.txt`) | — first run |
+| Suite | Status | Result | Artifact | Moved since previous run |
+|---|---|---|---|---|
+| lint | pass | 0 warnings / 0 errors in 23 files | [`lint.txt`](lint.txt) | — first run |
+| tests | pass | 563 passed, 0 failed, 563 total | [`tests.txt`](tests.txt) · [`test-cases.md`](test-cases.md) | — first run |
+| perf | skip | — | — (not run) | — first run |
+| complexity | pass | see below | [`complexity.txt`](complexity.txt) | — first run |
 
-`tests/perf.lua` is absent — this addon ships no offline scenarios, so nothing was measured here. That is a **skip, not a pass**: it is recorded as one in `manifest.json`, and it means this run says nothing about the addon's runtime cost.
+### Complexity in full
+
+Every field of `lizard`'s footer, plus the two derived file counts. The **averages** are what make
+this run comparable to the next one across a change in size: a total that rises because the addon
+grew is a different fact from an average that rises because it got denser, and only the second is a
+complexity signal.
+
+| Metric | Value |
+|---|---|
+| Total NLOC | 11196 |
+| Functions | 1457 |
+| Avg NLOC / function | 6.7 |
+| Avg CCN | 2.3 |
+| Max CCN | 58 |
+| Avg tokens / function | 55.4 |
+| Warnings (CCN > 15) | 9 |
+| Warning rate — `Fun Rt` / `nloc Rt` | 0.01 / 0.04 |
+| Files in the 1000–1500 band | 3 |
+| Files over the 1500 cap | 0 |
+
+`tests/perf.lua` is absent — this addon ships no offline scenarios, so nothing was measured there. That is a **skip, not a pass**: it is recorded as one in `manifest.json`, and it means this run says nothing about the addon's runtime cost.
 
 ## What moved
 
