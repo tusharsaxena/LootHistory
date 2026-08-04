@@ -22,7 +22,7 @@ which is never the same as a pass.
 
 ## Lint
 
-Clean over 23 files: 0 warnings, 0 errors, unchanged across all three recorded runs. `luacheck .` runs over the addon's own source and its `tests/`; the vendored `libs/` and `tests/_kit/` are out of scope by config, since neither is this repo's to fix. That is the whole exclusion — no `exclude_files` glob quietly takes any of `core/`, `modules/`, `settings/`, `defaults/` or `locales/` out of the 23.
+Clean over 23 files: 0 warnings, 0 errors, unchanged across all three recorded runs. Those 23 are the addon's **shipped source and nothing else** — every `.lua` under the five source directories `core/`, `defaults/`, `locales/`, `modules/` and `settings/`, none of them excluded, which is what each run's [`lint.txt`](20260804-233322/lint.txt) lists file by file. `.luacheckrc`'s `exclude_files` carries five globs, and the suite is one of them: `libs/`, **`tests/`**, `docs/audits/`, `docs/reviews/`, `_dev/`. So the vendored library is out of scope because it is not this repo's to fix, but `tests/run.lua`, `tests/wow_mock.lua`, every `tests/test_*.lua` and the vendored `tests/_kit/` are unlinted too — the lint gate covers what ships and says nothing about the code that tests it.
 
 ## Perf
 
