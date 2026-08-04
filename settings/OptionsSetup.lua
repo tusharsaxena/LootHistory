@@ -13,9 +13,11 @@ local addonName, NS = ...
 --
 -- 1. The MultiCheck set picker (`settings.excludedSources`). The library has four widget makers and
 --    an EditBox; an inverted set picker rendered as a wrapping InlineGroup of checkboxes is not one
---    of them. The rows carry `skipRender`, so the schema, the CLI and every reset still see them,
---    and settings/Panel.lua draws them at the exact point in the flow they used to occupy — through
---    `afterGroup`, which fires after that group's last row is flushed.
+--    of them. The row stays in the schema, so the CLI and every reset still see it, and
+--    settings/Panel.lua draws it at the exact point in the flow it used to occupy — through
+--    `afterGroup`, which fires after that group's last row is flushed. It draws nothing on the
+--    generic path because it is `type = "table"` and `O.RenderField` returns nil for a type it does
+--    not know — not because it carries `skipRender`, which it does not.
 --
 -- 2. `SetRenderer` on the AH Price page. The library's renderer contract is "re-run me and I redraw
 --    the page", which means a `ClearScroll` releasing every AceGUI child back to the pool. That page

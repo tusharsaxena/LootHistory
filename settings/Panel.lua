@@ -46,9 +46,17 @@ end
 -- the checkbox state.
 --
 -- DECLINED from the library, deliberately: its five makers are checkbox / slider / dropdown /
--- editbox / color picker, and an inverted set picker is none of them. The row carries `skipRender`
--- so the schema, the CLI and every reset still see it, and it is drawn from `afterGroup` below —
--- which fires after its group's last row is flushed, i.e. exactly where it used to sit.
+-- editbox / color picker, and an inverted set picker is none of them. The row stays in the schema,
+-- so the CLI and every reset still see it, and it is drawn from `afterGroup` below — which fires
+-- after its group's last row is flushed, i.e. exactly where it used to sit.
+--
+-- It does NOT carry `skipRender`, and why it draws nothing on the generic path is worth knowing: it
+-- is `type = "table"`, and `O.RenderField` dispatches on `row.type` over bool/number/string/color,
+-- deliberately returning nil for a type it does not know. So the row IS walked and IS handed to the
+-- renderer, which silently produces no widget. The visible result is identical to `skipRender`; the
+-- mechanism is not. If the library ever grows a `table` maker this row starts drawing twice — once
+-- generically, once here. `settings.auction.capture` is the row that really does carry
+-- `skipRender`.
 local function makeMultiCheck(ctx, row, scroll)
   local invert = row.invert
   local group = NS.AceGUI:Create("InlineGroup")
@@ -634,8 +642,9 @@ local PAIR_WITH = {
   end,
 }
 
--- The muted-source picker, drawn after Data Collection's last row — which is the `skipRender` row it
--- represents, so it lands exactly where the generic path used to put it.
+-- The muted-source picker, drawn after Data Collection's last row — the `settings.excludedSources`
+-- row it represents, which the generic path walks but cannot draw (see makeMultiCheck above), so it
+-- lands exactly where that path used to put it.
 local AFTER_GROUP = {
   ["Data Collection"] = function(ctx)
     local row = NS.Schema:FindRow("settings.excludedSources")
