@@ -159,7 +159,7 @@ were removed.)
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **8** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
+`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:10` and carried to the current shape **8** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
 `NS:RunMigrations` (`core/Database.lua:125`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The steps are **not** written into the runner's body: they live in the module-level `MIGRATIONS` array (`core/Database.lua:19`), one entry per step, and the runner does nothing but walk it. **Adding a migration is one appended entry there** — the runner is never edited.
 
