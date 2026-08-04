@@ -6,39 +6,42 @@ function NS:InitDB()
   NS:RunMigrations()   -- normalize the persisted schema before any history read
 end
 
--- Schema-migration runner (toc-file-§2 / savedvariables-§1). Reads/writes db.global.schemaVersion and
--- ships even with an effectively empty body — the *seam* is the requirement: future schema
--- changes get a single, idempotent upgrade path invoked once at init, before any read of
--- db.global.history. Safe no-op when the DB isn't ready yet.
-function NS:RunMigrations()
-  local g = NS.db and NS.db.global
-  if not g then return end
-  g.schemaVersion = g.schemaVersion or 1
+-- The [Migrate] line every step emits, in one place — the tail was written out once per step and
+-- is pure formatting, so it has no business being part of a step's body.
+local function migrateLog(from, to, n)
+  if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(from, to, n)) end
+end
+
+-- The schema-upgrade chain, in ascending order — one entry per step, `to` being the version the
+-- step stamps once it has run. Each `apply(g)` mutates db.global in place and returns the number
+-- of rows it touched (for the [Migrate] line). Array order IS the run order: a step sees every
+-- earlier step's output, so entries are appended, never reordered.
+local MIGRATIONS = {
   -- v1 -> v2: point-in-time filtering (removed soft-add/soft-delete). Strip the retired
   -- per-record `viaWhitelist` flag; rows are never hidden/resurrected after capture. Non-
   -- destructive — no rows are deleted (see docs/superpowers/specs/2026-07-18-*).
-  if g.schemaVersion < 2 then
+  { to = 2, apply = function(g)
     local n = 0
     for _, r in ipairs(g.history or {}) do
       if r.viaWhitelist ~= nil then r.viaWhitelist = nil; n = n + 1 end
     end
-    g.schemaVersion = 2
-    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(1, 2, n)) end
-  end
+    return n
+  end },
+
   -- v2 -> v3: rename per-record sellPrice -> vendorPrice (non-destructive; value preserved).
-  if g.schemaVersion < 3 then
+  { to = 3, apply = function(g)
     local n = 0
     for _, r in ipairs(g.history or {}) do
       if r.sellPrice ~= nil then r.vendorPrice = r.sellPrice; r.sellPrice = nil; n = n + 1 end
     end
-    g.schemaVersion = 3
-    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(2, 3, n)) end
-  end
+    return n
+  end },
+
   -- v3 -> v4: backfill currency-record quality (rows with currencyID but no quality) from
   -- C_CurrencyInfo, so the History browser can color the currency name + fill the Quality column
   -- for currencies looted before quality was captured. In-game only (C_CurrencyInfo); a currency the
   -- client can't resolve at init stays nil. Non-destructive.
-  if g.schemaVersion < 4 then
+  { to = 4, apply = function(g)
     local n = 0
     for _, r in ipairs(g.history or {}) do
       if r.currencyID and r.quality == nil then
@@ -46,15 +49,14 @@ function NS:RunMigrations()
         if q ~= nil then r.quality = q; n = n + 1 end
       end
     end
-    g.schemaVersion = 4
-    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(3, 4, n)) end
-  end
+    return n
+  end },
 
   -- v4 -> v5: backfill currency-record bound (rows with currencyID but no bound) from C_CurrencyInfo —
   -- "WARBAND" for a Warband-transferable currency, else "BOP" — so the History browser shows the bound
   -- glyph for currencies looted before bound was captured. In-game only (C_CurrencyInfo); a currency
   -- the client can't resolve at init stays nil. Non-destructive.
-  if g.schemaVersion < 5 then
+  { to = 5, apply = function(g)
     local n = 0
     for _, r in ipairs(g.history or {}) do
       if r.currencyID and r.bound == nil then
@@ -62,9 +64,8 @@ function NS:RunMigrations()
         if b ~= nil then r.bound = b; n = n + 1 end
       end
     end
-    g.schemaVersion = 5
-    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(4, 5, n)) end
-  end
+    return n
+  end },
 
   -- v5 -> v6: retire the "ACCOUNT" bind state, splitting warbound into WARBAND / WARBAND_UE.
   -- Retail has had no account-bound wording distinct from Warbound since 11.0 (every
@@ -74,7 +75,7 @@ function NS:RunMigrations()
   -- record, so park every such row on the plain WARBAND state and let the deferred repair below
   -- (RepairBoundStates) split it once the client can answer. Any saved Bound filter naming the
   -- retired token follows too, else the view would match nothing. Non-destructive.
-  if g.schemaVersion < 6 then
+  { to = 6, apply = function(g)
     local n = 0
     for _, r in ipairs(g.history or {}) do
       if r.bound == "ACCOUNT" then r.bound = "WARBAND"; n = n + 1 end
@@ -84,24 +85,22 @@ function NS:RunMigrations()
       view.bound.ACCOUNT = nil
       view.bound.WARBAND, view.bound.WARBAND_UE = true, true
     end
-    g.schemaVersion = 6
-    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(5, 6, n)) end
-  end
+    return n
+  end },
 
   -- v6 -> v7: hand the warbound split to the deferred repair below. It can't be done inline —
   -- migrations run from InitDB at ADDON_LOADED with a cold item cache, so a one-shot pass here
   -- learns nothing and then bumps the stamp, burning the only chance to fix anything.
-  if g.schemaVersion < 7 then
-    g.schemaVersion = 7
-    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(6, 7, 0)) end
-  end
+  { to = 7, apply = function()
+    return 0
+  end },
 
   -- v7 -> v8: the Zone filter moved from mapID to the zone NAME (one named zone spans many
   -- UiMapIDs — every dungeon floor has its own — so the id-keyed menu listed a zone once per
   -- floor and each entry filtered only part of it). Translate a saved view's mapID set into the
   -- names those ids were recorded under, else the stored view would filter on a field nothing
   -- reads and silently show everything. Ids absent from the history resolve to nothing and drop.
-  if g.schemaVersion < 8 then
+  { to = 8, apply = function(g)
     local n = 0
     local view = g.savedView
     if type(view) == "table" and type(view.mapID) == "table" then
@@ -113,10 +112,28 @@ function NS:RunMigrations()
       view.mapID = nil
       n = 1
     end
-    g.schemaVersion = 8
-    if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(7, 8, n)) end
-  end
+    return n
+  end },
+}
 
+-- Schema-migration runner (toc-file-§2 / savedvariables-§1). Reads/writes db.global.schemaVersion and
+-- ships even with an effectively empty body — the *seam* is the requirement: future schema
+-- changes get a single, idempotent upgrade path invoked once at init, before any read of
+-- db.global.history. Safe no-op when the DB isn't ready yet.
+-- The stamp is written AFTER apply() and only for steps that actually ran, so an error mid-chain
+-- can never advance the version past unapplied work.
+function NS:RunMigrations()
+  local g = NS.db and NS.db.global
+  if not g then return end
+  g.schemaVersion = g.schemaVersion or 1
+  for i = 1, #MIGRATIONS do
+    local m = MIGRATIONS[i]
+    if g.schemaVersion < m.to then
+      local n = m.apply(g) or 0
+      g.schemaVersion = m.to
+      migrateLog(m.to - 1, m.to, n)
+    end
+  end
   NS:ArmBoundRepair(g)
 end
 
@@ -185,9 +202,28 @@ local BOUND_REPAIR_PER_PASS = 200
 -- fruitless passes. Candidates need an id OR a link, so a row missing one is repaired by the other.
 -- Returns fixed, pending, candidates (for the tests and the debug line).
 local REPAIR_CANDIDATE = { WARBAND = true, BOE = true }
-function Database:RepairBoundStates()
-  local g = NS.db and NS.db.global
-  if not (g and g.boundRepairPending) then return 0, 0, 0 end
+
+-- Re-read one candidate row and merge the answer in. Returns "fixed" when the row moved, "pending"
+-- when the client couldn't answer yet, and nil when the row was settled but already correct — that
+-- third case counts toward `candidates` alone, which is what lets the job clear.
+local function examineRow(r)
+  local state, settled = NS.Compat.ItemBindState(r.itemID or r.itemLink, r.itemLink)
+  if not settled then
+    -- Unsettled means the TOOLTIP wasn't readable. A bind type of BOE is not evidence the
+    -- row isn't warbound (it lies for these items), so it must not end the row's retries.
+    NS.Compat.LoadItem(r.itemID)   -- warm the cache so the next pass can answer
+    return "pending"
+  end
+  local merged = NS.Compat.BestBound(r.bound, state)
+  if merged ~= r.bound then
+    r.bound = merged
+    return "fixed"
+  end
+end
+
+-- One pass over the history: pick the candidates, spend the per-pass budget on them, and tally.
+-- Returns fixed, pending, candidates.
+local function scanRows(g)
   local fixed, pending, candidates, examined = 0, 0, 0, 0
   for _, r in ipairs(g.history or {}) do
     if REPAIR_CANDIDATE[r.bound] and (r.itemID or r.itemLink) then
@@ -196,22 +232,17 @@ function Database:RepairBoundStates()
         pending = pending + 1     -- past the per-pass budget: not looked at, so not resolved
       else
         examined = examined + 1
-        local state, settled = NS.Compat.ItemBindState(r.itemID or r.itemLink, r.itemLink)
-        if not settled then
-          -- Unsettled means the TOOLTIP wasn't readable. A bind type of BOE is not evidence the
-          -- row isn't warbound (it lies for these items), so it must not end the row's retries.
-          pending = pending + 1
-          NS.Compat.LoadItem(r.itemID)   -- warm the cache so the next pass can answer
-        else
-          local merged = NS.Compat.BestBound(r.bound, state)
-          if merged ~= r.bound then
-            r.bound = merged
-            fixed = fixed + 1
-          end
-        end
+        local outcome = examineRow(r)
+        if outcome == "pending" then pending = pending + 1
+        elseif outcome == "fixed" then fixed = fixed + 1 end
       end
     end
   end
+  return fixed, pending, candidates
+end
+
+-- Pass bookkeeping: the fruitless-attempt counter, the give-up/done clear, and the debug line.
+local function finishPass(g, fixed, pending, candidates)
   -- The cap counts *fruitless* passes, not passes: a run that fixed something proves the client is
   -- answering, so the job has earned its full budget again for whatever is still unresolved.
   g.boundRepairAttempts = fixed > 0 and 0 or (g.boundRepairAttempts or 0) + 1
@@ -222,6 +253,13 @@ function Database:RepairBoundStates()
     NS.Debug("Migrate", "bound repair: %s fixed, %s pending, %s candidates (attempt %s)",
       tostring(fixed), tostring(pending), tostring(candidates), tostring(g.boundRepairAttempts or 0))
   end
+end
+
+function Database:RepairBoundStates()
+  local g = NS.db and NS.db.global
+  if not (g and g.boundRepairPending) then return 0, 0, 0 end
+  local fixed, pending, candidates = scanRows(g)
+  finishPass(g, fixed, pending, candidates)
   -- The window can already be open when a pass lands, and it renders the bound column off these
   -- rows — repaint it rather than leave stale locks until the next open.
   if fixed > 0 and NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged") end
@@ -265,23 +303,64 @@ end
 -- and sub-map carries its own), so an id-keyed filter splits a single zone into several. A record
 -- with no captured name matches the empty string — the "Unknown" bucket.
 -- Kept generic (not tied to the live history) so the Browser can filter its test dataset too.
+-- A numeric quality matches that quality exactly; a set table matches any listed quality
+-- (multi-select). Anything else (e.g. a stray "all" sentinel) is ignored so it can never
+-- crash the comparison and take the window with it.
+local function matchQuality(filter, r)
+  local q = filter.quality
+  if type(q) == "table" then
+    if not q[r.quality] then return false end
+  elseif type(q) == "number" and (r.quality or 0) ~= q then
+    return false
+  end
+  return true
+end
+
+-- The filter fields that accept a scalar (equality) OR a set table (membership), in the order
+-- they were tested when each was written out by hand. `default` is the value a record substitutes
+-- for a missing field: only `zone` has one ("" — the Unknown bucket). Module-level, walked by
+-- index, so the per-record loop below allocates nothing.
+local SCALAR_OR_SET = {
+  { field = "source" },
+  { field = "char" },
+  { field = "itemType" },
+  { field = "itemSubType" },
+  { field = "zone", default = "" },
+}
+
+local function matchScalarOrSet(filter, r)
+  for i = 1, #SCALAR_OR_SET do
+    local d = SCALAR_OR_SET[i]
+    local want = filter[d.field]
+    if want then
+      local have = r[d.field]
+      if d.default ~= nil then have = have or d.default end
+      if type(want) == "table" then
+        if not want[have] then return false end
+      elseif have ~= want then
+        return false
+      end
+    end
+  end
+  return true
+end
+
+-- The clauses with no scalar form: bound is set-only (a non-table bound filter is ignored), the
+-- ts window is inclusive on both ends, and `text` arrives already lowered — once per call, never
+-- per record.
+local function matchRange(r, boundSet, from, to, text)
+  if boundSet and not boundSet[r.bound or "NONE"] then return false end
+  if from and (r.ts or 0) < from then return false end
+  if to and (r.ts or 0) > to then return false end
+  if text then
+    local name = r.itemName and r.itemName:lower() or ""
+    if not name:find(text, 1, true) then return false end
+  end
+  return true
+end
+
 function Database:QueryList(records, filter)
   filter = filter or {}
-  -- A numeric quality matches that quality exactly; a set table matches any listed quality
-  -- (multi-select). Anything else (e.g. a stray "all" sentinel) is ignored so it can never
-  -- crash the comparison below and take the window with it.
-  local qIsSet = type(filter.quality) == "table"
-  local qExact = type(filter.quality) == "number" and filter.quality or nil
-  local src = filter.source
-  local srcIsSet = type(src) == "table"
-  local char = filter.char
-  local charIsSet = type(char) == "table"
-  local itype = filter.itemType
-  local itypeIsSet = type(itype) == "table"
-  local isub = filter.itemSubType
-  local isubIsSet = type(isub) == "table"
-  local zone = filter.zone
-  local zoneIsSet = type(zone) == "table"
   local boundSet = type(filter.bound) == "table" and filter.bound or nil
   local from = filter.from
   local to = filter.to
@@ -289,44 +368,10 @@ function Database:QueryList(records, filter)
 
   local out = {}
   for _, r in ipairs(records) do
-    local ok = true
-    if qIsSet then
-      if not filter.quality[r.quality] then ok = false end
-    elseif qExact and (r.quality or 0) ~= qExact then
-      ok = false
+    if matchQuality(filter, r) and matchScalarOrSet(filter, r)
+        and matchRange(r, boundSet, from, to, text) then
+      out[#out + 1] = r
     end
-    if ok and src then
-      if srcIsSet then
-        if not src[r.source] then ok = false end
-      elseif r.source ~= src then
-        ok = false
-      end
-    end
-    if ok and char then
-      if charIsSet then if not char[r.char] then ok = false end
-      elseif r.char ~= char then ok = false end
-    end
-    if ok and itype then
-      if itypeIsSet then if not itype[r.itemType] then ok = false end
-      elseif r.itemType ~= itype then ok = false end
-    end
-    if ok and isub then
-      if isubIsSet then if not isub[r.itemSubType] then ok = false end
-      elseif r.itemSubType ~= isub then ok = false end
-    end
-    if ok and zone then
-      local name = r.zone or ""
-      if zoneIsSet then if not zone[name] then ok = false end
-      elseif name ~= zone then ok = false end
-    end
-    if ok and boundSet and not boundSet[r.bound or "NONE"] then ok = false end
-    if ok and from and (r.ts or 0) < from then ok = false end
-    if ok and to and (r.ts or 0) > to then ok = false end
-    if ok and text then
-      local name = r.itemName and r.itemName:lower() or ""
-      if not name:find(text, 1, true) then ok = false end
-    end
-    if ok then out[#out + 1] = r end
   end
   return out
 end
