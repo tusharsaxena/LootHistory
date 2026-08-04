@@ -19,11 +19,15 @@ Every item you pick up is filed under a source:
 | Kill | Looting a creature you killed |
 | Container | Opening a chest, lockbox, or lootable object |
 | Mythic+ | End-of-run and Great Vault chests |
+| Bonus Roll | Items from a bonus roll |
+| Roll | Items you won on a group-loot roll |
 | Quest | Quest rewards |
 | Trade | Items received in a trade |
 | Mail | Items taken from the mailbox |
 | Auction House | Items won at auction |
 | Vendor | Items bought from a vendor |
+| Craft | Items you created by crafting |
+| Refund | Items returned to you by a refund |
 | Disenchant / Milling / Prospecting | Items produced by those actions |
 | Other | Anything that arrived with no clear source |
 

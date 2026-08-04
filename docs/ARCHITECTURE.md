@@ -94,12 +94,18 @@ back fast table ops.
   Switching that is a schema + query rewrite; see [`scope.md`](scope.md) *Resolved design decisions*.
 - `schemaVersion` is a version stamp on the DB; the current shipped shape is **8**.
   `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
-  before any history read) — the idempotent seam future schema changes hook into. The **v1→v2**
-  migration strips the retired per-record `viaWhitelist` field (point-in-time filtering no longer
-  hides stored rows); the **v2→v3** migration (Rev-2) renames each record's `sellPrice` field to
-  `vendorPrice`; the **v3→v4** migration backfills each currency row's `quality` from
-  `C_CurrencyInfo`; the **v4→v5** migration backfills each currency row's `bound`. None deletes any
-  records (the currency backfills only add a field where the client can resolve it).
+  before any history read) — the idempotent seam future schema changes hook into. Seven migrations
+  ship: **v1→v2** strips the retired per-record `viaWhitelist` field (point-in-time filtering no
+  longer hides stored rows); **v2→v3** (Rev-2) renames each record's `sellPrice` field to
+  `vendorPrice`; **v3→v4** backfills each currency row's `quality` from `C_CurrencyInfo`; **v4→v5**
+  backfills each currency row's `bound`; **v5→v6** retires the `"ACCOUNT"` bind state, parking every
+  such row on `WARBAND` and rewriting a `savedView` Bound filter that names the retired token;
+  **v6→v7** hands the `WARBAND`/`WARBAND_UE` split to the deferred `RepairBoundStates` job (it
+  cannot run inline — migrations execute at `ADDON_LOADED` with a cold item cache, so a one-shot
+  pass would learn nothing and still burn the stamp); **v7→v8** follows the Zone filter's move from
+  `mapID` to the zone **name**, rewriting a saved view's stored `mapID` set into the names those ids
+  were recorded under. None deletes any records — they clear, rename, or add a single field — and
+  all are idempotent once a DB is already at v8. See [data-model.md](data-model.md).
 - `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
   export contract (do not change its field shape).
 - **`auctionPrice` is a nested map, `provider → key → copper`**, captured at loot time by
@@ -236,6 +242,7 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 |---|---|---|
 | `PLAYER_ENTERING_WORLD` | `OnEnterWorld` (once-per-session prune + the deferred bound-state repair) | `core/LootHistory.lua` |
 | `CHAT_MSG_LOOT` | `OnChatMsgLoot` (authoritative capture) | `modules/Collector.lua` |
+| `CHAT_MSG_CURRENCY` | `OnChatMsgCurrency` (currency capture: `recordCurrency` → per-source mute → currency blacklist, writing a `Type=Currency` row) | `modules/Collector.lua` |
 | `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
 | `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`) | `modules/Attribution.lua` |
@@ -267,7 +274,15 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Standards compliance
 
-No open deviations from the Ka0s standard. One carve-out was raised and **ratified (2026-07-17)**:
+**Open deviations exist.** The 2026-08-04 audit ([`audits/2026-08-04/02_DEVIATIONS.md`](audits/2026-08-04/02_DEVIATIONS.md))
+records `LH-19`…`LH-31` as open, most of them the `performance` section's `LibKa0s-Perf-1.0`
+adoption chain (`LH-20`…`LH-26`), whose head is an accepted `wont-do` in
+[`pending/LEDGER.md`](pending/LEDGER.md) (`LIBKA0S-17`: this addon has no hot path, and `suspend`
+would drop real loot during the measurement window). Read the bundle for the current list rather
+than this paragraph — it is frozen the day it was written, and this file is not.
+
+The carve-outs below are separate: each was raised, resolved, and is **not** an open deviation.
+One was raised and **ratified (2026-07-17)**:
 the `blacklist` / `whitelist` item-id lists (issue #14) are persistent state managed outside
 `Schema:Set` — a fourth carve-out alongside `settings.window`, `savedView`, and
 `settings.windowScale`'s geometry sibling. The later `currencyBlacklist` (a currencyID-keyed,
