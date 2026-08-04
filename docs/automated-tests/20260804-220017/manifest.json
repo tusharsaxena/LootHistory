@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "addon": "LootHistory",
+  "addonVersion": "1.2.0",
+  "run": "20260804-220017",
+  "startedAt": "2026-08-04T22:00:17+05:30",
+  "durationMs": 3000,
+  "label": null,
+  "release": null,
+  "git": { "sha": "99c47ba0721bd152d8cb734b7d7af39b8d803001", "branch": "feat/fix-ccn", "dirty": true },
+  "host": { "lua": "Lua 5.1.5  Copyright (C) 1994-2012 Lua.org, PUC-Rio", "luacheck": "Luacheck: 1.2.0", "lizard": "1.23.0" },
+  "suites": {
+    "lint": { "status": "pass", "durationMs": 3000, "warnings": 0, "errors": 0, "files": 23, "gating": true },
+    "tests": { "status": "pass", "durationMs": 1000, "passed": 579, "failed": 0, "total": 579, "gating": true },
+    "perf": { "status": "skip", "durationMs": 0, "skipReason": "no tests/perf.lua — this addon ships no offline scenarios", "scenarios": 0, "gating": false },
+    "complexity": { "status": "pass", "durationMs": -1000, "warnings": 0, "maxCcn": 0, "nloc": 11361, "functions": 1518, "avgCcn": 2.2, "avgNloc": 6.5, "avgToken": 53.7, "warnFunRatio": 0.00, "warnNlocRatio": 0.00, "bandFiles": 3, "overCapFiles": 0, "gating": false }
+  },
+  "verdict": "green"
+}

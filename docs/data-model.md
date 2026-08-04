@@ -91,16 +91,16 @@ Filtering is point-in-time: a row rescued by the whitelist (it failed the normal
 
 ## Storage: a dense array
 
-All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [saved-variables.md](./saved-variables.md)). `Database:Add` (`core/Database.lua:249`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
+All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [saved-variables.md](./saved-variables.md)). `Database:Add` (`core/Database.lua:287`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
 
 ### Rebuild-and-swap on delete
 
 Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
-- `Database:Delete(pred)` (`core/Database.lua:627`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:687`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
-- `Database:RepairBoundStates()` (`core/Database.lua:188`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
-- `Database:Purge()` (`core/Database.lua:643`) — replace with `{}`.
+- `Database:Delete(pred)` (`core/Database.lua:698`) — keep everything where `pred(r)` is false.
+- `Database:PruneOld()` (`core/Database.lua:758`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:RepairBoundStates()` (`core/Database.lua:258`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
+- `Database:Purge()` (`core/Database.lua:714`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -161,18 +161,20 @@ were removed.)
 
 `schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:9` and carried to the current shape **8** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
-`NS:RunMigrations` (`core/Database.lua:13`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. Seven migrations ship in its body:
+`NS:RunMigrations` (`core/Database.lua:125`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The steps are **not** written into the runner's body: they live in the module-level `MIGRATIONS` array (`core/Database.lua:19`), one entry per step, and the runner does nothing but walk it. **Adding a migration is one appended entry there** — the runner is never edited.
 
 ```lua
--- core/Database.lua — NS:RunMigrations()
--- if g.schemaVersion < 2 then <strip r.viaWhitelist from each record> ; g.schemaVersion = 2 end
--- if g.schemaVersion < 3 then <rename each record's sellPrice -> vendorPrice> ; g.schemaVersion = 3 end
--- if g.schemaVersion < 4 then <backfill currency-record quality from C_CurrencyInfo> ; g.schemaVersion = 4 end
--- if g.schemaVersion < 5 then <backfill currency-record bound from C_CurrencyInfo>   ; g.schemaVersion = 5 end
--- if g.schemaVersion < 6 then <re-scan retired ACCOUNT rows -> WARBAND / WARBAND_UE>  ; g.schemaVersion = 6 end
--- if g.schemaVersion < 7 then <hand the warbound split to the deferred repair>        ; g.schemaVersion = 7 end
--- if g.schemaVersion < 8 then <rewrite a savedView mapID filter as zone names>        ; g.schemaVersion = 8 end
+-- core/Database.lua — MIGRATIONS, walked in array order by NS:RunMigrations()
+-- { to = 2, apply = function(g) <strip r.viaWhitelist from each record>            return n end },
+-- { to = 3, apply = function(g) <rename each record's sellPrice -> vendorPrice>    return n end },
+-- { to = 4, apply = function(g) <backfill currency-record quality from C_CurrencyInfo> return n end },
+-- { to = 5, apply = function(g) <backfill currency-record bound from C_CurrencyInfo>   return n end },
+-- { to = 6, apply = function(g) <re-scan retired ACCOUNT rows -> WARBAND / WARBAND_UE>  return n end },
+-- { to = 7, apply = function()  <hand the warbound split to the deferred repair>   return 0 end },
+-- { to = 8, apply = function(g) <rewrite a savedView mapID filter as zone names>   return n end },
 ```
+
+Array order **is** run order, so a step always sees every earlier step's output and entries are appended, never reordered. The runner owns the version arithmetic that each step used to carry itself: it runs a step when `g.schemaVersion < m.to` (which is what makes the chain skip-forward and idempotent), writes `g.schemaVersion = m.to` **after** `apply` returns — so an error mid-chain can never advance the stamp past unapplied work — and emits the `[Migrate]` line from the row count `apply` returns.
 
 The **v1→v2** migration strips the retired per-record `viaWhitelist` field from every stored row — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight. The **v2→v3** migration (Rev-2 AH-price integration) renames the per-record `sellPrice` field to `vendorPrice` on every stored row — non-destructive, the value is preserved, only the key changes (making room for the derived `value` model's vendor/auction naming). The **v3→v4** migration (currency quality) backfills `quality` on every stored currency row (`currencyID` set, `quality` still nil) from `C_CurrencyInfo`, so currency looted before this change gets the same Name-color + Quality-column treatment as currency looted after it; a currency the client can't resolve at init stays nil. The **v4→v5** migration (currency bound) likewise backfills `bound` on every stored currency row (`currencyID` set, `bound` still nil) — `"WARBAND"` for a Warband-transferable currency, else `"BOP"` — so currency looted before the change gets the Bound-glyph too; unresolved ids stay nil. The **v5→v6** migration retires the `"ACCOUNT"` bind state: Retail has had no account-bound wording distinct from Warbound since 11.0, so every stored `ACCOUNT` row is a mislabeled warbound drop of one kind or the other (see [midnight-quirks.md](midnight-quirks.md)). Which kind isn't recoverable from the record, so it parks them all on `"WARBAND"` and rewrites a `savedView` Bound filter naming the retired token (else the restored view would match nothing). The **v6→v7** migration then hands the split to a deferred repair, whose arming is versioned by its own `boundRepairRevision` rather than by the schema stamp — that job has been wrong more than once, and each fix has to re-run it on DBs that already ran and cleared a broken pass ([saved-variables.md](saved-variables.md)). **Neither does the work inline, and that is the point:** migrations run from `InitDB` at `ADDON_LOADED`, when the item cache is cold — `C_Item.GetItemInfo` answers nothing and the tooltip carries no bind line — so a one-shot pass reads "no rows to fix" and then bumps the stamp, burning the only chance. Instead they set `boundRepairPending`, and `Database:RepairBoundStates` (deferred: twice per session after login, plus every window open) does the split off both bind signals, keeping the flag until every candidate row is **settled** (item cached *and* a real tooltip, not the `RETRIEVING_ITEM_INFO` placeholder) or the fruitless-pass cap is hit. The **v7→v8** migration follows the Zone filter's move from `mapID` to the zone **name** (see the `mapID` row above): it rewrites a `savedView`'s stored `mapID` set into the names those ids were recorded under, since the restored view would otherwise filter on a field nothing reads. Ids no longer present in the history resolve to nothing and the filter drops. None of the seven migrations deletes any records.
 
@@ -182,7 +184,7 @@ All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is alr
 
 ### ActiveHistory — the test-mode swap
 
-Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:240`), **not** `history` directly:
+Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:278`), **not** `history` directly:
 
 ```lua
 function Database:ActiveHistory()
@@ -208,11 +210,11 @@ can collide. It is **blacklist-only** (there is no currency whitelist) and, like
 strictly point-in-time: a blacklisted currency id is dropped at capture and never written to
 `history`; existing currency rows are never hidden or removed.
 
-`Database:Query(filter)` (`core/Database.lua:335`) runs the generic `QueryList` (`core/Database.lua:268`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:560`) aggregates the filtered result in one O(n) pass for Insights.
+`Database:Query(filter)` (`core/Database.lua:406`) runs the generic `QueryList` (`core/Database.lua:375`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:631`) aggregates the filtered result in one O(n) pass for Insights.
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:342`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:413`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·

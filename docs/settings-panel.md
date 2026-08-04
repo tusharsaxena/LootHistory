@@ -88,7 +88,7 @@ Opening the panel is combat-gated in **two** places now. `O.OpenOptionsPanel` (`
 
 `renderHistory` (`Panel.lua:83`) appends a "History" section unique to this addon, drawn by `renderGeneral` after the schema rows: a live stats label paired with a **Purge history…** button.
 
-* **Stats label** reads from `Database:StorageStats` (`Database.lua:488`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:113`).
+* **Stats label** reads from `Database:StorageStats` (`Database.lua:559`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:113`).
 * **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (`Panel.lua:95`, popup at `Slash.lua:8`).
 * **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:122`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [conventions.md](conventions.md)).
 

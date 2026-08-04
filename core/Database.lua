@@ -306,17 +306,23 @@ end
 --
 -- QueryList is the read path's hot loop: every filter change in the Browser re-runs it over the
 -- whole history. The rule the helpers below exist to respect is that NOTHING loop-invariant may
--- be re-derived per record — not a `type()` test, not a `filter.<field>` lookup, not even the
--- decision that a clause is unfiltered. QueryList hoists all of it into locals once per call and
--- hands the results down as arguments; the helpers only ever touch `r` and those arguments. A
--- descriptor table walked per record would put that work straight back into the loop, which is
--- what this shape is guarding against.
+-- be re-derived per record — not a `type()` test, not a `filter.<field>` lookup, not the decision
+-- that a clause is unfiltered, and not a per-clause helper call. QueryList hoists all of it into
+-- locals once per call and hands the results down as arguments; the helpers only ever touch `r`
+-- and those arguments. A descriptor table walked per record would put that work straight back
+-- into the loop, which is what this shape is guarding against.
 
--- One scalar-or-set clause. `want` is the hoisted filter value and `isSet` its hoisted
--- `type(want) == "table"`; the caller has already established that this clause is filtered.
-local function matchesField(have, want, isSet)
-  if isSet then return want[have] end
-  return have == want
+-- Normalize one scalar-or-set clause into a membership set, ONCE PER CALL. A set filter is used
+-- as it stands; a scalar becomes a one-key set, so the per-record test is a single table lookup —
+-- no `type()`, no branch on which form the clause took, and no nested helper call. An unfiltered
+-- clause stays nil, so the loop skips it on one local test; the falsy filter values master also
+-- read as unfiltered (`false`) still do.
+-- The table built here is per QUERY, never per record: QueryList runs once per filter change and
+-- then walks the whole history.
+local function membershipSet(want)
+  if not want then return nil end
+  if type(want) == "table" then return want end
+  return { [want] = true }
 end
 
 -- A numeric quality matches that quality exactly; a set table matches any listed quality
@@ -330,18 +336,17 @@ local function matchQuality(r, qSet, qExact)
   return true
 end
 
--- The clauses that accept a scalar (equality) OR a set table (membership), in the order they
--- were tested when each was written out by hand. Each `x and ...` guard is the hoisted filter
--- value, so an unfiltered clause costs one local test and no call.
+-- The clauses that accept a scalar (equality) OR a set table (membership), in the order they were
+-- tested when each was written out by hand. Every argument arrives as a membership set (or nil for
+-- an unfiltered clause), so a clause costs one local test and at most one lookup — no nested call.
 -- `zone` is the only one with a default: a record with no captured name matches "" — the
 -- "Unknown" bucket.
-local function matchScalarOrSet(r, src, srcIsSet, chr, chrIsSet, itype, itypeIsSet,
-                                isub, isubIsSet, zone, zoneIsSet)
-  if src and not matchesField(r.source, src, srcIsSet) then return false end
-  if chr and not matchesField(r.char, chr, chrIsSet) then return false end
-  if itype and not matchesField(r.itemType, itype, itypeIsSet) then return false end
-  if isub and not matchesField(r.itemSubType, isub, isubIsSet) then return false end
-  if zone and not matchesField(r.zone or "", zone, zoneIsSet) then return false end
+local function matchScalarOrSet(r, srcSet, chrSet, itypeSet, isubSet, zoneSet)
+  if srcSet and not srcSet[r.source] then return false end
+  if chrSet and not chrSet[r.char] then return false end
+  if itypeSet and not itypeSet[r.itemType] then return false end
+  if isubSet and not isubSet[r.itemSubType] then return false end
+  if zoneSet and not zoneSet[r.zone or ""] then return false end
   return true
 end
 
@@ -372,30 +377,24 @@ function Database:QueryList(records, filter)
   local q = filter.quality
   local qSet = type(q) == "table" and q
   local qExact = type(q) == "number" and q
-  local src = filter.source
-  local srcIsSet = type(src) == "table"
-  local chr = filter.char
-  local chrIsSet = type(chr) == "table"
-  local itype = filter.itemType
-  local itypeIsSet = type(itype) == "table"
-  local isub = filter.itemSubType
-  local isubIsSet = type(isub) == "table"
-  local zone = filter.zone
-  local zoneIsSet = type(zone) == "table"
+  local srcSet = membershipSet(filter.source)
+  local chrSet = membershipSet(filter.char)
+  local itypeSet = membershipSet(filter.itemType)
+  local isubSet = membershipSet(filter.itemSubType)
+  local zoneSet = membershipSet(filter.zone)
   local boundSet = type(filter.bound) == "table" and filter.bound
   local from = filter.from
   local to = filter.to
   local text = filter.text and filter.text:lower()
 
   local anyQ = anyFiltered(qSet, qExact)
-  local anyScalar = anyFiltered(src, chr, itype, isub, zone)
+  local anyScalar = anyFiltered(srcSet, chrSet, itypeSet, isubSet, zoneSet)
   local anyRange = anyFiltered(boundSet, from, to, text)
 
   local out = {}
   for _, r in ipairs(records) do
     if (not anyQ or matchQuality(r, qSet, qExact))
-        and (not anyScalar or matchScalarOrSet(r, src, srcIsSet, chr, chrIsSet,
-                                               itype, itypeIsSet, isub, isubIsSet, zone, zoneIsSet))
+        and (not anyScalar or matchScalarOrSet(r, srcSet, chrSet, itypeSet, isubSet, zoneSet))
         and (not anyRange or matchRange(r, boundSet, from, to, text)) then
       out[#out + 1] = r
     end
