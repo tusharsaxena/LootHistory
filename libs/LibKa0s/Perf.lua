@@ -22,7 +22,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 5
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -179,7 +179,103 @@ local function interfaceVersion()
   return tonumber(toc) or 0
 end
 
+-- ── Report sections ────────────────────────────────────────────────────────────────────────
+--
+-- One function per section of P.FormatReport, each handed that function's own `add` closure so the
+-- line ORDER and every format string stay exactly where they were. `add`, `record`, `P` and the
+-- active seconds are passed rather than closed over, so these are three functions built at file
+-- load rather than three per host.
+
+local FPS_ARMS = { "active", "suspended" }
+
+-- The FPS arms, then the delta between them: the headline the whole harness exists to produce. An
+-- arm that never ran reads "(not sampled)", never zeros — zeros would look like a measured result.
+local function addFpsLines(add, f)
+  for _, name in ipairs(FPS_ARMS) do
+    local a = f[name]
+    if a.frames > 0 then
+      add("%-10s %7.1fs  %6d frames  %6.1f fps  %6.2f ms/frame",
+          name .. ":", a.seconds, a.frames, a.avgFps, a.msPerFrame)
+    else
+      add("%-10s (not sampled)", name .. ":")
+    end
+  end
+  if f.active.frames > 0 and f.suspended.frames > 0 then
+    add("%-10s %45s%+6.2f ms/frame", "delta:", "", f.deltaMsPerFrame)
+  else
+    add("delta:     (needs both arms \226\128\148 arm Experiment B mid-capture)")
+  end
+end
+
+-- Buckets in declared order, indented by nesting depth. `secs` is the ACTIVE seconds only: no
+-- bucket can accrue while suspended, so including that arm would understate every rate.
+local function addBucketLines(add, P, record, secs)
+  local function depthOf(key)
+    local n, parent = 0, record.buckets[key] and record.buckets[key].within or P.BUCKET_WITHIN[key]
+    while parent and n < 8 do                        -- the guard is against a malformed descriptor
+      n, parent = n + 1, P.BUCKET_WITHIN[parent]
+    end
+    return n
+  end
+
+  add("")
+  add("%-14s %8s %10s %10s %9s", "bucket", "calls", "total ms", "ms/s", "max ms")
+  for _, key in ipairs(P.BUCKET_ORDER) do
+    local b = record.buckets[key]
+    if b then
+      local name = ("  "):rep(depthOf(key)) .. key
+      add("%-14s %8d %10.2f %10.3f %9.3f",
+          name, b.calls, b.totalMs, secs > 0 and (b.totalMs / secs) or 0, b.maxMs)
+    end
+  end
+end
+
+-- Nested totals are not disjoint and must never be summed. Spelling out which contains which beats
+-- trusting the reader to notice the indentation.
+local function addNestingNote(add, P, record)
+  local pairsOut = {}
+  for _, key in ipairs(P.BUCKET_ORDER) do
+    local parent = P.BUCKET_WITHIN[key]
+    if parent and record.buckets[key] then
+      pairsOut[#pairsOut + 1] = ("%s contains %s"):format(parent, key)
+    end
+  end
+  if #pairsOut > 0 then
+    add("(buckets nest: %s \226\128\148 do not sum)", table.concat(pairsOut, ", "))
+  end
+end
+
 -- ── Instances ──────────────────────────────────────────────────────────────────────────────
+
+-- One step's state, at the one precedence the panel encodes: busy > done > ready > locked.
+-- Returns the STATE STRINGS and never the values it was handed, so a truthy `completed.active`
+-- table can never leak into the result.
+local function stepState(busy, done, ready)
+  if busy then return "busy" end
+  if done then return "done" end
+  if ready then return "ready" end
+  return "locked"
+end
+
+-- The three measurement arms, derived from the live run flags — which is where all of Progress's
+-- precedence used to live, spelled out as three six-to-eight-term ternary chains. `P` is a perf
+-- instance and `completed` its arm-completion pair; both are passed rather than closed over so
+-- this stays one function built at file load instead of one per host.
+--
+-- `finished` comes back too: the review actions read it, and recomputing it there would be a second
+-- copy of the same rule.
+local function armStates(P, completed)
+  local aBusy = (P.armed == "active") or (P.recording == "active")
+  local bBusy = (P.armed == "suspended") or (P.recording == "suspended")
+  local finished = (not P.run) and (completed.active or completed.suspended)
+
+  local a   = stepState(aBusy, completed.active, P.run and not bBusy)
+  local b   = stepState(bBusy, completed.suspended, P.run and completed.active and not aBusy)
+  -- `finish` genuinely has no busy state — nothing arms it — so it is passed nil rather than
+  -- given an invented one.
+  local fin = stepState(nil, finished, P.run and completed.suspended and not bBusy)
+  return a, b, fin, finished
+end
 
 local function required(d, key, wanted)
   if type(d[key]) ~= wanted then
@@ -279,6 +375,40 @@ function lib:New(descriptor)
     if ms > b.maxMs then b.maxMs = ms end
   end
 
+  --- Open a bracket. Returns nil when the probe is off, so a call site pays one boolean test and
+  --- nothing else, and allocates nothing on either path.
+  ---
+  --- The pair exists for MULTI-EXIT functions. Because P.Close treats a nil t0 as a silent no-op,
+  --- every exit collapses to ONE unconditional statement instead of carrying its own
+  --- `if t0 then P.Note(key, debugprofilestop() - t0) end`:
+  ---
+  ---     local t0 = P.Open()
+  ---     if not pollable(id) then P.Close(t0, "pollSpell") return nil end
+  ---     ...
+  ---     P.Close(t0, "pollSpell")
+  ---     return state
+  ---
+  --- That ergonomic difference is not cosmetic. A host's four-exit poll had its instrumentation
+  --- omitted precisely because the exits made it awkward, and the omission then cost 73.9 ms of
+  --- unattributed time in the first live capture — a measurement seam whose ergonomics discourage
+  --- instrumenting exactly the functions that most need measuring.
+  ---
+  --- Deliberately NOT a closure-returning Bracket(key): a closure per bracket would allocate on a
+  --- path whose entire contract is costing nothing when the probe is off, and `P.on` is read
+  --- directly by every call site precisely so it stays a plain boolean on a plain table. P.Note is
+  --- unchanged, so a host already calling it directly keeps working untouched.
+  function P.Open()
+    if not P.on then return nil end
+    return debugprofilestop()
+  end
+
+  --- Close a bracket opened by P.Open, recording its elapsed ms under `key`. A nil t0 — the probe
+  --- was off when the bracket opened — is a silent no-op.
+  function P.Close(t0, key)
+    if not t0 then return end
+    P.Note(key, debugprofilestop() - t0)
+  end
+
   function P.Reset()
     buckets   = {}
     completed = { active = false, suspended = false }
@@ -332,21 +462,8 @@ function lib:New(descriptor)
   --- `busy` is armed-or-recording, `done` is finished. The slash verbs are NOT gated this way — a
   --- run that cannot complete Experiment B can still be closed with the host's finish command.
   function P.Progress()
-    local aBusy = (P.armed == "active") or (P.recording == "active")
-    local bBusy = (P.armed == "suspended") or (P.recording == "suspended")
-    local finished = (not P.run) and (completed.active or completed.suspended)
+    local a, b, fin, finished = armStates(P, completed)
 
-    local a = aBusy and "busy"
-        or (completed.active and "done")
-        or ((P.run and not bBusy) and "ready")
-        or "locked"
-    local b = bBusy and "busy"
-        or (completed.suspended and "done")
-        or ((P.run and completed.active and not aBusy) and "ready")
-        or "locked"
-    local fin = (finished and "done")
-        or ((P.run and completed.suspended and not bBusy) and "ready")
-        or "locked"
     -- `used` is green like `done` but stays clickable: these are read-only actions worth repeating.
     -- Checked before `finished`: `finish` can close a run with neither arm ever armed (an aborted
     -- attempt closed out rather than left dangling), and `report`/`dump` are reachable as typed
@@ -500,56 +617,9 @@ function lib:New(descriptor)
         record.addon, record.schema, record.version)
     for _, line in ipairs(P.ContextLines(record.context)) do add(line) end
 
-    -- FPS arms first: this is the headline the whole harness exists to produce.
-    for _, name in ipairs({ "active", "suspended" }) do
-      local a = f[name]
-      if a.frames > 0 then
-        add("%-10s %7.1fs  %6d frames  %6.1f fps  %6.2f ms/frame",
-            name .. ":", a.seconds, a.frames, a.avgFps, a.msPerFrame)
-      else
-        add("%-10s (not sampled)", name .. ":")
-      end
-    end
-    if f.active.frames > 0 and f.suspended.frames > 0 then
-      add("%-10s %45s%+6.2f ms/frame", "delta:", "", f.deltaMsPerFrame)
-    else
-      add("delta:     (needs both arms \226\128\148 arm Experiment B mid-capture)")
-    end
-
-    -- Buckets in declared order, indented by nesting depth. ms/s divides by the ACTIVE seconds
-    -- only: no bucket can accrue while suspended, so including that arm would understate every rate.
-    local function depthOf(key)
-      local n, parent = 0, record.buckets[key] and record.buckets[key].within or P.BUCKET_WITHIN[key]
-      while parent and n < 8 do                        -- the guard is against a malformed descriptor
-        n, parent = n + 1, P.BUCKET_WITHIN[parent]
-      end
-      return n
-    end
-
-    local secs = f.active.seconds
-    add("")
-    add("%-14s %8s %10s %10s %9s", "bucket", "calls", "total ms", "ms/s", "max ms")
-    for _, key in ipairs(P.BUCKET_ORDER) do
-      local b = record.buckets[key]
-      if b then
-        local name = ("  "):rep(depthOf(key)) .. key
-        add("%-14s %8d %10.2f %10.3f %9.3f",
-            name, b.calls, b.totalMs, secs > 0 and (b.totalMs / secs) or 0, b.maxMs)
-      end
-    end
-
-    -- Nested totals are not disjoint and must never be summed. Spelling out which contains which
-    -- beats trusting the reader to notice the indentation.
-    local pairsOut = {}
-    for _, key in ipairs(P.BUCKET_ORDER) do
-      local parent = P.BUCKET_WITHIN[key]
-      if parent and record.buckets[key] then
-        pairsOut[#pairsOut + 1] = ("%s contains %s"):format(parent, key)
-      end
-    end
-    if #pairsOut > 0 then
-      add("(buckets nest: %s \226\128\148 do not sum)", table.concat(pairsOut, ", "))
-    end
+    addFpsLines(add, f)
+    addBucketLines(add, P, record, f.active.seconds)
+    addNestingNote(add, P, record)
 
     return lines
   end

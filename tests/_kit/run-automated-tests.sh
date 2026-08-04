@@ -227,7 +227,14 @@ if wants complexity; then
         CCN_WARN=$(fld 6);      [ -z "$CCN_WARN" ]      && CCN_WARN=0
         CCN_FUN_RT=$(fld 7);    [ -z "$CCN_FUN_RT" ]    && CCN_FUN_RT=0
         CCN_NLOC_RT=$(fld 8);   [ -z "$CCN_NLOC_RT" ]   && CCN_NLOC_RT=0
-        CCN_MAX=$(printf '%s\n' "$raw" | awk '/!!!! Warnings/{f=1} f && /@/ {if ($2+0>m) m=$2+0} END{print m+0}')
+        # Max CCN is measured over EVERY function, not over the warnings section. Reading it from
+        # the warnings block looked correct for as long as there was always a warned function to
+        # read it from, and reported 0 the moment an addon reached zero warnings — which is exactly
+        # when the number matters most. A trend column reading "36 -> 0" says complexity vanished
+        # when it means the field had no input. The main table's rows are
+        # `NLOC CCN token PARAM length name@start-end@path`, so column 2 of every row carrying an
+        # `@` is that function's CCN; the footer has no `@` and the same test skips it.
+        CCN_MAX=$(printf '%s\n' "$raw" | awk '/@/ && $2+0>m {m=$2+0} END{print m+0}')
         # layout-§1: 1000–1500 is the on-notice band, >1500 is a bug. Counted here so the
         # manifest answers the layout question without a second pass over the tree.
         while IFS= read -r n; do
@@ -325,9 +332,18 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
     HEADER='| Run | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |'
     RULE='|---|---|---|---|---|---|---|---|---|---|---|---|---|'
     if [ -f "$RESULTS" ] && grep -qF "$HEADER" "$RESULTS"; then
+        # The comparison strips a trailing CR before matching, and the new row is emitted with the
+        # SAME terminator the header carried. Every consumer repo is CRLF-pinned by .gitattributes,
+        # so `$0 == hdr` against a raw CRLF line is false for every line in the file — while the
+        # `grep -qF` above still succeeds, because a substring match does not care about the CR.
+        # The two disagreeing is what made this silent: the guard said "header found", the awk
+        # inserted nothing, and the else-branch that WARNS is only reached when grep fails. The row
+        # was dropped with no message, in every CRLF repo, on every run. It went unnoticed because
+        # LibKa0s is the only repo whose suite runs the kit against itself and it has no RESULTS.md,
+        # so the one place this is exercised is the one place it was never tested.
         awk -v row="$ROW" -v hdr="$HEADER" '
-            {print}
-            $0 == hdr {getline sep; print sep; print row}
+            { line = $0; cr = ""; if (sub(/\r$/, "", line)) cr = "\r"; print }
+            line == hdr { getline sep; print sep; print row cr }
         ' "$RESULTS" > "$RESULTS.tmp" && mv "$RESULTS.tmp" "$RESULTS"
     elif [ -f "$RESULTS" ]; then
         # The file exists but its header is not this one — an older column set. Recreating it here

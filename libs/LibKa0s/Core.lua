@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 3
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 4
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -104,6 +104,77 @@ lib.SKIN = {
   title       = { 1.0, 0.82, 0.0 },
 }
 
+-- The two accents that are not backdrop fields and not the inner border: a FontString tint and a
+-- texture color. Described as data rather than written out twice so the type-not-truthiness guard
+-- below exists exactly once. `n` is the argument COUNT and is not cosmetic — a title takes three
+-- components and a divider takes four, and collapsing them to one arity drops the divider's alpha.
+local ACCENTS = {
+  { key = "title",   method = "SetTextColor",    n = 3 },
+  { key = "divider", method = "SetColorTexture", n = 4 },
+}
+
+-- The backdrop proper: the table itself, then the two colors it carries. Guarded on the key being
+-- a table so a caller passing a plain WoW backdrop table (no `bg`, no `border`) gets a plain
+-- backdrop rather than a raise midway through building someone's window.
+local function applyBackdrop(frame, skin)
+  frame:SetBackdrop(skin)
+  if type(skin.bg) == "table" then
+    frame:SetBackdropColor(skin.bg[1], skin.bg[2], skin.bg[3], skin.bg[4])
+  end
+  if type(skin.border) == "table" then
+    frame:SetBackdropBorderColor(skin.border[1], skin.border[2], skin.border[3], skin.border[4])
+  end
+end
+
+-- The 1px inner highlight, inset one pixel on both axes so it sits INSIDE the black edge rather
+-- than on top of it. Built ONCE per frame and returned thereafter: ApplySkin is called again
+-- whenever a window is re-skinned, and a second child frame would stack a second line on the same
+-- pixel.
+--
+-- Decided on the TYPE of what the frame answered, never on its truthiness. A frame is a table with
+-- a metatable, and this library cannot assume what that metatable does with a key it has never
+-- heard of: a consumer's test mock answers EVERY key with a function, so `frame.innerBorder` read
+-- back truthy, `if not frame.innerBorder` never fired, and the tint below then indexed a function
+-- and raised — taking fourteen of that addon's cases down on the first re-vendor.
+local function ensureInnerBorder(frame, skin)
+  if type(frame.innerBorder) ~= "table" then
+    local inner = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    if type(inner) == "table" then
+      if inner.SetPoint then
+        inner:SetPoint("TOPLEFT", 1, -1)
+        inner:SetPoint("BOTTOMRIGHT", -1, 1)
+      end
+      if inner.SetBackdrop then
+        inner:SetBackdrop({ edgeFile = skin.edgeFile, edgeSize = 1 })
+      end
+      frame.innerBorder = inner
+    end
+  end
+  return frame.innerBorder
+end
+
+-- Synthesise the highlight if it is not there yet, then re-tint it on every call.
+local function applyInnerBorder(frame, skin)
+  if type(skin.innerBorder) ~= "table" or type(CreateFrame) ~= "function" then return end
+  local inner = ensureInnerBorder(frame, skin)
+  if type(inner) == "table" and type(inner.SetBackdropBorderColor) == "function" then
+    inner:SetBackdropBorderColor(skin.innerBorder[1], skin.innerBorder[2],
+      skin.innerBorder[3], skin.innerBorder[4])
+  end
+end
+
+-- Both accents are optional on the FRAME, not just in the skin: the copy window and the perf panel
+-- carry a title and no divider, and a bare frame carries neither. Same type-not-truthiness rule as
+-- the inner border, for the same reason.
+local function applyAccents(frame, skin)
+  for _, a in ipairs(ACCENTS) do
+    local c, target = skin[a.key], frame[a.key]
+    if type(c) == "table" and type(target) == "table" and type(target[a.method]) == "function" then
+      target[a.method](target, unpack(c, 1, a.n))
+    end
+  end
+end
+
 --- Wear the skin. A no-op on a frame with no SetBackdrop — a frame created without the
 --- BackdropTemplate inherit is undecorated, not broken, and a missing skin is not worth erroring
 --- over in the middle of building someone's window.
@@ -120,54 +191,9 @@ function lib.ApplySkin(frame, skin)
   if not frame or not frame.SetBackdrop then return end
   skin = type(skin) == "table" and skin or lib.SKIN
 
-  frame:SetBackdrop(skin)
-  if type(skin.bg) == "table" then
-    frame:SetBackdropColor(skin.bg[1], skin.bg[2], skin.bg[3], skin.bg[4])
-  end
-  if type(skin.border) == "table" then
-    frame:SetBackdropBorderColor(skin.border[1], skin.border[2], skin.border[3], skin.border[4])
-  end
-
-  -- The 1px inner highlight, inset one pixel on both axes so it sits INSIDE the black edge rather
-  -- than on top of it. Built once and re-tinted thereafter: ApplySkin is called again whenever a
-  -- window is re-skinned, and a second child frame would stack a second line on the same pixel.
-  -- Decided on the TYPE of what the frame answered, never on its truthiness. A frame is a table
-  -- with a metatable, and this library cannot assume what that metatable does with a key it has
-  -- never heard of: a consumer's test mock answers EVERY key with a function, so `frame.innerBorder`
-  -- read back truthy, `if not frame.innerBorder` never fired, and the tint below then indexed a
-  -- function and raised — taking fourteen of that addon's cases down on the first re-vendor.
-  if type(skin.innerBorder) == "table" and type(CreateFrame) == "function" then
-    if type(frame.innerBorder) ~= "table" then
-      local inner = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-      if type(inner) == "table" then
-        if inner.SetPoint then
-          inner:SetPoint("TOPLEFT", 1, -1)
-          inner:SetPoint("BOTTOMRIGHT", -1, 1)
-        end
-        if inner.SetBackdrop then
-          inner:SetBackdrop({ edgeFile = skin.edgeFile, edgeSize = 1 })
-        end
-        frame.innerBorder = inner
-      end
-    end
-    local inner = frame.innerBorder
-    if type(inner) == "table" and type(inner.SetBackdropBorderColor) == "function" then
-      inner:SetBackdropBorderColor(skin.innerBorder[1], skin.innerBorder[2],
-        skin.innerBorder[3], skin.innerBorder[4])
-    end
-  end
-
-  -- Both optional on the frame, not just in the skin: the copy window and the perf panel carry a
-  -- title and no divider, and a bare frame carries neither. Same type-not-truthiness rule.
-  if type(skin.title) == "table" and type(frame.title) == "table"
-      and type(frame.title.SetTextColor) == "function" then
-    frame.title:SetTextColor(skin.title[1], skin.title[2], skin.title[3])
-  end
-  if type(skin.divider) == "table" and type(frame.divider) == "table"
-      and type(frame.divider.SetColorTexture) == "function" then
-    frame.divider:SetColorTexture(skin.divider[1], skin.divider[2], skin.divider[3],
-      skin.divider[4])
-  end
+  applyBackdrop(frame, skin)
+  applyInnerBorder(frame, skin)
+  applyAccents(frame, skin)
 end
 
 --- The thin × a Ka0s window closes with. Returns nil when CreateFrame is unavailable (a headless
@@ -185,6 +211,42 @@ function lib.MakeCloseButton(parent, onClick)
   b:SetScript("OnLeave", function() fs:SetTextColor(0.7, 0.7, 0.72) end)
   b:SetScript("OnClick", onClick)
   return b
+end
+
+-- ── the stored-color reader ────────────────────────────────────────────────────────────────
+
+-- Absence tested with `== nil` rather than `or`, and written ONCE rather than eight times. A stored
+-- `false` survives as false instead of being swallowed, and lizard counts every `or` short-circuit
+-- as a decision — so one named helper is one decision where the chain would be eight.
+local function pick(v, d)
+  if v == nil then return d end
+  return v
+end
+
+--- Read a stored color and return four NUMBERS, never a table.
+---
+--- The collection persists colors in BOTH shapes and neither can be retired without migrating
+--- users' SavedVariables, so a reader that handles both is permanent rather than transitional:
+---
+---   keyed       { r = , g = , b = , a = }   -- AbsorbTracker, KickCD, the Slash parser's output
+---   positional  { r,   g,   b,   a   }      -- what the Ka0s options color widget writes
+---
+--- Rules, in order:
+---   1. A non-table (nil included) yields the four defaults, unchanged.
+---   2. Any of c.r / c.g / c.b present means the KEYED shape wins for ALL FOUR channels — so a
+---      `{ r = 1 }` cannot silently borrow its green from c[2].
+---   3. Otherwise the positional shape.
+---   4. Each channel falls back INDEPENDENTLY, so a three-element color still gets its alpha.
+---
+--- The defaults are per-channel parameters and are deliberately NOT defaulted here: the call sites
+--- disagree today (0,0,0,1 for a chat echo, 1,1,1,1 for a swatch, a per-widget tint elsewhere), and
+--- inventing a house default would silently recolor one of them.
+function lib.RGBA(c, dr, dg, db, da)
+  if type(c) ~= "table" then return dr, dg, db, da end
+  if c.r ~= nil or c.g ~= nil or c.b ~= nil then
+    return pick(c.r, dr), pick(c.g, dg), pick(c.b, db), pick(c.a, da)
+  end
+  return pick(c[1], dr), pick(c[2], dg), pick(c[3], db), pick(c[4], da)
 end
 
 -- ── the prefixed chat printer ──────────────────────────────────────────────────────────────

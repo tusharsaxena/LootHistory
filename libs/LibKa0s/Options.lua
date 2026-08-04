@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 5
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -57,6 +57,18 @@ lib.LAYOUT = {
   SECTION_TOP_SPACER    = 10,
   SECTION_BOTTOM_SPACER = 6,
   SECTION_HEADING_H     = 26,
+
+  -- The landing page's block sizing, promoted from three hosts that each declared these four
+  -- verbatim and agreed on every value. They lived host-side only because the BODY did; the body
+  -- is O.BuildLandingPage now, so the constants follow it.
+  --
+  -- LANDING_GAP_HEAD is the gap under a landing heading. O.Section already emits exactly that as
+  -- SECTION_BOTTOM_SPACER, so BuildLandingPage does not draw a second one — the two values must
+  -- stay equal, which tests/test_options.lua pins.
+  LANDING_LOGO          = 300,
+  LANDING_GAP_LOGO      = 8,
+  LANDING_GAP_DESC      = 12,
+  LANDING_GAP_HEAD      = 6,
 
   -- Relative width of each button in a cell-filling paired-button row (options-ui-§8). A flat
   -- 0.5/0.5 lets AceGUI's Flow layout push the right button's border into the ScrollFrame's clip
@@ -115,7 +127,12 @@ lib.STRINGS = {
 ---   validate()                 optional. Runs once, before the page builders.
 ---   onAceGUI(AceGUI)           optional. Handed the resolved AceGUI so the host can stash it
 ---                              (Ka0s standard §3.4) for its own page files.
----   buildMain(ctx)             optional. Draws the main page's body on its first OnShow.
+---   buildMain(ctx)             optional. Draws the main page's body on its first OnShow. A host
+---                              that wants the shared landing page writes
+---                              `buildMain = function(ctx) O.BuildLandingPage(ctx, spec) end`
+---                              itself — the shell reads no other field and installs no renderer of
+---                              its own, so what draws the main page is answerable from the host's
+---                              own source.
 ---   colorDecode(stored)        optional. -> r, g, b, a. Defaults to the {r=,g=,b=,a=} shape.
 ---   colorEncode(r, g, b, a)    optional. -> stored. Defaults to the same.
 ---   debug(tag, fmt, ...)       optional. Developer log line.
@@ -539,6 +556,12 @@ function lib:New(d)
     -- lays children out against the parent's CURRENT width, which is zero at enable time. Routing
     -- it through SetRenderer rather than a private flag also gives the main page the combat guard
     -- and the dirty-re-render, which it had neither of.
+    --
+    -- d.buildMain is the ONLY main-page seam. O.BuildLandingPage is a renderer a host may call from
+    -- its own buildMain; the shell does not sniff the descriptor for a spec and wire one up on the
+    -- host's behalf. A shell that installs a renderer the host never asked for makes "what draws my
+    -- main page?" unanswerable from the host's own source, and it is a change to what lib:New DOES
+    -- rather than an addition to what it offers.
     if type(d.buildMain) == "function" then
       O.SetRenderer(mainCtx, d.buildMain)
     end
