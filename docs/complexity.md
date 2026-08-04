@@ -17,18 +17,25 @@ this file closes it.
 
 Two things the raw table below will not tell you, and that matter when reading the numbers:
 
-- Lizard's Lua front end reports each function's own branch count, and this addon's two hot spots
-  are **flat ladders, not nesting** — a migration runner with one `if` per schema version, and an
-  aggregation pass with one accumulator per breakdown. A CCN of 75 there is 75 sibling branches at
-  depth 1–2, which is a different (and much cheaper) thing to read than 75 branches nested.
+- Lizard's Lua front end reports each function's own branch count, and this addon's remaining hot
+  spots are **flat ladders, not nesting** — a migration runner with one `if` per schema version, and
+  a filter chain with one `if` per filter field. A CCN of 56 there is 56 sibling branches at depth
+  1–2, which is a different (and much cheaper) thing to read than 56 branches nested.
 - `libs/` and `tests/_kit/` are excluded, as the invocation requires, so every number here is this
   addon's own surface. The addon's own `tests/` **are** measured, and today none of them warns.
+
+**`Database:Stats` was peeled in this change and no longer appears below.** It was the addon's worst
+number by a wide margin — CCN **75**, 164 NLOC, 215 lines — one loop building twelve maps and six
+per-character matrices with a guard per accumulator. It is now `Database:Stats` (a record walk),
+`newAccumulator`, and seven `accumulate*` / `derive` helpers, the heaviest of which is
+`accumulateCurrency` at CCN **13**; none of them warns. The single O(n) pass `docs/browser.md` relies
+on is unchanged — the helpers split the loop *body*, not the pass — and all 563 tests pass unchanged,
+with `tests/test_stats.lua` pinning the output struct. That took the addon from 10 warnings to 9.
 
 ### Functions lizard warned on (CCN > 15; nothing hit the length or parameter thresholds)
 
 | Function | Where | CCN | Disposition |
 |----------|-------|-----|-------------|
-| `Database:Stats` | `core/Database.lua:362-576` | 75 | **Peel next.** The single O(n) aggregation pass behind the Insights tab: it builds twelve maps and six per-character matrices in one loop, and the branch count is one guard per accumulator. It is the largest function in the addon (164 NLOC, 215 lines) and the one place a new breakdown gets added, so it grows every time Insights does. The honest split is per-breakdown accumulator helpers called from one loop — behavior-neutral, and it keeps the single pass `docs/browser.md` relies on. Not urgent: `tests/test_stats.lua` covers it, and it is not on a per-frame path. |
 | `Database:QueryList` | `core/Database.lua:268-356` | 58 | **Accepted.** A filter-predicate chain — one branch per filter field, each independent, each short. Splitting it into per-field predicates would trade a readable flat list for a table of closures allocated per query, on the path the browser calls on every filter change. Revisit only if the filter set grows again. |
 | `NS:RunMigrations` | `core/Database.lua:13-121` | 56 | **Accepted, by design.** A strictly ordered ladder of `if g.schemaVersion < N then … end` steps, currently eight. The CCN *is* the migration count; it can only rise, and the steps must stay in one place and in order because each runs on the output of the last. Peeling it into per-version functions would hide the ordering that makes it correct. Expect this number to grow with every schema bump, and do not read that as decay. |
 | `Database:RepairBoundStates` | `core/Database.lua:188-229` | 23 | **Accepted for now.** The warband/BoE bound-state repair — a revision-armed one-shot pass whose branches are the bound-state cases it has to tell apart. The comment at `core/Database.lua:124-127` records that this repair "has been wrong more than once"; that history argues for leaving a single readable pass alone rather than distributing it. |
@@ -43,16 +50,16 @@ Two things the raw table below will not tell you, and that matter when reading t
 
 | File | LOC | Disposition |
 |------|-----|-------------|
-| `modules/Browser.lua` | 1314 | **Already tracked as LH-31**, which names all three of these files as the reason the report is worth having. On notice, under the 1500 cap, not growing fast — it is the window shell, the filter bar and its dropdown widget kit. If it needs peeling, the seam is the dropdown widget kit (roughly `:200-420`) into a sibling file. |
-| `modules/Analytics.lua` | 1180 | **On notice; peel candidate after `Database:Stats`.** The Insights tab — chart renderers plus the pure helpers the suite drives. The natural split is renderers vs the formatting/segmenting helpers, and it should follow the `Database:Stats` work rather than lead it, since both move for the same reason. |
+| `modules/Browser.lua` | 1314 | **Already tracked as LH-31**, which names all three of these files as the reason the report is worth having. On notice, under the 1500 cap, not growing fast — it is the window shell, the filter bar and its dropdown widget kit. If it needs peeling, the seam is the dropdown widget kit (roughly `:200-420`) into a sibling file. Four of the nine warnings above live here, which makes it the next whole-file candidate. |
+| `modules/Analytics.lua` | 1180 | **Peel next — the `Database:Stats` work it was waiting on has landed.** Its disposition was "follow the `Database:Stats` work rather than lead it, since both move for the same reason"; that reason is now discharged. The Insights tab: chart renderers plus the pure helpers the suite drives, and the natural split is renderers vs the formatting/segmenting helpers. No function in it warns, so this is a file-size peel, not a complexity one. |
 | `modules/BrowserTable.lua` | 1040 | **Accepted.** Just over the line, and the file is already three clean layers (filter→group→sort→slice, the pooled row binder, the column model). Watch it; do nothing yet. |
 
-No file is over the 1500 LOC cap, and no function tripped the length (>1000) or parameter (>100)
-thresholds.
+`core/Database.lua` is 703 LOC after the `Database:Stats` peel and is not in the band. No file is
+over the 1500 LOC cap, and no function tripped the length (>1000) or parameter (>100) thresholds.
 
 ## Raw output
 
-```
+```text
 ================================================
   NLOC    CCN   token  PARAM  length  location  
 ------------------------------------------------
@@ -109,15 +116,24 @@ thresholds.
        3      1     20      0       3 Database@335-337@./core/Database.lua
       13      4    162      0      13 Database@342-354@./core/Database.lua
       65     58    504      0      89 Database@268-356@./core/Database.lua
-       5      5     61      4       5 bump@383-387@./core/Database.lua
-       4      2     33      2       4 (anonymous)@526-529@./core/Database.lua
-       5      9     76      2       5 (anonymous)@537-541@./core/Database.lua
-       5      5     60      2       5 (anonymous)@542-546@./core/Database.lua
-     164     75   1488      0     215 Database@362-576@./core/Database.lua
-       3      2     18      0       3 fireHistoryChanged@578-580@./core/Database.lua
-       3      1      9      0       3 Database@585-587@./core/Database.lua
-      14      3     67      0      14 Database@591-604@./core/Database.lua
-       9      3     50      0       9 Database@607-615@./core/Database.lua
+       5      5     61      4       5 bump@359-363@./core/Database.lua
+      17      1    185      0      19 newAccumulator@368-386@./core/Database.lua
+      10     12    141      3      10 accumulateHighlights@390-399@./core/Database.lua
+      13      3     95      3      13 accumulateItemEntry@402-414@./core/Database.lua
+      17     11    231      5      21 accumulateItem@419-439@./core/Database.lua
+      11     10    171      3      11 accumulateTime@443-453@./core/Database.lua
+       9     11    133      3      13 accumulateProvenance@456-468@./core/Database.lua
+      13      4     94      5      13 accumulateChar@472-484@./core/Database.lua
+      23     13    273      4      28 accumulateCurrency@487-514@./core/Database.lua
+       4      2     33      2       4 (anonymous)@522-525@./core/Database.lua
+       5      9     76      2       5 (anonymous)@533-537@./core/Database.lua
+       5      5     60      2       5 (anonymous)@538-542@./core/Database.lua
+      20      6    140      1      35 derive@517-551@./core/Database.lua
+      47      7    423      0      53 Database@560-612@./core/Database.lua
+       3      2     18      0       3 fireHistoryChanged@614-616@./core/Database.lua
+       3      1      9      0       3 Database@621-623@./core/Database.lua
+      14      3     67      0      14 Database@627-640@./core/Database.lua
+       9      3     50      0       9 Database@643-651@./core/Database.lua
        3      2     32      3       3 FormatPlain@34-36@./core/DebugLogSetup.lua
        4      2     32      3       4 FormatColored@37-40@./core/DebugLogSetup.lua
        1      1      3      0       1 Add@41-41@./core/DebugLogSetup.lua
@@ -1511,7 +1527,7 @@ NLOC    Avg.NLOC  AvgCCN  Avg.token  function_cnt    file
     323       8.2     5.2       53.2        32     ./core/Compat.lua
      94       5.0     4.0       37.0         1     ./core/Constants.lua
      47       4.4     2.3       36.3         7     ./core/CoreSetup.lua
-    491      20.4    12.4      178.7        22     ./core/Database.lua
+    508      15.0     8.9      139.6        31     ./core/Database.lua
      62       1.8     1.5       11.3        28     ./core/DebugLogSetup.lua
      40       6.0     5.2       52.7         6     ./core/LootHistory.lua
       4       0.0     0.0        0.0         0     ./core/Namespace.lua
@@ -1561,7 +1577,6 @@ NLOC    Avg.NLOC  AvgCCN  Avg.token  function_cnt    file
       76     56    749      0     109 NS@13-121@./core/Database.lua
       36     23    296      0      42 Database@188-229@./core/Database.lua
       65     58    504      0      89 Database@268-356@./core/Database.lua
-     164     75   1488      0     215 Database@362-576@./core/Database.lua
       46     20    424      0      64 menu@238-301@./modules/Browser.lua
       23     19    225      0      29 dd@369-397@./modules/Browser.lua
       17     23    192      0      20 B@747-766@./modules/Browser.lua
@@ -1571,5 +1586,5 @@ NLOC    Avg.NLOC  AvgCCN  Avg.token  function_cnt    file
 ==========================================================================================
 Total nloc   Avg.NLOC  AvgCCN  Avg.token   Fun Cnt  Warning cnt   Fun Rt   nloc Rt
 ------------------------------------------------------------------------------------------
-     11179       6.7     2.3       55.5     1448           10      0.01    0.05
+     11196       6.7     2.3       55.4     1457            9      0.01    0.04
 ```

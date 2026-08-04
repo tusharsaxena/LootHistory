@@ -355,173 +355,169 @@ function Database:Export(filter)
   return out
 end
 
--- Aggregate the (optionally filtered) history in one O(n) pass. Returns count maps, value maps,
--- per-character/type/bound/time breakdowns, pre-sorted top lists, and totals/highlights — the
--- struct all Insights widgets consume (see docs/browser.md). "Value" is the derived value: (auctionPrice or vendorPrice) × quantity
--- (captured at loot time). New fields are additive.
-function Database:Stats(filter)
-  local records = self:Query(filter or {})
-  local bySource, byQuality, byDay, byZone, byItem = {}, {}, {}, {}, {}
-  local valueBySource, valueByDay, valueByZone = {}, {}, {}
-  local byChar, byType, byBound, byHour, byWeekday, byKeystone, byConfidence =
-    {}, {}, {}, {}, {}, {}, {}
-  -- Per-character × category matrices (feed the "… by Character" stacked companion charts). Each
-  -- mirrors its parent aggregation's guards; { [charKey] = { [categoryKey] = magnitude } }.
-  local charBySource, charValueBySource, charByQuality, charByType, charByBound =
-        {}, {}, {}, {}, {}
-  local distinctItems, distinctChars = 0, 0
-  local firstTs, lastTs
-  local totalValue, totalQuantity, epicPlus = 0, 0, 0
-  local bestDrop, richestDrop
-  local byCurrency, currencySourceMatrix, currencyByChar, currencyByDay = {}, {}, {}, {}
-  local currencyCharMatrix = {}
-  local currencyDistinct, currencyEvents = 0, 0
-  local biggestHaul
-  local currencyBySource = {}
+-- Nested-table increment used by the per-character category matrices.
+local function bump(matrix, k1, k2, amt)
+  if k1 == nil or k2 == nil then return end
+  local m = matrix[k1]; if not m then m = {}; matrix[k1] = m end
+  m[k2] = (m[k2] or 0) + amt
+end
 
-  -- Nested-table increment used by the per-character category matrices.
-  local function bump(matrix, k1, k2, amt)
-    if k1 == nil or k2 == nil then return end
-    local m = matrix[k1]; if not m then m = {}; matrix[k1] = m end
-    m[k2] = (m[k2] or 0) + amt
+-- One bucket set for a single Stats() pass. Every field below is written by exactly one of the
+-- accumulate* helpers that follow, which is the property that lets them be read independently:
+-- adding a breakdown means one field here and one line in its helper, not a longer loop body.
+local function newAccumulator()
+  return {
+    bySource = {}, byQuality = {}, byDay = {}, byZone = {}, byItem = {},
+    valueBySource = {}, valueByDay = {}, valueByZone = {},
+    byChar = {}, byType = {}, byBound = {}, byHour = {}, byWeekday = {},
+    byKeystone = {}, byConfidence = {},
+    -- Per-character × category matrices (feed the "… by Character" stacked companion charts). Each
+    -- mirrors its parent aggregation's guards; { [charKey] = { [categoryKey] = magnitude } }.
+    charBySource = {}, charValueBySource = {}, charByQuality = {},
+    charByType = {}, charByBound = {},
+    byCurrency = {}, currencySourceMatrix = {}, currencyByChar = {},
+    currencyByDay = {}, currencyCharMatrix = {}, currencyBySource = {},
+    distinctItems = 0, distinctChars = 0,
+    currencyDistinct = 0, currencyEvents = 0,
+    totalValue = 0, totalQuantity = 0, epicPlus = 0,
+    firstTs = nil, lastTs = nil,
+    bestDrop = nil, richestDrop = nil, biggestHaul = nil,
+  }
+end
+
+-- Highlights: best gear (max itemLevel, ties → higher quality) + richest single drop. Ties keep the
+-- record seen first, so these track the caller's record order.
+local function accumulateHighlights(A, r, value)
+  local ilvl = r.itemLevel or 0
+  if ilvl > 0 and (not A.bestDrop or ilvl > A.bestDrop.itemLevel
+      or (ilvl == A.bestDrop.itemLevel and (r.quality or 0) > (A.bestDrop.quality or 0))) then
+    A.bestDrop = { itemName = r.itemName, quality = r.quality, itemLevel = ilvl, itemLink = r.itemLink }
+  end
+  if value > 0 and (not A.richestDrop or value > A.richestDrop.value) then
+    A.richestDrop = { itemName = r.itemName, quality = r.quality, value = value, itemLink = r.itemLink }
+  end
+end
+
+-- One item's contribution to the byItem roll-up, which is also where distinctItems is counted.
+local function accumulateItemEntry(A, r, value)
+  local id = r.itemID
+  if id == nil then return end
+  local e = A.byItem[id]
+  if e then
+    e.count = e.count + 1
+    e.value = e.value + value
+  else
+    A.byItem[id] = { itemID = id, itemName = r.itemName, quality = r.quality,
+                     count = 1, value = value }
+    A.distinctItems = A.distinctItems + 1
+  end
+end
+
+-- Item-attribute breakdowns and their per-character companions. Items only: currency has its own
+-- CURRENCY section, so counting it here would make per-character totals disagree with the item
+-- attribute companions (Bound/Quality/Type by Character).
+local function accumulateItem(A, r, ch, src, value)
+  A.bySource[src] = (A.bySource[src] or 0) + 1
+  A.valueBySource[src] = (A.valueBySource[src] or 0) + value
+  bump(A.charBySource, ch, src, 1)
+  bump(A.charValueBySource, ch, src, value)
+
+  local q = r.quality or 0
+  A.byQuality[q] = (A.byQuality[q] or 0) + 1
+  bump(A.charByQuality, ch, q, 1)
+  if q >= 4 then A.epicPlus = A.epicPlus + 1 end
+
+  local ty = r.itemType
+  if ty and ty ~= "" then A.byType[ty] = (A.byType[ty] or 0) + 1; bump(A.charByType, ch, ty, 1) end
+
+  local bk = r.bound or "UNBOUND"
+  A.byBound[bk] = (A.byBound[bk] or 0) + 1
+  bump(A.charByBound, ch, bk, 1)
+
+  accumulateItemEntry(A, r, value)
+  accumulateHighlights(A, r, value)
+end
+
+-- Day / hour / weekday buckets and the first-last timestamp span. Records with no ts contribute
+-- to every other breakdown but not to these.
+local function accumulateTime(A, r, value)
+  if not r.ts then return end
+  local day = date("%Y-%m-%d", r.ts)
+  A.byDay[day] = (A.byDay[day] or 0) + 1
+  A.valueByDay[day] = (A.valueByDay[day] or 0) + value
+  local d = date("*t", r.ts)
+  A.byHour[d.hour] = (A.byHour[d.hour] or 0) + 1
+  A.byWeekday[d.wday - 1] = (A.byWeekday[d.wday - 1] or 0) + 1  -- Lua wday 1=Sun → key 0=Sun
+  if not A.firstTs or r.ts < A.firstTs then A.firstTs = r.ts end
+  if not A.lastTs or r.ts > A.lastTs then A.lastTs = r.ts end
+end
+
+-- Zone, confidence and keystone level — the breakdowns that count items and currency alike.
+local function accumulateProvenance(A, r, value)
+  -- "" (what Compat.GetZone answers with no zone text yet) buckets with nil, matching the Zone
+  -- filter's single Unknown option — otherwise a blank-labeled row sits beside Unknown.
+  local zone = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
+  A.byZone[zone] = (A.byZone[zone] or 0) + 1
+  A.valueByZone[zone] = (A.valueByZone[zone] or 0) + value
+
+  local conf = r.confidence or "INFERRED"
+  A.byConfidence[conf] = (A.byConfidence[conf] or 0) + 1
+
+  local kl = r.sourceDetail and r.sourceDetail.keystoneLevel
+  if kl then A.byKeystone[kl] = (A.byKeystone[kl] or 0) + 1 end
+end
+
+-- Register every character (for the class-color lookup + the "characters" KPI), but count and
+-- value only their items — "Loot by character" is items-only so it tallies with the item charts.
+local function accumulateChar(A, r, ch, isCurrency, value)
+  if not ch then return end
+  local ce = A.byChar[ch]
+  if not ce then
+    ce = { char = ch, classFile = r.classFile, count = 0, value = 0 }
+    A.byChar[ch] = ce
+    A.distinctChars = A.distinctChars + 1
+  end
+  if not isCurrency then
+    ce.count = ce.count + 1
+    ce.value = ce.value + value
+  end
+end
+
+-- The CURRENCY section's own buckets, keyed by currency name rather than itemID.
+local function accumulateCurrency(A, r, src, qty)
+  A.currencyEvents = A.currencyEvents + 1
+  local cname = r.itemName or ("currency " .. tostring(r.currencyID))
+  if A.byCurrency[cname] == nil then A.currencyDistinct = A.currencyDistinct + 1 end
+  A.byCurrency[cname] = (A.byCurrency[cname] or 0) + qty
+
+  local m = A.currencySourceMatrix[cname]
+  if not m then m = {}; A.currencySourceMatrix[cname] = m end
+  m[src] = (m[src] or 0) + qty
+
+  A.currencyBySource[src] = (A.currencyBySource[src] or 0) + qty
+
+  if r.char then
+    local cc = A.currencyByChar[r.char]
+    if cc then cc.quantity = cc.quantity + qty
+    else A.currencyByChar[r.char] = { char = r.char, classFile = r.classFile, quantity = qty } end
+    bump(A.currencyCharMatrix, r.char, cname, qty)
   end
 
-  for _, r in ipairs(records) do
-    local qty = r.quantity or 1
-    local value = (NS.Util.RecordValue(r) or 0) * qty
-    local isCurrency = r.currencyID ~= nil
-    totalValue = totalValue + value
-    totalQuantity = totalQuantity + qty
-
-    local ch = r.char
-
-    -- Loot-by-source / value / per-character charts are items-only: currency has its own CURRENCY
-    -- section, so counting it here would make per-character totals disagree with the item-attribute
-    -- companions (Bound/Quality/Type by Character). `src` is still read below for the currency charts.
-    local src = r.source or "OTHER"
-    if not isCurrency then
-      bySource[src] = (bySource[src] or 0) + 1
-      valueBySource[src] = (valueBySource[src] or 0) + value
-      bump(charBySource, ch, src, 1)
-      bump(charValueBySource, ch, src, value)
-    end
-
-    if not isCurrency then
-      local q = r.quality or 0
-      byQuality[q] = (byQuality[q] or 0) + 1
-      bump(charByQuality, ch, q, 1)
-      if q >= 4 then epicPlus = epicPlus + 1 end
-    end
-
-    if r.ts then
-      local day = date("%Y-%m-%d", r.ts)
-      byDay[day] = (byDay[day] or 0) + 1
-      valueByDay[day] = (valueByDay[day] or 0) + value
-      local d = date("*t", r.ts)
-      byHour[d.hour] = (byHour[d.hour] or 0) + 1
-      byWeekday[d.wday - 1] = (byWeekday[d.wday - 1] or 0) + 1  -- Lua wday 1=Sun → key 0=Sun
-      if not firstTs or r.ts < firstTs then firstTs = r.ts end
-      if not lastTs or r.ts > lastTs then lastTs = r.ts end
-    end
-
-    -- "" (what Compat.GetZone answers with no zone text yet) buckets with nil, matching the Zone
-    -- filter's single Unknown option — otherwise a blank-labeled row sits beside Unknown.
-    local zone = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
-    byZone[zone] = (byZone[zone] or 0) + 1
-    valueByZone[zone] = (valueByZone[zone] or 0) + value
-
-    if not isCurrency then
-      local ty = r.itemType
-      if ty and ty ~= "" then byType[ty] = (byType[ty] or 0) + 1; bump(charByType, ch, ty, 1) end
-    end
-
-    if not isCurrency then
-      local bk = r.bound or "UNBOUND"
-      byBound[bk] = (byBound[bk] or 0) + 1
-      bump(charByBound, ch, bk, 1)
-    end
-
-    local conf = r.confidence or "INFERRED"
-    byConfidence[conf] = (byConfidence[conf] or 0) + 1
-
-    local kl = r.sourceDetail and r.sourceDetail.keystoneLevel
-    if kl then byKeystone[kl] = (byKeystone[kl] or 0) + 1 end
-
-    if not isCurrency then
-      local id = r.itemID
-      if id ~= nil then
-        local e = byItem[id]
-        if e then
-          e.count = e.count + 1
-          e.value = e.value + value
-        else
-          byItem[id] = { itemID = id, itemName = r.itemName, quality = r.quality,
-                         count = 1, value = value }
-          distinctItems = distinctItems + 1
-        end
-      end
-    end
-
-    if ch then
-      -- Register every character (for the class-color lookup + the "characters" KPI), but count and
-      -- value only their items — "Loot by character" is items-only so it tallies with the item charts.
-      local ce = byChar[ch]
-      if not ce then
-        ce = { char = ch, classFile = r.classFile, count = 0, value = 0 }
-        byChar[ch] = ce
-        distinctChars = distinctChars + 1
-      end
-      if not isCurrency then
-        ce.count = ce.count + 1
-        ce.value = ce.value + value
-      end
-    end
-
-    if isCurrency then
-      currencyEvents = currencyEvents + 1
-      local cname = r.itemName or ("currency " .. tostring(r.currencyID))
-      if byCurrency[cname] == nil then currencyDistinct = currencyDistinct + 1 end
-      byCurrency[cname] = (byCurrency[cname] or 0) + qty
-
-      local m = currencySourceMatrix[cname]
-      if not m then m = {}; currencySourceMatrix[cname] = m end
-      m[src] = (m[src] or 0) + qty
-
-      currencyBySource[src] = (currencyBySource[src] or 0) + qty
-
-      if r.char then
-        local cc = currencyByChar[r.char]
-        if cc then cc.quantity = cc.quantity + qty
-        else currencyByChar[r.char] = { char = r.char, classFile = r.classFile, quantity = qty } end
-        bump(currencyCharMatrix, r.char, cname, qty)
-      end
-
-      if r.ts then
-        local cday = date("%Y-%m-%d", r.ts)
-        currencyByDay[cday] = (currencyByDay[cday] or 0) + qty
-      end
-
-      if not biggestHaul or qty > biggestHaul.quantity then
-        biggestHaul = { name = cname, quantity = qty }
-      end
-    end
-
-    if not isCurrency then
-      -- Highlights: best gear (max itemLevel, ties → higher quality) + richest single drop.
-      local ilvl = r.itemLevel or 0
-      if ilvl > 0 and (not bestDrop or ilvl > bestDrop.itemLevel
-          or (ilvl == bestDrop.itemLevel and (r.quality or 0) > (bestDrop.quality or 0))) then
-        bestDrop = { itemName = r.itemName, quality = r.quality, itemLevel = ilvl, itemLink = r.itemLink }
-      end
-      if value > 0 and (not richestDrop or value > richestDrop.value) then
-        richestDrop = { itemName = r.itemName, quality = r.quality, value = value, itemLink = r.itemLink }
-      end
-    end
+  if r.ts then
+    local cday = date("%Y-%m-%d", r.ts)
+    A.currencyByDay[cday] = (A.currencyByDay[cday] or 0) + qty
   end
 
+  if not A.biggestHaul or qty > A.biggestHaul.quantity then
+    A.biggestHaul = { name = cname, quantity = qty }
+  end
+end
+
+-- The orderings and day rollup derived from the buckets once the pass is done.
+local function derive(A)
   local topZones = {}
-  for zone, count in pairs(byZone) do
-    topZones[#topZones + 1] = { zone = zone, count = count, value = valueByZone[zone] or 0 }
+  for zone, count in pairs(A.byZone) do
+    topZones[#topZones + 1] = { zone = zone, count = count, value = A.valueByZone[zone] or 0 }
   end
   table.sort(topZones, function(a, b)
     if a.count ~= b.count then return a.count > b.count end
@@ -530,7 +526,7 @@ function Database:Stats(filter)
 
   -- topItems and topItemsByValue share the same entry tables (from byItem) — two orderings.
   local topItems, topItemsByValue = {}, {}
-  for _, e in pairs(byItem) do
+  for _, e in pairs(A.byItem) do
     topItems[#topItems + 1] = e
     topItemsByValue[#topItemsByValue + 1] = e
   end
@@ -546,31 +542,71 @@ function Database:Stats(filter)
   end)
 
   local activeDays, busiestDay = 0, nil
-  for day, count in pairs(byDay) do
+  for day, count in pairs(A.byDay) do
     activeDays = activeDays + 1
     if not busiestDay or count > busiestDay.count then busiestDay = { day = day, count = count } end
   end
 
+  return topZones, topItems, topItemsByValue, activeDays, busiestDay
+end
+
+-- Aggregate the (optionally filtered) history in one O(n) pass. Returns count maps, value maps,
+-- per-character/type/bound/time breakdowns, pre-sorted top lists, and totals/highlights — the
+-- struct all Insights widgets consume (see docs/browser.md). "Value" is the derived value: (auctionPrice or vendorPrice) × quantity
+-- (captured at loot time). New fields are additive.
+--
+-- The per-record work lives in the accumulate* helpers above, one per breakdown group. The single
+-- pass is deliberate and load-bearing (docs/browser.md); the helpers split the *body*, not the pass.
+function Database:Stats(filter)
+  local records = self:Query(filter or {})
+  local A = newAccumulator()
+
+  for _, r in ipairs(records) do
+    local qty = r.quantity or 1
+    local value = (NS.Util.RecordValue(r) or 0) * qty
+    local isCurrency = r.currencyID ~= nil
+    local ch = r.char
+    -- `src` is read for the currency charts too, which is why it is resolved out here.
+    local src = r.source or "OTHER"
+
+    A.totalValue = A.totalValue + value
+    A.totalQuantity = A.totalQuantity + qty
+
+    if isCurrency then
+      accumulateCurrency(A, r, src, qty)
+    else
+      accumulateItem(A, r, ch, src, value)
+    end
+    accumulateTime(A, r, value)
+    accumulateProvenance(A, r, value)
+    accumulateChar(A, r, ch, isCurrency, value)
+  end
+
+  local topZones, topItems, topItemsByValue, activeDays, busiestDay = derive(A)
+
   return {
-    bySource = bySource, byQuality = byQuality, byDay = byDay,
-    byZone = byZone, byItem = byItem, topZones = topZones,
+    bySource = A.bySource, byQuality = A.byQuality, byDay = A.byDay,
+    byZone = A.byZone, byItem = A.byItem, topZones = topZones,
     topItems = topItems, topItemsByValue = topItemsByValue,
-    valueBySource = valueBySource, valueByDay = valueByDay, valueByZone = valueByZone,
-    byChar = byChar, byType = byType, byBound = byBound,
-    byHour = byHour, byWeekday = byWeekday, byKeystone = byKeystone, byConfidence = byConfidence,
-    charBySource = charBySource, charValueBySource = charValueBySource, charByQuality = charByQuality,
-    charByType = charByType, charByBound = charByBound,
-    byCurrency = byCurrency, currencySourceMatrix = currencySourceMatrix,
-    currencyByChar = currencyByChar, currencyByDay = currencyByDay,
-    currencyCharMatrix = currencyCharMatrix,
-    currencyBySource = currencyBySource,
-    currencyTotals = { distinct = currencyDistinct, events = currencyEvents, biggestHaul = biggestHaul },
+    valueBySource = A.valueBySource, valueByDay = A.valueByDay, valueByZone = A.valueByZone,
+    byChar = A.byChar, byType = A.byType, byBound = A.byBound,
+    byHour = A.byHour, byWeekday = A.byWeekday, byKeystone = A.byKeystone,
+    byConfidence = A.byConfidence,
+    charBySource = A.charBySource, charValueBySource = A.charValueBySource,
+    charByQuality = A.charByQuality,
+    charByType = A.charByType, charByBound = A.charByBound,
+    byCurrency = A.byCurrency, currencySourceMatrix = A.currencySourceMatrix,
+    currencyByChar = A.currencyByChar, currencyByDay = A.currencyByDay,
+    currencyCharMatrix = A.currencyCharMatrix,
+    currencyBySource = A.currencyBySource,
+    currencyTotals = { distinct = A.currencyDistinct, events = A.currencyEvents,
+                       biggestHaul = A.biggestHaul },
     totals = {
-      records = #records, distinctItems = distinctItems, distinctChars = distinctChars,
-      firstTs = firstTs, lastTs = lastTs,
-      totalValue = totalValue, totalQuantity = totalQuantity,
+      records = #records, distinctItems = A.distinctItems, distinctChars = A.distinctChars,
+      firstTs = A.firstTs, lastTs = A.lastTs,
+      totalValue = A.totalValue, totalQuantity = A.totalQuantity,
       activeDays = activeDays, busiestDay = busiestDay,
-      epicPlus = epicPlus, bestDrop = bestDrop, richestDrop = richestDrop,
+      epicPlus = A.epicPlus, bestDrop = A.bestDrop, richestDrop = A.richestDrop,
     },
   }
 end
