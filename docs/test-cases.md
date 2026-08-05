@@ -155,10 +155,11 @@ badge and any count quoted in the docs must agree with it.
 - Filters: ClearList and ClearAll include the currency blacklist
 - Filters: ParseCurrencyID reads a currency link or a bare number
 
-### test_auctionprice.lua (23)
+### test_auctionprice.lua (24)
 
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
+- AuctionPrice: the shipped cascade reaches a non-default-collected key without the panel
 - AuctionPrice: Pick respects a reordered priority list
 - AuctionPrice: GatherAll only captures keys in the capture set
 - AuctionPrice: GatherAll returns nil when nothing gathered / disabled
@@ -497,7 +498,7 @@ badge and any count quoted in the docs must agree with it.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_schema.lua (30)
+### test_schema.lua (31)
 
 - Schema: debugConsole row is session-only, in Master Controls
 - Schema: setting debugConsole toggles the window, never writes db.global
@@ -512,6 +513,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: FindRow resolves a known path and rejects an unknown one
 - Schema: every persisted path resolves against the shipped defaults
 - Schema: the shipped default equals the schema's declared default
+- Schema: the AH priority cascade is declared once, in core/Constants.lua
 - Schema: every dropdown row offers values, and its default is one of them
 - Schema: every MultiCheck row offers values
 - Schema: the slider default sits inside its own bounds
@@ -590,7 +592,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: a nil label becomes an empty string
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 
-### test_panel.lua (24)
+### test_panel.lua (25)
 
 - Panel: the parent category and all three sub-pages are registered
 - Panel: registration is idempotent
@@ -610,6 +612,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the General page's Defaults click restores every schema default
 - Panel: the AH Price page's Defaults click restores the capture set AND the priority order
 - Panel: the Filters page lists the ids on each list and can remove one
+- Panel: a blacklist change while the Filters page is hidden repaints it on the next OnShow
 - Panel: the Filters page's Defaults click clears every id list
 - Panel: the AH Price page draws one reusable row slot per known price source
 - Panel: the AH Price page renders only its own schema group
@@ -651,7 +654,7 @@ badge and any count quoted in the docs must agree with it.
 | test_compat.lua | 31 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
-| test_auctionprice.lua | 23 |
+| test_auctionprice.lua | 24 |
 | test_collector.lua | 33 |
 | test_database.lua | 58 |
 | test_stats.lua | 19 |
@@ -660,9 +663,9 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 22 |
 | test_debuglog.lua | 21 |
 | test_slash.lua | 34 |
-| test_schema.lua | 30 |
+| test_schema.lua | 31 |
 | test_analytics.lua | 57 |
-| test_panel.lua | 24 |
+| test_panel.lua | 25 |
 | test_libka0s.lua | 17 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **579** |
+| **Total** | **582** |

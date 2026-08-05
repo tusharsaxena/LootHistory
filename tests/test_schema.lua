@@ -137,13 +137,47 @@ test("Schema: every persisted path resolves against the shipped defaults", funct
   end
 end)
 
+-- Structural equality. `assertEqual` compares a table by identity, which is why the case below
+-- used to skip every `type = "table"` row: the set-valued defaults are two separate literals and an
+-- identity check could only ever fail. Skipping them is what let the AH lists drift apart
+-- unobserved (LH-R-01), so the rows are compared by shape instead of excluded.
+local function deepEqual(a, b)
+  if a == b then return true end
+  if type(a) ~= "table" or type(b) ~= "table" then return false end
+  for k, v in pairs(a) do if not deepEqual(v, b[k]) then return false end end
+  for k in pairs(b) do if a[k] == nil then return false end end
+  return true
+end
+
 test("Schema: the shipped default equals the schema's declared default", function()
-  -- Two sources of the same truth; a drift would make a reset change the value silently.
+  -- Two sources of the same truth; a drift would make a reset change the value silently. Table
+  -- rows are included and compared by shape — see deepEqual above.
   for _, row in ipairs(S.Schema) do
-    if not row.sessionOnly and row.type ~= "table" then
-      assertEqual(S:ReadPath(NS.defaults.global, row.path), row.default,
-        row.path .. " disagrees with defaults/Global.lua")
+    if not row.sessionOnly then
+      local shipped = S:ReadPath(NS.defaults.global, row.path)
+      if row.type == "table" then
+        assertTrue(deepEqual(shipped, row.default),
+          row.path .. " disagrees with defaults/Global.lua")
+      else
+        assertEqual(shipped, row.default, row.path .. " disagrees with defaults/Global.lua")
+      end
     end
+  end
+end)
+
+test("Schema: the AH priority cascade is declared once, in core/Constants.lua", function()
+  -- LH-R-01. `settings.auction.priority` is a carve-out array with no schema row, so the case
+  -- above cannot reach it — and defaults/Global.lua used to restate it as a second literal that
+  -- had drifted to 7 of the 11 tags. It is now filled from AUCTION_PRIORITY_DEFAULT, which is the
+  -- only place the cascade is written down. Re-splitting the two turns this red.
+  local declared = NS.Constants.AUCTION_PRIORITY_DEFAULT
+  local shipped  = NS.defaults.global.settings.auction.priority
+  assertTrue(shipped ~= declared,
+    "the shipped default must be a copy — an alias lets a reorder rewrite the constant")
+  assertEqual(#shipped, #declared,
+    "defaults/Global.lua ships " .. #shipped .. " cascade entries, Constants declares " .. #declared)
+  for i, tag in ipairs(declared) do
+    assertEqual(shipped[i], tag, "cascade entry " .. i .. " disagrees with defaults/Global.lua")
   end
 end)
 

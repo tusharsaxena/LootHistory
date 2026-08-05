@@ -38,6 +38,21 @@ test("AuctionPrice: Pick walks the priority list, first present wins", function(
   assertEqual(price, 51000); assertEqual(tag, "oribos:market")  -- dbmarket/auctionator absent
 end)
 
+test("AuctionPrice: the shipped cascade reaches a non-default-collected key without the panel",
+  function()
+    -- LH-R-01. defaults/Global.lua used to ship only the 7 default-collected tags, so a fresh
+    -- install's stored cascade could not name tsm:dbhistorical at all: `/lh set` on that key
+    -- captured a price that Pick then refused to select, until opening the AH Price page ran
+    -- ReconcilePriority and appended the missing four. The stored default now IS the one
+    -- declaration, so the key is reachable with the panel never opened.
+    local shipped = {}
+    for i, tag in ipairs(NS.defaults.global.settings.auction.priority) do shipped[i] = tag end
+    NS.db.global.settings.auction = { enabled = true, priority = shipped }
+    local price, tag = NS.AuctionPrice:Pick({ tsm = { dbhistorical = 39000 } })
+    assertEqual(price, 39000); assertEqual(tag, "tsm:dbhistorical")
+    NS.db.global.settings.auction = nil
+  end)
+
 test("AuctionPrice: Pick respects a reordered priority list", function()
   NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbminbuyout", "oribos:market" } }
   local price, tag = NS.AuctionPrice:Pick({ tsm = { dbminbuyout = 47000 }, oribos = { market = 51000 } })
