@@ -72,7 +72,7 @@ the small-scale rules those documents assume.
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:9`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:218`). The quest-item gate keys on the locale-independent item class
+  (`modules/Collector.lua:223`). The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
 ## Chat output: one shared secret-safe printer
@@ -128,10 +128,12 @@ the small-scale rules those documents assume.
 ## Media: Blizzard defaults, with one ratified font exception
 
 - **Fonts, textures, and borders default to Blizzard-shipped media.** Text uses stock `GameFont*`
-  font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:94`);
+  font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:85`);
   every texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-CheckBox-Check`, `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
-  `WHITE8X8` drawn as 1px edges, colored from the flat `SKIN` table (`modules/Browser.lua:20`).
+  `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
+  `NS.ApplySkin` (`modules/Browser.lua:75`, `core/CoreSetup.lua`); `modules/Browser.lua:23`’s own
+  `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:579`) — branding art, not a re-skinnable surface.
 - **Ratified exception — the monospace console font (audited 2026-07-17).** The debug console and
@@ -146,8 +148,9 @@ the small-scale rules those documents assume.
   `media/fonts/`; init registers it with LibSharedMedia (`core/LootHistory.lua:30`) purely to
   *publish* it — nothing reads a font setting. Do not re-flag this as a standards deviation.
 - **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
-  only for the registration above (no `Fetch`/`List`). Making the flat `SKIN` user-configurable is
-  a tracked post-1.0.0 idea (`modules/Browser.lua:14`), not a gap to close now.
+  only for the registration above (no `Fetch`/`List`). Making the shared edge user-configurable is
+  a tracked post-1.0.0 idea (`modules/Browser.lua:17`) that now belongs at the LibKa0s seam, not a
+  gap to close now.
 
 ## Options UI: Blizzard canvas, never AceConfigDialog
 
