@@ -276,12 +276,13 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Standards compliance
 
-**Open deviations exist.** The 2026-08-04 audit ([`audits/2026-08-04/02_DEVIATIONS.md`](audits/2026-08-04/02_DEVIATIONS.md))
-records `LH-19`…`LH-31` as open, most of them the `performance` section's `LibKa0s-Perf-1.0`
-adoption chain (`LH-20`…`LH-26`), whose head is an accepted `wont-do` in
-[`pending/LEDGER.md`](pending/LEDGER.md) (`LIBKA0S-17`: this addon has no hot path, and `suspend`
-would drop real loot during the measurement window). Read the bundle for the current list rather
-than this paragraph — it is frozen the day it was written, and this file is not.
+**Read [§ Documented deviations](#documented-deviations) first.** It is the register, and a
+deviation that is in it is *ratified* — an audit records it as accepted rather than re-filing it.
+The `performance` section's `LibKa0s-Perf-1.0` adoption chain (`LH-20`…`LH-26` in the 2026-08-04 and
+2026-08-05 bundles) is the case in point: it is not open work, it is the `performance-§12`
+no-combat-path exemption, claimed with a committed sweep in [`performance.md`](performance.md) and
+recorded as one register row. Audit bundles are frozen the day they are written; this file is not,
+so where the two disagree the register is the current answer.
 
 The carve-outs below are separate: each was raised, resolved, and is **not** an open deviation.
 One was raised and **ratified (2026-07-17)**:
@@ -344,6 +345,7 @@ Three such records were retired rather than carried in here, and are named below
 |---|---|---|---|---|
 | `architecture-§5` | Five pieces of persistent state are written to `NS.db.global` directly rather than through `NS.Schema:Set`: `settings.window` geometry, `savedView`, the `blacklist` / `whitelist` item-id sets, `currencyBlacklist`, and the `settings.auction.priority` ordered cascade. | A dynamic, unbounded id-set and an ordered cascade have no fixed schema widget to express, so there is no row for `Set` to validate against. Owned by `NS.Filters` / `NS.AuctionPrice`; reasoned in [`saved-variables.md`](saved-variables.md) *Standards note* and in **Standards compliance** above. | 2026-07-17 | `options-ui` gains a set/list widget maker, or any of these five acquires a fixed schema row — at which point it moves back under the single write seam. |
 | `architecture-§5` | The schema carries a **`sessionOnly` row kind** (`get`/`set` accessors, never written to `db.global`), used by the "Debug console" window-visibility toggle. | It extends schema-as-single-source rather than breaking it — the toggle is a real schema row driving the panel, the CLI and reset — but it is a row that deliberately never reaches the DB, because `debug-logging` makes the debug flag session-only. See [`settings-panel.md`](settings-panel.md). | 2026-07-17 | The standard names a session-only row kind (then this is compliant, not a deviation), or the toggle becomes persistent. |
+| `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-runs/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`performance.md`](performance.md), which names the per-event work for all eleven events and all four one-shot timers. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. `pending/LEDGER.md` **LIBKA0S-17**. | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
 | `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. `pending/LEDGER.md` **LIBKA0S-14**. | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
 
 **Retired, deliberately not rows.** `LIBKA0S-02`'s declined window skin — `Core.SKIN` **is** this
@@ -407,4 +409,5 @@ Topic-specific detail lives alongside this file in `docs/`. Read on demand — t
 | Deferred/declined decisions, incl. the LibKa0s adoption record LIBKA0S-01..19 | [pending/LEDGER.md](pending/LEDGER.md) | Re-litigating a seam; "why isn't X adopted?"; deferring an item. |
 | In-game smoke tests | [smoke-tests.md](smoke-tests.md) | After any change; before a release. |
 | Automated test records + the complexity watch list | [automated-tests/RESULTS.md](automated-tests/RESULTS.md) | Deciding what to peel; regenerate it and read the diff at every release (`performance-§10`). |
+| What this addon costs, and why nothing is bracketed — the `performance-§12` exemption and its committed sweep | [performance.md](performance.md) | Adding an `OnUpdate`, a ticker, or in-combat work; answering "how expensive is this addon?" |
 | Toolchain contract — what to install to run, test and release this addon (WSL2/Ubuntu) | [../DEPENDENCIES.md](../DEPENDENCIES.md) | Setting up a new machine; adding or dropping a tool. |

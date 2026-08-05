@@ -49,6 +49,15 @@ the same reason an adopted one is: an unrecorded decision is indistinguishable f
 and the next consistency sweep would "fix" it. Naming the upstream minor that unblocked a row is
 what makes "why now?" answerable later.
 
+**`LIBKA0S-17` is now ratified as a register row**, not only a ledger decline: the
+`performance-§12` no-combat-path exemption lives in
+[`../ARCHITECTURE.md` § Documented deviations](../ARCHITECTURE.md#documented-deviations) with its
+committed sweep in [`../performance.md`](../performance.md). A decline reasoned only here is not an
+exemption. **Two obligations survive it**, and both are easy to drop by accident: `libs/LibKa0s/` is
+still vendored whole (`Perf.lua` included), and the **next release notes must carry the
+`perf: skip` sentence naming this exemption** (`automated-tests-§3`) rather than letting the skip
+read as measured.
+
 | ID | Evidence hash | Source | Decision | Date | Rationale |
 |---|---|---|---|---|---|
 | LIBKA0S-01 | `29e9751b` | `core/CoreSetup.lua`, `core/Util.lua` | 🟢 done | 2026-08-01 | `LibKa0s-Core-1.0`'s printer and secret-safe stringifier adopted; the ~37-line block that owned them in `core/Util.lua` deleted. A pure refactor at the seam — this addon's guard was already the `table.concat` probe with the same `<secret>` sentinel the library ships, so not one rendered byte moves. `NS.Print` and `NS.Util.print` are BOTH published, because `core/LootHistory.lua`'s AceConsole reclaim reads the latter back over the former; a seam publishing only `NS.Print` is silently undone by that reclaim while appearing to work. |
