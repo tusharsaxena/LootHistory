@@ -109,7 +109,7 @@ local lib = LibStub and LibStub("LibKa0s-Slash-1.0", true)
 -- user that `settings.excludedSources` is combat-protected. Slash **minor 5**'s `format` hook is the
 -- supported answer to exactly this (it was added for BankLedger's muted-store set), so the branch
 -- lives here and everything else is handed straight back to the library. Kept as a public member
--- because settings/Panel.lua and the suite both read it.
+-- because the descriptor's `format` hook below is handed it by name, and the suite pins its output.
 function Sl.FormatSchemaValue(row, v)
   if v == nil then return "nil" end
   if row and row.type == "table" then
@@ -200,9 +200,9 @@ if not lib then
   return
 end
 
--- Re-exported so settings/Panel.lua and the suite reach ONE key/value formatter. Gold key, white
--- value, no trailing colon — identical in shape to what this file used to own, with the hex digits
--- now in the library's upper case.
+-- Re-exported so this file and the degraded stub above expose ONE key/value formatter under the same
+-- name, and so the suite — the only other reader — pins that one shape. Gold key, white value, no
+-- trailing colon; identical to what this file used to own, but in the library's UPPER-case hex.
 Sl.FormatKV = lib.FormatKV
 
 local Dispatcher = lib:New({
