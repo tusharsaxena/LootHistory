@@ -141,9 +141,13 @@ end
 -- Run a page's structural rebuilders (list rows) + relayout, and clear its dirty flag. Called on
 -- first paint, on an on-screen edit, and on the next OnShow after an off-screen change — the gate
 -- that keeps AceGUI teardown+rebuild off every tab click (options-ui-§11 / anti-pattern #39).
+--
+-- The flag is the LIBRARY's `ctx._dirty` — the one O.SetRenderer's OnShow actually reads — and not
+-- a private `ctx.dirty` alongside it. A page-local flag is written and never read: the library
+-- returns early on `_rendered and not _dirty`, so an off-screen change would never repaint.
 local function runRebuilders(ctx)
   for _, fn in ipairs(ctx.rebuilders or {}) do pcall(fn) end
-  ctx.dirty = false
+  ctx._dirty = false
   if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
 end
 
@@ -326,7 +330,7 @@ local function buildFilters(ctx)
     local ev = NS.NewBusTarget()
     if ev then
       local onChange = function()
-        if ctx.panel:IsShown() then runRebuilders(ctx) else ctx.dirty = true end
+        if ctx.panel:IsShown() then runRebuilders(ctx) else ctx._dirty = true end
       end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
       P.__evFilters = ev

@@ -282,7 +282,7 @@ test("Panel: the Filters page lists the ids on each list and can remove one", fu
   local created = show(mocks.__subcategories["Filters"])
   if #created == 0 then
     -- Already rendered by an earlier case; drive the structural rebuild the page registers.
-    NS.Panel.filters.dirty = true
+    NS.Panel.filters._dirty = true
     created = show(mocks.__subcategories["Filters"])
   end
   local labeled
@@ -300,6 +300,36 @@ test("Panel: the Filters page lists the ids on each list and can remove one", fu
   assertTrue(remove ~= nil, "each list row carries a Remove button")
   NS.Filters:ClearAll()
 end)
+
+test("Panel: a blacklist change while the Filters page is hidden repaints it on the next OnShow",
+  function()
+    -- LH-A-27. The page flags itself dirty off-screen instead of rebuilding, and the flag it writes
+    -- must be the one LibKa0s-Options' OnShow reads (`ctx._dirty`). A page-local `ctx.dirty` is
+    -- written and never read, so the library's `_rendered and not _dirty` early-out swallows the
+    -- next OnShow and the new id only appears after a /reload.
+    NS.Filters:ClearAll()
+    local panel = mocks.__subcategories["Filters"]
+    show(panel)                       -- first render, so the early-out is live from here on
+    panel:Hide()
+
+    NS.Filters:AddBlacklist(778899)   -- fires HistoryChanged; the page is off screen
+    assertTrue(NS.Panel.filters._dirty == true,
+      "an off-screen change must set the flag the library's OnShow reads")
+
+    local before = #AceGUI.__created
+    panel:Show()
+    panel:__fire("OnShow")
+    local labeled
+    for i = before + 1, #AceGUI.__created do
+      local w = AceGUI.__created[i]
+      if w.type == "Label" and type(w.text) == "string" and w.text:find("778899", 1, true) then
+        labeled = w
+      end
+    end
+    assertTrue(labeled ~= nil,
+      "the next OnShow must repaint the list and show the id added while hidden")
+    NS.Filters:ClearAll()
+  end)
 
 test("Panel: the Filters page's Defaults click clears every id list", function()
   NS.Filters:AddBlacklist(1)
