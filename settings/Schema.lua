@@ -4,6 +4,15 @@ local S = NS.Schema
 local C = NS.Constants
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
+-- ONE declaration site per shipped value (savedvariables-§2). A row's `default` READS the
+-- account-wide declaration in defaults/Global.lua rather than restating the literal — the same move
+-- `settings.auction.capture` already makes against core/Constants.lua. Two literals for one value is
+-- exactly how the AH cascade drifted (LH-R-01); tests/test_schema.lua's "shipped default equals the
+-- schema's declared default" case can only catch a drift while two things exist to compare, and it
+-- now has nothing to diverge from on these rows. defaults/Global.lua loads before this file
+-- (LootHistory.toc), and every value read here is a scalar, so no row aliases the shipped table.
+local G = NS.defaults.global
+
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
 -- Paths resolve against NS.db.global (account-wide), not .profile.
 -- `group` names the panel section header; row order within a group drives the
@@ -22,7 +31,7 @@ local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-fr
 -- `widget`, `wide`, `invert`, `sessionOnly`, `fmt`, `get`, `set` and `onChange` stay this addon's.
 S.Schema = {
   -- ── Master Controls ──
-  { path = "settings.enabled", default = true, type = "bool", widget = "CheckBox",
+  { path = "settings.enabled", default = G.settings.enabled, type = "bool", widget = "CheckBox",
     group = "Master Controls", label = "Enable collection",
     tooltip = "Master switch for recording looted items.",
     onChange = function()
@@ -49,7 +58,7 @@ S.Schema = {
       if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
     end },
 
-  { path = "settings.windowScale", default = 1.0, type = "number", min = 0.6, max = 1.6, widget = "Slider",
+  { path = "settings.windowScale", default = G.settings.windowScale, type = "number", min = 0.6, max = 1.6, widget = "Slider",
     fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
     group = "Master Controls", label = "Window scale",
     tooltip = "Scale of the History browser window.",
@@ -58,7 +67,7 @@ S.Schema = {
     end },
 
   -- ── Data Collection ──
-  { path = "settings.qualityThreshold", default = 1, type = "number", widget = "Dropdown",
+  { path = "settings.qualityThreshold", default = G.settings.qualityThreshold, type = "number", widget = "Dropdown",
     group = "Data Collection", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
@@ -67,14 +76,14 @@ S.Schema = {
 
   -- Row order drives the two-column panel pairing: the two dropdowns (Minimum quality | Keep history
   -- for) pair on the top line, the two checkboxes (Record currency | Exclude quest items) below.
-  { path = "settings.retentionDays", default = 30, type = "number", widget = "Dropdown",
+  { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
     group = "Data Collection", label = "Keep history for", values = C.RETENTION_OPTIONS,
     tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
     onChange = function()
       if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     end },
 
-  { path = "settings.recordCurrency", default = true, type = "bool", widget = "CheckBox",
+  { path = "settings.recordCurrency", default = G.settings.recordCurrency, type = "bool", widget = "CheckBox",
     group = "Data Collection", label = "Record currency",
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
@@ -82,7 +91,7 @@ S.Schema = {
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "currency") end
     end },
 
-  { path = "settings.excludeQuestItems", default = true, type = "bool", widget = "CheckBox",
+  { path = "settings.excludeQuestItems", default = G.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
     group = "Data Collection", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
@@ -185,16 +194,30 @@ function S:Default(path)
   return row and deepcopy(row.default)
 end
 
--- Boot validation: every schema path must resolve against the defaults table.
+-- Boot validation (architecture-§5): every persisted schema path must resolve against the shipped
+-- defaults table. Returns the number of rows that did not — 0 on a healthy load — so a caller, and
+-- tests/test_schema.lua, can assert on the result instead of reading chat.
+--
+-- The condition used to carry an `and row.default == nil` conjunct, which made the whole check
+-- structurally dead: every shipped row declares a non-nil default (two of them declare `false`), so
+-- the print could never fire and the one thing this exists to catch — a typo'd path — was reported
+-- by nothing. A row's own `default` is not evidence that its PATH resolves; the two are independent
+-- facts, and only the path is what AceDB and Schema:Get/Set walk. A typo'd path is now reported
+-- whether or not the row carries a default.
 function S:Register()
   local g = NS.defaults and NS.defaults.global
-  if not g then return end
+  -- defaults/Global.lua loads before this file (LootHistory.toc), so `g` is present in any loaded
+  -- client; there is nothing to validate against when it is not.
+  if not g then return 0 end
+  local unresolved = 0
   for _, row in ipairs(S.Schema) do
-    -- Session-only rows (state.debugConsole) have no db-backed default to resolve — skip them.
-    if not row.sessionOnly and S:ReadPath(g, row.path) == nil and row.default == nil then
-      print("schema path missing default: " .. tostring(row.path))
+    -- Session-only rows (state.debugConsole) have no db-backed path to resolve — skip them.
+    if not row.sessionOnly and S:ReadPath(g, row.path) == nil then
+      unresolved = unresolved + 1
+      print("schema path does not resolve against defaults/Global.lua: " .. tostring(row.path))
     end
   end
+  return unresolved
 end
 
 -- Slash command table. Dispatch lives in Slash.lua; the chat help and the settings landing page are

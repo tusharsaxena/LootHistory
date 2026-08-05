@@ -155,10 +155,11 @@ badge and any count quoted in the docs must agree with it.
 - Filters: ClearList and ClearAll include the currency blacklist
 - Filters: ParseCurrencyID reads a currency link or a bare number
 
-### test_auctionprice.lua (23)
+### test_auctionprice.lua (24)
 
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
+- AuctionPrice: the shipped cascade reaches a non-default-collected key without the panel
 - AuctionPrice: Pick respects a reordered priority list
 - AuctionPrice: GatherAll only captures keys in the capture set
 - AuctionPrice: GatherAll returns nil when nothing gathered / disabled
@@ -483,7 +484,7 @@ badge and any count quoted in the docs must agree with it.
 - NS.COMMANDS registers a version verb
 - /lh reset on a table setting echoes (none), not a raw table pointer
 - /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
-- Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
+- Reset Everything purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 - every Slash string this addon renders resolves to prose, not to a key
 - the help header names /loothistory as the alias for /lh
@@ -497,7 +498,7 @@ badge and any count quoted in the docs must agree with it.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_schema.lua (30)
+### test_schema.lua (32)
 
 - Schema: debugConsole row is session-only, in Master Controls
 - Schema: setting debugConsole toggles the window, never writes db.global
@@ -511,7 +512,9 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every row's default matches its declared type
 - Schema: FindRow resolves a known path and rejects an unknown one
 - Schema: every persisted path resolves against the shipped defaults
+- Schema: Register reports a typo'd path even when the row declares a default
 - Schema: the shipped default equals the schema's declared default
+- Schema: the AH priority cascade is declared once, in core/Constants.lua
 - Schema: every dropdown row offers values, and its default is one of them
 - Schema: every MultiCheck row offers values
 - Schema: the slider default sits inside its own bounds
@@ -530,7 +533,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every declared command is uniquely named and dispatchable
 - Schema: the settings CLI verbs are all present
 
-### test_analytics.lua (57)
+### test_analytics.lua (58)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -562,6 +565,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._buildCharStackRows: the row value is the character's total
 - Analytics._buildCharStackRows: an unknown class falls back to neutral gray
 - Analytics._buildCharStackRows: an empty matrix yields no rows
+- Analytics._buildCharStackRows: segments are computed once per character
 - Analytics._paletteMap: colors are assigned by list position
 - Analytics._paletteMap: a key outside the list has no color
 - Analytics._paletteMap: an empty or missing list maps nothing
@@ -590,7 +594,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: a nil label becomes an empty string
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 
-### test_panel.lua (24)
+### test_panel.lua (25)
 
 - Panel: the parent category and all three sub-pages are registered
 - Panel: registration is idempotent
@@ -599,7 +603,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
 - Panel: a dropdown is populated from the row's values, in declared order
 - Panel: a slider is given the row's own min/max
-- Panel: the Reset All action button pairs with the Window scale row
+- Panel: the Reset Everything action button pairs with the Window scale row
 - Panel: the section headings are the schema groups, in declaration order
 - Panel: clicking a checkbox writes through NS.Schema:Set
 - Panel: choosing a dropdown entry writes the stored value
@@ -610,6 +614,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the General page's Defaults click restores every schema default
 - Panel: the AH Price page's Defaults click restores the capture set AND the priority order
 - Panel: the Filters page lists the ids on each list and can remove one
+- Panel: a blacklist change while the Filters page is hidden repaints it on the next OnShow
 - Panel: the Filters page's Defaults click clears every id list
 - Panel: the AH Price page draws one reusable row slot per known price source
 - Panel: the AH Price page renders only its own schema group
@@ -617,7 +622,15 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the landing page shows the tagline
 - Panel: Open refuses during combat and never defers-and-replays
 
-### test_libka0s.lua (17)
+### test_harness.lua (5)
+
+- Harness: the runner fed the loader exactly the TOC's files, in the TOC's order
+- Harness: every path the runner derived from the TOC exists on disk
+- Harness: no libs/ path leaked into the TOC-derived list
+- Harness: the suite list matches tests/test_*.lua in both directions
+- Harness: the runner's suite list has no duplicates
+
+### test_libka0s.lua (22)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -625,6 +638,11 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the Core stub still prints a tagged, secret-safe line
 - degraded install: the notice explains the absence through the shared cause clause, once
 - degraded install: the Core stub answers every member the addon calls
+- degraded install: a bare /lh prints help listing the verbs that still work
+- parity: the Core seam publishes the same NS members on both paths
+- parity: the Slash stub carries the whole live surface
+- parity: the DebugLog stub carries the whole live surface
+- parity: the Options stub carries the whole live surface
 - the L-trap matcher flags the value, not one spelling (all three forms)
 - no descriptor in this addon is handed NS.L
 - tripwire — LibKa0s-Core-1.0 ships no STRINGS table
@@ -651,7 +669,7 @@ badge and any count quoted in the docs must agree with it.
 | test_compat.lua | 31 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
-| test_auctionprice.lua | 23 |
+| test_auctionprice.lua | 24 |
 | test_collector.lua | 33 |
 | test_database.lua | 58 |
 | test_stats.lua | 19 |
@@ -660,9 +678,10 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 22 |
 | test_debuglog.lua | 21 |
 | test_slash.lua | 34 |
-| test_schema.lua | 30 |
-| test_analytics.lua | 57 |
-| test_panel.lua | 24 |
-| test_libka0s.lua | 17 |
+| test_schema.lua | 32 |
+| test_analytics.lua | 58 |
+| test_panel.lua | 25 |
+| test_harness.lua | 5 |
+| test_libka0s.lua | 22 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **579** |
+| **Total** | **594** |

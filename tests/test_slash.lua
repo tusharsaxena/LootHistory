@@ -177,7 +177,7 @@ test("/lh resetall also clears the blacklist and whitelist (non-destructive sett
   assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")
 end)
 
-test("Reset All (ResetEverything) purges history and clears settings + filter lists + view + window", function()
+test("Reset Everything purges history and clears settings + filter lists + view + window", function()
   NS.db.global.history = { { id = 1 } }
   NS.db.global.savedView = { groupBy = "source" }
   NS.db.global.settings.window = { point = "TOPLEFT", x = 5, y = 5, w = 800, h = 600 }

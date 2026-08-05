@@ -47,13 +47,13 @@ LibKa0s seams sit inside `core/`, and their positions are load-bearing rather th
 | `core/State.lua` | Runtime state: `lootContext`, encounter/keystone context, session flags, session-only `debug`, and the session-only `testRecords` (the `/lh test` synthetic dataset). |
 | `core/Util.lua` | Pure helpers: date-range (`RangeFrom`) + time/money/byte formatting, self-loot string parsing, `PlayerKey`, dotted-path split. |
 | `core/CoreSetup.lua` | The **`LibKa0s-Core-1.0`** seam. Publishes the shared **secret-safe chat printer** — `NS.Print` / `NS.Format` / `NS.Util.print` (+ `IsConcatSafe` / `SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua` — which is why this file publishes to **both** keys. It also publishes **`NS.LIBKA0S_MISSING`**: one cause clause, appended to by every other LibKa0s seam in the addon, set outside the `if not lib` branch because they read it on both paths. A cross-file contract, not an implementation detail. Core's window-chrome half is declined; `modules/Browser.lua` owns this addon's skin. |
-| `core/DebugLogSetup.lua` | The **`LibKa0s-DebugLog-1.0`** seam: `NS.DebugLog` and the global `NS.Debug` sink. Replaced the 359-line `modules/DebugLog.lua`. The window chrome is deliberately split: `applySkin` **is** passed, as a closure resolving `NS.Browser` at frame-build time (hoisting it into a load-time local silently loses the skin — `modules/Browser.lua` loads long after `core/`), while **`makeCloseButton` is deliberately not passed**. The window *edge* is shared across every Ka0s window; the *close control* on a library-drawn window is the library's, so the console and the copy window wear Core's thin 18×18 × and the History browser keeps this addon's 24×24 class-colored one (standalone-windows-§2; `docs/pending/LEDGER.md` LIBKA0S-19, asserted in `tests/test_debuglog.lua`). |
+| `core/DebugLogSetup.lua` | The **`LibKa0s-DebugLog-1.0`** seam: `NS.DebugLog` and the global `NS.Debug` sink. Replaced the 359-line `modules/DebugLog.lua`. The window chrome is deliberately split: `applySkin` **is** passed, as a closure resolving `NS.Browser` at frame-build time (hoisting it into a load-time local silently loses the skin — `modules/Browser.lua` loads long after `core/`), while **`makeCloseButton` is deliberately not passed**. The window *edge* is shared across every Ka0s window; the *close control* on a library-drawn window is the library's, so the console and the copy window wear Core's thin 18×18 × and the History browser keeps this addon's 24×24 class-colored one (standalone-windows; `docs/pending/LEDGER.md` LIBKA0S-19, asserted in `tests/test_debuglog.lua`). |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
 | `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam) + `RepairBoundStates` (the deferred warbound-state split a migration can't do, armed by `ArmBoundRepair`), `Add`/`Query`/`ActiveHistory`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `currencyBlacklist`, `settings` (incl. `recordCurrency` and the `auction` cascade), `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
-| `settings/Slash.lua` | The **`LibKa0s-Slash-1.0`** seam. AceConsole `/lh` + `/loothistory`; the dispatcher, help header/rows, landing rows, schema CLI and type-aware parser are the library's, reading the host's positional `NS.COMMANDS`. Host-owned: the purge / reset-all / filter-list-clear confirm dialogs, `ResetEverything`, the `CliResetAll` wrapper that also clears the id-lists, and `FormatSchemaValue` — the descriptor's `format` hook for `type = "table"`, the one row type the library has none for. |
+| `settings/Slash.lua` | The **`LibKa0s-Slash-1.0`** seam. AceConsole `/lh` + `/loothistory`; the dispatcher, help header/rows, landing rows, schema CLI and type-aware parser are the library's, reading the host's positional `NS.COMMANDS`. Host-owned: the purge / reset-everything / filter-list-clear confirm dialogs, `ResetEverything` (the panel's **Reset Everything** button, which is a superset of the `/lh resetall` verb), the `CliResetAll` wrapper that also clears the id-lists, and `FormatSchemaValue` — the descriptor's `format` hook for `type = "table"`, the one row type the library has none for. |
 | `settings/OptionsSetup.lua` | The **`LibKa0s-Options-1.0`** seam: the canvas shell, breadcrumb header, lazy Defaults button, page registry, scroll + always-shown-scrollbar patch, widget makers, two-column flow engine, `SetRenderer` and the two refresh tiers. Where every declined surface is recorded. Must load before `settings/Panel.lua`. |
 | `settings/Panel.lua` | The page builders on top of that seam: the landing page, General, Filters and AH Price, plus the live DB stats block and the two widgets the library has no maker for (the inverted set picker and the pooled AH price table). |
 | `modules/AuctionPrice.lua` | `NS.AuctionPrice:GatherAll(itemLink, itemID)` reads an AH price for a just-looted item from every installed third-party pricing addon (Auctionator / TSM / OribosExchange), capturing **every configured key** into a nested `provider → key → copper` map (`settings.auction.capture`), not just one; every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the gather continues. `NS.AuctionPrice:Pick(map)` is the read-time seam that selects one price from that map via the user-configurable `settings.auction.priority` cascade (first present key wins), returning `price, tag`. Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
@@ -276,12 +276,13 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 
 ## Standards compliance
 
-**Open deviations exist.** The 2026-08-04 audit ([`audits/2026-08-04/02_DEVIATIONS.md`](audits/2026-08-04/02_DEVIATIONS.md))
-records `LH-19`…`LH-31` as open, most of them the `performance` section's `LibKa0s-Perf-1.0`
-adoption chain (`LH-20`…`LH-26`), whose head is an accepted `wont-do` in
-[`pending/LEDGER.md`](pending/LEDGER.md) (`LIBKA0S-17`: this addon has no hot path, and `suspend`
-would drop real loot during the measurement window). Read the bundle for the current list rather
-than this paragraph — it is frozen the day it was written, and this file is not.
+**Read [§ Documented deviations](#documented-deviations) first.** It is the register, and a
+deviation that is in it is *ratified* — an audit records it as accepted rather than re-filing it.
+The `performance` section's `LibKa0s-Perf-1.0` adoption chain (`LH-20`…`LH-26` in the 2026-08-04 and
+2026-08-05 bundles) is the case in point: it is not open work, it is the `performance-§12`
+no-combat-path exemption, claimed with a committed sweep in [`performance.md`](performance.md) and
+recorded as one register row. Audit bundles are frozen the day they are written; this file is not,
+so where the two disagree the register is the current answer.
 
 The carve-outs below are separate: each was raised, resolved, and is **not** an open deviation.
 One was raised and **ratified (2026-07-17)**:
@@ -325,6 +326,36 @@ Two surface-specific notes:
    `/lh show|hide`).
 
 Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule).
+
+---
+
+## Documented deviations
+
+The register (`documentation-§3`). **A deviation not in this table is not ratified** — the reasoning
+may live at length in [`pending/LEDGER.md`](pending/LEDGER.md) or in an audit bundle, and the **Why**
+column cites that id, but a ledger entry declining a rule with no row here is itself the deviation.
+An audit reads this table, records these as accepted, and does not count them toward its MUST tally.
+
+**Re-check trigger** is the condition that *ends* the deviation, written so a reader can tell whether
+it has already fired. This table is **not a graveyard**: a row whose cited rule the standard has since
+changed — so the behavior is now mandated or permitted outright — is retired, not kept for history.
+Three such records were retired rather than carried in here, and are named below the table.
+
+| Rule | What differs | Why | Decided | Re-check trigger |
+|---|---|---|---|---|
+| `architecture-§5` | Five pieces of persistent state are written to `NS.db.global` directly rather than through `NS.Schema:Set`: `settings.window` geometry, `savedView`, the `blacklist` / `whitelist` item-id sets, `currencyBlacklist`, and the `settings.auction.priority` ordered cascade. | A dynamic, unbounded id-set and an ordered cascade have no fixed schema widget to express, so there is no row for `Set` to validate against. Owned by `NS.Filters` / `NS.AuctionPrice`; reasoned in [`saved-variables.md`](saved-variables.md) *Standards note* and in **Standards compliance** above. | 2026-07-17 | `options-ui` gains a set/list widget maker, or any of these five acquires a fixed schema row — at which point it moves back under the single write seam. |
+| `architecture-§5` | The schema carries a **`sessionOnly` row kind** (`get`/`set` accessors, never written to `db.global`), used by the "Debug console" window-visibility toggle. | It extends schema-as-single-source rather than breaking it — the toggle is a real schema row driving the panel, the CLI and reset — but it is a row that deliberately never reaches the DB, because `debug-logging` makes the debug flag session-only. See [`settings-panel.md`](settings-panel.md). | 2026-07-17 | The standard names a session-only row kind (then this is compliant, not a deviation), or the toggle becomes persistent. |
+| `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-runs/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`performance.md`](performance.md), which names the per-event work for all eleven events and all four one-shot timers. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. `pending/LEDGER.md` **LIBKA0S-17**. | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
+| `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. `pending/LEDGER.md` **LIBKA0S-14**. | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
+
+**Retired, deliberately not rows.** `LIBKA0S-02`'s declined window skin — `Core.SKIN` **is** this
+addon's treatment as of Core minor 3, so there is nothing left to deviate from (`LIBKA0S-18`).
+`LIBKA0S-19`'s dropped `makeCloseButton` — `standalone-windows` now draws the split explicitly (the
+edge is shared, the close control on a library-drawn window is the library's), so passing nothing is
+the compliant path. And the third-party pricing shims living in `modules/AuctionPrice.lua` rather
+than `core/Compat.lua`: the standard defines no boundary for **non-Blizzard** addon interop, so that
+is a recorded gap in the standard, not a deviation from it — the paragraph in **Standards
+compliance** above is its home.
 
 ---
 
@@ -378,4 +409,5 @@ Topic-specific detail lives alongside this file in `docs/`. Read on demand — t
 | Deferred/declined decisions, incl. the LibKa0s adoption record LIBKA0S-01..19 | [pending/LEDGER.md](pending/LEDGER.md) | Re-litigating a seam; "why isn't X adopted?"; deferring an item. |
 | In-game smoke tests | [smoke-tests.md](smoke-tests.md) | After any change; before a release. |
 | Automated test records + the complexity watch list | [automated-tests/RESULTS.md](automated-tests/RESULTS.md) | Deciding what to peel; regenerate it and read the diff at every release (`performance-§10`). |
+| What this addon costs, and why nothing is bracketed — the `performance-§12` exemption and its committed sweep | [performance.md](performance.md) | Adding an `OnUpdate`, a ticker, or in-combat work; answering "how expensive is this addon?" |
 | Toolchain contract — what to install to run, test and release this addon (WSL2/Ubuntu) | [../DEPENDENCIES.md](../DEPENDENCIES.md) | Setting up a new machine; adding or dropping a tool. |

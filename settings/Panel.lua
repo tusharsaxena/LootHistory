@@ -28,7 +28,7 @@ local LOGO_SIZE     = 300  -- landing-page logo display size
 -- ROW_VSPACER 8, the 10/6/26 section triple, BUTTON_PAIR_REL 0.492). The three this file's own page
 -- code still needs are re-exported on the instance so host layout stays in lockstep with the engine.
 
--- ── Shared maker for a paired action button (Reset All, Purge) ───────────────────
+-- ── Shared maker for a paired action button (Reset Everything, Purge) ───────────────────
 -- Insets to BUTTON_PAIR_REL rather than a flat 0.5 so the right border isn't shaved by the
 -- ScrollFrame clip (options-ui-§6/§8). Kept host-side: the library's InlineButtonPair builds its own
 -- Flow row, and both of this addon's uses need a bare button to drop into a row someone else owns.
@@ -141,9 +141,13 @@ end
 -- Run a page's structural rebuilders (list rows) + relayout, and clear its dirty flag. Called on
 -- first paint, on an on-screen edit, and on the next OnShow after an off-screen change — the gate
 -- that keeps AceGUI teardown+rebuild off every tab click (options-ui-§11 / anti-pattern #39).
+--
+-- The flag is the LIBRARY's `ctx._dirty` — the one O.SetRenderer's OnShow actually reads — and not
+-- a private `ctx.dirty` alongside it. A page-local flag is written and never read: the library
+-- returns early on `_rendered and not _dirty`, so an off-screen change would never repaint.
 local function runRebuilders(ctx)
   for _, fn in ipairs(ctx.rebuilders or {}) do pcall(fn) end
-  ctx.dirty = false
+  ctx._dirty = false
   if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
 end
 
@@ -326,7 +330,7 @@ local function buildFilters(ctx)
     local ev = NS.NewBusTarget()
     if ev then
       local onChange = function()
-        if ctx.panel:IsShown() then runRebuilders(ctx) else ctx.dirty = true end
+        if ctx.panel:IsShown() then runRebuilders(ctx) else ctx._dirty = true end
       end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
       P.__evFilters = ev
@@ -627,12 +631,18 @@ end
 -- keeps its one-shot bookkeeping in call-local sets, so a second render of the same page fires both
 -- again instead of silently dropping them.
 
--- Attaches the "Reset All" action button as the RIGHT half of the Window scale row. It fires only
+-- Attaches the "Reset Everything" action button as the RIGHT half of the Window scale row. The
+-- label is deliberately NOT "Reset All": this is the confirm-gated TOTAL reset (settings + filter
+-- lists + saved view + window geometry + a full history purge, Sl:ResetEverything), while the
+-- similarly-named `/lh resetall` verb resets settings and the id-lists ONLY and never touches
+-- history. Two affordances with one name and two effects is how a user loses their history to a
+-- button they thought was the slash verb (LH-R-04). The KA0S_LOOTHISTORY_RESETALL dialog text has
+-- always disclosed both effects; the label now agrees with it. It fires only
 -- when that path is currently the lone widget on its line, which it always is here: the row above it
 -- (`state.debugConsole`) is `solo` and flushes after itself.
 local PAIR_WITH = {
   ["settings.windowScale"] = function(_, rowGroup)
-    rowGroup:AddChild(makePairButton("Reset All", function()
+    rowGroup:AddChild(makePairButton("Reset Everything", function()
       if type(StaticPopup_Show) == "function" then
         StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
       elseif NS.Slash and NS.Slash.ResetEverything then

@@ -497,22 +497,22 @@ destructive-action confirm dialogs.
 
 **Steps.**
 - Observe the right-edge vertical **scrollbar** on a page that fits without scrolling.
-- Find the **Reset All** button (right of the Window-scale slider) and the **Purge history…** button
+- Find the **Reset Everything** button (right of the Window-scale slider) and the **Purge history…** button
   (right of the storage-stats label). Check each button's right border.
 - Click **Purge history…** → in the confirm dialog, click **No/Cancel**, then run it again and confirm.
-- Click **Reset All** → confirm dialog.
+- Click **Reset Everything** → confirm dialog.
 - `/lh purge` from chat.
 
 **Pass.**
 - The scrollbar is **always shown**: on a short page the bar renders parked at the top and **grayed /
   disabled** (it does not auto-hide), so the right gutter is always reserved and the body's left/right
   margins **don't jump** between a short and a long subpage.
-- **Reset All** and **Purge history…** each draw their **full right border** (not shaved by the scroll
+- **Reset Everything** and **Purge history…** each draw their **full right border** (not shaved by the scroll
   gutter) and line up cleanly with their left-hand neighbor — no spill past the panel edge
   (`BUTTON_PAIR_REL` pairing via `makePairButton`).
 - **Purge history…** raises `KA0S_LOOTHISTORY_PURGE` ("Delete ALL … records? This cannot be undone.");
   Cancel leaves the data intact, Accept wipes history and prints "history purged."
-- **Reset All** raises `KA0S_LOOTHISTORY_RESETALL` ("Reset ALL … settings AND delete ALL recorded
+- **Reset Everything** raises `KA0S_LOOTHISTORY_RESETALL` ("Reset ALL … settings AND delete ALL recorded
   history?"); Accept wipes history **and** restores every setting to default, then refreshes the panel.
 - `/lh purge` raises the same purge dialog as the button.
 
@@ -725,7 +725,7 @@ already identical to the library's, so **anything that looks different here is t
 3. Click through **General**, **Filters** and **AH Price**. Each header reads
    `Ka0s Loot History ▸ <Page>` with the gold divider under it and a **Defaults** button top-right.
    The two-column pairing is unchanged: Enable collection | Hide minimap button, then Debug console
-   alone, then Window scale | Reset All; then Minimum quality | Keep history for, then Record
+   alone, then Window scale | Reset Everything; then Minimum quality | Keep history for, then Record
    currency | Exclude quest items, then the full-width **Record data from** grid.
 4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
    edge does not shift** as you click between pages (options-ui-§10).
@@ -752,13 +752,13 @@ already identical to the library's, so **anything that looks different here is t
    the addon's own `Show`/`Hide` synced it.
 
 **17e. The console's own chrome.** As of LibKa0s v1.3.0 this IS the library's style too — the Ka0s
-window edge is specified normatively in standalone-windows-§2 and `Core.SKIN` carries it, so the
+window edge is specified normatively in standalone-windows and `Core.SKIN` carries it, so the
 three sibling addons that used to draw a 12px tooltip border now match. Put two Ka0s consoles on
 screen at once and they must be indistinguishable. Open `/lh debug` and confirm: the
 flat 1px black border with the subtle lighter inner line, the **gold** title, the gray divider under
 the title bar — and Core's **thin 18×18 ×** in the top-right, the same one every other Ka0s addon's
 console wears. It is deliberately **not** this addon's own 24×24 class-colored glyph: the History
-window keeps that one, and these two windows are the library's (standalone-windows-§2 — the edge is
+window keeps that one, and these two windows are the library's (standalone-windows — the edge is
 shared across every Ka0s window, the close control on a library-drawn window is the library's).
 **Copy** and **Clear** sit to its left with an even gap; none of the three overlaps. Check the copy
 window (**Copy**) as well — it takes the same ×.
@@ -768,7 +768,8 @@ guard — but check both entry points of each destructive action anyway:
 
 - `/lh purge` → confirm popup. Cancel: history intact. **Settings ▸ General ▸ Purge history…** →
   the same popup.
-- **Settings ▸ General ▸ Reset All** → the "settings AND history" popup. Cancel: nothing changes.
+- **Settings ▸ General ▸ Reset Everything** → the "settings AND history" popup. Cancel: nothing
+  changes. Its label says Everything, not All, precisely because `/lh resetall` below does less.
 - **Settings ▸ Filters ▸ Defaults** → the clear-all-filters popup, and each list's own **Clear all**
   → its own popup.
 - `/lh resetall` is non-destructive (settings + the id-lists only, history untouched) and correctly

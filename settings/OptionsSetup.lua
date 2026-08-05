@@ -98,7 +98,7 @@ NS.Options = lib:New({
     if C_Timer and C_Timer.After then C_Timer.After(delay, fn) end
   end,
 
-  -- Ka0s standard §3.4: one LibStub resolution, stashed for every page file to reuse.
+  -- library-stack-§4: one LibStub resolution, stashed for every page file to reuse.
   onAceGUI = function(AceGUI) NS.AceGUI = AceGUI end,
 
   -- The landing page's body — logo, tagline and the slash-command rows. Late-bound through NS.Panel

@@ -10,10 +10,12 @@ WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard
 
 1. Builds a fresh WoW-API mock set via `tests/wow_mock.lua` — a thin **extender** over `tests/_kit/mock_base.lua`, and a builder, so each run gets one isolated environment.
 2. Loads every file of `LibKa0s.xml` in XML order, then every addon source file **derived from the TOC** via `Loader.tocFiles("LootHistory.toc")`, into a shared `NS` table. Then calls `NS:InitDB()`, `NS.Schema:Register()` and `NS.Panel:Register()` — mirroring the in-game load plus `OnInitialize`.
-3. Exposes the kit's registry and assertions merged into the `_G.LH_TEST` handoff table via `Kit.expose` (`NS`, `mocks`, `Loader`, `test`, `assertEqual`, `assertTrue`, `assertFalse`, `assertNil`, `assertNear`, `assertError`, `fail`).
+3. Exposes the kit's registry and assertions merged into the `_G.LH_TEST` handoff table via `Kit.expose` (`NS`, `mocks`, `Loader`, `addonFiles`, `suites`, `test`, `assertEqual`, `assertTrue`, `assertFalse`, `assertNil`, `assertNear`, `assertError`, `fail`, `skip`, `assertSuiteInventory`, `assertSurfaceParity`).
 4. Hands the suite list to `Kit.run`, which loads each suite, runs every registered case under `pcall`, prints `PASS`/`FAIL` per case and a `N passed, N failed, N total` tail, and exits non-zero if anything failed.
 
 The addon load list is **derived from the TOC rather than hand-maintained**, which is what stops the runner's order drifting from the client's. `libs\` lines are skipped (the client pulls those through their own XML, which the loader cannot see), so the vendored LibKa0s files are the one list still spelled out explicitly — and `tests/test_libka0s.lua` cross-checks its length against `LibKa0s.xml`.
+
+The derivation itself is pinned (testing-§9). `tests/run.lua` publishes the exact table it handed the loader as `T.addonFiles`, and `tests/test_harness.lua` compares it against a fresh derivation, checks every derived path is on disk, and checks no `libs/` path leaked in. The same suite pins the **suite list** in both directions through `Kit.assertSuiteInventory` — `Kit.run` applies that gate implicitly, but a named case is what puts a row in [test-cases.md](test-cases.md), so a reader can tell a gate that ran from one that was opted out of.
 
 ### The loader
 
@@ -55,7 +57,7 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Eighteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Nineteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
@@ -76,13 +78,14 @@ inventory and the authoritative count):
 | `test_slash.lua` | the `LibKa0s-Slash-1.0` dispatcher — `/lh list`/`get`/`set`/`reset`/`resetall`/`version` output (slash-commands-§5), `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, the type-aware parser (enum refusal, slider clamping, boolean refusal), the `format` hook that keeps a set-valued row from rendering as `<secret>`, and both convergences: `reset` is path-scoped, and `LandingRows`/`HelpRows` are the one formatter differing only by the chat indent |
 | `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through (deep-copied, never aliased), `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global`; plus the schema's own shape: unique paths, defaults matching both their declared type and `defaults/Global.lua`, dropdown defaults being selectable, slider defaults inside their range, every setting round-tripping, and the `NS.COMMANDS` table |
 | `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labeling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
+| `test_harness.lua` | the runner's own three lists (testing-§9) — the TOC derivation the loader was actually handed compared against a fresh one, every derived path on disk, no `libs/` leak, and the suite list pinned in both directions by `Kit.assertSuiteInventory` plus a duplicate check the inventory gate cannot see |
 
-Two of the eighteen exist because of the LibKa0s adoption:
+Two of the nineteen exist because of the LibKa0s adoption:
 
 | Suite | Covers |
 |-------|--------|
 | `test_panel.lua` | the settings panel, which had **no suite at all** before the `LibKa0s-Options-1.0` adoption — parent + sub-page registration and its idempotence, the deferred first-`OnShow` body render, one widget per non-skipped row at the 50/50 width, `CheckBox`/`Dropdown`/`Slider` dispatch, dropdown lists populated from the row's `values` in declared order, slider bounds, section headings as the schema groups, the three write paths reaching `NS.Schema:Set`, an external write mirrored back by `Refresh`, the inverted muted-source picker in both directions, the lazy Defaults button (asserted **absent** before first show, which is the half that makes it a guard), each page's Defaults handler including the carve-out priority cascade, the AH page's pooled row slots and page filtering, the landing page's command rows matching `lib.FormatRow` byte for byte, and the combat refusal |
-| `test_libka0s.lua` | the adoption seams themselves — the shared `NS.LIBKA0S_MISSING` cause clause asserted verbatim and on **both** paths, a degraded install exercised by loading every TOC file over a mock set that has never seen `libs/LibKa0s` (rather than by hand-stubbing a branch), the `L`-trap source guard with its own case driving all three spellings, the Core and Options library tripwires that stand in where a module cannot express the trap, module coverage, the silent-flag check on every seam's `LibStub` call, and vendor fidelity |
+| `test_libka0s.lua` | the adoption seams themselves — the shared `NS.LIBKA0S_MISSING` cause clause asserted verbatim and on **both** paths, a degraded install exercised by loading every TOC file over a mock set that has never seen `libs/LibKa0s` (rather than by hand-stubbing a branch), the `L`-trap source guard with its own case driving all three spellings, the Core and Options library tripwires that stand in where a module cannot express the trap, module coverage, the silent-flag check on every seam's `LibStub` call, one `Kit.assertSurfaceParity` case per adopted seam (Core, Slash, DebugLog, Options) whose degraded arm is a real partial-file-list load rather than a hand-stubbed member, the bare-`/lh` help the degraded dispatcher renders, and vendor fidelity |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 
@@ -154,23 +157,28 @@ tests/_kit/run-automated-tests.sh --suite complexity          # a subset
 tests/_kit/run-automated-tests.sh --suite lint --suite tests --no-bundle   # the green gate; writes nothing
 ```
 
-| Suite | Command | Gates? |
-|---|---|---|
-| `lint` | `luacheck .` | **yes** |
-| `tests` | `lua tests/run.lua` | **yes** |
-| `perf` | `lua tests/perf.lua` | no — recorded only |
-| `complexity` | `lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .` | no — recorded only |
+| Suite | Command | Gates the run + the commit? | Gates the tag? |
+|---|---|---|---|
+| `lint` | `luacheck .` | **yes** (testing-§4) | **yes** |
+| `tests` | `lua tests/run.lua` | **yes** (testing-§4) | **yes** |
+| `perf` | `lua tests/perf.lua` | no — recorded only | **yes** — at `pass` |
+| `complexity` | `lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .` | no — recorded only | **yes** — at `pass`, zero functions above CCN 15 |
 
-**`perf` and `complexity` never fail a run.** They are measured, recorded and diffed — a threshold
+**There are two checkpoints, and `perf` and `complexity` answer differently at each.** They never
+fail a run and never block a commit: they are measured, recorded and diffed, because a threshold
 that fails a run teaches everyone to reach for `--no-verify`, after which the gate protects nothing
-and the habit remains. They contribute `amber`, which is a signal rather than a stop. **A missing
-tool is a skip recorded with its reason**, never a pass.
+and the habit remains. They contribute `amber`, which is a signal rather than a stop. **The tag is
+gated on all four suites at `pass` plus zero functions above CCN 15** (automated-tests-§3, *The
+release gate*), evaluated by `/wow-addon:bump-version` from the release run's `manifest.json` — not
+by the runner, whose exit code is unchanged. **A missing tool is a skip recorded with its reason**,
+never a pass, and at the release gate a skip is **NOT EVALUATED** rather than passed.
 
 The runner is **vendored** from `LibKa0s`'s `testkit/`; never edit `tests/_kit/`. A kit fix goes
 upstream and is re-vendored.
 
 **At release, not at commit.** A full bundle is produced as part of every version bump, before the
-tag, with an `ANALYSIS.md` write-up. Commits are gated on lint + tests only.
+tag, with an `ANALYSIS.md` write-up. Commits are gated on lint + tests only; the **tag** is gated on
+all four suites, per the table above.
 
 Results live in [`automated-tests/`](./automated-tests/): `RESULTS.md` is one row per run across all
 four suites plus the current complexity watch list — **one file, overwritten in place**, so its git

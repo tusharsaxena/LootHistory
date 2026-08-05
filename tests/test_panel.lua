@@ -88,7 +88,7 @@ test("Panel: the General page renders one widget per non-skipped schema row, pai
     assertTrue(#created > 0, "the first OnShow must build the page body")
 
     -- Master Controls: Enable collection | Hide minimap button on one line, Debug console alone on
-    -- the next (it is the one `solo` row), Window scale paired with the Reset All action button.
+    -- the next (it is the one `solo` row), Window scale paired with the Reset Everything button.
     local enable = findByLabel(created, "Enable collection")
     assertTrue(enable ~= nil, "the Enable collection checkbox must be drawn")
     assertEqual(enable.type, "CheckBox")
@@ -130,13 +130,15 @@ test("Panel: a slider is given the row's own min/max", function()
   assertEqual(s.max, row.max)
 end)
 
-test("Panel: the Reset All action button pairs with the Window scale row", function()
+test("Panel: the Reset Everything action button pairs with the Window scale row", function()
   -- An ACTION button, not a setting, attached as the right half of a named row. It is the only
   -- entry point to the confirm-gated total reset from the panel, so a render that quietly stopped
   -- drawing it would remove a destructive action's only visible affordance.
   local created = show(mocks.__subcategories["General"])
-  local btn = findByLabel(created, "Reset All")
-  assertTrue(btn ~= nil, "the Reset All button must be drawn")
+  -- Labeled "Reset Everything", not "Reset All": the panel button purges history on top of what
+  -- `/lh resetall` does, and one name for two effects is LH-R-04.
+  local btn = findByLabel(created, "Reset Everything")
+  assertTrue(btn ~= nil, "the Reset Everything button must be drawn")
   assertEqual(btn.type, "Button")
   -- Inset rather than a flat half, so its right border clears the ScrollFrame clip (options-ui-§8).
   assertEqual(btn.relativeWidth, NS.Options.BUTTON_PAIR_REL)
@@ -282,7 +284,7 @@ test("Panel: the Filters page lists the ids on each list and can remove one", fu
   local created = show(mocks.__subcategories["Filters"])
   if #created == 0 then
     -- Already rendered by an earlier case; drive the structural rebuild the page registers.
-    NS.Panel.filters.dirty = true
+    NS.Panel.filters._dirty = true
     created = show(mocks.__subcategories["Filters"])
   end
   local labeled
@@ -300,6 +302,36 @@ test("Panel: the Filters page lists the ids on each list and can remove one", fu
   assertTrue(remove ~= nil, "each list row carries a Remove button")
   NS.Filters:ClearAll()
 end)
+
+test("Panel: a blacklist change while the Filters page is hidden repaints it on the next OnShow",
+  function()
+    -- LH-A-27. The page flags itself dirty off-screen instead of rebuilding, and the flag it writes
+    -- must be the one LibKa0s-Options' OnShow reads (`ctx._dirty`). A page-local `ctx.dirty` is
+    -- written and never read, so the library's `_rendered and not _dirty` early-out swallows the
+    -- next OnShow and the new id only appears after a /reload.
+    NS.Filters:ClearAll()
+    local panel = mocks.__subcategories["Filters"]
+    show(panel)                       -- first render, so the early-out is live from here on
+    panel:Hide()
+
+    NS.Filters:AddBlacklist(778899)   -- fires HistoryChanged; the page is off screen
+    assertTrue(NS.Panel.filters._dirty == true,
+      "an off-screen change must set the flag the library's OnShow reads")
+
+    local before = #AceGUI.__created
+    panel:Show()
+    panel:__fire("OnShow")
+    local labeled
+    for i = before + 1, #AceGUI.__created do
+      local w = AceGUI.__created[i]
+      if w.type == "Label" and type(w.text) == "string" and w.text:find("778899", 1, true) then
+        labeled = w
+      end
+    end
+    assertTrue(labeled ~= nil,
+      "the next OnShow must repaint the list and show the id added while hidden")
+    NS.Filters:ClearAll()
+  end)
 
 test("Panel: the Filters page's Defaults click clears every id list", function()
   NS.Filters:AddBlacklist(1)

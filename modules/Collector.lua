@@ -214,7 +214,12 @@ function Collector:Enable()
   bus:RegisterEvent("CHAT_MSG_CURRENCY", function(_, msg) self:OnChatMsgCurrency(_, msg) end)
   -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
   -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
-  self.__ev = NS.NewBusTarget() or bus
+  -- No `or bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and
+  -- core/LootHistory.lua:4's NewAddon(NS, addonName, "AceEvent-3.0", …) errors first in exactly
+  -- that case (AceAddon-3.0.lua's EmbedLibrary raises on a missing non-silent library), so
+  -- NS.addon, NS.bus and NS.NewBusTarget itself never come into existence and Enable never runs.
+  -- The fallback could only ever have reinstated the shared-target clobber the comment forbids.
+  self.__ev = NS.NewBusTarget()
   self.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function(_, _reason)
     self:RefreshUpvalues()
   end)

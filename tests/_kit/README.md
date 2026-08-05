@@ -43,6 +43,32 @@ interpreter literally named `bash\r`, so a CRLF-pinned repo that ships a `.sh` *
 with `*.sh text eol=lf` — here and in every consumer. Without that line the vendored copy is broken
 on every checkout, not in one contributor's.
 
+## `vendor_sync.lua`
+
+The consumer-side vendored-payload gate: it asserts that a repo's `libs/LibKa0s/` and `tests/_kit/`
+are exactly what LibKa0s published at the tag that repo's README says it bundles. It used to be
+~150 lines copy-pasted into six repos with a one-line delta, which is six chances to fix any one
+problem six different ways.
+
+```lua
+-- tests/test_vendor_sync.lua
+local VendorSync = dofile("tests/_kit/vendor_sync.lua")
+VendorSync.register(_G.AT_TEST, {})
+```
+
+A factory rather than auto-registration, so the consumer keeps its own test global and its own case
+names — the names are what `docs/test-cases.md` counts, and swapping a hand-copied gate for this one
+must not move a repo's numbers.
+
+Two things about it living here are deliberate: the gate is **inside the payload it checks**, so a
+locally patched `tests/_kit/` breaks the gate's own byte-identity assertion; and **LibKa0s cannot run
+it** — there is no sibling to compare against from inside the library repo, which is why
+`tests/test_kitsync.lua` is the library-side equivalent.
+
+When the sibling checkout is absent the cases report **SKIP** with the reason, never PASS. Its
+comparison contract, including the one line-ending normalization and why it exists, is stated in the
+file's own header. Read that header before changing anything about how the bytes are compared.
+
 ## It is not a library
 
 `testkit/` is **not** a LibStub major and **must never ship**.
@@ -54,8 +80,8 @@ on every checkout, not in one contributor's.
   suites as `KIT_VERSION`. That is **not** a LibStub minor and does not make this a library:
   nothing registers it, no load order depends on it, and two copies never negotiate — the vendoring
   gate below is byte-identity, not version comparison. It answers the one question byte-identity
-  cannot answer alone: *which* kit is a given consumer holding. One number covers all three files,
-  because they vendor as one folder and are never adopted separately.
+  cannot answer alone: *which* kit is a given consumer holding. One number covers every file in the
+  folder, because they vendor as one folder and are never adopted separately.
 - It is vendored to `<Addon>/tests/_kit/`, not to `libs/`. `libs/` is the ship payload inside
   `#@no-lib-strip@`; anything there gets zipped. Under `tests/` the **existing** `- tests` entry in
   every addon's `.pkgmeta` already excludes it, so adopting the kit needs no packaging change and
@@ -151,7 +177,7 @@ a real bug.
    event filter pass the entire suite.
 4. **Anything a test needs to drive must be fireable.** `__fire` on frames and on AceGUI widgets is
    what makes a lazy first-`OnShow` render and an `OnValueChanged` write path reachable at all.
-5. **Model the awkward real behaviour, not the convenient one.** AceDB's `copyDefaults` merges in
+5. **Model the awkward real behavior, not the convenient one.** AceDB's `copyDefaults` merges in
    place; AceConsole's `Embed` clobbers a same-named custom `Print`. Both are reproduced, because
    both have already caused a real bug.
 

@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 6
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -75,15 +75,15 @@ function lib.FormatKV(path, valueStr)
   return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
 end
 
--- One row per colour channel: named key, positional index, default. Both stored shapes are read,
+-- One row per color channel: named key, positional index, default. Both stored shapes are read,
 -- because the collection genuinely holds both: AbsorbTracker keeps { r =, g =, b =, a = } and the
--- Ka0s options colour widget writes { r, g, b, a } POSITIONALLY. The named key wins when present,
+-- Ka0s options color widget writes { r, g, b, a } POSITIONALLY. The named key wins when present,
 -- so a host that stores them is rendered exactly as before; a positional table used to read as
 -- all-zero.
 --
 -- A host whose storage is neither shape passes colorDecode on the descriptor. This fallback exists
 -- so the common case needs no descriptor at all — the CLI is often the first thing wired up, and
--- rendering every colour as {0.00, 0.00, 0.00, 1.00} is a poor first impression of a library that
+-- rendering every color as {0.00, 0.00, 0.00, 1.00} is a poor first impression of a library that
 -- had no hook to fix it.
 --
 -- Module-level, built once at load: nothing here is allocated per rendered value.
@@ -224,7 +224,7 @@ local function parseBool(args)
   return v
 end
 
--- Both enum shapes the collection actually declares, normalised to one ordered list of
+-- Both enum shapes the collection actually declares, normalized to one ordered list of
 -- { value =, text = }.
 --
 --   ordered array   { { value = "SHORT", text = "Short" }, ... }   the Ka0s options schema
@@ -398,10 +398,10 @@ function lib:New(d)
   ---
   --- rawget, NOT a plain index, and this is load-bearing rather than pedantic. Every Ka0s host's
   --- locale table carries a metatable fallback that answers an unknown key WITH THE KEY (the
-  --- standard mandates it — anti-patterns #2). A plain index therefore accepts that synthesised
+  --- standard mandates it — anti-patterns #2). A plain index therefore accepts that synthesized
   --- string for every key, these STRINGS become unreachable, and the host renders raw keys like
   --- LIST_HEADER in place of English. It shipped exactly that way in a consumer's perf panel, for
-  --- every string at once, and no headless case caught it because a synthesised value IS a string.
+  --- every string at once, and no headless case caught it because a synthesized value IS a string.
   ---
   --- rawget asks the only question that matters — did the host actually put a value here? — so a
   --- genuine entry still wins and a fallback-only table correctly falls through.
@@ -424,7 +424,7 @@ function lib:New(d)
     return annotator(row) or ""
   end
 
-  -- Colour storage is the HOST's shape, not the library's — the same reasoning
+  -- Color storage is the HOST's shape, not the library's — the same reasoning
   -- OptionsWidgets.lua's codec carries, and deliberately the same two field names, so a host
   -- passes one pair to both majors. lib.FormatValue already reads the two shapes the collection
   -- actually uses; this is the escape hatch for anything else, and it is the reason kv() no
@@ -435,7 +435,7 @@ function lib:New(d)
     -- READ a value type the library does not know, and had no way to teach it to WRITE one back.
     -- BankLedger's muted-store SET (`type = "table"`) fell through to Core's SafeToString, which
     -- probes table.concat and answers the sentinel — telling the user a plain settings value is
-    -- combat-protected. Ahead of the colour codec because a host supplying both is saying it owns
+    -- combat-protected. Ahead of the color codec because a host supplying both is saying it owns
     -- rendering; decoding first would hand the hook something other than what the host stored.
     if type(d.format) == "function" then return d.format(row, value) end
     if row and row.type == "color" and type(d.colorDecode) == "function"
@@ -537,7 +537,7 @@ function lib:New(d)
       return
     end
 
-    -- Written in the host's own colour shape. The lib-level parser answers the named-key form
+    -- Written in the host's own color shape. The lib-level parser answers the named-key form
     -- because that is what it has always answered and hosts read it directly; a host that stores
     -- another shape says so once, on the descriptor, rather than translating at every read site.
     if row.type == "color" and type(d.colorEncode) == "function" and type(v) == "table" then

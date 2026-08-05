@@ -101,6 +101,102 @@ test("degraded install: the Core stub answers every member the addon calls", fun
     "NS.Util.print is the name core/LootHistory.lua reclaims from; the stub must publish both")
 end)
 
+test("degraded install: a bare /lh prints help listing the verbs that still work", function()
+  -- slash-commands-§3. It used to fall through the verb walk to the "unavailable" line, which
+  -- blacks out the whole command surface in the one install where a user most needs to be told
+  -- which commands survived — and seven of them do, because they never went through the library.
+  local ns, lines = loadDegraded()
+  ns.Slash:OnSlash("")
+  local body = table.concat(lines, "\n")
+  assertTrue(body:find(ns.LIBKA0S_MISSING, 1, true) ~= nil,
+    "the help header must still explain WHY through the shared cause clause")
+  for _, verb in ipairs({ "show", "hide", "toggle", "config", "debug", "test", "purge" }) do
+    assertTrue(body:find("/lh " .. verb, 1, true) ~= nil,
+      "a bare /lh must list the host-owned verb " .. verb .. ", which still works: " .. body)
+  end
+  for _, verb in ipairs({ "list", "get", "set", "reset", "resetall", "version" }) do
+    assertTrue(body:find("/lh " .. verb .. "|", 1, true) == nil,
+      "a bare /lh must not offer " .. verb .. ", which answers \"unavailable\" on this path")
+  end
+end)
+
+-- ── stub-surface parity, one case per adopted seam (testing-§8) ──────────────────────────────
+--
+-- The cases above assert the members somebody thought to name. Parity asserts the SET: every key
+-- the live seam publishes is present on the degraded one, and a key that is a function live is a
+-- function degraded (`Helpers.X = UI and UI.X` leaves `false` in place, and a check that only asks
+-- "is the key set?" waves that through while the call site raises anyway).
+--
+-- Both arms come from a real load. The degraded arm is `loadDegraded` above — a PARTIAL FILE LIST,
+-- the addon's TOC files over a mock set that has never seen libs/LibKa0s — never a hand-stubbed
+-- member, which would assert the test's own typing.
+--
+-- Each `ignore` entry below is a member that is live-only ON PURPOSE, with the grep that proves
+-- this addon has no call site for it. They are data rather than a deleted case, which is the only
+-- way an intentional omission and a bug stay distinguishable.
+
+local degradedNS = loadDegraded()
+
+test("parity: the Core seam publishes the same NS members on both paths", function()
+  -- Core publishes onto NS itself rather than onto a module table, so the member list is derived
+  -- from the seam file rather than re-typed:
+  --   grep -nE "^\s*NS\.[A-Za-z_]+\s*=" core/CoreSetup.lua
+  -- Deriving it is what makes a member added to the live half and forgotten in the stub go red;
+  -- a hand-typed list here would go stale in exactly that case.
+  local live, degraded = {}, {}
+  local seen = {}
+  for line in Loader.readFile("core/CoreSetup.lua"):gmatch("[^\r\n]+") do
+    local key = line:match("^%s*NS%.([A-Za-z_][A-Za-z0-9_]*)%s*=")
+    if key and not seen[key] then
+      seen[key] = true
+      live[key], degraded[key] = NS[key], degradedNS[key]
+    end
+  end
+  assertTrue(seen.Print and seen.SafeToString,
+    "the derivation found no NS.Print/NS.SafeToString — core/CoreSetup.lua changed shape and this "
+    .. "case is now asserting nothing")
+  T.assertSurfaceParity(live, degraded, "Core seam (NS members)")
+end)
+
+test("parity: the Slash stub carries the whole live surface", function()
+  -- Members from: grep -nE "^Sl\.[A-Za-z]|^function Sl[.:]" settings/Slash.lua
+  T.assertSurfaceParity(NS.Slash, degradedNS.Slash, "Slash stub")
+end)
+
+test("parity: the DebugLog stub carries the whole live surface", function()
+  -- Members from: grep -nE "^function Sl[.:]|^  [A-Za-z]+ *=" libs/LibKa0s/DebugLog.lua
+  T.assertSurfaceParity(NS.DebugLog, degradedNS.DebugLog, "DebugLog stub", {
+    -- The library's own window internals. `grep -rn "DebugLog[.:]\(CopyText\|Text\|MakeCloseButton\)"
+    -- core settings modules` returns nothing: this addon reaches the console through
+    -- Show/Hide/IsShown/Toggle/SetEnabled/ConsoleCheckbox only, and there is no window to copy
+    -- text out of when the library is absent.
+    "CopyText", "Text", "MakeCloseButton",
+    -- Reached under its published name instead: core/DebugLogSetup.lua does `NS.Debug =
+    -- NS.DebugLog.Debug` live and publishes a no-op `NS.Debug` on the stub path, which is what the
+    -- ~40 call sites across seven files actually call. Asserted directly below.
+    "Debug",
+    -- Test-only seams the library attaches to the live instance the first time the window is
+    -- built (tests/test_debuglog.lua drives it, and that suite loads before this one). They are
+    -- not addon surface, and there is no window to attach them to on the degraded path.
+    "_frameForTest", "_toggleClickForTest",
+  })
+  assertTrue(type(NS.Debug) == "function" and type(degradedNS.Debug) == "function",
+    "NS.Debug is the name the sink is called by; it must be a function on BOTH paths")
+end)
+
+test("parity: the Options stub carries the whole live surface", function()
+  -- Members from: grep -nE "^  function O[.:]|^  O\.[A-Z]" libs/LibKa0s/Options.lua
+  T.assertSurfaceParity(NS.Options, degradedNS.Options, "Options stub", {
+    -- Live-only, all four with no call site in this addon:
+    --   grep -rn "Options\.\(AceGUI\|BuildLandingPage\|PADDING_X\|TextRow\)" core settings modules
+    -- returns nothing. The AceGUI instance is reached as NS.AceGUI (settings/OptionsSetup.lua's
+    -- `onAceGUI` hook), never off the Options table; the landing page is built by NS.Panel through
+    -- `buildMain`; and this addon reads none of the library's published layout scalars — it draws
+    -- its two carve-outs (the set picker, the AH price rows) with its own constants.
+    "AceGUI", "BuildLandingPage", "PADDING_X", "TextRow",
+  })
+end)
+
 -- ── the `L` trap: the source guard ───────────────────────────────────────────────────────────
 --
 -- A descriptor field is not observable after `lib:New` returns, so the only way to pin "no

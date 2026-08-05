@@ -1,4 +1,4 @@
-local addonName, NS = ...   -- luacheck: ignore addonName
+local addonName, NS = ...
 NS.Export = NS.Export or {}
 local E = NS.Export
 

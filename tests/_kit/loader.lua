@@ -87,4 +87,42 @@ function Loader.tocFiles(tocPath)
   return out
 end
 
+--- The `.lua` files a `<Ui>` XML pulls in, in XML order, as forward-slash paths prefixed with the
+--- XML's own directory — so `Loader.xmlFiles("libs/LibKa0s/LibKa0s.xml")` returns
+--- `libs/LibKa0s/Core.lua`, not `Core.lua`, and the result is directly loadable by `Loader.loadAll`.
+---
+--- This is the other half of the gap `tocFiles` documents: a vendored library is pulled in through
+--- its own XML, which the TOC scan cannot see, so every runner in the collection re-typed the same
+--- eight-entry list. Eight hand-typed copies of one list is eight chances to drop an entry, and one
+--- of them did — a consumer's list named six of the eight files and nothing noticed, because a load
+--- list that is short does not raise; it just leaves a module undefined for the cases that never
+--- reach it.
+---
+--- Deliberately line-based and flat: `LibKa0s.xml` is a flat list of `<Script file="…"/>`, there are
+--- no nested `<Include>`s to follow, and a real XML parser here would be a dependency bought to
+--- solve a problem nobody has. A line whose first non-space characters open an XML comment is
+--- skipped, so a commented-out entry does not load.
+---
+--- A missing XML raises with the same "tests run from the repo root" message `tocFiles` and
+--- `readFile` use, rather than returning an empty list: an empty list loads nothing at all and reads
+--- exactly like a clean run.
+function Loader.xmlFiles(xmlPath)
+  local f = io.open(xmlPath, "r")
+  if not f then error("cannot open " .. tostring(xmlPath) .. " (tests run from the repo root)") end
+  -- The XML's own directory, with a trailing slash, or "" when it sits at the repo root.
+  local dir = tostring(xmlPath):gsub("\\", "/"):match("^(.*/)[^/]*$") or ""
+  local out = {}
+  for line in f:lines() do
+    local entry = line:gsub("\r", ""):match("^%s*(.-)%s*$")
+    if not entry:match("^<!%-%-") then
+      local file = entry:match("file%s*=%s*[\"']([^\"']+)[\"']")
+      if file and file:lower():match("%.lua$") then
+        out[#out + 1] = dir .. file:gsub("\\", "/")
+      end
+    end
+  end
+  f:close()
+  return out
+end
+
 return Loader

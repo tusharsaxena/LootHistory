@@ -10,12 +10,14 @@ local addonName, NS = ...
 -- The WINDOW CHROME half of Core is no longer a different design. As of Core minor 3 (LibKa0s
 -- v1.3.0) `Core.SKIN` IS this addon's treatment — the flat 1px black edge, the 1px gray inner
 -- highlight, the gold title and the gray divider — because the Ka0s WoW Addon Standard adopted
--- it normatively (standalone-windows-§2) after five debug consoles side by side split into two
--- looks. `modules/Browser.lua`'s B:ApplySkin therefore agrees with Core's by value rather than
--- diverging from it, and stays the addon's own re-skin seam for its own windows. What is still
+-- it normatively (standalone-windows) after five debug consoles side by side split into two
+-- looks. `modules/Browser.lua`'s B:ApplySkin therefore DELEGATES to Core's rather than agreeing
+-- with it by value — agreement by value is a copy, and a copy drifts a hex digit at a time — and
+-- stays the addon's own re-skin seam for its own windows, published here as NS.ApplySkin so the
+-- degraded branch owes the caller the same name (standalone-windows). What is still
 -- declined is `Core.MakeCloseButton` for THIS addon's own windows: the History browser closes
 -- with a 24x24 class-colored glyph, not Core's 18x18 x. The library's own windows — the debug
--- console and its copy window — wear Core's, which is the split standalone-windows-§2 draws.
+-- console and its copy window — wear Core's, which is the split standalone-windows draws.
 -- See docs/pending/LEDGER.md, LIBKA0S-02, LIBKA0S-18 and LIBKA0S-19.
 --
 -- ── LOAD ORDER (all four constraints bind; see docs/module-map.md) ──────────────────────────────
@@ -78,12 +80,47 @@ if not lib then
     for i = 1, n do parts[i] = safeToString((select(i, ...))) end
     NS.Print(safeToString(fmt):format(unpack(parts)))
   end
+  -- The pre-library window edge, kept in THIS branch rather than in modules/Browser.lua. The live
+  -- definition is Core.SKIN applied by Core.ApplySkin, and a host copy on the path where the
+  -- library IS present is exactly the copy that drifts (standalone-windows). This one runs only
+  -- when the library is absent, and it is byte-for-byte the skin modules/Browser.lua applied
+  -- before the seam existed, so a degraded install's windows look like a working one's.
+  local WHITE = "Interface\\Buttons\\WHITE8X8"
+  function NS.ApplySkin(f)
+    if not (f and f.SetBackdrop) then return end
+    f:SetBackdrop({
+      bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+      insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    f:SetBackdropColor(0.06, 0.06, 0.08, 0.92)
+    f:SetBackdropBorderColor(0, 0, 0, 1)
+    if type(f.innerBorder) ~= "table" and type(CreateFrame) == "function" then
+      local inner = CreateFrame("Frame", nil, f, "BackdropTemplate")
+      inner:SetPoint("TOPLEFT", 1, -1)
+      inner:SetPoint("BOTTOMRIGHT", -1, 1)
+      inner:SetBackdrop({ edgeFile = WHITE, edgeSize = 1 })
+      f.innerBorder = inner
+    end
+    if type(f.innerBorder) == "table" then
+      f.innerBorder:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.85)
+    end
+    if f.title then f.title:SetTextColor(1.0, 0.82, 0.0) end
+    if f.divider then f.divider:SetColorTexture(0.24, 0.24, 0.27, 0.85) end
+  end
+
   NS.Util = NS.Util or {}
   NS.Util.print = NS.Print
   return
 end
 
 -- ── the live seam ──────────────────────────────────────────────────────────────────────────────
+
+-- The shared Ka0s window edge (standalone-windows). modules/Browser.lua's B:ApplySkin — the seam
+-- every window in this addon reaches the edge through (the History browser, both export copy
+-- windows and the debug console) — delegates here rather than restating Core.SKIN's values, so a
+-- re-skin lands on all of them at once. Published as a flat NS member for the same reason
+-- NS.SafeToString is: the fallback branch above owes the caller the same name.
+NS.ApplySkin = lib.ApplySkin
 
 -- Lib-level and stateless, so they are published by reference rather than wrapped. Identical in
 -- behavior to the implementations they replace, down to the sentinel: `lib.SECRET` is "<secret>",

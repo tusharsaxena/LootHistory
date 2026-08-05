@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 6
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -39,20 +39,44 @@ lib.MODULES.Options = MINOR
 -- starts and ROW_VSPACER decides how it fills, and a page whose header moved without its rows
 -- following looks broken in exactly the way nobody files a bug about. OptionsWidgets.lua reads
 -- this table rather than keeping its own copy.
+--
+-- PUBLISHED VS INTERNAL. `lib.LAYOUT` itself is never handed to a host — not as `O.LAYOUT = L`,
+-- because one host's mutation of a shared table would retune every other host's panels, which is a
+-- worse failure than the copying that publishing fixes. Individual scalars are published on the
+-- instance instead, and a key is published on a DEMONSTRATED NEED: a host that has to align a
+-- bespoke widget with the library's own header, divider or body has no other way to read the
+-- number, and options-ui-§8's MUST NOT against host copies cannot be complied with for a constant
+-- the library keeps to itself.
+--
+-- Every other key carries an `INTERNAL:` line saying why it is not published, and
+-- tests/test_options.lua fails if a key is neither published nor annotated. That is the durable
+-- half: publishing on repetition rather than on a demonstrated need is anti-pattern #55
+-- (library-stack-§7) — under the additive-only rule a wrong shared abstraction is surface the
+-- library keeps forever — and an annotation is what keeps "not yet" a visible decision rather than
+-- a forgotten one. Each internal key is published the day a host demonstrates it needs it.
 
 lib.LAYOUT = {
   -- Horizontal padding from the panel's edges to its header, divider and body. One value for both
-  -- edges so the layout stays symmetric.
+  -- edges so the layout stays symmetric. PUBLISHED as O.PADDING_X: a host aligning its own widget
+  -- with the header or the divider has to know this number, and one that could not read it
+  -- restated it as its own constant.
   PADDING_X     = 16,
   -- Vertical inset of the title (and the Defaults button beside it) from the top of the panel.
+  -- INTERNAL: HEADER_TOP — the header block is drawn entirely by buildHeader; no host in the
+  -- collection reads or re-declares it.
   HEADER_TOP    = 20,
   -- Top of the panel to the divider under the title. In lockstep with HEADER_TOP so the
   -- title-to-divider and divider-to-body gaps survive the header block being moved.
+  -- INTERNAL: HEADER_HEIGHT — same reason as HEADER_TOP, and it moves with it.
   HEADER_HEIGHT = 54,
   -- Width of the per-page "Defaults" button.
+  -- INTERNAL: DEFAULTS_W — the button is created by the library and by nobody else.
   DEFAULTS_W    = 110,
 
   -- Inter-row spacing inside the two-column flow.
+  -- INTERNAL: SECTION_TOP_SPACER — emitted by O.Section; a host draws sections through that
+  -- function rather than measuring them.
+  -- INTERNAL: SECTION_BOTTOM_SPACER — same, and it is pinned equal to LANDING_GAP_HEAD below.
   ROW_VSPACER           = 8,
   SECTION_TOP_SPACER    = 10,
   SECTION_BOTTOM_SPACER = 6,
@@ -60,11 +84,17 @@ lib.LAYOUT = {
 
   -- The landing page's block sizing, promoted from three hosts that each declared these four
   -- verbatim and agreed on every value. They lived host-side only because the BODY did; the body
-  -- is O.BuildLandingPage now, so the constants follow it.
+  -- is O.BuildLandingPage now, so the constants follow it — which is exactly why none of the four
+  -- is published: the function that consumes them is the library's.
   --
   -- LANDING_GAP_HEAD is the gap under a landing heading. O.Section already emits exactly that as
   -- SECTION_BOTTOM_SPACER, so BuildLandingPage does not draw a second one — the two values must
   -- stay equal, which tests/test_options.lua pins.
+  --
+  -- INTERNAL: LANDING_LOGO — consumed by O.BuildLandingPage, which every host now calls.
+  -- INTERNAL: LANDING_GAP_LOGO — consumed by O.BuildLandingPage; no host draws that gap itself.
+  -- INTERNAL: LANDING_GAP_DESC — consumed by O.BuildLandingPage; no host draws that gap itself.
+  -- INTERNAL: LANDING_GAP_HEAD — same, and pinned equal to SECTION_BOTTOM_SPACER.
   LANDING_LOGO          = 300,
   LANDING_GAP_LOGO      = 8,
   LANDING_GAP_DESC      = 12,
@@ -126,7 +156,7 @@ lib.STRINGS = {
 ---   getLSM()                   optional. Returns LibSharedMedia-3.0, for LSMValues.
 ---   validate()                 optional. Runs once, before the page builders.
 ---   onAceGUI(AceGUI)           optional. Handed the resolved AceGUI so the host can stash it
----                              (Ka0s standard §3.4) for its own page files.
+---                              (library-stack-§4) for its own page files.
 ---   buildMain(ctx)             optional. Draws the main page's body on its first OnShow. A host
 ---                              that wants the shared landing page writes
 ---                              `buildMain = function(ctx) O.BuildLandingPage(ctx, spec) end`
@@ -170,9 +200,13 @@ function lib:New(d)
 
   -- Resolved once and re-read at CreateOptionsPanel time. Held on the instance rather than in an
   -- upvalue because the widget makers and the host's own page files both need it, and a second
-  -- LibStub call per builder is exactly what Ka0s standard §3.4 exists to stop.
+  -- LibStub call per builder is exactly what library-stack-§4 exists to stop.
   O.AceGUI = LibStub and LibStub("AceGUI-3.0", true) or nil
 
+  -- Individual scalars, deliberately not `O.LAYOUT = L`: the lib-level table is shared by every
+  -- instance, so handing it out lets one host's mutation retune every other host's panels. Which
+  -- keys belong here and why is at the lib.LAYOUT declaration above.
+  O.PADDING_X         = L.PADDING_X
   O.ROW_VSPACER       = L.ROW_VSPACER
   O.SECTION_HEADING_H = L.SECTION_HEADING_H
   O.BUTTON_PAIR_REL   = L.BUTTON_PAIR_REL
@@ -522,7 +556,7 @@ function lib:New(d)
   ---                 CreateOptionsPanel time, after the db is ready. nil means the page opted out
   ---                 (an optional dependency the host did not find).
   --- Build one page, reporting rather than propagating. The key is in the message because a
-  --- builder's own stack rarely names the page a user would recognise.
+  --- builder's own stack rarely names the page a user would recognize.
   local function buildPage(page)
     local ok, err = pcall(page.builder, mainCategory)
     if ok then

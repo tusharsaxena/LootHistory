@@ -6,9 +6,17 @@
 One row per run. The frozen evidence for each is in the dated folder beside this file;
 the analysis of a given run is its `ANALYSIS.md`.
 
-**`lint` and `tests` gate. `perf` and `complexity` are recorded and never fail a run** —
-they are read and compared, not thresholded. A `skip` is a suite that did not run at all,
-which is never the same as a pass.
+**`lint` and `tests` gate the run and gate the commit** (`testing-§4`).
+**`perf` and `complexity` never fail a run and never block a commit** — they are recorded,
+read and compared, not thresholded (`performance-§9`, `performance-§10`).
+
+**The tag is gated on all four suites at `pass`, plus zero functions above CCN 15**
+(`automated-tests-§3`, *The release gate*), evaluated by `/wow-addon:bump-version` from the
+`manifest.json` the release run writes — not by this script, whose exit code is unchanged.
+
+A `skip` is a suite that did not run at all. It is never a pass, and at the release gate it is
+**NOT EVALUATED** rather than passed: install the tool and re-run. A `—` is a suite that was
+not selected, which is a different fact again.
 
 | Run | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -46,7 +54,7 @@ That is a result, not an empty section. The `20260804-182216` baseline listed ni
 
 | Band | File | LOC | Disposition |
 |---|---|---|---|
-| 1000–1500 (on notice) | `modules/Browser.lua` | 1372 | **Already tracked as `LH-31`.** The window shell, filter bar and dropdown widget kit; if it needs peeling the seam is the widget kit into a sibling file. Up 58 lines over the baseline as the extracted menu-row and view-descriptor helpers landed beside their callers; flat since. |
+| 1000–1500 (on notice) | `modules/Browser.lua` | 1372 | **Accepted, own disposition — `LH-37`.** The window shell, filter bar and dropdown widget kit; if it needs peeling the seam is the widget kit into a sibling file. Up 58 lines over the baseline as the extracted menu-row and view-descriptor helpers landed beside their callers; flat since. This row used to read *"Already tracked as `LH-31`"*, which was the retired **`docs/complexity.md` is not shipped** finding (`automated-tests-§7` retired that file in v2.19.0) — it never tracked a file's size, and `LH-37` is the live finding that says so. There is deliberately **no** deviation ID to cite instead: a file in the 1000–1500 band is the **compliant** state under `layout-§1`, on notice rather than in breach, so it is not filed in `docs/ARCHITECTURE.md`'s `## Documented deviations` register. |
 | 1000–1500 (on notice) | `modules/Analytics.lua` | 1180 | **Peel next — now unblocked.** It was gated on the `Database:Stats` work, which has landed. Split renderers from the formatting/segmenting helpers. |
 | 1000–1500 (on notice) | `modules/BrowserTable.lua` | 1097 | **Accepted.** Just over the line, and already three clean layers. Up 57 lines over the baseline for the `GROUP_OF` dispatch table and the synthetic-record helpers; flat since. Watch it; do nothing yet. |
 | > 1500 (over cap) | — | — | **None.** No file is over the 1500 cap (`"overCapFiles": 0` in every recorded run). |

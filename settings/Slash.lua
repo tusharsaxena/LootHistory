@@ -77,7 +77,8 @@ if type(StaticPopupDialogs) == "table" then
   }
 end
 
--- Full reset (the confirm-gated "Reset All"): wipe history AND restore every persisted piece of
+-- Full reset (the panel's confirm-gated "Reset Everything" button, NOT the `/lh resetall` verb,
+-- which is settings + id-lists only): wipe history AND restore every persisted piece of
 -- account state to its stock shape. CliResetAll covers the schema settings + the filter lists; this
 -- adds the two view/window carve-outs that the non-destructive resets deliberately leave alone —
 -- savedView (back to stock) and the window geometry (recentered) — so "Reset ALL" is truly total.
@@ -109,7 +110,7 @@ local lib = LibStub and LibStub("LibKa0s-Slash-1.0", true)
 -- user that `settings.excludedSources` is combat-protected. Slash **minor 5**'s `format` hook is the
 -- supported answer to exactly this (it was added for BankLedger's muted-store set), so the branch
 -- lives here and everything else is handed straight back to the library. Kept as a public member
--- because settings/Panel.lua and the suite both read it.
+-- because the descriptor's `format` hook below is handed it by name, and the suite pins its output.
 function Sl.FormatSchemaValue(row, v)
   if v == nil then return "nil" end
   if row and row.type == "table" then
@@ -138,9 +139,42 @@ if not lib then
   Sl.FormatKV = function(path, valueStr)
     return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
   end
-  Sl.HelpRows, Sl.LandingRows = function() return {} end, function() return {} end
+  -- The verbs that went THROUGH the library, and only those. Everything else in NS.COMMANDS is
+  -- host-owned and still works on this path (slash-commands-§1), so the degraded help is rendered
+  -- by SUBTRACTION rather than from a second hand-typed list that would drift the day a verb is
+  -- added — the same reason the dispatch below walks NS.COMMANDS instead of naming verbs.
+  local LIBRARY_OWNED = {
+    version = true, get = true, set = true, list = true,
+    reset = true, resetall = true, help = true,
+  }
+  -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
+  -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there
+  -- to ask, and a degraded install must still look like this addon.
+  local function formatRow(command, description)
+    return ("|cFFFFFF00%s|r \226\128\148 |cFFFFFFFF%s|r")
+      :format(tostring(command), tostring(description))
+  end
+  Sl.LandingRows = function() return {} end
   Sl.BuildListLines = function() return {} end
-  Sl.PrintHelp = unavailable
+  --- slash-commands-§3: a bare `/lh` renders help on EVERY install, so it has to list what still
+  --- works rather than answering "unavailable" — the one line a user has to reach for when nothing
+  --- else responds cannot be the line that tells them to give up.
+  Sl.HelpHeader = function()
+    return NS.LIBKA0S_MISSING .. ", so only these commands are available:"
+  end
+  Sl.HelpRows = function()
+    local rows = {}
+    for _, entry in ipairs(NS.COMMANDS) do
+      if not LIBRARY_OWNED[entry[1]] then
+        rows[#rows + 1] = "  " .. formatRow("/lh " .. entry[1], entry[2])
+      end
+    end
+    return rows
+  end
+  Sl.PrintHelp = function()
+    NS.Print(Sl.HelpHeader())
+    for _, row in ipairs(Sl.HelpRows()) do NS.Print(row) end
+  end
   Sl.CliList, Sl.CliGet, Sl.CliSet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
     unavailable, unavailable, unavailable
   Sl.CliResetAll = function()
@@ -148,8 +182,13 @@ if not lib then
     unavailable()
   end
   function Sl:OnSlash(input)
-    local verb = input and input:match("^(%S+)")
-    local rest = input and input:match("^%S+%s*(.-)$") or ""
+    local raw = (input or ""):match("^%s*(.-)%s*$") or ""
+    -- Bare `/lh` is help on both paths. It used to fall through the verb walk to `unavailable()`,
+    -- which is the worst of the three answers: it blacks out the whole command surface in the one
+    -- install where the user most needs to be told which commands survived.
+    if raw == "" then return Sl.PrintHelp() end
+    local verb = raw:match("^(%S+)")
+    local rest = raw:match("^%S+%s*(.-)$") or ""
     for _, entry in ipairs(NS.COMMANDS) do
       if entry[1] == (verb or ""):lower() then return entry[3](rest) end
     end
@@ -162,9 +201,9 @@ if not lib then
   return
 end
 
--- Re-exported so settings/Panel.lua and the suite reach ONE key/value formatter. Gold key, white
--- value, no trailing colon — identical in shape to what this file used to own, with the hex digits
--- now in the library's upper case.
+-- Re-exported so this file and the degraded stub above expose ONE key/value formatter under the same
+-- name, and so the suite — the only other reader — pins that one shape. Gold key, white value, no
+-- trailing colon; identical to what this file used to own, but in the library's UPPER-case hex.
 Sl.FormatKV = lib.FormatKV
 
 local Dispatcher = lib:New({

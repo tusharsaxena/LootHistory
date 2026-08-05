@@ -33,12 +33,21 @@ NS.defaults.global = {
         ["tsm:dbregionmarketavg"] = true, ["tsm:dbregionminbuyoutavg"] = true,
         ["oribos:market"] = true, ["oribos:region"] = true,
       },
-      priority = {  -- ordered provider:key selection list (carve-out; reordered via the panel UI)
-        "tsm:dbmarket", "auctionator:minbuyout", "oribos:market",
-        "tsm:dbminbuyout", "tsm:dbregionmarketavg", "tsm:dbregionminbuyoutavg", "oribos:region",
-      },
+      -- Ordered provider:key selection list (carve-out; reordered via the panel UI). Filled below
+      -- from its ONE declaration, core/Constants.lua's AUCTION_PRIORITY_DEFAULT — never restated
+      -- here. A second literal drifted: this file shipped the 7 default-collected tags while the
+      -- constant carried all 11, so `AuctionPrice:Pick` walked a cascade that could not reach the
+      -- four non-default sources until the AH Price page's ReconcilePriority happened to run.
+      priority = {},
     },
   },
   minimap = { hide = false },  -- LibDBIcon state
   -- debug is session-only (NS.State.debug), never persisted here.
 }
+
+-- Copied element-by-element rather than aliased: AceDB hands the defaults table straight to the
+-- live profile for keys it has to materialize, and the cascade is reordered in place by the AH
+-- Price page — an alias would let a user's reorder rewrite the shipped constant for the session.
+for i, tag in ipairs(NS.Constants.AUCTION_PRIORITY_DEFAULT) do
+  NS.defaults.global.settings.auction.priority[i] = tag
+end

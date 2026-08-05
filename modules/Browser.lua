@@ -8,21 +8,19 @@ local LDB_NAME = "Ka0s Loot History"  -- LibDataBroker object + LibDBIcon regist
 local minimapObject                   -- the LDB launcher, created once on first Enable
 local DBIcon                          -- LibDBIcon-1.0, resolved lazily in SetupMinimap
 
--- Flat "ElvUI-like" default skin: 1px black border + subtle inner line + dark, near-opaque
--- flat background + centered gold title + small red close glyph. Built from stock Blizzard
--- textures only (no ElvUI dependency).
--- TODO (post-1.0.0): make this skin user-configurable (border color/size, background color/
--- alpha, font) via settings, driven off this table. Tracked as a GitHub issue.
+-- The window CHROME this addon owns: the tab strip's two label colors and every height the layout
+-- is measured from. The window EDGE is NOT here — the dark flat background, the 1px black outer
+-- border, the 1px gray inner highlight, the gold title tint and the gray divider are the normative
+-- Ka0s edge, and they live in Core.SKIN (standalone-windows). B:ApplySkin below delegates to
+-- Core.ApplySkin rather than restating them, so the History browser, both export copy windows and
+-- the debug console cannot drift apart. The seam stays because those four reach the edge through it.
+-- TODO (post-1.0.0): make the skin user-configurable (border color/size, background color/alpha,
+-- font) via settings. That now belongs at the LibKa0s seam, not here. Tracked as a GitHub issue.
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 -- Inline check glyph for selected multi-select menu items (the default font has no ✓ glyph,
 -- so, like the sort arrows, it's texture markup sized to the line height).
 local CHECK_MARKUP = "|TInterface\\Buttons\\UI-CheckBox-Check:0|t "
 local SKIN = {
-  bg          = { 0.06, 0.06, 0.08, 0.92 },  -- flat dark panel
-  border      = { 0, 0, 0, 1 },              -- crisp 1px black outer border
-  innerBorder = { 0.24, 0.24, 0.27, 0.85 },  -- subtle lighter inner line (the ElvUI "double" edge)
-  divider     = { 0.24, 0.24, 0.27, 0.85 },  -- title separator
-  title       = { 1.0, 0.82, 0.0 },          -- Blizzard gold
   tabActive   = { 1.0, 0.82, 0.0 },          -- active tab label (gold)
   tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (gray)
   titleBarH   = 30,
@@ -62,27 +60,20 @@ function B:ExportWidth()
   return math.max(EXPORT_MIN, (self:MinWidth() - 12) - (DROPDOWNS_W + 8))
 end
 
--- Apply the flat skin to the window. Kept separate so a future settings panel can re-skin live.
+-- Wear the shared Ka0s window edge. Every value this used to spell out — the WHITE8x8 backdrop at
+-- edgeSize 1 with 1px insets, the {0.06,0.06,0.08,0.92} fill, the black border, the
+-- {0.24,0.24,0.27,0.85} inner highlight and divider, the {1,0.82,0} title — is Core.SKIN, byte for
+-- byte, and Core.ApplySkin makes the same calls in the same order, including building the
+-- inner-border child exactly once. Delegated rather than restated so a re-skin lands on every Ka0s
+-- window at once (standalone-windows).
+--
+-- NS.ApplySkin is core/CoreSetup.lua's seam: the library's on a working install, and that file's
+-- own pre-library copy when libs/LibKa0s is missing, so the window wears the same edge either way.
+-- Guarded anyway, because this is the only file that skins a frame this addon owns. The seam is
+-- kept as a method because four windows reach the edge through it — EnsureFrame here, both export
+-- copy windows (modules/Export.lua) and the debug console (core/DebugLogSetup.lua's applySkin).
 function B:ApplySkin(f)
-  f:SetBackdrop({
-    bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-    insets = { left = 1, right = 1, top = 1, bottom = 1 },
-  })
-  f:SetBackdropColor(unpack(SKIN.bg))
-  f:SetBackdropBorderColor(unpack(SKIN.border))
-
-  -- 1px inner highlight line, inset from the black border.
-  if not f.innerBorder then
-    local inner = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    inner:SetPoint("TOPLEFT", 1, -1)
-    inner:SetPoint("BOTTOMRIGHT", -1, 1)
-    inner:SetBackdrop({ edgeFile = WHITE, edgeSize = 1 })
-    f.innerBorder = inner
-  end
-  f.innerBorder:SetBackdropBorderColor(unpack(SKIN.innerBorder))
-
-  if f.title then f.title:SetTextColor(unpack(SKIN.title)) end
-  if f.divider then f.divider:SetColorTexture(unpack(SKIN.divider)) end
+  if NS.ApplySkin then NS.ApplySkin(f) end
 end
 
 -- ElvUI-style thin × glyph close button, light gray by default and the player's class color
@@ -874,7 +865,7 @@ function B:SaveView()
   end
 end
 -- Drop the saved view back to stock. `silent` suppresses the chat line when called programmatically
--- (the destructive "Reset All" prints its own single confirmation) — the filter-bar Reset button
+-- (the destructive "Reset Everything" prints its own single confirmation) — the filter-bar Reset button
 -- calls it with no argument and keeps the message.
 function B:ResetView(silent)
   if NS.db and NS.db.global then NS.db.global.savedView = nil end
@@ -883,7 +874,7 @@ function B:ResetView(silent)
 end
 
 -- Reset the persisted window geometry (the settings.window storage-only carve-out) and recenter the
--- live frame. Used only by the destructive "Reset All" — window position is runtime state, so the
+-- live frame. Used only by the destructive "Reset Everything" — window position is runtime state, so the
 -- non-destructive settings resets deliberately leave it alone.
 function B:ResetWindow()
   if NS.db and NS.db.global and NS.db.global.settings then
@@ -1363,7 +1354,10 @@ function B:Enable()
     self._enabled = true
     -- Private bus target (never the shared bus-as-self) so these don't clobber the Collector's
     -- SettingsChanged or Analytics' RecordAdded/HistoryChanged handlers. See NS.NewBusTarget.
-    B.__ev = NS.NewBusTarget() or NS.bus
+    -- No `or NS.bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and
+    -- core/LootHistory.lua:4's NewAddon(NS, addonName, "AceEvent-3.0", …) errors first in exactly
+    -- that case, so NS.bus never exists and the `if NS.bus` guard above never opens.
+    B.__ev = NS.NewBusTarget()
     B.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() B:OnSettingsChanged() end)
     B.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", function() B:OnHistoryChanged() end)
     B.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", function() B:OnHistoryChanged() end)
