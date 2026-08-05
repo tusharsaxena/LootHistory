@@ -10,10 +10,12 @@ WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard
 
 1. Builds a fresh WoW-API mock set via `tests/wow_mock.lua` — a thin **extender** over `tests/_kit/mock_base.lua`, and a builder, so each run gets one isolated environment.
 2. Loads every file of `LibKa0s.xml` in XML order, then every addon source file **derived from the TOC** via `Loader.tocFiles("LootHistory.toc")`, into a shared `NS` table. Then calls `NS:InitDB()`, `NS.Schema:Register()` and `NS.Panel:Register()` — mirroring the in-game load plus `OnInitialize`.
-3. Exposes the kit's registry and assertions merged into the `_G.LH_TEST` handoff table via `Kit.expose` (`NS`, `mocks`, `Loader`, `test`, `assertEqual`, `assertTrue`, `assertFalse`, `assertNil`, `assertNear`, `assertError`, `fail`).
+3. Exposes the kit's registry and assertions merged into the `_G.LH_TEST` handoff table via `Kit.expose` (`NS`, `mocks`, `Loader`, `addonFiles`, `suites`, `test`, `assertEqual`, `assertTrue`, `assertFalse`, `assertNil`, `assertNear`, `assertError`, `fail`, `skip`, `assertSuiteInventory`, `assertSurfaceParity`).
 4. Hands the suite list to `Kit.run`, which loads each suite, runs every registered case under `pcall`, prints `PASS`/`FAIL` per case and a `N passed, N failed, N total` tail, and exits non-zero if anything failed.
 
 The addon load list is **derived from the TOC rather than hand-maintained**, which is what stops the runner's order drifting from the client's. `libs\` lines are skipped (the client pulls those through their own XML, which the loader cannot see), so the vendored LibKa0s files are the one list still spelled out explicitly — and `tests/test_libka0s.lua` cross-checks its length against `LibKa0s.xml`.
+
+The derivation itself is pinned (testing-§9). `tests/run.lua` publishes the exact table it handed the loader as `T.addonFiles`, and `tests/test_harness.lua` compares it against a fresh derivation, checks every derived path is on disk, and checks no `libs/` path leaked in. The same suite pins the **suite list** in both directions through `Kit.assertSuiteInventory` — `Kit.run` applies that gate implicitly, but a named case is what puts a row in [test-cases.md](test-cases.md), so a reader can tell a gate that ran from one that was opted out of.
 
 ### The loader
 
@@ -55,7 +57,7 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Eighteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Nineteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
@@ -76,8 +78,9 @@ inventory and the authoritative count):
 | `test_slash.lua` | the `LibKa0s-Slash-1.0` dispatcher — `/lh list`/`get`/`set`/`reset`/`resetall`/`version` output (slash-commands-§5), `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, the type-aware parser (enum refusal, slider clamping, boolean refusal), the `format` hook that keeps a set-valued row from rendering as `<secret>`, and both convergences: `reset` is path-scoped, and `LandingRows`/`HelpRows` are the one formatter differing only by the chat indent |
 | `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through (deep-copied, never aliased), `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global`; plus the schema's own shape: unique paths, defaults matching both their declared type and `defaults/Global.lua`, dropdown defaults being selectable, slider defaults inside their range, every setting round-tripping, and the `NS.COMMANDS` table |
 | `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labeling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
+| `test_harness.lua` | the runner's own three lists (testing-§9) — the TOC derivation the loader was actually handed compared against a fresh one, every derived path on disk, no `libs/` leak, and the suite list pinned in both directions by `Kit.assertSuiteInventory` plus a duplicate check the inventory gate cannot see |
 
-Two of the eighteen exist because of the LibKa0s adoption:
+Two of the nineteen exist because of the LibKa0s adoption:
 
 | Suite | Covers |
 |-------|--------|

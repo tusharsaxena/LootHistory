@@ -26,8 +26,12 @@ Loader.loadAll({
 }, NS, mocks)
 
 -- Derived from the TOC rather than hand-listed, so the runner's load order cannot drift from the
--- client's — the exact drift a second hand-maintained list invites.
-Loader.loadAll(Loader.tocFiles("LootHistory.toc"), NS, mocks)
+-- client's — the exact drift a second hand-maintained list invites. The derivation is captured into
+-- a local and published through Kit.expose rather than fed straight in, because testing-§9 pins the
+-- derivation itself: tests/test_harness.lua compares what the loader was ACTUALLY handed against a
+-- fresh derivation, checks every path exists, and checks no `libs/` path leaked in.
+local ADDON_FILES = Loader.tocFiles("LootHistory.toc")
+Loader.loadAll(ADDON_FILES, NS, mocks)
 
 NS:InitDB()
 -- The lifecycle kick the client's OnInitialize does. Register() only builds the canvas frames and
@@ -36,16 +40,21 @@ NS:InitDB()
 NS.Schema:Register()
 NS.Panel:Register()
 
-_G.LH_TEST = Kit.expose{ NS = NS, mocks = mocks, Loader = Loader }
-
--- Load order is significant (later suites read state earlier ones seed); keep as-is.
-Kit.run{
-  dir = "tests/",
-  suites = {
-    "test_constants", "test_util", "test_compat", "test_attribution",
-    "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
-    "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
-    "test_schema", "test_analytics", "test_panel", "test_libka0s",
-    "test_vendor_sync",
-  },
+-- Load order is significant (later suites read state earlier ones seed); keep as-is. The list is a
+-- named local so tests/test_harness.lua can hand it to Kit.assertSuiteInventory as a named case —
+-- Kit.run applies the same gate implicitly, but an implicit gate contributes no row to
+-- docs/test-cases.md and nobody reading the inventory can tell whether it ran.
+local SUITES = {
+  "test_constants", "test_util", "test_compat", "test_attribution",
+  "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
+  "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
+  "test_schema", "test_analytics", "test_panel", "test_harness", "test_libka0s",
+  "test_vendor_sync",
 }
+
+_G.LH_TEST = Kit.expose{
+  NS = NS, mocks = mocks, Loader = Loader,
+  addonFiles = ADDON_FILES, suites = SUITES,
+}
+
+Kit.run{ dir = "tests/", suites = SUITES }

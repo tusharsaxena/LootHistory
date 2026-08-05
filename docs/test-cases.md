@@ -620,6 +620,14 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the landing page shows the tagline
 - Panel: Open refuses during combat and never defers-and-replays
 
+### test_harness.lua (5)
+
+- Harness: the runner fed the loader exactly the TOC's files, in the TOC's order
+- Harness: every path the runner derived from the TOC exists on disk
+- Harness: no libs/ path leaked into the TOC-derived list
+- Harness: the suite list matches tests/test_*.lua in both directions
+- Harness: the runner's suite list has no duplicates
+
 ### test_libka0s.lua (17)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
@@ -666,6 +674,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema.lua | 31 |
 | test_analytics.lua | 57 |
 | test_panel.lua | 25 |
+| test_harness.lua | 5 |
 | test_libka0s.lua | 17 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **582** |
+| **Total** | **587** |
