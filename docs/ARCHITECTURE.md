@@ -328,6 +328,35 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
 
 ---
 
+## Documented deviations
+
+The register (`documentation-§3`). **A deviation not in this table is not ratified** — the reasoning
+may live at length in [`pending/LEDGER.md`](pending/LEDGER.md) or in an audit bundle, and the **Why**
+column cites that id, but a ledger entry declining a rule with no row here is itself the deviation.
+An audit reads this table, records these as accepted, and does not count them toward its MUST tally.
+
+**Re-check trigger** is the condition that *ends* the deviation, written so a reader can tell whether
+it has already fired. This table is **not a graveyard**: a row whose cited rule the standard has since
+changed — so the behavior is now mandated or permitted outright — is retired, not kept for history.
+Three such records were retired rather than carried in here, and are named below the table.
+
+| Rule | What differs | Why | Decided | Re-check trigger |
+|---|---|---|---|---|
+| `architecture-§5` | Five pieces of persistent state are written to `NS.db.global` directly rather than through `NS.Schema:Set`: `settings.window` geometry, `savedView`, the `blacklist` / `whitelist` item-id sets, `currencyBlacklist`, and the `settings.auction.priority` ordered cascade. | A dynamic, unbounded id-set and an ordered cascade have no fixed schema widget to express, so there is no row for `Set` to validate against. Owned by `NS.Filters` / `NS.AuctionPrice`; reasoned in [`saved-variables.md`](saved-variables.md) *Standards note* and in **Standards compliance** above. | 2026-07-17 | `options-ui` gains a set/list widget maker, or any of these five acquires a fixed schema row — at which point it moves back under the single write seam. |
+| `architecture-§5` | The schema carries a **`sessionOnly` row kind** (`get`/`set` accessors, never written to `db.global`), used by the "Debug console" window-visibility toggle. | It extends schema-as-single-source rather than breaking it — the toggle is a real schema row driving the panel, the CLI and reset — but it is a row that deliberately never reaches the DB, because `debug-logging` makes the debug flag session-only. See [`settings-panel.md`](settings-panel.md). | 2026-07-17 | The standard names a session-only row kind (then this is compliant, not a deviation), or the toggle becomes persistent. |
+| `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. `pending/LEDGER.md` **LIBKA0S-14**. | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
+
+**Retired, deliberately not rows.** `LIBKA0S-02`'s declined window skin — `Core.SKIN` **is** this
+addon's treatment as of Core minor 3, so there is nothing left to deviate from (`LIBKA0S-18`).
+`LIBKA0S-19`'s dropped `makeCloseButton` — `standalone-windows` now draws the split explicitly (the
+edge is shared, the close control on a library-drawn window is the library's), so passing nothing is
+the compliant path. And the third-party pricing shims living in `modules/AuctionPrice.lua` rather
+than `core/Compat.lua`: the standard defines no boundary for **non-Blizzard** addon interop, so that
+is a recorded gap in the standard, not a deviation from it — the paragraph in **Standards
+compliance** above is its home.
+
+---
+
 ## Known limitations
 
 - **Full source coverage.** Every `SourceType` member has a live capture path. Deconstruct abilities
