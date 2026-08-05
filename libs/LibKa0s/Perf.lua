@@ -22,7 +22,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 6
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -232,12 +232,40 @@ end
 
 -- Nested totals are not disjoint and must never be summed. Spelling out which contains which beats
 -- trusting the reader to notice the indentation.
+--
+-- The sentence per bucket says what the CAPTURE knows, never what the descriptor merely claims
+-- (performance-§3). A `within` in the descriptor is a claim about where the work runs, written once
+-- and read months later beside numbers it is supposed to explain; until the call site passes its
+-- parent, nothing has confirmed it. Three states, and the library must not collapse them:
+--
+--   observed              the call site passed this parent, so the containment is a fact
+--   declared, unobserved  the descriptor claims it and no call site confirmed it
+--   declared X, seen in Y the two disagree — a defect in the descriptor or in the call site
+--
+-- The old wording printed the first form for all three, which is how AbsorbTracker's descriptor
+-- carried `appearance` and `visibility` inside a `repaintPass` neither ever ran in, through every
+-- archived capture, with the report asserting the containment as fact each time.
+local function nestingSentence(key, declared, observed, mixed)
+  if mixed then
+    return ("%s observed inside more than one parent (first: %s)"):format(key, tostring(observed))
+  elseif observed and declared and observed ~= declared then
+    return ("%s declares itself within %s but was observed inside %s"):format(key, declared, observed)
+  elseif observed then
+    return ("%s observed inside %s"):format(key, observed)
+  end
+  return ("%s declares itself within %s \226\128\148 not observed"):format(key, declared)
+end
+
 local function addNestingNote(add, P, record)
   local pairsOut = {}
   for _, key in ipairs(P.BUCKET_ORDER) do
-    local parent = P.BUCKET_WITHIN[key]
-    if parent and record.buckets[key] then
-      pairsOut[#pairsOut + 1] = ("%s contains %s"):format(parent, key)
+    local b = record.buckets[key]
+    -- The record's own `within` first, so a capture read back off the ring reports the nesting IT
+    -- was built with rather than whatever the live descriptor declares now.
+    local declared = b and (b.within or P.BUCKET_WITHIN[key]) or nil
+    local observed = b and b.observedWithin or nil
+    if b and (declared or observed) then
+      pairsOut[#pairsOut + 1] = nestingSentence(key, declared, observed, b.observedMixed)
     end
   end
   if #pairsOut > 0 then
@@ -303,7 +331,7 @@ function lib:New(descriptor)
   local L        = d.L or {}
   -- rawget, NOT a plain index. Every Ka0s host's locale table carries a metatable fallback that
   -- answers an unknown key WITH THE KEY (the standard mandates it — anti-patterns #2), so a plain
-  -- index accepts that synthesised string for every key, these STRINGS become unreachable, and the
+  -- index accepts that synthesized string for every key, these STRINGS become unreachable, and the
   -- panel renders STEP_START / PANEL_TITLE_SUFFIX verbatim. That is not hypothetical: it shipped in
   -- KickCD's perf panel. rawget asks the only question that matters — did the host actually put a
   -- value here? PerfPanel.lua takes `tr` as a parameter, so fixing it here fixes the panel too.
@@ -364,7 +392,22 @@ function lib:New(descriptor)
     suspended = { seconds = 0, frames = 0 },
   }
 
-  function P.Note(key, ms)
+  --- Record one bracketed measurement of `ms` into bucket `key`.
+  ---
+  --- `parentKey` is OPTIONAL and is the bucket this work actually ran inside — the containment the
+  --- capture OBSERVED, as against the `within` the descriptor merely declares (performance-§3).
+  --- Omit it and the record carries the declared parent flagged as unobserved; pass it and the
+  --- record can confirm the declaration, or contradict it. Every call site written against the old
+  --- two-argument form keeps working unchanged, which is why the parent is taken here rather than
+  --- inferred from a bracket stack no deployed call site opens.
+  function P.Note(key, ms, parentKey)
+    -- A nil key used to reach `buckets[key] = b` and raise a bare "table index is nil" from inside
+    -- this file, which names neither the host, the library nor the offending bracket. Framed like
+    -- every other descriptor error instead, and blamed on the CALLER (level 2) — the typo is at the
+    -- bracket, not here.
+    if key == nil then
+      error(MAJOR .. ": Perf.Note requires a bucket key (got nil)", 2)
+    end
     local b = buckets[key]
     if not b then
       b = { calls = 0, totalMs = 0, maxMs = 0 }
@@ -373,44 +416,95 @@ function lib:New(descriptor)
     b.calls   = b.calls + 1
     b.totalMs = b.totalMs + ms
     if ms > b.maxMs then b.maxMs = ms end
+    if parentKey ~= nil then
+      -- First observation wins and every later one is compared against it. Overwriting would report
+      -- whichever call site happened to run last as though it were the only one, which is the same
+      -- class of silent false claim this whole change exists to end.
+      if b.observedWithin == nil then
+        b.observedWithin = parentKey
+      elseif b.observedWithin ~= parentKey then
+        b.observedMixed = true
+      end
+    end
   end
 
-  --- Open a bracket. Returns nil when the probe is off, so a call site pays one boolean test and
-  --- nothing else, and allocates nothing on either path.
+  -- Shape B's open slots, innermost last (performance-§2). Touched only while `P.on` is true, so a
+  -- dormant probe neither allocates into it nor reads it.
+  local openStack = {}
+
+  --- Open a Shape B bracket on `key` (performance-§2). Pair with P.Close(key) on EVERY exit.
   ---
-  --- The pair exists for MULTI-EXIT functions. Because P.Close treats a nil t0 as a silent no-op,
-  --- every exit collapses to ONE unconditional statement instead of carrying its own
-  --- `if t0 then P.Note(key, debugprofilestop() - t0) end`:
+  --- STATE THE COST HONESTLY, because the docstring this replaces did not. This pair is NOT free
+  --- when capture is off: it is two real Lua calls plus the boolean test inside each. The inline
+  --- Shape A bracket —
   ---
-  ---     local t0 = P.Open()
-  ---     if not pollable(id) then P.Close(t0, "pollSpell") return nil end
+  ---     local t0 = P.on and debugprofilestop()
   ---     ...
-  ---     P.Close(t0, "pollSpell")
+  ---     if t0 then P.Note("paintBar", debugprofilestop() - t0) end
+  ---
+  --- — costs one upvalue read, one field read and one boolean test, and NO call at all. Shape A is
+  --- therefore the default and is mandatory on anything running per frame or per combat-log event;
+  --- the earlier claim here that the pair cost "one boolean test and nothing else, and allocates
+  --- nothing on either path" was simply false, and a docstring that says so is a defect rather
+  --- than a description to trust.
+  ---
+  --- What the pair buys is a MULTI-EXIT region: four exits do not each repeat
+  --- `if t0 then P.Note(key, debugprofilestop() - t0) end`. That ergonomic difference is not
+  --- cosmetic — a host's four-exit poll had its instrumentation omitted precisely because the exits
+  --- made it awkward, and the omission then cost 73.9 ms of unattributed time in the first live
+  --- capture. Where a multi-exit region is ALSO a hot path, restructure it to one exit and use
+  --- Shape A rather than paying two calls a frame.
+  ---
+  ---     P.Open("pollSpell")
+  ---     if not pollable(id) then P.Close("pollSpell") return nil end
+  ---     ...
+  ---     P.Close("pollSpell")
   ---     return state
   ---
-  --- That ergonomic difference is not cosmetic. A host's four-exit poll had its instrumentation
-  --- omitted precisely because the exits made it awkward, and the omission then cost 73.9 ms of
-  --- unattributed time in the first live capture — a measurement seam whose ergonomics discourage
-  --- instrumenting exactly the functions that most need measuring.
+  --- Open TAKES THE KEY (it did not, through minor 6, and the reading was handed back to the call
+  --- site instead). A slot with no identity cannot be matched to its Close and cannot name a parent
+  --- for a bracket opened inside it, so the containment performance-§3 requires was unknowable from
+  --- the pair. With the key here, a bracket opened inside another records its parent OBSERVED.
   ---
   --- Deliberately NOT a closure-returning Bracket(key): a closure per bracket would allocate on a
   --- path whose entire contract is costing nothing when the probe is off, and `P.on` is read
   --- directly by every call site precisely so it stays a plain boolean on a plain table. P.Note is
   --- unchanged, so a host already calling it directly keeps working untouched.
-  function P.Open()
-    if not P.on then return nil end
-    return debugprofilestop()
+  function P.Open(key)
+    if not P.on then return end
+    if key == nil then
+      error(MAJOR .. ": Perf.Open requires a bucket key (got nil)", 2)
+    end
+    openStack[#openStack + 1] = { key = key, t0 = debugprofilestop() }
   end
 
-  --- Close a bracket opened by P.Open, recording its elapsed ms under `key`. A nil t0 — the probe
-  --- was off when the bracket opened — is a silent no-op.
-  function P.Close(t0, key)
-    if not t0 then return end
-    P.Note(key, debugprofilestop() - t0)
+  --- Close the bracket P.Open(key) opened, recording its elapsed ms under `key` and the key of the
+  --- bracket enclosing it as the OBSERVED parent. A Close with the probe off, or with no matching
+  --- open slot, is a silent no-op — that is what lets an early exit carry one unconditional
+  --- statement instead of its own `if`.
+  ---
+  --- An exit that forgot its Close leaves a slot below this one. Those slots are DISCARDED here
+  --- rather than closed at a stop time they never reached: crediting a leaked bracket with the
+  --- elapsed time of whatever ran after it would put a fabricated number in the report, and a
+  --- fabricated number is worse than a missing one.
+  function P.Close(key)
+    if not P.on then return end
+    local ms = debugprofilestop()
+    local at
+    for i = #openStack, 1, -1 do
+      if openStack[i].key == key then at = i break end
+    end
+    if not at then return end
+    local slot = openStack[at]
+    for i = #openStack, at, -1 do openStack[i] = nil end
+    P.Note(key, ms - slot.t0, at > 1 and openStack[at - 1].key or nil)
   end
 
   function P.Reset()
     buckets   = {}
+    -- Emptied in place rather than rebound: P.Open and P.Close close over this table, and a fresh
+    -- one here would leave them pushing into the old copy for the rest of the session.
+    for i = #openStack, 1, -1 do openStack[i] = nil end
     completed = { active = false, suspended = false }
     reviewed  = { report = false, dump = false }
     fpsArms   = {
@@ -556,9 +650,22 @@ function lib:New(descriptor)
         delta = active.msPerFrame - suspended.msPerFrame
     end
 
+    -- `within` is what the descriptor DECLARED; `observedWithin` is what the capture actually saw,
+    -- and it is absent exactly when no call site passed a parent. Both travel, so a record read
+    -- back months later answers "was that nesting ever confirmed?" without the addon's source in
+    -- hand. Additive within schema 2 — a reader of an older record sees the same fields it always
+    -- did, and a bucket nobody supplied a parent for is missing the key the same way an undeclared
+    -- bucket is missing `within` (docs/record-schema.md).
     local out = {}
     for key, b in pairs(buckets) do
-      out[key] = { calls = b.calls, totalMs = b.totalMs, maxMs = b.maxMs, within = P.BUCKET_WITHIN[key] }
+      out[key] = {
+        calls          = b.calls,
+        totalMs        = b.totalMs,
+        maxMs          = b.maxMs,
+        within         = P.BUCKET_WITHIN[key],
+        observedWithin = b.observedWithin,
+        observedMixed  = b.observedMixed,
+      }
     end
 
     return {
@@ -834,6 +941,10 @@ function lib:New(descriptor)
     if P.suspended then P.Resume() end
     P.Reset()
     P.label = nil
+    -- The context stamp goes with the run it described. Left standing, a `perf report` after a
+    -- cancel prints empty buckets wearing the discarded run's character, realm and zone — a record
+    -- that looks like a capture of somewhere nobody measured.
+    P.context = nil
     P.Log("run CANCELLED \226\128\148 measurements discarded, nothing saved")
     publishState()
     return true

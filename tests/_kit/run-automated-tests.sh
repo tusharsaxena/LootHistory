@@ -7,14 +7,14 @@
 #
 #   lint        luacheck .                     GATING
 #   tests       lua tests/run.lua              GATING
-#   perf        lua tests/perf.lua             recorded, never gating
-#   complexity  lizard -l lua -x ... .         recorded, never gating
+#   perf        lua tests/perf.lua             recorded — gates the TAG, never the run or the commit
+#   complexity  lizard -l lua -x ... .         recorded — gates the TAG, never the run or the commit
 #
-# WHY perf AND complexity DO NOT GATE. `performance-§10` is explicit that a complexity threshold
-# which fails a run teaches everyone to reach for --no-verify, after which the gate protects nothing
-# and the habit remains; `performance-§9` says the same of wall-clock perf. Folding either into a
-# red/green battery would quietly reverse both rules. They are measured, recorded and diffed — never
-# used to fail the run. A regression in them yields `amber`, which is a signal, not a stop.
+# WHY perf AND complexity DO NOT GATE THE RUN OR THE COMMIT. `performance-§9`/`§10`: a threshold that
+# fails a run teaches everyone to reach for --no-verify, after which the gate protects nothing and the
+# habit remains. They are measured, recorded and diffed; a regression yields `amber`, not `red`. At
+# the TAG they DO gate — `automated-tests-§3` has the release command read this manifest and require
+# all four suites at `pass` plus zero functions above CCN 15, where a `skip` is NOT EVALUATED.
 #
 # A MISSING TOOL IS A SKIP, NOT A FAILURE. An absent luacheck/lizard/interpreter means the suite did
 # not run; it does not mean the addon is broken. Skips are recorded as skips so a green run that
@@ -58,12 +58,23 @@ wants() { for s in "${SUITES[@]}"; do [ "$s" = "$1" ] && return 0; done; return 
 
 # ── locate the addon ────────────────────────────────────────────────────────────────────────────
 TOC="$(ls -1 ./*.toc 2>/dev/null | head -1 || true)"
-if [ -z "$TOC" ]; then
-    echo "no .toc at the repo root — run this from the addon root" >&2
-    exit 2
+if [ -n "$TOC" ]; then
+    ADDON="$(basename "$TOC" .toc)"
+    ADDON_VERSION="$(grep -i '^## Version:' "$TOC" 2>/dev/null | head -1 | sed 's/^## *[Vv]ersion: *//' | tr -d '\r' || true)"
+else
+    # An embeddable library has no .toc — it is loaded by its host's TOC, not its own, so the
+    # identity and version a .toc would carry have to come from somewhere else. Requiring one
+    # here locked the library that OWNS this kit out of running it, which is why two kit bugs
+    # survived five revisions: the kit's own repo could never execute its output path.
+    # Identity is the repo directory; version is the newest semver tag, which for a library is
+    # the only repo-wide number there is (its files carry per-file LibStub minors instead).
+    if [ ! -d .git ]; then
+        echo "no .toc here and no .git — run this from the addon or library repo root" >&2
+        exit 2
+    fi
+    ADDON="$(basename "$PWD")"
+    ADDON_VERSION="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' | tr -d '\r' || true)"
 fi
-ADDON="$(basename "$TOC" .toc)"
-ADDON_VERSION="$(grep -i '^## Version:' "$TOC" 2>/dev/null | head -1 | sed 's/^## *[Vv]ersion: *//' | tr -d '\r' || true)"
 [ -z "$ADDON_VERSION" ] && ADDON_VERSION="unknown"
 
 # LOCAL time, not UTC: a record is read by the person who ran it, and a folder name that
@@ -72,7 +83,41 @@ ADDON_VERSION="$(grep -i '^## Version:' "$TOC" 2>/dev/null | head -1 | sed 's/^#
 STAMP="$(date +%Y%m%d-%H%M%S)"
 STARTED_AT="$(date +%Y-%m-%dT%H:%M:%S%:z)"
 OUT="docs/automated-tests/$STAMP"
-RUN_START=$(date +%s)
+
+# ── the clock ───────────────────────────────────────────────────────────────────────────────────
+# Every duration in this record is MILLISECONDS, and every one of them used to be measured with
+# `date +%s` — whole seconds — then multiplied by 1000 on the way out. Two things followed. A suite
+# that took 300ms recorded `0`, indistinguishable from a suite that did not run. And a second
+# boundary crossed the wrong way (NTP step, DST-adjacent clock skew) recorded a NEGATIVE duration:
+# `-1000` and `-2000` are committed in five repos' manifests today. A duration that can be negative
+# is a duration nobody can read as a measurement.
+#
+# The source is resolved ONCE, here, and recorded in the manifest, so a run whose host could only
+# offer second granularity is self-describing instead of looking like an implausibly fast run.
+#
+# All timestamps in a run come from `now_ms`, without exception. Mixing units across the two
+# operands of a subtraction is the failure this block replaced: epoch-milliseconds minus
+# epoch-seconds is ~1.7e12, it is POSITIVE, and it therefore survives every "is it negative" check
+# while being wrong by a factor of a thousand.
+if printf '%s' "$(date +%s%3N 2>/dev/null || true)" | grep -qE '^[0-9]{13,}$'; then
+    TIMING_SOURCE="date +%s%3N"
+    now_ms() { date +%s%3N; }
+elif [ -n "${EPOCHREALTIME:-}" ]; then
+    # bash >= 5.0. Dynamic — it must be read on every call, which is why this reads the variable
+    # inside the function rather than capturing it. `1785110400.123456` with the locale's decimal
+    # separator; strip it and keep the leading 13 digits.
+    TIMING_SOURCE="EPOCHREALTIME"
+    now_ms() { local e="${EPOCHREALTIME/[.,]/}"; printf '%s' "${e:0:13}"; }
+else
+    TIMING_SOURCE="date +%s (second granularity)"
+    now_ms() { printf '%s' "$(( $(date +%s) * 1000 ))"; }
+fi
+
+# Elapsed milliseconds between two `now_ms` readings, CLAMPED AT ZERO. A backwards clock yields a
+# negative here; recording it would put a number in the trend line that cannot mean anything.
+elapsed_ms() { local d=$(( $2 - $1 )); [ "$d" -lt 0 ] && d=0; printf '%s' "$d"; }
+
+RUN_START=$(now_ms)
 
 # ── interpreter + tool discovery ────────────────────────────────────────────────────────────────
 LUA=""
@@ -103,7 +148,7 @@ PERF_SCENARIOS=0; PERF_FAILED=0
 CCN_WARN=0; CCN_NLOC=0; CCN_FUNCS=0; CCN_AVG=0; CCN_MAX=0; CCN_BAND=0; CCN_OVER=0
 CCN_AVG_NLOC=0; CCN_AVG_TOKEN=0; CCN_FUN_RT=0; CCN_NLOC_RT=0
 
-# Strip ANSI colour before writing. luacheck and the harness colour their output when they
+# Strip ANSI color before writing. luacheck and the harness color their output when they
 # think a terminal is attached, and the raw escapes ('\033[32m\033[1mOK') land verbatim in the
 # artifact — unreadable in an editor and noise in any diff between two runs. The parsers below
 # already strip for their own use; the stored evidence gets the same treatment.
@@ -112,13 +157,13 @@ emit() { if [ "$WRITE_BUNDLE" -eq 1 ]; then strip_ansi > "$OUT/$1"; else cat > /
 
 # ── lint ────────────────────────────────────────────────────────────────────────────────────────
 if wants lint; then
-    t0=$(date +%s)
+    t0=$(now_ms)
     if [ ! -f .luacheckrc ]; then
         ST[lint]="skip"; NOTE[lint]="no .luacheckrc — lint is not part of this addon's battery"
     elif [ -z "$LUACHECK_VERSION" ]; then
-        ST[lint]="skip"; NOTE[lint]="luacheck not on PATH — install: pipx install luacheck"
+        ST[lint]="skip"; NOTE[lint]="luacheck not on PATH — install: sudo luarocks install luacheck"
     else
-        # $NOCOLOR is belt and braces with strip_ansi: where the flag exists nothing colours the
+        # $NOCOLOR is belt and braces with strip_ansi: where the flag exists nothing colors the
         # output in the first place, and where it does not, strip_ansi still cleans it.
         raw="$(luacheck . $NOCOLOR 2>&1)"; rc=$?
         printf '%s\n' "$raw" | emit lint.txt
@@ -129,12 +174,12 @@ if wants lint; then
         [ -z "$LINT_WARN" ] && LINT_WARN=0; [ -z "$LINT_ERR" ] && LINT_ERR=0; [ -z "$LINT_FILES" ] && LINT_FILES=0
         if [ "$rc" -eq 0 ]; then ST[lint]="pass"; else ST[lint]="fail"; fi
     fi
-    DUR[lint]=$(( $(date +%s) - t0 ))
+    DUR[lint]=$(elapsed_ms "$t0" "$(now_ms)")
 fi
 
 # ── tests ───────────────────────────────────────────────────────────────────────────────────────
 if wants tests; then
-    t0=$(date +%s)
+    t0=$(now_ms)
     if [ ! -f tests/run.lua ]; then
         ST[tests]="skip"; NOTE[tests]="no tests/run.lua"
     elif [ -z "$LUA" ]; then
@@ -168,12 +213,12 @@ if wants tests; then
                 || rm -f "$OUT/test-cases.md"
         fi
     fi
-    DUR[tests]=$(( $(date +%s) - t0 ))
+    DUR[tests]=$(elapsed_ms "$t0" "$(now_ms)")
 fi
 
 # ── perf (recorded, never gating) ───────────────────────────────────────────────────────────────
 if wants perf; then
-    t0=$(date +%s)
+    t0=$(now_ms)
     if [ ! -f tests/perf.lua ]; then
         ST[perf]="skip"; NOTE[perf]="no tests/perf.lua — this addon ships no offline scenarios"
     elif [ -z "$LUA" ]; then
@@ -197,12 +242,12 @@ if wants perf; then
         [ -z "$PERF_SCENARIOS" ] && PERF_SCENARIOS=0
         if [ "$rc" -eq 0 ]; then ST[perf]="pass"; else ST[perf]="fail"; PERF_FAILED=1; fi
     fi
-    DUR[perf]=$(( $(date +%s) - t0 ))
+    DUR[perf]=$(elapsed_ms "$t0" "$(now_ms)")
 fi
 
 # ── complexity (recorded, never gating) ─────────────────────────────────────────────────────────
 if wants complexity; then
-    t0=$(date +%s)
+    t0=$(now_ms)
     if [ -z "$LIZARD_VERSION" ]; then
         ST[complexity]="skip"; NOTE[complexity]="lizard not on PATH — install: pipx install lizard"
     else
@@ -242,7 +287,7 @@ if wants complexity; then
         done < <(find . -name '*.lua' -not -path './libs/*' -not -path './tests/_kit/*' -exec wc -l {} + 2>/dev/null | awk '$2!="total"{print $1}')
         ST[complexity]="pass"
     fi
-    DUR[complexity]=$(( $(date +%s) - t0 ))
+    DUR[complexity]=$(elapsed_ms "$t0" "$(now_ms)")
 fi
 
 # ── verdict ─────────────────────────────────────────────────────────────────────────────────────
@@ -258,7 +303,7 @@ if [ "$VERDICT" != "red" ]; then
     [ "${ST[perf]}" = "fail" ] && VERDICT="amber"
 fi
 
-RUN_DURATION=$(( $(date +%s) - RUN_START ))
+RUN_DURATION=$(elapsed_ms "$RUN_START" "$(now_ms)")
 
 # ── console summary ─────────────────────────────────────────────────────────────────────────────
 fmt() {
@@ -288,7 +333,7 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
     suite_json() {
         local s="$1" extra="$2"
         printf '    "%s": { "status": "%s", "durationMs": %s%s%s }' \
-            "$s" "${ST[$s]}" "$(( ${DUR[$s]} * 1000 ))" \
+            "$s" "${ST[$s]}" "${DUR[$s]}" \
             "$( [ -n "${NOTE[$s]}" ] && printf ', "skipReason": "%s"' "$(sj "${NOTE[$s]}")" )" \
             "$extra"
     }
@@ -299,17 +344,31 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
         printf '  "addonVersion": "%s",\n'   "$(sj "$ADDON_VERSION")"
         printf '  "run": "%s",\n'            "$STAMP"
         printf '  "startedAt": "%s",\n'      "$STARTED_AT"
-        printf '  "durationMs": %s,\n'       "$(( RUN_DURATION * 1000 ))"
+        printf '  "durationMs": %s,\n'       "$RUN_DURATION"
         printf '  "label": %s,\n'            "$( [ -n "$LABEL" ] && printf '"%s"' "$(sj "$LABEL")" || printf 'null' )"
         printf '  "release": %s,\n'          "$( [ -n "$RELEASE" ] && printf '"%s"' "$(sj "$RELEASE")" || printf 'null' )"
         printf '  "git": { "sha": "%s", "branch": "%s", "dirty": %s },\n' "$GIT_SHA" "$(sj "$GIT_BRANCH")" "$GIT_DIRTY"
-        printf '  "host": { "lua": "%s", "luacheck": "%s", "lizard": "%s" },\n' \
-            "$(sj "$LUA_VERSION")" "$(sj "$LUACHECK_VERSION")" "$(sj "$LIZARD_VERSION")"
+        # `timingSource` sits beside the tool versions because it is the same kind of fact: what this
+        # host was able to measure with. A bundle recorded on a host without millisecond granularity
+        # says so, rather than presenting rounded seconds as if they were milliseconds.
+        printf '  "host": { "lua": "%s", "luacheck": "%s", "lizard": "%s", "timingSource": "%s" },\n' \
+            "$(sj "$LUA_VERSION")" "$(sj "$LUACHECK_VERSION")" "$(sj "$LIZARD_VERSION")" "$(sj "$TIMING_SOURCE")"
+        # `gating` is a BOOLEAN and there are two checkpoints, so it could only ever describe one of
+        # them. It described the run, which made `"gating": false` on perf and complexity read as
+        # "these two gate nothing" — the same half-truth the RESULTS.md lead-in used to carry, in
+        # machine-readable form. `gates` names both checkpoints instead.
+        #
+        # NEITHER FIELD IS READ BY ANYTHING. `/wow-addon:bump-version` evaluates the release gate
+        # from `suites.<name>.status` and `suites.complexity.warnings` — never from `gating` and
+        # never from `gates`. Both are descriptive, and `gates` is the honest description. The legacy
+        # boolean stays beside it for one revision so no reader breaks on the way past.
+        GATE_COMMIT='"gating": true, "gates": { "commit": true, "release": true }'
+        GATE_RECORD='"gating": false, "gates": { "commit": false, "release": true }'
         printf '  "suites": {\n'
-        suite_json lint       ", \"warnings\": $LINT_WARN, \"errors\": $LINT_ERR, \"files\": $LINT_FILES, \"gating\": true"; printf ',\n'
-        suite_json tests      ", \"passed\": $TESTS_PASS, \"failed\": $TESTS_FAIL, \"total\": $TESTS_TOTAL, \"gating\": true"; printf ',\n'
-        suite_json perf       ", \"scenarios\": $PERF_SCENARIOS, \"gating\": false"; printf ',\n'
-        suite_json complexity ", \"warnings\": $CCN_WARN, \"maxCcn\": $CCN_MAX, \"nloc\": $CCN_NLOC, \"functions\": $CCN_FUNCS, \"avgCcn\": $CCN_AVG, \"avgNloc\": $CCN_AVG_NLOC, \"avgToken\": $CCN_AVG_TOKEN, \"warnFunRatio\": $CCN_FUN_RT, \"warnNlocRatio\": $CCN_NLOC_RT, \"bandFiles\": $CCN_BAND, \"overCapFiles\": $CCN_OVER, \"gating\": false"; printf '\n'
+        suite_json lint       ", \"warnings\": $LINT_WARN, \"errors\": $LINT_ERR, \"files\": $LINT_FILES, $GATE_COMMIT"; printf ',\n'
+        suite_json tests      ", \"passed\": $TESTS_PASS, \"failed\": $TESTS_FAIL, \"total\": $TESTS_TOTAL, $GATE_COMMIT"; printf ',\n'
+        suite_json perf       ", \"scenarios\": $PERF_SCENARIOS, $GATE_RECORD"; printf ',\n'
+        suite_json complexity ", \"warnings\": $CCN_WARN, \"maxCcn\": $CCN_MAX, \"nloc\": $CCN_NLOC, \"functions\": $CCN_FUNCS, \"avgCcn\": $CCN_AVG, \"avgNloc\": $CCN_AVG_NLOC, \"avgToken\": $CCN_AVG_TOKEN, \"warnFunRatio\": $CCN_FUN_RT, \"warnNlocRatio\": $CCN_NLOC_RT, \"bandFiles\": $CCN_BAND, \"overCapFiles\": $CCN_OVER, $GATE_RECORD"; printf '\n'
         printf '  },\n'
         printf '  "verdict": "%s"\n' "$VERDICT"
         printf '}\n'
@@ -358,9 +417,20 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
             printf '<!-- This file is OVERWRITTEN IN PLACE — the git history of this one path is the trend line. -->\n\n'
             printf 'One row per run. The frozen evidence for each is in the dated folder beside this file;\n'
             printf 'the analysis of a given run is its `ANALYSIS.md`.\n\n'
-            printf '**`lint` and `tests` gate. `perf` and `complexity` are recorded and never fail a run** —\n'
-            printf 'they are read and compared, not thresholded. A `skip` is a suite that did not run at all,\n'
-            printf 'which is never the same as a pass.\n\n'
+            # THE LEAD-IN NAMES THE CHECKPOINT, PER SUITE. The old text — "perf and complexity are
+            # recorded and never fail a run" — is true and, standing alone, misleading: it reads as
+            # "these two gate nothing", while automated-tests-§3's release gate says otherwise. It
+            # was the sentence nine repos quoted back, and none of them wrote it. There are two
+            # checkpoints and a suite's answer differs between them, so both are stated here.
+            printf '**`lint` and `tests` gate the run and gate the commit** (`testing-§4`).\n'
+            printf '**`perf` and `complexity` never fail a run and never block a commit** — they are recorded,\n'
+            printf 'read and compared, not thresholded (`performance-§9`, `performance-§10`).\n\n'
+            printf '**The tag is gated on all four suites at `pass`, plus zero functions above CCN 15**\n'
+            printf '(`automated-tests-§3`, *The release gate*), evaluated by `/wow-addon:bump-version` from the\n'
+            printf '`manifest.json` the release run writes — not by this script, whose exit code is unchanged.\n\n'
+            printf 'A `skip` is a suite that did not run at all. It is never a pass, and at the release gate it is\n'
+            printf '**NOT EVALUATED** rather than passed: install the tool and re-run. A `—` is a suite that was\n'
+            printf 'not selected, which is a different fact again.\n\n'
             printf '%s\n' "$HEADER"
             printf '%s\n' "$RULE"
             printf '%s\n' "$ROW"

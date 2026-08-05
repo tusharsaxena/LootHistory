@@ -12,7 +12,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local WIDGETS_MINOR = 6
+local WIDGETS_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -29,7 +29,7 @@ local L = lib.LAYOUT
 -- a handful of writes a second rather than sixty, and fast enough that the preview still tracks
 -- the cursor.
 local COLOR_THROTTLE = 0.05
--- Live-slider commits reuse the colour picker's throttle: a 60 Hz drag would otherwise fan a
+-- Live-slider commits reuse the color picker's throttle: a 60 Hz drag would otherwise fan a
 -- refresh pass out across every registered panel sixty times a second.
 local DRAG_THROTTLE  = COLOR_THROTTLE
 
@@ -53,7 +53,7 @@ local function applyWidth(widget, relativeWidth)
   end
 end
 
--- Both enum shapes the collection actually declares, normalised to one ordered list of
+-- Both enum shapes the collection actually declares, normalized to one ordered list of
 -- { value =, text = }.
 --
 --   ordered array   { { value = "SHORT", text = "Short" }, ... }   the Ka0s options schema
@@ -535,7 +535,7 @@ function lib.__AttachWidgets(O, d)
     -- and there was no hook to ask for one. The default stays release-only, so an unchanged host
     -- is untouched.
     --
-    -- Throttled through the same re-armed single timer the colour picker uses, rather than the
+    -- Throttled through the same re-armed single timer the color picker uses, rather than the
     -- per-frame write a host would write by hand. Live commits snap to the row's step exactly as
     -- the release commit does, or the release would silently correct what the drag stored.
     local liveCommit = row.commitOn or d.sliderCommit
@@ -630,9 +630,9 @@ function lib.__AttachWidgets(O, d)
     -- Default TRUE. The old `row.hasAlpha and true or false` made a declared `false`
     -- indistinguishable from an absent field, so no host could express "no alpha" even
     -- deliberately — while the codec below models alpha as a first-class component of every
-    -- colour it stores (`a or 1` on write, `c.a or 1` on read). Suppressing the slider by default
+    -- color it stores (`a or 1` on write, `c.a or 1` on read). Suppressing the slider by default
     -- contradicted the codec: a stored alpha the user could never reach. A host that wants the
-    -- old behaviour now writes `hasAlpha = false`, which it can say for the first time.
+    -- old behavior now writes `hasAlpha = false`, which it can say for the first time.
     cp:SetHasAlpha(row.hasAlpha ~= false)
     applyWidth(cp, relativeWidth)
 
@@ -708,7 +708,7 @@ function lib.__AttachWidgets(O, d)
       -- and an opt-in would leave the two disagreeing for every row that declares `values` and
       -- nothing else. The enumList duplication comment above states the requirement outright: the
       -- two readers MUST agree. Safe in the failure direction — a values function that answers
-      -- empty falls through to the slider, which is exactly the old behaviour.
+      -- empty falls through to the slider, which is exactly the old behavior.
       if #enumList(row) > 0 then return makeDropdown(ctx, row, parent, relativeWidth) end
       return makeSlider(ctx, row, parent, relativeWidth)
     end

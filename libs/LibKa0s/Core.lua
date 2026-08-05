@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 4
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -73,10 +73,10 @@ end
 
 -- ── the window chrome seam ─────────────────────────────────────────────────────────────────
 
--- The one skin every Ka0s window wears: a flat 1px BLACK outer edge with a 1px light-grey highlight
--- synthesised just inside it (the "double edge"), a gold title, and a grey divider under the title
--- bar. Every colour travels in the same table as the backdrop fields because they are one decision:
--- a copy that took the backdrop but not the colours is exactly the drift this exists to prevent.
+-- The one skin every Ka0s window wears: a flat 1px BLACK outer edge with a 1px light-gray highlight
+-- synthesized just inside it (the "double edge"), a gold title, and a gray divider under the title
+-- bar. Every color travels in the same table as the backdrop fields because they are one decision:
+-- a copy that took the backdrop but not the colors is exactly the drift this exists to prevent.
 -- WoW's backdrop system reads only the fields it knows, so the extra keys are inert when the table
 -- is handed to SetBackdrop.
 --
@@ -97,7 +97,7 @@ lib.SKIN = {
   bg = { 0.06, 0.06, 0.08, 0.92 },
   border = { 0, 0, 0, 1 },
   -- The three that used to be unexpressible. They are not backdrop fields — an inner-border child
-  -- frame, a FontString tint and a texture colour are CALLS — which is why `ApplySkin` grew to make
+  -- frame, a FontString tint and a texture color are CALLS — which is why `ApplySkin` grew to make
   -- them rather than the table growing to describe them.
   innerBorder = { 0.24, 0.24, 0.27, 0.85 },
   divider     = { 0.24, 0.24, 0.27, 0.85 },
@@ -153,7 +153,7 @@ local function ensureInnerBorder(frame, skin)
   return frame.innerBorder
 end
 
--- Synthesise the highlight if it is not there yet, then re-tint it on every call.
+-- Synthesize the highlight if it is not there yet, then re-tint it on every call.
 local function applyInnerBorder(frame, skin)
   if type(skin.innerBorder) ~= "table" or type(CreateFrame) ~= "function" then return end
   local inner = ensureInnerBorder(frame, skin)
@@ -254,7 +254,7 @@ end
 --- Build a printer for one host.
 ---
 --- Descriptor:
----   prefix  string|function  required. The tag, VERBATIM — never synthesised from an abbreviation,
+---   prefix  string|function  required. The tag, VERBATIM — never synthesized from an abbreviation,
 ---                            because the collection's tags differ in case, color and trailing
 ---                            space. A function is re-read on EVERY call, which is what lets a host
 ---                            whose prefix constant is defined in a file that loads later pass

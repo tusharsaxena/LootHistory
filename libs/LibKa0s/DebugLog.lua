@@ -24,7 +24,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 7
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 8
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -177,7 +177,7 @@ end
 ---                         LIBRARY's windows, so they wear the library's close glyph; a host
 ---                         whose own main window closes with something else MUST NOT push that
 ---                         difference onto them (standalone-windows in the Ka0s WoW Addon
----                         Standard). Two adopters passed their 24x24 class-coloured x here
+---                         Standard). Two adopters passed their 24x24 class-colored x here
 ---                         and shipped diagnostic windows that did not match the other three's.
 ---                         Pass this only for a close control that is genuinely DIFFERENT IN
 ---                         KIND — not merely the host's own.
@@ -213,10 +213,10 @@ function lib:New(d)
   ---
   --- rawget, NOT a plain index, and this is load-bearing rather than pedantic. Every Ka0s host's
   --- locale table carries a metatable fallback that answers an unknown key WITH THE KEY (the
-  --- standard mandates it — anti-patterns #2). A plain index therefore accepts that synthesised
+  --- standard mandates it — anti-patterns #2). A plain index therefore accepts that synthesized
   --- string for every key, these STRINGS become unreachable, and the host renders raw keys like
   --- DEBUG_ON in place of English. It shipped exactly that way in a consumer's perf panel, for
-  --- every string at once, and no headless case caught it because a synthesised value IS a string.
+  --- every string at once, and no headless case caught it because a synthesized value IS a string.
   ---
   --- rawget asks the only question that matters — did the host actually put a value here? — so a
   --- genuine entry still wins and a fallback-only table correctly falls through.
@@ -227,7 +227,7 @@ function lib:New(d)
   end
 
   -- ONE implementation, in Core, reached with this instance's skin. It draws the whole Ka0s window
-  -- edge — the flat 1px black border, the 1px grey inner highlight, the gold title and the grey
+  -- edge — the flat 1px black border, the 1px gray inner highlight, the gold title and the gray
   -- divider — and guards every step on the key being present, so a host passing a plain WoW backdrop
   -- table (no `bg`, no `innerBorder`, …) gets a plain backdrop rather than a raise midway through
   -- building a window that is not yet hidden or Esc-wired.
@@ -239,7 +239,7 @@ function lib:New(d)
   local function defaultApplySkin(f) core.ApplySkin(f, skin) end
 
   -- `applySkin` remains, and still owns the WHOLE job for both windows when a host supplies it —
-  -- for chrome that differs in SHAPE rather than in colour, and for a host that wants its console
+  -- for chrome that differs in SHAPE rather than in color, and for a host that wants its console
   -- to track its own re-skin seam rather than this library's.
   --
   -- It is handed the fully-built frame, so `frame.title` and `frame.divider` are already assigned
@@ -250,7 +250,7 @@ function lib:New(d)
   -- that says nothing still tracks a Core upgraded underneath an unchanged DebugLog.
   --
   -- The default is almost always what a host wants, and the descriptor field reads as though it
-  -- is not: two adopters passed their main window's 24x24 class-coloured x here on the reasoning
+  -- is not: two adopters passed their main window's 24x24 class-colored x here on the reasoning
   -- that all their windows should match, and ended up with diagnostic windows that matched their
   -- own addon and no other. These windows are the LIBRARY's; the edge is shared across every
   -- Ka0s window (Core.SKIN) but the close control on a library window is the library's.
@@ -301,9 +301,9 @@ function lib:New(d)
     divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
     divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
     divider:SetHeight(1)
-    -- Coloured from the skin rather than hardcoded black. `applySkin` runs at the end of this
+    -- Colored from the skin rather than hardcoded black. `applySkin` runs at the end of this
     -- function and tints it again, so this value only shows on a host whose own applySkin ignores
-    -- the divider — and black under a grey-inner-bordered window is exactly the mismatch this
+    -- the divider — and black under a gray-inner-bordered window is exactly the mismatch this
     -- release exists to remove.
     local dc = type(skin.divider) == "table" and skin.divider or { 0, 0, 0, 1 }
     divider:SetColorTexture(dc[1], dc[2], dc[3], dc[4])
