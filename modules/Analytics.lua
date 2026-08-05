@@ -654,7 +654,10 @@ function Analytics:BuildCharts(content)
     end
     -- Private bus target (never the shared bus-as-self) so these don't clobber the Browser's
     -- RecordAdded/HistoryChanged handlers on the same bus. See NS.NewBusTarget.
-    self.__ev = NS.NewBusTarget() or NS.bus
+    -- No `or NS.bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and
+    -- core/LootHistory.lua:4's NewAddon(NS, addonName, "AceEvent-3.0", …) errors first in exactly
+    -- that case, so NS.bus never exists and the `if NS.bus` guard above never opens.
+    self.__ev = NS.NewBusTarget()
     self.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", live)
     self.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", live)
   end
