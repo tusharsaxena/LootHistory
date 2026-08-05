@@ -6,9 +6,17 @@
 One row per run. The frozen evidence for each is in the dated folder beside this file;
 the analysis of a given run is its `ANALYSIS.md`.
 
-**`lint` and `tests` gate. `perf` and `complexity` are recorded and never fail a run** —
-they are read and compared, not thresholded. A `skip` is a suite that did not run at all,
-which is never the same as a pass.
+**`lint` and `tests` gate the run and gate the commit** (`testing-§4`).
+**`perf` and `complexity` never fail a run and never block a commit** — they are recorded,
+read and compared, not thresholded (`performance-§9`, `performance-§10`).
+
+**The tag is gated on all four suites at `pass`, plus zero functions above CCN 15**
+(`automated-tests-§3`, *The release gate*), evaluated by `/wow-addon:bump-version` from the
+`manifest.json` the release run writes — not by this script, whose exit code is unchanged.
+
+A `skip` is a suite that did not run at all. It is never a pass, and at the release gate it is
+**NOT EVALUATED** rather than passed: install the tool and re-run. A `—` is a suite that was
+not selected, which is a different fact again.
 
 | Run | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
