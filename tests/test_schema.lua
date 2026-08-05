@@ -137,6 +137,20 @@ test("Schema: every persisted path resolves against the shipped defaults", funct
   end
 end)
 
+test("Schema: Register reports a typo'd path even when the row declares a default", function()
+  -- LH-R-02 / LH-A-43. Register's condition used to end `and row.default == nil`, and no shipped
+  -- row satisfies that — all eleven declare a non-nil default (two declare `false`) — so the whole
+  -- boot check was structurally dead and a typo'd path was reported by nothing. The probe below
+  -- carries a default ON PURPOSE: that is precisely the case the old conjunct could not see.
+  -- Restoring `and row.default == nil` turns this red.
+  assertEqual(S:Register(), 0, "the shipped schema must validate clean")
+  S.Schema[#S.Schema + 1] = { path = "settings.nosuchbranch.typo", default = true, type = "bool" }
+  local unresolved = S:Register()
+  S.Schema[#S.Schema] = nil   -- pulled before asserting, so a failure cannot poison later suites
+  assertTrue(unresolved > 0, "a typo'd path must be reported even though the row has a default")
+  assertEqual(S:Register(), 0, "the probe row must be gone again")
+end)
+
 -- Structural equality. `assertEqual` compares a table by identity, which is why the case below
 -- used to skip every `type = "table"` row: the set-valued defaults are two separate literals and an
 -- identity check could only ever fail. Skipping them is what let the AH lists drift apart

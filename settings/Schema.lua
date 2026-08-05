@@ -194,16 +194,30 @@ function S:Default(path)
   return row and deepcopy(row.default)
 end
 
--- Boot validation: every schema path must resolve against the defaults table.
+-- Boot validation (architecture-§5): every persisted schema path must resolve against the shipped
+-- defaults table. Returns the number of rows that did not — 0 on a healthy load — so a caller, and
+-- tests/test_schema.lua, can assert on the result instead of reading chat.
+--
+-- The condition used to carry an `and row.default == nil` conjunct, which made the whole check
+-- structurally dead: every shipped row declares a non-nil default (two of them declare `false`), so
+-- the print could never fire and the one thing this exists to catch — a typo'd path — was reported
+-- by nothing. A row's own `default` is not evidence that its PATH resolves; the two are independent
+-- facts, and only the path is what AceDB and Schema:Get/Set walk. A typo'd path is now reported
+-- whether or not the row carries a default.
 function S:Register()
   local g = NS.defaults and NS.defaults.global
-  if not g then return end
+  -- defaults/Global.lua loads before this file (LootHistory.toc), so `g` is present in any loaded
+  -- client; there is nothing to validate against when it is not.
+  if not g then return 0 end
+  local unresolved = 0
   for _, row in ipairs(S.Schema) do
-    -- Session-only rows (state.debugConsole) have no db-backed default to resolve — skip them.
-    if not row.sessionOnly and S:ReadPath(g, row.path) == nil and row.default == nil then
-      print("schema path missing default: " .. tostring(row.path))
+    -- Session-only rows (state.debugConsole) have no db-backed path to resolve — skip them.
+    if not row.sessionOnly and S:ReadPath(g, row.path) == nil then
+      unresolved = unresolved + 1
+      print("schema path does not resolve against defaults/Global.lua: " .. tostring(row.path))
     end
   end
+  return unresolved
 end
 
 -- Slash command table. Dispatch lives in Slash.lua; the chat help and the settings landing page are

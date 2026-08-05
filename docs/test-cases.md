@@ -498,7 +498,7 @@ badge and any count quoted in the docs must agree with it.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_schema.lua (31)
+### test_schema.lua (32)
 
 - Schema: debugConsole row is session-only, in Master Controls
 - Schema: setting debugConsole toggles the window, never writes db.global
@@ -512,6 +512,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every row's default matches its declared type
 - Schema: FindRow resolves a known path and rejects an unknown one
 - Schema: every persisted path resolves against the shipped defaults
+- Schema: Register reports a typo'd path even when the row declares a default
 - Schema: the shipped default equals the schema's declared default
 - Schema: the AH priority cascade is declared once, in core/Constants.lua
 - Schema: every dropdown row offers values, and its default is one of them
@@ -676,10 +677,10 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 22 |
 | test_debuglog.lua | 21 |
 | test_slash.lua | 34 |
-| test_schema.lua | 31 |
+| test_schema.lua | 32 |
 | test_analytics.lua | 57 |
 | test_panel.lua | 25 |
 | test_harness.lua | 5 |
 | test_libka0s.lua | 22 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **592** |
+| **Total** | **593** |
