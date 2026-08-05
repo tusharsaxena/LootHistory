@@ -77,7 +77,8 @@ if type(StaticPopupDialogs) == "table" then
   }
 end
 
--- Full reset (the confirm-gated "Reset All"): wipe history AND restore every persisted piece of
+-- Full reset (the panel's confirm-gated "Reset Everything" button, NOT the `/lh resetall` verb,
+-- which is settings + id-lists only): wipe history AND restore every persisted piece of
 -- account state to its stock shape. CliResetAll covers the schema settings + the filter lists; this
 -- adds the two view/window carve-outs that the non-destructive resets deliberately leave alone —
 -- savedView (back to stock) and the window geometry (recentered) — so "Reset ALL" is truly total.

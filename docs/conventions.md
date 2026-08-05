@@ -169,7 +169,7 @@ the small-scale rules those documents assume.
 
 ## Panel layout: options-ui-§6/§10 conformance
 
-- **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset All, Purge history) inset
+- **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset Everything, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
   constant is the library's (`libs/LibKa0s/Options.lua:76`), re-exported on the instance as
   `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:35`).

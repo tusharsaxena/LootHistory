@@ -59,7 +59,7 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` h
 
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:222`).
 - Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1360`).
-- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:660`).
+- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:664`).
 - Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:123`).
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.

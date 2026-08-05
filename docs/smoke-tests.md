@@ -497,22 +497,22 @@ destructive-action confirm dialogs.
 
 **Steps.**
 - Observe the right-edge vertical **scrollbar** on a page that fits without scrolling.
-- Find the **Reset All** button (right of the Window-scale slider) and the **Purge history…** button
+- Find the **Reset Everything** button (right of the Window-scale slider) and the **Purge history…** button
   (right of the storage-stats label). Check each button's right border.
 - Click **Purge history…** → in the confirm dialog, click **No/Cancel**, then run it again and confirm.
-- Click **Reset All** → confirm dialog.
+- Click **Reset Everything** → confirm dialog.
 - `/lh purge` from chat.
 
 **Pass.**
 - The scrollbar is **always shown**: on a short page the bar renders parked at the top and **grayed /
   disabled** (it does not auto-hide), so the right gutter is always reserved and the body's left/right
   margins **don't jump** between a short and a long subpage.
-- **Reset All** and **Purge history…** each draw their **full right border** (not shaved by the scroll
+- **Reset Everything** and **Purge history…** each draw their **full right border** (not shaved by the scroll
   gutter) and line up cleanly with their left-hand neighbor — no spill past the panel edge
   (`BUTTON_PAIR_REL` pairing via `makePairButton`).
 - **Purge history…** raises `KA0S_LOOTHISTORY_PURGE` ("Delete ALL … records? This cannot be undone.");
   Cancel leaves the data intact, Accept wipes history and prints "history purged."
-- **Reset All** raises `KA0S_LOOTHISTORY_RESETALL` ("Reset ALL … settings AND delete ALL recorded
+- **Reset Everything** raises `KA0S_LOOTHISTORY_RESETALL` ("Reset ALL … settings AND delete ALL recorded
   history?"); Accept wipes history **and** restores every setting to default, then refreshes the panel.
 - `/lh purge` raises the same purge dialog as the button.
 
@@ -725,7 +725,7 @@ already identical to the library's, so **anything that looks different here is t
 3. Click through **General**, **Filters** and **AH Price**. Each header reads
    `Ka0s Loot History ▸ <Page>` with the gold divider under it and a **Defaults** button top-right.
    The two-column pairing is unchanged: Enable collection | Hide minimap button, then Debug console
-   alone, then Window scale | Reset All; then Minimum quality | Keep history for, then Record
+   alone, then Window scale | Reset Everything; then Minimum quality | Keep history for, then Record
    currency | Exclude quest items, then the full-width **Record data from** grid.
 4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
    edge does not shift** as you click between pages (options-ui-§10).
@@ -768,7 +768,8 @@ guard — but check both entry points of each destructive action anyway:
 
 - `/lh purge` → confirm popup. Cancel: history intact. **Settings ▸ General ▸ Purge history…** →
   the same popup.
-- **Settings ▸ General ▸ Reset All** → the "settings AND history" popup. Cancel: nothing changes.
+- **Settings ▸ General ▸ Reset Everything** → the "settings AND history" popup. Cancel: nothing
+  changes. Its label says Everything, not All, precisely because `/lh resetall` below does less.
 - **Settings ▸ Filters ▸ Defaults** → the clear-all-filters popup, and each list's own **Clear all**
   → its own popup.
 - `/lh resetall` is non-destructive (settings + the id-lists only, history untouched) and correctly

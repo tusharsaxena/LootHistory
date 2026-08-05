@@ -865,7 +865,7 @@ function B:SaveView()
   end
 end
 -- Drop the saved view back to stock. `silent` suppresses the chat line when called programmatically
--- (the destructive "Reset All" prints its own single confirmation) — the filter-bar Reset button
+-- (the destructive "Reset Everything" prints its own single confirmation) — the filter-bar Reset button
 -- calls it with no argument and keeps the message.
 function B:ResetView(silent)
   if NS.db and NS.db.global then NS.db.global.savedView = nil end
@@ -874,7 +874,7 @@ function B:ResetView(silent)
 end
 
 -- Reset the persisted window geometry (the settings.window storage-only carve-out) and recenter the
--- live frame. Used only by the destructive "Reset All" — window position is runtime state, so the
+-- live frame. Used only by the destructive "Reset Everything" — window position is runtime state, so the
 -- non-destructive settings resets deliberately leave it alone.
 function B:ResetWindow()
   if NS.db and NS.db.global and NS.db.global.settings then

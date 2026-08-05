@@ -88,7 +88,7 @@ test("Panel: the General page renders one widget per non-skipped schema row, pai
     assertTrue(#created > 0, "the first OnShow must build the page body")
 
     -- Master Controls: Enable collection | Hide minimap button on one line, Debug console alone on
-    -- the next (it is the one `solo` row), Window scale paired with the Reset All action button.
+    -- the next (it is the one `solo` row), Window scale paired with the Reset Everything button.
     local enable = findByLabel(created, "Enable collection")
     assertTrue(enable ~= nil, "the Enable collection checkbox must be drawn")
     assertEqual(enable.type, "CheckBox")
@@ -130,13 +130,15 @@ test("Panel: a slider is given the row's own min/max", function()
   assertEqual(s.max, row.max)
 end)
 
-test("Panel: the Reset All action button pairs with the Window scale row", function()
+test("Panel: the Reset Everything action button pairs with the Window scale row", function()
   -- An ACTION button, not a setting, attached as the right half of a named row. It is the only
   -- entry point to the confirm-gated total reset from the panel, so a render that quietly stopped
   -- drawing it would remove a destructive action's only visible affordance.
   local created = show(mocks.__subcategories["General"])
-  local btn = findByLabel(created, "Reset All")
-  assertTrue(btn ~= nil, "the Reset All button must be drawn")
+  -- Labeled "Reset Everything", not "Reset All": the panel button purges history on top of what
+  -- `/lh resetall` does, and one name for two effects is LH-R-04.
+  local btn = findByLabel(created, "Reset Everything")
+  assertTrue(btn ~= nil, "the Reset Everything button must be drawn")
   assertEqual(btn.type, "Button")
   -- Inset rather than a flat half, so its right border clears the ScrollFrame clip (options-ui-§8).
   assertEqual(btn.relativeWidth, NS.Options.BUTTON_PAIR_REL)

@@ -196,6 +196,21 @@ test("Analytics._buildCharStackRows: an empty matrix yields no rows", function()
   assertEqual(#A._buildCharStackRows({}, {}, ORDER, color, fmt), 0)
 end)
 
+test("Analytics._buildCharStackRows: segments are computed once per character", function()
+  -- LH-R-09. The width pass and the render pass each used to call _charStackSegments, so every
+  -- character on the Insights repaint path paid for two table.sorts it already had the answer to.
+  -- Counted rather than timed: a call count is the only thing about this that is deterministic.
+  local real, calls = A._charStackSegments, {}
+  A._charStackSegments = function(mags, catOrder, maxSegs)
+    calls[#calls + 1] = true
+    return real(mags, catOrder, maxSegs)
+  end
+  local ok, err = pcall(A._buildCharStackRows, MATRIX, BYCHAR, ORDER, color, fmt)
+  A._charStackSegments = real
+  assertTrue(ok, "the builder raised: " .. tostring(err))
+  assertEqual(#calls, 2, "MATRIX has two characters; that is two calls, not four")
+end)
+
 -- ── Palette map ────────────────────────────────────────────────────────────────
 
 test("Analytics._paletteMap: colors are assigned by list position", function()

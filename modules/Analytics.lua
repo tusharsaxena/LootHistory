@@ -175,17 +175,21 @@ end
 -- hover tip via labelFn(catKey). Rows sorted by total desc then name asc.
 function Analytics._buildCharStackRows(matrix, byCharMap, catOrder, colorFn, valueFmt, labelFn)
   labelFn = labelFn or tostring
-  local rowMax, totals = 1, {}
+  -- ONE _charStackSegments call per character (LH-R-09). Two passes are still needed — a segment's
+  -- `frac` is measured against rowMax, and rowMax is not knowable until every character's total is
+  -- in — but the first pass used to discard the segment list it had just built and the second pass
+  -- rebuilt it, paying two table.sorts per character for a result it already had. The segments are
+  -- kept instead. Same output, half the work, on the Insights repaint path.
+  local rowMax, totals, segsByChar = 1, {}, {}
   for ch, mags in pairs(matrix) do
-    local _, total = Analytics._charStackSegments(mags, catOrder, MAX_STACK_SEGS)
-    totals[ch] = total
+    local segs, total = Analytics._charStackSegments(mags, catOrder, MAX_STACK_SEGS)
+    segsByChar[ch], totals[ch] = segs, total
     if total > rowMax then rowMax = total end
   end
   local rows = {}
-  for ch, mags in pairs(matrix) do
-    local segs = Analytics._charStackSegments(mags, catOrder, MAX_STACK_SEGS)
+  for ch in pairs(matrix) do
     local segments = {}
-    for _, s in ipairs(segs) do
+    for _, s in ipairs(segsByChar[ch]) do
       local isOther = s.key == "__OTHER__"
       local color = isOther and NEUTRAL or (colorFn(s.key) or NEUTRAL)
       local name = isOther and "Other" or labelFn(s.key)

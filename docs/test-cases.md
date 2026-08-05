@@ -484,7 +484,7 @@ badge and any count quoted in the docs must agree with it.
 - NS.COMMANDS registers a version verb
 - /lh reset on a table setting echoes (none), not a raw table pointer
 - /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
-- Reset All (ResetEverything) purges history and clears settings + filter lists + view + window
+- Reset Everything purges history and clears settings + filter lists + view + window
 - NS.PREFIX is the mandated cyan [LH] tag
 - every Slash string this addon renders resolves to prose, not to a key
 - the help header names /loothistory as the alias for /lh
@@ -533,7 +533,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every declared command is uniquely named and dispatchable
 - Schema: the settings CLI verbs are all present
 
-### test_analytics.lua (57)
+### test_analytics.lua (58)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -565,6 +565,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._buildCharStackRows: the row value is the character's total
 - Analytics._buildCharStackRows: an unknown class falls back to neutral gray
 - Analytics._buildCharStackRows: an empty matrix yields no rows
+- Analytics._buildCharStackRows: segments are computed once per character
 - Analytics._paletteMap: colors are assigned by list position
 - Analytics._paletteMap: a key outside the list has no color
 - Analytics._paletteMap: an empty or missing list maps nothing
@@ -602,7 +603,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
 - Panel: a dropdown is populated from the row's values, in declared order
 - Panel: a slider is given the row's own min/max
-- Panel: the Reset All action button pairs with the Window scale row
+- Panel: the Reset Everything action button pairs with the Window scale row
 - Panel: the section headings are the schema groups, in declaration order
 - Panel: clicking a checkbox writes through NS.Schema:Set
 - Panel: choosing a dropdown entry writes the stored value
@@ -678,9 +679,9 @@ badge and any count quoted in the docs must agree with it.
 | test_debuglog.lua | 21 |
 | test_slash.lua | 34 |
 | test_schema.lua | 32 |
-| test_analytics.lua | 57 |
+| test_analytics.lua | 58 |
 | test_panel.lua | 25 |
 | test_harness.lua | 5 |
 | test_libka0s.lua | 22 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **593** |
+| **Total** | **594** |
