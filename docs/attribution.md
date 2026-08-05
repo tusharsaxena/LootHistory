@@ -58,7 +58,7 @@ State.lootContext = {
 - **Fresh** (`expires >= GetTime()`) → returns the stamped `source, detail, confidence`.
 - **Stale or never stamped** → returns the fallback `OTHER, nil, INFERRED`.
 
-Two deliberate properties of this single-slot design (see [Do not change without reason](../CLAUDE.md)):
+Two deliberate properties of this single-slot design — do not change either without reason:
 
 1. **`CONTEXT_TTL` is ~1.5s** (`core/Constants.lua:61`). Long enough to bridge the gap between the peripheral event and the loot line it explains, short enough that an unrelated later loot doesn't inherit a stale source.
 2. **Consume does not clear the slot.** One loot window emits many `CHAT_MSG_LOOT` lines that all share a source — a kill dropping four items, a bag with six stacks. Clearing on first consume would attribute only the first line and drop the rest to `OTHER`. The context intentionally survives the whole burst; the TTL, not consumption, ends it.

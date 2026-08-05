@@ -72,4 +72,4 @@ Adding a message means updating:
 2. Every consumer that reacts to it — each on its **own** `NS.NewBusTarget()`, never the shared bus.
 3. The table above (sender, payload, listeners).
 4. The relevant module header comment.
-5. The `CLAUDE.md` hard-rules pointer if the new message carries cross-module rules.
+5. The closed-bus rule in [conventions.md](conventions.md) if the new message carries cross-module rules.
