@@ -1,4 +1,4 @@
-local addonName, NS = ...   -- luacheck: ignore addonName
+local addonName, NS = ...
 NS.AuctionPrice = NS.AuctionPrice or {}
 local AuctionPrice = NS.AuctionPrice
 

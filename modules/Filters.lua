@@ -1,4 +1,4 @@
-local addonName, NS = ...   -- luacheck: ignore addonName
+local addonName, NS = ...
 NS.Filters = NS.Filters or {}
 local F = NS.Filters
 
