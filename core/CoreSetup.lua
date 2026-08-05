@@ -10,12 +10,12 @@ local addonName, NS = ...
 -- The WINDOW CHROME half of Core is no longer a different design. As of Core minor 3 (LibKa0s
 -- v1.3.0) `Core.SKIN` IS this addon's treatment — the flat 1px black edge, the 1px gray inner
 -- highlight, the gold title and the gray divider — because the Ka0s WoW Addon Standard adopted
--- it normatively (standalone-windows-§2) after five debug consoles side by side split into two
+-- it normatively (standalone-windows) after five debug consoles side by side split into two
 -- looks. `modules/Browser.lua`'s B:ApplySkin therefore agrees with Core's by value rather than
 -- diverging from it, and stays the addon's own re-skin seam for its own windows. What is still
 -- declined is `Core.MakeCloseButton` for THIS addon's own windows: the History browser closes
 -- with a 24x24 class-colored glyph, not Core's 18x18 x. The library's own windows — the debug
--- console and its copy window — wear Core's, which is the split standalone-windows-§2 draws.
+-- console and its copy window — wear Core's, which is the split standalone-windows draws.
 -- See docs/pending/LEDGER.md, LIBKA0S-02, LIBKA0S-18 and LIBKA0S-19.
 --
 -- ── LOAD ORDER (all four constraints bind; see docs/module-map.md) ──────────────────────────────

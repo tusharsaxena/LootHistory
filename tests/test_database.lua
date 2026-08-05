@@ -387,7 +387,7 @@ test("Database: StorageStats on empty history is zeroed", function()
   assertEqual(s.bytes, 0)
 end)
 
--- ── RunMigrations: the schema-migration seam (Ka0s Standard §2.2/§5.1) ─────────────
+-- ── RunMigrations: the schema-migration seam (toc-file-§2 / savedvariables-§1) ─────────────
 test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()

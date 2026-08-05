@@ -116,7 +116,7 @@ NS.DebugLog = lib:New({
   -- Routes both windows through THIS addon's own re-skin seam. As of Core minor 3 the library's
   -- default draws the same edge, so this no longer changes what is rendered — it keeps the console
   -- tracking `modules/Browser.lua` if that file's SKIN is ever retuned, which is one of the two
-  -- purposes standalone-windows-§2 sanctions the hook for. The library hands over a fully-built
+  -- purposes standalone-windows sanctions the hook for. The library hands over a fully-built
   -- frame with `title` and `divider` already assigned, which is exactly what B:ApplySkin reads.
   applySkin = function(frame)
     if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
@@ -125,7 +125,7 @@ NS.DebugLog = lib:New({
   -- NO `makeCloseButton`. The console and the copy window are the LIBRARY's windows, so they wear
   -- the library's close glyph — Core's thin 18x18 x — and this addon's own 24x24 class-colored one
   -- stays on the windows it belongs to (`modules/Browser.lua`). Passing it here is what shipped two
-  -- adopters' diagnostic windows looking unlike the other three's, and standalone-windows-§2 now
+  -- adopters' diagnostic windows looking unlike the other three's, and standalone-windows now
   -- makes the split explicit: the window EDGE is shared across every Ka0s window, the CLOSE CONTROL
   -- on a library-drawn window is the library's. `applySkin` above is the opposite case and stays.
 })

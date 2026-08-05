@@ -752,13 +752,13 @@ already identical to the library's, so **anything that looks different here is t
    the addon's own `Show`/`Hide` synced it.
 
 **17e. The console's own chrome.** As of LibKa0s v1.3.0 this IS the library's style too — the Ka0s
-window edge is specified normatively in standalone-windows-§2 and `Core.SKIN` carries it, so the
+window edge is specified normatively in standalone-windows and `Core.SKIN` carries it, so the
 three sibling addons that used to draw a 12px tooltip border now match. Put two Ka0s consoles on
 screen at once and they must be indistinguishable. Open `/lh debug` and confirm: the
 flat 1px black border with the subtle lighter inner line, the **gold** title, the gray divider under
 the title bar — and Core's **thin 18×18 ×** in the top-right, the same one every other Ka0s addon's
 console wears. It is deliberately **not** this addon's own 24×24 class-colored glyph: the History
-window keeps that one, and these two windows are the library's (standalone-windows-§2 — the edge is
+window keeps that one, and these two windows are the library's (standalone-windows — the edge is
 shared across every Ka0s window, the close control on a library-drawn window is the library's).
 **Copy** and **Clear** sit to its left with an even gap; none of the three overlaps. Check the copy
 window (**Copy**) as well — it takes the same ×.
