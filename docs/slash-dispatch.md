@@ -28,7 +28,9 @@ Host-owned, and each for a reason:
 - `Sl.FormatSchemaValue` (`settings/Slash.lua:113`) — passed as the descriptor's `format` hook (Slash **minor 5**), holding **only** the `type = "table"` branch and handing everything else straight back to `lib.FormatValue`;
 - `Sl:Register` (`settings/Slash.lua:238`) — the chat-command registration.
 
-If the library is absent, `settings/Slash.lua:129` degrades rather than errors: `/lh` is still registered, the seven host verbs still dispatch through the same positional walk, and every library-owned verb answers `NS.LIBKA0S_MISSING` plus its own consequence — *"…, so the slash command interface is unavailable."*
+If the library is absent, `settings/Slash.lua`'s `if not lib then` branch degrades rather than errors: `/lh` is still registered, the seven host verbs still dispatch through the same positional walk, and every library-owned verb answers `NS.LIBKA0S_MISSING` plus its own consequence — *"…, so the slash command interface is unavailable."*
+
+A **bare `/lh` prints help on that path too** (slash-commands-§3), listing the seven verbs that still work — `show`, `hide`, `toggle`, `config`, `debug`, `test`, `purge` — under a header carrying the shared cause clause. The list is rendered by **subtraction** from `NS.COMMANDS` (the seven verbs that went through the library are named in one set), so adding a host verb cannot leave the degraded help behind. The stub also exports `HelpHeader`, which the live seam publishes and it did not: `tests/test_libka0s.lua`'s `Kit.assertSurfaceParity` case is what now holds the two surfaces to the same member set.
 
 ## Command table
 

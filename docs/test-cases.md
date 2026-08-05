@@ -628,7 +628,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the suite list matches tests/test_*.lua in both directions
 - Harness: the runner's suite list has no duplicates
 
-### test_libka0s.lua (17)
+### test_libka0s.lua (22)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -636,6 +636,11 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the Core stub still prints a tagged, secret-safe line
 - degraded install: the notice explains the absence through the shared cause clause, once
 - degraded install: the Core stub answers every member the addon calls
+- degraded install: a bare /lh prints help listing the verbs that still work
+- parity: the Core seam publishes the same NS members on both paths
+- parity: the Slash stub carries the whole live surface
+- parity: the DebugLog stub carries the whole live surface
+- parity: the Options stub carries the whole live surface
 - the L-trap matcher flags the value, not one spelling (all three forms)
 - no descriptor in this addon is handed NS.L
 - tripwire — LibKa0s-Core-1.0 ships no STRINGS table
@@ -675,6 +680,6 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 57 |
 | test_panel.lua | 25 |
 | test_harness.lua | 5 |
-| test_libka0s.lua | 17 |
+| test_libka0s.lua | 22 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **587** |
+| **Total** | **592** |
