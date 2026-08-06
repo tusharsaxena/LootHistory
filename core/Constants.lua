@@ -54,7 +54,7 @@ C.CURRENCY_TYPE = "Currency"
 -- Vendored monospace font (JetBrains Mono, OFL) used by the debug console and copy boxes. Path is
 -- the in-game addon-relative form; the file lives at media/fonts/ in the repo. This is a ratified
 -- exception to the Blizzard-default-only media rule — WoW ships no monospace font object. See the
--- "Media" section in docs/conventions.md.
+-- "Media" section in docs/common-tasks.md.
 C.FONT_MONO = "Interface\\AddOns\\LootHistory\\media\\fonts\\JetBrainsMono-Regular.ttf"
 
 -- Seconds a stamped loot context stays fresh before CHAT_MSG_LOOT falls back to OTHER.
@@ -72,7 +72,7 @@ C.CONTEXT_TTL = 1.5
 -- monotonic "quality >= threshold" (Collector:gateReason). The ladder runs Poor(0)..Legendary(5),
 -- then Heirloom(7) appended by explicit user choice. NOTE Heirloom's id (7) sits ABOVE Legendary,
 -- so selecting it floors capture at 7 — i.e. only Heirlooms/Tokens, gating out Epics/Legendaries.
--- This is intentional, not a bug: leave it (ratified exception, see docs/conventions.md).
+-- This is intentional, not a bug: leave it (ratified exception, see docs/common-tasks.md).
 -- Artifact(6)/Token(8) stay omitted. Only the quality name is quality-colored (the History
 -- Browser's ITEM_QUALITY_COLORS tint); " and above" stays default.
 -- rrggbb fallback for headless builds where ITEM_QUALITY_COLORS is absent (color is cosmetic there).

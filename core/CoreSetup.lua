@@ -124,7 +124,7 @@ NS.ApplySkin = lib.ApplySkin
 
 -- Lib-level and stateless, so they are published by reference rather than wrapped. Identical in
 -- behavior to the implementations they replace, down to the sentinel: `lib.SECRET` is "<secret>",
--- which is the string docs/conventions.md and ~6 test cases already name.
+-- which is the string docs/common-tasks.md and ~6 test cases already name.
 NS.IsConcatSafe = lib.IsConcatSafe
 NS.SafeToString = lib.SafeToString
 
