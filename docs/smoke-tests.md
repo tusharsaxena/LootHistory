@@ -673,8 +673,8 @@ currencies section (confirm popup) — the list empties and future loots of it r
 Four of LibKa0s's five majors are wired here — `Core` (the printer), `DebugLog` (the console),
 `Slash` (the dispatcher and CLI) and `Options` (the settings canvas). Everything in this section is
 invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
-and whether anything on the panel moved. See [pending/LEDGER.md](pending/LEDGER.md) LIBKA0S-01
-through LIBKA0S-17 for what was adopted and what was declined.
+and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
+through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for what was adopted and what was declined.
 
 **17a. The degraded install.** Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to
 `libs/LibKa0s.off` and `/reload`.
@@ -731,7 +731,7 @@ already identical to the library's, so **anything that looks different here is t
    edge does not shift** as you click between pages (options-ui-§10).
 5. On **AH Price**, click away to another page and back several times. There must be **no freeze** —
    that page's eleven row slots are pooled, and `SetRenderer` is deliberately declined on it for
-   exactly this reason (LIBKA0S-15).
+   exactly this reason ([LIBKA0S-15](https://github.com/tusharsaxena/LootHistory/issues/21)).
 
 **17d. What the library newly fixes.** Three of these never worked before; confirm they do now.
 

@@ -3,7 +3,7 @@
 **This addon brackets nothing, and that is a recorded, conditional decision** — the
 `performance-§12` no-combat-path exemption, ratified in
 [ARCHITECTURE.md § Documented deviations](ARCHITECTURE.md#documented-deviations) and reasoned at
-length in [`pending/LEDGER.md`](pending/LEDGER.md) **LIBKA0S-17**.
+length in closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22).
 
 There is therefore no `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no
 suspend/resume contract, no `tests/perf.lua` and no `docs/perf-runs/` store. `libs/LibKa0s/` is

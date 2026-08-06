@@ -18,7 +18,7 @@ local addonName, NS = ...
 -- declined is `Core.MakeCloseButton` for THIS addon's own windows: the History browser closes
 -- with a 24x24 class-colored glyph, not Core's 18x18 x. The library's own windows — the debug
 -- console and its copy window — wear Core's, which is the split standalone-windows draws.
--- See docs/pending/LEDGER.md, LIBKA0S-02, LIBKA0S-18 and LIBKA0S-19.
+-- See closed issues #19 (LIBKA0S-02), #25 (LIBKA0S-18) and #26 (LIBKA0S-19).
 --
 -- ── LOAD ORDER (all four constraints bind; see docs/module-map.md) ──────────────────────────────
 --   AFTER  core/Namespace.lua   — NS.PREFIX is the tag, passed verbatim as a plain string.

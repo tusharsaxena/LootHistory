@@ -66,7 +66,7 @@ then one prefixed row per `NS.COMMANDS` entry, each **indented two spaces** so i
 [LH]   |cFFFFFF00/lh show|r — |cFFFFFFFFOpen the window|r
 ```
 
-**Convergence — one command-row formatter, chat and panel.** The settings landing page used to carry its own version of that row: double spaces around the em dash, the dash itself wrapped in white, the description left bare — divergent from the chat help two files away for no reason anyone recorded. Both now render through `lib.FormatRow` (`libs/LibKa0s/Slash.lua:68`) via `Sl:LandingRows` (`settings/Slash.lua:225`), which is the chat form minus the indent — a leading indent reads as a mistake on a panel label, not as structure. User-visible on the landing page: single spaces, no color span on the dash, the description now white. Deliberate; do not "fix" it back (`docs/pending/LEDGER.md`, LIBKA0S-09).
+**Convergence — one command-row formatter, chat and panel.** The settings landing page used to carry its own version of that row: double spaces around the em dash, the dash itself wrapped in white, the description left bare — divergent from the chat help two files away for no reason anyone recorded. Both now render through `lib.FormatRow` (`libs/LibKa0s/Slash.lua:68`) via `Sl:LandingRows` (`settings/Slash.lua:225`), which is the chat form minus the indent — a leading indent reads as a mistake on a panel label, not as structure. User-visible on the landing page: single spaces, no color span on the dash, the description now white. Deliberate; do not "fix" it back (closed issue [LIBKA0S-09](https://github.com/tusharsaxena/LootHistory/issues/24)).
 
 Because the help index, the landing page and the dispatcher all read the same table, they can never drift.
 

@@ -195,7 +195,7 @@ test("the console closes with the LIBRARY's x, not this addon's 24-wide one", fu
   -- The console and the copy window are the library's windows, so they wear Core's thin 18x18 x.
   -- This addon's own 24x24 class-colored glyph stays on the windows it belongs to; passing it
   -- through the `makeCloseButton` hook is what made these two windows look unlike every other
-  -- Ka0s addon's (docs/pending/LEDGER.md, LIBKA0S-19).
+  -- Ka0s addon's (closed issue #26, LIBKA0S-19).
   --
   -- The offsets are DERIVED from the returned button's width, and this addon's mock records
   -- SetSize as real state, so Core's `SetSize(18, 18)` is genuinely measured here rather than

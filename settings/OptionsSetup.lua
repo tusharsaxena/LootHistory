@@ -28,7 +28,7 @@ local addonName, NS = ...
 --    — the canvas, the header, the Defaults button, the scroll, the section heading, the schema row
 --    — is the library's.
 --
--- 3. Core's window skin. See core/CoreSetup.lua and docs/pending/LEDGER.md LIBKA0S-02.
+-- 3. Core's window skin. See core/CoreSetup.lua and closed issue #19 (LIBKA0S-02).
 --
 -- ── LOAD ORDER ─────────────────────────────────────────────────────────────────────────────────
 --   AFTER  core/CoreSetup.lua   — `print` routes through the shared printer.

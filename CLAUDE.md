@@ -18,7 +18,7 @@ two things it is:
    [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) → `## Documented deviations`, shaped
    `| Rule | What differs | Why | Decided | Re-check trigger |`, where Rule is the `filename-§N`
    reference. That register is the single home: the reasoning may live in
-   [`docs/pending/LEDGER.md`](docs/pending/LEDGER.md) or an audit bundle and the row cites it, but a
+   this repo's GitHub issues or an audit bundle and the row cites it, but a
    deviation not in the register is not ratified.
 2. **A change to the standard itself** — the standard's definition should evolve; the update belongs
    upstream in the WowAddonStandards repo, after which this addon conforms to the new rule.
@@ -41,10 +41,10 @@ touching code:
   publishing, object pooling, hot-path upvalues.
 - **[DEPENDENCIES.md](DEPENDENCIES.md)** (root) — the toolchain contract: what to install to run,
   test or release this addon.
-- Everything else — `scope.md`, `module-map.md`, `schema.md`, `schema.md`,
+- Everything else — `scope.md`, `module-map.md`, `schema.md`,
   `message-bus.md`, `browser.md`, `settings-panel.md`, `slash-dispatch.md`, `compat-layer.md`,
-  `midnight-quirks.md`, `performance.md`, `smoke-tests.md`, `test-cases.md`, `automated-tests/`,
-  `pending/LEDGER.md` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
+  `midnight-quirks.md`, `performance.md`, `smoke-tests.md`, `test-cases.md`,
+  `automated-tests/` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
 
 ## Vendored LibKa0s
 

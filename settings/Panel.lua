@@ -616,7 +616,7 @@ local function buildMainContent(ctx)
   -- spaces around the em dash, the dash explicitly white-wrapped, the description left bare — while
   -- settings/Slash.lua two files away already rendered the same data another way. Both now go
   -- through lib.FormatRow: single spaces, no color span on the dash, the description white.
-  -- Deliberate and user-visible; do not "fix" it back. See docs/pending/LEDGER.md, LIBKA0S-09.
+  -- Deliberate and user-visible; do not "fix" it back. See closed issue #24 (LIBKA0S-09).
   for _, line in ipairs(NS.Slash.LandingRows and NS.Slash:LandingRows() or {}) do
     local labelRow = NS.AceGUI:Create("Label")
     labelRow:SetFullWidth(true)
