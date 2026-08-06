@@ -3,7 +3,7 @@
 ![WoW](https://img.shields.io/badge/WoW-Midnight_12.0.7-purple)
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
-[![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)](https://github.com/tusharsaxena/WowAddonStandards)
+![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
 ![Tests](https://img.shields.io/badge/Tests-594%2F594_passing-green)
 
 ![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
@@ -160,10 +160,6 @@ If a signal is there, the item is filed under that source and marked **Certain**
 | The window is off-screen or the wrong size. | Its position, size, and scale are remembered per account. Adjust **Master Controls → Window scale**, or drag it back into view. |
 | I want to preview the window but have no loot yet. | Run `/lh test` to load a sample dataset, then `/lh test` again to clear it. |
 | I want to wipe everything and start over. | `/lh purge` clears all history (with confirmation). `/lh resetall` resets settings without touching your history. |
-
-## Bundled libraries
-
-Everything this addon needs ships inside it — nothing else has to be installed. Alongside Ace3, LibSharedMedia-3.0, LibDataBroker-1.1 and LibDBIcon-1.0, it bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.8.0 (MIT), the shared library behind the chat printer, the debug console, the slash-command interface and the settings panel.
 
 ## Issues and feature requests
 

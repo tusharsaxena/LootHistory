@@ -46,6 +46,18 @@ touching code:
   `midnight-quirks.md`, `performance.md`, `smoke-tests.md`, `test-cases.md`, `automated-tests/`,
   `pending/LEDGER.md` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
 
+## Vendored LibKa0s
+
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.8.1 (MIT) — the Ka0s-owned shared
+library behind the chat printer, the debug console, the slash-command interface and the settings
+panel, vendored whole-folder into `libs/LibKa0s/` with its test kit under `tests/_kit/`.
+
+That line is not decoration. `tests/test_vendor_sync.lua` greps this file for it, resolves the tag
+it names, and diffs both vendored payloads against what LibKa0s published at that tag — so a
+provenance line and a payload that disagree fail the run. **Bump the line and re-vendor the bytes in
+the same commit**; a maintainer's question about which build carries which library is answered here
+rather than in the player-facing README.
+
 ## Green gate
 
 Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game checks are in

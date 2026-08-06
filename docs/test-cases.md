@@ -657,7 +657,7 @@ badge and any count quoted in the docs must agree with it.
 
 ### test_vendor_sync.lua (2)
 
-- libs/LibKa0s is the LibKa0s release the README says this addon bundles
+- libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles
 - tests/_kit is the test kit that shipped with that release
 
 ## Totals

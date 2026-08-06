@@ -3,7 +3,7 @@
 -- by way of AbsorbTracker, where the header below was written.
 --
 -- WHAT IT CHECKS: that `libs/LibKa0s/` and `tests/_kit/` in the consuming repo are exactly what the
--- LibKa0s repo published at the tag THAT REPO'S README says it bundles.
+-- LibKa0s repo published at the tag THAT REPO'S CLAUDE.md says it bundles.
 --
 -- WHY THE TAG AND NOT THE WORKING TREE: LibKa0s can be mid-release — several
 -- commits and a pile of uncommitted work ahead of anything it has tagged.
@@ -14,15 +14,22 @@
 --
 -- WHY IT EXISTS AT ALL: LibKa0s gave `testkit/` a revision (`Kit.VERSION`) and it
 -- was vendored into six consumers straight off `master`, while that revision was
--- in no release. Every one of those repos then carried a README provenance line
--- naming a tag its `tests/_kit/` no longer matched, and not one of them noticed,
+-- in no release. Every one of those repos then carried a provenance line naming a
+-- tag its `tests/_kit/` no longer matched, and not one of them noticed,
 -- because prettychat was the only repo with this file. It refused the vendor,
 -- correctly, and LibKa0s v1.4.0 was cut to make the revision vendorable.
 --
--- THE PROVENANCE LINE IS AN INPUT, NOT A CONSTANT. It is read out of README.md
+-- THE PROVENANCE LINE IS AN INPUT, NOT A CONSTANT. It is read out of CLAUDE.md
 -- rather than hardcoded: a provenance line and a vendored payload that disagree
 -- is precisely the drift this file exists to catch, so the claim has to be the
 -- thing under test. Bump the line and the bytes in the same commit.
+--
+-- WHY CLAUDE.md AND NOT README.md: the line answers "which LibKa0s does this build
+-- carry?", which is a maintainer's question, not a player's — README.md is the
+-- addon's user-facing page and carries no bundled-library inventory at all as of
+-- kit revision 9. `provenanceFile` is an opt for the repo that keeps it elsewhere,
+-- but the default moved, and a repo that never moved its line reads as carrying no
+-- provenance line at all rather than silently falling back to the old location.
 --
 -- ONE NORMALIZATION, AND ONLY ONE: `git show` hands back the stored blob, which
 -- is LF, while the working tree is CRLF because `.gitattributes` pins
@@ -62,17 +69,19 @@ local VendorSync = {}
 local DEFAULT_ROOT     = "."
 local DEFAULT_SIBLING  = "/../LibKa0s"
 local DEFAULT_PROBE    = "HEAD:LibKa0s/Core.lua"
-local DEFAULT_README   = "[Bb]undles %[LibKa0s%]%b() (v[%d%.]+)"
+local DEFAULT_FILE     = "CLAUDE.md"
+local DEFAULT_PATTERN  = "[Bb]undles %[LibKa0s%]%b() (v[%d%.]+)"
 
 --- The two payloads every consumer vendors, with the case names the shipped gates already use.
 --- `local_` rather than `local` because `local` is a keyword.
 local DEFAULT_PAIRS = {
-  { case    = "libs/LibKa0s is the LibKa0s release the README says this addon bundles",
+  { case    = "libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles",
     tag     = "LibKa0s",
     local_  = "libs/LibKa0s",
     label   = "the library repo" },
-  -- README.md included: the file that actually diverged in this collection WAS
-  -- a README, so a check restricted to *.lua would have caught nothing.
+  -- Markdown included in the compared file set: the file that actually diverged in
+  -- this collection WAS a README, so a check restricted to *.lua would have caught
+  -- nothing.
   { case    = "tests/_kit is the test kit that shipped with that release",
     tag     = "testkit",
     local_  = "tests/_kit",
@@ -115,9 +124,13 @@ end
 ---   root          = ".",                       -- the consuming repo root, as the suite sees it
 ---   sibling       = "./../LibKa0s",            -- the library checkout to read tags out of
 ---   probe         = "HEAD:LibKa0s/Core.lua",   -- the ref that answers "is the sibling there?"
----   readmePattern = "[Bb]undles ...",          -- how the provenance line is spelled
+---   provenanceFile    = "CLAUDE.md",           -- which doc carries the provenance line
+---   provenancePattern = "[Bb]undles ...",      -- how the provenance line is spelled
 ---   pairs         = { { case = …, tag = …, local_ = …, label = … }, … },
 --- }
+---
+--- `readmePattern` is still accepted as a name for `provenancePattern`; it named the
+--- file the line used to live in, and the line moved at kit revision 9.
 function VendorSync.register(T, opts)
     opts = opts or {}
     if type(T) ~= "table" or type(T.test) ~= "function" then
@@ -131,7 +144,8 @@ function VendorSync.register(T, opts)
     local ROOT    = opts.root or DEFAULT_ROOT
     local SIBLING = opts.sibling or (ROOT .. DEFAULT_SIBLING)
     local PROBE   = opts.probe or DEFAULT_PROBE
-    local README  = opts.readmePattern or DEFAULT_README
+    local FILE    = opts.provenanceFile or DEFAULT_FILE
+    local PATTERN = opts.provenancePattern or opts.readmePattern or DEFAULT_PATTERN
 
     --- Run a command in the sibling library repo and return stdout, or nil if it
     --- produced nothing. `nil` means "could not answer" — never "matched".
@@ -158,14 +172,14 @@ function VendorSync.register(T, opts)
         return names
     end
 
-    --- The version this README claims to bundle. Both casings are accepted: the line
-    --- is a template in `docs/releasing.md` but not every repo writes it as its own
-    --- sentence — LootHistory carries it mid-sentence inside a "Bundled libraries"
-    --- paragraph, and a pattern anchored to a capital B silently matches nothing
-    --- there, which is a gate that passes by not looking.
+    --- The version this repo's provenance doc claims to bundle. Both casings are
+    --- accepted: the line is a template in `docs/releasing.md` but not every repo
+    --- writes it as its own sentence — some carry it mid-sentence, and a pattern
+    --- anchored to a capital B silently matches nothing there, which is a gate that
+    --- passes by not looking.
     local function bundledVersion()
-        local readme = readBytes(ROOT .. "/README.md") or ""
-        return readme:match(README)
+        local doc = readBytes(ROOT .. "/" .. FILE) or ""
+        return doc:match(PATTERN)
     end
 
     --- The tag to compare against. A missing sibling checkout is the ONE case where
@@ -180,7 +194,7 @@ function VendorSync.register(T, opts)
         end
         local version = bundledVersion()
         T.assertTrue(version ~= nil,
-            "README.md carries a `Bundles [LibKa0s](...) vX.Y.Z (MIT).` provenance line")
+            FILE .. " carries a `Bundles [LibKa0s](...) vX.Y.Z (MIT).` provenance line")
         return version
     end
 

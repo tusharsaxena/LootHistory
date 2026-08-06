@@ -93,6 +93,8 @@ See [module-map.md](module-map.md) for the source files behind each suite and [c
 
 `libs/LibKa0s/` and `tests/_kit/` are **vendored copies** of a library this project also authors, which makes keeping them in sync an ongoing job rather than a one-time copy. None of the gates above can see a stale one: the library's own suite passes against the library, and this addon's passes against a stale copy that still works. Only a diff can say so.
 
+**Which tag they are compared against is read out of [`../CLAUDE.md`](../CLAUDE.md)**, from the *Bundles [LibKa0s](…) vX.Y.Z (MIT).* line under `## Vendored LibKa0s` — `test_vendor_sync.lua` greps it rather than hardcoding a version, because a provenance line and a payload that disagree is exactly the drift the gate exists to catch. Kit revision 9 moved that input from `README.md` to `CLAUDE.md` and kept **no fallback**, so bumping the line and re-vendoring the bytes must land in the same commit.
+
 Run all four, from this repo's root, with `../LibKa0s` checked out beside it:
 
 ```

@@ -46,7 +46,7 @@ on every checkout, not in one contributor's.
 ## `vendor_sync.lua`
 
 The consumer-side vendored-payload gate: it asserts that a repo's `libs/LibKa0s/` and `tests/_kit/`
-are exactly what LibKa0s published at the tag that repo's README says it bundles. It used to be
+are exactly what LibKa0s published at the tag that repo's `CLAUDE.md` says it bundles. It used to be
 ~150 lines copy-pasted into six repos with a one-line delta, which is six chances to fix any one
 problem six different ways.
 
