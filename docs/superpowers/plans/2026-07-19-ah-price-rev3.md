@@ -199,9 +199,9 @@ Add the `iconButton` helper (per Design above) as a file-local function before `
 
 ## Task R3-5: docs + inventory + badge
 
-**Files:** `README.md`, `docs/data-model.md`, `docs/ARCHITECTURE.md`/`docs/saved-variables.md` (note `priorityDisabled` carve-out + per-entry enable), `docs/test-cases.md`, README badge.
+**Files:** `README.md`, `docs/schema.md`, `docs/ARCHITECTURE.md`/`docs/schema.md` (note `priorityDisabled` carve-out + per-entry enable), `docs/test-cases.md`, README badge.
 
-- [ ] **Step 1:** README AH-pricing section: mention you can now enable/disable individual priority entries and see which sources are being collected. `docs/saved-variables.md`: add `settings.auction.priorityDisabled` to the carve-out list. `docs/data-model.md`/`ARCHITECTURE.md`: note Pick skips disabled priority entries.
+- [ ] **Step 1:** README AH-pricing section: mention you can now enable/disable individual priority entries and see which sources are being collected. `docs/schema.md`: add `settings.auction.priorityDisabled` to the carve-out list. `docs/schema.md`/`ARCHITECTURE.md`: note Pick skips disabled priority entries.
 - [ ] **Step 2:** Regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`); set README `Tests` badge to the real total.
 - [ ] **Step 3: Final gates** — `lua tests/run.lua` all pass; `luacheck .` 0/0; `python3 -m pytest tools/tests/ -q` all pass.
 - [ ] **Step 4: Commit** — `git commit -am "docs(auction): Rev-3 settings UX + priority enable; inventory + badge"`

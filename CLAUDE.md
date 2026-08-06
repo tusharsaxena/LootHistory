@@ -32,19 +32,19 @@ touching code:
 
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — what this addon is: module map, data model,
   message bus, slash surface, event wiring, taint notes, known limitations, the documented-deviations
-  register, and the **doc index** covering every topic doc. **Start here.**
+  register, and the **`## Documentation map`** listing every page under `docs/` (`documentation-§3`). **Start here.**
 - **[docs/testing.md](docs/testing.md)** — how to verify: the headless harness, the mock, the vendor
   gate, lint, and the green gate.
-- **[docs/attribution.md](docs/attribution.md)** — **required** before touching capture or source
+- **[docs/data-flow.md](docs/data-flow.md)** — **required** before touching capture or source
   code (the `CHAT_MSG_LOOT` + `lootContext` engine).
-- **[docs/conventions.md](docs/conventions.md)** — the file-by-file rules: namespace preamble, module
+- **[docs/common-tasks.md](docs/common-tasks.md)** — the file-by-file rules: namespace preamble, module
   publishing, object pooling, hot-path upvalues.
 - **[DEPENDENCIES.md](DEPENDENCIES.md)** (root) — the toolchain contract: what to install to run,
   test or release this addon.
-- Everything else — `scope.md`, `module-map.md`, `data-model.md`, `saved-variables.md`,
+- Everything else — `scope.md`, `module-map.md`, `schema.md`, `schema.md`,
   `message-bus.md`, `browser.md`, `settings-panel.md`, `slash-dispatch.md`, `compat-layer.md`,
   `midnight-quirks.md`, `performance.md`, `smoke-tests.md`, `test-cases.md`, `automated-tests/`,
-  `pending/LEDGER.md` — is indexed with a "when to read" in ARCHITECTURE.md's `## Doc index`.
+  `pending/LEDGER.md` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
 
 ## Green gate
 

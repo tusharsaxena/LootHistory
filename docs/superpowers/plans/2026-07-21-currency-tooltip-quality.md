@@ -210,12 +210,12 @@ git commit -m "feat(currency): in-game currency tooltip on History row hover"
 
 ### Task 3: Docs, smoke, badge
 
-**Files:** `docs/data-model.md`, `docs/scope.md`, `docs/smoke-tests.md`, `docs/superpowers/specs/2026-07-21-currency-capture-design.md`, `docs/test-cases.md`, `README.md`.
+**Files:** `docs/schema.md`, `docs/scope.md`, `docs/smoke-tests.md`, `docs/superpowers/specs/2026-07-21-currency-capture-design.md`, `docs/test-cases.md`, `README.md`.
 
 - [ ] **Step 1: Update the docs**
 
 - `docs/superpowers/specs/2026-07-21-currency-capture-design.md` §3: the record shape comment says `quality … = nil` — amend to note currency now stores its `C_CurrencyInfo` quality (for the name color + Quality column), still excluded from item-centric quality aggregates.
-- `docs/data-model.md`: note currency records now carry `quality` (the currency's tier), and the `v3 → v4` migration backfills it for pre-existing rows.
+- `docs/schema.md`: note currency records now carry `quality` (the currency's tier), and the `v3 → v4` migration backfills it for pre-existing rows.
 - `docs/scope.md`: extend the currency bullet to mention the colored name + Quality column + hover tooltip.
 
 - [ ] **Step 2: Add smoke steps**
@@ -231,7 +231,7 @@ Run `lua tests/run.lua --list > docs/test-cases.md`, read the new `| **Total** |
 Run `lua tests/run.lua` (0 failures) + `luacheck .` (0/0); confirm badge == inventory total.
 
 ```bash
-git add docs/data-model.md docs/scope.md docs/smoke-tests.md docs/superpowers/specs/2026-07-21-currency-capture-design.md docs/test-cases.md README.md
+git add docs/schema.md docs/scope.md docs/smoke-tests.md docs/superpowers/specs/2026-07-21-currency-capture-design.md docs/test-cases.md README.md
 git commit -m "docs(currency): quality color + tooltip + backfill migration; smoke + badge"
 ```
 

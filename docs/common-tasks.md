@@ -1,12 +1,72 @@
-# Conventions
+# Common tasks
 
-Code style and module-level rules — the "cheat-sheet" that applies file-by-file. The mid-level
-architecture (module boundaries, the message contract, the Compat firewall, the settings panel)
-lives in [module-map.md](module-map.md), [message-bus.md](message-bus.md),
-[compat-layer.md](compat-layer.md), and [settings-panel.md](settings-panel.md); this file collects
-the small-scale rules those documents assume.
+Recipes for the changes made most often in this addon, plus the house rules every one of them obeys.
+The mid-level architecture — module boundaries, the message contract, the Compat firewall, the
+settings panel — lives in [module-map.md](module-map.md), [message-bus.md](message-bus.md),
+[compat-layer.md](compat-layer.md) and [settings-panel.md](settings-panel.md); this file is the "how
+do I actually do it" page.
 
-## File preamble
+The house rules below were `docs/conventions.md` until standard v2.23.0 retired that filename. They
+live here rather than in `ARCHITECTURE.md` because every recipe on this page depends on them, and a
+rule you have to open another file to find is a rule that gets broken.
+
+## Recipes
+
+### Add a setting
+
+One row, one file, four surfaces. A row in `settings/Schema.lua` drives the AceDB default, the panel
+widget, the slash `get`/`set`/`list`/`reset` verbs, and the Defaults/Reset-all resets at once — so
+**never** write a parallel mutator for a field that already has a row.
+
+1. Add the shipped value to `defaults/Global.lua` under `global.settings.*`. That is the **one**
+   declaration site (`savedvariables-§2`).
+2. Add the row to `S.Schema` in `settings/Schema.lua`. Its `default` **reads** `G.settings.<path>`
+   rather than restating the literal — two literals for one value is exactly how the AH cascade
+   drifted (LH-R-01), and `tests/test_schema.lua`'s "shipped default equals the schema's declared
+   default" case can only catch a drift while two things exist to compare.
+3. Use the **library's** row vocabulary, not the pre-adoption names: `type = "bool"` (not
+   `"boolean"`), `values` with each entry's `text` (not `options`/`label`), `solo` (not `soloRow`),
+   `skipRender` (not `panelSkip`). An unmapped field is **not an error** — it is a row that silently
+   vanishes from a page, or a `set` that answers `ERR_TYPE`. `tooltip` deliberately did *not* move:
+   the library reads `tooltip` first and its own `desc` second.
+4. `group` names the panel section header; row order within a group drives the two-column pairing,
+   and `wide` forces a full-width row.
+5. Give the row an `onChange` if anything must react — typically
+   `NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "<key>")`, which is what makes the
+   collector re-cache its hot-path upvalues.
+
+Paths resolve against `NS.db.global`, never `.profile`. If the value is a dynamic id-set or an
+ordered list, it is a **carve-out**, not a row — see the carve-out rules below and
+[schema.md](schema.md).
+
+### Add a slash command
+
+Append to `NS.COMMANDS`. The dispatch in `settings/Slash.lua` **walks `NS.COMMANDS`** rather than
+naming verbs, precisely so a new entry needs no second edit. Regenerate the README's command table
+with `/wow-addon:sync-docs`.
+
+### Add a locale string
+
+Add the key to `locales/enUS.lua` and reference it through `L["…"]` — never a bare literal in panel
+or chat code (`localization-§1`).
+
+### Add a message
+
+Pick the name `Ka0s_LootHistory_<Thing>`, give it **exactly one sender**, and register receivers on
+their own target from `NS.NewBusTarget()` — never on the shared `NS.bus`/`NS.addon` as `self`. Record
+it in [message-bus.md](message-bus.md) in the same change. The one-target rule is not style: see
+below.
+
+### Add a migration
+
+Append **one entry** to the module-level `MIGRATIONS` array in `core/Database.lua:19` — never edit the
+runner. Array order is run order, the runner stamps `schemaVersion` only *after* `apply` returns, and
+every step must be idempotent. Anything needing a warm item cache cannot run inline at
+`ADDON_LOADED`; hand it to the deferred repair instead. Full contract in [schema.md](schema.md).
+
+## House rules
+
+### File preamble
 
 - Every source file begins `local addonName, NS = ...` and hangs its exports off the shared `NS`
   table (`NS.Compat`, `NS.Schema`, `NS.Collector`, …). There is no `_G[addonName]` and no global
@@ -16,7 +76,7 @@ the small-scale rules those documents assume.
 - Module tables are created defensively: `NS.X = NS.X or {}` then `local X = NS.X`, so load order
   never depends on which file ran first.
 
-## Settings: schema as the single source of truth
+### Settings: schema as the single source of truth
 
 - `settings/Schema.lua` holds one row per user setting, and that table drives four surfaces at
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
@@ -37,9 +97,9 @@ the small-scale rules those documents assume.
   runtime/data state, not user settings. They are persisted straight to
   `NS.db.global` and intentionally have **no** schema row and do **not** go through `Schema:Set` — a
   dynamic id-set or an ordered list can't be a schema widget. Don't "fix" this by adding rows for them. See
-  [saved-variables.md](saved-variables.md) for the full carve-out list and the standards note.
+  [schema.md](schema.md) for the full carve-out list and the standards note.
 
-## Messaging: a closed bus, one target per receiver
+### Messaging: a closed bus, one target per receiver
 
 - Cross-module signaling uses `Ka0s_LootHistory_*` messages on `NS.bus` (the AceAddon object,
   `core/LootHistory.lua:6`) — `RecordAdded`, `HistoryChanged`, `SettingsChanged`. Each message has
@@ -51,7 +111,7 @@ the small-scale rules those documents assume.
   pattern: it grabs a private target and registers on it (`settings/Panel.lua:123`). Full contract
   in [message-bus.md](message-bus.md).
 
-## Compat firewall
+### Compat firewall
 
 - Every deprecated or version-varying API call lives in `core/Compat.lua`; modules call
   `NS.Compat.X` and never the raw global. This is a Retail-only addon, so shims are gated by a
@@ -60,13 +120,13 @@ the small-scale rules those documents assume.
   There is no `WOW_PROJECT_ID` branching anywhere (`core/Compat.lua:5`). Details in
   [compat-layer.md](compat-layer.md).
 
-## Table rendering: object pooling
+### Table rendering: object pooling
 
 - The history table pools row frames — filter → group → sort → slice → **bind** into a fixed set of
   reused rows in `modules/BrowserTable.lua`. Never create one frame per record (Ka0s standard standalone-windows);
   a 50k-row history must not spawn 50k frames.
 
-## Collector hot-path upvalues
+### Collector hot-path upvalues
 
 - The collector caches its gate config as file-level upvalues — `enabled`, `qualityThreshold`,
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:9`) — so the `CHAT_MSG_LOOT`
@@ -75,7 +135,7 @@ the small-scale rules those documents assume.
   (`modules/Collector.lua:223`). The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
-## Chat output: one shared secret-safe printer
+### Chat output: one shared secret-safe printer
 
 - Every chat line goes through the single shared printer `NS.Print` — LibKa0s-Core-1.0's, published
   under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:97`,
@@ -95,7 +155,7 @@ the small-scale rules those documents assume.
   `NewAddon` (`core/LootHistory.lua:13`, architecture-§2). Publishing to both keys is what makes that
   reclaim restore the library printer rather than undo the seam. Don't reorder that.
 
-## Session-only debug
+### Session-only debug
 
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
@@ -119,13 +179,13 @@ the small-scale rules those documents assume.
   `<secret>` rather than crashing the sink. Because args arrive pre-stringified, its format strings
   use `%s` for every placeholder (never `%d`/`%f`).
 
-## File size cap
+### File size cap
 
 - Source files are capped at **1500 LOC** (Ka0s standard layout-§1). The browser is deliberately split
   three ways to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table),
   `Analytics.lua` (Insights) — the largest, `Browser.lua`, sitting near ~1370 lines.
 
-## Media: Blizzard defaults, with one ratified font exception
+### Media: Blizzard defaults, with one ratified font exception
 
 - **Fonts, textures, and borders default to Blizzard-shipped media.** Text uses stock `GameFont*`
   font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:85`);
@@ -152,7 +212,7 @@ the small-scale rules those documents assume.
   a tracked post-1.0.0 idea (`modules/Browser.lua:17`) that now belongs at the LibKa0s seam, not a
   gap to close now.
 
-## Options UI: Blizzard canvas, never AceConfigDialog
+### Options UI: Blizzard canvas, never AceConfigDialog
 
 - The settings panel is a Blizzard `Settings.RegisterCanvasLayoutCategory` parent (the landing page)
   plus three `RegisterCanvasLayoutSubcategory` bodies — General, Filters, AH Price — built lazily
@@ -167,7 +227,7 @@ the small-scale rules those documents assume.
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
   pattern (the standalone browser window follows the separate standalone-windows non-secure pattern).
 
-## Panel layout: options-ui-§6/§10 conformance
+### Panel layout: options-ui-§6/§10 conformance
 
 - **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset Everything, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
@@ -185,7 +245,7 @@ the small-scale rules those documents assume.
   width is identical across every subcategory. More on the panel in
   [settings-panel.md](settings-panel.md).
 
-## Minimum-quality threshold: a non-monotonic Heirloom option (ratified exception)
+### Minimum-quality threshold: a non-monotonic Heirloom option (ratified exception)
 
 - **Ratified exception (2026-07-20).** The "Minimum quality" setting is a *monotonic floor* — the
   collector records loot where `quality >= threshold` (`modules/Collector.lua`, `gateReason`), so a

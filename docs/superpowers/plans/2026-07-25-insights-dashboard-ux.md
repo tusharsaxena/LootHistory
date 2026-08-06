@@ -46,7 +46,7 @@ Lint via `luacheck .`.
 - **`tests/test_analytics.lua`** (create) — unit tests for the new pure helpers.
 - **`tests/test_stats.lua`** (modify) — tests for the new matrices.
 - **`tests/run.lua`** (modify) — register `test_analytics.lua`.
-- **Docs** (modify) — `docs/browser.md`, `docs/data-model.md`, `docs/test-cases.md`, README badge,
+- **Docs** (modify) — `docs/browser.md`, `docs/schema.md`, `docs/test-cases.md`, README badge,
   `docs/smoke-tests.md`.
 
 ---
@@ -727,7 +727,7 @@ end
 ### Task 9: Docs, badge sync, smoke tests
 
 **Files:**
-- Modify: `docs/browser.md`, `docs/data-model.md`, `docs/test-cases.md`, README (`tests` badge),
+- Modify: `docs/browser.md`, `docs/schema.md`, `docs/test-cases.md`, README (`tests` badge),
   `docs/smoke-tests.md`.
 
 - [ ] **Step 1: `docs/browser.md`** — remove the "Currency by Source" chart row (~138); rename the
@@ -735,7 +735,7 @@ end
   `currencyCharMatrix` + per-currency color legend; add 7 rows for the "… by Character" companions
   (matrix `charBySource`/etc, stacked, parent colors). Keep the note that `currencyBySource` still
   feeds the Export "Currency by Source" section.
-- [ ] **Step 2: `docs/data-model.md`** — under the Stats section (~137), add `currencyCharMatrix` and
+- [ ] **Step 2: `docs/schema.md`** — under the Stats section (~137), add `currencyCharMatrix` and
   the 7 `char*` matrices; note `currencyBySource` is now export-only (no dashboard chart).
 - [ ] **Step 3: Regenerate the test list** — `lua tests/run.lua --list > docs/test-cases.md`.
 - [ ] **Step 4: Update the README `tests` badge** to the new total (`lua tests/run.lua` prints

@@ -215,7 +215,7 @@ Update `docs/test-cases.md` (regenerate) and the README test badge in the same c
   `AI_COLUMNS` exclusion, `TODO(currency-ai)`.
 - `settings/Schema.lua` — `recordCurrency` row.
 - `tests/*` + `tests/wow_mock.lua` — new tests + `C_CurrencyInfo` mocks + currency global strings.
-- Docs: `scope.md`, `attribution.md`, `data-model.md`, `ai-export-guideline.md` (note only —
+- Docs: `scope.md`, `data-flow.md`, `schema.md`, `ai-export-guideline.md` (note only —
   AI deferred), `settings-panel.md`, `smoke-tests.md`, `README.md`, `docs/test-cases.md`.
 
 ## 14. Deferred (noted, not built)

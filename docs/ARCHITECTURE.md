@@ -69,87 +69,14 @@ LibKa0s seams sit inside `core/`, and their positions are load-bearing rather th
 
 ## Data model
 
-One record per loot event, stored densely in `LootHistoryDB.global.history` (deletion and
-retention rebuild-and-swap — no holes). `itemLink` is canonical; the denormalized item fields
-back fast table ops.
+One record per loot event, appended to the account-wide `db.global.history` dense array. Every
+acquisition is **one row** — records are keyed only by array position and never deduplicated by
+item — so every column is first-class for sort and filter, and aggregation stays a view concern.
+Records carry no metatables, which is what lets `Database:Export` serialize them directly.
 
-```lua
-{
-  ts, char, classFile,                       -- when / who (classFile = locale-independent token)
-  itemID, currencyID, itemLink, itemName, quality,  -- identity (currencyID set ⇒ a currency row; itemID nil)
-  itemLevel, bound, vendorPrice,             -- itemLevel: equippable only; bound: BOE|BOP|WARBAND|WARBAND_UE
-  auctionPrice,                              -- nested map provider -> key -> copper; nil if nothing captured
-  itemType, itemSubType, quantity,           -- item classification + stack size (itemType = "Currency" for currency rows)
-  source, sourceDetail,                      -- source ∈ Constants.SourceType
-  zone, mapID, subzone,                       -- where
-  confidence,                                 -- CERTAIN | INFERRED
-}
-```
-
-> **Currency rows** reuse the same record shape with `currencyID` set (and `itemID`/`itemLink`/
-> `itemLevel`/prices `nil`), `itemType = "Currency"`, `itemSubType` = the currency category, plus the
-> currency's own `quality` and `bound` — see [data-model.md](data-model.md).
-
-- **Storage is account-wide** (`.global`, with a `char` column) — not per-character profiles.
-  Switching that is a schema + query rewrite; see [`scope.md`](scope.md) *Resolved design decisions*.
-- `schemaVersion` is a version stamp on the DB; the current shipped shape is **8**.
-  `NS:RunMigrations` (`core/Database.lua`) runs once at init from `InitDB` (after AceDB is ready,
-  before any history read) — the idempotent seam future schema changes hook into. The steps live in
-  the module-level `MIGRATIONS` array it walks, one entry per step, so a new one is an appended
-  entry rather than an edit to the runner (see [data-model.md](data-model.md)). Seven migrations
-  ship: **v1→v2** strips the retired per-record `viaWhitelist` field (point-in-time filtering no
-  longer hides stored rows); **v2→v3** (Rev-2) renames each record's `sellPrice` field to
-  `vendorPrice`; **v3→v4** backfills each currency row's `quality` from `C_CurrencyInfo`; **v4→v5**
-  backfills each currency row's `bound`; **v5→v6** retires the `"ACCOUNT"` bind state, parking every
-  such row on `WARBAND` and rewriting a `savedView` Bound filter that names the retired token;
-  **v6→v7** hands the `WARBAND`/`WARBAND_UE` split to the deferred `RepairBoundStates` job (it
-  cannot run inline — migrations execute at `ADDON_LOADED` with a cold item cache, so a one-shot
-  pass would learn nothing and still burn the stamp); **v7→v8** follows the Zone filter's move from
-  `mapID` to the zone **name**, rewriting a saved view's stored `mapID` set into the names those ids
-  were recorded under. None deletes any records — they clear, rename, or add a single field — and
-  all are idempotent once a DB is already at v8. See [data-model.md](data-model.md).
-- `Database:Export(filter)` returns metatable-free plain copies — the forward-compatible v2
-  export contract (do not change its field shape).
-- **`auctionPrice` is a nested map, `provider → key → copper`**, captured at loot time by
-  `modules/AuctionPrice.lua`'s `GatherAll` — every configured capture key from every installed
-  pricing addon (Auctionator / TSM / OribosExchange), not just one. It is `nil` when nothing was
-  captured — including every record written before this feature. There is no stored `priceSource`
-  field: a single price is resolved at *read time* by `AuctionPrice:Pick(map)`, which walks the
-  user's configured priority list and returns the first present key (`price, tag`). The map only
-  holds *collected* keys — collection and priority-participation are one flag (`settings.auction.capture`)
-  — so `Pick` needs no separate disabled-set (see [saved-variables.md](saved-variables.md)).
-  There is **no
-  stored `value` field** either: every "worth" figure (Insights, the browser Value column, CSV
-  export) is derived on read via `Util.RecordValue(record)` — the **higher of** the picked auction
-  price and `vendorPrice`, `nil` only when both are absent — never persisted. See
-  [data-model.md](data-model.md).
-- **Test-mode read seam.** All read paths (`Query`, and therefore `Stats`, plus the Browser's
-  `CurrentRecords`) resolve their dataset through `Database:ActiveHistory()`, which returns
-  `State.testRecords` when `/lh test` is active and the raw account-wide history otherwise. This is
-  why toggling test mode drives both the History table and the Insights tab off the same synthetic
-  data. Write paths (`Add`, prune) always target the real history — they never see the override.
-- **Blacklist/whitelist filtering is point-in-time (decided at capture).** The gate in
-  `modules/Collector.lua` runs on every `CHAT_MSG_LOOT`: a **blacklisted** id is an absolute veto
-  and the item is never written; a **whitelisted** id that would otherwise fail the normal gate is
-  rescued and written as a plain row, indistinguishable from any other. There is no per-record hide
-  flag and no derived read-time filter — `Database:ActiveHistory()`/`Query` always return the raw,
-  already-stored history. Editing either list only changes what happens to *future* loots; it never
-  hides, restores, or otherwise touches rows already in `.global.history` (deleting a row still
-  requires `Database:Delete`). The lists live in `.global.{blacklist,whitelist}`, owned by
-  `NS.Filters`.
-
-**Source types** (`Constants.SourceType`, stable stored keys): `KILL`, `CONTAINER`, `MAIL`,
-`TRADE`, `AH`, `QUEST`, `VENDOR`, `CRAFT`, `ROLL`, `BONUS_ROLL`, `MPLUS`, `REFUND`, `OTHER`, plus the
-deconstruct sources `DISENCHANT`, `MILLING`, `PROSPECTING`. The enum is extended additively (renaming
-keys is forbidden — the export contract — but adding is forward-compatible), and only sources with a
-live stamper are exposed in the UI:
-`Constants.SOURCE_IMPLEMENTED` gates the "Record data from" mute list, and the Browser's
-data-driven filter dropdowns (Bound/Quality/Source/Type/SubType/Zone/Character, all multi-select)
-self-scope from live data — each offers only the values the history actually contains (so Heirloom,
-Poor, Warbound, etc. appear only when present). Every source now has a live capture path, so all
-appear in the mute list (see [attribution.md](attribution.md) for how each is attributed).
-
----
+The full field table, the `SourceType` / `Confidence` enums, currency rows, the derived
+`Util.RecordValue`, the `schemaVersion` migration chain and the two read seams are in
+**[schema.md](schema.md)**.
 
 ## Settings schema
 
@@ -174,14 +101,14 @@ panel widget, and the slash get/set/list/reset behavior. Every mutation flows th
 `settings.auction.priority` (ordered `"provider:key"` cascade) is a carve-out, not a Schema row — see
 the "AH Price" subcategory's unified price table (`buildAuctionTable`: a frame-light, reused-slot table
 with per-row tick / addon / price-module / reorder-arrows / enable-checkbox / status columns) and
-[`saved-variables.md`](saved-variables.md). (The former per-tag `priorityDisabled` carve-out was
+[`schema.md`](schema.md). (The former per-tag `priorityDisabled` carve-out was
 removed — collection and priority are now the single `capture` flag.)
 
 `settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
 (LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced
 in the settings **Filters** subcategory) are storage/data state written straight to `NS.db.global`,
 **not** Schema rows and not routed through `Schema:Set` — an accepted carve-out (see Standards
-compliance, and [`saved-variables.md`](saved-variables.md)). Debug is session-only (`NS.State.debug`)
+compliance, and [`schema.md`](schema.md)). Debug is session-only (`NS.State.debug`)
 and never persisted.
 
 ---
@@ -294,7 +221,7 @@ a dynamic id-set or an ordered list has no fixed schema widget to express — al
 `NS.Filters` / `NS.AuctionPrice` writing `NS.db.global` directly. A dynamic, unbounded id-set has no schema widget to
 express, so `NS.Filters` mutates `NS.db.global` directly, exactly as the pre-existing carve-outs do;
 it is accepted as the same class, and the standard's own definition was left unchanged. Recorded in
-[`saved-variables.md`](saved-variables.md) under the "Standards note".
+[`schema.md`](schema.md) under the "Standards note".
 
 A second carve-out was raised and **ratified (2026-07-18)** for the AH-price integration: the
 third-party pricing-addon shims (`Auctionator` / `TSM_API` / `OEMarketInfo` presence + call
@@ -329,6 +256,51 @@ Vendored libraries follow Ka0s Standard v2.0.0 (vendoring is the suite-wide rule
 
 ---
 
+## Documentation map
+
+Every `.md` under `docs/` appears in exactly one table below (`documentation-§3`). Frozen and
+generated directories are named once each and never enumerated per run: `docs/audits/`, `docs/reviews/`, `docs/automated-tests/`, `docs/pending/` (the LIBKA0S-* decision ledger), `docs/superpowers/`.
+
+### Required (documentation-§3, Tier 1)
+
+| Doc | Covers |
+|---|---|
+| `scope.md` | What the history records, and the loot it deliberately does not |
+| `module-map.md` | Every non-vendored file, its responsibility, and load order |
+| `schema.md` | `LootHistoryDB`’s account-wide shape, the loot record, carve-outs, migrations |
+| `settings-panel.md` | The panel tree, per-option behavior, and the write seam |
+| `data-flow.md` | Loot event in → gate → attribute → record |
+| `common-tasks.md` | Recipes for the changes made most often here |
+
+### Conditional (documentation-§3, Tier 2)
+
+| Doc | Status | Trigger |
+|---|---|---|
+| `slash-dispatch.md` | Present | 14 verbs in `NS.COMMANDS` |
+| `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
+| `compat-layer.md` | Present | `core/Compat.lua` is 481 lines of addon-specific shimming beyond LibKa0s |
+| `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
+| `profiles.md` | Not applicable | No profile control ships in the options UI — the addon is account-wide by design and never touches `db.profile` |
+| `debug.md` | Not applicable | The console is `LibKa0s-DebugLog-1.0`’s, with no debug surface of the addon’s own |
+| `perf-runs/README.md` | Not applicable | No performance harness is wired — see `performance.md` and `ARCHITECTURE.md` → `## Documented deviations` |
+
+### Verification and record
+
+| Doc | Covers |
+|---|---|
+| `testing.md` | How to run the harness and lint; the green commit gate |
+| `smoke-tests.md` | The in-game smoke-test suite |
+| `test-cases.md` | The generated case inventory (authoritative pass count) |
+| `performance.md` | The addon performance page |
+| `automated-tests/README.md` | What the automated-test record is and how to produce it |
+| `automated-tests/RESULTS.md` | One row per run; generated, never hand-edited |
+
+### Addon-specific (documentation-§3, Tier 3)
+
+| Doc | Covers |
+|---|---|
+| `browser.md` | The standalone History window: table, filter bar, and the Insights tab |
+
 ## Documented deviations
 
 The register (`documentation-§3`). **A deviation not in this table is not ratified** — the reasoning
@@ -343,7 +315,7 @@ Three such records were retired rather than carried in here, and are named below
 
 | Rule | What differs | Why | Decided | Re-check trigger |
 |---|---|---|---|---|
-| `architecture-§5` | Five pieces of persistent state are written to `NS.db.global` directly rather than through `NS.Schema:Set`: `settings.window` geometry, `savedView`, the `blacklist` / `whitelist` item-id sets, `currencyBlacklist`, and the `settings.auction.priority` ordered cascade. | A dynamic, unbounded id-set and an ordered cascade have no fixed schema widget to express, so there is no row for `Set` to validate against. Owned by `NS.Filters` / `NS.AuctionPrice`; reasoned in [`saved-variables.md`](saved-variables.md) *Standards note* and in **Standards compliance** above. | 2026-07-17 | `options-ui` gains a set/list widget maker, or any of these five acquires a fixed schema row — at which point it moves back under the single write seam. |
+| `architecture-§5` | Five pieces of persistent state are written to `NS.db.global` directly rather than through `NS.Schema:Set`: `settings.window` geometry, `savedView`, the `blacklist` / `whitelist` item-id sets, `currencyBlacklist`, and the `settings.auction.priority` ordered cascade. | A dynamic, unbounded id-set and an ordered cascade have no fixed schema widget to express, so there is no row for `Set` to validate against. Owned by `NS.Filters` / `NS.AuctionPrice`; reasoned in [`schema.md`](schema.md) *Standards note* and in **Standards compliance** above. | 2026-07-17 | `options-ui` gains a set/list widget maker, or any of these five acquires a fixed schema row — at which point it moves back under the single write seam. |
 | `architecture-§5` | The schema carries a **`sessionOnly` row kind** (`get`/`set` accessors, never written to `db.global`), used by the "Debug console" window-visibility toggle. | It extends schema-as-single-source rather than breaking it — the toggle is a real schema row driving the panel, the CLI and reset — but it is a row that deliberately never reaches the DB, because `debug-logging` makes the debug flag session-only. See [`settings-panel.md`](settings-panel.md). | 2026-07-17 | The standard names a session-only row kind (then this is compliant, not a deviation), or the toggle becomes persistent. |
 | `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-runs/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`performance.md`](performance.md), which names the per-event work for all eleven events and all four one-shot timers. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. `pending/LEDGER.md` **LIBKA0S-17**. | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
 | `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. `pending/LEDGER.md` **LIBKA0S-14**. | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
@@ -365,7 +337,7 @@ compliance** above is its home.
   stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source (player `UNIT_SPELLCAST_SUCCEEDED` by
   spell id); `AH` is stamped from Auction-House mail; `BONUS_ROLL`/`CRAFT`/`REFUND` are attributed
   straight from their self-identifying loot lines; `ROLL` is stamped from the "You won:" roll line
-  just before the item's receive line (see [attribution.md](attribution.md)). `VENDOR`/`MAIL`/`TRADE`
+  just before the item's receive line (see [data-flow.md](data-flow.md)). `VENDOR`/`MAIL`/`TRADE`
   were confirmed recording in-client (smoke §F-001, passed). NB: the `ROLL` path assumes the client
   emits `LOOT_ROLL_YOU_WON` ("You won:") rather than the compact "no-spam" roll variant — verify
   in-game (smoke §F-009).
@@ -380,34 +352,9 @@ compliance** above is its home.
   open backlog item — see [scope.md](scope.md) *Resolved design decisions*.
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
-  [data-model.md](data-model.md).
+  [schema.md](schema.md).
 
 See the [GitHub issue tracker](https://github.com/tusharsaxena/LootHistory/issues) for the full backlog.
 
 ---
 
-## Doc index
-
-Topic-specific detail lives alongside this file in `docs/`. Read on demand — these are not auto-loaded.
-
-| Topic | File | When to read |
-|-------|------|--------------|
-| Scope (in / out / resolved design decisions), backlog pointer | [scope.md](scope.md) | Evaluating a feature request. |
-| Per-file responsibility map + TOC load order + lifecycle | [module-map.md](module-map.md) | "Which file owns X?" / "When does Y run?" |
-| Loot-record shape, enums, `schemaVersion`, export contract | [data-model.md](data-model.md) | Adding/changing a record field. |
-| `LootHistoryDB` shape, settings, storage-only carve-outs, retention | [saved-variables.md](saved-variables.md) | Adding persistent state. |
-| The three `Ka0s_LootHistory_*` messages (sender / payload / consumers) | [message-bus.md](message-bus.md) | Touching anything that sends or listens. |
-| Capture + source-attribution engine (`lootContext`, stampers, gates) | [attribution.md](attribution.md) | **Required** before touching capture/source code. |
-| Browser window, virtualized table, Insights analytics | [browser.md](browser.md) | Touching the window/table/charts. |
-| Schema-driven canvas settings panel — the `LibKa0s-Options-1.0` seam, page builders, the LibKa0s row vocabulary, the two host-drawn surfaces | [settings-panel.md](settings-panel.md) | Adding an option or a custom widget. |
-| `/lh` slash dispatch — the `LibKa0s-Slash-1.0` seam, positional `NS.COMMANDS`, generated help, schema CLI | [slash-dispatch.md](slash-dispatch.md) | Adding or modifying a slash verb. |
-| `Compat.*` API-shim catalog | [compat-layer.md](compat-layer.md) | Wrapping a Blizzard API; reasoning about taint. |
-| Midnight (12.0) gotchas (GUID decode, tooltip scans, uncached fallback) | [midnight-quirks.md](midnight-quirks.md) | Patch-day breakage; capture edge cases. |
-| Coding conventions / boundaries (namespace preamble, module publishing, pooling, hot-path upvalues) | [conventions.md](conventions.md) | Style / boundary questions. |
-| Headless test harness + lint gate; the shared `tests/_kit/`; generated case inventory | [testing.md](testing.md) · [test-cases.md](test-cases.md) | Adding tests; understanding the mock; the case list. |
-| The four `diff -r` checks proving `libs/LibKa0s` and `tests/_kit` have not forked from `../LibKa0s` | [testing.md#the-vendor-gate](testing.md#the-vendor-gate) | Before/after re-vendoring; a suite that passes here but not upstream. |
-| Deferred/declined decisions, incl. the LibKa0s adoption record LIBKA0S-01..19 | [pending/LEDGER.md](pending/LEDGER.md) | Re-litigating a seam; "why isn't X adopted?"; deferring an item. |
-| In-game smoke tests | [smoke-tests.md](smoke-tests.md) | After any change; before a release. |
-| Automated test records + the complexity watch list | [automated-tests/RESULTS.md](automated-tests/RESULTS.md) | Deciding what to peel; regenerate it and read the diff at every release (`performance-§10`). |
-| What this addon costs, and why nothing is bracketed — the `performance-§12` exemption and its committed sweep | [performance.md](performance.md) | Adding an `OnUpdate`, a ticker, or in-combat work; answering "how expensive is this addon?" |
-| Toolchain contract — what to install to run, test and release this addon (WSL2/Ubuntu) | [../DEPENDENCIES.md](../DEPENDENCIES.md) | Setting up a new machine; adding or dropping a tool. |

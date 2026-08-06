@@ -384,13 +384,13 @@ git commit -m "feat(currency): blacklist-currency row action + Filters panel sec
 
 ### Task 4: Docs, smoke test, badge
 
-**Files:** `docs/data-model.md`, `docs/attribution.md` (or the currency capture note), `docs/scope.md`, `docs/smoke-tests.md`, `docs/test-cases.md`, `README.md`, and the `Filters.lua` header comment (already covered by the code comments in Task 1 — only touch docs/ here).
+**Files:** `docs/schema.md`, `docs/data-flow.md` (or the currency capture note), `docs/scope.md`, `docs/smoke-tests.md`, `docs/test-cases.md`, `README.md`, and the `Filters.lua` header comment (already covered by the code comments in Task 1 — only touch docs/ here).
 
 - [ ] **Step 1: Document the currency blacklist**
 
-- `docs/data-model.md`: note `global.currencyBlacklist` as a carve-out set alongside `blacklist`/`whitelist`, keyed by currencyID, point-in-time, blacklist-only.
+- `docs/schema.md`: note `global.currencyBlacklist` as a carve-out set alongside `blacklist`/`whitelist`, keyed by currencyID, point-in-time, blacklist-only.
 - `docs/scope.md`: extend the currency in-scope bullet (or the existing blacklist/whitelist mention) to note currencies can be blacklisted (no currency whitelist).
-- The currency section of `docs/attribution.md` (added in the capture feature): add that the currency gate also drops currency-blacklisted ids.
+- The currency section of `docs/data-flow.md` (added in the capture feature): add that the currency gate also drops currency-blacklisted ids.
 
 - [ ] **Step 2: Add a smoke step**
 
@@ -405,7 +405,7 @@ Run `lua tests/run.lua --list > docs/test-cases.md`, read the new `| **Total** |
 Run `lua tests/run.lua` (0 failures) + `luacheck .` (0/0); confirm badge == inventory total.
 
 ```bash
-git add docs/data-model.md docs/scope.md docs/attribution.md docs/smoke-tests.md docs/test-cases.md README.md
+git add docs/schema.md docs/scope.md docs/data-flow.md docs/smoke-tests.md docs/test-cases.md README.md
 git commit -m "docs(currency): document currency blacklist + smoke + badge"
 ```
 

@@ -1,6 +1,6 @@
 # The browser window
 
-The standalone loot browser is a single non-secure window with two views — **History** (the table) and **Insights** (analytics). `modules/Browser.lua` owns the window shell; `modules/BrowserTable.lua` owns the History table; `modules/Analytics.lua` owns the Insights tab. All three read the same dataset through `Database:ActiveHistory` (see [data-model.md](data-model.md)), so `/lh test` swaps synthetic data under both views at once.
+The standalone loot browser is a single non-secure window with two views — **History** (the table) and **Insights** (analytics). `modules/Browser.lua` owns the window shell; `modules/BrowserTable.lua` owns the History table; `modules/Analytics.lua` owns the Insights tab. All three read the same dataset through `Database:ActiveHistory` (see [schema.md](schema.md)), so `/lh test` swaps synthetic data under both views at once.
 
 ## The standalone window (standalone-windows)
 
@@ -105,7 +105,7 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 
 ### Stat & highlight cards
 
-`CARD_DEFS` (`Analytics.lua:407`) — 4 columns per row, `wide` cards spanning 2: records, distinct items, characters, value, active days, epic+ drops, best drop (ilvl), richest drop, date range (wide), busiest day (wide). `UpdateCards` (`Analytics.lua:493`) reads them straight from `stats.totals`; string cards (value, richest, span, busy) use a smaller font. "Value" throughout Insights is the **derived** per-record worth (`Util.RecordValue` — auction price snapshot if captured, else vendor sell price) `× quantity`, never the raw vendor price alone. See [data-model.md](data-model.md).
+`CARD_DEFS` (`Analytics.lua:407`) — 4 columns per row, `wide` cards spanning 2: records, distinct items, characters, value, active days, epic+ drops, best drop (ilvl), richest drop, date range (wide), busiest day (wide). `UpdateCards` (`Analytics.lua:493`) reads them straight from `stats.totals`; string cards (value, richest, span, busy) use a smaller font. "Value" throughout Insights is the **derived** per-record worth (`Util.RecordValue` — auction price snapshot if captured, else vendor sell price) `× quantity`, never the raw vendor price alone. See [schema.md](schema.md).
 
 ### Breakdown sections
 
@@ -174,4 +174,4 @@ Test mode is session-only: it resets on `/reload` and is never persisted (Standa
 
 ---
 
-See also: [module-map.md](module-map.md) · [data-model.md](data-model.md) · [settings-panel.md](settings-panel.md) · [message-bus.md](message-bus.md)
+See also: [module-map.md](module-map.md) · [schema.md](schema.md) · [settings-panel.md](settings-panel.md) · [message-bus.md](message-bus.md)

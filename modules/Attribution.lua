@@ -3,7 +3,7 @@ NS.Attribution = NS.Attribution or {}
 local Attribution = NS.Attribution
 
 -- Source-resolution engine. Stamps a short-lived loot context from peripheral events and
--- consumes it on CHAT_MSG_LOOT (see docs/attribution.md).
+-- consumes it on CHAT_MSG_LOOT (see docs/data-flow.md).
 --
 -- Sources are resolved from the loot GUID's *kind* (Creature → KILL, GameObject → CONTAINER/
 -- MPLUS, Item → CONTAINER) plus peripheral stampers (vendor/mail/trade/quest/container/craft). The

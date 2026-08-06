@@ -98,9 +98,9 @@ at that moment. Nothing hides or resurrects a stored row afterward.
   stripped and visible after migration; `schemaVersion` is 2.
 
 ## Docs & bookkeeping
-- Update `docs/ARCHITECTURE.md` and `docs/attribution.md` where they describe
+- Update `docs/ARCHITECTURE.md` and `docs/data-flow.md` where they describe
   soft-add/soft-delete, `viaWhitelist`, or the issue-#14 semantics.
-- `docs/saved-variables.md` — the blacklist/whitelist carve-out entry stays.
+- `docs/schema.md` — the blacklist/whitelist carve-out entry stays.
 - Regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`) and bump
   the README `tests` badge count in the same change (hard rule).
 

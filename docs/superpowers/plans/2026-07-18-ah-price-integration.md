@@ -46,7 +46,7 @@
 - The addon `.toc` file(s) — add `modules/AuctionPrice.lua` in load order (before `modules/Collector.lua`).
 - `tests/test_stats.lua`, `tests/test_export.lua`, `tests/test_browsertable.lua`, `tools/tests/test_build_report.py` — coverage updates.
 - `tests/wow_mock.lua` — (only if a shared provider stub is preferred; tests may inject globals locally instead).
-- `docs/data-model.md`, `docs/ARCHITECTURE.md`, `docs/test-cases.md`, `README.md` — docs + inventory.
+- `docs/schema.md`, `docs/ARCHITECTURE.md`, `docs/test-cases.md`, `README.md` — docs + inventory.
 
 ---
 
@@ -82,7 +82,7 @@ Expected: FAIL (attempt to call `RecordValue` (a nil value)).
 ```lua
 -- Derived per-unit worth of a record: the auction price snapshot if we captured one,
 -- else the vendor sell price, else nil. The single definition of "value" (never stored;
--- see docs/data-model.md). Note: 0 is a real captured price, so test against nil, not falsiness.
+-- see docs/schema.md). Note: 0 is a real captured price, so test against nil, not falsiness.
 function Util.RecordValue(record)
   if record == nil then return nil end
   local a = record.auctionPrice
@@ -1028,9 +1028,9 @@ git commit -m "feat(ai): prompt explains vendor/auction/value and when to use ea
 ### Task 14: Docs + test-cases + README badge
 
 **Files:**
-- Modify: `docs/data-model.md`, `docs/ARCHITECTURE.md`, `docs/test-cases.md`, `README.md`
+- Modify: `docs/schema.md`, `docs/ARCHITECTURE.md`, `docs/test-cases.md`, `README.md`
 
-- [ ] **Step 1: Update `docs/data-model.md`** — document `auctionPrice` (copper, per unit, nil), `priceSource` (provenance tag), and that `value` is derived (`Util.RecordValue`, not stored, no schema bump). Note old records have `auctionPrice=nil` and thus value=vendor.
+- [ ] **Step 1: Update `docs/schema.md`** — document `auctionPrice` (copper, per unit, nil), `priceSource` (provenance tag), and that `value` is derived (`Util.RecordValue`, not stored, no schema bump). Note old records have `auctionPrice=nil` and thus value=vendor.
 
 - [ ] **Step 2: Update `docs/ARCHITECTURE.md`** — add the `AuctionPrice` module to the module map and the cascade to the data-flow; record the standards resolution: third-party pricing-addon shims live in `AuctionPrice` (presence-gated), deliberately outside `core/Compat.lua` (Blizzard-API-only), a boundary the Ka0s Standard does not currently address.
 
@@ -1043,7 +1043,7 @@ git commit -m "feat(ai): prompt explains vendor/auction/value and when to use ea
 - [ ] **Step 6: Commit**
 
 ```bash
-git add docs/data-model.md docs/ARCHITECTURE.md docs/test-cases.md README.md
+git add docs/schema.md docs/ARCHITECTURE.md docs/test-cases.md README.md
 git commit -m "docs(auction): data-model, architecture, test inventory + badge"
 ```
 

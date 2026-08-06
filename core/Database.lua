@@ -428,7 +428,7 @@ function Database:Query(filter)
 end
 
 -- Plain, metatable-free copy of the (optionally filtered) history — the forward-compatible
--- v2 export contract (see docs/data-model.md). Field shape is stable except for schema bumps
+-- v2 export contract (see docs/schema.md). Field shape is stable except for schema bumps
 -- (v4 dropped the retired `sourceName`).
 function Database:Export(filter)
   local out = {}

@@ -104,7 +104,7 @@ end
 -- loot line is itself the authoritative, locale-independent proof of the source — a bonus roll
 -- (LOOT_ITEM_BONUS_ROLL_SELF), a crafted item (LOOT_ITEM_CREATED_SELF, "You create"), or a token/
 -- vendor refund (LOOT_ITEM_REFUND, "You are refunded") — so the collector attributes them directly
--- to that source rather than reading the peripheral loot context (see attribution.md).
+-- to that source rather than reading the peripheral loot context (see data-flow.md).
 local lootPatterns
 function Util.BuildLootPatterns()
   local specs = {

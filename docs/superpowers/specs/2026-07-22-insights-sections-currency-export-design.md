@@ -175,7 +175,7 @@ Pure function, extended unit tests.
 
 ## Docs to update
 
-- `docs/browser.md` and/or `docs/data-model.md`: Insights section reorg + `currencyBySource`.
+- `docs/browser.md` and/or `docs/schema.md`: Insights section reorg + `currencyBySource`.
 - `docs/smoke-tests.md`: §7 and §6a as above.
 - `docs/ai-export-guideline.md`: as in 4b.
 

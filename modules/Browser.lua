@@ -101,7 +101,7 @@ end
 -- persisted directly to NS.db.global by the Browser — they are intentionally NOT Schema rows, so
 -- they don't route through Schema:Set. The "every mutation goes through Schema:Set" convention
 -- (CLAUDE §2) covers user settings only; window geometry (standalone-windows) and the saved table
--- view are carved out. See docs/saved-variables.md.
+-- view are carved out. See docs/schema.md.
 
 local function SaveWindow()
   if not frame then return end

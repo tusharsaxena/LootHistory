@@ -14,7 +14,7 @@ Exactly one sender is allowed per message — the table is sender-authoritative.
 
 ## `Ka0s_LootHistory_RecordAdded` payload
 
-Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:287`). The payload is `(record, index)`: the full record table (see [data-model.md](data-model.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
+Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:287`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
 
 Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:278`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
 
@@ -27,7 +27,7 @@ The bulk-mutation counterpart to `RecordAdded`: no payload, meaning "the history
 - `Database:PruneOld()` — retention rebuild-and-swap (also invoked from the `retentionDays` setting's `onChange`, so a retention change surfaces as `HistoryChanged`, not `SettingsChanged`).
 - `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit. Filtering is point-in-time, so a list edit never changes what a query returns for already-stored rows; the message exists so the Settings ▸ Filters page's live id list re-renders. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
 
-Because deletion and retention rebuild-and-swap (no holes; see [data-model.md](data-model.md)), indices are not stable across a `HistoryChanged`, which is why the payload is empty — subscribers must re-read, not patch by index.
+Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schema.md)), indices are not stable across a `HistoryChanged`, which is why the payload is empty — subscribers must re-read, not patch by index.
 
 > The blacklist/whitelist edit also re-caches the Collector's list upvalues via a **direct** `NS.Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) — the lists aren't schema settings and the Collector is their only capture-side consumer, so no second `SettingsChanged` sender is introduced.
 
@@ -72,4 +72,4 @@ Adding a message means updating:
 2. Every consumer that reacts to it — each on its **own** `NS.NewBusTarget()`, never the shared bus.
 3. The table above (sender, payload, listeners).
 4. The relevant module header comment.
-5. The closed-bus rule in [conventions.md](conventions.md) if the new message carries cross-module rules.
+5. The closed-bus rule in [common-tasks.md](common-tasks.md) if the new message carries cross-module rules.

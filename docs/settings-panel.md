@@ -76,7 +76,7 @@ Every setting mutation — panel widget and `/lh set` alike — routes through `
 2. **write** — `WritePath` into `NS.db.global`, storing a `deepcopy` of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`; `Schema.lua:152`). `sessionOnly` rows skip this and apply through `row.set`.
 3. **onChange** — fire the row's hook. Most publish a `Ka0s_LootHistory_SettingsChanged` bus message; `windowScale`/`minimap.hide` reach into the Browser, `retentionDays` triggers `Database:PruneOld`.
 
-`Schema:Get` reads back from `NS.db.global` (`Schema.lua:177`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view, the `blacklist`/`whitelist`/`currencyBlacklist` id lists and the auction `priority` cascade are the deliberate carve-outs — they persist straight to `NS.db.global`, not through `Schema:Set`; see [saved-variables.md](saved-variables.md) and [conventions.md](conventions.md).)
+`Schema:Get` reads back from `NS.db.global` (`Schema.lua:177`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view, the `blacklist`/`whitelist`/`currencyBlacklist` id lists and the auction `priority` cascade are the deliberate carve-outs — they persist straight to `NS.db.global`, not through `Schema:Set`; see [schema.md](schema.md) and [common-tasks.md](common-tasks.md).)
 
 ## Combat-gated, lazily rendered body
 
@@ -90,7 +90,7 @@ Opening the panel is combat-gated in **two** places now. `O.OpenOptionsPanel` (`
 
 * **Stats label** reads from `Database:StorageStats` (`Database.lua:761`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)"; `Panel.lua:113`).
 * **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (`Panel.lua:95`, popup at `Slash.lua:8`).
-* **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:122`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [conventions.md](conventions.md)).
+* **Live refresh** — the stats re-compute while the panel is open. `renderHistory` registers on a **private `NS.NewBusTarget()`** (`Panel.lua:122`) for `HistoryChanged` / `RecordAdded`, never on the shared `NS.bus` as `self` — CallbackHandler keys callbacks by `(message, target)`, so sharing a target would clobber the Browser/Analytics consumers of the same messages (see [common-tasks.md](common-tasks.md)).
 
 ## Reset Everything companion
 
@@ -102,7 +102,7 @@ Each page's **Defaults** button is host-owned — the library builds the button 
 * **Filters** → the `KA0S_LOOTHISTORY_CLEAR_FILTERS` confirm (`Panel.lua:729`, popup at `Slash.lua:67`), because "stock state" for that page is three empty lists.
 * **AH Price** → resets every row in its own group, then clears-and-refills the priority carve-out array **in place** so the table's closure sees the new contents (`Panel.lua:752-765`).
 
-(The library's own `O.RestoreDefaults` / `O.RestoreAllDefaults`, `Options.lua:376` / `:394`, are unused here for exactly that reason: none of the three pages resets a plain page's worth of schema rows and nothing else.) See [saved-variables.md](saved-variables.md#reset-semantics) for the full scope matrix.
+(The library's own `O.RestoreDefaults` / `O.RestoreAllDefaults`, `Options.lua:376` / `:394`, are unused here for exactly that reason: none of the three pages resets a plain page's worth of schema rows and nothing else.) See [schema.md](schema.md#reset-semantics) for the full scope matrix.
 
 ## Filters subcategory — blacklist / whitelist (issue #14)
 

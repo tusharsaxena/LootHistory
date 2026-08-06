@@ -205,7 +205,7 @@ longer surfaced as its own distinct metric (open item → "replace").
 - Regenerate `docs/test-cases.md` (`lua tests/run.lua --list > docs/test-cases.md`) and bump the
   README `tests` badge count in the same change.
 - Run `lua tests/run.lua` and `luacheck .` green before each commit.
-- **Docs** — update `docs/data-model.md` (new fields + derived value), `docs/ARCHITECTURE.md`
+- **Docs** — update `docs/schema.md` (new fields + derived value), `docs/ARCHITECTURE.md`
   (AuctionPrice module, cascade), and record the open-item #2 resolution (third-party integration
   boundaries are outside Compat's scope) in the relevant doc.
 
@@ -386,7 +386,7 @@ the data says" report):
 - New/updated unit tests: `GatherAll` (multi-key, presence-gating, pcall), `Pick` (priority order,
   fallthrough, missing-key), capture-config + priority-config plumbing, the v2→v3 migration, the
   dynamic CSV columns, `RecordValue` on the map shape. Update every `sellPrice` test to `vendorPrice`.
-- Regenerate `docs/test-cases.md` + README badge; update `docs/data-model.md`, `docs/ARCHITECTURE.md`,
+- Regenerate `docs/test-cases.md` + README badge; update `docs/schema.md`, `docs/ARCHITECTURE.md`,
   `docs/ai-export-guideline.md` (the `v` key now comes from `vendorPriceRaw`), `docs/testing.md`.
 - **README end-user section (plain language, no internals):** a new user-facing section in `README.md`
   explaining AH pricing — which addons are supported (Auctionator, TSM, OribosExchange), that it reads

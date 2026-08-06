@@ -425,7 +425,7 @@ Remove the now-unused `C.AUCTION_PRIORITY_OPTIONS` and `C.TSM_SOURCE_OPTIONS`.
     widget = "MultiCheck", wide = true, group = "Auction House Price", label = "Capture these prices",
     options = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 ```
-(`settings.auction.priority` is a carve-out array — NOT a schema row — managed by the panel UI in R6. Document it in `docs/saved-variables.md` alongside `blacklist`/`savedView`.)
+(`settings.auction.priority` is a carve-out array — NOT a schema row — managed by the panel UI in R6. Document it in `docs/schema.md` alongside `blacklist`/`savedView`.)
 
 - [ ] **Step 4: Priority accessors** — in `modules/AuctionPrice.lua` add helpers the panel will use:
 
@@ -588,11 +588,11 @@ In the row-builder `<tr>` (:972-981): the last two `<td>`s must become **Vendor*
 
 ## Task R11: README user section + docs + inventory + badge
 
-**Files:** `README.md`, `docs/data-model.md`, `docs/ARCHITECTURE.md`, `docs/testing.md`, `docs/saved-variables.md`, `docs/test-cases.md`, README badge.
+**Files:** `README.md`, `docs/schema.md`, `docs/ARCHITECTURE.md`, `docs/testing.md`, `docs/schema.md`, `docs/test-cases.md`, README badge.
 
 - [ ] **Step 1: README** — add a plain-language "Auction-house pricing" section: it reads prices from **Auctionator, TSM, and OribosExchange** (whichever you have installed) when you loot; you choose which price counts most via a **priority list** in settings; each drop's **value** is the higher of its vendor price and its auction price. No field names / internals.
 
-- [ ] **Step 2: docs** — update `docs/data-model.md` (auctionPrice nested map, vendorPrice, no priceSource, value=max, v2→v3 migration), `docs/ARCHITECTURE.md` (GatherAll/Pick, configurable capture/priority), `docs/saved-variables.md` (`settings.auction.priority` array carve-out), `docs/testing.md` (any suite count if changed).
+- [ ] **Step 2: docs** — update `docs/schema.md` (auctionPrice nested map, vendorPrice, no priceSource, value=max, v2→v3 migration), `docs/ARCHITECTURE.md` (GatherAll/Pick, configurable capture/priority), `docs/schema.md` (`settings.auction.priority` array carve-out), `docs/testing.md` (any suite count if changed).
 
 - [ ] **Step 3: Inventory + badge** — `lua tests/run.lua --list > docs/test-cases.md`; set README `Tests` badge to the actual `lua tests/run.lua` total.
 

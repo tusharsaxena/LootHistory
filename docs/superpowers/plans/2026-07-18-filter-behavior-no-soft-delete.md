@@ -371,7 +371,7 @@ git commit -m "test(export): InsightsCSV counts all stored rows under point-in-t
 **Files:**
 - Modify: `settings/Panel.lua:386-390` (section comment), `settings/Panel.lua:506-508` (blacklist description string)
 - Modify: `modules/BrowserTable.lua:963-971` (right-click "Blacklist item" comment)
-- Modify: `docs/ARCHITECTURE.md`, `docs/attribution.md` (prose mentions of soft-add/soft-delete / `viaWhitelist` / issue-#14 hide semantics)
+- Modify: `docs/ARCHITECTURE.md`, `docs/data-flow.md` (prose mentions of soft-add/soft-delete / `viaWhitelist` / issue-#14 hide semantics)
 
 **Interfaces:** none (copy + docs only). No behavior change.
 
@@ -408,9 +408,9 @@ Leave the action body (966-971) unchanged — `AddBlacklist` still prevents futu
 
 - [ ] **Step 4: Update docs prose**
 
-Run: `grep -rn "viaWhitelist\|soft-add\|soft-delete\|soft add\|soft delete\|VisibleHistory\|issue #14\|hidden from the browser" docs/ARCHITECTURE.md docs/attribution.md`
+Run: `grep -rn "viaWhitelist\|soft-add\|soft-delete\|soft add\|soft delete\|VisibleHistory\|issue #14\|hidden from the browser" docs/ARCHITECTURE.md docs/data-flow.md`
 
-For each hit, rewrite the surrounding sentence to describe the **point-in-time** model: blacklisted items are dropped at capture and never written; whitelisted below-gate items are written as plain rows; reads return raw history; there is no per-record hide flag and no `VisibleHistory` seam. Remove references to `viaWhitelist`, the whitelist-orphan index, and "already-recorded rows are hidden / restored." Keep the `db.global.{blacklist,whitelist}` carve-out description intact. Do **not** touch `docs/saved-variables.md`'s carve-out entry (still accurate).
+For each hit, rewrite the surrounding sentence to describe the **point-in-time** model: blacklisted items are dropped at capture and never written; whitelisted below-gate items are written as plain rows; reads return raw history; there is no per-record hide flag and no `VisibleHistory` seam. Remove references to `viaWhitelist`, the whitelist-orphan index, and "already-recorded rows are hidden / restored." Keep the `db.global.{blacklist,whitelist}` carve-out description intact. Do **not** touch `docs/schema.md`'s carve-out entry (still accurate).
 
 - [ ] **Step 5: Verify lint (no code behavior to test)**
 
@@ -422,7 +422,7 @@ Expected: PASS (unchanged — copy/docs only).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add settings/Panel.lua modules/BrowserTable.lua docs/ARCHITECTURE.md docs/attribution.md
+git add settings/Panel.lua modules/BrowserTable.lua docs/ARCHITECTURE.md docs/data-flow.md
 git commit -m "docs(filters): reword blacklist/whitelist copy to point-in-time semantics"
 ```
 

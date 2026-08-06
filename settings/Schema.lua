@@ -121,7 +121,7 @@ S.Schema = {
 
 }
 -- NOTE: `settings.auction.priority` (the ordered cascade selection list) is a carve-out array —
--- NOT a schema row — managed directly by the settings panel UI (R6). See docs/saved-variables.md.
+-- NOT a schema row — managed directly by the settings panel UI (R6). See docs/schema.md.
 -- NOTE: the debug LOGGING flag (NS.State.debug) is NOT a schema setting — session-only, set via
 -- `/lh debug on|off`, always off after a reload. The debug CONSOLE WINDOW's visibility IS the
 -- `state.debugConsole` row above: a session-only schema row (rendered in the panel, driven through

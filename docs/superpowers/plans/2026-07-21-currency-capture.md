@@ -1113,8 +1113,8 @@ git commit -m "feat(currency): CSV export (currencyID column + Insights sections
 
 **Files:**
 - Modify: `docs/scope.md` (currency in-scope; gold + AI deferred)
-- Modify: `docs/attribution.md` (currency capture path)
-- Modify: `docs/data-model.md` (record shape + Type=Currency note)
+- Modify: `docs/data-flow.md` (currency capture path)
+- Modify: `docs/schema.md` (record shape + Type=Currency note)
 - Modify: `docs/smoke-tests.md` (currency smoke test)
 - Modify: `docs/test-cases.md` (regenerate)
 - Modify: `README.md` (test badge count only)
@@ -1143,7 +1143,7 @@ Then add, under the `## Passive capture`/in-scope list (after the source-attribu
 
 - [ ] **Step 2: Document the capture path**
 
-In `docs/attribution.md`, after the "Self-identifying loot lines" / "Roll wins" additions near the top, add a short paragraph:
+In `docs/data-flow.md`, after the "Self-identifying loot lines" / "Roll wins" additions near the top, add a short paragraph:
 
 ```markdown
 ### Currency
@@ -1153,12 +1153,12 @@ Currency rides a parallel signal: `CHAT_MSG_CURRENCY` → `Collector:OnChatMsgCu
 for its source, since currency is delivered inside the same loot window. Currency records carry
 `currencyID` + `itemType = "Currency"` (never an `itemID`), take a slimmer gate (the `recordCurrency`
 master toggle + the per-source mute list; no quality/quest/blacklist gate), and are stored in the same
-`global.history` array. See [data-model.md](data-model.md) and the currency-capture spec.
+`global.history` array. See [schema.md](schema.md) and the currency-capture spec.
 ```
 
-- [ ] **Step 3: Note the record shape in data-model.md**
+- [ ] **Step 3: Note the record shape in schema.md**
 
-In `docs/data-model.md`, after the SourceType block, add a short note:
+In `docs/schema.md`, after the SourceType block, add a short note:
 
 ```markdown
 ### Currency records
@@ -1205,7 +1205,7 @@ Expected: all pass; luacheck 0/0. Confirm the README badge number equals the `--
 - [ ] **Step 7: Commit**
 
 ```bash
-git add docs/scope.md docs/attribution.md docs/data-model.md docs/smoke-tests.md docs/test-cases.md README.md
+git add docs/scope.md docs/data-flow.md docs/schema.md docs/smoke-tests.md docs/test-cases.md README.md
 git commit -m "docs(currency): scope reversal, capture docs, smoke tests, badge"
 ```
 

@@ -587,11 +587,11 @@ git commit -m "docs(ai-export): teach the guideline about currency rows + sectio
 ### Task 12: Docs + test inventory + badge
 
 **Files:**
-- Modify: `docs/browser.md` and/or `docs/data-model.md` (Insights reorg + `currencyBySource`), `docs/smoke-tests.md` (§7 Insights + §6a Export), `docs/test-cases.md` (regenerate), `README.md` (tests badge).
+- Modify: `docs/browser.md` and/or `docs/schema.md` (Insights reorg + `currencyBySource`), `docs/smoke-tests.md` (§7 Insights + §6a Export), `docs/test-cases.md` (regenerate), `README.md` (tests badge).
 
 - [ ] **Step 1: Update `docs/smoke-tests.md`** §7 (the two dividers; loot charts under Loot; the four currency charts + legend under Currency) and §6a (Insights CSV currency sections; AI export now carries currency end-to-end — assembler PASS on a currency export, report shows a Currency section).
 
-- [ ] **Step 2: Update `docs/browser.md` / `docs/data-model.md`** — note the Insights Loot/Currency sections and the `currencyBySource` stat.
+- [ ] **Step 2: Update `docs/browser.md` / `docs/schema.md`** — note the Insights Loot/Currency sections and the `currencyBySource` stat.
 
 - [ ] **Step 3: Regenerate the inventory + bump the badge.**
 ```bash

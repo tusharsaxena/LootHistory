@@ -10,7 +10,7 @@ Companion docs:
 
 - Headless test harness + what each suite covers: [testing.md](testing.md).
 - What each slash verb dispatches to: [slash-dispatch.md](slash-dispatch.md).
-- Source-resolution model (how a drop gets its source + confidence): [attribution.md](attribution.md).
+- Source-resolution model (how a drop gets its source + confidence): [data-flow.md](data-flow.md).
 - Window/table internals referenced throughout: [browser.md](browser.md).
 - Settings panel widgets + the options-ui-§10 scrollbar/button rules: [settings-panel.md](settings-panel.md).
 
@@ -117,7 +117,7 @@ The standalone window follows the Standard's standalone-windows section: a non-s
 
 The empirical source matrix. Record PASS/FAIL per row; each looted item should appear as a new
 **History** row with the expected **Source** and a confidence of `CERTAIN` or `INFERRED`. Only
-sources with a live stamper are exercised here — see [attribution.md](attribution.md).
+sources with a live stamper are exercised here — see [data-flow.md](data-flow.md).
 
 **Setup.** Retail character with bag space; nearby vendor; mail with an item attachment; a trade
 partner if available; a quest with an item reward; optionally a M+ keystone.

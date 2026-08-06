@@ -6,7 +6,7 @@ What Ka0s Loot History is, what's in scope, and what's not. The user-facing cont
 
 Ka0s Loot History is a WoW addon with two responsibilities: **capture** every item the player personally loots (above a configurable quality threshold), attributing each drop to a **source**; and **browse & analyze** that history in a standalone window with a filter/sort/group table plus an Insights (analytics) view. Storage is account-wide, so loot from every character is browsable together. Designed as a personal loot ledger — not a group-loot / loot-council tool.
 
-Capture is passive and silent: the authoritative "item received (self)" signal is `CHAT_MSG_LOOT`, and peripheral events stamp a short-lived source context the collector consumes (see [attribution.md](attribution.md)). The window is a non-secure standalone frame, independent of the Blizzard options UI; the settings panel is a separate Blizzard Settings canvas. The message contract between collector, database, browser, analytics, and settings is documented in [architecture.md](ARCHITECTURE.md).
+Capture is passive and silent: the authoritative "item received (self)" signal is `CHAT_MSG_LOOT`, and peripheral events stamp a short-lived source context the collector consumes (see [data-flow.md](data-flow.md)). The window is a non-secure standalone frame, independent of the Blizzard options UI; the settings panel is a separate Blizzard Settings canvas. The message contract between collector, database, browser, analytics, and settings is documented in [architecture.md](ARCHITECTURE.md).
 
 Target client: WoW 12.0.7 (Midnight), Retail-only (`## Interface: 120007`). Mainline branch: `master`. English-only.
 
@@ -51,7 +51,7 @@ Boundaries that are real today but are not deliberate non-goals — they are pla
 
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting items more than ~1.5s apart from a single open window can let later items fall back to `OTHER` / `INFERRED`.
 - **Roll-win line assumption.** The `ROLL` source is stamped from `LOOT_ROLL_YOU_WON` ("You won:"). If a client emits the compact "no-spam" roll variant instead, a rolled item falls back to whatever context is fresh (usually the kill/container it dropped from). Verify in-game (smoke §F-009).
-- **No upgrade-scoring addon interop** (Pawn / Loot Appraiser). Vendor `vendorPrice` and, since the Rev-2 AH-price integration, auction-house prices from Auctionator / TSM / OribosExchange are both captured — see [ARCHITECTURE.md](ARCHITECTURE.md) and [data-model.md](data-model.md) — but no third-party upgrade/BiS scoring is read.
+- **No upgrade-scoring addon interop** (Pawn / Loot Appraiser). Vendor `vendorPrice` and, since the Rev-2 AH-price integration, auction-house prices from Auctionator / TSM / OribosExchange are both captured — see [ARCHITECTURE.md](ARCHITECTURE.md) and [schema.md](schema.md) — but no third-party upgrade/BiS scoring is read.
 
 ## Backlog
 
