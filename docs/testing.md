@@ -57,7 +57,7 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Nineteen files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Twenty files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
@@ -80,12 +80,13 @@ inventory and the authoritative count):
 | `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labeling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
 | `test_harness.lua` | the runner's own three lists (testing-§9) — the TOC derivation the loader was actually handed compared against a fresh one, every derived path on disk, no `libs/` leak, and the suite list pinned in both directions by `Kit.assertSuiteInventory` plus a duplicate check the inventory gate cannot see |
 
-Two of the nineteen exist because of the LibKa0s adoption:
+Three of the twenty exist because of the LibKa0s adoption:
 
 | Suite | Covers |
 |-------|--------|
 | `test_panel.lua` | the settings panel, which had **no suite at all** before the `LibKa0s-Options-1.0` adoption — parent + sub-page registration and its idempotence, the deferred first-`OnShow` body render, one widget per non-skipped row at the 50/50 width, `CheckBox`/`Dropdown`/`Slider` dispatch, dropdown lists populated from the row's `values` in declared order, slider bounds, section headings as the schema groups, the three write paths reaching `NS.Schema:Set`, an external write mirrored back by `Refresh`, the inverted muted-source picker in both directions, the lazy Defaults button (asserted **absent** before first show, which is the half that makes it a guard), each page's Defaults handler including the carve-out priority cascade, the AH page's pooled row slots and page filtering, the landing page's command rows matching `lib.FormatRow` byte for byte, and the combat refusal |
 | `test_libka0s.lua` | the adoption seams themselves — the shared `NS.LIBKA0S_MISSING` cause clause asserted verbatim and on **both** paths, a degraded install exercised by loading every TOC file over a mock set that has never seen `libs/LibKa0s` (rather than by hand-stubbing a branch), the `L`-trap source guard with its own case driving all three spellings, the Core and Options library tripwires that stand in where a module cannot express the trap, module coverage, the silent-flag check on every seam's `LibStub` call, one `Kit.assertSurfaceParity` case per adopted seam (Core, Slash, DebugLog, Options) whose degraded arm is a real partial-file-list load rather than a hand-stubbed member, the bare-`/lh` help the degraded dispatcher renders, and vendor fidelity |
+| `test_vendor_sync.lua` | the vendored-payload gate, adopted from the kit in one line (`tests/_kit/vendor_sync.lua`) — that `libs/LibKa0s/` and `tests/_kit/` are exactly what the LibKa0s repo published at the tag this repo’s `CLAUDE.md` names, with the provenance line read as an **input** rather than hardcoded, one normalization (CR stripped from the working-tree side, because `.gitattributes` pins CRLF while `git show` hands back the LF blob), and a missing `../LibKa0s` sibling reporting a **skip carrying its reason** rather than a pass |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 

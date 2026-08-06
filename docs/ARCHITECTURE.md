@@ -127,7 +127,7 @@ table reach.
 | Message | Sender | Payload | Consumers |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
-| `Ka0s_LootHistory_HistoryChanged` | `Database` (`Delete`/`PruneOld`/`Purge`, and the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit) | — | Browser, Analytics, Panel (History stats + Filters page) |
+| `Ka0s_LootHistory_HistoryChanged` | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + Filters page) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / questfilter / currency / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 > A blacklist/whitelist edit stays within the one-sender rule: it re-caches the Collector via a
