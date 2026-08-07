@@ -36,6 +36,14 @@ about it are load-bearing:
   the gate protects nothing and the habit remains.
 - **A missing tool is a skip, not a failure**, and a skip is recorded as one — so a green run that
   actually measured nothing cannot read as a green run that measured everything.
+- **The bundle is written to whatever `.gitattributes` declares for it**, read per path with
+  `git check-attr text eol` at the end of the run — not assumed. Everything the runner writes goes
+  down a plain shell redirect, which bypasses git's filters entirely, so before kit revision 10 every
+  run in a CRLF-pinned repo left a fresh crop of LF stragglers that `git status` never mentions and
+  `git add --renormalize` never fixes. A repo that declares nothing is left exactly as it is, and so
+  is any path whose `text` is `unset`: `binary` unsets `text` but says nothing about `eol`, so a
+  marked asset still answers `eol: crlf` from the pin and asking `eol` alone would rewrite a file git
+  itself never converts (`line-endings-§7`).
 
 **It is LF, and it must stay LF.** Every other file in this collection is CRLF, pinned by
 `.gitattributes`. A `#!/usr/bin/env bash` line followed by CRLF makes the kernel look for an

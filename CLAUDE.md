@@ -48,7 +48,7 @@ touching code:
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.8.1 (MIT) — the Ka0s-owned shared
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.8.2 (MIT) — the Ka0s-owned shared
 library behind the chat printer, the debug console, the slash-command interface and the settings
 panel, vendored whole-folder into `libs/LibKa0s/` with its test kit under `tests/_kit/`.
 

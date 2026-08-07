@@ -437,6 +437,82 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
         } > "$RESULTS"
     fi
 
+    # ── line endings ────────────────────────────────────────────────────────────────────────────
+    # Everything above writes with a plain shell redirect, and a redirect bypasses git's
+    # clean/smudge filters entirely. In a repo pinned `* text=auto eol=crlf` — which is every
+    # client-bound repo in this collection, this library included — that lands LF on disk while
+    # .gitattributes says CRLF, so every run leaves a fresh crop of working-tree stragglers for a
+    # line-endings audit to report. `git add --renormalize` does not fix them: it rewrites the
+    # INDEX, and the index is already correct — LF is where LF belongs. Only the working tree is
+    # wrong, and `git status` is silent about it before AND after the commit, which is why this
+    # survived nine repos.
+    #
+    # ONE PASS AT THE END rather than a fix at each write site, for one reason that decides it:
+    # perf.json is not written by this script at all — `tests/perf.lua` writes it through `--out`
+    # (see the perf block above). Fixing the writers means reaching into eight addons' perf
+    # harnesses and still missing the next file a suite decides to drop in here. A pass over the
+    # finished directory covers every file however it got there.
+    #
+    # The declared terminator is READ FROM GIT, per path, never assumed: `git check-attr` is the
+    # only thing that knows what this repo pins, it answers correctly for a path that is untracked
+    # or does not exist yet, and it honours carve-outs like `*.sh text eol=lf`. An `unspecified`
+    # answer means the repo has declared nothing, and this then does nothing at all.
+    #
+    # It asks for `text` AS WELL AS `eol`, and NEVER `eol` alone (line-endings-§7). The `binary`
+    # macro expands to `-text` and says nothing at all about `eol` — so a path marked `binary` in a
+    # repo pinned `* text=auto eol=crlf` still answers `eol: crlf`, inherited from the pin, for a
+    # file git itself will never convert. `text: unset` IS the binary case, and it is the primary
+    # test here: skip first, before any byte is read. The NUL heuristic below stays as a second
+    # line of defence, but it cannot be the first — a binary format that happens to be NUL-free
+    # (ncnn `.param`, an ASCII-armoured key, a truncated asset) walks straight through it and gets
+    # rewritten. This is the same correction §7 made to the audit's working-tree check and
+    # `wow-addon/scripts/normalize-eol.sh` made to the Write/Edit hook; the three now agree.
+    #
+    # Rewrites are content-conditional (`cmp -s`), so in an LF-pinned repo — and on a second pass
+    # over a file that is already right — not one byte and not one mtime moves. The rewrite strips
+    # a trailing CR before adding the wanted terminator, so it is idempotent rather than doubling
+    # CRs on the RESULTS.md APPEND path, which already re-attaches the header's own terminator and
+    # is the one write site here that was never broken.
+    #
+    # A file carrying a NUL is left alone as well. Nothing in a bundle is binary today; both guards
+    # are there so that the day something is, this cannot corrupt it. A file whose last line has no
+    # trailing newline gains one — the one respect in which this is not "byte-identical apart from
+    # the terminators", and stated in the kit's API document rather than left to be discovered.
+    #
+    # `git check-attr text eol` emits the attributes in the order ASKED, two lines per path, so the
+    # loop reads them in pairs. Both reads are in the `while` condition: an odd or truncated stream
+    # ends the loop rather than shifting every later path onto the wrong attribute. The pairing is
+    # re-checked per iteration against the `: text: ` / `: eol: ` markers, and a pair that does not
+    # match is skipped rather than acted on — misreading which line is which is precisely how a
+    # binary would get rewritten again.
+    #
+    # The `while` runs in a pipeline subshell, so nothing it sets survives the loop. That costs
+    # nothing today because this needs no return state, but a later edit that tries to COUNT the
+    # rewritten files from inside it will silently read zero.
+    normalize_eol() {
+        command -v git >/dev/null 2>&1 || return 0
+        git check-attr text eol -- "$@" 2>/dev/null |
+        while IFS= read -r textline && IFS= read -r eolline; do
+            case "$textline" in *": text: "*) ;; *) continue ;; esac
+            case "$eolline"  in *": eol: "*)  ;; *) continue ;; esac
+            text="${textline##*: }"
+            want="${eolline##*: }"
+            path="${eolline%: eol: *}"
+            [ "$text" = "unset" ] && continue
+            { [ "$want" = "crlf" ] || [ "$want" = "lf" ]; } || continue
+            [ -f "$path" ] || continue
+            tr -d '\000' < "$path" | cmp -s - "$path" || continue
+            tmp="$path.eol.$$"
+            if [ "$want" = "crlf" ]; then
+                awk '{ sub(/\r$/, ""); printf "%s\r\n", $0 }' "$path" > "$tmp"
+            else
+                awk '{ sub(/\r$/, ""); printf "%s\n",   $0 }' "$path" > "$tmp"
+            fi
+            if cmp -s "$path" "$tmp"; then rm -f "$tmp"; else mv "$tmp" "$path"; fi
+        done
+    }
+    normalize_eol "$OUT"/* "$RESULTS"
+
     echo "  bundle:  $OUT/"
     echo "  results: $RESULTS"
 fi

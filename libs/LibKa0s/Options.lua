@@ -264,7 +264,7 @@ function lib:New(d)
     -- DOES build kept working and looks equivalent to the user.
     --
     -- OnCommit and OnRefresh are inert BY DESIGN rather than by omission. A host's writes land
-    -- immediately through its own single write seam (options-ui-§41), so there is no staged state
+    -- immediately through its own single write seam (options-ui-§1), so there is no staged state
     -- to apply; and SetRenderer already owns re-show, so a second refresh path would race the
     -- renderer it duplicates.
     panel.OnCommit  = function() end
