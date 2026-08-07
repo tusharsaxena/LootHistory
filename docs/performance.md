@@ -6,7 +6,7 @@
 length in closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22).
 
 There is therefore no `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no
-suspend/resume contract, no `tests/perf.lua` and no `docs/perf-runs/` store. `libs/LibKa0s/` is
+suspend/resume contract, no `tests/perf.lua` and no `docs/perf-analysis/` store. `libs/LibKa0s/` is
 still vendored **whole** — `Perf.lua` and `PerfPanel.lua` included — because the folder is copied
 whole or not at all (library-stack-§7, anti-pattern #48), and `perf` stays a reserved verb
 (slash-commands-§2): it is simply never registered, so it can never come to mean anything else here.

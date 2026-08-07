@@ -49,13 +49,14 @@ gate a skip is **NOT EVALUATED** rather than passed: install the tool and re-run
 
 Offline perf records live in the bundle with the run that produced them. **In-game** captures cannot
 be produced by a script — a human runs the `perf` verb in a live client and exports the record — so in
-a bracketed addon they keep their own standing store at `docs/perf-runs/`: flat, one file per capture
-named `<YYYY-MM-DD>-ingame-<label>.json`, with a `README.md` there carrying the schema summary and the
-pointer to the library's canonical record contract (`performance-§8`).
+a bracketed addon they keep their own standing store at `docs/perf-analysis/`: one frozen dated
+bundle per capture, `<YYYYMMDD-HHMMSS>/`, holding `report.md`, `dump.json` and `ANALYSIS.md`, with
+a `README.md` there carrying the schema summary and the pointer to the library's canonical record
+contract (`performance-§8`).
 
 **This addon has neither, deliberately.** It claims the `performance-§12` no-combat-path exemption,
-which suspends `documentation-§3`'s `docs/perf-runs/README.md` **and the `docs/perf-runs/` store
-itself** — an addon that brackets nothing produces no in-game captures to keep. The exemption is
+which suspends `documentation-§3`'s `docs/perf-analysis/README.md` **and the `docs/perf-analysis/`
+store itself** — an addon that brackets nothing produces no in-game captures to keep. The exemption is
 ratified as a register row in [`../ARCHITECTURE.md`](../ARCHITECTURE.md#documented-deviations) and
 explained on [`../performance.md`](../performance.md), the one part of the perf doc set the exemption
 does **not** suspend. The `perf` column in `RESULTS.md` is a permanent `skip` for the same reason, and
