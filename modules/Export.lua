@@ -379,13 +379,31 @@ local function selectedData()
 end
 
 -- Flat-skin button matching the Browser bar buttons.
-local function makeButton(parent, text, width, onClick)
+-- `icon` is a catalog name and is OPTIONAL, in both directions: a caller that passes none gets
+-- the button this always built, and a caller that passes one still gets that button when the seam
+-- answers nil. The LABEL NEVER MOVES -- it stays CENTER-anchored and the mark sits at LEFT +10 --
+-- so a missing texture leaves the control pixel-identical rather than off-centre.
+--
+-- The word stays for a wide action button. "Export to CSV" says WHAT the button does and the
+-- spreadsheet mark says WHERE the result lands; replacing the word would turn a plain question
+-- into one answered by hovering. No tooltip on the mark, either -- if a mark needs one, the label
+-- should have stayed.
+local function makeButton(parent, text, width, onClick, icon)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(width, 24)
   b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
                   insets = { left = 1, right = 1, top = 1, bottom = 1 } })
   b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
   b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
+  local path = icon and NS.Icon and NS.Icon(icon)
+  if path then
+    local tex = b:CreateTexture(nil, "OVERLAY")
+    tex:SetSize(14, 14)
+    tex:SetPoint("LEFT", 10, 0)
+    tex:SetTexture(path)
+    tex:SetVertexColor(0.85, 0.85, 0.85)
+    b.icon = tex
+  end
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   fs:SetPoint("CENTER"); fs:SetText(text)
   b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.82, 0) end)
@@ -445,7 +463,7 @@ local function EnsureFrame()
   local csvBtn = makeButton(frame, "Export to CSV", 150, function()
     local serialize = config.csv or function(d) return E:CSV(d) end
     ShowCopy(serialize(selectedData()))
-  end)
+  end, "spreadsheet")
   csvBtn:SetPoint("TOPLEFT", 16, -80)
   csvBtn:SetPoint("TOPRIGHT", -16, -80)
 

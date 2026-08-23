@@ -48,12 +48,21 @@ local function lockAtlas()
   return resolvedLockAtlas
 end
 
+-- The shared `lock` mark first; the client-atlas ladder and the solid chip stay BELOW it, because
+-- nil is a real answer (no library) and the column must never come up blank. The comment on the
+-- chip used to read "pending a real lock atlas" -- this is that lock, and it ships WHITE, so the
+-- per-state BOUND_STYLE tint every caller applies still multiplies the way it always did.
 local function applyLockTexture(tex)
+  local path = NS.Icon and NS.Icon("lock")
+  if path then
+    tex:SetTexture(path)
+    return
+  end
   local atlas = lockAtlas()
   if atlas then
     tex:SetAtlas(atlas)
   else
-    tex:SetTexture("Interface\\Buttons\\WHITE8X8") -- visible chip fallback (pending a real lock atlas)
+    tex:SetTexture("Interface\\Buttons\\WHITE8X8") -- visible chip fallback
   end
 end
 
@@ -62,6 +71,14 @@ local function lockMarkup(style)
   local r = math.floor((style[1] or 1) * 255)
   local g = math.floor((style[2] or 1) * 255)
   local b = math.floor((style[3] or 1) * 255)
+  -- The legend must draw the SAME mark as the column it explains -- a legend showing a different
+  -- glyph is exactly the drift a shared catalog exists to stop. CreateTextureMarkup, not
+  -- SetTexture: the path goes into a `|T...|t` escape, extensionless, with the tint still landing
+  -- through the last three arguments.
+  local path = NS.Icon and NS.Icon("lock")
+  if path and CreateTextureMarkup then
+    return CreateTextureMarkup(path, 64, 64, 14, 14, 0, 1, 0, 1, r, g, b)
+  end
   local atlas = lockAtlas()
   if atlas and CreateAtlasMarkup then
     return CreateAtlasMarkup(atlas, 14, 14, 0, 0, r, g, b)
@@ -199,10 +216,15 @@ BrowserTable.sortAsc = false
 local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, quality = true, vendor = true, auction = true }
 
 -- The default WoW font has no ▲/▼/▶ glyphs, so all arrows use inline texture markup instead.
--- ":0" sizes the texture to the surrounding line height. These button textures ship in every
--- flavor. Sort arrows use the up/down spinner arrows; group headers use +/- (see BindRow).
-local ARROW_ASC  = " |TInterface\\Buttons\\Arrow-Up-Up:0|t"
-local ARROW_DESC = " |TInterface\\Buttons\\Arrow-Down-Up:0|t"
+-- ":0" sizes the texture to the surrounding line height.
+--
+-- `sort-up` / `sort-down` and NOT `sort-asc` / `sort-desc`: the latter pair draws TWO arrows each
+-- (the library says so where it names them), which is a "sortable" affordance rather than "this
+-- column is the sort key, this way up". The Blizzard spinner arrows stay underneath as the
+-- degraded rung -- they ship in every flavor -- and the same two names serve four states, because
+-- the grouped column's group-order arrow reads from them too (UpdateHeaderArrows).
+local ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up")
+local ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up")
 
 -- Grouping. "none" = flat table; otherwise records are partitioned under collapsible
 -- headers (see SetGroupBy). collapsed[key] = true hides a group's rows. groupAsc is the
@@ -973,9 +995,13 @@ function BrowserTable:BindRow(row, entry, absIndex)
     for _, col in ipairs(self.COLUMNS) do row.cells[col.key]:SetText("") end
     row.boundIcon:Hide()
     row.header:Show()
-    -- +/- box marks collapsed/expanded (font has no triangle glyphs; texture markup always works).
-    local arrow = entry.collapsed and "|TInterface\\Buttons\\UI-PlusButton-Up:0|t"
-      or "|TInterface\\Buttons\\UI-MinusButton-Up:0|t"
+    -- The disclosure mark: chevron right when collapsed, chevron down when expanded. The catalog
+    -- carries `add` (a plus) but no minus, so the Blizzard +/- pair cannot be reproduced in the
+    -- shared vocabulary -- and the chevron pair IS that vocabulary for collapsed/expanded, in both
+    -- directions, at line height. The +/- textures stay as the degraded rung.
+    local arrow = entry.collapsed
+      and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up")
+      or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up")
     row.header:SetText(arrow .. "  " .. (entry.label or "")
       .. "  |cff808080(" .. (entry.count or 0) .. ")|r")
     return
@@ -1031,28 +1057,32 @@ end
 
 function BrowserTable:ShowRowMenu(anchor, record)
   local m = EnsureRowMenu()
+  -- EVERY LABEL STAYS. A 150px row holds a 14px mark and the words after it, and three of these
+  -- four are hard to take back -- "which one deletes the row?" must never become a hover question.
+  -- `clear` for Delete rather than a bin of its own: the debug console already spells "remove this
+  -- data" that way, and one verb should not have two marks inside one addon.
   local MENU_ROW_H, W = 18, 150
   local items = {
-    { label = "Link to chat", enabled = record.itemLink ~= nil, fn = function()
+    { label = "Link to chat", icon = "chat", enabled = record.itemLink ~= nil, fn = function()
         if record.itemLink and ChatEdit_InsertLink then ChatEdit_InsertLink(record.itemLink) end
       end },
     -- Blacklist this item: stop recording future loots of this id. Point-in-time — the row you
     -- clicked (and other existing rows of the same id) stay in the history; use Delete to remove
     -- them. Manage the list in Settings ▸ Filters.
-    { label = "Blacklist item", enabled = record.itemID ~= nil, fn = function()
+    { label = "Blacklist item", icon = "ban", enabled = record.itemID ~= nil, fn = function()
         if NS.Filters and NS.Filters:AddBlacklist(record.itemID) and NS.Print then
           NS.Print(("blacklisted %s. Manage in Settings \226\150\184 Filters."):format(
             record.itemName or ("item " .. tostring(record.itemID))))
         end
       end },
     -- Blacklist this currency: stop recording future loots of this currency id. Point-in-time.
-    { label = "Blacklist currency", enabled = record.currencyID ~= nil, fn = function()
+    { label = "Blacklist currency", icon = "ban", enabled = record.currencyID ~= nil, fn = function()
         if NS.Filters and NS.Filters:AddCurrencyBlacklist(record.currencyID) and NS.Print then
           NS.Print(("blacklisted %s. Manage in Settings \226\150\184 Filters."):format(
             record.itemName or ("currency " .. tostring(record.currencyID))))
         end
       end },
-    { label = "|cffff5555Delete|r", enabled = true, fn = function()
+    { label = "|cffff5555Delete|r", icon = "clear", enabled = true, fn = function()
         NS.Database:Delete(function(r) return r == record end) -- fires HistoryChanged
         BrowserTable:Refresh() -- repaint immediately (in case nothing else listens)
       end },
@@ -1076,7 +1106,11 @@ function BrowserTable:ShowRowMenu(anchor, record)
     b:SetWidth(W)
     b:ClearAllPoints()
     b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * MENU_ROW_H)
-    b.fs:SetText(item.label)
+    -- The mark is a prefix on the label rather than a texture beside it, because these rows are
+    -- FontStrings and a nil from the seam then costs nothing: the prefix is simply empty and the
+    -- row reads exactly as it did before.
+    local mark = item.icon and NS.Icon and NS.Icon(item.icon)
+    b.fs:SetText((mark and ("|T" .. mark .. ":14:14|t ") or "") .. item.label)
     if item.enabled then
       b.fs:SetTextColor(0.9, 0.9, 0.9)
       b:EnableMouse(true)

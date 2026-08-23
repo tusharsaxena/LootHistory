@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 7
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 8
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -524,6 +524,29 @@ function lib:New(d)
 
   function O.RefreshScalars()
     for _, ctx in ipairs(renderedPanels) do refreshCtx(ctx, false) end
+  end
+
+  --- Refresh ONE ctx — the per-page half of the two sweeps above.
+  ---
+  --- PUBLISHED ON A DEMONSTRATED NEED (see the PUBLISHED VS INTERNAL note at the top of this file).
+  --- A host whose page repaints off its OWN message bus rather than off a library widget's `set()`
+  --- has a page the library never hears about: the two sweeps are wrong for it (they repaint every
+  --- registered page to service one), and the only alternative left was to hand-roll the
+  --- shown/hidden branch against `ctx._dirty` — a private field, under a name the host has to guess.
+  --- PanelMaster guessed `ctx.dirty`, so its Panels page marked a flag nothing read and never
+  --- re-rendered after a profile switch. That is the failure this exists to make unavailable: the
+  --- dirty flag is the library's, the timing decision is the library's, and a host that needs to say
+  --- "this page's contents changed" now has a way to say exactly that.
+  ---
+  --- `structural` true means the page's shape changed (a row appeared or vanished, a list's contents
+  --- differ) and it re-renders; false means only widget VALUES are stale and the refreshers run in
+  --- place. Same distinction, and the same code, as RefreshAllPanels vs RefreshScalars.
+  ---
+  --- A hidden page is marked dirty and repaints on its next OnShow — the caller does not have to
+  --- know whether it is on screen, which is the whole point.
+  function O.RefreshPanel(ctx, structural)
+    if type(ctx) ~= "table" then return end
+    refreshCtx(ctx, structural)
   end
 
   -- ── LibSharedMedia ───────────────────────────────────────────────────────────────────────

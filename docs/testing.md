@@ -57,11 +57,12 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Twenty files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
+Twenty-one files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
 inventory and the authoritative count):
 
 | Suite | Covers |
 |-------|--------|
+| `test_mediasetup.lua` | the **`LibKa0s-Media-1.0`** seam (`core/MediaSetup.lua`) — `NS.Icon` answering the vendored, **extensionless** path and `nil` for a name the catalog does not carry, `NS.MediaFont` against the shipped face, `FONT_MONO` equal to `NS.MediaFont(FONT_MONO_NAME)` and no longer naming this addon's deleted `media/fonts/`, `NS.IconMarkup`'s splice and its required fallback, **every mark this addon draws cross-checked against `Media.ICONS` AND against a file in `libs/LibKa0s/media/icons/`** (a rename on either side answers nil, and nil draws nothing), the source re-derived so a name added to a module and not to the list cannot go unchecked, and the degraded load where both seams answer nil and `FONT_MONO` falls back to `STANDARD_TEXT_FONT` |
 | `test_constants.lua` | enum + derived-table invariants — `SourceType` key==value (the export contract), `SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` totality, the derived `SOURCE_OPTIONS`, the quality ladder + retention presets, and the auction key catalog (unique tags, capture options mirror the keys, the priority cascade covers every key exactly once with the captured ones ranked first) |
 | `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey`; the secret-safe printer (`IsConcatSafe`/`SafeToString`/`NS.Print`, reclaimed from AceConsole) |
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
@@ -132,7 +133,7 @@ The inventory doc and the badge are part of the change, not a follow-up.
 
 ## Lint
 
-`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/" }` (vendored libraries and the tests themselves are not linted; the `docs/` bundles are Markdown-only anyway). **That figure is scoped, not repo-wide** — it currently covers 23 files, and every LibKa0s seam file (`core/CoreSetup.lua`, `core/DebugLogSetup.lua`, `settings/Slash.lua`, `settings/OptionsSetup.lua`) is inside that set, which is what makes a clean run mean something. To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
+`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/" }` (vendored libraries and the tests themselves are not linted; the `docs/` bundles are Markdown-only anyway). **That figure is scoped, not repo-wide** — it currently covers 24 files, and every LibKa0s seam file (`core/CoreSetup.lua`, `core/DebugLogSetup.lua`, `settings/Slash.lua`, `settings/OptionsSetup.lua`) is inside that set, which is what makes a clean run mean something. To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
 
 ## The green gate
 

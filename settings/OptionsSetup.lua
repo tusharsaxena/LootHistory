@@ -53,7 +53,7 @@ if not lib then
       NS.Print(NS.LIBKA0S_MISSING .. ", so the settings panel is unavailable.")
     end,
     RestoreDefaults = noop, RestoreAllDefaults = noop,
-    RefreshAllPanels = noop, RefreshScalars = noop,
+    RefreshAllPanels = noop, RefreshScalars = noop, RefreshPanel = noop,
     PatchAlwaysShowScrollbar = noop,
     LSMValues = function() return function() return {} end end,
     __pages = function() return {} end,

@@ -24,7 +24,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 8
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 10
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -51,8 +51,13 @@ lib.MAX_BUFFER = 500
 -- console drawing the older Core's button while lib.MODULES.Core truthfully reports the newer minor.
 -- Resolving through the table at CALL time keeps the two halves honest, and costs one call frame
 -- once per window built. Same shape PerfPanel.lua already uses.
-function lib.MakeCloseButton(parent, onClick)
-  return core.MakeCloseButton(parent, onClick)
+--- THE THIRD ARGUMENT IS THE WHOLE POINT OF MINOR 10. This forwarder took two arguments and Core's
+--- gained a third at Core minor 6 -- so minor 9 shipped a console whose copy and clear drew the
+--- collection's art while its close, which goes through here, silently fell back to the
+--- multiplication sign. A dropped argument is not a failure anything can report: Core simply saw no
+--- addon name and did what it does without one.
+function lib.MakeCloseButton(parent, onClick, addonName)
+  return core.MakeCloseButton(parent, onClick, addonName)
 end
 
 -- ── strings ────────────────────────────────────────────────────────────────────────────────
@@ -117,6 +122,17 @@ local CLOSE_W  = 18
 local CLEAR_W  = 42
 local COPY_W   = 40
 
+-- What an ICON control measures, when the art is there. Square, and the same 18 the close button
+-- has always been, so all three title-bar controls are one size and one rhythm -- where the text
+-- buttons were 42 and 40 wide and only lined up by arithmetic.
+local ICON_W   = 18
+local ICON_ART = 12
+
+-- Gray at rest, gold under the pointer -- what the text labels have done since minor 1, kept so the
+-- title bar does not change temperature just because its controls changed shape.
+local REST = { 0.7, 0.7, 0.72 }
+local HOT  = { 1, 0.82, 0 }
+
 -- Small flat text button for the title bar (Copy / Clear). The close button comes from Core; this
 -- one has no other consumer yet, so it stays private until a second module wants it.
 local function makeTextButton(parent, text, width, onClick)
@@ -125,11 +141,94 @@ local function makeTextButton(parent, text, width, onClick)
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   fs:SetPoint("CENTER")
   fs:SetText(text)
-  fs:SetTextColor(0.7, 0.7, 0.72)
-  b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.82, 0) end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(0.7, 0.7, 0.72) end)
+  fs:SetTextColor(REST[1], REST[2], REST[3])
+  b:SetScript("OnEnter", function() fs:SetTextColor(HOT[1], HOT[2], HOT[3]) end)
+  b:SetScript("OnLeave", function() fs:SetTextColor(REST[1], REST[2], REST[3]) end)
   b:SetScript("OnClick", onClick)
   return b
+end
+
+--- The same control drawn from `LibKa0s-Media-1.0`'s art, or nil when there is no art to draw.
+---
+--- NIL IS THE WHOLE INTERFACE. The caller falls back to the text button above, which is what a host
+--- that never passes `addonName` gets, what a host without the Media module gets, and what an
+--- install missing the art gets -- one path, exercised by every one of those cases, rather than a
+--- degraded branch that only runs on installs nobody tests on.
+---
+--- NO TOOLTIP, AND NO LABEL TO PUT IN ONE. Minor 9 took a label and showed it under the control,
+--- which put it on top of the first line of the log -- the thing the window exists to show -- every
+--- time the pointer crossed the title bar. Anchoring it elsewhere trades one overlap for another on
+--- a window that is 700px of text, and the two marks sit beside a close button that has never needed
+--- one. The word still exists where it is still drawn: the text-button fallback in the caller.
+local function makeIconButton(parent, addonName, icon, onClick)
+  if not addonName then return nil end
+  local media = LibStub and LibStub("LibKa0s-Media-1.0", true)
+  local path = media and media.Icon and media.Icon(addonName, icon)
+  if not path then return nil end
+
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(ICON_W, ICON_W)
+  local tex = b:CreateTexture(nil, "OVERLAY")
+  tex:SetPoint("CENTER")
+  tex:SetSize(ICON_ART, ICON_ART)
+  tex:SetTexture(path)
+  tex:SetVertexColor(REST[1], REST[2], REST[3])
+  b.icon = tex
+
+  b:SetScript("OnEnter", function() tex:SetVertexColor(HOT[1], HOT[2], HOT[3]) end)
+  b:SetScript("OnLeave", function() tex:SetVertexColor(REST[1], REST[2], REST[3]) end)
+  b:SetScript("OnClick", onClick)
+  return b
+end
+
+--- Build and place the three title-bar controls, and answer them with the offsets they landed on.
+---
+--- LIFTED OUT OF `EnsureFrame`, and not for tidiness: adding the icon path took that function to
+--- CCN 16, one over the release gate's ceiling of 15 (`automated-tests-§3`). The decisions are all
+--- about this one strip -- which shape each control takes, how wide the close button actually is --
+--- so this is where they belong anyway, and `EnsureFrame` goes back to assembling a window.
+---
+--- @param titleBar table
+--- @param spec table  { addonName, close = f(parent,onClick,addonName), onClose, onClear, onCopy,
+---                      clearLabel, copyLabel }
+--- @return table close, table clear, table copy, table offsets
+local function buildTitleControls(titleBar, spec)
+  -- Anchored to the bar's right edge by absolute offset rather than to each other, because a
+  -- close-button factory answers nil where CreateFrame is unavailable and a chain anchored through
+  -- it would break. The offsets reproduce that chain exactly, and they are DERIVED rather than
+  -- hard-coded, which matters as soon as a host supplies a wider button.
+  local close = spec.close(titleBar, spec.onClose, spec.addonName)
+  if close then close:SetPoint("RIGHT", titleBar, "RIGHT", -PAD, 0) end
+
+  -- A frame answers 0 from GetWidth before its first layout pass, and a headless stub answers 0
+  -- forever, so anything not positive falls back to the size Core's own button is.
+  local closeW = CLOSE_W
+  if close and type(close.GetWidth) == "function" then
+    local w = close:GetWidth()
+    if type(w) == "number" and w > 0 then closeW = w end
+  end
+
+  -- ICONS ARE NARROWER THAN WORDS. Each control is built as art first and falls back to its label,
+  -- and the offsets are derived from what was ACTUALLY built -- so the three end up one size and one
+  -- pitch where the art is there, and exactly where they were at minor 8 where it is not.
+  local clear = makeIconButton(titleBar, spec.addonName, "clear", spec.onClear)
+  local copy  = makeIconButton(titleBar, spec.addonName, "copy", spec.onCopy)
+  -- Only CLEAR's width feeds an offset. Copy is the leftmost control and nothing is placed to the
+  -- left of it, so its own width has never entered the arithmetic -- it is a size, not a measurement.
+  local clearW = CLEAR_W
+  if clear then
+    clearW = ICON_W
+  else
+    clear = makeTextButton(titleBar, spec.clearLabel, clearW, spec.onClear)
+  end
+  copy = copy or makeTextButton(titleBar, spec.copyLabel, COPY_W, spec.onCopy)
+
+  local clearRight = -PAD - closeW - PAD
+  local copyRight  = clearRight - clearW - PAD
+  clear:SetPoint("RIGHT", titleBar, "RIGHT", clearRight, 0)
+  copy:SetPoint("RIGHT", titleBar, "RIGHT", copyRight, 0)
+
+  return close, clear, copy, { close = -PAD, clear = clearRight, copy = copyRight }
 end
 
 local function escClose(name)
@@ -160,6 +259,17 @@ end
 ---                         owns WHEN it is emitted; only the host can know what it says.
 ---   onVisibilityChanged function optional. Fired on both OnShow and OnHide, so a host can repaint
 ---                         a settings panel whose checkbox mirrors the console's visibility.
+---   addonName   string    optional, minor 9. The host's own addon FOLDER name, from its first
+---                         vararg. Given it, both windows draw this collection's own art -- the
+---                         close, copy and clear icons out of `LibKa0s-Media-1.0` -- instead of a
+---                         multiplication sign and two words. Omitted, everything looks exactly as
+---                         it did at minor 8.
+---
+---                         IT IS A NAME AND NOT A BOOLEAN because a texture path is absolute from
+---                         `Interface\AddOns\` and this library is vendored: there is no one path
+---                         to it, and a copy cannot know which addon folder it was copied into.
+---                         Do NOT pass `d.name` blindly -- that field seeds frame globals and only
+---                         happens to equal the folder name in most hosts.
 ---   slash       string    optional. Composes the checkbox tooltip's "<slash> debug" reference.
 ---   L           table     optional. Locale override, keyed to lib.STRINGS.
 ---   skin        table     optional. Overrides Core.SKIN.
@@ -318,28 +428,20 @@ function lib:New(d)
     -- Clear lands at -30 and Copy at -78 exactly as before, but a 24-wide button would have put
     -- Clear's right edge (-30) precisely on that button's left edge and the six-pixel gap would
     -- have vanished.
-    local close = makeCloseButton(titleBar, function() D:Hide() end)
-    if close then close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0) end
-
-    -- A frame answers 0 from GetWidth before its first layout pass, and a headless stub answers 0
-    -- forever, so anything not positive falls back to the size Core's own button is.
-    local closeW = CLOSE_W
-    if close and type(close.GetWidth) == "function" then
-      local w = close:GetWidth()
-      if type(w) == "number" and w > 0 then closeW = w end
-    end
-    local clearRight = -PAD - closeW - PAD
-    local copyRight  = clearRight - CLEAR_W - PAD
-
+    local _, clearBtn, copyBtn, offsets = buildTitleControls(titleBar, {
+      addonName  = d.addonName,
+      close      = makeCloseButton,
+      onClose    = function() D:Hide() end,
+      onClear    = function() D:Clear() end,
+      onCopy     = function() D:ShowCopy() end,
+      clearLabel = D:Text("CLEAR"),
+      copyLabel  = D:Text("COPY"),
+    })
     -- Recorded for the same reason `titleText` is: an anchor cannot be read back through the frame
-    -- API, so this is the only handle a host's own test has on what its close button did to the
-    -- layout.
-    frame.titleBarOffsets = { close = -PAD, clear = clearRight, copy = copyRight }
-
-    local clearBtn = makeTextButton(titleBar, D:Text("CLEAR"), CLEAR_W, function() D:Clear() end)
-    clearBtn:SetPoint("RIGHT", titleBar, "RIGHT", clearRight, 0)
-    local copyBtn = makeTextButton(titleBar, D:Text("COPY"), COPY_W, function() D:ShowCopy() end)
-    copyBtn:SetPoint("RIGHT", titleBar, "RIGHT", copyRight, 0)
+    -- API, so these are the only handle a host's own test has on what its close button did to the
+    -- layout, and on which of the two shapes the controls took.
+    frame.titleBarOffsets = offsets
+    frame.clearButton, frame.copyButton = clearBtn, copyBtn
 
     -- The header toggle. OnLeave restores the resting color by re-running RefreshHeader, so the
     -- label's color is always the flag's color rather than whatever the last hover left behind.
@@ -459,7 +561,7 @@ function lib:New(d)
     t:SetText(D:Text("COPY_TITLE"))
     copyFrame.title = t
 
-    local close = makeCloseButton(titleBar, function() copyFrame:Hide() end)
+    local close = makeCloseButton(titleBar, function() copyFrame:Hide() end, d.addonName)
     if close then close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0) end
 
     -- The scroll frame MUST carry a global name: UIPanelScrollFrameTemplate derives its scrollbar

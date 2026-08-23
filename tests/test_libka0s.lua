@@ -12,6 +12,7 @@ local test, assertEqual, assertTrue, assertFalse =
 
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
+  "libs/LibKa0s/Media.lua",
   "libs/LibKa0s/DebugLog.lua",
   "libs/LibKa0s/Slash.lua",
   "libs/LibKa0s/Options.lua",
@@ -99,6 +100,46 @@ test("degraded install: the Core stub answers every member the addon calls", fun
   assertTrue(type(ns.Format) == "function", "NS.Format must exist on the degraded path")
   assertTrue(ns.Print == ns.Util.print,
     "NS.Util.print is the name core/LootHistory.lua reclaims from; the stub must publish both")
+end)
+
+test("NS.MakeCloseButton hands the library this addon's FOLDER name as the third argument", function()
+  -- ANTI-PATTERNS #64, and the one case in this repo that exists for a bug nobody can see. The
+  -- target is lib.MakeCloseButton(parent, onClick, addonName) and the wrapper takes two arguments;
+  -- a two-argument passthrough still runs, still returns a button, and still passes every other
+  -- case here -- the button just draws a multiplication sign forever, because a nil folder name
+  -- means no texture path, and a texture that does not load draws nothing and raises nothing.
+  --
+  -- The FOLDER name specifically: "LootHistory", not the "Ka0s Loot History" title and not the
+  -- LootHistory* frame-name prefix. They are three different questions this addon answers with two
+  -- strings, and only one of them is a path component.
+  local lib = T.mocks.LibStub("LibKa0s-Core-1.0", true)
+  assertTrue(lib ~= nil, "LibKa0s-Core-1.0 did not register")
+  local stock = lib.MakeCloseButton
+  local seenParent, seenClick, seenName
+  lib.MakeCloseButton = function(parent, onClick, addonName)
+    seenParent, seenClick, seenName = parent, onClick, addonName
+    return "button"
+  end
+  local parent, click = {}, function() end
+  local got = NS.MakeCloseButton(parent, click)
+  lib.MakeCloseButton = stock
+
+  assertEqual(seenName, "LootHistory")
+  assertTrue(seenParent == parent, "the parent frame must be forwarded unchanged")
+  assertTrue(seenClick == click, "the OnClick handler must be forwarded unchanged")
+  assertEqual(got, "button", "the wrapper must RETURN what the library built; a call site anchors it")
+end)
+
+test("every window this addon owns closes through that one wrapper", function()
+  -- One wrapper is the point: the History title bar, the export modal and the export copy window
+  -- all reach it through B:MakeCloseButton, so the folder name is passed in one place instead of
+  -- three call sites remembering. A private lookalike here -- a factory that builds its own button
+  -- rather than delegating -- is how this addon shipped a multiplication sign for four releases.
+  local src = T.Loader.readFile("modules/Browser.lua")
+  assertTrue(src:find("NS.MakeCloseButton(parent, onClick)", 1, true) ~= nil,
+    "modules/Browser.lua's B:MakeCloseButton must delegate to the core seam")
+  assertTrue(src:find("\\195\\151", 1, true) == nil,
+    "no multiplication sign may be drawn here any more; the degraded one lives in core/CoreSetup.lua")
 end)
 
 test("degraded install: a bare /lh prints help listing the verbs that still work", function()

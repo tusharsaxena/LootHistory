@@ -14,11 +14,16 @@ local addonName, NS = ...
 -- looks. `modules/Browser.lua`'s B:ApplySkin therefore DELEGATES to Core's rather than agreeing
 -- with it by value — agreement by value is a copy, and a copy drifts a hex digit at a time — and
 -- stays the addon's own re-skin seam for its own windows, published here as NS.ApplySkin so the
--- degraded branch owes the caller the same name (standalone-windows). What is still
--- declined is `Core.MakeCloseButton` for THIS addon's own windows: the History browser closes
--- with a 24x24 class-colored glyph, not Core's 18x18 x. The library's own windows — the debug
--- console and its copy window — wear Core's, which is the split standalone-windows draws.
--- See closed issues #19 (LIBKA0S-02), #25 (LIBKA0S-18) and #26 (LIBKA0S-19).
+-- degraded branch owes the caller the same name (standalone-windows).
+--
+-- `Core.MakeCloseButton` USED TO BE DECLINED HERE, and closed issues #19 (LIBKA0S-02), #25
+-- (LIBKA0S-18) and #26 (LIBKA0S-19) recorded why: the History browser closed with a 24x24
+-- class-colored glyph and Core's was an 18x18 multiplication sign, so wearing Core's would have
+-- traded a deliberate look for a thinner one. That reasoning expired with LibKa0s v1.10: Core's
+-- close now draws this collection's own `close` mark out of LibKa0s-Media-1.0 when it is told
+-- which addon folder is asking, and the multiplication sign is what a DEGRADED install gets. The
+-- decline would now mean shipping, on purpose, the exact glyph that is the collection's
+-- regression signature for a dropped folder name.
 --
 -- ── LOAD ORDER (all four constraints bind; see docs/module-map.md) ──────────────────────────────
 --   AFTER  core/Namespace.lua   — NS.PREFIX is the tag, passed verbatim as a plain string.
@@ -39,6 +44,28 @@ local lib = LibStub and LibStub("LibKa0s-Core-1.0", true)
 -- a healthy one give the same explanation of WHY and differ only in WHAT is unavailable.
 NS.LIBKA0S_MISSING = "The LibKa0s library is missing from this installation of Ka0s Loot History " ..
   "(expected in libs/LibKa0s)"
+
+-- The pre-library close control, kept here for the same reason the pre-library window edge below
+-- is: a host copy on the path where the library IS present is the copy that drifts. This one runs
+-- only when the library is absent, and it is byte-for-byte the button modules/Browser.lua built
+-- before the seam existed -- a 24x24 multiplication sign, gray at rest, the player's class color
+-- on hover -- so a degraded install's windows still close the way they always did.
+local function fallbackCloseButton(parent, onClick)
+  if type(CreateFrame) ~= "function" then return nil end
+  local close = CreateFrame("Button", nil, parent)
+  close:SetSize(24, 24)
+  local x = close:CreateFontString(nil, "OVERLAY")
+  x:SetFont(STANDARD_TEXT_FONT, 24, "")
+  x:SetPoint("CENTER", close, "CENTER", 0, 2)  -- the x sits low in its font box; nudge up
+  x:SetText("\195\151")  -- multiplication sign (thin, ElvUI-like)
+  x:SetTextColor(0.85, 0.85, 0.85)
+  local _, class = UnitClass("player")
+  local cc = (class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]) or { r = 1, g = 0.82, b = 0 }
+  close:SetScript("OnEnter", function() x:SetTextColor(cc.r, cc.g, cc.b) end)
+  close:SetScript("OnLeave", function() x:SetTextColor(0.85, 0.85, 0.85) end)
+  close:SetScript("OnClick", onClick)
+  return close
+end
 
 if not lib then
   -- A missing vendored library must degrade, not error at load: recording loot does not need a
@@ -108,6 +135,8 @@ if not lib then
     if f.divider then f.divider:SetColorTexture(0.24, 0.24, 0.27, 0.85) end
   end
 
+  NS.MakeCloseButton = fallbackCloseButton
+
   NS.Util = NS.Util or {}
   NS.Util.print = NS.Print
   return
@@ -121,6 +150,23 @@ end
 -- re-skin lands on all of them at once. Published as a flat NS member for the same reason
 -- NS.SafeToString is: the fallback branch above owes the caller the same name.
 NS.ApplySkin = lib.ApplySkin
+
+-- WRAPPED, TO SAY WHO IS ASKING, and the third argument is the whole point of this function.
+-- lib.MakeCloseButton draws the catalog's `close` mark when it is told which addon FOLDER to build
+-- a texture path from, and it cannot work that out for itself: LibKa0s is vendored, so there is no
+-- one path to it and a copy cannot know which folder it was copied into. `addonName` is that
+-- answer and this file has it as its first vararg.
+--
+-- A TWO-ARGUMENT PASSTHROUGH ONTO A THREE-ARGUMENT FUNCTION IS THE BUG (anti-patterns #64): it
+-- runs, it returns a button, every suite stays green, and the button draws a multiplication sign
+-- forever. tests/test_libka0s.lua asserts the third argument specifically for that reason.
+--
+-- One wrapper, so every close control this addon builds gets the same mark: the History window
+-- title bar, the export modal and the export copy window all reach it through
+-- modules/Browser.lua's B:MakeCloseButton, which delegates here.
+NS.MakeCloseButton = function(parent, onClick)
+  return lib.MakeCloseButton(parent, onClick, addonName)
+end
 
 -- Lib-level and stateless, so they are published by reference rather than wrapped. Identical in
 -- behavior to the implementations they replace, down to the sentinel: `lib.SECRET` is "<secret>",

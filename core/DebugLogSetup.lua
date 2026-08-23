@@ -78,6 +78,14 @@ NS.DebugLog = lib:New({
   -- first two are the names modules/DebugLog.lua hardcoded, so nothing that reaches this window by
   -- global name — /framestack, a user macro, the Esc registration — changes.
   name  = addonName,
+  -- THE FOLDER NAME, which is a different question from the one above even though this addon
+  -- answers both with the same string. `name` seeds frame globals; `addonName` is what the library
+  -- builds a TEXTURE PATH from, so its own close, copy and clear controls draw this collection's
+  -- art instead of a multiplication sign and two words. A vendored library cannot work that out
+  -- for itself -- there is no one path to it -- and a host where the two strings diverge would
+  -- hand it a path into nowhere, which draws nothing and raises nothing. Passed explicitly for
+  -- that reason rather than left to the library to infer from `name`.
+  addonName = addonName,
   title = "Loot History",     -- the library appends its own " — Debug"
   font  = NS.Constants.FONT_MONO,
   slash = "/lh",
@@ -122,12 +130,13 @@ NS.DebugLog = lib:New({
     if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
   end,
 
-  -- NO `makeCloseButton`. The console and the copy window are the LIBRARY's windows, so they wear
-  -- the library's close glyph — Core's thin 18x18 x — and this addon's own 24x24 class-colored one
-  -- stays on the windows it belongs to (`modules/Browser.lua`). Passing it here is what shipped two
-  -- adopters' diagnostic windows looking unlike the other three's, and standalone-windows now
-  -- makes the split explicit: the window EDGE is shared across every Ka0s window, the CLOSE CONTROL
-  -- on a library-drawn window is the library's. `applySkin` above is the opposite case and stays.
+  -- STILL NO `makeCloseButton`, and now for a better reason than the one that used to be here.
+  -- The console and the copy window are the LIBRARY's windows, so they wear the library's close --
+  -- and since Core minor 6 the library's close IS this collection's `close` mark, because the
+  -- `addonName` above reaches it (LibKa0s/DebugLog.lua forwards d.addonName to Core). The split
+  -- standalone-windows draws is unchanged: the window EDGE is shared across every Ka0s window and
+  -- `applySkin` above supplies it; the CLOSE CONTROL on a library-drawn window is the library's.
+  -- What changed is that the two now look the same without either side overriding the other.
 })
 
 -- The gated sink, republished under the name ~40 call sites across seven files already use. A plain

@@ -191,22 +191,43 @@ test("ConsoleCheckbox composes this addon's slash prefix into its tooltip", func
   NS.State.debug = false
 end)
 
-test("the console closes with the LIBRARY's x, not this addon's 24-wide one", function()
-  -- The console and the copy window are the library's windows, so they wear Core's thin 18x18 x.
-  -- This addon's own 24x24 class-colored glyph stays on the windows it belongs to; passing it
-  -- through the `makeCloseButton` hook is what made these two windows look unlike every other
-  -- Ka0s addon's (closed issue #26, LIBKA0S-19).
+test("the console's title bar is three icon controls, which is the folder name arriving", function()
+  -- The console and its copy window are the LIBRARY's windows, so they wear the library's close --
+  -- and since Core minor 6 that close draws this collection's `close` mark, provided the descriptor
+  -- told the library which addon FOLDER is asking. This addon still passes no `makeCloseButton`
+  -- hook (closed issue #26, LIBKA0S-19); what it passes is `addonName`.
   --
-  -- The offsets are DERIVED from the returned button's width, and this addon's mock records
-  -- SetSize as real state, so Core's `SetSize(18, 18)` is genuinely measured here rather than
-  -- falling through to the library's 18-wide default. That is the one thing LibKa0s's own suite
-  -- cannot do — its mock answers 0 from GetWidth, so both paths give it the same number.
+  -- ASSERTED ON THE LAYOUT, NOT ON THE ARTWORK. Each control is built as art first and falls back
+  -- to its word, and the offsets are DERIVED from what was actually built: the gap between Clear
+  -- and Copy is `clearWidth + PAD`, which is 18 + 6 when Clear is an icon and 42 + 6 when it is the
+  -- text button reading "Clear". So 24 says the folder name reached the library and 48 says it
+  -- stopped being passed -- with every other case in this file still green, which is exactly the
+  -- failure a texture path that draws nothing and raises nothing produces.
+  --
+  -- offsets.close is NOT asserted as an absolute number: the mock aliases CreateTexture onto the
+  -- frame itself, so the close button reports the width of its own 12px art rather than its 18px
+  -- frame, and pinning that would pin a mock artifact rather than the library's arithmetic.
   NS.DebugLog:Show()
-  local offsets = NS.DebugLog._frameForTest.titleBarOffsets
+  local frame   = NS.DebugLog._frameForTest
+  local offsets = frame.titleBarOffsets
   assertTrue(offsets ~= nil, "the library must record the computed offsets; an anchor cannot be read back")
-  assertEqual(offsets.close, -6)
-  assertEqual(offsets.clear, -30, "PAD + 18 + PAD — a 24-wide button would give -36")
-  assertEqual(offsets.copy, -78, "clear - CLEAR_W - PAD")
+  assertEqual(offsets.close, -6, "PAD; the close button hugs the bar's right edge")
+  assertEqual(offsets.clear - offsets.copy, 24,
+    "ICON_W + PAD. 48 means Clear fell back to a text button: no addonName reached the library")
+  assertTrue(frame.clearButton.icon ~= nil, "Clear must be an icon control, not the word \"Clear\"")
+  assertTrue(frame.copyButton.icon ~= nil, "Copy must be an icon control, not the word \"Copy\"")
+end)
+
+test("the DebugLog descriptor passes addonName beside name, not instead of it", function()
+  -- Two questions, one string, and a descriptor field is not observable after lib:New returns --
+  -- so the source is the only place to pin it. `name` seeds the frame globals; `addonName` is what
+  -- the library builds a texture path from. Dropping either is silent: the first collides with
+  -- another host's globals, the second draws nothing at all.
+  local src = T.Loader.readFile("core/DebugLogSetup.lua")
+  assertTrue(src:find("addonName%s*=%s*addonName") ~= nil,
+    "core/DebugLogSetup.lua's descriptor must carry `addonName = addonName`")
+  assertTrue(src:find("name%s+=%s*addonName") ~= nil,
+    "and it must still carry `name = addonName`, which seeds the frame globals")
 end)
 
 test("the copy window's buffer text is the whole buffer, in order", function()

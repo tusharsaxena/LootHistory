@@ -103,8 +103,12 @@ test("Constants: the context TTL is a short positive window", function()
   assertTrue(C.CONTEXT_TTL > 0 and C.CONTEXT_TTL <= 5, "a stale context must expire quickly")
 end)
 
-test("Constants: the mono font resolves inside this addon's media folder", function()
-  assertTrue(C.FONT_MONO:find("AddOns\\LootHistory\\media\\fonts\\", 1, true) ~= nil)
+test("Constants: the mono font is the face the library ships, not one of ours", function()
+  -- It used to live under this addon's own media/fonts/. It now arrives with the LibKa0s payload,
+  -- so the assertion that matters is not a literal path but that FONT_MONO is exactly what the
+  -- seam answers for FONT_MONO_NAME: a hand-typed path that drifted from the vendored one would
+  -- load nothing and raise nothing.
+  assertEqual(C.FONT_MONO, NS.MediaFont(C.FONT_MONO_NAME))
   assertTrue(C.FONT_MONO:sub(-4) == ".ttf")
 end)
 

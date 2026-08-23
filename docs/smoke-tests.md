@@ -756,12 +756,15 @@ window edge is specified normatively in standalone-windows and `Core.SKIN` carri
 three sibling addons that used to draw a 12px tooltip border now match. Put two Ka0s consoles on
 screen at once and they must be indistinguishable. Open `/lh debug` and confirm: the
 flat 1px black border with the subtle lighter inner line, the **gold** title, the gray divider under
-the title bar — and Core's **thin 18×18 ×** in the top-right, the same one every other Ka0s addon's
-console wears. It is deliberately **not** this addon's own 24×24 class-colored glyph: the History
-window keeps that one, and these two windows are the library's (standalone-windows — the edge is
-shared across every Ka0s window, the close control on a library-drawn window is the library's).
-**Copy** and **Clear** sit to its left with an even gap; none of the three overlaps. Check the copy
-window (**Copy**) as well — it takes the same ×.
+the title bar — and, in the top-right, **three icon buttons of the same size**: a **✕ mark**, a
+**copy mark** and a **clear mark**, evenly spaced, none overlapping. They are the library's, and
+every other Ka0s addon's console draws the same three. Check the copy window (**Copy**) as well —
+it takes the same close mark.
+
+> **Regression:** if that strip reads as a **thin multiplication sign** with the WORDS "Copy" and
+> "Clear" beside it, the descriptor stopped passing `addonName` (`core/DebugLogSetup.lua`). Nothing
+> errors and no suite outside `tests/test_debuglog.lua` notices: a texture path built from a
+> missing folder name draws nothing and raises nothing, so the library falls back to words.
 
 **17f. Destructive verbs still ask.** `reset` is path-scoped and always was here, so nothing lost a
 guard — but check both entry points of each destructive action anyway:
@@ -775,6 +778,51 @@ guard — but check both entry points of each destructive action anyway:
 - `/lh resetall` is non-destructive (settings + the id-lists only, history untouched) and correctly
   does **not** ask.
 
+**17g. The shared art, and what its absence looks like.** New with LibKa0s v1.10: this addon draws
+no art of its own any more — every mark below comes out of `libs/LibKa0s/media/icons/`, and the
+monospace face out of `libs/LibKa0s/media/fonts/`. Open the History window and walk the list:
+
+- **The title-bar close** is the collection's ✕ mark, not a text glyph — and the same mark now
+  closes the **export modal** and the **export copy window**. All four windows must match.
+- **Every filter dropdown** (all eight, plus the export modal's **Data set** picker) ends in a
+  **chevron**, gray, vertically centred.
+- **The Export button** in the filter bar carries a small mark at its left edge with the word
+  **Export** still centred in the button — the label must NOT shift. Same shape on **Export to
+  CSV** in the modal, which carries a spreadsheet mark.
+- **Clear / Reset / Save** carry **no marks at all**. That is deliberate: the cluster is ~36px per
+  button and a mark plus a centred five-letter word does not fit. An off-centre label there is a
+  regression, not a feature. (Save has no catalog mark either way — see below.)
+- **Sort a column**: the active header shows a single up or down arrow, and it is the shared mark,
+  not Blizzard's spinner arrow. Group by something and the group headers show a **chevron right**
+  when collapsed and a **chevron down** when expanded — not `+` / `-`.
+- **The Bound column** draws a padlock, and hovering its header shows a legend whose lock **is the
+  same padlock**, tinted per bind state. A legend drawing a different glyph from its column is the
+  drift a shared catalog exists to stop.
+- **A multi-select filter menu** (Quality, Source, …) shows a tick beside each selected row.
+- **Right-click a row**: the four menu items each carry a mark — a chat mark, two prohibition
+  marks, and the clear mark on **Delete** — and **every word stays**. "Which one deletes the row?"
+  must never become a hover question.
+- **The bottom-right resize grip** is the shared resize mark, brightening to gold on hover.
+- **The debug console and the export copy box** render in **JetBrains Mono** — columns line up,
+  digits are the same width. `/lh debug`, then compare a `[Init]` line's alignment.
+
+> **Regression, and it is silent by design:** a texture path that does not resolve **draws nothing
+> and raises nothing**. So the signal is a **blank space where a mark should be** — an empty
+> dropdown corner, a header with a gap instead of an arrow, a Bound column with nothing in it.
+> Two spellings cause it and both look identical in game: a path carrying `.tga` (the client
+> appends the extension itself), and an icon name the catalog does not carry.
+>
+> **A DIFFERENT and correct outcome** is the Blizzard art returning — the old down-arrow, `+`/`-`,
+> the ChatFrame size grabber, the client lock atlas, the tick. That is the ladder working, and it
+> means `libs/LibKa0s/` is missing or incomplete. Confirm with `/lh version`: a degraded install
+> also prints the LibKa0s-missing clause and renders the console in a proportional font.
+>
+> **Not a regression:** the minimap button and the addon's TOC icon are still full-color Blizzard
+> icons, and the settings panel is untouched — its ▲▼ priority arrows, information icons and
+> ready-check ticks are `LibKa0s-Options-1.0`'s widgets and are deliberately out of scope. **Save**
+> in the filter bar has no mark because the 113-name catalog has no save/disk glyph; one is added
+> upstream in LibKa0s or not at all (anti-patterns #63).
+
 ---
 
 ## When to run which subset
@@ -786,6 +834,8 @@ guard — but check both entry points of each destructive action anyway:
 - **Settings / schema edits:** 9, 10, plus §4's mute/quality gates for any new Data-Collection row.
 - **Blacklist/whitelist edits:** 16, plus §4 (the capture gate) — `modules/Filters.lua`,
   `modules/Collector.lua`, `settings/Panel.lua`'s Filters page.
+- **Media / art edits:** 17g, plus 5, 6 and 7. Anything touching `core/MediaSetup.lua`, an
+  `NS.Icon` / `NS.IconMarkup` call site, or a re-vendor of `libs/LibKa0s/media/`.
 - **LibKa0s / library edits:** 17, plus 9, 10 and 12. Anything touching `core/CoreSetup.lua`,
   `core/DebugLogSetup.lua`, `settings/Slash.lua`, `settings/OptionsSetup.lua` or a re-vendor of
   `libs/LibKa0s/` — and **always** 17a, which is the only check that a degraded install still works.

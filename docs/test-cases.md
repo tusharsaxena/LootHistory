@@ -21,7 +21,7 @@ badge and any count quoted in the docs must agree with it.
 - Constants: the aliases point at the very same enum tables
 - Constants: the quest item class is the locale-independent numeric id 12
 - Constants: the context TTL is a short positive window
-- Constants: the mono font resolves inside this addon's media folder
+- Constants: the mono font is the face the library ships, not one of ours
 - Constants: the quality ladder is Poor..Legendary then Heirloom, skipping 6 and 8
 - Constants: every quality option carries a colored '<name> and above' text
 - Constants: the retention presets ascend and end on 'Always' (0 = disabled)
@@ -33,6 +33,19 @@ badge and any count quoted in the docs must agree with it.
 - Constants: the default-captured keys all sort ahead of the uncaptured ones
 - Constants: every default-captured tag is a real auction key
 - Constants: the currency pseudo-type is the reserved 'Currency' string
+
+### test_mediasetup.lua (10)
+
+- MediaSetup: NS.Icon answers the vendored path, extensionless
+- MediaSetup: an icon the library does not ship answers nil
+- MediaSetup: NS.MediaFont answers the vendored face, and only a face it ships
+- MediaSetup: the font this addon names is the face the library registers
+- MediaSetup: the font no longer resolves inside this addon's own folder
+- MediaSetup: every mark this addon draws is one the library ships
+- MediaSetup: every name the library ships has a file in the vendored copy
+- MediaSetup: the source names no icon the DRAWN list above has forgotten
+- MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
+- MediaSetup: with no library there is no art and no face, and that is not an error
 
 ### test_util.lua (35)
 
@@ -437,7 +450,7 @@ badge and any count quoted in the docs must agree with it.
 - Export: InsightsCSV includes the per-character × category companions
 - Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
 
-### test_debuglog.lua (21)
+### test_debuglog.lua (22)
 
 - FONT_MONO constant is a JetBrains Mono TTF path
 - FormatPlain wraps the tag in brackets with single-space separators
@@ -457,7 +470,8 @@ badge and any count quoted in the docs must agree with it.
 - the console title renders the library's TITLE_SUFFIX as prose, not as its key
 - every DebugLog string this addon renders resolves to prose, not to a key
 - ConsoleCheckbox composes this addon's slash prefix into its tooltip
-- the console closes with the LIBRARY's x, not this addon's 24-wide one
+- the console's title bar is three icon controls, which is the folder name arriving
+- the DebugLog descriptor passes addonName beside name, not instead of it
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
@@ -630,7 +644,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the suite list matches tests/test_*.lua in both directions
 - Harness: the runner's suite list has no duplicates
 
-### test_libka0s.lua (22)
+### test_libka0s.lua (24)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -638,6 +652,8 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the Core stub still prints a tagged, secret-safe line
 - degraded install: the notice explains the absence through the shared cause clause, once
 - degraded install: the Core stub answers every member the addon calls
+- NS.MakeCloseButton hands the library this addon's FOLDER name as the third argument
+- every window this addon owns closes through that one wrapper
 - degraded install: a bare /lh prints help listing the verbs that still work
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Slash stub carries the whole live surface
@@ -665,6 +681,7 @@ badge and any count quoted in the docs must agree with it.
 | Suite | Cases |
 |-------|------:|
 | test_constants.lua | 25 |
+| test_mediasetup.lua | 10 |
 | test_util.lua | 35 |
 | test_compat.lua | 31 |
 | test_attribution.lua | 23 |
@@ -676,12 +693,12 @@ badge and any count quoted in the docs must agree with it.
 | test_browser.lua | 54 |
 | test_browsertable.lua | 51 |
 | test_export.lua | 22 |
-| test_debuglog.lua | 21 |
+| test_debuglog.lua | 22 |
 | test_slash.lua | 34 |
 | test_schema.lua | 32 |
 | test_analytics.lua | 58 |
 | test_panel.lua | 25 |
 | test_harness.lua | 5 |
-| test_libka0s.lua | 22 |
+| test_libka0s.lua | 24 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **594** |
+| **Total** | **607** |

@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 5
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -196,19 +196,72 @@ function lib.ApplySkin(frame, skin)
   applyAccents(frame, skin)
 end
 
---- The thin × a Ka0s window closes with. Returns nil when CreateFrame is unavailable (a headless
---- harness, or a load path with no UI), for the same reason ApplySkin degrades: a close button is
---- worth doing without, not worth erroring over.
-function lib.MakeCloseButton(parent, onClick)
+-- What the close control is drawn at, and how much of that slot the art fills. The slot is the
+-- click target, unchanged at 18 since minor 1 -- every window in the collection is laid out around
+-- it. The art is inset because a glyph that reaches its own edges reads far heavier than the title
+-- beside it; the icon set is drawn to be legible well below this.
+local CLOSE_SIZE = 18
+local CLOSE_ART  = 12
+
+-- Gray at rest, red under the pointer. The × has read this way since minor 1 and the texture keeps
+-- it: a close control is the one button in a window whose hover state should say "this one ends
+-- what you are looking at".
+local CLOSE_REST = { 0.7, 0.7, 0.72 }
+local CLOSE_HOT  = { 1, 0.3, 0.3 }
+
+--- The close control a Ka0s window closes with. Returns nil when CreateFrame is unavailable (a
+--- headless harness, or a load path with no UI), for the same reason ApplySkin degrades: a close
+--- button is worth doing without, not worth erroring over.
+---
+--- TWO LOOKS, AND WHICH ONE YOU GET DEPENDS ON WHETHER YOU SAY WHO YOU ARE. Pass `addonName` and it
+--- draws this collection's own `close` icon out of `LibKa0s-Media-1.0`; omit it and you get the
+--- multiplication sign this function has always drawn.
+---
+--- The argument exists because a texture path is absolute from `Interface\AddOns\` and this
+--- library is VENDORED -- there is no one path to it, and a copy cannot know which addon folder it
+--- was copied into. Core cannot ask Media for a path without being told the answer to that, and it
+--- must not guess: a wrong texture path draws nothing and raises nothing.
+---
+--- The × is therefore not a legacy spelling to be migrated away from. It is what a caller that has
+--- not been updated still gets, what a host without the Media module gets, and what every window
+--- gets on an install missing the art -- all three of which are the same code path, which is why
+--- there is no separate degraded branch to keep working.
+---
+--- @param parent table
+--- @param onClick function
+--- @param addonName string  optional. The caller's own addon folder name, from its first vararg.
+--- @return table|nil
+function lib.MakeCloseButton(parent, onClick, addonName)
   if type(CreateFrame) ~= "function" then return nil end
   local b = CreateFrame("Button", nil, parent)
-  b:SetSize(18, 18)
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  fs:SetPoint("CENTER")
-  fs:SetText("\195\151")  -- multiplication sign ×
-  fs:SetTextColor(0.7, 0.7, 0.72)
-  b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.3, 0.3) end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(0.7, 0.7, 0.72) end)
+  b:SetSize(CLOSE_SIZE, CLOSE_SIZE)
+
+  -- Resolved at CALL time, not at load: Core is the first file in LibKa0s.xml and Media the second,
+  -- so a load-time lookup here would answer nil for the life of the session.
+  local media = addonName and LibStub and LibStub("LibKa0s-Media-1.0", true)
+  local path = media and media.Icon and media.Icon(addonName, "close")
+
+  if path then
+    local tex = b:CreateTexture(nil, "OVERLAY")
+    tex:SetPoint("CENTER")
+    tex:SetSize(CLOSE_ART, CLOSE_ART)
+    tex:SetTexture(path)
+    -- Tinted rather than recolored: the art ships WHITE precisely so a multiply lands on whatever
+    -- the caller wants, and here that is the same two colors the glyph has always used.
+    tex:SetVertexColor(CLOSE_REST[1], CLOSE_REST[2], CLOSE_REST[3])
+    b:SetScript("OnEnter", function() tex:SetVertexColor(CLOSE_HOT[1], CLOSE_HOT[2], CLOSE_HOT[3]) end)
+    b:SetScript("OnLeave", function() tex:SetVertexColor(CLOSE_REST[1], CLOSE_REST[2], CLOSE_REST[3]) end)
+    b.icon = tex
+  else
+    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    fs:SetPoint("CENTER")
+    fs:SetText("\195\151")  -- multiplication sign ×
+    fs:SetTextColor(CLOSE_REST[1], CLOSE_REST[2], CLOSE_REST[3])
+    b:SetScript("OnEnter", function() fs:SetTextColor(CLOSE_HOT[1], CLOSE_HOT[2], CLOSE_HOT[3]) end)
+    b:SetScript("OnLeave", function() fs:SetTextColor(CLOSE_REST[1], CLOSE_REST[2], CLOSE_REST[3]) end)
+    b.glyph = fs
+  end
+
   b:SetScript("OnClick", onClick)
   return b
 end

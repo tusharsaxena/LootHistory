@@ -19,7 +19,10 @@ local DBIcon                          -- LibDBIcon-1.0, resolved lazily in Setup
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 -- Inline check glyph for selected multi-select menu items (the default font has no ✓ glyph,
 -- so, like the sort arrows, it's texture markup sized to the line height).
-local CHECK_MARKUP = "|TInterface\\Buttons\\UI-CheckBox-Check:0|t "
+-- The collection's `confirm` tick through core/MediaSetup.lua's markup helper, falling back to
+-- the Blizzard check this drew before when there is no library to ask.
+local CHECK_MARKUP =
+  NS.IconMarkup("confirm", "Interface\\Buttons\\UI-CheckBox-Check") .. " "
 local SKIN = {
   tabActive   = { 1.0, 0.82, 0.0 },          -- active tab label (gold)
   tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (gray)
@@ -72,26 +75,25 @@ end
 -- Guarded anyway, because this is the only file that skins a frame this addon owns. The seam is
 -- kept as a method because four windows reach the edge through it — EnsureFrame here, both export
 -- copy windows (modules/Export.lua) and the debug console (core/DebugLogSetup.lua's applySkin).
-function B:ApplySkin(f)
-  if NS.ApplySkin then NS.ApplySkin(f) end
+-- `skin` is forwarded even though nothing in this addon passes one today. A forwarder must carry
+-- every argument its target takes (anti-patterns #64): lib.ApplySkin(frame, skin) accepts an
+-- override table, and a one-argument passthrough drops it silently -- the call still runs, the
+-- window still gets an edge, and the override simply never arrives.
+function B:ApplySkin(f, skin)
+  if NS.ApplySkin then NS.ApplySkin(f, skin) end
 end
 
--- ElvUI-style thin × glyph close button, light gray by default and the player's class color
--- on hover. Shared by the History and Debug windows.
+-- The close control every window this addon owns wears -- the History browser, the export modal
+-- and the export copy window. It is Core's, reached through core/CoreSetup.lua's NS.MakeCloseButton
+-- so the addon folder name is passed and the shared `close` mark is what draws; on an install
+-- missing LibKa0s the same seam answers with the 24x24 class-colored multiplication sign this
+-- addon drew before, which is the degraded look and not a second design.
+--
+-- Kept as a method rather than retired because three call sites and docs/browser.md name it, and
+-- because it is the one place to change if this addon ever wants a different control again.
 function B:MakeCloseButton(parent, onClick)
-  local close = CreateFrame("Button", nil, parent)
-  close:SetSize(24, 24)
-  local x = close:CreateFontString(nil, "OVERLAY")
-  x:SetFont(STANDARD_TEXT_FONT, 24, "")
-  x:SetPoint("CENTER", close, "CENTER", 0, 2)  -- the × sits low in its font box; nudge up
-  x:SetText("\195\151")  -- × multiplication sign (thin, ElvUI-like)
-  x:SetTextColor(0.85, 0.85, 0.85)
-  local _, class = UnitClass("player")
-  local cc = (class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]) or { r = 1, g = 0.82, b = 0 }
-  close:SetScript("OnEnter", function() x:SetTextColor(cc.r, cc.g, cc.b) end)
-  close:SetScript("OnLeave", function() x:SetTextColor(0.85, 0.85, 0.85) end)
-  close:SetScript("OnClick", onClick)
-  return close
+  if not NS.MakeCloseButton then return nil end
+  return NS.MakeCloseButton(parent, onClick)
 end
 
 -- ── Window position/size persistence ──────────────────────────────────────────
@@ -360,11 +362,15 @@ local function MakeDropdown(parent, width)
   fs:SetJustifyH("LEFT")
   dd.text = fs
 
-  -- Down-arrow texture (the ▼ glyph is not in the default WoW font, so it renders as a box).
+  -- The disclosure mark. A texture and not a glyph because the default WoW font has no ▼ and
+  -- renders it as a box; the collection's own `chevron-down` when LibKa0s is there, and the
+  -- Blizzard arrow this drew before when it is not. NIL IS A REAL ANSWER -- the ladder stays.
+  -- One edit, nine controls: eight filter dropdowns plus the export modal's Data Set picker.
+  -- The tint survives either way: the shared art ships WHITE precisely so a multiply lands.
   local arrow = dd:CreateTexture(nil, "OVERLAY")
   arrow:SetSize(12, 12)
   arrow:SetPoint("RIGHT", -4, 0)
-  arrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
+  arrow:SetTexture((NS.Icon and NS.Icon("chevron-down")) or "Interface\\Buttons\\Arrow-Down-Up")
   arrow:SetVertexColor(0.7, 0.7, 0.72)
 
   dd._selected = {}   -- multi-select value set (empty = "All"); only used when dd.multi is true
@@ -484,14 +490,32 @@ local function savedViewOrStock()
   return STOCK_VIEW
 end
 
--- A small flat-skin text button for the filter bar (Clear / Save / Reset).
-local function makeBarButton(parent, text, width, onClick, tooltip)
+-- A small flat-skin text button for the filter bar (Export / Clear / Save / Reset).
+--
+-- `icon` is a catalog name and is OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
+-- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather
+-- than off-centre. Only buttons at least ~120px wide are given one -- a 14px mark plus a centred
+-- five-letter word does not fit the 36px Clear/Reset cluster, and an off-centre label is worse
+-- than no mark (see docs/browser.md).
+--
+-- The existing `tooltip` stays and is NOT a tooltip on the mark: it predates the art, it is
+-- anchored to the whole button, and it explains the ACTION rather than the picture.
+local function makeBarButton(parent, text, width, onClick, tooltip, icon)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(width, 20)
   b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
                   insets = { left = 1, right = 1, top = 1, bottom = 1 } })
   b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
   b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
+  local path = icon and NS.Icon and NS.Icon(icon)
+  if path then
+    local tex = b:CreateTexture(nil, "OVERLAY")
+    tex:SetSize(14, 14)
+    tex:SetPoint("LEFT", 10, 0)
+    tex:SetTexture(path)
+    tex:SetVertexColor(0.85, 0.85, 0.85)
+    b.icon = tex
+  end
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   fs:SetPoint("CENTER")
   fs:SetText(text)
@@ -924,7 +948,8 @@ function B:BuildFilterBar(bar)
   -- the window widens (no right anchor to the bar).
   local exportW = B:ExportWidth()
   local exportBtn = makeBarButton(bar, "Export", exportW, function() B:OpenExport() end,
-    "Export the current tab — loot rows (History) or the analytics summary (Insights).")
+    "Export the current tab — loot rows (History) or the analytics summary (Insights).",
+    "export")
 
   -- Right cluster (row 1): Save · Reset · Clear, spanning exactly exportW so its right edge sits
   -- flush above Export's. Three buttons + two 6px gaps = exportW: Clear/Reset each take
@@ -1218,8 +1243,23 @@ local function EnsureFrame()
   local grip = CreateFrame("Button", nil, frame)
   grip:SetSize(16, 16)
   grip:SetPoint("BOTTOMRIGHT", -2, 2)
-  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  -- The collection's `resize` mark, or the Blizzard grabber this drew before. `resize-height`
+  -- and `resize-width` are directional and wrong for a corner grip. The highlight is reproduced
+  -- by tinting rather than by a second texture: the shared art ships WHITE, so a brighten is a
+  -- multiply, and there is no second file to fetch.
+  local gripPath = NS.Icon and NS.Icon("resize")
+  if gripPath then
+    local tex = grip:CreateTexture(nil, "OVERLAY")
+    tex:SetAllPoints(grip)
+    tex:SetTexture(gripPath)
+    tex:SetVertexColor(0.7, 0.7, 0.72)
+    grip:SetScript("OnEnter", function() tex:SetVertexColor(1, 0.82, 0) end)
+    grip:SetScript("OnLeave", function() tex:SetVertexColor(0.7, 0.7, 0.72) end)
+    grip.icon = tex
+  else
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  end
   grip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
   grip:SetScript("OnMouseUp", function()
     frame:StopMovingOrSizing()

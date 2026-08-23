@@ -26,8 +26,10 @@ function NS.NewBusTarget()
 end
 
 function addon:OnInitialize()
-  local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-  if LSM then LSM:Register("font", "JetBrains Mono", NS.Constants.FONT_MONO) end
+  -- The LibSharedMedia registration that used to sit here is gone: core/MediaSetup.lua does it at
+  -- FILE LOAD through the library, which is where it belonged. This ran at ADDON_LOADED, after
+  -- core/Constants.lua had already resolved a path and settings/Schema.lua had already built rows
+  -- naming the face -- a window in which a stored default named a font LSM had not yet heard of.
   NS:InitDB()
   if NS.Schema and NS.Schema.Register then NS.Schema:Register() end
   if NS.Slash and NS.Slash.Register then NS.Slash:Register() end

@@ -97,25 +97,55 @@ local function readBytes(path)
     return body
 end
 
---- The basenames present locally, sorted. Lua 5.1 has no directory API and this
---- repo does not depend on LuaFileSystem, so the listing shells out — `ls -A`
---- for every shell this suite is actually run under, `dir /b` for cmd.exe.
+--- The FILE paths present locally under `dir`, sorted, relative to it and recursing into
+--- subdirectories — the same shape `shippedNames` answers, because the two are compared as sets.
+---
+--- Lua 5.1 has no directory API and this repo does not depend on LuaFileSystem, so the listing
+--- shells out: `find` for every shell this suite is actually run under, `dir /b /s` for cmd.exe,
+--- whose output is absolute and is trimmed back here. Files only, in both — `ls-tree -r` lists no
+--- directories, so listing them on this side would report a difference that is not one.
 local function localNames(dir)
     local names = {}
-    local function collect(cmd)
+    local function add(name)
+        name = name:gsub("[\r\n]+$", ""):gsub("^%./", ""):gsub("\\", "/")
+        if name ~= "" and name ~= "." and name ~= ".." then names[#names + 1] = name end
+    end
+    local function collect(cmd, strip)
         if not io.popen then return end
         local pipe = io.popen(cmd)
         if not pipe then return end
         for line in pipe:lines() do
-            local name = line:gsub("[\r\n]+$", "")
-            if name ~= "" and name ~= "." and name ~= ".." then names[#names + 1] = name end
+            add(strip and (line:gsub(strip, "")) or line)
         end
         pipe:close()
     end
-    collect(('ls -A "%s" 2>/dev/null'):format(dir))
-    if #names == 0 then collect(('dir /b "%s" 2>NUL'):format((dir:gsub("/", "\\")))) end
+    collect(('cd "%s" 2>/dev/null && find . -type f 2>/dev/null'):format(dir))
+    if #names == 0 then
+        local win = dir:gsub("/", "\\")
+        collect(('dir /b /s /a-d "%s" 2>NUL'):format(win),
+                "^" .. win:gsub("%p", "%%%0") .. "\\")
+    end
     table.sort(names)
     return names
+end
+
+--- Whether a path must be compared BYTE FOR BYTE, with no line-ending normalization.
+---
+--- The comparison below strips CR from the working-tree side, because a text file is CRLF on disk
+--- and LF in the blob. Doing that to a binary is corruption: a TGA or a TTF whose bytes happen to
+--- contain the pair 0D 0A would be reported as diverged from the very blob it round-trips to, and
+--- the failure would name a line-ending problem in a file that has no lines. None of the 49 TGAs
+--- LibKa0s v1.9.0 ships contains that pair today — which is exactly why this is written down,
+--- because the gate would have passed and the next icon added could have broken it for a reason
+--- nobody would look for here. The list matches `.gitattributes`' binary pins.
+local BINARY_EXT = {
+    tga = true, png = true, jpg = true, jpeg = true, gif = true, bmp = true, ico = true,
+    blp = true, ttf = true, otf = true, mp3 = true, ogg = true, wav = true, zip = true,
+}
+
+local function isBinary(path)
+    local ext = path:match("%.([%a%d]+)$")
+    return ext ~= nil and BINARY_EXT[ext:lower()] == true
 end
 
 --- Register the gate's cases on the consumer's test table.
@@ -161,9 +191,17 @@ function VendorSync.register(T, opts)
 
     local function gitShow(ref) return gitOut(('show "%s"'):format(ref)) end
 
-    --- The basenames the tag carries under `<subdir>/`, sorted.
+    --- The paths the tag carries under `<subdir>/`, sorted, RELATIVE to that subdir and
+    --- INCLUDING anything inside a subdirectory of it.
+    ---
+    --- `-r`, and that is not a tidy-up. Without it this listed one level and handed back
+    --- DIRECTORY names, which the comparison below then tried to read as files -- so the first
+    --- payload to ship a subdirectory (LibKa0s v1.9.0's `LibKa0s/media/`) turned a working gate
+    --- into a failing one pointing at nothing wrong. Recursing means a file three levels down is
+    --- compared like any other, which is what "byte-for-byte what the tag published" was always
+    --- supposed to mean.
     local function shippedNames(tag, subdir)
-        local body = gitOut(('ls-tree --name-only "%s:%s"'):format(tag, subdir))
+        local body = gitOut(('ls-tree -r --name-only "%s:%s"'):format(tag, subdir))
         local names = {}
         for line in (body or ""):gmatch("[^\r\n]+") do
             if line ~= "" then names[#names + 1] = line end
@@ -211,8 +249,10 @@ function VendorSync.register(T, opts)
             local here = readBytes(localDir .. "/" .. name)
             T.assertTrue(blob ~= nil, ("%s %s carries %s"):format(label, tag, name))
             T.assertTrue(here ~= nil, ("the vendored copy carries %s"):format(name))
-            -- CR stripped from the working-tree side only; see the header.
-            T.assertEqual((here or ""):gsub("\r\n", "\n"), blob,
+            -- CR stripped from the working-tree side only, and only for text; see isBinary.
+            local ours = here or ""
+            if not isBinary(name) then ours = ours:gsub("\r\n", "\n") end
+            T.assertEqual(ours, blob,
                 ("%s matches %s at %s — re-vendor from the tag, do not edit %s")
                     :format(name, label, tag, localDir))
         end

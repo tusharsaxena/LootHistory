@@ -102,9 +102,10 @@ git --version
 - Packaging is done by the **CurseForge packager** from `.pkgmeta`, which pulls no externals —
   `.pkgmeta:3-4` states plainly that libraries are vendored in-tree and shipped as-is. Nothing is
   fetched or compiled at package time.
-- The art and font under `media/` (`media/logos/*.tga|jpg`, `media/screenshots/*.png`,
-  `media/fonts/JetBrainsMono-Regular.ttf` + its `OFL.txt`) are committed **assets, not
-  dependencies**: nothing regenerates them, so no image or font tooling is needed.
+- The art under `media/` (`media/logos/*.tga|jpg`, `media/screenshots/*.png`) is committed
+  **assets, not dependencies**: nothing regenerates it, so no image tooling is needed. This addon
+  ships **no font and no icons of its own** — both arrive inside the vendored LibKa0s payload
+  (`libs/LibKa0s/media/`), whose provenance and licences are that library's to carry.
 - The generated docs are produced by tools already listed above —
   `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md:121`) and the `lizard`
   invocation in `performance-§10`.

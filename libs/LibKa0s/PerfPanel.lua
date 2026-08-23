@@ -10,7 +10,7 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 3
+local PANEL_MINOR = 4
 -- Paired on the PROBE's minor as well as the panel's own. The panel counter alone is not enough:
 -- two vendored copies can ship the same panel minor over different Perf.lua minors, and then the
 -- higher probe wins the LibStub race while the first-loaded copy's panel stays attached to it —
@@ -171,16 +171,24 @@ function lib.__AttachPanel(P, d, tr, runCommand)
 
     -- A host that draws its own chrome keeps drawing it: `decorate` gets the frame plus a small API
     -- to wire a close control to, and takes precedence. A host that passes none now gets Core's
-    -- close button rather than nothing — the same × the debug console wears, from the same factory,
-    -- so the two windows cannot drift. The two paths are exclusive: running both would leave a host
-    -- with its own close button and ours stacked on the same corner.
+    -- close button rather than nothing — the same mark the debug console wears, from the same
+    -- factory, so the two windows cannot drift. The two paths are exclusive: running both would
+    -- leave a host with its own close button and ours stacked on the same corner.
+    --
+    -- THE THIRD ARGUMENT IS THE WHOLE POINT OF THIS LINE. `MakeCloseButton` draws the catalog's
+    -- `close` icon only when it is told which addon FOLDER to build the texture path from — the
+    -- library is vendored, so it cannot infer one — and called with two arguments it silently falls
+    -- back to the multiplication sign. Panel minor 3 dropped it here, so a host that passed no
+    -- `decorate` got a perf panel wearing × beside a debug console wearing the mark, with nothing
+    -- raised and every suite green. `addonName` is the descriptor's own field; `name` is the
+    -- fallback because every host in the collection already passes its folder name there.
     if decorate then
       decorate(frame, {
         Show = P.ShowPanel, Hide = P.HidePanel, Toggle = P.TogglePanel,
         TITLE_H = TITLE_H, PAD = PAD, ROW_W = ROW_W,
       })
     else
-      local close = core.MakeCloseButton(frame, P.HidePanel)
+      local close = core.MakeCloseButton(frame, P.HidePanel, d.addonName or d.name)
       if close then
         close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(TITLE_H - 18) / 2)
         frame.closeButton = close

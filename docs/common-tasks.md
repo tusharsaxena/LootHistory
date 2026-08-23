@@ -185,28 +185,41 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   three ways to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table),
   `Analytics.lua` (Insights) — the largest, `Browser.lua`, sitting near ~1370 lines.
 
-### Media: Blizzard defaults, with one ratified font exception
+### Media: the shared LibKa0s payload, then Blizzard defaults
 
-- **Fonts, textures, and borders default to Blizzard-shipped media.** Text uses stock `GameFont*`
-  font objects (and `STANDARD_TEXT_FONT` for the window close glyph, `modules/Browser.lua:85`);
-  every texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
-  `UI-CheckBox-Check`, `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
+- **Art comes from `LibKa0s-Media-1.0` first, Blizzard second, and never from this addon.**
+  `core/MediaSetup.lua` publishes `NS.Icon(name)`, `NS.MediaFont(name)` and
+  `NS.IconMarkup(name, fallback, size)`; the paths point into the **vendored library payload**
+  (`libs/LibKa0s/media/`), and they are **extensionless** — the client appends the extension, and a
+  path carrying `.tga` is one of the two spellings that draw nothing (the other is `"|T" .. nil`,
+  which is why `IconMarkup` demands a fallback). **`nil` is a real answer twice over**: no library,
+  or no such name. Every call site therefore keeps the Blizzard rung it drew before, underneath —
+  the client lock-atlas ladder in `modules/BrowserTable.lua`, `Arrow-Down-Up` behind the dropdown
+  chevron, `UI-Plus/MinusButton-Up` behind the group chevrons, the ChatFrame size-grabber behind
+  the resize grip. **A mark this addon needs but the catalog lacks is added upstream in LibKa0s,
+  never drawn locally** (anti-patterns #63): today that is a save/disk mark and a minus to pair
+  with `add`, and until they exist the surfaces stay as they are.
+- **Everything else defaults to Blizzard-shipped media.** Text uses stock `GameFont*`
+  font objects (and `STANDARD_TEXT_FONT` for the degraded close glyph in `core/CoreSetup.lua`);
+  every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
+  `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
   `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
   `NS.ApplySkin` (`modules/Browser.lua:75`, `core/CoreSetup.lua`); `modules/Browser.lua:23`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:579`) — branding art, not a re-skinnable surface.
-- **Ratified exception — the monospace console font (audited 2026-07-17).** The debug console and
-  the export/debug copy boxes render in the vendored **JetBrains Mono** (`Constants.FONT_MONO`,
-  `core/Constants.lua:58`). The console gets it as the DebugLog descriptor's `font` field
-  (`core/DebugLogSetup.lua:82`), which the library holds on the descriptor and applies when the
-  console frame is first built (`EnsureFrame`) — to the log frame, the line counter and the copy box
-  (`libs/LibKa0s/DebugLog.lua:367`,`:416`,`:474`); the export copy
-  box sets it directly (`modules/Export.lua:346`). This is a **deliberate,
-  ratified deviation** from Blizzard-default-only: WoW ships **no monospace font object**, and
-  column-aligned copy/paste text needs one. The font is OFL-licensed and vendored at
-  `media/fonts/`; init registers it with LibSharedMedia (`core/LootHistory.lua:30`) purely to
-  *publish* it — nothing reads a font setting. Do not re-flag this as a standards deviation.
+- **The monospace face is the library's now — the per-addon exception is retired.** The debug
+  console and the export/debug copy boxes render in **JetBrains Mono**
+  (`Constants.FONT_MONO`, resolved at file load from `NS.MediaFont(Constants.FONT_MONO_NAME)`).
+  WoW still ships no monospace font object, so one still has to come from somewhere — but as of
+  LibKa0s v1.10 it comes from the **library payload** rather than from this addon's own `media/`,
+  and `media/fonts/` is deleted. The console gets the path as the DebugLog descriptor's `font`
+  field (`core/DebugLogSetup.lua`); the export copy box sets it directly (`modules/Export.lua`).
+  `core/MediaSetup.lua` registers the face with LibSharedMedia **at file load** — the registration
+  used to run from `OnInitialize`, which is `ADDON_LOADED`, long after `core/Constants.lua` has
+  resolved a path and `settings/Schema.lua` has built its rows. **The fallback is a real client
+  font**: `SetFont` accepts a path to a file that is not there, fails to load it, and the text
+  simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
 - **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
   only for the registration above (no `Fetch`/`List`). Making the shared edge user-configurable is
   a tracked post-1.0.0 idea (`modules/Browser.lua:17`) that now belongs at the LibKa0s seam, not a

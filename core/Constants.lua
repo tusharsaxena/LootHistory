@@ -51,11 +51,17 @@ C.ITEMCLASS_QUEST = 12
 -- items never carry this GetItemInfo type, so it doubles as a display label and a Type-filter value.
 C.CURRENCY_TYPE = "Currency"
 
--- Vendored monospace font (JetBrains Mono, OFL) used by the debug console and copy boxes. Path is
--- the in-game addon-relative form; the file lives at media/fonts/ in the repo. This is a ratified
--- exception to the Blizzard-default-only media rule — WoW ships no monospace font object. See the
--- "Media" section in docs/common-tasks.md.
-C.FONT_MONO = "Interface\\AddOns\\LootHistory\\media\\fonts\\JetBrainsMono-Regular.ttf"
+-- The monospace face used by the debug console and the export copy box. WoW ships no monospace
+-- font object, so one has to come from somewhere; as of LibKa0s v1.10 it comes from the LIBRARY
+-- payload rather than from this addon's own media/, which is why media/fonts/ is gone and the
+-- ratified per-addon exception that used to be defended here is retired. core/MediaSetup.lua
+-- publishes the seam and MUST load before this file (its TOC line says so).
+--
+-- THE FALLBACK IS A REAL CLIENT FONT, deliberately. SetFont accepts a path to a file that is not
+-- there, fails to load it, and the text simply does not draw -- so a degraded install falls back
+-- to STANDARD_TEXT_FONT (proportional, but present) rather than to a dead path.
+C.FONT_MONO_NAME = "JetBrains Mono"
+C.FONT_MONO = NS.MediaFont and NS.MediaFont(C.FONT_MONO_NAME) or _G.STANDARD_TEXT_FONT
 
 -- Seconds a stamped loot context stays fresh before CHAT_MSG_LOOT falls back to OTHER.
 C.CONTEXT_TTL = 1.5
