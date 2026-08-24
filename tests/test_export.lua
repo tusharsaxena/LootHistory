@@ -107,7 +107,7 @@ end)
 
 test("Export: CSV quality is human label beside numeric qualityRaw", function()
   local row = NS.Export:CSV({ { ts = 1, quality = 4, itemID = 1 } }):match("\r\n(.-)\r\n")
-  assertTrue(row:find(NS.Compat.QualityLabel(4), 1, true) ~= nil, "human quality label present")
+  assertTrue(row:find(NS.Item.QualityLabel(4), 1, true) ~= nil, "human quality label present")
   assertTrue(row:find(",4,", 1, true) ~= nil, "numeric qualityRaw present")
 end)
 

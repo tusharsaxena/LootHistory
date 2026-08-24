@@ -426,7 +426,7 @@ local function qualityOptions()
     local q = r.quality
     if q ~= nil and not seen[q] then
       seen[q] = true
-      items[#items + 1] = { value = q, label = NS.Compat.QualityLabel(q), color = qualityColor(q) }
+      items[#items + 1] = { value = q, label = NS.Item.QualityLabel(q), color = qualityColor(q) }
     end
   end
   table.sort(items, function(a, b) return a.value < b.value end)

@@ -87,7 +87,7 @@ local COLUMNS = {
   { "itemID",       function(r) return r.itemID end },
   { "currencyID",   function(r) return r.currencyID end },
   { "itemName",     function(r) return r.itemName end },
-  { "quality",      function(r) return r.quality ~= nil and NS.Compat.QualityLabel(r.quality) or "" end },
+  { "quality",      function(r) return r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "" end },
   { "qualityRaw",   function(r) return r.quality end },
   { "itemLevel",    function(r) return r.itemLevel end },
   { "bound",        function(r) return E:BoundLabel(r.bound) end },
@@ -217,7 +217,7 @@ function E:InsightsCSV(stats)
   if t.busiestDay then row("Summary", "Busiest day", t.busiestDay.day .. " (" .. t.busiestDay.count .. ")") end
 
   local srcLabel = function(k) return NS.Constants.SourceLabel[k] or k end
-  local qualityLabel = function(q) return NS.Compat.QualityLabel(q) end
+  local qualityLabel = function(q) return NS.Item.QualityLabel(q) end
   local boundLabel = function(b) return BOUND_LABEL_CSV[b] or b end
   -- LOOT breakdowns, each followed by its per-character "× Character" companion (mirrors the panel).
   -- All items-only (currency is excluded upstream in Database:Stats).

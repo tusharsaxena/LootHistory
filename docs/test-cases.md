@@ -65,6 +65,14 @@ badge and any count quoted in the docs must agree with it.
 - PoolSetup: a released object is reused rather than rebuilt
 - PoolSetup: ReleaseAll returns every active object to the free list
 
+### test_itemsetup.lua (5)
+
+- ItemSetup: the seam is published
+- ItemSetup: the primitives answer what the deleted shims answered
+- ItemSetup: this addon now HAS the id parser it lacked
+- ItemSetup: the moved shims are gone from Compat
+- ItemSetup: the resolver did NOT move, and still guesses when uncached
+
 ### test_util.lua (35)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
@@ -103,7 +111,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: reset does not alias the table-typed default (F-003)
 - Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
 
-### test_compat.lua (31)
+### test_compat.lua (30)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -128,7 +136,6 @@ badge and any count quoted in the docs must agree with it.
 - Compat: ItemBindState resolves an id, nil when the client can't answer
 - Compat: ItemBindState takes the tooltip's verdict when bindType has none
 - Compat: BestBound keeps the more specific verdict, never demotes warbound
-- Compat: QualityLabel names qualities
 - Compat: GetItemInfo surfaces the item class id
 - Compat: CurrencyLinkID parses the id from a currency link
 - Compat: GetCurrencyInfoFromLink returns id, name, icon
@@ -686,7 +693,7 @@ badge and any count quoted in the docs must agree with it.
 - no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
 - every file of LibKa0s.xml is vendored and loads
 - the vendored copy carries the library's MIT license
-- the seven adopted majors all resolved, and the seams are wired to them
+- the nine adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 
@@ -723,8 +730,9 @@ badge and any count quoted in the docs must agree with it.
 | test_mediasetup.lua | 10 |
 | test_envsetup.lua | 9 |
 | test_poolsetup.lua | 3 |
+| test_itemsetup.lua | 5 |
 | test_util.lua | 35 |
-| test_compat.lua | 31 |
+| test_compat.lua | 30 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 24 |
@@ -743,4 +751,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **637** |
+| **Total** | **641** |

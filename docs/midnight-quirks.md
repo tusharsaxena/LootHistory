@@ -44,11 +44,13 @@ So the scan is deliberately **two steps per line, not longest-match-first**: dec
 
 ## Item-info uncached fallback — link-color quality
 
-`C_Item.GetItemInfo(link)` returns `nil` for an item the client hasn't cached yet, which for a just-looted item is the common case. `Compat.GetItemInfo` degrades to the item **link's own display data** instead of dropping the record (`core/Compat.lua:169-182`):
+`C_Item.GetItemInfo(link)` returns `nil` for an item the client hasn't cached yet, which for a just-looted item is the common case. `Compat.GetItemInfo` degrades to the item **link's own display data** instead of dropping the record (`core/Compat.lua:126-139`):
 
 - `itemID` / `classID` come from `C_Item.GetItemInfoInstant` (synchronous, cache-independent).
 - `name` falls back to the link's `[…]` bracket text.
-- `quality` falls back to `Compat.QualityFromLink` — parsing the link's `|cffRRGGBB` color prefix and reversing it through a hex→quality-id map built from `ITEM_QUALITY_COLORS` (`:135-153`).
+- `quality` falls back to `NS.Item.QualityFromLink` — parsing the link's `|cffRRGGBB` color prefix and reversing it through a hex→quality-id map built from `ITEM_QUALITY_COLORS` (`libs/LibKa0s/Item.lua:83`, reached through `core/ItemSetup.lua`).
+
+The **primitive** moved into `LibKa0s-Item-1.0`; the **guess** did not. Falling back at all is this addon's policy — BankLedger's quality gate refuses an uncached item and records the skip instead — so `Compat.GetItemInfo` stays in `core/Compat.lua` and the library holds no opinion about how the primitives are composed.
 
 So an uncached loot line still records the correct item id, name, and quality; the denormalized gear fields (ilvl, vendorPrice, subtype) simply come back `nil` until the item caches. `classID` is the locale-independent `Enum.ItemClass` token used for the quest-item gate (`Constants.ITEMCLASS_QUEST = 12`, `core/Constants.lua:48`).
 

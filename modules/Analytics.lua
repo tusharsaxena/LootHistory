@@ -962,7 +962,7 @@ function Analytics:LayoutCharts(y, w, pad)
   table.sort(qRows, function(a, b) return a.q < b.q end)
   for _, e in ipairs(qRows) do
     local col = qualityColor(e.q)
-    rows[#rows + 1] = { label = NS.Compat.QualityLabel(e.q), labelColor = col, color = col,
+    rows[#rows + 1] = { label = NS.Item.QualityLabel(e.q), labelColor = col, color = col,
       frac = e.c / qMax, value = tostring(e.c) }
   end
   y = self:renderBarSection(P.quality, H.quality, rows, y, w, pad, P.qualityleg)
@@ -971,7 +971,7 @@ function Analytics:LayoutCharts(y, w, pad)
   local qOrder = {}
   for q = 0, 8 do if stats.byQuality[q] then qOrder[#qOrder + 1] = q end end
   y = self:renderCharCompanion("chquality", "chqualityleg", H.charQuality, stats.charByQuality,
-    qOrder, function(q) return qualityColor(q) end, function(q) return NS.Compat.QualityLabel(q) end,
+    qOrder, function(q) return qualityColor(q) end, function(q) return NS.Item.QualityLabel(q) end,
     function(t) return tostring(t) end, y, w, pad)
 
   -- Loot by item type — bars colored per type from the standard palette (rank = sort order); the

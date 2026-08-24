@@ -163,7 +163,7 @@ end
 local function filterEntryLabel(id, onCached)
   local name, quality = NS.Compat.ItemNameQuality(id)
   if not name then
-    if NS.Compat.LoadItem then NS.Compat.LoadItem(id, onCached) end
+    if NS.Item.LoadItem then NS.Item.LoadItem(id, onCached) end
     return "|cffaaaaaaItem " .. id .. "|r"
   end
   local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality or 1]

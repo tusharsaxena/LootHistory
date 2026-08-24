@@ -289,7 +289,7 @@ test("BrowserTable: quality column is blank for a currency row", function()
   local currencyRow = { currencyID = 3008, itemName = "Valorstones", itemType = "Currency", quantity = 40 }
   local itemRow = { itemID = 111, itemName = "Sword", quality = 4 }
   assertEqual(colByKey.quality.valueFn(currencyRow), "")           -- no misleading "Poor"
-  assertEqual(colByKey.quality.valueFn(itemRow), NS.Compat.QualityLabel(4))
+  assertEqual(colByKey.quality.valueFn(itemRow), NS.Item.QualityLabel(4))
   assertEqual(colByKey.type.valueFn(currencyRow), "Currency")      -- Type filter works
 end)
 

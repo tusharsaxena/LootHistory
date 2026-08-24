@@ -14,6 +14,15 @@ They are `LibKa0s-Env-1.0`'s now and reach this addon through `core/EnvSetup.lua
 seam still keeps direct `C_*`/global calls out of the modules, it just resolves them through the library
 first and falls back to the ladder the shim ran.
 
+The same went for three item primitives. `QualityFromLink`, `QualityLabel` and `LoadItem` are
+`LibKa0s-Item-1.0`'s now and reach this addon through [`core/ItemSetup.lua`](module-map.md) as
+`NS.Item.*`, which also brings `NS.Item.ItemIDFromLink` — a primitive only BankLedger had written.
+**`Compat.GetItemInfo` and `Compat.ItemNameQuality` did NOT move, and that is the point.** This
+addon guesses for an uncached item (the name from the link's brackets, the quality from its colour)
+because a browsable capture log would rather show an approximate row than lose the drop; BankLedger's
+quality gate refuses one outright. Both are right for their addon, so the library carries the
+primitives and holds no opinion about how they are composed.
+
 ## `Compat.*` surface
 
 | Compat function | Wraps | Why |
@@ -28,10 +37,8 @@ first and falls back to the ladder the shim ran.
 | `Compat.GetMailHeader(mailIndex)` | global `GetInboxHeaderInfo` | Sender + subject for an inbox mail row, feeding MAIL vs AH classification; `nil, nil` when absent. |
 | `Compat.IsAuctionHouseMail(sender, subject)` | `AUCTION_HOUSE` + `AUCTION_*_MAIL_SUBJECT` globals | Locale-independent test for AH-origin mail: matches the AH sender name or an AH mail subject prefix (won / expired / canceled / invoice) built from the localized subject globals. Splits MAIL from AH source. |
 | `Compat.UNIT_KINDS` + `Compat.DecodeGUID(guid)` | `strsplit` on the dash-split GUID | `UNIT_KINDS` is the single source of truth for GUID kinds carrying a creature/npc id (Creature/Vehicle/Pet/Vignette). `DecodeGUID` returns `kind` and, for unit kinds, the `npcID` from field 6 — how attribution tells KILL from CONTAINER/GameObject. |
-| `Compat.QualityFromLink(link)` / `Compat.QualityLabel(q)` | `ITEM_QUALITY_COLORS` / `ITEM_QUALITY<q>_DESC` globals | `QualityFromLink` parses the quality id from a link's `|cffRRGGBB` color prefix (a reverse hex→quality map) for the uncached fallback. `QualityLabel` gives the localized Poor/Common/… name, falling back to a static English map headlessly and for unknown ids. |
-| `Compat.GetItemInfo(link)` | `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` | Resilient `itemID, itemName, quality, classID` for a link, falling back to the link's own display text and `QualityFromLink` when the item is not yet cached (so records never lose the name/quality). `classID` is the locale-independent `Enum.ItemClass.*`. |
+| `Compat.GetItemInfo(link)` | `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` | Resilient `itemID, itemName, quality, classID` for a link, falling back to the link's own display text and `NS.Item.QualityFromLink` when the item is not yet cached (so records never lose the name/quality). **The guess is this addon's policy and stays here**; only the colour primitive under it lives in the library. `classID` is the locale-independent `Enum.ItemClass.*`. |
 | `Compat.ItemNameQuality(id)` | `C_Item.GetItemInfo` (bare id) | `(name, quality)` for an item id — used by the blacklist/whitelist filter panel to label id rows; `name` is `nil` when the item isn't cached yet (caller shows an "Item &lt;id&gt;" placeholder). |
-| `Compat.LoadItem(id, cb)` | `C_Item.RequestLoadItemDataByID` + `C_Timer.After` | Asks the server to cache an item id, firing `cb` (~0.4 s later) so a re-paint of the filter list can fill in a name that wasn't cached on first draw; no-op when the API is absent. |
 | `Compat.BindState(bindType)` | — (pure) | Maps an `Enum.ItemBind` value to a bind token: 1/4 → `"BOP"`, 2/3 → `"BOE"`, 7/8 → `"WARBAND"`, 9 → `"WARBAND_UE"`. Corroborating, **not** authoritative: Blizzard reports `2` for warbound caches (see [midnight-quirks.md](midnight-quirks.md)), so its silence proves nothing. |
 | `Compat.ItemBindState(idOrLink, link?)` | `C_Item.GetItemInfo` (14th return) + `ScanBound` | Bind token for a stored row, both signals merged by `BestBound`. Returns **state, settled** — `settled` tracks tooltip readability, which is what a retrying caller must wait on. Builds `"item:<id>"` when the row has no link. |
 | `Compat.BestBound(a, b)` | — (pure) | The more specific of two bind verdicts (`WARBAND_UE` > `WARBAND` > the rest). Neither signal is reliable alone, so whichever one sees warbound is believed — a warbound answer is never demoted to BoE/BoP. |

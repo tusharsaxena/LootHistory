@@ -167,7 +167,7 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return r.quantity or 1 end },
   { key = "quality", label = "Quality", width = 64, align = "LEFT",
     desc = "Item quality (Poor → Legendary).",
-    valueFn = function(r) return r.quality ~= nil and NS.Compat.QualityLabel(r.quality) or "" end,
+    valueFn = function(r) return r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "" end,
     sortFn = function(r) return r.quality or 0 end },
   { key = "type", label = "Type", width = 76, align = "LEFT",
     desc = "Item type (subtype in the Item tooltip).",
@@ -257,7 +257,7 @@ local GROUP_OF = {
   end,
   quality = function(r)
     return "q" .. tostring(r.quality or "-"),
-           r.quality ~= nil and NS.Compat.QualityLabel(r.quality) or "\226\128\148"
+           r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "\226\128\148"
   end,
   -- Key stays ISO (stable, unique per calendar day); label matches the Date column's format.
   day = function(r)

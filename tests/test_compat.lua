@@ -296,13 +296,6 @@ test("Compat: BestBound keeps the more specific verdict, never demotes warbound"
   assertEqual(best("BOP", "BOE"), "BOP")               -- neither warbound: first stands
 end)
 
-test("Compat: QualityLabel names qualities", function()
-  assertEqual(NS.Compat.QualityLabel(0), "Poor")
-  assertEqual(NS.Compat.QualityLabel(2), "Uncommon")
-  assertEqual(NS.Compat.QualityLabel(4), "Epic")
-  assertEqual(NS.Compat.QualityLabel(nil), "Poor")
-end)
-
 test("Compat: GetItemInfo surfaces the item class id", function()
   T.mocks.__itemClassID = 12
   local _, _, _, classID = NS.Compat.GetItemInfo("|cffffffff|Hitem:1::::::::80:::::|h[X]|h|r")

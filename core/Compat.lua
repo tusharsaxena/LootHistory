@@ -116,41 +116,13 @@ function Compat.DecodeGUID(guid)
   return kind, npcID
 end
 
--- Reverse map of item-quality color hex (rrggbb) → quality id, for the uncached fallback.
-local qualityByHex
-local function buildQualityByHex()
-  qualityByHex = {}
-  if type(ITEM_QUALITY_COLORS) == "table" then
-    for q = 0, 8 do
-      local c = ITEM_QUALITY_COLORS[q]
-      if c and c.hex then qualityByHex[c.hex:sub(-6)] = q end
-    end
-  end
-end
-
--- Quality id parsed from an item link's color prefix (|cffRRGGBB...). nil if unknown.
-function Compat.QualityFromLink(link)
-  if not link then return nil end
-  local hex = link:match("|c%x%x(%x%x%x%x%x%x)")
-  if not hex then return nil end
-  if not qualityByHex then buildQualityByHex() end
-  return qualityByHex[hex]
-end
-
--- Localized quality label (Poor/Common/…). Falls back to a static English map headlessly
--- and for unknown ids.
-local QUALITY_LABEL_EN = {
-  [0] = "Poor", [1] = "Common", [2] = "Uncommon", [3] = "Rare",
-  [4] = "Epic", [5] = "Legendary", [6] = "Artifact", [7] = "Heirloom", [8] = "WoW Token",
-}
-function Compat.QualityLabel(q)
-  q = q or 0
-  return _G["ITEM_QUALITY" .. q .. "_DESC"] or QUALITY_LABEL_EN[q] or tostring(q)
-end
-
 -- Resilient item info for an item link. Returns itemID, itemName, quality, classID, falling
 -- back to the link's own display data when the item is not yet cached (GetItemInfo returns nil).
 -- classID is the locale-independent item class (Enum.ItemClass.*); nil when uncached/unknown.
+--
+-- THE GUESS IS THIS ADDON'S POLICY AND STAYS HERE. Only the colour primitive under it moved
+-- into LibKa0s-Item-1.0 (core/ItemSetup.lua): a browsable capture log would rather show an
+-- approximate row than lose the drop, where BankLedger's gate refuses an uncached item outright.
 function Compat.GetItemInfo(link)
   local itemID, classID
   if C_Item and C_Item.GetItemInfoInstant then
@@ -162,7 +134,7 @@ function Compat.GetItemInfo(link)
     name, _, quality = C_Item.GetItemInfo(link)
   end
   name = name or (link and link:match("%[(.-)%]"))
-  quality = quality or Compat.QualityFromLink(link)
+  quality = quality or NS.Item.QualityFromLink(link)
   return itemID, name, quality, classID
 end
 
@@ -176,15 +148,6 @@ function Compat.ItemNameQuality(id)
     return name, quality
   end
   return nil
-end
-
--- Request the server to cache an item id so a later ItemNameQuality resolves; `cb` fires once
--- the item is loaded (no-op when the API is absent). Used by the filter panel to fill in names
--- that weren't cached on first paint.
-function Compat.LoadItem(id, cb)
-  if not (id and C_Item and C_Item.RequestLoadItemDataByID) then return end
-  C_Item.RequestLoadItemDataByID(id)
-  if cb and C_Timer and C_Timer.After then C_Timer.After(0.4, cb) end
 end
 
 -- Scan an item link's tooltip for warbound text.

@@ -397,10 +397,11 @@ end)
 -- file quietly failing to resolve its major (a mis-typed name, a vendored copy that did not
 -- register) is a red case rather than a silently degraded addon that still passes everything else.
 
-test("the seven adopted majors all resolved, and the seams are wired to them", function()
+test("the nine adopted majors all resolved, and the seams are wired to them", function()
   for _, major in ipairs({ "LibKa0s-Core-1.0", "LibKa0s-Media-1.0", "LibKa0s-DebugLog-1.0",
                            "LibKa0s-Slash-1.0", "LibKa0s-Options-1.0",
-                           "LibKa0s-Widgets-1.0", "LibKa0s-Env-1.0" }) do
+                           "LibKa0s-Widgets-1.0", "LibKa0s-Env-1.0",
+                           "LibKa0s-Pool-1.0", "LibKa0s-Item-1.0" }) do
     assertTrue(T.mocks.LibStub(major, true) ~= nil, major .. " did not register")
   end
   -- Reached through the addon's own keys rather than through LibStub, so a seam that resolved the
@@ -416,6 +417,10 @@ test("the seven adopted majors all resolved, and the seams are wired to them", f
   assertTrue(type(NS.Meta) == "function" and type(NS.Version) == "function"
     and type(NS.Zone) == "function" and type(NS.PlayerMapID) == "function",
     "Env seam not published")
+  assertTrue(type(NS.Pool) == "table" and type(NS.Pool.Acquire) == "function",
+    "Pool seam not published")
+  assertTrue(type(NS.Item) == "table" and type(NS.Item.QualityLabel) == "function",
+    "Item seam not published")
 end)
 
 test("every seam file resolves its major with the silent flag", function()
@@ -423,7 +428,7 @@ test("every seam file resolves its major with the silent flag", function()
   -- would then take the addon down in exactly the install its stub exists for — and headlessly it
   -- would look fine, because a lookup table that never raises resolves to nil and passes.
   for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
-                          "core/EnvSetup.lua",
+                          "core/EnvSetup.lua", "core/PoolSetup.lua", "core/ItemSetup.lua",
                           "settings/Slash.lua", "settings/OptionsSetup.lua" }) do
     local src = Loader.readFile(path)
     local found = false

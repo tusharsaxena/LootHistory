@@ -34,6 +34,10 @@ core\Compat.lua
 # The LibKa0s-Env seam. After Compat, whose map, zone and TOC-metadata shims it took over;
 # nothing here resolves at load, so the position is conventional rather than load-bearing.
 core\EnvSetup.lua
+# The LibKa0s-Item seam. LOAD-BEARING POSITION: publishes NS.Item, whose QualityLabel
+# core\Constants.lua calls at file load to build the quality threshold labels. Below
+# Constants and that loop raises on a nil field.
+core\ItemSetup.lua
 # LOAD-BEARING POSITION: publishes NS.MediaFont, which core\Constants.lua reads at file
 # load to resolve FONT_MONO. Below Constants and every consumer silently gets the client font.
 core\MediaSetup.lua
