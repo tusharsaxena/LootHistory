@@ -425,6 +425,14 @@ end
 
 local function EnsureFrame()
   if frame then return frame end
+  -- REFUSE TO DRAW with no LibKa0s, and decide it before creating anything. The Data Set picker is
+  -- this modal's only control and it is a LibKa0s-Widgets-1.0 dropdown, so a degraded install means
+  -- there is no modal worth opening. Asked through NS.HasWidgets rather than by building the
+  -- dropdown, because this frame carries a GLOBAL NAME: probing by build-and-discard would strand
+  -- one LootHistoryExportWindow per :Open call. Nothing is memoised either way -- `frame` stays nil
+  -- so a later session with the library present still builds a real modal, and :Open explains the
+  -- absence through the shared cause clause.
+  if not (NS.HasWidgets and NS.HasWidgets()) then return nil end
   frame = CreateFrame("Frame", "LootHistoryExportWindow", UIParent, "BackdropTemplate")
   frame:SetSize(372, 150)
   frame:SetPoint("CENTER")
@@ -432,6 +440,16 @@ local function EnsureFrame()
   -- menu; the copy window (FULLSCREEN) still opens above this modal.
   frame:SetFrameStrata("DIALOG")
   frame:EnableMouse(true); frame:SetMovable(true); frame:SetClampedToScreen(true)
+
+  -- Built FIRST, before any other child, so that a seam which somehow answers nil despite the
+  -- library having registered still costs one bare frame rather than a half-built modal wired to a
+  -- nil dropdown. Positioned further down, with the rest of the layout.
+  local ds = NS.MakeDropdown(frame, 148)
+  if not ds then
+    frame:Hide()
+    frame = nil
+    return nil
+  end
 
   local tbar = CreateFrame("Frame", nil, frame)
   tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(26)
@@ -446,8 +464,9 @@ local function EnsureFrame()
       :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
   end
 
-  -- Data Set dropdown, spanning the full button-row width.
-  local ds = NS.Browser:MakeDropdown(frame, 148)
+  -- Data Set dropdown (built above, as the library probe), spanning the full button-row width.
+  -- Through core/WidgetsSetup.lua's one factory, like the filter bar's nine -- not through
+  -- NS.Browser, which no longer owns a widget of its own.
   ds:SetHeight(24)
   ds:ClearAllPoints()
   ds:SetPoint("TOPLEFT", 16, -40)
@@ -468,6 +487,12 @@ local function EnsureFrame()
   csvBtn:SetPoint("TOPRIGHT", -16, -80)
 
   if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
+  -- CLOSE THE SHARED POPUP ON EVERY NON-CLICK CLOSE PATH. The dropdown menu is a process-wide
+  -- singleton parented to UIParent at FULLSCREEN_DIALOG -- this frame's Hide() cannot reach it, and
+  -- before the adoption this modal had no OnHide at all, so Escape (via the UISpecialFrames
+  -- registration below) or the title-bar close left the Data Set menu floating over the game with
+  -- nothing left to hide it. One hook covers both, because both route through Hide().
+  frame:HookScript("OnHide", function() NS.CloseMenu() end)
   frame:Hide()
   if type(UISpecialFrames) == "table" then
     table.insert(UISpecialFrames, "LootHistoryExportWindow")
@@ -481,6 +506,12 @@ end
 function E:Open(cfg)
   config = cfg or {}
   local f = EnsureFrame()
+  if not f then
+    -- Degraded install: say why, through the one shared cause clause every LibKa0s seam in this
+    -- addon appends its own consequence to, rather than opening a window with a dead control.
+    NS.Print(NS.LIBKA0S_MISSING .. ", so the export window is unavailable.")
+    return
+  end
   if f.titleFS then f.titleFS:SetText(config.title or "Export") end
   centerOnBrowser(f)
   f:Show()

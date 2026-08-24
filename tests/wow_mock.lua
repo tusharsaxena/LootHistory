@@ -128,6 +128,16 @@ return function()
     return unpack(parts)
   end
 
+  -- ── FauxScrollFrame ────────────────────────────────────────────────────────
+  -- Real client globals the kit does not carry, and modules/BrowserTable.lua's Bind() calls all
+  -- three the moment the History pane is attached. Without them any suite that opens the window
+  -- raises on a global that EXISTS in the client -- a mock gap, not addon behavior. The offset is
+  -- a fixed 0: nothing headless scrolls, and a suite that needs a scrolled view would set it here
+  -- rather than being handed a lie by default.
+  M.FauxScrollFrame_Update = function() end
+  M.FauxScrollFrame_GetOffset = function() return 0 end
+  M.FauxScrollFrame_OnVerticalScroll = function() end
+
   -- ── frames that remember their size ────────────────────────────────────────
   -- The kit's stub answers 0 from GetWidth forever and deliberately leaves the setters undefined
   -- (so a suite can spy on them by rawsetting a recorder). Nothing here spies on a setter, and one
@@ -152,7 +162,60 @@ return function()
     function f:GetStringWidth() return 0 end
     return f
   end
+
+  -- ── a FontString is not its parent frame, and it raises before it has a face ─────────────
+  --
+  -- The kit's stub answers every PascalCase key from its metatable, so `CreateFontString` hands
+  -- back THE FRAME ITSELF and `SetText` is a silent no-op. Both are friendlier than the client,
+  -- and both hide real bugs this addon can now ship:
+  --
+  --   * a label and its glyph are two FontStrings on ONE pooled menu row
+  --     (LibKa0s-Widgets-1.0's makeMenuRow). With the aliasing, writing the label and writing
+  --     the glyph write the same object, and a suite cannot tell the two columns apart at all.
+  --   * a FontString created BARE has no font, and the live client answers
+  --     `FontString:SetText(): Font not set` on the very next call. LibKa0s v1.11.0 and v1.11.1
+  --     shipped exactly that crash on the first click of a dropdown, and 553 green library cases
+  --     sailed over it because none of them built a real row.
+  --
+  -- So: a distinct object per call, its face taken from the template argument (nil when created
+  -- bare, and settable afterwards by SetFont/SetFontObject), and SetText RAISES while the face is
+  -- nil. `GetStringWidth` stays 0, as the kit's does and as settings/Panel.lua's row arithmetic
+  -- was written against -- fidelity here is about the font and the identity, not the metrics.
+  local function stubFontString(template)
+    local fs = M.__stubFrame()
+    fs.__isFontString = true
+    fs.__font = template   -- a template argument IS a face; nil means the client has none yet
+    function fs:SetFont(path, size, flags)
+      self.__font, self.__fontSize, self.__fontFlags = path, size, flags
+      return self
+    end
+    function fs:SetFontObject(o) self.__font = o; return self end
+    function fs:GetFont() return self.__font, self.__fontSize, self.__fontFlags end
+    function fs:SetText(t)
+      if self.__font == nil then
+        error("FontString:SetText(): Font not set", 2)
+      end
+      self.__text = (t ~= nil) and tostring(t) or nil
+      return self
+    end
+    function fs:GetText() return self.__text end
+    function fs:SetTextColor(r, g, b, a) self.__color = { r, g, b, a }; return self end
+    function fs:GetTextColor()
+      local c = self.__color or {}
+      return c[1], c[2], c[3], c[4]
+    end
+    function fs:GetStringWidth() return 0 end
+    return fs
+  end
+  M.__stubFontString = stubFontString
+  local baseFrame = M.__stubFrame
+  M.__stubFrame = function()
+    local f = baseFrame()
+    function f:CreateFontString(_, _, template) return stubFontString(template) end
+    return f
+  end
   M.CreateFrame = function() return M.__stubFrame() end
+  M.UIParent = M.__stubFrame()
 
   -- ── AceGUI container methods this addon uses ───────────────────────────────
   -- The kit's widget factory models the setters LibKa0s's own makers call. The inverted set picker

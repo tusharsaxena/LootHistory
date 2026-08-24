@@ -17,12 +17,6 @@ local DBIcon                          -- LibDBIcon-1.0, resolved lazily in Setup
 -- TODO (post-1.0.0): make the skin user-configurable (border color/size, background color/alpha,
 -- font) via settings. That now belongs at the LibKa0s seam, not here. Tracked as a GitHub issue.
 local WHITE = "Interface\\Buttons\\WHITE8X8"
--- Inline check glyph for selected multi-select menu items (the default font has no ✓ glyph,
--- so, like the sort arrows, it's texture markup sized to the line height).
--- The collection's `confirm` tick through core/MediaSetup.lua's markup helper, falling back to
--- the Blizzard check this drew before when there is no library to ask.
-local CHECK_MARKUP =
-  NS.IconMarkup("confirm", "Interface\\Buttons\\UI-CheckBox-Check") .. " "
 local SKIN = {
   tabActive   = { 1.0, 0.82, 0.0 },          -- active tab label (gold)
   tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (gray)
@@ -207,238 +201,18 @@ end
 
 B.activeFilter = {}
 
--- One shared popup menu, reused by every dropdown; a full-screen catcher closes it on an
--- outside click. Menu sits above the HIGH-strata window; the catcher one strata below it.
-local menu
-local ROW_H = 16   -- menu row height; acquireRow and Populate size and stack against this
-
--- Lazily build menu row `i`, or hand back the existing one. Buttons are RECYCLED across every
--- dropdown, so this only ever does construction — everything per-populate (width, anchor, text,
--- color, OnClick) is re-set by Populate on each call.
-local function acquireRow(m, i)
-  local b = m.buttons[i]
-  if not b then
-    b = CreateFrame("Button", nil, m)
-    b:SetHeight(ROW_H)
-    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fs:SetPoint("LEFT", 8, 0)
-    fs:SetPoint("RIGHT", -8, 0)
-    fs:SetJustifyH("LEFT")
-    b.fs = fs
-    local hl = b:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints()
-    hl:SetColorTexture(1, 0.82, 0, 0.15)
-    m.buttons[i] = b
-  end
-  return b
-end
-
--- Selection state: single-select highlights the one active value; multi-select highlights
--- every value in the set (and highlights "all" when the set is empty = no filter). An option
--- may carry its own `isActive` (e.g. the "Character: Current" preset) to decide its highlight.
-local function optionSelected(dd, opt)
-  if opt.isActive then
-    return opt.isActive(dd) and true or false
-  elseif dd.multi then
-    return (opt.value == "all") and (not next(dd._selected)) or (dd._selected[opt.value] or false)
-  end
-  return (opt.value == dd._value)
-end
-
--- Paint one row: a leading check marks a selected multi-select item; an optional inline icon
--- (e.g. a character's class icon) prefixes the label. The active/selected option is gold;
--- otherwise an option may carry its own color (quality color, class color) and falls back to
--- near-white.
-local function styleOption(b, dd, opt, selected)
-  local check = (dd.multi and selected) and CHECK_MARKUP or ""
-  local icon = (opt.icon and opt.icon ~= "") and (opt.icon .. " ") or ""
-  b.fs:SetText(check .. icon .. opt.label)
-  if selected then
-    b.fs:SetTextColor(1, 0.82, 0)
-  elseif opt.color then
-    b.fs:SetTextColor(opt.color[1], opt.color[2], opt.color[3])
-  else
-    b.fs:SetTextColor(0.9, 0.9, 0.9)
-  end
-end
-
--- One row click: multi-select toggles in place and keeps the menu open so several can be picked
--- in one visit; single-select commits the value and closes.
-local function optionClicked(m, dd, opt)
-  if dd.multi then
-    dd:ToggleSelected(opt.value)
-    m:Populate(dd)
-    if dd.onMultiSelect then dd.onMultiSelect(dd._selected) end
-  else
-    dd:SetValue(opt.value, opt.label)
-    m:Hide()
-    if dd.onSelect then dd.onSelect(opt.value) end
-  end
-end
-
-local function EnsureMenu()
-  if menu then return menu end
-  menu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-  menu:SetFrameStrata("FULLSCREEN_DIALOG")
-  menu:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
-  menu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
-  menu:SetBackdropBorderColor(0, 0, 0, 1)
-  menu:Hide()
-  menu.buttons = {}
-
-  local catcher = CreateFrame("Button", nil, UIParent)
-  catcher:SetAllPoints(UIParent)
-  catcher:SetFrameStrata("FULLSCREEN")
-  catcher:Hide()
-  catcher:SetScript("OnClick", function() menu:Hide() end)
-  menu.catcher = catcher
-  menu:SetScript("OnHide", function() catcher:Hide() end)
-
-  function menu:Populate(dd)
-    for _, b in ipairs(self.buttons) do b:Hide() end
-    local opts = dd._options or {}
-    local w = math.max(dd:GetWidth(), 90)
-    for i, opt in ipairs(opts) do
-      local b = acquireRow(self, i)
-      b:SetWidth(w)
-      b:ClearAllPoints()
-      b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * ROW_H)
-      styleOption(b, dd, opt, optionSelected(dd, opt))
-      b:SetScript("OnClick", function() optionClicked(menu, dd, opt) end)
-      b:Show()
-    end
-    self:SetSize(w, #opts * ROW_H + 8)
-  end
-  return menu
-end
-
--- A preset option that reports itself active names the whole selection (e.g. "Character:
--- Current"). Checked first because the label must hold even when the selected value has no
--- option row — the option lists are data-driven, so a character with no loot in the current
--- dataset isn't listed, and the button would otherwise fall back to "All".
-local function activePresetLabel(dd)
-  for _, o in ipairs(dd._options or {}) do
-    if o.isActive and o.isActive(dd) then return o.label end
-  end
-  return nil
-end
-
--- Label every selected value: from its option row when present, else the raw value, so a
--- selection that isn't in the current option list still counts and reads sensibly.
-local function selectionLabels(dd)
-  local labels = {}
-  for k in pairs(dd._selected) do labels[k] = tostring(k) end
-  for _, o in ipairs(dd._options or {}) do
-    if o.value ~= "all" and labels[o.value] ~= nil then labels[o.value] = o.label end
-  end
-  return labels
-end
-
--- The collapsed text for a labeled selection: the "All" label when nothing is picked, the single
--- selection's label when one is, else "<Prefix>: N selected" (prefix = the All label up to its colon).
-local function summarizeSelection(labels, allLabel)
-  local n, firstLabel
-  for _, lbl in pairs(labels) do
-    n = (n or 0) + 1
-    firstLabel = firstLabel or lbl
-  end
-  if not n then return allLabel end
-  if n == 1 then return firstLabel end
-  return (allLabel:match("^(.-):") or allLabel) .. ": " .. n .. " selected"
-end
-
--- A dropdown button: shows the current label + a ▼; clicking opens the shared menu.
-local function MakeDropdown(parent, width)
-  local dd = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  dd:SetSize(width, 20)
-  dd:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                   insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  dd:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  dd:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-
-  local fs = dd:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  fs:SetPoint("LEFT", 6, 0)
-  fs:SetPoint("RIGHT", -16, 0)
-  fs:SetJustifyH("LEFT")
-  dd.text = fs
-
-  -- The disclosure mark. A texture and not a glyph because the default WoW font has no ▼ and
-  -- renders it as a box; the collection's own `chevron-down` when LibKa0s is there, and the
-  -- Blizzard arrow this drew before when it is not. NIL IS A REAL ANSWER -- the ladder stays.
-  -- One edit, nine controls: eight filter dropdowns plus the export modal's Data Set picker.
-  -- The tint survives either way: the shared art ships WHITE precisely so a multiply lands.
-  local arrow = dd:CreateTexture(nil, "OVERLAY")
-  arrow:SetSize(12, 12)
-  arrow:SetPoint("RIGHT", -4, 0)
-  arrow:SetTexture((NS.Icon and NS.Icon("chevron-down")) or "Interface\\Buttons\\Arrow-Down-Up")
-  arrow:SetVertexColor(0.7, 0.7, 0.72)
-
-  dd._selected = {}   -- multi-select value set (empty = "All"); only used when dd.multi is true
-  function dd:SetOptions(opts)
-    self._options = opts
-    if self.multi then self:UpdateMultiLabel() end
-  end
-  function dd:SetValue(v, label) self._value = v; self.text:SetText(label or "") end
-  -- Set the value and derive its display label from the current options (used when applying a
-  -- saved view). Falls back to the raw value if the option isn't present.
-  function dd:SelectValue(v)
-    for _, o in ipairs(self._options or {}) do
-      if o.value == v then self:SetValue(o.value, o.label); return end
-    end
-    self:SetValue(v, tostring(v))
-  end
-
-  -- ── Multi-select ──
-  -- Mark this dropdown multi-select: clicks toggle values into _selected (empty = no filter).
-  function dd:SetMulti(on) self.multi = on and true or false end
-  -- Replace the selection with a copy of `set` (nil/empty = All) and refresh the button label.
-  function dd:SetSelected(set)
-    local s = {}
-    if type(set) == "table" then for k, on in pairs(set) do if on then s[k] = true end end end
-    self._selected = s
-    self:UpdateMultiLabel()
-  end
-  -- Toggle one value; the "all" sentinel clears the whole set. Refreshes the button label.
-  -- `presets` (optional, per-dropdown: { [value] = function(dd) ... end }) lets specific option
-  -- values REPLACE the selection instead of toggling into it — e.g. the Character dropdown's
-  -- "current" item, a one-click "only me" preset. A preset function is responsible for setting
-  -- `dd._selected` itself; UpdateMultiLabel then runs as usual.
-  function dd:ToggleSelected(value)
-    if self.presets and self.presets[value] then
-      self.presets[value](self)
-    elseif value == "all" then
-      self._selected = {}
-    else
-      self._selected[value] = (not self._selected[value]) or nil
-    end
-    self:UpdateMultiLabel()
-  end
-  -- Collapsed-button summary: the "All" label when empty, the single option's label when one is
-  -- picked, else "<Prefix>: N selected" (prefix taken from the "all" sentinel, e.g. "Quality").
-  function dd:UpdateMultiLabel()
-    local preset = activePresetLabel(self)
-    if preset then self.text:SetText(preset); return end
-    local allLabel = (self._options and self._options[1] and self._options[1].label) or "All"
-    self.text:SetText(summarizeSelection(selectionLabels(self), allLabel))
-  end
-
-  dd:SetScript("OnClick", function(self2)
-    local m = EnsureMenu()
-    if m:IsShown() and m._owner == self2 then m:Hide(); return end
-    m._owner = self2
-    m:Populate(self2)
-    m:ClearAllPoints()
-    m:SetPoint("TOPLEFT", self2, "BOTTOMLEFT", 0, -1)
-    m.catcher:Show()
-    m:Show()
-  end)
-  return dd
-end
-
--- Shared factory so other modules (e.g. Export) can build a flat-skin dropdown that reuses the
--- same popup menu machinery. Returns the same `dd` control MakeDropdown produces.
-function B:MakeDropdown(parent, width) return MakeDropdown(parent, width) end
-
+-- THE DROPDOWNS ARE THE LIBRARY'S. Everything that used to stand here -- a MakeDropdown factory,
+-- a FULLSCREEN_DIALOG singleton popup with pooled rows, a full-screen click-catcher and six
+-- helpers, about two hundred lines -- is now LibKa0s-Widgets-1.0, reached through
+-- core/WidgetsSetup.lua's NS.MakeDropdown / NS.CloseMenu. This file was where the widget was
+-- written, and it was the third copy of it in the collection; the library carries the two seams
+-- this addon's Character filter needs (`opt.isActive` and `dd.presets`, both new at Widgets minor
+-- 4 and both ported upstream from here), so the adoption lost nothing. The one behavior that
+-- lived here and has no library equivalent is `opt.icon`: a class icon is now folded into the
+-- option's LABEL as inline markup, which the library measures (see charOptions below).
+--
+-- NS.MakeDropdown answers nil on an install with no library, and BuildFilterBar refuses to draw
+-- rather than building dead controls -- see the guard at the top of it.
 -- Item-quality color as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
 local function qualityColor(q)
   local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
@@ -542,8 +316,14 @@ local function dataset()
 end
 
 -- Sort distinct options by label and prefix the "All" sentinel (kept first regardless of sort).
-local function withAll(allLabel, items)
-  table.sort(items, function(a, b) return a.label < b.label end)
+--
+-- `sortText` is an optional per-item sort key, and exactly one caller needs it: the Character rows
+-- fold a class icon into their LABEL as inline markup, because LibKa0s-Widgets-1.0 has no `icon`
+-- field on an option and measures markup in a label instead. Sorting those on the label would order
+-- the menu by texture path rather than by character name.
+local function withAll(allLabel, items, sortText)
+  local keyOf = sortText or function(o) return o.label end
+  table.sort(items, function(a, b) return keyOf(a) < keyOf(b) end)
   table.insert(items, 1, { value = "all", label = allLabel })
   return items
 end
@@ -566,18 +346,22 @@ local function charOptions()
     local c = r.char
     if c and not seen[c] then
       seen[c] = true
-      -- Carry the class token so the menu item can show the inline class icon + class color,
-      -- matching the Character column.
+      -- The class icon is FOLDED INTO THE LABEL, not carried in a field of its own. The widget is
+      -- LibKa0s-Widgets-1.0's and it has no `icon` seam -- deliberately: inline |T...|t / |A...|a
+      -- markup in a label is measured by its menuWidth (a class icon plus a Name-Realm is the
+      -- example in its own comment), so a label is the supported way to put art on a row. The
+      -- class color still rides in `color`, matching the Character column.
       local icon = (NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
         and NS.BrowserTable:ClassIconMarkup(r.classFile)) or ""
       local cc = r.classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[r.classFile]
       items[#items + 1] = {
-        value = c, label = c, icon = icon,
+        value = c, label = (icon ~= "" and (icon .. " " .. c) or c),
         color = cc and { cc.r, cc.g, cc.b } or nil,
       }
     end
   end
-  local opts = withAll("Character: All", items)
+  -- Sorted on the character name, not on the icon-prefixed label -- see withAll's `sortText`.
+  local opts = withAll("Character: All", items, function(o) return o.value end)
   -- "Character: Current" is a one-click preset (see dd.char.presets below), not a real char value —
   -- inserted right after the "All" sentinel so the menu reads All / Current / <each character>. Its
   -- `isActive` lights it gold (like "All") when the selection is exactly the current player.
@@ -692,7 +476,6 @@ B._savedViewOrStock = savedViewOrStock
 B._setToFilter  = setToFilter
 B._asSet        = asSet
 B._withAll      = withAll
-B._optionSelected = optionSelected   -- the menu's highlight decision; the rest of a row is frames
 B._options = {
   source = sourceOptions, char = charOptions, itemType = typeOptions,
   itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
@@ -926,7 +709,15 @@ end
 function B:BuildFilterBar(bar)
   local ROW1, ROW2 = 0, -24
 
-  local dd = {}
+  -- REFUSE TO DRAW rather than build dead controls. The nine dropdowns below are the whole point
+  -- of this bar, and NS.MakeDropdown answers nil on an install with no LibKa0s: a bar of buttons
+  -- that open no menu is strictly worse than no bar. The FIRST dropdown is the probe -- one real
+  -- control, not a throwaway -- and `self._dd` is published only once it exists, so it stays nil
+  -- on a degraded install. That is the state every reader downstream (RefreshFilterOptions,
+  -- CaptureView, ApplyView, SetCharSet) has always had to tolerate, because the filter paths run
+  -- headlessly too.
+  local dd = { group = NS.MakeDropdown(bar, 120) }
+  if not dd.group then return end
   self._dd = dd
 
   -- ── Row 1: Group by · Search · Clear ──
@@ -934,7 +725,6 @@ function B:BuildFilterBar(bar)
   -- anchored above the Export button (not the bar's right edge) and resized so its span (three
   -- buttons + two 6px gaps) exactly matches Export's width (B:ExportWidth), so the cluster sits
   -- flush above it and both stay static as the window widens.
-  dd.group = MakeDropdown(bar, 120)
   dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
@@ -995,7 +785,7 @@ function B:BuildFilterBar(bar)
 
   -- ── Row 2: column filters, left→right in the same order the columns appear in the table:
   --   Date · Bound · Quality · Type · SubType · Source · Zone · Character ──
-  dd.date = MakeDropdown(bar, 120)
+  dd.date = NS.MakeDropdown(bar, 120)
   dd.date:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
   dd.date:SetOptions(DATE_OPTIONS)
   dd.date:SetValue("all", "Date: All")
@@ -1005,7 +795,7 @@ function B:BuildFilterBar(bar)
   end
 
   -- Bound (multi-select): binding-state filter. "NONE" matches unbound records.
-  dd.bound = MakeDropdown(bar, 96)
+  dd.bound = NS.MakeDropdown(bar, 96)
   dd.bound:SetPoint("LEFT", dd.date, "RIGHT", 8, 0)
   dd.bound:SetMulti(true)
   dd.bound:SetOptions(boundOptions())
@@ -1016,7 +806,7 @@ function B:BuildFilterBar(bar)
 
   -- Quality/Type/Source/Zone/Character are multi-select: their onMultiSelect receives the current
   -- selection set (empty = All), copied into the matching filter field. The "all" menu item clears.
-  dd.quality = MakeDropdown(bar, 100)
+  dd.quality = NS.MakeDropdown(bar, 100)
   dd.quality:SetPoint("LEFT", dd.bound, "RIGHT", 8, 0)
   dd.quality:SetMulti(true)
   dd.quality:SetOptions(qualityOptions())
@@ -1025,7 +815,7 @@ function B:BuildFilterBar(bar)
     ApplyFilter()
   end
 
-  dd.type = MakeDropdown(bar, 112)
+  dd.type = NS.MakeDropdown(bar, 112)
   dd.type:SetPoint("LEFT", dd.quality, "RIGHT", 8, 0)
   dd.type:SetMulti(true)
   dd.type.onMultiSelect = function(set)
@@ -1033,7 +823,7 @@ function B:BuildFilterBar(bar)
     ApplyFilter()
   end
 
-  dd.subtype = MakeDropdown(bar, 100)
+  dd.subtype = NS.MakeDropdown(bar, 100)
   dd.subtype:SetPoint("LEFT", dd.type, "RIGHT", 8, 0)
   dd.subtype:SetMulti(true)
   dd.subtype.onMultiSelect = function(set)
@@ -1041,7 +831,7 @@ function B:BuildFilterBar(bar)
     ApplyFilter()
   end
 
-  dd.source = MakeDropdown(bar, 100)
+  dd.source = NS.MakeDropdown(bar, 100)
   dd.source:SetPoint("LEFT", dd.subtype, "RIGHT", 8, 0)
   dd.source:SetMulti(true)
   dd.source.onMultiSelect = function(set)
@@ -1049,7 +839,7 @@ function B:BuildFilterBar(bar)
     ApplyFilter()
   end
 
-  dd.zone = MakeDropdown(bar, 146)
+  dd.zone = NS.MakeDropdown(bar, 146)
   dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 8, 0)
   dd.zone:SetMulti(true)
   dd.zone.onMultiSelect = function(set)
@@ -1057,7 +847,7 @@ function B:BuildFilterBar(bar)
     ApplyFilter()
   end
 
-  dd.char = MakeDropdown(bar, 146)
+  dd.char = NS.MakeDropdown(bar, 146)
   dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 8, 0)
   dd.char:SetMulti(true)
   -- "Current" is a preset, not a toggle: it REPLACES the selection with just the current player's
@@ -1280,7 +1070,9 @@ local function EnsureFrame()
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
   end)
   frame:HookScript("OnHide", function()
-    if menu then menu:Hide() end
+    -- The popup is a process-wide singleton parented to UIParent; this frame's own Hide cannot
+    -- reach it. This is also the Escape / UISpecialFrames path.
+    NS.CloseMenu()
     if NS.State.debug and NS.Debug then NS.Debug("UI", "window hidden") end
   end)
 
@@ -1306,7 +1098,7 @@ function B:Show()
 end
 
 function B:Hide()
-  if menu then menu:Hide() end
+  NS.CloseMenu()   -- the slash-command close path; frame:Hide() below does not reach the popup
   if frame then frame:Hide() end
 end
 

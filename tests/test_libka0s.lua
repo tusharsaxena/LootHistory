@@ -13,6 +13,7 @@ local test, assertEqual, assertTrue, assertFalse =
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
   "libs/LibKa0s/Media.lua",
+  "libs/LibKa0s/Widgets.lua",
   "libs/LibKa0s/DebugLog.lua",
   "libs/LibKa0s/Slash.lua",
   "libs/LibKa0s/Options.lua",
@@ -199,6 +200,28 @@ test("parity: the Core seam publishes the same NS members on both paths", functi
   T.assertSurfaceParity(live, degraded, "Core seam (NS members)")
 end)
 
+test("parity: the Widgets seam publishes the same NS members on both paths", function()
+  -- Derived from the seam file, exactly as the Core case above is:
+  --   grep -nE "^\s*function NS\.[A-Za-z_]+" core/WidgetsSetup.lua
+  -- Both members exist on both paths BY CONSTRUCTION here -- the seam defines them outside any
+  -- `if W` branch and each degrades inside itself (nil dropdown, no-op close). That is the shape
+  -- worth pinning: the alternative, defining them only when the library resolved, is what turns a
+  -- missing library into "attempt to call a nil value" at the first close of a window.
+  local live, degraded = {}, {}
+  local seen = {}
+  for line in Loader.readFile("core/WidgetsSetup.lua"):gmatch("[^\r\n]+") do
+    local key = line:match("^%s*function NS%.([A-Za-z_][A-Za-z0-9_]*)")
+    if key and not seen[key] then
+      seen[key] = true
+      live[key], degraded[key] = NS[key], degradedNS[key]
+    end
+  end
+  assertTrue(seen.MakeDropdown and seen.CloseMenu,
+    "the derivation found neither NS.MakeDropdown nor NS.CloseMenu — core/WidgetsSetup.lua changed "
+    .. "shape and this case is now asserting nothing")
+  T.assertSurfaceParity(live, degraded, "Widgets seam (NS members)")
+end)
+
 test("parity: the Slash stub carries the whole live surface", function()
   -- Members from: grep -nE "^Sl\.[A-Za-z]|^function Sl[.:]" settings/Slash.lua
   T.assertSurfaceParity(NS.Slash, degradedNS.Slash, "Slash stub")
@@ -271,7 +294,7 @@ end)
 
 test("no descriptor in this addon is handed NS.L", function()
   local SEAMS = {
-    "core/CoreSetup.lua", "core/DebugLogSetup.lua",
+    "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
     "settings/Slash.lua", "settings/OptionsSetup.lua", "settings/Panel.lua",
     "core/PerfSetup.lua",
   }
@@ -370,24 +393,29 @@ end)
 -- file quietly failing to resolve its major (a mis-typed name, a vendored copy that did not
 -- register) is a red case rather than a silently degraded addon that still passes everything else.
 
-test("the four adopted majors all resolved, and the seams are wired to them", function()
-  for _, major in ipairs({ "LibKa0s-Core-1.0", "LibKa0s-DebugLog-1.0",
-                           "LibKa0s-Slash-1.0", "LibKa0s-Options-1.0" }) do
+test("the six adopted majors all resolved, and the seams are wired to them", function()
+  for _, major in ipairs({ "LibKa0s-Core-1.0", "LibKa0s-Media-1.0", "LibKa0s-DebugLog-1.0",
+                           "LibKa0s-Slash-1.0", "LibKa0s-Options-1.0",
+                           "LibKa0s-Widgets-1.0" }) do
     assertTrue(T.mocks.LibStub(major, true) ~= nil, major .. " did not register")
   end
   -- Reached through the addon's own keys rather than through LibStub, so a seam that resolved the
   -- library and then failed to publish it is caught too.
   assertTrue(NS.Print ~= nil and NS.SafeToString ~= nil, "Core seam not published")
+  assertTrue(type(NS.Icon) == "function" and type(NS.MediaFont) == "function",
+    "Media seam not published")
   assertTrue(NS.DebugLog ~= nil and NS.Debug ~= nil, "DebugLog seam not published")
   assertTrue(NS.Slash.CliList ~= nil and NS.Slash.LandingRows ~= nil, "Slash seam not published")
   assertTrue(NS.Options ~= nil and NS.Options.RenderRows ~= nil, "Options seam not published")
+  assertTrue(type(NS.MakeDropdown) == "function" and type(NS.CloseMenu) == "function",
+    "Widgets seam not published")
 end)
 
 test("every seam file resolves its major with the silent flag", function()
   -- LibStub without `, true` RAISES on a missing library. A seam whose whole purpose is to degrade
   -- would then take the addon down in exactly the install its stub exists for — and headlessly it
   -- would look fine, because a lookup table that never raises resolves to nil and passes.
-  for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua",
+  for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
                           "settings/Slash.lua", "settings/OptionsSetup.lua" }) do
     local src = Loader.readFile(path)
     local found = false

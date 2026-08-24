@@ -314,7 +314,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (54)
+### test_browser.lua (50)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -338,7 +338,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser: bound options follow the fixed binding order, not data order
 - Browser: an unbound record surfaces as the NONE sentinel
 - Browser: character options list each looter once, All then Current first
-- Browser: character options carry the class color and icon markup
+- Browser: character options carry the class color, and the icon folded into the label
 - Browser: the Current preset lights up only for exactly the logged-in character
 - Browser: the stock view filters nothing and sorts newest-first
 - Browser: with no saved view, Clear falls back to the stock view
@@ -356,10 +356,6 @@ badge and any count quoted in the docs must agree with it.
 - Browser.CaptureView stores unset column filters as empty sets, never nil
 - Browser.CaptureView omits the character scope (it is session-only)
 - Browser.SaveView then ResetView clears the stored default
-- Browser: a single-select row is highlighted when it holds the current value
-- Browser: a multi-select row is highlighted when its value is in the selection
-- Browser: the multi-select All sentinel lights up only while nothing is selected
-- Browser: an option's own isActive beats both selection rules
 - Browser: an empty multi-select reads as the All sentinel's own label
 - Browser: a dropdown with no options at all still labels itself All
 - Browser: one selected value reads as that option's label
@@ -644,7 +640,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the suite list matches tests/test_*.lua in both directions
 - Harness: the runner's suite list has no duplicates
 
-### test_libka0s.lua (24)
+### test_libka0s.lua (25)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -656,6 +652,7 @@ badge and any count quoted in the docs must agree with it.
 - every window this addon owns closes through that one wrapper
 - degraded install: a bare /lh prints help listing the verbs that still work
 - parity: the Core seam publishes the same NS members on both paths
+- parity: the Widgets seam publishes the same NS members on both paths
 - parity: the Slash stub carries the whole live surface
 - parity: the DebugLog stub carries the whole live surface
 - parity: the Options stub carries the whole live surface
@@ -667,7 +664,7 @@ badge and any count quoted in the docs must agree with it.
 - no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
 - every file of LibKa0s.xml is vendored and loads
 - the vendored copy carries the library's MIT license
-- the four adopted majors all resolved, and the seams are wired to them
+- the six adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 
@@ -675,6 +672,26 @@ badge and any count quoted in the docs must agree with it.
 
 - libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles
 - tests/_kit is the test kit that shipped with that release
+
+### test_widgets.lua (17)
+
+- Widgets: the seam builds a real library dropdown, art passed as parameters
+- Widgets: no option table in this addon sets a glyph
+- Widgets: the first click builds real menu rows through the library's own makeMenuRow
+- Widgets: a selected multi-select row is ticked and gold
+- Widgets: the Character preset row lights up through its own isActive
+- Widgets: the Character preset is a one-click 'only me', not a toggle of its own value
+- Widgets: a selected character with no option row still counts in the collapsed label
+- Widgets: the filter bar builds all nine of its dropdowns through the seam
+- Widgets: the Character options fold the class icon into the label, not into an icon field
+- Widgets: the History window's OnHide closes the shared popup
+- Widgets: Browser:Hide closes the shared popup
+- Widgets: the export modal's close path closes the shared popup
+- Widgets: every frame that owns a dropdown sits below the menu's FULLSCREEN_DIALOG
+- degraded install: the dropdown seam answers nil and CloseMenu is a safe no-op
+- degraded install: the filter bar refuses to draw and the browser still comes up
+- degraded install: the export modal's refusal builds no frame, on the first Open or the tenth
+- degraded install: the export modal refuses rather than calling methods on a nil dropdown
 
 ## Totals
 
@@ -690,7 +707,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 33 |
 | test_database.lua | 58 |
 | test_stats.lua | 19 |
-| test_browser.lua | 54 |
+| test_browser.lua | 50 |
 | test_browsertable.lua | 51 |
 | test_export.lua | 22 |
 | test_debuglog.lua | 22 |
@@ -699,6 +716,7 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 58 |
 | test_panel.lua | 25 |
 | test_harness.lua | 5 |
-| test_libka0s.lua | 24 |
+| test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
-| **Total** | **607** |
+| test_widgets.lua | 17 |
+| **Total** | **621** |

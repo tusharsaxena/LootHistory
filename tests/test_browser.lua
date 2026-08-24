@@ -231,16 +231,24 @@ test("Browser: character options list each looter once, All then Current first",
   end)
 end)
 
-test("Browser: character options carry the class color and icon markup", function()
-  withFixture(FIXTURE, function()
-    local byValue = {}
-    for _, o in ipairs(B._options.char()) do byValue[o.value] = o end
-    assertTrue(byValue["Ka0z-Realm"].color ~= nil, "a known class is color-tinted")
-    assertTrue(byValue["Ka0z-Realm"].icon ~= "", "a known class carries inline icon markup")
-    assertEqual(byValue["Nomad-Other"].color, nil, "an unknown class stays untinted")
-    assertEqual(byValue["Nomad-Other"].icon, "", "an unknown class carries no icon")
+test("Browser: character options carry the class color, and the icon folded into the label",
+  function()
+    -- LibKa0s-Widgets-1.0 has no `icon` field on an option -- deliberately, because it MEASURES
+    -- inline markup in a label. So the class icon is prefixed onto the label string and the
+    -- unclassed character's label is the bare name.
+    withFixture(FIXTURE, function()
+      local byValue = {}
+      for _, o in ipairs(B._options.char()) do byValue[o.value] = o end
+      assertTrue(byValue["Ka0z-Realm"].color ~= nil, "a known class is color-tinted")
+      assertEqual(byValue["Ka0z-Realm"].icon, nil, "no option may carry an `icon` field")
+      assertTrue(byValue["Ka0z-Realm"].label:find("Ka0z%-Realm$") ~= nil,
+        "the name ends the label, behind its markup: " .. byValue["Ka0z-Realm"].label)
+      assertTrue(#byValue["Ka0z-Realm"].label > #"Ka0z-Realm",
+        "a known class prefixes inline icon markup onto the label")
+      assertEqual(byValue["Nomad-Other"].color, nil, "an unknown class stays untinted")
+      assertEqual(byValue["Nomad-Other"].label, "Nomad-Other", "and its label is the bare name")
+    end)
   end)
-end)
 
 test("Browser: the Current preset lights up only for exactly the logged-in character", function()
   withFixture(FIXTURE, function()
@@ -423,50 +431,28 @@ test("Browser.SaveView then ResetView clears the stored default", function()
 end)
 
 -- ── Menu row highlight ─────────────────────────────────────────────────────────
--- The popup menu itself is pure frames (backdrops, textures, font strings) and can't be observed
--- headlessly, but the decision of WHICH row lights up gold is pure and is the part that carries
--- the precedence rule, so it is pinned here.
-
-test("Browser: a single-select row is highlighted when it holds the current value", function()
-  local dd = { _value = "7d", _selected = {} }
-  assertTrue(B._optionSelected(dd, { value = "7d" }))
-  assertFalse(B._optionSelected(dd, { value = "30d" }))
-end)
-
-test("Browser: a multi-select row is highlighted when its value is in the selection", function()
-  local dd = { multi = true, _selected = { KILL = true } }
-  assertTrue(B._optionSelected(dd, { value = "KILL" }))
-  assertEqual(B._optionSelected(dd, { value = "AH" }), false, "an absent value is false, not nil")
-end)
-
-test("Browser: the multi-select All sentinel lights up only while nothing is selected", function()
-  assertTrue(B._optionSelected({ multi = true, _selected = {} }, { value = "all" }))
-  assertFalse(B._optionSelected({ multi = true, _selected = { KILL = true } }, { value = "all" }))
-end)
-
-test("Browser: an option's own isActive beats both selection rules", function()
-  -- The "Character: Current" preset decides its own highlight; it is checked first.
-  local yes = { value = "current", isActive = function() return true end }
-  local no  = { value = "current", isActive = function() return nil end }
-  assertTrue(B._optionSelected({ multi = true, _selected = { A = true } }, yes))
-  assertEqual(B._optionSelected({ multi = true, _selected = {} }, no), false,
-    "a nil verdict is normalized to false")
-end)
+-- WHICH ROW LIGHTS UP GOLD is no longer this file's decision: the popup, its pooled rows and the
+-- highlight rule all belong to LibKa0s-Widgets-1.0 now, so `B._optionSelected` is gone along with
+-- the widget it served. The rule is pinned where it can be pinned honestly — against a REAL row
+-- the library painted — in tests/test_widgets.lua.
 
 -- ── Multi-select collapsed label ───────────────────────────────────────────────
--- UpdateMultiLabel is a per-dropdown method built by the shared MakeDropdown factory, so the only
--- way to reach it is to build a real dropdown. The frame stub returns itself from every capitalized
--- call, which makes `dd.text` the dropdown frame itself; rawsetting SetText on it is the kit's
--- supported way to spy on a setter, and it is the one seam onto the collapsed button text.
+-- UpdateMultiLabel is a per-dropdown method built by the shared factory, so the only way to reach
+-- it is to build a real dropdown. `dd.text` is the collapsed button's own FontString and the mock
+-- models it as a distinct object with a readable text, which is the one seam onto that label.
+--
+-- REACHED ONLY THROUGH THE PUBLISHED SURFACE. The option list and the selection go in through
+-- SetOptions/SetSelected rather than by writing `_options` and `_selected` directly: `_selected` is
+-- documented as host-readable but is the library's to write, and `_options` is not on the
+-- host-writable list at all. Both setters refresh the label themselves, so UpdateMultiLabel is
+-- called explicitly here only to keep this helper honest about what it is pinning.
 local function labelFor(opts, selected)
-  local dd = B:MakeDropdown(nil, 100)
-  local shown
-  rawset(dd, "SetText", function(_, s) shown = s end)
+  local dd = NS.MakeDropdown(nil, 100)
   dd:SetMulti(true)
-  dd._options = opts
-  dd._selected = selected
+  dd:SetOptions(opts)
+  dd:SetSelected(selected)
   dd:UpdateMultiLabel()
-  return shown
+  return dd.text:GetText()
 end
 
 local QUALITY_OPTS = {
