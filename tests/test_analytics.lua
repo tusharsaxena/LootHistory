@@ -427,3 +427,16 @@ test("Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis", f
   assertEqual(text, "Explosive" .. "\226\128\166")
   assertEqual(#text, 9 + 3, "9 kept characters + the 3-byte ellipsis")
 end)
+
+test("Analytics pool: LayoutCharts releases through the published helper", function()
+  -- Guards against the published helper drifting from the one the render path calls. If someone
+  -- later inlines a second release loop into LayoutCharts, the fix above stops covering the code
+  -- that leaks, and nothing else in this suite would say so.
+  local source = io.open("modules/Analytics.lua"):read("*a")
+  local _, releases = source:gsub("releaseAll%(P%[name%]%)", "")
+  assertEqual(releases, 1,
+    "LayoutCharts must release through the single shared helper; a second release path is a "
+    .. "second chance to leak")
+  local _, defs = source:gsub("local function releaseAll", "")
+  assertEqual(defs, 1, "exactly one releaseAll definition in this file")
+end)

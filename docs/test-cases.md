@@ -543,7 +543,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every declared command is uniquely named and dispatchable
 - Schema: the settings CLI verbs are all present
 
-### test_analytics.lua (61)
+### test_analytics.lua (62)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -606,6 +606,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: reports whether it cut
 - Analytics._truncate: a nil label becomes an empty string
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
+- Analytics pool: LayoutCharts releases through the published helper
 
 ### test_panel.lua (25)
 
@@ -716,10 +717,10 @@ badge and any count quoted in the docs must agree with it.
 | test_debuglog.lua | 22 |
 | test_slash.lua | 34 |
 | test_schema.lua | 32 |
-| test_analytics.lua | 61 |
+| test_analytics.lua | 62 |
 | test_panel.lua | 25 |
 | test_harness.lua | 5 |
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **624** |
+| **Total** | **625** |
