@@ -75,6 +75,22 @@ Until then, the release notes carry `perf: skip` naming this exemption (automate
 skip is said out loud rather than left to read as measured, because a suite that did not run is
 never a pass.
 
+## The one allocation that is measured: the Insights widget pools
+
+`modules/Analytics.lua` draws every bar, stacked bar, swatch, strip segment and list row out of a
+pool, and `Analytics:LayoutCharts` releases all 35 of them at the top of every layout pass. That
+only costs nothing if released widgets come back. Until 2026-08-24 `releaseAll` hid each active
+object and dropped it, so `pool.free` was empty on every `acquire` and `factory()` ran each time —
+a fresh frame per chart element on every re-render, and frames are never destroyed in WoW, so a
+session's worth of filter changes and tab switches accumulated hidden frames for good.
+
+The fix is one loop, but the guarantee is the test: `tests/test_analytics.lua` counts `factory`
+calls across two layout passes and requires the second to build nothing. Reading `pool.free` would
+pass against a pool nobody reuses, and reading the source would pass against a `LayoutCharts` that
+released some other way — so a second case pins that the render path releases through the single
+shared helper. Both go through `Analytics._acquire` / `Analytics._releaseAll`, published for the
+headless suite.
+
 ## The complexity half
 
 Cost-of-change is measured even though runtime cost is not: `lizard` runs in every automated-test

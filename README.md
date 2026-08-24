@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-621%2F621_passing-green)
+![Tests](https://img.shields.io/badge/Tests-625%2F625_passing-green)
 
 ![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -32,6 +32,10 @@ Every item you pick up is filed under a source:
 | Other | Anything that arrived with no clear source |
 
 Most items are filed with certainty, straight from what the game reported. When there's no clear signal, the item is still recorded — filed under **Other** and marked as a best guess rather than dropped. Each row shows whether its source is **Certain** or **Inferred** so you can tell the two apart.
+
+## Unreleased
+
+*   **The Insights charts stopped rebuilding themselves.** The widget pools behind every bar, swatch and list row hid their contents on each re-render but never returned them for reuse, so a filter change or a tab switch allocated a fresh frame per element — and frames are never destroyed in WoW. Long sessions with a lot of chart interaction accumulated hidden frames for the rest of the session.
 
 ## What's new in 1.2.0
 
