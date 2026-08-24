@@ -48,6 +48,59 @@ test("Analytics._tipText: value alone when there is no label", function()
   assertEqual(NS.Analytics._tipText(nil, "17"), "17")
 end)
 
+-- ── the widget pools (recycling) ────────────────────────────────────────────────────
+--
+-- The bug this pins: releaseAll used to hide the active objects and drop them, never returning
+-- them to pool.free. acquire then fell through to factory() on every single call, and since
+-- LayoutCharts releases all 35 pools at the top of every pass, every re-render allocated a fresh
+-- frame per chart element — and frames are never destroyed in WoW. Counting factory calls is the
+-- only way to see that from a test; reading pool.free would pass against a pool nobody reuses.
+
+local function countingPool()
+  local made = 0
+  local pool = { free = {}, active = {} }
+  local factory = function()
+    made = made + 1
+    local o = { __shown = false }
+    function o:Show() self.__shown = true end
+    function o:Hide() self.__shown = false end
+    return o
+  end
+  return pool, factory, function() return made end
+end
+
+test("Analytics pool: a released object is reused rather than rebuilt", function()
+  local pool, factory, made = countingPool()
+  for _ = 1, 3 do NS.Analytics._acquire(pool, factory) end
+  assertEqual(made(), 3, "first pass builds three")
+
+  NS.Analytics._releaseAll(pool)
+  for _ = 1, 3 do NS.Analytics._acquire(pool, factory) end
+  assertEqual(made(), 3, "second pass must build NOTHING — every object comes back off pool.free")
+end)
+
+test("Analytics pool: releaseAll returns every active object to the free list", function()
+  local pool, factory = countingPool()
+  local a = NS.Analytics._acquire(pool, factory)
+  NS.Analytics._acquire(pool, factory)
+  assertEqual(#pool.active, 2)
+  assertEqual(#pool.free, 0)
+
+  NS.Analytics._releaseAll(pool)
+  assertEqual(#pool.active, 0, "active is emptied")
+  assertEqual(#pool.free, 2, "and the objects land on free — this is the assertion the leak failed")
+  assertFalse(a.__shown, "a released object is hidden")
+end)
+
+test("Analytics pool: acquire shows what it hands back", function()
+  local pool, factory = countingPool()
+  local o = NS.Analytics._acquire(pool, factory)
+  assertTrue(o.__shown, "a freshly built object is shown")
+  NS.Analytics._releaseAll(pool)
+  local again = NS.Analytics._acquire(pool, factory)
+  assertTrue(again.__shown, "and a recycled one is shown again")
+end)
+
 -- ── _truncate ───────────────────────────────────────────────────────────────────────
 test("Analytics._truncate: short text passes through", function()
   local s, t = NS.Analytics._truncate("Valorstones", 16)

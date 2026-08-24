@@ -226,8 +226,16 @@ local function acquire(pool, factory)
   o:Show()
   return o
 end
+-- Hide every active object AND put it back on the free list, which is the whole point of a pool.
+-- Dropping them instead (which this did until 2026-08-24) turns `acquire` into an allocator: the
+-- free list is empty on every call, `factory()` runs every time, and because frames are never
+-- destroyed in WoW the abandoned ones stay for the session. LayoutCharts releases all 35 pools at
+-- the top of every pass, so the cost was one fresh frame per chart element per re-render.
 local function releaseAll(pool)
-  for _, o in ipairs(pool.active) do o:Hide() end
+  for _, o in ipairs(pool.active) do
+    o:Hide()
+    pool.free[#pool.free + 1] = o
+  end
   wipe(pool.active)
 end
 
@@ -882,6 +890,13 @@ Analytics._dayKeyList   = dayKeyList
 Analytics._shortDay     = shortDay
 Analytics._sortedByCount = sortedByCount
 Analytics._money        = money
+
+-- The widget pools, published for the headless suite. NOT pure — they mutate the pool — and that is
+-- exactly why they are here: whether a released object comes back off pool.free is invisible from
+-- the outside, and the one time it was wrong (every LayoutCharts pass rebuilt every frame) nothing
+-- in the suite could have noticed.
+Analytics._acquire      = acquire
+Analytics._releaseAll   = releaseAll
 
 -- Bind + position every chart off self.stats for the given width; return the final y cursor.
 function Analytics:LayoutCharts(y, w, pad)
