@@ -59,6 +59,12 @@ badge and any count quoted in the docs must agree with it.
 - EnvSetup degraded: an install with no LibKa0s still reads its TOC and stamps its zone
 - EnvSetup: the deleted shims are gone from Compat
 
+### test_poolsetup.lua (3)
+
+- PoolSetup: the seam is published
+- PoolSetup: a released object is reused rather than rebuilt
+- PoolSetup: ReleaseAll returns every active object to the free list
+
 ### test_util.lua (35)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
@@ -618,7 +624,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: reports whether it cut
 - Analytics._truncate: a nil label becomes an empty string
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
-- Analytics pool: LayoutCharts releases through the published helper
+- Analytics: every pool goes through the LibKa0s seam
 
 ### test_panel.lua (25)
 
@@ -716,6 +722,7 @@ badge and any count quoted in the docs must agree with it.
 | test_constants.lua | 25 |
 | test_mediasetup.lua | 10 |
 | test_envsetup.lua | 9 |
+| test_poolsetup.lua | 3 |
 | test_util.lua | 35 |
 | test_compat.lua | 31 |
 | test_attribution.lua | 23 |
@@ -736,4 +743,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **634** |
+| **Total** | **637** |

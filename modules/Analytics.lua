@@ -218,27 +218,6 @@ local function money(copper)
   return NS.Util.FormatMoney(copper, COIN_H)
 end
 
--- ── Widget primitives (pooled) ─────────────────────────────────────────────────────
-local function acquire(pool, factory)
-  local o = table.remove(pool.free)
-  if not o then o = factory() end
-  pool.active[#pool.active + 1] = o
-  o:Show()
-  return o
-end
--- Hide every active object AND put it back on the free list, which is the whole point of a pool.
--- Dropping them instead (which this did until 2026-08-24) turns `acquire` into an allocator: the
--- free list is empty on every call, `factory()` runs every time, and because frames are never
--- destroyed in WoW the abandoned ones stay for the session. LayoutCharts releases all 35 pools at
--- the top of every pass, so the cost was one fresh frame per chart element per re-render.
-local function releaseAll(pool)
-  for _, o in ipairs(pool.active) do
-    o:Hide()
-    pool.free[#pool.free + 1] = o
-  end
-  wipe(pool.active)
-end
-
 -- Hover text for a chart element: the FULL (untruncated) label plus the value it encodes, so a
 -- tooltip always states the number as well as the name — on-chart value text is clipped to its
 -- column and the label itself is truncated. Label-only when the element carries no value.
@@ -634,28 +613,28 @@ function Analytics:BuildCharts(content)
   self.emptyText:SetText("No loot in this range.")
   self.emptyText:Hide()
   self.pool = {
-    source = { free = {}, active = {} }, vsource = { free = {}, active = {} },
-    quality = { free = {}, active = {} },
-    itype  = { free = {}, active = {} }, bound   = { free = {}, active = {} },
-    char   = { free = {}, active = {} }, day     = { free = {}, active = {} },
-    vday   = { free = {}, active = {} }, hour    = { free = {}, active = {} },
-    weekday = { free = {}, active = {} },
-    zone    = { free = {}, active = {} },
-    item   = { free = {}, active = {} }, itemval = { free = {}, active = {} },
-    curcollected = { free = {}, active = {} }, curcollectedleg = { free = {}, active = {} },
-    cursrc = { free = {}, active = {} }, curlegend = { free = {}, active = {} },
-    curchar = { free = {}, active = {} }, curcharlegend = { free = {}, active = {} },
-    curday = { free = {}, active = {} },
+    source = NS.Pool.New(), vsource = NS.Pool.New(),
+    quality = NS.Pool.New(),
+    itype  = NS.Pool.New(), bound   = NS.Pool.New(),
+    char   = NS.Pool.New(), day     = NS.Pool.New(),
+    vday   = NS.Pool.New(), hour    = NS.Pool.New(),
+    weekday = NS.Pool.New(),
+    zone    = NS.Pool.New(),
+    item   = NS.Pool.New(), itemval = NS.Pool.New(),
+    curcollected = NS.Pool.New(), curcollectedleg = NS.Pool.New(),
+    cursrc = NS.Pool.New(), curlegend = NS.Pool.New(),
+    curchar = NS.Pool.New(), curcharlegend = NS.Pool.New(),
+    curday = NS.Pool.New(),
     -- Legends for the single-bar categorical charts.
-    sourceleg = { free = {}, active = {} }, vsourceleg = { free = {}, active = {} },
-    qualityleg = { free = {}, active = {} }, itypeleg = { free = {}, active = {} },
-    boundleg = { free = {}, active = {} },
+    sourceleg = NS.Pool.New(), vsourceleg = NS.Pool.New(),
+    qualityleg = NS.Pool.New(), itypeleg = NS.Pool.New(),
+    boundleg = NS.Pool.New(),
     -- Per-character × category companion stacked bars + their color legends (one pool each).
-    chsource = { free = {}, active = {} }, chsourceleg = { free = {}, active = {} },
-    chvsource = { free = {}, active = {} }, chvsourceleg = { free = {}, active = {} },
-    chquality = { free = {}, active = {} }, chqualityleg = { free = {}, active = {} },
-    chtype = { free = {}, active = {} }, chtypeleg = { free = {}, active = {} },
-    chbound = { free = {}, active = {} }, chboundleg = { free = {}, active = {} },
+    chsource = NS.Pool.New(), chsourceleg = NS.Pool.New(),
+    chvsource = NS.Pool.New(), chvsourceleg = NS.Pool.New(),
+    chquality = NS.Pool.New(), chqualityleg = NS.Pool.New(),
+    chtype = NS.Pool.New(), chtypeleg = NS.Pool.New(),
+    chbound = NS.Pool.New(), chboundleg = NS.Pool.New(),
   }
 
   -- Live-update while the Insights tab is visible (new loot / deletes / prune).
@@ -695,7 +674,7 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
   y = y - 18
   local innerW = w - pad * 2
   for _, row in ipairs(rows) do
-    local bar = acquire(pool, function() return makeBar(self.content) end)
+    local bar = NS.Pool.Acquire(pool, function() return makeBar(self.content) end)
     bar.fill:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
     bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
@@ -724,7 +703,7 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
   y = y - 18
   local innerW = w - pad * 2
   for _, row in ipairs(rows) do
-    local bar = acquire(pool, function() return makeStackedBar(self.content) end)
+    local bar = NS.Pool.Acquire(pool, function() return makeStackedBar(self.content) end)
     bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
     local lc = row.labelColor
@@ -745,7 +724,7 @@ function Analytics:renderLegend(pool, rows, y, w, pad)
   local x, rowY, chipW = x0, y, 120
   for _, row in ipairs(rows) do
     if x + chipW > w - pad then x = x0; rowY = rowY - 16 end
-    local chip = acquire(pool, function() return makeSwatch(self.content) end)
+    local chip = NS.Pool.Acquire(pool, function() return makeSwatch(self.content) end)
     chip.sw:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
     -- `value` is only present for legends mirroring a bar section (a category key built from
     -- catOrder has no single value) — _tipText then falls back to the label alone.
@@ -797,7 +776,7 @@ function Analytics:renderStrip(pool, header, strip, buckets, y, w, pad)
   strip.axisLine:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", 0, -STRIP_AXIS_GAP)
   strip.axisLine:SetHeight(1); strip.axisLine:Show()
   for i, b in ipairs(buckets) do
-    local f = acquire(pool, function() return makeStripBar(strip) end)
+    local f = NS.Pool.Acquire(pool, function() return makeStripBar(strip) end)
     f:ClearAllPoints()
     f:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", (i - 1) * slot, 0)
     f:SetSize(barW, DAYSTRIP_H)
@@ -832,7 +811,7 @@ function Analytics:renderListPanel(pool, panel, rows, y, colW, pad, rightW)
   panel:SetSize(colW, panelH); panel:Show()
   for i = 1, n do
     local row = rows[i]
-    local r = acquire(pool, function() return makeListRow(panel) end)
+    local r = NS.Pool.Acquire(pool, function() return makeListRow(panel) end)
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", panel, "TOPLEFT", 4, -20 - (i - 1) * LIST_ROW_H)
     r:SetWidth(colW - 8)
     r.name:SetWidth(math.max(1, colW - 8 - rightW - 6)); r.name:SetText(row.name)
@@ -891,13 +870,6 @@ Analytics._shortDay     = shortDay
 Analytics._sortedByCount = sortedByCount
 Analytics._money        = money
 
--- The widget pools, published for the headless suite. NOT pure — they mutate the pool — and that is
--- exactly why they are here: whether a released object comes back off pool.free is invisible from
--- the outside, and the one time it was wrong (every LayoutCharts pass rebuilt every frame) nothing
--- in the suite could have noticed.
-Analytics._acquire      = acquire
-Analytics._releaseAll   = releaseAll
-
 -- Bind + position every chart off self.stats for the given width; return the final y cursor.
 function Analytics:LayoutCharts(y, w, pad)
   local stats, P = self.stats, self.pool
@@ -907,7 +879,7 @@ function Analytics:LayoutCharts(y, w, pad)
                           "sourceleg", "vsourceleg", "qualityleg", "itypeleg", "boundleg",
                           "chsource", "chsourceleg", "chvsource", "chvsourceleg", "chquality", "chqualityleg",
                           "chtype", "chtypeleg", "chbound", "chboundleg" }) do
-    releaseAll(P[name])
+    NS.Pool.ReleaseAll(P[name])
   end
 
   if not stats or stats.totals.records == 0 then

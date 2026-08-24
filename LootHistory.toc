@@ -45,6 +45,8 @@ core\CoreSetup.lua
 # Needs core\MediaSetup.lua above it: the dropdown art is resolved through NS.Icon.
 core\WidgetsSetup.lua
 core\DebugLogSetup.lua
+# The LibKa0s-Pool seam. Before every module that pools a widget (Analytics, BrowserTable).
+core\PoolSetup.lua
 core\LootHistory.lua
 core\Database.lua
 

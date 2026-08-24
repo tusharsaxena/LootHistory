@@ -658,14 +658,12 @@ local function qualityColor(q)
 end
 
 function BrowserTable:AcquireRow()
-  local pool = self.rowPool
-  local row = table.remove(pool.free)
-  if row then
-    row:Show()
-    return row
-  end
+  return NS.Pool.Acquire(self.rowPool, function() return self:BuildRow() end)
+end
 
-  row = CreateFrame("Button", nil, self.rowHost)
+-- The frame construction AcquireRow used to inline. Unchanged; it is the pool's factory now.
+function BrowserTable:BuildRow()
+  local row = CreateFrame("Button", nil, self.rowHost)
   row:SetHeight(ROW_H)
   row:SetPoint("LEFT", self.rowHost, "LEFT", 0, 0)
   row:SetPoint("RIGHT", self.rowHost, "RIGHT", 0, 0)
@@ -797,12 +795,7 @@ function BrowserTable:LayoutRowCells(row)
 end
 
 function BrowserTable:ReleaseAllRows()
-  local pool = self.rowPool
-  for _, row in ipairs(pool.active) do
-    row:Hide()
-    pool.free[#pool.free + 1] = row
-  end
-  wipe(pool.active)
+  NS.Pool.ReleaseAll(self.rowPool)
 end
 
 -- ── Attach + render ──────────────────────────────────────────────────────────────
@@ -835,7 +828,7 @@ function BrowserTable:Attach(pane)
   host:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 0, 0)
   self.rowHost = host
 
-  self.rowPool = { active = {}, free = {} }
+  self.rowPool = NS.Pool.New()
 
   -- Empty-state text.
   local empty = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
@@ -974,7 +967,9 @@ function BrowserTable:Bind()
     return
   end
 
-  local pool = self.rowPool
+  -- No manual `pool.active` push here any more: the seam's Acquire is what parks the row on the
+  -- active list, and doing it twice would list every visible row twice and hand ReleaseAll a free
+  -- list with duplicates on it.
   for i = 1, numVisible do
     local entry = list[offset + i]
     if entry then
@@ -982,7 +977,6 @@ function BrowserTable:Bind()
       row:SetPoint("TOP", self.rowHost, "TOP", 0, -(i - 1) * ROW_H)
       self:LayoutRowCells(row)
       self:BindRow(row, entry, offset + i)
-      pool.active[#pool.active + 1] = row
     end
   end
 end

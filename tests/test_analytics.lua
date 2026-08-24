@@ -58,7 +58,7 @@ end)
 
 local function countingPool()
   local made = 0
-  local pool = { free = {}, active = {} }
+  local pool = NS.Pool.New()
   local factory = function()
     made = made + 1
     local o = { __shown = false }
@@ -71,22 +71,22 @@ end
 
 test("Analytics pool: a released object is reused rather than rebuilt", function()
   local pool, factory, made = countingPool()
-  for _ = 1, 3 do NS.Analytics._acquire(pool, factory) end
+  for _ = 1, 3 do NS.Pool.Acquire(pool, factory) end
   assertEqual(made(), 3, "first pass builds three")
 
-  NS.Analytics._releaseAll(pool)
-  for _ = 1, 3 do NS.Analytics._acquire(pool, factory) end
+  NS.Pool.ReleaseAll(pool)
+  for _ = 1, 3 do NS.Pool.Acquire(pool, factory) end
   assertEqual(made(), 3, "second pass must build NOTHING — every object comes back off pool.free")
 end)
 
 test("Analytics pool: releaseAll returns every active object to the free list", function()
   local pool, factory = countingPool()
-  local a = NS.Analytics._acquire(pool, factory)
-  NS.Analytics._acquire(pool, factory)
+  local a = NS.Pool.Acquire(pool, factory)
+  NS.Pool.Acquire(pool, factory)
   assertEqual(#pool.active, 2)
   assertEqual(#pool.free, 0)
 
-  NS.Analytics._releaseAll(pool)
+  NS.Pool.ReleaseAll(pool)
   assertEqual(#pool.active, 0, "active is emptied")
   assertEqual(#pool.free, 2, "and the objects land on free — this is the assertion the leak failed")
   assertFalse(a.__shown, "a released object is hidden")
@@ -94,10 +94,10 @@ end)
 
 test("Analytics pool: acquire shows what it hands back", function()
   local pool, factory = countingPool()
-  local o = NS.Analytics._acquire(pool, factory)
+  local o = NS.Pool.Acquire(pool, factory)
   assertTrue(o.__shown, "a freshly built object is shown")
-  NS.Analytics._releaseAll(pool)
-  local again = NS.Analytics._acquire(pool, factory)
+  NS.Pool.ReleaseAll(pool)
+  local again = NS.Pool.Acquire(pool, factory)
   assertTrue(again.__shown, "and a recycled one is shown again")
 end)
 
@@ -428,15 +428,13 @@ test("Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis", f
   assertEqual(#text, 9 + 3, "9 kept characters + the 3-byte ellipsis")
 end)
 
-test("Analytics pool: LayoutCharts releases through the published helper", function()
-  -- Guards against the published helper drifting from the one the render path calls. If someone
-  -- later inlines a second release loop into LayoutCharts, the fix above stops covering the code
-  -- that leaks, and nothing else in this suite would say so.
+test("Analytics: every pool goes through the LibKa0s seam", function()
+  -- The same guard the published-helper case used to be, against the new shape. A pool built from
+  -- a literal is a pool the seam never sees, and a second local releaseAll is a second chance to
+  -- leak — neither is visible from any behavioural assertion in this suite.
   local source = io.open("modules/Analytics.lua"):read("*a")
-  local _, releases = source:gsub("releaseAll%(P%[name%]%)", "")
-  assertEqual(releases, 1,
-    "LayoutCharts must release through the single shared helper; a second release path is a "
-    .. "second chance to leak")
-  local _, defs = source:gsub("local function releaseAll", "")
-  assertEqual(defs, 1, "exactly one releaseAll definition in this file")
+  local _, literals = source:gsub("{%s*free%s*=%s*{}%s*,%s*active%s*=%s*{}%s*}", "")
+  assertEqual(literals, 0, "a hand-built pool literal is a pool the seam never sees")
+  local _, locals = source:gsub("local function releaseAll", "")
+  assertEqual(locals, 0, "the local helpers are gone")
 end)
