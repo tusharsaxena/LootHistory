@@ -393,8 +393,8 @@ end)
 -- file quietly failing to resolve its major (a mis-typed name, a vendored copy that did not
 -- register) is a red case rather than a silently degraded addon that still passes everything else.
 
-test("the five adopted majors all resolved, and the seams are wired to them", function()
-  for _, major in ipairs({ "LibKa0s-Core-1.0", "LibKa0s-DebugLog-1.0",
+test("the six adopted majors all resolved, and the seams are wired to them", function()
+  for _, major in ipairs({ "LibKa0s-Core-1.0", "LibKa0s-Media-1.0", "LibKa0s-DebugLog-1.0",
                            "LibKa0s-Slash-1.0", "LibKa0s-Options-1.0",
                            "LibKa0s-Widgets-1.0" }) do
     assertTrue(T.mocks.LibStub(major, true) ~= nil, major .. " did not register")
@@ -402,6 +402,8 @@ test("the five adopted majors all resolved, and the seams are wired to them", fu
   -- Reached through the addon's own keys rather than through LibStub, so a seam that resolved the
   -- library and then failed to publish it is caught too.
   assertTrue(NS.Print ~= nil and NS.SafeToString ~= nil, "Core seam not published")
+  assertTrue(type(NS.Icon) == "function" and type(NS.MediaFont) == "function",
+    "Media seam not published")
   assertTrue(NS.DebugLog ~= nil and NS.Debug ~= nil, "DebugLog seam not published")
   assertTrue(NS.Slash.CliList ~= nil and NS.Slash.LandingRows ~= nil, "Slash seam not published")
   assertTrue(NS.Options ~= nil and NS.Options.RenderRows ~= nil, "Options seam not published")

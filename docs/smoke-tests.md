@@ -877,8 +877,14 @@ by a headless suite.
     action list still appears, still disables "Link to chat" without an item link and "Blacklist
     item" without an item id. It is deliberately NOT the library's widget (per-row disable is a
     documented absence there) — see `docs/ARCHITECTURE.md` § *Menus: two mechanisms, on purpose*.
-    Open a filter dropdown and then right-click a row: both mechanisms behave, each closing its own
-    popup.
+    The two directions are **not** symmetric, and the asymmetry is the library's, not this addon's.
+    With the **row menu** open, left- or right-clicking anywhere outside it closes it — this addon's
+    catcher registers both buttons (`modules/BrowserTable.lua`). With a **filter dropdown** open,
+    the library's click-catcher takes only `LeftButtonUp` (`libs/LibKa0s/Widgets.lua` — the catcher
+    is a plain `Button` with no `RegisterForClicks`), so a **right**-click over it is swallowed with
+    no handler: the filter menu stays open and the row menu does **not** appear. Expect exactly
+    that, and expect one *left*-click to dismiss the filter menu before the right-click lands.
+    Reported upstream as a `Widgets` gap; do not patch `libs/` here.
 
 ---
 

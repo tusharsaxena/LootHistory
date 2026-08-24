@@ -440,11 +440,17 @@ end)
 -- UpdateMultiLabel is a per-dropdown method built by the shared factory, so the only way to reach
 -- it is to build a real dropdown. `dd.text` is the collapsed button's own FontString and the mock
 -- models it as a distinct object with a readable text, which is the one seam onto that label.
+--
+-- REACHED ONLY THROUGH THE PUBLISHED SURFACE. The option list and the selection go in through
+-- SetOptions/SetSelected rather than by writing `_options` and `_selected` directly: `_selected` is
+-- documented as host-readable but is the library's to write, and `_options` is not on the
+-- host-writable list at all. Both setters refresh the label themselves, so UpdateMultiLabel is
+-- called explicitly here only to keep this helper honest about what it is pinning.
 local function labelFor(opts, selected)
   local dd = NS.MakeDropdown(nil, 100)
   dd:SetMulti(true)
-  dd._options = opts
-  dd._selected = selected
+  dd:SetOptions(opts)
+  dd:SetSelected(selected)
   dd:UpdateMultiLabel()
   return dd.text:GetText()
 end

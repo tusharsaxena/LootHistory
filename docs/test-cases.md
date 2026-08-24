@@ -664,7 +664,7 @@ badge and any count quoted in the docs must agree with it.
 - no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
 - every file of LibKa0s.xml is vendored and loads
 - the vendored copy carries the library's MIT license
-- the five adopted majors all resolved, and the seams are wired to them
+- the six adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 
@@ -673,7 +673,7 @@ badge and any count quoted in the docs must agree with it.
 - libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles
 - tests/_kit is the test kit that shipped with that release
 
-### test_widgets.lua (16)
+### test_widgets.lua (17)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
 - Widgets: no option table in this addon sets a glyph
@@ -690,6 +690,7 @@ badge and any count quoted in the docs must agree with it.
 - Widgets: every frame that owns a dropdown sits below the menu's FULLSCREEN_DIALOG
 - degraded install: the dropdown seam answers nil and CloseMenu is a safe no-op
 - degraded install: the filter bar refuses to draw and the browser still comes up
+- degraded install: the export modal's refusal builds no frame, on the first Open or the tenth
 - degraded install: the export modal refuses rather than calling methods on a nil dropdown
 
 ## Totals
@@ -717,5 +718,5 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 5 |
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
-| test_widgets.lua | 16 |
-| **Total** | **620** |
+| test_widgets.lua | 17 |
+| **Total** | **621** |

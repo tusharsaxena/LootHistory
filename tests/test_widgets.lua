@@ -13,6 +13,16 @@
 -- fire the dropdown's real OnClick, let the library's own EnsureMenu/Populate/makeMenuRow run, and
 -- read the painted row back out. tests/wow_mock.lua was made stricter in the same commit for the
 -- same reason: a FontString there is a distinct object and raises on SetText until it has a face.
+--
+-- WHAT THIS SUITE COUPLES TO, DELIBERATELY. Reading a painted row back (`b.fs`, `b.glyph`, and the
+-- menu's own `buttons` array) is not on the library's published surface, and it is the only way to
+-- see what a real row build produced -- version-4-docs.md forbids a HOST from reading library
+-- internals and notes that the library's own suite reads them anyway, because a suite pinning
+-- behavior needs some seam to pin it through. This is that, one layer out. The line that matters is
+-- kept elsewhere: no `__`-prefixed field is touched anywhere, nothing is ever WRITTEN onto a pooled
+-- row, and no shipping file in modules/ or core/ reads any of this. If the library reshapes a row,
+-- these cases are the ones to re-anchor -- and that is a cost this suite accepts to keep the first
+-- click covered.
 
 local T = _G.LH_TEST
 local NS, Loader = T.NS, T.Loader
@@ -202,15 +212,32 @@ test("Widgets: a selected character with no option row still counts in the colla
 -- ── the ten live instances ───────────────────────────────────────────────────────────────────
 
 test("Widgets: the filter bar builds all nine of its dropdowns through the seam", function()
+  -- COUNTING THE LIBRARY CALL IS THE WHOLE POINT. "Has a SetOptions method" was also true of the
+  -- hand-rolled widget this adoption deleted, so shape alone pins nothing: the case only pins the
+  -- SEAM if it can tell a library dropdown from a look-alike. So lib.Dropdown is wrapped for the
+  -- duration of the build and every frame it returns is remembered by identity -- nine calls, and
+  -- each of the nine published fields must be one of the frames the library itself handed back.
+  local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  local stock, built, n = lib.Dropdown, {}, 0
+  lib.Dropdown = function(parent, width, opts)
+    local f = stock(parent, width, opts)
+    n = n + 1; built[f] = true
+    return f
+  end
   local saved = B._dd
   local bar = T.mocks.CreateFrame("Frame")
-  B:BuildFilterBar(bar)
+  local ok, err = pcall(function() B:BuildFilterBar(bar) end)
+  lib.Dropdown = stock
+  if not ok then error(err, 0) end
   local dd = B._dd
   assertTrue(dd ~= nil, "the filter bar must build with the library present")
+  assertEqual(n, 9, "the filter bar must build exactly nine dropdowns through the library")
   for _, key in ipairs({ "group", "date", "bound", "quality", "type", "subtype",
                          "source", "zone", "char" }) do
     assertTrue(type(dd[key]) == "table" and type(dd[key].SetOptions) == "function",
       "dd." .. key .. " is not a library dropdown")
+    assertTrue(built[dd[key]] == true,
+      "dd." .. key .. " was not built by LibKa0s-Widgets-1.0's own Dropdown")
   end
   assertFalse(dd.group.multi, "Group-by is single-select")
   for _, key in ipairs({ "bound", "quality", "type", "subtype", "source", "zone", "char" }) do
@@ -336,6 +363,27 @@ test("degraded install: the filter bar refuses to draw and the browser still com
   ns.Browser:ApplyView(ns.Browser._stockView, "current")
   ns.Browser:Hide()
 end)
+
+test("degraded install: the export modal's refusal builds no frame, on the first Open or the tenth",
+  function()
+    -- The refusal deliberately memoises nothing -- `frame` goes back to nil so a later /reload with
+    -- the library present still builds a real modal. That is only free if the refusal is decided
+    -- BEFORE anything is created: probing the seam by building the modal and throwing it away
+    -- leaks a globally-named frame per Open call, unreachable and never collected, for as long as
+    -- the player keeps clicking Export.
+    local ns, _, mocks = loadDegraded()
+    ns:InitDB()
+    local stock, made = mocks.CreateFrame, 0
+    mocks.CreateFrame = function(...) made = made + 1; return stock(...) end
+    local ok, err = pcall(function()
+      for _ = 1, 10 do
+        ns.Export:Open({ title = "Export History", providers = {}, csv = function() return "" end })
+      end
+    end)
+    mocks.CreateFrame = stock
+    if not ok then error(err, 0) end
+    assertEqual(made, 0, "a refused export modal must create no frames at all")
+  end)
 
 test("degraded install: the export modal refuses rather than calling methods on a nil dropdown",
   function()

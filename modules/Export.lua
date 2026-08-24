@@ -425,6 +425,14 @@ end
 
 local function EnsureFrame()
   if frame then return frame end
+  -- REFUSE TO DRAW with no LibKa0s, and decide it before creating anything. The Data Set picker is
+  -- this modal's only control and it is a LibKa0s-Widgets-1.0 dropdown, so a degraded install means
+  -- there is no modal worth opening. Asked through NS.HasWidgets rather than by building the
+  -- dropdown, because this frame carries a GLOBAL NAME: probing by build-and-discard would strand
+  -- one LootHistoryExportWindow per :Open call. Nothing is memoised either way -- `frame` stays nil
+  -- so a later session with the library present still builds a real modal, and :Open explains the
+  -- absence through the shared cause clause.
+  if not (NS.HasWidgets and NS.HasWidgets()) then return nil end
   frame = CreateFrame("Frame", "LootHistoryExportWindow", UIParent, "BackdropTemplate")
   frame:SetSize(372, 150)
   frame:SetPoint("CENTER")
@@ -433,11 +441,9 @@ local function EnsureFrame()
   frame:SetFrameStrata("DIALOG")
   frame:EnableMouse(true); frame:SetMovable(true); frame:SetClampedToScreen(true)
 
-  -- REFUSE TO DRAW with no LibKa0s. The Data Set picker is this modal's only control and it is a
-  -- LibKa0s-Widgets-1.0 dropdown, so NS.MakeDropdown answering nil means there is no modal worth
-  -- opening -- building it anyway would call SetOptions/SetValue on nil. Built FIRST, before any
-  -- other child, so the refusal throws away one bare frame and memoises nothing: `frame` goes back
-  -- to nil and :Open explains the absence. Positioned further down, with the rest of the layout.
+  -- Built FIRST, before any other child, so that a seam which somehow answers nil despite the
+  -- library having registered still costs one bare frame rather than a half-built modal wired to a
+  -- nil dropdown. Positioned further down, with the rest of the layout.
   local ds = NS.MakeDropdown(frame, 148)
   if not ds then
     frame:Hide()

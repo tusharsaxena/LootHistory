@@ -90,6 +90,20 @@ function NS.MakeDropdown(parent, width)
     })
 end
 
+--- Whether the dropdown seam can build anything at all.
+---
+--- The one seam a surface can ask BEFORE it starts building. NS.MakeDropdown
+--- needs a parent frame, so a surface whose only control is a dropdown could
+--- only learn of a degraded install by creating its window and throwing it away
+--- -- and modules/Export.lua's window carries a global name, so throwing it away
+--- leaks one unreachable frame per open. This answers the same question with
+--- nothing built.
+---
+--- @return boolean  true when LibKa0s-Widgets-1.0 registered
+function NS.HasWidgets()
+    return W ~= nil
+end
+
 --- Close the shared popup menu behind every dropdown in the process, if one is open.
 ---
 --- Safe when no dropdown has ever opened it, safe when it is already hidden, and
