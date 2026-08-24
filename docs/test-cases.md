@@ -446,7 +446,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: every synthetic auction map is pickable by the priority cascade
 - BrowserTable: a large all-ties sort keeps every row in its original order
 
-### test_export.lua (22)
+### test_export.lua (25)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -470,6 +470,9 @@ badge and any count quoted in the docs must agree with it.
 - Export: InsightsCSV includes currency sections
 - Export: InsightsCSV includes the per-character × category companions
 - Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
+- Export: the copy window comes from LibKa0s-Widgets-1.0
+- Export: showing the copy window puts the text in it
+- Export: the copy window is built once and reused
 
 ### test_debuglog.lua (22)
 
@@ -741,7 +744,7 @@ badge and any count quoted in the docs must agree with it.
 | test_stats.lua | 19 |
 | test_browser.lua | 50 |
 | test_browsertable.lua | 51 |
-| test_export.lua | 22 |
+| test_export.lua | 25 |
 | test_debuglog.lua | 22 |
 | test_slash.lua | 34 |
 | test_schema.lua | 32 |
@@ -751,4 +754,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **641** |
+| **Total** | **644** |

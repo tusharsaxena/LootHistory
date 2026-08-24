@@ -1,6 +1,7 @@
 -- core/WidgetsSetup.lua
 --
--- The LibKa0s-Widgets-1.0 seam: where this addon's flat dropdowns come from.
+-- The LibKa0s-Widgets-1.0 seam: where this addon's flat dropdowns and its export copy window
+-- come from.
 --
 -- ---------------------------------------------------------------------------
 -- THIS ADDON WROTE THE WIDGET, AND THAT WAS THE PROBLEM
@@ -68,6 +69,10 @@
 -- always had to work headlessly), and modules/Export.lua's modal declines to
 -- build at all and says why through the shared NS.LIBKA0S_MISSING clause.
 -- NS.CloseMenu is then a no-op, because there is no menu that could be open.
+--
+-- NS.CopyWindow answers nil for the same reason, and nothing downstream has to notice: the
+-- export modal that would have shown the copy window declines to build in the first place, so
+-- there is no path on a degraded install that reaches a window with nowhere to put the text.
 
 local _, NS = ...
 
@@ -110,4 +115,25 @@ end
 --- a no-op on a degraded install. Call it from EVERY non-click close path.
 function NS.CloseMenu()
     if W then W.CloseMenu() end
+end
+
+--- One read-only copy window -- text in, Ctrl+C out, Esc closes -- or nil when the library is absent.
+---
+--- A HANDLE, NOT A FRAME: nothing is built until the first :Show(text), which is what lets
+--- modules/Export.lua ask for one at file load and still create no frame in a session that never
+--- exports. Frames are never destroyed in WoW, so the alternative -- build per open -- leaks one
+--- unreachable frame per export for the life of the session.
+---
+--- NIL IS A REAL ANSWER here too, and the caller degrades the same way the dropdown's callers do:
+--- no window, and the export path says why through NS.LIBKA0S_MISSING rather than erroring.
+---
+--- Routed through this seam rather than a second LibStub lookup in modules/Export.lua for the
+--- reason the header gives: one file leases LibKa0s-Widgets-1.0, and the art and the faces it needs
+--- are resolved once, here.
+---
+--- @param d table  the descriptor: addonName, name, title, font, fontSize, applySkin, anchorTo
+--- @return table|nil  the library's copy-window handle
+function NS.CopyWindow(d)
+    if not W then return nil end
+    return W.CopyWindow(d)
 end

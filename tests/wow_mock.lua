@@ -214,7 +214,26 @@ return function()
     function f:CreateFontString(_, _, template) return stubFontString(template) end
     return f
   end
-  M.CreateFrame = function() return M.__stubFrame() end
+
+  -- ── an EditBox remembers its text ─────────────────────────────────────────
+  --
+  -- The kit answers every PascalCase key from its metatable, so on a bare stub `SetText` is a
+  -- silent no-op and `GetText` hands back THE FRAME. For a FontString that aliasing is fixed above;
+  -- for an EditBox it makes the one thing a copy window does -- put text in front of the user --
+  -- unobservable, and a suite asserting on it would compare a frame against a string and be handed
+  -- a pass by a `~=` nobody wrote. LibKa0s-Widgets-1.0's CopyWindow reads the text back through
+  -- `edit:GetText()`, and modules/Export.lua has no other seam onto it, so the round-trip is
+  -- modeled here: raw in, raw out, nil for nil. Only for EditBox -- every other frame type keeps
+  -- the kit's behavior, which suites elsewhere in this repo are written against.
+  local stubCreateFrame = function() return M.__stubFrame() end
+  M.CreateFrame = function(frameType, ...)
+    local f = stubCreateFrame(frameType, ...)
+    if frameType == "EditBox" then
+      function f:SetText(t) self.__text = (t ~= nil) and tostring(t) or nil; return self end
+      function f:GetText() return self.__text end
+    end
+    return f
+  end
   M.UIParent = M.__stubFrame()
 
   -- ── AceGUI container methods this addon uses ───────────────────────────────

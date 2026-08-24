@@ -672,7 +672,7 @@ currencies section (confirm popup) — the list empties and future loots of it r
 
 Seven of LibKa0s's ten majors are wired here — `Core` (the printer), `Media` (the art and the
 monospace face), `DebugLog` (the console), `Slash` (the dispatcher and CLI), `Options` (the settings
-canvas), `Widgets` (every flat dropdown) and `Env` (the TOC read behind `/lh version`, plus the map
+canvas), `Widgets` (every flat dropdown, and the export copy window) and `Env` (the TOC read behind `/lh version`, plus the map
 and zone stamp on every captured row). Everything in this section is
 invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
 and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
@@ -915,6 +915,31 @@ did before, not a new feature to admire.
    carry a `mapID`. A dungeon floor and its entrance zone have different ids and the same zone name —
    which is exactly why the Zone filter keys on the name and the export keeps the id.
 
+**17j. The export copy window (`LibKa0s-Widgets-1.0`'s `CopyWindow`).** New with the CopyWindow
+adoption. `modules/Export.lua` no longer builds the frame; it passes a descriptor through
+`core/WidgetsSetup.lua`'s `NS.CopyWindow` and the library builds, anchors and shows it. Three things
+this window does are invisible to the headless gate — keyboard **focus**, the **selection**, and the
+**Esc** binding — so they are only ever proved here. **No visual change is the pass condition:** the
+window is 640x420 at `FULLSCREEN` strata over the modal, `0.06/0.06/0.08/0.95` backdrop, 10pt
+monospace. Anything that looks different from the window this addon shipped before is a bug in the
+adoption, not an improvement.
+
+1. `/lh show` → **History** tab → `Export` → **Export to CSV**.
+2. The copy window opens **centred on the History window**, **above** the export modal (the modal
+   stays visible underneath), with the CSV **already selected**.
+3. `Ctrl+C`, paste into a text editor: the whole CSV, line breaks and all.
+4. `Esc` closes the copy window and **leaves the export modal open**.
+5. Repeat from the **Insights** tab — the second `:Open` path, with a different modal title. The
+   **same one window** is reused (it is a lazily-built singleton; a rebuild per open would leak a
+   frame per open, because frames are never destroyed in WoW).
+6. **Drag the History window** somewhere else and export again: the copy window follows it. That is
+   the `anchorTo` callback being consulted on every show rather than once at build.
+7. Close the History window entirely, then export from a path that does not need it — the copy
+   window centres on the **screen** rather than erroring.
+8. Drag the copy window itself by its title bar, and close it with the **title-bar close glyph**:
+   the same shared `close` mark every other window in this addon wears, drawn by
+   `Core.MakeCloseButton` now instead of `B:MakeCloseButton` — which called the very same function.
+
 ---
 
 ## When to run which subset
@@ -940,6 +965,9 @@ did before, not a new feature to admire.
 - **Pre-release / TOC bump:** the **entire suite** — the 17 scenarios span every system the addon
   owns. Always finish with the headless gate green: `luacheck .` (0/0) and `lua tests/run.lua` (see
   [testing.md](testing.md)).
+- **Export edits:** 17j, plus 6a and 8. Anything touching `modules/Export.lua`,
+  `core/WidgetsSetup.lua`'s `NS.CopyWindow`, or a re-vendor of `libs/LibKa0s/Widgets.lua`.
+  The copy window's focus, selection and Esc binding have no headless coverage at all.
 - **Debug/logging edits:** 12, 15. Anything touching `NS.Debug` call sites or
   `core/DebugLogSetup.lua` needs the tag-coverage + coalescing checklist — and 17b, since the
   console's strings are the library's now.

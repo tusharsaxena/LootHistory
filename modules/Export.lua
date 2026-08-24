@@ -295,7 +295,7 @@ end
 -- copy window (deliberately not shared with the debug copy window, so its layout can evolve
 -- independently).
 local WHITE = "Interface\\Buttons\\WHITE8X8"
-local frame, copyFrame
+local frame
 -- Per-open config (issue #15): { title = "Export …", providers = { allData, currentView },
 -- csv = function(dataset) return text end }. `title` is the window header the invoking tab supplies
 -- ("Export History" / "Export Insights", and any future tab); `csv` is the serializer for whichever
@@ -316,60 +316,57 @@ local function centerOnBrowser(f)
 end
 
 -- Export's own read-only copy window: Ctrl+C to copy, Esc to close.
-local function EnsureCopyFrame()
-  if copyFrame then return copyFrame end
-  copyFrame = CreateFrame("Frame", "LootHistoryExportCopyWindow", UIParent, "BackdropTemplate")
-  copyFrame:SetSize(640, 420)
-  copyFrame:SetPoint("CENTER")
-  copyFrame:SetFrameStrata("FULLSCREEN")
-  copyFrame:EnableMouse(true)
-  copyFrame:SetMovable(true)
-  copyFrame:SetClampedToScreen(true)
+--
+-- The FRAME is LibKa0s-Widgets-1.0's now, leased through core/WidgetsSetup.lua. What stays here is
+-- the DESCRIPTOR: the global name, the monospace face, the title, the skin and the anchor -- the
+-- things a vendored library cannot work out for itself. The fifty-two lines it replaced were,
+-- character for character with the addon name substituted, BankLedger's fifty-two.
+--
+-- WHAT IS DELIBERATELY NOT PASSED: width, height, editWidth and backdrop. The library's defaults
+-- ARE the constants this file used to spell out -- 640x420, a 590 fallback edit width, and the
+-- 0.06/0.06/0.08/0.95 backdrop this window has always worn (denser than the shared skin's 0.92,
+-- because a wall of small monospace text loses legibility to whatever bleeds through it). Passing
+-- them again would be four more places for the two copies of one number to drift apart.
+--
+-- The build is lazy INSIDE the handle, so asking for one here costs nothing until the first export:
+-- a session that never exports creates no frame at all.
+local copyWindow
 
-  local tbar = CreateFrame("Frame", nil, copyFrame)
-  tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(26)
-  tbar:EnableMouse(true); tbar:RegisterForDrag("LeftButton")
-  tbar:SetScript("OnDragStart", function() copyFrame:StartMoving() end)
-  tbar:SetScript("OnDragStop", function() copyFrame:StopMovingOrSizing() end)
-  local t = tbar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  t:SetPoint("CENTER"); t:SetText("Export \226\128\148 Ctrl+C, then Esc")
-
-  if NS.Browser and NS.Browser.MakeCloseButton then
-    NS.Browser:MakeCloseButton(tbar, function() copyFrame:Hide() end)
-      :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
-  end
-
-  local scroll = CreateFrame("ScrollFrame", nil, copyFrame,
-    "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 8, -30); scroll:SetPoint("BOTTOMRIGHT", -28, 10)
-  local edit = CreateFrame("EditBox", nil, scroll)
-  edit:SetMultiLine(true)
-  edit:SetFont(NS.Constants.FONT_MONO, 10, "")
-  edit:SetAutoFocus(false)
-  edit:SetWidth(590)
-  edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); copyFrame:Hide() end)
-  scroll:SetScrollChild(edit)
-  copyFrame.scroll, copyFrame.edit = scroll, edit
-
-  if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(copyFrame) end
-  -- Denser than the shared skin (0.92): the CSV is dense monospace text, so bump to 0.95 alpha so
-  -- the world/UI behind doesn't bleed through and hurt legibility.
-  copyFrame:SetBackdropColor(0.06, 0.06, 0.08, 0.95)
-  copyFrame:Hide()
-  if type(UISpecialFrames) == "table" then
-    table.insert(UISpecialFrames, "LootHistoryExportCopyWindow")
-  end
-  return copyFrame
+local function ensureCopyWindow()
+  if copyWindow then return copyWindow end
+  if not NS.CopyWindow then return nil end   -- degraded install; the caller says so, see :Open
+  copyWindow = NS.CopyWindow({
+    addonName = addonName,
+    name      = "LootHistoryExportCopyWindow",
+    title     = "Export \226\128\148 Ctrl+C, then Esc",
+    font      = NS.Constants.FONT_MONO,
+    fontSize  = 10,
+    applySkin = function(f) if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(f) end end,
+    -- Consulted on EVERY show rather than once at build: the popup has to land over the History
+    -- window wherever the user has since dragged it, and over the screen when it is not up.
+    anchorTo  = function()
+      return NS.Browser and NS.Browser.GetWindow and NS.Browser:GetWindow() or nil
+    end,
+  })
+  -- Published for tests/test_export.lua. An EditBox is WRITE-ONLY through the frame API as this
+  -- module uses it -- nothing here ever reads the text back -- so the handle is the only seam from
+  -- which a headless test can assert what the window is showing.
+  E.__copyWindow = copyWindow
+  return copyWindow
 end
 
+--- Show text in the copy window, selected and ready for Ctrl+C.
+---
+--- THE ORDER inside the window -- width, text, cursor, show, focus, highlight -- is the library's
+--- now. It was load-bearing here (highlight before show selects nothing; focus before the text is
+--- set leaves the cursor where the last export left it) and it is load-bearing there. What changed
+--- is that it is written down once instead of once per addon.
 local function ShowCopy(text)
-  local f = EnsureCopyFrame()
-  centerOnBrowser(f)
-  f.edit:SetWidth(f.scroll:GetWidth() > 0 and f.scroll:GetWidth() or 590)
-  f.edit:SetText(text)
-  f.edit:SetCursorPosition(0)
-  f:Show(); f.edit:SetFocus(); f.edit:HighlightText()
+  local win = ensureCopyWindow()
+  if not win then return end
+  win:Show(text)
 end
+E.__showCopy = ShowCopy
 
 -- The data for the current Data Set selection (records for History, a Stats result for Insights).
 -- Empty table if the provider is missing.

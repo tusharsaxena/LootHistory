@@ -229,3 +229,33 @@ test("Export: InsightsCSV names the per-currency breakdown Currency by Type x So
   assertTrue(csv:find("Currency by Type x Source,Badge / Vendor", 1, true) ~= nil)
   assertTrue(csv:find("Currency by Source", 1, true) == nil)  -- dropped to match the panel
 end)
+
+-- ── the copy window ─────────────────────────────────────────────────────────────
+--
+-- The export copy window is LibKa0s-Widgets-1.0's now. It used to be fifty-two lines here that
+-- were, character for character with the addon name substituted, BankLedger's fifty-two.
+--
+-- The handle and the show call are published as `Export.__copyWindow` and `Export.__showCopy`
+-- because an EditBox is WRITE-ONLY through the frame API as this module uses it -- nothing else
+-- here ever reads the text back -- so there is no other seam from which to assert what the window
+-- is showing.
+
+test("Export: the copy window comes from LibKa0s-Widgets-1.0", function()
+  local source = io.open("modules/Export.lua"):read("*a")
+  assertEqual(source:find('CreateFrame%("EditBox"'), nil,
+    "this file builds no EditBox any more; the copy window belongs to the library")
+  assertTrue(source:find("CopyWindow", 1, true) ~= nil, "the descriptor call is present")
+end)
+
+test("Export: showing the copy window puts the text in it", function()
+  local text = "when,item,quality\r\n1,Thunderfury,4\r\n"
+  NS.Export.__showCopy(text)
+  assertEqual(NS.Export.__copyWindow:GetText(), text)
+end)
+
+test("Export: the copy window is built once and reused", function()
+  NS.Export.__showCopy("first")
+  local f = NS.Export.__copyWindow:GetFrame()
+  NS.Export.__showCopy("second")
+  assertTrue(NS.Export.__copyWindow:GetFrame() == f, "no rebuild per open")
+end)
