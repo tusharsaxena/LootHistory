@@ -194,8 +194,9 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   path carrying `.tga` is one of the two spellings that draw nothing (the other is `"|T" .. nil`,
   which is why `IconMarkup` demands a fallback). **`nil` is a real answer twice over**: no library,
   or no such name. Every call site therefore keeps the Blizzard rung it drew before, underneath —
-  the client lock-atlas ladder in `modules/BrowserTable.lua`, `Arrow-Down-Up` behind the dropdown
-  chevron, `UI-Plus/MinusButton-Up` behind the group chevrons, the ChatFrame size-grabber behind
+  the client lock-atlas ladder in `modules/BrowserTable.lua`, and — for the dropdown chevron and
+  the multi-select tick — the ladder inside `LibKa0s-Widgets-1.0` itself, which falls to
+  `Arrow-Down-Up` and `UI-CheckBox-Check` when `core/WidgetsSetup.lua` hands it a nil path, `UI-Plus/MinusButton-Up` behind the group chevrons, the ChatFrame size-grabber behind
   the resize grip. **A mark this addon needs but the catalog lacks is added upstream in LibKa0s,
   never drawn locally** (anti-patterns #63): today that is a save/disk mark and a minus to pair
   with `add`, and until they exist the surfaces stay as they are.
@@ -204,7 +205,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
   `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
-  `NS.ApplySkin` (`modules/Browser.lua:75`, `core/CoreSetup.lua`); `modules/Browser.lua:23`’s own
+  `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:579`) — branding art, not a re-skinnable surface.

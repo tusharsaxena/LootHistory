@@ -670,8 +670,9 @@ currencies section (confirm popup) — the list empties and future loots of it r
 
 ### 17. LibKa0s adoption
 
-Four of LibKa0s's five majors are wired here — `Core` (the printer), `DebugLog` (the console),
-`Slash` (the dispatcher and CLI) and `Options` (the settings canvas). Everything in this section is
+Five of LibKa0s's seven majors are wired here — `Core` (the printer), `Media` (the art and the
+monospace face), `DebugLog` (the console), `Slash` (the dispatcher and CLI), `Options` (the settings
+canvas) and `Widgets` (every flat dropdown). Everything in this section is
 invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
 and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
 through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for what was adopted and what was declined.
@@ -694,7 +695,15 @@ through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for
    word for word, as step 3 — that is deliberate: a user running several Ka0s addons on a broken
    install should read one explanation, not four.
 5. Loot something. It still records — capture never depended on the library.
-6. **Rename the folder back** and `/reload` before continuing.
+6. **The filter bar is absent, not dead.** Open the History window (`/lh show`). Row 1 and row 2 of
+   the toolbar are simply not there — no Group-by, no Date, no column filters, no search box, no
+   Save/Reset/Clear, no Export. What must NOT happen is a row of buttons that click and open
+   nothing. The tabs, the table, the footer counts and the resize grip all still work, and the
+   window still opens scoped to the current player.
+7. **The export modal refuses and says why.** With no Export button in the bar there is no way to
+   reach it from the toolbar; if you have another route to `NS.Export:Open`, it prints
+   `…, so the export window is unavailable.` — the same cause clause as step 3 — and opens nothing.
+8. **Rename the folder back** and `/reload` before continuing.
 
 **17b. The `L` trap — no SCREAMING_SNAKE on screen.** This addon passes no locale table to any
 descriptor, so every library string should render as English prose. A regression renders the *key*
@@ -823,6 +832,54 @@ monospace face out of `libs/LibKa0s/media/fonts/`. Open the History window and w
 > in the filter bar has no mark because the 113-name catalog has no save/disk glyph; one is added
 > upstream in LibKa0s or not at all (anti-patterns #63).
 
+**17h. The shared dropdown (`LibKa0s-Widgets-1.0`), and the one menu it is not.** New with LibKa0s
+v1.12.0: the ten flat dropdowns this addon draws are the library's now, and their popup is a
+**process-wide singleton** shared with every other Ka0s addon. None of the following is reachable
+by a headless suite.
+
+1. **The first click opens a menu.** Open the History window and click **Group by**. A menu drops
+   under it. This is the check that earns its place on its own: LibKa0s v1.11.0 and v1.11.1 both
+   shipped `FontString:SetText(): Font not set` on exactly this click, with 553 green cases behind
+   them. If a Lua error frame appears here, nothing else in this section matters.
+2. **Every dropdown, once each.** Group-by, Date, Bound, Quality, Type, SubType, Source, Zone,
+   Character, and the export modal's **Data set** picker. Ten menus, no error, each anchored under
+   its own button and at least as wide as it.
+3. **Two of this addon's dropdowns do not fight.** Open **Quality**, then click **Zone** without
+   closing it. The Quality menu closes as the Zone menu opens — exactly one menu is open at a time,
+   the way a native game menu behaves. Then open **Source** and click somewhere empty in the world:
+   the menu closes and **the click does not land on the History window** (it does not raise, drag
+   or focus it). That is the strata rule holding — the window is `HIGH`, below the menu's catcher.
+4. **Escape closes the window AND the menu.** Open **Character**, leave the menu open, press
+   **Escape**. Both the menu and the History window go. A menu still floating over the game with no
+   window under it is the orphan bug `NS.CloseMenu()` exists to prevent.
+5. **A slash-command close does the same.** Open **Zone**, leave it open, type `/lh hide`. Menu
+   gone, window gone.
+6. **The export modal, both close routes.** `/lh show` → **Export** → open the **Data set** menu and
+   leave it open, then click the modal's **×**. Menu gone. Reopen, open the menu again, and press
+   **Escape** instead. Menu gone. Before this adoption the modal had no `OnHide` at all and both of
+   these left the menu behind — this is a bug fixed, not a feature kept.
+7. **The Character preset lights up and one-click-selects.** Open **Character**. The second row is
+   **Character: Current** and it is **gold** whenever the filter is exactly you — which it is when
+   the window first opens. Click a different character: Current goes gray, that character goes gold,
+   the button reads their name. Click **Character: Current** again: the selection snaps back to just
+   you in one click, the row goes gold again, and the button reads "Character: Current" — not
+   "current", and not a count.
+8. **A selected character who has no loot in view still shows.** Filter to a character, then narrow
+   the other filters (or `/lh test`) until that character has no rows in the dataset. The Character
+   button must **still read their name**, not "Character: All". A filter that is on must never
+   summarize as All.
+9. **The rows look right.** Each Character row shows its **class icon then the name**, tinted its
+   class color; a character with no class token shows the bare name. A selected multi-select row
+   shows the tick mark ahead of its label and goes gold. **No row shows an empty box** anywhere — a
+   box would mean a glyph was drawn in a proportional face, and this addon passes no monospace face
+   because no row of its carries a glyph.
+10. **The right-click row menu is unchanged and coexists.** Right-click a table row: the four-item
+    action list still appears, still disables "Link to chat" without an item link and "Blacklist
+    item" without an item id. It is deliberately NOT the library's widget (per-row disable is a
+    documented absence there) — see `docs/ARCHITECTURE.md` § *Menus: two mechanisms, on purpose*.
+    Open a filter dropdown and then right-click a row: both mechanisms behave, each closing its own
+    popup.
+
 ---
 
 ## When to run which subset
@@ -837,8 +894,13 @@ monospace face out of `libs/LibKa0s/media/fonts/`. Open the History window and w
 - **Media / art edits:** 17g, plus 5, 6 and 7. Anything touching `core/MediaSetup.lua`, an
   `NS.Icon` / `NS.IconMarkup` call site, or a re-vendor of `libs/LibKa0s/media/`.
 - **LibKa0s / library edits:** 17, plus 9, 10 and 12. Anything touching `core/CoreSetup.lua`,
-  `core/DebugLogSetup.lua`, `settings/Slash.lua`, `settings/OptionsSetup.lua` or a re-vendor of
-  `libs/LibKa0s/` — and **always** 17a, which is the only check that a degraded install still works.
+  `core/WidgetsSetup.lua`, `core/DebugLogSetup.lua`, `settings/Slash.lua`,
+  `settings/OptionsSetup.lua` or a re-vendor of `libs/LibKa0s/` — and **always** 17a, which is the
+  only check that a degraded install still works.
+- **Dropdown / filter-bar edits:** 17h, plus 2, 5 and 6a. Anything touching
+  `core/WidgetsSetup.lua`, `B:BuildFilterBar`, an option builder, or `libs/LibKa0s/Widgets.lua`
+  arriving in a re-vendor. 17h step 1 is non-negotiable: the first click is where this widget has
+  broken before.
 - **Pre-release / TOC bump:** the **entire suite** — the 17 scenarios span every system the addon
   owns. Always finish with the headless gate green: `luacheck .` (0/0) and `lua tests/run.lua` (see
   [testing.md](testing.md)).
