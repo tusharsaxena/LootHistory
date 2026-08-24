@@ -47,6 +47,18 @@ badge and any count quoted in the docs must agree with it.
 - MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
 - MediaSetup: with no library there is no art and no face, and that is not an error
 
+### test_envsetup.lua (9)
+
+- EnvSetup: NS.Meta asks about THIS addon's folder, not its title or its slash prefix
+- EnvSetup: NS.Meta degrades to nil when the client exposes no manifest reader
+- EnvSetup: NS.Version prefers the TOC over this addon's own constant
+- EnvSetup: NS.Version falls back to this addon's own constant
+- EnvSetup: NS.Zone answers two strings
+- EnvSetup: an absent zone reads as "", which storage buckets with nil
+- EnvSetup: NS.PlayerMapID answers the map id
+- EnvSetup degraded: an install with no LibKa0s still reads its TOC and stamps its zone
+- EnvSetup: the deleted shims are gone from Compat
+
 ### test_util.lua (35)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
@@ -668,7 +680,7 @@ badge and any count quoted in the docs must agree with it.
 - no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
 - every file of LibKa0s.xml is vendored and loads
 - the vendored copy carries the library's MIT license
-- the six adopted majors all resolved, and the seams are wired to them
+- the seven adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 
@@ -703,6 +715,7 @@ badge and any count quoted in the docs must agree with it.
 |-------|------:|
 | test_constants.lua | 25 |
 | test_mediasetup.lua | 10 |
+| test_envsetup.lua | 9 |
 | test_util.lua | 35 |
 | test_compat.lua | 31 |
 | test_attribution.lua | 23 |
@@ -723,4 +736,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **625** |
+| **Total** | **634** |

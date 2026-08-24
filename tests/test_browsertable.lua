@@ -331,7 +331,7 @@ end)
 
 test("BrowserTable: a blank zone string groups under 'Unknown' too, not a nameless group", function()
   withTableState(function()
-    -- Compat.GetZone answers "" (not nil) when the client has no zone text yet, so an empty string
+    -- NS.Zone answers "" (not nil) when the client has no zone text yet, so an empty string
     -- must land in the same bucket as a missing one — the Zone filter's Unknown option covers both.
     local BT = NS.BrowserTable
     BT.groupBy, BT.collapsed, BT.groupAsc = "zone", {}, true

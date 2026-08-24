@@ -50,7 +50,7 @@ NS.Panel:Register()
 -- Kit.run applies the same gate implicitly, but an implicit gate contributes no row to
 -- docs/test-cases.md and nobody reading the inventory can tell whether it ran.
 local SUITES = {
-  "test_constants", "test_mediasetup", "test_util", "test_compat", "test_attribution",
+  "test_constants", "test_mediasetup", "test_envsetup", "test_util", "test_compat", "test_attribution",
   "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
   "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
   "test_schema", "test_analytics", "test_panel", "test_harness", "test_libka0s",

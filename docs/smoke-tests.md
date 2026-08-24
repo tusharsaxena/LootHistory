@@ -670,9 +670,10 @@ currencies section (confirm popup) — the list empties and future loots of it r
 
 ### 17. LibKa0s adoption
 
-Five of LibKa0s's seven majors are wired here — `Core` (the printer), `Media` (the art and the
+Seven of LibKa0s's ten majors are wired here — `Core` (the printer), `Media` (the art and the
 monospace face), `DebugLog` (the console), `Slash` (the dispatcher and CLI), `Options` (the settings
-canvas) and `Widgets` (every flat dropdown). Everything in this section is
+canvas), `Widgets` (every flat dropdown) and `Env` (the TOC read behind `/lh version`, plus the map
+and zone stamp on every captured row). Everything in this section is
 invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
 and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
 through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for what was adopted and what was declined.
@@ -694,7 +695,12 @@ through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for
    `…, so the settings panel is unavailable.` Each sentence starts with the **same cause clause**,
    word for word, as step 3 — that is deliberate: a user running several Ka0s addons on a broken
    install should read one explanation, not four.
-5. Loot something. It still records — capture never depended on the library.
+5. Loot something. It still records — capture never depended on the library. Check the new row's
+   **Zone** column: it still names the zone you are standing in, and the row is not bucketed under
+   `Unknown`. That is `core/EnvSetup.lua`'s written-out fallback ladder doing the work the deleted
+   `Compat.GetZone` used to; a degraded install that stamped nothing would look identical until you
+   opened the Zone filter. `/lh version` likewise still answers the TOC's version rather than blank
+   or `?`.
 6. **The filter bar is absent, not dead.** Open the History window (`/lh show`). Row 1 and row 2 of
    the toolbar are simply not there — no Group-by, no Date, no column filters, no search box, no
    Save/Reset/Clear, no Export. What must NOT happen is a row of buttons that click and open
@@ -886,12 +892,36 @@ by a headless suite.
     that, and expect one *left*-click to dismiss the filter menu before the right-click lands.
     Reported upstream as a `Widgets` gap; do not patch `libs/` here.
 
+**17i. The `LibKa0s-Env-1.0` seam — the version, the map and the zone.** New with LibKa0s v1.15.0.
+`core/EnvSetup.lua` took over three `core/Compat.lua` shims, and all three answer things the headless
+gate can only see through a mock: out of game there is no manifest to read and no client zone at all.
+The seam must not have changed a single answer, so this check is a comparison against what the addon
+did before, not a new feature to admire.
+
+1. `/lh version` prints the version from **`LootHistory.toc`'s `## Version` line**, not the constant
+   in `core/Namespace.lua`. Prove it: they are the same string today, so temporarily edit the TOC's
+   `## Version` to something obviously different, `/reload`, and confirm `/lh version` follows the
+   TOC. Put it back afterwards.
+2. Loot an item in a **named zone with a subzone** (a capital's district, an inn). Open the History
+   window: the row's **Zone** column reads the zone, and the row's tooltip/export carries the
+   subzone. Then loot in a zone with **no** subzone — the row still records, with the Zone column
+   filled and nothing blank-labelled.
+3. **Zone during a loading screen.** Loot on the very first frames after a portal or a summon, when
+   the client has no zone text yet. That row must bucket under **`Unknown`** in the Zone filter and
+   in group-by-zone, alongside rows that have no zone at all — never as its own blank-named group.
+   That is the `""`-buckets-with-nil contract `core/Database.lua` and `modules/BrowserTable.lua`
+   both depend on, and the one answer a nil from the seam would silently change.
+4. **The map id is still stamped.** Export the History (`Export ▸ CSV`) and confirm captured rows
+   carry a `mapID`. A dungeon floor and its entrance zone have different ids and the same zone name —
+   which is exactly why the Zone filter keys on the name and the export keeps the id.
+
 ---
 
 ## When to run which subset
 
 - **Pre-commit (capture/attribution edits):** 1, 3, 4. Anything touching `modules/Collector.lua`,
-  `modules/Attribution.lua`, or `core/Compat.lua` needs the source matrix.
+  `modules/Attribution.lua`, `core/Compat.lua` or `core/EnvSetup.lua` needs the source matrix; the
+  last of those also needs 17i.
 - **Browser / table edits:** 2, 5, 6, 6a, 7, 8. `modules/Browser.lua` / `BrowserTable.lua` /
   `Analytics.lua` / `Export.lua` — the shared filter bar and tab-aware Export cross all of these.
 - **Settings / schema edits:** 9, 10, plus §4's mute/quality gates for any new Data-Collection row.

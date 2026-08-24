@@ -242,7 +242,7 @@ local GROUP_OF = {
     local label = C.SourceLabel[r.source] or r.source or "Other"
     return label, label
   end,
-  -- "" buckets with nil (Compat.GetZone answers "" with no zone text), as in Stats/the Zone filter.
+  -- "" buckets with nil (NS.Zone answers "" with no zone text), as in Stats/the Zone filter.
   zone = function(r)
     local label = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
     return label, label

@@ -31,6 +31,9 @@ locales\enUS.lua
 
 # Core (Compat loads first)
 core\Compat.lua
+# The LibKa0s-Env seam. After Compat, whose map, zone and TOC-metadata shims it took over;
+# nothing here resolves at load, so the position is conventional rather than load-bearing.
+core\EnvSetup.lua
 # LOAD-BEARING POSITION: publishes NS.MediaFont, which core\Constants.lua reads at file
 # load to resolve FONT_MONO. Below Constants and every consumer silently gets the client font.
 core\MediaSetup.lua

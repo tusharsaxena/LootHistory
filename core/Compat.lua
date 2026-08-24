@@ -6,14 +6,6 @@ local Compat = NS.Compat
 -- direct C_*/global presence check below, so a shim degrades to nil/false when its API is
 -- absent — never by reading a game-flavor project id.
 
--- Best-effort current map id for the player (nil if unavailable).
-function Compat.GetPlayerMapID()
-  if C_Map and C_Map.GetBestMapForUnit then
-    return C_Map.GetBestMapForUnit("player")
-  end
-  return nil
-end
-
 -- Active M+ keystone level (nil if no keystone active or the API is absent). Guarded by
 -- C_ChallengeMode presence — degrades to nil when the challenge-mode API is unavailable.
 function Compat.GetActiveKeystoneLevel()
@@ -106,13 +98,6 @@ function Compat.IsAuctionHouseMail(sender, subject)
     end
   end
   return false
-end
-
--- Current zone + subzone labels (subzone may be "").
-function Compat.GetZone()
-  local zone = (GetZoneText and GetZoneText()) or ""
-  local subzone = (GetSubZoneText and GetSubZoneText()) or ""
-  return zone, subzone
 end
 
 -- GUID kinds that carry a creature/npc id in field 6 of the dash-split GUID. Exposed as the
@@ -463,19 +448,6 @@ function Compat.CurrencyBound(currencyID)
   if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
     local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
     if info then return info.isAccountTransferable and "WARBAND" or "BOP" end
-  end
-  return nil
-end
-
--- Addon TOC metadata field (e.g. "Version"), read from the packaged manifest so `/lh version`
--- can't drift from the TOC. Retail moved the getter to C_AddOns; falls back to the bare global,
--- then nil when neither is present.
-function Compat.GetAddOnMetadata(name, field)
-  if C_AddOns and C_AddOns.GetAddOnMetadata then
-    return C_AddOns.GetAddOnMetadata(name, field)
-  end
-  if type(GetAddOnMetadata) == "function" then
-    return GetAddOnMetadata(name, field)
   end
   return nil
 end

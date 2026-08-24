@@ -122,7 +122,7 @@ function Collector:OnChatMsgLoot(_, msg)
 
   local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
   local auctionPrice = NS.AuctionPrice:GatherAll(link, itemID)
-  local zone, subzone = NS.Compat.GetZone()
+  local zone, subzone = NS.Zone()
   local classFile = select(2, UnitClass("player"))
   local record = self:BuildRecord(link, qty,
     { source = source, sourceDetail = sourceDetail, confidence = confidence },
@@ -130,7 +130,7 @@ function Collector:OnChatMsgLoot(_, msg)
       itemID = itemID, itemName = itemName, quality = quality, itemLevel = itemLevel, bound = bound,
       vendorPrice = sellPrice, auctionPrice = auctionPrice,
       itemType = itemType, itemSubType = itemSubType,
-      zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone })
+      zone = zone, mapID = NS.PlayerMapID(), subzone = subzone })
 
   NS.Database:Add(record)
 
@@ -186,7 +186,7 @@ function Collector:OnChatMsgCurrency(_, msg)
     return
   end
 
-  local zone, subzone = NS.Compat.GetZone()
+  local zone, subzone = NS.Zone()
   local record = {
     ts = time(), char = NS.Util.PlayerKey(), classFile = select(2, UnitClass("player")),
     currencyID = currencyID, itemName = name,
@@ -195,7 +195,7 @@ function Collector:OnChatMsgCurrency(_, msg)
     bound = NS.Compat.CurrencyBound(currencyID),   -- WARBAND (Warband-transferable) | BOP | nil
     quantity = qty,
     source = source, sourceDetail = sourceDetail, confidence = confidence,
-    zone = zone, mapID = NS.Compat.GetPlayerMapID(), subzone = subzone,
+    zone = zone, mapID = NS.PlayerMapID(), subzone = subzone,
   }
   NS.Database:Add(record)
 

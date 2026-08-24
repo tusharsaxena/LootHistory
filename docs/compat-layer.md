@@ -6,11 +6,18 @@ The guiding principle is **Retail-only, presence-gated, no game-flavor branching
 
 Load-first (`core/Compat.lua` heads the TOC) so every later module can reference `NS.Compat.*`.
 
+**What is deliberately not here.** The map-id read, the zone read and the TOC-metadata read used to be
+`Compat` shims. They behaved identically in every addon that carried them — the metadata one was written
+eleven times across nine addons — which is what made them the library's business rather than this addon's.
+They are `LibKa0s-Env-1.0`'s now and reach this addon through `core/EnvSetup.lua` as `NS.PlayerMapID()`,
+`NS.Zone()`, `NS.Meta(field)` and `NS.Version()`. The boundary rule below is unchanged by that move: the
+seam still keeps direct `C_*`/global calls out of the modules, it just resolves them through the library
+first and falls back to the ladder the shim ran.
+
 ## `Compat.*` surface
 
 | Compat function | Wraps | Why |
 |---|---|---|
-| `Compat.GetPlayerMapID()` | `C_Map.GetBestMapForUnit("player")` | Best-effort current map id for the record's `mapID`; `nil` when `C_Map` is absent. |
 | `Compat.GetActiveKeystoneLevel()` | `C_ChallengeMode.GetActiveKeystoneInfo` | Active M+ keystone level for keystone context; `nil` when no keystone is active or `C_ChallengeMode` is absent. |
 | `Compat.HookUseContainerItem(fn)` | `C_Container.UseContainerItem` → global `UseContainerItem` | `hooksecurefunc`s the "use a bag item" path so attribution can stamp CONTAINER — opening a lockbox pushes contents to bags with no `LOOT_OPENED`/source GUID. Calls `fn(bag, slot)` after each use. |
 | `Compat.ContainerItemHasLoot(bag, slot)` | `C_Container.GetContainerItemInfo` | Reads `info.hasLoot` to confirm the used bag item is actually an openable container/lockbox; `false` when unknown, so a potion/gear use never mis-stamps as CONTAINER. |
@@ -20,7 +27,6 @@ Load-first (`core/Compat.lua` heads the TOC) so every later module can reference
 | `Compat.GetSpellName(spellID)` | `C_Spell.GetSpellName` → global `GetSpellInfo` | Localized spell name, so attribution can detect deconstruct casts by name family across the milling/prospecting/Mass variants. `nil` when unavailable. |
 | `Compat.GetMailHeader(mailIndex)` | global `GetInboxHeaderInfo` | Sender + subject for an inbox mail row, feeding MAIL vs AH classification; `nil, nil` when absent. |
 | `Compat.IsAuctionHouseMail(sender, subject)` | `AUCTION_HOUSE` + `AUCTION_*_MAIL_SUBJECT` globals | Locale-independent test for AH-origin mail: matches the AH sender name or an AH mail subject prefix (won / expired / canceled / invoice) built from the localized subject globals. Splits MAIL from AH source. |
-| `Compat.GetZone()` | globals `GetZoneText` + `GetSubZoneText` | Current zone + subzone labels for the record; subzone may be `""`. |
 | `Compat.UNIT_KINDS` + `Compat.DecodeGUID(guid)` | `strsplit` on the dash-split GUID | `UNIT_KINDS` is the single source of truth for GUID kinds carrying a creature/npc id (Creature/Vehicle/Pet/Vignette). `DecodeGUID` returns `kind` and, for unit kinds, the `npcID` from field 6 — how attribution tells KILL from CONTAINER/GameObject. |
 | `Compat.QualityFromLink(link)` / `Compat.QualityLabel(q)` | `ITEM_QUALITY_COLORS` / `ITEM_QUALITY<q>_DESC` globals | `QualityFromLink` parses the quality id from a link's `|cffRRGGBB` color prefix (a reverse hex→quality map) for the uncached fallback. `QualityLabel` gives the localized Poor/Common/… name, falling back to a static English map headlessly and for unknown ids. |
 | `Compat.GetItemInfo(link)` | `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` | Resilient `itemID, itemName, quality, classID` for a link, falling back to the link's own display text and `QualityFromLink` when the item is not yet cached (so records never lose the name/quality). `classID` is the locale-independent `Enum.ItemClass.*`. |
@@ -37,10 +43,9 @@ Load-first (`core/Compat.lua` heads the TOC) so every later module can reference
 | `Compat.CurrencyName(currencyID)` | `C_CurrencyInfo.GetCurrencyInfo` | Display name for a currency id, used by the Filters panel to label a stored currency-blacklist entry; `nil` when uncached/absent. |
 | `Compat.CurrencyQuality(currencyID)` | `C_CurrencyInfo.GetCurrencyInfo` | The currency's `Enum.ItemQuality` tier — colors the Name cell + fills the Quality column for currency rows, and drives the v3→v4 backfill migration; `nil` when uncached/absent. |
 | `Compat.CurrencyBound(currencyID)` | `C_CurrencyInfo.GetCurrencyInfo` (`isAccountTransferable`) | `"WARBAND"` for a Warband-transferable currency, else `"BOP"` — drives the currency Bound-column glyph and the v4→v5 backfill migration; `nil` when the id can't be resolved. |
-| `Compat.GetAddOnMetadata(name, field)` | `C_AddOns.GetAddOnMetadata` → global `GetAddOnMetadata` | Reads a TOC metadata field (e.g. `"Version"` for `/lh version`) from the packaged manifest so it can't drift from the code; `nil` when neither getter is present. |
 
 ## Boundary rule
 
 Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call, or `WOW_PROJECT_ID` branch outside `Compat.lua` is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
 
-Attribution stamping consumes most of this surface — the hooks (`HookUseContainerItem`, `HookGetQuestReward`) and probes (`ContainerItemHasLoot`, `IsSpellTargeting`, `CurrentQuestID`, `GetMailHeader`, `IsAuctionHouseMail`, `DecodeGUID`) feed the source-resolution engine described in [data-flow.md](data-flow.md). The collector consumes `GetItemInfo`/`GetItemExtras`/`GetZone` to build each record. See the [module map](module-map.md) for how the pieces load and connect.
+Attribution stamping consumes most of this surface — the hooks (`HookUseContainerItem`, `HookGetQuestReward`) and probes (`ContainerItemHasLoot`, `IsSpellTargeting`, `CurrentQuestID`, `GetMailHeader`, `IsAuctionHouseMail`, `DecodeGUID`) feed the source-resolution engine described in [data-flow.md](data-flow.md). The collector consumes `GetItemInfo`/`GetItemExtras` to build each record, and takes the where-am-I stamp from `NS.Zone` / `NS.PlayerMapID` in [`core/EnvSetup.lua`](module-map.md) rather than from here. See the [module map](module-map.md) for how the pieces load and connect.

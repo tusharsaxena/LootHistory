@@ -545,7 +545,7 @@ end
 
 -- Zone, confidence and keystone level — the breakdowns that count items and currency alike.
 local function accumulateProvenance(A, r, value)
-  -- "" (what Compat.GetZone answers with no zone text yet) buckets with nil, matching the Zone
+  -- "" (what NS.Zone answers with no zone text yet) buckets with nil, matching the Zone
   -- filter's single Unknown option — otherwise a blank-labeled row sits beside Unknown.
   local zone = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
   A.byZone[zone] = (A.byZone[zone] or 0) + 1

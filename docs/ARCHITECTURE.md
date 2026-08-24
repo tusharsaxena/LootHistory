@@ -28,7 +28,7 @@ LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
 chat printer, the art and monospace face, the debug console, the slash-command interface, the
 settings canvas and the flat dropdowns. All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because six of its seven majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because nine of its ten majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---

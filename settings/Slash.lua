@@ -215,10 +215,9 @@ local Dispatcher = lib:New({
   print = function(line) NS.Print(line) end,
 
   -- Read from the TOC metadata so it cannot drift from the packaged manifest, with the in-code
-  -- constant as the fallback (slash-commands-§3).
+  -- constant as the fallback (slash-commands-§3). Both rungs live in core/EnvSetup.lua now.
   version = function()
-    return (NS.Compat and NS.Compat.GetAddOnMetadata and NS.Compat.GetAddOnMetadata(NS.name, "Version"))
-      or NS.version or "?"
+    return NS.Version()
   end,
 
   -- The schema CLI, wired to this addon's single write seam. Every `set` a user types takes the

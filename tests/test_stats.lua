@@ -44,7 +44,7 @@ test("Stats: byZone counts", function()
 end)
 
 test("Stats: a missing or blank zone counts under one Unknown bucket", function()
-  -- "" is what Compat.GetZone answers before the client has zone text; it must not become its own
+  -- "" is what NS.Zone answers before the client has zone text; it must not become its own
   -- blank-labeled Top Zones row alongside the nil one.
   local s = NS.Database:Stats({})
   local saved = NS.db.global.history
