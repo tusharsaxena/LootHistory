@@ -24,7 +24,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 10
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 11
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -38,7 +38,13 @@ lib.MODULES.DebugLog = MINOR
 -- The console keeps the last N lines and no more. Fixed by the standard rather than by the host:
 -- a console is a diagnostic window read by hand, and the cap and the message frame's own SetMaxLines
 -- must move together or the visible log and the copied buffer diverge.
-lib.MAX_BUFFER = 500
+--
+-- 1500 rather than the original 500 because the perf capture workflow pastes out of THIS buffer:
+-- `perf report` prints its summary here and `perf dump` writes the whole JSON record as one line
+-- (Perf.lua), so a long run overflowed 500 and lost its head with nothing saying so. The copy
+-- window is a view of this array and caps nothing of its own, which is why raising this raises
+-- both and why there is no second number.
+lib.MAX_BUFFER = 1500
 
 -- Re-exported rather than left for the host to reach into Core for. A host that draws a close
 -- button on its own windows should get the same one its console wears, from one factory — three

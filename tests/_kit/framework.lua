@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 11
+Kit.VERSION = 12
 
 local tests = {}
 local currentSuite  -- basename (no extension) of the suite file currently being dofile'd
@@ -322,11 +322,88 @@ end
 -- repos pin `*.md text eol=crlf`, a plain redirect writes LF, and a regeneration command with a
 -- pipeline in it is one someone eventually runs without the pipeline.
 
-local function wantsList()
-  for _, a in ipairs(arg or {}) do
-    if a == "--list" then return true end
+-- ── the command line ───────────────────────────────────────────────────────────────────────
+--
+-- Three flags, all parsed here so `--list` and the shard driver read the same argv the same way:
+--
+--   --list          render the inventory and exit, running nothing
+--   --jobs N|auto   fan the suites out across N worker processes (`-j` is the short form)
+--   --shard I/N     run only slice I of N. Set by the driver on each child; not for hand use.
+
+local function argv() return arg or {} end
+
+local function hasFlag(name)
+  for _, a in ipairs(argv()) do
+    if a == name then return true end
   end
   return false
+end
+
+--- The value of `--name V` or `--name=V`, or nil when the flag is absent.
+local function flagValue(name)
+  local a = argv()
+  local pattern = "^" .. name:gsub("%-", "%%-") .. "=(.+)$"
+  for i, v in ipairs(a) do
+    if v == name then return a[i + 1] end
+    local inline = tostring(v):match(pattern)
+    if inline then return inline end
+  end
+  return nil
+end
+
+local function wantsList() return hasFlag("--list") end
+
+--- `I, N` from `--shard I/N`, or nil when this process is not a shard.
+--- A malformed value RAISES rather than defaulting: silently running everything when the caller
+--- asked for a slice is how a parallel gate reports four passes for one run's worth of work.
+local function shardArg()
+  local v = flagValue("--shard")
+  if not v then return nil end
+  local i, n = tostring(v):match("^(%d+)/(%d+)$")
+  i, n = tonumber(i), tonumber(n)
+  if not i or not n or n < 1 or i < 1 or i > n then
+    error(("--shard expects I/N with 1 <= I <= N, e.g. `--shard 2/4`; got %q"):format(tostring(v)), 0)
+  end
+  return i, n
+end
+
+--- The machine-readable line a shard emits INSTEAD of the human summary. The driver strips it from
+-- the output it relays and adds the counts up; a shard that dies without printing one is reported
+-- as a failure rather than contributing a silent zero.
+local SHARD_MARKER = "__KIT_SHARD"
+
+--- How many CPUs the host admits to, for `--jobs auto`. 1 when it will not say.
+local function cpuCount()
+  if not io.popen then return 1 end
+  local p = io.popen("nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null")
+  if not p then return 1 end
+  local n = tonumber((p:read("*a") or ""):match("%d+"))
+  p:close()
+  return n or 1
+end
+
+--- The requested worker count: the flag if given, else the runner's own default, else 1.
+local function jobsArg(default)
+  local v = flagValue("--jobs") or flagValue("-j") or default
+  if v == nil or v == 1 or v == "1" then return 1 end
+  if v == "auto" then return math.max(1, cpuCount()) end
+  local n = tonumber(v)
+  if not n then
+    error(("--jobs expects a number or `auto`; got %q"):format(tostring(v)), 0)
+  end
+  return math.max(1, math.floor(n))
+end
+
+--- The CONTIGUOUS slice `[first, last]` of `total` items belonging to shard `i` of `n`.
+---
+--- Contiguous, not round-robin, and that is the point: the driver relays shard 1's output, then
+--- shard 2's, and so on, so a parallel run prints its cases in exactly the order a serial run
+--- prints them. A gate whose output reshuffles every time it runs is a gate nobody diffs.
+local function shardRange(total, i, n)
+  local base, extra = math.floor(total / n), total % n
+  local first = (i - 1) * base + math.min(i - 1, extra) + 1
+  local count = base + ((i <= extra) and 1 or 0)
+  return first, first + count - 1
 end
 
 local function out(line) io.write((line or ""), "\r\n") end
@@ -391,13 +468,219 @@ end
 --- discovers its own suites and passes no `dir` sits outside the assertion's premise and is left
 --- alone. `suiteInventory = false` is the documented opt-out for a repo mid-migration; it is not a
 --- setting to leave switched off.
+--- Shell-quote one argument for `sh -c`.
+local function shq(v)
+  return "'" .. tostring(v):gsub("'", "'\\''") .. "'"
+end
+
+--- True when `os.execute` reached a POSIX shell (0 on 5.1, `true` on 5.2+).
+local function posixShell()
+  local ok = os.execute(":")
+  return ok == 0 or ok == true
+end
+
+--- The count line a shard prints instead of the human summary, as a capture pattern.
+local SHARD_PATTERN = "^" .. SHARD_MARKER .. " passed=(%d+) failed=(%d+) skipped=(%d+)$"
+
+--- Launch `jobs` children, wait for all of them, and hand back the temp paths they wrote.
+---
+--- Every child is a plain re-invocation of the SAME runner with `--shard I/N` -- there is no worker
+--- script and no second code path to keep in step. They are backgrounded from one `sh` and joined
+--- with `wait`, because Lua 5.1 has no threads and `io.popen` blocks on read; each writes to its own
+--- file so no two shards interleave mid-line.
+local function spawnShards(interpreter, script, jobs)
+  local outs, rcs, parts = {}, {}, {}
+  for i = 1, jobs do
+    outs[i], rcs[i] = os.tmpname(), os.tmpname()
+    parts[i] = ("{ %s %s --shard %d/%d >%s 2>&1; echo $? >%s; } &")
+      :format(shq(interpreter), shq(script), i, jobs, shq(outs[i]), shq(rcs[i]))
+  end
+  parts[#parts + 1] = "wait"
+  os.execute(table.concat(parts, " "))
+  return outs, rcs
+end
+
+--- Relay one shard's output verbatim and return `counts, exitCode`.
+--- `counts` is nil when the shard never printed its count line, which means it did not finish.
+local function drainShard(outPath, rcPath)
+  local counts
+  local outFile = io.open(outPath, "r")
+  if outFile then
+    for line in outFile:lines() do
+      local passed, failed, skipped = line:match(SHARD_PATTERN)
+      if passed then
+        counts = {
+          passed = tonumber(passed), failed = tonumber(failed), skipped = tonumber(skipped),
+        }
+      else
+        print(line)
+      end
+    end
+    outFile:close()
+  end
+
+  local rcFile = io.open(rcPath, "r")
+  local code = rcFile and tonumber((rcFile:read("*a") or ""):match("%-?%d+"))
+  if rcFile then rcFile:close() end
+
+  os.remove(outPath)
+  os.remove(rcPath)
+  return counts, code
+end
+
+--- Add one shard's counts into the running tally.
+local function addCounts(tally, counts)
+  tally.passed  = tally.passed  + counts.passed
+  tally.failed  = tally.failed  + counts.failed
+  tally.skipped = tally.skipped + counts.skipped
+end
+
+--- Run this same script as `jobs` shard processes, relay their output in shard order, and return
+--- the exit code the run should carry. Returns `nil, reason` when the platform cannot fan out, so
+--- the caller can fall back to a serial run rather than reporting a failure that is really a
+--- missing shell.
+function Kit.runParallel(jobs)
+  local interpreter, script = argv()[-1], argv()[0]
+  if not interpreter then return nil, "the interpreter path is unknown (arg[-1] is unset)" end
+  if not script then return nil, "this script's path is unknown (arg[0] is unset)" end
+  if not posixShell() then return nil, "no POSIX shell to background workers from" end
+
+  local outs, rcs = spawnShards(interpreter, script, jobs)
+  local tally = { passed = 0, failed = 0, skipped = 0 }
+
+  for i = 1, jobs do
+    local counts, code = drainShard(outs[i], rcs[i])
+    if counts then
+      addCounts(tally, counts)
+    else
+      -- A shard that never printed its marker did not finish. Its cases are simply not in the
+      -- totals, so the totals cannot be trusted and the run MUST go red -- this is the parallel
+      -- runner's version of the silence `assertSuiteInventory` exists to prevent.
+      tally.failed = tally.failed + 1
+      print(("  FAIL  parallel runner\n          shard %d/%d produced no result line (exit %s) — "
+        .. "it died before finishing, and its cases are missing from the totals below")
+        :format(i, jobs, tostring(code)))
+    end
+  end
+
+  print(string.format("\n%d passed, %d failed, %d skipped, %d total (%d shards)",
+    tally.passed, tally.failed, tally.skipped,
+    tally.passed + tally.failed + tally.skipped, jobs))
+  return tally.failed == 0 and 0 or 1
+end
+
+--- Fan the suites out across processes and EXIT with the driver's code, when that is what was
+--- asked for and is possible. Returns normally in every other case, so the caller falls through to
+--- the serial path: `--jobs` not asked for, only one suite to split, `--list` (which must stay one
+--- pure pass over one registry), or a platform with no shell to background workers from.
+local function maybeFanOut(jobs, suites)
+  if jobs <= 1 or wantsList() or #suites <= 1 then return end
+
+  local code, why = Kit.runParallel(math.min(jobs, #suites))
+  if code then os.exit(code) end
+  print("  NOTE  --jobs asked for workers but this platform cannot fan out ("
+    .. tostring(why) .. "); running serially")
+end
+
+--- The set of suite names this process owns, or nil for "all of them".
+local function ownedSuites(suites, shardIndex, shardCount)
+  if not shardIndex then return nil end
+  local mine = {}
+  local first, last = shardRange(#suites, shardIndex, shardCount)
+  for i = first, last do
+    mine[tostring((suiteEntry(suites[i])))] = true
+  end
+  return mine
+end
+
+--- Whether this process runs case `t`.
+---
+--- A case with no suite was registered outside a suite file; shard 1 owns it, so it runs exactly
+--- once across the whole fan-out rather than once per shard or not at all.
+local function ownedHere(t, mine, shardIndex)
+  if not mine then return true end
+  if t.suite == nil then return shardIndex == 1 end
+  return mine[t.suite] == true
+end
+
+--- Run one case, print its line, and return "passed", "failed" or "skipped".
+local function runCase(t)
+  if t.skip then
+    print("  SKIP  " .. t.name .. " — " .. t.skip)
+    return "skipped"
+  end
+
+  local ok, err = pcall(t.fn)
+  local reason = (not ok) and skipReasonOf(err) or nil
+  if reason then
+    print("  SKIP  " .. t.name .. " — " .. reason)
+    return "skipped"
+  end
+  if ok then
+    print("  PASS  " .. t.name)
+    return "passed"
+  end
+
+  print("  FAIL  " .. t.name .. "\n          " .. tostring(err))
+  return "failed"
+end
+
+--- Run every case this process owns, and return the tally.
+local function runOwned(mine, shardIndex)
+  local tally = { passed = 0, failed = 0, skipped = 0 }
+  for _, t in ipairs(tests) do
+    if ownedHere(t, mine, shardIndex) then
+      local status = runCase(t)
+      tally[status] = tally[status] + 1
+    end
+  end
+  return tally
+end
+
+--- The closing line. A shard prints the machine-readable marker the driver adds up; a plain run
+--- prints the human summary. Skips are their own column and are NEVER folded into `passed`.
+local function reportTotals(tally, shardIndex)
+  if shardIndex then
+    print(("%s passed=%d failed=%d skipped=%d")
+      :format(SHARD_MARKER, tally.passed, tally.failed, tally.skipped))
+  else
+    print(string.format("\n%d passed, %d failed, %d skipped, %d total",
+      tally.passed, tally.failed, tally.skipped,
+      tally.passed + tally.failed + tally.skipped))
+  end
+end
+
+--- Load the suites, then either render the inventory or run everything.
+--- opts = { dir = "tests/", suites = { ... }, suiteInventory = true, jobs = 1 }
+--- Exits the process: 0 on success, 1 on any failure, so the green gate is a plain shell check.
+---
+--- `Kit.assertSuiteInventory` runs first whenever `opts.dir` is given EXPLICITLY -- a runner that
+--- discovers its own suites and passes no `dir` sits outside the assertion's premise and is left
+--- alone. `suiteInventory = false` is the documented opt-out for a repo mid-migration; it is not a
+--- setting to leave switched off.
+---
+--- `opts.jobs` is the runner's own default worker count (`1`, a number, or `"auto"`); `--jobs` on
+--- the command line overrides it either way. Parallelism is OPT-IN per repo because splitting the
+--- suites across processes also splits the process-wide state they share -- the `shared` instance,
+--- the SavedVariables globals -- so a suite that quietly depended on another suite having run first
+--- fails only once it is switched on. That dependency was always a bug; `--jobs` is what makes it
+--- visible, and it should be switched on deliberately, with the run verified green.
 function Kit.run(opts)
   local dir    = opts.dir or "tests/"
   local suites = opts.suites or {}
 
+  local shardIndex, shardCount = shardArg()
+  -- A shard NEVER spawns shards. Whatever default the runner carries, a child runs its slice
+  -- serially -- otherwise `jobs = "auto"` in a consumer's run.lua forks a process tree.
+  local jobs = shardIndex and 1 or jobsArg(opts.jobs)
+
   if opts.dir and opts.suiteInventory ~= false then
     Kit.assertSuiteInventory(dir, suites)
   end
+
+  -- The parallel driver, before any suite is loaded so the parent does no registration work.
+  -- Never in `--list` mode: the inventory must stay one pure pass over one registry.
+  maybeFanOut(jobs, suites)
 
   loadSuites(dir, suites)
 
@@ -406,31 +689,15 @@ function Kit.run(opts)
     os.exit(0)
   end
 
-  local passed, failed, skipped = 0, 0, 0
-  for _, t in ipairs(tests) do
-    if t.skip then
-      skipped = skipped + 1
-      print("  SKIP  " .. t.name .. " — " .. t.skip)
-    else
-      local ok, err = pcall(t.fn)
-      local reason = (not ok) and skipReasonOf(err) or nil
-      if reason then
-        skipped = skipped + 1
-        print("  SKIP  " .. t.name .. " — " .. reason)
-      elseif ok then
-        passed = passed + 1
-        print("  PASS  " .. t.name)
-      else
-        failed = failed + 1
-        print("  FAIL  " .. t.name .. "\n          " .. tostring(err))
-      end
-    end
-  end
-  -- Skips are their own column and are NOT added to `passed`; the exit code is still `failed == 0`.
-  print(string.format("\n%d passed, %d failed, %d skipped, %d total",
-    passed, failed, skipped, passed + failed + skipped))
-  os.exit(failed == 0 and 0 or 1)
+  local tally = runOwned(ownedSuites(suites, shardIndex, shardCount), shardIndex)
+  reportTotals(tally, shardIndex)
+  os.exit(tally.failed == 0 and 0 or 1)
 end
+
+
+--- The shard partitioner, for the kit's own self-tests. An off-by-one here silently drops or
+--- double-runs whole suites while the totals still look plausible, so it is pinned directly.
+Kit.__shardRange = shardRange
 
 --- The live registry, for the kit's own self-tests.
 function Kit.__tests() return tests end

@@ -191,6 +191,60 @@ function VendorSync.register(T, opts)
 
     local function gitShow(ref) return gitOut(('show "%s"'):format(ref)) end
 
+    --- Read MANY blobs in ONE `git` process, as `{ [ref] = contents }`.
+    ---
+    --- `git show` per file is one process spawn per file, and a payload is not a few files: LibKa0s
+    --- v1.9.0 ships 49 icons and a font, so a consumer's gate was spawning ~66 gits and spending
+    --- 7.5 seconds doing it. Once the loader's chunk cache landed, this ONE case was the single
+    --- longest thing in that repo's whole suite -- and, because a shard can only be as fast as its
+    --- slowest case, it was also the ceiling on everything `--jobs` could buy.
+    ---
+    --- `git cat-file --batch` answers all of them from one process. It reads its request list on
+    --- stdin, which Lua 5.1's unidirectional `io.popen` cannot write to, so the list goes through a
+    --- temp file and is redirected in. Each reply is `<oid> <type> <size>` and a newline, then
+    --- EXACTLY `<size>` bytes, then one more newline. The payload is therefore sliced by LENGTH,
+    --- never by pattern, and a blob carrying newlines, NUL bytes or CRLF round-trips unharmed --
+    --- which is the whole reason this is safe for the TGAs and the TTF as well as for the Lua.
+    ---
+    --- A ref git cannot resolve answers `<ref> missing` with no payload, and maps to no entry.
+    --- Every caller already treats an absent entry as "could not answer", never as "matched".
+    ---
+    --- One behavior difference from `gitShow`, and it is a fix: that function mapped an empty
+    --- result to `nil`, so a legitimately EMPTY vendored file read as "the tag does not carry
+    --- this". Here an empty blob is an empty string, and compares equal to an empty local file.
+    local function gitShowMany(refs)
+        local out = {}
+        if not io.popen or #refs == 0 then return out end
+
+        local listPath = os.tmpname()
+        local list = io.open(listPath, "wb")
+        if not list then return out end
+        for _, ref in ipairs(refs) do list:write(ref, "\n") end
+        list:close()
+
+        local pipe = io.popen(('git -C "%s" cat-file --batch <"%s" 2>/dev/null')
+            :format(SIBLING, listPath), "r")
+        local body = pipe and pipe:read("*a") or ""
+        if pipe then pipe:close() end
+        os.remove(listPath)
+
+        -- Replies come back in request order, so the walk pairs them off positionally.
+        local pos, i = 1, 1
+        while pos <= #body and i <= #refs do
+            local nl = body:find("\n", pos, true)
+            if not nl then break end
+            local size = tonumber(body:sub(pos, nl - 1):match("%s(%d+)$") or "")
+            if size then
+                out[refs[i]] = body:sub(nl + 1, nl + size)
+                pos = nl + 1 + size + 1     -- the payload, then the newline that closes it
+            else
+                pos = nl + 1                -- `<ref> missing` -- nothing follows
+            end
+            i = i + 1
+        end
+        return out
+    end
+
     --- The paths the tag carries under `<subdir>/`, sorted, RELATIVE to that subdir and
     --- INCLUDING anything inside a subdirectory of it.
     ---
@@ -244,8 +298,14 @@ function VendorSync.register(T, opts)
         -- to a byte comparison that only walks the names it already knows about.
         T.assertEqual(table.concat(mine, ", "), table.concat(shipped, ", "),
             ("%s holds the same files as %s at %s"):format(localDir, label, tag))
-        for _, name in ipairs(shipped) do
-            local blob = gitShow(("%s:%s/%s"):format(tag, subdir, name))
+        -- Every blob in one `git` call, not one call per file. See gitShowMany.
+        local refs = {}
+        for i, name in ipairs(shipped) do
+            refs[i] = ("%s:%s/%s"):format(tag, subdir, name)
+        end
+        local blobs = gitShowMany(refs)
+        for i, name in ipairs(shipped) do
+            local blob = blobs[refs[i]]
             local here = readBytes(localDir .. "/" .. name)
             T.assertTrue(blob ~= nil, ("%s %s carries %s"):format(label, tag, name))
             T.assertTrue(here ~= nil, ("the vendored copy carries %s"):format(name))

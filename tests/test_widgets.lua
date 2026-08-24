@@ -90,7 +90,7 @@ end
 test("Widgets: the seam builds a real library dropdown, art passed as parameters", function()
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(lib ~= nil, "LibKa0s-Widgets-1.0 did not register")
-  assertEqual(lib.MODULES.Widgets, 4, "this adoption is written against Widgets minor 4")
+  assertEqual(lib.MODULES.Widgets, 6, "this adoption is written against Widgets minor 6")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

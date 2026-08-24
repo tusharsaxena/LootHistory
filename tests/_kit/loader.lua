@@ -25,9 +25,50 @@ end
 
 Loader.makeEnv = makeEnv
 
+-- ── the chunk cache ─────────────────────────────────────────────────────────────
+--
+-- A suite that wants a fresh, isolated instance re-loads the ENTIRE source tree — the vendored
+-- library, then every file the TOC names. That shape is correct and is not what this cache
+-- changes: isolation comes from re-RUNNING the chunks under a new mock, never from unpicking what
+-- the previous instance did.
+--
+-- What it does change is the re-READING. `loadfile` re-opens, re-reads and re-PARSES an unchanged
+-- file on every single instance, and a suite of any size builds hundreds of instances. Measured on
+-- one consumer, 1,246 cases drove **60,112 `loadfile` calls** — 91% of the run's CPU, and on a WSL2
+-- `/mnt` checkout about two minutes of a two-minute-ten wall clock, because every one of those
+-- reads crosses a 9p mount. Caching took the same run to 11.9s.
+--
+-- Caching the COMPILED CHUNK is safe precisely because the cache holds a function, not a result.
+-- Every instance still CALLS it, so every instance still builds its own tables, closures and
+-- upvalues from scratch.
+--
+-- The subtle part, and the reason this is sound in Lua 5.1: `setfenv` sets the environment a chunk
+-- sees WHEN IT NEXT RUNS, and a closure created during that run inherits the environment its
+-- parent held AT CREATION TIME. Calling one cached chunk under env A and then under env B
+-- therefore leaves A's closures reading A and B's reading B — the two instances never share a
+-- global namespace. That is the whole invariant, and `tests/test_loader.lua` pins it directly
+-- rather than trusting this paragraph.
+--
+-- The cache is keyed by path and lives for the process. A suite that REWRITES a source file
+-- mid-run and needs the next load to see the new bytes must say so with `Loader.uncache(path)`.
+-- The alternative — stat'ing every file on every load — buys back the syscall the cache exists to
+-- avoid, for a case no repo in the collection has today.
+local chunkCache = {}
+
+--- Drop `path` from the chunk cache, or empty the cache entirely when called with no argument.
+--- Only needed by a suite that writes a source file and then re-loads it.
+function Loader.uncache(path)
+  if path == nil then chunkCache = {} else chunkCache[path] = nil end
+end
+
 function Loader.load(path, NS, mocks)
-  local chunk, err = loadfile(path)
-  if not chunk then error("loadfile(" .. path .. "): " .. tostring(err)) end
+  local chunk = chunkCache[path]
+  if not chunk then
+    local err
+    chunk, err = loadfile(path)
+    if not chunk then error("loadfile(" .. path .. "): " .. tostring(err)) end
+    chunkCache[path] = chunk
+  end
   setfenv(chunk, makeEnv(mocks))
   if Loader.addonName then return chunk(Loader.addonName, NS) end
   return chunk()

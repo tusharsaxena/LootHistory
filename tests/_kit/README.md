@@ -146,6 +146,37 @@ _G.AT_TEST = Kit.expose{ NS = NS, mocks = mocks }
 Kit.run{ dir = "tests/", suites = { "test_schema", ... } }
 ```
 
+### Running it faster
+
+Two things about the runner are worth knowing before a suite gets large.
+
+**The loader caches compiled chunks** (kit revision 12 and later). A suite that builds a fresh,
+isolated instance per case re-loads the whole source tree every time, which is the correct shape —
+isolation comes from re-*running* the chunks under a new mock. What it does not need to do is re-read
+and re-parse the bytes, and before revision 12 it did: one consumer's 1,246 cases drove 60,112
+`loadfile` calls, 91% of the run's CPU. The cache is automatic, changes nothing about isolation
+(it holds a function, not a result), and took that suite from 2m10s to 11.9s. A suite that rewrites a
+source file mid-run and needs the new bytes calls `Loader.uncache(path)`.
+
+**The suites can be split across processes** with `--jobs`:
+
+```sh
+lua tests/run.lua              # serial — the default
+lua tests/run.lua -j auto      # one worker per CPU
+lua tests/run.lua --jobs 4     # four workers
+```
+
+Each worker is a re-invocation of the same `tests/run.lua` with `--shard I/N`, so there is no second
+code path. Shards take contiguous slices and their output is relayed in order, which makes a parallel
+run's transcript byte-identical to a serial one; a shard that dies without reporting fails the run
+rather than quietly shrinking the totals; and `--list` never shards.
+
+This half is **opt-in per repo** — `Kit.run`'s default is `jobs = 1`. Splitting the suites also
+splits the process-wide state they share (the `shared` instance, the SavedVariables globals), so a
+suite that quietly depended on an earlier suite having run first passes serially and fails sharded.
+That was always a bug; `--jobs` is what makes it visible. Switch it on with
+`Kit.run{ ..., jobs = "auto" }` once the sharded run is confirmed green.
+
 `Kit.expose` merges `test` and the assertions into the table you pass, so each repo keeps its own
 global name (`AT_TEST`, `LK_TEST`, `KICKCD_TEST`, …) and its own extra keys, and **no existing suite
 file has to change** when a repo adopts the kit.

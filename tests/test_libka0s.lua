@@ -12,6 +12,9 @@ local test, assertEqual, assertTrue, assertFalse =
 
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
+  "libs/LibKa0s/Env.lua",
+  "libs/LibKa0s/Pool.lua",
+  "libs/LibKa0s/Item.lua",
   "libs/LibKa0s/Media.lua",
   "libs/LibKa0s/Widgets.lua",
   "libs/LibKa0s/DebugLog.lua",
