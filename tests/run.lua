@@ -52,6 +52,10 @@ local SUITES = {
   "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
   "test_schema", "test_analytics", "test_panel", "test_harness", "test_libka0s",
   "test_vendor_sync",
+  -- Last on purpose: its close-path cases build and show the History window, which attaches
+  -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an
+  -- unbuilt window.
+  "test_widgets",
 }
 
 _G.LH_TEST = Kit.expose{
