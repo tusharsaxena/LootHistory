@@ -853,8 +853,10 @@ by a headless suite.
 3. **Two of this addon's dropdowns do not fight.** Open **Quality**, then click **Zone** without
    closing it. The Quality menu closes as the Zone menu opens — exactly one menu is open at a time,
    the way a native game menu behaves. Then open **Source** and click somewhere empty in the world:
-   the menu closes and **the click does not land on the History window** (it does not raise, drag
-   or focus it). That is the strata rule holding — the window is `HIGH`, below the menu's catcher.
+   the menu closes. Open it once more and click *on the History window* behind the menu: the menu
+   closes **and the click lands** on the window in the same press — it raises and focuses as a
+   click there normally would. That changed at LibKa0s
+   v1.13.0 (Widgets minor 5), and item 10 is where the old behaviour was reported from.
 4. **Escape closes the window AND the menu.** Open **Character**, leave the menu open, press
    **Escape**. Both the menu and the History window go. A menu still floating over the game with no
    window under it is the orphan bug `NS.CloseMenu()` exists to prevent.
@@ -885,12 +887,15 @@ by a headless suite.
     documented absence there) — see `docs/ARCHITECTURE.md` § *Menus: two mechanisms, on purpose*.
     The two directions are **not** symmetric, and the asymmetry is the library's, not this addon's.
     With the **row menu** open, left- or right-clicking anywhere outside it closes it — this addon's
-    catcher registers both buttons (`modules/BrowserTable.lua`). With a **filter dropdown** open,
-    the library's click-catcher takes only `LeftButtonUp` (`libs/LibKa0s/Widgets.lua` — the catcher
-    is a plain `Button` with no `RegisterForClicks`), so a **right**-click over it is swallowed with
-    no handler: the filter menu stays open and the row menu does **not** appear. Expect exactly
-    that, and expect one *left*-click to dismiss the filter menu before the right-click lands.
-    Reported upstream as a `Widgets` gap; do not patch `libs/` here.
+    catcher registers both buttons (`modules/BrowserTable.lua`). **The filter dropdowns now do the
+    same, and checking that is the point of this step.** With a **filter dropdown** open, right-click
+    a table row: the filter menu closes **and the row action list appears on that same press**. It
+    used to take two presses, and this addon is where that was found — the library dismissed its
+    menu with a full-screen `Button` registering `LeftButtonUp` and nothing else, so a right-click
+    landed on the catcher, found no handler and went nowhere, and only a left-click could clear the
+    menu first. LibKa0s v1.13.0 (Widgets minor 5) removed the catcher and this repo vendors it, so
+    the asymmetry this step used to record is fixed upstream: needing two presses is now a
+    regression, not the documented shape.
 
 **17i. The `LibKa0s-Env-1.0` seam — the version, the map and the zone.** New with LibKa0s v1.15.0.
 `core/EnvSetup.lua` took over three `core/Compat.lua` shims, and all three answer things the headless
