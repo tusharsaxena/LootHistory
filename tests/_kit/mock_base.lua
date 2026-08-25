@@ -202,7 +202,20 @@ return function()
 
   -- ── UI ───────────────────────────────────────────────────────────────────────────────────
   M.UIParent = stubFrame()
-  M.CreateFrame = function() return stubFrame() end
+  -- The ARGUMENTS are recorded, not discarded (fidelity rule 3). A frame's global name is
+  -- load-bearing in real code and not merely decorative: UIPanelScrollFrameTemplate derives its
+  -- scrollbar children's names from its parent's, and UISpecialFrames is a list of global NAMES,
+  -- so "did this frame get the name it needs" is a question a suite has to be able to ask. It
+  -- could not, and a copy window shipped for five versions with the answer unpinned.
+  --
+  -- Recorded on the frame rather than returned through GetName(), which stays nil-answering:
+  -- LibKa0s-Options-1.0's scrollbar patch CONCATENATES GetName(), and handing it a real string
+  -- would change a code path rather than observe one.
+  M.CreateFrame = function(frameType, name, parent, template)
+    local f = stubFrame()
+    f.__frameType, f.__name, f.__parent, f.__template = frameType, name, parent, template
+    return f
+  end
   M.UISpecialFrames = {}
   M.DEFAULT_CHAT_FRAME = stubFrame()
   M.StaticPopupDialogs = {}

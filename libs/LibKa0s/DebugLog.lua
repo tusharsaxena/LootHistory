@@ -24,7 +24,17 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 11
+-- Minor 12 draws its copy window with LibKa0s-Widgets-1.0's CopyWindow rather than its own fifth
+-- copy of it, so Widgets is now a hard floor and not a nicety. Absent or older, this module is
+-- ABSENT rather than half-wired: a console whose Copy button silently does nothing is worse than
+-- no console, because the host's degradation stub never fires and nobody is told why. Both files
+-- ship in one payload and whole-folder vendoring is mandatory, so a host that trips this floor has
+-- a broken copy rather than an unlucky one.
+local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
+local NEEDS_WIDGETS = 7
+if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
+
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 12
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -316,10 +326,12 @@ function lib:New(d)
     if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(line) end
   end
 
-  -- Per-instance state. `frame` and `copyFrame` are built lazily and separately: a host may copy a
-  -- buffer it never opened a window on, and the console may be open when nobody wants the copy box.
+  -- Per-instance state. The console frame and the copy window are built lazily and separately: a
+  -- host may copy a buffer it never opened a window on, and the console may be open when nobody
+  -- wants the copy box. The copy window's own handle lives beside its builder further down, since
+  -- minor 12 — it is Widgets' now, and only that one function touches it.
   local D = {}
-  local frame, copyFrame
+  local frame
 
   D.buffer = {}
   D.FormatPlain, D.FormatColored = lib.FormatPlain, lib.FormatColored
@@ -548,48 +560,50 @@ function lib:New(d)
 
   -- ── the copy window ──────────────────────────────────────────────────────────────────────
 
-  local function EnsureCopyFrame()
-    if copyFrame then return copyFrame end
-    if type(CreateFrame) ~= "function" then return nil end
+  -- LibKa0s-Widgets-1.0's, as of minor 12. This was the fifth copy of the same fifty-two lines and
+  -- the last one outside Widgets; what kept it here was that it was wired to escClose / applySkin /
+  -- dragBar, which are locals of this file, and what let it go was Widgets minor 7's `scrollName` —
+  -- the one thing this window did that the shared member could not express.
+  --
+  -- Every local it used to need is now a descriptor field, and two of them are the library's own
+  -- rather than this file's: `applySkin` is already the host's-or-Core's seam, and the Esc wiring
+  -- and the close control are things CopyWindow does for all four of its callers. `dragBar` had no
+  -- equivalent to hand over because CopyWindow builds its own.
+  --
+  -- The handle is built lazily on first use and kept, because CopyWindow is itself lazy — nothing
+  -- is created until the first Show, which matters on a window most sessions never open.
+  local copyWindow
 
-    local name = d.name .. "DebugCopyWindow"
-    copyFrame = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
-    copyFrame:SetSize(560, 360)
-    copyFrame:SetPoint("CENTER")
-    copyFrame:SetFrameStrata("FULLSCREEN")   -- above the console, which is DIALOG
-    copyFrame:EnableMouse(true)
-    copyFrame:SetMovable(true)
-    copyFrame:SetClampedToScreen(true)
-
-    local titleBar = dragBar(copyFrame, TITLE_H)
-    local t = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    t:SetPoint("CENTER")
-    t:SetText(D:Text("COPY_TITLE"))
-    copyFrame.title = t
-
-    local close = makeCloseButton(titleBar, function() copyFrame:Hide() end, d.addonName)
-    if close then close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0) end
-
-    -- The scroll frame MUST carry a global name: UIPanelScrollFrameTemplate derives its scrollbar
-    -- children's names from the parent's, so an anonymous one leaves them unnamed and unstyled.
-    local scroll = CreateFrame("ScrollFrame", d.name .. "DebugCopyScroll", copyFrame,
-      "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", copyFrame, "TOPLEFT", 8, -30)
-    scroll:SetPoint("BOTTOMRIGHT", copyFrame, "BOTTOMRIGHT", -28, 10)
-
-    local edit = CreateFrame("EditBox", nil, scroll)
-    edit:SetMultiLine(true)
-    edit:SetFont(d.font, fontSize, "")
-    edit:SetAutoFocus(false)
-    edit:SetWidth(510)
-    edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); copyFrame:Hide() end)
-    scroll:SetScrollChild(edit)
-
-    copyFrame.scroll, copyFrame.edit = scroll, edit
-    copyFrame:Hide()
-    escClose(name)
-    applySkin(copyFrame)      -- after the Hide and the Esc wiring, for the reason above
-    return copyFrame
+  local function EnsureCopyWindow()
+    if copyWindow then return copyWindow end
+    copyWindow = widgets.CopyWindow({
+      -- Falls back to `name`, exactly as PerfPanel's descriptor does. CopyWindow REFUSES a
+      -- descriptor with no addonName — it cannot resolve the collection's close art without one —
+      -- and this library has always treated `addonName` as optional, so a host that never set it
+      -- would have lost its copy window entirely on this upgrade rather than gained a shared one.
+      addonName = d.addonName or d.name,
+      name      = d.name .. "DebugCopyWindow",
+      -- The scrollbar children's names derive from this one. Named here since minor 3 and the
+      -- reason `scrollName` exists upstream at all.
+      scrollName = d.name .. "DebugCopyScroll",
+      title     = D:Text("COPY_TITLE"),
+      width     = 560,
+      height    = 360,
+      font      = d.font,
+      fontSize  = fontSize,
+      -- The same seam the console window uses, so a host that re-skins one re-skins both and the
+      -- two cannot drift apart.
+      applySkin = applySkin,
+      -- Forwarded so this library's own `makeCloseButton` field keeps covering BOTH windows, as it
+      -- has since minor 4. Nothing in the collection passes it today, but the contract is published.
+      makeCloseButton = makeCloseButton,
+      -- BEHAVIOR GAINED, not preserved. The hand-rolled window anchored once at build, so it
+      -- opened wherever it was last dragged however far the console had since moved. CopyWindow
+      -- re-anchors on every show, which is what its three other callers already do — the popup
+      -- lands over the window that spawned it.
+      anchorTo  = function() return frame end,
+    })
+    return copyWindow
   end
 
   -- ── logging ──────────────────────────────────────────────────────────────────────────────
@@ -690,15 +704,13 @@ function lib:New(d)
   function D:CopyText() return table.concat(D.buffer, "\n") end
 
   function D:ShowCopy()
-    local f = EnsureCopyFrame()
-    if not f then return end
-    local w = f.scroll:GetWidth()
-    f.edit:SetWidth(type(w) == "number" and w > 0 and w or 510)
-    f.edit:SetText(D:CopyText())
-    f.edit:SetCursorPosition(0)
-    f:Show()
-    f.edit:SetFocus()
-    f.edit:HighlightText()
+    local win = EnsureCopyWindow()
+    if not win then return end
+    -- The width/text/cursor/show/focus/highlight order this used to spell out is CopyWindow's now,
+    -- and it is load-bearing there for the same reasons it was here.
+    win:Show(D:CopyText())
+    D._copyWindowForTest = win
+    D._copyFrameForTest  = win:GetFrame()
   end
 
   -- ── visibility ───────────────────────────────────────────────────────────────────────────

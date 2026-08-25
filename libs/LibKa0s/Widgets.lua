@@ -33,7 +33,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 6
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -463,6 +463,20 @@ local function copyDescriptor(d)
     applySkin = d.applySkin,
     backdrop  = d.backdrop or COPY_DEFAULTS.backdrop,
     anchorTo  = d.anchorTo,
+    -- Optional, minor 7, and NOT defaulted to anything. UIPanelScrollFrameTemplate derives its
+    -- scrollbar children's names from its parent's, so an anonymous scroll frame leaves them
+    -- unnamed — which is invisible until somebody tries to skin or find one. The debug log's own
+    -- copy window had always named it and the three adopters here never had; that difference is
+    -- what surfaced when DebugLog minor 12 converged onto this member. Left nil by default so a
+    -- caller written before minor 7 keeps exactly the frame it already had rather than silently
+    -- acquiring a global.
+    scrollName = d.scrollName,
+    -- Optional, minor 7. Defaults to Core's x, which is what all four callers want and what three
+    -- of them already got. It exists because LibKa0s-DebugLog-1.0 has published a `makeCloseButton`
+    -- descriptor field since ITS minor 4, documented as applying to BOTH of its windows — so when
+    -- minor 12 converged its copy window onto this member, a hardcoded Core x here would have
+    -- quietly narrowed a contract a host had already been told it could rely on.
+    makeCloseButton = d.makeCloseButton,
   }
   out.editWidth = d.editWidth or (out.width - 50)
   return out
@@ -500,12 +514,13 @@ local function buildCopyFrame(d)
   -- at call time for exactly this reason, and one rule about when the payload is resolvable is
   -- easier to keep than two.
   local coreLib = LibStub and LibStub("LibKa0s-Core-1.0", true)
-  if coreLib and coreLib.MakeCloseButton then
-    local close = coreLib.MakeCloseButton(bar, function() f:Hide() end, d.addonName)
+  local makeClose = d.makeCloseButton or (coreLib and coreLib.MakeCloseButton)
+  if makeClose then
+    local close = makeClose(bar, function() f:Hide() end, d.addonName)
     if close then close:SetPoint("RIGHT", bar, "RIGHT", -6, 0) end
   end
 
-  local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+  local scroll = CreateFrame("ScrollFrame", d.scrollName, f, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", 8, -30)
   scroll:SetPoint("BOTTOMRIGHT", -28, 10)
 

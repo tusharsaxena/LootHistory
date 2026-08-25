@@ -90,7 +90,11 @@ end
 test("Widgets: the seam builds a real library dropdown, art passed as parameters", function()
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(lib ~= nil, "LibKa0s-Widgets-1.0 did not register")
-  assertEqual(lib.MODULES.Widgets, 6, "this adoption is written against Widgets minor 6")
+  -- Re-pinned to 7 at the v1.16.0 re-vendor. Minor 7 is purely additive to this seam: it adds two
+  -- OPTIONAL CopyWindow descriptor fields (`scrollName`, `makeCloseButton`), both absent by
+  -- default, and touches nothing this addon's dropdown adoption reaches. The pin is deliberate —
+  -- it is meant to stop on every bump and be re-read, which is exactly what happened here.
+  assertEqual(lib.MODULES.Widgets, 7, "this adoption is written against Widgets minor 7")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end
