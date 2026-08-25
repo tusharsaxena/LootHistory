@@ -16,7 +16,7 @@
 --
 -- WHAT THIS SUITE COUPLES TO, DELIBERATELY. Reading a painted row back (`b.fs`, `b.glyph`, and the
 -- menu's own `buttons` array) is not on the library's published surface, and it is the only way to
--- see what a real row build produced -- version-4-docs.md forbids a HOST from reading library
+-- see what a real row build produced -- LibKa0s docs/api/Widgets/version-7-docs.md forbids a HOST from reading library
 -- internals and notes that the library's own suite reads them anyway, because a suite pinning
 -- behavior needs some seam to pin it through. This is that, one layer out. The line that matters is
 -- kept elsewhere: no `__`-prefixed field is touched anywhere, nothing is ever WRITTEN onto a pooled
