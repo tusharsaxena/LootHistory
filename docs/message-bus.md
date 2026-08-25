@@ -6,7 +6,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
-| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:287`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) |
+| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:287`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings page's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + Filters page) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` row `onChange` ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 

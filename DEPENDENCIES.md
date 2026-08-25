@@ -45,11 +45,12 @@ never touches them at load, only when a price is gathered.
 
 | Tool | Version | Why it is needed | Verify |
 |------|---------|------------------|--------|
-| **Lua** | **5.1 — a hard requirement** | The headless harness `setfenv`s every loaded chunk into a mock environment (`tests/_kit/loader.lua:31`, `:50`). `setfenv` was **removed in Lua 5.2**, so the suite does not run on 5.2+ — this is a requirement, not a preference. It also matches the client: WoW runs Lua 5.1 (`docs/testing.md:3`). | `lua -v` → `Lua 5.1.x` |
-| **luacheck** | any recent (developed against 1.2.0) | The lint gate, `luacheck .`, must report 0 warnings / 0 errors before every commit (`docs/testing.md:129`, `docs/testing.md:137`). Config is `.luacheckrc`. | `luacheck --version` |
+| **Lua** | **5.1 — a hard requirement** | The headless harness `setfenv`s every loaded chunk into a mock environment (`tests/_kit/loader.lua:72`, `:91`; the Lua-5.1 soundness argument is written out at `:45`). `setfenv` was **removed in Lua 5.2**, so the suite does not run on 5.2+ — this is a requirement, not a preference. It also matches the client: WoW runs Lua 5.1 (`docs/testing.md:3`). | `lua -v` → `Lua 5.1.x` |
+| **luacheck** | any recent (developed against 1.2.0) | The lint gate, `luacheck .`, must report 0 warnings / 0 errors before every commit (`docs/testing.md:137`). Config is `.luacheckrc`. | `luacheck --version` |
 | **lizard** | any recent (developed against 1.23.0) | Drives the `complexity` suite of the automated-test run at release (`automated-tests`; see "The complexity report" in [`docs/testing.md`](docs/testing.md)). **Optional** — its absence means the committed report is stale, not that the addon is broken. | `lizard --version` |
-| **git** | any recent | Beyond version control: `tests/_kit/vendor_sync.lua:154` shells out to `git -C ../LibKa0s show` / `ls-tree` to prove the vendored payload matches the LibKa0s tag `CLAUDE.md` names. Without `git` on `PATH` those cases skip rather than fail. | `git --version` |
-| **A POSIX shell with `ls`** | any | `tests/_kit/vendor_sync.lua:115` lists a directory with `ls -A` (Lua 5.1 has no directory API and this repo does not depend on LuaFileSystem). A `dir /b` fallback exists for `cmd.exe`; under WSL2 the `ls` path is the one taken. | `ls --version` |
+| **git** | any recent | Beyond version control: `tests/_kit/vendor_sync.lua:184` shells out to `git -C ../LibKa0s …` (and `:225` for the `cat-file --batch` bulk read, `:258` for `ls-tree -r`) to prove the vendored payload matches the LibKa0s tag `CLAUDE.md` names. Without `git` on `PATH` those cases skip rather than fail. | `git --version` |
+| **A POSIX shell with `find`** | any | `tests/_kit/vendor_sync.lua:104-125` lists a directory by shelling out through `io.popen` — `find` under every shell this suite is actually run under, `dir /b /s` for `cmd.exe` (Lua 5.1 has no directory API and this repo does not depend on LuaFileSystem). Under WSL2 the `find` path is the one taken. | `find --version` |
+| **bash** | **4.0+ — a hard requirement** | `tests/_kit/run-automated-tests.sh` is `#!/usr/bin/env bash` and declares associative arrays (`declare -A ST DUR NOTE`, `:142`), which `sh`/`dash` cannot parse; `:106` additionally prefers bash 5.0's `EPOCHREALTIME` for millisecond timing and falls back cleanly below it. Only the automated-test **bundle** needs it — `lua tests/run.lua` and `luacheck .` do not. | `bash --version` |
 | **`../LibKa0s` checked out beside this repo** | matching the tag `CLAUDE.md` names | Not a package — a **sibling git checkout**. Two of the four vendor-gate diffs and the `test_vendor_sync` suite compare `libs/LibKa0s/` and `tests/_kit/` against it (`tests/test_vendor_sync.lua`, `docs/testing.md` → "The vendor gate"). Everything else passes without it. | `ls ../LibKa0s/LibKa0s` |
 
 ### Install (WSL2 / Ubuntu)
@@ -91,6 +92,7 @@ lua -v                   # Lua 5.1.x   <- 5.2+ will not run the suite
 luacheck --version
 lizard --version
 git --version
+bash --version           # 4.0+ <- the automated-test runner uses associative arrays
 ```
 
 ---
@@ -129,6 +131,7 @@ luacheck .                                                     # 0 warnings / 0 
 diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
 lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .              # complexity report (release only)
+bash tests/_kit/run-automated-tests.sh                         # the frozen bundle (all four suites)
 ```
 
 The first two are the commit gate. The two diffs need `../LibKa0s` beside this repo. The `lizard`

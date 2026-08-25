@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-644%2F644_passing-green)
+![Tests](https://img.shields.io/badge/Tests-651%2F651_passing-green)
 
 ![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -36,6 +36,8 @@ Most items are filed with certainty, straight from what the game reported. When 
 ## Unreleased
 
 *   **The Insights charts stopped rebuilding themselves.** The widget pools behind every bar, swatch and list row hid their contents on each re-render but never returned them for reuse, so a filter change or a tab switch allocated a fresh frame per element — and frames are never destroyed in WoW. Long sessions with a lot of chart interaction accumulated hidden frames for the rest of the session.
+
+*   **The window stopped re-reading your whole history once per drop.** Every looted item repainted the History table, all seven filter dropdowns and the Insights charts in full. A multi-drop kill on a long history paid that cost once per drop, with the window open through the pull; a burst now collapses into a single repaint. Deleting, pruning or blacklisting still redraws at once.
 
 ## What's new in 1.2.0
 

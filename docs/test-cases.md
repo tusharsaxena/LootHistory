@@ -73,7 +73,7 @@ badge and any count quoted in the docs must agree with it.
 - ItemSetup: the moved shims are gone from Compat
 - ItemSetup: the resolver did NOT move, and still guesses when uncached
 
-### test_util.lua (35)
+### test_util.lua (40)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -110,6 +110,11 @@ badge and any count quoted in the docs must agree with it.
 - Schema: nested minimap path writes
 - Schema: reset does not alias the table-typed default (F-003)
 - Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
+- Coalesce: many calls inside one window collapse to a single run
+- Coalesce: the run is never LOST, only deferred
+- Coalesce: a later burst schedules a fresh run rather than being dropped
+- Coalesce: a raise inside the body does not wedge the trigger forever
+- Coalesce: with no C_Timer it runs straight through
 
 ### test_compat.lua (30)
 
@@ -339,7 +344,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (50)
+### test_browser.lua (52)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -391,6 +396,8 @@ badge and any count quoted in the docs must agree with it.
 - Browser: an active preset option names the whole selection, beating the count
 - Browser: a preset that reports itself inactive does not name the selection
 - Browser.ResetWindow empties the persisted geometry carve-out
+- browser: a burst of RecordAdded collapses to ONE OnHistoryChanged
+- browser: HistoryChanged still repaints immediately
 
 ### test_browsertable.lua (51)
 
@@ -734,7 +741,7 @@ badge and any count quoted in the docs must agree with it.
 | test_envsetup.lua | 9 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 5 |
-| test_util.lua | 35 |
+| test_util.lua | 40 |
 | test_compat.lua | 30 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
@@ -742,7 +749,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 33 |
 | test_database.lua | 58 |
 | test_stats.lua | 19 |
-| test_browser.lua | 50 |
+| test_browser.lua | 52 |
 | test_browsertable.lua | 51 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
@@ -754,4 +761,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **644** |
+| **Total** | **651** |

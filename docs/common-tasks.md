@@ -208,7 +208,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:579`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:593`) — branding art, not a re-skinnable surface.
 - **The monospace face is the library's now — the per-addon exception is retired.** The debug
   console and the export/debug copy boxes render in **JetBrains Mono**
   (`Constants.FONT_MONO`, resolved at file load from `NS.MediaFont(Constants.FONT_MONO_NAME)`).

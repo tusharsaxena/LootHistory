@@ -670,10 +670,12 @@ currencies section (confirm popup) — the list empties and future loots of it r
 
 ### 17. LibKa0s adoption
 
-Seven of LibKa0s's ten majors are wired here — `Core` (the printer), `Media` (the art and the
+Nine of LibKa0s's ten majors are wired here — `Core` (the printer), `Media` (the art and the
 monospace face), `DebugLog` (the console), `Slash` (the dispatcher and CLI), `Options` (the settings
-canvas), `Widgets` (every flat dropdown, and the export copy window) and `Env` (the TOC read behind `/lh version`, plus the map
-and zone stamp on every captured row). Everything in this section is
+canvas), `Widgets` (every flat dropdown, and the export copy window), `Env` (the TOC read behind `/lh version`, plus the map
+and zone stamp on every captured row), `Item` (the link/quality primitives behind the capture gate)
+and `Pool` (the widget pools behind the Insights charts and the History rows). Only `Perf` is not
+wired — a documented deviation, `ARCHITECTURE.md` → `## Documented deviations`. Everything in this section is
 invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
 and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
 through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for what was adopted and what was declined.
