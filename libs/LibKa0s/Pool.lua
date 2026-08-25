@@ -46,7 +46,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Pool-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Pool-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -93,11 +93,30 @@ end
 --- Without the hook that host needs a second library member, and the two drift the way the four
 --- hand-rolled copies did.
 ---
+--- THE ACTIVE SET IS PARKED BACKWARD, AND THAT IS A CONTRACT RATHER THAN A DETAIL. `Acquire` pops
+--- the free list from the end, so the direction this loop parks in decides which object the NEXT
+--- render hands to which position. Walk forward and the first object parked ends up buried under
+--- all the others, so the next pass hands it out last: the whole mapping reverses, then reverses
+--- back, alternating with period 2 for as long as the host keeps drawing. Walking backward parks
+--- position n first and leaves position 1 on top, so every position is handed the object it had.
+---
+--- That mattered in the field. MultiMeters pools one bar per ranked player and takes the rank from
+--- acquire order, and a meter re-renders several times a second, so every widget was handed a
+--- different player's figure on every frame — and a damage figure is not free to re-apply: it
+--- resolves through a visible transient, so each bar painted full and snapped back, all fight. The
+--- counts were right the whole time and no suite went red; only the screen knew. The hand-rolled
+--- pool that preceded this one walked its active list backward, which is why adopting the library
+--- was what introduced the churn.
+---
+--- Fixing it from the other end — taking from the FRONT of the free list — would work and would
+--- also put an O(n) table shift on a per-frame path. The cost belongs in the release, which runs
+--- once per render, not in the acquire, which runs once per widget.
+---
 --- @param pool table
 --- @param before function|nil  called as before(object) before the object is hidden
 function lib.ReleaseAll(pool, before)
   local active = pool.active
-  for i = 1, #active do
+  for i = #active, 1, -1 do
     local o = active[i]
     if before then before(o) end
     o:Hide()
@@ -175,6 +194,10 @@ end
 --- `before` is called as `before(object, key)`. The key is handed over because a keyed host's
 --- per-object teardown usually needs it — unregistering a ticker filed under the same id, say —
 --- and recovering it by scanning the map would defeat the index the variant exists for.
+---
+--- Order carries no meaning here, and unlike `ReleaseAll` it cannot: a keyed host finds its object
+--- by key, so whichever object comes back off the free list is the right one the moment it is
+--- filed. `pairs` order is undefined and this member is free to leave it that way.
 ---
 --- @param pool table
 --- @param before function|nil  called as before(object, key) before the object is hidden
