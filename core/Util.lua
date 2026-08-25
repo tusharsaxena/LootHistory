@@ -214,3 +214,39 @@ end
 -- printer (NS.Print / NS.Util.print) used to live here. They are now LibKa0s-Core-1.0's, wired in
 -- core/CoreSetup.lua — which loads immediately after this file and before every consumer that
 -- captures the printer at file scope. Behavior is unchanged, including the "<secret>" sentinel.
+
+-- Collapse a burst of calls into one deferred run.
+--
+-- WHY THIS EXISTS. `Database:Add` fires `RecordAdded` on the bus for every looted item, and with
+-- the browser open that reached a full BrowserTable rebuild, seven filter-dropdown builders each
+-- scanning the whole dataset, a StorageStats pass with a per-record byte estimate, and — on the
+-- Insights tab — a full Analytics refresh. Roughly NINE O(history) passes per loot line. Loot
+-- fires mid-pull, and the browser is a plain non-secure frame that can be open through a boss
+-- kill, so the worst case is an ordinary one: a big history, a multi-drop kill, and the window up.
+--
+-- The window is short on purpose. This is not a throttle that drops work; it is a coalescer that
+-- performs the work ONCE for a burst, so the surface is at most one delay behind the data and
+-- never wrong for longer than that.
+--
+-- @param fn function  the work to run at most once per window
+-- @param delay number  seconds to wait before running
+-- @return function  the trigger; call it as often as you like
+function Util.Coalesce(fn, delay)
+  local pending = false
+  return function()
+    if pending then return end
+    -- No C_Timer — headless, or a client old enough to lack it. Run straight through: correct and
+    -- slow beats a surface that silently never repaints.
+    if not (C_Timer and C_Timer.After) then return fn() end
+    pending = true
+    C_Timer.After(delay, function()
+      -- Cleared BEFORE the body, not after. A raise inside `fn` would otherwise leave the flag
+      -- set for the rest of the session and this surface would never repaint again — trading a
+      -- slow window for a dead one, which is the worse bug and the harder one to notice.
+      pending = false
+      fn()
+    end)
+  end
+end
+
+NS.Coalesce = Util.Coalesce

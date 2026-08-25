@@ -518,3 +518,39 @@ test("Browser.ResetWindow empties the persisted geometry carve-out", function()
   assertEqual(next(NS.db.global.settings.window), nil)
   NS.db.global.settings.window = saved
 end)
+
+-- ── the RecordAdded repaint is coalesced (issue #27) ────────────────────────────────────────
+--
+-- The helper is unit-tested in test_util.lua; this is the assertion that the FAN-OUT actually
+-- collapses, which is the thing that was wrong. `OnHistoryChanged` is a BrowserTable rebuild,
+-- seven dropdown builders each scanning the whole dataset, and a StorageStats byte estimate —
+-- and `Database:Add` fires RecordAdded once per looted item, mid-pull.
+
+test("browser: a burst of RecordAdded collapses to ONE OnHistoryChanged", function()
+  assertTrue(NS.bus ~= nil, "the bus exists, so Enable's subscription really was reached")
+  B:Enable()
+
+  local ran, real = 0, B.OnHistoryChanged
+  B.OnHistoryChanged = function() ran = ran + 1 end
+
+  for _ = 1, 12 do NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", {}, 1) end
+  assertEqual(ran, 0, "nothing repaints synchronously on the loot path")
+  T.mocks.__fireTimers()
+  assertEqual(ran, 1, "twelve drops cost one repaint — this was twelve before the fix")
+
+  B.OnHistoryChanged = real
+end)
+
+test("browser: HistoryChanged still repaints immediately", function()
+  -- The other half of the fix, and the one a careless coalescer would have broken: a delete, a
+  -- prune or a blacklist edit is one deliberate user action and must not wait on a timer.
+  B:Enable()
+
+  local ran, real = 0, B.OnHistoryChanged
+  B.OnHistoryChanged = function() ran = ran + 1 end
+
+  NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged")
+  assertEqual(ran, 1, "a deliberate change repaints at once, with no timer in the way")
+
+  B.OnHistoryChanged = real
+end)

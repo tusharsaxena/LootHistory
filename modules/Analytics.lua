@@ -649,7 +649,11 @@ function Analytics:BuildCharts(content)
     -- core/LootHistory.lua:4's NewAddon(NS, addonName, "AceEvent-3.0", …) errors first in exactly
     -- that case, so NS.bus never exists and the `if NS.bus` guard above never opens.
     self.__ev = NS.NewBusTarget()
-    self.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", live)
+    -- Coalesced for the same reason the Browser's is (issue #27): `Analytics:Refresh` is another
+    -- full-history pass, and it was the ninth one paid per looted item while the Insights tab was
+    -- visible. HistoryChanged stays immediate — a delete or a prune is one deliberate action.
+    self.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
+      NS.Coalesce(live, NS.Constants.RECORD_ADDED_COALESCE))
     self.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", live)
   end
 end

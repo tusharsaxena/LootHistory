@@ -61,8 +61,23 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 | `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:98` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
 
 The message bus (`RegisterMessage`, `modules/Analytics.lua`, `modules/Browser.lua`,
-`settings/Panel.lua`) is not in the sweep's scope: those fire from this addon's own writes, which
-are the events above, and only when a window is open.
+`settings/Panel.lua`) fires from this addon's own writes, which are the events above. It used to be
+excluded from the sweep on that reasoning plus "and only when a window is open" — and that
+exclusion was wrong, in a way worth recording rather than quietly deleting.
+
+`Database:Add` fires `Ka0s_LootHistory_RecordAdded` once per **looted item**. With the browser open
+that reached a full `BrowserTable:Refresh`, seven filter-dropdown builders each scanning the whole
+dataset, a `Database:StorageStats` pass with a per-record byte estimate, and — on the Insights tab —
+a full `Analytics:Refresh`. Roughly **nine O(history) passes per loot line**, uncoalesced, on a
+plain non-secure frame that `docs/ARCHITECTURE.md` says can be open during combat. "Only when a
+window is open" described exactly the case that mattered and read as though it dismissed it.
+
+The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
+was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
+per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua` and `modules/Analytics.lua`.
+`HistoryChanged` stays immediate, because a delete or a prune is one deliberate action. Issue #27.
+
+The bus is therefore **in** the sweep's scope from now on, and the entry above is what it found.
 
 ## What ends the exemption
 

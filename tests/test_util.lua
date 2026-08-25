@@ -309,3 +309,66 @@ test("Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists
   assertEqual(NS.Util.RecordValue({}), nil)
   NS.db.global.settings.auction = nil
 end)
+
+-- ── Coalesce ────────────────────────────────────────────────────────────────────────────────
+--
+-- Filed as issue #27. `Database:Add` fans `RecordAdded` onto the bus, and with the browser open
+-- that drove a full BrowserTable rebuild, seven dropdown builders each scanning the whole dataset,
+-- a StorageStats pass and — on the Insights tab — a full Analytics refresh. Roughly nine O(history)
+-- passes PER LOOTED ITEM, in combat, on a frame that can be open during a boss kill.
+
+test("Coalesce: many calls inside one window collapse to a single run", function()
+  local ran = 0
+  local trigger = NS.Coalesce(function() ran = ran + 1 end, 0.1)
+  for _ = 1, 20 do trigger() end
+  assertEqual(ran, 0, "nothing runs synchronously — that is the whole point")
+  T.mocks.__fireTimers()
+  assertEqual(ran, 1, "twenty loot lines cost one repaint, not twenty")
+end)
+
+test("Coalesce: the run is never LOST, only deferred", function()
+  -- The failure mode a dirty-flag debounce invites: swallow the last call and the window shows
+  -- stale data until something else happens to repaint it.
+  local ran = 0
+  local trigger = NS.Coalesce(function() ran = ran + 1 end, 0.1)
+  trigger()
+  T.mocks.__fireTimers()
+  assertEqual(ran, 1)
+end)
+
+test("Coalesce: a later burst schedules a fresh run rather than being dropped", function()
+  local ran = 0
+  local trigger = NS.Coalesce(function() ran = ran + 1 end, 0.1)
+  trigger(); T.mocks.__fireTimers()
+  assertEqual(ran, 1)
+  trigger(); trigger(); T.mocks.__fireTimers()
+  assertEqual(ran, 2, "the second burst runs once, on its own timer")
+end)
+
+test("Coalesce: a raise inside the body does not wedge the trigger forever", function()
+  -- Without this the pending flag stays set after a failed run and the surface never repaints
+  -- again for the rest of the session — trading a slow window for a dead one.
+  local calls = 0
+  local trigger = NS.Coalesce(function()
+    calls = calls + 1
+    if calls == 1 then error("boom") end
+  end, 0.1)
+  trigger()
+  pcall(T.mocks.__fireTimers)
+  trigger(); T.mocks.__fireTimers()
+  assertEqual(calls, 2, "the second run still happened")
+end)
+
+test("Coalesce: with no C_Timer it runs straight through", function()
+  -- Headless, and any client old enough to lack C_Timer. Degrading to the old synchronous
+  -- behavior is right: correct and slow beats silently never repainting.
+  -- Cleared on the MOCK environment, not on _G: the addon's chunks are loaded with the mock
+  -- table as their environment, so that is the C_Timer this code actually resolves.
+  local saved = T.mocks.C_Timer
+  T.mocks.C_Timer = nil
+  local ran = 0
+  local trigger = NS.Coalesce(function() ran = ran + 1 end, 0.1)
+  trigger()
+  T.mocks.C_Timer = saved
+  assertEqual(ran, 1, "it ran immediately rather than being dropped")
+end)

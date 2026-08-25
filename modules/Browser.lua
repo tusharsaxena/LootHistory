@@ -1192,7 +1192,17 @@ function B:Enable()
     B.__ev = NS.NewBusTarget()
     B.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() B:OnSettingsChanged() end)
     B.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", function() B:OnHistoryChanged() end)
-    B.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", function() B:OnHistoryChanged() end)
+    -- COALESCED, and only this one (issue #27). `OnHistoryChanged` is nine full-history passes —
+    -- a BrowserTable rebuild, seven dropdown builders each scanning the whole dataset, and a
+    -- StorageStats byte estimate — and RecordAdded fires once per LOOTED ITEM, mid-pull, on a
+    -- frame that can be open through a boss kill. A multi-drop kill with a long history paid that
+    -- price once per drop.
+    --
+    -- `HistoryChanged` above stays immediate on purpose: it is a delete, a prune or a
+    -- blacklist edit — a deliberate user action that arrives one at a time and should repaint at
+    -- once. Only the automatic, bursty message needs collapsing.
+    B.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
+      NS.Coalesce(function() B:OnHistoryChanged() end, NS.Constants.RECORD_ADDED_COALESCE))
     B:SetupMinimap()
   end
 end

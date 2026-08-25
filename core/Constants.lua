@@ -161,3 +161,12 @@ C.AUCTION_PRIORITY_DEFAULT = {
 -- Convenience aliases.
 NS.SourceType = C.SourceType
 NS.Confidence = C.Confidence
+
+-- How long the RecordAdded repaint waits before running (issue #27).
+--
+-- Short enough that the window is never visibly stale — a fifth of a second is below the
+-- threshold at which a list that repaints after a loot line reads as laggy — and long enough that
+-- every drop of a multi-item boss kill lands inside one window. The work being collapsed is
+-- roughly nine full-history passes, so the saving on a big history is the whole point; the cost is
+-- that the browser can be up to this far behind the data and never further.
+NS.Constants.RECORD_ADDED_COALESCE = 0.2
