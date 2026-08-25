@@ -418,7 +418,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
 - BrowserTable: auction column shows the picked price from the map
-- BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)
+- BrowserTable: MinFrameWidth accounts for the AH column (>= 1220)
 - BrowserTable: quality column is blank for a currency row
 - BrowserTable: group keys are namespaced, so a zone can share a source's name
 - BrowserTable: a missing zone/character/type groups under 'Unknown'

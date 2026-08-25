@@ -55,6 +55,7 @@
 local addonName, NS = ...
 
 local Media = LibStub and LibStub("LibKa0s-Media-1.0", true)
+local floor = math.floor
 
 --- The texture path for one shipped icon, or nil.
 ---
@@ -104,12 +105,30 @@ end
 --- swallowed escape that quietly costs a label its mark. `fallback` is REQUIRED for that reason:
 --- there is no shape of this call that can answer nil.
 ---
+--- COLOR IS OPTIONAL AND, WHEN GIVEN, CHANGES THE ESCAPE'S SHAPE. An inline texture is drawn
+--- white and is untouched by the FontString's SetTextColor, so a gold header label carries a
+--- white arrow unless the tint is baked into the escape itself. The `|T` escape takes vertex
+--- color as its last three fields, but only in the LONG form -- every field up to them must be
+--- spelled out, which is why the tinted branch writes offsets and texel bounds the short form
+--- leaves implicit. `64:64` with bounds `0:64` is the whole texture whatever the file's real
+--- dimensions are: the bounds are read against the width and height declared right here.
+---
+--- NOT CreateTextureMarkup: its ninth and tenth arguments are xOffset/yOffset, NOT color. Passing
+--- 0-255 color there is a silent bug -- the mark keeps its white tint and is flung up to 255px
+--- away from the text it belongs to, which is exactly what the Bound legend used to do.
+---
 --- @param name string      an entry of the library's ICONS catalog
 --- @param fallback string  the Blizzard texture path to draw when the seam answers nil
 --- @param size number|nil  pixels; 0 (the default) means "the line height"
+--- @param r number|nil     vertex tint, 0-1; when nil the mark draws in its own colors
+--- @param g number|nil
+--- @param b number|nil
 --- @return string
-function NS.IconMarkup(name, fallback, size)
-    return "|T" .. (NS.Icon(name) or fallback) .. ":" .. (size or 0) .. "|t"
+function NS.IconMarkup(name, fallback, size, r, g, b)
+    local path, px = NS.Icon(name) or fallback, size or 0
+    if not r then return "|T" .. path .. ":" .. px .. "|t" end
+    return ("|T%s:%d:%d:0:0:64:64:0:64:0:64:%d:%d:%d|t"):format(
+        path, px, px, floor(r * 255 + 0.5), floor((g or 0) * 255 + 0.5), floor((b or 0) * 255 + 0.5))
 end
 
 -- REGISTERED AT FILE LOAD, not at PLAYER_LOGIN, and this addon is the reason the

@@ -819,7 +819,9 @@ monospace face out of `libs/LibKa0s/media/fonts/`. Open the History window and w
 - **Right-click a row**: the four menu items each carry a mark — a chat mark, two prohibition
   marks, and the clear mark on **Delete** — and **every word stays**. "Which one deletes the row?"
   must never become a hover question.
-- **The bottom-right resize grip** is the shared resize mark, brightening to gold on hover.
+- **The bottom-right resize grip** is Blizzard's ChatFrame size grabber — the same three-line
+  corner hatch BankLedger, MultiMeters and the rest of the collection draw, **not** a catalog
+  mark. It is deliberately NOT on the LibKa0s ladder: the collection's window corners match.
 - **The debug console and the export copy box** render in **JetBrains Mono** — columns line up,
   digits are the same width. `/lh debug`, then compare a `[Init]` line's alignment.
 

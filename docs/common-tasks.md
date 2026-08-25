@@ -196,10 +196,15 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   or no such name. Every call site therefore keeps the Blizzard rung it drew before, underneath —
   the client lock-atlas ladder in `modules/BrowserTable.lua`, and — for the dropdown chevron and
   the multi-select tick — the ladder inside `LibKa0s-Widgets-1.0` itself, which falls to
-  `Arrow-Down-Up` and `UI-CheckBox-Check` when `core/WidgetsSetup.lua` hands it a nil path, `UI-Plus/MinusButton-Up` behind the group chevrons, the ChatFrame size-grabber behind
-  the resize grip. **A mark this addon needs but the catalog lacks is added upstream in LibKa0s,
+  `Arrow-Down-Up` and `UI-CheckBox-Check` when `core/WidgetsSetup.lua` hands it a nil path, `UI-Plus/MinusButton-Up` behind the group chevrons. **A mark this addon needs but the catalog lacks is added upstream in LibKa0s,
   never drawn locally** (anti-patterns #63): today that is a save/disk mark and a minus to pair
   with `add`, and until they exist the surfaces stay as they are.
+- **The resize grip is Blizzard's on purpose, not by fallback.** The corner draws
+  `UI-ChatIM-SizeGrabber-Up`/`-Highlight` with no catalog rung above it, because every other
+  window in the collection draws that grabber and a window corner is not a place to be
+  distinctive. The catalog's `resize` mark is a directionless two-headed arrow that reads as a
+  control sitting ON the window rather than as part of its corner; it was tried here and
+  reverted.
 - **Everything else defaults to Blizzard-shipped media.** Text uses stock `GameFont*`
   font objects (and `STANDARD_TEXT_FONT` for the degraded close glyph in `core/CoreSetup.lua`);
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,

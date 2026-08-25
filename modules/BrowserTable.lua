@@ -10,6 +10,13 @@ local ROW_H = 18
 local HEADER_H = 20
 local ITEM_MIN = 150  -- minimum width of the flex (Item) column
 local COL_GAP = 8     -- horizontal space between columns
+-- Blizzard header gold. One value for the column labels, the sort arrows, the Bound
+-- header's lock and the group-header row, so a header reads as one color rather than a
+-- gold word beside a white mark.
+local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
+-- The Bound lock, one size for the header and the rows. They were 14 and briefly disagreed; a
+-- column label and the cells beneath it drawing the same mark at two sizes reads as two marks.
+local LOCK_SIZE = 11
 -- Every row shows a lock; color + opacity encode the binding state. {r, g, b, alpha}
 -- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
 local BOUND_STYLE = {
@@ -72,21 +79,22 @@ local function lockMarkup(style)
   local g = math.floor((style[2] or 1) * 255)
   local b = math.floor((style[3] or 1) * 255)
   -- The legend must draw the SAME mark as the column it explains -- a legend showing a different
-  -- glyph is exactly the drift a shared catalog exists to stop. CreateTextureMarkup, not
-  -- SetTexture: the path goes into a `|T...|t` escape, extensionless, with the tint still landing
-  -- through the last three arguments.
+  -- glyph is exactly the drift a shared catalog exists to stop.
+  --
+  -- NS.IconMarkup and NOT CreateTextureMarkup, which is what this used to call with (r, g, b) in
+  -- its last three arguments: those are (xOffset, yOffset) and one argument too many, so every
+  -- legend lock drew white and was thrown up to 255px off its line -- the locks the player saw
+  -- scattered across the screen. The tint belongs in the escape's vertex fields instead.
   local path = NS.Icon and NS.Icon("lock")
-  if path and CreateTextureMarkup then
-    return CreateTextureMarkup(path, 64, 64, 14, 14, 0, 1, 0, 1, r, g, b)
+  if path then
+    return NS.IconMarkup("lock", path, 14, style[1], style[2], style[3])
   end
   local atlas = lockAtlas()
   if atlas and CreateAtlasMarkup then
+    -- CreateAtlasMarkup's 6th-8th arguments ARE the vertex color, so this one is spelled right.
     return CreateAtlasMarkup(atlas, 14, 14, 0, 0, r, g, b)
   end
-  if CreateTextureMarkup then
-    return CreateTextureMarkup("Interface\\Buttons\\WHITE8X8", 8, 8, 12, 12, 0, 1, 0, 1, r, g, b)
-  end
-  return ""
+  return NS.IconMarkup("lock", "Interface\\Buttons\\WHITE8X8", 12, style[1], style[2], style[3])
 end
 
 -- Legend for the Bound column tooltip: one "[lock] - Label" line per state.
@@ -140,7 +148,12 @@ BrowserTable.COLUMNS = {
     desc = "Date the item was looted.",
     valueFn = function(r) return NS.Util.FormatDate(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  { key = "time", label = "Time", width = 32, align = "LEFT",
+  -- Date 66 / Time 40 are BankLedger's widths for the same two columns, and they are matched on
+  -- purpose: both tables render the same "%d-%b-%Y" date and "%H:%M" clock in the same font, so a
+  -- player moving between the two windows should not meet two different column rhythms. 32 was
+  -- Time's width before it carried a sort arrow -- "Time" plus a line-height mark does not fit it,
+  -- and a header FontString wraps rather than truncates, so the column header went to two lines.
+  { key = "time", label = "Time", width = 40, align = "LEFT",
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
@@ -223,8 +236,11 @@ local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, qualit
 -- column is the sort key, this way up". The Blizzard spinner arrows stay underneath as the
 -- degraded rung -- they ship in every flavor -- and the same two names serve four states, because
 -- the grouped column's group-order arrow reads from them too (UpdateHeaderArrows).
-local ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up")
-local ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up")
+--
+-- The arrows are TINTED to the header gold. An inline texture ignores the FontString's color, so
+-- an untinted arrow reads white beside a gold label -- two colors for one word.
+local ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, GOLD_R, GOLD_G, GOLD_B)
+local ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, GOLD_R, GOLD_G, GOLD_B)
 
 -- Grouping. "none" = flat table; otherwise records are partitioned under collapsible
 -- headers (see SetGroupBy). collapsed[key] = true hides a group's rows. groupAsc is the
@@ -689,7 +705,7 @@ function BrowserTable:BuildRow()
 
   -- Bound-state lock icon (Bound column); tinted + shown per record in BindRow.
   local boundIcon = row:CreateTexture(nil, "OVERLAY")
-  boundIcon:SetSize(14, 14)
+  boundIcon:SetSize(LOCK_SIZE, LOCK_SIZE)
   applyLockTexture(boundIcon)
   boundIcon:Hide()
   row.boundIcon = boundIcon
@@ -697,7 +713,7 @@ function BrowserTable:BuildRow()
   -- Group-header styling (used in 3.4); hidden for data rows.
   local header = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   header:SetPoint("LEFT", 4, 0)
-  header:SetTextColor(1, 0.82, 0)
+  header:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
   header:Hide()
   row.header = header
 
@@ -841,24 +857,25 @@ function BrowserTable:Attach(pane)
   self:Refresh()
 end
 
--- Build one header button per column (text label, or a white lock for the icon column).
+-- Build one header button per column (text label, or a gold lock for the icon column).
 -- Each shows a tooltip describing the column and sorts by that column on click.
 function BrowserTable:MakeHeaderButton(col)
   local btn = CreateFrame("Button", nil, self.headerFrame)
   btn:SetHeight(HEADER_H)
   if col.icon then
     local tex = btn:CreateTexture(nil, "OVERLAY")
-    tex:SetSize(14, 14)
+    tex:SetSize(LOCK_SIZE, LOCK_SIZE)
     tex:SetPoint("CENTER")
     applyLockTexture(tex)
-    tex:SetVertexColor(1, 1, 1) -- white lock as the Bound header
+    -- Gold, like every other column label: the lock IS this column's label.
+    tex:SetVertexColor(GOLD_R, GOLD_G, GOLD_B)
     btn.tex = tex
   else
     local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     fs:SetPoint("LEFT", 0, 0)
     fs:SetJustifyH(col.align)
     fs:SetText(col.label)
-    fs:SetTextColor(1, 0.82, 0)
+    fs:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
     btn.fs = fs
   end
   btn:SetScript("OnEnter", function(self2)
@@ -993,9 +1010,11 @@ function BrowserTable:BindRow(row, entry, absIndex)
     -- carries `add` (a plus) but no minus, so the Blizzard +/- pair cannot be reproduced in the
     -- shared vocabulary -- and the chevron pair IS that vocabulary for collapsed/expanded, in both
     -- directions, at line height. The +/- textures stay as the degraded rung.
+    -- Tinted to the gold the header text carries: SetTextColor does not reach an inline texture,
+    -- so an untinted chevron reads white in front of a gold label.
     local arrow = entry.collapsed
-      and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up")
-      or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up")
+      and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
+      or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
     row.header:SetText(arrow .. "  " .. (entry.label or "")
       .. "  |cff808080(" .. (entry.count or 0) .. ")|r")
     return

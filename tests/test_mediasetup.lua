@@ -22,13 +22,14 @@ local VENDORED = "Interface\\AddOns\\LootHistory\\libs\\LibKa0s\\media\\"
 --
 --   grep -rhno 'NS\.Icon("[a-z-]*")\|NS\.IconMarkup("[a-z-]*"' core modules settings
 --
--- plus the three the row menu names as data (`icon = "..."` in BrowserTable:ShowRowMenu), the two
--- passed as a trailing argument to a button factory, and the three the LIBRARY draws on this
--- addon's behalf once core/DebugLogSetup.lua tells it the folder name.
+-- plus the three the row menu names as data (`icon = "..."` in BrowserTable:ShowRowMenu), the one
+-- passed as a trailing argument to a button factory ("spreadsheet", on the export window's
+-- "Export to CSV" -- the filter bar's Export button is deliberately unmarked), and the three the
+-- LIBRARY draws on this addon's behalf once core/DebugLogSetup.lua tells it the folder name.
 local DRAWN = {
   -- this addon's own art
-  "chevron-down", "chevron-right", "confirm", "lock", "resize", "sort-down", "sort-up",
-  "ban", "chat", "clear", "export", "spreadsheet",
+  "chevron-down", "chevron-right", "confirm", "lock", "sort-down", "sort-up",
+  "ban", "chat", "clear", "spreadsheet",
   -- drawn by LibKa0s on our behalf: Core's close on four windows, DebugLog's strip on two
   "close", "copy",
 }
@@ -131,6 +132,19 @@ end)
 -- ---------------------------------------------------------------------------
 -- The markup helper
 -- ---------------------------------------------------------------------------
+
+test("MediaSetup: a tinted mark spells the long escape, vertex color last", function()
+  -- The short form has nowhere to put a color, and an inline texture is NOT reached by the
+  -- FontString's SetTextColor -- which is why a gold column header used to carry a white arrow.
+  -- 64:64 with bounds 0:64 is the whole texture whatever the file's real size is.
+  assertEqual(NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, 1, 0.82, 0),
+    "|T" .. VENDORED .. "icons\\sort-up:0:0:0:0:64:64:0:64:0:64:255:209:0|t")
+  assertEqual(NS.IconMarkup("lock", "Interface\\Buttons\\WHITE8X8", 14, 0.3, 0.82, 0.42),
+    "|T" .. VENDORED .. "icons\\lock:14:14:0:0:64:64:0:64:0:64:77:209:107|t")
+  -- No color asked for, no color spelled: the untinted call is byte-identical to what it was.
+  assertEqual(NS.IconMarkup("lock", "Interface\\Buttons\\WHITE8X8", 14),
+    "|T" .. VENDORED .. "icons\\lock:14|t")
+end)
 
 test("MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil", function()
   -- `"|T" .. nil` is the second spelling that draws nothing, and the reason `fallback` is required

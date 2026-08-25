@@ -737,9 +737,14 @@ function B:BuildFilterBar(bar)
   -- fills from the Character dropdown's right edge to the bar's right edge; it does NOT grow when
   -- the window widens (no right anchor to the bar).
   local exportW = B:ExportWidth()
+  --
+  -- NO MARK ON THIS ONE. The filter bar's Export button is one word in a row of four plain word
+  -- buttons (Save/Reset/Clear beside it), and a download arrow on the widest of them made the row
+  -- read as one decorated button among three bare ones. The mark stays where it explains
+  -- something: the export window's "Export to CSV" (modules/Export.lua), where the spreadsheet
+  -- says WHERE the result lands.
   local exportBtn = makeBarButton(bar, "Export", exportW, function() B:OpenExport() end,
-    "Export the current tab — loot rows (History) or the analytics summary (Insights).",
-    "export")
+    "Export the current tab — loot rows (History) or the analytics summary (Insights).")
 
   -- Right cluster (row 1): Save · Reset · Clear, spanning exactly exportW so its right edge sits
   -- flush above Export's. Three buttons + two 6px gaps = exportW: Clear/Reset each take
@@ -1033,23 +1038,13 @@ local function EnsureFrame()
   local grip = CreateFrame("Button", nil, frame)
   grip:SetSize(16, 16)
   grip:SetPoint("BOTTOMRIGHT", -2, 2)
-  -- The collection's `resize` mark, or the Blizzard grabber this drew before. `resize-height`
-  -- and `resize-width` are directional and wrong for a corner grip. The highlight is reproduced
-  -- by tinting rather than by a second texture: the shared art ships WHITE, so a brighten is a
-  -- multiply, and there is no second file to fetch.
-  local gripPath = NS.Icon and NS.Icon("resize")
-  if gripPath then
-    local tex = grip:CreateTexture(nil, "OVERLAY")
-    tex:SetAllPoints(grip)
-    tex:SetTexture(gripPath)
-    tex:SetVertexColor(0.7, 0.7, 0.72)
-    grip:SetScript("OnEnter", function() tex:SetVertexColor(1, 0.82, 0) end)
-    grip:SetScript("OnLeave", function() tex:SetVertexColor(0.7, 0.7, 0.72) end)
-    grip.icon = tex
-  else
-    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-  end
+  -- Blizzard's corner grabber, which is what BankLedger, MultiMeters and the rest of the
+  -- collection draw -- three diagonal hatch lines that sit INSIDE the window's corner and read as
+  -- part of the frame. This briefly drew the catalog's `resize` mark instead (a big two-headed
+  -- arrow, tinted, with a gold hover): one addon's window corner looking unlike every other
+  -- window corner in the collection is drift, whichever mark is prettier on its own.
+  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
   grip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
   grip:SetScript("OnMouseUp", function()
     frame:StopMovingOrSizing()

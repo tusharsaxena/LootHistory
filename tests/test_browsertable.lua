@@ -46,6 +46,27 @@ test("BrowserTable: bound legend adds a line per state", function()
   assertTrue(lines[5]:find("Warbound", 1, true) ~= nil)
 end)
 
+test("BrowserTable: each legend lock is tinted, and sits on its own line", function()
+  -- The regression this pins: the legend used to build its marks with CreateTextureMarkup(path,
+  -- 64, 64, 14, 14, 0, 1, 0, 1, r, g, b), whose 10th/11th arguments are xOffset/yOffset -- so the
+  -- color never landed (every lock drew white) and the locks were flung up to 255px off their
+  -- lines, scattering across the screen. Offsets must be 0:0 and the tint must be the state's own.
+  local lines = {}
+  local fakeTip = { AddLine = function(_, text) lines[#lines + 1] = text end }
+  NS.BrowserTable:AddBoundLegend(fakeTip)
+  for i, line in ipairs(lines) do
+    assertTrue(line:find("|T", 1, true) == 1, "legend line " .. i .. " does not start with its mark")
+    assertTrue(line:find(":14:14:0:0:", 1, true) ~= nil,
+      "legend line " .. i .. " carries a nonzero offset: " .. line)
+  end
+  -- Bind on Pickup is BOUND_STYLE.BOP = {0.30, 0.82, 0.42} -> 77, 209, 107.
+  assertTrue(lines[3]:find(":77:209:107|t - Bind on Pickup", 1, true) ~= nil,
+    "the Bind on Pickup lock is not tinted green: " .. lines[3])
+  -- Two states, two different tints: one shared white would be the bug wearing a new face.
+  assertTrue(lines[3]:match("|T.-|t") ~= lines[4]:match("|T.-|t"),
+    "Bind on Pickup and Warbound draw the same mark")
+end)
+
 test("BrowserTable: test data covers every bound state, source, quality, class", function()
   local data = NS.BrowserTable:BuildTestData()
   assertTrue(#data >= 100, "expected at least 100 test records, got " .. #data)
@@ -269,18 +290,20 @@ test("BrowserTable: auction column shows the picked price from the map", functio
   NS.db.global.settings.auction = nil
 end)
 
-test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1212)", function()
+test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1220)", function()
   -- R4-6 narrowed Date 76→66 and Time 38→32 (−16px), dropping the column-derived floor to 1196;
-  -- widening Vendor Price and Auction Price 72→80 (+16px total) restored it to 1212 — comfortably
-  -- past the old 1160 toolbar floor and wide enough for the money columns. B:MinWidth() takes the
-  -- wider of this and the toolbar-fit floor (TOOLBAR_MIN 1116), and the static Export button fills
-  -- the slack to the bar's right edge: (1212-12) - (976+8) = 216.
-  assertEqual(NS.BrowserTable:MinFrameWidth(), 1212)
+  -- widening Vendor Price and Auction Price 72→80 (+16px total) restored it to 1212. Time then went
+  -- back to 40 — BankLedger's width for the same column, and the width "Time" plus a sort arrow
+  -- actually needs — which is the +8 that makes this 1220. Comfortably past the old 1160 toolbar
+  -- floor and wide enough for the money columns. B:MinWidth() takes the wider of this and the
+  -- toolbar-fit floor (TOOLBAR_MIN 1116), and the static Export button fills the slack to the bar's
+  -- right edge: (1220-12) - (976+8) = 224.
+  assertEqual(NS.BrowserTable:MinFrameWidth(), 1220)
   assertTrue(NS.BrowserTable:MinFrameWidth() >= 1160,
     "AH column must keep the frame past the old 1160 floor")
-  assertEqual(NS.Browser:MinWidth(), 1212)
+  assertEqual(NS.Browser:MinWidth(), 1220)
   assertTrue(NS.Browser:MinWidth() >= 1116, "must be at least the toolbar-fit floor")
-  assertEqual(NS.Browser:ExportWidth(), 216)
+  assertEqual(NS.Browser:ExportWidth(), 224)
 end)
 
 test("BrowserTable: quality column is blank for a currency row", function()
