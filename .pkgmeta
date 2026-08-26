@@ -10,3 +10,8 @@ ignore:
   - tests
   - _dev
   - "*.bak"
+  # Only the .tga logo is loadable at runtime; WoW cannot read .png or .jpg at all. The master .png
+  # and the .jpg render exist for the project page and for regenerating the .tga, so shipping them
+  # would add megabytes to every download for files the client physically cannot use.
+  - media/logos/*.png
+  - media/logos/*.jpg
