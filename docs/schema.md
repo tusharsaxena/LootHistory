@@ -229,7 +229,17 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 | Reset | Trigger | Schema settings | `blacklist`/`whitelist` | `savedView` | `settings.window` | `history` |
 |-------|---------|:---:|:---:|:---:|:---:|:---:|
 | **Non-destructive** | "Defaults" button · `/lh resetall` (`Sl:CliResetAll`) | ✓ | ✓ (`Filters:ClearAll`) | — | — | — |
-| **Destructive** | "Reset Everything" button → confirm (`Sl:ResetEverything`) | ✓ | ✓ | ✓ (`Browser:ResetView`) | ✓ (`Browser:ResetWindow`) | ✓ (`Database:Purge`) |
+| **Destructive** | "Reset Everything" button → confirm (`Sl:ResetEverything`) | ✓ | ✓ | ✓ (`Browser:ResetView`) | ✓ (`Browser:ResetWindow`) | ✓ |
+
+**"Reset Everything" is wholesale, and no longer a composition.** It used to be three enumerations —
+a history purge, a schema walk and a filter-list clear — which between them happened to cover the
+whole store. `options-ui-§12` forbids that shape: a hand-written list of keys fails exactly the way a
+row-by-row sweep fails, one release later, when something new is stored beside the ones the list
+names, and both fail silently. It now empties `db.global` **in place** (modules capture that table at
+load, so replacing it would leave them on a stale one) and merges `NS.defaults.global` back — the
+translation `options-ui-§12` prescribes for an addon with **no profile section**, where
+`db:ResetProfile()` would be a no-op. What comes back is indistinguishable from a fresh install. The
+ticks above are now consequences of that one wipe rather than five separate calls.
 | **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — |
 
 - The **blacklist/whitelist/currencyBlacklist** are user-configured filter *settings*, so both settings resets clear them — the non-destructive path clears the id-sets (copy-on-write replace + one `_notify`) but never touches `history`; since the lists are point-in-time only, there is nothing in `history` left to reconcile. `Filters:ClearList` / `Filters:ClearAll` do a single copy-on-write replace + one `_notify` (`ClearAll` empties all three lists).

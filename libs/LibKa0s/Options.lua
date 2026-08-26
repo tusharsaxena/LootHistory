@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 8
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -144,12 +144,25 @@ lib.STRINGS = {
 ---   applyDefault(row)          reset one row. Same reasoning.
 ---   rowsForPage(pageKey, filter)  the rows of one page, in render order.
 ---   allRows()                  every row, for RestoreAllDefaults.
----   skipRestoreAll(row)        optional. Return true to exclude a row from a global reset (a
----                              profiles page, where a reset would delete user data).
----   afterRestoreAll()          optional. Runs after the rows are reset and BEFORE the panels are
----                              refreshed, for state no schema row owns (a dragged frame's
----                              position). Ordering matters: a refresh first would paint the
----                              pre-hook values.
+---   resetProfile()             optional, and the one a host on AceDB wants. Supply it and a global
+---                              reset becomes what the house standard calls for (options-ui-§12):
+---                              the session-only rows are swept row by row, then THIS is called to
+---                              reset the active profile, then every panel refreshes. Pass
+---                              `function() NS.db:ResetProfile() end` and stop restating the policy.
+---                              With it supplied, the library skips every row that is not
+---                              `sessionOnly` on its own — a profile reset covers them, and writing
+---                              each one's default first would refresh the panel once per row for
+---                              values about to be discarded whole.
+---   skipRestoreAll(row)        optional. Return true to exclude a row from a global reset. With
+---                              `resetProfile` supplied this is only needed for a row that is
+---                              sessionOnly AND must still be left alone; the profiles-page veto
+---                              the field was invented for is implied, because an AceDBOptions row
+---                              is not sessionOnly. Without it, the host owns the whole policy.
+---   afterRestoreAll()          optional. Runs after the rows are reset and after `resetProfile`,
+---                              and BEFORE the panels are refreshed, for state that is in neither
+---                              the schema nor the profile. Ordering matters: a refresh first would
+---                              paint the pre-hook values. A dragged frame's position is NOT an
+---                              example — a position lives in the profile and comes back with it.
 ---   scheduleTimer(fn, delay)   optional. Backs the color picker's 50 ms drag throttle. A
 ---                              descriptor field rather than an AceTimer embed, because embedding
 ---                              would be this library's second dependency-budget breach.
@@ -424,16 +437,48 @@ function lib:New(d)
 
   --- Reset every schema row the host does not veto, run the host's own after-hook, then refresh
   --- every open panel. The single "reset all" implementation: a host's popup and its slash verb
-  --- both call this, so the two can never diverge (in AbsorbTracker they historically did).
+  --- both call this, so the two can never diverge (in one consumer they historically did).
+  ---
+  --- WITH `resetProfile` SUPPLIED THIS IS A PROFILE RESET, which is what the house standard makes
+  --- it (options-ui-§12) and what every AceDB host wants. Two things follow, and both used to be
+  --- restated in every consumer's own descriptor:
+  ---
+  ---   * the row walk narrows to the `sessionOnly` rows. They are the only settings a profile reset
+  ---     cannot reach — their storage is their own `set()` rather than the db — and writing every
+  ---     OTHER row's default first would refresh the panel once per row for values that are about
+  ---     to be discarded whole. It also would not help: a row-by-row sweep cannot reach a stored
+  ---     ARRAY (a column list, a spell list, a category list) at all, because an array is
+  ---     addressable as a whole and its members deliberately are not.
+  ---   * `skipRestoreAll` stops being load-bearing for the profiles page. An AceDBOptions row is
+  ---     not `sessionOnly`, so it is already outside the narrowed walk. A host may still supply the
+  ---     veto and it is still honored — belt and braces, and it is what a host with no
+  ---     `resetProfile` relies on entirely.
+  ---
+  --- Without `resetProfile` the behavior is exactly what it always was: every unvetoed row, then
+  --- the hook, then the refresh. A host that owns its own reset keeps owning it.
   function O.RestoreAllDefaults()
-    local veto = d.skipRestoreAll
+    local veto        = d.skipRestoreAll
+    local resetProfile = d.resetProfile
+    local profileReset = type(resetProfile) == "function"
+
     for _, row in ipairs(d.allRows() or {}) do
       local skip = false
-      if type(veto) == "function" then skip = veto(row) and true or false end
+      -- The narrowing comes FIRST, so a host that supplies both does not have to make its veto
+      -- agree with a rule the library is already applying.
+      if profileReset and not row.sessionOnly then skip = true end
+      if not skip and type(veto) == "function" then skip = veto(row) and true or false end
       if not skip then d.applyDefault(row) end
     end
-    -- Before the refresh, not after: the hook exists to clear state no schema row owns, and a
-    -- refresh that ran first would paint the panel from the pre-hook values.
+
+    -- THE RESET ITSELF, and before the after-hook: the hook is for state in neither the schema nor
+    -- the profile, so it must see the profile already reset. AceDB empties the ACTIVE profile in
+    -- place, the defaults merge back, and the host's own profile-changed handler runs off
+    -- `OnProfileReset` — migrations, re-seeding, and the host's config-changed message, off which
+    -- its windows rebuild. The library neither knows nor needs to know any of that.
+    if profileReset then resetProfile() end
+
+    -- Before the refresh, not after: the hook exists to clear state neither the schema nor the
+    -- profile owns, and a refresh that ran first would paint the panel from the pre-hook values.
     if type(d.afterRestoreAll) == "function" then d.afterRestoreAll() end
     -- STRUCTURAL: a global reset can change which rows a page draws (a category re-enabled, a
     -- list emptied), so re-running the renderer is the honest refresh here.

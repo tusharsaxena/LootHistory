@@ -193,6 +193,36 @@ test("Reset Everything purges history and clears settings + filter lists + view 
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1, "schema setting back to default")
 end)
 
+test("Reset Everything is WHOLESALE, not a list of keys somebody kept current", function()
+  -- The old body was three enumerations -- a history purge, a schema walk and a filter-list clear
+  -- -- which between them happened to cover the whole store. That is the shape that quietly stops
+  -- being true: anything a later version writes beside them survives a reset that took everything
+  -- around it. options-ui-§12 forbids the key list for exactly that reason.
+  --
+  -- The probe key is one no enumeration could have named, because it does not exist anywhere in
+  -- this addon. If it survives, the reset is still working from a list.
+  -- red under: reinstating the purge + CliResetAll + ClearAll composition.
+  NS.db.global.__probeNothingNames = { deep = { value = 1 } }
+
+  capture(function() Sl:ResetEverything() end)
+
+  assertEqual(NS.db.global.__probeNothingNames, nil,
+    "a key no enumeration names survived the reset")
+  -- And the declared defaults came back rather than the store being left empty.
+  assertEqual(NS.db.global.settings.qualityThreshold, 1)
+  assertEqual(type(NS.db.global.history), "table")
+end)
+
+test("Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table", function()
+  -- Modules capture NS.db.global at load. Replacing the table would leave every one of them
+  -- pointing at the old one -- and a suite that re-reads NS.db.global on every access cannot see
+  -- that. So the wipe is in place, which is what the real library does to a profile.
+  -- red under: `db.global = deepcopy(defaults)`.
+  local before = NS.db.global
+  capture(function() Sl:ResetEverything() end)
+  assertEqual(NS.db.global, before, "the store was replaced rather than emptied")
+end)
+
 -- ── prefix color (slash-commands-§4): the shared tag must be cyan ──
 
 test("NS.PREFIX is the mandated cyan [LH] tag", function()

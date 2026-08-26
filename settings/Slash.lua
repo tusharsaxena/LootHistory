@@ -17,7 +17,10 @@ if type(StaticPopupDialogs) == "table" then
     preferredIndex = 3,
   }
   StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"] = {
-    text = "Reset ALL Ka0s Loot History settings AND delete ALL recorded history? This cannot be undone.",
+    -- THE COLLECTION'S SECOND CANONICAL WORDING (options-ui-§12), verbatim: the one for an addon
+    -- with no profile. The first one closes with "your other profiles are not affected", which is a
+    -- promise this addon cannot keep -- it has none.
+    text = "Reset this addon to its defaults? Everything you have configured or recorded is discarded, for every character on this account — this cannot be undone.",
     button1 = YES or "Yes",
     button2 = NO or "No",
     OnAccept = function() Sl:ResetEverything() end,
@@ -82,9 +85,38 @@ end
 -- account state to its stock shape. CliResetAll covers the schema settings + the filter lists; this
 -- adds the two view/window carve-outs that the non-destructive resets deliberately leave alone —
 -- savedView (back to stock) and the window geometry (recentered) — so "Reset ALL" is truly total.
+--- The global reset (options-ui-§12), in the shape that rule takes for an addon with
+--- NO PROFILE.
+---
+--- Everything this addon stores is account-wide: `NS.defaults.global` carries the
+--- history, the three filter lists AND the settings, and there is no `profile`
+--- section at all (docs/schema.md). `db:ResetProfile()` -- which is what the rule
+--- asks of an addon that has one -- would be a no-op here, so the rule translates:
+--- empty the account-wide store wholesale and merge the declared defaults back, so
+--- what comes back is indistinguishable from a fresh install.
+---
+--- WIPED IN PLACE, and NOT key by key. `NS.db.global` is held by modules from load,
+--- so replacing the table would leave every holder on a stale one. And a
+--- hand-written list of keys to clear fails exactly the way a row-by-row schema
+--- sweep fails -- one release later, when something new is stored beside the ones
+--- the list names -- which is what this function used to be: a purge, a schema
+--- walk and a filter-list clear, three enumerations that between them happened to
+--- cover the whole table. AceDB ships no `ResetGlobal`, so it is written here.
+---
+--- The view state that follows is not stored data: the Browser's sort/filter view
+--- and its frame are rebuilt from what is now an empty store.
 function Sl:ResetEverything()
-  if NS.Database and NS.Database.Purge then NS.Database:Purge() end
-  Sl:CliResetAll()   -- resets settings + filter lists + prints the confirmation line
+  local db = NS.db
+  if db and db.global then
+    local g = db.global
+    for k in pairs(g) do g[k] = nil end
+    for k, v in pairs(NS.Util and NS.Util.DeepCopy and NS.Util.DeepCopy(NS.defaults.global)
+                      or NS.defaults.global) do
+      g[k] = v
+    end
+  end
+  if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
+  print("this addon reset to defaults.")
   if NS.Browser then
     if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
     if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end

@@ -166,7 +166,7 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `set <path> <value>` | Set a setting value |
 | `list` | List all settings |
 | `reset <path>` | Reset one setting to its default |
-| `resetall` | Reset all settings to defaults |
+| `resetall` | Reset all settings to defaults (non-destructive: history is untouched). The **destructive** form is the panel's Reset Everything button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile |
 | `debug` | Toggle the debug console (session-only) |
 | `test` | Toggle a synthetic preview dataset for the table and Insights (session-only) |
 | `purge` | Delete ALL loot history (confirm dialog) |
