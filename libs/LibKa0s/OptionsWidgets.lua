@@ -12,7 +12,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local WIDGETS_MINOR = 7
+local WIDGETS_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -237,6 +237,21 @@ end
 --- RENDER_FAILED and costs the notes and every section too, i.e. the whole page for the sake of a
 --- picture. The group and its spacer are added either way, so a missing texture leaves a gap where
 --- the art goes rather than re-flowing everything under it.
+---
+--- A TEXTURE OUTLIVES THE WIDGET THAT DREW IT, and that is the whole reason this is not three
+--- lines. AceGUI POOLS its widget frames: Release hides a frame and hands the same one back on the
+--- next Create. A texture created on it is not a widget, so nothing releases it and nothing hides
+--- it — it rides the frame into the pool and reappears the next time that frame is handed out. So
+--- a host with a logo grew a SECOND logo partway down its own landing page, intermittently,
+--- depending only on pool order: the stale texture belonged to a SimpleGroup being used for
+--- something else entirely. BuildLandingPage's ClearScroll cannot help, because there is no widget
+--- there to clear.
+---
+--- Two halves, and both are needed. The texture is kept ON the frame and reused, so a frame that
+--- comes back for another logo cannot accumulate a second one; and it is hidden when the widget is
+--- released, so a frame that comes back for anything else does not show it. `SetCallback` is safe
+--- here because AceGUI fires "OnRelease" BEFORE it clears a widget's callbacks, and this one is set
+--- fresh on every acquisition.
 local function landingLogo(O, scroll, spec)
   if not spec.logo then return end
 
@@ -247,11 +262,18 @@ local function landingLogo(O, scroll, spec)
   group:SetHeight(size)
 
   local frame = group.frame
-  local tex   = frame and frame.CreateTexture and frame:CreateTexture(nil, "ARTWORK")
+  local tex   = frame and frame.__ka0sLandingLogo
+  if not tex and frame and frame.CreateTexture then
+    tex = frame:CreateTexture(nil, "ARTWORK")
+    frame.__ka0sLandingLogo = tex
+  end
   if tex then
     tex:SetTexture(spec.logo)
     tex:SetSize(size, size)
+    tex:ClearAllPoints()
     tex:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    tex:Show()
+    group:SetCallback("OnRelease", function() tex:Hide() end)
   end
   scroll:AddChild(group)
 
