@@ -34,7 +34,7 @@ badge and any count quoted in the docs must agree with it.
 - Constants: every default-captured tag is a real auction key
 - Constants: the currency pseudo-type is the reserved 'Currency' string
 
-### test_mediasetup.lua (10)
+### test_mediasetup.lua (11)
 
 - MediaSetup: NS.Icon answers the vendored path, extensionless
 - MediaSetup: an icon the library does not ship answers nil
@@ -44,6 +44,7 @@ badge and any count quoted in the docs must agree with it.
 - MediaSetup: every mark this addon draws is one the library ships
 - MediaSetup: every name the library ships has a file in the vendored copy
 - MediaSetup: the source names no icon the DRAWN list above has forgotten
+- MediaSetup: a tinted mark spells the long escape, vertex color last
 - MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
 - MediaSetup: with no library there is no art and no face, and that is not an error
 
@@ -399,12 +400,13 @@ badge and any count quoted in the docs must agree with it.
 - browser: a burst of RecordAdded collapses to ONE OnHistoryChanged
 - browser: HistoryChanged still repaints immediately
 
-### test_browsertable.lua (51)
+### test_browsertable.lua (52)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
 - BrowserTable: Bound column renders no text (icon-driven)
 - BrowserTable: bound legend adds a line per state
+- BrowserTable: each legend lock is tinted, and sits on its own line
 - BrowserTable: test data covers every bound state, source, quality, class
 - BrowserTable: Item column falls back to link name then '?'
 - BrowserTable: BuildDisplayList yields one row entry per filtered record
@@ -506,7 +508,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (34)
+### test_slash.lua (36)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -530,6 +532,8 @@ badge and any count quoted in the docs must agree with it.
 - /lh reset on a table setting echoes (none), not a raw table pointer
 - /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
 - Reset Everything purges history and clears settings + filter lists + view + window
+- Reset Everything is WHOLESALE, not a list of keys somebody kept current
+- Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table
 - NS.PREFIX is the mandated cyan [LH] tag
 - every Slash string this addon renders resolves to prose, not to a key
 - the help header names /loothistory as the alias for /lh
@@ -737,7 +741,7 @@ badge and any count quoted in the docs must agree with it.
 | Suite | Cases |
 |-------|------:|
 | test_constants.lua | 25 |
-| test_mediasetup.lua | 10 |
+| test_mediasetup.lua | 11 |
 | test_envsetup.lua | 9 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 5 |
@@ -750,10 +754,10 @@ badge and any count quoted in the docs must agree with it.
 | test_database.lua | 58 |
 | test_stats.lua | 19 |
 | test_browser.lua | 52 |
-| test_browsertable.lua | 51 |
+| test_browsertable.lua | 52 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 34 |
+| test_slash.lua | 36 |
 | test_schema.lua | 32 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 25 |
@@ -761,4 +765,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **651** |
+| **Total** | **655** |
