@@ -90,11 +90,19 @@ end
 test("Widgets: the seam builds a real library dropdown, art passed as parameters", function()
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(lib ~= nil, "LibKa0s-Widgets-1.0 did not register")
-  -- Re-pinned to 7 at the v1.16.0 re-vendor. Minor 7 is purely additive to this seam: it adds two
-  -- OPTIONAL CopyWindow descriptor fields (`scrollName`, `makeCloseButton`), both absent by
-  -- default, and touches nothing this addon's dropdown adoption reaches. The pin is deliberate —
-  -- it is meant to stop on every bump and be re-read, which is exactly what happened here.
-  assertEqual(lib.MODULES.Widgets, 7, "this adoption is written against Widgets minor 7")
+  -- Re-pinned to 8 at the v1.19.0 re-vendor, and the pin did its job: the bump stopped the
+  -- suite and forced the re-read, which is the only reason this assertion exists.
+  --
+  -- What minor 8 adds is `ReorderList`, a drag-to-reorder controller for a list of rows. This
+  -- addon does not call it. What it DOES call is `Dropdown`, `CloseMenu` and `CopyWindow`, and
+  -- all three are byte-identical between minor 7 and minor 8 -- the only line removed from the
+  -- shipped file across that release is the MINOR constant itself. So the seam below is
+  -- unaffected, and the adoption needed no change beyond this number.
+  --
+  -- Worth knowing for the NEXT re-read: minor 8 also puts a handle pool and a process-wide drag
+  -- ghost in that file. Neither is reachable without calling ReorderList, so neither touches this
+  -- addon today -- but they are the parts most likely to move again.
+  assertEqual(lib.MODULES.Widgets, 8, "this adoption is written against Widgets minor 8")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end
