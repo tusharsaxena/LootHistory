@@ -93,17 +93,24 @@ The full field table, the `SourceType` / `Confidence` enums, currency rows, the 
 panel widget, and the slash get/set/list/reset behavior. Every mutation flows through
 `Schema:Set(path, value)` (validate → write to `NS.db.global` → `onChange`).
 
-| Path | Group | Widget | Default | Notes |
+Twelve rows ship today, on **two** schema-backed pages. A row's `page` is the canvas subcategory
+it is edited on, its `group` is the **tab** within that page (options-ui-§13), and its `path` is
+where the value is stored — three independent facts. The General page draws a strip of three tabs
+in declaration order (**Collection** 5 rows, **Interface** 4, **Maintenance** 1); AH Price holds one
+group, so it draws no strip.
+
+| Path | Page ▸ Tab | Widget | Default | Notes |
 |---|---|---|---|---|
-| `settings.enabled` | Master Controls | CheckBox | `true` | Master capture switch. Fires `SettingsChanged`. |
-| `minimap.hide` | Master Controls | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
-| `state.debugConsole` | Master Controls | CheckBox | `false` | **Session-only** (`sessionOnly`): shows/hides the debug console; never persisted (`get`/`set` proxy `NS.DebugLog`). |
-| `settings.windowScale` | Master Controls | Slider (0.6–1.6) | `1.0` | Browser window scale (applied live). |
-| `settings.qualityThreshold` | Data Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
-| `settings.excludeQuestItems` | Data Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
-| `settings.retentionDays` | Data Collection | Dropdown | `30` | `0` = keep Always. Prunes on change. |
-| `settings.recordCurrency` | Data Collection | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
-| `settings.excludedSources` | Data Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"). Fires `SettingsChanged`. |
+| `settings.enabled` | General ▸ Collection | CheckBox | `true` | Master capture switch. Fires `SettingsChanged`. |
+| `settings.qualityThreshold` | General ▸ Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
+| `settings.recordCurrency` | General ▸ Collection | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
+| `settings.excludeQuestItems` | General ▸ Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
+| `settings.excludedSources` | General ▸ Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"), host-drawn from `afterGroup`. Fires `SettingsChanged`. |
+| `settings.windowScale` | General ▸ Interface | Slider (0.6–1.6, step 0.05) | `1.0` | Browser window scale (applied live). |
+| `settings.rowHeight` | General ▸ Interface | Slider (14–28, step 1) | `18` | History-table row height in pixels; was `local ROW_H = 18` in `modules/BrowserTable.lua`. Clamped on read (`BrowserTable.RowHeight`) because the value comes from SavedVariables. Re-binds the table on change. |
+| `minimap.hide` | General ▸ Interface | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
+| `state.debugConsole` | General ▸ Interface | CheckBox | `false` | **Session-only** (`sessionOnly`): shows/hides the debug console; never persisted (`get`/`set` proxy `NS.DebugLog`). |
+| `settings.retentionDays` | General ▸ Maintenance | Dropdown | `30` | `0` = keep Always. Prunes on change. The tab's other three controls — the storage readout, **Purge history…** and **Reset Everything** — are bespoke and have no path. |
 | `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
 | `settings.auction.capture` | AH Price | MultiCheck (`skipRender`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source: a ticked source is gathered at loot time *and* participates in the priority cascade. Schema-backed for the default/slash CLI, but rendered by the AH Price sub-page's unified price table (`settings/Panel.lua` `buildAuctionTable`) as the per-row Enabled checkbox. |
 

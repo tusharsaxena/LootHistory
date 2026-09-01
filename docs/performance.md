@@ -58,7 +58,7 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 | `C_Timer.After(5, …)` | `core/LootHistory.lua:54` | Login-deferred retention prune + the first warbound repair pass. Once per session. |
 | `C_Timer.After(20, …)` | `core/LootHistory.lua:58` | The second warbound repair pass, once the item cache is warm. Once per session. |
 | `C_Timer.After(0.4, cb)` | `core/Compat.lua:202` | Item-cache retry after a `RequestLoadItemDataByID`, fired from the filter panel. |
-| `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:98` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
+| `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:129` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
 
 The message bus (`RegisterMessage`, `modules/Analytics.lua`, `modules/Browser.lua`,
 `settings/Panel.lua`) fires from this addon's own writes, which are the events above. It used to be

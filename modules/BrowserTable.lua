@@ -6,7 +6,24 @@ local C = NS.Constants
 -- Virtualized pooled-row table over Database:Query — filter -> group -> sort -> slice -> bind
 -- (see docs/browser.md).
 
-local ROW_H = 18
+-- Row height was `local ROW_H = 18` here. It is `settings.rowHeight` now (settings/Schema.lua,
+-- General ▸ Interface), and 18 is still what ships — a player who never touches the slider gets
+-- the table this file always drew.
+--
+-- CLAMPED on read, not on write. The value arrives from SavedVariables, which a player can
+-- hand-edit and an older profile can hold, and a row 400px tall is not an error the client
+-- reports: it is a table with one row on it. `math.floor(v + 0.5)` because the height is a pixel
+-- count and a fractional row leaves the last one clipped against the scroll viewport.
+-- PUBLISHED, not file-local, for the same reason RenderSummary is: it is the whole of the
+-- clamp, it is pure, and a clamp only a live frame can observe is a clamp no case can state.
+BrowserTable.ROW_H_DEFAULT, BrowserTable.ROW_H_MIN, BrowserTable.ROW_H_MAX = 18, 14, 28
+function BrowserTable.RowHeight()
+  local v = NS.Schema and NS.Schema.Get and NS.Schema:Get("settings.rowHeight")
+  if type(v) ~= "number" then return BrowserTable.ROW_H_DEFAULT end
+  return math.max(BrowserTable.ROW_H_MIN,
+    math.min(BrowserTable.ROW_H_MAX, math.floor(v + 0.5)))
+end
+local rowHeight = BrowserTable.RowHeight
 local HEADER_H = 20
 local ITEM_MIN = 150  -- minimum width of the flex (Item) column
 local COL_GAP = 8     -- horizontal space between columns
@@ -680,7 +697,7 @@ end
 -- The frame construction AcquireRow used to inline. Unchanged; it is the pool's factory now.
 function BrowserTable:BuildRow()
   local row = CreateFrame("Button", nil, self.rowHost)
-  row:SetHeight(ROW_H)
+  row:SetHeight(rowHeight())
   row:SetPoint("LEFT", self.rowHost, "LEFT", 0, 0)
   row:SetPoint("RIGHT", self.rowHost, "RIGHT", 0, 0)
 
@@ -698,7 +715,7 @@ function BrowserTable:BuildRow()
   for _, col in ipairs(self.COLUMNS) do
     local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fs:SetJustifyH(col.align)
-    fs:SetHeight(ROW_H)
+    fs:SetHeight(rowHeight())
     fs:SetWordWrap(false)
     row.cells[col.key] = fs
   end
@@ -787,7 +804,8 @@ function BrowserTable:MinFrameWidth()
 end
 
 -- Position each cell by cumulative column widths; the flex column takes the slack.
-function BrowserTable:LayoutRowCells(row)
+function BrowserTable:LayoutRowCells(row, rh)
+  rh = rh or rowHeight()
   local total = self:ContentWidth()
   local fixed = 0
   for _, col in ipairs(self.COLUMNS) do
@@ -802,6 +820,7 @@ function BrowserTable:LayoutRowCells(row)
     fs:ClearAllPoints()
     fs:SetPoint("LEFT", row, "LEFT", x, 0)
     fs:SetWidth(w)
+    fs:SetHeight(rh)
     if col.icon and row.boundIcon then
       row.boundIcon:ClearAllPoints()
       row.boundIcon:SetPoint("CENTER", row, "LEFT", x + w / 2, 0)
@@ -834,7 +853,7 @@ function BrowserTable:Attach(pane)
   -- Bottom raised 16px so the scrollbar's down-arrow clears the window resize grip.
   scroll:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -24, 16)
   scroll:SetScript("OnVerticalScroll", function(self2, offset)
-    FauxScrollFrame_OnVerticalScroll(self2, offset, ROW_H, function() BrowserTable:Bind() end)
+    FauxScrollFrame_OnVerticalScroll(self2, offset, rowHeight(), function() BrowserTable:Bind() end)
   end)
   scroll:SetScript("OnSizeChanged", function() BrowserTable:Bind() end)
   self.scroll = scroll
@@ -970,10 +989,14 @@ function BrowserTable:Bind()
   local list = self.displayList or {}
   local scroll = self.scroll
   local viewH = scroll:GetHeight()
-  if not viewH or viewH <= 0 then viewH = ROW_H * 20 end
-  local numVisible = math.max(1, math.floor(viewH / ROW_H))
+  -- Read ONCE per bind and threaded through: the slider's onChange re-enters Bind, and a height
+  -- that could change between the visible-row count and the row placement would leave the last
+  -- row half off the bottom.
+  local rh = rowHeight()
+  if not viewH or viewH <= 0 then viewH = rh * 20 end
+  local numVisible = math.max(1, math.floor(viewH / rh))
 
-  FauxScrollFrame_Update(scroll, #list, numVisible, ROW_H)
+  FauxScrollFrame_Update(scroll, #list, numVisible, rh)
   local offset = FauxScrollFrame_GetOffset(scroll)
 
   self:ReleaseAllRows()
@@ -991,8 +1014,12 @@ function BrowserTable:Bind()
     local entry = list[offset + i]
     if entry then
       local row = self:AcquireRow()
-      row:SetPoint("TOP", self.rowHost, "TOP", 0, -(i - 1) * ROW_H)
-      self:LayoutRowCells(row)
+      row:SetPoint("TOP", self.rowHost, "TOP", 0, -(i - 1) * rh)
+      -- Rows are POOLED and outlive a height change: a row built at 18 and handed back out after
+      -- the slider moved would still be 18 tall. Re-applied on every bind, which is where every
+      -- visible row is touched anyway, so the pool never serves a stale height.
+      row:SetHeight(rh)
+      self:LayoutRowCells(row, rh)
       self:BindRow(row, entry, offset + i)
     end
   end

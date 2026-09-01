@@ -59,7 +59,35 @@ if not lib then
     __pages = function() return {} end,
     __panels = function() return {} end,
     __panelFor = function() return nil end,
+
+    -- ── the page chrome: tab strip and banner (options-ui-§13/§14) ────────────────────────────
+    -- Arrived with LibKa0s v1.23.0 and the General page draws its strip from RenderTabbedSchema,
+    -- so the degraded path has to answer for all of it. Nothing here can be DRAWN — every maker
+    -- in the library refuses without AceGUI and EnsureScroll already answers nil — so the two
+    -- builders answer nil and RenderTabbedSchema reports an empty tab list, which is exactly what
+    -- the live one does when AceGUI is missing.
+    SetChromeHeight = noop,
+    TabStrip = function() return nil end,
+    PageBanner = function() return nil end,
+    RenderTabbedSchema = function() return {} end,
+
+    -- The strip's pure arithmetic. No call site in this addon reaches any of them —
+    -- `grep -rn "Options\.__\(layoutTabs\|tabPlacement\|bannerBand\|tabBand\|scrollTopInset\|releaseChrome\)" core settings modules`
+    -- returns nothing — but they are surface all the same, and a stub that omits a member the
+    -- live table has is how a degraded install finds a nil where the live one finds a function.
+    -- Each answers the value a page with NO chrome produces rather than nil: zero rows, zero
+    -- band, and a scroll inset of the bare gap. `__scrollTopInset` restates CHROME_GAP for the
+    -- same reason ROW_VSPACER and BUTTON_PAIR_REL below it do — the scalars are published
+    -- precisely so a host measuring its own chrome never reads nil off this table.
+    __layoutTabs     = function() return {} end,
+    __tabPlacement   = function() return {}, 0 end,
+    __bannerBand     = function() return 0 end,
+    __tabBand        = function() return 0 end,
+    __releaseChrome  = noop,
+    __scrollTopInset = function(ctx) return 8 + ((ctx and ctx.chromeHeight) or 0) end,
+
     ROW_VSPACER = 8, SECTION_HEADING_H = 26, BUTTON_PAIR_REL = 0.492,
+    CHROME_GAP = 8, TAB_H = 37, BANNER_H = 44,
     AceGUI = nil,
   }
   return
@@ -80,12 +108,15 @@ NS.Options = lib:New({
   set          = function(path, v) NS.Schema:Set(path, v) end,
   applyDefault = function(row) NS.Schema:Set(row.path, NS.Schema:Default(row.path)) end,
 
-  -- This addon has no per-unit or per-page filter, so `filter` is ignored. `pageKey` maps onto the
-  -- schema's `group`, which is what its section headings already were.
+  -- This addon has no per-unit or per-page filter, so `filter` is ignored. `pageKey` matches the
+  -- row's `page` — the canvas subcategory — and NOT its `group`, which is now the TAB within that
+  -- page (options-ui-§13). It matched `group` while every page held exactly one section and the
+  -- two were the same string; General spans three tabs now, and matching on group would hand
+  -- RenderTabbedSchema one tab's rows and let it conclude the page has one section.
   rowsForPage = function(pageKey)
     local out = {}
     for _, row in ipairs(NS.Schema.Schema) do
-      if row.group == pageKey then out[#out + 1] = row end
+      if row.page == pageKey then out[#out + 1] = row end
     end
     return out
   end,

@@ -29,8 +29,11 @@ widget, the slash `get`/`set`/`list`/`reset` verbs, and the Defaults/Reset-all r
    `skipRender` (not `panelSkip`). An unmapped field is **not an error** — it is a row that silently
    vanishes from a page, or a `set` that answers `ERR_TYPE`. `tooltip` deliberately did *not* move:
    the library reads `tooltip` first and its own `desc` second.
-4. `group` names the panel section header; row order within a group drives the two-column pairing,
-   and `wide` forces a full-width row.
+4. `page` names the canvas SUBCATEGORY the row is edited on ("General" or "AH Price") and is what
+   the descriptor's `rowsForPage` matches on; `group` names the **tab** within that page
+   (options-ui-§13). `O.RenderTabbedSchema` partitions a page's rows by `group` in declaration
+   order and draws one tab per distinct group, so a group's rows MUST be contiguous. Row order
+   within a group drives the two-column pairing, and `wide` forces a full-width row.
 5. Give the row an `onChange` if anything must react — typically
    `NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "<key>")`, which is what makes the
    collector re-cache its hot-path upvalues.
@@ -82,14 +85,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:160`).
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:223`).
   That seam is: look the row up → run its optional `validate` → `WritePath` a **deep copy** of the
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:160`).
+  `settings/Schema.lua:223`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:180`,`:168`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:240`, `:231`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
   (`savedView`), the `blacklist`/`whitelist`/`currencyBlacklist` id lists (owned by `NS.Filters`,
@@ -108,7 +111,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:123`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:171`). Full contract
   in [message-bus.md](message-bus.md).
 
 ### Compat firewall
@@ -160,19 +163,19 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
-  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:511`). The console is LibKa0s-DebugLog-1.0's; the sink is
+  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:633`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
   (`core/DebugLogSetup.lua:135`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:224`); the header's `Debug: ON`/`OFF` control flips the same flag
-  (`libs/LibKa0s/DebugLog.lua:353`). The flag stays the **host's** throughout — the descriptor hands
+  `settings/Schema.lua:301`); the header's `Debug: ON`/`OFF` control flips the same flag
+  (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:87`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
-  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:43`).
+  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:139`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
-  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:93`; the colored console
-  variant is `lib.FormatColored`, `:101`). `tag` is one short word, printed verbatim — no padding,
+  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:114`; the colored console
+  variant is `lib.FormatColored`, `:122`). `tag` is one short word, printed verbatim — no padding,
   no truncation.
 - `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
   `NS.SafeToString` before it reaches `string.format`, so a combat-protected "secret" value logs as
@@ -213,7 +216,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:593`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:653`) — branding art, not a re-skinnable surface.
 - **The monospace face is the library's now — the per-addon exception is retired.** The debug
   console and the export/debug copy boxes render in **JetBrains Mono**
   (`Constants.FONT_MONO`, resolved at file load from `NS.MediaFont(Constants.FONT_MONO_NAME)`).
@@ -238,11 +241,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   from raw AceGUI widgets. The canvas shell, the page registry, the lazy Defaults button, the five
   widget makers and the two-column flow engine are LibKa0s-Options-1.0's, wired in
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the three pages and owns their bodies
-  (`settings/Panel.lua:717`). **AceConfigDialog is never used for content** — there is no
+  (`settings/Panel.lua:805`). **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:791`), whose combat gate lives in the library
-  (`libs/LibKa0s/Options.lua:637`) and now also fires on a page's `OnShow`
-  (`libs/LibKa0s/Options.lua:463`), so reaching a page straight from the Blizzard AddOns sidebar is
+  `O.OpenOptionsPanel` (`settings/Panel.lua:884`), whose combat gate lives in the library
+  (`libs/LibKa0s/Options.lua:875`) and now also fires on a page's `OnShow`
+  (`libs/LibKa0s/Options.lua:678`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
   pattern (the standalone browser window follows the separate standalone-windows non-secure pattern).
 
@@ -250,7 +253,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
 - **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset Everything, Purge history) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
-  constant is the library's (`libs/LibKa0s/Options.lua:76`), re-exported on the instance as
+  constant is the library's (`libs/LibKa0s/Options.lua:106`), re-exported on the instance as
   `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:35`).
   Label-inset controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` —
   they are immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't
@@ -258,7 +261,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Always-shown scrollbar (options-ui-§10).** `PatchAlwaysShowScrollbar` overrides AceGUI's stock
   `FixScroll` so the panel scrollbar is *always* visible and the 20px right gutter is *always*
   reserved (`libs/LibKa0s/OptionsScroll.lua:83`, applied to every ScrollFrame `O.EnsureScroll`
-  creates, `libs/LibKa0s/Options.lua:322`). AceGUI would otherwise hide the bar and reclaim the gutter
+  creates, `libs/LibKa0s/Options.lua:506`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's
   nothing to scroll the override parks the thumb at the top and grays the bar inert, so the body
   width is identical across every subcategory. More on the panel in

@@ -400,7 +400,7 @@ badge and any count quoted in the docs must agree with it.
 - browser: a burst of RecordAdded collapses to ONE OnHistoryChanged
 - browser: HistoryChanged still repaints immediately
 
-### test_browsertable.lua (52)
+### test_browsertable.lua (56)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -454,6 +454,10 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: synthetic confidence is always one of the two enum values
 - BrowserTable: every synthetic auction map is pickable by the priority cascade
 - BrowserTable: a large all-ties sort keeps every row in its original order
+- BrowserTable: the shipped row height is still the literal it replaced
+- BrowserTable: the clamp's bounds ARE the slider's bounds
+- BrowserTable: the row height is clamped, because it comes from SavedVariables
+- BrowserTable: a corrupt row height falls back to the shipped one, never to nil
 
 ### test_export.lua (25)
 
@@ -547,9 +551,9 @@ badge and any count quoted in the docs must agree with it.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_schema.lua (32)
+### test_schema.lua (37)
 
-- Schema: debugConsole row is session-only, in Master Controls
+- Schema: debugConsole row is session-only, on General's Interface tab
 - Schema: setting debugConsole toggles the window, never writes db.global
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row still writes db.global
@@ -581,6 +585,11 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every setting round-trips through Set then Get
 - Schema: every declared command is uniquely named and dispatchable
 - Schema: the settings CLI verbs are all present
+- Schema: every page's tabs are the designed ones, in order, at the designed size
+- Schema: a group's rows are contiguous, so no tab is drawn twice
+- Schema: no tab holds fewer than two controls
+- Schema: a tab name never repeats the page it sits on
+- Schema: every slider declares a step it can actually be dragged to
 
 ### test_analytics.lua (62)
 
@@ -647,17 +656,20 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (25)
+### test_panel.lua (29)
 
 - Panel: the parent category and all three sub-pages are registered
 - Panel: registration is idempotent
 - Panel: each sub-page carries the addon's name for the Blizzard left tree
-- Panel: the General page renders one widget per non-skipped schema row, paired 50/50
+- Panel: the General page draws one tab per schema group, in declaration order
+- Panel: the Collection tab holds the capture rules and nothing else
+- Panel: the Interface tab holds the two size sliders and the two show/hide boxes
+- Panel: the Maintenance tab holds retention, the storage readout and both reset actions
 - Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
 - Panel: a dropdown is populated from the row's values, in declared order
-- Panel: a slider is given the row's own min/max
-- Panel: the Reset Everything action button pairs with the Window scale row
-- Panel: the section headings are the schema groups, in declaration order
+- Panel: a slider is given the row's own min, max and step
+- Panel: Reset Everything sits on the Maintenance tab, on its own line
+- Panel: a tabbed page draws no section headings — the strip is the heading
 - Panel: clicking a checkbox writes through NS.Schema:Set
 - Panel: choosing a dropdown entry writes the stored value
 - Panel: releasing a slider writes the stored value
@@ -666,6 +678,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the Defaults button is built on first OnShow, not at registration
 - Panel: the General page's Defaults click restores every schema default
 - Panel: the AH Price page's Defaults click restores the capture set AND the priority order
+- Panel: the Filters page draws a tab per id-list and renders only the selected one
 - Panel: the Filters page lists the ids on each list and can remove one
 - Panel: a blacklist change while the Filters page is hidden repaints it on the next OnShow
 - Panel: the Filters page's Defaults click clears every id list
@@ -754,15 +767,15 @@ badge and any count quoted in the docs must agree with it.
 | test_database.lua | 58 |
 | test_stats.lua | 19 |
 | test_browser.lua | 52 |
-| test_browsertable.lua | 52 |
+| test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
 | test_slash.lua | 36 |
-| test_schema.lua | 32 |
+| test_schema.lua | 37 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 25 |
+| test_panel.lua | 29 |
 | test_harness.lua | 5 |
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **655** |
+| **Total** | **668** |

@@ -87,10 +87,20 @@ local function makeMultiCheck(ctx, row, scroll)
 end
 
 
--- ── History maintenance section: live DB stats + purge (Ka0s Loot History only) ──
+-- ── The Maintenance tab's body: live DB stats, Purge, Reset Everything ──────────
+--
+-- Drawn from RenderTabbedSchema's `afterGroup` hook, keyed to the Maintenance group, rather than
+-- appended by the page renderer. That is not decoration: a tab click re-enters RenderTabbedSchema
+-- directly (ClearScroll, then the active tab's rows), never the page renderer, so anything the
+-- renderer appended AFTER the schema rows would be drawn once and then vanish on the first click.
+-- The hook is the seam that survives the click. There is no before-group hook, which is fine —
+-- this block belongs under the retention row anyway.
+--
+-- NO O.Section heading any more. Under a strip the tab IS the heading, and a "History" heading
+-- inside a tab called Maintenance is the page saying the same thing twice.
 local function renderHistory(ctx)
   local scroll = O.EnsureScroll(ctx)
-  O.Section(ctx, "History")
+  if not scroll then return end
 
   local rowFrame = NS.AceGUI:Create("SimpleGroup")
   rowFrame:SetLayout("Flow"); rowFrame:SetFullWidth(true)
@@ -106,6 +116,28 @@ local function renderHistory(ctx)
   end)
   rowFrame:AddChild(purgeBtn)
   scroll:AddChild(rowFrame)
+
+  -- Reset Everything moved here from the right half of the Window scale row, where it was attached
+  -- through the engine's `pairWith` hook. It was there because that row was the last one on the
+  -- page and happened to be alone on its line — a placement argument, not a subject one. It is the
+  -- confirm-gated TOTAL reset (settings + filter lists + saved view + window geometry + a full
+  -- history purge, Sl:ResetEverything), so it belongs beside the other destructive action and the
+  -- readout of what it would destroy, not beside a scale slider.
+  --
+  -- The label is still deliberately NOT "Reset All": the similarly-named `/lh resetall` verb resets
+  -- settings and the id-lists ONLY and never touches history. Two affordances with one name and two
+  -- effects is how a user loses their history to a button they thought was the slash verb
+  -- (LH-R-04). The KA0S_LOOTHISTORY_RESETALL dialog text has always disclosed both effects.
+  local resetRow = NS.AceGUI:Create("SimpleGroup")
+  resetRow:SetLayout("Flow"); resetRow:SetFullWidth(true)
+  resetRow:AddChild(makePairButton("Reset Everything", function()
+    if type(StaticPopup_Show) == "function" then
+      StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
+    elseif NS.Slash and NS.Slash.ResetEverything then
+      NS.Slash:ResetEverything()
+    end
+  end))
+  scroll:AddChild(resetRow)
 
   local function refreshStats()
     local s = NS.Database:StorageStats()
@@ -127,10 +159,20 @@ local function renderHistory(ctx)
   -- Live-refresh while the panel is open. Uses a private bus target (NOT NS.bus-as-self) so it
   -- can't clobber the Browser/Analytics consumers registered for the same messages. See
   -- NS.NewBusTarget.
+  --
+  -- The listener is registered ONCE but the label is not: every tab click builds a new statsLabel
+  -- and a new refreshStats over it, and the old widget goes back to AceGUI's pool. So the
+  -- registration closes over `P.__stats`, reassigned on every render, instead of over the
+  -- refreshStats of whichever render happened to be first — which would have kept a released
+  -- widget alive and repainted it forever while the live label went stale. (Latent before the
+  -- strip too: O.SetRenderer re-runs a renderer whose page was dirtied off-screen.)
+  P.__stats = refreshStats
   if not P.__ev then
     local ev = NS.NewBusTarget()
     if ev then
-      local onChange = function() if ctx.panel:IsShown() then refreshStats() end end
+      local onChange = function()
+        if P.general and P.general.panel:IsShown() and P.__stats then P.__stats() end
+      end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
       ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", onChange)
       P.__ev = ev
@@ -152,7 +194,7 @@ local function runRebuilders(ctx)
 end
 
 -- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
--- A single sub-page with three sections (item blacklist, item whitelist, currency blacklist).
+-- A single sub-page, three TABS (item blacklist, item whitelist, currency blacklist), one on screen.
 -- Each: a short description, an "add" row (an id or a shift-clicked link) and a live list of
 -- current ids with a Remove button per row. The lists are core app logic and act point-in-time:
 -- blacklisted ids are dropped at loot time and whitelisted ids are always recorded — neither list
@@ -229,10 +271,10 @@ local function rebuildFilterList(ctx, listGroup, listKey)
 end
 
 -- One section (blacklist or whitelist): heading, description, add-row, live list.
-local function makeFilterSection(ctx, listKey, title, desc)
+local function makeFilterSection(ctx, listKey, desc)
   local scroll = O.EnsureScroll(ctx)
-  O.Section(ctx, title)
-
+  -- No O.Section heading: the page is a tab strip now (options-ui-§13) and the tab IS the heading.
+  -- A "Blacklist" heading under a tab called Blacklist is the page saying it twice.
   local descLabel = NS.AceGUI:Create("Label")
   descLabel:SetFullWidth(true); descLabel:SetText(desc)
   scroll:AddChild(descLabel)
@@ -311,16 +353,34 @@ local function makeFilterSection(ctx, listKey, title, desc)
   ctx.rebuilders[#ctx.rebuilders + 1] = function() rebuildFilterList(ctx, listGroup, listKey) end
 end
 
+-- The Filters page's three tabs, in strip order. The page is called Filters, so none of them
+-- repeats the word: "Blacklisted currencies" is Currencies here, because the only currency list
+-- there is IS a blacklist and the qualifier was carrying nothing. Items first (both item lists
+-- adjacent, because they are read together — an id on one is off the other), currencies last.
+--
+-- Not schema groups: there is no Schema row for a dynamic list of item ids, so this page cannot be
+-- driven by O.RenderTabbedSchema — it partitions a page's ROWS by group and this page has none.
+-- The strip is drawn directly with O.TabStrip and each tab renders its own section, which is the
+-- same partition done by hand.
+local FILTER_TABS = {
+  { key = "blacklist", label = "Blacklist",
+    desc = "Items here are never recorded when looted from now on. Existing rows are left untouched "
+      .. "(this only affects future loots — delete old rows from the history table if you want them gone)." },
+  { key = "whitelist", label = "Whitelist",
+    desc = "Items here are always recorded, even if they fall below your quality threshold, come from a "
+      .. "muted source, or are quest items. Adding an id to one list removes it from the other." },
+  { key = "currencyBlacklist", label = "Currencies",
+    desc = "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
+      .. "Point-in-time — existing rows are left untouched." },
+}
+
 local function buildFilters(ctx)
-  makeFilterSection(ctx, "blacklist", "Blacklist",
-    "Items here are never recorded when looted from now on. Existing rows are left untouched "
-    .. "(this only affects future loots — delete old rows from the history table if you want them gone).")
-  makeFilterSection(ctx, "whitelist", "Whitelist",
-    "Items here are always recorded, even if they fall below your quality threshold, come from a "
-    .. "muted source, or are quest items. Adding an id to one list removes it from the other.")
-  makeFilterSection(ctx, "currencyBlacklist", "Blacklisted currencies",
-    "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
-    .. "Point-in-time — existing rows are left untouched.")
+  -- ONE section, the selected one. Three stacked lists were three AceGUI teardown-and-rebuilds on
+  -- every paint and a page a player scrolled past two lists to reach the third; a tab click now
+  -- rebuilds exactly the list on screen (anti-pattern #39 is why that matters here of all pages).
+  for _, tab in ipairs(FILTER_TABS) do
+    if tab.key == ctx.activeTab then makeFilterSection(ctx, tab.key, tab.desc) end
+  end
 
   -- Live-update both lists when they change from elsewhere (the History right-click Blacklist),
   -- on a private bus target (never NS.bus-as-self) so it can't clobber other consumers. While the
@@ -631,36 +691,30 @@ end
 -- keeps its one-shot bookkeeping in call-local sets, so a second render of the same page fires both
 -- again instead of silently dropping them.
 
--- Attaches the "Reset Everything" action button as the RIGHT half of the Window scale row. The
--- label is deliberately NOT "Reset All": this is the confirm-gated TOTAL reset (settings + filter
--- lists + saved view + window geometry + a full history purge, Sl:ResetEverything), while the
--- similarly-named `/lh resetall` verb resets settings and the id-lists ONLY and never touches
--- history. Two affordances with one name and two effects is how a user loses their history to a
--- button they thought was the slash verb (LH-R-04). The KA0S_LOOTHISTORY_RESETALL dialog text has
--- always disclosed both effects; the label now agrees with it. It fires only
--- when that path is currently the lone widget on its line, which it always is here: the row above it
--- (`state.debugConsole`) is `solo` and flushes after itself.
-local PAIR_WITH = {
-  ["settings.windowScale"] = function(_, rowGroup)
-    rowGroup:AddChild(makePairButton("Reset Everything", function()
-      if type(StaticPopup_Show) == "function" then
-        StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
-      elseif NS.Slash and NS.Slash.ResetEverything then
-        NS.Slash:ResetEverything()
-      end
-    end))
-  end,
-}
+-- No `pairWith` table any more. The one entry it ever held attached "Reset Everything" to the
+-- right half of the Window scale row; that button now lives on the Maintenance tab beside the
+-- purge it is a bigger version of (see renderHistory above). `pairWith` fires only while its path
+-- is the lone widget on its line, and Window scale is paired with Row height on the Interface tab
+-- now — so the hook would silently never fire, which is the worst of the two outcomes.
 
--- The muted-source picker, drawn after Data Collection's last row — the `settings.excludedSources`
--- row it represents, which the generic path walks but cannot draw (see makeMultiCheck above), so it
--- lands exactly where that path used to put it.
+-- The two host-drawn blocks the flow engine cannot draw itself, one per tab that has one.
+--
+--   Collection  — the muted-source picker. The `settings.excludedSources` row it represents is
+--                 walked by the generic path and produces no widget (type = "table"; see
+--                 makeMultiCheck above), so this lands exactly where that path would have put it:
+--                 after the group's last row, on a fresh line.
+--   Maintenance — the storage readout, "Purge history…" and "Reset Everything".
+--
+-- afterGroup is the ONLY seam that survives a tab click: RenderTabbedSchema's onSelect re-enters
+-- itself, not the page renderer, so anything the renderer drew after the rows would disappear on
+-- the first click.
 local AFTER_GROUP = {
-  ["Data Collection"] = function(ctx)
+  ["Collection"] = function(ctx)
     local row = NS.Schema:FindRow("settings.excludedSources")
     local scroll = O.EnsureScroll(ctx)
     if row and scroll then makeMultiCheck(ctx, row, scroll) end
   end,
+  ["Maintenance"] = renderHistory,
 }
 
 -- ── Renderers ───────────────────────────────────────────────────────────────────
@@ -669,24 +723,48 @@ local AFTER_GROUP = {
 -- after a structural refresh marked it dirty while hidden. Every one starts by releasing the
 -- previous render's children, because a renderer the library may re-run must be idempotent.
 
+-- The General page is a TAB STRIP over its three groups (options-ui-§13), in declaration order:
+-- Collection, Interface, Maintenance. RenderTabbedSchema partitions the page's rows by `group` and
+-- renders only the active tab's, so the page fetches its own rows through the descriptor's
+-- rowsForPage (which matches `page`) rather than filtering the whole schema by hand as it did when
+-- "everything except the AH Price group" was the definition of this page.
+--
+-- No banner (options-ui-§14): this addon is account-wide — every path resolves against db.global
+-- and there is no profile, no per-window state and nothing for a banner to be a picker FOR.
 local function renderGeneral(ctx)
   O.ClearScroll(ctx)
-  -- Everything except the AH Price group, which is its own sub-page. Passed as an explicit list
-  -- rather than through RenderSchema, because this page spans two schema groups.
-  local rows = {}
-  for _, row in ipairs(NS.Schema.Schema) do
-    if row.group ~= "AH Price" then rows[#rows + 1] = row end
-  end
-  O.RenderRows(ctx, rows, AFTER_GROUP, PAIR_WITH)
-  renderHistory(ctx)
+  O.RenderTabbedSchema(ctx, "General", AFTER_GROUP)
   if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
 end
 
 local function renderFilters(ctx)
   O.ClearScroll(ctx)
   ctx.rebuilders = {}   -- ClearScroll reassigns the library's refreshers; these are this addon's
+
+  -- A stale pointer heals to the first tab rather than being trusted, exactly as the library's own
+  -- RenderTabbedSchema does: a tab naming a list this page no longer has would render blank.
+  local known = false
+  for _, tab in ipairs(FILTER_TABS) do if tab.key == ctx.activeTab then known = true end end
+  if not known then ctx.activeTab = FILTER_TABS[1].key end
+
+  local tabs = {}
+  for i, tab in ipairs(FILTER_TABS) do tabs[i] = { key = tab.key, label = tab.label } end
+  O.TabStrip(ctx, {
+    tabs  = tabs,
+    value = ctx.activeTab,
+    onSelect = function(key)
+      if key == ctx.activeTab then return end
+      ctx.activeTab = key
+      -- Structural: re-enter this renderer, which clears the scroll and draws the newly selected
+      -- list. A tab click inside an already-open panel was never a protected action, so it needs
+      -- no combat guard of its own (options-ui-§13); the one that matters lives in the panel's
+      -- OnShow and covers the category switch Blizzard protects.
+      O.RefreshPanel(ctx, true)
+    end,
+  })
+
   buildFilters(ctx)
-  runRebuilders(ctx)    -- first paint of all three id-lists
+  runRebuilders(ctx)    -- first paint of the selected id-list
 end
 
 function P.BuildMain(ctx)
@@ -770,7 +848,7 @@ function P:Register()
     ctx.rebuilders = {}
     ctx.panel.defaultsOnClick = function()
       for _, r in ipairs(NS.Schema.Schema) do
-        if r.group == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
+        if r.page == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
       end
       -- Priority order is a carve-out array (not schema-driven), so reset it separately. Clear-and-
       -- refill the SAME table so the table's closure sees the new contents. (`capture` — the enabled

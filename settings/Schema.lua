@@ -15,8 +15,19 @@ local G = NS.defaults.global
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
 -- Paths resolve against NS.db.global (account-wide), not .profile.
--- `group` names the panel section header; row order within a group drives the
--- two-column pairing. `wide` forces a full-width row (see settings/Panel.lua).
+--
+-- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
+-- `page`  names the canvas SUBCATEGORY the row is edited on — "General" or "AH Price". It is what
+--         the descriptor's `rowsForPage` matches on (settings/OptionsSetup.lua).
+-- `group` names the TAB within that page. O.RenderTabbedSchema partitions a page's rows by group
+--         IN DECLARATION ORDER and draws one tab per distinct group, so the order of this array is
+--         the order of the strip and a group's rows MUST be contiguous — a row filed under a group
+--         the page has already left prints its heading a second time further down.
+-- `path`  is where the value is STORED, and it is allowed to disagree with both. Nothing below
+--         moved paths when the tabs were designed: renaming a stored key migrates every saved
+--         profile for something nobody can see.
+-- Row order within a group drives the two-column pairing (consecutive rows pair two per line), and
+-- `solo` breaks a row onto its own line. `wide` forces a full-width row (see settings/Panel.lua).
 --
 -- ── The row vocabulary is LibKa0s's ────────────────────────────────────────────────────────────
 -- `LibKa0s-Slash-1.0` and `LibKa0s-Options-1.0` read a FIXED set of row fields, and an unmapped one
@@ -30,61 +41,29 @@ local G = NS.defaults.global
 -- `tooltip` deliberately did NOT move: the library reads `tooltip` first and its own `desc` second.
 -- `widget`, `wide`, `invert`, `sessionOnly`, `fmt`, `get`, `set` and `onChange` stay this addon's.
 S.Schema = {
-  -- ── Master Controls ──
+  -- ── General ▸ Collection ──
+  -- What gets recorded, and the master switch over all of it. First tab because it is the one a
+  -- player opens this page to change; the master toggle leads the rows it governs.
   { path = "settings.enabled", default = G.settings.enabled, type = "bool", widget = "CheckBox",
-    group = "Master Controls", label = "Enable collection",
+    page = "General", group = "Collection", label = "Enable collection",
     tooltip = "Master switch for recording looted items.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
     end },
 
-  { path = "minimap.hide", default = false, type = "bool", widget = "CheckBox",
-    group = "Master Controls", label = "Hide minimap button",
-    tooltip = "Hide the LootHistory minimap button.",
-    onChange = function(v)
-      if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
-    end },
-
-  -- Session-only row (never persisted): its value is the debug console WINDOW's visibility, not the
-  -- NS.State.debug logging flag. get/set route to NS.DebugLog (Show/Hide/IsShown); Schema:Set skips
-  -- the db.global write for sessionOnly rows. `solo` puts it on its own panel row (below the
-  -- Enable / Hide-minimap pair). Mirrors `/lh debug` (no-arg), which toggles the window too.
-  { path = "state.debugConsole", sessionOnly = true, default = false, type = "bool",
-    widget = "CheckBox", solo = true, group = "Master Controls", label = "Debug console",
-    tooltip = "Show or hide the on-screen debug console window. Session-only \226\128\148 resets on reload.",
-    get = function() return NS.DebugLog ~= nil and NS.DebugLog:IsShown() end,
-    set = function(v)
-      if not NS.DebugLog then return end
-      if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
-    end },
-
-  { path = "settings.windowScale", default = G.settings.windowScale, type = "number", min = 0.6, max = 1.6, widget = "Slider",
-    fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
-    group = "Master Controls", label = "Window scale",
-    tooltip = "Scale of the History browser window.",
-    onChange = function(v)
-      if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
-    end },
-
-  -- ── Data Collection ──
+  -- Row order drives the two-column panel pairing, so declaration order IS the layout. The master
+  -- toggle pairs with the gate it governs on the first line ([Enable collection] [Minimum
+  -- quality]), the two exclusion checkboxes on the second, and the wide source picker lands under
+  -- both from `afterGroup`.
   { path = "settings.qualityThreshold", default = G.settings.qualityThreshold, type = "number", widget = "Dropdown",
-    group = "Data Collection", label = "Minimum quality", values = C.QUALITY_OPTIONS,
+    page = "General", group = "Collection", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
     end },
 
-  -- Row order drives the two-column panel pairing: the two dropdowns (Minimum quality | Keep history
-  -- for) pair on the top line, the two checkboxes (Record currency | Exclude quest items) below.
-  { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
-    group = "Data Collection", label = "Keep history for", values = C.RETENTION_OPTIONS,
-    tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
-    onChange = function()
-      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
-    end },
-
   { path = "settings.recordCurrency", default = G.settings.recordCurrency, type = "bool", widget = "CheckBox",
-    group = "Data Collection", label = "Record currency",
+    page = "General", group = "Collection", label = "Record currency",
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
     onChange = function()
@@ -92,31 +71,106 @@ S.Schema = {
     end },
 
   { path = "settings.excludeQuestItems", default = G.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
-    group = "Data Collection", label = "Exclude quest items",
+    page = "General", group = "Collection", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
     end },
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
-  -- (invert=true) as "Record data from" so a checked box means "record this source".
+  -- (invert=true) as "Record data from" so a checked box means "record this source". It is the
+  -- LAST row of its group on purpose: it is full-width and host-drawn from `afterGroup`, which
+  -- fires after the group's last row is flushed.
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
     wide = true, invert = true,
-    group = "Data Collection", label = "Record data from", values = C.SOURCE_OPTIONS,
+    page = "General", group = "Collection", label = "Record data from", values = C.SOURCE_OPTIONS,
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
     end },
 
-  -- ── AH Price ──  (own settings sub-page; see settings/Panel.lua)
+  -- ── General ▸ Interface ──
+  -- How much room the addon takes on screen, and which of its windows are visible. The two size
+  -- sliders pair on one line so a reader compares them across rather than down; the two
+  -- show/hide checkboxes pair on the next.
+  { path = "settings.windowScale", default = G.settings.windowScale, type = "number",
+    min = 0.6, max = 1.6, step = 0.05, widget = "Slider",
+    -- `step` is not decoration. `SetSliderValues(min, max, row.step or 1)` means a row with no
+    -- step declares a step of ONE — on a 0.6..1.6 range that is a slider a player can only drag
+    -- to its two ends. Stored values are untouched: the commit path snaps against `row.step or 0`
+    -- (no snap when absent), so every scale ever saved is still reachable and still legal.
+    fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
+    page = "General", group = "Interface", label = "Window scale",
+    tooltip = "Scale of the History browser window.",
+    onChange = function(v)
+      if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
+    end },
+
+  -- Promoted from `local ROW_H = 18` in modules/BrowserTable.lua. The default IS the literal it
+  -- replaced, so a player who never touches it sees the table drawn exactly as it always was.
+  -- Clamped on read (BrowserTable.rowHeight), because this arrives from SavedVariables and a
+  -- hand-edited 400 is a table with one row on it rather than an error.
+  { path = "settings.rowHeight", default = G.settings.rowHeight, type = "number",
+    min = 14, max = 28, step = 1, widget = "Slider",
+    fmt = "%dpx",
+    page = "General", group = "Interface", label = "Row height",
+    tooltip = "Height of one row in the History table, in pixels. Lower fits more on screen.",
+    onChange = function()
+      if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
+    end },
+
+  { path = "minimap.hide", default = false, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", label = "Hide minimap button",
+    tooltip = "Hide the LootHistory minimap button.",
+    onChange = function(v)
+      if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
+    end },
+
+  -- Session-only row (never persisted): its value is the debug console WINDOW's visibility, not the
+  -- NS.State.debug logging flag. get/set route to NS.DebugLog (Show/Hide/IsShown); Schema:Set skips
+  -- the db.global write for sessionOnly rows. Mirrors `/lh debug` (no-arg), which toggles the
+  -- window too.
+  --
+  -- It carried `solo` until the tab strip arrived, and the reason was positional: it sat between
+  -- the Enable/Hide-minimap pair and the Window scale row, and a lone third checkbox reads better
+  -- on its own line than half-paired with a slider. On the Interface tab it is the second of two
+  -- show/hide checkboxes and the argument no longer describes the page — `solo` there would leave
+  -- two half-empty lines where one full one belongs. The half of the argument that survives is
+  -- that a `solo` row is for a genuine pivot, not for spacing.
+  { path = "state.debugConsole", sessionOnly = true, default = false, type = "bool",
+    widget = "CheckBox", page = "General", group = "Interface", label = "Debug console",
+    tooltip = "Show or hide the on-screen debug console window. Session-only \226\128\148 resets on reload.",
+    get = function() return NS.DebugLog ~= nil and NS.DebugLog:IsShown() end,
+    set = function(v)
+      if not NS.DebugLog then return end
+      if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
+    end },
+
+  -- ── General ▸ Maintenance ──
+  -- What is kept and how to get rid of it. Last tab because it is the one a player sets once and
+  -- leaves. ONE stored row, and it is the sanctioned exemption from the two-controls-per-tab rule:
+  -- the rest of the tab is bespoke — the live storage readout, "Purge history…" and
+  -- "Reset Everything" — three controls with no path, which no partition test can count.
+  -- tests/test_schema.lua exempts it BY NAME.
+  { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
+    page = "General", group = "Maintenance", label = "Keep history for", values = C.RETENTION_OPTIONS,
+    tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
+    onChange = function()
+      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
+    end },
+
+  -- ── AH Price ──  (its own settings sub-page; see settings/Panel.lua)
+  -- One group, so RenderTabbedSchema would draw no strip here even if the page asked for one —
+  -- and it does not: the page keeps its own OnShow and calls RenderSchema (see settings/Panel.lua).
   { path = "settings.auction.enabled", default = true, type = "bool", widget = "CheckBox",
-    group = "AH Price", label = "Enable AH pricing",
+    page = "AH Price", group = "AH Price", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
   -- skipRender: the AH Price sub-page renders this as the unified price table's per-row Enabled
   -- checkboxes (settings/Panel.lua buildAuctionTable) — `capture` is now the single collect+rank
   -- flag, not just "record". The row stays schema-backed so its default resolves and the slash CLI
   -- can still read/write it. widget/options are retained so the CLI can present it as a checklist.
   { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
-    widget = "MultiCheck", wide = true, skipRender = true, group = "AH Price", label = "Collect & rank these prices",
+    widget = "MultiCheck", wide = true, skipRender = true,
+    page = "AH Price", group = "AH Price", label = "Collect & rank these prices",
     values = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 
 }

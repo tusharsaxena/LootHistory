@@ -41,6 +41,47 @@ local function show(panel)
   return rendered[panel]
 end
 
+--- Click a page's tab by position and return the widgets that render built, in creation order.
+---
+--- BY POSITION, not by name: the strip's buttons come back from the library in tab order, so an
+--- index plus an assertion on `ctx.activeTab` pins the ORDER of the strip as well as its contents.
+--- Clicking the tab you are already on is a no-op in the library (the active tab is the disabled
+--- one), so tab 1 is reached through `show` instead.
+---
+--- Every caller clicks back to tab 1 before it returns. The `show` cache above hands back the
+--- FIRST render's widget slice, which is tab 1's, and a page parked on another tab would make
+--- every later case reach for widgets that are no longer on screen.
+local function clickTab(panel, ctx, index)
+  show(panel)
+  local layout = ctx.__tabLayout
+  T.assertTrue(layout ~= nil and layout.buttons ~= nil, "the page drew no tab strip")
+  T.assertTrue(layout.buttons[index] ~= nil, "there is no tab " .. index .. " on the strip")
+  local before = #AceGUI.__created
+  layout.buttons[index]:__fire("OnClick")
+  local out = {}
+  for i = before + 1, #AceGUI.__created do out[#out + 1] = AceGUI.__created[i] end
+  return out
+end
+
+--- Back to the first tab, and REPOINT the `show` cache at the widgets that click just built.
+---
+--- Not bookkeeping: a tab click runs ClearScroll, which hands every widget back to AceGUI's pool
+--- and REASSIGNS `ctx.refreshers`. A case that then reached the cached first-render checkbox would
+--- be holding a released widget whose refresher no longer exists — and `Panel:Refresh` would look
+--- like it had stopped working when in fact the test was looking at last render's page.
+local function homeTab(ctx)
+  local layout = ctx.__tabLayout
+  if not (layout and layout.buttons and layout.buttons[1]) then return end
+  local panel = ctx.panel
+  local before = #AceGUI.__created
+  layout.buttons[1]:__fire("OnClick")
+  if #AceGUI.__created > before then
+    local out = {}
+    for i = before + 1, #AceGUI.__created do out[#out + 1] = AceGUI.__created[i] end
+    rendered[panel] = out
+  end
+end
+
 local function widgetsOfType(list, wtype)
   local out = {}
   for _, w in ipairs(list) do if w.type == wtype then out[#out + 1] = w end end
@@ -82,35 +123,88 @@ end)
 
 -- ── the General page: the schema render ──────────────────────────────────────────────────────
 
-test("Panel: the General page renders one widget per non-skipped schema row, paired 50/50",
+test("Panel: the General page draws one tab per schema group, in declaration order", function()
+  -- options-ui-§13. The page was three scrolling sections under three headings; it is a strip of
+  -- three tabs now, and only the selected tab's rows are on screen. The strip's ORDER is the
+  -- schema's declaration order, which is the whole contract RenderTabbedSchema offers.
+  local ctx = NS.Panel.general
+  show(mocks.__subcategories["General"])
+  assertTrue(ctx.__tabLayout ~= nil, "the General page must draw a tab strip")
+  assertEqual(#ctx.__tabLayout.buttons, 3, "three tabs: Collection, Interface, Maintenance")
+  assertEqual(ctx.activeTab, "Collection", "the strip opens on the first tab")
+end)
+
+test("Panel: the Collection tab holds the capture rules and nothing else", function()
+  local created = show(mocks.__subcategories["General"])
+  assertTrue(#created > 0, "the first OnShow must build the page body")
+
+  -- [Enable collection] [Minimum quality] on one line, [Record currency] [Exclude quest items] on
+  -- the next, and the full-width source picker under both from afterGroup.
+  local enable = findByLabel(created, "Enable collection")
+  assertTrue(enable ~= nil, "the Enable collection checkbox must be drawn")
+  assertEqual(enable.type, "CheckBox")
+  assertEqual(enable.relativeWidth, 0.5, "schema widgets take the honest half")
+
+  for _, label in ipairs({ "Minimum quality", "Record currency", "Exclude quest items" }) do
+    assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
+  end
+  -- The half that makes this a partition rather than a list: another tab's rows must NOT be here.
+  -- Without it the page could still be drawing all nine rows on one scroll and pass.
+  for _, label in ipairs({ "Window scale", "Row height", "Hide minimap button", "Debug console",
+                           "Keep history for" }) do
+    assertTrue(findByLabel(created, label) == nil,
+      label .. " belongs to another tab and must not be drawn on Collection")
+  end
+end)
+
+test("Panel: the Interface tab holds the two size sliders and the two show/hide boxes", function()
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, 2)
+  assertEqual(ctx.activeTab, "Interface", "tab 2 is Interface")
+  for _, label in ipairs({ "Window scale", "Row height", "Hide minimap button", "Debug console" }) do
+    assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn on Interface")
+  end
+  assertTrue(findByLabel(created, "Enable collection") == nil,
+    "Collection's rows must not follow the reader onto Interface")
+  homeTab(ctx)
+end)
+
+test("Panel: the Maintenance tab holds retention, the storage readout and both reset actions",
   function()
-    local created = show(mocks.__subcategories["General"])
-    assertTrue(#created > 0, "the first OnShow must build the page body")
-
-    -- Master Controls: Enable collection | Hide minimap button on one line, Debug console alone on
-    -- the next (it is the one `solo` row), Window scale paired with the Reset Everything button.
-    local enable = findByLabel(created, "Enable collection")
-    assertTrue(enable ~= nil, "the Enable collection checkbox must be drawn")
-    assertEqual(enable.type, "CheckBox")
-    assertEqual(enable.relativeWidth, 0.5, "schema widgets take the honest half")
-
-    for _, label in ipairs({ "Hide minimap button", "Debug console", "Window scale",
-                             "Minimum quality", "Keep history for", "Record currency",
-                             "Exclude quest items" }) do
-      assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
+    local ctx = NS.Panel.general
+    local created = clickTab(mocks.__subcategories["General"], ctx, 3)
+    assertEqual(ctx.activeTab, "Maintenance", "tab 3 is Maintenance")
+    assertTrue(findByLabel(created, "Keep history for") ~= nil, "the retention dropdown was not drawn")
+    -- The bespoke half, drawn from afterGroup — the only seam that survives a tab click, since
+    -- onSelect re-enters RenderTabbedSchema and never the page renderer.
+    assertTrue(findByLabel(created, "Purge history\226\128\166") ~= nil,
+      "Purge history must be drawn on the tab whose subject it is")
+    assertTrue(findByLabel(created, "Reset Everything") ~= nil,
+      "Reset Everything moved here from the Window scale row")
+    local stats
+    for _, w in ipairs(created) do
+      if w.type == "Label" and type(w.text) == "string" and w.text:find("Database size", 1, true) then
+        stats = w
+      end
     end
+    assertTrue(stats ~= nil, "the live storage readout must be drawn")
+    homeTab(ctx)
   end)
 
 test("Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider",
   function()
+    local ctx = NS.Panel.general
     local created = show(mocks.__subcategories["General"])
     assertEqual(findByLabel(created, "Enable collection").type, "CheckBox")
     assertEqual(findByLabel(created, "Minimum quality").type, "Dropdown")
-    assertEqual(findByLabel(created, "Window scale").type, "Slider")
+    assertEqual(findByLabel(clickTab(mocks.__subcategories["General"], ctx, 2), "Window scale").type,
+      "Slider")
+    homeTab(ctx)
   end)
 
 test("Panel: a dropdown is populated from the row's values, in declared order", function()
-  local created = show(mocks.__subcategories["General"])
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, 3)
   local dd = findByLabel(created, "Keep history for")
   assertTrue(dd ~= nil and dd.list ~= nil, "the dropdown must be given a list")
   local rows = NS.Constants.RETENTION_OPTIONS
@@ -120,21 +214,34 @@ test("Panel: a dropdown is populated from the row's values, in declared order", 
     assertEqual(dd.list[opt.value], opt.text, "entry " .. i .. " lost its label")
   end
   assertEqual(dd.value, NS.Schema:Get("settings.retentionDays"), "and it opens on the stored value")
+  homeTab(ctx)
 end)
 
-test("Panel: a slider is given the row's own min/max", function()
-  local created = show(mocks.__subcategories["General"])
-  local s = findByLabel(created, "Window scale")
-  local row = NS.Schema:FindRow("settings.windowScale")
-  assertEqual(s.min, row.min)
-  assertEqual(s.max, row.max)
+test("Panel: a slider is given the row's own min, max and step", function()
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, 2)
+  for _, path in ipairs({ "settings.windowScale", "settings.rowHeight" }) do
+    local row = NS.Schema:FindRow(path)
+    local s = findByLabel(created, row.label)
+    assertTrue(s ~= nil, row.label .. " must be drawn")
+    assertEqual(s.min, row.min, row.label .. ": min")
+    assertEqual(s.max, row.max, row.label .. ": max")
+    -- The half that was missing while Window scale shipped without a step: AceGUI is handed
+    -- `row.step or 1`, so a step-less slider on a 0.6..1.6 range can only be dragged to its ends.
+    -- Read off the widget, not off the row, or the assertion is the schema agreeing with itself.
+    assertEqual(s.step, row.step, row.label .. ": step")
+  end
+  homeTab(ctx)
 end)
 
-test("Panel: the Reset Everything action button pairs with the Window scale row", function()
-  -- An ACTION button, not a setting, attached as the right half of a named row. It is the only
-  -- entry point to the confirm-gated total reset from the panel, so a render that quietly stopped
-  -- drawing it would remove a destructive action's only visible affordance.
-  local created = show(mocks.__subcategories["General"])
+test("Panel: Reset Everything sits on the Maintenance tab, on its own line", function()
+  -- An ACTION button, not a setting. It used to be attached as the right half of the Window scale
+  -- row through the engine's `pairWith` hook — a placement argument, not a subject one — and it is
+  -- beside the purge it is a bigger version of now. It is the only entry point to the
+  -- confirm-gated total reset from the panel, so a render that quietly stopped drawing it would
+  -- remove a destructive action's only visible affordance.
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, 3)
   -- Labeled "Reset Everything", not "Reset All": the panel button purges history on top of what
   -- `/lh resetall` does, and one name for two effects is LH-R-04.
   local btn = findByLabel(created, "Reset Everything")
@@ -142,19 +249,22 @@ test("Panel: the Reset Everything action button pairs with the Window scale row"
   assertEqual(btn.type, "Button")
   -- Inset rather than a flat half, so its right border clears the ScrollFrame clip (options-ui-§8).
   assertEqual(btn.relativeWidth, NS.Options.BUTTON_PAIR_REL)
+  homeTab(ctx)
 end)
 
-test("Panel: the section headings are the schema groups, in declaration order", function()
-  local created = show(mocks.__subcategories["General"])
-  local headings = {}
-  for _, w in ipairs(widgetsOfType(created, "Heading")) do headings[#headings + 1] = w.text end
-  assertEqual(headings[1], "Master Controls")
-  assertEqual(headings[2], "Data Collection")
-  assertEqual(headings[3], "History", "the bespoke History maintenance section closes the page")
-  -- AH Price is its own sub-page and must not leak onto General.
-  for _, h in ipairs(headings) do
-    assertFalse(h == "AH Price", "the AH Price group belongs to its own sub-page")
+test("Panel: a tabbed page draws no section headings — the strip is the heading", function()
+  -- RenderTabbedSchema renders the active tab's rows with `noHeadings`, so the three
+  -- GameFontNormalLarge section headings this page used to stack are gone. The bespoke History
+  -- section's own heading went with them: a "History" heading inside a tab called Maintenance is
+  -- the page saying it twice.
+  local ctx = NS.Panel.general
+  for _, index in ipairs({ 1, 2, 3 }) do
+    local created = (index == 1) and show(mocks.__subcategories["General"])
+      or clickTab(mocks.__subcategories["General"], ctx, index)
+    assertEqual(#widgetsOfType(created, "Heading"), 0,
+      ctx.activeTab .. " must draw no section heading")
   end
+  homeTab(ctx)
 end)
 
 -- ── the write path ───────────────────────────────────────────────────────────────────────────
@@ -179,11 +289,21 @@ test("Panel: choosing a dropdown entry writes the stored value", function()
 end)
 
 test("Panel: releasing a slider writes the stored value", function()
-  local created = show(mocks.__subcategories["General"])
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, 2)
   local s = findByLabel(created, "Window scale")
   s:__fire("OnMouseUp", 1.25)
   assertEqual(NS.Schema:Get("settings.windowScale"), 1.25)
   NS.Schema:Set("settings.windowScale", 1.0)
+
+  -- Promoted from `local ROW_H = 18` in modules/BrowserTable.lua and writable through the same
+  -- seam as every other row, which is the whole point of promoting it rather than adding a second
+  -- way to store a number.
+  local rh = findByLabel(created, "Row height")
+  rh:__fire("OnMouseUp", 24)
+  assertEqual(NS.Schema:Get("settings.rowHeight"), 24)
+  NS.Schema:Set("settings.rowHeight", 18)
+  homeTab(ctx)
 end)
 
 test("Panel: an external write is mirrored back by Refresh", function()
@@ -277,6 +397,32 @@ test("Panel: the AH Price page's Defaults click restores the capture set AND the
   end)
 
 -- ── the Filters page ─────────────────────────────────────────────────────────────────────────
+
+test("Panel: the Filters page draws a tab per id-list and renders only the selected one",
+  function()
+    -- options-ui-§13 on a page with no schema rows: a dynamic list of item ids has nothing
+    -- RenderTabbedSchema could partition, so the strip is drawn straight from O.TabStrip and each
+    -- tab renders its own section. Three stacked lists were three AceGUI teardown-and-rebuilds on
+    -- every paint (anti-pattern #39 is why that matters on this page of all pages) and a reader
+    -- scrolling past two lists to reach the third.
+    NS.Filters:ClearAll()
+    local panel = mocks.__subcategories["Filters"]
+    local ctx = NS.Panel.filters
+    show(panel)
+    assertTrue(ctx.__tabLayout ~= nil, "the Filters page must draw a tab strip")
+    assertEqual(#ctx.__tabLayout.buttons, 3, "one tab per list")
+    assertEqual(ctx.activeTab, "blacklist", "the strip opens on the first tab")
+
+    -- One add-box, not three: the page draws the selected list and nothing else.
+    local created = clickTab(panel, ctx, 3)
+    assertEqual(ctx.activeTab, "currencyBlacklist", "tab 3 is Currencies")
+    local boxes = widgetsOfType(created, "EditBox")
+    assertEqual(#boxes, 1, "exactly one add-row is on screen")
+    assertEqual(boxes[1].labelText, "Add currency id or link",
+      "and it is the selected list's, not the first list's")
+    homeTab(ctx)
+    assertEqual(ctx.activeTab, "blacklist")
+  end)
 
 test("Panel: the Filters page lists the ids on each list and can remove one", function()
   NS.Filters:ClearAll()

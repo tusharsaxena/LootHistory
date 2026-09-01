@@ -645,3 +645,67 @@ test("BrowserTable: a large all-ties sort keeps every row in its original order"
     end
   end)
 end)
+
+
+-- ── Row height (settings.rowHeight, promoted from `local ROW_H = 18`) ─────────────────────────
+
+test("BrowserTable: the shipped row height is still the literal it replaced", function()
+  -- The one assertion that says the promotion changed nothing on screen for a player who never
+  -- touches the slider. If the default and the old literal ever disagree, every existing install
+  -- is redrawn by a change nobody asked for.
+  NS.Schema:Set("settings.rowHeight", NS.Schema:Default("settings.rowHeight"))
+  assertEqual(NS.BrowserTable.RowHeight(), 18)
+  assertEqual(NS.defaults.global.settings.rowHeight, 18, "and the shipped mirror agrees")
+end)
+
+test("BrowserTable: the clamp's bounds ARE the slider's bounds", function()
+  -- Two declaration sites for one pair of values, which is precisely what the header block of
+  -- settings/Schema.lua forbids ("Two literals for one value is exactly how the AH cascade
+  -- drifted", LH-R-01). The slider's 14..28 lives on the schema row; the clamp's lives here as
+  -- ROW_H_MIN/ROW_H_MAX, because RowHeight() has to answer on a degraded install where there is
+  -- no row to read. Nothing made the two agree.
+  --
+  -- The drift this catches is silent and one-directional: widen the slider to 40 and the clamp
+  -- still caps at 28, so the control moves, its value text updates, and the table does not change
+  -- -- the exact "the setting does not work" reading Step 4's clamp rule exists to prevent.
+  -- Narrow the slider instead and the clamp is merely unreachable, which is harmless but untrue.
+  --
+  -- The two clamp cases below assert against ROW_H_MIN/ROW_H_MAX, which is the code agreeing with
+  -- itself about the bound. This is the case that makes that bound mean something.
+  local row = NS.Schema:FindRow("settings.rowHeight")
+  assertEqual(row.min, NS.BrowserTable.ROW_H_MIN, "the slider's floor is the clamp's floor")
+  assertEqual(row.max, NS.BrowserTable.ROW_H_MAX, "the slider's ceiling is the clamp's ceiling")
+  -- And the shipped default has to be a value the slider can be dragged to, or Defaults restores
+  -- a number the control cannot represent.
+  assertEqual(NS.Schema:Default("settings.rowHeight"), NS.BrowserTable.ROW_H_DEFAULT)
+  assertTrue(NS.BrowserTable.ROW_H_DEFAULT >= row.min and NS.BrowserTable.ROW_H_DEFAULT <= row.max,
+    "the shipped default sits inside the slider's range")
+  assertEqual((NS.BrowserTable.ROW_H_DEFAULT - row.min) % row.step, 0,
+    "the shipped default lands on a step, so Defaults is a position the slider has")
+end)
+
+test("BrowserTable: the row height is clamped, because it comes from SavedVariables", function()
+  -- A hand-edited or migrated value out of range is not an error the client reports: it is a
+  -- table with one 400px row on it, or rows too short to hold their own text. Both read as the
+  -- setting not working, so the read clamps rather than trusting the store.
+  local restore = NS.Schema:Get("settings.rowHeight")
+  NS.Schema:Set("settings.rowHeight", 400)
+  assertEqual(NS.BrowserTable.RowHeight(), NS.BrowserTable.ROW_H_MAX)
+  NS.Schema:Set("settings.rowHeight", 1)
+  assertEqual(NS.BrowserTable.RowHeight(), NS.BrowserTable.ROW_H_MIN)
+  -- A pixel count, so a fractional value rounds rather than leaving the last row clipped.
+  NS.Schema:Set("settings.rowHeight", 20.6)
+  assertEqual(NS.BrowserTable.RowHeight(), 21)
+  NS.Schema:Set("settings.rowHeight", restore)
+end)
+
+test("BrowserTable: a corrupt row height falls back to the shipped one, never to nil", function()
+  -- `Schema:Set` validates nothing about type here, and an older profile can hold anything. A nil
+  -- or a string reaching SetHeight raises inside a layout pass and takes the whole table down.
+  local restore = NS.Schema:Get("settings.rowHeight")
+  NS.Schema:WritePath(NS.db.global, "settings.rowHeight", "tall")
+  assertEqual(NS.BrowserTable.RowHeight(), 18)
+  NS.Schema:WritePath(NS.db.global, "settings.rowHeight", nil)
+  assertEqual(NS.BrowserTable.RowHeight(), 18)
+  NS.Schema:Set("settings.rowHeight", restore)
+end)

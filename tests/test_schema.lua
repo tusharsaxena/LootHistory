@@ -19,12 +19,18 @@ local function withDebugLogSpies(fn)
   if not ok then error(err) end
 end
 
-test("Schema: debugConsole row is session-only, in Master Controls", function()
+test("Schema: debugConsole row is session-only, on General's Interface tab", function()
   local row = NS.Schema:FindRow("state.debugConsole")
   assertTrue(row ~= nil, "state.debugConsole row missing")
   assertTrue(row.sessionOnly == true, "row not marked sessionOnly")
-  assertEqual(row.group, "Master Controls")
+  assertEqual(row.page, "General")
+  assertEqual(row.group, "Interface")
   assertEqual(row.label, "Debug console")
+  -- It carried `solo` while it sat between the Enable/Hide-minimap pair and the Window scale row.
+  -- On the Interface tab it is the second of the two show/hide checkboxes and `solo` would leave
+  -- two half-empty lines where one full one belongs. Pinned so the flag cannot drift back in
+  -- without the pairing being reconsidered.
+  assertTrue(row.solo == nil, "the Interface tab pairs this row; solo would break the line")
 end)
 
 test("Schema: setting debugConsole toggles the window, never writes db.global", function()
@@ -103,6 +109,7 @@ test("Schema: every row is uniquely pathed and fully described", function()
     assertFalse(seen[row.path], row.path .. " is defined twice")
     seen[row.path] = true
     assertTrue(type(row.label) == "string" and row.label ~= "", row.path .. " has no label")
+    assertTrue(type(row.page) == "string" and row.page ~= "", row.path .. " has no panel page")
     assertTrue(type(row.group) == "string" and row.group ~= "", row.path .. " has no panel group")
     assertTrue(type(row.widget) == "string" and row.widget ~= "", row.path .. " has no widget")
   end
@@ -352,5 +359,122 @@ test("Schema: the settings CLI verbs are all present", function()
   for _, cmd in ipairs(NS.COMMANDS) do byName[cmd[1]] = true end
   for _, verb in ipairs({ "get", "set", "list", "reset", "resetall", "help" }) do
     assertTrue(byName[verb], "/lh " .. verb .. " is missing")
+  end
+end)
+
+
+-- ── The page / tab partition (options-ui-§13) ──────────────────────────────────
+--
+-- Every page's tabs, in the order O.RenderTabbedSchema draws them, and how many CONTROLS each
+-- holds. Stated here rather than derived from the schema the assertion reads, so a row that
+-- drifts into another tab is a NAMED failure rather than a shorter list that still agrees with
+-- itself.
+--
+-- Counts are ROWS, which on this addon's two schema pages is not the same as widgets:
+-- `settings.excludedSources` is a `type = "table"` row the generic renderer cannot draw (the
+-- host draws it from afterGroup), and `settings.auction.capture` carries `skipRender`. Both are
+-- still rows, still writable from `/lh set`, and still counted here — the panel-side truth is
+-- tests/test_panel.lua's business.
+local PARTITION = {
+  ["General"]  = { { "Collection", 5 }, { "Interface", 4 }, { "Maintenance", 1 } },
+  ["AH Price"] = { { "AH Price", 2 } },
+}
+
+test("Schema: every page's tabs are the designed ones, in order, at the designed size", function()
+  -- red under: moving a row to another tab, reordering a group, splitting a group's rows so they
+  -- are no longer contiguous (which prints the same tab twice), or adding a row to a page with
+  -- nothing here to say so.
+  local pages, seenPage = {}, {}
+  for _, row in ipairs(S.Schema) do
+    if not seenPage[row.page] then seenPage[row.page] = true; pages[#pages + 1] = row.page end
+  end
+  assertEqual(#pages, 2, "two schema-backed pages: General and AH Price")
+
+  for _, page in ipairs(pages) do
+    assertTrue(PARTITION[page] ~= nil, page .. " is a page the partition table does not describe")
+    local order, counts, seen = {}, {}, {}
+    for _, row in ipairs(S.Schema) do
+      if row.page == page then
+        if not seen[row.group] then
+          -- A group that opens twice means its rows are not contiguous, which draws its heading
+          -- (or its tab) a second time. Caught here rather than by the count, which would still
+          -- add up.
+          seen[row.group] = true
+          order[#order + 1] = row.group
+        end
+        counts[row.group] = (counts[row.group] or 0) + 1
+      end
+    end
+
+    local want = {}
+    for i, pair in ipairs(PARTITION[page]) do want[i] = pair[1] end
+    assertEqual(table.concat(order, " | "), table.concat(want, " | "), page .. ": tab order")
+    for _, pair in ipairs(PARTITION[page]) do
+      assertEqual(counts[pair[1]], pair[2], page .. " / " .. pair[1] .. ": control count")
+    end
+  end
+end)
+
+test("Schema: a group's rows are contiguous, so no tab is drawn twice", function()
+  -- The half the partition table cannot state: RenderTabbedSchema walks the rows IN ORDER and
+  -- opens a tab the first time it sees a group. A row filed under a group the page has already
+  -- left gets its own second tab with the same name.
+  local closed, current = {}, nil
+  for _, row in ipairs(S.Schema) do
+    local key = row.page .. "\1" .. row.group
+    if key ~= current then
+      assertFalse(closed[key], row.path .. " reopens " .. row.page .. " / " .. row.group ..
+        " after the page has left it")
+      closed[key] = true
+      current = key
+    end
+  end
+end)
+
+test("Schema: no tab holds fewer than two controls", function()
+  -- A tab over one control is a click that reveals a single dropdown. General's Maintenance is
+  -- the one exemption and it is exempted BY NAME, never by loosening the rule: its single stored
+  -- row (Keep history for) shares the tab with three BESPOKE controls that have no path and
+  -- cannot be rows — the live storage readout, "Purge history…" and "Reset Everything"
+  -- (settings/Panel.lua renderHistory).
+  -- red under: a tab losing rows until one is left, or a new one-row group.
+  local EXEMPT = { ["Maintenance"] = true }
+  local counts, pageOf = {}, {}
+  for _, row in ipairs(S.Schema) do
+    counts[row.group] = (counts[row.group] or 0) + 1
+    pageOf[row.group] = row.page
+  end
+  for group, n in pairs(counts) do
+    if not EXEMPT[group] then
+      assertTrue(n >= 2, pageOf[group] .. " / " .. group .. " holds only " .. n)
+    end
+  end
+end)
+
+test("Schema: a tab name never repeats the page it sits on", function()
+  -- On a page called Bars, "Bar background" carries nothing the strip has not already said. The
+  -- AH Price page is the deliberate exception and is exempt BY NAME: it holds exactly one group,
+  -- so RenderTabbedSchema draws no strip there at all and the group name is only ever a slash
+  -- `/lh list` header.
+  for _, row in ipairs(S.Schema) do
+    if row.page ~= "AH Price" then
+      assertFalse(row.group:lower():find(row.page:lower(), 1, true) ~= nil,
+        row.page .. " / " .. row.group .. ": the tab repeats its page")
+    end
+  end
+end)
+
+test("Schema: every slider declares a step it can actually be dragged to", function()
+  -- SetSliderValues(min, max, row.step or 1): a slider row with no `step` declares a step of ONE.
+  -- Window scale shipped that way on a 0.6..1.6 range — a control a player could only drag to its
+  -- two ends. The commit path snaps against `row.step or 0` instead, so nothing stored was ever
+  -- wrong; only the widget was unusable, which is exactly the class of bug no assertion saw.
+  for _, row in ipairs(S.Schema) do
+    if row.widget == "Slider" then
+      assertTrue(type(row.step) == "number" and row.step > 0,
+        row.path .. " is a slider with no step")
+      assertTrue((row.max - row.min) / row.step >= 4,
+        row.path .. "'s step gives it fewer than five positions")
+    end
   end
 end)

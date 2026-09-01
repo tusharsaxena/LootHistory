@@ -56,19 +56,25 @@ test("list header is the green 'Available settings' line, no trailing colon", fu
 end)
 
 test("list emits azure [group] headers in the declared order", function()
+  -- The groups are the settings panel's TABS (options-ui-§13) and `/lh list` reads the same
+  -- field, so the CLI's section order is the strip's order by construction. Asserted over the
+  -- schema's own declared order rather than a second hand-written list, which is how the two
+  -- would drift the next time a tab is renamed.
   local lines = Sl:BuildListLines()
-  local master = findLine(lines, "[Master Controls]")
-  local data   = findLine(lines, "[Data Collection]")
-  assertTrue(master ~= nil, "Master Controls group header present")
-  assertTrue(data ~= nil, "Data Collection group header present")
-  assertEqual(master, "  |cff3399ff[Master Controls]|r")
-  -- Declared order: Master Controls before Data Collection.
-  local mi, di
-  for i, l in ipairs(lines) do
-    if l:find("[Master Controls]", 1, true) then mi = i end
-    if l:find("[Data Collection]", 1, true) then di = i end
+  local want, seen = {}, {}
+  for _, row in ipairs(NS.Schema.Schema) do
+    if not seen[row.group] then seen[row.group] = true; want[#want + 1] = row.group end
   end
-  assertTrue(mi < di, "Master Controls must be listed before Data Collection")
+  assertTrue(#want >= 2, "there must be several groups, or the ordering below is vacuous")
+
+  local got = {}
+  for _, l in ipairs(lines) do
+    local g = l:match("^  |cff3399ff%[(.+)%]|r$")
+    if g then got[#got + 1] = g end
+  end
+  assertEqual(table.concat(got, " | "), table.concat(want, " | "),
+    "every group gets a header, in declaration order, in the azure bracket form")
+  assertEqual(got[1], "Collection", "Collection is the first tab and the first list section")
 end)
 
 test("list value rows use FormatKV under their group, four-space indented", function()
@@ -297,9 +303,9 @@ end)
 test("reset is path-scoped and resetall is the global verb (no page-shaped form)", function()
   local out = capture(function() Sl:CliReset("") end)
   assertEqual(out[1], NS.PREFIX .. " Usage: /lh reset <path>")
-  -- A page name is not a path, so it is refused rather than silently resetting a whole section.
-  local page = capture(function() Sl:CliReset("Master Controls") end)
-  assertEqual(page[1], NS.PREFIX .. " Setting not found: Master")
+  -- A tab name is not a path, so it is refused rather than silently resetting a whole section.
+  local page = capture(function() Sl:CliReset("Collection") end)
+  assertEqual(page[1], NS.PREFIX .. " Setting not found: Collection")
 end)
 
 -- ── the type-aware parser this addon did not have ────────────────────────────────────────────

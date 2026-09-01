@@ -455,12 +455,30 @@ get/set/list/reset — one write seam (`Schema:Set`). See [settings-panel.md](se
 History** (both must land on the same category).
 
 **Steps.**
-- Toggle **Enable collection**; run `/lh get settings.enabled`.
-- Drag the **Window scale** slider; run `/lh get settings.windowScale`. Then `/lh set windowScale 1.5`
-  and watch the slider.
-- Change **Minimum quality**, **Keep history for**, and toggle checkboxes in **Record data from** and
-  **Hide minimap button** / **Exclude quest items**.
-- **Debug console** (Master Controls, on its own row below Enable/Hide-minimap): check it — the debug
+- **The strip.** The General page opens on **Collection** with three tabs across the top —
+  Collection, Interface, Maintenance, in that order. The selected tab is the one you cannot click.
+  Click each in turn: the page's rows change and no section heading appears anywhere on it.
+  Narrow the Settings window until the strip wraps to a second row; the first row of controls must
+  still start *below* the strip, never under it.
+- Toggle **Enable collection** (Collection); run `/lh get settings.enabled`.
+- Drag the **Window scale** slider (Interface); run `/lh get settings.windowScale`. Then
+  `/lh set windowScale 1.5` and watch the slider. **The slider must move smoothly in 0.05 steps** —
+  it shipped with no step and could only be dragged to 0.6 or 1.6.
+- Drag the **Row height** slider (Interface, beside Window scale) from 18 down to 14 and up to 28.
+  The History table's rows change height *and* the number of visible rows changes with them; no row
+  is left clipped at the bottom of the list. Set it back to 18 and confirm the table looks exactly
+  as it did before the slider existed. `/lh get settings.rowHeight` echoes the value.
+- Change **Minimum quality** (Collection), **Keep history for** (Maintenance), and toggle checkboxes
+  in **Record data from** (Collection) and **Hide minimap button** (Interface) /
+  **Exclude quest items** (Collection).
+- **Maintenance tab.** The storage readout ("N items collected over D days", "Database size: ≈ …")
+  is there, with **Purge history…** beside it and **Reset Everything** on the line below. Loot
+  something with the panel open on that tab — the readout's item count goes up on its own. Then
+  click through to Collection and back to Maintenance and loot again: the count must *still* update
+  (the readout is rebuilt on every tab click, and the live listener has to follow the new label).
+- **Reset Everything** now lives on Maintenance, not beside Window scale. Click it: the
+  confirm dialog is the total-wipe one, and Cancel changes nothing.
+- **Debug console** (Interface, paired beside Hide minimap button): check it — the debug
   console **window** opens; uncheck it — the window hides. Confirm it does **not** change the debug
   **logging** state (`/lh get state.debugConsole` reports window visibility; logging is still governed
   by `/lh debug on|off`). Toggle the window via `/lh debug` (no arg) and the console's own close
@@ -473,6 +491,8 @@ History** (both must land on the same category).
 **Pass.**
 - Each panel write and each `/lh set` write the **same** value and fire `SettingsChanged`; an open
   panel widget reflects a slash write live, and vice-versa. `/lh get` echoes the stored value.
+- `/lh list` groups its output under `[Collection]`, `[Interface]`, `[Maintenance]`, `[AH Price]` —
+  the tab names, in strip order.
 - `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`,
   `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
   `settings.retentionDays`, `settings.excludedSources`).
@@ -621,16 +641,20 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 
 **Steps.**
 - In the History tab, right-click a row and choose **Blacklist item**. Note the popup's **gold border**.
-- Open **Settings ▸ Filters** (`/lh config` → Filters). In the **Blacklist** section, note the item.
+- Open **Settings ▸ Filters** (`/lh config` → Filters). The page opens on the **Blacklist** tab of a
+  three-tab strip — Blacklist, Whitelist, Currencies — and shows one list, not three stacked. Note
+  the item.
 - Loot that same item again (or `/lh test` won't help here — use a live drop).
 - In the Filters page, click **Remove** on that item, then loot the item once more.
-- In the **Whitelist** section, add an item id that would normally be dropped (below your quality
-  threshold, or from a muted source), then loot it so a row appears.
+- Click the **Whitelist** tab and add an item id that would normally be dropped (below your quality
+  threshold, or from a muted source), then loot it so a row appears. Exactly **one** add box is on
+  screen at a time, and it is the selected tab's.
 - Now **Remove** that id from the whitelist and re-check the History table.
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
 - Enter garbage (e.g. `abc`) into an add box and submit.
 - **Refresh perf (anti-pattern #39):** with a non-trivial blacklist (a dozen+ ids), click away to
-  another subcategory and back to **Filters** several times in a row. Then, with the panel closed,
+  another subcategory and back to **Filters** several times in a row, and click between the three
+  tabs several times in a row. Then, with the panel closed,
   right-click **Blacklist item** on a History row, and re-open **Filters**.
 
 **Pass.**
@@ -648,15 +672,16 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   are** — nothing is hidden or deleted. Only *future* loots of that id go back through the normal
   gates (and are dropped again if they don't pass).
 - Adding an id to one list **removes it from the other** (an id is never on both). The Filters page's
-  two lists update live; each entry shows the item name (or `Item <id>` until the client caches it)
+  lists update live on the tab you are looking at; each entry shows the item name (or `Item <id>` until the client caches it)
   with a **Remove** button; the empty state reads `(none)`.
 - Garbage input is rejected with a chat hint and adds nothing.
 - To remove existing rows of a blacklisted (or any) item, use the row's **Delete** action — list
   membership never does this for you.
 - The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in
   the browser's filter dropdowns (it is core logic, not a user-selectable display filter).
-- **Refresh perf:** repeatedly re-opening the Filters tab is **instant** — no per-click stutter or
-  freeze even with a long blacklist (the list rebuild is gated to first paint / on-screen edits /
+- **Refresh perf:** repeatedly re-opening the Filters page, and clicking between its three tabs, is
+  **instant** — no per-click stutter or freeze even with a long blacklist (only the list on screen
+  is ever rebuilt) (the list rebuild is gated to first paint / on-screen edits /
   dirty, per options-ui-§11; re-showing an unchanged page does no AceGUI teardown+rebuild). After a
   right-click **Blacklist item** made while the page was closed, re-opening Filters shows the new id
   (the off-screen change flagged the page dirty, so the next `OnShow` repaints exactly once).
@@ -664,9 +689,9 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 **Currency blacklist.** Separate id-set from the item blacklist/whitelist above (keyed by
 currencyID, no currency whitelist). In the History tab, right-click a currency row and choose
 **Blacklist currency**. Loot that same currency again — no new row records. Open **Settings ▸
-Filters ▸ Blacklisted currencies**; the id appears with its name resolved. Click **Remove** on it,
+Filters ▸ Currencies**; the id appears with its name resolved. Click **Remove** on it,
 then loot the currency again — it records normally. Re-add it and use **Clear all** on the
-currencies section (confirm popup) — the list empties and future loots of it record again.
+Currencies tab (confirm popup) — the list empties and future loots of it record again.
 
 ### 17. LibKa0s adoption
 
@@ -741,9 +766,12 @@ already identical to the library's, so **anything that looks different here is t
    unchanged.
 3. Click through **General**, **Filters** and **AH Price**. Each header reads
    `Ka0s Loot History ▸ <Page>` with the gold divider under it and a **Defaults** button top-right.
-   The two-column pairing is unchanged: Enable collection | Hide minimap button, then Debug console
-   alone, then Window scale | Reset Everything; then Minimum quality | Keep history for, then Record
-   currency | Exclude quest items, then the full-width **Record data from** grid.
+   **General** and **Filters** each carry a three-tab strip under that header (walked in §9); **AH
+   Price** carries none. On **General ▸ Collection** the two-column pairing reads Enable collection |
+   Minimum quality, then Record currency | Exclude quest items, then the full-width **Record data
+   from** grid; **Interface** reads Window scale | Row height, then Hide minimap button | Debug
+   console; **Maintenance** carries Keep history for, the storage readout | **Purge history…**, and
+   **Reset Everything**.
 4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
    edge does not shift** as you click between pages (options-ui-§10).
 5. On **AH Price**, click away to another page and back several times. There must be **no freeze** —

@@ -43,8 +43,8 @@ Sent from five schema-row `onChange` handlers in [`settings/Schema.lua`](../sett
 
 Two schema rows deliberately skip the bus and drive their side effect directly in `onChange`:
 
-- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:32`).
-- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:52`).
+- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:121`).
+- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:95`).
 
 Neither emits `SettingsChanged`, because nothing else needs to react — they are one-consumer, view-only knobs. (Likewise `retentionDays` fires `HistoryChanged` via `PruneOld`, not `SettingsChanged`.) Keeping these off the bus means flipping the minimap button or the window scale never cascades into a Collector upvalue refresh or a table rebuild.
 
@@ -61,7 +61,7 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` h
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:222`).
 - Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1192`).
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:664`).
-- Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:123`).
+- Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:171`).
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.
 

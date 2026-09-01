@@ -43,10 +43,10 @@ db.global = {
 ```
 
 - `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:718`, `:778`). Each record's field shape is documented below.
-- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:94`).
+- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:84`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
-Debug is **session-only** (`NS.State.debug`) and is deliberately **never persisted** here — it resets to off on every reload (`defaults/Global.lua:43`, `settings/Schema.lua:116`).
+Debug is **session-only** (`NS.State.debug`) and is deliberately **never persisted** here — it resets to off on every reload (no `debug` key in `defaults/Global.lua`; the console-visibility row is `settings/Schema.lua:139`).
 
 ## The loot record
 
@@ -205,9 +205,9 @@ were removed.)
 
 ## The `Schema:Set` write seam
 
-Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:160` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
+Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:223` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
 
-The deep-copy (`settings/Schema.lua:152`) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
+The deep-copy (`settings/Schema.lua:215`) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
 
 ### Storage-only carve-outs
 
@@ -220,7 +220,7 @@ Six pieces of persisted state live in `db.global` but are written **directly**, 
 
 > **Standards note (accepted carve-out).** These bypass the schema-as-single-source rule (CLAUDE §2, "every user-setting mutation goes through `Schema:Set`"). `window`/`savedView`/`windowScale` were the pre-existing precedent; `blacklist`/`whitelist` and `settings.auction.priority` extend it for the same reason: a dynamic, unbounded set of arbitrary item ids, or an ordered selection list, has no fixed schema widget (CheckBox/Dropdown/Slider/MultiCheck) to express it. **Resolution (2026-07-17): ratified as a legitimate carve-out** for `blacklist`/`whitelist`, same class as `window`/`savedView`, managed by `NS.Filters` writing `NS.db.global` directly. `settings.auction.priority` follows the same precedent (Rev-2 R5, 2026-07-19): an ordered list is not one of the four schema widget types, so it is managed directly by `modules/AuctionPrice.lua` + the AH Price panel. (The former `settings.auction.priorityDisabled` per-tag carve-out was removed when collection and priority-participation were unified into the single `settings.auction.capture` flag — see the AH Price table in [settings-panel.md](settings-panel.md).) The Ka0s Standard's own definition was left unchanged; if a future addon wants either pattern first-class, amend the standard's schema section then.
 
-Note `settings.windowScale` **is** a Schema row (Master Controls slider) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state.
+Note `settings.windowScale` **is** a Schema row (a General ▸ Interface slider, beside `settings.rowHeight`) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state.
 
 ### Reset semantics
 
@@ -276,7 +276,7 @@ All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is alr
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:778`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:73`).
+`Database:PruneOld` (`core/Database.lua:778`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:157`).
 
 ## Read seams
 
