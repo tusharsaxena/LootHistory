@@ -60,6 +60,18 @@ local function stubFrame()
   function f:IsShown() return self.__shown end
   function f:IsVisible() return self.__shown end
 
+  -- Enabled state, TRACKED rather than no-opped. The metatable below answers any capitalized
+  -- call with the frame itself, so `IsEnabled()` came back truthy no matter what SetEnabled was
+  -- told -- and an `assertFalse(b:IsEnabled())` could never fail, in this repo or in any
+  -- consumer's suite. Same fidelity rule as GetHeight/GetWidth (rule 2: return real values, not
+  -- the frame), applied to the one boolean it was missed on. Blizzard's own tab groups mark the
+  -- selected tab by DISABLING it, which is what turns this from a gap into a blocker.
+  f.__enabled = true
+  function f:SetEnabled(v) self.__enabled = not not v; return self end
+  function f:Enable() self.__enabled = true; return self end
+  function f:Disable() self.__enabled = false; return self end
+  function f:IsEnabled() return self.__enabled end
+
   -- Store handlers instead of discarding them, and expose __fire so a test can drive the lazy
   -- OnShow paths a settings panel depends on (the deferred body render, and the first-OnShow
   -- Defaults-button build — options-ui-§5). A no-op SetScript made those unreachable.

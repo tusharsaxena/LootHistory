@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 9
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 13
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -104,9 +104,86 @@ lib.LAYOUT = {
   -- 0.5/0.5 lets AceGUI's Flow layout push the right button's border into the ScrollFrame's clip
   -- rectangle, shaving it; the 0.492 inset clears the clip while staying visually a 50/50 split.
   BUTTON_PAIR_REL       = 0.492,
+
+  -- The gap between the bottom of the pinned chrome band (options-ui-§13/§14) and the top of
+  -- the scroll. Equal to the literal 8 EnsureScroll used before the band existed, so a page
+  -- that reserves nothing anchors its scroll exactly where it always did. PUBLISHED as
+  -- O.CHROME_GAP: a host drawing bespoke chrome of its own has to know where its band ends.
+  CHROME_GAP    = 8,
+  -- Height of one row of tabs. PUBLISHED as O.TAB_H: a host that measures its own strip -- to
+  -- reserve the band before drawing into it -- has no other way to read the number.
+  --
+  -- Taller than the art it carries, on purpose. The bottom of a tab is a FOOT that overlaps the
+  -- content panel's top edge, which is what makes the selected tab merge into the page instead of
+  -- floating above it; the label is therefore anchored to the tab's bottom rather than centred.
+  -- OPie's number, from the reference implementation named in OptionsWidgets.lua's art section.
+  TAB_H         = 37,
+  -- Floor and fallback for the page banner's height. PUBLISHED as O.BANNER_H, same reason as
+  -- TAB_H. PageBanner measures the dropdown's own frame and uses that when it is a taller
+  -- number than this; this is what a headless harness (GetHeight answers 0) and any real
+  -- measurement below the floor fall back to. Roughly an AceGUI Dropdown WITH a label, whose
+  -- label renders above the control and pushes the whole widget past a bare control's height.
+  BANNER_H      = 44,
+  -- INTERNAL: TAB_PAD_X — horizontal padding inside one tab, consumed by O.TabStrip when it
+  -- sizes a button around its measured label; no host draws a tab itself. 20 a side is OPie's
+  -- `GetStringWidth() + 40`, and it is the number that stops a label sitting on the atlas's end
+  -- cap. It has been too small twice: at 12 the text sat on the cap outright, at 18 it cleared it
+  -- but left the tabs looking cramped next to every other tab strip in the client.
+  TAB_PAD_X     = 20,
+  -- INTERNAL: TAB_GAP — horizontal gap between two tabs on one row, consumed by O.TabStrip and
+  -- by O.__layoutTabs; a host that needed it would be laying out its own strip.
+  TAB_GAP       = 4,
+  -- INTERNAL: TAB_MIN_W — floor width of one tab, and the width every tab takes when the label
+  -- cannot be measured (a headless harness, a font not yet loaded); never read by a host.
+  TAB_MIN_W     = 60,
+
+  -- The gap below the banner, the hairline rule under it, and the gap below THAT before the tab
+  -- strip begins (options-ui-§14). Three numbers rather than one, because the rule wants to sit
+  -- clear of the banner's own art on one side and the first tab's border on the other.
+  -- INTERNAL: CHROME_DIVIDER_GAP_TOP — consumed by O.PageBanner alone, which draws the rule
+  -- immediately under its own measured height; no host draws a banner divider itself.
+  -- INTERNAL: CHROME_DIVIDER_H — same reason, and it is also the rule TEXTURE's height, not
+  -- just a spacing number.
+  -- INTERNAL: CHROME_DIVIDER_GAP_BOTTOM — same reason as CHROME_DIVIDER_GAP_TOP.
+  CHROME_DIVIDER_GAP_TOP    = 6,
+  CHROME_DIVIDER_H          = 1,
+  CHROME_DIVIDER_GAP_BOTTOM = 6,
+  -- The scroll's bottom inset within the body.
+  -- INTERNAL: CONTENT_BOTTOM — anchorScroll is the only consumer; no host anchors its own scroll.
+  CONTENT_BOTTOM = 8,
+
+  -- The content box's own insets within the body (options-ui-§13), and they are deliberately
+  -- SMALLER than the content column's. The box has to sit OUTSIDE everything it contains: the
+  -- page's widgets start at CONTENT_LEFT, and AceGUI's always-shown scrollbar sits outboard of
+  -- CONTENT_RIGHT, so a box drawn on the content column's own edges is a box the scrollbar is
+  -- painted on top of and the left-hand labels butt against. That is what shipped at 12.11.3.
+  --
+  -- The tab strip stays on the content column, which puts the leftmost tab a few pixels inside
+  -- the box's left edge -- OPie's arrangement, and the reason its tabs read as sitting ON the
+  -- panel rather than as being the panel's top row.
+  -- INTERNAL: PANEL_LEFT — drawContentPanel in OptionsWidgets.lua is the only consumer; no host
+  -- draws its own content box.
+  -- INTERNAL: PANEL_RIGHT — same reason as PANEL_LEFT.
+  -- INTERNAL: PANEL_BOTTOM — same reason as PANEL_LEFT.
+  PANEL_LEFT    = 4,
+  PANEL_RIGHT   = 4,
+  PANEL_BOTTOM  = 2,
 }
 
 local L = lib.LAYOUT
+
+-- The chrome band's and the scroll's shared horizontal insets, so the banner and the tab strip
+-- span exactly the content column beneath them rather than a wider guess restated at
+-- CreatePanel's chrome anchor AND at anchorScroll. CONTENT_RIGHT is wider than PADDING_X because
+-- anchorScroll's right inset leaves room for AceGUI's always-shown scrollbar (which AceGUI nudges
+-- 20px right of the scrollframe when visible); CONTENT_LEFT is narrower than PADDING_X for the
+-- same reason __scrollTopInset exists -- one seam, computed once here and read at both anchor
+-- sites, so the two cannot drift the way they had.
+-- INTERNAL: CONTENT_LEFT — no host draws its own chrome or scroll; both consumers (CreatePanel's
+-- chrome anchor and anchorScroll) are in this file.
+-- INTERNAL: CONTENT_RIGHT — same reason as CONTENT_LEFT.
+L.CONTENT_LEFT  = L.PADDING_X - 4
+L.CONTENT_RIGHT = L.PADDING_X + 12
 
 -- ── strings ────────────────────────────────────────────────────────────────────────────────
 
@@ -223,6 +300,9 @@ function lib:New(d)
   O.ROW_VSPACER       = L.ROW_VSPACER
   O.SECTION_HEADING_H = L.SECTION_HEADING_H
   O.BUTTON_PAIR_REL   = L.BUTTON_PAIR_REL
+  O.CHROME_GAP        = L.CHROME_GAP
+  O.TAB_H             = L.TAB_H
+  O.BANNER_H          = L.BANNER_H
 
   -- ── panel factory ────────────────────────────────────────────────────────────────────────
 
@@ -305,13 +385,25 @@ function lib:New(d)
     body:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
     panel.body = body
 
+    -- The chrome slot (options-ui-§13, §14): pinned page furniture between the header and the
+    -- scroll. A frame rather than a bare number because a banner and a strip need something to
+    -- parent to that a page-wide release can empty; the NUMBER is what moves the scroll, and it
+    -- starts at zero so a page that reserves nothing is byte-identical to one built before the
+    -- slot existed.
+    local chrome = CreateFrame("Frame", nil, body)
+    chrome:SetPoint("TOPLEFT",  body, "TOPLEFT",   L.CONTENT_LEFT, 0)
+    chrome:SetPoint("TOPRIGHT", body, "TOPRIGHT", -L.CONTENT_RIGHT, 0)
+    panel.chrome = chrome
+
     local ctx = {
-      panel      = panel,
-      body       = body,
-      scroll     = nil,          -- lazy AceGUI ScrollFrame
-      refreshers = {},
-      lastGroup  = nil,
-      pageKey    = opts.pageKey,
+      panel        = panel,
+      body         = body,
+      scroll       = nil,          -- lazy AceGUI ScrollFrame
+      refreshers   = {},
+      lastGroup    = nil,
+      pageKey      = opts.pageKey,
+      chrome       = chrome,
+      chromeHeight = 0,
     }
     renderedPanels[#renderedPanels + 1] = ctx
     return ctx
@@ -365,6 +457,51 @@ function lib:New(d)
     end
   end
 
+  --- Where the scroll's top edge sits: the fixed gap plus whatever the page reserved.
+  ---
+  --- A named seam rather than the sum written out at both call sites, because the two sites are
+  --- EnsureScroll (first render) and SetChromeHeight (every render after a strip wrapped), and
+  --- a page whose two answers disagreed would move its own first row on the second render.
+  function O.__scrollTopInset(ctx)
+    return L.CHROME_GAP + ((ctx and ctx.chromeHeight) or 0)
+  end
+
+  --- Anchor a page's scroll under whatever chrome the page reserved.
+  ---
+  --- BOTH anchors in one place, not just the top one. EnsureScroll and SetChromeHeight each need
+  --- the full pair -- the second re-anchors a live scroll -- and a bottom inset restated at two
+  --- sites is the same drift __scrollTopInset exists to prevent, one edge over.
+  ---
+  --- The horizontal insets are L.CONTENT_LEFT / L.CONTENT_RIGHT -- the SAME two numbers
+  --- CreatePanel's chrome anchor uses -- so the chrome band and the scroll beneath it can never
+  --- drift apart the way they once did (the chrome ran 12px wider than the content on the
+  --- right).
+  local function anchorScroll(ctx)
+    local f = ctx.scroll and ctx.scroll.frame
+    if not f then return end
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT",     ctx.body, "TOPLEFT",     L.CONTENT_LEFT, -O.__scrollTopInset(ctx))
+    f:SetPoint("BOTTOMRIGHT", ctx.body, "BOTTOMRIGHT", -L.CONTENT_RIGHT, L.CONTENT_BOTTOM)
+  end
+
+  --- Reserve `height` pixels of pinned furniture above the scroll, and move a live scroll to
+  --- match. Idempotent: reserving the same height twice reserves it once.
+  function O.SetChromeHeight(ctx, height)
+    if not ctx then return end
+    ctx.chromeHeight = tonumber(height) or 0
+    if ctx.chrome and ctx.chrome.SetHeight then
+      -- Zero is not a height a frame can hold, and a slot with nothing in it has nothing to
+      -- show anyway, so the frame is hidden rather than sized to nothing.
+      if ctx.chromeHeight > 0 then
+        ctx.chrome:SetHeight(ctx.chromeHeight)
+        ctx.chrome:Show()
+      else
+        ctx.chrome:Hide()
+      end
+    end
+    anchorScroll(ctx)
+  end
+
   --- Lazy AceGUI ScrollFrame parented to ctx.body, patched for an always-visible scrollbar.
   function O.EnsureScroll(ctx)
     if ctx.scroll then return ctx.scroll end
@@ -374,11 +511,11 @@ function lib:New(d)
     local scroll = AceGUI:Create("ScrollFrame")
     scroll:SetLayout("List")
     scroll.frame:SetParent(ctx.body)
-    scroll.frame:ClearAllPoints()
-    -- The right-edge inset of PADDING_X+12 leaves room for the scrollbar (which AceGUI nudges 20px
-    -- right of the scrollframe when visible) without it sitting flush against the panel border.
-    scroll.frame:SetPoint("TOPLEFT",     ctx.body, "TOPLEFT",      L.PADDING_X - 4, -8)
-    scroll.frame:SetPoint("BOTTOMRIGHT", ctx.body, "BOTTOMRIGHT", -(L.PADDING_X + 12), 8)
+    ctx.scroll = scroll
+    -- The right-edge inset of L.CONTENT_RIGHT leaves room for the scrollbar (which AceGUI nudges
+    -- 20px right of the scrollframe when visible) without it sitting flush against the panel
+    -- border.
+    anchorScroll(ctx)
     scroll.frame:Show()
 
     -- AceGUI normally has a parent AceGUI container set a ScrollFrame's size during DoLayout; this
@@ -393,7 +530,6 @@ function lib:New(d)
 
     if O.PatchAlwaysShowScrollbar then O.PatchAlwaysShowScrollbar(scroll) end
 
-    ctx.scroll = scroll
     return scroll
   end
 
