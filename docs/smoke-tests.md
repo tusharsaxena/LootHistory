@@ -71,7 +71,8 @@ Loot History**.
   `Libraries → Locales → Core → Defaults → Modules → Settings`, so `settings/` now loads *after*
   `modules/`. Confirm nothing depends on that having been the other way round: no Lua error on login
   or `/reload`, `/lh` prints the help index (above), and **Ka0s Loot History appears in the Blizzard
-  options list** (Esc → Options → AddOns) with its General / Filters / AH Price sub-pages present.
+  options list** (Esc → Options → AddOns) with its single **General** sub-page present (Filters and
+  AH Price are tabs on that page's strip since R6, not sub-pages of their own).
   The headless suite loads in this same order, but the real TOC load path is not unit-testable.
 - `/lh` (bare) prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
   `NS.COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help — fourteen). Every
@@ -548,7 +549,7 @@ destructive-action confirm dialogs.
 **Pass.**
 - The scrollbar is **always shown**: on a short page the bar renders parked at the top and **grayed /
   disabled** (it does not auto-hide), so the right gutter is always reserved and the body's left/right
-  margins **don't jump** between a short and a long subpage.
+  margins **don't jump** between a short and a long page.
 - **Reset position**, **Reset all settings** and **Purge history…** each draw their **full right
   border** (not shaved by the scroll gutter) and line up cleanly with their left-hand neighbor — no
   spill past the panel edge (`BUTTON_PAIR_REL`, the library's `InlineButtonPair` for the reset pair
@@ -679,9 +680,9 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
 - Enter garbage (e.g. `abc`) into an add box and submit.
 - **Refresh perf (anti-pattern #39):** with a non-trivial blacklist (a dozen+ ids), click away to
-  another subcategory and back to **Filters** several times in a row, and click between the three
-  tabs several times in a row. Then, with the panel closed,
-  right-click **Blacklist item** on a History row, and re-open **Filters**.
+  another primary tab and back to **Filters** several times in a row, and click between its three
+  sub-tabs several times in a row. Then, with the panel closed,
+  right-click **Blacklist item** on a History row, and re-open the **Filters** tab.
 
 **Pass.**
 - **Blacklist item** (right-click) adds the id to the blacklist, but the **clicked row stays in the

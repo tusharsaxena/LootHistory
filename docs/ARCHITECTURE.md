@@ -26,7 +26,8 @@ Modular Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI
 LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
 **[LibKa0s](https://github.com/tusharsaxena/LibKa0s)** — the Ka0s-owned shared library behind the
 chat printer, the art and monospace face, the debug console, the slash-command interface, the
-settings canvas and the flat dropdowns. All libraries
+settings canvas with its tab strip and Master-controls composer, the shared drag-to-reorder list
+and the flat dropdowns. All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
 vendored **whole-folder**, because nine of its ten majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
@@ -41,7 +42,9 @@ LibKa0s seams sit inside `core/`, and **four** of their positions are load-beari
 `core/ItemSetup.lua` and `core/MediaSetup.lua` must sit above `core/Constants.lua` (which calls
 `NS.Item.QualityLabel` and reads `NS.MediaFont` at file load), `core/WidgetsSetup.lua` below
 `core/MediaSetup.lua` (the dropdown art resolves through `NS.Icon`), and `core/PoolSetup.lua` above
-every module that pools a widget. The rows below and [module-map.md](module-map.md) carry each one.
+every module that pools a widget. An **eighth** seam sits in `settings/` — `settings/OptionsSetup.lua` —
+and its position is load-bearing too: `settings/Schema.lua` composes its Master controls tab at file
+load through `NS.Options.MasterControls` (options-ui-§15), so the Options seam has to be above it. The rows below and [module-map.md](module-map.md) carry each one.
 
 | File | Role |
 |---|---|
@@ -63,7 +66,7 @@ every module that pools a widget. The rows below and [module-map.md](module-map.
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
 | `settings/Slash.lua` | The **`LibKa0s-Slash-1.0`** seam. AceConsole `/lh` + `/loothistory`; the dispatcher, help header/rows, landing rows, schema CLI and type-aware parser are the library's, reading the host's positional `NS.COMMANDS`. Host-owned: the purge / global-reset / filter-list-clear confirm dialogs, `ResetEverything` (the Master controls tab's **Reset all settings** button — options-ui-§12's global reset, and a superset of the `/lh resetall` verb), the `CliResetAll` wrapper that also clears the id-lists, and `FormatSchemaValue` — the descriptor's `format` hook for `type = "table"`, the one row type the library has none for. |
-| `settings/OptionsSetup.lua` | The **`LibKa0s-Options-1.0`** seam: the canvas shell, breadcrumb header, lazy Defaults button, page registry, scroll + always-shown-scrollbar patch, widget makers, two-column flow engine, `SetRenderer` and the two refresh tiers. Where every declined surface is recorded. Must load before `settings/Panel.lua`. |
+| `settings/OptionsSetup.lua` | The **`LibKa0s-Options-1.0`** seam: the canvas shell, breadcrumb header, lazy Defaults button, page registry, scroll + always-shown-scrollbar patch, widget makers, two-column flow engine, `SetRenderer`, the two refresh tiers, the page chrome (`TabStrip` / `SubTabStrip`) and the schema composers (`MasterControls`). Where every declined surface is recorded. **Its TOC position is load-bearing** — `settings/Schema.lua` calls `NS.Options.MasterControls` at file load, and `settings/Panel.lua` takes `NS.Options` as a file-scope upvalue, so it must load above both. |
 | `settings/Panel.lua` | The page builders on top of that seam: the landing page and the one **General** subcategory, whose six-tab strip is drawn by hand because two of its tabs (Filters, AH Price) hold no schema rows to partition. Plus the live DB stats block and the two surfaces the library has no maker for — the inverted set picker and the pooled AH price table, the latter now reordered through the shared `ReorderList`. |
 | `modules/AuctionPrice.lua` | `NS.AuctionPrice:GatherAll(itemLink, itemID)` reads an AH price for a just-looted item from every installed third-party pricing addon (Auctionator / TSM / OribosExchange), capturing **every configured key** into a nested `provider → key → copper` map (`settings.auction.capture`), not just one; every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the gather continues. `NS.AuctionPrice:Pick(map)` is the read-time seam that selects one price from that map via the user-configurable `settings.auction.priority` cascade (first present key wins), returning `price, tag`. Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
@@ -137,7 +140,7 @@ removed — collection and priority are now the single `capture` flag.)
 
 `settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
 (LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced
-in the settings **Filters** subcategory) are storage/data state written straight to `NS.db.global`,
+in the settings panel's **Filters** tab) are storage/data state written straight to `NS.db.global`,
 **not** Schema rows and not routed through `Schema:Set` — an accepted carve-out (see Standards
 compliance, and [`schema.md`](schema.md)). Debug is session-only (`NS.State.debug`)
 and never persisted.
@@ -159,16 +162,19 @@ table reach.
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats). Browser and Analytics run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / questfilter / currency / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` — eight handlers, six reasons (enabled / quality / questfilter / currency / excludes, plus `chrome` from the Master controls tab's `scale` / `alpha` / `locked`) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 > A blacklist/whitelist edit stays within the one-sender rule: it re-caches the Collector via a
 > **direct** `Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) and broadcasts
 > `HistoryChanged` through `Database:FireHistoryChanged()` (so `Database` remains that message's sole
 > sender). The Panel's Filters TAB subscribes to `HistoryChanged` on its own second bus target.
 
-> `windowScale` and `minimap.hide` changes are **not** broadcast on the bus — their `onChange`
-> calls `Browser:SetScale` / `Browser:SetMinimapHidden` directly. Only `enabled`, quality,
-> quest-item filter and excludes (which affect capture) fan out via `SettingsChanged`.
+> `windowScale`, `rowHeight`, `retentionDays` and `minimap.hide` changes are **not** broadcast on
+> the bus — their `onChange` reaches `Browser:SetScale` / `BrowserTable:Bind` /
+> `Database:PruneOld` / `Browser:SetMinimapHidden` directly. What does fan out via
+> `SettingsChanged` is the five capture settings (`enabled`, quality, currency, quest-item filter,
+> excludes) plus the Master controls tab's three chrome settings (`scale`, `alpha`, `locked`),
+> which share the one `"chrome"` reason.
 
 ---
 
