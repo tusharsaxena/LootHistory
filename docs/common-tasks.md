@@ -29,11 +29,14 @@ widget, the slash `get`/`set`/`list`/`reset` verbs, and the Defaults/Reset-all r
    `skipRender` (not `panelSkip`). An unmapped field is **not an error** — it is a row that silently
    vanishes from a page, or a `set` that answers `ERR_TYPE`. `tooltip` deliberately did *not* move:
    the library reads `tooltip` first and its own `desc` second.
-4. `page` names the canvas SUBCATEGORY the row is edited on ("General" or "AH Price") and is what
-   the descriptor's `rowsForPage` matches on; `group` names the **tab** within that page
-   (options-ui-§13). `O.RenderTabbedSchema` partitions a page's rows by `group` in declaration
-   order and draws one tab per distinct group, so a group's rows MUST be contiguous. Row order
-   within a group drives the two-column pairing, and `wide` forces a full-width row.
+4. `page` names the canvas SUBCATEGORY the row is edited on — there is exactly one, `"General"` —
+   and is what the descriptor's `rowsForPage` matches on; `group` names the **tab** within it
+   (options-ui-§13) and `subgroup` a subsection heading *inside* a tab (options-ui-§7, and **not**
+   suppressed by the strip). `settings/Panel.lua` partitions the page's rows by `group` in
+   declaration order, so a group's rows MUST be contiguous — and a **new group needs an entry in
+   `GENERAL_TABS`** in the matching position, or it renders nowhere (`tests/test_panel.lua` compares
+   the two). Row order within a group drives the two-column pairing; `wide` forces a full-width row
+   and `startsLine` flushes the pending line before one.
 5. Give the row an `onChange` if anything must react — typically
    `NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "<key>")`, which is what makes the
    collector re-cache its hot-path upvalues.
@@ -237,13 +240,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Options UI: Blizzard canvas, never AceConfigDialog
 
 - The settings panel is a Blizzard `Settings.RegisterCanvasLayoutCategory` parent (the landing page)
-  plus three `RegisterCanvasLayoutSubcategory` bodies — General, Filters, AH Price — built lazily
-  from raw AceGUI widgets. The canvas shell, the page registry, the lazy Defaults button, the five
-  widget makers and the two-column flow engine are LibKa0s-Options-1.0's, wired in
-  `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the three pages and owns their bodies
-  (`settings/Panel.lua:805`). **AceConfigDialog is never used for content** — there is no
+  plus **one** `RegisterCanvasLayoutSubcategory` body — General, a six-tab strip — built lazily from
+  raw AceGUI widgets. There were three sub-pages until R6 folded Filters and AH Price into tabs. The
+  canvas shell, the page registry, the lazy Defaults button, the five widget makers, the two-column
+  flow engine and the schema composers are LibKa0s-Options-1.0's, wired in
+  `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
+  **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:884`), whose combat gate lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:990`), whose combat gate lives in the library
   (`libs/LibKa0s/Options.lua:875`) and now also fires on a page's `OnShow`
   (`libs/LibKa0s/Options.lua:678`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
@@ -251,7 +255,8 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
 ### Panel layout: options-ui-§6/§10 conformance
 
-- **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Reset Everything, Purge history) inset
+- **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Purge history, and the
+  Master controls tab's Reset position / Reset all settings pair) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
   constant is the library's (`libs/LibKa0s/Options.lua:106`), re-exported on the instance as
   `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:35`).

@@ -9,6 +9,7 @@
 	<Script file="Slash.lua"/>
 	<Script file="Options.lua"/>
 	<Script file="OptionsWidgets.lua"/>
+	<Script file="OptionsCompose.lua"/>
 	<Script file="OptionsScroll.lua"/>
 	<Script file="Perf.lua"/>
 	<Script file="PerfPanel.lua"/>

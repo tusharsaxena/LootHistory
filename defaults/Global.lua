@@ -19,6 +19,19 @@ NS.defaults.global = {
   currencyBlacklist = {},  -- { [currencyID] = true } — currencies never recorded on capture
   settings = {
     enabled          = true,
+    -- ── the Master controls tab (options-ui-§15) ──
+    -- General visibility is a DROPDOWN, not a boolean, because a boolean can only ever answer two
+    -- of the four. This addon never shipped a `show only in combat` checkbox, so the key is NEW
+    -- rather than migrated: an install from before this release simply has no `visibility` and
+    -- AceDB merges "always" in, which is what it always did.
+    visibility       = "always",
+    -- ADDON-WIDE, and distinct from `windowScale` below. `scale`/`alpha` govern every frame this
+    -- addon draws (the History window and the export modal); `windowScale` is the History window's
+    -- OWN scale and multiplies on top of it (options-ui-§15: the per-instance rows stay on the
+    -- instance, the master rows are the addon-wide ones).
+    scale            = 1.0,
+    alpha            = 1.0,
+    locked           = false,  -- stop the History window and the export modal being dragged
     qualityThreshold = 1,      -- Common (white) and above
     excludeQuestItems = true,  -- on by default (opt-out): drop Quest-class items at capture
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items

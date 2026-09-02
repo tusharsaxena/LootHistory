@@ -20,13 +20,17 @@ db.global = {
   whitelist = {},              -- { [itemID]=true } — always record, bypassing the gates (carve-out)
   currencyBlacklist = {},      -- { [currencyID]=true } — currency dropped at capture (blacklist-only carve-out)
   settings = {
-    enabled          = true,   -- master capture switch
+    enabled          = true,   -- master switch (Master controls tab)
+    visibility       = "always",  -- always | inCombat | outOfCombat | never (Master controls tab)
+    scale            = 1.0,    -- ADDON-WIDE scale; multiplies windowScale below
+    alpha            = 1.0,    -- ADDON-WIDE opacity
+    locked           = false,  -- stop the History window and the export modal being dragged
     qualityThreshold = 1,      -- record Common (white) and above
     excludeQuestItems = true,  -- drop Quest-class items at capture (opt-out)
     recordCurrency   = true,   -- record looted currency as Type=Currency rows (source-muted; ignores quality)
     excludedSources  = {},     -- set of MUTED SourceType keys
     retentionDays    = 30,     -- 0 == keep Always
-    windowScale      = 1.0,    -- History browser window scale
+    windowScale      = 1.0,    -- the History window's OWN scale; multiplied by settings.scale
     window           = {},     -- persisted position/size (storage-only, see below)
     auction = {
       enabled = true,          -- master AH-pricing switch (Schema row)
@@ -46,7 +50,9 @@ db.global = {
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:84`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
-Debug is **session-only** (`NS.State.debug`) and is deliberately **never persisted** here — it resets to off on every reload (no `debug` key in `defaults/Global.lua`; the console-visibility row is `settings/Schema.lua:139`).
+- `settings.visibility`, `settings.scale`, `settings.alpha` and `settings.locked` are the **Master controls** tab's addon-wide rows (options-ui-§15). They are new in this release and **need no migration**: none of them replaces an older stored value — this addon never shipped a *show only in combat* boolean — so a profile written before it simply has no key and AceDB merges the shipped default in. `settings.scale` **multiplies** `settings.windowScale` rather than replacing it: one is addon-wide, the other is the History window's own, and options-ui-§15 forbids conflating them.
+
+Debug is **session-only** (`NS.State.debug`) and is deliberately **never persisted** here — it resets to off on every reload (no `debug` key in `defaults/Global.lua`; the console-visibility row `state.debugConsole` is on the Master controls tab).
 
 ## The loot record
 
@@ -216,11 +222,11 @@ Six pieces of persisted state live in `db.global` but are written **directly**, 
 - **`settings.window`** — the browser window geometry `{ point, x, y, w, h }` relative to UIParent. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:102`), restored by `RestoreWindow` on show (`modules/Browser.lua:111`). This is the standalone-windows window position/size persistence.
 - **`savedView`** — the saved table view: group-by, sort keys, and the multi-select column filters (bound / quality / type / subtype / source / zone) plus the date range and search text. Captured by `B:CaptureView`, written by `B:SaveView`, cleared to `nil` by `B:ResetView`. Character scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:256`).
 - **`blacklist` / `whitelist` / `currencyBlacklist`** — the id filter lists (issue #14; the currency list added with currency capture). A dynamic id-set has no Schema widget to drive, so they are managed by `NS.Filters` (`modules/Filters.lua`) — copy-on-write mutation, then a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()` (the browser re-queries). All are strictly **point-in-time**: they decide what happens at capture, not what happens to rows already stored. Blacklisted item ids are dropped at capture (`CHAT_MSG_LOOT`) and never written to `history`; existing rows are never hidden or removed. Whitelisted ids are always recorded, bypassing the quality/source/quest gates, as plain rows with no special flag. `currencyBlacklist` is keyed by **currencyID** (a separate namespace, since item and currency ids can collide) and is **blacklist-only** (no currency whitelist): a blacklisted currency is dropped at capture (`CHAT_MSG_CURRENCY`). Changing any list fires `Database:FireHistoryChanged()` and calls `Collector:RefreshUpvalues()` so the browser/Insights re-query and future captures see the new lists — it never hides or reveals existing rows. An item id lives on at most one of the item lists. See [settings-panel.md](settings-panel.md).
-- **`settings.auction.priority`** — the ordered `"provider:key"` AH-price cascade selection list (`AuctionPrice:Pick` walks it front-to-back; first present key wins). An ordered list has no fixed Schema widget (CheckBox/Dropdown/Slider/MultiCheck) to express reordering, so it is read/written directly via `AuctionPrice:GetPriority`/`MovePriority`/`SwapPriorityTags` (`modules/AuctionPrice.lua`) and managed by the AH Price panel's own reorder arrows. Its sibling `settings.auction.capture` (now the single collect-**and**-rank flag per source) **is** a normal Schema row (`MultiCheck`, `settings/Schema.lua`) — only the ordering half is a carve-out. (There is no longer a separate `priorityDisabled` set: collection and priority-participation are one flag — an unticked source is neither collected nor ranked.)
+- **`settings.auction.priority`** — the ordered `"provider:key"` AH-price cascade selection list (`AuctionPrice:Pick` walks it front-to-back; first present key wins). An ordered list has no fixed Schema widget (CheckBox/Dropdown/Slider/MultiCheck) to express reordering, so it is read/written directly via `AuctionPrice:GetPriority` / `ReconcilePriority` / `MovePriorityWithin` (`modules/AuctionPrice.lua`) and **dragged** on the AH Price tab through the shared `ReorderList` widget (options-ui-§18). `MovePriorityWithin(subset, from, to)` is a **splice to index** — one write, however far the row travelled — and re-lays the dragged subset into its own slots in the stored array, so reordering the sources you collect never moves the ones you do not. It replaced the pairwise `SwapPriorityTags` the old ▲▼ arrows drove, which is gone. Its sibling `settings.auction.capture` (now the single collect-**and**-rank flag per source) **is** a normal Schema row (`MultiCheck`, `settings/Schema.lua`) — only the ordering half is a carve-out. (There is no longer a separate `priorityDisabled` set: collection and priority-participation are one flag — an unticked source is neither collected nor ranked.)
 
 > **Standards note (accepted carve-out).** These bypass the schema-as-single-source rule (CLAUDE §2, "every user-setting mutation goes through `Schema:Set`"). `window`/`savedView`/`windowScale` were the pre-existing precedent; `blacklist`/`whitelist` and `settings.auction.priority` extend it for the same reason: a dynamic, unbounded set of arbitrary item ids, or an ordered selection list, has no fixed schema widget (CheckBox/Dropdown/Slider/MultiCheck) to express it. **Resolution (2026-07-17): ratified as a legitimate carve-out** for `blacklist`/`whitelist`, same class as `window`/`savedView`, managed by `NS.Filters` writing `NS.db.global` directly. `settings.auction.priority` follows the same precedent (Rev-2 R5, 2026-07-19): an ordered list is not one of the four schema widget types, so it is managed directly by `modules/AuctionPrice.lua` + the AH Price panel. (The former `settings.auction.priorityDisabled` per-tag carve-out was removed when collection and priority-participation were unified into the single `settings.auction.capture` flag — see the AH Price table in [settings-panel.md](settings-panel.md).) The Ka0s Standard's own definition was left unchanged; if a future addon wants either pattern first-class, amend the standard's schema section then.
 
-Note `settings.windowScale` **is** a Schema row (a General ▸ Interface slider, beside `settings.rowHeight`) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state.
+Note `settings.windowScale` **is** a Schema row (a General ▸ Interface ▸ *Window* slider, beside `settings.rowHeight`) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state. The geometry is still reachable from the panel, through the Master controls tab's **Reset position** button (`Browser:ResetWindow`), which is an act rather than a setting.
 
 ### Reset semantics
 
@@ -229,9 +235,10 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 | Reset | Trigger | Schema settings | `blacklist`/`whitelist` | `savedView` | `settings.window` | `history` |
 |-------|---------|:---:|:---:|:---:|:---:|:---:|
 | **Non-destructive** | "Defaults" button · `/lh resetall` (`Sl:CliResetAll`) | ✓ | ✓ (`Filters:ClearAll`) | — | — | — |
-| **Destructive** | "Reset Everything" button → confirm (`Sl:ResetEverything`) | ✓ | ✓ | ✓ (`Browser:ResetView`) | ✓ (`Browser:ResetWindow`) | ✓ |
+| **Destructive** | **"Reset all settings"** (Master controls) → confirm (`Sl:ResetEverything`) | ✓ | ✓ | ✓ (`Browser:ResetView`) | ✓ (`Browser:ResetWindow`) | ✓ |
+| **Position only** | **"Reset position"** (Master controls) | — | — | — | ✓ (`Browser:ResetWindow`) | — |
 
-**"Reset Everything" is wholesale, and no longer a composition.** It used to be three enumerations —
+**The global reset is wholesale, and no longer a composition.** (It was labelled "Reset Everything" on the Maintenance tab until options-ui-§15 gave it its canonical name and place.) It used to be three enumerations —
 a history purge, a schema walk and a filter-list clear — which between them happened to cover the
 whole store. `options-ui-§12` forbids that shape: a hand-written list of keys fails exactly the way a
 row-by-row sweep fails, one release later, when something new is stored beside the ones the list
@@ -243,9 +250,10 @@ ticks above are now consequences of that one wipe rather than five separate call
 | **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — |
 
 - The **blacklist/whitelist/currencyBlacklist** are user-configured filter *settings*, so both settings resets clear them — the non-destructive path clears the id-sets (copy-on-write replace + one `_notify`) but never touches `history`; since the lists are point-in-time only, there is nothing in `history` left to reconcile. `Filters:ClearList` / `Filters:ClearAll` do a single copy-on-write replace + one `_notify` (`ClearAll` empties all three lists).
-- **`savedView` and window geometry** are view/runtime state, so only the confirm-gated **Reset Everything** touches them (matching its "cannot be undone" wording). `savedView` also has its own filter-bar **Reset** button (`Browser:ResetView`).
-- The Filters sub-page carries per-list **Clear all** buttons (confirm-gated, `KA0S_LOOTHISTORY_CLEAR_BLACKLIST`/`_WHITELIST`/`_CURRENCY`) so a list can be emptied without a full settings reset.
-- The Filters subcategory's own header **Defaults** button (`KA0S_LOOTHISTORY_CLEAR_FILTERS` → `Filters:ClearAll`) clears **all three** id-lists at once but touches **nothing else** — not the schema settings, `savedView`, window, or `history`. (The "Defaults" in the matrix above is the **General** page's button, which resets schema settings *and* the lists.)
+- **`savedView` and window geometry** are view/runtime state, so only the confirm-gated **Reset all settings** touches them (matching its "cannot be undone" wording). `savedView` also has its own filter-bar **Reset** button (`Browser:ResetView`).
+- The Filters **tab** carries per-list **Clear all** buttons (confirm-gated, `KA0S_LOOTHISTORY_CLEAR_BLACKLIST`/`_WHITELIST`/`_CURRENCY`) so a list can be emptied without a full settings reset.
+- **One "Defaults" button now, and it is page-wide.** Filters and AH Price stopped being sub-pages in R6, so their two header buttons are gone; the General page's is the only one left and options-ui-§13 forbids narrowing its blast radius to the visible tab. It therefore covers the schema rows, the three id-lists **and** the auction cascade — the two carve-outs its former siblings owned. It no longer recentres the window: **Reset position** is its own button on the Master controls tab.
+- **"Reset all settings" and `/lh resetall` are not the same act, and that is a ratified divergence** from options-ui-§12's opening sentence (which puts the Defaults button and the `resetall` verb behind the global reset's implementation). The button is the confirm-gated total wipe; the verb resets schema settings and the id-lists only and never touches `history`. It is pre-existing, and pointing a slash verb at a history-destroying act is a decision for the maintainer rather than a refactor — so it is **a row in the register** ([`ARCHITECTURE.md` → *Documented deviations*](ARCHITECTURE.md#documented-deviations), `options-ui-§12`, 2026-09-02), which names the two reconciliations either of which retires it. A deviation flagged in a Tier-2 doc and absent from the register is not ratified; this one now is.
 
 ## schemaVersion & the migration seam
 

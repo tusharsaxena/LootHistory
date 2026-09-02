@@ -117,27 +117,11 @@ local function renderHistory(ctx)
   rowFrame:AddChild(purgeBtn)
   scroll:AddChild(rowFrame)
 
-  -- Reset Everything moved here from the right half of the Window scale row, where it was attached
-  -- through the engine's `pairWith` hook. It was there because that row was the last one on the
-  -- page and happened to be alone on its line — a placement argument, not a subject one. It is the
-  -- confirm-gated TOTAL reset (settings + filter lists + saved view + window geometry + a full
-  -- history purge, Sl:ResetEverything), so it belongs beside the other destructive action and the
-  -- readout of what it would destroy, not beside a scale slider.
-  --
-  -- The label is still deliberately NOT "Reset All": the similarly-named `/lh resetall` verb resets
-  -- settings and the id-lists ONLY and never touches history. Two affordances with one name and two
-  -- effects is how a user loses their history to a button they thought was the slash verb
-  -- (LH-R-04). The KA0S_LOOTHISTORY_RESETALL dialog text has always disclosed both effects.
-  local resetRow = NS.AceGUI:Create("SimpleGroup")
-  resetRow:SetLayout("Flow"); resetRow:SetFullWidth(true)
-  resetRow:AddChild(makePairButton("Reset Everything", function()
-    if type(StaticPopup_Show) == "function" then
-      StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
-    elseif NS.Slash and NS.Slash.ResetEverything then
-      NS.Slash:ResetEverything()
-    end
-  end))
-  scroll:AddChild(resetRow)
+  -- "Reset Everything" is NOT here any more. It is the confirm-gated global reset (options-ui-§12)
+  -- and options-ui-§15 puts that on the Master controls tab as the closing button pair's
+  -- "Reset all settings", drawn by the composer's own afterGroup hook. Same popup, same
+  -- Sl:ResetEverything, same blast radius — two buttons over one act is the thing this pass exists
+  -- to remove, so this one is gone rather than duplicated.
 
   local function refreshStats()
     local s = NS.Database:StorageStats()
@@ -353,15 +337,24 @@ local function makeFilterSection(ctx, listKey, desc)
   ctx.rebuilders[#ctx.rebuilders + 1] = function() rebuildFilterList(ctx, listGroup, listKey) end
 end
 
--- The Filters page's three tabs, in strip order. The page is called Filters, so none of them
+-- The Filters TAB's three SUB-tabs, in strip order. The tab is called Filters, so none of them
 -- repeats the word: "Blacklisted currencies" is Currencies here, because the only currency list
 -- there is IS a blacklist and the qualifier was carrying nothing. Items first (both item lists
 -- adjacent, because they are read together — an id on one is off the other), currencies last.
 --
--- Not schema groups: there is no Schema row for a dynamic list of item ids, so this page cannot be
--- driven by O.RenderTabbedSchema — it partitions a page's ROWS by group and this page has none.
--- The strip is drawn directly with O.TabStrip and each tab renders its own section, which is the
--- same partition done by hand.
+-- SECONDARY, not primary (options-ui-§13). Filters was its own canvas sub-page with its own
+-- three-tab strip until R6 deprecated it into General; three id-lists are a list of like subjects
+-- inside one category, which is exactly the division a secondary strip is for. O.SubTabStrip draws
+-- it as ordinary page content inside the scroll, so it scrolls with the lists it divides rather
+-- than pinning a second chrome band and pushing every page down twice.
+--
+-- Not schema groups either way: there is no Schema row for a dynamic list of item ids, so this
+-- tab's body cannot come from the flow engine — it partitions ROWS, and this tab has none.
+--
+-- The PRIMARY tab's key, spelled once: it is both this tab's entry in GENERAL_TABS below and the
+-- key `ctx.activeSubTab` is filed under, and the convention only works while the two agree.
+local FILTERS_TAB = "Filters"
+
 local FILTER_TABS = {
   { key = "blacklist", label = "Blacklist",
     desc = "Items here are never recorded when looted from now on. Existing rows are left untouched "
@@ -374,12 +367,55 @@ local FILTER_TABS = {
       .. "Point-in-time — existing rows are left untouched." },
 }
 
-local function buildFilters(ctx)
+--- The Filters tab: a secondary strip over the three id-lists, then the selected list.
+---
+--- THE SUB-TAB SELECTION IS THE HOST'S STATE, and the convention the library establishes for the
+--- collection is `ctx.activeSubTab` as a TABLE keyed by the PRIMARY tab's key — so switching
+--- category and back returns to the list you were on, and a stale pointer heals per category. It is
+--- session state and is never persisted (options-ui-§13), exactly like `ctx.activeTab`.
+local function buildFiltersTab(ctx)
+  local scroll = O.EnsureScroll(ctx)
+  if not scroll then return end
+
+  ctx.activeSubTab = ctx.activeSubTab or {}
+  local key = ctx.activeSubTab[FILTERS_TAB]
+  -- A pointer naming a list this tab no longer has would render blank, so a stale one heals to the
+  -- first rather than being trusted — the same cheap check the library's own strip does.
+  local known = false
+  for _, tab in ipairs(FILTER_TABS) do if tab.key == key then known = true end end
+  if not known then key = FILTER_TABS[1].key end
+  ctx.activeSubTab[FILTERS_TAB] = key
+
+  -- The strip's buttons are raw frames, so they need a frame to live on: a layout-suppressed
+  -- SimpleGroup added as an ordinary scroll child, sized to whatever height the strip reports.
+  -- ClearScroll drains the library's __subTabKids ledger BEFORE it releases this group, which is
+  -- what stops the buttons riding a pooled frame into somebody else's page.
+  local host = NS.AceGUI:Create("SimpleGroup")
+  host:SetLayout(nil); host:SetFullWidth(true)
+  scroll:AddChild(host)
+
+  local tabs = {}
+  for i, tab in ipairs(FILTER_TABS) do tabs[i] = { key = tab.key, label = tab.label } end
+  local _, height = O.SubTabStrip(ctx, host.frame, {
+    tabs  = tabs,
+    value = key,
+    onSelect = function(k)
+      if k == ctx.activeSubTab[FILTERS_TAB] then return end
+      ctx.activeSubTab[FILTERS_TAB] = k
+      -- Structural: re-enter the page renderer, which clears the scroll and draws the newly
+      -- selected list. A sub-tab click inside an already-open panel was never a protected action,
+      -- so it needs no combat guard of its own (options-ui-§13).
+      O.RefreshPanel(ctx, true)
+    end,
+  })
+  host:SetHeight(height or 0)
+  O.AddSpacer(scroll, 6)
+
   -- ONE section, the selected one. Three stacked lists were three AceGUI teardown-and-rebuilds on
-  -- every paint and a page a player scrolled past two lists to reach the third; a tab click now
+  -- every paint and a page a player scrolled past two lists to reach the third; a sub-tab click now
   -- rebuilds exactly the list on screen (anti-pattern #39 is why that matters here of all pages).
   for _, tab in ipairs(FILTER_TABS) do
-    if tab.key == ctx.activeTab then makeFilterSection(ctx, tab.key, tab.desc) end
+    if tab.key == key then makeFilterSection(ctx, tab.key, tab.desc) end
   end
 
   -- Live-update both lists when they change from elsewhere (the History right-click Blacklist),
@@ -396,26 +432,42 @@ local function buildFilters(ctx)
       P.__evFilters = ev
     end
   end
+
+  runRebuilders(ctx)   -- first paint of the selected id-list
 end
 
 -- ── Auction House price table (unified collect + priority) ───────────────────────
 -- ONE frame-light table replaces the old Data Collection + Priority sections. Every text column is a
--- FontString (a region, not a frame); only the genuinely-interactive cells (enable checkbox, ⓘ info,
--- ▲▼ reorder arrows) are real frames, and the row slots + their frames are created ONCE and reused on
--- every refresh — never re-allocated. This is load-bearing: the Blizzard Settings canvas runs a
--- super-linear pass over a panel's frames on tab-transition, so the previous ~213-frame AH page froze
--- the client ~1.7s when you navigated away from it (see docs/settings-panel.md). Blizzard art, no
--- files shipped: green/red ReadyCheck ticks + ChatFrame scroll arrows.
+-- FontString (a region, not a frame); only the genuinely-interactive cells (enable checkbox, ⓘ info)
+-- plus the library's drag handle are real frames, and the row slots + their frames are created ONCE
+-- and reused on every refresh — never re-allocated. This is load-bearing: the Blizzard Settings
+-- canvas runs a super-linear pass over a panel's frames on tab-transition, so the previous ~213-frame
+-- AH page froze the client ~1.7s when you navigated away from it (see docs/settings-panel.md).
+-- Blizzard art, no files shipped: green/red ReadyCheck ticks.
+--
+-- ── WHAT R6 CHANGED, AND WHAT IT DELIBERATELY DID NOT ─────────────────────────────────────────
+--
+-- The ▲▼ arrows are gone (anti-pattern #75, options-ui-§18): the cascade is dragged now, through
+-- LibKa0s-Widgets-1.0's shared ReorderList. That needed a REAL FRAME per row — the widget anchors
+-- its handle to it, fades it to 0.35 while it is carried, and draws the bounded box behind it — so
+-- each slot is a Frame with its FontStrings parented to it instead of eleven sets of regions on one
+-- host. THE POOLING IS UNCHANGED: the slots are still created once and repainted in place, which is
+-- the whole reason this page does not freeze the client.
+--
+-- The host draws NO row background and NO row border. The library owns both now, and a host copy
+-- beside them is double chrome (options-ui-§18). It never had one, so there was nothing to delete.
 local READY     = "Interface\\RaidFrame\\ReadyCheck-Ready"      -- green tick: collecting
 local NOTREADY  = "Interface\\RaidFrame\\ReadyCheck-NotReady"   -- red mark: off / not installed
-local ARR_UP    = "Interface\\ChatFrame\\UI-ChatIcon-ScrollUp-Up"
-local ARR_DN    = "Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up"
 local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"
 
--- Shared column x-offsets (px from each row's left edge). Headers and every cell anchor to the same
--- values so the columns line up: [tick] [Addon] [Price Module] [Order ▲▼] [On ☑] [Status]. The ⓘ is
--- NOT a fixed column — it trails each row's Price Module text (positioned per-row in the refresh).
-local ACOL = { tick = 2, addon = 26, module = 148, order = 330, enabled = 384, status = 414 }
+-- Shared column x-offsets, in px from each ROW's content origin — which is the far side of the drag
+-- handle's gutter, not the row's left edge: the handle owns a fixed-width gutter at the far left and
+-- row contents start beyond it (options-ui-§18). Headers and every cell add the same gutter, so the
+-- columns line up: [handle] [tick] [Addon] [Price Module] [On ☑] [Status]. The ⓘ is NOT a fixed
+-- column — it trails each row's Price Module text (positioned per-row in the refresh).
+--
+-- The old `order` column is gone with the arrows it held.
+local ACOL = { tick = 2, addon = 26, module = 148, enabled = 330, status = 362 }
 local AROW_H, AHEAD_H = 22, 32   -- row pitch; AHEAD_H = header→first-row gap (roomy header band)
 local HEAD_Y = -8                -- header baseline inside the host (gap above the header)
 local GOLD_RGB = { 0.91, 0.77, 0.42 }
@@ -425,6 +477,16 @@ local STATUS_RGB = {
   notcollecting = { 0.66, 0.62, 0.42 },
   notinstalled  = { 0.62, 0.45, 0.45 },
 }
+
+--- The handle gutter, READ off the library rather than restated (options-ui-§8/§18).
+---
+--- Zero without the library, and that is the honest answer rather than a fallback constant: the
+--- degraded path draws no handle at all, so reserving a gutter for it would indent every column
+--- past nothing.
+local function handleGutter()
+  local box = NS.ReorderRowBox and NS.ReorderRowBox()
+  return (box and box.HANDLE_W) or 0
+end
 
 -- Human name for the addon behind a "provider:key" tag (e.g. "auctionator:minbuyout" → "Auctionator").
 local function providerNameOf(tag)
@@ -450,8 +512,8 @@ local function keyMetaOf(tag)
   return tag, nil
 end
 
--- GameTooltip on hover, shared by the ⓘ and arrow buttons. `getTitle`/`getBody` are read on enter so
--- a reused slot always shows its current tag's text.
+-- GameTooltip on hover, shared by the ⓘ buttons. `getTitle`/`getBody` are read on enter so a reused
+-- slot always shows its current tag's text.
 local function tipScripts(btn, getTitle, getBody)
   btn:SetScript("OnEnter", function()
     if not GameTooltip then return end
@@ -466,28 +528,24 @@ local function tipScripts(btn, getTitle, getBody)
   btn:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
 end
 
--- Lazily create a slot's ▲▼ arrow buttons (only slots that ever become active pay for them). Anchored
--- at the slot's fixed row y; created once, reused. Their OnClick is (re)wired per refresh.
-local function ensureArrows(ctx, r, slotIndex)
-  if r.up then return end
-  local hf = ctx._priHost
-  local y = -(AHEAD_H + (slotIndex - 1) * AROW_H) - 3
-  local function mk(tex, dx)
-    local b = CreateFrame("Button", nil, hf)
-    b:SetSize(16, 16)
-    b:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.order + dx, y)
-    local t = b:CreateTexture(nil, "ARTWORK"); t:SetAllPoints(); t:SetTexture(tex); b.tex = t
-    return b
-  end
-  r.up   = mk(ARR_UP, 0)
-  r.down = mk(ARR_DN, 17)
-  tipScripts(r.up,   function() return "Rank higher" end)
-  tipScripts(r.down, function() return "Rank lower" end)
+--- Release the live reorder controller, if there is one.
+---
+--- CALLED AT THE TOP OF THE PAGE RENDER, before the first widget is created — not merely before the
+--- list is rebuilt. Handles and row boxes are POOLED, and releasing one is what takes it off the
+--- host frame it was parented to; that frame goes back to AceGUI's pool the moment ClearScroll runs,
+--- so a Cancel that ran afterwards would be reclaiming chrome from a widget that already belongs to
+--- something else. This is the single most common way an adoption of this widget goes wrong
+--- (options-ui-§18), so it is a named function called from exactly two places rather than a line
+--- someone can move.
+local function cancelReorder(ctx)
+  local list = ctx._priList
+  ctx._priList = nil
+  if list then list:Cancel() end
 end
 
 -- Re-partition the tags into three groups and repaint the reused row slots. Group order (each keeps
 -- the natural priority-array order within it): Collecting → Not collecting → Addon not installed.
--- Only the Collecting group (top) is reorderable.
+-- Only the Collecting group (top) is draggable, and `boundary` is what stops a drag leaving it.
 local function refreshAuctionTable(ctx)
   local rows = ctx._priRows
   if not rows then return end
@@ -507,6 +565,24 @@ local function refreshAuctionTable(ctx)
   for _, t in ipairs(notCollecting) do order[#order + 1] = t end
   for _, t in ipairs(notInstalled)  do order[#order + 1] = t end
   local nActive = #collecting
+
+  -- A repaint is a NEW controller: it holds the rows of the pass that built it (the library says so
+  -- in as many words), and the old one is describing a partition that no longer exists. Safe here
+  -- without the top-of-render rule above, because a repaint creates no AceGUI widget and releases
+  -- none — the handles go back to the pool and come straight out of it again.
+  cancelReorder(ctx)
+  local list = NS.MakeReorderList{
+    stride   = AROW_H,
+    boundary = nActive,
+    handleTooltip = "Drag to re-rank",
+    -- ONE WRITE, not a run of adjacent swaps. `from`/`to` are display indices, and the collecting
+    -- group occupies display slots 1..nActive, so they are indices into `collecting` directly.
+    onMove = function(from, to)
+      NS.AuctionPrice:MovePriorityWithin(collecting, from, to)
+      runRebuilders(ctx)
+    end,
+  }
+  ctx._priList = list
 
   for i, tag in ipairs(order) do
     local r = rows[i]
@@ -528,7 +604,7 @@ local function refreshAuctionTable(ctx)
     -- ⓘ trails the Price Module text with a small gap (per-row, since the text width varies).
     local mw = r.module:GetStringWidth() or 0
     r.info:ClearAllPoints()
-    r.info:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.module + mw + 6, r._y - 3)
+    r.info:SetPoint("LEFT", r.frame, "LEFT", r._gutter + ACOL.module + mw + 6, 0)
 
     local sc = (not avail) and STATUS_RGB.notinstalled
       or (on and STATUS_RGB.collecting or STATUS_RGB.notcollecting)
@@ -542,107 +618,131 @@ local function refreshAuctionTable(ctx)
     r.check:SetValue(live)
     r.check:SetDisabled(not avail)
 
-    -- Reorder arrows: only the active (top) group reorders, within itself. Inactive rows hide them.
-    if i <= nActive then
-      ensureArrows(ctx, r, i)
-      local canUp, canDn = i > 1, i < nActive
-      local upTag, dnTag = order[i - 1], order[i + 1]
-      r.up:Show(); r.down:Show()
-      r.up.tex:SetVertexColor(canUp and 1 or 0.35, canUp and 1 or 0.35, canUp and 1 or 0.35)
-      r.down.tex:SetVertexColor(canDn and 1 or 0.35, canDn and 1 or 0.35, canDn and 1 or 0.35)
-      r.up:SetScript("OnClick", canUp and function()
-        NS.AuctionPrice:SwapPriorityTags(tag, upTag); runRebuilders(ctx)
-      end or nil)
-      r.down:SetScript("OnClick", canDn and function()
-        NS.AuctionPrice:SwapPriorityTags(tag, dnTag); runRebuilders(ctx)
-      end or nil)
-    elseif r.up then
-      r.up:Hide(); r.down:Hide()
+    -- Registered in DISPLAY order, every row, draggable or not: an inert row is still a place a drag
+    -- can LAND, still counts for the index arithmetic, and still wants the bounded box — a stack
+    -- where only some rows have an edge reads as a rendering fault rather than as a rule.
+    if list then
+      list:AddRow(r.frame, {
+        draggable = i <= nActive,
+        dimmed    = i > nActive,
+        ghostText = providerNameOf(tag) .. " — " .. dataLabelOf(tag),
+      })
     end
   end
+
+  if list then list:Finish(hf) end
 end
 
--- Build the unified AH Price table: a description, gold left-aligned column headers, and 11 reusable
--- row slots (one per known price source). Slots + their interactive frames are created ONCE here;
--- refreshAuctionTable repaints them in place on every enable-toggle / reorder / Defaults, so no frame
--- is ever re-allocated. Native FontStrings carry all text; only the checkbox, ⓘ and arrows are frames.
+-- Build the unified AH Price table: gold left-aligned column headers and 11 reusable row slots (one
+-- per known price source). Slots + their frames are created ONCE here; refreshAuctionTable repaints
+-- them in place on every enable-toggle / drag / Defaults, so no frame is ever re-allocated. Native
+-- FontStrings carry all text; only the checkbox, the ⓘ and the library's handle are frames.
+--
+-- THE HOST IS A RAW FRAME THIS ADDON OWNS FOR THE SESSION, not an AceGUI child. That is the whole of
+-- how the pooling survives a tab strip: the tab body is re-rendered on every click, and ClearScroll
+-- hands every AceGUI child back to the pool — which would orphan eleven slots of raw FontStrings
+-- parented to a SimpleGroup and put the ~1.7s freeze back. So the host is created once, parked on
+-- the panel while another tab is on screen, and RE-PARENTED to a fresh full-width placeholder each
+-- time this tab is drawn. Nothing is ever allocated twice and nothing is ever released.
 local function buildAuctionTable(ctx)
   local scroll = O.EnsureScroll(ctx)
-  O.Section(ctx, "Price Sources")
+  if not scroll then return end
 
   local descLabel = NS.AceGUI:Create("Label")
   descLabel:SetFullWidth(true)
   descLabel:SetText("Tick a source to collect its price at loot time; ticked sources are ranked "
-    .. "top-to-bottom (use the arrows) and the highest-ranked one you have a price for is the value "
-    .. "shown. Sources you don't collect, or whose addon isn't installed, drop to the bottom.")
+    .. "top-to-bottom (drag by the handle) and the highest-ranked one you have a price for is the "
+    .. "value shown. Sources you don't collect, or whose addon isn't installed, drop to the bottom.")
   scroll:AddChild(descLabel)
   O.AddSpacer(scroll, 8)
 
   local N = #NS.Constants.AUCTION_KEYS
-  local host = NS.AceGUI:Create("SimpleGroup")
-  host:SetLayout(nil); host:SetFullWidth(true)
-  host:SetHeight(AHEAD_H + AROW_H * N + 8)
-  scroll:AddChild(host)
-  local hf = host.frame
-  ctx._priHost = hf
+  local placeholder = NS.AceGUI:Create("SimpleGroup")
+  placeholder:SetLayout(nil); placeholder:SetFullWidth(true)
+  placeholder:SetHeight(AHEAD_H + AROW_H * N + 8)
+  scroll:AddChild(placeholder)
 
-  -- Gold, left-aligned column headers at the shared offsets (a roomy band above the first row).
-  local function header(x, text)
-    local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    fs:SetPoint("TOPLEFT", hf, "TOPLEFT", x, HEAD_Y); fs:SetJustifyH("LEFT")
-    fs:SetText(text); fs:SetTextColor(GOLD_RGB[1], GOLD_RGB[2], GOLD_RGB[3])
+  local hf = ctx._priHost
+  if not hf then
+    hf = CreateFrame("Frame", nil, ctx.panel)
+    ctx._priHost = hf
   end
-  header(ACOL.addon, "Addon"); header(ACOL.module, "Price Module")
-  header(ACOL.order, "Order"); header(ACOL.enabled, "On"); header(ACOL.status, "Status")
+  hf:SetParent(placeholder.frame)
+  hf:ClearAllPoints()
+  hf:SetAllPoints(placeholder.frame)
+  hf:Show()
 
-  -- Reusable row slots (created once). Text = FontStrings; ⓘ + an AceGUI checkbox are per-slot frames,
-  -- arrows are created lazily by ensureArrows only for slots that become active. Cells are nudged down
-  -- from the row's top edge so text/controls sit vertically centered in the ~22px band.
-  local rows = {}
-  for i = 1, N do
-    local y = -(AHEAD_H + (i - 1) * AROW_H)
-    local r = { _y = y }
-    local function fs(x, dy)
-      local f = hf:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-      f:SetPoint("TOPLEFT", hf, "TOPLEFT", x, y + dy); f:SetJustifyH("LEFT"); return f
+  if not ctx._priRows then
+    local gutter = handleGutter()
+
+    -- Gold, left-aligned column headers at the shared offsets (a roomy band above the first row).
+    local function header(x, text)
+      local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+      fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
+      fs:SetText(text); fs:SetTextColor(GOLD_RGB[1], GOLD_RGB[2], GOLD_RGB[3])
     end
-    r.tick = fs(ACOL.tick, -4); r.addon = fs(ACOL.addon, -5)
-    r.module = fs(ACOL.module, -5); r.status = fs(ACOL.status, -5)
+    header(ACOL.addon, "Addon"); header(ACOL.module, "Price Module")
+    header(ACOL.enabled, "On"); header(ACOL.status, "Status")
 
-    local info = CreateFrame("Button", nil, hf)
-    info:SetSize(16, 16); info:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.module, y - 3)   -- repositioned per row
-    local itex = info:CreateTexture(nil, "ARTWORK"); itex:SetAllPoints(); itex:SetTexture(INFO_ICON)
-    info.tex = itex; r.info = info
-    tipScripts(info, function() return (keyMetaOf(r._tag or "")) end,
-                     function() return (select(2, keyMetaOf(r._tag or ""))) end)
+    -- Reusable row slots (created once). Each is a real Frame, because that is what ReorderList
+    -- anchors its handle and its bounded box to and what it fades while the row is carried; the
+    -- cells inside it are FontStrings plus the ⓘ and an AceGUI checkbox.
+    local rows = {}
+    for i = 1, N do
+      local rf = CreateFrame("Frame", nil, hf)
+      rf:SetPoint("TOPLEFT",  hf, "TOPLEFT",  0, -(AHEAD_H + (i - 1) * AROW_H))
+      rf:SetPoint("TOPRIGHT", hf, "TOPRIGHT", 0, -(AHEAD_H + (i - 1) * AROW_H))
+      rf:SetHeight(AROW_H)
+      local r = { frame = rf, _gutter = gutter }
 
-    -- AceGUI CheckBox (the standard gold-tick control used across the panel) rather than a raw
-    -- UICheckButtonTemplate — the template left a scaling artifact at this size.
-    local cb = NS.AceGUI:Create("CheckBox")
-    cb:SetLabel("")
-    cb.frame:SetParent(hf); cb.frame:ClearAllPoints()
-    cb.frame:SetPoint("TOPLEFT", hf, "TOPLEFT", ACOL.enabled, y - 1); cb.frame:SetWidth(26)
-    cb.frame:Show()
-    cb:SetCallback("OnValueChanged", function(_, _, val)
-      local tag = r._tag
-      if not tag then return end
-      local src = NS.Schema:Get("settings.auction.capture") or {}
-      local c = {}
-      for k, v in pairs(src) do c[k] = v end
-      c[tag] = val or nil
-      NS.Schema:Set("settings.auction.capture", c)
-      runRebuilders(ctx)
-    end)
-    r.check = cb
+      local function fs(x)
+        local f = rf:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        f:SetPoint("LEFT", rf, "LEFT", gutter + x, 0); f:SetJustifyH("LEFT"); return f
+      end
+      r.tick = fs(ACOL.tick); r.addon = fs(ACOL.addon)
+      r.module = fs(ACOL.module); r.status = fs(ACOL.status)
 
-    rows[i] = r
+      local info = CreateFrame("Button", nil, rf)
+      info:SetSize(16, 16)
+      info:SetPoint("LEFT", rf, "LEFT", gutter + ACOL.module, 0)   -- repositioned per row
+      local itex = info:CreateTexture(nil, "ARTWORK"); itex:SetAllPoints(); itex:SetTexture(INFO_ICON)
+      info.tex = itex; r.info = info
+      tipScripts(info, function() return (keyMetaOf(r._tag or "")) end,
+                       function() return (select(2, keyMetaOf(r._tag or ""))) end)
+
+      -- AceGUI CheckBox (the standard gold-tick control used across the panel) rather than a raw
+      -- UICheckButtonTemplate — the template left a scaling artifact at this size. Parented to the
+      -- ROW, never added as a scroll child, so ClearScroll cannot reclaim it either.
+      local cb = NS.AceGUI:Create("CheckBox")
+      cb:SetLabel("")
+      cb.frame:SetParent(rf); cb.frame:ClearAllPoints()
+      cb.frame:SetPoint("LEFT", rf, "LEFT", gutter + ACOL.enabled, 0); cb.frame:SetWidth(26)
+      cb.frame:Show()
+      cb:SetCallback("OnValueChanged", function(_, _, val)
+        local tag = r._tag
+        if not tag then return end
+        local src = NS.Schema:Get("settings.auction.capture") or {}
+        local c = {}
+        for k, v in pairs(src) do c[k] = v end
+        c[tag] = val or nil
+        NS.Schema:Set("settings.auction.capture", c)
+        runRebuilders(ctx)
+      end)
+      r.check = cb
+
+      rows[i] = r
+    end
+    ctx._priRows = rows
   end
-  ctx._priRows = rows
 
+  -- REGISTERED ON EVERY RENDER, not only on the pass that built the slots. renderGeneral reassigns
+  -- ctx.rebuilders each time (ClearScroll reassigns the library's refreshers beside it), so a
+  -- rebuilder added once inside the build branch above would be dropped the first time the reader
+  -- left this tab and came back — and with it the repaint every enable-toggle and every drag needs.
   ctx.rebuilders[#ctx.rebuilders + 1] = function() refreshAuctionTable(ctx) end
-  refreshAuctionTable(ctx)   -- first paint
-end
 
+  refreshAuctionTable(ctx)   -- first paint, and every later paint of this tab
+end
 -- ── Landing page: logo + tagline + slash-command list ───────────────────────────
 local function buildMainContent(ctx)
   local scroll = O.EnsureScroll(ctx)
@@ -692,30 +792,70 @@ end
 -- again instead of silently dropping them.
 
 -- No `pairWith` table any more. The one entry it ever held attached "Reset Everything" to the
--- right half of the Window scale row; that button now lives on the Maintenance tab beside the
--- purge it is a bigger version of (see renderHistory above). `pairWith` fires only while its path
--- is the lone widget on its line, and Window scale is paired with Row height on the Interface tab
--- now — so the hook would silently never fire, which is the worst of the two outcomes.
+-- right half of the Window scale row; that button is the Master controls tab's "Reset all settings"
+-- now, drawn by the composer's own afterGroup hook (settings/Schema.lua). `pairWith` fires only
+-- while its path is the lone widget on its line, and Window scale is paired with Row height on the
+-- Interface tab — so the hook would silently never fire, which is the worst of the two outcomes.
 
--- The two host-drawn blocks the flow engine cannot draw itself, one per tab that has one.
+-- The host-drawn blocks the flow engine cannot draw itself, one per tab that has one.
 --
---   Collection  — the muted-source picker. The `settings.excludedSources` row it represents is
---                 walked by the generic path and produces no widget (type = "table"; see
---                 makeMultiCheck above), so this lands exactly where that path would have put it:
---                 after the group's last row, on a fresh line.
---   Maintenance — the storage readout, "Purge history…" and "Reset Everything".
+--   Master controls — the closing button pair (Reset position | Reset all settings). NOT this
+--                     file's: `O.MasterControls` returned it beside the rows, and it is passed
+--                     through under the group name the composer used, because the group name IS
+--                     the hook key (settings/Schema.lua).
+--   Collection      — the muted-source picker. The `settings.excludedSources` row it represents is
+--                     walked by the generic path and produces no widget (type = "table"; see
+--                     makeMultiCheck above), so this lands exactly where that path would have put
+--                     it: after the group's last row, on a fresh line.
+--   AH Price        — the pooled price-source table, under the "Price sources" subsection heading
+--                     the `settings.auction.capture` row declares.
+--   Maintenance     — the storage readout and "Purge history…".
 --
--- afterGroup is the ONLY seam that survives a tab click: RenderTabbedSchema's onSelect re-enters
--- itself, not the page renderer, so anything the renderer drew after the rows would disappear on
--- the first click.
+-- afterGroup is the ONLY seam that survives a tab click: the strip's onSelect re-enters the page
+-- renderer, and while that does re-run this file, a block appended after the rows would land at the
+-- BOTTOM of every tab rather than inside the one it belongs to.
 local AFTER_GROUP = {
   ["Collection"] = function(ctx)
     local row = NS.Schema:FindRow("settings.excludedSources")
     local scroll = O.EnsureScroll(ctx)
     if row and scroll then makeMultiCheck(ctx, row, scroll) end
   end,
+  ["AH Price"]   = buildAuctionTable,
   ["Maintenance"] = renderHistory,
 }
+AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
+
+-- ── The General page's strip ────────────────────────────────────────────────────
+--
+-- ONE page now. Filters and AH Price were canvas sub-pages of their own until R6 deprecated them
+-- into General: three pages, each with its own strip, made a player hunt for which of the three
+-- held the setting they wanted, and one of the three (AH Price) drew no strip at all.
+--
+-- THE STRIP IS DRAWN BY HAND rather than by O.RenderTabbedSchema, and the reason is that two of the
+-- six tabs hold no schema rows to partition. RenderTabbedSchema derives its tab list from `group`,
+-- which is exactly right for a page whose every section is rows — and cannot name a tab whose body
+-- is a dynamic list of item ids. So the tab list is declared here, each entry is either a schema
+-- GROUP (rendered by the same O.RenderRows call the library would have made, `noHeadings` and all)
+-- or a `build` function, and tests/test_panel.lua pins the two against each other so a group added
+-- to the schema and not to this list cannot go unnoticed.
+local GENERAL_TABS = {
+  -- options-ui-§15: the FIRST tab, under that exact name, in every Ka0s addon.
+  { key = "Master controls" },
+  { key = "Collection" },
+  { key = FILTERS_TAB, build = buildFiltersTab },
+  { key = "AH Price" },
+  { key = "Interface" },
+  { key = "Maintenance" },
+}
+
+--- The rows of one schema group, in declaration order.
+local function rowsOfGroup(group)
+  local out = {}
+  for _, row in ipairs(NS.Schema.Schema) do
+    if row.page == "General" and row.group == group then out[#out + 1] = row end
+  end
+  return out
+end
 
 -- ── Renderers ───────────────────────────────────────────────────────────────────
 --
@@ -723,32 +863,34 @@ local AFTER_GROUP = {
 -- after a structural refresh marked it dirty while hidden. Every one starts by releasing the
 -- previous render's children, because a renderer the library may re-run must be idempotent.
 
--- The General page is a TAB STRIP over its three groups (options-ui-§13), in declaration order:
--- Collection, Interface, Maintenance. RenderTabbedSchema partitions the page's rows by `group` and
--- renders only the active tab's, so the page fetches its own rows through the descriptor's
--- rowsForPage (which matches `page`) rather than filtering the whole schema by hand as it did when
--- "everything except the AH Price group" was the definition of this page.
---
 -- No banner (options-ui-§14): this addon is account-wide — every path resolves against db.global
--- and there is no profile, no per-window state and nothing for a banner to be a picker FOR.
+-- and there is no profile, no per-window state and nothing for a banner to be a picker FOR. It
+-- draws no page-header block either: nothing on this page applies to every tab.
 local function renderGeneral(ctx)
-  O.ClearScroll(ctx)
-  O.RenderTabbedSchema(ctx, "General", AFTER_GROUP)
-  if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-end
+  -- FIRST, before ClearScroll and before the first widget of the new pass exists. The reorder
+  -- controller's handles and boxes are pooled and are parented to frames ClearScroll is about to
+  -- hand back to AceGUI (options-ui-§18).
+  cancelReorder(ctx)
+  -- The pooled price host is this addon's own frame and is NOT released by ClearScroll, so it has
+  -- to be taken off the placeholder it was anchored to by hand — otherwise it stays visible over
+  -- whichever tab is drawn next, and its anchor rides a placeholder that has gone back to the pool.
+  if ctx._priHost then
+    ctx._priHost:Hide()
+    ctx._priHost:SetParent(ctx.panel)
+    ctx._priHost:ClearAllPoints()
+  end
 
-local function renderFilters(ctx)
   O.ClearScroll(ctx)
   ctx.rebuilders = {}   -- ClearScroll reassigns the library's refreshers; these are this addon's
 
   -- A stale pointer heals to the first tab rather than being trusted, exactly as the library's own
-  -- RenderTabbedSchema does: a tab naming a list this page no longer has would render blank.
+  -- RenderTabbedSchema does: a tab naming a section this page no longer has would render blank.
   local known = false
-  for _, tab in ipairs(FILTER_TABS) do if tab.key == ctx.activeTab then known = true end end
-  if not known then ctx.activeTab = FILTER_TABS[1].key end
+  for _, tab in ipairs(GENERAL_TABS) do if tab.key == ctx.activeTab then known = true end end
+  if not known then ctx.activeTab = GENERAL_TABS[1].key end
 
   local tabs = {}
-  for i, tab in ipairs(FILTER_TABS) do tabs[i] = { key = tab.key, label = tab.label } end
+  for i, tab in ipairs(GENERAL_TABS) do tabs[i] = { key = tab.key, label = tab.key } end
   O.TabStrip(ctx, {
     tabs  = tabs,
     value = ctx.activeTab,
@@ -756,15 +898,27 @@ local function renderFilters(ctx)
       if key == ctx.activeTab then return end
       ctx.activeTab = key
       -- Structural: re-enter this renderer, which clears the scroll and draws the newly selected
-      -- list. A tab click inside an already-open panel was never a protected action, so it needs
-      -- no combat guard of its own (options-ui-§13); the one that matters lives in the panel's
-      -- OnShow and covers the category switch Blizzard protects.
+      -- tab. A tab click inside an already-open panel was never a protected action, so it needs no
+      -- combat guard of its own (options-ui-§13); the one that matters lives in the panel's OnShow
+      -- and covers the category switch Blizzard protects.
       O.RefreshPanel(ctx, true)
     end,
   })
 
-  buildFilters(ctx)
-  runRebuilders(ctx)    -- first paint of the selected id-list
+  for _, tab in ipairs(GENERAL_TABS) do
+    if tab.key == ctx.activeTab then
+      if tab.build then
+        tab.build(ctx)
+      else
+        -- `noHeadings`, exactly as RenderTabbedSchema renders an active tab: under a strip the tab
+        -- IS the group's heading. A row's `subgroup` is NOT suppressed by it, which is what gives
+        -- the AH Price tab its two subsection headings.
+        O.RenderRows(ctx, rowsOfGroup(tab.key), AFTER_GROUP, nil, { noHeadings = true })
+      end
+    end
+  end
+
+  if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
 end
 
 function P.BuildMain(ctx)
@@ -776,17 +930,32 @@ end
 -- ── Refresh / Defaults ──────────────────────────────────────────────────────────
 
 --- Scalar re-sync across every registered page: widgets re-read their values, nothing is rebuilt.
---- Wider than what it replaced, which only ever refreshed the General page — so the AH Price page's
---- master checkbox now tracks a `/lh set` too.
 function P:Refresh()
   O.RefreshScalars()
 end
 
+--- The General page's Defaults button — page-wide, and the page is the whole panel now
+--- (options-ui-§13: a per-page Defaults button's blast radius MUST NOT narrow to the visible tab).
+--- It therefore covers what the Filters and AH Price pages' own Defaults buttons used to:
+---
+---   * every schema row plus the three id-lists          — Slash:CliResetAll
+---   * the auction cascade, a carve-out array with no schema row that the walk cannot see
+---
+--- It does NOT recentre the window any more. That was folded in here when there was nowhere else to
+--- put it; "Reset position" is a real button on the Master controls tab now, and a player asking for
+--- defaults no longer gets their window moved as a side effect (options-ui-§12/§15).
 function P:RestoreDefaults()
   if NS.Slash and NS.Slash.CliResetAll then NS.Slash:CliResetAll() end
-  -- Defaults also recenters the window (position is part of "stock state"); history/view are left alone.
-  if NS.Browser and NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
+  -- Clear-and-refill the SAME table so the price table's closures see the new contents.
+  if NS.AuctionPrice and NS.AuctionPrice.GetPriority then
+    local p = NS.AuctionPrice:GetPriority()
+    for i = #p, 1, -1 do p[i] = nil end
+    for i, tag in ipairs(NS.Constants.AUCTION_PRIORITY_DEFAULT) do p[i] = tag end
+  end
   P:Refresh()
+  -- Structural as well as scalar: the price table repaints off the cascade, and the id-lists off
+  -- their rebuilders, neither of which a refresher sweep touches.
+  if P.general then O.RefreshPanel(P.general, true) end
 end
 
 -- ── Registration ────────────────────────────────────────────────────────────────
@@ -795,16 +964,15 @@ local registered
 function P:Register()
   if registered then return end
   -- The library registers the MAIN canvas itself and survives a missing Settings API silently, but
-  -- each of the three builders below calls RegisterCanvasLayoutSubcategory directly — and a builder
-  -- that raises is pcall'd and REPORTED by key, so a client without the API would print three
-  -- errors instead of doing nothing. Bail once, up front, exactly as this function always did.
+  -- the builder below calls RegisterCanvasLayoutSubcategory directly — and a builder that raises is
+  -- pcall'd and REPORTED by key, so a client without the API would print an error instead of doing
+  -- nothing. Bail once, up front, exactly as this function always did.
   if not (Settings and Settings.RegisterCanvasLayoutCategory
           and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
-  -- The three sub-pages. Each builder runs once, in order, inside O.CreateOptionsPanel — after the
-  -- db is ready and after AceGUI has been resolved and handed to this file as NS.AceGUI. A builder
-  -- that raises is reported by key and costs only itself.
+  -- ONE sub-page. Filters and AH Price were sub-pages of their own until R6 folded them into
+  -- General's strip; their bodies are unchanged and their two registrations are gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)
     local ctx = O.CreatePanel(nil, "General", { pageKey = "General", defaultsButton = true })
     P.general = ctx
@@ -814,73 +982,11 @@ function P:Register()
     Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
   end)
 
-  -- Filters = blacklist / whitelist / currency-blacklist id management (issue #14).
-  O.RegisterOptionsPage("Filters", "Filters", function(mainCategory)
-    local ctx = O.CreatePanel(nil, "Filters", { pageKey = "Filters", defaultsButton = true })
-    P.filters = ctx
-    ctx.rebuilders = {}
-    -- The page holds no schema rows, so "restore defaults" here means clearing all three id-lists
-    -- (their stock state is empty), confirm-gated.
-    ctx.panel.defaultsOnClick = function()
-      if type(StaticPopup_Show) == "function" then
-        StaticPopup_Show("KA0S_LOOTHISTORY_CLEAR_FILTERS")
-      elseif NS.Filters and NS.Filters.ClearAll then
-        NS.Filters:ClearAll()
-      end
-    end
-    O.SetRenderer(ctx, renderFilters)
-    Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "Filters")
-  end)
-
-  -- AH Price = the price-source table and the cascade. This is the one page that keeps its OWN
-  -- OnShow rather than going through O.SetRenderer, and the reason is structural: the library's
-  -- renderer contract is "re-run me and I redraw the page", which means a ClearScroll releasing
-  -- every AceGUI child back to the pool. This page parents eleven reusable row slots of raw
-  -- FontStrings and Buttons to an AceGUI SimpleGroup's frame, created ONCE and repainted in place;
-  -- releasing that group would orphan them. The ~213-frame version of this page froze the client
-  -- ~1.7s on tab-transition and the pooling is what fixed it (docs/settings-panel.md).
-  --
-  -- Everything else on it is still the library's: the canvas, the breadcrumb header, the lazy
-  -- Defaults button, the scroll, the section heading and the schema row.
-  O.RegisterOptionsPage("AH Price", "AH Price", function(mainCategory)
-    local ctx = O.CreatePanel(nil, "AH Price", { pageKey = "AH Price", defaultsButton = true })
-    P.auction = ctx
-    ctx.rebuilders = {}
-    ctx.panel.defaultsOnClick = function()
-      for _, r in ipairs(NS.Schema.Schema) do
-        if r.page == "AH Price" then NS.Schema:Set(r.path, NS.Schema:Default(r.path)) end
-      end
-      -- Priority order is a carve-out array (not schema-driven), so reset it separately. Clear-and-
-      -- refill the SAME table so the table's closure sees the new contents. (`capture` — the enabled
-      -- set — is a schema row in the "AH Price" group, so the loop above already reset it.)
-      local dp = NS.Constants.AUCTION_PRIORITY_DEFAULT
-      local p = NS.AuctionPrice:GetPriority()
-      for i = #p, 1, -1 do p[i] = nil end          -- clear in place (keep the same table reference)
-      for i, tag in ipairs(dp) do p[i] = tag end   -- refill with defaults
-      for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- scalar: re-sync the master `enabled` box
-      runRebuilders(ctx)                                     -- structural: repaint the price table
-    end
-
-    local aRendered = false
-    ctx.panel:SetScript("OnShow", function()
-      O.EnsureDefaultsButton(ctx.panel)
-      if not aRendered then
-        aRendered = true
-        O.RenderSchema(ctx, "AH Price")   -- the master `enabled` checkbox; `capture` is skipRender
-        buildAuctionTable(ctx)
-        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-      end
-      for _, fn in ipairs(ctx.refreshers) do pcall(fn) end   -- scalar re-sync (the `enabled` checkbox)
-    end)
-    Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "AH Price")
-  end)
-
   -- Resolves AceGUI, hands it over as NS.AceGUI, registers the main canvas (whose body is the
-  -- landing page, drawn on its first OnShow through the descriptor's buildMain) and then runs every
+  -- landing page, drawn on its first OnShow through the descriptor's buildMain) and then runs the
   -- builder above.
   O.CreateOptionsPanel()
 end
-
 function P:Open()
   -- The combat refusal lives in the library now, and it is wider than what it replaced: it also
   -- fires when the Blizzard AddOns sidebar reaches a page directly, which bypassed this guard

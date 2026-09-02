@@ -21,6 +21,11 @@ local LIB_FILES = {
   "libs/LibKa0s/Slash.lua",
   "libs/LibKa0s/Options.lua",
   "libs/LibKa0s/OptionsWidgets.lua",
+  -- New in v1.24.0: the schema COMPOSERS, which settings/Schema.lua calls at file load for its
+  -- Master controls block. A file listed in LibKa0s.xml and missing from tests/run.lua's explicit
+  -- load list is a file the client loads and the suite does not, so the composers would be nil in
+  -- every headless run and present in every real one.
+  "libs/LibKa0s/OptionsCompose.lua",
   "libs/LibKa0s/OptionsScroll.lua",
   "libs/LibKa0s/Perf.lua",
   "libs/LibKa0s/PerfPanel.lua",
@@ -442,9 +447,11 @@ test("every seam file resolves its major with the silent flag", function()
 end)
 
 test("the Options page registry built every page this addon declares", function()
+  -- ONE sub-page since R6: the Filters and AH Price sub-pages are tabs on General's strip now, so
+  -- their registrations are gone rather than failing. Asserted as an exact set rather than a
+  -- presence check, because a page registered and never removed is invisible to the latter.
   local built = {}
-  for _, page in ipairs(NS.Options.__pages()) do built[page.key] = true end
-  for _, key in ipairs({ "General", "Filters", "AH Price" }) do
-    assertTrue(built[key], key .. " did not build (a raising builder is reported and skipped)")
-  end
+  for _, page in ipairs(NS.Options.__pages()) do built[#built + 1] = page.key end
+  assertEqual(table.concat(built, " | "), "General",
+    "a raising builder is reported and skipped, and a leftover registration is a page nobody drew")
 end)

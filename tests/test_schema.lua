@@ -19,19 +19,110 @@ local function withDebugLogSpies(fn)
   if not ok then error(err) end
 end
 
-test("Schema: debugConsole row is session-only, on General's Interface tab", function()
+test("Schema: debugConsole row is session-only, on the Master controls tab", function()
+  -- MOVED, not copied (options-ui-§15: "Debug console belongs here, as a session-only row, not as
+  -- a bespoke checkbox bolted onto some other section"). It sat on Interface until this pass; the
+  -- assertion below is what stops a second declaration appearing back there.
   local row = NS.Schema:FindRow("state.debugConsole")
   assertTrue(row ~= nil, "state.debugConsole row missing")
   assertTrue(row.sessionOnly == true, "row not marked sessionOnly")
   assertEqual(row.page, "General")
-  assertEqual(row.group, "Interface")
+  assertEqual(row.group, "Master controls")
   assertEqual(row.label, "Debug console")
-  -- It carried `solo` while it sat between the Enable/Hide-minimap pair and the Window scale row.
-  -- On the Interface tab it is the second of the two show/hide checkboxes and `solo` would leave
-  -- two half-empty lines where one full one belongs. Pinned so the flag cannot drift back in
-  -- without the pairing being reconsidered.
-  assertTrue(row.solo == nil, "the Interface tab pairs this row; solo would break the line")
+  -- The path is spelled VERBATIM and unprefixed, which is the one thing the composer had to be
+  -- told: session state lives outside the block's own `settings.` prefix, and a row that composed
+  -- to `settings.debugConsole` would be a new stored key nothing reads.
+  assertEqual(row.path, "state.debugConsole")
+  assertTrue(row.solo == nil, "the tab pairs this row with Lock frame; solo would break the line")
 end)
+
+-- ── The Master controls tab (options-ui-§15) ──────────────────────────────────
+
+-- The canonical set, in the canonical order, at the canonical paths. Stated here rather than
+-- derived from the rows the assertion reads, so a row that vanishes is a NAMED failure.
+--
+-- This addon is NOT frameless — modules/Browser.lua and modules/Export.lua both call
+-- SetMovable(true) — so it is entitled to all eight, and the four frame-only rows must be present.
+local MASTER_ROWS = {
+  { "settings.enabled",    "Enable Loot History" },
+  { "settings.visibility", "General visibility" },
+  { "settings.scale",      "Master scale" },
+  { "settings.alpha",      "Master alpha" },
+  { "settings.locked",     "Lock frame" },
+  { "state.debugConsole",  "Debug console" },
+}
+
+test("Schema: Master controls is the FIRST group on the General page", function()
+  -- red under: declaring any other group ahead of it, which is exactly the shape options-ui-§15
+  -- calls anti-pattern #68 ("a General page whose first tab is something else").
+  local first
+  for _, row in ipairs(NS.Schema.Schema) do
+    if row.page == "General" then first = row.group; break end
+  end
+  assertEqual(first, "Master controls")
+  assertEqual(NS.Schema.MASTER_GROUP, "Master controls",
+    "the literal the afterGroup hook is keyed under must be the same string")
+end)
+
+test("Schema: the Master controls tab holds exactly the canonical rows, in canonical order",
+  function()
+    -- red under: reordering the block, renaming a row, omitting one this addon is entitled to, or
+    -- splicing an addon-specific row into the middle of it.
+    local got = {}
+    for _, row in ipairs(NS.Schema.Schema) do
+      if row.group == "Master controls" then got[#got + 1] = { row.path, row.label } end
+    end
+    assertEqual(#got, #MASTER_ROWS, "the block is " .. #got .. " rows, not " .. #MASTER_ROWS)
+    for i, want in ipairs(MASTER_ROWS) do
+      assertEqual(got[i][1], want[1], "row " .. i .. " is at the wrong path")
+      assertEqual(got[i][2], want[2], "row " .. i .. " has the wrong label")
+    end
+  end)
+
+test("Schema: every canonical row is declared ONCE — nothing was copied here, it was moved",
+  function()
+    -- The hard rule of the whole pass: never two controls over one setting. `settings.enabled`
+    -- lived on Collection and the console on Interface; both MOVED. FindRow answers the first
+    -- match, so a duplicate would be invisible to it — count instead.
+    for _, want in ipairs(MASTER_ROWS) do
+      local n = 0
+      for _, row in ipairs(NS.Schema.Schema) do if row.path == want[1] then n = n + 1 end end
+      assertEqual(n, 1, want[1] .. " is declared " .. n .. " times")
+    end
+  end)
+
+test("Schema: General visibility is a four-value dropdown, not a boolean", function()
+  -- options-ui-§15: a boolean can only ever answer two of the four. This addon never shipped a
+  -- "show only in combat" checkbox, so there is nothing to migrate — the key is new and an install
+  -- from before this release reads back the shipped default through AceDB's own merge, which the
+  -- case below pins.
+  local row = NS.Schema:FindRow("settings.visibility")
+  assertTrue(row ~= nil, "settings.visibility row missing")
+  assertEqual(row.type, "string")
+  local seen = {}
+  for _, key in ipairs(row.sorting) do seen[key] = row.values[key] end
+  for _, key in ipairs({ "always", "inCombat", "outOfCombat", "never" }) do
+    assertTrue(type(seen[key]) == "string" and seen[key] ~= "",
+      "the dropdown does not offer " .. key)
+  end
+  assertEqual(#row.sorting, 4, "four values, no more")
+  assertEqual(row.default, "always")
+end)
+
+test("Schema: a profile written before this release gets visibility from the shipped defaults",
+  function()
+    -- The migration case, in the shape this addon's storage actually takes. `settings.visibility`
+    -- is a NEW key rather than a re-typed one, so the "old" state is its ABSENCE — there was never
+    -- a `show only in combat` boolean here to rewrite — and what a player who never saw the row
+    -- must get is the shipped default that AceDB merges in, not nil.
+    -- red under: dropping the key from defaults/Global.lua, or declaring it as anything the
+    -- dropdown cannot select. The behaviour half (an absent stored value still resolving to a
+    -- visible window) is pinned in tests/test_browser.lua.
+    assertEqual(NS.defaults.global.settings.visibility, "always")
+    local row = NS.Schema:FindRow("settings.visibility")
+    assertEqual(row.values[NS.defaults.global.settings.visibility] ~= nil, true,
+      "the shipped default must be one of the four the dropdown offers")
+  end)
 
 test("Schema: setting debugConsole toggles the window, never writes db.global", function()
   NS.db.global.state = nil
@@ -202,16 +293,55 @@ test("Schema: the AH priority cascade is declared once, in core/Constants.lua", 
   end
 end)
 
+-- Both enum shapes the flow engine's own `enumList` reads, normalised to one list of values. This
+-- addon shipped only the ARRAY form ({ { value =, text = }, ... }) until the composed `visibility`
+-- row arrived carrying the KEY-MAP form ({ [value] = label } plus an explicit `sorting`), and a
+-- check written against one shape silently skips every row in the other — which is the same
+-- vacuous-pass this file exists to avoid.
+local function enumValues(row)
+  local v = row.values
+  if type(v) ~= "table" then return {} end
+  if type(v[1]) == "table" and v[1].value ~= nil then
+    local out = {}
+    for i, item in ipairs(v) do out[i] = item.value end
+    return out
+  end
+  local out = {}
+  for _, key in ipairs(row.sorting or {}) do out[#out + 1] = key end
+  if #out == 0 then for key in pairs(v) do out[#out + 1] = key end end
+  return out
+end
+
 test("Schema: every dropdown row offers values, and its default is one of them", function()
   for _, row in ipairs(S.Schema) do
     if row.widget == "Dropdown" then
-      assertTrue(type(row.values) == "table" and #row.values > 0, row.path .. " has no values")
+      local values = enumValues(row)
+      assertTrue(#values > 0, row.path .. " has no values")
       local found = false
-      for _, o in ipairs(row.values) do if o.value == row.default then found = true end end
+      for _, value in ipairs(values) do if value == row.default then found = true end end
       assertTrue(found, row.path .. "'s default is not a selectable option")
     end
   end
 end)
+
+test("Schema: a key-map enum declares an explicit sorting, so its order is not pairs() order",
+  function()
+    -- red under: dropping `sorting` from the composed visibility row. `pairs()` over a hash is
+    -- unordered, so the four modes would come out in a different order on a different run — which
+    -- is a dropdown whose entries move between sessions.
+    for _, row in ipairs(S.Schema) do
+      if row.widget == "Dropdown" and type(row.values) == "table" and row.values[1] == nil then
+        assertTrue(type(row.sorting) == "table" and #row.sorting > 0,
+          row.path .. " is a key-map enum with no sorting")
+        for _, key in ipairs(row.sorting) do
+          assertTrue(row.values[key] ~= nil, row.path .. ": sorting names " .. key .. ", values does not")
+        end
+        local n = 0
+        for _ in pairs(row.values) do n = n + 1 end
+        assertEqual(n, #row.sorting, row.path .. ": sorting and values disagree about how many")
+      end
+    end
+  end)
 
 test("Schema: every MultiCheck row offers values", function()
   for _, row in ipairs(S.Schema) do
@@ -376,8 +506,10 @@ end)
 -- still rows, still writable from `/lh set`, and still counted here — the panel-side truth is
 -- tests/test_panel.lua's business.
 local PARTITION = {
-  ["General"]  = { { "Collection", 5 }, { "Interface", 4 }, { "Maintenance", 1 } },
-  ["AH Price"] = { { "AH Price", 2 } },
+  ["General"] = {
+    { "Master controls", 6 }, { "Collection", 4 }, { "AH Price", 2 },
+    { "Interface", 3 }, { "Maintenance", 1 },
+  },
 }
 
 test("Schema: every page's tabs are the designed ones, in order, at the designed size", function()
@@ -388,7 +520,8 @@ test("Schema: every page's tabs are the designed ones, in order, at the designed
   for _, row in ipairs(S.Schema) do
     if not seenPage[row.page] then seenPage[row.page] = true; pages[#pages + 1] = row.page end
   end
-  assertEqual(#pages, 2, "two schema-backed pages: General and AH Price")
+  assertEqual(#pages, 1,
+    "ONE schema-backed page: R6 deprecated the Filters and AH Price sub-pages into General")
 
   for _, page in ipairs(pages) do
     assertTrue(PARTITION[page] ~= nil, page .. " is a page the partition table does not describe")
@@ -452,17 +585,53 @@ test("Schema: no tab holds fewer than two controls", function()
 end)
 
 test("Schema: a tab name never repeats the page it sits on", function()
-  -- On a page called Bars, "Bar background" carries nothing the strip has not already said. The
-  -- AH Price page is the deliberate exception and is exempt BY NAME: it holds exactly one group,
-  -- so RenderTabbedSchema draws no strip there at all and the group name is only ever a slash
-  -- `/lh list` header.
+  -- On a page called Bars, "Bar background" carries nothing the strip has not already said. There
+  -- is no exemption left: "AH Price" used to be a page whose one group had the same name, and the
+  -- merge into General removed the collision rather than excusing it.
   for _, row in ipairs(S.Schema) do
-    if row.page ~= "AH Price" then
-      assertFalse(row.group:lower():find(row.page:lower(), 1, true) ~= nil,
-        row.page .. " / " .. row.group .. ": the tab repeats its page")
-    end
+    assertFalse(row.group:lower():find(row.page:lower(), 1, true) ~= nil,
+      row.page .. " / " .. row.group .. ": the tab repeats its page")
   end
 end)
+
+test("Schema: every row carries a group, so no page can render strip-less", function()
+  -- options-ui-§13 / anti-pattern #69: a page whose rows declare no group cannot draw a strip, and
+  -- the engine reports it and renders the page untabbed. Three lines, and it is the check that
+  -- catches a row added without one.
+  -- red under: dropping `group` from any row.
+  for _, row in ipairs(S.Schema) do
+    assertTrue(type(row.group) == "string" and row.group ~= "",
+      row.path .. " carries no group, so its page would render untabbed")
+  end
+end)
+
+test("Schema: no color row exists, so the class-color companion rule has nothing to bind to",
+  function()
+    -- options-ui-§17 in the shape it takes here: this addon paints no user-chosen color at all —
+    -- the item-quality and status hues are the client's and the addon's own palettes, neither of
+    -- which is a picker. The loop is written anyway, so that the DAY a swatch is added it must
+    -- arrive with its companion beside it and without `disabledIf`, rather than this rule being
+    -- rediscovered.
+    -- red under: adding a `type = "color"` row without a `useClassColor*` bool immediately after
+    -- it, or putting `disabledIf` on one.
+    local colors = 0
+    for i, row in ipairs(S.Schema) do
+      assertTrue(row.disabledIf == nil or row.type ~= "color",
+        row.path .. ": a color row must never be disabled (anti-pattern #74)")
+      if row.type == "color" then
+        colors = colors + 1
+        local nxt = S.Schema[i + 1]
+        assertTrue(nxt ~= nil and nxt.type == "bool" and nxt.label == "Use class color",
+          row.path .. " has no class-color companion immediately after it")
+        assertTrue(row.startsLine == true,
+          row.path .. " must start its line, or the pair can be split across two")
+        assertTrue(nxt.classColorSource == row.classColorSource
+          and (row.classColorSource == "player" or row.classColorSource == "unit"),
+          row.path .. ": both halves must declare the same classColorSource")
+      end
+    end
+    assertEqual(colors, 0, "this addon ships no color rows; if that changed, say so here")
+  end)
 
 test("Schema: every slider declares a step it can actually be dragged to", function()
   -- SetSliderValues(min, max, row.step or 1): a slider row with no `step` declares a step of ONE.
@@ -477,4 +646,72 @@ test("Schema: every slider declares a step it can actually be dragged to", funct
         row.path .. "'s step gives it fewer than five positions")
     end
   end
+end)
+
+-- ── the docs' row counts are the schema's row count ──────────────────────────────────────────
+
+-- Every place a Tier-1/Tier-2 doc states how many rows ship, as { file, pattern, spelled }. The
+-- pattern captures the number; `spelled` says whether it is a word or a numeral.
+--
+-- This is a COUNT-CLAIM gate, and it exists because the claim drifted: master said "Twelve rows
+-- ship today" with twelve rows, this pass moved the schema to sixteen and wrote seventeen into four
+-- documents — each of them directly above a table that listed sixteen. A number in prose has
+-- nothing to disagree with until something compares it, so this is that something.
+local NUMBER_WORD = {
+  ten = 10, eleven = 11, twelve = 12, thirteen = 13, fourteen = 14, fifteen = 15,
+  sixteen = 16, seventeen = 17, eighteen = 18, nineteen = 19, twenty = 20,
+}
+
+local COUNT_CLAIMS = {
+  { "docs/ARCHITECTURE.md",   "\n(%a+) rows ship today, on %*%*one%*%* schema%-backed page" },
+  { "docs/settings-panel.md", "%*%*(%a+) rows ship today%*%*" },
+  { "docs/module-map.md",     "Schema%.lua%s+— (%d+) rows, one per setting" },
+  { "docs/module-map.md",     "`NS%.Schema` %(alias `S`%): %*%*(%a+)%*%* rows, one per setting" },
+}
+
+test("Schema: every doc that counts the rows counts the same number the schema ships", function()
+  -- red under: adding or removing a schema row without touching the docs, and equally under
+  -- rewriting one of these four numbers to something the schema does not ship.
+  local want = #S.Schema
+  assertTrue(want > 0, "the schema is empty")
+  for _, claim in ipairs(COUNT_CLAIMS) do
+    local path, pattern = claim[1], claim[2]
+    local src = T.Loader.readFile(path)
+    local found = src:match(pattern)
+    assertTrue(found ~= nil, path .. ": no row-count claim matched " .. pattern)
+    local n = tonumber(found) or NUMBER_WORD[found:lower()]
+    assertTrue(n ~= nil, path .. ": '" .. found .. "' is not a number this gate can read")
+    assertEqual(n, want, path .. " claims " .. found .. " rows; the schema ships " .. want)
+  end
+end)
+
+test("Schema: the docs' per-tab breakdown is the schema's own partition", function()
+  -- The other half of the same drift: a total can be corrected while the breakdown beside it stays
+  -- wrong, and a breakdown is what a reader actually navigates by.
+  -- red under: moving a row between tabs, or editing the module-map sentence away from the schema.
+  local live, order = {}, {}
+  for _, row in ipairs(S.Schema) do
+    if not live[row.group] then live[row.group] = 0; order[#order + 1] = row.group end
+    live[row.group] = live[row.group] + 1
+  end
+  local src = T.Loader.readFile("docs/module-map.md")
+  -- A breakdown is one run of "<Tab> <n>" pairs; each is pulled out whole first, so a number that
+  -- happens to follow a tab's name elsewhere in the file cannot answer for it. The file states the
+  -- breakdown TWICE — once in the source tree, once in the per-file entry — and EVERY occurrence is
+  -- checked, because one of two homes going stale while the other is corrected is precisely the
+  -- drift this exists to catch.
+  local found = 0
+  for segment in src:gmatch("Master controls %d+.-Maintenance %d+") do
+    found = found + 1
+    for _, group in ipairs(order) do
+      local n = tonumber(segment:match(group:gsub("%p", "%%%0") .. " (%d+)"))
+      assertEqual(n, live[group], "docs/module-map.md breakdown " .. found ..
+        " disagrees with the schema on " .. group)
+    end
+    -- Filters is a real tab with no rows, so it must NOT appear in a breakdown of row counts.
+    assertTrue(segment:match("Filters") == nil,
+      "breakdown " .. found .. " counts ROWS, and the Filters tab has none")
+  end
+  assertTrue(found >= 2, "docs/module-map.md must still state the per-tab breakdown in both its "
+    .. "source tree and its per-file entry (found " .. found .. ")")
 end)

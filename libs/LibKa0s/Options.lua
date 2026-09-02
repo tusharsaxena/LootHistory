@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 13
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 14
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -195,9 +195,21 @@ lib.STRINGS = {
   COMBAT_REFUSED = "|cffaaaaaacannot open settings during combat \226\128\148 Blizzard's " ..
                    "category-switch is protected|r",
   BUTTON_FAILED  = "button onClick failed: %s",
+  HEADER_FAILED  = "page header failed to build: %s",
   PAGE_FAILED    = "settings page '%s' failed to build: %s",
   RENDER_FAILED  = "settings page '%s' failed to render: %s",
   ROW_FAILED     = "settings row '%s' failed to render: %s",
+  -- Every row on every page carries a `group` (options-ui-§13). A page whose rows do not cannot
+  -- draw a strip, and that is an authoring defect (anti-patterns #69) rather than a shape the
+  -- library absorbs -- but it is REPORTED and the page still renders, because a blank page under
+  -- an empty strip is a worse failure than a strip-less one.
+  NO_GROUPS      = "settings page '%s' has no grouped rows; rendering untabbed",
+  -- A `string` row with neither `values` nor `dialogControl` reaches the dropdown maker and opens
+  -- on nothing. The opt-in stays (see makeEditBox's note on why free text is not inferred); this
+  -- line is what makes forgetting it visible the first time the page is opened, instead of
+  -- shipping as a control that does nothing.
+  EMPTY_DROPDOWN = "settings row '%s' is a string with no values and no dialogControl; it renders "
+                   .. "as an empty dropdown",
   -- The only option a media dropdown can offer when the media library is absent or has nothing
   -- registered yet. A literal rather than a locale key: it is also the STORED value, so a
   -- translated one would be written into the host's SavedVariables.
@@ -401,6 +413,7 @@ function lib:New(d)
       scroll       = nil,          -- lazy AceGUI ScrollFrame
       refreshers   = {},
       lastGroup    = nil,
+      lastSubgroup = nil,
       pageKey      = opts.pageKey,
       chrome       = chrome,
       chromeHeight = 0,
@@ -538,10 +551,21 @@ function lib:New(d)
   --- continuation of whatever was last drawn. The SAME ScrollFrame is reused — AceGUI's
   --- ReleaseChildren tears down children, not the container.
   function O.ClearScroll(ctx)
+    -- BEFORE ReleaseChildren, not after: a secondary tab strip's buttons are parented to a frame
+    -- the host added as an AceGUI child, and ReleaseChildren returns that frame to the pool. Drain
+    -- the ledger while those buttons still have a parent to be unparented FROM, or the next page to
+    -- take that pooled frame inherits a stack of live buttons on top of its own content.
+    -- Guarded because __AttachWidgets runs after this file and a ctx may be built before it.
+    if O.__releaseSubTabs then O.__releaseSubTabs(ctx) end
     if ctx.scroll and ctx.scroll.ReleaseChildren then
       ctx.scroll:ReleaseChildren()
     end
     ctx.lastGroup = nil
+    -- BOTH trackers, because they are one family (options-ui-§7). startGroup clears the subgroup
+    -- whenever the group changes, which covers every page whose rows carry a `group` -- but a page
+    -- that uses `subgroup` alone has no group boundary to ride on, and its first subsection heading
+    -- would be swallowed on every render after the first.
+    ctx.lastSubgroup = nil
     -- Every RenderField call appends a refresher closure capturing widgets just released above.
     -- Without this reset a released widget's refresher survives forever, so every write and every
     -- profile change pcalls an ever-growing pile of dead closures. REASSIGNED, not wiped in place:
@@ -904,6 +928,7 @@ function lib:New(d)
   -- leaves its half absent rather than erroring at :New, which is why the shell's own members
   -- reach for O.AttachTooltip and O.PatchAlwaysShowScrollbar at CALL time and never at load time.
   if lib.__AttachWidgets then lib.__AttachWidgets(O, d) end
+  if lib.__AttachCompose then lib.__AttachCompose(O)    end
   if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
 
   return O
