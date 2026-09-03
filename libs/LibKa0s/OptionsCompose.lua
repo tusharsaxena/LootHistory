@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 1
+local COMPOSE_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -331,6 +331,15 @@ function lib.__AttachCompose(O)
   ---                              "state.debugConsole".
   ---   onResetPosition  function  the button's click handler. Omitted when frameless.
   ---   onResetAll       function  options-ui-§12's global reset, verbatim.
+  ---   leadButton       table     { text, tooltip, onClick } — ONE act of the host's own, closing
+  ---                              the tab beside the resets. Since compose minor 2.
+  ---
+  --- `leadButton` exists because §15 fixes the reset buttons' WORDING. An addon with a verb of its
+  --- own to put beside them could not draw the pair itself without keeping a second copy of "Reset
+  --- all settings" in its own source, which is the drift this composer exists to end — so the verb
+  --- is handed IN and the composer stays the only writer of that text. It is one button, not a
+  --- list: the tab closes with the resets, and a row of host verbs before them is a different
+  --- design that §15 does not describe.
   ---
   --- @return table rows          the schema rows, in canonical order
   --- @return function afterGroup the hook for this group, drawing the closing button pair
@@ -392,7 +401,17 @@ function lib.__AttachCompose(O)
       onClick = spec.onResetPosition,
     } or nil
 
+    -- WHERE THE HOST'S VERB GOES, and the two cases are not a preference. A frameless addon's pair
+    -- has ONE empty cell — the right half §15 leaves when there is no Reset position — so the verb
+    -- leads and the reset still closes the tab. A framed addon's pair is already full, and §15
+    -- forbids splitting or reordering the canonical two, so there the verb takes its own row ABOVE
+    -- rather than displacing a reset. Nothing here invents a third button on one line.
+    local lead = spec.leadButton
     return rows, function(ctx)
+      if lead and not resetPosition then
+        return O.InlineButtonPair(ctx, lead, resetAll)
+      end
+      if lead then O.InlineButtonPair(ctx, lead, nil) end
       O.InlineButtonPair(ctx, resetPosition or resetAll, resetPosition and resetAll or nil)
     end
   end
