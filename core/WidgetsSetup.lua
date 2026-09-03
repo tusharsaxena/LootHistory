@@ -70,6 +70,12 @@
 -- build at all and says why through the shared NS.LIBKA0S_MISSING clause.
 -- NS.CloseMenu is then a no-op, because there is no menu that could be open.
 --
+-- NS.MakeReorderList answers nil for the same reason, and its caller degrades DIFFERENTLY on
+-- purpose: the AH Price tab still draws its eleven price rows, just without a handle, without the
+-- bounded box and without a way to re-rank them. That is the accepted cosmetic degradation
+-- options-ui-§18 names, and it is stated there precisely so nobody re-adds up/down arrows as a
+-- fallback -- a host-drawn affordance beside the library's is the drift the shared widget ends.
+--
 -- NS.CopyWindow answers nil for the same reason, and nothing downstream has to notice: the
 -- export modal that would have shown the copy window declines to build in the first place, so
 -- there is no path on a degraded install that reaches a window with nowhere to put the text.
@@ -115,6 +121,44 @@ end
 --- a no-op on a degraded install. Call it from EVERY non-click close path.
 function NS.CloseMenu()
     if W then W.CloseMenu() end
+end
+
+--- One drag-to-reorder controller for a list of rows, or nil when the library is absent.
+---
+--- ONE CONTROLLER PER RENDER, never one per list: it holds the rows of the pass that built it, and
+--- the caller must :Cancel() the previous one at the TOP of its render (options-ui-§18).
+---
+--- The handle art arrives as a PARAMETER for the reason the header gives -- `Media.Icon` needs the
+--- consuming addon's folder name and a vendored library cannot know it -- so it is resolved here,
+--- once, exactly like the dropdown's chevron and tick. `segment` is the collection's hamburger
+--- mark; NS.Icon answering nil is a real answer and the library falls back to a Blizzard texture.
+---
+--- The caller's table is COPIED rather than stamped, because a host is expected to hoist its opts
+--- to a file constant and this function would otherwise write into it.
+---
+--- NIL IS A REAL ANSWER: the degraded path draws no handle and no row box and the list is simply
+--- not reorderable, which is the accepted cosmetic degradation (options-ui-§18). Every caller must
+--- branch on it rather than re-adding arrows as a fallback.
+---
+--- @param opts table  stride / onMove / boundary / handleTooltip / ... (see LibKa0s Widgets)
+--- @return table|nil  the library's reorder controller
+function NS.MakeReorderList(opts)
+    if not W then return nil end
+    local o = {}
+    for k, v in pairs(opts or {}) do o[k] = v end
+    o.handleIcon = NS.Icon and NS.Icon("segment")
+    return W.ReorderList(o)
+end
+
+--- The reorder widget's published chrome constants, or nil when the library is absent.
+---
+--- READ, never restated (options-ui-§8): `HANDLE_W` is the gutter a host must leave clear at the
+--- far left of every row, and a host copy of that number is the copy that goes stale. nil is again
+--- a real answer -- there is no handle on a degraded install, so there is no gutter to reserve.
+---
+--- @return table|nil  { FILL, FILL_DIM, EDGE, EDGE_DIM, EDGE_SIZE, HANDLE_W }
+function NS.ReorderRowBox()
+    return W and W.ROW_BOX or nil
 end
 
 --- One read-only copy window -- text in, Ctrl+C out, Esc closes -- or nil when the library is absent.

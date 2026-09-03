@@ -451,7 +451,12 @@ local function EnsureFrame()
   local tbar = CreateFrame("Frame", nil, frame)
   tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(26)
   tbar:EnableMouse(true); tbar:RegisterForDrag("LeftButton")
-  tbar:SetScript("OnDragStart", function() frame:StartMoving() end)
+  -- Lock frame (options-ui-§15) is addon-wide, so it covers this modal too — asked of NS.Browser,
+  -- which owns this addon's window chrome and is where the master rows are read.
+  tbar:SetScript("OnDragStart", function()
+    if NS.Browser and NS.Browser.IsLocked and NS.Browser:IsLocked() then return end
+    frame:StartMoving()
+  end)
   tbar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
   local t = tbar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   t:SetPoint("CENTER"); t:SetText("Export")
@@ -511,5 +516,15 @@ function E:Open(cfg)
   end
   if f.titleFS then f.titleFS:SetText(config.title or "Export") end
   centerOnBrowser(f)
+  E:ApplyChrome()
   f:Show()
+end
+
+--- Re-apply the addon-wide scale and opacity (the Master controls tab, options-ui-§15).
+---
+--- The modal has NO per-window scale of its own, so it takes the master alone. Called on every
+--- :Open and from NS.Browser's settings fan-out, which is the one that matters while the modal is
+--- already on screen. A no-op before the modal has ever been built, which is most sessions.
+function E:ApplyChrome()
+  if frame and NS.Browser and NS.Browser.ApplyChrome then NS.Browser:ApplyChrome(frame) end
 end

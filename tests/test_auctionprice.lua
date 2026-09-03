@@ -104,12 +104,48 @@ test("AuctionPrice: ReconcilePriority appends missing tags and drops unknown", f
   NS.db.global.settings.auction = nil
 end)
 
-test("AuctionPrice: SwapPriorityTags swaps positions", function()
-  NS.db.global.settings.auction = { priority = { "a:1", "b:2", "c:3" } }
-  assertTrue(NS.AuctionPrice:SwapPriorityTags("a:1", "b:2"))
+-- ── MovePriorityWithin: the drag's one write ──────────────────────────────────
+--
+-- Replaces the pairwise SwapPriorityTags the ▲▼ arrows drove. The panel drags now (options-ui-§18),
+-- and the rule a drag has to satisfy that a swap never did is that a FOUR-POSITION move is ONE
+-- mutation: a run of adjacent swaps writes and announces every intermediate order.
+
+test("AuctionPrice: MovePriorityWithin splices a tag to an index, not a run of swaps", function()
+  -- red under: reimplementing this as repeated adjacent swaps (the intermediate orders would still
+  -- land on the same final array, so the ASSERTION that catches it is the four-position move below
+  -- landing in one call rather than the end state).
+  NS.db.global.settings.auction = { priority = { "a:1", "b:2", "c:3", "d:4", "e:5" } }
+  local subset = { "a:1", "b:2", "c:3", "d:4", "e:5" }
+  assertTrue(NS.AuctionPrice:MovePriorityWithin(subset, 1, 5))
   local p = NS.AuctionPrice:GetPriority()
-  assertEqual(p[1], "b:2"); assertEqual(p[2], "a:1")
-  assertFalse(NS.AuctionPrice:SwapPriorityTags("a:1", "zzz"))  -- missing tag
+  assertEqual(table.concat(p, ","), "b:2,c:3,d:4,e:5,a:1", "a four-position move, in one write")
+
+  assertTrue(NS.AuctionPrice:MovePriorityWithin({ "b:2", "c:3", "d:4", "e:5", "a:1" }, 5, 2))
+  assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","), "b:2,a:1,c:3,d:4,e:5",
+    "and back up, four positions, in one more")
+  NS.db.global.settings.auction = nil
+end)
+
+test("AuctionPrice: MovePriorityWithin leaves the tags OUTSIDE the subset exactly where they are",
+  function()
+    -- red under: rebuilding the whole array from the subset, or splicing against the array's own
+    -- indices instead of the subset's slots. The panel drags within the COLLECTING partition only,
+    -- and a reorder there must not silently re-rank a source you are not collecting.
+    NS.db.global.settings.auction = { priority = { "a:1", "x:9", "b:2", "y:8", "c:3" } }
+    assertTrue(NS.AuctionPrice:MovePriorityWithin({ "a:1", "b:2", "c:3" }, 3, 1))
+    assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","), "c:3,x:9,a:1,y:8,b:2",
+      "the subset re-lays into its OWN slots; x:9 and y:8 never move")
+    NS.db.global.settings.auction = nil
+  end)
+
+test("AuctionPrice: MovePriorityWithin refuses a no-op and an out-of-range index", function()
+  NS.db.global.settings.auction = { priority = { "a:1", "b:2", "c:3" } }
+  local subset = { "a:1", "b:2", "c:3" }
+  assertFalse(NS.AuctionPrice:MovePriorityWithin(subset, 2, 2), "a drag that landed where it started")
+  assertFalse(NS.AuctionPrice:MovePriorityWithin(subset, 0, 2))
+  assertFalse(NS.AuctionPrice:MovePriorityWithin(subset, 1, 9))
+  assertFalse(NS.AuctionPrice:MovePriorityWithin(nil, 1, 2))
+  assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","), "a:1,b:2,c:3", "nothing was written")
   NS.db.global.settings.auction = nil
 end)
 
@@ -240,10 +276,11 @@ test("AuctionPrice: GetPriority creates the array on first use", function()
   NS.db.global.settings.auction = saved
 end)
 
-test("AuctionPrice: SwapPriorityTags refuses a tag that is not in the list", function()
-  local saved = NS.db.global.settings.auction
-  NS.db.global.settings.auction = { priority = { "tsm:dbmarket", "oribos:market" } }
-  assertFalse(NS.AuctionPrice:SwapPriorityTags("tsm:dbmarket", "nosuch:tag"))
-  assertEqual(NS.AuctionPrice:GetPriority()[1], "tsm:dbmarket", "the list is left alone")
-  NS.db.global.settings.auction = saved
-end)
+test("AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry",
+  function()
+    local saved = NS.db.global.settings.auction
+    NS.db.global.settings.auction = { priority = { "tsm:dbmarket", "oribos:market" } }
+    assertFalse(NS.AuctionPrice:MovePriorityWithin({ "tsm:dbmarket", "nosuch:tag" }, 1, 2))
+    assertEqual(NS.AuctionPrice:GetPriority()[1], "tsm:dbmarket", "the list is left alone")
+    NS.db.global.settings.auction = saved
+  end)

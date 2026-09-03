@@ -7,7 +7,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:287`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
-| `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings page's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + Filters page) |
+| `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` row `onChange` ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 Exactly one sender is allowed per message — the table is sender-authoritative.
@@ -26,7 +26,7 @@ The bulk-mutation counterpart to `RecordAdded`: no payload, meaning "the history
 - `Database:Purge()` — the `/lh purge` wipe.
 - `Database:PruneOld()` — retention rebuild-and-swap (also invoked from the `retentionDays` setting's `onChange`, so a retention change surfaces as `HistoryChanged`, not `SettingsChanged`).
 - `Database:RepairBoundStates()` — the deferred warbound-state split, which fires **only when a pass actually fixed rows** (`fixed > 0`). It sends directly rather than through `fireHistoryChanged`, because the repair is defined above that helper; the window can already be open when a pass lands and renders the Bound column off those rows, so it repaints rather than leaving stale locks until the next open.
-- `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit. Filtering is point-in-time, so a list edit never changes what a query returns for already-stored rows; the message exists so the Settings ▸ Filters page's live id list re-renders. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
+- `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit. Filtering is point-in-time, so a list edit never changes what a query returns for already-stored rows; the message exists so the Settings ▸ General ▸ Filters tab's live id list re-renders. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
 
 Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schema.md)), indices are not stable across a `HistoryChanged`, which is why the payload is empty — subscribers must re-read, not patch by index.
 
@@ -34,17 +34,18 @@ Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schem
 
 ## `Ka0s_LootHistory_SettingsChanged` payload
 
-Sent from five schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), each with a distinct `reason` string: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, and `"excludes"`. These are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
+Sent from eight schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), carrying six distinct `reason` strings between them: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, `"excludes"`, and `"chrome"` — the last one new with the Master controls tab, sent by `settings.scale` / `settings.alpha` / `settings.locked` so the Browser re-applies the addon-wide chrome to both of its frames. The first five are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
 
 - **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `enabled` / `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
-- **Browser** (`modules/Browser.lua:1119`) calls `OnSettingsChanged()` to reflect the change in the open window.
+- **Browser** (`modules/Browser.lua:1186`) calls `OnSettingsChanged()` to reflect the change in the open window.
 
 ### What does NOT broadcast
 
-Two schema rows deliberately skip the bus and drive their side effect directly in `onChange`:
+Three schema rows deliberately skip the bus and drive their side effect directly in `onChange`:
 
-- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:121`).
-- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:95`).
+- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:284`).
+- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:264`).
+- `settings.rowHeight` → `NS.BrowserTable:Bind()` (`settings/Schema.lua:277`).
 
 Neither emits `SettingsChanged`, because nothing else needs to react — they are one-consumer, view-only knobs. (Likewise `retentionDays` fires `HistoryChanged` via `PruneOld`, not `SettingsChanged`.) Keeping these off the bus means flipping the minimap button or the window scale never cascades into a Collector upvalue refresh or a table rebuild.
 
@@ -56,12 +57,12 @@ Neither emits `SettingsChanged`, because nothing else needs to react — they ar
 
 The reason: **CallbackHandler keys registered callbacks by `(message, target)`.** If two modules both did `NS.bus:RegisterMessage("Ka0s_LootHistory_HistoryChanged", handler)`, they would share the single target `NS.bus`, so the second registration would overwrite the first under the same `(message, target)` key — and only the last registrant would ever be called. The bug is silent: no error, the message still fires, but one module's handler simply never runs.
 
-Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters page) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters page's live list rebuild):
+Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters tab) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters tab's live list rebuild):
 
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:222`).
-- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1192`).
-- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:664`).
-- Panel — `local ev = NS.NewBusTarget()` (`settings/Panel.lua:171`).
+- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1261`).
+- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:651`).
+- Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:155`) and the Filters tab's id-lists (`settings/Panel.lua:426`), each on its own target.
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.
 

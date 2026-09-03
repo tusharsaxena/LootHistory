@@ -199,7 +199,7 @@ badge and any count quoted in the docs must agree with it.
 - Filters: ClearList and ClearAll include the currency blacklist
 - Filters: ParseCurrencyID reads a currency link or a bare number
 
-### test_auctionprice.lua (24)
+### test_auctionprice.lua (26)
 
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
@@ -209,7 +209,9 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GatherAll returns nil when nothing gathered / disabled
 - AuctionPrice: IsProviderAvailable reflects addon globals
 - AuctionPrice: ReconcilePriority appends missing tags and drops unknown
-- AuctionPrice: SwapPriorityTags swaps positions
+- AuctionPrice: MovePriorityWithin splices a tag to an index, not a run of swaps
+- AuctionPrice: MovePriorityWithin leaves the tags OUTSIDE the subset exactly where they are
+- AuctionPrice: MovePriorityWithin refuses a no-op and an out-of-range index
 - AuctionPrice: Pick on a record with no price map yields nothing
 - AuctionPrice: Pick ignores a provider present but empty
 - AuctionPrice: Pick skips a tag the map does not carry
@@ -224,7 +226,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: ReconcilePriority always ends up covering every known key once
 - AuctionPrice: ReconcilePriority rewrites in place, keeping the same table
 - AuctionPrice: GetPriority creates the array on first use
-- AuctionPrice: SwapPriorityTags refuses a tag that is not in the list
+- AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
 ### test_collector.lua (33)
 
@@ -345,7 +347,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (52)
+### test_browser.lua (58)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -399,6 +401,12 @@ badge and any count quoted in the docs must agree with it.
 - Browser.ResetWindow empties the persisted geometry carve-out
 - browser: a burst of RecordAdded collapses to ONE OnHistoryChanged
 - browser: HistoryChanged still repaints immediately
+- browser: master scale MULTIPLIES the per-window scale, it does not replace it
+- browser: an absent master scale/alpha falls back to the shipped 1.0, never to nil
+- browser: Lock frame is what the drag handler asks, and it is addon-wide
+- browser: General visibility answers all four modes against the combat state
+- browser: Show refuses while the visibility setting forbids it, and says why
+- browser: a combat transition re-applies visibility through the private event target
 
 ### test_browsertable.lua (56)
 
@@ -512,7 +520,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (36)
+### test_slash.lua (37)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -545,15 +553,21 @@ badge and any count quoted in the docs must agree with it.
 - a command row is gold command, single-spaced em dash, white description
 - reset is path-scoped and resetall is the global verb (no page-shaped form)
 - set refuses a value outside a numeric enum instead of storing it
+- set on the composed key-map enum accepts a mode and refuses anything else
 - set clamps a number to its slider range and echoes what was stored
 - set refuses a bool it cannot read rather than silently storing false
 - the set-valued row renders through the format hook, never as <secret>
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_schema.lua (37)
+### test_schema.lua (47)
 
-- Schema: debugConsole row is session-only, on General's Interface tab
+- Schema: debugConsole row is session-only, on the Master controls tab
+- Schema: Master controls is the FIRST group on the General page
+- Schema: the Master controls tab holds exactly the canonical rows, in canonical order
+- Schema: every canonical row is declared ONCE — nothing was copied here, it was moved
+- Schema: General visibility is a four-value dropdown, not a boolean
+- Schema: a profile written before this release gets visibility from the shipped defaults
 - Schema: setting debugConsole toggles the window, never writes db.global
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row still writes db.global
@@ -569,6 +583,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: the shipped default equals the schema's declared default
 - Schema: the AH priority cascade is declared once, in core/Constants.lua
 - Schema: every dropdown row offers values, and its default is one of them
+- Schema: a key-map enum declares an explicit sorting, so its order is not pairs() order
 - Schema: every MultiCheck row offers values
 - Schema: the slider default sits inside its own bounds
 - Schema: only the session-only rows carry their own get/set
@@ -589,7 +604,11 @@ badge and any count quoted in the docs must agree with it.
 - Schema: a group's rows are contiguous, so no tab is drawn twice
 - Schema: no tab holds fewer than two controls
 - Schema: a tab name never repeats the page it sits on
+- Schema: every row carries a group, so no page can render strip-less
+- Schema: no color row exists, so the class-color companion rule has nothing to bind to
 - Schema: every slider declares a step it can actually be dragged to
+- Schema: every doc that counts the rows counts the same number the schema ships
+- Schema: the docs' per-tab breakdown is the schema's own partition
 
 ### test_analytics.lua (62)
 
@@ -656,37 +675,49 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (29)
+### test_panel.lua (41)
 
-- Panel: the parent category and all three sub-pages are registered
+- Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
-- Panel: each sub-page carries the addon's name for the Blizzard left tree
-- Panel: the General page draws one tab per schema group, in declaration order
-- Panel: the Collection tab holds the capture rules and nothing else
-- Panel: the Interface tab holds the two size sliders and the two show/hide boxes
-- Panel: the Maintenance tab holds retention, the storage readout and both reset actions
+- Panel: the sub-page carries the addon's name for the Blizzard left tree
+- Panel: the General page draws the whole strip, in order, opening on Master controls
+- Panel: every schema group on the page has a tab, and every tab a body
+- Panel: the Master controls tab holds the canonical rows and the closing button pair
+- Panel: Reset position drives the window carve-out, Reset all settings the §12 popup
+- Panel: the Capture tab holds the capture rules and nothing else
+- Panel: the Interface tab holds the two size sliders and the minimap toggle
+- Panel: the History tab holds retention, the storage readout and the purge
 - Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
+- Panel: a key-map dropdown is populated in its declared sorting, not in pairs() order
 - Panel: a dropdown is populated from the row's values, in declared order
 - Panel: a slider is given the row's own min, max and step
-- Panel: Reset Everything sits on the Maintenance tab, on its own line
-- Panel: a tabbed page draws no section headings — the strip is the heading
+- Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its SUBSECTIONS
+- Panel: a subgroup heading never repeats its own tab's name (options-ui-§7)
 - Panel: clicking a checkbox writes through NS.Schema:Set
 - Panel: choosing a dropdown entry writes the stored value
 - Panel: releasing a slider writes the stored value
 - Panel: an external write is mirrored back by Refresh
 - Panel: the muted-source picker is INVERTED — a ticked box means 'record this source'
 - Panel: the Defaults button is built on first OnShow, not at registration
-- Panel: the General page's Defaults click restores every schema default
-- Panel: the AH Price page's Defaults click restores the capture set AND the priority order
-- Panel: the Filters page draws a tab per id-list and renders only the selected one
-- Panel: the Filters page lists the ids on each list and can remove one
-- Panel: a blacklist change while the Filters page is hidden repaints it on the next OnShow
-- Panel: the Filters page's Defaults click clears every id list
-- Panel: the AH Price page draws one reusable row slot per known price source
-- Panel: the AH Price page renders only its own schema group
+- Panel: the General Defaults click restores every schema default
+- Panel: the General Defaults click is PAGE-wide — it reaches the merged tabs' carve-outs
+- Panel: the General Defaults click does NOT move the window
+- Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
+- Panel: the Filters tab lists the ids on each list and can remove one
+- Panel: a blacklist change while the page is hidden repaints it on the next OnShow
+- Panel: the AH Price tab draws one reusable row slot per known price source
+- Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
+- Panel: the price host is parked off the page while another tab is on screen
+- Panel: the AH Price tab renders its own schema row and no other tab's
+- Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
+- Panel: the host draws no row chrome of its own — the library owns the box and the handle
+- Panel: a drag is one splice to index, and it repaints
+- Panel: the reorder controller is cancelled at the TOP of the page render
+- Panel: toggling a source's Enabled box writes the capture set and repaints
 - Panel: the landing page renders one label per slash command, through the ONE row formatter
 - Panel: the landing page shows the tagline
 - Panel: Open refuses during combat and never defers-and-replays
+- Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 
 ### test_harness.lua (5)
 
@@ -762,20 +793,20 @@ badge and any count quoted in the docs must agree with it.
 | test_compat.lua | 30 |
 | test_attribution.lua | 23 |
 | test_filters.lua | 20 |
-| test_auctionprice.lua | 24 |
+| test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
 | test_database.lua | 58 |
 | test_stats.lua | 19 |
-| test_browser.lua | 52 |
+| test_browser.lua | 58 |
 | test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 36 |
-| test_schema.lua | 37 |
+| test_slash.lua | 37 |
+| test_schema.lua | 47 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 29 |
+| test_panel.lua | 41 |
 | test_harness.lua | 5 |
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **668** |
+| **Total** | **699** |

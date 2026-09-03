@@ -163,6 +163,62 @@ return function()
     return f
   end
 
+  -- ── tab art: the SELECTED state measures differently, and SetPoint is recorded ──────────
+  --
+  -- options-ui-§13 makes a wrapped tab strip's geometry selection-invariant and then says, in the
+  -- same breath, what a suite has to look like before that case means anything: "A harness that
+  -- answers one height for every atlas cannot fail this — the harness MUST answer a different
+  -- height for the selected-state art, or the case is green against nothing." The kit's stub is
+  -- exactly such a harness: `SetAtlas` no-ops through the catch-all metatable and `GetHeight`
+  -- answers whatever `SetHeight` last said, which for the library's throwaway measuring texture is
+  -- nothing at all — so `tabArtHeight` took its fallback every run and the two atlas families were
+  -- indistinguishable.
+  --
+  -- So the two families are given DIFFERENT heights here, both under `L.TAB_H` (37) so the
+  -- library's own sanity clamp still accepts them. The selected family is the taller one, which is
+  -- the direction the real art differs in and the direction that made the bug visible in a client:
+  -- a strip that packed its wrapped rows by the selected tab's art moved every row below it.
+  --
+  -- The height applies only where nothing has SET one: a tab BUTTON is `SetHeight(L.TAB_H)`'d
+  -- before its art is drawn, so it keeps its real height and only the bare measuring texture reads
+  -- back as art. (`CreateTexture` still hands back the frame itself — the kit's documented
+  -- divergence — which is exactly why this has to be conditional rather than absolute.)
+  local TAB_ART_H = {
+    ["Options_Tab_Left"]          = 30, ["Options_Tab_Middle"]        = 30,
+    ["Options_Tab_Right"]         = 30,
+    ["Options_Tab_Active_Left"]   = 34, ["Options_Tab_Active_Middle"] = 34,
+    ["Options_Tab_Active_Right"]  = 34,
+  }
+  M.__TAB_ART_H = TAB_ART_H
+
+  -- SetPoint is RECORDED rather than no-opped (fidelity rule 3). Where a tab lands is the entire
+  -- subject of the wrap-invariance case, and the placement arithmetic reaches the frame through
+  -- nothing else — a no-op setter makes "every row's y offset is identical for every value of the
+  -- selection" a sentence no assertion can be written against. Nothing in this repo spies on
+  -- SetPoint by rawsetting a recorder, which is the one thing an explicit definition would break.
+  local sizedFrame = M.__stubFrame
+  M.__stubFrame = function()
+    local f = sizedFrame()
+    local baseGetHeight = f.GetHeight
+    function f:SetAtlas(atlas, ...) self.__atlas = atlas; return self end
+    function f:GetAtlas() return self.__atlas end
+    function f:GetHeight()
+      local h = baseGetHeight(self)
+      if (h == nil or h == 0) and TAB_ART_H[self.__atlas] then return TAB_ART_H[self.__atlas] end
+      return h
+    end
+    f.__points = {}
+    function f:SetPoint(point, relativeTo, relativePoint, x, y)
+      self.__points[#self.__points + 1] =
+        { point = point, relativeTo = relativeTo, relativePoint = relativePoint, x = x, y = y }
+      return self
+    end
+    function f:ClearAllPoints() self.__points = {}; return self end
+    --- The last anchor this frame was given, or nil if it was never anchored.
+    function f:__lastPoint() return self.__points[#self.__points] end
+    return f
+  end
+
   -- ── a FontString is not its parent frame, and it raises before it has a face ─────────────
   --
   -- The kit's stub answers every PascalCase key from its metatable, so `CreateFontString` hands
@@ -269,6 +325,46 @@ return function()
   aceAddon.NewAddon = function(self, target, ...)
     local obj = stockNewAddon(self, target, ...)
     return M.__libs["AceEvent-3.0"]:Embed(obj)
+  end
+
+  -- ── AceEvent's EVENT half ──────────────────────────────────────────────────
+  -- The kit's AceEvent fake models the (message, target) BUS and nothing else, because that is the
+  -- half every LibKa0s consumer uses. Real AceEvent-3.0's Embed stamps RegisterEvent /
+  -- UnregisterEvent alongside the message pair, and this addon uses them: modules/Browser.lua
+  -- registers the two combat transitions the General visibility dropdown is about on its OWN
+  -- embedded target (never the shared bus-as-self), so without this half that registration is a
+  -- call on a nil field.
+  --
+  -- Keyed by (event, target) on one shared registry, exactly as the message half is, and exposed
+  -- through __fireAceEvent so a suite can drive a combat transition rather than reaching into the
+  -- module's internals. The kit's AceAddon fake stamps its own recording RegisterEvent onto the
+  -- ADDON object; that one is left alone, so `NS.bus:RegisterEvent` still records into `__events`
+  -- the way every other suite has always seen it.
+  local eventRegistry = {}
+  local aceEvent = M.__libs["AceEvent-3.0"]
+  local stockEmbed = aceEvent.Embed
+  aceEvent.Embed = function(self, obj)
+    obj = stockEmbed(self, obj)
+    if rawget(obj, "RegisterEvent") == nil then
+      obj.RegisterEvent = function(target, event, fn)
+        eventRegistry[event] = eventRegistry[event] or {}
+        eventRegistry[event][target] = fn
+      end
+      obj.UnregisterEvent = function(target, event)
+        if eventRegistry[event] then eventRegistry[event][target] = nil end
+      end
+    end
+    return obj
+  end
+
+  --- Fire one client event at every privately-embedded target that registered it. Returns how many
+  --- handlers ran, so a case can assert it drove something rather than nothing.
+  function M.__fireAceEvent(event, ...)
+    local subs = eventRegistry[event]
+    if not subs then return 0 end
+    local n = 0
+    for _, fn in pairs(subs) do n = n + 1; fn(event, ...) end
+    return n
   end
 
   return M

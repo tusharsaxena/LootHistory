@@ -90,19 +90,20 @@ end
 test("Widgets: the seam builds a real library dropdown, art passed as parameters", function()
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(lib ~= nil, "LibKa0s-Widgets-1.0 did not register")
-  -- Re-pinned to 8 at the v1.19.0 re-vendor, and the pin did its job: the bump stopped the
-  -- suite and forced the re-read, which is the only reason this assertion exists.
+  -- Re-pinned to 9 at the v1.24.0 re-vendor, and the pin did its job twice now: the bump stops the
+  -- suite and forces the re-read, which is the only reason this assertion exists.
   --
-  -- What minor 8 adds is `ReorderList`, a drag-to-reorder controller for a list of rows. This
-  -- addon does not call it. What it DOES call is `Dropdown`, `CloseMenu` and `CopyWindow`, and
-  -- all three are byte-identical between minor 7 and minor 8 -- the only line removed from the
-  -- shipped file across that release is the MINOR constant itself. So the seam below is
-  -- unaffected, and the adoption needed no change beyond this number.
+  -- Minor 8 added `ReorderList` and this addon did not call it. Minor 9 is the release this addon
+  -- ADOPTS it in: the AH Price tab's cascade is dragged now instead of clicked up and down
+  -- (settings/Panel.lua, options-ui-§18), through the seam below. What minor 9 changes on top of 8
+  -- is the chrome the widget owns -- `lib.ROW_BOX`, the bounded box behind every row, the `dimmed`
+  -- variant for an inert one, and a `handleSize` default that moved 24 -> ROW_BOX.HANDLE_W. All
+  -- three are read rather than restated here: core/WidgetsSetup.lua's NS.ReorderRowBox hands the
+  -- table through and settings/Panel.lua reads HANDLE_W off it for the gutter.
   --
-  -- Worth knowing for the NEXT re-read: minor 8 also puts a handle pool and a process-wide drag
-  -- ghost in that file. Neither is reachable without calling ReorderList, so neither touches this
-  -- addon today -- but they are the parts most likely to move again.
-  assertEqual(lib.MODULES.Widgets, 8, "this adoption is written against Widgets minor 8")
+  -- `Dropdown`, `CloseMenu` and `CopyWindow` -- the three this file's other cases drive -- are
+  -- untouched across 7, 8 and 9.
+  assertEqual(lib.MODULES.Widgets, 9, "this adoption is written against Widgets minor 9")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

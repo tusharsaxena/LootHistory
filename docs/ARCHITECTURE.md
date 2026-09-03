@@ -26,7 +26,8 @@ Modular Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI
 LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
 **[LibKa0s](https://github.com/tusharsaxena/LibKa0s)** — the Ka0s-owned shared library behind the
 chat printer, the art and monospace face, the debug console, the slash-command interface, the
-settings canvas and the flat dropdowns. All libraries
+settings canvas with its tab strip and Master-controls composer, the shared drag-to-reorder list
+and the flat dropdowns. All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
 vendored **whole-folder**, because nine of its ten majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
@@ -41,7 +42,9 @@ LibKa0s seams sit inside `core/`, and **four** of their positions are load-beari
 `core/ItemSetup.lua` and `core/MediaSetup.lua` must sit above `core/Constants.lua` (which calls
 `NS.Item.QualityLabel` and reads `NS.MediaFont` at file load), `core/WidgetsSetup.lua` below
 `core/MediaSetup.lua` (the dropdown art resolves through `NS.Icon`), and `core/PoolSetup.lua` above
-every module that pools a widget. The rows below and [module-map.md](module-map.md) carry each one.
+every module that pools a widget. An **eighth** seam sits in `settings/` — `settings/OptionsSetup.lua` —
+and its position is load-bearing too: `settings/Schema.lua` composes its Master controls tab at file
+load through `NS.Options.MasterControls` (options-ui-§15), so the Options seam has to be above it. The rows below and [module-map.md](module-map.md) carry each one.
 
 | File | Role |
 |---|---|
@@ -62,9 +65,9 @@ every module that pools a widget. The rows below and [module-map.md](module-map.
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `currencyBlacklist`, `settings` (incl. `recordCurrency` and the `auction` cascade), `minimap`. |
 | `locales/enUS.lua` | Canonical strings; `NS.L` metatable fallback. |
 | `settings/Schema.lua` | One row per setting — single source for AceDB defaults, panel widgets, slash get/set/list/reset. `Schema:Set` write seam. `NS.COMMANDS`. |
-| `settings/Slash.lua` | The **`LibKa0s-Slash-1.0`** seam. AceConsole `/lh` + `/loothistory`; the dispatcher, help header/rows, landing rows, schema CLI and type-aware parser are the library's, reading the host's positional `NS.COMMANDS`. Host-owned: the purge / reset-everything / filter-list-clear confirm dialogs, `ResetEverything` (the panel's **Reset Everything** button, which is a superset of the `/lh resetall` verb), the `CliResetAll` wrapper that also clears the id-lists, and `FormatSchemaValue` — the descriptor's `format` hook for `type = "table"`, the one row type the library has none for. |
-| `settings/OptionsSetup.lua` | The **`LibKa0s-Options-1.0`** seam: the canvas shell, breadcrumb header, lazy Defaults button, page registry, scroll + always-shown-scrollbar patch, widget makers, two-column flow engine, `SetRenderer` and the two refresh tiers. Where every declined surface is recorded. Must load before `settings/Panel.lua`. |
-| `settings/Panel.lua` | The page builders on top of that seam: the landing page, General, Filters and AH Price, plus the live DB stats block and the two widgets the library has no maker for (the inverted set picker and the pooled AH price table). |
+| `settings/Slash.lua` | The **`LibKa0s-Slash-1.0`** seam. AceConsole `/lh` + `/loothistory`; the dispatcher, help header/rows, landing rows, schema CLI and type-aware parser are the library's, reading the host's positional `NS.COMMANDS`. Host-owned: the purge / global-reset / filter-list-clear confirm dialogs, `ResetEverything` (the Master controls tab's **Reset all settings** button — options-ui-§12's global reset, and a superset of the `/lh resetall` verb), the `CliResetAll` wrapper that also clears the id-lists, and `FormatSchemaValue` — the descriptor's `format` hook for `type = "table"`, the one row type the library has none for. |
+| `settings/OptionsSetup.lua` | The **`LibKa0s-Options-1.0`** seam: the canvas shell, breadcrumb header, lazy Defaults button, page registry, scroll + always-shown-scrollbar patch, widget makers, two-column flow engine, `SetRenderer`, the two refresh tiers, the page chrome (`TabStrip` / `SubTabStrip`) and the schema composers (`MasterControls`). Where every declined surface is recorded. **Its TOC position is load-bearing** — `settings/Schema.lua` calls `NS.Options.MasterControls` at file load, and `settings/Panel.lua` takes `NS.Options` as a file-scope upvalue, so it must load above both. |
+| `settings/Panel.lua` | The page builders on top of that seam: the landing page and the one **General** subcategory, whose six-tab strip is drawn by hand because two of its tabs (Filters, AH Price) hold no schema rows to partition. Plus the live DB stats block and the two surfaces the library has no maker for — the inverted set picker and the pooled AH price table, the latter now reordered through the shared `ReorderList`. |
 | `modules/AuctionPrice.lua` | `NS.AuctionPrice:GatherAll(itemLink, itemID)` reads an AH price for a just-looted item from every installed third-party pricing addon (Auctionator / TSM / OribosExchange), capturing **every configured key** into a nested `provider → key → copper` map (`settings.auction.capture`), not just one; every provider call is `pcall`-wrapped so a broken/absent addon degrades to `nil` and the gather continues. `NS.AuctionPrice:Pick(map)` is the read-time seam that selects one price from that map via the user-configurable `settings.auction.priority` cascade (first present key wins), returning `price, tag`. Third-party integration boundary — presence-gated here, **deliberately outside** `core/Compat.lua` (Blizzard-API-only); see Standards compliance below. |
 | `modules/Attribution.lua` | Source-resolution engine: stamps `State.lootContext` from peripheral events; `Consume` returns source/detail/confidence or `OTHER`/`INFERRED`. Loads before Filters/Collector. |
 | `modules/Filters.lua` | `NS.Filters`: the blacklist/whitelist item-id lists — `Add`/`Remove` (copy-on-write, mutually exclusive), `Blacklist`/`Whitelist` (the live id sets), `SortedIDs`, `ParseItemID` — **plus the currency blacklist** (`AddCurrencyBlacklist`/`RemoveCurrencyBlacklist`, `CurrencyBlacklist`, `ParseCurrencyID`; blacklist-only, keyed by `currencyID`). On change: a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()`. Data-only; loads before Collector; no `Enable`. |
@@ -93,36 +96,52 @@ The full field table, the `SourceType` / `Confidence` enums, currency rows, the 
 panel widget, and the slash get/set/list/reset behavior. Every mutation flows through
 `Schema:Set(path, value)` (validate → write to `NS.db.global` → `onChange`).
 
-Twelve rows ship today, on **two** schema-backed pages. A row's `page` is the canvas subcategory
-it is edited on, its `group` is the **tab** within that page (options-ui-§13), and its `path` is
-where the value is stored — three independent facts. The General page draws a strip of three tabs
-in declaration order (**Collection** 5 rows, **Interface** 4, **Maintenance** 1); AH Price holds one
-group, so it draws no strip.
+Sixteen rows ship today, on **one** schema-backed page. A row's `page` is the canvas subcategory
+it is edited on, its `group` is the **tab** within that page (options-ui-§13), its optional
+`subgroup` is a subsection heading *inside* a tab (options-ui-§7), and its `path` is where the value
+is stored — four independent facts. R6 deprecated the Filters and AH Price sub-pages into General,
+so the panel is a parent landing page plus **one** subcategory whose strip is six tabs:
+**Master controls** (6 rows) · **Capture** (4) · **AH Price** (2) · **Interface** (3) ·
+**History** (1) · **Filters** (0 — bespoke). Those names and that order are shared with **Ka0s Bank
+Ledger**, whose strip is the same minus AH Price (options-ui-§15). The strip is drawn by hand rather
+than by `O.RenderTabbedSchema`, because one of the six tabs holds no rows for it to partition.
+
+The **Master controls** block is composed by `O.MasterControls` (options-ui-§15), never hand-written.
 
 | Path | Page ▸ Tab | Widget | Default | Notes |
 |---|---|---|---|---|
-| `settings.enabled` | General ▸ Collection | CheckBox | `true` | Master capture switch. Fires `SettingsChanged`. |
-| `settings.qualityThreshold` | General ▸ Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
-| `settings.recordCurrency` | General ▸ Collection | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
-| `settings.excludeQuestItems` | General ▸ Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
-| `settings.excludedSources` | General ▸ Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"), host-drawn from `afterGroup`. Fires `SettingsChanged`. |
-| `settings.windowScale` | General ▸ Interface | Slider (0.6–1.6, step 0.05) | `1.0` | Browser window scale (applied live). |
-| `settings.rowHeight` | General ▸ Interface | Slider (14–28, step 1) | `18` | History-table row height in pixels; was `local ROW_H = 18` in `modules/BrowserTable.lua`. Clamped on read (`BrowserTable.RowHeight`) because the value comes from SavedVariables. Re-binds the table on change. |
-| `minimap.hide` | General ▸ Interface | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
-| `state.debugConsole` | General ▸ Interface | CheckBox | `false` | **Session-only** (`sessionOnly`): shows/hides the debug console; never persisted (`get`/`set` proxy `NS.DebugLog`). |
-| `settings.retentionDays` | General ▸ Maintenance | Dropdown | `30` | `0` = keep Always. Prunes on change. The tab's other three controls — the storage readout, **Purge history…** and **Reset Everything** — are bespoke and have no path. |
-| `settings.auction.enabled` | AH Price | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
-| `settings.auction.capture` | AH Price | MultiCheck (`skipRender`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source: a ticked source is gathered at loot time *and* participates in the priority cascade. Schema-backed for the default/slash CLI, but rendered by the AH Price sub-page's unified price table (`settings/Panel.lua` `buildAuctionTable`) as the per-row Enabled checkbox. |
+| `settings.enabled` | General ▸ Master controls | CheckBox | `true` | Master capture switch. Fires `SettingsChanged`. |
+| `settings.visibility` | General ▸ Master controls | Dropdown | `"always"` | `always` / `inCombat` / `outOfCombat` / `never`. Honoured by `Browser:VisibilityAllows` — `B:Show` refuses, and the two combat transitions hide a window the setting has stopped allowing. Never opens the window by itself. |
+| `settings.scale` | General ▸ Master controls | Slider (0.5–2, step 0.05) | `1.0` | **Addon-wide.** `Browser:ApplyChrome` multiplies it by `settings.windowScale` for the History window; the export modal takes it alone. |
+| `settings.alpha` | General ▸ Master controls | Slider (0–1, step 0.05) | `1.0` | **Addon-wide** opacity, same two frames. |
+| `settings.locked` | General ▸ Master controls | CheckBox | `false` | Gates both `OnDragStart` handlers (History window title bar, export modal title bar) rather than un-setting `SetMovable`. |
+| `state.debugConsole` | General ▸ Master controls | CheckBox | `false` | **Session-only** (`sessionOnly`): shows/hides the debug console; never persisted (`get`/`set` proxy `NS.DebugLog`). Moved here from Interface. |
+| `settings.qualityThreshold` | General ▸ Capture | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
+| `settings.recordCurrency` | General ▸ Capture | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
+| `settings.excludeQuestItems` | General ▸ Capture | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
+| `settings.excludedSources` | General ▸ Capture | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"), host-drawn from `afterGroup`. Fires `SettingsChanged`. |
+| `settings.auction.enabled` | General ▸ AH Price ▸ *Pricing* | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
+| `settings.auction.capture` | General ▸ AH Price ▸ *Price sources* | MultiCheck (`skipRender`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source. Schema-backed for the default/slash CLI, rendered as the price table's per-row Enabled checkbox. It also **declares the "Price sources" heading** — `startSubgroup` runs before the `skipRender` check. |
+| `settings.windowScale` | General ▸ Interface ▸ *Window* | Slider (0.6–1.6, step 0.05) | `1.0` | The History window's OWN scale, multiplied by `settings.scale` (applied live). |
+| `settings.rowHeight` | General ▸ Interface ▸ *Window* | Slider (14–28, step 1) | `18` | History-table row height in pixels; was `local ROW_H = 18` in `modules/BrowserTable.lua`. Clamped on read (`BrowserTable.RowHeight`) because the value comes from SavedVariables. Re-binds the table on change. |
+| `minimap.hide` | General ▸ Interface ▸ *Minimap* | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
+| `settings.retentionDays` | General ▸ History | Dropdown | `30` | `0` = keep Always. Prunes on change. The tab's other two controls — the storage readout and **Purge history…** — are bespoke and have no path. |
+
+The Master controls tab closes with a **button pair** rather than rows, because the two are acts and
+not settings (options-ui-§15): **Reset position** (`Browser:ResetWindow`) and **Reset all settings**
+(options-ui-§12's global reset — the `KA0S_LOOTHISTORY_RESETALL` confirm into `Slash:ResetEverything`,
+which was the Maintenance tab's "Reset Everything" button before this release).
 
 `settings.auction.priority` (ordered `"provider:key"` cascade) is a carve-out, not a Schema row — see
-the "AH Price" subcategory's unified price table (`buildAuctionTable`: a frame-light, reused-slot table
-with per-row tick / addon / price-module / reorder-arrows / enable-checkbox / status columns) and
+the **AH Price tab**'s unified price table (`buildAuctionTable`: a frame-light, pooled-slot table with
+per-row drag handle / tick / addon / price-module / enable-checkbox / status columns, reordered by
+`LibKa0s-Widgets-1.0`'s shared `ReorderList` rather than by arrows, options-ui-§18) and
 [`schema.md`](schema.md). (The former per-tag `priorityDisabled` carve-out was
 removed — collection and priority are now the single `capture` flag.)
 
 `settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
 (LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced
-in the settings **Filters** subcategory) are storage/data state written straight to `NS.db.global`,
+in the settings panel's **Filters** tab) are storage/data state written straight to `NS.db.global`,
 **not** Schema rows and not routed through `Schema:Set` — an accepted carve-out (see Standards
 compliance, and [`schema.md`](schema.md)). Debug is session-only (`NS.State.debug`)
 and never persisted.
@@ -143,17 +162,20 @@ table reach.
 | Message | Sender | Payload | Consumers |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats). Browser and Analytics run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
-| `Ka0s_LootHistory_HistoryChanged` | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + Filters page) |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` (enabled / quality / questfilter / currency / excludes) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+| `Ka0s_LootHistory_HistoryChanged` | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` — eight handlers, six reasons (enabled / quality / questfilter / currency / excludes, plus `chrome` from the Master controls tab's `scale` / `alpha` / `locked`) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 > A blacklist/whitelist edit stays within the one-sender rule: it re-caches the Collector via a
 > **direct** `Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) and broadcasts
 > `HistoryChanged` through `Database:FireHistoryChanged()` (so `Database` remains that message's sole
-> sender). The Panel's Filters page subscribes to `HistoryChanged` on its own second bus target.
+> sender). The Panel's Filters TAB subscribes to `HistoryChanged` on its own second bus target.
 
-> `windowScale` and `minimap.hide` changes are **not** broadcast on the bus — their `onChange`
-> calls `Browser:SetScale` / `Browser:SetMinimapHidden` directly. Only `enabled`, quality,
-> quest-item filter and excludes (which affect capture) fan out via `SettingsChanged`.
+> `windowScale`, `rowHeight`, `retentionDays` and `minimap.hide` changes are **not** broadcast on
+> the bus — their `onChange` reaches `Browser:SetScale` / `BrowserTable:Bind` /
+> `Database:PruneOld` / `Browser:SetMinimapHidden` directly. What does fan out via
+> `SettingsChanged` is the five capture settings (`enabled`, quality, currency, quest-item filter,
+> excludes) plus the Master controls tab's three chrome settings (`scale`, `alpha`, `locked`),
+> which share the one `"chrome"` reason.
 
 ---
 
@@ -173,7 +195,7 @@ dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `set <path> <value>` | Set a setting value |
 | `list` | List all settings |
 | `reset <path>` | Reset one setting to its default |
-| `resetall` | Reset all settings to defaults (non-destructive: history is untouched). The **destructive** form is the panel's Reset Everything button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile |
+| `resetall` | Reset all settings to defaults (non-destructive: history is untouched). The **destructive** form is the Master controls tab's **Reset all settings** button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile. The two are deliberately different acts today: a **ratified** divergence from that rule's opening sentence, carried as a row in [§ Documented deviations](#documented-deviations); scope matrix in [`schema.md`](schema.md#reset-semantics) |
 | `debug` | Toggle the debug console (session-only) |
 | `test` | Toggle a synthetic preview dataset for the table and Insights (session-only) |
 | `purge` | Delete ALL loot history (confirm dialog) |
@@ -369,6 +391,7 @@ Three such records were retired rather than carried in here, and are named below
 | `architecture-§5` | Five pieces of persistent state are written to `NS.db.global` directly rather than through `NS.Schema:Set`: `settings.window` geometry, `savedView`, the `blacklist` / `whitelist` item-id sets, `currencyBlacklist`, and the `settings.auction.priority` ordered cascade. | A dynamic, unbounded id-set and an ordered cascade have no fixed schema widget to express, so there is no row for `Set` to validate against. Owned by `NS.Filters` / `NS.AuctionPrice`; reasoned in [`schema.md`](schema.md) *Standards note* and in **Standards compliance** above. | 2026-07-17 | `options-ui` gains a set/list widget maker, or any of these five acquires a fixed schema row — at which point it moves back under the single write seam. |
 | `architecture-§5` | The schema carries a **`sessionOnly` row kind** (`get`/`set` accessors, never written to `db.global`), used by the "Debug console" window-visibility toggle. | It extends schema-as-single-source rather than breaking it — the toggle is a real schema row driving the panel, the CLI and reset — but it is a row that deliberately never reaches the DB, because `debug-logging` makes the debug flag session-only. See [`settings-panel.md`](settings-panel.md). | 2026-07-17 | The standard names a session-only row kind (then this is compliant, not a deviation), or the toggle becomes persistent. |
 | `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-analysis/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`performance.md`](performance.md), which names the per-event work for all eleven events and all four one-shot timers. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. Closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22). | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
+| `options-ui-§12` | **Three reset controls, three blast radii**, where §12's opening sentence puts the **Reset all settings** control, the header **Defaults** button and `/lh resetall` behind **one** implementation. **Reset all settings** (Master controls) confirms and runs `Sl:ResetEverything` (`settings/Slash.lua:108`), which empties `db.global` wholesale — settings, the three id-lists, `savedView`, window geometry **and the recorded loot history**. The **Defaults** button (`P:RestoreDefaults`, `settings/Panel.lua:947`) and the `resetall` verb (`Sl:CliResetAll`, `settings/Schema.lua:432`) reach the schema rows, the three id-lists and the auction cascade only, and never touch `history`. | §12's translation for an addon with **no profile section** is *empty the account-wide store wholesale*, and its own closing paragraph carves out an account-wide **record** as "a separate, separately-confirmed act — never folded into *reset settings*". This addon has both in **one** table: `db.global` holds the settings and the loot ledger, so the translation and the carve-out point opposite ways and the rule does not resolve itself. `/lh purge` is the separately-confirmed act for the ledger half. Re-pointing `resetall` — documented as non-destructive in README, `slash-dispatch.md` and `smoke-tests.md`, and the answer README gives to "reset my settings but keep the history" — at a history-destroying act is **data loss for anyone with the macro**, so it is a maintainer's call and not a refactor: raised at the v2 settings adoption and recorded rather than reconciled. Scope matrix in [`schema.md`](schema.md#reset-semantics). | 2026-09-02 | **The maintainer rules on one of the two reconciliations**, and either one ends this row: (a) all three route to `ResetEverything`, the slash verb confirm-gated like the button, with README / [`slash-dispatch.md`](slash-dispatch.md) rewritten and the behaviour break called out in the release notes; or (b) `options-ui-§12` grows the profile-less split this addon needs — a settings reset that spares an account-wide **record**, beside that record's own separately-confirmed purge. |
 | `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. Closed issue [**LIBKA0S-14**](https://github.com/tusharsaxena/LootHistory/issues/20). | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
 
 **Retired, deliberately not rows.** [`LIBKA0S-02`](https://github.com/tusharsaxena/LootHistory/issues/19)'s declined window skin — `Core.SKIN` **is** this

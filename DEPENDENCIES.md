@@ -46,7 +46,7 @@ never touches them at load, only when a price is gathered.
 | Tool | Version | Why it is needed | Verify |
 |------|---------|------------------|--------|
 | **Lua** | **5.1 — a hard requirement** | The headless harness `setfenv`s every loaded chunk into a mock environment (`tests/_kit/loader.lua:72`, `:91`; the Lua-5.1 soundness argument is written out at `:45`). `setfenv` was **removed in Lua 5.2**, so the suite does not run on 5.2+ — this is a requirement, not a preference. It also matches the client: WoW runs Lua 5.1 (`docs/testing.md:3`). | `lua -v` → `Lua 5.1.x` |
-| **luacheck** | any recent (developed against 1.2.0) | The lint gate, `luacheck .`, must report 0 warnings / 0 errors before every commit (`docs/testing.md:137`). Config is `.luacheckrc`. | `luacheck --version` |
+| **luacheck** | any recent (developed against 1.2.0) | The lint gate, `luacheck .`, must report 0 warnings / 0 errors before every commit (`docs/testing.md:143`). Config is `.luacheckrc`. | `luacheck --version` |
 | **lizard** | any recent (developed against 1.23.0) | Drives the `complexity` suite of the automated-test run at release (`automated-tests`; see "The complexity report" in [`docs/testing.md`](docs/testing.md)). **Optional** — its absence means the committed report is stale, not that the addon is broken. | `lizard --version` |
 | **git** | any recent | Beyond version control: `tests/_kit/vendor_sync.lua:184` shells out to `git -C ../LibKa0s …` (and `:225` for the `cat-file --batch` bulk read, `:258` for `ls-tree -r`) to prove the vendored payload matches the LibKa0s tag `CLAUDE.md` names. Without `git` on `PATH` those cases skip rather than fail. | `git --version` |
 | **A POSIX shell with `find`** | any | `tests/_kit/vendor_sync.lua:104-125` lists a directory by shelling out through `io.popen` — `find` under every shell this suite is actually run under, `dir /b /s` for `cmd.exe` (Lua 5.1 has no directory API and this repo does not depend on LuaFileSystem). Under WSL2 the `find` path is the one taken. | `find --version` |
@@ -109,7 +109,7 @@ bash --version           # 4.0+ <- the automated-test runner uses associative ar
   ships **no font and no icons of its own** — both arrive inside the vendored LibKa0s payload
   (`libs/LibKa0s/media/`), whose provenance and licences are that library's to carry.
 - The generated docs are produced by tools already listed above —
-  `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md:121`) and the `lizard`
+  `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md:135`) and the `lizard`
   invocation in `performance-§10`.
 
 **Python is not a dependency of this addon.** Two things on disk suggest otherwise and both are

@@ -554,3 +554,123 @@ test("browser: HistoryChanged still repaints immediately", function()
 
   B.OnHistoryChanged = real
 end)
+
+-- ── Master controls: the addon-wide chrome (options-ui-§15) ───────────────────
+--
+-- Four settings arrived on the Master controls tab that this addon had never had: General
+-- visibility, Master scale, Master alpha and Lock frame. A setting that is DECLARED and not
+-- HONOURED is worse than one that is absent, so each is pinned against the code that reads it
+-- rather than against the schema that declares it.
+
+local function withSettings(patch, fn)
+  local s = NS.db.global.settings
+  local saved = {}
+  for k, v in pairs(patch) do saved[k] = s[k]; s[k] = v end
+  local ok, err = pcall(fn)
+  for k in pairs(patch) do s[k] = saved[k] end
+  if not ok then error(err) end
+end
+
+--- A frame that records what was scaled and faded onto it. The kit's stub answers the frame itself
+--- for any capitalized call, so the setters have to be rawset — and rawset back to nil after, or
+--- the recorder outlives the case.
+local function recordingFrame()
+  local f = T.mocks.CreateFrame("Frame")
+  rawset(f, "SetScale", function(_, v) f.__scale = v end)
+  rawset(f, "SetAlpha", function(_, v) f.__alpha = v end)
+  return f
+end
+
+test("browser: master scale MULTIPLIES the per-window scale, it does not replace it", function()
+  -- options-ui-§15: where an addon's frames are per-instance, the master rows are the addon-wide
+  -- ones and the per-instance scale stays on the instance — "the two are different settings and
+  -- MUST NOT be conflated". `settings.windowScale` is the History window's own; `settings.scale`
+  -- is every frame's.
+  -- red under: writing `f:SetScale(windowScale)` or `f:SetScale(master)` alone — either one drops
+  -- a setting the panel still shows.
+  withSettings({ scale = 2.0, alpha = 0.5 }, function()
+    local f = recordingFrame()
+    B:ApplyChrome(f, 1.25)
+    T.assertNear(f.__scale, 2.5, 1e-9, "2.0 master x 1.25 window")
+    T.assertNear(f.__alpha, 0.5, 1e-9)
+
+    -- A frame with no per-window scale of its own (the export modal) takes the master alone.
+    local g = recordingFrame()
+    B:ApplyChrome(g, nil)
+    T.assertNear(g.__scale, 2.0, 1e-9)
+  end)
+end)
+
+test("browser: an absent master scale/alpha falls back to the shipped 1.0, never to nil", function()
+  -- SetScale(nil) raises in the client. The read has to answer a number for a profile written
+  -- before these keys existed.
+  withSettings({ scale = nil, alpha = nil, locked = nil }, function()
+    local scale, alpha, locked = B:MasterChrome()
+    assertEqual(scale, 1.0); assertEqual(alpha, 1.0); assertEqual(locked, false)
+  end)
+end)
+
+test("browser: Lock frame is what the drag handler asks, and it is addon-wide", function()
+  -- red under: gating on anything else, or forgetting the export modal — modules/Export.lua asks
+  -- NS.Browser:IsLocked() for its own title bar, so ONE setting locks both frames.
+  withSettings({ locked = true }, function() assertTrue(B:IsLocked()) end)
+  withSettings({ locked = false }, function() assertFalse(B:IsLocked()) end)
+end)
+
+test("browser: General visibility answers all four modes against the combat state", function()
+  -- red under: treating the row as a boolean (which is exactly what options-ui-§15 forbids: a
+  -- boolean can only ever answer two of the four).
+  local realCombat = T.mocks.InCombatLockdown
+  local function combat(v) T.mocks.InCombatLockdown = function() return v end end
+
+  combat(false)
+  withSettings({ visibility = "always" },      function() assertTrue(B:VisibilityAllows()) end)
+  withSettings({ visibility = "never" },       function() assertFalse(B:VisibilityAllows()) end)
+  withSettings({ visibility = "inCombat" },    function() assertFalse(B:VisibilityAllows()) end)
+  withSettings({ visibility = "outOfCombat" }, function() assertTrue(B:VisibilityAllows()) end)
+
+  combat(true)
+  withSettings({ visibility = "always" },      function() assertTrue(B:VisibilityAllows()) end)
+  withSettings({ visibility = "never" },       function() assertFalse(B:VisibilityAllows()) end)
+  withSettings({ visibility = "inCombat" },    function() assertTrue(B:VisibilityAllows()) end)
+  withSettings({ visibility = "outOfCombat" }, function() assertFalse(B:VisibilityAllows()) end)
+
+  T.mocks.InCombatLockdown = realCombat
+  -- An unset value is "always", so a profile from before the row existed still opens its window.
+  withSettings({ visibility = nil }, function() assertTrue(B:VisibilityAllows()) end)
+end)
+
+test("browser: Show refuses while the visibility setting forbids it, and says why", function()
+  -- The window is opened on demand, so honouring the setting means REFUSING — and a silent refusal
+  -- reads as a broken slash command.
+  -- red under: dropping the guard from B:Show, or from B:Toggle (which routes through it).
+  local lines = {}
+  local cf = T.mocks.DEFAULT_CHAT_FRAME
+  local oldAdd = cf.AddMessage
+  cf.AddMessage = function(_, msg) lines[#lines + 1] = msg end
+  withSettings({ visibility = "never" }, function()
+    B:Show()
+    B:Toggle()
+  end)
+  cf.AddMessage = oldAdd
+  assertEqual(#lines, 2, "both entry points refuse")
+  assertTrue(lines[1]:find("visibility", 1, true) ~= nil,
+    "the refusal must name the setting: " .. tostring(lines[1]))
+  assertTrue(B:GetWindow() == nil, "a refused open must not build the window either")
+end)
+
+test("browser: a combat transition re-applies visibility through the private event target",
+  function()
+    -- The two events are registered on B.__ev (never the shared bus-as-self), and ApplyVisibility
+    -- only ever HIDES: "Only in combat" is a permission, not an instruction to pop a browser over
+    -- a pull.
+    -- red under: registering them on NS.bus (they would clobber nothing, but the mock's fan-out
+    -- below reaches only the private targets, so the case goes red), or dropping the registration.
+    B:Enable()
+    local ran, real = 0, B.ApplyVisibility
+    B.ApplyVisibility = function() ran = ran + 1 end
+    assertTrue(T.mocks.__fireAceEvent("PLAYER_REGEN_DISABLED") >= 1, "nothing registered the event")
+    T.mocks.__fireAceEvent("PLAYER_REGEN_ENABLED")
+    B.ApplyVisibility = real
+    assertEqual(ran, 2, "both transitions re-apply the setting")
+  end)

@@ -4,6 +4,13 @@ local S = NS.Schema
 local C = NS.Constants
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
+-- The LibKa0s-Options-1.0 instance, for its SCHEMA COMPOSERS only -- no widget, no AceGUI, no
+-- state: O.MasterControls is a pure function returning an array of ordinary rows (options-ui-§15).
+-- settings/OptionsSetup.lua is listed ABOVE this file in LootHistory.toc precisely so it is here,
+-- and on a degraded install it is the no-op stub, whose MasterControls answers no rows at all --
+-- which is the same shape every other member of that stub takes (see settings/OptionsSetup.lua).
+local O = NS.Options
+
 -- ONE declaration site per shipped value (savedvariables-§2). A row's `default` READS the
 -- account-wide declaration in defaults/Global.lua rather than restating the literal — the same move
 -- `settings.auction.capture` already makes against core/Constants.lua. Two literals for one value is
@@ -17,12 +24,15 @@ local G = NS.defaults.global
 -- Paths resolve against NS.db.global (account-wide), not .profile.
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
--- `page`  names the canvas SUBCATEGORY the row is edited on — "General" or "AH Price". It is what
---         the descriptor's `rowsForPage` matches on (settings/OptionsSetup.lua).
--- `group` names the TAB within that page. O.RenderTabbedSchema partitions a page's rows by group
---         IN DECLARATION ORDER and draws one tab per distinct group, so the order of this array is
---         the order of the strip and a group's rows MUST be contiguous — a row filed under a group
---         the page has already left prints its heading a second time further down.
+-- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
+--         — because R6 deprecated the Filters and AH Price sub-pages into it. It is what the
+--         descriptor's `rowsForPage` matches on (settings/OptionsSetup.lua).
+-- `group` names the TAB within that page. settings/Panel.lua partitions the page's rows by group
+--         IN DECLARATION ORDER, so the order of this array is the order of the strip and a group's
+--         rows MUST be contiguous — a row filed under a group the page has already left would draw
+--         its tab a second time.
+-- `subgroup` names a SUBSECTION heading inside a tab, for a tab that mixes control types
+--         (options-ui-§7). Unlike a group heading it is NOT suppressed under a strip.
 -- `path`  is where the value is STORED, and it is allowed to disagree with both. Nothing below
 --         moved paths when the tabs were designed: renaming a stored key migrates every saved
 --         profile for something nobody can see.
@@ -40,30 +50,147 @@ local G = NS.defaults.global
 --   panelSkip        -> skipRender   keep the row in the schema, let the host draw it bespoke
 -- `tooltip` deliberately did NOT move: the library reads `tooltip` first and its own `desc` second.
 -- `widget`, `wide`, `invert`, `sessionOnly`, `fmt`, `get`, `set` and `onChange` stay this addon's.
-S.Schema = {
-  -- ── General ▸ Collection ──
-  -- What gets recorded, and the master switch over all of it. First tab because it is the one a
-  -- player opens this page to change; the master toggle leads the rows it governs.
-  { path = "settings.enabled", default = G.settings.enabled, type = "bool", widget = "CheckBox",
-    page = "General", group = "Collection", label = "Enable collection",
-    tooltip = "Master switch for recording looted items.",
+-- ── The Master controls tab (options-ui-§15) ───────────────────────────────────────────────────
+--
+-- COMPOSED, never hand-written. `O.MasterControls` emits the canonical eight in the canonical
+-- order from one declaration, which is what stops nine addons drifting into nine orders; the tab
+-- name is the literal `Master controls` and it is simultaneously the rows' `group`, the strip's
+-- first label and the `afterGroup` key the closing button pair hangs off (settings/Panel.lua).
+--
+-- NOT `frameless`. `grep -rn "SetMovable(true)" core modules` finds two frames -- the History
+-- window (modules/Browser.lua) and the export modal (modules/Export.lua) -- so every frame-only
+-- row applies and none may be omitted.
+--
+-- `defaults` is passed for the same reason every row below reads `G.<path>`: ONE declaration site
+-- per shipped value (savedvariables-§2). Without it the composer's own literals would be a second
+-- copy of five defaults, and tests/test_schema.lua's shipped-equals-declared case would have
+-- nothing left to compare.
+local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
+  prefix           = "settings.",
+  page             = "General",
+  addonName        = "Loot History",
+  debugConsolePath = "state.debugConsole",
+  defaults = {
+    enabled    = G.settings.enabled,
+    visibility = G.settings.visibility,
+    scale      = G.settings.scale,
+    alpha      = G.settings.alpha,
+    locked     = G.settings.locked,
+    -- Session-only, so there is nothing in defaults/Global.lua to read it from: the console is
+    -- closed at every load and "closed" is `false`. Declared all the same, because a row with no
+    -- default is a row `/lh reset` cannot restore and a `Schema:Default` that answers nil.
+    debugConsole = false,
+  },
+  -- Its own button now, over the window geometry carve-out. It used to be folded into the General
+  -- page's Defaults handler, where a player asking for "defaults" also got their window recentred
+  -- and a player who only wanted it recentred had no way to say so.
+  onResetPosition = function()
+    if NS.Browser and NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
+  end,
+  -- options-ui-§12's global reset, verbatim: the confirm-gated total reset this addon already
+  -- shipped as the Maintenance tab's "Reset Everything" button. Same popup, same wording, same
+  -- blast radius -- only the label and the tab moved, and both moved because the standard names
+  -- them.
+  onResetAll = function()
+    if type(StaticPopup_Show) == "function" then
+      StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
+    elseif NS.Slash and NS.Slash.ResetEverything then
+      NS.Slash:ResetEverything()
+    end
+  end,
+}
+
+--- The composer emits DECLARATION; behaviour is still the host's.
+---
+--- Stamped onto the emitted rows by path rather than typed into a second hand-written copy of the
+--- block, which is the whole point of composing it: `onChange` (this addon's side-effect hook),
+--- `widget` (declarative, read by docs and the row inventory), `fmt` (how the slash CLI prints a
+--- value) and the two session-only accessors are fields the library's composer knows nothing
+--- about. A path the composer did not emit -- because a future `omit` dropped it -- simply finds
+--- no row and stamps nothing.
+local function stamp(rows, extras)
+  for _, row in ipairs(rows) do
+    local add = extras[row.path]
+    if add then for k, v in pairs(add) do row[k] = v end end
+  end
+  return rows
+end
+
+stamp(MASTER_ROWS, {
+  ["settings.enabled"] = {
+    widget = "CheckBox",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
-    end },
+    end,
+  },
+  ["settings.visibility"] = {
+    widget = "Dropdown",
+    onChange = function()
+      if NS.Browser and NS.Browser.ApplyVisibility then NS.Browser:ApplyVisibility() end
+    end,
+  },
+  ["settings.scale"] = {
+    widget = "Slider", fmt = "%.2fx",   -- scale → "1.00x" in slash list/get (slash-commands-§5)
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+    end,
+  },
+  ["settings.alpha"] = {
+    widget = "Slider",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+    end,
+  },
+  ["settings.locked"] = {
+    widget = "CheckBox",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+    end,
+  },
+  -- Session-only (never persisted): its value is the debug console WINDOW's visibility, not the
+  -- NS.State.debug logging flag. get/set route to NS.DebugLog (Show/Hide/IsShown); Schema:Set skips
+  -- the db.global write for sessionOnly rows. Mirrors `/lh debug` (no-arg), which toggles the
+  -- window too. The composer declares the row and marks it sessionOnly; WHERE the value lives is
+  -- this addon's, so the two accessors are stamped here.
+  ["state.debugConsole"] = {
+    widget = "CheckBox",
+    get = function() return NS.DebugLog ~= nil and NS.DebugLog:IsShown() end,
+    set = function(v)
+      if not NS.DebugLog then return end
+      if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
+    end,
+  },
+})
 
-  -- Row order drives the two-column panel pairing, so declaration order IS the layout. The master
-  -- toggle pairs with the gate it governs on the first line ([Enable collection] [Minimum
-  -- quality]), the two exclusion checkboxes on the second, and the wide source picker lands under
-  -- both from `afterGroup`.
+--- The closing button pair's `afterGroup` hook, handed to settings/Panel.lua under the group name
+--- the composer used. The GROUP NAME IS THE HOOK KEY: renaming the group detaches the hook and
+--- nothing errors, which is why neither end spells the literal twice.
+S.MASTER_GROUP     = O.MASTER_GROUP or "Master controls"
+S.MasterAfterGroup = MASTER_AFTER_GROUP
+
+local ROWS = {
+  -- ── General ▸ Capture ──
+  -- What gets recorded. The addon-wide master switch over all of it is NOT here any more: it is
+  -- `settings.enabled`, and it moved to the Master controls tab where options-ui-§15 puts it.
+  --
+  -- CALLED Capture, AND IT WAS CALLED Collection. Ka0s Bank Ledger names the same subject Capture
+  -- and its retention tab History; the two addons keep the same shape of record and a player
+  -- compares their panels directly, so one subject now carries one name across both. A tab name is
+  -- a `group` and never a stored path, so this was a rename and owed no migration
+  -- (options-ui-§15).
+  --
+  -- Row order drives the two-column panel pairing, so declaration order IS the layout: the quality
+  -- gate pairs with "Record currency" on the first line, "Exclude quest items" opens the second,
+  -- and the wide source picker lands under both from `afterGroup`.
   { path = "settings.qualityThreshold", default = G.settings.qualityThreshold, type = "number", widget = "Dropdown",
-    page = "General", group = "Collection", label = "Minimum quality", values = C.QUALITY_OPTIONS,
+    page = "General", group = "Capture", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
     end },
 
   { path = "settings.recordCurrency", default = G.settings.recordCurrency, type = "bool", widget = "CheckBox",
-    page = "General", group = "Collection", label = "Record currency",
+    page = "General", group = "Capture", label = "Record currency",
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
     onChange = function()
@@ -71,7 +198,7 @@ S.Schema = {
     end },
 
   { path = "settings.excludeQuestItems", default = G.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
-    page = "General", group = "Collection", label = "Exclude quest items",
+    page = "General", group = "Capture", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
@@ -83,15 +210,53 @@ S.Schema = {
   -- fires after the group's last row is flushed.
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
     wide = true, invert = true,
-    page = "General", group = "Collection", label = "Record data from", values = C.SOURCE_OPTIONS,
+    page = "General", group = "Capture", label = "Record data from", values = C.SOURCE_OPTIONS,
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
     end },
 
+  -- ── General ▸ AH Price ──
+  -- Was its own canvas sub-page until R6 deprecated it into General (options-ui-§13: a Ka0s page
+  -- is a strip, and three sub-pages of two tabs each is three strips a player has to find). It is
+  -- a TAB now, and the tab body is still the pooled price table settings/Panel.lua draws.
+  --
+  -- The tab mixes a plain toggle with an eleven-row reorder table, so it carries SUBSECTION
+  -- headings (options-ui-§7): both are declared by a row, never drawn by the builder, which is
+  -- what keeps the tab list derivable from `group` alone.
+  { path = "settings.auction.enabled", default = G.settings.auction.enabled, type = "bool",
+    widget = "CheckBox",
+    page = "General", group = "AH Price", subgroup = "Pricing", label = "Enable AH pricing",
+    tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
+  -- skipRender: the tab renders this as the unified price table's per-row Enabled checkboxes
+  -- (settings/Panel.lua buildAuctionTable) — `capture` is now the single collect+rank flag, not
+  -- just "record". The row stays schema-backed so its default resolves and the slash CLI can still
+  -- read/write it. widget/options are retained so the CLI can present it as a checklist.
+  --
+  -- It is also the row that DECLARES the "Price sources" heading. `startSubgroup` runs before the
+  -- `skipRender` check, so a row that draws no widget still opens its subsection — which is how
+  -- the table below it gets a heading without a builder drawing one (options-ui-§7).
+  { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
+    widget = "MultiCheck", wide = true, skipRender = true,
+    page = "General", group = "AH Price", subgroup = "Price sources",
+    label = "Collect & rank these prices",
+    values = NS.Constants.AUCTION_CAPTURE_OPTIONS },
+
   -- ── General ▸ Interface ──
-  -- How much room the addon takes on screen, and which of its windows are visible. The two size
-  -- sliders pair on one line so a reader compares them across rather than down; the two
-  -- show/hide checkboxes pair on the next.
+  -- How much room the History window's own furniture takes, and whether the minimap button is
+  -- there. The addon-WIDE size and opacity are the Master controls tab's `settings.scale` and
+  -- `settings.alpha`; `settings.windowScale` below is the History window's own scale and
+  -- multiplies on top of them (options-ui-§15). The two size sliders pair on one line so a reader
+  -- compares them across rather than down, and the minimap toggle opens the next.
+  --
+  -- THE TAB CARRIES SUBSECTION HEADINGS, and the merge was considered rather than defaulted into
+  -- (options-ui-§7). Its three rows are two SUBJECTS, not one: the first two size the History
+  -- window, the third governs the minimap button, a different surface entirely that the window's
+  -- scale and row height have no bearing on. §7's test is "a tab that mixes control types", and
+  -- its own reasoning is about subjects under one label — "a player scanning it has no way to tell
+  -- where one ends" — which is exactly the failure here, so `Window` and `Minimap` are declared by
+  -- the rows the way `Pricing` / `Price sources` are on the AH Price tab. The tab is NOT split in
+  -- two: a one-row tab for the minimap button is the second tab level §7 forbids faking, and the
+  -- strip is already six wide. Neither name repeats the tab's own (§7 forbids that too).
   { path = "settings.windowScale", default = G.settings.windowScale, type = "number",
     min = 0.6, max = 1.6, step = 0.05, widget = "Slider",
     -- `step` is not decoration. `SetSliderValues(min, max, row.step or 1)` means a row with no
@@ -99,7 +264,7 @@ S.Schema = {
     -- to its two ends. Stored values are untouched: the commit path snaps against `row.step or 0`
     -- (no snap when absent), so every scale ever saved is still reachable and still legal.
     fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
-    page = "General", group = "Interface", label = "Window scale",
+    page = "General", group = "Interface", subgroup = "Window", label = "Window scale",
     tooltip = "Scale of the History browser window.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
@@ -112,68 +277,43 @@ S.Schema = {
   { path = "settings.rowHeight", default = G.settings.rowHeight, type = "number",
     min = 14, max = 28, step = 1, widget = "Slider",
     fmt = "%dpx",
-    page = "General", group = "Interface", label = "Row height",
+    page = "General", group = "Interface", subgroup = "Window", label = "Row height",
     tooltip = "Height of one row in the History table, in pixels. Lower fits more on screen.",
     onChange = function()
       if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
     end },
 
   { path = "minimap.hide", default = false, type = "bool", widget = "CheckBox",
-    page = "General", group = "Interface", label = "Hide minimap button",
+    page = "General", group = "Interface", subgroup = "Minimap", label = "Hide minimap button",
     tooltip = "Hide the LootHistory minimap button.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
     end },
 
-  -- Session-only row (never persisted): its value is the debug console WINDOW's visibility, not the
-  -- NS.State.debug logging flag. get/set route to NS.DebugLog (Show/Hide/IsShown); Schema:Set skips
-  -- the db.global write for sessionOnly rows. Mirrors `/lh debug` (no-arg), which toggles the
-  -- window too.
-  --
-  -- It carried `solo` until the tab strip arrived, and the reason was positional: it sat between
-  -- the Enable/Hide-minimap pair and the Window scale row, and a lone third checkbox reads better
-  -- on its own line than half-paired with a slider. On the Interface tab it is the second of two
-  -- show/hide checkboxes and the argument no longer describes the page — `solo` there would leave
-  -- two half-empty lines where one full one belongs. The half of the argument that survives is
-  -- that a `solo` row is for a genuine pivot, not for spacing.
-  { path = "state.debugConsole", sessionOnly = true, default = false, type = "bool",
-    widget = "CheckBox", page = "General", group = "Interface", label = "Debug console",
-    tooltip = "Show or hide the on-screen debug console window. Session-only \226\128\148 resets on reload.",
-    get = function() return NS.DebugLog ~= nil and NS.DebugLog:IsShown() end,
-    set = function(v)
-      if not NS.DebugLog then return end
-      if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
-    end },
-
-  -- ── General ▸ Maintenance ──
-  -- What is kept and how to get rid of it. Last tab because it is the one a player sets once and
-  -- leaves. ONE stored row, and it is the sanctioned exemption from the two-controls-per-tab rule:
-  -- the rest of the tab is bespoke — the live storage readout, "Purge history…" and
-  -- "Reset Everything" — three controls with no path, which no partition test can count.
-  -- tests/test_schema.lua exempts it BY NAME.
+  -- ── General ▸ History ──
+  -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
+  -- and leaves; the Filters tab that follows it on the strip declares no rows at all. Called
+  -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
+  -- Maintenance, which named the chore rather than the subject. ONE stored row, and it is the sanctioned exemption from the two-controls-per-tab rule:
+  -- the rest of the tab is bespoke — the live storage readout and "Purge history…" — controls with
+  -- no path, which no partition test can count. tests/test_schema.lua exempts it BY NAME.
+  -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
+  -- button now, which is where options-ui-§15 puts the global reset.)
   { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
-    page = "General", group = "Maintenance", label = "Keep history for", values = C.RETENTION_OPTIONS,
+    page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
     tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
     onChange = function()
       if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     end },
-
-  -- ── AH Price ──  (its own settings sub-page; see settings/Panel.lua)
-  -- One group, so RenderTabbedSchema would draw no strip here even if the page asked for one —
-  -- and it does not: the page keeps its own OnShow and calls RenderSchema (see settings/Panel.lua).
-  { path = "settings.auction.enabled", default = true, type = "bool", widget = "CheckBox",
-    page = "AH Price", group = "AH Price", label = "Enable AH pricing",
-    tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
-  -- skipRender: the AH Price sub-page renders this as the unified price table's per-row Enabled
-  -- checkboxes (settings/Panel.lua buildAuctionTable) — `capture` is now the single collect+rank
-  -- flag, not just "record". The row stays schema-backed so its default resolves and the slash CLI
-  -- can still read/write it. widget/options are retained so the CLI can present it as a checklist.
-  { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
-    widget = "MultiCheck", wide = true, skipRender = true,
-    page = "AH Price", group = "AH Price", label = "Collect & rank these prices",
-    values = NS.Constants.AUCTION_CAPTURE_OPTIONS },
-
 }
+
+-- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared
+-- among the rows below because its group has to be the page's FIRST — the strip's order IS this
+-- array's order (options-ui-§13/§15).
+S.Schema = {}
+for _, row in ipairs(MASTER_ROWS) do S.Schema[#S.Schema + 1] = row end
+for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
+
 -- NOTE: `settings.auction.priority` (the ordered cascade selection list) is a carve-out array —
 -- NOT a schema row — managed directly by the settings panel UI (R6). See docs/schema.md.
 -- NOTE: the debug LOGGING flag (NS.State.debug) is NOT a schema setting — session-only, set via

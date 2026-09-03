@@ -25,6 +25,7 @@ Loader.loadAll({
   "libs/LibKa0s/Slash.lua",
   "libs/LibKa0s/Options.lua",
   "libs/LibKa0s/OptionsWidgets.lua",
+  "libs/LibKa0s/OptionsCompose.lua",
   "libs/LibKa0s/OptionsScroll.lua",
   "libs/LibKa0s/Perf.lua",
   "libs/LibKa0s/PerfPanel.lua",

@@ -30,6 +30,10 @@ local DRAWN = {
   -- this addon's own art
   "chevron-down", "chevron-right", "confirm", "lock", "sort-down", "sort-up",
   "ban", "chat", "clear", "spreadsheet",
+  -- the reorder handle on the AH Price tab's cascade, resolved host-side and passed to
+  -- LibKa0s-Widgets-1.0's ReorderList (core/WidgetsSetup.lua) for the reason every other mark is:
+  -- a vendored library cannot know which addon folder it was copied into.
+  "segment",
   -- drawn by LibKa0s on our behalf: Core's close on four windows, DebugLog's strip on two
   "close", "copy",
 }
@@ -114,7 +118,11 @@ test("MediaSetup: the source names no icon the DRAWN list above has forgotten", 
   for _, name in ipairs(DRAWN) do drawn[name] = true end
   local unlisted = {}
   for _, file in ipairs({ "modules/Browser.lua", "modules/BrowserTable.lua", "modules/Export.lua",
-                          "core/Constants.lua", "core/CoreSetup.lua", "core/DebugLogSetup.lua" }) do
+                          "core/Constants.lua", "core/CoreSetup.lua", "core/DebugLogSetup.lua",
+                          -- The dropdown chevron, the multi-select tick and the reorder handle are
+                          -- all resolved in this one file. It was missing from the list, so the
+                          -- three names it asks for were checked by nothing.
+                          "core/WidgetsSetup.lua" }) do
     local src = Loader.readFile(file)
     for name in src:gmatch('NS%.Icon%("([a-z%-]+)"%)') do
       if not drawn[name] then unlisted[#unlisted + 1] = file .. ": " .. name end

@@ -12,7 +12,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local WIDGETS_MINOR = 12
+local WIDGETS_MINOR = 13
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -172,6 +172,48 @@ local function startGroup(O, ctx, row, flushRow, noHeadings)
   flushRow()
   if not noHeadings then O.Section(ctx, row.group) end
   ctx.lastGroup = row.group
+  -- A subgroup belongs to ONE group. Leaving the tracker set across a group boundary would swallow
+  -- the first subsection heading of the next group whenever the two happened to share a name --
+  -- "Border" under Bars and "Border" under Tooltip is the shape the collection is about to be full
+  -- of (options-ui-§16).
+  ctx.lastSubgroup = nil
+end
+
+--- Emit a SUBSECTION heading when `row` opens a subgroup its group has not drawn yet, and advance
+--- the tracker. The pending line is flushed FIRST, exactly as it is for a group heading, or the
+--- heading lands packed beside a widget that belongs above it.
+---
+--- The sibling of startGroup, and deliberately NOT suppressed by `noHeadings`. That flag exists
+--- because on a tabbed page the TAB is the group's heading -- but a tab that mixes control types
+--- (a bar block, a background block and a border block, all under one label) has to say where one
+--- stops and the next starts, and there is no tab left to name them with (options-ui-§7). So
+--- `group` is what the strip partitions on and `subgroup` is what breaks a tab up inside itself;
+--- a page uses either, both, or neither, and the tab list stays derivable from `group` alone.
+---
+--- ONE HEADING WIDGET IN THE COLLECTION: O.Section, the same AceGUI Heading every other header
+--- uses. A hand-rolled colored label standing in for it is anti-patterns #71.
+local function startSubgroup(O, ctx, row, flushRow)
+  if not (row.subgroup and row.subgroup ~= ctx.lastSubgroup) then return end
+  flushRow()
+  O.Section(ctx, row.subgroup)
+  ctx.lastSubgroup = row.subgroup
+end
+
+--- Does `row` have to start a fresh line?
+---
+--- Three fields, one question, hoisted out of the loop so the loop reads as the decision rather
+--- than as the disjunction. They differ only in what happens AFTER the line opens -- see the field
+--- list on O.RenderRows.
+local function opensLine(row)
+  return row.solo or row.wide or row.startsLine
+end
+
+--- Draw one row across BOTH columns, alone on its line. `nil` relative width is what applyWidth
+--- turns into SetFullWidth, so no maker knows this case exists.
+local function drawWide(O, ctx, row, pendingRow, printer)
+  if not pendingRow then pendingRow = startRow(O) end
+  renderRowGuarded(printer, row.path, O.RenderField, ctx, row, pendingRow, nil)
+  return pendingRow
 end
 
 --- Claim a host hook for `key`, or nil if there is none or it has already run this render.
@@ -338,6 +380,73 @@ local TAB_ATLAS = {
   [false] = { "Options_Tab_Left",        "Options_Tab_Middle",        "Options_Tab_Right"        },
   [true]  = { "Options_Tab_Active_Left", "Options_Tab_Active_Middle", "Options_Tab_Active_Right" },
 }
+
+-- THE STRIP'S GEOMETRY IS SELECTION-INVARIANT (options-ui-§13, anti-patterns #70). Nothing about
+-- where a tab lands, how many rows the strip wraps into, or how tall a band it reserves may depend
+-- on WHICH tab is selected. That is a rule and not a preference: the content panel hangs off the
+-- chrome's bottom edge, so a band that moves with the selection moves and resizes the whole page
+-- under it, and the player sees the page shift when they click a tab.
+--
+-- IT WAS BROKEN EXACTLY THERE. TabStrip recorded the pitch from the FIRST tab it drew, whichever
+-- that happened to be, and the selected tab is cut from `Options_Tab_Active_*` while the rest come
+-- from `Options_Tab_*` -- two families the client does not draw at the same height. So on a page
+-- whose strip WRAPS, selecting tab 1 packed the rows by the active art and selecting any other
+-- packed them by the inactive art. Reported from a client against ConsumableMaster's Macros page
+-- (three wrapped rows; the gap on one tab alone) and again on its Macro Bar page. Nothing failed:
+-- a harness that answers one height for every atlas cannot see it.
+--
+-- So the pitch is measured ONCE, from the INACTIVE cap atlas, on a throwaway texture -- never read
+-- back off a tab that was just drawn in whichever state it happened to be in. The inactive family
+-- and not max(active, inactive) because the inactive height is what every unselected tab is drawn
+-- from, and wrapped rows sitting FLUSH is what minor 12 was for; the selected tab's art then stands
+-- a pixel or two proud into the row above, which is the direction TAB_BG_TOP and TAB_LABEL_Y
+-- already lift it deliberately.
+--
+-- Measured rather than declared because an atlas has no height until the client resolves one, and
+-- CACHED ON SUCCESS ONLY, so a call made before it resolves -- a headless harness, a client
+-- mid-load -- cannot pin the fallback for the session.
+local measuredArtH
+local probeFrame
+
+--- The probe texture: one frame, one texture, kept for the life of the session.
+local function probeTexture()
+  probeFrame = probeFrame or CreateFrame("Frame", nil, UIParent)
+  if probeFrame.Hide then probeFrame:Hide() end
+  local tex = probeFrame.__ka0sTabProbe
+  if not tex and probeFrame.CreateTexture then
+    tex = probeFrame:CreateTexture(nil, "BACKGROUND")
+    probeFrame.__ka0sTabProbe = tex
+  end
+  return tex
+end
+
+--- How far apart two rows of tabs sit: the UNSELECTED tab art's own height, so a wrapped row is
+--- FLUSH with the one above it rather than separated by the empty strip along each button's top.
+--- Falls back to the button height where nothing can be measured, which is the pre-measurement
+--- behavior with no gap.
+--- @return number  the pitch a wrapped strip's rows are packed by, and its hit-rect inset
+local function tabArtHeight()
+  if measuredArtH then return measuredArtH end
+
+  local h
+  local tex = probeTexture()
+  if tex and tex.SetAtlas then
+    tex:SetAtlas(TAB_ATLAS[false][1], true)
+    h = tex.GetHeight and tex:GetHeight()
+  end
+
+  if type(h) == "number" and h > 0 and h <= L.TAB_H then
+    measuredArtH = h
+    return h
+  end
+  return L.TAB_H
+end
+
+--- Forget the measurement AND the frame it was taken on. A suite seam, and the one thing a live
+--- session cannot need: an atlas does not change size mid-session.
+local function resetTabArtHeight()
+  measuredArtH, probeFrame = nil, nil
+end
 -- The page's content box. Its TOP EDGE is the tab/content separator (options-ui-§13) -- there is
 -- no hairline rule any more, because in this design the divider is a real panel edge that the
 -- selected tab's foot sits on, which is the whole reason the strip reads as attached to the page
@@ -409,20 +518,15 @@ end
 --- horizontally between their inner edges. A tab narrower than the two caps would draw them
 --- overlapping rather than tearing, which is why TAB_MIN_W is comfortably wider than either.
 ---
---- Returns the ART's height, which is NOT the button's. The art is anchored to the button's
---- BOTTOM and takes the atlas's own size, so a 37px button carrying 28px of art has nine empty
---- pixels along its top. That number is only knowable from the client -- an atlas has no size
---- until one is resolved -- and it is what a second row of tabs has to be packed by, or the empty
---- strip is drawn as a gap between the rows.
---- @return number|nil  the cap atlas's height in pixels, or nil where none can be measured
+--- It MEASURES NOTHING. The art is anchored to the button's BOTTOM and takes the atlas's own size,
+--- so a 37px button carrying 28px of art has nine empty pixels along its top -- but that number is
+--- tabArtHeight's to answer, from a state no click can change, and reading it back off a tab drawn
+--- in whichever state it happened to be in is the defect this file's atlas section describes.
 local function drawTabSlices(b, atlas)
-  local artH
   local left = tabTexture(b, "BACKGROUND")
   if left then
     if left.SetAtlas then left:SetAtlas(atlas[1], true) end
     left:SetPoint("BOTTOMLEFT")
-    local h = left.GetHeight and left:GetHeight()
-    if type(h) == "number" and h > 0 then artH = h end
   end
 
   local right = tabTexture(b, "BACKGROUND")
@@ -437,8 +541,6 @@ local function drawTabSlices(b, atlas)
     mid:SetPoint("TOPLEFT",  left,  "TOPRIGHT")
     mid:SetPoint("TOPRIGHT", right, "TOPLEFT")
   end
-
-  return artH
 end
 
 --- The dark backing behind the label, inset so it never touches the caps' lit edges. It stops
@@ -472,39 +574,55 @@ end
 --- ceiling the release gate enforces. Every texture is a child of `b`, so they share the button's
 --- lifecycle: releaseLedger hides and unparents `b` and the art goes with it -- no separate
 --- ledger entry needed for any of them.
---- @return number|nil  the art's own height, for the strip to pack its rows by
 local function drawTabArt(b, active)
-  local artH = drawTabSlices(b, TAB_ATLAS[active])
+  drawTabSlices(b, TAB_ATLAS[active])
   drawTabFill(b, active)
   drawTabGlow(b, "HIGHLIGHT",  nil, TAB_HL_TOP,  not active)
   drawTabGlow(b, "BACKGROUND", -1,  TAB_SEL_TOP, active)
 
-  -- The empty strip along the button's top is not part of the tab and must not be clickable:
-  -- a wrapped strip packs the next row by the ART's height, so row 2's button overlaps row 1's
-  -- art by exactly that many pixels, and without this it would swallow clicks meant for row 1.
-  if artH and b.SetHitRectInsets then b:SetHitRectInsets(0, 0, L.TAB_H - artH, 0) end
-
-  return artH
+  -- The empty strip along the button's top is not part of the tab and must not be clickable: a
+  -- wrapped strip packs the next row by the ART's height, so row 2's button overlaps row 1's art by
+  -- exactly that many pixels, and without this it would swallow clicks meant for row 1.
+  --
+  -- THE SAME NUMBER THE ROWS ARE PACKED BY, for every button including the selected one. Taken off
+  -- each tab's own art it was the inactive height on the unselected tabs and the active height on
+  -- the selected one, so the invariant this comment states held for all but one button per strip.
+  if b.SetHitRectInsets then b:SetHitRectInsets(0, 0, L.TAB_H - tabArtHeight(), 0) end
 end
 
---- The tab's label, anchored to the tab's BOTTOM rather than its centre.
+--- The tab's label, anchored to the tab's BOTTOM rather than its centre, in the UNSELECTED font.
 ---
 --- A tab is taller than its text by design -- the extra height is the foot that overlaps the
 --- content panel -- so a centred label would float in the middle of the overlap instead of
---- sitting on the tab's face. The selected tab lifts its label 2px and brightens the font, which
---- is the other half of how the two states differ.
-local function setTabLabel(b, active, text)
+--- sitting on the tab's face.
+---
+--- IT DOES NOT APPLY THE SELECTED FONT, and that is the whole reason it and setTabFont are two
+--- functions. A tab's WIDTH is measured off this FontString, and a measurement taken under a font
+--- that depends on the selection is a wrap index that depends on the selection -- the same defect
+--- the pitch had (options-ui-§13). The two fonts are the same size today, so no wrap index moves;
+--- pinning the order is what keeps that true rather than lucky.
+local function setTabLabel(b, text)
   local fs = b.CreateFontString and b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   if fs and b.SetFontString then
     b:SetFontString(fs)
     if fs.ClearAllPoints then fs:ClearAllPoints() end
-    if fs.SetPoint then fs:SetPoint("BOTTOM", 0, TAB_LABEL_Y[active]) end
   end
-  b:SetNormalFontObject(active and _G.GameFontHighlightSmall or _G.GameFontNormalSmall)
+  b:SetNormalFontObject(_G.GameFontNormalSmall)
   b:SetHighlightFontObject(_G.GameFontHighlightSmall)
   b:SetDisabledFontObject(_G.GameFontHighlightSmall)
   if b.SetPushedTextOffset then b:SetPushedTextOffset(0, 0) end
   b:SetText(text or "")
+end
+
+--- The other half of how the two states differ: the selected tab lifts its label 2px and brightens
+--- the font. Applied AFTER the label has been measured, never before.
+local function setTabFont(b, active)
+  local fs = b.GetFontString and b:GetFontString()
+  if fs and fs.SetPoint then
+    if fs.ClearAllPoints then fs:ClearAllPoints() end
+    fs:SetPoint("BOTTOM", 0, TAB_LABEL_Y[active])
+  end
+  if active then b:SetNormalFontObject(_G.GameFontHighlightSmall) end
 end
 
 --- The page's content box (options-ui-§13): the client's inner-frame art, spanning the content
@@ -773,6 +891,25 @@ function lib.__AttachWidgets(O, d)
   end
   O.__releaseChrome = releaseChrome
 
+  --- Release a secondary strip's buttons. NOT folded into releaseChrome, because a sub-strip is not
+  --- chrome: it is drawn INSIDE the scroll, parented to a frame the host added as an AceGUI child.
+  --- That is exactly why it needs its own seam -- ClearScroll's ReleaseChildren returns that parent
+  --- to AceGUI's pool, and a button still parented to it is a widget outliving the render that drew
+  --- it, the same failure this file documents for the landing logo. SubTabStrip drains its own
+  --- ledger on entry, which covers REDRAWING a strip; this covers the case it cannot see -- a page
+  --- moving to a tab that draws no secondary strip at all, so SubTabStrip never runs to drain it.
+  local function releaseSubTabs(ctx)
+    releaseLedger(ctx, "__subTabKids")
+  end
+  O.__releaseSubTabs = releaseSubTabs
+
+  -- The measured pitch, and the seam that forgets it. Published because the invariant a suite has
+  -- to pin is "the band and every row offset are the same for every value of the selection", and
+  -- that is unassertable without the one number both are built from. The reset exists for the
+  -- harness alone: a session cannot want it, because the atlas does not change size mid-session.
+  O.__tabArtHeight      = tabArtHeight
+  O.__resetTabArtHeight = resetTabArtHeight
+
   --- Measure a label, in pixels, or fall back to the floor width.
   ---
   --- Guarded twice over. A FontString may not be there at all (an inert widget in a headless
@@ -797,20 +934,27 @@ function lib.__AttachWidgets(O, d)
   --- on hover and does not fire, so clicking the tab you are already on cannot re-render the
   --- page you are already looking at.
   ---
+  --- `parent` is the frame the button hangs off: `ctx.chrome` for the pinned primary strip, the
+  --- host's own frame for a secondary one drawn inside the scroll (options-ui-§13).
+  ---
   --- @return table  the button frame
   --- @return number its measured width, in pixels
-  local function makeTab(ctx, tab, active, onSelect)
-    local b = CreateFrame("Button", nil, ctx.chrome)
+  local function makeTab(parent, tab, active, onSelect)
+    local b = CreateFrame("Button", nil, parent)
     b:SetHeight(L.TAB_H)
-    -- One level above the chrome, so a tab's art draws OVER the content panel's top edge rather
+    -- One level above the parent, so a tab's art draws OVER the content panel's top edge rather
     -- than under it -- which is what lets the selected tab merge into the page below it.
     if b.GetFrameLevel and b.SetFrameLevel then
       local level = b:GetFrameLevel()
       if type(level) == "number" then b:SetFrameLevel(level + 1) end
     end
 
-    setTabLabel(b, active, tab.label)
-    local artH = drawTabArt(b, active)
+    -- LABEL, MEASURE, THEN STATE. The width is taken under the unselected font and the pitch under
+    -- the unselected atlas, so neither can move when the player clicks a different tab.
+    setTabLabel(b, tab.label)
+    local width = labelWidth(b.GetFontString and b:GetFontString())
+    setTabFont(b, active)
+    drawTabArt(b, active)
 
     b:SetEnabled(not active)
     b:SetScript("OnClick", function()
@@ -824,7 +968,7 @@ function lib.__AttachWidgets(O, d)
     end)
     if tab.tooltip then O.AttachTooltip(b, tab.label, tab.tooltip) end
 
-    return b, labelWidth(b.GetFontString and b:GetFontString()), artH
+    return b, width
   end
 
   --- Pack `buttons` into their wrapped rows, draw the baseline under the last one, and reserve
@@ -837,29 +981,24 @@ function lib.__AttachWidgets(O, d)
   --- that arithmetic itself.
   --- CREATES NOTHING. Every widget it touches already exists, which is what makes it safe to run
   --- again on a later frame -- see repaceOnResize below.
-  --- The strip's own width: the chrome's, which is the body inset by CONTENT_LEFT/RIGHT. Zero
-  --- until the canvas has laid itself out, which is the whole subject of replaceOnResize below.
-  local function chromeWidth(ctx)
-    local w = ctx.chrome and ctx.chrome.GetWidth and ctx.chrome:GetWidth()
+  --- A strip's usable width: the chrome's for the primary one, the host's frame for a secondary
+  --- one. Zero until the canvas has laid itself out, which is the whole subject of replaceOnResize
+  --- below.
+  local function frameWidth(frame)
+    local w = frame and frame.GetWidth and frame:GetWidth()
     if type(w) ~= "number" or w <= 0 then return L.TAB_MIN_W end
     return w
-  end
-
-  --- How far apart two rows of tabs sit: the ART's height, so a wrapped row is FLUSH with the
-  --- one above it rather than separated by the empty strip along each button's top. Falls back to
-  --- the button height where nothing can be measured -- a headless harness, or a client that
-  --- answered no size for the atlas -- which is the pre-measurement behavior with no gap.
-  local function rowPitch(ctx)
-    local h = ctx.__tabArtH
-    if type(h) ~= "number" or h <= 0 or h > L.TAB_H then return L.TAB_H end
-    return h
   end
 
   local function placeTabs(ctx, buttons, widths, available)
     ctx.__tabPlacedAt = available
 
     local top = ctx.__bannerHeight or 0
-    local pitch = rowPitch(ctx)
+    -- ONE NUMBER, MEASURED ONCE, from a state no click can change (options-ui-§13). It feeds both
+    -- the row offsets and the band, and both are read again by SetChromeHeight to re-anchor the
+    -- scroll and the content panel -- which is why a pitch that varied with the selection moved
+    -- the whole page.
+    local pitch = tabArtHeight()
     local placement, rowCount =
       O.__tabPlacement(widths, available, L.TAB_GAP, top, pitch)
     for _, p in ipairs(placement) do
@@ -920,12 +1059,10 @@ function lib.__AttachWidgets(O, d)
     ctx.__tabLayout = nil
 
     local buttons, widths = {}, {}
-    ctx.__tabArtH = nil
     for i, tab in ipairs(spec.tabs) do
-      local b, w, artH = makeTab(ctx, tab, tab.key == spec.value, spec.onSelect)
+      local b, w = makeTab(ctx.chrome, tab, tab.key == spec.value, spec.onSelect)
       buttons[i] = b
       widths[i]  = w
-      ctx.__tabArtH = ctx.__tabArtH or artH
       ctx.__tabKids[#ctx.__tabKids + 1] = b
     end
 
@@ -935,7 +1072,7 @@ function lib.__AttachWidgets(O, d)
     drawContentPanel(ctx)
 
     ctx.__tabLayout = { buttons = buttons, widths = widths }
-    placeTabs(ctx, buttons, widths, chromeWidth(ctx))
+    placeTabs(ctx, buttons, widths, frameWidth(ctx.chrome))
     replaceOnResize(ctx)
     return buttons
   end
@@ -1004,6 +1141,110 @@ function lib.__AttachWidgets(O, d)
     O.AttachTooltip(dd, spec.label, spec.tooltip)
 
     return dd
+  end
+
+  --- A host-drawn block pinned above the tab strip and the scroll, in the band the page banner
+  --- occupies (options-ui-§14). The library owns the band arithmetic; the host owns everything
+  --- inside the frame it is handed.
+  ---
+  --- This exists because controls that apply to EVERY tab must sit above the strip. A control that
+  --- governs the whole page but is drawn under one tab reads as belonging to that tab, and it
+  --- disappears the moment the player clicks a different one -- creating the thing the page edits,
+  --- choosing which one is being edited, and the acts that apply to it whole (enable, unlock, copy,
+  --- reset, delete) are all page-wide. O.PageBanner draws exactly one Dropdown and is documented as
+  --- the page's ONLY picker, so what is generalised here is the BAND, not the banner.
+  ---
+  --- `spec` = { height = <number>, build = function(ctx, frame) end, divider = <boolean, default
+  --- true> }. Returns the frame, or nil having drawn nothing.
+  ---
+  --- A page draws AT MOST ONE chrome block: this and O.PageBanner both release `__chromeKids` and
+  --- both write ctx.__bannerHeight, so the second call wins rather than stacking a second band. A
+  --- page that needs a picker AND other page-wide controls puts the picker inside this frame and
+  --- does not call PageBanner.
+  ---
+  --- Draw it BEFORE the strip, for the reason PageBanner gives: the strip's reservation reads
+  --- ctx.__bannerHeight, and called the other way round it would not know about it.
+  function O.PageHeader(ctx, spec)
+    if not (ctx and ctx.chrome and spec) then return nil end
+    local height = tonumber(spec.height)
+    if not (height and height > 0) then return nil end
+
+    releaseChrome(ctx)
+
+    local frame = CreateFrame("Frame", nil, ctx.chrome)
+    frame:SetPoint("TOPLEFT",  ctx.chrome, "TOPLEFT",  0, 0)
+    frame:SetPoint("TOPRIGHT", ctx.chrome, "TOPRIGHT", 0, 0)
+    frame:SetHeight(height)
+    frame:Show()
+    ctx.__chromeKids[#ctx.__chromeKids + 1] = frame
+
+    -- The hairline sits at the RAW height, never the widened band: it separates the block from
+    -- what comes after it, so it is measured off the block's own bottom edge.
+    if spec.divider ~= false then drawChromeDivider(ctx, height) end
+
+    local band = O.__bannerBand(height)
+    ctx.__bannerHeight = band
+    O.SetChromeHeight(ctx, band)
+
+    -- pcall'd and REPORTED, for the reason every host callback in this file is: the builder reaches
+    -- into live addon state, and a raise inside the render pass would cost the strip and the whole
+    -- page under it rather than the block.
+    if type(spec.build) == "function" then
+      local ok, err = pcall(spec.build, ctx, frame)
+      if not ok then print(lib.STRINGS.HEADER_FAILED:format(tostring(err))) end
+    end
+
+    return frame
+  end
+
+  --- A SECONDARY tab strip, drawn inside the scroll as ordinary page content (options-ui-§13).
+  ---
+  --- The primary strip is pinned in the chrome band and does not scroll; a secondary strip belongs
+  --- to the content it divides, so it scrolls with it. Pinning a second band would double the
+  --- chrome and push the page down twice for a division that is not page-wide.
+  ---
+  --- `spec` = { tabs = { { key, label, tooltip } }, value, onSelect }. Returns the buttons in tab
+  --- order and the total height the strip occupies, so the host can size the frame it handed in --
+  --- or nil having drawn nothing. It draws NO content panel: the page already has one.
+  ---
+  --- THE STATE KEY IS THE HOST'S, not ctx.activeTab -- `spec.value` and `spec.onSelect` are the
+  --- whole contract, and the library reads neither back. The convention this establishes for the
+  --- collection is `ctx.activeSubTab` as a TABLE keyed by the primary tab's key, so switching
+  --- category and back remembers the subject you were on and a stale pointer heals per category.
+  --- Session state either way, and never persisted (options-ui-§13).
+  function O.SubTabStrip(ctx, parent, spec)
+    if not (ctx and parent and spec and type(spec.tabs) == "table" and #spec.tabs > 0) then
+      return nil
+    end
+    if not O.AceGUI then return nil end
+
+    -- Its own ledger, released on entry exactly as TabStrip releases __tabKids: a secondary strip
+    -- is redrawn whenever its category is, and buttons left parented to the host's frame would
+    -- stack -- with the older set on top, swallowing the clicks.
+    releaseLedger(ctx, "__subTabKids")
+
+    local buttons, widths = {}, {}
+    for i, tab in ipairs(spec.tabs) do
+      local b, w = makeTab(parent, tab, tab.key == spec.value, spec.onSelect)
+      buttons[i] = b
+      widths[i]  = w
+      ctx.__subTabKids[#ctx.__subTabKids + 1] = b
+    end
+
+    -- The SAME selection-invariant pitch the primary strip packs by, and `top` is 0 because there
+    -- is no banner above a strip that is already inside the page.
+    local pitch = tabArtHeight()
+    local placement, rowCount =
+      O.__tabPlacement(widths, frameWidth(parent), L.TAB_GAP, 0, pitch)
+    for _, place in ipairs(placement) do
+      local b = buttons[place.index]
+      b:SetWidth(place.width)
+      b:ClearAllPoints()
+      b:SetPoint("TOPLEFT", parent, "TOPLEFT", place.x, place.y)
+      b:Show()
+    end
+
+    return buttons, O.__tabBand(0, rowCount, L.TAB_H, pitch)
   end
 
   --- A full-width line of text: one AceGUI Label added to the page's scroll, left-justified.
@@ -1189,6 +1430,19 @@ function lib.__AttachWidgets(O, d)
     dd:SetLabel(row.label or row.path)
     applyWidth(dd, relativeWidth)
 
+    -- A `type = "string"` row with no `values` AND no `dialogControl` is a free-text field that
+    -- forgot to say so: the dispatch below sends it here and the player gets a dropdown that opens
+    -- on nothing. Opting in with `dialogControl = "EditBox"` stays the rule -- see makeEditBox for
+    -- why free text is not inferred from a missing list -- and this line is what makes forgetting
+    -- it visible instead of silent.
+    --
+    -- ONLY when `row.values` is nil. An LSM-backed closure that legitimately answers empty before
+    -- the media library has registered anything must NOT warn; that deferred case is the whole
+    -- reason the opt-in exists.
+    if row.values == nil and #enumList(row) == 0 then
+      print(lib.STRINGS.EMPTY_DROPDOWN:format(tostring(row.path)))
+    end
+
     local function applyList()
       local items, order = {}, {}
       for i, item in ipairs(enumList(row)) do
@@ -1367,6 +1621,20 @@ function lib.__AttachWidgets(O, d)
   -- spacer.
   --
   --   solo        render this row alone in the left half of its own line. For visual pivots.
+  --   wide        render this row alone at FULL width, spanning both columns. NOT what `solo`
+  --               does -- solo renders alone in the LEFT HALF -- and named to match RenderGrid's
+  --               field of the same meaning rather than redefining solo, which would silently
+  --               widen every solo row in nine shipped addons.
+  --   startsLine  flush the pending line BEFORE this row, so a declared pair -- a color swatch and
+  --               its "use class color" companion (options-ui-§17), the first row of a composed
+  --               group -- is guaranteed to land as [left][right] and can never be split across
+  --               two lines by an odd number of widgets above it. Without it the parity of every
+  --               pair is a property of how many rows happen to precede it, which is a thing every
+  --               author was counting by hand.
+  --   subgroup    a heading drawn INSIDE a group (options-ui-§7). `group` is what a tabbed page
+  --               partitions its strip on; `subgroup` is what breaks one tab into named blocks
+  --               when it mixes control types. Drawn even under `noHeadings`, which suppresses the
+  --               GROUP heading only.
   --   skipRender  keep the row in the schema (so resets and the CLI still see it) but let the host
   --               draw it bespoke — a header checkbox, say.
   --   afterGroup  { [groupName] = fn(ctx) } fired once PER RENDER, after that group's last row is
@@ -1460,16 +1728,19 @@ function lib.__AttachWidgets(O, d)
 
     for i, row in ipairs(rows) do
       startGroup(O, ctx, row, flushRow, opts and opts.noHeadings)
+      startSubgroup(O, ctx, row, flushRow)
 
       if not row.skipRender then
-        if row.solo and pendingCount > 0 then
+        if opensLine(row) and pendingCount > 0 then flushRow() end
+
+        if row.wide then
+          pendingRow = drawWide(O, ctx, row, pendingRow, print)
           flushRow()
+        else
+          pendingRow, pendingCount =
+            drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPair, print)
+          if row.solo or pendingCount >= 2 then flushRow() end
         end
-
-        pendingRow, pendingCount =
-          drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPair, print)
-
-        if row.solo or pendingCount >= 2 then flushRow() end
       end
 
       endGroup(ctx, afterGroup, firedAfter, row, rows[i + 1], flushRow)
@@ -1491,13 +1762,27 @@ function lib.__AttachWidgets(O, d)
   --- widget selector: a tab list declared apart from the rows is a list that goes stale the
   --- first time a section is renamed, and nothing would say so.
   ---
-  --- Returns the group names, in tab order. A page with fewer than two groups draws no strip --
-  --- a single tab is chrome for its own sake, and its band would push the page down for nothing.
+  --- Returns the group names, in tab order.
+  ---
+  --- A ONE-GROUP PAGE DRAWS ITS STRIP TOO, as of OptionsWidgets minor 13. It did not until then:
+  --- "a single tab is chrome for its own sake" is a true sentence about one page and the wrong rule
+  --- for a panel (options-ui-§13). A player moving between pages meets a strip on most of them and
+  --- bare rows on the rest, and the page that lost its strip is the one that looks broken -- and
+  --- the tab is also the only thing naming the group once `noHeadings` has suppressed the heading,
+  --- so the fallback took the section's name off the page as well. The one exemption is a page the
+  --- host does not render through this engine at all, which today is the AceConfig-drawn Profiles
+  --- page: it needs no mechanism here, because it never reaches this function. No opt-out flag is
+  --- offered -- a flag is a thing an addon can set for the wrong reason, and there would be no way
+  --- to see it in a test.
+  ---
+  --- A page with NO groups is a different decision: there is nothing to name a tab with, and a
+  --- strip of zero tabs is not a strip. That is an authoring defect (anti-patterns #69), so it is
+  --- REPORTED and then rendered untabbed -- a blank page under an empty strip is a worse failure
+  --- than a strip-less one.
   ---
   --- With no AceGUI there is nothing to draw AT ALL: EnsureScroll answers nil and every maker in
   --- this file refuses, so this reports an empty tab list and draws nothing -- which is what
-  --- RenderSchema would also have done, reached or not. The fallback that matters is the
-  --- single-group one above it, not this.
+  --- RenderRows would also have done, reached or not.
   function O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith)
     local rows = d.rowsForPage(pageKey, ctx.unit) or {}
 
@@ -1510,8 +1795,9 @@ function lib.__AttachWidgets(O, d)
     end
 
     if not O.AceGUI then return {} end
-    if #groups < 2 then
-      O.RenderSchema(ctx, pageKey, afterGroup, pairWith)
+    if #groups == 0 then
+      print(lib.STRINGS.NO_GROUPS:format(tostring(pageKey)))
+      O.RenderRows(ctx, rows, afterGroup, pairWith)
       return groups
     end
 

@@ -33,7 +33,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 8
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -651,6 +651,32 @@ end
 -- which addon folder it was copied into. `handleIcon` is a resolved path or nil, and nil falls to a
 -- Blizzard texture, so a host with no LibKa0s-Media still gets a working handle.
 
+-- ── WHY THE ROW BOX IS THE WIDGET'S AND NOT THE HOST'S ────────────────────────────────────────
+--
+-- A DELIBERATE REVERSAL of the paragraph above it, recorded as one. Minor 8 said this widget owns
+-- "the handle, the copy that follows the cursor, the insertion line, the index arithmetic, the
+-- clamp, and nothing else". It now also owns the ROW BOX -- the faint fill and the hairline border
+-- that make a stack of rows read as blocks you can pick up -- because "a draggable row looks like
+-- this" is a property of the COLLECTION (options-ui-§18), and a property of the collection cannot
+-- live in two consumers' private code. It did: MultiMeters drew a 6% white fill and no border,
+-- ConsumableMaster drew nothing at all, and that is the drift.
+--
+-- The row's CONTENTS are still entirely the consumer's, and nothing about AddRow's content
+-- contract changes. What moved is the box UNDER them.
+
+-- The canonical values, published so an audit can read them and a consumer never restates them
+-- (options-ui-§8). White and low-alpha rather than a chosen hue, so a box reads the same over
+-- whatever the host's page is painted with; the dimmed pair is for a row that is present but not
+-- draggable -- MultiMeters' hidden columns, LootHistory's sources it is not collecting.
+lib.ROW_BOX = {
+  FILL      = { 1, 1, 1, 0.06 },   -- MultiMeters' shipped fill, now everyone's
+  FILL_DIM  = { 1, 1, 1, 0.03 },
+  EDGE      = { 1, 1, 1, 0.12 },   -- 1px, all four sides; the border nobody had
+  EDGE_DIM  = { 1, 1, 1, 0.06 },
+  EDGE_SIZE = 1,
+  HANDLE_W  = 30,                  -- the left gutter the handle owns; row contents start beyond it
+}
+
 -- The one copy carried under the cursor, process-wide. A singleton for the same reason the dropdown
 -- menu is one: it lives on UIParent so it can follow the pointer OUT of whatever scroll frame the
 -- list sits in, and a per-list copy would clip at the first edge it met.
@@ -768,7 +794,9 @@ end
 -- reparented off the host's frame in one step. A handle can then only ever be visible on a frame
 -- this library put it on, during a render it is live for.
 
-local handlePool, handleAttic = {}, nil
+-- The BOXES are pooled on exactly the same terms and for exactly the same reason: a box is another
+-- frame this library parents to a frame the host pools, so it has to be given back the same way.
+local handlePool, boxPool, handleAttic = {}, {}, nil
 
 local function atticFrame()
   if not handleAttic then
@@ -776,6 +804,79 @@ local function atticFrame()
     handleAttic:Hide()
   end
   return handleAttic
+end
+
+--- Give one list of borrowed frames back to its pool: hidden, unanchored, and off the host's frame,
+--- in one step. Returns how many were reclaimed.
+---
+--- Shared by the handles and the boxes rather than written twice, because those three steps are the
+--- whole of the contract and a copy that forgot the reparent would fail in the way that is only
+--- ever visible on someone else's page.
+local function reclaim(borrowed, pool)
+  local n = #borrowed
+  for i = n, 1, -1 do
+    local f = borrowed[i]
+    borrowed[i] = nil
+    f.__row = nil
+    f:Hide()
+    f:ClearAllPoints()
+    f:SetParent(atticFrame())
+    pool[#pool + 1] = f
+  end
+  return n
+end
+
+-- ── the row box ───────────────────────────────────────────────────────────────────────────────
+--
+-- A FRAME CARRYING FIVE TEXTURES, not five textures on the host's own frame. Both consumers hand
+-- over frames their UI framework POOLS, and a texture is not a widget: nothing releases it and
+-- nothing hides it, so one created on a pooled frame rides that frame back into the pool and
+-- reappears the next time it is handed out for something else entirely. That failure is already
+-- written down in this collection -- see the landing-page logo in LibKa0s/OptionsWidgets.lua -- and
+-- a box is the same shape of mistake one widget over. A frame can be reparented off the host's
+-- frame in one step, which is exactly what Cancel does with the handles.
+--
+-- Four edges rather than `SetBackdrop`, because a backdrop needs `BackdropTemplate` at CreateFrame
+-- time and a template is a client-version dependency. Four rectangles are not.
+
+--- Build one box's five textures, once, when the frame is first made.
+local function buildRowBox(box)
+  box.fill = box.CreateTexture and box:CreateTexture(nil, "BACKGROUND")
+  if not (box.fill and box.fill.SetColorTexture) then
+    box.fill = nil
+    return
+  end
+  box.fill:SetAllPoints(box)
+
+  -- top, bottom, left, right -- each pinned to two corners and given its thickness on the
+  -- remaining axis, so the border follows the box however the host sizes the row.
+  local plan = {
+    { "TOPLEFT",    "TOPRIGHT",    true  },
+    { "BOTTOMLEFT", "BOTTOMRIGHT", true  },
+    { "TOPLEFT",    "BOTTOMLEFT",  false },
+    { "TOPRIGHT",   "BOTTOMRIGHT", false },
+  }
+  box.edges = {}
+  for i, e in ipairs(plan) do
+    local tex = box:CreateTexture(nil, "BORDER")
+    tex:SetPoint(e[1], box, e[1], 0, 0)
+    tex:SetPoint(e[2], box, e[2], 0, 0)
+    if e[3] then tex:SetHeight(lib.ROW_BOX.EDGE_SIZE) else tex:SetWidth(lib.ROW_BOX.EDGE_SIZE) end
+    box.edges[i] = tex
+  end
+end
+
+--- Paint one box for the row it is serving THIS render. Separate from building it because a pooled
+--- box may have last served a dimmed row and must not carry that over.
+local function paintRowBox(box, dimmed)
+  if not box.fill then return end
+  local R = lib.ROW_BOX
+  local fill = dimmed and R.FILL_DIM or R.FILL
+  local edge = dimmed and R.EDGE_DIM or R.EDGE
+  box.fill:SetColorTexture(fill[1], fill[2], fill[3], fill[4])
+  for _, tex in ipairs(box.edges or {}) do
+    tex:SetColorTexture(edge[1], edge[2], edge[3], edge[4])
+  end
 end
 
 -- ── the drag, hoisted out of the controller ───────────────────────────────────────────────────
@@ -920,12 +1021,19 @@ end
 ---                                list, which is the common case; MultiMeters' Columns page is the
 ---                                other one, where shown columns may not be dragged among hidden.
 ---   handleIcon string|nil        resolved texture path for the handle art; nil falls back.
----   handleSize number|nil        the handle's hit width; its height is the row's. Defaults to 24.
+---   handleSize number|nil        the handle's hit width; its height is the row's. Defaults to
+---                                `lib.ROW_BOX.HANDLE_W`, the gutter every list in the collection
+---                                gives its handle -- row contents start beyond it.
 ---   handleInset number|nil       px from the parent's left edge. Defaults to 0.
 ---   handleColor table|nil        { r, g, b } for the handle at rest. Defaults to a neutral gray.
 ---   handleHoverColor table|nil   { r, g, b } under the pointer. Defaults to the collection's gold.
 ---   handleTooltip string|nil     one line shown on hover. No tooltip without it.
 ---   iconSize   number|nil        the art drawn inside it, defaults to 16.
+---   rowBox     boolean|nil       false suppresses the bounded box behind every row. Defaults ON:
+---                                the box is half of what makes a list read as blocks you can pick
+---                                up (options-ui-§18), and a host that draws its own has to say so
+---                                -- and should instead delete its own, or the two fills stack.
+---   rowBoxInset number|nil       px the box is inset from the row frame's edges. Defaults to 0.
 ---   lineColor  table|nil         { r, g, b, a } for the insertion line; defaults to gold.
 ---   debug      function|nil      called as debug(fmt, ...) on grab and drop.
 --- @return table controller
@@ -938,8 +1046,10 @@ function lib.ReorderList(opts)
     onMove     = opts.onMove,
     handleIcon = opts.handleIcon,
     color      = opts.lineColor or { 1, 0.82, 0, 0.9 },
+    rowBox     = opts.rowBox ~= false,
     rows       = {},
     handles    = {},
+    boxes      = {},
     dead       = false,
   }
 
@@ -952,7 +1062,8 @@ function lib.ReorderList(opts)
   -- is the one moment where "nothing is being dragged" is known for certain.
   if ghost then ghost:Hide() end
 
-  --- Stop any drag in flight, put the chrome away, and give every handle back. Idempotent.
+  --- Stop any drag in flight, put the chrome away, and give every handle AND every row box back.
+  --- Idempotent.
   ---
   --- A HOST MUST CALL THIS BEFORE IT RENDERS ANYTHING, not merely before it rebuilds the list.
   --- Releasing a handle is what takes it off the host frame it was parented to, and that frame goes
@@ -972,17 +1083,14 @@ function lib.ReorderList(opts)
     end
     self.dragging = nil
 
-    local n = #self.handles
-    for i = n, 1, -1 do
-      local handle = self.handles[i]
-      self.handles[i] = nil
-      handle.__row = nil
-      handle:Hide()
-      handle:ClearAllPoints()
-      handle:SetParent(atticFrame())
-      handlePool[#handlePool + 1] = handle
+    -- Both ledgers, always, and in one place: a box left on a host's frame is the same bug a
+    -- handle left on one is, and a Cancel that reclaimed only half of them would be a fix that
+    -- looked complete.
+    local handles = reclaim(self.handles, handlePool)
+    local boxes   = reclaim(self.boxes, boxPool)
+    if handles > 0 or boxes > 0 then
+      self.say("released %d handles, %d boxes", handles, boxes)
     end
-    if n > 0 then self.say("released %d handles", n) end
   end
 
   --- Build one handle. Called only when the free list is empty.
@@ -1025,12 +1133,48 @@ function lib.ReorderList(opts)
     return handle
   end
 
+  --- Put a bounded box behind one row, from the free list or newly built.
+  ---
+  --- Its own function rather than six lines inside AddRow, because the frame LEVEL is the whole of
+  --- it and the reason is not obvious: a child frame sits one level ABOVE its parent, so a box
+  --- parented to the row and left at its natural level is a box painted over the row's own label
+  --- and glyphs. One level below the row draws it behind everything the row puts on itself, which
+  --- is the only place a background belongs. Clamped at zero, because a negative level is not a
+  --- thing the client accepts.
+  local function attachBox(parent, dimmed)
+    local box = table.remove(boxPool)
+    if not box then
+      box = CreateFrame("Frame", nil, atticFrame())
+      buildRowBox(box)
+    end
+    list.boxes[#list.boxes + 1] = box
+
+    box:SetParent(parent)
+    local level = parent.GetFrameLevel and parent:GetFrameLevel()
+    if type(level) == "number" and box.SetFrameLevel then
+      box:SetFrameLevel(math.max(level - 1, 0))
+    end
+
+    local inset = opts.rowBoxInset or 0
+    box:ClearAllPoints()
+    box:SetPoint("TOPLEFT",     parent, "TOPLEFT",      inset, -inset)
+    box:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -inset,  inset)
+    paintRowBox(box, dimmed)
+    box:Show()
+    return box
+  end
+
   --- Register one row, in display order, and get back the handle that drags it.
   ---
   --- `spec.draggable = false` registers the row WITHOUT a handle. The row still counts for indices
   --- and still anchors the insertion line -- it is a place a drag can land, just not one a drag can
   --- start from. MultiMeters' hidden columns are that case: they have an order among themselves
   --- that nobody can act on, and offering a handle for it was offering a gesture with no meaning.
+  ---
+  --- `spec.dimmed = true` paints that row's box in the muted variant, for a row that is present but
+  --- inert. The BOX is drawn for every registered row, draggable or not, and before the handle: a
+  --- row you cannot pick up is still one of the blocks the list is made of, and a stack where only
+  --- some rows have an edge reads as a rendering fault rather than as a rule.
   function list:AddRow(frame, spec)
     spec = spec or {}
 
@@ -1046,9 +1190,11 @@ function lib.ReorderList(opts)
     }
     self.rows[row.index] = row
 
+    local parent = spec.parent or frame
+    if self.rowBox then row.box = attachBox(parent, spec.dimmed) end
+
     if spec.draggable == false then return nil end
 
-    local parent = spec.parent or frame
     local handle = table.remove(handlePool) or newHandle()
     self.handles[#self.handles + 1] = handle
 
@@ -1058,7 +1204,7 @@ function lib.ReorderList(opts)
     handle.__tooltip    = opts.handleTooltip
 
     handle:SetParent(parent)
-    handle:SetSize(opts.handleSize or 24, spec.height or self.stride)
+    handle:SetSize(opts.handleSize or lib.ROW_BOX.HANDLE_W, spec.height or self.stride)
     handle:ClearAllPoints()
     handle:SetPoint("LEFT", parent, "LEFT", opts.handleInset or 0, 0)
 
@@ -1077,8 +1223,8 @@ function lib.ReorderList(opts)
   function list:Finish(container)
     self.line = ensureLine(container, self.color)
     if self.line then self.line:Hide() end
-    self.say("painted %d rows, %d draggable, boundary=%s",
-      #self.rows, #self.handles, tostring(self.boundary or 0))
+    self.say("painted %d rows, %d draggable, %d boxed, boundary=%s",
+      #self.rows, #self.handles, #self.boxes, tostring(self.boundary or 0))
     return self.line
   end
 

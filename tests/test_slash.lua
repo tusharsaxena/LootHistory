@@ -74,7 +74,9 @@ test("list emits azure [group] headers in the declared order", function()
   end
   assertEqual(table.concat(got, " | "), table.concat(want, " | "),
     "every group gets a header, in declaration order, in the azure bracket form")
-  assertEqual(got[1], "Collection", "Collection is the first tab and the first list section")
+  assertEqual(got[1], "Master controls",
+    "Master controls is the General page's FIRST tab (options-ui-§15), so it is the first section "
+    .. "the CLI lists too")
 end)
 
 test("list value rows use FormatKV under their group, four-space indented", function()
@@ -304,8 +306,8 @@ test("reset is path-scoped and resetall is the global verb (no page-shaped form)
   local out = capture(function() Sl:CliReset("") end)
   assertEqual(out[1], NS.PREFIX .. " Usage: /lh reset <path>")
   -- A tab name is not a path, so it is refused rather than silently resetting a whole section.
-  local page = capture(function() Sl:CliReset("Collection") end)
-  assertEqual(page[1], NS.PREFIX .. " Setting not found: Collection")
+  local page = capture(function() Sl:CliReset("Capture") end)
+  assertEqual(page[1], NS.PREFIX .. " Setting not found: Capture")
 end)
 
 -- ── the type-aware parser this addon did not have ────────────────────────────────────────────
@@ -316,6 +318,32 @@ test("set refuses a value outside a numeric enum instead of storing it", functio
   assertEqual(out[1], NS.PREFIX .. " Invalid value for settings.qualityThreshold")
   assertTrue(out[2]:find("allowed values: 0, 1, 2, 3, 4, 5, 7", 1, true) ~= nil, tostring(out[2]))
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), before, "nothing was written")
+end)
+
+test("set on the composed key-map enum accepts a mode and refuses anything else", function()
+  -- `settings.visibility` is the first row in this addon whose `values` is a KEY MAP plus an
+  -- explicit `sorting` rather than an array of { value, text } — the shape O.MasterControls emits.
+  -- The library's parser reads both, and the CLI has to agree with the panel about what is
+  -- selectable or a `/lh set` writes a mode the dropdown cannot show.
+  -- red under: dropping `sorting` (the allowed list would come back in pairs() order), or storing
+  -- the label instead of the key.
+  local before = NS.Schema:Get("settings.visibility")
+  local out = capture(function() Sl:CliSet("settings.visibility inCombat") end)
+  local stored = NS.Schema:Get("settings.visibility")
+  local invalid = capture(function() Sl:CliSet("settings.visibility sometimes") end)
+  local after = NS.Schema:Get("settings.visibility")
+  NS.Schema:Set("settings.visibility", before)   -- restored BEFORE the assertions, so a red case
+                                                 -- cannot leave the mode set for the suites after it
+
+  assertEqual(stored, "inCombat", "the stored value is the KEY, never the label")
+  -- The CLI echoes what it STORED, which for a string enum is the key. The panel is where the
+  -- label lives; two renderings of one value is exactly the drift the shared formatter ended.
+  assertEqual(out[1], NS.PREFIX .. " " .. Sl.FormatKV("settings.visibility", "inCombat"))
+
+  assertEqual(invalid[1], NS.PREFIX .. " Invalid value for settings.visibility")
+  assertTrue(invalid[2]:find("always, inCombat, outOfCombat, never", 1, true) ~= nil,
+    "the allowed list must be in the declared sorting, not pairs() order: " .. tostring(invalid[2]))
+  assertEqual(after, "inCombat", "the refused value was not written")
 end)
 
 test("set clamps a number to its slider range and echoes what was stored", function()

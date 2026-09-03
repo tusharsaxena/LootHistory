@@ -71,7 +71,8 @@ Loot History**.
   `Libraries → Locales → Core → Defaults → Modules → Settings`, so `settings/` now loads *after*
   `modules/`. Confirm nothing depends on that having been the other way round: no Lua error on login
   or `/reload`, `/lh` prints the help index (above), and **Ka0s Loot History appears in the Blizzard
-  options list** (Esc → Options → AddOns) with its General / Filters / AH Price sub-pages present.
+  options list** (Esc → Options → AddOns) with its single **General** sub-page present (Filters and
+  AH Price are tabs on that page's strip since R6, not sub-pages of their own).
   The headless suite loads in this same order, but the real TOC load path is not unit-testable.
 - `/lh` (bare) prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
   `NS.COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help — fourteen). Every
@@ -455,12 +456,25 @@ get/set/list/reset — one write seam (`Schema:Set`). See [settings-panel.md](se
 History** (both must land on the same category).
 
 **Steps.**
-- **The strip.** The General page opens on **Collection** with three tabs across the top —
-  Collection, Interface, Maintenance, in that order. The selected tab is the one you cannot click.
-  Click each in turn: the page's rows change and no section heading appears anywhere on it.
-  Narrow the Settings window until the strip wraps to a second row; the first row of controls must
-  still start *below* the strip, never under it.
-- Toggle **Enable collection** (Collection); run `/lh get settings.enabled`.
+- **The strip.** There is exactly **one** sub-page under Ka0s Loot History now — General — and it
+  opens on **Master controls** with six tabs across the top: Master controls, Capture, AH Price,
+  Interface, History, Filters, in that order. The selected tab is the one you cannot click. Those
+  names and that order are shared with **Ka0s Bank Ledger**, whose strip is the same without AH
+  Price — open both panels side by side and check they agree, because that agreement is the point.
+  Click each in turn: the page's rows change and **no section heading** appears on any of them —
+  except the two tabs that mix subjects, which carry *subsection* headings: **AH Price**
+  (**Pricing** above the toggle, **Price sources** above the table) and **Interface** (**Window**
+  above the two size sliders, **Minimap** above the button toggle). Narrow the Settings window until the strip wraps to a
+  second row; the first row of controls must still start *below* the strip, never under it, and
+  every row must sit at the same height whichever tab is selected.
+- **Master controls.** Toggle **Enable Loot History**; run `/lh get settings.enabled`. Set
+  **General visibility** to *Never* and try `/lh show` — the window refuses and says so in chat; set
+  it back to *Always* and the window opens again. Set it to *Only out of combat*, open the window,
+  then pull something: the window hides itself when combat starts and does **not** reopen on its
+  own when combat ends. Drag **Master scale** — the History window *and* the export window both
+  change size, and **Window scale** on the Interface tab still multiplies on top of it. Drag
+  **Master alpha** — both windows fade together. Tick **Lock frame** and try to drag either window
+  by its title bar: neither moves; untick it and both drag again.
 - Drag the **Window scale** slider (Interface); run `/lh get settings.windowScale`. Then
   `/lh set windowScale 1.5` and watch the slider. **The slider must move smoothly in 0.05 steps** —
   it shipped with no step and could only be dragged to 0.6 or 1.6.
@@ -468,17 +482,27 @@ History** (both must land on the same category).
   The History table's rows change height *and* the number of visible rows changes with them; no row
   is left clipped at the bottom of the list. Set it back to 18 and confirm the table looks exactly
   as it did before the slider existed. `/lh get settings.rowHeight` echoes the value.
-- Change **Minimum quality** (Collection), **Keep history for** (Maintenance), and toggle checkboxes
-  in **Record data from** (Collection) and **Hide minimap button** (Interface) /
-  **Exclude quest items** (Collection).
-- **Maintenance tab.** The storage readout ("N items collected over D days", "Database size: ≈ …")
-  is there, with **Purge history…** beside it and **Reset Everything** on the line below. Loot
-  something with the panel open on that tab — the readout's item count goes up on its own. Then
-  click through to Collection and back to Maintenance and loot again: the count must *still* update
-  (the readout is rebuilt on every tab click, and the live listener has to follow the new label).
-- **Reset Everything** now lives on Maintenance, not beside Window scale. Click it: the
-  confirm dialog is the total-wipe one, and Cancel changes nothing.
-- **Debug console** (Interface, paired beside Hide minimap button): check it — the debug
+- Change **Minimum quality** (Capture), **Keep history for** (History), and toggle checkboxes
+  in **Record data from** (Capture) and **Hide minimap button** (Interface) /
+  **Exclude quest items** (Capture).
+- **History tab.** The storage readout ("N items collected over D days", "Database size: ≈ …")
+  is there, with **Purge history…** beside it — and **nothing else**: the old *Reset Everything*
+  button is gone from this tab. Loot something with the panel open on that tab — the readout's item
+  count goes up on its own. Then click through to Capture and back to History and loot again:
+  the count must *still* update (the readout is rebuilt on every tab click, and the live listener
+  has to follow the new label).
+- **The reset pair (Master controls).** **Reset position** moves the History window back to the
+  centre and changes nothing else — no setting is touched. **Reset all settings** raises the
+  total-wipe confirm; Cancel changes nothing. Neither button appears anywhere else in the panel.
+- **Filters tab.** Its three lists are a **secondary** strip *inside* the page, below the main one
+  and scrolling with the content — not a second pinned band. Click through Blacklist / Whitelist /
+  Currencies: exactly one add-box is on screen at a time. Leave for another tab and come back — the
+  sub-tab you were on is still selected. Reload: it is back on Blacklist (session-only).
+- **AH Price tab.** Its eleven rows are here rather than on a page of their own. Click away to
+  another tab and back several times, then leave the panel and reopen it: the table still draws
+  correctly, the tick/status columns are right, and **leaving this tab is instant** — this page
+  froze the client for ~1.7s before its rows were pooled, and the pooling has to survive the strip.
+- **Debug console** (Master controls, paired beside Lock frame): check it — the debug
   console **window** opens; uncheck it — the window hides. Confirm it does **not** change the debug
   **logging** state (`/lh get state.debugConsole` reports window visibility; logging is still governed
   by `/lh debug on|off`). Toggle the window via `/lh debug` (no arg) and the console's own close
@@ -491,8 +515,9 @@ History** (both must land on the same category).
 **Pass.**
 - Each panel write and each `/lh set` write the **same** value and fire `SettingsChanged`; an open
   panel widget reflects a slash write live, and vice-versa. `/lh get` echoes the stored value.
-- `/lh list` groups its output under `[Collection]`, `[Interface]`, `[Maintenance]`, `[AH Price]` —
-  the tab names, in strip order.
+- `/lh list` groups its output under `[Capture]`, `[AH Price]`, `[Interface]`, `[History]` —
+  the tab names, in strip order. The headers follow the `group` field, so a tab rename lands here
+  too and a stale `[Collection]` or `[Maintenance]` means one was missed.
 - `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`,
   `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
   `settings.retentionDays`, `settings.excludedSources`).
@@ -517,23 +542,28 @@ destructive-action confirm dialogs.
 
 **Steps.**
 - Observe the right-edge vertical **scrollbar** on a page that fits without scrolling.
-- Find the **Reset Everything** button (right of the Window-scale slider) and the **Purge history…** button
-  (right of the storage-stats label). Check each button's right border.
+- Find the **Reset position** / **Reset all settings** pair (Master controls, the last line) and the
+  **Purge history…** button (History, right of the storage-stats label). Check each button's
+  right border.
 - Click **Purge history…** → in the confirm dialog, click **No/Cancel**, then run it again and confirm.
-- Click **Reset Everything** → confirm dialog.
+- Click **Reset all settings** → confirm dialog.
 - `/lh purge` from chat.
 
 **Pass.**
 - The scrollbar is **always shown**: on a short page the bar renders parked at the top and **grayed /
   disabled** (it does not auto-hide), so the right gutter is always reserved and the body's left/right
-  margins **don't jump** between a short and a long subpage.
-- **Reset Everything** and **Purge history…** each draw their **full right border** (not shaved by the scroll
-  gutter) and line up cleanly with their left-hand neighbor — no spill past the panel edge
-  (`BUTTON_PAIR_REL` pairing via `makePairButton`).
+  margins **don't jump** between a short and a long page.
+- **Reset position**, **Reset all settings** and **Purge history…** each draw their **full right
+  border** (not shaved by the scroll gutter) and line up cleanly with their left-hand neighbor — no
+  spill past the panel edge (`BUTTON_PAIR_REL`, the library's `InlineButtonPair` for the reset pair
+  and this addon's `makePairButton` for the purge).
 - **Purge history…** raises `KA0S_LOOTHISTORY_PURGE` ("Delete ALL … records? This cannot be undone.");
   Cancel leaves the data intact, Accept wipes history and prints "history purged."
-- **Reset Everything** raises `KA0S_LOOTHISTORY_RESETALL` ("Reset ALL … settings AND delete ALL recorded
-  history?"); Accept wipes history **and** restores every setting to default, then refreshes the panel.
+- **Reset all settings** raises `KA0S_LOOTHISTORY_RESETALL` (options-ui-§12's second canonical
+  wording — "Reset this addon to its defaults? Everything you have configured or recorded is
+  discarded, for every character on this account — this cannot be undone."); Accept wipes history
+  **and** restores every setting to default, then refreshes the panel.
+- **Reset position** raises no dialog and touches no setting: only the window moves.
 - `/lh purge` raises the same purge dialog as the button.
 
 ### 11. Minimap button
@@ -635,17 +665,20 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 
 ### 16. Blacklist & whitelist
 
-Covers the item-id filter lists (issue #14): the capture gate and the Settings ▸ Filters management
+Covers the item-id filter lists (issue #14): the capture gate and the Settings ▸ General ▸ Filters management
 UI. This is **point-in-time** filtering — editing either list only changes what happens to *future*
 loots; it never touches rows already stored. **Setup:** a real history with at least one repeated item.
 
 **Steps.**
 - In the History tab, right-click a row and choose **Blacklist item**. Note the popup's **gold border**.
-- Open **Settings ▸ Filters** (`/lh config` → Filters). The page opens on the **Blacklist** tab of a
-  three-tab strip — Blacklist, Whitelist, Currencies — and shows one list, not three stacked. Note
-  the item.
+  The chat line reads `Manage in Settings ▸ General ▸ Filters ▸ Blacklist` — the full route, since
+  Filters is a tab of General and the list is a sub-tab of it. **Blacklist currency** names
+  **▸ Currencies**.
+- Open **Settings ▸ General ▸ Filters** (`/lh config` → General → Filters, the **last** tab on the
+  strip). It opens on the **Blacklist** sub-tab of a three-tab secondary strip — Blacklist,
+  Whitelist, Currencies — and shows one list, not three stacked. Note the item.
 - Loot that same item again (or `/lh test` won't help here — use a live drop).
-- In the Filters page, click **Remove** on that item, then loot the item once more.
+- On the Filters tab, click **Remove** on that item, then loot the item once more.
 - Click the **Whitelist** tab and add an item id that would normally be dropped (below your quality
   threshold, or from a muted source), then loot it so a row appears. Exactly **one** add box is on
   screen at a time, and it is the selected tab's.
@@ -653,9 +686,9 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
 - Enter garbage (e.g. `abc`) into an add box and submit.
 - **Refresh perf (anti-pattern #39):** with a non-trivial blacklist (a dozen+ ids), click away to
-  another subcategory and back to **Filters** several times in a row, and click between the three
-  tabs several times in a row. Then, with the panel closed,
-  right-click **Blacklist item** on a History row, and re-open **Filters**.
+  another primary tab and back to **Filters** several times in a row, and click between its three
+  sub-tabs several times in a row. Then, with the panel closed,
+  right-click **Blacklist item** on a History row, and re-open the **Filters** tab.
 
 **Pass.**
 - **Blacklist item** (right-click) adds the id to the blacklist, but the **clicked row stays in the
@@ -663,7 +696,7 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   stored. A chat line confirms "blacklisted …".
 - While blacklisted, looting that item records **nothing new** (no new row; a
   `[Drop] … reason=blacklist` line with debug on). Existing rows of that id are unaffected throughout.
-- Clicking **Remove** in the Filters page brings **nothing back** — nothing was ever hidden, so there
+- Clicking **Remove** on the Filters tab brings **nothing back** — nothing was ever hidden, so there
   is nothing to restore. Looting the item again afterward records normally, confirming the gate is
   lifted for future loots only.
 - A **whitelisted** id records **even when it would normally be dropped** (below threshold / muted
@@ -671,7 +704,7 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 - **Removing** that id from the whitelist afterward leaves the row(s) it added **exactly where they
   are** — nothing is hidden or deleted. Only *future* loots of that id go back through the normal
   gates (and are dropped again if they don't pass).
-- Adding an id to one list **removes it from the other** (an id is never on both). The Filters page's
+- Adding an id to one list **removes it from the other** (an id is never on both). The Filters tab's
   lists update live on the tab you are looking at; each entry shows the item name (or `Item <id>` until the client caches it)
   with a **Remove** button; the empty state reads `(none)`.
 - Garbage input is rejected with a chat hint and adds nothing.
@@ -679,7 +712,7 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   membership never does this for you.
 - The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in
   the browser's filter dropdowns (it is core logic, not a user-selectable display filter).
-- **Refresh perf:** repeatedly re-opening the Filters page, and clicking between its three tabs, is
+- **Refresh perf:** repeatedly re-opening the Filters tab, and clicking between its three sub-tabs, is
   **instant** — no per-click stutter or freeze even with a long blacklist (only the list on screen
   is ever rebuilt) (the list rebuild is gated to first paint / on-screen edits /
   dirty, per options-ui-§11; re-showing an unchanged page does no AceGUI teardown+rebuild). After a
@@ -764,19 +797,22 @@ already identical to the library's, so **anything that looks different here is t
    **single** spaces around the em dash, the dash no longer white-wrapped, the description white.
    They previously had double spaces and a bare description. Everything else on the page is
    unchanged.
-3. Click through **General**, **Filters** and **AH Price**. Each header reads
-   `Ka0s Loot History ▸ <Page>` with the gold divider under it and a **Defaults** button top-right.
-   **General** and **Filters** each carry a three-tab strip under that header (walked in §9); **AH
-   Price** carries none. On **General ▸ Collection** the two-column pairing reads Enable collection |
-   Minimum quality, then Record currency | Exclude quest items, then the full-width **Record data
-   from** grid; **Interface** reads Window scale | Row height, then Hide minimap button | Debug
-   console; **Maintenance** carries Keep history for, the storage readout | **Purge history…**, and
-   **Reset Everything**.
+3. There is **one** sub-page, **General**. Its header reads `Ka0s Loot History ▸ General` with the
+   gold divider under it and a **Defaults** button top-right, and a six-tab strip below that (walked
+   in §9). The two-column pairing per tab: **Master controls** reads Enable Loot History | General
+   visibility, then Master scale | Master alpha, then Lock frame | Debug console, then the button
+   pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
+   currency, then Exclude quest items alone, then the full-width **Record data from** grid;
+   **AH Price** reads the *Pricing* heading, Enable AH pricing, the *Price sources* heading and the
+   eleven-row table; **Interface** reads Window scale | Row height, then Hide minimap button;
+   **History** carries Keep history for and then the storage readout | **Purge history…**.
 4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
    edge does not shift** as you click between pages (options-ui-§10).
-5. On **AH Price**, click away to another page and back several times. There must be **no freeze** —
-   that page's eleven row slots are pooled, and `SetRenderer` is deliberately declined on it for
-   exactly this reason ([LIBKA0S-15](https://github.com/tusharsaxena/LootHistory/issues/21)).
+5. On the **AH Price** tab, click away to another tab and back several times, then leave the panel
+   and reopen it. There must be **no freeze** — the eleven row slots are pooled, and R6 preserved
+   that through the merge by making their host a raw frame this addon owns for the session rather
+   than an AceGUI child a re-render would release
+   ([LIBKA0S-15](https://github.com/tusharsaxena/LootHistory/issues/21)).
 
 **17d. What the library newly fixes.** Three of these never worked before; confirm they do now.
 
@@ -816,10 +852,14 @@ guard — but check both entry points of each destructive action anyway:
 
 - `/lh purge` → confirm popup. Cancel: history intact. **Settings ▸ General ▸ Purge history…** →
   the same popup.
-- **Settings ▸ General ▸ Reset Everything** → the "settings AND history" popup. Cancel: nothing
-  changes. Its label says Everything, not All, precisely because `/lh resetall` below does less.
-- **Settings ▸ Filters ▸ Defaults** → the clear-all-filters popup, and each list's own **Clear all**
-  → its own popup.
+- **Settings ▸ General ▸ Master controls ▸ Reset all settings** → the canonical "everything you have
+  configured or recorded is discarded" popup. Cancel: nothing changes. It does **more** than
+  `/lh resetall` below — a **ratified** divergence from options-ui-§12's opening sentence rather than
+  a design, carried as a register row in
+  [ARCHITECTURE.md](ARCHITECTURE.md#documented-deviations).
+- Each Filters list's own **Clear all** → its own popup. The page-wide **Defaults** button clears all
+  three lists as part of a page reset (Filters is a tab on this page now, so its former per-page
+  Defaults button is gone).
 - `/lh resetall` is non-destructive (settings + the id-lists only, history untouched) and correctly
   does **not** ask.
 
@@ -865,7 +905,7 @@ monospace face out of `libs/LibKa0s/media/fonts/`. Open the History window and w
 > also prints the LibKa0s-missing clause and renders the console in a proportional font.
 >
 > **Not a regression:** the minimap button and the addon's TOC icon are still full-color Blizzard
-> icons, and the settings panel is untouched — its ▲▼ priority arrows, information icons and
+> icons, and the settings panel is untouched — its drag handles, information icons and
 > ready-check ticks are `LibKa0s-Options-1.0`'s widgets and are deliberately out of scope. **Save**
 > in the filter bar has no mark because the 113-name catalog has no save/disk glyph; one is added
 > upstream in LibKa0s or not at all (anti-patterns #63).
@@ -988,7 +1028,7 @@ adoption, not an improvement.
   `Analytics.lua` / `Export.lua` — the shared filter bar and tab-aware Export cross all of these.
 - **Settings / schema edits:** 9, 10, plus §4's mute/quality gates for any new Data-Collection row.
 - **Blacklist/whitelist edits:** 16, plus §4 (the capture gate) — `modules/Filters.lua`,
-  `modules/Collector.lua`, `settings/Panel.lua`'s Filters page.
+  `modules/Collector.lua`, `settings/Panel.lua`'s Filters tab.
 - **Media / art edits:** 17g, plus 5, 6 and 7. Anything touching `core/MediaSetup.lua`, an
   `NS.Icon` / `NS.IconMarkup` call site, or a re-vendor of `libs/LibKa0s/media/`.
 - **LibKa0s / library edits:** 17, plus 9, 10 and 12. Anything touching `core/CoreSetup.lua`,

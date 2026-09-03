@@ -19,19 +19,29 @@ local addonName, NS = ...
 --    generic path because it is `type = "table"` and `O.RenderField` returns nil for a type it does
 --    not know — not because it carries `skipRender`, which it does not.
 --
--- 2. `SetRenderer` on the AH Price page. The library's renderer contract is "re-run me and I redraw
---    the page", which means a `ClearScroll` releasing every AceGUI child back to the pool. That page
---    parents ELEVEN reusable row slots of raw FontStrings and Buttons to an AceGUI SimpleGroup's
---    frame, created once and repainted in place; releasing that group would orphan them. The
---    ~213-frame version of this page froze the client for ~1.7s on tab-transition and the pooling is
---    what fixed it (docs/settings-panel.md), so the page keeps its own OnShow. Everything else on it
---    — the canvas, the header, the Defaults button, the scroll, the section heading, the schema row
---    — is the library's.
+-- 2. NOTHING ANY MORE, on the renderer. The AH Price page used to keep its own `OnShow` rather than
+--    going through `SetRenderer`: the library's renderer contract is "re-run me and I redraw the
+--    page", which means a `ClearScroll` releasing every AceGUI child back to the pool, and that page
+--    parented eleven reusable row slots of raw FontStrings and Buttons to an AceGUI SimpleGroup's
+--    frame. The ~213-frame version of it froze the client for ~1.7s on tab-transition and the
+--    pooling is what fixed it (docs/settings-panel.md).
+--
+--    R6 merged that page into General as a TAB, which made "keep your own OnShow" unavailable —
+--    there is one page and one renderer now. The pooling is preserved by a different move: the price
+--    host is a RAW frame this addon owns for the session, parked on the panel while another tab is
+--    on screen and re-parented to a fresh placeholder each time its own tab is drawn. It is never an
+--    AceGUI child, so ClearScroll cannot reclaim it, and nothing is allocated twice. See
+--    settings/Panel.lua's buildAuctionTable.
 --
 -- 3. Core's window skin. See core/CoreSetup.lua and closed issue #19 (LIBKA0S-02).
 --
 -- ── LOAD ORDER ─────────────────────────────────────────────────────────────────────────────────
 --   AFTER  core/CoreSetup.lua   — `print` routes through the shared printer.
+--   BEFORE settings/Schema.lua  — LOAD-BEARING as of the Master controls adoption: that file calls
+--                                 NS.Options.MasterControls at FILE LOAD to compose its first tab
+--                                 (options-ui-§15), so NS.Options has to exist by then. Nothing here
+--                                 resolves at load — every descriptor field below is a closure over
+--                                 NS.Schema / NS.Panel — so the move costs nothing.
 --   BEFORE settings/Panel.lua   — that file takes NS.Options as a file-scope upvalue.
 
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
@@ -70,6 +80,48 @@ if not lib then
     TabStrip = function() return nil end,
     PageBanner = function() return nil end,
     RenderTabbedSchema = function() return {} end,
+
+    -- ── the chrome block and the secondary strip (options-ui-§13/§14) ─────────────────────────
+    -- Arrived with LibKa0s v1.24.0. This addon calls SubTabStrip (the Filters tab's three id
+    -- lists) and never PageHeader — but a stub that omits a member the live table has is how a
+    -- degraded install finds a nil where the live one finds a function, so both answer, and both
+    -- answer what the live pair answers with no AceGUI: nil, having drawn nothing. The two seams
+    -- around them are the strip's measured row pitch and the sub-strip ledger drain ClearScroll
+    -- calls; a page with no chrome measures the same pitch every time and has nothing to drain.
+    PageHeader          = function() return nil end,
+    SubTabStrip         = function() return nil end,
+    __releaseSubTabs    = noop,
+    __tabArtHeight      = function() return 0 end,
+    __resetTabArtHeight = noop,
+
+    -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
+    -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
+    -- They still answer NOTHING here, and that is the honest shape rather than a shortfall. The
+    -- product of a composer is DECLARATION -- rows that only a settings panel and a slash CLI read,
+    -- and on this path both of those come from the same absent library. settings/Schema.lua
+    -- therefore ships its Master controls block empty on a degraded install; every stored value it
+    -- declares still exists, because defaults/Global.lua is what AceDB merges and modules read
+    -- `NS.db.global.settings` directly (modules/Collector.lua, modules/Browser.lua) rather than
+    -- through Schema:Get.
+    --
+    -- MasterControls returns TWO values -- the rows and the afterGroup hook that draws the closing
+    -- button pair -- so the stub does too, or a host unpacking both finds a nil where a function
+    -- goes.
+    MasterControls = function() return {}, noop end,
+    ColorPair      = function() return {} end,
+    FontGroup      = function() return {} end,
+    BorderGroup    = function() return {} end,
+    BarGroup       = function() return {} end,
+
+    -- The composers' published constants. Read off the instance by a host that renders one of the
+    -- canonical enums itself; this addon reads MASTER_GROUP (settings/Schema.lua) and nothing else,
+    -- but a scalar that answers nil on one path and a table on the other is the same trap the
+    -- layout scalars below are published to avoid.
+    FONT_FLAGS = {}, FONT_FLAGS_SORT = {},
+    VISIBILITY_VALUES = {}, VISIBILITY_SORT = {},
+    MASTER_GROUP = "Master controls",
+    CLASS_COLOR_NOTE =
+      "Not read while Use class color is on, except for its opacity, which always applies.",
 
     -- The strip's pure arithmetic. No call site in this addon reaches any of them —
     -- `grep -rn "Options\.__\(layoutTabs\|tabPlacement\|bannerBand\|tabBand\|scrollTopInset\|releaseChrome\)" core settings modules`

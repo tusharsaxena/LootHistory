@@ -957,7 +957,13 @@ local function EnsureFrame()
   titleBar:SetHeight(SKIN.titleBarH)
   titleBar:EnableMouse(true)
   titleBar:RegisterForDrag("LeftButton")
-  titleBar:SetScript("OnDragStart", function() frame:StartMoving() end)
+  -- Lock frame (options-ui-§15) gates the DRAG, not the frame's movability: SetMovable(false) would
+  -- also break StopMovingOrSizing on a drag already in flight, and the setting says "stop the frame
+  -- being dragged", which is a gesture rather than a capability.
+  titleBar:SetScript("OnDragStart", function()
+    if B:IsLocked() then return end
+    frame:StartMoving()
+  end)
   titleBar:SetScript("OnDragStop", function()
     frame:StopMovingOrSizing()
     SaveWindow()
@@ -1073,7 +1079,7 @@ local function EnsureFrame()
 
   B:ApplySkin(frame)
   RestoreWindow()
-  frame:SetScale(NS.db and NS.db.global.settings.windowScale or 1.0)
+  B:ApplyChrome(frame, NS.db and NS.db.global.settings.windowScale)
   frame:Hide()
 
   if type(UISpecialFrames) == "table" then
@@ -1082,7 +1088,67 @@ local function EnsureFrame()
   return frame
 end
 
+-- ── Master controls: the addon-wide chrome (options-ui-§15) ────────────────────
+--
+-- `settings.scale`, `settings.alpha`, `settings.locked` and `settings.visibility` govern EVERY
+-- frame this addon draws — the History window and the export modal — which is what makes them the
+-- master rows rather than a second copy of `settings.windowScale`. That one is the History window's
+-- OWN scale and MULTIPLIES on top of the master, exactly as a per-instance row is meant to: a
+-- player who has sized this window relative to the rest of their UI keeps that relationship when
+-- they scale the addon as a whole.
+--
+-- They live here, on the module that owns this addon's window chrome, and modules/Export.lua
+-- borrows them the same way it already borrows MakeCloseButton and the browser anchor.
+
+--- The addon-wide scale, alpha and lock, with the shipped values as the floor.
+function B:MasterChrome()
+  local s = (NS.db and NS.db.global and NS.db.global.settings) or {}
+  return s.scale or 1.0, s.alpha or 1.0, s.locked and true or false
+end
+
+--- True while the frames are locked and a drag must not start.
+function B:IsLocked()
+  return select(3, B:MasterChrome())
+end
+
+--- Apply the addon-wide scale and opacity to one of this addon's top-level frames.
+--- `windowScale` is that frame's OWN per-window scale, or nil for a frame that has none.
+function B:ApplyChrome(f, windowScale)
+  if not f then return end
+  local scale, alpha = B:MasterChrome()
+  f:SetScale(scale * (windowScale or 1.0))
+  f:SetAlpha(alpha)
+end
+
+--- Whether the History window is allowed on screen right now (the General visibility dropdown).
+---
+--- The window is opened on demand — a slash verb, the minimap button, a keybind — so honouring the
+--- setting means REFUSING to show and hiding a window the setting has stopped allowing. It never
+--- opens the window by itself: "Only in combat" is a permission, not an instruction to pop a
+--- 1100px browser over a pull.
+function B:VisibilityAllows()
+  local mode = (NS.db and NS.db.global and NS.db.global.settings
+                and NS.db.global.settings.visibility) or "always"
+  if mode == "never"  then return false end
+  if mode == "always" then return true end
+  local inCombat = (InCombatLockdown and InCombatLockdown()) and true or false
+  if mode == "inCombat" then return inCombat end
+  return not inCombat   -- "outOfCombat"
+end
+
+--- Hide the window if the visibility setting no longer allows it. Called on every combat
+--- transition and whenever the dropdown is written.
+function B:ApplyVisibility()
+  if frame and frame:IsShown() and not B:VisibilityAllows() then
+    frame:Hide()
+  end
+end
+
 function B:Show()
+  if not B:VisibilityAllows() then
+    print("the window is hidden by the General visibility setting.")
+    return
+  end
   local f = EnsureFrame()
   f:Show()
   -- Eager-build the History pane so the table attaches and matchCount is fresh — the shared footer
@@ -1098,21 +1164,29 @@ function B:Hide()
 end
 
 function B:Toggle()
-  local f = EnsureFrame()
-  if f:IsShown() then f:Hide() else B:Show() end
+  -- Routed through B:Show rather than f:Show, so the visibility refusal covers the toggle and the
+  -- minimap click too. Only the frame that already exists can be hidden, so a refused open never
+  -- builds one.
+  if frame and frame:IsShown() then frame:Hide() else B:Show() end
 end
 
 -- The History window frame (or nil if never built). Lets sibling modules (e.g. Export) anchor
 -- their own popups to the browser window rather than the screen.
 function B:GetWindow() return frame end
 
+--- The per-window scale row's onChange. Goes through ApplyChrome so the master scale is applied in
+--- the same breath — a per-window scale set on its own would otherwise discard it.
 function B:SetScale(v)
-  if frame then frame:SetScale(v) end
+  B:ApplyChrome(frame, v)
 end
 
--- React to settings changes (window scale + minimap visibility) while the window exists.
+-- React to settings changes (master chrome + window scale + visibility + minimap) while the window
+-- exists. The export modal is reached from here rather than from a bus target of its own: it is
+-- built lazily and may not exist, and E:Open re-applies on every open regardless.
 function B:OnSettingsChanged()
-  if frame then frame:SetScale(NS.db.global.settings.windowScale or 1.0) end
+  B:ApplyChrome(frame, NS.db.global.settings.windowScale)
+  if NS.Export and NS.Export.ApplyChrome then NS.Export:ApplyChrome() end
+  B:ApplyVisibility()
   self:SetMinimapHidden(NS.db.global.minimap and NS.db.global.minimap.hide)
 end
 
@@ -1198,6 +1272,10 @@ function B:Enable()
     -- once. Only the automatic, bursty message needs collapsing.
     B.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
       NS.Coalesce(function() B:OnHistoryChanged() end, NS.Constants.RECORD_ADDED_COALESCE))
+    -- The two transitions the General visibility dropdown is about. Only ever HIDES: a window the
+    -- setting stops allowing goes away, and one it starts allowing is still the player's to open.
+    B.__ev:RegisterEvent("PLAYER_REGEN_DISABLED", function() B:ApplyVisibility() end)
+    B.__ev:RegisterEvent("PLAYER_REGEN_ENABLED",  function() B:ApplyVisibility() end)
     B:SetupMinimap()
   end
 end

@@ -135,11 +135,43 @@ function AuctionPrice:ReconcilePriority()
   return p
 end
 
-function AuctionPrice:SwapPriorityTags(tagA, tagB)
+-- Move one tag to a new position AMONG A SUBSET of the cascade, in one write.
+--
+-- Replaces the pairwise SwapPriorityTags the settings panel's ▲▼ arrows used to drive. The panel
+-- drags now (options-ui-§18) and a drag is a SPLICE TO INDEX, not a run of adjacent swaps: a
+-- four-position move has to be one mutation and one repaint, or every intermediate order is written
+-- to the DB and announced.
+--
+-- `subset` is the tags the drag may reorder, in cascade order — the panel's "collecting" partition,
+-- which is the only group it lets you drag within. THE TAGS OUTSIDE IT DO NOT MOVE: their slots in
+-- the stored array are left exactly where they are and the subset is re-laid into its own slots, so
+-- a reorder of the collected sources cannot silently re-rank a source you are not collecting. That
+-- also makes the write minimal — `#subset` assignments, however far the row travelled.
+--
+-- Returns true when something moved, false for a no-op (an out-of-range index, a move to where the
+-- row already was, or a tag the cascade does not carry).
+function AuctionPrice:MovePriorityWithin(subset, from, to)
+  if type(subset) ~= "table" then return false end
+  local n = #subset
+  if not (type(from) == "number" and type(to) == "number") then return false end
+  if from < 1 or from > n or to < 1 or to > n or from == to then return false end
+
   local p = self:GetPriority()
-  local ia, ib
-  for i, t in ipairs(p) do if t == tagA then ia = i elseif t == tagB then ib = i end end
-  if not (ia and ib) then return false end
-  p[ia], p[ib] = p[ib], p[ia]
+  -- The subset's own slots in the cascade, ascending — which is the order `subset` is in, because
+  -- the caller partitioned it by walking the cascade.
+  local slots, at = {}, {}
+  for i, tag in ipairs(p) do at[tag] = at[tag] or i end
+  for i, tag in ipairs(subset) do
+    local pos = at[tag]
+    if not pos then return false end
+    slots[i] = pos
+  end
+  table.sort(slots)
+
+  local moved = {}
+  for i, tag in ipairs(subset) do moved[i] = tag end
+  table.insert(moved, to, table.remove(moved, from))
+
+  for i, tag in ipairs(moved) do p[slots[i]] = tag end
   return true
 end

@@ -4,7 +4,7 @@ The standalone loot browser is a single non-secure window with two views — **H
 
 ## The standalone window (standalone-windows)
 
-`EnsureFrame` (`Browser.lua:921`) builds one plain `CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")` — the Ka0s Standard standalone-windows pattern for standalone data browsers, of which this addon is the reference implementation. It is **non-secure by design**: no `SecureFrameTemplate`, no `InCombatLockdown` gate, so the window opens and repaints freely in combat. (The *settings* panel is separately options-ui-§2 combat-gated; the browser is not.)
+`EnsureFrame` (`Browser.lua:926`) builds one plain `CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")` — the Ka0s Standard standalone-windows pattern for standalone data browsers, of which this addon is the reference implementation. It is **non-secure by design**: no `SecureFrameTemplate`, no `InCombatLockdown` gate, so the window opens and repaints freely in combat. (The *settings* panel is separately options-ui-§2 combat-gated; the browser is not.)
 
 The frame is `HIGH` strata, mouse-enabled (no click-through to the world), movable, resizable, and `SetClampedToScreen(true)` (`Browser.lua:937-941`). Four standalone-windows obligations are wired in `EnsureFrame`:
 

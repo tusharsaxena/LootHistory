@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 6
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -300,6 +300,94 @@ function lib.RGBA(c, dr, dg, db, da)
     return pick(c.r, dr), pick(c.g, dg), pick(c.b, db), pick(c.a, da)
   end
   return pick(c[1], dr), pick(c[2], dg), pick(c[3], db), pick(c[4], da)
+end
+
+-- ── the class color, and the swatch it defers to ───────────────────────────────────────────
+--
+-- Every addon in the collection is growing a "use class color" companion beside every color
+-- swatch it draws (options-ui-§17), and each was about to answer the same three questions its own
+-- way. They ARE the same three questions, and answering them differently is how a collection stops
+-- reading as one author's work: a bar that keeps its alpha under a class color beside a border
+-- that does not.
+--
+-- Three implementations existed before this one and two of them disagreed about the SOURCE:
+-- AbsorbTracker read `C_ClassColor.GetClassColor`, PanelMaster and MultiMeters read
+-- `RAID_CLASS_COLORS`. PanelMaster's recorded argument wins, and it is not a coin toss --
+-- RAID_CLASS_COLORS is the table every other UI on the player's screen is already reading, so it
+-- is what the unit frames next to ours are showing. One source, here, once.
+
+--- Does `c` carry all three channels as numbers?
+---
+--- A palette entry that half-knows a class -- a table with a hex string and nothing else -- is not
+--- a color, and two thirds of one is worse than none.
+local function hasChannels(c)
+  return type(c) == "table"
+     and type(c.r) == "number" and type(c.g) == "number" and type(c.b) == "number"
+end
+
+-- The PLAYER's own class cannot change inside a session, so it is looked up once. NO OTHER UNIT IS
+-- EVER CACHED: target and focus change class every time the player retargets, and a per-unit cache
+-- would need invalidating on PLAYER_TARGET_CHANGED and PLAYER_FOCUS_CHANGED to save one table
+-- index. Cached on SUCCESS ONLY, which is what lets a class the client has not answered for yet
+-- resolve on the next read rather than being pinned nil for the session.
+local playerColor
+
+--- The class color for a unit, or NIL.
+---
+--- NIL IS AN ANSWER. An NPC, an unresolvable unit, a unit whose class the client has not answered
+--- for -- none of them is a color, and substituting one (white, gray, anything) invents a hue
+--- nobody chose, appearing only in the cases nobody tests. Every caller falls through to the
+--- stored swatch instead; see ResolveColor.
+---
+--- @param unit string|nil   a unit token; nil or omitted means the player
+--- @return number|nil r, number|nil g, number|nil b
+function lib.ClassColor(unit)
+  local isPlayer = (unit == nil or unit == "player")
+  if isPlayer and playerColor then
+    return playerColor.r, playerColor.g, playerColor.b
+  end
+  if type(UnitClass) ~= "function" then return nil end
+
+  -- pcall'd because the token is the CALLER'S: a unit string the client rejects raises rather than
+  -- answering nil, and one bad token must cost this color rather than the frame being repainted.
+  local ok, _, token = pcall(UnitClass, unit or "player")
+  if not ok or type(token) ~= "string" then return nil end
+
+  local c = type(RAID_CLASS_COLORS) == "table" and RAID_CLASS_COLORS[token] or nil
+  if not hasChannels(c) then return nil end
+  if isPlayer then playerColor = c end
+  return c.r, c.g, c.b
+end
+
+--- Forget the memoized player color. Suite seam, and the one thing a session cannot need.
+function lib.__ResetClassColor() playerColor = nil end
+
+--- Resolve a stored swatch through its class-color companion. Four numbers out, always.
+---
+--- Three rules, and all three were already unanimous across the three implementations this
+--- replaces -- written down in none of them, which is why they are stated here:
+---
+---   1. THE CONFIGURED ALPHA SURVIVES THE MODE. No class-color source carries an alpha, so the
+---      swatch's is always the one used -- which is also why the swatch is never disabled.
+---   2. AN UNRESOLVABLE CLASS FALLS THROUGH TO THE STORED SWATCH, never to a default color.
+---   3. The swatch is read under BOTH modes, so it is never grayed and never `disabledIf`
+---      (options-ui-§17, anti-patterns #74): setting the color before turning the mode on is the
+---      normal order of operations, and a disabled control makes it a two-visit job.
+---
+--- The stored value goes through lib.RGBA, so both persisted shapes -- keyed and positional --
+--- work here exactly as they do everywhere else in this collection. A host with a codec of its own
+--- may decode first; it does not have to.
+---
+--- @param stored table|nil  the stored swatch, keyed or positional
+--- @param on any            the companion checkbox's stored value
+--- @param unit string|nil   the unit the SURFACE DESCRIBES; nil means the player
+--- @return number r, number g, number b, number a
+function lib.ResolveColor(stored, on, unit)
+  local r, g, b, a = lib.RGBA(stored, 1, 1, 1, 1)
+  if not on then return r, g, b, a end
+  local cr, cg, cb = lib.ClassColor(unit)
+  if cr == nil then return r, g, b, a end
+  return cr, cg, cb, a
 end
 
 -- ── the prefixed chat printer ──────────────────────────────────────────────────────────────

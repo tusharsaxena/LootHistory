@@ -68,7 +68,11 @@ modules\Export.lua
 modules\Analytics.lua
 
 # Settings
+# LOAD-BEARING POSITION: settings\Schema.lua composes its Master controls tab at FILE LOAD
+# through NS.Options.MasterControls (options-ui-§15), so the Options seam has to have published
+# NS.Options by then. Nothing in this file resolves at load -- every descriptor field is a closure
+# over NS.Schema / NS.Panel -- so moving it above Schema costs nothing and buys the composer.
+settings\OptionsSetup.lua
 settings\Schema.lua
 settings\Slash.lua
-settings\OptionsSetup.lua
 settings\Panel.lua
