@@ -101,9 +101,10 @@ it is edited on, its `group` is the **tab** within that page (options-ui-§13), 
 `subgroup` is a subsection heading *inside* a tab (options-ui-§7), and its `path` is where the value
 is stored — four independent facts. R6 deprecated the Filters and AH Price sub-pages into General,
 so the panel is a parent landing page plus **one** subcategory whose strip is six tabs:
-**Master controls** (6 rows) · **Collection** (4) · **Filters** (0 — bespoke) · **AH Price** (2) ·
-**Interface** (3) · **Maintenance** (1). The strip is drawn by hand rather than by
-`O.RenderTabbedSchema`, because two of the six tabs hold no rows for it to partition.
+**Master controls** (6 rows) · **Capture** (4) · **AH Price** (2) · **Interface** (3) ·
+**History** (1) · **Filters** (0 — bespoke). Those names and that order are shared with **Ka0s Bank
+Ledger**, whose strip is the same minus AH Price (options-ui-§15). The strip is drawn by hand rather
+than by `O.RenderTabbedSchema`, because one of the six tabs holds no rows for it to partition.
 
 The **Master controls** block is composed by `O.MasterControls` (options-ui-§15), never hand-written.
 
@@ -115,16 +116,16 @@ The **Master controls** block is composed by `O.MasterControls` (options-ui-§15
 | `settings.alpha` | General ▸ Master controls | Slider (0–1, step 0.05) | `1.0` | **Addon-wide** opacity, same two frames. |
 | `settings.locked` | General ▸ Master controls | CheckBox | `false` | Gates both `OnDragStart` handlers (History window title bar, export modal title bar) rather than un-setting `SetMovable`. |
 | `state.debugConsole` | General ▸ Master controls | CheckBox | `false` | **Session-only** (`sessionOnly`): shows/hides the debug console; never persisted (`get`/`set` proxy `NS.DebugLog`). Moved here from Interface. |
-| `settings.qualityThreshold` | General ▸ Collection | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
-| `settings.recordCurrency` | General ▸ Collection | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
-| `settings.excludeQuestItems` | General ▸ Collection | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
-| `settings.excludedSources` | General ▸ Collection | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"), host-drawn from `afterGroup`. Fires `SettingsChanged`. |
+| `settings.qualityThreshold` | General ▸ Capture | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
+| `settings.recordCurrency` | General ▸ Capture | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
+| `settings.excludeQuestItems` | General ▸ Capture | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
+| `settings.excludedSources` | General ▸ Capture | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"), host-drawn from `afterGroup`. Fires `SettingsChanged`. |
 | `settings.auction.enabled` | General ▸ AH Price ▸ *Pricing* | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
 | `settings.auction.capture` | General ▸ AH Price ▸ *Price sources* | MultiCheck (`skipRender`) | `Constants.AUCTION_CAPTURE_DEFAULT` | The single collect-**and**-rank flag per `"provider:key"` source. Schema-backed for the default/slash CLI, rendered as the price table's per-row Enabled checkbox. It also **declares the "Price sources" heading** — `startSubgroup` runs before the `skipRender` check. |
 | `settings.windowScale` | General ▸ Interface ▸ *Window* | Slider (0.6–1.6, step 0.05) | `1.0` | The History window's OWN scale, multiplied by `settings.scale` (applied live). |
 | `settings.rowHeight` | General ▸ Interface ▸ *Window* | Slider (14–28, step 1) | `18` | History-table row height in pixels; was `local ROW_H = 18` in `modules/BrowserTable.lua`. Clamped on read (`BrowserTable.RowHeight`) because the value comes from SavedVariables. Re-binds the table on change. |
 | `minimap.hide` | General ▸ Interface ▸ *Minimap* | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
-| `settings.retentionDays` | General ▸ Maintenance | Dropdown | `30` | `0` = keep Always. Prunes on change. The tab's other two controls — the storage readout and **Purge history…** — are bespoke and have no path. |
+| `settings.retentionDays` | General ▸ History | Dropdown | `30` | `0` = keep Always. Prunes on change. The tab's other two controls — the storage readout and **Purge history…** — are bespoke and have no path. |
 
 The Master controls tab closes with a **button pair** rather than rows, because the two are acts and
 not settings (options-ui-§15): **Reset position** (`Browser:ResetWindow`) and **Reset all settings**
