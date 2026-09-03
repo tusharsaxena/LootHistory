@@ -26,7 +26,7 @@ The bulk-mutation counterpart to `RecordAdded`: no payload, meaning "the history
 - `Database:Purge()` — the `/lh purge` wipe.
 - `Database:PruneOld()` — retention rebuild-and-swap (also invoked from the `retentionDays` setting's `onChange`, so a retention change surfaces as `HistoryChanged`, not `SettingsChanged`).
 - `Database:RepairBoundStates()` — the deferred warbound-state split, which fires **only when a pass actually fixed rows** (`fixed > 0`). It sends directly rather than through `fireHistoryChanged`, because the repair is defined above that helper; the window can already be open when a pass lands and renders the Bound column off those rows, so it repaints rather than leaving stale locks until the next open.
-- `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit. Filtering is point-in-time, so a list edit never changes what a query returns for already-stored rows; the message exists so the Settings ▸ Filters tab's live id list re-renders. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
+- `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit. Filtering is point-in-time, so a list edit never changes what a query returns for already-stored rows; the message exists so the Settings ▸ General ▸ Filters tab's live id list re-renders. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
 
 Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schema.md)), indices are not stable across a `HistoryChanged`, which is why the payload is empty — subscribers must re-read, not patch by index.
 

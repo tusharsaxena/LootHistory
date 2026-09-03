@@ -306,8 +306,8 @@ test("reset is path-scoped and resetall is the global verb (no page-shaped form)
   local out = capture(function() Sl:CliReset("") end)
   assertEqual(out[1], NS.PREFIX .. " Usage: /lh reset <path>")
   -- A tab name is not a path, so it is refused rather than silently resetting a whole section.
-  local page = capture(function() Sl:CliReset("Collection") end)
-  assertEqual(page[1], NS.PREFIX .. " Setting not found: Collection")
+  local page = capture(function() Sl:CliReset("Capture") end)
+  assertEqual(page[1], NS.PREFIX .. " Setting not found: Capture")
 end)
 
 -- ── the type-aware parser this addon did not have ────────────────────────────────────────────

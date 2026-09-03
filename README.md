@@ -94,7 +94,7 @@ The **Export** button follows the tab you're on: on **History** it copies your l
 
 ### Settings panel
 
-Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. It is **one page, six tabs**: Master controls · Collection · Filters · AH Price · Interface · Maintenance.
+Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/lh config`). Everything applies to your whole account, and every option can also be changed from chat with `/lh get` and `/lh set`. It is **one page, six tabs**: Master controls · Capture · AH Price · Interface · History · Filters. Those names and that order are shared with **Ka0s Bank Ledger**, whose panel is the same strip without AH Price — the two addons keep the same shape of record, so a subject goes by one name in both.
 
 **Master controls** — the addon as a whole
 
@@ -106,20 +106,12 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 *   **Reset position** — put the History window back in the middle of the screen. Nothing else changes.
 *   **Reset all settings** — the big one: wipes the history, restores every setting, empties the filter lists, and puts the window back where it started. Asks first. (The `/lh resetall` command is the *smaller* action — settings and filter lists only, history untouched.)
 
-**Collection** — what gets recorded
+**Capture** — what gets recorded
 
 *   **Minimum quality** — only record items at or above this quality (default **Common**). Raising it never removes items you've already recorded.
 *   **Record currency** — record looted currency (Valorstones, crests, and the like) as Currency rows. Obeys **Record data from**; ignores the quality threshold.
 *   **Exclude quest items** — skip the temporary items you pick up during quests. **On by default**; uncheck it to record them too.
 *   **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here.
-
-**Filters** — items you never, or always, want tracked
-
-Three lists, one on screen at a time: **Blacklist**, **Whitelist** and **Currencies**.
-
-*   **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). This is point-in-time: once an id is blacklisted, future loots of it are skipped and never recorded, but rows you've *already* recorded are left exactly where they are — editing the list doesn't touch stored history. Delete a row manually if you want it gone.
-*   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). While an id is whitelisted, every future loot of it is recorded as a normal row, bypassing those gates. Removing the id afterward only stops *future* loots from bypassing the gates again — rows it already added stay put. Adding an item to one list removes it from the other; an id is never on both.
-*   **Currencies** — currency ids you never want recorded, on the same point-in-time terms.
 
 **AH Price** — where item values come from
 
@@ -132,11 +124,19 @@ Three lists, one on screen at a time: **Blacklist**, **Whitelist** and **Currenc
 *   **Row height** — how tall one row of the History table is, from 14 to 28 pixels (default **18**). Lower fits more rows on screen.
 *   **Hide minimap button** — show or hide the minimap button. Left-click it to open the window, right-click for settings.
 
-**Maintenance** — what is kept, and how to be rid of it
+**History** — what is kept, and how to be rid of it
 
 *   **Keep history for** — how long to keep records. Older ones are cleared out once per session; choose **Always** to keep everything (default **30 days**).
 *   A live readout of how many items you have collected, over how many days, and roughly how much space they take.
 *   **Purge history…** — delete every recorded item, and nothing else. Asks first.
+
+**Filters** — items you never, or always, want tracked
+
+Three lists, one on screen at a time: **Blacklist**, **Whitelist** and **Currencies**.
+
+*   **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). This is point-in-time: once an id is blacklisted, future loots of it are skipped and never recorded, but rows you've *already* recorded are left exactly where they are — editing the list doesn't touch stored history. Delete a row manually if you want it gone.
+*   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). While an id is whitelisted, every future loot of it is recorded as a normal row, bypassing those gates. Removing the id afterward only stops *future* loots from bypassing the gates again — rows it already added stay put. Adding an item to one list removes it from the other; an id is never on both.
+*   **Currencies** — currency ids you never want recorded, on the same point-in-time terms.
 
 ## Auction-house pricing
 
@@ -159,7 +159,7 @@ If a signal is there, the item is filed under that source and marked **Certain**
 | Does this track loot for my whole account or just one character? | The whole account. There's one shared history with a Character column, so every character adds to and reads from the same log. |
 | Does it record other players' loot? | No. Only items **you** pick up are recorded. |
 | What does the "confidence" marker mean? | Each item is marked **Certain** or **Inferred**. Most are Certain, filed straight from what the game reported. When the source can't be worked out, the item is still kept — filed under **Other** and marked Inferred. |
-| Which sources can I toggle on or off? | Every source the addon records — Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft, and Refund — can be turned on or off individually under **General → Collection → Record data from**. |
+| Which sources can I toggle on or off? | Every source the addon records — Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft, and Refund — can be turned on or off individually under **General → Capture → Record data from**. |
 | Will raising the quality threshold hide items I already looted? | No. The threshold only affects new items. What you've already recorded stays until it's cleared by the retention setting or deleted by hand. |
 | Do I need another addon to see auction values? | Only if you want them. Prices come from **Auctionator**, **TSM**, or **OribosExchange** if you have one installed; with none, every value falls back to the vendor sell price. The value shown is always the higher of the vendor and auction price. |
 | How do I stop tracking one specific item — or force-track one below my threshold? | Use the **Filters** tab in settings. Blacklist an item's id to skip it from now on; whitelist one to always record it even when it's below your quality threshold, from a muted source, or a quest item. Both are point-in-time: they change future loots only and never touch rows you've already recorded. |
@@ -173,7 +173,7 @@ If a signal is there, the item is filed under that source and marked **Certain**
 
 | Symptom | Fix |
 |---------|-----|
-| Nothing is being recorded. | Check that **Master controls → Enable Loot History** is on. If you expect grays or whites, lower **Collection → Minimum quality**. The source may be turned off under **Record data from**. Quest items are skipped by default — uncheck **Collection → Exclude quest items** to record them. The item may also be blacklisted on the **Filters** tab. |
+| Nothing is being recorded. | Check that **Master controls → Enable Loot History** is on. If you expect grays or whites, lower **Capture → Minimum quality**. The source may be turned off under **Record data from**. Quest items are skipped by default — uncheck **Capture → Exclude quest items** to record them. The item may also be blacklisted on the **Filters** tab. |
 | The minimap button is gone. | It's hidden. Turn **General → Interface → Hide minimap button** off, or open the window with `/lh toggle`. |
 | An item landed under the wrong source (or "Other"). | When nothing tells the addon where an item came from, it falls back to **Other** / **Inferred**. Open the debug console with `/lh debug` to see how an item was filed. |
 | The AH Price / value column is blank, or just matches the vendor price. | You need **Auctionator**, **TSM**, or **OribosExchange** installed, **AH Price → Enable AH pricing** on, and at least one price source ticked. Even then a price only appears once that addon actually has one for the item (for example after its next scan); until then the value falls back to the vendor sell price. |

@@ -457,8 +457,10 @@ History** (both must land on the same category).
 
 **Steps.**
 - **The strip.** There is exactly **one** sub-page under Ka0s Loot History now — General — and it
-  opens on **Master controls** with six tabs across the top: Master controls, Collection, Filters,
-  AH Price, Interface, Maintenance, in that order. The selected tab is the one you cannot click.
+  opens on **Master controls** with six tabs across the top: Master controls, Capture, AH Price,
+  Interface, History, Filters, in that order. The selected tab is the one you cannot click. Those
+  names and that order are shared with **Ka0s Bank Ledger**, whose strip is the same without AH
+  Price — open both panels side by side and check they agree, because that agreement is the point.
   Click each in turn: the page's rows change and **no section heading** appears on any of them —
   except the two tabs that mix subjects, which carry *subsection* headings: **AH Price**
   (**Pricing** above the toggle, **Price sources** above the table) and **Interface** (**Window**
@@ -480,13 +482,13 @@ History** (both must land on the same category).
   The History table's rows change height *and* the number of visible rows changes with them; no row
   is left clipped at the bottom of the list. Set it back to 18 and confirm the table looks exactly
   as it did before the slider existed. `/lh get settings.rowHeight` echoes the value.
-- Change **Minimum quality** (Collection), **Keep history for** (Maintenance), and toggle checkboxes
-  in **Record data from** (Collection) and **Hide minimap button** (Interface) /
-  **Exclude quest items** (Collection).
-- **Maintenance tab.** The storage readout ("N items collected over D days", "Database size: ≈ …")
+- Change **Minimum quality** (Capture), **Keep history for** (History), and toggle checkboxes
+  in **Record data from** (Capture) and **Hide minimap button** (Interface) /
+  **Exclude quest items** (Capture).
+- **History tab.** The storage readout ("N items collected over D days", "Database size: ≈ …")
   is there, with **Purge history…** beside it — and **nothing else**: the old *Reset Everything*
   button is gone from this tab. Loot something with the panel open on that tab — the readout's item
-  count goes up on its own. Then click through to Collection and back to Maintenance and loot again:
+  count goes up on its own. Then click through to Capture and back to History and loot again:
   the count must *still* update (the readout is rebuilt on every tab click, and the live listener
   has to follow the new label).
 - **The reset pair (Master controls).** **Reset position** moves the History window back to the
@@ -513,8 +515,9 @@ History** (both must land on the same category).
 **Pass.**
 - Each panel write and each `/lh set` write the **same** value and fire `SettingsChanged`; an open
   panel widget reflects a slash write live, and vice-versa. `/lh get` echoes the stored value.
-- `/lh list` groups its output under `[Collection]`, `[Interface]`, `[Maintenance]`, `[AH Price]` —
-  the tab names, in strip order.
+- `/lh list` groups its output under `[Capture]`, `[AH Price]`, `[Interface]`, `[History]` —
+  the tab names, in strip order. The headers follow the `group` field, so a tab rename lands here
+  too and a stale `[Collection]` or `[Maintenance]` means one was missed.
 - `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`,
   `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
   `settings.retentionDays`, `settings.excludedSources`).
@@ -540,7 +543,7 @@ destructive-action confirm dialogs.
 **Steps.**
 - Observe the right-edge vertical **scrollbar** on a page that fits without scrolling.
 - Find the **Reset position** / **Reset all settings** pair (Master controls, the last line) and the
-  **Purge history…** button (Maintenance, right of the storage-stats label). Check each button's
+  **Purge history…** button (History, right of the storage-stats label). Check each button's
   right border.
 - Click **Purge history…** → in the confirm dialog, click **No/Cancel**, then run it again and confirm.
 - Click **Reset all settings** → confirm dialog.
@@ -662,15 +665,18 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 
 ### 16. Blacklist & whitelist
 
-Covers the item-id filter lists (issue #14): the capture gate and the Settings ▸ Filters management
+Covers the item-id filter lists (issue #14): the capture gate and the Settings ▸ General ▸ Filters management
 UI. This is **point-in-time** filtering — editing either list only changes what happens to *future*
 loots; it never touches rows already stored. **Setup:** a real history with at least one repeated item.
 
 **Steps.**
 - In the History tab, right-click a row and choose **Blacklist item**. Note the popup's **gold border**.
-- Open **Settings ▸ Filters** (`/lh config` → Filters). The page opens on the **Blacklist** tab of a
-  three-tab strip — Blacklist, Whitelist, Currencies — and shows one list, not three stacked. Note
-  the item.
+  The chat line reads `Manage in Settings ▸ General ▸ Filters ▸ Blacklist` — the full route, since
+  Filters is a tab of General and the list is a sub-tab of it. **Blacklist currency** names
+  **▸ Currencies**.
+- Open **Settings ▸ General ▸ Filters** (`/lh config` → General → Filters, the **last** tab on the
+  strip). It opens on the **Blacklist** sub-tab of a three-tab secondary strip — Blacklist,
+  Whitelist, Currencies — and shows one list, not three stacked. Note the item.
 - Loot that same item again (or `/lh test` won't help here — use a live drop).
 - On the Filters tab, click **Remove** on that item, then loot the item once more.
 - Click the **Whitelist** tab and add an item id that would normally be dropped (below your quality
@@ -795,11 +801,11 @@ already identical to the library's, so **anything that looks different here is t
    gold divider under it and a **Defaults** button top-right, and a six-tab strip below that (walked
    in §9). The two-column pairing per tab: **Master controls** reads Enable Loot History | General
    visibility, then Master scale | Master alpha, then Lock frame | Debug console, then the button
-   pair **Reset position** | **Reset all settings**; **Collection** reads Minimum quality | Record
+   pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
    currency, then Exclude quest items alone, then the full-width **Record data from** grid;
    **AH Price** reads the *Pricing* heading, Enable AH pricing, the *Price sources* heading and the
    eleven-row table; **Interface** reads Window scale | Row height, then Hide minimap button;
-   **Maintenance** carries Keep history for and then the storage readout | **Purge history…**.
+   **History** carries Keep history for and then the storage readout | **Purge history…**.
 4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
    edge does not shift** as you click between pages (options-ui-§10).
 5. On the **AH Price** tab, click away to another tab and back several times, then leave the panel

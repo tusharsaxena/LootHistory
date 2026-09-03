@@ -684,9 +684,9 @@ badge and any count quoted in the docs must agree with it.
 - Panel: every schema group on the page has a tab, and every tab a body
 - Panel: the Master controls tab holds the canonical rows and the closing button pair
 - Panel: Reset position drives the window carve-out, Reset all settings the §12 popup
-- Panel: the Collection tab holds the capture rules and nothing else
+- Panel: the Capture tab holds the capture rules and nothing else
 - Panel: the Interface tab holds the two size sliders and the minimap toggle
-- Panel: the Maintenance tab holds retention, the storage readout and the purge
+- Panel: the History tab holds retention, the storage readout and the purge
 - Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
 - Panel: a key-map dropdown is populated in its declared sorting, not in pairs() order
 - Panel: a dropdown is populated from the row's values, in declared order

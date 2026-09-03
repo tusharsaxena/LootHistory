@@ -82,7 +82,7 @@ test("Schema: the Master controls tab holds exactly the canonical rows, in canon
 test("Schema: every canonical row is declared ONCE — nothing was copied here, it was moved",
   function()
     -- The hard rule of the whole pass: never two controls over one setting. `settings.enabled`
-    -- lived on Collection and the console on Interface; both MOVED. FindRow answers the first
+    -- lived on Capture (then called Collection) and the console on Interface; both MOVED. FindRow answers the first
     -- match, so a duplicate would be invisible to it — count instead.
     for _, want in ipairs(MASTER_ROWS) do
       local n = 0
@@ -507,8 +507,8 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 6 }, { "Collection", 4 }, { "AH Price", 2 },
-    { "Interface", 3 }, { "Maintenance", 1 },
+    { "Master controls", 6 }, { "Capture", 4 }, { "AH Price", 2 },
+    { "Interface", 3 }, { "History", 1 },
   },
 }
 
@@ -565,13 +565,13 @@ test("Schema: a group's rows are contiguous, so no tab is drawn twice", function
 end)
 
 test("Schema: no tab holds fewer than two controls", function()
-  -- A tab over one control is a click that reveals a single dropdown. General's Maintenance is
+  -- A tab over one control is a click that reveals a single dropdown. General's History is
   -- the one exemption and it is exempted BY NAME, never by loosening the rule: its single stored
   -- row (Keep history for) shares the tab with three BESPOKE controls that have no path and
   -- cannot be rows — the live storage readout, "Purge history…" and "Reset Everything"
   -- (settings/Panel.lua renderHistory).
   -- red under: a tab losing rows until one is left, or a new one-row group.
-  local EXEMPT = { ["Maintenance"] = true }
+  local EXEMPT = { ["History"] = true }
   local counts, pageOf = {}, {}
   for _, row in ipairs(S.Schema) do
     counts[row.group] = (counts[row.group] or 0) + 1
@@ -701,7 +701,7 @@ test("Schema: the docs' per-tab breakdown is the schema's own partition", functi
   -- checked, because one of two homes going stale while the other is corrected is precisely the
   -- drift this exists to catch.
   local found = 0
-  for segment in src:gmatch("Master controls %d+.-Maintenance %d+") do
+  for segment in src:gmatch("Master controls %d+.-History %d+") do
     found = found + 1
     for _, group in ipairs(order) do
       local n = tonumber(segment:match(group:gsub("%p", "%%%0") .. " (%d+)"))

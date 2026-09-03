@@ -129,12 +129,27 @@ end)
 -- The strip, in order. Stated here rather than derived from the thing the assertion reads, so a tab
 -- that moves is a NAMED failure rather than a shorter list that still agrees with itself.
 --
--- Six tabs, four of them schema groups and two of them bespoke bodies — which is why the page draws
+-- Six tabs, five of them schema groups and one of them a bespoke body — which is why the page draws
 -- its strip by hand instead of through O.RenderTabbedSchema: that one derives its tab list from
 -- `group`, and a dynamic list of item ids has no rows to declare one.
+--
+-- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these six minus AH Price
+-- — Master controls, Capture, Interface, History, Filters. The two addons keep the same shape of
+-- record and a player compares their panels directly, so a subject carries one name across both:
+-- Collection became Capture and Maintenance became History, and AH Price, which is this addon's
+-- alone, sits directly after Capture.
 local STRIP = {
-  "Master controls", "Collection", "Filters", "AH Price", "Interface", "Maintenance",
+  "Master controls", "Capture", "AH Price", "Interface", "History", "Filters",
 }
+
+--- The strip position of a named tab, so a case can say WHICH tab it means and still click by
+--- position. The index still comes from STRIP — declared above, independently of the page — so a
+--- tab that moves is still a named failure; what this removes is the second, silent copy of the
+--- order that a bare `clickTab(panel, ctx, 5)` was.
+local function tabAt(name)
+  for i, tab in ipairs(STRIP) do if tab == name then return i end end
+  T.assertTrue(false, "no tab named " .. tostring(name) .. " on the strip")
+end
 
 test("Panel: the General page draws the whole strip, in order, opening on Master controls",
   function()
@@ -217,10 +232,10 @@ test("Panel: Reset position drives the window carve-out, Reset all settings the 
       "the global reset MUST confirm before it runs (options-ui-§12)")
   end)
 
-test("Panel: the Collection tab holds the capture rules and nothing else", function()
+test("Panel: the Capture tab holds the capture rules and nothing else", function()
   local ctx = NS.Panel.general
-  local created = clickTab(mocks.__subcategories["General"], ctx, 2)
-  assertEqual(ctx.activeTab, "Collection", "tab 2 is Collection")
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
+  assertEqual(ctx.activeTab, "Capture", "tab 2 is Capture")
 
   for _, label in ipairs({ "Minimum quality", "Record currency", "Exclude quest items" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
@@ -232,14 +247,14 @@ test("Panel: the Collection tab holds the capture rules and nothing else", funct
   for _, label in ipairs({ "Enable Loot History", "Enable collection", "Window scale",
                            "Debug console", "Keep history for" }) do
     assertTrue(findByLabel(created, label) == nil,
-      label .. " belongs to another tab and must not be drawn on Collection")
+      label .. " belongs to another tab and must not be drawn on Capture")
   end
   homeTab(ctx)
 end)
 
 test("Panel: the Interface tab holds the two size sliders and the minimap toggle", function()
   local ctx = NS.Panel.general
-  local created = clickTab(mocks.__subcategories["General"], ctx, 5)
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Interface"))
   assertEqual(ctx.activeTab, "Interface", "tab 5 is Interface")
   for _, label in ipairs({ "Window scale", "Row height", "Hide minimap button" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn on Interface")
@@ -249,14 +264,14 @@ test("Panel: the Interface tab holds the two size sliders and the minimap toggle
   assertTrue(findByLabel(created, "Debug console") == nil,
     "the debug console toggle belongs to Master controls now")
   assertTrue(findByLabel(created, "Minimum quality") == nil,
-    "Collection's rows must not follow the reader onto Interface")
+    "Capture's rows must not follow the reader onto Interface")
   homeTab(ctx)
 end)
 
-test("Panel: the Maintenance tab holds retention, the storage readout and the purge", function()
+test("Panel: the History tab holds retention, the storage readout and the purge", function()
   local ctx = NS.Panel.general
-  local created = clickTab(mocks.__subcategories["General"], ctx, 6)
-  assertEqual(ctx.activeTab, "Maintenance", "tab 6 is Maintenance")
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("History"))
+  assertEqual(ctx.activeTab, "History", "the last schema tab is History")
   assertTrue(findByLabel(created, "Keep history for") ~= nil, "the retention dropdown was not drawn")
   -- The bespoke half, drawn from afterGroup — the seam that lands inside the tab rather than at the
   -- bottom of every one of them.
@@ -283,7 +298,7 @@ test("Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slide
     assertEqual(findByLabel(master, "Enable Loot History").type, "CheckBox")
     assertEqual(findByLabel(master, "General visibility").type, "Dropdown")
     assertEqual(findByLabel(master, "Master scale").type, "Slider")
-    assertEqual(findByLabel(clickTab(mocks.__subcategories["General"], ctx, 2),
+    assertEqual(findByLabel(clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture")),
       "Minimum quality").type, "Dropdown")
     homeTab(ctx)
   end)
@@ -308,7 +323,7 @@ test("Panel: a key-map dropdown is populated in its declared sorting, not in pai
 
 test("Panel: a dropdown is populated from the row's values, in declared order", function()
   local ctx = NS.Panel.general
-  local created = clickTab(mocks.__subcategories["General"], ctx, 6)
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("History"))
   local dd = findByLabel(created, "Keep history for")
   assertTrue(dd ~= nil and dd.list ~= nil, "the dropdown must be given a list")
   local rows = NS.Constants.RETENTION_OPTIONS
@@ -323,7 +338,7 @@ end)
 
 test("Panel: a slider is given the row's own min, max and step", function()
   local ctx = NS.Panel.general
-  local created = clickTab(mocks.__subcategories["General"], ctx, 5)
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Interface"))
   for _, path in ipairs({ "settings.windowScale", "settings.rowHeight" }) do
     local row = NS.Schema:FindRow(path)
     local s = findByLabel(created, row.label)
@@ -344,11 +359,11 @@ end)
 -- failure rather than two derivations agreeing with each other.
 local SUBGROUPS = {
   ["Master controls"] = {},
-  ["Collection"]      = {},
+  ["Capture"]         = {},
   ["Filters"]         = {},
   ["AH Price"]        = { "Pricing", "Price sources" },
   ["Interface"]       = { "Window", "Minimap" },
-  ["Maintenance"]     = {},
+  ["History"]         = {},
 }
 
 test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its SUBSECTIONS",
@@ -403,7 +418,7 @@ end)
 
 test("Panel: choosing a dropdown entry writes the stored value", function()
   local ctx = NS.Panel.general
-  local created = clickTab(mocks.__subcategories["General"], ctx, 2)
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
   local dd = findByLabel(created, "Minimum quality")
   dd:__fire("OnValueChanged", 4)
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 4)
@@ -413,7 +428,7 @@ end)
 
 test("Panel: releasing a slider writes the stored value", function()
   local ctx = NS.Panel.general
-  local created = clickTab(mocks.__subcategories["General"], ctx, 5)
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Interface"))
   local s = findByLabel(created, "Window scale")
   s:__fire("OnMouseUp", 1.25)
   assertEqual(NS.Schema:Get("settings.windowScale"), 1.25)
@@ -452,7 +467,7 @@ end)
 test("Panel: the muted-source picker is INVERTED — a ticked box means 'record this source'",
   function()
     local ctx = NS.Panel.general
-    local created = clickTab(mocks.__subcategories["General"], ctx, 2)
+    local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
     local group = widgetsOfType(created, "InlineGroup")[1]
     assertTrue(group ~= nil, "the set picker draws as an InlineGroup")
 
@@ -557,8 +572,8 @@ test("Panel: the Filters tab draws a SECONDARY strip and renders only the select
     NS.Filters:ClearAll()
     local panel = mocks.__subcategories["General"]
     local ctx = NS.Panel.general
-    clickTab(panel, ctx, 3)
-    assertEqual(ctx.activeTab, "Filters", "tab 3 is Filters")
+    clickTab(panel, ctx, tabAt("Filters"))
+    assertEqual(ctx.activeTab, "Filters", "the last tab is Filters")
     assertTrue(ctx.__subTabKids ~= nil and #ctx.__subTabKids == 3, "one sub-tab per list")
     assertEqual(ctx.activeSubTab["Filters"], "blacklist", "the sub-strip opens on the first list")
 
@@ -582,7 +597,7 @@ test("Panel: the Filters tab lists the ids on each list and can remove one", fun
   NS.Filters:ClearAll()
   NS.Filters:AddBlacklist(12345)
   local ctx = NS.Panel.general
-  clickTab(mocks.__subcategories["General"], ctx, 3)
+  clickTab(mocks.__subcategories["General"], ctx, tabAt("Filters"))
   local labeled
   for _, w in ipairs(AceGUI.__created) do
     if w.type == "Label" and type(w.text) == "string" and w.text:find("12345", 1, true) then
@@ -609,7 +624,7 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
     NS.Filters:ClearAll()
     local panel = mocks.__subcategories["General"]
     local ctx = NS.Panel.general
-    clickTab(panel, ctx, 3)           -- park on the Filters tab, where the list is on screen
+    clickTab(panel, ctx, tabAt("Filters"))   -- park on Filters, where the list is on screen
     panel:Hide()
 
     NS.Filters:AddBlacklist(778899)   -- fires HistoryChanged; the page is off screen
@@ -637,7 +652,7 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
 --- Render the AH Price tab and hand back its context.
 local function ahTab()
   local ctx = NS.Panel.general
-  clickTab(mocks.__subcategories["General"], ctx, 4)
+  clickTab(mocks.__subcategories["General"], ctx, tabAt("AH Price"))
   return ctx
 end
 
@@ -901,7 +916,7 @@ test("Panel: a WRAPPED strip reserves the same band and the same row offsets on 
 
     -- Re-render tab 1 under the new width (the click that got us here was placed at the old one).
     homeTab(ctx)
-    clickTab(mocks.__subcategories["General"], ctx, 2)
+    clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
     homeTab(ctx)
 
     local wantBand, wantYs = geometry()

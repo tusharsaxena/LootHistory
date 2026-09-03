@@ -87,9 +87,9 @@ local function makeMultiCheck(ctx, row, scroll)
 end
 
 
--- ── The Maintenance tab's body: live DB stats, Purge, Reset Everything ──────────
+-- ── The History tab's body: live DB stats, Purge, Reset Everything ─────────────
 --
--- Drawn from RenderTabbedSchema's `afterGroup` hook, keyed to the Maintenance group, rather than
+-- Drawn from RenderTabbedSchema's `afterGroup` hook, keyed to the History group, rather than
 -- appended by the page renderer. That is not decoration: a tab click re-enters RenderTabbedSchema
 -- directly (ClearScroll, then the active tab's rows), never the page renderer, so anything the
 -- renderer appended AFTER the schema rows would be drawn once and then vanish on the first click.
@@ -97,7 +97,7 @@ end
 -- this block belongs under the retention row anyway.
 --
 -- NO O.Section heading any more. Under a strip the tab IS the heading, and a "History" heading
--- inside a tab called Maintenance is the page saying the same thing twice.
+-- inside a tab called History is the page saying the same thing twice.
 local function renderHistory(ctx)
   local scroll = O.EnsureScroll(ctx)
   if not scroll then return end
@@ -803,25 +803,25 @@ end
 --                     file's: `O.MasterControls` returned it beside the rows, and it is passed
 --                     through under the group name the composer used, because the group name IS
 --                     the hook key (settings/Schema.lua).
---   Collection      — the muted-source picker. The `settings.excludedSources` row it represents is
+--   Capture         — the muted-source picker. The `settings.excludedSources` row it represents is
 --                     walked by the generic path and produces no widget (type = "table"; see
 --                     makeMultiCheck above), so this lands exactly where that path would have put
 --                     it: after the group's last row, on a fresh line.
 --   AH Price        — the pooled price-source table, under the "Price sources" subsection heading
 --                     the `settings.auction.capture` row declares.
---   Maintenance     — the storage readout and "Purge history…".
+--   History         — the storage readout and "Purge history…".
 --
 -- afterGroup is the ONLY seam that survives a tab click: the strip's onSelect re-enters the page
 -- renderer, and while that does re-run this file, a block appended after the rows would land at the
 -- BOTTOM of every tab rather than inside the one it belongs to.
 local AFTER_GROUP = {
-  ["Collection"] = function(ctx)
+  ["Capture"] = function(ctx)
     local row = NS.Schema:FindRow("settings.excludedSources")
     local scroll = O.EnsureScroll(ctx)
     if row and scroll then makeMultiCheck(ctx, row, scroll) end
   end,
   ["AH Price"]   = buildAuctionTable,
-  ["Maintenance"] = renderHistory,
+  ["History"] = renderHistory,
 }
 AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 
@@ -838,14 +838,23 @@ AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 -- GROUP (rendered by the same O.RenderRows call the library would have made, `noHeadings` and all)
 -- or a `build` function, and tests/test_panel.lua pins the two against each other so a group added
 -- to the schema and not to this list cannot go unnoticed.
+-- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these six minus AH
+-- Price: Master controls, Capture, Interface, History, Filters. The two addons keep the same shape
+-- of record and a player compares their panels directly, so one subject carries one name across
+-- both — Collection became Capture, Maintenance became History, and Filters moved from third to
+-- last so the five shared tabs sit in the shared order. AH Price is this addon's alone and goes
+-- directly after Capture, which is the tab it qualifies: it prices what capture recorded.
+--
+-- A tab name is a `group`, never a stored path, so the convergence was a rename throughout and
+-- carried no migration (options-ui-§15).
 local GENERAL_TABS = {
   -- options-ui-§15: the FIRST tab, under that exact name, in every Ka0s addon.
   { key = "Master controls" },
-  { key = "Collection" },
-  { key = FILTERS_TAB, build = buildFiltersTab },
+  { key = "Capture" },
   { key = "AH Price" },
   { key = "Interface" },
-  { key = "Maintenance" },
+  { key = "History" },
+  { key = FILTERS_TAB, build = buildFiltersTab },
 }
 
 --- The rows of one schema group, in declaration order.

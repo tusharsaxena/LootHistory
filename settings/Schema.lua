@@ -169,22 +169,28 @@ S.MASTER_GROUP     = O.MASTER_GROUP or "Master controls"
 S.MasterAfterGroup = MASTER_AFTER_GROUP
 
 local ROWS = {
-  -- ── General ▸ Collection ──
+  -- ── General ▸ Capture ──
   -- What gets recorded. The addon-wide master switch over all of it is NOT here any more: it is
   -- `settings.enabled`, and it moved to the Master controls tab where options-ui-§15 puts it.
+  --
+  -- CALLED Capture, AND IT WAS CALLED Collection. Ka0s Bank Ledger names the same subject Capture
+  -- and its retention tab History; the two addons keep the same shape of record and a player
+  -- compares their panels directly, so one subject now carries one name across both. A tab name is
+  -- a `group` and never a stored path, so this was a rename and owed no migration
+  -- (options-ui-§15).
   --
   -- Row order drives the two-column panel pairing, so declaration order IS the layout: the quality
   -- gate pairs with "Record currency" on the first line, "Exclude quest items" opens the second,
   -- and the wide source picker lands under both from `afterGroup`.
   { path = "settings.qualityThreshold", default = G.settings.qualityThreshold, type = "number", widget = "Dropdown",
-    page = "General", group = "Collection", label = "Minimum quality", values = C.QUALITY_OPTIONS,
+    page = "General", group = "Capture", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
     end },
 
   { path = "settings.recordCurrency", default = G.settings.recordCurrency, type = "bool", widget = "CheckBox",
-    page = "General", group = "Collection", label = "Record currency",
+    page = "General", group = "Capture", label = "Record currency",
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
     onChange = function()
@@ -192,7 +198,7 @@ local ROWS = {
     end },
 
   { path = "settings.excludeQuestItems", default = G.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
-    page = "General", group = "Collection", label = "Exclude quest items",
+    page = "General", group = "Capture", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
@@ -204,7 +210,7 @@ local ROWS = {
   -- fires after the group's last row is flushed.
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
     wide = true, invert = true,
-    page = "General", group = "Collection", label = "Record data from", values = C.SOURCE_OPTIONS,
+    page = "General", group = "Capture", label = "Record data from", values = C.SOURCE_OPTIONS,
     onChange = function()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
     end },
@@ -284,15 +290,17 @@ local ROWS = {
       if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
     end },
 
-  -- ── General ▸ Maintenance ──
-  -- What is kept and how to get rid of it. Last tab because it is the one a player sets once and
-  -- leaves. ONE stored row, and it is the sanctioned exemption from the two-controls-per-tab rule:
+  -- ── General ▸ History ──
+  -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
+  -- and leaves; the Filters tab that follows it on the strip declares no rows at all. Called
+  -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
+  -- Maintenance, which named the chore rather than the subject. ONE stored row, and it is the sanctioned exemption from the two-controls-per-tab rule:
   -- the rest of the tab is bespoke — the live storage readout and "Purge history…" — controls with
   -- no path, which no partition test can count. tests/test_schema.lua exempts it BY NAME.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
   -- button now, which is where options-ui-§15 puts the global reset.)
   { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
-    page = "General", group = "Maintenance", label = "Keep history for", values = C.RETENTION_OPTIONS,
+    page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
     tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
     onChange = function()
       if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
