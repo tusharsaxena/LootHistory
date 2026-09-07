@@ -264,7 +264,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (58)
+### test_database.lua (59)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -303,6 +303,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: PruneOld is zero-alloc and silent when debug is off
 - Database: Purge returns removed count and logs [Data]
 - Database: StorageStats counts records, day span, and estimated bytes
+- Database: StorageStats charges a currency record for the strings it does carry
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: RunMigrations leaves an already-current DB unchanged
@@ -795,7 +796,7 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
-| test_database.lua | 58 |
+| test_database.lua | 59 |
 | test_stats.lua | 19 |
 | test_browser.lua | 58 |
 | test_browsertable.lua | 56 |
@@ -809,4 +810,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **699** |
+| **Total** | **700** |

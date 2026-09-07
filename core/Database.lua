@@ -745,14 +745,20 @@ end
 -- no way to read the real on-disk file size, so we estimate: a fixed overhead covering the
 -- record's key names, table syntax, and numeric fields, plus the length of each string field.
 local RECORD_OVERHEAD = 256
+local function strLen(s)
+  return type(s) == "string" and #s or 0
+end
+
+-- Summed inline, and deliberately not by walking a literal { r.itemLink, ... } array: ipairs
+-- stops at the first nil, and a currency record has no itemLink at all (modules/Collector.lua),
+-- so that walk ended before its first iteration and charged the row nothing but the overhead.
+-- Any record missing a zone truncated the same way. Summing the seven fields by name also drops
+-- the per-record table the array constructor allocated on every row of every StorageStats pass.
 local function estimateRecordBytes(r)
-  local n = RECORD_OVERHEAD
-  local strFields = { r.itemLink, r.itemName,
-                      r.zone, r.subzone, r.char, r.itemType, r.itemSubType }
-  for _, s in ipairs(strFields) do
-    if type(s) == "string" then n = n + #s end
-  end
-  return n
+  return RECORD_OVERHEAD
+    + strLen(r.itemLink) + strLen(r.itemName)
+    + strLen(r.zone) + strLen(r.subzone) + strLen(r.char)
+    + strLen(r.itemType) + strLen(r.itemSubType)
 end
 
 -- Storage summary for the settings panel: record count, span in days since the earliest
