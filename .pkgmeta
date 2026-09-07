@@ -6,10 +6,29 @@ package-as: LootHistory
 ignore:
   - .luacheckrc
   - .gitignore
+  - .gitattributes   # the repo's line-ending policy: governs the checkout, not the package
+  - .pkgmeta         # packager configuration: consumed before the zip is built, of no use inside it
+  # Agent-tooling and test scratch directories. Both are untracked --
+  # `git ls-files` returns nothing for either -- so no packager clone has ever
+  # carried them and neither line changes a downloaded byte. They are listed
+  # because packaging.md:28 MUSTs every root dot-entry present in the repo be
+  # named or justified, tracked or not: the check is about an enumeration going
+  # stale, not about a package growing. .claude is deliberately absent from this
+  # list -- no such directory exists here, and naming one that does not is how a
+  # sibling repo's identical filing was rejected this cycle.
+  - .superpowers     # untracked; listed under packaging.md:28
+  - .pytest_cache    # untracked; listed under packaging.md:28
   - docs
   - tests
   - _dev
   - "*.bak"
+  # Tracked, and the only entries here that change a download. Nine screenshots,
+  # 5.9M -- the second largest in the collection -- project-page art the
+  # CurseForge CDN already serves. CLAUDE.md and DEPENDENCIES.md are developer
+  # documentation; README.md and LICENSE stay, because players do read those.
+  - media/screenshots
+  - CLAUDE.md
+  - DEPENDENCIES.md
   # Only the .tga logo is loadable at runtime; WoW cannot read .png or .jpg at all. The master .png
   # and the .jpg render exist for the project page and for regenerating the .tga, so shipping them
   # would add megabytes to every download for files the client physically cannot use.
