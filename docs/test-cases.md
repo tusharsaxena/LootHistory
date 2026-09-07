@@ -676,7 +676,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (41)
+### test_panel.lua (43)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -688,6 +688,8 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the Capture tab holds the capture rules and nothing else
 - Panel: the Interface tab holds the two size sliders and the minimap toggle
 - Panel: the History tab holds retention, the storage readout and the purge
+- Panel: a burst of RecordAdded collapses to ONE StorageStats pass
+- Panel: HistoryChanged still repaints the readout immediately
 - Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
 - Panel: a key-map dropdown is populated in its declared sorting, not in pairs() order
 - Panel: a dropdown is populated from the row's values, in declared order
@@ -805,9 +807,9 @@ badge and any count quoted in the docs must agree with it.
 | test_slash.lua | 37 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 41 |
+| test_panel.lua | 43 |
 | test_harness.lua | 5 |
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **700** |
+| **Total** | **702** |

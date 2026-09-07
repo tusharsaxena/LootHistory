@@ -158,7 +158,17 @@ local function renderHistory(ctx)
         if P.general and P.general.panel:IsShown() and P.__stats then P.__stats() end
       end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
-      ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", onChange)
+      -- COALESCED, and only this one — the same split modules/Browser.lua:1273 and
+      -- modules/Analytics.lua:655 already make (issue #27). `refreshStats` is a StorageStats pass
+      -- over the WHOLE history with a per-record byte estimate, and `Database:Add` fires
+      -- RecordAdded once per looted item, mid-pull. A multi-drop kill with this page open bought
+      -- one full-history walk per drop for a readout nobody can read that fast.
+      --
+      -- HistoryChanged above stays immediate on purpose: a delete, a prune or a blacklist edit is
+      -- one deliberate action that arrives on its own, and the size it changes should update at
+      -- once. Only the automatic, bursty message needs collapsing.
+      ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
+        NS.Coalesce(onChange, NS.Constants.RECORD_ADDED_COALESCE))
       P.__ev = ev
     end
   end
