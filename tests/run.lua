@@ -39,12 +39,23 @@ Loader.loadAll({
 local ADDON_FILES = Loader.tocFiles("LootHistory.toc")
 Loader.loadAll(ADDON_FILES, NS, mocks)
 
-NS:InitDB()
 -- The lifecycle kick the client's OnInitialize does. Register() only builds the canvas frames and
 -- registers the Blizzard categories — every page BODY is still deferred to its first OnShow, which
 -- tests/test_panel.lua drives explicitly through the mock's recorded script handlers.
-NS.Schema:Register()
-NS.Panel:Register()
+--
+-- Recorded as it runs and published through Kit.expose, because this is the fourth list in the repo
+-- that has to agree with something else and was the only one nothing read. tests/test_harness.lua
+-- derives what addon:OnInitialize ACTUALLY calls out of core/LootHistory.lua and compares the two,
+-- so a step added there and forgotten here goes red instead of quietly leaving every suite below
+-- measuring an addon the client never builds. The label is recorded by the same call that runs the
+-- step, so the list cannot drift from the kick even by one line.
+local LIFECYCLE = {}
+local function kick(label, fn) LIFECYCLE[#LIFECYCLE + 1] = label; fn() end
+
+kick("NS:InitDB",          function() NS:InitDB() end)
+kick("NS.Schema:Register", function() NS.Schema:Register() end)
+kick("NS.Slash:Register",  function() NS.Slash:Register() end)
+kick("NS.Panel:Register",  function() NS.Panel:Register() end)
 
 -- Load order is significant (later suites read state earlier ones seed); keep as-is. The list is a
 -- named local so tests/test_harness.lua can hand it to Kit.assertSuiteInventory as a named case —
@@ -65,7 +76,7 @@ local SUITES = {
 
 _G.LH_TEST = Kit.expose{
   NS = NS, mocks = mocks, Loader = Loader,
-  addonFiles = ADDON_FILES, suites = SUITES,
+  addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
 }
 
 Kit.run{ dir = "tests/", suites = SUITES }

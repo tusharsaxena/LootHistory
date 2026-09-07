@@ -296,3 +296,108 @@ test("Attribution: taking a quest reward stamps QUEST", function()
   NS.Attribution:StampQuestReward()
   assertEqual(NS.Attribution:Consume(), "QUEST")
 end)
+
+-- ── Enable(): the wiring, not the handlers ───────────────────────────────────────────────────
+--
+-- Every case above hand-feeds an event straight to a stamper. Not one of them proves the stamper
+-- is ever REACHED in the client. `Attribution:Enable` is what registers the seven bus events, the
+-- player-only UNIT_SPELLCAST_SUCCEEDED frame and the five read-side hooks, and it had zero test
+-- callers: a mistyped event name or a dropped hooksecurefunc would have left every case above
+-- green while the attribution engine received nothing at all. testing-§8 asks the addon's own
+-- suite to own exactly this — integration over this addon's wiring, not a re-test of the library.
+--
+-- The three merchant/mail globals and GetQuestReward are absent from the mock and the kit's
+-- hooksecurefunc is a no-op, so the hook branches are dead unless the case supplies both. Every
+-- one of those substitutions lands on the SHARED mock table, and Enable() latches and registers on
+-- the SHARED addon object, so the whole thing runs inside a wrapper that puts all of it back on
+-- the way out whether the body passed, failed or threw. Restoring on the last line of the body
+-- instead would put nothing back on a failure — tests/_kit/framework.lua pcalls the body — and the
+-- next suite would run against a half-stubbed client with seven stray registrations on the bus.
+
+-- Sorted: this asserts the SET Enable registers, and the registration order carries no meaning.
+local ENABLE_EVENTS = {
+  "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_START", "ENCOUNTER_END", "ENCOUNTER_START",
+  "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
+}
+-- In Enable()'s own order: three globals hooked inline, then core/Compat.lua's two seams.
+local ENABLE_HOOKS = {
+  "BuyMerchantItem", "TakeInboxItem", "AutoLootMailItem", "UseContainerItem", "GetQuestReward",
+}
+
+local STUBBED = { "CreateFrame", "hooksecurefunc", "BuyMerchantItem", "TakeInboxItem",
+                  "AutoLootMailItem", "GetQuestReward", "C_Container" }
+
+local function withClientStubs(body)
+  local saved = {}
+  for _, key in ipairs(STUBBED) do saved[key] = mocks[key] end
+
+  local rec = { frames = {}, hooks = {}, before = {} }
+  for event in pairs(NS.addon.__events) do rec.before[event] = true end
+
+  mocks.CreateFrame = function(...)
+    local f = saved.CreateFrame(...)
+    rec.frames[#rec.frames + 1] = f
+    return f
+  end
+  -- Both call shapes: hooksecurefunc("Name", fn) for a global, hooksecurefunc(tbl, "Name", fn) for
+  -- a table member, which is how core/Compat.lua reaches C_Container.UseContainerItem.
+  mocks.hooksecurefunc = function(a, b)
+    rec.hooks[#rec.hooks + 1] = (type(a) == "table") and tostring(b) or tostring(a)
+  end
+  mocks.BuyMerchantItem  = function() end
+  mocks.TakeInboxItem    = function() end
+  mocks.AutoLootMailItem = function() end
+  mocks.GetQuestReward   = function() end
+  local container = {}
+  for k, v in pairs(saved.C_Container or {}) do container[k] = v end
+  container.UseContainerItem = function() end
+  mocks.C_Container = container
+
+  local ok, err = pcall(body, rec)
+
+  for _, key in ipairs(STUBBED) do mocks[key] = saved[key] end
+  for event in pairs(NS.addon.__events) do
+    if not rec.before[event] then NS.addon:UnregisterEvent(event) end
+  end
+  NS.Attribution._enabled = false
+  if not ok then error(err, 0) end
+end
+
+test("Attribution: Enable registers seven bus events, the player-only cast frame and five hooks",
+function()
+  withClientStubs(function(rec)
+    NS.Attribution:Enable()
+
+    local added = {}
+    for event in pairs(NS.addon.__events) do
+      if not rec.before[event] then added[#added + 1] = event end
+    end
+    table.sort(added)
+    assertEqual(table.concat(added, ","), table.concat(ENABLE_EVENTS, ","),
+      "Enable registered a different event set than the peripheral stampers need")
+
+    assertEqual(table.concat(rec.hooks, ","), table.concat(ENABLE_HOOKS, ","),
+      "Enable installed a different read-side hook set")
+
+    -- UNIT_SPELLCAST_SUCCEEDED must NOT arrive on the bus: a bare RegisterEvent delivers every
+    -- nameplate's cast in a raid, which is the whole reason for the dedicated frame.
+    assertTrue(NS.addon.__events["UNIT_SPELLCAST_SUCCEEDED"] == nil,
+      "UNIT_SPELLCAST_SUCCEEDED was registered on the shared bus — that is the raid-wide firehose")
+    assertEqual(#rec.frames, 1, "Enable built " .. #rec.frames .. " frame(s); it needs exactly the "
+      .. "one that carries the unit-filtered cast event")
+    local units = rec.frames[1] and rec.frames[1].__unitEvents["UNIT_SPELLCAST_SUCCEEDED"]
+    assertTrue(units ~= nil, "the cast frame never called RegisterUnitEvent for "
+      .. "UNIT_SPELLCAST_SUCCEEDED")
+    assertEqual(table.concat(units or {}, ","), "player",
+      "the cast frame's unit filter is no longer player-only")
+    assertTrue(rec.frames[1]:GetScript("OnEvent") ~= nil,
+      "the cast frame registered its event but has no OnEvent handler to receive it")
+
+    -- The latch. OnEnable can run more than once across a session; a second Enable that re-ran
+    -- would double every registration and stack a second copy of every hook.
+    local frames, hooks = #rec.frames, #rec.hooks
+    NS.Attribution:Enable()
+    assertEqual(#rec.frames, frames, "a second Enable() built another cast frame")
+    assertEqual(#rec.hooks, hooks, "a second Enable() installed the read-side hooks again")
+  end)
+end)

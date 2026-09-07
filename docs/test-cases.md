@@ -150,7 +150,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
 
-### test_attribution.lua (23)
+### test_attribution.lua (24)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -175,6 +175,7 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: an unrelated player spell does not stamp a source
 - Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
 - Attribution: taking a quest reward stamps QUEST
+- Attribution: Enable registers seven bus events, the player-only cast frame and five hooks
 
 ### test_filters.lua (20)
 
@@ -722,13 +723,14 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Open refuses during combat and never defers-and-replays
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 
-### test_harness.lua (5)
+### test_harness.lua (6)
 
 - Harness: the runner fed the loader exactly the TOC's files, in the TOC's order
 - Harness: every path the runner derived from the TOC exists on disk
 - Harness: no libs/ path leaked into the TOC-derived list
 - Harness: the suite list matches tests/test_*.lua in both directions
 - Harness: the runner's suite list has no duplicates
+- Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 
 ### test_libka0s.lua (25)
 
@@ -794,7 +796,7 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
 | test_compat.lua | 30 |
-| test_attribution.lua | 23 |
+| test_attribution.lua | 24 |
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
@@ -808,8 +810,8 @@ badge and any count quoted in the docs must agree with it.
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
-| test_harness.lua | 5 |
+| test_harness.lua | 6 |
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **702** |
+| **Total** | **704** |

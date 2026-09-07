@@ -69,3 +69,57 @@ test("Harness: the runner's suite list has no duplicates", function()
     seen[suite] = true
   end
 end)
+
+-- ── the runner's lifecycle kick ────────────────────────────────────────────────────────
+--
+-- The fourth list, and the one that had drifted: tests/run.lua's comment says it does "the
+-- lifecycle kick the client's OnInitialize does", and for a while it did not — addon:OnInitialize
+-- calls four things and the runner called three, silently omitting NS.Slash:Register. Every suite
+-- below it therefore measured an addon initialized differently from the shipped one, which is the
+-- exact silent-drift class testing-§9 names.
+--
+-- Derived from core/LootHistory.lua rather than typed out here, for the same reason the load list
+-- is derived from the TOC: a second hand-written copy of OnInitialize's body would drift in step
+-- with the first. Parsing the body catches drift in BOTH directions — a step dropped from the
+-- runner and a step added to OnInitialize that the runner never learned about.
+
+local function onInitializeCalls()
+  local f = io.open("core/LootHistory.lua", "r")
+  assertTrue(f ~= nil, "core/LootHistory.lua is not readable — OnInitialize cannot be derived")
+  local calls, inside = {}, false
+  for line in f:lines() do
+    if line:match("^function%s+addon:OnInitialize%s*%(%)") then
+      inside = true
+    elseif inside and line:match("^end") then
+      break
+    elseif inside then
+      -- Comments first: OnInitialize's body carries a four-line note about the media registration
+      -- that used to live here, and prose must never be mistaken for a call.
+      local code = line:gsub("%-%-.*$", "")
+      -- One pattern for both shapes, so matches come back in source order. `NS:InitDB(` captures
+      -- "NS:InitDB"; `NS.Schema:Register(` captures "NS.Schema:Register". The `if NS.Schema and
+      -- NS.Schema.Register then` guards are not followed by `(` and so are not calls.
+      for expr in code:gmatch("(NS[%.:][%w_]+:?[%w_]*)%s*%(") do
+        calls[#calls + 1] = expr
+      end
+    end
+  end
+  f:close()
+  return calls
+end
+
+test("Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order", function()
+  local kicked  = T.lifecycle
+  local derived = onInitializeCalls()
+  assertTrue(type(kicked) == "table", "tests/run.lua must publish its lifecycle kick as T.lifecycle")
+  assertTrue(#derived > 0, "no calls were derived from addon:OnInitialize — the parse is broken, "
+    .. "not the runner")
+  assertEqual(#kicked, #derived, "the runner kicks " .. #kicked .. " step(s) ("
+    .. table.concat(kicked, ", ") .. ") but addon:OnInitialize calls " .. #derived .. " ("
+    .. table.concat(derived, ", ") .. ") — the suite is initializing a different addon than the "
+    .. "client does")
+  for i = 1, #derived do
+    assertEqual(kicked[i], derived[i], "lifecycle drift at step " .. i .. ": the runner calls "
+      .. tostring(kicked[i]) .. " where addon:OnInitialize calls " .. tostring(derived[i]))
+  end
+end)
