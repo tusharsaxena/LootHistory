@@ -1,5 +1,6 @@
 local T = _G.LH_TEST
 local NS, test, assertTrue, assertEqual = T.NS, T.test, T.assertTrue, T.assertEqual
+local Loader = T.Loader
 
 local Sl = NS.Slash
 
@@ -386,4 +387,44 @@ test("an unknown verb says so and then prints the help index", function()
   assertEqual(out[1], NS.PREFIX .. " unknown command 'nosuchverb'")
   assertEqual(out[2], NS.PREFIX .. " " .. Sl:HelpHeader())
   assertEqual(out[3], NS.PREFIX .. " " .. Sl:HelpRows()[1])
+end)
+
+-- ── the library-less install: the help list is rendered by subtraction ────────────────────────
+--
+-- On a load with no LibKa0s, settings/Slash.lua's `if not lib` branch renders help by SUBTRACTING
+-- the verbs that cannot answer on that path from NS.COMMANDS, rather than from a second hand-typed
+-- list that would drift. The subtraction is only honest if the subtracted set names every such
+-- verb, and membership is not "went through the library" — `config` never did: its handler is
+-- host-owned and calls NS.Panel:Open, which reaches O.OpenOptionsPanel, which on this path is
+-- settings/OptionsSetup.lua's stub that prints "the settings panel is unavailable" and opens
+-- nothing. slash-commands-§1 wants the degraded help to list what still WORKS; a verb that is
+-- advertised and then declines is worse than one that is omitted, because the user spends a
+-- command finding out.
+
+test("library-less install: the degraded help omits config, which would only decline", function()
+  local mocks = dofile("tests/wow_mock.lua")()
+  local ns = {}
+  Loader.loadAll(Loader.tocFiles("LootHistory.toc"), ns, mocks)
+  assertEqual(mocks.LibStub("LibKa0s-Slash-1.0", true), nil,
+    "this mock must have NO library, or the case below is measuring the live path")
+
+  local rows = ns.Slash.HelpRows()
+  local listed = {}
+  for _, row in ipairs(rows) do
+    local verb = row:match("^%s*|cFFFFFF00/lh (%S+)|r")
+    assertTrue(verb ~= nil, "unparseable help row: " .. tostring(row))
+    listed[verb] = true
+  end
+
+  assertTrue(not listed.config,
+    "`/lh config` reaches a stub that declines on this path, so it must not be advertised")
+  -- The verbs that genuinely still work have to survive, or "omit config" is satisfied by a help
+  -- list that omits everything -- the failure the subtraction shape exists to make impossible.
+  for _, verb in ipairs({ "show", "hide", "toggle", "debug", "test", "purge" }) do
+    assertTrue(listed[verb], "the degraded help must still offer /lh " .. verb)
+  end
+  -- And the library-owned half stays out, which is what the set did before config joined it.
+  for _, verb in ipairs({ "version", "get", "set", "list", "reset", "resetall", "help" }) do
+    assertTrue(not listed[verb], "/lh " .. verb .. " cannot answer with no library")
+  end
 end)

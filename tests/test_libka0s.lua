@@ -154,17 +154,20 @@ end)
 test("degraded install: a bare /lh prints help listing the verbs that still work", function()
   -- slash-commands-§3. It used to fall through the verb walk to the "unavailable" line, which
   -- blacks out the whole command surface in the one install where a user most needs to be told
-  -- which commands survived — and seven of them do, because they never went through the library.
+  -- which commands survived — and six of them do, because they never went through the library AND
+  -- their handlers reach nothing that did. `config` is the one that reads like a seventh and is
+  -- not: its handler is host-owned, but it calls NS.Panel:Open, which reaches O.OpenOptionsPanel,
+  -- a stub on this path. It is asserted ABSENT below for that reason.
   local ns, lines = loadDegraded()
   ns.Slash:OnSlash("")
   local body = table.concat(lines, "\n")
   assertTrue(body:find(ns.LIBKA0S_MISSING, 1, true) ~= nil,
     "the help header must still explain WHY through the shared cause clause")
-  for _, verb in ipairs({ "show", "hide", "toggle", "config", "debug", "test", "purge" }) do
+  for _, verb in ipairs({ "show", "hide", "toggle", "debug", "test", "purge" }) do
     assertTrue(body:find("/lh " .. verb, 1, true) ~= nil,
       "a bare /lh must list the host-owned verb " .. verb .. ", which still works: " .. body)
   end
-  for _, verb in ipairs({ "list", "get", "set", "reset", "resetall", "version" }) do
+  for _, verb in ipairs({ "list", "get", "set", "reset", "resetall", "version", "config" }) do
     assertTrue(body:find("/lh " .. verb .. "|", 1, true) == nil,
       "a bare /lh must not offer " .. verb .. ", which answers \"unavailable\" on this path")
   end

@@ -522,7 +522,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (37)
+### test_slash.lua (38)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -561,6 +561,7 @@ badge and any count quoted in the docs must agree with it.
 - the set-valued row renders through the format hook, never as <secret>
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
+- library-less install: the degraded help omits config, which would only decline
 
 ### test_schema.lua (47)
 
@@ -806,7 +807,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 37 |
+| test_slash.lua | 38 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
@@ -814,4 +815,4 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
 | test_widgets.lua | 17 |
-| **Total** | **704** |
+| **Total** | **705** |

@@ -163,21 +163,35 @@ if not lib then
   -- Degrade, not error. `/lh` is registered unconditionally (Sl:Register below runs from
   -- OnInitialize whatever the install looks like), so every verb the dispatcher would have owned
   -- has to answer with an honest line rather than a nil-index error. The seven host verbs in
-  -- NS.COMMANDS are unaffected — they never went through the library — so they are dispatched here
-  -- by the same positional walk the library does.
+  -- NS.COMMANDS still DISPATCH — they never went through the library — so they are walked here by
+  -- the same positional walk the library does. Dispatching is not the same as working: `config`
+  -- dispatches into a handler that lands on the Options stub and declines, which is why the help
+  -- list below subtracts it and why the set doing the subtracting is not named after the library.
   local function unavailable()
     NS.Print(NS.LIBKA0S_MISSING .. ", so the slash command interface is unavailable.")
   end
   Sl.FormatKV = function(path, valueStr)
     return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
   end
-  -- The verbs that went THROUGH the library, and only those. Everything else in NS.COMMANDS is
-  -- host-owned and still works on this path (slash-commands-§1), so the degraded help is rendered
-  -- by SUBTRACTION rather than from a second hand-typed list that would drift the day a verb is
-  -- added — the same reason the dispatch below walks NS.COMMANDS instead of naming verbs.
-  local LIBRARY_OWNED = {
+  -- The verbs NOT to offer here, which is not the same set as the verbs that went through the
+  -- library — and the old name, LIBRARY_OWNED, is what got it wrong. `config` never went through
+  -- the library: its handler is host-owned and sits in NS.COMMANDS beside show/hide/toggle. But it
+  -- calls NS.Panel:Open, which reaches O.OpenOptionsPanel, which on this path is
+  -- settings/OptionsSetup.lua's stub that prints "the settings panel is unavailable" and opens
+  -- nothing. slash-commands-§1 asks this list for what still WORKS, so advertising a verb that
+  -- then declines is worse than omitting it. Everything not named here is host-owned AND still
+  -- works, which is why the degraded help is rendered by SUBTRACTION rather than from a second
+  -- hand-typed list that would drift the day a verb is added — the same reason the dispatch below
+  -- walks NS.COMMANDS instead of naming verbs. The price of subtraction is that a new verb is
+  -- offered by default, so one that leans on the library has to be added here when it is declared;
+  -- tests/test_slash.lua's degraded case is what says so out loud.
+  --
+  -- `help` is here for the other reason: it answers fine on this path (Sl.PrintHelp below is what
+  -- is printing) and is omitted only because naming "help" inside help output is noise. Two
+  -- reasons, one verdict, so one set carries both.
+  local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
-    reset = true, resetall = true, help = true,
+    reset = true, resetall = true, help = true, config = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there
@@ -197,7 +211,7 @@ if not lib then
   Sl.HelpRows = function()
     local rows = {}
     for _, entry in ipairs(NS.COMMANDS) do
-      if not LIBRARY_OWNED[entry[1]] then
+      if not UNAVAILABLE_WITHOUT_LIB[entry[1]] then
         rows[#rows + 1] = "  " .. formatRow("/lh " .. entry[1], entry[2])
       end
     end
