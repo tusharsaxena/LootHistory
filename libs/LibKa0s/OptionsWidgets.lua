@@ -12,7 +12,20 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local WIDGETS_MINOR = 13
+-- Minor 14 takes the tab strip's buttons and the page's content panel from LibKa0s-Pool-1.0
+-- instead of building them on every click, so the pool is a hard FLOOR here and not a nicety.
+-- Absent or too old, this file is absent rather than half-wired: the alternative -- falling back
+-- to allocating per click -- is precisely the leak this minor exists to end, and it would fall
+-- back in silence. Both files ship in one payload and whole-folder vendoring is mandatory, so a
+-- host that trips this floor has a broken copy rather than an unlucky one. The floor is also
+-- unreachable in a well-formed tree: Pool.lua and Options.lua both gate on LibKa0s-Core-1.0 and
+-- Pool.lua loads first in LibKa0s.xml, so a payload with no pool has no Options major to attach
+-- to either and `lib` above is already nil.
+local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
+local NEEDS_POOL = 1
+if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
+
+local WIDGETS_MINOR = 14
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -514,7 +527,16 @@ local function setGlow(tex, on)
   end
 end
 
---- The three atlas slices: two end caps at their NATURAL atlas size, and a middle stretched
+--- A tab button's six textures, created ONCE and kept on the button as `__ka0sTabArt`.
+---
+--- The split into a create half and a dress half is the whole of minor 14 at the texture level.
+--- A pooled button that rebuilt its art on every dress would trade a frame leak for a texture
+--- leak: WoW destroys neither, and a texture created on a recycled frame rides that frame back
+--- into the pool -- the failure this file already documents for the landing-page logo. So the
+--- STATE-INDEPENDENT half lives here (which textures exist, and every anchor a selection cannot
+--- move) and only the state-dependent half is re-applied per dress.
+---
+--- The three slices are two end caps at their NATURAL atlas size and a middle stretched
 --- horizontally between their inner edges. A tab narrower than the two caps would draw them
 --- overlapping rather than tearing, which is why TAB_MIN_W is comfortably wider than either.
 ---
@@ -522,32 +544,41 @@ end
 --- so a 37px button carrying 28px of art has nine empty pixels along its top -- but that number is
 --- tabArtHeight's to answer, from a state no click can change, and reading it back off a tab drawn
 --- in whichever state it happened to be in is the defect this file's atlas section describes.
-local function drawTabSlices(b, atlas)
-  local left = tabTexture(b, "BACKGROUND")
-  if left then
-    if left.SetAtlas then left:SetAtlas(atlas[1], true) end
-    left:SetPoint("BOTTOMLEFT")
+local function newTabArt(b)
+  local art = {}
+  art.left  = tabTexture(b, "BACKGROUND")
+  art.right = tabTexture(b, "BACKGROUND")
+  art.mid   = tabTexture(b, "BACKGROUND")
+  if art.left  then art.left:SetPoint("BOTTOMLEFT")   end
+  if art.right then art.right:SetPoint("BOTTOMRIGHT") end
+  if art.mid and art.left and art.right then
+    art.mid:SetPoint("TOPLEFT",  art.left,  "TOPRIGHT")
+    art.mid:SetPoint("TOPRIGHT", art.right, "TOPLEFT")
   end
 
-  local right = tabTexture(b, "BACKGROUND")
-  if right then
-    if right.SetAtlas then right:SetAtlas(atlas[3], true) end
-    right:SetPoint("BOTTOMRIGHT")
-  end
+  -- The dark backing behind the label, and the two glows. Their anchors DO move with the
+  -- selection, so they are set in the dress half rather than here.
+  art.fill = tabTexture(b, "BACKGROUND", -2)
+  art.hl   = tabTexture(b, "HIGHLIGHT")
+  art.sel  = tabTexture(b, "BACKGROUND", -1)
+  return art
+end
 
-  local mid = tabTexture(b, "BACKGROUND")
-  if mid and left and right then
-    if mid.SetAtlas then mid:SetAtlas(atlas[2], true) end
-    mid:SetPoint("TOPLEFT",  left,  "TOPRIGHT")
-    mid:SetPoint("TOPRIGHT", right, "TOPLEFT")
-  end
+--- Re-aim the three slices at one state's atlas family.
+---
+--- Left, right, then middle, which is the order the slices were CREATED in and the order a suite
+--- reads them back in -- the family check reads slice 1 and expects the left cap.
+local function dressTabSlices(art, atlas)
+  if art.left  and art.left.SetAtlas  then art.left:SetAtlas(atlas[1],  true) end
+  if art.right and art.right.SetAtlas then art.right:SetAtlas(atlas[3], true) end
+  if art.mid   and art.mid.SetAtlas   then art.mid:SetAtlas(atlas[2],   true) end
 end
 
 --- The dark backing behind the label, inset so it never touches the caps' lit edges. It stops
 --- 3px higher on the selected tab, which is half of how the two states differ.
-local function drawTabFill(b, active)
-  local bg = tabTexture(b, "BACKGROUND", -2)
+local function dressTabFill(bg, active)
   if not bg then return end
+  if bg.ClearAllPoints then bg:ClearAllPoints() end
   bg:SetPoint("BOTTOMLEFT", TAB_BG_INSET, 0)
   bg:SetPoint("TOPRIGHT", -TAB_BG_INSET, TAB_BG_TOP[active])
   if bg.SetColorTexture then bg:SetColorTexture(1, 1, 1, 1) end
@@ -558,27 +589,29 @@ end
 --- the HIGHLIGHT one is drawn by the client on mouseover only, the BACKGROUND one is lit for as
 --- long as the tab is selected. Only one is ever on, which is why `on` is a parameter rather
 --- than a second function.
-local function drawTabGlow(b, layer, sublevel, top, on)
-  local tex = tabTexture(b, layer, sublevel)
+local function dressTabGlow(b, tex, top, on)
   if not tex then return end
+  if tex.ClearAllPoints then tex:ClearAllPoints() end
   tex:SetPoint("BOTTOMLEFT", TAB_BG_INSET, 0)
   tex:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", -TAB_BG_INSET, top)
   setGlow(tex, on)
   gradient(tex, TAB_GLOW_BOTTOM, TAB_GLOW_TOP)
 end
 
---- Draw one tab button's art: three atlas slices, a dark backing, and the two glows.
+--- Put one tab button's art into the state it is being drawn in: the atlas family, the backing's
+--- height, and which of the two glows is lit.
 ---
 --- Split four ways rather than written straight through, because every texture path in this file
 --- carries the same two guards and a single function wearing all of them measured past the CCN
---- ceiling the release gate enforces. Every texture is a child of `b`, so they share the button's
---- lifecycle: releaseLedger hides and unparents `b` and the art goes with it -- no separate
---- ledger entry needed for any of them.
-local function drawTabArt(b, active)
-  drawTabSlices(b, TAB_ATLAS[active])
-  drawTabFill(b, active)
-  drawTabGlow(b, "HIGHLIGHT",  nil, TAB_HL_TOP,  not active)
-  drawTabGlow(b, "BACKGROUND", -1,  TAB_SEL_TOP, active)
+--- ceiling the release gate enforces. Every texture is a child of `b` and travels with it into
+--- the pool and back out, so no ledger entry is needed for any of them.
+local function dressTabArt(b, active)
+  local art = b.__ka0sTabArt
+  if not art then return end
+  dressTabSlices(art, TAB_ATLAS[active])
+  dressTabFill(art.fill, active)
+  dressTabGlow(b, art.hl,  TAB_HL_TOP,  not active)
+  dressTabGlow(b, art.sel, TAB_SEL_TOP, active)
 
   -- The empty strip along the button's top is not part of the tab and must not be clickable: a
   -- wrapped strip packs the next row by the ART's height, so row 2's button overlaps row 1's art by
@@ -602,10 +635,17 @@ end
 --- the pitch had (options-ui-§13). The two fonts are the same size today, so no wrap index moves;
 --- pinning the order is what keeps that true rather than lucky.
 local function setTabLabel(b, text)
-  local fs = b.CreateFontString and b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  if fs and b.SetFontString then
-    b:SetFontString(fs)
-    if fs.ClearAllPoints then fs:ClearAllPoints() end
+  -- The FontString is made ONCE and then re-used, for the same reason the art is: a dressed
+  -- button is a button that already has one, and a second CreateFontString per click would leak a
+  -- string per click on a frame that is never destroyed. `false` rather than nil marks "this frame
+  -- cannot make one", so a headless stub is not re-asked on every dress.
+  if b.__ka0sTabLabel == nil then
+    local fs = b.CreateFontString and b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    if fs and b.SetFontString then
+      b:SetFontString(fs)
+      if fs.ClearAllPoints then fs:ClearAllPoints() end
+    end
+    b.__ka0sTabLabel = fs or false
   end
   b:SetNormalFontObject(_G.GameFontNormalSmall)
   b:SetHighlightFontObject(_G.GameFontHighlightSmall)
@@ -640,21 +680,14 @@ end
 --- band automatically when a strip wraps to a second row. It is forced to the body's OWN frame
 --- level: a child frame otherwise sits one level above its parent, which would put this art in
 --- front of the scroll it is supposed to sit behind.
-local function drawContentPanel(ctx)
-  if not (ctx.body and ctx.chrome) then return end
+---
+--- This half BUILDS one, and is the pool's factory; drawContentPanel below is what a render calls.
+local function newContentPanel(ctx)
   local panel = CreateFrame("Frame", nil, ctx.body)
   if panel.SetFrameLevel and ctx.body.GetFrameLevel then
     local level = ctx.body:GetFrameLevel()
     if type(level) == "number" then panel:SetFrameLevel(level) end
   end
-  -- Vertically it hangs off the chrome, so it follows the band when a strip wraps to a second
-  -- row. Horizontally it is anchored to the BODY, not the chrome: the box has to be wider than
-  -- the content column it encloses, or the scrollbar is painted on its right edge and the
-  -- left-hand labels butt against its left one.
-  panel:SetPoint("TOPLEFT",     ctx.chrome, "BOTTOMLEFT",  -(L.CONTENT_LEFT - L.PANEL_LEFT), 0)
-  panel:SetPoint("TOPRIGHT",    ctx.chrome, "BOTTOMRIGHT",   L.CONTENT_RIGHT - L.PANEL_RIGHT, 0)
-  panel:SetPoint("BOTTOMLEFT",  ctx.body,   "BOTTOMLEFT",    L.PANEL_LEFT,  L.PANEL_BOTTOM)
-  panel:SetPoint("BOTTOMRIGHT", ctx.body,   "BOTTOMRIGHT",  -L.PANEL_RIGHT, L.PANEL_BOTTOM)
 
   -- Two halves meeting at the panel's midpoint, the left one mirrored by a reversed u range.
   local leftHalf = panel.CreateTexture and panel:CreateTexture(nil, "BACKGROUND")
@@ -672,6 +705,33 @@ local function drawContentPanel(ctx)
     rightHalf:SetPoint("BOTTOMLEFT", panel, "BOTTOM", 0, 0)
     rightHalf:SetTexCoord(PANEL_SEAM_U, 1, 0, 1)
   end
+
+  return panel
+end
+
+--- Acquire the page's content panel and anchor it under the chrome band.
+---
+--- ONE PANEL PER PAGE, acquired from a pool of one rather than built per click. A pool for a
+--- single object looks like ceremony and is not: the panel is created by the same tab click that
+--- creates the buttons, so it leaked on exactly the same schedule, and giving it its own pool is
+--- what lets one release seam hand back everything a click borrowed.
+---
+--- The anchors are re-stated on every acquire rather than only at construction. They cost four
+--- SetPoints once per render, and stating them here is what keeps the panel's whole contract --
+--- where its four corners land -- readable in one place instead of split across a lifetime.
+local function drawContentPanel(ctx)
+  if not (ctx.body and ctx.chrome) then return end
+  ctx.__panelPool = ctx.__panelPool or Pool.New()
+  local panel = Pool.Acquire(ctx.__panelPool, function() return newContentPanel(ctx) end)
+
+  -- Vertically it hangs off the chrome, so it follows the band when a strip wraps to a second
+  -- row. Horizontally it is anchored to the BODY, not the chrome: the box has to be wider than
+  -- the content column it encloses, or the scrollbar is painted on its right edge and the
+  -- left-hand labels butt against its left one.
+  panel:SetPoint("TOPLEFT",     ctx.chrome, "BOTTOMLEFT",  -(L.CONTENT_LEFT - L.PANEL_LEFT), 0)
+  panel:SetPoint("TOPRIGHT",    ctx.chrome, "BOTTOMRIGHT",   L.CONTENT_RIGHT - L.PANEL_RIGHT, 0)
+  panel:SetPoint("BOTTOMLEFT",  ctx.body,   "BOTTOMLEFT",    L.PANEL_LEFT,  L.PANEL_BOTTOM)
+  panel:SetPoint("BOTTOMRIGHT", ctx.body,   "BOTTOMRIGHT",  -L.PANEL_RIGHT, L.PANEL_BOTTOM)
 
   ctx.__tabKids[#ctx.__tabKids + 1] = panel
 end
@@ -878,16 +938,33 @@ function lib.__AttachWidgets(O, d)
     ctx[key] = {}
   end
 
+  --- Give the strip's furniture back: every tab button and the content panel returned to the pool
+  --- they came from, and the ledger that names them emptied.
+  ---
+  --- NOT releaseLedger, and the difference is the whole of minor 14. releaseLedger hides and
+  --- UNPARENTS, which is correct for a widget nothing will hand out again and wrong for one that
+  --- will -- an unparented button coming back off a free list is a button drawn onto nothing. The
+  --- pool hides and parks; the parent is the page's own chrome, which outlives every render.
+  ---
+  --- `__tabKids` survives as the strip's LEDGER even though it no longer owns the release: it is
+  --- what a suite reads to ask what this render drew, in the order it drew it, and the buttons
+  --- have to be discoverable somewhere that is not the pool's internals.
+  local function releaseTabs(ctx)
+    if ctx.__tabPool   then Pool.ReleaseAll(ctx.__tabPool)   end
+    if ctx.__panelPool then Pool.ReleaseAll(ctx.__panelPool) end
+    ctx.__tabKids = {}
+  end
+
   --- Release everything a page parked in its chrome band -- the banner AND the strip.
   ---
-  --- Two ledgers, one release, because the two have different LIFETIMES: a tab click redraws the
-  --- strip alone and drains __tabKids itself, while only a full page render redraws the banner.
+  --- Two seams, one release, because the two have different LIFETIMES: a tab click redraws the
+  --- strip alone and releases its own furniture, while only a full page render redraws the banner.
   --- Draining both here is what keeps the page-wide teardown total without making the strip's
   --- ledger a second copy of it -- when TabStrip appended to both, __chromeKids grew by one entry
   --- per tab click, forever, holding buttons already hidden and unparented.
   local function releaseChrome(ctx)
     releaseLedger(ctx, "__chromeKids")
-    releaseLedger(ctx, "__tabKids")
+    releaseTabs(ctx)
   end
   O.__releaseChrome = releaseChrome
 
@@ -923,23 +1000,43 @@ function lib.__AttachWidgets(O, d)
     return math.max(L.TAB_MIN_W, w + (L.TAB_PAD_X * 2))
   end
 
-  --- One tab button: art, state, handler, and its measured width.
+  --- The tab's tooltip, wired ONCE at construction and re-aimed on every dress.
   ---
-  --- Lifted out of TabStrip's loop because the loop is the only interesting thing left in that
-  --- function -- packing widths into rows -- and a button's construction is six unrelated
-  --- decisions that were making one function read as two.
+  --- O.AttachTooltip is the seam every other widget in this file uses, and it is the wrong one
+  --- here for one reason: a raw Button has no AceGUI SetCallback, so it takes that function's
+  --- HookScript arm -- and HookScript ACCUMULATES. A pooled button re-dressed on every click
+  --- would grow a fresh pair of handlers per click, which is the same unbounded growth in scripts
+  --- that minor 14 removes in frames. One SetScript pair is re-settable by construction, and
+  --- reading the strings off the button rather than closing over them is what lets a tab that no
+  --- longer HAS a tooltip actually lose the one it was last dressed with.
+  local function attachTabTooltip(b)
+    if not b.SetScript then return end
+    b:SetScript("OnEnter", function()
+      if not (GameTooltip and b.__ka0sTabTip) then return end
+      GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
+      if b.__ka0sTabTipLabel and b.__ka0sTabTipLabel ~= "" then
+        GameTooltip:SetText(b.__ka0sTabTipLabel, 1, 1, 1)
+      end
+      GameTooltip:AddLine(b.__ka0sTabTip, nil, nil, nil, true)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function()
+      if GameTooltip then GameTooltip:Hide() end
+    end)
+  end
+
+  --- A bare tab button: the frame, its art and its label, and nothing that depends on WHICH tab it
+  --- is or whether that tab is selected. The pool's factory.
   ---
-  --- The ACTIVE tab is the DISABLED one, which is how Blizzard's own tab groups mark selection
-  --- and is why it needs no second piece of art to say so: a disabled button does not highlight
-  --- on hover and does not fire, so clicking the tab you are already on cannot re-render the
-  --- page you are already looking at.
+  --- Split from dressTab because a strip is redrawn on every click of it and WoW destroys no
+  --- frame: everything a click can be made to REUSE has to be created somewhere a click does not
+  --- reach. What is left below is genuinely per-tab, and re-applying it is cheap.
   ---
   --- `parent` is the frame the button hangs off: `ctx.chrome` for the pinned primary strip, the
   --- host's own frame for a secondary one drawn inside the scroll (options-ui-§13).
   ---
   --- @return table  the button frame
-  --- @return number its measured width, in pixels
-  local function makeTab(parent, tab, active, onSelect)
+  local function newTabButton(parent)
     local b = CreateFrame("Button", nil, parent)
     b:SetHeight(L.TAB_H)
     -- One level above the parent, so a tab's art draws OVER the content panel's top edge rather
@@ -948,13 +1045,36 @@ function lib.__AttachWidgets(O, d)
       local level = b:GetFrameLevel()
       if type(level) == "number" then b:SetFrameLevel(level + 1) end
     end
+    b.__ka0sTabArt = newTabArt(b)
+    attachTabTooltip(b)
+    return b
+  end
 
+  --- Put one button into the state of one tab: label, art, selection, handler and tooltip.
+  ---
+  --- EVERY field is re-applied, including the ones this tab does not use, because the button may
+  --- have been dressed as a different tab a moment ago. A dress that only ever ADDED would leave
+  --- the previous tab's tooltip on a tab that has none and the previous tab's handler under a
+  --- label that no longer matches it -- which is the failure mode a pool trades for a leak if the
+  --- dress is written as though the object were new.
+  ---
+  --- OnClick is re-set rather than hooked, and that is the same point: the handler closes over
+  --- THIS dress's `active` and `tab.key`, so a button carrying the previous dress's closure would
+  --- fire the wrong tab's selection.
+  ---
+  --- The ACTIVE tab is the DISABLED one, which is how Blizzard's own tab groups mark selection
+  --- and is why it needs no second piece of art to say so: a disabled button does not highlight
+  --- on hover and does not fire, so clicking the tab you are already on cannot re-render the
+  --- page you are already looking at.
+  ---
+  --- @return number  its measured width, in pixels
+  local function dressTab(b, tab, active, onSelect)
     -- LABEL, MEASURE, THEN STATE. The width is taken under the unselected font and the pitch under
     -- the unselected atlas, so neither can move when the player clicks a different tab.
     setTabLabel(b, tab.label)
     local width = labelWidth(b.GetFontString and b:GetFontString())
     setTabFont(b, active)
-    drawTabArt(b, active)
+    dressTabArt(b, active)
 
     b:SetEnabled(not active)
     b:SetScript("OnClick", function()
@@ -966,9 +1086,9 @@ function lib.__AttachWidgets(O, d)
       if active then return end
       if onSelect then pcall(onSelect, tab.key) end
     end)
-    if tab.tooltip then O.AttachTooltip(b, tab.label, tab.tooltip) end
+    b.__ka0sTabTipLabel, b.__ka0sTabTip = tab.label, tab.tooltip
 
-    return b, width
+    return width
   end
 
   --- Pack `buttons` into their wrapped rows, draw the baseline under the last one, and reserve
@@ -1053,16 +1173,23 @@ function lib.__AttachWidgets(O, d)
     end
     if not O.AceGUI then return nil end
 
-    -- Only the strip's own buttons, never the banner: the banner is drawn first and a blanket
+    -- Only the strip's own furniture, never the banner: the banner is drawn first and a blanket
     -- release here would take it with them.
-    releaseLedger(ctx, "__tabKids")
+    releaseTabs(ctx)
     ctx.__tabLayout = nil
+
+    -- ONE POOL PER PAGE, held on the ctx rather than on this file, because ctx.chrome is the
+    -- parent every button in it is created under and a pool shared between two panels would hand
+    -- one page's chrome a button parented to another's. ctx outlives every render, which is the
+    -- same property replaceOnResize below relies on.
+    ctx.__tabPool = ctx.__tabPool or Pool.New()
+    local factory = function() return newTabButton(ctx.chrome) end
 
     local buttons, widths = {}, {}
     for i, tab in ipairs(spec.tabs) do
-      local b, w = makeTab(ctx.chrome, tab, tab.key == spec.value, spec.onSelect)
+      local b = Pool.Acquire(ctx.__tabPool, factory)
       buttons[i] = b
-      widths[i]  = w
+      widths[i]  = dressTab(b, tab, tab.key == spec.value, spec.onSelect)
       ctx.__tabKids[#ctx.__tabKids + 1] = b
     end
 
@@ -1223,11 +1350,16 @@ function lib.__AttachWidgets(O, d)
     -- stack -- with the older set on top, swallowing the clicks.
     releaseLedger(ctx, "__subTabKids")
 
+    -- NOT POOLED, unlike the primary strip's, and the asymmetry is the parent. A secondary strip
+    -- hangs off a frame the HOST added as an AceGUI child, which ClearScroll gives back to AceGUI's
+    -- own pool -- so its buttons have to be unparented on release, and an unparented button is one
+    -- a free list could only ever hand back drawn onto nothing. The two-tier render means a sub
+    -- strip is rebuilt only when its category is, not on every click within it.
     local buttons, widths = {}, {}
     for i, tab in ipairs(spec.tabs) do
-      local b, w = makeTab(parent, tab, tab.key == spec.value, spec.onSelect)
+      local b = newTabButton(parent)
       buttons[i] = b
-      widths[i]  = w
+      widths[i]  = dressTab(b, tab, tab.key == spec.value, spec.onSelect)
       ctx.__subTabKids[#ctx.__subTabKids + 1] = b
     end
 

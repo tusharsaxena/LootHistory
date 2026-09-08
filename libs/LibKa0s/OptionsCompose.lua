@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 2
+local COMPOSE_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -178,6 +178,15 @@ end
 --- Takes no descriptor: a composer reads no state and writes none, so there is nothing of the
 --- host's for it to close over. It takes `O` because the media-backed rows call O.LSMValues, which
 --- is the instance's deferred reader.
+---
+--- CONTRACT, for a host that supplies its own `O.LSMValues`: it MUST RETURN A FUNCTION, the way
+--- Options.lua's does. The three media rows below read that member ONCE, at row-declaration time,
+--- and assign what comes back straight into `values` -- because enumList (OptionsWidgets.lua:78-79)
+--- unwraps a row's `values` exactly once, so anything wrapped twice reaches it as a function and
+--- comes back as an empty dropdown with no report. A host handing back a TABLE therefore does not
+--- error: it freezes its own media list at whatever was registered when this file loaded, which is
+--- precisely the failure Options.lua:759-763 says the deferral exists to prevent. Pass the deferred
+--- reader itself, never a caller of it.
 function lib.__AttachCompose(O)
   -- Published on the INSTANCE, not on the lib table, for the reason Options.lua's layout block
   -- gives: a lib-level table is shared by every instance, so handing it out lets one host's
@@ -228,7 +237,7 @@ function lib.__AttachCompose(O)
     emit(spec, rows, "font", {
       type = "string", label = "Font", tooltip = "The face this text is drawn in.",
       dialogControl = "LSM30_Font", default = "Friz Quadrata TT", startsLine = true,
-      values = function() return O.LSMValues("font") end,
+      values = O.LSMValues("font"),
     })
     emit(spec, rows, "fontSize", {
       type = "number", label = "Font size", tooltip = "Height of the text, in points.",
@@ -272,7 +281,7 @@ function lib.__AttachCompose(O)
     emit(spec, rows, "borderStyle", {
       type = "string", label = "Border style", tooltip = "The border texture.",
       dialogControl = "LSM30_Border", default = "None", startsLine = true,
-      values = function() return O.LSMValues("border") end,
+      values = O.LSMValues("border"),
     })
     emit(spec, rows, "borderSize", {
       type = "number", label = "Border thickness (px)", tooltip = "Border edge width, in pixels.",
@@ -301,7 +310,7 @@ function lib.__AttachCompose(O)
     emit(spec, rows, "barTexture", {
       type = "string", label = "Bar texture", tooltip = "The bar's fill texture.",
       dialogControl = "LSM30_Statusbar", default = "Blizzard", startsLine = true,
-      values = function() return O.LSMValues("statusbar") end,
+      values = O.LSMValues("statusbar"),
     })
     emit(spec, rows, "barAlpha", {
       type = "number", label = "Bar opacity", tooltip = "How opaque the bar's fill is.",
