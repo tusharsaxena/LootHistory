@@ -996,3 +996,35 @@ test("Panel: a WRAPPED strip reserves the same band and the same row offsets on 
     O.__resetTabArtHeight()
     homeTab(ctx)
   end)
+
+test("Panel: the AH status colours are saturated, not muted", function()
+  -- Reported from the game with a screenshot on 2026-09-09: the green/yellow/red read as three
+  -- shades of grey-brown on the panel's near-black backdrop. They were {0.46,0.60,0.46},
+  -- {0.66,0.62,0.42} and {0.62,0.45,0.45}, and the comment above them called that "extremely
+  -- muted" approvingly.
+  --
+  -- The values carry twice -- the Status text and the tick marks, whose tint is baked into the |T
+  -- escape because an inline texture is not reached by SetTextColor -- so a muted value here is a
+  -- muted mark as well as muted text. STATUS_RGB is a file-local, so a source scan is the only way
+  -- to reach it, which is the same idiom the tagline case above uses.
+  -- red under: any of the three dropping back below a peak channel of 0.9.
+  local f = assert(io.open("settings/Panel.lua", "r"))
+  local src = f:read("*a"); f:close()
+  -- Matched over the whole source rather than a carved-out block: a non-greedy match to the first
+  -- `}` stops inside the FIRST colour, which is how the first cut of this scanned zero entries and
+  -- reported the table missing instead of the values being wrong.
+  assertTrue(src:find("local STATUS_RGB = {", 1, true) ~= nil,
+    "STATUS_RGB is no longer a plain table literal")
+
+  local seen = 0
+  for name, r, g, b in src:gmatch("(%a[%w]*)%s*=%s*{%s*([%d%.]+),%s*([%d%.]+),%s*([%d%.]+)%s*}") do
+   if name == "collecting" or name == "notcollecting" or name == "notinstalled" then
+    seen = seen + 1
+    local peak = math.max(tonumber(r), tonumber(g), tonumber(b))
+    assertTrue(peak >= 0.9,
+      ("STATUS_RGB.%s peaks at %.2f — that is a muted tint, and it tints the mark too")
+        :format(name, peak))
+   end
+  end
+  assertEqual(seen, 3, "expected three status colours; the scan needs updating")
+end)

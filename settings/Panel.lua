@@ -489,11 +489,26 @@ local ACOL = { tick = 2, addon = 26, module = 148, enabled = 330, status = 362 }
 local AROW_H, AHEAD_H = 22, 32   -- row pitch; AHEAD_H = header→first-row gap (roomy header band)
 local HEAD_Y = -8                -- header baseline inside the host (gap above the header)
 local GOLD_RGB = { 0.91, 0.77, 0.42 }
--- Extremely-muted Status colors: collecting = green, not collecting = yellow, not installed = red.
+-- Status colors: collecting = green, not collecting = yellow, not installed = red.
+--
+-- SATURATED, NOT MUTED, and that is a correction rather than a preference. These read
+-- {0.46,0.60,0.46} / {0.66,0.62,0.42} / {0.62,0.45,0.45} and the comment above them called them
+-- "extremely muted" approvingly -- but desaturated that far, on this panel's near-black backdrop,
+-- the three are three shades of grey-brown, and being legible at a glance is the entire job of a
+-- status column.
+--
+-- The reference is the collection's own marks: ConsumableMaster's legend draws Blizzard's
+-- ReadyCheck-Ready, ReadyCheck-NotReady and FavoritesIcon, which are vivid because the ART is
+-- vivid. This column tints WHITE catalog art instead, so the saturation has to come from here; a
+-- muted tint on white art just yields a muted mark.
+--
+-- These carry TWICE -- the Status column's text color, and the tick marks below, whose tint is
+-- baked into the |T escape because an inline texture is not reached by SetTextColor. A value
+-- changed here moves both, which is the point of their being one table.
 local STATUS_RGB = {
-  collecting    = { 0.46, 0.60, 0.46 },
-  notcollecting = { 0.66, 0.62, 0.42 },
-  notinstalled  = { 0.62, 0.45, 0.45 },
+  collecting    = { 0.30, 0.95, 0.35 },
+  notcollecting = { 1.00, 0.82, 0.10 },
+  notinstalled  = { 1.00, 0.32, 0.32 },
 }
 
 -- The tick column's two states, built ONCE at file load the way modules/BrowserTable.lua builds
