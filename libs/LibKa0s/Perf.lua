@@ -22,7 +22,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 8
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -1033,23 +1033,44 @@ function lib:New(descriptor)
   --- own help output however it likes.
   function P.Usage()
     local s = P.slash
+    -- ONE ROW PER VERB, through lib.FormatRow -- the same formatter the slash-command help uses,
+    -- which is why that block reads cleanly and this one did not. It hand-aligned a second column
+    -- with leading spaces and pushed the rest of each description onto a continuation line; chat is
+    -- a PROPORTIONAL font and wraps on its own, so the columns never lined up and the continuations
+    -- arrived as orphaned fragments under the wrong verb.
+    --
+    -- THE PIPES ARE DOUBLED, and that is a real bug rather than tidiness. `<...|cancel|report|...>`
+    -- put `|r` in a chat string, which the client reads as a color RESET and removes -- the words
+    -- fused into "canceleport", `show|hide|toggle` lost `|h` and `|t` the same way, and the eaten
+    -- reset left the whole line gold because the run it was meant to close never closed. `||` is
+    -- the escape for a literal pipe.
+    -- Reached through LibStub rather than duplicated: the Slash major's API document calls
+    -- FormatRow "the one command-row formatter in the collection", and a second copy here would
+    -- make that sentence false. Optional, in the idiom this file already uses for Core -- and
+    -- degrading to an uncolored row rather than to a second gold format, because a duplicate that
+    -- only appears when a library is missing is still a duplicate.
+    local slash = LibStub and LibStub("LibKa0s-Slash-1.0", true)
+    local row = (slash and slash.FormatRow)
+      or function(c, dsc) return ("%s \226\128\148 %s"):format(tostring(c), tostring(dsc)) end
     return {
-      ("usage: |cFFFFFF00%s perf <start|measure|finish|cancel|report|dump|show|hide|toggle>|r"):format(s)
-        .. " \226\128\148 or just click the panel",
-      "  |cFFFFFF00start [label]|r  begin a run; zeroes the counters and records who/where you are.",
-      "                 The label is appended to the timestamp so runs are tellable apart.",
-      "  |cFFFFFF00measure a|r      arm Experiment A \226\128\148 addon ACTIVE. Recording starts the moment",
-      "                 combat does and ends when combat ends. Nothing between is measured.",
-      "  |cFFFFFF00measure b|r      arm Experiment B \226\128\148 same, but suspends the addon first, so the",
-      "                 two experiments differ by the addon and nothing else.",
-      ("  |cFFFFFF00finish|r         end the run, save it to %s and lift any suspend."):format(d.sv),
-      "                 Prints nothing \226\128\148 use `report` when you want to read it. `/reload` to flush.",
-      "  |cFFFFFF00cancel|r         abandon the run \226\128\148 discards it unsaved and restores the addon.",
-      "                 Only available while a run is actually in flight.",
-      "  |cFFFFFF00report|r         print the summary; opens the log window if it is hidden.",
-      "  |cFFFFFF00dump|r           render the run as one line of JSON in the log, for pasting",
-      "                 somewhere. Same data the summary is built from.",
-      "  |cFFFFFF00show|r / |cFFFFFF00hide|r / |cFFFFFF00toggle|r   the step panel. Hiding it never touches the run.",
+      ("usage: |cFFFFFF00%s perf <start||measure||finish||cancel||report||dump||show||hide||toggle>|r")
+        :format(s) .. " \226\128\148 or just click the panel",
+      "  " .. row("start [label]",
+        "begin a run; zeroes the counters and records who and where you are"),
+      "  " .. row("measure a",
+        "arm Experiment A, addon ACTIVE \226\128\148 records only while combat lasts"),
+      "  " .. row("measure b",
+        "arm Experiment B \226\128\148 the same, with the addon suspended first"),
+      "  " .. row("finish",
+        ("end the run and save it to %s; prints nothing, and `/reload` flushes it"):format(d.sv)),
+      "  " .. row("cancel",
+        "abandon a run in flight \226\128\148 discards it unsaved and restores the addon"),
+      "  " .. row("report",
+        "print the summary; opens the log window if it is hidden"),
+      "  " .. row("dump",
+        "render the run as one line of JSON in the log, for pasting somewhere"),
+      "  " .. row("show / hide / toggle",
+        "the step panel \226\128\148 hiding it never touches the run"),
     }
   end
 
