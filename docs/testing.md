@@ -107,11 +107,43 @@ See [module-map.md](module-map.md) for the source files behind each suite and [c
 Run all four, from this repo's root, with `../LibKa0s` checked out beside it:
 
 ```
-diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # content — MUST be empty
+diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # content — empty vs the CLAIMED tag
 diff -r ../LibKa0s/LibKa0s libs/LibKa0s                        # bytes  — SHOULD be empty
-diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # content — MUST be empty
+diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # content — empty vs the CLAIMED tag
 diff -r ../LibKa0s/testkit tests/_kit                          # bytes  — SHOULD be empty
 ```
+
+### When these diffs are supposed to be non-empty
+
+They compare against the sibling checkout's **working tree** — whatever `../LibKa0s` happens to have
+checked out — which is a different question from *"is the vendored payload the release this addon
+claims?"*. The two questions give the same answer only while the library has tagged nothing newer
+than the tag this addon has taken.
+
+Between a library release and the re-vendor that carries it they disagree, and that disagreement is
+the normal state rather than a defect. It is the state as this is written: `../LibKa0s` sits on
+**v1.27.0**, [`CLAUDE.md`](../CLAUDE.md) names **v1.26.0**, and the commands above report **306**
+differing lines for the library and **947** for the test kit. Re-vendoring to quiet them would be
+the actual mistake — it would pull an untested library release for the sake of a clean diff.
+
+**The authoritative comparison is against the tag `CLAUDE.md` names**, and that one must be empty at
+every commit:
+
+```sh
+tag=$(grep -oE 'Bundles \[LibKa0s\]\([^)]*\) v[0-9]+\.[0-9]+\.[0-9]+' CLAUDE.md \
+        | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+')
+rm -rf "/tmp/libka0s-$tag" && mkdir -p "/tmp/libka0s-$tag"
+git -C ../LibKa0s archive "$tag" | tar -x -C "/tmp/libka0s-$tag"
+diff -r --strip-trailing-cr "/tmp/libka0s-$tag/LibKa0s" libs/LibKa0s   # MUST be empty
+diff -r --strip-trailing-cr "/tmp/libka0s-$tag/testkit" tests/_kit     # MUST be empty
+```
+
+`tests/test_vendor_sync.lua` asks exactly this question inside the suite — it greps the tag out of
+`CLAUDE.md` and reads that blob out of git — so **a green suite has already answered it**, and the
+block above is only the by-eye version for when you want to see the hunks. Which leaves the
+working-tree diffs above answering a real but different question: *how far behind the library is
+this addon?* That is release planning, not a gate.
+
 
 Read the difference between each pair, because the two answers mean different things:
 
@@ -153,9 +185,16 @@ diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored librar
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
 ```
 
-The two diffs need `../LibKa0s` checked out beside this repo; see [The vendor gate](#the-vendor-gate) for the byte-level halves and what each answer means.
+The two diffs need `../LibKa0s` checked out beside this repo, and on their own they are **not**
+pass/fail: they compare the vendored payload against whatever the sibling currently has checked out,
+so they are non-empty by design for the whole stretch between a library release and the re-vendor
+that takes it. That is the state today. See [The vendor gate](#the-vendor-gate) for the byte-level
+halves, what each answer means, and the comparison against the tag `CLAUDE.md` names — which is the
+one that has to be empty. `lua tests/run.lua` already runs it (`tests/test_vendor_sync.lua`).
 
-A commit ships only when both are green.
+A commit ships when the first two are green and the suite's vendor-sync cases have **passed rather
+than skipped** — they degrade to a skip with no sibling checkout and no `git`, and a skip is not a
+pass.
 
 ## Automated test records — the consolidated run
 
