@@ -767,12 +767,13 @@ badge and any count quoted in the docs must agree with it.
 - parity: the DebugLog stub carries the whole live surface
 - parity: the Options stub carries the whole live surface
 
-### test_doc_structure.lua (4)
+### test_doc_structure.lua (5)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
 - every anchor pointing into docs/ARCHITECTURE.md resolves to a heading
 - the player-facing history has the two homes documentation-§1 allows, and no third
 - README.md's top-level sections are the ones documentation-§1 names, in its order
+- every deviation id the register cites is assigned by a bundle in docs/audits/
 
 ### test_vendor_sync.lua (2)
 
@@ -831,8 +832,8 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 6 |
 | test_libka0s.lua | 20 |
 | test_surface_parity.lua | 5 |
-| test_doc_structure.lua | 4 |
+| test_doc_structure.lua | 5 |
 | test_vendor_sync.lua | 2 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **713** |
+| **Total** | **714** |
