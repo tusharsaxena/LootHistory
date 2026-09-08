@@ -131,6 +131,10 @@ end
 
 -- Read the current context. Returns source, detail, confidence when fresh;
 -- OTHER / nil / INFERRED when stale or unstamped.
+--
+-- It does NOT clear what it read, despite the name: the context is TTL-scoped by design and
+-- expiry alone ends it, so two loots inside CONTEXT_TTL both attribute to the one stamp. That is
+-- the intent -- one LOOT_READY can deliver several items -- and it is why this reads like a peek.
 function Attribution:Consume()
   local c = State.lootContext
   if c and c.expires >= GetTime() then

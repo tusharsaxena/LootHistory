@@ -112,7 +112,7 @@ local function withNoZoneText(fn)
 end
 
 test("EnvSetup: an absent zone reads as \"\", which storage buckets with nil", function()
-  -- core/Database.lua:548 and modules/BrowserTable.lua:245 both say so in comments and both depend
+  -- core/Database.lua:548 and modules/BrowserTable.lua's Zone column both say so in comments and both depend
   -- on it. If the seam ever answers nil here, stored rows move between buckets on the next
   -- re-render.
   local zone, sub = withNoZoneText(function() return NS.Zone() end)

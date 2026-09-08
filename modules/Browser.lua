@@ -1159,7 +1159,11 @@ function B:Show()
 end
 
 function B:Hide()
-  NS.CloseMenu()   -- the slash-command close path; frame:Hide() below does not reach the popup
+  -- Belt and braces, and the braces are the load-bearing half: the frame's own OnHide hook (in
+  -- BuildWindow, beside the RepairBoundStates kick) already calls NS.CloseMenu, so `frame:Hide()`
+  -- below reaches the popup through it. That hook is what covers Escape and every other close
+  -- path; this call only covers the case where the frame was never built.
+  NS.CloseMenu()
   if frame then frame:Hide() end
 end
 

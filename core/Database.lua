@@ -192,7 +192,7 @@ local BOUND_REPAIR_MAX_ATTEMPTS = 10
 -- Whatever the budget doesn't reach stays pending and is picked up by the next pass.
 local BOUND_REPAIR_PER_PASS = 200
 
--- Deferred half of the v6->v9 migration: raise every under-classified row to the warbound state it
+-- Deferred half of the v6->v7 migration: raise every under-classified row to the warbound state it
 -- really has. Candidates are the parked WARBAND rows and the BOE rows — BOE because the bind type
 -- lies about these items (a warbound cache reports 2/OnEquip), so a capture that trusted it filed
 -- them one state too loose. Each row is re-read through Compat.ItemBindState (both signals) and
