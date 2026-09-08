@@ -15,11 +15,11 @@ WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard
 
 The addon load list is **derived from the TOC rather than hand-maintained**, which is what stops the runner's order drifting from the client's. `libs\` lines are skipped (the client pulls those through their own XML, which the loader cannot see), so the vendored LibKa0s files are the one list still spelled out explicitly — and `tests/test_libka0s.lua` cross-checks its length against `LibKa0s.xml`.
 
-The derivation itself is pinned (testing-§9). `tests/run.lua` publishes the exact table it handed the loader as `T.addonFiles`, and `tests/test_harness.lua` compares it against a fresh derivation, checks every derived path is on disk, and checks no `libs/` path leaked in. The same suite pins the **suite list** in both directions through `Kit.assertSuiteInventory` — `Kit.run` applies that gate implicitly, but a named case is what puts a row in [test-cases.md](test-cases.md), so a reader can tell a gate that ran from one that was opted out of.
+The derivation itself is pinned (testing-§9). `tests/run.lua` publishes the exact table it handed the loader as `T.addonFiles`, and `tests/test_harness.lua` compares it against a fresh derivation, checks every derived path is on disk, and checks no `libs/` path leaked in. The same suite pins the **suite list** in both directions through `Kit.assertSuiteInventory` — `Kit.run` applies that gate implicitly, but a named case is what puts a row in [test-cases.md](test-cases.md), so a reader can tell a gate that ran from one that was opted out of. It also pins the **lifecycle kick**: `tests/run.lua` records each step as it runs it and publishes the list as `T.lifecycle`, and the suite derives what `addon:OnInitialize` actually calls straight out of `core/LootHistory.lua` and compares the two in order. That one had already drifted — the runner omitted `NS.Slash:Register`, so every suite measured an addon initialized differently from the shipped one.
 
 ### The loader
 
-`tests/_kit/loader.lua` `loadfile`s each source path and `setfenv`s the chunk into an environment whose `__index` resolves WoW globals to the mock set first, then falls back to real `_G`, and whose `__newindex` lands writes in `_G` so a SavedVariables global or a `StaticPopupDialogs` registration behaves like the real client. Each addon chunk is called with `("LootHistory", NS)` — exactly the `local addonName, NS = ...` header every file expects — and each library chunk with no arguments, exactly as the client calls it.
+`tests/_kit/loader.lua` `loadfile`s each source path and `setfenv`s the chunk into an environment whose `__index` resolves WoW globals to the mock set first, then falls back to real `_G`, and whose `__newindex` lands writes in `_G` so a SavedVariables global or a `StaticPopupDialogs` registration behaves like the real client. Each addon chunk is called with `("LootHistory", NS)` — exactly the two-value vararg header every file expects, spelled `local addonName, NS = ...` in the eight files that read the folder name and `local _, NS = ...` in the twenty that do not — and each library chunk with no arguments, exactly as the client calls it.
 
 ### The mock
 
@@ -60,8 +60,10 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Twenty-five files, loaded in this order (see **[test-cases.md](test-cases.md)** for the full per-case
-inventory and the authoritative count):
+Twenty-nine files (see **[test-cases.md](test-cases.md)** for the full per-case inventory and the
+authoritative count). `tests/run.lua` fixes the load order, which is significant and commented
+there; this table groups by concern, and the three repo gates that read the checkout rather than
+the loaded addon sit together at the foot of it:
 
 | Suite | Covers |
 |-------|--------|
@@ -69,7 +71,7 @@ inventory and the authoritative count):
 | `test_constants.lua` | enum + derived-table invariants — `SourceType` key==value (the export contract), `SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` totality, the derived `SOURCE_OPTIONS`, the quality ladder + retention presets, and the auction key catalog (unique tags, capture options mirror the keys, the priority cascade covers every key exactly once with the captured ones ranked first) |
 | `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey`; the secret-safe printer (`IsConcatSafe`/`SafeToString`/`NS.Print`, reclaimed from AceConsole) |
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks |
-| `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence |
+| `test_attribution.lua` | source-resolution engine — context stamp/consume, TTL, confidence, plus an integration case over `Attribution:Enable` asserting the seven bus events, the player-only `RegisterUnitEvent` cast frame, the five read-side hooks and the re-entry latch |
 | `test_filters.lua` | `NS.Filters` blacklist/whitelist id lists — add/remove (mutually exclusive, copy-on-write), `Blacklist`/`Whitelist` set contents, `SortedIDs`, `ParseItemID` |
 | `test_auctionprice.lua` | `GatherAll` captures every enabled `provider:key` price into a nested map (per-provider Auctionator/TSM/OribosExchange, `pcall`-guarded so a broken addon is skipped not fatal, gated on the capture set + master switch, `nil` when nothing gathered); `Pick` resolves one via the `settings.auction.priority` cascade (reorder-aware, first present wins); `IsProviderAvailable`; `ReconcilePriority` appends missing / drops unknown tags; `MovePriorityWithin` splices a tag to an index in ONE write, re-laying the dragged subset into its own slots so the sources you are not collecting never move (it replaced the pairwise `SwapPriorityTags` when the panel's ▲▼ arrows became a drag, options-ui-§18) |
 | `test_collector.lua` | `CHAT_MSG_LOOT` gate — self-filter, quality/quest-item threshold, record build |
@@ -82,9 +84,9 @@ inventory and the authoritative count):
 | `test_slash.lua` | the `LibKa0s-Slash-1.0` dispatcher — `/lh list`/`get`/`set`/`reset`/`resetall`/`version` output (slash-commands-§5), `FormatSchemaValue`/`FormatKV`/`BuildListLines`, grouping, Usage/not-found, the type-aware parser (enum refusal for BOTH enum shapes — the array of `{ value, text }` and the composed key-map plus `sorting` the visibility row carries — slider clamping, boolean refusal), the `format` hook that keeps a set-valued row from rendering as `<secret>`, and both convergences: `reset` is path-scoped, and `LandingRows`/`HelpRows` are the one formatter differing only by the chat indent |
 | `test_schema.lua` | `NS.Schema` rows — `Set` validation + write-through (deep-copied, never aliased), `Get`/`Default`, session-only rows (`state.debugConsole`) never touching `db.global`; plus the schema's own shape: unique paths, defaults matching both their declared type and `defaults/Global.lua`, dropdown defaults being selectable, slider defaults inside their range, every setting round-tripping, the `NS.COMMANDS` table, and the **count-claim gate**: every row-count and per-tab breakdown printed in `ARCHITECTURE.md`, `settings-panel.md` and `module-map.md` is parsed back out of the file and compared against the live schema, in both of `module-map.md`'s two homes |
 | `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labeling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
-| `test_harness.lua` | the runner's own three lists (testing-§9) — the TOC derivation the loader was actually handed compared against a fresh one, every derived path on disk, no `libs/` leak, and the suite list pinned in both directions by `Kit.assertSuiteInventory` plus a duplicate check the inventory gate cannot see |
+| `test_harness.lua` | the runner's own lists (testing-§9) — the TOC derivation the loader was actually handed compared against a fresh one, every derived path on disk, no `libs/` leak, the suite list pinned in both directions by `Kit.assertSuiteInventory` plus a duplicate check the inventory gate cannot see, and the lifecycle kick compared step for step against `addon:OnInitialize` |
 
-Seven of the twenty-five exist because of the LibKa0s adoption:
+Eight of the twenty-six exist because of the LibKa0s adoption:
 
 | Suite | Covers |
 |-------|--------|
@@ -92,9 +94,13 @@ Seven of the twenty-five exist because of the LibKa0s adoption:
 | `test_envsetup.lua` | the **`LibKa0s-Env-1.0`** seam (`core/EnvSetup.lua`) — that `NS.Meta` / `NS.Version` / `NS.PlayerMapID` / `NS.Zone` answer what the deleted `Compat` shims answered, that they ask about **this** addon's folder, that those shims are gone, and that `NS.Zone` still answers two strings and never nil |
 | `test_itemsetup.lua` | the **`LibKa0s-Item-1.0`** seam (`core/ItemSetup.lua`) — that the four primitives answer what the deleted `Compat` shims answered, that the shims are gone, and that the guessing resolver (`Compat.GetItemInfo` / `Compat.ItemNameQuality`) pointedly **stayed** |
 | `test_poolsetup.lua` | the **`LibKa0s-Pool-1.0`** seam (`core/PoolSetup.lua`) — that the seam is wired and that this addon, the one whose chart pool leaked, actually **recycles** rather than allocating a fresh frame per pass |
-| `test_libka0s.lua` | the adoption seams themselves — the shared `NS.LIBKA0S_MISSING` cause clause asserted verbatim and on **both** paths, a degraded install exercised by loading every TOC file over a mock set that has never seen `libs/LibKa0s` (rather than by hand-stubbing a branch), the `L`-trap source guard with its own case driving all three spellings, the Core and Options library tripwires that stand in where a module cannot express the trap, module coverage, the silent-flag check on every seam's `LibStub` call, one `Kit.assertSurfaceParity` case per adopted seam (Core, Widgets, Slash, DebugLog, Options) whose degraded arm is a real partial-file-list load rather than a hand-stubbed member, the bare-`/lh` help the degraded dispatcher renders, and vendor fidelity |
+| `test_libka0s.lua` | the adoption seams themselves — the shared `NS.LIBKA0S_MISSING` cause clause asserted verbatim and on **both** paths, a degraded install exercised by loading every TOC file over a mock set that has never seen `libs/LibKa0s` (`tests/degraded_env.lua`, a real partial-file-list load rather than a hand-stubbed branch), the `L`-trap source guard with its own case driving all three spellings, the Core and Options library tripwires that stand in where a module cannot express the trap, module coverage, the silent-flag check on every seam's `LibStub` call, the folder name `NS.MakeCloseButton` hands the library, the bare-`/lh` help the degraded dispatcher renders, and vendor fidelity |
+| `test_surface_parity.lua` | the stub-parity gate, one `Kit.assertSurfaceParity` case per adopted seam (Core, Widgets, Slash, DebugLog, Options), each degraded arm the same real partial-file-list load. `DebugLog` and `Options` name their major and are compared against the live instance `tests/run.lua` registers with `Kit.setSurfaceSource` — the by-name form, which compares `Kit.publicMembers` and so drops LibStub's bookkeeping and every `__`-prefixed library internal. `Core`, `Widgets` and `Slash` stay on the two-table form because none of the three **is** a major's surface: the first two are name sets derived from a seam file of ours, and the third is `settings/Slash.lua`'s own wrapper around the library's dispatcher. Every case is falsifiable by deleting one member from the shipped stub |
 | `test_widgets.lua` | the **`LibKa0s-Widgets-1.0`** adoption (`core/WidgetsSetup.lua`), re-pinned to **minor 9**, the release this addon adopts `ReorderList` in — the seam handing the library its `chevron` and `check` as parameters and deliberately handing it **no** `glyphFont` (with the other half of that decision pinned as source: no option table in this addon sets `glyph`), a **real** row build driven through the library's own `makeMenuRow` by firing a dropdown's actual `OnClick` — never a seeded stand-in row, which is how 553 green library cases sailed over the `FontString:SetText(): Font not set` crash v1.11.0 and v1.11.1 shipped — the highlight and tick painted onto a pooled row, the `isActive` preset row lighting up and its one-click `dd.presets` replacement, a selected character with no option row still counting in the collapsed label, the nine filter-bar instances plus the export modal's picker, the class icon folded into a **label** rather than into an `icon` field the library does not have, `CloseMenu` reached from all three non-click close paths (the window's `OnHide`, `Browser:Hide`, and the export modal's `OnHide`, which had no handler at all before), both hosts' strata proved below `FULLSCREEN`, and the degraded install where the seam answers nil, both surfaces refuse to draw and the addon still comes up |
 | `test_vendor_sync.lua` | the vendored-payload gate, adopted from the kit in one line (`tests/_kit/vendor_sync.lua`) — that `libs/LibKa0s/` and `tests/_kit/` are exactly what the LibKa0s repo published at the tag this repo’s `CLAUDE.md` names, with the provenance line read as an **input** rather than hardcoded, one normalization (CR stripped from the working-tree side, because `.gitattributes` pins CRLF while `git show` hands back the LF blob), and a missing `../LibKa0s` sibling reporting a **skip carrying its reason** rather than a pass |
+| `test_doc_structure.lua` | the doc-shape gate — that the documentation set this repo promises is on disk and internally consistent, read off the checkout rather than off the loaded addon |
+| `test_lintconfig.lua` | the **lint-suppression gate** (`M4c-06`) — that `.luacheckrc` sets no top-level `ignore`, switches no warning class off wholesale, narrows every `files[...]` ignore to one file or one variable name, and that no tracked `.lua` carries a bare `-- luacheck: ignore`. It parses the config **as Lua** under a sandbox, so it inspects the table luacheck obeys rather than text a different spelling would slip past, and it fails rather than skips when it cannot look |
+| `test_eol.lua` | the kit’s own working-tree line-ending gate (`tests/_kit/`), over every path `git ls-files` reports — declared with its own `dir` in `tests/run.lua` so a re-vendor cannot land it and quietly run nothing |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 
@@ -107,11 +113,43 @@ See [module-map.md](module-map.md) for the source files behind each suite and [c
 Run all four, from this repo's root, with `../LibKa0s` checked out beside it:
 
 ```
-diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # content — MUST be empty
+diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # content — empty vs the CLAIMED tag
 diff -r ../LibKa0s/LibKa0s libs/LibKa0s                        # bytes  — SHOULD be empty
-diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # content — MUST be empty
+diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # content — empty vs the CLAIMED tag
 diff -r ../LibKa0s/testkit tests/_kit                          # bytes  — SHOULD be empty
 ```
+
+### When these diffs are supposed to be non-empty
+
+They compare against the sibling checkout's **working tree** — whatever `../LibKa0s` happens to have
+checked out — which is a different question from *"is the vendored payload the release this addon
+claims?"*. The two questions give the same answer only while the library has tagged nothing newer
+than the tag this addon has taken.
+
+Between a library release and the re-vendor that carries it they disagree, and that disagreement is
+the normal state rather than a defect. It is the state as this is written: `../LibKa0s` sits on
+**v1.27.0**, [`CLAUDE.md`](../CLAUDE.md) names **v1.26.0**, and the commands above report **306**
+differing lines for the library and **947** for the test kit. Re-vendoring to quiet them would be
+the actual mistake — it would pull an untested library release for the sake of a clean diff.
+
+**The authoritative comparison is against the tag `CLAUDE.md` names**, and that one must be empty at
+every commit:
+
+```sh
+tag=$(grep -oE 'Bundles \[LibKa0s\]\([^)]*\) v[0-9]+\.[0-9]+\.[0-9]+' CLAUDE.md \
+        | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+')
+rm -rf "/tmp/libka0s-$tag" && mkdir -p "/tmp/libka0s-$tag"
+git -C ../LibKa0s archive "$tag" | tar -x -C "/tmp/libka0s-$tag"
+diff -r --strip-trailing-cr "/tmp/libka0s-$tag/LibKa0s" libs/LibKa0s   # MUST be empty
+diff -r --strip-trailing-cr "/tmp/libka0s-$tag/testkit" tests/_kit     # MUST be empty
+```
+
+`tests/test_vendor_sync.lua` asks exactly this question inside the suite — it greps the tag out of
+`CLAUDE.md` and reads that blob out of git — so **a green suite has already answered it**, and the
+block above is only the by-eye version for when you want to see the hunks. Which leaves the
+working-tree diffs above answering a real but different question: *how far behind the library is
+this addon?* That is release planning, not a gate.
+
 
 Read the difference between each pair, because the two answers mean different things:
 
@@ -140,7 +178,19 @@ The inventory doc and the badge are part of the change, not a follow-up.
 
 ## Lint
 
-`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/" }` (vendored libraries and the tests themselves are not linted; the `docs/` bundles are Markdown-only anyway). **That figure is scoped, not repo-wide** — it currently covers 28 files, and every LibKa0s seam file (`core/CoreSetup.lua`, `core/DebugLogSetup.lua`, `settings/Slash.lua`, `settings/OptionsSetup.lua`) is inside that set, which is what makes a clean run mean something. To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
+`luacheck .` — must report **0 warnings / 0 errors** before every commit. Config is `.luacheckrc`: `std = "lua51"`, the WoW globals whitelisted under `read_globals`/`globals`, and `exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/_kit/" }`. **The test tree is linted.** Only `tests/_kit/` is out, because it is a byte copy of LibKa0s’ `testkit/` and is linted there as source — linting the copy too would report every finding twice and would let the copy drift green while the original went red. `libs/` is vendored and linted upstream; under `docs/` only the frozen audit and review bundles are excluded. **That figure is scoped, not repo-wide** — it currently covers 59 files, which is every tracked `.lua` in the repo bar those two trees, so a clean run now covers the suites as well as the shipped code. The harness global `_G.LH_TEST`, and the client globals a suite plants and restores, are declared in a `files["tests/"]` stanza rather than at the top level: a name granted at the top level would be granted to `core/` too, and no shipped file may reach for the harness. To syntax-check a single file without the full suite: `luac -p path/to/file.lua`.
+
+### No blanket suppression
+
+**`.luacheckrc` carries no top-level `ignore`, and `tests/test_lintconfig.lua` is what keeps it that way** (lint-§1, `M4-11`). The rule is that an ignore which silences the wall reads as coverage and provides none, and this repo is its own evidence. Until `M4c-06` the config opened with `ignore = { "212/self", "212/event", "211/addonName" }`. Every entry already named a variable as well as a code — what was wrong with it was its **scope**: at the top level it answered for all fifty-eight linted files, including the forty-five that have no business producing those codes.
+
+Removing those three lines took `luacheck .` from 0/0 to **110 warnings**, and **eighteen of them were real**: seventeen files opened `local addonName, NS = ...` over a folder name they never read (fixed at source to `local _, NS = ...` — see [common-tasks.md](common-tasks.md#file-preamble)), and `modules/Filters.lua`’s `F:_notify` declared a `reason` its body never looked at while five call sites each passed one (parameter and arguments deleted). One entry, `212/event`, was silencing nothing at all — not one warning in the tree bore that name.
+
+The **93** that remain are all `212/self`, and they live in thirteen per-file `files["<path>.lua"] = { ignore = { "212/self" } }` stanzas with a comment above each saying what forces the receiver. They are published `NS.<Module>:Method(…)` surfaces whose bodies reach their own module through the file’s upvalue (`local B = NS.Browser`) rather than through `self`; every caller in the repository invokes them with a colon, and `tests/test_surface_parity.lua` pins the names, so the receiver arrives whether the body wants it or not.
+
+The narrowing is **measured, not asserted**. An unused `self` and an unread `addonName` header planted in `core/Util.lua` — a file none of the stanzas name — both report under the current config, and the same tree re-linted with the old blanket (`luacheck --config <the blanket> .`) comes back 0 warnings / 0 errors.
+
+What the gate refuses, in all four of its cases: a top-level `ignore`; a warning class switched off wholesale (`unused_args = false`, `self = false` — the config spelling of `--no-self` — and seven relatives); a `files[...]` ignore whose key is a directory and whose entry names no variable; and a bare `-- luacheck: ignore` in any tracked `.lua`. It reads `.luacheckrc` **as Lua** under a sandbox that auto-creates tables the way luacheck’s own config loader does, so it inspects the table luacheck obeys rather than text that a different spelling would slip past, and it **fails rather than skips** when it cannot look — the same bargain `test_doc_structure` and `test_eol` strike.
 
 ## The green gate
 
@@ -153,9 +203,16 @@ diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored librar
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
 ```
 
-The two diffs need `../LibKa0s` checked out beside this repo; see [The vendor gate](#the-vendor-gate) for the byte-level halves and what each answer means.
+The two diffs need `../LibKa0s` checked out beside this repo, and on their own they are **not**
+pass/fail: they compare the vendored payload against whatever the sibling currently has checked out,
+so they are non-empty by design for the whole stretch between a library release and the re-vendor
+that takes it. That is the state today. See [The vendor gate](#the-vendor-gate) for the byte-level
+halves, what each answer means, and the comparison against the tag `CLAUDE.md` names — which is the
+one that has to be empty. `lua tests/run.lua` already runs it (`tests/test_vendor_sync.lua`).
 
-A commit ships only when both are green.
+A commit ships when the first two are green and the suite's vendor-sync cases have **passed rather
+than skipped** — they degrade to a skip with no sibling checkout and no `git`, and a skip is not a
+pass.
 
 ## Automated test records — the consolidated run
 

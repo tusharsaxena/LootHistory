@@ -30,6 +30,10 @@ local DRAWN = {
   -- this addon's own art
   "chevron-down", "chevron-right", "confirm", "lock", "sort-down", "sort-up",
   "ban", "chat", "clear", "spreadsheet",
+  -- the AH Price table's leading tick and its per-row info button (settings/Panel.lua). The
+  -- tick's OFF half is `ban`, already listed above because the row menu draws it too -- a name
+  -- earns one entry, not one per drawing site.
+  "circle-check", "info",
   -- the reorder handle on the AH Price tab's cascade, resolved host-side and passed to
   -- LibKa0s-Widgets-1.0's ReorderList (core/WidgetsSetup.lua) for the reason every other mark is:
   -- a vendored library cannot know which addon folder it was copied into.
@@ -122,7 +126,11 @@ test("MediaSetup: the source names no icon the DRAWN list above has forgotten", 
                           -- The dropdown chevron, the multi-select tick and the reorder handle are
                           -- all resolved in this one file. It was missing from the list, so the
                           -- three names it asks for were checked by nothing.
-                          "core/WidgetsSetup.lua" }) do
+                          "core/WidgetsSetup.lua",
+                          -- settings/Panel.lua joined this list with M4-23, which routed the AH
+                          -- Price table's tick and info marks through the catalog. It was the one
+                          -- shipped file drawing art that this sweep could not see.
+                          "settings/Panel.lua" }) do
     local src = Loader.readFile(file)
     for name in src:gmatch('NS%.Icon%("([a-z%-]+)"%)') do
       if not drawn[name] then unlisted[#unlisted + 1] = file .. ": " .. name end

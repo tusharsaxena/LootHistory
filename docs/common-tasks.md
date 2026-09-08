@@ -74,11 +74,21 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
 ### File preamble
 
-- Every source file begins `local addonName, NS = ...` and hangs its exports off the shared `NS`
-  table (`NS.Compat`, `NS.Schema`, `NS.Collector`, …). There is no `_G[addonName]` and no global
-  `LootHistory` — nothing in `core/`, `modules/`, `settings/`, `defaults/`, or `locales/` reaches
-  the addon through the global table. `addonName` is used only where the loader needs it
-  (`AceAddon:NewAddon(NS, addonName, …)` in `core/LootHistory.lua:4`).
+- Every source file begins with the two-value vararg header and hangs its exports off the shared
+  `NS` table (`NS.Compat`, `NS.Schema`, `NS.Collector`, …). There is no `_G[addonName]` and no
+  global `LootHistory` — nothing in `core/`, `modules/`, `settings/`, `defaults/`, or `locales/`
+  reaches the addon through the global table.
+- **Which spelling of that header depends on whether the file reads the folder name.** Eight files
+  do, and they name it: `local addonName, NS = ...` in `core/LootHistory.lua` (which hands it to
+  `AceAddon:NewAddon(NS, addonName, …)` at `:4`), `core/Namespace.lua`, `core/CoreSetup.lua`,
+  `core/EnvSetup.lua`, `core/MediaSetup.lua`, `core/DebugLogSetup.lua`, `modules/AuctionPrice.lua`
+  and `modules/Export.lua` — in every case because a vendored library or a third-party API cannot
+  infer which folder this addon was copied into. **The other twenty write `local _, NS = ...`**,
+  because naming a local nothing reads is a warning the linter is right to raise. Three files
+  (`core/ItemSetup.lua`, `core/PoolSetup.lua`, `core/WidgetsSetup.lua`) already spelled it that
+  way; `M4c-06` removed the top-level `ignore` that had been hiding the other seventeen and
+  brought them into line. Copy the `_` form into a new file unless it genuinely needs the folder
+  name.
 - Module tables are created defensively: `NS.X = NS.X or {}` then `local X = NS.X`, so load order
   never depends on which file ran first.
 
@@ -202,7 +212,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   or no such name. Every call site therefore keeps the Blizzard rung it drew before, underneath —
   the client lock-atlas ladder in `modules/BrowserTable.lua`, and — for the dropdown chevron and
   the multi-select tick — the ladder inside `LibKa0s-Widgets-1.0` itself, which falls to
-  `Arrow-Down-Up` and `UI-CheckBox-Check` when `core/WidgetsSetup.lua` hands it a nil path, `UI-Plus/MinusButton-Up` behind the group chevrons. **A mark this addon needs but the catalog lacks is added upstream in LibKa0s,
+  `Arrow-Down-Up` and `UI-CheckBox-Check` when `core/WidgetsSetup.lua` hands it a nil path, `UI-Plus/MinusButton-Up` behind the group chevrons. The AH Price table's leading tick and its
+  per-row ⓘ joined that ladder in `M4-23` — `circle-check`, `ban` and `info`, over the
+  `ReadyCheck-Ready` / `ReadyCheck-NotReady` / `FriendsFrame\InformationIcon` they used to draw
+  outright (`settings/Panel.lua`). **The tick is tinted and has to be**: catalog art is white by
+  contract, an inline texture ignores the FontString's `SetTextColor`, and green-means-collecting
+  is the entire signal that column carries. **A mark this addon needs but the catalog lacks is added upstream in LibKa0s,
   never drawn locally** (anti-patterns #63): today that is a save/disk mark and a minus to pair
   with `add`, and until they exist the surfaces stay as they are.
 - **The resize grip is Blizzard's on purpose, not by fallback.** The corner draws
@@ -219,7 +234,29 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:753`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:790`) — branding art, not a re-skinnable surface.
+- **Nineteen hard-coded `Interface\` paths remain, and each one is in a class named right here**
+  (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
+  **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
+  every other sweep in this repo excludes them, and a count taken over the whole tree is a count of
+  somebody else's payload:
+
+  ```
+  git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/' | xargs grep -n 'Interface\\'
+  ```
+
+  | # | Class | Where |
+  |---|---|---|
+  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:19`, `modules/BrowserTable.lua:89`, `:1075`, `modules/Export.lua:297` |
+  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1043`, `:1044`, `settings/Panel.lua:477`, `:478`, `:479` |
+  | 4 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1052`, `:1053` (the corner grabber, reasoned at `:1047-1051`), `:1212` (the LDB launcher icon), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
+  | 1 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` |
+
+  The catalog is **113 marks** as of LibKa0s v1.27.0, not the thirty it shipped with, so "the
+  catalog does not have it" is a claim that has to be re-checked against `lib.ICONS` and not
+  remembered. It was re-checked for all four of the third row: there is no class-circle sheet, no
+  window-corner grabber and no bag. `resize` exists and is the near miss — it was tried on the grip and reverted,
+  for the reason the resize-grip bullet above gives.
 - **The monospace face is the library's now — the per-addon exception is retired.** The debug
   console and the export/debug copy boxes render in **JetBrains Mono**
   (`Constants.FONT_MONO`, resolved at file load from `NS.MediaFont(Constants.FONT_MONO_NAME)`).
@@ -247,7 +284,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:990`), whose combat gate lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1040`), whose combat gate lives in the library
   (`libs/LibKa0s/Options.lua:875`) and now also fires on a page's `OnShow`
   (`libs/LibKa0s/Options.lua:678`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas

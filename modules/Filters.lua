@@ -1,4 +1,4 @@
-local addonName, NS = ...
+local _, NS = ...
 NS.Filters = NS.Filters or {}
 local F = NS.Filters
 
@@ -45,7 +45,7 @@ function F:CurrencyBlacklist() return currentSet("currencyBlacklist") end
 -- (not a bus message — the lists aren't schema settings, and the Collector is the only capture-side
 -- consumer), then broadcast HistoryChanged through Database's sole emitter so the browser + Insights
 -- re-query to refresh their counts/lists. No second sender is introduced for either message.
-function F:_notify(reason)   -- luacheck: ignore reason
+function F:_notify()
   if NS.Collector and NS.Collector.RefreshUpvalues then NS.Collector:RefreshUpvalues() end
   if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
   if NS.State and NS.State.debug and NS.Debug then
@@ -74,7 +74,7 @@ function F:_move(listKey, id)
   if sibling[id] then
     local s = setCopy(sibling); s[id] = nil; NS.db.global[siblingKey] = s
   end
-  self:_notify(listKey)
+  self:_notify()
   return true
 end
 
@@ -85,7 +85,7 @@ function F:_remove(listKey, id)
   local target = currentSet(listKey)
   if not target[id] then return false end
   local t = setCopy(target); t[id] = nil; NS.db.global[listKey] = t
-  self:_notify(listKey)
+  self:_notify()
   return true
 end
 
@@ -101,7 +101,7 @@ function F:AddCurrencyBlacklist(id)
   local target = currentSet("currencyBlacklist")
   if target[id] then return false end
   local t = setCopy(target); t[id] = true; NS.db.global.currencyBlacklist = t
-  self:_notify("currencyBlacklist")
+  self:_notify()
   return true
 end
 function F:RemoveCurrencyBlacklist(id) return self:_remove("currencyBlacklist", id) end
@@ -114,7 +114,7 @@ function F:ClearList(listKey)
   local removed = self:Count(currentSet(listKey))
   if removed == 0 then return 0 end
   NS.db.global[listKey] = {}
-  self:_notify(listKey)
+  self:_notify()
   return removed
 end
 
@@ -127,7 +127,7 @@ function F:ClearAll()
   NS.db.global.blacklist = {}
   NS.db.global.whitelist = {}
   NS.db.global.currencyBlacklist = {}
-  self:_notify("clearall")
+  self:_notify()
   return removed
 end
 

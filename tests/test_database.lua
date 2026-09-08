@@ -368,15 +368,44 @@ test("Database: Purge returns removed count and logs [Data]", function()
   NS.State.debug = false
 end)
 
+-- ── StorageStats byte estimate ─────────────────────────────────────────────────────────────
+-- Two fixtures, both fully populated across the seven string fields estimateRecordBytes
+-- declares -- except that the currency row has no itemLink, because Collector.lua:190-196
+-- never builds one for a currency. The byte arithmetic is spelled out beside each row so a
+-- future reader can check the totals below without running anything.
+local RECORD_OVERHEAD = 256                       -- core/Database.lua's flat per-record charge
+local ITEM_ROW_STRINGS = 5 + 3 + 7 + 4 + 7 + 5 + 5        -- 36
+local CURRENCY_ROW_STRINGS = 10 + 7 + 4 + 7 + 8 + 7       -- 43
+
+local function itemRow()
+  return { ts = 1000, char = "A-Realm", itemLink = "[Red]", itemName = "Red",
+           zone = "Durotar", subzone = "Drag", itemType = "Armor", itemSubType = "Cloth" }
+end
+
+local function currencyRow()
+  return { ts = 1000 + 3 * 86400, char = "A-Realm", itemName = "Valorstone",
+           zone = "Durotar", subzone = "Drag", itemType = "Currency", itemSubType = "Account" }
+end
+
+-- red under: estimateRecordBytes walking a literal { r.itemLink, ... } array with ipairs.
+-- The currency row leaves strFields[1] nil, so the walk stops before its first iteration and
+-- the row is charged the bare overhead -- 548 in total rather than 591.
 test("Database: StorageStats counts records, day span, and estimated bytes", function()
-  NS.db.global.history = {
-    { ts = 1000, char = "A-Realm", itemLink = "[Red]",  itemName = "Red" },
-    { ts = 1000 + 3 * 86400, char = "A-Realm", itemLink = "[Blue]", itemName = "Blue" },
-  }
+  NS.db.global.history = { itemRow(), currencyRow() }
   local s = NS.Database:StorageStats(1000 + 3 * 86400)  -- inject `now` = last ts
   assertEqual(s.count, 2)
   assertEqual(s.days, 3)                 -- ceil((now - firstTs) / 86400)
-  assertTrue(s.bytes > 0)                -- overhead + string field lengths
+  assertEqual(s.bytes,                   -- 591: every field either row declares is counted
+    2 * RECORD_OVERHEAD + ITEM_ROW_STRINGS + CURRENCY_ROW_STRINGS)
+end)
+
+-- red under: the same walk. A currency record costs 256 flat today, whatever it carries.
+test("Database: StorageStats charges a currency record for the strings it does carry", function()
+  NS.db.global.history = { currencyRow() }
+  local s = NS.Database:StorageStats(1000 + 3 * 86400)
+  assertTrue(s.bytes > RECORD_OVERHEAD,
+    "a record with no itemLink still costs its name, zone, character and type strings")
+  assertEqual(s.bytes, RECORD_OVERHEAD + CURRENCY_ROW_STRINGS)   -- 299
 end)
 
 test("Database: StorageStats on empty history is zeroed", function()

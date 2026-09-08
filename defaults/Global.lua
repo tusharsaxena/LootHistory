@@ -1,12 +1,15 @@
-local addonName, NS = ...
+local _, NS = ...
 
 -- Account-wide defaults. History and settings both live under `global` (see docs/schema.md).
 NS.defaults = NS.defaults or {}
 NS.defaults.global = {
-  -- Version stamp for the persisted DB. 1.0.0 ships as the initial shape (1). NS:RunMigrations
-  -- (core/Database.lua) reads/writes this field once at init — the idempotent seam future schema
-  -- changes hook into; NS:RunMigrations runs once at init and ships a v1→v2 migration that strips
-  -- the retired per-record `viaWhitelist` field and bumps the stamp to 2 (non-destructive).
+  -- Version stamp for the persisted DB, and 1 here is the FLOOR, not the current shape. It is
+  -- deliberately never raised with the ladder: a fresh DB has to enter at the bottom so that
+  -- NS:RunMigrations (core/Database.lua) walks every step, and seeding today's number would hand a
+  -- brand-new install a stamp claiming migrations that never ran on it. The ladder itself is the
+  -- MIGRATIONS table over there, and its highest `to` is what a migrated DB ends up carrying —
+  -- 8 today, through v1→v2 (strip the retired per-record `viaWhitelist`) up to v7→v8 (the Zone
+  -- filter's move from mapID to zone name). Every step is non-destructive.
   schemaVersion = 1,
   history = {},          -- array of loot records
   -- Item-id filter lists (issue #14). Blacklisted ids are never recorded and their existing rows

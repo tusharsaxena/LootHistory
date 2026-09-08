@@ -291,6 +291,55 @@ test("Panel: the History tab holds retention, the storage readout and the purge"
   homeTab(ctx)
 end)
 
+-- ── the History tab's live readout coalesces RecordAdded (LOOTHISTORY-R-03) ──────────────────
+--
+-- The defect issue #27 closed in the Browser and in Analytics, left behind on the third consumer.
+-- `Database:Add` fires RecordAdded once per LOOTED ITEM, and this readout's refresh is a
+-- `StorageStats` pass over the whole history with a per-record byte estimate — so a multi-drop kill
+-- with the General page open paid one full-history walk per drop, mid-pull.
+--
+-- Counted on `Database.StorageStats` itself rather than on the panel's `__stats` closure: the
+-- closure is rebuilt on every render, and the finding is about the number of O(history) walks, not
+-- the number of callbacks.
+
+test("Panel: a burst of RecordAdded collapses to ONE StorageStats pass", function()
+  local ctx = NS.Panel.general
+  local panel = mocks.__subcategories["General"]
+  clickTab(panel, ctx, tabAt("History"))
+  assertTrue(NS.Panel.__ev ~= nil, "the live-refresh listener must be registered")
+  assertTrue(panel:IsShown(), "the handler only fires while the page is on screen")
+  T.mocks.__fireTimers()   -- drain anything the render itself queued, so the count below is ours
+
+  local ran, real = 0, NS.Database.StorageStats
+  NS.Database.StorageStats = function(self, now) ran = ran + 1; return real(self, now) end
+
+  for _ = 1, 12 do NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", {}, 1) end
+  assertEqual(ran, 0, "nothing walks the history synchronously on the loot path")
+  T.mocks.__fireTimers()
+  assertEqual(ran, 1, "twelve drops cost one pass — this was twelve before the fix")
+
+  NS.Database.StorageStats = real
+  homeTab(ctx)
+end)
+
+test("Panel: HistoryChanged still repaints the readout immediately", function()
+  -- The half a careless coalescer would break: a delete, a prune or a blacklist edit is one
+  -- deliberate action arriving on its own, and it must not wait on a timer to show the new size.
+  local ctx = NS.Panel.general
+  local panel = mocks.__subcategories["General"]
+  clickTab(panel, ctx, tabAt("History"))
+  T.mocks.__fireTimers()
+
+  local ran, real = 0, NS.Database.StorageStats
+  NS.Database.StorageStats = function(self, now) ran = ran + 1; return real(self, now) end
+
+  NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged")
+  assertEqual(ran, 1, "a deliberate change refreshes at once, with no timer in the way")
+
+  NS.Database.StorageStats = real
+  homeTab(ctx)
+end)
+
 test("Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider",
   function()
     local ctx = NS.Panel.general
@@ -761,9 +810,6 @@ test("Panel: a drag is one splice to index, and it repaints", function()
   local ctx = ahTab()
   local list = ctx._priList
   assertEqual(list.boundary, 4, "four sources are collecting, so four rows are draggable")
-  local before = {}
-  for i = 1, 4 do before[i] = list.rows[i].frame and NS.AuctionPrice:ReconcilePriority()[i] end
-
   local collecting = {}
   for _, tag in ipairs(NS.AuctionPrice:ReconcilePriority()) do
     if #collecting < 4 then collecting[#collecting + 1] = tag end

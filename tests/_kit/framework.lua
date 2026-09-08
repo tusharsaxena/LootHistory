@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 14
+Kit.VERSION = 15
 
 local tests = {}
 local currentSuite  -- basename (no extension) of the suite file currently being dofile'd
@@ -107,7 +107,112 @@ function Kit.assertError(fn, msg)
   return tostring(err)
 end
 
+-- ── the surface source ─────────────────────────────────────────────────────────────────────
+--
+-- `Kit.assertSurfaceParity(stub, "LibKa0s-Options-1.0")` names a live surface instead of building
+-- one, which is what turns a parity case into three lines a repo will actually write. The kit
+-- cannot resolve that name on its own: it has no LibStub, no mock and no addon namespace, and
+-- `_G.LibStub` is not it either — the loader hands each chunk a mocked environment rather than
+-- writing into `_G` (`loader.lua`), so a kit that reached for the global would resolve nothing
+-- headlessly and say the stub was fine.
+--
+-- So the harness supplies the source, once, and it takes either shape a harness naturally has:
+--
+--   * a CALLABLE — `Kit.setSurfaceSource(mocks.LibStub)`. Called as `src(name, true)`, which is
+--     LibStub's own silent-lookup signature. This answers the LIBRARY TABLE for a major.
+--   * a TABLE — `Kit.setSurfaceSource{ ["LibKa0s-Options-1.0"] = NS.Helpers }`. A map of name to
+--     live surface, for the far commoner case where the stub mirrors an INSTANCE rather than the
+--     library table. Every `settings/OptionsSetup.lua` degradation arm in this collection stubs
+--     `NS.Helpers`, which is what `lib:New(descriptor)` returned — a surface the kit could never
+--     have built for itself, because it needs the host's descriptor.
+--
+-- `Kit.expose` wires the callable shape automatically when the exposed table carries a mock with a
+-- LibStub on it, so a repo whose stubs mirror library tables registers nothing. Anything else is
+-- one explicit line in the runner, and the assertion FAILS rather than passes when the name does
+-- not resolve — see the bargain in `assertSuiteInventory`.
+
+local surfaceSource
+
+--- Register where `Kit.assertSurfaceParity(stub, name)` looks a live surface up, and return the
+--- source that was registered before — so a case that swaps it can put the old one back.
+---
+--- `src` is a callable, a table, or nil to unregister.
+function Kit.setSurfaceSource(src)
+  local previous = surfaceSource
+  surfaceSource = src
+  return previous
+end
+
+--- Is `v` reachable as a function call — a plain function, or a table with a `__call`?
+local function callable(v)
+  if type(v) == "function" then return true end
+  local mt = type(v) == "table" and getmetatable(v)
+  return (mt and mt.__call) ~= nil
+end
+
+--- The live surface registered under `name`, or nil plus why not.
+local function resolveSurface(name)
+  if surfaceSource == nil then
+    return nil, ("no surface source is registered, so %q cannot be resolved and this gate cannot "
+      .. "run — call Kit.setSurfaceSource(mocks.LibStub) or "
+      .. "Kit.setSurfaceSource{ [%q] = <the live surface> } in the runner"):format(name, name)
+  end
+  local live
+  if callable(surfaceSource) then
+    local ok, got = pcall(surfaceSource, name, true)
+    if not ok then
+      return nil, ("the surface source raised on %q: %s"):format(name, tostring(got))
+    end
+    live = got
+  else
+    live = surfaceSource[name]
+  end
+  if type(live) ~= "table" then
+    return nil, ("the surface source answers %s for %q, not a table — either the name is wrong or "
+      .. "the live surface never loaded"):format(type(live), name)
+  end
+  return live
+end
+
+-- ── the public surface of a live module ────────────────────────────────────────────────────
+
+--- LibStub bookkeeping. Present on every registered major, carried by no degradation stub in this
+--- collection, and rightly so: `MAJOR` and `MINOR` are how the LIBRARY answers "which copy am I",
+--- and a stub that answered them would be claiming to be the library it is standing in for.
+local BOOKKEEPING = { MAJOR = true, MINOR = true, MODULES = true }
+
+--- The public members of a live surface, sorted, as `{ { name = ..., kind = <type> }, ... }`.
+---
+--- Two exclusions, and they are the difference between a gate that gets adopted and one that does
+--- not. `BOOKKEEPING` above, and every `__`-prefixed key: those are the module's own internals —
+--- `__AttachWidgets`, `__widgetsMinor`, `__panelProbeMinor` — reached by a sibling file inside the
+--- same major and by nothing else. Reported raw, the Options major alone would hand a stub author
+--- ten divergences that are all correct omissions, and a gate whose first run is ten false
+--- positives is a gate that gets an `ignore` list the size of its own output.
+function Kit.publicMembers(t)
+  local members = {}
+  if type(t) ~= "table" then return members end
+  for k, v in pairs(t) do
+    if type(k) == "string" and not BOOKKEEPING[k] and k:sub(1, 2) ~= "__" then
+      members[#members + 1] = { name = k, kind = type(v) }
+    end
+  end
+  table.sort(members, function(a, b) return a.name < b.name end)
+  return members
+end
+
 --- Assert that a degraded-path stub carries the whole surface of the live module.
+---
+--- Two calling forms:
+---
+---   assertSurfaceParity(live, degraded, label, ignore)   -- two tables, compared key for key
+---   assertSurfaceParity(stub, majorName, ignore)         -- the live half is looked up by name
+---
+--- The second is selected by a STRING in the second position, and is the one a degradation case
+--- should use: it names the surface instead of rebuilding it, and it compares only the PUBLIC
+--- members (`Kit.publicMembers`), which is what a stub is actually obliged to carry. The first form
+--- compares every key of `live` and is unchanged — a repo comparing two namespaces it built itself
+--- decides for itself what belongs in them.
 ---
 --- `live` is the real thing; `degraded` is what the addon falls back to when the library is not
 --- there. Three of this collection's surviving High findings are one omitted stub member: a stub
@@ -129,6 +234,18 @@ end
 --- (`{ Foo = true }`) or as an array (`{ "Foo" }`). An intentional omission and a bug are otherwise
 --- indistinguishable, and the usual resolution for that is to delete the case.
 function Kit.assertSurfaceParity(live, degraded, label, ignore)
+  -- Form two: `(stub, majorName, ignore)`. A string in the second position is unambiguous — the
+  -- first form's second argument is the degraded table, and its third is the label.
+  local byName = type(degraded) == "string"
+  local publicOnly
+  if byName then
+    local name = degraded
+    local resolved, why = resolveSurface(name)
+    if not resolved then fail(name .. ": " .. why, 1) end
+    degraded, ignore, label, live = live, label, name, resolved
+    publicOnly = true
+  end
+
   label = label or "surface"
   if type(live) ~= "table" then fail(label .. ": the live surface is not a table", 1) end
   if type(degraded) ~= "table" then fail(label .. ": the degraded surface is not a table", 1) end
@@ -139,8 +256,14 @@ function Kit.assertSurfaceParity(live, degraded, label, ignore)
   end
 
   local keys = {}
-  for k in pairs(live) do
-    if not skip[k] then keys[#keys + 1] = k end
+  if publicOnly then
+    for _, member in ipairs(Kit.publicMembers(live)) do
+      if not skip[member.name] then keys[#keys + 1] = member.name end
+    end
+  else
+    for k in pairs(live) do
+      if not skip[k] then keys[#keys + 1] = k end
+    end
   end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
 
@@ -177,6 +300,18 @@ function Kit.expose(t)
   t.assertError = Kit.assertError
   t.assertSuiteInventory = Kit.assertSuiteInventory
   t.assertSurfaceParity  = Kit.assertSurfaceParity
+  t.publicMembers        = Kit.publicMembers
+  t.setSurfaceSource     = Kit.setSurfaceSource
+
+  -- The by-name form needs somewhere to look, and every harness in this collection that stubs a
+  -- LIBRARY TABLE already has it: the mock it just built. Wired here rather than demanded of the
+  -- runner so that adoption is the case alone, and only when nothing is registered yet — a repo
+  -- that called setSurfaceSource itself (because its stubs mirror instances) keeps its own.
+  if surfaceSource == nil then
+    local mock = t.mocks or t.mock
+    local ls = t.LibStub or (type(mock) == "table" and mock.LibStub) or nil
+    if ls then Kit.setSurfaceSource(ls) end
+  end
   return t
 end
 
@@ -188,10 +323,18 @@ local function fileExists(path)
   return false
 end
 
---- A suites entry is either a plain basename or `{ name = "test_foo", pending = "why" }`.
+--- A suites entry is either a plain basename or a table:
+---
+---   `{ name = "test_foo", pending = "why" }`   — declared, deliberately not on disk yet
+---   `{ name = "test_eol", dir = "tests/_kit/" }` — a suite that arrives with the vendored kit
+---
+--- `dir` overrides the runner's own suite directory for that entry alone. It exists because the kit
+--- now ships suites of its own: a gate every consumer needs and no consumer should be asked to
+--- re-type is vendored with `framework.lua`, and it lives where the rest of the kit lives rather
+--- than being copied into each repo's `tests/`.
 local function suiteEntry(entry)
-  if type(entry) == "table" then return entry.name, entry.pending end
-  return entry, nil
+  if type(entry) == "table" then return entry.name, entry.pending, entry.dir end
+  return entry, nil, nil
 end
 
 --- List the plain entries of a directory, sorted. Lua 5.1 has no directory API and nothing in this
@@ -230,8 +373,8 @@ end
 --- file DOES exist is also an error — that is the same silence wearing the affordance's clothes.
 local function loadSuites(dir, suites)
   for i, entry in ipairs(suites) do
-    local name, pending = suiteEntry(entry)
-    local path = dir .. tostring(name) .. ".lua"
+    local name, pending, entryDir = suiteEntry(entry)
+    local path = (entryDir or dir) .. tostring(name) .. ".lua"
     currentSuite = name
     if pending then
       if fileExists(path) then
@@ -241,7 +384,14 @@ local function loadSuites(dir, suites)
       end
       Kit.test(tostring(name) .. ".lua: suite not written yet", nil, tostring(pending))
     elseif fileExists(path) then
-      dofile(path)
+      -- `loadfile` and call, rather than `dofile`, so the chunk receives the kit as `...`. A suite
+      -- that ships IN the kit cannot read the exposed table the way a repo's own suites do: that
+      -- table's global name is the consumer's (`LK_TEST`, `AT_TEST`, `KICKCD_TEST`, …) and the kit
+      -- is never told what it is. A suite that ignores the argument — every existing one — is
+      -- unaffected, and a syntax error still raises with the same message `dofile` gave.
+      local chunk, err = loadfile(path)
+      if not chunk then error(err, 0) end
+      chunk(Kit)
     else
       error(("suite inventory: %s is declared in the suites list (position %d) but is not on disk "
         .. "— delete the entry or write the file; to keep it listed while it is being written, "
@@ -263,6 +413,72 @@ local function suiteFilesOn(dir)
   return names, #listing
 end
 
+-- The suites list, folded into the four lookups the gate reads: declaration order, the index each
+-- name was declared at, the names that are deliberately absent, and the ones that live outside the
+-- runner's own directory.
+local function suiteDeclarations(suites)
+  local declared, order, pending, dirs = {}, {}, {}, {}
+  for i, entry in ipairs(suites or {}) do
+    local name, why, entryDir = suiteEntry(entry)
+    name = tostring(name)
+    declared[name] = i
+    order[#order + 1] = name
+    -- A `pending` entry is declared-and-deliberately-absent. Demanding it be on disk would make the
+    -- write-in-progress affordance unreachable, which is the whole point of keeping it. The other
+    -- direction still binds: if the file DOES appear, `loadSuites` raises rather than skipping it.
+    if why then pending[name] = true end
+    if entryDir then dirs[name] = entryDir end
+  end
+  return declared, order, pending, dirs
+end
+
+-- A directory that cannot be listed is not an empty directory. Both callers below would otherwise
+-- read "no suite files here" as "nothing has drifted" and report a gate that never ran as green.
+local function suiteNamesOrFail(dir)
+  local names, listed = suiteFilesOn(dir)
+  if listed == 0 then
+    fail("suite inventory: could not list " .. dir .. " — no `ls -A` and no `dir /b`; this gate "
+      .. "cannot run, and must not be reported as passing", 3)
+  end
+  return names
+end
+
+-- Direction one: declared but not on disk.
+local function collectMissing(problems, dir, order, dirs, pending, present)
+  for i, name in ipairs(order) do
+    -- An entry carrying its own `dir` is not expected in the runner's suite directory and is asked
+    -- about where it actually lives.
+    local at = dirs[name]
+    local found
+    if at then found = fileExists(at .. name .. ".lua") else found = present[name] end
+    if not found and not pending[name] then
+      problems[#problems + 1] = ("%s%s.lua is declared in the suites list (position %d) but is not "
+        .. "on disk — delete the entry or write the file"):format(at or dir, name, i)
+    end
+  end
+end
+
+-- Direction two: on disk but not declared. `describe` differs between the runner's own directory
+-- and the vendored kit because the fix differs — one is an entry, the other is an entry naming a
+-- directory the runner does not own.
+local function collectUndeclared(problems, dir, onDisk, declared, describe)
+  for _, name in ipairs(onDisk) do
+    if not declared[name] then
+      problems[#problems + 1] = describe(dir, name)
+    end
+  end
+end
+
+local function undeclaredHere(dir, name)
+  return ("%s%s.lua exists but is not declared in the suites list — add %q to the runner; it is "
+    .. "running zero cases today"):format(dir, name, name)
+end
+
+local function undeclaredInKit(dir, name)
+  return ("%s%s.lua arrived with the vendored kit but is not declared in the suites list — add "
+    .. "{ name = %q, dir = %q } to the runner; it is running zero cases today"):format(dir, name, name, dir)
+end
+
 --- Both directions of the suite list, asserted.
 ---
 --- `testing-§9` names the suite list as a list that MUST be pinned, and both of its silent failure
@@ -274,39 +490,28 @@ end
 --- "delete the entry or write the file", the other is "add it to the runner". Every divergence in
 --- both directions is reported in one message — a list that has drifted has usually drifted more
 --- than once, and one-at-a-time is one test run per missing file.
+---
+--- THE VENDORED KIT IS SCANNED TOO, and it is the same second direction. A suite that ships in the
+--- kit arrives in a consumer with a re-vendor rather than with a commit someone wrote, so the way it
+--- fails is the way it always fails: the copy lands, nobody adds it to the suite list, and the run
+--- is green over a gate that never executed. `tests/_kit/` is scanned whenever `framework.lua` is
+--- found there — the collection's one vendoring destination, and the guard means a repo that
+--- vendors somewhere else is simply not asked about it.
 function Kit.assertSuiteInventory(dir, suites)
   dir = dir or "tests/"
-  local declared, order, pending = {}, {}, {}
-  for i, entry in ipairs(suites or {}) do
-    local name, why = suiteEntry(entry)
-    declared[tostring(name)] = i
-    order[#order + 1] = tostring(name)
-    -- A `pending` entry is declared-and-deliberately-absent. Demanding it be on disk would make the
-    -- write-in-progress affordance unreachable, which is the whole point of keeping it. The other
-    -- direction still binds: if the file DOES appear, `loadSuites` raises rather than skipping it.
-    if why then pending[tostring(name)] = true end
-  end
+  local declared, order, pending, dirs = suiteDeclarations(suites)
 
-  local onDisk, listed = suiteFilesOn(dir)
-  if listed == 0 then
-    fail("suite inventory: could not list " .. dir .. " — no `ls -A` and no `dir /b`; this gate "
-      .. "cannot run, and must not be reported as passing", 2)
-  end
+  local onDisk = suiteNamesOrFail(dir)
   local present = {}
   for _, name in ipairs(onDisk) do present[name] = true end
 
   local problems = {}
-  for i, name in ipairs(order) do
-    if not present[name] and not pending[name] then
-      problems[#problems + 1] = ("%s%s.lua is declared in the suites list (position %d) but is not "
-        .. "on disk — delete the entry or write the file"):format(dir, name, i)
-    end
-  end
-  for _, name in ipairs(onDisk) do
-    if not declared[name] then
-      problems[#problems + 1] = ("%s%s.lua exists but is not declared in the suites list — add %q "
-        .. "to the runner; it is running zero cases today"):format(dir, name, name)
-    end
+  collectMissing(problems, dir, order, dirs, pending, present)
+  collectUndeclared(problems, dir, onDisk, declared, undeclaredHere)
+
+  local kitDir = dir .. "_kit/"
+  if fileExists(kitDir .. "framework.lua") then
+    collectUndeclared(problems, kitDir, suiteNamesOrFail(kitDir), declared, undeclaredInKit)
   end
 
   if #problems > 0 then
@@ -653,6 +858,9 @@ end
 --- Load the suites, then either render the inventory or run everything.
 --- opts = { dir = "tests/", suites = { ... }, suiteInventory = true, jobs = 1 }
 --- Exits the process: 0 on success, 1 on any failure, so the green gate is a plain shell check.
+---
+--- A suites entry is a basename, `{ name = ..., pending = "why" }`, or `{ name = ..., dir = ... }`
+--- for a suite that ships in the vendored kit rather than in `opts.dir` — see `suiteEntry`.
 ---
 --- `Kit.assertSuiteInventory` runs first whenever `opts.dir` is given EXPLICITLY -- a runner that
 --- discovers its own suites and passes no `dir` sits outside the assertion's premise and is left

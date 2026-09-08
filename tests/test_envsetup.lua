@@ -64,6 +64,34 @@ test("EnvSetup: NS.Version falls back to this addon's own constant", function()
   assertTrue(v ~= nil and v ~= "", "a version string, never nil — it goes straight into a banner")
 end)
 
+-- The other half of the fallback case above, and the half nothing checked. `NS.Version()` prefers
+-- the TOC and falls back to `NS.version`, so the two agree in game only while the two DECLARATIONS
+-- agree — and the case above cannot notice when they stop. It runs on the branch where no reader
+-- exists, where the seam returns the constant, so it compares the constant with itself. What was
+-- never asserted is that the constant is the string the addon actually ships.
+--
+-- Read off disk rather than through NS.Meta: out of game the mock deliberately exposes no manifest
+-- reader (tests/_kit/mock_base.lua:183, and `withTOC` above stands one up only for the two cases
+-- that need it), and a stub here would feed the assertion a version this file typed. The CR strip
+-- is the CRLF pin in .gitattributes; tests/_kit/loader.lua:120 strips it the same way, for the same
+-- reason.
+local function tocVersion()
+  for line in Loader.readFile("LootHistory.toc"):gmatch("[^\n]+") do
+    local v = line:gsub("\r", ""):match("^##%s*Version:%s*(.-)%s*$")
+    if v then return v end
+  end
+end
+
+test("EnvSetup: the fallback constant is the version LootHistory.toc ships", function()
+  local shipped = tocVersion()
+  assertTrue(shipped ~= nil, "LootHistory.toc has no `## Version:` line — the client reads that "
+    .. "line for the addon list, so its absence is a packaging fault, not a test fault")
+  assertEqual(NS.version, shipped, "core/Namespace.lua's NS.version (" .. tostring(NS.version)
+    .. ") and LootHistory.toc's ## Version: (" .. tostring(shipped) .. ") disagree. Bump both in "
+    .. "the same commit: in game the TOC wins, so the stale constant hides until a client with no "
+    .. "metadata reader falls back to it and stamps the wrong version into the banner")
+end)
+
 test("EnvSetup: NS.Zone answers two strings", function()
   local zone, sub = NS.Zone()
   assertEqual(zone, "Testville")
@@ -84,7 +112,7 @@ local function withNoZoneText(fn)
 end
 
 test("EnvSetup: an absent zone reads as \"\", which storage buckets with nil", function()
-  -- core/Database.lua:548 and modules/BrowserTable.lua:245 both say so in comments and both depend
+  -- core/Database.lua:548 and modules/BrowserTable.lua's Zone column both say so in comments and both depend
   -- on it. If the seam ever answers nil here, stored rows move between buckets on the next
   -- re-render.
   local zone, sub = withNoZoneText(function() return NS.Zone() end)

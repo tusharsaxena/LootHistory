@@ -1,4 +1,4 @@
-local addonName, NS = ...
+local _, NS = ...
 NS.Panel = NS.Panel or {}
 local P = NS.Panel
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
@@ -158,7 +158,17 @@ local function renderHistory(ctx)
         if P.general and P.general.panel:IsShown() and P.__stats then P.__stats() end
       end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
-      ev:RegisterMessage("Ka0s_LootHistory_RecordAdded", onChange)
+      -- COALESCED, and only this one — the same split the Browser's and Analytics' own
+      -- RecordAdded subscriptions already make (issue #27). `refreshStats` is a StorageStats pass
+      -- over the WHOLE history with a per-record byte estimate, and `Database:Add` fires
+      -- RecordAdded once per looted item, mid-pull. A multi-drop kill with this page open bought
+      -- one full-history walk per drop for a readout nobody can read that fast.
+      --
+      -- HistoryChanged above stays immediate on purpose: a delete, a prune or a blacklist edit is
+      -- one deliberate action that arrives on its own, and the size it changes should update at
+      -- once. Only the automatic, bursty message needs collapsing.
+      ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
+        NS.Coalesce(onChange, NS.Constants.RECORD_ADDED_COALESCE))
       P.__ev = ev
     end
   end
@@ -443,7 +453,8 @@ end
 -- and reused on every refresh — never re-allocated. This is load-bearing: the Blizzard Settings
 -- canvas runs a super-linear pass over a panel's frames on tab-transition, so the previous ~213-frame
 -- AH page froze the client ~1.7s when you navigated away from it (see docs/settings-panel.md).
--- Blizzard art, no files shipped: green/red ReadyCheck ticks.
+-- The leading tick and the row's info button are LibKa0s-Media marks now, with the Blizzard art
+-- beneath them as the fallback rung. This addon still ships no art files of its own.
 --
 -- ── WHAT R6 CHANGED, AND WHAT IT DELIBERATELY DID NOT ─────────────────────────────────────────
 --
@@ -456,9 +467,16 @@ end
 --
 -- The host draws NO row background and NO row border. The library owns both now, and a host copy
 -- beside them is double chrome (options-ui-§18). It never had one, so there was nothing to delete.
-local READY     = "Interface\\RaidFrame\\ReadyCheck-Ready"      -- green tick: collecting
-local NOTREADY  = "Interface\\RaidFrame\\ReadyCheck-NotReady"   -- red mark: off / not installed
-local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"
+
+-- THESE THREE BLIZZARD PATHS ARE THE FALLBACK RUNG, NOT THE ART. LibKa0s-Media ships all three
+-- marks — `circle-check`, `ban` and `info` — so the catalog is what draws on a working
+-- install and these are what the ladder walks down to when the library is absent, exactly as
+-- every other art site in this addon does (core/MediaSetup.lua). They are spelled out rather
+-- than deleted because NS.Icon answers nil twice over — no library, or no such name — and a
+-- nil spliced into a `|T` escape is not a blank square, it is a swallowed escape.
+local READY     = "Interface\\RaidFrame\\ReadyCheck-Ready"      -- fallback for `circle-check`
+local NOTREADY  = "Interface\\RaidFrame\\ReadyCheck-NotReady"   -- fallback for `ban`
+local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"    -- fallback for `info`
 
 -- Shared column x-offsets, in px from each ROW's content origin — which is the far side of the drag
 -- handle's gutter, not the row's left edge: the handle owns a fixed-width gutter at the far left and
@@ -477,6 +495,22 @@ local STATUS_RGB = {
   notcollecting = { 0.66, 0.62, 0.42 },
   notinstalled  = { 0.62, 0.45, 0.45 },
 }
+
+-- The tick column's two states, built ONCE at file load the way modules/BrowserTable.lua builds
+-- its sort arrows — the row loop repaints pooled slots on every refresh and has no business
+-- reformatting a constant string each time.
+--
+-- THE TINT IS LOAD-BEARING, and it is why these are NS.IconMarkup calls rather than bare paths.
+-- Catalog art is white by contract (the shape lives entirely in the alpha channel), and white is
+-- not a status: green-means-collecting / red-means-not is the whole signal this column carries.
+-- An inline texture is drawn white and is NOT reached by the FontString's SetTextColor, so the
+-- tint has to be baked into the escape's own vertex fields. On the fallback rung it multiplies
+-- Blizzard's already-green tick by a green and its already-red mark by a red, so a degraded
+-- install still reads green-or-red, a shade darker.
+local TICK_ON  = NS.IconMarkup("circle-check", READY, 16,
+  STATUS_RGB.collecting[1], STATUS_RGB.collecting[2], STATUS_RGB.collecting[3])
+local TICK_OFF = NS.IconMarkup("ban", NOTREADY, 16,
+  STATUS_RGB.notinstalled[1], STATUS_RGB.notinstalled[2], STATUS_RGB.notinstalled[3])
 
 --- The handle gutter, READ off the library rather than restated (options-ui-§8/§18).
 ---
@@ -592,7 +626,7 @@ local function refreshAuctionTable(ctx)
     local live = on and avail          -- collecting right now
     r._tag = tag
 
-    r.tick:SetText("|T" .. (live and READY or NOTREADY) .. ":16|t")
+    r.tick:SetText(live and TICK_ON or TICK_OFF)
 
     -- Addon name: no per-provider color any more — just near-white, dimmed when inactive.
     r.addon:SetText(providerNameOf(tag))
@@ -705,7 +739,10 @@ local function buildAuctionTable(ctx)
       local info = CreateFrame("Button", nil, rf)
       info:SetSize(16, 16)
       info:SetPoint("LEFT", rf, "LEFT", gutter + ACOL.module, 0)   -- repositioned per row
-      local itex = info:CreateTexture(nil, "ARTWORK"); itex:SetAllPoints(); itex:SetTexture(INFO_ICON)
+      local itex = info:CreateTexture(nil, "ARTWORK"); itex:SetAllPoints()
+      -- White catalog art is what the per-row SetVertexColor below wants: it dims the mark to 0.55
+      -- for an inactive row, and a multiply only reads as "dimmed" against white.
+      itex:SetTexture((NS.Icon and NS.Icon("info")) or INFO_ICON)
       info.tex = itex; r.info = info
       tipScripts(info, function() return (keyMetaOf(r._tag or "")) end,
                        function() return (select(2, keyMetaOf(r._tag or ""))) end)

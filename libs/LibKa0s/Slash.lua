@@ -198,7 +198,7 @@ end
 -- panel allows means "as wide as it goes"; a string outside its enum FAILS, because there is no
 -- such reading of a misspelt texture name.
 --
--- Failure is signalled by a nil first return plus a message. A row type whose valid value could
+-- Failure is signaled by a nil first return plus a message. A row type whose valid value could
 -- itself be nil would be indistinguishable from an error — none exists, and adding one would be a
 -- contract change, not a new type.
 
@@ -414,7 +414,7 @@ function lib:New(d)
   --- Whatever the host wants appended to a rendered setting — a note that a value is not the one
   --- actually in effect, most usefully. Applied at exactly three sites: a list row, a get echo and
   --- a set echo. Never on reset or resetall: an explanation of what a value means is noise stapled
-  --- to an acknowledgement that the value went away.
+  --- to an acknowledgment that the value went away.
   function Sl:SetRowAnnotator(fn)
     annotator = type(fn) == "function" and fn or nil
   end

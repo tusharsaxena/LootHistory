@@ -1,10 +1,28 @@
-local addonName, NS = ...
+local _, NS = ...
 NS.Compat = NS.Compat or {}
 local Compat = NS.Compat
 
 -- Retail-only addon: no game-flavor branching. Every varying/deprecated API is gated by a
 -- direct C_*/global presence check below, so a shim degrades to nil/false when its API is
 -- absent — never by reading a game-flavor project id.
+
+-- Fold U+00A0, the no-break space, to an ordinary space.
+--
+-- It is a space to the player and nothing at all to Lua. `%s` is a byte-wise ASCII class and the
+-- no-break space is the two bytes \194\160 in UTF-8, so every pattern in this addon that trims,
+-- splits or strips on `%s` walks straight past one. Blizzard's string tables and the client's own
+-- tooltip builder use it freely — it is how a phrase is kept from wrapping mid-line — so this is
+-- ordinary client text, not a corruption.
+--
+-- Folding the pair BEFORE the pattern work, rather than widening each class to `[ \194\160]`:
+-- a class of those two bytes also matches the \160 that legitimately ENDS a multi-byte character
+-- (à is \195\160, and one CJK codepoint in sixty-four ends the same way), so an end-anchored trim
+-- built that way can saw the last character of a koKR or zhCN name in half. Matching the pair
+-- exactly cannot. It also fixes the interior occurrences an edge trim never sees, which is the
+-- half that actually matters here: both call sites compare a WHOLE localized phrase.
+function Compat.FoldNBSP(s)
+  return (s:gsub("\194\160", " "))
+end
 
 -- Active M+ keystone level (nil if no keystone active or the API is absent). Guarded by
 -- C_ChallengeMode presence — degrades to nil when the challenge-mode API is unavailable.
@@ -226,7 +244,7 @@ function Compat.ScanBound(link)
     local text = line.leftText
     if text and text ~= "" and not (retrieving and retrieving ~= "" and text:find(retrieving, 1, true)) then
       readable = true
-      local lower = text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+      local lower = Compat.FoldNBSP(text:lower()):gsub("^%s+", ""):gsub("%s+$", "")
       if isWarbandLine(text, lower) then
         if lineIsAny(text, WARBAND_UE_GLOBALS) or lower:find(UE_LITERAL, 1, true) then
           return "WARBAND_UE", true

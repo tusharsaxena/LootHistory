@@ -46,10 +46,9 @@ end)
 test("Stats: a missing or blank zone counts under one Unknown bucket", function()
   -- "" is what NS.Zone answers before the client has zone text; it must not become its own
   -- blank-labeled Top Zones row alongside the nil one.
-  local s = NS.Database:Stats({})
   local saved = NS.db.global.history
   NS.db.global.history = { { ts = 1, quality = 1 }, { ts = 2, quality = 1, zone = "" } }
-  s = NS.Database:Stats({})
+  local s = NS.Database:Stats({})
   NS.db.global.history = saved
   assertEqual(s.byZone.Unknown, 2)
   assertEqual(s.byZone[""], nil)

@@ -1,8 +1,8 @@
 # LibKa0s testkit
 
 The shared headless test harness for the Ka0s addon collection: the test registry and assertions,
-the source loader, the universal half of the WoW-API mock, and the consolidated automated-test
-runner.
+the source loader, the universal half of the WoW-API mock, the consolidated automated-test runner,
+and one suite of its own.
 
 **The full surface — every function, every mock seam, every fidelity rule — is documented in the
 LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
@@ -17,8 +17,13 @@ the other seven.
 
 The collection's consolidated automated-test runner, and the only executable in the kit. It runs the
 four out-of-game suites and records every result as one frozen bundle under
-`docs/automated-tests/<YYYYMMDD-HHMMSS>/`, then rolls the run into `docs/automated-tests/RESULTS.md`
-(see `automated-tests` in the standard).
+`docs/automated-tests/<YYYYMMDD-HHMMSS>/`, then regenerates `docs/automated-tests/RESULTS.md` whole:
+the lead-in, the new row above every preserved older one, the complexity watch list and a standing
+section per suite (see `automated-tests` in the standard). **Exactly one cell in that file is
+authored** — the watch list's `Disposition`, which the runner carries forward while its entry is
+unchanged and leaves blank when the entry is new (`automated-tests-§4`, *the one boundary*). A
+generated sentence that is wrong is fixed in LibKa0s and arrives on the next re-vendor; edited here
+it is reverted silently by that re-vendor.
 
 ```sh
 tests/_kit/run-automated-tests.sh                            # all four, writes a bundle
@@ -76,6 +81,37 @@ it** — there is no sibling to compare against from inside the library repo, wh
 When the sibling checkout is absent the cases report **SKIP** with the reason, never PASS. Its
 comparison contract, including the one line-ending normalization and why it exists, is stated in the
 file's own header. Read that header before changing anything about how the bytes are compared.
+
+## `test_eol.lua`
+
+The kit's own suite, and the only one it ships. It holds every file `git ls-files` reports to the
+terminator `.gitattributes` declares for it, reading the bytes rather than trusting git's own
+classification, and it is here rather than in each repo's `tests/` for the reason the rest of the
+kit is here: nine repositories need exactly the same gate and none of them should be asked to
+re-type it. `line-endings-§7` MUSTs the check be mechanical and supplies a command; a command is
+something someone runs, a suite is something the run runs.
+
+Wire it in the consuming runner's suite list, which is the one line adoption costs:
+
+```lua
+Kit.run{ dir = "tests/", suites = { "test_schema", ..., { name = "test_eol", dir = "tests/_kit/" } } }
+```
+
+`Kit.assertSuiteInventory` scans `tests/_kit/` for suites as well as `tests/`, so a re-vendor that
+lands this file in a repo that has not declared it goes **red** naming the entry to add. That is
+deliberate: a gate that arrives silently and runs nothing is the failure this kit already refuses
+everywhere else.
+
+It reads the bytes for every path git calls text and skips every path whose `text` is `unset` —
+`binary` unsets `text` and says nothing about `eol`, so a marked asset still answers `eol: crlf`
+from a global pin and holding a .tga to a terminator count would be a red about an image. That is
+the same rule the runner applies when it writes a bundle, and the two must not disagree. Everything
+else it declines to check, it declines loudly: no `io.popen`, no git, no answer from `check-attr`
+and it fails rather than passing.
+
+The repair when it goes red is `rm <path> && git checkout -- <path>`, per path it names.
+**`git add --renormalize .` fixes nothing here** — it rewrites the index, and the index was never
+wrong; that is precisely why nothing else in a repository ever reports this.
 
 ## It is not a library
 
@@ -143,8 +179,15 @@ NS.CreateOptionsPanel()
 
 _G.AT_TEST = Kit.expose{ NS = NS, mocks = mocks }
 
-Kit.run{ dir = "tests/", suites = { "test_schema", ... } }
+Kit.run{
+  dir = "tests/",
+  suites = { "test_schema", ..., { name = "test_eol", dir = "tests/_kit/" } },
+}
 ```
+
+A suites entry is a basename under `dir`, or a table: `{ name = ..., pending = "why" }` for a suite
+being written (it registers as a declared skip instead of as nothing), and `{ name = ..., dir = ... }`
+for a suite that ships in the kit rather than in `tests/`.
 
 ### Running it faster
 
@@ -201,6 +244,70 @@ end
 Use `M.__stubFrame()` to build extra frame-shaped objects and `M.__libs` to register additional
 library fakes (AceDBOptions, LibSharedMedia) without reaching through LibStub's closure.
 
+## Asking a frame how tall it is
+
+`GetHeight()` and `GetWidth()` answer **0 for every frame nobody armed**, which is what roughly 308
+test files across the collection are written against. Arm the one frame a case cares about with
+`f:__setGeom(w, h)`, and it answers:
+
+```lua
+local tex = M.__stubFrame():__setGeom()      -- arm it, size to follow
+tex:SetAtlas("Options_Tab_Middle", true)     -- production dresses it
+tex:GetHeight()                              -- M.__atlasSizes["Options_Tab_Middle"][2]
+```
+
+`SetAtlas` records `f.__atlas` whether or not a size was asked for, so a case that only wants to know
+which art a widget dressed itself in needs no arming at all. `useAtlasSize` — the same argument that
+makes a real texture take the art's dimensions — records the size `M.__atlasSizes` publishes for that
+atlas; an atlas the table does not publish leaves the geometry as it found it, because the client
+draws nothing for an unknown atlas rather than collapsing the texture to zero.
+
+**The arming belongs to the test and never to the code under test.** Production calls `SetAtlas`
+itself — `OptionsWidgets.lua` measures its tab pitch on a probe texture no test holds a handle to —
+so a `SetAtlas` that armed geometry on its own would switch that measurement on in every suite in the
+collection at once. That was tried; three of LibKa0s's own widget cases went red inside a minute.
+
+`M.__atlasSizes` is a **fixture, not a measurement**. Nothing in it was read off a client. The two
+tab families answer different heights on purpose — a table answering one number for every atlas could
+not fail a selection-invariance assertion — so read the figure a case expects out of the table rather
+than restating it, and add an atlas your addon needs in your own `tests/wow_mock.lua`.
+
+## Asserting a degradation stub against the real surface
+
+A degradation stub is a second implementation of somebody else's surface, so it drifts the moment
+that surface grows a member the host starts calling — and it drifts silently, because the live path
+stays green and only the degraded path raises, in exactly the install the stub exists for.
+`Kit.assertSurfaceParity` reports **every** divergence in one message, in either of two forms:
+
+```lua
+T.assertSurfaceParity(live, degraded, "Slash stub", { HelpHeader = true })  -- two tables
+T.assertSurfaceParity(degraded, "LibKa0s-Slash-1.0", { HelpHeader = true }) -- by name
+```
+
+The by-name form is selected by a **string** in the second position. It compares only the surface's
+**public** members — `Kit.publicMembers`: every string key that is neither LibStub bookkeeping
+(`MAJOR`, `MINOR`, `MODULES`) nor `__`-prefixed — because a stub owes none of those, and reported raw
+they are half a dozen correct omissions read out as failures on the case's first run.
+
+The kit cannot resolve a name on its own. It has no LibStub, no mock and no addon namespace, and the
+loader hands each chunk a mocked environment rather than writing into `_G`, so a kit reaching for
+`_G.LibStub` would resolve nothing and report every stub as fine. The harness registers the source,
+once:
+
+```lua
+Kit.setSurfaceSource(mocks.LibStub)                          -- callable: src(name, true)
+Kit.setSurfaceSource{ ["LibKa0s-Options-1.0"] = NS.Helpers } -- table: name -> live surface
+```
+
+`Kit.expose` wires the callable shape for you when the exposed table carries `mocks` or `mock` with a
+`LibStub` on it, and only when nothing is registered yet. Use the table shape when the stub mirrors
+an **instance** rather than a library table — every `settings/OptionsSetup.lua` arm in this
+collection stubs `NS.Helpers`, which is what `lib:New(descriptor)` returned and what the kit could
+never build for itself.
+
+An unresolvable name, a source that raises, a name answering something other than a table, or no
+source at all is a **failure** naming the fix — never a quiet pass.
+
 ## Fidelity rules
 
 These are why this is one file rather than eight. Each exists because a friendlier mock already hid
@@ -226,7 +333,7 @@ a real bug.
 **the frame itself**, not a distinct object. WhatGroup's and KickCD's own mocks make them distinct
 and treat that as a correctness requirement — and they are right.
 
-It is kept because changing it is not a harness change. AbsorbTracker's `tests/perf.lua` memoises
+It is kept because changing it is not a harness change. AbsorbTracker's `tests/perf.lua` memoizes
 frame proxies specifically *because* `bar.valueText` and `bar.statusBar` are the same table, so
 distinct objects move its `api/iter` figure — which is the parity gate for library extractions — and
 `tests/test_display.lua` counts `Show`/`Hide` calls that currently land on one shared object.
