@@ -1039,6 +1039,31 @@ tab is invisible to every automated check in this repo.**
    body drawn under the wrong tab, or a strip whose height moves between passes — each of which is
    the pool handing back a frame it did not finish dressing.
 
+**17l. The AH Price table's tick and ⓘ are catalog marks now.** **Smoke, session 3. NOT YET RUN.** New
+with `M4-23`. `settings/Panel.lua` drew three Blizzard textures directly — `ReadyCheck-Ready`,
+`ReadyCheck-NotReady` and `FriendsFrame\InformationIcon`. All three now resolve through `NS.Icon` /
+`NS.IconMarkup` against `circle-check`, `ban` and `info`, with the Blizzard paths kept underneath as
+the fallback rung. **The headless suite cannot see any of this**: it proves the names are ones the
+library ships and that the escape is spelled in the long form, and a texture path that is wrong in
+any other way draws nothing and raises nothing.
+
+Two things changed on purpose and are not bugs. The **off** mark is a `ban` (a slash through a
+circle), not an X — the catalog has no X. The **ⓘ** is white-on-transparent rather than Blizzard's
+blue-and-white, because catalog art is white by contract and the row already dims it to 0.55 by
+vertex colour.
+
+1. `/lh config` → **AH Price**.
+2. Every row carries a leading mark: a **green** one on each row whose Status reads *Collecting
+   data*, a **red** one on every other row. Not white, not black, not a blank gap.
+3. Every row carries an **ⓘ** trailing its Price Module text — bright on a collecting row, dimmed on
+   one that is not — and hovering it still shows that key's label and description.
+4. Untick a collecting row's **On** box: its mark flips green → red in place, and the row's Status
+   text and the mark agree with each other.
+5. **Pass:** two distinguishable colours, an ⓘ on every row, no gap where a mark should be.
+   **Fail:** a white or missing mark (the catalog name is wrong, or the tint was dropped), an ⓘ that
+   vanished (`NS.Icon("info")` answering nil with no fallback reached), or a mark that does not
+   change when the box does.
+
 (`Perf` is not wired in this addon, so the five respelled `LibKa0s-Perf-1.0` strings that came with
 the same payload have no surface here. That is `ARCHITECTURE.md`'s documented deviation, not a gap.)
 

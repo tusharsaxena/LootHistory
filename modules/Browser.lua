@@ -1205,6 +1205,10 @@ function B:SetupMinimap()
   minimapObject = LDB:NewDataObject(LDB_NAME, {
     type  = "launcher",
     label = "Loot History",
+    -- A Blizzard ITEM icon, deliberately not a catalog mark. LibKa0s-Media ships flat white
+    -- line art meant to be tinted; LDB launchers sit on the minimap and inside other addons'
+    -- broker bars beside item-art buttons, where a white outline reads as a broken texture.
+    -- The catalog carries no bag and adding one upstream would not change that reasoning.
     icon  = "Interface\\Icons\\INV_Misc_Bag_08",
     OnClick = function(_, button)
       if button == "RightButton" then

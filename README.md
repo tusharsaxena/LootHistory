@@ -116,7 +116,7 @@ Settings live at **Escape → Options → AddOns → Ka0s Loot History** (or `/l
 **AH Price** — where item values come from
 
 *   **Enable AH pricing** — the master on/off switch for reading prices from Auctionator, TSM, and OribosExchange. Turn it off and every drop's value falls back to its vendor sell price.
-*   **Price sources** — one table listing every price your installed addons can supply. **Tick** a source to collect its price at loot time *and* enter it into the ranking; the highest-ranked source you have a price for is the value shown. **Drag a ticked source by the handle on its left** to re-rank it. Each row shows the addon, the price module (with an **ⓘ** explaining what it means), a ✓/✗ tick, and a status — *Collecting data*, *Not collecting data*, or *Addon not installed*. Ticked sources sort to the top, the ones you don't collect fall below them, and anything whose addon isn't installed drops to the bottom, dimmed.
+*   **Price sources** — one table listing every price your installed addons can supply. **Tick** a source to collect its price at loot time *and* enter it into the ranking; the highest-ranked source you have a price for is the value shown. **Drag a ticked source by the handle on its left** to re-rank it. Each row shows the addon, the price module (with an **ⓘ** explaining what it means), a green/red tick, and a status — *Collecting data*, *Not collecting data*, or *Addon not installed*. Ticked sources sort to the top, the ones you don't collect fall below them, and anything whose addon isn't installed drops to the bottom, dimmed.
 
 **Interface** — how much room it takes
 
