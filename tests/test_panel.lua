@@ -810,9 +810,6 @@ test("Panel: a drag is one splice to index, and it repaints", function()
   local ctx = ahTab()
   local list = ctx._priList
   assertEqual(list.boundary, 4, "four sources are collecting, so four rows are draggable")
-  local before = {}
-  for i = 1, 4 do before[i] = list.rows[i].frame and NS.AuctionPrice:ReconcilePriority()[i] end
-
   local collecting = {}
   for _, tag in ipairs(NS.AuctionPrice:ReconcilePriority()) do
     if #collecting < 4 then collecting[#collecting + 1] = tag end

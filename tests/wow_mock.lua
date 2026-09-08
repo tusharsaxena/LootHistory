@@ -200,7 +200,7 @@ return function()
   M.__stubFrame = function()
     local f = sizedFrame()
     local baseGetHeight = f.GetHeight
-    function f:SetAtlas(atlas, ...) self.__atlas = atlas; return self end
+    function f:SetAtlas(atlas) self.__atlas = atlas; return self end
     function f:GetAtlas() return self.__atlas end
     function f:GetHeight()
       local h = baseGetHeight(self)
@@ -299,8 +299,8 @@ return function()
   -- every widget keeps the base's recorders and __fire.
   local aceGUI = M.__libs["AceGUI-3.0"]
   local stockCreate = aceGUI.Create
-  function aceGUI:Create(wtype)
-    local w = stockCreate(self, wtype)
+  function aceGUI.Create(lib, wtype)
+    local w = stockCreate(lib, wtype)
     if w.SetTitle == nil then
       function w:SetTitle(v) self.titleText = v; return self end
     end

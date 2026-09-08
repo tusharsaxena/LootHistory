@@ -34,7 +34,7 @@ skipped if not. Each is presence-gated at the call site, so none of them is requ
 | TradeSkillMaster | `TSM_API.GetCustomPriceValue` / `.ToItemString` | `modules/AuctionPrice.lua:24`, `:105` |
 | OribosExchange | `OEMarketInfo` | `modules/AuctionPrice.lua:36`, `:107` |
 
-All three are whitelisted in `.luacheckrc:20` as `read_globals` with the comment "third-party
+All three are whitelisted in `.luacheckrc:28` as `read_globals` with the comment "third-party
 AH-pricing addon globals (presence-gated)". Each fetch is `pcall`-guarded, so a broken provider is
 skipped rather than fatal. They are deliberately **not** in the TOC's `## OptionalDeps` — the addon
 never touches them at load, only when a price is gathered.

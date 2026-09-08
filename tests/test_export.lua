@@ -181,7 +181,6 @@ test("Export: CSV emits a currency row with currencyID and blank item cells", fu
   local csv = NS.Export:CSV(rows)
   local header = csv:match("^[^\r\n]+")
   assertTrue(header:find("currencyID", 1, true) ~= nil, "header has currencyID column")
-  local dataLine = select(3, csv:find("\r\n(.-)\r\n"))
   assertTrue(csv:find(",3008,", 1, true) ~= nil or csv:find(",3008\r", 1, true) ~= nil, "currencyID value present")
   assertTrue(csv:find("Valorstones", 1, true) ~= nil, "currency name present")
   -- quality label must be blank (not "Poor") for the currency row
