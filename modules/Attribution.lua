@@ -63,6 +63,13 @@ local NAME_SEEDS = {
 local function seedToken(seed)
   local name = NS.Compat.GetSpellName(seed.id)
   if not name or name == "" then return nil end
+  -- Fold U+00A0 first (see NS.Compat.FoldNBSP): `%s` is byte-wise ASCII, so a no-break space in
+  -- the client's string table leaves `dropLast` with no word boundary to anchor on — it strips
+  -- nothing, the stem this seed exists to produce is never produced, and the whole per-herb/ore
+  -- family stops attributing. The trim below misses it for the same reason. The cast side of the
+  -- compare in DeconstructSource is folded identically; fold one side only and a name that
+  -- matched today stops matching.
+  name = NS.Compat.FoldNBSP(name)
   if seed.dropLast then name = name:gsub("%s+%S+%s*$", "") end
   name = name:gsub("^%s+", ""):gsub("%s+$", ""):lower()
   return name ~= "" and name or nil
@@ -79,7 +86,7 @@ function Attribution:DeconstructSource(spellID, name)
   local byId = DECONSTRUCT_ID[spellID]
   if byId then return byId, true end
   if name and name ~= "" then
-    local cast = name:lower()
+    local cast = NS.Compat.FoldNBSP(name):lower()   -- same fold as seedToken; both sides or neither
     local allSeedsResolved = true
     for _, seed in ipairs(NAME_SEEDS) do
       local tok = seedToken(seed)

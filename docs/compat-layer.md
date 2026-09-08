@@ -27,6 +27,7 @@ primitives and holds no opinion about how they are composed.
 
 | Compat function | Wraps | Why |
 |---|---|---|
+| `Compat.FoldNBSP(s)` | — (pure) | Folds U+00A0, the no-break space (`\194\160`), to an ordinary space. Lua's `%s` is a byte-wise ASCII class and never matches it, so every trim, split or suffix strip over client text walks past one — and Blizzard's string tables carry them. Folded, not trimmed as a `[ \194\160]` class: `\160` also legitimately ends a multi-byte character (`à` is `\195\160`), so an end-anchored class trim can saw one in half. Consumed by `ScanBound` and by `modules/Attribution.lua`'s localized name-family seeds. |
 | `Compat.GetActiveKeystoneLevel()` | `C_ChallengeMode.GetActiveKeystoneInfo` | Active M+ keystone level for keystone context; `nil` when no keystone is active or `C_ChallengeMode` is absent. |
 | `Compat.HookUseContainerItem(fn)` | `C_Container.UseContainerItem` → global `UseContainerItem` | `hooksecurefunc`s the "use a bag item" path so attribution can stamp CONTAINER — opening a lockbox pushes contents to bags with no `LOOT_OPENED`/source GUID. Calls `fn(bag, slot)` after each use. |
 | `Compat.ContainerItemHasLoot(bag, slot)` | `C_Container.GetContainerItemInfo` | Reads `info.hasLoot` to confirm the used bag item is actually an openable container/lockbox; `false` when unknown, so a potion/gear use never mis-stamps as CONTAINER. |

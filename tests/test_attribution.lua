@@ -180,6 +180,36 @@ test("Attribution: DeconstructSource matches un-enumerated variants by localized
   NS.Compat.GetSpellName = orig
 end)
 
+-- The family match is pattern work over client text, and client text contains U+00A0. Lua's `%s`
+-- is a byte-wise ASCII class that never matches the no-break space's \194\160, so both halves of
+-- seedToken -- the `dropLast` suffix strip and the trim -- silently no-op on a name that uses one.
+test("Attribution: a no-break space in a localized spell name does not break the family match", function()
+  local A = NS.Attribution
+  local orig = NS.Compat.GetSpellName
+
+  -- A stray pad on one entry of the client's string table. The trim leaves it, so the token is
+  -- "prospection\194\160" and no cast written with an ordinary space can contain it.
+  NS.Compat.GetSpellName = function(id)
+    local n = { [13262] = "Désenchanter", [51005] = "Broyage", [31252] = "Prospection\194\160",
+                [434926] = "Broyage de masse Mycoflore",
+                [225904] = "Prospection de masse Ardoise" }
+    return n[id]
+  end
+  assertEqual(A:DeconstructSource(990020, "Prospection algarienne"), "PROSPECTING")
+
+  -- The no-break space as the JOINER, which is what breaks `dropLast`: "%s+%S+%s*$" needs an ASCII
+  -- space to anchor the final word on, finds none, and strips nothing -- so the stem the seed exists
+  -- to produce is never produced and the whole per-ore family stops attributing. Only the dropLast
+  -- seed resolves here, so nothing else can carry the match.
+  NS.Compat.GetSpellName = function(id)
+    if id == 225904 then return "Prospection\194\160de\194\160masse\194\160Ardoise" end
+    return nil
+  end
+  assertEqual(A:DeconstructSource(990021, "Prospection\194\160de\194\160masse\194\160Aqirite"), "PROSPECTING")
+
+  NS.Compat.GetSpellName = orig
+end)
+
 -- The handler fires on every player cast, so a repeated spell (a combat rotation) must resolve
 -- from the per-spellID memo, not re-run GetSpellName + the name-family loop each time.
 test("Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell skips re-resolution", function()

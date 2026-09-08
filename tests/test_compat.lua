@@ -167,6 +167,22 @@ test("Compat: ScanBound reads warbound wording with every global absent", functi
   end)
 end)
 
+test("Compat: ScanBound reads a bind line joined or padded with a no-break space", function()
+  -- U+00A0 is a space to the player and nothing at all to Lua: `%s` is a byte-wise ASCII class and
+  -- the no-break space is the two bytes \194\160. Blizzard's string tables carry it (it is how a
+  -- phrase is kept from wrapping mid-line), so a surviving one walked straight through the trim and
+  -- the WARBAND_LINES lookup -- an exact keyed lookup on the trimmed line -- missed. The item then
+  -- stored as not-warbound with a perfectly readable bind line in front of the scanner.
+  withTooltip("\194\160Warbound until equipped\194\160", function()
+    assertEqual(NS.Compat.ScanBound("[Item]"), "WARBAND_UE")
+  end)
+  -- Interior, not just edges: the whole-line key is what is looked up, so a joined line has to fold
+  -- as well as a padded one.
+  withTooltip("Binds\194\160to\194\160Warband", function()
+    assertEqual(NS.Compat.ScanBound("[Item]"), "WARBAND")
+  end)
+end)
+
 test("Compat: BindState maps every Enum.ItemBind value to a bind token", function()
   local B = NS.Compat.BindState
   assertEqual(B(1), "BOP")          -- OnAcquire

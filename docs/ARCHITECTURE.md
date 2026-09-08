@@ -351,7 +351,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 |---|---|---|
 | `slash-dispatch.md` | Present | 14 verbs in `NS.COMMANDS` |
 | `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
-| `compat-layer.md` | Present | `core/Compat.lua` is 416 lines of addon-specific shimming beyond LibKa0s |
+| `compat-layer.md` | Present | `core/Compat.lua` is 434 lines of addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Not applicable | No profile control ships in the options UI — the addon is account-wide by design and never touches `db.profile` |
 | `debug.md` | Not applicable | The console is `LibKa0s-DebugLog-1.0`’s, with no debug surface of the addon’s own |

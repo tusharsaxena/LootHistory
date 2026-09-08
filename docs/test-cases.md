@@ -118,7 +118,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 
-### test_compat.lua (30)
+### test_compat.lua (31)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -133,6 +133,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: ScanBound separates warbound from warbound-until-equipped
 - Compat: ScanBound still splits UE when the …_UNTIL_EQUIP globals are nil
 - Compat: ScanBound reads warbound wording with every global absent
+- Compat: ScanBound reads a bind line joined or padded with a no-break space
 - Compat: BindState maps every Enum.ItemBind value to a bind token
 - Compat: GetItemExtras reads the bind state off bindType when it names one
 - Compat: GetItemExtras believes the tooltip when bindType understates it
@@ -151,7 +152,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
 
-### test_attribution.lua (24)
+### test_attribution.lua (25)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -169,6 +170,7 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: deconstruct spells map to their own source
 - Attribution: DeconstructSource resolves enumerated ids locale-independently
 - Attribution: DeconstructSource matches un-enumerated variants by localized name family
+- Attribution: a no-break space in a localized spell name does not break the family match
 - Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell skips re-resolution
 - Attribution: a memoized deconstruct source survives a later name change
 - Attribution: deconstruct's own loot window does not clobber its source
@@ -804,8 +806,8 @@ badge and any count quoted in the docs must agree with it.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
-| test_compat.lua | 30 |
-| test_attribution.lua | 24 |
+| test_compat.lua | 31 |
+| test_attribution.lua | 25 |
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
@@ -825,4 +827,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 2 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **707** |
+| **Total** | **709** |
