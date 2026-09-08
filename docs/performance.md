@@ -133,6 +133,34 @@ released some other way — so a second case pins that the render path releases 
 shared helper. Both go through `Analytics._acquire` / `Analytics._releaseAll`, published for the
 headless suite.
 
+## The allocation that is not measured, and stays that way
+
+The other half of that story, written down because a silent skip reads exactly like an oversight.
+
+`wantedByProvider` (`modules/AuctionPrice.lua:61`) regroups the capture set into
+`{ provider = { key = true } }` on every call, and `GatherAll` calls it at `:76` — once per **kept**
+loot line, the `CHAT_MSG_LOOT` row above. It allocates one `out` table plus one sub-map per
+provider named in the set: on the shipped default (`core/Constants.lua:148-152`, seven keys across
+Auctionator, TSM and Oribos) that is exactly **four small tables per kept line**, from a set that
+changes only when the player edits the Price sources table in settings. The obvious repair is to
+memoise it and refresh on a settings change.
+
+It is not being taken, and the reason is the exemption above rather than an argument about size.
+**There is no `tests/perf.lua` here in which to add a scenario, and by the register's own terms
+there is not going to be one** — so the number that would decide this cannot be produced, and
+"four tables is cheap" would be the same unmeasured assertion this page exists to refuse. What is
+already on that line makes the guess a bad bet in any case: `NS.Compat.GetItemExtras`
+(`modules/Collector.lua:123`) walks a `C_TooltipInfo` build line by line, and `GatherAll` then makes
+one `pcall`ed call into every installed pricing addon. A memo would also buy real state — an
+invalidation path, and a cached table handed out to three third-party fetchers — against a saving
+nobody in this repo can size.
+
+So it is left alone deliberately. `LOOTHISTORY-R-10`, 2026-09-08; the collection plan gates it on
+"a scenario that measures it, added first — otherwise skip", and that gate cannot open here.
+
+**What re-opens it:** the exemption ending — the trigger written above — which brings a harness with
+it, or `wantedByProvider` acquiring a caller that runs more often than once per kept loot line.
+
 ## The complexity half
 
 Cost-of-change is measured even though runtime cost is not: `lizard` runs in every automated-test
