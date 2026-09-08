@@ -948,7 +948,7 @@ local function trackDrag(row)
 
   -- THE POLL MAY NOT ACT ALONE, and this is why it has to see the button held first. If
   -- IsMouseButtonDown is unavailable, protected, or simply not true yet on the first frame, a poll
-  -- that ended the drag on `not held` would finish it with zero rows travelled -- no error, no
+  -- that ended the drag on `not held` would finish it with zero rows traveled -- no error, no
   -- message, and indistinguishable from a press that was never received.
   local held = mouseHeld()
   if held then

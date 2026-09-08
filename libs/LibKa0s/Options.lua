@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 14
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -115,7 +115,7 @@ lib.LAYOUT = {
   --
   -- Taller than the art it carries, on purpose. The bottom of a tab is a FOOT that overlaps the
   -- content panel's top edge, which is what makes the selected tab merge into the page instead of
-  -- floating above it; the label is therefore anchored to the tab's bottom rather than centred.
+  -- floating above it; the label is therefore anchored to the tab's bottom rather than centered.
   -- OPie's number, from the reference implementation named in OptionsWidgets.lua's art section.
   TAB_H         = 37,
   -- Floor and fallback for the page banner's height. PUBLISHED as O.BANNER_H, same reason as
@@ -210,6 +210,14 @@ lib.STRINGS = {
   -- shipping as a control that does nothing.
   EMPTY_DROPDOWN = "settings row '%s' is a string with no values and no dialogControl; it renders "
                    .. "as an empty dropdown",
+  -- The button half of the same bargain. OptionsCompose builds the master group's two resets
+  -- unconditionally, so a host spec that never supplied `onResetAll` or `onResetPosition` ships
+  -- a button that looks live, absorbs the click and does nothing. REPORTED at build time and
+  -- drawn anyway, for the reason EMPTY_DROPDOWN is: the missing handler is the author's bug and
+  -- naming it is how it gets fixed, whereas quietly dropping the button leaves a lopsided pair
+  -- that reads as a deliberate layout. Never an error -- options-ui-§12's reset is a
+  -- convenience, and taking the whole page down over it would be the worse trade.
+  DEAD_BUTTON    = "settings button '%s' has no onClick handler; it renders but does nothing",
   -- The only option a media dropdown can offer when the media library is absent or has nothing
   -- registered yet. A literal rather than a locale key: it is also the STORED value, so a
   -- translated one would be written into the host's SavedVariables.
@@ -218,6 +226,86 @@ lib.STRINGS = {
   -- renders identically regardless of the FontString's font or any locale fallback.
   BREADCRUMB_SEP = " |A:common-icon-forwardarrow:16:16|a ",
 }
+
+-- ── the AceGUI widget registry ─────────────────────────────────────────────────────────────
+--
+-- AceGUI's widget registry is PROCESS-GLOBAL. `AceGUI:RegisterWidgetType(name, ctor, version)`
+-- writes into one table shared by every addon loaded in the client, Ka0s or not, and the highest
+-- version registered for a name wins for the rest of the session. So a re-registration is never
+-- one addon's private business: it restyles that widget for everything in the process, including
+-- addons that never heard of this collection.
+--
+-- That is why library-stack-§9 puts a re-registration of a type the addon did not itself define
+-- HERE, in the library, published as a member of the major that declares the widget --
+-- `OptionsCompose.lua` is what writes `dialogControl = "LSM30_Border"`, and `lib:New`'s descriptor
+-- already takes `getLSM()`. Registering a NEW name an addon defines for itself is untouched by
+-- that rule and stays library-stack-§5's business.
+
+--- Fix AceGUI-3.0-SharedMediaWidgets' `LSM30_Border` so it lines up on a canvas settings page.
+---
+--- Upstream's `LSM30_Border` (AGSMW:GetBaseFrameWithWindow) pins a 42x42 `displayButton` preview
+--- tile to the widget's TOPLEFT and re-anchors the dropdown bar's left cap to that tile's
+--- BOTTOMRIGHT. Inside a canvas-layout panel the result is a control that starts 42px to the right
+--- of every slider and checkbox stacked with it, and reads as misaligned. This wraps whatever
+--- constructor the registry currently holds, registers the wrapper one version above it to win the
+--- race, and per instance hides the tile and puts the label and the left cap back on the frame's
+--- own edge. `LSM30_Font` and `LSM30_Statusbar` take `AGSMW:GetBaseFrame`, which has no
+--- `displayButton`, so this is Border-specific. The popup's per-row hover preview is untouched.
+---
+--- IDEMPOTENT, and that is the load-bearing half. Every consumer vendors its own copy of this
+--- library, LibStub hands all of them the same `lib`, and every one of them calls this -- so five
+--- Ka0s addons in one client must produce ONE registration. Without the sentinel each wrapper
+--- would close over what the previous one registered, leaving a five-deep stack of constructors
+--- whose outermost belongs to whichever addon the client happened to load last. That is the shape
+--- this member replaces, and the reason no addon's own suite could ever see it: each one loads a
+--- single copy, registers once and passes.
+---
+--- SAFE TO CALL EARLY, AND WORTH CALLING AGAIN. The sentinel records that a registration HAPPENED,
+--- not that this was called. AGSMW is a separate addon, so a caller that runs before it has loaded
+--- finds nothing to wrap and leaves the surface armed; call it from wherever the host builds its
+--- options surface, and again after login if the host's own load order makes that uncertain.
+---
+--- @return boolean true if this call performed the registration, false if there was nothing to do.
+function lib.__PatchLSM30Border()
+  if lib.__lsmBorderPatched then return false end
+
+  local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
+  if not AceGUI then return false end
+
+  -- The constructor to wrap, not a name to reimplement: whatever is in the slot at this moment is
+  -- what the session has agreed `LSM30_Border` means, which may already be a skin addon's.
+  local registry = AceGUI.WidgetRegistry
+  local current  = registry and registry["LSM30_Border"]
+  if type(current) ~= "function" then return false end
+
+  local currentVersion = AceGUI:GetWidgetVersion("LSM30_Border") or 1
+
+  AceGUI:RegisterWidgetType("LSM30_Border", function()
+    local widget = current()
+    local f = widget and widget.frame
+    if f and f.displayButton then
+      f.displayButton:Hide()
+      if f.label then
+        f.label:ClearAllPoints()
+        f.label:SetPoint("TOPLEFT",  f, "TOPLEFT",  0, 0)
+        f.label:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
+      end
+      -- DLeft is the left cap of the CharacterCreate-LabelFrame dropdown bar. Upstream moved it to
+      -- displayButton.BOTTOMRIGHT; these are GetBaseFrame's own numbers, restored, so the bar
+      -- starts at the frame's left edge again.
+      if f.DLeft then
+        f.DLeft:ClearAllPoints()
+        f.DLeft:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", -17, -21)
+      end
+    end
+    return widget
+  end, currentVersion + 1)
+
+  -- Set only now, and only on this path. Setting it on the way out of either early return above
+  -- would disarm the surface for the whole session on a call that registered nothing.
+  lib.__lsmBorderPatched = true
+  return true
+end
 
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
 
@@ -289,6 +377,19 @@ function lib:New(d)
   local print = type(d.print) == "function" and d.print or function(line)
     if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(line) end
   end
+
+  -- THE instance sink, published so the other halves of this major stop building their own.
+  -- OptionsWidgets.lua ran `local print = d.print or function() end`: no type guard, so a
+  -- descriptor carrying a `print` that is not a function raised at the report instead of at the
+  -- defect, and no chat-frame fallback, so a host that supplies no printer had NO_GROUPS,
+  -- EMPTY_DROPDOWN, DEAD_BUTTON and BUTTON_FAILED discarded — the four lines whose entire job is
+  -- to name an authoring defect out loud. Two sinks built from one descriptor is one sink too
+  -- many, and this is the one.
+  --
+  -- `__`-prefixed because it is internal rather than surface: a degradation stub does not mirror
+  -- it (`Kit.assertSurfaceParity` skips this prefix), and a host that wants to print has its own
+  -- printer already — this is the library talking to itself across a file boundary.
+  O.__print = print
 
   -- Every ctx CreatePanel hands out. Per INSTANCE, never per library: a lib-level registry would
   -- have one addon's Defaults button run another addon's refreshers.

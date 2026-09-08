@@ -22,7 +22,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 7
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 8
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -108,7 +108,7 @@ end
 --
 -- Every user-visible string routes through here so a host can override any of them via the
 -- optional `L` table, keyed identically. Hosts on the Ka0s standard pass their NS.L; hosts that
--- are not localised pass nothing and get these.
+-- are not localized pass nothing and get these.
 
 lib.STRINGS = {
   PANEL_TITLE_SUFFIX = " \226\128\148 Perf Run",
@@ -430,7 +430,17 @@ function lib:New(descriptor)
 
   -- Shape B's open slots, innermost last (performance-§2). Touched only while `P.on` is true, so a
   -- dormant probe neither allocates into it nor reads it.
-  local openStack = {}
+  --
+  -- A HIGH-WATER FREE LIST, not a stack of fresh tables. `slots[i]` is the slot for nesting depth
+  -- i and is built ONCE, the first time any capture in this session nests that deep; `openDepth`
+  -- is how many of them are open right now, and it is what bounds every read below rather than
+  -- `#slots`. The old shape allocated `{ key = key, t0 = ... }` per Open, which is one table per
+  -- bracketed call for the length of a window — garbage the collector then walks during the very
+  -- capture that is trying to hold everything else still and read somebody else's frame cost.
+  -- Depth is small and bounded by the host's own nesting (two, in every descriptor shipped), so
+  -- the list stops growing after the first few brackets and the steady state allocates nothing.
+  local slots = {}
+  local openDepth = 0
 
   --- Open a Shape B bracket on `key` (performance-§2). Pair with P.Close(key) on EVERY exit.
   ---
@@ -470,12 +480,30 @@ function lib:New(descriptor)
   --- path whose entire contract is costing nothing when the probe is off, and `P.on` is read
   --- directly by every call site precisely so it stays a plain boolean on a plain table. P.Note is
   --- unchanged, so a host already calling it directly keeps working untouched.
+  ---
+  --- THE ACTIVE ARM COSTS, and the figure is stated here for the same reason the off-path figure
+  --- is: the docstring above told the truth about the arm nobody pays for and said nothing at all
+  --- about the arm a capture actually runs. With `P.on` true the pair is two calls, one table
+  --- index into the free list, two field writes, a linear scan back through the open slots to find
+  --- the match, and a P.Note. It ALLOCATES NOTHING in the steady state — slots are reused from a
+  --- high-water free list (see its declaration above) and P.Note allocates one bucket per KEY, not
+  --- per call. Measured over 10,000 active pairs at depth one: 0.0 KB, against 1406.2 KB for the
+  --- per-Open table this replaced (`tests/test_perf_isolation.lua`, both arms). The scan is O(open
+  --- depth), which is two in every descriptor this collection ships; a host nesting brackets
+  --- dozens deep on a per-frame path is outside what Shape B is for and should use Shape A.
   function P.Open(key)
     if not P.on then return end
     if key == nil then
       error(MAJOR .. ": Perf.Open requires a bucket key (got nil)", 2)
     end
-    openStack[#openStack + 1] = { key = key, t0 = debugprofilestop() }
+    openDepth = openDepth + 1
+    local slot = slots[openDepth]
+    if not slot then
+      slot = {}
+      slots[openDepth] = slot
+    end
+    slot.key = key
+    slot.t0  = debugprofilestop()
   end
 
   --- Close the bracket P.Open(key) opened, recording its elapsed ms under `key` and the key of the
@@ -491,20 +519,26 @@ function lib:New(descriptor)
     if not P.on then return end
     local ms = debugprofilestop()
     local at
-    for i = #openStack, 1, -1 do
-      if openStack[i].key == key then at = i break end
+    for i = openDepth, 1, -1 do
+      if slots[i].key == key then at = i break end
     end
     if not at then return end
-    local slot = openStack[at]
-    for i = #openStack, at, -1 do openStack[i] = nil end
-    P.Note(key, ms - slot.t0, at > 1 and openStack[at - 1].key or nil)
+    local slot = slots[at]
+    -- The parent is read BEFORE the depth drops, because dropping it is now the whole of the
+    -- discard: a leaked slot is not niled, it is simply left above `openDepth` where nothing
+    -- reads it and the next Open at that depth overwrites it in place.
+    local parent = at > 1 and slots[at - 1].key or nil
+    openDepth = at - 1
+    P.Note(key, ms - slot.t0, parent)
   end
 
   function P.Reset()
     buckets   = {}
-    -- Emptied in place rather than rebound: P.Open and P.Close close over this table, and a fresh
-    -- one here would leave them pushing into the old copy for the rest of the session.
-    for i = #openStack, 1, -1 do openStack[i] = nil end
+    -- The DEPTH is what resets, and `slots` is deliberately kept: it is the free list, so emptying
+    -- it here would make the first brackets of every run allocate again, which is the cost this
+    -- shape exists to pay once. Nothing reads a slot above `openDepth`, so leaving them is not a
+    -- leak of state between runs — the next Open at that depth overwrites both fields.
+    openDepth = 0
     completed = { active = false, suspended = false }
     reviewed  = { report = false, dump = false }
     fpsArms   = {
@@ -612,8 +646,17 @@ function lib:New(descriptor)
       if GetRealmName then ctx.realm = GetRealmName() or "?" end
       if UnitClass then ctx.class = (UnitClass("player")) or "?" end
       if UnitLevel then ctx.level = UnitLevel("player") or 0 end
-      if GetSpecialization and GetSpecializationInfo then
-          local index = GetSpecialization()
+      -- Namespaced rung first, deprecated global second, nil where neither is there — the shape
+      -- `Env.lua`'s C_AddOns shim models, applied here because the spec reader moved the same way.
+      -- The global still answers on today's client, which is exactly why this was easy to miss:
+      -- the day it stops, every saved record names the spec "?" and a record is read weeks later,
+      -- when there is nothing left to go and look at. `GetSpecializationInfo` keeps its own guard
+      -- on the global below rather than being paired with a namespaced rung here, because the
+      -- reader that moved is the INDEX one and this shim claims no more than it has checked.
+      local specIndex = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization
+          or GetSpecialization
+      if specIndex and GetSpecializationInfo then
+          local index = specIndex()
           if index then
               local _, name = GetSpecializationInfo(index)
               ctx.spec = name or "?"
@@ -720,7 +763,7 @@ function lib:New(descriptor)
     end
 
     local f = record.fps
-    add("capture: %s  (%s, schema %d, v%s)", record.label ~= "" and record.label or "unlabelled",
+    add("capture: %s  (%s, schema %d, v%s)", record.label ~= "" and record.label or "unlabeled",
         record.addon, record.schema, record.version)
     for _, line in ipairs(P.ContextLines(record.context)) do add(line) end
 
@@ -861,7 +904,7 @@ function lib:New(descriptor)
     -- (that gate exists to keep the host quiet while idle). A perf run is explicit user action, so
     -- a user who started a run should not have to have debug logging enabled first to see it working.
     P.context = P.Context()
-    P.Log("run started \226\128\148 %s", P.label or "unlabelled")
+    P.Log("run started \226\128\148 %s", P.label or "unlabeled")
     for _, line in ipairs(P.ContextLines(P.context)) do P.Log(line) end
     local s = ensureSampler()
     if s then
@@ -945,7 +988,7 @@ function lib:New(descriptor)
     -- cancel prints empty buckets wearing the discarded run's character, realm and zone — a record
     -- that looks like a capture of somewhere nobody measured.
     P.context = nil
-    P.Log("run CANCELLED \226\128\148 measurements discarded, nothing saved")
+    P.Log("run CANCELED \226\128\148 measurements discarded, nothing saved")
     publishState()
     return true
   end
@@ -1026,7 +1069,7 @@ function lib:New(descriptor)
     local stamp = date and date("%Y-%m-%d %H:%M") or "capture"
     local label = (rest or ""):match("^%s*(.-)%s*$")
     P.Start(label ~= "" and (stamp .. " " .. label) or stamp)
-    P.Announce("perf run |cff40ff40STARTED|r \226\128\148 %s", P.label or "unlabelled")
+    P.Announce("perf run |cff40ff40STARTED|r \226\128\148 %s", P.label or "unlabeled")
     for _, line in ipairs(P.ContextLines(P.context)) do out[#out + 1] = line end
     showLog()
     -- The clickable equivalent of the steps just printed. Chat scrolls away the moment combat
@@ -1060,7 +1103,7 @@ function lib:New(descriptor)
       out[#out + 1] = "no perf run to cancel"
       return
     end
-    out[#out + 1] = "perf run |cffcc5252CANCELLED|r \226\128\148 nothing saved"
+    out[#out + 1] = "perf run |cffcc5252CANCELED|r \226\128\148 nothing saved"
   end
 
   function SUBS.finish(out)
@@ -1150,7 +1193,7 @@ function lib:New(descriptor)
   -- The click path PRINTS what OnCommand returns. A typed command reaches the user through the
   -- host's slash layer, which prints those lines; the panel has no slash layer behind it, so
   -- discarding them made a click quietly produce less output than typing the same thing — the
-  -- "ARMED" acknowledgement above all, which is the line telling the user the window is live.
+  -- "ARMED" acknowledgment above all, which is the line telling the user the window is live.
   if lib.__AttachPanel then
     lib.__AttachPanel(P, d, tr, function(cmd)
       local lines = P.OnCommand(cmd)

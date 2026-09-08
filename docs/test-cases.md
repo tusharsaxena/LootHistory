@@ -766,6 +766,10 @@ badge and any count quoted in the docs must agree with it.
 - libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles
 - tests/_kit is the test kit that shipped with that release
 
+### test_eol.lua (1)
+
+- eol: every tracked file carries the terminator .gitattributes declares for it
+
 ### test_widgets.lua (17)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
@@ -814,5 +818,6 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 6 |
 | test_libka0s.lua | 25 |
 | test_vendor_sync.lua | 2 |
+| test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **705** |
+| **Total** | **706** |

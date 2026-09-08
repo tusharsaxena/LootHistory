@@ -269,6 +269,16 @@ test("parity: the Options stub carries the whole live surface", function()
     -- `buildMain`; and this addon reads none of the library's published layout scalars — it draws
     -- its two carve-outs (the set picker, the AH price rows) with its own constants.
     "AceGUI", "BuildLandingPage", "PADDING_X", "TextRow",
+    -- New at LibKa0s v1.27.0 (Options minor 8): the ONE instance print sink the shell
+    -- publishes so OptionsWidgets stops building a second one from the same descriptor
+    -- (libs/LibKa0s/Options.lua:392, read at OptionsWidgets.lua:763). Its own comment there
+    -- calls it internal rather than surface and says a degradation stub does not mirror it,
+    -- because Kit.assertSurfaceParity skips the `__` prefix -- true of the kit's BY-NAME
+    -- form, which filters through Kit.publicMembers, and not of the four-argument form this
+    -- case uses, which walks every key of the live table. It has no call site here either:
+    --   grep -rn "__print" core settings modules
+    -- returns nothing.
+    "__print",
   })
 end)
 

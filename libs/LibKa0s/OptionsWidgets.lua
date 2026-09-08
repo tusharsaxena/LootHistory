@@ -231,7 +231,7 @@ end
 
 --- Claim a host hook for `key`, or nil if there is none or it has already run this render.
 ---
---- The lookup and the marking are ONE step on purpose. RenderRows honours two hook tables — pairWith
+--- The lookup and the marking are ONE step on purpose. RenderRows honors two hook tables — pairWith
 --- and afterGroup — and both are "fire at most once per render, and only if it actually fired";
 --- splitting the two halves is how a caller ends up marking a hook it never ran, or running one it
 --- already marked. `fired` is the LIBRARY's call-local ledger, never the host's table: see the note
@@ -623,10 +623,10 @@ local function dressTabArt(b, active)
   if b.SetHitRectInsets then b:SetHitRectInsets(0, 0, L.TAB_H - tabArtHeight(), 0) end
 end
 
---- The tab's label, anchored to the tab's BOTTOM rather than its centre, in the UNSELECTED font.
+--- The tab's label, anchored to the tab's BOTTOM rather than its center, in the UNSELECTED font.
 ---
 --- A tab is taller than its text by design -- the extra height is the foot that overlaps the
---- content panel -- so a centred label would float in the middle of the overlap instead of
+--- content panel -- so a centered label would float in the middle of the overlap instead of
 --- sitting on the tab's face.
 ---
 --- IT DOES NOT APPLY THE SELECTED FONT, and that is the whole reason it and setTabFont are two
@@ -753,7 +753,14 @@ end
 --- Attach the widget makers and the flow engine to one instance. Called at the end of lib:New, so
 --- every host gets its own closures over its own descriptor.
 function lib.__AttachWidgets(O, d)
-  local print = d.print or function() end
+  -- The SHELL's sink (`O.__print`), not a second one built from the same descriptor. What stood
+  -- here was `d.print or function() end`, which discarded every diagnostic in this file for any
+  -- host that passed no printer — that is, for every host relying on the library's own
+  -- chat-frame fallback, which is the fallback that exists precisely so these lines stay visible.
+  -- The `or` arms survive for composition order alone: this is called from the end of lib:New, so
+  -- `O.__print` is always there, and a caller that attached the maker set to some other table
+  -- should fall silent rather than raise.
+  local print = O.__print or d.print or function() end
 
   local function get(path) return d.get(path) end
 
@@ -1279,7 +1286,7 @@ function lib.__AttachWidgets(O, d)
   --- disappears the moment the player clicks a different one -- creating the thing the page edits,
   --- choosing which one is being edited, and the acts that apply to it whole (enable, unlock, copy,
   --- reset, delete) are all page-wide. O.PageBanner draws exactly one Dropdown and is documented as
-  --- the page's ONLY picker, so what is generalised here is the BAND, not the banner.
+  --- the page's ONLY picker, so what is generalized here is the BAND, not the banner.
   ---
   --- `spec` = { height = <number>, build = function(ctx, frame) end, divider = <boolean, default
   --- true> }. Returns the frame, or nil having drawn nothing.
@@ -1444,6 +1451,18 @@ function lib.__AttachWidgets(O, d)
 
     local function makeBtn(spec)
       if not spec then return end
+
+      -- AT BUILD TIME, and once. OptionsCompose emits the master group's two resets whether or
+      -- not the host spec carried onResetAll/onResetPosition, so a spec that forgot one hands
+      -- the player a button that looks live and swallows the click below. Saying so on the
+      -- click instead would only tell the one person who pressed it, and tell them again every
+      -- press; said here it lands once, in the log of whoever opened the panel, which is the
+      -- author. Report and render, exactly as EMPTY_DROPDOWN does further down: dropping the
+      -- button would leave a half-empty pair that reads as an intended layout.
+      if type(spec.onClick) ~= "function" then
+        print(lib.STRINGS.DEAD_BUTTON:format(tostring(spec.text or "")))
+      end
+
       local btn = O.AceGUI:Create("Button")
       btn:SetText(spec.text or "")
       btn:SetRelativeWidth(L.BUTTON_PAIR_REL)

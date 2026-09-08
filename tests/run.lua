@@ -68,6 +68,13 @@ local SUITES = {
   "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
   "test_schema", "test_analytics", "test_panel", "test_harness", "test_libka0s",
   "test_vendor_sync",
+  -- The kit has shipped one suite of its own since revision 15: the working-tree line-ending
+  -- gate, over every path `git ls-files` reports. It lives where the rest of the kit lives
+  -- rather than being re-typed into nine repositories, so it is declared with its own `dir`.
+  -- Kit.assertSuiteInventory fails the run until it is declared, so it cannot arrive with a
+  -- re-vendor and then quietly run nothing. It shells out to git and reads no addon state, so
+  -- it is safe anywhere in this list and does not want the last slot.
+  { name = "test_eol", dir = "tests/_kit/" },
   -- Last on purpose: its close-path cases build and show the History window, which attaches
   -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an
   -- unbuilt window.

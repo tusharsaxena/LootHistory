@@ -1017,6 +1017,31 @@ adoption, not an improvement.
    the same shared `close` mark every other window in this addon wears, drawn by
    `Core.MakeCloseButton` now instead of `B:MakeCloseButton` — which called the very same function.
 
+**17k. The tab strip survives being pooled and re-dressed.** **Smoke, session 3. NOT YET RUN.** New
+with `M4-01`'s LibKa0s v1.27.0 re-vendor. `TabStrip` (`libs/LibKa0s/OptionsWidgets.lua`) no longer
+builds a button and a content panel per click: it acquires both from per-`ctx` `LibKa0s-Pool-1.0`
+pools and re-dresses them, re-setting `OnClick` on every dress. Its only headless proof counts
+`CreateFrame` calls on a second selection pass. `tests/test_panel.lua` does hold a wrap-invariance
+case, but it measures a harness that answers a taller height for the selected-state art rather than
+real geometry — the shared mock answers `GetHeight` with 0 for every frame, and that flips at kit
+16, not here. **So a stale label, a mis-anchored button or a band that changes height on a re-dressed
+tab is invisible to every automated check in this repo.**
+
+1. `/lh config` → **General**. Cycle all six tabs of the strip three times, ending back on
+   **Master controls**.
+2. On the **Filters** tab, cycle its secondary strip three times as well — that is `SubTabStrip`,
+   pooled by the same change.
+3. Watch three things on each pass: the **label** is that tab's own, the **selected** tab is the one
+   you pressed, and the strip's **band height** does not move as you go through it.
+4. **Pass:** every tab labelled and selected correctly on all three passes, no band that grows or
+   shrinks, and the AH Price tab's pooled row slots still intact after the third pass.
+   **Fail:** a label carried over from the previously-dressed tab, a highlight on the wrong button, a
+   body drawn under the wrong tab, or a strip whose height moves between passes — each of which is
+   the pool handing back a frame it did not finish dressing.
+
+(`Perf` is not wired in this addon, so the five respelled `LibKa0s-Perf-1.0` strings that came with
+the same payload have no surface here. That is `ARCHITECTURE.md`'s documented deviation, not a gap.)
+
 ---
 
 ## When to run which subset
@@ -1031,7 +1056,7 @@ adoption, not an improvement.
   `modules/Collector.lua`, `settings/Panel.lua`'s Filters tab.
 - **Media / art edits:** 17g, plus 5, 6 and 7. Anything touching `core/MediaSetup.lua`, an
   `NS.Icon` / `NS.IconMarkup` call site, or a re-vendor of `libs/LibKa0s/media/`.
-- **LibKa0s / library edits:** 17, plus 9, 10 and 12. Anything touching `core/CoreSetup.lua`,
+- **LibKa0s / library edits:** 17 (including **17k** after any re-vendor), plus 9, 10 and 12. Anything touching `core/CoreSetup.lua`,
   `core/WidgetsSetup.lua`, `core/DebugLogSetup.lua`, `settings/Slash.lua`,
   `settings/OptionsSetup.lua` or a re-vendor of `libs/LibKa0s/` — and **always** 17a, which is the
   only check that a degraded install still works.

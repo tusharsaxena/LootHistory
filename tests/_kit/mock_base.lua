@@ -8,7 +8,7 @@
 -- WHAT BELONGS HERE: an API every addon in the collection touches, or would if it grew a window.
 -- WHAT DOES NOT: anything only one addon calls. A mock that stubs every addon's APIs for everyone
 -- is one more thing every future test has to reason about, and it hides a missing stub behind a
--- neighbour's.
+-- neighbor's.
 --
 -- ── Fidelity rules, which are the whole reason this is one file rather than eight ──────────────
 --
@@ -36,7 +36,7 @@
 -- records `__label`/`__state` on the button instead of asking the FontString).
 --
 -- It is kept for now because changing it is not a harness change: AbsorbTracker's tests/perf.lua
--- memoises frame proxies specifically BECAUSE `bar.valueText` and `bar.statusBar` are the same
+-- memoizes frame proxies specifically BECAUSE `bar.valueText` and `bar.statusBar` are the same
 -- table, so distinct objects move the api/iter parity figure, and tests/test_display.lua counts
 -- Show/Hide calls that currently land on one shared object. Fixing it is a deliberate change with
 -- its own test updates and a fresh parity baseline — not something to smuggle into an extraction.
@@ -47,6 +47,34 @@ local function deepcopy(t)
   for k, v in pairs(t) do r[k] = deepcopy(v) end
   return r
 end
+
+-- The atlas sizes this kit publishes, and the one table `SetAtlas` reads.
+--
+-- THESE ARE A FIXTURE, NOT A MEASUREMENT. Nothing here has been read off a client; they are stand-in
+-- figures chosen so that art the client draws at different heights answers at different heights here
+-- too, which is the only property a geometry assertion can actually rest on. A test must therefore
+-- read the figure it expects OUT of this table rather than hard-coding it -- a case pinned to the
+-- literal 28 is a case that goes red for the wrong reason the day a real measurement corrects it.
+--
+-- The two tab families are the reason the table exists at all. `OptionsWidgets.lua`'s row pitch is
+-- the UNSELECTED tab art's own height, measured through a probe texture, and the selected art is
+-- taller; a fixture that answered one number for both could not fail a selection-invariance
+-- assertion, which is how anti-patterns #70 shipped green. The 28/33 pair is the one LibKa0s's own
+-- tab suite has used as its stand-in since the strip was written, kept so the two agree.
+--
+-- It is a single shared table on purpose: that is what "kit-published" means here, and a consumer
+-- that needs an atlas the collection has not needed yet adds it in its own tests/wow_mock.lua. A
+-- test that mutates it is mutating it for every instance in the process, and owes it a restore.
+local ATLAS_SIZES = {
+  ["Options_Tab_Left"]          = { 12,  28 },
+  ["Options_Tab_Middle"]        = { 20,  28 },
+  ["Options_Tab_Right"]         = { 12,  28 },
+  ["Options_Tab_Active_Left"]   = { 12,  33 },
+  ["Options_Tab_Active_Middle"] = { 20,  33 },
+  ["Options_Tab_Active_Right"]  = { 12,  33 },
+  ["Options_InnerFrame"]        = { 256, 256 },
+  ["Options_HorizontalDivider"] = { 256, 8 },
+}
 
 -- A universal frame stub: any PascalCase method is a no-op returning the frame itself; other
 -- (lowercase/custom) field access misses through to nil so addon code can stash custom fields.
@@ -94,8 +122,40 @@ local function stubFrame()
   -- defining the setters (SetSize/SetWidth/...): tests spy on those by rawsetting a recorder and
   -- rawsetting nil to restore, which would erase an explicit definition for good.
   function f:GetName() return nil end
-  function f:GetHeight() return 0 end
-  function f:GetWidth() return 0 end
+  -- GEOMETRY IS RECORDED HERE, AND ANSWERED ONLY WHERE A TEST ASKED FOR IT. `__geomLive` is the
+  -- whole of the kit-15/kit-16 split, and it is one word wide on purpose: at the next revision the
+  -- `self.__geomLive and` falls out of these two lines and every frame answers what was recorded on
+  -- it. That is a real behavioral change to a mock roughly 308 test files across ten repositories
+  -- lean on -- every assertion that passes today BECAUSE geometry answers zero flips with it -- so
+  -- it is its own revision with its own adoption, and this one adds the surface without touching a
+  -- single existing answer.
+  function f:GetHeight() return (self.__geomLive and self.__geomH) or 0 end
+  function f:GetWidth() return (self.__geomLive and self.__geomW) or 0 end
+
+  -- The opt-in, and the ONLY thing that arms a frame. It has to be the test's call and not
+  -- production's: `OptionsWidgets.lua` measures its tab pitch by calling `SetAtlas` on a probe
+  -- texture it builds itself, so a `SetAtlas` that armed geometry on its own would silently switch
+  -- that measurement on in every suite in the collection -- which is the flip, arriving by accident,
+  -- three revisions early. Arm with no arguments and let production dress the frame, or hand it the
+  -- two numbers directly; both are the same switch.
+  function f:__setGeom(w, h) self.__geomW, self.__geomH, self.__geomLive = w, h, true; return self end
+
+  -- `SetAtlas` RECORDS what it was told, always: the atlas name, and -- when `useAtlasSize` asks for
+  -- it, which is the same argument that makes a real texture take the art's dimensions -- the size
+  -- the fixture publishes for that art. Recording is unconditional and answering is not, so a test
+  -- can assert which art a widget dressed itself in without arming anything, and a test that wants
+  -- the measurement live arms the frame first.
+  --
+  -- An atlas the fixture does not publish leaves the geometry as it found it, because the client
+  -- draws nothing for an unknown atlas rather than collapsing the texture to zero; answering 0 there
+  -- would be indistinguishable from a frame nobody ever dressed, which is fidelity rule 1's failure
+  -- mode rather than fidelity.
+  function f:SetAtlas(name, useAtlasSize)
+    self.__atlas = name
+    local size = ATLAS_SIZES[name]
+    if useAtlasSize and size then self.__geomW, self.__geomH = size[1], size[2] end
+    return self
+  end
 
   -- Record RegisterUnitEvent's (event -> unit tokens) instead of no-opping it (fidelity rule 3):
   -- an addon that registers per-unit events ONLY for enabled units is only trustworthy if a test
@@ -122,6 +182,9 @@ return function()
   -- StopwatchFrame, …) without duplicating the stub.
   M.__stubFrame = stubFrame
   M.__deepcopy  = deepcopy
+  -- Published, not private: a consumer's suite reads the height it expects out of this rather than
+  -- restating it, and a consumer that needs an atlas nobody has needed yet adds the entry here.
+  M.__atlasSizes = ATLAS_SIZES
 
   -- ── time / string ────────────────────────────────────────────────────────────────────────
   M.__now = 0
@@ -167,7 +230,7 @@ return function()
   -- Capture-context lookups (LibKa0s-Perf-1.0). Settable so a test can assert the recorded context
   -- is the character's rather than a hard-coded string.
 --
-  -- Class lives here too, and `UnitClass` reads it rather than returning a literal: the localised
+  -- Class lives here too, and `UnitClass` reads it rather than returning a literal: the localized
   -- NAME and the uppercase TOKEN are different strings, and a stub that returned the token for both
   -- let a context field silently render as "?" in every test that claimed to cover it. Repos whose
   -- suites assert on a particular class override these two fields in their own extender.

@@ -131,7 +131,7 @@ local STATUS_H = 16      -- bottom status bar height
 local BAR_W    = 8       -- scrollbar gutter width
 local DEFAULT_FONT_SIZE = 10
 
--- Title-bar arithmetic. PAD is the one gap between every control and its neighbour; CLOSE_W is what
+-- Title-bar arithmetic. PAD is the one gap between every control and its neighbor; CLOSE_W is what
 -- Core's own close button measures, and is the fallback when a host's button has no width yet.
 local PAD      = 6
 local CLOSE_W  = 18
@@ -266,7 +266,7 @@ end
 ---   fontSize    number    optional, default 10.
 ---   isEnabled   function  required. Reads the host's logging flag. The library never stores it.
 ---   setEnabled  function  required. Writes it. Always handed a real boolean.
----   print       function  optional. Where the chat acknowledgement goes. Defaults to the chat
+---   print       function  optional. Where the chat acknowledgment goes. Defaults to the chat
 ---                         frame, untagged — a host that wants its own tag passes its printer,
 ---                         which is what every Ka0s addon does.
 ---   safeToString function optional, defaults to Core's. Every logged value goes through it, so a
@@ -745,7 +745,7 @@ function lib:New(d)
   end
 
   --- The single seam for changing debug state. The slash command and the header toggle both come
-  --- through here, so the chat acknowledgement and the header label can never disagree.
+  --- through here, so the chat acknowledgment and the header label can never disagree.
   function D:SetEnabled(on)
     on = not not on
     d.setEnabled(on)
