@@ -51,6 +51,7 @@ Companion docs:
 | 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
 | 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
 | 16 | Blacklist & whitelist | Capture gate (point-in-time) + Filters management UI | [Blacklist & whitelist](#16-blacklist--whitelist) |
+| 18 | Locale | Tooltip bind lines, AH mail subjects, the deconstruct name family | [Non-English client](#18-non-english-client-session-6-m5-08) |
 
 ---
 
@@ -1067,6 +1068,100 @@ vertex colour.
 (`Perf` is not wired in this addon, so the five respelled `LibKa0s-Perf-1.0` strings that came with
 the same payload have no surface here. That is `ARCHITECTURE.md`'s documented deviation, not a gap.)
 
+### 18. Non-English client (session 6, `M5-08`)
+
+**Session 6 of the 2026-09-07 remediation plan. NOT YET RUN — no WoW client was available when
+`M5-08` landed. Nothing in this section has been performed and no step in it is recorded as
+passed.** Run on a client set to **deDE or frFR**, the two the collection's other locale steps use
+(`ConsumableMaster/docs/smoke-tests.md` § 3c, `KickCD/docs/smoke-tests.md` § 9b).
+
+**Why this addon needs it more than most.** `core/Compat.lua:206-213` defines four English wordings
+— `WARBAND_LINES`, plus `BIND_TO_WARBAND_PREFIX` and `UE_LITERAL = "until equipped"` — as the
+fallback for when the client leaves the `ITEM_ACCOUNTBOUND*` globals nil, and `isWarbandLine`
+(`:223-227`) and `ScanBound` (`:249`) reach them. The comment above them says the literals are safe
+"because this addon is English-only". That is a claim about what the addon **prints**
+(`ARCHITECTURE.md`'s `localization-§1` deviation row), and the tooltip is not something the addon
+prints — it is text the **client** wrote, in the player's language. The same file calls the tooltip
+"the ONLY witness" for items whose bind type lies. Meanwhile every headless case on that path
+asserts against enUS mock globals: `tests/test_compat.lua:65-66` passes the literals
+`"Auction House"` and `"Auction won: %s"` in and checks they come back out. The suite is green on
+this path whether it is right or wrong.
+
+**What the addon reads in the player's language.** Tooltip bind lines (`Compat.ScanBound`), the
+Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:105-119`), the
+deconstruct spell names (`modules/Attribution.lua:53-97`), and zone and sub-zone names. What it
+**prints** is hardcoded English on every client, by the accepted scope decision — an English label
+on a German client is not a failure here and is not what these steps are looking for.
+
+18a. **The six warband globals — the answer this section exists to get.** Before looting anything,
+     run each of these and write down what comes back:
+
+     ```
+     /dump ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP
+     /dump ITEM_ACCOUNTBOUND_UNTIL_EQUIP
+     /dump ITEM_BIND_TO_BNETACCOUNT
+     /dump ITEM_BIND_TO_ACCOUNT
+     /dump ITEM_BNETACCOUNTBOUND
+     /dump ITEM_ACCOUNTBOUND
+     ```
+
+     **The literal fallback is only ever reached for a global the client leaves nil**, so which of
+     the six are nil on this client *is* the finding, either way. All six populated means the
+     globals path carries the whole load here and 18b tests that path; any of them nil means the
+     English literal is live on a German client and 18b is testing the failure directly. Record the
+     six values verbatim — nobody can work this out from the repository.
+
+18b. **Bind classification.** Acquire a **warbound** item and a **warbound-until-equipped** item
+     (any Warbands-era drop; the weekly cache pieces are the easy ones). `/lh` → History and read
+     the **Bind** column on both.
+
+     **Pass** — the warbound item reads warbound and the until-equipped item reads
+     warbound-until-equipped, distinctly. **Fail** — the until-equipped item classified as plain
+     warbound. That is the exact degradation the two-step scan was written to prevent: both wordings
+     contain the shorter one, so a missed "until equipped" qualifier silently demotes every
+     until-equipped drop. On a German client the qualifier is not the string `until equipped`, so
+     if `ITEM_ACCOUNTBOUND_UNTIL_EQUIP` came back nil in 18a, this is where it shows.
+     **Also fail** — an item whose Bind cell is empty where the enUS client fills it, which is
+     `ScanBound` returning nil because no line matched at all.
+
+18c. **Auction-House mail attribution.** Buy something on the auction house, take it from the
+     mailbox, and read the new row's **Source**.
+
+     **Pass** — the row is attributed to the auction house. `Compat.IsAuctionHouseMail` derives its
+     match from the localized `AUCTION_HOUSE` and `AUCTION_*_MAIL_SUBJECT` globals rather than from
+     a literal, so this is locale-independent by construction and this step is checking that the
+     construction holds. **Fail** — the row attributed to mail-from-a-player or to nothing, which
+     means one of those globals is nil or its `%s` prefix split differently in this language.
+
+18d. **The deconstruct name family — the one most likely to fail.** Disenchant something, then mill
+     a stack of herbs and prospect a stack of ore. Read the **Source** on all three rows.
+
+     Disenchant, plain Milling and plain Prospecting resolve by **spell id** (`DECONSTRUCT_ID`) and
+     must be right on any client. The **mass** variants do not: `modules/Attribution.lua:62-75`
+     builds a match token from the seed spell's **localized** name and then strips its final word
+     (`dropLast`), because in English the name is `Mass Mill <Herb>`. German and French do not build
+     that name the same way — a compound, or the herb word in another position, means the stripped
+     word is not the herb and the stem is wrong.
+
+     **Pass** — all three, plain and mass alike, carry their deconstruct source. **Fail** — a mass
+     mill or mass prospect row with no source, or with the wrong one, while the plain cast on the
+     same client is right. Record the client's names for the seeds so the stem can be reasoned about
+     offline: `/dump C_Spell.GetSpellName(434926)` (mass mill) and
+     `/dump C_Spell.GetSpellName(225904)` (mass prospect).
+
+18e. **Nothing else moved.** Walk § 1, § 3 and § 5 once on this client. **Pass** — capture, source
+     attribution and the History table behave exactly as on English. **Fail** — any Lua error at
+     all, which here means a localized string reached something that assumed an English one.
+
+**Sign-off without a non-English client.** There is none for 18a to 18d, and saying otherwise is
+what let this gap sit. `tests/test_compat.lua`'s `ScanBound` and `IsAuctionHouseMail` cases feed
+English literals into an enUS mock and check English literals come back; `tests/test_attribution.lua`
+does the same for the name family. Every one of them would stay green through the failures above.
+§ 18e alone is covered by the rest of this file on English. Until the pass runs, the honest state of
+this section is unrun, and it is recorded that way rather than as coverage.
+
+---
+
 ---
 
 ## When to run which subset
@@ -1089,6 +1184,9 @@ the same payload have no surface here. That is `ARCHITECTURE.md`'s documented de
   `core/WidgetsSetup.lua`, `B:BuildFilterBar`, an option builder, or `libs/LibKa0s/Widgets.lua`
   arriving in a re-vendor. 17h step 1 is non-negotiable: the first click is where this widget has
   broken before.
+- **Compat / attribution / tooltip-parsing edits, and any re-vendor that moves `core/Compat.lua`:**
+  **18**, on top of 1, 3 and 4. It is the only section that looks at what the client wrote rather
+  than at what the addon printed, and it needs a deDE or frFR client.
 - **Pre-release / TOC bump:** the **entire suite** — the 17 scenarios span every system the addon
   owns. Always finish with the headless gate green: `luacheck .` (0/0) and `lua tests/run.lua` (see
   [testing.md](testing.md)).
