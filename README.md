@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-709%2F709_passing-green)
+![Tests](https://img.shields.io/badge/Tests-713%2F713_passing-green)
 
 ![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
 
@@ -32,12 +32,6 @@ Every item you pick up is filed under a source:
 | Other | Anything that arrived with no clear source |
 
 Most items are filed with certainty, straight from what the game reported. When there's no clear signal, the item is still recorded — filed under **Other** and marked as a best guess rather than dropped. Each row shows whether its source is **Certain** or **Inferred** so you can tell the two apart.
-
-## Unreleased
-
-*   **The Insights charts stopped rebuilding themselves.** The widget pools behind every bar, swatch and list row hid their contents on each re-render but never returned them for reuse, so a filter change or a tab switch allocated a fresh frame per element — and frames are never destroyed in WoW. Long sessions with a lot of chart interaction accumulated hidden frames for the rest of the session.
-
-*   **The window stopped re-reading your whole history once per drop.** Every looted item repainted the History table, all seven filter dropdowns and the Insights charts in full. A multi-drop kill on a long history paid that cost once per drop, with the window open through the pull; a burst now collapses into a single repaint. Deleting, pruning or blacklisting still redraws at once.
 
 ## What's new in 1.2.0
 
@@ -138,19 +132,21 @@ Three lists, one on screen at a time: **Blacklist**, **Whitelist** and **Currenc
 *   **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). While an id is whitelisted, every future loot of it is recorded as a normal row, bypassing those gates. Removing the id afterward only stops *future* loots from bypassing the gates again — rows it already added stay put. Adding an item to one list removes it from the other; an id is never on both.
 *   **Currencies** — currency ids you never want recorded, on the same point-in-time terms.
 
-## Auction-house pricing
+## How attribution works
+
+Whenever you receive an item, the addon looks at what you were just doing to decide where it came from. Killing a creature, opening a container, turning in a quest, taking mail, trading, buying from a vendor, winning an auction, finishing a Mythic+ run — each of these leaves a signal the addon reads at the moment the loot arrives.
+
+If a signal is there, the item is filed under that source and marked **Certain**. If nothing tells it where the item came from, the addon files it under **Other** and marks it **Inferred**, rather than losing the record. Everything from one loot window is filed under the same source, so a full chest of drops all land together.
+
+### What a drop was worth
+
+Attribution is only half of what the addon reads at the moment an item arrives; the other half is its value, and it is read then for the same reason — a price looked up later is a price from a different day.
 
 If you have **Auctionator**, **TSM**, or **OribosExchange** installed, the addon reads an auction price for each item the moment you loot it — whichever of those you have running. You don't need all three; it works with just one, and quietly skips pricing altogether if you have none.
 
 You choose which prices count: **Settings ▸ AH Price** lists every price your installed addons can supply — for example, TSM's market value versus its region average — in one table. Tick the ones you want (a ticked source is both collected *and* ranked) and drag them into your preferred order by the handle on each row; if more than one has a price for the same item, the highest-ranked ticked source wins. Sources you leave unticked, or whose addon isn't installed, drop to the bottom.
 
 Every drop's **value**, shown throughout the History table and Insights, is simply the **higher of its vendor sell price and its auction price** — so a valuable item never reads as worth less than what a vendor would pay for it.
-
-## How attribution works
-
-Whenever you receive an item, the addon looks at what you were just doing to decide where it came from. Killing a creature, opening a container, turning in a quest, taking mail, trading, buying from a vendor, winning an auction, finishing a Mythic+ run — each of these leaves a signal the addon reads at the moment the loot arrives.
-
-If a signal is there, the item is filed under that source and marked **Certain**. If nothing tells it where the item came from, the addon files it under **Other** and marks it **Inferred**, rather than losing the record. Everything from one loot window is filed under the same source, so a full chest of drops all land together.
 
 ## FAQ
 
