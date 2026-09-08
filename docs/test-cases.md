@@ -733,7 +733,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's suite list has no duplicates
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 
-### test_libka0s.lua (25)
+### test_libka0s.lua (20)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -744,11 +744,6 @@ badge and any count quoted in the docs must agree with it.
 - NS.MakeCloseButton hands the library this addon's FOLDER name as the third argument
 - every window this addon owns closes through that one wrapper
 - degraded install: a bare /lh prints help listing the verbs that still work
-- parity: the Core seam publishes the same NS members on both paths
-- parity: the Widgets seam publishes the same NS members on both paths
-- parity: the Slash stub carries the whole live surface
-- parity: the DebugLog stub carries the whole live surface
-- parity: the Options stub carries the whole live surface
 - the L-trap matcher flags the value, not one spelling (all three forms)
 - no descriptor in this addon is handed NS.L
 - tripwire — LibKa0s-Core-1.0 ships no STRINGS table
@@ -760,6 +755,14 @@ badge and any count quoted in the docs must agree with it.
 - the nine adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
+
+### test_surface_parity.lua (5)
+
+- parity: the Core seam publishes the same NS members on both paths
+- parity: the Widgets seam publishes the same NS members on both paths
+- parity: the Slash stub carries the whole live surface
+- parity: the DebugLog stub carries the whole live surface
+- parity: the Options stub carries the whole live surface
 
 ### test_vendor_sync.lua (2)
 
@@ -816,7 +819,8 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_harness.lua | 6 |
-| test_libka0s.lua | 25 |
+| test_libka0s.lua | 20 |
+| test_surface_parity.lua | 5 |
 | test_vendor_sync.lua | 2 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |

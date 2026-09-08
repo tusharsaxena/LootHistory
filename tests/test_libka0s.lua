@@ -4,6 +4,13 @@
 -- Everything here is ABOUT the adoption rather than about a feature, which is why it is one suite
 -- rather than scattered through the per-module ones: a reader asking "is this addon a faithful
 -- LibKa0s consumer?" has one file to read.
+--
+-- With ONE exception, and it is a deliberate one. The five stub-PARITY cases moved out to
+-- tests/test_surface_parity.lua in M4-09, because that path is where all nine addons in the
+-- collection keep the same gate and a reader looking for it should not have to know which suite a
+-- given repo filed it under. What stays here is the degraded install itself -- that every file
+-- loads, that the notice is said once, that a bare `/lh` still answers -- which is behaviour rather
+-- than surface. Both suites build the environment through tests/degraded_env.lua.
 
 local T = _G.LH_TEST
 local NS, Loader = T.NS, T.Loader
@@ -54,18 +61,13 @@ test("the cause clause is published on the HEALTHY path too, not only when the l
 
 -- ── degradation, exercised by loading the addon WITHOUT the library ──────────────────────────
 --
--- Hand-stubbing `lib = nil` would test a branch rather than an install. This loads every addon
--- file into a fresh namespace over a fresh mock set that has never seen libs/LibKa0s, which is
--- exactly the state a user gets when the folder failed to extract.
+-- Hand-stubbing `lib = nil` would test a branch rather than an install. tests/degraded_env.lua loads
+-- every addon file into a fresh namespace over a fresh mock set that has never seen libs/LibKa0s,
+-- which is exactly the state a user gets when the folder failed to extract. It was a local here
+-- until M4-09 moved the stub-parity cases into tests/test_surface_parity.lua; two suites need the
+-- same environment, and one builder is one thing to keep true.
 
-local function loadDegraded()
-  local mocks = dofile("tests/wow_mock.lua")()
-  local lines = {}
-  mocks.DEFAULT_CHAT_FRAME.AddMessage = function(_, line) lines[#lines + 1] = line end
-  local ns = {}
-  Loader.loadAll(Loader.tocFiles("LootHistory.toc"), ns, mocks)
-  return ns, lines
-end
+local loadDegraded = dofile("tests/degraded_env.lua")
 
 test("degraded install: every addon file loads with LibKa0s absent, with no error", function()
   local ok, err = pcall(loadDegraded)
@@ -171,115 +173,6 @@ test("degraded install: a bare /lh prints help listing the verbs that still work
     assertTrue(body:find("/lh " .. verb .. "|", 1, true) == nil,
       "a bare /lh must not offer " .. verb .. ", which answers \"unavailable\" on this path")
   end
-end)
-
--- ── stub-surface parity, one case per adopted seam (testing-§8) ──────────────────────────────
---
--- The cases above assert the members somebody thought to name. Parity asserts the SET: every key
--- the live seam publishes is present on the degraded one, and a key that is a function live is a
--- function degraded (`Helpers.X = UI and UI.X` leaves `false` in place, and a check that only asks
--- "is the key set?" waves that through while the call site raises anyway).
---
--- Both arms come from a real load. The degraded arm is `loadDegraded` above — a PARTIAL FILE LIST,
--- the addon's TOC files over a mock set that has never seen libs/LibKa0s — never a hand-stubbed
--- member, which would assert the test's own typing.
---
--- Each `ignore` entry below is a member that is live-only ON PURPOSE, with the grep that proves
--- this addon has no call site for it. They are data rather than a deleted case, which is the only
--- way an intentional omission and a bug stay distinguishable.
-
-local degradedNS = loadDegraded()
-
-test("parity: the Core seam publishes the same NS members on both paths", function()
-  -- Core publishes onto NS itself rather than onto a module table, so the member list is derived
-  -- from the seam file rather than re-typed:
-  --   grep -nE "^\s*NS\.[A-Za-z_]+\s*=" core/CoreSetup.lua
-  -- Deriving it is what makes a member added to the live half and forgotten in the stub go red;
-  -- a hand-typed list here would go stale in exactly that case.
-  local live, degraded = {}, {}
-  local seen = {}
-  for line in Loader.readFile("core/CoreSetup.lua"):gmatch("[^\r\n]+") do
-    local key = line:match("^%s*NS%.([A-Za-z_][A-Za-z0-9_]*)%s*=")
-    if key and not seen[key] then
-      seen[key] = true
-      live[key], degraded[key] = NS[key], degradedNS[key]
-    end
-  end
-  assertTrue(seen.Print and seen.SafeToString,
-    "the derivation found no NS.Print/NS.SafeToString — core/CoreSetup.lua changed shape and this "
-    .. "case is now asserting nothing")
-  T.assertSurfaceParity(live, degraded, "Core seam (NS members)")
-end)
-
-test("parity: the Widgets seam publishes the same NS members on both paths", function()
-  -- Derived from the seam file, exactly as the Core case above is:
-  --   grep -nE "^\s*function NS\.[A-Za-z_]+" core/WidgetsSetup.lua
-  -- Both members exist on both paths BY CONSTRUCTION here -- the seam defines them outside any
-  -- `if W` branch and each degrades inside itself (nil dropdown, no-op close). That is the shape
-  -- worth pinning: the alternative, defining them only when the library resolved, is what turns a
-  -- missing library into "attempt to call a nil value" at the first close of a window.
-  local live, degraded = {}, {}
-  local seen = {}
-  for line in Loader.readFile("core/WidgetsSetup.lua"):gmatch("[^\r\n]+") do
-    local key = line:match("^%s*function NS%.([A-Za-z_][A-Za-z0-9_]*)")
-    if key and not seen[key] then
-      seen[key] = true
-      live[key], degraded[key] = NS[key], degradedNS[key]
-    end
-  end
-  assertTrue(seen.MakeDropdown and seen.CloseMenu,
-    "the derivation found neither NS.MakeDropdown nor NS.CloseMenu — core/WidgetsSetup.lua changed "
-    .. "shape and this case is now asserting nothing")
-  T.assertSurfaceParity(live, degraded, "Widgets seam (NS members)")
-end)
-
-test("parity: the Slash stub carries the whole live surface", function()
-  -- Members from: grep -nE "^Sl\.[A-Za-z]|^function Sl[.:]" settings/Slash.lua
-  T.assertSurfaceParity(NS.Slash, degradedNS.Slash, "Slash stub")
-end)
-
-test("parity: the DebugLog stub carries the whole live surface", function()
-  -- Members from: grep -nE "^function Sl[.:]|^  [A-Za-z]+ *=" libs/LibKa0s/DebugLog.lua
-  T.assertSurfaceParity(NS.DebugLog, degradedNS.DebugLog, "DebugLog stub", {
-    -- The library's own window internals. `grep -rn "DebugLog[.:]\(CopyText\|Text\|MakeCloseButton\)"
-    -- core settings modules` returns nothing: this addon reaches the console through
-    -- Show/Hide/IsShown/Toggle/SetEnabled/ConsoleCheckbox only, and there is no window to copy
-    -- text out of when the library is absent.
-    "CopyText", "Text", "MakeCloseButton",
-    -- Reached under its published name instead: core/DebugLogSetup.lua does `NS.Debug =
-    -- NS.DebugLog.Debug` live and publishes a no-op `NS.Debug` on the stub path, which is what the
-    -- ~40 call sites across seven files actually call. Asserted directly below.
-    "Debug",
-    -- Test-only seams the library attaches to the live instance the first time the window is
-    -- built (tests/test_debuglog.lua drives it, and that suite loads before this one). They are
-    -- not addon surface, and there is no window to attach them to on the degraded path.
-    "_frameForTest", "_toggleClickForTest",
-  })
-  assertTrue(type(NS.Debug) == "function" and type(degradedNS.Debug) == "function",
-    "NS.Debug is the name the sink is called by; it must be a function on BOTH paths")
-end)
-
-test("parity: the Options stub carries the whole live surface", function()
-  -- Members from: grep -nE "^  function O[.:]|^  O\.[A-Z]" libs/LibKa0s/Options.lua
-  T.assertSurfaceParity(NS.Options, degradedNS.Options, "Options stub", {
-    -- Live-only, all four with no call site in this addon:
-    --   grep -rn "Options\.\(AceGUI\|BuildLandingPage\|PADDING_X\|TextRow\)" core settings modules
-    -- returns nothing. The AceGUI instance is reached as NS.AceGUI (settings/OptionsSetup.lua's
-    -- `onAceGUI` hook), never off the Options table; the landing page is built by NS.Panel through
-    -- `buildMain`; and this addon reads none of the library's published layout scalars — it draws
-    -- its two carve-outs (the set picker, the AH price rows) with its own constants.
-    "AceGUI", "BuildLandingPage", "PADDING_X", "TextRow",
-    -- New at LibKa0s v1.27.0 (Options minor 8): the ONE instance print sink the shell
-    -- publishes so OptionsWidgets stops building a second one from the same descriptor
-    -- (libs/LibKa0s/Options.lua:392, read at OptionsWidgets.lua:763). Its own comment there
-    -- calls it internal rather than surface and says a degradation stub does not mirror it,
-    -- because Kit.assertSurfaceParity skips the `__` prefix -- true of the kit's BY-NAME
-    -- form, which filters through Kit.publicMembers, and not of the four-argument form this
-    -- case uses, which walks every key of the live table. It has no call site here either:
-    --   grep -rn "__print" core settings modules
-    -- returns nothing.
-    "__print",
-  })
 end)
 
 -- ── the `L` trap: the source guard ───────────────────────────────────────────────────────────

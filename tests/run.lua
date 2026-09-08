@@ -67,6 +67,11 @@ local SUITES = {
   "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
   "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
   "test_schema", "test_analytics", "test_panel", "test_harness", "test_libka0s",
+  -- After test_libka0s and after test_debuglog, both deliberately. It shares the degraded
+  -- environment with the first, and the second is what attaches the library's `_frameForTest`
+  -- seams to the live DebugLog instance -- the ignore entries naming them describe the state this
+  -- suite actually meets, and would be exempting nothing if it ran earlier.
+  "test_surface_parity",
   "test_vendor_sync",
   -- The kit has shipped one suite of its own since revision 15: the working-tree line-ending
   -- gate, over every path `git ls-files` reports. It lives where the rest of the kit lives
@@ -79,6 +84,20 @@ local SUITES = {
   -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an
   -- unbuilt window.
   "test_widgets",
+}
+
+-- Where Kit.assertSurfaceParity's by-name form looks a live surface up, for the two seams that have
+-- a major to name. It has to be said here: both stubs mirror an INSTANCE -- what `lib:New(descriptor)`
+-- returned -- and not the library table LibStub answers for the same name. Under Kit.expose's
+-- auto-wiring "LibKa0s-Options-1.0" resolves the library's own module table rather than the surface
+-- settings/Panel.lua actually calls, and tests/test_surface_parity.lua goes red naming members no
+-- stub was ever meant to carry.
+--
+-- Set BEFORE Kit.expose, which is what makes it stick: expose registers a source only when none is
+-- registered yet, precisely so a runner like this one keeps its own.
+Kit.setSurfaceSource{
+  ["LibKa0s-Options-1.0"]  = NS.Options,
+  ["LibKa0s-DebugLog-1.0"] = NS.DebugLog,
 }
 
 _G.LH_TEST = Kit.expose{
