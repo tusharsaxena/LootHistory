@@ -22,7 +22,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 9
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 10
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -117,7 +117,6 @@ lib.STRINGS = {
   STEP_MEASURE_B = "Measure B (without the addon)",
   STEP_FINISH   = "Finish perf run",
   STEP_REPORT   = "Report",
-  STEP_DUMP     = "JSON Dump",
   STEP_CANCEL   = "Cancel perf run",
 }
 
@@ -386,7 +385,7 @@ function lib:New(descriptor)
 
   local buckets   = {}
   local completed = { active = false, suspended = false }
-  local reviewed  = { report = false, dump = false }
+  local reviewed  = { report = false }
   local fpsArms   = {
     active    = { seconds = 0, frames = 0 },
     suspended = { seconds = 0, frames = 0 },
@@ -540,7 +539,7 @@ function lib:New(descriptor)
     -- leak of state between runs — the next Open at that depth overwrites both fields.
     openDepth = 0
     completed = { active = false, suspended = false }
-    reviewed  = { report = false, dump = false }
+    reviewed  = { report = false }
     fpsArms   = {
       active    = { seconds = 0, frames = 0 },
       suspended = { seconds = 0, frames = 0 },
@@ -608,7 +607,7 @@ function lib:New(descriptor)
         -- active; ready again afterwards, since starting another is the obvious next thing.
         start = P.run and "done" or "ready",
         measureA = a, measureB = b, finish = fin,
-        report = review("report"), dump = review("dump"),
+        report = review("report"),
         -- Its own state, not "ready": it sits outside the linear progression and the panel colors
         -- it separately, so it never reads as the next step to take. Only offered while there is
         -- actually a run to abandon — after `finish` the run is saved and there is nothing left to
@@ -1053,7 +1052,7 @@ function lib:New(descriptor)
     local row = (slash and slash.FormatRow)
       or function(c, dsc) return ("%s \226\128\148 %s"):format(tostring(c), tostring(dsc)) end
     return {
-      ("usage: |cFFFFFF00%s perf <start||measure||finish||cancel||report||dump||show||hide||toggle>|r")
+      ("usage: |cFFFFFF00%s perf <start||measure||finish||cancel||report||show||hide||toggle>|r")
         :format(s) .. " \226\128\148 or just click the panel",
       "  " .. row("start [label]",
         "begin a run; zeroes the counters and records who and where you are"),
@@ -1066,9 +1065,7 @@ function lib:New(descriptor)
       "  " .. row("cancel",
         "abandon a run in flight \226\128\148 discards it unsaved and restores the addon"),
       "  " .. row("report",
-        "print the summary; opens the log window if it is hidden"),
-      "  " .. row("dump",
-        "render the run as one line of JSON in the log, for pasting somewhere"),
+        "print the summary and the JSON line to copy; opens the log window if hidden"),
       "  " .. row("show / hide / toggle",
         "the step panel \226\128\148 hiding it never touches the run"),
     }
@@ -1147,19 +1144,19 @@ function lib:New(descriptor)
       .. "to read it, `/reload` to flush it to SavedVariables")
   end
 
+  -- ONE STEP, TWO ARTIFACTS. `dump` was a verb and a panel step of its own until 2026-09-09. Both
+  -- halves go to the same log, both describe the same finished run, and the perf-analysis workflow
+  -- asks for BOTH -- so splitting them was a second click, a second thing to remember, and a run
+  -- reported without its dump was the easy mistake to make.
+  --
+  -- The summary first and the JSON last, deliberately: the summary is what a person reads and the
+  -- JSON is what they copy, and a copy-paste starts at the bottom of the window.
   function SUBS.report()
     showLog()
-    for _, line in ipairs(P.FormatReport(P.BuildRecord(P.label))) do P.Log(line) end
+    local record = P.BuildRecord(P.label)
+    for _, line in ipairs(P.FormatReport(record)) do P.Log(line) end
+    P.Log(lib.EncodeJSON(record))
     P.MarkReviewed("report")
-  end
-
-  -- Writes the JSON to the log, NOT a popup. The log is the window you already have open and can
-  -- scroll; popping a modal over the game for something you may only want to glance at is the wrong
-  -- default.
-  function SUBS.dump()
-    showLog()
-    P.Log(lib.EncodeJSON(P.BuildRecord(P.label)))
-    P.MarkReviewed("dump")
   end
 
   --- Phase summary plus the usage. Bare `<slash> perf` IS the entry point: the panel's first row

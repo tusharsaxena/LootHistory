@@ -10,7 +10,7 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 4
+local PANEL_MINOR = 5
 -- Paired on the PROBE's minor as well as the panel's own. The panel counter alone is not enough:
 -- two vendored copies can ship the same panel minor over different Perf.lua minors, and then the
 -- higher probe wins the LibStub race while the first-loaded copy's panel stays attached to it —
@@ -63,7 +63,6 @@ local STEPS = {
   { key = "measureB", string = "STEP_MEASURE_B", command = "perf measure b" },
   { key = "finish",   string = "STEP_FINISH",    command = "perf finish"    },
   { key = "report",   string = "STEP_REPORT",    command = "perf report"    },
-  { key = "dump",     string = "STEP_DUMP",      command = "perf dump"      },
   -- Outside the linear progression: clickable for as long as there is a run to abandon, and
   -- doubles as nothing once there is not — an live-looking button that discards nothing is just a
   -- way to worry someone.
