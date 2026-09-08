@@ -48,12 +48,13 @@ badge and any count quoted in the docs must agree with it.
 - MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
 - MediaSetup: with no library there is no art and no face, and that is not an error
 
-### test_envsetup.lua (9)
+### test_envsetup.lua (10)
 
 - EnvSetup: NS.Meta asks about THIS addon's folder, not its title or its slash prefix
 - EnvSetup: NS.Meta degrades to nil when the client exposes no manifest reader
 - EnvSetup: NS.Version prefers the TOC over this addon's own constant
 - EnvSetup: NS.Version falls back to this addon's own constant
+- EnvSetup: the fallback constant is the version LootHistory.toc ships
 - EnvSetup: NS.Zone answers two strings
 - EnvSetup: an absent zone reads as "", which storage buckets with nil
 - EnvSetup: NS.PlayerMapID answers the map id
@@ -799,7 +800,7 @@ badge and any count quoted in the docs must agree with it.
 |-------|------:|
 | test_constants.lua | 25 |
 | test_mediasetup.lua | 11 |
-| test_envsetup.lua | 9 |
+| test_envsetup.lua | 10 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
@@ -824,4 +825,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 2 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **706** |
+| **Total** | **707** |
