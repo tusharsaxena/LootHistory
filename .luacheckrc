@@ -6,12 +6,12 @@ codes = true
 -- byte copy of the library's testkit/, linted in LibKa0s as source, so linting the copy as well
 -- would report every finding twice and would let the copy drift green while the original went red
 -- -- the one state tests/test_vendor_sync.lua exists to forbid. Everything else under tests/ is
--- this repo's own and is linted (lint-§1).
+-- this repo's own and is linted (lint.md).
 -- Under docs/ only the FROZEN evidence bundles are excluded. A blanket docs/ exclude would
 -- silently drop any Lua a future doc directory carries out of the gate.
 exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/_kit/" }
 
--- NO TOP-LEVEL `ignore`, and none is coming back (lint-§1, `M4-11`). This file carried
+-- NO TOP-LEVEL `ignore`, and none is coming back (lint.md, `M4-11`). This file carried
 -- `ignore = { "212/self", "212/event", "211/addonName" }` until `M4c-06`. A top-level ignore reaches
 -- EVERY linted file -- 58 of them when it was removed -- so it silenced those codes in every file
 -- that has no business producing them as well as in the thirteen that earn them, and that reads as
@@ -85,7 +85,7 @@ files["tests/"] = {
 }
 
 -- ---------------------------------------------------------------------------
--- The narrowed 212s (lint-§1, `M4c-06`)
+-- The narrowed 212s (lint.md, `M4c-06`)
 -- ---------------------------------------------------------------------------
 --
 -- Every stanza below names ONE file, and every entry names the code AND the variable, in luacheck's
