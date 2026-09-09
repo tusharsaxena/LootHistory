@@ -19,6 +19,61 @@ Three fields on that ctx are this addon's and outlive a render: **`ctx._priHost`
 
 If `LibKa0s-Options-1.0` is missing, `settings/OptionsSetup.lua:54` publishes a **no-op page registry** rather than erroring: every member `settings/Panel.lua` reaches for still answers, and `/lh config` prints the shared `NS.LIBKA0S_MISSING` cause with "so the settings panel is unavailable." appended.
 
+## What each tab covers
+
+The page-granularity summary, moved here out of README.md when documentation-§1 made `## Usage` prose-only. Settings live at **Settings ▸ AddOns ▸ Ka0s Loot History** (or `/lh config`); everything applies to the whole account, and every option can also be read and written from chat with `/lh get` and `/lh set` (out-of-range numbers are clamped, invalid choices rejected). The finer tree — how each of these is built — is the rest of this file.
+
+| Tab | Covers |
+|---|---|
+| **Master controls** | The addon as a whole: recording on/off, when the window may be on screen, master scale and alpha, frame lock, the debug console, reset position, reset all settings |
+| **Capture** | What gets recorded: minimum quality, currency, quest items, and the per-source on/off picker |
+| **AH Price** | Where item values come from: the AH pricing master toggle and the ranked price-source table |
+| **Interface** | How much room it takes: window scale, row height, minimap button |
+| **History** | What is kept and how to be rid of it: retention, the storage readout, purge |
+| **Filters** | Items and currencies you never, or always, want tracked: blacklist, whitelist, currency blacklist |
+
+**Master controls** — the addon as a whole
+
+* **Enable Loot History** — the master on/off switch for recording. Turn it off and nothing new is recorded; your existing history stays, and the window still works.
+* **General visibility** — when the History window is allowed on screen at all: **Always**, **Only in combat**, **Only out of combat**, or **Never**. It never opens the window for you — it only stops it opening, and closes it when the rule stops allowing it.
+* **Master scale** / **Master alpha** — size and opacity for *everything* the addon draws, the History window and the export window alike. **Window scale** on the Interface tab is the History window's own and multiplies on top, so the relationship you set between that window and the rest of your UI survives a change here.
+* **Lock frame** — stop the History window and the export window being dragged.
+* **Debug console** — show or hide the on-screen debug console. Session-only; resets on reload.
+* **Reset position** — put the History window back in the middle of the screen. Nothing else changes.
+* **Reset all settings** — the big one: wipes the history, restores every setting, empties the filter lists, and puts the window back where it started. Asks first. (The `/lh resetall` command is the *smaller* action — settings and filter lists only, history untouched.)
+
+**Capture** — what gets recorded
+
+* **Minimum quality** — only record items at or above this quality (default **Common**). Raising it never removes items you've already recorded.
+* **Record currency** — record looted currency (Valorstones, crests, and the like) as Currency rows. Obeys **Record data from**; ignores the quality threshold.
+* **Exclude quest items** — skip the temporary items you pick up during quests. **On by default**; uncheck it to record them too.
+* **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here.
+
+**AH Price** — where item values come from
+
+* **Enable AH pricing** — the master on/off switch for reading prices from Auctionator, TSM, and OribosExchange. Turn it off and every drop's value falls back to its vendor sell price.
+* **Price sources** — one table listing every price your installed addons can supply. **Tick** a source to collect its price at loot time *and* enter it into the ranking; the highest-ranked source you have a price for is the value shown. **Drag a ticked source by the handle on its left** to re-rank it. Each row shows the addon, the price module (with an **ⓘ** explaining what it means), a green/red tick, and a status — *Collecting data*, *Not collecting data*, or *Addon not installed*. Ticked sources sort to the top, the ones you don't collect fall below them, and anything whose addon isn't installed drops to the bottom, dimmed.
+
+**Interface** — how much room it takes
+
+* **Window scale** — resize the History window from 0.6× to 1.6×, on top of **Master scale**. Its position and size are remembered separately from this.
+* **Row height** — how tall one row of the History table is, from 14 to 28 pixels (default **18**). Lower fits more rows on screen.
+* **Hide minimap button** — show or hide the minimap button. Left-click it to open the window, right-click for settings.
+
+**History** — what is kept, and how to be rid of it
+
+* **Keep history for** — how long to keep records. Older ones are cleared out once per session; choose **Always** to keep everything (default **30 days**).
+* A live readout of how many items you have collected, over how many days, and roughly how much space they take.
+* **Purge history…** — delete every recorded item, and nothing else. Asks first.
+
+**Filters** — items you never, or always, want tracked
+
+Three lists, one on screen at a time: **Blacklist**, **Whitelist** and **Currencies**.
+
+* **Blacklist** — items you never want tracked. Add an item by its id (or shift-click an item link into the box). This is point-in-time: once an id is blacklisted, future loots of it are skipped and never recorded, but rows you've *already* recorded are left exactly where they are — editing the list doesn't touch stored history. Delete a row manually if you want it gone.
+* **Whitelist** — items you always want tracked, even if they'd normally be skipped (below your quality threshold, from a muted source, or a quest item). While an id is whitelisted, every future loot of it is recorded as a normal row, bypassing those gates. Removing the id afterward only stops *future* loots from bypassing the gates again — rows it already added stay put. Adding an item to one list removes it from the other; an id is never on both.
+* **Currencies** — currency ids you never want recorded, on the same point-in-time terms.
+
 ## `NS.Schema.Schema` is the single source of truth
 
 `settings/Schema.lua` declares every option as a row in one flat array. Each row:

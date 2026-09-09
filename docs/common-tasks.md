@@ -48,8 +48,8 @@ ordered list, it is a **carve-out**, not a row — see the carve-out rules below
 ### Add a slash command
 
 Append to `NS.COMMANDS`. The dispatch in `settings/Slash.lua` **walks `NS.COMMANDS`** rather than
-naming verbs, precisely so a new entry needs no second edit. Regenerate the README's command table
-with `/wow-addon:sync-docs`.
+naming verbs, precisely so a new entry needs no second edit. Nothing else needs editing: the README
+carries no command table, and `/lh help` prints the list from `NS.COMMANDS`.
 
 ### Add a locale string
 
