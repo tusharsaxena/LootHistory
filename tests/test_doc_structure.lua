@@ -3,23 +3,24 @@
 -- WHAT IT PROVES. Three things a reader can check and nothing else in this repository does:
 -- that docs/ARCHITECTURE.md still carries the ten sections `documentation-§3` names for the hub;
 -- that every markdown link pointing INTO one of that file's headings lands on a heading that
--- exists; and that README.md carries the two player-facing history surfaces `documentation-§1`
--- allows — `## What's new in <X.Y.Z>` and `## Version History` — and no third.
+-- exists; and that README.md carries the ONE player-facing history surface `documentation-§1`
+-- allows — `## Version History` — and no second.
 --
 -- WHY THE THIRD CASE EXISTS. This README grew a `## Unreleased` section holding two fixes that had
 -- landed since the 1.2.0 tag. Nothing about it was dishonest, and that is the trap: a third history
 -- surface is useful right up to the moment someone bumps the version, rolls the release notes into
--- `## What's new` and `## Version History` from the git log the way `wow-addon:bump-version` does,
--- and leaves the third one behind. Then the repository states two versions of what shipped and the
--- stale one is the one at the top of the page. §1 gives the history exactly two homes for that
+-- `## Version History` from the git log the way `wow-addon:bump-version` does, and leaves the other
+-- one behind. Then the repository states two versions of what shipped and the
+-- stale one is the one at the top of the page. §1 gives the history exactly one home for that
 -- reason, and §3 adds that `docs/` is not where a forbidden root doc goes to live — so the check
 -- covers the whole tracked markdown set, not just README.md.
 --
 -- The section removed here lost nothing. Both bullets describe commits on this branch (the chart
--- pools recycling, and the RecordAdded repaint coalescing), and `## What's new` is defined by §1 as
--- "everything since the last `x.y.z`-release tag" — which is where the next bump reads them from.
+-- pools recycling, and the RecordAdded repaint coalescing), and the next bump reads everything since
+-- the last `x.y.z`-release tag out of the git log anyway.
 --
--- WHAT IT DOES NOT DO, DELIBERATELY. It does not check that `## What's new` names the TOC's version,
+-- WHAT IT DOES NOT DO, DELIBERATELY. It does not check that the top `## Version History` row names
+-- the TOC's version,
 -- and it does not check heading ORDER. The first is `wow-addon:bump-version`'s job and pinning it
 -- here would redden the tree between the bump's own two edits; the second would go red on every
 -- ordinary addition, which is a gate with a standing reason to be switched off.
@@ -58,7 +59,6 @@ local FORBIDDEN_HISTORY = {
 -- the SHOULD and MAY sections — omit one only when it would be empty, but when present the relative
 -- order MUST hold.
 local README_ORDER = {
-  { pattern = "^What's new in ",       required = true,  name = "## What's new in <X.Y.Z>" },
   { pattern = "^Screenshots$",          required = false, name = "## Screenshots" },
   { pattern = "^Usage$",                required = true,  name = "## Usage" },
   { pattern = "^How .+ works?$",        required = true,  name = "## How <it> works" },
@@ -169,16 +169,13 @@ test("every anchor pointing into docs/ARCHITECTURE.md resolves to a heading", fu
     .. table.concat(dead, ", "))
 end)
 
-test("the player-facing history has the two homes documentation-§1 allows, and no third", function()
-  local whatsNew, versionHistory = 0, 0
+test("the player-facing history has the ONE home documentation-§1 allows, and no second", function()
+    local versionHistory = 0
   for _, h in ipairs(headings(README)) do
     if h.level == 2 then
-      if h.text:match("^What's new in ") then whatsNew = whatsNew + 1 end
       if h.text:lower() == "version history" then versionHistory = versionHistory + 1 end
     end
   end
-  assertTrue(whatsNew == 1, README .. " must carry exactly one `## What's new in <X.Y.Z>`; found "
-    .. whatsNew)
   assertTrue(versionHistory == 1, README .. " must carry exactly one `## Version History`; found "
     .. versionHistory)
 

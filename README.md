@@ -33,13 +33,6 @@ Every item is filed under a source:
 
 Most items are filed straight from what the game reported, and those are marked **Certain**. When nothing says where an item came from, it is still recorded — filed under **Other** and marked **Inferred** rather than dropped on the floor. The distinction is on every row, so you always know which kind you are reading.
 
-## What's new in 1.2.0
-
-*   Currencies are recorded now. Valorstones, crests and the rest get their own history rows, attributed to the same sources items are, with a **Record currency** master toggle over the lot. Each carries its quality tier, so the **Name** and **Quality** cells color the way item rows do, and hovering one shows the in-game currency tooltip. They can be blacklisted like items.
-*   Insights has been reorganized into **Loot** and **Currency** sections, with a per-character companion chart beside each breakdown, a more distinct source palette and legends on the charts. The Currency section splits currencies by type, source, character and day.
-*   Four new sources: **Bonus Roll**, **Craft**, **Roll** and **Refund**. Each can be muted on its own, alongside the ones that were already there.
-*   The AI-report export is gone. **Export to CSV** stays, for the History rows and the Insights summary both.
-
 ## Screenshots
 
 **_History browser_**
