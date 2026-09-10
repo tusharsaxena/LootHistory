@@ -1,10 +1,10 @@
 # Ka0s Loot History
 
-![WoW](https://img.shields.io/badge/WoW-Midnight_12.0.7-purple)
+![WoW](https://img.shields.io/badge/WoW-Midnight_12.1.0-purple)
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-719%2F719_passing-green)
+![Tests](https://img.shields.io/badge/Tests-720%2F720_passing-green)
 
 Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot, or switch to the **Insights** tab to see the same log broken down by source, value, quality and more.
 
@@ -114,6 +114,7 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.3.0 | 2026-09-10 | **General** and **Filters** are now tab strips, with price sources reordered by drag and a **Master controls** group<br>Fixed the auction-house status colors rendering muted instead of saturated<br>Attribution wiring and the lifecycle kick gained guard rails against a half-built window<br>The saved-data byte estimate now counts every field it declares<br>Updated for game patch 12.1.0<br>_Verified against lint, tests and complexity. This addon ships no `tests/perf.lua`, so the perf suite was skipped rather than measured — the release gate covered three suites, not four._ |
 | 1.2.0 | 2026-07-26 | **Currency capture** — currencies recorded as their own rows with a dedicated Insights section, in-game tooltips, quality colors, and blacklisting<br>**Insights dashboard overhaul** — Loot/Currency sections, per-character companion charts, refreshed source palette and legends<br>**More loot sources** — Bonus Roll, Craft, Roll, Refund<br>**Removed Export to AI** — Export to CSV remains for History and Insights |
 | 1.1.0 | 2026-07-20 | **Export to AI** report (Claude — Desktop, Code, and Web); **auction-house values** via Auctionator / TSM / OribosExchange, shown in a new AH Price column with its own settings page; **Blacklist / Whitelist** item filters; a **shared** History/Insights filter bar with new **Bound** and **Sub-Type** filters and **Group by Type**; Insights valued at market price. Plus settings-panel polish — the scrollbar no longer shifts the layout between pages, and Reset All / Purge are no longer clipped. |
 | 1.0.2 | 2026-07-12 | **Exclude quest items** — a new opt-out setting (on by default) that skips the temporary items you pick up during quests. Uncheck it to record them too. |

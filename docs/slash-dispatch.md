@@ -57,7 +57,7 @@ A **bare `/lh` prints help on that path too** (slash-commands-§3), listing the 
 `Sl:PrintHelp` prints the header from `Dispatcher:HelpHeader()` (`libs/LibKa0s/Slash.lua:462`) — version, an **em dash**, then the alias clause composed from the descriptor's `slashAliases`:
 
 ```
-[LH] v1.2.0 — slash commands (|cFFFFFF00/loothistory|r is an alias for |cFFFFFF00/lh|r)
+[LH] v1.3.0 — slash commands (|cFFFFFF00/loothistory|r is an alias for |cFFFFFF00/lh|r)
 ```
 
 then one prefixed row per `NS.COMMANDS` entry, each **indented two spaces** so it sits under that header (`Sl:HelpRows`, `libs/LibKa0s/Slash.lua:456`). A row is a gold command, an em dash with a **single space either side**, and a white description — upper-case hex, because that is the library's:
