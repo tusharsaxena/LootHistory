@@ -8,7 +8,7 @@ Ka0s Loot History is a WoW addon with two responsibilities: **capture** every it
 
 Capture is passive and silent: the authoritative "item received (self)" signal is `CHAT_MSG_LOOT`, and peripheral events stamp a short-lived source context the collector consumes (see [data-flow.md](data-flow.md)). The window is a non-secure standalone frame, independent of the Blizzard options UI; the settings panel is a separate Blizzard Settings canvas. The message contract between collector, database, browser, analytics, and settings is documented in [architecture.md](ARCHITECTURE.md).
 
-Target client: WoW 12.0.7 (Midnight), Retail-only (`## Interface: 120007`). Mainline branch: `master`. English-only.
+Target client: WoW 12.1.0 (Midnight), Retail-only (`## Interface: 120100`). Mainline branch: `master`. English-only.
 
 Display name in the addon list and the Settings panel: `Ka0s Loot History`. The folder, addon ID, slash commands (`/lh`, `/loothistory`), and saved-variable namespace (`LootHistoryDB`) stay unprefixed `LootHistory` for ergonomics. Data and settings live account-wide in `LootHistoryDB.global`.
 

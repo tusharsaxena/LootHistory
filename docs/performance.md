@@ -51,7 +51,7 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 `NewTicker` appears nowhere in the third's output.
 
 **Game events: thirteen registrations, thirteen rows.** The first grep returns **fifteen** lines;
-two of them, `modules/Attribution.lua:347-348`, are the pattern names inside a comment. The rows are
+two of them, `modules/Attribution.lua:351-352`, are the pattern names inside a comment. The rows are
 in the order the grep prints them, so the two can be held side by side.
 
 | Event | Registered at | Work done per fire |
@@ -59,16 +59,16 @@ in the order the grep prints them, so the two can be held side by side.
 | `PLAYER_ENTERING_WORLD` | `core/LootHistory.lua:40` | Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
 | `CHAT_MSG_LOOT` | `modules/Collector.lua:213` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:111`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:120` having allocated nothing. A **kept** line then runs `NS.Compat.GetItemExtras` (`:123`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:124`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
 | `CHAT_MSG_CURRENCY` | `modules/Collector.lua:214` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
-| `LOOT_OPENED` | `modules/Attribution.lua:339` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
-| `ENCOUNTER_START` | `modules/Attribution.lua:340` | Two field writes, once per encounter. |
-| `ENCOUNTER_END` | `modules/Attribution.lua:341` | Clears them, once per encounter. |
-| `CHALLENGE_MODE_START` | `modules/Attribution.lua:342` | Two field writes, once per key. |
-| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:343` | Clears them, once per key. |
-| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:344` | Out of combat by construction. |
-| `QUEST_TURNED_IN` | `modules/Attribution.lua:345` | One context stamp. |
-| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:350` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1281` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1141`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1282` | The other edge of the same handler, same cost. |
+| `LOOT_OPENED` | `modules/Attribution.lua:343` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
+| `ENCOUNTER_START` | `modules/Attribution.lua:344` | Two field writes, once per encounter. |
+| `ENCOUNTER_END` | `modules/Attribution.lua:345` | Clears them, once per encounter. |
+| `CHALLENGE_MODE_START` | `modules/Attribution.lua:346` | Two field writes, once per key. |
+| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:347` | Clears them, once per key. |
+| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:348` | Out of combat by construction. |
+| `QUEST_TURNED_IN` | `modules/Attribution.lua:349` | One context stamp. |
+| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:354` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1285` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1141`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1286` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** The third
 grep returns **eight** lines: one is the pattern name in a comment (`core/Util.lua:238`), two are
@@ -82,7 +82,7 @@ undercounts.
 | `C_Timer.After(5, …)` | `core/LootHistory.lua:56` | Login-deferred retention prune + the first warbound repair pass. Once per session. |
 | `C_Timer.After(20, …)` | `core/LootHistory.lua:60` | The second warbound repair pass, once the item cache is warm. Once per session. |
 | `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:71` | `NS.Item.LoadItem`'s item-cache retry — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:214`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; `settings/Panel.lua:202` passes one, to relabel a filter-list row once the client has cached the name — an options panel the player opened by hand. |
-| `C_Timer.After(delay, …)` | `core/Util.lua:242` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua:1278`, `modules/Analytics.lua:656`, `settings/Panel.lua:171` — so the ceiling is three pending timers at once, one per surface, and only while that surface is subscribed. |
+| `C_Timer.After(delay, …)` | `core/Util.lua:242` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua:1282`, `modules/Analytics.lua:656`, `settings/Panel.lua:171` — so the ceiling is three pending timers at once, one per surface, and only while that surface is subscribed. |
 | `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:181` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
 
 The message bus (`RegisterMessage`, `modules/Analytics.lua`, `modules/Browser.lua`,
@@ -99,7 +99,7 @@ window is open" described exactly the case that mattered and read as though it d
 
 The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
 was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
-per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1278`,
+per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1282`,
 `modules/Analytics.lua:656` and — for the History tab's storage readout, which walks the whole
 history to estimate bytes — `settings/Panel.lua:171`. `HistoryChanged` stays immediate, because a
 delete or a prune is one deliberate action. Issue #27.

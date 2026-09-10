@@ -4,7 +4,7 @@ Manual end-to-end smoke tests for **Ka0s Loot History** (v1.3.0). Run before cla
 change works, before tagging a release, and after refreshing `libs/` or bumping `## Interface:`. The
 headless harness (`lua tests/run.lua` + `luacheck .`, see [testing.md](testing.md)) covers the pure
 logic; everything below can only be verified **in-game** on the live client — **Retail (Midnight
-12.0.7 / Interface 120007)**.
+12.1.0 / Interface 120100)**.
 
 Companion docs:
 

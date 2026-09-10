@@ -154,11 +154,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Chat output: one shared secret-safe printer
 
 - Every chat line goes through the single shared printer `NS.Print` — LibKa0s-Core-1.0's, published
-  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:97`,
-  `:103`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
+  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:184`,
+  `:190`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
   **never** the global `print()`, **never** a hand-written `NS.PREFIX` tag, **never**
   `..`-concatenated args. `NS.Print` prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes
-  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:92` —
+  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:175` —
   so a combat-protected "secret" value logs as `<secret>` instead of raising (events-frames-taint-§8).
 - **`core/CoreSetup.lua` must load before every file that captures the printer at file scope**
   (`modules/Browser.lua`, `settings/Schema.lua`, `settings/Slash.lua`, `settings/Panel.lua` all do
@@ -181,7 +181,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`core/DebugLogSetup.lua:135`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:436`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:441`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:87`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
@@ -284,9 +284,9 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1040`), whose combat gate lives in the library
-  (`libs/LibKa0s/Options.lua:875`) and now also fires on a page's `OnShow`
-  (`libs/LibKa0s/Options.lua:678`), so reaching a page straight from the Blizzard AddOns sidebar is
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1055`), whose combat gate lives in the library
+  (`libs/LibKa0s/Options.lua:1000`) and now also fires on a page's `OnShow`
+  (`libs/LibKa0s/Options.lua:803`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
   pattern (the standalone browser window follows the separate standalone-windows non-secure pattern).
 
