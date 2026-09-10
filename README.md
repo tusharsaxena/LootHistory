@@ -6,8 +6,6 @@
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
 ![Tests](https://img.shields.io/badge/Tests-719%2F719_passing-green)
 
-![Logo](https://media.forgecdn.net/attachments/1788/918/loothistory-logo-jpg.jpg)
-
 Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot, or switch to the **Insights** tab to see the same log broken down by source, value, quality and more.
 
 The history is account-wide. Every character writes to and reads from the one log, and it survives reloads and logouts. You choose a minimum quality; anything below it is ignored.
@@ -37,25 +35,19 @@ Most items are filed straight from what the game reported, and those are marked 
 
 **_History browser_**
 
-![History browser](https://media.forgecdn.net/attachments/1804/899/loothistory-screenshot-01-png.png)
+![History browser](https://media.forgecdn.net/attachments/1936/681/loothistory-screenshot-01-png.png)
 
-![History browser](https://media.forgecdn.net/attachments/1804/900/loothistory-screenshot-02-png.png)
+![History browser](https://media.forgecdn.net/attachments/1936/682/loothistory-screenshot-02-png.png)
 
-**_Insights_**
+**_Insights panel_**
 
-![Insights](https://media.forgecdn.net/attachments/1804/901/loothistory-screenshot-03-png.png)
+![Insights panel](https://media.forgecdn.net/attachments/1936/683/loothistory-screenshot-03-png.png)
 
-![Insights](https://media.forgecdn.net/attachments/1804/902/loothistory-screenshot-04-png.png)
-
-**_Settings Panel_**
-
-![Settings Panel](https://media.forgecdn.net/attachments/1804/903/loothistory-screenshot-05-png.png)
-
-![Settings Panel](https://media.forgecdn.net/attachments/1804/904/loothistory-screenshot-06-png.png)
+![Insights panel](https://media.forgecdn.net/attachments/1936/684/loothistory-screenshot-04-png.png)
 
 ## Usage
 
-Install it, log in, and it is already recording; there is nothing to set up first. Left-click the minimap button to open the History window, or type `/lh toggle` (`/lh show` and `/lh hide` if you want only the one direction). Right-click that same button goes straight to the settings, and if you would rather not have the button at all, it can be hidden. Drag the window by its title bar to place it, lock it once you are happy, and use **Reset position** if it ever ends up somewhere you cannot reach. A fresh install has nothing in it to look at, which makes the addon hard to judge, so `/lh test` loads a sample dataset into the table and Insights. Run it again to clear it. It is never saved.
+On the first run after installing, log in, and the addon is already recording; there is nothing to set up first. Left-click the minimap button to open the History window, or type `/lh toggle` (`/lh show` and `/lh hide` if you want only the one direction). Right-click that same button goes straight to the settings, and if you would rather not have the button at all, it can be hidden. Drag the window by its title bar to place it, lock it once you are happy, and use **Reset position** if it ever ends up somewhere you cannot reach. A fresh install has nothing in it to look at, which makes the addon hard to judge, so `/lh test` loads a sample dataset into the table and Insights. Run it again to clear it. It is never saved.
 
 Click a column header to sort. The filter bar narrows what you are looking at — quality, type, source, zone, character, a name search — and **Group by** collapses rows together. That bar is shared with Insights, so the table and the charts always show the same slice of your loot rather than quietly disagreeing about which loot is under discussion. Insights takes that same slice and breaks it down by source, value, quality and character, with a Currency section of its own. When you have a view you like, **Save** stores its group, sort and filters as your account-wide default; **Clear** returns to that view and **Reset** drops the saved view back to stock. Sorting and filters only persist between sessions if you pressed Save.
 
