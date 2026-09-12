@@ -14,7 +14,7 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
 -- Stand a TOC reader up for the duration of `fn`, recording what it was asked about.
 --
--- The mock deliberately does NOT stub `C_AddOns` (tests/_kit/mock_base.lua:183 says why), so out of
+-- The mock deliberately does NOT stub `C_AddOns` (tests/_kit/mock_base.lua:1047 says why), so out of
 -- game this addon has no manifest to read and every metadata call answers nil. That absence is what
 -- makes the fallback cases below honest, and it is why the two cases that need a readable TOC build
 -- one here rather than asserting a fixture that does not exist.
@@ -71,7 +71,7 @@ end)
 -- never asserted is that the constant is the string the addon actually ships.
 --
 -- Read off disk rather than through NS.Meta: out of game the mock deliberately exposes no manifest
--- reader (tests/_kit/mock_base.lua:183, and `withTOC` above stands one up only for the two cases
+-- reader (tests/_kit/mock_base.lua:1047, and `withTOC` above stands one up only for the two cases
 -- that need it), and a stub here would feed the assertion a version this file typed. The CR strip
 -- is the CRLF pin in .gitattributes; tests/_kit/loader.lua:120 strips it the same way, for the same
 -- reason.
