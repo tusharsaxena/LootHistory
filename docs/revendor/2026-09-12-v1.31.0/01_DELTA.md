@@ -118,3 +118,39 @@ testkit/run-automated-tests.sh` → `100755`).
 lua tests/run.lua   # 722 passed, 0 failed, 0 skipped, 722 total
 luacheck .          # 0 warnings / 0 errors in 59 files
 ```
+
+## Addendum, 2026-09-12: the v1.31.0 tag was re-cut before release
+
+This bundle was written against the first cut of the `v1.31.0` tag (commit `30db4ed`). Before anything
+was pushed, a review of that release found defects in the kit-17 fakes, and LibKa0s re-cut the tag on the
+fixed tree: **`v1.31.0` now points at `e7e1962`** (`git -C ../LibKa0s rev-parse v1.31.0^{commit}` →
+`e7e196289c7497e9ba072252a4beaef71519d10f`). Commit `829dab7` (*Re-vendor the reviewed LibKa0s v1.31.0
+(tag moved to e7e1962)*) follows this bundle. It copied both payloads whole from the re-cut tag, and the
+vendor-sync cases pass against it.
+
+What the re-cut changed, relative to the tables above:
+
+| File | First cut | Re-cut |
+|---|---|---|
+| `Perf.lua` | minor 10 (unchanged) | **minor 11**: `P.Save` traces the ring trim once past its cap (debug-logging-§8) |
+| `OptionsWidgets.lua` | minor 15 | minor 15 (review fixes land inside the unreleased minor: `pairWith` keyed by `row.path or row.field`; a bound row's `disabledIf` reads through `row.get`) |
+| `OptionsCompose.lua` | minor 4 | minor 4 (unchanged surface) |
+| kit (`tests/_kit/`) | revision 17 | revision 17 (review fixes: repeating-timer delay no longer drifts; the nameless `NewAddon` path is exactly one table argument; the timer handle field is AceTimer's own `cancelled`, and `NewTimer` handles answer `IsCancelled()`; dispatch survives a handler error; `ADDON_LOADED` after login enables a load-on-demand addon; the AceEvent library object carries the message API) |
+
+`829dab7` touches exactly these: `libs/LibKa0s/Perf.lua`, `OptionsWidgets.lua` and `OptionsCompose.lua`,
+plus `tests/_kit/mock_base.lua` and `tests/_kit/README.md`. The vendored `Perf.lua` reads
+`local MAJOR, MINOR = "LibKa0s-Perf-1.0", 11` and `tests/_kit/framework.lua` reads `Kit.VERSION = 17`.
+
+So three files in `LibKa0s/` move in this release, not two. Any "the ring trim is not traced" finding
+recorded above is resolved upstream by Perf minor 11.
+
+**Perf minor 11 changes nothing this addon runs.** LootHistory declines Perf: its `performance-§12`
+no-combat-path exemption is a register row in `docs/ARCHITECTURE.md` (3e and `02_CANDIDATES.md` above),
+and no file in `core/`, `modules/`, `settings/`, `defaults/` or `locales/` asks LibStub for
+`LibKa0s-Perf-1.0`. The new minor is vendored only because the payload is copied whole.
+
+The gate was re-run on the re-cut payload:
+
+| Point | `lua tests/run.lua` | `luacheck .` |
+|---|---|---|
+| At `829dab7` | 724 / 724. In a detached worktree, 722 pass and the two vendor-sync compares skip because there is no `../LibKa0s` sibling there. `libs/` and `tests/_kit/` are byte-identical from `829dab7` to the branch tip, where both compares pass against the checkout | 0 / 0 |
