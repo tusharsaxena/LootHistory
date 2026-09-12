@@ -202,7 +202,7 @@ Every setting mutation — panel widget and `/lh set` alike — routes through `
 2. **write** — `WritePath` into `NS.db.global`, storing a `deepcopy` of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`; `Schema.lua:355`). `sessionOnly` rows skip this and apply through `row.set`.
 3. **onChange** — fire the row's hook. Most publish a `Ka0s_LootHistory_SettingsChanged` bus message; `windowScale`/`minimap.hide` reach into the Browser, `retentionDays` triggers `Database:PruneOld`.
 
-`Schema:Get` reads back from `NS.db.global` (`Schema.lua:380`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view, the `blacklist`/`whitelist`/`currencyBlacklist` id lists and the auction `priority` cascade are the deliberate carve-outs — they persist straight to `NS.db.global`, not through `Schema:Set`; see [schema.md](schema.md) and [common-tasks.md](common-tasks.md).)
+`Schema:Get` reads back from `NS.db.global` (`Schema.lua:380`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view and the auction `priority` cascade are the deliberate carve-outs. They persist straight to `NS.db.global`, not through `Schema:Set`. The `blacklist`/`whitelist`/`currencyBlacklist` id sets are a structural registry written only by `NS.Filters` (`architecture-§5`). See [schema.md](schema.md) and [common-tasks.md](common-tasks.md).)
 
 ## Combat-gated, lazily rendered body
 

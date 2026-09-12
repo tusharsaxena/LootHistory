@@ -139,12 +139,32 @@ per-row drag handle / tick / addon / price-module / enable-checkbox / status col
 [`schema.md`](schema.md). (The former per-tag `priorityDisabled` carve-out was
 removed — collection and priority are now the single `capture` flag.)
 
-`settings.window` (persisted position/size), `savedView` (the saved table view), `minimap`
-(LibDBIcon state), and the `blacklist`/`whitelist` item-id lists (managed by `NS.Filters`, surfaced
-in the settings panel's **Filters** tab) are storage/data state written straight to `NS.db.global`,
-**not** Schema rows and not routed through `Schema:Set` — an accepted carve-out (see Standards
-compliance, and [`schema.md`](schema.md)). Debug is session-only (`NS.State.debug`)
-and never persisted.
+`settings.window` (persisted position/size), `savedView` (the saved table view) and `minimap`
+(LibDBIcon state) are storage/data state written straight to `NS.db.global`, **not** Schema rows and
+not routed through `Schema:Set`. The `architecture-§5` row in
+[Documented deviations](#documented-deviations) covers `settings.window`, `savedView` and the auction
+cascade above; see [`schema.md`](schema.md). Debug is session-only (`NS.State.debug`) and never
+persisted.
+
+**The id filter sets are a structural registry** (`architecture-§5`). The player adds and removes
+ids, the defaults ship the sets empty, and no schema row or whole-value path names them, so they
+pass all three tests. They are written only by their named writer and carry no register row.
+
+- **Storage keys.** `NS.db.global.blacklist` and `NS.db.global.whitelist` (`{ [itemID] = true }`)
+  and `NS.db.global.currencyBlacklist` (`{ [currencyID] = true }`), declared empty in
+  `defaults/Global.lua:20-22`.
+- **Writer.** `NS.Filters` (`modules/Filters.lua`) is the only runtime writer. It holds the per-id
+  verbs (`AddBlacklist`, `AddWhitelist`, `RemoveBlacklist`, `RemoveWhitelist`,
+  `AddCurrencyBlacklist`, `RemoveCurrencyBlacklist`) and the reset verbs (`ClearList`, `ClearAll`).
+  The Filters tab, the Clear-all confirms and `Sl:CliResetAll` call it and never write the sets
+  themselves.
+- **Load pass.** None. The sets are seeded only by the AceDB defaults, and no `MIGRATIONS` step in
+  `core/Database.lua` touches them.
+
+**Reset all settings** (`Sl:ResetEverything`, `settings/Slash.lua:108`) also empties the sets,
+because it empties `db.global` wholesale. That is options-ui-§12's global reset for an addon with
+nothing profile-scoped, and `architecture-§5` does not count wholesale replacement as a registry
+write.
 
 ---
 
@@ -285,16 +305,13 @@ recorded as one register row. Audit bundles are frozen the day they are written;
 so where the two disagree the register is the current answer.
 
 The carve-outs below are separate: each was raised, resolved, and is **not** an open deviation.
-One was raised and **ratified (2026-07-17)**:
-the `blacklist` / `whitelist` item-id lists (issue #14) are persistent state managed outside
-`Schema:Set` — a fourth carve-out alongside `settings.window`, `savedView`, and
-`settings.windowScale`'s geometry sibling. The later `currencyBlacklist` (a currencyID-keyed,
-blacklist-only sibling) and the `settings.auction.priority` ordered cascade join the same class —
-a dynamic id-set or an ordered list has no fixed schema widget to express — all managed by
-`NS.Filters` / `NS.AuctionPrice` writing `NS.db.global` directly. A dynamic, unbounded id-set has no schema widget to
-express, so `NS.Filters` mutates `NS.db.global` directly, exactly as the pre-existing carve-outs do;
-it is accepted as the same class, and the standard's own definition was left unchanged. Recorded in
-[`schema.md`](schema.md) under the "Standards note".
+One was raised and **ratified (2026-07-17)**: the `blacklist` / `whitelist` item-id lists
+(issue #14) and, later, the currencyID-keyed `currencyBlacklist`, all managed outside `Schema:Set`
+by `NS.Filters`. Standard v2.43.0 settled that case. `architecture-§5` now calls a player-built id
+set a **structural registry**, which is compliant when it has one named writer. The three sets are
+named under [Settings schema](#settings-schema), and they left the register on 2026-09-12. The
+`settings.auction.priority` ordered cascade, `settings.window` and `savedView` remain in the
+`architecture-§5` register row. Recorded in [`schema.md`](schema.md) under the "Standards note".
 
 A second carve-out was raised and **ratified (2026-07-18)** for the AH-price integration: the
 third-party pricing-addon shims (`Auctionator` / `TSM_API` / `OEMarketInfo` presence + call
@@ -385,15 +402,26 @@ An audit reads this table, records these as accepted, and does not count them to
 **Re-check trigger** is the condition that *ends* the deviation, written so a reader can tell whether
 it has already fired. This table is **not a graveyard**: a row whose cited rule the standard has since
 changed — so the behavior is now mandated or permitted outright — is retired, not kept for history.
-Five such records are named below the table rather than carried in it.
+Six such records are named below the table rather than carried in it.
 
 | Rule | What differs | Why | Decided | Re-check trigger |
 |---|---|---|---|---|
-| `architecture-§5` | Five pieces of persistent state are written to `NS.db.global` directly rather than through `NS.Schema:Set`: `settings.window` geometry, `savedView`, the `blacklist` / `whitelist` item-id sets, `currencyBlacklist`, and the `settings.auction.priority` ordered cascade. | A dynamic, unbounded id-set and an ordered cascade have no fixed schema widget to express, so there is no row for `Set` to validate against. Owned by `NS.Filters` / `NS.AuctionPrice`; reasoned in [`schema.md`](schema.md) *Standards note* and in **Standards compliance** above. | 2026-07-17 | `options-ui` gains a set/list widget maker, or any of these five acquires a fixed schema row — at which point it moves back under the single write seam. |
+| `architecture-§5` | Three pieces of persistent state, none of them a schema row or registry membership, are written to `NS.db.global` directly rather than through `NS.Schema:Set`. **`settings.window`** geometry is written on drag-stop by `Browser:SaveWindow` (`modules/Browser.lua:105`) and cleared by `ResetWindow` (`:688`). **`savedView`** is written by `Browser:SaveView` / `ResetView` (`:670` / `:678`). The **`settings.auction.priority`** ordered cascade is written by `NS.AuctionPrice`'s `ReconcilePriority` / `MovePriorityWithin` (`modules/AuctionPrice.lua:124-180`) and by the Defaults refill in `P:RestoreDefaults` (`settings/Panel.lua:1011-1015`). | Window geometry a drag writes and a remembered view are the state `architecture-§5`'s **MUST NOT** says needs a row. The cascade is an order over a **fixed** member set, the `NS.Constants.AUCTION_KEYS` tags, which the player only reorders. Under v2.43.0 that makes it a **value**, not a registry, and no schema row type expresses a drag-reordered list, so there is no row for `Set` to validate against. Reasoned in [`schema.md`](schema.md) *Standards note*. The id filter sets left this row on 2026-09-12; see below. | 2026-07-17 | The schema gains a row type for an ordered list, and `settings.auction.priority` becomes a row written whole through `Schema:Set`; or `settings.window` or `savedView` acquires a schema row. Each moves that piece under the helper and narrows this row. The last one retires it. |
 | `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-analysis/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`performance.md`](performance.md), which names the per-event work for all thirteen registrations and all five one-shot timers, and states explicitly why `CHAT_MSG_LOOT` — the one handler that fires in combat and does real work on a kept line — stays inside (a): `Collector:ShouldRecord` gates the tooltip build and the price cascade, so a dropped line costs a match and a comparison. Criterion **(b)** is no longer claimed alongside them: it rested on calling that handler's work "one line", which it is not, and this addon has no harness with which to measure the difference. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. Closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22). | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
 | `options-ui-§12` | **Three reset controls, three blast radii**, where §12's opening sentence puts the **Reset all settings** control, the header **Defaults** button and `/lh resetall` behind **one** implementation. **Reset all settings** (Master controls) confirms and runs `Sl:ResetEverything` (`settings/Slash.lua:108`), which empties `db.global` wholesale — settings, the three id-lists, `savedView`, window geometry **and the recorded loot history**. The **Defaults** button (`P:RestoreDefaults`, `settings/Panel.lua:1008`) and the `resetall` verb (`Sl:CliResetAll`, `settings/Schema.lua:440`) reach the schema rows, the three id-lists and the auction cascade only, and never touch `history`. | §12's translation for an addon with **no profile section** is *empty the account-wide store wholesale*, and its own closing paragraph carves out an account-wide **record** as "a separate, separately-confirmed act — never folded into *reset settings*". This addon has both in **one** table: `db.global` holds the settings and the loot ledger, so the translation and the carve-out point opposite ways and the rule does not resolve itself. `/lh purge` is the separately-confirmed act for the ledger half. Re-pointing `resetall` — documented as non-destructive in README, `slash-dispatch.md` and `smoke-tests.md`, and the answer README gives to "reset my settings but keep the history" — at a history-destroying act is **data loss for anyone with the macro**, so it is a maintainer's call and not a refactor: raised at the v2 settings adoption and recorded rather than reconciled. Scope matrix in [`schema.md`](schema.md#reset-semantics). | 2026-09-02 | **The maintainer rules on one of the two reconciliations**, and either one ends this row: (a) all three route to `ResetEverything`, the slash verb confirm-gated like the button, with README / [`slash-dispatch.md`](slash-dispatch.md) rewritten and the behaviour break called out in the release notes; or (b) `options-ui-§12` grows the profile-less split this addon needs — a settings reset that spares an account-wide **record**, beside that record's own separately-confirmed purge. |
 | `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. Closed issue [**LIBKA0S-14**](https://github.com/tusharsaxena/LootHistory/issues/20). | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
 | `localization-§1` | This addon ships **English only**: the `NS.L` seam is exported and `locales/enUS.lua` ships, but no user-facing string routes through `NS.L` — every label, tooltip and message is a hardcoded English literal. | `localization-§3` names English-only as one of the routing SHOULD's **two terminal compliant states**, and names this row as what makes it terminal: without it the SHOULD is formally open and every audit re-files it, which is what has been happening. Both `localization` MUSTs are met unconditionally — the seam is exported with the key-returning fallback (`locales/enUS.lua:5`) and `enUS.lua` ships carrying no dead keys. The argument was written at `locales/enUS.lua:7-11` and calls itself "an accepted scope decision, not an oversight"; a comment is exactly what `documentation-§3` says does not ratify a decision, which is why `LH-48` in `docs/audits/2026-09-07/` filed it. This row is the ratification the comment was standing in for. | 2026-09-08 | **The first non-English locale file added to `locales/`.** That change routes the strings and retires this row. |
+
+**Narrowed on 2026-09-12: the id filter sets.** The `architecture-§5` row used to carry the
+`blacklist`, `whitelist` and `currencyBlacklist` sets as a fourth and fifth piece of state written
+outside `Schema:Set`. Standard v2.43.0 calls a collection the player adds members to and removes
+them from, which the defaults ship empty and no row or whole-value path can name, a **structural
+registry**. It also says a registry written only by its named writer and named load pass is
+compliant with no register row, and that a row existing only because the registry bypasses the
+helper is stale. `NS.Filters` is the sets' only runtime writer, and they have no load pass; both
+are named under [Settings schema](#settings-schema). The one other path that empties them,
+`Sl:ResetEverything`, replaces the account-wide store wholesale, which `architecture-§5` excludes
+from registry writes. The row keeps the three pieces that are still deviations.
 
 **Retired on 2026-09-08: the `sessionOnly` row kind.** The register carried the schema's
 `sessionOnly` row kind as an `architecture-§5` deviation, with the trigger *"the standard names a

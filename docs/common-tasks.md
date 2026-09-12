@@ -41,9 +41,10 @@ widget, the slash `get`/`set`/`list`/`reset` verbs, and the Defaults/Reset-all r
    `NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "<key>")`, which is what makes the
    collector re-cache its hot-path upvalues.
 
-Paths resolve against `NS.db.global`, never `.profile`. If the value is a dynamic id-set or an
-ordered list, it is a **carve-out**, not a row — see the carve-out rules below and
-[schema.md](schema.md).
+Paths resolve against `NS.db.global`, never `.profile`. A set of ids the player builds is not a
+row: it belongs to a **structural registry** with one named writer (the id filter sets, written only
+by `NS.Filters`; `architecture-§5`). An ordered list over a fixed set is not a row either: it is a
+**carve-out** with a register row. See the carve-out rules below and [schema.md](schema.md).
 
 ### Add a slash command
 
@@ -108,12 +109,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:375`, `:363`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
-  (`savedView`), the `blacklist`/`whitelist`/`currencyBlacklist` id lists (owned by `NS.Filters`,
-  `modules/Filters.lua`), and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
-  runtime/data state, not user settings. They are persisted straight to
-  `NS.db.global` and intentionally have **no** schema row and do **not** go through `Schema:Set` — a
-  dynamic id-set or an ordered list can't be a schema widget. Don't "fix" this by adding rows for them. See
-  [schema.md](schema.md) for the full carve-out list and the standards note.
+  (`savedView`) and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
+  runtime/data state, not user settings. They are persisted straight to `NS.db.global`, have **no**
+  schema row and do **not** go through `Schema:Set`. The `architecture-§5` register row covers them.
+  Don't "fix" this by adding rows for them. See [schema.md](schema.md) for the full carve-out list and
+  the standards note.
+- **The id filter sets are a registry, not a carve-out.** `blacklist`/`whitelist`/`currencyBlacklist`
+  are written only by `NS.Filters` (`modules/Filters.lua`), their one registry writer
+  (`architecture-§5`). Panel and slash code call `NS.Filters`; they never write the sets directly.
 
 ### Messaging: a closed bus, one target per receiver
 
