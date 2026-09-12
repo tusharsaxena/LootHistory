@@ -310,8 +310,8 @@ function Sl:LandingRows() return Dispatcher:LandingRows() end
 
 --- Reset every user setting to its default.
 ---
---- Wraps rather than re-exports, because the two item-id filter lists are user-configured settings
---- that carry no schema row (they are a storage carve-out managed by NS.Filters), so the library's
+--- Wraps rather than re-exports, because the three id filter lists carry no schema row (they are
+--- an architecture-§5 structural registry, written only through NS.Filters), so the library's
 --- row walk cannot see them. Cleared FIRST so the library's acknowledgment is the last line
 --- printed and reads as the summary of everything that happened.
 function Sl:CliResetAll()

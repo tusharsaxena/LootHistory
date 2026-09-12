@@ -24,7 +24,7 @@ Host-owned, and each for a reason:
 
 - the six `StaticPopupDialogs` confirms (`settings/Slash.lua:7`) — this addon's destructive gates, never the library's;
 - `Sl:ResetEverything` (`settings/Slash.lua:108`) — the total reset behind the Master controls tab's **Reset all settings** button — options-ui-§12's global reset, and a superset of the `resetall` verb, which never touches history. The two being different acts is a **ratified** divergence from that rule's opening sentence — a register row (`options-ui-§12`, 2026-09-02) in [ARCHITECTURE.md](ARCHITECTURE.md#documented-deviations), reasoned in [schema.md](schema.md#reset-semantics);
-- `Sl:CliResetAll` (`settings/Slash.lua:317`) — a **wrapper**, not a re-export, because the `blacklist` / `whitelist` / `currencyBlacklist` id-lists are a storage carve-out with no schema row, so the library's row walk cannot see them;
+- `Sl:CliResetAll` (`settings/Slash.lua:317`) — a **wrapper**, not a re-export, because the `blacklist` / `whitelist` / `currencyBlacklist` id-lists are a structural registry with no schema row, so the library's row walk cannot see them; it clears them by calling their one writer, `NS.Filters:ClearAll` (architecture-§5);
 - `Sl.FormatSchemaValue` (`settings/Slash.lua:146`) — passed as the descriptor's `format` hook (Slash **minor 5**), holding **only** the `type = "table"` branch and handing everything else straight back to `lib.FormatValue`;
 - `Sl:Register` (`settings/Slash.lua:322`) — the chat-command registration.
 

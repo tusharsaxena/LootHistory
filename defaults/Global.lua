@@ -12,12 +12,12 @@ NS.defaults.global = {
   -- filter's move from mapID to zone name). Every step is non-destructive.
   schemaVersion = 1,
   history = {},          -- array of loot records
-  -- Item-id filter lists (issue #14). Blacklisted ids are never recorded and their existing rows
-  -- are hidden from every view (but kept in history — restorable by removing the id). Whitelisted
-  -- ids are always recorded, bypassing the quality/source/quest gates. Managed via a custom UI
-  -- (settings ▸ Filters) + the History right-click menu — NOT Schema rows, so they are an
-  -- architecture-§5 carve-out like `window`/`savedView` (mutated directly, not via Schema:Set).
-  blacklist = {},        -- { [itemID] = true } — drop on capture + hide existing rows
+  -- Item-id filter lists (issue #14). Blacklisted ids are never recorded; rows already stored stay
+  -- visible (point-in-time: a list change never hides or reveals history). Whitelisted ids are
+  -- always recorded, bypassing the quality/source/quest gates. NOT Schema rows: an architecture-§5
+  -- structural registry whose one writer is NS.Filters, driven by the settings ▸ Filters tab and
+  -- the History right-click menu. The defaults ship all three sets empty.
+  blacklist = {},        -- { [itemID] = true } — drop on capture (stored rows stay visible)
   whitelist = {},        -- { [itemID] = true } — always record, even below the gates
   currencyBlacklist = {},  -- { [currencyID] = true } — currencies never recorded on capture
   settings = {

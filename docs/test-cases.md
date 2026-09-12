@@ -708,7 +708,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the muted-source picker is INVERTED — a ticked box means 'record this source'
 - Panel: the Defaults button is built on first OnShow, not at registration
 - Panel: the General Defaults click restores every schema default
-- Panel: the General Defaults click is PAGE-wide — it reaches the merged tabs' carve-outs
+- Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one
@@ -784,10 +784,11 @@ badge and any count quoted in the docs must agree with it.
 - lintconfig: every files[...] ignore is narrowed to a file or a name
 - lintconfig: no source file carries a bare inline luacheck ignore
 
-### test_vendor_sync.lua (2)
+### test_vendor_sync.lua (3)
 
 - libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles
 - tests/_kit is the test kit that shipped with that release
+- the automated-test runner is recorded executable (100755)
 
 ### test_eol.lua (1)
 
@@ -843,7 +844,7 @@ badge and any count quoted in the docs must agree with it.
 | test_surface_parity.lua | 5 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
-| test_vendor_sync.lua | 2 |
+| test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **720** |
+| **Total** | **721** |

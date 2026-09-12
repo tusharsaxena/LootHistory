@@ -316,7 +316,8 @@ return function()
   end
 
   -- ── the message bus ────────────────────────────────────────────────────────
-  -- The kit's AceAddon fake does not embed AceEvent, because not every host asks for it. This addon
+  -- The kit's AceAddon fake does not embed AceEvent's MESSAGE half, because not every host asks for
+  -- it (it stamps only the event half, kit revision 16). This addon
   -- does: `AceAddon:NewAddon(NS, name, "AceEvent-3.0", ...)` embeds the (message, target) bus onto
   -- the addon object, and NS.bus IS that object. Wrap NewAddon so the mock models the real embed —
   -- including the clobber semantics the kit's AceEvent fake already reproduces.
@@ -327,45 +328,10 @@ return function()
     return M.__libs["AceEvent-3.0"]:Embed(obj)
   end
 
-  -- ── AceEvent's EVENT half ──────────────────────────────────────────────────
-  -- The kit's AceEvent fake models the (message, target) BUS and nothing else, because that is the
-  -- half every LibKa0s consumer uses. Real AceEvent-3.0's Embed stamps RegisterEvent /
-  -- UnregisterEvent alongside the message pair, and this addon uses them: modules/Browser.lua
-  -- registers the two combat transitions the General visibility dropdown is about on its OWN
-  -- embedded target (never the shared bus-as-self), so without this half that registration is a
-  -- call on a nil field.
-  --
-  -- Keyed by (event, target) on one shared registry, exactly as the message half is, and exposed
-  -- through __fireAceEvent so a suite can drive a combat transition rather than reaching into the
-  -- module's internals. The kit's AceAddon fake stamps its own recording RegisterEvent onto the
-  -- ADDON object; that one is left alone, so `NS.bus:RegisterEvent` still records into `__events`
-  -- the way every other suite has always seen it.
-  local eventRegistry = {}
-  local aceEvent = M.__libs["AceEvent-3.0"]
-  local stockEmbed = aceEvent.Embed
-  aceEvent.Embed = function(self, obj)
-    obj = stockEmbed(self, obj)
-    if rawget(obj, "RegisterEvent") == nil then
-      obj.RegisterEvent = function(target, event, fn)
-        eventRegistry[event] = eventRegistry[event] or {}
-        eventRegistry[event][target] = fn
-      end
-      obj.UnregisterEvent = function(target, event)
-        if eventRegistry[event] then eventRegistry[event][target] = nil end
-      end
-    end
-    return obj
-  end
-
-  --- Fire one client event at every privately-embedded target that registered it. Returns how many
-  --- handlers ran, so a case can assert it drove something rather than nothing.
-  function M.__fireAceEvent(event, ...)
-    local subs = eventRegistry[event]
-    if not subs then return 0 end
-    local n = 0
-    for _, fn in pairs(subs) do n = n + 1; fn(event, ...) end
-    return n
-  end
+  -- AceEvent's EVENT half (RegisterEvent / UnregisterEvent / UnregisterAllEvents) is the kit's own
+  -- since revision 16, stamped onto every Embed target and the NewAddon target alike and recorded
+  -- per target on `t.__events`. The second Embed above keeps what NewAddon registered. A suite
+  -- fires a recorded function handler the way CallbackHandler does: `t.__events[event](event, ...)`.
 
   return M
 end

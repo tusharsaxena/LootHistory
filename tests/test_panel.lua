@@ -569,12 +569,12 @@ test("Panel: the General Defaults click restores every schema default", function
   assertEqual(NS.Schema:Get("settings.recordCurrency"), true)
 end)
 
-test("Panel: the General Defaults click is PAGE-wide — it reaches the merged tabs' carve-outs",
+test("Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade",
   function()
     -- options-ui-§13: a per-page Defaults button's blast radius must not narrow to the visible tab.
-    -- Filters and AH Price are tabs of this page now, so the two carve-outs their own Defaults
-    -- buttons used to own — the three id-lists and the cascade array, neither of which a schema
-    -- row walk can reach — belong to this one button.
+    -- Filters and AH Price are tabs of this page now, so what their own Defaults buttons used to
+    -- own — the three id-lists (a structural registry, cleared through NS.Filters) and the cascade
+    -- array (a ratified carve-out) — belongs to this one button; no schema row walk reaches either.
     -- red under: dropping either half, which a schema-only reset would do silently.
     show(mocks.__subcategories["General"])
     NS.Filters:AddBlacklist(4242)
