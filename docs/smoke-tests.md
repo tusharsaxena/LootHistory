@@ -575,11 +575,13 @@ The LibDataBroker launcher registered through LibDBIcon-1.0. Visibility lives in
 - Locate the minimap button; hover it.
 - Left-click it; right-click it.
 - Settings → check **Hide minimap button**; uncheck it.
+- Drag the button to a new spot on the minimap ring.
 - `/reload`.
 
 **Pass.**
 - The tooltip shows "Ka0s Loot History" + a live record count ("N records") + the click hints.
 - **Left-click toggles** the history window; **right-click opens Settings**.
+- After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the AceDB-default `minimap` table, with no seed from `B:SetupMinimap` (#30).
 - **Hide minimap button** hides the icon immediately; unchecking shows it. The state **persists across
   `/reload`** (LibDBIcon owns the `minimap` table the setting writes).
 

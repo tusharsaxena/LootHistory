@@ -352,7 +352,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (58)
+### test_browser.lua (59)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -412,6 +412,7 @@ badge and any count quoted in the docs must agree with it.
 - browser: General visibility answers all four modes against the combat state
 - browser: Show refuses while the visibility setting forbids it, and says why
 - browser: a combat transition re-applies visibility through the private event target
+- browser: SetupMinimap registers with LibDBIcon and writes nothing to the stored minimap table
 
 ### test_browsertable.lua (56)
 
@@ -831,7 +832,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 33 |
 | test_database.lua | 59 |
 | test_stats.lua | 19 |
-| test_browser.lua | 58 |
+| test_browser.lua | 59 |
 | test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
@@ -847,4 +848,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **721** |
+| **Total** | **722** |

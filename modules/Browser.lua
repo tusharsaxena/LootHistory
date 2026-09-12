@@ -93,11 +93,10 @@ end
 -- ── Window position/size persistence ──────────────────────────────────────────
 -- settings.window = { point, x, y, w, h } relative to UIParent.
 --
--- NOTE: settings.window and savedView (see savedViewOrStock below) are view/window runtime state
--- persisted directly to NS.db.global by the Browser — they are intentionally NOT Schema rows, so
--- they don't route through Schema:Set. The "every mutation goes through Schema:Set" convention
--- (CLAUDE §2) covers user settings only; window geometry (standalone-windows) and the saved table
--- view are carved out. See docs/schema.md.
+-- NOTE: settings.window and savedView (see savedViewOrStock below) are named non-setting state
+-- (architecture-§5): no control chooses them and no row addresses them, so this module owns them and
+-- writes them directly rather than through Schema:Set. Every writer and the act that reaches it are
+-- named in docs/ARCHITECTURE.md → Settings schema; a new writer goes on that list too.
 
 local function SaveWindow()
   if not frame then return end
@@ -680,7 +679,7 @@ function B:ResetView(silent)
   if not silent then print("view reset to stock defaults.") end
 end
 
--- Reset the persisted window geometry (the settings.window storage-only carve-out) and recenter the
+-- Reset the persisted window geometry (named non-setting state, see the NOTE above SaveWindow) and recenter the
 -- live frame. Used only by the destructive "Reset Everything" — window position is runtime state, so the
 -- non-destructive settings resets deliberately leave it alone.
 function B:ResetWindow()
@@ -1231,9 +1230,10 @@ function B:SetupMinimap()
     end,
   })
 
-  local mm = NS.db.global.minimap
-  if not mm then mm = { hide = false }; NS.db.global.minimap = mm end
-  DBIcon:Register(LDB_NAME, minimapObject, mm)
+  -- No seed here: `minimap.hide` is a schema row, so replacing the whole table would be a
+  -- schema-row write (architecture-§5, "a row wins"). The AceDB default in defaults/Global.lua
+  -- serves the table; LibDBIcon then writes `minimapPos` into it on the button's drag.
+  DBIcon:Register(LDB_NAME, minimapObject, NS.db.global.minimap)
 end
 
 -- Show/hide the minimap button live (driven by the "Hide minimap button" setting).
