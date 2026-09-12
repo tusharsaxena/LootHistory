@@ -69,12 +69,12 @@ in the order the grep prints them, so the two can be held side by side.
 | `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:348` | Out of combat by construction. |
 | `QUEST_TURNED_IN` | `modules/Attribution.lua:349` | One context stamp. |
 | `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:354` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1285` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1141`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1286` | The other edge of the same handler, same cost. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1296` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1140`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1297` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** The third
-grep returns **eight** lines: one is the pattern name in a comment (`core/Util.lua:238`), two are
-presence guards that call nothing (`core/LootHistory.lua:55`, `core/Util.lua:240`), and five are
+grep returns **eight** lines: one is the pattern name in a comment (`core/Util.lua:248`), two are
+presence guards that call nothing (`core/LootHistory.lua:55`, `core/Util.lua:250`), and five are
 call sites. Two of the five — `core/ItemSetup.lua:71` and `settings/OptionsSetup.lua:181` — carry
 the guard and its call on one line, which is why counting call sites by eye off this grep
 undercounts.
@@ -84,7 +84,7 @@ undercounts.
 | `C_Timer.After(5, …)` | `core/LootHistory.lua:56` | Login-deferred retention prune + the first warbound repair pass. Once per session. |
 | `C_Timer.After(20, …)` | `core/LootHistory.lua:60` | The second warbound repair pass, once the item cache is warm. Once per session. |
 | `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:71` | `NS.Item.LoadItem`'s item-cache retry — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:214`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; `settings/Panel.lua:202` passes one, to relabel a filter-list row once the client has cached the name — an options panel the player opened by hand. |
-| `C_Timer.After(delay, …)` | `core/Util.lua:242` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua:1282`, `modules/Analytics.lua:656`, `settings/Panel.lua:171` — so the ceiling is three pending timers at once, one per surface, and only while that surface is subscribed. |
+| `C_Timer.After(delay, …)` | `core/Util.lua:252` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua:1293`, `modules/Analytics.lua:656`, `settings/Panel.lua:171` — so the ceiling is three pending timers at once, one per surface, and only while that surface is subscribed. |
 | `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:181` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
 
 The message bus (`RegisterMessage`, `modules/Analytics.lua`, `modules/Browser.lua`,
@@ -101,7 +101,7 @@ window is open" described exactly the case that mattered and read as though it d
 
 The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
 was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
-per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1282`,
+per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1293`,
 `modules/Analytics.lua:656` and — for the History tab's storage readout, which walks the whole
 history to estimate bytes — `settings/Panel.lua:171`. `HistoryChanged` stays immediate, because a
 delete or a prune is one deliberate action. Issue #27.

@@ -186,7 +186,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
   `settings/Schema.lua:441`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
-  the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:87`)
+  the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:95-96`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
   is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:155`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
@@ -252,7 +252,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   |---|---|---|
   | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:19`, `modules/BrowserTable.lua:89`, `:1075`, `modules/Export.lua:297` |
   | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1043`, `:1044`, `settings/Panel.lua:477`, `:478`, `:479` |
-  | 4 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1052`, `:1053` (the corner grabber, reasoned at `:1047-1051`), `:1212` (the LDB launcher icon), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
+  | 4 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1051`, `:1052` (the corner grabber, reasoned at `:1046-1050`), `:1211` (the LDB launcher icon), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
   | 1 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` |
 
   The catalog is **113 marks** as of LibKa0s v1.27.0, not the thirty it shipped with, so "the
