@@ -128,9 +128,9 @@ local function stubFrame()
   -- it. That is a real behavioral change to a mock roughly 308 test files across ten repositories
   -- lean on -- every assertion that passes today BECAUSE geometry answers zero flips with it -- so
   -- it is its own revision with its own adoption, sharing it with nothing. Revision 15 planned it
-  -- as revision 16; revision 16 carried the Ace-fake fixes instead, and revision 17 the Ace
-  -- surfaces six consumer harnesses migrate onto, so the flip is the next revision that ships it
-  -- alone, 18 at the earliest.
+  -- as revision 16; revision 16 carried the Ace-fake fixes instead, revision 17 the Ace surfaces
+  -- six consumer harnesses migrate onto, and revision 18 AceDB's OnProfileCopied key, so the flip
+  -- is the next revision that ships it alone, 19 at the earliest.
   function f:GetHeight() return (self.__geomLive and self.__geomH) or 0 end
   function f:GetWidth() return (self.__geomLive and self.__geomW) or 0 end
 
@@ -1182,8 +1182,15 @@ return function()
       db.global  = sv.global
       db.profile = ensureProfile(current)
 
-      local function fire(event)
-        for _, cb in ipairs(callbacks[event] or {}) do cb(event, db, current) end
+      -- `key` is the third argument AceDB-3.0 hands the callback, and it is NOT always the active
+      -- profile: OnProfileChanged carries the profile switched TO, but OnProfileCopied carries the
+      -- SOURCE of the copy (`self.callbacks:Fire("OnProfileCopied", self, name)`, AceDB-3.0.lua
+      -- CopyProfile). Through revision 17 this fired every event with the active profile, so a
+      -- copy of "Raid" into "Default" reached the handler as a copy of "Default" — fidelity rule 5.
+      -- Revision 18 passes each event its own key; OnProfileReset keeps the active profile it has
+      -- always carried here.
+      local function fire(event, key)
+        for _, cb in ipairs(callbacks[event] or {}) do cb(event, db, key) end
       end
 
       -- CallbackHandler shape: db.RegisterCallback(target, event, fn) — dot-called, so the
@@ -1206,7 +1213,7 @@ return function()
         if name == current then return end
         current = name
         db.profile = ensureProfile(name)
-        fire("OnProfileChanged")
+        fire("OnProfileChanged", current)
       end
 
       db.ResetProfile = function()
@@ -1215,7 +1222,7 @@ return function()
         local p = sv.profiles[current]
         for k in pairs(p) do p[k] = nil end
         copyDefaults(p, defaults and defaults.profile)
-        fire("OnProfileReset")
+        fire("OnProfileReset", current)
       end
 
       db.CopyProfile = function(_, name)
@@ -1224,7 +1231,7 @@ return function()
         local p = sv.profiles[current]
         for k in pairs(p) do p[k] = nil end
         for k, v in pairs(deepcopy(src)) do p[k] = v end
-        fire("OnProfileCopied")
+        fire("OnProfileCopied", name)   -- the SOURCE, as AceDB-3.0 fires it (revision 18)
       end
 
       db.DeleteProfile = function(_, name)

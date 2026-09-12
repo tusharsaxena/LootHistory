@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 8
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -365,10 +365,13 @@ end
 ---                          seam's per-row `[Set]` line here (debug-logging-§10).
 ---   bulkEnd      function  optional, minor 8. function(act, scope, count, err, info). Called once
 ---                          after the walk, ALWAYS when the bracket was begun: `count` is the rows
----                          actually written, `err` the raised value if the walk raised (it is
----                          re-raised after this returns), `info` the Options major's table —
----                          `info.profileReset` is always false here, since no Slash walk resets
----                          a profile. Unmute and emit `[Set] reset all: N rows` here.
+---                          the walk called applyDefault for and that returned, INCLUDING rows
+---                          already at their default — so it is NOT debug-logging-§10's N; `err`
+---                          the raised value if the walk raised (it is re-raised after this
+---                          returns), `info` the Options major's table — `info.profileReset` is
+---                          always false here, since no Slash walk resets a profile. Unmute and
+---                          emit `[Set] reset all: N rows` here, with N the host's OWN tally of
+---                          writes that changed a stored value, never `count`.
 ---   parse        function  optional, defaults to lib.ParseValue.
 ---   format       function  optional, minor 5. function(row, storedValue) -> string. Renders a
 ---                          value for display, replacing lib.FormatValue outright, at every one
@@ -578,8 +581,9 @@ function lib:New(d)
   ---
   --- Unbracketed — neither field a function — the walk runs bare, exactly as at minor 7: no pcall,
   --- and a raising row escapes with its own stack. Bracketed, a begun bracket always closes:
-  --- bulkBegin and the walk share one pcall, bulkEnd runs once with the rows actually written and
-  --- the raised value if any, and only then is that value re-raised unchanged.
+  --- bulkBegin and the walk share one pcall, bulkEnd runs once with `count` (the rows handed to
+  --- applyDefault that returned, a row already at its default included — the host tallies §10's N
+  --- itself) and the raised value if any, and only then is that value re-raised unchanged.
   ---
   --- bulkEnd's fifth argument is the Options major's `info` table. No Slash walk resets a profile,
   --- so `info.profileReset` is always false here and a host passing one pair to both majors always

@@ -325,6 +325,11 @@ checked against the real Ace3 source. **Build on them rather than replacing them
 replaces a fake wholesale never receives a kit revision again. The fakes never read their receiver, so
 a wrapper that calls through with its own table as `self` is served.
 
+**Revision 18** fixes one argument. The AceDB fake's `CopyProfile` fires `OnProfileCopied` with the
+**source** profile's key as its third argument, as AceDB-3.0 does; through revision 17 it passed the
+active profile, so a copy of `"Raid"` into `"Default"` reached a handler as a copy of `"Default"`.
+`OnProfileChanged` still carries the profile switched to, and `OnProfileReset` the active profile.
+
 **Revision 17** added the surfaces six consumer harnesses had hand-rolled:
 
 - **`NewAddon([object,] name, lib, ...)` honors its mixin list** — it embeds exactly the named

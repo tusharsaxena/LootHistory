@@ -130,7 +130,7 @@ than the tag this addon has taken.
 
 Between a library release and the re-vendor that carries it they disagree, and that disagreement is
 the normal state rather than a defect. It is **not** the state as this is written: `../LibKa0s`
-sits on **v1.32.0**, [`CLAUDE.md`](../CLAUDE.md) names **v1.32.0**, and all four commands above
+sits on **v1.33.0**, [`CLAUDE.md`](../CLAUDE.md) names **v1.33.0**, and all four commands above
 come back empty. When the library tags again and this addon has not yet taken it, they will
 disagree — and re-vendoring to quiet them would be the actual mistake, because it would pull an
 untested library release for the sake of a clean diff.
