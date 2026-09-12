@@ -260,6 +260,21 @@ test("Reset Everything logs one [Data] line with the history rows it discarded, 
     assertTrue(found:find("reset-all removed 3 rows", 1, true) ~= nil, "the line carries the count: " .. found)
   end)
 
+test("Reset Everything copies the declared defaults, so a later write cannot change them", function()
+  -- NS.Util.DeepCopy was named here but never defined, so the reset fell back to merging
+  -- NS.defaults.global's own sub-tables into the store by reference. After Reset all settings,
+  -- db.global.settings WAS the defaults table: the next Schema:Set rewrote the declared default,
+  -- and `/lh reset` then "restored" the player's own value.
+  -- red under: the defaults merged into the store without a copy.
+  capture(function() Sl:ResetEverything() end)
+  local aliased = NS.db.global.settings == NS.defaults.global.settings
+  NS.Schema:Set("settings.qualityThreshold", 4)
+  local shipped = NS.defaults.global.settings.qualityThreshold
+  NS.Schema:Set("settings.qualityThreshold", 1)   -- before asserting, so a red run poisons nothing
+  assertTrue(not aliased, "db.global.settings is the defaults table itself")
+  assertEqual(shipped, 1, "a write after the reset changed the declared default")
+end)
+
 -- ── prefix color (slash-commands-§4): the shared tag must be cyan ──
 
 test("NS.PREFIX is the mandated cyan [LH] tag", function()

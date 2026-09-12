@@ -111,8 +111,9 @@ end
 local function wipeGlobal(g)
   local removed = type(g.history) == "table" and #g.history or 0
   for k in pairs(g) do g[k] = nil end
-  local fresh = NS.Util and NS.Util.DeepCopy and NS.Util.DeepCopy(NS.defaults.global)
-  for k, v in pairs(fresh or NS.defaults.global) do g[k] = v end
+  -- Copied, never merged by reference: a store sharing a table with NS.defaults rewrites the
+  -- declared default on its next write.
+  for k, v in pairs(NS.Util.DeepCopy(NS.defaults.global)) do g[k] = v end
   return removed
 end
 
