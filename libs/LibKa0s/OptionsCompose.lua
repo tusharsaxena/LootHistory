@@ -130,10 +130,13 @@ local function bindReader(bind)
 end
 
 --- Bind `row` to the record field `field`: no path, and get/set closures over the bind.
+---
+--- `row.get(key)` with an argument reads ANOTHER field of the same record -- which is how the flow
+--- engine resolves a bound row's `disabledIf`, a record field rather than a settings path.
 local function bindRow(bind, row, field)
   local read = bindReader(bind)
   row.path, row.field = nil, field
-  row.get = function() return read(field, row) end
+  row.get = function(key) return read(key or field, row) end
   row.set = function(value) return bind.set(field, value, row) end
   return row
 end

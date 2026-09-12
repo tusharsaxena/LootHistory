@@ -332,13 +332,14 @@ a wrapper that calls through with its own table as `self` is served.
   object model. `NewModule` builds modules. The lifecycle is driven the way the client drives it:
   `AceAddon.frame:__fire("OnEvent", "PLAYER_LOGIN")` initializes everything queued, then enables each
   addon and then its modules, in order; `AceAddon:EnableAddon(addon)` is the enable cascade alone.
-  `NewAddon(target)` with **no name** keeps revision 16's behavior.
+  `NewAddon(target)` — exactly one argument, a table — keeps revision 16's behavior.
 - **AceEvent is two CallbackHandler registries.** Messages take string methods, the optional `arg`
   and `UnregisterAllMessages`; `M.__msgRegistry` is the message registry. `M.__fireEvent(event, ...)`
   fires a game event at every registrant and answers how many ran. An event name in `M.__badEvents`
   raises on its first registration, as retail does.
 - **AceTimer is real**, on the kit's queue: `M.__fireTimers()` skips a canceled timer and answers how
-  many ran. A canceled handle carries `canceled = true`.
+  many ran. A canceled handle carries AceTimer's own field name, and a `C_Timer.NewTimer` handle
+  answers Blizzard's own method; the testkit document names both.
 - **AceConsole** records chat commands in `AceConsole.commands`; `AceConsole:__slash(command, input)`
   runs one.
 - **AceGUI** publishes `WidgetVersions` and a layout registry.

@@ -256,7 +256,8 @@ local function drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPai
     pendingCount = pendingCount + 1
   end
   if pendingCount == 1 then
-    local pair = takeOnce(pairWith, firedPair, row.path)
+    -- A bound row (OptionsCompose's `spec.bind`) has no path, so it is keyed by its record field.
+    local pair = takeOnce(pairWith, firedPair, row.path or row.field)
     if pair then
       pair(ctx, pendingRow)
       pendingCount = pendingCount + 1
@@ -762,8 +763,6 @@ function lib.__AttachWidgets(O, d)
   -- should fall silent rather than raise.
   local print = O.__print or d.print or function() end
 
-  local function get(path) return d.get(path) end
-
   -- A ROW WITH NO PATH IS READ AND WRITTEN THROUGH ITS OWN get / set (minor 15). That is the flow
   -- engine's half of OptionsCompose.lua's record-backed arm: a composed block bound to a registry
   -- record rather than to settings carries `get()` and `set(value)` closures and no `path`. The
@@ -773,6 +772,12 @@ function lib.__AttachWidgets(O, d)
   local function read(row)
     if row.path == nil and type(row.get) == "function" then return row.get() end
     return d.get(row.path)
+  end
+  -- Another key read on a row's behalf -- `disabledIf`. A path-less row resolves it through its own
+  -- `get(key)`, which reads that field of the same record; a path row reads the settings path.
+  local function readKey(row, key)
+    if row.path == nil and type(row.get) == "function" then return row.get(key) end
+    return d.get(key)
   end
   local function write(row, value)
     if row.path == nil and type(row.set) == "function" then return row.set(value) end
@@ -1676,7 +1681,7 @@ function lib.__AttachWidgets(O, d)
 
     local function applyDisabled()
       if row.disabledIf then
-        cp:SetDisabled(get(row.disabledIf) and true or false)
+        cp:SetDisabled(readKey(row, row.disabledIf) and true or false)
       end
     end
     applyDisabled()

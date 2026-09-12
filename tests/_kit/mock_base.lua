@@ -192,8 +192,9 @@ end
 --     raises on a name it does not know.
 --
 -- One divergence, kept: CallbackHandler dispatches through securecallfunction, which reports a
--- handler's error and carries on. Here a handler's error propagates out of the dispatch. A harness
--- that swallowed it would be a stub that silently succeeds (fidelity rule 1).
+-- handler's error to the error handler and carries on. Here the dispatch carries on too, and the
+-- first error is then raised out of it. A harness that swallowed it would be a stub that silently
+-- succeeds (fidelity rule 1).
 
 --- The callable CallbackHandler stores for one registration. `n` is how many varargs followed the
 --- method, because CallbackHandler tells "arg is nil" apart from "no arg" by counting.
@@ -201,19 +202,26 @@ end
 --- The optional argument is named `extra`, not `arg` as CallbackHandler names it: under Lua 5.1's
 --- vararg compatibility every `function(...)` declares a hidden local `arg`, which would shadow
 --- an upvalue of that name inside the closures below and hand every handler nil.
-local function callbackFor(names, self, method, n, extra)
+local function callbackFor(names, self, method, n, extra, lib)
   if type(method) ~= "string" and type(method) ~= "function" then
     error("Usage: " .. names[1] .. "(\"eventname\", \"methodname\"): 'methodname' - string or function expected.", 4)
   end
   if type(method) == "string" then
     if type(self) ~= "table" then
       error("Usage: " .. names[1] .. "(\"eventname\", \"methodname\"): self was not a table?", 4)
+    elseif self == lib then
+      error("Usage: " .. names[1] .. "(\"eventname\", \"methodname\"): do not use Library:" .. names[1]
+        .. "(), use your own 'self'", 4)
     elseif type(self[method]) ~= "function" then
       error("Usage: " .. names[1] .. "(\"eventname\", \"methodname\"): 'methodname' - method '"
         .. tostring(method) .. "' not found on self.", 4)
     end
     if n >= 1 then return function(...) self[method](self, extra, ...) end end
     return function(...) self[method](self, ...) end
+  end
+  local st = type(self)
+  if st ~= "table" and st ~= "string" and st ~= "thread" then
+    error("Usage: " .. names[1] .. "(self or \"addonId\", eventname, method): 'self or addonId': table or string or thread expected.", 4)
   end
   if n >= 1 then return function(...) method(extra, ...) end end
   return method
@@ -222,16 +230,17 @@ end
 local Callbacks = {}
 Callbacks.__index = Callbacks
 
---- A fresh registry. `names` = { RegisterName, UnregisterName } for the usage messages.
-local function newCallbacks(names, onUsed)
-  return setmetatable({ events = {}, recurse = 0, names = names, onUsed = onUsed }, Callbacks)
+--- A fresh registry. `names` = { RegisterName, UnregisterName, UnregisterAllName } for the usage
+--- messages; `lib` is the library the registry belongs to, which CallbackHandler refuses as a `self`.
+local function newCallbacks(names, onUsed, lib)
+  return setmetatable({ events = {}, recurse = 0, names = names, onUsed = onUsed, lib = lib }, Callbacks)
 end
 
 function Callbacks:register(target, eventname, method, ...)
   if type(eventname) ~= "string" then
     error("Usage: " .. self.names[1] .. "(eventname, method[, arg]): 'eventname' - string expected.", 3)
   end
-  local fn = callbackFor(self.names, target, method or eventname, select("#", ...), (...))
+  local fn = callbackFor(self.names, target, method or eventname, select("#", ...), (...), self.lib)
   local list = self.events[eventname]
   local first = not (list and next(list))
   if (list and list[target]) or self.recurse < 1 then
@@ -246,6 +255,9 @@ function Callbacks:register(target, eventname, method, ...)
 end
 
 function Callbacks:unregister(target, eventname)
+  if not target or (self.lib ~= nil and target == self.lib) then
+    error("Usage: " .. self.names[2] .. "(eventname): bad 'self'", 3)
+  end
   if type(eventname) ~= "string" then
     error("Usage: " .. self.names[2] .. "(eventname): 'eventname' - string expected.", 3)
   end
@@ -255,9 +267,21 @@ function Callbacks:unregister(target, eventname)
   if queued then queued[target] = nil end
 end
 
-function Callbacks:unregisterAll(target)
-  for _, list in pairs(self.events) do list[target] = nil end
-  for _, list in pairs(self.queue or {}) do list[target] = nil end
+--- CallbackHandler's UnregisterAll takes any number of targets (`t:UnregisterAllMessages()` passes
+--- one), and refuses none at all, or the library alone.
+function Callbacks:unregisterAll(...)
+  local n = select("#", ...)
+  if n < 1 then
+    error("Usage: " .. self.names[3] .. "([whatFor]): missing 'self' or \"addonId\" to unregister events for.", 3)
+  end
+  if n == 1 and self.lib ~= nil and (...) == self.lib then
+    error("Usage: " .. self.names[3] .. "([whatFor]): supply a meaningful 'self' or \"addonId\"", 3)
+  end
+  for i = 1, n do
+    local target = select(i, ...)
+    for _, list in pairs(self.events) do list[target] = nil end
+    for _, list in pairs(self.queue or {}) do list[target] = nil end
+  end
 end
 
 --- Apply the registrations queued during a dispatch, firing onUsed for an event that was empty.
@@ -276,23 +300,26 @@ function Callbacks:flushQueue()
 end
 
 --- Dispatch `eventname` to every registrant, in registry order. Answers how many ran.
+---
+--- A handler that raises costs only itself: the dispatch carries on to the rest, as
+--- securecallfunction lets CallbackHandler carry on, and the FIRST error is raised once the
+--- dispatch is done -- the same shape as the AceAddon cascade's errorCollector below.
 function Callbacks:fire(eventname, ...)
   local list = self.events[eventname]
   if not (list and next(list)) then return 0 end
   local outer = self.recurse
   self.recurse = outer + 1
-  local ran = 0
-  local ok, err = pcall(function(...)
-    local key, fn = next(list)
-    while fn do
-      ran = ran + 1
-      fn(eventname, ...)
-      key, fn = next(list, key)
-    end
-  end, ...)
+  local ran, first = 0, nil
+  local key, fn = next(list)
+  while fn do
+    ran = ran + 1
+    local ok, err = pcall(fn, eventname, ...)
+    if not ok and first == nil then first = err end
+    key, fn = next(list, key)
+  end
   self.recurse = outer
   if self.queue and outer == 0 then self:flushQueue() end
-  if not ok then error(err, 0) end
+  if first ~= nil then error(first, 0) end
   return ran
 end
 
@@ -425,10 +452,9 @@ end
 -- with a no-op (to keep some other deferral from running) must not silence AceTimer with it.
 --
 -- The handle is AceTimer's own table -- `object`, `func`, `looping`, `delay`, `ends`, `callback`,
--- the arguments. A handle CancelTimer has taken back carries `handle.canceled = true`. AceTimer's
--- own internal field doubles the l; this one does not, because `localization-§5` binds the shipped
--- kit and the field is AceTimer's private bookkeeping rather than its API. A suite that wants to
--- stay spelling-agnostic asks CancelTimer's return value, or TimeLeft, instead.
+-- the arguments. A handle CancelTimer has taken back carries `handle.cancelled = true`, under
+-- AceTimer's own field name: it is a third-party API identifier, not prose, and the prose gate
+-- carries a ratified exemption for it (CLAUDE.md -> Documented deviations).
 -- `delay` is floored at 0.01, as the real one floors it for C_Timer.
 local TIMER_MIXINS = { "ScheduleTimer", "ScheduleRepeatingTimer", "CancelTimer", "CancelAllTimers", "TimeLeft" }
 
@@ -446,18 +472,23 @@ local function makeAceTimer(M)
                     delay = delay, ends = M.GetTime() + delay, ... }
     active[timer] = timer
     timer.callback = function()
-      if timer.canceled then return end
+      if timer.cancelled then return end
       if type(timer.func) == "string" then
         timer.object[timer.func](timer.object, unpack(timer, 1, timer.argsCount))
       else
         timer.func(unpack(timer, 1, timer.argsCount))
       end
-      if timer.looping and not timer.canceled then
-        local now = M.GetTime()
+      if timer.looping and not timer.cancelled then
+        -- AceTimer's drift compensation takes "how late was this run" off the next delay. In the
+        -- client a run is never early; headlessly a pass runs wherever the test left the clock,
+        -- usually before the due time, and an unclamped `now` read that as the timer being early
+        -- and grew the delay by a period every pass. Clamped, the delay is AceTimer's own answer
+        -- for an on-time run, and `ends` is taken from the clock as the real one takes it.
+        local now = math.max(M.GetTime(), timer.ends)
         local ndelay = timer.delay - (now - timer.ends)
         if ndelay < 0.01 then ndelay = 0.01 end
         queue(ndelay, timer)
-        timer.ends = now + ndelay
+        timer.ends = M.GetTime() + ndelay
       else
         active[timer.handle or timer] = nil
       end
@@ -491,7 +522,7 @@ local function makeAceTimer(M)
   function AceTimer.CancelTimer(_, id)
     local timer = active[id]
     if not timer then return false end
-    timer.canceled = true
+    timer.cancelled = true
     active[id] = nil
     return true
   end
@@ -609,25 +640,30 @@ end
 -- `M.__badEvents` it raises `Attempt to register unknown event "<NAME>"`, on the event's first
 -- registrant only, after the callback is stored -- because that is where and when the client
 -- raises. `M.__badEvents` is read at call time, so a test that swaps the table is heard.
-local EVENT_NAMES   = { "RegisterEvent", "UnregisterEvent" }
-local MESSAGE_NAMES = { "RegisterMessage", "UnregisterMessage" }
+local EVENT_NAMES   = { "RegisterEvent", "UnregisterEvent", "UnregisterAllEvents" }
+local MESSAGE_NAMES = { "RegisterMessage", "UnregisterMessage", "UnregisterAllMessages" }
 
 local function makeAceEvent(M, eventRegistry)
+  local AceEvent = { embeds = {} }
   local build = { M = M }
   build.events = newCallbacks(EVENT_NAMES, function(event)
     local bad = M.__badEvents
     if type(bad) == "table" and bad[event] then
       error("Attempt to register unknown event \"" .. event .. "\"", 4)
     end
-  end)
-  local messages = newCallbacks(MESSAGE_NAMES)
-  local AceEvent = { embeds = {}, events = build.events, messages = messages }
+  end, AceEvent)
+  local messages = newCallbacks(MESSAGE_NAMES, nil, AceEvent)
+  AceEvent.events, AceEvent.messages = build.events, messages
 
   local function registerMessage(self, message, method, ...) messages:register(self, message, method, ...) end
   local function unregisterMessage(self, message) messages:unregister(self, message) end
-  local function unregisterAllMessages(self) messages:unregisterAll(self) end
+  local function unregisterAllMessages(...) messages:unregisterAll(...) end
   local function sendMessage(_, message, ...) messages:fire(message, ...) end
-  AceEvent.SendMessage = sendMessage
+  -- The library object carries the registry's API as CallbackHandler publishes it onto AceEvent:
+  -- `AceEvent.RegisterMessage("addonId", msg, fn)` is the addonId form, and a method NAME
+  -- registered with the library itself as self is refused, as the real one refuses it.
+  AceEvent.RegisterMessage, AceEvent.UnregisterMessage = registerMessage, unregisterMessage
+  AceEvent.UnregisterAllMessages, AceEvent.SendMessage = unregisterAllMessages, sendMessage
 
   function AceEvent.Embed(_, target)
     embedEvents(target, eventRegistry, build)
@@ -660,10 +696,10 @@ end
 --
 -- TWO DIVERGENCES, both deliberate.
 --
--- 1. NewAddon(target) with NO NAME -- the kit's own calling convention before revision 17 -- keeps
---    revision 16's behavior: every mixin stamped, none of the object model. The real one raises
---    on it. Two consumer harnesses still call the kit's NewAddon that way from their own wrappers,
---    and this revision does not break them. A name is what selects the faithful path.
+-- 1. NewAddon(target) -- EXACTLY one argument, a table: the kit's own calling convention before
+--    revision 17 -- keeps revision 16's behavior: every mixin stamped, none of the object model.
+--    The real one raises on it. It is kept for safety, for a harness still calling it that way; any
+--    other call without a string name goes through the real validation and raises.
 -- 2. An error inside OnInitialize / OnEnable / OnDisable / OnModuleCreated is caught, as the
 --    client catches it, and the cascade carries on to the next object. The client then hands it to
 --    geterrorhandler(); the kit raises the FIRST such error from the outermost call once the
@@ -828,13 +864,17 @@ local function addonLifecycle(M, AceAddon, c)
     local loaded = event == "ADDON_LOADED" and (arg1 == nil or not EARLY_LOAD[arg1])
     if not (loaded or event == "PLAYER_LOGIN") then return end
     if event == "PLAYER_LOGIN" then loggedIn = true end
+    -- The client asks IsLoggedIn() here, which is what enables a load-on-demand addon whose
+    -- ADDON_LOADED arrives after the login. Read at call time; the flag is the fallback for an
+    -- environment that models no IsLoggedIn.
+    local now = loggedIn or (type(M.IsLoggedIn) == "function" and M.IsLoggedIn() and true or false)
     while #AceAddon.initializequeue > 0 do
       local addon = table.remove(AceAddon.initializequeue, 1)
       if event == "ADDON_LOADED" then addon.baseName = arg1 end
       AceAddon:InitializeAddon(addon)
       AceAddon.enablequeue[#AceAddon.enablequeue + 1] = addon
     end
-    if not loggedIn then return end
+    if not now then return end
     while #AceAddon.enablequeue > 0 do AceAddon:EnableAddon(table.remove(AceAddon.enablequeue, 1)) end
   end)
   AceAddon.frame = stubFrame()
@@ -852,9 +892,11 @@ local function makeAceAddon(M, legacy)
 
   --- Never reads its receiver: a consumer that wraps the fake calls it with its own table as self.
   function AceAddon.NewAddon(_, objectorname, ...)
+    -- Exactly ONE argument, a table, is the pre-17 calling convention. Anything else -- a nil name
+    -- with libraries after it, or no argument at all -- goes through the real validation and raises.
+    if type(objectorname) == "table" and select("#", ...) == 0 then return legacy(objectorname) end
     local object, name, firstLib = nil, objectorname, 1
     if type(objectorname) == "table" then object, name, firstLib = objectorname, (...), 2 end
-    if name == nil then return legacy(object or {}) end
     if type(name) ~= "string" then
       error(("Usage: NewAddon([object,] name, [lib, lib, lib, ...]): 'name' - string expected got '%s'."):format(type(name)), 2)
     end
@@ -942,14 +984,14 @@ return function()
   -- `__fireTimers` answers how many entries actually RAN, so "three events, one pass" and "the
   -- pending timer was canceled" are both assertable. Until 17, NewTimer's Cancel was a no-op and
   -- a canceled debounce still fired, which is the bug a debounce test exists to catch. Both kinds
-  -- record it as `canceled = true`.
+  -- record it on the handle as `handle.cancelled`, AceTimer's own field name.
   M.__timers = {}
   M.__fireTimers = function()
     local due = M.__timers
     M.__timers = {}
     local ran = 0
     for _, t in ipairs(due) do
-      if not (t.canceled or (t.timer and t.timer.canceled)) then
+      if not (t.cancelled or (t.timer and t.timer.cancelled)) then
         ran = ran + 1
         t.fn()
       end
@@ -960,7 +1002,8 @@ return function()
     After = function(delay, fn) M.__timers[#M.__timers + 1] = { fn = fn, delay = delay } end,
     NewTimer = function(delay, fn)
       local t = { fn = fn, delay = delay }
-      t.Cancel = function() t.canceled = true end
+      t.Cancel = function() t.cancelled = true end
+      t.IsCancelled = function() return t.cancelled == true end
       M.__timers[#M.__timers + 1] = t
       return t
     end,
@@ -1227,7 +1270,11 @@ return function()
       return timer
     end
     target.ScheduleRepeatingTimer = function() return {} end
-    target.CancelTimer = noop
+    -- Honored since the 2026-09-12 review: the handle is the queue entry, so marking it is what
+    -- makes __fireTimers skip it.
+    target.CancelTimer = function(_, handle)
+      if type(handle) == "table" then handle.cancelled = true end
+    end
     -- Faithfully mirror AceConsole-3.0's Embed: its mixins are :Print AND :Printf, stamped onto
     -- the addon object and clobbering any same-named custom NS.Print or NS.Printf. Called as
     -- `NS.Print(msg)`, AceConsole treats the message as `self` and renders "|cff33ff99<msg>|r:" —

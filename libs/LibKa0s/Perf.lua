@@ -22,7 +22,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 10
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 11
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -749,7 +749,14 @@ function lib:New(descriptor)
     db.schema = lib.SCHEMA
     db.runs = db.runs or {}
     db.runs[#db.runs + 1] = record
-    while #db.runs > P.ringMax do table.remove(db.runs, 1) end
+    -- A retention prune, and debug-logging-§8 makes a prune one of the flows the log MUST tell.
+    -- One summary line per prune, never one per record (debug-logging-§9).
+    local over = #db.runs - P.ringMax
+    if over > 0 then
+      for _ = 1, over do table.remove(db.runs, 1) end
+      P.Log("perf ring at its cap of %s \226\128\148 dropped %s oldest record(s)",
+        tostring(P.ringMax), tostring(over))
+    end
     return db
   end
 
