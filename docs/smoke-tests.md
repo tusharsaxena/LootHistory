@@ -661,7 +661,7 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 - Loot a threshold item → one `[Loot]`; a sub-threshold item → one `[Drop]`.
 - Open a corpse/chest with many slots → exactly one `[Open] LOOT_OPENED N slots -> …`, not N lines.
 - Change a setting (panel or `/lh set …`) → exactly one `[Set] <path> = <value>`, no `[Cfg]`.
-- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row (History right-click → **Delete**) → one `[Data] delete removed 1 rows`.
+- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row (History right-click → **Delete**) → one `[Data] delete removed 1 rows`; **Reset all settings** (confirm) → one `[Data] reset-all removed N rows`.
 - Open the browser → `[UI] window shown`; switch to Insights → `[UI] tab -> Insights` + one `[Insights] computed …`.
 - Type in the table's search / change group/sort → one `[Table] rendered M/T rows (…)` per change, never per row.
 - Add/remove a blacklist or whitelist id (with debug on) → one `[Filters] blacklist=B whitelist=W` line.

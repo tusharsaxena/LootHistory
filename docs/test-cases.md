@@ -527,7 +527,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (38)
+### test_slash.lua (39)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -553,6 +553,7 @@ badge and any count quoted in the docs must agree with it.
 - Reset Everything purges history and clears settings + filter lists + view + window
 - Reset Everything is WHOLESALE, not a list of keys somebody kept current
 - Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table
+- Reset Everything logs one [Data] line with the history rows it discarded, and nothing when debug is off
 - NS.PREFIX is the mandated cyan [LH] tag
 - every Slash string this addon renders resolves to prose, not to a key
 - the help header names /loothistory as the alias for /lh
@@ -838,7 +839,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 38 |
+| test_slash.lua | 39 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 44 |
@@ -850,4 +851,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **724** |
+| **Total** | **725** |

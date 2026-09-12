@@ -105,14 +105,23 @@ end
 ---
 --- The view state that follows is not stored data: the Browser's sort/filter view
 --- and its frame are rebuilt from what is now an empty store.
+---
+--- Empty `g` in place and merge the declared defaults back. Returns how many recorded
+--- history rows the wipe discarded, for the debug trace (debug-logging-§8).
+local function wipeGlobal(g)
+  local removed = type(g.history) == "table" and #g.history or 0
+  for k in pairs(g) do g[k] = nil end
+  local fresh = NS.Util and NS.Util.DeepCopy and NS.Util.DeepCopy(NS.defaults.global)
+  for k, v in pairs(fresh or NS.defaults.global) do g[k] = v end
+  return removed
+end
+
 function Sl:ResetEverything()
   local db = NS.db
   if db and db.global then
-    local g = db.global
-    for k in pairs(g) do g[k] = nil end
-    for k, v in pairs(NS.Util and NS.Util.DeepCopy and NS.Util.DeepCopy(NS.defaults.global)
-                      or NS.defaults.global) do
-      g[k] = v
+    local removed = wipeGlobal(db.global)
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Data", "reset-all removed %s rows", tostring(removed))
     end
   end
   if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end

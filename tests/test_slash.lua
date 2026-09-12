@@ -232,6 +232,34 @@ test("Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale
   assertEqual(NS.db.global, before, "the store was replaced rather than emptied")
 end)
 
+-- debug-logging-§8 (v2.44.0 §10): the global reset discards the recorded history along with the
+-- settings, and a purge of recorded data is a data mutation the log must show, like Purge and Delete.
+test("Reset Everything logs one [Data] line with the history rows it discarded, and nothing when debug is off",
+  function()
+    NS.State.debug = false
+    NS.db.global.history = { { id = 1 }, { id = 2 } }
+    local before = #NS.DebugLog.buffer
+    capture(function() Sl:ResetEverything() end)
+    assertEqual(#NS.DebugLog.buffer, before, "no line logged when debug off")
+
+    NS.db.global.history = { { id = 1 }, { id = 2 }, { id = 3 } }
+    NS.State.debug = true
+    before = #NS.DebugLog.buffer
+    local ok, err = pcall(capture, function() Sl:ResetEverything() end)
+    NS.State.debug = false
+    if not ok then error(err, 0) end
+    local found
+    for i = before + 1, #NS.DebugLog.buffer do
+      local line = NS.DebugLog.buffer[i]
+      if line:find("[Data]", 1, true) then
+        assertTrue(found == nil, "exactly one [Data] line per reset")
+        found = line
+      end
+    end
+    assertTrue(found ~= nil, "Reset Everything logged no [Data] line")
+    assertTrue(found:find("reset-all removed 3 rows", 1, true) ~= nil, "the line carries the count: " .. found)
+  end)
+
 -- ── prefix color (slash-commands-§4): the shared tag must be cyan ──
 
 test("NS.PREFIX is the mandated cyan [LH] tag", function()

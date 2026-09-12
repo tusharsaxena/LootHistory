@@ -134,8 +134,8 @@ row the History right-click **Delete** names (`modules/BrowserTable.lua:1128`). 
 (`:258`) rewrites a row's `bound` (`:219`) from two deferrals after login (`core/LootHistory.lua:58`,
 `:61`) and each window open (`modules/Browser.lua:1070`), and its `finishPass` (`:245`) writes the
 job's **`boundRepairPending`** and **`boundRepairAttempts`**, which the load pass arms. **Reset all
-settings** (`settings/Slash.lua:108`) replaces all of it wholesale. Purge and delete each log one
-`[Data]` line, the prune one `[Prune]` (`debug-logging-§8`).
+settings** (`settings/Slash.lua:108`) replaces all of it wholesale. Purge, delete and that reset
+each log one `[Data]` line, the prune one `[Prune]` (`debug-logging-§8`).
 
 The id filter sets are a structural registry (`architecture-§5`): the player adds and removes ids,
 the defaults ship the sets empty, and no schema row or whole-value path names them, so they need no
