@@ -45,7 +45,7 @@ Three schema rows deliberately skip the bus and drive their side effect directly
 
 - `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:286`).
 - `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:260`).
-- `settings.rowHeight` → `NS.BrowserTable:Bind()` (`settings/Schema.lua:277`).
+- `settings.rowHeight` → `NS.BrowserTable:Bind()` (`settings/Schema.lua:283`).
 
 Neither emits `SettingsChanged`, because nothing else needs to react — they are one-consumer, view-only knobs. (Likewise `retentionDays` fires `HistoryChanged` via `PruneOld`, not `SettingsChanged`.) Keeping these off the bus means flipping the minimap button or the window scale never cascades into a Collector upvalue refresh or a table rebuild.
 

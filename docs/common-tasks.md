@@ -99,14 +99,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:406`).
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:415`).
   That seam is: look the row up → run its optional `validate` → `WritePath` a **deep copy** of the
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:355`).
+  `settings/Schema.lua:415`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:430`, `:406`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:439`, `:415`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
   (`savedView`) and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
@@ -127,7 +127,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:171`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:155`). Full contract
   in [message-bus.md](message-bus.md).
 
 ### Compat firewall
@@ -181,10 +181,10 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
   (`D.Debug`, `libs/LibKa0s/DebugLog.lua:633`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
-  (`core/DebugLogSetup.lua:135`), which is also where `NS.DebugLog` is instantiated.
+  (`core/DebugLogSetup.lua:144`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:491`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:500`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:95-96`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
@@ -237,7 +237,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:790`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:805`) — branding art, not a re-skinnable surface.
 - **Nineteen hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
