@@ -46,7 +46,7 @@ db.global = {
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:718`, `:778`). Each record's field shape is documented below.
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:718`, `:787`). Each record's field shape is documented below.
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:211`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
@@ -150,9 +150,9 @@ All history lives at `LootHistoryDB.global.history` — an account-wide dense ar
 Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
 - `Database:Delete(pred)` (`core/Database.lua:718`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:784`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:PruneOld()` (`core/Database.lua:787`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
 - `Database:RepairBoundStates()` (`core/Database.lua:258`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
-- `Database:Purge()` (`core/Database.lua:734`) — replace with `{}`.
+- `Database:Purge()` (`core/Database.lua:737`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -309,7 +309,7 @@ All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is alr
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:784`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:294`).
+`Database:PruneOld` (`core/Database.lua:787`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:306`).
 
 ## Read seams
 

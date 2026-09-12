@@ -122,6 +122,21 @@ reaches it.
   (`libs/LibDBIcon-1.0/LibDBIcon-1.0.lua:194`). The addon never calls the library's `Lock`,
   `Unlock` or compartment functions, its only other writes into the table.
 
+The loot log **`NS.db.global.history`** is named non-setting state too, **recorded data**: the
+player may delete rows or clear it but authors none. Its one owner, `NS.Database`
+(`core/Database.lua`), holds every writer. `Add` (`:287`) appends each kept loot or currency line
+(`modules/Collector.lua:135`, `:200`). `PruneOld` (`:787`) drops rows past `settings.retentionDays`
+once per session after `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:57`) and from that row's
+`onChange` (`settings/Schema.lua:306`). `Purge` (`:737`) empties it from the purge confirm
+(`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
+`StaticPopup_Show` (`settings/Schema.lua:458`, `settings/Panel.lua:115`). `Delete` (`:718`) drops the
+row the History right-click **Delete** names (`modules/BrowserTable.lua:1128`). `RepairBoundStates`
+(`:258`) rewrites a row's `bound` (`:219`) from two deferrals after login (`core/LootHistory.lua:58`,
+`:61`) and each window open (`modules/Browser.lua:1070`), and its `finishPass` (`:245`) writes the
+job's **`boundRepairPending`** and **`boundRepairAttempts`**, which the load pass arms. **Reset all
+settings** (`settings/Slash.lua:108`) replaces all of it wholesale. Purge and delete each log one
+`[Data]` line, the prune one `[Prune]` (`debug-logging-§8`).
+
 The id filter sets are a structural registry (`architecture-§5`): the player adds and removes ids,
 the defaults ship the sets empty, and no schema row or whole-value path names them, so they need no
 register row while only the writer and load pass named here touch them. Their storage keys are
