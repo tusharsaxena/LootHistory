@@ -179,8 +179,8 @@ test("/lh resetall also clears the blacklist and whitelist (non-destructive sett
   NS.Filters:AddWhitelist(202)
   local out = capture(function() Sl:CliResetAll() end)
   -- RENDERED CHANGE: the acknowledgment is the library's, capital A. The filter-list half is not
-  -- the library's and cannot be — the two item-id lists are a storage carve-out with no schema row,
-  -- so NS.Slash:CliResetAll wraps the library verb to clear them first.
+  -- the library's and cannot be — the id lists are a structural registry with no schema row, so
+  -- NS.Slash:CliResetAll wraps the library verb to clear them (through NS.Filters) first.
   assertEqual(out[1], NS.PREFIX .. " All settings reset to defaults")
   assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
   assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")

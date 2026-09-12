@@ -708,7 +708,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the muted-source picker is INVERTED — a ticked box means 'record this source'
 - Panel: the Defaults button is built on first OnShow, not at registration
 - Panel: the General Defaults click restores every schema default
-- Panel: the General Defaults click is PAGE-wide — it reaches the merged tabs' carve-outs
+- Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one

@@ -9,11 +9,11 @@ local F = NS.Filters
 --     ever hidden, deleted, or otherwise touched at read time.
 --   * Whitelist — ids that must ALWAYS be recorded, bypassing the quality / source / quest gates.
 --
--- The two lists are stored account-wide in NS.db.global.{blacklist,whitelist} (NOT settings, NOT
--- Schema rows). Like `window`/`savedView` they are an architecture-§5 carve-out, mutated directly
--- here rather than through Schema:Set — a dynamic id-set has no Schema widget to drive. An id can
--- be on at most ONE list (adding to one drops it from the other), so the collector's whitelist/
--- blacklist checks can never contradict.
+-- The lists are stored account-wide in NS.db.global.{blacklist,whitelist,currencyBlacklist} (NOT
+-- settings, NOT Schema rows). They are an architecture-§5 structural registry and this module is
+-- their one named writer: panel, menu and slash code call the verbs below and never write the sets
+-- themselves. An id can be on at most ONE item list (adding to one drops it from the other), so the
+-- collector's whitelist/blacklist checks can never contradict.
 --
 -- Every mutation writes a FRESH table back to NS.db.global (copy-on-write) so it never mutates an
 -- AceDB shared-default table in place, then propagates the change WITHOUT adding a second bus
