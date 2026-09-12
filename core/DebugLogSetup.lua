@@ -133,7 +133,7 @@ NS.DebugLog = lib:New({
   -- STILL NO `makeCloseButton`, and now for a better reason than the one that used to be here.
   -- The console and the copy window are the LIBRARY's windows, so they wear the library's close --
   -- and since Core minor 6 the library's close IS this collection's `close` mark, because the
-  -- `addonName` above reaches it (LibKa0s/DebugLog.lua forwards d.addonName to Core). The split
+  -- `addonName` above reaches it (libs/LibKa0s/DebugLog.lua forwards d.addonName to Core). The split
   -- standalone-windows draws is unchanged: the window EDGE is shared across every Ka0s window and
   -- `applySkin` above supplies it; the CLOSE CONTROL on a library-drawn window is the library's.
   -- What changed is that the two now look the same without either side overriding the other.

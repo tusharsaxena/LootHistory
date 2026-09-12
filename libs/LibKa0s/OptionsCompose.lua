@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 4
+local COMPOSE_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -253,7 +253,25 @@ end
 --- error: it freezes its own media list at whatever was registered when this file loaded, which is
 --- precisely the failure Options.lua:759-763 says the deferral exists to prevent. Pass the deferred
 --- reader itself, never a caller of it.
-function lib.__AttachCompose(O)
+-- The "Reset all settings" tooltip, chosen by what the reset IS on this host (compose minor 5).
+-- Through minor 4 it was one literal, "Restore every setting in this addon to its default", and a
+-- host could not change it without keeping a second copy of the button in its own source. But a
+-- host that supplies `resetProfile` resets the CURRENT PROFILE (options-ui-§12), and "every setting
+-- in this addon" overstates it -- other profiles survive. So the descriptor picks the wording:
+-- no `resetProfile`, the minor-4 text byte for byte; `resetProfile`, the profile wording; and
+-- `profilesPage` as well, the equivalence §12 asks the tooltip to name. Read at call time, from
+-- lib.STRINGS, so the three wordings live beside the shell's other user-visible text.
+local function resetAllTooltip(desc)
+  local S = lib.STRINGS
+  if type(desc.resetProfile) ~= "function" then return S.RESET_ALL_TIP end
+  if desc.profilesPage then return S.RESET_ALL_TIP_PROFILES_PAGE end
+  return S.RESET_ALL_TIP_PROFILE
+end
+
+--- `d` is the instance's descriptor, handed through by lib:New since Options minor 18. A shell
+--- older than that passes none, and every descriptor read below then answers as absent.
+function lib.__AttachCompose(O, d)
+  local desc = type(d) == "table" and d or EMPTY
   -- Published on the INSTANCE, not on the lib table, for the reason Options.lua's layout block
   -- gives: a lib-level table is shared by every instance, so handing it out lets one host's
   -- mutation retune every other host's dropdowns.
@@ -405,7 +423,9 @@ function lib.__AttachCompose(O)
   ---                              session state lives outside the block's own prefix. Defaults to
   ---                              "state.debugConsole".
   ---   onResetPosition  function  the button's click handler. Omitted when frameless.
-  ---   onResetAll       function  options-ui-§12's global reset, verbatim.
+  ---   onResetAll       function  options-ui-§12's global reset, verbatim. The button's tooltip
+  ---                              is not the spec's: since compose minor 5 it follows the Options
+  ---                              descriptor's `resetProfile` and `profilesPage` (resetAllTooltip).
   ---   leadButton       table     { text, tooltip, onClick } — ONE act of the host's own, closing
   ---                              the tab beside the resets. Since compose minor 2.
   ---
@@ -473,7 +493,7 @@ function lib.__AttachCompose(O)
     -- for a spec with no onClick, and draws the button anyway.
     local resetAll = {
       text    = "Reset all settings",
-      tooltip = "Restore every setting in this addon to its default.",
+      tooltip = resetAllTooltip(desc),
       onClick = spec.onResetAll,
     }
     local resetPosition = not spec.frameless and {

@@ -6,7 +6,7 @@ The table stays the **host's** and is passed into the library rather than owned 
 
 `/lh` and `/loothistory` are both registered through AceConsole's `RegisterChatCommand` (`Sl:Register`, `settings/Slash.lua:361`) and dispatch to the same `Sl:OnSlash` handler — `/loothistory` is the long-form alias; all help text and docs use the short form.
 
-The dispatcher is the library's (`libs/LibKa0s/Slash.lua:632`), bound onto `NS.Slash` by name at `settings/Slash.lua:331` because ~20 call sites across the schema table, the settings panel and the suite already reach for `NS.Slash:CliList()` and friends:
+The dispatcher is the library's (`libs/LibKa0s/Slash.lua:650`), bound onto `NS.Slash` by name at `settings/Slash.lua:331` because ~20 call sites across the schema table, the settings panel and the suite already reach for `NS.Slash:CliList()` and friends:
 
 - Bare `/lh` → `Sl:PrintHelp` (standard slash-commands-§4). Window display is **explicit** — bare `/lh` prints help, never opens the window; use `/lh toggle` or `/lh show|hide`.
 - `/lh <known>` → runs that row's `entry[3](rest)`.
@@ -54,13 +54,13 @@ A **bare `/lh` prints help on that path too** (slash-commands-§3), listing the 
 
 ## Generated help
 
-`Sl:PrintHelp` prints the header from `Dispatcher:HelpHeader()` (`libs/LibKa0s/Slash.lua:471`) — version, an **em dash**, then the alias clause composed from the descriptor's `slashAliases`:
+`Sl:PrintHelp` prints the header from `Dispatcher:HelpHeader()` (`libs/LibKa0s/Slash.lua:488`) — version, an **em dash**, then the alias clause composed from the descriptor's `slashAliases`:
 
 ```
 [LH] v1.3.0 — slash commands (|cFFFFFF00/loothistory|r is an alias for |cFFFFFF00/lh|r)
 ```
 
-then one prefixed row per `NS.COMMANDS` entry, each **indented two spaces** so it sits under that header (`Sl:HelpRows`, `libs/LibKa0s/Slash.lua:465`). A row is a gold command, an em dash with a **single space either side**, and a white description — upper-case hex, because that is the library's:
+then one prefixed row per `NS.COMMANDS` entry, each **indented two spaces** so it sits under that header (`Sl:HelpRows`, `libs/LibKa0s/Slash.lua:482`). A row is a gold command, an em dash with a **single space either side**, and a white description — upper-case hex, because that is the library's:
 
 ```
 [LH]   |cFFFFFF00/lh show|r — |cFFFFFFFFOpen the window|r
@@ -81,15 +81,15 @@ Because the help index, the landing page and the dispatcher all read the same ta
 
 - **`get <path>`** — `Sl:CliGet`. Prints the single-line `FormatKV` echo for the path. A missing argument prints `Usage: /lh get <path>`; an unknown path prints `Setting not found: <path>`.
 - **`set <path> <value>`** — `Sl:CliSet`. Looks up the row (unknown → `Setting not found: <path>`), parses the raw text by the row's declared `type` through `lib.ParseValue` (see below), writes it via `Schema:Set` — which validates and fires the row's `onChange` — then **re-reads the stored value** and echoes it via `FormatKV`, which is the only way a clamp is visible to the user. A missing argument prints `Usage: /lh set <path> <value>  (try /lh list)`.
-- **`list`** — `Sl:CliList` (via the pure, testable `Sl:BuildListLines`, `libs/LibKa0s/Slash.lua:498`). Prints a green `|cff33ff99Available settings|r` header, then one azure `  |cff3399ff[group]|r` header per schema group **in declaration order** (LootHistory's single-panel section headers stand in for the standard's `[page]` headers, via the descriptor's `groupKey`), then a four-space-indented `FormatKV` row per setting. New settings appear automatically as schema rows are added. These two headers keep their **lower**-case hex deliberately — only the command-row and key/value formatters converged on upper case, and recasing the rest would be a user-visible change nobody asked for.
-- **`reset <path>`** — `Sl:CliReset` (`libs/LibKa0s/Slash.lua:563`). Resolves and applies the row's default through `Schema:Default` (deep-copied) + `Schema:Set`, then echoes the **same `FormatKV` line** every list row, get echo and set echo uses — `|cFFFFFF00settings.excludedSources|r = |cFFFFFFFF(none)|r`, not a bespoke `<path> reset to <value>` sentence. The path is not lower-cased (folding it would resolve a setting the user did not name). A missing argument prints `Usage: /lh reset <path>`; an unknown path prints `Setting not found: <path>`.
+- **`list`** — `Sl:CliList` (via the pure, testable `Sl:BuildListLines`, `libs/LibKa0s/Slash.lua:515`). Prints a green `|cff33ff99Available settings|r` header, then one azure `  |cff3399ff[group]|r` header per schema group **in declaration order** (LootHistory's single-panel section headers stand in for the standard's `[page]` headers, via the descriptor's `groupKey`), then a four-space-indented `FormatKV` row per setting. New settings appear automatically as schema rows are added. These two headers keep their **lower**-case hex deliberately — only the command-row and key/value formatters converged on upper case, and recasing the rest would be a user-visible change nobody asked for.
+- **`reset <path>`** — `Sl:CliReset` (`libs/LibKa0s/Slash.lua:580`). Resolves and applies the row's default through `Schema:Default` (deep-copied) + `Schema:Set`, then echoes the **same `FormatKV` line** every list row, get echo and set echo uses — `|cFFFFFF00settings.excludedSources|r = |cFFFFFFFF(none)|r`, not a bespoke `<path> reset to <value>` sentence. The path is not lower-cased (folding it would resolve a setting the user did not name). A missing argument prints `Usage: /lh reset <path>`; an unknown path prints `Setting not found: <path>`.
 - **`resetall`** — `Sl:CliResetAll`. Clears the `blacklist` / `whitelist` / `currencyBlacklist` id-lists via `Filters:ClearAll` **first**, then walks every schema row back to its default and acknowledges `All settings reset to defaults` (capital A, the library's string), so the last line printed reads as the summary of everything that happened. This is **non-destructive** (**no confirmation prompt**) — it does not delete recorded history, and leaves `savedView` / window geometry alone. See [schema.md](schema.md#reset-semantics). It logs one `[Set] reset all: N rows` line and no per-row `[Set]` (debug-logging-§10). N is the seam's tally of rows whose stored value changed, not the library's `count` of rows walked, so a reset of settings already at their defaults logs `0 rows`. A row that raises part-way still gets the one line, with ` (stopped by an error)` appended; the library then re-raises, and the seam's mute is already released. A `BulkEnd` with no open bracket logs nothing. The General page's **Defaults** button reaches the same walk and logs the same line.
 
 **Convergence — `reset` takes a path, at no cost.** The library's `reset` is deliberately path-scoped with no page-shaped form (a page is a property of a settings panel, and every such panel already carries a Defaults button). This addon was already path-scoped and already had `resetall`, so nothing was lost and no confirmation popup had to be re-anchored: the destructive verb here is `/lh purge` (and the panel's **Reset all settings**), both still routed through `StaticPopup_Show`. A page or tab name is refused rather than silently resetting a section — `/lh reset Capture` answers `Setting not found: Capture`.
 
 ### The type-aware parser
 
-`lib.ParseValue` (`libs/LibKa0s/Slash.lua:332`) replaces bare coercion, on the principle that a CLI which silently accepts a value it cannot honor is worse than one that refuses. Failure prints `Invalid value for <path>` and then the reason on a two-space-indented second line; the old value survives untouched.
+`lib.ParseValue` (`libs/LibKa0s/Slash.lua:343`) replaces bare coercion, on the principle that a CLI which silently accepts a value it cannot honor is worse than one that refuses. Failure prints `Invalid value for <path>` and then the reason on a two-space-indented second line; the old value survives untouched.
 
 - **`bool`** — `true`/`1`/`on`/`yes` and `false`/`0`/`off`/`no`. Anything else is **refused** rather than silently stored as `false`: `/lh set settings.enabled maybe` → `Invalid value for settings.enabled` / `  expected true/false/on/off/1/0/yes/no`.
 - **`number`, plain (a `Slider` row)** — **clamped** to the row's `min`/`max`, because a user typing a scale larger than the panel allows means "as large as it goes". `/lh set settings.windowScale 99` stores `1.6` and echoes `settings.windowScale = 1.60x`.

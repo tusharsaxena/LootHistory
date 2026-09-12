@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 16
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -225,6 +225,20 @@ lib.STRINGS = {
   -- The sub-page breadcrumb separator. An inline atlas escape rather than a font glyph, so it
   -- renders identically regardless of the FontString's font or any locale fallback.
   BREADCRUMB_SEP = " |A:common-icon-forwardarrow:16:16|a ",
+  -- The "Reset all settings" button's tooltip (OptionsCompose.lua's MasterControls), in the three
+  -- wordings its act can have. Chosen from the descriptor rather than written by the host, so the
+  -- composer stays the only writer of the reset's text (options-ui-§15). RESET_ALL_TIP is the
+  -- wording every host had through minor 17, and a host that supplies no `resetProfile` keeps it:
+  -- there the reset really is a walk of every setting. With `resetProfile` the act is a PROFILE
+  -- reset (options-ui-§12) and the tooltip says so, and says which profiles it leaves alone; with
+  -- `profilesPage` as well it names the equivalence §12 asks for. The em dash and the arrow are
+  -- byte escapes, for the reason COMBAT_REFUSED's is.
+  RESET_ALL_TIP               = "Restore every setting in this addon to its default.",
+  RESET_ALL_TIP_PROFILE       = "Reset the current profile to its defaults. Your other profiles " ..
+                                "are not affected.",
+  RESET_ALL_TIP_PROFILES_PAGE = "Reset the current profile to its defaults \226\128\148 the same " ..
+                                "thing Profiles \226\134\146 Reset Profile does. Your other " ..
+                                "profiles are not affected.",
 }
 
 -- ── the AceGUI widget registry ─────────────────────────────────────────────────────────────
@@ -307,6 +321,107 @@ function lib.__PatchLSM30Border()
   return true
 end
 
+-- ── the font preload (minor 17) ────────────────────────────────────────────────────────────
+--
+-- AceGUI-3.0-SharedMediaWidgets' `LSM30_Font` builds its pull-out list on OPEN, running
+-- `SetFont(face); SetText(name)` on one row per registered face. The client loads a font file on
+-- its first reference, and text set with a face that is not loaded yet draws blank until something
+-- sets it again — so the first open of any font dropdown in a session showed a blank row for every
+-- face nothing had used yet (third-party LSM faces, mostly), and the second open was fine. The
+-- widget is upstream and vendored, so it is not the thing to change; what the library can do is
+-- have every face loaded before a dropdown can be opened, which is after a panel has been shown.
+--
+-- WHEN: a settings panel's show, never load or PLAYER_LOGIN. Loading every face costs memory, and
+-- some of Blizzard's CJK faces are large; a player who never opens settings must not pay for it.
+-- Opening a font dropdown would load every face anyway, so a player who does open settings pays
+-- nothing extra, only earlier. The two call sites are in `lib:New` — `O.SetRenderer`'s OnShow and
+-- `O.CreatePanel`'s hook — and each says why it is where it is.
+--
+-- WHY HERE and not in Media.lua: the trigger is the panel lifecycle, which this file owns and
+-- Media.lua has none of; `getLSM` is already on this major's descriptor; and `LSM30_Font` is the
+-- dialogControl this major's own `O.FontGroup` writes. Media.lua's `RegisterLSM` puts faces IN;
+-- this is about the widget that lists them.
+--
+-- LIBRARY-LEVEL STATE, on `lib`, so every host instance shares it and a LibStub minor upgrade keeps
+-- it: every vendored copy in the session is handed the same `lib`, so a client running five Ka0s
+-- addons loads each face once, not five times. It is read through `preloadState()` at call time and
+-- never captured, and `lib.__PreloadFonts` is looked up on `lib` at call time by both of its callers
+-- — an instance built by an older copy, and the LSM callback — so after an upgrade the newest code
+-- is what runs.
+
+local function preloadState()
+  lib.__fontPreload = lib.__fontPreload or { paths = {} }
+  return lib.__fontPreload
+end
+preloadState()
+
+--- The one frame the strings hang off. Shown, at full alpha and parented to UIParent — the client
+--- may skip work for a hidden or fully transparent region, and a frame parented to a page would be
+--- hidden with it — but 1x1 and parked off the left edge of the screen, so it is never seen.
+local function preloadFrame(state)
+  if state.frame then return state.frame end
+  if type(CreateFrame) ~= "function" then return nil end
+  local f = CreateFrame("Frame", nil, UIParent)
+  if not f then return nil end
+  f:SetSize(1, 1)
+  if UIParent then f:SetPoint("TOPRIGHT", UIParent, "TOPLEFT", -64, 0) end
+  f:SetAlpha(1)
+  f:Show()
+  state.frame = f
+  return f
+end
+
+--- Load one face: a FontString per distinct PATH, since several LSM keys can name one file. The path
+--- is marked BEFORE it is tried, so a face the client refuses is tried once, not on every show; and
+--- the two calls are pcall'd together, because a SetFont that fails without raising leaves a string
+--- whose SetText raises instead.
+local function preloadPath(state, f, path)
+  if type(path) ~= "string" or path == "" or state.paths[path] then return false end
+  state.paths[path] = true
+  local fs = f:CreateFontString(nil, "BACKGROUND")
+  if not fs then return false end
+  fs:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+  return (pcall(function()
+    fs:SetFont(path, 12, "")
+    fs:SetText("Aa")
+  end))
+end
+
+--- Faces registered after the first preload — an addon that loads on demand, or registers late —
+--- are loaded as they arrive. ONE subscription for the library, whichever host's show made it: the
+--- target is the shared state table, and CallbackHandler keeps one callback per (event, target).
+local function subscribeLate(state, LSM)
+  if state.subscribed or type(LSM.RegisterCallback) ~= "function" then return end
+  state.subscribed = pcall(LSM.RegisterCallback, state, "LibSharedMedia_Registered",
+    function(_, mediatype)
+      if mediatype ~= "font" then return end
+      local preload = lib.__PreloadFonts
+      if type(preload) == "function" then pcall(preload, LSM) end
+    end)
+end
+
+--- Load every LibSharedMedia face not loaded yet, then subscribe (once) to faces registered later.
+--- Answers how many faces this call loaded. Anything that is not an LSM with a `HashTable` — `nil`
+--- included — answers 0 and creates nothing, and so does a client with no `CreateFrame`, in which
+--- case nothing is marked and the next call tries again.
+---
+--- @param LSM table|nil  LibSharedMedia-3.0, as the host's `getLSM()` returns it.
+--- @return number
+function lib.__PreloadFonts(LSM)
+  if type(LSM) ~= "table" or type(LSM.HashTable) ~= "function" then return 0 end
+  local ok, fonts = pcall(LSM.HashTable, LSM, "font")
+  if not ok or type(fonts) ~= "table" then return 0 end
+  local state = preloadState()
+  local f = preloadFrame(state)
+  if not f then return 0 end
+  local n = 0
+  for _, path in pairs(fonts) do
+    if preloadPath(state, f, path) then n = n + 1 end
+  end
+  subscribeLate(state, LSM)
+  return n
+end
+
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
 
 --- Build one host's options surface.
@@ -329,7 +444,17 @@ end
 ---                              With it supplied, the library skips every row that is not
 ---                              `sessionOnly` on its own — a profile reset covers them, and writing
 ---                              each one's default first would refresh the panel once per row for
----                              values about to be discarded whole.
+---                              values about to be discarded whole. Since minor 18 it also picks
+---                              the wording of O.MasterControls' "Reset all settings" tooltip: the
+---                              current profile, and that other profiles are not affected.
+---   profilesPage               optional, minor 18 (compose minor 5). `true` when the host ships an
+---                              AceDBOptions Profiles sub-page (options-ui-§3). Read by
+---                              O.MasterControls alone, and only with `resetProfile` supplied: the
+---                              "Reset all settings" tooltip then names the equivalence
+---                              options-ui-§12 asks for — the same thing Profiles → Reset Profile
+---                              does. The library cannot see which pages a host registers, so the
+---                              host says so here. Ignored without `resetProfile`, and changes
+---                              nothing but that tooltip.
 ---   skipRestoreAll(row)        optional. Return true to exclude a row from a global reset. With
 ---                              `resetProfile` supplied this is only needed for a row that is
 ---                              sessionOnly AND must still be left alone; the profiles-page veto
@@ -346,18 +471,23 @@ end
 ---                              `[Set]` line here: debug-logging-§10 makes a bulk reset ONE line.
 ---   bulkEnd(act, scope, count, err, info)  optional, minor 16. Called once when the act ends —
 ---                              ALWAYS, when the bracket was begun, even if a row, the profile reset
----                              or the after-hook raised. `count` is the rows actually written
----                              through applyDefault; `err` is the raised value, re-raised after
----                              this returns; `info.profileReset` is true when RestoreAllDefaults
----                              called `resetProfile` and it returned. Unmute here, then: with
----                              profileReset true emit NOTHING — the host's profile-event handler
----                              logs a profile reset once (debug-logging-§10) — otherwise emit
----                              `[Set] reset <scope>: N rows`, N = count. A host that supplies
----                              neither field gets minor 15's walk exactly, with no pcall.
+---                              or the after-hook raised. `count` is the rows the walk called
+---                              applyDefault for and that returned, INCLUDING rows already at their
+---                              default — so it is NOT debug-logging-§10's N; `err` is the raised
+---                              value, re-raised after this returns; `info.profileReset` is true
+---                              when RestoreAllDefaults called `resetProfile` and it returned.
+---                              Unmute here, then: with profileReset true emit NOTHING — the host's
+---                              profile-event handler logs a profile reset once
+---                              (debug-logging-§10) — otherwise emit `[Set] reset <scope>: N rows`,
+---                              with N the host's OWN tally of writes that changed a stored value,
+---                              never `count`. A host that supplies neither field gets minor 15's
+---                              walk exactly, with no pcall.
 ---   scheduleTimer(fn, delay)   optional. Backs the color picker's 50 ms drag throttle. A
 ---                              descriptor field rather than an AceTimer embed, because embedding
 ---                              would be this library's second dependency-budget breach.
----   getLSM()                   optional. Returns LibSharedMedia-3.0, for LSMValues.
+---   getLSM()                   optional. Returns LibSharedMedia-3.0, for LSMValues and, since
+---                              minor 17, for the font preload every panel show runs (see
+---                              lib.__PreloadFonts).
 ---   validate()                 optional. Runs once, before the page builders.
 ---   onAceGUI(AceGUI)           optional. Handed the resolved AceGUI so the host can stash it
 ---                              (library-stack-§4) for its own page files.
@@ -431,6 +561,22 @@ function lib:New(d)
   O.TAB_H             = L.TAB_H
   O.BANNER_H          = L.BANNER_H
 
+  -- ── the font preload's trigger (minor 17) ────────────────────────────────────────────────
+
+  --- The body of preloadFonts, kept apart so a show allocates no closure.
+  local function runPreload()
+    local preload = lib.__PreloadFonts
+    if type(preload) ~= "function" or type(d.getLSM) ~= "function" then return end
+    preload(d.getLSM())
+  end
+
+  --- Load every LSM face on a panel's show (lib.__PreloadFonts, above lib:New). pcall'd whole:
+  --- a raising getLSM, a missing CreateFrame or a face the client refuses must never cost the page,
+  --- and none of them is the page's fault, so nothing is reported either.
+  local function preloadFonts()
+    pcall(runPreload)
+  end
+
   -- ── panel factory ────────────────────────────────────────────────────────────────────────
 
   local function buildHeader(panel, title, opts)
@@ -475,6 +621,19 @@ function lib:New(d)
     local panel = CreateFrame("Frame", name)
     panel.name = title
     panel:Hide()
+
+    -- The font preload (minor 17) for a page with NO renderer. A ctx that never goes through
+    -- SetRenderer is still a supported shape — the refresh tiers below keep a migration seam for
+    -- it — and RenderRows / RenderField are public, so such a page CAN hold an `LSM30_Font` row the
+    -- library never sees drawn. This is the one call every page passes through, so the hook goes
+    -- here. It covers the main page without a `buildMain` too.
+    --
+    -- SetRenderer's SetScript replaces this hook, in the kit as in the client, which is why its own
+    -- OnShow calls the preload itself, after its combat refusal. The hook makes no combat decision,
+    -- on purpose: a renderer-less page has no refusal, so if it is on screen in combat its dropdowns
+    -- can be opened, and loading the faces then is the only way they draw. A host that SetScripts
+    -- its own OnShow onto a renderer-less page replaces the hook as well; no consumer does.
+    panel:HookScript("OnShow", preloadFonts)
 
     -- The Blizzard canvas contract. The Settings window calls all three on a frame handed to
     -- RegisterCanvasLayout(Sub)category: OnCommit when the user applies, OnDefault from the
@@ -703,8 +862,9 @@ function lib:New(d)
   --- same order, and a raising row escapes with its own stack, exactly as at minor 15.
   ---
   --- BRACKETED, the guarantee is that a begun bracket always closes, so a host's mute cannot stick:
-  --- bulkBegin and the walk run inside one pcall; bulkEnd then runs exactly once with the rows
-  --- actually written and, if anything raised, the raised value; and only then is that value
+  --- bulkBegin and the walk run inside one pcall; bulkEnd then runs exactly once with `count` (the
+  --- rows handed to applyDefault that returned, a row already at its default included — the host
+  --- tallies §10's N itself) and, if anything raised, the raised value; and only then is that value
   --- re-raised, unchanged. The walk still stops at the first raising row, as it always did. A
   --- bulkEnd that raises propagates its own error — it was handed the original one first.
   ---
@@ -780,7 +940,8 @@ function lib:New(d)
   ---
   --- Bracketed as act "reset", scope "all" (minor 16), and the bracket spans the WHOLE act — the
   --- row walk, `resetProfile` and `afterRestoreAll` — because a write any of them makes through the
-  --- host's seam is part of the reset. `count` is the rows written through `applyDefault`: with
+  --- host's seam is part of the reset. `count` is the rows the walk called `applyDefault` for and
+  --- that returned, a row already at its default included, so it is not §10's N: with
   --- `resetProfile` supplied that is the sessionOnly rows alone, the profile being reset whole. The
   --- refresh runs after the bracket closes; it writes nothing.
   ---
@@ -887,6 +1048,15 @@ function lib:New(d)
         print(lib.STRINGS.COMBAT_REFUSED)
         return
       end
+      -- The font preload (minor 17), AFTER the combat refusal on purpose. Creating FontStrings is
+      -- not protected, so this is a cost decision, not a taint one: the refusal has just closed the
+      -- window, so no dropdown can open on this show; loading every face is a disk hitch the middle
+      -- of a fight should not pay for; and the next show outside combat — the first on which a
+      -- dropdown can be opened — loads them before anything is drawn. On every show, not only the
+      -- first: after the first it walks LSM's table and loads nothing, and it heals a show that
+      -- found no LSM or no CreateFrame. Every page with a renderer comes through here, and so does
+      -- the main page when `buildMain` is set.
+      preloadFonts()
       if ctx._rendered and not ctx._dirty then return end
       renderCtx(ctx)
     end)
@@ -1107,7 +1277,7 @@ function lib:New(d)
   -- leaves its half absent rather than erroring at :New, which is why the shell's own members
   -- reach for O.AttachTooltip and O.PatchAlwaysShowScrollbar at CALL time and never at load time.
   if lib.__AttachWidgets then lib.__AttachWidgets(O, d) end
-  if lib.__AttachCompose then lib.__AttachCompose(O)    end
+  if lib.__AttachCompose then lib.__AttachCompose(O, d) end
   if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
 
   return O
