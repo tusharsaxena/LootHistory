@@ -25,7 +25,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 14
+local WIDGETS_MINOR = 15
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -764,6 +764,21 @@ function lib.__AttachWidgets(O, d)
 
   local function get(path) return d.get(path) end
 
+  -- A ROW WITH NO PATH IS READ AND WRITTEN THROUGH ITS OWN get / set (minor 15). That is the flow
+  -- engine's half of OptionsCompose.lua's record-backed arm: a composed block bound to a registry
+  -- record rather than to settings carries `get()` and `set(value)` closures and no `path`. The
+  -- gate is `path == nil`, not "has a get": a row WITH a path goes through the descriptor exactly as
+  -- it always has, whatever other fields a host's schema happens to give it, so no path-keyed row
+  -- anywhere in the collection can change behavior because of this.
+  local function read(row)
+    if row.path == nil and type(row.get) == "function" then return row.get() end
+    return d.get(row.path)
+  end
+  local function write(row, value)
+    if row.path == nil and type(row.set) == "function" then return row.set(value) end
+    return d.set(row.path, value)
+  end
+
   -- Write a row's value through the host's single write seam, then re-sync every widget on every
   -- panel. That is what makes paired controls just work: a "Use Class Color" toggle flips and its
   -- matching swatch grays out on the same frame. AceGUI's SetValue does not fire OnValueChanged,
@@ -773,7 +788,7 @@ function lib.__AttachWidgets(O, d)
   -- rebuild on every checkbox click would tear down and recreate every widget on the page — which
   -- is exactly what the two-tier split exists to avoid.
   local function set(row, value)
-    d.set(row.path, value)
+    write(row, value)
     O.RefreshScalars()
   end
 
@@ -1495,7 +1510,7 @@ function lib.__AttachWidgets(O, d)
     cb:SetLabel(row.label or row.path)
     applyWidth(cb, relativeWidth)
 
-    local function readValue() return get(row.path) and true or false end
+    local function readValue() return read(row) and true or false end
 
     cb:SetValue(readValue())
     local function refresh() cb:SetValue(readValue()) end
@@ -1521,7 +1536,7 @@ function lib.__AttachWidgets(O, d)
     applyWidth(s, relativeWidth)
 
     local function refresh()
-      local v = get(row.path)
+      local v = read(row)
       -- A corrupt SavedVariable would otherwise hand AceGUI a nil or a string and blow up the
       -- layout pass, taking the whole page with it.
       if type(v) ~= "number" then v = row.default or row.min or 0 end
@@ -1591,7 +1606,7 @@ function lib.__AttachWidgets(O, d)
     -- the media library has registered anything must NOT warn; that deferred case is the whole
     -- reason the opt-in exists.
     if row.values == nil and #enumList(row) == 0 then
-      print(lib.STRINGS.EMPTY_DROPDOWN:format(tostring(row.path)))
+      print(lib.STRINGS.EMPTY_DROPDOWN:format(tostring(row.path or row.field)))
     end
 
     local function applyList()
@@ -1603,11 +1618,11 @@ function lib.__AttachWidgets(O, d)
       dd:SetList(items, order)
     end
     applyList()
-    dd:SetValue(get(row.path))
+    dd:SetValue(read(row))
 
     local function refresh()
       applyList()                            -- media lists grow as other addons register into them
-      dd:SetValue(get(row.path))
+      dd:SetValue(read(row))
     end
 
     dd:SetCallback("OnValueChanged", function(_, _, value) set(row, value) end)
@@ -1628,9 +1643,9 @@ function lib.__AttachWidgets(O, d)
     eb:SetLabel(row.label or row.path)
     applyWidth(eb, relativeWidth)
     if row.maxLetters then eb:SetMaxLetters(row.maxLetters) end
-    eb:SetText(get(row.path) or "")
+    eb:SetText(read(row) or "")
 
-    local function refresh() eb:SetText(get(row.path) or "") end
+    local function refresh() eb:SetText(read(row) or "") end
 
     -- OnEnterPressed only, never OnTextChanged: committing per keystroke would fire the row's
     -- onChange on every letter typed.
@@ -1655,7 +1670,7 @@ function lib.__AttachWidgets(O, d)
     cp:SetHasAlpha(row.hasAlpha ~= false)
     applyWidth(cp, relativeWidth)
 
-    local function readColor() return decodeColor(get(row.path)) end
+    local function readColor() return decodeColor(read(row)) end
 
     cp:SetColor(readColor())
 
@@ -1679,7 +1694,7 @@ function lib.__AttachWidgets(O, d)
     -- Deliberately does NOT call RefreshAllPanels: a sustained drag would re-traverse every widget
     -- on every panel every 50 ms. This is the one maker that declines the refresh.
     local function commit(r, g, b, a)
-      d.set(row.path, encodeColor(r, g, b, a))
+      write(row, encodeColor(r, g, b, a))
     end
 
     -- A single re-armed timer over a reused args table, so a 60 Hz drag produces O(1) garbage

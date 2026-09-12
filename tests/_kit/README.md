@@ -319,9 +319,32 @@ source at all is a **failure** naming the fix — never a quiet pass.
 
 ## The Ace fakes, and the shims they replace
 
-Ace3 is faked here rather than loaded, and each fake models what a suite has needed to observe. Four
-pieces arrived at kit revision 16, each replacing a shim a consumer had written for itself. Delete
-the local copy when you re-vendor:
+Ace3 is faked here rather than loaded, and each fake models what a suite has needed to observe,
+checked against the real Ace3 source. **Build on them rather than replacing them**: wrap a fake in
+`M.__libs` and call the kit's through, and layer only what is genuinely your addon's. A harness that
+replaces a fake wholesale never receives a kit revision again. The fakes never read their receiver, so
+a wrapper that calls through with its own table as `self` is served.
+
+**Revision 17** added the surfaces six consumer harnesses had hand-rolled:
+
+- **`NewAddon([object,] name, lib, ...)` honors its mixin list** — it embeds exactly the named
+  libraries through `LibStub`, names the object, registers it for `GetAddon` and stamps AceAddon's
+  object model. `NewModule` builds modules. The lifecycle is driven the way the client drives it:
+  `AceAddon.frame:__fire("OnEvent", "PLAYER_LOGIN")` initializes everything queued, then enables each
+  addon and then its modules, in order; `AceAddon:EnableAddon(addon)` is the enable cascade alone.
+  `NewAddon(target)` with **no name** keeps revision 16's behavior.
+- **AceEvent is two CallbackHandler registries.** Messages take string methods, the optional `arg`
+  and `UnregisterAllMessages`; `M.__msgRegistry` is the message registry. `M.__fireEvent(event, ...)`
+  fires a game event at every registrant and answers how many ran. An event name in `M.__badEvents`
+  raises on its first registration, as retail does.
+- **AceTimer is real**, on the kit's queue: `M.__fireTimers()` skips a canceled timer and answers how
+  many ran. A canceled handle carries `canceled = true`.
+- **AceConsole** records chat commands in `AceConsole.commands`; `AceConsole:__slash(command, input)`
+  runs one.
+- **AceGUI** publishes `WidgetVersions` and a layout registry.
+
+Four pieces arrived at kit revision 16, each replacing a shim a consumer had written for itself.
+Delete the local copy when you re-vendor:
 
 - **`AceGUI:Release(w)`** follows the real one's order and records what it took back:
   `w.__released = true`, and `AceGUI.__released` in order. It fires `"OnRelease"` before it wipes
