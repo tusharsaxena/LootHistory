@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 9
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 10
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -302,13 +302,20 @@ local function parseNumber(args, row)
   return n
 end
 
-local function parseString(args, row)
-  local v = args[1]
-  if not v then return nil, lib.STRINGS.ERR_STRING end
+-- A string row takes the WHOLE remainder, trimmed at both ends, never its first token (minor 10).
+-- Through minor 9 it took `args[1]`, so `set container.name My Raid Buffs` stored "My" and an enum
+-- whose values carry a space -- an LSM font such as "Friz Quadrata TT", the "OUTLINE, MONOCHROME"
+-- font flag -- could not be named at all. The truncation was silent: the value was stored, nothing
+-- was raised, and only the echo showed it. Internal spacing is kept verbatim, because it is the
+-- user's data; only the edges are trimmed.
+local function parseString(text, row)
+  local v = (text or ""):match("^%s*(.-)%s*$")
+  if v == "" then return nil, lib.STRINGS.ERR_STRING end
   local allowed = enumList(row)
   -- Only CONSTRAINED when the row declares a list. A free-text row (dialogControl = "EditBox")
   -- carries no `values` at all, and the old code walked an empty list and therefore refused every
-  -- value — so that widget type shipped un-settable from the CLI.
+  -- value — so that widget type shipped un-settable from the CLI. A constrained row is matched on
+  -- the full string, so trailing words after a valid entry are refused rather than dropped.
   if #allowed == 0 then return v end
   for _, item in ipairs(allowed) do
     if tostring(item.value) == v then return v end
@@ -329,14 +336,19 @@ local function parseColor(args)
 end
 
 --- Parse `text` for `row`. Returns the value, or nil plus a reason.
+---
+--- A `string` row reads the whole of `text`, trimmed at both ends (minor 10); every other type
+--- reads whitespace-separated tokens exactly as before — a bool and a number their first, a color
+--- its first four.
 function lib.ParseValue(row, text)
   row = row or {}
+  if row.type == "string" then return parseString(text, row) end
+
   local args = {}
   for w in (text or ""):gmatch("%S+") do args[#args + 1] = w end
 
   if row.type == "bool"   then return parseBool(args)        end
   if row.type == "number" then return parseNumber(args, row) end
-  if row.type == "string" then return parseString(args, row) end
   if row.type == "color"  then return parseColor(args)       end
   return nil, lib.STRINGS.ERR_TYPE:format(tostring(row.type))
 end
@@ -372,7 +384,9 @@ end
 ---                          always false here, since no Slash walk resets a profile. Unmute and
 ---                          emit `[Set] reset all: N rows` here, with N the host's OWN tally of
 ---                          writes that changed a stored value, never `count`.
----   parse        function  optional, defaults to lib.ParseValue.
+---   parse        function  optional, defaults to lib.ParseValue. Handed the row and the whole
+---                          remainder after the path, untrimmed; lib.ParseValue gives a `string`
+---                          row all of it (minor 10).
 ---   format       function  optional, minor 5. function(row, storedValue) -> string. Renders a
 ---                          value for display, replacing lib.FormatValue outright, at every one
 ---                          of the list/get/set/reset echoes. The counterpart of `parse`, for a

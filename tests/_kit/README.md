@@ -325,10 +325,16 @@ checked against the real Ace3 source. **Build on them rather than replacing them
 replaces a fake wholesale never receives a kit revision again. The fakes never read their receiver, so
 a wrapper that calls through with its own table as `self` is served.
 
+**Revision 19** fixes one more. The AceDB fake's `ResetProfile` fires `OnProfileReset` with the
+database alone, as AceDB-3.0 does (`self.callbacks:Fire("OnProfileReset", self)`); through revision
+18 it passed the active profile as a third argument, so a reset handler that read one passed under
+the kit and got `nil` in the client. A handler that needs the profile asks `db:GetCurrentProfile()`.
+
 **Revision 18** fixes one argument. The AceDB fake's `CopyProfile` fires `OnProfileCopied` with the
 **source** profile's key as its third argument, as AceDB-3.0 does; through revision 17 it passed the
 active profile, so a copy of `"Raid"` into `"Default"` reached a handler as a copy of `"Default"`.
-`OnProfileChanged` still carries the profile switched to, and `OnProfileReset` the active profile.
+`OnProfileChanged` still carries the profile switched to. (`OnProfileReset` then kept the active
+profile; revision 19 drops it.)
 
 **Revision 17** added the surfaces six consumer harnesses had hand-rolled:
 

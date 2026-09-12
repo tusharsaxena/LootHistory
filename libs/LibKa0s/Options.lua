@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 17
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -225,6 +225,20 @@ lib.STRINGS = {
   -- The sub-page breadcrumb separator. An inline atlas escape rather than a font glyph, so it
   -- renders identically regardless of the FontString's font or any locale fallback.
   BREADCRUMB_SEP = " |A:common-icon-forwardarrow:16:16|a ",
+  -- The "Reset all settings" button's tooltip (OptionsCompose.lua's MasterControls), in the three
+  -- wordings its act can have. Chosen from the descriptor rather than written by the host, so the
+  -- composer stays the only writer of the reset's text (options-ui-§15). RESET_ALL_TIP is the
+  -- wording every host had through minor 17, and a host that supplies no `resetProfile` keeps it:
+  -- there the reset really is a walk of every setting. With `resetProfile` the act is a PROFILE
+  -- reset (options-ui-§12) and the tooltip says so, and says which profiles it leaves alone; with
+  -- `profilesPage` as well it names the equivalence §12 asks for. The em dash and the arrow are
+  -- byte escapes, for the reason COMBAT_REFUSED's is.
+  RESET_ALL_TIP               = "Restore every setting in this addon to its default.",
+  RESET_ALL_TIP_PROFILE       = "Reset the current profile to its defaults. Your other profiles " ..
+                                "are not affected.",
+  RESET_ALL_TIP_PROFILES_PAGE = "Reset the current profile to its defaults \226\128\148 the same " ..
+                                "thing Profiles \226\134\146 Reset Profile does. Your other " ..
+                                "profiles are not affected.",
 }
 
 -- ── the AceGUI widget registry ─────────────────────────────────────────────────────────────
@@ -430,7 +444,17 @@ end
 ---                              With it supplied, the library skips every row that is not
 ---                              `sessionOnly` on its own — a profile reset covers them, and writing
 ---                              each one's default first would refresh the panel once per row for
----                              values about to be discarded whole.
+---                              values about to be discarded whole. Since minor 18 it also picks
+---                              the wording of O.MasterControls' "Reset all settings" tooltip: the
+---                              current profile, and that other profiles are not affected.
+---   profilesPage               optional, minor 18 (compose minor 5). `true` when the host ships an
+---                              AceDBOptions Profiles sub-page (options-ui-§3). Read by
+---                              O.MasterControls alone, and only with `resetProfile` supplied: the
+---                              "Reset all settings" tooltip then names the equivalence
+---                              options-ui-§12 asks for — the same thing Profiles → Reset Profile
+---                              does. The library cannot see which pages a host registers, so the
+---                              host says so here. Ignored without `resetProfile`, and changes
+---                              nothing but that tooltip.
 ---   skipRestoreAll(row)        optional. Return true to exclude a row from a global reset. With
 ---                              `resetProfile` supplied this is only needed for a row that is
 ---                              sessionOnly AND must still be left alone; the profiles-page veto
@@ -1253,7 +1277,7 @@ function lib:New(d)
   -- leaves its half absent rather than erroring at :New, which is why the shell's own members
   -- reach for O.AttachTooltip and O.PatchAlwaysShowScrollbar at CALL time and never at load time.
   if lib.__AttachWidgets then lib.__AttachWidgets(O, d) end
-  if lib.__AttachCompose then lib.__AttachCompose(O)    end
+  if lib.__AttachCompose then lib.__AttachCompose(O, d) end
   if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
 
   return O

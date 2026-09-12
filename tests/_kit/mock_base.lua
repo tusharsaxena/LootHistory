@@ -129,8 +129,9 @@ local function stubFrame()
   -- lean on -- every assertion that passes today BECAUSE geometry answers zero flips with it -- so
   -- it is its own revision with its own adoption, sharing it with nothing. Revision 15 planned it
   -- as revision 16; revision 16 carried the Ace-fake fixes instead, revision 17 the Ace surfaces
-  -- six consumer harnesses migrate onto, and revision 18 AceDB's OnProfileCopied key, so the flip
-  -- is the next revision that ships it alone, 19 at the earliest.
+  -- six consumer harnesses migrate onto, revision 18 AceDB's OnProfileCopied key and revision 19
+  -- its keyless OnProfileReset, so the flip is the next revision that ships it alone, 20 at the
+  -- earliest.
   function f:GetHeight() return (self.__geomLive and self.__geomH) or 0 end
   function f:GetWidth() return (self.__geomLive and self.__geomW) or 0 end
 
@@ -1187,10 +1188,13 @@ return function()
       -- SOURCE of the copy (`self.callbacks:Fire("OnProfileCopied", self, name)`, AceDB-3.0.lua
       -- CopyProfile). Through revision 17 this fired every event with the active profile, so a
       -- copy of "Raid" into "Default" reached the handler as a copy of "Default" — fidelity rule 5.
-      -- Revision 18 passes each event its own key; OnProfileReset keeps the active profile it has
-      -- always carried here.
-      local function fire(event, key)
-        for _, cb in ipairs(callbacks[event] or {}) do cb(event, db, key) end
+      -- Revision 18 passes each event its own key. OnProfileReset carries NONE, as AceDB-3.0's
+      -- ResetProfile fires it (`self.callbacks:Fire("OnProfileReset", self)`); through revision 18
+      -- it carried the active profile, so a handler reading its third argument on a reset passed
+      -- here and got nil in the client (revision 19). Vararg, so a keyless event hands the callback
+      -- exactly two arguments, as CallbackHandler does.
+      local function fire(event, ...)
+        for _, cb in ipairs(callbacks[event] or {}) do cb(event, db, ...) end
       end
 
       -- CallbackHandler shape: db.RegisterCallback(target, event, fn) — dot-called, so the
@@ -1222,7 +1226,7 @@ return function()
         local p = sv.profiles[current]
         for k in pairs(p) do p[k] = nil end
         copyDefaults(p, defaults and defaults.profile)
-        fire("OnProfileReset", current)
+        fire("OnProfileReset")   -- the db alone, as AceDB-3.0 fires it (revision 19)
       end
 
       db.CopyProfile = function(_, name)
