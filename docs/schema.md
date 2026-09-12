@@ -264,7 +264,7 @@ appends each kept loot or currency line (`modules/Collector.lua:135`, `:200`). `
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:57`) and from that row's `onChange`
 (`settings/Schema.lua:306`). `Purge` (`core/Database.lua:737`) empties it from the purge confirm
 (`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
-`StaticPopup_Show` (`settings/Schema.lua:458`, `settings/Panel.lua:115`). `Delete`
+`StaticPopup_Show` (`settings/Schema.lua:508`, `settings/Panel.lua:115`). `Delete`
 (`core/Database.lua:718`) drops the row the History right-click **Delete** names
 (`modules/BrowserTable.lua:1128`). `RepairBoundStates` (`core/Database.lua:258`) rewrites a row's
 `bound` (`core/Database.lua:219`) from two deferrals after login (`core/LootHistory.lua:58`, `:61`)
@@ -291,6 +291,8 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 | **Destructive** | **"Reset all settings"** (Master controls) → confirm (`Sl:ResetEverything`) | ✓ | ✓ | ✓ (`Browser:ResetView`) | ✓ (`Browser:ResetWindow`) | ✓ |
 | **Position only** | **"Reset position"** (Master controls) | — | — | — | ✓ (`Browser:ResetWindow`) | — |
 | **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — |
+
+Each logs once (`debug-logging-§10`). The non-destructive reset logs `[Set] reset all: N rows`, N the rows whose stored value changed. The destructive one logs its `[Data] reset-all removed N rows` line and no `[Set]` line, because the wipe does not go through `Schema:Set`. The single reset logs `[Set] <path> = <value>`.
 
 **The global reset is wholesale, and no longer a composition.** (It was labelled "Reset Everything" on the Maintenance tab until options-ui-§15 gave it its canonical name and place.) It used to be three enumerations —
 a history purge, a schema walk and a filter-list clear — which between them happened to cover the

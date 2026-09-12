@@ -528,7 +528,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (40)
+### test_slash.lua (46)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -551,6 +551,12 @@ badge and any count quoted in the docs must agree with it.
 - NS.COMMANDS registers a version verb
 - /lh reset on a table setting echoes (none), not a raw table pointer
 - /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
+- /lh resetall logs ONE [Set] reset all: N rows line, N the rows whose value changed
+- /lh resetall on settings already at their defaults logs [Set] reset all: 0 rows
+- a bracket opened around resetall logs ONE line, summing the rows both levels changed
+- a nested bracket where any level reset the profile logs no bulk line
+- /lh reset <path> is still ONE [Set] <path> = <value> line, and not muted
+- Reset Everything writes no row through the seam, so it logs no [Set] line
 - Reset Everything purges history and clears settings + filter lists + view + window
 - Reset Everything is WHOLESALE, not a list of keys somebody kept current
 - Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table
@@ -686,7 +692,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (44)
+### test_panel.lua (45)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -715,6 +721,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the General Defaults click restores every schema default
 - Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
+- Panel: the General Defaults click logs ONE [Set] reset all: N rows line and no per-row [Set]
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
@@ -841,10 +848,10 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 40 |
+| test_slash.lua | 46 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 44 |
+| test_panel.lua | 45 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 20 |
 | test_surface_parity.lua | 5 |
@@ -853,4 +860,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **727** |
+| **Total** | **734** |

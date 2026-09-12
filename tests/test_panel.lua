@@ -610,6 +610,57 @@ test("Panel: the General Defaults click does NOT move the window", function()
   assertEqual(moved, 0, "a page reset must not recentre the window as a side effect")
 end)
 
+-- debug-logging-§10 (standard v2.44.0): the Defaults button is a bulk reset through the helper, so
+-- it logs ONE `[Set] reset all: N rows` line and no per-row [Set]. It reaches the library's Slash
+-- CliResetAll (P:RestoreDefaults), whose walk Slash minor 8 brackets; the Options major's own
+-- RestoreDefaults is never called for this page, and the Blizzard footer forwards to the same click.
+--- The [Set] lines `click` logs, and how many times it called Schema:Set. A fresh buffer for the
+--- act: the real one is capped and shifts when full, so an index taken before it can miss.
+local function setLinesDuring(click)
+  local realSet, writes = NS.Schema.Set, 0
+  NS.Schema.Set = function(self, ...) writes = writes + 1; return realSet(self, ...) end
+  local saved = NS.DebugLog.buffer
+  NS.DebugLog.buffer = {}
+  NS.State.debug = true
+  local ok, err = pcall(click)
+  NS.State.debug = false
+  local logged = NS.DebugLog.buffer
+  NS.DebugLog.buffer = saved
+  NS.Schema.Set = realSet
+  if not ok then error(err, 0) end
+  local lines = {}
+  for _, line in ipairs(logged) do
+    if line:find("[Set]", 1, true) then lines[#lines + 1] = line end
+  end
+  return lines, writes
+end
+
+test("Panel: the General Defaults click logs ONE [Set] reset all: N rows line and no per-row [Set]",
+  function()
+    -- N is the rows whose stored value changed, so a second press on settings already at their
+    -- defaults logs `0 rows`. red under: an unbracketed walk, N taken from the library's `count`
+    -- (every row the walk reached), or a footer Defaults that walks the rows a second way.
+    local panel = mocks.__subcategories["General"]
+    show(panel)
+    assertTrue(type(panel.OnDefault) == "function", "the Blizzard footer forwarder is on the panel")
+    for _, click in ipairs({ panel.defaultsOnClick, panel.OnDefault }) do
+      click()
+      NS.Schema:Set("settings.qualityThreshold", 4)
+      NS.Schema:Set("settings.recordCurrency", false)
+      local lines, writes = setLinesDuring(click)
+      assertEqual(#lines, 1, "exactly one [Set] line per Defaults click, got: "
+        .. table.concat(lines, " | "))
+      assertEqual(writes, #NS.Schema.Schema, "every row still goes through the seam")
+      assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil,
+        "the one line names the act, the scope and the two rows that changed: " .. lines[1])
+
+      lines = setLinesDuring(click)
+      assertEqual(#lines, 1, "a press on defaults still logs its one line, got: "
+        .. table.concat(lines, " | "))
+      assertTrue(lines[1]:find("[Set] reset all: 0 rows", 1, true) ~= nil, lines[1])
+    end
+  end)
+
 -- ── the Filters tab ──────────────────────────────────────────────────────────────────────────
 
 test("Panel: the Filters tab draws a SECONDARY strip and renders only the selected list",

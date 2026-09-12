@@ -186,6 +186,115 @@ test("/lh resetall also clears the blacklist and whitelist (non-destructive sett
   assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")
 end)
 
+-- debug-logging-§10 (standard v2.44.0): a bulk reset through the helper is ONE [Set] line naming the
+-- act, its scope and the rows it actually wrote, and never a per-row [Set] line. `/lh resetall`
+-- reaches the library's CliResetAll, whose row walk Slash minor 8 brackets with the descriptor's
+-- bulkBegin/bulkEnd; the seam mutes its per-row line between the two.
+
+--- The debug console's [Set] lines an act logs, and how many times the act called Schema:Set. The
+--- call count is every row the walk touched; the N in the line is only the rows whose stored value
+--- changed, so the two differ whenever a row was already at its default. The buffer is swapped for a
+--- fresh one for the act: it is capped and shifts when full, so an index taken before can miss.
+local function setLinesDuring(act)
+  local realSet, writes = NS.Schema.Set, 0
+  NS.Schema.Set = function(self, ...) writes = writes + 1; return realSet(self, ...) end
+  local saved = NS.DebugLog.buffer
+  NS.DebugLog.buffer = {}
+  NS.State.debug = true
+  local ok, err = pcall(capture, act)
+  NS.State.debug = false
+  local logged = NS.DebugLog.buffer
+  NS.DebugLog.buffer = saved
+  NS.Schema.Set = realSet
+  if not ok then error(err, 0) end
+  local lines = {}
+  for _, line in ipairs(logged) do
+    if line:find("[Set]", 1, true) then lines[#lines + 1] = line end
+  end
+  return lines, writes
+end
+
+--- Bring every row to its default, then move exactly two away from it.
+local function twoRowsOffDefault()
+  capture(function() Sl:CliResetAll() end)
+  NS.Schema:Set("settings.qualityThreshold", 4)
+  NS.Schema:Set("settings.recordCurrency", false)
+end
+
+test("/lh resetall logs ONE [Set] reset all: N rows line, N the rows whose value changed", function()
+  -- N is the rows the act actually wrote (debug-logging-§10): a row already at its default is not
+  -- counted, although the walk still sends it through the seam for validation and onChange.
+  -- red under: an unbracketed walk (one `[Set] <path> = <value>` per row), N taken from the
+  -- library's `count` (every row the walk reached), or the summary under any tag but [Set].
+  twoRowsOffDefault()
+  local lines, writes = setLinesDuring(function() Sl:CliResetAll() end)
+  assertEqual(#lines, 1, "exactly one [Set] line per resetall, got: " .. table.concat(lines, " | "))
+  assertEqual(writes, #NS.Schema.Schema, "every row still goes through the seam")
+  assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil,
+    "the one line names the act, the scope and the two rows that changed: " .. lines[1])
+end)
+
+test("/lh resetall on settings already at their defaults logs [Set] reset all: 0 rows", function()
+  -- The act still happened, so it still logs its one line; it wrote nothing, so N is 0.
+  capture(function() Sl:CliResetAll() end)
+  local lines = setLinesDuring(function() Sl:CliResetAll() end)
+  assertEqual(#lines, 1, "one [Set] line, got: " .. table.concat(lines, " | "))
+  assertTrue(lines[1]:find("[Set] reset all: 0 rows", 1, true) ~= nil, lines[1])
+end)
+
+test("a bracket opened around resetall logs ONE line, summing the rows both levels changed", function()
+  -- A host act that wraps CliResetAll opens a second bracket. The inner bulkEnd must not log: the
+  -- line is emitted once, when the depth returns to 0, with the tally of every level.
+  -- red under: logging at every bulkEnd (two lines), or resetting the tally per level (N = 1).
+  twoRowsOffDefault()
+  NS.Schema:Set("settings.recordCurrency", true)   -- one row off default is the inner walk's
+  local lines = setLinesDuring(function()
+    NS.Schema.BulkBegin("reset", "all")
+    NS.Schema:Set("settings.qualityThreshold", 1)  -- the outer level's own write
+    NS.Schema:Set("settings.recordCurrency", false)
+    Sl:CliResetAll()                               -- the inner level: recordCurrency back to true
+    NS.Schema.BulkEnd("reset", "all", 0, nil, { profileReset = false })
+  end)
+  assertEqual(#lines, 1, "one [Set] line for the nested act, got: " .. table.concat(lines, " | "))
+  assertTrue(lines[1]:find("[Set] reset all: 3 rows", 1, true) ~= nil, lines[1])
+end)
+
+test("a nested bracket where any level reset the profile logs no bulk line", function()
+  -- debug-logging-§10: a whole-profile reset is logged once, by the profile-event handler, and no
+  -- bracket adds a second line. This addon has no profile, so the flag is the contract only.
+  twoRowsOffDefault()
+  local lines = setLinesDuring(function()
+    NS.Schema.BulkBegin("reset", "all")
+    NS.Schema.BulkBegin("reset", "all")
+    NS.Schema:Set("settings.qualityThreshold", 1)
+    NS.Schema.BulkEnd("reset", "all", 1, nil, { profileReset = true })
+    NS.Schema.BulkEnd("reset", "all", 1, nil, { profileReset = false })
+  end)
+  assertEqual(#lines, 0, "no [Set] line, got: " .. table.concat(lines, " | "))
+  -- And the depth is back at 0: the next single write logs its own line again.
+  lines = setLinesDuring(function() NS.Schema:Set("settings.recordCurrency", true) end)
+  assertEqual(#lines, 1, "the seam was left muted")
+end)
+
+test("/lh reset <path> is still ONE [Set] <path> = <value> line, and not muted", function()
+  -- A single-row reset is not a bulk act (debug-logging-§10). Pinned beside the bracket so a mute
+  -- that outlived resetall would show up here as a missing line.
+  NS.Schema:Set("settings.qualityThreshold", 4)
+  local lines = setLinesDuring(function() Sl:CliReset("settings.qualityThreshold") end)
+  assertEqual(#lines, 1, "one [Set] line, got: " .. table.concat(lines, " | "))
+  assertTrue(lines[1]:find("[Set] settings.qualityThreshold = 1", 1, true) ~= nil, lines[1])
+end)
+
+test("Reset Everything writes no row through the seam, so it logs no [Set] line", function()
+  -- It empties db.global wholesale and merges the defaults back (options-ui-§12 for an addon with
+  -- no profile), which is not a batch through the helper: its one line is the [Data] line pinned
+  -- below. red under: a ResetEverything that walks the schema through Schema:Set.
+  NS.Schema:Set("settings.qualityThreshold", 4)
+  local lines, writes = setLinesDuring(function() Sl:ResetEverything() end)
+  assertEqual(writes, 0, "Reset Everything wrote rows through Schema:Set")
+  assertEqual(#lines, 0, "no [Set] line, got: " .. table.concat(lines, " | "))
+end)
+
 test("Reset Everything purges history and clears settings + filter lists + view + window", function()
   NS.db.global.history = { { id = 1 } }
   NS.db.global.savedView = { groupBy = "source" }

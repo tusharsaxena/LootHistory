@@ -286,6 +286,13 @@ local Dispatcher = lib:New({
   allRows      = function() return NS.Schema.Schema end,
   applyDefault = function(row) NS.Schema:Set(row.path, NS.Schema:Default(row.path)) end,
 
+  -- Slash minor 8's bulk bracket around CliResetAll's row walk (debug-logging-§10). The seam mutes
+  -- its per-row [Set] line inside it and logs `[Set] reset all: N rows` once at the end. Not handed
+  -- to the Options descriptor: nothing here calls O.RestoreDefaults or O.RestoreAllDefaults (the
+  -- General page's Defaults click and the Blizzard footer both route to P:RestoreDefaults, here).
+  bulkBegin    = function(act, scope) NS.Schema.BulkBegin(act, scope) end,
+  bulkEnd      = function(...) NS.Schema.BulkEnd(...) end,
+
   -- `/lh list` groups by the panel section header. The library's default is `row.page`, which this
   -- addon has no concept of — it is a single-panel addon, so its schema `group` values ARE the
   -- headings, and using them keeps the listing in the same order and under the same names the

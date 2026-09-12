@@ -359,18 +359,68 @@ local function deepcopy(v)
   return out
 end
 
+-- debug-logging-§10: a bulk reset through this seam is ONE [Set] line, never one per row. The
+-- library brackets the walk it owns here (Slash minor 8's CliResetAll, which the Defaults button and
+-- `/lh resetall` both reach) with the descriptor's bulkBegin/bulkEnd, and between the two the
+-- per-row line in S:Set is muted. Validation, the write and each row's onChange still run per row.
+--
+-- N is counted HERE, not taken from bulkEnd's `count`. The library counts every row whose
+-- applyDefault returned, which includes a row already at its default; §10's N is the rows the act
+-- actually wrote, so a bracketed write is tallied only when it changes the stored value.
+--
+-- Depth-counted, with one tally across every level: a host act that opens its own bracket around
+-- the library's still logs one line, when the depth returns to 0, and none at all if any level
+-- reported a whole-profile reset (that line is the profile-event handler's).
+local bulkDepth, bulkWritten, bulkProfileReset = 0, 0, false
+
+--- Stored-value equality for the tally: scalars by value, the set-valued rows key by key.
+local function sameValue(a, b)
+  if a == b then return true end
+  if type(a) ~= "table" or type(b) ~= "table" then return false end
+  for k, v in pairs(a) do if not sameValue(v, b[k]) then return false end end
+  for k in pairs(b) do if a[k] == nil then return false end end
+  return true
+end
+
+--- The descriptor's `bulkBegin(act, scope)`: mute the per-row [Set] line until the matching BulkEnd.
+--- The outermost level starts a fresh tally.
+function S.BulkBegin()
+  if bulkDepth == 0 then bulkWritten, bulkProfileReset = 0, false end
+  bulkDepth = bulkDepth + 1
+end
+
+--- The descriptor's `bulkEnd(act, scope, count, err, info)`. Closes one level; the outermost logs
+--- the act once as `[Set] <act> <scope>: N rows`, N the tally above (`count` is deliberately not
+--- read). The library calls it even when a row raised, then re-raises, so the mute cannot stick.
+--- `info.profileReset` silences the line; this addon has no profile and Slash never sets it.
+function S.BulkEnd(act, scope, _, _, info)
+  if info and info.profileReset then bulkProfileReset = true end
+  if bulkDepth > 0 then bulkDepth = bulkDepth - 1 end
+  if bulkDepth > 0 or bulkProfileReset then return end
+  if NS.State and NS.State.debug and NS.Debug then
+    NS.Debug("Set", "%s %s: %d rows", tostring(act), tostring(scope), bulkWritten)
+  end
+end
+
 -- Single write seam. Panel widgets and slash `set` both route through here.
 function S:Set(path, value)
   local row = S:FindRow(path)
   if not row then return false, "unknown path: " .. tostring(path) end
   if row.validate and not row.validate(value) then return false, "invalid value" end
+  -- Inside a bulk bracket the per-row line is muted and the write is tallied instead, but only
+  -- when it changes what is stored: §10's N is the rows the act actually wrote.
+  local muted = bulkDepth > 0
+  local before
+  if muted then before = S:Get(path) end
   if row.sessionOnly then
     -- Session-only rows (e.g. state.debugConsole) never touch db.global; the row's set() applies it.
     if row.set then row.set(value) end
   else
     S:WritePath(NS.db.global, path, deepcopy(value))
   end
-  if NS.State and NS.State.debug and NS.Debug then
+  if muted then
+    if not sameValue(before, value) then bulkWritten = bulkWritten + 1 end
+  elseif NS.State and NS.State.debug and NS.Debug then
     NS.Debug("Set", "%s = %s", tostring(path), tostring(value))
   end
   if row.onChange then row.onChange(value) end

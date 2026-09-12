@@ -223,7 +223,7 @@ Opening the panel is combat-gated in **two** places. `O.OpenOptionsPanel` (`Opti
 
 One page, so one **Defaults** button, and options-ui-§13 is explicit that its blast radius **must not narrow to the visible tab**. `P:RestoreDefaults` therefore covers what the three pages' three buttons used to, in one act:
 
-* every schema row **plus** the three id-lists — `Slash:CliResetAll`, which wraps the library's row walk because `NS.Filters`' lists are user settings with no schema row;
+* every schema row **plus** the three id-lists — `Slash:CliResetAll`, which wraps the library's row walk because `NS.Filters`' lists are user settings with no schema row. Slash minor 8 brackets that walk, so a press logs one `[Set] reset all: N rows` line (debug-logging-§10), N the rows whose stored value changed, and the footer **Defaults** forwards to the same click;
 * the **auction cascade**, a carve-out array the row walk cannot see, cleared and refilled **in place** so the price table's closures keep the same table reference;
 * a structural `O.RefreshPanel(ctx, true)`, because the price table and the id-lists repaint off rebuilders rather than off refreshers.
 
@@ -271,7 +271,7 @@ The single per-row **Enabled** checkbox writes `settings.auction.capture` (colle
 
 ## The landing page's command rows
 
-`buildMainContent` (`Panel.lua:799`) draws the logo, the tagline, a "Slash Commands" heading and one label per verb. Those rows now come from `NS.Slash:LandingRows()` (`settings/Slash.lua:321`), i.e. from `LibKa0s-Slash-1.0`'s own `FormatRow` — the same formatter the chat help uses. This page used to carry a private copy of it, and the two had silently drifted: single spaces around the em dash instead of double, no color span wrapping the dash, and a white description instead of a bare one. Deliberate and user-visible; do not "fix" it back ([LIBKA0S-09](https://github.com/tusharsaxena/LootHistory/issues/24)).
+`buildMainContent` (`Panel.lua:799`) draws the logo, the tagline, a "Slash Commands" heading and one label per verb. Those rows now come from `NS.Slash:LandingRows()` (`settings/Slash.lua:328`), i.e. from `LibKa0s-Slash-1.0`'s own `FormatRow` — the same formatter the chat help uses. This page used to carry a private copy of it, and the two had silently drifted: single spaces around the em dash instead of double, no color span wrapping the dash, and a white description instead of a bare one. Deliberate and user-visible; do not "fix" it back ([LIBKA0S-09](https://github.com/tusharsaxena/LootHistory/issues/24)).
 
 ## Ka0s options-ui-§6/§8/§10 details this panel implements
 
