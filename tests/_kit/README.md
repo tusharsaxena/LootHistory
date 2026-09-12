@@ -82,6 +82,15 @@ When the sibling checkout is absent the cases report **SKIP** with the reason, n
 comparison contract, including the one line-ending normalization and why it exists, is stated in the
 file's own header. Read that header before changing anything about how the bytes are compared.
 
+**It also checks the runner's recorded mode** (kit revision 16, `automated-tests-§2`). Besides one
+case per payload, `register` adds `the automated-test runner is recorded executable (100755)`,
+which reads `tests/_kit/run-automated-tests.sh`'s mode out of the consuming repo's git index. The
+bit lives there and nowhere a byte comparison or `ls -l` can see it: `cp` does not carry it, and on
+DrvFs with `core.fileMode=false` everything looks executable. The case needs no sibling, so a
+missing LibKa0s checkout does not skip it. It skips, with the reason, only where the index cannot be
+read at all: no `io.popen`, no git, or not a work tree. `opts.runner` and `opts.runnerCase` override
+the path and the case name.
+
 ## `test_eol.lua`
 
 The kit's own suite, and the only one it ships. It holds every file `git ls-files` reports to the
@@ -308,6 +317,26 @@ never build for itself.
 An unresolvable name, a source that raises, a name answering something other than a table, or no
 source at all is a **failure** naming the fix — never a quiet pass.
 
+## The Ace fakes, and the shims they replace
+
+Ace3 is faked here rather than loaded, and each fake models what a suite has needed to observe. Four
+pieces arrived at kit revision 16, each replacing a shim a consumer had written for itself. Delete
+the local copy when you re-vendor:
+
+- **`AceGUI:Release(w)`** follows the real one's order and records what it took back:
+  `w.__released = true`, and `AceGUI.__released` in order. It fires `"OnRelease"` before it wipes
+  the widget's callbacks and `userdata`. `Release(nil)` and a second release of the same widget both
+  raise, as they do in the client. `w:Release()` is the same call.
+- **An `AceEvent:Embed(t)` target** records game events with `RegisterEvent`, `UnregisterEvent` and
+  `UnregisterAllEvents` on `t.__events`. These are the same functions the `NewAddon` target carries,
+  so a module's own event target and the addon object behave identically. `RegisterEvent` raises
+  where CallbackHandler does, including a missing method. Fire a recorded function as
+  CallbackHandler does, `t.__events[event](event, ...)`, and a recorded method name as
+  `t[method](t, event, ...)`.
+- **`NewAddon`** stamps AceConsole's `Printf` beside its `Print`, so an addon that forgets to take
+  its own `NS.Printf` back after `NewAddon` fails the way it does in the client.
+- **`vendor_sync.lua`** checks the runner's recorded mode, as described above.
+
 ## Fidelity rules
 
 These are why this is one file rather than eight. Each exists because a friendlier mock already hid
@@ -324,8 +353,8 @@ a real bug.
 4. **Anything a test needs to drive must be fireable.** `__fire` on frames and on AceGUI widgets is
    what makes a lazy first-`OnShow` render and an `OnValueChanged` write path reachable at all.
 5. **Model the awkward real behavior, not the convenient one.** AceDB's `copyDefaults` merges in
-   place; AceConsole's `Embed` clobbers a same-named custom `Print`. Both are reproduced, because
-   both have already caused a real bug.
+   place; AceConsole's `Embed` clobbers a same-named custom `Print` and `Printf`. All are reproduced,
+   because each has already caused a real bug.
 
 ## Known divergence, deliberately kept
 

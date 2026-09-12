@@ -3,7 +3,9 @@
 -- by way of AbsorbTracker, where the header below was written.
 --
 -- WHAT IT CHECKS: that `libs/LibKa0s/` and `tests/_kit/` in the consuming repo are exactly what the
--- LibKa0s repo published at the tag THAT REPO'S CLAUDE.md says it bundles.
+-- LibKa0s repo published at the tag THAT REPO'S CLAUDE.md says it bundles -- and, since kit
+-- revision 16, that the vendored `tests/_kit/run-automated-tests.sh` is recorded 100755 in that
+-- repo's git index (`automated-tests-§2`), which no byte comparison can see.
 --
 -- WHY THE TAG AND NOT THE WORKING TREE: LibKa0s can be mid-release — several
 -- commits and a pile of uncommitted work ahead of anything it has tagged.
@@ -71,6 +73,8 @@ local DEFAULT_SIBLING  = "/../LibKa0s"
 local DEFAULT_PROBE    = "HEAD:LibKa0s/Core.lua"
 local DEFAULT_FILE     = "CLAUDE.md"
 local DEFAULT_PATTERN  = "[Bb]undles %[LibKa0s%]%b() (v[%d%.]+)"
+local DEFAULT_RUNNER   = "tests/_kit/run-automated-tests.sh"
+local DEFAULT_RUNNER_CASE = "the automated-test runner is recorded executable (100755)"
 
 --- The two payloads every consumer vendors, with the case names the shipped gates already use.
 --- `local_` rather than `local` because `local` is a keyword.
@@ -157,7 +161,12 @@ end
 ---   provenanceFile    = "CLAUDE.md",           -- which doc carries the provenance line
 ---   provenancePattern = "[Bb]undles ...",      -- how the provenance line is spelled
 ---   pairs         = { { case = …, tag = …, local_ = …, label = … }, … },
+---   runner        = "tests/_kit/run-automated-tests.sh",  -- the runner, relative to root
+---   runnerCase    = "the automated-test runner is recorded executable (100755)",
 --- }
+---
+--- Besides one case per pair, it registers ONE more, named by `runnerCase`: the runner's recorded
+--- mode in the consuming repo's git index (kit revision 16). That case needs no sibling checkout.
 ---
 --- `readmePattern` is still accepted as a name for `provenancePattern`; it named the
 --- file the line used to live in, and the line moved at kit revision 9.
@@ -176,6 +185,8 @@ function VendorSync.register(T, opts)
     local PROBE   = opts.probe or DEFAULT_PROBE
     local FILE    = opts.provenanceFile or DEFAULT_FILE
     local PATTERN = opts.provenancePattern or opts.readmePattern or DEFAULT_PATTERN
+    local RUNNER      = opts.runner or DEFAULT_RUNNER
+    local RUNNER_CASE = opts.runnerCase or DEFAULT_RUNNER_CASE
 
     --- Run a command in the sibling library repo and return stdout, or nil if it
     --- produced nothing. `nil` means "could not answer" — never "matched".
@@ -325,6 +336,45 @@ function VendorSync.register(T, opts)
                 pair.label or "the library repo")
         end)
     end
+
+    --- Run git in the CONSUMING repo, not the sibling, and return stdout, or nil if it produced
+    --- nothing. The same contract as gitOut: nil means "could not answer", never "matched".
+    local function rootGit(args)
+        if not io.popen then return nil end
+        local pipe = io.popen(('git -C "%s" %s 2>/dev/null'):format(ROOT, args), "r")
+        if not pipe then return nil end
+        local body = pipe:read("*a")
+        pipe:close()
+        if body == "" then return nil end
+        return body
+    end
+
+    -- The runner's recorded MODE (automated-tests-§2), which the byte comparison above cannot see
+    -- and never will: the executable bit is not in the file's bytes and `cp` does not carry it. It
+    -- lives in the git INDEX and nowhere else that matters -- the collection runs on DrvFs, which
+    -- reports rwxrwxrwx for every file, with `core.fileMode=false`, so neither `ls -l` nor git's own
+    -- status will ever mention a runner that arrived 100644. So this reads the index.
+    --
+    -- Registered on its own rather than as a third pair: it needs no sibling and no tag, so a
+    -- missing LibKa0s checkout must not skip it. It skips only where the index cannot be read at
+    -- all -- no io.popen, no git, not a work tree -- and says so, never passing silently.
+    T.test(RUNNER_CASE, function()
+        if not io.popen then
+            T.skip("io.popen is unavailable, so the git index cannot be read -- " .. RUNNER
+                .. "'s mode was NOT checked")
+        end
+        local inside = (rootGit("rev-parse --is-inside-work-tree") or ""):match("^%s*(%S*)")
+        if inside ~= "true" then
+            T.skip("git answered no work tree at " .. ROOT .. " (git missing, or not a checkout) -- "
+                .. RUNNER .. "'s mode was NOT checked")
+        end
+        local line = rootGit(('ls-files -s -- "%s"'):format(RUNNER))
+        T.assertTrue(line ~= nil, RUNNER .. " is not tracked in the git index at " .. ROOT)
+        T.assertEqual((line:match("^(%d+)%s")), "100755",
+            ("%s is recorded executable in the git index (`git ls-files -s`: %s) -- fix with "
+                .. "`git update-index --chmod=+x %s`; `ls -l` is no evidence on DrvFs")
+                :format(RUNNER, (line:gsub("%s+$", "")), RUNNER))
+    end)
 end
 
 return VendorSync

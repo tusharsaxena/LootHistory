@@ -784,10 +784,11 @@ badge and any count quoted in the docs must agree with it.
 - lintconfig: every files[...] ignore is narrowed to a file or a name
 - lintconfig: no source file carries a bare inline luacheck ignore
 
-### test_vendor_sync.lua (2)
+### test_vendor_sync.lua (3)
 
 - libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles
 - tests/_kit is the test kit that shipped with that release
+- the automated-test runner is recorded executable (100755)
 
 ### test_eol.lua (1)
 
@@ -843,7 +844,7 @@ badge and any count quoted in the docs must agree with it.
 | test_surface_parity.lua | 5 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
-| test_vendor_sync.lua | 2 |
+| test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **720** |
+| **Total** | **721** |

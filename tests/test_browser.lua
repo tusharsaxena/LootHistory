@@ -664,13 +664,19 @@ test("browser: a combat transition re-applies visibility through the private eve
     -- The two events are registered on B.__ev (never the shared bus-as-self), and ApplyVisibility
     -- only ever HIDES: "Only in combat" is a permission, not an instruction to pop a browser over
     -- a pull.
-    -- red under: registering them on NS.bus (they would clobber nothing, but the mock's fan-out
-    -- below reaches only the private targets, so the case goes red), or dropping the registration.
+    -- red under: registering them on NS.bus (the kit records events per target on `__events`, so
+    -- B.__ev's table stays empty and the case goes red), or dropping the registration.
+    -- Each recorded handler is fired the way CallbackHandler fires a function ref (kit revision 16).
     B:Enable()
+    local events = B.__ev and B.__ev.__events
+    assertTrue(events ~= nil, "the Browser has no private event target")
     local ran, real = 0, B.ApplyVisibility
     B.ApplyVisibility = function() ran = ran + 1 end
-    assertTrue(T.mocks.__fireAceEvent("PLAYER_REGEN_DISABLED") >= 1, "nothing registered the event")
-    T.mocks.__fireAceEvent("PLAYER_REGEN_ENABLED")
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+      local handler = events[event]
+      assertEqual(type(handler), "function", event .. " is not registered on B.__ev")
+      handler(event)
+    end
     B.ApplyVisibility = real
     assertEqual(ran, 2, "both transitions re-apply the setting")
   end)

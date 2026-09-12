@@ -24,8 +24,8 @@
 -- 4. Anything a test needs to DRIVE must be fireable. `__fire` on frames and on AceGUI widgets is
 --    what makes the lazy first-OnShow render and the OnValueChanged write path reachable at all.
 -- 5. Model the awkward real behavior, not the convenient one. AceDB's copyDefaults merges in place
---    and AceConsole's Embed clobbers a same-named custom Print — both are reproduced here, because
---    both have already caused a real bug that a friendlier mock would have hidden.
+--    and AceConsole's Embed clobbers a same-named custom Print and Printf — all are reproduced
+--    here, because each has already caused a real bug that a friendlier mock would have hidden.
 --
 -- ── Known divergence, deliberately kept ────────────────────────────────────────────────────────
 --
@@ -123,12 +123,13 @@ local function stubFrame()
   -- rawsetting nil to restore, which would erase an explicit definition for good.
   function f:GetName() return nil end
   -- GEOMETRY IS RECORDED HERE, AND ANSWERED ONLY WHERE A TEST ASKED FOR IT. `__geomLive` is the
-  -- whole of the kit-15/kit-16 split, and it is one word wide on purpose: at the next revision the
+  -- whole of the opt-in/flip split, and it is one word wide on purpose: at the flip revision the
   -- `self.__geomLive and` falls out of these two lines and every frame answers what was recorded on
   -- it. That is a real behavioral change to a mock roughly 308 test files across ten repositories
   -- lean on -- every assertion that passes today BECAUSE geometry answers zero flips with it -- so
-  -- it is its own revision with its own adoption, and this one adds the surface without touching a
-  -- single existing answer.
+  -- it is its own revision with its own adoption, sharing it with nothing. Revision 15 planned it
+  -- as revision 16; revision 16 carried the Ace-fake fixes instead, so the flip is the next
+  -- revision that ships it alone, 17 at the earliest.
   function f:GetHeight() return (self.__geomLive and self.__geomH) or 0 end
   function f:GetWidth() return (self.__geomLive and self.__geomW) or 0 end
 
@@ -173,6 +174,105 @@ local function stubFrame()
     return nil
   end })
   return f
+end
+
+-- ── AceEvent-3.0's EVENT half ──────────────────────────────────────────────────────────────────
+--
+-- ONE implementation for both places the client puts it: the object `NewAddon` returns (AceAddon
+-- embeds AceEvent into it) and any target `AceEvent:Embed(t)` is called on, which is the
+-- `NS.NewBusTarget()` shape a module registers its own game events on. Before revision 16 only the
+-- first had it, so a module doing what `events-frames-taint-§1` asks errored headlessly.
+--
+-- Recorded rather than no-opped (fidelity rule 3): an addon that registers a target/focus event
+-- only while that unit is enabled has gating a test cannot see unless the mock remembers what is
+-- registered right now. `__events[event]` is the handler, or `true` when none was given, and a test
+-- fires one the way CallbackHandler fires a function ref: `handler(event, ...)`.
+--
+-- Validated as CallbackHandler validates, because a registration the client refuses must not pass
+-- headlessly (fidelity rule 1): the event must be a string; the method defaults to the event's own
+-- name; it must be a function or a string; and a string must name a function `self` carries NOW.
+-- So `t:RegisterEvent("PLAYER_LOGIN")` on a target with no `PLAYER_LOGIN` method raises, as does
+-- `t:RegisterEvent(e, "OnTypo")`. What is recorded is unchanged -- the handler as given, or `true`
+-- -- so a string method is recorded as the string, and the optional `arg` form is accepted and not
+-- recorded. Firing a string method is `t[method](t, event, ...)`, CallbackHandler's own call.
+--
+-- Module-level functions rather than closures made per target, so the two call sites share the
+-- very same functions and cannot drift apart. tests/test_mock_base.lua asserts the identity.
+local function registerEvent(self, event, handler)
+  if type(event) ~= "string" then
+    error("Usage: RegisterEvent(eventname, method[, arg]): 'eventname' - string expected.", 2)
+  end
+  local method = handler or event
+  if type(method) ~= "string" and type(method) ~= "function" then
+    error("Usage: RegisterEvent(\"eventname\", \"methodname\"): 'methodname' - string or function expected.", 2)
+  end
+  if type(method) == "string" and type(self[method]) ~= "function" then
+    error("Usage: RegisterEvent(\"eventname\", \"methodname\"): 'methodname' - method '"
+      .. method .. "' not found on self.", 2)
+  end
+  self.__events[event] = handler or true
+  return self
+end
+
+local function unregisterEvent(self, event)
+  if type(event) ~= "string" then
+    error("Usage: UnregisterEvent(eventname): 'eventname' - string expected.", 2)
+  end
+  self.__events[event] = nil
+  return self
+end
+
+-- Cleared IN PLACE, so a table a test captured stays the live one. Messages are untouched, as
+-- they are in the client: AceEvent keeps the two in separate CallbackHandler registries.
+local function unregisterAllEvents(self)
+  for k in pairs(self.__events) do self.__events[k] = nil end
+  return self
+end
+
+--- Stamp the event half onto `target`, pointing `target.__events` at the target's table in
+--- `registry`. The registry is one per mock build, keyed by target, because the real one lives
+--- inside the library rather than on the target: a second Embed in the same build forgets nothing,
+--- and a target table reused by a later build starts with nothing registered, as a fresh client
+--- library would -- the same per-build isolation the message bus has.
+local function embedEvents(target, registry)
+  registry[target] = registry[target] or {}
+  target.__events = registry[target]
+  target.RegisterEvent = registerEvent
+  target.UnregisterEvent = unregisterEvent
+  target.UnregisterAllEvents = unregisterAllEvents
+  return target
+end
+
+-- ── AceConsole-3.0's print mixins ──────────────────────────────────────────────────────────────
+--
+-- Both mixins end in one local, as they do in the real file: `consolePrint(self, frame, ...)`
+-- renders "|cff33ff99<self>|r:" followed by every argument, space-joined. Each mixin treats a first
+-- argument carrying an `AddMessage` member as the frame to print to; Printf then formats what is
+-- left with string.format.
+--
+-- Called BARE -- `NS.Print(msg)`, `NS.Printf(fmt, ...)`, which is how an addon that forgot to take
+-- its own printer back after NewAddon ends up calling these -- the first argument lands in `self`.
+-- The message or the format string renders green with a trailing colon, and Printf formats what
+-- FOLLOWS it, raising exactly as string.format does when nothing follows.
+--
+-- The default frame is the harness process's DEFAULT_CHAT_FRAME global, read at call time, and a
+-- nil one prints nothing: the convention this kit's Print has always had.
+local function consolePrint(self, frame, ...)
+  local parts = { "|cff33ff99" .. tostring(self) .. "|r:" }
+  for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
+  if frame then frame:AddMessage(table.concat(parts, " ")) end
+end
+
+local function isChatFrame(v) return type(v) == "table" and v.AddMessage ~= nil end
+
+local function printMixin(self, ...)
+  if isChatFrame((...)) then return consolePrint(self, (...), select(2, ...)) end
+  return consolePrint(self, DEFAULT_CHAT_FRAME, ...)
+end
+
+local function printfMixin(self, ...)
+  if isChatFrame((...)) then return consolePrint(self, (...), string.format(select(2, ...))) end
+  return consolePrint(self, DEFAULT_CHAT_FRAME, string.format(...))
 end
 
 return function()
@@ -448,22 +548,17 @@ return function()
     end,
   }
 
+  -- The event half's registry, fresh per build and shared by NewAddon and AceEvent:Embed below:
+  -- [target] = { [event] = handler or true }. Weak-keyed, so a target nobody holds is not kept.
+  local eventRegistry = setmetatable({}, { __mode = "k" })
+
   libs["AceAddon-3.0"] = {
     NewAddon = function(_, target)
       target = target or {}
       local noop = function() end
-      -- Record AceEvent registrations rather than no-opping them: an addon that registers a
-      -- target/focus event only while that unit is enabled has gating a test cannot see unless the
-      -- mock remembers what is currently registered.
-      target.__events = {}
-      target.RegisterEvent = function(self, event, handler)
-        self.__events[event] = handler or true
-        return self
-      end
-      target.UnregisterEvent = function(self, event)
-        self.__events[event] = nil
-        return self
-      end
+      -- AceEvent's event half, recorded -- the same three functions an `AceEvent:Embed` target gets
+      -- (see embedEvents above).
+      embedEvents(target, eventRegistry)
       target.RegisterChatCommand = noop
       target.ScheduleTimer = function(_, fn, delay)
         local timer = { fn = fn, delay = delay }
@@ -472,16 +567,15 @@ return function()
       end
       target.ScheduleRepeatingTimer = function() return {} end
       target.CancelTimer = noop
-      -- Faithfully mirror AceConsole-3.0's Embed: it stamps a :Print mixin onto the addon object,
-      -- clobbering any same-named custom NS.Print. Called as `NS.Print(msg)`, AceConsole treats the
-      -- message as `self` and renders "|cff33ff99<msg>|r:" — green, trailing colon, no tag. The
-      -- addon must reclaim NS.Print after NewAddon; reproducing the clobber here lets the tests
-      -- exercise the real production print path instead of a clean one the client never uses.
-      target.Print = function(selfOrMsg, ...)
-        local parts = { "|cff33ff99" .. tostring(selfOrMsg) .. "|r:" }
-        for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
-        if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(table.concat(parts, " ")) end
-      end
+      -- Faithfully mirror AceConsole-3.0's Embed: its mixins are :Print AND :Printf, stamped onto
+      -- the addon object and clobbering any same-named custom NS.Print or NS.Printf. Called as
+      -- `NS.Print(msg)`, AceConsole treats the message as `self` and renders "|cff33ff99<msg>|r:" —
+      -- green, trailing colon, no tag. The addon must reclaim BOTH after NewAddon; reproducing the
+      -- clobber here lets the tests exercise the real production print path instead of a clean one
+      -- the client never uses. Printf was missing until revision 16, so an addon that forgot to
+      -- take it back passed every suite.
+      target.Print = printMixin
+      target.Printf = printfMixin
       return target
     end,
   }
@@ -492,9 +586,14 @@ return function()
   -- message, and two receivers on ONE target would overwrite each other. Model that faithfully —
   -- one registry shared across every embed, dispatching fn(message, ...) exactly as CallbackHandler
   -- fires a function-ref callback. Fresh per build for isolation.
+  --
+  -- The event half rides along, because the real Embed's mixins are both halves: RegisterEvent,
+  -- UnregisterEvent and UnregisterAllEvents, recorded on `obj.__events` by the same functions the
+  -- NewAddon target carries (embedEvents, above).
   local busRegistry = {}  -- [message] = { [target] = fn }
   libs["AceEvent-3.0"] = {
     Embed = function(_, obj)
+      embedEvents(obj, eventRegistry)
       obj.RegisterMessage = function(self, msg, fn)
         busRegistry[msg] = busRegistry[msg] or {}
         busRegistry[msg][self] = fn
@@ -516,13 +615,20 @@ return function()
   -- frames: they remember what was set on them and, crucially, expose __fire so a test can drive
   -- the OnValueChanged / OnMouseUp / OnValueConfirmed callbacks the way a real click would — which
   -- is what exercises the read → write → refresh loop.
+  --
+  -- `aceGUI` is declared here and built below, so a widget's `:Release()` can reach it.
+  local aceGUI
   local function makeWidget(wtype)
     local w = {
       type      = wtype,
       children  = {},
       callbacks = {},
+      -- AceGUI's documented per-widget scratch table, cleared in place by Release.
+      userdata  = {},
       frame     = stubFrame(),
     }
+    -- WidgetBase.Release: the method form of AceGUI:Release, which correct code may call instead.
+    function w:Release() return aceGUI:Release(self) end
     function w:SetLabel(v) self.labelText = v; return self end
     function w:SetText(v) self.text = v; return self end
     function w:SetValue(v) self.value = v; return self end
@@ -568,7 +674,7 @@ return function()
     return w
   end
 
-  local aceGUI = {
+  aceGUI = {
     -- Populated by RegisterWidgetType. Empty by default, which models
     -- AceGUI-3.0-SharedMediaWidgets being absent: a dropdown maker asks GetWidgetVersion about
     -- LSM30_* and falls back to a plain Dropdown when it comes back nil.
@@ -589,6 +695,52 @@ return function()
   function aceGUI:RegisterWidgetType(wtype, ctor, version)
     self.WidgetRegistry[wtype]   = ctor
     self.__widgetVersions[wtype] = version
+  end
+
+  -- AceGUI:Release, in the real one's order (AceGUI-3.0.lua): guarded against a release reached
+  -- from inside its own release, the frame hidden, "OnRelease" fired while the widget still has its
+  -- children and its callbacks, the children released, the widget's own :OnRelease() run, and only
+  -- then the widget wiped: `userdata` and the callbacks cleared in place, so a widget handed back
+  -- cannot fire a stale handler or carry stale data; the size fields the real one nils (`width`,
+  -- `height`, `relWidth`, `relHeight`, `noAutoHeight`, plus `relativeWidth`, this fake's recorder
+  -- for SetRelativeWidth) dropped; the frame's points cleared and its parent reset to UIParent.
+  -- LibKa0s's OptionsWidgets.lua relies on that order: it hides its band texture from an OnRelease
+  -- callback. On top of the real behavior sits the recorder a test needs and the client does not:
+  -- `w.__released = true`, and `AceGUI.__released` listing every widget taken back, in order.
+  --
+  -- Two differences, both deliberate. The real one parks the widget in a pool a later `Create` may
+  -- hand back; this factory never reuses a widget, so a `Create` after a Release is always fresh.
+  -- And the children go through the widget's own `ReleaseChildren`, which on a widget from this
+  -- factory forgets them rather than releasing each one: making it release them is a change to
+  -- every re-rendering panel in the collection, and a revision of its own.
+  --
+  -- Two raises, both as in the client (fidelity rule 1). `nil` raises on the first index. A second
+  -- Release of the same widget raises "Attempt to Release Widget that is already released", which
+  -- the real one raises from delWidget at its END, after re-running the steps above; because this
+  -- factory never reuses a widget, the fake can tell at the top and raises before touching it.
+  aceGUI.__released = {}
+  function aceGUI:Release(widget)
+    if widget.isQueuedForRelease then return end
+    if widget.__released then error("Attempt to Release Widget that is already released", 2) end
+    widget.isQueuedForRelease = true
+    if widget.frame then widget.frame:Hide() end
+    if widget.__fire then widget:__fire("OnRelease") end
+    if widget.ReleaseChildren then widget:ReleaseChildren() end
+    if widget.OnRelease then widget:OnRelease() end
+    for _, bag in ipairs({ widget.userdata, widget.callbacks }) do
+      if type(bag) == "table" then
+        for k in pairs(bag) do bag[k] = nil end
+      end
+    end
+    widget.width, widget.height, widget.relativeWidth = nil, nil, nil
+    widget.relWidth, widget.relHeight, widget.noAutoHeight = nil, nil, nil
+    if widget.frame then
+      widget.frame:ClearAllPoints()
+      widget.frame:SetParent(M.UIParent)
+    end
+    widget.__released = true
+    self.__released[#self.__released + 1] = widget
+    widget.isQueuedForRelease = nil
   end
   M.__makeAceGUIWidget = makeWidget
   libs["AceGUI-3.0"] = aceGUI
