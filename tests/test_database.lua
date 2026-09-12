@@ -358,6 +358,26 @@ test("Database: PruneOld is zero-alloc and silent when debug is off", function()
   assertEqual(#NS.DebugLog.buffer, before, "no line logged when debug off")
 end)
 
+-- debug-logging-§8 (v2.44.0 §10): a delete of recorded data is a data mutation the log must show.
+-- The History right-click Delete (modules/BrowserTable.lua) is the one caller, so a row that
+-- vanished has to be explainable from the console, not only a purge or a prune.
+test("Database: Delete logs one [Data] line with the removed count, and nothing when debug is off", function()
+  seed()
+  NS.State.debug = false
+  local before = #NS.DebugLog.buffer
+  NS.Database:Delete(function(r) return r.source == "KILL" end)
+  assertEqual(#NS.DebugLog.buffer, before, "no line logged when debug off")
+  seed()
+  NS.State.debug = true
+  before = #NS.DebugLog.buffer
+  NS.Database:Delete(function(r) return r.source == "KILL" end)
+  NS.State.debug = false
+  assertEqual(#NS.DebugLog.buffer, before + 1, "exactly one line per delete")
+  local line = NS.DebugLog.buffer[#NS.DebugLog.buffer]
+  assertTrue(line:find("[Data]", 1, true) ~= nil, "the line is tagged [Data]: " .. line)
+  assertTrue(line:find("delete removed 2 rows", 1, true) ~= nil, "the line carries the count: " .. line)
+end)
+
 test("Database: Purge returns removed count and logs [Data]", function()
   seed()
   NS.State.debug = true

@@ -727,6 +727,9 @@ function Database:Delete(pred)
   end
   NS.db.global.history = kept
   fireHistoryChanged()
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Data", "delete removed %s rows", tostring(removed))
+  end
   return removed
 end
 
