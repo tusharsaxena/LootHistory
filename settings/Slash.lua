@@ -105,14 +105,44 @@ end
 ---
 --- The view state that follows is not stored data: the Browser's sort/filter view
 --- and its frame are rebuilt from what is now an empty store.
+---
+--- Empty `g` in place and merge the declared defaults back. Returns how many recorded
+--- history rows the wipe discarded, for the debug trace (debug-logging-§8).
+local function wipeGlobal(g)
+  local removed = type(g.history) == "table" and #g.history or 0
+  for k in pairs(g) do g[k] = nil end
+  -- Copied, never merged by reference: a store sharing a table with NS.defaults rewrites the
+  -- declared default on its next write.
+  for k, v in pairs(NS.Util.DeepCopy(NS.defaults.global)) do g[k] = v end
+  return removed
+end
+
+--- debug-logging-§10: the wipe replaces every stored setting, and that is logged ONCE, as a [Set]
+--- line worded by the act. This addon has no profile, so this is its form of the profile handler's
+--- `reset profile '<name>' to defaults (N rows)` (options-ui-§12): wholesale replacement, not a walk
+--- through the helper, so the write seam never runs and there is no per-row line to mute. N is the
+--- stored rows the wipe actually changes: a row already at its default is not counted, and neither
+--- is a session-only row (the console toggle), which lives outside db.global. So it is read BEFORE
+--- the wipe, while the old values are still there. Worded apart from the [Data] line's "reset-all"
+--- on purpose: that line is the separate debug-logging-§8 trace of the history purge.
+local function traceSettingsReset(g)
+  if not (NS.State and NS.State.debug and NS.Debug) then return end
+  local S, n = NS.Schema, 0
+  for _, row in ipairs(S and S.Schema or {}) do
+    if not row.sessionOnly and not S.SameValue(S:ReadPath(g, row.path), row.default) then
+      n = n + 1
+    end
+  end
+  NS.Debug("Set", "reset account-wide settings to defaults (%d rows)", n)
+end
+
 function Sl:ResetEverything()
   local db = NS.db
   if db and db.global then
-    local g = db.global
-    for k in pairs(g) do g[k] = nil end
-    for k, v in pairs(NS.Util and NS.Util.DeepCopy and NS.Util.DeepCopy(NS.defaults.global)
-                      or NS.defaults.global) do
-      g[k] = v
+    traceSettingsReset(db.global)
+    local removed = wipeGlobal(db.global)
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Data", "reset-all removed %s rows", tostring(removed))
     end
   end
   if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
@@ -120,6 +150,8 @@ function Sl:ResetEverything()
   if NS.Browser then
     if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
     if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
+    -- `minimap` is a new table now; LibDBIcon must be pointed at it or the next drag is lost.
+    if NS.Browser.RefreshMinimap then NS.Browser:RefreshMinimap() end
   end
   if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
 end
@@ -273,6 +305,13 @@ local Dispatcher = lib:New({
   findRow      = function(path) return NS.Schema:FindRow(path) end,
   allRows      = function() return NS.Schema.Schema end,
   applyDefault = function(row) NS.Schema:Set(row.path, NS.Schema:Default(row.path)) end,
+
+  -- Slash minor 8's bulk bracket around CliResetAll's row walk (debug-logging-§10). The seam mutes
+  -- its per-row [Set] line inside it and logs `[Set] reset all: N rows` once at the end. Not handed
+  -- to the Options descriptor: nothing here calls O.RestoreDefaults or O.RestoreAllDefaults (the
+  -- General page's Defaults click and the Blizzard footer both route to P:RestoreDefaults, here).
+  bulkBegin    = function(act, scope) NS.Schema.BulkBegin(act, scope) end,
+  bulkEnd      = function(...) NS.Schema.BulkEnd(...) end,
 
   -- `/lh list` groups by the panel section header. The library's default is `row.page`, which this
   -- addon has no concept of — it is a single-panel addon, so its schema `group` values ARE the

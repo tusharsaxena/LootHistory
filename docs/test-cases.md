@@ -268,7 +268,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (59)
+### test_database.lua (60)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -305,6 +305,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: Purge wipes history and fires HistoryChanged
 - Database: PruneOld returns removed count and logs [Prune]
 - Database: PruneOld is zero-alloc and silent when debug is off
+- Database: Delete logs one [Data] line with the removed count, and nothing when debug is off
 - Database: Purge returns removed count and logs [Data]
 - Database: StorageStats counts records, day span, and estimated bytes
 - Database: StorageStats charges a currency record for the strings it does carry
@@ -352,7 +353,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (58)
+### test_browser.lua (60)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -412,6 +413,8 @@ badge and any count quoted in the docs must agree with it.
 - browser: General visibility answers all four modes against the combat state
 - browser: Show refuses while the visibility setting forbids it, and says why
 - browser: a combat transition re-applies visibility through the private event target
+- browser: SetupMinimap registers with LibDBIcon and writes nothing to the stored minimap table
+- browser: Reset all settings re-points LibDBIcon at the new minimap table, so a later drag persists
 
 ### test_browsertable.lua (56)
 
@@ -525,7 +528,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (38)
+### test_slash.lua (50)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -548,9 +551,21 @@ badge and any count quoted in the docs must agree with it.
 - NS.COMMANDS registers a version verb
 - /lh reset on a table setting echoes (none), not a raw table pointer
 - /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
+- /lh resetall logs ONE [Set] reset all: N rows line, N the rows whose value changed
+- /lh resetall on settings already at their defaults logs [Set] reset all: 0 rows
+- a bracket opened around resetall logs ONE line, summing the rows both levels changed
+- a nested bracket where any level reset the profile logs no bulk line
+- /lh reset <path> is still ONE [Set] <path> = <value> line, and not muted
+- /lh resetall typed at the dispatcher logs ONE [Set] reset all: N rows line
+- a row that raises mid-resetall logs ONE line marked as stopped, re-raises, and unmutes
+- the host seam clears its mute when a bracketed row raises
+- an unpaired BulkEnd at depth 0 logs nothing
+- Reset Everything logs ONE [Set] line for the settings it resets, beside its [Data] line
 - Reset Everything purges history and clears settings + filter lists + view + window
 - Reset Everything is WHOLESALE, not a list of keys somebody kept current
 - Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table
+- Reset Everything logs one [Data] line with the history rows it discarded, and nothing when debug is off
+- Reset Everything copies the declared defaults, so a later write cannot change them
 - NS.PREFIX is the mandated cyan [LH] tag
 - every Slash string this addon renders resolves to prose, not to a key
 - the help header names /loothistory as the alias for /lh
@@ -681,7 +696,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (44)
+### test_panel.lua (45)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -710,6 +725,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the General Defaults click restores every schema default
 - Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
+- Panel: the General Defaults click logs ONE [Set] reset all: N rows line and no per-row [Set]
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
@@ -728,7 +744,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 - Panel: the AH status colours are saturated, not muted
 
-### test_harness.lua (6)
+### test_harness.lua (7)
 
 - Harness: the runner fed the loader exactly the TOC's files, in the TOC's order
 - Harness: every path the runner derived from the TOC exists on disk
@@ -736,6 +752,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the suite list matches tests/test_*.lua in both directions
 - Harness: the runner's suite list has no duplicates
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
+- Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
 ### test_libka0s.lua (20)
 
@@ -829,17 +846,17 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 20 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
-| test_database.lua | 59 |
+| test_database.lua | 60 |
 | test_stats.lua | 19 |
-| test_browser.lua | 58 |
+| test_browser.lua | 60 |
 | test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 38 |
+| test_slash.lua | 50 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 44 |
-| test_harness.lua | 6 |
+| test_panel.lua | 45 |
+| test_harness.lua | 7 |
 | test_libka0s.lua | 20 |
 | test_surface_parity.lua | 5 |
 | test_doc_structure.lua | 6 |
@@ -847,4 +864,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **721** |
+| **Total** | **738** |

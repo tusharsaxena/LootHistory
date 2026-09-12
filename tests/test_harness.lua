@@ -11,6 +11,7 @@
 -- because Loader.tocFiles skips every `libs\` line by design.
 
 local T = _G.LH_TEST
+local NS = T.NS
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 local Loader = T.Loader
 
@@ -122,4 +123,29 @@ test("Harness: the runner's lifecycle kick is exactly what addon:OnInitialize ca
     assertEqual(kicked[i], derived[i], "lifecycle drift at step " .. i .. ": the runner calls "
       .. tostring(kicked[i]) .. " where addon:OnInitialize calls " .. tostring(derived[i]))
   end
+end)
+
+-- ── the addon object carries exactly what its NewAddon list embeds ───────────────────────────
+--
+-- core/LootHistory.lua:4 asks for AceEvent, AceTimer and AceConsole, and NS.bus IS the addon
+-- object, so the message half every module's bus traffic rides on comes from that embed. Up to
+-- kit revision 16 the kit's NewAddon ignored the list and tests/wow_mock.lua re-embedded AceEvent
+-- by hand; from 17 the kit embeds the list itself. This case pins the result either way, so the
+-- local wrapper could be deleted against a case that would have gone red had the embed gone.
+test("Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins", function()
+  assertTrue(rawequal(NS.bus, NS.addon), "NS.bus must be the addon object itself")
+  for _, m in ipairs({ "RegisterMessage", "UnregisterMessage", "SendMessage",       -- AceEvent, messages
+                       "RegisterEvent", "UnregisterEvent",                          -- AceEvent, events
+                       "ScheduleTimer", "CancelTimer",                              -- AceTimer
+                       "RegisterChatCommand" }) do                                  -- AceConsole
+    assertEqual(type(NS.addon[m]), "function", "NS.addon lacks " .. m)
+  end
+  local listener = T.mocks.__libs["AceEvent-3.0"]:Embed({})
+  local got
+  listener:RegisterMessage("Ka0s_LootHistory_HarnessProbe", function(msg, a) got = { msg, a } end)
+  NS.bus:SendMessage("Ka0s_LootHistory_HarnessProbe", 42)
+  listener:UnregisterMessage("Ka0s_LootHistory_HarnessProbe")
+  assertTrue(got ~= nil, "a message sent through NS.bus never reached a registered target")
+  assertEqual(got[1], "Ka0s_LootHistory_HarnessProbe")
+  assertEqual(got[2], 42)
 end)

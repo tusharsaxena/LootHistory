@@ -99,14 +99,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:355`).
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:415`).
   That seam is: look the row up → run its optional `validate` → `WritePath` a **deep copy** of the
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:355`).
+  `settings/Schema.lua:415`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:375`, `:363`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:439`, `:415`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
   (`savedView`) and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
@@ -127,7 +127,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:171`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:155`). Full contract
   in [message-bus.md](message-bus.md).
 
 ### Compat firewall
@@ -181,12 +181,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
   (`D.Debug`, `libs/LibKa0s/DebugLog.lua:633`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
-  (`core/DebugLogSetup.lua:135`), which is also where `NS.DebugLog` is instantiated.
+  (`core/DebugLogSetup.lua:144`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:441`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:500`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
-  the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:87`)
+  the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:95-96`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
   is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:155`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
@@ -237,7 +237,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:790`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:805`) — branding art, not a re-skinnable surface.
 - **Nineteen hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
@@ -252,7 +252,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   |---|---|---|
   | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:19`, `modules/BrowserTable.lua:89`, `:1075`, `modules/Export.lua:297` |
   | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1043`, `:1044`, `settings/Panel.lua:477`, `:478`, `:479` |
-  | 4 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1052`, `:1053` (the corner grabber, reasoned at `:1047-1051`), `:1212` (the LDB launcher icon), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
+  | 4 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1051`, `:1052` (the corner grabber, reasoned at `:1046-1050`), `:1211` (the LDB launcher icon), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
   | 1 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` |
 
   The catalog is **113 marks** as of LibKa0s v1.27.0, not the thirty it shipped with, so "the
@@ -288,8 +288,8 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
   `O.OpenOptionsPanel` (`settings/Panel.lua:1055`), whose combat gate lives in the library
-  (`libs/LibKa0s/Options.lua:1000`) and now also fires on a page's `OnShow`
-  (`libs/LibKa0s/Options.lua:803`), so reaching a page straight from the Blizzard AddOns sidebar is
+  (`libs/LibKa0s/Options.lua:1078`) and now also fires on a page's `OnShow`
+  (`libs/LibKa0s/Options.lua:881`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
   pattern (the standalone browser window follows the separate standalone-windows non-secure pattern).
 
@@ -306,7 +306,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Always-shown scrollbar (options-ui-§10).** `PatchAlwaysShowScrollbar` overrides AceGUI's stock
   `FixScroll` so the panel scrollbar is *always* visible and the 20px right gutter is *always*
   reserved (`libs/LibKa0s/OptionsScroll.lua:83`, applied to every ScrollFrame `O.EnsureScroll`
-  creates, `libs/LibKa0s/Options.lua:506`). AceGUI would otherwise hide the bar and reclaim the gutter
+  creates, `libs/LibKa0s/Options.lua:520`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's
   nothing to scroll the override parks the thumb at the top and grays the bar inert, so the body
   width is identical on the landing page and the General page alike. More on the panel in

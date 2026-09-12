@@ -680,3 +680,72 @@ test("browser: a combat transition re-applies visibility through the private eve
     B.ApplyVisibility = real
     assertEqual(ran, 2, "both transitions re-apply the setting")
   end)
+
+test("browser: SetupMinimap registers with LibDBIcon and writes nothing to the stored minimap table",
+  function()
+    -- architecture-§5 (v2.44.0): `minimap.hide` is a schema row, so a whole-table seed over
+    -- `minimap` is a schema-row write ("a row wins"). The AceDB default (`defaults/Global.lua`)
+    -- serves the table; setup only hands whatever is stored to LibDBIcon.
+    -- red under: the old `if not mm then mm = { hide = false }; NS.db.global.minimap = mm end` seed.
+    -- Nothing in the harness loads the vendored LDB / LibDBIcon, so this case registers fakes
+    -- through the kit's real NewLibrary. Both stay behind with inert Hide/Show/Refresh for later
+    -- suites (every Reset all settings in test_slash reaches Refresh through B:RefreshMinimap).
+    local LibStub = T.mocks.LibStub
+    local ldb = LibStub:NewLibrary("LibDataBroker-1.1", 1)
+    local icon = LibStub:NewLibrary("LibDBIcon-1.0", 1)
+    assertTrue(ldb ~= nil and icon ~= nil, "a suite registered the LDB / LibDBIcon fakes already")
+    local registered = {}
+    function ldb.NewDataObject(_, name, obj) obj.__name = name; return obj end
+    function icon.Register(_, name, obj, db) registered[#registered + 1] = { name, obj, db } end
+    function icon.IsRegistered(_, name) return registered[1] ~= nil and registered[1][1] == name end
+    function icon.Hide() end
+    function icon.Show() end
+    function icon.Refresh() end
+
+    local g = NS.db.global
+    local stored = g.minimap
+    g.minimap = nil          -- the only state the seed ever acted on
+    local ok, err = pcall(B.SetupMinimap, B)
+    local after = rawget(g, "minimap")
+    g.minimap = stored
+    if not ok then error(err, 0) end
+
+    assertEqual(#registered, 1, "LibDBIcon registers the launcher exactly once")
+    assertEqual(registered[1][1], "Ka0s Loot History", "registration key")
+    assertEqual(registered[1][2].type, "launcher", "the LDB object is a launcher")
+    assertTrue(after == nil, "setup must not seed NS.db.global.minimap; the AceDB default serves it")
+    assertEqual(NS.defaults.global.minimap.hide, false, "the default the seed duplicated ships")
+  end)
+
+test("browser: Reset all settings re-points LibDBIcon at the new minimap table, so a later drag persists",
+  function()
+    -- Sl:ResetEverything empties db.global and merges fresh defaults back, so `minimap` is a NEW
+    -- table afterwards while LibDBIcon's button still holds the old one. A drag before /reload
+    -- would write `minimapPos` into that orphan and the position would be lost.
+    -- red under: a ResetEverything that never hands the library the live table.
+    -- Rides on the case above: SetupMinimap already resolved Browser's DBIcon to this fake.
+    local icon = T.mocks.LibStub("LibDBIcon-1.0", true)
+    assertTrue(icon ~= nil, "the SetupMinimap case registered the LibDBIcon fake")
+    local refreshed = {}
+    local realRefresh, realIsRegistered = icon.Refresh, icon.IsRegistered
+    function icon.Refresh(_, name, db) refreshed[#refreshed + 1] = { name, db } end
+    function icon.IsRegistered(_, name) return name == "Ka0s Loot History" end
+
+    -- The reset empties the shared store, and later suites read state earlier ones seeded (the
+    -- migrated schemaVersion, for one), so the store's contents are put back afterwards.
+    local g = NS.db.global
+    local saved = {}
+    for k, v in pairs(g) do saved[k] = v end
+    local before = g.minimap
+    local ok, err = pcall(NS.Slash.ResetEverything, NS.Slash)
+    local live = g.minimap
+    icon.Refresh, icon.IsRegistered = realRefresh, realIsRegistered
+    for k in pairs(g) do g[k] = nil end
+    for k, v in pairs(saved) do g[k] = v end
+    if not ok then error(err, 0) end
+
+    assertTrue(live ~= nil and live ~= before, "the reset gives the store a new minimap table")
+    assertEqual(#refreshed, 1, "the reset refreshes the LibDBIcon button exactly once")
+    assertEqual(refreshed[1][1], "Ka0s Loot History", "registration key")
+    assertTrue(refreshed[1][2] == live, "LibDBIcon must be handed the live minimap table")
+  end)

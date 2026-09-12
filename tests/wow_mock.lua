@@ -315,23 +315,14 @@ return function()
     return w
   end
 
-  -- ── the message bus ────────────────────────────────────────────────────────
-  -- The kit's AceAddon fake does not embed AceEvent's MESSAGE half, because not every host asks for
-  -- it (it stamps only the event half, kit revision 16). This addon
-  -- does: `AceAddon:NewAddon(NS, name, "AceEvent-3.0", ...)` embeds the (message, target) bus onto
-  -- the addon object, and NS.bus IS that object. Wrap NewAddon so the mock models the real embed —
-  -- including the clobber semantics the kit's AceEvent fake already reproduces.
-  local aceAddon = M.__libs["AceAddon-3.0"]
-  local stockNewAddon = aceAddon.NewAddon
-  aceAddon.NewAddon = function(self, target, ...)
-    local obj = stockNewAddon(self, target, ...)
-    return M.__libs["AceEvent-3.0"]:Embed(obj)
-  end
-
-  -- AceEvent's EVENT half (RegisterEvent / UnregisterEvent / UnregisterAllEvents) is the kit's own
-  -- since revision 16, stamped onto every Embed target and the NewAddon target alike and recorded
-  -- per target on `t.__events`. The second Embed above keeps what NewAddon registered. A suite
-  -- fires a recorded function handler the way CallbackHandler does: `t.__events[event](event, ...)`.
+  -- ── the message bus is the kit's ──────────────────────────────────────────
+  -- No local NewAddon wrapper any more. From kit revision 17 the kit's NewAddon honors its mixin
+  -- list, so `AceAddon:NewAddon(NS, name, "AceEvent-3.0", "AceTimer-3.0", "AceConsole-3.0")`
+  -- (core/LootHistory.lua:4) embeds AceEvent's message and event halves, AceTimer and AceConsole
+  -- onto the addon object, and NS.bus IS that object. Up to revision 16 the kit ignored the list and
+  -- this file re-embedded AceEvent by hand. tests/test_harness.lua pins the result. Events are
+  -- still recorded per target on `t.__events`, and `M.__fireEvent(event, ...)` dispatches one the
+  -- way AceEvent's frame does.
 
   return M
 end

@@ -82,7 +82,7 @@ The unit-kind set lives in `Compat.UNIT_KINDS` (`core/Compat.lua:123`) as the si
 
 ### Instance context enrichment
 
-The encounter and keystone detail is layered on by separate rolling-context stampers that write `State.encounter` / `State.keystone` (`core/State.lua:10`) rather than the loot context:
+The encounter and keystone detail is layered on by separate rolling-context stampers that write `State.encounter` / `State.keystone` (`core/State.lua:10-11`) rather than the loot context:
 
 - `ENCOUNTER_START` → `OnEncounterStart` sets `{ id, name, difficulty }` (`modules/Attribution.lua:209`); `ENCOUNTER_END` clears it. Any KILL loot in between carries the encounter id + difficulty.
 - `CHALLENGE_MODE_START` → `OnChallengeModeStart` records `{ level }` from `NS.Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`). `CHALLENGE_MODE_COMPLETED` deliberately **keeps** the keystone context (refreshing the level) rather than clearing it, because the reward chest is looted shortly *after* completion and its GameObject GUID must still resolve to `MPLUS` (`modules/Attribution.lua:229`).
@@ -116,7 +116,7 @@ Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confi
 
 1. **Quality** — `quality < qualityThreshold` → drop (`"quality"`). Threshold options in `Constants.QUALITY_OPTIONS`.
 2. **Excluded source** — the item's source is muted in `excludedSources` → drop (`"source"`).
-3. **Quest item** — when `excludeQuestItems` is on and the item's class is `Constants.ITEMCLASS_QUEST` (`core/Constants.lua:44`, `Enum.ItemClass.Questitem` = 12) → drop (`"quest"`). The gate keys on the **locale-independent item class id**, never the localized `itemType` string, so it works on every client.
+3. **Quest item** — when `excludeQuestItems` is on and the item's class is `Constants.ITEMCLASS_QUEST` (`core/Constants.lua:48`, `Enum.ItemClass.Questitem` = 12) → drop (`"quest"`). The gate keys on the **locale-independent item class id**, never the localized `itemType` string, so it works on every client.
 
 The `CHAT_MSG_LOOT` self-filter (`ParseSelfLoot` returning `nil`) is the implicit gate ahead of all three.
 

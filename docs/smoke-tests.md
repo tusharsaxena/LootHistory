@@ -575,11 +575,13 @@ The LibDataBroker launcher registered through LibDBIcon-1.0. Visibility lives in
 - Locate the minimap button; hover it.
 - Left-click it; right-click it.
 - Settings → check **Hide minimap button**; uncheck it.
+- Drag the button to a new spot on the minimap ring.
 - `/reload`.
 
 **Pass.**
 - The tooltip shows "Ka0s Loot History" + a live record count ("N records") + the click hints.
 - **Left-click toggles** the history window; **right-click opens Settings**.
+- After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the AceDB-default `minimap` table, with no seed from `B:SetupMinimap` (#30).
 - **Hide minimap button** hides the icon immediately; unchecking shows it. The state **persists across
   `/reload`** (LibDBIcon owns the `minimap` table the setting writes).
 
@@ -659,7 +661,8 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 - Loot a threshold item → one `[Loot]`; a sub-threshold item → one `[Drop]`.
 - Open a corpse/chest with many slots → exactly one `[Open] LOOT_OPENED N slots -> …`, not N lines.
 - Change a setting (panel or `/lh set …`) → exactly one `[Set] <path> = <value>`, no `[Cfg]`.
-- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row → one `[Data] deleted row @…`.
+- Change two settings, then press the General page's **Defaults** (or the Blizzard footer's **Defaults**) → exactly one `[Set] reset all: 2 rows` and no per-row `[Set]`; press it again → `[Set] reset all: 0 rows`. `/lh resetall` logs the same one line; `/lh reset <path>` stays one `[Set] <path> = <value>` (debug-logging-§10).
+- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row (History right-click → **Delete**) → one `[Data] delete removed 1 rows`; change two settings, then **Reset all settings** (confirm) → one `[Set] reset account-wide settings to defaults (2 rows)` and one `[Data] reset-all removed N rows`, and no per-row `[Set]` (the wipe is wholesale, not a walk through `Schema:Set`; the `[Data]` line is the history purge's own trace).
 - Open the browser → `[UI] window shown`; switch to Insights → `[UI] tab -> Insights` + one `[Insights] computed …`.
 - Type in the table's search / change group/sort → one `[Table] rendered M/T rows (…)` per change, never per row.
 - Add/remove a blacklist or whitelist id (with debug on) → one `[Filters] blacklist=B whitelist=W` line.

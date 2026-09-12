@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 7
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 8
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -360,6 +360,15 @@ end
 ---   findRow      function  optional. Resolve a path to a schema row, or nil.
 ---   allRows      function  optional. Every row, in declaration order.
 ---   applyDefault function  optional. Restore one row to its default.
+---   bulkBegin    function  optional, minor 8. function(act, scope). Called before CliResetAll
+---                          writes its first row, act "reset", scope "all". Mute the host
+---                          seam's per-row `[Set]` line here (debug-logging-§10).
+---   bulkEnd      function  optional, minor 8. function(act, scope, count, err, info). Called once
+---                          after the walk, ALWAYS when the bracket was begun: `count` is the rows
+---                          actually written, `err` the raised value if the walk raised (it is
+---                          re-raised after this returns), `info` the Options major's table —
+---                          `info.profileReset` is always false here, since no Slash walk resets
+---                          a profile. Unmute and emit `[Set] reset all: N rows` here.
 ---   parse        function  optional, defaults to lib.ParseValue.
 ---   format       function  optional, minor 5. function(row, storedValue) -> string. Renders a
 ---                          value for display, replacing lib.FormatValue outright, at every one
@@ -562,11 +571,48 @@ function lib:New(d)
     emit(lib.FormatKV(row.path, formatValue(row, read(row.path))))
   end
 
+  --- Run one bulk act inside the host's optional bracket (minor 8). The same contract, field names
+  --- and error semantics as the Options major's, so a host passes one pair to both: debug-logging-§10
+  --- makes a bulk reset through the helper ONE flow line with a row count, and the host mutes its
+  --- per-row `[Set]` between bulkBegin and bulkEnd.
+  ---
+  --- Unbracketed — neither field a function — the walk runs bare, exactly as at minor 7: no pcall,
+  --- and a raising row escapes with its own stack. Bracketed, a begun bracket always closes:
+  --- bulkBegin and the walk share one pcall, bulkEnd runs once with the rows actually written and
+  --- the raised value if any, and only then is that value re-raised unchanged.
+  ---
+  --- bulkEnd's fifth argument is the Options major's `info` table. No Slash walk resets a profile,
+  --- so `info.profileReset` is always false here and a host passing one pair to both majors always
+  --- logs its `[Set] <act> <scope>: N rows` line for a resetall.
+  local function runBulk(act, scope, walk)
+    local begin, finish = d.bulkBegin, d.bulkEnd
+    local count = 0
+    local info = { profileReset = false }
+    local function write(row)
+      if type(d.applyDefault) == "function" then
+        d.applyDefault(row)
+        count = count + 1
+      end
+    end
+    if type(begin) ~= "function" and type(finish) ~= "function" then
+      walk(write)
+      return
+    end
+    local ok, err = pcall(function()
+      if type(begin) == "function" then begin(act, scope) end
+      walk(write)
+    end)
+    if type(finish) == "function" then finish(act, scope, count, err, info) end
+    if not ok then error(err, 0) end
+  end
+
+  --- Bracketed as act "reset", scope "all" (minor 8). The acknowledgment is printed after the
+  --- bracket closes, and not at all if the walk raised.
   function Sl:CliResetAll()
     local all = type(d.allRows) == "function" and d.allRows() or {}
-    for _, row in ipairs(all) do
-      if type(d.applyDefault) == "function" then d.applyDefault(row) end
-    end
+    runBulk("reset", "all", function(write)
+      for _, row in ipairs(all) do write(row) end
+    end)
     emit(self:Text("RESET_ALL"))
   end
 

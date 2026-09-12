@@ -31,22 +31,22 @@ db.global = {
     excludedSources  = {},     -- set of MUTED SourceType keys
     retentionDays    = 30,     -- 0 == keep Always
     windowScale      = 1.0,    -- the History window's OWN scale; multiplied by settings.scale
-    window           = {},     -- persisted position/size (storage-only, see below)
+    window           = {},     -- persisted position/size (named non-setting state, see below)
     auction = {
       enabled = true,          -- master AH-pricing switch (Schema row)
       capture = {},            -- set of enabled "provider:key" tags — collect AND rank (Schema row, MultiCheck)
-      priority = {},           -- ordered "provider:key" cascade selection list (storage-only, see below)
+      priority = {},           -- ordered "provider:key" cascade selection list (the one carve-out, see below)
     },
   },
   minimap = { hide = false },  -- LibDBIcon visibility state
-  savedView = <table|nil>,     -- saved table view (storage-only, see below); absent until saved
+  savedView = <table|nil>,     -- saved table view (named non-setting state, see below); absent until saved
   boundRepairPending = <true|nil>,  -- migration job: rows still to be split (see below)
   boundRepairAttempts = <n|nil>,    -- fruitless passes so far; both clear when the job completes
   boundRepairRevision = <n|nil>,    -- which build of that job has run; a bump re-arms it
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:718`, `:778`). Each record's field shape is documented below.
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:718`, `:787`). Each record's field shape is documented below.
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:211`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
@@ -150,9 +150,9 @@ All history lives at `LootHistoryDB.global.history` — an account-wide dense ar
 Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
 - `Database:Delete(pred)` (`core/Database.lua:718`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:784`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:PruneOld()` (`core/Database.lua:787`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
 - `Database:RepairBoundStates()` (`core/Database.lua:258`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
-- `Database:Purge()` (`core/Database.lua:734`) — replace with `{}`.
+- `Database:Purge()` (`core/Database.lua:737`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -207,11 +207,11 @@ were removed.)
 
 `Constants.Confidence` (`core/Constants.lua:44`): `CERTAIN` \| `INFERRED`. Surfaces attribution uncertainty in the UI and lets the export flag inferred rows.
 
-> Not part of the record, but related: `Constants.ITEMCLASS_QUEST = 12` (`core/Constants.lua:44`) is the locale-independent `Enum.ItemClass.Questitem` id the collector's optional quest-item gate keys on — never the localized `itemType` string.
+> Not part of the record, but related: `Constants.ITEMCLASS_QUEST = 12` (`core/Constants.lua:48`) is the locale-independent `Enum.ItemClass.Questitem` id the collector's optional quest-item gate keys on — never the localized `itemType` string.
 
 ## The `Schema:Set` write seam
 
-Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:355` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
+Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:415` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
 
 The deep-copy (`settings/Schema.lua:355`) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
 
@@ -238,24 +238,52 @@ A row's `page` is the canvas subcategory it is edited on, its `group` is the tab
 | `minimap.hide` | General ▸ Interface ▸ *Minimap* | CheckBox | `false` | Hides the LibDBIcon button (applied live). |
 | `settings.retentionDays` | General ▸ History | Dropdown | `30` | `0` = keep Always. Prunes on change. The tab's other two controls — the storage readout and **Purge history…** — are bespoke and have no path. |
 
-### Storage-only carve-outs
+### State outside the rows
 
-Six pieces of persisted state live in `db.global` but are written **directly**, bypassing `Schema:Set` — they are runtime/data state, not user settings, and are intentionally not Schema rows (`modules/Browser.lua:96`):
+Several pieces of persisted state in `db.global` are not schema rows, so nothing writes them through `Schema:Set`, and only one of them is a carve-out. `architecture-§5` sorts the rest into **named non-setting state**, which no control chooses and no row addresses, and a **structural registry**. Neither needs a register row once its owner and writers are named, and [ARCHITECTURE.md → *Settings schema*](ARCHITECTURE.md#settings-schema) names them (for the window, so does the NOTE above `SaveWindow`, `modules/Browser.lua:96`):
 
-- **`settings.window`** — the browser window geometry `{ point, x, y, w, h }` relative to UIParent. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:102`), restored by `RestoreWindow` on show (`modules/Browser.lua:111`). This is the standalone-windows window position/size persistence.
-- **`savedView`** — the saved table view: group-by, sort keys, and the multi-select column filters (bound / quality / type / subtype / source / zone) plus the date range and search text. Captured by `B:CaptureView`, written by `B:SaveView`, cleared to `nil` by `B:ResetView`. Character scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:256`).
-- **`blacklist` / `whitelist` / `currencyBlacklist`** — the id filter lists (issue #14; the currency list added with currency capture). They are a **structural registry** (`architecture-§5`): the player adds and removes members and no row names one, so they are written by their one registry writer, `NS.Filters` (`modules/Filters.lua`), rather than through `Schema:Set`. That is compliant and needs no register row; the storage keys, the writer and the load pass (none: AceDB defaults only) are named in [ARCHITECTURE.md](ARCHITECTURE.md#settings-schema) → *Settings schema*. The writer's callers are the Filters tab (`settings/Panel.lua:251-335`), the History right-click menu (`modules/BrowserTable.lua:1113`, `:1121`), the Clear-all confirms (`settings/Slash.lua:39-75`) and `Sl:CliResetAll` (`:318`, with its degraded-install twin at `:227`), which the `resetall` verb and the General page's **Defaults** button (`P:RestoreDefaults`) both reach. **Reset all settings** (`Sl:ResetEverything`, `settings/Slash.lua:108`) also empties the sets, because it empties `db.global` wholesale, and `architecture-§5` does not count wholesale replacement as a registry write. Copy-on-write mutation, then a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()` (the browser re-queries). All are strictly **point-in-time**: they decide what happens at capture, not what happens to rows already stored. Blacklisted item ids are dropped at capture (`CHAT_MSG_LOOT`) and never written to `history`; existing rows are never hidden or removed. Whitelisted ids are always recorded, bypassing the quality/source/quest gates, as plain rows with no special flag. `currencyBlacklist` is keyed by **currencyID** (a separate namespace, since item and currency ids can collide) and is **blacklist-only** (no currency whitelist): a blacklisted currency is dropped at capture (`CHAT_MSG_CURRENCY`). Changing any list fires `Database:FireHistoryChanged()` and calls `Collector:RefreshUpvalues()` so the browser/Insights re-query and future captures see the new lists — it never hides or reveals existing rows. An item id lives on at most one of the item lists. See [settings-panel.md](settings-panel.md).
-- **`settings.auction.priority`** — the ordered `"provider:key"` AH-price cascade selection list (`AuctionPrice:Pick` walks it front-to-back; first present key wins). An ordered list has no fixed Schema widget (CheckBox/Dropdown/Slider/MultiCheck) to express reordering, so it is read/written directly via `AuctionPrice:GetPriority` / `ReconcilePriority` / `MovePriorityWithin` (`modules/AuctionPrice.lua`) and **dragged** on the AH Price tab through the shared `ReorderList` widget (options-ui-§18). `MovePriorityWithin(subset, from, to)` is a **splice to index** — one write, however far the row travelled — and re-lays the dragged subset into its own slots in the stored array, so reordering the sources you collect never moves the ones you do not. It replaced the pairwise `SwapPriorityTags` the old ▲▼ arrows drove, which is gone. Its sibling `settings.auction.capture` (now the single collect-**and**-rank flag per source) **is** a normal Schema row (`MultiCheck`, `settings/Schema.lua`) — only the ordering half is a carve-out. (There is no longer a separate `priorityDisabled` set: collection and priority-participation are one flag — an unticked source is neither collected nor ranked.)
+- **`settings.window`** — named non-setting state: the browser window geometry `{ point, x, y, w, h }` relative to UIParent, which only a drag or a resize determines. Saved by `SaveWindow` on move/resize (`modules/Browser.lua:101`), restored by `RestoreWindow` on show (`modules/Browser.lua:110`). This is the standalone-windows window position/size persistence.
+- **`savedView`** — named non-setting state: the saved table view, captured whole when the player clicks the filter bar's **Save**: group-by, sort keys, and the multi-select column filters (bound / quality / type / subtype / source / zone) plus the date range and search text. Captured by `B:CaptureView`, written by `B:SaveView`, cleared to `nil` by `B:ResetView`. Character scope is **not** part of the view — it is a session-only "current player" default. When `savedView` is absent, `savedViewOrStock` returns the hard-coded `STOCK_VIEW` baseline (`modules/Browser.lua:255`).
+- **`history`** — named non-setting state, **recorded data**: the loot log, owned by `NS.Database` (`core/Database.lua`). The player deletes rows of it or clears it but never authors a row. Beside it sits the deferred warbound repair's bookkeeping, **`boundRepairPending`**, **`boundRepairAttempts`** and **`boundRepairRevision`**: recorded data with the same owner, which the load pass arms (see [schemaVersion & the migration seam](#schemaversion--the-migration-seam)). [*Recorded data*](#recorded-data-history-and-the-repair-bookkeeping) below lists every writer.
+- **`blacklist` / `whitelist` / `currencyBlacklist`** — the id filter lists (issue #14; the currency list added with currency capture). They are a **structural registry** (`architecture-§5`): the player adds and removes members and no row names one, so they are written by their one registry writer, `NS.Filters` (`modules/Filters.lua`), rather than through `Schema:Set`. That is compliant and needs no register row; the storage keys, the writer and the load pass (none: AceDB defaults only) are named in [ARCHITECTURE.md](ARCHITECTURE.md#settings-schema) → *Settings schema*. The writer's callers are the Filters tab (`settings/Panel.lua:251-335`), the History right-click menu (`modules/BrowserTable.lua:1113`, `:1121`), the Clear-all confirms (`settings/Slash.lua:39-75`) and `Sl:CliResetAll` (`:357`, with its degraded-install twin at `:259`), which the `resetall` verb and the General page's **Defaults** button (`P:RestoreDefaults`) both reach. **Reset all settings** (`Sl:ResetEverything`, `settings/Slash.lua:139`) also empties the sets, because it empties `db.global` wholesale, and `architecture-§5` does not count wholesale replacement as a registry write. Copy-on-write mutation, then a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()` (the browser re-queries). All are strictly **point-in-time**: they decide what happens at capture, not what happens to rows already stored. Blacklisted item ids are dropped at capture (`CHAT_MSG_LOOT`) and never written to `history`; existing rows are never hidden or removed. Whitelisted ids are always recorded, bypassing the quality/source/quest gates, as plain rows with no special flag. `currencyBlacklist` is keyed by **currencyID** (a separate namespace, since item and currency ids can collide) and is **blacklist-only** (no currency whitelist): a blacklisted currency is dropped at capture (`CHAT_MSG_CURRENCY`). Changing any list fires `Database:FireHistoryChanged()` and calls `Collector:RefreshUpvalues()` so the browser/Insights re-query and future captures see the new lists — it never hides or reveals existing rows. An item id lives on at most one of the item lists. See [settings-panel.md](settings-panel.md).
+- **`settings.auction.priority`** — **the one carve-out**, with a register row under [ARCHITECTURE.md → *Documented deviations*](ARCHITECTURE.md#documented-deviations): the ordered `"provider:key"` AH-price cascade selection list (`AuctionPrice:Pick` walks it front-to-back; first present key wins). An ordered list has no fixed Schema widget (CheckBox/Dropdown/Slider/MultiCheck) to express reordering, so it is read/written directly via `AuctionPrice:GetPriority` / `ReconcilePriority` / `MovePriorityWithin` (`modules/AuctionPrice.lua`) and **dragged** on the AH Price tab through the shared `ReorderList` widget (options-ui-§18). `MovePriorityWithin(subset, from, to)` is a **splice to index** — one write, however far the row travelled — and re-lays the dragged subset into its own slots in the stored array, so reordering the sources you collect never moves the ones you do not. It replaced the pairwise `SwapPriorityTags` the old ▲▼ arrows drove, which is gone. Its sibling `settings.auction.capture` (now the single collect-**and**-rank flag per source) **is** a normal Schema row (`MultiCheck`, `settings/Schema.lua`) — only the ordering half is a carve-out. (There is no longer a separate `priorityDisabled` set: collection and priority-participation are one flag — an unticked source is neither collected nor ranked.)
 
-`minimap` is not on that list because LibDBIcon owns it: `Browser` hands the table to `DBIcon:Register` (`modules/Browser.lua:1236`) and the library keeps the button's state in it. Only its `hide` leaf is a schema row.
+`minimap` is not on that list because LibDBIcon owns it: `Browser` hands the table to `DBIcon:Register` (`modules/Browser.lua:1236`) and the library keeps the button's state in it, storing `minimapPos` when the button is dragged. Only its `hide` leaf is a schema row. `B:SetupMinimap` no longer seeds the table when it is missing (#30): replacing the whole table would be a write over the `minimap.hide` row, and the AceDB default (`defaults/Global.lua:63`) already supplies it. **Reset all settings** replaces the table, so it hands LibDBIcon the new one (`B:RefreshMinimap`); otherwise a drag before `/reload` would store `minimapPos` in the old table and the position would be lost.
 
-> **Standards note (accepted carve-out).** `window`, `savedView` and `settings.auction.priority` bypass the schema-as-single-source rule (`architecture-§5`: every write to a schema-row path goes through `Schema:Set`, and any other persistent state written outside it needs a register row). They carry one, in [ARCHITECTURE.md → *Documented deviations*](ARCHITECTURE.md#documented-deviations). **The id sets are no longer in this class.** They were ratified as a carve-out on 2026-07-17. Standard v2.43.0 then called a player-built id set a **structural registry**, compliant when it has one named writer. `NS.Filters` is that writer and the load pass is none (AceDB defaults only), so the sets left the register on 2026-09-12. `settings.auction.priority` follows the older precedent (Rev-2 R5, 2026-07-19): an ordered list is not one of the four schema widget types, so it is managed directly by `modules/AuctionPrice.lua` + the AH Price panel. (The former `settings.auction.priorityDisabled` per-tag carve-out was removed when collection and priority-participation were unified into the single `settings.auction.capture` flag — see the AH Price table in [settings-panel.md](settings-panel.md).) Standard v2.43.0 made the id-set pattern first-class, as a registry with one named writer. The ordered-list pattern still has no schema row type, and that is the register row's re-check trigger.
+> **Standards note (accepted carve-out).** `settings.auction.priority` bypasses the schema-as-single-source rule (`architecture-§5`: every write to a schema-row path goes through `Schema:Set`, and any other persistent state written outside it needs a register row). It carries one, in [ARCHITECTURE.md → *Documented deviations*](ARCHITECTURE.md#documented-deviations). **`window` and `savedView` are no longer in this class.** Standard v2.44.0 calls geometry only a drag determines, and a view captured whole by a *Save* act, **named non-setting state**. Neither needs a row once its owner and writers are named, and LibDBIcon's `minimapPos` falls under the same rule's library clause. [ARCHITECTURE.md → *Settings schema*](ARCHITECTURE.md#settings-schema) names all three, so `window` and `savedView` left the register on 2026-09-12 (#30); `minimapPos` was never in it. **The id sets are no longer in this class either.** They were ratified as a carve-out on 2026-07-17. Standard v2.43.0 then called a player-built id set a **structural registry**, compliant when it has one named writer. `NS.Filters` is that writer and the load pass is none (AceDB defaults only), so the sets left the register on 2026-09-12. `settings.auction.priority` follows the older precedent (Rev-2 R5, 2026-07-19): an ordered list is not one of the four schema widget types, so it is managed directly by `modules/AuctionPrice.lua` + the AH Price panel. (The former `settings.auction.priorityDisabled` per-tag carve-out was removed when collection and priority-participation were unified into the single `settings.auction.capture` flag — see the AH Price table in [settings-panel.md](settings-panel.md).) Standard v2.43.0 made the id-set pattern first-class, as a registry with one named writer. The ordered-list pattern still has no schema row type, and that is the register row's re-check trigger.
 
 Note `settings.windowScale` **is** a Schema row (a General ▸ Interface ▸ *Window* slider, beside `settings.rowHeight`) even though `settings.window` is not — the scale is a user-facing setting, the geometry is runtime state. The geometry is still reachable from the panel, through the Master controls tab's **Reset position** button (`Browser:ResetWindow`), which is an act rather than a setting.
 
+### Recorded data: `history` and the repair bookkeeping
+
+[ARCHITECTURE.md → *Settings schema*](ARCHITECTURE.md#settings-schema) names both as recorded data;
+this is the writer list. The player deletes rows of the log or clears it, but never authors a row.
+Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:287`)
+appends each kept loot or currency line (`modules/Collector.lua:135`, `:200`). `PruneOld`
+(`core/Database.lua:787`) drops rows past `settings.retentionDays` once per session after
+`PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:57`) and from that row's `onChange`
+(`settings/Schema.lua:306`). `Purge` (`core/Database.lua:737`) empties it from the purge confirm
+(`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
+`StaticPopup_Show` (`settings/Schema.lua:517`, `settings/Panel.lua:115`). `Delete`
+(`core/Database.lua:718`) drops the row the History right-click **Delete** names
+(`modules/BrowserTable.lua:1128`). `RepairBoundStates` (`core/Database.lua:258`) rewrites a row's
+`bound` (`core/Database.lua:219`) from two deferrals after login (`core/LootHistory.lua:58`, `:61`)
+and each window open (`modules/Browser.lua:1070`). **Reset all settings** (`Sl:ResetEverything`,
+`settings/Slash.lua:139`) replaces all of it wholesale. Purge, delete and that reset each log one
+`[Data]` line, the prune one `[Prune]` (`debug-logging-§8`).
+
+The repair bookkeeping is the deferred warbound repair's job state (see
+[schemaVersion & the migration seam](#schemaversion--the-migration-seam)). **`boundRepairRevision`** is
+written only by the load pass: `NS:ArmBoundRepair` (`core/Database.lua:155`), which only
+`NS:RunMigrations` calls, stamps it when it arms the job, setting **`boundRepairPending`** and clearing
+**`boundRepairAttempts`** (`core/Database.lua:156`). After that the repair's `finishPass`
+(`core/Database.lua:245`) advances `boundRepairAttempts` and clears both once nothing is pending or
+the fruitless-pass cap is reached. The defaults declare none of the three, so Reset all settings
+removes them and the next load re-arms the job over whatever rows exist then.
+
 ### Reset semantics
 
-Three reset surfaces write these tables; each reaches a deliberately different scope so the carve-outs above are never silently missed (audit 2026-07-17):
+Three reset surfaces write these tables; each reaches a deliberately different scope so the state above is never silently missed (audit 2026-07-17):
 
 | Reset | Trigger | Schema settings | `blacklist`/`whitelist` | `savedView` | `settings.window` | `history` |
 |-------|---------|:---:|:---:|:---:|:---:|:---:|
@@ -263,6 +291,8 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 | **Destructive** | **"Reset all settings"** (Master controls) → confirm (`Sl:ResetEverything`) | ✓ | ✓ | ✓ (`Browser:ResetView`) | ✓ (`Browser:ResetWindow`) | ✓ |
 | **Position only** | **"Reset position"** (Master controls) | — | — | — | ✓ (`Browser:ResetWindow`) | — |
 | **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — |
+
+Each logs its settings reset once (`debug-logging-§10`). The non-destructive reset logs `[Set] reset all: N rows`, N the rows whose stored value changed, with ` (stopped by an error)` appended when a row raised part-way (the line is still logged once, the mute released and the error re-raised). The destructive one is a wholesale replacement, not a walk through `Schema:Set`, and with no profile it is this addon's reset-profile equivalent (`options-ui-§12`): it logs one `[Set] reset account-wide settings to defaults (N rows)`, N the stored rows that were not at their default just before the wipe (the session-only console row is not counted), the same line BankLedger logs. Its `[Data] reset-all removed N rows` line stays beside it, as the separate `debug-logging-§8` trace of the history it discards. The single reset logs `[Set] <path> = <value>`.
 
 **The global reset is wholesale, and no longer a composition.** (It was labelled "Reset Everything" on the Maintenance tab until options-ui-§15 gave it its canonical name and place.) It used to be three enumerations —
 a history purge, a schema walk and a filter-list clear — which between them happened to cover the
@@ -282,7 +312,7 @@ ticks above are now consequences of that one wipe rather than five separate call
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:10` and carried to the current shape **8** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
+`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:13` and carried to the current shape **8** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
 
 `NS:InitDB` (`core/Database.lua:4`) creates the AceDB store, then immediately calls `NS:RunMigrations` to normalize the persisted schema **before any history read**.
 
@@ -309,7 +339,7 @@ All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is alr
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:784`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:294`).
+`Database:PruneOld` (`core/Database.lua:787`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs at the appropriate lifecycle points and whenever the retention setting changes (the row's `onChange` calls `PruneOld` — `settings/Schema.lua:306`).
 
 ## Read seams
 

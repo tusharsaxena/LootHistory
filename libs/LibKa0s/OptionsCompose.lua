@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 3
+local COMPOSE_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -85,6 +85,62 @@ local function shallow(t)
   return out
 end
 
+-- ── THE RECORD-BACKED ARM (compose minor 4) ─────────────────────────────────────────────────────
+--
+-- Every composer takes `spec.bind` as an alternative to settings paths, for a page that edits
+-- REGISTRY RECORDS -- PanelMaster's panel editor, whose three options-ui-§16 groups could not
+-- compose while every row came out path-keyed (PanelMaster#48, PANELMASTER-A-03).
+--
+--   spec.bind = {
+--     set    = function(field, value, row) end,   -- required: the record's single write seam
+--     get    = function(field, row) return v end, -- read the LIVE record
+--     record = function() return rec end,         -- or this, and get becomes record()[field]
+--   }
+--
+-- A bound row carries NO `path`. It carries `field` -- exactly what its path would have been, so
+-- `prefix` and `keys` rename a record field the way they rename a leaf -- and `get` / `set`
+-- closures, which the flow engine uses for any row without a path (OptionsWidgets minor 15).
+-- Everything else is the composer's, unchanged: the rows, their order, their labels and defaults,
+-- `startsLine`, the class-color stamps. The arm changes where a value lives, never which controls
+-- a block has.
+--
+-- Bound rows are for DIRECT rendering -- `O.RenderField` into the host's own container, or
+-- `O.RenderRows` over the returned list. They are not settings: they have no path for the CLI to
+-- address or for RestoreDefaults to reset, so they must never be put in the host's schema. A
+-- record's reset is the host's, as it always was.
+--
+-- A spec with no `bind` never reaches any of this, and emits byte-for-byte what minor 3 emitted
+-- (tests/fixture_compose_golden.lua holds the record that proves it).
+
+--- The reader a bind supplies, refusing a bind that cannot both read and write. A bound control
+--- with nowhere to write is a dead control that looks alive; refusing it at compose time names the
+--- host instead of shipping it.
+local function bindReader(bind)
+  if type(bind.set) ~= "function" then
+    error("LibKa0s-Options: spec.bind needs set(field, value, row) -- a bound row must be able to write", 5)
+  end
+  if type(bind.get) == "function" then return bind.get end
+  if type(bind.record) == "function" then
+    return function(field)
+      local rec = bind.record()
+      return rec and rec[field]
+    end
+  end
+  error("LibKa0s-Options: spec.bind needs get(field, row) or record() -- a bound row must be able to read", 5)
+end
+
+--- Bind `row` to the record field `field`: no path, and get/set closures over the bind.
+---
+--- `row.get(key)` with an argument reads ANOTHER field of the same record -- which is how the flow
+--- engine resolves a bound row's `disabledIf`, a record field rather than a settings path.
+local function bindRow(bind, row, field)
+  local read = bindReader(bind)
+  row.path, row.field = nil, field
+  row.get = function(key) return read(key or field, row) end
+  row.set = function(value) return bind.set(field, value, row) end
+  return row
+end
+
 --- Append one canonical row to `rows`, unless the caller omitted that leaf.
 ---
 --- Everything a caller can override is applied HERE and nowhere else — the path leaf, the label, the
@@ -94,6 +150,9 @@ end
 ---
 --- `order` counts EMITTED rows, so an omitted row leaves no hole. The relative order of the
 --- survivors is what matters and it is unchanged either way.
+---
+--- Under `spec.bind` the same key becomes the row's record `field` instead of its path (see the arm
+--- above); nothing else in this function looks at the bind.
 local function emit(spec, rows, leaf, row)
   local omit = spec.omit or EMPTY
   if omit[leaf] then return nil end
@@ -102,7 +161,8 @@ local function emit(spec, rows, leaf, row)
   local labels   = spec.labels or EMPTY
   local defaults = spec.defaults or EMPTY
 
-  row.path     = row.path or ((spec.prefix or "") .. (keys[leaf] or leaf))
+  local key = row.path or ((spec.prefix or "") .. (keys[leaf] or leaf))
+  if spec.bind then bindRow(spec.bind, row, key) else row.path = key end
   row.page     = spec.page
   row.group    = spec.group
   row.subgroup = spec.subgroup
@@ -120,9 +180,15 @@ end
 --- block and takes the block's page, group and subgroup; it is NEVER interleaved with the mandated
 --- rows (options-ui-§16). It declares its own `path` in full, because an extra is a hand-written
 --- row rather than a canonical leaf and there is no leaf name to prefix.
+---
+--- Under `spec.bind` an extra declares its record `field` in full instead, and is bound like a
+--- canonical row. One that declares a `path`, or brings its own get/set, is left exactly as given.
 local function appendExtra(spec, rows)
   for _, row in ipairs(spec.extra or EMPTY) do
     local copy = shallow(row)
+    if spec.bind and copy.path == nil and copy.field ~= nil and copy.get == nil then
+      bindRow(spec.bind, copy, copy.field)
+    end
     copy.page     = spec.page
     copy.group    = spec.group
     copy.subgroup = spec.subgroup
