@@ -528,7 +528,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (46)
+### test_slash.lua (50)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -556,7 +556,11 @@ badge and any count quoted in the docs must agree with it.
 - a bracket opened around resetall logs ONE line, summing the rows both levels changed
 - a nested bracket where any level reset the profile logs no bulk line
 - /lh reset <path> is still ONE [Set] <path> = <value> line, and not muted
-- Reset Everything writes no row through the seam, so it logs no [Set] line
+- /lh resetall typed at the dispatcher logs ONE [Set] reset all: N rows line
+- a row that raises mid-resetall logs ONE line marked as stopped, re-raises, and unmutes
+- the host seam clears its mute when a bracketed row raises
+- an unpaired BulkEnd at depth 0 logs nothing
+- Reset Everything logs ONE [Set] line for the settings it resets, beside its [Data] line
 - Reset Everything purges history and clears settings + filter lists + view + window
 - Reset Everything is WHOLESALE, not a list of keys somebody kept current
 - Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table
@@ -848,7 +852,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 56 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 46 |
+| test_slash.lua | 50 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 45 |
@@ -860,4 +864,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **734** |
+| **Total** | **738** |

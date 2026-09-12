@@ -117,9 +117,29 @@ local function wipeGlobal(g)
   return removed
 end
 
+--- debug-logging-§10: the wipe replaces every stored setting, and that is logged ONCE, as a [Set]
+--- line worded by the act. This addon has no profile, so this is its form of the profile handler's
+--- `reset profile '<name>' to defaults (N rows)` (options-ui-§12): wholesale replacement, not a walk
+--- through the helper, so the write seam never runs and there is no per-row line to mute. N is the
+--- stored rows the wipe actually changes: a row already at its default is not counted, and neither
+--- is a session-only row (the console toggle), which lives outside db.global. So it is read BEFORE
+--- the wipe, while the old values are still there. Worded apart from the [Data] line's "reset-all"
+--- on purpose: that line is the separate debug-logging-§8 trace of the history purge.
+local function traceSettingsReset(g)
+  if not (NS.State and NS.State.debug and NS.Debug) then return end
+  local S, n = NS.Schema, 0
+  for _, row in ipairs(S and S.Schema or {}) do
+    if not row.sessionOnly and not S.SameValue(S:ReadPath(g, row.path), row.default) then
+      n = n + 1
+    end
+  end
+  NS.Debug("Set", "reset account-wide settings to defaults (%d rows)", n)
+end
+
 function Sl:ResetEverything()
   local db = NS.db
   if db and db.global then
+    traceSettingsReset(db.global)
     local removed = wipeGlobal(db.global)
     if NS.State.debug and NS.Debug then
       NS.Debug("Data", "reset-all removed %s rows", tostring(removed))

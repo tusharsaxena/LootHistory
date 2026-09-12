@@ -56,3 +56,15 @@ No cross-major skew, no file removed upstream, no line-ending drift, and no inst
 | After the adoption | 734 / 734 | 0 / 0 | 0 warnings |
 
 Nothing was pushed.
+
+## Addendum, 2026-09-12: what each act logs after the verifier pass
+
+B3 above is reversed (see `03_DECISIONS.md`). An unpaired `BulkEnd` now logs nothing, and a bulk act
+that raises part-way gets its line marked.
+
+| Act | Lines |
+|---|---|
+| Defaults (header or footer), or `/lh resetall` | `[Set] reset all: N rows` |
+| The same, a row raising part-way | `[Set] reset all: N rows (stopped by an error)`, then the error is re-raised |
+| `/lh reset <path>` | `[Set] <path> = <value>` |
+| Reset all settings (confirm) | `[Set] reset account-wide settings to defaults (N rows)` and `[Data] reset-all removed N rows` |

@@ -292,7 +292,7 @@ Three reset surfaces write these tables; each reaches a deliberately different s
 | **Position only** | **"Reset position"** (Master controls) | — | — | — | ✓ (`Browser:ResetWindow`) | — |
 | **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — |
 
-Each logs once (`debug-logging-§10`). The non-destructive reset logs `[Set] reset all: N rows`, N the rows whose stored value changed. The destructive one logs its `[Data] reset-all removed N rows` line and no `[Set]` line, because the wipe does not go through `Schema:Set`. The single reset logs `[Set] <path> = <value>`.
+Each logs its settings reset once (`debug-logging-§10`). The non-destructive reset logs `[Set] reset all: N rows`, N the rows whose stored value changed, with ` (stopped by an error)` appended when a row raised part-way (the line is still logged once, the mute released and the error re-raised). The destructive one is a wholesale replacement, not a walk through `Schema:Set`, and with no profile it is this addon's reset-profile equivalent (`options-ui-§12`): it logs one `[Set] reset account-wide settings to defaults (N rows)`, N the stored rows that were not at their default just before the wipe (the session-only console row is not counted), the same line BankLedger logs. Its `[Data] reset-all removed N rows` line stays beside it, as the separate `debug-logging-§8` trace of the history it discards. The single reset logs `[Set] <path> = <value>`.
 
 **The global reset is wholesale, and no longer a composition.** (It was labelled "Reset Everything" on the Maintenance tab until options-ui-§15 gave it its canonical name and place.) It used to be three enumerations —
 a history purge, a schema walk and a filter-list clear — which between them happened to cover the

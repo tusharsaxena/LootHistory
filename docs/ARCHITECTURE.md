@@ -96,8 +96,10 @@ The full field table, the `SourceType` / `Confidence` enums, currency rows, the 
 widget and the slash get/set/list/reset behavior, and every write to a row's path goes through
 `Schema:Set(path, value)` (validate → write to `NS.db.global` → `onChange`).
 A bulk reset logs one `[Set] reset all: N rows` line, never one per row (`debug-logging-§10`): the
-Defaults button and `/lh resetall` reach the library's bracketed `CliResetAll`, and N is the seam's
-own tally of rows whose stored value changed ([slash-dispatch.md](slash-dispatch.md)).
+Defaults button and `/lh resetall` reach the library's bracketed `CliResetAll`, N is the seam's own
+tally of rows whose stored value changed, and a raise part-way appends ` (stopped by an error)`.
+Reset all settings logs one `[Set] reset account-wide settings to defaults (N rows)`
+([slash-dispatch.md](slash-dispatch.md), [schema.md](schema.md#reset-semantics)).
 Sixteen rows ship today, on **one** schema-backed page: the General subcategory, whose six tabs are
 Master controls, Capture, AH Price, Interface, History and Filters, the last holding no rows.
 The `settings.auction.priority` cascade is written outside the helper and carries the

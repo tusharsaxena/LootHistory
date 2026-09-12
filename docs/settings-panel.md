@@ -192,7 +192,7 @@ Four of the six rows and one of the two buttons are **new settings**, and each i
 
 **Debug console** and **Reset all settings** are **moves, not additions**. The console toggle was the Interface tab's second checkbox; the reset was the History (then Maintenance) tab's **Reset Everything** button. Each is now declared in exactly one place, which `tests/test_schema.lua` counts rather than merely finds.
 
-**Reset all settings** is options-ui-§12's global reset verbatim: the same `KA0S_LOOTHISTORY_RESETALL` confirm, the same second canonical wording (the one for an addon with **no** AceDB `profile` section), and the same `Slash:ResetEverything` — wipe `db.global` in place, merge the declared defaults back, drop `savedView` to stock and recentre the window. Only the label and the tab moved.
+**Reset all settings** is options-ui-§12's global reset verbatim: the same `KA0S_LOOTHISTORY_RESETALL` confirm, the same second canonical wording (the one for an addon with **no** AceDB `profile` section), and the same `Slash:ResetEverything` — wipe `db.global` in place, merge the declared defaults back, drop `savedView` to stock and recentre the window. Only the label and the tab moved. With debug on it logs one `[Set] reset account-wide settings to defaults (N rows)` for the settings and one `[Data] reset-all removed N rows` for the history it discards (see [schema.md](schema.md#reset-semantics)).
 
 ## The `Schema:Set` write seam
 
@@ -223,7 +223,7 @@ Opening the panel is combat-gated in **two** places. `O.OpenOptionsPanel` (`Opti
 
 One page, so one **Defaults** button, and options-ui-§13 is explicit that its blast radius **must not narrow to the visible tab**. `P:RestoreDefaults` therefore covers what the three pages' three buttons used to, in one act:
 
-* every schema row **plus** the three id-lists — `Slash:CliResetAll`, which wraps the library's row walk because `NS.Filters`' lists are user settings with no schema row. Slash minor 8 brackets that walk, so a press logs one `[Set] reset all: N rows` line (debug-logging-§10), N the rows whose stored value changed, and the footer **Defaults** forwards to the same click;
+* every schema row **plus** the three id-lists — `Slash:CliResetAll`, which wraps the library's row walk because `NS.Filters`' lists are user settings with no schema row. Slash minor 8 brackets that walk, so a press logs one `[Set] reset all: N rows` line (debug-logging-§10), N the rows whose stored value changed (` (stopped by an error)` appended if a row raises part-way), and the footer **Defaults** forwards to the same click;
 * the **auction cascade**, a carve-out array the row walk cannot see, cleared and refilled **in place** so the price table's closures keep the same table reference;
 * a structural `O.RefreshPanel(ctx, true)`, because the price table and the id-lists repaint off rebuilders rather than off refreshers.
 

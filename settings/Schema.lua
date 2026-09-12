@@ -371,13 +371,17 @@ end
 -- Depth-counted, with one tally across every level: a host act that opens its own bracket around
 -- the library's still logs one line, when the depth returns to 0, and none at all if any level
 -- reported a whole-profile reset (that line is the profile-event handler's).
-local bulkDepth, bulkWritten, bulkProfileReset = 0, 0, false
+--
+-- A walk that raised part-way still logs its one line, and the line says so: any level handed a
+-- non-nil `err` appends ` (stopped by an error)`, so the count is not read as a finished reset.
+local bulkDepth, bulkWritten, bulkProfileReset, bulkFailed = 0, 0, false, false
 
---- Stored-value equality for the tally: scalars by value, the set-valued rows key by key.
-local function sameValue(a, b)
+--- Stored-value equality: scalars by value, the set-valued rows key by key. Public because
+--- Sl:ResetEverything counts the rows its wipe changes with the same test the tally uses.
+function S.SameValue(a, b)
   if a == b then return true end
   if type(a) ~= "table" or type(b) ~= "table" then return false end
-  for k, v in pairs(a) do if not sameValue(v, b[k]) then return false end end
+  for k, v in pairs(a) do if not S.SameValue(v, b[k]) then return false end end
   for k in pairs(b) do if a[k] == nil then return false end end
   return true
 end
@@ -385,20 +389,25 @@ end
 --- The descriptor's `bulkBegin(act, scope)`: mute the per-row [Set] line until the matching BulkEnd.
 --- The outermost level starts a fresh tally.
 function S.BulkBegin()
-  if bulkDepth == 0 then bulkWritten, bulkProfileReset = 0, false end
+  if bulkDepth == 0 then bulkWritten, bulkProfileReset, bulkFailed = 0, false, false end
   bulkDepth = bulkDepth + 1
 end
 
 --- The descriptor's `bulkEnd(act, scope, count, err, info)`. Closes one level; the outermost logs
 --- the act once as `[Set] <act> <scope>: N rows`, N the tally above (`count` is deliberately not
---- read). The library calls it even when a row raised, then re-raises, so the mute cannot stick.
---- `info.profileReset` silences the line; this addon has no profile and Slash never sets it.
-function S.BulkEnd(act, scope, _, _, info)
+--- read), with ` (stopped by an error)` appended if any level got an `err`. The library calls it
+--- even when a row raised, and re-raises after it returns, so the mute cannot stick; re-raising is
+--- the caller's job, not this one's. `info.profileReset` silences the line; this addon has no
+--- profile and Slash never sets it. Unpaired (depth already 0) it muted nothing, so it logs nothing.
+function S.BulkEnd(act, scope, _, err, info)
+  if bulkDepth == 0 then return end
   if info and info.profileReset then bulkProfileReset = true end
-  if bulkDepth > 0 then bulkDepth = bulkDepth - 1 end
+  if err ~= nil then bulkFailed = true end
+  bulkDepth = bulkDepth - 1
   if bulkDepth > 0 or bulkProfileReset then return end
   if NS.State and NS.State.debug and NS.Debug then
-    NS.Debug("Set", "%s %s: %d rows", tostring(act), tostring(scope), bulkWritten)
+    NS.Debug("Set", "%s %s: %d rows%s", tostring(act), tostring(scope), bulkWritten,
+      bulkFailed and " (stopped by an error)" or "")
   end
 end
 
@@ -419,7 +428,7 @@ function S:Set(path, value)
     S:WritePath(NS.db.global, path, deepcopy(value))
   end
   if muted then
-    if not sameValue(before, value) then bulkWritten = bulkWritten + 1 end
+    if not S.SameValue(before, value) then bulkWritten = bulkWritten + 1 end
   elseif NS.State and NS.State.debug and NS.Debug then
     NS.Debug("Set", "%s = %s", tostring(path), tostring(value))
   end
