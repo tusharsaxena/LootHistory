@@ -57,3 +57,9 @@ primitives and holds no opinion about how they are composed.
 Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call, or `WOW_PROJECT_ID` branch outside `Compat.lua` is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
 
 Attribution stamping consumes most of this surface — the hooks (`HookUseContainerItem`, `HookGetQuestReward`) and probes (`ContainerItemHasLoot`, `IsSpellTargeting`, `CurrentQuestID`, `GetMailHeader`, `IsAuctionHouseMail`, `DecodeGUID`) feed the source-resolution engine described in [data-flow.md](data-flow.md). The collector consumes `GetItemInfo`/`GetItemExtras` to build each record, and takes the where-am-I stamp from `NS.Zone` / `NS.PlayerMapID` in [`core/EnvSetup.lua`](module-map.md) rather than from here. See the [module map](module-map.md) for how the pieces load and connect.
+
+## Third-party pricing addons stay out of Compat
+
+The AH-price integration's shims (the `Auctionator`, `TSM_API` and `OEMarketInfo` presence checks and the call wrapping around them) live in `modules/AuctionPrice.lua`, deliberately outside this file. That was raised and ratified on 2026-07-18. `core/Compat.lua` is the *Blizzard*-API firewall. A cascade over **other addons'** APIs is a different kind of boundary: optional, config-driven, multi-provider, and irrelevant to every module that does not price items, so folding it in here would blur this file's one job. `AuctionPrice` is presence-gated the way Compat's own shims are, and wraps each provider call in `pcall` so a broken or absent pricing addon degrades to `nil` and the cascade moves on to the next.
+
+The Ka0s Standard defines no boundary for non-Blizzard addon interop, so this is a gap in the standard rather than a deviation from it, and it has no row in the register. The standard's own definition was left unchanged.
