@@ -130,6 +130,8 @@ function Sl:ResetEverything()
   if NS.Browser then
     if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
     if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
+    -- `minimap` is a new table now; LibDBIcon must be pointed at it or the next drag is lost.
+    if NS.Browser.RefreshMinimap then NS.Browser:RefreshMinimap() end
   end
   if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
 end

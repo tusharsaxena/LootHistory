@@ -1236,6 +1236,17 @@ function B:SetupMinimap()
   DBIcon:Register(LDB_NAME, minimapObject, NS.db.global.minimap)
 end
 
+-- Hand LibDBIcon the live `minimap` table again. Reset all settings (Sl:ResetEverything) empties
+-- db.global and merges fresh defaults back, so `minimap` is a new table while the button still holds
+-- the old one; a drag before /reload would store `minimapPos` in that orphan and lose it. The
+-- library's Refresh re-points the button and re-applies its position and hide state.
+function B:RefreshMinimap()
+  local mm = NS.db and NS.db.global and NS.db.global.minimap
+  if mm and DBIcon and DBIcon:IsRegistered(LDB_NAME) then
+    DBIcon:Refresh(LDB_NAME, mm)
+  end
+end
+
 -- Show/hide the minimap button live (driven by the "Hide minimap button" setting).
 function B:SetMinimapHidden(hide)
   if DBIcon and DBIcon:IsRegistered(LDB_NAME) then
