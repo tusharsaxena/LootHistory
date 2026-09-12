@@ -680,8 +680,8 @@ function B:ResetView(silent)
 end
 
 -- Reset the persisted window geometry (named non-setting state, see the NOTE above SaveWindow) and recenter the
--- live frame. Used only by the destructive "Reset Everything" — window position is runtime state, so the
--- non-destructive settings resets deliberately leave it alone.
+-- live frame. Reached from the Master controls "Reset position" button and from "Reset all settings" —
+-- window position is runtime state, so the non-destructive settings resets deliberately leave it alone.
 function B:ResetWindow()
   if NS.db and NS.db.global and NS.db.global.settings then
     NS.db.global.settings.window = {}
