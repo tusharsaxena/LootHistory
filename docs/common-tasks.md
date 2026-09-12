@@ -288,8 +288,8 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
   `O.OpenOptionsPanel` (`settings/Panel.lua:1055`), whose combat gate lives in the library
-  (`libs/LibKa0s/Options.lua:1078`) and now also fires on a page's `OnShow`
-  (`libs/LibKa0s/Options.lua:881`), so reaching a page straight from the Blizzard AddOns sidebar is
+  (`libs/LibKa0s/Options.lua:1248`) and now also fires on a page's `OnShow`
+  (`libs/LibKa0s/Options.lua:1042`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
   pattern (the standalone browser window follows the separate standalone-windows non-secure pattern).
 
@@ -306,7 +306,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Always-shown scrollbar (options-ui-§10).** `PatchAlwaysShowScrollbar` overrides AceGUI's stock
   `FixScroll` so the panel scrollbar is *always* visible and the 20px right gutter is *always*
   reserved (`libs/LibKa0s/OptionsScroll.lua:83`, applied to every ScrollFrame `O.EnsureScroll`
-  creates, `libs/LibKa0s/Options.lua:520`). AceGUI would otherwise hide the bar and reclaim the gutter
+  creates, `libs/LibKa0s/Options.lua:679`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's
   nothing to scroll the override parks the thumb at the top and grays the bar inert, so the body
   width is identical on the landing page and the General page alike. More on the panel in
