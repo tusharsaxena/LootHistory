@@ -729,7 +729,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 - Panel: the AH status colours are saturated, not muted
 
-### test_harness.lua (6)
+### test_harness.lua (7)
 
 - Harness: the runner fed the loader exactly the TOC's files, in the TOC's order
 - Harness: every path the runner derived from the TOC exists on disk
@@ -737,6 +737,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the suite list matches tests/test_*.lua in both directions
 - Harness: the runner's suite list has no duplicates
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
+- Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
 ### test_libka0s.lua (20)
 
@@ -840,7 +841,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 44 |
-| test_harness.lua | 6 |
+| test_harness.lua | 7 |
 | test_libka0s.lua | 20 |
 | test_surface_parity.lua | 5 |
 | test_doc_structure.lua | 6 |
@@ -848,4 +849,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **722** |
+| **Total** | **723** |
