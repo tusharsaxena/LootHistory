@@ -688,7 +688,11 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   screen at a time, and it is the selected tab's.
 - Now **Remove** that id from the whitelist and re-check the History table.
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
+- On the Blacklist, type the **name** of an item in your bags (e.g. `hearthstone`, any case) and
+  press Enter. Then shift-click an item link into the box and press **Add**.
 - Enter garbage (e.g. `abc`) into an add box and submit.
+- On **Currencies**, add a currency by id, then shift-click a currency link from the currency window.
+  Then type a currency **name** (e.g. `Valorstones`) and submit.
 - **Refresh perf (anti-pattern #39):** with a non-trivial blacklist (a dozen+ ids), click away to
   another primary tab and back to **Filters** several times in a row, and click between its three
   sub-tabs several times in a row. Then, with the panel closed,
@@ -709,9 +713,16 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   are** — nothing is hidden or deleted. Only *future* loots of that id go back through the normal
   gates (and are dropped again if they don't pass).
 - Adding an id to one list **removes it from the other** (an id is never on both). The Filters tab's
-  lists update live on the tab you are looking at; each entry shows the item name (or `Item <id>` until the client caches it)
-  with a **Remove** button; the empty state reads `(none)`.
-- Garbage input is rejected with a chat hint and adds nothing.
+  lists update live on the tab you are looking at; each entry shows the item's icon, name and id
+  (or `Unknown item <id>` until the client caches it, after which the name fills in by itself) with
+  a **Remove** button; hovering an entry shows the item's own tooltip; the empty state reads `(none)`.
+- Typing an item's **name** adds that item's id, whatever the case you typed; a shift-clicked link
+  adds the linked item. Each add clears the box, and the new entry appears at once.
+- Garbage input adds nothing: the box keeps the text and an **orange** line under it says why
+  (`No item named 'abc'.`). Nothing is printed to chat.
+- On **Currencies**, an id and a shift-clicked currency link both add, and the entry shows the
+  currency's name. A typed currency name adds nothing, and the line under the box reads
+  `Currencies are added by id or link.`
 - To remove existing rows of a blacklisted (or any) item, use the row's **Delete** action — list
   membership never does this for you.
 - The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in

@@ -696,7 +696,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (45)
+### test_panel.lua (53)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -729,6 +729,14 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
+- Panel: Filters: an item list adds by id, through AddBlacklist, and keeps the [id] = true shape
+- Panel: Filters: an item list adds by a shift-clicked link, and the add still moves it off the other list
+- Panel: Filters: an item list adds by name, ignoring case, and names the entry
+- Panel: Filters: an unknown name adds nothing, keeps the text and says why
+- Panel: Filters: the Currencies list takes an id or a currency link, and refuses a name
+- Panel: Filters: Remove calls each list's own Filters writer, and an emptied list reads (none)
+- Panel: Filters: one add redraws the page once, not twice
+- Panel: Filters: an item the client has not cached is named once its load lands
 - Panel: the AH Price tab draws one reusable row slot per known price source
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
@@ -855,7 +863,7 @@ badge and any count quoted in the docs must agree with it.
 | test_slash.lua | 50 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 45 |
+| test_panel.lua | 53 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 20 |
 | test_surface_parity.lua | 5 |
@@ -864,4 +872,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **738** |
+| **Total** | **746** |

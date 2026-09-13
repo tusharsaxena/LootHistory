@@ -700,7 +700,8 @@ test("Panel: the Filters tab lists the ids on each list and can remove one", fun
   clickTab(mocks.__subcategories["General"], ctx, tabAt("Filters"))
   local labeled
   for _, w in ipairs(AceGUI.__created) do
-    if w.type == "Label" and type(w.text) == "string" and w.text:find("12345", 1, true) then
+    -- An IdList entry is an InteractiveLabel (it carries the client's own tooltip on hover).
+    if w.type == "InteractiveLabel" and type(w.text) == "string" and w.text:find("12345", 1, true) then
       labeled = w
     end
   end
@@ -737,7 +738,7 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
     local labeled
     for i = before + 1, #AceGUI.__created do
       local w = AceGUI.__created[i]
-      if w.type == "Label" and type(w.text) == "string" and w.text:find("778899", 1, true) then
+      if w.type == "InteractiveLabel" and type(w.text) == "string" and w.text:find("778899", 1, true) then
         labeled = w
       end
     end
@@ -746,6 +747,230 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
     NS.Filters:ClearAll()
     homeTab(ctx)
   end)
+
+-- ── the Filters tab's id lists (LibKa0s-Options IdList) ───────────────────────────────────────
+--
+-- Each list is one O.IdList: an edit box taking an id, a shift-clicked link or (items only) a name,
+-- then one line per stored id with Remove. The host owns storage, so every add and remove goes
+-- through the NS.Filters writer it always went through, and the stored sets keep their shape.
+
+-- The kit's opt-in id lookups (revision 20), installed on a SCRATCH table rather than on the
+-- shared mock. wow_mock's C_Item.GetItemInfoInstant answers 211296 for ANY key -- the capture
+-- suites stand on that -- so a name lookup through it would resolve every string typed. The two
+-- item lookups are swapped in around each case below and restored after it, so no other suite sees
+-- a different C_Item. Currencies need no swap: wow_mock's GetCurrencyInfo already names 3008/2914.
+local ids = dofile("tests/_kit/mock_ids.lua")({})
+
+local ITEM_ADD_LABEL     = "Add item id, link or name"
+local CURRENCY_ADD_LABEL = "Add currency id or link"
+
+--- Run `fn(ctx)` on the Filters tab parked on sub-list `key`, with the kit's item lookups in, and
+--- always put everything back: the lookups, the three lists and the page's tab.
+local function onFilterList(key, fn)
+  local item = mocks.C_Item
+  local savedInstant, savedName = item.GetItemInfoInstant, item.GetItemNameByID
+  item.GetItemInfoInstant = ids.C_Item.GetItemInfoInstant
+  item.GetItemNameByID    = ids.C_Item.GetItemNameByID
+  ids.clearIdRecords()
+  NS.Filters:ClearAll()
+  local ctx = NS.Panel.general
+  ctx.activeSubTab = ctx.activeSubTab or {}
+  ctx.activeSubTab["Filters"] = key
+  local ok, err = pcall(function()
+    clickTab(mocks.__subcategories["General"], ctx, tabAt("Filters"))
+    assertEqual(ctx.activeSubTab["Filters"], key, "the Filters tab opened on the wrong list")
+    fn(ctx)
+  end)
+  item.GetItemInfoInstant, item.GetItemNameByID = savedInstant, savedName
+  ids.clearIdRecords()
+  NS.Filters:ClearAll()
+  homeTab(ctx)
+  if not ok then error(err, 0) end
+end
+
+--- The newest widget still on screen (never released) of `wtype` that `pred` accepts.
+local function liveWidget(wtype, pred)
+  for i = #AceGUI.__created, 1, -1 do
+    local w = AceGUI.__created[i]
+    if w.type == wtype and not w.__released and (not pred or pred(w)) then return w end
+  end
+end
+
+local function liveText(wtype, needle)
+  return liveWidget(wtype, function(w)
+    return type(w.text) == "string" and w.text:find(needle, 1, true) ~= nil
+  end)
+end
+
+--- Type `text` into the list's add box and press Enter, as a player does.
+local function typeAndEnter(label, text)
+  local eb = liveWidget("EditBox", function(w) return w.labelText == label end)
+  assertTrue(eb ~= nil, "no add box labeled '" .. label .. "' is on screen")
+  eb:SetText(text)
+  eb:__fire("OnEnterPressed", text)
+  return eb
+end
+
+--- Every key of a stored set is a number and every value is `true` -- the shape the Collector's
+--- capture gate reads and every existing SavedVariables file already holds.
+local function assertSetShape(set, want, what)
+  local n = 0
+  for k, v in pairs(set) do
+    n = n + 1
+    assertEqual(type(k), "number", what .. ": a stored key must stay a number")
+    assertEqual(v, true, what .. ": a stored value must stay true")
+  end
+  local wantN = 0
+  for id in pairs(want) do
+    wantN = wantN + 1
+    assertTrue(set[id] == true, what .. ": id " .. id .. " is not on the list")
+  end
+  assertEqual(n, wantN, what .. ": the list holds ids nobody added")
+end
+
+test("Panel: Filters: an item list adds by id, through AddBlacklist, and keeps the [id] = true shape",
+  function()
+    -- red under: an onAdd that does not reach NS.Filters:AddBlacklist, or one that stores the text
+    -- typed (a string key) rather than the resolved id.
+    onFilterList("blacklist", function()
+      local calls, real = {}, NS.Filters.AddBlacklist
+      NS.Filters.AddBlacklist = function(self, id) calls[#calls + 1] = id; return real(self, id) end
+      local ok, err = pcall(typeAndEnter, ITEM_ADD_LABEL, "12345")
+      NS.Filters.AddBlacklist = real
+      if not ok then error(err, 0) end
+      assertEqual(#calls, 1, "one add calls the Filters writer once")
+      assertEqual(calls[1], 12345)
+      assertSetShape(NS.db.global.blacklist, { [12345] = true }, "blacklist")
+      assertTrue(liveText("InteractiveLabel", "12345") ~= nil, "the new id is drawn as an entry")
+    end)
+  end)
+
+test("Panel: Filters: an item list adds by a shift-clicked link, and the add still moves it off the other list",
+  function()
+    -- The exclusivity is Filters:_move's, unchanged; the widget only hands it the id.
+    -- red under: an onAdd that writes db.global.whitelist itself instead of calling AddWhitelist.
+    onFilterList("whitelist", function()
+      NS.Filters:AddBlacklist(67890)
+      typeAndEnter(ITEM_ADD_LABEL, "|cff0070dd|Hitem:67890::::::::80:::::|h[Some Blade]|h|r")
+      assertSetShape(NS.db.global.whitelist, { [67890] = true }, "whitelist")
+      assertSetShape(NS.db.global.blacklist, {}, "blacklist")
+    end)
+  end)
+
+test("Panel: Filters: an item list adds by name, ignoring case, and names the entry", function()
+  -- red under: an item list built with no kind (id-only), which refuses every name.
+  onFilterList("blacklist", function()
+    ids.addIdRecord("item", 6948, "Hearthstone", 134414)
+    typeAndEnter(ITEM_ADD_LABEL, "hearthstone")
+    assertSetShape(NS.db.global.blacklist, { [6948] = true }, "blacklist")
+    local entry = liveText("InteractiveLabel", "Hearthstone")
+    assertTrue(entry ~= nil, "the entry reads the item's name")
+    assertTrue(entry.text:find("(6948)", 1, true) ~= nil, "and its id beside it: " .. entry.text)
+    assertEqual(entry.image and entry.image[1], 134414, "and carries the item's icon")
+  end)
+end)
+
+test("Panel: Filters: an unknown name adds nothing, keeps the text and says why", function()
+  -- red under: a submit that adds before it resolves, or clears the box on a miss.
+  onFilterList("blacklist", function()
+    local eb = typeAndEnter(ITEM_ADD_LABEL, "No Such Thing")
+    assertSetShape(NS.db.global.blacklist, {}, "blacklist")
+    local status = liveText("Label", "No item named 'No Such Thing'.")
+    assertTrue(status ~= nil, "the status line names the reason")
+    assertEqual(status.color and status.color.g, 0.5, "in the widget's warning orange")
+    assertEqual(eb.text, "No Such Thing", "the text stays so the player can correct it")
+  end)
+end)
+
+test("Panel: Filters: the Currencies list takes an id or a currency link, and refuses a name", function()
+  -- Currencies have no client name lookup, so a name is refused with the line saying so.
+  -- red under: the currency list built with kind "item" (an item link would be taken as a
+  -- currency id, and the refusal would read "No item named ...").
+  onFilterList("currencyBlacklist", function()
+    typeAndEnter(CURRENCY_ADD_LABEL, "3008")
+    typeAndEnter(CURRENCY_ADD_LABEL, "|cffffffff|Hcurrency:2914::|h[Weathered Harbinger Crest]|h|r")
+    assertSetShape(NS.db.global.currencyBlacklist, { [3008] = true, [2914] = true },
+      "currencyBlacklist")
+    assertTrue(liveText("InteractiveLabel", "Valorstones") ~= nil, "a currency entry reads its name")
+
+    typeAndEnter(CURRENCY_ADD_LABEL, "Valorstones")
+    assertTrue(liveText("Label", "Currencies are added by id or link.") ~= nil,
+      "a name is refused with the reason")
+    typeAndEnter(CURRENCY_ADD_LABEL, "|Hitem:12345::|h[Not a currency]|h")
+    assertSetShape(NS.db.global.currencyBlacklist, { [3008] = true, [2914] = true },
+      "currencyBlacklist")
+    assertSetShape(NS.db.global.blacklist, {}, "an item list")
+  end)
+end)
+
+test("Panel: Filters: Remove calls each list's own Filters writer, and an emptied list reads (none)",
+  function()
+    -- red under: any list's onRemove pointing at another list's writer.
+    for _, case in ipairs({
+      { key = "blacklist",         seed = "AddBlacklist",         verb = "RemoveBlacklist" },
+      { key = "whitelist",         seed = "AddWhitelist",         verb = "RemoveWhitelist" },
+      { key = "currencyBlacklist", seed = "AddCurrencyBlacklist", verb = "RemoveCurrencyBlacklist" },
+    }) do
+      onFilterList(case.key, function()
+        -- The seed fires HistoryChanged, which repaints the page on screen with the seeded entry.
+        NS.Filters[case.seed](NS.Filters, 3008)
+        local calls, real = {}, NS.Filters[case.verb]
+        NS.Filters[case.verb] = function(self, id) calls[#calls + 1] = id; return real(self, id) end
+        local remove = liveWidget("Button", function(w) return w.text == "Remove" end)
+        local ok, err = pcall(function()
+          assertTrue(remove ~= nil, case.key .. ": the entry carries Remove")
+          remove:__fire("OnClick")
+        end)
+        NS.Filters[case.verb] = real
+        if not ok then error(err, 0) end
+        assertEqual(#calls, 1, case.key .. ": Remove calls " .. case.verb .. " once")
+        assertEqual(calls[1], 3008)
+        assertSetShape(NS.db.global[case.key], {}, case.key)
+        assertTrue(liveText("Label", "(none)") ~= nil, case.key .. ": an empty list reads (none)")
+      end)
+    end
+  end)
+
+test("Panel: Filters: one add redraws the page once, not twice", function()
+  -- The writer fires HistoryChanged synchronously, and the page's own listener repaints on it; the
+  -- widget then asks for its own redraw. Two full repaints per click is the anti-pattern #39 cost
+  -- this page is gated against, and the first one releases the status line the widget clears after.
+  -- red under: dropping the write guard that holds the HistoryChanged repaint off during an add.
+  onFilterList("blacklist", function()
+    local before = #AceGUI.__created
+    typeAndEnter(ITEM_ADD_LABEL, "4321")
+    local boxes = 0
+    for i = before + 1, #AceGUI.__created do
+      local w = AceGUI.__created[i]
+      if w.type == "EditBox" and w.labelText == ITEM_ADD_LABEL then boxes = boxes + 1 end
+    end
+    assertEqual(boxes, 1, "exactly one repaint follows one add")
+    assertSetShape(NS.db.global.blacklist, { [4321] = true }, "blacklist")
+  end)
+end)
+
+test("Panel: Filters: an item the client has not cached is named once its load lands", function()
+  -- The widget asks LibKa0s-Item-1.0 to load an unnamed item and redraws through ctx.rebuild when
+  -- the load lands; this page's rebuild runs its registered rebuilders.
+  -- red under: the Filters list not registering its rebuilder in ctx.rebuilders (the load lands and
+  -- nothing repaints).
+  local Item = mocks.LibStub("LibKa0s-Item-1.0")
+  local realLoad, landed = Item.LoadItem, nil
+  Item.LoadItem = function(id, cb) if id == 55551 then landed = cb end end
+  local ok, err = pcall(onFilterList, "blacklist", function()
+    ids.addIdRecord("item", 55551, "Late Arrival", 7, true)   -- uncached: no name yet
+    typeAndEnter(ITEM_ADD_LABEL, "55551")
+    assertTrue(liveText("InteractiveLabel", "Unknown item 55551") ~= nil,
+      "an uncached item reads as unknown until it loads")
+    assertTrue(type(landed) == "function", "the list asked the client to load the item")
+    ids.addIdRecord("item", 55551, "Late Arrival", 7)          -- the client now has it
+    landed()
+    assertTrue(liveText("InteractiveLabel", "Late Arrival") ~= nil,
+      "the load repaints the list with the item's name")
+  end)
+  Item.LoadItem = realLoad
+  if not ok then error(err, 0) end
+end)
 
 -- ── the AH Price tab ─────────────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,6 @@
 local _, NS = ...
 NS.Panel = NS.Panel or {}
 local P = NS.Panel
-local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
 -- The LibKa0s-Options-1.0 instance: the canvas shell, the page registry, the lazy Defaults button,
 -- the five widget makers, the two-column flow engine and the always-shown scrollbar patch. Wired in
@@ -189,162 +188,92 @@ end
 
 -- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
 -- A single sub-page, three TABS (item blacklist, item whitelist, currency blacklist), one on screen.
--- Each: a short description, an "add" row (an id or a shift-clicked link) and a live list of
--- current ids with a Remove button per row. The lists are core app logic and act point-in-time:
--- blacklisted ids are dropped at loot time and whitelisted ids are always recorded — neither list
--- ever hides or restores an already-stored row.
+-- Each: a short description, a confirm-gated Clear all, then one LibKa0s-Options IdList: an add box
+-- (an id, a shift-clicked link, or for the two item lists a name the client knows) over one line per
+-- stored id with Remove. The lists are core app logic and act point-in-time: blacklisted ids are
+-- dropped at loot time and whitelisted ids are always recorded — neither list ever hides or
+-- restores an already-stored row.
+--
+-- THE WIDGET NEVER WRITES. NS.Filters is these sets' one named writer (architecture-§5), so the
+-- IdList's onAdd / onRemove call the same verbs the old add row and Remove buttons called, and the
+-- stored shape — `db.global.<list>[id] = true` — does not move.
 
--- Display name for an id: "Name  (id)" once cached, "Item id" until the client caches it (a
--- background load is kicked off so a later rebuild fills the name in).
-local function filterEntryLabel(id, onCached)
-  local name, quality = NS.Compat.ItemNameQuality(id)
-  if not name then
-    if NS.Item.LoadItem then NS.Item.LoadItem(id, onCached) end
-    return "|cffaaaaaaItem " .. id .. "|r"
-  end
-  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality or 1]
-  local hex = c and c.color and c.color:GenerateHexColor()
-  local shown = hex and ("|c" .. hex .. name .. "|r") or name
-  return shown .. "  |cff808080(" .. id .. ")|r"
+--- Repaint the Filters tab: at once while the page is on screen, else on its next OnShow through the
+--- library's own dirty flag. The HistoryChanged listener and the IdList's `ctx.rebuild` (an add, a
+--- remove, an item load landing) both come through here.
+local function repaintFilters(ctx)
+  if ctx.panel:IsShown() then runRebuilders(ctx) else ctx._dirty = true end
 end
 
--- Label for a currency-blacklist entry: the currency's name (gray id suffix), or a placeholder.
-local function currencyEntryLabel(id)
-  local name = NS.Compat.CurrencyName and NS.Compat.CurrencyName(id)
-  if not name then return "|cffaaaaaaCurrency " .. id .. "|r" end
-  return name .. "  |cff808080(" .. id .. ")|r"
+--- Call one NS.Filters writer with the page's HistoryChanged repaint held off.
+---
+--- The writer fires HistoryChanged SYNCHRONOUSLY and the listener in buildFiltersTab repaints the
+--- whole page on it — releasing the very edit box and status line the IdList clears once onAdd
+--- returns, just before the IdList asks for its own redraw anyway. Held off for the call, one click
+--- costs exactly one repaint: the widget's, after it has finished with its widgets.
+local function filterWrite(ctx, verb, id)
+  ctx.__filterWrite = true
+  local ok, err = pcall(NS.Filters[verb], NS.Filters, id)
+  ctx.__filterWrite = nil
+  if not ok then error(err, 0) end
 end
 
--- Rebuild `listGroup` from the ids currently on `listKey`. Each row: item label + Remove button.
-local function rebuildFilterList(ctx, listGroup, listKey)
-  listGroup:ReleaseChildren()
-  local set
-  if listKey == "currencyBlacklist" then
-    set = NS.Filters:CurrencyBlacklist()
-  else
-    set = (listKey == "blacklist") and NS.Filters:Blacklist() or NS.Filters:Whitelist()
+--- The ordered entries an IdList draws for `tab`: the stored set, sorted by id.
+local function filterEntries(tab)
+  local out = {}
+  for i, id in ipairs(NS.Filters:SortedIDs(NS.Filters[tab.set](NS.Filters))) do
+    out[i] = { id = id }
   end
-  local ids = NS.Filters:SortedIDs(set)
-  if #ids == 0 then
-    local empty = NS.AceGUI:Create("Label")
-    empty:SetFullWidth(true)
-    empty:SetText("|cff808080(none)|r")
-    listGroup:AddChild(empty)
-  else
-    for _, id in ipairs(ids) do
-      local rowG = NS.AceGUI:Create("SimpleGroup")
-      rowG:SetLayout("Flow"); rowG:SetFullWidth(true)
-      local lbl = NS.AceGUI:Create("Label")
-      lbl:SetRelativeWidth(0.78)
-      if listKey == "currencyBlacklist" then
-        lbl:SetText(currencyEntryLabel(id))
-      else
-        lbl:SetText(filterEntryLabel(id, function()
-          if ctx.panel:IsShown() then rebuildFilterList(ctx, listGroup, listKey) end
-        end))
-      end
-      rowG:AddChild(lbl)
-      local rm = NS.AceGUI:Create("Button")
-      rm:SetText("Remove"); rm:SetRelativeWidth(0.20)
-      rm:SetCallback("OnClick", function()
-        if listKey == "currencyBlacklist" then
-          NS.Filters:RemoveCurrencyBlacklist(id)
-        elseif listKey == "blacklist" then
-          NS.Filters:RemoveBlacklist(id)
-        else
-          NS.Filters:RemoveWhitelist(id)
-        end
-        rebuildFilterList(ctx, listGroup, listKey)
-        if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-      end)
-      rowG:AddChild(rm)
-      listGroup:AddChild(rowG)
-    end
-  end
-  if listGroup.DoLayout then listGroup:DoLayout() end
+  return out
 end
 
--- One section (blacklist or whitelist): heading, description, add-row, live list.
-local function makeFilterSection(ctx, listKey, desc)
-  local scroll = O.EnsureScroll(ctx)
-  -- No O.Section heading: the page is a tab strip now (options-ui-§13) and the tab IS the heading.
-  -- A "Blacklist" heading under a tab called Blacklist is the page saying it twice.
-  local descLabel = NS.AceGUI:Create("Label")
-  descLabel:SetFullWidth(true); descLabel:SetText(desc)
-  scroll:AddChild(descLabel)
-  O.AddSpacer(scroll, 6)
-
-  local listGroup = NS.AceGUI:Create("SimpleGroup")
-  listGroup:SetLayout("List"); listGroup:SetFullWidth(true)
-
-  local addRow = NS.AceGUI:Create("SimpleGroup")
-  addRow:SetLayout("Flow"); addRow:SetFullWidth(true)
-  local box = NS.AceGUI:Create("EditBox")
-  box:SetLabel(listKey == "currencyBlacklist" and "Add currency id or link" or "Add item id or link")
-  box:SetRelativeWidth(0.78)
-  local function submit()
-    if listKey == "currencyBlacklist" then
-      local id = NS.Filters:ParseCurrencyID(box:GetText())
-      if not id then
-        print("enter a numeric currency id (or shift-click a currency link).")
-        return
-      end
-      NS.Filters:AddCurrencyBlacklist(id)
-      box:SetText("")
-      rebuildFilterList(ctx, listGroup, listKey)
-      if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-      return
-    end
-    local id = NS.Filters:ParseItemID(box:GetText())
-    if not id then
-      print("enter a numeric item id (or shift-click an item link).")
-      return
-    end
-    if listKey == "blacklist" then NS.Filters:AddBlacklist(id) else NS.Filters:AddWhitelist(id) end
-    box:SetText("")
-    rebuildFilterList(ctx, listGroup, listKey)
-    if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
-  end
-  box:SetCallback("OnEnterPressed", function() submit() end)
-  addRow:AddChild(box)
-  local addBtn = NS.AceGUI:Create("Button")
-  addBtn:SetText("Add"); addBtn:SetRelativeWidth(0.20)
-  addBtn:SetCallback("OnClick", submit)
-  addRow:AddChild(addBtn)
-  scroll:AddChild(addRow)
-  O.AddSpacer(scroll, 4)
-
-  -- Bulk "Clear all" for this list (confirm-gated). The list view refreshes itself via the
-  -- HistoryChanged listener that Filters:ClearList fires, so the button only shows the popup.
+-- Bulk "Clear all" for one list (confirm-gated). The list repaints itself through the
+-- HistoryChanged listener Filters:ClearList fires, so the button only shows the popup.
+local function addClearAll(scroll, tab)
   local clearRow = NS.AceGUI:Create("SimpleGroup")
   clearRow:SetLayout("Flow"); clearRow:SetFullWidth(true)
   local clearBtn = NS.AceGUI:Create("Button")
   clearBtn:SetText("Clear all"); clearBtn:SetRelativeWidth(0.30)
   clearBtn:SetCallback("OnClick", function()
-    local popup
-    if listKey == "currencyBlacklist" then
-      popup = "KA0S_LOOTHISTORY_CLEAR_CURRENCY"
-    elseif listKey == "blacklist" then
-      popup = "KA0S_LOOTHISTORY_CLEAR_BLACKLIST"
-    else
-      popup = "KA0S_LOOTHISTORY_CLEAR_WHITELIST"
-    end
     if type(StaticPopup_Show) == "function" then
-      StaticPopup_Show(popup)
+      StaticPopup_Show(tab.popup)
     elseif NS.Filters and NS.Filters.ClearList then
-      NS.Filters:ClearList(listKey)
+      NS.Filters:ClearList(tab.key)
     end
   end)
   clearRow:AddChild(clearBtn)
   scroll:AddChild(clearRow)
   O.AddSpacer(scroll, 4)
+end
 
-  scroll:AddChild(listGroup)
+-- One list: its description, Clear all, then the IdList (the add box and the entries).
+local function makeFilterSection(ctx, tab)
+  local scroll = O.EnsureScroll(ctx)
+  -- No O.Section heading: the page is a tab strip now (options-ui-§13) and the tab IS the heading.
+  -- A "Blacklist" heading under a tab called Blacklist is the page saying it twice.
+  local descLabel = NS.AceGUI:Create("Label")
+  descLabel:SetFullWidth(true); descLabel:SetText(tab.desc)
+  scroll:AddChild(descLabel)
+  O.AddSpacer(scroll, 6)
+  addClearAll(scroll, tab)
 
-  -- A structural rebuild (rows added/removed), so it registers as a *rebuilder*: it fires on first
-  -- paint, on an on-screen edit, and on the next OnShow after an off-screen change — never on every
-  -- OnShow. Off-screen changes arrive on the HistoryChanged bus in buildFilters, which flags dirty.
-  ctx.rebuilders[#ctx.rebuilders + 1] = function() rebuildFilterList(ctx, listGroup, listKey) end
+  O.IdList(ctx, {
+    kind      = tab.kind,
+    label     = tab.addLabel,
+    tooltip   = tab.addTooltip,
+    strings   = tab.strings,
+    emptyText = "|cff808080(none)|r",
+    entries   = function() return filterEntries(tab) end,
+    onAdd     = function(id) filterWrite(ctx, tab.add, id) end,
+    onRemove  = function(id) filterWrite(ctx, tab.remove, id) end,
+  })
+
+  -- A structural rebuild (lines added/removed), so it registers as a *rebuilder*: it runs on an
+  -- on-screen edit and on the next OnShow after an off-screen change — never on every OnShow. The
+  -- IdList draws its lines straight into the page scroll, so there is no list group to rebuild on
+  -- its own: the rebuild is the page's structural refresh. Registered on every render, because
+  -- renderGeneral reassigns ctx.rebuilders; run by repaintFilters.
+  ctx.rebuilders[#ctx.rebuilders + 1] = function() O.RefreshPanel(ctx, true) end
 end
 
 -- The Filters TAB's three SUB-tabs, in strip order. The tab is called Filters, so none of them
@@ -365,16 +294,41 @@ end
 -- key `ctx.activeSubTab` is filed under, and the convention only works while the two agree.
 local FILTERS_TAB = "Filters"
 
+-- The add box's words. An item resolves by id, link or a name the client has seen; a currency by id
+-- or link only — the client has no currency name lookup, so the refusal says what does work rather
+-- than the widget's default "No currency named ...", which reads as if the name were misspelled.
+local ITEM_ADD_LABEL   = "Add item id, link or name"
+local ITEM_ADD_TOOLTIP = "Type an item id, shift-click an item link, or type the name of an item "
+  .. "your client has seen this session, then press Enter or Add."
+local CURRENCY_STRINGS = {
+  empty    = "Type a currency id or shift-click a currency link.",
+  notFound = "Currencies are added by id or link.",
+}
+
+-- Per list: the IdList kind, the NS.Filters reader (`set`) and writers (`add` / `remove`) it calls,
+-- and the Clear all popup. The writers are NS.Filters method names, called by filterWrite.
 local FILTER_TABS = {
   { key = "blacklist", label = "Blacklist",
     desc = "Items here are never recorded when looted from now on. Existing rows are left untouched "
-      .. "(this only affects future loots — delete old rows from the history table if you want them gone)." },
+      .. "(this only affects future loots — delete old rows from the history table if you want them gone).",
+    kind = "item", set = "Blacklist", add = "AddBlacklist", remove = "RemoveBlacklist",
+    popup = "KA0S_LOOTHISTORY_CLEAR_BLACKLIST",
+    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP },
   { key = "whitelist", label = "Whitelist",
     desc = "Items here are always recorded, even if they fall below your quality threshold, come from a "
-      .. "muted source, or are quest items. Adding an id to one list removes it from the other." },
+      .. "muted source, or are quest items. Adding an id to one list removes it from the other.",
+    kind = "item", set = "Whitelist", add = "AddWhitelist", remove = "RemoveWhitelist",
+    popup = "KA0S_LOOTHISTORY_CLEAR_WHITELIST",
+    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP },
   { key = "currencyBlacklist", label = "Currencies",
     desc = "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
-      .. "Point-in-time — existing rows are left untouched." },
+      .. "Point-in-time — existing rows are left untouched.",
+    kind = "currency", set = "CurrencyBlacklist", add = "AddCurrencyBlacklist",
+    remove = "RemoveCurrencyBlacklist", popup = "KA0S_LOOTHISTORY_CLEAR_CURRENCY",
+    addLabel = "Add currency id or link",
+    addTooltip = "Type a currency id or shift-click a currency link, then press Enter or Add. "
+      .. "Currencies have no name lookup.",
+    strings = CURRENCY_STRINGS },
 }
 
 --- The Filters tab: a secondary strip over the three id-lists, then the selected list.
@@ -425,25 +379,32 @@ local function buildFiltersTab(ctx)
   -- every paint and a page a player scrolled past two lists to reach the third; a sub-tab click now
   -- rebuilds exactly the list on screen (anti-pattern #39 is why that matters here of all pages).
   for _, tab in ipairs(FILTER_TABS) do
-    if tab.key == key then makeFilterSection(ctx, tab.key, tab.desc) end
+    if tab.key == key then makeFilterSection(ctx, tab) end
   end
 
-  -- Live-update both lists when they change from elsewhere (the History right-click Blacklist),
-  -- on a private bus target (never NS.bus-as-self) so it can't clobber other consumers. While the
-  -- page is on screen we repaint immediately; while it is hidden we only flag it dirty, so the next
-  -- OnShow repaints once instead of every tab click paying an AceGUI teardown+rebuild (options-ui-§11).
+  -- Where the IdList redraws after an add, a remove, or an item load landing: this page's own
+  -- rebuilders, gated on visibility like every other repaint here. Left unset, the widget would fall
+  -- back to O.RefreshAllPanels and repaint every rendered page to service this one.
+  ctx.rebuild = function() repaintFilters(ctx) end
+
+  -- Live-update the lists when they change from elsewhere (the History right-click Blacklist, Clear
+  -- all, a reset), on a private bus target (never NS.bus-as-self) so it can't clobber other
+  -- consumers. While the page is on screen we repaint immediately; while it is hidden we only flag it
+  -- dirty, so the next OnShow repaints once instead of every tab click paying an AceGUI
+  -- teardown+rebuild (options-ui-§11). A change this page's own IdList made is skipped here: the
+  -- widget repaints for it (filterWrite).
   if not P.__evFilters then
     local ev = NS.NewBusTarget()
     if ev then
       local onChange = function()
-        if ctx.panel:IsShown() then runRebuilders(ctx) else ctx._dirty = true end
+        if not ctx.__filterWrite then repaintFilters(ctx) end
       end
       ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
       P.__evFilters = ev
     end
   end
-
-  runRebuilders(ctx)   -- first paint of the selected id-list
+  -- No first-paint rebuilder call: the IdList drew the selected list's lines above, and the rebuilder
+  -- is a structural refresh of this very page, so running it from inside the render would recurse.
 end
 
 -- ── Auction House price table (unified collect + priority) ───────────────────────
