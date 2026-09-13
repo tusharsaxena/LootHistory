@@ -148,7 +148,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyLinkID parses the id from a currency link
 - Compat: GetCurrencyInfoFromLink returns id, name, icon
 - Compat: CurrencyCategory resolves a currency to its list header
-- Compat: CurrencyName resolves via C_CurrencyInfo, nil when unknown
+- Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
 
@@ -180,7 +180,7 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: taking a quest reward stamps QUEST
 - Attribution: Enable registers seven bus events, the player-only cast frame and five hooks
 
-### test_filters.lua (20)
+### test_filters.lua (19)
 
 - Filters: AddBlacklist stores the id in the blacklist set
 - Filters: AddBlacklist accepts a numeric string
@@ -197,11 +197,10 @@ badge and any count quoted in the docs must agree with it.
 - Filters: ClearAll with both lists empty is a no-op returning 0
 - Filters: ClearList fires HistoryChanged and re-caches the Collector
 - Filters: SortedIDs returns ids ascending
-- Filters: ParseItemID reads a number, an item link, and an itemString
+- Filters: the add-box parsers are gone (LibKa0s IdList parses its own add box)
 - Filters: currency blacklist add / remove / query
 - Filters: currency blacklist is independent of the item id lists
 - Filters: ClearList and ClearAll include the currency blacklist
-- Filters: ParseCurrencyID reads a currency link or a bare number
 
 ### test_auctionprice.lua (26)
 
@@ -851,7 +850,7 @@ badge and any count quoted in the docs must agree with it.
 | test_util.lua | 40 |
 | test_compat.lua | 31 |
 | test_attribution.lua | 25 |
-| test_filters.lua | 20 |
+| test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
 | test_database.lua | 60 |
@@ -872,4 +871,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **746** |
+| **Total** | **745** |

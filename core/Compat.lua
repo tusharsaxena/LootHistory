@@ -156,19 +156,6 @@ function Compat.GetItemInfo(link)
   return itemID, name, quality, classID
 end
 
--- Resolve an item id to a display name + quality. Written for the filter-management UI (issue #14);
--- no production caller since the Filters tab adopted LibKa0s IdList (v1.35.0), which labels its own
--- rows. Returns (name, quality); name is nil when the item is not yet cached. C_Item.GetItemInfo
--- accepts a bare id as well as a link.
-function Compat.ItemNameQuality(id)
-  if not id then return nil end
-  if C_Item and C_Item.GetItemInfo then
-    local name, _, quality = C_Item.GetItemInfo(id)
-    return name, quality
-  end
-  return nil
-end
-
 -- Scan an item link's tooltip for warbound text.
 -- Returns "WARBAND_UE" (warbound until equipped), "WARBAND", or nil. Retail-only (C_TooltipInfo).
 --
@@ -396,18 +383,6 @@ function Compat.CurrencyCategory(currencyID)
   if not currencyID then return nil end
   if not currencyCategoryCache then buildCurrencyCategoryCache() end
   return currencyCategoryCache[currencyID]
-end
-
--- Display name for a currency id (nil when uncached / API absent). Written to label a stored
--- currency-blacklist entry; no production caller since the Filters tab adopted LibKa0s IdList
--- (v1.35.0), which labels its own rows.
-function Compat.CurrencyName(currencyID)
-  if not currencyID then return nil end
-  if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
-    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
-    if info then return info.name end
-  end
-  return nil
 end
 
 -- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.

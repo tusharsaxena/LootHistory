@@ -15,8 +15,7 @@ local _, NS = ...
 -- row than lose the drop. BankLedger's resolver does the opposite on purpose — its quality gate
 -- records the skip as "uncached" and asks the client to cache the id, because "cannot be judged" is
 -- not "passes". A shared resolver would have had to pick one, and picking would have silently
--- overturned the other. Compat.ItemNameQuality also stayed in Compat, but it has had no production
--- caller since the Filters tab adopted LibKa0s IdList (v1.35.0), which labels its own rows.
+-- overturned the other.
 --
 -- ── WHAT A DEGRADED INSTALL GETS ─────────────────────────────────────────────────────────────
 --
