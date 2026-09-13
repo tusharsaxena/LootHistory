@@ -830,10 +830,63 @@ local ID_ONLY = { noun = "entry", plural = "entries" }
 -- kind table never matches: an item's quality color. A spell and a currency are drawn plain.
 local NAME_COLOR = { [ID_KINDS.item] = itemQualityColor }
 
---- The kind table for `kind`: a host's own table as given, a named kind, or ID_ONLY.
+-- A host kind whose ids are one library kind's says so with `base = "item"` (or "spell",
+-- "currency"): it wears that kind's decorations -- the name color and the suggestion rows' rank
+-- below, keyed by the library's kind table -- and takes these fields from it where it sets none of
+-- its own. Never `byName` or the client's enumeration: what a host kind resolves, and the ids it
+-- lists, stay its own. `resolve`, and any field the host sets (false included), win.
+local BASE_FIELDS = { info = true, link = true, tooltip = true, loads = true, noun = true, plural = true }
+-- The view idKind hands out for each based host table, and the host table behind each view, so a
+-- host that builds its kind per render leaks nothing. basedViews is weak on its VALUES too: a view
+-- reaches back to its host, and Lua 5.1 has no ephemerons, so a view held strongly under a weak key
+-- would keep that key, and itself, for the session. A view nothing else holds is simply rebuilt.
+local basedViews = setmetatable({}, { __mode = "kv" })
+local viewHost = setmetatable({}, { __mode = "k" })
+
+--- The library kind a host table's `base` names, or nil. Read at call time: a host whose kind
+--- reads through to the one its dropdown names changes base with it.
+local function baseKindOf(host)
+  local name = host.base
+  return type(name) == "string" and ID_KINDS[name] or nil
+end
+
+--- The view of a based host table: the host's own fields, then BASE_FIELDS from its base.
+local function basedView(host)
+  local view = basedViews[host]
+  if view then return view end
+  view = setmetatable({}, { __index = function(_, key)
+    local v = host[key]
+    if v == nil and BASE_FIELDS[key] then
+      local base = baseKindOf(host)
+      if base then v = base[key] end
+    end
+    return v
+  end })
+  basedViews[host], viewHost[view] = view, host
+  return view
+end
+
+--- The kind table for `kind`: a host's own table as given (its based view when it names a library
+--- kind as `base`), a named kind, or ID_ONLY.
 local function idKind(kind)
-  if type(kind) == "table" then return kind end
+  if type(kind) == "table" then
+    if baseKindOf(kind) then return basedView(kind) end
+    return kind
+  end
   return ID_KINDS[kind] or ID_ONLY
+end
+
+--- The kind whose decorations `k` wears: a based host kind's library kind, else `k` itself -- so a
+--- host kind without a base matches no decoration table, as before.
+local function decorKind(k)
+  local host = viewHost[k]
+  return host and baseKindOf(host) or k
+end
+
+--- The color code `id`'s name is drawn in for `k`, or nil for a plain name.
+local function nameColor(k, id)
+  local color = NAME_COLOR[decorKind(k)]
+  return color and color(id)
 end
 
 --- What a message calls `k`, singular and plural. A host kind names itself or reads as "entry".
@@ -983,9 +1036,12 @@ end
 ---
 --- `kind` is "spell", "item" or "currency", or a host table `{ resolve = function(text,
 --- candidates) -> id, name, icon | nil, reason; info = function(id) -> name, icon; noun; plural;
---- tooltip; loads }` whose resolver replaces every step below. `loads = true` with an `info` says
---- the kind's ids are items the client loads, so IdInput pre-warms and looks up its candidates as
---- it does the item kind's. The order, for a named kind:
+--- tooltip; loads; base }` whose resolver replaces every step below. `loads = true` with an `info`
+--- says the kind's ids are items the client loads, so IdInput pre-warms and looks up its candidates
+--- as it does the item kind's. `base = "item"` ("spell", "currency") says its ids are that kind's:
+--- it takes the base's info, link, tooltip, loads, noun and plural where it sets none, and wears
+--- its name color and rank; a based kind's pick is asked of its own resolve. The order, for a
+--- named kind:
 ---   1. a number (`21562`);
 ---   2. a link of the kind's own type (`|Hspell:21562:...`, or the bare `spell:21562`);
 ---   3. the client's name lookup (spells and items; currencies have none);
@@ -1196,7 +1252,8 @@ local function suggestEntry(k, id)
   local ok, name, icon = pcall(k.info, id)
   if not ok or type(name) ~= "string" or name == "" then return nil end
   local e = { id = id, name = name, lower = name:lower(), icon = icon }
-  if SUGGEST_KIND[k] then e.rank, e.rankLabel = SUGGEST_KIND[k].rank(id) end
+  local row = SUGGEST_KIND[decorKind(k)]
+  if row then e.rank, e.rankLabel = row.rank(id) end
   return e
 end
 
@@ -2871,14 +2928,28 @@ function lib.__AttachWidgets(O, d)
     if suggest.frame then suggest.frame:Hide() end
   end
 
+  --- The id a picked row adds: a based host kind's own `resolve` is asked about it first, as its
+  --- digits, because its rows are named through the library's kind while what it takes is the
+  --- host's call. Answers `id` or `nil, reason`. Any other kind's row adds its id as it stands.
+  local function pickedId(spec, id)
+    local k = idKind(spec.kind)
+    if not (viewHost[k] and type(k.resolve) == "function") then return id end
+    local resolved, reason = resolveId(spec.kind, tostring(id), spec.candidates)
+    if resolved == nil then return nil, reason end
+    return resolved
+  end
+
   --- Add a picked row's id the way a typed add goes: the box and the status line cleared, then
-  --- onAdd, then IdList's rebuild. A pick names one id, so no lookup runs.
+  --- onAdd, then IdList's rebuild. A pick names one id, so no lookup runs. A based host kind's
+  --- refusal is reported as a submit's is, and the text stays.
   local function pickSuggestion(parts, entry)
     closeSuggest(parts)
     parts.lookup = nil
     parts.offer = nil
+    local id, reason = pickedId(parts.spec, entry.id)
+    if id == nil then return reportFailure(parts.spec, parts, reason, tostring(entry.id)) end
     local text = parts.edit.GetText and parts.edit:GetText() or ""
-    addResolved(parts.ctx, parts.spec, parts, entry.id,
+    addResolved(parts.ctx, parts.spec, parts, id,
       { text = text, typed = trimmed(text), afterAdd = parts.afterAdd }, parts.shown or "")
   end
 
@@ -2943,7 +3014,7 @@ function lib.__AttachWidgets(O, d)
   --- id in gray -- which is all that tells two unranked ids of one name apart.
   local function suggestLabel(k, e)
     local name = e.name
-    local color = NAME_COLOR[k] and NAME_COLOR[k](e.id)
+    local color = nameColor(k, e.id)
     if color then name = color .. name .. "|r" end
     if e.rankLabel then name = name .. " " .. e.rankLabel end
     return name .. " " .. ID_GRAY .. "(" .. tostring(e.id) .. ")|r"
@@ -3255,7 +3326,7 @@ function lib.__AttachWidgets(O, d)
   --- gray, or "Unknown <kind> <id>".
   local function entryLabel(spec, k, id, name)
     if type(name) == "string" and name ~= "" then
-      local color = NAME_COLOR[k] and NAME_COLOR[k](id)
+      local color = nameColor(k, id)
       if color then name = color .. name .. "|r" end
       return name .. " " .. ID_GRAY .. "(" .. tostring(id) .. ")|r"
     end
