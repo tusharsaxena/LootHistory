@@ -139,8 +139,9 @@ function F:SortedIDs(set)
   return ids
 end
 
--- Extract an item id from free-form input: a bare number, or an item link / itemString the user
--- shift-clicked into the field. Returns a number, or nil when nothing parses.
+-- Extract an item id from free-form input: a bare number, or an item link / itemString. Returns a
+-- number, or nil when nothing parses. No production caller since the Filters tab adopted LibKa0s
+-- IdList (v1.35.0), which parses its own add box.
 function F:ParseItemID(input)
   if type(input) == "number" then return input end
   if type(input) ~= "string" then return nil end
@@ -150,9 +151,9 @@ function F:ParseItemID(input)
   return tonumber(input)
 end
 
--- Extract a currency id from free-form input: a bare number, or a currency link the user shift-
--- clicked. Returns a number, or nil. (A currency add-box is unambiguously for currencies, so a bare
--- number is treated as a currencyID; an item link does not match.)
+-- Extract a currency id from free-form input: a bare number, or a currency link. Returns a number,
+-- or nil. (A bare number is treated as a currencyID; an item link does not match.) No production
+-- caller since the Filters tab adopted LibKa0s IdList (v1.35.0), which parses its own add box.
 function F:ParseCurrencyID(input)
   if type(input) == "number" then return input end
   if type(input) ~= "string" then return nil end

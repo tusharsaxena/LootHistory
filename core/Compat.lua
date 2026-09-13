@@ -156,9 +156,10 @@ function Compat.GetItemInfo(link)
   return itemID, name, quality, classID
 end
 
--- Resolve an item id to a display name + quality for the filter-management UI (issue #14).
--- Returns (name, quality); name is nil when the item is not yet cached (the caller shows an
--- "Item <id>" placeholder). C_Item.GetItemInfo accepts a bare id as well as a link.
+-- Resolve an item id to a display name + quality. Written for the filter-management UI (issue #14);
+-- no production caller since the Filters tab adopted LibKa0s IdList (v1.35.0), which labels its own
+-- rows. Returns (name, quality); name is nil when the item is not yet cached. C_Item.GetItemInfo
+-- accepts a bare id as well as a link.
 function Compat.ItemNameQuality(id)
   if not id then return nil end
   if C_Item and C_Item.GetItemInfo then
@@ -397,8 +398,9 @@ function Compat.CurrencyCategory(currencyID)
   return currencyCategoryCache[currencyID]
 end
 
--- Display name for a currency id (nil when uncached / API absent). Used by the Filters panel to
--- label a stored currency-blacklist entry.
+-- Display name for a currency id (nil when uncached / API absent). Written to label a stored
+-- currency-blacklist entry; no production caller since the Filters tab adopted LibKa0s IdList
+-- (v1.35.0), which labels its own rows.
 function Compat.CurrencyName(currencyID)
   if not currencyID then return nil end
   if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
