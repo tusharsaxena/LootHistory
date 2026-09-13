@@ -327,9 +327,10 @@ local FILTERS_TAB = "Filters"
 -- The add box's words. An item or a currency resolves by id, link or name, and the box lists the
 -- matching names as the player types, every rank its own row. The name hints say where a name can
 -- come from. They replace the widget's defaults ("ones this list knows") because this page's
--- candidates are the lists AND the loot history (filterCandidates). Each hint is both the refusal's
--- `{hint}` and the end of its box's tooltip, so the two cannot disagree. English literals, per the
--- ratified English-only row (docs/ARCHITECTURE.md, localization-§1).
+-- candidates are the lists AND the loot history (filterCandidates), and the currency refusal's own
+-- first sentence says "this page" for the same reason. Each hint is both the refusal's `{hint}` and
+-- the end of its box's tooltip, so the two cannot disagree (a test_panel case pins both ends).
+-- English literals, per the ratified English-only row (docs/ARCHITECTURE.md, localization-§1).
 local ITEM_NAME_HINT = "Names work for items you carry (or carried this session), items in your loot "
   .. "history and ones on these lists; otherwise use the id or shift-click a link."
 local CURRENCY_NAME_HINT = "Currency names work for currencies in your loot history and ones on this "
@@ -341,6 +342,8 @@ local ITEM_ADD_TOOLTIP = "Type an item id or name, or shift-click an item link, 
 local ITEM_STRINGS = { nameHint = ITEM_NAME_HINT }
 local CURRENCY_STRINGS = {
   empty    = "Type a currency id or name, or shift-click a currency link.",
+  -- The library's "that this list knows" undersells where this page looks: the history too.
+  notFound = "No currency named '{text}' that this page knows. {hint}",
   nameHint = CURRENCY_NAME_HINT,
 }
 

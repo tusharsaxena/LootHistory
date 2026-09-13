@@ -736,7 +736,12 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   closes the list.
 - Enter on a shared name with **no row picked** adds **nothing**. The orange line reads
   `Several items are named '<name>' — pick one from the list, or use the id.` and the ranks stay
-  listed to pick from.
+  listed to pick from. This holds when the ranks are only **in your bags** too: carry two quality
+  ranks of one crafted or bought potion that you have never looted (neither is in the history nor on
+  a list), type its full name and press Enter without picking. Nothing is added and the same line
+  shows.
+- Arrow down to a row, then type another letter and press Enter at once: the **text** is submitted,
+  not the row that was highlighted before the keystroke.
 - An item you have **not carried this session** but that your loot history or a list holds
   **resolves by name** and is added.
 - An item **nothing knows** (not carried, not in the history, on neither list) is refused, and the
@@ -748,7 +753,7 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 - On **Currencies**, an id and a shift-clicked currency link both add, and the entry shows the
   currency's name. A currency you have looted **is listed as you type** and adds by name. One you
   have never looted and that is not on the list is refused, and the line reads `No currency named
-  '<name>' that this list knows. Currency names work for currencies in your loot history and ones on
+  '<name>' that this page knows. Currency names work for currencies in your loot history and ones on
   this list; otherwise use the id or shift-click a currency link.`
 - To remove existing rows of a blacklisted (or any) item, use the row's **Delete** action — list
   membership never does this for you.

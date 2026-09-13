@@ -695,7 +695,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (58)
+### test_panel.lua (61)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -740,7 +740,10 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: a name the game cannot look up resolves through the loot history
 - Panel: Filters: picking a suggestion adds that rank through the Filters writer, once
 - Panel: Filters: a name several ranks share lists every rank, and Enter without a pick adds none
+- Panel: Filters: a name two ranks in the bags share, with none in the history, adds none on Enter
 - Panel: Filters: currency names resolve through the loot history, and a refusal says where names work
+- Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
+- Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
 - Panel: the AH Price tab draws one reusable row slot per known price source
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
@@ -867,7 +870,7 @@ badge and any count quoted in the docs must agree with it.
 | test_slash.lua | 50 |
 | test_schema.lua | 47 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 58 |
+| test_panel.lua | 61 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 20 |
 | test_surface_parity.lua | 5 |
@@ -876,4 +879,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **750** |
+| **Total** | **753** |

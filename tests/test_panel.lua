@@ -1204,7 +1204,9 @@ test("Panel: Filters: currency names resolve through the loot history, and a ref
       typeAndEnter(CURRENCY_ADD_LABEL, "weathered harbinger crest")
       assertSetShape(NS.db.global.currencyBlacklist, { [2914] = true }, "currencyBlacklist")
       typeAndEnter(CURRENCY_ADD_LABEL, "Honor Points")
-      assertTrue(liveText("Label", "Currency names work for currencies in your loot history") ~= nil,
+      -- "this page", not the library's "this list": the page looks in the loot history too.
+      assertTrue(liveText("Label", "No currency named 'Honor Points' that this page knows. " ..
+        "Currency names work for currencies in your loot history") ~= nil,
         "a currency refusal says where a name can come from")
     end)
     onSuggestList("blacklist", {}, function()
@@ -1215,6 +1217,75 @@ test("Panel: Filters: currency names resolve through the loot history, and a ref
     assertTrue(Loader.readFile("settings/Panel.lua"):find("Currencies are added by id or link.", 1, true) == nil,
       "the old wording is gone")
   end)
+
+--- The candidates the IdList on list `key` was handed, read after `fn` set the page up.
+local function candidatesOn(key, opts, fn)
+  local O, real, spec = NS.Options, NS.Options.IdList, nil
+  O.IdList = function(ctx, s) spec = s; return real(ctx, s) end
+  local ok, err = pcall(onSuggestList, key, opts, function(ctx)
+    fn(ctx)
+    assertTrue(spec ~= nil and type(spec.candidates) == "function", key .. ": the IdList has candidates")
+    opts.got = table.concat(spec.candidates(), ",")
+  end)
+  O.IdList = real
+  if not ok then error(err, 0) end
+  return opts.got
+end
+
+test("Panel: Filters: the candidates are the lists, then the loot history newest first, each id once",
+  function()
+    -- Newest first because the widget pre-warms at most 200 uncached candidates a build and indexes
+    -- at most 2000: on a long history, oldest first drops recent loot from the suggestions.
+    -- red under: the history walked oldest first, or an id on a list counted again from the history.
+    local history = { { itemID = 101 }, { itemID = 9 }, { currencyID = 3008 }, { itemID = 102 },
+                      { itemID = 103 }, { currencyID = 2914 } }
+    local got = candidatesOn("blacklist", { history = history }, function()
+      NS.Filters:AddBlacklist(9); NS.Filters:AddWhitelist(8)
+    end)
+    assertEqual(got, "9,8,103,102,101", "Blacklist, Whitelist, then the history's items newest first")
+    got = candidatesOn("currencyBlacklist", { history = history }, function()
+      NS.Filters:AddCurrencyBlacklist(3008)
+    end)
+    assertEqual(got, "3008,2914", "the currency list, then the history's currencies newest first")
+  end)
+
+--- The add box's tooltip lines, as hovering it shows them.
+local function hoverLines(label)
+  local eb = liveWidget("EditBox", function(w) return w.labelText == label end)
+  assertTrue(eb ~= nil, "no add box labeled '" .. label .. "' is on screen")
+  local tip, lines = mocks.GameTooltip, {}
+  local savedAdd = rawget(tip, "AddLine")
+  tip.AddLine = function(_, text) lines[#lines + 1] = text end
+  local ok, err = pcall(eb.__fire, eb, "OnEnter")
+  tip.AddLine = savedAdd
+  if not ok then error(err, 0) end
+  return table.concat(lines, "\n")
+end
+
+--- The hint a refusal of `text` ends with: what follows `lead` in the status line.
+local function refusalHint(label, text, lead)
+  typeAndEnter(label, text)
+  local status = liveText("Label", lead)
+  assertTrue(status ~= nil, "no refusal reading '" .. lead .. "'")
+  return status.text:sub(select(2, status.text:find(lead, 1, true)) + 1)
+end
+
+test("Panel: Filters: each add box's tooltip ends with the hint its refusal ends with", function()
+  -- The page passes one hint as both the refusal's {hint} and the tooltip's last sentence, so the
+  -- two cannot disagree. red under: the hint dropped from either tooltip.
+  onSuggestList("blacklist", {}, function()
+    local hint = refusalHint(ITEM_ADD_LABEL, "No Such Thing", "that the game can find. ")
+    assertTrue(#hint > 0, "the item refusal carries a hint")
+    local tip = hoverLines(ITEM_ADD_LABEL)
+    assertEqual(tip:sub(-#hint), hint, "the item box's tooltip ends with the refusal's hint")
+  end)
+  onSuggestList("currencyBlacklist", {}, function()
+    local hint = refusalHint(CURRENCY_ADD_LABEL, "Honor Points", "that this page knows. ")
+    assertTrue(#hint > 0, "the currency refusal carries a hint")
+    local tip = hoverLines(CURRENCY_ADD_LABEL)
+    assertEqual(tip:sub(-#hint), hint, "the currency box's tooltip ends with the refusal's hint")
+  end)
+end)
 
 -- ── the AH Price tab ─────────────────────────────────────────────────────────────────────────
 
