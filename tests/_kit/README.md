@@ -253,6 +253,27 @@ end
 Use `M.__stubFrame()` to build extra frame-shaped objects and `M.__libs` to register additional
 library fakes (AceDBOptions, LibSharedMedia) without reaching through LibStub's closure.
 
+## Id lookups for an id list (`mock_ids.lua`)
+
+**Revision 20** adds the answers LibKa0s-Options-1.0's `ResolveId`, `IdInput` and `IdList` read:
+`C_Spell.GetSpellInfo` by id or name, `C_Item.GetItemInfoInstant` and `C_Item.GetItemNameByID`,
+and `C_CurrencyInfo.GetCurrencyInfo`, over records a suite seeds. They are **opt-in**, in a file
+of their own, installed on a finished mock after the harness's own namespaces:
+
+```lua
+local M = base()
+dofile("tests/_kit/mock_ids.lua")(M)
+M.addIdRecord("spell", 21562, "Power Word: Fortitude", 135987)
+M.addIdRecord("item", 2589, "Linen Cloth", 132889, true)   -- uncached: icon yes, name not yet
+```
+
+The base installs none of them, because three consumers reach their Compat fallbacks by clearing
+`C_Spell` or `C_Item`. The installer fills only the keys still missing, so a harness's own item
+fixture keeps answering. A name lookup ignores case and answers the lowest matching id.
+`M.clearIdRecords()` empties every kind between cases. The same revision gives the AceGUI fake
+`GetText()`, `SetType(t)` (recorded as `checkType`) and `DisableButton(v)` (recorded as
+`buttonDisabled`). See `docs/api/testkit/version-20-docs.md`.
+
 ## Asking a frame how tall it is
 
 `GetHeight()` and `GetWidth()` answer **0 for every frame nobody armed**, which is what roughly 308

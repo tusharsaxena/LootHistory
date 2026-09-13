@@ -1319,6 +1319,11 @@ return function()
     function w:Release() return aceGUI:Release(self) end
     function w:SetLabel(v) self.labelText = v; return self end
     function w:SetText(v) self.text = v; return self end
+    -- AceGUI's EditBox answers what is typed, so a button beside it can read the box (revision 20).
+    function w:GetText() return self.text end
+    -- A CheckBox's radio look, and an EditBox asked to hide its own Okay button (revision 20).
+    function w:SetType(v) self.checkType = v; return self end
+    function w:DisableButton(v) self.buttonDisabled = v and true or false; return self end
     function w:SetValue(v) self.value = v; return self end
     function w:GetValue() return self.value end
     function w:SetList(items, order) self.list, self.order = items, order; return self end

@@ -25,7 +25,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 15
+local WIDGETS_MINOR = 16
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -751,6 +751,184 @@ local function drawChromeDivider(ctx, rawBannerHeight)
   ctx.__chromeKids[#ctx.__chromeKids + 1] = tex
 end
 
+-- ── id resolution (minor 16) ──────────────────────────────────────────────────────────────
+--
+-- What O.ResolveId, O.IdInput and O.IdList use to turn typed text into an id. Pure, and at file
+-- scope for that reason: nothing here touches a widget or an instance, so it is built once at load.
+--
+-- THE CLIENT APIS ARE READ AT CALL TIME, and every one is guarded. A client without C_Spell (or a
+-- harness that cleared it) degrades to id-only input: a number or a link still resolves, a name
+-- finds nothing, and nothing raises.
+
+--- A spell by id, or by a name the client knows: its id, name and icon, spelled as the client
+--- spells it. The client's name lookup ignores case, so a player typing in lower case is served.
+local function spellLookup(key)
+  local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(key)
+  if type(info) ~= "table" then return nil end
+  return info.spellID, info.name, info.iconID
+end
+local function spellInfo(id)
+  local _, name, icon = spellLookup(id)
+  return name, icon
+end
+
+--- An item's id and icon from GetItemInfoInstant, which needs no cache; its name from
+--- GetItemNameByID, which does. An uncached item answers its icon and no name.
+local function itemInstant(key)
+  if not (C_Item and C_Item.GetItemInfoInstant) then return nil end
+  local id, _, _, _, icon = C_Item.GetItemInfoInstant(key)
+  return id, icon
+end
+local function itemName(id)
+  if not (C_Item and C_Item.GetItemNameByID) then return nil end
+  return C_Item.GetItemNameByID(id)
+end
+local function itemInfo(id)
+  local _, icon = itemInstant(id)
+  return itemName(id), icon
+end
+local function itemByName(text)
+  local id, icon = itemInstant(text)
+  if not id then return nil end
+  return id, itemName(id) or text, icon
+end
+
+--- A currency has no client name lookup, so a name reaches one only through the host's
+--- candidates. An empty name is the client's answer for an id it does not have.
+local function currencyInfo(id)
+  local info = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo and C_CurrencyInfo.GetCurrencyInfo(id)
+  if type(info) ~= "table" or type(info.name) ~= "string" or info.name == "" then return nil end
+  return info.name, info.iconFileID
+end
+
+-- One row per kind: what a message calls it, the link type it parses, how an id is named, how a
+-- name is looked up, which GameTooltip method shows it, and whether an unnamed one can be loaded.
+-- A kind the host names that is not here, or no kind at all, is ID_ONLY: numbers only.
+local ID_KINDS = {
+  spell    = { noun = "spell", plural = "spells", link = "spell", info = spellInfo,
+               byName = spellLookup, tooltip = "SetSpellByID" },
+  item     = { noun = "item", plural = "items", link = "item", info = itemInfo,
+               byName = itemByName, tooltip = "SetItemByID", loads = true },
+  currency = { noun = "currency", plural = "currencies", link = "currency", info = currencyInfo,
+               tooltip = "SetCurrencyByID" },
+}
+local ID_ONLY = { noun = "entry", plural = "entries" }
+
+--- The kind table for `kind`: a host's own table as given, a named kind, or ID_ONLY.
+local function idKind(kind)
+  if type(kind) == "table" then return kind end
+  return ID_KINDS[kind] or ID_ONLY
+end
+
+--- What a message calls `k`, singular and plural. A host kind names itself or reads as "entry".
+local function kindWords(k)
+  local noun = k.noun or ID_ONLY.noun
+  return noun, k.plural or (k.noun and k.noun .. "s") or ID_ONLY.plural
+end
+
+-- The widgets' words. A literal table, as lib.STRINGS is: the library carries no locale, and a
+-- host that has one passes `spec.strings` with any of these keys. `{name}` tokens rather than
+-- format specifiers, so a translation can put the words in its own order -- Lua 5.1's
+-- string.format has no positional arguments.
+local ID_TEXT = {
+  add       = "Add",
+  remove    = "Remove",
+  empty     = "Type an id, a link or a name.",
+  notFound  = "No {noun} named '{text}'.",
+  ambiguous = "Several {plural} are named '{text}' \226\128\148 use the id.",
+  unknown   = "Unknown {noun} {id}",
+}
+
+--- Fill `{name}` tokens from `fields`; a token with no field is left as written.
+local function fillText(template, fields)
+  return (tostring(template):gsub("{(%a+)}", function(key)
+    local v = fields[key]
+    if v ~= nil then return tostring(v) end
+  end))
+end
+
+local function parseNumber(text)
+  return tonumber(text:match("^(%d+)$"))
+end
+
+--- The id in a link of `link`'s type -- a chat link (`|Hspell:123:...`) or the bare form
+--- (`spell:123`). Kind-specific on purpose: an item link typed into a spell list is not a spell.
+local function parseLink(link, text)
+  if not link then return nil end
+  return tonumber(text:match("|H" .. link .. ":(%d+)") or text:match("^" .. link .. ":(%d+)"))
+end
+
+local function byClientName(k, text)
+  if type(k.byName) ~= "function" then return nil end
+  return k.byName(text)
+end
+
+--- The host's candidate ids, or none: a raising candidates() is a host bug, and it costs the name
+--- step rather than the click.
+local function candidateIds(candidates)
+  if type(candidates) ~= "function" then return {} end
+  local ok, list = pcall(candidates)
+  if not ok or type(list) ~= "table" then return {} end
+  return list
+end
+
+--- A case-insensitive exact name match over the host's candidates. Two DISTINCT ids with the
+--- name are ambiguous -- taking the first would hand the player one they may not have meant --
+--- and one id listed twice is still one.
+local function byCandidates(k, text, candidates)
+  if type(k.info) ~= "function" then return nil, "notFound" end
+  local want = text:lower()
+  local hitId, hitName, hitIcon
+  for _, id in ipairs(candidateIds(candidates)) do
+    local name, icon = k.info(id)
+    if type(name) == "string" and name:lower() == want and id ~= hitId then
+      if hitId then return nil, "ambiguous" end
+      hitId, hitName, hitIcon = id, name, icon
+    end
+  end
+  if hitId then return hitId, hitName, hitIcon end
+  return nil, "notFound"
+end
+
+local RESOLVE_REASONS = { empty = true, notFound = true, ambiguous = true }
+
+--- A host kind's own resolver, handed everything typed: a number, a link or a name. It answers
+--- `id, name, icon`, or `nil, reason`; a raise or an unknown reason reads as not found.
+local function customResolve(k, text, candidates)
+  local ok, id, a, b = pcall(k.resolve, text, candidates)
+  if not ok then return nil, "notFound" end
+  if id ~= nil then return id, a, b end
+  return nil, RESOLVE_REASONS[a] and a or "notFound"
+end
+
+--- Resolve typed text to an id (minor 16). Pure; published as O.ResolveId.
+---
+--- `kind` is "spell", "item" or "currency", or a host table `{ resolve = function(text,
+--- candidates) -> id, name, icon | nil, reason; info = function(id) -> name, icon; noun; plural;
+--- tooltip }` whose resolver replaces every step below. The order, for a named kind:
+---   1. a number (`21562`);
+---   2. a link of the kind's own type (`|Hspell:21562:...`, or the bare `spell:21562`);
+---   3. the client's name lookup (spells and items; currencies have none);
+---   4. a case-insensitive exact name over the ids `candidates()` returns.
+--- Returns `id, name, icon` -- a number the client cannot name still resolves, with no name, which
+--- is the degraded mode -- or `nil, reason` with reason "empty", "notFound" or "ambiguous".
+local function resolveId(kind, text, candidates)
+  if type(text) == "number" then text = tostring(text) end
+  text = type(text) == "string" and text:match("^%s*(.-)%s*$") or ""
+  if text == "" then return nil, "empty" end
+  local k = idKind(kind)
+  if type(k.resolve) == "function" then return customResolve(k, text, candidates) end
+
+  local id = parseNumber(text) or parseLink(k.link, text)
+  if id then
+    if type(k.info) ~= "function" then return id end
+    return id, k.info(id)
+  end
+  local found, name, icon = byClientName(k, text)
+  if found then return found, name, icon end
+  return byCandidates(k, text, candidates)
+end
+
 --- Attach the widget makers and the flow engine to one instance. Called at the end of lib:New, so
 --- every host gets its own closures over its own descriptor.
 function lib.__AttachWidgets(O, d)
@@ -782,6 +960,42 @@ function lib.__AttachWidgets(O, d)
   local function write(row, value)
     if row.path == nil and type(row.set) == "function" then return row.set(value) end
     return d.set(row.path, value)
+  end
+
+  -- Is `row` drawn disabled? `pageDisabled` is RenderRows' `opts.disabled`, snapshotted by the
+  -- maker at BUILD time and never re-read from the ctx: the flag is cleared when that render
+  -- returns, so a refresher reading it live would lift a disabled page's dimming on the first
+  -- write anywhere, and a later render's flag could reach an earlier page's widgets.
+  --
+  -- `disabledIf` is a settings path (read through readKey, so a composed row reads its record) or,
+  -- from minor 16, a predicate `function(row) -> bool`. A predicate that raises reads as enabled:
+  -- the refresher is pcall'd by the sweep anyway, and a raise at build would cost the whole row
+  -- for the sake of its dimming.
+  local function isDisabled(row, pageDisabled)
+    if pageDisabled then return true end
+    local cond = row.disabledIf
+    if type(cond) == "function" then
+      local ok, v = pcall(cond, row)
+      return (ok and v) and true or false
+    end
+    return readKey(row, cond) and true or false
+  end
+
+  local function noop() end
+
+  --- Apply `row`'s disabled state to `widget` now, and hand back the function its refresher calls
+  --- to re-apply it (minor 16; the color picker's private copy of this was the only one before).
+  ---
+  --- A row with no `disabledIf`, drawn outside a disabled render, is NEVER touched: it gets a no-op.
+  --- Calling SetDisabled(false) on it would re-enable, on the next write anywhere, a widget the
+  --- host disabled itself -- five hosts call SetDisabled on their own widgets.
+  local function bindDisabled(ctx, row, widget)
+    local pageDisabled = ctx.__renderDisabled and true or false
+    if row.disabledIf == nil and not pageDisabled then return noop end
+    if type(widget.SetDisabled) ~= "function" then return noop end
+    local function apply() widget:SetDisabled(isDisabled(row, pageDisabled)) end
+    apply()
+    return apply
   end
 
   -- Write a row's value through the host's single write seam, then re-sync every widget on every
@@ -1486,6 +1700,9 @@ function lib.__AttachWidgets(O, d)
       local btn = O.AceGUI:Create("Button")
       btn:SetText(spec.text or "")
       btn:SetRelativeWidth(L.BUTTON_PAIR_REL)
+      -- Inside a RenderRows call carrying `opts.disabled` (minor 16) -- an afterGroup hook on a
+      -- page drawn disabled -- the buttons are part of that page and are disabled with it.
+      if ctx.__renderDisabled then btn:SetDisabled(true) end
       btn:SetCallback("OnClick", function()
         if not spec.onClick then return end
         -- pcall'd and REPORTED. A host's button body reaches into live addon state, and a raise
@@ -1518,7 +1735,11 @@ function lib.__AttachWidgets(O, d)
     local function readValue() return read(row) and true or false end
 
     cb:SetValue(readValue())
-    local function refresh() cb:SetValue(readValue()) end
+    local applyDisabled = bindDisabled(ctx, row, cb)
+    local function refresh()
+      cb:SetValue(readValue())
+      applyDisabled()
+    end
 
     cb:SetCallback("OnValueChanged", function(_, _, value)
       set(row, value and true or false)
@@ -1540,12 +1761,14 @@ function lib.__AttachWidgets(O, d)
     s:SetIsPercent(row.isPercent and true or false)
     applyWidth(s, relativeWidth)
 
+    local applyDisabled = bindDisabled(ctx, row, s)
     local function refresh()
       local v = read(row)
       -- A corrupt SavedVariable would otherwise hand AceGUI a nil or a string and blow up the
       -- layout pass, taking the whole page with it.
       if type(v) ~= "number" then v = row.default or row.min or 0 end
       s:SetValue(v)
+      applyDisabled()
     end
 
     local function commitSlider(value)
@@ -1625,9 +1848,11 @@ function lib.__AttachWidgets(O, d)
     applyList()
     dd:SetValue(read(row))
 
+    local applyDisabled = bindDisabled(ctx, row, dd)
     local function refresh()
       applyList()                            -- media lists grow as other addons register into them
       dd:SetValue(read(row))
+      applyDisabled()
     end
 
     dd:SetCallback("OnValueChanged", function(_, _, value) set(row, value) end)
@@ -1650,7 +1875,11 @@ function lib.__AttachWidgets(O, d)
     if row.maxLetters then eb:SetMaxLetters(row.maxLetters) end
     eb:SetText(read(row) or "")
 
-    local function refresh() eb:SetText(read(row) or "") end
+    local applyDisabled = bindDisabled(ctx, row, eb)
+    local function refresh()
+      eb:SetText(read(row) or "")
+      applyDisabled()
+    end
 
     -- OnEnterPressed only, never OnTextChanged: committing per keystroke would fire the row's
     -- onChange on every letter typed.
@@ -1679,12 +1908,7 @@ function lib.__AttachWidgets(O, d)
 
     cp:SetColor(readColor())
 
-    local function applyDisabled()
-      if row.disabledIf then
-        cp:SetDisabled(readKey(row, row.disabledIf) and true or false)
-      end
-    end
-    applyDisabled()
+    local applyDisabled = bindDisabled(ctx, row, cp)
 
     local function refresh()
       cp:SetColor(readColor())
@@ -1772,6 +1996,8 @@ function lib.__AttachWidgets(O, d)
     applyWidth(cb, relativeWidth)
 
     cb:SetValue(spec.get() and true or false)
+    -- Part of a page drawn disabled when drawn from inside it (minor 16), like InlineButtonPair.
+    if ctx.__renderDisabled then cb:SetDisabled(true) end
     local function refresh() cb:SetValue(spec.get() and true or false) end
 
     cb:SetCallback("OnValueChanged", function(_, _, value)
@@ -1821,6 +2047,13 @@ function lib.__AttachWidgets(O, d)
   --               untabbed caller, which is why it is a fifth argument rather than a field on
   --               the ctx: a page's tabbedness is a property of THIS render, and a ctx flag
   --               would leak it into the next one.
+  --               { disabled = true } (minor 16) draws every widget of the call disabled -- the
+  --               rows, and the buttons an afterGroup or pairWith hook draws -- for a page whose
+  --               subject does not apply (a Bars page over an icons container). It rides on
+  --               `ctx.__renderDisabled` for the call's duration only, for the reason just given.
+  --   disabledIf  (a row field) a settings path, or from minor 16 a predicate function(row) ->
+  --               bool, whose truth draws the row disabled. Honored by every maker (only the
+  --               color picker read it before minor 16) and re-evaluated on every refresh.
 
   --- Render an EXPLICIT list of rows. Taking a list rather than a page key is what lets a host
   --- render a filtered subset (a mirrored unit's partition) through the same engine.
@@ -1878,9 +2111,408 @@ function lib.__AttachWidgets(O, d)
     flushRow()
   end
 
-  function O.RenderRows(ctx, rows, afterGroup, pairWith, opts)
+  -- ── the choice grid (minor 16) ───────────────────────────────────────────────────────────
+  --
+  -- One radio cell per column, then the row's label across what is left of the line. The label
+  -- gives back CHOICE_CLIP_INSET for the reason BUTTON_PAIR_REL sits under half: the widget that
+  -- ends at the right edge is clipped by the ScrollFrame's clip rectangle (options-ui-§8), and a
+  -- line summing to exactly 1 can wrap its last cell on a float rounding.
+  local CHOICE_CELL_REL   = 0.12
+  local CHOICE_CLIP_INSET = 0.02
+  -- The label column's heading when the host names none. A literal, as lib.STRINGS' own are: the
+  -- library carries no locale, and a host that has one passes `labelHeader`.
+  local CHOICE_LABEL_HEADER = "Category"
+
+  local function choiceLabelRel(columnCount)
+    return math.max(1 - columnCount * CHOICE_CELL_REL - CHOICE_CLIP_INSET, CHOICE_CELL_REL)
+  end
+
+  --- The header line: each column's label over its cells, then the label column's heading.
+  local function choiceHeader(scroll, columns, labelHeader)
+    local line = startRow(O)
+    for _, col in ipairs(columns) do
+      local lbl = O.AceGUI:Create("Label")
+      lbl:SetText(col.label or tostring(col.value))
+      lbl:SetRelativeWidth(CHOICE_CELL_REL)
+      line:AddChild(lbl)
+    end
+    local lbl = O.AceGUI:Create("Label")
+    lbl:SetText(labelHeader or CHOICE_LABEL_HEADER)
+    lbl:SetRelativeWidth(choiceLabelRel(#columns))
+    line:AddChild(lbl)
+    scroll:AddChild(line)
+  end
+
+  --- One radio cell: lit while the row holds this column's value, writing it on a click.
+  ---
+  --- AceGUI toggles a CheckBox on every click, a radio-typed one included, so a click on the lit
+  --- cell arrives as `false`. That is not a choice -- a radio cannot be clicked off -- so it
+  --- re-lights the cell and writes nothing, rather than sweeping every panel for a no-op write.
+  --- SetType is guarded because a host's own AceGUI fake may not carry it; the radio's look is
+  --- cosmetic, and the exclusive behavior is this function's, not the widget's.
+  local function choiceCell(ctx, row, col, line)
+    local cb = O.AceGUI:Create("CheckBox")
+    if cb.SetType then cb:SetType("radio") end
+    cb:SetLabel("")
+    cb:SetRelativeWidth(CHOICE_CELL_REL)
+
+    local function lit() return read(row) == col.value end
+    cb:SetValue(lit())
+    local applyDisabled = bindDisabled(ctx, row, cb)
+    ctx.refreshers[#ctx.refreshers + 1] = function()
+      cb:SetValue(lit())
+      applyDisabled()
+    end
+
+    cb:SetCallback("OnValueChanged", function()
+      if lit() then cb:SetValue(true) return end
+      set(row, col.value)
+    end)
+    O.AttachTooltip(cb, row.label, col.label)
+    line:AddChild(cb)
+  end
+
+  --- Fill one row's line: its cells, then its label carrying the row's tooltip. The label dims
+  --- with the cells, so a disabled row reads as disabled across the whole line.
+  local function choiceLine(ctx, row, columns, line)
+    for _, col in ipairs(columns) do choiceCell(ctx, row, col, line) end
+    local lbl = O.AceGUI:Create("InteractiveLabel")
+    lbl:SetText(row.label or row.path)
+    lbl:SetRelativeWidth(choiceLabelRel(#columns))
+    local applyDisabled = bindDisabled(ctx, row, lbl)
+    if applyDisabled ~= noop then ctx.refreshers[#ctx.refreshers + 1] = applyDisabled end
+    O.AttachTooltip(lbl, row.label, tooltipBody(row))
+    line:AddChild(lbl)
+  end
+
+  --- The grid's body, under the disable flag O.ChoiceGrid holds for it.
+  local function drawChoiceGrid(ctx, scroll, spec)
+    local columns = spec.columns or {}
+    if spec.heading then
+      O.Section(ctx, spec.heading)
+      ctx.lastGroup = spec.heading
+    end
+    choiceHeader(scroll, columns, spec.labelHeader)
+
+    -- Guarded per line, as RenderRows guards per row: a row whose `get` raises costs that line
+    -- and is reported, and every line after it still draws. A half-built line is not added.
+    local lines = {}
+    for _, row in ipairs(spec.rows or {}) do
+      local line = startRow(O)
+      if renderRowGuarded(print, row.path or row.label, choiceLine, ctx, row, columns, line) then
+        scroll:AddChild(line)
+        lines[#lines + 1] = line
+      end
+    end
+    O.AddSpacer(scroll, L.ROW_VSPACER)
+    if scroll.DoLayout then scroll:DoLayout() end
+    return lines
+  end
+
+  --- A matrix of radio cells over rows that share one value list (minor 16): a header line of
+  --- column labels, then one line per row -- a radio per column, then the row's label with its
+  --- tooltip. A category that is Default, Whitelist or Blacklist is the shape it exists for.
+  ---
+  --- spec = {
+  ---   rows        = schema rows: `path` (or a path-less `get`/`set`), `label`, `tooltip`/`desc`,
+  ---                 `disabledIf`. Read and written through the same seam as every maker, so a
+  ---                 click runs RefreshScalars and every cell re-syncs. The rows should carry
+  ---                 `skipRender` so the flow engine leaves them to the grid; the grid draws them
+  ---                 regardless, and they stay in the schema for the CLI and the resets.
+  ---   columns     = ordered { { value =, label = }, ... }. A stored value no column carries
+  ---                 lights no cell: guessing a column would hide the stale value behind a choice.
+  ---   heading     = optional section heading, drawn with O.Section.
+  ---   labelHeader = optional heading for the label column ("Category" when absent).
+  ---   disabled    = optional; draws every cell disabled, as RenderRows' `opts.disabled` does. A
+  ---                 grid drawn inside a disabled render inherits that render's flag either way.
+  --- }
+  ---
+  --- Returns the row lines (full-width Flow SimpleGroups) in row order; a row that failed to draw
+  --- has no line. Nil, drawing nothing, with no AceGUI.
+  function O.ChoiceGrid(ctx, spec)
     local scroll = O.EnsureScroll(ctx)
     if not scroll then return end
+    spec = spec or {}
+    local outer = ctx.__renderDisabled
+    ctx.__renderDisabled = (spec.disabled or outer) and true or nil
+    local ok, res = pcall(drawChoiceGrid, ctx, scroll, spec)
+    ctx.__renderDisabled = outer
+    if not ok then error(res, 0) end
+    return res
+  end
+
+  -- ── the id input and the id list (minor 16) ─────────────────────────────────────────────
+  --
+  -- The edit box and the button beside it sum to 0.98, not 1, for the reason BUTTON_PAIR_REL sits
+  -- under half: the widget that ends at the right edge is clipped by the ScrollFrame's clip
+  -- rectangle (options-ui-§8). An entry line uses the same two widths, name then action.
+  local ID_MAIN_REL   = 0.78
+  local ID_ACTION_REL = 0.20
+  local ID_ICON_SIZE  = 16
+  -- The status line's failure color, and the gray an entry's id is drawn in after its name.
+  local ID_WARN_R, ID_WARN_G, ID_WARN_B = 1, 0.5, 0
+  local ID_GRAY = "|cff808080"
+
+  O.ResolveId = resolveId
+
+  -- Item ids this instance has asked the client to load. Once per id: a list whose item never
+  -- loads (an id the client does not have) would otherwise re-request on every rebuild the
+  -- previous request's own callback caused.
+  local itemLoads = {}
+
+  local function idText(spec, key, fields)
+    local t = spec.strings and spec.strings[key] or ID_TEXT[key]
+    return fillText(t, fields or {})
+  end
+
+  --- Call a host callback, reporting a raise rather than letting it into AceGUI's dispatch.
+  --- Answers whether it ran and returned.
+  local function callHost(fn, ...)
+    if type(fn) ~= "function" then return false end
+    local ok, err = pcall(fn, ...)
+    if not ok then print(lib.STRINGS.BUTTON_FAILED:format(tostring(err))) end
+    return ok
+  end
+
+  --- Draw the list again after its shape changed: the host's own `ctx.rebuild` when it set one,
+  --- else the library's STRUCTURAL sweep -- an add or a remove changes which lines exist.
+  local function rebuildIdList(ctx)
+    if type(ctx.rebuild) == "function" then return callHost(ctx.rebuild) end
+    O.RefreshAllPanels()
+  end
+
+  --- Disable `widget` when it is drawn inside a disabled render, as InlineButtonPair does.
+  local function disableIfRender(ctx, widget)
+    if ctx.__renderDisabled and widget.SetDisabled then widget:SetDisabled(true) end
+  end
+
+  --- Run `fn` with `ctx.__renderDisabled` held for the call, as O.ChoiceGrid does: set by
+  --- `disabled` or inherited, restored on the way out, a raise included.
+  local function underDisable(ctx, disabled, fn, ...)
+    local outer = ctx.__renderDisabled
+    ctx.__renderDisabled = (disabled or outer) and true or nil
+    local ok, a, b, c, e = pcall(fn, ...)
+    ctx.__renderDisabled = outer
+    if not ok then error(a, 0) end
+    return a, b, c, e
+  end
+
+  --- Resolve what was typed and hand the id to the host. A failure says why on the status line, in
+  --- orange, and keeps the text so the player can correct it; so does a raising onAdd. A success
+  --- clears both, then runs `afterAdd` -- IdList's rebuild.
+  local function submitId(ctx, spec, parts, text, afterAdd)
+    local typed = type(text) == "string" and text:match("^%s*(.-)%s*$") or ""
+    local id, reason = resolveId(spec.kind, typed, spec.candidates)
+    if id == nil then
+      local noun, plural = kindWords(idKind(spec.kind))
+      parts.status:SetText(idText(spec, reason, { noun = noun, plural = plural, text = typed }))
+      if parts.status.SetColor then parts.status:SetColor(ID_WARN_R, ID_WARN_G, ID_WARN_B) end
+      return
+    end
+    if not callHost(spec.onAdd, id) then return end
+    parts.status:SetText("")
+    parts.edit:SetText("")
+    if afterAdd then afterAdd(ctx) end
+  end
+
+  local function drawIdInput(ctx, parent, spec, afterAdd)
+    local group = startRow(O)
+    local eb = O.AceGUI:Create("EditBox")
+    eb:SetLabel(spec.label or "")
+    eb:SetRelativeWidth(ID_MAIN_REL)
+    -- AceGUI's EditBox grows its own Okay button on a change; Add is the button here.
+    if eb.DisableButton then eb:DisableButton(true) end
+    local add = O.AceGUI:Create("Button")
+    add:SetText(idText(spec, "add"))
+    add:SetRelativeWidth(ID_ACTION_REL)
+    local status = O.AceGUI:Create("Label")
+    status:SetFullWidth(true)
+    status:SetText("")
+    disableIfRender(ctx, eb)
+    disableIfRender(ctx, add)
+
+    local parts = { edit = eb, status = status }
+    eb:SetCallback("OnEnterPressed", function(_, _, text)
+      submitId(ctx, spec, parts, text, afterAdd)
+    end)
+    add:SetCallback("OnClick", function()
+      submitId(ctx, spec, parts, eb.GetText and eb:GetText() or "", afterAdd)
+    end)
+    O.AttachTooltip(eb, spec.label, spec.tooltip)
+    O.AttachTooltip(add, spec.label, spec.tooltip)
+    group:AddChild(eb)
+    group:AddChild(add)
+    group:AddChild(status)
+    parent:AddChild(group)
+    return group, eb, add, status
+  end
+
+  --- One line an id is added through (minor 16): an edit box taking a number, a shift-clicked link
+  --- or a name, an Add button beside it, and a status line under both. Enter or Add resolves the
+  --- text through O.ResolveId and hands the id to `spec.onAdd`; the widget never writes a path, so
+  --- the host owns storage and its shape. It does NOT redraw anything after an add -- a host that
+  --- draws its own rows redraws them itself. O.IdList is this plus the entry lines, and it does.
+  ---
+  --- spec = {
+  ---   kind       = "spell" | "item" | "currency", or a host table (see O.ResolveId);
+  ---   onAdd      = function(id), called once per successful add;
+  ---   candidates = optional function() -> ids, searched by name when the client cannot look one up;
+  ---   label, tooltip = the edit box's label and both widgets' tooltip;
+  ---   strings    = optional overrides of the words (add, empty, notFound, ambiguous);
+  ---   disabled   = optional; drawn disabled, as ChoiceGrid's is. A disabled render is inherited.
+  --- }
+  ---
+  --- `parent` defaults to the page's scroll. Returns the group, the edit box, the button and the
+  --- status label; nil, drawing nothing, with no AceGUI.
+  function O.IdInput(ctx, parent, spec)
+    parent = parent or O.EnsureScroll(ctx)
+    if not (parent and O.AceGUI) then return nil end
+    spec = spec or {}
+    return underDisable(ctx, spec.disabled, drawIdInput, ctx, parent, spec, nil)
+  end
+
+  --- The text an entry's label reads: its name and its id in gray, or "Unknown <kind> <id>".
+  local function entryLabel(spec, k, id, name)
+    if type(name) == "string" and name ~= "" then
+      return name .. " " .. ID_GRAY .. "(" .. tostring(id) .. ")|r"
+    end
+    return idText(spec, "unknown", { noun = (kindWords(k)), id = id })
+  end
+
+  --- Ask the client to load an item the list could not name, and draw the list again when it
+  --- lands. Through LibKa0s-Item-1.0, looked up at call time so its load order does not matter; a
+  --- payload without it leaves the entry unnamed rather than raising.
+  local function loadEntry(ctx, k, id)
+    if not k.loads or itemLoads[id] then return end
+    local Item = LibStub and LibStub("LibKa0s-Item-1.0", true)
+    if not (Item and Item.LoadItem) then return end
+    itemLoads[id] = true
+    Item.LoadItem(id, function() rebuildIdList(ctx) end)
+  end
+
+  --- The client's own tooltip for the entry: GameTooltip's per-kind method, or a host kind's
+  --- `tooltip(tooltip, id)` function.
+  local function entryTooltip(lbl, k, id)
+    local anchor = lbl.frame or lbl
+    lbl:SetCallback("OnEnter", function()
+      local method = k.tooltip
+      if not GameTooltip then return end
+      if type(method) == "string" then method = GameTooltip[method] end
+      if type(method) ~= "function" then return end
+      GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
+      method(GameTooltip, id)
+      GameTooltip:Show()
+    end)
+    lbl:SetCallback("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  end
+
+  --- The entry's right-hand widget: a checkbox for a toggle entry (a starter the host can switch
+  --- off without forgetting it), else Remove, which rebuilds the list once the host has removed it.
+  local function entryAction(ctx, spec, entry, line)
+    local w
+    if entry.toggle then
+      w = O.AceGUI:Create("CheckBox")
+      w:SetLabel(spec.toggleLabel or "")
+      w:SetValue(entry.on and true or false)
+      w:SetCallback("OnValueChanged", function(_, _, value)
+        callHost(spec.onToggle, entry.id, value and true or false)
+      end)
+    else
+      w = O.AceGUI:Create("Button")
+      w:SetText(idText(spec, "remove"))
+      w:SetCallback("OnClick", function()
+        if callHost(spec.onRemove, entry.id) then rebuildIdList(ctx) end
+      end)
+    end
+    w:SetRelativeWidth(ID_ACTION_REL)
+    disableIfRender(ctx, w)
+    line:AddChild(w)
+  end
+
+  local function idLine(ctx, spec, k, entry, line)
+    local name, icon
+    if type(k.info) == "function" then name, icon = k.info(entry.id) end
+    if name == nil then loadEntry(ctx, k, entry.id) end
+    local lbl = O.AceGUI:Create("InteractiveLabel")
+    lbl:SetText(entryLabel(spec, k, entry.id, name))
+    if icon then
+      lbl:SetImage(icon)
+      lbl:SetImageSize(ID_ICON_SIZE, ID_ICON_SIZE)
+    end
+    lbl:SetRelativeWidth(ID_MAIN_REL)
+    entryTooltip(lbl, k, entry.id)
+    line:AddChild(lbl)
+    entryAction(ctx, spec, entry, line)
+  end
+
+  --- The host's entries, or none: a raising entries() is reported and costs the lines, not the
+  --- input, so the player can still add.
+  local function listEntries(spec)
+    if type(spec.entries) ~= "function" then return {} end
+    local ok, list = pcall(spec.entries)
+    if not ok then
+      print(lib.STRINGS.ROW_FAILED:format(tostring(spec.heading or spec.label or "id list"),
+        tostring(list)))
+      return {}
+    end
+    return type(list) == "table" and list or {}
+  end
+
+  local function drawIdList(ctx, scroll, spec)
+    if spec.heading then
+      O.Section(ctx, spec.heading)
+      ctx.lastGroup = spec.heading
+    end
+    drawIdInput(ctx, scroll, spec, rebuildIdList)
+
+    local k = idKind(spec.kind)
+    local entries = listEntries(spec)
+    if #entries == 0 and spec.emptyText then O.TextRow(ctx, spec.emptyText) end
+    -- Guarded per line, as ChoiceGrid guards per row: an entry whose lookup raises costs its line.
+    local lines = {}
+    for _, entry in ipairs(entries) do
+      if type(entry) == "table" and entry.id ~= nil then
+        local line = startRow(O)
+        if renderRowGuarded(print, tostring(entry.id), idLine, ctx, spec, k, entry, line) then
+          scroll:AddChild(line)
+          lines[#lines + 1] = line
+        end
+      end
+    end
+    O.AddSpacer(scroll, L.ROW_VSPACER)
+    if scroll.DoLayout then scroll:DoLayout() end
+    return lines
+  end
+
+  --- An editable id list (minor 16): an optional heading, the O.IdInput line, then one line per
+  --- entry -- icon, name and id in gray ("Unknown spell 12345" when the client cannot name it),
+  --- then Remove, or a checkbox for a toggle entry. An item the client has not cached is asked
+  --- for through LibKa0s-Item-1.0's LoadItem, once, and the list is drawn again when it lands.
+  ---
+  --- spec = everything O.IdInput takes, plus:
+  ---   entries     = function() -> ordered { { id =, toggle = bool?, on = bool? }, ... };
+  ---   onRemove    = function(id), from an entry's Remove;
+  ---   onToggle    = function(id, on), from a toggle entry's checkbox;
+  ---   heading     = optional section heading, drawn with O.Section;
+  ---   emptyText   = optional line drawn when there are no entries;
+  ---   toggleLabel = optional label beside a toggle entry's checkbox;
+  ---   strings     = as O.IdInput's, plus remove and unknown.
+  ---
+  --- The host owns storage: the widget calls back and never writes a path. After an add or a remove
+  --- it redraws through `ctx.rebuild` when the host set one, else O.RefreshAllPanels(). A toggle
+  --- redraws nothing -- the checkbox already shows the new state.
+  ---
+  --- Returns the entry lines in order; an entry that failed to draw has no line. Nil, drawing
+  --- nothing, with no AceGUI.
+  function O.IdList(ctx, spec)
+    local scroll = O.EnsureScroll(ctx)
+    if not scroll then return end
+    spec = spec or {}
+    return underDisable(ctx, spec.disabled, drawIdList, ctx, scroll, spec)
+  end
+
+  --- The flow engine's loop, under the disable flag RenderRows holds for it.
+  local function flowRows(ctx, scroll, rows, afterGroup, pairWith, opts)
     local pendingRow, pendingCount = nil, 0
 
     -- The one-shot bookkeeping below is the LIBRARY's, and it lives in these two call-local sets
@@ -1918,6 +2550,22 @@ function lib.__AttachWidgets(O, d)
     end
     flushRow()
     if scroll.DoLayout then scroll:DoLayout() end
+  end
+
+  function O.RenderRows(ctx, rows, afterGroup, pairWith, opts)
+    local scroll = O.EnsureScroll(ctx)
+    if not scroll then return end
+    -- `opts.disabled` (minor 16) holds `ctx.__renderDisabled` for exactly this call: every maker
+    -- snapshots it at build, and InlineButtonPair / SessionCheckbox read it, so a widget an
+    -- afterGroup or pairWith hook draws is disabled with the page. A nested call with no opts of
+    -- its own INHERITS the outer flag, since its widgets are part of the same disabled page, and
+    -- the outer value is restored on the way out -- a raise included, or the flag would be
+    -- stranded on the ctx and dim the next render. The raise still propagates, as it always has.
+    local outer = ctx.__renderDisabled
+    ctx.__renderDisabled = ((opts and opts.disabled) or outer) and true or nil
+    local ok, err = pcall(flowRows, ctx, scroll, rows, afterGroup, pairWith, opts)
+    ctx.__renderDisabled = outer
+    if not ok then error(err, 0) end
   end
 
   --- The per-page wrapper. `ctx.unit` is passed through as the host's filter argument, which is

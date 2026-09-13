@@ -94,6 +94,17 @@ if not lib then
     __tabArtHeight      = function() return 0 end,
     __resetTabArtHeight = noop,
 
+    -- ── the choice grid and the id-list makers (LibKa0s v1.35.0, OptionsWidgets minor 16) ─────
+    -- Render-time makers, like every other maker above: nothing reaches them at file load, so a
+    -- no-op keeps this stub load-completing (options-ui-§1). The Filters tab calls IdList; on this
+    -- path EnsureScroll answers nil and the live IdList would draw nothing either. ResolveId is pure
+    -- in the live library, but its only caller here is the widget that never draws, so it answers
+    -- nil too -- the same "nothing resolved" a live call with no client APIs gives for a name.
+    ChoiceGrid = noop,
+    ResolveId  = noop,
+    IdInput    = noop,
+    IdList     = noop,
+
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
     -- They still answer NOTHING here, and that is the honest shape rather than a shortfall. The
