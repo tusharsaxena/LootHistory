@@ -20,16 +20,19 @@
 --    one every suite stands on.
 --
 -- Records are id-keyed, one table per kind, seeded with `M.addIdRecord(kind, id, name, icon,
--- uncached)` and emptied with `M.clearIdRecords()`. A name lookup ignores case, as the client's
--- does, and answers the LOWEST matching id, so two records sharing a name resolve the same way on
--- every run. An item added `uncached` is one the client has not loaded: its icon answers by id
--- (GetItemInfoInstant needs no cache) and its name does not, by id or by name, until the record is
--- added again without the flag -- which is how a suite lands a load.
+-- uncached, quality)` and emptied with `M.clearIdRecords()`. A name lookup ignores case, as the
+-- client's does, and answers the LOWEST matching id, so two records sharing a name resolve the same
+-- way on every run. An item added `uncached` is one the client has not loaded: its icon answers by
+-- id (GetItemInfoInstant needs no cache) and its name and quality do not, until the record is added
+-- again without the flag -- which is how a suite lands a load. `quality` is an item's
+-- Enum.ItemQuality number, answered by C_Item.GetItemQualityByID; a record seeded without one
+-- answers nil, as a client with no quality for the id does.
 
 return function(M)
   M.__idRecords = M.__idRecords or { spell = {}, item = {}, currency = {} }
-  function M.addIdRecord(kind, id, name, icon, uncached)
-    M.__idRecords[kind][id] = { id = id, name = name, icon = icon, uncached = uncached and true or nil }
+  function M.addIdRecord(kind, id, name, icon, uncached, quality)
+    M.__idRecords[kind][id] = { id = id, name = name, icon = icon, quality = quality,
+                                uncached = uncached and true or nil }
   end
   function M.clearIdRecords()
     for kind in pairs(M.__idRecords) do M.__idRecords[kind] = {} end
@@ -70,6 +73,13 @@ return function(M)
     if not r or r.uncached then return nil end
     return r.name
   end
+  --- GetItemQualityByID reads an id or a link, and needs the cache, as GetItemNameByID does.
+  local function itemQuality(key)
+    local id = type(key) == "string" and tonumber(key:match("item:(%d+)")) or key
+    local r = type(id) == "number" and M.__idRecords.item[id]
+    if not r or r.uncached then return nil end
+    return r.quality
+  end
   local function currencyInfo(id)
     local r = type(id) == "number" and M.__idRecords.currency[id]
     if not r then return nil end
@@ -85,6 +95,7 @@ return function(M)
   fillMissing(M.C_Spell, "GetSpellInfo", spellInfo)
   fillMissing(M.C_Item, "GetItemInfoInstant", itemInstant)
   fillMissing(M.C_Item, "GetItemNameByID", itemName)
+  fillMissing(M.C_Item, "GetItemQualityByID", itemQuality)
   fillMissing(M.C_CurrencyInfo, "GetCurrencyInfo", currencyInfo)
   return M
 end

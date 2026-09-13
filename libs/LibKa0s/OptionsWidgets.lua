@@ -793,6 +793,18 @@ local function itemByName(text)
   return id, itemName(id) or text, icon
 end
 
+--- The color code an item's name is drawn in: the client's quality for the id, through its own
+--- ITEM_QUALITY_COLORS palette. Nil, for a plain name, while the item is uncached (the client
+--- answers no quality until it is) or the palette has no entry; the redraw a load triggers colors
+--- it. The palette is read at call time, as LibKa0s-Item-1.0 reads it: it may be unpopulated when
+--- this file loads.
+local function itemQualityColor(id)
+  local quality = C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(id)
+  local color = type(quality) == "number" and type(ITEM_QUALITY_COLORS) == "table"
+    and ITEM_QUALITY_COLORS[quality]
+  return type(color) == "table" and type(color.hex) == "string" and color.hex or nil
+end
+
 --- A currency has no client name lookup, so a name reaches one only through the host's
 --- candidates. An empty name is the client's answer for an id it does not have.
 local function currencyInfo(id)
@@ -813,6 +825,10 @@ local ID_KINDS = {
                tooltip = "SetCurrencyByID" },
 }
 local ID_ONLY = { noun = "entry", plural = "entries" }
+
+-- The kinds whose entry names are drawn in a color, keyed by the kind table itself so a host's own
+-- kind table never matches: an item's quality color. A spell and a currency are drawn plain.
+local NAME_COLOR = { [ID_KINDS.item] = itemQualityColor }
 
 --- The kind table for `kind`: a host's own table as given, a named kind, or ID_ONLY.
 local function idKind(kind)
@@ -2255,10 +2271,15 @@ function lib.__AttachWidgets(O, d)
 
   O.ResolveId = resolveId
 
-  -- Item ids this instance has asked the client to load. Once per id: a list whose item never
-  -- loads (an id the client does not have) would otherwise re-request on every rebuild the
-  -- previous request's own callback caused.
+  -- Uncached items. `itemLoads[id]` counts the asks this instance has made for an id, capped at
+  -- ITEM_LOAD_TRIES: an id the client does not have never loads, and past five asks (two seconds
+  -- at LoadItem's 0.4) the entry stays "Unknown item N" rather than asking for ever.
+  -- `loadBatches[ctx]` is the ids asked for since that page's last check, `{ [id] = kind }`: one
+  -- LoadItem callback per batch, however many ids join it, so twenty uncached ids cost one check
+  -- and at most one redraw rather than twenty page renders in the same frame.
+  local ITEM_LOAD_TRIES = 5
   local itemLoads = {}
+  local loadBatches = setmetatable({}, { __mode = "k" })
 
   local function idText(spec, key, fields)
     local t = spec.strings and spec.strings[key] or ID_TEXT[key]
@@ -2297,22 +2318,37 @@ function lib.__AttachWidgets(O, d)
     return a, b, c, e
   end
 
+  --- Write the status line, remembering what it says: AceGUI's Label has no getter, and a raising
+  --- onAdd puts back what was there.
+  local function showStatus(parts, text)
+    parts.shown = text
+    parts.status:SetText(text)
+  end
+
   --- Resolve what was typed and hand the id to the host. A failure says why on the status line, in
-  --- orange, and keeps the text so the player can correct it; so does a raising onAdd. A success
-  --- clears both, then runs `afterAdd` -- IdList's rebuild.
+  --- orange, and keeps the text so the player can correct it. A success clears the box and the
+  --- status line BEFORE onAdd, because a host whose onAdd redraws the page has released both into
+  --- AceGUI's pool by the time it returns, and the pool may already have handed them to the new
+  --- render. Nothing touches either widget after a clean onAdd. A raising one adds nothing, so the
+  --- text and the status line go back as they were. Then `afterAdd` -- IdList's rebuild.
   local function submitId(ctx, spec, parts, text, afterAdd)
     local typed = type(text) == "string" and text:match("^%s*(.-)%s*$") or ""
     local id, reason = resolveId(spec.kind, typed, spec.candidates)
     if id == nil then
       local noun, plural = kindWords(idKind(spec.kind))
-      parts.status:SetText(idText(spec, reason, { noun = noun, plural = plural, text = typed }))
+      showStatus(parts, idText(spec, reason, { noun = noun, plural = plural, text = typed }))
       if parts.status.SetColor then parts.status:SetColor(ID_WARN_R, ID_WARN_G, ID_WARN_B) end
       return
     end
-    if not callHost(spec.onAdd, id) then return end
-    parts.status:SetText("")
+    local shown = parts.shown or ""
+    showStatus(parts, "")
     parts.edit:SetText("")
-    if afterAdd then afterAdd(ctx) end
+    if callHost(spec.onAdd, id) then
+      if afterAdd then afterAdd(ctx) end
+      return
+    end
+    parts.edit:SetText(type(text) == "string" and text or typed)
+    showStatus(parts, shown)
   end
 
   local function drawIdInput(ctx, parent, spec, afterAdd)
@@ -2350,8 +2386,10 @@ function lib.__AttachWidgets(O, d)
   --- One line an id is added through (minor 16): an edit box taking a number, a shift-clicked link
   --- or a name, an Add button beside it, and a status line under both. Enter or Add resolves the
   --- text through O.ResolveId and hands the id to `spec.onAdd`; the widget never writes a path, so
-  --- the host owns storage and its shape. It does NOT redraw anything after an add -- a host that
-  --- draws its own rows redraws them itself. O.IdList is this plus the entry lines, and it does.
+  --- the host owns storage and its shape. The box and the status line are cleared before onAdd
+  --- runs, so onAdd may redraw the page synchronously; a raising onAdd gets both back. It does NOT
+  --- redraw anything after an add -- a host that draws its own rows redraws them itself. O.IdList
+  --- is this plus the entry lines, and it does.
   ---
   --- spec = {
   ---   kind       = "spell" | "item" | "currency", or a host table (see O.ResolveId);
@@ -2371,23 +2409,64 @@ function lib.__AttachWidgets(O, d)
     return underDisable(ctx, spec.disabled, drawIdInput, ctx, parent, spec, nil)
   end
 
-  --- The text an entry's label reads: its name and its id in gray, or "Unknown <kind> <id>".
+  --- The text an entry's label reads: its name (an item's in its quality color) and its id in
+  --- gray, or "Unknown <kind> <id>".
   local function entryLabel(spec, k, id, name)
     if type(name) == "string" and name ~= "" then
+      local color = NAME_COLOR[k] and NAME_COLOR[k](id)
+      if color then name = color .. name .. "|r" end
       return name .. " " .. ID_GRAY .. "(" .. tostring(id) .. ")|r"
     end
     return idText(spec, "unknown", { noun = (kindWords(k)), id = id })
   end
 
-  --- Ask the client to load an item the list could not name, and draw the list again when it
-  --- lands. Through LibKa0s-Item-1.0, looked up at call time so its load order does not matter; a
-  --- payload without it leaves the entry unnamed rather than raising.
+  --- Whether the kind names `id` yet. A raising lookup reads as not yet.
+  local function entryNamed(k, id)
+    if type(k.info) ~= "function" then return false end
+    local ok, name = pcall(k.info, id)
+    return ok and type(name) == "string" and name ~= ""
+  end
+
+  local askItem
+
+  --- A batch's check, LoadItem's callback: redraw once if any name arrived, and ask again, as a
+  --- fresh batch under one new callback, for each id still unnamed with asks left. Asked before
+  --- the redraw, so the redraw finds them already pending and asks nothing twice.
+  local function settleBatch(ctx, Item)
+    local batch = loadBatches[ctx]
+    loadBatches[ctx] = nil
+    if not batch then return end
+    local landed = false
+    for id, k in pairs(batch) do
+      if entryNamed(k, id) then landed = true else askItem(ctx, Item, k, id) end
+    end
+    if landed then rebuildIdList(ctx) end
+  end
+
+  --- Ask for one item into `ctx`'s batch: the first id of a batch carries the check, the rest only
+  --- ask. Nothing for an id already pending there, or out of asks.
+  askItem = function(ctx, Item, k, id)
+    local asked = itemLoads[id] or 0
+    local batch = loadBatches[ctx]
+    if asked >= ITEM_LOAD_TRIES or (batch and batch[id]) then return end
+    itemLoads[id] = asked + 1
+    if batch then
+      batch[id] = k
+      Item.LoadItem(id)
+    else
+      loadBatches[ctx] = { [id] = k }
+      Item.LoadItem(id, function() settleBatch(ctx, Item) end)
+    end
+  end
+
+  --- Ask the client to load an item the list could not name; the list is drawn again once a check
+  --- finds it named. Through LibKa0s-Item-1.0, looked up at call time so its load order does not
+  --- matter; a payload without it leaves the entry unnamed rather than raising.
   local function loadEntry(ctx, k, id)
-    if not k.loads or itemLoads[id] then return end
+    if not k.loads then return end
     local Item = LibStub and LibStub("LibKa0s-Item-1.0", true)
     if not (Item and Item.LoadItem) then return end
-    itemLoads[id] = true
-    Item.LoadItem(id, function() rebuildIdList(ctx) end)
+    askItem(ctx, Item, k, id)
   end
 
   --- The client's own tooltip for the entry: GameTooltip's per-kind method, or a host kind's
@@ -2486,8 +2565,11 @@ function lib.__AttachWidgets(O, d)
 
   --- An editable id list (minor 16): an optional heading, the O.IdInput line, then one line per
   --- entry -- icon, name and id in gray ("Unknown spell 12345" when the client cannot name it),
-  --- then Remove, or a checkbox for a toggle entry. An item the client has not cached is asked
-  --- for through LibKa0s-Item-1.0's LoadItem, once, and the list is drawn again when it lands.
+  --- then Remove, or a checkbox for a toggle entry. An item's name is drawn in its quality color
+  --- once the client answers one; spell and currency names are plain. An item the client has not cached is asked
+  --- for through LibKa0s-Item-1.0's LoadItem. Every id a render asks for joins one batch, checked
+  --- once 0.4 s later: the list is drawn again once if any of them is named by then, and an id
+  --- still unnamed is asked for again, up to five asks in all.
   ---
   --- spec = everything O.IdInput takes, plus:
   ---   entries     = function() -> ordered { { id =, toggle = bool?, on = bool? }, ... };

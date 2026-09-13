@@ -693,7 +693,50 @@ test("Panel: the Filters tab draws a SECONDARY strip and renders only the select
     homeTab(ctx)
   end)
 
-test("Panel: the Filters tab lists the ids on each list and can remove one", function()
+-- ── the Filters tab's load checks ─────────────────────────────────────────────────────────────
+--
+-- An IdList asks LibKa0s-Item-1.0 to load an item it cannot name yet, batched per page (LibKa0s
+-- v1.35.0): the first unnamed id of a batch hands LoadItem the batch's one check, and later ids
+-- only join the batch until that check runs. The harness's LoadItem is inert (no
+-- C_Item.RequestLoadItemDataByID), so a check it swallows never runs and the batch outlives its
+-- case on the shared NS.Panel.general: every later case's ask joins it and hands LoadItem no check
+-- at all. So every case that draws the Filters tab captures its checks here and drains them.
+local pendingLoads = {}
+
+--- Run every captured load check until none is left. A check re-asks for an id still unnamed, as a
+--- fresh batch with a check of its own, and the widget stops after five asks per id, so this ends;
+--- the bound only turns a widget that never stops asking into a failure instead of a hang.
+local function drainLoads()
+  for _ = 1, 100 do
+    local check = table.remove(pendingLoads, 1)
+    if not check then return end
+    check()
+  end
+  error("the IdList never stopped asking the client to load an item", 2)
+end
+
+--- Run `fn` with LoadItem capturing every load check the page hands it, then drain the checks and
+--- put LoadItem back, whether `fn` passed or not. `fn`'s error wins over the drain's.
+local function capturingLoads(fn)
+  local Item = mocks.LibStub("LibKa0s-Item-1.0")
+  local savedLoad = Item.LoadItem
+  Item.LoadItem = function(_, check)
+    if check then pendingLoads[#pendingLoads + 1] = check end
+  end
+  local ok, err = pcall(fn)
+  local drained, drainErr = pcall(drainLoads)
+  pendingLoads = {}
+  Item.LoadItem = savedLoad
+  if not ok then error(err, 0) end
+  if not drained then error(drainErr, 0) end
+end
+
+--- `fn` as a test body run under capturingLoads.
+local function withLoadsCaptured(fn)
+  return function() capturingLoads(fn) end
+end
+
+test("Panel: the Filters tab lists the ids on each list and can remove one", withLoadsCaptured(function()
   NS.Filters:ClearAll()
   NS.Filters:AddBlacklist(12345)
   local ctx = NS.Panel.general
@@ -714,10 +757,10 @@ test("Panel: the Filters tab lists the ids on each list and can remove one", fun
   assertTrue(remove ~= nil, "each list row carries a Remove button")
   NS.Filters:ClearAll()
   homeTab(ctx)
-end)
+end))
 
 test("Panel: a blacklist change while the page is hidden repaints it on the next OnShow",
-  function()
+  withLoadsCaptured(function()
     -- LH-A-27. The page flags itself dirty off-screen instead of rebuilding, and the flag it writes
     -- must be the one LibKa0s-Options' OnShow reads (`ctx._dirty`). A page-local `ctx.dirty` is
     -- written and never read, so the library's `_rendered and not _dirty` early-out swallows the
@@ -746,7 +789,7 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
       "the next OnShow must repaint the list and show the id added while hidden")
     NS.Filters:ClearAll()
     homeTab(ctx)
-  end)
+  end))
 
 -- ── the Filters tab's id lists (LibKa0s-Options IdList) ───────────────────────────────────────
 --
@@ -764,8 +807,9 @@ local ids = dofile("tests/_kit/mock_ids.lua")({})
 local ITEM_ADD_LABEL     = "Add item id, link or name"
 local CURRENCY_ADD_LABEL = "Add currency id or link"
 
---- Run `fn(ctx)` on the Filters tab parked on sub-list `key`, with the kit's item lookups in, and
---- always put everything back: the lookups, the three lists and the page's tab.
+--- Run `fn(ctx)` on the Filters tab parked on sub-list `key`, with the kit's item lookups in and
+--- the page's load checks captured (capturingLoads), and always put everything back: the pending
+--- load checks, the lookups, LoadItem, the three lists and the page's tab.
 local function onFilterList(key, fn)
   local item = mocks.C_Item
   local savedInstant, savedName = item.GetItemInfoInstant, item.GetItemNameByID
@@ -776,7 +820,7 @@ local function onFilterList(key, fn)
   local ctx = NS.Panel.general
   ctx.activeSubTab = ctx.activeSubTab or {}
   ctx.activeSubTab["Filters"] = key
-  local ok, err = pcall(function()
+  local ok, err = pcall(capturingLoads, function()
     clickTab(mocks.__subcategories["General"], ctx, tabAt("Filters"))
     assertEqual(ctx.activeSubTab["Filters"], key, "the Filters tab opened on the wrong list")
     fn(ctx)
@@ -950,26 +994,22 @@ test("Panel: Filters: one add redraws the page once, not twice", function()
 end)
 
 test("Panel: Filters: an item the client has not cached is named once its load lands", function()
-  -- The widget asks LibKa0s-Item-1.0 to load an unnamed item and redraws through ctx.rebuild when
-  -- the load lands; this page's rebuild runs its registered rebuilders.
+  -- The widget asks LibKa0s-Item-1.0 to load an unnamed item under one check per batch (LibKa0s
+  -- v1.35.0), and the check redraws through ctx.rebuild once the name has landed; this page's
+  -- rebuild runs its registered rebuilders. onFilterList captures the check.
   -- red under: the Filters list not registering its rebuilder in ctx.rebuilders (the load lands and
   -- nothing repaints).
-  local Item = mocks.LibStub("LibKa0s-Item-1.0")
-  local realLoad, landed = Item.LoadItem, nil
-  Item.LoadItem = function(id, cb) if id == 55551 then landed = cb end end
-  local ok, err = pcall(onFilterList, "blacklist", function()
+  onFilterList("blacklist", function()
     ids.addIdRecord("item", 55551, "Late Arrival", 7, true)   -- uncached: no name yet
     typeAndEnter(ITEM_ADD_LABEL, "55551")
     assertTrue(liveText("InteractiveLabel", "Unknown item 55551") ~= nil,
       "an uncached item reads as unknown until it loads")
-    assertTrue(type(landed) == "function", "the list asked the client to load the item")
+    assertEqual(#pendingLoads, 1, "the list asked the client to load the item, under one check")
     ids.addIdRecord("item", 55551, "Late Arrival", 7)          -- the client now has it
-    landed()
+    table.remove(pendingLoads, 1)()
     assertTrue(liveText("InteractiveLabel", "Late Arrival") ~= nil,
       "the load repaints the list with the item's name")
   end)
-  Item.LoadItem = realLoad
-  if not ok then error(err, 0) end
 end)
 
 -- ── the AH Price tab ─────────────────────────────────────────────────────────────────────────

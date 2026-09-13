@@ -75,7 +75,7 @@ in the order the grep prints them, so the two can be held side by side.
 **`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** The third
 grep returns **eight** lines: one is the pattern name in a comment (`core/Util.lua:248`), two are
 presence guards that call nothing (`core/LootHistory.lua:55`, `core/Util.lua:250`), and five are
-call sites. Two of the five — `core/ItemSetup.lua:71` and `settings/OptionsSetup.lua:181` — carry
+call sites. Two of the five — `core/ItemSetup.lua:70` and `settings/OptionsSetup.lua:181` — carry
 the guard and its call on one line, which is why counting call sites by eye off this grep
 undercounts.
 
@@ -83,7 +83,7 @@ undercounts.
 |---|---|---|
 | `C_Timer.After(5, …)` | `core/LootHistory.lua:56` | Login-deferred retention prune + the first warbound repair pass. Once per session. |
 | `C_Timer.After(20, …)` | `core/LootHistory.lua:60` | The second warbound repair pass, once the item cache is warm. Once per session. |
-| `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:71` | `NS.Item.LoadItem`'s item-cache retry — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:214`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; `settings/Panel.lua:202` passes one, to relabel a filter-list row once the client has cached the name — an options panel the player opened by hand. |
+| `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:70` | `NS.Item.LoadItem`'s item-cache retry, in the degraded-install fallback; the live path is the same line in the library (`libs/LibKa0s/Item.lua:124`) — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:214`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; the Filters tab's LibKa0s `IdList` passes one per **batch**, not per id (LibKa0s v1.35.0): every uncached id one render asks for shares a single check, which repaints the list once if any name has landed and re-asks the rest, up to five asks per id — an options panel the player opened by hand. |
 | `C_Timer.After(delay, …)` | `core/Util.lua:252` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua:1293`, `modules/Analytics.lua:656`, `settings/Panel.lua:171` — so the ceiling is three pending timers at once, one per surface, and only while that surface is subscribed. |
 | `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:181` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
 
