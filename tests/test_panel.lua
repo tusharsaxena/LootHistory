@@ -919,7 +919,7 @@ test("Panel: Filters: an unknown name adds nothing, keeps the text and says why"
   onFilterList("blacklist", function()
     local eb = typeAndEnter(ITEM_ADD_LABEL, "No Such Thing")
     assertSetShape(NS.db.global.blacklist, {}, "blacklist")
-    local status = liveText("Label", "No item named 'No Such Thing'.")
+    local status = liveText("Label", "No item named 'No Such Thing' that the game can find.")
     assertTrue(status ~= nil, "the status line names the reason")
     assertEqual(status.color and status.color.g, 0.5, "in the widget's warning orange")
     assertEqual(eb.text, "No Such Thing", "the text stays so the player can correct it")

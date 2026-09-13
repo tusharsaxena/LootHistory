@@ -100,10 +100,15 @@ if not lib then
     -- path EnsureScroll answers nil and the live IdList would draw nothing either. ResolveId is pure
     -- in the live library, but its only caller here is the widget that never draws, so it answers
     -- nil too -- the same "nothing resolved" a live call with no client APIs gives for a name.
-    ChoiceGrid = noop,
-    ResolveId  = noop,
-    IdInput    = noop,
-    IdList     = noop,
+    -- UnnamedCandidates is pure too, and answers what the live one answers with no client item
+    -- loader: an empty list. ID_NAME_HINT is a TABLE on the live instance (the default hints a host
+    -- reuses in a tooltip), so the stub carries an empty one rather than a function.
+    ChoiceGrid        = noop,
+    ResolveId         = noop,
+    IdInput           = noop,
+    IdList            = noop,
+    UnnamedCandidates = function() return {} end,
+    ID_NAME_HINT      = {},
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
