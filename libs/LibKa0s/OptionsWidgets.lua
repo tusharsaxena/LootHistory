@@ -928,14 +928,14 @@ local function candidateIds(candidates)
   return list
 end
 
---- A case-insensitive exact name match over the host's candidates. Two DISTINCT ids with the
---- name are ambiguous -- taking the first would hand the player one they may not have meant --
---- and one id listed twice is still one.
-local function byCandidates(k, text, candidates)
+--- A case-insensitive exact name match over the ids `ids`. Two DISTINCT ids with the name are
+--- ambiguous -- taking the first would hand the player one they may not have meant -- and one id
+--- listed twice is still one.
+local function byNameIn(k, text, ids)
   if type(k.info) ~= "function" then return nil, "notFound" end
   local want = text:lower()
   local hitId, hitName, hitIcon
-  for _, id in ipairs(candidateIds(candidates)) do
+  for _, id in ipairs(ids) do
     local name, icon = k.info(id)
     if type(name) == "string" and name:lower() == want and id ~= hitId then
       if hitId then return nil, "ambiguous" end
@@ -946,11 +946,24 @@ local function byCandidates(k, text, candidates)
   return nil, "notFound"
 end
 
---- The client's name hit, unless a candidate with a DIFFERENT id carries the same name. The client
---- answers one id for a name several share (an item's crafted-quality ranks), so the hit alone
---- would hand the player one rank they did not pick.
+--- The name matched over the host's candidates alone.
+local function byCandidates(k, text, candidates)
+  return byNameIn(k, text, candidateIds(candidates))
+end
+
+-- The ids the client enumerates for a named kind (the items in the bags, the spells in the
+-- spellbook), or none. Assigned below with the suggestions' sources, which are this same list.
+local kindSourceIds
+
+--- The client's name hit, unless a DIFFERENT id carries the same name: a candidate, or an id the
+--- client enumerates for the kind. The client answers one id for a name several share (an item's
+--- crafted-quality ranks), so the hit alone would hand the player one rank they did not pick --
+--- and two ranks of one potion in the bags are as shared as two ranks in the candidates.
 local function unlessShared(k, text, candidates, id, name, icon)
-  local other, why = byCandidates(k, text, candidates)
+  local ids = {}
+  for _, c in ipairs(candidateIds(candidates)) do ids[#ids + 1] = c end
+  for _, c in ipairs(kindSourceIds(k)) do ids[#ids + 1] = c end
+  local other, why = byNameIn(k, text, ids)
   if why == "ambiguous" or (other ~= nil and other ~= id) then return nil, "ambiguous" end
   return id, name, icon
 end
@@ -978,7 +991,8 @@ end
 ---   3. the client's name lookup (spells and items; currencies have none);
 ---   4. a case-insensitive exact name over the ids `candidates()` returns.
 --- A name is "ambiguous" when two DISTINCT ids carry it: two candidates, or the client's hit at
---- step 3 and a different candidate (an item's crafted-quality ranks share one name).
+--- step 3 and a different candidate or a different id the client enumerates for the kind (an item
+--- in the bags, a spell in the spellbook) -- an item's crafted-quality ranks share one name.
 --- Returns `id, name, icon` -- a number the client cannot name still resolves, with no name, which
 --- is the degraded mode -- or `nil, reason` with reason "empty", "notFound" or "ambiguous".
 local function resolveId(kind, text, candidates)
@@ -1152,6 +1166,12 @@ local SUGGEST_KIND = {
   [ID_KINDS.spell] = { sources = spellBookIds, rank = spellRank },
 }
 
+-- Declared above for the shared-name check: what resolves a name and what lists it read one source.
+kindSourceIds = function(k)
+  local row = SUGGEST_KIND[k]
+  return row and row.sources() or {}
+end
+
 --- The ids one render's index covers: the host's candidates, then the kind's client source;
 --- numbers only, each once, at most SUGGEST_INDEX_CAP.
 local function suggestIds(k, candidates)
@@ -1166,7 +1186,7 @@ local function suggestIds(k, candidates)
     end
   end
   take(candidateIds(candidates))
-  if SUGGEST_KIND[k] then take(SUGGEST_KIND[k].sources()) end
+  take(kindSourceIds(k))
   return out
 end
 
@@ -3116,11 +3136,21 @@ function lib.__AttachWidgets(O, d)
     end)
   end
 
+  --- Drop `parts`' keyboard highlight, and draw its row plain when `parts` owns the dropdown.
+  local function dropHighlight(parts)
+    if parts.sel == nil then return end
+    parts.sel = nil
+    if suggest.owner ~= parts then return end
+    for _, row in ipairs(suggest.frame.rows) do markRow(row, false) end
+  end
+
   --- A keystroke: the list is worked out SUGGEST_DEBOUNCE after the last one, for the text then,
-  --- if the box is still there to show it under.
+  --- if the box is still there to show it under. The highlight goes at once: until the debounce
+  --- runs the rows are the old text's, and Enter must not take one the new text no longer matches.
   local function onTyped(parts, text)
     parts.suggestSeq = (parts.suggestSeq or 0) + 1
     parts.offer = nil
+    dropHighlight(parts)
     local seq = parts.suggestSeq
     local function run()
       if parts.suggestSeq == seq and canSuggest(parts) then updateSuggest(parts, text) end
@@ -3150,10 +3180,13 @@ function lib.__AttachWidgets(O, d)
     if eb.frame then boxParts[eb.frame] = parts end
     -- A released box drops its pending lookup and its suggestions: AceGUI's pool may hand the box
     -- and its status line to another page before the lookup's check or the debounce runs.
+    -- The pooled frame outlives the render, and `boxParts` keeps these parts with it until this
+    -- instance draws on that frame again, so the index (up to 2000 entries) and the list go now.
     eb:SetCallback("OnRelease", function()
       parts.lookup = nil
       parts.released = true
       closeSuggest(parts)
+      parts.index, parts.matches = nil, nil
     end)
     eb:SetCallback("OnTextChanged", function(_, _, text) onTyped(parts, text) end)
     -- Enter takes the highlighted row; with none, it submits what was typed, as it always has --

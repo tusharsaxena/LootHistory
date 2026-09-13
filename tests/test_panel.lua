@@ -1064,14 +1064,26 @@ local ZEPHYR_HISTORY = { { itemID = 191395 }, { itemID = 191396 }, { currencyID 
 local ZEPHYR_RECORDS = { { 191395, ZEPHYR }, { 191396, ZEPHYR }, { 191397, ZEPHYR } }
 local ZEPHYR_TIERS = { [191395] = 1, [191396] = 2, [191397] = 3 }
 
+--- The player's bags as C_Container answers them: bag 0 holds the ids in `bags` (a set), one a slot.
+local function containerOf(bags)
+  local slots = {}
+  for id in pairs(bags) do slots[#slots + 1] = id end
+  table.sort(slots)
+  return {
+    GetContainerNumSlots = function(bag) return bag == 0 and #slots or 0 end,
+    GetContainerItemID   = function(bag, slot) return bag == 0 and slots[slot] or nil end,
+  }
+end
+
 --- onFilterList with `opts.history` as the loot history, `opts.records` ({ id, name }) as the items
---- the client can name, the client's NAME lookup answering only for the ids in `opts.bags` (it
---- looks in the bags and nowhere else), and each id's crafted-quality tier from `opts.tiers`. The
---- history, CreateFrame and the tier lookup go back however the case ends; onFilterList puts the
---- item lookups back.
+--- the client can name, `opts.bags` as the items the player carries -- the client's NAME lookup
+--- answers only for those ids (it looks in the bags and nowhere else), and C_Container lists them --
+--- and each id's crafted-quality tier from `opts.tiers`. The history, CreateFrame, C_Container and
+--- the tier lookup go back however the case ends; onFilterList puts the item lookups back.
 local function onSuggestList(key, opts, fn)
   local db = NS.db.global
   local savedHistory, realCreate, savedTiers = db.history, mocks.CreateFrame, mocks.C_TradeSkillUI
+  local savedContainer = mocks.C_Container
   db.history = opts.history or {}
   mocks.CreateFrame = function(...)
     local f = realCreate(...)
@@ -1080,6 +1092,7 @@ local function onSuggestList(key, opts, fn)
   end
   local tiers = opts.tiers or {}
   mocks.C_TradeSkillUI = { GetItemCraftedQualityByItemInfo = function(id) return tiers[id] end }
+  mocks.C_Container = containerOf(opts.bags or {})
   local ok, err = pcall(onFilterList, key, function(ctx)
     local bags, byAny = opts.bags or {}, ids.C_Item.GetItemInfoInstant
     mocks.C_Item.GetItemInfoInstant = function(q)
@@ -1093,6 +1106,7 @@ local function onSuggestList(key, opts, fn)
     fn(ctx)
   end)
   db.history, mocks.CreateFrame, mocks.C_TradeSkillUI = savedHistory, realCreate, savedTiers
+  mocks.C_Container = savedContainer
   madeFrames = {}
   if not ok then error(err, 0) end
 end
@@ -1162,6 +1176,22 @@ test("Panel: Filters: a name several ranks share lists every rank, and Enter wit
         "' \226\128\148 pick one from the list, or use the id.") ~= nil, "the refusal says why")
       assertEqual(shownIds(), "191395,191396,191397", "the ranks the refusal points at stay listed")
     end)
+  end)
+
+test("Panel: Filters: a name two ranks in the bags share, with none in the history, adds none on Enter",
+  function()
+    -- The owner's own case: potions crafted or bought are carried but were never looted, so the
+    -- loot history (and so the candidates) never holds them. The client's name lookup answers one
+    -- of the two ranks; adding it would add a rank the player did not pick.
+    -- red under: LibKa0s 48b486d, whose shared-name check reads the candidates and not the bags.
+    onSuggestList("blacklist", { records = { ZEPHYR_RECORDS[1], ZEPHYR_RECORDS[2] },
+                                 tiers = ZEPHYR_TIERS, bags = { [191395] = true, [191396] = true } },
+      function()
+        typeAndEnter(ITEM_ADD_LABEL, ZEPHYR)
+        assertSetShape(NS.db.global.blacklist, {}, "neither one rank nor both")
+        assertTrue(liveText("Label", "Several items are named '" .. ZEPHYR ..
+          "' \226\128\148 pick one from the list, or use the id.") ~= nil, "the refusal says why")
+      end)
   end)
 
 test("Panel: Filters: currency names resolve through the loot history, and a refusal says where names work",
