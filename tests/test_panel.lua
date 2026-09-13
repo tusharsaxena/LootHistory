@@ -685,7 +685,7 @@ test("Panel: the Filters tab draws a SECONDARY strip and renders only the select
     assertEqual(ctx.activeSubTab["Filters"], "currencyBlacklist", "sub-tab 3 is Currencies")
     local boxes = widgetsOfType(created, "EditBox")
     assertEqual(#boxes, 1, "exactly one add-row is on screen")
-    assertEqual(boxes[1].labelText, "Add currency id or link",
+    assertEqual(boxes[1].labelText, "Add currency id, link or name",
       "and it is the selected list's, not the first list's")
 
     ctx.__subTabKids[1]:__fire("OnClick")
@@ -805,7 +805,7 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
 local ids = dofile("tests/_kit/mock_ids.lua")({})
 
 local ITEM_ADD_LABEL     = "Add item id, link or name"
-local CURRENCY_ADD_LABEL = "Add currency id or link"
+local CURRENCY_ADD_LABEL = "Add currency id, link or name"
 
 --- Run `fn(ctx)` on the Filters tab parked on sub-list `key`, with the kit's item lookups in and
 --- the page's load checks captured (capturingLoads), and always put everything back: the pending
@@ -926,8 +926,10 @@ test("Panel: Filters: an unknown name adds nothing, keeps the text and says why"
   end)
 end)
 
-test("Panel: Filters: the Currencies list takes an id or a currency link, and refuses a name", function()
-  -- Currencies have no client name lookup, so a name is refused with the line saying so.
+test("Panel: Filters: the Currencies list takes an id or a currency link, and refuses a name it cannot know",
+  function()
+  -- The client has no currency name search: a name resolves only against the ids the list and the
+  -- loot history already hold (the suggestion cases below), so a name neither holds is refused.
   -- red under: the currency list built with kind "item" (an item link would be taken as a
   -- currency id, and the refusal would read "No item named ...").
   onFilterList("currencyBlacklist", function()
@@ -937,9 +939,9 @@ test("Panel: Filters: the Currencies list takes an id or a currency link, and re
       "currencyBlacklist")
     assertTrue(liveText("InteractiveLabel", "Valorstones") ~= nil, "a currency entry reads its name")
 
-    typeAndEnter(CURRENCY_ADD_LABEL, "Valorstones")
-    assertTrue(liveText("Label", "Currencies are added by id or link.") ~= nil,
-      "a name is refused with the reason")
+    typeAndEnter(CURRENCY_ADD_LABEL, "Honor Points")
+    assertTrue(liveText("Label", "No currency named 'Honor Points'") ~= nil,
+      "a name nothing knows is refused with the reason")
     typeAndEnter(CURRENCY_ADD_LABEL, "|Hitem:12345::|h[Not a currency]|h")
     assertSetShape(NS.db.global.currencyBlacklist, { [3008] = true, [2914] = true },
       "currencyBlacklist")
@@ -1011,6 +1013,178 @@ test("Panel: Filters: an item the client has not cached is named once its load l
       "the load repaints the list with the item's name")
   end)
 end)
+
+-- ── the Filters tab's suggestions and name lookup (LibKa0s v1.35.0, issue #31) ───────────────
+--
+-- The client has no item-name search: C_Item.GetItemInfoInstant(name) answers only for an item the
+-- player carries or carried this session. So a name resolves, and the dropdown lists it, only
+-- through ids something already knows -- here every id on the lists and every id the loot history
+-- holds, passed as the IdList's `candidates`. The owner typed "Potion of the Hushed Zephyr" (three
+-- crafted-quality ranks, none in the bags) into an add box and was told nothing matched.
+--
+-- The dropdown is the library's frame, not an AceGUI widget, so these cases find it among the
+-- frames CreateFrame hands out (the one carrying `rows`), as LibKa0s's own suite does. It is built
+-- once per Options instance, the first time it shows, so the first case to show it records it.
+
+local ZEPHYR = "Potion of the Hushed Zephyr"
+local madeFrames, suggestFrame = {}, nil
+
+--- The library's suggestion dropdown, once some case has shown it.
+local function dropdown()
+  if suggestFrame then return suggestFrame end
+  for _, f in ipairs(madeFrames) do
+    if type(f.rows) == "table" then suggestFrame = f; return f end
+  end
+end
+
+--- The ids the dropdown's visible rows carry, in order; "" while it is hidden.
+local function shownIds()
+  local dd = dropdown()
+  if not (dd and dd:IsShown()) then return "" end
+  local out = {}
+  for _, row in ipairs(dd.rows) do
+    if row:IsShown() and row.entry then out[#out + 1] = row.entry.id end
+  end
+  return table.concat(out, ",")
+end
+
+--- Type into the add box labeled `label` as AceGUI's EditBox reports it, then let the debounce run.
+local function typeText(label, text)
+  local eb = liveWidget("EditBox", function(w) return w.labelText == label end)
+  assertTrue(eb ~= nil, "no add box labeled '" .. label .. "' is on screen")
+  eb:SetText(text)
+  eb:__fire("OnTextChanged", text)
+  mocks.__fireTimers()
+  return eb
+end
+
+--- The three Zephyr ranks as loot-history rows, named, with their crafted-quality tiers.
+local ZEPHYR_HISTORY = { { itemID = 191395 }, { itemID = 191396 }, { currencyID = 3008 },
+  { itemID = 191397 } }
+local ZEPHYR_RECORDS = { { 191395, ZEPHYR }, { 191396, ZEPHYR }, { 191397, ZEPHYR } }
+local ZEPHYR_TIERS = { [191395] = 1, [191396] = 2, [191397] = 3 }
+
+--- onFilterList with `opts.history` as the loot history, `opts.records` ({ id, name }) as the items
+--- the client can name, the client's NAME lookup answering only for the ids in `opts.bags` (it
+--- looks in the bags and nowhere else), and each id's crafted-quality tier from `opts.tiers`. The
+--- history, CreateFrame and the tier lookup go back however the case ends; onFilterList puts the
+--- item lookups back.
+local function onSuggestList(key, opts, fn)
+  local db = NS.db.global
+  local savedHistory, realCreate, savedTiers = db.history, mocks.CreateFrame, mocks.C_TradeSkillUI
+  db.history = opts.history or {}
+  mocks.CreateFrame = function(...)
+    local f = realCreate(...)
+    madeFrames[#madeFrames + 1] = f
+    return f
+  end
+  local tiers = opts.tiers or {}
+  mocks.C_TradeSkillUI = { GetItemCraftedQualityByItemInfo = function(id) return tiers[id] end }
+  local ok, err = pcall(onFilterList, key, function(ctx)
+    local bags, byAny = opts.bags or {}, ids.C_Item.GetItemInfoInstant
+    mocks.C_Item.GetItemInfoInstant = function(q)
+      if type(q) == "string" and not tonumber(q) and not q:find("item:", 1, true) then
+        local id = byAny(q)
+        if not (id and bags[id]) then return nil end
+      end
+      return byAny(q)
+    end
+    for _, r in ipairs(opts.records or {}) do ids.addIdRecord("item", r[1], r[2], 1) end
+    fn(ctx)
+  end)
+  db.history, mocks.CreateFrame, mocks.C_TradeSkillUI = savedHistory, realCreate, savedTiers
+  madeFrames = {}
+  if not ok then error(err, 0) end
+end
+
+test("Panel: Filters: typing lists matching items from the loot history and from the lists", function()
+  -- red under: an IdList with no candidates (nothing the player does not carry is ever listed).
+  onSuggestList("blacklist", {
+    history = ZEPHYR_HISTORY,
+    records = { ZEPHYR_RECORDS[1], ZEPHYR_RECORDS[2], ZEPHYR_RECORDS[3], { 6948, "Hearthstone" } },
+  }, function()
+    NS.Filters:AddWhitelist(6948)   -- on the OTHER item list; repaints the page on screen
+    typeText(ITEM_ADD_LABEL, "hushed")
+    assertEqual(shownIds(), "191395,191396,191397", "every rank the loot history holds")
+    typeText(ITEM_ADD_LABEL, "hearth")
+    assertEqual(shownIds(), "6948", "and an id the other item list holds")
+  end)
+end)
+
+test("Panel: Filters: a name the game cannot look up resolves through the loot history", function()
+  -- The Zephyr case in one rank: the item is in the history but not in the bags, so the client's
+  -- name lookup finds nothing and only the history's id can resolve it.
+  -- red under: no candidates (refused as "No item named ... that the game can find.").
+  onSuggestList("blacklist", {
+    history = { { itemID = 55001 } },
+    records = { { 55001, "Starlit Draught" } },
+  }, function()
+    typeAndEnter(ITEM_ADD_LABEL, "starlit draught")
+    assertSetShape(NS.db.global.blacklist, { [55001] = true }, "blacklist")
+  end)
+end)
+
+test("Panel: Filters: picking a suggestion adds that rank through the Filters writer, once", function()
+  -- red under: no candidates (no row to pick), or an onAdd that writes the set itself.
+  onSuggestList("blacklist", { history = ZEPHYR_HISTORY, records = ZEPHYR_RECORDS, tiers = ZEPHYR_TIERS },
+    function()
+      typeText(ITEM_ADD_LABEL, "zephyr")
+      assertEqual(shownIds(), "191395,191396,191397", "the ranks are listed to pick from")
+      local calls, real = {}, NS.Filters.AddBlacklist
+      NS.Filters.AddBlacklist = function(self, id) calls[#calls + 1] = id; return real(self, id) end
+      local ok, err = pcall(function() dropdown().rows[2]:__fire("OnClick") end)
+      NS.Filters.AddBlacklist = real
+      if not ok then error(err, 0) end
+      assertEqual(#calls, 1, "one pick calls the Filters writer once")
+      assertEqual(calls[1], 191396, "with the rank picked")
+      assertSetShape(NS.db.global.blacklist, { [191396] = true }, "blacklist")
+      assertEqual(shownIds(), "", "the pick closes the list")
+    end)
+end)
+
+test("Panel: Filters: a name several ranks share lists every rank, and Enter without a pick adds none",
+  function()
+    -- One rank in the bags: the client's own lookup answers that rank alone, and adding it would add
+    -- a rank the player did not pick. The owner's ruling: refuse it, and list every rank to pick from.
+    -- red under: no candidates (the client's hit on the rank in the bags is added silently).
+    onSuggestList("blacklist", { history = ZEPHYR_HISTORY, records = ZEPHYR_RECORDS,
+                                 tiers = ZEPHYR_TIERS, bags = { [191395] = true } }, function()
+      typeText(ITEM_ADD_LABEL, ZEPHYR)
+      assertEqual(shownIds(), "191395,191396,191397", "every rank is its own row")
+      for i, row in ipairs(dropdown().rows) do
+        if i > 3 then break end
+        assertTrue(type(row.labelText) == "string" and row.labelText:find("Tier" .. i, 1, true) ~= nil,
+          "row " .. i .. " is labeled with its rank: " .. tostring(row.labelText))
+      end
+      typeAndEnter(ITEM_ADD_LABEL, ZEPHYR)
+      assertSetShape(NS.db.global.blacklist, {}, "neither one rank nor all of them")
+      assertTrue(liveText("Label", "Several items are named '" .. ZEPHYR ..
+        "' \226\128\148 pick one from the list, or use the id.") ~= nil, "the refusal says why")
+      assertEqual(shownIds(), "191395,191396,191397", "the ranks the refusal points at stay listed")
+    end)
+  end)
+
+test("Panel: Filters: currency names resolve through the loot history, and a refusal says where names work",
+  function()
+    -- red under: the Currencies list with no candidates, or the old "Currencies are added by id or
+    -- link." (which told the player names never work).
+    onSuggestList("currencyBlacklist", { history = { { currencyID = 2914 }, { itemID = 6948 } } }, function()
+      typeText(CURRENCY_ADD_LABEL, "weathered")
+      assertEqual(shownIds(), "2914", "a currency the loot history holds is listed")
+      typeAndEnter(CURRENCY_ADD_LABEL, "weathered harbinger crest")
+      assertSetShape(NS.db.global.currencyBlacklist, { [2914] = true }, "currencyBlacklist")
+      typeAndEnter(CURRENCY_ADD_LABEL, "Honor Points")
+      assertTrue(liveText("Label", "Currency names work for currencies in your loot history") ~= nil,
+        "a currency refusal says where a name can come from")
+    end)
+    onSuggestList("blacklist", {}, function()
+      typeAndEnter(ITEM_ADD_LABEL, "No Such Thing")
+      assertTrue(liveText("Label", "items in your loot history") ~= nil,
+        "an item refusal names the loot history too")
+    end)
+    assertTrue(Loader.readFile("settings/Panel.lua"):find("Currencies are added by id or link.", 1, true) == nil,
+      "the old wording is gone")
+  end)
 
 -- ── the AH Price tab ─────────────────────────────────────────────────────────────────────────
 

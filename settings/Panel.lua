@@ -189,8 +189,8 @@ end
 -- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
 -- A single sub-page, three TABS (item blacklist, item whitelist, currency blacklist), one on screen.
 -- Each: a short description, a confirm-gated Clear all, then one LibKa0s-Options IdList: an add box
--- (an id, a shift-clicked link, or for the two item lists a name the client knows) over one line per
--- stored id with Remove. The lists are core app logic and act point-in-time: blacklisted ids are
+-- (an id, a shift-clicked link, or a name, with matching names listed as the player types) over one
+-- line per stored id with Remove. The lists are core app logic and act point-in-time: blacklisted ids are
 -- dropped at loot time and whitelisted ids are always recorded — neither list ever hides or
 -- restores an already-stored row.
 --
@@ -223,6 +223,35 @@ local function filterEntries(tab)
   local out = {}
   for i, id in ipairs(NS.Filters:SortedIDs(NS.Filters[tab.set](NS.Filters))) do
     out[i] = { id = id }
+  end
+  return out
+end
+
+--- The ids a list's add box can name, for its suggestions and its name lookup (issue #31): every id
+--- on the lists `tab.candidateSets` names (both item lists for an item list), then every distinct id
+--- the loot history holds in `tab.historyField`, newest first.
+---
+--- WHY THESE AND NOTHING ELSE. The client has no item-name search -- GetItemInfoInstant(name)
+--- answers only for an item the player carries or carried this session -- and no currency-name
+--- lookup at all. So a name the player does not carry resolves, and is listed, only through ids
+--- something already knows, and the lists and the history are what this addon knows. Newest first
+--- because the widget pre-warms at most 200 uncached candidates a build: recent loot is what a
+--- player most likely means.
+---
+--- No new state: both are read as they stand, on every call. The widget calls this at every draw,
+--- every submit and a render's first keystroke, and caps what it does with the answer itself.
+local function filterCandidates(tab)
+  local out, seen = {}, {}
+  local function take(id)
+    if type(id) == "number" and not seen[id] then seen[id] = true; out[#out + 1] = id end
+  end
+  for _, set in ipairs(tab.candidateSets) do
+    for _, id in ipairs(NS.Filters:SortedIDs(NS.Filters[set](NS.Filters))) do take(id) end
+  end
+  local history = NS.Database:History() or {}
+  for i = #history, 1, -1 do
+    local r = history[i]
+    if r then take(r[tab.historyField]) end
   end
   return out
 end
@@ -264,6 +293,7 @@ local function makeFilterSection(ctx, tab)
     strings   = tab.strings,
     emptyText = "|cff808080(none)|r",
     entries   = function() return filterEntries(tab) end,
+    candidates = function() return filterCandidates(tab) end,
     onAdd     = function(id) filterWrite(ctx, tab.add, id) end,
     onRemove  = function(id) filterWrite(ctx, tab.remove, id) end,
   })
@@ -294,15 +324,24 @@ end
 -- key `ctx.activeSubTab` is filed under, and the convention only works while the two agree.
 local FILTERS_TAB = "Filters"
 
--- The add box's words. An item resolves by id, link or a name the client has seen; a currency by id
--- or link only — the client has no currency name lookup, so the refusal says what does work rather
--- than the widget's default "No currency named ...", which reads as if the name were misspelled.
+-- The add box's words. An item or a currency resolves by id, link or name, and the box lists the
+-- matching names as the player types, every rank its own row. The name hints say where a name can
+-- come from. They replace the widget's defaults ("ones this list knows") because this page's
+-- candidates are the lists AND the loot history (filterCandidates). Each hint is both the refusal's
+-- `{hint}` and the end of its box's tooltip, so the two cannot disagree. English literals, per the
+-- ratified English-only row (docs/ARCHITECTURE.md, localization-§1).
+local ITEM_NAME_HINT = "Names work for items you carry (or carried this session), items in your loot "
+  .. "history and ones on these lists; otherwise use the id or shift-click a link."
+local CURRENCY_NAME_HINT = "Currency names work for currencies in your loot history and ones on this "
+  .. "list; otherwise use the id or shift-click a currency link."
 local ITEM_ADD_LABEL   = "Add item id, link or name"
-local ITEM_ADD_TOOLTIP = "Type an item id, shift-click an item link, or type the name of an item "
-  .. "your client has seen this session, then press Enter or Add."
+local ITEM_ADD_TOOLTIP = "Type an item id or name, or shift-click an item link, then press Enter or "
+  .. "Add. As you type, matching items are listed, every rank its own row: click one to add it. "
+  .. ITEM_NAME_HINT
+local ITEM_STRINGS = { nameHint = ITEM_NAME_HINT }
 local CURRENCY_STRINGS = {
-  empty    = "Type a currency id or shift-click a currency link.",
-  notFound = "Currencies are added by id or link.",
+  empty    = "Type a currency id or name, or shift-click a currency link.",
+  nameHint = CURRENCY_NAME_HINT,
 }
 
 -- Per list: the IdList kind, the NS.Filters reader (`set`) and writers (`add` / `remove`) it calls,
@@ -313,22 +352,25 @@ local FILTER_TABS = {
       .. "(this only affects future loots — delete old rows from the history table if you want them gone).",
     kind = "item", set = "Blacklist", add = "AddBlacklist", remove = "RemoveBlacklist",
     popup = "KA0S_LOOTHISTORY_CLEAR_BLACKLIST",
-    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP },
+    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS,
+    candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
   { key = "whitelist", label = "Whitelist",
     desc = "Items here are always recorded, even if they fall below your quality threshold, come from a "
       .. "muted source, or are quest items. Adding an id to one list removes it from the other.",
     kind = "item", set = "Whitelist", add = "AddWhitelist", remove = "RemoveWhitelist",
     popup = "KA0S_LOOTHISTORY_CLEAR_WHITELIST",
-    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP },
+    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS,
+    candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
   { key = "currencyBlacklist", label = "Currencies",
     desc = "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
       .. "Point-in-time — existing rows are left untouched.",
     kind = "currency", set = "CurrencyBlacklist", add = "AddCurrencyBlacklist",
     remove = "RemoveCurrencyBlacklist", popup = "KA0S_LOOTHISTORY_CLEAR_CURRENCY",
-    addLabel = "Add currency id or link",
-    addTooltip = "Type a currency id or shift-click a currency link, then press Enter or Add. "
-      .. "Currencies have no name lookup.",
-    strings = CURRENCY_STRINGS },
+    addLabel = "Add currency id, link or name",
+    addTooltip = "Type a currency id or name, or shift-click a currency link, then press Enter or "
+      .. "Add. As you type, matching currencies are listed: click one to add it. " .. CURRENCY_NAME_HINT,
+    strings = CURRENCY_STRINGS,
+    candidateSets = { "CurrencyBlacklist" }, historyField = "currencyID" },
 }
 
 --- The Filters tab: a secondary strip over the three id-lists, then the selected list.

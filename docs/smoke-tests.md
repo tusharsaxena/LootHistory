@@ -690,9 +690,19 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
 - On the Blacklist, type the **name** of an item in your bags (e.g. `hearthstone`, any case) and
   press Enter. Then shift-click an item link into the box and press **Add**.
+- **Suggestions (issue #31).** On the Blacklist, slowly type the first few letters of a crafted
+  consumable that has several quality ranks and is in your loot history (e.g. `hushed` for *Potion
+  of the Hushed Zephyr*). Watch the dropdown under the box, then click one rank.
+- Type that shared name in full and press **Enter without picking** a row.
+- Type the name of an item you have **not carried this session** but that is in your loot history
+  or already on the Whitelist, and press Enter.
+- Type the name of an item that is in **none** of your bags, your loot history or either list, and
+  press Enter.
 - Enter garbage (e.g. `abc`) into an add box and submit.
 - On **Currencies**, add a currency by id, then shift-click a currency link from the currency window.
-  Then type a currency **name** (e.g. `Valorstones`) and submit.
+  Then type the name of a currency you have **looted** (it is in your history) and pick it from the
+  list. Then type the name of a currency you have never looted and that is not on the list (e.g.
+  `Honor` on a character with no Honor rows) and press Enter.
 - **Refresh perf (anti-pattern #39):** with a non-trivial blacklist (a dozen+ ids), click away to
   another primary tab and back to **Filters** several times in a row, and click between its three
   sub-tabs several times in a row. Then, with the panel closed,
@@ -718,11 +728,28 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   a **Remove** button; hovering an entry shows the item's own tooltip; the empty state reads `(none)`.
 - Typing an item's **name** adds that item's id, whatever the case you typed; a shift-clicked link
   adds the linked item. Each add clears the box, and the new entry appears at once.
+- **The dropdown appears** under the box as you type (from the second letter; digits match ids from
+  the first), above the rest of the panel and not clipped by it. A name several ranks share shows
+  **every rank as its own row**, side by side, each **labeled with its quality-tier icon** and its
+  id in gray. Clicking a rank **adds exactly that id**: the box clears, the dropdown closes and the
+  new entry appears at once. Up/Down move the highlight and Enter adds the highlighted row; Escape
+  closes the list.
+- Enter on a shared name with **no row picked** adds **nothing**. The orange line reads
+  `Several items are named '<name>' — pick one from the list, or use the id.` and the ranks stay
+  listed to pick from.
+- An item you have **not carried this session** but that your loot history or a list holds
+  **resolves by name** and is added.
+- An item **nothing knows** (not carried, not in the history, on neither list) is refused, and the
+  orange line reads `No item named '<name>' that the game can find. Names work for items you carry
+  (or carried this session), items in your loot history and ones on these lists; otherwise use the
+  id or shift-click a link.` Hovering the add box shows the same sentence at the end of its tooltip.
 - Garbage input adds nothing: the box keeps the text and an **orange** line under it says why
-  (`No item named 'abc'.`). Nothing is printed to chat.
+  (`No item named 'abc' that the game can find. …`). Nothing is printed to chat.
 - On **Currencies**, an id and a shift-clicked currency link both add, and the entry shows the
-  currency's name. A typed currency name adds nothing, and the line under the box reads
-  `Currencies are added by id or link.`
+  currency's name. A currency you have looted **is listed as you type** and adds by name. One you
+  have never looted and that is not on the list is refused, and the line reads `No currency named
+  '<name>' that this list knows. Currency names work for currencies in your loot history and ones on
+  this list; otherwise use the id or shift-click a currency link.`
 - To remove existing rows of a blacklisted (or any) item, use the row's **Delete** action — list
   membership never does this for you.
 - The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in
