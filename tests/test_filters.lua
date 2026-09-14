@@ -165,12 +165,11 @@ test("Filters: SortedIDs returns ids ascending", function()
   clear()
 end)
 
-test("Filters: ParseItemID reads a number, an item link, and an itemString", function()
-  assertEqual(F:ParseItemID("211296"), 211296)
-  assertEqual(F:ParseItemID(211296), 211296)
-  assertEqual(F:ParseItemID("|cffa335ee|Hitem:211296::::::::80:::::|h[X]|h|r"), 211296)
-  assertEqual(F:ParseItemID("item:6948:0:0"), 6948)
-  assertEqual(F:ParseItemID("nonsense"), nil)
+test("Filters: the add-box parsers are gone (LibKa0s IdList parses its own add box)", function()
+  -- ParseItemID and ParseCurrencyID fed the Filters tab's hand-built add boxes. The tab is a
+  -- LibKa0s IdList now, which parses its own input, so a kept copy is a second answer nobody calls.
+  assertEqual(F.ParseItemID, nil)
+  assertEqual(F.ParseCurrencyID, nil)
 end)
 
 test("Filters: currency blacklist add / remove / query", function()
@@ -205,11 +204,4 @@ test("Filters: ClearList and ClearAll include the currency blacklist", function(
   local removed = NS.Filters:ClearAll()
   assertEqual(removed, 3)
   assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
-end)
-
-test("Filters: ParseCurrencyID reads a currency link or a bare number", function()
-  assertEqual(NS.Filters:ParseCurrencyID("|cffffffff|Hcurrency:3008::|h[Valorstones]|h|r"), 3008)
-  assertEqual(NS.Filters:ParseCurrencyID("  2914  "), 2914)
-  assertEqual(NS.Filters:ParseCurrencyID("|Hitem:5::|h[x]|h"), nil)   -- an item link is not a currency
-  assertEqual(NS.Filters:ParseCurrencyID("abc"), nil)
 end)

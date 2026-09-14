@@ -338,10 +338,11 @@ test("Compat: CurrencyCategory resolves a currency to its list header", function
   assertEqual(NS.Compat.CurrencyCategory(999999), nil)   -- unknown id -> nil
 end)
 
-test("Compat: CurrencyName resolves via C_CurrencyInfo, nil when unknown", function()
-  assertEqual(NS.Compat.CurrencyName(3008), "Valorstones")
-  assertEqual(NS.Compat.CurrencyName(999999), nil)
-  assertEqual(NS.Compat.CurrencyName(nil), nil)
+test("Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)", function()
+  -- ItemNameQuality and CurrencyName were written to label the Filters tab's rows. The tab is a
+  -- LibKa0s IdList now, which resolves its own names, so a kept copy is a second answer nobody calls.
+  assertEqual(NS.Compat.ItemNameQuality, nil)
+  assertEqual(NS.Compat.CurrencyName, nil)
 end)
 
 test("Compat: CurrencyQuality returns the tier, nil when unknown", function()

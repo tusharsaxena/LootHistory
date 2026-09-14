@@ -138,26 +138,3 @@ function F:SortedIDs(set)
   table.sort(ids)
   return ids
 end
-
--- Extract an item id from free-form input: a bare number, or an item link / itemString the user
--- shift-clicked into the field. Returns a number, or nil when nothing parses.
-function F:ParseItemID(input)
-  if type(input) == "number" then return input end
-  if type(input) ~= "string" then return nil end
-  input = input:match("^%s*(.-)%s*$")
-  local fromLink = input:match("|Hitem:(%d+)") or input:match("^item:(%d+)")
-  if fromLink then return tonumber(fromLink) end
-  return tonumber(input)
-end
-
--- Extract a currency id from free-form input: a bare number, or a currency link the user shift-
--- clicked. Returns a number, or nil. (A currency add-box is unambiguously for currencies, so a bare
--- number is treated as a currencyID; an item link does not match.)
-function F:ParseCurrencyID(input)
-  if type(input) == "number" then return input end
-  if type(input) ~= "string" then return nil end
-  input = input:match("^%s*(.-)%s*$")
-  local fromLink = input:match("|Hcurrency:(%d+)") or input:match("^currency:(%d+)")
-  if fromLink then return tonumber(fromLink) end
-  return tonumber(input)
-end
