@@ -6,7 +6,7 @@ Catalog of WoW Midnight (Interface 120100, 12.1.0) behaviors that Ka0s Loot Hist
 
 ## Retail-only: presence guards, not flavor branching
 
-LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branching. Every deprecated or flavor-varying API is gated by a direct `C_*` / global **presence check**; a missing API degrades the shim to `nil`/`false` rather than erroring (`core/Compat.lua:5-7`). Examples: `C_ChallengeMode.GetActiveKeystoneInfo` (`:30`), `C_Container.UseContainerItem` with a bare-global fallback (`:40`), `C_Container.GetContainerItemInfo` (`:50`), `C_TooltipInfo.GetHyperlink` (`:238`). This is the standard's compat-firewall rule: modules call `NS.Compat.X` and never test the game flavor inline.
+LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branching. Every deprecated or flavor-varying API is gated by a direct `C_*` / global **presence check**; a missing API degrades the shim to `nil`/`false` rather than erroring (`core/Compat.lua:5-7`). Examples: `C_ChallengeMode.GetActiveKeystoneInfo` (`:30`), `C_Container.UseContainerItem` with a bare-global fallback (`:40`), `C_Container.GetContainerItemInfo` (`:50`), `C_TooltipInfo.GetHyperlink` (`:226`). This is the standard's compat-firewall rule: modules call `NS.Compat.X` and never test the game flavor inline.
 
 ## GUID decode — npcID in field 6, KILL vs CONTAINER
 

@@ -1121,7 +1121,7 @@ the same payload have no surface here. That is `ARCHITECTURE.md`'s documented de
 passed.** Run on a client set to **deDE or frFR**, the two the collection's other locale steps use
 (`ConsumableMaster/docs/smoke-tests.md` § 3c, `KickCD/docs/smoke-tests.md` § 9b).
 
-**Why this addon needs it more than most.** `core/Compat.lua:206-213` defines four English wordings
+**Why this addon needs it more than most.** `core/Compat.lua:194-201` defines four English wordings
 — `WARBAND_LINES`, plus `BIND_TO_WARBAND_PREFIX` and `UE_LITERAL = "until equipped"` — as the
 fallback for when the client leaves the `ITEM_ACCOUNTBOUND*` globals nil, and `isWarbandLine`
 (`:223-227`) and `ScanBound` (`:249`) reach them. The comment above them says the literals are safe

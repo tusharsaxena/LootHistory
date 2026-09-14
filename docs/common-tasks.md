@@ -127,7 +127,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:155`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:154`). Full contract
   in [message-bus.md](message-bus.md).
 
 ### Compat firewall
@@ -237,7 +237,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:805`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:22`, drawn at `:811`) — branding art, not a re-skinnable surface.
 - **Nineteen hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
@@ -251,9 +251,9 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   | # | Class | Where |
   |---|---|---|
   | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:19`, `modules/BrowserTable.lua:89`, `:1075`, `modules/Export.lua:297` |
-  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1043`, `:1044`, `settings/Panel.lua:477`, `:478`, `:479` |
+  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1043`, `:1044`, `settings/Panel.lua:483`, `:484`, `:485` |
   | 4 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1051`, `:1052` (the corner grabber, reasoned at `:1046-1050`), `:1211` (the LDB launcher icon), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
-  | 1 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` |
+  | 1 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` |
 
   The catalog is **113 marks** as of LibKa0s v1.27.0, not the thirty it shipped with, so "the
   catalog does not have it" is a claim that has to be re-checked against `lib.ICONS` and not
@@ -287,7 +287,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1055`), whose combat gate lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1061`), whose combat gate lives in the library
   (`libs/LibKa0s/Options.lua:1248`) and now also fires on a page's `OnShow`
   (`libs/LibKa0s/Options.lua:1042`), so reaching a page straight from the Blizzard AddOns sidebar is
   refused too. It refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
@@ -299,7 +299,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   Master controls tab's Reset position / Reset all settings pair) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
   constant is the library's (`libs/LibKa0s/Options.lua:106`), re-exported on the instance as
-  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:35`).
+  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:34`).
   Label-inset controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` —
   they are immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't
   hard-code it per button.
