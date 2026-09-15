@@ -1,17 +1,17 @@
 # LibKa0s testkit
 
 The shared headless test harness for the Ka0s addon collection: the test registry and assertions,
-the source loader, the universal half of the WoW-API mock, the consolidated automated-test runner,
-and one suite of its own.
+the source loader, the universal half of the WoW-API mock and its opt-in id lookups, the
+consolidated automated-test runner, the consumer-side vendoring gate, and one suite of its own.
 
 **The full surface — every function, every mock seam, every fidelity rule — is documented in the
 LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
 <https://github.com/tusharsaxena/LibKa0s/tree/master/docs/api/testkit>. This file covers what the kit
 *is* and how to vendor it; that directory is the reference, and is the source of truth.
 
-The link is absolute on purpose. This file is byte-identical in eight places — here, this repo's
-`tests/_kit/`, and each consumer's — so a relative path that resolved from one would be broken in
-the other seven.
+The link is absolute on purpose. This file is byte-identical in twelve places — here, this repo's
+`tests/_kit/`, and each of the ten consumers' — so a relative path that resolved from one would be
+broken in the other eleven.
 
 ## `run-automated-tests.sh`
 
@@ -96,7 +96,7 @@ the path and the case name.
 The kit's own suite, and the only one it ships. It holds every file `git ls-files` reports to the
 terminator `.gitattributes` declares for it, reading the bytes rather than trusting git's own
 classification, and it is here rather than in each repo's `tests/` for the reason the rest of the
-kit is here: nine repositories need exactly the same gate and none of them should be asked to
+kit is here: eleven repositories need exactly the same gate and none of them should be asked to
 re-type it. `line-endings-§7` MUSTs the check be mechanical and supplies a command; a command is
 something someone runs, a suite is something the run runs.
 
@@ -279,8 +279,8 @@ What `IdInput`'s suggestions read is a **second** opt-in, called after the insta
 `M.installIdSuggestions()`. It fills, only where missing, the bag walk (`C_Container`), the
 spellbook's enumeration (`C_SpellBook`), the two quality-tier lookups (`C_TradeSkillUI`) and
 `C_Spell.GetSpellSubtext`. A suite seeds them with `M.setBagItems(bag, ids)`, `M.setSpellBook(ids)`,
-`M.setCraftedQuality(id, tier)`, `M.setReagentQuality(id, tier)` and `M.setSpellSubtext(id, text)`.
-It also gives the AceGUI fake's EditBox an `editbox` input frame, where a test fires
+`M.setCraftedQuality(id, tier)`, `M.setReagentQuality(id, tier)` and `M.setSpellSubtext(id, text)`,
+and `M.clearIdRecords()` empties those seeds along with the records. It also gives the AceGUI fake's EditBox an `editbox` input frame, where a test fires
 `OnArrowPressed`, `OnEscapePressed` and `OnEditFocusLost`. None of this is in the plain install:
 ConsumableMaster walks its bags through `_G.C_Container`, which a namespace on the mock would
 shadow, and PanelMaster's harness adds its own `editbox` only when there is none.
@@ -406,7 +406,7 @@ Delete the local copy when you re-vendor:
 
 ## Fidelity rules
 
-These are why this is one file rather than eight. Each exists because a friendlier mock already hid
+These are why this is one file rather than one per repository. Each exists because a friendlier mock already hid
 a real bug.
 
 1. **A stub that silently succeeds is worse than no stub.** If production code branches on a return

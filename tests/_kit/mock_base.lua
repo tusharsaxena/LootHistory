@@ -1306,6 +1306,14 @@ return function()
   --
   -- `aceGUI` is declared here and built below, so a widget's `:Release()` can reach it.
   local aceGUI
+  -- CheckBox check texture, pooled: AceGUI pools the FRAME not the widget table, which is what
+  -- OptionsWidgets.lua's choiceFill needs its OnRelease vertex-color fix to be observable against.
+  local checkTexturePool = {}
+  local function newCheckTexture()
+    local tex = { vertexColor = { 1, 1, 1 } }
+    function tex:SetTexture(path) self.texturePath = path end function tex:SetVertexColor(r, g, b) self.vertexColor = { r, g, b } end
+    function tex:GetVertexColor() local c = self.vertexColor return c[1], c[2], c[3] end return tex
+  end
   local function makeWidget(wtype)
     local w = {
       type      = wtype,
@@ -1363,6 +1371,9 @@ return function()
       function w:FixScroll() self.fixScrollCount = (self.fixScrollCount or 0) + 1 end
       function w:MoveScroll(v) self.movedTo = v end
       function w:SetScroll(v) self.scrolledTo = v end
+    elseif wtype == "CheckBox" then
+      local tex = table.remove(checkTexturePool); if tex then tex.texturePath = nil else tex = newCheckTexture() end
+      w.check = tex
     end
     return w
   end
@@ -1449,6 +1460,7 @@ return function()
     widget.__released = true
     self.__released[#self.__released + 1] = widget
     widget.isQueuedForRelease = nil
+    if widget.type == "CheckBox" and widget.check then checkTexturePool[#checkTexturePool + 1] = widget.check end
   end
   M.__makeAceGUIWidget = makeWidget
   libs["AceGUI-3.0"] = aceGUI

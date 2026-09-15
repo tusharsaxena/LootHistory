@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 18
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 20
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -231,13 +231,14 @@ lib.STRINGS = {
   -- wording every host had through minor 17, and a host that supplies no `resetProfile` keeps it:
   -- there the reset really is a walk of every setting. With `resetProfile` the act is a PROFILE
   -- reset (options-ui-§12) and the tooltip says so, and says which profiles it leaves alone; with
-  -- `profilesPage` as well it names the equivalence §12 asks for. The em dash and the arrow are
-  -- byte escapes, for the reason COMBAT_REFUSED's is.
+  -- `profilesPage` as well it names the equivalence §12 asks for. The em dash is a byte escape,
+  -- for the reason COMBAT_REFUSED's is; the arrow is plain ASCII `->` (localization-§5: the owner's
+  -- font draws U+2192 as an empty box, and `->` reads the same without the risk).
   RESET_ALL_TIP               = "Restore every setting in this addon to its default.",
   RESET_ALL_TIP_PROFILE       = "Reset the current profile to its defaults. Your other profiles " ..
                                 "are not affected.",
   RESET_ALL_TIP_PROFILES_PAGE = "Reset the current profile to its defaults \226\128\148 the same " ..
-                                "thing Profiles \226\134\146 Reset Profile does. Your other " ..
+                                "thing Profiles -> Reset Profile does. Your other " ..
                                 "profiles are not affected.",
 }
 
@@ -1270,6 +1271,28 @@ function lib:New(d)
     for _, ctx in ipairs(renderedPanels) do
       if ctx.pageKey == pageKey then return ctx end
     end
+  end
+
+  --- Select one tab on an already-rendered page. For a host sending the player somewhere specific
+  --- -- a link on one page that lands on another page's tab -- without reaching into the private
+  --- __panelFor test seam to do it. The page must be rendered: a page the player has never opened
+  --- has no ctx and therefore no tab to hold, and `false` says so rather than storing an intent
+  --- this function has nowhere to keep.
+  ---
+  --- The caller opens the page (a host's own OpenToCategory wrapper, with its own combat gate);
+  --- this only moves the tab.
+  ---
+  --- Refreshes ONLY the target page (`O.RefreshPanel(ctx, true)` -- a tab switch is a shape
+  --- change), never a sweep. A player with more than one of this library's pages rendered in a
+  --- session must not have every other one rebuilt -- and its transient UI state (an open
+  --- dropdown, scroll position) dropped -- by a link that only meant to move one page's tab.
+  --- @return boolean  whether a rendered panel with that page key was found and its tab set
+  function O.SelectTab(pageKey, tabKey)
+    local ctx = O.__panelFor(pageKey)
+    if not ctx then return false end
+    ctx.activeTab = tabKey
+    O.RefreshPanel(ctx, true)
+    return true
   end
 
   -- The widget makers, the flow engine and the scrollbar patch attach here, so every host gets
