@@ -240,9 +240,9 @@ if not lib then
   end
   Sl.LandingRows = function() return {} end
   Sl.BuildListLines = function() return {} end
-  --- slash-commands-§3: a bare `/lh` renders help on EVERY install, so it has to list what still
-  --- works rather than answering "unavailable" — the one line a user has to reach for when nothing
-  --- else responds cannot be the line that tells them to give up.
+  --- slash-commands-§3: a bare `/lh` renders this help on a library-less install (see OnSlash
+  --- below), so it has to list what still works rather than answering "unavailable" — the one line
+  --- a user has to reach for when nothing else responds cannot be the line that tells them to give up.
   Sl.HelpHeader = function()
     return NS.LIBKA0S_MISSING .. ", so only these commands are available:"
   end
@@ -267,10 +267,19 @@ if not lib then
   end
   function Sl:OnSlash(input)
     local raw = (input or ""):match("^%s*(.-)%s*$") or ""
-    -- Bare `/lh` is help on both paths. It used to fall through the verb walk to `unavailable()`,
-    -- which is the worst of the three answers: it blacks out the whole command surface in the one
-    -- install where the user most needs to be told which commands survived.
-    if raw == "" then return Sl.PrintHelp() end
+    -- Bare `/lh` mirrors the library's Slash minor 11 (slash-commands-§4): run the registered
+    -- `config` verb with "", and print help when there is none. The lookup goes through the same
+    -- UNAVAILABLE_WITHOUT_LIB set the help list does, because on this path `config` is registered
+    -- but cannot answer: its handler reaches the Options stub, which declines. So a bare `/lh`
+    -- here still prints the help list of what works. Running `config` anyway would print the
+    -- "unavailable" line alone, which blacks out the whole command surface in the one install
+    -- where the user most needs to be told which commands survived.
+    if raw == "" then
+      for _, entry in ipairs(NS.COMMANDS) do
+        if entry[1] == "config" and not UNAVAILABLE_WITHOUT_LIB[entry[1]] then return entry[3]("") end
+      end
+      return Sl.PrintHelp()
+    end
     local verb = raw:match("^(%S+)")
     local rest = raw:match("^%S+%s*(.-)$") or ""
     for _, entry in ipairs(NS.COMMANDS) do

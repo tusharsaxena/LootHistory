@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-762%2F762_passing-green)
+![Tests](https://img.shields.io/badge/Tests-768%2F768_passing-green)
 
 Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot, or switch to the **Insights** tab to see the same log broken down by source, value, quality and more.
 
@@ -55,7 +55,7 @@ Rows do more than sit there. Hover one for the item's own tooltip (currency rows
 
 **Export** follows whichever tab you are on. From History it copies your loot rows as CSV; from Insights, an analytics summary that mirrors the charts. Either one honors the **Data Set** choice, so it is all your data or just the filtered view in front of you. Nothing leaves the game — the addon can't reach your system clipboard, so it opens a box with the text already selected for you to press Ctrl+C on.
 
-Everything else is configuration, and it lives in two places: the addon's own page under **Settings ▸ AddOns** in game, and `/lh` (or `/loothistory`), which prints the full command list.
+Everything else is configuration, and it lives in two places: the addon's own page under **Settings ▸ AddOns** in game, which `/lh` (or `/loothistory`) opens, and the slash commands, which `/lh help` lists.
 
 ## How attribution works
 

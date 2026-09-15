@@ -635,6 +635,70 @@ test("an unknown verb says so and then prints the help index", function()
   assertEqual(out[3], NS.PREFIX .. " " .. Sl:HelpRows()[1])
 end)
 
+-- ── bare `/lh` opens the settings panel (slash-commands-§4, Slash minor 11) ──────────────────
+--
+-- A bare `/lh` runs the `config` verb with "", which opens the settings panel on its landing page.
+-- `/lh help` is the command index. The config handler is swapped for a spy so the case measures the
+-- dispatch, not the Settings API mock.
+
+--- Run `act` with NS.COMMANDS' `config` handler replaced by a spy. Returns every call's argument
+--- and the chat lines printed. The handler is restored before anything is asserted.
+local function withConfigSpy(act)
+  local idx
+  for i, entry in ipairs(NS.COMMANDS) do if entry[1] == "config" then idx = i end end
+  assertTrue(idx ~= nil, "NS.COMMANDS must register a config verb")
+  local saved, calls = NS.COMMANDS[idx], {}
+  NS.COMMANDS[idx] = { saved[1], saved[2], function(rest) calls[#calls + 1] = rest end }
+  local ok, out = pcall(capture, act)
+  NS.COMMANDS[idx] = saved
+  if not ok then error(out, 0) end
+  return calls, out
+end
+
+test("bare /lh runs the config verb with an empty argument and prints no help", function()
+  -- red under: a dispatcher that answers bare input with PrintHelp (Slash minor 10 and earlier).
+  local calls, out = withConfigSpy(function() Sl:OnSlash("") end)
+  assertEqual(#calls, 1, "bare /lh must reach the config handler exactly once")
+  assertEqual(calls[1], "", "the config handler is called with an empty rest")
+  assertEqual(#out, 0, "bare /lh prints nothing of its own: " .. table.concat(out, " | "))
+end)
+
+test("whitespace-only /lh is bare too and runs the config verb", function()
+  local calls = withConfigSpy(function() Sl:OnSlash("   \t ") end)
+  assertEqual(#calls, 1, "whitespace-only input must reach the config handler")
+  assertEqual(calls[1], "")
+  calls = withConfigSpy(function() Sl:OnSlash(nil) end)
+  assertEqual(#calls, 1, "a nil message is bare as well")
+end)
+
+test("the config verb opens the settings panel on its landing page", function()
+  -- The handler is NS.Panel:Open, which is O.OpenOptionsPanel, which opens the MAIN category (the
+  -- landing page), never the General sub-page.
+  local saved, opened = NS.Panel.Open, 0
+  NS.Panel.Open = function() opened = opened + 1 end
+  local ok, err = pcall(Sl.OnSlash, Sl, "config")
+  NS.Panel.Open = saved
+  if not ok then error(err, 0) end
+  assertEqual(opened, 1, "/lh config must call NS.Panel:Open")
+  local src = T.Loader.readFile("settings/Panel.lua")
+  local body = src:match("function P:Open%(%)(.-)\nend")
+  assertTrue(body ~= nil, "settings/Panel.lua must define P:Open")
+  assertTrue(body:find("O.OpenOptionsPanel()", 1, true) ~= nil,
+    "P:Open must go to O.OpenOptionsPanel, which opens the main (landing) category")
+  assertTrue(body:find("OpenToCategory", 1, true) == nil and body:find("General", 1, true) == nil,
+    "P:Open must not aim at a sub-page")
+end)
+
+test("/lh help prints the command index and does not run the config verb", function()
+  local calls, out = withConfigSpy(function() Sl:OnSlash("help") end)
+  assertEqual(#calls, 0, "/lh help must not open the settings panel")
+  assertEqual(out[1], NS.PREFIX .. " " .. Sl:HelpHeader())
+  assertEqual(#out, 1 + #Sl:HelpRows(), "the header plus one row per command")
+  for i, row in ipairs(Sl:HelpRows()) do
+    assertEqual(out[i + 1], NS.PREFIX .. " " .. row)
+  end
+end)
+
 -- ── the library-less install: the help list is rendered by subtraction ────────────────────────
 --
 -- On a load with no LibKa0s, settings/Slash.lua's `if not lib` branch renders help by SUBTRACTING

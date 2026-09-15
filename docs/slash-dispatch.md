@@ -8,7 +8,8 @@ The table stays the **host's** and is passed into the library rather than owned 
 
 The dispatcher is the library's (`libs/LibKa0s/Slash.lua:650`), bound onto `NS.Slash` by name at `settings/Slash.lua:337` because ~20 call sites across the schema table, the settings panel and the suite already reach for `NS.Slash:CliList()` and friends:
 
-- Bare `/lh` → `Sl:PrintHelp` (standard slash-commands-§4). Window display is **explicit** — bare `/lh` prints help, never opens the window; use `/lh toggle` or `/lh show|hide`.
+- Bare `/lh` (empty or whitespace-only) → runs the `config` row's handler with `""`, which opens the Settings panel on its landing page (standard slash-commands-§4, Slash **minor 11**). A host with no `config` row would get `Sl:PrintHelp` instead. Bare `/lh` never opens the loot window; use `/lh toggle` or `/lh show|hide`.
+- `/lh help` → `Sl:PrintHelp`, the command index.
 - `/lh <known>` → runs that row's `entry[3](rest)`.
 - `/lh <unknown>` → `unknown command '<verb>'` then the help index.
 
@@ -30,13 +31,13 @@ Host-owned, and each for a reason:
 
 If the library is absent, `settings/Slash.lua`'s `if not lib then` branch degrades rather than errors: `/lh` is still registered, the seven host verbs still dispatch through the same positional walk, and every library-owned verb answers `NS.LIBKA0S_MISSING` plus its own consequence — *"…, so the slash command interface is unavailable."*
 
-A **bare `/lh` prints help on that path too** (slash-commands-§3), listing the six verbs that still work — `show`, `hide`, `toggle`, `debug`, `test`, `purge` — under a header carrying the shared cause clause. The list is rendered by **subtraction** from `NS.COMMANDS`: one set, `UNAVAILABLE_WITHOUT_LIB`, names the verbs not to offer, so adding a host verb cannot leave the degraded help behind. Membership is *cannot answer here*, not *went through the library* — `config` is host-owned and still fails, because its handler calls `NS.Panel:Open` and lands on the `Options` stub's declining `OpenOptionsPanel`, so it is subtracted too rather than advertised and then refused. The stub also exports `HelpHeader`, which the live seam publishes and it did not: `tests/test_surface_parity.lua`'s `Kit.assertSurfaceParity` case is what now holds the two surfaces to the same member set.
+A **bare `/lh` prints help on that path** (slash-commands-§3). The stub mirrors the library's bare rule (run the `config` row, else help), but it looks `config` up through the same `UNAVAILABLE_WITHOUT_LIB` set described below: `config` is registered here and can only decline, so bare falls back to help rather than printing the "unavailable" line alone. That help lists the six verbs that still work — `show`, `hide`, `toggle`, `debug`, `test`, `purge` — under a header carrying the shared cause clause. The list is rendered by **subtraction** from `NS.COMMANDS`: one set, `UNAVAILABLE_WITHOUT_LIB`, names the verbs not to offer, so adding a host verb cannot leave the degraded help behind. Membership is *cannot answer here*, not *went through the library* — `config` is host-owned and still fails, because its handler calls `NS.Panel:Open` and lands on the `Options` stub's declining `OpenOptionsPanel`, so it is subtracted too rather than advertised and then refused. The stub also exports `HelpHeader`, which the live seam publishes and it did not: `tests/test_surface_parity.lua`'s `Kit.assertSurfaceParity` case is what now holds the two surfaces to the same member set.
 
 ## Command table
 
 | Verb | Action | Notes |
 |---|---|---|
-| *(none)* | Print the help / command index | `Sl:PrintHelp`; iterates `NS.COMMANDS`. |
+| *(none)* | Open the Settings panel on its landing page | Runs the `config` row's handler with `""`; help only if no `config` row exists. |
 | `show` | Open the window | `NS.Browser:Show()`. |
 | `hide` | Close the window | `NS.Browser:Hide()`. |
 | `toggle` | Toggle the window | `NS.Browser:Toggle()`. |

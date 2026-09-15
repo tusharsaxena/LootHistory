@@ -533,7 +533,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (50)
+### test_slash.lua (54)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -584,6 +584,10 @@ badge and any count quoted in the docs must agree with it.
 - the set-valued row renders through the format hook, never as <secret>
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
+- bare /lh runs the config verb with an empty argument and prints no help
+- whitespace-only /lh is bare too and runs the config verb
+- the config verb opens the settings panel on its landing page
+- /lh help prints the command index and does not run the config verb
 - library-less install: the degraded help omits config, which would only decline
 
 ### test_schema.lua (49)
@@ -778,7 +782,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (20)
+### test_libka0s.lua (22)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -789,6 +793,8 @@ badge and any count quoted in the docs must agree with it.
 - NS.MakeCloseButton hands the library this addon's FOLDER name as the third argument
 - every window this addon owns closes through that one wrapper
 - degraded install: a bare /lh prints help listing the verbs that still work
+- degraded install: bare /lh skips the config verb, which cannot answer here, for help
+- degraded install: /lh help prints the same degraded help list
 - the L-trap matcher flags the value, not one spelling (all three forms)
 - no descriptor in this addon is handed NS.L
 - tripwire — LibKa0s-Core-1.0 ships no STRINGS table
@@ -876,16 +882,16 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 62 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 50 |
+| test_slash.lua | 54 |
 | test_schema.lua | 49 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 62 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 20 |
+| test_libka0s.lua | 22 |
 | test_surface_parity.lua | 5 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **762** |
+| **Total** | **768** |

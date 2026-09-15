@@ -159,7 +159,9 @@ test("degraded install: a bare /lh prints help listing the verbs that still work
   -- which commands survived — and six of them do, because they never went through the library AND
   -- their handlers reach nothing that did. `config` is the one that reads like a seventh and is
   -- not: its handler is host-owned, but it calls NS.Panel:Open, which reaches O.OpenOptionsPanel,
-  -- a stub on this path. It is asserted ABSENT below for that reason.
+  -- a stub on this path. It is asserted ABSENT below for that reason. With the library present a
+  -- bare /lh opens the settings panel instead (slash-commands-§4); that is not possible here, so
+  -- the stub falls back to this help (the next case pins the fallback).
   local ns, lines = loadDegraded()
   ns.Slash:OnSlash("")
   local body = table.concat(lines, "\n")
@@ -173,6 +175,45 @@ test("degraded install: a bare /lh prints help listing the verbs that still work
     assertTrue(body:find("/lh " .. verb .. "|", 1, true) == nil,
       "a bare /lh must not offer " .. verb .. ", which answers \"unavailable\" on this path")
   end
+end)
+
+test("degraded install: bare /lh skips the config verb, which cannot answer here, for help", function()
+  -- The stub mirrors Slash minor 11: bare runs the registered `config` verb, else help. But
+  -- `config` is registered on this path and only declines (the Options stub), so the stub's
+  -- UNAVAILABLE_WITHOUT_LIB set keeps it out of the bare dispatch as it keeps it out of the list.
+  -- Whitespace-only input is bare too.
+  -- red under: a stub that runs `config` on bare input, which prints the "unavailable" line alone.
+  for _, input in ipairs({ "", "   \t " }) do
+    local ns, lines = loadDegraded()
+    local called = 0
+    for i, entry in ipairs(ns.COMMANDS) do
+      if entry[1] == "config" then
+        ns.COMMANDS[i] = { entry[1], entry[2], function() called = called + 1 end }
+      end
+    end
+    local before = #lines
+    ns.Slash:OnSlash(input)
+    assertEqual(called, 0, "bare /lh must not run config on this path (input '" .. input .. "')")
+    -- The one-shot degradation notice may come first: it is said on the first Print, not at load.
+    local header
+    for i = before + 1, #lines do
+      if lines[i]:find(ns.Slash.HelpHeader(), 1, true) then header = i end
+    end
+    assertTrue(header ~= nil, "bare /lh prints the degraded help header: " .. table.concat(lines, " | "))
+  end
+end)
+
+test("degraded install: /lh help prints the same degraded help list", function()
+  local ns, lines = loadDegraded()
+  local before = #lines
+  ns.Slash:OnSlash("help")
+  -- The one-shot degradation notice may come first: it is said on the first Print, not at load.
+  local header
+  for i = before + 1, #lines do
+    if lines[i]:find(ns.Slash.HelpHeader(), 1, true) then header = i end
+  end
+  assertTrue(header ~= nil, "/lh help prints the degraded help header: " .. table.concat(lines, " | "))
+  assertEqual(#lines - header, #ns.Slash.HelpRows(), "one row per working verb after the header")
 end)
 
 -- ── the `L` trap: the source guard ───────────────────────────────────────────────────────────

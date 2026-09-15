@@ -181,13 +181,14 @@ table reach.
 
 ## Slash commands
 
-Registered by `settings/Slash.lua` for both `/lh` and `/loothistory`. Bare `/lh` **prints the
-help index** (standard-compliant); window display is explicit via `toggle`/`show`/`hide`. Verbs
-dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
+Registered by `settings/Slash.lua` for both `/lh` and `/loothistory`. Bare `/lh` **opens the
+Settings panel on its landing page** by running the `config` verb (slash-commands-§4, Slash minor
+11); `/lh help` prints the command index. Window display is explicit via `toggle`/`show`/`hide`.
+Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
 | Verb | Action |
 |---|---|
-| *(none)* | Print the help / command index |
+| *(none)* | Open the Settings panel on its landing page (same as `config`) |
 | `show` / `hide` / `toggle` | Open / close / toggle the window |
 | `config` | Open the Settings panel |
 | `version` | Print the addon version (`[LH] v<version>`, read from TOC metadata) |

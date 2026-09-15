@@ -22,7 +22,8 @@ Companion docs:
 - **Chat banner** — every line the addon prints starts with a cyan `[LH]` (`NS.PREFIX`). A line
   missing the banner, or a doubled `[LH][LH]`, is a bug.
 - **Slash roots** — `/lh` and `/loothistory` are equivalent; the examples use `/lh`. **Bare `/lh`
-  prints the help index** (slash-commands-§4) — it does *not* open the window; use `/lh toggle|show|hide`.
+  opens the Settings panel on its landing page** (slash-commands-§4), and `/lh help` prints the help
+  index. Neither opens the loot window; use `/lh toggle|show|hide`.
 - **"Loot at/above threshold"** means loot an item whose quality is ≥ the `Minimum quality` setting
   (default Common). `CHAT_MSG_LOOT` (self lines only) is the authoritative capture signal — anything
   that produces a "You receive loot:" line is a candidate: mob kills, containers/nodes, vendor buys,
@@ -71,11 +72,14 @@ Loot History**.
 - **Load-order regression check** (the 2026-07-18 TOC reorder, audit LH-13). The TOC section order is
   `Libraries → Locales → Core → Defaults → Modules → Settings`, so `settings/` now loads *after*
   `modules/`. Confirm nothing depends on that having been the other way round: no Lua error on login
-  or `/reload`, `/lh` prints the help index (above), and **Ka0s Loot History appears in the Blizzard
+  or `/reload`, `/lh help` prints the help index (below), and **Ka0s Loot History appears in the Blizzard
   options list** (Esc → Options → AddOns) with its single **General** sub-page present (Filters and
   AH Price are tabs on that page's strip since R6, not sub-pages of their own).
   The headless suite loads in this same order, but the real TOC load path is not unit-testable.
-- `/lh` (bare) prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
+- `/lh` (bare) opens the **Settings panel on the Ka0s Loot History landing page** (logo, tagline,
+  command list), not the General sub-page. `/lh   ` (spaces only) does the same. The loot window
+  does **not** open, and nothing is printed to chat.
+- `/lh help` prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
   `NS.COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help — fourteen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
@@ -837,7 +841,7 @@ instead, for every string at once, and only in game.
 
 Walk the whole surface and confirm **not one** all-caps underscored token is visible:
 
-- `/lh` (the help index): the header reads `v1.3.0 — slash commands (/loothistory is an alias for
+- `/lh help` (the help index): the header reads `v1.3.0 — slash commands (/loothistory is an alias for
   /lh)` and each row is a gold `/lh <verb>`, an em dash, a white description — **not** `HELP_HEADER`
   or `UNKNOWN_COMMAND`.
 - `/lh list`, `/lh get settings.enabled`, `/lh set settings.enabled maybe` (which must refuse),

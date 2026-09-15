@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 10
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 11
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -355,7 +355,8 @@ end
 
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
 
---- Build a dispatcher for one host.
+--- Build a dispatcher for one host. Bare /slash runs the host's `config` verb when it has one
+--- (minor 11, slash-commands-§4); `help` prints the index.
 ---
 --- Descriptor:
 ---   slash        string    required. The command prefix, with its slash: "/at". Every usage line
@@ -649,7 +650,14 @@ function lib:New(d)
 
   function Sl:OnSlash(msg)
     local raw = (msg or ""):match("^%s*(.-)%s*$") or ""
-    if raw == "" then return self:PrintHelp() end
+    -- Bare /slash runs the host's `config` verb (minor 11, slash-commands-§4): the settings panel on
+    -- its landing page, whose own combat refusal is what a player in a fight sees. `help` is the
+    -- index. A host with no `config` verb falls back to the index, as every minor before 11 did.
+    if raw == "" then
+      local config = findCommand("config")
+      if config then return config[3]("") end
+      return self:PrintHelp()
+    end
 
     -- Only the verb is lowercased. `rest` keeps its case because schema paths are case-sensitive,
     -- and its internal spacing because a color is several tokens.
