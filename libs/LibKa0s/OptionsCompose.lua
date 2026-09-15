@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 5
+local COMPOSE_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -426,6 +426,11 @@ function lib.__AttachCompose(O, d)
   ---   onResetAll       function  options-ui-§12's global reset, verbatim. The button's tooltip
   ---                              is not the spec's: since compose minor 5 it follows the Options
   ---                              descriptor's `resetProfile` and `profilesPage` (resetAllTooltip).
+  ---   testModePath     string    since compose minor 6: the addon's test mode, as a session-only
+  ---                              "Test mode" checkbox on its own line below Lock frame / Debug
+  ---                              console (options-ui-§15). Taken VERBATIM, like the console path.
+  ---                              Omit it when the addon has no test mode: most have none, and a
+  ---                              one-shot test action is not one. The host binds get/set.
   ---   leadButton       table     { text, tooltip, onClick } — ONE act of the host's own, closing
   ---                              the tab beside the resets. Since compose minor 2.
   ---
@@ -480,6 +485,17 @@ function lib.__AttachCompose(O, d)
       -- inherits.
       sessionOnly = true,
     })
+    -- The test mode, for an addon whose preview has a switch of its own (options-ui-§15, compose
+    -- minor 6). Session state like the console row, on its own line, and absent unless the host names
+    -- its path: a checkbox shows whether the mode is on, which a button beside the resets could not.
+    if spec.testModePath then
+      emit(ms, rows, "testMode", {
+        path = spec.testModePath,
+        type = "bool", label = "Test mode",
+        tooltip = "Show placeholder content, so the display can be seen and placed without waiting for the real thing.",
+        sessionOnly = true, startsLine = true,
+      })
+    end
     appendExtra(ms, rows)
 
     -- The two resets are the tab's closing BUTTON PAIR (options-ui-§8), not schema rows: they are
