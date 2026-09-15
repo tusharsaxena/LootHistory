@@ -25,7 +25,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 17
+local WIDGETS_MINOR = 18
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -2570,6 +2570,18 @@ function lib.__AttachWidgets(O, d)
 
   --- Paint `cb`'s check region as a solid fill instead of a check glyph. Guarded end to end: a
   --- host's AceGUI fake carries no textures, and a cell with no fill is still correct, only plain.
+  ---
+  --- `cb.check` is AceGUI's OWN checkmark texture, not one this file created -- unlike the
+  --- landing-page logo above, there is nowhere else to paint a checkbox's tick. AceGUI POOLS the
+  --- CheckBox's frame: the next widget pulled from that pool has its `OnAcquire` reset the check
+  --- texture's texture, texcoord and blend mode, but NEVER its vertex color, because nothing in
+  --- AceGUI ever expects that color to have moved. Left alone, the very next CheckBox any host
+  --- acquires from the pool -- this addon's or another's sharing the same AceGUI instance --
+  --- draws this gold tint instead of its own white one, for the rest of the session, the same
+  --- shape of hazard the comment above documents for a self-owned texture. The fix here cannot be
+  --- "hide it and let the frame carry it forward" the way the logo does, because the frame's next
+  --- tenant is not drawing a grid and never asked for a tint at all -- so this restores the
+  --- texture to its un-painted color instead, the one AceGUI itself paints a fresh checkmark in.
   local function choiceFill(cb)
     local tex = cb.check or (cb.frame and cb.frame.check)
     if not (tex and tex.SetTexture and tex.SetVertexColor) then return end
@@ -2580,6 +2592,7 @@ function lib.__AttachWidgets(O, d)
       local h = (cb.frame:GetHeight() or 24) * 0.45
       tex:SetSize(h, h)
     end
+    cb:SetCallback("OnRelease", function() tex:SetVertexColor(1, 1, 1) end)
     return tex
   end
 
