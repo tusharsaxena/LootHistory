@@ -25,7 +25,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 18
+local WIDGETS_MINOR = 19
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -906,7 +906,7 @@ local ID_TEXT = {
   notFound  = "No {noun} named '{text}'.",
   ambiguous = "Several {plural} are named '{text}' \226\128\148 pick one from the list, or use the id.",
   unknown   = "Unknown {noun} {id}",
-  looking   = "Looking up {plural}\226\128\166",
+  looking   = "Looking up {plural}...",
   nameHint  = "",
   more      = "+{count} more",
 }
@@ -2531,11 +2531,6 @@ function lib.__AttachWidgets(O, d)
   -- The label column's heading when the host names none. A literal, as lib.STRINGS' own are: the
   -- library carries no locale, and a host that has one passes `labelHeader`.
   local CHOICE_LABEL_HEADER = "Category"
-  -- The lit cell's fill. A checkbox SHAPE with radio BEHAVIOR: one choice per row, but drawn as a
-  -- filled box rather than a dot, because a player reads a filled box as "this one is on" faster
-  -- than a dot in a ring. The exclusive behavior is this function's, never the widget's, so the
-  -- widget is left an ordinary CheckBox and the check glyph is replaced by a solid swatch.
-  local CHOICE_FILL_R, CHOICE_FILL_G, CHOICE_FILL_B = 1, 0.82, 0
 
   -- `hasExtra` is a boolean, not the extraColumn table itself: callers pass `extra ~= nil` so a
   -- spec with no extraColumn takes exactly the path it always did, and the label column's width is
@@ -2568,45 +2563,18 @@ function lib.__AttachWidgets(O, d)
     scroll:AddChild(line)
   end
 
-  --- Paint `cb`'s check region as a solid fill instead of a check glyph. Guarded end to end: a
-  --- host's AceGUI fake carries no textures, and a cell with no fill is still correct, only plain.
-  ---
-  --- `cb.check` is AceGUI's OWN checkmark texture, not one this file created -- unlike the
-  --- landing-page logo above, there is nowhere else to paint a checkbox's tick. AceGUI POOLS the
-  --- CheckBox's frame: the next widget pulled from that pool has its `OnAcquire` reset the check
-  --- texture's texture, texcoord and blend mode, but NEVER its vertex color, because nothing in
-  --- AceGUI ever expects that color to have moved. Left alone, the very next CheckBox any host
-  --- acquires from the pool -- this addon's or another's sharing the same AceGUI instance --
-  --- draws this gold tint instead of its own white one, for the rest of the session, the same
-  --- shape of hazard the comment above documents for a self-owned texture. The fix here cannot be
-  --- "hide it and let the frame carry it forward" the way the logo does, because the frame's next
-  --- tenant is not drawing a grid and never asked for a tint at all -- so this restores the
-  --- texture to its un-painted color instead, the one AceGUI itself paints a fresh checkmark in.
-  local function choiceFill(cb)
-    local tex = cb.check or (cb.frame and cb.frame.check)
-    if not (tex and tex.SetTexture and tex.SetVertexColor) then return end
-    tex:SetTexture("Interface\\Buttons\\WHITE8X8")
-    tex:SetVertexColor(CHOICE_FILL_R, CHOICE_FILL_G, CHOICE_FILL_B)
-    if tex.SetTexCoord then tex:SetTexCoord(0, 1, 0, 1) end
-    if tex.SetSize and cb.frame and cb.frame.GetHeight then
-      local h = (cb.frame:GetHeight() or 24) * 0.45
-      tex:SetSize(h, h)
-    end
-    cb:SetCallback("OnRelease", function() tex:SetVertexColor(1, 1, 1) end)
-    return tex
-  end
-
   --- One choice cell: lit while the row holds this column's value, writing it on a click.
   ---
   --- AceGUI toggles a CheckBox on every click, so a click on the lit cell arrives as `false`.
   --- That is not a choice -- one choice per row cannot be clicked off -- so it re-lights the cell
-  --- and writes nothing, rather than sweeping every panel for a no-op write. Drawn as a checkbox
-  --- with a yellow fill rather than an AceGUI radio dot: the exclusive one-choice-per-row
-  --- behavior is this function's, never the widget's, so the widget stays an ordinary CheckBox.
+  --- and writes nothing, rather than sweeping every panel for a no-op write. Drawn as an ordinary
+  --- AceGUI checkbox check, the same as the "Only these categories" checkbox on the same panel
+  --- (owner feedback, 2026-09-15: the earlier solid-fill treatment read as awkward). The exclusive
+  --- one-choice-per-row behavior is this function's, never the widget's -- the widget stays a
+  --- plain, unpainted CheckBox.
   local function choiceCell(ctx, row, col, line)
     local cb = O.AceGUI:Create("CheckBox")
     cb:SetLabel("")
-    cb.__checkTexture = choiceFill(cb)
     cb:SetRelativeWidth(CHOICE_CELL_REL)
 
     local function lit() return read(row) == col.value end
