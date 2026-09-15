@@ -145,6 +145,12 @@ function Sl:ResetEverything()
       NS.Debug("Data", "reset-all removed %s rows", tostring(removed))
     end
   end
+  -- Test mode is a session-only row, so the wipe above never reaches it, and options-ui-§15 says
+  -- Reset all settings ends it. Switched directly rather than written through Schema:Set, which
+  -- would log a per-row [Set] line inside a reset that logs exactly one.
+  if NS.BrowserTable and NS.BrowserTable.testMode and NS.BrowserTable.SetTestMode then
+    NS.BrowserTable:SetTestMode(false)
+  end
   if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
   print("this addon reset to defaults.")
   if NS.Browser then

@@ -25,7 +25,7 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 
 | Tab | Covers |
 |---|---|
-| **Master controls** | The addon as a whole: recording on/off, when the window may be on screen, master scale and alpha, frame lock, the debug console, reset position, reset all settings |
+| **Master controls** | The addon as a whole: recording on/off, when the window may be on screen, master scale and alpha, frame lock, the debug console, test mode, reset position, reset all settings |
 | **Capture** | What gets recorded: minimum quality, currency, quest items, and the per-source on/off picker |
 | **AH Price** | Where item values come from: the AH pricing master toggle and the ranked price-source table |
 | **Interface** | How much room it takes: window scale, row height, minimap button |
@@ -39,6 +39,7 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 * **Master scale** / **Master alpha** — size and opacity for *everything* the addon draws, the History window and the export window alike. **Window scale** on the Interface tab is the History window's own and multiplies on top, so the relationship you set between that window and the rest of your UI survives a change here.
 * **Lock frame** — stop the History window and the export window being dragged.
 * **Debug console** — show or hide the on-screen debug console. Session-only; resets on reload.
+* **Test mode** — fill the History window and Insights with a sample loot history, so you can see and place the window before you have loot of your own. Ticking it opens the window; it stays on until you untick it, and it ends by itself when you enter combat. The same switch as `/lh test`. Session-only, never saved. If General visibility keeps the window hidden, or you are in combat, it refuses to start and the box stays unticked.
 * **Reset position** — put the History window back in the middle of the screen. Nothing else changes.
 * **Reset all settings** — the big one: wipes the history, restores every setting, empties the filter lists, and puts the window back where it started. Asks first. (The `/lh resetall` command is the *smaller* action — settings and filter lists only, history untouched.)
 
@@ -101,21 +102,21 @@ The **row vocabulary is LibKa0s's** (`Schema.lua:42`), and four names moved when
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Sixteen rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
+**Seventeen rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
-| General | **Master controls** | 6 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole` |
+| General | **Master controls** | 7 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole`, `state.testMode` |
 | General | **Capture** | 4 | `settings.qualityThreshold`, `settings.recordCurrency`, `settings.excludeQuestItems`, `settings.excludedSources` |
 | General | **AH Price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
 | General | **Interface** | 3 | `settings.windowScale`, `settings.rowHeight`, `minimap.hide` |
 | General | **History** | 1 | `settings.retentionDays` |
 
-The **Master controls** block is **composed, never hand-written**: `O.MasterControls` (`OptionsCompose.lua:441`) emits the canonical eight — six rows plus the closing button pair — from one declaration in `settings/Schema.lua`, which is what stops nine addons drifting into nine orders (options-ui-§15). This addon passes `prefix = "settings."`, its own `defaults` (so `defaults/Global.lua` stays the one declaration site for every shipped value) and both reset handlers; it is **not** `frameless`, because `modules/Browser.lua` and `modules/Export.lua` both call `SetMovable(true)`, so it draws all four of §15's frame-only controls — the `scale`, `alpha` and `locked` rows, plus the **Reset position** half of the closing button pair (the composer's `frameless` branch drops exactly those four together). What the composer does not know — this addon's `onChange` hooks, the `fmt` the CLI prints a scale with, and the console toggle's `get`/`set` — is stamped onto the emitted rows by path (`stamp`, `Schema.lua`), never typed into a second copy of the block.
+The **Master controls** block is **composed, never hand-written**: `O.MasterControls` (`OptionsCompose.lua:441`) emits the canonical block — seven rows plus the closing button pair — from one declaration in `settings/Schema.lua`, which is what stops nine addons drifting into nine orders (options-ui-§15). This addon passes `prefix = "settings."`, its own `defaults` (so `defaults/Global.lua` stays the one declaration site for every shipped value, and the two session rows default to `false`), both reset handlers and `testModePath = "state.testMode"`, which is what adds the `Test mode` row; it is **not** `frameless`, because `modules/Browser.lua` and `modules/Export.lua` both call `SetMovable(true)`, so it draws all four of §15's frame-only controls — the `scale`, `alpha` and `locked` rows, plus the **Reset position** half of the closing button pair (the composer's `frameless` branch drops exactly those four together). What the composer does not know — this addon's `onChange` hooks, the `fmt` the CLI prints a scale with, the two session toggles' `get`/`set`, and the test-mode row's own tooltip — is stamped onto the emitted rows by path (`stamp`, `Schema.lua`), never typed into a second copy of the block.
 
 `settings.excludedSources` and `settings.auction.capture` are rows that draw no widget on the generic path (the first is `type = "table"`, the second carries `skipRender`); both are host-drawn from `afterGroup`. `settings.auction.capture` also **declares the "Price sources" subsection heading** — `startSubgroup` runs before the `skipRender` check, so a row that draws nothing still opens its subsection, which is how the price table gets a heading without a builder drawing one (options-ui-§7). The **History** tab is the sanctioned exemption from the two-controls-per-tab rule, exempted **by name** in `tests/test_schema.lua`: its one stored row shares the tab with two bespoke controls that have no path — the live storage readout and **Purge history…**.
 
-**Session-only rows.** Most rows persist to `NS.db.global`, but a row marked `sessionOnly = true` carries `get`/`set` accessors and is **never written to the DB** — `Schema:Set` routes to `row.set` instead of `WritePath` (`Schema.lua:415`), `Schema:Get` reads `row.get` (`Schema.lua:439`), and `Register` skips its default check. `state.debugConsole` (label "Debug console", declared by the composer and given its accessors at `Schema.lua:155`) is the one such row: it toggles the debug console **window's visibility** via `NS.DebugLog:Show/Hide/IsShown` — *not* the `NS.State.debug` logging flag (that stays non-schema, set via `/lh debug on|off`). It mirrors `/lh debug` (no-arg); the console's `onVisibilityChanged` seam calls back so the checkbox stays in sync when the window is toggled elsewhere — including with Esc or the × button, which never synced before the console moved onto `LibKa0s-DebugLog-1.0`. The register carried this row kind as an `architecture-§5` deviation until 2026-09-08. It was retired because options-ui-§15 now mandates the console toggle as a session-only row (see [ARCHITECTURE.md](ARCHITECTURE.md#documented-deviations)).
+**Session-only rows.** Most rows persist to `NS.db.global`, but a row marked `sessionOnly = true` carries `get`/`set` accessors and is **never written to the DB** — `Schema:Set` routes to `row.set` instead of `WritePath` (`Schema.lua:438`), `Schema:Get` reads `row.get` (`Schema.lua:462`), and `Register` skips its default check. There are two. `state.testMode` (label "Test mode", given its accessors at `Schema.lua:174`) is the History window's test mode, described with the Master controls tab below. `state.debugConsole` (label "Debug console", declared by the composer and given its accessors at `Schema.lua:162`) is the other: it toggles the debug console **window's visibility** via `NS.DebugLog:Show/Hide/IsShown` — *not* the `NS.State.debug` logging flag (that stays non-schema, set via `/lh debug on|off`). It mirrors `/lh debug` (no-arg); the console's `onVisibilityChanged` seam calls back so the checkbox stays in sync when the window is toggled elsewhere — including with Esc or the × button, which never synced before the console moved onto `LibKa0s-DebugLog-1.0`. The register carried this row kind as an `architecture-§5` deviation until 2026-09-08. It was retired because options-ui-§15 now mandates the console toggle as a session-only row (see [ARCHITECTURE.md](ARCHITECTURE.md#documented-deviations)).
 
 ## Widget primitives and the two-column render
 
@@ -181,14 +182,16 @@ The tab every Ka0s addon opens on, in the same order, under the same words (opti
 | Enable Loot History (`settings.enabled`) | General visibility (`settings.visibility`) |
 | Master scale (`settings.scale`) | Master alpha (`settings.alpha`) |
 | Lock frame (`settings.locked`) | Debug console (`state.debugConsole`) |
+| Test mode (`state.testMode`) | |
 | **Reset position** | **Reset all settings** |
 
-Four of the six rows and one of the two buttons are **new settings**, and each is honoured by drawing code rather than merely declared:
+Five of the seven rows and one of the two buttons are **new settings**, and each is honoured by drawing code rather than merely declared:
 
 * **General visibility** — `Browser:VisibilityAllows` reads the four modes against `InCombatLockdown()`; `B:Show` refuses (and says why) when the setting forbids the window, `B:Toggle` routes through it, and `B:ApplyVisibility` hides a window the setting has stopped allowing on the two combat transitions, registered on the Browser's own private bus target. It never *opens* the window: "Only in combat" is a permission, not an instruction to pop a 1100px browser over a pull. This addon never shipped a *show only in combat* checkbox, so the key is **new rather than migrated** — the "old" state is its absence, and AceDB merges the shipped `"always"` in.
 * **Master scale / Master alpha** — `Browser:ApplyChrome(frame, windowScale)` applies `scale × windowScale` and `alpha` to the History window, and `Export:ApplyChrome` takes the master alone for the export modal (it has no per-window scale). They are **addon-wide**, and `settings.windowScale` is the History window's own and **multiplies on top** — options-ui-§15 is explicit that the two are different settings and must not be conflated, so `windowScale` stayed on the Interface tab rather than being promoted.
 * **Lock frame** — gates the two `OnDragStart` handlers (`modules/Browser.lua`'s title bar and `modules/Export.lua`'s), rather than calling `SetMovable(false)`: the setting says "stop the frame being **dragged**", which is a gesture, and un-setting movability would also break `StopMovingOrSizing` on a drag already in flight.
 * **Reset position** — a real button over `NS.Browser:ResetWindow()`. It used to be folded into the General page's **Defaults** handler, where a player asking for defaults also got their window recentred and a player who only wanted the recentre had no way to ask.
+* **Test mode** — the History window's test mode (preview-mode), alone on its line under Lock frame | Debug console. Its value is `BrowserTable.testMode`, never a stored key, and `BrowserTable:SetTestMode` is the one switch behind the checkbox, `/lh test` and the combat start. A start publishes the sample dataset and opens the window with its red **TEST MODE** badge; a stop never opens the window. A start is refused, with one chat line and the box left unticked, when General visibility keeps the window hidden or when the player is in combat. `PLAYER_REGEN_DISABLED` on the Browser's private event target ends it and prints `test mode off — combat started`. **Reset all settings** ends it (`Slash:ResetEverything` switches it off, because its wholesale wipe of `db.global` never reaches a session-only row), and so does `/lh resetall`, whose row walk restores the row's `default = false`. Every start, stop and refusal calls `Panel:Refresh`, so the box always shows the mode.
 
 **Debug console** and **Reset all settings** are **moves, not additions**. The console toggle was the Interface tab's second checkbox; the reset was the History (then Maintenance) tab's **Reset Everything** button. Each is now declared in exactly one place, which `tests/test_schema.lua` counts rather than merely finds.
 
@@ -196,13 +199,13 @@ Four of the six rows and one of the two buttons are **new settings**, and each i
 
 ## The `Schema:Set` write seam
 
-Every setting mutation — panel widget and `/lh set` alike — routes through `NS.Schema:Set(path, value)` (`Schema.lua:415`). The library never learns a path or a database: the descriptor hands it `get` / `set` / `applyDefault` closures over this seam (`OptionsSetup.lua:175`), which is what guarantees a panel click takes exactly the path a slash command does.
+Every setting mutation — panel widget and `/lh set` alike — routes through `NS.Schema:Set(path, value)` (`Schema.lua:438`). The library never learns a path or a database: the descriptor hands it `get` / `set` / `applyDefault` closures over this seam (`OptionsSetup.lua:175`), which is what guarantees a panel click takes exactly the path a slash command does.
 
 1. **validate** — reject unknown paths; run the row's optional `validate`.
-2. **write** — `WritePath` into `NS.db.global`, storing a `deepcopy` of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`; `Schema.lua:355`). `sessionOnly` rows skip this and apply through `row.set`.
+2. **write** — `WritePath` into `NS.db.global`, storing a `deepcopy` of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`; `Schema.lua:378`). `sessionOnly` rows skip this and apply through `row.set`.
 3. **onChange** — fire the row's hook. Most publish a `Ka0s_LootHistory_SettingsChanged` bus message; `windowScale`/`minimap.hide` reach into the Browser, `retentionDays` triggers `Database:PruneOld`.
 
-`Schema:Get` reads back from `NS.db.global` (`Schema.lua:439`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view and the auction `priority` cascade are the deliberate carve-outs. They persist straight to `NS.db.global`, not through `Schema:Set`. The `blacklist`/`whitelist`/`currencyBlacklist` id sets are a structural registry written only by `NS.Filters` (`architecture-§5`). See [schema.md](schema.md) and [common-tasks.md](common-tasks.md).)
+`Schema:Get` reads back from `NS.db.global` (`Schema.lua:462`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view and the auction `priority` cascade are the deliberate carve-outs. They persist straight to `NS.db.global`, not through `Schema:Set`. The `blacklist`/`whitelist`/`currencyBlacklist` id sets are a structural registry written only by `NS.Filters` (`architecture-§5`). See [schema.md](schema.md) and [common-tasks.md](common-tasks.md).)
 
 ## Combat-gated, lazily rendered body
 
@@ -285,7 +288,7 @@ The single per-row **Enabled** checkbox writes `settings.auction.capture` (colle
 
 ## The landing page's command rows
 
-`buildMainContent` (`Panel.lua:805`) draws the logo, the tagline, a "Slash Commands" heading and one label per verb. Those rows now come from `NS.Slash:LandingRows()` (`settings/Slash.lua:348`), i.e. from `LibKa0s-Slash-1.0`'s own `FormatRow` — the same formatter the chat help uses. This page used to carry a private copy of it, and the two had silently drifted: single spaces around the em dash instead of double, no color span wrapping the dash, and a white description instead of a bare one. Deliberate and user-visible; do not "fix" it back ([LIBKA0S-09](https://github.com/tusharsaxena/LootHistory/issues/24)).
+`buildMainContent` (`Panel.lua:805`) draws the logo, the tagline, a "Slash Commands" heading and one label per verb. Those rows now come from `NS.Slash:LandingRows()` (`settings/Slash.lua:354`), i.e. from `LibKa0s-Slash-1.0`'s own `FormatRow` — the same formatter the chat help uses. This page used to carry a private copy of it, and the two had silently drifted: single spaces around the em dash instead of double, no color span wrapping the dash, and a white description instead of a bare one. Deliberate and user-visible; do not "fix" it back ([LIBKA0S-09](https://github.com/tusharsaxena/LootHistory/issues/24)).
 
 ## Ka0s options-ui-§6/§8/§10 details this panel implements
 

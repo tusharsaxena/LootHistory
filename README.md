@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-753%2F753_passing-green)
+![Tests](https://img.shields.io/badge/Tests-762%2F762_passing-green)
 
 Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot, or switch to the **Insights** tab to see the same log broken down by source, value, quality and more.
 
@@ -47,7 +47,7 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-On the first run after installing, log in, and the addon is already recording; there is nothing to set up first. Left-click the minimap button to open the History window, or type `/lh toggle` (`/lh show` and `/lh hide` if you want only the one direction). Right-click that same button goes straight to the settings, and if you would rather not have the button at all, it can be hidden. Drag the window by its title bar to place it, lock it once you are happy, and use **Reset position** if it ever ends up somewhere you cannot reach. A fresh install has nothing in it to look at, which makes the addon hard to judge, so `/lh test` loads a sample dataset into the table and Insights. Run it again to clear it. It is never saved.
+On the first run after installing, log in, and the addon is already recording; there is nothing to set up first. Left-click the minimap button to open the History window, or type `/lh toggle` (`/lh show` and `/lh hide` if you want only the one direction). Right-click that same button goes straight to the settings, and if you would rather not have the button at all, it can be hidden. Drag the window by its title bar to place it, lock it once you are happy, and use **Reset position** if it ever ends up somewhere you cannot reach. A fresh install has nothing in it to look at, which makes the addon hard to judge, so it has a test mode: tick **Test mode** on the Master controls tab, or type `/lh test`, and the window opens with a sample dataset in the table and Insights. It stays on until you turn it off, entering combat turns it off for you, and it is never saved.
 
 Click a column header to sort. The filter bar narrows what you are looking at — quality, type, source, zone, character, a name search — and **Group by** collapses rows together. That bar is shared with Insights, so the table and the charts always show the same slice of your loot rather than quietly disagreeing about which loot is under discussion. Insights takes that same slice and breaks it down by source, value, quality and character, with a Currency section of its own. When you have a view you like, **Save** stores its group, sort and filters as your account-wide default; **Clear** returns to that view and **Reset** drops the saved view back to stock. Sorting and filters only persist between sessions if you pressed Save.
 
@@ -87,7 +87,7 @@ The **value** shown throughout the History table and Insights is the higher of a
 | Does "Export to CSV" send my loot anywhere? | No. It builds the CSV text and opens a box for you to copy by hand. Nothing leaves the game; what you do with the copied text is your business. |
 | Do my filters and sorting stick between sessions? | Only if you save them. The filter bar's **Save** button stores the current group, sort and filters as your account-wide default view; **Clear** returns to that view, and **Reset** drops the saved view back to stock. |
 | How do I wipe everything and start clean? | `/lh purge` deletes all history, with a confirmation first. To reset your settings but keep the history, `/lh resetall`. |
-| What is `/lh test` for? | It loads a sample dataset into the window and Insights so you can see how they look without real loot. Temporary, never saved, and it clears when you run it again. |
+| What is `/lh test` for? | It turns on test mode, which loads a sample dataset into the window and Insights so you can see how they look without real loot. The **Test mode** checkbox on the Master controls tab is the same switch. It is never saved, and it clears when you run the command again, untick the box, or enter combat. |
 | Does history survive reloads and relogs? | Yes. It is saved and restored every time you log in. |
 
 ## Troubleshooting
@@ -103,7 +103,7 @@ The **value** shown throughout the History table and Insights is the higher of a
 | Rows are missing from the table. | A column filter or the search box is probably narrowing it. Press **Clear** on the filter bar to return to your saved view. Filters and sorting only persist between sessions if you pressed **Save**. |
 | `/lh debug on` doesn't open the debug window. | `on` / `off` control debug **logging**, which is session-only and off again after every reload. That is not the window. Show the window with `/lh debug` and no argument, or the **Master controls ▸ Debug console** toggle. Logging runs perfectly well with the window closed. |
 | The window is off-screen or the wrong size. | Position, size and scale are remembered per account. Adjust **Interface ▸ Window scale**, or drag it back into view. |
-| I want to preview the window but have no loot yet. | `/lh test` loads a sample dataset; `/lh test` again clears it. |
+| I want to preview the window but have no loot yet. | Tick **Master controls ▸ Test mode**, or type `/lh test`. Untick it, or run `/lh test` again, to clear it. |
 | I want to wipe everything and start over. | `/lh purge` clears all history, with a confirmation. `/lh resetall` resets settings without touching your history. |
 
 ## Issues and feature requests

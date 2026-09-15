@@ -42,7 +42,7 @@ Companion docs:
 | 6 | Saved view | Save / Reset / Clear, character scope | [Saved view + character scope](#6-saved-view--character-scope) |
 | 6a | Export | Tab-aware CSV copy window, All Data / Current View | [Export](#6a-export) |
 | 7 | Insights | Shared filter scope, cards, breakdowns | [Insights tab](#7-insights-tab) |
-| 8 | Test mode | Synthetic dataset drives both tabs | [`/lh test` synthetic preview](#8-lh-test-synthetic-preview) |
+| 8 | Test mode | Synthetic dataset drives both tabs; Master controls **Test mode** box, combat end, refusals | [`/lh test` synthetic preview](#8-lh-test-synthetic-preview) |
 | 9 | Settings panel | Schema widgets ↔ CLI parity | [Settings panel + CLI parity](#9-settings-panel--cli-parity) |
 | 10 | Panel chrome | options-ui-§10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
 | 11 | Minimap | LibDBIcon show/hide, click actions | [Minimap button](#11-minimap-button) |
@@ -434,12 +434,24 @@ Test mode is session-only and drives **both** tabs (the `ActiveHistory` seam swa
 dataset for Query/Stats/CurrentRecords).
 
 **Steps.**
-- `/lh test` (chat prints "test mode on"). `/lh show`.
+- `/lh hide`, then `/lh test` (chat prints "test mode on"). The window opens by itself.
 - Inspect the **History** tab, then the **Insights** tab.
-- `/lh test` again (prints "test mode off").
-- `/reload`.
+- Close the window, then `/lh test` again (prints "test mode off"). The window stays closed.
+- Open **Settings ▸ Ka0s Loot History ▸ General ▸ Master controls**. **Test mode** sits alone on the
+  line under Lock frame | Debug console. Tick it: the window opens in test mode. Untick it: test mode
+  ends. Tick it again, then type `/lh test`: the box unticks.
+- Tick **Test mode**, close the window, then attack a target dummy.
+- Out of combat, set **General visibility** to **Never** and tick **Test mode**. Set it back to
+  **Always**, attack the dummy again and, while in combat, type `/lh test`.
+- Tick **Test mode**, then **Reset all settings** and confirm.
+- Tick **Test mode** again, then `/reload`.
 
 **Pass.**
+- Combat start: chat prints `test mode off — combat started` once, the **Test mode** box unticks, and
+  the window does **not** open.
+- Visibility **Never**: chat prints one `test mode not started — …` line, no window opens and the box
+  stays unticked. The in-combat `/lh test` is refused the same way, with a line naming combat.
+- **Reset all settings** leaves test mode off and the box unticked.
 - Test mode on: a bright-red **TEST MODE** badge sits beside the window title; the table fills with
   synthetic rows (spanning several synthetic characters), the filter dropdowns rebuild from the test
   data, and the History view opens on the stock view + **All players** (the test chars differ from the
@@ -508,6 +520,7 @@ History** (both must land on the same category).
   **logging** state (`/lh get state.debugConsole` reports window visibility; logging is still governed
   by `/lh debug on|off`). Toggle the window via `/lh debug` (no arg) and the console's own close
   button — the checkbox tracks it. Reload: the checkbox is unchecked (session-only, never persisted).
+- **Test mode** (Master controls, alone on the line under Lock frame | Debug console): walked in §8.
 - `/lh list` — spot-check every panel row is present with its current value.
 - `/lh set windowScale 9` (out of range); `/lh set windowScale abc` (non-number).
 - `/lh reset settings.qualityThreshold`; `/lh reset settings.excludedSources`.
@@ -519,7 +532,7 @@ History** (both must land on the same category).
 - `/lh list` groups its output under `[Capture]`, `[AH Price]`, `[Interface]`, `[History]` —
   the tab names, in strip order. The headers follow the `group` field, so a tab rename lands here
   too and a stale `[Collection]` or `[Maintenance]` means one was missed.
-- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`,
+- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`, `state.testMode`,
   `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
   `settings.retentionDays`, `settings.excludedSources`).
 - The **Debug console** checkbox reflects the console window's visibility (not the logging flag),
@@ -847,8 +860,8 @@ already identical to the library's, so **anything that looks different here is t
 3. There is **one** sub-page, **General**. Its header reads `Ka0s Loot History ▸ General` with the
    gold divider under it and a **Defaults** button top-right, and a six-tab strip below that (walked
    in §9). The two-column pairing per tab: **Master controls** reads Enable Loot History | General
-   visibility, then Master scale | Master alpha, then Lock frame | Debug console, then the button
-   pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
+   visibility, then Master scale | Master alpha, then Lock frame | Debug console, then Test mode
+   alone, then the button pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
    currency, then Exclude quest items alone, then the full-width **Record data from** grid;
    **AH Price** reads the *Pricing* heading, Enable AH pricing, the *Price sources* heading and the
    eleven-row table; **Interface** reads Window scale | Row height, then Hide minimap button;

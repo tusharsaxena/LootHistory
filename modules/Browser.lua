@@ -1293,7 +1293,14 @@ function B:Enable()
       NS.Coalesce(function() B:OnHistoryChanged() end, NS.Constants.RECORD_ADDED_COALESCE))
     -- The two transitions the General visibility dropdown is about. Only ever HIDES: a window the
     -- setting stops allowing goes away, and one it starts allowing is still the player's to open.
-    B.__ev:RegisterEvent("PLAYER_REGEN_DISABLED", function() B:ApplyVisibility() end)
+    -- The combat start also ends test mode (preview-mode, options-ui-§15): no sample row may sit
+    -- over real loot in a fight. EndTestModeForCombat never opens the window.
+    B.__ev:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+      B:ApplyVisibility()
+      if NS.BrowserTable and NS.BrowserTable.EndTestModeForCombat then
+        NS.BrowserTable:EndTestModeForCombat()
+      end
+    end)
     B.__ev:RegisterEvent("PLAYER_REGEN_ENABLED",  function() B:ApplyVisibility() end)
     B:SetupMinimap()
   end

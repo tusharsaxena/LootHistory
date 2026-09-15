@@ -50,6 +50,7 @@ local MASTER_ROWS = {
   { "settings.alpha",      "Master alpha" },
   { "settings.locked",     "Lock frame" },
   { "state.debugConsole",  "Debug console" },
+  { "state.testMode",      "Test mode" },
 }
 
 test("Schema: Master controls is the FIRST group on the General page", function()
@@ -90,6 +91,56 @@ test("Schema: every canonical row is declared ONCE — nothing was copied here, 
       assertEqual(n, 1, want[1] .. " is declared " .. n .. " times")
     end
   end)
+
+test("Schema: Test mode is the composed row right after Debug console, session-only, on its own line",
+  function()
+    -- options-ui-§15 (standard v2.47.0): a positionable display ships a test mode, and its only
+    -- panel switch is a session-only `Test mode` checkbox, the row below Lock frame / Debug console,
+    -- starting its own line. COMPOSED from `testModePath`, never hand-written.
+    -- red under: no `testModePath` in the spec, a row that pairs with the console, a row that
+    -- persists, a row with no default (Reset all settings could not end it), or the composer's
+    -- generic tooltip left in place.
+    local S = NS.Schema
+    local consoleAt, testAt
+    for i, row in ipairs(S.Schema) do
+      if row.path == "state.debugConsole" then consoleAt = i end
+      if row.path == "state.testMode" then testAt = i end
+    end
+    assertTrue(testAt ~= nil, "state.testMode row missing")
+    assertEqual(testAt, consoleAt + 1, "Test mode comes directly after Debug console")
+    local row = S.Schema[testAt]
+    assertEqual(row.type, "bool")
+    assertEqual(row.label, "Test mode")
+    assertEqual(row.group, "Master controls")
+    assertTrue(row.sessionOnly == true, "row not marked sessionOnly")
+    assertTrue(row.startsLine == true, "Test mode starts its own line")
+    assertTrue(row.default == false, "default = false, so a reset ends it")
+    assertEqual(S:Default("state.testMode"), false)
+    assertTrue(type(row.get) == "function" and type(row.set) == "function",
+      "the host binds get/set, as it does for the console row")
+    assertTrue(type(row.tooltip) == "string" and row.tooltip:find("/lh test", 1, true) ~= nil,
+      "the tooltip is this addon's own, not the composer's generic one: " .. tostring(row.tooltip))
+  end)
+
+test("Schema: Test mode is never written to db.global, and ships no stored default", function()
+  local BT = NS.BrowserTable
+  NS.db.global.state = nil
+  local realSet = BT.SetTestMode
+  local asked = {}
+  BT.SetTestMode = function(self, on) asked[#asked + 1] = on; self.testMode = on and true or false; return true end
+  local ok, err = pcall(function()
+    NS.Schema:Set("state.testMode", true)
+    assertEqual(NS.Schema:Get("state.testMode"), true)
+    NS.Schema:Set("state.testMode", true)   -- already on: nothing to switch
+    NS.Schema:Set("state.testMode", false)
+    assertEqual(NS.Schema:Get("state.testMode"), false)
+  end)
+  BT.SetTestMode, BT.testMode = realSet, false
+  if not ok then error(err, 0) end
+  assertEqual(#asked, 2, "the set switches only when the value differs")
+  assertTrue(NS.db.global.state == nil, "session-only row must not persist to db.global")
+  assertTrue(NS.defaults.global.state == nil, "nothing in defaults/Global.lua for a session row")
+end)
 
 test("Schema: General visibility is a four-value dropdown, not a boolean", function()
   -- options-ui-§15: a boolean can only ever answer two of the four. This addon never shipped a
@@ -507,7 +558,7 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 6 }, { "Capture", 4 }, { "AH Price", 2 },
+    { "Master controls", 7 }, { "Capture", 4 }, { "AH Price", 2 },
     { "Interface", 3 }, { "History", 1 },
   },
 }

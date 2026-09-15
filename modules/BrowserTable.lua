@@ -523,11 +523,49 @@ function BrowserTable:BuildTestData()
   return out
 end
 
-function BrowserTable:ToggleTestMode()
-  self.testMode = not self.testMode
+-- ── Test mode (preview-mode, options-ui-§15) ─────────────────────────────────────────────────
+--
+-- The History window's test mode: the sample dataset above, on the window and Insights, turned on
+-- and left on until turned off. Session-only (never stored, off after /reload), independent of the
+-- Lock frame setting, and ended when combat starts. ONE switch, SetTestMode, behind three drivers:
+-- the Master controls `Test mode` checkbox (state.testMode), `/lh test` and the combat start.
+
+-- The Master controls checkbox reads BrowserTable.testMode, so every start, stop and refusal
+-- re-reads the panel.
+local function refreshPanel()
+  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
+end
+
+-- Why a start cannot go ahead right now, or nil. A preview nobody can see is not a preview, so a
+-- start the General visibility setting would keep off screen is refused rather than run invisibly;
+-- and the mode ends when combat starts, so it does not start inside one either.
+local function testModeRefusal()
+  if InCombatLockdown and InCombatLockdown() then
+    return "combat ends it, so it cannot start in combat."
+  end
+  if NS.Browser and NS.Browser.VisibilityAllows and not NS.Browser:VisibilityAllows() then
+    return "the General visibility setting keeps the window hidden."
+  end
+end
+
+--- Turn test mode on or off. Returns true when test mode now matches `on`, false for a refused
+--- start, which prints one line and leaves the checkbox unticked. A start opens the window; a stop
+--- never does.
+function BrowserTable:SetTestMode(on)
+  on = on and true or false
+  if on == (self.testMode == true) then return true end
+  if on then
+    local why = testModeRefusal()
+    if why then
+      NS.Print("test mode not started \226\128\148 " .. why)
+      refreshPanel()
+      return false
+    end
+  end
+  self.testMode = on
   -- Publish to State so every read-path query (table + Insights) resolves against the same data.
-  NS.State.testRecords = self.testMode and self:BuildTestData() or nil
-  if NS.Browser and NS.Browser.Show then NS.Browser:Show() end
+  NS.State.testRecords = on and self:BuildTestData() or nil
+  if on and NS.Browser and NS.Browser.Show then NS.Browser:Show() end
   -- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the
   -- new dataset, refresh the footer, and toggle the Test-Mode badge.
   if NS.Browser and NS.Browser.OnDatasetChanged then
@@ -535,7 +573,21 @@ function BrowserTable:ToggleTestMode()
   else
     self:Refresh()
   end
-  return self.testMode
+  refreshPanel()
+  return true
+end
+
+--- `/lh test`: flip the mode. Returns the mode after the call and whether it switched.
+function BrowserTable:ToggleTestMode()
+  local switched = self:SetTestMode(not self.testMode)
+  return self.testMode, switched
+end
+
+--- PLAYER_REGEN_DISABLED (modules/Browser.lua): end a running test mode with one line. Opens nothing.
+function BrowserTable:EndTestModeForCombat()
+  if not self.testMode then return end
+  self:SetTestMode(false)
+  NS.Print("test mode off \226\128\148 combat started")
 end
 
 -- Stable sort by the active column into a NEW array (records are not mutated). Lua 5.1's

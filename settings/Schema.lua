@@ -70,6 +70,10 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   page             = "General",
   addonName        = "Loot History",
   debugConsolePath = "state.debugConsole",
+  -- The History window is a positionable display, so it ships a test mode and this is its switch:
+  -- a session-only `Test mode` checkbox on its own line below Lock frame / Debug console
+  -- (options-ui-§15, preview-mode; LibKa0s compose minor 6). Verbatim, like the console path.
+  testModePath     = "state.testMode",
   defaults = {
     enabled    = G.settings.enabled,
     visibility = G.settings.visibility,
@@ -80,6 +84,9 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
     -- closed at every load and "closed" is `false`. Declared all the same, because a row with no
     -- default is a row `/lh reset` cannot restore and a `Schema:Default` that answers nil.
     debugConsole = false,
+    -- Session-only too, and off at every load. `false` is what lets a reset end it: the row walk
+    -- behind `/lh resetall` restores each row to this value (options-ui-§15).
+    testMode = false,
   },
   -- Its own button now, over the window geometry carve-out. It used to be folded into the General
   -- page's Defaults handler, where a player asking for "defaults" also got their window recentred
@@ -158,6 +165,22 @@ stamp(MASTER_ROWS, {
     set = function(v)
       if not NS.DebugLog then return end
       if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
+    end,
+  },
+  -- Session-only as well: its value IS BrowserTable.testMode, never a stored key. The set switches
+  -- only when the value differs and goes through BrowserTable:SetTestMode, the one switch the box,
+  -- `/lh test` and the combat start share; that refreshes the panel on every start and stop, so a
+  -- refused start (window not allowed on screen, or in combat) redraws the box unticked.
+  ["state.testMode"] = {
+    widget = "CheckBox",
+    tooltip = "Fill the History window and Insights with a sample loot history, so you can see "
+      .. "and place the window before you have loot of your own. Never saved. Combat ends it. "
+      .. "The same as /lh test.",
+    get = function() return NS.BrowserTable ~= nil and NS.BrowserTable.testMode == true end,
+    set = function(v)
+      local BT = NS.BrowserTable
+      if not (BT and BT.SetTestMode) then return end
+      if (v and true or false) ~= (BT.testMode == true) then BT:SetTestMode(v) end
     end,
   },
 })
@@ -507,8 +530,12 @@ NS.COMMANDS = {
       else NS.DebugLog:Toggle() end
     end },
   { "test", "Toggle a synthetic preview dataset (table + Insights)", function()
-      local on = NS.BrowserTable and NS.BrowserTable.ToggleTestMode and NS.BrowserTable:ToggleTestMode()
-      print("test mode " .. (on and "on" or "off"))
+      -- The same switch as the Master controls `Test mode` box. A refused start prints its own one
+      -- line, so this one prints only when the mode actually switched.
+      local BT = NS.BrowserTable
+      if not (BT and BT.ToggleTestMode) then return end
+      local on, switched = BT:ToggleTestMode()
+      if switched then print("test mode " .. (on and "on" or "off")) end
     end },
   { "purge", "Delete ALL loot history (asks to confirm)", function()
       if type(StaticPopup_Show) == "function" then

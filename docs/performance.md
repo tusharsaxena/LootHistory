@@ -69,8 +69,8 @@ in the order the grep prints them, so the two can be held side by side.
 | `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:348` | Out of combat by construction. |
 | `QUEST_TURNED_IN` | `modules/Attribution.lua:349` | One context stamp. |
 | `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:354` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1296` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1140`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1297` | The other edge of the same handler, same cost. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1298` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1140`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1304` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** The third
 grep returns **eight** lines: one is the pattern name in a comment (`core/Util.lua:248`), two are

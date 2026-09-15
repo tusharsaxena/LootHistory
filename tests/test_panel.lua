@@ -195,7 +195,7 @@ test("Panel: the Master controls tab holds the canonical rows and the closing bu
     -- settings — and they are drawn by the composer's own afterGroup hook.
     local created = show(mocks.__subcategories["General"])
     for _, label in ipairs({ "Enable Loot History", "General visibility", "Master scale",
-                             "Master alpha", "Lock frame", "Debug console" }) do
+                             "Master alpha", "Lock frame", "Debug console", "Test mode" }) do
       assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
     end
     for _, text in ipairs({ "Reset position", "Reset all settings" }) do
@@ -464,6 +464,40 @@ test("Panel: clicking a checkbox writes through NS.Schema:Set", function()
   cb:__fire("OnValueChanged", true)
   assertEqual(NS.Schema:Get("settings.enabled"), true)
 end)
+
+test("Panel: the Test mode checkbox starts test mode, and a refused start redraws it unticked",
+  function()
+    -- options-ui-§15: "the checkbox follows every start and stop, and a refused start leaves it
+    -- unticked". The click reaches the same switch `/lh test` drives; a start the General
+    -- visibility setting forbids is refused and the panel re-reads the box.
+    -- red under: a row that stores the click instead of switching, or a refusal with no refresh.
+    local created = show(mocks.__subcategories["General"])
+    local cb = findByLabel(created, "Test mode")
+    assertTrue(cb ~= nil and cb.type == "CheckBox", "Test mode is not drawn as a checkbox")
+    local BT, s = NS.BrowserTable, NS.db.global.settings
+    local savedVis = s.visibility
+    local cf = mocks.DEFAULT_CHAT_FRAME
+    local oldAdd = cf.AddMessage
+    cf.AddMessage = function() end
+    local ok, err = pcall(function()
+      s.visibility = "always"
+      cb:SetValue(true); cb:__fire("OnValueChanged", true)
+      assertTrue(BT.testMode, "ticking the box did not start test mode")
+      assertEqual(cb:GetValue(), true)
+      cb:SetValue(false); cb:__fire("OnValueChanged", false)
+      assertFalse(BT.testMode, "unticking the box did not stop test mode")
+
+      s.visibility = "never"
+      cb:SetValue(true); cb:__fire("OnValueChanged", true)
+      assertFalse(BT.testMode, "a refused start went ahead")
+      assertEqual(cb:GetValue(), false, "a refused start must leave the box unticked")
+    end)
+    cf.AddMessage = oldAdd
+    s.visibility = savedVis
+    if BT.testMode then BT:SetTestMode(false) end
+    NS.Browser:Hide()
+    if not ok then error(err, 0) end
+  end)
 
 test("Panel: choosing a dropdown entry writes the stored value", function()
   local ctx = NS.Panel.general

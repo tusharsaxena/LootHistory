@@ -709,3 +709,164 @@ test("BrowserTable: a corrupt row height falls back to the shipped one, never to
   assertEqual(NS.BrowserTable.RowHeight(), 18)
   NS.Schema:Set("settings.rowHeight", restore)
 end)
+
+-- ── Test mode (preview-mode, options-ui-§15) ─────────────────────────────────────────────────
+--
+-- ONE switch, three drivers: the Master controls `Test mode` checkbox (state.testMode), `/lh test`
+-- (a toggle) and the combat start that ends it. All three meet in BrowserTable:SetTestMode, so the
+-- box follows every start and stop. Last in the file because a start opens the History window and
+-- swaps the dataset under the filter bar.
+
+--- Run `fn` with chat captured, the panel refresh counted and the shared state parked; always
+--- leaves test mode off and the window closed.
+local function withTestMode(fn)
+  local BT, B = NS.BrowserTable, NS.Browser
+  local s = NS.db.global.settings
+  local savedVis, savedCombat = s.visibility, T.mocks.InCombatLockdown
+  local savedGroup, savedFilter = BT.groupBy, BT.filter
+  local lines, refreshes = {}, 0
+  local cf = T.mocks.DEFAULT_CHAT_FRAME
+  local oldAdd, oldRefresh = cf.AddMessage, NS.Panel.Refresh
+  cf.AddMessage = function(_, msg) lines[#lines + 1] = msg end
+  NS.Panel.Refresh = function(...) refreshes = refreshes + 1; return oldRefresh(...) end
+  local ok, err = pcall(fn, lines, function() return refreshes end)
+  cf.AddMessage, NS.Panel.Refresh = oldAdd, oldRefresh
+  s.visibility, T.mocks.InCombatLockdown = savedVis, savedCombat
+  if BT.testMode then BT:SetTestMode(false) end
+  B:Hide()
+  BT.groupBy, BT.filter = savedGroup, savedFilter
+  if not ok then error(err, 0) end
+end
+
+local function windowShown()
+  local f = NS.Browser:GetWindow()
+  return f ~= nil and f:IsShown() and true or false
+end
+
+--- The handler the Browser's private event target holds for the combat start, fired the way
+--- CallbackHandler fires a function ref.
+local function combatStarts()
+  NS.Browser:Enable()
+  local handler = NS.Browser.__ev.__events.PLAYER_REGEN_DISABLED
+  assertEqual(type(handler), "function", "PLAYER_REGEN_DISABLED is not registered")
+  handler("PLAYER_REGEN_DISABLED")
+end
+
+test("Test mode: ticking the box enters test mode and opens the History window", function()
+  withTestMode(function(_, refreshes)
+    NS.Browser:Hide()
+    NS.Schema:Set("state.testMode", true)
+    assertTrue(NS.BrowserTable.testMode, "the box did not start test mode")
+    assertTrue(NS.State.testRecords ~= nil and #NS.State.testRecords > 0, "no sample dataset")
+    assertTrue(windowShown(), "a start opens the window: the preview must be on screen")
+    assertEqual(NS.Schema:Get("state.testMode"), true, "the box reads ticked")
+    assertTrue(refreshes() >= 1, "a start refreshes the panel so the box follows it")
+  end)
+end)
+
+test("Test mode: unticking the box leaves it and never opens a closed window", function()
+  withTestMode(function(_, refreshes)
+    NS.Schema:Set("state.testMode", true)
+    NS.Browser:Hide()
+    local before = refreshes()
+    NS.Schema:Set("state.testMode", false)
+    assertFalse(NS.BrowserTable.testMode, "the box did not stop test mode")
+    assertTrue(NS.State.testRecords == nil, "the sample dataset outlived test mode")
+    assertFalse(windowShown(), "a stop must not open the window")
+    assertEqual(NS.Schema:Get("state.testMode"), false)
+    assertTrue(refreshes() > before, "a stop refreshes the panel so the box follows it")
+  end)
+end)
+
+test("Test mode: /lh test and the box drive the same switch and stay in step", function()
+  withTestMode(function(lines)
+    NS.Slash:OnSlash("test")
+    assertTrue(NS.BrowserTable.testMode, "/lh test did not start test mode")
+    assertEqual(NS.Schema:Get("state.testMode"), true, "the box follows /lh test")
+    assertTrue(lines[#lines]:find("test mode on", 1, true) ~= nil, tostring(lines[#lines]))
+
+    NS.Schema:Set("state.testMode", false)
+    assertFalse(NS.BrowserTable.testMode)
+    NS.Schema:Set("state.testMode", true)
+    NS.Slash:OnSlash("test")
+    assertFalse(NS.BrowserTable.testMode, "/lh test toggles off a mode the box started")
+    assertEqual(NS.Schema:Get("state.testMode"), false, "the box follows /lh test off")
+    assertTrue(lines[#lines]:find("test mode off", 1, true) ~= nil, tostring(lines[#lines]))
+  end)
+end)
+
+test("Test mode: combat ends it with one line, unticks the box and opens nothing", function()
+  -- preview-mode / options-ui-§15: "it ends when combat starts", so no placeholder covers real
+  -- loot in a fight. The ending must not pop the window open (the old toggle called Show both ways).
+  withTestMode(function(lines, refreshes)
+    NS.Schema:Set("state.testMode", true)
+    NS.Browser:Hide()
+    local n, before = #lines, refreshes()
+    combatStarts()
+    assertFalse(NS.BrowserTable.testMode, "combat did not end test mode")
+    assertEqual(NS.Schema:Get("state.testMode"), false, "the box reads unticked")
+    assertTrue(refreshes() > before, "the combat stop refreshes the panel")
+    assertFalse(windowShown(), "ending test mode for combat must not open the window")
+    assertEqual(#lines, n + 1, "exactly one line: " .. table.concat(lines, " | ", n + 1))
+    assertTrue(lines[#lines]:find("combat started", 1, true) ~= nil, tostring(lines[#lines]))
+
+    -- Combat with test mode already off says nothing.
+    combatStarts()
+    assertEqual(#lines, n + 1, "a combat start with test mode off printed a line")
+  end)
+end)
+
+test("Test mode: a refused start prints one line and leaves the box unticked", function()
+  withTestMode(function(lines, refreshes)
+    -- The General visibility setting forbids the window, so the preview could not be seen.
+    NS.db.global.settings.visibility = "never"
+    local n, before = #lines, refreshes()
+    NS.Schema:Set("state.testMode", true)
+    assertFalse(NS.BrowserTable.testMode, "a start the window cannot show went ahead invisibly")
+    assertEqual(NS.Schema:Get("state.testMode"), false, "the box reads unticked")
+    assertTrue(NS.State.testRecords == nil, "a refused start published the sample dataset")
+    assertTrue(refreshes() > before, "the refusal refreshes the panel so the box unticks")
+    assertEqual(#lines, n + 1, "exactly one line: " .. table.concat(lines, " | ", n + 1))
+    assertTrue(lines[#lines]:find("not started", 1, true) ~= nil, tostring(lines[#lines]))
+
+    -- `/lh test` is refused the same way, and does not then claim "test mode off" as well.
+    n = #lines
+    NS.Slash:OnSlash("test")
+    assertFalse(NS.BrowserTable.testMode)
+    assertEqual(#lines, n + 1, "one line for a refused /lh test: " .. table.concat(lines, " | ", n + 1))
+
+    -- In combat: the mode ends when combat starts, so it cannot start inside one.
+    NS.db.global.settings.visibility = "always"
+    T.mocks.InCombatLockdown = function() return true end
+    n = #lines
+    NS.Schema:Set("state.testMode", true)
+    assertFalse(NS.BrowserTable.testMode, "test mode started in combat")
+    assertEqual(#lines, n + 1, "exactly one line: " .. table.concat(lines, " | ", n + 1))
+    assertTrue(lines[#lines]:find("combat", 1, true) ~= nil, tostring(lines[#lines]))
+  end)
+end)
+
+test("Test mode: Reset all settings and /lh resetall both end it", function()
+  -- options-ui-§15: the mode is "ended by Reset all settings (the row declares default = false)".
+  -- The Master controls button runs Sl:ResetEverything, a wholesale db.global wipe that never
+  -- walks the session-only rows, so it ends test mode itself; `/lh resetall` walks every row and
+  -- restores this one to its default.
+  withTestMode(function()
+    local g = NS.db.global
+    local saved = {}
+    for k, v in pairs(g) do saved[k] = v end
+    NS.Schema:Set("state.testMode", true)
+    local ok, err = pcall(NS.Slash.ResetEverything, NS.Slash)
+    local after = NS.BrowserTable.testMode
+    for k in pairs(g) do g[k] = nil end
+    for k, v in pairs(saved) do g[k] = v end
+    if not ok then error(err, 0) end
+    assertFalse(after, "Reset all settings left test mode on")
+    assertEqual(NS.Schema:Get("state.testMode"), false)
+
+    NS.Schema:Set("state.testMode", true)
+    NS.Slash:CliResetAll()
+    assertFalse(NS.BrowserTable.testMode, "/lh resetall left test mode on")
+    assertEqual(NS.Schema:Get("state.testMode"), false)
+  end)
+end)

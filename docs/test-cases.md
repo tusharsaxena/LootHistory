@@ -415,7 +415,7 @@ badge and any count quoted in the docs must agree with it.
 - browser: SetupMinimap registers with LibDBIcon and writes nothing to the stored minimap table
 - browser: Reset all settings re-points LibDBIcon at the new minimap table, so a later drag persists
 
-### test_browsertable.lua (56)
+### test_browsertable.lua (62)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -473,6 +473,12 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: the clamp's bounds ARE the slider's bounds
 - BrowserTable: the row height is clamped, because it comes from SavedVariables
 - BrowserTable: a corrupt row height falls back to the shipped one, never to nil
+- Test mode: ticking the box enters test mode and opens the History window
+- Test mode: unticking the box leaves it and never opens a closed window
+- Test mode: /lh test and the box drive the same switch and stay in step
+- Test mode: combat ends it with one line, unticks the box and opens nothing
+- Test mode: a refused start prints one line and leaves the box unticked
+- Test mode: Reset all settings and /lh resetall both end it
 
 ### test_export.lua (25)
 
@@ -580,12 +586,14 @@ badge and any count quoted in the docs must agree with it.
 - an unknown verb says so and then prints the help index
 - library-less install: the degraded help omits config, which would only decline
 
-### test_schema.lua (47)
+### test_schema.lua (49)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
 - Schema: the Master controls tab holds exactly the canonical rows, in canonical order
 - Schema: every canonical row is declared ONCE — nothing was copied here, it was moved
+- Schema: Test mode is the composed row right after Debug console, session-only, on its own line
+- Schema: Test mode is never written to db.global, and ships no stored default
 - Schema: General visibility is a four-value dropdown, not a boolean
 - Schema: a profile written before this release gets visibility from the shipped defaults
 - Schema: setting debugConsole toggles the window, never writes db.global
@@ -695,7 +703,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (61)
+### test_panel.lua (62)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -716,6 +724,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its SUBSECTIONS
 - Panel: a subgroup heading never repeats its own tab's name (options-ui-§7)
 - Panel: clicking a checkbox writes through NS.Schema:Set
+- Panel: the Test mode checkbox starts test mode, and a refused start redraws it unticked
 - Panel: choosing a dropdown entry writes the stored value
 - Panel: releasing a slider writes the stored value
 - Panel: an external write is mirrored back by Refresh
@@ -864,13 +873,13 @@ badge and any count quoted in the docs must agree with it.
 | test_database.lua | 60 |
 | test_stats.lua | 19 |
 | test_browser.lua | 60 |
-| test_browsertable.lua | 56 |
+| test_browsertable.lua | 62 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
 | test_slash.lua | 50 |
-| test_schema.lua | 47 |
+| test_schema.lua | 49 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 61 |
+| test_panel.lua | 62 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 20 |
 | test_surface_parity.lua | 5 |
@@ -879,4 +888,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **753** |
+| **Total** | **762** |
