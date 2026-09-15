@@ -110,6 +110,10 @@ if not lib then
     UnnamedCandidates = function() return {} end,
     ID_NAME_HINT      = {},
 
+    -- SelectTab, new at LibKa0s v1.36.0: reached only from a tab click on an already-rendered
+    -- page. This addon does not adopt tab-scoped refresh, so the same inert no-op applies.
+    SelectTab = noop,
+
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
     -- They still answer NOTHING here, and that is the honest shape rather than a shortfall. The

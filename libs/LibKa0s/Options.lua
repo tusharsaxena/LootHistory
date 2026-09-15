@@ -21,7 +21,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 18
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 19
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -1270,6 +1270,28 @@ function lib:New(d)
     for _, ctx in ipairs(renderedPanels) do
       if ctx.pageKey == pageKey then return ctx end
     end
+  end
+
+  --- Select one tab on an already-rendered page. For a host sending the player somewhere specific
+  --- -- a link on one page that lands on another page's tab -- without reaching into the private
+  --- __panelFor test seam to do it. The page must be rendered: a page the player has never opened
+  --- has no ctx and therefore no tab to hold, and `false` says so rather than storing an intent
+  --- this function has nowhere to keep.
+  ---
+  --- The caller opens the page (a host's own OpenToCategory wrapper, with its own combat gate);
+  --- this only moves the tab.
+  ---
+  --- Refreshes ONLY the target page (`O.RefreshPanel(ctx, true)` -- a tab switch is a shape
+  --- change), never a sweep. A player with more than one of this library's pages rendered in a
+  --- session must not have every other one rebuilt -- and its transient UI state (an open
+  --- dropdown, scroll position) dropped -- by a link that only meant to move one page's tab.
+  --- @return boolean  whether a rendered panel with that page key was found and its tab set
+  function O.SelectTab(pageKey, tabKey)
+    local ctx = O.__panelFor(pageKey)
+    if not ctx then return false end
+    ctx.activeTab = tabKey
+    O.RefreshPanel(ctx, true)
+    return true
   end
 
   -- The widget makers, the flow engine and the scrollbar patch attach here, so every host gets
