@@ -129,7 +129,14 @@ local function traceSettingsReset(g)
   if not (NS.State and NS.State.debug and NS.Debug) then return end
   local S, n = NS.Schema, 0
   for _, row in ipairs(S and S.Schema or {}) do
-    if not row.sessionOnly and not S.SameValue(S:ReadPath(g, row.path), row.default) then
+    -- Read in the ROW's own sense, not the store's. They are the same for every row but one:
+    -- `minimap.hide` says SHOWN while the stored key says HIDDEN (launcher-§3), so a raw ReadPath
+    -- compared against the row's default never matches and the row would be counted on every
+    -- reset, whether or not the wipe changes it. `row.get` reads the live `db.global`, which is
+    -- the same table `g` is: wipeGlobal empties it IN PLACE, and this runs before it.
+    local current
+    if row.get then current = row.get() else current = S:ReadPath(g, row.path) end
+    if not row.sessionOnly and not S.SameValue(current, row.default) then
       n = n + 1
     end
   end
@@ -145,9 +152,10 @@ local function refreshAfterReset()
   if NS.Browser then
     if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
     if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
-    -- `minimap` is a new table now; LibDBIcon must be pointed at it or the next drag is lost.
-    if NS.Browser.RefreshMinimap then NS.Browser:RefreshMinimap() end
   end
+  -- `minimap` is a new table now; LibDBIcon must be pointed at it or the next drag is lost. The
+  -- call moved out of NS.Browser with the rest of the launcher (core/LauncherSetup.lua).
+  if NS.RefreshLauncher then NS.RefreshLauncher() end
   if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
 end
 

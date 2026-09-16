@@ -34,6 +34,11 @@ function addon:OnInitialize()
   if NS.Schema and NS.Schema.Register then NS.Schema:Register() end
   if NS.Slash and NS.Slash.Register then NS.Slash:Register() end
   if NS.Panel and NS.Panel.Register then NS.Panel:Register() end
+  -- AFTER NS:InitDB, and that is the whole of the ordering: the launcher hands LibDBIcon
+  -- `db.global.minimap` at this moment (launcher-§3), and the table does not exist before InitDB.
+  -- Idempotent by the library's own design, so a second call from a login handler would build no
+  -- second button; there is only this one.
+  if NS.Launcher then NS.Launcher:Register() end
 end
 
 function addon:OnEnable()

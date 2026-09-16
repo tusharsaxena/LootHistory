@@ -41,13 +41,14 @@ Sent from eight schema-row `onChange` handlers in [`settings/Schema.lua`](../set
 
 ### What does NOT broadcast
 
-Three schema rows deliberately skip the bus and drive their side effect directly in `onChange`:
+Two schema rows deliberately skip the bus and drive their side effect directly in `onChange`:
 
-- `minimap.hide` → `NS.Browser:SetMinimapHidden(v)` (`settings/Schema.lua:309`).
-- `settings.windowScale` → `NS.Browser:SetScale(v)` (`settings/Schema.lua:283`).
-- `settings.rowHeight` → `NS.BrowserTable:Bind()` (`settings/Schema.lua:306`).
+- `settings.windowScale` → `NS.Browser:SetScale(v)`.
+- `settings.rowHeight` → `NS.BrowserTable:Bind()`.
 
-Neither emits `SettingsChanged`, because nothing else needs to react — they are one-consumer, view-only knobs. (Likewise `retentionDays` fires `HistoryChanged` via `PruneOld`, not `SettingsChanged`.) Keeping these off the bus means flipping the minimap button or the window scale never cascades into a Collector upvalue refresh or a table rebuild.
+`minimap.hide` is off the bus too, and for a stronger reason: it has no `onChange` at all. It is the one **stored** row that carries its own `set` (`settings/Schema.lua`), because the row says SHOWN while LibDBIcon's key says HIDDEN, and that `set` both records the inversion and calls `NS.Launcher:SetShown` (launcher-§3).
+
+None of the three emits `SettingsChanged`, because nothing else needs to react — they are one-consumer, view-only knobs. (Likewise `retentionDays` fires `HistoryChanged` via `PruneOld`, not `SettingsChanged`.) Keeping these off the bus means flipping the minimap button or the window scale never cascades into a Collector upvalue refresh or a table rebuild.
 
 ## The private-bus-target invariant
 

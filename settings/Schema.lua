@@ -74,6 +74,21 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- a session-only `Test mode` checkbox on its own line below Lock frame / Debug console
   -- (options-ui-§15, preview-mode; LibKa0s compose minor 6). Verbatim, like the console path.
   testModePath     = "state.testMode",
+  -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
+  -- two session paths above -- but for a different reason: those live outside the store entirely,
+  -- and this one lives in the GLOBAL store, which is where launcher-§3 fixes LibDBIcon's own table.
+  -- This addon has no profile at all and every schema path already resolves against `NS.db.global`,
+  -- so the verbatim path is simply `minimap.hide` and the `settings.` prefix above must not reach it.
+  --
+  -- THE ROW SAYS SHOWN AND THE STORED KEY SAYS HIDDEN. The composer emits a stored bool defaulting
+  -- to `true` labelled "Minimap button"; LibDBIcon owns the `hide` boolean underneath. The two
+  -- accessors stamped below are the whole of that inversion, and they are the only ones: Schema:Get
+  -- and Schema:Set are this addon's single write seam (options-ui-§1) and both honor a row's own
+  -- get/set, so the panel checkbox, `/lh set`, `/lh reset` and `/lh resetall` all invert once.
+  --
+  -- It REPLACES the "Hide minimap button" checkbox that used to sit on General > Interface under a
+  -- `Minimap` subheading. Same stored key, same table, opposite sense, canonical position.
+  minimapPath      = "minimap.hide",
   defaults = {
     enabled    = G.settings.enabled,
     visibility = G.settings.visibility,
@@ -165,6 +180,32 @@ stamp(MASTER_ROWS, {
     set = function(v)
       if not NS.DebugLog then return end
       if v then NS.DebugLog:Show() else NS.DebugLog:Hide() end
+    end,
+  },
+  -- THE INVERSION, and it lives HERE rather than as a branch inside Schema:Set, because that is
+  -- where every other row's behaviour is bound and because a path literal compared inside the seam
+  -- is a second place to remember this row exists. Schema:Get already prefers `row.get`; Schema:Set
+  -- prefers `row.set` over its own WritePath for a stored row, which is the one line the seam grew
+  -- for this (see the comment there).
+  --
+  -- The row's boolean is SHOWN. LibDBIcon's key is HIDDEN. ONE boolean is stored -- `minimap.hide`,
+  -- the library's own, which it writes too when the player uses the button's menu -- and never a
+  -- `minimap.show` beside it, which would be a copy free to disagree (launcher-§3, anti-pattern #81).
+  --
+  -- `SetShown` writes `hide` a second time with the same value. That is the library's documented
+  -- shape and it is deliberate: a caller that drives the button from somewhere else does not have
+  -- to remember the inversion. The write above it is what keeps the store right on an install with
+  -- no LibKa0s at all, where `NS.Launcher` is nil and there is nothing to call.
+  ["minimap.hide"] = {
+    widget = "CheckBox",
+    get = function()
+      local mm = NS.db and NS.db.global and NS.db.global.minimap
+      return not (mm and mm.hide)
+    end,
+    set = function(shown)
+      local mm = NS.db and NS.db.global and NS.db.global.minimap
+      if mm then mm.hide = not shown end
+      if NS.Launcher then NS.Launcher:SetShown(shown) end
     end,
   },
   -- Session-only as well: its value IS BrowserTable.testMode, never a stored key. The set switches
@@ -265,21 +306,18 @@ local ROWS = {
     values = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 
   -- ── General ▸ Interface ──
-  -- How much room the History window's own furniture takes, and whether the minimap button is
-  -- there. The addon-WIDE size and opacity are the Master controls tab's `settings.scale` and
-  -- `settings.alpha`; `settings.windowScale` below is the History window's own scale and
-  -- multiplies on top of them (options-ui-§15). The two size sliders pair on one line so a reader
-  -- compares them across rather than down, and the minimap toggle opens the next.
+  -- How much room the History window's own furniture takes. The addon-WIDE size and opacity are
+  -- the Master controls tab's `settings.scale` and `settings.alpha`; `settings.windowScale` below
+  -- is the History window's own scale and multiplies on top of them (options-ui-§15). The two size
+  -- sliders pair on one line so a reader compares them across rather than down.
   --
-  -- THE TAB CARRIES SUBSECTION HEADINGS, and the merge was considered rather than defaulted into
-  -- (options-ui-§7). Its three rows are two SUBJECTS, not one: the first two size the History
-  -- window, the third governs the minimap button, a different surface entirely that the window's
-  -- scale and row height have no bearing on. §7's test is "a tab that mixes control types", and
-  -- its own reasoning is about subjects under one label — "a player scanning it has no way to tell
-  -- where one ends" — which is exactly the failure here, so `Window` and `Minimap` are declared by
-  -- the rows the way `Pricing` / `Price sources` are on the AH Price tab. The tab is NOT split in
-  -- two: a one-row tab for the minimap button is the second tab level §7 forbids faking, and the
-  -- strip is already six wide. Neither name repeats the tab's own (§7 forbids that too).
+  -- THE SUBSECTION HEADINGS ARE GONE, and their reason went with the row that caused them. The tab
+  -- carried `Window` and `Minimap` because its three rows were two SUBJECTS: two that sized the
+  -- History window and one that governed the minimap button, a different surface entirely
+  -- (options-ui-§7). The minimap row is the Master controls tab's "Minimap button" now, where
+  -- launcher-§3 and options-ui-§15 put it, so what is left is two rows of ONE subject -- and a lone
+  -- `Window` heading over a tab whose every row is about the window repeats the tab's own name,
+  -- which §7 forbids in as many words.
   { path = "settings.windowScale", default = G.settings.windowScale, type = "number",
     min = 0.6, max = 1.6, step = 0.05, widget = "Slider",
     -- `step` is not decoration. `SetSliderValues(min, max, row.step or 1)` means a row with no
@@ -287,7 +325,7 @@ local ROWS = {
     -- to its two ends. Stored values are untouched: the commit path snaps against `row.step or 0`
     -- (no snap when absent), so every scale ever saved is still reachable and still legal.
     fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
-    page = "General", group = "Interface", subgroup = "Window", label = "Window scale",
+    page = "General", group = "Interface", label = "Window scale",
     tooltip = "Scale of the History browser window.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
@@ -300,17 +338,10 @@ local ROWS = {
   { path = "settings.rowHeight", default = G.settings.rowHeight, type = "number",
     min = 14, max = 28, step = 1, widget = "Slider",
     fmt = "%dpx",
-    page = "General", group = "Interface", subgroup = "Window", label = "Row height",
+    page = "General", group = "Interface", label = "Row height",
     tooltip = "Height of one row in the History table, in pixels. Lower fits more on screen.",
     onChange = function()
       if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
-    end },
-
-  { path = "minimap.hide", default = false, type = "bool", widget = "CheckBox",
-    page = "General", group = "Interface", subgroup = "Minimap", label = "Hide minimap button",
-    tooltip = "Hide the LootHistory minimap button.",
-    onChange = function(v)
-      if NS.Browser and NS.Browser.SetMinimapHidden then NS.Browser:SetMinimapHidden(v) end
     end },
 
   -- ── General ▸ History ──
@@ -447,6 +478,15 @@ function S:Set(path, value)
   if row.sessionOnly then
     -- Session-only rows (e.g. state.debugConsole) never touch db.global; the row's set() applies it.
     if row.set then row.set(value) end
+  elseif row.set then
+    -- A STORED row that carries a set of its own, because the value the ROW holds and the value
+    -- the STORE holds are not the same boolean. `minimap.hide` is the only one today: the row says
+    -- SHOWN and LibDBIcon's key says HIDDEN (launcher-§3), so a straight WritePath of the row's
+    -- value would store the inverse and the checkbox would read back the opposite of what was
+    -- ticked. The row's set does the inversion, the write and the live Show/Hide in one place; the
+    -- validate, the tally, the [Set] line and the onChange around it are untouched, which is what
+    -- keeps this the single write seam rather than a way around it.
+    row.set(value)
   else
     S:WritePath(NS.db.global, path, deepcopy(value))
   end

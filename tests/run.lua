@@ -58,6 +58,12 @@ kick("NS:InitDB",          function() NS:InitDB() end)
 kick("NS.Schema:Register", function() NS.Schema:Register() end)
 kick("NS.Slash:Register",  function() NS.Slash:Register() end)
 kick("NS.Panel:Register",  function() NS.Panel:Register() end)
+-- The launcher (launcher-§1). Last, as in the client, and after NS:InitDB for the same reason:
+-- `Register()` hands LibDBIcon `db.global.minimap`, which InitDB is what creates. Nothing in the
+-- headless environment registers LibDataBroker or LibDBIcon, so this resolves neither and returns
+-- false -- which is the degraded path, and tests/test_launcher.lua registers its own fakes to
+-- drive the wired one.
+kick("NS.Launcher:Register", function() if NS.Launcher then NS.Launcher:Register() end end)
 
 -- Load order is significant (later suites read state earlier ones seed); keep as-is. The list is a
 -- named local so tests/test_harness.lua can hand it to Kit.assertSuiteInventory as a named case —
@@ -67,7 +73,10 @@ local SUITES = {
   "test_constants", "test_mediasetup", "test_envsetup", "test_poolsetup", "test_itemsetup", "test_util",
   "test_compat", "test_attribution",
   "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
-  "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
+  "test_browser", "test_browsertable", "test_export", "test_debuglog",
+  -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind, and
+  -- every Reset all settings below reaches LibDBIcon through NS.RefreshLauncher.
+  "test_launcher", "test_slash",
   "test_schema", "test_analytics", "test_panel", "test_panel_filters", "test_harness", "test_libka0s",
   -- After test_libka0s and after test_debuglog, both deliberately. It shares the degraded
   -- environment with the first, and the second is what attaches the library's `_frameForTest`

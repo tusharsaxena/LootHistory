@@ -50,6 +50,11 @@ local MASTER_ROWS = {
   { "settings.alpha",      "Master alpha" },
   { "settings.locked",     "Lock frame" },
   { "state.debugConsole",  "Debug console" },
+  -- The launcher-§3 row, composed from `minimapPath` since LibKa0s v1.39.0. It opens the FOURTH
+  -- line and Test mode pairs beside it, which is not a layout preference: EVERY addon has a
+  -- minimap button and only SOME have a test mode, so the always-present row takes column 1 and
+  -- the optional one pairs to its right (options-ui-§15).
+  { "minimap.hide",        "Minimap button" },
   { "state.testMode",      "Test mode" },
 }
 
@@ -92,28 +97,45 @@ test("Schema: every canonical row is declared ONCE — nothing was copied here, 
     end
   end)
 
-test("Schema: Test mode is the composed row right after Debug console, session-only, on its own line",
+test("Schema: the fourth line is [Minimap button] [Test mode], composed and in that order",
   function()
-    -- options-ui-§15 (standard v2.47.0): a positionable display ships a test mode, and its only
-    -- panel switch is a session-only `Test mode` checkbox, the row below Lock frame / Debug console,
-    -- starting its own line. COMPOSED from `testModePath`, never hand-written.
-    -- red under: no `testModePath` in the spec, a row that pairs with the console, a row that
-    -- persists, a row with no default (Reset all settings could not end it), or the composer's
-    -- generic tooltip left in place.
+    -- options-ui-§15 + launcher-§3 (standard v2.53.0, LibKa0s compose minor 7). The line below
+    -- Lock frame / Debug console holds the two opt-in rows, and WHICH ONE OPENS IT is fixed: the
+    -- minimap row is always present and takes column 1, the test mode pairs beside it. Test mode
+    -- therefore carries NO `startsLine` at all now -- not `false`, absent, which is the shape every
+    -- second-column row has and the shape the flow engine's `opensLine` reads.
+    -- red under: either path dropped from the spec, the two swapped, a row hand-written back into
+    -- the block, a Test mode that persists or has no default (Reset all settings could not end it),
+    -- or the composer's generic tooltip left in place.
     local S = NS.Schema
-    local consoleAt, testAt
+    local consoleAt, minimapAt, testAt
     for i, row in ipairs(S.Schema) do
       if row.path == "state.debugConsole" then consoleAt = i end
+      if row.path == "minimap.hide" then minimapAt = i end
       if row.path == "state.testMode" then testAt = i end
     end
+    assertTrue(minimapAt ~= nil, "minimap.hide row missing")
     assertTrue(testAt ~= nil, "state.testMode row missing")
-    assertEqual(testAt, consoleAt + 1, "Test mode comes directly after Debug console")
+    assertEqual(minimapAt, consoleAt + 1, "Minimap button comes directly after Debug console")
+    assertEqual(testAt, minimapAt + 1, "Test mode pairs directly after Minimap button")
+
+    local mm = S.Schema[minimapAt]
+    assertEqual(mm.type, "bool")
+    assertEqual(mm.label, "Minimap button")
+    assertEqual(mm.group, "Master controls")
+    assertTrue(mm.startsLine == true, "Minimap button opens the line")
+    assertTrue(mm.sessionOnly == nil,
+      "STORED, not session-only: a button the player hid stays hidden across a reload")
+    assertTrue(mm.default == true,
+      "the row's own sense is SHOWN, so its default is true while the stored `hide` is false")
+
     local row = S.Schema[testAt]
     assertEqual(row.type, "bool")
     assertEqual(row.label, "Test mode")
     assertEqual(row.group, "Master controls")
     assertTrue(row.sessionOnly == true, "row not marked sessionOnly")
-    assertTrue(row.startsLine == true, "Test mode starts its own line")
+    assertTrue(row.startsLine == nil,
+      "Test mode pairs beside Minimap button now, so it carries no startsLine key")
     assertTrue(row.default == false, "default = false, so a reset ends it")
     assertEqual(S:Default("state.testMode"), false)
     assertTrue(type(row.get) == "function" and type(row.set) == "function",
@@ -315,8 +337,16 @@ end
 test("Schema: the shipped default equals the schema's declared default", function()
   -- Two sources of the same truth; a drift would make a reset change the value silently. Table
   -- rows are included and compared by shape — see deepEqual above.
+  --
+  -- `minimap.hide` is compared INVERTED rather than skipped, which is the whole point of naming it:
+  -- the row's default is its own sense (SHOWN = true) and defaults/Global.lua ships LibDBIcon's key
+  -- (hide = false). They are one fact in two senses, so the pair is still checked -- flip either
+  -- side alone and this goes red exactly as it would for any other row (launcher-§3).
   for _, row in ipairs(S.Schema) do
-    if not row.sessionOnly then
+    if row.path == "minimap.hide" then
+      assertEqual(S:ReadPath(NS.defaults.global, row.path), not row.default,
+        "minimap.hide: the shipped `hide` must be the inverse of the row's SHOWN default")
+    elseif not row.sessionOnly then
       local shipped = S:ReadPath(NS.defaults.global, row.path)
       if row.type == "table" then
         assertTrue(deepEqual(shipped, row.default),
@@ -414,12 +444,50 @@ test("Schema: the slider default sits inside its own bounds", function()
   end
 end)
 
+--- The ONE stored row entitled to its own accessors, and why. `minimap.hide` is the launcher-§3
+--- row: the checkbox says SHOWN and LibDBIcon's key says HIDDEN, so the value the row carries is
+--- the inverse of the value the store carries and a straight WritePath of the row's value would
+--- store the opposite of what was ticked. The inversion is the accessors, and there is deliberately
+--- no second key beside `hide` for the row to address instead (anti-pattern #81).
+---
+--- Named rather than dropped from the check: the rule this case enforces -- a stored row does not
+--- get to route around the write seam -- is still the rule, and the next row that wants an exemption
+--- has to be argued for here.
+local STORED_ROWS_WITH_ACCESSORS = { ["minimap.hide"] = true }
+
 test("Schema: only the session-only rows carry their own get/set", function()
   for _, row in ipairs(S.Schema) do
     if row.get or row.set then
-      assertTrue(row.sessionOnly, row.path .. " overrides get/set but is persisted")
+      assertTrue(row.sessionOnly or STORED_ROWS_WITH_ACCESSORS[row.path],
+        row.path .. " overrides get/set but is persisted")
     end
   end
+end)
+
+test("Schema: the Minimap button row's accessors invert onto LibDBIcon's own `hide` key", function()
+  -- launcher-§3. The row's boolean is SHOWN; the stored key is HIDDEN; there is ONE boolean and no
+  -- `minimap.show` beside it. Driven through Schema:Set/Get, which is the single write seam the
+  -- panel checkbox, `/lh set`, `/lh reset` and `/lh resetall` all take.
+  -- red under: dropping the inversion, storing the row's own sense, or a second key appearing.
+  local before = NS.db.global.minimap.hide
+
+  assertTrue(S:Set("minimap.hide", false))
+  assertEqual(NS.db.global.minimap.hide, true, "unticked means HIDDEN in the store")
+  assertEqual(S:Get("minimap.hide"), false, "and the row reads back what was ticked")
+
+  assertTrue(S:Set("minimap.hide", true))
+  assertEqual(NS.db.global.minimap.hide, false, "ticked means NOT hidden")
+  assertEqual(S:Get("minimap.hide"), true)
+
+  assertTrue(NS.db.global.minimap.show == nil,
+    "no second key beside `hide`: one state, and LibDBIcon writes it too")
+
+  -- The declared default is the row's sense, SHOWN, and a reset restores the button.
+  assertEqual(S:Default("minimap.hide"), true)
+  S:Set("minimap.hide", S:Default("minimap.hide"))
+  assertEqual(NS.db.global.minimap.hide, false)
+
+  NS.db.global.minimap.hide = before
 end)
 
 -- ── Path plumbing ──────────────────────────────────────────────────────────────
@@ -558,8 +626,8 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 7 }, { "Capture", 4 }, { "AH Price", 2 },
-    { "Interface", 3 }, { "History", 1 },
+    { "Master controls", 8 }, { "Capture", 4 }, { "AH Price", 2 },
+    { "Interface", 2 }, { "History", 1 },
   },
 }
 

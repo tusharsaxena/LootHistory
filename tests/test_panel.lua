@@ -160,13 +160,21 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
   homeTab(ctx)
 end)
 
-test("Panel: the Interface tab holds the two size sliders and the minimap toggle", function()
+test("Panel: the Interface tab holds the two size sliders, and the minimap toggle is gone", function()
   local ctx = NS.Panel.general
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Interface"))
   assertEqual(ctx.activeTab, "Interface", "tab 5 is Interface")
-  for _, label in ipairs({ "Window scale", "Row height", "Hide minimap button" }) do
+  for _, label in ipairs({ "Window scale", "Row height" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn on Interface")
   end
+  -- "Hide minimap button" left with the launcher adoption. It is the Master controls tab's
+  -- "Minimap button" row now, in the opposite sense, where launcher-§3 and options-ui-§15 put it --
+  -- and a second copy here is the failure this whole pass exists to remove, exactly as the console
+  -- below is.
+  assertTrue(findByLabel(created, "Hide minimap button") == nil,
+    "the old inverted minimap checkbox must not survive the move")
+  assertTrue(findByLabel(created, "Minimap button") == nil,
+    "the minimap toggle belongs to Master controls now")
   -- The console moved to Master controls (options-ui-§15), and a second copy here is the failure
   -- this whole pass exists to remove.
   assertTrue(findByLabel(created, "Debug console") == nil,
@@ -319,7 +327,11 @@ local SUBGROUPS = {
   ["Capture"]         = {},
   ["Filters"]         = {},
   ["AH Price"]        = { "Pricing", "Price sources" },
-  ["Interface"]       = { "Window", "Minimap" },
+  -- Interface declares NONE now. It carried `Window` / `Minimap` while its three rows were two
+  -- subjects; the minimap row moved to Master controls with the launcher adoption, so the two that
+  -- remain are one subject -- and a lone `Window` heading over a tab whose every row is about the
+  -- window repeats the tab's own name, which §7 forbids outright.
+  ["Interface"]       = {},
   ["History"]         = {},
 }
 
@@ -327,9 +339,9 @@ test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its S
   function()
     -- options-ui-§7. Under a strip the tab IS the group's heading, so the group heading is
     -- suppressed — but `subgroup` is deliberately NOT suppressed, because a tab that mixes control
-    -- types has no tab left to name each kind with. Two tabs are mixed: AH Price (a plain toggle
-    -- above an eleven-row reorder table) and Interface (two sliders sizing the History window, then
-    -- a toggle over the minimap button — a different surface, so a second subject under one label).
+    -- types has no tab left to name each kind with. ONE tab is mixed: AH Price, a plain toggle above
+    -- an eleven-row reorder table. Interface was the second until the minimap row moved to Master
+    -- controls (launcher-§3), and its headings went with it rather than being kept for symmetry.
     -- red under: passing `noHeadings` for subgroups too, or dropping any `subgroup` field — either
     -- shortens a list here — and equally under adding one to a tab that is a single subject.
     local ctx = NS.Panel.general
@@ -350,7 +362,8 @@ test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its S
 test("Panel: a subgroup heading never repeats its own tab's name (options-ui-§7)", function()
   -- The one thing §7 forbids outright about a subsection name, and the easiest to get wrong when a
   -- tab is later renamed to match the subject its first block already named.
-  -- red under: `subgroup = "Interface"` on an Interface row, or renaming the AH Price tab to
+  -- red under: reviving `subgroup = "Window"` on the Interface tab now that every row there is
+  -- about the window, or renaming the AH Price tab to
   -- "Pricing".
   for _, row in ipairs(NS.Schema.Schema) do
     if row.subgroup then

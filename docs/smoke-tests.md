@@ -500,7 +500,7 @@ History** (both must land on the same category).
   is left clipped at the bottom of the list. Set it back to 18 and confirm the table looks exactly
   as it did before the slider existed. `/lh get settings.rowHeight` echoes the value.
 - Change **Minimum quality** (Capture), **Keep history for** (History), and toggle checkboxes
-  in **Record data from** (Capture) and **Hide minimap button** (Interface) /
+  in **Record data from** (Capture) and **Minimap button** (Master controls) /
   **Exclude quest items** (Capture).
 - **History tab.** The storage readout ("N items collected over D days", "Database size: ≈ …")
   is there, with **Purge history…** beside it — and **nothing else**: the old *Reset Everything*
@@ -524,7 +524,8 @@ History** (both must land on the same category).
   **logging** state (`/lh get state.debugConsole` reports window visibility; logging is still governed
   by `/lh debug on|off`). Toggle the window via `/lh debug` (no arg) and the console's own close
   button — the checkbox tracks it. Reload: the checkbox is unchecked (session-only, never persisted).
-- **Test mode** (Master controls, alone on the line under Lock frame | Debug console): walked in §8.
+- **Minimap button** (Master controls, opening the line under Lock frame | Debug console): walked in §11.
+- **Test mode** (Master controls, paired beside Minimap button on that line): walked in §8.
 - `/lh list` — spot-check every panel row is present with its current value.
 - `/lh set windowScale 9` (out of range); `/lh set windowScale abc` (non-number).
 - `/lh reset settings.qualityThreshold`; `/lh reset settings.excludedSources`.
@@ -584,23 +585,41 @@ destructive-action confirm dialogs.
 - **Reset position** raises no dialog and touches no setting: only the window moves.
 - `/lh purge` raises the same purge dialog as the button.
 
-### 11. Minimap button
+### 11. The launcher — minimap button and broker plugin
 
-The LibDataBroker launcher registered through LibDBIcon-1.0. Visibility lives in `minimap.hide`.
+ONE LibDataBroker object registered twice (launcher-§1), built by `core/LauncherSetup.lua` on
+`LibKa0s-Launcher-1.0`: LibDBIcon draws the minimap button from it, and any broker display that is
+installed draws its own row from the very same object. Visibility lives in `minimap.hide`, in the
+**global** store, and the panel row that drives it is **Minimap button** on Master controls — whose
+label says *shown* while the stored key says *hidden*. **This is the one check that cannot be made
+out of game**: a `## IconTexture` and a launcher icon in the wrong TGA flavour draw nothing and raise
+nothing, so the bytes are gated headlessly (`tests/test_launcher.lua`) but only a client can say the
+art actually appears.
 
 **Steps.**
+- Open the AddOns list at the character-select or in-game Interface list. Look at this addon's row.
 - Locate the minimap button; hover it.
 - Left-click it; right-click it.
-- Settings → check **Hide minimap button**; uncheck it.
+- Settings → Master controls → uncheck **Minimap button**; check it again.
 - Drag the button to a new spot on the minimap ring.
 - `/reload`.
+- If you run Titan Panel, ElvUI data texts or Bazooka: add "LootHistory" from its plugin list.
 
 **Pass.**
+- **The AddOns list shows the addon's own logo**, not a Blizzard icon and not an empty square. The
+  minimap button wears the same art, and so does the broker row.
 - The tooltip shows "Ka0s Loot History" + a live record count ("N records") + the click hints.
-- **Left-click toggles** the history window; **right-click opens Settings**.
-- After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the AceDB-default `minimap` table, with no seed from `B:SetupMinimap` (#30).
-- **Hide minimap button** hides the icon immediately; unchecking shows it. The state **persists across
-  `/reload`** (LibDBIcon owns the `minimap` table the setting writes).
+- **Left-click toggles** the history window — this addon is **rung (a)**, it has a primary window —
+  and **right-click opens Settings**, which is true on every Ka0s addon whatever its rung.
+- After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the
+  AceDB-default `minimap` table, with no seed from the launcher setup (#30). The **rename** of the
+  registration from "Ka0s Loot History" to the folder name `LootHistory` does not move it: LibDBIcon
+  stores the position in the table it is handed, not under the name.
+- Unchecking **Minimap button** hides the icon **immediately**, not at the next reload; checking it
+  brings it back. The state **persists across `/reload`**.
+- The broker display's own row answers the same two clicks, because there is only one `OnClick`.
+- Hiding the minimap button does **not** remove the broker row, and there is deliberately no setting
+  that would: a display already offers its own per-plugin toggle (launcher-§1).
 
 ### 12. Debug console
 

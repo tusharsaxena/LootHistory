@@ -4,10 +4,6 @@ local B = NS.Browser
 local frame
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
-local LDB_NAME = "Ka0s Loot History"  -- LibDataBroker object + LibDBIcon registration key
-local minimapObject                   -- the LDB launcher, created once on first Enable
-local DBIcon                          -- LibDBIcon-1.0, resolved lazily in SetupMinimap
-
 -- The window CHROME this addon owns: the tab strip's two label colors and every height the layout
 -- is measured from. The window EDGE is NOT here — the dark flat background, the 1px black outer
 -- border, the 1px gray inner highlight, the gold title tint and the gray divider are the normative
@@ -1183,75 +1179,17 @@ function B:SetScale(v)
   B:ApplyChrome(frame, v)
 end
 
--- React to settings changes (master chrome + window scale + visibility + minimap) while the window
+-- React to settings changes (master chrome + window scale + visibility) while the window
 -- exists. The export modal is reached from here rather than from a bus target of its own: it is
 -- built lazily and may not exist, and E:Open re-applies on every open regardless.
 function B:OnSettingsChanged()
   B:ApplyChrome(frame, NS.db.global.settings.windowScale)
   if NS.Export and NS.Export.ApplyChrome then NS.Export:ApplyChrome() end
   B:ApplyVisibility()
-  self:SetMinimapHidden(NS.db.global.minimap and NS.db.global.minimap.hide)
-end
-
--- ── Minimap button (LibDBIcon + LibDataBroker) ─────────────────────────────────
--- A "launcher" data object: left-click toggles the window, right-click opens Settings,
--- and the tooltip shows the live record count. Visibility lives in db.global.minimap
--- (the same table the "Hide minimap button" setting writes), which LibDBIcon owns —
--- so registration alone honors the persisted hide state across /reload.
-
-function B:SetupMinimap()
-  if minimapObject then return end  -- already registered this session
-  local LDB = LibStub and LibStub("LibDataBroker-1.1", true)
-  DBIcon = DBIcon or (LibStub and LibStub("LibDBIcon-1.0", true))
-  if not (LDB and DBIcon) then return end
-
-  minimapObject = LDB:NewDataObject(LDB_NAME, {
-    type  = "launcher",
-    label = "Loot History",
-    -- A Blizzard ITEM icon, deliberately not a catalog mark. LibKa0s-Media ships flat white
-    -- line art meant to be tinted; LDB launchers sit on the minimap and inside other addons'
-    -- broker bars beside item-art buttons, where a white outline reads as a broken texture.
-    -- The catalog carries no bag and adding one upstream would not change that reasoning.
-    icon  = "Interface\\Icons\\INV_Misc_Bag_08",
-    OnClick = function(_, button)
-      if button == "RightButton" then
-        if NS.Panel and NS.Panel.Open then NS.Panel:Open() end
-      else
-        B:Toggle()
-      end
-    end,
-    OnTooltipShow = function(tt)
-      tt:AddLine("Ka0s Loot History", 1, 0.82, 0)
-      local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
-      tt:AddLine(n == 1 and "1 record" or (n .. " records"), 0.7, 0.7, 0.7)
-      tt:AddLine(" ")
-      tt:AddLine("Left-click: open the history window", 0.5, 0.5, 0.5)
-      tt:AddLine("Right-click: open settings", 0.5, 0.5, 0.5)
-    end,
-  })
-
-  -- No seed here: `minimap.hide` is a schema row, so replacing the whole table would be a
-  -- schema-row write (architecture-§5, "a row wins"). The AceDB default in defaults/Global.lua
-  -- serves the table; LibDBIcon then writes `minimapPos` into it on the button's drag.
-  DBIcon:Register(LDB_NAME, minimapObject, NS.db.global.minimap)
-end
-
--- Hand LibDBIcon the live `minimap` table again. Reset all settings (Sl:ResetEverything) empties
--- db.global and merges fresh defaults back, so `minimap` is a new table while the button still holds
--- the old one; a drag before /reload would store `minimapPos` in that orphan and lose it. The
--- library's Refresh re-points the button and re-applies its position and hide state.
-function B:RefreshMinimap()
-  local mm = NS.db and NS.db.global and NS.db.global.minimap
-  if mm and DBIcon and DBIcon:IsRegistered(LDB_NAME) then
-    DBIcon:Refresh(LDB_NAME, mm)
-  end
-end
-
--- Show/hide the minimap button live (driven by the "Hide minimap button" setting).
-function B:SetMinimapHidden(hide)
-  if DBIcon and DBIcon:IsRegistered(LDB_NAME) then
-    if hide then DBIcon:Hide(LDB_NAME) else DBIcon:Show(LDB_NAME) end
-  end
+  -- The MINIMAP BUTTON is deliberately not re-applied here any more. It is the Master controls
+  -- "Minimap button" row, and that row's set drives NS.Launcher:SetShown through this addon's
+  -- single write seam (settings/Schema.lua) the instant it is flipped -- so re-asserting it on
+  -- every unrelated chrome message would be a second writer of one state (launcher-§3).
 end
 
 -- Keep the browser current when the underlying history changes (new loot, a row delete, retention
@@ -1302,6 +1240,5 @@ function B:Enable()
       end
     end)
     B.__ev:RegisterEvent("PLAYER_REGEN_ENABLED",  function() B:ApplyVisibility() end)
-    B:SetupMinimap()
   end
 end

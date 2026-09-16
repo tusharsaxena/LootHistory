@@ -738,3 +738,4 @@ test("library-less install: the degraded help omits config, which would only dec
     assertTrue(not listed[verb], "/lh " .. verb .. " cannot answer with no library")
   end
 end)
+

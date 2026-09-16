@@ -281,9 +281,15 @@ test("Schema: Set unknown path returns false", function()
 end)
 
 test("Schema: nested minimap path writes", function()
-  local ok = NS.Schema:Set("minimap.hide", true)
+  -- The path is nested and lives OUTSIDE `settings.` -- LibDBIcon's own table in the global store
+  -- (launcher-§3) -- which is what this case is here to prove still resolves. It also inverts: the
+  -- row's boolean is SHOWN and the stored key is HIDDEN, so `Set(false)` stores `hide = true`. The
+  -- inversion itself is pinned in tests/test_schema.lua; here it only has to be honoured.
+  local ok = NS.Schema:Set("minimap.hide", false)
   assertTrue(ok)
   assertEqual(NS.db.global.minimap.hide, true)
+  NS.Schema:Set("minimap.hide", true)
+  assertEqual(NS.db.global.minimap.hide, false)
 end)
 
 test("Schema: reset does not alias the table-typed default (F-003)", function()
