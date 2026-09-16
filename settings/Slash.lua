@@ -103,8 +103,8 @@ end
 --- walk and a filter-list clear, three enumerations that between them happened to
 --- cover the whole table. AceDB ships no `ResetGlobal`, so it is written here.
 ---
---- The view state that follows is not stored data: the Browser's sort/filter view
---- and its frame are rebuilt from what is now an empty store.
+--- The view state lives in `refreshAfterReset` below. It is not stored data: the Browser's
+--- sort/filter view and its frame are rebuilt from what is now an empty store.
 ---
 --- Empty `g` in place and merge the declared defaults back. Returns how many recorded
 --- history rows the wipe discarded, for the debug trace (debug-logging-§8).
@@ -136,6 +136,21 @@ local function traceSettingsReset(g)
   NS.Debug("Set", "reset account-wide settings to defaults (%d rows)", n)
 end
 
+--- The post-wipe repaint, lifted out of `Sl:ResetEverything` so that function stays under the
+--- complexity ceiling the release gate enforces (`performance-§10`). It is a fan-out of guarded
+--- calls and nothing else. Each target is optional because a reset can land before a module has
+--- built its frame, and none of them touch stored data: the Browser's sort/filter view and its
+--- frame are rebuilt from what is now an empty store.
+local function refreshAfterReset()
+  if NS.Browser then
+    if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
+    if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
+    -- `minimap` is a new table now; LibDBIcon must be pointed at it or the next drag is lost.
+    if NS.Browser.RefreshMinimap then NS.Browser:RefreshMinimap() end
+  end
+  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
+end
+
 function Sl:ResetEverything()
   local db = NS.db
   if db and db.global then
@@ -153,13 +168,7 @@ function Sl:ResetEverything()
   end
   if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
   print("this addon reset to defaults.")
-  if NS.Browser then
-    if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
-    if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
-    -- `minimap` is a new table now; LibDBIcon must be pointed at it or the next drag is lost.
-    if NS.Browser.RefreshMinimap then NS.Browser:RefreshMinimap() end
-  end
-  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
+  refreshAfterReset()
 end
 
 
