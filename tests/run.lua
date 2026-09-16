@@ -66,7 +66,7 @@ local SUITES = {
   "test_compat", "test_attribution",
   "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
   "test_browser", "test_browsertable", "test_export", "test_debuglog", "test_slash",
-  "test_schema", "test_analytics", "test_panel", "test_harness", "test_libka0s",
+  "test_schema", "test_analytics", "test_panel", "test_panel_filters", "test_harness", "test_libka0s",
   -- After test_libka0s and after test_debuglog, both deliberately. It shares the degraded
   -- environment with the first, and the second is what attaches the library's `_frameForTest`
   -- seams to the live DebugLog instance -- the ignore entries naming them describe the state this

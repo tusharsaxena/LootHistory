@@ -707,7 +707,7 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 
-### test_panel.lua (62)
+### test_panel.lua (43)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -738,6 +738,23 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
 - Panel: the General Defaults click logs ONE [Set] reset all: N rows line and no per-row [Set]
+- Panel: the AH Price tab draws one reusable row slot per known price source
+- Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
+- Panel: the price host is parked off the page while another tab is on screen
+- Panel: the AH Price tab renders its own schema row and no other tab's
+- Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
+- Panel: the host draws no row chrome of its own — the library owns the box and the handle
+- Panel: a drag is one splice to index, and it repaints
+- Panel: the reorder controller is cancelled at the TOP of the page render
+- Panel: toggling a source's Enabled box writes the capture set and repaints
+- Panel: the landing page renders one label per slash command, through the ONE row formatter
+- Panel: the landing page shows the tagline
+- Panel: Open refuses during combat and never defers-and-replays
+- Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
+- Panel: the AH status colours are saturated, not muted
+
+### test_panel_filters.lua (19)
+
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
@@ -757,20 +774,6 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: currency names resolve through the loot history, and a refusal says where names work
 - Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
 - Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
-- Panel: the AH Price tab draws one reusable row slot per known price source
-- Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
-- Panel: the price host is parked off the page while another tab is on screen
-- Panel: the AH Price tab renders its own schema row and no other tab's
-- Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
-- Panel: the host draws no row chrome of its own — the library owns the box and the handle
-- Panel: a drag is one splice to index, and it repaints
-- Panel: the reorder controller is cancelled at the TOP of the page render
-- Panel: toggling a source's Enabled box writes the capture set and repaints
-- Panel: the landing page renders one label per slash command, through the ONE row formatter
-- Panel: the landing page shows the tagline
-- Panel: Open refuses during combat and never defers-and-replays
-- Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
-- Panel: the AH status colours are saturated, not muted
 
 ### test_harness.lua (7)
 
@@ -885,7 +888,8 @@ badge and any count quoted in the docs must agree with it.
 | test_slash.lua | 54 |
 | test_schema.lua | 49 |
 | test_analytics.lua | 62 |
-| test_panel.lua | 62 |
+| test_panel.lua | 43 |
+| test_panel_filters.lua | 19 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 22 |
 | test_surface_parity.lua | 5 |
