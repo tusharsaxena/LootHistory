@@ -465,6 +465,38 @@ function S.BulkEnd(act, scope, _, err, info)
   end
 end
 
+--- The rows NO BULK RESET may reach (launcher-§3, standard v2.54.0). Named ONCE, as data.
+---
+--- `minimap.hide` is a PER-INSTALLATION DISPLAY PREFERENCE, in the same class as the button
+--- POSITION LibDBIcon keeps in the very same table -- not a configuration value a reset is meant to
+--- walk back. Nobody has ever wanted *reset my settings* to mean *and put the button back on my
+--- minimap*. §3 used to DERIVE that from scope (the table is global, *Reset all settings* is a
+--- profile reset), and the derivation does not survive contact with THIS addon, twice over:
+---
+---   * this addon HAS NO PROFILE. Everything it stores is `db.global`, so the reset the rule
+---     pointed at is the wholesale `wipeGlobal` in settings/Slash.lua -- which merges
+---     `defaults/Global.lua`'s `minimap = { hide = false }` straight back over a hidden button.
+---   * the General page's own **Defaults** button routes to `P:RestoreDefaults` ->
+---     `Sl:CliResetAll` -> the library's row walk (settings/Panel.lua), which hands EVERY schema
+---     row to `applyDefault`. It reached this row whatever the scope argument said.
+---
+--- So the exemption is stated as a PROPERTY, and both resets honor it: the walk below skips the row
+--- while a bulk bracket is open, and `wipeGlobal` carries the stored value across its wipe.
+S.RESET_EXEMPT = { ["minimap.hide"] = true }
+
+--- The descriptor's `applyDefault(row)` -- for BOTH majors (settings/Slash.lua and
+--- settings/OptionsSetup.lua hand this one function to each).
+---
+--- ONE place, because there are two reset walks and there must not be two policies. The veto is
+--- scoped to a BULK act: `bulkDepth` is above zero for `/lh resetall` and for the page's Defaults
+--- button (both reach the library's bracketed walk), and zero for `/lh reset minimap.hide`, which
+--- is the player naming the row and must still work. A page-scoped walk through the Options major
+--- opens the same bracket under its own scope, so it is covered without being named.
+function S:ApplyDefault(row)
+  if bulkDepth > 0 and S.RESET_EXEMPT[row.path] then return end
+  S:Set(row.path, S:Default(row.path))
+end
+
 -- Single write seam. Panel widgets and slash `set` both route through here.
 function S:Set(path, value)
   local row = S:FindRow(path)

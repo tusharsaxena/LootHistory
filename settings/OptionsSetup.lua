@@ -178,7 +178,12 @@ NS.Options = lib:New({
   -- write, debug line, onChange — which is the whole reason Schema:Set exists.
   get          = function(path) return NS.Schema:Get(path) end,
   set          = function(path, v) NS.Schema:Set(path, v) end,
-  applyDefault = function(row) NS.Schema:Set(row.path, NS.Schema:Default(row.path)) end,
+  -- ONE reset policy, shared with the Slash descriptor: Schema:ApplyDefault carries launcher-§3's
+  -- one-row veto, so a page-scoped walk through this major cannot un-hide the minimap button
+  -- either. Nothing calls O.RestoreDefaults / O.RestoreAllDefaults today — the General page's
+  -- Defaults click and the Blizzard footer both route to P:RestoreDefaults, which reaches
+  -- Sl:CliResetAll — which is exactly why this one has to AGREE with the other rather than restate it.
+  applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
 
   -- This addon has no per-unit or per-page filter, so `filter` is ignored. `pageKey` matches the
   -- row's `page` — the canvas subcategory — and NOT its `group`, which is now the TAB within that

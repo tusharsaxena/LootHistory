@@ -221,6 +221,21 @@ local function setLinesDuring(act)
   return lines, writes, logged
 end
 
+--- How many rows a BULK reset actually sends through the write seam.
+---
+--- NOT `#NS.Schema.Schema` any more. launcher-§3 (standard v2.54.0) exempts `minimap.hide` from
+--- every bulk reset, so the walk skips it and it is not one of the rows the seam sees. Derived from
+--- `NS.Schema.RESET_EXEMPT` rather than written as a number, so this stays a statement about the
+--- veto: an exemption added or dropped moves the expectation with it, and a veto that stopped
+--- working shows up here as one row too many.
+local function rowsThroughSeam()
+  local n = 0
+  for _, row in ipairs(NS.Schema.Schema) do
+    if not NS.Schema.RESET_EXEMPT[row.path] then n = n + 1 end
+  end
+  return n
+end
+
 --- Bring every row to its default, then move exactly two away from it.
 local function twoRowsOffDefault()
   capture(function() Sl:CliResetAll() end)
@@ -236,7 +251,7 @@ test("/lh resetall logs ONE [Set] reset all: N rows line, N the rows whose value
   twoRowsOffDefault()
   local lines, writes = setLinesDuring(function() Sl:CliResetAll() end)
   assertEqual(#lines, 1, "exactly one [Set] line per resetall, got: " .. table.concat(lines, " | "))
-  assertEqual(writes, #NS.Schema.Schema, "every row still goes through the seam")
+  assertEqual(writes, rowsThroughSeam(), "every unexempt row still goes through the seam")
   assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil,
     "the one line names the act, the scope and the two rows that changed: " .. lines[1])
 end)
@@ -300,7 +315,7 @@ test("/lh resetall typed at the dispatcher logs ONE [Set] reset all: N rows line
   twoRowsOffDefault()
   local lines, writes = setLinesDuring(function() Sl:OnSlash("resetall") end)
   assertEqual(#lines, 1, "one [Set] line for the typed verb, got: " .. table.concat(lines, " | "))
-  assertEqual(writes, #NS.Schema.Schema, "every row still goes through the seam")
+  assertEqual(writes, rowsThroughSeam(), "every unexempt row still goes through the seam")
   assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil, lines[1])
 end)
 
@@ -838,3 +853,4 @@ test("the dispatcher answers while the addon is disabled, so the pair is never o
   NS.db.global.settings.enabled = before
   if not ok then error(err, 0) end
 end)
+

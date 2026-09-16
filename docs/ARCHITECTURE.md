@@ -204,7 +204,7 @@ Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | `set <path> <value>` | Set a setting value |
 | `list` | List all settings |
 | `reset <path>` | Reset one setting to its default |
-| `resetall` | Reset all settings to defaults (non-destructive: history is untouched). The **destructive** form is the Master controls tab's **Reset all settings** button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile. The two are deliberately different acts today: a **ratified** divergence from that rule's opening sentence, carried as a row in [§ Documented deviations](#documented-deviations); scope matrix in [`schema.md`](schema.md#reset-semantics) |
+| `resetall` | Reset all settings to defaults (non-destructive: history is untouched). `minimap.hide` is **exempt** — launcher-§3 makes the minimap button's visibility survive every reset. The **destructive** form is the Master controls tab's **Reset all settings** button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile. The two are deliberately different acts today: a **ratified** divergence from that rule's opening sentence, carried as a row in [§ Documented deviations](#documented-deviations); scope matrix in [`schema.md`](schema.md#reset-semantics) |
 | `debug` | Toggle the debug console (session-only) |
 | `test` | Toggle a synthetic preview dataset for the table and Insights (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
 | `purge` | Delete ALL loot history (confirm dialog) |
@@ -381,17 +381,16 @@ Seven such records are named below the table rather than carried in it.
 
 ## Known limitations
 
-- **Reset all settings un-hides the minimap button.** launcher-§3 puts `minimap.hide` in the global
-  store partly so options-ui-§12's *Reset all settings* — a **profile** reset by definition — cannot
-  reach it. This addon has no profile at all, so its translation of that rule (`Sl:ResetEverything`)
-  empties `db.global` wholesale, `minimap` among it: a button the player deliberately hid comes back,
-  and its dragged `minimapPos` goes with it. The behaviour is unchanged from before the adoption and
-  the confirm dialog discloses that everything configured is discarded, so nothing is silent — but
-  the half of §3's reasoning that is about resets does not hold here, and the same is true of
-  `/lh resetall`, whose row walk restores the row's `default = true`. Raised with the standard rather
-  than worked around locally: carving `minimap` out of the wipe would make the wipe a list of keys
-  somebody has to keep current, which is the shape `Sl:ResetEverything` was deliberately moved away
-  from.
+- **A reset still discards the minimap button's dragged position.** Standard v2.54.0 restated
+  launcher-§3 as a **property** — a player's minimap-button choice survives both *Reset all settings*
+  and a page-scoped **Defaults** button — and this addon now exempts `minimap.hide` from both
+  (`NS.Schema.RESET_EXEMPT`, `Schema:ApplyDefault`, and the carry-across in `wipeGlobal`). What is
+  **not** carried across is LibDBIcon's `minimapPos`, which lives in the same table: *Reset all
+  settings* still empties `db.global` wholesale, so a button the player dragged returns to the
+  library's default angle, and `NS.RefreshLauncher` then hands LibDBIcon the store's new table. §3
+  names the position only in its **reasoning** for the exemption and MUSTs only the `hide` row, so
+  this is inside the rule as written; whether the position is meant to be carried too is a question
+  for the standard rather than something to answer locally.
 - **Full source coverage.** Every `SourceType` member has a live capture path. Deconstruct abilities
   stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source (player `UNIT_SPELLCAST_SUCCEEDED` by
   spell id); `AH` is stamped from Auction-House mail; `BONUS_ROLL`/`CRAFT`/`REFUND` are attributed

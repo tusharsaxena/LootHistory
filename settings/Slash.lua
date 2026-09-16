@@ -108,12 +108,27 @@ end
 ---
 --- Empty `g` in place and merge the declared defaults back. Returns how many recorded
 --- history rows the wipe discarded, for the debug trace (debug-logging-§8).
+---
+--- ONE ROW IS CARRIED ACROSS THE WIPE (launcher-§3, standard v2.54.0). This is the reset the rule
+--- says `minimap.hide` must survive, and before this carve-out it did not: the merge puts
+--- `defaults/Global.lua`'s `minimap = { hide = false }` back, so a player who had hidden the button
+--- found it on their minimap again after asking for their SETTINGS to be reset. The exempt set is
+--- `NS.Schema.RESET_EXEMPT`, declared there and read here, so the two resets cannot disagree about
+--- which row it is. Read and written RAW, through ReadPath/WritePath rather than Schema:Get/Set:
+--- the value is being put back exactly as it was, and a write through the seam inside this function
+--- would fire an onChange and a second [Set] line in a reset that logs exactly one.
 local function wipeGlobal(g)
   local removed = type(g.history) == "table" and #g.history or 0
+  local S = NS.Schema
+  local kept = {}
+  for path in pairs(S.RESET_EXEMPT) do kept[path] = S:ReadPath(g, path) end
   for k in pairs(g) do g[k] = nil end
   -- Copied, never merged by reference: a store sharing a table with NS.defaults rewrites the
   -- declared default on its next write.
   for k, v in pairs(NS.Util.DeepCopy(NS.defaults.global)) do g[k] = v end
+  for path, v in pairs(kept) do
+    if v ~= nil then S:WritePath(g, path, v) end
+  end
   return removed
 end
 
@@ -136,7 +151,10 @@ local function traceSettingsReset(g)
     -- the same table `g` is: wipeGlobal empties it IN PLACE, and this runs before it.
     local current
     if row.get then current = row.get() else current = S:ReadPath(g, row.path) end
-    if not row.sessionOnly and not S.SameValue(current, row.default) then
+    -- An EXEMPT row is carried across the wipe (launcher-§3), so it is never one of the rows the
+    -- act changed and counting it would overstate N by one for every player who hid the button.
+    if not row.sessionOnly and not S.RESET_EXEMPT[row.path]
+       and not S.SameValue(current, row.default) then
       n = n + 1
     end
   end
@@ -345,7 +363,11 @@ local Dispatcher = lib:New({
   set          = function(path, v) NS.Schema:Set(path, v) end,
   findRow      = function(path) return NS.Schema:FindRow(path) end,
   allRows      = function() return NS.Schema.Schema end,
-  applyDefault = function(row) NS.Schema:Set(row.path, NS.Schema:Default(row.path)) end,
+  -- ONE reset policy, shared with the Options descriptor (settings/OptionsSetup.lua). It carries
+  -- launcher-§3's one-row veto, which is what stops `/lh resetall` AND the General page's Defaults
+  -- button — both of which arrive here, through Sl:CliResetAll — un-hiding the minimap button. A
+  -- single `/lh reset minimap.hide` still resets it: that is the player naming the row.
+  applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
 
   -- Slash minor 8's bulk bracket around CliResetAll's row walk (debug-logging-§10). The seam mutes
   -- its per-row [Set] line inside it and logs `[Set] reset all: N rows` once at the end. Not handed

@@ -590,6 +590,18 @@ local function setLinesDuring(click)
   return lines, writes
 end
 
+--- How many rows a BULK reset actually sends through the write seam. NOT `#NS.Schema.Schema`:
+--- launcher-§3 (standard v2.54.0) exempts `minimap.hide` from every bulk reset, the page's Defaults
+--- button included, so the walk skips it. Derived from `NS.Schema.RESET_EXEMPT` so the number
+--- cannot drift from the veto.
+local function rowsThroughSeam()
+  local n = 0
+  for _, row in ipairs(NS.Schema.Schema) do
+    if not NS.Schema.RESET_EXEMPT[row.path] then n = n + 1 end
+  end
+  return n
+end
+
 test("Panel: the General Defaults click logs ONE [Set] reset all: N rows line and no per-row [Set]",
   function()
     -- N is the rows whose stored value changed, so a second press on settings already at their
@@ -605,7 +617,7 @@ test("Panel: the General Defaults click logs ONE [Set] reset all: N rows line an
       local lines, writes = setLinesDuring(click)
       assertEqual(#lines, 1, "exactly one [Set] line per Defaults click, got: "
         .. table.concat(lines, " | "))
-      assertEqual(writes, #NS.Schema.Schema, "every row still goes through the seam")
+      assertEqual(writes, rowsThroughSeam(), "every unexempt row still goes through the seam")
       assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil,
         "the one line names the act, the scope and the two rows that changed: " .. lines[1])
 

@@ -274,3 +274,99 @@ test("launcher: Reset all settings re-points LibDBIcon at the new minimap table,
     assertEqual(refreshed[1][1], ADDON, "registration key")
     assertTrue(refreshed[1][2] == live, "LibDBIcon must be handed the live minimap table")
   end)
+
+-- ── reset survival (launcher-§3, standard v2.54.0) ────────────────────────────────────────────
+--
+-- A player's minimap-button choice is a PER-INSTALLATION DISPLAY PREFERENCE and survives a reset,
+-- and that is a property of the setting rather than a consequence of where it is stored. Both of
+-- this addon's resets reached the row before the exemption landed, and for different reasons:
+--
+--   * `/lh resetall` and the General page's Defaults button (settings/Panel.lua routes the click to
+--     Sl:CliResetAll) walk EVERY schema row through applyDefault.
+--   * *Reset all settings* is Sl:ResetEverything, which empties `db.global` wholesale and merges
+--     defaults/Global.lua's `minimap = { hide = false }` back -- this addon has no profile, so the
+--     scope argument §3 used to rest on never applied here at all.
+--
+-- Both cases below RUN the reset and read the stored visibility back; a case that only asserted the
+-- veto's configuration would pass over a walk that skipped a different row.
+
+--- Run `act` with the account store saved and put back afterwards. Both resets below empty
+--- `db.global`, and the suites after this one read state earlier ones seeded.
+local function acrossAReset(act)
+  local g = NS.db.global
+  local saved = {}
+  for k, v in pairs(g) do saved[k] = v end
+  local ok, err = pcall(act)
+  for k in pairs(g) do g[k] = nil end
+  for k, v in pairs(saved) do g[k] = v end
+  if not ok then error(err, 0) end
+end
+
+test("launcher: no BULK reset moves the minimap button — /lh resetall and the page Defaults button",
+  function()
+    -- The General page's Defaults button reaches this same call (settings/Panel.lua's
+    -- P:RestoreDefaults), so one case answers for both surfaces.
+    -- red under: an applyDefault that hands `minimap.hide` to the seam like any other row, which is
+    -- what this addon shipped -- a player who hid the button found it back on their minimap after
+    -- asking for their settings to be reset.
+    acrossAReset(function()
+      local g = NS.db.global
+      NS.Schema:Set("minimap.hide", false)      -- the ROW says shown; the player unticks it
+      assertEqual(g.minimap.hide, true, "the player hid the button")
+
+      NS.Slash:CliResetAll()
+
+      assertEqual(g.minimap.hide, true, "/lh resetall must not un-hide the button")
+      assertEqual(NS.Schema:Get("minimap.hide"), false, "and the row still reads hidden")
+      assertEqual(NS.Launcher:IsShown(), false, "the button itself is still hidden")
+
+      -- The other direction is a rule too: neither reset may RE-HIDE a shown one.
+      NS.Schema:Set("minimap.hide", true)
+      NS.Slash:CliResetAll()
+      assertEqual(g.minimap.hide, false, "a shown button is left shown")
+
+      -- And the veto is scoped to the BULK act: naming the row explicitly still resets it.
+      NS.Schema:Set("minimap.hide", false)
+      NS.Slash:CliReset("minimap.hide")
+      assertEqual(g.minimap.hide, false, "/lh reset minimap.hide is the player naming the row")
+    end)
+  end)
+
+test("launcher: Reset all settings leaves a hidden button hidden, across the wholesale wipe",
+  function()
+    -- options-ui-§12's global reset, in the shape it takes for an addon with NO profile: empty the
+    -- account-wide store and merge the declared defaults back. The declared default is SHOWN, so
+    -- without the carve-out the merge itself is what un-hides the button.
+    -- red under: a wipeGlobal that carries nothing across, which is what this addon shipped.
+    acrossAReset(function()
+      local g = NS.db.global
+      NS.Schema:Set("minimap.hide", false)
+      assertEqual(g.minimap.hide, true, "the player hid the button")
+      local before = g.minimap
+
+      NS.Slash:ResetEverything()
+
+      assertTrue(g.minimap ~= before,
+        "the wipe still gives the store a new minimap table, so this is a real carry-across")
+      assertEqual(g.minimap.hide, true, "Reset all settings must not un-hide the button")
+      assertEqual(NS.Launcher:IsShown(), false, "the button itself is still hidden")
+      assertEqual(#NS.db.global.history, 0, "and the reset still did everything else it does")
+    end)
+  end)
+
+test("launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key",
+  function()
+    -- The carry-across must not become a copy of the state. One boolean is stored -- LibDBIcon's own
+    -- `hide` -- and the wipe puts that one value back, never a `minimap.show` beside it.
+    -- red under: a carve-out that writes through Schema:Set (a second [Set] line inside a reset that
+    -- logs exactly one) or that seeds a parallel key.
+    acrossAReset(function()
+      local g = NS.db.global
+      NS.Schema:Set("minimap.hide", true)
+      NS.Slash:ResetEverything()
+      assertEqual(g.minimap.hide, false, "a shown button stays shown")
+      local keys = 0
+      for _ in pairs(g.minimap) do keys = keys + 1 end
+      assertEqual(keys, 1, "only `hide` is in there; nothing was invented beside it")
+    end)
+  end)
