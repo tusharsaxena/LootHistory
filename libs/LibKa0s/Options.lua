@@ -1,11 +1,13 @@
 -- LibKa0s-Options-1.0 — the Blizzard settings-canvas shell: the panel factory, the page registry,
 -- the lazy Defaults button, and the reset/refresh trio every Ka0s addon's options UI runs on.
 --
--- Three files, one major. This one is the shell; OptionsWidgets.lua is the schema-row -> AceGUI
--- translation and the two-column flow engine; OptionsScroll.lua is the always-shown scrollbar
--- patch. They are one major because they are one feature: a host that ended up with a shell from
--- one vendored copy and a flow engine from another would build panels that lay out wrong, and
--- there is no version negotiation that would catch it.
+-- Five files, one major. This one is the shell; OptionsWidgets.lua is the schema-row -> AceGUI
+-- translation and the two-column flow engine; OptionsTabs.lua is the page's chrome -- the tab
+-- strip, the banner, the header block and the secondary strip; OptionsCompose.lua is the schema
+-- composers; OptionsScroll.lua is the always-shown scrollbar patch. They are one major because
+-- they are one feature: a host that ended up with a shell from one vendored copy and a flow engine
+-- from another would build panels that lay out wrong, and there is no version negotiation that
+-- would catch it.
 --
 -- The basenames are namespaced (OptionsWidgets, not Widgets) because tests/test_versioning.lua
 -- searches one shared CHANGELOG.md for "<FileBasename> minor <N>". Two majors owning a file called
@@ -21,7 +23,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 20
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 21
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -1300,6 +1302,9 @@ function lib:New(d)
   -- leaves its half absent rather than erroring at :New, which is why the shell's own members
   -- reach for O.AttachTooltip and O.PatchAlwaysShowScrollbar at CALL time and never at load time.
   if lib.__AttachWidgets then lib.__AttachWidgets(O, d) end
+  -- No descriptor: the chrome is geometry and art and reaches none of the host's data. See
+  -- OptionsTabs.lua's own note on why the signature differs from the three around it.
+  if lib.__AttachTabs    then lib.__AttachTabs(O)       end
   if lib.__AttachCompose then lib.__AttachCompose(O, d) end
   if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
 

@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 6
+local COMPOSE_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -412,6 +412,7 @@ function lib.__AttachCompose(O, d)
   ---   [Enable <AddonName>]   [General visibility]
   ---   [Master scale]         [Master alpha]
   ---   [Lock frame]           [Debug console]
+  ---   [Minimap button]       [Test mode]
   ---   [Reset position]       [Reset all settings]
   ---
   --- `spec` additionally takes:
@@ -426,9 +427,20 @@ function lib.__AttachCompose(O, d)
   ---   onResetAll       function  options-ui-§12's global reset, verbatim. The button's tooltip
   ---                              is not the spec's: since compose minor 5 it follows the Options
   ---                              descriptor's `resetProfile` and `profilesPage` (resetAllTooltip).
+  ---   minimapPath      string    since compose minor 7: the minimap button's visibility, as a
+  ---                              "Minimap button" checkbox in the FIRST column of the line below
+  ---                              Lock frame / Debug console (options-ui-§15, launcher-§3). Taken
+  ---                              VERBATIM, like the console path, because LibDBIcon's own table
+  ---                              lives in the GLOBAL store and not under the block's profile
+  ---                              prefix. STORED state, never session-only: a button the player
+  ---                              hid stays hidden across a reload. The row's boolean says SHOWN
+  ---                              while LibDBIcon's key says hidden, so the host's get/set invert
+  ---                              at its single write seam and call LibDBIcon's Show / Hide there;
+  ---                              the library owns the row, not the inversion.
   ---   testModePath     string    since compose minor 6: the addon's test mode, as a session-only
-  ---                              "Test mode" checkbox on its own line below Lock frame / Debug
-  ---                              console (options-ui-§15). Taken VERBATIM, like the console path.
+  ---                              "Test mode" checkbox, pairing BESIDE Minimap button on that same
+  ---                              line -- or opening a line of its own where the host passes no
+  ---                              minimapPath (options-ui-§15). Taken VERBATIM, like the console path.
   ---                              Omit it when the addon has no test mode: most have none, and a
   ---                              one-shot test action is not one. The host binds get/set.
   ---   leadButton       table     { text, tooltip, onClick } — ONE act of the host's own, closing
@@ -485,15 +497,41 @@ function lib.__AttachCompose(O, d)
       -- inherits.
       sessionOnly = true,
     })
+    -- THE FOURTH LINE OF THE CANONICAL SET: [Minimap button] [Test mode] (options-ui-§15, compose
+    -- minor 7). Which of the two opens the line is not a preference and not a tidy-up: EVERY addon
+    -- has a minimap button and only SOME have a test mode, so the always-present row takes column 1
+    -- and the optional one pairs beside it. Put the other way round, an addon with no test mode
+    -- draws a hole in the first column with a lone control to its right.
+    --
+    -- Both are opt-in HERE even so, because this composer cannot know whether the host has adopted
+    -- the launcher yet (launcher-§5) -- and either row alone must still open its own line, which is
+    -- what `startsLine` below is computed from rather than declared.
+    local minimapRow
+    if spec.minimapPath then
+      -- STORED, not session: `sessionOnly` is deliberately absent. The console and the test mode are
+      -- both things a reload ends; a hidden minimap button is furniture the player arranged, and
+      -- launcher-§3 puts it in the GLOBAL store precisely so it survives a profile switch and
+      -- options-ui-§12's reset. The default is the row's own sense -- SHOWN -- and the host inverts
+      -- onto LibDBIcon's `hide` at its write seam.
+      minimapRow = emit(ms, rows, "minimap", {
+        path = spec.minimapPath,
+        type = "bool", label = "Minimap button",
+        tooltip = "Show this addon's button on the minimap.",
+        default = true, startsLine = true,
+      })
+    end
     -- The test mode, for an addon whose preview has a switch of its own (options-ui-§15, compose
-    -- minor 6). Session state like the console row, on its own line, and absent unless the host names
-    -- its path: a checkbox shows whether the mode is on, which a button beside the resets could not.
+    -- minor 6). Session state like the console row, and absent unless the host names its path: a
+    -- checkbox shows whether the mode is on, which a button beside the resets could not.
     if spec.testModePath then
       emit(ms, rows, "testMode", {
         path = spec.testModePath,
         type = "bool", label = "Test mode",
         tooltip = "Show placeholder content, so the display can be seen and placed without waiting for the real thing.",
-        sessionOnly = true, startsLine = true,
+        -- `or nil` rather than `false`: a row that pairs beside Minimap button carries no
+        -- `startsLine` key at all, which is the shape every other second-column row in this file
+        -- has, and the shape the flow engine's `opensLine` reads.
+        sessionOnly = true, startsLine = (not minimapRow) or nil,
       })
     end
     appendExtra(ms, rows)

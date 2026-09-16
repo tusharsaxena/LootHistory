@@ -26,8 +26,16 @@ local LIB_FILES = {
   "libs/LibKa0s/Widgets.lua",
   "libs/LibKa0s/DebugLog.lua",
   "libs/LibKa0s/Slash.lua",
+  -- New in v1.39.0: LibKa0s-Launcher-1.0, the minimap button and the broker plugin as one
+  -- object registered twice (launcher-§1). core/LauncherSetup.lua resolves it at file load.
+  "libs/LibKa0s/Launcher.lua",
   "libs/LibKa0s/Options.lua",
   "libs/LibKa0s/OptionsWidgets.lua",
+  -- New in v1.39.0: the tab-strip and page-chrome PEEL out of Options.lua. It adds, removes and
+  -- renames no member -- O.TabStrip, O.PageBanner, O.PageHeader, O.SubTabStrip and the eight
+  -- O.__ geometry seams all still attach to the same instance under the same names -- so no
+  -- caller here changed. It is listed because the client loads it and the suite must too.
+  "libs/LibKa0s/OptionsTabs.lua",
   -- New in v1.24.0: the schema COMPOSERS, which settings/Schema.lua calls at file load for its
   -- Master controls block. A file listed in LibKa0s.xml and missing from tests/run.lua's explicit
   -- load list is a file the client loads and the suite does not, so the composers would be nil in
