@@ -854,3 +854,138 @@ test("the dispatcher answers while the addon is disabled, so the pair is never o
   if not ok then error(err, 0) end
 end)
 
+-- ── a disabled addon refuses a FEATURE verb (slash-commands-§2, standard v2.54.0) ──────────────
+--
+-- Acting is the wrong answer twice over: the player asked for something the addon is currently
+-- standing down from doing, and a silent no-op leaves them with no clue why nothing happened. So a
+-- verb that DRIVES THE ADDON'S FEATURES answers on ONE tagged line that names `/lh enable`, and does
+-- nothing else. The gate is ONE gate, wrapped round each feature handler as NS.COMMANDS is built
+-- (settings/Schema.lua), so every route into a verb passes it -- the library's dispatcher, the
+-- positional walk the library-less install falls back to, and a direct call on the triple.
+
+--- slash-commands-§2's live list, verbatim and spelled out here rather than read off the
+--- implementation: a test that imported the addon's own set would agree with it however wrong it
+--- got. `perf` is on the list and this addon does not register it (performance-§12), which is why
+--- the loop below asks NS.COMMANDS which of these exist rather than assuming all twelve do.
+local LIVE_WHILE_DISABLED = {
+  "help", "config", "version", "enable", "disable", "debug", "perf",
+  "get", "set", "list", "reset", "resetall",
+}
+
+local function refusalFor(verb)
+  return NS.PREFIX .. " " .. NS.L.SLASH_DISABLED_VERB:format(verb)
+end
+
+--- Run `act` with the addon switched off, and put the switch back however it ends.
+local function whileDisabled(act)
+  local before = NS.db.global.settings.enabled
+  NS.Schema:Set("settings.enabled", false)
+  local ok, err = pcall(act)
+  NS.db.global.settings.enabled = before
+  if not ok then error(err, 0) end
+end
+
+--- Replace every seam the five feature verbs reach with a counter, run `act`, put them back.
+--- Returns how many times the addon ACTED. This is the half a message-only case cannot see: a verb
+--- that printed the refusal and then went on to open the window passes an assertion on the line.
+---
+--- `purge` is counted at StaticPopup_Show, not at Database.Purge, because the mock DOES define the
+--- global (tests/_kit/mock_base.lua) -- so the verb raises its confirm dialog and never reaches the
+--- database. A counter on Purge alone would report 0 for a `/lh purge` that put the "Delete ALL"
+--- popup in front of a player whose addon is switched off, which is exactly the act being forbidden.
+local function countingActs(act)
+  local acts = 0
+  local function bump() acts = acts + 1 end
+  local B, BT, D, M = NS.Browser, NS.BrowserTable, NS.Database, T.mocks
+  local realShow, realHide, realToggle = B.Show, B.Hide, B.Toggle
+  local realTest, realPurge, realPopup = BT.ToggleTestMode, D.Purge, M.StaticPopup_Show
+  B.Show, B.Hide, B.Toggle = bump, bump, bump
+  BT.ToggleTestMode = function() acts = acts + 1; return false, false end
+  D.Purge, M.StaticPopup_Show = bump, bump
+  local ok, err = pcall(act, function() return acts end)
+  B.Show, B.Hide, B.Toggle = realShow, realHide, realToggle
+  BT.ToggleTestMode, D.Purge, M.StaticPopup_Show = realTest, realPurge, realPopup
+  if not ok then error(err, 0) end
+  return acts
+end
+
+test("a disabled addon refuses each FEATURE verb on ONE line naming /lh enable, and does not act",
+  function()
+    -- BOTH halves, because either alone is passable by a broken implementation: a case that only
+    -- read the line would pass over a verb that printed and then acted anyway, and a case that only
+    -- counted the acts would pass over one that went silently inert -- which is the no-op §2 calls
+    -- the wrong answer in the first place.
+    -- red under: no gate at all, a gate that lets the handler run first, or a refusal that does not
+    -- name the way back in.
+    local acted = countingActs(function(acts)
+      whileDisabled(function()
+        for _, verb in ipairs({ "show", "hide", "toggle", "test", "purge" }) do
+          local out = capture(function() Sl:OnSlash(verb) end)
+          assertEqual(#out, 1, "/lh " .. verb .. " must answer on exactly one line, got: "
+            .. table.concat(out, " | "))
+          assertEqual(out[1], refusalFor(verb), "the refusal is the locale line, tagged")
+          assertTrue(out[1]:find("/lh enable", 1, true) ~= nil,
+            "the one line must name the way back in: " .. out[1])
+          assertEqual(acts(), 0, "/lh " .. verb .. " ACTED while the addon was disabled")
+        end
+      end)
+    end)
+    assertEqual(acted, 0, "not one of the five feature verbs did any work")
+  end)
+
+test("the same feature verbs act normally once the addon is enabled — the gate is not always-on",
+  function()
+    -- The other side of the case above. A gate that refused whatever the switch said would pass
+    -- every assertion up there and break the addon outright.
+    -- red under: a guard that reads the wrong sense, or one that reads a flag nothing sets.
+    NS.Schema:Set("settings.enabled", true)
+    local acted = countingActs(function()
+      for _, verb in ipairs({ "show", "hide", "toggle", "test", "purge" }) do
+        local out = capture(function() Sl:OnSlash(verb) end)
+        assertTrue(out[1] == nil or out[1] ~= refusalFor(verb),
+          "/lh " .. verb .. " refused with the addon switched ON")
+      end
+    end)
+    assertEqual(acted, 5, "each of the five reached its own seam exactly once")
+  end)
+
+test("the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all",
+  function()
+    -- Read literally, "refuse while disabled" takes the whole command surface down with it -- and
+    -- with it the verb that turns the addon back on. A player must be able to READ AND REPAIR
+    -- SETTINGS and REACH THE PANEL while the addon is off, which is precisely when they are most
+    -- likely to need to.
+    -- red under: a live set that loses a member, or a gate keyed on anything but the verb name.
+    local byName = {}
+    for _, cmd in ipairs(NS.COMMANDS) do byName[cmd[1]] = true end
+    local g = NS.db.global
+    local saved = {}
+    for k, v in pairs(g) do saved[k] = v end
+    local realOpen = NS.Panel.Open
+    NS.Panel.Open = function() end
+
+    -- Arguments that make each verb cheap and side-effect-free where one exists; `resetall` has
+    -- none, which is why the whole store is saved above.
+    local args = {
+      get = "settings.scale", set = "settings.scale 1", reset = "settings.scale", debug = "off",
+    }
+    local ok, err = pcall(function()
+      for _, verb in ipairs(LIVE_WHILE_DISABLED) do
+        if byName[verb] then
+          -- Re-asserted per verb, because `enable` in this very list turns the addon back on.
+          NS.Schema:Set("settings.enabled", false)
+          local out = capture(function() Sl:OnSlash(verb .. " " .. (args[verb] or "")) end)
+          assertTrue(out[1] ~= refusalFor(verb),
+            "/lh " .. verb .. " must keep answering while the addon is disabled")
+        end
+      end
+      -- And the one that matters most, asserted on its effect rather than on its output.
+      NS.Schema:Set("settings.enabled", false)
+      capture(function() Sl:OnSlash("enable") end)
+      assertEqual(NS.db.global.settings.enabled, true, "/lh enable must still turn the addon on")
+    end)
+    NS.Panel.Open = realOpen
+    for k in pairs(g) do g[k] = nil end
+    for k, v in pairs(saved) do g[k] = v end
+    if not ok then error(err, 0) end
+  end)

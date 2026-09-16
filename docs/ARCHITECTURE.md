@@ -193,6 +193,16 @@ Settings panel on its landing page** by running the `config` verb (slash-command
 11); `/lh help` prints the command index. Window display is explicit via `toggle`/`show`/`hide`.
 Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
+**A disabled addon refuses a feature verb** (slash-commands-§2, standard v2.54.0). While
+`settings.enabled` is `false`, `show` / `hide` / `toggle` / `test` / `purge` answer one tagged line
+naming `/lh enable` and do nothing else. The gate is **one gate**, wrapped round each feature
+handler as `NS.COMMANDS` is built (`settings/Schema.lua`), so every route into a verb passes it —
+the library's dispatcher, the positional walk the library-less install falls back to, and a direct
+call on the triple — and a verb declared tomorrow is gated by default. The live set is named once,
+as data (`LIVE_WHILE_DISABLED`), and is §2's list verbatim: `help`, `config`, `version`, `enable`,
+`disable`, `debug`, `perf` and the schema CLI (`get`, `set`, `list`, `reset`, `resetall`). The
+refusal line is the addon's first string through `NS.L` (`locales/enUS.lua`, `SLASH_DISABLED_VERB`).
+
 | Verb | Action |
 |---|---|
 | *(none)* | Open the Settings panel on its landing page (same as `config`) |

@@ -581,7 +581,60 @@ end
 -- The handler takes the rest of the line verbatim (never a `self`), so the seven verbs that are
 -- genuinely this addon's — show/hide/toggle/config/debug/test/purge — never leave the host and
 -- adopting the library cannot break them.
-NS.COMMANDS = {
+--
+-- ── THE DISABLED ADDON REFUSES A FEATURE VERB (slash-commands-§2, standard v2.54.0) ────────────
+--
+-- ONE GATE, AT THE ONE SEAM EVERY VERB PASSES THROUGH, and that seam is the TABLE rather than the
+-- dispatcher. A guard pasted into each handler is a dozen places to forget and the next verb added
+-- forgets it by default; a guard inside `Sl:OnSlash` would be one place but the WRONG one, because
+-- this addon has two dispatchers — the library's, and the positional walk settings/Slash.lua falls
+-- back to with no LibKa0s — and only the entries here are common to both. Wrapping the handlers as
+-- the table is built gates every route into a verb, including the settings landing page's rows and
+-- the suite's direct `byName.show("")` calls, and a verb declared tomorrow is gated by default.
+--
+-- The LIVE SET is named once, as data, and it is §2's list verbatim. It is the list from the other
+-- side: a player must be able to READ AND REPAIR SETTINGS and REACH THE PANEL while the addon is
+-- off — which is exactly when they are most likely to need to — and `enable` above all, or the
+-- pair is one-way. `debug` and `perf` are diagnostics rather than features: the usual reason to
+-- reach for either is that the addon is misbehaving. `perf` is listed although this addon does not
+-- register it (performance-§12, ARCHITECTURE.md → Documented deviations): the verb stays reserved
+-- here as everywhere, so re-arming the harness later is a registration and never a rename.
+--
+-- Everything NOT in the set is a feature verb — show/hide/toggle/test/purge, which draw, preview
+-- and destroy — and answers one tagged line naming `/lh enable`, having done nothing else.
+local LIVE_WHILE_DISABLED = {
+  help = true, config = true, version = true, enable = true, disable = true,
+  debug = true, perf = true,
+  get = true, set = true, list = true, reset = true, resetall = true,
+}
+
+--- Read through the READ seam, never `db.global.settings.enabled` directly, so the verbs and the
+--- Master controls checkbox can never answer from two places. Guarded because the table exists only
+--- after `NS:InitDB`, and a verb reached before that is not a disabled addon — it is an unbuilt one.
+local function addonIsOff()
+  if not (NS.db and NS.db.global) then return false end
+  return S:Get("settings.enabled") == false
+end
+
+--- Wrap every feature verb's handler once, as the table is built. The triple keeps its `name` and
+--- `description`, so the help index, the landing page and every count over NS.COMMANDS are
+--- untouched — only what the handler DOES changes, and only while the addon is off.
+local function gateFeatureVerbs(commands)
+  for _, entry in ipairs(commands) do
+    local verb, run = entry[1], entry[3]
+    if not LIVE_WHILE_DISABLED[verb] then
+      entry[3] = function(rest)
+        -- One line, and `return` before anything else: no partial work, no side effect, no second
+        -- line. A case that only checks the message would pass over a verb that printed and acted.
+        if addonIsOff() then return print(NS.L.SLASH_DISABLED_VERB:format(verb)) end
+        return run(rest)
+      end
+    end
+  end
+  return commands
+end
+
+NS.COMMANDS = gateFeatureVerbs{
   { "show",     "Open the window",       function() NS.Browser:Show() end },
   { "hide",     "Close the window",      function() NS.Browser:Hide() end },
   { "toggle",   "Toggle the window",     function() NS.Browser:Toggle() end },
