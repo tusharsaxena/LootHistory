@@ -734,8 +734,107 @@ test("library-less install: the degraded help omits config, which would only dec
     assertTrue(listed[verb], "the degraded help must still offer /lh " .. verb)
   end
   -- And the library-owned half stays out, which is what the set did before config joined it.
-  for _, verb in ipairs({ "version", "get", "set", "list", "reset", "resetall", "help" }) do
+  -- `enable` / `disable` are subtracted for config's reason AND a deeper one: they delegate to
+  -- CliSet, and on this path the Options composer is the stub, so the Master controls block is
+  -- EMPTY and `settings.enabled` has no schema row for any seam to find.
+  for _, verb in ipairs({ "version", "get", "set", "list", "reset", "resetall", "help",
+                          "enable", "disable" }) do
     assertTrue(not listed[verb], "/lh " .. verb .. " cannot answer with no library")
   end
 end)
 
+-- ── the two reserved verbs (slash-commands-§2) ────────────────────────────────────────────────
+
+test("/lh enable and /lh disable write the Enable row's path, and hold no state of their own",
+  function()
+    -- ALIASES, never a second switch. Both write `settings.enabled` -- the stored path the Master
+    -- controls "Enable Loot History" checkbox writes -- through the SAME single write seam, so the
+    -- row's onChange runs and the checkbox and the verbs can never show the player two answers.
+    -- red under: a verb that keeps its own flag (an `NS.enabled` local, a session key, a second
+    -- stored key), or one that writes db.global directly around Schema:Set.
+    local byName = {}
+    for _, cmd in ipairs(NS.COMMANDS) do byName[cmd[1]] = cmd[3] end
+    assertTrue(byName.enable ~= nil and byName.disable ~= nil,
+      "both reserved verbs must be registered")
+
+    local before = NS.db.global.settings.enabled
+    -- Every write is recorded, so "through the seam" is asserted rather than inferred from the
+    -- stored value -- which a direct table write would also produce.
+    local realSet, writes = NS.Schema.Set, {}
+    NS.Schema.Set = function(self, path, value)
+      writes[#writes + 1] = { path, value }
+      return realSet(self, path, value)
+    end
+    local ok, err = pcall(function()
+      capture(function() byName.disable("") end)
+      assertEqual(NS.db.global.settings.enabled, false, "/lh disable turns the addon off")
+      capture(function() byName.enable("") end)
+      assertEqual(NS.db.global.settings.enabled, true, "/lh enable turns it back on")
+    end)
+    NS.Schema.Set = realSet
+    NS.db.global.settings.enabled = before
+    if not ok then error(err, 0) end
+
+    assertEqual(#writes, 2, "each verb is exactly one write, through Schema:Set")
+    assertEqual(writes[1][1], "settings.enabled", "the verb writes the Enable row's own path")
+    assertEqual(writes[1][2], false)
+    assertEqual(writes[2][1], "settings.enabled")
+    assertEqual(writes[2][2], true)
+
+    -- No state of their own: the value the verbs set is the value the row reads back, and there is
+    -- no second key beside it.
+    assertTrue(NS.db.global.settings.enable == nil and NS.db.global.enabled == nil,
+      "no second key was invented beside settings.enabled")
+    assertTrue(NS.enabled == nil, "no namespace-level flag either")
+  end)
+
+test("/lh enable is the same write as /lh set settings.enabled true, and answers the same line",
+  function()
+    -- slash-commands-§2 sanctions the long form as "the same write by its long name", and this
+    -- addon routes the short form THROUGH it -- so the confirmation is slash-commands-§5's `set`
+    -- shape by construction, re-read from the store rather than echoed back.
+    -- red under: a hand-written acknowledgment that drifts from the `set` line beside it.
+    local byName = {}
+    for _, cmd in ipairs(NS.COMMANDS) do byName[cmd[1]] = cmd[3] end
+    local before = NS.db.global.settings.enabled
+
+    NS.Schema:Set("settings.enabled", true)
+    local short = capture(function() byName.disable("") end)
+    NS.Schema:Set("settings.enabled", true)
+    local long = capture(function() Sl:CliSet("settings.enabled false") end)
+
+    NS.db.global.settings.enabled = before
+    assertEqual(#short, 1, "one line, got: " .. table.concat(short, " | "))
+    assertEqual(short[1], long[1], "the two spellings must answer identically")
+    assertTrue(short[1]:find("settings.enabled", 1, true) ~= nil, short[1])
+  end)
+
+test("the dispatcher answers while the addon is disabled, so the pair is never one-way", function()
+  -- slash-commands-§2. *Disabled* means the addon stands its features down; it does NOT mean it
+  -- unregisters its chat command, tears down COMMANDS or drops its dispatcher. An addon that did
+  -- any of those has built a switch that only goes one way -- the player turns it off and the verb
+  -- that turns it back on no longer exists.
+  -- red under: gating Sl:Register, OnSlash or any COMMANDS entry on settings.enabled.
+  local before = NS.db.global.settings.enabled
+  NS.Schema:Set("settings.enabled", false)
+  local ok, err = pcall(function()
+    -- Bare `/lh` runs the `config` verb (Slash minor 11), which must still reach the panel.
+    local opens = 0
+    local realOpen = NS.Panel.Open
+    NS.Panel.Open = function() opens = opens + 1 end
+    capture(function() Sl:OnSlash("") end)
+    NS.Panel.Open = realOpen
+    assertEqual(opens, 1, "a bare /lh must still open the settings panel with the addon off")
+
+    for _, verb in ipairs({ "help", "version", "list" }) do
+      local out = capture(function() Sl:OnSlash(verb) end)
+      assertTrue(#out > 0, "/lh " .. verb .. " answered nothing with the addon disabled")
+    end
+
+    -- And the one that matters most: the way back.
+    capture(function() Sl:OnSlash("enable") end)
+    assertEqual(NS.db.global.settings.enabled, true, "/lh enable must work while disabled")
+  end)
+  NS.db.global.settings.enabled = before
+  if not ok then error(err, 0) end
+end)

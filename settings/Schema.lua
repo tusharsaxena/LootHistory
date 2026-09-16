@@ -554,6 +554,26 @@ NS.COMMANDS = {
   { "hide",     "Close the window",      function() NS.Browser:Hide() end },
   { "toggle",   "Toggle the window",     function() NS.Browser:Toggle() end },
   { "config",   "Open settings",         function() if NS.Panel then NS.Panel:Open() end end },
+  -- THE TWO RESERVED VERBS (slash-commands-§2). ALIASES, never a second switch: each is literally
+  -- `/lh set settings.enabled <bool>` with the path filled in -- the same stored path the Master
+  -- controls "Enable Loot History" checkbox writes, through the same single write seam
+  -- (Schema:Set), so the row's onChange fires and the SettingsChanged fan-out reaches the Collector
+  -- whichever surface was used. They hold NO state of their own: no second key, no session flag,
+  -- no NS.enabled local, so the checkbox and the verbs can never show the player two answers.
+  --
+  -- Delegated to CliSet rather than calling Schema:Set with a hand-written acknowledgment, and that
+  -- is the point rather than a shortcut. §2 sanctions the long form as "the same write by its long
+  -- name"; routing the short form through it means the confirmation line is slash-commands-§5's
+  -- `set` shape by construction, re-read from the store rather than echoed back, and there is no
+  -- second spelling of this write anywhere in the addon to drift from.
+  --
+  -- THE DISPATCHER SURVIVES THE DISABLED STATE, which is what stops the pair being one-way. Nothing
+  -- in this addon gates dispatch on `settings.enabled`: Sl:Register runs from OnInitialize
+  -- unconditionally, the chat command is never unregistered, and the only reader of the flag is
+  -- modules/Collector.lua's capture gate. So `/lh`, `/lh enable`, `/lh help`, `/lh config` and
+  -- `/lh version` all answer with the addon off. tests/test_slash.lua pins it.
+  { "enable",   "Enable the addon",      function() NS.Slash:CliSet("settings.enabled true") end },
+  { "disable",  "Disable the addon",     function() NS.Slash:CliSet("settings.enabled false") end },
   { "version",  "Print addon version",   function() NS.Slash:CliVersion() end },
   { "get",      "Get a setting value",   function(a) NS.Slash:CliGet(a) end },
   { "set",      "Set a setting value",   function(a) NS.Slash:CliSet(a) end },

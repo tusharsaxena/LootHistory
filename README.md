@@ -55,7 +55,7 @@ Rows do more than sit there. Hover one for the item's own tooltip (currency rows
 
 **Export** follows whichever tab you are on. From History it copies your loot rows as CSV; from Insights, an analytics summary that mirrors the charts. Either one honors the **Data Set** choice, so it is all your data or just the filtered view in front of you. Nothing leaves the game — the addon can't reach your system clipboard, so it opens a box with the text already selected for you to press Ctrl+C on.
 
-Everything else is configuration, and it lives in two places: the addon's own page under **Settings ▸ AddOns** in game, which `/lh` (or `/loothistory`) opens, and the slash commands, which `/lh help` lists.
+Everything else is configuration, and it lives in two places: the addon's own page under **Settings ▸ AddOns** in game, which `/lh` (or `/loothistory`) opens, and the slash commands, which `/lh help` lists. `/lh disable` stops the addon recording without unloading it, and `/lh enable` starts it again — the same switch as **Master controls ▸ Enable Loot History**, and it keeps answering while the addon is off.
 
 ## How attribution works
 

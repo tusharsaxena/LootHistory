@@ -603,10 +603,15 @@ test("Schema: every declared command is uniquely named and dispatchable", functi
   end
 end)
 
-test("Schema: the settings CLI verbs are all present", function()
+test("Schema: the reserved verbs are all present", function()
+  -- slash-commands-§2's reserved set, minus `perf` (this addon declines LibKa0s-Perf) -- reserved
+  -- always, registered when wired, so its absence here is a decline rather than a gap.
+  -- red under: dropping `enable` or `disable`, which would leave the Master controls Enable row
+  -- with no CLI spelling and the collection with one addon whose reserved set is short.
   local byName = {}
   for _, cmd in ipairs(NS.COMMANDS) do byName[cmd[1]] = true end
-  for _, verb in ipairs({ "get", "set", "list", "reset", "resetall", "help" }) do
+  for _, verb in ipairs({ "get", "set", "list", "reset", "resetall", "help", "config", "version",
+                          "debug", "enable", "disable" }) do
     assertTrue(byName[verb], "/lh " .. verb .. " is missing")
   end
 end)

@@ -244,9 +244,18 @@ if not lib then
   -- `help` is here for the other reason: it answers fine on this path (Sl.PrintHelp below is what
   -- is printing) and is omitted only because naming "help" inside help output is noise. Two
   -- reasons, one verdict, so one set carries both.
+  -- `enable` / `disable` are here for the first reason, and they are the case that comment names:
+  -- both are host-owned entries in NS.COMMANDS that delegate to CliSet, which on this path is the
+  -- `unavailable` stub. They cannot work here for a deeper reason than the delegation, too -- the
+  -- Options composer is the stub, so the Master controls block is EMPTY and `settings.enabled` has
+  -- no schema row for any seam to find. The stored value still exists (defaults/Global.lua) and
+  -- modules/Collector.lua still reads it; there is simply no supported way to write it here, and
+  -- writing `db.global.settings.enabled` around Schema:Set to fake one would be the second write
+  -- path architecture-§5 forbids. Advertising a verb that then declines is worse than omitting it.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
     reset = true, resetall = true, help = true, config = true,
+    enable = true, disable = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there
