@@ -352,7 +352,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (60)
+### test_browser.lua (58)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -412,8 +412,6 @@ badge and any count quoted in the docs must agree with it.
 - browser: General visibility answers all four modes against the combat state
 - browser: Show refuses while the visibility setting forbids it, and says why
 - browser: a combat transition re-applies visibility through the private event target
-- browser: SetupMinimap registers with LibDBIcon and writes nothing to the stored minimap table
-- browser: Reset all settings re-points LibDBIcon at the new minimap table, so a later drag persists
 
 ### test_browsertable.lua (62)
 
@@ -533,7 +531,19 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_slash.lua (54)
+### test_launcher.lua (9)
+
+- launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
+- launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
+- launcher: with no LibDataBroker / LibDBIcon nothing raises, and the store is still the truth
+- launcher: ONE object, registered twice, under the addon's FOLDER name — and idempotent
+- launcher: setup writes nothing into the stored minimap table
+- launcher: RUNG (a) — left-click toggles the browser, the addon's own switch
+- launcher: right-click ALWAYS opens the settings panel
+- launcher: the Minimap button row moves the real button, through the single write seam
+- launcher: Reset all settings re-points LibDBIcon at the new minimap table, so a drag persists
+
+### test_slash.lua (57)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -589,14 +599,17 @@ badge and any count quoted in the docs must agree with it.
 - the config verb opens the settings panel on its landing page
 - /lh help prints the command index and does not run the config verb
 - library-less install: the degraded help omits config, which would only decline
+- /lh enable and /lh disable write the Enable row's path, and hold no state of their own
+- /lh enable is the same write as /lh set settings.enabled true, and answers the same line
+- the dispatcher answers while the addon is disabled, so the pair is never one-way
 
-### test_schema.lua (49)
+### test_schema.lua (50)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
 - Schema: the Master controls tab holds exactly the canonical rows, in canonical order
 - Schema: every canonical row is declared ONCE — nothing was copied here, it was moved
-- Schema: Test mode is the composed row right after Debug console, session-only, on its own line
+- Schema: the fourth line is [Minimap button] [Test mode], composed and in that order
 - Schema: Test mode is never written to db.global, and ships no stored default
 - Schema: General visibility is a four-value dropdown, not a boolean
 - Schema: a profile written before this release gets visibility from the shipped defaults
@@ -619,6 +632,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every MultiCheck row offers values
 - Schema: the slider default sits inside its own bounds
 - Schema: only the session-only rows carry their own get/set
+- Schema: the Minimap button row's accessors invert onto LibDBIcon's own `hide` key
 - Schema.ReadPath walks a nested path and stops safely at a missing branch
 - Schema.WritePath creates the intermediate tables it needs
 - Schema.WritePath replaces a non-table sitting in the way
@@ -631,7 +645,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema.Get on an unknown path reads through rather than erroring
 - Schema: every setting round-trips through Set then Get
 - Schema: every declared command is uniquely named and dispatchable
-- Schema: the settings CLI verbs are all present
+- Schema: the reserved verbs are all present
 - Schema: every page's tabs are the designed ones, in order, at the designed size
 - Schema: a group's rows are contiguous, so no tab is drawn twice
 - Schema: no tab holds fewer than two controls
@@ -717,7 +731,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the Master controls tab holds the canonical rows and the closing button pair
 - Panel: Reset position drives the window carve-out, Reset all settings the §12 popup
 - Panel: the Capture tab holds the capture rules and nothing else
-- Panel: the Interface tab holds the two size sliders and the minimap toggle
+- Panel: the Interface tab holds the two size sliders, and the minimap toggle is gone
 - Panel: the History tab holds retention, the storage readout and the purge
 - Panel: a burst of RecordAdded collapses to ONE StorageStats pass
 - Panel: HistoryChanged still repaints the readout immediately
@@ -881,12 +895,13 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 33 |
 | test_database.lua | 60 |
 | test_stats.lua | 19 |
-| test_browser.lua | 60 |
+| test_browser.lua | 58 |
 | test_browsertable.lua | 62 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_slash.lua | 54 |
-| test_schema.lua | 49 |
+| test_launcher.lua | 9 |
+| test_slash.lua | 57 |
+| test_schema.lua | 50 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 19 |
@@ -898,4 +913,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **768** |
+| **Total** | **779** |
