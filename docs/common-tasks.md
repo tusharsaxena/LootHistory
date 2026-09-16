@@ -99,14 +99,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:438`).
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:501`).
   That seam is: look the row up → run its optional `validate` → `WritePath` a **deep copy** of the
   value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
   the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
   mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:438`).
+  `settings/Schema.lua:405`).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:462`, `:438`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:534`, `:501`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
   (`savedView`) and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
@@ -184,11 +184,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`core/DebugLogSetup.lua:144`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:523`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:668`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:95-96`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
-  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:162`).
+  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:177`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
   `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:114`; the colored console
   variant is `lib.FormatColored`, `:122`). `tag` is one short word, printed verbatim — no padding,
@@ -234,7 +234,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
   `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
-  `NS.ApplySkin` (`modules/Browser.lua:76`, `core/CoreSetup.lua`); `modules/Browser.lua:20`’s own
+  `NS.ApplySkin` (`modules/Browser.lua:72`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:22`, drawn at `:811`) — branding art, not a re-skinnable surface.
@@ -250,12 +250,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
   | # | Class | Where |
   |---|---|---|
-  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:19`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:297` |
-  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1043`, `:1044`, `settings/Panel.lua:483`, `:484`, `:485` |
-  | 4 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1051`, `:1052` (the corner grabber, reasoned at `:1046-1050`), `:1211` (the LDB launcher icon), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
-  | 1 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` |
+  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:297` |
+  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1095`, `:1096`, `settings/Panel.lua:483`, `:484`, `:485` |
+  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1047`, `:1048` (the corner grabber, reasoned at `:1042-1046`), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
+  | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` (the settings landing-page logo), `core/LauncherSetup.lua:49` (the launcher icon, minimap button and broker alike) |
 
-  The catalog is **113 marks** as of LibKa0s v1.27.0, not the thirty it shipped with, so "the
+  The catalog is **113 marks** as of LibKa0s v1.39.0, not the thirty it shipped with, so "the
   catalog does not have it" is a claim that has to be re-checked against `lib.ICONS` and not
   remembered. It was re-checked for all four of the third row: there is no class-circle sheet, no
   window-corner grabber and no bag. `resize` exists and is the near miss — it was tried on the grip and reverted,
@@ -274,7 +274,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
 - **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
   only for the registration above (no `Fetch`/`List`). Making the shared edge user-configurable is
-  a tracked post-1.0.0 idea (`modules/Browser.lua:17`) that now belongs at the LibKa0s seam, not a
+  a tracked post-1.0.0 idea (`modules/Browser.lua:13`) that now belongs at the LibKa0s seam, not a
   gap to close now.
 
 ### Options UI: Blizzard canvas, never AceConfigDialog
