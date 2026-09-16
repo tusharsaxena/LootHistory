@@ -150,13 +150,32 @@ test("launcher: ONE object, registered twice, under the addon's FOLDER name — 
     assertEqual(#registered, 1, "a second Register must not build a second button")
   end)
 
-test("launcher: setup writes nothing into the stored minimap table", function()
+test("launcher: the stored minimap table is the declared default, unseeded and unreplaced",
+  function()
   -- architecture-§5 (v2.44.0): `minimap.hide` is a schema row, so a whole-table seed over `minimap`
-  -- is a schema-row write ("a row wins"). The AceDB default (defaults/Global.lua) serves the table.
-  -- red under: the old `if not mm then mm = { hide = false }; NS.db.global.minimap = mm end` seed
-  -- coming back, anywhere.
+  -- is a schema-row write ("a row wins"). AceDB's declared default (defaults/Global.lua) serves the
+  -- table; nothing in the addon may write one over it.
+  --
+  -- WHAT THIS CATCHES, stated exactly, because the version of it that shipped with the launcher
+  -- claimed more. It said "red under: the old `if not mm then mm = { hide = false }` seed coming
+  -- back" while asserting only that the live table has one key -- and that seed writes exactly one
+  -- key, so the case stayed green through the regression it named. Injecting that seed and watching
+  -- this case pass is how that was established.
+  --
+  -- The seed is NOT reachable from here: the descriptor's `minimap` resolver is resolved ONCE, at
+  -- Register time during load (launcher-§1), and the descriptor is inline in Launcher:New with no
+  -- test seam. Driving Register again returns early (idempotent) and IsShown reads the already
+  -- resolved table, so neither re-enters the resolver. Both were tried against the injected seed
+  -- and both stayed green.
+  --
+  -- So this case asserts what IS observable after a full load, and no more: the table AceDB
+  -- declared is the one in the store, carrying only `hide`. That catches a second key or a
+  -- replacement table; it does not catch a seed that reproduces the default exactly. The case above
+  -- carries the other half -- LibDBIcon holds `db.global.minimap` ITSELF, so a resolver handing
+  -- over a replacement is caught there.
   assertEqual(NS.defaults.global.minimap.hide, false, "the default the seed duplicated ships")
   local mm = NS.db.global.minimap
+  assertTrue(mm ~= nil, "the declared default materialises the table")
   local keys = 0
   for _ in pairs(mm) do keys = keys + 1 end
   assertEqual(keys, 1, "only `hide` is in there; LibDBIcon adds `minimapPos` on a drag, nothing else")
