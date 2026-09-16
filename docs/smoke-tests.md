@@ -890,8 +890,8 @@ already identical to the library's, so **anything that looks different here is t
 3. There is **one** sub-page, **General**. Its header reads `Ka0s Loot History ▸ General` with the
    gold divider under it and a **Defaults** button top-right, and a six-tab strip below that (walked
    in §9). The two-column pairing per tab: **Master controls** reads Enable Loot History | General
-   visibility, then Master scale | Master alpha, then Lock frame | Debug console, then Test mode
-   alone, then the button pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
+   visibility, then Master scale | Master alpha, then Lock frame | Debug console, then Minimap
+   button | Test mode, then the button pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
    currency, then Exclude quest items alone, then the full-width **Record data from** grid;
    **AH Price** reads the *Pricing* heading, Enable AH pricing, the *Price sources* heading and the
    eleven-row table; **Interface** reads Window scale | Row height, then Hide minimap button;
