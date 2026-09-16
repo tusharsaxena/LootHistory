@@ -275,6 +275,24 @@ test("launcher: Reset all settings re-points LibDBIcon at the new minimap table,
     assertTrue(refreshed[1][2] == live, "LibDBIcon must be handed the live minimap table")
   end)
 
+-- ── the broker label (launcher-§1, standard v2.54.0) ──────────────────────────────────────────
+
+test("launcher: the broker label is the BRAND NAME in plain text, not the folder name", function()
+  -- `label` is the string a broker display prints in its own row, and it prints it beside the other
+  -- ten Ka0s addons -- so it is the single field that decides whether the collection reads as one
+  -- collection in Titan Panel or as eleven unrelated addons. §1 fixes it at `Ka0s <Name>`.
+  -- red under: the folder name ("LootHistory", which a display would file under L while the rest
+  -- sit under K), an ad-hoc spelling, or the TOC `## Title` wired through -- a Title MAY carry
+  -- colour escapes (Ka0s Pretty Chat's does) and one handed to a display that draws the string raw
+  -- splatters across a list in which every other row is plain text.
+  local descriptor = Loader.readFile("core/LauncherSetup.lua")
+  local label = descriptor:match('label%s*=%s*"([^"]*)"')
+  assertEqual(label, "Ka0s Loot History", "the LDB label must be the addon's brand name")
+  assertTrue(label ~= ADDON, "the folder name is the REGISTRATION name, never the label")
+  assertTrue(label:find("|", 1, true) == nil,
+    "an escape sequence of any kind is forbidden here: " .. label)
+end)
+
 -- ── reset survival (launcher-§3, standard v2.54.0) ────────────────────────────────────────────
 --
 -- A player's minimap-button choice is a PER-INSTALLATION DISPLAY PREFERENCE and survives a reset,

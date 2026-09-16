@@ -531,19 +531,23 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_launcher.lua (9)
+### test_launcher.lua (13)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
 - launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
 - launcher: with no LibDataBroker / LibDBIcon nothing raises, and the store is still the truth
 - launcher: ONE object, registered twice, under the addon's FOLDER name — and idempotent
-- launcher: setup writes nothing into the stored minimap table
+- launcher: the stored minimap table is the declared default, unseeded and unreplaced
 - launcher: RUNG (a) — left-click toggles the browser, the addon's own switch
 - launcher: right-click ALWAYS opens the settings panel
 - launcher: the Minimap button row moves the real button, through the single write seam
 - launcher: Reset all settings re-points LibDBIcon at the new minimap table, so a drag persists
+- launcher: the broker label is the BRAND NAME in plain text, not the folder name
+- launcher: no BULK reset moves the minimap button — /lh resetall and the page Defaults button
+- launcher: Reset all settings leaves a hidden button hidden, across the wholesale wipe
+- launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key
 
-### test_slash.lua (57)
+### test_slash.lua (60)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -602,6 +606,9 @@ badge and any count quoted in the docs must agree with it.
 - /lh enable and /lh disable write the Enable row's path, and hold no state of their own
 - /lh enable is the same write as /lh set settings.enabled true, and answers the same line
 - the dispatcher answers while the addon is disabled, so the pair is never one-way
+- a disabled addon refuses each FEATURE verb on ONE line naming /lh enable, and does not act
+- the same feature verbs act normally once the addon is enabled — the gate is not always-on
+- the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 
 ### test_schema.lua (50)
 
@@ -899,8 +906,8 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 62 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
-| test_launcher.lua | 9 |
-| test_slash.lua | 57 |
+| test_launcher.lua | 13 |
+| test_slash.lua | 60 |
 | test_schema.lua | 50 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
@@ -913,4 +920,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **779** |
+| **Total** | **786** |
