@@ -80,7 +80,7 @@ Loot History**.
   command list), not the General sub-page. `/lh   ` (spaces only) does the same. The loot window
   does **not** open, and nothing is printed to chat.
 - `/lh help` prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
-  `NS.COMMANDS` entry (show/hide/toggle/config/version/get/set/list/reset/resetall/debug/test/purge/help — fourteen). Every
+  `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/test/purge/help — sixteen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
   `settings`, `minimap`, and `schemaVersion = 5`. (The seed value is 1; `NS:RunMigrations` — invoked
@@ -90,7 +90,13 @@ Loot History**.
   empty.)
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
-  `settings.excludedSources = table: …` (empty), `minimap.hide = false`.
+  `settings.excludedSources = table: …` (empty), `minimap.hide = true` — the row's sense is SHOWN
+  while the stored key is `hide = false`, which is the whole of launcher-§3's inversion and is what
+  the two spellings above are saying.
+- `/lh disable` prints `settings.enabled = false` and new loot stops being recorded; the window, the
+  panel and every other verb still answer. `/lh enable` prints `settings.enabled = true` and puts it
+  back. Tick and untick **Master controls ▸ Enable Loot History** and confirm `/lh get
+  settings.enabled` follows it — one switch, two spellings (slash-commands-§2).
 
 ### 2. The history window
 
@@ -534,7 +540,8 @@ History** (both must land on the same category).
 **Pass.**
 - Each panel write and each `/lh set` write the **same** value and fire `SettingsChanged`; an open
   panel widget reflects a slash write live, and vice-versa. `/lh get` echoes the stored value.
-- `/lh list` groups its output under `[Capture]`, `[AH Price]`, `[Interface]`, `[History]` —
+- `/lh list` groups its output under `[Master controls]`, `[Capture]`, `[AH Price]`, `[Interface]`,
+  `[History]` —
   the tab names, in strip order. The headers follow the `group` field, so a tab rename lands here
   too and a stale `[Collection]` or `[Maintenance]` means one was missed.
 - `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`, `state.testMode`,

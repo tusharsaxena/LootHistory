@@ -198,6 +198,7 @@ Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 | *(none)* | Open the Settings panel on its landing page (same as `config`) |
 | `show` / `hide` / `toggle` | Open / close / toggle the window |
 | `config` | Open the Settings panel |
+| `enable` / `disable` | Turn recording on / off. **Aliases**, never a second switch: each is `/lh set settings.enabled <bool>` with the path filled in, so it writes the Master controls **Enable Loot History** row through `Schema:Set` and holds no state of its own (slash-commands-§2). Both keep answering while the addon is disabled, which is what stops the pair being one-way |
 | `version` | Print the addon version (`[LH] v<version>`, read from TOC metadata) |
 | `get <path>` | Print a setting value |
 | `set <path> <value>` | Set a setting value |
@@ -380,6 +381,17 @@ Seven such records are named below the table rather than carried in it.
 
 ## Known limitations
 
+- **Reset all settings un-hides the minimap button.** launcher-§3 puts `minimap.hide` in the global
+  store partly so options-ui-§12's *Reset all settings* — a **profile** reset by definition — cannot
+  reach it. This addon has no profile at all, so its translation of that rule (`Sl:ResetEverything`)
+  empties `db.global` wholesale, `minimap` among it: a button the player deliberately hid comes back,
+  and its dragged `minimapPos` goes with it. The behaviour is unchanged from before the adoption and
+  the confirm dialog discloses that everything configured is discarded, so nothing is silent — but
+  the half of §3's reasoning that is about resets does not hold here, and the same is true of
+  `/lh resetall`, whose row walk restores the row's `default = true`. Raised with the standard rather
+  than worked around locally: carving `minimap` out of the wipe would make the wipe a list of keys
+  somebody has to keep current, which is the shape `Sl:ResetEverything` was deliberately moved away
+  from.
 - **Full source coverage.** Every `SourceType` member has a live capture path. Deconstruct abilities
   stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source (player `UNIT_SPELLCAST_SUCCEEDED` by
   spell id); `AH` is stamped from Auction-House mail; `BONUS_ROLL`/`CRAFT`/`REFUND` are attributed
