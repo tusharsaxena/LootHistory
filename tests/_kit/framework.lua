@@ -17,7 +17,165 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 22
+Kit.VERSION = 23
+
+-- ── the resource guard (kit revision 23) ───────────────────────────────────────────────────────
+--
+-- A headless run can take the whole machine down with it, and in this collection one did: a stray
+-- probe registered in a runner made a `lua tests/run.lua --list` child start another child, which
+-- started another, each ~700 MB, until the kernel's OOM killer took the VM (and the editor session
+-- driving it) with them. A per-process `ulimit -v` would NOT have stopped that -- every link in the
+-- chain fitted under any sensible cap -- so the guard bounds the chain and the tree, not only the
+-- process:
+--
+--   * DEPTH. Every guarded process re-launches itself once with `KA0S_KIT_DEPTH` one higher than
+--     it found it. Nothing downstream has to cooperate: a suite that shells out to the runner
+--     through a bare `io.popen` still produces a child that loads this file, reads the variable its
+--     parent exported, and refuses past `KA0S_KIT_MAX_DEPTH` (default 4) with exit 3.
+--   * TREE MEMORY. The outermost process (depth 1) runs inside a `systemd-run --user --scope` with
+--     `MemoryMax` (`KA0S_KIT_TREE_MB`, default half of RAM) and `TasksMax` (`KA0S_KIT_TASKS`, 256),
+--     so a runaway tree is killed as ONE unit by its own cgroup rather than by the kernel choosing
+--     among everything on the machine. Skipped silently where systemd is absent.
+--   * PROCESS MEMORY. `ulimit -v` (`KA0S_KIT_PROC_MB`, default 2048) on every process. Lua 5.1
+--     answers an allocation over the limit with a catchable "not enough memory", so the case that
+--     crossed it fails with a name instead of the process dying.
+--   * WALL CLOCK. `timeout --foreground` (`KA0S_KIT_TIMEOUT_S`, default 900) on every process.
+--     `--foreground` keeps Ctrl-C working; a grandchild is still bounded, by its own guard.
+--
+-- `KA0S_KIT_GUARD=off` disables all four -- for a debugger, never for a gate. `KA0S_KIT_CGROUP=off`
+-- drops only the scope. A limit of 0 drops that limit.
+--
+-- The re-launch happens when this file LOADS, which is the first thing every runner does, so a
+-- consumer adopts the guard by re-vendoring and changes nothing in its own code. It is idempotent
+-- within a process (a suite that `dofile`s the kit again gets the kit, not a second run), and the
+-- re-launched process knows it is the guarded one by a marker ARGUMENT, which unlike an environment
+-- variable is not inherited by the children it goes on to start.
+
+local GUARD_FLAG = "--kit-guarded"
+local GUARD_LOADED = "ka0s.testkit.guard"
+
+local function envNumber(name, default)
+  local v = tonumber(os.getenv(name) or "")
+  if v == nil then return default end
+  return v
+end
+
+--- MemTotal and MemAvailable in MB, from /proc/meminfo; nil, nil where there is none.
+local function meminfoMB()
+  local f = io.open("/proc/meminfo", "r")
+  if not f then return nil, nil end
+  local text = f:read("*a") or ""
+  f:close()
+  local total = tonumber(text:match("MemTotal:%s+(%d+)"))
+  local avail = tonumber(text:match("MemAvailable:%s+(%d+)"))
+  return total and math.floor(total / 1024), avail and math.floor(avail / 1024)
+end
+
+--- The guard's limits, resolved from the environment.
+local function guardSettings()
+  local totalMB = meminfoMB()
+  return {
+    depth    = envNumber("KA0S_KIT_DEPTH", 0),
+    maxDepth = envNumber("KA0S_KIT_MAX_DEPTH", 4),
+    procMB   = envNumber("KA0S_KIT_PROC_MB", 2048),
+    treeMB   = envNumber("KA0S_KIT_TREE_MB", totalMB and math.floor(totalMB / 2) or 8192),
+    tasks    = envNumber("KA0S_KIT_TASKS", 256),
+    seconds  = envNumber("KA0S_KIT_TIMEOUT_S", 900),
+    cgroup   = os.getenv("KA0S_KIT_CGROUP") ~= "off",
+  }
+end
+
+local function guardQuote(v)
+  return "'" .. (tostring(v):gsub("'", "'\\''")) .. "'"
+end
+
+--- True when `cmd` exits 0 under `sh`, on 5.1 (a status number) and 5.2+ (a boolean) alike.
+local function shellOk(cmd)
+  local ok = os.execute(cmd)
+  return ok == 0 or ok == true
+end
+
+--- The exit code `os.execute` reports, normalized: 5.1 hands back a wait status, 5.2+ a triple.
+--- A child killed by signal N reports 128 + N, as a shell would.
+local function exitCodeOf(a, how, n)
+  if type(a) == "number" then
+    if a % 256 == 0 then return a / 256 end
+    return 128 + a % 128
+  end
+  if how == "signal" then return 128 + (n or 0) end
+  return n or (a and 0 or 1)
+end
+
+--- The command line that re-launches this process under the guard, or nil when it cannot be built.
+--- Every argument below index 1 (the interpreter and its own options) and the script are kept, the
+--- marker goes right after the script, and the script's own arguments follow unchanged.
+local function guardedCommand(a, s)
+  local lowest = 0
+  while a[lowest - 1] ~= nil do lowest = lowest - 1 end
+  if lowest == 0 then return nil end
+  local parts = {}
+  for i = lowest, 0 do parts[#parts + 1] = guardQuote(a[i]) end
+  parts[#parts + 1] = GUARD_FLAG
+  for i = 1, #a do parts[#parts + 1] = guardQuote(a[i]) end
+
+  local depth = s.depth + 1
+  local prefix = ""
+  if s.seconds > 0 and shellOk("command -v timeout >/dev/null 2>&1") then
+    prefix = ("timeout --foreground -k 10 %d "):format(s.seconds)
+  end
+  if depth == 1 and s.cgroup and s.treeMB > 0
+    and shellOk("systemd-run --user --scope --quiet --collect true >/dev/null 2>&1") then
+    prefix = ("systemd-run --user --scope --quiet --collect -p MemoryMax=%dM -p MemorySwapMax=0 "
+      .. "-p TasksMax=%d %s"):format(s.treeMB, s.tasks, prefix)
+  end
+  local ulimit = s.procMB > 0 and ("ulimit -v %d 2>/dev/null; "):format(s.procMB * 1024) or ""
+  return ("%sKA0S_KIT_DEPTH=%d exec %s%s"):format(ulimit, depth, prefix, table.concat(parts, " "))
+end
+
+--- Explain an exit the guard itself caused, on stderr, so a killed run never reads as a test failure.
+local function explainGuardExit(code, s)
+  if code == 124 then
+    io.stderr:write(("kit guard: the run went past its %d s wall-clock limit and was stopped "
+      .. "(KA0S_KIT_TIMEOUT_S raises it)\n"):format(s.seconds))
+  elseif code == 137 then
+    io.stderr:write(("kit guard: the run was killed (SIGKILL) -- most likely by its memory limit, "
+      .. "%d MB for the whole process tree (KA0S_KIT_TREE_MB). A suite that needs that much is "
+      .. "usually holding instances it no longer uses\n"):format(s.treeMB))
+  end
+end
+
+--- Re-launch this process under the guard and exit with its code, or return to run unguarded.
+local function guardProcess()
+  if package.loaded[GUARD_LOADED] then return end
+  package.loaded[GUARD_LOADED] = true
+  if os.getenv("KA0S_KIT_GUARD") == "off" then return end
+
+  local a = rawget(_G, "arg")
+  if type(a) ~= "table" or type(a[0]) ~= "string" then return end
+  if a[1] == GUARD_FLAG then
+    table.remove(a, 1)
+    return
+  end
+  if not shellOk(":") then return end
+
+  local s = guardSettings()
+  if s.maxDepth > 0 and s.depth + 1 > s.maxDepth then
+    io.stderr:write(("kit guard: refusing to start %s at process depth %d (limit %d, "
+      .. "KA0S_KIT_MAX_DEPTH). A runner is re-launching itself in a chain -- look for a suite, or a "
+      .. "stray file a runner loads, that starts `lua tests/run.lua` as it loads\n")
+      :format(a[0], s.depth + 1, s.maxDepth))
+    os.exit(3)
+  end
+
+  local cmd = guardedCommand(a, s)
+  if not cmd then return end
+  io.stdout:flush()
+  local code = exitCodeOf(os.execute(cmd))
+  explainGuardExit(code, s)
+  os.exit(code)
+end
+
+guardProcess()
 
 local tests = {}
 local currentSuite  -- basename (no extension) of the suite file currently being dofile'd
@@ -371,6 +529,67 @@ end
 --- The write-in-progress affordance survives, made explicit: `{ name = "test_foo", pending = "why" }`
 --- registers a declared skip instead of registering nothing. Declaring `pending` on a suite whose
 --- file DOES exist is also an error — that is the same silence wearing the affordance's clothes.
+--- The first absolute path on a developer's machine that `source` names, or nil.
+---
+--- A suite reads the repository through the runner's `root`, never through a host path. The one
+--- file in this collection that did -- a scratch probe pointing into a sibling checkout -- is the one
+--- that took a machine down, and a host path is the tell a probe leaves behind that a real suite
+--- never has. Matched on shapes no WoW path can take: a WSL drive mount, a Linux or macOS home, a
+--- Windows profile.
+local HOST_PATHS = { "/mnt/%a/", "/home/[%w_%.%-]+/", "/Users/[%w_%.%-]+/", "%a:[\\/]Users[\\/]" }
+
+local function hostPathIn(source)
+  for _, pattern in ipairs(HOST_PATHS) do
+    local at = source:find(pattern)
+    if at then return (source:match("[^%s\"'`]*", at)) end
+  end
+  return nil
+end
+
+--- Resource limits the runner holds every case and every suite load to (kit revision 23), resolved
+--- in Kit.run from `opts` and then the environment, which wins so an operator can raise one for a
+--- single run without editing a runner.
+local limits = { heapMB = 1024, leakMB = 256, caseSeconds = 120 }
+
+local BOUNDED_EXEMPT = {}
+
+--- Put the hook that was in place back, then hand pcall's results through untouched. Exempt from
+--- the ceiling (as `pcallBounded` is): it runs after the body returned, and raising there would
+--- fail a case that finished in time.
+local function restoreHook(saved, ...)
+  if saved[1] then debug.sethook(saved[1], saved[2], saved[3]) else debug.sethook() end
+  return ...
+end
+
+--- Call `fn` with a CPU-time ceiling of `seconds`, returning pcall's results.
+---
+--- A count hook, checked every million VM instructions, raises once the ceiling is passed -- and
+--- from then on fires on EVERY instruction, so a body that swallows the error with its own pcall
+--- still cannot outrun it: the first instruction it runs outside that pcall raises again. (At a
+--- million-instruction interval it could: nearly every firing lands inside the inner pcall.)
+--- It bounds a runaway Lua loop inside one case, which the process-level timeout would otherwise
+--- only catch by killing the whole run with no name attached. Not a wall clock: time spent blocked
+--- in a child process is not counted, and the process-level timeout covers that.
+local function pcallBounded(seconds, fn, ...)
+  if not seconds or seconds <= 0 or not debug or not debug.sethook then return pcall(fn, ...) end
+  local saved = { debug.gethook() }
+  local deadline, expired = os.clock() + seconds, false
+  local function hook()
+    if not expired then
+      if os.clock() <= deadline then return end
+      expired = true
+      debug.sethook(hook, "", 1)
+    end
+    local running = debug.getinfo(2, "f")
+    if running and BOUNDED_EXEMPT[running.func] then return end
+    error(("kit limit: went past its %d s CPU ceiling (KA0S_KIT_CASE_S) -- a loop that "
+      .. "never ends, or a case doing far more work than a unit case should"):format(seconds), 2)
+  end
+  debug.sethook(hook, "", 1000000)
+  return restoreHook(saved, pcall(fn, ...))
+end
+BOUNDED_EXEMPT[pcallBounded], BOUNDED_EXEMPT[restoreHook] = true, true
+
 local function loadSuites(dir, suites)
   for i, entry in ipairs(suites) do
     local name, pending, entryDir = suiteEntry(entry)
@@ -389,9 +608,20 @@ local function loadSuites(dir, suites)
       -- table's global name is the consumer's (`LK_TEST`, `AT_TEST`, `KICKCD_TEST`, …) and the kit
       -- is never told what it is. A suite that ignores the argument — every existing one — is
       -- unaffected, and a syntax error still raises with the same message `dofile` gave.
+      local f = io.open(path, "r")
+      local hostPath = f and hostPathIn(f:read("*a") or "")
+      if f then f:close() end
+      if hostPath then
+        error(("suite %s names a path on this machine (%s) -- a suite reaches the repo through the "
+          .. "runner's root, never through a host path. A scratch probe belongs in a scratch "
+          .. "directory, not in tests/"):format(path, hostPath), 0)
+      end
       local chunk, err = loadfile(path)
       if not chunk then error(err, 0) end
-      chunk(Kit)
+      -- A suite file REGISTERS cases and does nothing else, so its load gets the same CPU ceiling a
+      -- case does: a file that does its work at load time fails here, by name.
+      local ok, loadErr = pcallBounded(limits.caseSeconds, chunk, Kit)
+      if not ok then error(loadErr, 0) end
     else
       error(("suite inventory: %s is declared in the suites list (position %d) but is not on disk "
         .. "— delete the entry or write the file; to keep it listed while it is being written, "
@@ -597,6 +827,15 @@ local function jobsArg(default)
     error(("--jobs expects a number or `auto`; got %q"):format(tostring(v)), 0)
   end
   return math.max(1, math.floor(n))
+end
+
+--- `jobs` capped by memory: no more workers than three quarters of the available memory holds at
+--- `perMB` each (kit revision 23). `--jobs auto` used to mean one worker per CPU whatever each one
+--- weighed, and sixteen workers of a heavy suite is more than a laptop's memory. Unchanged when the
+--- available figure is unknown.
+local function memoryCappedJobs(jobs, availMB, perMB)
+  if jobs <= 1 or not availMB or not perMB or perMB <= 0 then return jobs end
+  return math.max(1, math.min(jobs, math.floor(availMB * 0.75 / perMB)))
 end
 
 --- The CONTIGUOUS slice `[first, last]` of `total` items belonging to shard `i` of `n`.
@@ -815,7 +1054,7 @@ local function runCase(t)
     return "skipped"
   end
 
-  local ok, err = pcall(t.fn)
+  local ok, err = pcallBounded(limits.caseSeconds, t.fn)
   local reason = (not ok) and skipReasonOf(err) or nil
   if reason then
     print("  SKIP  " .. t.name .. " — " .. reason)
@@ -830,15 +1069,75 @@ local function runCase(t)
   return "failed"
 end
 
+--- The live heap in MB after a full collection, which is what a budget is judged against:
+--- `collectgarbage("count")` alone includes garbage not yet swept.
+local function liveHeapMB()
+  collectgarbage("collect")
+  return collectgarbage("count") / 1024
+end
+
+--- The failure message when the heap is over `budgetMB` above `baseMB`, or nil. Collects only when
+--- the cheap reading is already over, so a run inside its budget never pays for a full collection.
+local function overBudget(baseMB, budgetMB)
+  if budgetMB <= 0 or collectgarbage("count") / 1024 - baseMB <= budgetMB then return nil end
+  local live = liveHeapMB()
+  if live - baseMB <= budgetMB then return nil end
+  return live
+end
+
+--- The leak gate, checked when the run leaves a suite: the LIVE heap may not end up more than
+--- `limits.leakMB` above where it started. A harness that builds an instance per case and never
+--- lets one go grows by a constant per case, which no single case notices and a whole run turns into
+--- gigabytes -- one consumer held 685 MB of instances it had finished with. Reported once, against
+--- the suite the run was in when it crossed, which is where the retaining starts to show.
+local function leakFailure(baseMB, suite)
+  local live = overBudget(baseMB, limits.leakMB)
+  if not live then return nil end
+  return ("  FAIL  leak gate\n          after %s.lua the live heap is %.0f MB, %.0f MB above where the "
+    .. "run started (budget %d MB, KA0S_KIT_LEAK_MB) -- something is still holding instances or "
+    .. "fixtures the finished cases no longer use"):format(tostring(suite), live, live - baseMB,
+      limits.leakMB)
+end
+
+--- The heap budget, checked after every case: an absolute ceiling on the live heap, so a runaway
+--- allocation fails the case that made it, by name, long before the process limit is reached.
+local function heapFailure(t)
+  local live = overBudget(0, limits.heapMB)
+  if not live then return nil end
+  return ("  FAIL  heap budget\n          after \"%s\" the live heap is %.0f MB, over the %d MB "
+    .. "budget (KA0S_KIT_HEAP_MB); the run stops here rather than let one process take the "
+    .. "machine's memory"):format(t.name, live, limits.heapMB)
+end
+
 --- Run every case this process owns, and return the tally.
 local function runOwned(mine, shardIndex)
   local tally = { passed = 0, failed = 0, skipped = 0 }
-  for _, t in ipairs(tests) do
-    if ownedHere(t, mine, shardIndex) then
-      local status = runCase(t)
-      tally[status] = tally[status] + 1
+  local baseMB, suite, leakReported = liveHeapMB(), nil, false
+  local function checkLeak()
+    if leakReported or suite == nil then return end
+    local failure = leakFailure(baseMB, suite)
+    if failure then
+      print(failure)
+      tally.failed, leakReported = tally.failed + 1, true
     end
   end
+  for _, t in ipairs(tests) do
+    if ownedHere(t, mine, shardIndex) then
+      if t.suite ~= suite then
+        checkLeak()
+        suite = t.suite
+      end
+      local status = runCase(t)
+      tally[status] = tally[status] + 1
+      local heap = heapFailure(t)
+      if heap then
+        print(heap)
+        tally.failed = tally.failed + 1
+        return tally
+      end
+    end
+  end
+  checkLeak()
   return tally
 end
 
@@ -881,6 +1180,12 @@ function Kit.run(opts)
   -- A shard NEVER spawns shards. Whatever default the runner carries, a child runs its slice
   -- serially -- otherwise `jobs = "auto"` in a consumer's run.lua forks a process tree.
   local jobs = shardIndex and 1 or jobsArg(opts.jobs)
+  local _, availMB = meminfoMB()
+  jobs = memoryCappedJobs(jobs, availMB, envNumber("KA0S_KIT_SHARD_MB", 512))
+
+  limits.heapMB      = envNumber("KA0S_KIT_HEAP_MB", opts.heapBudgetMB or 1024)
+  limits.leakMB      = envNumber("KA0S_KIT_LEAK_MB", opts.leakBudgetMB or 256)
+  limits.caseSeconds = envNumber("KA0S_KIT_CASE_S", opts.caseSeconds or 120)
 
   if opts.dir and opts.suiteInventory ~= false then
     Kit.assertSuiteInventory(dir, suites)
@@ -909,5 +1214,14 @@ Kit.__shardRange = shardRange
 
 --- The live registry, for the kit's own self-tests.
 function Kit.__tests() return tests end
+
+--- The resource-limit internals (kit revision 23), for the kit's own self-tests.
+Kit.__hostPathIn       = hostPathIn
+Kit.__pcallBounded     = pcallBounded
+Kit.__memoryCappedJobs = memoryCappedJobs
+Kit.__exitCodeOf       = exitCodeOf
+Kit.__limits           = limits
+Kit.__leakFailure      = leakFailure
+Kit.__heapFailure      = heapFailure
 
 return Kit

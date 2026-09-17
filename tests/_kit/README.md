@@ -229,6 +229,20 @@ suite that quietly depended on an earlier suite having run first passes serially
 That was always a bug; `--jobs` is what makes it visible. Switch it on with
 `Kit.run{ ..., jobs = "auto" }` once the sharded run is confirmed green.
 
+### Resource bounds (kit revision 23)
+
+A run cannot take the machine with it. When `framework.lua` loads it re-launches the process once
+under a re-launch **depth** limit, a **process-tree** memory cap (a `systemd-run --user --scope`
+where systemd exists), a per-process `ulimit -v` and a wall-clock `timeout`; inside the run, every
+case is held to a **heap budget**, a **CPU ceiling** and a cumulative **leak gate**, and a suite that
+names a host path is refused. All of it arrives by re-vendoring, and every limit is an environment
+variable (`KA0S_KIT_*`) or a `Kit.run` option. The table of names and defaults, and the incidents
+behind each bound, are in `docs/api/testkit/version-23-docs.md` in the LibKa0s repo.
+
+Because the bounds hold per run, **several repos' suites can run at once** — nothing here asks for
+one-at-a-time. `--jobs auto` also caps its worker count by available memory.
+
+
 `Kit.expose` merges `test` and the assertions into the table you pass, so each repo keeps its own
 global name (`AT_TEST`, `LK_TEST`, `KICKCD_TEST`, …) and its own extra keys, and **no existing suite
 file has to change** when a repo adopts the kit.

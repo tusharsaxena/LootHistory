@@ -409,9 +409,18 @@ end
 -- registered in the build's CallbackHandler-shaped registry (newCallbacks, below), which is what
 -- `M.__fireEvent` dispatches through and what refuses an event the client does not know. The
 -- recorder's contract is unchanged: `__events[event]` is still the handler as given, or `true`.
--- The build a target belongs to is found through BUILD_OF, keyed by its `__events` table, because
--- these functions are shared by every build and have no closure to hold it in.
-local BUILD_OF = setmetatable({}, { __mode = "k" })
+-- The build a target belongs to rides on its `__events` table's METATABLE, because these functions
+-- are shared by every build and have no closure to hold it in. Not a table keyed by `__events`:
+-- through kit revision 22 it was a process-wide weak-keyed one, and its value (the build) reaches
+-- its own key again through AceEvent's `embeds`. Lua 5.1 has no ephemerons, so that entry could
+-- never be collected, and neither could any build or any instance ever embedded in one -- a
+-- consumer building a fresh instance per case held all 1,678 of them to the end of the run. On the
+-- metatable the reference lives and dies with the table itself. `__events` carries no metatable of
+-- its own and a table's metatable is invisible to `next` and `pairs`, so its contents read as before.
+local function buildOf(events)
+  local mt = getmetatable(events)
+  return mt and mt.__kitBuild
+end
 
 local function registerEvent(self, event, handler, ...)
   if type(event) ~= "string" then
@@ -426,7 +435,7 @@ local function registerEvent(self, event, handler, ...)
       .. method .. "' not found on self.", 2)
   end
   self.__events[event] = handler or true
-  local build = BUILD_OF[self.__events]
+  local build = buildOf(self.__events)
   -- Recorded FIRST, then registered: CallbackHandler stores the callback before AceEvent's OnUsed
   -- asks the frame for the event, so an unknown event leaves its registration behind exactly as
   -- the client does.
@@ -439,7 +448,7 @@ local function unregisterEvent(self, event)
     error("Usage: UnregisterEvent(eventname): 'eventname' - string expected.", 2)
   end
   self.__events[event] = nil
-  local build = BUILD_OF[self.__events]
+  local build = buildOf(self.__events)
   if build then build.events:unregister(self, event) end
   return self
 end
@@ -448,7 +457,7 @@ end
 -- they are in the client: AceEvent keeps the two in separate CallbackHandler registries.
 local function unregisterAllEvents(self)
   for k in pairs(self.__events) do self.__events[k] = nil end
-  local build = BUILD_OF[self.__events]
+  local build = buildOf(self.__events)
   if build then build.events:unregisterAll(self) end
   -- A target that is ALSO a frame carries the two raw tables, and `UnregisterAllEvents` on a frame
   -- clears those in the client too. Embedding replaced this method, so without these two lines an
@@ -469,7 +478,7 @@ end
 local function embedEvents(target, registry, build)
   registry[target] = registry[target] or {}
   target.__events = registry[target]
-  BUILD_OF[target.__events] = build
+  setmetatable(target.__events, { __kitBuild = build })
   target.RegisterEvent = registerEvent
   target.UnregisterEvent = unregisterEvent
   target.UnregisterAllEvents = unregisterAllEvents

@@ -123,6 +123,24 @@ elapsed_ms() { local d=$(( $2 - $1 )); [ "$d" -lt 0 ] && d=0; printf '%s' "$d"; 
 
 RUN_START=$(now_ms)
 
+# ── resource bounds (kit revision 23) ──────────────────────────────────────────────────────────
+# Every suite runs under a per-process address-space cap and a wall-clock timeout, with the same
+# variables and defaults framework.lua's guard reads, so one runaway tool fails its own suite instead
+# of taking the machine's memory. The Lua runs are guarded a second time by the kit itself, which
+# also bounds the process TREE; luacheck and lizard have no kit to load, and this is their only bound.
+bounded() {
+    (
+        [ "${KA0S_KIT_GUARD:-}" = "off" ] && exec "$@"
+        mb="${KA0S_KIT_PROC_MB:-2048}"
+        [ "$mb" -gt 0 ] 2>/dev/null && ulimit -v $(( mb * 1024 )) 2>/dev/null
+        secs="${KA0S_KIT_TIMEOUT_S:-900}"
+        if [ "$secs" -gt 0 ] 2>/dev/null && command -v timeout >/dev/null 2>&1; then
+            exec timeout --foreground -k 10 "$secs" "$@"
+        fi
+        exec "$@"
+    )
+}
+
 # ── interpreter + tool discovery ────────────────────────────────────────────────────────────────
 LUA=""
 for c in lua5.1 lua luajit; do command -v "$c" >/dev/null 2>&1 && { LUA="$c"; break; }; done
@@ -202,7 +220,7 @@ if wants lint; then
     else
         # $NOCOLOR is belt and braces with strip_ansi: where the flag exists nothing colors the
         # output in the first place, and where it does not, strip_ansi still cleans it.
-        raw="$(luacheck . $NOCOLOR 2>&1)"; rc=$?
+        raw="$(bounded luacheck . $NOCOLOR 2>&1)"; rc=$?
         printf '%s\n' "$raw" | emit lint.txt
         line="$(printf '%s\n' "$raw" | sed 's/\x1b\[[0-9;]*m//g' | grep -E '^Total: ' | tail -1)"
         LINT_WARN=$(printf '%s' "$line" | grep -oE '[0-9]+ warning' | grep -oE '[0-9]+' || echo 0)
@@ -222,7 +240,7 @@ if wants tests; then
     elif [ -z "$LUA" ]; then
         ST[tests]="skip"; NOTE[tests]="no Lua 5.1 interpreter on PATH — the kit uses setfenv, which is 5.1-only"
     else
-        raw="$($LUA tests/run.lua 2>&1)"; rc=$?
+        raw="$(bounded $LUA tests/run.lua 2>&1)"; rc=$?
         printf '%s\n' "$raw" | emit tests.txt
         # Every summary shape this collection has printed: "N passed, N failed", the "N total"
         # form that followed it, and the "N passed, N failed, N skipped, N total" framework.lua
@@ -256,7 +274,7 @@ if wants tests; then
         # The generated inventory travels with the run it describes, so a bundle answers
         # "which cases existed at this point" without a second checkout.
         if [ "$WRITE_BUNDLE" -eq 1 ]; then
-            $LUA tests/run.lua --list 2>/dev/null | strip_ansi > "$OUT/test-cases.md" \
+            bounded $LUA tests/run.lua --list 2>/dev/null | strip_ansi > "$OUT/test-cases.md" \
                 || rm -f "$OUT/test-cases.md"
         fi
     fi
@@ -272,9 +290,9 @@ if wants perf; then
         ST[perf]="skip"; NOTE[perf]="no Lua interpreter on PATH"
     else
         if [ "$WRITE_BUNDLE" -eq 1 ]; then
-            raw="$($LUA tests/perf.lua --out "$OUT/perf.json" ${LABEL:+--label "$LABEL"} 2>&1)"; rc=$?
+            raw="$(bounded $LUA tests/perf.lua --out "$OUT/perf.json" ${LABEL:+--label "$LABEL"} 2>&1)"; rc=$?
         else
-            raw="$($LUA tests/perf.lua ${LABEL:+--label "$LABEL"} 2>&1)"; rc=$?
+            raw="$(bounded $LUA tests/perf.lua ${LABEL:+--label "$LABEL"} 2>&1)"; rc=$?
         fi
         printf '%s\n' "$raw" | emit perf.txt
         # The scenario table opens with a `scenario  iters  ms/iter ...` header and runs until the
@@ -322,7 +340,7 @@ if wants complexity; then
         # The standard fixes this invocation (performance-§10). Do not add flags, re-tune
         # thresholds or narrow the path: a locally "improved" command produces a report that
         # cannot be diffed against any other, which is the one property the fixed command protects.
-        raw="$(lizard -l lua -x "./libs/*" -x "./tests/_kit/*" . 2>&1)"
+        raw="$(bounded lizard -l lua -x "./libs/*" -x "./tests/_kit/*" . 2>&1)"
         printf '%s\n' "$raw" | emit complexity.txt
         # lizard's footer, whole:
         #   Total nloc  Avg.NLOC  AvgCCN  Avg.token  Fun Cnt  Warning cnt  Fun Rt  nloc Rt
