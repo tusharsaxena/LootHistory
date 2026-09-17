@@ -1122,6 +1122,12 @@ end
 --- opens the window by itself: "Only in combat" is a permission, not an instruction to pop a
 --- 1100px browser over a pull.
 function B:VisibilityAllows()
+  -- THE FIRST RUNG, and it is the whole of slash-commands-§7's "hidden AT THE SOURCE". A window
+  -- taken down imperatively comes back: the next combat transition, the next settings change or
+  -- the next `ApplyVisibility` re-shows it behind the switch's back, and the addon is then visibly
+  -- running while it claims to be off. Refusing here means every route into the window -- the verb,
+  -- the minimap click, the tab restore, the visibility dropdown -- answers no from one place.
+  if NS.IsStoodDown and NS.IsStoodDown() then return false end
   local mode = (NS.db and NS.db.global and NS.db.global.settings
                 and NS.db.global.settings.visibility) or "always"
   if mode == "never"  then return false end
@@ -1140,6 +1146,10 @@ function B:ApplyVisibility()
 end
 
 function B:Show()
+  -- Silently, and only here: a stood-down addon's refusal is the DISPATCHER's one line, and a
+  -- second line from the show ladder underneath it would be the two-line lecture §7 forbids. The
+  -- visibility refusal below still speaks, because that one is about a setting the player chose.
+  if NS.IsStoodDown and NS.IsStoodDown() then return end
   if not B:VisibilityAllows() then
     print("the window is hidden by the General visibility setting.")
     return
@@ -1241,4 +1251,21 @@ function B:Enable()
     end)
     B.__ev:RegisterEvent("PLAYER_REGEN_ENABLED",  function() B:ApplyVisibility() end)
   end
+end
+
+--- The stand-down half of Enable (slash-commands-§7). The private bus target carries all five
+--- registrations -- three messages and the two combat transitions -- so it goes wholesale, and the
+--- coalescing RecordAdded trigger goes with it: an armed repaint timer that wakes to find nothing
+--- to paint is the shape §7 singles out as the most expensive one.
+---
+--- The window itself is taken down by NS.StandDown, and kept down by the first rung of
+--- B:VisibilityAllows. This function only stops the subscriptions.
+function B:Disable()
+  if not self._enabled then return end
+  if B.__ev then
+    B.__ev:UnregisterAllMessages()
+    B.__ev:UnregisterAllEvents()
+    B.__ev = nil
+  end
+  self._enabled = nil
 end

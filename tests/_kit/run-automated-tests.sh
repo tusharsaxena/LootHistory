@@ -171,6 +171,13 @@ for s in lint tests perf complexity; do ST[$s]="notrun"; DUR[$s]=0; NOTE[$s]="";
 LINT_WARN=0; LINT_ERR=0; LINT_FILES=0
 TESTS_PASS=0; TESTS_FAIL=0; TESTS_SKIP=0; TESTS_TOTAL=0
 PERF_SCENARIOS=0; PERF_FAILED=0
+# The per-scenario table, verbatim from this run's own `tests/perf.lua` output, captured where the
+# measurement happens for the same reason the complexity rows are: a standing section that names
+# only a COUNT tells a reader that something was measured and nothing about what. The RESULTS.md
+# generator used to emit exactly that, consumers noticed the thinning, and one of them hand-patched
+# its own RESULTS.md to compensate -- which `automated-tests-§4` forbids (Disposition is the ONE
+# authored cell) and which the next re-vendor would revert anyway. Fixed at source.
+PERF_TABLE=""
 CCN_WARN=0; CCN_NLOC=0; CCN_FUNCS=0; CCN_AVG=0; CCN_MAX=0; CCN_BAND=0; CCN_OVER=0
 # The watch list's own rows, TAB-separated, in `lizard`'s own order. `automated-tests-§4` wants
 # the two tables generated from the run that measured them, so they are captured where the
@@ -280,6 +287,27 @@ if wants perf; then
             intable && NF==5 && $2 ~ /^[0-9]+$/ { n++ }
             END { print n+0 }')
         [ -z "$PERF_SCENARIOS" ] && PERF_SCENARIOS=0
+        # The same structural read, kept as a TABLE rather than a count. The header line supplies
+        # the column names, so a repo whose `tests/perf.lua` reports a different fifth column is
+        # rendered correctly without this script knowing what that column is -- nothing here is a
+        # hardcoded list, and there is no figure in it this run did not produce.
+        PERF_TABLE=$(printf '%s\n' "$raw" | awk '
+            /^[[:space:]]*scenario[[:space:]]+iters/ { intable=1; hdr=$0; next }
+            intable && NF==0 { intable=0 }
+            intable && NF==5 && $2 ~ /^[0-9]+$/ { rows[++n] = $0 }
+            END {
+                if (n == 0) exit
+                split(hdr, h, " ")
+                line = "|"; rule = "|"
+                for (i = 1; i <= 5; i++) { line = line " `" h[i] "` |"; rule = rule "---|" }
+                print line; print rule
+                for (r = 1; r <= n; r++) {
+                    split(rows[r], f, " ")
+                    out = "| `" f[1] "` |"
+                    for (i = 2; i <= 5; i++) out = out " " f[i] " |"
+                    print out
+                }
+            }')
         if [ "$rc" -eq 0 ]; then ST[perf]="pass"; else ST[perf]="fail"; PERF_FAILED=1; fi
     fi
     DUR[perf]=$(elapsed_ms "$t0" "$(now_ms)")
@@ -631,12 +659,42 @@ TOTALS
             skip)   printf '`lint` was **skipped** — %s. A skip is not a clean run.\n\n' "${NOTE[lint]}"; return ;;
         esac
         printf '**%s warnings / %s errors over %s files** (`luacheck .`).\n\n' "$LINT_WARN" "$LINT_ERR" "$LINT_FILES"
-        ex="$(sed -n 's/^[[:space:]]*exclude_files[[:space:]]*=[[:space:]]*//p' .luacheckrc 2>/dev/null | head -1 | tr -d '\r')"
-        case "$ex" in
-            *"}"*) printf 'Read that figure with its scope attached: `.luacheckrc` sets `exclude_files = %s`, so those paths\nare not in it. A `0/0` that never moves is partly a statement about what was never looked at, which\nis why the exclusion is restated on every run.\n\n' "$ex" ;;
-            "")    printf '`.luacheckrc` declares no `exclude_files`, so the figure covers every `.lua` that `luacheck`\nreaches from the repo root.\n\n' ;;
-            *)     printf '`.luacheckrc` sets a multi-line `exclude_files`; read it there for the scope of the figure above.\nA `0/0` says nothing about what was never looked at.\n\n' ;;
-        esac
+        # THE EXCLUSIONS ARE NAMED, NOT POINTED AT. The previous shape of this section told a
+        # reader that `.luacheckrc` "sets a multi-line `exclude_files`; read it there" the moment
+        # the declaration wrapped onto a second line -- which is every repo in the collection that
+        # excludes more than one path, and precisely the repos where the scope of a `0/0` is worth
+        # stating. A standing section that defers to another file for the one fact it exists to
+        # carry is a section a reader stops reading.
+        #
+        # Read out of `.luacheckrc` itself, whichever shape the declaration takes: the `sed` range
+        # runs from the `exclude_files` line to the first `}`, which is that same line when the
+        # declaration fits on one, and every quoted entry inside it is a path luacheck was actually
+        # told to skip. Nothing here is a hardcoded list -- a repo that adds an exclusion gets it
+        # named on the next run without this script being touched.
+        # A `sed` RANGE CANNOT DO THIS, which is why it is awk. `sed -n '/a/,/}/p' ` never ends a
+        # range on the line it began on, so the single-line form -- `exclude_files = { "tests/_kit/" }`,
+        # which is what most of the collection carries -- ran on past its own closing brace and
+        # swallowed the whole of `read_globals` after it. Every WoW API name in that list then came
+        # out as an "excluded path". Brace on the opening line ends the block here.
+        ex_block="$(awk '
+            !done && /exclude_files[[:space:]]*=/ { inblk = 1 }
+            inblk && !done { line = $0; sub(/--.*/, "", line); print line; if (/}/) { done = 1; inblk = 0 } }
+        ' .luacheckrc 2>/dev/null | tr -d '\r')"
+        ex_entries="$(printf '%s\n' "$ex_block" | tr "'" '"' | grep -o '"[^"]*"' \
+            | sed 's/^"/`/; s/"$/`/' | paste -sd ',' - | sed 's/,/, /g')"
+        # `grep -c` counts matching LINES, not matches. The single-line form --
+        # `exclude_files = { "libs/", "docs/audits/", ... }`, which most of the collection carries --
+        # is one line, so it reported "1 path(s)" beside a list of five: a generated figure
+        # contradicting the generated list in its own sentence, which is the defect this section was
+        # rewritten to remove. Count the MATCHES, out of the same extraction the list renders from.
+        ex_count="$(printf '%s\n' "$ex_block" | tr "'" '"' | grep -o '"[^"]*"' | wc -l | tr -d ' ')"
+        if [ -n "$ex_entries" ]; then
+            printf 'Read that figure with its scope attached: `.luacheckrc` excludes %s path(s) from it \342\200\224 %s \342\200\224\nso nothing under them is in the count above. A `0/0` that never moves is partly a statement about\nwhat was never looked at, which is why the exclusions are NAMED here on every run rather than left\nto whoever thinks to open `.luacheckrc`.\n\n' "$ex_count" "$ex_entries"
+        elif [ -z "$ex_block" ]; then
+            printf '`.luacheckrc` declares no `exclude_files`, so the figure covers every `.lua` that `luacheck`\nreaches from the repo root.\n\n'
+        else
+            printf '`.luacheckrc` declares an `exclude_files` this generator could not read as a list of quoted\npaths, so the scope of the figure above is whatever that declaration means; read it there. A `0/0`\nsays nothing about what was never looked at.\n\n'
+        fi
     }
 
     md_perf_section() {
@@ -657,6 +715,16 @@ TOTALS
         esac
         printf '**%s scenarios** from `tests/perf.lua`; the measurements are in\n' "$PERF_SCENARIOS"
         printf '[`%s/perf.json`](%s/perf.json).\n\n' "$STAMP" "$STAMP"
+        # PER SCENARIO, BY NAME. A bare count says a measurement happened; it does not say which
+        # code path was measured, and it cannot say that the scenario a reader cares about is
+        # missing from the run -- which is the only way a perf record silently stops covering
+        # something. Every cell below is this run's own `tests/perf.lua` output, re-rendered and not
+        # re-derived, so a figure here can always be found verbatim in `perf.txt` beside it.
+        if [ -n "$PERF_TABLE" ]; then
+            printf '%s\n\n' "$PERF_TABLE"
+        else
+            printf 'This run'"'"'s `tests/perf.lua` printed no scenario table this generator could read, so the\nnames are in [`%s/perf.txt`](%s/perf.txt) rather than here.\n\n' "$STAMP" "$STAMP"
+        fi
         printf '`perf` never fails a run and never blocks a commit — it is recorded, read and compared, not\nthresholded (`performance-§9`). It does gate the **tag** (`automated-tests-§3`).\n\n'
     }
 

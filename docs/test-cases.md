@@ -839,6 +839,21 @@ badge and any count quoted in the docs must agree with it.
 - parity: the DebugLog stub carries the whole live surface
 - parity: the Options stub carries the whole live surface
 
+### test_disabled.lua (12)
+
+- disabled-§7.1: enabled, the addon registers a NON-EMPTY set and draws
+- disabled-§7.3: disabling UNREGISTERS every event, unit-event and message the addon owns
+- disabled-§7.4: every deferral the addon armed is CANCELLED, not left to find a flag
+- disabled-§7.5: the window goes down, and the SHOW LADDER is what keeps it down
+- disabled-§7.6: firing every event it used to watch writes nothing, prints nothing, draws nothing
+- disabled-§7.7: every RESERVED verb still answers, and the bare /lh opens the panel
+- disabled-§7.7: every FEATURE verb refuses on ONE line and reaches no write seam
+- disabled-§7.7: the live set the COMMANDS table gates on IS the library's own
+- disabled-§7.8: the left click is refused and writes nothing; the right click still opens the panel
+- disabled-§7.9: re-enabling restores the registration set, and from the settings as they are NOW
+- disabled-§7.10: releasing ONE hold does not resurrect an addon the other is still holding down
+- disabled-§7: the latch persists NOTHING, and the stored switch is the only thing that does
+
 ### test_doc_structure.lua (6)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
@@ -915,9 +930,10 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 22 |
 | test_surface_parity.lua | 5 |
+| test_disabled.lua | 12 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **786** |
+| **Total** | **798** |

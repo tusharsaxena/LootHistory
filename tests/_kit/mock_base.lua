@@ -41,6 +41,40 @@
 -- Show/Hide calls that currently land on one shared object. Fixing it is a deliberate change with
 -- its own test updates and a fresh parity baseline — not something to smuggle into an extraction.
 
+-- ── the recording half ─────────────────────────────────────────────────────────────────────────
+--
+-- `mock_record.lua` carries the five surveys a suite asserts on -- the registration set, the live
+-- timers, the shown frames, the SavedVariables writes and the printed lines -- plus the two fakes
+-- the last two are recorded inside. It is a sibling file rather than part of this one because this
+-- file sits ON `layout-§1`'s 1500-line cap, and the seam was already there.
+--
+-- FOUND, NOT CONFIGURED. The kit vendors as one folder into `tests/_kit/`, and this file is
+-- `dofile`d by path from a consumer's own `tests/wow_mock.lua`, so the chunk name is the only thing
+-- that knows where the folder is; the two known layouts follow it as a fallback for any consumer
+-- whose loader rewrites chunk names. A MISSING recorder RAISES rather than degrading, and that is
+-- the whole point of the error: a mock with no registry does not fail a stand-down suite, it
+-- PASSES it over an empty table, which is worse than having no suite.
+local function loadRecorder()
+  local info = debug and debug.getinfo and debug.getinfo(1, "S")
+  local dir = info and tostring(info.source or ""):match("^@(.*[/\\])")
+  local tried = {}
+  local candidates = { dir and (dir .. "mock_record.lua") or nil,
+                       "tests/_kit/mock_record.lua", "testkit/mock_record.lua" }
+  for _, path in ipairs(candidates) do
+    local f = io.open(path, "r")
+    if f then
+      f:close()
+      return dofile(path)
+    end
+    tried[#tried + 1] = path
+  end
+  error("testkit: mock_record.lua was not found beside mock_base.lua (tried "
+    .. table.concat(tried, ", ") .. ") -- the kit vendors as ONE folder, and a half-copied kit has "
+    .. "to fail loudly here: without the recorder every stand-down assertion passes over an empty "
+    .. "registry", 2)
+end
+local installRecorders = loadRecorder()
+
 local function deepcopy(t)
   if type(t) ~= "table" then return t end
   local r = {}
@@ -78,7 +112,12 @@ local ATLAS_SIZES = {
 
 -- A universal frame stub: any PascalCase method is a no-op returning the frame itself; other
 -- (lowercase/custom) field access misses through to nil so addon code can stash custom fields.
-local function stubFrame()
+-- `track`, when given, is the build's frame recorder: every frame this builds is handed to it, so
+-- `M.__shownFrames()` and `M.__timers()` can answer over the frames this build actually made
+-- rather than over a module-level list that would mix two builds' frames together. Optional,
+-- because a consumer's own mock may call the published `M.__stubFrame` (which supplies it) or this
+-- function through some older path (which does not, and whose frames are then simply not surveyed).
+local function stubFrame(track)
   local f = { __shown = false, __scripts = {} }
   -- Track shown state so IsShown/Toggle behave (a debug console's visibility checkbox reads it).
   -- Every other capitalized method still no-ops through the metatable below.
@@ -103,6 +142,10 @@ local function stubFrame()
   -- Store handlers instead of discarding them, and expose __fire so a test can drive the lazy
   -- OnShow paths a settings panel depends on (the deferred body render, and the first-OnShow
   -- Defaults-button build — options-ui-§5). A no-op SetScript made those unreachable.
+  -- `SetScript("OnUpdate", nil)` is a CANCELLATION, and `M.__timers()` reads exactly this table to
+  -- see it. Storing the handler already did that; what is new is that a suite can now ask the
+  -- question -- an OnUpdate left armed on a stood-down addon is a per-frame cost that no visible
+  -- surface reports, which is why it has its own step in the conformance suite.
   function f:SetScript(name, fn) self.__scripts[name] = fn; return self end
   function f:GetScript(name) return self.__scripts[name] end
   function f:HookScript(name, fn)
@@ -165,9 +208,23 @@ local function stubFrame()
   -- can see exactly which units each frame registered. UnregisterAllEvents is likewise explicit —
   -- the metatable's blanket no-op would leave a disabled unit's registrations visibly in place and
   -- make the gating untestable.
+  -- RAW frame:RegisterEvent, recorded for the same reason (revision 22). The metatable below
+  -- answered it with the frame and remembered nothing, so an addon whose events sit on a plain
+  -- CreateFrame -- which is most of them, and all of the per-unit ones -- had a registration set no
+  -- suite could see. That is not a gap in coverage, it is what makes the question "did this addon
+  -- actually stop watching, or does it merely decline to react?" unaskable: a handler that early-
+  -- returns looks identical from the outside to one that is gone, and the client still walks the
+  -- registration list, still builds the argument frame and still enters Lua either way.
+  --
+  -- `IsEventRegistered` answers from the same table rather than through the metatable, which used
+  -- to hand back the frame -- truthy for every event, registered or not.
+  f.__frameEvents = {}
   f.__unitEvents = {}
+  function f:RegisterEvent(event) self.__frameEvents[event] = true; return self end
+  function f:UnregisterEvent(event) self.__frameEvents[event] = nil; return self end
+  function f:IsEventRegistered(event) return self.__frameEvents[event] == true end
   function f:RegisterUnitEvent(event, ...) self.__unitEvents[event] = { ... }; return self end
-  function f:UnregisterAllEvents() self.__unitEvents = {}; return self end
+  function f:UnregisterAllEvents() self.__frameEvents, self.__unitEvents = {}, {}; return self end
 
   setmetatable(f, { __index = function(_, k)
     if type(k) == "string" and k:match("^%u") then
@@ -175,6 +232,7 @@ local function stubFrame()
     end
     return nil
   end })
+  if track then track(f) end
   return f
 end
 
@@ -392,6 +450,13 @@ local function unregisterAllEvents(self)
   for k in pairs(self.__events) do self.__events[k] = nil end
   local build = BUILD_OF[self.__events]
   if build then build.events:unregisterAll(self) end
+  -- A target that is ALSO a frame carries the two raw tables, and `UnregisterAllEvents` on a frame
+  -- clears those in the client too. Embedding replaced this method, so without these two lines an
+  -- embedded frame's raw and per-unit registrations survived the one call whose whole meaning is
+  -- that nothing is registered any more -- which would leave the registration set non-empty for a
+  -- reason that has nothing to do with the addon under test.
+  if type(self.__frameEvents) == "table" then self.__frameEvents = {} end
+  if type(self.__unitEvents) == "table" then self.__unitEvents = {} end
   return self
 end
 
@@ -878,7 +943,7 @@ local function addonLifecycle(M, AceAddon, c)
     if not now then return end
     while #AceAddon.enablequeue > 0 do AceAddon:EnableAddon(table.remove(AceAddon.enablequeue, 1)) end
   end)
-  AceAddon.frame = stubFrame()
+  AceAddon.frame = M.__stubFrame()
   AceAddon.frame:SetScript("OnEvent", onEvent)
 end
 
@@ -951,9 +1016,24 @@ end
 return function()
   local M = {}
 
+  -- Every frame this build made, weak-keyed so a frame nobody holds is not kept alive by the
+  -- survey, and numbered in creation order so `M.__shownFrames()` and `M.__registrations()` can be
+  -- sorted into an order a suite may assert on. `pairs` order is not an order: a suite that
+  -- asserted on one would pass or fail on somebody else's hash seed.
+  local frameSet, frameSeq = setmetatable({}, { __mode = "k" }), 0
+  local function trackFrame(f)
+    frameSeq = frameSeq + 1
+    f.__seq = frameSeq
+    frameSet[f] = true
+    return f
+  end
+  local function newFrame() return stubFrame(trackFrame) end
+
   -- Exposed so an addon's own mock can build extra frame-shaped objects (GameTooltip stand-ins,
-  -- StopwatchFrame, …) without duplicating the stub.
-  M.__stubFrame = stubFrame
+  -- StopwatchFrame, …) without duplicating the stub. It hands back a TRACKED frame, so a stand-in
+  -- an addon's own mock builds is surveyed exactly like one this file built -- otherwise the one
+  -- frame a consumer had to make for itself would be the one frame its stand-down suite cannot see.
+  M.__stubFrame = newFrame
   M.__deepcopy  = deepcopy
   -- Published, not private: a consumer's suite reads the height it expects out of this rather than
   -- restating it, and a consumer that needs an atlas nobody has needed yet adds the entry here.
@@ -978,37 +1058,6 @@ return function()
   -- shared helper waiting to be adopted. The addon that first needs one adds it to its own extender
   -- with a test, and it graduates here once a second addon wants the same behavior.
 
-  -- Scheduled one-shot timers, recorded so tests can inspect coalescing and fire them on demand.
-  --
-  -- CANCELLATION IS HONORED (revision 17). A queue entry is skipped once it has been canceled -- a
-  -- C_Timer.NewTimer handle through its own `Cancel`, an AceTimer handle through CancelTimer -- and
-  -- `__fireTimers` answers how many entries actually RAN, so "three events, one pass" and "the
-  -- pending timer was canceled" are both assertable. Until 17, NewTimer's Cancel was a no-op and
-  -- a canceled debounce still fired, which is the bug a debounce test exists to catch. Both kinds
-  -- record it on the handle as `handle.cancelled`, AceTimer's own field name.
-  M.__timers = {}
-  M.__fireTimers = function()
-    local due = M.__timers
-    M.__timers = {}
-    local ran = 0
-    for _, t in ipairs(due) do
-      if not (t.cancelled or (t.timer and t.timer.cancelled)) then
-        ran = ran + 1
-        t.fn()
-      end
-    end
-    return ran
-  end
-  M.C_Timer = {
-    After = function(delay, fn) M.__timers[#M.__timers + 1] = { fn = fn, delay = delay } end,
-    NewTimer = function(delay, fn)
-      local t = { fn = fn, delay = delay }
-      t.Cancel = function() t.cancelled = true end
-      t.IsCancelled = function() return t.cancelled == true end
-      M.__timers[#M.__timers + 1] = t
-      return t
-    end,
-  }
 
   -- ── unit / world ─────────────────────────────────────────────────────────────────────────
   M.__unitExists = { player = true, target = false, focus = false }
@@ -1062,10 +1111,10 @@ return function()
   M.__stopwatch = {}
   local function sw(action) return function() M.__stopwatch[#M.__stopwatch + 1] = action end end
   M.Stopwatch_Clear, M.Stopwatch_Play, M.Stopwatch_Pause = sw("clear"), sw("play"), sw("pause")
-  M.StopwatchFrame = stubFrame()
+  M.StopwatchFrame = newFrame()
 
   -- ── UI ───────────────────────────────────────────────────────────────────────────────────
-  M.UIParent = stubFrame()
+  M.UIParent = newFrame()
   -- The ARGUMENTS are recorded, not discarded (fidelity rule 3). A frame's global name is
   -- load-bearing in real code and not merely decorative: UIPanelScrollFrameTemplate derives its
   -- scrollbar children's names from its parent's, and UISpecialFrames is a list of global NAMES,
@@ -1076,15 +1125,15 @@ return function()
   -- LibKa0s-Options-1.0's scrollbar patch CONCATENATES GetName(), and handing it a real string
   -- would change a code path rather than observe one.
   M.CreateFrame = function(frameType, name, parent, template)
-    local f = stubFrame()
+    local f = newFrame()
     f.__frameType, f.__name, f.__parent, f.__template = frameType, name, parent, template
     return f
   end
   M.UISpecialFrames = {}
-  M.DEFAULT_CHAT_FRAME = stubFrame()
+  M.DEFAULT_CHAT_FRAME = newFrame()
   M.StaticPopupDialogs = {}
   M.StaticPopup_Show = function() end
-  M.GameTooltip = stubFrame()
+  M.GameTooltip = newFrame()
   M.hooksecurefunc = function() end
   M.CreateColor = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end
   M.PlaySound = function() end
@@ -1100,7 +1149,7 @@ return function()
   -- that from a guard which merely printed is seeing the close land. Left nil, the branch is
   -- unreachable and the case passes either way.
   M.__settingsClosed = 0
-  M.SettingsPanel = stubFrame()
+  M.SettingsPanel = newFrame()
   function M.SettingsPanel:Close() M.__settingsClosed = M.__settingsClosed + 1 end
 
   M.Settings = {
@@ -1121,131 +1170,6 @@ return function()
   -- Exposed so an addon's own mock can register additional library fakes (AceDBOptions,
   -- AceConfigDialog, LibSharedMedia) without reaching through LibStub's closure.
   M.__libs = libs
-
-  -- AceDB-3.0 with a WORKING profile surface. A bare {global, profile} stub leaves an addon's
-  -- entire `profile` verb untestable: the handler bails at `if not db.SetProfile` before touching a
-  -- single subcommand, so a broken switch/copy/delete passes the suite silently. Model enough of
-  -- the real lib to exercise it — a named profile store, switch/copy/delete/reset, and the
-  -- OnProfileChanged / OnProfileCopied / OnProfileReset callbacks AceDB fires via CallbackHandler.
-  libs["AceDB-3.0"] = {
-    -- `tbl` is the real signature's first arg: either the STRING name of a global SavedVariables
-    -- table (what an addon passes: `AceDB:New("<Addon>DB", ...)`), or an actual table. Resolving it
-    -- against `_G` (rather than always starting fresh) is what lets a test seed the global with a
-    -- legacy profile and then drive the REAL InitDB path against real AceDB merge-in-place
-    -- semantics, instead of only against a bespoke plain table that never triggers them.
-    New = function(_, tbl, defaults)
-      local sv
-      if type(tbl) == "string" then
-        sv = _G[tbl]
-        if not sv then
-          sv = {}
-          _G[tbl] = sv
-        end
-      else
-        sv = tbl or {}
-      end
-      sv.profiles = sv.profiles or {}
-      sv.global = sv.global or {}
-
-      local db = {}
-      local current, callbacks = "Default", {}
-
-      -- Faithful (if simplified) copy of AceDB-3.0's copyDefaults: recurse into every TABLE-valued
-      -- default, creating the dest sub-table if it is missing, but only ever fill a SCALAR leaf
-      -- when the dest does not already have it. An existing user value always wins — this is the
-      -- exact merge-in-place behavior that makes a naive `if profile.x == nil then migrate()`
-      -- guard unreachable, because a bare read of db.profile has already populated it.
-      local function copyDefaults(dest, src)
-        for k, v in pairs(src or {}) do
-          if type(v) == "table" then
-            if type(dest[k]) ~= "table" then dest[k] = {} end
-            copyDefaults(dest[k], v)
-          elseif dest[k] == nil then
-            dest[k] = v
-          end
-        end
-      end
-
-      local function ensureProfile(name)
-        sv.profiles[name] = sv.profiles[name] or {}
-        copyDefaults(sv.profiles[name], defaults and defaults.profile)
-        return sv.profiles[name]
-      end
-
-      copyDefaults(sv.global, defaults and defaults.global)
-      -- Real AceDB-3.0 exposes the whole raw SavedVariables table as db.sv, and that is how a
-      -- migration reaches `sv.profiles` to lift EVERY saved profile rather than just the active
-      -- one. Note the fidelity that matters: profiles are only merged with the defaults by
-      -- ensureProfile when they are actually activated, so a pre-seeded, never-activated profile
-      -- stays exactly as the SavedVariables file had it — un-stamped, which is precisely the case a
-      -- per-profile lift has to handle.
-      db.sv      = sv
-      db.global  = sv.global
-      db.profile = ensureProfile(current)
-
-      -- `key` is the third argument AceDB-3.0 hands the callback, and it is NOT always the active
-      -- profile: OnProfileChanged carries the profile switched TO, but OnProfileCopied carries the
-      -- SOURCE of the copy (`self.callbacks:Fire("OnProfileCopied", self, name)`, AceDB-3.0.lua
-      -- CopyProfile). Through revision 17 this fired every event with the active profile, so a
-      -- copy of "Raid" into "Default" reached the handler as a copy of "Default" — fidelity rule 5.
-      -- Revision 18 passes each event its own key. OnProfileReset carries NONE, as AceDB-3.0's
-      -- ResetProfile fires it (`self.callbacks:Fire("OnProfileReset", self)`); through revision 18
-      -- it carried the active profile, so a handler reading its third argument on a reset passed
-      -- here and got nil in the client (revision 19). Vararg, so a keyless event hands the callback
-      -- exactly two arguments, as CallbackHandler does.
-      local function fire(event, ...)
-        for _, cb in ipairs(callbacks[event] or {}) do cb(event, db, ...) end
-      end
-
-      -- CallbackHandler shape: db.RegisterCallback(target, event, fn) — dot-called, so the
-      -- registering object arrives as the first arg.
-      db.RegisterCallback = function(_target, event, fn)
-        callbacks[event] = callbacks[event] or {}
-        callbacks[event][#callbacks[event] + 1] = fn
-      end
-
-      db.GetCurrentProfile = function() return current end
-
-      db.GetProfiles = function()
-        local names = {}
-        for name in pairs(sv.profiles) do names[#names + 1] = name end
-        table.sort(names)
-        return names
-      end
-
-      db.SetProfile = function(_, name)
-        if name == current then return end
-        current = name
-        db.profile = ensureProfile(name)
-        fire("OnProfileChanged", current)
-      end
-
-      db.ResetProfile = function()
-        -- Wipe in place: the real lib keeps the profile table's identity across a reset, so
-        -- anything holding a reference to db.profile keeps seeing the live table.
-        local p = sv.profiles[current]
-        for k in pairs(p) do p[k] = nil end
-        copyDefaults(p, defaults and defaults.profile)
-        fire("OnProfileReset")   -- the db alone, as AceDB-3.0 fires it (revision 19)
-      end
-
-      db.CopyProfile = function(_, name)
-        local src = sv.profiles[name]
-        if not src or name == current then return end
-        local p = sv.profiles[current]
-        for k in pairs(p) do p[k] = nil end
-        for k, v in pairs(deepcopy(src)) do p[k] = v end
-        fire("OnProfileCopied", name)   -- the SOURCE, as AceDB-3.0 fires it (revision 18)
-      end
-
-      db.DeleteProfile = function(_, name)
-        if name == current then return end
-        sv.profiles[name] = nil
-      end
-
-      return db
-    end,
-  }
 
   -- The event half's recorder, fresh per build and shared by NewAddon and AceEvent:Embed below:
   -- [target] = { [event] = handler or true }. Weak-keyed, so a target nobody holds is not kept.
@@ -1321,7 +1245,7 @@ return function()
       callbacks = {},
       -- AceGUI's documented per-widget scratch table, cleared in place by Release.
       userdata  = {},
-      frame     = stubFrame(),
+      frame     = newFrame(),
     }
     -- WidgetBase.Release: the method form of AceGUI:Release, which correct code may call instead.
     function w:Release() return aceGUI:Release(self) end
@@ -1363,9 +1287,9 @@ return function()
     if wtype == "ScrollFrame" then
       -- The always-shown-scrollbar patch reaches into these three by name and does real work with
       -- them.
-      w.scrollbar   = stubFrame()
-      w.scrollframe = stubFrame()
-      w.content     = stubFrame()
+      w.scrollbar   = newFrame()
+      w.scrollframe = newFrame()
+      w.content     = newFrame()
       w.content.original_width = 400
       w.localstatus = { offset = 0 }
       function w:FixScroll() self.fixScrollCount = (self.fixScrollCount or 0) + 1 end
@@ -1467,7 +1391,8 @@ return function()
 
   -- Real surfaces since revision 17 (makeAceTimer, makeAceConsole, above). Until then both Embeds
   -- returned the target untouched, so only the NewAddon target ever had a timer or a printer.
-  libs["AceTimer-3.0"] = makeAceTimer(M)
+  local aceTimerLib = makeAceTimer(M)
+  libs["AceTimer-3.0"] = aceTimerLib
   libs["AceConsole-3.0"] = makeAceConsole(M)
 
   -- LibStub. The Ace libraries are fakes looked up from `libs`; vendored LibKa0s modules register
@@ -1494,6 +1419,19 @@ return function()
       return libs[major], minors[major]
     end,
   }, { __call = function(self, major, silent) return self:GetLibrary(major, silent) end })
+
+  -- LAST, and after every fake it reads. The recorder takes this build's internals by reference --
+  -- the frame set, the two CallbackHandler registries, the LibStub registry and the AceTimer fake
+  -- -- because the surveys have to answer over the LIVE tables rather than over copies taken at
+  -- build time: a copy would report the registration set as it was when the mock was made, which
+  -- is the one moment nobody is asking about.
+  installRecorders(M, {
+    frames   = frameSet,
+    libs     = libs,
+    events   = eventBuild.events,
+    messages = AceEvent.messages,
+    aceTimer = aceTimerLib,
+  })
 
   return M
 end

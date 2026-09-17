@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-786%2F786_passing-green)
+![Tests](https://img.shields.io/badge/Tests-798%2F798_passing-green)
 
 Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot, or switch to the **Insights** tab to see the same log broken down by source, value, quality and more.
 
@@ -55,7 +55,7 @@ Rows do more than sit there. Hover one for the item's own tooltip (currency rows
 
 **Export** follows whichever tab you are on. From History it copies your loot rows as CSV; from Insights, an analytics summary that mirrors the charts. Either one honors the **Data Set** choice, so it is all your data or just the filtered view in front of you. Nothing leaves the game — the addon can't reach your system clipboard, so it opens a box with the text already selected for you to press Ctrl+C on.
 
-Everything else is configuration, and it lives in two places: the addon's own page under **Settings ▸ AddOns** in game, which `/lh` (or `/loothistory`) opens, and the slash commands, which `/lh help` lists. `/lh disable` stops the addon recording without unloading it, and `/lh enable` starts it again — the same switch as **Master controls ▸ Enable Loot History**, and it keeps answering while the addon is off.
+Everything else is configuration, and it lives in two places: the addon's own page under **Settings ▸ AddOns** in game, which `/lh` (or `/loothistory`) opens, and the slash commands, which `/lh help` lists. `/lh disable` switches the addon off and `/lh enable` switches it back on — the same switch as **Master controls ▸ Enable Loot History**. Off means off: it stops watching for loot, cancels everything it had pending and closes its window, rather than staying loaded and quietly ignoring what it sees. The command surface stays live, though, so every verb still answers with the addon off — a bare `/lh` still opens the settings panel, `/lh get` and `/lh set` still read and repair settings, and `/lh enable` is always there to switch it back on. Only the verbs that drive the window itself decline, on one line that names the way back.
 
 ## How attribution works
 

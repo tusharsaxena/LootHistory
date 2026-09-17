@@ -72,7 +72,9 @@ NS.Launcher = Launcher:New({
   name  = addonName,
   -- What a broker display prints. Defaults to `name`, which would read "LootHistory"; this is the
   -- string the LDB object carried before the adoption, so a Titan Panel row does not rename itself.
-  label = "Ka0s Loot History",
+  -- Read from NS.BRAND rather than typed, because slash-commands-§7's refusal line is built from
+  -- the same string and an addon with two brand spellings prints the wrong one somewhere.
+  label = NS.BRAND,
   icon  = NS.LAUNCHER_ICON,
 
   -- A FUNCTION, never the table: `NS.db.global.minimap` does not exist when this file loads, and a
@@ -88,7 +90,21 @@ NS.Launcher = Launcher:New({
 
   -- LEFT-click: RUNG (a), the primary window. `B:Toggle` is the browser's own switch -- the one
   -- `/lh toggle` calls -- so the button drives the addon's existing state rather than a copy.
+  --
+  -- REFUSED WHILE THE ADDON IS DISABLED (launcher-§2, slash-commands-§7). Rung (a) drives a primary
+  -- window and that is a feature, so the left button prints the ONE refusal line and does nothing
+  -- else -- in particular it writes no SavedVariables, which is the failure the audit found on a
+  -- minimap button with no disabled gate at all. The rung-(c) carve-out does NOT reach this addon:
+  -- it is for a left-click that opens the settings panel and nothing else, and ours opens a window.
+  -- RIGHT-click is unchanged in either state (`openSettings` above), which is what keeps the panel
+  -- one click away from a player who wants to switch the addon back on.
+  --
+  -- The line comes from NS.Slash.DisabledLine, never re-spelled here: one wording, one call site
+  -- per surface, and the launcher's click reads the same string the dispatcher's gate prints.
   onClick = function()
+    if NS.AddonIsOff and NS.AddonIsOff() then
+      return NS.Print(NS.Slash.DisabledLine())
+    end
     if NS.Browser and NS.Browser.Toggle then NS.Browser:Toggle() end
   end,
 

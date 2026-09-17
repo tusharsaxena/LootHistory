@@ -39,13 +39,29 @@ function addon:OnInitialize()
   -- Idempotent by the library's own design, so a second call from a login handler would build no
   -- second button; there is only this one.
   if NS.Launcher then NS.Launcher:Register() end
+  -- AFTER NS:InitDB, which is what makes `NS.db` exist to register callbacks on. AceDB's profile
+  -- callbacks are one of the things a disabled addon KEEPS (slash-commands-§7): a profile switch
+  -- can flip the stored enable path with no verb and no checkbox touched, and the latch has to
+  -- re-evaluate when it does.
+  NS.BindLifecycle()
 end
 
+--- Come up, and then take the stored hold if the player has this addon switched off.
+---
+--- TWO CALLS, IN THIS ORDER, and the order is the contract rather than a style. `NS.StandUp` is the
+--- ONE place the registrations live -- the same function the latch calls on the way back up -- so
+--- the load path and the checkbox path can never build different addons. `Set` then re-reads the
+--- stored switch: on an enabled install the hold set stays empty and nothing else happens, and on a
+--- disabled one the latch fires the edge and `NS.StandDown` takes back down what this just built.
+--- Building and immediately tearing down looks wasteful and is the cheap half of the trade -- the
+--- alternative is a second, load-only spelling of "what does this addon register", which is exactly
+--- the parallel mechanism anti-patterns #85 names.
+---
+--- Never `NS.Lifecycle:Release(...)` here, and never a bare stand-up: the only route out of the
+--- disabled state is releasing the hold that caused it.
 function addon:OnEnable()
-  self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnterWorld")
-  if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
-  if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
-  if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
+  NS.StandUp()
+  NS.Lifecycle:Set(NS.HOLD_DISABLED, NS.AddonIsOff())
   -- No [Init] line here: the debug flag is session-only and off at login, so a boot-time summary
   -- would always be gated off and never render. It rides the DebugLog:SetEnabled seam instead,
   -- emitted when capture is actually enabled (debug-logging-§5/§8).
@@ -57,13 +73,16 @@ end
 function addon:OnEnterWorld()
   if NS.State.cleanupDone then return end
   NS.State.cleanupDone = true
-  if C_Timer and C_Timer.After then
-    C_Timer.After(5, function()
-      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
-      if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
-    end)
-    C_Timer.After(20, function()
-      if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
-    end)
-  end
+  -- THROUGH NS.After, NOT C_Timer.After, and that is not a refactor for tidiness. Both of these
+  -- are SavedVariables writes on a fuse lit by a game event, and `C_Timer.After` cannot be put out:
+  -- a player who switched the addon off inside those first five seconds got the retention prune
+  -- anyway, from a game event, while it was disabled -- the exact shape slash-commands-§7 forbids.
+  -- NS.CancelDeferrals, which NS.StandDown calls, reaches these handles.
+  NS.After(5, function()
+    if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
+    if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
+  end)
+  NS.After(20, function()
+    if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
+  end)
 end

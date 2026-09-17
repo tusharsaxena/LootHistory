@@ -221,7 +221,7 @@ A row's `page` is the canvas subcategory it is edited on, its `group` is the tab
 
 | Path | Page ▸ Tab | Widget | Default | Notes |
 |---|---|---|---|---|
-| `settings.enabled` | General ▸ Master controls | CheckBox | `true` | Master capture switch. Fires `SettingsChanged`. |
+| `settings.enabled` | General ▸ Master controls | CheckBox | `true` | The addon-wide switch. Its `onChange` calls `NS.OnEnabledChanged`, which takes or releases the `disabled` hold on the one `LibKa0s-Lifecycle-1.0` latch — so writing this path is what actually stands the addon down or back up (slash-commands-§7). Fires `SettingsChanged` second, after a stand-up has rebuilt the subscriptions. |
 | `settings.visibility` | General ▸ Master controls | Dropdown | `"always"` | `always` / `inCombat` / `outOfCombat` / `never`. Honoured by `Browser:VisibilityAllows` — `B:Show` refuses, and the two combat transitions hide a window the setting has stopped allowing. Never opens the window by itself. |
 | `settings.scale` | General ▸ Master controls | Slider (0.5–2, step 0.05) | `1.0` | **Addon-wide.** `Browser:ApplyChrome` multiplies it by `settings.windowScale` for the History window; the export modal takes it alone. |
 | `settings.alpha` | General ▸ Master controls | Slider (0–1, step 0.05) | `1.0` | **Addon-wide** opacity, same two frames. |

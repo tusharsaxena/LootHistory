@@ -638,24 +638,46 @@ function Analytics:BuildCharts(content)
   }
 
   -- Live-update while the Insights tab is visible (new loot / deletes / prune).
-  if NS.bus and not self._subscribed then
-    self._subscribed = true
-    local function live()
-      if self.pane and self.pane:IsVisible() then Analytics:Refresh() end
-    end
-    -- Private bus target (never the shared bus-as-self) so these don't clobber the Browser's
-    -- RecordAdded/HistoryChanged handlers on the same bus. See NS.NewBusTarget.
-    -- No `or NS.bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and
-    -- core/LootHistory.lua:4's NewAddon(NS, addonName, "AceEvent-3.0", …) errors first in exactly
-    -- that case, so NS.bus never exists and the `if NS.bus` guard above never opens.
-    self.__ev = NS.NewBusTarget()
-    -- Coalesced for the same reason the Browser's is (issue #27): `Analytics:Refresh` is another
-    -- full-history pass, and it was the ninth one paid per looted item while the Insights tab was
-    -- visible. HistoryChanged stays immediate — a delete or a prune is one deliberate action.
-    self.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
-      NS.Coalesce(live, NS.Constants.RECORD_ADDED_COALESCE))
-    self.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", live)
+  Analytics:Enable()
+end
+
+--- Subscribe the Insights pane to the bus.
+---
+--- LIFTED OUT of BuildCharts, and the lift is what makes the stand-down reversible rather than
+--- cosmetic. The subscription used to be made inline, once, the first time the charts were built --
+--- so a stand-down that dropped it had no way back short of rebuilding the pane, and the Insights
+--- tab came up live-updating on a disabled addon and dead on a re-enabled one. It is NS.StandUp's
+--- to call now, like the other three modules'.
+function Analytics:Enable()
+  if not NS.bus or self._subscribed then return end
+  self._subscribed = true
+  local function live()
+    if self.pane and self.pane:IsVisible() then Analytics:Refresh() end
   end
+  -- Private bus target (never the shared bus-as-self) so these don't clobber the Browser's
+  -- RecordAdded/HistoryChanged handlers on the same bus. See NS.NewBusTarget.
+  -- No `or NS.bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and
+  -- core/LootHistory.lua:4's NewAddon(NS, addonName, "AceEvent-3.0", …) errors first in exactly
+  -- that case, so NS.bus never exists and the `if NS.bus` guard above never opens.
+  self.__ev = NS.NewBusTarget()
+  -- Coalesced for the same reason the Browser's is (issue #27): `Analytics:Refresh` is another
+  -- full-history pass, and it was the ninth one paid per looted item while the Insights tab was
+  -- visible. HistoryChanged stays immediate — a delete or a prune is one deliberate action.
+  self.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
+    NS.Coalesce(live, NS.Constants.RECORD_ADDED_COALESCE))
+  self.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", live)
+end
+
+--- The stand-down half (slash-commands-§7): the private bus target goes wholesale, and the
+--- coalescing repaint trigger goes with it.
+function Analytics:Disable()
+  if not self._subscribed then return end
+  if self.__ev then
+    self.__ev:UnregisterAllMessages()
+    self.__ev:UnregisterAllEvents()
+    self.__ev = nil
+  end
+  self._subscribed = nil
 end
 
 -- Render a horizontal-bar section: header + one bar per row. rows: ordered array of

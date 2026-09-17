@@ -1,6 +1,7 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
 	<Script file="Core.lua"/>
 	<Script file="Env.lua"/>
+	<Script file="Lifecycle.lua"/>
 	<Script file="Pool.lua"/>
 	<Script file="Item.lua"/>
 	<Script file="Media.lua"/>

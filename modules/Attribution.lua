@@ -118,6 +118,12 @@ end
 -- within CONTEXT_TTL. Not cleared on consume: one loot window emits many lines sharing a source.
 -- `trigger` is an optional label for the debug trace only.
 function Attribution:Stamp(source, detail, confidence, trigger)
+  -- THE hooksecurefunc CARVE-OUT, and the only gate of its kind in this addon (slash-commands-§7).
+  -- Five hooks reach this funnel -- BuyMerchantItem, TakeInboxItem, AutoLootMailItem,
+  -- UseContainerItem and GetQuestReward -- and `hooksecurefunc` has no un-hook, so gating the body
+  -- and returning is the one move available. It MUST NOT be read as licence to gate anything that
+  -- has a real unregister: every event this module owns is torn out in Attribution:Disable.
+  if NS.IsStoodDown and NS.IsStoodDown() then return end
   State.lootContext = {
     source = source,
     detail = detail,
@@ -347,26 +353,61 @@ function Attribution:Enable()
   bus:RegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
   bus:RegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
   bus:RegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
+  -- Recorded as they are registered, so Attribution:Disable unregisters exactly what Enable
+  -- registered rather than from a hand-typed second list that drifts the day an event is added.
+  self.__events = { "LOOT_OPENED", "ENCOUNTER_START", "ENCOUNTER_END", "CHALLENGE_MODE_START",
+                    "CHALLENGE_MODE_COMPLETED", "TRADE_ACCEPT_UPDATE", "QUEST_TURNED_IN" }
 
   -- Player-only spell-success via a dedicated RegisterUnitEvent frame — avoids the raid-wide
   -- firehose a bare RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") would deliver (every nameplate cast).
-  local spellFrame = CreateFrame("Frame")
+  -- HELD ON THE MODULE, not in a local: Attribution:Disable has to reach it to unregister, and a
+  -- frame only the closure knows about is a per-unit registration no stand-down can take out and no
+  -- suite can see. Re-used across a disable/enable cycle rather than rebuilt, so the cycle does not
+  -- leak one frame per turn of the switch.
+  local spellFrame = self.__spellFrame or CreateFrame("Frame")
+  self.__spellFrame = spellFrame
   spellFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
   spellFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
     self:OnSpellSucceeded(event, unit, castGUID, spellID)
   end)
 
-  if hooksecurefunc then
-    if type(BuyMerchantItem) == "function" then
-      hooksecurefunc("BuyMerchantItem", function() self:StampVendor() end)
+  -- INSTALLED ONCE PER SESSION, and that is forced rather than chosen: every hook here goes in
+  -- through `hooksecurefunc`, which has no un-hook, so a second Enable after a stand-down would
+  -- stack a second copy of each. The carve-out slash-commands-§7 grants for exactly this API is a
+  -- hook that GATES ITS OWN BODY and returns, and Attribution:Stamp is where that gate sits -- one
+  -- funnel, and every one of these five lands in it.
+  if not self._hooked then
+    self._hooked = true
+    if hooksecurefunc then
+      if type(BuyMerchantItem) == "function" then
+        hooksecurefunc("BuyMerchantItem", function() self:StampVendor() end)
+      end
+      if type(TakeInboxItem) == "function" then
+        hooksecurefunc("TakeInboxItem", function(mailIndex) self:StampMail(mailIndex) end)
+      end
+      if type(AutoLootMailItem) == "function" then
+        hooksecurefunc("AutoLootMailItem", function(mailIndex) self:StampMail(mailIndex) end)
+      end
     end
-    if type(TakeInboxItem) == "function" then
-      hooksecurefunc("TakeInboxItem", function(mailIndex) self:StampMail(mailIndex) end)
-    end
-    if type(AutoLootMailItem) == "function" then
-      hooksecurefunc("AutoLootMailItem", function(mailIndex) self:StampMail(mailIndex) end)
-    end
+    NS.Compat.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
+    NS.Compat.HookGetQuestReward(function() self:StampQuestReward() end)
   end
-  NS.Compat.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
-  NS.Compat.HookGetQuestReward(function() self:StampQuestReward() end)
+end
+
+--- The stand-down half of Enable (slash-commands-§7). The seven shared-target events go by name --
+--- UnregisterAllEvents there would take the Collector's two and the addon's own with them -- and
+--- the per-unit spell frame goes wholesale, which is the registration a draw gate leaves visibly in
+--- place and no early return can take out.
+function Attribution:Disable()
+  if not self._enabled then return end
+  local bus = NS.addon
+  if bus and bus.UnregisterEvent then
+    for _, event in ipairs(self.__events or {}) do bus:UnregisterEvent(event) end
+  end
+  if self.__spellFrame then self.__spellFrame:UnregisterAllEvents() end
+  -- The short-lived source context goes down with the registrations. A stamp left behind would be
+  -- consumed by the first loot line after the addon came back, attributing it to a kill that
+  -- happened while the addon was off.
+  NS.State.lootContext, NS.State.encounter, NS.State.keystone = nil, nil, nil
+  self._enabled = nil
 end

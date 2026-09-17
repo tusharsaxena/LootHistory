@@ -10,10 +10,11 @@
 -- Every instance owns its own frames. A lib-level shared frame would reproduce that exact
 -- attribution pathology: the measuring instrument corrupting the attribution it exists to fix.
 --
--- Depends on LibStub and LibKa0s-Core-1.0, and on NO ADDON FRAMEWORK — that second half is the part
--- worth protecting. Core embeds nothing either, so an addon that is not on the Ace substrate can
--- still adopt this probe; what the Core dependency costs is one vendored sibling file, and
--- re-vendoring is whole-folder, so it is never separately missing in practice.
+-- Depends on LibStub, LibKa0s-Core-1.0 and LibKa0s-Lifecycle-1.0, and on NO ADDON FRAMEWORK — that
+-- last half is the part worth protecting. Neither sibling embeds anything either, so an addon that
+-- is not on the Ace substrate can still adopt this probe; what the two dependencies cost is two
+-- vendored sibling files, and re-vendoring is whole-folder, so neither is ever separately missing
+-- in practice.
 
 -- Refuse rather than degrade when Core is missing or too old. Failing here means the host's own
 -- setup stub reports "perf is not installed" honestly, instead of the probe registering and then
@@ -22,7 +23,18 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 11
+-- The second floor, and it is a RE-VENDOR TRIGGER rather than a quiet addition: a vendored copy of
+-- this file that arrives beside a payload with no Lifecycle.lua in it does not register at all, so
+-- a host that re-vendored half the folder loses its perf probe outright instead of finding out
+-- mid-run. Suspend and resume are now two holds on the host's latch rather than two direct calls
+-- into the host, which is the whole reason the floor exists: without the latch there is nothing
+-- for `Suspend` to take a hold on, and the arm would have to keep a `suspended` boolean of its own
+-- — the second lifecycle mechanism the standard names as the anti-pattern.
+local lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
+local NEEDS_LIFECYCLE = 1
+if not lifecycle or (lifecycle.MINOR or 0) < NEEDS_LIFECYCLE then return end   -- module absent
+
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 12
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -316,8 +328,18 @@ function lib:New(descriptor)
   local d = descriptor or {}
   required(d, "name", "string")
   required(d, "sv", "string")
-  required(d, "suspend", "function")
-  required(d, "resume", "function")
+  -- The host's stand-down latch, and the only route this module now has to making the addon inert.
+  -- Required rather than optional: an instance with no latch has no way to suspend, and a perf run
+  -- whose Experiment B measured a fully live addon produces a delta of roughly zero and reads as
+  -- "this addon costs nothing" — a wrong answer that looks exactly like a good one.
+  --
+  -- `suspend` and `resume` are NO LONGER REQUIRED and are no longer called. A host that has adopted
+  -- the latch passes the very same two functions to LibKa0s-Lifecycle-1.0 as `standDown` and
+  -- `standUp`, where the DISABLED arm reaches them too; leaving them on this descriptor as well is
+  -- harmless and is what an un-migrated host will do, but nothing here reads them. Keeping the
+  -- `required` calls would have forced every host to carry two live copies of its own teardown, and
+  -- two copies is how the perf arm and the disable arm drift apart.
+  required(d, "lifecycle", "table")
 
   local P = {}
 
@@ -378,10 +400,40 @@ function lib:New(descriptor)
   -- Capture running? Read directly by every bracket call site, so it must stay a plain boolean
   -- field on a plain table — no metatable, no accessor.
   P.on        = false
-  P.suspended = false
   P.run       = false     -- between Start() and Stop()
   P.armed     = nil       -- window armed, waiting for combat
   P.recording = nil       -- window currently recording
+
+  -- The latch, and the one hold this module is allowed to take on it. The key is read off the
+  -- Lifecycle major rather than spelled here, so the arm that takes the hold and the arm that
+  -- releases it cannot come to disagree about what it is called.
+  local lc   = d.lifecycle
+  local HOLD = lifecycle.HOLD_PERF
+
+  -- `P.suspended` IS THE LATCH, READ THROUGH. This module used to keep its own boolean beside the
+  -- host's inert state, and that second copy is precisely what let a `resume` at the end of a perf
+  -- run resurrect an addon the player had disabled halfway through it: two booleans, one edge, and
+  -- whichever wrote last won. There is now exactly one answer to "is this addon inert", it lives in
+  -- the latch, and this field is a VIEW of it rather than a copy — every existing host and every
+  -- existing case that reads `P.suspended` keeps reading the same field name and now gets the truth.
+  --
+  -- __newindex guards the one key. A write to `P.suspended` would rawset a shadowing field that
+  -- wins over __index forever after, which is the silent half of the bug this removes; every other
+  -- key writes through untouched, and __newindex only ever fires for a key the table does not
+  -- already carry, so nothing on the bracket path pays for it.
+  setmetatable(P, {
+    __index = function(_, k)
+      if k == "suspended" then return lc:IsHeld(HOLD) end
+      return nil
+    end,
+    __newindex = function(t, k, v)
+      if k == "suspended" then
+        error("LibKa0s-Perf: P.suspended is the latch's answer and cannot be assigned — "
+          .. "take or release the '" .. HOLD .. "' hold instead", 2)
+      end
+      rawset(t, k, v)
+    end,
+  })
 
   local buckets   = {}
   local completed = { active = false, suspended = false }
@@ -1001,8 +1053,15 @@ function lib:New(descriptor)
 
   -- ── Suspend / resume ─────────────────────────────────────────────────────────────────────
   --
-  -- The host owns what "inert" means; the lib owns only the state and the announcement. Two rules
-  -- the host contract depends on, both learned the hard way and both documented in the README:
+  -- TWO HOLDS ON ONE LATCH, and this arm owns exactly one of them. The host owns what "inert"
+  -- means — its `standDown` is what these two reach, through the latch — and this module owns only
+  -- when the `perf` hold is taken and when it is given back. It keeps NO suspended boolean: the
+  -- latch's answer is the answer, because the session where the player disables the addon halfway
+  -- through a capture is the session where a second boolean and the latch disagree, and whichever
+  -- was written last decides whether the addon comes back.
+  --
+  -- Two rules the host contract depends on, both learned the hard way and both documented in the
+  -- README:
   --
   --   * Suspend MUST make the addon inert WITHOUT a reload. Reloading or disabling an addon shifts
   --     shared-frame ownership, which is the confound that makes the built-in Addon Profiler
@@ -1012,18 +1071,27 @@ function lib:New(descriptor)
   --     transition, a target swap or a settings change re-shows a bar behind suspend's back.
 
   function P.Suspend()
-    if P.suspended then return false end
-    P.suspended = true
+    if lc:IsHeld(HOLD) then return false end
     P.Log("addon SUSPENDED \226\128\148 inert")
-    d.suspend()
+    -- Taking the hold is what runs the host's teardown, and only if this is the FIRST hold. An
+    -- addon the player has already disabled is already inert, so Experiment B measures exactly what
+    -- it means to measure and nothing is torn down twice.
+    lc:Hold(HOLD)
     return true
   end
 
+  --- Release the perf hold. NOT a stand-up: whether the addon actually comes back is the latch's
+  --- decision, not this module's, and it says no while `disabled` is still taken. The log line
+  --- follows the answer rather than announcing a restore that did not happen — a player reading
+  --- "events and frames restored" over an addon that is still off has been told the opposite of
+  --- what occurred, and will go looking for the bug in the wrong addon.
   function P.Resume()
-    if not P.suspended then return false end
-    P.suspended = false
-    P.Log("addon RESUMED \226\128\148 events and frames restored")
-    d.resume()
+    if not lc:IsHeld(HOLD) then return false end
+    if lc:Release(HOLD) then
+      P.Log("addon RESUMED \226\128\148 events and frames restored")
+    else
+      P.Log("perf hold RELEASED \226\128\148 the addon stays down, another hold is still taken")
+    end
     return true
   end
 
@@ -1137,12 +1205,21 @@ function lib:New(descriptor)
       return
     end
     local record = P.Stop()
-    -- Resume BEFORE saving or formatting. Experiment B leaves the host inert, and with no manual
-    -- resume verb the only other way back is a /reload — so an error in Save or FormatReport must
-    -- not be able to strand the addon dead for the rest of the session.
+    -- RELEASE THE PERF HOLD BEFORE SAVING OR FORMATTING (performance-§6). Experiment B leaves the
+    -- hold taken, and with no manual resume verb the only other way back is a /reload — so a raise
+    -- inside Save or FormatReport must not be able to strand the hold for the rest of the session.
+    -- Ordering is what guarantees that, not a pcall: by the time anything below can fail, the hold
+    -- is already gone and the latch has already decided whether the addon stands up.
+    --
+    -- Whether it DID stand up is the latch's answer, and the line follows it. A run finished on an
+    -- addon the player disabled mid-capture releases `perf`, keeps `disabled`, and stays down;
+    -- announcing "restored" there would be the bare stand-up the latch exists to prevent, written
+    -- as chat text.
     if P.suspended then
       P.Resume()
-      out[#out + 1] = "addon |cff40ff40RESUMED|r \226\128\148 restored"
+      out[#out + 1] = (not lc:IsDown())
+        and "addon |cff40ff40RESUMED|r \226\128\148 restored"
+        or "perf hold |cffffff00RELEASED|r \226\128\148 the addon stays down"
     end
     P.Save(record)
     -- Deliberately does NOT print the summary. `finish` fires the moment a fight ends, when the log

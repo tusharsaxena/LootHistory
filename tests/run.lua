@@ -17,6 +17,7 @@ local NS = {}
 Loader.loadAll({
   "libs/LibKa0s/Core.lua",
   "libs/LibKa0s/Env.lua",
+  "libs/LibKa0s/Lifecycle.lua",
   "libs/LibKa0s/Pool.lua",
   "libs/LibKa0s/Item.lua",
   "libs/LibKa0s/Media.lua",
@@ -64,6 +65,11 @@ kick("NS.Panel:Register",  function() NS.Panel:Register() end)
 -- false -- which is the degraded path, and tests/test_launcher.lua registers its own fakes to
 -- drive the wired one.
 kick("NS.Launcher:Register", function() if NS.Launcher then NS.Launcher:Register() end end)
+-- The latch's AceDB profile callbacks (slash-commands-§7). Last, as in the client, and after
+-- NS:InitDB for the plainest of reasons: it registers callbacks on `NS.db`, which InitDB creates.
+-- It does NOT bring the addon up -- `addon:OnEnable` is what does that, and no suite but
+-- tests/test_disabled.lua wants the whole addon registered underneath it.
+kick("NS.BindLifecycle", function() NS.BindLifecycle() end)
 
 -- Load order is significant (later suites read state earlier ones seed); keep as-is. The list is a
 -- named local so tests/test_harness.lua can hand it to Kit.assertSuiteInventory as a named case —
@@ -83,6 +89,10 @@ local SUITES = {
   -- seams to the live DebugLog instance -- the ignore entries naming them describe the state this
   -- suite actually meets, and would be exempting nothing if it ran earlier.
   "test_surface_parity",
+  -- slash-commands-§7's conformance suite. LATE, and after test_launcher deliberately: it is the
+  -- only suite that brings the WHOLE addon up through addon:OnEnable, and step 8 drives the LDB
+  -- object test_launcher leaves registered.
+  "test_disabled",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

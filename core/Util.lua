@@ -249,7 +249,11 @@ function Util.Coalesce(fn, delay)
     -- slow beats a surface that silently never repaints.
     if not (C_Timer and C_Timer.After) then return fn() end
     pending = true
-    C_Timer.After(delay, function()
+    -- NS.After rather than C_Timer.After, so a coalesced repaint that is already in flight when the
+    -- player switches the addon off is CANCELLED rather than left armed to wake up and find a flag
+    -- (slash-commands-§7). A repaint timer re-arming ten times a second in combat and then
+    -- discovering it has nothing to paint is the single shape that section singles out.
+    NS.After(delay, function()
       -- Cleared BEFORE the body, not after. A raise inside `fn` would otherwise leave the flag
       -- set for the rest of the session and this surface would never repaint again — trading a
       -- slow window for a dead one, which is the worse bug and the harder one to notice.

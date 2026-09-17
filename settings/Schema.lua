@@ -139,9 +139,23 @@ local function stamp(rows, extras)
 end
 
 stamp(MASTER_ROWS, {
+  -- THE ADDON-WIDE SWITCH, and its onChange is where "disabled" stops being a flag somebody reads
+  -- and becomes the addon actually standing down (slash-commands-§7). `/lh enable`, `/lh disable`,
+  -- `/lh set settings.enabled <bool>` and this checkbox are one write through one seam, so they all
+  -- arrive here and there is no second route that skips the latch.
+  --
+  -- THE LATCH, NOT A BARE STAND-UP: NS.OnEnabledChanged takes or releases the `disabled` HOLD and
+  -- lets the latch decide whether that was an edge. A direct StandUp here would resurrect the addon
+  -- mid-capture the moment a second hold existed, which is the trap the latch was built for.
+  --
+  -- The bus message still goes out, and it is not redundant: it is how the hot-path upvalues in
+  -- modules/Collector.lua and the Browser's chrome follow a settings write, and `enabled` is a
+  -- settings write like any other. It fires SECOND, so a stand-up has rebuilt the subscriptions
+  -- before the fan-out reaches them.
   ["settings.enabled"] = {
     widget = "CheckBox",
     onChange = function()
+      NS.OnEnabledChanged()
       if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
     end,
   },
@@ -582,7 +596,17 @@ end
 -- genuinely this addon's — show/hide/toggle/config/debug/test/purge — never leave the host and
 -- adopting the library cannot break them.
 --
--- ── THE DISABLED ADDON REFUSES A FEATURE VERB (slash-commands-§2, standard v2.54.0) ────────────
+-- ── THE DISABLED ADDON REFUSES A FEATURE VERB (slash-commands-§2, restored at v2.57.0) ─────────
+--
+-- THE SURFACE IS NOT NARROWED, and that is the ruling rather than an omission. The standard cut the
+-- disabled surface to `enable` and `help` at v2.56.0 and REVERSED it at v2.57.0 (LibKa0s v1.41.0,
+-- Slash minor 13): while disabled every reserved verb answers normally -- `config` and the bare
+-- `/lh` open the panel, `version` prints, `debug` runs, and the whole schema CLI reads and repairs
+-- settings, which is precisely when a player most needs it. The case that settled it was the
+-- smallest one: `/lh` on a disabled addon returned a refusal instead of the settings panel, which
+-- is the one surface a player uses to switch it back on by hand.
+--
+-- So the ONLY refusal is §2's feature-verb SHOULD, which this addon already adopted and keeps.
 --
 -- ONE GATE, AT THE ONE SEAM EVERY VERB PASSES THROUGH, and that seam is the TABLE rather than the
 -- dispatcher. A guard pasted into each handler is a dozen places to forget and the next verb added
@@ -602,18 +626,23 @@ end
 --
 -- Everything NOT in the set is a feature verb — show/hide/toggle/test/purge, which draw, preview
 -- and destroy — and answers one tagged line naming `/lh enable`, having done nothing else.
+--
+-- THE SET IS THE LIBRARY'S OWN, byte for byte: `lib.LIVE_VERBS` at Slash minor 13 is these twelve.
+-- It is restated here rather than read off the library because this table is built at FILE LOAD,
+-- before settings/Slash.lua has resolved anything, and because the wrapper below has to gate the
+-- LIBRARY-LESS dispatcher too — the one install where there is no `lib.LIVE_VERBS` to ask.
+-- tests/test_disabled.lua asserts the two agree, so the restatement cannot drift.
 local LIVE_WHILE_DISABLED = {
   help = true, config = true, version = true, enable = true, disable = true,
   debug = true, perf = true,
   get = true, set = true, list = true, reset = true, resetall = true,
 }
 
---- Read through the READ seam, never `db.global.settings.enabled` directly, so the verbs and the
---- Master controls checkbox can never answer from two places. Guarded because the table exists only
---- after `NS:InitDB`, and a verb reached before that is not a disabled addon — it is an unbuilt one.
+--- The STORED enable path, and deliberately not `NS.IsStoodDown` — a perf capture is a reason to be
+--- inert and never a reason to refuse a verb, so the slash gate asks the switch the player threw.
+--- core/LifecycleSetup.lua owns the read; this is the one name the table below calls it by.
 local function addonIsOff()
-  if not (NS.db and NS.db.global) then return false end
-  return S:Get("settings.enabled") == false
+  return NS.AddonIsOff()
 end
 
 --- Wrap every feature verb's handler once, as the table is built. The triple keeps its `name` and
@@ -626,7 +655,12 @@ local function gateFeatureVerbs(commands)
       entry[3] = function(rest)
         -- One line, and `return` before anything else: no partial work, no side effect, no second
         -- line. A case that only checks the message would pass over a verb that printed and acted.
-        if addonIsOff() then return print(NS.L.SLASH_DISABLED_VERB:format(verb)) end
+        --
+        -- The WORDING is the collection's and not this addon's (slash-commands-§7): one shape,
+        -- built by the library from the brand name and the slash, so eleven addons do not each
+        -- spell "disabled" their own way. It is fetched at call time rather than captured, because
+        -- this table is built before settings/Slash.lua exists.
+        if addonIsOff() then return print(NS.Slash.DisabledLine()) end
         return run(rest)
       end
     end

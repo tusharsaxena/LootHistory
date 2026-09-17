@@ -20,6 +20,9 @@ local test, assertEqual, assertTrue, assertFalse =
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
   "libs/LibKa0s/Env.lua",
+  -- New in v1.41.0 (shipped at v1.40.0): LibKa0s-Lifecycle-1.0, the ONE latch both
+  -- "be inert" reasons hold (slash-commands-§7). core/LifecycleSetup.lua resolves it at file load.
+  "libs/LibKa0s/Lifecycle.lua",
   "libs/LibKa0s/Pool.lua",
   "libs/LibKa0s/Item.lua",
   "libs/LibKa0s/Media.lua",

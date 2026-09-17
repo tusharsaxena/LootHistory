@@ -787,7 +787,7 @@ test("/lh enable and /lh disable write the Enable row's path, and hold no state 
       assertEqual(NS.db.global.settings.enabled, true, "/lh enable turns it back on")
     end)
     NS.Schema.Set = realSet
-    NS.db.global.settings.enabled = before
+    NS.Schema:Set("settings.enabled", before)
     if not ok then error(err, 0) end
 
     assertEqual(#writes, 2, "each verb is exactly one write, through Schema:Set")
@@ -818,7 +818,7 @@ test("/lh enable is the same write as /lh set settings.enabled true, and answers
     NS.Schema:Set("settings.enabled", true)
     local long = capture(function() Sl:CliSet("settings.enabled false") end)
 
-    NS.db.global.settings.enabled = before
+    NS.Schema:Set("settings.enabled", before)
     assertEqual(#short, 1, "one line, got: " .. table.concat(short, " | "))
     assertEqual(short[1], long[1], "the two spellings must answer identically")
     assertTrue(short[1]:find("settings.enabled", 1, true) ~= nil, short[1])
@@ -850,7 +850,7 @@ test("the dispatcher answers while the addon is disabled, so the pair is never o
     capture(function() Sl:OnSlash("enable") end)
     assertEqual(NS.db.global.settings.enabled, true, "/lh enable must work while disabled")
   end)
-  NS.db.global.settings.enabled = before
+  NS.Schema:Set("settings.enabled", before)
   if not ok then error(err, 0) end
 end)
 
@@ -872,16 +872,28 @@ local LIVE_WHILE_DISABLED = {
   "get", "set", "list", "reset", "resetall",
 }
 
-local function refusalFor(verb)
-  return NS.PREFIX .. " " .. NS.L.SLASH_DISABLED_VERB:format(verb)
+--- The ONE refusal line, tagged. Spelled out here rather than read off `Sl.DisabledLine`, because
+--- a case that imported the addon's own renderer would agree with it however wrong it got --
+--- including if it quietly went back to a per-addon wording. slash-commands-§7 fixes the shape
+--- collection-wide: the brand name, an em dash with a single space either side, the command in the
+--- help index's gold and carrying its leading slash, no trailing colon and no trailing period.
+--- It takes no verb: what a refused player needs is the way back in.
+local function refusalFor()
+  return NS.PREFIX .. " Ka0s Loot History is disabled \226\128\148 "
+    .. "enable it with |cFFFFFF00/lh enable|r"
 end
 
 --- Run `act` with the addon switched off, and put the switch back however it ends.
+---
+--- BOTH WRITES GO THROUGH THE SEAM. Restoring by assignment used to be fine and is not any more:
+--- the write is what drives the latch now (slash-commands-§7), so a raw `db.global` restore would
+--- put the stored value back and leave the addon STOOD DOWN -- registrations gone, window refused --
+--- for every suite that runs after this one.
 local function whileDisabled(act)
   local before = NS.db.global.settings.enabled
   NS.Schema:Set("settings.enabled", false)
   local ok, err = pcall(act)
-  NS.db.global.settings.enabled = before
+  NS.Schema:Set("settings.enabled", before)
   if not ok then error(err, 0) end
 end
 
@@ -917,13 +929,18 @@ test("a disabled addon refuses each FEATURE verb on ONE line naming /lh enable, 
     -- the wrong answer in the first place.
     -- red under: no gate at all, a gate that lets the handler run first, or a refusal that does not
     -- name the way back in.
-    local acted = countingActs(function(acts)
-      whileDisabled(function()
+    -- THE SWITCH IS THROWN OUTSIDE THE COUNTERS, and the nesting order is the whole of why. Writing
+    -- `enabled = false` now STANDS THE ADDON DOWN (slash-commands-§7), and a stand-down takes the
+    -- History window down with it -- through NS.Browser:Hide, which is one of the seams counted
+    -- here. Counting from inside the write would score the stand-down itself as a verb acting.
+    local acted
+    whileDisabled(function()
+      acted = countingActs(function(acts)
         for _, verb in ipairs({ "show", "hide", "toggle", "test", "purge" }) do
           local out = capture(function() Sl:OnSlash(verb) end)
           assertEqual(#out, 1, "/lh " .. verb .. " must answer on exactly one line, got: "
             .. table.concat(out, " | "))
-          assertEqual(out[1], refusalFor(verb), "the refusal is the locale line, tagged")
+          assertEqual(out[1], refusalFor(), "the refusal is the collection's one line, tagged")
           assertTrue(out[1]:find("/lh enable", 1, true) ~= nil,
             "the one line must name the way back in: " .. out[1])
           assertEqual(acts(), 0, "/lh " .. verb .. " ACTED while the addon was disabled")
@@ -942,7 +959,7 @@ test("the same feature verbs act normally once the addon is enabled — the gate
     local acted = countingActs(function()
       for _, verb in ipairs({ "show", "hide", "toggle", "test", "purge" }) do
         local out = capture(function() Sl:OnSlash(verb) end)
-        assertTrue(out[1] == nil or out[1] ~= refusalFor(verb),
+        assertTrue(out[1] == nil or out[1] ~= refusalFor(),
           "/lh " .. verb .. " refused with the addon switched ON")
       end
     end)
@@ -975,7 +992,7 @@ test("the refusal is never turned on a verb slash-commands-§2 keeps live, /lh e
           -- Re-asserted per verb, because `enable` in this very list turns the addon back on.
           NS.Schema:Set("settings.enabled", false)
           local out = capture(function() Sl:OnSlash(verb .. " " .. (args[verb] or "")) end)
-          assertTrue(out[1] ~= refusalFor(verb),
+          assertTrue(out[1] ~= refusalFor(),
             "/lh " .. verb .. " must keep answering while the addon is disabled")
         end
       end

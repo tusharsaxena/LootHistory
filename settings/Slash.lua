@@ -246,6 +246,15 @@ if not lib then
   Sl.FormatKV = function(path, valueStr)
     return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
   end
+  --- The ONE refusal line (slash-commands-§7), re-stated here for the same reason Sl.FormatKV and
+  --- formatRow below are: the library is not there to ask, and a degraded install must still look
+  --- like this addon and like the ten beside it. Byte-identical to `lib.DISABLED_LINE_FORMAT` --
+  --- brand name, em dash with one space either side, the command in the help index's gold and
+  --- carrying its leading slash, no trailing period. The wording is the collection's and takes no
+  --- verb: what the player needs is the way back in, not a restatement of what they typed.
+  Sl.DisabledLine = function()
+    return ("%s is disabled \226\128\148 enable it with |cFFFFFF00%s|r"):format(NS.BRAND, "/lh")
+  end
   -- The verbs NOT to offer here, which is not the same set as the verbs that went through the
   -- library — and the old name, LIBRARY_OWNED, is what got it wrong. `config` never went through
   -- the library: its handler is host-owned and sits in NS.COMMANDS beside show/hide/toggle. But it
@@ -384,6 +393,26 @@ local Dispatcher = lib:New({
 
   -- The set-valued rows, per the note on FormatSchemaValue above.
   format = function(row, v) return Sl.FormatSchemaValue(row, v) end,
+
+  -- ── the disabled gate (Slash minor 12, restored to its present shape at 13) ──────────────
+  --
+  -- Asked at DISPATCH TIME and never cached, so the command after an `enable` works. It reads the
+  -- STORED switch, not the latch: a perf capture is a reason to be inert and never a reason to
+  -- refuse a verb.
+  --
+  -- NO `liveVerbs`, AND THAT IS DELIBERATE. The library's default at minor 13 is the standard's
+  -- twelve reserved verbs -- help, config, version, enable, disable, debug, perf, get, set, list,
+  -- reset, resetall -- and the bare `/lh` runs `config` in either state, which opens the panel. An
+  -- earlier pass narrowed that set to `enable` and `help`; the owner tested it, found `/lh` on a
+  -- disabled addon answering a refusal instead of opening the one surface the addon can be
+  -- switched back on from, and reversed it (standard v2.57.0). Passing a narrowed set here would
+  -- re-introduce exactly that, so this addon passes none and takes the library's.
+  --
+  -- What is left refused is §2's feature-verb SHOULD -- show/hide/toggle/test/purge -- and this
+  -- addon gates those at the COMMANDS table (settings/Schema.lua), which is the one seam BOTH its
+  -- dispatchers pass through. The two gates print the same string, because both build it here.
+  isEnabled = function() return not NS.AddonIsOff() end,
+  brandName = NS.BRAND,
 })
 
 -- ── the surface the rest of the addon calls ────────────────────────────────────────────────────
@@ -401,6 +430,11 @@ Sl.CliGet         = function(_, rest) return Dispatcher:CliGet(rest)  end
 Sl.CliSet         = function(_, rest) return Dispatcher:CliSet(rest)  end
 Sl.CliReset       = function(_, rest) return Dispatcher:CliReset(rest) end
 Sl.CliVersion     = function()        return Dispatcher:CliVersion()  end
+--- The ONE refusal line, from the library, for every surface that prints it: the COMMANDS-table
+--- gate in settings/Schema.lua and the launcher's refused left-click (launcher-§2). Neither writes
+--- the wording itself -- slash-commands-§7 makes it the collection's rather than the addon's, and a
+--- second call site spelling it again is how eleven addons ended up with eleven refusals.
+Sl.DisabledLine   = function()        return Dispatcher:DisabledLine() end
 
 --- The settings landing page's command rows: the same rows as the chat help, in the same colors
 --- and spacing, without the two-space indent a chat line needs to sit under a header.

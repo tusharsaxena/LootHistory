@@ -93,10 +93,26 @@ Loot History**.
   `settings.excludedSources = table: …` (empty), `minimap.hide = true` — the row's sense is SHOWN
   while the stored key is `hide = false`, which is the whole of launcher-§3's inversion and is what
   the two spellings above are saying.
-- `/lh disable` prints `settings.enabled = false` and new loot stops being recorded; the window, the
-  panel and every other verb still answer. `/lh enable` prints `settings.enabled = true` and puts it
-  back. Tick and untick **Master controls ▸ Enable Loot History** and confirm `/lh get
-  settings.enabled` follows it — one switch, two spellings (slash-commands-§2).
+- **The disabled state is TOTAL** (slash-commands-§7). `/lh disable` prints
+  `settings.enabled = false`, and the addon **stops running** rather than staying loaded and
+  ignoring what it sees: the History window closes and will not reopen, loot you take is not
+  recorded, and `/lh show` answers one line —
+  `Ka0s Loot History is disabled — enable it with /lh enable` — and does nothing else. The same
+  line, and nothing else, is what a **left-click on the minimap button** gives you; a **right-click**
+  still opens the settings panel, in either state.
+- **And the command surface is unchanged while it is off.** Still with the addon disabled, check
+  that a bare `/lh` opens the settings panel (this is the case the standard's v2.57.0 reversal
+  turned on), `/lh version` prints, `/lh list` and `/lh get settings.qualityThreshold` read,
+  `/lh set settings.scale 1.1` writes, and `/lh debug` still opens the console. Only `show`, `hide`,
+  `toggle`, `test` and `purge` refuse.
+- `/lh enable` prints `settings.enabled = true` and the addon comes back — loot records again and
+  the window opens. Tick and untick **Master controls ▸ Enable Loot History** and confirm
+  `/lh get settings.enabled` follows it, and that unticking the box takes the window down exactly as
+  the verb does — one switch, three surfaces (slash-commands-§2).
+- **The one that needs timing, and it is worth the trouble.** `/reload`, and inside the first five
+  seconds after the loading screen clears, untick **Enable Loot History**. Nothing should be written:
+  the retention prune and the bound-state repair are deferred off the login spike, and before
+  v1.41.0 they fired anyway, on a disabled addon, because `C_Timer.After` cannot be cancelled.
 
 ### 2. The history window
 

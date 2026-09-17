@@ -253,6 +253,36 @@ end
 Use `M.__stubFrame()` to build extra frame-shaped objects and `M.__libs` to register additional
 library fakes (AceDBOptions, LibSharedMedia) without reaching through LibStub's closure.
 
+## What the mock records, and how to assert on it (`mock_record.lua`)
+
+**Revision 22** adds the five surveys a suite needs to ask whether an addon has actually stood down,
+and a sixth file to carry them. Every one of them answers over the LIVE state, and every one of them
+LOSES entries when the addon gives something up — which is the half that matters:
+
+| Member | Answers |
+|---|---|
+| `M.__registrations()` | `{ target, kind, event, unit }` for every live registration. `kind` is `event`, `message`, `bucket`, `frame` (a raw `frame:RegisterEvent`) or `unit` (one row **per unit token**). |
+| `M.__timers()` | every armed AceTimer handle, un-canceled `C_Timer` ticker and frame carrying an `OnUpdate`. `M.__timers` **indexed** is still the pending queue it always was. |
+| `M.__shownFrames()` | every frame this build made that is shown, in creation order. |
+| `M.__svWrites()` | `{ path, value }` for every write that reached a watched SavedVariables tree since `M.__resetSvWrites()`. `M.__watchSv("<Global>")` adds a root the AceDB fake did not create. |
+| `M.__printed()` | every line that reached the chat frame, plus `M.__resetPrinted()` and `M.__recordPrint(line)` for a printer that ends somewhere else. |
+
+Driving them: **`M.__fire(event, ...)` dispatches to the live registration set only** — what the
+client would do — and **`M.__fireUnconditional(target, event, ...)` fires at a target whose
+registration has been removed**, which is what proves a survivor would have been caught. A suite
+that omits the second is asserting on its own silence: an empty registry dispatches nothing whether
+the addon stood down or the harness lost the ability to dispatch at all.
+
+The same revision models **`AceBucket-3.0`** (`RegisterBucketEvent`, `RegisterBucketMessage`,
+`UnregisterBucket`, `UnregisterAllBuckets`), because a bucket is a registration a stand-down has to
+remove and the kit had no model of one. A bucket coalesces onto the kit's one timer queue and does
+not call back if it was unregistered before its tick.
+
+`mock_base.lua` installs this file itself — it is **not** opt-in the way `mock_ids.lua` is, because
+a survey a consumer forgets to switch on does not fail a stand-down suite, it passes it over an
+empty table. The kit vendors as one folder, and a copy missing `mock_record.lua` **raises** on the
+first `base()` rather than degrading. See `docs/api/testkit/version-22-docs.md`.
+
 ## Id lookups for an id list (`mock_ids.lua`)
 
 **Revision 20** adds the answers LibKa0s-Options-1.0's `ResolveId`, `IdInput` and `IdList` read:

@@ -6,7 +6,15 @@ local Collector = NS.Collector
 -- (see docs/data-flow.md).
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (events-frames-taint-§7).
-local enabled, qualityThreshold, excludedSources, excludeQuestItems = true, 1, {}, false
+--
+-- `enabled` IS NOT ONE OF THEM ANY MORE, and its removal is the point of the change rather than a
+-- tidy-up. It used to be read at the top of OnChatMsgLoot and OnChatMsgCurrency, which is the DRAW
+-- GATE anti-patterns #85 names: the handler stopped reacting and the addon never stopped watching,
+-- so the client walked the registration list, built the argument frame and entered Lua on every
+-- loot line in the raid for an addon the player had switched off. The switch now tears the two
+-- registrations out (Collector:Disable, below), so there is nothing left to gate -- and a flag kept
+-- beside a real unregister is a second answer to "is this addon running" that can disagree with it.
+local qualityThreshold, excludedSources, excludeQuestItems = 1, {}, false
 local recordCurrency = true
 local currencyBlacklist = {}
 local blacklist, whitelist = {}, {}
@@ -71,7 +79,6 @@ function Collector:RefreshUpvalues()
   local g = NS.db and NS.db.global
   local s = g and g.settings
   if not s then return end
-  enabled = s.enabled
   qualityThreshold = s.qualityThreshold
   excludedSources = s.excludedSources or {}
   excludeQuestItems = s.excludeQuestItems
@@ -82,8 +89,6 @@ function Collector:RefreshUpvalues()
 end
 
 function Collector:OnChatMsgLoot(_, msg)
-  if not enabled then return end
-
   -- A roll-won line ("You won: <item>") is not a receipt — the item arrives a moment later on its own
   -- "You receive loot:" line. Stamp ROLL context so that imminent line attributes to the roll rather
   -- than inheriting a stale kill/container stamp, then wait for it (no record is written here).
@@ -158,7 +163,7 @@ end
 -- a self-identifying "You are refunded" line — attributed to REFUND directly, bypassing the context
 -- (which by then holds the stale VENDOR stamp from the purchase).
 function Collector:OnChatMsgCurrency(_, msg)
-  if not enabled or not recordCurrency then return end
+  if not recordCurrency then return end
   local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
   if not link then return end
 
@@ -223,4 +228,25 @@ function Collector:Enable()
   self.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function(_, _reason)
     self:RefreshUpvalues()
   end)
+end
+
+--- The stand-down half of Enable (slash-commands-§7). Every registration this module made is
+--- actually UNREGISTERED, never gated: the two chat events off the shared AceAddon target by name
+--- (UnregisterAllEvents there would take the other modules' registrations with it), and the private
+--- bus target wholesale.
+---
+--- `_enabled` is cleared last, so Enable rebuilds on the way back up.
+function Collector:Disable()
+  if not self._enabled then return end
+  local bus = NS.addon
+  if bus and bus.UnregisterEvent then
+    bus:UnregisterEvent("CHAT_MSG_LOOT")
+    bus:UnregisterEvent("CHAT_MSG_CURRENCY")
+  end
+  if self.__ev then
+    self.__ev:UnregisterAllMessages()
+    self.__ev:UnregisterAllEvents()
+    self.__ev = nil
+  end
+  self._enabled = nil
 end

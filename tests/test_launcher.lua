@@ -285,8 +285,14 @@ test("launcher: the broker label is the BRAND NAME in plain text, not the folder
   -- sit under K), an ad-hoc spelling, or the TOC `## Title` wired through -- a Title MAY carry
   -- colour escapes (Ka0s Pretty Chat's does) and one handed to a display that draws the string raw
   -- splatters across a list in which every other row is plain text.
+  -- READ THROUGH THE INDIRECTION, because there is one now and pinning the literal would forbid
+  -- it. slash-commands-§7's refusal line is built from this same string, so the two are ONE
+  -- constant (core/Namespace.lua's NS.BRAND) and the descriptor names it rather than re-typing it.
+  -- The file case below is what stops the indirection becoming a place to hide an escaped Title.
   local descriptor = Loader.readFile("core/LauncherSetup.lua")
-  local label = descriptor:match('label%s*=%s*"([^"]*)"')
+  assertTrue(descriptor:match("label%s*=%s*NS%.BRAND") ~= nil,
+    "the descriptor must take its label from NS.BRAND, not a second spelling")
+  local label = NS.BRAND
   assertEqual(label, "Ka0s Loot History", "the LDB label must be the addon's brand name")
   assertTrue(label ~= ADDON, "the folder name is the REGISTRATION name, never the label")
   assertTrue(label:find("|", 1, true) == nil,

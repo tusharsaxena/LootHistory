@@ -12,11 +12,11 @@ NS.L = setmetatable(NS.L or {}, { __index = function(_, k) return k end })
 -- Keys are the English source strings; only overrides need listing, e.g.:
 -- NS.L["Enable collection"] = "Enable collection"
 
--- ── the strings that DO route through NS.L (localization-§1) ───────────────────────────────────
-
---- The refusal a FEATURE verb answers with while the addon is disabled (slash-commands-§2). ONE
---- line, and it names `/lh enable`, because a player who has just been told "no" needs the way back
---- in the same breath — a refusal that does not name it is a switch that only goes one way.
---- `%s` is the verb the player typed, so the line says which command did nothing.
-NS.L.SLASH_DISABLED_VERB =
-  "/lh %s does nothing while the addon is disabled — /lh enable turns it back on."
+-- ── the disabled refusal is NOT one of them, and that is the rule rather than an omission ─────
+--
+-- This file carried `NS.L.SLASH_DISABLED_VERB` until the v1.41.0 adoption. slash-commands-§7 makes
+-- the one line a disabled addon prints the COLLECTION's wording and not the addon's -- one shape,
+-- built by LibKa0s-Slash-1.0 from the brand name and the slash -- and the library's own descriptor
+-- says in as many words that the `L` override does not reach it. Eleven addons each wording it
+-- slightly differently is the drift the shared printer exists to end, so the string is gone from
+-- here rather than translated here. `NS.Slash.DisabledLine` is where it comes from now.

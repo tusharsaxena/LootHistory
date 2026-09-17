@@ -46,6 +46,11 @@ core\Namespace.lua
 core\State.lua
 core\Util.lua
 core\CoreSetup.lua
+# The LibKa0s-Lifecycle-1.0 seam: the ONE latch every reason to be inert holds
+# (slash-commands-§7). Position is CONVENTIONAL, not load-bearing -- nothing here resolves at
+# load (every field is a closure and the printer is late-bound), and the latch is first TOUCHED
+# from addon:OnEnable, long after the whole TOC has run.
+core\LifecycleSetup.lua
 # Needs core\MediaSetup.lua above it: the dropdown art is resolved through NS.Icon.
 core\WidgetsSetup.lua
 core\DebugLogSetup.lua

@@ -505,6 +505,13 @@ end
 -- Build (once) and show the export modal for the given config (issue #15). `cfg.title` is the
 -- header supplied by the invoking tab; `cfg.providers` feeds the Data Set dropdown; `cfg.csv`
 -- serializes the selected dataset. Always re-centers on the History window.
+--- Take the modal down. Published for NS.StandDown (slash-commands-§7): the export window is a
+--- frame this addon owns, so a stand-down hides it with the rest. Nothing memoised is discarded --
+--- a later Open re-shows the same frame.
+function E:Hide()
+  if frame then frame:Hide() end
+end
+
 function E:Open(cfg)
   config = cfg or {}
   local f = EnsureFrame()

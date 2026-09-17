@@ -8,7 +8,18 @@ The `LibKa0s-Perf-1.0` adoption chain the 2026-08-04 and 2026-08-05 audits filed
 is this exemption, claimed, and not open work.
 
 There is therefore no `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no
-suspend/resume contract, no `tests/perf.lua` and no `docs/perf-analysis/` store. `libs/LibKa0s/` is
+`tests/perf.lua` and no `docs/perf-analysis/` store.
+
+**The teardown machinery exists anyway, and it is the DISABLE path's.** `slash-commands-§7` builds
+the stand-down on the same seam performance-§6's suspend would have used, and this addon has that
+seam: `core/LifecycleSetup.lua`'s `NS.StandDown` / `NS.StandUp`, behind one `LibKa0s-Lifecycle-1.0`
+latch. The latch takes named **holds**, and `NS.HOLD_PERF` is published and honoured although nothing
+here takes it — so if this exemption is ever re-examined, arming the harness is a registration
+rather than a second teardown path written beside the first. A parallel lifecycle mechanism is the
+anti-pattern (`anti-patterns #85`), and declining the harness is not a licence to grow one.
+`tests/test_disabled.lua` drives both holds through the latch, so the invariant that matters —
+releasing one hold must not resurrect an addon the other is still holding down — is under test here
+today. See [ARCHITECTURE.md → *The disabled state*](ARCHITECTURE.md#the-disabled-state). `libs/LibKa0s/` is
 still vendored **whole** — `Perf.lua` and `PerfPanel.lua` included — because the folder is copied
 whole or not at all (library-stack-§7, anti-pattern #48), and `perf` stays a reserved verb
 (slash-commands-§2): it is simply never registered, so it can never come to mean anything else here.
@@ -72,20 +83,28 @@ in the order the grep prints them, so the two can be held side by side.
 | `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1236` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1136`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
 | `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1242` | The other edge of the same handler, same cost. |
 
-**`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** The third
-grep returns **eight** lines: one is the pattern name in a comment (`core/Util.lua:248`), two are
-presence guards that call nothing (`core/LootHistory.lua:55`, `core/Util.lua:250`), and five are
-call sites. Two of the five — `core/ItemSetup.lua:70` and `settings/OptionsSetup.lua:197` — carry
-the guard and its call on one line, which is why counting call sites by eye off this grep
-undercounts.
+**`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** Grep the
+three patterns and most of what comes back is prose and guards; the call sites are the table below.
+`core/ItemSetup.lua:70` and `settings/OptionsSetup.lua:206` carry the guard and the call on one
+line, which is why counting call sites by eye off the grep undercounts.
+
+**Three of the five now go through `NS.After`, and that is the change v1.41.0 made here.**
+`C_Timer.After` cannot be cancelled, and `slash-commands-§7` asks for every timer **cancelled**
+rather than left armed to wake up and find a flag. `core/LifecycleSetup.lua`'s `NS.After` takes a
+`C_Timer.NewTimer` handle where the client has one, tracks it in a live set, and `NS.CancelDeferrals`
+drops the lot on the way down. The retention prune is why: it is a SavedVariables write on a
+five-second fuse lit by `PLAYER_ENTERING_WORLD`, and before this a player who switched the addon off
+inside those five seconds got the write anyway, from a game event, while it was disabled.
 
 | Call | Where | What it is |
 |---|---|---|
-| `C_Timer.After(5, …)` | `core/LootHistory.lua:56` | Login-deferred retention prune + the first warbound repair pass. Once per session. |
-| `C_Timer.After(20, …)` | `core/LootHistory.lua:60` | The second warbound repair pass, once the item cache is warm. Once per session. |
+| `NS.After(5, …)` | `core/LootHistory.lua:81` | Login-deferred retention prune + the first warbound repair pass. Once per session, and **cancellable**. |
+| `NS.After(20, …)` | `core/LootHistory.lua:85` | The second warbound repair pass, once the item cache is warm. Once per session, and cancellable. |
 | `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:70` | `NS.Item.LoadItem`'s item-cache retry, in the degraded-install fallback; the live path is the same line in the library (`libs/LibKa0s/Item.lua:124`) — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:214`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; the Filters tab's LibKa0s `IdList` passes one per **batch**, not per id (LibKa0s v1.35.0): every uncached id one render asks for shares a single check, which repaints the list once if any name has landed and re-asks the rest, up to five asks per id — an options panel the player opened by hand. |
-| `C_Timer.After(delay, …)` | `core/Util.lua:252` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua:1231`, `modules/Analytics.lua:656`, `settings/Panel.lua:170` — so the ceiling is three pending timers at once, one per surface, and only while that surface is subscribed. |
-| `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:197` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
+| `NS.After(delay, …)` | `core/Util.lua:256` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua`, `modules/Analytics.lua` and `settings/Panel.lua`, one per subscribing surface — so the ceiling is three pending timers at once. Through `NS.After` since v1.41.0: a repaint already in flight when the player switches the addon off is cancelled rather than waking to find nothing to paint, which is the shape `slash-commands-§7` singles out as the most expensive one. |
+| `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:206` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
+
+The last two rows stay on raw `C_Timer.After` on purpose: neither is a deferral of the addon's own. One is the item-cache retry inside a **degraded-install fallback** for a library function, and the other is a throttle the **library** arms from a settings widget the player is dragging. Routing either through `NS.CancelDeferrals` would mean a stand-down reaching into somebody else's work.
 
 The message bus (`RegisterMessage`, `modules/Analytics.lua`, `modules/Browser.lua`,
 `settings/Panel.lua`) fires from this addon's own writes, which are the events above. It used to be
