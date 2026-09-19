@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 21
+local WIDGETS_MINOR = 22
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -2686,9 +2686,99 @@ function lib.__AttachWidgets(O, d)
     return underDisable(ctx, spec.disabled, drawIdList, ctx, scroll, spec)
   end
 
+  -- ── switched sections: `shownWhen` (minor 22) ─────────────────────────────────────────────
+  --
+  -- A subsection chosen by a dropdown -- a tab strip whose selector is a stored setting -- is drawn
+  -- only while that setting says so. A row carrying
+  --   shownWhen = { path = "<selector path>", equals = <value> | { <value>, ... } }
+  -- is DROPPED from the render (heading included, no space reserved) while the selector holds any
+  -- other value, and the page re-renders once, on the next frame, when the selector changes. The
+  -- row stays in the schema -- /<slash> list, get, set, the resets and Defaults all still reach it
+  -- (options-ui-§6); only the flow engine skips it. Opt-in: a row list with no `shownWhen` in
+  -- it renders exactly as before minor 22 -- the list is not copied and no refresher is added.
+
+  --- Whether `row` is drawn under its `shownWhen` (none: always). The selector is read the way
+  --- `disabledIf` reads a path (readKey), so a record-backed row reads its own record. A read that
+  --- raises reads as shown: a broken selector never loses a section.
+  local function shownNow(row)
+    local sw = row.shownWhen
+    if type(sw) ~= "table" or sw.path == nil then return true end
+    local ok, value = pcall(readKey, row, sw.path)
+    if not ok then return true end
+    local want = sw.equals
+    if type(want) ~= "table" then return value == want end
+    for _, w in ipairs(want) do
+      if value == w then return true end
+    end
+    return false
+  end
+
+  --- The rows of one render that are drawn, and the set of selector paths their `shownWhen` names --
+  --- or `rows` itself and nil when none carries one, which is what keeps an opted-out host's render
+  --- byte-for-byte unchanged.
+  local function switchedRows(rows)
+    local selectors
+    for _, row in ipairs(rows) do
+      local sw = row.shownWhen
+      if type(sw) == "table" and sw.path ~= nil then
+        selectors = selectors or {}
+        selectors[sw.path] = true
+      end
+    end
+    if not selectors then return rows, nil end
+    local drawn = {}
+    for _, row in ipairs(rows) do
+      if shownNow(row) then
+        drawn[#drawn + 1] = row
+      end
+    end
+    return drawn, selectors
+  end
+
+  --- ONE structural re-render of `ctx`'s page, on the next frame: never inside the callback of the
+  --- widget that changed the selector (the re-render releases it, an open pullout included --
+  --- options-ui-§11). Coalesced per ctx; O.RefreshPanel scopes it to a page on screen and marks
+  --- a hidden one dirty. Immediate where the client has no C_Timer.
+  local function requestSwitch(ctx)
+    if ctx.__switchQueued then return end
+    ctx.__switchQueued = true
+    local function run()
+      ctx.__switchQueued = nil
+      O.RefreshPanel(ctx, true)
+    end
+    if C_Timer and C_Timer.After then C_Timer.After(0, run) else run() end
+  end
+
+  --- The key a `shownWhen.path` names this row by: its settings path, or -- for a path-less,
+  --- record-backed row (OptionsCompose's `spec.bind`) -- its record field, which is the key
+  --- readKey hands that row's `get` when another row of the same record names it as a selector.
+  --- The same key drawRow pairs a bound row by.
+  local function selectorKey(row)
+    if row.path ~= nil then return row.path end
+    return row.field
+  end
+
+  --- For a selector row this render drew: a refresher that re-renders the page once its value differs
+  --- from the one this render drew with -- the widget's own change, a /<slash> set, a Defaults press
+  --- alike, since every one of them runs the refreshers. It re-arms on the new value, so a page with
+  --- no renderer (refreshed by refreshers alone) asks once per change, never on every refresh. A
+  --- selector that cannot be read gets no watcher (the sweep pcalls a refresher anyway).
+  local function watchSelector(ctx, row)
+    local ok, drawnWith = pcall(read, row)
+    if not ok then return end
+    local function refresh()
+      local now = read(row)
+      if now == drawnWith then return end
+      drawnWith = now
+      requestSwitch(ctx)
+    end
+    ctx.refreshers[#ctx.refreshers + 1] = refresh
+  end
+
   --- The flow engine's loop, under the disable flag RenderRows holds for it.
-  local function flowRows(ctx, scroll, rows, afterGroup, pairWith, opts)
+  local function flowRows(ctx, scroll, allRows, afterGroup, pairWith, opts)
     local pendingRow, pendingCount = nil, 0
+    local rows, selectors = switchedRows(allRows)
 
     -- The one-shot bookkeeping below is the LIBRARY's, and it lives in these two call-local sets
     -- rather than in the caller's tables. Consuming the caller's entries would make a second render
@@ -2719,6 +2809,7 @@ function lib.__AttachWidgets(O, d)
             drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPair, print)
           if row.solo or pendingCount >= 2 then flushRow() end
         end
+        if selectors and selectors[selectorKey(row)] then watchSelector(ctx, row) end
       end
 
       endGroup(ctx, afterGroup, firedAfter, row, rows[i + 1], flushRow)
