@@ -741,11 +741,11 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   strip). It opens on the **Blacklist** sub-tab of a three-tab secondary strip — Blacklist,
   Whitelist, Currencies — and shows one list, not three stacked. Note the item.
 - Loot that same item again (or `/lh test` won't help here — use a live drop).
-- On the Filters tab, click **Remove** on that item, then loot the item once more.
+- On the Filters tab, click the **X** on the left of that item's row, then loot the item once more.
 - Click the **Whitelist** tab and add an item id that would normally be dropped (below your quality
   threshold, or from a muted source), then loot it so a row appears. Exactly **one** add box is on
   screen at a time, and it is the selected tab's.
-- Now **Remove** that id from the whitelist and re-check the History table.
+- Now click the **X** on that id's row on the whitelist and re-check the History table.
 - Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
 - On the Blacklist, type the **name** of an item in your bags (e.g. `hearthstone`, any case) and
   press Enter. Then shift-click an item link into the box and press **Add**.
@@ -773,7 +773,7 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   stored. A chat line confirms "blacklisted …".
 - While blacklisted, looting that item records **nothing new** (no new row; a
   `[Drop] … reason=blacklist` line with debug on). Existing rows of that id are unaffected throughout.
-- Clicking **Remove** on the Filters tab brings **nothing back** — nothing was ever hidden, so there
+- Clicking the **X** on the Filters tab brings **nothing back** — nothing was ever hidden, so there
   is nothing to restore. Looting the item again afterward records normally, confirming the gate is
   lifted for future loots only.
 - A **whitelisted** id records **even when it would normally be dropped** (below threshold / muted
@@ -782,9 +782,10 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   are** — nothing is hidden or deleted. Only *future* loots of that id go back through the normal
   gates (and are dropped again if they don't pass).
 - Adding an id to one list **removes it from the other** (an id is never on both). The Filters tab's
-  lists update live on the tab you are looking at; each entry shows the item's icon, name and id
-  (or `Unknown item <id>` until the client caches it, after which the name fills in by itself) with
-  a **Remove** button; hovering an entry shows the item's own tooltip; the empty state reads `(none)`.
+  lists update live on the tab you are looking at; each entry shows an **X on the left**, then the
+  item's icon, name and id (or `Unknown item <id>` until the client caches it, after which the name
+  fills in by itself) — no right-hand Remove button; hovering an entry shows the item's own
+  tooltip; the empty state reads `(none)`.
 - Typing an item's **name** adds that item's id, whatever the case you typed; a shift-clicked link
   adds the linked item. Each add clears the box, and the new entry appears at once.
 - **The dropdown appears** under the box as you type (from the second letter; digits match ids from
@@ -828,9 +829,10 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
 **Currency blacklist.** Separate id-set from the item blacklist/whitelist above (keyed by
 currencyID, no currency whitelist). In the History tab, right-click a currency row and choose
 **Blacklist currency**. Loot that same currency again — no new row records. Open **Settings ▸
-Filters ▸ Currencies**; the id appears with its name resolved. Click **Remove** on it,
-then loot the currency again — it records normally. Re-add it and use **Clear all** on the
-Currencies tab (confirm popup) — the list empties and future loots of it record again.
+Filters ▸ Currencies**; the id appears with its name resolved, an X on the left of its row and no
+right-hand Remove button. Click the X, then loot the currency again — it records normally. Re-add
+it and use **Clear all** on the Currencies tab (confirm popup) — the list empties and future loots
+of it record again.
 
 ### 17. LibKa0s adoption
 
