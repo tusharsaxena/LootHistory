@@ -784,7 +784,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: an item list adds by name, ignoring case, and names the entry
 - Panel: Filters: an unknown name adds nothing, keeps the text and says why
 - Panel: Filters: the Currencies list takes an id or a currency link, and refuses a name it cannot know
-- Panel: Filters: Remove calls each list's own Filters writer, and an emptied list reads (none)
+- Panel: Filters: each entry's X calls that list's own Filters writer, and an emptied list reads (none)
 - Panel: Filters: one add redraws the page once, not twice
 - Panel: Filters: an item the client has not cached is named once its load lands
 - Panel: Filters: typing lists matching items from the loot history and from the lists

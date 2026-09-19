@@ -110,11 +110,18 @@ test("Panel: the Filters tab lists the ids on each list and can remove one", wit
   end
   assertTrue(labeled ~= nil, "a blacklisted id must appear as a row on the Filters tab")
 
-  local remove
+  -- removeStyle = "icon" (LibKa0s v1.44.0): an X at the LEFT of the line, not a right-hand Remove
+  -- button. red under: removeStyle omitted from the O.IdList spec.
+  local x
   for _, w in ipairs(AceGUI.__created) do
-    if w.type == "Button" and w.text == "Remove" then remove = w end
+    if w.type == "Icon" and w.__removeAtlas == "transmog-icon-remove" then x = w end
   end
-  assertTrue(remove ~= nil, "each list row carries a Remove button")
+  assertTrue(x ~= nil, "each list row carries an X icon wearing the library's remove atlas")
+  local removeBtn
+  for _, w in ipairs(AceGUI.__created) do
+    if w.type == "Button" and w.text == "Remove" then removeBtn = w end
+  end
+  assertTrue(removeBtn == nil, "no right-hand Remove button is drawn")
   NS.Filters:ClearAll()
   homeTab(ctx)
 end))
@@ -154,8 +161,9 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
 -- ── the Filters tab's id lists (LibKa0s-Options IdList) ───────────────────────────────────────
 --
 -- Each list is one O.IdList: an edit box taking an id, a shift-clicked link or (items only) a name,
--- then one line per stored id with Remove. The host owns storage, so every add and remove goes
--- through the NS.Filters writer it always went through, and the stored sets keep their shape.
+-- then one line per stored id with an X at its left (removeStyle = "icon", LibKa0s v1.44.0). The
+-- host owns storage, so every add and remove goes through the NS.Filters writer it always went
+-- through, and the stored sets keep their shape.
 
 -- The kit's opt-in id lookups (revision 20), installed on a SCRATCH table rather than on the
 -- shared mock. wow_mock's C_Item.GetItemInfoInstant answers 211296 for ANY key -- the capture
@@ -309,9 +317,10 @@ test("Panel: Filters: the Currencies list takes an id or a currency link, and re
   end)
 end)
 
-test("Panel: Filters: Remove calls each list's own Filters writer, and an emptied list reads (none)",
+test("Panel: Filters: each entry's X calls that list's own Filters writer, and an emptied list reads (none)",
   function()
-    -- red under: any list's onRemove pointing at another list's writer.
+    -- red under: any list's onRemove pointing at another list's writer, or removeStyle omitted
+    -- (LibKa0s v1.44.0 draws the X at the LEFT of the line, not a right-hand Remove button).
     for _, case in ipairs({
       { key = "blacklist",         seed = "AddBlacklist",         verb = "RemoveBlacklist" },
       { key = "whitelist",         seed = "AddWhitelist",         verb = "RemoveWhitelist" },
@@ -322,14 +331,16 @@ test("Panel: Filters: Remove calls each list's own Filters writer, and an emptie
         NS.Filters[case.seed](NS.Filters, 3008)
         local calls, real = {}, NS.Filters[case.verb]
         NS.Filters[case.verb] = function(self, id) calls[#calls + 1] = id; return real(self, id) end
-        local remove = liveWidget("Button", function(w) return w.text == "Remove" end)
+        local x = liveWidget("Icon", function(w) return w.__removeAtlas == "transmog-icon-remove" end)
+        local noRemoveBtn = liveWidget("Button", function(w) return w.text == "Remove" end) == nil
         local ok, err = pcall(function()
-          assertTrue(remove ~= nil, case.key .. ": the entry carries Remove")
-          remove:__fire("OnClick")
+          assertTrue(x ~= nil, case.key .. ": the entry carries an X icon")
+          assertTrue(noRemoveBtn, case.key .. ": no right-hand Remove button is drawn")
+          x:__fire("OnClick")
         end)
         NS.Filters[case.verb] = real
         if not ok then error(err, 0) end
-        assertEqual(#calls, 1, case.key .. ": Remove calls " .. case.verb .. " once")
+        assertEqual(#calls, 1, case.key .. ": the X calls " .. case.verb .. " once")
         assertEqual(calls[1], 3008)
         assertSetShape(NS.db.global[case.key], {}, case.key)
         assertTrue(liveText("Label", "(none)") ~= nil, case.key .. ": an empty list reads (none)")

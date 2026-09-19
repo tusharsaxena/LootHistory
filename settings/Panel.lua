@@ -296,6 +296,7 @@ local function makeFilterSection(ctx, tab)
     candidates = function() return filterCandidates(tab) end,
     onAdd     = function(id) filterWrite(ctx, tab.add, id) end,
     onRemove  = function(id) filterWrite(ctx, tab.remove, id) end,
+    removeStyle = "icon",
   })
 
   -- A structural rebuild (lines added/removed), so it registers as a *rebuilder*: it runs on an
