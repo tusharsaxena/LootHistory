@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 22
+local WIDGETS_MINOR = 23
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -994,7 +994,16 @@ function lib.__AttachWidgets(O, d)
     if row.path == nil and type(row.get) == "function" then return row.get(key) end
     return d.get(key)
   end
+  -- THE COMBAT LOCK's seam in this file (minor 23, options-ui-§2): the shell's refusal, asked by
+  -- every control that would reach the host -- a write, a button, a session toggle, an id list's
+  -- add or remove. It prints the gray notice once per combat. A refused control is put back, by
+  -- the refresh its caller already runs or by an explicit reset where the caller runs none.
+  local function refused()
+    return O.__combatRefused ~= nil and O.__combatRefused()
+  end
+
   local function write(row, value)
+    if refused() then return end
     if row.path == nil and type(row.set) == "function" then return row.set(value) end
     return d.set(row.path, value)
   end
@@ -1042,7 +1051,8 @@ function lib.__AttachWidgets(O, d)
   --
   -- SCALARS, not the structural tier. Writing a value does not change which rows exist, and a
   -- rebuild on every checkbox click would tear down and recreate every widget on the page — which
-  -- is exactly what the two-tier split exists to avoid.
+  -- is exactly what the two-tier split exists to avoid. The same refresh puts a widget back when
+  -- `write` refused it in combat.
   local function set(row, value)
     write(row, value)
     O.RefreshScalars()
@@ -1212,6 +1222,8 @@ function lib.__AttachWidgets(O, d)
       if ctx.__renderDisabled then btn:SetDisabled(true) end
       btn:SetCallback("OnClick", function()
         if not spec.onClick then return end
+        -- Refused in combat (minor 23): "Reset all settings" is one of these buttons.
+        if refused() then return end
         -- pcall'd and REPORTED. A host's button body reaches into live addon state, and a raise
         -- here would propagate into AceGUI's own dispatch and take the click handling of every
         -- widget on the frame down with it.
@@ -1430,6 +1442,8 @@ function lib.__AttachWidgets(O, d)
     -- Deliberately does NOT call RefreshAllPanels: a sustained drag would re-traverse every widget
     -- on every panel every 50 ms. This is the one maker that declines the refresh.
     local function commit(r, g, b, a)
+      -- Refused in combat (minor 23), and the swatch put back: this maker runs no refresh.
+      if refused() then return refresh() end
       write(row, encodeColor(r, g, b, a))
     end
 
@@ -1508,6 +1522,7 @@ function lib.__AttachWidgets(O, d)
     local function refresh() cb:SetValue(spec.get() and true or false) end
 
     cb:SetCallback("OnValueChanged", function(_, _, value)
+      if refused() then return refresh() end        -- minor 23; the box reads live state again
       spec.set(value and true or false)
     end)
 
@@ -1705,7 +1720,10 @@ function lib.__AttachWidgets(O, d)
     if ok and cell then
       x:SetText(cell.text or "")
       if type(cell.onClick) == "function" then
-        x:SetCallback("OnClick", function() cell.onClick() end)
+        x:SetCallback("OnClick", function()
+          if refused() then return end                -- minor 23
+          cell.onClick()
+        end)
       end
       if cell.tooltip then O.AttachTooltip(x, cell.text or "", cell.tooltip) end
     else
@@ -1852,6 +1870,9 @@ function lib.__AttachWidgets(O, d)
   --- Answers whether it ran and returned.
   local function callHost(fn, ...)
     if type(fn) ~= "function" then return false end
+    -- Refused in combat (minor 23), answering false: an add puts its text back, a remove rebuilds
+    -- nothing.
+    if refused() then return false end
     local ok, err = pcall(fn, ...)
     if not ok then print(lib.STRINGS.BUTTON_FAILED:format(tostring(err))) end
     return ok
@@ -2551,7 +2572,9 @@ function lib.__AttachWidgets(O, d)
       w:SetLabel(spec.toggleLabel or "")
       w:SetValue(entry.on and true or false)
       w:SetCallback("OnValueChanged", function(_, _, value)
-        callHost(spec.onToggle, entry.id, value and true or false)
+        if not callHost(spec.onToggle, entry.id, value and true or false) and refused() then
+          w:SetValue(entry.on and true or false)   -- refused in combat (minor 23): put it back
+        end
       end)
     else
       w = O.AceGUI:Create("Button")
@@ -2913,10 +2936,9 @@ function lib.__AttachWidgets(O, d)
         if key == ctx.activeTab then return end
         ctx.activeTab = key
         -- The same re-render path a change of subject takes (ClearScroll then a fresh
-        -- render), but that path carries no combat refusal to inherit -- options-ui-§2's
-        -- guard lives in the panel's OnShow and covers the category switch Blizzard protects.
-        -- Redrawing widgets inside an already-open panel was never a protected action, so a
-        -- tab click needs no guard here and none is added (options-ui-§13).
+        -- render). In combat the click never gets here: the tab button refuses it
+        -- (OptionsTabs.lua minor 2), as options-ui-§13 has asked since the standard's v2.60.0,
+        -- and a host adds no tab guard of its own.
         O.ClearScroll(ctx)
         O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith)
       end,

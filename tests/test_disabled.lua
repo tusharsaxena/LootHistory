@@ -143,7 +143,20 @@ end
 
 --- Bring the addon up the way the client does — `addon:OnEnable`, not a fan-out of Enable calls —
 --- and open the window, so there is something drawn to take down.
+---
+--- FIRST, CLOSE EVERY SETTINGS PAGE AN EARLIER SUITE LEFT ON SCREEN. Since LibKa0s v1.46.1 the
+--- library's combat lock (options-ui-§2) registers PLAYER_REGEN_DISABLED / _ENABLED while one of its
+--- pages is on screen, and correctly keeps them while that page stays up — a stood-down addon's
+--- settings window stays usable, and its lock with it. The panel suites show pages and never close
+--- them, so without this the baseline would carry the library's two REGEN registrations, which are
+--- not this addon's and are not a survivor of the stand-down. The kit mock's Hide fires no script,
+--- hence the explicit OnHide that lets the library let go.
 local function bringUp()
+  local optionsLib = M.LibStub("LibKa0s-Options-1.0", true)
+  for ctx in pairs(optionsLib and optionsLib.__shownPages or {}) do
+    ctx.panel:Hide()
+    ctx.panel:__fire("OnHide")
+  end
   setEnabled(true)
   NS.addon:OnEnable()
   NS.Analytics:Enable()

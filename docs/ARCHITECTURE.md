@@ -384,7 +384,9 @@ feature no consumer has asked for. It keeps its own small popup and its own catc
 - The **browser is a plain non-secure `CreateFrame`** (per standalone-windows) — it touches no protected
   functions and needs no combat-lockdown gate. It can open/refresh in combat.
 - The **Settings panel** uses the canonical Blizzard `Settings.RegisterCanvasLayoutCategory`
-  canvas with a **lazy, combat-gated** AceGUI body — it defers building/opening during combat.
+  canvas with a **lazy, combat-locked** AceGUI body — opening is refused in combat, and a page on
+  screen in combat is covered and refuses writes until `PLAYER_REGEN_ENABLED` (the library's lock,
+  options-ui-§2; the addon keeps no guard of its own on the settings surface).
 - Attribution uses `hooksecurefunc` (post-hooks only) on `BuyMerchantItem` / `TakeInboxItem` /
   `AutoLootMailItem` — these observe, never replace, and carry no taint.
 - No secure templates, no protected action buttons, no `SetAttribute` — the addon is purely
