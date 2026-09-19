@@ -53,7 +53,7 @@ State.lootContext = {
 }
 ```
 
-`Collector:OnChatMsgLoot` reads it back via `Attribution:Consume` (`modules/Attribution.lua:138`):
+`Collector:OnChatMsgLoot` reads it back via `Attribution:Consume` (`modules/Attribution.lua:144`):
 
 - **Fresh** (`expires >= GetTime()`) → returns the stamped `source, detail, confidence`.
 - **Stale or never stamped** → returns the fallback `OTHER, nil, INFERRED`.
@@ -67,7 +67,7 @@ Confidence is `CERTAIN` for every live stamper and `INFERRED` only on the fallba
 
 ## Source resolution from the loot window
 
-`LOOT_OPENED` is the richest stamper because the loot window exposes each slot's **source GUID**, and the GUID's *kind* determines the source. `Attribution:OnLootOpened` (`modules/Attribution.lua:184`) reads the first slot's GUID via `GetLootSourceInfo` and feeds it to the pure resolver `Attribution:ResolveLootSource` (`modules/Attribution.lua:156`), which decodes it through `NS.Compat.DecodeGUID` (`core/Compat.lua:127`):
+`LOOT_OPENED` is the richest stamper because the loot window exposes each slot's **source GUID**, and the GUID's *kind* determines the source. `Attribution:OnLootOpened` (`modules/Attribution.lua:190`) reads the first slot's GUID via `GetLootSourceInfo` and feeds it to the pure resolver `Attribution:ResolveLootSource` (`modules/Attribution.lua:162`), which decodes it through `NS.Compat.DecodeGUID` (`core/Compat.lua:127`):
 
 | GUID kind | Instance state | Source | Detail |
 |---|---|---|---|
@@ -84,35 +84,35 @@ The unit-kind set lives in `Compat.UNIT_KINDS` (`core/Compat.lua:123`) as the si
 
 The encounter and keystone detail is layered on by separate rolling-context stampers that write `State.encounter` / `State.keystone` (`core/State.lua:10-11`) rather than the loot context:
 
-- `ENCOUNTER_START` → `OnEncounterStart` sets `{ id, name, difficulty }` (`modules/Attribution.lua:209`); `ENCOUNTER_END` clears it. Any KILL loot in between carries the encounter id + difficulty.
-- `CHALLENGE_MODE_START` → `OnChallengeModeStart` records `{ level }` from `NS.Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`). `CHALLENGE_MODE_COMPLETED` deliberately **keeps** the keystone context (refreshing the level) rather than clearing it, because the reward chest is looted shortly *after* completion and its GameObject GUID must still resolve to `MPLUS` (`modules/Attribution.lua:229`).
+- `ENCOUNTER_START` → `OnEncounterStart` sets `{ id, name, difficulty }` (`modules/Attribution.lua:215`); `ENCOUNTER_END` clears it. Any KILL loot in between carries the encounter id + difficulty.
+- `CHALLENGE_MODE_START` → `OnChallengeModeStart` records `{ level }` from `NS.Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`). `CHALLENGE_MODE_COMPLETED` deliberately **keeps** the keystone context (refreshing the level) rather than clearing it, because the reward chest is looted shortly *after* completion and its GameObject GUID must still resolve to `MPLUS` (`modules/Attribution.lua:235`).
 
 ## Peripheral stampers
 
-Sources that arrive without a loot window (or whose window would mis-resolve) each stamp just before their resulting self-loot line. Registered in `Attribution:Enable` (`modules/Attribution.lua:338`) via events and `hooksecurefunc`:
+Sources that arrive without a loot window (or whose window would mis-resolve) each stamp just before their resulting self-loot line. Registered in `Attribution:Enable` (`modules/Attribution.lua:344`) via events and `hooksecurefunc`:
 
-- **VENDOR** — `hooksecurefunc("BuyMerchantItem")` → `StampVendor` (`modules/Attribution.lua:242`).
-- **TRADE** — `TRADE_ACCEPT_UPDATE` → `OnTradeAcceptUpdate` (`modules/Attribution.lua:301`); stamps only when **both** `playerAccepted` and `targetAccepted` are `1` (trade actually completed).
-- **MAIL / AH** — `hooksecurefunc` on both `TakeInboxItem` and `AutoLootMailItem` → `StampMail` (`modules/Attribution.lua:310`). The mail's sender/subject decides which: `NS.Compat.IsAuctionHouseMail` (`core/Compat.lua:105`) matches the `AUCTION_HOUSE` sender or an AH subject prefix (won / expired / canceled / invoice, built from the localized `*_MAIL_SUBJECT` globals) → `AH`; everything else → `MAIL`. This is the only stamper for `AH` — there is no live auction-house-frame stamper.
-- **QUEST** — the client-side `hooksecurefunc("GetQuestReward")` → `StampQuestReward` (`modules/Attribution.lua:330`) is the primary path: it fires *before* the server pushes the reward items, so the stamp is fresh when the reward loot line lands. The `QUEST_TURNED_IN` event → `OnQuestTurnedIn` (`modules/Attribution.lua:321`) is a backstop; alone it can fire *after* the reward line and miss it. Detail carries the quest id when the quest frame still exposes it (`NS.Compat.CurrentQuestID`, `core/Compat.lua:68`).
-- **CONTAINER (bag item)** — opening a container/lockbox from bags pushes contents to inventory with no `LOOT_OPENED` or GUID, so `NS.Compat.HookUseContainerItem` (`core/Compat.lua:39`, `C_Container.UseContainerItem` on retail) → `OnContainerItemUse` (`modules/Attribution.lua:258`) stamps `CONTAINER` — but **only** when the item actually has loot (`Compat.ContainerItemHasLoot`) **and** no spell is awaiting a target (`Compat.IsSpellTargeting`). Clicking a bag item as a Disenchant/Enchant target also routes through `UseContainerItem`, and that must not be read as opening a container.
+- **VENDOR** — `hooksecurefunc("BuyMerchantItem")` → `StampVendor` (`modules/Attribution.lua:248`).
+- **TRADE** — `TRADE_ACCEPT_UPDATE` → `OnTradeAcceptUpdate` (`modules/Attribution.lua:307`); stamps only when **both** `playerAccepted` and `targetAccepted` are `1` (trade actually completed).
+- **MAIL / AH** — `hooksecurefunc` on both `TakeInboxItem` and `AutoLootMailItem` → `StampMail` (`modules/Attribution.lua:316`). The mail's sender/subject decides which: `NS.Compat.IsAuctionHouseMail` (`core/Compat.lua:105`) matches the `AUCTION_HOUSE` sender or an AH subject prefix (won / expired / canceled / invoice, built from the localized `*_MAIL_SUBJECT` globals) → `AH`; everything else → `MAIL`. This is the only stamper for `AH` — there is no live auction-house-frame stamper.
+- **QUEST** — the client-side `hooksecurefunc("GetQuestReward")` → `StampQuestReward` (`modules/Attribution.lua:336`) is the primary path: it fires *before* the server pushes the reward items, so the stamp is fresh when the reward loot line lands. The `QUEST_TURNED_IN` event → `OnQuestTurnedIn` (`modules/Attribution.lua:327`) is a backstop; alone it can fire *after* the reward line and miss it. Detail carries the quest id when the quest frame still exposes it (`NS.Compat.CurrentQuestID`, `core/Compat.lua:68`).
+- **CONTAINER (bag item)** — opening a container/lockbox from bags pushes contents to inventory with no `LOOT_OPENED` or GUID, so `NS.Compat.HookUseContainerItem` (`core/Compat.lua:39`, `C_Container.UseContainerItem` on retail) → `OnContainerItemUse` (`modules/Attribution.lua:264`) stamps `CONTAINER` — but **only** when the item actually has loot (`Compat.ContainerItemHasLoot`) **and** no spell is awaiting a target (`Compat.IsSpellTargeting`). Clicking a bag item as a Disenchant/Enchant target also routes through `UseContainerItem`, and that must not be read as opening a container.
 
 ### Deconstruct: DISENCHANT / MILLING / PROSPECTING
 
 Disenchant, Milling, and Prospecting each stamp their **own** first-class source rather than a generic "Craft," so the Source column reads the ability. Their materials arrive through a loot window whose `Item` GUID would otherwise resolve to `CONTAINER`, so this stamper both attributes the source *and* protects that attribution.
 
-`UNIT_SPELLCAST_SUCCEEDED` (filtered to `unit == "player"` via a dedicated `RegisterUnitEvent` frame, to avoid the raid-wide cast firehose) → `OnSpellSucceeded` (`modules/Attribution.lua:278`) maps the completed cast to a source through `Attribution:DeconstructSource` (`modules/Attribution.lua:85`):
+`UNIT_SPELLCAST_SUCCEEDED` (filtered to `unit == "player"` via a dedicated `RegisterUnitEvent` frame, to avoid the raid-wide cast firehose) → `OnSpellSucceeded` (`modules/Attribution.lua:284`) maps the completed cast to a source through `Attribution:DeconstructSource` (`modules/Attribution.lua:85`):
 
 1. **Spell-id match first** — `DECONSTRUCT_ID` (`modules/Attribution.lua:32`), a locale-independent table of the base + primary per-expansion spell ids (plus a representative per-herb/ore "Mass" spell per family). Authoritative and language-agnostic; this alone attributes the common cases on every client.
 2. **Localized name-family fallback** — for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants (too many to list, and growing each patch). The cast's **localized** name is matched against localized reference tokens derived at match time from seed spellIDs via `NS.Compat.GetSpellName` (`core/Compat.lua:82`) — `NAME_SEEDS` (`modules/Attribution.lua:53`). No hardcoded English literal is ever compared: `GetSpellName` returns the client-locale name, so the "Milling" seed becomes "Mahlen" on deDE and the check follows the player's language automatically (Ka0s Standard localization-§4 / anti-pattern #37). `dropLast` seeds match the shared command prefix (`Mass Mill …`) minus the herb/ore word.
 
-Because this fires on **every** player cast (a combat rotation included), the `(spellID → source)` resolution is **memoized per spellID** on `OnSpellSucceeded` (`modules/Attribution.lua:278`): the mapping is immutable for a session, so a repeated cast costs one table lookup — no `GetSpellName`, no name-family loop, no allocation. Only *conclusive* results are cached — `DeconstructSource` returns a second `conclusive` flag: a positive is always conclusive, a negative only once every seed name has resolved, so a not-yet-cached name can't freeze a wrong miss. The debug `[Cast]` trace logs **only** the deconstruct hits, never the non-deconstruct majority (no per-cast spam).
+Because this fires on **every** player cast (a combat rotation included), the `(spellID → source)` resolution is **memoized per spellID** on `OnSpellSucceeded` (`modules/Attribution.lua:284`): the mapping is immutable for a session, so a repeated cast costs one table lookup — no `GetSpellName`, no name-family loop, no allocation. Only *conclusive* results are cached — `DeconstructSource` returns a second `conclusive` flag: a positive is always conclusive, a negative only once every seed name has resolved, so a not-yet-cached name can't freeze a wrong miss. The debug `[Cast]` trace logs **only** the deconstruct hits, never the non-deconstruct majority (no per-cast spam).
 
-The cast succeeds right as the materials are produced, so the stamp is fresh within TTL. `Attribution:OnLootOpened` then guards against clobbering it: if the live context is already one of `DECONSTRUCT_SOURCE` (`modules/Attribution.lua:45`), the subsequent material-window `LOOT_OPENED` returns early and keeps the more specific deconstruct stamp (`modules/Attribution.lua:189`).
+The cast succeeds right as the materials are produced, so the stamp is fresh within TTL. `Attribution:OnLootOpened` then guards against clobbering it: if the live context is already one of `DECONSTRUCT_SOURCE` (`modules/Attribution.lua:45`), the subsequent material-window `LOOT_OPENED` returns early and keeps the more specific deconstruct stamp (`modules/Attribution.lua:195`).
 
 ## The collector's gates
 
-Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confidence)`, it decides whether to record. The pure seam `Collector:ShouldRecord` (`modules/Collector.lua:33`) applies three gates in order and, on a drop, returns a reason for the debug log:
+Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confidence)`, it decides whether to record. The pure seam `Collector:ShouldRecord` (`modules/Collector.lua:41`) applies three gates in order and, on a drop, returns a reason for the debug log:
 
 1. **Quality** — `quality < qualityThreshold` → drop (`"quality"`). Threshold options in `Constants.QUALITY_OPTIONS`.
 2. **Excluded source** — the item's source is muted in `excludedSources` → drop (`"source"`).
@@ -120,11 +120,11 @@ Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confi
 
 The `CHAT_MSG_LOOT` self-filter (`ParseSelfLoot` returning `nil`) is the implicit gate ahead of all three.
 
-Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.lua:43`) — one record per loot event — and handed to `NS.Database:Add`. Item extras (ilvl, bound, sell price, type/subtype) come from `NS.Compat.GetItemExtras`; the `classFile` coloring token from `UnitClass("player")`.
+Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.lua:51`) — one record per loot event — and handed to `NS.Database:Add`. Item extras (ilvl, bound, sell price, type/subtype) come from `NS.Compat.GetItemExtras`; the `classFile` coloring token from `UnitClass("player")`.
 
 ### Hot-path upvalues
 
-The three gate settings are cached as file-local upvalues (`modules/Collector.lua`), not re-read from the DB on every loot line (standard events-frames-taint-§7). **`enabled` is no longer one of them, and its removal is the point rather than a tidy-up** — it used to be read at the top of `OnChatMsgLoot`, which is the DRAW GATE `anti-patterns #85` names: the handler stopped reacting and the addon never stopped watching, so the client walked the registration list, built the argument frame and entered Lua on every loot line in the raid for an addon the player had switched off. Disabling now tears `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` out entirely ([ARCHITECTURE.md → *The disabled state*](ARCHITECTURE.md#the-disabled-state)), so there is nothing left to gate — and a flag kept beside a real unregister is a second answer to “is this addon running” that can disagree with it. `Collector:RefreshUpvalues` (`modules/Collector.lua:70`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:9`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
+The three gate settings are cached as file-local upvalues (`modules/Collector.lua`), not re-read from the DB on every loot line (standard events-frames-taint-§7). **`enabled` is no longer one of them, and its removal is the point rather than a tidy-up** — it used to be read at the top of `OnChatMsgLoot`, which is the DRAW GATE `anti-patterns #85` names: the handler stopped reacting and the addon never stopped watching, so the client walked the registration list, built the argument frame and entered Lua on every loot line in the raid for an addon the player had switched off. Disabling now tears `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` out entirely ([ARCHITECTURE.md → *The disabled state*](ARCHITECTURE.md#the-disabled-state)), so there is nothing left to gate — and a flag kept beside a real unregister is a second answer to “is this addon running” that can disagree with it. `Collector:RefreshUpvalues` (`modules/Collector.lua:78`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:228`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
 
 ## Wired vs enum'd sources
 

@@ -12,14 +12,14 @@ LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branc
 
 A dash-split WoW GUID (`Creature-0-…-<npcID>-…`) carries the creature/npc id in **field 6**, but only for *unit* kinds. `Compat.UNIT_KINDS` is the single source of truth for which kinds those are — `Creature`, `Vehicle`, `Pet`, `Vignette` (`core/Compat.lua:123`). `Compat.DecodeGUID` splits the GUID, returns the leading `kind`, and pulls field 6 as `npcID` **only** when the kind is in that set; non-unit kinds return `nil` for the id (`:127-135`).
 
-The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:156-176`):
+The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:162-182`):
 
 - **unit kind** (`UNIT_KINDS`) → `KILL`, detail `{ npcID }` (plus encounter id/difficulty when an encounter is live).
 - **`GameObject`** → `MPLUS` when a keystone context is active, else `CONTAINER`.
 - **`Item`** → `CONTAINER` (a lootable Item-GUID, e.g. a disenchant/mill mat window).
 - anything else → `OTHER`.
 
-The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS (`modules/Attribution.lua:222-241`).
+The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS (`modules/Attribution.lua:228-243`).
 
 ## Warbound bind state — two unreliable signals, merged
 
@@ -61,7 +61,7 @@ Auction-House proceeds arrive as mail, and LH attributes them to `AH` rather tha
 - sender equals the `AUCTION_HOUSE` global, **or**
 - subject starts with the prefix of any of `AUCTION_WON_MAIL_SUBJECT`, `AUCTION_EXPIRED_MAIL_SUBJECT`, `AUCTION_REMOVED_MAIL_SUBJECT`, `AUCTION_INVOICE_MAIL_SUBJECT` (each global like `"Auction won: %s"` is trimmed at `%s` to `"Auction won: "` and prefix-matched).
 
-`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:90-96`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:310-319`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:37-41`), as does every other source now that CRAFT/ROLL/REFUND are wired.
+`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:90-96`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:316-325`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:37-41`), as does every other source now that CRAFT/ROLL/REFUND are wired.
 
 ## C_Spell moved the spell-name lookup
 

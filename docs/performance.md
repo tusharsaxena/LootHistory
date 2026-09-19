@@ -32,8 +32,8 @@ is affirmed here explicitly rather than left to be read off a table, because it 
 criterion (a) could plausibly fail: `CHAT_MSG_LOOT` fires mid-fight, and on a line it keeps it does
 a `C_TooltipInfo` tooltip build (`Compat.ScanBound`) and a `pcall` into every installed pricing
 addon. It does not fail, and the reason is in the code rather than in the adjective —
-`Collector:ShouldRecord` (`modules/Collector.lua:111`) runs **before** any of that work and returns
-at `:120`, so every line the filters drop, which on the shipped rare-and-above default is nearly all
+`Collector:ShouldRecord` (`modules/Collector.lua:116`) runs **before** any of that work and returns
+at `:125`, so every line the filters drop, which on the shipped rare-and-above default is nearly all
 chat loot traffic, costs a pattern match and a threshold comparison. What reaches the tooltip build
 is a few kept items per boss kill, not a few per frame. The whole-repo sweep below is the rest of
 the evidence; the claim without it is an assertion.
@@ -63,25 +63,25 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 **`OnUpdate` handlers: none. Repeating tickers: none.** The second grep returns zero lines, and
 `NewTicker` appears nowhere in the third's output.
 
-**Game events: thirteen registrations, thirteen rows.** The first grep returns **fifteen** lines;
-two of them, `modules/Attribution.lua:351-352`, are the pattern names inside a comment. The rows are
+**Game events: thirteen registrations, thirteen rows.** The first grep returns **sixteen** lines;
+three of them are not registrations: `core/LifecycleSetup.lua:111` is the guard above the call, and `modules/Attribution.lua:361-362` are the pattern names inside a comment. The rows are
 in the order the grep prints them, so the two can be held side by side.
 
 | Event | Registered at | Work done per fire |
 |---|---|---|
-| `PLAYER_ENTERING_WORLD` | `core/LootHistory.lua:40` | Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
-| `CHAT_MSG_LOOT` | `modules/Collector.lua:213` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:111`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:120` having allocated nothing. A **kept** line then runs `NS.Compat.GetItemExtras` (`:123`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:124`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
-| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:214` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
-| `LOOT_OPENED` | `modules/Attribution.lua:343` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
-| `ENCOUNTER_START` | `modules/Attribution.lua:344` | Two field writes, once per encounter. |
-| `ENCOUNTER_END` | `modules/Attribution.lua:345` | Clears them, once per encounter. |
-| `CHALLENGE_MODE_START` | `modules/Attribution.lua:346` | Two field writes, once per key. |
-| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:347` | Clears them, once per key. |
-| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:348` | Out of combat by construction. |
-| `QUEST_TURNED_IN` | `modules/Attribution.lua:349` | One context stamp. |
-| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:354` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1236` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1136`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1242` | The other edge of the same handler, same cost. |
+| `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:112` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:73`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
+| `CHAT_MSG_LOOT` | `modules/Collector.lua:218` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:116`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:125` having allocated nothing. A **kept** line then runs `NS.Compat.GetItemExtras` (`:128`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:129`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
+| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:219` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
+| `LOOT_OPENED` | `modules/Attribution.lua:349` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
+| `ENCOUNTER_START` | `modules/Attribution.lua:350` | Two field writes, once per encounter. |
+| `ENCOUNTER_END` | `modules/Attribution.lua:351` | Clears them, once per encounter. |
+| `CHALLENGE_MODE_START` | `modules/Attribution.lua:352` | Two field writes, once per key. |
+| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:353` | Clears them, once per key. |
+| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:354` | Out of combat by construction. |
+| `QUEST_TURNED_IN` | `modules/Attribution.lua:355` | One context stamp. |
+| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:369` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1246` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1142`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, at most one `InCombatLockdown()` call, and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1252` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** Grep the
 three patterns and most of what comes back is prose and guards; the call sites are the table below.
@@ -120,8 +120,8 @@ window is open" described exactly the case that mattered and read as though it d
 
 The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
 was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
-per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1231`,
-`modules/Analytics.lua:656` and — for the History tab's storage readout, which walks the whole
+per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1241`,
+`modules/Analytics.lua:667` and — for the History tab's storage readout, which walks the whole
 history to estimate bytes — `settings/Panel.lua:170`. `HistoryChanged` stays immediate, because a
 delete or a prune is one deliberate action. Issue #27.
 
@@ -171,7 +171,7 @@ It is not being taken, and the reason is the exemption above rather than an argu
 there is not going to be one** — so the number that would decide this cannot be produced, and
 "four tables is cheap" would be the same unmeasured assertion this page exists to refuse. What is
 already on that line makes the guess a bad bet in any case: `NS.Compat.GetItemExtras`
-(`modules/Collector.lua:123`) walks a `C_TooltipInfo` build line by line, and `GatherAll` then makes
+(`modules/Collector.lua:128`) walks a `C_TooltipInfo` build line by line, and `GatherAll` then makes
 one `pcall`ed call into every installed pricing addon. A memo would also buy real state — an
 invalidation path, and a cached table handed out to three third-party fetchers — against a saving
 nobody in this repo can size.
