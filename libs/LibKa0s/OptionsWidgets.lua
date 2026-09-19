@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 20
+local WIDGETS_MINOR = 21
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -1800,6 +1800,11 @@ function lib.__AttachWidgets(O, d)
   local ID_MAIN_REL   = 0.78
   local ID_ACTION_REL = 0.20
   local ID_ICON_SIZE  = 16
+  -- `removeStyle = "icon"` (minor 21): an X at the LEFT of each entry, the atlas ConsumableMaster's
+  -- delete button wears, about the size of the entry's own icon; the name takes the rest of the line.
+  local ID_REMOVE_REL    = 0.06
+  local ID_REMOVE_ATLAS  = "transmog-icon-remove"
+  local ID_REMOVE_SIZE   = 16
   -- The status line's failure color, and the gray an entry's id is drawn in after its name.
   local ID_WARN_R, ID_WARN_G, ID_WARN_B = 1, 0.5, 0
   local ID_GRAY = "|cff808080"
@@ -2560,17 +2565,38 @@ function lib.__AttachWidgets(O, d)
     line:AddChild(w)
   end
 
+  --- The entry's X (`removeStyle = "icon"`, minor 21): a small Icon widget at the LEFT of the line,
+  --- wearing ID_REMOVE_ATLAS, whose click calls onRemove and rebuilds the list once the host has
+  --- removed the entry. Its tooltip is the `remove` string, so a host's `strings.remove` names it. A
+  --- toggle entry is drawn no differently: under this style the host sends none.
+  local function entryRemoveIcon(ctx, spec, entry, line)
+    local x = O.AceGUI:Create("Icon")
+    x:SetImageSize(ID_REMOVE_SIZE, ID_REMOVE_SIZE)
+    local tex = x.image
+    if type(tex) == "table" and tex.SetAtlas then tex:SetAtlas(ID_REMOVE_ATLAS) end
+    x.__removeAtlas = ID_REMOVE_ATLAS   -- the art it wears, for a host's suite (a fake draws none)
+    x:SetRelativeWidth(ID_REMOVE_REL)
+    x:SetCallback("OnClick", function()
+      if callHost(spec.onRemove, entry.id) then rebuildIdList(ctx) end
+    end)
+    O.AttachTooltip(x, idText(spec, "remove"), nil)
+    disableIfRender(ctx, x)
+    line:AddChild(x)
+  end
+
   local function idLine(ctx, spec, k, entry, line)
     local name, icon
+    local iconStyle = spec.removeStyle == "icon"
     if type(k.info) == "function" then name, icon = k.info(entry.id) end
     if name == nil then loadEntry(ctx, k, entry.id) end
+    if iconStyle then entryRemoveIcon(ctx, spec, entry, line) end
     local lbl = O.AceGUI:Create("InteractiveLabel")
     lbl:SetText(entryLabel(spec, k, entry.id, name))
     if icon then
       lbl:SetImage(icon)
       lbl:SetImageSize(ID_ICON_SIZE, ID_ICON_SIZE)
     end
-    lbl:SetRelativeWidth(ID_MAIN_REL)
+    lbl:SetRelativeWidth(iconStyle and (ID_MAIN_REL + ID_ACTION_REL - ID_REMOVE_REL) or ID_MAIN_REL)
     entryTooltip(lbl, k, entry.id)
     line:AddChild(lbl)
     -- The note: a second line under the name, in the gray the id already uses, for a host that has
@@ -2582,7 +2608,7 @@ function lib.__AttachWidgets(O, d)
       n:SetRelativeWidth(ID_MAIN_REL)
       line:AddChild(n)
     end
-    entryAction(ctx, spec, entry, line)
+    if not iconStyle then entryAction(ctx, spec, entry, line) end
   end
 
   --- The host's entries, or none: a raising entries() is reported and costs the lines, not the
@@ -2641,6 +2667,10 @@ function lib.__AttachWidgets(O, d)
   ---   heading     = optional section heading, drawn with O.Section;
   ---   emptyText   = optional line drawn when there are no entries;
   ---   toggleLabel = optional label beside a toggle entry's checkbox;
+  ---   removeStyle = optional, minor 21: "icon" draws a small X at the LEFT of every entry (the
+  ---                 `transmog-icon-remove` atlas, tooltip `remove`) in place of the right-hand
+  ---                 Remove button or checkbox; a click calls onRemove and rebuilds. Absent, the list
+  ---                 is drawn exactly as before;
   ---   strings     = as O.IdInput's, plus remove and unknown.
   ---
   --- The host owns storage: the widget calls back and never writes a path. After an add or a remove
