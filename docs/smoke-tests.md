@@ -930,11 +930,14 @@ already identical to the library's, so **anything that looks different here is t
    button does. It did nothing before.
 2. **The combat guard on the sidebar path.** Enter combat (a target dummy is enough). Open the
    Blizzard **AddOns** list and click **Ka0s Loot History ▸ General** directly. The Settings window
-   closes and chat says
-   `cannot open settings during combat — Blizzard's category-switch is protected`. Previously only
-   `/lh config` was guarded and this path was not. `/lh config` in combat must refuse the same way.
-   Leave combat: both work again, and **nothing replays itself** — the panel must not open on its
-   own the moment combat drops.
+   stays open (LibKa0s v1.46.x no longer closes it): the page shows only a gray cover reading
+   *Settings are locked during combat.*, nothing is drawn under it, and chat carries **one** gray
+   locked notice for the combat. Clicking the cover, a tab, or Blizzard's footer Defaults changes
+   nothing and prints no second line; no `ADDON_ACTION_BLOCKED`, and Esc closes the window normally.
+   `/lh config` in combat refuses with its own gray line and opens nothing. Also open the page first,
+   then pull: the cover drops over the open page the same way. Leave combat: the cover lifts and the
+   page draws in place, `/lh config` works again, and **nothing replays itself** — the panel must
+   not open on its own the moment combat drops.
 3. **Esc syncs the console checkbox.** Open the console (`/lh debug`), then open **Settings ▸
    General** and confirm **Debug console** is ticked. Close the console with **Esc** (or its **×**),
    then look at the checkbox again — it must now be unticked. It used to stay stale, because only

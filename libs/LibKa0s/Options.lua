@@ -23,7 +23,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 21
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 23
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -196,6 +196,13 @@ lib.STRINGS = {
   -- literal would depend on the file's encoding surviving every editor between here and a client.
   COMBAT_REFUSED = "|cffaaaaaacannot open settings during combat \226\128\148 Blizzard's " ..
                    "category-switch is protected|r",
+  -- The combat lock (minor 22, options-ui-§2). COMBAT_LOCKED is the line the cover over a page
+  -- shown in combat draws, centered and gray; the words are the standard's. COMBAT_LOCKED_NOTICE
+  -- is the chat line, printed at most once per combat per host, the first time a locked page is
+  -- shown or refuses a write.
+  COMBAT_LOCKED  = "Settings are locked during combat.",
+  COMBAT_LOCKED_NOTICE = "|cffaaaaaasettings are locked during combat \226\128\148 changes are " ..
+                         "refused until it ends|r",
   BUTTON_FAILED  = "button onClick failed: %s",
   HEADER_FAILED  = "page header failed to build: %s",
   PAGE_FAILED    = "settings page '%s' failed to build: %s",
@@ -425,6 +432,37 @@ function lib.__PreloadFonts(LSM)
   return n
 end
 
+-- ── the combat lock (minor 22) ─────────────────────────────────────────────────────────────
+--
+-- options-ui-§2 as of the Ka0s WoW Addon Standard v2.60.0, and anti-pattern #88. Gating
+-- O.OpenOptionsPanel does not keep a page from being shown in combat: Blizzard's AddOns sidebar
+-- reaches a page's OnShow from inside its own DisplayCategory -> DisplayLayout -> Show. Through
+-- minor 21 that OnShow CLOSED the settings window, running Blizzard's close-and-commit path from
+-- addon code, tainted (SaveBindings blocked, then ToggleGameMenu re-entering until C stack
+-- overflow), and a page left open in combat still took writes. Now nothing touches SettingsPanel,
+-- HideUIPanel, ToggleGameMenu or Settings.OpenToCategory in combat: a page shown in combat, or open
+-- when it starts, is COVERED, every write through the options surface is refused, and
+-- PLAYER_REGEN_ENABLED draws the page on screen from current state. Nothing is re-opened.
+--
+-- LIBRARY-LEVEL, because every vendored copy in the session is handed the same `lib`. Each
+-- instance registers one `hook(locked)` in a weak-keyed set and holds it itself (`O.__combatHook`);
+-- the signature is part of the upgrade contract, since a later minor calls hooks an older one
+-- registered. The one event frame, its dispatcher and the cover's geometry are OptionsTabs.lua's
+-- (the cover is page chrome).
+
+lib.__combatHooks = lib.__combatHooks or setmetatable({}, { __mode = "k" })
+lib.__combatLocked = lib.__combatLocked and true or false
+
+--- The one predicate every refusal asks: PLAYER_REGEN_DISABLED's flag, or the client's lockdown --
+--- the second covers a page shown after a /reload in combat, when no REGEN_DISABLED fired.
+function lib.__IsCombatLocked()
+  if lib.__combatLocked then return true end
+  return (InCombatLockdown ~= nil and InCombatLockdown()) and true or false
+end
+
+-- The dispatcher, lib.__OnCombatEvent, is OptionsTabs.lua's from minor 23, beside the page-scoped
+-- registration it depends on.
+
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
 
 --- Build one host's options surface.
@@ -580,6 +618,55 @@ function lib:New(d)
     pcall(runPreload)
   end
 
+  -- ── the combat lock's instance half (minor 22) ───────────────────────────────────────────
+
+  -- Reset at each edge of combat, so a host prints at most one notice per combat.
+  local combatNoticed = false
+
+  --- The refusal every write seam asks, here and in the two files that attach to it: true, having
+  --- printed the gray notice if this combat has not had it yet, when locked; false otherwise.
+  --- `__`-prefixed: the library talking to itself across a file boundary, as `O.__print` is.
+  function O.__combatRefused()
+    if not lib.__IsCombatLocked() then return false end
+    if not combatNoticed then
+      combatNoticed = true
+      print(lib.STRINGS.COMBAT_LOCKED_NOTICE)
+    end
+    return true
+  end
+
+  --- Put the cover up over one page. Raised above everything the page draws only while the page is
+  --- on screen: a hidden page raises its own on the show that reaches coverOnShow below.
+  local function coverPage(ctx, raise)
+    local cover = ctx.__combatCover
+    if not cover then return end
+    if raise and cover.SetFrameLevel and lib.__coverLevel then
+      cover:SetFrameLevel(lib.__coverLevel(ctx.panel, cover))
+    end
+    cover:Show()
+  end
+
+  local function uncoverPage(ctx)
+    if ctx.__combatCover then ctx.__combatCover:Hide() end
+  end
+
+  --- A page's OnShow, asked first: locked, the page is covered and marked owed a render, the
+  --- notice is printed once, and the caller draws nothing. Unlocked, a cover left up is taken down.
+  --- @return boolean  true when the show was locked
+  local function coverOnShow(ctx)
+    -- A shown page is what the library watches combat for (minor 23): registered from here, let
+    -- go of when the last page hides (OptionsTabs.lua's lib.__pageShown / __pageHidden).
+    if lib.__pageShown then lib.__pageShown(ctx) end
+    if not lib.__IsCombatLocked() then
+      uncoverPage(ctx)
+      return false
+    end
+    coverPage(ctx, true)
+    if not ctx._rendered then ctx._dirty = true end
+    O.__combatRefused()
+    return true
+  end
+
   -- ── panel factory ────────────────────────────────────────────────────────────────────────
 
   local function buildHeader(panel, title, opts)
@@ -625,19 +712,6 @@ function lib:New(d)
     panel.name = title
     panel:Hide()
 
-    -- The font preload (minor 17) for a page with NO renderer. A ctx that never goes through
-    -- SetRenderer is still a supported shape — the refresh tiers below keep a migration seam for
-    -- it — and RenderRows / RenderField are public, so such a page CAN hold an `LSM30_Font` row the
-    -- library never sees drawn. This is the one call every page passes through, so the hook goes
-    -- here. It covers the main page without a `buildMain` too.
-    --
-    -- SetRenderer's SetScript replaces this hook, in the kit as in the client, which is why its own
-    -- OnShow calls the preload itself, after its combat refusal. The hook makes no combat decision,
-    -- on purpose: a renderer-less page has no refusal, so if it is on screen in combat its dropdowns
-    -- can be opened, and loading the faces then is the only way they draw. A host that SetScripts
-    -- its own OnShow onto a renderer-less page replaces the hook as well; no consumer does.
-    panel:HookScript("OnShow", preloadFonts)
-
     -- The Blizzard canvas contract. The Settings window calls all three on a frame handed to
     -- RegisterCanvasLayout(Sub)category: OnCommit when the user applies, OnDefault from the
     -- window's own FOOTER defaults control, OnRefresh on re-show. This library declared none of
@@ -662,6 +736,8 @@ function lib:New(d)
     -- defaults action (a landing page) gets a callable no-op, which is the point: the footer
     -- control is not per-page and can be clicked while such a page is open.
     panel.OnDefault = function()
+      -- Refused in combat (minor 22, options-ui-§2): the footer control is the page's Defaults.
+      if O.__combatRefused() then return end
       if panel.defaultsOnClick then panel.defaultsOnClick() end
     end
 
@@ -696,6 +772,32 @@ function lib:New(d)
       chromeHeight = 0,
     }
     renderedPanels[#renderedPanels + 1] = ctx
+
+    -- The combat cover (minor 22), built now, out of combat, and hidden until a combat edge or a
+    -- show in combat puts it up. OptionsTabs.lua builds it: it is page chrome.
+    if O.__buildCover then ctx.__combatCover = O.__buildCover(panel) end
+
+    -- The show hook for a page with NO renderer. A ctx that never goes through SetRenderer is still
+    -- a supported shape — the refresh tiers below keep a migration seam for it — and RenderRows /
+    -- RenderField are public, so such a page CAN hold an `LSM30_Font` row the library never sees
+    -- drawn. This is the one call every page passes through, so the hook goes here. It covers the
+    -- main page without a `buildMain` too. In combat it covers the page (minor 22) and skips the
+    -- font preload, as SetRenderer's own OnShow does; otherwise it runs the preload (minor 17).
+    --
+    -- SetRenderer's SetScript replaces this hook, in the kit as in the client, which is why its own
+    -- OnShow makes both calls itself. A host that SetScripts its own OnShow onto a renderer-less
+    -- page replaces the hook as well; no consumer does.
+    panel:HookScript("OnShow", function()
+      if coverOnShow(ctx) then return end
+      preloadFonts()
+    end)
+    -- Off screen (minor 23): the cover comes down with the page -- a cover left up under a hidden
+    -- page is a frame "on screen" to every caller that asks -- and the last page off screen lets
+    -- go of the combat events. SetRenderer replaces OnShow only, so this hook stays.
+    panel:HookScript("OnHide", function()
+      uncoverPage(ctx)
+      if lib.__pageHidden then lib.__pageHidden(ctx) end
+    end)
     return ctx
   end
 
@@ -742,8 +844,14 @@ function lib:New(d)
 
     -- The page builder parks its click handler on the panel (the button did not exist when the
     -- builder ran), so it is wired up here.
+    -- Refused in combat (minor 22, options-ui-§2) here, at the control, rather than inside the
+    -- host's handler: a host's handler may be its own batch reset rather than RestoreDefaults.
     if panel.defaultsOnClick then
-      btn:SetCallback("OnClick", panel.defaultsOnClick)
+      local onClick = panel.defaultsOnClick
+      btn:SetCallback("OnClick", function(...)
+        if O.__combatRefused() then return end
+        return onClick(...)
+      end)
     end
   end
 
@@ -909,6 +1017,12 @@ function lib:New(d)
     -- host's page reset silently narrows to the unit that happens to be on screen: AbsorbTracker
     -- pins the current behavior across all three units in its tests/test_helpers.lua, and it is
     -- where /at reset <page> went when the CLI form was removed. Pinned here too.
+    --
+    -- Refused in combat (minor 22, options-ui-§2): this is the page's Defaults, which only the
+    -- settings window reaches. RestoreAllDefaults is NOT refused here, because a host's slash reset
+    -- verb calls it too, and the lock covers the settings window only; its button on the Master
+    -- controls tab is refused at the button, like every library-drawn button.
+    if O.__combatRefused() then return end
     runBulk("reset", pageKey, function(write)
       for _, row in ipairs(d.rowsForPage(pageKey) or {}) do
         write(row)
@@ -1023,6 +1137,12 @@ function lib:New(d)
   --- on the frame down with it.
   local function renderCtx(ctx)
     if type(ctx._renderFn) ~= "function" then return end
+    -- Structural, so refused in combat (minor 22): the page is owed the render, and gets it when
+    -- combat ends if it is on screen, or on its next show if not.
+    if lib.__IsCombatLocked() then
+      ctx._dirty = true
+      return
+    end
     ctx._rendered = true
     ctx._dirty    = false
     local ok, err = pcall(ctx._renderFn, ctx)
@@ -1034,28 +1154,22 @@ function lib:New(d)
   --- Declare how a page draws itself. The library owns WHEN — first show, and again after a
   --- refresh marked it dirty while it was hidden — because those are the two moments only the
   --- registry can see. It also builds the Defaults button here rather than at registration time,
-  --- for the AceGUI skinning reason above, and refuses to render during combat.
+  --- for the AceGUI skinning reason above, and locks the page in combat.
   function O.SetRenderer(ctx, fn)
     ctx._renderFn = fn
     ctx.panel:SetScript("OnShow", function()
       O.EnsureDefaultsButton(ctx.panel)
       -- The Blizzard AddOns sidebar reaches a panel without going through OpenOptionsPanel, so
       -- its combat guard is bypassed on exactly the path a user is most likely to take mid-fight.
-      -- Closing the window is what makes the refusal legible; a silent no-render reads as a bug.
-      if InCombatLockdown and InCombatLockdown() then
-        if SettingsPanel and SettingsPanel.Close then
-          SettingsPanel:Close()
-        elseif HideUIPanel and SettingsPanel then
-          HideUIPanel(SettingsPanel)
-        end
-        print(lib.STRINGS.COMBAT_REFUSED)
-        return
-      end
-      -- The font preload (minor 17), AFTER the combat refusal on purpose. Creating FontStrings is
-      -- not protected, so this is a cost decision, not a taint one: the refusal has just closed the
-      -- window, so no dropdown can open on this show; loading every face is a disk hitch the middle
-      -- of a fight should not pay for; and the next show outside combat — the first on which a
-      -- dropdown can be opened — loads them before anything is drawn. On every show, not only the
+      -- Through minor 21 this closed the settings window, and that close ran Blizzard's
+      -- close-and-commit path from addon code, tainted (anti-pattern #88). From minor 22 the page is
+      -- COVERED instead and nothing of Blizzard's is touched; PLAYER_REGEN_ENABLED draws it.
+      if coverOnShow(ctx) then return end
+      -- The font preload (minor 17), AFTER the combat lock on purpose. Creating FontStrings is
+      -- not protected, so this is a cost decision, not a taint one: the cover is up, so no dropdown
+      -- can open on this show; loading every face is a disk hitch the middle
+      -- of a fight should not pay for; and the end of combat, or the next show outside it — the
+      -- first moment a dropdown can be opened — loads them before anything is drawn. On every show, not only the
       -- first: after the first it walks LSM's table and loads nothing, and it heals a show that
       -- found no LSM or no CreateFrame. Every page with a renderer comes through here, and so does
       -- the main page when `buildMain` is set.
@@ -1066,7 +1180,9 @@ function lib:New(d)
   end
 
   local function refreshCtx(ctx, structural)
-    -- No renderer declared: the legacy shape, refreshed ungated exactly as it always was.
+    -- No renderer declared: the legacy shape, refreshed ungated exactly as it always was. In
+    -- combat too: refreshers only put widgets back to stored values, which is what a refused write
+    -- needs from them.
     if type(ctx._renderFn) ~= "function" then return runRefreshers(ctx) end
     if not isShown(ctx) then
       ctx._dirty = true
@@ -1105,6 +1221,40 @@ function lib:New(d)
     if type(ctx) ~= "table" then return end
     refreshCtx(ctx, structural)
   end
+
+  -- ── the combat edges (minor 22) ──────────────────────────────────────────────────────────
+
+  --- The end of combat, for one page. The cover comes down; a page on screen is drawn from current
+  --- state -- rendered if it is owed one (first shown in combat, or a structural refresh waited),
+  --- else its refreshers run, so a value a slash verb or a profile switch changed shows up. A
+  --- hidden page is left for its next show.
+  local function unlockPage(ctx)
+    uncoverPage(ctx)
+    if not isShown(ctx) then return end
+    if type(ctx._renderFn) ~= "function" then return runRefreshers(ctx) end
+    O.EnsureDefaultsButton(ctx.panel)
+    preloadFonts()
+    if ctx._rendered and not ctx._dirty then return runRefreshers(ctx) end
+    renderCtx(ctx)
+  end
+
+  --- This host's hook on the library's combat frame (lib.__OnCombatEvent).
+  local function onCombat(locked)
+    combatNoticed = false
+    if locked and O.__releaseOwnedFocus then O.__releaseOwnedFocus(renderedPanels) end
+    for _, ctx in ipairs(renderedPanels) do
+      -- Only a page on screen is covered (minor 23): v1.46.0 covered every registered page, so a
+      -- hidden page carried a shown cover; a hidden page is covered by its own next show instead.
+      if not locked then
+        unlockPage(ctx)
+      elseif isShown(ctx) then
+        coverPage(ctx, true)
+      end
+    end
+  end
+  -- Held by the instance, so the weak-keyed set lets it go with the instance.
+  O.__combatHook = onCombat
+  lib.__combatHooks[onCombat] = true
 
   -- ── LibSharedMedia ───────────────────────────────────────────────────────────────────────
 
@@ -1289,7 +1439,10 @@ function lib:New(d)
   --- session must not have every other one rebuilt -- and its transient UI state (an open
   --- dropdown, scroll position) dropped -- by a link that only meant to move one page's tab.
   --- @return boolean  whether a rendered panel with that page key was found and its tab set
+  ---
+  --- Refused in combat (minor 22): a tab switch is a structural re-render (options-ui-§13).
   function O.SelectTab(pageKey, tabKey)
+    if O.__combatRefused() then return false end
     local ctx = O.__panelFor(pageKey)
     if not ctx then return false end
     ctx.activeTab = tabKey

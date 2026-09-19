@@ -413,8 +413,8 @@ local function buildFiltersTab(ctx)
       if k == ctx.activeSubTab[FILTERS_TAB] then return end
       ctx.activeSubTab[FILTERS_TAB] = k
       -- Structural: re-enter the page renderer, which clears the scroll and draws the newly
-      -- selected list. A sub-tab click inside an already-open panel was never a protected action,
-      -- so it needs no combat guard of its own (options-ui-§13).
+      -- selected list. It needs no combat guard of its own and must not carry one: the library's
+      -- combat lock refuses a sub-tab switch on a covered page (options-ui-§2 / §13).
       O.RefreshPanel(ctx, true)
     end,
   })
@@ -966,9 +966,9 @@ local function renderGeneral(ctx)
       if key == ctx.activeTab then return end
       ctx.activeTab = key
       -- Structural: re-enter this renderer, which clears the scroll and draws the newly selected
-      -- tab. A tab click inside an already-open panel was never a protected action, so it needs no
-      -- combat guard of its own (options-ui-§13); the one that matters lives in the panel's OnShow
-      -- and covers the category switch Blizzard protects.
+      -- tab. It needs no combat guard of its own and must not carry one: the library's combat lock
+      -- covers a page shown in combat and refuses the tab switch (options-ui-§2 / §13), and
+      -- O.OpenOptionsPanel refuses the protected category switch.
       O.RefreshPanel(ctx, true)
     end,
   })
@@ -1056,8 +1056,8 @@ function P:Register()
   O.CreateOptionsPanel()
 end
 function P:Open()
-  -- The combat refusal lives in the library now, and it is wider than what it replaced: it also
-  -- fires when the Blizzard AddOns sidebar reaches a page directly, which bypassed this guard
-  -- entirely (options-ui-§2). It still refuses rather than deferring-and-replaying.
+  -- The combat refusal lives in the library, and it is wider than a guard here could be: a page the
+  -- Blizzard AddOns sidebar reaches directly in combat is covered and locked, never closed
+  -- (options-ui-§2). It refuses rather than deferring-and-replaying, and no guard sits beside it.
   O.OpenOptionsPanel()
 end
