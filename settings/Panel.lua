@@ -287,28 +287,32 @@ local function makeFilterSection(ctx, tab)
   addClearAll(scroll, tab)
 
   -- `columns` (LibKa0s v1.47.0, OptionsWidgets minor 24; fitted to the canvas since v1.50.0,
-  -- minor 27) comes from the LIST, not from here: the
-  -- two item lists ask for two entries a line and Currencies asks for nothing, which reads as one.
+  -- minor 27) comes from the LIST, not from here. All three ask for two.
   --
-  -- WHY TWO, AND ON THE ITEM LISTS ONLY. The blacklist and the whitelist are the lists that grow --
-  -- a loot blacklist is fed one junk item at a time out of a long history -- and this page has
-  -- already paid for that length once: rebuilding every list on every OnShow stalled the client for
-  -- about a second on a large blacklist (anti-pattern #39; docs/settings-panel.md, "The Filters tab
-  -- -- blacklist / whitelist"). That rebuild is fixed and this is not about it; what the incident
-  -- records is that these lists really do get long, and one entry per line is a scroll the player
-  -- re-reads every time they open the tab. Two a line halves it. The Currencies list is not in that
-  -- class: a player mutes a handful of currency ids, so a second column there would buy almost
-  -- nothing.
+  -- WHY TWO. The blacklist and the whitelist are the lists that grow -- a loot blacklist is fed one
+  -- junk item at a time out of a long history -- and this page has already paid for that length
+  -- once: rebuilding every list on every OnShow stalled the client for about a second on a large
+  -- blacklist (anti-pattern #39; docs/settings-panel.md, "The Filters tab -- blacklist /
+  -- whitelist"). That rebuild is fixed and this is not about it; what the incident records is that
+  -- these lists really do get long, and one entry per line is a scroll the player re-reads every
+  -- time they open the tab. Two a line halves it.
   --
-  -- AND IT WOULD COST SOMETHING THERE. At more than one column the library turns word wrap OFF on
-  -- an entry's label -- entryNoWrap, libs/LibKa0s/OptionsWidgets.lua:2924, called from idLine at
-  -- :3003-3007 -- because one name wrapping to two lines in the left column pushes the whole right
-  -- column down and the grid stops lining up. The client truncates the TAIL instead, and the name
-  -- and the gray `(id)` are ONE FontString (entryLabel, :2643-2654), so an entry too long for its
-  -- column loses the id ENTIRELY rather than shortening it (the contract states this cost at
-  -- :3296-3305). Currency names are the long ones on this page -- "Weathered Harbinger Crest" --
-  -- and the id is exactly what a player reads back when they are checking what they muted. One
-  -- column still wraps, so it keeps both.
+  -- CURRENCIES ASKED FOR ONE UNTIL THE OWNER SAW IT (2026-09-21). The reservation was that currency
+  -- names are the long ones on this page -- "Weathered Harbinger Crest" -- and that above one
+  -- column the library turns word wrap OFF on an entry's label (entryNoWrap,
+  -- libs/LibKa0s/OptionsWidgets.lua:2924, called from idLine at :3003-3007), because one name
+  -- wrapping in the left column pushes the whole right column down and the grid stops lining up.
+  -- The client truncates the TAIL instead, and the name and the gray `(id)` are ONE FontString
+  -- (entryLabel, :2643-2654), so an entry too long for its column loses the id ENTIRELY rather than
+  -- shortening it (:3296-3305 states that cost).
+  --
+  -- That cost is real and still applies. What the reservation got wrong was the premise: the
+  -- currency ids a player actually mutes are crest and stone names -- "Veteran Mistcrest (3443)",
+  -- "Myth Mistcrest (3446)" -- which fit a column with room to spare, and the tab reading one-per-
+  -- line beside two-per-line siblings looked like an omission rather than a decision. A list whose
+  -- entries fit is the case columns was built for; the long-name worry belongs to the entries that
+  -- are long, and those truncate on the item lists too. Uniform two, and the tooltip still carries
+  -- the full name wherever one is cut.
   --
   -- IT IS A MAXIMUM, NOT A COUNT. Since v1.50.0 the list measures the content width it is actually
   -- drawn into and drops a column at a time while that width cannot pay for the layout -- 520px of
@@ -384,10 +388,12 @@ local CURRENCY_STRINGS = {
 -- the Clear all popup, and `columns` -- how many entries this list asks the library to pack onto
 -- one line. The writers are NS.Filters method names, called by filterWrite.
 --
--- `columns` is PER LIST rather than one number on the shared spec, and the Currencies entry leaves
--- it out deliberately: an absent `columns` reads as one and draws what every list here drew before
--- (libs/LibKa0s/OptionsWidgets.lua:3041-3051). Why two on the item lists and not on this one is at
--- the O.IdList call in makeFilterSection, beside the `removeStyle` the trade depends on.
+-- `columns` is PER LIST rather than one number on the shared spec. All three lists ask for two
+-- today, so the key could be hoisted onto the shared spec -- it is kept per list because the count
+-- is a statement about THAT list's entries, and the Currencies entry has already changed its answer
+-- once. An absent `columns` reads as one (libs/LibKa0s/OptionsWidgets.lua:3041-3051), so dropping
+-- the key is how a list opts back out. Why two is at the O.IdList call in makeFilterSection,
+-- beside the `removeStyle` the trade depends on.
 local FILTER_TABS = {
   { key = "blacklist", label = "Blacklist",
     desc = "Items here are never recorded when looted from now on. Existing rows are left untouched "
@@ -411,7 +417,7 @@ local FILTER_TABS = {
     addLabel = "Add currency id, link or name",
     addTooltip = "Type a currency id or name, or shift-click a currency link, then press Enter or "
       .. "Add. As you type, matching currencies are listed: click one to add it. " .. CURRENCY_NAME_HINT,
-    strings = CURRENCY_STRINGS,
+    strings = CURRENCY_STRINGS, columns = 2,
     candidateSets = { "CurrencyBlacklist" }, historyField = "currencyID" },
 }
 

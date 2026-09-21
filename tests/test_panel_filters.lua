@@ -194,13 +194,16 @@ local function clickSubTab(ctx, index)
 end
 
 -- LibKa0s v1.47.0 / OptionsWidgets minor 24; the canvas fit that makes it a MAXIMUM is v1.50.0,
--- minor 27. BOTH halves are one case on purpose. The first is the
--- adoption and is red without it -- with no `columns` on the item lists every entry takes a line of
--- its own. The second is the DECISION the adoption made (per list, not wholesale) and would pass on
--- its own against a page that never heard of `columns`; it is here so a later sweep that puts
--- `columns = 2` on the shared spec has to argue with a named assertion rather than a silent
--- truncation of every currency id (see the O.IdList call in settings/Panel.lua).
-test("Panel: the item lists pack two entries to a line and Currencies keeps one",
+-- minor 27. BOTH halves are one case on purpose, and both are now the same assertion: every list
+-- on this page packs two entries to a line. Red without the adoption -- with no `columns` every
+-- entry takes a line of its own.
+--
+-- Currencies asserted ONE until the owner saw the tab in the client (2026-09-21). The reservation
+-- was the tail truncation an over-long name pays above one column; what it got wrong was that the
+-- currency ids a player actually mutes are short enough to fit. The case is kept per list rather
+-- than folded into one loop because the count is a statement about THAT list's entries, and this
+-- one has already changed its answer once.
+test("Panel: every filter list packs two entries to a line",
   withLoadsCaptured(function()
     NS.Filters:ClearAll()
     NS.Filters:AddBlacklist(11111)
@@ -231,9 +234,9 @@ test("Panel: the item lists pack two entries to a line and Currencies keeps one"
 
       local currency = packedEntries(clickSubTab(ctx, 3))
       assertEqual(#currency, 2, "both muted currencies are drawn")
-      assertTrue(currency[2].line > currency[1].line, "each currency keeps a line to itself")
-      assertEqual(currency[1].col, 1)
-      assertEqual(currency[2].col, 1)
+      assertEqual(currency[1].line, currency[2].line, "the two currencies share one line")
+      assertEqual(currency[1].col, 1, "the first is the left column")
+      assertEqual(currency[2].col, 2, "the second is beside it, not under it")
     end)
     clickSubTab(ctx, 1)
     NS.Filters:ClearAll()
