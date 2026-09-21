@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 27
+local WIDGETS_MINOR = 28
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -1933,6 +1933,36 @@ function lib.__AttachWidgets(O, d)
   -- leaves it under this much beside the image -- `if (width - imagewidth) < 200`, UpdateImageAnchor
   -- at AceGUI-3.0's widgets/AceGUIWidget-Label.lua:19-32. See entryMinContent.
   local ID_LABEL_MIN     = 200
+  -- The per-entry HELP MARK (minor 28): a small "?" between the delete control and the name,
+  -- carrying whatever the host has to say about that entry that is not its name.
+  --
+  -- WHY IT EXISTS. The alternative already here is `note`, a full-width second line -- and a
+  -- second line cannot share a Flow row, so a noted entry takes a row of its own and punches a
+  -- hole in a multi-column grid. A host with something to say about MANY entries therefore had to
+  -- choose between saying it and keeping its columns. The mark says it in a tooltip, costs the row
+  -- a fixed 18px and nothing else, and leaves every entry the same shape as every other.
+  --
+  -- THE NUMBERS ARE THE DRAG HANDLE'S, deliberately. `lib.DRAG_HANDLE.HELP` is 8px of art in an
+  -- 18px frame (LibKa0s/WidgetsDragHandle.lua), and a player meets both marks in the same panel:
+  -- two "?" controls of different sizes reads as one of them being wrong. They are restated here
+  -- rather than read across, because that table belongs to the Widgets major and this file is the
+  -- Options major's -- a cross-major read would make a copy of one vendorable without the other.
+  -- If one moves, move the other and say so in both.
+  local ID_HELP_SIZE     = 8
+  local ID_HELP_HIT      = 18
+  -- Resting gold, the brighten under the cursor, and the flat gray an entry with nothing to say
+  -- wears. A DIMMED MARK IS STILL DRAWN, and that is the point of it: the column stays put, so the
+  -- names beside it line up whether or not an entry has anything behind its mark.
+  local ID_HELP_TINT     = { 0.82, 0.65, 0.21 }
+  local ID_HELP_OVER     = { 1, 1, 1 }
+  local ID_HELP_DIM      = { 0.35, 0.35, 0.36 }
+  -- What the NAME gives up for the mark, as a fraction, on the same footing as ID_REMOVE_REL: the
+  -- frame is absolute, so this only has to cover it at the widths the list is drawn at, and
+  -- entryMinContent below is what actually guarantees it.
+  local ID_HELP_REL      = 0.05
+  -- The same last rung the drag handle's mark falls back to (its HELP_FALLBACK), so a host that
+  -- passes no `helpIcon` gets the client's own information glyph rather than a blank square.
+  local ID_HELP_FALLBACK = "Interface\\FriendsFrame\\InformationIcon"
   -- The status line's failure color, and the gray an entry's id is drawn in after its name.
   local ID_WARN_R, ID_WARN_G, ID_WARN_B = 1, 0.5, 0
   local ID_GRAY = "|cff808080"
@@ -2299,7 +2329,28 @@ function lib.__AttachWidgets(O, d)
     local color = nameColor(k, e.id)
     if color then name = color .. name .. "|r" end
     if e.rankLabel then name = name .. " " .. e.rankLabel end
-    return name .. " " .. ID_GRAY .. "(" .. tostring(e.id) .. ")|r"
+    local text = name .. " " .. ID_GRAY .. "(" .. tostring(e.id) .. ")|r"
+    -- THE HOST'S TAG (minor 28), after the id. `rank` beside it is the LIBRARY's answer about an
+    -- id -- a spell's rank, an item's quality -- and a host cannot supply one; this is the other
+    -- half, a short word the host knows and the library cannot.
+    --
+    -- IT IS FOR WARNING BEFORE THE CLICK. Aura Master's case is the one that asked for it: an id
+    -- can be a spell's CAST rather than the aura it applies, which matches nothing, and the host
+    -- knew that before the player picked the row and could only say so afterwards. A tag on the
+    -- row turns a correction into a choice.
+    --
+    -- SHORT, AND THE HOST'S OWN COLOR. A suggestion row is one line at a fixed height and the
+    -- name has already spent most of it, so this is a word or two and is not wrapped, truncated or
+    -- measured -- a host that writes a sentence here gets a sentence running off its row and that
+    -- is the host's to fix. The library adds no color of its own, because the tag's whole job is
+    -- to stand out from the name beside it and only the host knows what it is saying.
+    if type(k.suggestTag) == "function" then
+      local ok, tag = pcall(k.suggestTag, e.id)
+      if ok and type(tag) == "string" and tag ~= "" then
+        text = text .. " " .. tag
+      end
+    end
+    return text
   end
 
   --- Show `entry` on `row`, or hide the row for none. `entry` and `labelText` record what it shows.
@@ -2761,6 +2812,79 @@ function lib.__AttachWidgets(O, d)
     line:AddChild(w)
   end
 
+  --- Whether `entry` has anything behind its help mark.
+  ---
+  --- A LIST WITH NO HELP ANYWHERE DRAWS NO MARKS AT ALL -- asked once per render, not per entry,
+  --- so a host that never sets `help` pays nothing and its rows are exactly what minor 27 drew.
+  --- Within a list that DOES use it, every entry gets a mark whether or not it has lines, because
+  --- a column that appears and disappears per row is not a column.
+  local function entryHelpLines(entry)
+    local help = type(entry) == "table" and entry.help or nil
+    if type(help) == "string" and help ~= "" then return { help } end
+    if type(help) == "table" and help[1] ~= nil then return help end
+    return nil
+  end
+
+  --- Does any entry in this list carry help? See entryHelpLines for why this is a list-level
+  --- question rather than a per-entry one.
+  local function listHasHelp(entries)
+    if type(entries) ~= "table" then return false end
+    for _, entry in ipairs(entries) do
+      if entryHelpLines(entry) then return true end
+    end
+    return false
+  end
+
+  --- The entry's "?" mark: an Icon between the delete control and the name, tinted gold when the
+  --- host gave it something to say and flat gray when it did not.
+  ---
+  --- AN ICON RATHER THAN A BUTTON, unlike the drag handle's mark, because everything else on this
+  --- row is an AceGUI widget in a Flow and a raw CreateFrame would not be laid out by it. The
+  --- consequence is that hover has to come off the Icon's own OnEnter/OnLeave rather than off
+  --- frame scripts, which is what the callbacks below are.
+  ---
+  --- THE TOOLTIP IS THE HOST'S LINES AND NOTHING ELSE. The entry's own name is the title, because
+  --- a tooltip with no title floating beside a row reads as belonging to the row above it. A mark
+  --- with no lines gets NO tooltip at all -- not an empty one -- so hovering it is silent rather
+  --- than answering with a blank frame.
+  local function entryHelp(ctx, spec, entry, line, name, lines)
+    local h = O.AceGUI:Create("Icon")
+    h:SetImageSize(ID_HELP_SIZE, ID_HELP_SIZE)
+    h:SetWidth(ID_HELP_HIT)
+    local tex = h.image
+    local tint = lines and ID_HELP_TINT or ID_HELP_DIM
+    if type(tex) == "table" then
+      if tex.SetTexture then tex:SetTexture(spec.helpIcon or ID_HELP_FALLBACK) end
+      if tex.SetVertexColor then tex:SetVertexColor(tint[1], tint[2], tint[3]) end
+    end
+    -- `__helpLines` and `__helpTint` record what it was given, for a harness whose fake Icon has
+    -- no texture -- the same reason the X records `__removeAtlas`.
+    h.__helpLines = lines
+    h.__helpTint = tint
+    if lines then
+      h:SetCallback("OnEnter", function()
+        if type(tex) == "table" and tex.SetVertexColor then
+          tex:SetVertexColor(ID_HELP_OVER[1], ID_HELP_OVER[2], ID_HELP_OVER[3])
+        end
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(h.frame or h, "ANCHOR_RIGHT")
+        GameTooltip:SetText(name or tostring(entry.id), 1, 1, 1)
+        for i = 1, #lines do
+          GameTooltip:AddLine(lines[i], 0.8, 0.8, 0.8, true)
+        end
+        GameTooltip:Show()
+      end)
+      h:SetCallback("OnLeave", function()
+        if type(tex) == "table" and tex.SetVertexColor then
+          tex:SetVertexColor(ID_HELP_TINT[1], ID_HELP_TINT[2], ID_HELP_TINT[3])
+        end
+        if GameTooltip then GameTooltip:Hide() end
+      end)
+    end
+    disableIfRender(ctx, h)
+    line:AddChild(h)
+  end
+
   --- The X's HIGHLIGHT texture, moved from the art onto the frame, so that what lights up under
   --- the cursor is what a click actually hits.
   ---
@@ -2863,9 +2987,11 @@ function lib.__AttachWidgets(O, d)
   --- divided by the column count. At one column there is no neighbor and so no gutter: the default
   --- style comes out at minor 23's 0.78 exactly, and the icon style at 0.90 rather than minor 23's
   --- 0.92, because ID_REMOVE_REL grew by 0.02 to cover the X's wider frame.
-  local function entryNameRel(iconStyle, cols)
+  local function entryNameRel(iconStyle, cols, hasHelp)
     local base = iconStyle and (ID_MAIN_REL + ID_ACTION_REL - ID_REMOVE_REL) or ID_MAIN_REL
     if cols > 1 then base = base - ID_COL_GAP_REL end
+    -- The help mark comes out of the NAME, as the X does, and only in a list that draws one.
+    if hasHelp then base = base - ID_HELP_REL end
     return base / cols
   end
 
@@ -2989,28 +3115,38 @@ function lib.__AttachWidgets(O, d)
   --- One entry, drawn into `line`. `cols` is how many entries share that Flow row (1 unless the
   --- host asked for more): every relative width the entry claims is divided by it, and nothing
   --- else about the entry changes.
-  local function idLine(ctx, spec, k, entry, line, cols)
+  local function idLine(ctx, spec, k, entry, line, cols, hasHelp)
     local name, icon
     cols = cols or 1
     local iconStyle = spec.removeStyle == "icon"
     if type(k.info) == "function" then name, icon = k.info(entry.id) end
     if name == nil then loadEntry(ctx, k, entry.id) end
     if iconStyle then entryRemoveIcon(ctx, spec, entry, line) end
+    -- BETWEEN THE DELETE AND THE NAME, in a list that uses help at all. The order a player reads
+    -- is [X] [?] [icon] Name (id): the destructive control first, then the one that explains the
+    -- row, then the row itself.
+    if hasHelp then entryHelp(ctx, spec, entry, line, name, entryHelpLines(entry)) end
     local lbl = O.AceGUI:Create("InteractiveLabel")
     -- Before the text, not after: SetText runs AceGUI's UpdateImageAnchor, which measures the
     -- string's height. Measuring it once as a wrapped string and once more as a clipped one is a
     -- height that is briefly wrong for no reason.
-    if cols > 1 then
-      local fs = entryNoWrap(lbl)
-      entryHighlight(lbl)
-      entryRelease(lbl, fs)
-    end
+    -- LIT AT EVERY COLUMN COUNT (minor 28). It was `cols > 1` only, on the reasoning that a
+    -- one-column tooltip already hangs off the name and needs no second owner -- but the lit name
+    -- is not only a tooltip's owner, it is the feedback that says which row the cursor is on, and
+    -- a one-column list wants that as much as a two-column one. It also made a NOTED entry, which
+    -- is drawn at one column inside a two-column list, the only unlit row on the page.
+    --
+    -- Word wrap is still turned off only at more than one column: at one the entry has the row to
+    -- itself and a wrapped name pushes nothing sideways.
+    local fs = (cols > 1) and entryNoWrap(lbl) or nil
+    entryHighlight(lbl)
+    entryRelease(lbl, fs)
     lbl:SetText(entryLabel(spec, k, entry.id, name, entrySuffix(entry)))
     if icon then
       lbl:SetImage(icon)
       lbl:SetImageSize(ID_ICON_SIZE, ID_ICON_SIZE)
     end
-    lbl:SetRelativeWidth(entryNameRel(iconStyle, cols))
+    lbl:SetRelativeWidth(entryNameRel(iconStyle, cols, hasHelp))
     entryTooltip(lbl, k, entry.id, cols > 1 and line or nil)
     line:AddChild(lbl)
     -- The note: a second line under the name, in the gray the id already uses, for a host that has
@@ -3133,11 +3269,18 @@ function lib.__AttachWidgets(O, d)
   --- Below that width Flow shrinks nothing -- it WRAPS, starting a new row as soon as
   --- `(framewidth) + usedwidth > width` (AceGUI-3.0.lua's Flow layout) -- so the trailing gutter,
   --- and then the last X, drop onto a row of their own and the grid stops being a grid.
-  local function entryMinContent(iconStyle, cols)
-    local floor = (ID_ICON_SIZE + ID_LABEL_MIN) / entryNameRel(iconStyle, cols)
+  local function entryMinContent(iconStyle, cols, hasHelp)
+    local floor = (ID_ICON_SIZE + ID_LABEL_MIN) / entryNameRel(iconStyle, cols, hasHelp)
     if iconStyle then
       local reserve = 1 - (ID_MAIN_REL + ID_ACTION_REL) + ID_REMOVE_REL
       floor = math.max(floor, cols * ID_REMOVE_HIT / reserve)
+    end
+    -- THE MARK'S FRAME IS ABSOLUTE TOO, so it needs the same treatment the X gets above: `cols` of
+    -- them cost cols * ID_HELP_HIT flat, out of the fraction the names gave up for them. Without
+    -- this the fit would pass a width that pays for the X and not for the mark, and the grid would
+    -- break in the one place nothing reports.
+    if hasHelp then
+      floor = math.max(floor, cols * ID_HELP_HIT / ID_HELP_REL)
     end
     return floor
   end
@@ -3162,12 +3305,12 @@ function lib.__AttachWidgets(O, d)
   --- who drags the panel narrower after the page is drawn keeps the count the draw chose, until
   --- something re-renders the list. Left as is deliberately -- a re-fit would mean rebuilding a
   --- page on a drag, which is a far larger promise than this finding asked for.
-  local function fitIdColumns(scroll, spec, columns)
+  local function fitIdColumns(scroll, spec, columns, hasHelp)
     if columns <= 1 then return columns end
     local width = idContentWidth(scroll)
     if not width then return columns end
     local iconStyle = spec.removeStyle == "icon"
-    while columns > 1 and width < entryMinContent(iconStyle, columns) do
+    while columns > 1 and width < entryMinContent(iconStyle, columns, hasHelp) do
       columns = columns - 1
     end
     return columns
@@ -3193,7 +3336,10 @@ function lib.__AttachWidgets(O, d)
   --- it was asked for. That is a decision about THIS render, which is why it is taken here, where
   --- the scroll is, and not in idColumns, which reads the spec and nothing else.
   local function drawIdEntries(ctx, scroll, spec, k, entries, columns)
-    columns = fitIdColumns(scroll, spec, columns)
+    -- Asked ONCE for the whole list, not per entry: see entryHelpLines. A list where no entry
+    -- carries help draws no marks, claims no width for them and is byte-identical to minor 27.
+    local hasHelp = listHasHelp(entries)
+    columns = fitIdColumns(scroll, spec, columns, hasHelp)
     local lines, pending, filled = {}, nil, 0
     local function flush()
       if pending then scroll:AddChild(pending) end
@@ -3206,7 +3352,7 @@ function lib.__AttachWidgets(O, d)
         if cols == 1 and filled > 0 then flush() end
         local line = pending or startRow(O)
         local held = childCount(line)
-        if renderRowGuarded(print, tostring(entry.id), idLine, ctx, spec, k, entry, line, cols) then
+        if renderRowGuarded(print, tostring(entry.id), idLine, ctx, spec, k, entry, line, cols, hasHelp) then
           lines[#lines + 1] = line
           pending, filled = line, filled + 1
           if filled >= cols then flush() end
