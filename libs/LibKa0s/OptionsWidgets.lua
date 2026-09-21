@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 23
+local WIDGETS_MINOR = 24
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -1820,9 +1820,86 @@ function lib.__AttachWidgets(O, d)
   local ID_ICON_SIZE  = 16
   -- `removeStyle = "icon"` (minor 21): an X at the LEFT of each entry, the atlas ConsumableMaster's
   -- delete button wears, about the size of the entry's own icon; the name takes the rest of the line.
-  local ID_REMOVE_REL    = 0.06
+  --
+  -- FOUR numbers, and they are not the same kind of number. ID_REMOVE_SIZE is the ART: 16px of
+  -- atlas, the size of the entry's own icon. ID_REMOVE_HIT is the FRAME that art sits in, and it is
+  -- deliberately bigger. AceGUI's Icon centers its texture horizontally and hangs it 5px below the
+  -- frame's top (`image:SetPoint("TOP", 0, -5)` in the constructor of
+  -- AceGUI-3.0's widgets/AceGUIWidget-Icon.lua) and sizes the frame to the art plus 10 when the
+  -- widget carries no label (`SetImageSize` in the same file), so a 26px frame wraps the 16px art in
+  -- exactly 5px on all four sides and the click target is 26x26. A frame the size of its own art
+  -- would leave the delete control edge to edge with the 16px spell icon the name beside it draws --
+  -- two adjacent textures, one of which deletes the row -- and would cut the target minor 23's
+  -- fraction gave (about 41x26) down to 16x26. ID_REMOVE_REL is neither art nor frame: it is what
+  -- the NAME gives up so the frame has somewhere to sit, and it is a fraction because the name is.
+  -- It is 0.08 rather than minor 23's 0.06 so that reserve still covers a 26px frame at two
+  -- columns -- the arithmetic is under ID_COLUMNS_MAX.
+  local ID_REMOVE_REL    = 0.08
   local ID_REMOVE_ATLAS  = "transmog-icon-remove"
   local ID_REMOVE_SIZE   = 16
+  local ID_REMOVE_HIT    = 26
+  -- The gutter between one entry and the next inside a shared row (minor 24), as a fraction of the
+  -- whole line. AceGUI's Flow butts its children edge to edge, so a gap between two entries has to
+  -- be a widget; this is what each entry gives up to draw one. Nothing is drawn at one column.
+  -- See entryGutter.
+  local ID_COL_GAP_REL   = 0.04
+  -- The art an entry lights up in under the cursor at more than one column. The same texture the id
+  -- suggestion lines use (SUGGEST_HIGHLIGHT, further down this file), so "the row under the cursor"
+  -- looks the same everywhere on the id surface. See entryHighlight.
+  local ID_ENTRY_HILITE  = "Interface\\QuestFrame\\UI-QuestTitleHighlight"
+  -- `columns` (minor 24): entries per Flow row, packed row-major. Every relative width above is
+  -- divided by the column count, so one column is an exact fraction of the line an entry used to
+  -- have to itself and the line still sums to the same 0.98 -- at two columns an entry is
+  -- 0.37 + 0.10 with a 0.02 gutter after it, or the X and 0.43 + 0.02 in the icon style. The
+  -- divisor is the only thing that changes: the X, the icon, the name and the gray id are laid out
+  -- by the same code at every column count, so they line up ACROSS columns for the same reason they
+  -- line up down a single one.
+  --
+  -- THE CAP IS TWO. AceGUI sets the arithmetic; the width that arithmetic is measured against is a
+  -- CONSERVATIVE CHOICE rather than a measurement, and this comment says which is which.
+  --
+  -- THE ARITHMETIC. A Label that has been given an image moves the image ON TOP, centered, with the
+  -- name wrapped underneath, whenever the frame leaves it under 200px beside that image --
+  -- `if (width - imagewidth) < 200`, AceGUI-3.0's UpdateImageAnchor
+  -- (widgets/AceGUIWidget-Label.lua), which the InteractiveLabel an entry is drawn with hijacks
+  -- whole. An entry carrying an icon therefore needs ID_ICON_SIZE + 200 = 216px of label, and a
+  -- label is a fraction of the row, so each count has a CONTENT width below which it is not a
+  -- narrower layout but a DIFFERENT one: 216 * cols / the style's label fraction. The icon style
+  -- has a second floor beside it, because the X's frame is absolute and the names have to leave
+  -- room for it -- cols * ID_REMOVE_HIT <= content * (1 - 0.90), or 260 * cols. The wider of the
+  -- two floors, per style:
+  --
+  --   cols | default style | icon style
+  --      1 |     277px     |    260px
+  --      2 |     584px     |    520px
+  --      3 |     876px     |    780px
+  --      4 |    1168px     |   1040px
+  --
+  -- WHAT THAT WIDTH IS, AND WHERE THE NUMBER COMES FROM. It is the CONTENT width, not the panel's.
+  -- A page's widgets are laid out inside the AceGUI ScrollFrame that anchorScroll anchors
+  -- (Options.lua:877-883), which insets the scroll from the panel body by L.CONTENT_LEFT and
+  -- L.CONTENT_RIGHT -- 12 and 28, declared as PADDING_X - 4 and PADDING_X + 12 at
+  -- Options.lua:187-188 -- and OptionsScroll.lua's always-shown-scrollbar patch then takes a
+  -- further GUTTER of 20 off the content width (OptionsScroll.lua:34 and :67-76, forced on every
+  -- one of these scrolls at Options.lua:929). Content is therefore the panel's width LESS 60, and
+  -- the 0.98 these widths sum to is the clip inset on top of that.
+  --
+  -- The PANEL's width is not knowable here, and nothing in this repo measures it. It is whatever
+  -- Blizzard's settings canvas gives a registered category at the player's resolution and UI scale;
+  -- there is no constant for it at file scope and no figure for it anywhere else in this
+  -- repository. So the cap is a conservative choice, not a measurement. Two columns want 584px of
+  -- content -- 644px of panel -- which is comfortably inside every settings canvas this collection
+  -- draws a page into. Three wants 876px of content and 936px of panel, which is past a settings
+  -- canvas rather than near it. A count the width cannot pay for is not a narrower list: it is a
+  -- column of icons stacked over wrapped names, and that is the one failure mode nothing reports.
+  -- Two is the last count that is safe without knowing the number.
+  --
+  -- Flat rather than style-aware on purpose. `removeStyle` is the host's choice about a delete
+  -- control, and a cap that moved with it would hand two lists of the same width two different
+  -- maxima over a difference the player cannot see -- and would still be wrong for the entries in
+  -- either list that have no icon at all, which are the only ones the 200px rule does not bind.
+  -- tests/test_options_widgets.lua pins both the number and this arithmetic.
+  local ID_COLUMNS_MAX   = 2
   -- The status line's failure color, and the gray an entry's id is drawn in after its name.
   local ID_WARN_R, ID_WARN_G, ID_WARN_B = 1, 0.5, 0
   local ID_GRAY = "|cff808080"
@@ -2549,8 +2626,15 @@ function lib.__AttachWidgets(O, d)
 
   --- The client's own tooltip for the entry: GameTooltip's per-kind method, or a host kind's
   --- `tooltip(tooltip, id)` function.
-  local function entryTooltip(lbl, k, id)
-    local anchor = lbl.frame or lbl
+  --- `owner`, when the caller passes one, is the frame GameTooltip hangs off instead of the label.
+  --- At one column the label's right edge IS the list's right edge, so ANCHOR_RIGHT puts the
+  --- tooltip outside the list and nothing is covered. At more than one a column-one label's right
+  --- edge is the middle of the list, and the same anchor drops the tooltip squarely over column
+  --- two -- over the entries the reader is on their way to, which is the worst thing it could
+  --- cover. The caller hands over the ROW instead, which spans the full width at every column
+  --- count: the same rule as before, applied to the widget that still reaches the edge.
+  local function entryTooltip(lbl, k, id, owner)
+    local anchor = (owner and (owner.frame or owner)) or lbl.frame or lbl
     lbl:SetCallback("OnEnter", function()
       local method = k.tooltip
       if not GameTooltip then return end
@@ -2565,7 +2649,7 @@ function lib.__AttachWidgets(O, d)
 
   --- The entry's right-hand widget: a checkbox for a toggle entry (a starter the host can switch
   --- off without forgetting it), else Remove, which rebuilds the list once the host has removed it.
-  local function entryAction(ctx, spec, entry, line)
+  local function entryAction(ctx, spec, entry, line, cols)
     local w
     if entry.toggle then
       w = O.AceGUI:Create("CheckBox")
@@ -2583,7 +2667,7 @@ function lib.__AttachWidgets(O, d)
         if callHost(spec.onRemove, entry.id) then rebuildIdList(ctx) end
       end)
     end
-    w:SetRelativeWidth(ID_ACTION_REL)
+    w:SetRelativeWidth(ID_ACTION_REL / (cols or 1))
     disableIfRender(ctx, w)
     line:AddChild(w)
   end
@@ -2598,7 +2682,21 @@ function lib.__AttachWidgets(O, d)
     local tex = x.image
     if type(tex) == "table" and tex.SetAtlas then tex:SetAtlas(ID_REMOVE_ATLAS) end
     x.__removeAtlas = ID_REMOVE_ATLAS   -- the art it wears, for a host's suite (a fake draws none)
-    x:SetRelativeWidth(ID_REMOVE_REL)
+    -- A FLOOR, NOT A FRACTION, AND WIDER THAN THE ART IT CARRIES. ID_REMOVE_REL is what the NAME
+    -- beside the X gives up for it -- the label's width already subtracts it -- and the X's own
+    -- frame is absolute. A relative width is multiplied by the row at layout time, so
+    -- ID_REMOVE_REL / cols shrinks with the column count and with the canvas, and an Icon anchors
+    -- its texture TOP-centered rather than clipping it: a frame narrower than the art does not
+    -- shrink the X, it spills it over whatever is next to it. Only an absolute width can promise
+    -- otherwise, so the X takes one at every column count, this one included.
+    --
+    -- The absolute number is ID_REMOVE_HIT, not ID_REMOVE_SIZE. The art is 16px and so is the spell
+    -- icon the name beside it draws, so a frame the size of its art puts two 16x16 textures flush
+    -- against each other, one of which deletes the row, and leaves a 16px-wide click target where
+    -- minor 23's fraction gave about 41. At 26 the Icon's own geometry centers the art with 5px on
+    -- every side -- the same 5px AceGUI already leaves above and below it -- so the hit area is
+    -- 26x26, the gap to the spell icon is real, and nothing about it moves with `cols`.
+    x:SetWidth(ID_REMOVE_HIT)
     x:SetCallback("OnClick", function()
       if callHost(spec.onRemove, entry.id) then rebuildIdList(ctx) end
     end)
@@ -2607,20 +2705,114 @@ function lib.__AttachWidgets(O, d)
     line:AddChild(x)
   end
 
-  local function idLine(ctx, spec, k, entry, line)
+  --- The width of an entry's NAME, as a fraction of the whole line. What the line has (0.98) less
+  --- what the delete control takes -- the X's reserve in the icon style, the action widget's own
+  --- width in the default one -- less the gutter that separates this entry from the next, all
+  --- divided by the column count. At one column there is no neighbor and so no gutter: the default
+  --- style comes out at minor 23's 0.78 exactly, and the icon style at 0.90 rather than minor 23's
+  --- 0.92, because ID_REMOVE_REL grew by 0.02 to cover the X's wider frame.
+  local function entryNameRel(iconStyle, cols)
+    local base = iconStyle and (ID_MAIN_REL + ID_ACTION_REL - ID_REMOVE_REL) or ID_MAIN_REL
+    if cols > 1 then base = base - ID_COL_GAP_REL end
+    return base / cols
+  end
+
+  --- The gap between one entry and the next inside a shared row.
+  ---
+  --- AceGUI's Flow butts its children edge to edge -- a child is anchored TOPLEFT to the previous
+  --- child's TOPRIGHT with no x offset (`frame:SetPoint("TOPLEFT", children[i-1].frame,
+  --- "TOPRIGHT", 0, frameoffset - lastframeoffset)`, AceGUI-3.0.lua's Flow layout) -- so a gap has
+  --- to be a widget. Without one the default style reads [name][Remove][name][Remove] with the
+  --- first Remove flush against the name it does NOT belong to, and the icon style puts entry
+  --- two's X against the end of entry one's name.
+  ---
+  --- Drawn at the END of every entry rather than between them, which keeps each entry's share of
+  --- the row exactly 0.98 / cols: the name gives the gutter up, and the trailing entry's gutter is
+  --- dead space inside the clip inset the 0.98 already leaves. Nothing at all is drawn at one
+  --- column, where the entry has the row to itself.
+  local function entryGutter(line, cols)
+    if cols <= 1 then return end
+    local g = O.AceGUI:Create("SimpleGroup")
+    g:SetLayout(nil)
+    g:SetRelativeWidth(ID_COL_GAP_REL / cols)
+    g:SetHeight(1)
+    line:AddChild(g)
+  end
+
+  --- ONE LINE TALL, ALWAYS, at more than one column.
+  ---
+  --- AceGUI's Flow centers the widgets of a row on each other by alignoffset -- `frameoffset =
+  --- child.alignoffset or (frameheight / 2)`, and the next child is anchored
+  --- `frameoffset - lastframeoffset` off its neighbor's TOPRIGHT (AceGUI-3.0.lua's Flow layout) --
+  --- so one entry whose name wrapped to a second line moves every widget in the row beside it.
+  --- That is not an uneven row, it is a broken grid: the two names and the two delete controls
+  --- stop lining up. An entry's name and its gray id are one FontString, so the fix is on that
+  --- FontString -- word wrap off, and the client truncates the tail rather than wrapping it.
+  ---
+  --- RESTORED ON RELEASE. AceGUI pools this widget across every addon in the session and Label's
+  --- OnAcquire does not reset word wrap, so a list that simply left it off would hand the next
+  --- consumer of that pooled label a label that no longer wraps. AceGUI:Release fires "OnRelease"
+  --- on the widget before it clears its callbacks, which is where the FontString is put back.
+  ---
+  --- One column is untouched. The entry has the whole row, a wrapped name pushes nothing sideways,
+  --- and a list that passes no `columns` draws exactly what minor 23 drew.
+  ---
+  --- `__wordWrap` records what was asked for, the way `__removeAtlas` records the delete art: a
+  --- harness whose AceGUI fake has no FontString behind the widget can still assert the rule.
+  local function entryNoWrap(lbl)
+    lbl.__wordWrap = false
+    local fs = lbl.label
+    if type(fs) ~= "table" or type(fs.SetWordWrap) ~= "function" then return end
+    fs:SetWordWrap(false)
+    lbl:SetCallback("OnRelease", function()
+      if type(fs.SetWordWrap) == "function" then fs:SetWordWrap(true) end
+    end)
+  end
+
+  --- Light the entry under the cursor, at more than one column.
+  ---
+  --- The tooltip hangs off the whole ROW there rather than off the label, so that it cannot cover
+  --- the column beside it (see entryTooltip) -- which means it can open a long way from the name
+  --- the cursor is actually on, with nothing saying which of the two entries in the row it
+  --- describes. An InteractiveLabel already ships a HIGHLIGHT-layer texture over its own frame; it
+  --- draws nothing until a caller names one, so naming one is the whole change, and the lit name
+  --- is what gives the tooltip an owner the eye can find.
+  ---
+  --- Nothing to restore on release: InteractiveLabel's OnAcquire calls SetHighlight with no
+  --- argument, which clears the texture for the next consumer of the pooled widget.
+  ---
+  --- `__highlight` records the art, as `__removeAtlas` does, for a harness whose fake has no
+  --- SetHighlight to call.
+  local function entryHighlight(lbl)
+    lbl.__highlight = ID_ENTRY_HILITE
+    if type(lbl.SetHighlight) == "function" then lbl:SetHighlight(ID_ENTRY_HILITE) end
+  end
+
+  --- One entry, drawn into `line`. `cols` is how many entries share that Flow row (1 unless the
+  --- host asked for more): every relative width the entry claims is divided by it, and nothing
+  --- else about the entry changes.
+  local function idLine(ctx, spec, k, entry, line, cols)
     local name, icon
+    cols = cols or 1
     local iconStyle = spec.removeStyle == "icon"
     if type(k.info) == "function" then name, icon = k.info(entry.id) end
     if name == nil then loadEntry(ctx, k, entry.id) end
     if iconStyle then entryRemoveIcon(ctx, spec, entry, line) end
     local lbl = O.AceGUI:Create("InteractiveLabel")
+    -- Before the text, not after: SetText runs AceGUI's UpdateImageAnchor, which measures the
+    -- string's height. Measuring it once as a wrapped string and once more as a clipped one is a
+    -- height that is briefly wrong for no reason.
+    if cols > 1 then
+      entryNoWrap(lbl)
+      entryHighlight(lbl)
+    end
     lbl:SetText(entryLabel(spec, k, entry.id, name))
     if icon then
       lbl:SetImage(icon)
       lbl:SetImageSize(ID_ICON_SIZE, ID_ICON_SIZE)
     end
-    lbl:SetRelativeWidth(iconStyle and (ID_MAIN_REL + ID_ACTION_REL - ID_REMOVE_REL) or ID_MAIN_REL)
-    entryTooltip(lbl, k, entry.id)
+    lbl:SetRelativeWidth(entryNameRel(iconStyle, cols))
+    entryTooltip(lbl, k, entry.id, cols > 1 and line or nil)
     line:AddChild(lbl)
     -- The note: a second line under the name, in the gray the id already uses, for a host that has
     -- something to say about this entry (why it is or is not drawn, say). Its own line rather than
@@ -2631,7 +2823,109 @@ function lib.__AttachWidgets(O, d)
       n:SetRelativeWidth(ID_MAIN_REL)
       line:AddChild(n)
     end
-    if not iconStyle then entryAction(ctx, spec, entry, line) end
+    if not iconStyle then entryAction(ctx, spec, entry, line, cols) end
+    entryGutter(line, cols)
+  end
+
+  --- Does this entry carry a note? A note is a SECOND line under the name, which is why it is
+  --- asked about outside idLine: a Flow row cannot hold a wrapped second line in one column and a
+  --- neighbor beside it, so under `columns` a noted entry takes a row of its own at full width
+  --- (`RenderGrid`'s `wide`, and for the same reason). That keeps the note's own contract exactly
+  --- what W17 wrote -- a full-width gray line under the name -- and keeps the grid square, at the
+  --- cost of one short row wherever a noted entry lands.
+  local function entryNoted(entry)
+    return type(entry.note) == "string" and entry.note ~= ""
+  end
+
+  --- Entries per Flow row: 1 unless the host asked for more, floored, and clamped into
+  --- 1..ID_COLUMNS_MAX. Anything that is not a number reads as 1, so a spec that never heard of
+  --- this option takes the single-column path exactly as it did at minor 23.
+  local function idColumns(spec)
+    local n = tonumber(spec.columns)
+    if not n then return 1 end
+    n = math.floor(n)
+    if n < 1 then return 1 end
+    if n > ID_COLUMNS_MAX then return ID_COLUMNS_MAX end
+    return n
+  end
+
+  --- Roll a shared Flow row back to the children it held before a failing entry began drawing into
+  --- it. Without this the per-entry guard would still cost only the entry's LINE -- but at more
+  --- than one column that line is shared, so the half-built widgets of an entry whose lookup raised
+  --- would be drawn beside the neighbor that succeeded. AceGUI's own ReleaseChildren does exactly
+  --- this, newest first; a Release that itself raises is absorbed, since the point of being here at
+  --- all is that something already raised.
+  local function trimChildren(line, keep)
+    local kids = line.children
+    if type(kids) ~= "table" then return end
+    for i = #kids, keep + 1, -1 do
+      local child = table.remove(kids, i)
+      if type(child) == "table" and type(child.Release) == "function" then pcall(child.Release, child) end
+    end
+  end
+
+  --- What `line` already holds, so a failing entry can be trimmed back to it. A container with no
+  --- children list at all (a host's fake, an AceGUI that changed shape) reads as empty, which makes
+  --- the trim a no-op rather than a second raise inside the guard.
+  local function childCount(line)
+    local kids = line.children
+    return type(kids) == "table" and #kids or 0
+  end
+
+  --- How many entries this entry's row holds: the list's column count, or 1 for a noted entry,
+  --- which takes a full-width row of its own (see entryNoted).
+  local function entryColumns(entry, columns)
+    if columns > 1 and entryNoted(entry) then return 1 end
+    return columns
+  end
+
+  --- The entry lines: `columns` entries per Flow row, filled row-major (1 2 / 3 4 / 5 6), each row
+  --- added to the scroll once it is full and the last one added however full it is -- an odd count
+  --- leaves the final row half empty rather than stretching the entry across it, because every
+  --- width is relative to the row and none of them is asked to fill it.
+  ---
+  --- Guarded per ENTRY, as ChoiceGrid guards per row, and that is the property the row sharing has
+  --- to be careful with: an entry whose kind lookup raises is trimmed back out of the row it was
+  --- drawing into, so it costs itself and neither the neighbor already in that row nor the entries
+  --- after it. With nothing else in the row yet, the row itself is dropped, which is exactly what
+  --- minor 16 did with the one line an entry had to itself.
+  ---
+  --- Returns one line per entry DRAWN, in entry order; an entry that failed to draw has none. At
+  --- more than one column the same row object is returned once per entry packed into it, so
+  --- `lines[i]` is still the row carrying the i-th drawn entry.
+  local function drawIdEntries(ctx, scroll, spec, k, entries, columns)
+    local lines, pending, filled = {}, nil, 0
+    local function flush()
+      if pending then scroll:AddChild(pending) end
+      pending, filled = nil, 0
+    end
+    for _, entry in ipairs(entries) do
+      if type(entry) == "table" and entry.id ~= nil then
+        local cols = entryColumns(entry, columns)
+        -- A full-width entry starts its own row, so anything half-packed goes out ahead of it.
+        if cols == 1 and filled > 0 then flush() end
+        local line = pending or startRow(O)
+        local held = childCount(line)
+        if renderRowGuarded(print, tostring(entry.id), idLine, ctx, spec, k, entry, line, cols) then
+          lines[#lines + 1] = line
+          pending, filled = line, filled + 1
+          if filled >= cols then flush() end
+        else
+          trimChildren(line, held)
+          if filled == 0 then
+            -- Nothing else ever went into this row, and it was never added to the scroll -- so no
+            -- ReleaseChildren anywhere will ever reach it. Hand it back here or the SimpleGroup
+            -- leaks out of AceGUI's pool for the life of the session, one per failing entry that
+            -- happened to be first in its row. Guarded for the same reason trimChildren is: the
+            -- reason we are here at all is that something already raised.
+            if type(line.Release) == "function" then pcall(line.Release, line) end
+            pending = nil
+          end
+        end
+      end
+    end
+    flush()
+    return lines
   end
 
   --- The host's entries, or none: a raising entries() is reported and costs the lines, not the
@@ -2657,17 +2951,7 @@ function lib.__AttachWidgets(O, d)
     local k = idKind(spec.kind)
     local entries = listEntries(spec)
     if #entries == 0 and spec.emptyText then O.TextRow(ctx, spec.emptyText) end
-    -- Guarded per line, as ChoiceGrid guards per row: an entry whose lookup raises costs its line.
-    local lines = {}
-    for _, entry in ipairs(entries) do
-      if type(entry) == "table" and entry.id ~= nil then
-        local line = startRow(O)
-        if renderRowGuarded(print, tostring(entry.id), idLine, ctx, spec, k, entry, line) then
-          scroll:AddChild(line)
-          lines[#lines + 1] = line
-        end
-      end
-    end
+    local lines = drawIdEntries(ctx, scroll, spec, k, entries, idColumns(spec))
     O.AddSpacer(scroll, L.ROW_VSPACER)
     if scroll.DoLayout then scroll:DoLayout() end
     return lines
@@ -2694,14 +2978,37 @@ function lib.__AttachWidgets(O, d)
   ---                 `transmog-icon-remove` atlas, tooltip `remove`) in place of the right-hand
   ---                 Remove button or checkbox; a click calls onRemove and rebuilds. Absent, the list
   ---                 is drawn exactly as before;
+  ---   columns     = optional, minor 24: entries per line, packed row-major -- 1 2 / 3 4 / 5 6.
+  ---                 Default 1, which draws exactly what minor 23 drew. Each entry's widths are
+  ---                 divided by the count, so a two-column line is two 0.49 entries and still sums
+  ---                 to 0.98; an odd count leaves the last row half empty rather than stretching the
+  ---                 entry. Floored and clamped into 1..ID_COLUMNS_MAX, which is 2 and is AceGUI's
+  ---                 number rather than a taste -- see the constant for the arithmetic. A
+  ---                 non-number reads as 1. An entry with a `note` takes a full-width row of its
+  ---                 own whatever the count, because the note is a second line under the name and
+  ---                 cannot share a Flow row with a neighbor. At MORE THAN ONE COLUMN an entry
+  ---                 name does NOT wrap: `entryNoWrap` turns word wrap off on the label's
+  ---                 FontString, so the client truncates instead. That is not a preference, it is
+  ---                 what keeps the grid: AceGUI's Flow center-aligns siblings by `alignoffset`
+  ---                 (AceGUI-3.0.lua), so one wrapped two-line name in column one pushes the
+  ---                 WHOLE of column two down and the names and the X icons in that row stop
+  ---                 lining up. One line per entry, or no grid.
+  ---                 THE COST, stated because it is the id that pays it: the name and the gray
+  ---                 `(id)` are one FontString and truncation cuts the TAIL, so an entry too long
+  ---                 for its column shows part of its name and NO ID AT ALL -- not a shortened
+  ---                 one. The entry's tooltip still names it; the id is only on the row. A host
+  ---                 whose ids must always be readable asks for one column, which still wraps
+  ---                 exactly as it did at minor 23;
   ---   strings     = as O.IdInput's, plus remove and unknown.
   ---
   --- The host owns storage: the widget calls back and never writes a path. After an add or a remove
   --- it redraws through `ctx.rebuild` when the host set one, else O.RefreshAllPanels(). A toggle
   --- redraws nothing -- the checkbox already shows the new state.
   ---
-  --- Returns the entry lines in order; an entry that failed to draw has no line. Nil, drawing
-  --- nothing, with no AceGUI.
+  --- Returns one line per entry drawn, in entry order; an entry that failed to draw has no line.
+  --- With `columns` above 1 the same row object is returned once per entry packed into it, so
+  --- `lines[i]` is still the row carrying the i-th drawn entry. Nil, drawing nothing, with no
+  --- AceGUI.
   function O.IdList(ctx, spec)
     local scroll = O.EnsureScroll(ctx)
     if not scroll then return end
