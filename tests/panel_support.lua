@@ -120,6 +120,51 @@ local function tabAt(name)
   T.assertTrue(false, "no tab named " .. tostring(name) .. " on the strip")
 end
 
+--- Run `fn` with every AceGUI ScrollFrame's CONTENT widened to `px`, then put the fixture back.
+---
+--- THE HARNESS'S CANVAS IS A FIXTURE, NOT A MODEL. The kit's AceGUI fake gives every ScrollFrame's
+--- content a flat `original_width = 400` (tests/_kit/mock_base.lua:1302) and LibKa0s's
+--- always-shown-scrollbar patch then takes its 20px gutter off it (OptionsScroll.lua:34 and :73-74),
+--- so every list in this suite measures 380px of content. Nothing in the kit claims that is what
+--- Blizzard's settings canvas hands a page; it is a number a fake made up.
+---
+--- It matters from LibKa0s v1.50.0, which made `columns` a MAXIMUM: O.IdList measures the content
+--- width at draw time and drops toward one column when the count cannot be paid for -- 520px for
+--- two entries in the icon style, 584 in the default one (fitIdColumns / entryMinContent,
+--- libs/LibKa0s/OptionsWidgets.lua:3136-3174). At 380 every multi-column list collapses to one,
+--- which is the library being right about a number the harness invented. So a case asserting how a
+--- list PACKS has to say what canvas it packs into, or it is asserting the fixture.
+---
+--- Both the scrolls already handed out (EnsureScroll caches one per page, and the first render has
+--- long since happened by the time a case runs) and any handed out inside `fn` are widened, and
+--- every one of them is restored afterwards -- this module is a singleton shared with
+--- tests/test_panel.lua, so a one-way widening would leave every later suite drawing against a
+--- canvas it never asked for. `fn`'s error is re-raised after the restore.
+local function withCanvas(px, fn)
+  local saved = {}
+  local function widen(w)
+    if w.type == "ScrollFrame" and type(w.content) == "table" then
+      saved[#saved + 1] = { content = w.content, original = w.content.original_width, width = w.content.width }
+      w.content.original_width = px
+      w.content.width = px
+    end
+  end
+  for _, w in ipairs(AceGUI.__created) do widen(w) end
+  local create = AceGUI.Create
+  AceGUI.Create = function(self, wtype, ...)
+    local w = create(self, wtype, ...)
+    widen(w)
+    return w
+  end
+  local ok, err = pcall(fn)
+  AceGUI.Create = create
+  for _, s in ipairs(saved) do
+    s.content.original_width = s.original
+    s.content.width = s.width
+  end
+  if not ok then error(err, 0) end
+end
+
 local M = {
   AceGUI         = AceGUI,
   show           = show,
@@ -129,6 +174,7 @@ local M = {
   findByLabel    = findByLabel,
   STRIP          = STRIP,
   tabAt          = tabAt,
+  withCanvas     = withCanvas,
 }
 
 rawset(_G, "__LH_PANEL_SUPPORT", M)

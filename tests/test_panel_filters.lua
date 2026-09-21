@@ -158,6 +158,88 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
     homeTab(ctx)
   end))
 
+--- Every IdList entry among `ws`, in draw order, with the LINE and the COLUMN it landed in.
+---
+--- A list's entries are packed into shared Flow rows (SimpleGroups the library creates one per
+--- line), so the row's position in creation order IS its line: a row is created before the widgets
+--- that go into it, and the library fills a row left to right before starting the next. An entry is
+--- an InteractiveLabel whose text carries the id -- either `|cff808080(12345)|r` after the name, or
+--- the library's "Unknown item 12345" while the client cannot name it yet (entryLabel,
+--- libs/LibKa0s/OptionsWidgets.lua:2643-2654). Nothing else this page draws matches either shape.
+local function packedEntries(ws)
+  local out = {}
+  for line, w in ipairs(ws) do
+    local kids = type(w.children) == "table" and w.children or {}
+    local col = 0
+    for _, kid in ipairs(kids) do
+      if type(kid) == "table" and kid.type == "InteractiveLabel" and type(kid.text) == "string" then
+        local id = kid.text:match("%((%d+)%)|r") or kid.text:match("^Unknown %a+ (%d+)")
+        if id then
+          col = col + 1
+          out[#out + 1] = { id = tonumber(id), line = line, col = col }
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Click the Filters sub-tab at `index` and answer the widgets that render drew.
+local function clickSubTab(ctx, index)
+  local before = #AceGUI.__created
+  ctx.__subTabKids[index]:__fire("OnClick")
+  local out = {}
+  for i = before + 1, #AceGUI.__created do out[#out + 1] = AceGUI.__created[i] end
+  return out
+end
+
+-- LibKa0s v1.47.0 / OptionsWidgets minor 24; the canvas fit that makes it a MAXIMUM is v1.50.0,
+-- minor 27. BOTH halves are one case on purpose. The first is the
+-- adoption and is red without it -- with no `columns` on the item lists every entry takes a line of
+-- its own. The second is the DECISION the adoption made (per list, not wholesale) and would pass on
+-- its own against a page that never heard of `columns`; it is here so a later sweep that puts
+-- `columns = 2` on the shared spec has to argue with a named assertion rather than a silent
+-- truncation of every currency id (see the O.IdList call in settings/Panel.lua).
+test("Panel: the item lists pack two entries to a line and Currencies keeps one",
+  withLoadsCaptured(function()
+    NS.Filters:ClearAll()
+    NS.Filters:AddBlacklist(11111)
+    NS.Filters:AddBlacklist(22222)
+    NS.Filters:AddBlacklist(33333)
+    NS.Filters:AddCurrencyBlacklist(3008)
+    NS.Filters:AddCurrencyBlacklist(2914)
+    local panel = mocks.__subcategories["General"]
+    local ctx = NS.Panel.general
+    -- SAY WHAT CANVAS THIS PACKS INTO. `columns` is a maximum fitted to the measured content width,
+    -- and the kit's ScrollFrame fixture is 400 (380 of content) -- under the icon style's 520px
+    -- floor, so the library would correctly draw ONE column and this case would be asserting the
+    -- fixture rather than the packing. 700 pays for two in either style; see S.withCanvas.
+    S.withCanvas(700, function()
+      local drawn = packedEntries(clickTab(panel, ctx, tabAt("Filters")))
+      assertEqual(#drawn, 3, "the three blacklisted ids are drawn")
+      -- filterEntries sorts by id and the library packs ROW-MAJOR (1 2 / 3 4), so the sort still
+      -- reads left to right and then down. red under: no `columns` (one entry a line), and red
+      -- under a column-major packing, which the flat order alone would not notice.
+      assertEqual(drawn[1].id, 11111, "the lowest id is first")
+      assertEqual(drawn[2].id, 22222)
+      assertEqual(drawn[3].id, 33333)
+      assertEqual(drawn[1].line, drawn[2].line, "the first two share one line")
+      assertEqual(drawn[1].col, 1, "the first is the left column")
+      assertEqual(drawn[2].col, 2, "the second is beside it, not under it")
+      assertTrue(drawn[3].line > drawn[2].line, "the third starts the next line down")
+      assertEqual(drawn[3].col, 1, "and is the left column of that line")
+
+      local currency = packedEntries(clickSubTab(ctx, 3))
+      assertEqual(#currency, 2, "both muted currencies are drawn")
+      assertTrue(currency[2].line > currency[1].line, "each currency keeps a line to itself")
+      assertEqual(currency[1].col, 1)
+      assertEqual(currency[2].col, 1)
+    end)
+    clickSubTab(ctx, 1)
+    NS.Filters:ClearAll()
+    homeTab(ctx)
+  end))
+
 -- ── the Filters tab's id lists (LibKa0s-Options IdList) ───────────────────────────────────────
 --
 -- Each list is one O.IdList: an edit box taking an id, a shift-clicked link or (items only) a name,

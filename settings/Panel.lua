@@ -286,6 +286,37 @@ local function makeFilterSection(ctx, tab)
   O.AddSpacer(scroll, 6)
   addClearAll(scroll, tab)
 
+  -- `columns` (LibKa0s v1.47.0, OptionsWidgets minor 24; fitted to the canvas since v1.50.0,
+  -- minor 27) comes from the LIST, not from here: the
+  -- two item lists ask for two entries a line and Currencies asks for nothing, which reads as one.
+  --
+  -- WHY TWO, AND ON THE ITEM LISTS ONLY. The blacklist and the whitelist are the lists that grow --
+  -- a loot blacklist is fed one junk item at a time out of a long history -- and this page has
+  -- already paid for that length once: rebuilding every list on every OnShow stalled the client for
+  -- about a second on a large blacklist (anti-pattern #39; docs/settings-panel.md, "The Filters tab
+  -- -- blacklist / whitelist"). That rebuild is fixed and this is not about it; what the incident
+  -- records is that these lists really do get long, and one entry per line is a scroll the player
+  -- re-reads every time they open the tab. Two a line halves it. The Currencies list is not in that
+  -- class: a player mutes a handful of currency ids, so a second column there would buy almost
+  -- nothing.
+  --
+  -- AND IT WOULD COST SOMETHING THERE. At more than one column the library turns word wrap OFF on
+  -- an entry's label -- entryNoWrap, libs/LibKa0s/OptionsWidgets.lua:2924, called from idLine at
+  -- :3003-3007 -- because one name wrapping to two lines in the left column pushes the whole right
+  -- column down and the grid stops lining up. The client truncates the TAIL instead, and the name
+  -- and the gray `(id)` are ONE FontString (entryLabel, :2643-2654), so an entry too long for its
+  -- column loses the id ENTIRELY rather than shortening it (the contract states this cost at
+  -- :3296-3305). Currency names are the long ones on this page -- "Weathered Harbinger Crest" --
+  -- and the id is exactly what a player reads back when they are checking what they muted. One
+  -- column still wraps, so it keeps both.
+  --
+  -- IT IS A MAXIMUM, NOT A COUNT. Since v1.50.0 the list measures the content width it is actually
+  -- drawn into and drops a column at a time while that width cannot pay for the layout -- 520px of
+  -- content for two entries in the `removeStyle = "icon"` style this page asks for, against 584 in
+  -- the default one (fitIdColumns :3165-3174, entryMinContent :3136-3144, the floors tabulated
+  -- under ID_COLUMNS_MAX at :1893-1896). So a narrow settings canvas draws this page exactly as it
+  -- drew before, nothing here has to know how wide Blizzard's canvas is, and a test that asserts
+  -- the packing has to say what canvas it packs into (tests/panel_support.lua's withCanvas).
   O.IdList(ctx, {
     kind      = tab.kind,
     label     = tab.addLabel,
@@ -297,6 +328,7 @@ local function makeFilterSection(ctx, tab)
     onAdd     = function(id) filterWrite(ctx, tab.add, id) end,
     onRemove  = function(id) filterWrite(ctx, tab.remove, id) end,
     removeStyle = "icon",
+    columns     = tab.columns,
   })
 
   -- A structural rebuild (lines added/removed), so it registers as a *rebuilder*: it runs on an
@@ -349,21 +381,27 @@ local CURRENCY_STRINGS = {
 }
 
 -- Per list: the IdList kind, the NS.Filters reader (`set`) and writers (`add` / `remove`) it calls,
--- and the Clear all popup. The writers are NS.Filters method names, called by filterWrite.
+-- the Clear all popup, and `columns` -- how many entries this list asks the library to pack onto
+-- one line. The writers are NS.Filters method names, called by filterWrite.
+--
+-- `columns` is PER LIST rather than one number on the shared spec, and the Currencies entry leaves
+-- it out deliberately: an absent `columns` reads as one and draws what every list here drew before
+-- (libs/LibKa0s/OptionsWidgets.lua:3041-3051). Why two on the item lists and not on this one is at
+-- the O.IdList call in makeFilterSection, beside the `removeStyle` the trade depends on.
 local FILTER_TABS = {
   { key = "blacklist", label = "Blacklist",
     desc = "Items here are never recorded when looted from now on. Existing rows are left untouched "
       .. "(this only affects future loots — delete old rows from the history table if you want them gone).",
     kind = "item", set = "Blacklist", add = "AddBlacklist", remove = "RemoveBlacklist",
     popup = "KA0S_LOOTHISTORY_CLEAR_BLACKLIST",
-    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS,
+    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS, columns = 2,
     candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
   { key = "whitelist", label = "Whitelist",
     desc = "Items here are always recorded, even if they fall below your quality threshold, come from a "
       .. "muted source, or are quest items. Adding an id to one list removes it from the other.",
     kind = "item", set = "Whitelist", add = "AddWhitelist", remove = "RemoveWhitelist",
     popup = "KA0S_LOOTHISTORY_CLEAR_WHITELIST",
-    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS,
+    addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS, columns = 2,
     candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
   { key = "currencyBlacklist", label = "Currencies",
     desc = "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
