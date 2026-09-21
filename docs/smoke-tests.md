@@ -1274,6 +1274,42 @@ this section is unrun, and it is recorded that way rather than as coverage.
 
 ---
 
+### 19. The filter lists pack two to a line (LibKa0s v1.47.0 `columns`)
+
+The Blacklist and the Whitelist now draw **two entries per line**; Currencies still draws one. The
+count is a MAXIMUM, not a promise — since LibKa0s v1.50.0 the list measures the width it actually
+has and drops back to one column when two cannot be paid for, so part of this is checking the
+fallback as well as the packing. Only the client can show either.
+
+**Setup:** a Blacklist with at least **six** items in it, and at least **two** currencies in
+Currencies, so both a full row and an odd trailing one are visible.
+
+**Steps.**
+- **Settings ▸ General ▸ Filters ▸ Blacklist** → entries are laid out **two to a line**, reading
+  left to right then down. The X, the icon and the name line up **across** the two columns as well
+  as down each one.
+- With an **odd** number of entries, the last line has one entry in the **left** column and empty
+  space to the right — not one entry stretched across the width.
+- **Whitelist** → the same.
+- **Currencies** → still **one entry per line**, full width. This is deliberate: currency names are
+  long ("Weathered Harbinger Crest"), and above one column the client truncates a name from the
+  **tail**, which takes the gray `(id)` with it.
+- **The truncation trade, on the item lists.** Find (or blacklist) an item with a long name. At two
+  columns its name is cut from the tail rather than wrapped to a second line, and a long enough one
+  loses its `(id)` entirely. That is the cost of the grid — a wrapped name would push the column
+  beside it out of alignment. **Hovering the entry still names the item**, which is where the full
+  story lives.
+- **Remove** an entry with its X → the list rebuilds and stays a grid, with the remaining entries
+  repacked left-to-right. **Add** one → same.
+- **The fallback.** Make the settings canvas narrow — windowed mode at a small window width, and/or
+  a higher UI scale (`/console uiScale 1`). Below roughly **580px of panel** the item lists should
+  draw **one column**, full width, still correctly formed. What you are checking does NOT happen:
+  icons stacked over wrapped names, or an entry's X sitting on a line of its own.
+- Widen it back and re-open the panel → two columns return.
+
+> On a normal setup you may not be able to get narrow enough to trigger the fallback; the column cap
+> was chosen conservatively. If you cannot, the first bullet passing is still the meaningful result.
+
 ## When to run which subset
 
 - **Pre-commit (capture/attribution edits):** 1, 3, 4. Anything touching `modules/Collector.lua`,
