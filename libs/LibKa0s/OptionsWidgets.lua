@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 24
+local WIDGETS_MINOR = 27
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -463,10 +463,11 @@ local ID_ONLY = { noun = "entry", plural = "entries" }
 local NAME_COLOR = { [ID_KINDS.item] = itemQualityColor }
 
 -- A host kind whose ids are one library kind's says so with `base = "item"` (or "spell",
--- "currency"): it wears that kind's decorations -- the name color and the suggestion rows' rank
--- below, keyed by the library's kind table -- and takes these fields from it where it sets none of
--- its own. Never `byName` or the client's enumeration: what a host kind resolves, and the ids it
--- lists, stay its own. `resolve`, and any field the host sets (false included), win.
+-- "currency"): it wears that kind's decorations -- the name color, and the suggestion row's rank
+-- and client source below, both keyed by the library's kind table -- and takes these fields from it
+-- where it sets none of its own. Never `byName`: what a host kind RESOLVES stays its own, so a
+-- typed name still reaches the host's resolver and its candidates rather than the client's name
+-- lookup. `resolve`, and any field the host sets (false included), win.
 local BASE_FIELDS = { info = true, link = true, tooltip = true, loads = true, noun = true, plural = true }
 -- The view idKind hands out for each based host table, and the host table behind each view, so a
 -- host that builds its kind per render leaks nothing. basedViews is weak on its VALUES too: a view
@@ -672,7 +673,9 @@ end
 --- says the kind's ids are items the client loads, so IdInput pre-warms and looks up its candidates
 --- as it does the item kind's. `base = "item"` ("spell", "currency") says its ids are that kind's:
 --- it takes the base's info, link, tooltip, loads, noun and plural where it sets none, and wears
---- its name color and rank; a based kind's pick is asked of its own resolve. The order, for a
+--- its name color, its rank and the client ids it enumerates -- the spellbook or the bags, which
+--- the add box suggests and the shared-name check reads; a based kind's pick is asked of its own
+--- resolve, and its own `byName` is never the base's. The order, for a
 --- named kind:
 ---   1. a number (`21562`);
 ---   2. a link of the kind's own type (`|Hspell:21562:...`, or the bare `spell:21562`);
@@ -847,16 +850,29 @@ local function spellRank(id)
   return tonumber(text:match("%d+")) or 0, text
 end
 
--- The named kinds' client source and rank, keyed by the kind table as NAME_COLOR is, so a host's
--- own kind -- whose ids need not be the client's -- has neither.
+-- The named kinds' client source and rank, keyed by the kind table -- and read through decorKind
+-- below, so a BASED host kind reads its base's row. A host that says `base = "spell"` has said its
+-- ids ARE the client's spells, and it says that to get the base's decorations; withholding the
+-- client's own list from it would leave a host that wanted nothing but its own entry tooltip with
+-- an add box that suggests nothing as the player types. A host kind with NO base still matches
+-- nothing here, which is the protection this table has always wanted: its ids need not be the
+-- client's at all, and a list of currency ids must never be offered the spellbook. Declaring a
+-- base is how a host opts in; leaving it out is how it opts out.
 local SUGGEST_KIND = {
   [ID_KINDS.item]  = { sources = bagItemIds, rank = itemRank },
   [ID_KINDS.spell] = { sources = spellBookIds, rank = spellRank },
 }
 
+--- The suggestion row `k` wears: a named kind's own, a based host kind's base's, or nil for a host
+--- kind with no base. Every reader below goes through this one lookup, so the client source, the
+--- rank and the shared-name check can never disagree about which row a kind has.
+local function suggestRow(k)
+  return SUGGEST_KIND[decorKind(k)]
+end
+
 -- Declared above for the shared-name check: what resolves a name and what lists it read one source.
 kindSourceIds = function(k)
-  local row = SUGGEST_KIND[k]
+  local row = suggestRow(k)
   return row and row.sources() or {}
 end
 
@@ -884,7 +900,7 @@ local function suggestEntry(k, id)
   local ok, name, icon = pcall(k.info, id)
   if not ok or type(name) ~= "string" or name == "" then return nil end
   local e = { id = id, name = name, lower = name:lower(), icon = icon }
-  local row = SUGGEST_KIND[decorKind(k)]
+  local row = suggestRow(k)
   if row then e.rank, e.rankLabel = row.rank(id) end
   return e
 end
@@ -1829,8 +1845,13 @@ function lib.__AttachWidgets(O, d)
   -- widget carries no label (`SetImageSize` in the same file), so a 26px frame wraps the 16px art in
   -- exactly 5px on all four sides and the click target is 26x26. A frame the size of its own art
   -- would leave the delete control edge to edge with the 16px spell icon the name beside it draws --
-  -- two adjacent textures, one of which deletes the row -- and would cut the target minor 23's
-  -- fraction gave (about 41x26) down to 16x26. ID_REMOVE_REL is neither art nor frame: it is what
+  -- two adjacent textures, one of which deletes the row -- and would cut the click target down to
+  -- 16x26. Minor 23's 0.06 of the row was wider than that; HOW MUCH wider is not sayable in this
+  -- file, and that is the point rather than an omission. A fraction is a width only once the row's
+  -- CONTENT width is known, and the paragraph under ID_COLUMNS_MAX below states that that width
+  -- follows the panel, which is not knowable here and is measured nowhere in this repository. So
+  -- minor 23's target was whatever the player's canvas happened to make it, and 26 is the same
+  -- target at every canvas. ID_REMOVE_REL is neither art nor frame: it is what
   -- the NAME gives up so the frame has somewhere to sit, and it is a fraction because the name is.
   -- It is 0.08 rather than minor 23's 0.06 so that reserve still covers a 26px frame at two
   -- columns -- the arithmetic is under ID_COLUMNS_MAX.
@@ -1884,15 +1905,22 @@ function lib.__AttachWidgets(O, d)
   -- one of these scrolls at Options.lua:929). Content is therefore the panel's width LESS 60, and
   -- the 0.98 these widths sum to is the clip inset on top of that.
   --
-  -- The PANEL's width is not knowable here, and nothing in this repo measures it. It is whatever
-  -- Blizzard's settings canvas gives a registered category at the player's resolution and UI scale;
-  -- there is no constant for it at file scope and no figure for it anywhere else in this
-  -- repository. So the cap is a conservative choice, not a measurement. Two columns want 584px of
-  -- content -- 644px of panel -- which is comfortably inside every settings canvas this collection
-  -- draws a page into. Three wants 876px of content and 936px of panel, which is past a settings
-  -- canvas rather than near it. A count the width cannot pay for is not a narrower list: it is a
-  -- column of icons stacked over wrapped names, and that is the one failure mode nothing reports.
-  -- Two is the last count that is safe without knowing the number.
+  -- The PANEL's width is not knowable HERE, at file scope, and nothing in this repo has a constant
+  -- for it. It is whatever Blizzard's settings canvas gives a registered category at the player's
+  -- resolution and UI scale. So the cap is a conservative CEILING, not a measurement. Two columns
+  -- want 584px of content -- 644px of panel -- which is comfortably inside every settings canvas
+  -- this collection draws a page into. Three wants 876px of content and 936px of panel, which is
+  -- past a settings canvas rather than near it. Two is the last count that is safe without knowing
+  -- the number.
+  --
+  -- A CEILING IS NOT THE WHOLE ANSWER, and the floors above are why. A count the width cannot pay
+  -- for is not a narrower list: it is a column of icons stacked over wrapped names, and in the icon
+  -- style a delete control pushed onto a row of its own -- the one failure mode nothing reported.
+  -- At DRAW time the width IS knowable, because the ScrollFrame the list is drawn into carries the
+  -- very number AceGUI's Flow will lay the row out against; fitIdColumns reads it and drops the
+  -- count a column at a time until the table below is paid. The cap bounds what a host may ASK for;
+  -- the draw-time check decides what a given canvas actually gets. The table stays here because it
+  -- is the arithmetic both of them are made of.
   --
   -- Flat rather than style-aware on purpose. `removeStyle` is the host's choice about a delete
   -- control, and a cap that moved with it would hand two lists of the same width two different
@@ -1900,6 +1928,11 @@ function lib.__AttachWidgets(O, d)
   -- either list that have no icon at all, which are the only ones the 200px rule does not bind.
   -- tests/test_options_widgets.lua pins both the number and this arithmetic.
   local ID_COLUMNS_MAX   = 2
+  -- AceGUI's own threshold, named so the floors above are DERIVED rather than asserted. A Label
+  -- that has been given an image moves the image on top of a wrapped name whenever the frame
+  -- leaves it under this much beside the image -- `if (width - imagewidth) < 200`, UpdateImageAnchor
+  -- at AceGUI-3.0's widgets/AceGUIWidget-Label.lua:19-32. See entryMinContent.
+  local ID_LABEL_MIN     = 200
   -- The status line's failure color, and the gray an entry's id is drawn in after its name.
   local ID_WARN_R, ID_WARN_G, ID_WARN_B = 1, 0.5, 0
   local ID_GRAY = "|cff808080"
@@ -2571,15 +2604,53 @@ function lib.__AttachWidgets(O, d)
     return underDisable(ctx, spec.disabled, drawIdInput, ctx, parent, spec, nil)
   end
 
+  --- An entry's `suffix` (minor 25), or nil: a host-composed aside short enough to sit INSIDE the
+  --- label, after the gray id and in the same gray. Anything that is not a non-empty string is
+  --- nil, exactly as `note` reads, so an entry that never heard of the field draws what minor 24
+  --- drew, byte for byte.
+  ---
+  --- The host composes the words and the widget only concatenates them. That is also the whole
+  --- escaping story, and it is the one `note` already tells: a host string is never a pattern and
+  --- never a replacement here -- `fillText` is the only gsub on this path and it runs over the
+  --- library's own templates, with the host's values arriving as the RETURN of its replacement
+  --- function, where `%` is an ordinary byte. So a `%` or a `%%` in a suffix is drawn as typed.
+  --- A `|c` is drawn as typed for the opposite reason: nothing strips it, so the client reads it
+  --- as the color escape it is. A host that wants a literal pipe writes `||`, as it must anywhere
+  --- else it hands the client text.
+  local function entrySuffix(entry)
+    local s = entry and entry.suffix
+    if type(s) ~= "string" or s == "" then return nil end
+    return s
+  end
+
   --- The text an entry's label reads: its name (an item's in its quality color) and its id in
-  --- gray, or "Unknown <kind> <id>".
-  local function entryLabel(spec, k, id, name)
+  --- gray, or "Unknown <kind> <id>" -- then, from minor 25, the entry's `suffix` after it in the
+  --- same gray.
+  ---
+  --- INSIDE the label rather than under it, which is the whole difference between this and `note`.
+  --- A note is a second full-width Label and costs a noted entry its place in a shared row
+  --- (entryNoted); a suffix is bytes on the end of a string the row was already drawing, so it
+  --- costs a row nothing and two suffixed entries still pair up. Reach for `note` for a sentence
+  --- and `suffix` for a few words -- "(also in 1)", a count, a tag.
+  ---
+  --- It is drawn in ID_GRAY so the NAME stays the bright thing on the row, and it lands after the
+  --- id rather than before it so the two gray runs read as one tail. The cost is the truncation
+  --- order at more than one column: word wrap is off there (entryNoWrap) and the client cuts the
+  --- tail, so a name already too long for its column loses its suffix first and its id second. That
+  --- is the right order -- the suffix is the least of the three -- but it is why a suffix is a few
+  --- words and why the API document carries the character budget rather than leaving a host to
+  --- find the ceiling by overrunning it.
+  local function entryLabel(spec, k, id, name, suffix)
+    local text
     if type(name) == "string" and name ~= "" then
       local color = nameColor(k, id)
       if color then name = color .. name .. "|r" end
-      return name .. " " .. ID_GRAY .. "(" .. tostring(id) .. ")|r"
+      text = name .. " " .. ID_GRAY .. "(" .. tostring(id) .. ")|r"
+    else
+      text = idText(spec, "unknown", { noun = (kindWords(k)), id = id })
     end
-    return idText(spec, "unknown", { noun = (kindWords(k)), id = id })
+    if suffix then text = text .. " " .. ID_GRAY .. suffix .. "|r" end
+    return text
   end
 
   local askItem
@@ -2633,6 +2704,24 @@ function lib.__AttachWidgets(O, d)
   --- two -- over the entries the reader is on their way to, which is the worst thing it could
   --- cover. The caller hands over the ROW instead, which spans the full width at every column
   --- count: the same rule as before, applied to the widget that still reaches the edge.
+  ---
+  --- NOT under the hovered label. The obvious alternative -- SetOwner(row, "ANCHOR_NONE") and a
+  --- hand-placed TOPLEFT on the label's BOTTOMLEFT, so the tooltip opens in the hovered entry's own
+  --- column -- buys the sibling column and pays for it with every row BELOW the cursor, which is the
+  --- same content by the same argument. The debug window already shipped that and took it back:
+  --- `tests/test_debuglog.lua` ("dbg: an icon control carries NO tooltip") pins the removal of minor
+  --- 9's under-the-control tooltip because it covered the first line of the log every time the
+  --- pointer crossed the title bar. Hand-placing also takes the position away from the client, so a
+  --- row near the bottom of the scroll needs a flip decided from `GetBottom()` against the shown
+  --- tooltip's height -- geometry the headless fake cannot answer: `GetBottom` falls through the
+  --- stub metatable and comes back as the frame itself, and `GetHeight` answers 0 until a test
+  --- arms it with `__setGeom` (tests/_kit/mock_base.lua). The flip would be arithmetic on a table
+  --- in the fake, i.e. a branch that could only ever be checked in game. ANCHOR_RIGHT off the widget that reaches the panel edge is the convention everywhere else
+  --- here too (OptionsTabs.lua's tab tooltip, Widgets.lua's). A host that genuinely wants it
+  --- elsewhere gets a spec-level anchor, the way WidgetsDragHandle's `tooltipAnchor` does it.
+  ---
+  --- What answers "which of the two entries is this?" is not the anchor but entryHighlight, which
+  --- was added for exactly that and is the other half of this decision.
   local function entryTooltip(lbl, k, id, owner)
     local anchor = (owner and (owner.frame or owner)) or lbl.frame or lbl
     lbl:SetCallback("OnEnter", function()
@@ -2672,6 +2761,63 @@ function lib.__AttachWidgets(O, d)
     line:AddChild(w)
   end
 
+  --- The X's HIGHLIGHT texture, moved from the art onto the frame, so that what lights up under
+  --- the cursor is what a click actually hits.
+  ---
+  --- AceGUI's Icon anchors its highlight to the IMAGE -- `highlight:SetAllPoints(image)`, in the
+  --- Constructor of AceGUI-3.0's widgets/AceGUIWidget-Icon.lua, right after that texture is
+  --- created -- while the thing that takes the click is the FRAME: the same constructor calls
+  --- `frame:EnableMouse(true)` and puts its OnClick script on the frame, not on the image. The art
+  --- is ID_REMOVE_SIZE and the frame is ID_REMOVE_HIT, so everything the wider frame adds around
+  --- the X is live and unlit. On a control that DELETES the row that is exactly the wrong way
+  --- round: the ring reads as the gap between the X and the spell icon beside it, and a click on
+  --- what looks like a gap removes an entry with nothing having lit up first. Anchoring the
+  --- highlight to the frame makes the lit rectangle and the clickable rectangle the same
+  --- rectangle, which is the only thing that tells the player where the control ends.
+  ---
+  --- FOUND BY WALKING THE REGIONS, because the texture is not reachable any other way: Icon's
+  --- constructor puts only `label`, `image`, `frame` and `type` on the widget table (same file),
+  --- and the highlight is a plain CreateTexture on the HIGHLIGHT draw layer rather than the
+  --- button's own highlight texture, so `GetHighlightTexture` does not answer it either. A client
+  --- that stopped building it, or a harness whose fake frame has no regions, finds nothing here
+  --- and the X is drawn exactly as it was.
+  ---
+  --- RESTORED ON RELEASE, as entryNoWrap's FontString is and for the same reason. AceGUI pools
+  --- this Icon across every addon in the session, and Icon's OnAcquire sets the height, the width,
+  --- the label, the image and the image size and says nothing about the highlight's anchors (the
+  --- `OnAcquire` method in the file above), so an X that simply left it re-anchored would hand the
+  --- next consumer of that pooled Icon a highlight stretched over its whole frame -- on a default
+  --- Icon, whose OnAcquire asks for a 110px frame around a 64px image, a lit border nobody asked
+  --- for. AceGUI:Release fires "OnRelease" on the widget before it clears its callbacks
+  --- (AceGUI-3.0.lua's Release), which is where the texture goes back onto the image.
+  ---
+  --- `__removeHitLit` records what was asked for, the way `__removeAtlas` records the delete art,
+  --- for a harness whose fake Icon has no textures to anchor.
+  local function entryRemoveLit(x)
+    x.__removeHitLit = true
+    local frame, img = x.frame, x.image
+    if type(frame) ~= "table" or type(frame.GetRegions) ~= "function" then return end
+    if type(img) ~= "table" or type(img.SetAllPoints) ~= "function" then return end
+    local hl
+    local regions = { frame:GetRegions() }
+    for i = 1, #regions do
+      local r = regions[i]
+      if type(r) == "table" and r ~= img and type(r.GetDrawLayer) == "function"
+        and type(r.SetAllPoints) == "function" and type(r.ClearAllPoints) == "function"
+        and r:GetDrawLayer() == "HIGHLIGHT" then
+        hl = r
+        break
+      end
+    end
+    if not hl then return end
+    hl:ClearAllPoints()
+    hl:SetAllPoints(frame)
+    x:SetCallback("OnRelease", function()
+      hl:ClearAllPoints()
+      hl:SetAllPoints(img)
+    end)
+  end
+
   --- The entry's X (`removeStyle = "icon"`, minor 21): a small Icon widget at the LEFT of the line,
   --- wearing ID_REMOVE_ATLAS, whose click calls onRemove and rebuilds the list once the host has
   --- removed the entry. Its tooltip is the `remove` string, so a host's `strings.remove` names it. A
@@ -2692,11 +2838,17 @@ function lib.__AttachWidgets(O, d)
     --
     -- The absolute number is ID_REMOVE_HIT, not ID_REMOVE_SIZE. The art is 16px and so is the spell
     -- icon the name beside it draws, so a frame the size of its art puts two 16x16 textures flush
-    -- against each other, one of which deletes the row, and leaves a 16px-wide click target where
-    -- minor 23's fraction gave about 41. At 26 the Icon's own geometry centers the art with 5px on
+    -- against each other, one of which deletes the row, and leaves a click target exactly 16px wide.
+    -- Minor 23's fraction gave a wider one than that, by an amount this file deliberately does not
+    -- quote: 0.06 is a width only once the row's CONTENT width is known, and that width follows the
+    -- panel, which is not knowable here (the paragraph under ID_COLUMNS_MAX says so, and nothing in
+    -- this repository measures it). At 26 the Icon's own geometry centers the art with 5px on
     -- every side -- the same 5px AceGUI already leaves above and below it -- so the hit area is
-    -- 26x26, the gap to the spell icon is real, and nothing about it moves with `cols`.
+    -- 26x26, the gap to the spell icon is real, and nothing about it moves with `cols`. What that
+    -- 26x26 LIGHTS is entryRemoveLit's business, just above: AceGUI lights the art alone,
+    -- so without it the 5px ring this width buys is live and dark.
     x:SetWidth(ID_REMOVE_HIT)
+    entryRemoveLit(x)
     x:SetCallback("OnClick", function()
       if callHost(spec.onRemove, entry.id) then rebuildIdList(ctx) end
     end)
@@ -2749,24 +2901,32 @@ function lib.__AttachWidgets(O, d)
   --- stop lining up. An entry's name and its gray id are one FontString, so the fix is on that
   --- FontString -- word wrap off, and the client truncates the tail rather than wrapping it.
   ---
-  --- RESTORED ON RELEASE. AceGUI pools this widget across every addon in the session and Label's
-  --- OnAcquire does not reset word wrap, so a list that simply left it off would hand the next
-  --- consumer of that pooled label a label that no longer wraps. AceGUI:Release fires "OnRelease"
-  --- on the widget before it clears its callbacks, which is where the FontString is put back.
+  --- RESTORED ON RELEASE, BY entryRelease RATHER THAN HERE. AceGUI pools this widget across every
+  --- addon in the session and Label's OnAcquire does not reset word wrap -- it sets the width, the
+  --- text, the image and its size, the color, the font object and the two justifications, and never
+  --- touches SetWordWrap (`OnAcquire` in AceGUI-3.0's widgets/AceGUIWidget-Label.lua) -- so a list
+  --- that simply left it off would hand
+  --- the next consumer of that pooled label a label that no longer wraps. The FontString that has
+  --- to be put back is this function's to find, so it RETURNS it and entryRelease does the
+  --- restoring, together with everything else this label owes its pool. It cannot be two
+  --- callbacks: WidgetBase.SetCallback stores one handler per event NAME (`self.events[name] =
+  --- func`, AceGUI-3.0.lua), so a second SetCallback("OnRelease") on the same widget REPLACES the
+  --- first rather than chaining with it, and whichever half was installed earlier would silently
+  --- stop happening.
   ---
   --- One column is untouched. The entry has the whole row, a wrapped name pushes nothing sideways,
   --- and a list that passes no `columns` draws exactly what minor 23 drew.
   ---
   --- `__wordWrap` records what was asked for, the way `__removeAtlas` records the delete art: a
-  --- harness whose AceGUI fake has no FontString behind the widget can still assert the rule.
+  --- harness whose AceGUI fake has no FontString behind the widget can still assert the rule. Such
+  --- a fake takes the early return below -- the marker is set BEFORE it, and entryRelease clears it
+  --- whether or not there was a FontString to hand back.
   local function entryNoWrap(lbl)
     lbl.__wordWrap = false
     local fs = lbl.label
-    if type(fs) ~= "table" or type(fs.SetWordWrap) ~= "function" then return end
+    if type(fs) ~= "table" or type(fs.SetWordWrap) ~= "function" then return nil end
     fs:SetWordWrap(false)
-    lbl:SetCallback("OnRelease", function()
-      if type(fs.SetWordWrap) == "function" then fs:SetWordWrap(true) end
-    end)
+    return fs
   end
 
   --- Light the entry under the cursor, at more than one column.
@@ -2778,14 +2938,52 @@ function lib.__AttachWidgets(O, d)
   --- draws nothing until a caller names one, so naming one is the whole change, and the lit name
   --- is what gives the tooltip an owner the eye can find.
   ---
-  --- Nothing to restore on release: InteractiveLabel's OnAcquire calls SetHighlight with no
-  --- argument, which clears the texture for the next consumer of the pooled widget.
+  --- The TEXTURE needs nothing on release: InteractiveLabel's OnAcquire calls SetHighlight with no
+  --- argument (`OnAcquire` in AceGUI-3.0's widgets/AceGUIWidget-InteractiveLabel.lua), which clears
+  --- it for the next consumer of the pooled widget. The MARKER below does need clearing, and
+  --- entryRelease is where that happens -- see there.
   ---
   --- `__highlight` records the art, as `__removeAtlas` does, for a harness whose fake has no
   --- SetHighlight to call.
   local function entryHighlight(lbl)
     lbl.__highlight = ID_ENTRY_HILITE
     if type(lbl.SetHighlight) == "function" then lbl:SetHighlight(ID_ENTRY_HILITE) end
+  end
+
+  --- The ONE "OnRelease" an entry's label gets, and everything that has to happen inside it.
+  ---
+  --- WHY ONE. WidgetBase.SetCallback stores a handler by event name (`self.events[name] = func`,
+  --- AceGUI-3.0.lua), so callbacks do not chain: a second SetCallback("OnRelease") on this label
+  --- would throw the first one away. Word wrap and the markers are therefore restored and cleared
+  --- from the same handler, and nothing else in this file may hang another "OnRelease" on an entry
+  --- label.
+  ---
+  --- WHY THE MARKERS. AceGUI:Release wipes the widget's userdata and its events and then nils a
+  --- FIXED list of fields -- width, relWidth, height, relHeight, noAutoHeight and the frame's own
+  --- width and height (`AceGUI:Release` in AceGUI-3.0.lua). Keys an ADDON invented are not on that
+  --- list, so `__wordWrap` and `__highlight` ride the widget into the pool and are still on it when
+  --- the next Create hands it out -- to this list, to another list in this addon, or to another
+  --- addon entirely, because the pool is per-widget-type and shared by everything that loaded
+  --- AceGUI. The functional state is already safe without this (the FontString is handed back right
+  --- here, and OnAcquire clears the highlight texture); it is the markers that leak, and a leaked
+  --- marker is not a cosmetic wart. tests/test_options_widgets.lua asserts the one-column contract
+  --- as "no marker on the label", so a marker that survived a release turns that case into one that
+  --- passes or fails on POOL ORDER rather than on what the render asked for.
+  ---
+  --- `fs` is entryNoWrap's FontString, or nil when the label has none -- a harness fake, or any
+  --- future label whose text is not a FontString. Nil is not a reason to skip the callback: the
+  --- marker was set before entryNoWrap's early return and still has to come off.
+  ---
+  --- Hanging this on SetCallback is safe for the same reason landingLogo's is: AceGUI:Release fires
+  --- "OnRelease" BEFORE it clears the events table, and fires it with the widget as the first
+  --- argument and the event name as the second (`WidgetBase.Fire` in AceGUI-3.0.lua) -- which is
+  --- where `w` below comes from, so the handler clears the markers on the widget it was fired for.
+  local function entryRelease(lbl, fs)
+    lbl:SetCallback("OnRelease", function(w)
+      if fs and type(fs.SetWordWrap) == "function" then fs:SetWordWrap(true) end
+      w.__wordWrap = nil
+      w.__highlight = nil
+    end)
   end
 
   --- One entry, drawn into `line`. `cols` is how many entries share that Flow row (1 unless the
@@ -2803,10 +3001,11 @@ function lib.__AttachWidgets(O, d)
     -- string's height. Measuring it once as a wrapped string and once more as a clipped one is a
     -- height that is briefly wrong for no reason.
     if cols > 1 then
-      entryNoWrap(lbl)
+      local fs = entryNoWrap(lbl)
       entryHighlight(lbl)
+      entryRelease(lbl, fs)
     end
-    lbl:SetText(entryLabel(spec, k, entry.id, name))
+    lbl:SetText(entryLabel(spec, k, entry.id, name, entrySuffix(entry)))
     if icon then
       lbl:SetImage(icon)
       lbl:SetImageSize(ID_ICON_SIZE, ID_ICON_SIZE)
@@ -2816,7 +3015,9 @@ function lib.__AttachWidgets(O, d)
     line:AddChild(lbl)
     -- The note: a second line under the name, in the gray the id already uses, for a host that has
     -- something to say about this entry (why it is or is not drawn, say). Its own line rather than
-    -- a suffix, because a note is a sentence and a name is a name.
+    -- a suffix, because a note is a sentence and a name is a name. `entry.suffix` (minor 25) is
+    -- the lighter option beside it and is already inside the label above; the two are independent,
+    -- and an entry carrying both keeps the suffix inline and still takes its own full-width row.
     if type(entry.note) == "string" and entry.note ~= "" then
       local n = O.AceGUI:Create("Label")
       n:SetText(ID_GRAY .. entry.note .. "|r")
@@ -2879,6 +3080,99 @@ function lib.__AttachWidgets(O, d)
     return columns
   end
 
+  --- The CONTENT width one of this list's Flow rows will be laid out against, or nil when this
+  --- render cannot know it.
+  ---
+  --- `content.width`, NOT `scroll.frame:GetWidth()`, and the difference is the whole point. Flow
+  --- measures every child against exactly one number -- `local width = content.width or
+  --- content:GetWidth() or 0`, AceGUI-3.0.lua's Flow layout -- so that is the number a floor has to
+  --- be compared with. The ScrollFrame's own frame is WIDER than it: AceGUI's ScrollFrame sets
+  --- `content.width = width - (self.scrollBarShown and 20 or 0)` in OnWidthSet
+  --- (widgets/AceGUIContainer-ScrollFrame.lua), and OptionsScroll.lua's always-shown-scrollbar patch
+  --- forces that subtraction on whether the bar is needed or not (its forceGutter, and FixScroll
+  --- re-forces it). Measuring the frame would hand every check 20px the row does not have. The
+  --- fallback to `content:GetWidth()` is Flow's own, for the same reason Flow has it.
+  ---
+  --- NIL IS A REAL ANSWER AND IT MEANS "CHANGE NOTHING". The number arrives from OnWidthSet, which
+  --- this library forwards by hand off the scroll frame's OnSizeChanged (Options.lua's EnsureScroll)
+  --- because the ScrollFrame is parented to a Blizzard frame rather than to an AceGUI container that
+  --- would size it. A page drawn before its panel has ever been given a size has not had that fire,
+  --- and a harness whose AceGUI is a fake has no geometry at all; both read as nil or 0. Neither may
+  --- narrow a list. Collapsing a working two-column list because nobody has measured the canvas yet
+  --- would be a worse failure than the silent one this measurement exists to catch, and an
+  --- unmeasurable width is exactly the state every render was in before this check existed.
+  local function idContentWidth(scroll)
+    local content = type(scroll) == "table" and scroll.content or nil
+    if type(content) ~= "table" then return nil end
+    local w = content.width
+    if w == nil and type(content.GetWidth) == "function" then
+      local ok, got = pcall(content.GetWidth, content)
+      w = ok and got or nil
+    end
+    w = tonumber(w)
+    if not w or w <= 0 then return nil end
+    return w
+  end
+
+  --- The narrowest CONTENT width at which `cols` columns still draw the layout they promise, in the
+  --- style asked for. The two floors the ID_COLUMNS_MAX block tabulates, written as code from the
+  --- same constants so the table up there and the check down here cannot drift apart.
+  ---
+  --- THE LABEL FLOOR, both styles. An entry's name is an InteractiveLabel carrying the entry's icon,
+  --- and AceGUI moves that image on TOP of a wrapped name unless the frame leaves ID_LABEL_MIN
+  --- beside it (AceGUIWidget-Label.lua:19-32, quoted at the constant). The name holds entryNameRel
+  --- of the row, so the row needs (icon + threshold) / that fraction before the entry is a line at
+  --- all rather than a stack.
+  ---
+  --- THE X FLOOR, icon style only, and it is the one this function was written for. The X's frame is
+  --- ABSOLUTE (ID_REMOVE_HIT; entryRemoveIcon says why it cannot be relative), so `cols` of them
+  --- cost cols * that many pixels flat however narrow the row gets -- while what the names left for
+  --- them is a fraction of the row. That fraction is the same at every column count: each column's
+  --- name gives up ID_REMOVE_REL / cols, and the gutters come out of the names too, so the line
+  --- always keeps 1 - (ID_MAIN_REL + ID_ACTION_REL) + ID_REMOVE_REL for the delete controls.
+  --- Below that width Flow shrinks nothing -- it WRAPS, starting a new row as soon as
+  --- `(framewidth) + usedwidth > width` (AceGUI-3.0.lua's Flow layout) -- so the trailing gutter,
+  --- and then the last X, drop onto a row of their own and the grid stops being a grid.
+  local function entryMinContent(iconStyle, cols)
+    local floor = (ID_ICON_SIZE + ID_LABEL_MIN) / entryNameRel(iconStyle, cols)
+    if iconStyle then
+      local reserve = 1 - (ID_MAIN_REL + ID_ACTION_REL) + ID_REMOVE_REL
+      floor = math.max(floor, cols * ID_REMOVE_HIT / reserve)
+    end
+    return floor
+  end
+
+  --- How many columns THIS render can pay for: the count the host asked for, dropped one column at
+  --- a time while the measured content width is under entryMinContent, and never below one.
+  ---
+  --- A NARROWER LIST IS A CORRECT LIST; A BROKEN GRID IS NOT. That is the whole trade. One column of
+  --- full-width entries is what every list drew before `columns` existed and is never wrong, only
+  --- longer. Two columns on a canvas that cannot pay for them is icons stacked over wrapped names
+  --- and, in the icon style, a delete control on a line of its own -- which no status line reports,
+  --- which no host can see from its spec, and which the cap alone cannot prevent, because the cap is
+  --- a guess about the canvas and this is a reading of it.
+  ---
+  --- UNMEASURED MEANS UNCHANGED. With no width to compare against (idContentWidth answering nil) the
+  --- host's count is drawn exactly as it was before this check existed.
+  ---
+  --- MEASURED ONCE, AT DRAW TIME. A canvas that NARROWS afterwards is not re-fitted: the
+  --- OnSizeChanged forwarder O.EnsureScroll installs re-runs the Flow layout at the new width
+  --- (OnWidthSet / OnHeightSet / DoLayout / FixScroll) but never re-runs the page builder, and
+  --- the fitted count is already baked into every child's relative width by then. So a player
+  --- who drags the panel narrower after the page is drawn keeps the count the draw chose, until
+  --- something re-renders the list. Left as is deliberately -- a re-fit would mean rebuilding a
+  --- page on a drag, which is a far larger promise than this finding asked for.
+  local function fitIdColumns(scroll, spec, columns)
+    if columns <= 1 then return columns end
+    local width = idContentWidth(scroll)
+    if not width then return columns end
+    local iconStyle = spec.removeStyle == "icon"
+    while columns > 1 and width < entryMinContent(iconStyle, columns) do
+      columns = columns - 1
+    end
+    return columns
+  end
+
   --- The entry lines: `columns` entries per Flow row, filled row-major (1 2 / 3 4 / 5 6), each row
   --- added to the scroll once it is full and the last one added however full it is -- an odd count
   --- leaves the final row half empty rather than stretching the entry across it, because every
@@ -2893,7 +3187,13 @@ function lib.__AttachWidgets(O, d)
   --- Returns one line per entry DRAWN, in entry order; an entry that failed to draw has none. At
   --- more than one column the same row object is returned once per entry packed into it, so
   --- `lines[i]` is still the row carrying the i-th drawn entry.
+  ---
+  --- The count is FITTED to the canvas first (fitIdColumns): the host asks for a maximum, and a
+  --- panel too narrow to pay for it is drawn at the count it can pay for rather than at the count
+  --- it was asked for. That is a decision about THIS render, which is why it is taken here, where
+  --- the scroll is, and not in idColumns, which reads the spec and nothing else.
   local function drawIdEntries(ctx, scroll, spec, k, entries, columns)
+    columns = fitIdColumns(scroll, spec, columns)
     local lines, pending, filled = {}, nil, 0
     local function flush()
       if pending then scroll:AddChild(pending) end
@@ -2967,8 +3267,8 @@ function lib.__AttachWidgets(O, d)
   --- still unnamed is asked for again, up to five asks in all.
   ---
   --- spec = everything O.IdInput takes, plus:
-  ---   entries     = function() -> ordered { { id =, toggle = bool?, on = bool?, note = string? },
-  ---                 ... };
+  ---   entries     = function() -> ordered { { id =, toggle = bool?, on = bool?, note = string?,
+  ---                 suffix = string? }, ... };
   ---   onRemove    = function(id), from an entry's Remove;
   ---   onToggle    = function(id, on), from a toggle entry's checkbox;
   ---   heading     = optional section heading, drawn with O.Section;
@@ -2984,7 +3284,11 @@ function lib.__AttachWidgets(O, d)
   ---                 to 0.98; an odd count leaves the last row half empty rather than stretching the
   ---                 entry. Floored and clamped into 1..ID_COLUMNS_MAX, which is 2 and is AceGUI's
   ---                 number rather than a taste -- see the constant for the arithmetic. A
-  ---                 non-number reads as 1. An entry with a `note` takes a full-width row of its
+  ---                 non-number reads as 1. It is a MAXIMUM, not a promise: the count is measured
+  ---                 against the width the render actually has (fitIdColumns) and drops toward one
+  ---                 when the panel cannot pay for it, because a narrower list is a correct list
+  ---                 and a wrapped grid is not. A render that cannot measure its width draws the
+  ---                 count as asked. An entry with a `note` takes a full-width row of its
   ---                 own whatever the count, because the note is a second line under the name and
   ---                 cannot share a Flow row with a neighbor. At MORE THAN ONE COLUMN an entry
   ---                 name does NOT wrap: `entryNoWrap` turns word wrap off on the label's
@@ -2999,7 +3303,24 @@ function lib.__AttachWidgets(O, d)
   ---                 one. The entry's tooltip still names it; the id is only on the row. A host
   ---                 whose ids must always be readable asks for one column, which still wraps
   ---                 exactly as it did at minor 23;
+  ---                 A `suffix` is the opposite trade and is the FIRST thing truncation takes:
+  ---                 it is appended to that same FontString after the id, so an entry that already
+  ---                 overruns its column loses the suffix, then the id, then its own tail. That is
+  ---                 the right order and it is why a suffix is a few words -- the character budget
+  ---                 is in the API document;
   ---   strings     = as O.IdInput's, plus remove and unknown.
+  ---
+  --- An entry may carry, beside its id:
+  ---   note   = string, minor 17: a SECOND full-width Label under the name, in the id's gray, for a
+  ---            sentence about the entry. A noted entry takes a full-width row of its own whatever
+  ---            the column count;
+  ---   suffix = string, minor 25: a few words drawn INSIDE the label, after the gray id and in the
+  ---            same gray -- `Renewing Mist (119611) (also in 1)`. It adds no line and no row, so a
+  ---            suffixed entry still pairs up under `columns`; it is truncated first at more than
+  ---            one column; and it is concatenated, never formatted, so a `%` or a `|c` in it
+  ---            reaches the client exactly as the host wrote it. The full story belongs in the
+  ---            entry TOOLTIP, which the host already owns. Both may be set on one entry: the note
+  ---            still wins its own full-width row and the suffix still rides the name.
   ---
   --- The host owns storage: the widget calls back and never writes a path. After an add or a remove
   --- it redraws through `ctx.rebuild` when the host set one, else O.RefreshAllPanels(). A toggle

@@ -6,6 +6,7 @@
 	<Script file="Item.lua"/>
 	<Script file="Media.lua"/>
 	<Script file="Widgets.lua"/>
+	<Script file="WidgetsDragHandle.lua"/>
 	<Script file="DebugLog.lua"/>
 	<Script file="Slash.lua"/>
 	<Script file="Launcher.lua"/>

@@ -27,6 +27,10 @@ local LIB_FILES = {
   "libs/LibKa0s/Item.lua",
   "libs/LibKa0s/Media.lua",
   "libs/LibKa0s/Widgets.lua",
+  -- New in v1.48.0: the drag handle PEELS out of Widgets.lua as its own file and its own
+  -- LibStub minor. This addon adopts nothing from it -- ConsumableMaster and Aura Master are
+  -- the hosts that do -- but the client loads every file of the XML, so the suite must too.
+  "libs/LibKa0s/WidgetsDragHandle.lua",
   "libs/LibKa0s/DebugLog.lua",
   "libs/LibKa0s/Slash.lua",
   -- New in v1.39.0: LibKa0s-Launcher-1.0, the minimap button and the broker plugin as one

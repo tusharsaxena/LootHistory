@@ -12,27 +12,13 @@ local mocks  = dofile("tests/wow_mock.lua")()
 Loader.addonName = "LootHistory"
 local NS = {}
 
--- The vendored library first, every file of LibKa0s.xml spelled out in XML order: the TOC pulls
--- them through that XML, which Loader.tocFiles cannot see (it skips every `libs\` line).
-Loader.loadAll({
-  "libs/LibKa0s/Core.lua",
-  "libs/LibKa0s/Env.lua",
-  "libs/LibKa0s/Lifecycle.lua",
-  "libs/LibKa0s/Pool.lua",
-  "libs/LibKa0s/Item.lua",
-  "libs/LibKa0s/Media.lua",
-  "libs/LibKa0s/Widgets.lua",
-  "libs/LibKa0s/DebugLog.lua",
-  "libs/LibKa0s/Slash.lua",
-  "libs/LibKa0s/Launcher.lua",
-  "libs/LibKa0s/Options.lua",
-  "libs/LibKa0s/OptionsWidgets.lua",
-  "libs/LibKa0s/OptionsTabs.lua",
-  "libs/LibKa0s/OptionsCompose.lua",
-  "libs/LibKa0s/OptionsScroll.lua",
-  "libs/LibKa0s/Perf.lua",
-  "libs/LibKa0s/PerfPanel.lua",
-}, NS, mocks)
+-- The vendored library first, every file of LibKa0s.xml in XML order -- DERIVED FROM THAT XML
+-- rather than spelled out here. The TOC pulls them through the XML, which Loader.tocFiles cannot
+-- see (it skips every `libs\` line), so this runner has to name them itself; naming them by hand
+-- is the second maintained list the comment below warns about, and it drifted at LibKa0s v1.48.0,
+-- which added WidgetsDragHandle.lua. Loader.xmlFiles returns XML order, directory-prefixed, and
+-- raises on a missing XML.
+Loader.loadAll(Loader.xmlFiles("libs/LibKa0s/LibKa0s.xml"), NS, mocks)
 
 -- Derived from the TOC rather than hand-listed, so the runner's load order cannot drift from the
 -- client's — the exact drift a second hand-maintained list invites. The derivation is captured into
