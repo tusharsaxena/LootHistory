@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 29
+local WIDGETS_MINOR = 30
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -1834,6 +1834,23 @@ function lib.__AttachWidgets(O, d)
   local ID_MAIN_REL   = 0.78
   local ID_ACTION_REL = 0.20
   local ID_ICON_SIZE  = 16
+  -- THE ADD BUTTON IS SIZED TO THE BOX BESIDE IT, not left at AceGUI's default (minor 30).
+  --
+  -- The two were already CENTERED on each other and always had been: AceGUI's labeled EditBox
+  -- publishes `self.alignoffset = 30` (widgets/AceGUIWidget-EditBox.lua's SetLabel) and Flow
+  -- anchors the next widget by `frameoffset - lastframeoffset`, so the button's middle lands on
+  -- the box's middle to the pixel. What was wrong was the HEIGHT. `InputBoxTemplate` draws its
+  -- border art 20 tall; AceGUI's Button is a flat `SetHeight(24)`. Centered, a 24 against a 20
+  -- overhangs 2px at each end -- and the overhangs do not read alike, because the top one sits
+  -- against the gold caption above the row and the bottom one against empty dark. So the button
+  -- read as sitting HIGHER than the box rather than as being taller than it, which is what the
+  -- owner reported from the live panel (2026-09-22) and what a measurement of the screenshot
+  -- said instead: box 20 tall, button 24, centers one pixel apart.
+  --
+  -- 20 is Blizzard's number, not a tuned one -- it is the height of InputBoxTemplate's border
+  -- art. The centering stays AceGUI's, through the alignoffset it already publishes; this only
+  -- stops the button being taller than the thing it is centered on.
+  local ID_ADD_H      = 20
   -- `removeStyle = "icon"` (minor 21): an X at the LEFT of each entry, the atlas ConsumableMaster's
   -- delete button wears, about the size of the entry's own icon; the name takes the rest of the line.
   --
@@ -2644,6 +2661,9 @@ function lib.__AttachWidgets(O, d)
     local add = O.AceGUI:Create("Button")
     add:SetText(idText(spec, "add"))
     add:SetRelativeWidth(ID_ACTION_REL)
+    -- AFTER SetText, which does not touch the height, and after SetRelativeWidth, which Flow
+    -- re-applies on layout -- the height it does not re-apply, so this one sticks.
+    add:SetHeight(ID_ADD_H)
     local status = O.AceGUI:Create("Label")
     status:SetFullWidth(true)
     status:SetText("")
