@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 28
+local WIDGETS_MINOR = 29
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -1933,35 +1933,107 @@ function lib.__AttachWidgets(O, d)
   -- leaves it under this much beside the image -- `if (width - imagewidth) < 200`, UpdateImageAnchor
   -- at AceGUI-3.0's widgets/AceGUIWidget-Label.lua:19-32. See entryMinContent.
   local ID_LABEL_MIN     = 200
-  -- The per-entry HELP MARK (minor 28): a small "?" between the delete control and the name,
-  -- carrying whatever the host has to say about that entry that is not its name.
+  -- The per-entry HELP MARK (minor 28, resized and tinted at minor 29): a small information glyph
+  -- between the delete control and the name, carrying whatever the host has to say about that
+  -- entry that is not its name.
   --
   -- WHY IT EXISTS. The alternative already here is `note`, a full-width second line -- and a
   -- second line cannot share a Flow row, so a noted entry takes a row of its own and punches a
   -- hole in a multi-column grid. A host with something to say about MANY entries therefore had to
   -- choose between saying it and keeping its columns. The mark says it in a tooltip, costs the row
-  -- a fixed 18px and nothing else, and leaves every entry the same shape as every other.
+  -- a fixed ID_HELP_HIT and nothing else, and leaves every entry the same shape as every other.
   --
-  -- THE NUMBERS ARE THE DRAG HANDLE'S, deliberately. `lib.DRAG_HANDLE.HELP` is 8px of art in an
-  -- 18px frame (LibKa0s/WidgetsDragHandle.lua), and a player meets both marks in the same panel:
-  -- two "?" controls of different sizes reads as one of them being wrong. They are restated here
-  -- rather than read across, because that table belongs to the Widgets major and this file is the
-  -- Options major's -- a cross-major read would make a copy of one vendorable without the other.
-  -- If one moves, move the other and say so in both.
-  local ID_HELP_SIZE     = 8
-  local ID_HELP_HIT      = 18
+  -- THE NUMBERS WERE THE DRAG HANDLE'S AND ARE NOT ANY MORE (minor 29). `lib.DRAG_HANDLE.HELP` is
+  -- 8px of art in an 18px frame (LibKa0s/WidgetsDragHandle.lua:108-110), and minor 28 restated that
+  -- pair here so two "?" controls of different sizes could not read as one of them being wrong.
+  -- What that reasoning missed is that the handle's frame IS the strip's full height -- it has a
+  -- ceiling -- and a settings row has none. The two textures an entry already draws, the delete X's
+  -- atlas and the entry's own icon, are both ID_ICON_SIZE, so an 8px mark between them reads as
+  -- half-drawn rather than as small, which is exactly what the owner reported against minor 28.
+  --
+  -- So the art is 14: under the 16 beside it, so it is plainly a mark and not a third icon, and
+  -- well over the 8 that could not be read. The frame is the art plus 10, which is the rule
+  -- ID_REMOVE_HIT is built on and the same 5px ring: AceGUI's Icon centers its texture and hangs it
+  -- 5px below the frame's top (widgets/AceGUIWidget-Icon.lua, quoted at ID_REMOVE_HIT), so art + 10
+  -- leaves exactly 5px on all four sides. The DRAG HANDLE'S MARK IS UNCHANGED -- it keeps 8-in-18
+  -- because its strip still has that ceiling -- and the two are no longer one number restated in
+  -- two files, which is why this paragraph replaces "if one moves, move the other" rather than
+  -- keeping it. Widening the frame is not free: it is absolute, so it moves the floor
+  -- entryMinContent builds, and ID_HELP_REL below pays for it.
+  local ID_HELP_SIZE     = 14
+  local ID_HELP_HIT      = 24
   -- Resting gold, the brighten under the cursor, and the flat gray an entry with nothing to say
   -- wears. A DIMMED MARK IS STILL DRAWN, and that is the point of it: the column stays put, so the
   -- names beside it line up whether or not an entry has anything behind its mark.
   local ID_HELP_TINT     = { 0.82, 0.65, 0.21 }
   local ID_HELP_OVER     = { 1, 1, 1 }
   local ID_HELP_DIM      = { 0.35, 0.35, 0.36 }
+  -- SEVERITY IS THE HOST'S TO DECLARE (minor 29), because this file reads the lines as opaque
+  -- strings: "this aura can never match" and "also in two other categories" are the same type here
+  -- and two different answers to a player. `entry.help.level` names which one (entryHelpLevel), and
+  -- a name this table does not know reads as the default gold rather than raising or blanking.
+  --
+  -- TWO LEVELS, because the owner asked the id surface two questions: is this row dead (red), and
+  -- is there something to know about a working one (gold). `info` is spelled as the SAME table as
+  -- ID_HELP_TINT rather than as a second triple, so "an entry that names no level" and "an entry
+  -- that names info" cannot drift into two golds.
+  --
+  -- RED RATHER THAN ID_WARN (1, 0.5, 0). That is the status line's failure color and it is orange:
+  -- beside ID_HELP_TINT's gold, at ID_HELP_SIZE, in one column and one row apart, orange is a shade
+  -- of the same answer rather than a different one.
+  local ID_HELP_BLOCKED  = { 0.90, 0.24, 0.24 }
+  local ID_HELP_LEVELS   = { blocked = ID_HELP_BLOCKED, info = ID_HELP_TINT }
   -- What the NAME gives up for the mark, as a fraction, on the same footing as ID_REMOVE_REL: the
   -- frame is absolute, so this only has to cover it at the widths the list is drawn at, and
   -- entryMinContent below is what actually guarantees it.
-  local ID_HELP_REL      = 0.05
+  --
+  -- 0.09 RATHER THAN MINOR 28's 0.05, and that 0.05 was a REGRESSION rather than a taste. The floor
+  -- entryMinContent builds out of it is `cols * ID_HELP_HIT / ID_HELP_REL`, which at 0.05 and two
+  -- columns was 720px of CONTENT -- against the 584 the ID_COLUMNS_MAX block above derives for two
+  -- columns and calls comfortable, and the 876 it calls past a settings canvas. 720 is a 780px
+  -- panel. So fitIdColumns did exactly what it promises and dropped EVERY helped list to one
+  -- column: setting `help` on a single entry collapsed the owner's two-column spell list, and the
+  -- mark rather than the canvas was what took it.
+  --
+  -- HOW 0.09 IS DERIVED. The reserve has to buy the mark's frame no later than the floor the row is
+  -- already paying, so that adopting `help` never decides a column count on its own:
+  --
+  --   cols * ID_HELP_HIT / h  <=  (ID_ICON_SIZE + ID_LABEL_MIN) / entryNameRel(true, cols, true)
+  --
+  -- At two columns in the icon style that is 48 / h <= 432 / (0.86 - h), i.e. h >= 0.086. 0.09 is
+  -- the next hundredth up, and it lands the mark on the same per-column budget the X already has:
+  -- ID_REMOVE_HIT over its 0.10 of the line is 260px of content per column, ID_HELP_HIT over 0.09
+  -- is 267.
+  --
+  -- WHAT IT COSTS, both ways round. A helped two-column list in the ICON style now wants 561px of
+  -- content (the LABEL floor, not the mark's, which is 533) against 520 unhelped -- 41px, and
+  -- inside the 584 above. In the DEFAULT style it wants 665px, a ~725px panel, and that one is NOT
+  -- reachable at any reserve: the minimum of max(432/(0.74 - h), 2*ID_HELP_HIT/h) is ~649 whatever
+  -- h is, because the Remove button's own 0.20 is already out of the line. A host that wants help
+  -- AND two columns draws the X (`removeStyle = "icon"`), and the O.IdList doc says so.
+  local ID_HELP_REL      = 0.09
+  -- THE DEFAULT ART IS THIS LIBRARY'S OWN (minor 29). `media/icons/info.tga` ships inside the
+  -- vendored payload, is published as "info" in LibKa0s-Media-1.0's ICONS (Media.lua:92-96), and is
+  -- what ConsumableMaster already draws for this exact job (`KCM.Icon("info")`, its
+  -- settings/Category.lua:641). It is also WHITE with its shape entirely in the alpha channel
+  -- (Media.lua's "WHITE, AND THAT IS A CONTRACT"), which is what makes the tints above mean
+  -- anything: a texture is tinted by MULTIPLYING, so white art becomes gold or red, while the
+  -- Blizzard fallback below is a blue disc with its `i` baked into the color channels and can only
+  -- be darkened. The severity colors are muted on that rung, and saying so is the point of it.
+  --
+  -- REACHED ACROSS A MAJOR, WHICH IS WHY IT TAKES A NAME. `Media.Icon` builds an absolute
+  -- `Interface\AddOns\<addon>\...` path and a VENDORED copy cannot know which addon folder it was
+  -- copied into (Media.lua's "WHY THIS TAKES AN ADDON NAME"), so the host says: the Options
+  -- descriptor's optional `addonName`, read through LibStub's silent form at draw time -- the same
+  -- bargain Core.MakeCloseButton (Core.lua:239-242) and DebugLog's makeIconButton
+  -- (DebugLog.lua:179-182) already strike for the same art. NOTHING IS COPIED ACROSS THE SEAM: this
+  -- file names the major and asks, so a payload with Options and no Media is still a working
+  -- payload. See idHelpIcon for the ladder and what each rung answers.
+  local ID_HELP_ICON     = "info"
   -- The same last rung the drag handle's mark falls back to (its HELP_FALLBACK), so a host that
-  -- passes no `helpIcon` gets the client's own information glyph rather than a blank square.
+  -- passes no `helpIcon` and names no addon gets the client's own information glyph rather than a
+  -- blank square. Reached whenever the rung above cannot answer: no `addonName`, no Media major, or
+  -- a Media that does not know the icon name.
   local ID_HELP_FALLBACK = "Interface\\FriendsFrame\\InformationIcon"
   -- The status line's failure color, and the gray an entry's id is drawn in after its name.
   local ID_WARN_R, ID_WARN_G, ID_WARN_B = 1, 0.5, 0
@@ -2835,8 +2907,59 @@ function lib.__AttachWidgets(O, d)
     return false
   end
 
-  --- The entry's "?" mark: an Icon between the delete control and the name, tinted gold when the
-  --- host gave it something to say and flat gray when it did not.
+  --- The texture every mark in this list is drawn with: what the host named, else this library's
+  --- own `info` art, else the client's glyph. The constants say why the middle rung exists and why
+  --- it takes an addon name; this is the ladder.
+  ---
+  --- RESOLVED ONCE PER INSTANCE, not per mark and not at file load. Per mark would repeat a LibStub
+  --- lookup for every entry of every render for an answer that cannot change. At load it would
+  --- assume a file order across two majors, which is the assumption Core.MakeCloseButton refuses
+  --- for the same art (LibKa0s/Core.lua:239-242). The consequence is that a Media major arriving
+  --- AFTER the first helped list is drawn is not picked up until a reload -- true, and not a case:
+  --- every file of this payload is loaded by one LibKa0s.xml before any panel exists.
+  ---
+  --- `false` rather than nil for "the ladder fell through", because nil is the not-asked-yet state:
+  --- a host with no `addonName` would otherwise re-ask, and re-fail, on every mark forever.
+  local idHelpDefault
+  local function idHelpIcon(spec)
+    local given = type(spec) == "table" and spec.helpIcon or nil
+    if type(given) == "string" and given ~= "" then return given end
+    if idHelpDefault == nil then
+      local host = type(d.addonName) == "string" and d.addonName ~= "" and d.addonName or nil
+      local media = host and LibStub and LibStub("LibKa0s-Media-1.0", true)
+      idHelpDefault = (media and media.Icon and media.Icon(host, ID_HELP_ICON)) or false
+    end
+    return idHelpDefault or ID_HELP_FALLBACK
+  end
+
+  --- The tint one entry's mark wears, and the level name it came from: the host's `help.level`, the
+  --- default gold when it names none, and the flat gray when the entry has no lines at all.
+  ---
+  --- THE LEVEL RIDES THE LINES, on the table that carries them, rather than on a second
+  --- `entry.helpLevel` beside them. One field is one host call site -- a host builds an entry's
+  --- lines in one place, and a severity in a second field is a second thing to keep in step with
+  --- them, which is the shape that goes stale. It also cannot disagree with itself: there is no
+  --- entry whose level says "blocked" and whose lines were cleared. The cost, and it is a real one:
+  --- the one-line STRING form cannot carry a level, so a host that wants one writes
+  --- `help = { level = "blocked", "..." }` -- the list form it would have reached for on its second
+  --- line anyway.
+  ---
+  --- BACKWARD COMPATIBLE BY CONSTRUCTION. `level` is a hash key on a table this file only ever
+  --- reads as an ARRAY (`#lines`, and the loop in entryHelp), so an entry written against minor 28
+  --- -- a plain string, or a plain list of strings -- answers ID_HELP_TINT here and draws exactly
+  --- what it drew. So does a level name this library does not know: an unknown name is a host
+  --- typo or a host that is newer than its vendored copy, and neither is worth a raise or a blank
+  --- mark when the honest answer is the mark minor 28 already drew.
+  local function entryHelpLevel(entry, lines)
+    if not lines then return ID_HELP_DIM, nil end
+    local help = type(entry) == "table" and entry.help or nil
+    local level = type(help) == "table" and help.level or nil
+    if type(level) ~= "string" then return ID_HELP_TINT, nil end
+    return ID_HELP_LEVELS[level] or ID_HELP_TINT, level
+  end
+
+  --- The entry's information mark: an Icon between the delete control and the name, tinted by the
+  --- host's level when it gave it something to say and flat gray when it did not.
   ---
   --- AN ICON RATHER THAN A BUTTON, unlike the drag handle's mark, because everything else on this
   --- row is an AceGUI widget in a Flow and a raw CreateFrame would not be laid out by it. The
@@ -2852,17 +2975,30 @@ function lib.__AttachWidgets(O, d)
     h:SetImageSize(ID_HELP_SIZE, ID_HELP_SIZE)
     h:SetWidth(ID_HELP_HIT)
     local tex = h.image
-    local tint = lines and ID_HELP_TINT or ID_HELP_DIM
+    local tint, level = entryHelpLevel(entry, lines)
+    local path = idHelpIcon(spec)
     if type(tex) == "table" then
-      if tex.SetTexture then tex:SetTexture(spec.helpIcon or ID_HELP_FALLBACK) end
+      if tex.SetTexture then tex:SetTexture(path) end
       if tex.SetVertexColor then tex:SetVertexColor(tint[1], tint[2], tint[3]) end
     end
-    -- `__helpLines` and `__helpTint` record what it was given, for a harness whose fake Icon has
-    -- no texture -- the same reason the X records `__removeAtlas`.
+    -- THE MARKERS, and why there are five of them. A harness's fake Icon has no texture object at
+    -- all (`h.image` is nil, tests/_kit/mock_base.lua's makeWidget), so every SetTexture and
+    -- SetVertexColor above is dead there and nothing about the mark's ART or COLOR is readable
+    -- from the widget -- the same reason the X records `__removeAtlas`. `__helpLines` and
+    -- `__helpTint` are what it was given, `__helpLevel` is the name the host used (recorded even
+    -- when this library does not know it, so a typo is visible rather than merely gold),
+    -- `__helpIcon` is the rung the art ladder settled on, and `__helpTintNow` is the only one a
+    -- hover moves: it is what makes "the mark goes back to ITS OWN color, not to gold" assertable
+    -- with no vertex color to read. Size and frame need no marker -- SetImageSize and SetWidth are
+    -- recorder fields already.
     h.__helpLines = lines
     h.__helpTint = tint
+    h.__helpLevel = level
+    h.__helpIcon = path
+    h.__helpTintNow = tint
     if lines then
       h:SetCallback("OnEnter", function()
+        h.__helpTintNow = ID_HELP_OVER
         if type(tex) == "table" and tex.SetVertexColor then
           tex:SetVertexColor(ID_HELP_OVER[1], ID_HELP_OVER[2], ID_HELP_OVER[3])
         end
@@ -2875,8 +3011,13 @@ function lib.__AttachWidgets(O, d)
         GameTooltip:Show()
       end)
       h:SetCallback("OnLeave", function()
+        -- THIS ENTRY'S OWN TINT, not ID_HELP_TINT. Minor 28 could name the constant because gold
+        -- was the only lit color there was; with levels that hardcode turns a red mark gold the
+        -- first time the cursor crosses it and leaves it that way, which is a defect a player sees
+        -- and no status line reports.
+        h.__helpTintNow = tint
         if type(tex) == "table" and tex.SetVertexColor then
-          tex:SetVertexColor(ID_HELP_TINT[1], ID_HELP_TINT[2], ID_HELP_TINT[3])
+          tex:SetVertexColor(tint[1], tint[2], tint[3])
         end
         if GameTooltip then GameTooltip:Hide() end
       end)
@@ -3279,6 +3420,12 @@ function lib.__AttachWidgets(O, d)
     -- them cost cols * ID_HELP_HIT flat, out of the fraction the names gave up for them. Without
     -- this the fit would pass a width that pays for the X and not for the mark, and the grid would
     -- break in the one place nothing reports.
+    --
+    -- SINCE MINOR 29 THIS IS NOT THE BINDING FLOOR at the counts the cap allows, and that is by
+    -- construction rather than by luck: ID_HELP_REL was chosen so this lands UNDER the label floor
+    -- above it (533 against 561 at two columns in the icon style -- the derivation is at the
+    -- constant). The max stays anyway, because it is the only thing that would catch the next
+    -- change to either number, which is exactly what minor 28 did not have.
     if hasHelp then
       floor = math.max(floor, cols * ID_HELP_HIT / ID_HELP_REL)
     end
@@ -3454,6 +3601,13 @@ function lib.__AttachWidgets(O, d)
   ---                 overruns its column loses the suffix, then the id, then its own tail. That is
   ---                 the right order and it is why a suffix is a few words -- the character budget
   ---                 is in the API document;
+  ---   helpIcon    = optional, minor 28: the texture every help mark in this list is drawn with.
+  ---                 Since minor 29 the default is this library's own `info` art, resolved out of
+  ---                 LibKa0s-Media-1.0 from the Options descriptor's `addonName` -- so a host that
+  ---                 names itself gets the collection's glyph and needs this field only to draw
+  ---                 something else. With no `addonName`, no Media major, or a Media that does not
+  ---                 know the name, the mark falls back to the client's own information glyph, and
+  ---                 the level tints below are muted there because that art is not white;
   ---   strings     = as O.IdInput's, plus remove and unknown.
   ---
   --- An entry may carry, beside its id:
@@ -3467,6 +3621,25 @@ function lib.__AttachWidgets(O, d)
   ---            reaches the client exactly as the host wrote it. The full story belongs in the
   ---            entry TOOLTIP, which the host already owns. Both may be set on one entry: the note
   ---            still wins its own full-width row and the suffix still rides the name.
+  ---   help   = string | { string, ... }, minor 28: the lines behind the entry's information mark,
+  ---            a small tinted glyph drawn between the delete control and the name. A LIST-LEVEL
+  ---            question, not a per-entry one: a list where NO entry carries help draws no marks at
+  ---            all and claims no width for them, and a list where ANY entry does gives EVERY entry
+  ---            a mark -- dimmed, and answering no tooltip, on the ones with nothing to say --
+  ---            because a column that appears and disappears down the list is not a column. The
+  ---            entry's own name is the tooltip's title and the host's lines are its body. It adds
+  ---            no line and no row, so a helped entry still pairs up under `columns`, but it does
+  ---            raise that count's floor, because the mark's frame is absolute: a helped
+  ---            two-column list in the ICON style wants ~561px of content where an unhelped one
+  ---            wants 520, and in the DEFAULT style ~665px, which is past what a settings canvas
+  ---            hands a page. A host that wants help AND two columns draws the X
+  ---            (`removeStyle = "icon"`); the arithmetic is at ID_HELP_REL;
+  ---            level = optional, minor 29, a key on the LIST form: "blocked" tints the mark red
+  ---            (this entry can never match) and "info" the default gold (something to know about a
+  ---            working one). The library cannot tell one kind of line from another, which is why
+  ---            the host says. A level name this library does not know, and a `help` that is a
+  ---            plain string or a plain list, both read as the default gold -- which is what minor
+  ---            28 drew, so nothing written against it changes.
   ---
   --- The host owns storage: the widget calls back and never writes a path. After an add or a remove
   --- it redraws through `ctx.rebuild` when the host set one, else O.RefreshAllPanels(). A toggle

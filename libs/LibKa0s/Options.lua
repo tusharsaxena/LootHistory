@@ -470,6 +470,17 @@ end
 --- Descriptor (`d`):
 ---   parentTitle     string     brand shown on the main page and in every sub-page breadcrumb.
 ---   mainPanelName   string     frame name for the main canvas, so /framestack attributes it.
+---   addonName       string     optional, read by OptionsWidgets.lua (its minor 29). The host's own
+---                              addon FOLDER name, from its first vararg -- the same field
+---                              LibKa0s-DebugLog-1.0 takes (DebugLog.lua:278) and for the same
+---                              reason: `Media.Icon` builds an absolute
+---                              `Interface\AddOns\<addon>\...` path, and a VENDORED copy cannot know
+---                              which addon folder it sits in (Media.lua's WHY THIS TAKES AN ADDON
+---                              NAME). Supply it and the library draws the collection's own art
+---                              where it has some -- today, O.IdList's per-entry help mark. Omit
+---                              it, or ship no Media major, and those controls fall back to a
+---                              Blizzard texture, which is what every host got before this field
+---                              existed.
 ---   print(line)                where a user-facing line goes. Pass the host's tagged printer.
 ---   get(path)                  read a stored value.
 ---   set(path, value)           write one. Route it through the host's single write seam, so a
