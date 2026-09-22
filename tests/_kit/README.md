@@ -93,7 +93,7 @@ the path and the case name.
 
 ## `test_eol.lua`
 
-The kit's own suite, and the only one it ships. It holds every file `git ls-files` reports to the
+One of the kit's two own suites. It holds every file `git ls-files` reports to the
 terminator `.gitattributes` declares for it, reading the bytes rather than trusting git's own
 classification, and it is here rather than in each repo's `tests/` for the reason the rest of the
 kit is here: eleven repositories need exactly the same gate and none of them should be asked to
@@ -121,6 +121,57 @@ and it fails rather than passing.
 The repair when it goes red is `rm <path> && git checkout -- <path>`, per path it names.
 **`git add --renormalize .` fixes nothing here** — it rewrites the index, and the index was never
 wrong; that is precisely why nothing else in a repository ever reports this.
+
+## `test_prose.lua`
+
+The kit's second suite, and it is here for the reason the first one is: eleven repositories need
+the same gate and none of them should be asked to re-type it. `localization-§5` makes US English
+the source dialect, publishes the `BRITISH` and `ALLOWED` lists a gate MUST carry **whole**, and
+requires the rule to be enforced mechanically — `luacheck` does not read English, and a repo's own
+suites read behavior.
+
+By the time this shipped, seven repositories had written the gate by hand and the copies had
+already diverged in the part that costs most to get wrong: three called the file `test_prose.lua`,
+three `test_spelling.lua`, and two folded it into `test_docs.lua`, so nothing could tell at a
+glance which repositories had a gate at all. Four more had none. A rule enforced by eleven
+hand-written copies is eleven chances to carry a subset.
+
+Wire it the same way, and it is the same one line:
+
+```lua
+Kit.run{ dir = "tests/", suites = { "test_schema", ..., { name = "test_prose", dir = "tests/_kit/" } } }
+```
+
+**A repo that already has its own copy wires one or the other, never both.** Two gates over one
+rule is two lists to keep whole, which is the divergence this file exists to end.
+
+### `tests/prose_waivers.lua`, and why the seam exists
+
+Some British spellings in a Ka0s tree are not the repository's English to correct, and the kit
+cannot know which. AceTimer's flag field carries the British double-L spelling of *canceled* — a handle records it under that name
+because that is what `mock_record.lua`'s live-timer survey reads off it, and correcting the
+spelling stops the survey seeing a canceled timer as canceled, leaving a stand-down assertion
+quietly unfalsifiable. Blizzard spells its `LFG_LIST_APPLICATION_STATUS_UPDATED` status the same
+way, and an addon matches it verbatim off the event. British spellings of *color* and *gray* sit
+inside Blizzard's generated `GlobalStrings` dump, which is the game's English arriving whole from
+the client. `localization-§5` already says to match
+game data on the token the game uses; this is that rule meeting this gate.
+
+So a consumer MAY ship an optional `tests/prose_waivers.lua`. Absent is the normal case and means
+no waivers:
+
+```lua
+return {
+  skipDirs  = { "GlobalStrings/" },                 -- named, never patterned
+  skipFiles = { ["docs/vendor-notes.md"] = true },
+  waived    = { ["core/LifecycleSetup.lua"] = { ["cancel" .. "led"] = true } },
+}
+```
+
+The shape is per FILE and per WORD, never per file alone: a whole-file waiver hides every other
+British spelling in a file the repo edits often, which is how a gate acquires a blind spot the size
+of a module. A waiver file that exists but does not return a table is a **failure**, not an empty
+one — the alternative silently widens the gate.
 
 ## It is not a library
 
