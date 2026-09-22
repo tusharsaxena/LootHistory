@@ -29,7 +29,7 @@ chat printer, the art and monospace face, the debug console, the slash-command i
 settings canvas with its tab strip and Master-controls composer, the shared drag-to-reorder list
 and the flat dropdowns. All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because nine of its ten majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because eleven of its twelve majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
@@ -37,13 +37,13 @@ registering and a per-file copy is how cross-major skew gets manufactured.
 ## Module map
 
 Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `core/` (Compat first) →
-`defaults/` → `modules/` (Attribution and Filters before Collector) → `settings/` (last). **Seven**
+`defaults/` → `modules/` (Attribution and Filters before Collector) → `settings/` (last). **Nine**
 LibKa0s seams sit inside `core/`, and **four** of their positions are load-bearing rather than tidy:
 `core/ItemSetup.lua` and `core/MediaSetup.lua` must sit above `core/Constants.lua` (which calls
 `NS.Item.QualityLabel` and reads `NS.MediaFont` at file load), `core/WidgetsSetup.lua` below
 `core/MediaSetup.lua` (the dropdown art resolves through `NS.Icon`), and `core/PoolSetup.lua` above
-every module that pools a widget. An **eighth** seam sits in `settings/` — `settings/OptionsSetup.lua` —
-and its position is load-bearing too: `settings/Schema.lua` composes its Master controls tab at file
+every module that pools a widget. **Two more** sit in `settings/` — `settings/OptionsSetup.lua` and
+`settings/Slash.lua` — and the Options one's position is load-bearing too: `settings/Schema.lua` composes its Master controls tab at file
 load through `NS.Options.MasterControls` (options-ui-§15), so the Options seam has to be above it. The rows below and [module-map.md](module-map.md) carry each one.
 
 | File | Role |

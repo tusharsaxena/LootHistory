@@ -109,7 +109,7 @@ bash --version           # 4.0+ <- the automated-test runner uses associative ar
   ships **no font and no icons of its own** — both arrive inside the vendored LibKa0s payload
   (`libs/LibKa0s/media/`), whose provenance and licences are that library's to carry.
 - The generated docs are produced by tools already listed above —
-  `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md:178`) and the `lizard`
+  `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md:179`) and the `lizard`
   invocation in `performance-§10`.
 
 **Python is not a dependency of this addon.** Two things on disk suggest otherwise and both are

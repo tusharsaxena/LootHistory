@@ -774,11 +774,12 @@ badge and any count quoted in the docs must agree with it.
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 - Panel: the AH status colours are saturated, not muted
 
-### test_panel_filters.lua (19)
+### test_panel_filters.lua (20)
 
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
+- Panel: every filter list packs two entries to a line
 - Panel: Filters: an item list adds by id, through AddBlacklist, and keeps the [id] = true shape
 - Panel: Filters: an item list adds by a shift-clicked link, and the add still moves it off the other list
 - Panel: Filters: an item list adds by name, ignoring case, and names the entry
@@ -926,7 +927,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema.lua | 50 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
-| test_panel_filters.lua | 19 |
+| test_panel_filters.lua | 20 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 22 |
 | test_surface_parity.lua | 5 |
@@ -936,4 +937,4 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **798** |
+| **Total** | **799** |
