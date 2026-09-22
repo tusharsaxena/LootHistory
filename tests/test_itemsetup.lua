@@ -14,8 +14,8 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 local EPIC_LINK =
   "|cffa335ee|Hitem:258586::::::::80:250::5:3:10356:10355:1540:1:28:2462:::|h[Bloodfeather Chestguard]|h|r"
 
--- The colour cases need a client whose ITEM_QUALITY_COLORS actually distinguishes qualities.
--- tests/wow_mock.lua:95 answers a white swatch for EVERY index on purpose — the addon's colouring
+-- The color cases need a client whose ITEM_QUALITY_COLORS actually distinguishes qualities.
+-- tests/wow_mock.lua:95 answers a white swatch for EVERY index on purpose — the addon's coloring
 -- code only ever reads r/g/b and a per-quality palette would pin cosmetics no suite cares about —
 -- but a reverse hex→quality map built from that table maps one hex to one quality and answers nil
 -- for every real link. So the real Retail palette is installed for the duration of these cases.
@@ -93,7 +93,7 @@ test("ItemSetup: the resolver did NOT move, and still guesses when uncached", fu
   withQualityPalette(function()
     withUncachedClient(function()
       local _, name, quality = NS.Compat.GetItemInfo(EPIC_LINK)
-      assertEqual(quality, 4, "the colour fallback still answers for an uncached item")
+      assertEqual(quality, 4, "the color fallback still answers for an uncached item")
       assertEqual(name, "Bloodfeather Chestguard", "and the bracketed name still stands in")
     end)
   end)

@@ -10,7 +10,7 @@
 -- its own OFL notice beside it, as a ratified exception to the media rule --
 -- WoW ships no monospace font object and the debug console and the export copy
 -- box both need one. Every other Ka0s addon shipped the same bytes for the same
--- reason, so the collection carried six copies of one typeface: six licences to
+-- reason, so the collection carried six copies of one typeface: six licenses to
 -- track, six provenance stories, and six chances for one copy to be replaced and
 -- the rest to drift.
 --

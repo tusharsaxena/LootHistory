@@ -13,10 +13,10 @@ There is therefore no `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf
 **The teardown machinery exists anyway, and it is the DISABLE path's.** `slash-commands-§7` builds
 the stand-down on the same seam performance-§6's suspend would have used, and this addon has that
 seam: `core/LifecycleSetup.lua`'s `NS.StandDown` / `NS.StandUp`, behind one `LibKa0s-Lifecycle-1.0`
-latch. The latch takes named **holds**, and `NS.HOLD_PERF` is published and honoured although nothing
+latch. The latch takes named **holds**, and `NS.HOLD_PERF` is published and honored although nothing
 here takes it — so if this exemption is ever re-examined, arming the harness is a registration
 rather than a second teardown path written beside the first. A parallel lifecycle mechanism is the
-anti-pattern (`anti-patterns #85`), and declining the harness is not a licence to grow one.
+anti-pattern (`anti-patterns #85`), and declining the harness is not a license to grow one.
 `tests/test_disabled.lua` drives both holds through the latch, so the invariant that matters —
 releasing one hold must not resurrect an addon the other is still holding down — is under test here
 today. See [ARCHITECTURE.md → *The disabled state*](ARCHITECTURE.md#the-disabled-state). `libs/LibKa0s/` is
@@ -89,7 +89,7 @@ three patterns and most of what comes back is prose and guards; the call sites a
 line, which is why counting call sites by eye off the grep undercounts.
 
 **Three of the five now go through `NS.After`, and that is the change v1.41.0 made here.**
-`C_Timer.After` cannot be cancelled, and `slash-commands-§7` asks for every timer **cancelled**
+`C_Timer.After` cannot be canceled, and `slash-commands-§7` asks for every timer **canceled**
 rather than left armed to wake up and find a flag. `core/LifecycleSetup.lua`'s `NS.After` takes a
 `C_Timer.NewTimer` handle where the client has one, tracks it in a live set, and `NS.CancelDeferrals`
 drops the lot on the way down. The retention prune is why: it is a SavedVariables write on a
@@ -98,10 +98,10 @@ inside those five seconds got the write anyway, from a game event, while it was 
 
 | Call | Where | What it is |
 |---|---|---|
-| `NS.After(5, …)` | `core/LootHistory.lua:81` | Login-deferred retention prune + the first warbound repair pass. Once per session, and **cancellable**. |
-| `NS.After(20, …)` | `core/LootHistory.lua:85` | The second warbound repair pass, once the item cache is warm. Once per session, and cancellable. |
+| `NS.After(5, …)` | `core/LootHistory.lua:81` | Login-deferred retention prune + the first warbound repair pass. Once per session, and **cancelable**. |
+| `NS.After(20, …)` | `core/LootHistory.lua:85` | The second warbound repair pass, once the item cache is warm. Once per session, and cancelable. |
 | `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:70` | `NS.Item.LoadItem`'s item-cache retry, in the degraded-install fallback; the live path is the same line in the library (`libs/LibKa0s/Item.lua:124`) — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:214`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; the Filters tab's LibKa0s `IdList` passes one per **batch**, not per id (LibKa0s v1.35.0): every uncached id one render asks for shares a single check, which repaints the list once if any name has landed and re-asks the rest, up to five asks per id — an options panel the player opened by hand. |
-| `NS.After(delay, …)` | `core/Util.lua:256` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua`, `modules/Analytics.lua` and `settings/Panel.lua`, one per subscribing surface — so the ceiling is three pending timers at once. Through `NS.After` since v1.41.0: a repaint already in flight when the player switches the addon off is cancelled rather than waking to find nothing to paint, which is the shape `slash-commands-§7` singles out as the most expensive one. |
+| `NS.After(delay, …)` | `core/Util.lua:256` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua`, `modules/Analytics.lua` and `settings/Panel.lua`, one per subscribing surface — so the ceiling is three pending timers at once. Through `NS.After` since v1.41.0: a repaint already in flight when the player switches the addon off is canceled rather than waking to find nothing to paint, which is the shape `slash-commands-§7` singles out as the most expensive one. |
 | `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:206` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
 
 The last two rows stay on raw `C_Timer.After` on purpose: neither is a deferral of the addon's own. One is the item-cache retry inside a **degraded-install fallback** for a library function, and the other is a throttle the **library** arms from a settings widget the player is dragging. Routing either through `NS.CancelDeferrals` would mean a stand-down reaching into somebody else's work.
@@ -164,7 +164,7 @@ loot line, the `CHAT_MSG_LOOT` row above. It allocates one `out` table plus one 
 provider named in the set: on the shipped default (`core/Constants.lua:148-152`, seven keys across
 Auctionator, TSM and Oribos) that is exactly **four small tables per kept line**, from a set that
 changes only when the player edits the Price sources table in settings. The obvious repair is to
-memoise it and refresh on a settings change.
+memoize it and refresh on a settings change.
 
 It is not being taken, and the reason is the exemption above rather than an argument about size.
 **There is no `tests/perf.lua` here in which to add a scenario, and by the register's own terms

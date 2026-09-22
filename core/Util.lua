@@ -250,7 +250,7 @@ function Util.Coalesce(fn, delay)
     if not (C_Timer and C_Timer.After) then return fn() end
     pending = true
     -- NS.After rather than C_Timer.After, so a coalesced repaint that is already in flight when the
-    -- player switches the addon off is CANCELLED rather than left armed to wake up and find a flag
+    -- player switches the addon off is CANCELED rather than left armed to wake up and find a flag
     -- (slash-commands-§7). A repaint timer re-arming ten times a second in combat and then
     -- discovering it has nothing to paint is the single shape that section singles out.
     NS.After(delay, function()

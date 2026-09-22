@@ -431,7 +431,7 @@ end)
 test("Analytics: every pool goes through the LibKa0s seam", function()
   -- The same guard the published-helper case used to be, against the new shape. A pool built from
   -- a literal is a pool the seam never sees, and a second local releaseAll is a second chance to
-  -- leak — neither is visible from any behavioural assertion in this suite.
+  -- leak — neither is visible from any behavioral assertion in this suite.
   local source = io.open("modules/Analytics.lua"):read("*a")
   local _, literals = source:gsub("{%s*free%s*=%s*{}%s*,%s*active%s*=%s*{}%s*}", "")
   assertEqual(literals, 0, "a hand-built pool literal is a pool the seam never sees")

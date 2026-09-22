@@ -545,7 +545,7 @@ local GOLD_RGB = { 0.91, 0.77, 0.42 }
 -- SATURATED, NOT MUTED, and that is a correction rather than a preference. These read
 -- {0.46,0.60,0.46} / {0.66,0.62,0.42} / {0.62,0.45,0.45} and the comment above them called them
 -- "extremely muted" approvingly -- but desaturated that far, on this panel's near-black backdrop,
--- the three are three shades of grey-brown, and being legible at a glance is the entire job of a
+-- the three are three shades of gray-brown, and being legible at a glance is the entire job of a
 -- status column.
 --
 -- The reference is the collection's own marks: ConsumableMaster's legend draws Blizzard's
@@ -1053,7 +1053,7 @@ end
 ---   * every schema row plus the three id-lists          — Slash:CliResetAll
 ---   * the auction cascade, a carve-out array with no schema row that the walk cannot see
 ---
---- It does NOT recentre the window any more. That was folded in here when there was nowhere else to
+--- It does NOT recenter the window any more. That was folded in here when there was nowhere else to
 --- put it; "Reset position" is a real button on the Master controls tab now, and a player asking for
 --- defaults no longer gets their window moved as a side effect (options-ui-§12/§15).
 function P:RestoreDefaults()

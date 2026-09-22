@@ -263,8 +263,8 @@ end
 --
 -- `icon` is a catalog name and is OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
 -- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather
--- than off-centre. Only buttons at least ~120px wide are given one -- a 14px mark plus a centred
--- five-letter word does not fit the 36px Clear/Reset cluster, and an off-centre label is worse
+-- than off-center. Only buttons at least ~120px wide are given one -- a 14px mark plus a centered
+-- five-letter word does not fit the 36px Clear/Reset cluster, and an off-center label is worse
 -- than no mark (see docs/browser.md).
 --
 -- The existing `tooltip` stays and is NOT a tooltip on the mark: it predates the art, it is
@@ -1117,7 +1117,7 @@ end
 
 --- Whether the History window is allowed on screen right now (the General visibility dropdown).
 ---
---- The window is opened on demand — a slash verb, the minimap button, a keybind — so honouring the
+--- The window is opened on demand — a slash verb, the minimap button, a keybind — so honoring the
 --- setting means REFUSING to show and hiding a window the setting has stopped allowing. It never
 --- opens the window by itself: "Only in combat" is a permission, not an instruction to pop a
 --- 1100px browser over a pull.

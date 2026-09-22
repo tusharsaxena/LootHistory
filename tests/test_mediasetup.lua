@@ -6,7 +6,7 @@
 -- down to the Blizzard art it used to draw, and the control quietly stops being the mark it was --
 -- with every suite green, because a texture that does not load draws nothing and raises nothing.
 -- The same failure mode retires the ladder's usefulness as a safety net: it is a fallback for a
--- MISSING LIBRARY, not a licence to misspell a name.
+-- MISSING LIBRARY, not a license to misspell a name.
 
 local T = _G.LH_TEST
 local NS = T.NS

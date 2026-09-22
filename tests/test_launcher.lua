@@ -21,7 +21,7 @@ local ADDON = "LootHistory"   -- the FOLDER name, which is both registration key
 
 test("launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load",
   function()
-    -- anti-pattern #82's subtler half. A `## IconTexture` in the wrong TGA flavour draws NOTHING
+    -- anti-pattern #82's subtler half. A `## IconTexture` in the wrong TGA flavor draws NOTHING
     -- and raises nothing, so no runtime gate would ever report it — the header is read here
     -- instead. layout-§4 fixes the format: TGA image type 2 (uncompressed), 32 bpp, 128x128.
     -- red under: an RLE-compressed export (type 10), a 24-bit save, a resize to something else, or
@@ -46,7 +46,7 @@ test("launcher: the 128 logo ships, and it is the uncompressed 32-bit file the c
 
 test("launcher: the TOC's IconTexture and the LDB object's icon are the SAME file", function()
   -- launcher-§4: one file is the addon's face in three places — the AddOns list, the minimap button
-  -- and a broker display — so a player who has seen the addon once recognises it in all three.
+  -- and a broker display — so a player who has seen the addon once recognizes it in all three.
   -- red under: a Blizzard icon path or a numeric file id on either side, or the two drifting apart.
   local toc = Loader.readFile("LootHistory.toc")
   local declared = toc:match("##%s*IconTexture:%s*([^\r\n]+)")
@@ -283,7 +283,7 @@ test("launcher: the broker label is the BRAND NAME in plain text, not the folder
   -- collection in Titan Panel or as eleven unrelated addons. §1 fixes it at `Ka0s <Name>`.
   -- red under: the folder name ("LootHistory", which a display would file under L while the rest
   -- sit under K), an ad-hoc spelling, or the TOC `## Title` wired through -- a Title MAY carry
-  -- colour escapes (Ka0s Pretty Chat's does) and one handed to a display that draws the string raw
+  -- color escapes (Ka0s Pretty Chat's does) and one handed to a display that draws the string raw
   -- splatters across a list in which every other row is plain text.
   -- READ THROUGH THE INDIRECTION, because there is one now and pinning the literal would forbid
   -- it. slash-commands-§7's refusal line is built from this same string, so the two are ONE

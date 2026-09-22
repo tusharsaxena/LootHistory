@@ -138,7 +138,7 @@ end
 -- back to the link's own display data when the item is not yet cached (GetItemInfo returns nil).
 -- classID is the locale-independent item class (Enum.ItemClass.*); nil when uncached/unknown.
 --
--- THE GUESS IS THIS ADDON'S POLICY AND STAYS HERE. Only the colour primitive under it moved
+-- THE GUESS IS THIS ADDON'S POLICY AND STAYS HERE. Only the color primitive under it moved
 -- into LibKa0s-Item-1.0 (core/ItemSetup.lua): a browsable capture log would rather show an
 -- approximate row than lose the drop, where BankLedger's gate refuses an uncached item outright.
 function Compat.GetItemInfo(link)

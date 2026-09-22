@@ -562,7 +562,7 @@ test("Panel: the General Defaults click does NOT move the window", function()
   show(mocks.__subcategories["General"])
   mocks.__subcategories["General"].defaultsOnClick()
   NS.Browser.ResetWindow = real
-  assertEqual(moved, 0, "a page reset must not recentre the window as a side effect")
+  assertEqual(moved, 0, "a page reset must not recenter the window as a side effect")
 end)
 
 -- debug-logging-§10 (standard v2.44.0): the Defaults button is a bulk reset through the helper, so
@@ -760,7 +760,7 @@ test("Panel: a drag is one splice to index, and it repaints", function()
   homeTab(ctx)
 end)
 
-test("Panel: the reorder controller is cancelled at the TOP of the page render", function()
+test("Panel: the reorder controller is canceled at the TOP of the page render", function()
   -- options-ui-§18's shipped-bug lesson, and the single most common way this adoption goes wrong:
   -- handles and boxes are pooled, and a controller released after ClearScroll is reclaiming chrome
   -- from widgets that already belong to something else.
@@ -769,7 +769,7 @@ test("Panel: the reorder controller is cancelled at the TOP of the page render",
   local list = ctx._priList
   assertFalse(list.dead == true, "the live controller is not dead")
   homeTab(ctx)                                    -- render another tab
-  assertTrue(list.dead == true, "the previous render's controller must have been cancelled")
+  assertTrue(list.dead == true, "the previous render's controller must have been canceled")
   assertEqual(#list.handles, 0, "and its handles given back")
   assertEqual(#list.boxes, 0, "and its boxes with them")
 
@@ -929,9 +929,9 @@ test("Panel: a WRAPPED strip reserves the same band and the same row offsets on 
     homeTab(ctx)
   end)
 
-test("Panel: the AH status colours are saturated, not muted", function()
+test("Panel: the AH status colors are saturated, not muted", function()
   -- Reported from the game with a screenshot on 2026-09-09: the green/yellow/red read as three
-  -- shades of grey-brown on the panel's near-black backdrop. They were {0.46,0.60,0.46},
+  -- shades of gray-brown on the panel's near-black backdrop. They were {0.46,0.60,0.46},
   -- {0.66,0.62,0.42} and {0.62,0.45,0.45}, and the comment above them called that "extremely
   -- muted" approvingly.
   --
@@ -943,7 +943,7 @@ test("Panel: the AH status colours are saturated, not muted", function()
   local f = assert(io.open("settings/Panel.lua", "r"))
   local src = f:read("*a"); f:close()
   -- Matched over the whole source rather than a carved-out block: a non-greedy match to the first
-  -- `}` stops inside the FIRST colour, which is how the first cut of this scanned zero entries and
+  -- `}` stops inside the FIRST color, which is how the first cut of this scanned zero entries and
   -- reported the table missing instead of the values being wrong.
   assertTrue(src:find("local STATUS_RGB = {", 1, true) ~= nil,
     "STATUS_RGB is no longer a plain table literal")
@@ -958,5 +958,5 @@ test("Panel: the AH status colours are saturated, not muted", function()
         :format(name, peak))
    end
   end
-  assertEqual(seen, 3, "expected three status colours; the scan needs updating")
+  assertEqual(seen, 3, "expected three status colors; the scan needs updating")
 end)

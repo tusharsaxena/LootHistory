@@ -205,7 +205,7 @@ test("disabled-§7.3: disabling UNREGISTERS every event, unit-event and message 
 
 -- ── 4. nothing is left to wake up ─────────────────────────────────────────────────────────────
 
-test("disabled-§7.4: every deferral the addon armed is CANCELLED, not left to find a flag",
+test("disabled-§7.4: every deferral the addon armed is CANCELED, not left to find a flag",
   function()
     -- The retention prune is the case that makes this more than bookkeeping: it is a
     -- SavedVariables write on a five-second fuse lit by PLAYER_ENTERING_WORLD, and `C_Timer.After`

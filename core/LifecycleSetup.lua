@@ -24,7 +24,7 @@ local _, NS = ...
 --
 -- THIS ADDON TAKES ONE HOLD TODAY. It declines LibKa0s-Perf (performance-§12, recorded in
 -- ARCHITECTURE.md -> Documented deviations), so nothing here ever takes `perf`. The key is still
--- published and the latch still honours it, because the invariant is the library's and not this
+-- published and the latch still honors it, because the invariant is the library's and not this
 -- addon's: tests/test_disabled.lua drives both holds through it, and the day the harness is armed
 -- the wiring is a registration rather than a rewrite.
 --
@@ -46,9 +46,9 @@ local _, NS = ...
 
 local Lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 
--- ── cancellable deferrals ─────────────────────────────────────────────────────────────────────
+-- ── cancelable deferrals ─────────────────────────────────────────────────────────────────────
 --
--- `C_Timer.After` cannot be cancelled, and slash-commands-§7 asks for every timer CANCELLED rather
+-- `C_Timer.After` cannot be canceled, and slash-commands-§7 asks for every timer CANCELED rather
 -- than left armed to wake up and find a flag. So every deferral this addon owns goes through here:
 -- a `C_Timer.NewTimer` handle where the client has one, tracked in a live set, and dropped on the
 -- way down. The retention prune is the case that made this load-bearing -- it is a SavedVariables

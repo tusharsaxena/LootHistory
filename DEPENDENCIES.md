@@ -107,7 +107,7 @@ bash --version           # 4.0+ <- the automated-test runner uses associative ar
 - The art under `media/` (`media/logos/*.tga|jpg`, `media/screenshots/*.png`) is committed
   **assets, not dependencies**: nothing regenerates it, so no image tooling is needed. This addon
   ships **no font and no icons of its own** — both arrive inside the vendored LibKa0s payload
-  (`libs/LibKa0s/media/`), whose provenance and licences are that library's to carry.
+  (`libs/LibKa0s/media/`), whose provenance and licenses are that library's to carry.
 - The generated docs are produced by tools already listed above —
   `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md:179`) and the `lizard`
   invocation in `performance-§10`.

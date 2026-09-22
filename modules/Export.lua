@@ -379,7 +379,7 @@ end
 -- `icon` is a catalog name and is OPTIONAL, in both directions: a caller that passes none gets
 -- the button this always built, and a caller that passes one still gets that button when the seam
 -- answers nil. The LABEL NEVER MOVES -- it stays CENTER-anchored and the mark sits at LEFT +10 --
--- so a missing texture leaves the control pixel-identical rather than off-centre.
+-- so a missing texture leaves the control pixel-identical rather than off-center.
 --
 -- The word stays for a wide action button. "Export to CSV" says WHAT the button does and the
 -- spreadsheet mark says WHERE the result lands; replacing the word would turn a plain question
@@ -426,7 +426,7 @@ local function EnsureFrame()
   -- this modal's only control and it is a LibKa0s-Widgets-1.0 dropdown, so a degraded install means
   -- there is no modal worth opening. Asked through NS.HasWidgets rather than by building the
   -- dropdown, because this frame carries a GLOBAL NAME: probing by build-and-discard would strand
-  -- one LootHistoryExportWindow per :Open call. Nothing is memoised either way -- `frame` stays nil
+  -- one LootHistoryExportWindow per :Open call. Nothing is memoized either way -- `frame` stays nil
   -- so a later session with the library present still builds a real modal, and :Open explains the
   -- absence through the shared cause clause.
   if not (NS.HasWidgets and NS.HasWidgets()) then return nil end
@@ -506,7 +506,7 @@ end
 -- header supplied by the invoking tab; `cfg.providers` feeds the Data Set dropdown; `cfg.csv`
 -- serializes the selected dataset. Always re-centers on the History window.
 --- Take the modal down. Published for NS.StandDown (slash-commands-§7): the export window is a
---- frame this addon owns, so a stand-down hides it with the rest. Nothing memoised is discarded --
+--- frame this addon owns, so a stand-down hides it with the rest. Nothing memoized is discarded --
 --- a later Open re-shows the same frame.
 function E:Hide()
   if frame then frame:Hide() end

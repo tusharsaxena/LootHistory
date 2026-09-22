@@ -55,7 +55,7 @@ local function cfg()
 end
 
 -- Group the capture set (tags) into { provider = { key = true } }.
--- Rebuilt per kept loot line rather than memoised, deliberately: LOOTHISTORY-R-10, dispositioned in
+-- Rebuilt per kept loot line rather than memoized, deliberately: LOOTHISTORY-R-10, dispositioned in
 -- docs/performance.md ("The allocation that is not measured"). There is no perf harness here to
 -- size the saving with, and the pcall'd provider fetches below dwarf the guess.
 local function wantedByProvider(capture)
@@ -149,7 +149,7 @@ end
 -- which is the only group it lets you drag within. THE TAGS OUTSIDE IT DO NOT MOVE: their slots in
 -- the stored array are left exactly where they are and the subset is re-laid into its own slots, so
 -- a reorder of the collected sources cannot silently re-rank a source you are not collecting. That
--- also makes the write minimal — `#subset` assignments, however far the row travelled.
+-- also makes the write minimal — `#subset` assignments, however far the row traveled.
 --
 -- Returns true when something moved, false for a no-op (an out-of-range index, a move to where the
 -- row already was, or a tag the cascade does not carry).

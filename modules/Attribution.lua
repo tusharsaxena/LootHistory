@@ -121,7 +121,7 @@ function Attribution:Stamp(source, detail, confidence, trigger)
   -- THE hooksecurefunc CARVE-OUT, and the only gate of its kind in this addon (slash-commands-§7).
   -- Five hooks reach this funnel -- BuyMerchantItem, TakeInboxItem, AutoLootMailItem,
   -- UseContainerItem and GetQuestReward -- and `hooksecurefunc` has no un-hook, so gating the body
-  -- and returning is the one move available. It MUST NOT be read as licence to gate anything that
+  -- and returning is the one move available. It MUST NOT be read as license to gate anything that
   -- has a real unregister: every event this module owns is torn out in Attribution:Disable.
   if NS.IsStoodDown and NS.IsStoodDown() then return end
   State.lootContext = {

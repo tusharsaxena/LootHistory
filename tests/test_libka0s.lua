@@ -9,7 +9,7 @@
 -- tests/test_surface_parity.lua in M4-09, because that path is where all nine addons in the
 -- collection keep the same gate and a reader looking for it should not have to know which suite a
 -- given repo filed it under. What stays here is the degraded install itself -- that every file
--- loads, that the notice is said once, that a bare `/lh` still answers -- which is behaviour rather
+-- loads, that the notice is said once, that a bare `/lh` still answers -- which is behavior rather
 -- than surface. Both suites build the environment through tests/degraded_env.lua.
 
 local T = _G.LH_TEST

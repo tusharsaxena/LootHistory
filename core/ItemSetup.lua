@@ -7,11 +7,11 @@ local _, NS = ...
 -- Three shims left core/Compat.lua for the library — QualityFromLink, QualityLabel and LoadItem —
 -- and a fourth primitive arrives that this addon never had: ItemIDFromLink, which only BankLedger
 -- had written. QualityLabel and LoadItem were byte-identical in both addons; QualityFromLink, the
--- colour fallback, was this addon's alone.
+-- color fallback, was this addon's alone.
 --
 -- THE RESOLVER DID NOT MOVE, and that is a decision rather than an oversight. Compat.GetItemInfo
 -- still GUESSES for an item the client has not cached: the name from the link's brackets and the
--- quality from its |cff colour, because a browsable capture log would rather show an approximate
+-- quality from its |cff color, because a browsable capture log would rather show an approximate
 -- row than lose the drop. BankLedger's resolver does the opposite on purpose — its quality gate
 -- records the skip as "uncached" and asks the client to cache the id, because "cannot be judged" is
 -- not "passes". A shared resolver would have had to pick one, and picking would have silently
@@ -31,10 +31,10 @@ local QUALITY_LABEL_EN = {
   [4] = "Epic", [5] = "Legendary", [6] = "Artifact", [7] = "Heirloom", [8] = "WoW Token",
 }
 
--- Reverse map of item-quality colour hex (rrggbb) → quality id, for the uncached fallback. Built
+-- Reverse map of item-quality color hex (rrggbb) → quality id, for the uncached fallback. Built
 -- lazily on first use, never at load: ITEM_QUALITY_COLORS is not populated when this file runs, so
 -- a map built here would be empty for the session and every lookup would answer nil — silently,
--- since nil is also the honest answer for an uncoloured link.
+-- since nil is also the honest answer for an uncolored link.
 local qualityByHex
 
 NS.Item = Item or {

@@ -189,7 +189,7 @@ test("Schema: a profile written before this release gets visibility from the shi
     -- a `show only in combat` boolean here to rewrite — and what a player who never saw the row
     -- must get is the shipped default that AceDB merges in, not nil.
     -- red under: dropping the key from defaults/Global.lua, or declaring it as anything the
-    -- dropdown cannot select. The behaviour half (an absent stored value still resolving to a
+    -- dropdown cannot select. The behavior half (an absent stored value still resolving to a
     -- visible window) is pinned in tests/test_browser.lua.
     assertEqual(NS.defaults.global.settings.visibility, "always")
     local row = NS.Schema:FindRow("settings.visibility")
@@ -374,7 +374,7 @@ test("Schema: the AH priority cascade is declared once, in core/Constants.lua", 
   end
 end)
 
--- Both enum shapes the flow engine's own `enumList` reads, normalised to one list of values. This
+-- Both enum shapes the flow engine's own `enumList` reads, normalized to one list of values. This
 -- addon shipped only the ARRAY form ({ { value =, text = }, ... }) until the composed `visibility`
 -- row arrived carrying the KEY-MAP form ({ [value] = label } plus an explicit `sorting`), and a
 -- check written against one shape silently skips every row in the other — which is the same

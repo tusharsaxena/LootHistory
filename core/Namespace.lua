@@ -8,7 +8,7 @@ NS.version = "1.3.0"
 -- must agree: the LDB object's `label`, which a broker display prints beside ten others
 -- (launcher-§1); the Slash descriptor's `brandName`; and through that, the one refusal line a
 -- disabled addon prints (slash-commands-§7). Deliberately NOT the TOC `## Title` -- a Title may
--- carry colour escapes and this string is dropped into a coloured line, so it MUST NOT contain an
+-- carry color escapes and this string is dropped into a colored line, so it MUST NOT contain an
 -- escape sequence of any kind. Not the folder name either: `LootHistory` is an identifier.
 NS.BRAND = "Ka0s Loot History"
 

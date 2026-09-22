@@ -559,7 +559,7 @@ end)
 --
 -- Four settings arrived on the Master controls tab that this addon had never had: General
 -- visibility, Master scale, Master alpha and Lock frame. A setting that is DECLARED and not
--- HONOURED is worse than one that is absent, so each is pinned against the code that reads it
+-- HONORED is worse than one that is absent, so each is pinned against the code that reads it
 -- rather than against the schema that declares it.
 
 local function withSettings(patch, fn)
@@ -641,7 +641,7 @@ test("browser: General visibility answers all four modes against the combat stat
 end)
 
 test("browser: Show refuses while the visibility setting forbids it, and says why", function()
-  -- The window is opened on demand, so honouring the setting means REFUSING — and a silent refusal
+  -- The window is opened on demand, so honoring the setting means REFUSING — and a silent refusal
   -- reads as a broken slash command.
   -- red under: dropping the guard from B:Show, or from B:Toggle (which routes through it).
   local lines = {}

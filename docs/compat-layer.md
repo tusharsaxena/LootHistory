@@ -18,7 +18,7 @@ The same went for three item primitives. `QualityFromLink`, `QualityLabel` and `
 `LibKa0s-Item-1.0`'s now and reach this addon through [`core/ItemSetup.lua`](module-map.md) as
 `NS.Item.*`, which also brings `NS.Item.ItemIDFromLink` — a primitive only BankLedger had written.
 **`Compat.GetItemInfo` did NOT move, and that is the point.** This
-addon guesses for an uncached item (the name from the link's brackets, the quality from its colour)
+addon guesses for an uncached item (the name from the link's brackets, the quality from its color)
 because a browsable capture log would rather show an approximate row than lose the drop; BankLedger's
 quality gate refuses one outright. Both are right for their addon, so the library carries the
 primitives and holds no opinion about how they are composed.
@@ -38,7 +38,7 @@ primitives and holds no opinion about how they are composed.
 | `Compat.GetMailHeader(mailIndex)` | global `GetInboxHeaderInfo` | Sender + subject for an inbox mail row, feeding MAIL vs AH classification; `nil, nil` when absent. |
 | `Compat.IsAuctionHouseMail(sender, subject)` | `AUCTION_HOUSE` + `AUCTION_*_MAIL_SUBJECT` globals | Locale-independent test for AH-origin mail: matches the AH sender name or an AH mail subject prefix (won / expired / canceled / invoice) built from the localized subject globals. Splits MAIL from AH source. |
 | `Compat.UNIT_KINDS` + `Compat.DecodeGUID(guid)` | `strsplit` on the dash-split GUID | `UNIT_KINDS` is the single source of truth for GUID kinds carrying a creature/npc id (Creature/Vehicle/Pet/Vignette). `DecodeGUID` returns `kind` and, for unit kinds, the `npcID` from field 6 — how attribution tells KILL from CONTAINER/GameObject. |
-| `Compat.GetItemInfo(link)` | `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` | Resilient `itemID, itemName, quality, classID` for a link, falling back to the link's own display text and `NS.Item.QualityFromLink` when the item is not yet cached (so records never lose the name/quality). **The guess is this addon's policy and stays here**; only the colour primitive under it lives in the library. `classID` is the locale-independent `Enum.ItemClass.*`. |
+| `Compat.GetItemInfo(link)` | `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` | Resilient `itemID, itemName, quality, classID` for a link, falling back to the link's own display text and `NS.Item.QualityFromLink` when the item is not yet cached (so records never lose the name/quality). **The guess is this addon's policy and stays here**; only the color primitive under it lives in the library. `classID` is the locale-independent `Enum.ItemClass.*`. |
 | `Compat.BindState(bindType)` | — (pure) | Maps an `Enum.ItemBind` value to a bind token: 1/4 → `"BOP"`, 2/3 → `"BOE"`, 7/8 → `"WARBAND"`, 9 → `"WARBAND_UE"`. Corroborating, **not** authoritative: Blizzard reports `2` for warbound caches (see [midnight-quirks.md](midnight-quirks.md)), so its silence proves nothing. |
 | `Compat.ItemBindState(idOrLink, link?)` | `C_Item.GetItemInfo` (14th return) + `ScanBound` | Bind token for a stored row, both signals merged by `BestBound`. Returns **state, settled** — `settled` tracks tooltip readability, which is what a retrying caller must wait on. Builds `"item:<id>"` when the row has no link. |
 | `Compat.BestBound(a, b)` | — (pure) | The more specific of two bind verdicts (`WARBAND_UE` > `WARBAND` > the rest). Neither signal is reliable alone, so whichever one sees warbound is believed — a warbound answer is never demoted to BoE/BoP. |

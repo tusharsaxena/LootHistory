@@ -81,7 +81,7 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- so the verbatim path is simply `minimap.hide` and the `settings.` prefix above must not reach it.
   --
   -- THE ROW SAYS SHOWN AND THE STORED KEY SAYS HIDDEN. The composer emits a stored bool defaulting
-  -- to `true` labelled "Minimap button"; LibDBIcon owns the `hide` boolean underneath. The two
+  -- to `true` labeled "Minimap button"; LibDBIcon owns the `hide` boolean underneath. The two
   -- accessors stamped below are the whole of that inversion, and they are the only ones: Schema:Get
   -- and Schema:Set are this addon's single write seam (options-ui-§1) and both honor a row's own
   -- get/set, so the panel checkbox, `/lh set`, `/lh reset` and `/lh resetall` all invert once.
@@ -104,8 +104,8 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
     testMode = false,
   },
   -- Its own button now, over the window geometry carve-out. It used to be folded into the General
-  -- page's Defaults handler, where a player asking for "defaults" also got their window recentred
-  -- and a player who only wanted it recentred had no way to say so.
+  -- page's Defaults handler, where a player asking for "defaults" also got their window recentered
+  -- and a player who only wanted it recentered had no way to say so.
   onResetPosition = function()
     if NS.Browser and NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
   end,
@@ -122,7 +122,7 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   end,
 }
 
---- The composer emits DECLARATION; behaviour is still the host's.
+--- The composer emits DECLARATION; behavior is still the host's.
 ---
 --- Stamped onto the emitted rows by path rather than typed into a second hand-written copy of the
 --- block, which is the whole point of composing it: `onChange` (this addon's side-effect hook),
@@ -197,7 +197,7 @@ stamp(MASTER_ROWS, {
     end,
   },
   -- THE INVERSION, and it lives HERE rather than as a branch inside Schema:Set, because that is
-  -- where every other row's behaviour is bound and because a path literal compared inside the seam
+  -- where every other row's behavior is bound and because a path literal compared inside the seam
   -- is a second place to remember this row exists. Schema:Get already prefers `row.get`; Schema:Set
   -- prefers `row.set` over its own WritePath for a stored row, which is the one line the seam grew
   -- for this (see the comment there).

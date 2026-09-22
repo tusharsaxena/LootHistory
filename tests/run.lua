@@ -83,7 +83,7 @@ local SUITES = {
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
   -- the other two gates that answer for the repo rather than for the code.
-  "test_lintconfig",
+  "test_lintconfig", "test_prose",
   "test_vendor_sync",
   -- The kit has shipped one suite of its own since revision 15: the working-tree line-ending
   -- gate, over every path `git ls-files` reports. It lives where the rest of the kit lives

@@ -379,7 +379,7 @@ end)
 
 test("degraded install: the export modal's refusal builds no frame, on the first Open or the tenth",
   function()
-    -- The refusal deliberately memoises nothing -- `frame` goes back to nil so a later /reload with
+    -- The refusal deliberately memoizes nothing -- `frame` goes back to nil so a later /reload with
     -- the library present still builds a real modal. That is only free if the refusal is decided
     -- BEFORE anything is created: probing the seam by building the modal and throwing it away
     -- leaks a globally-named frame per Open call, unreachable and never collected, for as long as

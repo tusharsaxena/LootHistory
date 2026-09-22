@@ -766,13 +766,13 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
 - Panel: the host draws no row chrome of its own — the library owns the box and the handle
 - Panel: a drag is one splice to index, and it repaints
-- Panel: the reorder controller is cancelled at the TOP of the page render
+- Panel: the reorder controller is canceled at the TOP of the page render
 - Panel: toggling a source's Enabled box writes the capture set and repaints
 - Panel: the landing page renders one label per slash command, through the ONE row formatter
 - Panel: the landing page shows the tagline
 - Panel: Open refuses during combat and never defers-and-replays
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
-- Panel: the AH status colours are saturated, not muted
+- Panel: the AH status colors are saturated, not muted
 
 ### test_panel_filters.lua (20)
 
@@ -844,7 +844,7 @@ badge and any count quoted in the docs must agree with it.
 
 - disabled-§7.1: enabled, the addon registers a NON-EMPTY set and draws
 - disabled-§7.3: disabling UNREGISTERS every event, unit-event and message the addon owns
-- disabled-§7.4: every deferral the addon armed is CANCELLED, not left to find a flag
+- disabled-§7.4: every deferral the addon armed is CANCELED, not left to find a flag
 - disabled-§7.5: the window goes down, and the SHOW LADDER is what keeps it down
 - disabled-§7.6: firing every event it used to watch writes nothing, prints nothing, draws nothing
 - disabled-§7.7: every RESERVED verb still answers, and the bare /lh opens the panel
@@ -870,6 +870,11 @@ badge and any count quoted in the docs must agree with it.
 - lintconfig: .luacheckrc switches no warning class off wholesale
 - lintconfig: every files[...] ignore is narrowed to a file or a name
 - lintconfig: no source file carries a bare inline luacheck ignore
+
+### test_prose.lua (2)
+
+- prose: no authored file carries a British spelling from localization-§5's published list
+- prose: the gate carries localization-§5's two lists whole, and nothing of its own
 
 ### test_vendor_sync.lua (3)
 
@@ -934,7 +939,8 @@ badge and any count quoted in the docs must agree with it.
 | test_disabled.lua | 12 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
+| test_prose.lua | 2 |
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **799** |
+| **Total** | **801** |

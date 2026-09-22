@@ -112,7 +112,7 @@ Loot History**.
 - **The one that needs timing, and it is worth the trouble.** `/reload`, and inside the first five
   seconds after the loading screen clears, untick **Enable Loot History**. Nothing should be written:
   the retention prune and the bound-state repair are deferred off the login spike, and before
-  v1.41.0 they fired anyway, on a disabled addon, because `C_Timer.After` cannot be cancelled.
+  v1.41.0 they fired anyway, on a disabled addon, because `C_Timer.After` cannot be canceled.
 
 ### 2. The history window
 
@@ -531,7 +531,7 @@ History** (both must land on the same category).
   the count must *still* update (the readout is rebuilt on every tab click, and the live listener
   has to follow the new label).
 - **The reset pair (Master controls).** **Reset position** moves the History window back to the
-  centre and changes nothing else — no setting is touched. **Reset all settings** raises the
+  center and changes nothing else — no setting is touched. **Reset all settings** raises the
   total-wipe confirm; Cancel changes nothing. Neither button appears anywhere else in the panel.
 - **Filters tab.** Its three lists are a **secondary** strip *inside* the page, below the main one
   and scrolling with the content — not a second pinned band. Click through Blacklist / Whitelist /
@@ -615,7 +615,7 @@ ONE LibDataBroker object registered twice (launcher-§1), built by `core/Launche
 installed draws its own row from the very same object. Visibility lives in `minimap.hide`, in the
 **global** store, and the panel row that drives it is **Minimap button** on Master controls — whose
 label says *shown* while the stored key says *hidden*. **This is the one check that cannot be made
-out of game**: a `## IconTexture` and a launcher icon in the wrong TGA flavour draw nothing and raise
+out of game**: a `## IconTexture` and a launcher icon in the wrong TGA flavor draw nothing and raise
 nothing, so the bytes are gated headlessly (`tests/test_launcher.lua`) but only a client can say the
 art actually appears.
 
@@ -982,12 +982,12 @@ monospace face out of `libs/LibKa0s/media/fonts/`. Open the History window and w
 - **The title-bar close** is the collection's ✕ mark, not a text glyph — and the same mark now
   closes the **export modal** and the **export copy window**. All four windows must match.
 - **Every filter dropdown** (all eight, plus the export modal's **Data set** picker) ends in a
-  **chevron**, gray, vertically centred.
+  **chevron**, gray, vertically centered.
 - **The Export button** in the filter bar carries a small mark at its left edge with the word
-  **Export** still centred in the button — the label must NOT shift. Same shape on **Export to
+  **Export** still centered in the button — the label must NOT shift. Same shape on **Export to
   CSV** in the modal, which carries a spreadsheet mark.
 - **Clear / Reset / Save** carry **no marks at all**. That is deliberate: the cluster is ~36px per
-  button and a mark plus a centred five-letter word does not fit. An off-centre label there is a
+  button and a mark plus a centered five-letter word does not fit. An off-center label there is a
   regression, not a feature. (Save has no catalog mark either way — see below.)
 - **Sort a column**: the active header shows a single up or down arrow, and it is the shared mark,
   not Blizzard's spinner arrow. Group by something and the group headers show a **chevron right**
@@ -1040,7 +1040,7 @@ by a headless suite.
    the menu closes. Open it once more and click *on the History window* behind the menu: the menu
    closes **and the click lands** on the window in the same press — it raises and focuses as a
    click there normally would. That changed at LibKa0s
-   v1.13.0 (Widgets minor 5), and item 10 is where the old behaviour was reported from.
+   v1.13.0 (Widgets minor 5), and item 10 is where the old behavior was reported from.
 4. **Escape closes the window AND the menu.** Open **Character**, leave the menu open, press
    **Escape**. Both the menu and the History window go. A menu still floating over the game with no
    window under it is the orphan bug `NS.CloseMenu()` exists to prevent.
@@ -1094,7 +1094,7 @@ did before, not a new feature to admire.
 2. Loot an item in a **named zone with a subzone** (a capital's district, an inn). Open the History
    window: the row's **Zone** column reads the zone, and the row's tooltip/export carries the
    subzone. Then loot in a zone with **no** subzone — the row still records, with the Zone column
-   filled and nothing blank-labelled.
+   filled and nothing blank-labeled.
 3. **Zone during a loading screen.** Loot on the very first frames after a portal or a summon, when
    the client has no zone text yet. That row must bucket under **`Unknown`** in the Zone filter and
    in group-by-zone, alongside rows that have no zone at all — never as its own blank-named group.
@@ -1114,7 +1114,7 @@ monospace. Anything that looks different from the window this addon shipped befo
 adoption, not an improvement.
 
 1. `/lh show` → **History** tab → `Export` → **Export to CSV**.
-2. The copy window opens **centred on the History window**, **above** the export modal (the modal
+2. The copy window opens **centered on the History window**, **above** the export modal (the modal
    stays visible underneath), with the CSV **already selected**.
 3. `Ctrl+C`, paste into a text editor: the whole CSV, line breaks and all.
 4. `Esc` closes the copy window and **leaves the export modal open**.
@@ -1124,7 +1124,7 @@ adoption, not an improvement.
 6. **Drag the History window** somewhere else and export again: the copy window follows it. That is
    the `anchorTo` callback being consulted on every show rather than once at build.
 7. Close the History window entirely, then export from a path that does not need it — the copy
-   window centres on the **screen** rather than erroring.
+   window centers on the **screen** rather than erroring.
 8. Drag the copy window itself by its title bar, and close it with the **title-bar close glyph**:
    the same shared `close` mark every other window in this addon wears, drawn by
    `Core.MakeCloseButton` now instead of `B:MakeCloseButton` — which called the very same function.
@@ -1145,7 +1145,7 @@ tab is invisible to every automated check in this repo.**
    pooled by the same change.
 3. Watch three things on each pass: the **label** is that tab's own, the **selected** tab is the one
    you pressed, and the strip's **band height** does not move as you go through it.
-4. **Pass:** every tab labelled and selected correctly on all three passes, no band that grows or
+4. **Pass:** every tab labeled and selected correctly on all three passes, no band that grows or
    shrinks, and the AH Price tab's pooled row slots still intact after the third pass.
    **Fail:** a label carried over from the previously-dressed tab, a highlight on the wrong button, a
    body drawn under the wrong tab, or a strip whose height moves between passes — each of which is
@@ -1162,7 +1162,7 @@ any other way draws nothing and raises nothing.
 Two things changed on purpose and are not bugs. The **off** mark is a `ban` (a slash through a
 circle), not an X — the catalog has no X. The **ⓘ** is white-on-transparent rather than Blizzard's
 blue-and-white, because catalog art is white by contract and the row already dims it to 0.55 by
-vertex colour.
+vertex color.
 
 1. `/lh config` → **AH Price**.
 2. Every row carries a leading mark: a **green** one on each row whose Status reads *Collecting
@@ -1171,7 +1171,7 @@ vertex colour.
    one that is not — and hovering it still shows that key's label and description.
 4. Untick a collecting row's **On** box: its mark flips green → red in place, and the row's Status
    text and the mark agree with each other.
-5. **Pass:** two distinguishable colours, an ⓘ on every row, no gap where a mark should be.
+5. **Pass:** two distinguishable colors, an ⓘ on every row, no gap where a mark should be.
    **Fail:** a white or missing mark (the catalog name is wrong, or the tint was dropped), an ⓘ that
    vanished (`NS.Icon("info")` answering nil with no fallback reached), or a mark that does not
    change when the box does.
