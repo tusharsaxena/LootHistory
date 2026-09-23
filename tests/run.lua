@@ -125,6 +125,7 @@ Kit.setSurfaceSource{
   -- so each adopted major needs its row or the by-name parity call cannot find the live half.
   ["LibKa0s-Bus-1.0"]      = mocks.LibStub("LibKa0s-Bus-1.0", true),
   ["LibKa0s-Compat-1.0"]   = mocks.LibStub("LibKa0s-Compat-1.0", true),
+  ["LibKa0s-Schema-1.0"]   = mocks.LibStub("LibKa0s-Schema-1.0", true),
 }
 
 _G.LH_TEST = Kit.expose{

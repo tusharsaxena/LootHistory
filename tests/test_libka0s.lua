@@ -26,7 +26,7 @@ local LIB_FILES = {
   -- "be inert" reasons hold (slash-commands-§7). core/LifecycleSetup.lua resolves it at file load.
   "libs/LibKa0s/Lifecycle.lua",
   -- New in v1.55.0, in XML order: LibKa0s-Bus-1.0 (core/Constants.lua takes its `Catalog`) and
-  -- LibKa0s-Schema-1.0.
+  -- LibKa0s-Schema-1.0 (settings/Schema.lua's runtime).
   "libs/LibKa0s/Bus.lua",
   "libs/LibKa0s/Schema.lua",
   "libs/LibKa0s/Pool.lua",
@@ -273,6 +273,7 @@ test("no descriptor in this addon is handed NS.L", function()
     "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
     "core/EnvSetup.lua",
     "settings/Slash.lua", "settings/OptionsSetup.lua", "settings/Panel.lua",
+    "settings/Schema.lua",
     "core/PerfSetup.lua",
   }
   local checked = 0
@@ -403,7 +404,8 @@ test("every seam file resolves its major with the silent flag", function()
   for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
                           "core/EnvSetup.lua", "core/PoolSetup.lua", "core/ItemSetup.lua",
                           "core/Constants.lua", "core/Compat.lua",
-                          "settings/Slash.lua", "settings/OptionsSetup.lua" }) do
+                          "settings/Slash.lua", "settings/OptionsSetup.lua",
+                          "settings/Schema.lua" }) do
     local src = Loader.readFile(path)
     local found = false
     for call in src:gmatch('LibStub%("LibKa0s%-[A-Za-z]+%-1%.0"[^)]*%)') do

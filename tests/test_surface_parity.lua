@@ -200,3 +200,20 @@ test("parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires",
     "GetSpecialization", "GetSpecializationInfo",
   })
 end)
+
+-- ── Schema (full adopter) ──────────────────────────────────────────────────────────────────────
+
+test("parity: the Schema stub instance carries every member of the live runtime", function()
+  -- The instance surface is not in the major's member manifest, which lists lib-level members only,
+  -- so the stub's instance is held to a live instance key for key (the two-table form). Both are
+  -- NS.SchemaRuntime, built by settings/Schema.lua's `SchemaLib:New{...}` on each path.
+  T.assertSurfaceParity(NS.SchemaRuntime, degradedNS.SchemaRuntime, "schema instance vs host stub")
+end)
+
+test("parity: the Schema stub library carries the major's lib-level surface", function()
+  T.assertSurfaceParity(degradedNS.SchemaLib, "LibKa0s-Schema-1.0", {
+    -- The library's default refusal words. The stub refuses in this addon's own words instead,
+    -- which are the same words the live instance is handed through its descriptor's `L`.
+    "STRINGS",
+  })
+end)

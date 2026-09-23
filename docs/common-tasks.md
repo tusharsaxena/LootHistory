@@ -99,14 +99,16 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:515`).
-  That seam is: look the row up → run its optional `validate` → `WritePath` a **deep copy** of the
-  value → fire the row's `onChange`. The deep copy is load-bearing: without it a reset would alias
-  the DB to a shared `default` table (e.g. `settings.excludedSources = {}`), and any later in-place
-  mutation would poison the default for the rest of the session (see the comment at
-  `settings/Schema.lua:405`).
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:616`),
+  a one-line delegate to the **`LibKa0s-Schema-1.0`** runtime (`NS.SchemaRuntime`). That seam is:
+  look the row up → run its optional `validate` → write a **deep copy** of the value → fire the
+  row's `onChange`. The deep copy is load-bearing: without it a reset would alias the DB to a shared
+  `default` table (e.g. `settings.excludedSources = {}`), and any later in-place mutation would
+  poison the default for the rest of the session. The library copies on every stored write
+  (`tests/test_schema.lua` pins it, on both builds).
 - **Paths resolve against `NS.db.global`, not `.profile`** — storage is account-wide, so
-  `Schema:Get`/`:Set` read and write `NS.db.global` directly (`settings/Schema.lua:548`, `:515`).
+  `Schema:Get`/`:Set` read and write `NS.db.global` directly (the descriptor's `resolveRoot`,
+  `settings/Schema.lua:596`).
   Nothing in the addon touches `NS.db.profile`.
 - **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
   (`savedView`) and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
@@ -184,7 +186,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`core/DebugLogSetup.lua:144`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:702`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:770`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:95-96`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
