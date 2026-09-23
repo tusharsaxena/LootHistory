@@ -156,7 +156,7 @@ stamp(MASTER_ROWS, {
     widget = "CheckBox",
     onChange = function()
       NS.OnEnabledChanged()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "enabled") end
     end,
   },
   ["settings.visibility"] = {
@@ -168,19 +168,19 @@ stamp(MASTER_ROWS, {
   ["settings.scale"] = {
     widget = "Slider", fmt = "%.2fx",   -- scale → "1.00x" in slash list/get (slash-commands-§5)
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "chrome") end
     end,
   },
   ["settings.alpha"] = {
     widget = "Slider",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "chrome") end
     end,
   },
   ["settings.locked"] = {
     widget = "CheckBox",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "chrome") end
     end,
   },
   -- Session-only (never persisted): its value is the debug console WINDOW's visibility, not the
@@ -264,7 +264,7 @@ local ROWS = {
     page = "General", group = "Capture", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "quality") end
     end },
 
   { path = "settings.recordCurrency", default = G.settings.recordCurrency, type = "bool", widget = "CheckBox",
@@ -272,14 +272,14 @@ local ROWS = {
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "currency") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
     end },
 
   { path = "settings.excludeQuestItems", default = G.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "questfilter") end
     end },
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
@@ -290,7 +290,7 @@ local ROWS = {
     wide = true, invert = true,
     page = "General", group = "Capture", label = "Record data from", values = C.SOURCE_OPTIONS,
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "excludes") end
     end },
 
   -- ── General ▸ AH Price ──

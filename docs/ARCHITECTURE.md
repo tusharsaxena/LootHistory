@@ -158,17 +158,24 @@ sets itself. They have no load pass: the AceDB defaults seed them and no `MIGRAT
 Closed `Ka0s_LootHistory_*` bus (AceEvent), exactly one sender per message. No cross-module
 table reach.
 
+Each name is declared once, as `NS.MSG.<KEY>` in `core/Constants.lua`, and every `SendMessage` /
+`RegisterMessage` names the constant, never the literal (`architecture-§4`). The table goes through
+**`LibKa0s-Bus-1.0`**'s `Catalog`, which validates the names at load and answers a strict copy, so a
+mistyped key raises at the call site. Only `Catalog` is adopted: the receivers below are untracked
+on purpose, so the major's stand-down record (`New`) is not used. Without the library a one-member
+stub hands back the plain table ([message-bus.md](message-bus.md#declared-once-as-nsmsg)).
+
 > **Receivers must register on a private bus target** (`NS.NewBusTarget()`), never on the shared
 > `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by `(message, target)`, so two
 > consumers of the same message that share a target silently clobber each other — only the last
 > registrant receives it. `SettingsChanged`, `RecordAdded`, and `HistoryChanged` each have multiple
 > consumers, so every consumer (Collector, Browser, Analytics, Panel) owns its own target.
 
-| Message | Sender | Payload | Consumers |
+| Message (`NS.MSG` key) | Sender | Payload | Consumers |
 |---|---|---|---|
-| `Ka0s_LootHistory_RecordAdded` | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats). Browser and Analytics run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
-| `Ka0s_LootHistory_HistoryChanged` | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` `onChange` — eight handlers, six reasons (enabled / quality / questfilter / currency / excludes, plus `chrome` from the Master controls tab's `scale` / `alpha` / `locked`) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+| `Ka0s_LootHistory_RecordAdded` (`RECORD_ADDED`) | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats). Browser and Analytics run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
+| `Ka0s_LootHistory_HistoryChanged` (`HISTORY_CHANGED`) | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
+| `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` `onChange` — eight handlers, six reasons (enabled / quality / questfilter / currency / excludes, plus `chrome` from the Master controls tab's `scale` / `alpha` / `locked`) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
 > A blacklist/whitelist edit stays within the one-sender rule: it re-caches the Collector via a
 > **direct** `Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) and broadcasts

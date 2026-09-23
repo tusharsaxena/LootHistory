@@ -170,3 +170,40 @@ NS.Confidence = C.Confidence
 -- roughly nine full-history passes, so the saving on a big history is the whole point; the cost is
 -- that the browser can be up to this far behind the data and never further.
 NS.Constants.RECORD_ADDED_COALESCE = 0.2
+
+-- ── The bus message names (architecture-§4) ────────────────────────────────────────────────────
+--
+-- Every `Ka0s_LootHistory_*` name is declared HERE, once, and every SendMessage / RegisterMessage
+-- in the addon names the constant, never the literal. A misspelled literal is an error nowhere: a
+-- sender that types one sends a message nobody receives, a receiver that types one waits for a
+-- message nobody sends, and nothing goes red. This addon has no core/Bus.lua, so the table lives
+-- here, which is where architecture-§4 puts it for that case.
+--
+-- STRICT on the live path. LibKa0s-Bus-1.0's `Catalog` checks the names once at load (the
+-- `Ka0s_<Addon>_` prefix, a PascalCase `<Event>`, no two keys on one wire name) and answers a copy
+-- whose read of an undeclared key RAISES, so `NS.MSG.RECORD_ADDDED` fails at the call site for a
+-- sender as well as a receiver. Only `Catalog` is used: this addon's receivers are untracked on
+-- purpose (`NS.NewBusTarget`, core/LootHistory.lua), so it builds no stand-down record and never
+-- calls the major's `New`.
+--
+-- The wire strings are the contract every receiver depends on and they did not change when the
+-- constants arrived; tests/test_constants.lua pins each one by driving its real sender.
+local MSG = {
+  -- Sender: core/Database.lua `Database:Add`. Payload: (record, index).
+  RECORD_ADDED     = "Ka0s_LootHistory_RecordAdded",
+  -- Sender: core/Database.lua (Delete, PruneOld, Purge, FireHistoryChanged, RepairBoundStates).
+  -- Payload: none.
+  HISTORY_CHANGED  = "Ka0s_LootHistory_HistoryChanged",
+  -- Sender: settings/Schema.lua, the rows' onChange handlers. Payload: the reason string.
+  SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
+}
+
+local Bus = LibStub and LibStub("LibKa0s-Bus-1.0", true)
+if not Bus then
+  -- Degraded: the payload is missing. The names are still declared once and still used everywhere;
+  -- what is lost is only the strictness, so a mistyped key reads nil instead of raising. `New` is
+  -- not stubbed because nothing here calls it (tests/test_surface_parity.lua names it in `ignore`).
+  Bus = { Catalog = function(_, messages) return messages end }
+end
+NS.BusLib = Bus
+NS.MSG = Bus.Catalog((...), MSG)

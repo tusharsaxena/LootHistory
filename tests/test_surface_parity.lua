@@ -170,3 +170,18 @@ test("parity: the Options stub carries the whole live surface", function()
     -- the next internal the library publishes.
   })
 end)
+
+-- ── Bus (Catalog only) ─────────────────────────────────────────────────────────────────────────
+
+test("parity: the Bus stub carries the live surface this addon calls", function()
+  -- core/Constants.lua resolves LibKa0s-Bus-1.0 for `Catalog` alone and publishes the resolved table
+  -- as NS.BusLib, which on the degraded path is its one-member stub.
+  T.assertSurfaceParity(degradedNS.BusLib, "LibKa0s-Bus-1.0", {
+    -- Live-only on purpose. `New` builds a stand-down record for TRACKED receivers, and this addon's
+    -- receivers are untracked by design: every one registers on its own NS.NewBusTarget() target
+    -- (core/LootHistory.lua) and each module stands its own down. `grep -rn "BusLib" core modules
+    -- settings` names only core/Constants.lua, which calls `Catalog`. A member the major adds later
+    -- is in neither list and fails this case until the addon decides.
+    "New",
+  })
+end)

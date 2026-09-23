@@ -120,6 +120,10 @@ local SUITES = {
 Kit.setSurfaceSource{
   ["LibKa0s-Options-1.0"]  = NS.Options,
   ["LibKa0s-DebugLog-1.0"] = NS.DebugLog,
+  -- The three v1.55.0 majors are LIBRARY tables, not instances, so these rows name what the
+  -- auto-wiring would have: the mock's own LibStub answer. A table map answers only what it lists,
+  -- so each adopted major needs its row or the by-name parity call cannot find the live half.
+  ["LibKa0s-Bus-1.0"]      = mocks.LibStub("LibKa0s-Bus-1.0", true),
 }
 
 _G.LH_TEST = Kit.expose{
