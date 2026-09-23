@@ -1186,7 +1186,7 @@ the same payload have no surface here. That is `ARCHITECTURE.md`'s documented de
 passed.** Run on a client set to **deDE or frFR**, the two the collection's other locale steps use
 (`ConsumableMaster/docs/smoke-tests.md` § 3c, `KickCD/docs/smoke-tests.md` § 9b).
 
-**Why this addon needs it more than most.** `core/Compat.lua:194-201` defines four English wordings
+**Why this addon needs it more than most.** `core/Compat.lua:202-209` defines four English wordings
 — `WARBAND_LINES`, plus `BIND_TO_WARBAND_PREFIX` and `UE_LITERAL = "until equipped"` — as the
 fallback for when the client leaves the `ITEM_ACCOUNTBOUND*` globals nil, and `isWarbandLine`
 (`:223-227`) and `ScanBound` (`:249`) reach them. The comment above them says the literals are safe
@@ -1199,7 +1199,7 @@ asserts against enUS mock globals: `tests/test_compat.lua:65-66` passes the lite
 this path whether it is right or wrong.
 
 **What the addon reads in the player's language.** Tooltip bind lines (`Compat.ScanBound`), the
-Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:105-119`), the
+Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:113-127`), the
 deconstruct spell names (`modules/Attribution.lua:53-97`), and zone and sub-zone names. What it
 **prints** is hardcoded English on every client, by the accepted scope decision — an English label
 on a German client is not a failure here and is not what these steps are looking for.

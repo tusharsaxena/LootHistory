@@ -156,7 +156,7 @@ local function renderHistory(ctx)
       local onChange = function()
         if P.general and P.general.panel:IsShown() and P.__stats then P.__stats() end
       end
-      ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
+      ev:RegisterMessage(NS.MSG.HISTORY_CHANGED, onChange)
       -- COALESCED, and only this one — the same split the Browser's and Analytics' own
       -- RecordAdded subscriptions already make (issue #27). `refreshStats` is a StorageStats pass
       -- over the WHOLE history with a per-record byte estimate, and `Database:Add` fires
@@ -166,7 +166,7 @@ local function renderHistory(ctx)
       -- HistoryChanged above stays immediate on purpose: a delete, a prune or a blacklist edit is
       -- one deliberate action that arrives on its own, and the size it changes should update at
       -- once. Only the automatic, bursty message needs collapsing.
-      ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
+      ev:RegisterMessage(NS.MSG.RECORD_ADDED,
         NS.Coalesce(onChange, NS.Constants.RECORD_ADDED_COALESCE))
       P.__ev = ev
     end
@@ -489,7 +489,7 @@ local function buildFiltersTab(ctx)
       local onChange = function()
         if not ctx.__filterWrite then repaintFilters(ctx) end
       end
-      ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", onChange)
+      ev:RegisterMessage(NS.MSG.HISTORY_CHANGED, onChange)
       P.__evFilters = ev
     end
   end

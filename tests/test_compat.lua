@@ -357,3 +357,74 @@ test("Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unk
   assertEqual(NS.Compat.CurrencyBound(999999), nil)       -- unresolved id -> nil
   assertEqual(NS.Compat.CurrencyBound(nil), nil)
 end)
+
+-- ── GetSpellName: the ladder ──────────────────────────────────────────────────────────────────
+--
+-- Characterization, written BEFORE the member moved to LibKa0s-Compat-1.0: what a caller gets on
+-- each rung, and how many values. modules/Attribution.lua reads the answer as a single localized
+-- name (`seedToken`, the deconstruct cast), so the arity is part of what is pinned.
+
+--- Run `fn` with the spell globals set to `env` (nil fields are absent), restoring them after.
+local function withSpellApi(env, fn)
+  local savedC, savedG = _G.C_Spell, _G.GetSpellInfo
+  _G.C_Spell, _G.GetSpellInfo = env.C_Spell, env.GetSpellInfo
+  local ok, err = pcall(fn)
+  _G.C_Spell, _G.GetSpellInfo = savedC, savedG
+  if not ok then error(err, 0) end
+end
+
+test("Compat: GetSpellName answers C_Spell.GetSpellName's name, as one value", function()
+  withSpellApi({ C_Spell = { GetSpellName = function(id) return id == 51005 and "Milling" or nil end } },
+    function()
+      assertEqual(select("#", NS.Compat.GetSpellName(51005)), 1)
+      assertEqual(NS.Compat.GetSpellName(51005), "Milling")
+    end)
+end)
+
+test("Compat: GetSpellName falls back to the legacy global's first return, as one value", function()
+  withSpellApi({ GetSpellInfo = function() return "Prospecting", "rank", 12345 end }, function()
+    assertEqual(select("#", NS.Compat.GetSpellName(31252)), 1)
+    assertEqual(NS.Compat.GetSpellName(31252), "Prospecting")
+  end)
+end)
+
+test("Compat: GetSpellName with a nil id answers nil and calls no rung", function()
+  local called = false
+  local function spy() called = true; return "x" end
+  withSpellApi({ C_Spell = { GetSpellName = spy, GetSpellInfo = spy }, GetSpellInfo = spy }, function()
+    assertEqual(NS.Compat.GetSpellName(nil), nil)
+  end)
+  assertFalse(called, "no rung may be asked about a nil id")
+end)
+
+-- ── GetSpellName: what the adoption changed, on purpose ─────────────────────────────────────────
+
+test("Compat: GetSpellName is LibKa0s-Compat-1.0's member on the live path", function()
+  local lib = T.mocks.LibStub("LibKa0s-Compat-1.0", true)
+  assertTrue(lib ~= nil, "the live load has the major")
+  assertTrue(NS.Compat.GetSpellName == lib.GetSpellName, "core/Compat.lua wires the library's function")
+end)
+
+test("Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name", function()
+  -- J3 in the Compat design (compat.md section 10). The host's own copy stopped at the first rung
+  -- present, so a nil there was final. The library asks the next rung, which on a live client reads
+  -- the same spell data and can only turn a nil into a name.
+  for _, miss in ipairs({ false, "" }) do
+    withSpellApi({ C_Spell = {
+      GetSpellName = function() if miss then return miss end return nil end,
+      GetSpellInfo = function() return { name = "Disenchant" } end,
+    } }, function()
+      assertEqual(NS.Compat.GetSpellName(13262), "Disenchant",
+        "a " .. (miss and "blank" or "nil") .. " top rung falls through")
+    end)
+  end
+end)
+
+test("Compat: the degraded build's GetSpellName answers nil even with C_Spell present", function()
+  -- The reader stub answers the absent table's value. It does not re-implement the top rung.
+  local ns = dofile("tests/degraded_env.lua")()
+  withSpellApi({ C_Spell = { GetSpellName = function() return "Milling" end } }, function()
+    assertEqual(select("#", ns.Compat.GetSpellName(51005)), 1)
+    assertEqual(ns.Compat.GetSpellName(51005), nil)
+  end)
+end)

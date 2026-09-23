@@ -213,3 +213,108 @@ end)
 test("Constants: the currency pseudo-type is the reserved 'Currency' string", function()
   assertEqual(C.CURRENCY_TYPE, "Currency")
 end)
+
+-- ── The bus message names (architecture-§4) ────────────────────────────────────────────────────
+--
+-- Characterization, written BEFORE the names moved into NS.MSG: every wire name a real sender puts
+-- on the bus, and the payload beside it, driven through the sender itself rather than read off a
+-- table. The constants are an implementation of the declare-once rule; these strings are the
+-- contract every receiver in another file depends on, so they are pinned as literals here.
+
+--- Every SendMessage the bus sees while `fn` runs, as { msg, a, b }.
+local function busSends(fn)
+  local sent, orig = {}, NS.bus.SendMessage
+  NS.bus.SendMessage = function(_, msg, a, b) sent[#sent + 1] = { msg = msg, a = a, b = b } end
+  local ok, err = pcall(fn)
+  NS.bus.SendMessage = orig
+  if not ok then error(err, 0) end
+  return sent
+end
+
+test("bus: Database:Add sends RecordAdded with the record and its index", function()
+  -- On a scratch history, restored before asserting: later suites count the real one.
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {}
+  local rec = { itemID = 424242 }
+  local sent = busSends(function() NS.Database:Add(rec) end)
+  local stored = NS.Database:Count()
+  g.history = saved
+  assertEqual(#sent, 1)
+  assertEqual(sent[1].msg, "Ka0s_LootHistory_RecordAdded")
+  assertTrue(sent[1].a == rec, "the payload is the stored record itself")
+  assertEqual(sent[1].b, stored)
+end)
+
+test("bus: Database:FireHistoryChanged sends HistoryChanged with no payload", function()
+  local sent = busSends(function() NS.Database:FireHistoryChanged() end)
+  assertEqual(#sent, 1)
+  assertEqual(sent[1].msg, "Ka0s_LootHistory_HistoryChanged")
+  assertEqual(sent[1].a, nil)
+end)
+
+test("bus: a settings write sends SettingsChanged with its reason", function()
+  local S = NS.Schema
+  for _, case in ipairs({
+    { "settings.qualityThreshold", 4, "quality" },
+    { "settings.scale", 1.25, "chrome" },
+  }) do
+    local path, value, reason = case[1], case[2], case[3]
+    local sent = busSends(function() S:Set(path, value) end)
+    S:Set(path, S:Default(path))
+    assertEqual(#sent, 1, path .. " sends exactly one message")
+    assertEqual(sent[1].msg, "Ka0s_LootHistory_SettingsChanged", path)
+    assertEqual(sent[1].a, reason, path)
+  end
+end)
+
+test("bus: NS.MSG declares exactly the three wire names", function()
+  local want = {
+    RECORD_ADDED     = "Ka0s_LootHistory_RecordAdded",
+    HISTORY_CHANGED  = "Ka0s_LootHistory_HistoryChanged",
+    SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
+  }
+  local n = 0
+  for k, v in pairs(NS.MSG) do
+    n = n + 1
+    assertEqual(v, want[k], "NS.MSG." .. tostring(k))
+  end
+  assertEqual(n, 3, "no fourth key")
+end)
+
+test("bus: NS.MSG is the library's strict catalog, so a mistyped key raises", function()
+  -- red under: a plain table, where `NS.MSG.RECORD_ADED` reads nil and a sender passes a nil name
+  -- to SendMessage, which CallbackHandler drops without a word.
+  assertTrue(T.mocks.LibStub("LibKa0s-Bus-1.0", true) ~= nil, "the live load has the major")
+  assertTrue(NS.BusLib == T.mocks.LibStub("LibKa0s-Bus-1.0", true), "and core/Constants.lua uses it")
+  local ok, err = pcall(function() return NS.MSG.RECORD_ADED end)
+  assertFalse(ok, "reading an undeclared key must raise")
+  assertTrue(tostring(err):find("RECORD_ADED", 1, true) ~= nil, "and name the key: " .. tostring(err))
+end)
+
+test("bus: no addon file but core/Constants.lua types a Ka0s_LootHistory_ literal", function()
+  -- architecture-§4: each name is declared once and every call site names the constant. The file
+  -- list is the TOC's own, so a file added tomorrow is scanned without being named here.
+  local offenders = {}
+  for _, path in ipairs(T.addonFiles) do
+    if path ~= "core/Constants.lua" then
+      local src = T.Loader.readFile(path)
+      local n = 0
+      for line in src:gmatch("[^\r\n]+") do
+        n = n + 1
+        if not line:match("^%s*%-%-") and line:find('"Ka0s_LootHistory_', 1, true) then
+          offenders[#offenders + 1] = path .. ":" .. n
+        end
+      end
+    end
+  end
+  assertEqual(#offenders, 0, "literal message names: " .. table.concat(offenders, ", "))
+end)
+
+test("bus: the degraded build declares the same names, without the library", function()
+  local ns = dofile("tests/degraded_env.lua")()
+  assertTrue(ns.BusLib ~= nil and ns.BusLib.Catalog ~= nil, "the stub is in place")
+  for k, v in pairs(NS.MSG) do
+    assertEqual(ns.MSG[k], v, "degraded NS.MSG." .. k)
+  end
+end)

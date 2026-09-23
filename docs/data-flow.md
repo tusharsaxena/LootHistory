@@ -67,7 +67,7 @@ Confidence is `CERTAIN` for every live stamper and `INFERRED` only on the fallba
 
 ## Source resolution from the loot window
 
-`LOOT_OPENED` is the richest stamper because the loot window exposes each slot's **source GUID**, and the GUID's *kind* determines the source. `Attribution:OnLootOpened` (`modules/Attribution.lua:190`) reads the first slot's GUID via `GetLootSourceInfo` and feeds it to the pure resolver `Attribution:ResolveLootSource` (`modules/Attribution.lua:162`), which decodes it through `NS.Compat.DecodeGUID` (`core/Compat.lua:127`):
+`LOOT_OPENED` is the richest stamper because the loot window exposes each slot's **source GUID**, and the GUID's *kind* determines the source. `Attribution:OnLootOpened` (`modules/Attribution.lua:190`) reads the first slot's GUID via `GetLootSourceInfo` and feeds it to the pure resolver `Attribution:ResolveLootSource` (`modules/Attribution.lua:162`), which decodes it through `NS.Compat.DecodeGUID` (`core/Compat.lua:135`):
 
 | GUID kind | Instance state | Source | Detail |
 |---|---|---|---|
@@ -78,7 +78,7 @@ Confidence is `CERTAIN` for every live stamper and `INFERRED` only on the fallba
 | `Item` | — | `CONTAINER` | — |
 | anything else | — | `OTHER` | — |
 
-The unit-kind set lives in `Compat.UNIT_KINDS` (`core/Compat.lua:123`) as the single source of truth, so KILL detection can't drift from GUID decoding. All slots in one window share a source closely enough that stamping from the first slot is sufficient; the TTL then spans the resulting `CHAT_MSG_LOOT` burst.
+The unit-kind set lives in `Compat.UNIT_KINDS` (`core/Compat.lua:131`) as the single source of truth, so KILL detection can't drift from GUID decoding. All slots in one window share a source closely enough that stamping from the first slot is sufficient; the TTL then spans the resulting `CHAT_MSG_LOOT` burst.
 
 ### Instance context enrichment
 
@@ -93,7 +93,7 @@ Sources that arrive without a loot window (or whose window would mis-resolve) ea
 
 - **VENDOR** — `hooksecurefunc("BuyMerchantItem")` → `StampVendor` (`modules/Attribution.lua:248`).
 - **TRADE** — `TRADE_ACCEPT_UPDATE` → `OnTradeAcceptUpdate` (`modules/Attribution.lua:307`); stamps only when **both** `playerAccepted` and `targetAccepted` are `1` (trade actually completed).
-- **MAIL / AH** — `hooksecurefunc` on both `TakeInboxItem` and `AutoLootMailItem` → `StampMail` (`modules/Attribution.lua:316`). The mail's sender/subject decides which: `NS.Compat.IsAuctionHouseMail` (`core/Compat.lua:105`) matches the `AUCTION_HOUSE` sender or an AH subject prefix (won / expired / canceled / invoice, built from the localized `*_MAIL_SUBJECT` globals) → `AH`; everything else → `MAIL`. This is the only stamper for `AH` — there is no live auction-house-frame stamper.
+- **MAIL / AH** — `hooksecurefunc` on both `TakeInboxItem` and `AutoLootMailItem` → `StampMail` (`modules/Attribution.lua:316`). The mail's sender/subject decides which: `NS.Compat.IsAuctionHouseMail` (`core/Compat.lua:113`) matches the `AUCTION_HOUSE` sender or an AH subject prefix (won / expired / canceled / invoice, built from the localized `*_MAIL_SUBJECT` globals) → `AH`; everything else → `MAIL`. This is the only stamper for `AH` — there is no live auction-house-frame stamper.
 - **QUEST** — the client-side `hooksecurefunc("GetQuestReward")` → `StampQuestReward` (`modules/Attribution.lua:336`) is the primary path: it fires *before* the server pushes the reward items, so the stamp is fresh when the reward loot line lands. The `QUEST_TURNED_IN` event → `OnQuestTurnedIn` (`modules/Attribution.lua:327`) is a backstop; alone it can fire *after* the reward line and miss it. Detail carries the quest id when the quest frame still exposes it (`NS.Compat.CurrentQuestID`, `core/Compat.lua:68`).
 - **CONTAINER (bag item)** — opening a container/lockbox from bags pushes contents to inventory with no `LOOT_OPENED` or GUID, so `NS.Compat.HookUseContainerItem` (`core/Compat.lua:39`, `C_Container.UseContainerItem` on retail) → `OnContainerItemUse` (`modules/Attribution.lua:264`) stamps `CONTAINER` — but **only** when the item actually has loot (`Compat.ContainerItemHasLoot`) **and** no spell is awaiting a target (`Compat.IsSpellTargeting`). Clicking a bag item as a Disenchant/Enchant target also routes through `UseContainerItem`, and that must not be read as opening a container.
 
@@ -104,7 +104,7 @@ Disenchant, Milling, and Prospecting each stamp their **own** first-class source
 `UNIT_SPELLCAST_SUCCEEDED` (filtered to `unit == "player"` via a dedicated `RegisterUnitEvent` frame, to avoid the raid-wide cast firehose) → `OnSpellSucceeded` (`modules/Attribution.lua:284`) maps the completed cast to a source through `Attribution:DeconstructSource` (`modules/Attribution.lua:85`):
 
 1. **Spell-id match first** — `DECONSTRUCT_ID` (`modules/Attribution.lua:32`), a locale-independent table of the base + primary per-expansion spell ids (plus a representative per-herb/ore "Mass" spell per family). Authoritative and language-agnostic; this alone attributes the common cases on every client.
-2. **Localized name-family fallback** — for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants (too many to list, and growing each patch). The cast's **localized** name is matched against localized reference tokens derived at match time from seed spellIDs via `NS.Compat.GetSpellName` (`core/Compat.lua:82`) — `NAME_SEEDS` (`modules/Attribution.lua:53`). No hardcoded English literal is ever compared: `GetSpellName` returns the client-locale name, so the "Milling" seed becomes "Mahlen" on deDE and the check follows the player's language automatically (Ka0s Standard localization-§4 / anti-pattern #37). `dropLast` seeds match the shared command prefix (`Mass Mill …`) minus the herb/ore word.
+2. **Localized name-family fallback** — for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants (too many to list, and growing each patch). The cast's **localized** name is matched against localized reference tokens derived at match time from seed spellIDs via `NS.Compat.GetSpellName` (`core/Compat.lua:95`) — `NAME_SEEDS` (`modules/Attribution.lua:53`). No hardcoded English literal is ever compared: `GetSpellName` returns the client-locale name, so the "Milling" seed becomes "Mahlen" on deDE and the check follows the player's language automatically (Ka0s Standard localization-§4 / anti-pattern #37). `dropLast` seeds match the shared command prefix (`Mass Mill …`) minus the herb/ore word.
 
 Because this fires on **every** player cast (a combat rotation included), the `(spellID → source)` resolution is **memoized per spellID** on `OnSpellSucceeded` (`modules/Attribution.lua:284`): the mapping is immutable for a session, so a repeated cast costs one table lookup — no `GetSpellName`, no name-family loop, no allocation. Only *conclusive* results are cached — `DeconstructSource` returns a second `conclusive` flag: a positive is always conclusive, a negative only once every seed name has resolved, so a not-yet-cached name can't freeze a wrong miss. The debug `[Cast]` trace logs **only** the deconstruct hits, never the non-deconstruct majority (no per-cast spam).
 

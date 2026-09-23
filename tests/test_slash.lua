@@ -191,15 +191,27 @@ end)
 -- reaches the library's CliResetAll, whose row walk Slash minor 8 brackets with the descriptor's
 -- bulkBegin/bulkEnd; the seam mutes its per-row line between the two.
 
---- The debug console's [Set] lines an act logs, and how many times the act called Schema:Set. The
+--- The debug console's [Set] lines an act logs, and how many writes the act sent through the seam. The
 --- call count is every row the walk touched; the N in the line is only the rows whose stored value
 --- changed, so the two differ whenever a row was already at its default. The buffer is swapped for a
 --- fresh one for the act: it is capped and shifts when full, so an index taken before can miss.
---- The same, without re-raising: returns the [Set] lines, the Schema:Set calls, the act's pcall
+--- The same, without re-raising: returns the [Set] lines, the seam writes, the act's pcall
 --- result and error, and every line logged (any tag).
 local function setLinesProtected(act)
-  local realSet, writes = NS.Schema.Set, 0
-  NS.Schema.Set = function(self, ...) writes = writes + 1; return realSet(self, ...) end
+  -- Counted at each row's `validate`, which the seam runs on EVERY write, whichever entry
+  -- reached it. The bulk walk calls the runtime's ApplyDefault, which writes through the
+  -- runtime's own Set and never through the NS.Schema:Set name, so a spy on that name would
+  -- count nothing (LibKa0s-Schema-1.0, docs/revendor/2026-09-23-v1.55.0/03_DECISIONS.md C3).
+  local writes, stamped = 0, {}
+  for _, row in ipairs(NS.Schema.Schema) do
+    local own = row.validate
+    stamped[row] = own or false
+    row.validate = function(...)
+      writes = writes + 1
+      if own then return own(...) end
+      return true
+    end
+  end
   local saved = NS.DebugLog.buffer
   NS.DebugLog.buffer = {}
   NS.State.debug = true
@@ -207,7 +219,7 @@ local function setLinesProtected(act)
   NS.State.debug = false
   local logged = NS.DebugLog.buffer
   NS.DebugLog.buffer = saved
-  NS.Schema.Set = realSet
+  for row, own in pairs(stamped) do row.validate = own or nil end
   local lines = {}
   for _, line in ipairs(logged) do
     if line:find("[Set]", 1, true) then lines[#lines + 1] = line end

@@ -156,7 +156,7 @@ stamp(MASTER_ROWS, {
     widget = "CheckBox",
     onChange = function()
       NS.OnEnabledChanged()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "enabled") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "enabled") end
     end,
   },
   ["settings.visibility"] = {
@@ -168,19 +168,19 @@ stamp(MASTER_ROWS, {
   ["settings.scale"] = {
     widget = "Slider", fmt = "%.2fx",   -- scale → "1.00x" in slash list/get (slash-commands-§5)
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "chrome") end
     end,
   },
   ["settings.alpha"] = {
     widget = "Slider",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "chrome") end
     end,
   },
   ["settings.locked"] = {
     widget = "CheckBox",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "chrome") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "chrome") end
     end,
   },
   -- Session-only (never persisted): its value is the debug console WINDOW's visibility, not the
@@ -198,9 +198,9 @@ stamp(MASTER_ROWS, {
   },
   -- THE INVERSION, and it lives HERE rather than as a branch inside Schema:Set, because that is
   -- where every other row's behavior is bound and because a path literal compared inside the seam
-  -- is a second place to remember this row exists. Schema:Get already prefers `row.get`; Schema:Set
-  -- prefers `row.set` over its own WritePath for a stored row, which is the one line the seam grew
-  -- for this (see the comment there).
+  -- is a second place to remember this row exists. The seam (LibKa0s-Schema-1.0, and the host stub
+  -- below) reads a path row's own `get`, and hands a path row's own `set` the value instead of
+  -- writing it at the path, so the inversion happens once for every entry into the seam.
   --
   -- The row's boolean is SHOWN. LibDBIcon's key is HIDDEN. ONE boolean is stored -- `minimap.hide`,
   -- the library's own, which it writes too when the player uses the button's menu -- and never a
@@ -264,7 +264,7 @@ local ROWS = {
     page = "General", group = "Capture", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "quality") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "quality") end
     end },
 
   { path = "settings.recordCurrency", default = G.settings.recordCurrency, type = "bool", widget = "CheckBox",
@@ -272,14 +272,14 @@ local ROWS = {
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "currency") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
     end },
 
   { path = "settings.excludeQuestItems", default = G.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "questfilter") end
     end },
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
@@ -290,7 +290,7 @@ local ROWS = {
     wide = true, invert = true,
     page = "General", group = "Capture", label = "Record data from", values = C.SOURCE_OPTIONS,
     onChange = function()
-      if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "excludes") end
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "excludes") end
     end },
 
   -- ── General ▸ AH Price ──
@@ -389,95 +389,28 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 -- `state.debugConsole` row above: a session-only schema row (rendered in the panel, driven through
 -- Schema:Get/Set) whose value lives in the DebugLog window state and is never written to db.global.
 
-function S:FindRow(path)
-  for _, row in ipairs(S.Schema) do
-    if row.path == path then return row end
-  end
-  return nil
-end
-
-function S:ReadPath(root, path)
-  local node = root
-  for _, key in ipairs(NS.Util.SplitPath(path)) do
-    if type(node) ~= "table" then return nil end
-    node = node[key]
-  end
-  return node
-end
-
-function S:WritePath(root, path, value)
-  local parts = NS.Util.SplitPath(path)
-  local node = root
-  for i = 1, #parts - 1 do
-    local key = parts[i]
-    if type(node[key]) ~= "table" then node[key] = {} end
-    node = node[key]
-  end
-  node[parts[#parts]] = value
-end
-
--- Deep-copy table values so the write-path never stores (or hands out) a live reference to a
--- schema `default` table. Without this, `S:Set(path, row.default)` on a reset would alias the DB
--- to the shared default table (e.g. settings.excludedSources = {}), so any in-place mutation of
--- the stored set would silently poison the default for the rest of the session.
-local function deepcopy(v)
-  if type(v) ~= "table" then return v end
-  local out = {}
-  for k, val in pairs(v) do out[k] = deepcopy(val) end
-  return out
-end
-
--- debug-logging-§10: a bulk reset through this seam is ONE [Set] line, never one per row. The
--- library brackets the walk it owns here (Slash minor 8's CliResetAll, which the Defaults button and
--- `/lh resetall` both reach) with the descriptor's bulkBegin/bulkEnd, and between the two the
--- per-row line in S:Set is muted. Validation, the write and each row's onChange still run per row.
+-- ── The seam: LibKa0s-Schema-1.0 (architecture-§5, debug-logging-§10) ──────────────────────────
 --
--- N is counted HERE, not taken from bulkEnd's `count`. The library counts every row whose
--- applyDefault returned, which includes a row already at its default; §10's N is the rows the act
--- actually wrote, so a bracketed write is tallied only when it changes the stored value.
+-- The runtime behind these rows is the library's: the row registry, the path walks, the single
+-- write seam, the bulk bracket and the boot check. What stays here is the DESCRIPTOR -- where a
+-- stored row lives, how a line is logged, which row a sweep spares, this addon's refusal words --
+-- and the host's own public names, each a one-line delegate, so no call site moved. The panel, the
+-- CLI, both descriptors (settings/OptionsSetup.lua, settings/Slash.lua) and the suites all still
+-- call NS.Schema:Set / :Get / :FindRow / :Default / :ApplyDefault / .BulkBegin / .BulkEnd.
 --
--- Depth-counted, with one tally across every level: a host act that opens its own bracket around
--- the library's still logs one line, when the depth returns to 0, and none at all if any level
--- reported a whole-profile reset (that line is the profile-event handler's).
+-- THE ORDER OF ONE WRITE is the library's contract, and it is the order this seam always had:
+-- refuse an unknown path; validate; store (a row's own `set` with the value as given; nothing for
+-- a bare sessionOnly row; otherwise a deep COPY at the path under db.global, so a reset can never
+-- alias the shared default table); inside a bracket, tally; outside one, the `[Set] <path> =
+-- <value>` line; then the row's onChange. No `format` is handed over, so the line prints
+-- `tostring(value)` exactly as it did, and no `announce`: each row's onChange sends its own
+-- SettingsChanged reason.
 --
--- A walk that raised part-way still logs its one line, and the line says so: any level handed a
--- non-nil `err` appends ` (stopped by an error)`, so the count is not read as a finished reset.
-local bulkDepth, bulkWritten, bulkProfileReset, bulkFailed = 0, 0, false, false
-
---- Stored-value equality: scalars by value, the set-valued rows key by key. Public because
---- Sl:ResetEverything counts the rows its wipe changes with the same test the tally uses.
-function S.SameValue(a, b)
-  if a == b then return true end
-  if type(a) ~= "table" or type(b) ~= "table" then return false end
-  for k, v in pairs(a) do if not S.SameValue(v, b[k]) then return false end end
-  for k in pairs(b) do if a[k] == nil then return false end end
-  return true
-end
-
---- The descriptor's `bulkBegin(act, scope)`: mute the per-row [Set] line until the matching BulkEnd.
---- The outermost level starts a fresh tally.
-function S.BulkBegin()
-  if bulkDepth == 0 then bulkWritten, bulkProfileReset, bulkFailed = 0, false, false end
-  bulkDepth = bulkDepth + 1
-end
-
---- The descriptor's `bulkEnd(act, scope, count, err, info)`. Closes one level; the outermost logs
---- the act once as `[Set] <act> <scope>: N rows`, N the tally above (`count` is deliberately not
---- read), with ` (stopped by an error)` appended if any level got an `err`. The library calls it
---- even when a row raised, and re-raises after it returns, so the mute cannot stick; re-raising is
---- the caller's job, not this one's. `info.profileReset` silences the line; this addon has no
---- profile and Slash never sets it. Unpaired (depth already 0) it muted nothing, so it logs nothing.
-function S.BulkEnd(act, scope, _, err, info)
-  if bulkDepth == 0 then return end
-  if info and info.profileReset then bulkProfileReset = true end
-  if err ~= nil then bulkFailed = true end
-  bulkDepth = bulkDepth - 1
-  if bulkDepth > 0 or bulkProfileReset then return end
-  if NS.State and NS.State.debug and NS.Debug then
-    NS.Debug("Set", "%s %s: %d rows%s", tostring(act), tostring(scope), bulkWritten,
-      bulkFailed and " (stopped by an error)" or "")
-  end
-end
+-- A BULK RESET IS ONE LINE (§10): the Defaults button and `/lh resetall` reach the Slash major's
+-- bracketed CliResetAll, the per-row line is muted inside the bracket, and the outermost BulkEnd
+-- logs `[Set] <act> <scope>: N rows`, N being the rows whose READ-BACK value moved -- never the
+-- library's `count`, which includes rows already at their default. A walk that raised part-way
+-- still logs its line, marked ` (stopped by an error)`.
 
 --- The rows NO BULK RESET may reach (launcher-§3, standard v2.54.0). Named ONCE, as data.
 ---
@@ -494,92 +427,227 @@ end
 ---     `Sl:CliResetAll` -> the library's row walk (settings/Panel.lua), which hands EVERY schema
 ---     row to `applyDefault`. It reached this row whatever the scope argument said.
 ---
---- So the exemption is stated as a PROPERTY, and both resets honor it: the walk below skips the row
---- while a bulk bracket is open, and `wipeGlobal` carries the stored value across its wipe.
+--- So the exemption is stated as a PROPERTY, and both resets honor it: the seam's ApplyDefault
+--- skips the row while a bulk bracket is open (the descriptor's `resetExempt` below), and
+--- `wipeGlobal` carries the stored value across its wipe. ONE table, read by both: a single
+--- `/lh reset minimap.hide` opens no bracket, so the player naming the row still resets it.
 S.RESET_EXEMPT = { ["minimap.hide"] = true }
 
---- The descriptor's `applyDefault(row)` -- for BOTH majors (settings/Slash.lua and
---- settings/OptionsSetup.lua hand this one function to each).
----
---- ONE place, because there are two reset walks and there must not be two policies. The veto is
---- scoped to a BULK act: `bulkDepth` is above zero for `/lh resetall` and for the page's Defaults
---- button (both reach the library's bracketed walk), and zero for `/lh reset minimap.hide`, which
---- is the player naming the row and must still work. A page-scoped walk through the Options major
---- opens the same bracket under its own scope, so it is covered without being named.
-function S:ApplyDefault(row)
-  if bulkDepth > 0 and S.RESET_EXEMPT[row.path] then return end
-  S:Set(row.path, S:Default(row.path))
-end
-
--- Single write seam. Panel widgets and slash `set` both route through here.
-function S:Set(path, value)
-  local row = S:FindRow(path)
-  if not row then return false, "unknown path: " .. tostring(path) end
-  if row.validate and not row.validate(value) then return false, "invalid value" end
-  -- Inside a bulk bracket the per-row line is muted and the write is tallied instead, but only
-  -- when it changes what is stored: §10's N is the rows the act actually wrote.
-  local muted = bulkDepth > 0
-  local before
-  if muted then before = S:Get(path) end
-  if row.sessionOnly then
-    -- Session-only rows (e.g. state.debugConsole) never touch db.global; the row's set() applies it.
-    if row.set then row.set(value) end
-  elseif row.set then
-    -- A STORED row that carries a set of its own, because the value the ROW holds and the value
-    -- the STORE holds are not the same boolean. `minimap.hide` is the only one today: the row says
-    -- SHOWN and LibDBIcon's key says HIDDEN (launcher-§3), so a straight WritePath of the row's
-    -- value would store the inverse and the checkbox would read back the opposite of what was
-    -- ticked. The row's set does the inversion, the write and the live Show/Hide in one place; the
-    -- validate, the tally, the [Set] line and the onChange around it are untouched, which is what
-    -- keeps this the single write seam rather than a way around it.
-    row.set(value)
-  else
-    S:WritePath(NS.db.global, path, deepcopy(value))
-  end
-  if muted then
-    if not S.SameValue(before, value) then bulkWritten = bulkWritten + 1 end
-  elseif NS.State and NS.State.debug and NS.Debug then
-    NS.Debug("Set", "%s = %s", tostring(path), tostring(value))
-  end
-  if row.onChange then row.onChange(value) end
-  return true
-end
-
-function S:Get(path)
-  local row = S:FindRow(path)
-  if row and row.get then return row.get() end
-  return S:ReadPath(NS.db.global, path)
-end
-
-function S:Default(path)
-  local row = S:FindRow(path)
-  return row and deepcopy(row.default)
-end
-
--- Boot validation (architecture-§5): every persisted schema path must resolve against the shipped
--- defaults table. Returns the number of rows that did not — 0 on a healthy load — so a caller, and
--- tests/test_schema.lua, can assert on the result instead of reading chat.
+-- ── The degradation stub ───────────────────────────────────────────────────────────────────────
 --
--- The condition used to carry an `and row.default == nil` conjunct, which made the whole check
--- structurally dead: every shipped row declares a non-nil default (two of them declare `false`), so
--- the print could never fire and the one thing this exists to catch — a typo'd path — was reported
--- by nothing. A row's own `default` is not evidence that its PATH resolves; the two are independent
--- facts, and only the path is what AceDB and Schema:Get/Set walk. A typo'd path is now reported
--- whether or not the row carries a default.
+-- WRITE-COMPLETING AND LOG-SILENT (LibKa0s docs/api/Schema/version-1-docs.md, "The degradation
+-- stub"). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
+-- BrowserTable's row height) and by host writers that need no other major (Reset all settings'
+-- wipe, below in settings/Slash.lua). So without the library, reads, writes, the row's reaction and
+-- the sweep veto all still work. The [Set] line and the bracket's tally are not reproduced, because
+-- the degraded DebugLog stub discards every line they would feed.
+--
+-- THIS IS A DELIBERATE, DOCUMENTED DUPLICATION of the library's seam, trimmed from its reference
+-- stub (LibKa0s tests/test_schema.lua, `referenceStub`), with refusals in this addon's own words.
+-- It runs only when the payload is missing. One difference from the reference, on purpose:
+-- `Validate` is the real resolution walk, silent on a healthy schema, rather than "0, 0, 0 and one
+-- line". Before the adoption the degraded boot ran this addon's own check and printed nothing, and
+-- a new chat line on every degraded login would be a change the player sees.
+-- tests/test_surface_parity.lua pins this stub against a live instance and by name.
+local function hostSchemaStub()
+  local stubLib = {}
+  local function copy(v)
+    if type(v) ~= "table" then return v end
+    local out = {}
+    for k, x in pairs(v) do out[k] = copy(x) end
+    return out
+  end
+  function stubLib.SplitPath(path)
+    local parts = {}
+    if path ~= nil then
+      for seg in tostring(path):gmatch("[^%.]+") do parts[#parts + 1] = seg end
+    end
+    return parts
+  end
+  local function partsOf(p) return type(p) == "table" and p or stubLib.SplitPath(p) end
+  function stubLib.Read(root, p, first)
+    local parts, node = partsOf(p), root
+    first = first or 1
+    if type(root) ~= "table" or #parts < first then return nil end
+    for i = first, #parts do
+      if type(node) ~= "table" then return nil end
+      node = node[parts[i]]
+    end
+    return node
+  end
+  function stubLib.Write(root, p, value, first)
+    local parts, node = partsOf(p), root
+    first = first or 1
+    if type(root) ~= "table" or #parts < first then return end
+    for i = first, #parts - 1 do
+      if type(node[parts[i]]) ~= "table" then node[parts[i]] = {} end
+      node = node[parts[i]]
+    end
+    node[parts[#parts]] = value
+  end
+  function stubLib.SameValue(a, b)
+    if a == b then return true end
+    if type(a) ~= "table" or type(b) ~= "table" then return false end
+    for k, v in pairs(a) do if not stubLib.SameValue(v, b[k]) then return false end end
+    for k in pairs(b) do if a[k] == nil then return false end end
+    return true
+  end
+
+  function stubLib:New(d)
+    local R, depth = {}, 0
+    local rows = d.rows
+    local function say(line) if type(d.print) == "function" then d.print(line) end end
+    function R.AllRows() return rows end
+    function R.FindRow(path)
+      if type(path) ~= "string" then return nil end
+      for _, row in ipairs(rows) do
+        if type(row) == "table" and row.path == path then return row end
+      end
+    end
+    function R.AddRows(list, at)
+      if type(list) ~= "table" then return 0 end
+      at = type(at) == "number" and math.floor(at) or #rows + 1
+      if at > #rows + 1 then at = #rows + 1 elseif at < 1 then at = 1 end
+      for i, row in ipairs(list) do table.insert(rows, at + i - 1, row) end
+      return #list
+    end
+    function R.Reindex() end
+    function R.Get(path)
+      local row = R.FindRow(path)
+      if row and type(row.get) == "function" then return row.get() end
+      if type(path) ~= "string" or (row and row.sessionOnly) then return nil end
+      local root, first = d.resolveRoot()
+      if type(root) ~= "table" then return nil end
+      return stubLib.Read(root, path, first)
+    end
+    -- The seam's order without its log and tally: refuse, validate, store, react.
+    function R.Set(path, value)
+      local row = R.FindRow(path)
+      if not row then return false, "unknown path: " .. tostring(path) end
+      local stored = type(row.set) ~= "function" and not row.sessionOnly
+      local root, first
+      if stored then root, first = d.resolveRoot() end
+      if type(row.validate) == "function" and not row.validate(value) then
+        return false, "invalid value"
+      end
+      if stored and type(root) ~= "table" then return false, "nowhere to store " .. path end
+      if type(row.set) == "function" then
+        row.set(value)
+      elseif stored then
+        stubLib.Write(root, path, copy(value), first)
+      end
+      if type(row.onChange) == "function" then row.onChange(value) end
+      return true
+    end
+    function R.Default(path)
+      local row = R.FindRow(path)
+      return row and copy(row.default)
+    end
+    function R.ApplyDefault(row)
+      if type(row) ~= "table" or type(row.path) ~= "string" or row.default == nil then return false end
+      if depth > 0 and d.resetExempt[row.path] then return false end
+      return R.Set(row.path, copy(row.default))
+    end
+    -- The bracket keeps its depth, because the sweep veto above reads it; it counts nothing.
+    function R.BulkBegin() depth = depth + 1 end
+    function R.BulkEnd() if depth > 0 then depth = depth - 1 end end
+    function R.BulkRun(act, scope, fn)
+      R.BulkBegin(act, scope)
+      local ok, err = pcall(fn, { profileReset = false })
+      R.BulkEnd(act, scope)
+      if not ok then error(err, 0) end
+    end
+    function R.BulkAdd() end
+    function R.InBulk() return depth > 0 end
+    function R.CountOffDefault() return 0 end
+    function R.ResetCounted(fn) fn() end
+    function R.ConsumeResetCount() return nil end
+    -- The resolution walk only, in this addon's words (see the header for why it is not silent-0).
+    function R.Validate(spec)
+      local resolved, missing = 0, 0
+      for _, row in ipairs(rows) do
+        if type(row) == "table" and type(row.path) == "string" and not row.sessionOnly then
+          local root, first = spec.defaultsRoot()
+          if stubLib.Read(root, row.path, first) ~= nil then
+            resolved = resolved + 1
+          else
+            missing = missing + 1
+            say("schema path does not resolve against defaults/Global.lua: " .. row.path)
+          end
+        end
+      end
+      return 0, resolved, missing
+    end
+    return R
+  end
+  return stubLib
+end
+
+-- The silent flag: a seam whose purpose is to degrade must not raise on the install it degrades on.
+local SchemaLib = LibStub and LibStub("LibKa0s-Schema-1.0", true) or hostSchemaStub()
+NS.SchemaLib = SchemaLib
+
+--- The runtime instance. Dot-called closures; the host names below are what the addon calls.
+local R = SchemaLib:New{
+  -- Held by reference, never copied: the Options and Slash descriptors walk this same array.
+  rows         = S.Schema,
+  -- Every stored path in this addon lives in the ACCOUNT-WIDE store; there is no profile. Answers
+  -- `nil, 1` before InitDB, which the seam reads as "nowhere, now" and refuses rather than raising.
+  resolveRoot  = function() return NS.db and NS.db.global, 1 end,
+  -- Late-bound, so the sink core/DebugLogSetup.lua publishes (and a suite's stand-in) is the one
+  -- called, and asked BEFORE a line is formatted, exactly as the old seam's guard was.
+  debug        = function(tag, fmt, ...) if NS.Debug then NS.Debug(tag, fmt, ...) end end,
+  debugEnabled = function() return NS.State ~= nil and NS.State.debug and NS.Debug ~= nil end,
+  -- Validate's line sink. Late-bound, so it survives core/LootHistory.lua's AceConsole reclaim.
+  print        = function(line) NS.Print(line) end,
+  resetExempt  = S.RESET_EXEMPT,
+  -- This addon's refusal words, which callers and tests/test_schema.lua read back. A plain table:
+  -- the library reads it with rawget, and NS.L here would mask nothing but is still the wrong table.
+  L            = { NOT_FOUND = "unknown path: %s", INVALID = "invalid value" },
+}
+NS.SchemaRuntime = R
+
+-- ── The host's names, bound to the runtime ─────────────────────────────────────────────────────
+
+function S:FindRow(path) return R.FindRow(path) end
+function S:Get(path) return R.Get(path) end
+function S:Default(path) return R.Default(path) end
+-- Single write seam. Panel widgets and slash `set` both route through here.
+function S:Set(path, value) return R.Set(path, value) end
+--- The descriptor's `applyDefault(row)` for BOTH majors. The sweep veto is the runtime's, reading
+--- S.RESET_EXEMPT through `resetExempt`, so the two reset walks share one policy.
+function S:ApplyDefault(row) return R.ApplyDefault(row) end
+--- The descriptors' `bulkBegin(act, scope)` / `bulkEnd(act, scope, count, err, info)`.
+S.BulkBegin = R.BulkBegin
+S.BulkEnd   = R.BulkEnd
+
+-- The path primitives, for the one host caller that must go under the seam: Reset all settings'
+-- wipe (settings/Slash.lua) carries the exempt row's raw stored value across `wipeGlobal`.
+function S:ReadPath(root, path) return SchemaLib.Read(root, path) end
+function S:WritePath(root, path, value) SchemaLib.Write(root, path, value) end
+--- Stored-value equality, read by Sl:ResetEverything's settings-reset count.
+S.SameValue = SchemaLib.SameValue
+
+--- The row shapes this addon ships. The library's default set is the four Options widget types;
+--- `table` is this addon's own set-valued type (the two MultiCheck rows).
+local VALIDATE_TYPES = { bool = true, number = true, string = true, color = true, table = true }
+
+-- Boot validation (architecture-§5): every row well-formed (options-ui-§13's `group`, a known
+-- `type`, no path declared twice) and every persisted path resolving against the shipped defaults.
+-- Returns the number of problems -- 0 on a healthy load -- so a caller, and tests/test_schema.lua,
+-- can assert on the result instead of reading chat. A row's own `default` is not evidence that its
+-- PATH resolves; only the path is what AceDB and the seam walk, so a typo'd path is reported whether
+-- or not the row carries a default.
 function S:Register()
   local g = NS.defaults and NS.defaults.global
   -- defaults/Global.lua loads before this file (LootHistory.toc), so `g` is present in any loaded
   -- client; there is nothing to validate against when it is not.
   if not g then return 0 end
-  local unresolved = 0
-  for _, row in ipairs(S.Schema) do
-    -- Session-only rows (state.debugConsole) have no db-backed path to resolve — skip them.
-    if not row.sessionOnly and S:ReadPath(g, row.path) == nil then
-      unresolved = unresolved + 1
-      print("schema path does not resolve against defaults/Global.lua: " .. tostring(row.path))
-    end
-  end
-  return unresolved
+  local errors, _, missing = R.Validate{
+    types = VALIDATE_TYPES,
+    defaultsRoot = function() return g, 1 end,
+  }
+  return errors + missing
 end
 
 -- Slash command table. Dispatch lives in Slash.lua; the chat help and the settings landing page are

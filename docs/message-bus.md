@@ -12,6 +12,10 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 
 Exactly one sender is allowed per message — the table is sender-authoritative.
 
+## Declared once, as `NS.MSG`
+
+Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua) (this addon has no `core/Bus.lua`), and every `SendMessage` / `RegisterMessage` in the addon names the constant — `NS.MSG.RECORD_ADDED`, `NS.MSG.HISTORY_CHANGED`, `NS.MSG.SETTINGS_CHANGED` — never the literal (`architecture-§4`). The table is passed through **`LibKa0s-Bus-1.0`'s `Catalog`**, which checks the names at load and answers a strict copy: reading an undeclared key raises, so a mistyped constant fails at the call site for a sender as well as a receiver. Only `Catalog` is used. The receivers stay untracked on `NS.NewBusTarget()` (below), so the major's stand-down record (`New`) is not adopted. With the library absent, `core/Constants.lua` falls back to a stub `Catalog` that returns the plain table: the names are the same and only the strictness is lost. `tests/test_constants.lua` pins each wire string by driving its real sender, and it scans every TOC file for a stray literal.
+
 ## `Ka0s_LootHistory_RecordAdded` payload
 
 Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:287`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.

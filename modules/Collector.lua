@@ -225,7 +225,7 @@ function Collector:Enable()
   -- NS.addon, NS.bus and NS.NewBusTarget itself never come into existence and Enable never runs.
   -- The fallback could only ever have reinstated the shared-target clobber the comment forbids.
   self.__ev = NS.NewBusTarget()
-  self.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function(_, _reason)
+  self.__ev:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function(_, _reason)
     self:RefreshUpvalues()
   end)
 end

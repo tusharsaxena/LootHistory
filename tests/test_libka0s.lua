@@ -20,9 +20,15 @@ local test, assertEqual, assertTrue, assertFalse =
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
   "libs/LibKa0s/Env.lua",
+  -- New in v1.55.0: LibKa0s-Compat-1.0. core/Compat.lua wires its GetSpellName.
+  "libs/LibKa0s/Compat.lua",
   -- New in v1.41.0 (shipped at v1.40.0): LibKa0s-Lifecycle-1.0, the ONE latch both
   -- "be inert" reasons hold (slash-commands-§7). core/LifecycleSetup.lua resolves it at file load.
   "libs/LibKa0s/Lifecycle.lua",
+  -- New in v1.55.0, in XML order: LibKa0s-Bus-1.0 (core/Constants.lua takes its `Catalog`) and
+  -- LibKa0s-Schema-1.0 (settings/Schema.lua's runtime).
+  "libs/LibKa0s/Bus.lua",
+  "libs/LibKa0s/Schema.lua",
   "libs/LibKa0s/Pool.lua",
   "libs/LibKa0s/Item.lua",
   "libs/LibKa0s/Media.lua",
@@ -267,6 +273,7 @@ test("no descriptor in this addon is handed NS.L", function()
     "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
     "core/EnvSetup.lua",
     "settings/Slash.lua", "settings/OptionsSetup.lua", "settings/Panel.lua",
+    "settings/Schema.lua",
     "core/PerfSetup.lua",
   }
   local checked = 0
@@ -396,7 +403,9 @@ test("every seam file resolves its major with the silent flag", function()
   -- would look fine, because a lookup table that never raises resolves to nil and passes.
   for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
                           "core/EnvSetup.lua", "core/PoolSetup.lua", "core/ItemSetup.lua",
-                          "settings/Slash.lua", "settings/OptionsSetup.lua" }) do
+                          "core/Constants.lua", "core/Compat.lua",
+                          "settings/Slash.lua", "settings/OptionsSetup.lua",
+                          "settings/Schema.lua" }) do
     local src = Loader.readFile(path)
     local found = false
     for call in src:gmatch('LibStub%("LibKa0s%-[A-Za-z]+%-1%.0"[^)]*%)') do

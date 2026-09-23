@@ -25,13 +25,16 @@
 # (sed, WSL editors, generators) are corrected the moment they are staged.
 * text=auto eol=crlf
 
-# Shell scripts are LF, ALWAYS — even in a CRLF-pinned repo, where everything
-# else is CRLF. `#!/usr/bin/env bash` followed by CRLF makes the kernel look for
-# an interpreter literally named "bash\r", and every `case`/`in` line becomes a
-# syntax error. The vendored tests/_kit/run-automated-tests.sh is the file this
-# protects (automated-tests-§2); without this carve-out the runner is broken on
-# every checkout rather than in one contributor's working tree.
+# A file with a shebang is LF, ALWAYS — even in a CRLF-pinned repo, where
+# everything else is CRLF. `#!/usr/bin/env bash` followed by CRLF makes the
+# kernel look for an interpreter literally named "bash\r", and every `case`/`in`
+# line becomes a syntax error; `#!/usr/bin/env python3` fails identically, and
+# the error names "python3\r". The files this protects are the vendored
+# tests/_kit/run-automated-tests.sh (automated-tests-§2) and any generator
+# under tools/ (layout-§1). Without these carve-outs each is broken on every
+# checkout rather than in one contributor's working tree.
 *.sh text eol=lf
+*.py text eol=lf
 
 # Binaries — never line-end converted, never diffed as text. `text=auto` would
 # usually detect these, but detection is content-based and a truncated or

@@ -83,7 +83,13 @@ local SUITES = {
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
   -- the other two gates that answer for the repo rather than for the code.
-  "test_lintconfig", "test_prose",
+  "test_lintconfig",
+  -- The kit's US-English gate (localization-5), declared by the pair (basename, directory) as
+  -- testing-9 prescribes. A bare "test_prose" here once ran a hand-written local copy and let the
+  -- kit's own suite load nothing; the local copy is gone, and the one spelling it waived
+  -- (the British-spelled flag on core/LifecycleSetup.lua's deferral handle) is now
+  -- `h.canceled`, so there is no waiver file.
+  { name = "test_prose", dir = "tests/_kit/" },
   "test_vendor_sync",
   -- The kit has shipped one suite of its own since revision 15: the working-tree line-ending
   -- gate, over every path `git ls-files` reports. It lives where the rest of the kit lives
@@ -92,6 +98,10 @@ local SUITES = {
   -- re-vendor and then quietly run nothing. It shells out to git and reads no addon state, so
   -- it is safe anywhere in this list and does not want the last slot.
   { name = "test_eol", dir = "tests/_kit/" },
+  -- The kit's layout-1 cap gate (revision 25): every authored, tracked .lua file against the
+  -- `Files over the 1500-line cap` census in docs/ARCHITECTURE.md. Like test_eol it reads the
+  -- checkout through git and no addon state, so it wants no particular slot.
+  { name = "test_layout_cap", dir = "tests/_kit/" },
   -- Last on purpose: its close-path cases build and show the History window, which attaches
   -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an
   -- unbuilt window.
@@ -110,6 +120,12 @@ local SUITES = {
 Kit.setSurfaceSource{
   ["LibKa0s-Options-1.0"]  = NS.Options,
   ["LibKa0s-DebugLog-1.0"] = NS.DebugLog,
+  -- The three v1.55.0 majors are LIBRARY tables, not instances, so these rows name what the
+  -- auto-wiring would have: the mock's own LibStub answer. A table map answers only what it lists,
+  -- so each adopted major needs its row or the by-name parity call cannot find the live half.
+  ["LibKa0s-Bus-1.0"]      = mocks.LibStub("LibKa0s-Bus-1.0", true),
+  ["LibKa0s-Compat-1.0"]   = mocks.LibStub("LibKa0s-Compat-1.0", true),
+  ["LibKa0s-Schema-1.0"]   = mocks.LibStub("LibKa0s-Schema-1.0", true),
 }
 
 _G.LH_TEST = Kit.expose{

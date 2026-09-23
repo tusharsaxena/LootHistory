@@ -839,3 +839,210 @@ test("Schema: the docs' per-tab breakdown is the schema's own partition", functi
   assertTrue(found >= 2, "docs/module-map.md must still state the per-tab breakdown in both its "
     .. "source tree and its per-file entry (found " .. found .. ")")
 end)
+
+-- ── The seam's behavior, pinned before it moved to LibKa0s-Schema-1.0 ───────────────────────────
+--
+-- Characterization, written BEFORE settings/Schema.lua handed its seam to the library: what one
+-- write returns and in what order it logs and reacts on the live build, and on the DEGRADED build
+-- (tests/degraded_env.lua, no libs/ loaded) that every writer and runtime reader a player can reach
+-- still works. The degraded half is what the host's own stub has to keep true once the library owns
+-- the live seam.
+
+--- A degraded namespace with a store seeded from its own shipped defaults, the way AceDB would.
+local function degradedWithStore()
+  local ns = dofile("tests/degraded_env.lua")()
+  ns.db = { global = NS.Util.DeepCopy(ns.defaults.global) }
+  return ns
+end
+
+test("seam: Set answers true, or false and a reason, in the host's own words", function()
+  assertEqual(select("#", S:Set("settings.recordCurrency", true)), 1)
+  assertEqual(S:Set("settings.recordCurrency", true), true)
+  local ok, err = S:Set("settings.nosuchthing", 1)
+  assertEqual(ok, false)
+  assertEqual(err, "unknown path: settings.nosuchthing")
+  local row = S:FindRow("settings.windowScale")
+  row.validate = function() return false end
+  local ok2, err2 = S:Set("settings.windowScale", 1.1)
+  row.validate = nil
+  assertEqual(ok2, false)
+  assertEqual(err2, "invalid value")
+end)
+
+test("seam: one write logs its [Set] line, then runs onChange, once each", function()
+  local row = S:FindRow("settings.recordCurrency")
+  local saved, events = row.onChange, {}
+  local savedDebug = NS.Debug
+  row.onChange = function(v) events[#events + 1] = "onChange " .. tostring(v) end
+  NS.Debug = function(tag, fmt, ...) events[#events + 1] = tag .. " " .. fmt:format(...) end
+  NS.State.debug = true
+  local ok, err = pcall(S.Set, S, "settings.recordCurrency", false)
+  NS.State.debug = false
+  NS.Debug, row.onChange = savedDebug, saved
+  S:Set("settings.recordCurrency", true)
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(events, " | "), "Set settings.recordCurrency = false | onChange false")
+end)
+
+test("seam: on the degraded build a write lands, is copied, reacts, and an unknown path is refused",
+  function()
+    local ns = degradedWithStore()
+    local row = ns.Schema:FindRow("settings.excludedSources")
+    local got
+    row.onChange = function(v) got = v end
+    local live = { KILL = true }
+    assertEqual(ns.Schema:Set("settings.excludedSources", live), true)
+    live.AH = true
+    assertEqual(ns.db.global.settings.excludedSources.KILL, true, "the write landed")
+    assertEqual(ns.db.global.settings.excludedSources.AH, nil, "as a copy")
+    assertTrue(got == live, "onChange got the value as given")
+    local ok, err = ns.Schema:Set("settings.nosuchthing", 1)
+    assertEqual(ok, false)
+    assertEqual(err, "unknown path: settings.nosuchthing")
+    assertEqual(ns.db.global.settings.nosuchthing, nil, "and nothing was stored")
+  end)
+
+test("seam: on the degraded build the runtime readers read the store", function()
+  local ns = degradedWithStore()
+  assertEqual(ns.Schema:Get("settings.rowHeight"), ns.defaults.global.settings.rowHeight)
+  assertFalse(ns.AddonIsOff(), "enabled by default")
+  ns.db.global.settings.enabled = false
+  assertTrue(ns.AddonIsOff(), "core/LifecycleSetup.lua reads the switch through the seam")
+end)
+
+test("seam: on the degraded build the composed Master controls rows are absent, and refused", function()
+  -- The degraded Options stub's MasterControls composes no rows, so the minimap, enable and session
+  -- rows do not exist here. A write to one is refused like any unknown path and stores nothing.
+  local ns = degradedWithStore()
+  assertEqual(ns.Schema:FindRow("minimap.hide"), nil)
+  assertEqual(ns.Schema:Set("minimap.hide", false), false)
+  assertEqual(ns.db.global.minimap.hide, false, "the store is untouched")
+end)
+
+test("seam: on the degraded build ApplyDefault restores, and spares an exempt row only in a sweep",
+  function()
+    -- The exemption is exercised on a row the degraded build HAS, by naming it in the same
+    -- RESET_EXEMPT table the seam reads, and restored before asserting.
+    local ns = degradedWithStore()
+    local S2, g = ns.Schema, ns.db.global
+    local q, c = S2:FindRow("settings.qualityThreshold"), S2:FindRow("settings.recordCurrency")
+    g.settings.qualityThreshold, g.settings.recordCurrency = 4, false
+    S2.RESET_EXEMPT[c.path] = true
+    local ok, err = pcall(function()
+      S2.BulkBegin("reset", "all")
+      S2:ApplyDefault(q)
+      S2:ApplyDefault(c)
+      S2.BulkEnd("reset", "all", 2, nil, { profileReset = false })
+    end)
+    local sweptC = g.settings.recordCurrency
+    S2:ApplyDefault(c)
+    S2.RESET_EXEMPT[c.path] = nil
+    if not ok then error(err, 0) end
+    assertEqual(g.settings.qualityThreshold, ns.defaults.global.settings.qualityThreshold)
+    assertEqual(sweptC, false, "a sweep never resets an exempt row (launcher-3)")
+    assertEqual(g.settings.recordCurrency, true, "a named reset still does")
+  end)
+
+test("seam: on the degraded build Reset all settings keeps the hidden minimap button", function()
+  local ns = degradedWithStore()
+  local g = ns.db.global
+  g.settings.qualityThreshold = 4
+  g.minimap.hide = true
+  ns.Slash:ResetEverything()
+  assertEqual(ns.db.global.settings.qualityThreshold, ns.defaults.global.settings.qualityThreshold)
+  assertEqual(ns.db.global.minimap.hide, true, "carried across the wipe through ReadPath/WritePath")
+end)
+
+test("seam: on the degraded build the boot check passes", function()
+  local ns = degradedWithStore()
+  assertEqual(ns.Schema:Register(), 0)
+end)
+
+-- ── The seam is LibKa0s-Schema-1.0's ──────────────────────────────────────────────────────────
+
+test("seam: the live runtime is the library's, and the host names reach it", function()
+  local lib = T.mocks.LibStub("LibKa0s-Schema-1.0", true)
+  assertTrue(lib ~= nil and NS.SchemaLib == lib, "settings/Schema.lua resolved the major")
+  local R, hit = NS.SchemaRuntime, nil
+  local realSet = R.Set
+  R.Set = function(path, value) hit = path; return realSet(path, value) end
+  local ok, err = pcall(S.Set, S, "settings.recordCurrency", true)
+  R.Set = realSet
+  if not ok then error(err, 0) end
+  assertEqual(hit, "settings.recordCurrency", "NS.Schema:Set delegates to the runtime's Set")
+  assertTrue(S.BulkBegin == R.BulkBegin and S.BulkEnd == R.BulkEnd, "the bracket is the runtime's")
+  assertTrue(S.SameValue == lib.SameValue, "and so is the stored-value equality")
+  assertTrue(R.AllRows() == S.Schema, "the rows are held by reference, never copied")
+end)
+
+test("seam: a write with no store yet is refused, not raised", function()
+  -- Before InitDB there is no db.global. The old seam indexed nil and raised; the runtime's root
+  -- resolver answers `nil, 1`, which it reads as "nowhere, now".
+  local saved = NS.db
+  NS.db = nil
+  local ok, a, b = pcall(S.Set, S, "settings.recordCurrency", false)
+  local got = S:Get("settings.recordCurrency")
+  NS.db = saved
+  assertTrue(ok, "no raise: " .. tostring(a))
+  assertEqual(a, false)
+  assertTrue(type(b) == "string" and b:find("settings.recordCurrency", 1, true) ~= nil, tostring(b))
+  assertEqual(got, nil, "and a read answers nil")
+  assertEqual(NS.db.global.settings.recordCurrency, true, "nothing reached the real store")
+end)
+
+test("seam: a bracket counts a closure row's READ-BACK, so a write that did not move counts 0", function()
+  -- JC-8. A closure row may store something other than what it was handed (a refused test-mode
+  -- start leaves the box unticked). The old tally compared the argument with the value before, and
+  -- counted it; the read-back does not, because the row did not move.
+  local R = NS.SchemaRuntime
+  local probe = { path = "test.readback", default = false, type = "bool", group = "Probe",
+                  get = function() return false end, set = function() end }
+  R.AddRows({ probe })
+  local lines = {}
+  local savedDebug = NS.Debug
+  NS.Debug = function(tag, fmt, ...) lines[#lines + 1] = tag .. " " .. fmt:format(...) end
+  NS.State.debug = true
+  local ok, err = pcall(function()
+    S.BulkBegin("reset", "probe")
+    S:Set("test.readback", true)
+    S.BulkEnd("reset", "probe", 1, nil, { profileReset = false })
+  end)
+  NS.State.debug = false
+  NS.Debug = savedDebug
+  for i, row in ipairs(S.Schema) do if row == probe then table.remove(S.Schema, i); break end end
+  R.Reindex()
+  if not ok then error(err, 0) end
+  assertEqual(S:FindRow("test.readback"), nil, "the probe is gone again")
+  assertEqual(table.concat(lines, " | "), "Set reset probe: 0 rows")
+end)
+
+test("seam: Register reports a duplicate path and a row with no group", function()
+  -- JC-13: the boot check now validates the rows' shape as well as their paths.
+  assertEqual(S:Register(), 0, "the shipped schema must validate clean")
+  local first = S.Schema[1]
+  S.Schema[#S.Schema + 1] = { path = first.path, default = first.default, type = first.type,
+                              group = first.group }
+  local dup = S:Register()
+  -- The same slot, now a row whose path is new and resolves (the window geometry's table is in
+  -- defaults/Global.lua) but which names no group, so the group is the only thing wrong with it.
+  S.Schema[#S.Schema] = { path = "settings.window", default = {}, type = "table" }
+  local groupless = S:Register()
+  S.Schema[#S.Schema] = nil
+  assertEqual(dup, 1, "a path declared twice is reported, once")
+  assertEqual(groupless, 1, "a row with no group is reported, once")
+  assertEqual(S:Register(), 0, "the probes are gone again")
+end)
+
+test("seam: on the degraded build the boot check still reports a typo'd path, in its own words", function()
+  local ns = degradedWithStore()
+  local printed = {}
+  local savedPrint = ns.Print
+  ns.Print = function(line) printed[#printed + 1] = line end
+  ns.Schema.Schema[#ns.Schema.Schema + 1] = { path = "settings.nosuchbranch.typo", default = true,
+                                              type = "bool", group = "Probe" }
+  local n = ns.Schema:Register()
+  ns.Print = savedPrint
+  assertEqual(n, 1)
+  assertEqual(table.concat(printed, " | "),
+    "schema path does not resolve against defaults/Global.lua: settings.nosuchbranch.typo")
+end)

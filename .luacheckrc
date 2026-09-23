@@ -81,6 +81,8 @@ files["tests/"] = {
     "_G.C_TooltipInfo", "_G.RETRIEVING_ITEM_INFO", "_G.AUCTION_HOUSE",
     "_G.AUCTION_WON_MAIL_SUBJECT",
     "_G.ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "_G.ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP",
+    -- The spell-name ladder's rungs, planted by tests/test_compat.lua's GetSpellName cases.
+    "_G.C_Spell", "_G.GetSpellInfo",
   },
 }
 

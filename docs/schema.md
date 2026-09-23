@@ -211,9 +211,9 @@ were removed.)
 
 ## The `Schema:Set` write seam
 
-Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:515` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
+Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:616` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. Since LibKa0s v1.55.0 the seam is **`LibKa0s-Schema-1.0`**'s: `settings/Schema.lua` builds one runtime instance (`NS.SchemaRuntime`) over this addon's rows and keeps every host name (`Schema:Set`, `:Get`, `:FindRow`, `:Default`, `:ApplyDefault`, `.BulkBegin`, `.BulkEnd`, `:ReadPath`, `:WritePath`, `.SameValue`, `:Register`) as a one-line delegate, so no call site moved. The descriptor supplies where a stored row lives (`NS.db.global`), the debug sink, the minimap row's sweep exemption and this addon's refusal words (`unknown path: <path>`, `invalid value`). With the library absent, a write-completing, log-silent stub in the same file keeps every read and write working. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
 
-The deep-copy (`settings/Schema.lua:409`) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
+The deep-copy (the library's, on every stored write) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
 
 ### The rows
 
@@ -265,7 +265,7 @@ appends each kept loot or currency line (`modules/Collector.lua:140`, `:205`). `
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:73`) and from that row's `onChange`
 (`settings/Schema.lua:374`). `Purge` (`core/Database.lua:737`) empties it from the purge confirm
 (`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
-`StaticPopup_Show` (`settings/Schema.lua:721`, `settings/Panel.lua:114`). `Delete`
+`StaticPopup_Show` (`settings/Schema.lua:789`, `settings/Panel.lua:113`). `Delete`
 (`core/Database.lua:718`) drops the row the History right-click **Delete** names
 (`modules/BrowserTable.lua:1180`). `RepairBoundStates` (`core/Database.lua:258`) rewrites a row's
 `bound` (`core/Database.lua:219`) from two deferrals after login (`core/LootHistory.lua:81`, `:85`)

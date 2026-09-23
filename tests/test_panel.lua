@@ -569,11 +569,23 @@ end)
 -- it logs ONE `[Set] reset all: N rows` line and no per-row [Set]. It reaches the library's Slash
 -- CliResetAll (P:RestoreDefaults), whose walk Slash minor 8 brackets; the Options major's own
 -- RestoreDefaults is never called for this page, and the Blizzard footer forwards to the same click.
---- The [Set] lines `click` logs, and how many times it called Schema:Set. A fresh buffer for the
+--- The [Set] lines `click` logs, and how many writes it sent through the seam. A fresh buffer for the
 --- act: the real one is capped and shifts when full, so an index taken before it can miss.
 local function setLinesDuring(click)
-  local realSet, writes = NS.Schema.Set, 0
-  NS.Schema.Set = function(self, ...) writes = writes + 1; return realSet(self, ...) end
+  -- Counted at each row's `validate`, which the seam runs on EVERY write, whichever entry
+  -- reached it. The bulk walk calls the runtime's ApplyDefault, which writes through the
+  -- runtime's own Set and never through the NS.Schema:Set name, so a spy on that name would
+  -- count nothing (LibKa0s-Schema-1.0, docs/revendor/2026-09-23-v1.55.0/03_DECISIONS.md C3).
+  local writes, stamped = 0, {}
+  for _, row in ipairs(NS.Schema.Schema) do
+    local own = row.validate
+    stamped[row] = own or false
+    row.validate = function(...)
+      writes = writes + 1
+      if own then return own(...) end
+      return true
+    end
+  end
   local saved = NS.DebugLog.buffer
   NS.DebugLog.buffer = {}
   NS.State.debug = true
@@ -581,7 +593,7 @@ local function setLinesDuring(click)
   NS.State.debug = false
   local logged = NS.DebugLog.buffer
   NS.DebugLog.buffer = saved
-  NS.Schema.Set = realSet
+  for row, own in pairs(stamped) do row.validate = own or nil end
   if not ok then error(err, 0) end
   local lines = {}
   for _, line in ipairs(logged) do

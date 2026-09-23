@@ -262,7 +262,7 @@ function Database:RepairBoundStates()
   finishPass(g, fixed, pending, candidates)
   -- The window can already be open when a pass lands, and it renders the bound column off these
   -- rows — repaint it rather than leave stale locks until the next open.
-  if fixed > 0 and NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged") end
+  if fixed > 0 and NS.bus then NS.bus:SendMessage(NS.MSG.HISTORY_CHANGED) end
   return fixed, pending, candidates
 end
 
@@ -289,7 +289,7 @@ function Database:Add(record)
   history[#history + 1] = record
   local index = #history
   if NS.bus then
-    NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", record, index)
+    NS.bus:SendMessage(NS.MSG.RECORD_ADDED, record, index)
   end
   return index
 end
@@ -703,7 +703,7 @@ function Database:Stats(filter)
 end
 
 local function fireHistoryChanged()
-  if NS.bus then NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged") end
+  if NS.bus then NS.bus:SendMessage(NS.MSG.HISTORY_CHANGED) end
 end
 
 -- Public HistoryChanged emitter for non-Database owners of a visible-history change (the

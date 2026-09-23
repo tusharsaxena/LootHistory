@@ -1226,8 +1226,8 @@ function B:Enable()
     -- core/LootHistory.lua:4's NewAddon(NS, addonName, "AceEvent-3.0", …) errors first in exactly
     -- that case, so NS.bus never exists and the `if NS.bus` guard above never opens.
     B.__ev = NS.NewBusTarget()
-    B.__ev:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() B:OnSettingsChanged() end)
-    B.__ev:RegisterMessage("Ka0s_LootHistory_HistoryChanged", function() B:OnHistoryChanged() end)
+    B.__ev:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function() B:OnSettingsChanged() end)
+    B.__ev:RegisterMessage(NS.MSG.HISTORY_CHANGED, function() B:OnHistoryChanged() end)
     -- COALESCED, and only this one (issue #27). `OnHistoryChanged` is nine full-history passes —
     -- a BrowserTable rebuild, seven dropdown builders each scanning the whole dataset, and a
     -- StorageStats byte estimate — and RecordAdded fires once per LOOTED ITEM, mid-pull, on a
@@ -1237,7 +1237,7 @@ function B:Enable()
     -- `HistoryChanged` above stays immediate on purpose: it is a delete, a prune or a
     -- blacklist edit — a deliberate user action that arrives one at a time and should repaint at
     -- once. Only the automatic, bursty message needs collapsing.
-    B.__ev:RegisterMessage("Ka0s_LootHistory_RecordAdded",
+    B.__ev:RegisterMessage(NS.MSG.RECORD_ADDED,
       NS.Coalesce(function() B:OnHistoryChanged() end, NS.Constants.RECORD_ADDED_COALESCE))
     -- The two transitions the General visibility dropdown is about. Only ever HIDES: a window the
     -- setting stops allowing goes away, and one it starts allowing is still the player's to open.

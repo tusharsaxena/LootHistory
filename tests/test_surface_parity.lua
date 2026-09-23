@@ -170,3 +170,50 @@ test("parity: the Options stub carries the whole live surface", function()
     -- the next internal the library publishes.
   })
 end)
+
+-- ── Bus (Catalog only) ─────────────────────────────────────────────────────────────────────────
+
+test("parity: the Bus stub carries the live surface this addon calls", function()
+  -- core/Constants.lua resolves LibKa0s-Bus-1.0 for `Catalog` alone and publishes the resolved table
+  -- as NS.BusLib, which on the degraded path is its one-member stub.
+  T.assertSurfaceParity(degradedNS.BusLib, "LibKa0s-Bus-1.0", {
+    -- Live-only on purpose. `New` builds a stand-down record for TRACKED receivers, and this addon's
+    -- receivers are untracked by design: every one registers on its own NS.NewBusTarget() target
+    -- (core/LootHistory.lua) and each module stands its own down. `grep -rn "BusLib" core modules
+    -- settings` names only core/Constants.lua, which calls `Catalog`. A member the major adds later
+    -- is in neither list and fails this case until the addon decides.
+    "New",
+  })
+end)
+
+-- ── Compat (GetSpellName only) ─────────────────────────────────────────────────────────────────
+
+test("parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires", function()
+  -- NS.Compat is this addon's compat firewall, and most of it is this addon's own shims. The by-name
+  -- form compares only the major's members, so those shims do not count here.
+  T.assertSurfaceParity(degradedNS.Compat, "LibKa0s-Compat-1.0", {
+    -- Not wired, and deliberately so. None of the eight is called here:
+    --   grep -rnE "Compat\.(IsSecret|CanAccess|IsSafeKey|GetSpellInfo|GetSpellTexture|GetSpellCooldown|GetSpecialization)" core modules settings
+    -- finds no call site, so the addon has no secret guard or spec read to route. A member
+    -- the major adds later is in neither list and fails this case until the addon decides.
+    "IsSecret", "CanAccess", "IsSafeKey", "GetSpellInfo", "GetSpellTexture", "GetSpellCooldown",
+    "GetSpecialization", "GetSpecializationInfo",
+  })
+end)
+
+-- ── Schema (full adopter) ──────────────────────────────────────────────────────────────────────
+
+test("parity: the Schema stub instance carries every member of the live runtime", function()
+  -- The instance surface is not in the major's member manifest, which lists lib-level members only,
+  -- so the stub's instance is held to a live instance key for key (the two-table form). Both are
+  -- NS.SchemaRuntime, built by settings/Schema.lua's `SchemaLib:New{...}` on each path.
+  T.assertSurfaceParity(NS.SchemaRuntime, degradedNS.SchemaRuntime, "schema instance vs host stub")
+end)
+
+test("parity: the Schema stub library carries the major's lib-level surface", function()
+  T.assertSurfaceParity(degradedNS.SchemaLib, "LibKa0s-Schema-1.0", {
+    -- The library's default refusal words. The stub refuses in this addon's own words instead,
+    -- which are the same words the live instance is handed through its descriptor's `L`.
+    "STRINGS",
+  })
+end)

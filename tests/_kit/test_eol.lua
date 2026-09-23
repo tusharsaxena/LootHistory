@@ -1,4 +1,16 @@
--- testkit/test_eol.lua — the working-tree line-ending gate, over every file git tracks.
+-- testkit/test_eol.lua — the two line-ending gates (line-endings-§7): the working tree against
+-- the terminator git declares for it, and `.gitattributes` itself against the body
+-- line-endings-§5 fixes.
+--
+-- TWO CASES, ONE FILE. One file already owns this question, and two gates over one rule is two
+-- lists to keep whole (testing-§9) — the same argument that put the prose gate in the kit instead
+-- of in eleven repositories. Neither case covers the other, which is why both are here: a tree can
+-- agree perfectly with a pin that is the wrong pin, and a byte-perfect `.gitattributes` says
+-- nothing about a file a shell redirect wrote past git's filters.
+--
+-- ===========================================================================================
+-- CASE ONE — the working tree against the declared pin, over every file git tracks.
+-- ===========================================================================================
 --
 -- This exists because the defect it catches is invisible to everything else. `run-automated-tests.sh`
 -- writes every bundle file with a plain shell redirect, and a redirect is a kernel write into the
@@ -40,6 +52,51 @@
 -- runner's suite list; `Kit.assertSuiteInventory` goes red until you do, so it cannot arrive with a
 -- re-vendor and then quietly run nothing.
 
+--
+-- ===========================================================================================
+-- CASE TWO — `.gitattributes` itself against line-endings-§5's canonical body. Revision 25.
+-- ===========================================================================================
+--
+-- IT EXISTS BECAUSE THE BODY WAS LEFT TO THE EYE, and the measurement says what that produced. On
+-- 2026-09-22, twelve of the fourteen repositories in this collection were missing
+-- `*.py text eol=lf` — a line-endings-§3 MUST since standard v2.61.0 — and thirteen of the fourteen
+-- diverged from §5's canonical body. Every one of the thirteen diverged in the SAME place, on the
+-- same six lines: the shell-scripts comment §3 widened to eight when it took in the shebang rule.
+-- Thirteen repositories did not each make a judgment about their `.gitattributes`. One edit failed
+-- to travel, and between the audit that shipped it and the next one nothing in any repository
+-- mentioned it again. That is the same shape case one was written against, one file up.
+--
+-- IT IS NOT COSMETIC IN TWO OF THE TWELVE. Measured on 2026-09-23: FIVE tracked
+-- `#!/usr/bin/env python3` files sit CRLF on disk across two of them — four generators under one
+-- repository's `tools/`, and a fifth outside `tools/` in another — because with no `*.py` carve-out
+-- above them the CRLF pin applies. That is `python3\r` on every checkout, for everyone, with an
+-- error naming a string nobody greps for: the exact failure §3 was extended to prevent, sitting in
+-- the tree since the release that extended it, under a green suite. The other ten are missing the
+-- line without a file behind it yet, which is the same defect one commit before it costs anything.
+--
+-- BOTH BODIES ARE COPIED WHOLE OUT OF §5 AND NOTHING IS RE-AUTHORED HERE, for the reason
+-- test_prose.lua copies its two word lists whole: §5 stays the one place the body is written down,
+-- so changing a comment there is one kit revision and one re-vendor rather than fourteen hand edits
+-- that diverge the way the last one did. The pin line, the shebang carve-outs and the binary marks
+-- the (b) and (c) checks look for are READ OUT OF those bodies rather than typed again beside them.
+-- A second list here is the same defect one scope smaller.
+--
+-- IT CARRIES NO ROSTER OF REPOSITORIES. Which body applies is decided by §2's mechanical
+-- discriminator and nothing else — a tracked `.toc`, a tracked client-bound `libs/`, or the payload
+-- folder a Ka0s-owned library repo ships (library-stack-§7) — because a list of repo names inside
+-- the gate is one more copy to update the day a repo is added. The third arm is not decoration:
+-- LibKa0s has neither a `.toc` nor a `libs/`, so without it the library that SHIPS this gate is the
+-- one repository the gate misfiles, into the wrong group, about its own payload.
+--
+-- IT COMPARES LINES, NOT BYTES, AND THE DIFFERENCE IS EXACTLY ONE TERMINATOR. §5 prints the body
+-- LF; on disk in a CRLF-pinned repo the same body is CRLF, so a literal byte compare would fail
+-- every client-bound repo for being correct. The terminator is case one's question, asked over the
+-- whole tracked set with `.gitattributes` in it, so nothing is given up by stripping a trailing CR
+-- here: between the two cases the bytes are covered once each and neither answer rests on the other.
+--
+-- IT FAILS RATHER THAN PASSES WHEN IT CANNOT LOOK, on the same bargain case one strikes: no git, no
+-- tracked set, no readable `.gitattributes` is a failure and not a skip.
+--
 local Kit = ...
 local test, fail = Kit.test, Kit.fail
 
@@ -56,7 +113,11 @@ local test, fail = Kit.test, Kit.fail
 --- repositories, which is how a gate acquires a flag to switch it off and then stops being run at
 --- all. `-z` on both sides because a path may contain anything but NUL, and the line-oriented forms
 --- quote such a path instead of printing it.
+--- Memoized: both cases ask git the same question and one shell-out answers it. A failure is never
+--- cached, because it raises before the assignment below.
+local cachedOrder, cachedAttrs
 local function trackedAttrs()
+  if cachedOrder then return cachedOrder, cachedAttrs end
   if not io.popen then
     fail("eol gate: io.popen is unavailable, so this gate cannot run and must not be reported as "
       .. "passing", 2)
@@ -97,6 +158,7 @@ local function trackedAttrs()
       .. "must not be reported as passing", 2)
   end
   table.sort(order)
+  cachedOrder, cachedAttrs = order, attrs
   return order, attrs
 end
 
@@ -162,5 +224,467 @@ test("eol: every tracked file carries the terminator .gitattributes declares for
       .. "`rm <path> && git checkout -- <path>`, then count the bytes: `tr -dc '\\r' < <path> | "
       .. "wc -c` must equal `tr -dc '\\n' < <path> | wc -c`:\n          "
       .. table.concat(hits, "\n          "), 2)
+  end
+end)
+
+-- ---------------------------------------------------------------------------------------------
+-- line-endings-§5's two canonical bodies, copied whole
+-- ---------------------------------------------------------------------------------------------
+--
+-- Copied, never re-authored. §5 is the one place the body is written down and this is a transcript
+-- of it: 84 lines client-bound, 85 non-client. The counts matter because they are where the diff
+-- stops and the appendix begins — the standard itself carried 81/82 here until v2.63.0, and a body
+-- short by three lines reports three phantom differences on a file that is correct, in every
+-- repository, forever. Recount them against §5's fenced blocks when either body changes.
+
+--- The client-bound body — the eleven addon repos and LibKa0s, whose payload lands in each of their
+--- `libs/` trees. Differs from the non-client body in one decision: the pin, the paragraph above it
+--- declaring which kind of repo this is, and that decision's two word-level consequences.
+local CANONICAL_CLIENT = [==[
+# =============================================================================
+# Ka0s WoW Addon Standard — line-ending policy (line-endings-§2)
+#
+# Every repo in the Ka0s collection carries an explicit .gitattributes. There
+# are exactly two variants of this file and they differ in one decision only:
+# the pin below. Everything after it is byte-identical across the collection,
+# so diffing a client-bound repo against a non-client one shows one decision,
+# not two documents.
+#
+# Having no .gitattributes — or one that lists only exceptions to a rule that
+# was never stated — is itself the defect. It leaves what lands on disk at the
+# mercy of each contributor's `core.autocrlf` / `core.eol`.
+# =============================================================================
+
+# THIS REPO IS CLIENT-BOUND. It ships Lua into the WoW client, either directly
+# as an addon or vendored into an addon's libs/ folder. The client expects
+# CRLF in addon source, so the working tree is pinned CRLF on every platform.
+#
+# `text=auto` lets git classify text vs binary by content at add time. Text is
+# always stored LF in the repository, so diffs and blame stay clean; `eol=crlf`
+# pins what lands on disk at checkout and converts back on add. Because
+# .gitattributes overrides per-user config, a Linux contributor on
+# `core.autocrlf=input` and a Windows contributor on `true` end up with
+# identical bytes, and LF stragglers written by tools that bypass git's filters
+# (sed, WSL editors, generators) are corrected the moment they are staged.
+* text=auto eol=crlf
+
+# A file with a shebang is LF, ALWAYS — even in a CRLF-pinned repo, where
+# everything else is CRLF. `#!/usr/bin/env bash` followed by CRLF makes the
+# kernel look for an interpreter literally named "bash\r", and every `case`/`in`
+# line becomes a syntax error; `#!/usr/bin/env python3` fails identically, and
+# the error names "python3\r". The files this protects are the vendored
+# tests/_kit/run-automated-tests.sh (automated-tests-§2) and any generator
+# under tools/ (layout-§1). Without these carve-outs each is broken on every
+# checkout rather than in one contributor's working tree.
+*.sh text eol=lf
+*.py text eol=lf
+
+# Binaries — never line-end converted, never diffed as text. `text=auto` would
+# usually detect these, but detection is content-based and a truncated or
+# odd-header asset can fool it; marking them is cheap and removes the class of
+# bug entirely. The list is the union of every binary type present anywhere in
+# the collection plus the WoW media types an addon may add at any time.
+#
+# Images and textures
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.tga binary
+*.blp binary
+# Fonts
+*.ttf binary
+*.otf binary
+# Audio
+*.mp3 binary
+*.ogg binary
+*.wav binary
+# Archives and opaque data (model weights, tool payloads)
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.pdf binary
+*.bin binary
+*.param binary
+
+# Renormalizing after this file is added or changed. The attributes only take
+# effect for content as it passes through git, so an existing checkout must be
+# rewritten once, in this order:
+#
+#   git add .gitattributes
+#   git add --renormalize .
+#   git status                 # review, then commit
+#
+# `--renormalize` rewrites the INDEX; it does not rewrite files already on
+# disk. To fix a straggler in the WORKING TREE, delete it and check it out
+# again (`rm <path> && git checkout -- <path>`), then count the bytes:
+#   tr -dc '\r' < <path> | wc -c     # must equal…
+#   tr -dc '\n' < <path> | wc -c     # …this, in a CRLF repo.
+# Not `file <path>`: it reports nothing about line terminators for JSON or
+# for any binary, so it passes files it never examined (line-endings-§7).
+]==]
+
+--- The non-client body — a repo that ships nothing into the WoW client, whose consumers are git,
+--- GitHub and shell tooling, all of which are LF-native.
+local CANONICAL_NONCLIENT = [==[
+# =============================================================================
+# Ka0s WoW Addon Standard — line-ending policy (line-endings-§2)
+#
+# Every repo in the Ka0s collection carries an explicit .gitattributes. There
+# are exactly two variants of this file and they differ in one decision only:
+# the pin below. Everything after it is byte-identical across the collection,
+# so diffing a client-bound repo against a non-client one shows one decision,
+# not two documents.
+#
+# Having no .gitattributes — or one that lists only exceptions to a rule that
+# was never stated — is itself the defect. It leaves what lands on disk at the
+# mercy of each contributor's `core.autocrlf` / `core.eol`.
+# =============================================================================
+
+# THIS REPO IS NOT CLIENT-BOUND. It ships nothing into the WoW client; its
+# consumers are git, GitHub and tooling. CRLF exists in this collection for
+# exactly one reason — the client — and that reason does not apply here, so the
+# working tree is pinned LF on every platform.
+#
+# `text=auto` lets git classify text vs binary by content at add time. Text is
+# always stored LF in the repository, so diffs and blame stay clean; `eol=lf`
+# pins what lands on disk at checkout and converts back on add. Because
+# .gitattributes overrides per-user config, a Linux contributor on
+# `core.autocrlf=input` and a Windows contributor on `true` end up with
+# identical bytes, and CRLF stragglers written by tools that bypass git's
+# filters (Windows editors, generators) are corrected the moment they are
+# staged.
+* text=auto eol=lf
+
+# A file with a shebang is LF, ALWAYS — even in a CRLF-pinned repo, where
+# everything else is CRLF. `#!/usr/bin/env bash` followed by CRLF makes the
+# kernel look for an interpreter literally named "bash\r", and every `case`/`in`
+# line becomes a syntax error; `#!/usr/bin/env python3` fails identically, and
+# the error names "python3\r". The files this protects are the vendored
+# tests/_kit/run-automated-tests.sh (automated-tests-§2) and any generator
+# under tools/ (layout-§1). Without these carve-outs each is broken on every
+# checkout rather than in one contributor's working tree.
+*.sh text eol=lf
+*.py text eol=lf
+
+# Binaries — never line-end converted, never diffed as text. `text=auto` would
+# usually detect these, but detection is content-based and a truncated or
+# odd-header asset can fool it; marking them is cheap and removes the class of
+# bug entirely. The list is the union of every binary type present anywhere in
+# the collection plus the WoW media types an addon may add at any time.
+#
+# Images and textures
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.tga binary
+*.blp binary
+# Fonts
+*.ttf binary
+*.otf binary
+# Audio
+*.mp3 binary
+*.ogg binary
+*.wav binary
+# Archives and opaque data (model weights, tool payloads)
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.pdf binary
+*.bin binary
+*.param binary
+
+# Renormalizing after this file is added or changed. The attributes only take
+# effect for content as it passes through git, so an existing checkout must be
+# rewritten once, in this order:
+#
+#   git add .gitattributes
+#   git add --renormalize .
+#   git status                 # review, then commit
+#
+# `--renormalize` rewrites the INDEX; it does not rewrite files already on
+# disk. To fix a straggler in the WORKING TREE, delete it and check it out
+# again (`rm <path> && git checkout -- <path>`), then count the bytes:
+#   tr -dc '\r' < <path> | wc -c     # must be 0 in an LF repo.
+# Not `file <path>`: it reports nothing about line terminators for JSON or
+# for any binary, so it passes files it never examined (line-endings-§7).
+]==]
+
+local ATTRS = ".gitattributes"
+-- The appendix delimiter line-endings-5 fixes, section sign and all. It is built from bytes
+-- rather than typed because the shipped kit keeps its STRING literals ASCII (the em dash aside):
+-- a high byte in a string reaches a player as an empty box in the owner's font, so the repo gates
+-- for it and every section citation in a message below is spelled `line-endings-5`. This one is
+-- not a citation but the exact text the file must carry, so it is assembled instead of respelled.
+local APPENDIX = "# --- line-endings-" .. string.char(194, 167) .. "5 appendix ---"
+
+--- Split into lines on LF, dropping one trailing CR from each, and say whether the last line was
+--- left unterminated. The CR is dropped because §5 prints the body LF while a CRLF-pinned repo
+--- holds the same body CRLF on disk; the terminator itself is case one's question. The
+--- unterminated flag is not pedantry: a file whose final line has no newline is a byte different
+--- from the canonical body, and it is the one such difference a line-wise compare cannot see.
+local function splitLines(text)
+  local out, pos, unterminated = {}, 1, false
+  while pos <= #text do
+    local at = text:find("\n", pos, true)
+    if at then
+      out[#out + 1] = (text:sub(pos, at - 1):gsub("\r$", ""))
+      pos = at + 1
+    else
+      out[#out + 1] = (text:sub(pos):gsub("\r$", ""))
+      unterminated = true
+      pos = #text + 1
+    end
+  end
+  return out, unterminated
+end
+
+local BODY_CLIENT = splitLines(CANONICAL_CLIENT)
+local BODY_NONCLIENT = splitLines(CANONICAL_NONCLIENT)
+
+--- The pin line (§2), the shebang carve-outs (§3) and the binary marks (§4) that a body declares,
+--- read out of the body rather than typed again beside it. Typed again, they are a second list with
+--- its own drift — which is the defect one scope smaller, and `*.py` is the proof it happens: §3
+--- gained that line in standard v2.61.0 and twelve of fourteen repositories never received it.
+local function marksOf(body)
+  local pin, carveOuts, binaries = nil, {}, {}
+  for _, line in ipairs(body) do
+    if line:match("^%* text=auto eol=%a+$") then
+      pin = line
+    elseif line:match("^%*%.%w+ text eol=lf$") then
+      carveOuts[#carveOuts + 1] = line
+    elseif line:match("^%*%.%w+ binary$") then
+      binaries[#binaries + 1] = line
+    end
+  end
+  return pin, carveOuts, binaries
+end
+
+--- The first two arms' evidence: the first tracked `.toc` (one at the root preferred over a nested
+--- one) and the first tracked path under a top-level `libs/`, each nil when there is none.
+local function clientEvidence(paths)
+  local rootToc, anyToc, libs = nil, nil, nil
+  for _, p in ipairs(paths) do
+    if not rootToc and p:match("^[^/]+%.toc$") then rootToc = p end
+    if not anyToc and p:match("%.toc$") then anyToc = p end
+    if not libs and p:match("^libs/") then libs = p end
+  end
+  return rootToc or anyToc, libs
+end
+
+--- The third arm: the first top-level folder carrying `<folder>/<folder>.xml` with Lua anywhere
+--- beneath it, returned as the folder and that XML's path, or nil when no folder has that shape.
+local function libraryPayload(paths)
+  local luaUnder = {}
+  for _, p in ipairs(paths) do
+    local top = p:match("^([^/]+)/")
+    if top and p:match("%.lua$") then luaUnder[top] = true end
+  end
+  for _, p in ipairs(paths) do
+    local dir = p:match("^([^/]+)/[^/]+%.xml$")
+    if dir and p == dir .. "/" .. dir .. ".xml" and luaUnder[dir] then return dir, p end
+  end
+  return nil
+end
+
+--- Which body this repo must carry, by §2's mechanical discriminator and nothing else.
+---
+--- THREE ARMS, IN ORDER, AND NO ROSTER. A `.toc` says the repo ships an addon; a tracked `libs/`
+--- says it ships a vendored payload into one; and a top-level folder carrying the aggregate XML
+--- named after itself, with Lua beside it, is the ship payload of a Ka0s-owned library repo
+--- (library-stack-§7). The third arm is matched on SHAPE rather than on the repo's name, because
+--- the name a checkout sits under is the one fact about a repository a gate cannot read: this
+--- folder is `LibKa0s/LibKa0s.xml` whatever the directory above it is called.
+---
+--- Without that third arm the library that ships this gate has no `.toc` and no `libs/`, so it
+--- would be graded against the non-client body and told to pin LF the payload every addon vendors
+--- CRLF. A gate whose first act is to misfile its own repo is not one anybody keeps.
+---
+--- Returns the body, the pin kind, and the evidence in words, which every failure below quotes so a
+--- reader checks the classification before checking the diff.
+local function repoKind(paths)
+  local toc, libs = clientEvidence(paths)
+  if toc then
+    return BODY_CLIENT, "crlf", "it ships an addon to the client (" .. toc .. ")"
+  end
+  if libs then
+    return BODY_CLIENT, "crlf", "it ships a client-bound libs/ tree (" .. libs .. ")"
+  end
+  local dir, xml = libraryPayload(paths)
+  if dir then
+    return BODY_CLIENT, "crlf",
+      "it is a Ka0s-owned library repo whose ship payload is " .. dir .. "/ (" .. xml .. ")"
+  end
+  return BODY_NONCLIENT, "lf",
+    "it ships nothing into the WoW client: no .toc, no tracked libs/, no library payload folder"
+end
+
+test("eol: .gitattributes is line-endings-5's canonical body for this repo kind", function()
+  local paths = trackedAttrs()
+  local body, kind, why = repoKind(paths)
+  local pin, carveOuts, binaries = marksOf(body)
+
+  -- (a) PRESENT AT THE ROOT, AND TRACKED. Untracked is not the lesser failure it looks like:
+  -- attributes reach a contributor's checkout only through the repository, so a .gitattributes
+  -- nobody else receives is the absent file §1 calls the defect, wearing the right name.
+  local tracked = false
+  for _, p in ipairs(paths) do
+    if p == ATTRS then tracked = true break end
+  end
+  if not tracked then
+    fail("eol: git tracks no " .. ATTRS .. " at the repo root. line-endings-1 makes the file a "
+      .. "MUST for every repo in this collection, and is explicit that its absence is the defect "
+      .. "rather than a neutral default: with no attributes, what lands on disk is decided by "
+      .. "whichever `core.autocrlf` / `core.eol` each contributor's git happens to carry, so two "
+      .. "people produce byte-different checkouts of the same commit and neither is doing anything "
+      .. "wrong. Copy line-endings-5's canonical body for this repo kind (" .. kind .. ", because " .. why
+      .. "), then renormalize per line-endings-6", 2)
+  end
+  local data = readBytes(ATTRS)
+  if data == nil then
+    fail("eol gate: cannot read " .. ATTRS .. ", which git tracks; this gate cannot run, and must "
+      .. "not be reported as passing", 2)
+  end
+  local actual, unterminated = splitLines(data)
+
+  -- (b) EXACTLY ONE PIN, AND THE ONE §2 GIVES THIS REPO KIND. Two pins is not a stricter policy but
+  -- an unreadable one: git takes the last match, so the file says one thing to a reader and another
+  -- to the tool.
+  local pins = {}
+  for i, line in ipairs(actual) do
+    if line:match("^%*%s") and line:find("text=auto", 1, true) then
+      pins[#pins + 1] = string.format("line %d: %s", i, line)
+    end
+  end
+  if #pins ~= 1 then
+    fail("eol: " .. ATTRS .. " carries " .. #pins .. " `* text=auto` pin(s); line-endings-2 "
+      .. "allows exactly one, and git resolves a duplicate by taking the last match, so the file "
+      .. "reads as one policy and behaves as another:\n          "
+      .. ((#pins > 0) and table.concat(pins, "\n          ") or "(none)"), 2)
+  end
+  if pins[1]:gsub("^line %d+: ", "") ~= pin then
+    fail("eol: " .. ATTRS .. " pins `" .. pins[1]:gsub("^line %d+: ", "") .. "`, but "
+      .. "line-endings-2 gives this repo `" .. pin .. "` because " .. why .. ". CRLF exists in "
+      .. "this collection for exactly one reason - the client - and where the client is not "
+      .. "involved the reason does not apply. Changing a pin is line-endings-6's two steps, index "
+      .. "then working tree, not an edit to this line alone", 2)
+  end
+
+  -- (c) §3's SHEBANG CARVE-OUTS AND §4's BINARY MARKS, each read out of the canonical body above.
+  local present = {}
+  for _, line in ipairs(actual) do present[line] = true end
+  local missing = {}
+  for _, line in ipairs(carveOuts) do
+    if not present[line] then missing[#missing + 1] = line .. "   (line-endings-3)" end
+  end
+  for _, line in ipairs(binaries) do
+    if not present[line] then missing[#missing + 1] = line .. "   (line-endings-4)" end
+  end
+  if #missing > 0 then
+    fail("eol: " .. ATTRS .. " is missing " .. #missing .. " line(s) line-endings-3 and line-endings-4 "
+      .. "require. A missing shebang carve-out is a file broken on EVERY checkout rather than in "
+      .. "one contributor's tree - `#!/usr/bin/env bash` followed by CRLF sends the kernel looking "
+      .. "for an interpreter named \"bash\\r\", and `python3` fails identically with an error "
+      .. "naming \"python3\\r\", which is a string nobody greps for. A missing binary mark is an "
+      .. "asset git may line-end convert, because `text=auto` detects by content and an ASCII-bodied "
+      .. "format fools it. Add each line where line-endings-5's body puts it:\n          "
+      .. table.concat(missing, "\n          "), 2)
+  end
+
+  -- (d) THE BODY, LINE FOR LINE, THROUGH ITS FINAL LINE.
+  if #actual < #body then
+    fail("eol: " .. ATTRS .. " is " .. #actual .. " lines; line-endings-5's canonical body for "
+      .. "this repo kind (" .. kind .. ", because " .. why .. ") is " .. #body .. ". The body is "
+      .. "fixed so that a repo can be DIFFED against the standard rather than read against it, "
+      .. "which is what stopped eight hand-written 22-to-68-line variants being eight things to "
+      .. "keep in sync. Replace the file with line-endings-5's body, and put any binary mark no extension can "
+      .. "reach in a line-endings-5 appendix below it", 2)
+  end
+  local diffs = {}
+  for i = 1, #body do
+    if actual[i] ~= body[i] then
+      diffs[#diffs + 1] = string.format(
+        "line %d\n            canonical: %s\n            on disk:   %s", i, body[i], actual[i])
+    end
+  end
+  if #diffs > 0 then
+    -- Every differing line, not the first: this is the diff. They arrive as a block - one comment
+    -- the standard rewrote upstream - and reporting them one red run at a time is the slowest
+    -- possible way to find that out.
+    fail("eol: " .. ATTRS .. " differs from line-endings-5's canonical body on " .. #diffs
+      .. " line(s), for a repo that takes the " .. kind .. " body because " .. why .. ". The body "
+      .. "is copied whole from line-endings-5 and edited nowhere else: a change belongs upstream in the "
+      .. "standard, and arrives here on the next kit revision and re-vendor. Thirteen of fourteen "
+      .. "repositories diverged on the same six lines once already, because one edit failed to "
+      .. "travel and nothing in any repository mentioned it again:\n          "
+      .. table.concat(diffs, "\n          "), 2)
+  end
+  if #actual == #body and unterminated then
+    fail("eol: " .. ATTRS .. " matches line-endings-5's canonical body but its final line has no "
+      .. "terminator, so the file is one byte short of the body it is required to be. Append a "
+      .. "newline", 2)
+  end
+
+  -- THE §5 APPENDIX, WHICH IS THE ONE THING PERMITTED BELOW THE BODY. It exists for a real bind:
+  -- §4 MUSTs that every binary be marked and keys its union list by extension, so a vendored binary
+  -- with NO extension - PanelMaster's `tools/artwork/bin/realesrgan-ncnn-vulkan` is the live one -
+  -- sits between two MUSTs and can satisfy exactly one. The appendix lets it satisfy both, at the
+  -- price of a shape strict enough that an auditor can tell an appendix from an edited body without
+  -- reading either.
+  local problems, commented, delimiterAt = {}, false, nil
+  for i = #body + 1, #actual do
+    local line, at = actual[i], i
+    -- A blank line is a separator, above the delimiter and between entries. It is the one thing
+    -- below the body that is neither an assertion nor a violation, so it is taken out first.
+    if not line:match("^%s*$") then
+      if not delimiterAt then
+        if line ~= APPENDIX then
+          fail("eol: " .. ATTRS .. " carries " .. (#actual - #body) .. " line(s) below "
+            .. "line-endings-5's canonical body, and the first non-blank one is not the appendix "
+            .. "delimiter. line-endings-5 permits exactly one thing there, beginning with the line `" .. APPENDIX
+            .. "` and holding only `binary` marks keyed by path - that delimiter is what lets a "
+            .. "reader tell an appendix from an edited body without reading either. Found at line "
+            .. at .. ": " .. line, 2)
+        end
+        delimiterAt = at
+      elseif line == APPENDIX then
+        problems[#problems + 1] = string.format(
+          "line %d: a second `%s` - the appendix runs to the end of the file and nothing follows it",
+          at, APPENDIX)
+      elseif line:match("^#") then
+        commented = true
+      else
+        local path, mark = line:match("^(%S+)%s+(%S+)$")
+        if mark ~= "binary" then
+          problems[#problems + 1] = string.format(
+            "line %d: %s - an appendix holds `binary` marks and nothing else; line-endings-2 forbids a per-path "
+            .. "pin or a `-text` exemption and this is not a reopening of that", at, line)
+        elseif path:find("[%*%?%[%]]") then
+          problems[#problems + 1] = string.format(
+            "line %d: %s - names a glob. Each entry names a SINGLE path, because a glob swallows "
+            .. "the text file somebody adds under it next year, and a binary-marked text file is "
+            .. "neither diffed nor converted: line-endings-4's failure, self-inflicted by the fix for it",
+            at, line)
+        elseif not commented then
+          problems[#problems + 1] = string.format(
+            "line %d: %s - carries no comment above it saying what the file is and why no extension "
+            .. "reaches it. The next reader's first question is whether it could have been an "
+            .. "extension, and anything that could belongs in line-endings-4's union list upstream, where all "
+            .. "fourteen repos get it", at, line)
+        end
+        commented = false
+      end
+    end
+  end
+  if #problems > 0 then
+    fail("eol: the line-endings-5 appendix in " .. ATTRS .. " does not conform to line-endings-5, on "
+      .. #problems .. " line(s):\n          " .. table.concat(problems, "\n          "), 2)
   end
 end)
