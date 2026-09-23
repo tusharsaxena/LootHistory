@@ -6,7 +6,7 @@ badge and any count quoted in the docs must agree with it.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (25)
+### test_constants.lua (32)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member appears in the display order
@@ -33,6 +33,13 @@ badge and any count quoted in the docs must agree with it.
 - Constants: the default-captured keys all sort ahead of the uncaptured ones
 - Constants: every default-captured tag is a real auction key
 - Constants: the currency pseudo-type is the reserved 'Currency' string
+- bus: Database:Add sends RecordAdded with the record and its index
+- bus: Database:FireHistoryChanged sends HistoryChanged with no payload
+- bus: a settings write sends SettingsChanged with its reason
+- bus: NS.MSG declares exactly the three wire names
+- bus: NS.MSG is the library's strict catalog, so a mistyped key raises
+- bus: no addon file but core/Constants.lua types a Ka0s_LootHistory_ literal
+- bus: the degraded build declares the same names, without the library
 
 ### test_mediasetup.lua (11)
 
@@ -118,7 +125,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 
-### test_compat.lua (31)
+### test_compat.lua (37)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -151,6 +158,12 @@ badge and any count quoted in the docs must agree with it.
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
+- Compat: GetSpellName answers C_Spell.GetSpellName's name, as one value
+- Compat: GetSpellName falls back to the legacy global's first return, as one value
+- Compat: GetSpellName with a nil id answers nil and calls no rung
+- Compat: GetSpellName is LibKa0s-Compat-1.0's member on the live path
+- Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
+- Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 
 ### test_attribution.lua (25)
 
@@ -610,7 +623,7 @@ badge and any count quoted in the docs must agree with it.
 - the same feature verbs act normally once the addon is enabled — the gate is not always-on
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 
-### test_schema.lua (50)
+### test_schema.lua (63)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -662,6 +675,19 @@ badge and any count quoted in the docs must agree with it.
 - Schema: every slider declares a step it can actually be dragged to
 - Schema: every doc that counts the rows counts the same number the schema ships
 - Schema: the docs' per-tab breakdown is the schema's own partition
+- seam: Set answers true, or false and a reason, in the host's own words
+- seam: one write logs its [Set] line, then runs onChange, once each
+- seam: on the degraded build a write lands, is copied, reacts, and an unknown path is refused
+- seam: on the degraded build the runtime readers read the store
+- seam: on the degraded build the composed Master controls rows are absent, and refused
+- seam: on the degraded build ApplyDefault restores, and spares an exempt row only in a sweep
+- seam: on the degraded build Reset all settings keeps the hidden minimap button
+- seam: on the degraded build the boot check passes
+- seam: the live runtime is the library's, and the host names reach it
+- seam: a write with no store yet is refused, not raised
+- seam: a bracket counts a closure row's READ-BACK, so a write that did not move counts 0
+- seam: Register reports a duplicate path and a row with no group
+- seam: on the degraded build the boot check still reports a typo'd path, in its own words
 
 ### test_analytics.lua (62)
 
@@ -832,13 +858,17 @@ badge and any count quoted in the docs must agree with it.
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 
-### test_surface_parity.lua (5)
+### test_surface_parity.lua (9)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
 - parity: the Slash stub carries the whole live surface
 - parity: the DebugLog stub carries the whole live surface
 - parity: the Options stub carries the whole live surface
+- parity: the Bus stub carries the live surface this addon calls
+- parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires
+- parity: the Schema stub instance carries every member of the live runtime
+- parity: the Schema stub library carries the major's lib-level surface
 
 ### test_disabled.lua (12)
 
@@ -940,13 +970,13 @@ badge and any count quoted in the docs must agree with it.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 25 |
+| test_constants.lua | 32 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 10 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
-| test_compat.lua | 31 |
+| test_compat.lua | 37 |
 | test_attribution.lua | 25 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
@@ -959,13 +989,13 @@ badge and any count quoted in the docs must agree with it.
 | test_debuglog.lua | 22 |
 | test_launcher.lua | 13 |
 | test_slash.lua | 60 |
-| test_schema.lua | 50 |
+| test_schema.lua | 63 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 22 |
-| test_surface_parity.lua | 5 |
+| test_surface_parity.lua | 9 |
 | test_disabled.lua | 12 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
@@ -974,4 +1004,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **828** |
+| **Total** | **858** |

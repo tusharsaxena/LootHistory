@@ -26,10 +26,11 @@ Modular Ace3 addon: AceAddon / AceDB / AceEvent / AceTimer / AceConsole / AceGUI
 LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
 **[LibKa0s](https://github.com/tusharsaxena/LibKa0s)** — the Ka0s-owned shared library behind the
 chat printer, the art and monospace face, the debug console, the slash-command interface, the
-settings canvas with its tab strip and Master-controls composer, the shared drag-to-reorder list
+settings canvas with its tab strip and Master-controls composer, the settings schema runtime, the
+bus message catalog, the spell-name compat reader, the shared drag-to-reorder list
 and the flat dropdowns. All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because eleven of its twelve majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because fourteen of its fifteen majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
