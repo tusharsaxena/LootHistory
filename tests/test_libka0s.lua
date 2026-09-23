@@ -20,9 +20,16 @@ local test, assertEqual, assertTrue, assertFalse =
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
   "libs/LibKa0s/Env.lua",
+  -- New in v1.55.0: LibKa0s-Compat-1.0. This addon adopts nothing from it (yet), but the client
+  -- loads every file of the XML, so the suite must too.
+  "libs/LibKa0s/Compat.lua",
   -- New in v1.41.0 (shipped at v1.40.0): LibKa0s-Lifecycle-1.0, the ONE latch both
   -- "be inert" reasons hold (slash-commands-§7). core/LifecycleSetup.lua resolves it at file load.
   "libs/LibKa0s/Lifecycle.lua",
+  -- New in v1.55.0, in XML order: LibKa0s-Bus-1.0 and LibKa0s-Schema-1.0. Neither is adopted
+  -- here yet; listed because the client loads them.
+  "libs/LibKa0s/Bus.lua",
+  "libs/LibKa0s/Schema.lua",
   "libs/LibKa0s/Pool.lua",
   "libs/LibKa0s/Item.lua",
   "libs/LibKa0s/Media.lua",

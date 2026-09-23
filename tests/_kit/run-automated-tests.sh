@@ -32,6 +32,16 @@
 # label a run, it IS the evidence for a version, and a working tree carrying uncommitted changes is
 # not a commit anyone can check out afterwards. Commit first, then run, then commit the record.
 #
+# EVERY RESULTS.md ROW NAMES THE COMMIT IT MEASURED and whether that tree was clean — the short sha
+# and the mark in the table, the full sha, the branch and the boolean in manifest.json. Figures with
+# no commit beside them can be read but not reproduced, not bisected and not attributed to the
+# change that moved them: on 2026-09-07 the newest bundle was behind the tree it was read against
+# in ten of ten repositories, AbsorbTracker's newest row recording 508 tests and 7997 NLOC on a tree
+# running 547 and 8903. Both cells are GENERATED here and neither is ever typed — the one authored
+# cell in RESULTS.md is the watch list's `Disposition` (`automated-tests-§4`). The columns arrive
+# with this revision, so the header widens ONCE: every row written before it is carried forward
+# reading `unknown`, never `clean`, because unknown is what the record holds about those runs.
+#
 # Exit code: 0 unless the verdict is `red` (a gating suite failed). --no-bundle keeps the same code,
 # so a pre-commit hook can call it without writing anything.
 #
@@ -52,7 +62,10 @@ while [ $# -gt 0 ]; do
         --label)      LABEL="$2"; shift 2 ;;
         --release)    RELEASE="$2"; shift 2 ;;
         --no-bundle)  WRITE_BUNDLE=0; shift ;;
-        -h|--help)    sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        # The range ENDS AT THE LAST COMMENT LINE of the header block above, and moves with it: a
+        # range left behind by an edit to that block prints a truncated paragraph as if it were the
+        # whole of --help, which is a help text that lies about itself.
+        -h|--help)    sed -n '2,49p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -157,6 +170,14 @@ GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo "")"
 GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
 GIT_DIRTY=false
 [ -n "$(git status --porcelain 2>/dev/null)" ] && GIT_DIRTY=true
+# The table carries the SHORT sha and the manifest carries the full one, which is what
+# `automated-tests-§4` asks for: a row is read by a person scanning a column, and an abbreviation
+# git itself chose stays unambiguous in this repo as the history grows. `git rev-parse --short`
+# honors core.abbrev and lengthens itself when it has to; the slice is the fallback for a git too
+# old to be asked, never the primary, because a fixed seven characters is a collision waiting for a
+# big enough repo.
+GIT_SHA_SHORT="$(git rev-parse --short HEAD 2>/dev/null || true)"
+[ -z "$GIT_SHA_SHORT" ] && GIT_SHA_SHORT="${GIT_SHA:0:7}"
 
 # A RELEASE RECORD IS REFUSED ON A DIRTY TREE. `--release X.Y.Z` does not label the run, it makes it
 # the evidence for that version: `automated-tests-§3`'s release gate and `/wow-addon:bump-version`
@@ -164,8 +185,9 @@ GIT_DIRTY=false
 # uncommitted changes is not a commit, so the `git.sha` recorded beside the claim names bytes that
 # are not the bytes that were measured, and nobody reading the record later can reconstruct what ran.
 #
-# That is history, not theory. Of this library's own twenty-nine release bundles, twenty-eight record
-# `"dirty": true`; `20260903-161751` stamps `"release": "1.25.0"` at sha `895cdf4` on a tree that
+# That is history, not theory. This library has written seventy-three bundles, sixty-seven of them
+# release bundles; twenty-nine record `"dirty": true`, and twenty-eight of those twenty-nine are
+# releases — so all but one dirty run in the record claims to be a release; `20260903-161751` stamps `"release": "1.25.0"` at sha `895cdf4` on a tree that
 # cannot be checked out. Every one of them reads, to a trend line, exactly like a reproducible run.
 #
 # The refusal is here — before the suites, before the bundle directory is made — so it costs seconds
@@ -178,6 +200,40 @@ if [ -n "$RELEASE" ] && [ "$GIT_DIRTY" = true ]; then
         git status --porcelain 2>/dev/null | sed 's/^/    /'
     } >&2
     exit 2
+fi
+
+# ── is the record behind the tree? REPORT, NEVER FAIL ───────────────────────────────────────────
+# Read BEFORE this run's own directory is created, because afterwards the newest bundle is always
+# this one and the question cannot be asked again. `automated-tests-§4`: going stale between
+# releases is expected — §6 makes the release the checkpoint that refreshes the record — but
+# staleness is only legible AS staleness once the row names the commit it measured, and the cost of
+# it being illegible was ten of ten repositories reading a bundle that predated the tree it was
+# being read against.
+#
+# This reports and stops there. It is not a gate, it does not touch the verdict and it does not move
+# the exit code: the remedy is to run the battery, which is what the person invoking this script is
+# already doing. A check that failed here would fail on the one run that fixes it.
+STALE_NOTE=""
+PRIOR_BUNDLE="$(ls -1d docs/automated-tests/[0-9]*-[0-9]*/ 2>/dev/null | sed 's:/*$::' | sort | tail -1)"
+if [ -n "$PRIOR_BUNDLE" ] && [ -n "$GIT_SHA" ]; then
+    if [ -f "$PRIOR_BUNDLE/manifest.json" ]; then
+        PRIOR_SHA="$(sed -n 's/.*"git"[^}]*"sha"[[:space:]]*:[[:space:]]*"\([0-9a-fA-F]*\)".*/\1/p' "$PRIOR_BUNDLE/manifest.json" | head -1)"
+    else
+        PRIOR_SHA=""
+    fi
+    PRIOR_STAMP="$(basename "$PRIOR_BUNDLE")"
+    if [ -z "$PRIOR_SHA" ]; then
+        STALE_NOTE="newest bundle $PRIOR_STAMP records no commit — it predates kit revision 25, so what it measured cannot be identified"
+    elif [ "$PRIOR_SHA" = "$GIT_SHA" ]; then
+        STALE_NOTE="newest bundle $PRIOR_STAMP was measured at HEAD"
+    else
+        BEHIND="$(git rev-list --count "$PRIOR_SHA..HEAD" 2>/dev/null || true)"
+        if [ -n "$BEHIND" ] && [ "$BEHIND" != "0" ]; then
+            STALE_NOTE="newest bundle $PRIOR_STAMP measured ${PRIOR_SHA:0:7}, $BEHIND commit(s) behind HEAD — its figures describe a tree this one is no longer"
+        else
+            STALE_NOTE="newest bundle $PRIOR_STAMP measured ${PRIOR_SHA:0:7}, which is not an ancestor of HEAD — a different line of history"
+        fi
+    fi
 fi
 
 [ "$WRITE_BUNDLE" -eq 1 ] && mkdir -p "$OUT"
@@ -444,6 +500,7 @@ for s in lint tests perf complexity; do
     fi
 done
 echo "  verdict: $VERDICT"
+[ -n "$STALE_NOTE" ] && echo "  record:  $STALE_NOTE"
 
 # ── bundle ──────────────────────────────────────────────────────────────────────────────────────
 if [ "$WRITE_BUNDLE" -eq 1 ]; then
@@ -511,14 +568,49 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
     VERSION_CELL="$ADDON_VERSION"
     [ -n "$RELEASE" ] && VERSION_CELL="$ADDON_VERSION → $RELEASE"
 
+    # THE COMMIT AND THE TREE, READ FROM GIT AND NEVER TYPED. A dirty tree is not a commit, so the
+    # sha printed beside the figures names bytes that are not the bytes that were measured: the row
+    # is kept and MARKED, which makes it an experiment honestly labeled rather than the one row in
+    # the file nobody can check (`automated-tests-§4`). `--release` is refused on a dirty tree
+    # outright, above, so a marked row is never a release row. A run with no git to ask — an export,
+    # a tarball — records `unknown` in both cells, which is the same third fact the widened rows
+    # below carry and not a claim of cleanliness.
+    COMMIT_CELL="unknown"; TREE_CELL="unknown"
+    if [ -n "$GIT_SHA" ]; then
+        COMMIT_CELL="\`$GIT_SHA_SHORT\`"
+        if [ "$GIT_DIRTY" = true ]; then TREE_CELL="**dirty**"; else TREE_CELL="clean"; fi
+    fi
+
     # The Tests cell is passed/skipped/total. The column name does not change — ten files' history
     # depends on the header — but a two-part `passed/total` cell could not show a skip at all, and
     # a skip is precisely the figure this run learned to read.
-    ROW="| [\`$STAMP\`]($STAMP/) | $VERSION_CELL | $(cell lint "$LINT_WARN/$LINT_ERR") | $(cell lint "$LINT_FILES") | $(cell tests "$TESTS_PASS/$TESTS_SKIP/$TESTS_TOTAL") | $(cell perf "${ST[perf]}") | $(cell complexity "$CCN_NLOC") | $(cell complexity "$CCN_FUNCS") | $(cell complexity "$CCN_AVG_NLOC") | $(cell complexity "$CCN_AVG") | $(cell complexity "$CCN_MAX") | $(cell complexity "$CCN_WARN") | **$VERDICT** |"
+    ROW="| [\`$STAMP\`]($STAMP/) | $COMMIT_CELL | $TREE_CELL | $VERSION_CELL | $(cell lint "$LINT_WARN/$LINT_ERR") | $(cell lint "$LINT_FILES") | $(cell tests "$TESTS_PASS/$TESTS_SKIP/$TESTS_TOTAL") | $(cell perf "${ST[perf]}") | $(cell complexity "$CCN_NLOC") | $(cell complexity "$CCN_FUNCS") | $(cell complexity "$CCN_AVG_NLOC") | $(cell complexity "$CCN_AVG") | $(cell complexity "$CCN_MAX") | $(cell complexity "$CCN_WARN") | **$VERDICT** |"
 
     RESULTS="docs/automated-tests/RESULTS.md"
-    HEADER='| Run | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |'
-    RULE='|---|---|---|---|---|---|---|---|---|---|---|---|---|'
+    HEADER='| Run | Commit | Tree | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |'
+    RULE='|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|'
+    # The column set this one replaces, and the ONLY predecessor this script knows how to widen.
+    # Every repo in the collection carries exactly this header today, which is what makes a single
+    # widening enough; anything else is left alone and reported, below.
+    HEADER_R24='| Run | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |'
+
+    # A ROW PREDATING THE CELLS IS CARRIED FORWARD AS `unknown`, NEVER AS `clean`, and never
+    # reconstructed from git archaeology: the run stamp says when the bundle was written, not what
+    # was in the tree when the suites ran, and the difference between those two is the whole reason
+    # this column exists. `unknown` is a third fact — it is what the record actually holds about
+    # those runs — and it is the treatment `automated-tests-§4` already gives a skip and a
+    # not-selected. Splicing happens on the pipe boundaries rather than by rebuilding the row, so a
+    # figure containing anything this script did not anticipate rides through untouched.
+    widen_r24() {
+        awk '{
+            line = $0; sub(/\r$/, "", line)
+            n = split(line, f, "|")
+            if (n < 3) { print line; next }
+            out = f[1] "|" f[2] "| unknown | unknown |" f[3]
+            for (i = 4; i <= n; i++) out = out "|" f[i]
+            print out
+        }'
+    }
 
     # ── the record, whole ───────────────────────────────────────────────────────────────────────
     # WHAT THIS FILE IS AND WHO WRITES IT. `automated-tests-§4` MUSTs a complexity watch list and a
@@ -543,6 +635,7 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
     # Read the previous file BEFORE a byte is written: the dispositions live in it and are the only
     # thing here that cannot be regenerated.
     PREV_ROWS=""; PRIOR_FN=""; PRIOR_BAND=""; PRIOR_CX=""; PREV_CRLF=0
+    RESULTS_SHAPE="absent"; WIDENED=0
     if [ -f "$RESULTS" ]; then
         # `key1 TAB key2 TAB key3 TAB disposition`, one line per existing watch-list entry. The
         # disposition is rejoined from every field past the key columns, so one containing a `|`
@@ -577,6 +670,24 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
             line ~ /^## / { insec = (line == "## Complexity watch list"); next }
             insec { print line }' "$RESULTS" | sed -e '/./,$!d' | awk '{ b[NR] = $0 } END { last = 0; for (i = 1; i <= NR; i++) if (b[i] != "") last = i; for (i = 1; i <= last; i++) print b[i] }')"
         head -1 "$RESULTS" | grep -q $'\r' && PREV_CRLF=1
+
+        # WHICH COLUMN SET IS ON DISK. Three answers and three different actions: this one, append
+        # as always; the one revision 24 wrote, widen every preserved row and say so; anything else,
+        # touch nothing. Recreating a file whose columns this script does not recognize would drop
+        # every previous row, which is the one thing a trend line must never do — so the unknown
+        # case reports and leaves the file exactly as it found it, with the run still fully recorded
+        # in the bundle's manifest.json.
+        if grep -qF "$HEADER" "$RESULTS"; then
+            RESULTS_SHAPE="current"
+        elif grep -qF "$HEADER_R24" "$RESULTS"; then
+            RESULTS_SHAPE="widen"
+            if [ -n "$PREV_ROWS" ]; then
+                WIDENED="$(printf '%s\n' "$PREV_ROWS" | grep -c '^| \[`' || true)"
+                PREV_ROWS="$(printf '%s\n' "$PREV_ROWS" | widen_r24)"
+            fi
+        else
+            RESULTS_SHAPE="alien"
+        fi
     fi
 
     # A disposition is carried forward ONLY when its key is unambiguous on BOTH sides. Attaching one
@@ -633,8 +744,12 @@ BANDROWS
     # The Tests cell of every existing row, newest first, reduced to its total — which is the last
     # `/`-separated part in both the two-part and three-part shapes, so the trend reads across the
     # column change rather than restarting at it.
+    # FIELD 8, not 6: `Commit` and `Tree` sit between `Run` and `Version`, and $PREV_ROWS has
+    # already been widened by the time this reads it, so every row here — this shape's and the
+    # widened predecessor's alike — carries Tests in the same field. Reducing the cell to its last
+    # `/`-separated part keeps the trend readable across the earlier `passed/total` shape too.
     prev_totals() {
-        printf '%s\n' "$PREV_ROWS" | awk -F'|' 'NF >= 6 { c = $6; gsub(/[ \t]/, "", c); n = split(c, p, "/"); print p[n] }'
+        printf '%s\n' "$PREV_ROWS" | awk -F'|' 'NF >= 8 { c = $8; gsub(/[ \t]/, "", c); n = split(c, p, "/"); print p[n] }'
     }
 
     md_tests_section() {
@@ -780,12 +895,14 @@ TOTALS
         printf 'is tangled*, and the two want different fixes (`performance-§10`).\n\n'
     }
 
-    if [ -f "$RESULTS" ] && ! grep -qF "$HEADER" "$RESULTS"; then
-        # The file exists but its header is not this one — an older column set. Recreating it here
-        # would silently drop every previous row, which is the one thing a trend line must never do.
-        # Say so and leave the file alone; the new row is still in the bundle's manifest.json.
-        echo "  WARNING: $RESULTS has an older column set — not touching it." >&2
-        echo "           Migrate its header to the current one and re-run, or the row is lost." >&2
+    if [ "$RESULTS_SHAPE" = "alien" ]; then
+        # The file exists and its header is neither this column set nor the one this script knows
+        # how to widen. Recreating it here would silently drop every previous row, which is the one
+        # thing a trend line must never do. Say so and leave the file alone; the run is still fully
+        # recorded in the bundle's manifest.json, and nothing above this line has been lost.
+        echo "  WARNING: $RESULTS carries a column set this runner cannot widen — not touching it." >&2
+        echo "           Expected either the current header or revision 24's. Migrate it by hand" >&2
+        echo "           and re-run, or this row is lost." >&2
     else
         # THE WHOLE FILE IS REWRITTEN, rows preserved, on every run. It used to be two code paths:
         # an `awk` that inserted one row after the header, and a create-from-scratch branch reached
@@ -817,6 +934,17 @@ TOTALS
             printf '**NOT EVALUATED** rather than passed: install the tool and re-run. A `—` is a suite that was\n'
             printf 'not selected, which is a different fact again.\n\n'
             printf 'The **Tests** cell reads `passed/skipped/total`.\n\n'
+            # THE LEAD-IN EXPLAINS THE TWO CELLS BECAUSE THE COLUMN HEADS CANNOT. `clean` and
+            # `**dirty**` are a judgment about reproducibility, not a status light, and `unknown` is
+            # a third fact that a reader will otherwise round down to one of the other two — which
+            # is exactly the reading this column was added to prevent.
+            printf '**Commit** is the short sha the run measured and **Tree** is whether that tree was clean at the\n'
+            printf 'time. Both are read from git by the runner; neither is ever typed. A **dirty** row measured bytes\n'
+            printf 'that no sha can bring back, so it is kept as an experiment honestly labeled rather than dropped —\n'
+            printf 'and a release record is refused outright on a dirty tree, so no release row can be one.\n\n'
+            printf 'A row reading `unknown` in both cells was recorded before the runner emitted them. That is what\n'
+            printf 'the record holds about those runs — it is not `clean`, and it is not reconstructed from git\n'
+            printf 'archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).\n\n'
             printf '%s\n' "$HEADER"
             printf '%s\n' "$RULE"
             printf '%s\n' "$ROW"
@@ -914,6 +1042,11 @@ TOTALS
 
     echo "  bundle:  $OUT/"
     echo "  results: $RESULTS"
+    # Said once, on the run that does it, because it is the run that changes the shape of a file
+    # whose git history is the trend line: the diff that follows moves every line, and a reader
+    # wants to have been told why before they open it.
+    [ "$RESULTS_SHAPE" = "widen" ] && \
+        echo "  widened: Commit and Tree added; $WIDENED earlier row(s) carried forward as unknown"
 fi
 
 [ "$VERDICT" = "red" ] && exit 1

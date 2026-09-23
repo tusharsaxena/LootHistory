@@ -97,6 +97,10 @@ local SUITES = {
   -- re-vendor and then quietly run nothing. It shells out to git and reads no addon state, so
   -- it is safe anywhere in this list and does not want the last slot.
   { name = "test_eol", dir = "tests/_kit/" },
+  -- The kit's layout-1 cap gate (revision 25): every authored, tracked .lua file against the
+  -- `Files over the 1500-line cap` census in docs/ARCHITECTURE.md. Like test_eol it reads the
+  -- checkout through git and no addon state, so it wants no particular slot.
+  { name = "test_layout_cap", dir = "tests/_kit/" },
   -- Last on purpose: its close-path cases build and show the History window, which attaches
   -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an
   -- unbuilt window.

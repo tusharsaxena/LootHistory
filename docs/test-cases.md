@@ -871,10 +871,23 @@ badge and any count quoted in the docs must agree with it.
 - lintconfig: every files[...] ignore is narrowed to a file or a name
 - lintconfig: no source file carries a bare inline luacheck ignore
 
-### test_prose.lua (2)
+### test_prose.lua (15)
 
 - prose: no authored file carries a British spelling from localization-5's published list
 - prose: the gate carries localization-5's two lists whole, and nothing of its own
+- prose self-test: the carve-out suppresses the named generated folder, and only it
+- prose self-test: a path the carve-out does not name is not covered by one that looks like it
+- prose self-test: a carve-out that is not a set of path strings is a failure, not a silence
+- prose self-test: a TOC's file lines are read as paths, and its directives and comments are not
+- prose self-test: a .pkgmeta's ignore block is read, and the keys around it are not
+- prose self-test: an ignore entry covers a path exactly, by folder, and by wildcard
+- prose self-test: the carve-out admits a generated dump and refuses a file the TOC loads
+- prose self-test: a waiver-file exclusion meets the same two refusals as the carve-out
+- prose self-test: each list is refused on the matching rule its own scan uses
+- prose self-test: the scan and the refusals read the added exclusions through one reader
+- prose self-test: a narrowing is refused by what it suppresses, not by how it is written
+- prose self-test: the disclosure names what each entry suppressed, and says when it is bounded
+- prose self-test: a malformed waived is a failure, not a silence
 
 ### test_vendor_sync.lua (3)
 
@@ -882,9 +895,26 @@ badge and any count quoted in the docs must agree with it.
 - tests/_kit is the test kit that shipped with that release
 - the automated-test runner is recorded executable (100755)
 
-### test_eol.lua (1)
+### test_eol.lua (2)
 
 - eol: every tracked file carries the terminator .gitattributes declares for it
+- eol: .gitattributes is line-endings-5's canonical body for this repo kind
+
+### test_layout_cap.lua (13)
+
+- layoutcap: every authored file over the 1500-line cap is named in the census
+- layoutcap: no census row outlives the breach it records
+- layoutcap: every over-cap census row carries one of layout-1's three terminal states
+- layoutcap: the census and the exempt set agree about which paths were exempted
+- layoutcap: an empty census is written as a result rather than left standing empty
+- layoutcap self-test: the parser reads the census nested under the register, and stops there
+- layoutcap self-test: a census outside its register, or at the wrong level, is not read
+- layoutcap self-test: an over-cap file missing from the census is reported, and an exempt one is not
+- layoutcap self-test: a census row that outlives its breach is reported
+- layoutcap self-test: an over-cap row that names no terminal state is reported
+- layoutcap self-test: the census and the exempt set are held to naming the same paths
+- layoutcap self-test: a census that states nothing is told apart from one that states none
+- layoutcap self-test: the exempt set takes folders as well as paths
 
 ### test_widgets.lua (17)
 
@@ -939,8 +969,9 @@ badge and any count quoted in the docs must agree with it.
 | test_disabled.lua | 12 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
-| test_prose.lua | 2 |
+| test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
-| test_eol.lua | 1 |
+| test_eol.lua | 2 |
+| test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **801** |
+| **Total** | **828** |
