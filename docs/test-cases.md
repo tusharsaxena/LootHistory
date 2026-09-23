@@ -873,8 +873,8 @@ badge and any count quoted in the docs must agree with it.
 
 ### test_prose.lua (2)
 
-- prose: no authored file carries a British spelling from localization-§5's published list
-- prose: the gate carries localization-§5's two lists whole, and nothing of its own
+- prose: no authored file carries a British spelling from localization-5's published list
+- prose: the gate carries localization-5's two lists whole, and nothing of its own
 
 ### test_vendor_sync.lua (3)
 

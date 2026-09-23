@@ -62,10 +62,12 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Thirty-two files (see **[test-cases.md](test-cases.md)** for the full per-case inventory and the
-authoritative count). `tests/run.lua` fixes the load order, which is significant and commented
-there; this table groups by concern, and the three repo gates that read the checkout rather than
-the loaded addon sit together at the foot of it:
+Thirty-three suites (see **[test-cases.md](test-cases.md)** for the full per-case inventory and the
+authoritative count): thirty-one files of this repo's own under `tests/`, and two the kit ships under
+`tests/_kit/`, each declared by the pair (basename, directory) as `testing-§9` prescribes.
+`tests/run.lua` fixes the load order, which is significant and commented there; this table groups by
+concern, and the repo gates that read the checkout rather than the loaded addon sit together at the
+foot of it:
 
 | Suite | Covers |
 |-------|--------|
@@ -88,7 +90,7 @@ the loaded addon sit together at the foot of it:
 | `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labeling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
 | `test_harness.lua` | the runner's own lists (testing-§9) — the TOC derivation the loader was actually handed compared against a fresh one, every derived path on disk, no `libs/` leak, the suite list pinned in both directions by `Kit.assertSuiteInventory` plus a duplicate check the inventory gate cannot see, and the lifecycle kick compared step for step against `addon:OnInitialize` |
 
-Fourteen of the thirty-two exist because of the LibKa0s adoption:
+Fifteen of the thirty-three exist because of the LibKa0s adoption:
 
 | Suite | Covers |
 |-------|--------|
@@ -106,6 +108,7 @@ Fourteen of the thirty-two exist because of the LibKa0s adoption:
 | `test_doc_structure.lua` | the doc-shape gate — that the documentation set this repo promises is on disk and internally consistent, read off the checkout rather than off the loaded addon |
 | `test_lintconfig.lua` | the **lint-suppression gate** (`M4c-06`) — that `.luacheckrc` sets no top-level `ignore`, switches no warning class off wholesale, narrows every `files[...]` ignore to one file or one variable name, and that no tracked `.lua` carries a bare `-- luacheck: ignore`. It parses the config **as Lua** under a sandbox, so it inspects the table luacheck obeys rather than text a different spelling would slip past, and it fails rather than skips when it cannot look |
 | `test_eol.lua` | the kit’s own working-tree line-ending gate (`tests/_kit/`), over every path `git ls-files` reports — declared with its own `dir` in `tests/run.lua` so a re-vendor cannot land it and quietly run nothing |
+| `test_prose.lua` | the kit’s US-English prose gate (`tests/_kit/`, `localization-§5`), over every authored file `git ls-files` reports — declared by the pair in `tests/run.lua`. It replaced a hand-written `tests/test_prose.lua` that a bare `"test_prose"` entry had been running in its place. Its one per-file, per-word waiver (AceTimer's British-spelled cancellation field on `NS.After`'s handle, in `core/LifecycleSetup.lua`) is in `tests/prose_waivers.lua` with the reason beside it |
 
 See [module-map.md](module-map.md) for the source files behind each suite and [compat-layer.md](compat-layer.md) for the shims `test_compat` exercises.
 

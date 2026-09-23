@@ -488,6 +488,16 @@ Seven such records are named below the table rather than carried in it.
   `options-ui` never names `SetRenderer`, so that declined a library adoption rather than a rule; the
   reasoning is at `settings/Panel.lua:696-701` (`LH-47` in `docs/audits/2026-09-07/`).
 
+### Files over the 1500-line cap
+
+The `layout-§1` census: one row per authored, tracked `.lua` file over 1500 lines, naming the
+terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the cap. Gated by the
+kit's `tests/_kit/test_layout_cap.lua`.
+
+Nothing is over the cap today. The largest authored file is `modules/Browser.lua` at 1271 lines
+(`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-09-23); the
+1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
+
 ---
 
 ## Known limitations
