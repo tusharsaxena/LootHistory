@@ -7,7 +7,7 @@ and `libs/` and `tests/_kit/` were not touched after the copy.
 ## The move
 
 The tag moved from **v1.55.0** to **v1.56.0** (tag object `4622018`, commit `514fc0a`). One commit
-copied both payloads whole and rolled the `CLAUDE.md` provenance line. Fourteen library files move
+copied both payloads whole and rolled the `CLAUDE.md` provenance line. Fifteen library files move
 a minor and no file is added or removed (`01_DELTA.md` 3c). The kit moves from revision 25 to 26
 and gains `asserts.lua`, `mock_events.lua` and `prose_lists.lua`.
 
