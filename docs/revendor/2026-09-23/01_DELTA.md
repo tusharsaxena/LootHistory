@@ -126,8 +126,12 @@ aborts from `Kit.run` until they are fixed.
    the kit's, which loaded nothing — LibKa0s v1.55.0's CHANGELOG names this repo among the six in
    that state. Fixed in the prep commit `8eb2638`: the local copy is deleted (`localization-§5`:
    one gate or the other, never both), the kit's is declared `{ name = "test_prose", dir =
-   "tests/_kit/" }`, and the local copy's single waiver (`core/LifecycleSetup.lua:66`, `:79`,
-   AceTimer's field name) moves to `tests/prose_waivers.lua`, per file and per word, with its reason.
+   "tests/_kit/" }`. `8eb2638` also moved the local copy's single waiver (`core/LifecycleSetup.lua:66`,
+   `:79`) to `tests/prose_waivers.lua` on the grounds that `h.cancelled` was AceTimer's field name.
+   That reason was false: `h` is `NS.After`'s own wrapper table, which never enters the mock's timer
+   queue, and the kit's live-timer survey (`tests/_kit/mock_record.lua:103`, `:106`, `:123`) never
+   reads it. A follow-up commit respelled the field `h.canceled` and deleted `tests/prose_waivers.lua`,
+   so the spelling is fixed rather than waived and the gate stays green.
 2. **Undeclared kit suite `test_layout_cap`.** Arrives with the copy; declared `{ name =
    "test_layout_cap", dir = "tests/_kit/" }` in the vendor commit. Its census (`layout-§1`,
    `### Files over the 1500-line cap` under `## Documented deviations` in `docs/ARCHITECTURE.md`)

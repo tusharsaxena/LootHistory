@@ -86,8 +86,9 @@ local SUITES = {
   "test_lintconfig",
   -- The kit's US-English gate (localization-5), declared by the pair (basename, directory) as
   -- testing-9 prescribes. A bare "test_prose" here once ran a hand-written local copy and let the
-  -- kit's own suite load nothing; the local copy is gone and its one waiver lives in
-  -- tests/prose_waivers.lua.
+  -- kit's own suite load nothing; the local copy is gone, and the one spelling it waived
+  -- (the British-spelled flag on core/LifecycleSetup.lua's deferral handle) is now
+  -- `h.canceled`, so there is no waiver file.
   { name = "test_prose", dir = "tests/_kit/" },
   "test_vendor_sync",
   -- The kit has shipped one suite of its own since revision 15: the working-tree line-ending

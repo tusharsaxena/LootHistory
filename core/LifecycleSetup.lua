@@ -63,7 +63,7 @@ function NS.After(delay, fn)
   local h = {}
   local function body()
     live[h] = nil
-    if h.cancelled then return end
+    if h.canceled then return end
     fn()
   end
   if C_Timer.NewTimer then h.timer = C_Timer.NewTimer(delay, body) else C_Timer.After(delay, body) end
@@ -76,7 +76,7 @@ end
 --- so nothing is left to wake up at all.
 function NS.CancelDeferrals()
   for h in pairs(live) do
-    h.cancelled = true
+    h.canceled = true
     if h.timer and h.timer.Cancel then h.timer:Cancel() end
     live[h] = nil
   end
