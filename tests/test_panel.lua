@@ -575,7 +575,7 @@ local function setLinesDuring(click)
   -- Counted at each row's `validate`, which the seam runs on EVERY write, whichever entry
   -- reached it. The bulk walk calls the runtime's ApplyDefault, which writes through the
   -- runtime's own Set and never through the NS.Schema:Set name, so a spy on that name would
-  -- count nothing (LibKa0s-Schema-1.0, docs/revendor/2026-09-23/03_DECISIONS.md C3).
+  -- count nothing (LibKa0s-Schema-1.0, docs/revendor/2026-09-23-v1.55.0/03_DECISIONS.md C3).
   local writes, stamped = 0, {}
   for _, row in ipairs(NS.Schema.Schema) do
     local own = row.validate
