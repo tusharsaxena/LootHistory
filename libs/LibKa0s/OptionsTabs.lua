@@ -14,9 +14,10 @@
 -- WHAT IS HERE AND WHAT IS NOT. Here: the geometry (`__layoutTabs`, `__tabPlacement`,
 -- `__bannerBand`, `__tabBand`), the four release seams, the pooled tab button and its dress, the
 -- wrap-and-place pass, and the four public surfaces — `TabStrip`, `PageBanner`, `PageHeader`,
--- `SubTabStrip`. Not here: everything a schema row becomes. `O.RenderTabbedSchema` stays in
--- OptionsWidgets.lua and calls `O.TabStrip` through the instance, which is the same seam a host
--- calls it through.
+-- `SubTabStrip`, and since minor 4 the tabbed page itself, `RenderTabbedSchema`, which moved here
+-- from OptionsWidgets.lua and gained host tabs, a disabled notice and a chrome hook. Not here:
+-- everything a schema row becomes. The tabbed page reaches the flow engine (`O.RenderRows`,
+-- `O.TextRow`) through the instance, the same seam a host calls it through.
 --
 -- Part of the Options major rather than a major of its own, and guarded with the same multi-file
 -- idiom as OptionsWidgets.lua, OptionsCompose.lua and OptionsScroll.lua: a strip from one vendored
@@ -37,7 +38,11 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local TABS_MINOR = 3
+-- Minor 4: the banner's Dropdown, the header's frame and the divider's texture are reused or
+-- released per page rather than minted on every full render (review finding LibKa0s-R-02).
+-- The same minor takes O.RenderTabbedSchema in from OptionsWidgets.lua, with its `opts` argument,
+-- and gives O.PageBanner its `action` button (AuraMaster-R-04).
+local TABS_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -570,26 +575,37 @@ local function drawContentPanel(ctx)
 end
 
 --- The hairline rule between the banner and the tab strip (options-ui-§14), spanning the
---- chrome's full width. Parked in the BANNER's own ledger (`ctx.__chromeKids`), not the strip's:
+--- chrome's full width. Listed in the BANNER's own ledger (`ctx.__chromeKids`), not the strip's:
 --- only a full page render redraws the banner, so a tab click alone must never touch this
 --- texture the way it touches `ctx.__tabKids`.
+---
+--- ONE TEXTURE PER PAGE (minor 4), built on the first render that draws a rule and kept on the
+--- ctx as `ctx.__ruleTex`. Until minor 4 every full render created a fresh texture and the release
+--- hid it and called SetParent(nil) on it: the client never destroys a region, so that was one
+--- texture per render for the life of the session, and SetParent(nil) on a Region is not a call
+--- the client promises to honor. The release now only hides it, and this re-anchors and shows it.
 local function drawChromeDivider(ctx, rawBannerHeight)
-  local tex = edgeTexture(ctx.chrome, "ARTWORK", CHROME_RULE_COLOR)
-  if not tex then return end
+  local tex = ctx.__ruleTex
+  if not tex then
+    tex = edgeTexture(ctx.chrome, "ARTWORK", CHROME_RULE_COLOR)
+    if not tex then return end
+    ctx.__ruleTex = tex
+  end
   local y = -(rawBannerHeight + L.CHROME_DIVIDER_GAP_TOP)
   tex:SetPoint("TOPLEFT",  ctx.chrome, "TOPLEFT",  0, y)
   tex:SetPoint("TOPRIGHT", ctx.chrome, "TOPRIGHT", 0, y)
   tex:SetHeight(L.CHROME_DIVIDER_H)
+  tex:Show()
   ctx.__chromeKids[#ctx.__chromeKids + 1] = tex
 end
 
 --- Attach the chrome surfaces to one instance, beside the widget makers and the flow engine.
 ---
---- Takes no descriptor. Nothing here reads a setting, writes one, or calls a host callback other
---- than the `onSelect` its own spec carries — the chrome is geometry and art, and the page's
---- CONTENT is what the descriptor is for. `lib.__AttachWidgets` takes one; this deliberately does
---- not, so a reader can tell which half of the old file could reach the host's data.
-function lib.__AttachTabs(O)
+--- Takes the descriptor since minor 4, for ONE field: `d.rowsForPage`, which the tabbed page reads.
+--- Nothing here reads a setting or writes one; the host callbacks it calls are the ones its own
+--- specs carry (`onSelect`, `onClick`, `build`, and the tabbed page's `opts` hooks). Through minor
+--- 3 it took no descriptor at all, because it had no page to render.
+function lib.__AttachTabs(O, d)
   -- The SHELL's sink (`O.__print`), exactly as OptionsWidgets.lua takes it and for the reason that
   -- file records: a second sink built from the descriptor would discard every diagnostic in this
   -- file for any host relying on the library's own chat-frame fallback -- which is the fallback
@@ -731,7 +747,10 @@ function lib.__AttachTabs(O)
     return top + ((rowCount - 1) * rowPitch) + tabH
   end
 
-  --- Hide, unparent and forget every widget in one of a page's chrome ledgers.
+  --- Hide, unparent and forget every widget in one of a page's ledgers. Since minor 4 only the
+  --- secondary strip's buttons go through here: they are raw Buttons no pool will hand out again.
+  --- The chrome band's three kinds of furniture are each released by what owns them, in
+  --- releaseChrome below.
   local function releaseLedger(ctx, key)
     for _, f in ipairs(ctx[key] or {}) do
       f:Hide()
@@ -757,6 +776,26 @@ function lib.__AttachTabs(O)
     ctx.__tabKids = {}
   end
 
+  --- Give the previous render's banner Dropdown back to AceGUI (minor 4).
+  ---
+  --- Called at the END of the render that replaces it, never from releaseChrome, and that is the
+  --- whole reason the widget is held aside as `ctx.__staleBanner` rather than released on the way
+  --- in. A banner's selection is a change of subject, so the render replacing it very often runs
+  --- INSIDE its OnValueChanged callback; released on the way in, it is back in AceGUI's pool in
+  --- time for this same render's `Create("Dropdown")` -- ours, or one a PageHeader builder makes
+  --- -- to hand it straight back out, re-initialized, with its own callback still on the stack.
+  ---
+  --- The banner's action Button (minor 4) is held and released the same way, beside it: a create
+  --- act re-renders the page from inside the button's own OnClick.
+  local function releaseStaleBanner(ctx)
+    local w, b = ctx.__staleBanner, ctx.__staleBannerButton
+    ctx.__staleBanner, ctx.__staleBannerButton = nil, nil
+    local AceGUI = O.AceGUI
+    if not (AceGUI and AceGUI.Release) then return end
+    if w then AceGUI:Release(w) end
+    if b then AceGUI:Release(b) end
+  end
+
   --- Release everything a page parked in its chrome band -- the banner AND the strip.
   ---
   --- Two seams, one release, because the two have different LIFETIMES: a tab click redraws the
@@ -764,8 +803,29 @@ function lib.__AttachTabs(O)
   --- Draining both here is what keeps the page-wide teardown total without making the strip's
   --- ledger a second copy of it -- when TabStrip appended to both, __chromeKids grew by one entry
   --- per tab click, forever, holding buttons already hidden and unparented.
+  ---
+  --- BY OWNER, NOT BY LEDGER (minor 4). Until minor 4 this hid and unparented whatever
+  --- `__chromeKids` listed and forgot it, so every full render of a banner or header page left one
+  --- Dropdown or raw Frame and one texture behind for good (review finding LibKa0s-R-02). Each of
+  --- the three now goes back to what owns it: the banner's Dropdown to AceGUI (hidden now, released
+  --- by releaseStaleBanner once the replacement is drawn), the header's frame to the page's
+  --- `ctx.__headerPool`, and the divider's one texture hidden in place. `__chromeKids` stays as the
+  --- ledger a suite reads to ask what this render drew; it no longer owns a release.
   local function releaseChrome(ctx)
-    releaseLedger(ctx, "__chromeKids")
+    local banner = ctx.__bannerDropdown
+    if banner then
+      -- Two releases with no render between them: the older stale widget has nobody left to wait
+      -- for, and holding only one slot is what keeps this from growing a list of its own.
+      releaseStaleBanner(ctx)
+      if banner.frame then banner.frame:Hide() end
+      ctx.__staleBanner, ctx.__bannerDropdown = banner, nil
+      local button = ctx.__bannerButton
+      if button and button.frame then button.frame:Hide() end
+      ctx.__staleBannerButton, ctx.__bannerButton = button, nil
+    end
+    if ctx.__headerPool then Pool.ReleaseAll(ctx.__headerPool) end
+    if ctx.__ruleTex then ctx.__ruleTex:Hide() end
+    ctx.__chromeKids = {}
     releaseTabs(ctx)
   end
   O.__releaseChrome = releaseChrome
@@ -969,6 +1029,42 @@ function lib.__AttachTabs(O)
     end)
   end
 
+  -- The banner's action button (minor 4). AceGUI's labeled Dropdown anchors its CONTROL 14px below
+  -- its frame's top (AceGUIWidget-DropDown's SetLabel), and an unlabeled one at 0; the button levels
+  -- with the control, not the label. 24 is AceGUI's Button frame height, and the pair gap is half
+  -- the gutter between the band's two halves.
+  local ACTION_Y_LABELED = 14
+  local ACTION_H         = 24
+  local ACTION_PAIR_GAP  = 4
+
+  --- The action Button in the banner's right half, or nil when the spec has none.
+  local function drawBannerAction(ctx, action, labeled)
+    if type(action) ~= "table" then return nil end
+    local btn = O.AceGUI:Create("Button")
+    ctx.__bannerButton = btn
+    btn:SetText(action.text or "")
+    btn:SetCallback("OnClick", function()
+      -- A create act is a change of subject, so it is refused in combat as the picker is.
+      if refused() then return end
+      if type(action.onClick) ~= "function" then return end
+      local ok, err = pcall(action.onClick)
+      if not ok then print(lib.STRINGS.BUTTON_FAILED:format(tostring(err))) end
+    end)
+    if btn.frame then
+      local y = labeled and -ACTION_Y_LABELED or 0
+      btn.frame:SetParent(ctx.chrome)
+      btn.frame:ClearAllPoints()
+      btn.frame:SetPoint("TOPLEFT",  ctx.chrome, "TOP",      ACTION_PAIR_GAP, y)
+      btn.frame:SetPoint("TOPRIGHT", ctx.chrome, "TOPRIGHT", 0,               y)
+      btn.frame:SetHeight(ACTION_H)
+      btn.frame:Show()
+      ctx.__chromeKids[#ctx.__chromeKids + 1] = btn.frame
+    end
+    -- Guarded for the reason the picker's tooltip is: O.AttachTooltip is the widget half's.
+    if O.AttachTooltip then O.AttachTooltip(btn, action.text, action.tooltip) end
+    return btn
+  end
+
   --- A pinned tab strip in the page's chrome band (options-ui-§13). One tab per section.
   ---
   --- `spec` = { tabs = { { key, label, tooltip } }, value, onSelect }. Returns the buttons in
@@ -1014,7 +1110,7 @@ function lib.__AttachTabs(O)
   --- it, pinned above the strip and the scroll.
   ---
   --- It carries the PICKER rather than a label, and it is the ONLY picker: a page that already
-  --- had one deletes it. Two controls over one piece of session state is a synchronisation
+  --- had one deletes it. Two controls over one piece of session state is a synchronization
   --- problem the design invented and would then own forever -- here there is one value, read at
   --- render time, and the structural refresh the write already triggers repaints every panel.
   ---
@@ -1024,8 +1120,14 @@ function lib.__AttachTabs(O)
   --- to the rows it reserves for itself; called the other way round, the strip's reservation
   --- would not know about it.
   ---
-  --- `spec` = { label, list, order, value, onSelect, tooltip }. Returns the dropdown, or nil
-  --- having drawn nothing.
+  --- `spec` = { label, list, order, value, onSelect, tooltip, action }. Returns the dropdown, or nil
+  --- having drawn nothing, and the action's Button as a second value when there is one.
+  ---
+  --- `action` (minor 4) = { text, tooltip, onClick }: a Button in the band's RIGHT half, level with
+  --- the dropdown's control, and the picker takes the left half. It is the picker+create band
+  --- options-ui-§14 describes -- the act that makes a new subject, beside the choice of subject --
+  --- which a host otherwise builds inside PageHeader's frame by hand. `onClick` is pcall'd, and
+  --- refused in combat as the picker's selection is.
   function O.PageBanner(ctx, spec)
     if not (ctx and ctx.chrome and spec) then return nil end
     local AceGUI = O.AceGUI
@@ -1033,7 +1135,15 @@ function lib.__AttachTabs(O)
 
     releaseChrome(ctx)
 
+    -- Held on the ctx under a LIBRARY-PRIVATE key (minor 4), so the next releaseChrome can give it
+    -- back. Not `ctx.__bannerWidget`: hosts write that field themselves -- to this dropdown, to a
+    -- picker of their own built inside PageHeader's frame, and to nil before a render -- and a
+    -- release keyed on it would either lose this widget or release one the host owns.
     local dd = AceGUI:Create("Dropdown")
+    ctx.__bannerDropdown = dd
+    local btn = drawBannerAction(ctx, spec.action, (spec.label or "") ~= "")
+    -- Both replacements exist, so neither old widget can be handed back to this render.
+    releaseStaleBanner(ctx)
     dd:SetLabel(spec.label or "")
     dd:SetList(spec.list or {}, spec.order)
     dd:SetValue(spec.value)
@@ -1052,7 +1162,11 @@ function lib.__AttachTabs(O)
       dd.frame:SetParent(ctx.chrome)
       dd.frame:ClearAllPoints()
       dd.frame:SetPoint("TOPLEFT",  ctx.chrome, "TOPLEFT",  0, 0)
-      dd.frame:SetPoint("TOPRIGHT", ctx.chrome, "TOPRIGHT", 0, 0)
+      if btn then
+        dd.frame:SetPoint("TOPRIGHT", ctx.chrome, "TOP", -ACTION_PAIR_GAP, 0)
+      else
+        dd.frame:SetPoint("TOPRIGHT", ctx.chrome, "TOPRIGHT", 0, 0)
+      end
       dd.frame:Show()
       ctx.__chromeKids[#ctx.__chromeKids + 1] = dd.frame
 
@@ -1083,7 +1197,7 @@ function lib.__AttachTabs(O)
     -- raises while drawing.
     if O.AttachTooltip then O.AttachTooltip(dd, spec.label, spec.tooltip) end
 
-    return dd
+    return dd, btn
   end
 
   --- A host-drawn block pinned above the tab strip and the scroll, in the band the page banner
@@ -1100,7 +1214,7 @@ function lib.__AttachTabs(O)
   --- `spec` = { height = <number>, build = function(ctx, frame) end, divider = <boolean, default
   --- true> }. Returns the frame, or nil having drawn nothing.
   ---
-  --- A page draws AT MOST ONE chrome block: this and O.PageBanner both release `__chromeKids` and
+  --- A page draws AT MOST ONE chrome block: this and O.PageBanner both release the chrome band and
   --- both write ctx.__bannerHeight, so the second call wins rather than stacking a second band. A
   --- page that needs a picker AND other page-wide controls puts the picker inside this frame and
   --- does not call PageBanner.
@@ -1114,7 +1228,16 @@ function lib.__AttachTabs(O)
 
     releaseChrome(ctx)
 
-    local frame = CreateFrame("Frame", nil, ctx.chrome)
+    -- ONE FRAME PER PAGE (minor 4), from a pool of one held on the ctx, for the reason
+    -- drawContentPanel gives for its panel: until minor 4 this was a CreateFrame per render, and
+    -- the client never destroys a frame. The pool hides and parks it; the parent is the page's own
+    -- chrome, which outlives every render. What the host's builder put INSIDE it is the host's to
+    -- release, as it always was -- the frame coming back is the same one, so a host that
+    -- creates raw regions into it on every build stacks them, where AceGUI widgets it Releases do not.
+    ctx.__headerPool = ctx.__headerPool or Pool.New()
+    local chrome = ctx.chrome
+    local frame = Pool.Acquire(ctx.__headerPool, function() return CreateFrame("Frame", nil, chrome) end)
+    frame:ClearAllPoints()
     frame:SetPoint("TOPLEFT",  ctx.chrome, "TOPLEFT",  0, 0)
     frame:SetPoint("TOPRIGHT", ctx.chrome, "TOPRIGHT", 0, 0)
     frame:SetHeight(height)
@@ -1136,6 +1259,9 @@ function lib.__AttachTabs(O)
       local ok, err = pcall(spec.build, ctx, frame)
       if not ok then print(lib.STRINGS.HEADER_FAILED:format(tostring(err))) end
     end
+    -- After the builder, not before: a builder that makes a Dropdown of its own must not be handed
+    -- back the banner's, which may still be running its callback (see releaseStaleBanner).
+    releaseStaleBanner(ctx)
 
     return frame
   end
@@ -1193,5 +1319,171 @@ function lib.__AttachTabs(O)
     end
 
     return buttons, O.__tabBand(0, rowCount, L.TAB_H, pitch)
+  end
+
+  -- ── the tabbed page (minor 4, moved from OptionsWidgets.lua) ─────────────────────────────────
+  -- Only over a flow engine: the widget half attaches first and leaves an untabbed fallback, which
+  -- this replaces. Without that half, one that raised on its first O.RenderRows is worse than none.
+  if not (d and O.RenderRows) then return end
+
+  local NO_OPTS = {}
+
+  --- The page's groups in declaration order, and each group's rows.
+  local function partition(rows)
+    local groups, byGroup = {}, {}
+    for _, row in ipairs(rows) do
+      local g = row.group
+      if g ~= nil then
+        if not byGroup[g] then byGroup[g], groups[#groups + 1] = {}, g end
+        byGroup[g][#byGroup[g] + 1] = row
+      end
+    end
+    return groups, byGroup
+  end
+
+  --- Put a host tab ahead of the tab `before` names, or last when this render draws no such tab.
+  local function placeTab(tabs, entry, before)
+    for i, t in ipairs(tabs) do
+      if before ~= nil and t.key == before then return table.insert(tabs, i, entry) end
+    end
+    tabs[#tabs + 1] = entry
+  end
+
+  --- The strip: one tab per group, then the host's tabs. A host tab keyed by a group takes that
+  --- group's place (and may relabel it) rather than adding a second tab. An entry with no key or
+  --- no render function is not a tab.
+  local function collectTabs(groups, byGroup, hostTabs)
+    local tabs, index, bespoke = {}, {}, {}
+    for i, name in ipairs(groups) do
+      tabs[i] = { key = name, label = name }
+      index[name] = tabs[i]
+    end
+    for _, t in ipairs(type(hostTabs) == "table" and hostTabs or NO_OPTS) do
+      if type(t) == "table" and t.key ~= nil and type(t.render) == "function" then
+        bespoke[t.key] = t
+        local own = index[t.key]
+        if own then
+          own.label, own.tooltip = t.label or own.label, t.tooltip
+        elseif not byGroup[t.key] then
+          local entry = { key = t.key, label = t.label or tostring(t.key), tooltip = t.tooltip }
+          index[t.key] = entry
+          placeTab(tabs, entry, t.before)
+        end
+      end
+    end
+    return tabs, bespoke
+  end
+
+  --- Keep the active tab when this render draws it, else heal to the first. A pointer at a tab
+  --- the page no longer has would render an empty page under a strip.
+  local function settleActiveTab(ctx, tabs)
+    for _, t in ipairs(tabs) do if t.key == ctx.activeTab then return end end
+    ctx.activeTab = tabs[1].key
+  end
+
+  --- `disabledFor(cfg)`, guarded: a raising predicate reads as enabled, as a row's disabledIf does.
+  local function pageDisabled(opts)
+    if type(opts.disabledFor) ~= "function" then return false end
+    local ok, answer = pcall(opts.disabledFor, opts.cfg)
+    return (ok and answer) and true or false
+  end
+
+  --- The notice over a page drawn disabled, and a row gap under it. A string, or a function of
+  --- `opts.cfg` answering one; the host colors it with an escape sequence if it wants a color.
+  local function drawDisabledNotice(ctx, opts)
+    local notice = opts.disabledNotice
+    if type(notice) == "function" then
+      local ok, text = pcall(notice, opts.cfg)
+      notice = ok and text or nil
+    end
+    if type(notice) ~= "string" or notice == "" or not O.TextRow then return end
+    O.TextRow(ctx, notice, { fontObject = "GameFontHighlightSmall" })
+    local scroll = O.EnsureScroll(ctx)
+    if scroll and O.AddSpacer then O.AddSpacer(scroll, L.ROW_VSPACER) end
+  end
+
+  --- A host tab's render under the page's disable, as RenderRows' `opts.disabled` holds it: every
+  --- maker reads `ctx.__renderDisabled`, restored on the way out, a raise included.
+  local function renderHostTab(ctx, tab, rows, disabled)
+    local outer = ctx.__renderDisabled
+    ctx.__renderDisabled = (disabled or outer) and true or nil
+    local ok, err = pcall(tab.render, ctx, rows)
+    ctx.__renderDisabled = outer
+    if not ok then error(err, 0) end
+    local scroll = O.EnsureScroll(ctx)
+    if scroll and scroll.DoLayout then scroll:DoLayout() end
+  end
+
+  --- Everything under the strip: `chrome`, the disabled notice, then the tab's content.
+  local function renderBody(ctx, opts, tab, rows, flow)
+    local disabled = pageDisabled(opts)
+    if type(opts.chrome) == "function" then opts.chrome(ctx) end
+    if disabled then drawDisabledNotice(ctx, opts) end
+    if tab then
+      renderHostTab(ctx, tab, rows, disabled)
+    elseif rows then
+      O.RenderRows(ctx, rows, flow.afterGroup, flow.pairWith,
+        { noHeadings = flow.noHeadings, disabled = disabled })
+    end
+  end
+
+  --- Render one page as a tab strip over its sections (options-ui-§13). The partition is by
+  --- `group`, IN DECLARATION ORDER, one tab per group, and no second field names a tab: a tab list
+  --- declared apart from the rows goes stale the first time a section is renamed (options-ui-§1).
+  --- Returns the group names in tab order and (minor 4) every drawn tab's key in strip order.
+  ---
+  --- A ONE-GROUP PAGE DRAWS ITS STRIP TOO (OptionsWidgets minor 13): a page that lost its strip is
+  --- the one that looks broken, and the tab is the only thing naming the group once `noHeadings`
+  --- has suppressed the heading. No opt-out flag. A page with NO groups and no host tabs has nothing
+  --- to name a tab with: an authoring defect (anti-patterns #69), REPORTED and rendered untabbed.
+  --- With no AceGUI it reports an empty tab list and draws nothing.
+  ---
+  --- `opts` (minor 4, every field optional), for the pages five hosts hand-built around this:
+  ---   tabs            { { key, label, tooltip, before, render = function(ctx, rows) } } host
+  ---                   tabs drawn by their own callback. One keyed by a group takes that group's
+  ---                   place in the strip and is handed the group's rows; any other is placed
+  ---                   ahead of the tab `before` names, or last, and is handed nil.
+  ---   cfg             the subject this render edits, handed to `disabledFor` and `disabledNotice`.
+  ---   disabledFor     function(cfg) answering true to draw the page disabled: `disabledNotice`
+  ---                   above the rows, and every row (a host tab's widgets through
+  ---                   `ctx.__renderDisabled`) disabled. The rows are still drawn.
+  ---   disabledNotice  a string, or function(cfg) answering one, drawn in the small font.
+  ---   chrome          function(ctx), called once per render after the strip and before the
+  ---                   notice and the rows: a line that belongs above every tab. A banner is not
+  ---                   chrome here -- draw it before calling this, as PageBanner says.
+  --- A tab click re-renders with the same `opts`.
+  function O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith, opts)
+    opts = type(opts) == "table" and opts or NO_OPTS
+    local rows = d.rowsForPage(pageKey, ctx.unit) or {}
+    local groups, byGroup = partition(rows)
+    if not O.AceGUI then return {}, {} end
+
+    local tabs, bespoke = collectTabs(groups, byGroup, opts.tabs)
+    if #tabs == 0 then
+      print(lib.STRINGS.NO_GROUPS:format(tostring(pageKey)))
+      renderBody(ctx, opts, nil, rows, { afterGroup = afterGroup, pairWith = pairWith })
+      return groups, {}
+    end
+    settleActiveTab(ctx, tabs)
+
+    O.TabStrip(ctx, {
+      tabs  = tabs,
+      value = ctx.activeTab,
+      onSelect = function(key)
+        if key == ctx.activeTab then return end
+        ctx.activeTab = key
+        -- The re-render a change of subject takes. In combat the tab button refuses the click.
+        O.ClearScroll(ctx)
+        O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith, opts)
+      end,
+    })
+
+    local active = ctx.activeTab
+    renderBody(ctx, opts, bespoke[active], byGroup[active],
+      { afterGroup = afterGroup, pairWith = pairWith, noHeadings = true })
+
+    local keys = {}
+    for i, t in ipairs(tabs) do keys[i] = t.key end
+    return groups, keys
   end
 end

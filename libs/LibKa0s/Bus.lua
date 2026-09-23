@@ -41,7 +41,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Bus-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Bus-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -66,7 +66,6 @@ local KIND_ORDER = { "event", "message" }
 local function keyOf(kind, name) return kind .. "\0" .. name end
 
 local function byOrd(a, b) return a.ord < b.ord end
-local function bySeq(a, b) return a.seq < b.seq end
 
 --- Create the record for one addon's tracked receivers. ONE INSTANCE PER ADDON, beside its latch.
 ---
@@ -98,6 +97,11 @@ function lib:New(descriptor)
   -- the record empties, so a receiver its owner retires by unregistering everything leaves the bus
   -- with no `Retire` member needed. Outside that window the bus holds no reference to the target.
   local held = {}
+  -- target -> rec for EVERY target this bus handed out, WEAK-KEYED, so the edges can re-stamp a
+  -- target whose record is empty. Weak keys release in Lua 5.1 only because nothing reachable from
+  -- a rec names its target: the wrappers identify their target by looking it up here, and a rec
+  -- carries no `target` field. A rec that named its target would pin every target for the session.
+  local created = setmetatable({}, { __mode = "k" })
   -- Creation order for targets, first-registration order for entries. Dispatch order is not
   -- observable through CallbackHandler, so these exist for a deterministic replay and a
   -- deterministic `rejected` list, and for nothing else.
@@ -105,16 +109,16 @@ function lib:New(descriptor)
 
   local B = { name = d.name }
 
-  --- Record (kind, name) on `rec`. A key already recorded is REPLACED IN PLACE and keeps its
-  --- position: CallbackHandler's own rule is one callback per (event, target) with the later one
-  --- winning, so the record and the live registration never disagree about which handler wins, and
-  --- the key list never holds a key twice.
+  --- Record (kind, name) on `rec`, the record of target `t`. A key already recorded is REPLACED IN
+  --- PLACE and keeps its position: CallbackHandler's own rule is one callback per (event, target)
+  --- with the later one winning, so the record and the live registration never disagree about which
+  --- handler wins, and the key list never holds a key twice.
   ---
   --- The handler is kept exactly as given -- a function, a method name, or nil -- and the optional
   --- argument with its COUNT, because CallbackHandler tells "no arg" from "arg is nil" by counting.
   --- The stored table is named `extra`, not `arg`: Lua 5.1 declares a hidden `arg` in every vararg
   --- function.
-  local function remember(rec, kind, name, handler, ...)
+  local function remember(t, rec, kind, name, handler, ...)
     local key = keyOf(kind, name)
     local entry = rec.entries[key]
     if entry == nil then
@@ -122,39 +126,46 @@ function lib:New(descriptor)
       entry = { kind = kind, name = name, ord = ord }
       rec.entries[key] = entry
       rec.count = rec.count + 1
-      if rec.count == 1 then held[rec.target] = rec end
+      if rec.count == 1 then held[t] = rec end
     end
     entry.handler, entry.n, entry.extra = handler, select("#", ...), { ... }
   end
 
-  local function forget(rec, key)
+  local function forget(t, rec, key)
     if rec.entries[key] == nil then return end
     rec.entries[key] = nil
     rec.count = rec.count - 1
-    if rec.count == 0 then held[rec.target] = nil end
+    if rec.count == 0 then held[t] = nil end
   end
 
-  local function forgetKind(rec, kind)
+  local function forgetKind(t, rec, kind)
     -- Clearing an existing field during `pairs` is permitted in Lua; adding one is not, and
     -- nothing here adds.
     for key, entry in pairs(rec.entries) do
-      if entry.kind == kind then forget(rec, key) end
+      if entry.kind == kind then forget(t, rec, key) end
     end
   end
 
+  local function bySeqOf(a, b) return held[a].seq < held[b].seq end
+
+  --- The held targets, in creation order.
   local function heldInOrder()
     local list = {}
-    for _, rec in pairs(held) do list[#list + 1] = rec end
-    tsort(list, bySeq)
+    for t in pairs(held) do list[#list + 1] = t end
+    tsort(list, bySeqOf)
     return list
   end
 
-  --- Stamp the three wrappers of one kind over `t`'s raw members. Only a call on `t` itself is
-  --- recorded; a raw member reached with some other `self` is passed straight through.
+  --- Build the three wrappers of one kind into `rec.wrap[kind]`, and stamp them over `t`'s raw
+  --- members. Each wrapper calls `rec.raw[kind]` at CALL time, so a raw member the re-stamp adopts
+  --- is the one called from then on. Only a call on the target itself is recorded (`created[self]`
+  --- is this rec); a wrapper reached with some other `self` is passed straight through.
   local function wrapKind(rec, t, kind)
     local names = KINDS[kind]
-    local rawReg, rawUnreg, rawAll = t[names.reg], t[names.unreg], t[names.all]
-    rec.raw[kind] = { reg = rawReg, unreg = rawUnreg, all = rawAll }
+    local raw = { reg = t[names.reg], unreg = t[names.unreg], all = t[names.all] }
+    rec.raw[kind] = raw
+    local wrap = {}
+    rec.wrap[kind] = wrap
 
     -- Register. While UP: the raw call FIRST, then the record, so a raw call that raises (the
     -- client's "Attempt to register unknown event") reaches the caller unchanged and is NOT
@@ -162,26 +173,56 @@ function lib:New(descriptor)
     -- what makes "a stood-down addon registers nothing" structural for every tracked receiver
     -- rather than a guard each host has to remember. A non-string name is handed to the raw call
     -- in both states, so CallbackHandler raises its own usage error and nothing is recorded.
-    t[names.reg] = function(self, name, handler, ...)
-      if self ~= t or type(name) ~= "string" then return rawReg(self, name, handler, ...) end
+    wrap.reg = function(self, name, handler, ...)
+      if created[self] ~= rec or type(name) ~= "string" then return raw.reg(self, name, handler, ...) end
       if down then
-        remember(rec, kind, name, handler, ...)
+        remember(self, rec, kind, name, handler, ...)
         return
       end
-      rawReg(self, name, handler, ...)
-      remember(rec, kind, name, handler, ...)
+      raw.reg(self, name, handler, ...)
+      remember(self, rec, kind, name, handler, ...)
     end
 
     -- Unregister one, and unregister all: forget, then raw, in BOTH states. While down the raw
     -- call is a no-op on the registry; it stays unconditional so the two paths cannot drift.
-    t[names.unreg] = function(self, name, ...)
-      if self == t and type(name) == "string" then forget(rec, keyOf(kind, name)) end
-      return rawUnreg(self, name, ...)
+    wrap.unreg = function(self, name, ...)
+      if created[self] == rec and type(name) == "string" then forget(self, rec, keyOf(kind, name)) end
+      return raw.unreg(self, name, ...)
     end
-    t[names.all] = function(...)
-      if (...) == t then forgetKind(rec, kind) end
-      return rawAll(...)
+    wrap.all = function(...)
+      local first = ...
+      if first ~= nil and created[first] == rec then forgetKind(first, rec, kind) end
+      return raw.all(...)
     end
+
+    t[names.reg], t[names.unreg], t[names.all] = wrap.reg, wrap.unreg, wrap.all
+  end
+
+  --- Put back any of `t`'s six wrappers that something overwrote, ADOPTING what was found there as
+  --- the new raw member: AceEvent-3.0's upgrade loop re-embeds every target in `AceEvent.embeds`,
+  --- and a newer minor's member is the one to forward to. Answers true when any member was put back.
+  local function restamp(t, rec)
+    local changed = false
+    for _, kind in ipairs(KIND_ORDER) do
+      local names, raw, wrap = KINDS[kind], rec.raw[kind], rec.wrap[kind]
+      for slot, member in pairs(names) do
+        local found = t[member]
+        if found ~= wrap[slot] then
+          raw[slot], t[member] = found, wrap[slot]
+          changed = true
+        end
+      end
+    end
+    return changed
+  end
+
+  --- Re-stamp every target this bus handed out. Answers how many targets needed it.
+  local function restampAll()
+    local n = 0
+    for t, rec in pairs(created) do
+      if restamp(t, rec) then n = n + 1 end
+    end
+    return n
   end
 
   --- A fresh AceEvent-embedded receiver, tracked by this bus. One per receiver, never shared: two
@@ -195,36 +236,69 @@ function lib:New(descriptor)
     local t = {}
     AceEvent:Embed(t)
     seq = seq + 1
-    local rec = { target = t, seq = seq, entries = {}, count = 0, raw = {} }
+    local rec = { seq = seq, entries = {}, count = 0, raw = {}, wrap = {} }
+    created[t] = rec
     for _, kind in ipairs(KIND_ORDER) do wrapKind(rec, t, kind) end
     return t
   end
 
+  -- THE RE-STAMP, AND THE WINDOW IT LEAVES. A newer AceEvent-3.0 minor loading later in the
+  -- session re-embeds every target, putting the raw members back over the wrappers. Both edges
+  -- below re-stamp every target this bus created FIRST, whatever else they then do, and answer the
+  -- number of targets re-stamped as a trailing value for the host's debug seam. The residual
+  -- window: a registration made between a re-embed and the next edge goes straight to
+  -- CallbackHandler and is untracked. At that edge StandDown still takes it down when its target
+  -- holds a recorded entry (the raw unregister-all clears the target), but it is not in the record,
+  -- so StandUp does not bring it back; on a target with an empty record it stays live. From the
+  -- edge on, the target is tracked again. No Ace3 fork and no metatable proxy: the edges are the
+  -- only moments the record is read, so they are the moments it has to be right.
+
   --- Take every tracked registration down, events AND messages, and KEEP the record. Answers the
-  --- number of (kind, name) entries recorded at this moment. A second call answers 0 and touches
-  --- nothing.
+  --- number of (kind, name) entries recorded at this moment, and the number of targets re-stamped.
+  --- A second call answers 0 and takes nothing down.
   ---
   --- Not guarded by `isDown`: taking registrations down is always safe, and a host may reach its
   --- teardown from AceAddon's OnDisable as well as from the latch. State first, then work, for the
   --- reason Lifecycle's edge() gives.
   function B:StandDown()
-    if down then return 0 end
+    local restamped = restampAll()
+    if down then return 0, restamped end
     down = true
     local n = 0
-    for _, rec in ipairs(heldInOrder()) do
+    for _, t in ipairs(heldInOrder()) do
+      local rec = held[t]
       n = n + rec.count
-      rec.raw.event.all(rec.target)
-      rec.raw.message.all(rec.target)
+      rec.raw.event.all(t)
+      rec.raw.message.all(t)
     end
-    return n
+    return n, restamped
   end
 
-  --- Replay the record AS IT IS NOW. Answers `replayed, rejected`: the number of entries made live,
-  --- and a FRESH SORTED array of `"event:NAME"` / `"message:NAME"` for the entries that raised.
+  --- Replay one held target's record in first-registration order into `replayed` / `rejected`.
+  local function replay(t, rec, rejected)
+    local entries, replayed = {}, 0
+    for _, entry in pairs(rec.entries) do entries[#entries + 1] = entry end
+    tsort(entries, byOrd)
+    for _, e in ipairs(entries) do
+      local raw = rec.raw[e.kind]
+      if pcall(raw.reg, t, e.name, e.handler, unpack(e.extra, 1, e.n)) then
+        replayed = replayed + 1
+      else
+        forget(t, rec, keyOf(e.kind, e.name))
+        pcall(raw.unreg, t, e.name)
+        rejected[#rejected + 1] = e.kind .. ":" .. e.name
+      end
+    end
+    return replayed
+  end
+
+  --- Replay the record AS IT IS NOW. Answers `replayed, rejected, restamped`: the number of entries
+  --- made live, a FRESH SORTED array of `"event:NAME"` / `"message:NAME"` for the entries that
+  --- raised, and the number of targets re-stamped.
   ---
   --- Refused -- `0, {}`, and the bus stays down -- while `descriptor.isDown()` answers truthy. That
   --- is the latch's "no bare stand-up" rule carried into the one member here that could otherwise
-  --- be one. Answers `0, {}` when already up.
+  --- be one. Answers `0, {}` when already up. The re-stamp runs in every case.
   ---
   --- Each entry replays through pcall, so one entry that raises cannot leave the rest unregistered
   --- (events-frames-taint-§1's "a block MUST survive one bad name", applied to the replay).
@@ -234,27 +308,16 @@ function lib:New(descriptor)
   --- `rejected` through its debug seam. Only an entry recorded while down was never validated by a
   --- raw call, so in practice `rejected` is empty.
   function B:StandUp()
-    if not down then return 0, {} end
-    if isDown and isDown() then return 0, {} end
+    local restamped = restampAll()
+    if not down then return 0, {}, restamped end
+    if isDown and isDown() then return 0, {}, restamped end
     down = false
     local replayed, rejected = 0, {}
-    for _, rec in ipairs(heldInOrder()) do
-      local entries = {}
-      for _, entry in pairs(rec.entries) do entries[#entries + 1] = entry end
-      tsort(entries, byOrd)
-      for _, e in ipairs(entries) do
-        local raw = rec.raw[e.kind]
-        if pcall(raw.reg, rec.target, e.name, e.handler, unpack(e.extra, 1, e.n)) then
-          replayed = replayed + 1
-        else
-          forget(rec, keyOf(e.kind, e.name))
-          pcall(raw.unreg, rec.target, e.name)
-          rejected[#rejected + 1] = e.kind .. ":" .. e.name
-        end
-      end
+    for _, t in ipairs(heldInOrder()) do
+      replayed = replayed + replay(t, held[t], rejected)
     end
     tsort(rejected)
-    return replayed, rejected
+    return replayed, rejected, restamped
   end
 
   return B

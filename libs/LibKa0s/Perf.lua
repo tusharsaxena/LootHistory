@@ -34,7 +34,7 @@ local lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 local NEEDS_LIFECYCLE = 1
 if not lifecycle or (lifecycle.MINOR or 0) < NEEDS_LIFECYCLE then return end   -- module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 12
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 13
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -397,12 +397,19 @@ function lib:New(descriptor)
     if b.within then P.BUCKET_WITHIN[b.key] = b.within end
   end
 
-  -- Capture running? Read directly by every bracket call site, so it must stay a plain boolean
-  -- field on a plain table — no metatable, no accessor.
+  -- Capture running? Read directly by every bracket call site, so it must stay a plain boolean RAW
+  -- field — no accessor. The instance does carry a metatable (below), but it exists only for
+  -- `suspended`; a raw key never reaches it.
+  --
+  -- `armed`, `recording` and `label` start as `false` and are never written nil, for the same
+  -- reason: the sampler reads `armed` and `recording` on every frame of a run, and a nil write
+  -- removes the raw key so each later read falls through to the __index closure (Perf minor 13).
+  -- Every reader tests truthiness or compares against a string, so `false` reads as "none".
   P.on        = false
   P.run       = false     -- between Start() and Stop()
-  P.armed     = nil       -- window armed, waiting for combat
-  P.recording = nil       -- window currently recording
+  P.armed     = false     -- window armed, waiting for combat
+  P.recording = false     -- window currently recording
+  P.label     = false     -- the run's capture label
 
   -- The latch, and the one hold this module is allowed to take on it. The key is read off the
   -- Lifecycle major rather than spelled here, so the arm that takes the hold and the arm that
@@ -529,7 +536,7 @@ function lib:New(descriptor)
   ---
   --- Deliberately NOT a closure-returning Bracket(key): a closure per bracket would allocate on a
   --- path whose entire contract is costing nothing when the probe is off, and `P.on` is read
-  --- directly by every call site precisely so it stays a plain boolean on a plain table. P.Note is
+  --- directly by every call site precisely so it stays a plain boolean raw field. P.Note is
   --- unchanged, so a host already calling it directly keeps working untouched.
   ---
   --- THE ACTIVE ARM COSTS, and the figure is stated here for the same reason the off-path figure
@@ -908,7 +915,10 @@ function lib:New(descriptor)
   -- started — while the console line is what survives into the copied log for later analysis.
   local function openWindow()
     P.recording = P.armed
-    P.armed = nil
+    P.armed = false
+    -- A bracket leaked by a host error in an earlier window must not parent this window's
+    -- brackets, so the open depth starts clean at each window edge.
+    openDepth = 0
     P.on = true              -- the brackets record only inside an experiment
     stopwatch("play")
     publishState()
@@ -918,8 +928,9 @@ function lib:New(descriptor)
 
   local function closeWindow()
     local w = P.recording
-    P.recording = nil
+    P.recording = false
     P.on = false
+    openDepth = 0
     stopwatch("pause")
     if not w then return end
     completed[w] = true
@@ -954,9 +965,9 @@ function lib:New(descriptor)
   --- Begin an experiment. Samples nothing until a window is armed with Measure().
   function P.Start(label)
     P.Reset()
-    P.label = label
+    P.label = label or false
     P.run = true
-    P.armed, P.recording = nil, nil
+    P.armed, P.recording = false, false
     P.on = false
     -- Lifecycle lines are never gated behind a host debug flag, unlike a host's own debug logging
     -- (that gate exists to keep the host quiet while idle). A perf run is explicit user action, so
@@ -1008,7 +1019,7 @@ function lib:New(descriptor)
   function P.Stop()
     if P.recording then closeWindow() end
     P.run = false
-    P.armed = nil
+    P.armed = false
     P.on = false
     stopwatch("pause")
     P.Log("run finished \226\128\148 A %s / %s frames, B %s / %s frames",
@@ -1030,7 +1041,7 @@ function lib:New(descriptor)
   function P.Cancel()
     if not (P.run or P.armed or P.recording) then return false end
 
-    P.run, P.armed, P.recording = false, nil, nil
+    P.run, P.armed, P.recording = false, false, false
     P.on = false
     stopwatch("pause")
     if sampler then
@@ -1041,7 +1052,7 @@ function lib:New(descriptor)
     -- happen whatever else follows.
     if P.suspended then P.Resume() end
     P.Reset()
-    P.label = nil
+    P.label = false
     -- The context stamp goes with the run it described. Left standing, a `perf report` after a
     -- cancel prints empty buckets wearing the discarded run's character, realm and zone — a record
     -- that looks like a capture of somewhere nobody measured.

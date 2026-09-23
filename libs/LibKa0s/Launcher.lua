@@ -48,7 +48,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -66,13 +66,18 @@ local ICON_MAJOR = "LibDBIcon-1.0"
 
 -- Every user-visible string this module can emit. A literal table, as every other major's is: the
 -- library carries no locale, and a host that wants its own words passes `d.L` keyed to these.
+--
+-- UNTAGGED since minor 2. Every line goes out through the host's printer (makeEmit), which carries
+-- the host's own tag, so a library tag here read as two tags in chat. The `%s` is still the addon's
+-- folder name, so the chat-frame fallback still says whose launcher it is. The keys are unchanged,
+-- so a host's `d.L` override keeps working.
 lib.STRINGS = {
-  NO_BROKER    = "[LibKa0s] %s: LibDataBroker-1.1 is missing, so there is no launcher.",
-  NO_ICON      = "[LibKa0s] %s: LibDBIcon-1.0 is missing, so there is no minimap button. "
+  NO_BROKER    = "%s: LibDataBroker-1.1 is missing, so there is no launcher.",
+  NO_ICON      = "%s: LibDBIcon-1.0 is missing, so there is no minimap button. "
               .. "A broker display will still show the plugin.",
-  NO_MINIMAP   = "[LibKa0s] %s: the launcher descriptor's `minimap` did not answer a table, so "
+  NO_MINIMAP   = "%s: the launcher descriptor's `minimap` did not answer a table, so "
               .. "LibDBIcon has nowhere to keep the button's position.",
-  CLICK_FAILED = "[LibKa0s] %s: the launcher's %s-click raised: %s",
+  CLICK_FAILED = "%s: the launcher's %s-click raised: %s",
 }
 
 --- The host's own printer, or the chat frame. Same shape every other major uses.
@@ -117,6 +122,15 @@ end
 ---                            preview switch's toggle for rung (b), and pass NOTHING for rung
 ---                            (c), where left-click opens the settings panel too. It is handed
 ---                            the button name, so a host needing it does not have to re-read it.
+---   isEnabled      function  optional, since minor 2. Whether the addon is enabled. Where it
+---                            answers false (or nil) and `onClick` is present, a LEFT click is
+---                            refused: `disabledLine` is printed and `onClick` is not called
+---                            (launcher-§2's disabled rung (a)/(b)). Right-click and rung (c) are
+---                            never gated, because the settings panel is where the addon is
+---                            re-enabled. Asked on every click, never cached.
+---   disabledLine   function  REQUIRED when `isEnabled` is given, since minor 2. Answers the line
+---                            the refusal prints — the host's Slash dispatcher's own disabled line,
+---                            so the minimap and `/<slash>` refuse in the same words.
 ---   onTooltipShow  function  optional. Handed straight to the LDB object; its contents are the
 ---                            addon's own and nothing here binds them (launcher-§1).
 ---   print          function  optional. Where this module's own reports go. Defaults to the chat
@@ -136,6 +150,9 @@ function lib:New(d)
   end
   if type(d.openSettings) ~= "function" then
     error(MAJOR .. ":New requires descriptor.openSettings — right-click ALWAYS opens the panel", 2)
+  end
+  if type(d.isEnabled) == "function" and type(d.disabledLine) ~= "function" then
+    error(MAJOR .. ":New requires descriptor.disabledLine with isEnabled — a refusal must say why", 2)
   end
 
   local strings = type(d.L) == "table" and d.L or nil
@@ -163,6 +180,28 @@ function lib:New(d)
     if type(d.debug) == "function" then d.debug("Launcher", message) end
   end
 
+  --- A missing-library notice, printed ONCE per instance. Register is callable from OnInitialize
+  --- and again from login, and a Register that fails reaches its notice again each time; one
+  --- missing library is one line in chat, not one per call. The debug log still hears every call.
+  local noticed = {}
+  local function notice(key)
+    if noticed[key] then return end
+    noticed[key] = true
+    emit(text(key):format(name))
+  end
+
+  --- The LEFT click on rungs (a)/(b), behind the optional disabled gate (minor 2). A disabled
+  --- addon's left click prints the host's refusal line and runs nothing, which is launcher-§2's
+  --- rule written once here instead of inside every host's onClick.
+  local function leftAction(button)
+    if type(d.isEnabled) == "function" and not d.isEnabled() then
+      local line = d.disabledLine()
+      if type(line) == "string" then emit(line) end
+      return
+    end
+    return d.onClick(button)
+  end
+
   --- THE ONE CLICK IMPLEMENTATION (launcher-§1/§2). Both surfaces dispatch into it, so the rung
   --- rule is satisfied on the minimap and in a broker display by construction rather than by two
   --- implementations agreeing.
@@ -172,12 +211,16 @@ function lib:New(d)
   --- and otherwise opens the panel as well — that is rung (c), and it is expressed by the ABSENCE
   --- of `onClick` rather than by a flag, so a host cannot declare a rung it did not implement.
   ---
+  --- A host that passes `isEnabled` has its LEFT click on rungs (a)/(b) gated by it (leftAction);
+  --- the right button and rung (c) both open the panel, where the addon is re-enabled, and are
+  --- never gated.
+  ---
   --- pcall'd, because this runs inside the client's click dispatch: a raising handler there is a
   --- red error box over the player's minimap with nothing saying which addon caused it. One line
   --- names the addon and the button instead, and the launcher keeps working.
   local function click(_, button)
     local right = button == "RightButton"
-    local fn = (not right) and type(d.onClick) == "function" and d.onClick or d.openSettings
+    local fn = (not right) and type(d.onClick) == "function" and leftAction or d.openSettings
     local ok, err = pcall(fn, button)
     if not ok then
       emit(text("CLICK_FAILED"):format(name, right and "right" or "left", tostring(err)))
@@ -200,7 +243,7 @@ function lib:New(d)
     local LDB = LibStub and LibStub(LDB_MAJOR, true)
     if not LDB then
       log("LibDataBroker-1.1 absent; no launcher")
-      emit(text("NO_BROKER"):format(name))
+      notice("NO_BROKER")
       return false
     end
 
@@ -225,14 +268,14 @@ function lib:New(d)
     local icons = LibStub and LibStub(ICON_MAJOR, true)
     if not icons then
       log("LibDBIcon-1.0 absent; broker plugin only")
-      emit(text("NO_ICON"):format(name))
+      notice("NO_ICON")
       return false
     end
 
     minimap = minimapTable(d)
     if not minimap then
       log("descriptor.minimap answered no table; no minimap button")
-      emit(text("NO_MINIMAP"):format(name))
+      notice("NO_MINIMAP")
       return false
     end
 

@@ -202,6 +202,97 @@ if [ -n "$RELEASE" ] && [ "$GIT_DIRTY" = true ]; then
     exit 2
 fi
 
+# ── which perf skip reason applies (kit revision 26) ────────────────────────────────────────────
+# `automated-tests-§3` sanctions two reasons for a permanent perf `skip`, and the second MUST be
+# recorded when it applies: (1) the repo ships no `tests/perf.lua`, so there is nothing to run, and
+# (2) it holds a ratified `performance-§12` no-combat-path exemption. Through revision 25 this runner
+# knew only (1), so three addons that hold the exemption had it denied in every record they wrote,
+# and none of them could correct it: the kit may not be edited in place (`testing-§1`).
+#
+# The exemption is read out of the repo's own `## Documented deviations` register, in the two hosts
+# framework.lua's `deviationRows` reads and in the same order: `docs/ARCHITECTURE.md` for an addon,
+# the root `CLAUDE.md` for a library. Only the table rows DIRECTLY under the heading count, ending at
+# the next heading of any level, so a census or any other table nested beneath it is never a row.
+#
+# THE RULE CELL MUST BE `performance-§12` EXACTLY, after the `normRule` reduction (lower case, no
+# backticks, no whitespace, no section sign). A substring match would read WhatGroup's row, keyed
+# `performance-§12 (the exemption is not claimed)`, as the exemption it disclaims.
+#
+# A REGISTER THIS CANNOT READ EXITS 2, before any suite and before the bundle directory exists. The
+# table must open with a header whose first cell is `Rule`, a `|---|` separator must follow, and every
+# row needs a cell after its Rule. A row MAY carry more cells than the header: a `|` inside a code
+# span splits a cell in markdown, several registers in the collection have one, and the rule is read
+# from the first cell alone. Guessing past anything else would record whichever reason the guess
+# happened to land on, as a fact about the repo.
+#
+# `KA0S_PERF_EXEMPT=1` is for a repo that has no register at all. Where a register exists it is the
+# record, and a flag that could outvote it would be a second, unreviewed place to ratify a deviation.
+register_scan() {   # $1 = file; prints: none | register | match | malformed<TAB>why
+    awk '
+        function norm(s) { s = tolower(s); gsub(/[` \t]/, "", s); gsub(/\302\247/, "", s); return s }
+        function cells(line, out,    body, n, i) {
+            body = line; gsub(/\\\|/, "\001", body)
+            sub(/^[ \t]*\|/, "", body); sub(/[ \t]*$/, "", body); sub(/\|$/, "", body)
+            n = split(body, out, "|")
+            for (i = 1; i <= n; i++) { sub(/^[ \t]+/, "", out[i]); sub(/[ \t]+$/, "", out[i]) }
+            return n
+        }
+        { sub(/\r$/, "") }
+        /^#+[ \t]/ {
+            t = $0; sub(/^#+[ \t]+/, "", t)
+            inside = (index(tolower(t), "documented deviations") > 0)
+            if (inside) { seen = 1; nrow = 0 }
+            next
+        }
+        inside && /^[ \t]*\|/ {
+            nrow++
+            n = cells($0, c)
+            if (nrow == 1) {
+                if (n < 2 || norm(c[1]) != "rule") bad = bad sprintf("line %d: the header does not open with a Rule cell; ", NR)
+                next
+            }
+            if (nrow == 2) {
+                for (i = 1; i <= n; i++) if (c[i] !~ /^:?-+:?$/) { bad = bad sprintf("line %d: no |---| separator under the header; ", NR); break }
+                next
+            }
+            if (n < 2) { bad = bad sprintf("line %d: a row with no cell after its Rule; ", NR); next }
+            if (norm(c[1]) == "performance-12") hit = 1
+        }
+        END {
+            if (!seen) print "none"
+            else if (bad != "") print "malformed\t" bad
+            else if (hit) print "match"
+            else print "register"
+        }' "$1" 2>/dev/null
+}
+PERF_EXEMPT_NOTE=""; PERF_EXEMPT_SRC=""
+if wants perf && [ ! -f tests/perf.lua ]; then
+    REGISTER_SEEN=0
+    for host in docs/ARCHITECTURE.md CLAUDE.md; do
+        [ -f "$host" ] || continue
+        verdict="$(register_scan "$host")"
+        case "$verdict" in
+            malformed*)
+                {
+                    echo "cannot read the ## Documented deviations register in $host: ${verdict#malformed?}"
+                    echo "  The perf skip reason is read from it (automated-tests-§3). Fix the table, then re-run."
+                } >&2
+                exit 2 ;;
+            match)
+                REGISTER_SEEN=1
+                if [ -z "$PERF_EXEMPT_NOTE" ]; then
+                    PERF_EXEMPT_NOTE="performance-§12 no-combat-path exemption (ratified; $host -> Documented deviations)"
+                    PERF_EXEMPT_SRC="the \`## Documented deviations\` register in \`$host\`"
+                fi ;;
+            register) REGISTER_SEEN=1 ;;
+        esac
+    done
+    if [ "$REGISTER_SEEN" -eq 0 ] && [ "${KA0S_PERF_EXEMPT:-}" = "1" ]; then
+        PERF_EXEMPT_NOTE="performance-§12 no-combat-path exemption (ratified; KA0S_PERF_EXEMPT=1)"
+        PERF_EXEMPT_SRC="\`KA0S_PERF_EXEMPT=1\`, this repo having no deviation register"
+    fi
+fi
+
 # ── is the record behind the tree? REPORT, NEVER FAIL ───────────────────────────────────────────
 # Read BEFORE this run's own directory is created, because afterwards the newest bundle is always
 # this one and the question cannot be asked again. `automated-tests-§4`: going stale between
@@ -340,7 +431,9 @@ fi
 # ── perf (recorded, never gating) ───────────────────────────────────────────────────────────────
 if wants perf; then
     t0=$(now_ms)
-    if [ ! -f tests/perf.lua ]; then
+    if [ ! -f tests/perf.lua ] && [ -n "$PERF_EXEMPT_NOTE" ]; then
+        ST[perf]="skip"; NOTE[perf]="$PERF_EXEMPT_NOTE"
+    elif [ ! -f tests/perf.lua ]; then
         ST[perf]="skip"; NOTE[perf]="no tests/perf.lua — this addon ships no offline scenarios"
     elif [ -z "$LUA" ]; then
         ST[perf]="skip"; NOTE[perf]="no Lua interpreter on PATH"
@@ -711,7 +804,10 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
     }
 
     fn_table() {
-        if [ -z "$CCN_WARN_ROWS" ]; then printf 'None.\n'; return; fi
+        # THE HEADER PRINTS UNCONDITIONALLY (kit revision 26). `automated-tests-§4` asks for a table
+        # with its header row, and an empty set is a table with no data rows under it. Through
+        # revision 25 an empty set printed `None.` instead, so the section changed shape the day a
+        # repo reached zero warnings, which is the day its record matters most.
         printf '| Function | CCN | Location | Disposition |\n|---|---|---|---|\n'
         while IFS="$(printf '\t')" read -r name ccn file; do
             [ -z "$name" ] && continue
@@ -728,7 +824,7 @@ FNROWS
     }
 
     band_table() {
-        if [ -z "$CCN_BAND_ROWS" ]; then printf 'None.\n'; return; fi
+        # Headed when empty, for the reason fn_table gives.
         printf '| Band | File | LOC | Disposition |\n|---|---|---|---|\n'
         while IFS="$(printf '\t')" read -r band file loc; do
             [ -z "$band" ] && continue
@@ -835,7 +931,13 @@ TOTALS
         case "${ST[perf]}" in
             notrun) printf 'Not selected on this run.\n\n'; return ;;
             skip)
-                if [ ! -f tests/perf.lua ]; then
+                if [ ! -f tests/perf.lua ] && [ -n "$PERF_EXEMPT_NOTE" ]; then
+                    printf '**This repo holds a ratified `performance-§12` no-combat-path exemption, so `perf` is a\n'
+                    printf 'permanent `skip`** — the second of `automated-tests-§3`'"'"'s two sanctioned reasons, read by\n'
+                    printf 'this runner from %s. The exemption, and the sweep behind it, are in\n' "$PERF_EXEMPT_SRC"
+                    printf '`docs/performance.md`: this record carries no scenario table because the addon has no\n'
+                    printf 'combat path for one to measure, not because the question was never asked.\n\n'
+                elif [ ! -f tests/perf.lua ]; then
                     printf '**This repo ships no `tests/perf.lua`, so `perf` is a permanent `skip`** — the first of\n'
                     printf '`automated-tests-§3`'"'"'s two sanctioned reasons, *nothing to run*, rather than a ratified\n'
                     printf '`performance-§12` no-combat-path exemption. The record is therefore **silent about runtime\n'

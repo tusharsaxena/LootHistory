@@ -4,10 +4,10 @@
 -- Five files, one major. This one is the shell; OptionsWidgets.lua is the schema-row -> AceGUI
 -- translation and the two-column flow engine; OptionsTabs.lua is the page's chrome -- the tab
 -- strip, the banner, the header block and the secondary strip; OptionsCompose.lua is the schema
--- composers; OptionsScroll.lua is the always-shown scrollbar patch. They are one major because
--- they are one feature: a host that ended up with a shell from one vendored copy and a flow engine
--- from another would build panels that lay out wrong, and there is no version negotiation that
--- would catch it.
+-- composers; OptionsScroll.lua is the always-shown scrollbar patch and the font preload. They are
+-- one major because they are one feature: a host that ended up with a shell from one vendored copy
+-- and a flow engine from another would build panels that lay out wrong, and there is no version
+-- negotiation that would catch it.
 --
 -- The basenames are namespaced (OptionsWidgets, not Widgets) because tests/test_versioning.lua
 -- searches one shared CHANGELOG.md for "<FileBasename> minor <N>". Two majors owning a file called
@@ -23,7 +23,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 23
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 24
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -331,107 +331,6 @@ function lib.__PatchLSM30Border()
   return true
 end
 
--- ── the font preload (minor 17) ────────────────────────────────────────────────────────────
---
--- AceGUI-3.0-SharedMediaWidgets' `LSM30_Font` builds its pull-out list on OPEN, running
--- `SetFont(face); SetText(name)` on one row per registered face. The client loads a font file on
--- its first reference, and text set with a face that is not loaded yet draws blank until something
--- sets it again — so the first open of any font dropdown in a session showed a blank row for every
--- face nothing had used yet (third-party LSM faces, mostly), and the second open was fine. The
--- widget is upstream and vendored, so it is not the thing to change; what the library can do is
--- have every face loaded before a dropdown can be opened, which is after a panel has been shown.
---
--- WHEN: a settings panel's show, never load or PLAYER_LOGIN. Loading every face costs memory, and
--- some of Blizzard's CJK faces are large; a player who never opens settings must not pay for it.
--- Opening a font dropdown would load every face anyway, so a player who does open settings pays
--- nothing extra, only earlier. The two call sites are in `lib:New` — `O.SetRenderer`'s OnShow and
--- `O.CreatePanel`'s hook — and each says why it is where it is.
---
--- WHY HERE and not in Media.lua: the trigger is the panel lifecycle, which this file owns and
--- Media.lua has none of; `getLSM` is already on this major's descriptor; and `LSM30_Font` is the
--- dialogControl this major's own `O.FontGroup` writes. Media.lua's `RegisterLSM` puts faces IN;
--- this is about the widget that lists them.
---
--- LIBRARY-LEVEL STATE, on `lib`, so every host instance shares it and a LibStub minor upgrade keeps
--- it: every vendored copy in the session is handed the same `lib`, so a client running five Ka0s
--- addons loads each face once, not five times. It is read through `preloadState()` at call time and
--- never captured, and `lib.__PreloadFonts` is looked up on `lib` at call time by both of its callers
--- — an instance built by an older copy, and the LSM callback — so after an upgrade the newest code
--- is what runs.
-
-local function preloadState()
-  lib.__fontPreload = lib.__fontPreload or { paths = {} }
-  return lib.__fontPreload
-end
-preloadState()
-
---- The one frame the strings hang off. Shown, at full alpha and parented to UIParent — the client
---- may skip work for a hidden or fully transparent region, and a frame parented to a page would be
---- hidden with it — but 1x1 and parked off the left edge of the screen, so it is never seen.
-local function preloadFrame(state)
-  if state.frame then return state.frame end
-  if type(CreateFrame) ~= "function" then return nil end
-  local f = CreateFrame("Frame", nil, UIParent)
-  if not f then return nil end
-  f:SetSize(1, 1)
-  if UIParent then f:SetPoint("TOPRIGHT", UIParent, "TOPLEFT", -64, 0) end
-  f:SetAlpha(1)
-  f:Show()
-  state.frame = f
-  return f
-end
-
---- Load one face: a FontString per distinct PATH, since several LSM keys can name one file. The path
---- is marked BEFORE it is tried, so a face the client refuses is tried once, not on every show; and
---- the two calls are pcall'd together, because a SetFont that fails without raising leaves a string
---- whose SetText raises instead.
-local function preloadPath(state, f, path)
-  if type(path) ~= "string" or path == "" or state.paths[path] then return false end
-  state.paths[path] = true
-  local fs = f:CreateFontString(nil, "BACKGROUND")
-  if not fs then return false end
-  fs:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
-  return (pcall(function()
-    fs:SetFont(path, 12, "")
-    fs:SetText("Aa")
-  end))
-end
-
---- Faces registered after the first preload — an addon that loads on demand, or registers late —
---- are loaded as they arrive. ONE subscription for the library, whichever host's show made it: the
---- target is the shared state table, and CallbackHandler keeps one callback per (event, target).
-local function subscribeLate(state, LSM)
-  if state.subscribed or type(LSM.RegisterCallback) ~= "function" then return end
-  state.subscribed = pcall(LSM.RegisterCallback, state, "LibSharedMedia_Registered",
-    function(_, mediatype)
-      if mediatype ~= "font" then return end
-      local preload = lib.__PreloadFonts
-      if type(preload) == "function" then pcall(preload, LSM) end
-    end)
-end
-
---- Load every LibSharedMedia face not loaded yet, then subscribe (once) to faces registered later.
---- Answers how many faces this call loaded. Anything that is not an LSM with a `HashTable` — `nil`
---- included — answers 0 and creates nothing, and so does a client with no `CreateFrame`, in which
---- case nothing is marked and the next call tries again.
----
---- @param LSM table|nil  LibSharedMedia-3.0, as the host's `getLSM()` returns it.
---- @return number
-function lib.__PreloadFonts(LSM)
-  if type(LSM) ~= "table" or type(LSM.HashTable) ~= "function" then return 0 end
-  local ok, fonts = pcall(LSM.HashTable, LSM, "font")
-  if not ok or type(fonts) ~= "table" then return 0 end
-  local state = preloadState()
-  local f = preloadFrame(state)
-  if not f then return 0 end
-  local n = 0
-  for _, path in pairs(fonts) do
-    if preloadPath(state, f, path) then n = n + 1 end
-  end
-  subscribeLate(state, LSM)
-  return n
-end
-
 -- ── the combat lock (minor 22) ─────────────────────────────────────────────────────────────
 --
 -- options-ui-§2 as of the Ka0s WoW Addon Standard v2.60.0, and anti-pattern #88. Gating
@@ -462,6 +361,61 @@ end
 
 -- The dispatcher, lib.__OnCombatEvent, is OptionsTabs.lua's from minor 23, beside the page-scoped
 -- registration it depends on.
+
+-- ── the registration park (minor 24) ────────────────────────────────────────────────────────
+--
+-- O.CreateOptionsPanel under InCombatLockdown() registers nothing: registering a category is the
+-- first touch a panel makes on Blizzard's settings tree, and a host reaching it from a /reload taken
+-- in combat is the one path every consumer shares. The request is PARKED here instead, and replayed
+-- once when combat ends. The replay does not go through the host: it runs whatever the host's own
+-- stand-down state, so an addon disabled mid-combat still gets its category (ConsumableMaster's own
+-- park lost it there). No instance member is added, so no degradation stub moves.
+--
+-- LIBRARY-LEVEL and private: one frame for the whole process (`lib.__parkFrame`), separate from the
+-- page lock's, registered for PLAYER_REGEN_ENABLED ONLY while something is parked and let go before
+-- the replay runs. Its handler looks `lib.__OnParkEvent` up when the event arrives, so the newest
+-- copy's dispatcher drains what an older copy parked. A stand-down suite that fires every event at
+-- every frame reaches it with nothing parked, and nothing happens.
+
+lib.__parkedPanels = lib.__parkedPanels or {}
+
+--- Drain the park: let go of the event, then replay every parked request once, in order. Each is
+--- pcall'd so one host's registration cannot cost another's; the first error is raised after the
+--- rest have run, so it is reported rather than swallowed.
+function lib.__OnParkEvent(event)
+  if event ~= "PLAYER_REGEN_ENABLED" then return end
+  local f = lib.__parkFrame
+  if f then f:UnregisterEvent("PLAYER_REGEN_ENABLED") end
+  local parked = lib.__parkedPanels
+  lib.__parkedPanels = {}
+  local firstErr
+  for _, replay in ipairs(parked) do
+    local ok, err = pcall(replay)
+    if not ok and firstErr == nil then firstErr = err end
+  end
+  if firstErr ~= nil then error(firstErr, 0) end
+end
+
+--- Park one replay and listen for the end of combat. Answers false when the client has no frame to
+--- listen with, and the caller then registers at once, as every minor before 24 did.
+function lib.__parkRegistration(replay)
+  local f = lib.__parkFrame
+  if not f then
+    if type(CreateFrame) ~= "function" then return false end
+    f = CreateFrame("Frame")
+    if not f then return false end
+    f:Hide()
+    lib.__parkFrame = f
+  end
+  f:SetScript("OnEvent", function(_, event)
+    local dispatch = lib.__OnParkEvent
+    if type(dispatch) == "function" then dispatch(event) end
+  end)
+  local parked = lib.__parkedPanels
+  parked[#parked + 1] = replay
+  f:RegisterEvent("PLAYER_REGEN_ENABLED")
+  return true
+end
 
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
 
@@ -534,9 +488,12 @@ end
 ---                              with N the host's OWN tally of writes that changed a stored value,
 ---                              never `count`. A host that supplies neither field gets minor 15's
 ---                              walk exactly, with no pcall.
----   scheduleTimer(fn, delay)   optional. Backs the color picker's 50 ms drag throttle. A
----                              descriptor field rather than an AceTimer embed, because embedding
----                              would be this library's second dependency-budget breach.
+---   scheduleTimer(fn, delay)   optional. Backs the color picker's 50 ms drag throttle and the
+---                              slider's live commit. A descriptor field rather than an AceTimer
+---                              embed, because embedding would be this library's second
+---                              dependency-budget breach. Its return value is unused: the library
+---                              keeps its own armed flag (OptionsWidgets minor 31), so a
+---                              C_Timer.After wrapper that answers nil is throttled like any other.
 ---   getLSM()                   optional. Returns LibSharedMedia-3.0, for LSMValues and, since
 ---                              minor 17, for the font preload every panel show runs (see
 ---                              lib.__PreloadFonts).
@@ -622,7 +579,8 @@ function lib:New(d)
     preload(d.getLSM())
   end
 
-  --- Load every LSM face on a panel's show (lib.__PreloadFonts, above lib:New). pcall'd whole:
+  --- Load every LSM face on a panel's show (lib.__PreloadFonts, in OptionsScroll.lua since
+  --- minor 24; absent in a partial copy, which is no preload). pcall'd whole:
   --- a raising getLSM, a missing CreateFrame or a face the client refuses must never cost the page,
   --- and none of them is the page's fault, so nothing is reported either.
   local function preloadFonts()
@@ -1346,8 +1304,24 @@ function lib:New(d)
     mainCategoryID = mainCategory:GetID()
   end
 
+  local parked = false         -- is a combat-time CreateOptionsPanel waiting in lib.__parkedPanels?
+
+  --- Under InCombatLockdown(), park this instance's registration for the end of combat (minor 24;
+  --- read the note at lib.__parkRegistration). Answers true when the caller must stop here: parked
+  --- now, or already parked, which makes a second call in the same combat a no-op.
+  local function parkIfLocked()
+    if parked then return true end
+    if not (InCombatLockdown and InCombatLockdown()) then return false end
+    parked = lib.__parkRegistration(function()
+      parked = false
+      O.CreateOptionsPanel()
+    end)
+    if parked and type(d.debug) == "function" then d.debug("Cfg", "register parked (in combat)") end
+    return parked
+  end
+
   --- Build the whole options surface: resolve AceGUI, validate, register the main canvas, then run
-  --- every page builder.
+  --- every page builder. In combat it registers nothing and replays itself once combat ends.
   function O.CreateOptionsPanel()
     -- Idempotent: a second call is a no-op. The function is public and cheap to reach twice (a
     -- login plus a profile change), and re-running it would register a SECOND Blizzard category
@@ -1355,6 +1329,7 @@ function lib:New(d)
     -- the RefreshAllPanels fan-out. The guard is on RE-registration only; the lazy body render at
     -- first OnShow is untouched.
     if mainCategory then return end
+    if parkIfLocked() then return end
 
     -- Re-resolved rather than trusting the handle taken at New time. A host builds its panel at
     -- PLAYER_LOGIN, by which point an AceGUI that was absent at load may be present (and vice
@@ -1408,17 +1383,23 @@ function lib:New(d)
   ---
   --- The gate lives HERE rather than in a host's slash dispatcher, so every caller is refused —
   --- the config verb, a /run script, a future internal caller.
+  ---
+  --- @return true when the category was opened; false when refused in combat (the chat line is
+  ---         still printed); nil when there is no category to open -- CreateOptionsPanel has not
+  ---         registered one yet (or is parked for the end of combat), or the client has no
+  ---         Settings.OpenToCategory. (minor 24; every earlier minor returned nothing.)
   function O.OpenOptionsPanel()
     if InCombatLockdown and InCombatLockdown() then
       if type(d.debug) == "function" then d.debug("Cfg", "open refused (in combat)") end
       print(lib.STRINGS.COMBAT_REFUSED)
-      return
+      return false
     end
-    if not (Settings and Settings.OpenToCategory) then return end
-    if not mainCategoryID then return end
+    if not (Settings and Settings.OpenToCategory) then return nil end
+    if not mainCategoryID then return nil end
     if type(d.debug) == "function" then d.debug("Cfg", "opened") end
     Settings.OpenToCategory(mainCategoryID)
     expandMainCategory()
+    return true
   end
 
   -- ── test seams ───────────────────────────────────────────────────────────────────────────
@@ -1466,9 +1447,9 @@ function lib:New(d)
   -- leaves its half absent rather than erroring at :New, which is why the shell's own members
   -- reach for O.AttachTooltip and O.PatchAlwaysShowScrollbar at CALL time and never at load time.
   if lib.__AttachWidgets then lib.__AttachWidgets(O, d) end
-  -- No descriptor: the chrome is geometry and art and reaches none of the host's data. See
-  -- OptionsTabs.lua's own note on why the signature differs from the three around it.
-  if lib.__AttachTabs    then lib.__AttachTabs(O)       end
+  -- After the widgets, because the chrome half's RenderTabbedSchema replaces the widget half's
+  -- untabbed fallback. The descriptor reaches it for `rowsForPage` alone (OptionsTabs minor 4).
+  if lib.__AttachTabs    then lib.__AttachTabs(O, d)    end
   if lib.__AttachCompose then lib.__AttachCompose(O, d) end
   if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
 

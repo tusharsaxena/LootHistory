@@ -34,7 +34,7 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 12
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 13
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -55,6 +55,17 @@ lib.MODULES.DebugLog = MINOR
 -- window is a view of this array and caps nothing of its own, which is why raising this raises
 -- both and why there is no second number.
 lib.MAX_BUFFER = 1500
+
+-- How far the raw array may run past MAX_BUFFER before it is compacted (minor 13). Through minor 12
+-- every Add past the cap ran table.remove(buffer, 1), a MAX_BUFFER-slot shift per line for as long
+-- as logging stayed on. Now the array grows to MAX_BUFFER + BUFFER_SLACK and the newest MAX_BUFFER
+-- lines are then moved down in one pass: one compaction per 65 lines instead of a shift per line.
+--
+-- `buffer` stays a plain ordered array rather than a ring, because host suites across the
+-- collection index it directly. What moves is only its LENGTH past the cap: between compactions it
+-- may hold up to MAX_BUFFER + BUFFER_SLACK raw entries, and every public reader (BufferSize,
+-- LastLine, FindLine, CopyText, the status line) answers the newest MAX_BUFFER and no more.
+local BUFFER_SLACK = 64
 
 -- Re-exported rather than left for the host to reach into Core for. A host that draws a close
 -- button on its own windows should get the same one its console wears, from one factory — three
@@ -619,8 +630,16 @@ function lib:New(d)
     local f = EnsureFrame()
     local ts = date("%H:%M:%S")
     if f and f.log then f.log:AddMessage(lib.FormatColored(ts, tag, msg)) end
-    D.buffer[#D.buffer + 1] = lib.FormatPlain(ts, tag, msg)
-    if #D.buffer > lib.MAX_BUFFER then table.remove(D.buffer, 1) end
+    local buf = D.buffer
+    buf[#buf + 1] = lib.FormatPlain(ts, tag, msg)
+    local n, cap = #buf, lib.MAX_BUFFER
+    if n > cap + BUFFER_SLACK then
+      -- One pass: the newest `cap` lines move down to 1..cap, then the tail is cleared from the end
+      -- so the array stays dense at every step.
+      local drop = n - cap
+      for i = 1, cap do buf[i] = buf[i + drop] end
+      for i = n, cap + 1, -1 do buf[i] = nil end
+    end
     D:UpdateScrollBar()
     D:UpdateStatus()
   end
@@ -660,14 +679,22 @@ function lib:New(d)
     D:Add(tag, msg)
   end
 
-  function D:BufferSize() return #D.buffer end
+  --- The index of the oldest line a reader may see. The raw array can run up to BUFFER_SLACK lines
+  --- past the cap between compactions, and those older lines are already evicted as far as any
+  --- reader is concerned.
+  local function firstKept()
+    local first = #D.buffer - lib.MAX_BUFFER + 1
+    return first > 1 and first or 1
+  end
+
+  function D:BufferSize() return #D.buffer - firstKept() + 1 end
 
   function D:LastLine() return D.buffer[#D.buffer] end
 
   --- The newest line containing `substr`, or nil. Plain search, not a pattern — callers are looking
   --- for a tag or a fragment of a message, neither of which is written as a Lua pattern.
   function D:FindLine(substr)
-    for i = #D.buffer, 1, -1 do
+    for i = #D.buffer, firstKept(), -1 do
       if D.buffer[i]:find(substr, 1, true) then return D.buffer[i] end
     end
     return nil
@@ -695,13 +722,14 @@ function lib:New(d)
 
   function D:UpdateStatus()
     if not (frame and frame.lineCount) then return end
-    frame.lineCount:SetText(D:Text("LINES"):format(#D.buffer, lib.MAX_BUFFER))
+    frame.lineCount:SetText(D:Text("LINES"):format(D:BufferSize(), lib.MAX_BUFFER))
   end
 
   --- Exactly what the copy window puts in front of the user. Split out from ShowCopy because an
   --- EditBox is write-only through the frame API, so this is the only way to assert the thing that
-  --- actually matters about the copy window — that it is the whole buffer, in order.
-  function D:CopyText() return table.concat(D.buffer, "\n") end
+  --- actually matters about the copy window — that it is the whole buffer, in order. The newest
+  --- MAX_BUFFER lines only, since minor 13: any slack past the cap is already evicted.
+  function D:CopyText() return table.concat(D.buffer, "\n", firstKept(), #D.buffer) end
 
   function D:ShowCopy()
     local win = EnsureCopyWindow()

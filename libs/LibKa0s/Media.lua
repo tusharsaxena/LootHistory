@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 3
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 4
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -240,6 +240,28 @@ end
 
 -- ── LibSharedMedia ─────────────────────────────────────────────────────────────────────────
 
+--- Register one entry and answer 1 when LSM holds the key afterwards, 0 when it does not.
+--- `langmask` is passed only when non-nil, so an LSM without locale bits sees the plain call. An
+--- LSM with no `IsValid` (a consumer's test fake; the real LSM-3.0 has it) cannot be asked, so the
+--- call counts, as it did at minor 3.
+local function registerOne(LSM, kind, name, path, langmask)
+  if langmask then
+    LSM:Register(kind, name, path, langmask)
+  else
+    LSM:Register(kind, name, path)
+  end
+  if type(LSM.IsValid) ~= "function" then return 1 end
+  return LSM:IsValid(kind, name) and 1 or 0
+end
+
+--- The locale mask for the shipped face: western + ruRU (see RegisterLSM), or nil when LSM
+--- publishes no locale bits.
+local function fontLangmask(LSM)
+  local western, ruRU = LSM.LOCALE_BIT_western, LSM.LOCALE_BIT_ruRU
+  if type(western) ~= "number" or type(ruRU) ~= "number" then return nil end
+  return western + ruRU
+end
+
 --- Put every shipped font AND statusbar texture into LibSharedMedia under its catalog name.
 ---
 --- WHY REGISTERING MATTERS AND A PATH DOES NOT. A host can draw with `Font(...)` and never touch
@@ -248,10 +270,23 @@ end
 --- portable across installs — instead of a path that names one addon's folder and breaks the moment
 --- the player renames it.
 ---
---- IDEMPOTENT, AND THAT IS LSM'S DOING: `Register` for an identical (mediatype, key, path) triple
---- costs nothing, so two consumers each registering the same face at load is not a conflict. Two
---- consumers registering DIFFERENT paths under one key would be — which is precisely the collision
---- this module removes, because every consumer now points at the same bytes under the same name.
+--- THE FIRST REGISTRATION WINS. LSM keeps the first path offered under a key and answers `false`
+--- to every later `Register` for it, whatever that path is. Each consumer offers a DIFFERENT path —
+--- its own `Interface\AddOns\<Addon>\libs\LibKa0s\...` — so it is not an identical triple that
+--- makes a second consumer harmless: it is that every one of those paths names identical bytes, the
+--- same file vendored whole into each addon. Whichever copy wins, the player sees the same face
+--- under the same name.
+---
+--- THE FACE IS FLAGGED WESTERN + ruRU. On a non-western client LSM refuses a font that carries no
+--- langmask, and one whose mask lacks the client's locale bit. JetBrains Mono has Latin and
+--- Cyrillic glyphs and no Hangul or Han, so it is offered to western and ruRU clients and CJK
+--- clients are excluded on purpose: a face that draws their text as boxes does not belong in their
+--- font dropdown. An LSM too old to publish the `LOCALE_BIT_*` constants gets a plain `Register`.
+---
+--- COUNTED ONLY WHEN LSM HAS IT. A font or texture counts when `LSM:IsValid(type, name)` answers
+--- true after the call, not because `Register` was called: a refused face is not registered, and a
+--- key another copy registered first is (see above). An LSM without `IsValid` — never the real
+--- LSM-3.0, but the fakes in consumers' test harnesses — counts every call, as minor 3 did.
 ---
 --- Call it at FILE LOAD rather than at PLAYER_LOGIN. LibSharedMedia is vendored under `libs/` and
 --- has therefore already run by the time a TOC reaches the consumer's own files, and a default that
@@ -259,20 +294,20 @@ end
 ---
 --- @param addonName string  the consumer's own addon folder name
 --- @param vendorPath string optional
---- @return number fonts, number statusbars  how many of each registered; 0, 0 when LSM is absent,
----         which is not an error
+--- @return number fonts, number statusbars  how many of each LSM holds after the call; 0, 0 when
+---         LSM is absent, which is not an error
 function lib.RegisterLSM(addonName, vendorPath)
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
   if not LSM then return 0, 0 end
 
   local mt = LSM.MediaType or {}
+  local mask = fontLangmask(LSM)
 
   local fonts = 0
   for name in pairs(lib.FONTS) do
     local path = lib.Font(addonName, name, vendorPath)
     if path then
-      LSM:Register(mt.FONT or "font", name, path)
-      fonts = fonts + 1
+      fonts = fonts + registerOne(LSM, mt.FONT or "font", name, path, mask)
     end
   end
 
@@ -284,8 +319,7 @@ function lib.RegisterLSM(addonName, vendorPath)
   for name in pairs(lib.TEXTURES) do
     local path = lib.Texture(addonName, name, vendorPath)
     if path then
-      LSM:Register(mt.STATUSBAR or "statusbar", name, path)
-      bars = bars + 1
+      bars = bars + registerOne(LSM, mt.STATUSBAR or "statusbar", name, path)
     end
   end
 

@@ -13,8 +13,8 @@
 -- strip and the client art all four are drawn from moved to OptionsTabs.lua at v1.39.0 (issue
 -- #16), on the seam this file was already built along: the two halves never reached into each
 -- other's module-scope locals. What is left is what a schema ROW becomes. `O.RenderTabbedSchema`
--- below still draws a strip, and reaches `O.TabStrip` through the instance -- the same seam a host
--- calls it through -- because the two files attach to one `O` and neither owns the other.
+-- moved to OptionsTabs.lua at OptionsTabs minor 4 (a first peel toward the census row on this
+-- file); what stays below is its untabbed fallback for a partial copy without that file.
 
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
@@ -32,7 +32,7 @@ local Pool = LibStub and LibStub("LibKa0s-Pool-1.0", true)
 local NEEDS_POOL = 1
 if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
-local WIDGETS_MINOR = 30
+local WIDGETS_MINOR = 31
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -1324,13 +1324,17 @@ function lib.__AttachWidgets(O, d)
     -- the release commit does, or the release would silently correct what the drag stored.
     local liveCommit = row.commitOn or d.sliderCommit
     if liveCommit == "change" then
-      local pendingValue, dragTimer
+      -- `armed` is the library's own flag, never the host's return value (minor 31): the
+      -- descriptor asks for no handle, and a C_Timer.After wrapper answers nil, which read as
+      -- "not armed" on every frame and defeated the throttle.
+      local pendingValue, armed
       s:SetCallback("OnValueChanged", function(_, _, value)
         if type(d.scheduleTimer) ~= "function" then return commitSlider(value) end
         pendingValue = value
-        if dragTimer then return end
-        dragTimer = d.scheduleTimer(function()
-          dragTimer = nil
+        if armed then return end
+        armed = true
+        d.scheduleTimer(function()
+          armed = false
           local v = pendingValue
           pendingValue = nil
           if v ~= nil then commitSlider(v) end
@@ -1466,16 +1470,18 @@ function lib.__AttachWidgets(O, d)
     -- A single re-armed timer over a reused args table, so a 60 Hz drag produces O(1) garbage
     -- rather than sixty closures and sixty tables a second. The timer is the host's (the
     -- descriptor's scheduleTimer), because embedding AceTimer here would be this library's second
-    -- dependency-budget breach.
+    -- dependency-budget breach. `armed` is the library's own flag rather than whatever
+    -- scheduleTimer returns (minor 31): a host's C_Timer.After wrapper answers nil.
     local pendingArgs
-    local timer
+    local armed = false
     local function throttledCommit(r, g, b, a)
       if type(d.scheduleTimer) ~= "function" then return commit(r, g, b, a) end
       pendingArgs = pendingArgs or {}
       pendingArgs[1], pendingArgs[2], pendingArgs[3], pendingArgs[4] = r, g, b, a
-      if timer then return end
-      timer = d.scheduleTimer(function()
-        timer = nil
+      if armed then return end
+      armed = true
+      d.scheduleTimer(function()
+        armed = false
         local p = pendingArgs
         pendingArgs = nil
         if p then commit(p[1], p[2], p[3], p[4]) end
@@ -3830,93 +3836,17 @@ function lib.__AttachWidgets(O, d)
     O.RenderRows(ctx, d.rowsForPage(pageKey, ctx.unit) or {}, afterGroup, pairWith)
   end
 
-  --- Render one page as a tab strip over its sections (options-ui-§13).
-  ---
-  --- The partition is by `group`, IN DECLARATION ORDER, and one tab is exactly one group. There
-  --- is no second field naming a tab, for the reason options-ui-§1 gives against a second
-  --- widget selector: a tab list declared apart from the rows is a list that goes stale the
-  --- first time a section is renamed, and nothing would say so.
-  ---
-  --- Returns the group names, in tab order.
-  ---
-  --- A ONE-GROUP PAGE DRAWS ITS STRIP TOO, as of OptionsWidgets minor 13. It did not until then:
-  --- "a single tab is chrome for its own sake" is a true sentence about one page and the wrong rule
-  --- for a panel (options-ui-§13). A player moving between pages meets a strip on most of them and
-  --- bare rows on the rest, and the page that lost its strip is the one that looks broken -- and
-  --- the tab is also the only thing naming the group once `noHeadings` has suppressed the heading,
-  --- so the fallback took the section's name off the page as well. The one exemption is a page the
-  --- host does not render through this engine at all, which today is the AceConfig-drawn Profiles
-  --- page: it needs no mechanism here, because it never reaches this function. No opt-out flag is
-  --- offered -- a flag is a thing an addon can set for the wrong reason, and there would be no way
-  --- to see it in a test.
-  ---
-  --- A page with NO groups is a different decision: there is nothing to name a tab with, and a
-  --- strip of zero tabs is not a strip. That is an authoring defect (anti-patterns #69), so it is
-  --- REPORTED and then rendered untabbed -- a blank page under an empty strip is a worse failure
-  --- than a strip-less one.
-  ---
-  --- With no AceGUI there is nothing to draw AT ALL: EnsureScroll answers nil and every maker in
-  --- this file refuses, so this reports an empty tab list and draws nothing -- which is what
-  --- RenderRows would also have done, reached or not.
+  --- The UNTABBED fallback for a page meant to render tabbed. OptionsTabs.lua's attach replaces it
+  --- with the real one (OptionsTabs minor 4 took it there, with its fifth `opts` argument); it
+  --- stays only for a partial copy without that file, where every row renders with its headings
+  --- and `opts` is ignored. Returns the group names, as the real one does.
   function O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith)
-    local rows = d.rowsForPage(pageKey, ctx.unit) or {}
-
-    local groups, seen = {}, {}
+    local rows, groups, seen = d.rowsForPage(pageKey, ctx.unit) or {}, {}, {}
     for _, row in ipairs(rows) do
-      if row.group and not seen[row.group] then
-        seen[row.group] = true
-        groups[#groups + 1] = row.group
-      end
+      if row.group and not seen[row.group] then seen[row.group] = true; groups[#groups + 1] = row.group end
     end
-
     if not O.AceGUI then return {} end
-    if #groups == 0 then
-      print(lib.STRINGS.NO_GROUPS:format(tostring(pageKey)))
-      O.RenderRows(ctx, rows, afterGroup, pairWith)
-      return groups
-    end
-
-    -- A tab pointing at a group this page no longer has renders an empty page under a strip,
-    -- so a stale pointer heals to the first rather than being trusted. Cheap enough to check on
-    -- every render, and the alternative is a page that is blank until the user clicks something.
-    if not (ctx.activeTab and seen[ctx.activeTab]) then
-      ctx.activeTab = groups[1]
-    end
-
-    -- OptionsTabs.lua draws the strip, and it is a SIBLING file rather than this one's dependency:
-    -- the two are paired on the shell's minor, not on each other's, so a vendored copy carrying
-    -- one and not the other is a state LibStub cannot detect. Absent, the page falls back to the
-    -- untabbed render -- every row, with its section headings -- which is exactly what the
-    -- no-groups branch above does, and is a page the player can still use.
-    if not O.TabStrip then
-      O.RenderRows(ctx, rows, afterGroup, pairWith)
-      return groups
-    end
-
-    local tabs = {}
-    for i, name in ipairs(groups) do tabs[i] = { key = name, label = name } end
-
-    O.TabStrip(ctx, {
-      tabs  = tabs,
-      value = ctx.activeTab,
-      onSelect = function(key)
-        if key == ctx.activeTab then return end
-        ctx.activeTab = key
-        -- The same re-render path a change of subject takes (ClearScroll then a fresh
-        -- render). In combat the click never gets here: the tab button refuses it
-        -- (OptionsTabs.lua minor 2), as options-ui-§13 has asked since the standard's v2.60.0,
-        -- and a host adds no tab guard of its own.
-        O.ClearScroll(ctx)
-        O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith)
-      end,
-    })
-
-    local active = {}
-    for _, row in ipairs(rows) do
-      if row.group == ctx.activeTab then active[#active + 1] = row end
-    end
-    O.RenderRows(ctx, active, afterGroup, pairWith, { noHeadings = true })
-
+    O.RenderRows(ctx, rows, afterGroup, pairWith)
     return groups
   end
 end

@@ -33,7 +33,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 9
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 10
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -682,6 +682,10 @@ lib.ROW_BOX = {
 -- list sits in, and a per-list copy would clip at the first edge it met.
 local ghost
 
+-- Forward-declared: the ghost's OnUpdate is wired when the ghost is built, and the drag it polls is
+-- defined further down with the rest of the drag.
+local trackDragFromGhost
+
 local function ensureGhost()
   if ghost then return ghost end
 
@@ -707,6 +711,12 @@ local function ensureGhost()
   ghost.text:SetPoint("RIGHT", ghost, "RIGHT", -8, 0)
   ghost.text:SetJustifyH("RIGHT")
 
+  -- THE DRAG'S POLL LIVES HERE, on a frame this library owns, and reads its row at fire time. Until
+  -- minor 10 it was `row.frame:SetScript("OnUpdate", ...)` on the HOST's row frame, cleared with
+  -- nil at the drop -- which wiped any OnUpdate the host had set there. The ghost is shown for
+  -- exactly as long as a drag is in flight, so the client polls it for exactly that long.
+  ghost:SetScript("OnUpdate", function(self) trackDragFromGhost(self.__row) end)
+
   -- `__`-PREFIXED IS INTERNAL, the same contract `dd.__check` carries: published so a suite can
   -- ask whether the carried copy exists, is shown, reads as the right row and follows the cursor,
   -- none of which is reachable from the controller. A host must not touch it -- what it draws is
@@ -726,32 +736,6 @@ local function moveGhost()
   end
   ghost:ClearAllPoints()
   ghost:SetPoint("LEFT", UIParent, "BOTTOMLEFT", (x / scale) + 14, y / scale)
-end
-
---- The insertion line for one container, built once and cached on it.
----
---- A FRAME CARRYING A TEXTURE, not a bare texture. A texture belongs to its own frame's draw layers,
---- so one created on the container draws UNDER every row -- each row is a child frame with its own
---- layers, and a parent's OVERLAY still loses to a child. The line has to be a sibling that
---- outranks them.
-local function ensureLine(container, color)
-  if not container then return nil end
-  if container.__ka0sDropLine then return container.__ka0sDropLine end
-
-  local line = CreateFrame("Frame", nil, container)
-  line:SetHeight(3)
-  -- Guarded on the ANSWER rather than on the method existing: a stub that returns itself for
-  -- anything it does not implement answers a table here, and adding to it raises.
-  local level = container.GetFrameLevel and container:GetFrameLevel()
-  if type(level) == "number" then line:SetFrameLevel(level + 20) end
-
-  local tex = line:CreateTexture(nil, "OVERLAY")
-  tex:SetAllPoints(line)
-  tex:SetColorTexture(color[1], color[2], color[3], color[4])
-
-  line:Hide()
-  container.__ka0sDropLine = line
-  return line
 end
 
 --- Where a row dropped `rows` rows from `from` lands, clamped to its own group.
@@ -798,6 +782,13 @@ end
 -- frame this library parents to a frame the host pools, so it has to be given back the same way.
 local handlePool, boxPool, handleAttic = {}, {}, nil
 
+-- AND SO IS THE INSERTION LINE, from minor 10. Until then it was cached on the container as
+-- `__ka0sDropLine`, and both shipped consumers hand over an AceGUI-pooled container -- so the line
+-- rode back into AceGUI's pool, colored for the first list that ever drew on it. It is now taken
+-- from this free list per DRAG, recolored for the list that is dragging, and given back at the
+-- drop and on Cancel.
+local linePool = {}
+
 local function atticFrame()
   if not handleAttic then
     handleAttic = CreateFrame("Frame", nil, UIParent)
@@ -824,6 +815,43 @@ local function reclaim(borrowed, pool)
     pool[#pool + 1] = f
   end
   return n
+end
+
+--- Take an insertion line for one drag onto `container`, painted in `color`.
+---
+--- A FRAME CARRYING A TEXTURE, not a bare texture. A texture belongs to its own frame's draw layers,
+--- so one created on the container draws UNDER every row -- each row is a child frame with its own
+--- layers, and a parent's OVERLAY still loses to a child. The line has to be a sibling that
+--- outranks them. Answers nil with no container, and the drag then simply draws no line.
+local function acquireLine(container, color)
+  if not container then return nil end
+
+  local line = table.remove(linePool)
+  if not line then
+    line = CreateFrame("Frame", nil, atticFrame())
+    line:SetHeight(3)
+    line.tex = line:CreateTexture(nil, "OVERLAY")
+    line.tex:SetAllPoints(line)
+  end
+
+  line:SetParent(container)
+  -- Guarded on the ANSWER rather than on the method existing: a stub that returns itself for
+  -- anything it does not implement answers a table here, and adding to it raises.
+  local level = container.GetFrameLevel and container:GetFrameLevel()
+  if type(level) == "number" then line:SetFrameLevel(level + 20) end
+  -- Every acquire, never once at build: a pooled line last served some other list's color.
+  line.tex:SetColorTexture(color[1], color[2], color[3], color[4])
+  line:ClearAllPoints()
+  line:Hide()
+  return line
+end
+
+--- Give a list's line back, if it holds one.
+local function releaseLine(list)
+  if list.line then
+    reclaim({ list.line }, linePool)
+    list.line = nil
+  end
 end
 
 -- ── the row box ───────────────────────────────────────────────────────────────────────────────
@@ -912,9 +940,9 @@ local function finishDrag(row)
   if not row then return end
   local list = row.list
 
-  row.frame:SetScript("OnUpdate", nil)
+  if ghost and ghost.__row == row then ghost.__row = nil end
   if ghost then ghost:Hide() end
-  if list.line then list.line:Hide() end
+  releaseLine(list)
   if row.frame.SetAlpha then row.frame:SetAlpha(1) end
 
   if not row.startY then return end
@@ -957,6 +985,7 @@ local function trackDrag(row)
     finishDrag(row)
   end
 end
+trackDragFromGhost = trackDrag
 
 --- Dress the carried copy as the row it came from and put it under the cursor.
 ---
@@ -996,12 +1025,15 @@ local function beginDrag(row)
   row.rows    = 0
   row.sawDown = nil
   list.dragging = row
-  row.frame:SetScript("OnUpdate", function() trackDrag(row) end)
+  -- A line left by a drag whose release never arrived goes back before this one takes its own.
+  releaseLine(list)
+  list.line = acquireLine(list.container, list.color)
   -- The row you picked up fades IN THE LIST, because the copy under the cursor is the one you are
   -- looking at now.
   if row.frame.SetAlpha then row.frame:SetAlpha(0.35) end
 
   raiseGhost(row, list)
+  ghost.__row = row   -- the poll, read at fire time: see ensureGhost
   list.say("grab %d at y=%.1f", row.index, row.startY)
 end
 
@@ -1073,11 +1105,11 @@ function lib.ReorderList(opts)
   function list:Cancel()
     self.dead = true
     if ghost then ghost:Hide() end
-    if self.line then self.line:Hide() end
+    releaseLine(self)
 
     local row = self.dragging
     if row then
-      row.frame:SetScript("OnUpdate", nil)
+      if ghost and ghost.__row == row then ghost.__row = nil end
       if row.frame.SetAlpha then row.frame:SetAlpha(1) end
       row.startY = nil
     end
@@ -1220,12 +1252,14 @@ function lib.ReorderList(opts)
 
   --- Name the frame the insertion line should live on -- normally the scroll's content frame, or
   --- whatever the rows share as a parent. Call it once, after the rows.
+  ---
+  --- It NAMES the frame and builds nothing: the line itself is taken from the library's free list
+  --- when a drag starts and given back when it ends (minor 10), so nothing is left on a container
+  --- the host is about to hand back to its framework's pool.
   function list:Finish(container)
-    self.line = ensureLine(container, self.color)
-    if self.line then self.line:Hide() end
+    self.container = container
     self.say("painted %d rows, %d draggable, %d boxed, boundary=%s",
       #self.rows, #self.handles, #self.boxes, tostring(self.boundary or 0))
-    return self.line
   end
 
   return list
