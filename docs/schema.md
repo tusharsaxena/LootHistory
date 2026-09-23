@@ -265,7 +265,7 @@ appends each kept loot or currency line (`modules/Collector.lua:140`, `:205`). `
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:73`) and from that row's `onChange`
 (`settings/Schema.lua:374`). `Purge` (`core/Database.lua:737`) empties it from the purge confirm
 (`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
-`StaticPopup_Show` (`settings/Schema.lua:721`, `settings/Panel.lua:114`). `Delete`
+`StaticPopup_Show` (`settings/Schema.lua:789`, `settings/Panel.lua:113`). `Delete`
 (`core/Database.lua:718`) drops the row the History right-click **Delete** names
 (`modules/BrowserTable.lua:1180`). `RepairBoundStates` (`core/Database.lua:258`) rewrites a row's
 `bound` (`core/Database.lua:219`) from two deferrals after login (`core/LootHistory.lua:81`, `:85`)
