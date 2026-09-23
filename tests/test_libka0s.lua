@@ -20,8 +20,7 @@ local test, assertEqual, assertTrue, assertFalse =
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
   "libs/LibKa0s/Env.lua",
-  -- New in v1.55.0: LibKa0s-Compat-1.0. This addon adopts nothing from it (yet), but the client
-  -- loads every file of the XML, so the suite must too.
+  -- New in v1.55.0: LibKa0s-Compat-1.0. core/Compat.lua wires its GetSpellName.
   "libs/LibKa0s/Compat.lua",
   -- New in v1.41.0 (shipped at v1.40.0): LibKa0s-Lifecycle-1.0, the ONE latch both
   -- "be inert" reasons hold (slash-commands-§7). core/LifecycleSetup.lua resolves it at file load.
@@ -403,7 +402,7 @@ test("every seam file resolves its major with the silent flag", function()
   -- would look fine, because a lookup table that never raises resolves to nil and passes.
   for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
                           "core/EnvSetup.lua", "core/PoolSetup.lua", "core/ItemSetup.lua",
-                          "core/Constants.lua",
+                          "core/Constants.lua", "core/Compat.lua",
                           "settings/Slash.lua", "settings/OptionsSetup.lua" }) do
     local src = Loader.readFile(path)
     local found = false

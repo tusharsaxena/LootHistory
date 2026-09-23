@@ -14,6 +14,11 @@ They are `LibKa0s-Env-1.0`'s now and reach this addon through `core/EnvSetup.lua
 seam still keeps direct `C_*`/global calls out of the modules, it just resolves them through the library
 first and falls back to the ladder the shim ran.
 
+`Compat.GetSpellName` went the same way at LibKa0s v1.55.0. Three addons carried the ladder and the
+copies disagreed about what a nil top rung means, so it is `LibKa0s-Compat-1.0`'s member now. It is still
+reached as `NS.Compat.GetSpellName`, a field `core/Compat.lua` assigns, so no call site moved. Nothing
+else here moved: the major's secret guards and spec readers have no caller in this addon.
+
 The same went for three item primitives. `QualityFromLink`, `QualityLabel` and `LoadItem` are
 `LibKa0s-Item-1.0`'s now and reach this addon through [`core/ItemSetup.lua`](module-map.md) as
 `NS.Item.*`, which also brings `NS.Item.ItemIDFromLink` — a primitive only BankLedger had written.
@@ -34,7 +39,7 @@ primitives and holds no opinion about how they are composed.
 | `Compat.HookGetQuestReward(fn)` | global `GetQuestReward` | `hooksecurefunc`s the quest-reward turn-in so the QUEST stamp lands before reward items push — the `QUEST_TURNED_IN` event can fire after the reward loot line and miss it. Calls `fn()` after each turn-in. |
 | `Compat.CurrentQuestID()` | global `GetQuestID` | Quest id of the quest currently open in the quest frame, for `sourceDetail`; `nil` when none/absent. |
 | `Compat.IsSpellTargeting()` | global `SpellIsTargeting` | Is the cursor holding a spell awaiting a target (Disenchant/Enchant about to apply to a bag item)? Distinguishes "opening a container" from "applying a spell to an item" — both route through `UseContainerItem`. `false` when absent. |
-| `Compat.GetSpellName(spellID)` | `C_Spell.GetSpellName` → global `GetSpellInfo` | Localized spell name, so attribution can detect deconstruct casts by name family across the milling/prospecting/Mass variants. `nil` when unavailable. |
+| `Compat.GetSpellName(spellID)` | **`LibKa0s-Compat-1.0`'s member** (v1.55.0): `C_Spell.GetSpellName` → `C_Spell.GetSpellInfo(id).name` → global `GetSpellInfo`, a nil or `""` answer falling through to the next rung | Localized spell name, so attribution can detect deconstruct casts by name family across the milling/prospecting/Mass variants. One value, `nil` when unavailable. With the library absent it is the reader stub, which always answers `nil`: attribution keeps its enumerated ids and loses only the name-family match. |
 | `Compat.GetMailHeader(mailIndex)` | global `GetInboxHeaderInfo` | Sender + subject for an inbox mail row, feeding MAIL vs AH classification; `nil, nil` when absent. |
 | `Compat.IsAuctionHouseMail(sender, subject)` | `AUCTION_HOUSE` + `AUCTION_*_MAIL_SUBJECT` globals | Locale-independent test for AH-origin mail: matches the AH sender name or an AH mail subject prefix (won / expired / canceled / invoice) built from the localized subject globals. Splits MAIL from AH source. |
 | `Compat.UNIT_KINDS` + `Compat.DecodeGUID(guid)` | `strsplit` on the dash-split GUID | `UNIT_KINDS` is the single source of truth for GUID kinds carrying a creature/npc id (Creature/Vehicle/Pet/Vignette). `DecodeGUID` returns `kind` and, for unit kinds, the `npcID` from field 6 — how attribution tells KILL from CONTAINER/GameObject. |

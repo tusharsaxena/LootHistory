@@ -185,3 +185,18 @@ test("parity: the Bus stub carries the live surface this addon calls", function(
     "New",
   })
 end)
+
+-- ── Compat (GetSpellName only) ─────────────────────────────────────────────────────────────────
+
+test("parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires", function()
+  -- NS.Compat is this addon's compat firewall, and most of it is this addon's own shims. The by-name
+  -- form compares only the major's members, so those shims do not count here.
+  T.assertSurfaceParity(degradedNS.Compat, "LibKa0s-Compat-1.0", {
+    -- Not wired, and deliberately so. None of the eight is called here:
+    --   grep -rnE "Compat\.(IsSecret|CanAccess|IsSafeKey|GetSpellInfo|GetSpellTexture|GetSpellCooldown|GetSpecialization)" core modules settings
+    -- finds no call site, so the addon has no secret guard or spec read to route. A member
+    -- the major adds later is in neither list and fails this case until the addon decides.
+    "IsSecret", "CanAccess", "IsSafeKey", "GetSpellInfo", "GetSpellTexture", "GetSpellCooldown",
+    "GetSpecialization", "GetSpecializationInfo",
+  })
+end)

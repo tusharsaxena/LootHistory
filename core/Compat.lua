@@ -78,13 +78,21 @@ function Compat.IsSpellTargeting()
 end
 
 -- Localized spell name for a spell id (nil if unavailable). Lets attribution detect deconstruct
--- casts by name family across the many milling/prospecting/Mass variants. Retail moved to C_Spell.
-function Compat.GetSpellName(spellID)
-  if not spellID then return nil end
-  if C_Spell and C_Spell.GetSpellName then return C_Spell.GetSpellName(spellID) end
-  if type(GetSpellInfo) == "function" then return (GetSpellInfo(spellID)) end
-  return nil
-end
+-- casts by name family across the many milling/prospecting/Mass variants.
+--
+-- LibKa0s-Compat-1.0's member, one value. Its ladder is C_Spell.GetSpellName, then
+-- C_Spell.GetSpellInfo(id).name, then the legacy global's first return. A nil or "" answer falls
+-- through to the next rung, and a secret answer is returned untouched. A non-number, non-string id
+-- answers nil and asks no rung. It stays a FIELD on NS.Compat, because the call sites read it here
+-- and tests/test_attribution.lua replaces it at runtime.
+--
+-- With the library absent: the reader stub, which answers the absent table's value, nil
+-- (LibKa0s docs/api/Compat/version-1-docs.md, "Readers: the stub answers the absent value").
+-- Attribution already treats nil as "not cached yet", so a degraded install loses the name-family
+-- match for unlisted deconstruct variants and nothing raises. Re-implementing the top rung here
+-- would re-create the copy this major exists to remove.
+local CompatLib = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+Compat.GetSpellName = CompatLib and CompatLib.GetSpellName or function() return nil end
 
 -- Sender + subject for an inbox mail row (nil when the API is absent).
 function Compat.GetMailHeader(mailIndex)
