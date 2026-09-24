@@ -564,7 +564,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_launcher.lua (16)
+### test_launcher.lua (17)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
 - launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
@@ -578,12 +578,13 @@ badge and any count quoted in the docs must agree with it.
 - launcher: the broker label is the BRAND NAME in plain text, not the folder name
 - launcher: no BULK reset moves the minimap button — /lh resetall and the page Defaults button
 - launcher: Reset all settings leaves a hidden button hidden, across the wholesale wipe
+- launcher: RESET_EXEMPT maps the row path to the stored path, and both resets honor it
 - launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key
 - launcher: the tooltip's title is NS.BRAND and it advertises the show/hide left click
 - launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint
 - launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing
 
-### test_slash.lua (60)
+### test_slash.lua (62)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -602,6 +603,8 @@ badge and any count quoted in the docs must agree with it.
 - /lh get on an unknown path prints Setting not found
 - /lh set echoes the stored value read back after writing
 - /lh set on an unknown path prints Setting not found
+- /lh get minimap.shown reads the row's SHOWN sense; the old minimap.hide path is unknown
+- /lh on a legacy store: hide = true reads minimap.shown false, and a set invents no `shown` key
 - /lh version prints the cyan-tagged v<version> line
 - NS.COMMANDS registers a version verb
 - /lh reset on a table setting echoes (none), not a raw table pointer
@@ -646,7 +649,7 @@ badge and any count quoted in the docs must agree with it.
 - the same feature verbs act normally once the addon is enabled — the gate is not always-on
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 
-### test_schema.lua (70)
+### test_schema.lua (72)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -668,6 +671,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: FindRow resolves a known path and rejects an unknown one
 - Schema: every persisted path resolves against the shipped defaults
 - Schema: Register reports a typo'd path even when the row declares a default
+- Schema: Register counts no missing path for the Minimap button row, which owns its storage
 - Schema: the shipped default equals the schema's declared default
 - Schema: the AH priority cascade is declared once, in core/Constants.lua
 - Schema: every dropdown row offers values, and its default is one of them
@@ -706,6 +710,7 @@ badge and any count quoted in the docs must agree with it.
 - seam: on the degraded build ApplyDefault restores, and spares an exempt row only in a sweep
 - seam: on the degraded build Reset all settings keeps the hidden minimap button
 - seam: on the degraded build the boot check passes
+- seam: on the degraded build the boot check skips a row that owns its storage
 - seam: the live runtime is the library's, and the host names reach it
 - seam: a write with no store yet is refused, not raised
 - seam: a bracket counts a closure row's READ-BACK, so a write that did not move counts 0
@@ -1024,9 +1029,9 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
 | test_debuglog.lua | 22 |
-| test_launcher.lua | 16 |
-| test_slash.lua | 60 |
-| test_schema.lua | 70 |
+| test_launcher.lua | 17 |
+| test_slash.lua | 62 |
+| test_schema.lua | 72 |
 | test_schema_stub.lua | 4 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
@@ -1042,4 +1047,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **892** |
+| **Total** | **897** |

@@ -152,8 +152,8 @@ test("launcher: ONE object, registered twice, under the addon's FOLDER name — 
 
 test("launcher: the stored minimap table is the declared default, unseeded and unreplaced",
   function()
-  -- architecture-§5 (v2.44.0): `minimap.hide` is a schema row, so a whole-table seed over `minimap`
-  -- is a schema-row write ("a row wins"). AceDB's declared default (defaults/Global.lua) serves the
+  -- architecture-§5 (v2.44.0): `minimap.hide` is the stored key of a schema row (the row's path is
+  -- `minimap.shown`), so a whole-table seed over `minimap` is a schema-row write ("a row wins"). AceDB's declared default (defaults/Global.lua) serves the
   -- table; nothing in the addon may write one over it.
   --
   -- WHAT THIS CATCHES, stated exactly, because the version of it that shipped with the launcher
@@ -231,13 +231,13 @@ test("launcher: the Minimap button row moves the real button, through the single
     local before = NS.db.global.minimap.hide
     local from = #shown
 
-    NS.Schema:Set("minimap.hide", false)
+    NS.Schema:Set("minimap.shown", false)
     assertEqual(NS.db.global.minimap.hide, true, "unticked stores hidden")
     assertEqual(#shown, from + 1, "LibDBIcon was not called")
     assertEqual(shown[#shown][1], ADDON)
     assertEqual(shown[#shown][2], false, "the button was hidden")
 
-    NS.Schema:Set("minimap.hide", true)
+    NS.Schema:Set("minimap.shown", true)
     assertEqual(NS.db.global.minimap.hide, false)
     assertEqual(shown[#shown][2], true, "the button came back")
 
@@ -330,29 +330,29 @@ test("launcher: no BULK reset moves the minimap button — /lh resetall and the 
   function()
     -- The General page's Defaults button reaches this same call (settings/Panel.lua's
     -- P:RestoreDefaults), so one case answers for both surfaces.
-    -- red under: an applyDefault that hands `minimap.hide` to the seam like any other row, which is
+    -- red under: an applyDefault that hands `minimap.shown` to the seam like any other row, which is
     -- what this addon shipped -- a player who hid the button found it back on their minimap after
     -- asking for their settings to be reset.
     acrossAReset(function()
       local g = NS.db.global
-      NS.Schema:Set("minimap.hide", false)      -- the ROW says shown; the player unticks it
+      NS.Schema:Set("minimap.shown", false)      -- the ROW says shown; the player unticks it
       assertEqual(g.minimap.hide, true, "the player hid the button")
 
       NS.Slash:CliResetAll()
 
       assertEqual(g.minimap.hide, true, "/lh resetall must not un-hide the button")
-      assertEqual(NS.Schema:Get("minimap.hide"), false, "and the row still reads hidden")
+      assertEqual(NS.Schema:Get("minimap.shown"), false, "and the row still reads hidden")
       assertEqual(NS.Launcher:IsShown(), false, "the button itself is still hidden")
 
       -- The other direction is a rule too: neither reset may RE-HIDE a shown one.
-      NS.Schema:Set("minimap.hide", true)
+      NS.Schema:Set("minimap.shown", true)
       NS.Slash:CliResetAll()
       assertEqual(g.minimap.hide, false, "a shown button is left shown")
 
       -- And the veto is scoped to the BULK act: naming the row explicitly still resets it.
-      NS.Schema:Set("minimap.hide", false)
-      NS.Slash:CliReset("minimap.hide")
-      assertEqual(g.minimap.hide, false, "/lh reset minimap.hide is the player naming the row")
+      NS.Schema:Set("minimap.shown", false)
+      NS.Slash:CliReset("minimap.shown")
+      assertEqual(g.minimap.hide, false, "/lh reset minimap.shown is the player naming the row")
     end)
   end)
 
@@ -364,7 +364,7 @@ test("launcher: Reset all settings leaves a hidden button hidden, across the who
     -- red under: a wipeGlobal that carries nothing across, which is what this addon shipped.
     acrossAReset(function()
       local g = NS.db.global
-      NS.Schema:Set("minimap.hide", false)
+      NS.Schema:Set("minimap.shown", false)
       assertEqual(g.minimap.hide, true, "the player hid the button")
       local before = g.minimap
 
@@ -378,15 +378,36 @@ test("launcher: Reset all settings leaves a hidden button hidden, across the who
     end)
   end)
 
+test("launcher: RESET_EXEMPT maps the row path to the stored path, and both resets honor it",
+  function()
+    -- launcher-§3 (standard v2.65.0) renamed the row to `minimap.shown` while the stored key stays
+    -- `minimap.hide`. The two resets read the exemption on different sides of that split: the bulk
+    -- walk's veto is keyed by ROW path, and wipeGlobal carries the STORED path across its raw wipe.
+    -- So RESET_EXEMPT is a map `{ [row path] = stored path }`, and each reset reads its own side.
+    -- red under: the rename landing WITHOUT the map (`{ ["minimap.shown"] = true }`), which is the
+    -- regression the map prevents -- wipeGlobal then carries a `shown` path that is never stored,
+    -- the merge puts `hide = false` back, and Reset all settings un-hides the button.
+    assertEqual(NS.Schema.RESET_EXEMPT["minimap.shown"], "minimap.hide")
+    acrossAReset(function()
+      local g = NS.db.global
+      NS.Schema:Set("minimap.shown", false)
+      NS.Slash:ResetEverything()
+      assertEqual(g.minimap.hide, true, "Reset all settings keeps the hidden button hidden")
+      assertTrue(g.minimap.shown == nil, "and carries no `shown` key into the store")
+      NS.Slash:CliResetAll()
+      assertEqual(g.minimap.hide, true, "/lh resetall keeps it hidden too")
+    end)
+  end)
+
 test("launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key",
   function()
     -- The carry-across must not become a copy of the state. One boolean is stored -- LibDBIcon's own
-    -- `hide` -- and the wipe puts that one value back, never a `minimap.show` beside it.
+    -- `hide` -- and the wipe puts that one value back, never a `shown` key beside it.
     -- red under: a carve-out that writes through Schema:Set (a second [Set] line inside a reset that
     -- logs exactly one) or that seeds a parallel key.
     acrossAReset(function()
       local g = NS.db.global
-      NS.Schema:Set("minimap.hide", true)
+      NS.Schema:Set("minimap.shown", true)
       NS.Slash:ResetEverything()
       assertEqual(g.minimap.hide, false, "a shown button stays shown")
       local keys = 0

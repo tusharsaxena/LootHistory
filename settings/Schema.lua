@@ -77,18 +77,21 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
   -- two session paths above -- but for a different reason: those live outside the store entirely,
   -- and this one lives in the GLOBAL store, which is where launcher-§3 fixes LibDBIcon's own table.
-  -- This addon has no profile at all and every schema path already resolves against `NS.db.global`,
-  -- so the verbatim path is simply `minimap.hide` and the `settings.` prefix above must not reach it.
+  -- This addon has no profile at all, so the verbatim path sits beside `settings.` rather than
+  -- under it, and the `settings.` prefix above must not reach it.
   --
-  -- THE ROW SAYS SHOWN AND THE STORED KEY SAYS HIDDEN. The composer emits a stored bool defaulting
-  -- to `true` labeled "Minimap button"; LibDBIcon owns the `hide` boolean underneath. The two
-  -- accessors stamped below are the whole of that inversion, and they are the only ones: Schema:Get
-  -- and Schema:Set are this addon's single write seam (options-ui-§1) and both honor a row's own
-  -- get/set, so the panel checkbox, `/lh set`, `/lh reset` and `/lh resetall` all invert once.
+  -- THE ROW PATH IS `minimap.shown`; THE ONE STORED KEY IS `minimap.hide` (launcher-§3, standard
+  -- v2.65.0). The CLI path reads in the row's own sense -- `/lh get minimap.shown` answers whether
+  -- the button is shown -- while LibDBIcon owns the `hide` boolean underneath, and no `shown` key is
+  -- ever stored (anti-pattern #81). The composer emits a bool defaulting to `true` labeled
+  -- "Minimap button". The two accessors stamped below are the whole of that inversion, and they are
+  -- the only ones: Schema:Get and Schema:Set are this addon's single write seam (options-ui-§1) and
+  -- both honor a row's own get/set, so the panel checkbox, `/lh set`, `/lh reset` and `/lh resetall`
+  -- all invert once. A row that owns its storage this way is skipped by Register's defaults check.
   --
   -- It REPLACES the "Hide minimap button" checkbox that used to sit on General > Interface under a
   -- `Minimap` subheading. Same stored key, same table, opposite sense, canonical position.
-  minimapPath      = "minimap.hide",
+  minimapPath      = "minimap.shown",
   defaults = {
     enabled    = G.settings.enabled,
     visibility = G.settings.visibility,
@@ -202,15 +205,16 @@ stamp(MASTER_ROWS, {
   -- below) reads a path row's own `get`, and hands a path row's own `set` the value instead of
   -- writing it at the path, so the inversion happens once for every entry into the seam.
   --
-  -- The row's boolean is SHOWN. LibDBIcon's key is HIDDEN. ONE boolean is stored -- `minimap.hide`,
-  -- the library's own, which it writes too when the player uses the button's menu -- and never a
-  -- `minimap.show` beside it, which would be a copy free to disagree (launcher-§3, anti-pattern #81).
+  -- The row's path and boolean are SHOWN (`minimap.shown`). LibDBIcon's key is HIDDEN. ONE boolean
+  -- is stored -- `minimap.hide`, the library's own, which it writes too when the player uses the
+  -- button's menu -- and no `shown` key is ever stored beside it: the row path names the sense, not
+  -- a key, and a stored copy would be free to disagree (launcher-§3, anti-pattern #81).
   --
   -- `SetShown` writes `hide` a second time with the same value. That is the library's documented
   -- shape and it is deliberate: a caller that drives the button from somewhere else does not have
   -- to remember the inversion. The write above it is what keeps the store right on an install with
   -- no LibKa0s at all, where `NS.Launcher` is nil and there is nothing to call.
-  ["minimap.hide"] = {
+  ["minimap.shown"] = {
     widget = "CheckBox",
     get = function()
       local mm = NS.db and NS.db.global and NS.db.global.minimap
@@ -413,9 +417,9 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 
 --- The rows NO BULK RESET may reach (launcher-§3, standard v2.54.0). Named ONCE, as data.
 ---
---- `minimap.hide` is a PER-INSTALLATION DISPLAY PREFERENCE, in the same class as the button
---- POSITION LibDBIcon keeps in the very same table -- not a configuration value a reset is meant to
---- walk back. Nobody has ever wanted *reset my settings* to mean *and put the button back on my
+--- The minimap button's visibility is a PER-INSTALLATION DISPLAY PREFERENCE, in the same class
+--- as the button POSITION LibDBIcon keeps in the very same table -- not a configuration value a
+--- reset is meant to walk back. Nobody has ever wanted *reset my settings* to mean *and put the button back on my
 --- minimap*. §3 used to DERIVE that from scope (the table is global, *Reset all settings* is a
 --- profile reset), and the derivation does not survive contact with THIS addon, twice over:
 ---
@@ -429,8 +433,13 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 --- So the exemption is stated as a PROPERTY, and both resets honor it: the seam's ApplyDefault
 --- skips the row while a bulk bracket is open (the descriptor's `resetExempt` below), and
 --- `wipeGlobal` carries the stored value across its wipe. ONE table, read by both: a single
---- `/lh reset minimap.hide` opens no bracket, so the player naming the row still resets it.
-S.RESET_EXEMPT = { ["minimap.hide"] = true }
+--- `/lh reset minimap.shown` opens no bracket, so the player naming the row still resets it.
+---
+--- A MAP FROM ROW PATH TO STORED PATH (launcher-§3, standard v2.65.0). The row is `minimap.shown`
+--- and the one stored key is `minimap.hide`, so the two resets read opposite sides: the KEYS are
+--- what the library's `resetExempt` veto and traceSettingsReset test a row's path against, and the
+--- VALUES are what wipeGlobal's raw read and write-back carry. No `shown` key is ever stored.
+S.RESET_EXEMPT = { ["minimap.shown"] = "minimap.hide" }
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
 --
@@ -597,11 +606,16 @@ local function hostSchemaStub()
     function R.ResetCounted(fn) fn() end
     function R.ConsumeResetCount() return nil end
     -- The resolution walk only, in this addon's words (see the header for why it is not silent-0).
+    -- A root that is not a table skips the row, as the library's resolvesInDefaults does: that is
+    -- defaultsRoot saying the row owns its storage (the Minimap button row, see S:Register).
     function R.Validate(spec)
       local resolved, missing = 0, 0
       for _, row in ipairs(rows) do
+        local root, first
         if type(row) == "table" and type(row.path) == "string" and not row.sessionOnly then
-          local root, first = spec.defaultsRoot()
+          root, first = spec.defaultsRoot(nil, row)
+        end
+        if type(root) == "table" then
           if stubLib.Read(root, row.path, first) ~= nil then
             resolved = resolved + 1
           else
@@ -744,9 +758,16 @@ function S:Register()
   -- defaults/Global.lua loads before this file (LootHistory.toc), so `g` is present in any loaded
   -- client; there is nothing to validate against when it is not.
   if not g then return 0 end
+  -- A row carrying BOTH its own get and set owns its storage, so there is no defaults entry at its
+  -- path to find: `minimap.shown` reads and writes LibDBIcon's `minimap.hide`, and no `shown` key is
+  -- declared or stored (launcher-§3, anti-pattern #81). Answering nil makes the library's
+  -- resolvesInDefaults answer nil too -- neither resolved nor missing -- and the stub skips it alike.
   local errors, _, missing = R.Validate{
     types = VALIDATE_TYPES,
-    defaultsRoot = function() return g, 1 end,
+    defaultsRoot = function(_, row)
+      if row and type(row.get) == "function" and type(row.set) == "function" then return nil end
+      return g, 1
+    end,
   }
   return errors + missing
 end

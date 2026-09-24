@@ -143,6 +143,52 @@ test("/lh set on an unknown path prints Setting not found", function()
   assertEqual(out[1], NS.PREFIX .. " Setting not found: nope.not.real")
 end)
 
+test("/lh get minimap.shown reads the row's SHOWN sense; the old minimap.hide path is unknown",
+  function()
+    -- launcher-§3 (standard v2.65.0): the CLI path reads in the row's own sense, so a player typing
+    -- `/lh get minimap.shown` is told whether the button is shown. The one stored key is still
+    -- LibDBIcon's `minimap.hide`, which is why `true` is printed while it holds `false`.
+    -- red under: the row still pathed at `minimap.hide`, the shape this addon shipped before.
+    local mm = NS.db.global.minimap
+    local before = mm.hide
+    mm.hide = false
+    local got = capture(function() Sl:CliGet("minimap.shown") end)
+    local set = capture(function() Sl:CliSet("minimap.hide true") end)
+    local after = mm.hide
+    mm.hide = before
+    assertEqual(got[1], NS.PREFIX .. " " .. Sl.FormatKV("minimap.shown", "true"))
+    assertEqual(set[1], NS.PREFIX .. " Setting not found: minimap.hide",
+      "the old path answers the unknown-path refusal; a `/lh set minimap.hide` macro must be rewritten")
+    assertEqual(after, false, "the refused set wrote nothing")
+  end)
+
+test("/lh on a legacy store: hide = true reads minimap.shown false, and a set invents no `shown` key",
+  function()
+    -- The stored key does NOT move (WS-06 carry-over), so a player whose SavedVariables predate the
+    -- rename keeps their hidden button with no migration and no schema-version bump. A stored
+    -- `shown` key beside `hide` would be a second copy of one state (anti-pattern #81). Seeded IN
+    -- PLACE, because LibDBIcon holds this very table (launcher-§3) and a replacement would orphan it.
+    -- red under: the row still pathed at `minimap.hide`, or a set that writes at the row's path.
+    local mm = NS.db.global.minimap
+    local hide, pos = mm.hide, mm.minimapPos
+    mm.hide, mm.minimapPos = true, 200
+    local ok, err = pcall(function()
+      local out = capture(function() Sl:CliGet("minimap.shown") end)
+      assertEqual(out[1], NS.PREFIX .. " " .. Sl.FormatKV("minimap.shown", "false"))
+      assertEqual(NS.Launcher:IsShown(), false, "the button stays hidden")
+      assertEqual(mm.minimapPos, 200, "the button position is untouched by the read")
+      capture(function() Sl:CliSet("minimap.shown false") end)
+      assertEqual(mm.hide, true)
+      capture(function() Sl:CliSet("minimap.shown true") end)
+      assertEqual(mm.hide, false, "the set landed on LibDBIcon's own key")
+      assertEqual(mm.minimapPos, 200, "the button position is untouched by the sets")
+      assertTrue(mm.shown == nil, "no `shown` key is ever written to the raw store")
+    end)
+    mm.hide, mm.minimapPos = hide, pos
+    if NS.Launcher then NS.Launcher:SetShown(not hide) end
+    if not ok then error(err, 0) end
+  end)
+
 -- ── version verb (slash-commands-§3) ──
 
 test("/lh version prints the cyan-tagged v<version> line", function()
@@ -235,7 +281,7 @@ end
 
 --- How many rows a BULK reset actually sends through the write seam.
 ---
---- NOT `#NS.Schema.Schema` any more. launcher-§3 (standard v2.54.0) exempts `minimap.hide` from
+--- NOT `#NS.Schema.Schema` any more. launcher-§3 (standard v2.54.0) exempts `minimap.shown` from
 --- every bulk reset, so the walk skips it and it is not one of the rows the seam sees. Derived from
 --- `NS.Schema.RESET_EXEMPT` rather than written as a number, so this stays a statement about the
 --- veto: an exemption added or dropped moves the expectation with it, and a veto that stopped

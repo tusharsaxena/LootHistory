@@ -90,9 +90,9 @@ Loot History**.
   answers 8; on an existing account it also answers 8 and the history is intact.
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
-  `settings.excludedSources = table: …` (empty), `minimap.hide = true` — the row's sense is SHOWN
-  while the stored key is `hide = false`, which is the whole of launcher-§3's inversion and is what
-  the two spellings above are saying.
+  `settings.excludedSources = table: …` (empty), `minimap.shown = true` — the row path and its
+  sense are SHOWN while the one stored key is `minimap.hide = false`, which is the whole of
+  launcher-§3's inversion and is what the two spellings above are saying.
 - **The disabled state is TOTAL** (slash-commands-§7). `/lh disable` prints
   `settings.enabled = false`, and the addon **stops running** rather than staying loaded and
   ignoring what it sees: the History window closes and will not reopen, loot you take is not
@@ -578,7 +578,7 @@ History** (both must land on the same category).
   `[History]` —
   the tab names, in strip order. The headers follow the `group` field, so a tab rename lands here
   too and a stale `[Collection]` or `[Maintenance]` means one was missed.
-- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`, `state.testMode`,
+- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.shown`, `state.debugConsole`, `state.testMode`,
   `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
   `settings.retentionDays`, `settings.excludedSources`).
 - The **Debug console** checkbox reflects the console window's visibility (not the logging flag),
@@ -630,7 +630,7 @@ destructive-action confirm dialogs.
 
 ONE LibDataBroker object registered twice (launcher-§1), built by `core/LauncherSetup.lua` on
 `LibKa0s-Launcher-1.0`: LibDBIcon draws the minimap button from it, and any broker display that is
-installed draws its own row from the very same object. Visibility lives in `minimap.hide`, in the
+installed draws its own row from the very same object. Visibility is stored in `minimap.hide` (the CLI row is `minimap.shown`), in the
 **global** store, and the panel row that drives it is **Minimap button** on Master controls — whose
 label says *shown* while the stored key says *hidden*. **This is the one check that cannot be made
 out of game**: a `## IconTexture` and a launcher icon in the wrong TGA flavor draw nothing and raise
@@ -643,6 +643,9 @@ art actually appears.
 - Left-click it; right-click it.
 - `/lh disable`; hover the button again, left-click it, right-click it; `/lh enable`.
 - Settings → Master controls → uncheck **Minimap button**; check it again.
+- Uncheck **Minimap button** again and run `/lh get minimap.shown`. Then Master controls →
+  **Reset all settings** (confirm). Then `/lh reset minimap.shown`.
+- `/lh set minimap.hide true`.
 - Drag the button to a new spot on the minimap ring.
 - `/reload`.
 - If you run Titan Panel, ElvUI data texts or Bazooka: add "LootHistory" from its plugin list.
@@ -664,6 +667,12 @@ art actually appears.
   stores the position in the table it is handed, not under the name.
 - Unchecking **Minimap button** hides the icon **immediately**, not at the next reload; checking it
   brings it back. The state **persists across `/reload`**.
+- With the box unticked, `/lh get minimap.shown` prints `false` (the CLI path reads in the row's own
+  sense; the stored key underneath is `minimap.hide = true`). **Reset all settings** leaves the
+  button hidden (launcher-§3). `/lh reset minimap.shown` brings it back: that is the player naming
+  the row, not a bulk reset.
+- `/lh set minimap.hide true` answers `Setting not found: minimap.hide` — the pre-v2.65.0 path is
+  gone, so a macro written against it must become `/lh set minimap.shown false`.
 - The broker display's own row answers the same two clicks, because there is only one `OnClick`.
 - Hiding the minimap button does **not** remove the broker row, and there is deliberately no setting
   that would: a display already offers its own per-plugin toggle (launcher-§1).

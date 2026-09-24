@@ -603,7 +603,7 @@ local function setLinesDuring(click)
 end
 
 --- How many rows a BULK reset actually sends through the write seam. NOT `#NS.Schema.Schema`:
---- launcher-§3 (standard v2.54.0) exempts `minimap.hide` from every bulk reset, the page's Defaults
+--- launcher-§3 (standard v2.54.0) exempts `minimap.shown` from every bulk reset, the page's Defaults
 --- button included, so the walk skips it. Derived from `NS.Schema.RESET_EXEMPT` so the number
 --- cannot drift from the veto.
 local function rowsThroughSeam()

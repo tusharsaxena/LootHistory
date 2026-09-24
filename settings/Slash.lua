@@ -128,18 +128,21 @@ end
 --- history rows the wipe discarded, for the debug trace (debug-logging-§8).
 ---
 --- ONE ROW IS CARRIED ACROSS THE WIPE (launcher-§3, standard v2.54.0). This is the reset the rule
---- says `minimap.hide` must survive, and before this carve-out it did not: the merge puts
---- `defaults/Global.lua`'s `minimap = { hide = false }` back, so a player who had hidden the button
---- found it on their minimap again after asking for their SETTINGS to be reset. The exempt set is
---- `NS.Schema.RESET_EXEMPT`, declared there and read here, so the two resets cannot disagree about
---- which row it is. Read and written RAW, through ReadPath/WritePath rather than Schema:Get/Set:
---- the value is being put back exactly as it was, and a write through the seam inside this function
---- would fire an onChange and a second [Set] line in a reset that logs exactly one.
+--- says the minimap button's visibility must survive, and before this carve-out it did not: the
+--- merge puts `defaults/Global.lua`'s `minimap = { hide = false }` back, so a player who had hidden
+--- the button found it on their minimap again after asking for their SETTINGS to be reset. The
+--- exempt set is `NS.Schema.RESET_EXEMPT`, declared there and read here, so the two resets cannot
+--- disagree about which row it is. It maps ROW path to STORED path (launcher-§3, standard v2.65.0):
+--- the row is `minimap.shown`, the one stored key is `minimap.hide`, and no `shown` key is ever
+--- stored, so this wipe carries the map's VALUES. Read and written RAW, through ReadPath/WritePath
+--- rather than Schema:Get/Set: the value is being put back exactly as it was, and a write through
+--- the seam inside this function would fire an onChange and a second [Set] line in a reset that
+--- logs exactly one.
 local function wipeGlobal(g)
   local removed = type(g.history) == "table" and #g.history or 0
   local S = NS.Schema
   local kept = {}
-  for path in pairs(S.RESET_EXEMPT) do kept[path] = S:ReadPath(g, path) end
+  for _, storedPath in pairs(S.RESET_EXEMPT) do kept[storedPath] = S:ReadPath(g, storedPath) end
   for k in pairs(g) do g[k] = nil end
   -- Copied, never merged by reference: a store sharing a table with NS.defaults rewrites the
   -- declared default on its next write.
@@ -163,9 +166,10 @@ local function traceSettingsReset(g)
   local S, n = NS.Schema, 0
   for _, row in ipairs(S and S.Schema or {}) do
     -- Read in the ROW's own sense, not the store's. They are the same for every row but one:
-    -- `minimap.hide` says SHOWN while the stored key says HIDDEN (launcher-§3), so a raw ReadPath
-    -- compared against the row's default never matches and the row would be counted on every
-    -- reset, whether or not the wipe changes it. `row.get` reads the live `db.global`, which is
+    -- the row `minimap.shown` says SHOWN while its one stored key, `minimap.hide`, says HIDDEN
+    -- (launcher-§3), and no `shown` key is stored, so a raw ReadPath at the row's path finds nothing
+    -- and the row would be counted on every reset, whether or not the wipe changes it. The
+    -- exemption test below is keyed by that ROW path. `row.get` reads the live `db.global`, which is
     -- the same table `g` is: wipeGlobal empties it IN PLACE, and this runs before it.
     local current
     if row.get then current = row.get() else current = S:ReadPath(g, row.path) end
@@ -395,7 +399,8 @@ local Dispatcher = lib:New({
   -- ONE reset policy, shared with the Options descriptor (settings/OptionsSetup.lua). It carries
   -- launcher-§3's one-row veto, which is what stops `/lh resetall` AND the General page's Defaults
   -- button — both of which arrive here, through Sl:CliResetAll — un-hiding the minimap button. A
-  -- single `/lh reset minimap.hide` still resets it: that is the player naming the row.
+  -- single `/lh reset minimap.shown` still resets it: that is the player naming the row, by its
+  -- row path (the stored key underneath stays LibDBIcon's `minimap.hide`).
   applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
 
   -- Slash minor 8's bulk bracket around CliResetAll's row walk (debug-logging-§10). The seam mutes

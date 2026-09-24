@@ -54,7 +54,7 @@ local MASTER_ROWS = {
   -- line and Test mode pairs beside it, which is not a layout preference: EVERY addon has a
   -- minimap button and only SOME have a test mode, so the always-present row takes column 1 and
   -- the optional one pairs to its right (options-ui-§15).
-  { "minimap.hide",        "Minimap button" },
+  { "minimap.shown",        "Minimap button" },
   { "state.testMode",      "Test mode" },
 }
 
@@ -111,10 +111,10 @@ test("Schema: the fourth line is [Minimap button] [Test mode], composed and in t
     local consoleAt, minimapAt, testAt
     for i, row in ipairs(S.Schema) do
       if row.path == "state.debugConsole" then consoleAt = i end
-      if row.path == "minimap.hide" then minimapAt = i end
+      if row.path == "minimap.shown" then minimapAt = i end
       if row.path == "state.testMode" then testAt = i end
     end
-    assertTrue(minimapAt ~= nil, "minimap.hide row missing")
+    assertTrue(minimapAt ~= nil, "minimap.shown row missing")
     assertTrue(testAt ~= nil, "state.testMode row missing")
     assertEqual(minimapAt, consoleAt + 1, "Minimap button comes directly after Debug console")
     assertEqual(testAt, minimapAt + 1, "Test mode pairs directly after Minimap button")
@@ -299,9 +299,11 @@ test("Schema: FindRow resolves a known path and rejects an unknown one", functio
 end)
 
 test("Schema: every persisted path resolves against the shipped defaults", function()
-  -- This is Register's boot check, asserted rather than merely printed.
+  -- This is Register's boot check, asserted rather than merely printed. A row carrying its own get
+  -- AND set owns its storage and is skipped, as Register skips it: `minimap.shown` stores LibDBIcon's
+  -- `minimap.hide`, and that key is pinned by the shipped-equals-declared case below.
   for _, row in ipairs(S.Schema) do
-    if not row.sessionOnly then
+    if not row.sessionOnly and not (type(row.get) == "function" and type(row.set) == "function") then
       assertTrue(S:ReadPath(NS.defaults.global, row.path) ~= nil,
         row.path .. " has no entry in defaults/Global.lua")
     end
@@ -322,6 +324,20 @@ test("Schema: Register reports a typo'd path even when the row declares a defaul
   assertEqual(S:Register(), 0, "the probe row must be gone again")
 end)
 
+test("Schema: Register counts no missing path for the Minimap button row, which owns its storage",
+  function()
+    -- launcher-§3 (standard v2.65.0): the row is pathed `minimap.shown`, in its own sense, and no
+    -- `shown` key is ever stored or declared -- the one stored key is LibDBIcon's `minimap.hide`. A
+    -- row that carries BOTH its own get and set owns its storage, so the boot check's defaultsRoot
+    -- answers nil for it and the library's resolvesInDefaults neither resolves nor misses it.
+    -- red under: a defaultsRoot that hands every row the defaults tree, which reports
+    -- `minimap.shown` as a path that does not resolve against defaults/Global.lua.
+    assertTrue(S:FindRow("minimap.shown") ~= nil, "the row is pathed in its own sense")
+    assertEqual(S:FindRow("minimap.hide"), nil, "and the stored key is no row's path")
+    assertTrue(NS.defaults.global.minimap.shown == nil, "no `shown` default is declared either")
+    assertEqual(S:Register(), 0, "the renamed row is neither resolved nor missing")
+  end)
+
 -- Structural equality. `assertEqual` compares a table by identity, which is why the case below
 -- used to skip every `type = "table"` row: the set-valued defaults are two separate literals and an
 -- identity check could only ever fail. Skipping them is what let the AH lists drift apart
@@ -338,14 +354,15 @@ test("Schema: the shipped default equals the schema's declared default", functio
   -- Two sources of the same truth; a drift would make a reset change the value silently. Table
   -- rows are included and compared by shape — see deepEqual above.
   --
-  -- `minimap.hide` is compared INVERTED rather than skipped, which is the whole point of naming it:
-  -- the row's default is its own sense (SHOWN = true) and defaults/Global.lua ships LibDBIcon's key
-  -- (hide = false). They are one fact in two senses, so the pair is still checked -- flip either
-  -- side alone and this goes red exactly as it would for any other row (launcher-§3).
+  -- The `minimap.shown` row is compared INVERTED against its one stored key, `minimap.hide`, rather
+  -- than skipped, which is the whole point of naming it: the row's default is its own sense (SHOWN
+  -- = true) and defaults/Global.lua ships LibDBIcon's key (hide = false). They are one fact in two
+  -- senses, so the pair is still checked -- flip either side alone and this goes red exactly as it
+  -- would for any other row (launcher-§3). No `shown` default is shipped (anti-pattern #81).
   for _, row in ipairs(S.Schema) do
-    if row.path == "minimap.hide" then
-      assertEqual(S:ReadPath(NS.defaults.global, row.path), not row.default,
-        "minimap.hide: the shipped `hide` must be the inverse of the row's SHOWN default")
+    if row.path == "minimap.shown" then
+      assertEqual(S:ReadPath(NS.defaults.global, S.RESET_EXEMPT[row.path]), not row.default,
+        "minimap.shown: the shipped `hide` must be the inverse of the row's SHOWN default")
     elseif not row.sessionOnly then
       local shipped = S:ReadPath(NS.defaults.global, row.path)
       if row.type == "table" then
@@ -444,8 +461,8 @@ test("Schema: the slider default sits inside its own bounds", function()
   end
 end)
 
---- The ONE stored row entitled to its own accessors, and why. `minimap.hide` is the launcher-§3
---- row: the checkbox says SHOWN and LibDBIcon's key says HIDDEN, so the value the row carries is
+--- The ONE stored row entitled to its own accessors, and why. `minimap.shown` is the launcher-§3
+--- row, and its one stored key is `minimap.hide`: the checkbox says SHOWN and LibDBIcon's key says HIDDEN, so the value the row carries is
 --- the inverse of the value the store carries and a straight WritePath of the row's value would
 --- store the opposite of what was ticked. The inversion is the accessors, and there is deliberately
 --- no second key beside `hide` for the row to address instead (anti-pattern #81).
@@ -453,7 +470,7 @@ end)
 --- Named rather than dropped from the check: the rule this case enforces -- a stored row does not
 --- get to route around the write seam -- is still the rule, and the next row that wants an exemption
 --- has to be argued for here.
-local STORED_ROWS_WITH_ACCESSORS = { ["minimap.hide"] = true }
+local STORED_ROWS_WITH_ACCESSORS = { ["minimap.shown"] = true }
 
 test("Schema: only the session-only rows carry their own get/set", function()
   for _, row in ipairs(S.Schema) do
@@ -465,26 +482,26 @@ test("Schema: only the session-only rows carry their own get/set", function()
 end)
 
 test("Schema: the Minimap button row's accessors invert onto LibDBIcon's own `hide` key", function()
-  -- launcher-§3. The row's boolean is SHOWN; the stored key is HIDDEN; there is ONE boolean and no
-  -- `minimap.show` beside it. Driven through Schema:Set/Get, which is the single write seam the
+  -- launcher-§3. The row's path and boolean are SHOWN (`minimap.shown`); the stored key is HIDDEN
+  -- (`minimap.hide`); there is ONE boolean and no `shown` key beside it. Driven through Schema:Set/Get, which is the single write seam the
   -- panel checkbox, `/lh set`, `/lh reset` and `/lh resetall` all take.
   -- red under: dropping the inversion, storing the row's own sense, or a second key appearing.
   local before = NS.db.global.minimap.hide
 
-  assertTrue(S:Set("minimap.hide", false))
+  assertTrue(S:Set("minimap.shown", false))
   assertEqual(NS.db.global.minimap.hide, true, "unticked means HIDDEN in the store")
-  assertEqual(S:Get("minimap.hide"), false, "and the row reads back what was ticked")
+  assertEqual(S:Get("minimap.shown"), false, "and the row reads back what was ticked")
 
-  assertTrue(S:Set("minimap.hide", true))
+  assertTrue(S:Set("minimap.shown", true))
   assertEqual(NS.db.global.minimap.hide, false, "ticked means NOT hidden")
-  assertEqual(S:Get("minimap.hide"), true)
+  assertEqual(S:Get("minimap.shown"), true)
 
-  assertTrue(NS.db.global.minimap.show == nil,
+  assertTrue(NS.db.global.minimap.shown == nil and NS.db.global.minimap.show == nil,
     "no second key beside `hide`: one state, and LibDBIcon writes it too")
 
   -- The declared default is the row's sense, SHOWN, and a reset restores the button.
-  assertEqual(S:Default("minimap.hide"), true)
-  S:Set("minimap.hide", S:Default("minimap.hide"))
+  assertEqual(S:Default("minimap.shown"), true)
+  S:Set("minimap.shown", S:Default("minimap.shown"))
   assertEqual(NS.db.global.minimap.hide, false)
 
   NS.db.global.minimap.hide = before
@@ -914,8 +931,8 @@ test("seam: on the degraded build the composed Master controls rows are absent, 
   -- The degraded Options stub's MasterControls composes no rows, so the minimap, enable and session
   -- rows do not exist here. A write to one is refused like any unknown path and stores nothing.
   local ns = degradedWithStore()
-  assertEqual(ns.Schema:FindRow("minimap.hide"), nil)
-  assertEqual(ns.Schema:Set("minimap.hide", false), false)
+  assertEqual(ns.Schema:FindRow("minimap.shown"), nil)
+  assertEqual(ns.Schema:Set("minimap.shown", false), false)
   assertEqual(ns.db.global.minimap.hide, false, "the store is untouched")
 end)
 
@@ -927,7 +944,7 @@ test("seam: on the degraded build ApplyDefault restores, and spares an exempt ro
     local S2, g = ns.Schema, ns.db.global
     local q, c = S2:FindRow("settings.qualityThreshold"), S2:FindRow("settings.recordCurrency")
     g.settings.qualityThreshold, g.settings.recordCurrency = 4, false
-    S2.RESET_EXEMPT[c.path] = true
+    S2.RESET_EXEMPT[c.path] = c.path   -- row path -> stored path; the same here
     local ok, err = pcall(function()
       S2.BulkBegin("reset", "all")
       S2:ApplyDefault(q)
@@ -956,6 +973,20 @@ end)
 test("seam: on the degraded build the boot check passes", function()
   local ns = degradedWithStore()
   assertEqual(ns.Schema:Register(), 0)
+end)
+
+test("seam: on the degraded build the boot check skips a row that owns its storage", function()
+  -- The host stub's R.Validate takes the same skip as the library's: a row with its own get AND
+  -- set is not looked up in defaults/Global.lua. The degraded build composes no minimap row, so the
+  -- shape is probed with a row of its own, pulled before asserting.
+  -- red under: a stub Validate that calls defaultsRoot without the row, or ignores its answer.
+  local ns = degradedWithStore()
+  local rows = ns.Schema.Schema
+  rows[#rows + 1] = { path = "probe.ownsStorage", type = "bool", default = true,
+    get = function() return true end, set = function() end }
+  local problems = ns.Schema:Register()
+  rows[#rows] = nil
+  assertEqual(problems, 0, "a row that owns its storage is not a missing path")
 end)
 
 -- ── The seam is LibKa0s-Schema-1.0's ──────────────────────────────────────────────────────────

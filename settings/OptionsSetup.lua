@@ -179,8 +179,8 @@ NS.Options = lib:New({
   get          = function(path) return NS.Schema:Get(path) end,
   set          = function(path, v) NS.Schema:Set(path, v) end,
   -- ONE reset policy, shared with the Slash descriptor: Schema:ApplyDefault carries launcher-§3's
-  -- one-row veto, so a page-scoped walk through this major cannot un-hide the minimap button
-  -- either. Nothing calls O.RestoreDefaults / O.RestoreAllDefaults today — the General page's
+  -- one-row veto (keyed by the row path `minimap.shown`; the stored key stays `minimap.hide`), so
+  -- a page-scoped walk through this major cannot un-hide the minimap button either. Nothing calls O.RestoreDefaults / O.RestoreAllDefaults today — the General page's
   -- Defaults click and the Blizzard footer both route to P:RestoreDefaults, which reaches
   -- Sl:CliResetAll — which is exactly why this one has to AGREE with the other rather than restate it.
   applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
