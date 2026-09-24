@@ -87,7 +87,7 @@ in the order the grep prints them, so the two can be held side by side.
 
 **`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** Grep the
 three patterns and most of what comes back is prose and guards; the call sites are the table below.
-`core/ItemSetup.lua:70` and `settings/OptionsSetup.lua:206` carry the guard and the call on one
+`core/ItemSetup.lua:70` and `settings/OptionsSetup.lua:207` carry the guard and the call on one
 line, which is why counting call sites by eye off the grep undercounts.
 
 **Three of the five now go through `NS.After`, and that is the change v1.41.0 made here.**
@@ -104,7 +104,7 @@ inside those five seconds got the write anyway, from a game event, while it was 
 | `NS.After(20, …)` | `core/LootHistory.lua:87` | The second warbound repair pass, once the item cache is warm. Once per session, and cancelable. |
 | `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:70` | `NS.Item.LoadItem`'s item-cache retry, in the degraded-install fallback; the live path is the same line in the library (`libs/LibKa0s/Item.lua:124`) — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:220`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; the Filters tab's LibKa0s `IdList` passes one per **batch**, not per id (LibKa0s v1.35.0): every uncached id one render asks for shares a single check, which repaints the list once if any name has landed and re-asks the rest, up to five asks per id — an options panel the player opened by hand. |
 | `NS.After(delay, …)` | `core/Util.lua:256` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua`, `modules/Analytics.lua` and `settings/Panel.lua`, one per subscribing surface — so the ceiling is three pending timers at once. Through `NS.After` since v1.41.0: a repaint already in flight when the player switches the addon off is canceled rather than waking to find nothing to paint, which is the shape `slash-commands-§7` singles out as the most expensive one. |
-| `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:206` | The library's color-picker drag throttle, handed in through the descriptor. No schema row is a color today, so nothing reaches it. |
+| `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:207` | The library's 50 ms slider and color-picker drag throttles, handed in through the descriptor. The return value is unused: the library keeps its own armed flag (OptionsWidgets minor 31). No schema row is a color today; the sliders reach it. |
 
 The last two rows stay on raw `C_Timer.After` on purpose: neither is a deferral of the addon's own. One is the item-cache retry inside a **degraded-install fallback** for a library function, and the other is a throttle the **library** arms from a settings widget the player is dragging. Routing either through `NS.CancelDeferrals` would mean a stand-down reaching into somebody else's work.
 

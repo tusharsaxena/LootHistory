@@ -199,9 +199,10 @@ NS.Options = lib:New({
   end,
   allRows = function() return NS.Schema.Schema end,
 
-  -- Backs the color picker's 50 ms drag throttle. No schema row is a color today, so nothing
-  -- reaches it — passed anyway because a future color row would otherwise commit every frame, and
-  -- a missing throttle is invisible until someone drags a swatch.
+  -- Backs the library's 50 ms slider and color-picker drag throttles. The return value is unused:
+  -- since OptionsWidgets minor 31 the library keeps its own armed flag, so this nil-returning
+  -- C_Timer.After wrapper throttles exactly as a handle-returning one would, and C_Timer.NewTimer
+  -- would buy nothing (the LK-26 option). No schema row is a color today; the sliders reach it.
   scheduleTimer = function(fn, delay)
     if C_Timer and C_Timer.After then C_Timer.After(delay, fn) end
   end,

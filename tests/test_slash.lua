@@ -138,6 +138,27 @@ test("/lh set echoes the stored value read back after writing", function()
   NS.Schema:Set("settings.enabled", true) -- restore
 end)
 
+test("/lh set a value the row's validate refuses prints INVALID and leaves the value alone", function()
+  -- Slash minor 15: the descriptor's `set` hands the seam's `false, err` back to CliSet, which
+  -- prints the refusal instead of echoing the unchanged value as though the write had landed.
+  local R = NS.SchemaRuntime
+  local probe = { path = "settings.__probe", type = "number", group = "Probe", default = 1,
+                  validate = function(v) return v < 5 end }
+  R.AddRows({ probe })
+  NS.db.global.settings.__probe = 1
+  local ok, out = pcall(capture, function() Sl:CliSet("settings.__probe 9") end)
+  local stored = NS.db.global.settings.__probe
+  for i, row in ipairs(NS.Schema.Schema) do if row == probe then table.remove(NS.Schema.Schema, i); break end end
+  R.Reindex()
+  NS.db.global.settings.__probe = nil
+  if not ok then error(out, 0) end
+  assertEqual(out[1], NS.PREFIX .. " Invalid value for settings.__probe", "the refusal names the path")
+  for _, line in ipairs(out) do
+    assertTrue(not line:find(Sl.FormatKV("settings.__probe", "1"), 1, true), "no echo of the old value")
+  end
+  assertEqual(stored, 1, "the refused value was not stored")
+end)
+
 test("/lh set on an unknown path prints Setting not found", function()
   local out = capture(function() Sl:CliSet("nope.not.real 1") end)
   assertEqual(out[1], NS.PREFIX .. " Setting not found: nope.not.real")

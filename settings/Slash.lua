@@ -393,7 +393,9 @@ local Dispatcher = lib:New({
   -- The schema CLI, wired to this addon's single write seam. Every `set` a user types takes the
   -- same path a panel click does: validate -> write -> onChange -> debug line.
   get          = function(path) return NS.Schema:Get(path) end,
-  set          = function(path, v) NS.Schema:Set(path, v) end,
+  -- Returns the seam's answer (Slash minor 15): a validate refusal comes back as `false, err`, and
+  -- CliSet prints INVALID with the reason instead of echoing the unchanged value as if it landed.
+  set          = function(path, v) return NS.Schema:Set(path, v) end,
   findRow      = function(path) return NS.Schema:FindRow(path) end,
   allRows      = function() return NS.Schema.Schema end,
   -- ONE reset policy, shared with the Options descriptor (settings/OptionsSetup.lua). It carries
@@ -401,6 +403,9 @@ local Dispatcher = lib:New({
   -- button — both of which arrive here, through Sl:CliResetAll — un-hiding the minimap button. A
   -- single `/lh reset minimap.shown` still resets it: that is the player naming the row, by its
   -- row path (the stored key underneath stays LibDBIcon's `minimap.hide`).
+  -- A statement, deliberately, where `set` above returns: since Slash minor 15 an answer of
+  -- exactly false makes CliReset print NO_DEFAULT, and the reset-exempt veto is a skip rather
+  -- than a missing default. Answering nothing keeps every reset on the echo path.
   applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
 
   -- Slash minor 8's bulk bracket around CliResetAll's row walk (debug-logging-§10). The seam mutes

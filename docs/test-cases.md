@@ -584,7 +584,7 @@ badge and any count quoted in the docs must agree with it.
 - launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint
 - launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing
 
-### test_slash.lua (62)
+### test_slash.lua (63)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -602,6 +602,7 @@ badge and any count quoted in the docs must agree with it.
 - /lh get with no argument prints a Usage line
 - /lh get on an unknown path prints Setting not found
 - /lh set echoes the stored value read back after writing
+- /lh set a value the row's validate refuses prints INVALID and leaves the value alone
 - /lh set on an unknown path prints Setting not found
 - /lh get minimap.shown reads the row's SHOWN sense; the old minimap.hide path is unknown
 - /lh on a legacy store: hide = true reads minimap.shown false, and a set invents no `shown` key
@@ -1030,7 +1031,7 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 26 |
 | test_debuglog.lua | 22 |
 | test_launcher.lua | 17 |
-| test_slash.lua | 62 |
+| test_slash.lua | 63 |
 | test_schema.lua | 72 |
 | test_schema_stub.lua | 4 |
 | test_analytics.lua | 62 |
@@ -1047,4 +1048,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **897** |
+| **Total** | **898** |
