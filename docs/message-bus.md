@@ -6,7 +6,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
-| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:287`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
+| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:288`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` row `onChange` ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
@@ -18,9 +18,9 @@ Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua)
 
 ## `Ka0s_LootHistory_RecordAdded` payload
 
-Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:287`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
+Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:288`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
 
-Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:278`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
+Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:279`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
 
 ## `Ka0s_LootHistory_HistoryChanged` payload
 

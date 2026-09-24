@@ -46,7 +46,7 @@ db.global = {
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:718`, `:801`). Each record's field shape is documented below.
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:719`, `:802`). Each record's field shape is documented below.
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:271`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
@@ -143,16 +143,16 @@ Filtering is point-in-time: a row rescued by the whitelist (it failed the normal
 
 ## Storage: a dense array
 
-All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [schema.md](./schema.md)). `Database:Add` (`core/Database.lua:287`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
+All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [schema.md](./schema.md)). `Database:Add` (`core/Database.lua:288`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
 
 ### Rebuild-and-swap on delete
 
 Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
-- `Database:Delete(pred)` (`core/Database.lua:718`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:801`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
-- `Database:RepairBoundStates()` (`core/Database.lua:258`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
-- `Database:Purge()` (`core/Database.lua:737`) — replace with `{}`.
+- `Database:Delete(pred)` (`core/Database.lua:719`) — keep everything where `pred(r)` is false.
+- `Database:PruneOld()` (`core/Database.lua:802`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:RepairBoundStates()` (`core/Database.lua:259`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
+- `Database:Purge()` (`core/Database.lua:738`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -259,16 +259,16 @@ Note `settings.windowScale` **is** a Schema row (a General ▸ Interface ▸ *Wi
 
 [ARCHITECTURE.md → *Settings schema*](ARCHITECTURE.md#settings-schema) names both as recorded data;
 this is the writer list. The player deletes rows of the log or clears it, but never authors a row.
-Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:287`)
+Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:288`)
 appends each kept loot or currency line (`modules/Collector.lua:140`, `:205`). `PruneOld`
-(`core/Database.lua:801`) drops rows past `settings.retentionDays` once per session after
+(`core/Database.lua:802`) drops rows past `settings.retentionDays` once per session after
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:75`) and when the player accepts the prune confirm
-that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:694`). `Purge` (`core/Database.lua:737`) empties it from the purge confirm
+that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:694`). `Purge` (`core/Database.lua:738`) empties it from the purge confirm
 (`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
 `StaticPopup_Show` (`settings/Schema.lua:789`, `settings/Panel.lua:113`). `Delete`
-(`core/Database.lua:718`) drops the row the History right-click **Delete** names
-(`modules/BrowserTable.lua:1182`). `RepairBoundStates` (`core/Database.lua:258`) rewrites a row's
-`bound` (`core/Database.lua:219`) from two deferrals after login (`core/LootHistory.lua:83`, `:87`)
+(`core/Database.lua:719`) drops the row the History right-click **Delete** names
+(`modules/BrowserTable.lua:1182`). `RepairBoundStates` (`core/Database.lua:259`) rewrites a row's
+`bound` (`core/Database.lua:220`) from two deferrals after login (`core/LootHistory.lua:83`, `:87`)
 and each window open (`modules/Browser.lua:1066`). **Reset all settings** (`Sl:ResetEverything`,
 `settings/Slash.lua:198`) replaces all of it wholesale. Purge, delete and that reset each log one
 `[Data]` line, the prune one `[Prune]` (`debug-logging-§8`).
@@ -278,7 +278,7 @@ The repair bookkeeping is the deferred warbound repair's job state (see
 written only by the load pass: `NS:ArmBoundRepair` (`core/Database.lua:151`), which only
 `NS:RunMigrations` calls, stamps it when it arms the job, setting **`boundRepairPending`** and clearing
 **`boundRepairAttempts`** (`core/Database.lua:156`). After that the repair's `finishPass`
-(`core/Database.lua:245`) advances `boundRepairAttempts` and clears both once nothing is pending or
+(`core/Database.lua:246`) advances `boundRepairAttempts` and clears both once nothing is pending or
 the fruitless-pass cap is reached. The defaults declare none of the three, so Reset all settings
 removes them and the next load re-arms the job over whatever rows exist then.
 
@@ -340,9 +340,9 @@ All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is alr
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:801`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs once per session after login, and after a retention change — but a change never prunes on its own say-so.
+`Database:PruneOld` (`core/Database.lua:802`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged`. `retentionDays == 0` means "keep Always" and returns early. It runs once per session after login, and after a retention change — but a change never prunes on its own say-so.
 
-The row's `onChange` is `S:OnRetentionChanged` (`settings/Schema.lua:694`). It asks `Database:CountOlderThan(days)` (`core/Database.lua:788`, an allocation-free count, `0` for Always) how many records the new value would drop:
+The row's `onChange` is `S:OnRetentionChanged` (`settings/Schema.lua:694`). It asks `Database:CountOlderThan(days)` (`core/Database.lua:789`, an allocation-free count, `0` for Always) how many records the new value would drop:
 
 - **None** — the value becomes the confirmed retention and nothing else happens.
 - **Some, in-game** — it raises `KA0S_LOOTHISTORY_PRUNE` (`settings/Slash.lua:23`), naming the new retention and the count. **Yes** first stores the value the popup named if the store has moved since it opened, then runs `PruneOld`, so the prune and the dropdown both land on the retention the player agreed to. **No** writes the last *confirmed* retention back through `Schema:Set` and prints `retention kept at <label>; no records were deleted.` — so the stored value, which the login prune reads, never holds a retention the player refused, and the next login deletes nothing either (`S:ConfirmRetention`, `settings/Schema.lua:718`). A second change while the popup is open re-shows it for the newer value; Blizzard cancels the open one with reason `"override"` first, and `OnCancel` ignores that reason rather than treating it as **No**.
@@ -354,7 +354,7 @@ The confirmed retention is seeded from the store by `S:SyncRetention` in `addon:
 
 ### ActiveHistory — the test-mode swap
 
-Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:278`), **not** `history` directly:
+Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:279`), **not** `history` directly:
 
 ```lua
 function Database:ActiveHistory()
@@ -380,11 +380,11 @@ can collide. It is **blacklist-only** (there is no currency whitelist) and, like
 strictly point-in-time: a blacklisted currency id is dropped at capture and never written to
 `history`; existing currency rows are never hidden or removed.
 
-`Database:Query(filter)` (`core/Database.lua:426`) runs the generic `QueryList` (`core/Database.lua:401`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:651`) aggregates the filtered result in one O(n) pass for Insights.
+`Database:Query(filter)` (`core/Database.lua:427`) runs the generic `QueryList` (`core/Database.lua:402`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:652`) aggregates the filtered result in one O(n) pass for Insights.
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:433`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:434`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·
