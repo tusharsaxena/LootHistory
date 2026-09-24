@@ -927,7 +927,7 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing
 - degraded install: the SafeRegister stubs isolate a refused name and record it once
 
-### test_surface_parity.lua (9)
+### test_surface_parity.lua (14)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -938,6 +938,11 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires
 - parity: the Schema stub instance carries every member of the live runtime
 - parity: the Schema stub library carries the major's lib-level surface
+- parity: the Item stub carries the whole LibKa0s-Item-1.0 surface
+- parity: the Pool stub carries the LibKa0s-Pool-1.0 surface this addon calls
+- parity: the Lifecycle stand-in carries every member of the live latch
+- parity: the Env seam publishes the same NS members on both paths
+- parity: the Media seam publishes the same NS members on both paths
 
 ### test_disabled.lua (12)
 
@@ -1066,7 +1071,7 @@ badge and any count quoted in the docs must agree with it.
 | test_panel_filters.lua | 20 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 24 |
-| test_surface_parity.lua | 9 |
+| test_surface_parity.lua | 14 |
 | test_disabled.lua | 12 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
@@ -1075,4 +1080,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **921** |
+| **Total** | **926** |

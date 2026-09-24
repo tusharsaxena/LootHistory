@@ -127,6 +127,10 @@ Kit.setSurfaceSource{
   ["LibKa0s-Bus-1.0"]      = mocks.LibStub("LibKa0s-Bus-1.0", true),
   ["LibKa0s-Compat-1.0"]   = mocks.LibStub("LibKa0s-Compat-1.0", true),
   ["LibKa0s-Schema-1.0"]   = mocks.LibStub("LibKa0s-Schema-1.0", true),
+  -- Item and Pool are library tables as well: core/ItemSetup.lua and core/PoolSetup.lua publish the
+  -- resolved major unchanged as NS.Item / NS.Pool, so each stub mirrors the library table itself.
+  ["LibKa0s-Item-1.0"]     = mocks.LibStub("LibKa0s-Item-1.0", true),
+  ["LibKa0s-Pool-1.0"]     = mocks.LibStub("LibKa0s-Pool-1.0", true),
 }
 
 _G.LH_TEST = Kit.expose{
