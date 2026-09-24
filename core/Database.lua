@@ -480,6 +480,8 @@ local function newAccumulator()
     totalValue = 0, totalQuantity = 0, epicPlus = 0,
     firstTs = nil, lastTs = nil,
     bestDrop = nil, richestDrop = nil, biggestHaul = nil,
+    -- accumulateTime's per-pass memo: floor(ts / 900) -> { day, hour, wday }. Scratch, not output.
+    timeMemo = {},
   }
 end
 
@@ -539,14 +541,31 @@ end
 
 -- Day / hour / weekday buckets and the first-last timestamp span. Records with no ts contribute
 -- to every other breakdown but not to these.
+--
+-- date() is memoized per 900 s bucket of ts for the length of one Stats pass (A.timeMemo). Every
+-- real timezone offset is a multiple of 15 minutes, so a 900 s bucket never straddles a local
+-- day or hour, and records in one bucket share day, hour and weekday. Measured over 50,000
+-- records, the two unmemoized date() calls were the bulk of a Stats pass.
+local function timeBucket(A, ts)
+  local b = math.floor(ts / 900)
+  local m = A.timeMemo[b]
+  if not m then
+    local d = date("*t", ts)
+    m = { day = string.format("%04d-%02d-%02d", d.year, d.month, d.day), hour = d.hour,
+          wday = d.wday - 1 }  -- Lua wday 1=Sun → key 0=Sun
+    A.timeMemo[b] = m
+  end
+  return m
+end
+
 local function accumulateTime(A, r, value)
   if not r.ts then return end
-  local day = date("%Y-%m-%d", r.ts)
+  local m = timeBucket(A, r.ts)
+  local day = m.day
   A.byDay[day] = (A.byDay[day] or 0) + 1
   A.valueByDay[day] = (A.valueByDay[day] or 0) + value
-  local d = date("*t", r.ts)
-  A.byHour[d.hour] = (A.byHour[d.hour] or 0) + 1
-  A.byWeekday[d.wday - 1] = (A.byWeekday[d.wday - 1] or 0) + 1  -- Lua wday 1=Sun → key 0=Sun
+  A.byHour[m.hour] = (A.byHour[m.hour] or 0) + 1
+  A.byWeekday[m.wday] = (A.byWeekday[m.wday] or 0) + 1
   if not A.firstTs or r.ts < A.firstTs then A.firstTs = r.ts end
   if not A.lastTs or r.ts > A.lastTs then A.lastTs = r.ts end
 end

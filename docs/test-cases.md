@@ -229,11 +229,12 @@ badge and any count quoted in the docs must agree with it.
 - Filters: currency blacklist is independent of the item id lists
 - Filters: ClearList and ClearAll include the currency blacklist
 
-### test_auctionprice.lua (26)
+### test_auctionprice.lua (27)
 
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
 - AuctionPrice: the shipped cascade reaches a non-default-collected key without the panel
+- AuctionPrice: Pick honors a reorder made by MovePriorityWithin
 - AuctionPrice: Pick respects a reordered priority list
 - AuctionPrice: GatherAll only captures keys in the capture set
 - AuctionPrice: GatherAll returns nil when nothing gathered / disabled
@@ -363,7 +364,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: RepairBoundStates resets the give-up budget on a pass that fixed something
 - Database: RepairBoundStates gives up after the attempt cap
 
-### test_stats.lua (19)
+### test_stats.lua (20)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -384,6 +385,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyBySource sums currency quantity per source across currencies
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
+- Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight
 
 ### test_browser.lua (61)
 
@@ -1047,10 +1049,10 @@ badge and any count quoted in the docs must agree with it.
 | test_compat.lua | 39 |
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
-| test_auctionprice.lua | 26 |
+| test_auctionprice.lua | 27 |
 | test_collector.lua | 34 |
 | test_database.lua | 65 |
-| test_stats.lua | 19 |
+| test_stats.lua | 20 |
 | test_browser.lua | 61 |
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
@@ -1074,4 +1076,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **920** |
+| **Total** | **922** |

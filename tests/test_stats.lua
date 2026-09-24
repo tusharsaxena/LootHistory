@@ -294,3 +294,36 @@ test("Stats: per-character category matrices split each char by category", funct
   assertEqual(s.charByType["A-R"]["Armor"], 1)
   assertEqual(s.charByBound["A-R"]["BOP"], 2)
 end)
+
+test("Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight",
+  function()
+    -- red under: a timeMemo bucket that straddles a local day or hour. accumulateTime memoizes one
+    -- date("*t") per 900 s bucket of `ts`; this recomputes every record with date() directly and
+    -- asserts the maps agree, so a bucket that crossed midnight or the hour would miscount here.
+    local t = os.date("*t", 1600000000)
+    local ten = os.time{ year = t.year, month = t.month, day = t.day, hour = 10, min = 0, sec = 0 }
+    local midnight = os.time{ year = t.year, month = t.month, day = t.day + 1, hour = 0, min = 0, sec = 0 }
+    local stamps = { ten, ten + 300, midnight - 1, midnight, midnight + 1 }
+    local recs = {}
+    for i, ts in ipairs(stamps) do
+      recs[i] = { ts = ts, char = "A-R", source = "KILL", itemID = i, quality = 2, quantity = 1 }
+    end
+    local wantDay, wantHour, wantWeekday = {}, {}, {}
+    for _, ts in ipairs(stamps) do
+      local day, d = os.date("%Y-%m-%d", ts), os.date("*t", ts)
+      wantDay[day] = (wantDay[day] or 0) + 1
+      wantHour[d.hour] = (wantHour[d.hour] or 0) + 1
+      wantWeekday[d.wday - 1] = (wantWeekday[d.wday - 1] or 0) + 1
+    end
+    NS.State.testRecords = recs
+    local s = NS.Database:Stats({})
+    NS.State.testRecords = nil
+    local function same(got, want, what)
+      for k, v in pairs(want) do assertEqual(got[k], v, what .. " " .. tostring(k)) end
+      for k, v in pairs(got) do assertEqual(want[k], v, what .. " extra " .. tostring(k)) end
+    end
+    same(s.byDay, wantDay, "byDay"); same(s.byHour, wantHour, "byHour")
+    same(s.byWeekday, wantWeekday, "byWeekday")
+    assertEqual(s.byHour[23], 1, "the second before midnight stays in hour 23")
+    assertEqual(s.byHour[0], 2, "midnight and one second after land in hour 0")
+  end)

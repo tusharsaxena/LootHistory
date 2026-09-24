@@ -53,6 +53,20 @@ test("AuctionPrice: the shipped cascade reaches a non-default-collected key with
     NS.db.global.settings.auction = nil
   end)
 
+test("AuctionPrice: Pick honors a reorder made by MovePriorityWithin", function()
+  -- red under: a Pick that caches its answer (or the parsed cascade) past a reorder. Pick's
+  -- tag-split memo is keyed by the immutable tag string, never by position, so a drag that swaps
+  -- the two tags must flip which price wins on the very next call.
+  NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbmarket", "auctionator:price" } }
+  local map = { tsm = { dbmarket = 5 }, auctionator = { price = 9 } }
+  local price, tag = NS.AuctionPrice:Pick(map)
+  assertEqual(price, 5); assertEqual(tag, "tsm:dbmarket")
+  assertTrue(NS.AuctionPrice:MovePriorityWithin({ "tsm:dbmarket", "auctionator:price" }, 2, 1))
+  price, tag = NS.AuctionPrice:Pick(map)
+  assertEqual(price, 9); assertEqual(tag, "auctionator:price")
+  NS.db.global.settings.auction = nil
+end)
+
 test("AuctionPrice: Pick respects a reordered priority list", function()
   NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbminbuyout", "oribos:market" } }
   local price, tag = NS.AuctionPrice:Pick({ tsm = { dbminbuyout = 47000 }, oribos = { market = 51000 } })

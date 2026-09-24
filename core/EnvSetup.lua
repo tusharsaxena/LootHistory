@@ -90,7 +90,7 @@ end
 
 --- Zone and subzone. ALWAYS two strings; "" when the client has no text yet.
 ---
---- The empty string is load-bearing rather than tidy. core/Database.lua:556 and
+--- The empty string is load-bearing rather than tidy. core/Database.lua:575 and
 --- modules/BrowserTable.lua's Zone column both bucket "" with nil on purpose — in Database:Stats, in the
 --- Browser's Zone filter and in the table's group-by-zone — because one named zone spans many
 --- UiMapIDs and a row captured before the client had text must not become its own bucket. A nil
