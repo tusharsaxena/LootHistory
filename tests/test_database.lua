@@ -726,6 +726,27 @@ test("Database: RepairBoundStates repairs a row that has only a link", function(
   g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
 end)
 
+test("Database: RepairBoundStates warms the cache from the link when a row has no itemID", function()
+  -- LootHistory-R-15: the unsettled branch asked LoadItem(r.itemID), and a link-only row has no
+  -- itemID, so the request never went out and the row could only settle by luck.
+  local g = NS.db.global
+  local savedHist = g.history
+  local savedBind = NS.Compat.ItemBindState
+  local savedReq = T.mocks.C_Item.RequestLoadItemDataByID
+  local requested = {}
+  NS.Compat.ItemBindState = function() return nil, false end   -- the tooltip is not readable yet
+  T.mocks.C_Item.RequestLoadItemDataByID = function(id) requested[#requested + 1] = id end
+  g.history = { { bound = "WARBAND", itemLink = "|cffa335ee|Hitem:258586::::::::80:::::|h[Cache]|h|r" } }
+  g.boundRepairPending, g.boundRepairAttempts = true, nil
+  local ok, err = pcall(NS.Database.RepairBoundStates, NS.Database)
+  NS.Compat.ItemBindState = savedBind
+  T.mocks.C_Item.RequestLoadItemDataByID = savedReq
+  g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
+  if not ok then error(err, 0) end
+  assertEqual(#requested, 1, "the link-only row asks the client to cache its item")
+  assertEqual(requested[1], 258586)
+end)
+
 test("Database: RepairBoundStates resets the give-up budget on a pass that fixed something", function()
   local g = NS.db.global
   local savedHist = g.history

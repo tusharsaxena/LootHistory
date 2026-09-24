@@ -211,7 +211,8 @@ local function examineRow(r)
   if not settled then
     -- Unsettled means the TOOLTIP wasn't readable. A bind type of BOE is not evidence the
     -- row isn't warbound (it lies for these items), so it must not end the row's retries.
-    NS.Item.LoadItem(r.itemID)   -- warm the cache so the next pass can answer
+    -- A link-only row has no itemID; the link names the same item, so warm the cache from it.
+    NS.Item.LoadItem(r.itemID or NS.Item.ItemIDFromLink(r.itemLink))
     return "pending"
   end
   local merged = NS.Compat.BestBound(r.bound, state)

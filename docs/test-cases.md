@@ -290,7 +290,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (60)
+### test_database.lua (61)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -350,6 +350,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: RepairBoundStates promotes a BOE row the bind type filed too loosely
 - Database: a readable tooltip settles a row even when the bind type says otherwise
 - Database: RepairBoundStates repairs a row that has only a link
+- Database: RepairBoundStates warms the cache from the link when a row has no itemID
 - Database: RepairBoundStates resets the give-up budget on a pass that fixed something
 - Database: RepairBoundStates gives up after the attempt cap
 
@@ -1008,7 +1009,7 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
-| test_database.lua | 60 |
+| test_database.lua | 61 |
 | test_stats.lua | 19 |
 | test_browser.lua | 60 |
 | test_browsertable.lua | 63 |
@@ -1032,4 +1033,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **882** |
+| **Total** | **883** |
