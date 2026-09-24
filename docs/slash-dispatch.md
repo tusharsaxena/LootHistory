@@ -1,6 +1,6 @@
 # Slash dispatch
 
-One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.lua:781`. Each row is a **positional triple** — `{ name, description, handler }`, the shape `LibKa0s-Slash-1.0` reads — and the same rows dispatch verbs, generate the chat help *and* render the settings landing page, so adding a command is still a one-row append.
+One ordered table drives the entire slash UX: `NS.COMMANDS` in `settings/Schema.lua:889`. Each row is a **positional triple** — `{ name, description, handler }`, the shape `LibKa0s-Slash-1.0` reads — and the same rows dispatch verbs, generate the chat help *and* render the settings landing page, so adding a command is still a one-row append.
 
 The table stays the **host's** and is passed into the library rather than owned by it, and that is the load-bearing decision in this seam rather than squeamishness: the settings landing page renders these same rows (`settings/Panel.lua:883`), so if the slash major owned the table, the options major drawing that page would have to resolve the slash major to read it — a real dependency cycle between two majors at load time. The table crossing between them as plain data is what keeps them independent. Each handler takes the rest of the line verbatim (never a `self`), so the seven verbs that are genuinely this addon's — `show` / `hide` / `toggle` / `config` / `debug` / `test` / `purge` — never leave the host, and adopting the library could not break them.
 
@@ -13,7 +13,7 @@ The dispatcher is the library's (`libs/LibKa0s/Slash.lua:474`), bound onto `NS.S
 - `/lh <known>` → runs that row's `entry[3](rest)`.
 - `/lh <unknown>` → `unknown command '<verb>'` then the help index.
 
-Only the verb is lower-cased; the remainder (`rest`) keeps its original case *and* its internal spacing, so schema paths like `settings.qualityThreshold` survive unchanged through `/lh set <path> <value>`. The `debug` handler additionally lower-cases its own `on`/`off` subargument (`settings/Schema.lua:819`).
+Only the verb is lower-cased; the remainder (`rest`) keeps its original case *and* its internal spacing, so schema paths like `settings.qualityThreshold` survive unchanged through `/lh set <path> <value>`. The `debug` handler additionally lower-cases its own `on`/`off` subargument (`settings/Schema.lua:920`).
 
 Every chat line routes through the single shared printer **`NS.Print`**, published from `LibKa0s-Core-1.0` in `core/CoreSetup.lua:184`, which prepends the mandated **cyan** `NS.PREFIX` `|cff00ffff[LH]|r` banner (`core/Namespace.lua:10`) and secret-stringifies each argument (events-frames-taint-§8) so a combat-protected "secret" value logs as `<secret>` instead of raising. Every file that emits chat does `local print = NS.Print` — call sites never call the global `print()`, never hand-write the tag, and never `..`-concatenate args before the printer. The dispatcher reaches it **late-bound** (`print = function(line) NS.Print(line) end`, `settings/Slash.lua:385`) so it survives `core/LootHistory.lua`'s reclaim of `NS.Print` from AceConsole's `:Print` mixin (architecture-§2). Cyan is the Ka0s house color every addon shares for its chat tag (slash-commands-§4).
 
@@ -113,7 +113,7 @@ Because the help index, the landing page and the dispatcher all read the same ta
 
 ## Session-only `debug`
 
-The `debug` handler (`settings/Schema.lua:819`) drives the debug console independently of the logging flag:
+The `debug` handler (`settings/Schema.lua:920`) drives the debug console independently of the logging flag:
 
 - `/lh debug` → `DebugLog:Toggle()` — flips the console **window** only; the logging flag is untouched.
 - `/lh debug on` / `/lh debug off` → `DebugLog:SetEnabled(true/false)` — sets the session-only logging flag `NS.State.debug`. Capture runs even with the window closed.
@@ -124,7 +124,7 @@ The `debug` handler (`settings/Schema.lua:819`) drives the debug console indepen
 
 Seven `StaticPopupDialogs` entries are registered once at load, in-game only (`settings/Slash.lua:7`):
 
-- **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:838`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history…" button raises the same popup (`settings/Panel.lua:113`).
+- **`KA0S_LOOTHISTORY_PURGE`** — the confirm behind `/lh purge`. The `purge` command calls `StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")` (`settings/Schema.lua:939`); accepting runs `Database:Purge()` and prints `history purged`. If `StaticPopup_Show` is unavailable (headless), it purges directly. The Settings panel's "Purge history…" button raises the same popup (`settings/Panel.lua:113`).
 - **`KA0S_LOOTHISTORY_PRUNE`** — the confirm behind a shorter **Keep history for** (`settings/Slash.lua:23`), from the panel dropdown or `/lh set settings.retentionDays <n>` alike, raised by the row's `onChange` (`S:OnRetentionChanged`) only when the new value would delete records. Its text names the new retention and the count. Accepting runs `Database:PruneOld()`; declining writes the previous retention back through `Schema:Set` and prints `retention kept at <label>; no records were deleted.` With no `StaticPopup_Show` (headless) it prunes directly. See [schema.md → *Retention prune*](schema.md#retention-prune).
 - **`KA0S_LOOTHISTORY_RESETALL`** — the confirm behind the Master controls tab's **Reset all settings** button (options-ui-§15 names it; it read "Reset Everything" on the Maintenance tab before that), *not* the `resetall` slash verb. The dialog key keeps its historical name, and its text — options-ui-§12's second canonical wording, the one for an addon with no profile — discloses both effects. Accepting runs `Sl:ResetEverything` (`settings/Slash.lua:202`), which wipes history (`Database:Purge`), restores every setting **and** clears the filter lists (`CliResetAll`), then drops `savedView` to stock (`Browser:ResetView`) and recenters the window (`Browser:ResetWindow`), then refreshes the panel. This is the total destructive reset; the `/lh resetall` verb only resets settings + the id-lists and prompts for nothing.
 - **`KA0S_LOOTHISTORY_CLEAR_BLACKLIST`** / **`KA0S_LOOTHISTORY_CLEAR_WHITELIST`** / **`KA0S_LOOTHISTORY_CLEAR_CURRENCY`** — the confirms behind the Filters tab's per-list **"Clear all"** buttons (item blacklist, whitelist, and the currency blacklist). Accepting calls `Filters:ClearList(<list>)`; the panel refreshes via its `HistoryChanged` listener. Non-destructive — clearing a list only empties its id-set; stored history is untouched (blacklisting affected future captures only).

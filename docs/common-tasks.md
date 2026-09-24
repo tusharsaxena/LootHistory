@@ -186,7 +186,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`core/DebugLogSetup.lua:144`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:819`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:920`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:473`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:95-96`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
