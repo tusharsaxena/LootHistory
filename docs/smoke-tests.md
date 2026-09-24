@@ -530,7 +530,8 @@ History** (both must land on the same category).
   own when combat ends. Drag **Master scale** — the History window *and* the export window both
   change size, and **Window scale** on the Interface tab still multiplies on top of it. Drag
   **Master alpha** — both windows fade together. Tick **Lock frame** and try to drag either window
-  by its title bar: neither moves; untick it and both drag again.
+  by its title bar: neither moves; drag the History window's bottom-right resize grip: it does not
+  resize. Untick it and both drag again, and the grip resizes; `/reload` and the new size is kept.
 - Drag the **Window scale** slider (Interface); run `/lh get settings.windowScale`. Then
   `/lh set windowScale 1.5` and watch the slider. **The slider must move smoothly in 0.05 steps** —
   it shipped with no step and could only be dragged to 0.6 or 1.6.

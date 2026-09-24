@@ -720,3 +720,26 @@ test("browser: 'Only in combat' hides the window when combat ends", function()
   assertFalse(shownAfterEdge({ visibility = "inCombat" }, true, "PLAYER_REGEN_ENABLED"),
     "'Only in combat' left the window up after combat ended")
 end)
+
+test("browser: Lock frame gates the resize grip as well as the title-bar drag", function()
+  -- Lock frame stops the window being dragged OR resized: a locked window that still resizes from
+  -- its corner grip, and persists the new size on release, is not locked.
+  -- red under: the grip's OnMouseDown calling frame:StartSizing without asking B:IsLocked().
+  withSettings({ visibility = "always" }, function()
+    B:Show()
+    local f = B:GetWindow()
+    local calls = 0
+    rawset(f, "StartSizing", function() calls = calls + 1 end)
+    local down = f.resizeGrip:GetScript("OnMouseDown")
+    local ok, err = pcall(function()
+      withSettings({ locked = true }, function() down() end)
+      assertEqual(calls, 0, "a locked window must not start sizing")
+      withSettings({ locked = false }, function() down() end)
+      assertEqual(calls, 1, "an unlocked window still resizes from its grip")
+    end)
+    rawset(f, "StartSizing", nil)
+    B:Hide()
+    if not ok then error(err, 0) end
+  end)
+end)
+

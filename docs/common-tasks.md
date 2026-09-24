@@ -254,14 +254,15 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   |---|---|---|
   | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:296` |
   | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1095`, `:1096`, `settings/Panel.lua:528`, `:529`, `:530` |
-  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1047`, `:1048` (the corner grabber, reasoned at `:1042-1046`), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
+  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1048`, `:1049` (the corner grabber, reasoned at `:1042-1047`), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` (the settings landing-page logo), `core/LauncherSetup.lua:49` (the launcher icon, minimap button and broker alike) |
 
   The catalog is **113 marks** as of LibKa0s v1.39.0, not the thirty it shipped with, so "the
   catalog does not have it" is a claim that has to be re-checked against `lib.ICONS` and not
   remembered. It was re-checked for all four of the third row: there is no class-circle sheet, no
   window-corner grabber and no bag. `resize` exists and is the near miss — it was tried on the grip and reverted,
-  for the reason the resize-grip bullet above gives.
+  for the reason the resize-grip bullet above gives, and the choice is ratified as the `library-stack-§8`
+  row in [ARCHITECTURE.md → Documented deviations](ARCHITECTURE.md#documented-deviations).
 - **The monospace face is the library's now — the per-addon exception is retired.** The debug
   console and the export/debug copy boxes render in **JetBrains Mono**
   (`Constants.FONT_MONO`, resolved at file load from `NS.MediaFont(Constants.FONT_MONO_NAME)`).

@@ -1043,10 +1043,17 @@ local function EnsureFrame()
   -- collection draw -- three diagonal hatch lines that sit INSIDE the window's corner and read as
   -- part of the frame. This briefly drew the catalog's `resize` mark instead (a big two-headed
   -- arrow, tinted, with a gold hover): one addon's window corner looking unlike every other
-  -- window corner in the collection is drift, whichever mark is prettier on its own.
+  -- window corner in the collection is drift, whichever mark is prettier on its own. Ratified as
+  -- the `library-stack-§8` row in docs/ARCHITECTURE.md -> ## Documented deviations.
   grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
   grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-  grip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
+  -- Lock frame gates the resize as well as the title-bar drag: both change the window's geometry
+  -- and both persist it through SaveWindow. OnMouseUp stays ungated (StopMovingOrSizing on a
+  -- window that never started sizing is a no-op).
+  grip:SetScript("OnMouseDown", function()
+    if B:IsLocked() then return end
+    frame:StartSizing("BOTTOMRIGHT")
+  end)
   grip:SetScript("OnMouseUp", function()
     frame:StopMovingOrSizing()
     SaveWindow()

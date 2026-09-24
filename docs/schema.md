@@ -269,7 +269,7 @@ that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:694`)
 (`core/Database.lua:721`) drops the row the History right-click **Delete** names
 (`modules/BrowserTable.lua:1182`). `RepairBoundStates` (`core/Database.lua:259`) rewrites a row's
 `bound` (`core/Database.lua:220`) from two deferrals after login (`core/LootHistory.lua:83`, `:87`)
-and each window open (`modules/Browser.lua:1066`). **Reset all settings** (`Sl:ResetEverything`,
+and each window open (`modules/Browser.lua:1073`). **Reset all settings** (`Sl:ResetEverything`,
 `settings/Slash.lua:198`) replaces all of it wholesale. Purge, delete and that reset each log one
 `[Data]` line, the prune one `[Prune]` (`debug-logging-§8`).
 

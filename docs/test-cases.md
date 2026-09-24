@@ -378,7 +378,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (60)
+### test_browser.lua (61)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -440,6 +440,7 @@ badge and any count quoted in the docs must agree with it.
 - browser: a combat transition re-applies visibility through the private event target
 - browser: 'Only out of combat' hides the window at the pull, before lockdown engages
 - browser: 'Only in combat' hides the window when combat ends
+- browser: Lock frame gates the resize grip as well as the title-bar drag
 
 ### test_browsertable.lua (63)
 
@@ -1014,7 +1015,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 33 |
 | test_database.lua | 63 |
 | test_stats.lua | 19 |
-| test_browser.lua | 60 |
+| test_browser.lua | 61 |
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
 | test_debuglog.lua | 22 |
@@ -1036,4 +1037,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **886** |
+| **Total** | **887** |
