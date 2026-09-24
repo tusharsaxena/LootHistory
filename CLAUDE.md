@@ -46,6 +46,11 @@ touching code:
   `midnight-quirks.md`, `performance.md`, `combat-path-sweep.md`, `smoke-tests.md`, `test-cases.md`,
   `automated-tests/` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
 
+## Green gate
+
+Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game checks are in
+[docs/smoke-tests.md](docs/smoke-tests.md).
+
 ## Vendored LibKa0s
 
 Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.56.0 (MIT) — the Ka0s-owned shared
@@ -58,8 +63,3 @@ it names, and diffs both vendored payloads against what LibKa0s published at tha
 provenance line and a payload that disagree fail the run. **Bump the line and re-vendor the bytes in
 the same commit**; a maintainer's question about which build carries which library is answered here
 rather than in the player-facing README.
-
-## Green gate
-
-Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game checks are in
-[docs/smoke-tests.md](docs/smoke-tests.md).
