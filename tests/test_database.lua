@@ -480,6 +480,38 @@ test("Database: RunMigrations sets schemaVersion when absent", function()
   assertEqual(NS.db.global.schemaVersion, 8)
 end)
 
+-- savedvariables-§1 (v2.65.0): the defaults declare 0, the pre-migration floor, and never the
+-- current version. AceDB strips a stored value equal to its default at logout and backfills a
+-- declared default onto an account that stored none, so a non-zero seed either loses the stamp or
+-- makes a legacy account read as partly migrated.
+test("Database: defaults declare schemaVersion 0, and the target is the ladder's highest step", function()
+  assertEqual(NS.defaults.global.schemaVersion, 0)
+  assertEqual(NS.SCHEMA_VERSION, 8)
+end)
+
+-- What AceDB hands a brand-new install: the declared default, 0. The runner walks every step and
+-- each [Migrate] line names the step it ran, v1->v2 through v7->v8.
+test("Database: a fresh store at schemaVersion 0 walks every step to 8", function()
+  local g = NS.db.global
+  local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
+  local savedDebug, savedFlag = NS.Debug, NS.State.debug
+  local lines = {}
+  NS.Debug = function(tag, fmt, ...) lines[#lines + 1] = tag .. " " .. fmt:format(...) end
+  NS.State.debug = true
+  g.history, g.savedView, g.schemaVersion = {}, nil, 0
+  NS:RunMigrations()
+  NS.Debug, NS.State.debug = savedDebug, savedFlag
+  local stamp = g.schemaVersion
+  g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView   -- restore shared state
+  assertEqual(stamp, 8)
+  local steps = {}
+  for _, l in ipairs(lines) do
+    local from, to = l:match("^Migrate v(%d+) %-> v(%d+),")
+    if from then steps[#steps + 1] = from .. "->" .. to end
+  end
+  assertEqual(table.concat(steps, " "), "1->2 2->3 3->4 4->5 5->6 6->7 7->8")
+end)
+
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
   NS.db.global.schemaVersion = 6
   NS:RunMigrations()

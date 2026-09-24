@@ -132,7 +132,7 @@ reaches it.
   and `to = 8` in `core/Database.lua`).
 - **`NS.db.global.minimap`**, apart from its `hide` row. `NS.Launcher:Register()`
   (`core/LauncherSetup.lua`) hands the table to LibDBIcon and writes nothing to it, since the AceDB
-  default (`defaults/Global.lua:63`) supplies it. The one writer is the library: dragging the minimap
+  default (`defaults/Global.lua:65`) supplies it. The one writer is the library: dragging the minimap
   button stores `minimapPos` (`libs/LibDBIcon-1.0/LibDBIcon-1.0.lua:194`). The addon never calls the
   library's `Lock`, `Unlock` or compartment functions, its only other writes into the table. The
   scope is **global** and launcher-§3 fixes it there: a profile switch must not move a player's
@@ -145,7 +145,7 @@ player deletes rows of the log or clears it, but never authors a row. Its one ow
 (`core/Database.lua`), holds every writer, and [schema.md → *Recorded data*](schema.md#recorded-data-history-and-the-repair-bookkeeping)
 lists them with the act that reaches each. The warbound repair's bookkeeping beside it is recorded
 data of the same owner, and one key of it only the load pass writes: **`boundRepairRevision`**
-(`core/Database.lua:155`), stamped by `NS:ArmBoundRepair`, which only `NS:RunMigrations` calls.
+(`core/Database.lua:160`), stamped by `NS:ArmBoundRepair`, which only `NS:RunMigrations` calls.
 That call also arms **`boundRepairPending`** and **`boundRepairAttempts`**, which the deferred
 repair then advances and clears.
 
@@ -153,7 +153,7 @@ The id filter sets are a structural registry (`architecture-§5`): the player ad
 the defaults ship the sets empty, and no schema row or whole-value path names them, so they need no
 register row while only the writer and load pass named here touch them. Their storage keys are
 `NS.db.global.blacklist` and `.whitelist` (`{ [itemID] = true }`) and `.currencyBlacklist`
-(`{ [currencyID] = true }`), declared empty in `defaults/Global.lua:20-22`. Their one writer is
+(`{ [currencyID] = true }`), declared empty in `defaults/Global.lua:22-24`. Their one writer is
 `NS.Filters` (`modules/Filters.lua`), whose per-id and reset verbs are called by the Filters tab,
 the History right-click menu, the Clear-all confirms and `Sl:CliResetAll`, none of which writes the
 sets itself. They have no load pass: the AceDB defaults seed them and no `MIGRATIONS` step in

@@ -290,7 +290,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (63)
+### test_database.lua (65)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -335,6 +335,8 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats charges a currency record for the strings it does carry
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
+- Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
+- Database: a fresh store at schemaVersion 0 walks every step to 8
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -1016,7 +1018,7 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
-| test_database.lua | 63 |
+| test_database.lua | 65 |
 | test_stats.lua | 19 |
 | test_browser.lua | 61 |
 | test_browsertable.lua | 63 |
@@ -1040,4 +1042,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **890** |
+| **Total** | **892** |

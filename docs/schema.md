@@ -14,7 +14,7 @@ Defaults are declared in `defaults/Global.lua`; AceDB merges them under `db.glob
 
 ```lua
 db.global = {
-  schemaVersion = 8,           -- DB schema stamp; seeded 1, carried to 8 by NS:RunMigrations at init
+  schemaVersion = 8,           -- DB schema stamp; declared 0, carried to 8 by NS:RunMigrations at init
   history = {},                -- dense array of loot records (one per loot event)
   blacklist = {},              -- { [itemID]=true } — dropped at capture; existing rows untouched (registry: NS.Filters)
   whitelist = {},              -- { [itemID]=true } — always record, bypassing the gates (registry: NS.Filters)
@@ -46,7 +46,7 @@ db.global = {
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:721`, `:806`). Each record's field shape is documented below.
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:726`, `:811`). Each record's field shape is documented below.
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:271`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
@@ -143,16 +143,16 @@ Filtering is point-in-time: a row rescued by the whitelist (it failed the normal
 
 ## Storage: a dense array
 
-All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [schema.md](./schema.md)). `Database:Add` (`core/Database.lua:288`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
+All history lives at `LootHistoryDB.global.history` — an account-wide dense array (see [schema.md](./schema.md)). `Database:Add` (`core/Database.lua:293`) appends one record and fires `Ka0s_LootHistory_RecordAdded`; that is the only write path during normal play.
 
 ### Rebuild-and-swap on delete
 
 Deletion never leaves holes — every predicate/bulk path **rebuilds a fresh array and swaps it in**:
 
-- `Database:Delete(pred)` (`core/Database.lua:721`) — keep everything where `pred(r)` is false.
-- `Database:PruneOld()` (`core/Database.lua:806`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
-- `Database:RepairBoundStates()` (`core/Database.lua:259`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
-- `Database:Purge()` (`core/Database.lua:740`) — replace with `{}`.
+- `Database:Delete(pred)` (`core/Database.lua:726`) — keep everything where `pred(r)` is false.
+- `Database:PruneOld()` (`core/Database.lua:811`) — retention cleanup; drops records older than `settings.retentionDays` (`0` == keep Always), gated once per session.
+- `Database:RepairBoundStates()` (`core/Database.lua:264`) — the deferred warbound-state split; upgrades under-classified rows in place and fires `HistoryChanged` when it changes any.
+- `Database:Purge()` (`core/Database.lua:745`) — replace with `{}`.
 
 Each of these assigns a new table to `NS.db.global.history` and fires `Ka0s_LootHistory_HistoryChanged`, avoiding both O(n²) shifting and array holes. Because records carry no metatables, the swap is a plain value move.
 
@@ -249,7 +249,7 @@ Several pieces of persisted state in `db.global` are not schema rows, so nothing
 - **`blacklist` / `whitelist` / `currencyBlacklist`** — the id filter lists (issue #14; the currency list added with currency capture). They are a **structural registry** (`architecture-§5`): the player adds and removes members and no row names one, so they are written by their one registry writer, `NS.Filters` (`modules/Filters.lua`), rather than through `Schema:Set`. That is compliant and needs no register row; the storage keys, the writer and the load pass (none: AceDB defaults only) are named in [ARCHITECTURE.md](ARCHITECTURE.md#settings-schema) → *Settings schema*. The writer's callers are the Filters tab (`settings/Panel.lua:214-298`), the History right-click menu (`modules/BrowserTable.lua:1167`, `:1173`), the Clear-all confirms (`settings/Slash.lua:52-86`) and `Sl:CliResetAll` (`:473`, with its degraded-install twin at `:337`), which the `resetall` verb and the General page's **Defaults** button (`P:RestoreDefaults`) both reach. **Reset all settings** (`Sl:ResetEverything`, `settings/Slash.lua:198`) also empties the sets, because it empties `db.global` wholesale, and `architecture-§5` does not count wholesale replacement as a registry write. Copy-on-write mutation, then a direct `Collector:RefreshUpvalues()` re-cache + `Database:FireHistoryChanged()` (the browser re-queries). All are strictly **point-in-time**: they decide what happens at capture, not what happens to rows already stored. Blacklisted item ids are dropped at capture (`CHAT_MSG_LOOT`) and never written to `history`; existing rows are never hidden or removed. Whitelisted ids are always recorded, bypassing the quality/source/quest gates, as plain rows with no special flag. `currencyBlacklist` is keyed by **currencyID** (a separate namespace, since item and currency ids can collide) and is **blacklist-only** (no currency whitelist): a blacklisted currency is dropped at capture (`CHAT_MSG_CURRENCY`). Changing any list fires `Database:FireHistoryChanged()` and calls `Collector:RefreshUpvalues()` so the browser/Insights re-query and future captures see the new lists — it never hides or reveals existing rows. An item id lives on at most one of the item lists. See [settings-panel.md](settings-panel.md).
 - **`settings.auction.priority`** — **the one carve-out**, with a register row under [ARCHITECTURE.md → *Documented deviations*](ARCHITECTURE.md#documented-deviations): the ordered `"provider:key"` AH-price cascade selection list (`AuctionPrice:Pick` walks it front-to-back; first present key wins). An ordered list has no fixed Schema widget (CheckBox/Dropdown/Slider/MultiCheck) to express reordering, so it is read/written directly via `AuctionPrice:GetPriority` / `ReconcilePriority` / `MovePriorityWithin` (`modules/AuctionPrice.lua`) and **dragged** on the AH Price tab through the shared `ReorderList` widget (options-ui-§18). `MovePriorityWithin(subset, from, to)` is a **splice to index** — one write, however far the row traveled — and re-lays the dragged subset into its own slots in the stored array, so reordering the sources you collect never moves the ones you do not. It replaced the pairwise `SwapPriorityTags` the old ▲▼ arrows drove, which is gone. Its sibling `settings.auction.capture` (now the single collect-**and**-rank flag per source) **is** a normal Schema row (`MultiCheck`, `settings/Schema.lua`) — only the ordering half is a carve-out. (There is no longer a separate `priorityDisabled` set: collection and priority-participation are one flag — an unticked source is neither collected nor ranked.)
 
-`minimap` is not on that list because LibDBIcon owns it: `NS.Launcher:Register()` (`core/LauncherSetup.lua`) hands the table to LibDBIcon and the library keeps the button's state in it, storing `minimapPos` when the button is dragged. Only its `hide` leaf is a schema row. Setup does not seed the table when it is missing (#30): replacing the whole table would be a write over the `minimap.hide` row, and the AceDB default (`defaults/Global.lua:63`) already supplies it. **Reset all settings** replaces the table, so it hands LibDBIcon the new one (`NS.RefreshLauncher`); otherwise a drag before `/reload` would store `minimapPos` in the old table and the position would be lost. The `hide` leaf is **carried across** that wipe (launcher-§3): the button's visibility is a per-installation display preference and survives both *Reset all settings* and the page's **Defaults** button. `minimapPos` is not carried — see [ARCHITECTURE.md → *Known limitations*](ARCHITECTURE.md#known-limitations).
+`minimap` is not on that list because LibDBIcon owns it: `NS.Launcher:Register()` (`core/LauncherSetup.lua`) hands the table to LibDBIcon and the library keeps the button's state in it, storing `minimapPos` when the button is dragged. Only its `hide` leaf is a schema row. Setup does not seed the table when it is missing (#30): replacing the whole table would be a write over the `minimap.hide` row, and the AceDB default (`defaults/Global.lua:65`) already supplies it. **Reset all settings** replaces the table, so it hands LibDBIcon the new one (`NS.RefreshLauncher`); otherwise a drag before `/reload` would store `minimapPos` in the old table and the position would be lost. The `hide` leaf is **carried across** that wipe (launcher-§3): the button's visibility is a per-installation display preference and survives both *Reset all settings* and the page's **Defaults** button. `minimapPos` is not carried — see [ARCHITECTURE.md → *Known limitations*](ARCHITECTURE.md#known-limitations).
 
 > **Standards note (accepted carve-out).** `settings.auction.priority` bypasses the schema-as-single-source rule (`architecture-§5`: every write to a schema-row path goes through `Schema:Set`, and any other persistent state written outside it needs a register row). It carries one, in [ARCHITECTURE.md → *Documented deviations*](ARCHITECTURE.md#documented-deviations). **`window` and `savedView` are no longer in this class.** Standard v2.44.0 calls geometry only a drag determines, and a view captured whole by a *Save* act, **named non-setting state**. Neither needs a row once its owner and writers are named, and LibDBIcon's `minimapPos` falls under the same rule's library clause. [ARCHITECTURE.md → *Settings schema*](ARCHITECTURE.md#settings-schema) names all three, so `window` and `savedView` left the register on 2026-09-12 (#30); `minimapPos` was never in it. **The id sets are no longer in this class either.** They were ratified as a carve-out on 2026-07-17. Standard v2.43.0 then called a player-built id set a **structural registry**, compliant when it has one named writer. `NS.Filters` is that writer and the load pass is none (AceDB defaults only), so the sets left the register on 2026-09-12. `settings.auction.priority` follows the older precedent (Rev-2 R5, 2026-07-19): an ordered list is not one of the four schema widget types, so it is managed directly by `modules/AuctionPrice.lua` + the AH Price panel. (The former `settings.auction.priorityDisabled` per-tag carve-out was removed when collection and priority-participation were unified into the single `settings.auction.capture` flag — see the AH Price table in [settings-panel.md](settings-panel.md).) Standard v2.43.0 made the id-set pattern first-class, as a registry with one named writer. The ordered-list pattern still has no schema row type, and that is the register row's re-check trigger.
 
@@ -259,26 +259,26 @@ Note `settings.windowScale` **is** a Schema row (a General ▸ Interface ▸ *Wi
 
 [ARCHITECTURE.md → *Settings schema*](ARCHITECTURE.md#settings-schema) names both as recorded data;
 this is the writer list. The player deletes rows of the log or clears it, but never authors a row.
-Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:288`)
+Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:293`)
 appends each kept loot or currency line (`modules/Collector.lua:140`, `:205`). `PruneOld`
-(`core/Database.lua:806`) drops rows past `settings.retentionDays` once per session after
+(`core/Database.lua:811`) drops rows past `settings.retentionDays` once per session after
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:75`) and when the player accepts the prune confirm
-that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:694`). `Purge` (`core/Database.lua:740`) empties it from the purge confirm
+that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:694`). `Purge` (`core/Database.lua:745`) empties it from the purge confirm
 (`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
 `StaticPopup_Show` (`settings/Schema.lua:789`, `settings/Panel.lua:113`). `Delete`
-(`core/Database.lua:721`) drops the row the History right-click **Delete** names
-(`modules/BrowserTable.lua:1182`). `RepairBoundStates` (`core/Database.lua:259`) rewrites a row's
-`bound` (`core/Database.lua:220`) from two deferrals after login (`core/LootHistory.lua:83`, `:87`)
+(`core/Database.lua:726`) drops the row the History right-click **Delete** names
+(`modules/BrowserTable.lua:1182`). `RepairBoundStates` (`core/Database.lua:264`) rewrites a row's
+`bound` (`core/Database.lua:225`) from two deferrals after login (`core/LootHistory.lua:83`, `:87`)
 and each window open (`modules/Browser.lua:1073`). **Reset all settings** (`Sl:ResetEverything`,
 `settings/Slash.lua:198`) replaces all of it wholesale. Purge, delete and that reset each log one
 `[Data]` line, the prune one `[Prune]` (`debug-logging-§8`).
 
 The repair bookkeeping is the deferred warbound repair's job state (see
 [schemaVersion & the migration seam](#schemaversion--the-migration-seam)). **`boundRepairRevision`** is
-written only by the load pass: `NS:ArmBoundRepair` (`core/Database.lua:151`), which only
+written only by the load pass: `NS:ArmBoundRepair` (`core/Database.lua:156`), which only
 `NS:RunMigrations` calls, stamps it when it arms the job, setting **`boundRepairPending`** and clearing
-**`boundRepairAttempts`** (`core/Database.lua:156`). After that the repair's `finishPass`
-(`core/Database.lua:246`) advances `boundRepairAttempts` and clears both once nothing is pending or
+**`boundRepairAttempts`** (`core/Database.lua:161`). After that the repair's `finishPass`
+(`core/Database.lua:251`) advances `boundRepairAttempts` and clears both once nothing is pending or
 the fruitless-pass cap is reached. The defaults declare none of the three, so Reset all settings
 removes them and the next load re-arms the job over whatever rows exist then.
 
@@ -313,11 +313,13 @@ ticks above are now consequences of that one wipe rather than five separate call
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, seeded in `defaults/Global.lua:13` and carried to the current shape **8** by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
+`schemaVersion` is a version stamp on the persisted DB, declared `0` in `defaults/Global.lua:15` and carried to the current shape **8** (`NS.SCHEMA_VERSION`, the ladder's highest `to`) by the migrations below. It lives alongside `history`/`settings`/`minimap` under `global`.
+
+**The `0` floor** (savedvariables-§1, standard v2.65.0). The declared default is the pre-migration floor, never the current version, and it never moves. AceDB's `removeDefaults` strips a stored value equal to its default at logout, and its defaults merge backfills a declared default onto an account that stored no stamp; `0` has neither problem, since any stamp the runner advanced differs from it and persists, and an unstamped account reads `0` and walks every step. The runner, not the defaults, owns the stamp. Every step is idempotent against an empty history, so a brand-new install walking the whole ladder changes nothing but the stamp. This addon keeps no `profile` section (everything is under `global`), so the rule for profile-scoped steps does not apply.
 
 `NS:InitDB` (`core/Database.lua:4`) creates the AceDB store, then immediately calls `NS:RunMigrations` to normalize the persisted schema **before any history read**.
 
-`NS:RunMigrations` (`core/Database.lua:125`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The steps are **not** written into the runner's body: they live in the module-level `MIGRATIONS` array (`core/Database.lua:19`), one entry per step, and the runner does nothing but walk it. **Adding a migration is one appended entry there** — the runner is never edited.
+`NS:RunMigrations` (`core/Database.lua:130`) is the single, idempotent upgrade seam. `InitDB` (`core/Database.lua:4`) calls it immediately after `AceDB:New` and **before any history read**. The steps are **not** written into the runner's body: they live in the module-level `MIGRATIONS` array (`core/Database.lua:19`), one entry per step, and the runner does nothing but walk it. **Adding a migration is one appended entry there** — the runner is never edited.
 
 ```lua
 -- core/Database.lua — MIGRATIONS, walked in array order by NS:RunMigrations()
@@ -336,13 +338,13 @@ The **v1→v2** migration strips the retired per-record `viaWhitelist` field fro
 
 All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v8.
 
-**Arming the deferred repair is versioned separately**, by `boundRepairRevision` against a `BOUND_REPAIR_REVISION` constant (`NS:ArmBoundRepair`, run on every init) — not by `schemaVersion`. The repair has been wrong more than once, and each fix must re-run it on DBs that already ran and *cleared* a broken pass; tying that to the schema stamp meant a migration per bug. Bumping the constant re-arms on the next login and is a no-op otherwise. `Database:RepairBoundStates` runs it deferred — twice per session from `OnEnterWorld`, and again on every window open, where the item cache is warmest and the wrong lock is about to be looked at. Each candidate row (parked `"WARBAND"` **or** `"BOE"` — BoE because a capture that trusted the lying bind type filed these one state too loose — with an id or a link) is re-read through `Compat.ItemBindState` and merged with `BestBound`, so a row only ever moves toward the more specific warbound state; a genuine BoE reads back BoE and stays. A row counts as resolved only once its **item data is cached and its tooltip is real** — an uncached item returns a legible `RETRIEVING_ITEM_INFO` tooltip, which must not count (the bind type answering BoE is not evidence it isn't warbound — that mistake made an earlier revision of this job clear itself in one pass); unsettled rows are requested and left for the next pass, as is anything past the 200-row per-pass budget; `boundRepairPending`/`boundRepairAttempts` clear once none are pending, or after 10 *fruitless* passes (a pass that fixed something resets the budget, since it proves the client is answering). The `defaults/Global.lua` seed value legitimately stays `1` for brand-new DBs; live DBs are carried to `8` by these migrations on their first loads after upgrade.
+**Arming the deferred repair is versioned separately**, by `boundRepairRevision` against a `BOUND_REPAIR_REVISION` constant (`NS:ArmBoundRepair`, run on every init) — not by `schemaVersion`. The repair has been wrong more than once, and each fix must re-run it on DBs that already ran and *cleared* a broken pass; tying that to the schema stamp meant a migration per bug. Bumping the constant re-arms on the next login and is a no-op otherwise. `Database:RepairBoundStates` runs it deferred — twice per session from `OnEnterWorld`, and again on every window open, where the item cache is warmest and the wrong lock is about to be looked at. Each candidate row (parked `"WARBAND"` **or** `"BOE"` — BoE because a capture that trusted the lying bind type filed these one state too loose — with an id or a link) is re-read through `Compat.ItemBindState` and merged with `BestBound`, so a row only ever moves toward the more specific warbound state; a genuine BoE reads back BoE and stays. A row counts as resolved only once its **item data is cached and its tooltip is real** — an uncached item returns a legible `RETRIEVING_ITEM_INFO` tooltip, which must not count (the bind type answering BoE is not evidence it isn't warbound — that mistake made an earlier revision of this job clear itself in one pass); unsettled rows are requested and left for the next pass, as is anything past the 200-row per-pass budget; `boundRepairPending`/`boundRepairAttempts` clear once none are pending, or after 10 *fruitless* passes (a pass that fixed something resets the budget, since it proves the client is answering). The `defaults/Global.lua` value stays `0` for brand-new DBs; every DB is carried to `8` by these migrations on its first load after upgrade.
 
 ## Retention prune
 
-`Database:PruneOld` (`core/Database.lua:806`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged` — only when it removed at least one row; a prune that removes nothing leaves the store untouched and fires nothing. `retentionDays == 0` means "keep Always" and returns early. It runs once per session after login, and after a retention change — but a change never prunes on its own say-so.
+`Database:PruneOld` (`core/Database.lua:811`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged` — only when it removed at least one row; a prune that removes nothing leaves the store untouched and fires nothing. `retentionDays == 0` means "keep Always" and returns early. It runs once per session after login, and after a retention change — but a change never prunes on its own say-so.
 
-The row's `onChange` is `S:OnRetentionChanged` (`settings/Schema.lua:694`). It asks `Database:CountOlderThan(days)` (`core/Database.lua:791`, an allocation-free count, `0` for Always) how many records the new value would drop:
+The row's `onChange` is `S:OnRetentionChanged` (`settings/Schema.lua:694`). It asks `Database:CountOlderThan(days)` (`core/Database.lua:796`, an allocation-free count, `0` for Always) how many records the new value would drop:
 
 - **None** — the value becomes the confirmed retention and nothing else happens.
 - **Some, in-game** — it raises `KA0S_LOOTHISTORY_PRUNE` (`settings/Slash.lua:23`), naming the new retention and the count. **Yes** first stores the value the popup named if the store has moved since it opened, then runs `PruneOld`, so the prune and the dropdown both land on the retention the player agreed to. **No** writes the last *confirmed* retention back through `Schema:Set` and prints `retention kept at <label>; no records were deleted.` — so the stored value, which the login prune reads, never holds a retention the player refused, and the next login deletes nothing either (`S:ConfirmRetention`, `settings/Schema.lua:718`). A second change while the popup is open re-shows it for the newer value; Blizzard cancels the open one with reason `"override"` first, and `OnCancel` ignores that reason rather than treating it as **No**.
@@ -354,7 +356,7 @@ The confirmed retention is seeded from the store by `S:SyncRetention` in `addon:
 
 ### ActiveHistory — the test-mode swap
 
-Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:279`), **not** `history` directly:
+Every read-path query resolves against `Database:ActiveHistory` (`core/Database.lua:284`), **not** `history` directly:
 
 ```lua
 function Database:ActiveHistory()
@@ -380,11 +382,11 @@ can collide. It is **blacklist-only** (there is no currency whitelist) and, like
 strictly point-in-time: a blacklisted currency id is dropped at capture and never written to
 `history`; existing currency rows are never hidden or removed.
 
-`Database:Query(filter)` (`core/Database.lua:428`) runs the generic `QueryList` (`core/Database.lua:403`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:654`) aggregates the filtered result in one O(n) pass for Insights.
+`Database:Query(filter)` (`core/Database.lua:433`) runs the generic `QueryList` (`core/Database.lua:408`) — an AND-combined filter over quality / source / char / itemType / zone (scalar equality or set membership; `zone` matches the record's zone **name**, with nameless rows under the empty string), a `from`/`to` timestamp range, and a case-insensitive `itemName` substring. `Database:Stats(filter)` (`core/Database.lua:659`) aggregates the filtered result in one O(n) pass for Insights.
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:435`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. The nested `auctionPrice` and `sourceDetail` tables are deep-copied (`NS.Util.DeepCopy`), so a consumer that mutates an export never rewrites the live SavedVariables row; the copy is paid once per export. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:440`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. The nested `auctionPrice` and `sourceDetail` tables are deep-copied (`NS.Util.DeepCopy`), so a consumer that mutates an export never rewrites the live SavedVariables row; the copy is paid once per export. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·

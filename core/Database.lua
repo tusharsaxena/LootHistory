@@ -116,16 +116,21 @@ local MIGRATIONS = {
   end },
 }
 
--- Schema-migration runner (toc-file-§2 / savedvariables-§1). Reads/writes db.global.schemaVersion and
--- ships even with an effectively empty body — the *seam* is the requirement: future schema
--- changes get a single, idempotent upgrade path invoked once at init, before any read of
--- db.global.history. Safe no-op when the DB isn't ready yet.
--- The stamp is written AFTER apply() and only for steps that actually ran, so an error mid-chain
--- can never advance the version past unapplied work.
+-- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated
+-- DB carries. Derived from the table so appending a step moves it; the defaults stay at 0.
+NS.SCHEMA_VERSION = MIGRATIONS[#MIGRATIONS].to
+
+-- Schema-migration runner (toc-file-§2 / savedvariables-§1, standard v2.65.0). Reads/writes
+-- db.global.schemaVersion, invoked once at init before any read of db.global.history, and a safe
+-- no-op when the DB isn't ready yet. The defaults declare 0 (defaults/Global.lua says why), so a
+-- brand-new install and an account from before the stamp existed both enter at 0 and walk every
+-- step; each step is idempotent against an empty history. The runner owns the stamp: it is written
+-- AFTER apply() returns and only for steps that actually ran, so a step that raises leaves it at the
+-- last completed step and the next load retries rather than skips.
 function NS:RunMigrations()
   local g = NS.db and NS.db.global
   if not g then return end
-  g.schemaVersion = g.schemaVersion or 1
+  g.schemaVersion = g.schemaVersion or 0
   for i = 1, #MIGRATIONS do
     local m = MIGRATIONS[i]
     if g.schemaVersion < m.to then

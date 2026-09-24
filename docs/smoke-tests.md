@@ -83,11 +83,11 @@ Loot History**.
   `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/test/purge/help — sixteen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
-  `settings`, `minimap`, and `schemaVersion = 5`. (The seed value is 1; `NS:RunMigrations` — invoked
-  from `InitDB` before any read — applies the v1→v2, v2→v3, v3→v4, and v4→v5 migrations back-to-back
-  on a brand-new DB immediately, so the value persisted after the very first init is already 5. The
-  v3→v4 currency-quality and v4→v5 currency-bound backfills touch 0 rows here since `history` is
-  empty.)
+  `settings`, `minimap`, and `schemaVersion = 8`. (The declared default is 0, the savedvariables-§1
+  floor; `NS:RunMigrations`, invoked from `InitDB` before any read, walks v1→v2 through v7→v8
+  back-to-back on a brand-new DB, so the value persisted after the very first init is already 8.
+  Every step touches 0 rows here since `history` is empty.) `/dump LootHistoryDB.global.schemaVersion`
+  answers 8; on an existing account it also answers 8 and the history is intact.
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
   `settings.excludedSources = table: …` (empty), `minimap.hide = true` — the row's sense is SHOWN
