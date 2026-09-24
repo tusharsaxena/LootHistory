@@ -11,13 +11,13 @@ ignore:
   # Agent-tooling and test scratch directories. Both are untracked --
   # `git ls-files` returns nothing for either -- so no packager clone has ever
   # carried them and neither line changes a downloaded byte. They are listed
-  # because packaging.md:28 MUSTs every root dot-entry present in the repo be
+  # because packaging MUSTs every root dot-entry present in the repo be
   # named or justified, tracked or not: the check is about an enumeration going
   # stale, not about a package growing. .claude is deliberately absent from this
   # list -- no such directory exists here, and naming one that does not is how a
   # sibling repo's identical filing was rejected this cycle.
-  - .superpowers     # untracked; listed under packaging.md:28
-  - .pytest_cache    # untracked; listed under packaging.md:28
+  - .superpowers     # untracked; listed under packaging
+  - .pytest_cache    # untracked; listed under packaging
   - docs
   - tests
   - _dev
