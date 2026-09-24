@@ -84,6 +84,16 @@ addon listens to therefore registers through Core's per-event helper (`NS.SafeRe
 `pcall`s the registration, and records a refused name once on `NS.RejectedEvents`
 (events-frames-taint-§1).
 
+- **The seam.** The helpers are `LibKa0s-Core-1.0`'s `SafeRegisterEvent` / `SafeRegisterUnitEvent`
+  (Core minor 8) plus the host's `NS.SafeRegisterEvents` for a list: the `IsEventValid` front gate,
+  then a `pcall`ed registration. The live wrappers add one `[Init]` debug line per newly refused name
+  and return the library's answer; the library-absent stub carries the same three members as
+  one-rung bodies (a plain `pcall`, no front gate). No authored `:RegisterEvent(` /
+  `:RegisterUnitEvent(` call exists outside those helper bodies.
+- **The rejected list is the addon's**, not the library's: `NS.RejectedEvents` is declared in
+  `core/CoreSetup.lua` on both paths and passed at every site, and a refused name is appended once,
+  however many disable/enable cycles meet it again. `Attribution.__events` holds only the names that
+  actually registered, so `Attribution:Disable` unregisters exactly those.
 - **The trade, taken deliberately.** A refused name is skipped, not worked around: the edge it covered
   is simply absent on that client. If a patch retired `ENCOUNTER_START`, loot would still record, and
   boss loot would lose its encounter detail until the event is replaced; if it retired

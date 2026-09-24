@@ -1120,7 +1120,7 @@ by a headless suite.
 10. **The right-click row menu is unchanged and coexists.** Right-click a table row: the four-item
     action list still appears, still disables "Link to chat" without an item link and "Blacklist
     item" without an item id. It is deliberately NOT the library's widget (per-row disable is a
-    documented absence there) — see `docs/ARCHITECTURE.md` § *Menus: two mechanisms, on purpose*.
+    documented absence there) — see `docs/browser.md` § *Menus: two mechanisms, on purpose*.
     They remain two different mechanisms, but they no longer behave differently on dismissal.
     With the **row menu** open, left- or right-clicking anywhere outside it closes it — this addon's
     catcher registers both buttons (`modules/BrowserTable.lua`). **The filter dropdowns now do the

@@ -168,6 +168,38 @@ Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:615`
 
 Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTarget()` (`Analytics.lua:662`) and live-refreshes only while the Insights tab is visible.
 
+## Menus: two mechanisms, on purpose
+
+This addon draws **two** kinds of menu and neither is a Blizzard `UIDropDownMenu` — both avoid that
+API's protected-call taint surface, and neither is going to replace the other.
+
+**The flat dropdown is `LibKa0s-Widgets-1.0`'s**, reached through `core/WidgetsSetup.lua`'s
+`NS.MakeDropdown`. Ten instances: the filter bar's Group-by, Date, Bound, Quality, Type, SubType,
+Source, Zone and Character, plus the export modal's Data Set picker. Its popup is a **process-wide
+singleton** shared with every other Ka0s addon that has adopted the major — one menu open at a time
+across the whole client, parented to `UIParent` at `FULLSCREEN_DIALOG`, outliving any window that
+dropped it. Two consequences this addon has to honor: every frame that owns a dropdown sits *below*
+that strata (the History window is `HIGH`, the export modal is `DIALOG`) so the menu draws above
+whatever dropped it, and every **non-click close path** calls `NS.CloseMenu()` — the window's
+`OnHide` (which is also the Escape / `UISpecialFrames` route), `Browser:Hide` (the slash-command
+close) and the export modal's `OnHide`. A frame's own `Hide()` cannot reach a popup it does not own.
+
+The popup does **not** intercept the click that dismisses it. Since LibKa0s v1.13.0 (Widgets minor 5)
+it registers `GLOBAL_MOUSE_DOWN` while shown and hides on a press that is neither over itself nor
+over the dropdown that dropped it, so one press both closes the menu and reaches whatever is under
+the cursor (`libs/LibKa0s/Widgets.lua`). Through minor 4 it was a full-screen `Button` at
+`FULLSCREEN` whose lack of `RegisterForClicks` took `LeftButtonUp` and nothing else — and this addon
+is where that was found, because a right-click on a history row with a filter menu open simply did
+nothing.
+
+**`BrowserTable:ShowRowMenu` stays hand-rolled**, and coexists. It is a right-click **action list**,
+not a labeled selector: it shows no current value and picking an item performs an action (link to
+chat, blacklist, delete) rather than changing a setting. It also needs **per-row disable** —
+"Link to chat" is dead without an `itemLink`, "Blacklist item" without an `itemID` — and per-row
+disable is a *documented, deliberate absence* from the major: `opt.isActive` reports a state, it
+does not gate a click. Converting it would mean either losing the disable or growing the library a
+feature no consumer has asked for. It keeps its own small popup and its own catcher.
+
 ## Test mode (`/lh test`) — synthetic preview
 
 The History window's test mode (preview-mode, options-ui-§15). `BrowserTable:SetTestMode` (`BrowserTable.lua:556`) is the one switch, and three things drive it: the Master controls **Test mode** checkbox (`state.testMode`, a session-only row), `/lh test` (`ToggleTestMode`, `BrowserTable.lua:583`) and the combat start (`EndTestModeForCombat`, `BrowserTable.lua:589`, called from the Browser's `PLAYER_REGEN_DISABLED` handler). A start publishes a synthetic dataset to `NS.State.testRecords` and opens the window; a stop never opens it. A start is refused with one chat line, leaving the box unticked, when the General visibility setting keeps the window hidden or the player is in combat. Every start, stop and refusal refreshes the settings panel so the box follows it. Because `Database:ActiveHistory` (`Database.lua:284`) returns `NS.State.testRecords` when present, the fake data flows through the *same* read paths (`Query` / `Stats` / `CurrentRecords`) — so it drives **both** the History table and the Insights charts at once, while write paths (Add / prune) always target the real history and never see the override. `OnDatasetChanged` (`Browser.lua:534`) rebuilds the filter dropdowns from the new dataset, resets to the stock view + all players in test mode (test characters differ from the current one), and toggles the red "TEST MODE" badge beside the title.

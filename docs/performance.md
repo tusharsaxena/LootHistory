@@ -19,7 +19,7 @@ rather than a second teardown path written beside the first. A parallel lifecycl
 anti-pattern (`anti-patterns #85`), and declining the harness is not a license to grow one.
 `tests/test_disabled.lua` drives both holds through the latch, so the invariant that matters —
 releasing one hold must not resurrect an addon the other is still holding down — is under test here
-today. See [ARCHITECTURE.md → *The disabled state*](ARCHITECTURE.md#the-disabled-state). `libs/LibKa0s/` is
+today. See [disabled-state.md](disabled-state.md). `libs/LibKa0s/` is
 still vendored **whole** — `Perf.lua` and `PerfPanel.lua` included — because the folder is copied
 whole or not at all (library-stack-§7, anti-pattern #48), and `perf` stays a reserved verb
 (slash-commands-§2): it is simply never registered, so it can never come to mean anything else here.
