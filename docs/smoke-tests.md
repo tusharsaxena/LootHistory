@@ -732,11 +732,10 @@ are **independent**.
 - Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
 
 **Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 5` — `RunMigrations` (invoked from `InitDB`) applied
-  the v1→v2 (strips the retired `viaWhitelist` field), v2→v3 (`sellPrice` → `vendorPrice`), v3→v4
-  (backfills currency-record `quality` from `C_CurrencyInfo`), and v4→v5 (backfills currency-record
-  `bound` from `C_CurrencyInfo`) migrations and bumped the stamp to 5; re-running it on an already-v5
-  DB is a no-op (idempotent).
+- `LootHistoryDB["global"]["schemaVersion"] = 8` — `RunMigrations` (invoked from `InitDB`) applied
+  every pending step of the v1→v2 through v7→v8 ladder (the per-step contract is in
+  [schema.md](schema.md#schemaversion--the-migration-seam)) and stamped 8 after the last one;
+  re-running it on an already-v8 DB is a no-op (idempotent).
 - `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
   `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
   (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.
