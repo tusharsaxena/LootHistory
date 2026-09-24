@@ -204,6 +204,12 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   currency-by-character×type, currency-over-time). §F-010: verify the currency **category** (SubType) reads
   a real header like "The War Within" — if it's blank, `Compat.CurrencyCategory` couldn't resolve the
   currency-list headers on this client and needs a look.
+- **A currency first seen mid-session still gets its category (S-003).** At a season start, loot a
+  currency not yet seen this session (after at least one other currency loot built the category
+  cache). Its row's **Subtype** reads its Currency-tab header, not blank: a miss rebuilds the cache
+  once. Then collapse that header in the Currency tab, `/reload`, and loot a currency under it; record
+  in [midnight-quirks.md](midnight-quirks.md) *Currency category* whether the Subtype resolves (the
+  expectation is blank, because the list API skips a collapsed header's children).
 - **Currency quality (name color + Quality column).** The currency row's **Name** cell is colored by
   its own `C_CurrencyInfo` quality tier (not blank/white), and the **Quality** column shows that
   tier's label — the same rendering the History table already gives item rows. Hovering the row shows

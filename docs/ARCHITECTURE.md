@@ -546,6 +546,11 @@ Nothing is over the cap today. The largest authored file is `modules/Browser.lua
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. The single-slot context with a fixed TTL is a settled design decision, not an
   open backlog item — see [scope.md](scope.md) *Resolved design decisions*.
+- **A currency under a collapsed Currency-tab header has no category.** `Compat.CurrencyCategory`
+  rebuilds its cache once on a miss, but `C_CurrencyInfo.GetCurrencyListInfo` enumerates only the
+  children of expanded headers, so such a row keeps `itemSubType = nil` and falls out of the subtype
+  filter. The addon does not expand the list itself, since that would rewrite the player's Currency
+  tab; see [midnight-quirks.md](midnight-quirks.md) *Currency category*.
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
   [schema.md](schema.md).

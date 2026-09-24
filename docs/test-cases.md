@@ -125,7 +125,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 
-### test_compat.lua (37)
+### test_compat.lua (39)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -155,6 +155,8 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyLinkID parses the id from a currency link
 - Compat: GetCurrencyInfoFromLink returns id, name, icon
 - Compat: CurrencyCategory resolves a currency to its list header
+- Compat: CurrencyCategory rebuilds on a miss, so a currency first seen later resolves
+- Compat: CurrencyCategory walks the list at most once for an id that is truly absent
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
@@ -991,7 +993,7 @@ badge and any count quoted in the docs must agree with it.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
-| test_compat.lua | 37 |
+| test_compat.lua | 39 |
 | test_attribution.lua | 33 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
@@ -1020,4 +1022,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **870** |
+| **Total** | **872** |
