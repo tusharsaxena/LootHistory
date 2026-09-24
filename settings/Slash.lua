@@ -481,9 +481,10 @@ Sl.CliSet         = function(_, rest) return Dispatcher:CliSet(rest)  end
 Sl.CliReset       = function(_, rest) return Dispatcher:CliReset(rest) end
 Sl.CliVersion     = function()        return Dispatcher:CliVersion()  end
 --- The ONE refusal line, from the library, for every surface that prints it: the COMMANDS-table
---- gate in settings/Schema.lua and the launcher's refused left-click (launcher-§2). Neither writes
---- the wording itself -- slash-commands-§7 makes it the collection's rather than the addon's, and a
---- second call site spelling it again is how eleven addons ended up with eleven refusals.
+--- gate in settings/Schema.lua, the one call site left since Launcher minor 4 (LibKa0s v1.58.0,
+--- launcher-§2) retired the launcher's refused left-click. It never writes the wording itself --
+--- slash-commands-§7 makes it the collection's rather than the addon's, and a second call site
+--- spelling it again is how eleven addons ended up with eleven refusals.
 Sl.DisabledLine   = function()        return Dispatcher:DisabledLine() end
 
 --- The settings landing page's command rows: the same rows as the chat help, in the same colors

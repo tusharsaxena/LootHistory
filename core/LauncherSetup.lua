@@ -9,8 +9,8 @@ local addonName, NS = ...
 -- that built the LDB object, resolved LibDBIcon and registered the two by hand. Every line of it
 -- was the wiring eleven addons were about to write in eleven spellings, which is what the library
 -- exists to make impossible (anti-pattern #81). The click implementation moved WITH it: there was
--- one before and there is one now, and the rung rule is satisfied on the minimap and in a broker
--- display by construction rather than by two implementations agreeing.
+-- one before and there is one now, and the two buttons (below) behave the same on the minimap and
+-- in a broker display by construction rather than by two implementations agreeing.
 --
 -- THE REGISTRATION NAME CHANGED, and it is the one visible cost. It was the brand string
 -- itself (today's NS.BRAND); launcher-§1 fixes it at the addon's FOLDER name, because LibDBIcon keys the
