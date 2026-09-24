@@ -507,7 +507,7 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
 
-### test_export.lua (25)
+### test_export.lua (26)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -530,6 +530,7 @@ badge and any count quoted in the docs must agree with it.
 - Export: CSV emits a currency row with currencyID and blank item cells
 - Export: InsightsCSV includes currency sections
 - Export: InsightsCSV includes the per-character × category companions
+- Export: InsightsCSV bound labels match the row CSV's E:BoundLabel
 - Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
 - Export: the copy window comes from LibKa0s-Widgets-1.0
 - Export: showing the copy window puts the text in it
@@ -1015,7 +1016,7 @@ badge and any count quoted in the docs must agree with it.
 | test_stats.lua | 19 |
 | test_browser.lua | 60 |
 | test_browsertable.lua | 63 |
-| test_export.lua | 25 |
+| test_export.lua | 26 |
 | test_debuglog.lua | 22 |
 | test_launcher.lua | 13 |
 | test_slash.lua | 60 |
@@ -1035,4 +1036,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **885** |
+| **Total** | **886** |

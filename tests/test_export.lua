@@ -214,10 +214,20 @@ test("Export: InsightsCSV includes the per-character × category companions", fu
   -- A-Realm looted 2 KILL items worth 500 + 100*2 = 700 copper → "0g 7s 0c".
   assertTrue(csv:find("By Character x Source,A-Realm / Kill,2,0g 7s 0c", 1, true) ~= nil,
     "char × source carries count + value")
-  assertTrue(csv:find("By Character x Bound Type,A-Realm / Unbound,2", 1, true) ~= nil,
+  assertTrue(csv:find("By Character x Bound Type,A-Realm / Not Bound,2", 1, true) ~= nil,
     "char × bound present")
   assertTrue(csv:find("By Character x Item Type,B-Realm /", 1, true) == nil,
     "no itemType matrix row when records carry no itemType")
+end)
+
+test("Export: InsightsCSV bound labels match the row CSV's E:BoundLabel", function()
+  local s = insightsStats()
+  s.byBound = { BOP = 3, BOE = 2, WARBAND_UE = 1 }
+  local csv = NS.Export:InsightsCSV(s)
+  for token, n in pairs({ BOP = 3, BOE = 2, WARBAND_UE = 1 }) do
+    local want = "By Bound Type," .. NS.Export:BoundLabel(token) .. "," .. n
+    assertTrue(csv:find(want, 1, true) ~= nil, "Insights label for " .. token .. " is E:BoundLabel")
+  end
 end)
 
 test("Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)", function()

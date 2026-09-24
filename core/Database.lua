@@ -355,6 +355,7 @@ end
 -- ts window is inclusive on both ends, and `text` arrives already lowered — once per call, never
 -- per record.
 local function matchRange(r, boundSet, from, to, text)
+  -- "NONE" (a persisted savedView.bound key) is the unbound sentinel here; Stats uses "UNBOUND".
   if boundSet and not boundSet[r.bound or "NONE"] then return false end
   if from and (r.ts or 0) < from then return false end
   if to and (r.ts or 0) > to then return false end
@@ -522,6 +523,7 @@ local function accumulateItem(A, r, ch, src, value)
   local ty = r.itemType
   if ty and ty ~= "" then A.byType[ty] = (A.byType[ty] or 0) + 1; bump(A.charByType, ch, ty, 1) end
 
+  -- "UNBOUND" keys the Analytics/BrowserTable styling; matchRange's filter uses "NONE" instead.
   local bk = r.bound or "UNBOUND"
   A.byBound[bk] = (A.byBound[bk] or 0) + 1
   bump(A.charByBound, ch, bk, 1)
