@@ -184,7 +184,7 @@ end)
 
 -- Un-enumerated per-herb/expansion variants are matched by their *localized* name family, resolved
 -- from seed spellIDs via C_Spell — proving the check follows the client locale and never depends on
--- an English literal (Ka0s Standard localization-§4 / anti-pattern #37). GetSpellName is stubbed to
+-- an English literal (a ratified localization-§4 departure, see ARCHITECTURE.md). GetSpellName is stubbed to
 -- return the locale-specific seed names the live client would.
 test("Attribution: DeconstructSource matches un-enumerated variants by localized name family", function()
   local A = NS.Attribution
