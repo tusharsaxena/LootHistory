@@ -911,9 +911,10 @@ NS.COMMANDS = gateFeatureVerbs{
   --
   -- THE DISPATCHER SURVIVES THE DISABLED STATE, which is what stops the pair being one-way. Nothing
   -- in this addon gates dispatch on `settings.enabled`: Sl:Register runs from OnInitialize
-  -- unconditionally, the chat command is never unregistered, and the only reader of the flag is
-  -- modules/Collector.lua's capture gate. So `/lh`, `/lh enable`, `/lh help`, `/lh config` and
-  -- `/lh version` all answer with the addon off. tests/test_slash.lua pins it.
+  -- unconditionally, the chat command is never unregistered, and the flag's only reader is
+  -- NS.AddonIsOff (core/LifecycleSetup.lua): it feeds the stand-down latch, the launcher's disabled
+  -- gate and the feature-verb refusal, never dispatch itself. So `/lh`, `/lh enable`, `/lh help`,
+  -- `/lh config` and `/lh version` all answer with the addon off. tests/test_slash.lua pins it.
   { "enable",   "Enable the addon",      function() NS.Slash:CliSet("settings.enabled true") end },
   { "disable",  "Disable the addon",     function() NS.Slash:CliSet("settings.enabled false") end },
   { "version",  "Print addon version",   function() NS.Slash:CliVersion() end },

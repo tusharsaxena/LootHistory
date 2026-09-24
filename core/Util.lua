@@ -11,7 +11,6 @@ function Util.PlayerKey()
   return name .. "-" .. realm
 end
 
--- Split a dotted settings path ("settings.qualityThreshold") into components.
 -- Deep-copy a value: tables are copied all the way down, anything else is returned as is. The
 -- global reset (settings/Slash.lua) merges the declared defaults into the store through it, so the
 -- store never holds a reference to a table in NS.defaults.
@@ -22,6 +21,7 @@ function Util.DeepCopy(v)
   return out
 end
 
+-- Split a dotted settings path ("settings.qualityThreshold") into components.
 function Util.SplitPath(path)
   local parts = {}
   for p in tostring(path):gmatch("[^.]+") do
@@ -35,8 +35,8 @@ function Util.FormatClock(ts)
   return date("%H:%M", ts or 0)
 end
 
--- Compact date (MM/DD/YY) for the Date column.
--- DD-MMM-YYYY (e.g. 11-Jul-2026) — unambiguous across locales (no US/EU MM/DD confusion).
+-- DD-MMM-YYYY (e.g. 11-Jul-2026) for the Date column — unambiguous across locales (no US/EU
+-- MM/DD confusion).
 function Util.FormatDate(ts)
   return date("%d-%b-%Y", ts or 0)
 end

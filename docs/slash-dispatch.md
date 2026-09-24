@@ -8,7 +8,7 @@ The table stays the **host's** and is passed into the library rather than owned 
 
 The dispatcher is the library's (`libs/LibKa0s/Slash.lua:474`), bound onto `NS.Slash` by name at `settings/Slash.lua:473` because ~20 call sites across the schema table, the settings panel and the suite already reach for `NS.Slash:CliList()` and friends:
 
-- Bare `/lh` (empty or whitespace-only) → runs the `config` row's handler with `""`, which opens the Settings panel on its landing page (standard slash-commands-§4, Slash **minor 11**). A host with no `config` row would get `Sl:PrintHelp` instead. Bare `/lh` never opens the loot window; use `/lh toggle` or `/lh show|hide`.
+- Bare `/lh` (empty or whitespace-only) → runs the `config` row's handler with `""`, which opens the Settings panel on its landing page (standard slash-commands-§3, Slash **minor 11**). A host with no `config` row would get `Sl:PrintHelp` instead. Bare `/lh` never opens the loot window; use `/lh toggle` or `/lh show|hide`.
 - `/lh help` → `Sl:PrintHelp`, the command index.
 - `/lh <known>` → runs that row's `entry[3](rest)`.
 - `/lh <unknown>` → `unknown command '<verb>'` then the help index.

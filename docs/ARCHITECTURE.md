@@ -222,7 +222,7 @@ stub hands back the plain table ([message-bus.md](message-bus.md#declared-once-a
 ## Slash commands
 
 Registered by `settings/Slash.lua` for both `/lh` and `/loothistory`. Bare `/lh` **opens the
-Settings panel on its landing page** by running the `config` verb (slash-commands-§4, Slash minor
+Settings panel on its landing page** by running the `config` verb (slash-commands-§3, Slash minor
 11); `/lh help` prints the command index. Window display is explicit via `toggle`/`show`/`hide`.
 Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
@@ -483,7 +483,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 |---|---|---|
 | `slash-dispatch.md` | Present | 16 verbs in `NS.COMMANDS` |
 | `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
-| `compat-layer.md` | Present | `core/Compat.lua` is 440 lines of addon-specific shimming beyond LibKa0s |
+| `compat-layer.md` | Present | 22 shims (`grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua`) of addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Not applicable | No profile control ships in the options UI — the addon is account-wide by design and never touches `db.profile` |
 | `debug.md` | Not applicable | The console is `LibKa0s-DebugLog-1.0`’s, with no debug surface of the addon’s own |
