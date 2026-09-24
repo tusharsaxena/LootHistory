@@ -773,7 +773,7 @@ function S:ConfirmRetention(days, accepted)
   local keep = confirmedRetention
   if keep == nil then keep = G.settings.retentionDays end
   writeRetentionQuietly(keep)
-  print(("retention kept at %s; no records were deleted."):format(retentionLabel(keep)))
+  NS.Format("retention kept at %s; no records were deleted.", retentionLabel(keep))
 end
 
 --- The row shapes this addon ships. The library's default set is the four Options widget types;
@@ -944,7 +944,7 @@ NS.COMMANDS = gateFeatureVerbs{
       local BT = NS.BrowserTable
       if not (BT and BT.ToggleTestMode) then return end
       local on, switched = BT:ToggleTestMode()
-      if switched then print("test mode " .. (on and "on" or "off")) end
+      if switched then NS.Format("test mode %s", on and "on" or "off") end
     end },
   { "purge", "Delete ALL loot history (asks to confirm)", function()
       if type(StaticPopup_Show) == "function" then

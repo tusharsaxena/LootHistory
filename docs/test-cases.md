@@ -590,7 +590,7 @@ badge and any count quoted in the docs must agree with it.
 - launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint
 - launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing
 
-### test_slash.lua (63)
+### test_slash.lua (64)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -655,6 +655,7 @@ badge and any count quoted in the docs must agree with it.
 - the same feature verbs act normally once the addon is enabled — the gate is not always-on
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 - /lh debug events prints the rejected event names, or none
+- Clear-blacklist confirm and /lh test print their exact lines through the printer
 
 ### test_slash_degraded.lua (10)
 
@@ -1062,7 +1063,7 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 26 |
 | test_debuglog.lua | 19 |
 | test_launcher.lua | 17 |
-| test_slash.lua | 63 |
+| test_slash.lua | 64 |
 | test_slash_degraded.lua | 10 |
 | test_schema.lua | 72 |
 | test_schema_stub.lua | 9 |
@@ -1080,4 +1081,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **926** |
+| **Total** | **927** |

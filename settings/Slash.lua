@@ -55,7 +55,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("blacklist")) or 0
-      print(("blacklist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("blacklist cleared (%d %s).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
@@ -66,7 +66,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("whitelist")) or 0
-      print(("whitelist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("whitelist cleared (%d %s).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
@@ -77,7 +77,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("currencyBlacklist")) or 0
-      print(("currency blacklist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("currency blacklist cleared (%d %s).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
@@ -91,7 +91,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearAll and NS.Filters:ClearAll()) or 0
-      print(("filters reset (%d %s cleared)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("filters reset (%d %s cleared).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,

@@ -1067,3 +1067,28 @@ test("/lh debug events prints the rejected event names, or none", function()
   for i, v in ipairs(saved) do list[i] = v end
   if not ok then error(err, 0) end
 end)
+
+-- ── Chat lines hand their values to the printer's Format (events-frames-taint-§8) ───────────────
+--
+-- The count and toggle lines pass their values to NS.Format instead of pre-formatting them before
+-- the printer. The bytes a player sees do not change, and these cases pin them.
+
+test("Clear-blacklist confirm and /lh test print their exact lines through the printer", function()
+  local F, BT = NS.Filters, NS.BrowserTable
+  local realClear, realToggle = F.ClearList, BT.ToggleTestMode
+  local nextOn
+  F.ClearList = function() return 2 end
+  BT.ToggleTestMode = function() return nextOn, true end
+  local ok, err = pcall(function()
+    local out = capture(function() T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_CLEAR_BLACKLIST.OnAccept() end)
+    assertEqual(out[#out], NS.PREFIX .. " blacklist cleared (2 ids).")
+    nextOn = true
+    out = capture(function() Sl:OnSlash("test") end)
+    assertEqual(out[#out], NS.PREFIX .. " test mode on")
+    nextOn = false
+    out = capture(function() Sl:OnSlash("test") end)
+    assertEqual(out[#out], NS.PREFIX .. " test mode off")
+  end)
+  F.ClearList, BT.ToggleTestMode = realClear, realToggle
+  if not ok then error(err, 0) end
+end)
