@@ -170,7 +170,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `list` | List all settings |
 | `reset <path>` | Reset one setting to its default |
 | `resetall` | Reset all settings to defaults (non-destructive: history is untouched). `minimap.shown` is **exempt** (its stored key `minimap.hide` is carried across) — launcher-§3 makes the minimap button's visibility survive every reset. The **destructive** form is the Master controls tab's **Reset all settings** button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile. The two are deliberately different acts today: a **ratified** divergence from that rule's opening sentence, carried as a row in [§ Documented deviations](#documented-deviations); scope matrix in [`schema.md`](schema.md#reset-semantics) |
-| `debug` | Toggle the debug console (session-only) |
+| `debug` / `debug on` / `debug off` / `debug events` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console |
 | `test` | Toggle a synthetic preview dataset for the table and Insights (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
 | `purge` | Delete ALL loot history (confirm dialog) |
 | `help` | Print the generated command index |

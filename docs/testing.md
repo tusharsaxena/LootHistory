@@ -62,8 +62,8 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Thirty-five suites (see **[test-cases.md](test-cases.md)** for the full per-case inventory and the
-authoritative count): thirty-two files of this repo's own under `tests/`, and three the kit ships under
+Thirty-six suites (see **[test-cases.md](test-cases.md)** for the full per-case inventory and the
+authoritative count): thirty-three files of this repo's own under `tests/`, and three the kit ships under
 `tests/_kit/`, each declared by the pair (basename, directory) as `testing-§9` prescribes.
 `tests/run.lua` fixes the load order, which is significant and commented there; this table groups by
 concern, and the repo gates that read the checkout rather than the loaded addon sit together at the
@@ -92,7 +92,7 @@ foot of it:
 | `test_analytics.lua` | the Insights view's pure charting logic — headline shrink-to-fit, the rank-ordered palette + `paletteMap`, label truncation, `_charStackSegments` (top-N with an `__OTHER__` remainder, drawn in the shared category order, magnitude-preserving), `_buildCharStackRows` scaling/labeling/tips, the day-strip key list (gaps included, capped to the 60 most recent), `sortedByCount` ordering, and the money/class/quality/short-name formatters |
 | `test_harness.lua` | the runner's own lists (testing-§9) — the TOC derivation the loader was actually handed compared against a fresh one, every derived path on disk, no `libs/` leak, the suite list pinned in both directions by `Kit.assertSuiteInventory` plus a duplicate check the inventory gate cannot see, and the lifecycle kick compared step for step against `addon:OnInitialize` |
 
-Sixteen of the thirty-five exist because of the LibKa0s adoption:
+Sixteen of the thirty-six exist because of the LibKa0s adoption:
 
 | Suite | Covers |
 |-------|--------|

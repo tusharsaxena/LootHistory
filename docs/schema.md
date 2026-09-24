@@ -47,7 +47,7 @@ db.global = {
 ```
 
 - `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:745`, `:830`). Each record's field shape is documented below.
-- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:280`).
+- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:298`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
 - `settings.visibility`, `settings.scale`, `settings.alpha` and `settings.locked` are the **Master controls** tab's addon-wide rows (options-ui-§15). They are new in this release and **need no migration**: none of them replaces an older stored value — this addon never shipped a *show only in combat* boolean — so a profile written before it simply has no key and AceDB merges the shipped default in. `settings.scale` **multiplies** `settings.windowScale` rather than replacing it: one is addon-wide, the other is the History window's own, and options-ui-§15 forbids conflating them.
