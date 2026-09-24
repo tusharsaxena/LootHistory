@@ -47,7 +47,7 @@ db.global = {
 ```
 
 - `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:726`, `:811`). Each record's field shape is documented below.
-- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:279`).
+- `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:280`).
 - `savedView` only exists once the user clicks **Save** in the browser filter bar; until then reads fall back to the stock view.
 
 - `settings.visibility`, `settings.scale`, `settings.alpha` and `settings.locked` are the **Master controls** tab's addon-wide rows (options-ui-§15). They are new in this release and **need no migration**: none of them replaces an older stored value — this addon never shipped a *show only in combat* boolean — so a profile written before it simply has no key and AceDB merges the shipped default in. `settings.scale` **multiplies** `settings.windowScale` rather than replacing it: one is addon-wide, the other is the History window's own, and options-ui-§15 forbids conflating them.
@@ -211,7 +211,7 @@ were removed.)
 
 ## The `Schema:Set` write seam
 
-Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:696` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. Since LibKa0s v1.55.0 the seam is **`LibKa0s-Schema-1.0`**'s: `settings/Schema.lua` builds one runtime instance (`NS.SchemaRuntime`) over this addon's rows and keeps every host name (`Schema:Set`, `:Get`, `:FindRow`, `:Default`, `:ApplyDefault`, `.BulkBegin`, `.BulkEnd`, `:ReadPath`, `:WritePath`, `.SameValue`, `:Register`) as a one-line delegate, so no call site moved. The descriptor supplies where a stored row lives (`NS.db.global`), the debug sink, the minimap row's sweep exemption and this addon's refusal words (`unknown path: <path>`, `invalid value`). With the library absent, a write-completing, log-silent stub in the same file keeps every read and write working. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
+Every user *setting* mutation flows through one seam: `Schema:Set(path, value)` in `settings/Schema.lua:697` — validate → deep-copy → write to `NS.db.global` → fire the row's `onChange`. Since LibKa0s v1.55.0 the seam is **`LibKa0s-Schema-1.0`**'s: `settings/Schema.lua` builds one runtime instance (`NS.SchemaRuntime`) over this addon's rows and keeps every host name (`Schema:Set`, `:Get`, `:FindRow`, `:Default`, `:ApplyDefault`, `.BulkBegin`, `.BulkEnd`, `:ReadPath`, `:WritePath`, `.SameValue`, `:Register`) as a one-line delegate, so no call site moved. The descriptor supplies where a stored row lives (`NS.db.global`), the debug sink, the minimap row's sweep exemption and this addon's refusal words (`unknown path: <path>`, `invalid value`). With the library absent, a write-completing, log-silent stub in the same file keeps every read and write working. `settings/Schema.lua` holds one row per setting and is the single source of truth for the AceDB default, the panel widget, and the slash get/set/list/reset behavior (see [settings-panel.md](settings-panel.md) and [slash-dispatch.md](slash-dispatch.md)). Paths resolve against `NS.db.global`, not `.profile`.
 
 The deep-copy (the library's, on every stored write) matters for the two table-valued settings (`excludedSources`, and any reset that passes a schema `default` table): without it, a write would alias the DB to a shared default table and let an in-place mutation poison the default for the rest of the session.
 
@@ -265,9 +265,9 @@ Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`
 appends each kept loot or currency line (`modules/Collector.lua:140`, `:205`). `PruneOld`
 (`core/Database.lua:811`) drops rows past `settings.retentionDays` once per session after
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:75`) and when the player accepts the prune confirm
-that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:740`). `Purge` (`core/Database.lua:745`) empties it from the purge confirm
+that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:741`). `Purge` (`core/Database.lua:745`) empties it from the purge confirm
 (`settings/Slash.lua:13`) that `/lh purge` and **Purge history…** open, or directly with no
-`StaticPopup_Show` (`settings/Schema.lua:943`, `settings/Panel.lua:113`). `Delete`
+`StaticPopup_Show` (`settings/Schema.lua:944`, `settings/Panel.lua:113`). `Delete`
 (`core/Database.lua:726`) drops the row the History right-click **Delete** names
 (`modules/BrowserTable.lua:1182`). `RepairBoundStates` (`core/Database.lua:264`) rewrites a row's
 `bound` (`core/Database.lua:225`) from two deferrals after login (`core/LootHistory.lua:83`, `:87`)
@@ -346,10 +346,10 @@ All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is alr
 
 `Database:PruneOld` (`core/Database.lua:811`) enforces `settings.retentionDays`: it drops every record older than `now - retentionDays × 86400`, rebuild-and-swap, and fires `Ka0s_LootHistory_HistoryChanged` — only when it removed at least one row; a prune that removes nothing leaves the store untouched and fires nothing. `retentionDays == 0` means "keep Always" and returns early. It runs once per session after login, and after a retention change — but a change never prunes on its own say-so.
 
-The row's `onChange` is `S:OnRetentionChanged` (`settings/Schema.lua:740`). It asks `Database:CountOlderThan(days)` (`core/Database.lua:796`, an allocation-free count, `0` for Always) how many records the new value would drop:
+The row's `onChange` is `S:OnRetentionChanged` (`settings/Schema.lua:741`). It asks `Database:CountOlderThan(days)` (`core/Database.lua:796`, an allocation-free count, `0` for Always) how many records the new value would drop:
 
 - **None** — the value becomes the confirmed retention and nothing else happens.
-- **Some, in-game** — it raises `KA0S_LOOTHISTORY_PRUNE` (`settings/Slash.lua:23`), naming the new retention and the count. **Yes** first stores the value the popup named if the store has moved since it opened, then runs `PruneOld`, so the prune and the dropdown both land on the retention the player agreed to. **No** writes the last *confirmed* retention back through `Schema:Set` and prints `retention kept at <label>; no records were deleted.` — so the stored value, which the login prune reads, never holds a retention the player refused, and the next login deletes nothing either (`S:ConfirmRetention`, `settings/Schema.lua:764`). A second change while the popup is open re-shows it for the newer value; Blizzard cancels the open one with reason `"override"` first, and `OnCancel` ignores that reason rather than treating it as **No**.
+- **Some, in-game** — it raises `KA0S_LOOTHISTORY_PRUNE` (`settings/Slash.lua:23`), naming the new retention and the count. **Yes** first stores the value the popup named if the store has moved since it opened, then runs `PruneOld`, so the prune and the dropdown both land on the retention the player agreed to. **No** writes the last *confirmed* retention back through `Schema:Set` and prints `retention kept at <label>; no records were deleted.` — so the stored value, which the login prune reads, never holds a retention the player refused, and the next login deletes nothing either (`S:ConfirmRetention`, `settings/Schema.lua:765`). A second change while the popup is open re-shows it for the newer value; Blizzard cancels the open one with reason `"override"` first, and `OnCancel` ignores that reason rather than treating it as **No**.
 - **Some, with no `StaticPopup_Show`** (headless) — it prunes at once.
 
 The confirmed retention is seeded from the store by `S:SyncRetention` in `addon:OnInitialize` and again after **Reset all settings**, whose raw wipe fires no `onChange`. `/lh set settings.retentionDays <n>` goes through the same seam and so raises the same confirm.
