@@ -113,7 +113,7 @@ The cast succeeds right as the materials are produced, so the stamp is fresh wit
 
 ## The collector's gates
 
-Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confidence)`, it decides whether to record. The pure seam `Collector:ShouldRecord` (`modules/Collector.lua:41`) applies three gates in order and, on a drop, returns a reason for the debug log:
+Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confidence)`, it decides whether to record. The pure seam `Collector:ShouldRecord` (`modules/Collector.lua:50`) applies three gates in order and, on a drop, returns a reason for the debug log:
 
 1. **Quality** — `quality < qualityThreshold` → drop (`"quality"`). Threshold options in `Constants.QUALITY_OPTIONS`.
 2. **Excluded source** — the item's source is muted in `excludedSources` → drop (`"source"`).
@@ -121,11 +121,11 @@ Once `Collector:OnChatMsgLoot` has a link and a resolved `(source, detail, confi
 
 The `CHAT_MSG_LOOT` self-filter (`ParseSelfLoot` returning `nil`) is the implicit gate ahead of all three.
 
-Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.lua:51`) — one record per loot event — and handed to `NS.Database:Add`. Item extras (ilvl, bound, sell price, type/subtype) come from `NS.Compat.GetItemExtras`; the `classFile` coloring token from `UnitClass("player")`.
+Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.lua:60`) — one record per loot event — and handed to `NS.Database:Add`. Item extras (ilvl, bound, sell price, type/subtype) come from `NS.Compat.GetItemExtras`; the `classFile` coloring token from `UnitClass("player")`.
 
 ### Hot-path upvalues
 
-The three gate settings are cached as file-local upvalues (`modules/Collector.lua`), not re-read from the DB on every loot line (standard events-frames-taint-§7). **`enabled` is no longer one of them, and its removal is the point rather than a tidy-up** — it used to be read at the top of `OnChatMsgLoot`, which is the DRAW GATE `anti-patterns #85` names: the handler stopped reacting and the addon never stopped watching, so the client walked the registration list, built the argument frame and entered Lua on every loot line in the raid for an addon the player had switched off. Disabling now tears `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` out entirely ([ARCHITECTURE.md → *The disabled state*](ARCHITECTURE.md#the-disabled-state)), so there is nothing left to gate — and a flag kept beside a real unregister is a second answer to “is this addon running” that can disagree with it. `Collector:RefreshUpvalues` (`modules/Collector.lua:78`) reloads them, and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:231`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
+The three gate settings are cached as file-local upvalues (`modules/Collector.lua`), not re-read from the DB on every loot line (standard events-frames-taint-§7). **`enabled` is no longer one of them, and its removal is the point rather than a tidy-up** — it used to be read at the top of `OnChatMsgLoot`, which is the DRAW GATE `anti-patterns #85` names: the handler stopped reacting and the addon never stopped watching, so the client walked the registration list, built the argument frame and entered Lua on every loot line in the raid for an addon the player had switched off. Disabling now tears `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` out entirely ([ARCHITECTURE.md → *The disabled state*](ARCHITECTURE.md#the-disabled-state)), so there is nothing left to gate — and a flag kept beside a real unregister is a second answer to “is this addon running” that can disagree with it. `Collector:RefreshUpvalues` (`modules/Collector.lua:87`) reloads them — and rewrites the one module-level `gateCfg` table that `OnChatMsgLoot` hands `ShouldRecord`, so a loot line sets only `gateCfg.itemID` and allocates no config table (`ShouldRecord` reads `cfg` and never keeps it) — and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:241`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
 
 ## Wired vs enum'd sources
 

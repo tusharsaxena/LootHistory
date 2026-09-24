@@ -132,6 +132,39 @@ test("Collector: end-to-end drops a blacklisted item, records after un-blacklist
   assertEqual(NS.Database:Count(), before + 1)
 end)
 
+-- events-frames-taint-§7: the loot hot path must not allocate a gate-config table per line. Spy
+-- ShouldRecord's cfg argument across two loot lines for different items: the same table both
+-- times, carrying the second line's item id at the second call.
+test("Collector: OnChatMsgLoot reuses one gate-config table across loot lines", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.Collector:RefreshUpvalues()
+  local LINK2 = "|cffa335ee|Hitem:211297::::::::80:::::|h[Vial of More Fun]|h|r"
+  local savedGet, savedShould = NS.Compat.GetItemInfo, NS.Collector.ShouldRecord
+  NS.Compat.GetItemInfo = function(link)
+    return (link == LINK2) and 211297 or 211296, "X", 4, 0
+  end
+  local seen, ids = {}, {}
+  NS.Collector.ShouldRecord = function(_, _, _, _, cfg)
+    seen[#seen + 1] = cfg
+    ids[#ids + 1] = cfg.itemID
+    return false, "quality"   -- drop, so no record is written
+  end
+  local ok, err = pcall(function()
+    NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+    NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK2))
+  end)
+  NS.Compat.GetItemInfo, NS.Collector.ShouldRecord = savedGet, savedShould
+  assertTrue(ok, tostring(err))
+  assertEqual(#seen, 2)
+  assertTrue(rawequal(seen[1], seen[2]))
+  assertEqual(ids[1], 211296)
+  assertEqual(ids[2], 211297)
+  assertEqual(seen[2].itemID, 211297)
+end)
+
 test("Collector: whitelist records below threshold as a plain point-in-time row", function()
   local mocks = T.mocks
   mocks.__now = 0

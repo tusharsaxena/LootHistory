@@ -153,7 +153,9 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:17`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:231`). The quest-item gate keys on the locale-independent item class
+  (`modules/Collector.lua:241`), which also rewrites the one module-level `gateCfg` table
+  (`modules/Collector.lua:26`) the handler passes to `ShouldRecord` — a loot line sets only
+  `gateCfg.itemID`, never builds a config table. The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
 ### Chat output: one shared secret-safe printer

@@ -258,7 +258,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (33)
+### test_collector.lua (34)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -275,6 +275,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector: ShouldRecord flags a whitelist rescue but not a normal pass
 - Collector: ShouldRecord id lists ignore other item ids
 - Collector: end-to-end drops a blacklisted item, records after un-blacklisting
+- Collector: OnChatMsgLoot reuses one gate-config table across loot lines
 - Collector: whitelist records below threshold as a plain point-in-time row
 - Collector: end-to-end writes an attributed record
 - Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context
@@ -1047,7 +1048,7 @@ badge and any count quoted in the docs must agree with it.
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
-| test_collector.lua | 33 |
+| test_collector.lua | 34 |
 | test_database.lua | 65 |
 | test_stats.lua | 19 |
 | test_browser.lua | 61 |
@@ -1073,4 +1074,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **919** |
+| **Total** | **920** |

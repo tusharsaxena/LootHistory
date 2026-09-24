@@ -58,7 +58,7 @@ Debug is **session-only** (`NS.State.debug`) and is deliberately **never persist
 
 Every acquisition is **one row** — records are keyed only by array position, never deduplicated by item. Timestamps and every column are therefore first-class for sort/filter; aggregation (group-by, Insights) is a *view* concern, never a storage concern. Records are plain tables with **no metatables**, so they serialize cleanly for `Database:Export`.
 
-Assembled by `Collector:BuildRecord` (`modules/Collector.lua:51`):
+Assembled by `Collector:BuildRecord` (`modules/Collector.lua:60`):
 
 ```lua
 -- a single entry in LootHistoryDB.global.history[]
@@ -262,7 +262,7 @@ Note `settings.windowScale` **is** a Schema row (a General ▸ Interface ▸ *Wi
 [ARCHITECTURE.md → *Settings schema*](ARCHITECTURE.md#settings-schema) names both as recorded data;
 this is the writer list. The player deletes rows of the log or clears it, but never authors a row.
 Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:293`)
-appends each kept loot or currency line (`modules/Collector.lua:140`, `:205`). `PruneOld`
+appends each kept loot or currency line (`modules/Collector.lua:150`, `:215`). `PruneOld`
 (`core/Database.lua:811`) drops rows past `settings.retentionDays` once per session after
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:75`) and when the player accepts the prune confirm
 that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:741`). `Purge` (`core/Database.lua:745`) empties it from the purge confirm

@@ -32,8 +32,8 @@ is affirmed here explicitly rather than left to be read off a table, because it 
 criterion (a) could plausibly fail: `CHAT_MSG_LOOT` fires mid-fight, and on a line it keeps it does
 a `C_TooltipInfo` tooltip build (`Compat.ScanBound`) and a `pcall` into every installed pricing
 addon. It does not fail, and the reason is in the code rather than in the adjective —
-`Collector:ShouldRecord` (`modules/Collector.lua:116`) runs **before** any of that work and returns
-at `:125`, so every line the filters drop, which on the shipped rare-and-above default is nearly all
+`Collector:ShouldRecord` (`modules/Collector.lua:129`) runs **before** any of that work and returns
+at `:135`, so every line the filters drop, which on the shipped rare-and-above default is nearly all
 chat loot traffic, costs a pattern match and a threshold comparison. What reaches the tooltip build
 is a few kept items per boss kill, not a few per frame. The whole-repo sweep below is the rest of
 the evidence; the claim without it is an assertion.
@@ -74,8 +74,8 @@ a comment. The rows are in the order the grep prints them, so the two can be hel
 | Event | Registered at | Work done per fire |
 |---|---|---|
 | `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:112` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:75`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
-| `CHAT_MSG_LOOT` | `modules/Collector.lua:219` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:116`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:125` having allocated nothing. A **kept** line then runs `NS.Compat.GetItemExtras` (`:128`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:129`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
-| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:221` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
+| `CHAT_MSG_LOOT` | `modules/Collector.lua:229` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:129`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:135` having allocated nothing: the gate config it hands `ShouldRecord` is one module-level `gateCfg` table, refreshed with the settings and given only the line's `itemID` per call, not a table built per line (`LootHistory-R-16`). A **kept** line then runs `NS.Compat.GetItemExtras` (`:138`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:139`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
+| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:231` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
 | `LOOT_OPENED` | `modules/Attribution.lua:412` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
 | `ENCOUNTER_START` | `modules/Attribution.lua:413` | Two field writes, once per encounter. |
 | `ENCOUNTER_END` | `modules/Attribution.lua:414` | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
@@ -177,7 +177,7 @@ It is not being taken, and the reason is the exemption above rather than an argu
 there is not going to be one** — so the number that would decide this cannot be produced, and
 "four tables is cheap" would be the same unmeasured assertion this page exists to refuse. What is
 already on that line makes the guess a bad bet in any case: `NS.Compat.GetItemExtras`
-(`modules/Collector.lua:128`) walks a `C_TooltipInfo` build line by line, and `GatherAll` then makes
+(`modules/Collector.lua:138`) walks a `C_TooltipInfo` build line by line, and `GatherAll` then makes
 one `pcall`ed call into every installed pricing addon. A memo would also buy real state — an
 invalidation path, and a cached table handed out to three third-party fetchers — against a saving
 nobody in this repo can size.
