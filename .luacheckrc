@@ -40,7 +40,7 @@ read_globals = {
   "GetLootSourceInfo", "GetNumLootItems", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",
   "GetQuestReward", "GetQuestID",
   "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText", "AUCTION_HOUSE",
-  "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
+  "InCombatLockdown", "IsInInstance", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
   "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",
   "CombatLogGetCurrentEventInfo", "GetDetailedItemLevelInfo",
   "GameTooltip", "GetCursorPosition", "ChatEdit_InsertLink", "ChatFrame_OpenChat",

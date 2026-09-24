@@ -76,6 +76,8 @@ local OWNED = {
   "event:CHALLENGE_MODE_COMPLETED:nil",
   "event:TRADE_ACCEPT_UPDATE:nil",
   "event:QUEST_TURNED_IN:nil",
+  "event:ZONE_CHANGED_NEW_AREA:nil",
+  "event:CHALLENGE_MODE_RESET:nil",
   "event:PLAYER_REGEN_DISABLED:nil",
   "event:PLAYER_REGEN_ENABLED:nil",
   "unit:UNIT_SPELLCAST_SUCCEEDED:player",

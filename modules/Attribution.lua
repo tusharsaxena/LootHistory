@@ -233,13 +233,46 @@ function Attribution:OnChallengeModeStart()
 end
 
 function Attribution:OnChallengeModeCompleted()
-  -- Keep the keystone context: the reward chest is looted shortly after completion.
+  -- Keep the keystone context: the reward chest is looted shortly after completion. A completion-time
+  -- level of 0 (or nil) is not a level, so it never overwrites the one CHALLENGE_MODE_START read.
   if State.keystone then
-    State.keystone.level = NS.Compat.GetActiveKeystoneLevel() or State.keystone.level
+    local lvl = NS.Compat.GetActiveKeystoneLevel()
+    if lvl and lvl > 0 then State.keystone.level = lvl end
     if NS.State.debug and NS.Debug then
       NS.Debug("Attr", "keystone completed +%s (reward chest still MPLUS)", tostring(State.keystone.level))
     end
   end
+end
+
+-- The keystone context's other end. Kept through completion (the reward chest), it goes when the
+-- player leaves the party instance -- otherwise every herb, ore node and world chest looted later
+-- in the session would record as MPLUS. Inside a party instance with no context, an active key
+-- re-arms it: CHALLENGE_MODE_START does not fire again for a player who zoned back into a running
+-- key. One IsInInstance call per zone change, plus one keystone read on the re-arm path.
+function Attribution:OnZoneChanged()
+  if not NS.Compat.InPartyInstance() then
+    if State.keystone then
+      State.keystone = nil
+      if NS.State.debug and NS.Debug then
+        NS.Debug("Attr", "keystone cleared (left the party instance; GameObject loot → CONTAINER)")
+      end
+    end
+    return
+  end
+  if State.keystone then return end
+  local lvl = NS.Compat.GetActiveKeystoneLevel()
+  if lvl and lvl > 0 then
+    State.keystone = { level = lvl }
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Attr", "keystone re-armed +%s on re-entry (GameObject loot → MPLUS)", tostring(lvl))
+    end
+  end
+end
+
+-- A reset key is over: nothing looted afterwards belongs to it.
+function Attribution:OnChallengeModeReset()
+  State.keystone = nil
+  if NS.State.debug and NS.Debug then NS.Debug("Attr", "keystone cleared (CHALLENGE_MODE_RESET)") end
 end
 
 -- Peripheral (non-loot-window) sources. Each stamps just before its resulting self-loot line.
@@ -353,10 +386,16 @@ function Attribution:Enable()
   bus:RegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
   bus:RegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
   bus:RegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
+  -- The keystone context's lifetime. PLAYER_ENTERING_WORLD is deliberately NOT used: the addon
+  -- object already binds it to OnEnterWorld (core/LifecycleSetup.lua), and a second registration
+  -- of that event on the same target would replace that handler.
+  bus:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() self:OnZoneChanged() end)
+  bus:RegisterEvent("CHALLENGE_MODE_RESET", function() self:OnChallengeModeReset() end)
   -- Recorded as they are registered, so Attribution:Disable unregisters exactly what Enable
   -- registered rather than from a hand-typed second list that drifts the day an event is added.
   self.__events = { "LOOT_OPENED", "ENCOUNTER_START", "ENCOUNTER_END", "CHALLENGE_MODE_START",
-                    "CHALLENGE_MODE_COMPLETED", "TRADE_ACCEPT_UPDATE", "QUEST_TURNED_IN" }
+                    "CHALLENGE_MODE_COMPLETED", "TRADE_ACCEPT_UPDATE", "QUEST_TURNED_IN",
+                    "ZONE_CHANGED_NEW_AREA", "CHALLENGE_MODE_RESET" }
 
   -- Player-only spell-success via a dedicated RegisterUnitEvent frame — avoids the raid-wide
   -- firehose a bare RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") would deliver (every nameplate cast).
@@ -394,7 +433,7 @@ function Attribution:Enable()
   end
 end
 
---- The stand-down half of Enable (slash-commands-§7). The seven shared-target events go by name --
+--- The stand-down half of Enable (slash-commands-§7). The nine shared-target events go by name --
 --- UnregisterAllEvents there would take the Collector's two and the addon's own with them -- and
 --- the per-unit spell frame goes wholesale, which is the registration a draw gate leaves visibly in
 --- place and no early return can take out.

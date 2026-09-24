@@ -165,7 +165,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 
-### test_attribution.lua (25)
+### test_attribution.lua (30)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -191,7 +191,12 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: an unrelated player spell does not stamp a source
 - Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
 - Attribution: taking a quest reward stamps QUEST
-- Attribution: Enable registers seven bus events, the player-only cast frame and five hooks
+- Attribution: leaving the party instance clears the keystone, so later objects are CONTAINER
+- Attribution: a zone change inside the party instance keeps the keystone (MPLUS 12)
+- Attribution: CHALLENGE_MODE_RESET clears the keystone
+- Attribution: a completion-time keystone level of 0 does not overwrite the started level
+- Attribution: zoning back into an active key re-arms the keystone at its level
+- Attribution: Enable registers nine bus events, the player-only cast frame and five hooks
 
 ### test_filters.lua (19)
 
@@ -689,6 +694,13 @@ badge and any count quoted in the docs must agree with it.
 - seam: Register reports a duplicate path and a row with no group
 - seam: on the degraded build the boot check still reports a typo'd path, in its own words
 
+### test_schema_stub.lua (4)
+
+- Schema stub: SetMany refuses a batch holding an invalid entry and stores nothing
+- Schema stub: SetMany refuses an unknown path by its index
+- Schema stub: SetMany stores every entry, then runs every onChange in order
+- Schema stub: SetMany with opts.act runs its stores and reactions inside one bracket
+
 ### test_analytics.lua (62)
 
 - Analytics._fitFontSize: fits within width returns base size
@@ -903,8 +915,8 @@ badge and any count quoted in the docs must agree with it.
 
 ### test_prose.lua (15)
 
-- prose: no authored file carries a British spelling from localization-5's published list
-- prose: the gate carries localization-5's two lists whole, and nothing of its own
+- prose: no authored file carries a British spelling from localization-§5's published list
+- prose: the gate carries localization-§5's two lists whole, and nothing of its own
 - prose self-test: the carve-out suppresses the named generated folder, and only it
 - prose self-test: a path the carve-out does not name is not covered by one that looks like it
 - prose self-test: a carve-out that is not a set of path strings is a failure, not a silence
@@ -928,13 +940,13 @@ badge and any count quoted in the docs must agree with it.
 ### test_eol.lua (2)
 
 - eol: every tracked file carries the terminator .gitattributes declares for it
-- eol: .gitattributes is line-endings-5's canonical body for this repo kind
+- eol: .gitattributes is line-endings-§5's canonical body for this repo kind
 
 ### test_layout_cap.lua (13)
 
 - layoutcap: every authored file over the 1500-line cap is named in the census
 - layoutcap: no census row outlives the breach it records
-- layoutcap: every over-cap census row carries one of layout-1's three terminal states
+- layoutcap: every over-cap census row carries one of layout-§1's three terminal states
 - layoutcap: the census and the exempt set agree about which paths were exempted
 - layoutcap: an empty census is written as a result rather than left standing empty
 - layoutcap self-test: the parser reads the census nested under the register, and stops there
@@ -977,7 +989,7 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
 | test_compat.lua | 37 |
-| test_attribution.lua | 25 |
+| test_attribution.lua | 30 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
@@ -990,6 +1002,7 @@ badge and any count quoted in the docs must agree with it.
 | test_launcher.lua | 13 |
 | test_slash.lua | 60 |
 | test_schema.lua | 63 |
+| test_schema_stub.lua | 4 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
@@ -1004,4 +1017,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **858** |
+| **Total** | **867** |

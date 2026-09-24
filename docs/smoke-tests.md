@@ -181,6 +181,11 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   appears just before the item's `[Loot] … src=ROLL`. If instead the item records as the boss's
   Kill/Container source, the client is emitting the compact "no-spam" roll variant and the ROLL path
   needs a follow-up (see ARCHITECTURE Known limitations).
+- **The keystone context ends with the key.** With `/lh debug on`, run a key, complete it and loot
+  the reward chest: it records as **Mythic+** (row 7). Leave the dungeon, then mine an ore node or
+  pick a herb: it records as **Container**, and the debug console shows an `[Attr] keystone cleared`
+  line on the zone change. Zoning out and back in mid-key keeps chest and object loot as **Mythic+**
+  (a `keystone re-armed` line on re-entry). Resetting the key (`CHALLENGE_MODE_RESET`) also clears it.
 - Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
   a Lua error, never a missing row.
 - The denormalized columns render correctly: item link (exact tooltip), quality color, iLvl, bound
@@ -1186,7 +1191,7 @@ the same payload have no surface here. That is `ARCHITECTURE.md`'s documented de
 passed.** Run on a client set to **deDE or frFR**, the two the collection's other locale steps use
 (`ConsumableMaster/docs/smoke-tests.md` § 3c, `KickCD/docs/smoke-tests.md` § 9b).
 
-**Why this addon needs it more than most.** `core/Compat.lua:202-209` defines four English wordings
+**Why this addon needs it more than most.** `core/Compat.lua:210-217` defines four English wordings
 — `WARBAND_LINES`, plus `BIND_TO_WARBAND_PREFIX` and `UE_LITERAL = "until equipped"` — as the
 fallback for when the client leaves the `ITEM_ACCOUNTBOUND*` globals nil, and `isWarbandLine`
 (`:223-227`) and `ScanBound` (`:249`) reach them. The comment above them says the literals are safe
@@ -1199,7 +1204,7 @@ asserts against enUS mock globals: `tests/test_compat.lua:65-66` passes the lite
 this path whether it is right or wrong.
 
 **What the addon reads in the player's language.** Tooltip bind lines (`Compat.ScanBound`), the
-Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:113-127`), the
+Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:121-135`), the
 deconstruct spell names (`modules/Attribution.lua:53-97`), and zone and sub-zone names. What it
 **prints** is hardcoded English on every client, by the accepted scope decision — an English label
 on a German client is not a failure here and is not what these steps are looking for.

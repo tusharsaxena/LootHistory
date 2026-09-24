@@ -33,6 +33,14 @@ function Compat.GetActiveKeystoneLevel()
   return nil
 end
 
+-- Is the player inside a party (5-player dungeon) instance? The Mythic+ keystone context lives only
+-- as long as this is true. Guarded by IsInInstance presence -- degrades to false when it is absent.
+function Compat.InPartyInstance()
+  if type(IsInInstance) ~= "function" then return false end
+  local inInst, kind = IsInInstance()
+  return (inInst and kind == "party") and true or false
+end
+
 -- Hook the "use a bag item" path. Opening a container item pushes its contents straight to bags
 -- with no LOOT_OPENED / source GUID, so attribution needs a stamp from here. Calls fn(bag, slot)
 -- after each use. Retail routes through C_Container; older clients expose a global.

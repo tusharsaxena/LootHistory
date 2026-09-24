@@ -327,10 +327,76 @@ test("Attribution: taking a quest reward stamps QUEST", function()
   assertEqual(NS.Attribution:Consume(), "QUEST")
 end)
 
+-- ── The keystone context's lifetime ──────────────────────────────────────────────────────────
+--
+-- State.keystone turns every GameObject loot into MPLUS. It is kept through completion so the
+-- reward chest still records as MPLUS, and it must go when the player leaves the party instance or
+-- the key resets; otherwise every herb, ore node and world chest for the rest of the session is
+-- persisted as MPLUS with a keystone level. Each case puts the client context, C_ChallengeMode and
+-- the keystone back on the way out, whether the body passed or threw.
+local function withKeystoneEnv(ctx, activeLevel, body)
+  local savedCtx, savedCM, savedKey = mocks.__context, mocks.C_ChallengeMode, NS.State.keystone
+  local c = {}
+  for k, v in pairs(savedCtx) do c[k] = v end
+  for k, v in pairs(ctx) do c[k] = v end
+  mocks.__context = c
+  mocks.C_ChallengeMode = (activeLevel ~= nil)
+    and { GetActiveKeystoneInfo = function() return activeLevel end } or nil
+  local ok, err = pcall(body)
+  mocks.__context, mocks.C_ChallengeMode, NS.State.keystone = savedCtx, savedCM, savedKey
+  if not ok then error(err, 0) end
+end
+
+test("Attribution: leaving the party instance clears the keystone, so later objects are CONTAINER",
+function()
+  withKeystoneEnv({ inInstance = false, instanceType = "none" }, nil, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnZoneChanged()
+    assertEqual(NS.State.keystone, nil, "the keystone survived leaving the instance")
+    assertEqual(NS.Attribution:ResolveLootSource(OBJECT, NS.State), "CONTAINER")
+  end)
+end)
+
+test("Attribution: a zone change inside the party instance keeps the keystone (MPLUS 12)", function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, nil, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnZoneChanged()
+    local source, detail = NS.Attribution:ResolveLootSource(OBJECT, NS.State)
+    assertEqual(source, "MPLUS")
+    assertEqual(detail.keystoneLevel, 12)
+  end)
+end)
+
+test("Attribution: CHALLENGE_MODE_RESET clears the keystone", function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, nil, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnChallengeModeReset()
+    assertEqual(NS.State.keystone, nil, "the keystone survived CHALLENGE_MODE_RESET")
+  end)
+end)
+
+test("Attribution: a completion-time keystone level of 0 does not overwrite the started level",
+function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, 0, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnChallengeModeCompleted()
+    assertEqual(NS.State.keystone.level, 12)
+  end)
+end)
+
+test("Attribution: zoning back into an active key re-arms the keystone at its level", function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, 15, function()
+    NS.State.keystone = nil
+    NS.Attribution:OnZoneChanged()
+    assertTrue(NS.State.keystone ~= nil, "re-entry to an active key left no keystone context")
+    assertEqual(NS.State.keystone.level, 15)
+  end)
+end)
+
 -- ── Enable(): the wiring, not the handlers ───────────────────────────────────────────────────
 --
 -- Every case above hand-feeds an event straight to a stamper. Not one of them proves the stamper
--- is ever REACHED in the client. `Attribution:Enable` is what registers the seven bus events, the
+-- is ever REACHED in the client. `Attribution:Enable` is what registers the nine bus events, the
 -- player-only UNIT_SPELLCAST_SUCCEEDED frame and the five read-side hooks, and it had zero test
 -- callers: a mistyped event name or a dropped hooksecurefunc would have left every case above
 -- green while the attribution engine received nothing at all. testing-§8 asks the addon's own
@@ -342,12 +408,13 @@ end)
 -- the SHARED addon object, so the whole thing runs inside a wrapper that puts all of it back on
 -- the way out whether the body passed, failed or threw. Restoring on the last line of the body
 -- instead would put nothing back on a failure — tests/_kit/framework.lua pcalls the body — and the
--- next suite would run against a half-stubbed client with seven stray registrations on the bus.
+-- next suite would run against a half-stubbed client with nine stray registrations on the bus.
 
 -- Sorted: this asserts the SET Enable registers, and the registration order carries no meaning.
 local ENABLE_EVENTS = {
-  "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_START", "ENCOUNTER_END", "ENCOUNTER_START",
-  "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
+  "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_RESET", "CHALLENGE_MODE_START", "ENCOUNTER_END",
+  "ENCOUNTER_START", "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
+  "ZONE_CHANGED_NEW_AREA",
 }
 -- In Enable()'s own order: three globals hooked inline, then core/Compat.lua's two seams.
 local ENABLE_HOOKS = {
@@ -393,7 +460,7 @@ local function withClientStubs(body)
   if not ok then error(err, 0) end
 end
 
-test("Attribution: Enable registers seven bus events, the player-only cast frame and five hooks",
+test("Attribution: Enable registers nine bus events, the player-only cast frame and five hooks",
 function()
   withClientStubs(function(rec)
     NS.Attribution:Enable()
