@@ -1121,7 +1121,10 @@ end
 --- setting means REFUSING to show and hiding a window the setting has stopped allowing. It never
 --- opens the window by itself: "Only in combat" is a permission, not an instruction to pop a
 --- 1100px browser over a pull.
-function B:VisibilityAllows()
+---
+--- `inCombat` is the combat edge when a transition calls in (true from PLAYER_REGEN_DISABLED, false
+--- from PLAYER_REGEN_ENABLED); nil everywhere else, and the player's combat flag answers.
+function B:VisibilityAllows(inCombat)
   -- THE FIRST RUNG, and it is the whole of slash-commands-§7's "hidden AT THE SOURCE". A window
   -- taken down imperatively comes back: the next combat transition, the next settings change or
   -- the next `ApplyVisibility` re-shows it behind the switch's back, and the addon is then visibly
@@ -1132,15 +1135,21 @@ function B:VisibilityAllows()
                 and NS.db.global.settings.visibility) or "always"
   if mode == "never"  then return false end
   if mode == "always" then return true end
-  local inCombat = (InCombatLockdown and InCombatLockdown()) and true or false
+  -- A display decision, so never the combat-lockdown flag (events-frames-taint-§2):
+  -- PLAYER_REGEN_DISABLED fires BEFORE lockdown engages, so at the pull the lockdown still reads
+  -- false and "Only out of combat" would leave the window up for the whole fight. The edge itself
+  -- is the state; off an edge, UnitAffectingCombat("player") is the display-side read.
+  if inCombat == nil then
+    inCombat = UnitAffectingCombat and UnitAffectingCombat("player") and true or false
+  end
   if mode == "inCombat" then return inCombat end
   return not inCombat   -- "outOfCombat"
 end
 
 --- Hide the window if the visibility setting no longer allows it. Called on every combat
---- transition and whenever the dropdown is written.
-function B:ApplyVisibility()
-  if frame and frame:IsShown() and not B:VisibilityAllows() then
+--- transition (which passes the edge through as `inCombat`) and whenever the dropdown is written.
+function B:ApplyVisibility(inCombat)
+  if frame and frame:IsShown() and not B:VisibilityAllows(inCombat) then
     frame:Hide()
   end
 end
@@ -1244,12 +1253,12 @@ function B:Enable()
     -- The combat start also ends test mode (preview-mode, options-ui-§15): no sample row may sit
     -- over real loot in a fight. EndTestModeForCombat never opens the window.
     B.__ev:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-      B:ApplyVisibility()
+      B:ApplyVisibility(true)
       if NS.BrowserTable and NS.BrowserTable.EndTestModeForCombat then
         NS.BrowserTable:EndTestModeForCombat()
       end
     end)
-    B.__ev:RegisterEvent("PLAYER_REGEN_ENABLED",  function() B:ApplyVisibility() end)
+    B.__ev:RegisterEvent("PLAYER_REGEN_ENABLED",  function() B:ApplyVisibility(false) end)
   end
 end
 

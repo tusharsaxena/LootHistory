@@ -538,9 +538,11 @@ end
 
 -- Why a start cannot go ahead right now, or nil. A preview nobody can see is not a preview, so a
 -- start the General visibility setting would keep off screen is refused rather than run invisibly;
--- and the mode ends when combat starts, so it does not start inside one either.
+-- and the mode ends when combat starts, so it does not start inside one either. The combat read is
+-- the player's flag, not the combat-lockdown flag: this is a display question
+-- (events-frames-taint-§2), and lockdown lags PLAYER_REGEN_DISABLED.
 local function testModeRefusal()
-  if InCombatLockdown and InCombatLockdown() then
+  if UnitAffectingCombat and UnitAffectingCombat("player") then
     return "combat ends it, so it cannot start in combat."
   end
   if NS.Browser and NS.Browser.VisibilityAllows and not NS.Browser:VisibilityAllows() then

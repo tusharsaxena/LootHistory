@@ -375,7 +375,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 
-### test_browser.lua (58)
+### test_browser.lua (60)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -435,8 +435,10 @@ badge and any count quoted in the docs must agree with it.
 - browser: General visibility answers all four modes against the combat state
 - browser: Show refuses while the visibility setting forbids it, and says why
 - browser: a combat transition re-applies visibility through the private event target
+- browser: 'Only out of combat' hides the window at the pull, before lockdown engages
+- browser: 'Only in combat' hides the window when combat ends
 
-### test_browsertable.lua (62)
+### test_browsertable.lua (63)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -499,6 +501,7 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: /lh test and the box drive the same switch and stay in step
 - Test mode: combat ends it with one line, unticks the box and opens nothing
 - Test mode: a refused start prints one line and leaves the box unticked
+- Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
 
 ### test_export.lua (25)
@@ -1007,8 +1010,8 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 33 |
 | test_database.lua | 60 |
 | test_stats.lua | 19 |
-| test_browser.lua | 58 |
-| test_browsertable.lua | 62 |
+| test_browser.lua | 60 |
+| test_browsertable.lua | 63 |
 | test_export.lua | 25 |
 | test_debuglog.lua | 22 |
 | test_launcher.lua | 13 |
@@ -1029,4 +1032,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **879** |
+| **Total** | **882** |

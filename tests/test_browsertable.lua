@@ -722,7 +722,7 @@ end)
 local function withTestMode(fn)
   local BT, B = NS.BrowserTable, NS.Browser
   local s = NS.db.global.settings
-  local savedVis, savedCombat = s.visibility, T.mocks.InCombatLockdown
+  local savedVis, savedCombat = s.visibility, T.mocks.__inCombat
   local savedGroup, savedFilter = BT.groupBy, BT.filter
   local lines, refreshes = {}, 0
   local cf = T.mocks.DEFAULT_CHAT_FRAME
@@ -731,7 +731,7 @@ local function withTestMode(fn)
   NS.Panel.Refresh = function(...) refreshes = refreshes + 1; return oldRefresh(...) end
   local ok, err = pcall(fn, lines, function() return refreshes end)
   cf.AddMessage, NS.Panel.Refresh = oldAdd, oldRefresh
-  s.visibility, T.mocks.InCombatLockdown = savedVis, savedCombat
+  s.visibility, T.mocks.__inCombat = savedVis, savedCombat
   if BT.testMode then BT:SetTestMode(false) end
   B:Hide()
   BT.groupBy, BT.filter = savedGroup, savedFilter
@@ -834,12 +834,20 @@ test("Test mode: a refused start prints one line and leaves the box unticked", f
     NS.Slash:OnSlash("test")
     assertFalse(NS.BrowserTable.testMode)
     assertEqual(#lines, n + 1, "one line for a refused /lh test: " .. table.concat(lines, " | ", n + 1))
+  end)
+end)
 
-    -- In combat: the mode ends when combat starts, so it cannot start inside one.
+test("Test mode: a start in combat is refused from the player's combat flag, not the lockdown", function()
+  -- The mode ends when combat starts, so it cannot start inside one. The question is a display
+  -- one (events-frames-taint-§2): InCombatLockdown() stays false here, as it is in the gap after
+  -- PLAYER_REGEN_DISABLED, and only UnitAffectingCombat("player") says the player is fighting.
+  -- red under: testModeRefusal reading InCombatLockdown().
+  withTestMode(function(lines)
     NS.db.global.settings.visibility = "always"
-    T.mocks.InCombatLockdown = function() return true end
-    n = #lines
-    NS.Schema:Set("state.testMode", true)
+    T.mocks.__inCombat = true
+    assertFalse(T.mocks.InCombatLockdown(), "the case needs the lockdown flag false")
+    local n = #lines
+    assertFalse(NS.BrowserTable:SetTestMode(true), "SetTestMode answered a start in combat")
     assertFalse(NS.BrowserTable.testMode, "test mode started in combat")
     assertEqual(#lines, n + 1, "exactly one line: " .. table.concat(lines, " | ", n + 1))
     assertTrue(lines[#lines]:find("combat", 1, true) ~= nil, tostring(lines[#lines]))

@@ -41,7 +41,7 @@ Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schem
 Sent from eight schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), carrying six distinct `reason` strings between them: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, `"excludes"`, and `"chrome"` — the last one new with the Master controls tab, sent by `settings.scale` / `settings.alpha` / `settings.locked` so the Browser re-applies the addon-wide chrome to both of its frames. The first five are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
 
 - **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
-- **Browser** (`modules/Browser.lua:1229`) calls `OnSettingsChanged()` to reflect the change in the open window.
+- **Browser** (`modules/Browser.lua:1238`) calls `OnSettingsChanged()` to reflect the change in the open window.
 
 ### What does NOT broadcast
 
@@ -65,7 +65,7 @@ The reason: **CallbackHandler keys registered callbacks by `(message, target)`.*
 Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters tab) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters tab's live list rebuild):
 
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:227`).
-- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1228`).
+- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1237`).
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:662`).
 - Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:154`) and the Filters tab's id-lists (`settings/Panel.lua:443`), each on its own target.
 
