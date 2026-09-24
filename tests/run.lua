@@ -69,7 +69,7 @@ local SUITES = {
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind, and
   -- every Reset all settings below reaches LibDBIcon through NS.RefreshLauncher.
   "test_launcher", "test_slash",
-  "test_schema", "test_analytics", "test_panel", "test_panel_filters", "test_harness", "test_libka0s",
+  "test_schema", "test_schema_stub", "test_analytics", "test_panel", "test_panel_filters", "test_harness", "test_libka0s",
   -- After test_libka0s and after test_debuglog, both deliberately. It shares the degraded
   -- environment with the first, and the second is what attaches the library's `_frameForTest`
   -- seams to the live DebugLog instance -- the ignore entries naming them describe the state this

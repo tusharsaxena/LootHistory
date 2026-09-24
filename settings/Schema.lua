@@ -435,8 +435,8 @@ S.RESET_EXEMPT = { ["minimap.hide"] = true }
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
 --
--- WRITE-COMPLETING AND LOG-SILENT (LibKa0s docs/api/Schema/version-1-docs.md, "The degradation
--- stub"). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
+-- WRITE-COMPLETING AND LOG-SILENT (LibKa0s docs/api/Schema/version-2-docs.md, "The degradation
+-- stub"; SetMany is minor 2's all-or-nothing batch, with no bracket line to make). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
 -- BrowserTable's row height) and by host writers that need no other major (Reset all settings'
 -- wipe, below in settings/Slash.lua). So without the library, reads, writes, the row's reaction and
 -- the sweep veto all still work. The [Set] line and the bracket's tally are not reproduced, because
@@ -520,8 +520,11 @@ local function hostSchemaStub()
       if type(root) ~= "table" then return nil end
       return stubLib.Read(root, path, first)
     end
-    -- The seam's order without its log and tally: refuse, validate, store, react.
-    function R.Set(path, value)
+    -- The seam's order without its log and tally: refuse, validate, store, react. `prepare` is
+    -- every check before the store, shared with SetMany so a batch refuses on exactly the rules a
+    -- single write does (the library's own prepareWrite split). It answers `true, plan` or
+    -- `false, err` with nothing called but the row's validate.
+    local function prepare(path, value)
       local row = R.FindRow(path)
       if not row then return false, "unknown path: " .. tostring(path) end
       local stored = type(row.set) ~= "function" and not row.sessionOnly
@@ -531,12 +534,44 @@ local function hostSchemaStub()
         return false, "invalid value"
       end
       if stored and type(root) ~= "table" then return false, "nowhere to store " .. path end
-      if type(row.set) == "function" then
-        row.set(value)
-      elseif stored then
-        stubLib.Write(root, path, copy(value), first)
+      return true, { row = row, path = path, value = value, stored = stored, root = root, first = first }
+    end
+    local function store(p)
+      if type(p.row.set) == "function" then
+        p.row.set(p.value)
+      elseif p.stored then
+        stubLib.Write(p.root, p.path, copy(p.value), p.first)
       end
-      if type(row.onChange) == "function" then row.onChange(value) end
+    end
+    local function react(p)
+      if type(p.row.onChange) == "function" then p.row.onChange(p.value) end
+    end
+    function R.Set(path, value)
+      local ok, plan = prepare(path, value)
+      if not ok then return false, plan end
+      store(plan)
+      react(plan)
+      return true
+    end
+    -- Schema minor 2's all-or-nothing batch, log-silent (version-2-docs.md, "The batch: SetMany").
+    -- Phase 1 prepares every entry and refuses with `false, err, nil, index` before any store;
+    -- then every store, then every onChange, so a reaction reading a sibling row sees the whole
+    -- batch. `opts.act` brackets both, so the sweep veto sees the bracket.
+    function R.SetMany(entries, opts)
+      if type(entries) ~= "table" then entries = {} end
+      if type(opts) ~= "table" then opts = {} end
+      local plans = {}
+      for i, e in ipairs(entries) do
+        local ok, plan = false, "unknown path: " .. tostring(e)
+        if type(e) == "table" then ok, plan = prepare(e.path, e.value) end
+        if not ok then return false, plan, nil, i end
+        plans[i] = plan
+      end
+      local function commit()
+        for _, p in ipairs(plans) do store(p) end
+        for _, p in ipairs(plans) do react(p) end
+      end
+      if opts.act ~= nil then R.BulkRun(opts.act, opts.scope, commit) else commit() end
       return true
     end
     function R.Default(path)
