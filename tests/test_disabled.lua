@@ -411,13 +411,13 @@ end)
 
 -- ── 8. the launcher ───────────────────────────────────────────────────────────────────────────
 
-test("slash-commands-§7 step 8: the left click is refused and writes nothing; the right click still opens the panel",
+test("slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature",
   function()
-    -- launcher-§2. Rung (a) drives a primary window and that is a feature, so the left button
-    -- prints the one refusal line and does nothing else. The rung-(c) carve-out does not reach this
-    -- addon: it is for a left-click that opens the settings panel and nothing else. Right-click is
-    -- unchanged in either state — the owner's ruling narrows the SLASH surface, and a mouse click
-    -- is not a slash command.
+    -- launcher-§2 (standard v2.67.0, Launcher minor 4). The left button opens the settings panel in
+    -- either state -- the panel is setup, and where the addon is switched back on -- so it prints no
+    -- refusal. The right button opens the options menu, where Enabled stays live and Locked, Test
+    -- mode and Show window are grayed with "enable the addon first": features refuse while off, and
+    -- a grayed entry calls no handler and writes nothing, even when a client dispatches it anyway.
     bringUp()
     local object = NS.Launcher and NS.Launcher:Object()
     assertTrue(object ~= nil, "tests/test_launcher.lua runs first and leaves the object registered")
@@ -427,20 +427,27 @@ test("slash-commands-§7 step 8: the left click is refused and writes nothing; t
     local realOpen, opens = NS.Panel.Open, 0
     NS.Browser.Toggle = function() toggles = toggles + 1 end
     NS.Panel.Open = function() opens = opens + 1 end
+    local MENU = dofile("tests/mock_menu.lua")(M)
     M.__resetSvWrites()
 
     local out = capture(function() object.OnClick(object, "LeftButton") end)
-    local right = capture(function() object.OnClick(object, "RightButton") end)
+    local menuOut = capture(function()
+      object.OnClick(object, "RightButton")
+      for _, prefix in ipairs({ "Locked", "Test mode", "Show window" }) do MENU.last:ForceClick(prefix) end
+    end)
+    MENU.remove()
     NS.Browser.Toggle, NS.Panel.Open = realToggle, realOpen
 
-    assertEqual(#out, 1, "the refused left click is exactly one line, got: "
-      .. table.concat(out, " | "))
-    assertEqual(out[1], NS.PREFIX .. " " .. NS.Slash.DisabledLine(),
-      "the launcher must print the SAME line the dispatcher does, not a second wording")
-    assertEqual(toggles, 0, "a refused left click must not reach the window")
+    assertEqual(#out, 0, "the left click speaks no refusal, got: " .. table.concat(out, " | "))
+    assertEqual(opens, 1, "left-click must open the settings panel while disabled")
+    assertTrue(MENU.last ~= nil, "right-click must open the options menu while disabled")
+    assertTrue(MENU.last:Find("Enabled").enabled, "Enabled is the off switch and stays live")
+    for _, prefix in ipairs({ "Locked", "Test mode", "Show window" }) do
+      assertEqual(MENU.last:Find(prefix).enabled, false, prefix .. " must be grayed while disabled")
+    end
+    assertEqual(#menuOut, 0, "a grayed entry prints nothing, got: " .. table.concat(menuOut, " | "))
+    assertEqual(toggles, 0, "a grayed Show window must not reach the window")
     assertEqual(#M.__svWrites(), 0, "a launcher click wrote SavedVariables on a disabled addon")
-    assertEqual(#right, 0, "the right click speaks no refusal")
-    assertEqual(opens, 1, "right-click must still open the settings panel while disabled")
     setEnabled(true)
   end)
 

@@ -37,8 +37,10 @@ positional walk the library-less install falls back to, and a direct call on the
 declared tomorrow is gated by default. The live set is named once, as data (`LIVE_WHILE_DISABLED`),
 and is `lib.LIVE_VERBS` restated: `help`, `config`, `version`, `enable`, `disable`, `debug`, `perf`
 and the schema CLI. **The refusal line is the collection's, not this addon's** — one shape, built by
-`LibKa0s-Slash-1.0` from `NS.BRAND` and the slash and reached through `NS.Slash.DisabledLine()` from
-both call sites (the verb gate and the launcher's left click, whose gate is `LibKa0s-Launcher-1.0`'s `isEnabled` / `disabledLine` pair since minor 2). It is no longer an `NS.L` string:
+`LibKa0s-Slash-1.0` from `NS.BRAND` and the slash and reached through `NS.Slash.DisabledLine()` by
+the verb gate, the one call site that prints it (the launcher's left click printed it too until
+Launcher minor 4, LibKa0s v1.58.0, retired the refusal: the left button now opens the panel in either
+state). It is no longer an `NS.L` string:
 `locales/enUS.lua` carried `SLASH_DISABLED_VERB` until v1.41.0, and slash-commands-§7 makes the
 wording the collection's rather than the addon's.
 
@@ -91,14 +93,15 @@ body, including the panel's own bus subscriptions; the AceDB handle, `Schema:Set
 the minimap button's visibility (row `minimap.shown`, stored key `minimap.hide`) is a per-installation display preference and says nothing about whether the addon is
 running. Without those, `/lh enable` would not exist and the switch would only go one way.
 
-**The launcher's CLICK changes** (`launcher-§2`). This addon is rung (a), so the left click drives a
-primary window and is a feature: while disabled it prints the one refusal line, does nothing else
-and writes no SavedVariables. The gate is the library's (Launcher minor 2's `isEnabled` /
-`disabledLine`, fed `NS.AddonIsOff` and `NS.Slash.DisabledLine`). **The tooltip still shows while
-disabled** (Launcher minor 3, LibKa0s v1.57.0, the library's own block): it reads `Enabled: No`, and
-its left-click hint becomes `Left-click: disabled — /lh enable`, the command read out of that same line. The rung-(c) carve-out does not reach it — that one is for a left
-click that opens the settings panel and nothing else. **Right-click is unchanged in either state**,
-because the owner's ruling narrows the *slash* surface and a mouse click is not a slash command.
+**The launcher refuses no click; its menu grays the features** (`launcher-§2`, standard v2.67.0; Launcher minor 4,
+LibKa0s v1.58.0). The left click opens the settings panel in either state — the panel is setup, and
+it is where the addon is switched back on — so it prints no refusal. The right click opens the
+options menu, and while the addon is disabled the library grays **Locked**, **Test mode** and
+**Show window** with "enable the addon first" and calls none of their toggles; **Enabled** stays
+live and runs `/lh enable`. The gate is the library's, read from the descriptor's `isEnabled`
+(`NS.AddonIsOff`), and a grayed entry writes no SavedVariables even when a client dispatches it.
+**The tooltip still shows while disabled** (Launcher minor 3, the library's own block): it reads
+`Enabled: No` under the same two fixed hints.
 
 ## The conformance suite
 

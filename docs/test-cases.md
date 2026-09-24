@@ -571,15 +571,18 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_launcher.lua (18)
+### test_launcher.lua (21)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
 - launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
 - launcher: with no LibDataBroker / LibDBIcon nothing raises, and the store is still the truth
 - launcher: ONE object, registered twice, under the addon's FOLDER name — and idempotent
 - launcher: the stored minimap table is the declared default, unseeded and unreplaced
-- launcher: RUNG (a) — left-click toggles the browser, the addon's own switch
-- launcher: right-click ALWAYS opens the settings panel
+- launcher: left-click opens the settings panel, enabled or disabled, and does nothing else
+- launcher: right-click with no client menu API degrades to the settings panel
+- launcher: right-click opens the options menu — the brand title, then the four entries in order
+- launcher: each menu entry toggles through the addon's own handler, once
+- launcher: while disabled, Enabled stays live and the other three are grayed and call nothing
 - launcher: the Minimap button row moves the real button, through the single write seam
 - launcher: Reset all settings re-points LibDBIcon at the new minimap table, so a drag persists
 - launcher: the broker label is the BRAND NAME in plain text, not the folder name
@@ -589,8 +592,8 @@ badge and any count quoted in the docs must agree with it.
 - launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key
 - launcher: the enabled tooltip is the library's block, with the addon's one line inside it
 - launcher: Locked and Test mode are read on every show, never cached
-- launcher: while disabled the tooltip still shows, says Enabled: No and points at /lh enable
-- launcher: the descriptor answers the library's questions, and onClick gates nothing
+- launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
+- launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
 ### test_slash.lua (64)
 
@@ -957,7 +960,7 @@ badge and any count quoted in the docs must agree with it.
 - slash-commands-§7 step 7: every RESERVED verb still answers, and the bare /lh opens the panel
 - slash-commands-§7 step 7: every FEATURE verb refuses on ONE line and reaches no write seam
 - slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own
-- slash-commands-§7 step 8: the left click is refused and writes nothing; the right click still opens the panel
+- slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature
 - slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
@@ -1064,7 +1067,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
 | test_debuglog.lua | 19 |
-| test_launcher.lua | 18 |
+| test_launcher.lua | 21 |
 | test_slash.lua | 64 |
 | test_slash_degraded.lua | 10 |
 | test_schema.lua | 72 |
@@ -1083,4 +1086,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **929** |
+| **Total** | **932** |

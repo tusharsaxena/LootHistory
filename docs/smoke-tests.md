@@ -97,9 +97,9 @@ Loot History**.
   `settings.enabled = false`, and the addon **stops running** rather than staying loaded and
   ignoring what it sees: the History window closes and will not reopen, loot you take is not
   recorded, and `/lh show` answers one line —
-  `Ka0s Loot History is disabled — enable it with /lh enable` — and does nothing else. The same
-  line, and nothing else, is what a **left-click on the minimap button** gives you; a **right-click**
-  still opens the settings panel, in either state.
+  `Ka0s Loot History is disabled — enable it with /lh enable` — and does nothing else. The minimap
+  button refuses nothing: a **left-click** opens the settings panel in either state, and a
+  **right-click** opens its options menu with **Enabled** live and the other three entries grayed.
 - **And the command surface is unchanged while it is off.** Still with the addon disabled, check
   that a bare `/lh` opens the settings panel (this is the case the standard's v2.57.0 reversal
   turned on), `/lh version` prints, `/lh list` and `/lh get settings.qualityThreshold` read,
@@ -640,8 +640,10 @@ art actually appears.
 **Steps.**
 - Open the AddOns list at the character-select or in-game Interface list. Look at this addon's row.
 - Locate the minimap button; hover it.
-- Left-click it; right-click it.
-- `/lh disable`; hover the button again, left-click it, right-click it; `/lh enable`.
+- Left-click it. Close Settings, then right-click it and click each menu entry in turn (reopening the
+  menu each time): **Show window**, **Test mode**, **Locked**, then **Enabled**.
+- With the addon now disabled, hover the button, left-click it, right-click it and click a grayed
+  entry; then click **Enabled** in the menu to switch the addon back on.
 - Settings → Master controls → uncheck **Minimap button**; check it again.
 - Uncheck **Minimap button** again and run `/lh get minimap.shown`. Then Master controls →
   **Reset all settings** (confirm). Then `/lh reset minimap.shown`.
@@ -653,17 +655,26 @@ art actually appears.
 **Pass.**
 - **The AddOns list shows the addon's own logo**, not a Blizzard icon and not an empty square. The
   minimap button wears the same art, and so does the broker row.
-- The tooltip is the library's block (Launcher minor 3, LibKa0s v1.57.0), in this order and with no
-  line twice: `Ka0s Loot History  v<the TOC version>`, `Enabled: Yes` (green), `Locked: No`,
-  `Test mode: Off`, a live record count ("N records", gray), `Left-click: Toggle History window`,
-  `Right-click: Open settings`. Tick **Lock frame** and **Test mode**, hover again: `Locked: Yes`,
-  `Test mode: On` (read on every show, never cached).
-- **While disabled** the tooltip still shows: `Enabled: No` (red), and the left-click line reads
-  `Left-click: disabled — /lh enable`; a left-click prints the refusal line
-  (`Ka0s Loot History is disabled — enable it with /lh enable`) once and nothing opens (the gate is
-  `LibKa0s-Launcher-1.0`'s, minor 2); right-click still opens Settings.
-- **Left-click toggles** the history window — this addon is **rung (a)**, it has a primary window —
-  and **right-click opens Settings**, which is true on every Ka0s addon whatever its rung.
+- The tooltip is the library's block (Launcher minor 3, hints fixed at minor 4, LibKa0s v1.58.0),
+  in this order and with no line twice: `Ka0s Loot History  v<the TOC version>`, `Enabled: Yes`
+  (green), `Locked: No`, `Test mode: Off`, a live record count ("N records", gray),
+  `Left-click: Open settings`, `Right-click: Options menu`. Tick **Lock frame** and **Test mode**,
+  hover again: `Locked: Yes`, `Test mode: On` (read on every show, never cached).
+- **Left-click opens Settings**, on every Ka0s addon and in either state (launcher-§2, v2.67.0).
+- **Right-click opens the client's own context menu**, titled `Ka0s Loot History`, with four
+  checkboxes in this order, each ticked to match the current state: **Enabled**, **Locked**,
+  **Test mode**, **Show window**. Each entry does what its own command or row does, once, and the
+  menu closes:
+  - **Show window** opens or closes the History window exactly as `/lh toggle` does (the General
+    visibility setting refuses it with the same line);
+  - **Test mode** runs `/lh test` (`test mode on|off`, or the refusal in combat);
+  - **Locked** flips the Master controls **Lock frame** box (open the panel: it follows);
+  - **Enabled** while on runs `/lh disable` and prints `settings.enabled = false`.
+- **While disabled** the tooltip still shows, with `Enabled: No` (red) and the same two hints. A
+  left-click opens Settings and prints nothing. The right-click menu shows **Enabled** unticked and
+  live, and `Locked (enable the addon first)`, `Test mode (enable the addon first)`,
+  `Show window (enable the addon first)` grayed: clicking one does nothing. Clicking **Enabled**
+  prints `settings.enabled = true` and the addon comes back up.
 - After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the
   AceDB-default `minimap` table, with no seed from the launcher setup (#30). The **rename** of the
   registration from "Ka0s Loot History" to the folder name `LootHistory` does not move it: LibDBIcon
@@ -676,7 +687,8 @@ art actually appears.
   the row, not a bulk reset.
 - `/lh set minimap.hide true` answers `Setting not found: minimap.hide` — the pre-v2.65.0 path is
   gone, so a macro written against it must become `/lh set minimap.shown false`.
-- The broker display's own row answers the same two clicks, because there is only one `OnClick`.
+- The broker display's own row answers the same two clicks, and its right-click opens the same menu,
+  because there is only one `OnClick`.
 - Hiding the minimap button does **not** remove the broker row, and there is deliberately no setting
   that would: a display already offers its own per-plugin toggle (launcher-§1).
 

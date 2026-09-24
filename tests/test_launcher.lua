@@ -181,44 +181,227 @@ test("launcher: the stored minimap table is the declared default, unseeded and u
   assertEqual(keys, 1, "only `hide` is in there; LibDBIcon adds `minimapPos` on a drag, nothing else")
 end)
 
-test("launcher: RUNG (a) — left-click toggles the browser, the addon's own switch", function()
-  -- launcher-§2. This addon has a PRIMARY WINDOW, so left-click toggles it and the rung is
-  -- expressed by the PRESENCE of `onClick` rather than by a flag. The switch is `B:Toggle`, the one
-  -- `/lh toggle` calls — the launcher drives the addon's existing state and never holds a copy.
-  -- red under: a left-click that opens the settings panel instead (the panel is already on the
-  -- right button, so that is a skipped rule rather than a different design — anti-pattern #81), or
-  -- a second toggle implementation appearing here.
+--- Strip WoW color escapes, so a line reads as the player reads it.
+local function plain(s)
+  return (tostring(s):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+end
+
+--- Draw the launcher's tooltip into a fake GameTooltip and answer its lines, as plain text.
+local function tooltipLines()
   local object = NS.Launcher:Object()
-  local realToggle, toggles = NS.Browser.Toggle, 0
-  NS.Browser.Toggle = function() toggles = toggles + 1 end
-  local realOpen, opens = NS.Panel.Open, 0
-  NS.Panel.Open = function() opens = opens + 1 end
+  assertTrue(object ~= nil and type(object.OnTooltipShow) == "function",
+    "the broker object must carry the library's OnTooltipShow")
+  local lines = {}
+  local tt = { AddLine = function(_, text) lines[#lines + 1] = plain(text) end }
+  object.OnTooltipShow(tt)
+  return lines
+end
 
-  local ok, err = pcall(object.OnClick, object, "LeftButton")
-  NS.Browser.Toggle, NS.Panel.Open = realToggle, realOpen
+--- Run `fn` with the lock, the test mode and the enabled switch set as asked, then put them back.
+local function withState(state, fn)
+  local s = NS.db.global.settings
+  local BT = NS.BrowserTable
+  local was = { locked = s.locked, test = BT.testMode, enabled = NS.Schema:Get("settings.enabled") }
+  s.locked = state.locked
+  BT.testMode = state.test
+  NS.Schema:Set("settings.enabled", state.enabled)
+  local ok, res = pcall(fn)
+  s.locked, BT.testMode = was.locked, was.test
+  NS.Schema:Set("settings.enabled", was.enabled)
+  if not ok then error(res, 0) end
+  return res
+end
+
+local function recordLine()
+  local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
+  return n == 1 and "1 record" or (n .. " records")
+end
+
+-- ── the two buttons (Launcher minor 4, LibKa0s v1.58.0; launcher-§2 as of standard v2.67.0) ─────
+--
+-- The owner's M6 ruling: LEFT-click opens the settings panel on every addon, in either state, and
+-- RIGHT-click opens the client's context menu with one checkbox per toggle the addon has. This
+-- addon has all four -- Enabled, Locked, Test mode, Show window (ADDONS.md's row) -- and every entry
+-- toggles through the addon's OWN handler: the slash verb's function for Enabled, Test mode and
+-- Show window, and the *Lock frame* row's write for Locked (there is no lock verb here).
+--
+-- The menu is driven through the library's own `MenuUtil` stand-in, tests/mock_menu.lua (copied
+-- verbatim from LibKa0s v1.58.0). It is installed only inside the cases that want it: with no
+-- `MenuUtil` in the environment the right click takes the library's degraded path, which is a
+-- checkable fact of its own and what every other suite (test_disabled's step 8 included) meets.
+
+local MENU = dofile("tests/mock_menu.lua")(T.mocks)
+MENU.remove()
+
+local SPIED_VERBS = { enable = true, disable = true, test = true, toggle = true }
+
+--- Run `fn(calls)` with the panel opener and the four verbs the menu reaches replaced by counters,
+--- IN NS.COMMANDS ITSELF -- the table `/lh <verb>` dispatches through -- so a case can tell a toggle
+--- that runs the verb from one that reaches past it into the model (B:Toggle, CliSet) and would
+--- therefore skip the verb's gate and its chat line. Everything is put back, raise or not.
+local function withSpies(fn)
+  local calls = { open = 0, verbs = {} }
+  local realOpen = NS.Panel.Open
+  NS.Panel.Open = function() calls.open = calls.open + 1 end
+  local saved = {}
+  for _, entry in ipairs(NS.COMMANDS) do
+    local verb = entry[1]
+    if SPIED_VERBS[verb] then
+      saved[entry] = entry[3]
+      entry[3] = function() calls.verbs[#calls.verbs + 1] = verb end
+    end
+  end
+  local ok, err = pcall(fn, calls)
+  NS.Panel.Open = realOpen
+  for entry, run in pairs(saved) do entry[3] = run end
   if not ok then error(err, 0) end
+end
 
-  assertEqual(toggles, 1, "left-click must reach NS.Browser:Toggle")
-  assertEqual(opens, 0, "left-click must NOT open the settings panel on rung (a)")
+--- Open the options menu the way a player does -- a right click on the object -- and answer the
+--- menu the mock recorded. `windowShown` stands in for the History window's visibility.
+local function openMenu(windowShown)
+  local realGet = NS.Browser.GetWindow
+  NS.Browser.GetWindow = function() return { IsShown = function() return windowShown and true or false end } end
+  MENU.install()
+  MENU.reset()
+  local object, owner = NS.Launcher:Object(), { name = "LootHistoryMinimapButton" }
+  local ok, err = pcall(object.OnClick, owner, "RightButton")
+  MENU.remove()
+  NS.Browser.GetWindow = realGet
+  if not ok then error(err, 0) end
+  assertEqual(MENU.opens, 1, "a right click must open the context menu exactly once")
+  assertTrue(MENU.last.owner == owner, "the menu anchors to the frame that was clicked")
+  return MENU.last
+end
+
+test("launcher: left-click opens the settings panel, enabled or disabled, and does nothing else",
+  function()
+    -- launcher-§2 (v2.67.0): the panel is setup, not a feature, and it is where a disabled addon
+    -- is switched back on, so the left button is never refused.
+    -- red under: the retired rung (a) coming back (a left click reaching `/lh toggle`), or the
+    -- retired disabled refusal (a line printed and no panel).
+    withSpies(function(calls)
+      local object = NS.Launcher:Object()
+      withState({ locked = false, test = false, enabled = true }, function()
+        object.OnClick(object, "LeftButton")
+      end)
+      withState({ locked = false, test = false, enabled = false }, function()
+        object.OnClick(object, "LeftButton")
+      end)
+      assertEqual(calls.open, 2, "left-click must reach NS.Panel:Open in both states")
+      assertEqual(#calls.verbs, 0, "left-click must run no verb: " .. table.concat(calls.verbs, ", "))
+    end)
+  end)
+
+test("launcher: right-click with no client menu API degrades to the settings panel", function()
+  -- The library resolves MenuUtil on every right click; a client without it gets the panel, which
+  -- holds every toggle the menu would have. The headless environment has none unless a case
+  -- installs the stand-in.
+  -- red under: an unguarded MenuUtil (a raise inside the client's click dispatch), or a right click
+  -- that falls through to nothing.
+  withSpies(function(calls)
+    local object = NS.Launcher:Object()
+    object.OnClick(object, "RightButton")
+    assertEqual(calls.open, 1, "with no MenuUtil the right click must open the panel")
+    assertEqual(#calls.verbs, 0)
+  end)
 end)
 
-test("launcher: right-click ALWAYS opens the settings panel", function()
-  -- launcher-§2, on every addon, whatever rung its left click sits on. It is what lets rung (a)
-  -- spend the left button on the window.
-  -- red under: a right-click wired to anything else at all.
-  local object = NS.Launcher:Object()
-  local realToggle, toggles = NS.Browser.Toggle, 0
-  NS.Browser.Toggle = function() toggles = toggles + 1 end
-  local realOpen, opens = NS.Panel.Open, 0
-  NS.Panel.Open = function() opens = opens + 1 end
+test("launcher: right-click opens the options menu — the brand title, then the four entries in order",
+  function()
+    -- launcher-§2: Enabled, Locked, Test mode, Show window, each a checkbox showing the state read
+    -- when the menu opened; the title is the plain-text label (launcher-§1).
+    -- red under: a missing pair (an entry the addon has but does not offer), an entry this addon does
+    -- not have, a different order, or a checkmark read from a cached value.
+    local menu = withState({ locked = true, test = false, enabled = true }, function()
+      return openMenu(true)
+    end)
+    assertEqual(#menu.titles, 1)
+    assertEqual(menu.titles[1], NS.BRAND, "the menu's title is the plain-text label")
+    local texts = menu:Texts()
+    local want = { "Enabled", "Locked", "Test mode", "Show window" }
+    assertEqual(#texts, #want, "the menu lists exactly four entries: " .. table.concat(texts, " / "))
+    for i, w in ipairs(want) do assertEqual(texts[i], w, "menu entry " .. i) end
+    for _, e in ipairs(menu.entries) do assertTrue(e.enabled, e.text .. " must be live while enabled") end
+    assertEqual(menu:Checked("Enabled"), true)
+    assertEqual(menu:Checked("Locked"), true, "Locked reads settings.locked when the menu opens")
+    assertEqual(menu:Checked("Test mode"), false, "Test mode reads BrowserTable.testMode")
+    assertEqual(menu:Checked("Show window"), true, "Show window reads the History window's IsShown")
 
-  local ok, err = pcall(object.OnClick, object, "RightButton")
-  NS.Browser.Toggle, NS.Panel.Open = realToggle, realOpen
-  if not ok then error(err, 0) end
+    menu = withState({ locked = false, test = true, enabled = true }, function()
+      return openMenu(false)
+    end)
+    assertEqual(menu:Checked("Locked"), false, "the next open reads the lock afresh")
+    assertEqual(menu:Checked("Test mode"), true, "the next open reads the test mode afresh")
+    assertEqual(menu:Checked("Show window"), false, "the next open reads the window afresh")
+  end)
 
-  assertEqual(opens, 1, "right-click must reach NS.Panel:Open")
-  assertEqual(toggles, 0, "right-click must not toggle the window")
+test("launcher: each menu entry toggles through the addon's own handler, once", function()
+  -- launcher-§2: the menu holds no state and has no handler of its own. Enabled runs `/lh disable`
+  -- (or `enable`), Test mode runs `/lh test`, Show window runs `/lh toggle` -- the functions in
+  -- NS.COMMANDS, spied in place -- and Locked writes the *Lock frame* row's own path through the
+  -- single write seam, because this addon has no lock verb.
+  -- red under: a toggle reaching past the verb (B:Toggle or BT:ToggleTestMode called directly skips
+  -- the feature-verb gate and the verb's chat line: anti-pattern #81's "copy of the handler"), a
+  -- second write of `settings.enabled` beside the verb's, or an entry calling two handlers.
+  withSpies(function(calls)
+    withState({ locked = false, test = false, enabled = true }, function()
+      openMenu(false):Click("Enabled")
+      assertEqual(table.concat(calls.verbs, ","), "disable", "Enabled while on runs /lh disable")
+      openMenu(false):Click("Test mode")
+      assertEqual(table.concat(calls.verbs, ","), "disable,test", "Test mode runs /lh test")
+      openMenu(false):Click("Show window")
+      assertEqual(table.concat(calls.verbs, ","), "disable,test,toggle", "Show window runs /lh toggle")
+
+      local sets, realSet = {}, NS.Schema.Set
+      NS.Schema.Set = function(self, path, v)
+        sets[#sets + 1] = { path, v }
+        return realSet(self, path, v)
+      end
+      local ok, err = pcall(function() openMenu(false):Click("Locked") end)
+      NS.Schema.Set = realSet
+      if not ok then error(err, 0) end
+      assertEqual(#sets, 1, "Locked writes once, through the single write seam")
+      assertEqual(sets[1][1], "settings.locked", "the Lock frame row's own path")
+      assertEqual(sets[1][2], true, "unlocked -> locked")
+      assertEqual(NS.db.global.settings.locked, true, "and the lock landed")
+      assertEqual(#calls.verbs, 3, "Locked runs no verb")
+    end)
+    -- The other direction: Enabled while the addon is off runs /lh enable.
+    withState({ locked = false, test = false, enabled = false }, function()
+      openMenu(false):Click("Enabled")
+    end)
+    assertEqual(calls.verbs[#calls.verbs], "enable", "Enabled while off runs /lh enable")
+    assertEqual(calls.open, 0, "no entry opens the settings panel")
+  end)
 end)
+
+test("launcher: while disabled, Enabled stays live and the other three are grayed and call nothing",
+  function()
+    -- launcher-§2 and slash-commands-§7: features refuse while the addon is off, so the menu shows
+    -- them grayed with "enable the addon first" rather than hiding them, and Enabled -- the off
+    -- switch -- has to work in the off state, as `/lh enable` does.
+    -- red under: a grayed entry that still calls its handler (the library's own gate is reached with
+    -- ForceClick, as a client that dispatched a grayed entry would), or Enabled grayed with the rest.
+    withSpies(function(calls)
+      withState({ locked = false, test = false, enabled = false }, function()
+        local menu = openMenu(false)
+        local texts = menu:Texts()
+        local want = { "Enabled", "Locked (enable the addon first)",
+          "Test mode (enable the addon first)", "Show window (enable the addon first)" }
+        for i, w in ipairs(want) do assertEqual(texts[i], w, "disabled menu entry " .. i) end
+        assertTrue(menu:Find("Enabled").enabled, "Enabled stays clickable while off")
+        local lockedBefore = NS.db.global.settings.locked
+        for _, prefix in ipairs({ "Locked", "Test mode", "Show window" }) do
+          assertEqual(menu:Find(prefix).enabled, false, prefix .. " must be grayed while off")
+          assertTrue(menu:Click(prefix) == nil, "a grayed entry cannot be clicked")
+          menu:ForceClick(prefix)
+        end
+        assertEqual(#calls.verbs, 0, "a grayed entry must call no handler: " .. table.concat(calls.verbs, ", "))
+        assertEqual(NS.db.global.settings.locked, lockedBefore, "a grayed Locked writes nothing")
+      end)
+    end)
+  end)
 
 test("launcher: the Minimap button row moves the real button, through the single write seam",
   function()
@@ -416,60 +599,24 @@ test("launcher: Reset all settings leaves a SHOWN button shown, and does not inv
     end)
   end)
 
--- ── the status tooltip is the LIBRARY's (Launcher minor 3, launcher-§1, M5) ───────────────────
+-- ── the status tooltip is the LIBRARY's (Launcher minor 3, launcher-§1, M5; hints fixed at minor 4, M6) ──
 --
--- LibKa0s-Launcher-1.0 minor 2 gates a rung-(a)/(b) left click on the descriptor's `isEnabled` and
--- prints its `disabledLine()`; minor 3 (LibKa0s v1.57.0) also DRAWS the tooltip, on every host and
--- while the addon is disabled: the title with the version, Enabled, Locked and Test mode where the
--- host has them, the host's own lines, then the two click hints. This addon used to draw the whole
--- tooltip itself -- title, hints and the disabled refusal line -- and under minor 3 every one of those
--- would be drawn twice (anti-pattern #89). The cases below pin what is left: the descriptor answers
--- the library's questions, and `onTooltipShow` adds the record count and nothing else.
-
---- Strip WoW color escapes, so a line reads as the player reads it.
-local function plain(s)
-  return (tostring(s):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
-end
-
---- Draw the launcher's tooltip into a fake GameTooltip and answer its lines, as plain text.
-local function tooltipLines()
-  local object = NS.Launcher:Object()
-  assertTrue(object ~= nil and type(object.OnTooltipShow) == "function",
-    "the broker object must carry the library's OnTooltipShow")
-  local lines = {}
-  local tt = { AddLine = function(_, text) lines[#lines + 1] = plain(text) end }
-  object.OnTooltipShow(tt)
-  return lines
-end
-
---- Run `fn` with the lock, the test mode and the enabled switch set as asked, then put them back.
-local function withState(state, fn)
-  local s = NS.db.global.settings
-  local BT = NS.BrowserTable
-  local was = { locked = s.locked, test = BT.testMode, enabled = NS.Schema:Get("settings.enabled") }
-  s.locked = state.locked
-  BT.testMode = state.test
-  NS.Schema:Set("settings.enabled", state.enabled)
-  local ok, res = pcall(fn)
-  s.locked, BT.testMode = was.locked, was.test
-  NS.Schema:Set("settings.enabled", was.enabled)
-  if not ok then error(res, 0) end
-  return res
-end
-
-local function recordLine()
-  local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
-  return n == 1 and "1 record" or (n .. " records")
-end
+-- Launcher minor 3 (LibKa0s v1.57.0) DRAWS the tooltip, on every host and while the addon is
+-- disabled: the title with the version, Enabled, Locked and Test mode where the host has them, the
+-- host's own lines, then the two click hints -- fixed since minor 4 (LibKa0s v1.58.0) at
+-- `Left-click: Open settings` and `Right-click: Options menu`, in either state. This addon used to
+-- draw the whole tooltip itself, and under minor 3 every line would be drawn twice (anti-pattern
+-- #89). The cases below pin what is left: the descriptor answers the library's questions, and
+-- `onTooltipShow` adds the record count and nothing else.
 
 test("launcher: the enabled tooltip is the library's block, with the addon's one line inside it",
   function()
     -- launcher-§1 (standard v2.66.0): the exact shape, in order. The title carries the TOC version,
     -- Locked and Test mode are drawn because this addon HAS both (the Lock frame row and the
-    -- History window's test mode), the record count is this addon's own line, and the left click
-    -- names rung (a)'s window.
+    -- History window's test mode), the record count is this addon's own line, and the two hints are
+    -- the library's fixed pair (launcher-§2, v2.67.0).
     -- red under: the old hand-drawn title or hints coming back (a second copy, anti-pattern #89), a
-    -- missing isLocked / isTestMode / version / leftClickLabel, or the count line going missing.
+    -- missing isLocked / isTestMode / version, or the count line going missing.
     local lines = withState({ locked = false, test = false, enabled = true }, tooltipLines)
     local want = {
       NS.BRAND .. "  v" .. NS.Version(),
@@ -477,8 +624,8 @@ test("launcher: the enabled tooltip is the library's block, with the addon's one
       "Locked: No",
       "Test mode: Off",
       recordLine(),
-      "Left-click: Toggle History window",
-      "Right-click: Open settings",
+      "Left-click: Open settings",
+      "Right-click: Options menu",
     }
     assertEqual(#lines, #want, "the tooltip draws exactly seven lines: " .. table.concat(lines, " / "))
     for i, w in ipairs(want) do assertEqual(lines[i], w, "tooltip line " .. i) end
@@ -498,13 +645,13 @@ test("launcher: Locked and Test mode are read on every show, never cached", func
   assertEqual(lines[4], "Test mode: Off")
 end)
 
-test("launcher: while disabled the tooltip still shows, says Enabled: No and points at /lh enable",
+test("launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints",
   function()
-    -- The owner's ruling (M5): the button ALWAYS answers a hover, disabled included. The left
-    -- click on rung (a) is refused while off, so its hint gives way to the library's pointer, read
-    -- out of NS.Slash.DisabledLine(); the right click is never gated.
-    -- red under: a tooltip that keeps promising the window while the library refuses the click, the
-    -- addon's own refusal line drawn a second time, or the status block missing while off.
+    -- The owner's rulings: the button ALWAYS answers a hover, disabled included (M5), and neither
+    -- button is refused while off (M6) -- the left opens the panel, the right opens the menu with
+    -- Enabled live -- so the hints are the enabled tooltip's, word for word.
+    -- red under: the retired `Left-click: disabled — /lh enable` pointer coming back, the addon's
+    -- own refusal line drawn, or the status block missing while off.
     local lines = withState({ locked = false, test = false, enabled = false }, tooltipLines)
     local want = {
       NS.BRAND .. "  v" .. NS.Version(),
@@ -512,71 +659,93 @@ test("launcher: while disabled the tooltip still shows, says Enabled: No and poi
       "Locked: No",
       "Test mode: Off",
       recordLine(),
-      "Left-click: disabled \226\128\148 /lh enable",
-      "Right-click: Open settings",
+      "Left-click: Open settings",
+      "Right-click: Options menu",
     }
     assertEqual(#lines, #want, "the disabled tooltip draws exactly seven lines: "
       .. table.concat(lines, " / "))
     for i, w in ipairs(want) do assertEqual(lines[i], w, "disabled tooltip line " .. i) end
   end)
 
-test("launcher: the descriptor answers the library's questions, and onClick gates nothing",
+test("launcher: the descriptor answers the library's questions, and every toggle is the addon's own",
   function()
     -- Re-run core/LauncherSetup.lua against a fake Launcher that records the descriptor, into a
     -- scratch namespace, so the fields the library reads are asserted rather than inferred.
-    -- red under: a descriptor without the minor-2 pair (the library could not refuse the click), an
-    -- onClick that still carries its own AddonIsOff branch (two gates, two places to drift), a
-    -- minor-3 field missing or reading a cached value, or an onTooltipShow that draws a title,
-    -- a status line or a click hint again.
+    -- red under: a retired field still passed (onClick, leftClickLabel, disabledLine, slash --
+    -- dead configuration, launcher-§5), half a pair (the library draws no entry for it), a toggle
+    -- that reaches past the verb into the model, a minor-3 field reading a cached value, or an
+    -- onTooltipShow that draws a title, a status line or a click hint again.
     local captured
     local fakeLauncher = { New = function(_, d) captured = d; return {} end }
     local fakeLibStub = setmetatable({}, { __call = function(_, name)
       if name == "LibKa0s-Launcher-1.0" then return fakeLauncher end
     end })
     local mocks = setmetatable({ LibStub = fakeLibStub }, { __index = T.mocks })
-    local off, toggles, locked = false, 0, false
+    local off, locked, opens, winShown = false, false, 0, false
+    local ran, sets = {}, {}
+    local function verb(name) return { name, name, function() ran[#ran + 1] = name end } end
     local ns = {
       BRAND = NS.BRAND,
       L = setmetatable({}, { __index = function(_, k) return k end }),
       Version = function() return "7.7.7" end,
       AddonIsOff = function() return off end,
-      Slash = { DisabledLine = function() return "the one refusal line" end },
+      Panel = { Open = function() opens = opens + 1 end },
+      Schema = { Set = function(_, path, v) sets[#sets + 1] = { path, v } end },
       Browser = {
-        Toggle = function() toggles = toggles + 1 end,
+        Toggle = function() error("the window toggle must go through /lh toggle, not B:Toggle") end,
         IsLocked = function() return locked end,
+        GetWindow = function() return { IsShown = function() return winShown end } end,
       },
       BrowserTable = { testMode = false },
       Database = { Count = function() return 3 end },
+      COMMANDS = { verb("show"), verb("toggle"), verb("enable"), verb("disable"), verb("test") },
     }
     Loader.load("core/LauncherSetup.lua", ns, mocks)
     assertTrue(captured ~= nil, "the file must build its launcher through Launcher:New")
-    assertEqual(type(captured.isEnabled), "function", "descriptor.isEnabled (Launcher minor 2)")
-    assertEqual(type(captured.disabledLine), "function", "descriptor.disabledLine (Launcher minor 2)")
+
+    for _, k in ipairs({ "onClick", "leftClickLabel", "disabledLine", "slash" }) do
+      assertTrue(captured[k] == nil, "descriptor." .. k .. " is retired at Launcher minor 4")
+    end
+    -- The four pairs (Launcher minor 4) and the minor-3 version, every one a FUNCTION so the
+    -- library asks on every show and every menu open.
+    for _, k in ipairs({ "openSettings", "isEnabled", "setEnabled", "isLocked", "toggleLock",
+      "isTestMode", "toggleTestMode", "isWindowShown", "toggleWindow", "version" }) do
+      assertEqual(type(captured[k]), "function", "descriptor." .. k)
+    end
+
+    captured.openSettings("LeftButton")
+    assertEqual(opens, 1, "openSettings is NS.Panel:Open, the seam /lh config reaches")
+
     assertEqual(captured.isEnabled(), true, "enabled while AddonIsOff answers false")
     off = true
     assertEqual(captured.isEnabled(), false, "disabled while AddonIsOff answers true")
-    assertEqual(captured.disabledLine(), "the one refusal line", "the line is NS.Slash.DisabledLine()")
-    captured.onClick("LeftButton")
-    assertEqual(toggles, 1, "onClick carries no gate of its own; the library's isEnabled is the gate")
+    captured.setEnabled(true)
+    captured.setEnabled(false)
+    captured.toggleTestMode()
+    captured.toggleWindow()
+    assertEqual(table.concat(ran, ","), "enable,disable,test,toggle",
+      "each toggle runs its verb's own NS.COMMANDS handler, looked up at call time")
 
-    -- Launcher minor 3: every one a FUNCTION, so the library asks on every show.
-    for _, k in ipairs({ "version", "isLocked", "isTestMode", "leftClickLabel" }) do
-      assertEqual(type(captured[k]), "function", "descriptor." .. k .. " (Launcher minor 3)")
-    end
-    assertEqual(captured.version(), "7.7.7", "the version is NS.Version(), the TOC's own")
-    assertEqual(captured.leftClickLabel(), "Toggle History window", "rung (a): the History window")
     assertEqual(captured.isLocked(), false)
+    captured.toggleLock()
     locked = true
     assertEqual(captured.isLocked(), true, "isLocked reads B:IsLocked on every call")
+    captured.toggleLock()
+    assertEqual(#sets, 2, "toggleLock writes through the single write seam, once per call")
+    assertEqual(sets[1][1], "settings.locked", "the Lock frame row's own path")
+    assertEqual(sets[1][2], true, "unlocked -> lock")
+    assertEqual(sets[2][2], false, "locked -> unlock")
+
+    assertEqual(captured.isWindowShown(), false)
+    winShown = true
+    assertEqual(captured.isWindowShown(), true, "isWindowShown reads the History window on every call")
+    ns.Browser.GetWindow = function() return nil end
+    assertEqual(captured.isWindowShown(), false, "a window never built is not shown")
+
+    assertEqual(captured.version(), "7.7.7", "the version is NS.Version(), the TOC's own")
     assertEqual(captured.isTestMode(), false)
     ns.BrowserTable.testMode = true
     assertEqual(captured.isTestMode(), true, "isTestMode reads BrowserTable.testMode on every call")
-    assertEqual(captured.slash, nil, "no slash: the library reads /lh out of the disabled line")
-
-    -- The leftClickLabel goes through the addon's locale.
-    ns.L = setmetatable({ ["Toggle History window"] = "Verlaufsfenster" }, {
-      __index = function(_, k) return k end })
-    assertEqual(captured.leftClickLabel(), "Verlaufsfenster", "the label is read through NS.L")
 
     -- The host hook draws the addon's OWN line and nothing else.
     local drawn = {}
