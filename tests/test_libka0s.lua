@@ -181,7 +181,7 @@ test("degraded install: a bare /lh prints help listing the verbs that still work
   -- their handlers reach nothing that did. `config` is the one that reads like a seventh and is
   -- not: its handler is host-owned, but it calls NS.Panel:Open, which reaches O.OpenOptionsPanel,
   -- a stub on this path. It is asserted ABSENT below for that reason. With the library present a
-  -- bare /lh opens the settings panel instead (slash-commands-§4); that is not possible here, so
+  -- bare /lh opens the settings panel instead (slash-commands-§3); that is not possible here, so
   -- the stub falls back to this help (the next case pins the fallback).
   local ns, lines = loadDegraded()
   ns.Slash:OnSlash("")

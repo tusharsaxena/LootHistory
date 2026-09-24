@@ -364,7 +364,7 @@ if not lib then
   end
   function Sl:OnSlash(input)
     local raw = (input or ""):match("^%s*(.-)%s*$") or ""
-    -- Bare `/lh` mirrors the library's Slash minor 11 (slash-commands-§4): run the registered
+    -- Bare `/lh` mirrors the library's Slash minor 11 (slash-commands-§3): run the registered
     -- `config` verb with "", and print help when there is none. The lookup goes through the same
     -- UNAVAILABLE_WITHOUT_LIB set the help list does, because on this path `config` is registered
     -- but cannot answer: its handler reaches the Options stub, which declines. So a bare `/lh`

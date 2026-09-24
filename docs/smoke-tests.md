@@ -22,7 +22,7 @@ Companion docs:
 - **Chat banner** — every line the addon prints starts with a cyan `[LH]` (`NS.PREFIX`). A line
   missing the banner, or a doubled `[LH][LH]`, is a bug.
 - **Slash roots** — `/lh` and `/loothistory` are equivalent; the examples use `/lh`. **Bare `/lh`
-  opens the Settings panel on its landing page** (slash-commands-§4), and `/lh help` prints the help
+  opens the Settings panel on its landing page** (slash-commands-§3), and `/lh help` prints the help
   index. Neither opens the loot window; use `/lh toggle|show|hide`.
 - **"Loot at/above threshold"** means loot an item whose quality is ≥ the `Minimum quality` setting
   (default Common). `CHAT_MSG_LOOT` (self lines only) is the authoritative capture signal — anything

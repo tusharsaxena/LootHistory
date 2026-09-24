@@ -728,7 +728,7 @@ test("an unknown verb says so and then prints the help index", function()
   assertEqual(out[3], NS.PREFIX .. " " .. Sl:HelpRows()[1])
 end)
 
--- ── bare `/lh` opens the settings panel (slash-commands-§4, Slash minor 11) ──────────────────
+-- ── bare `/lh` opens the settings panel (slash-commands-§3, Slash minor 11) ──────────────────
 --
 -- A bare `/lh` runs the `config` verb with "", which opens the settings panel on its landing page.
 -- `/lh help` is the command index. The config handler is swapped for a spy so the case measures the
