@@ -145,6 +145,22 @@ test("EnvSetup degraded: an install with no LibKa0s still reads its TOC and stam
     assertEqual(sub, "")
   end)
 
+test("EnvSetup degraded: a bare global GetAddOnMetadata is not a rung", function()
+  -- Every client this addon's `## Interface` admits serves the manifest through C_AddOns only, so
+  -- the pre-C_AddOns global the old ladder fell back to is dead code, and compat (standard v2.65.0)
+  -- says a dead rung is deleted rather than shimmed. With the library absent and no C_AddOns, a
+  -- global answering "X" must NOT be consulted: NS.Meta answers nil and NS.Version falls to the
+  -- in-code constant.
+  local m = dofile("tests/wow_mock.lua")()
+  local ns = {}
+  Loader.loadAll(Loader.tocFiles("LootHistory.toc"), ns, m)
+  m.C_AddOns = nil
+  m.GetAddOnMetadata = function() return "X" end
+  assertEqual(ns.Meta("Version"), nil)
+  assertEqual(ns.Version(), ns.version)
+  assertTrue(ns.Version() ~= "X", "the dead global rung answered")
+end)
+
 test("EnvSetup: the deleted shims are gone from Compat", function()
   -- A seam that leaves the old copy in place is a second answer nobody removed, and the next caller
   -- reaches for whichever one autocomplete offers first.

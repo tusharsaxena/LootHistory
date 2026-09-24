@@ -55,7 +55,7 @@ badge and any count quoted in the docs must agree with it.
 - MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
 - MediaSetup: with no library there is no art and no face, and that is not an error
 
-### test_envsetup.lua (10)
+### test_envsetup.lua (11)
 
 - EnvSetup: NS.Meta asks about THIS addon's folder, not its title or its slash prefix
 - EnvSetup: NS.Meta degrades to nil when the client exposes no manifest reader
@@ -66,6 +66,7 @@ badge and any count quoted in the docs must agree with it.
 - EnvSetup: an absent zone reads as "", which storage buckets with nil
 - EnvSetup: NS.PlayerMapID answers the map id
 - EnvSetup degraded: an install with no LibKa0s still reads its TOC and stamps its zone
+- EnvSetup degraded: a bare global GetAddOnMetadata is not a rung
 - EnvSetup: the deleted shims are gone from Compat
 
 ### test_poolsetup.lua (3)
@@ -1047,7 +1048,7 @@ badge and any count quoted in the docs must agree with it.
 |-------|------:|
 | test_constants.lua | 32 |
 | test_mediasetup.lua | 11 |
-| test_envsetup.lua | 10 |
+| test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
@@ -1081,4 +1082,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **927** |
+| **Total** | **928** |

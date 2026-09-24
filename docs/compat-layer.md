@@ -12,7 +12,9 @@ eleven times across nine addons — which is what made them the library's busine
 They are `LibKa0s-Env-1.0`'s now and reach this addon through `core/EnvSetup.lua` as `NS.PlayerMapID()`,
 `NS.Zone()`, `NS.Meta(field)` and `NS.Version()`. The boundary rule below is unchanged by that move: the
 seam still keeps direct `C_*`/global calls out of the modules, it just resolves them through the library
-first and falls back to the ladder the shim ran.
+first and falls back to the ladder the shim ran, minus one rung. The metadata read's ladder is
+library → `C_AddOns.GetAddOnMetadata` → `nil`: the bare global `GetAddOnMetadata` rung is deleted, because no
+client this addon's `## Interface` admits provides it and compat rules a dead rung is deleted, not shimmed.
 
 `Compat.GetSpellName` went the same way at LibKa0s v1.55.0. Three addons carried the ladder and the
 copies disagreed about what a nil top rung means, so it is `LibKa0s-Compat-1.0`'s member now. It is still

@@ -33,7 +33,7 @@ read_globals = {
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
   "C_CurrencyInfo",
   "C_Container", "UseContainerItem", "C_Spell", "GetSpellInfo",
-  "C_AddOns", "GetAddOnMetadata",
+  "C_AddOns",
   "Auctionator", "TSM_API", "OEMarketInfo",   -- third-party AH-pricing addon globals (presence-gated)
   "ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "ITEM_BNETACCOUNTBOUND", "ITEM_BIND_TO_BNETACCOUNT",
   "ITEM_ACCOUNTBOUND", "ITEM_SOULBOUND", "RETRIEVING_ITEM_INFO",
