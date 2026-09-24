@@ -546,13 +546,10 @@ badge and any count quoted in the docs must agree with it.
 - Export: showing the copy window puts the text in it
 - Export: the copy window is built once and reused
 
-### test_debuglog.lua (22)
+### test_debuglog.lua (19)
 
 - FONT_MONO constant is a JetBrains Mono TTF path
-- FormatPlain wraps the tag in brackets with single-space separators
-- FormatPlain renders the tag verbatim (no padding or truncation)
-- FormatPlain tolerates a nil tag
-- FormatColored colors the timestamp and tag; pipe and content default
+- the degraded DebugLog stub's formatters carry no library format string
 - NS.Debug renders a secret message arg as <secret> without raising
 - NS.Debug formats ordinary args (numbers included) through %s
 - /lh debug on enables state
@@ -1056,7 +1053,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browser.lua | 61 |
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
-| test_debuglog.lua | 22 |
+| test_debuglog.lua | 19 |
 | test_launcher.lua | 17 |
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 10 |
@@ -1076,4 +1073,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **922** |
+| **Total** | **919** |

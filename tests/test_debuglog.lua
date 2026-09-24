@@ -7,24 +7,15 @@ test("FONT_MONO constant is a JetBrains Mono TTF path", function()
     "FONT_MONO must point at the vendored JetBrainsMono TTF")
 end)
 
-test("FormatPlain wraps the tag in brackets with single-space separators", function()
-  local out = NS.DebugLog.FormatPlain("15:04:43", "Cast", "player spell=3365")
-  assertEqual(out, "15:04:43 | [Cast] player spell=3365")
-end)
-
-test("FormatPlain renders the tag verbatim (no padding or truncation)", function()
-  local out = NS.DebugLog.FormatPlain("15:04:43", "Prospecting", "x")
-  assertEqual(out, "15:04:43 | [Prospecting] x")
-end)
-
-test("FormatPlain tolerates a nil tag", function()
-  local out = NS.DebugLog.FormatPlain("15:04:43", nil, "hi")
-  assertEqual(out, "15:04:43 | [] hi")
-end)
-
-test("FormatColored colors the timestamp and tag; pipe and content default", function()
-  local out = NS.DebugLog.FormatColored("15:04:43", "Cast", "player spell=3365")
-  assertEqual(out, "|cff6f8faf15:04:43|r || |cffc9a66b[Cast]|r player spell=3365")
+-- FormatPlain / FormatColored themselves are LibKa0s-DebugLog's, and its own suite owns their
+-- rendering (testing-§8). What this addon owns is the degradation stub in core/DebugLogSetup.lua,
+-- which must carry the two members for surface parity without copying the library's format string
+-- or color codes (library-stack-§7, anti-pattern #47).
+test("the degraded DebugLog stub's formatters carry no library format string", function()
+  local degradedNS = dofile("tests/degraded_env.lua")()
+  local colored = degradedNS.DebugLog.FormatColored("t", "x", "m")
+  assertTrue(not colored:find("|c", 1, true), "stub must not copy the color codes: " .. colored)
+  assertEqual(degradedNS.DebugLog.FormatPlain("t", "x", "m"), "m")
 end)
 
 -- Secret-safe sink (events-frames-taint-§8): a combat "secret" arg must reach string.format only

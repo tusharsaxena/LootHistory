@@ -31,13 +31,12 @@ if not lib then
   -- verb and the settings panel all reach for.
   NS.DebugLog = {
     buffer      = {},
-    FormatPlain = function(ts, tag, msg)
-      return ("%s | [%s] %s"):format(tostring(ts), tostring(tag or ""), tostring(msg))
-    end,
-    FormatColored = function(ts, tag, msg)
-      return ("|cff6f8faf%s|r || |cffc9a66b[%s]|r %s"):format(
-        tostring(ts), tostring(tag or ""), tostring(msg))
-    end,
+    -- Kept for surface parity only, and deliberately NOT the library's format: no addon caller
+    -- reaches either member (`grep -rn 'FormatPlain\|FormatColored' core modules settings` returns
+    -- only this stub), so a copy of the library's format string and color codes would be inert
+    -- and go stale (library-stack-§7, anti-pattern #47).
+    FormatPlain   = function(_, _, msg) return tostring(msg) end,
+    FormatColored = function(_, _, msg) return tostring(msg) end,
     Add         = function() end,
     Clear       = function() end,
     BufferSize  = function() return 0 end,
