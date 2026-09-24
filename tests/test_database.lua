@@ -427,7 +427,7 @@ end)
 
 -- ── StorageStats byte estimate ─────────────────────────────────────────────────────────────
 -- Two fixtures, both fully populated across the seven string fields estimateRecordBytes
--- declares -- except that the currency row has no itemLink, because Collector.lua:195-204
+-- declares -- except that the currency row has no itemLink, because Collector.lua:205-214
 -- never builds one for a currency. The byte arithmetic is spelled out beside each row so a
 -- future reader can check the totals below without running anything.
 local RECORD_OVERHEAD = 256                       -- core/Database.lua's flat per-record charge
