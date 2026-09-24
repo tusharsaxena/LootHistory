@@ -290,7 +290,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (61)
+### test_database.lua (62)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -321,6 +321,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: Export returns metatable-free copies with all fields
 - Database: Export carries currencyID through for currency rows
 - Database: Export coerces a nil source to OTHER (parity with Stats bySource)
+- Database: Export deep-copies auctionPrice and sourceDetail (mutating the export leaves history intact)
 - Database: Delete(pred) removes all matching, compacts, returns count
 - Database: PruneOld drops records older than retentionDays
 - Database: PruneOld with retentionDays=0 keeps everything
@@ -1009,7 +1010,7 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
-| test_database.lua | 61 |
+| test_database.lua | 62 |
 | test_stats.lua | 19 |
 | test_browser.lua | 60 |
 | test_browsertable.lua | 63 |
@@ -1033,4 +1034,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **883** |
+| **Total** | **884** |

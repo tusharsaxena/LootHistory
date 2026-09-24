@@ -289,6 +289,23 @@ test("Database: Export coerces a nil source to OTHER (parity with Stats bySource
   assertEqual(NS.Database:Stats({}).bySource.OTHER, 1)
 end)
 
+test("Database: Export deep-copies auctionPrice and sourceDetail (mutating the export leaves history intact)", function()
+  -- The export contract promises a plain copy; the nested tables used to be shared by reference,
+  -- so a consumer mutating the export silently rewrote the live SavedVariables row.
+  NS.db.global.history = {
+    { ts = 1, char = "A-Realm", itemID = 1, itemName = "Priced", quality = 3, source = "KILL",
+      auctionPrice = { tsm = { dbmarket = 100 } }, sourceDetail = { npcID = 1 } },
+  }
+  local out = NS.Database:Export({})
+  assertEqual(out[1].auctionPrice.tsm.dbmarket, 100)
+  assertEqual(out[1].sourceDetail.npcID, 1)
+  out[1].auctionPrice.tsm.dbmarket = 1
+  out[1].sourceDetail.npcID = 2
+  local live = NS.db.global.history[1]
+  assertEqual(live.auctionPrice.tsm.dbmarket, 100)
+  assertEqual(live.sourceDetail.npcID, 1)
+end)
+
 local function firedHistoryChanged(sent)
   for _, m in ipairs(sent) do
     if m.msg == "Ka0s_LootHistory_HistoryChanged" then return true end

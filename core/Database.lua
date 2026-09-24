@@ -428,19 +428,19 @@ function Database:Query(filter)
   return self:QueryList(self:ActiveHistory(), filter)
 end
 
--- Plain, metatable-free copy of the (optionally filtered) history — the forward-compatible
--- v2 export contract (see docs/schema.md). Field shape is stable except for schema bumps
--- (v4 dropped the retired `sourceName`).
+-- Plain, metatable-free copy of the (optionally filtered) history, nested auctionPrice/sourceDetail
+-- deep-copied so an export never aliases a live row: the v2 export contract (docs/schema.md). Field
+-- shape is stable except for schema bumps (v4 dropped the retired `sourceName`).
 function Database:Export(filter)
   local out = {}
   for _, r in ipairs(self:Query(filter or {})) do
     out[#out + 1] = {
       ts = r.ts, char = r.char, classFile = r.classFile, itemID = r.itemID, currencyID = r.currencyID, itemLink = r.itemLink,
       itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
-      vendorPrice = r.vendorPrice, auctionPrice = r.auctionPrice,
+      vendorPrice = r.vendorPrice, auctionPrice = r.auctionPrice and NS.Util.DeepCopy(r.auctionPrice),
       itemType = r.itemType, itemSubType = r.itemSubType,
       quantity = r.quantity,
-      source = r.source or "OTHER", sourceDetail = r.sourceDetail,
+      source = r.source or "OTHER", sourceDetail = r.sourceDetail and NS.Util.DeepCopy(r.sourceDetail),
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
     }
   end

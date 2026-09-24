@@ -384,7 +384,7 @@ strictly point-in-time: a blacklisted currency id is dropped at capture and neve
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:434`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:434`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. The nested `auctionPrice` and `sourceDetail` tables are deep-copied (`NS.Util.DeepCopy`), so a consumer that mutates an export never rewrites the live SavedVariables row; the copy is paid once per export. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
 ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·
