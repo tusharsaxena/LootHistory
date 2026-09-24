@@ -232,6 +232,14 @@ end
 
 local lib = LibStub and LibStub("LibKa0s-Slash-1.0", true)
 
+--- The ONE refusal line's template (slash-commands-§7), on BOTH paths so the Slash surface-parity
+--- case stays symmetric. With the library present it IS `lib.DISABLED_LINE_FORMAT`; without it,
+--- this literal is the one library string slash-commands-§1 lets a stub carry verbatim, and
+--- tests/test_slash_degraded.lua pins it byte for byte against the live library
+--- (Kit.assertLibraryConstant).
+Sl.DISABLED_LINE_FORMAT = lib and lib.DISABLED_LINE_FORMAT
+  or "%s is disabled \226\128\148 enable it with |cFFFFFF00%s|r"
+
 -- Type-aware value formatter for the two rows the library cannot render on its own.
 --
 -- `type = "table"` is not one of the library's four types, so `lib.FormatValue` falls through to
@@ -270,14 +278,13 @@ if not lib then
   Sl.FormatKV = function(path, valueStr)
     return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
   end
-  --- The ONE refusal line (slash-commands-§7), re-stated here for the same reason Sl.FormatKV and
-  --- formatRow below are: the library is not there to ask, and a degraded install must still look
-  --- like this addon and like the ten beside it. Byte-identical to `lib.DISABLED_LINE_FORMAT` --
-  --- brand name, em dash with one space either side, the command in the help index's gold and
-  --- carrying its leading slash, no trailing period. The wording is the collection's and takes no
-  --- verb: what the player needs is the way back in, not a restatement of what they typed.
+  --- The ONE refusal line (slash-commands-§7), rendered from Sl.DISABLED_LINE_FORMAT above with
+  --- the SAME arguments the library passes (libs/LibKa0s/Slash.lua's DisabledLine: the brand name
+  --- and `slash .. " enable"`), so the line matches the live one byte for byte, not just its
+  --- template. `/lh enable` works on this path too (Sl.CliSet below), so the way back in it names
+  --- is one the player can actually take.
   Sl.DisabledLine = function()
-    return ("%s is disabled \226\128\148 enable it with |cFFFFFF00%s|r"):format(NS.BRAND, "/lh")
+    return Sl.DISABLED_LINE_FORMAT:format(NS.BRAND, "/lh enable")
   end
   -- The verbs NOT to offer here, which is not the same set as the verbs that went through the
   -- library — and the old name, LIBRARY_OWNED, is what got it wrong. `config` never went through
@@ -290,23 +297,19 @@ if not lib then
   -- hand-typed list that would drift the day a verb is added — the same reason the dispatch below
   -- walks NS.COMMANDS instead of naming verbs. The price of subtraction is that a new verb is
   -- offered by default, so one that leans on the library has to be added here when it is declared;
-  -- tests/test_slash.lua's degraded case is what says so out loud.
+  -- tests/test_slash_degraded.lua's help cases are what say so out loud.
   --
   -- `help` is here for the other reason: it answers fine on this path (Sl.PrintHelp below is what
   -- is printing) and is omitted only because naming "help" inside help output is noise. Two
   -- reasons, one verdict, so one set carries both.
-  -- `enable` / `disable` are here for the first reason, and they are the case that comment names:
-  -- both are host-owned entries in NS.COMMANDS that delegate to CliSet, which on this path is the
-  -- `unavailable` stub. They cannot work here for a deeper reason than the delegation, too -- the
-  -- Options composer is the stub, so the Master controls block is EMPTY and `settings.enabled` has
-  -- no schema row for any seam to find. The stored value still exists (defaults/Global.lua) and
-  -- modules/Collector.lua still reads it; there is simply no supported way to write it here, and
-  -- writing `db.global.settings.enabled` around Schema:Set to fake one would be the second write
-  -- path architecture-§5 forbids. Advertising a verb that then declines is worse than omitting it.
+  -- `enable` / `disable` are NOT here: they work on this path. Both delegate to CliSet, and the
+  -- degraded CliSet below writes exactly one path, `settings.enabled`, through the seam's
+  -- writeThrough list (settings/Schema.lua; options-ui-§1 route (a)) -- the Options composer is
+  -- the stub, so there is no row, and writeThrough is what stores the value anyway. `set` stays
+  -- here, because only that one path writes: advertising it would promise the whole schema CLI.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
     reset = true, resetall = true, help = true, config = true,
-    enable = true, disable = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there
@@ -336,11 +339,28 @@ if not lib then
     NS.Print(Sl.HelpHeader())
     for _, row in ipairs(Sl.HelpRows()) do NS.Print(row) end
   end
-  Sl.CliList, Sl.CliGet, Sl.CliSet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
-    unavailable, unavailable, unavailable
+  Sl.CliList, Sl.CliGet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
+    unavailable, unavailable
+  --- The enable path only, which is what `/lh enable` and `/lh disable` delegate to. The row-less
+  --- write lands through the seam's writeThrough list, which runs no onChange, so the reaction the
+  --- Master controls row would have run (the latch, then the bus) is called here by the same name
+  --- the row's onChange calls it by. The ack is the `set` shape, re-read from the store.
+  Sl.CliSet = function(_, rest)
+    local path, value = tostring(rest or ""):match("^%s*(%S+)%s+(%S+)%s*$")
+    if path ~= "settings.enabled" or (value ~= "true" and value ~= "false") then
+      return unavailable()
+    end
+    if NS.Schema:Set(path, value == "true") ~= true then return unavailable() end
+    NS.Schema.OnEnabledWritten()
+    NS.Print(Sl.FormatKV(path, tostring(NS.Schema:Get(path))))
+  end
+  --- The three id lists have one writer that needs no library (NS.Filters), so they ARE reset here,
+  --- and the line says so with the count: a bare "unavailable" would hide that three lists were
+  --- just emptied. The schema rows need the library's walk, which is the second clause.
   Sl.CliResetAll = function()
-    if NS.Filters and NS.Filters.ClearAll then NS.Filters:ClearAll() end
-    unavailable()
+    local n = NS.Filters and NS.Filters.ClearAll and NS.Filters:ClearAll() or 0
+    NS.Format("filters reset (%d %s cleared); other settings need the LibKa0s library.",
+      n, n == 1 and "id" or "ids")
   end
   function Sl:OnSlash(input)
     local raw = (input or ""):match("^%s*(.-)%s*$") or ""

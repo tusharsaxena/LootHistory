@@ -141,6 +141,14 @@ local function stamp(rows, extras)
   return rows
 end
 
+--- The reaction to a written `settings.enabled`: the latch first, then the bus. The Master controls
+--- row's onChange calls it, and so does the library-less Slash stub's CliSet (settings/Slash.lua),
+--- because there the write lands through the seam's writeThrough list, which runs no onChange.
+function S.OnEnabledWritten()
+  NS.OnEnabledChanged()
+  if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "enabled") end
+end
+
 stamp(MASTER_ROWS, {
   -- THE ADDON-WIDE SWITCH, and its onChange is where "disabled" stops being a flag somebody reads
   -- and becomes the addon actually standing down (slash-commands-§7). `/lh enable`, `/lh disable`,
@@ -157,10 +165,7 @@ stamp(MASTER_ROWS, {
   -- before the fan-out reaches them.
   ["settings.enabled"] = {
     widget = "CheckBox",
-    onChange = function()
-      NS.OnEnabledChanged()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "enabled") end
-    end,
+    onChange = function() S.OnEnabledWritten() end,
   },
   ["settings.visibility"] = {
     widget = "Dropdown",

@@ -917,7 +917,16 @@ through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for
 7. **The export modal refuses and says why.** With no Export button in the bar there is no way to
    reach it from the toolbar; if you have another route to `NS.Export:Open`, it prints
    `…, so the export window is unavailable.` — the same cause clause as step 3 — and opens nothing.
-8. **Rename the folder back** and `/reload` before continuing.
+8. **Enable and disable still work.** `/lh` (the help) lists `/lh enable` and `/lh disable`, and
+   not `/lh set`. `/lh disable` prints one line, `settings.enabled = false`, raises no Lua error,
+   and recording stops (loot something: no new row). A feature verb now refuses with
+   `Ka0s Loot History is disabled — enable it with /lh enable`, the same line as with the library
+   present. `/lh enable` prints `settings.enabled = true` and recording resumes.
+9. **`/lh resetall` says what it cleared.** Put a couple of ids on the Filters lists first (with the
+   library present), then on the degraded install `/lh resetall` prints
+   `filters reset (N ids cleared); other settings need the LibKa0s library.` with N the number of
+   ids that were on the three lists (`1 id` in the singular) — never the bare "unavailable" line.
+10. **Rename the folder back** and `/reload` before continuing.
 
 **17b. The `L` trap — no SCREAMING_SNAKE on screen.** This addon passes no locale table to any
 descriptor, so every library string should render as English prose. A regression renders the *key*

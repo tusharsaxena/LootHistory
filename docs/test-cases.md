@@ -584,7 +584,7 @@ badge and any count quoted in the docs must agree with it.
 - launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint
 - launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing
 
-### test_slash.lua (63)
+### test_slash.lua (62)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -642,13 +642,25 @@ badge and any count quoted in the docs must agree with it.
 - whitespace-only /lh is bare too and runs the config verb
 - the config verb opens the settings panel on its landing page
 - /lh help prints the command index and does not run the config verb
-- library-less install: the degraded help omits config, which would only decline
 - /lh enable and /lh disable write the Enable row's path, and hold no state of their own
 - /lh enable is the same write as /lh set settings.enabled true, and answers the same line
 - the dispatcher answers while the addon is disabled, so the pair is never one-way
 - a disabled addon refuses each FEATURE verb on ONE line naming /lh enable, and does not act
 - the same feature verbs act normally once the addon is enabled — the gate is not always-on
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
+
+### test_slash_degraded.lua (10)
+
+- library-less install: the Slash under test is the degraded stub
+- library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
+- library-less install: the refusal line names /lh enable, as the library's does
+- library-less install: the degraded help omits config, which would only decline
+- library-less install: the degraded help lists enable and disable, which now work
+- library-less install: /lh disable stores false, stands the addon down, and acks once
+- library-less install: /lh enable reverses /lh disable
+- library-less install: set on any other path, or a non-bool value, stays unavailable
+- library-less install: resetall clears the id lists and says how many
+- library-less install: resetall on one id says id, not ids
 
 ### test_schema.lua (72)
 
@@ -1036,7 +1048,8 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 26 |
 | test_debuglog.lua | 22 |
 | test_launcher.lua | 17 |
-| test_slash.lua | 63 |
+| test_slash.lua | 62 |
+| test_slash_degraded.lua | 10 |
 | test_schema.lua | 72 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 62 |
@@ -1053,4 +1066,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **903** |
+| **Total** | **912** |

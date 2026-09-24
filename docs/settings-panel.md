@@ -295,7 +295,7 @@ The single per-row **Enabled** checkbox writes `settings.auction.capture` (colle
 
 ## The landing page's command rows
 
-`buildMainContent` (`Panel.lua:850`) draws the logo, the tagline, a "Slash Commands" heading and one label per verb. Those rows now come from `NS.Slash:LandingRows()` (`settings/Slash.lua:475`), i.e. from `LibKa0s-Slash-1.0`'s own `FormatRow` — the same formatter the chat help uses. This page used to carry a private copy of it, and the two had silently drifted: single spaces around the em dash instead of double, no color span wrapping the dash, and a white description instead of a bare one. Deliberate and user-visible; do not "fix" it back ([LIBKA0S-09](https://github.com/tusharsaxena/LootHistory/issues/24)).
+`buildMainContent` (`Panel.lua:850`) draws the logo, the tagline, a "Slash Commands" heading and one label per verb. Those rows now come from `NS.Slash:LandingRows()` (`settings/Slash.lua:495`), i.e. from `LibKa0s-Slash-1.0`'s own `FormatRow` — the same formatter the chat help uses. This page used to carry a private copy of it, and the two had silently drifted: single spaces around the em dash instead of double, no color span wrapping the dash, and a white description instead of a bare one. Deliberate and user-visible; do not "fix" it back ([LIBKA0S-09](https://github.com/tusharsaxena/LootHistory/issues/24)).
 
 ## Ka0s options-ui-§6/§8/§10 details this panel implements
 
