@@ -66,6 +66,12 @@ C.FONT_MONO = NS.MediaFont and NS.MediaFont(C.FONT_MONO_NAME) or _G.STANDARD_TEX
 -- Seconds a stamped loot context stays fresh before CHAT_MSG_LOOT falls back to OTHER.
 C.CONTEXT_TTL = 1.5
 
+-- Seconds a WON encounter's context outlives ENCOUNTER_END. The boss corpse is looted after
+-- ENCOUNTER_END fires, so clearing the context there would strip encounterID / difficulty from
+-- every piece of boss loot. Trash KILL loot inside the same window also carries the id; that is
+-- accepted. A wipe clears the context outright (modules/Attribution.lua OnEncounterEnd).
+C.ENCOUNTER_GRACE = 60
+
 -- ── Schema enum option tables ────────────────────────────────────────────────────────────────
 -- The four `*_OPTIONS` tables below are the ordered-array enum shape BOTH LibKa0s majors read off a
 -- schema row's `values`: an array of { value =, text = }, where POSITION is the display order.

@@ -165,7 +165,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 
-### test_attribution.lua (30)
+### test_attribution.lua (33)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -174,6 +174,9 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: context survives repeated Consume (multi-line loot)
 - Attribution: ResolveLootSource creature → KILL + npcID
 - Attribution: ResolveLootSource creature in encounter → KILL + encounter detail
+- Attribution: KILL loot inside the post-kill grace window carries the encounter
+- Attribution: KILL loot after the grace window has expired carries no encounter
+- Attribution: ENCOUNTER_END keeps the context with an expiry on a kill, clears it on a wipe
 - Attribution: ResolveLootSource GameObject in keystone → MPLUS + level
 - Attribution: ResolveLootSource GameObject otherwise → CONTAINER
 - Attribution: ResolveLootSource Item GUID → CONTAINER
@@ -989,7 +992,7 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
 | test_compat.lua | 37 |
-| test_attribution.lua | 30 |
+| test_attribution.lua | 33 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
@@ -1017,4 +1020,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **867** |
+| **Total** | **870** |

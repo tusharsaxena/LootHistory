@@ -12,14 +12,14 @@ LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branc
 
 A dash-split WoW GUID (`Creature-0-…-<npcID>-…`) carries the creature/npc id in **field 6**, but only for *unit* kinds. `Compat.UNIT_KINDS` is the single source of truth for which kinds those are — `Creature`, `Vehicle`, `Pet`, `Vignette` (`core/Compat.lua:139`). `Compat.DecodeGUID` splits the GUID, returns the leading `kind`, and pulls field 6 as `npcID` **only** when the kind is in that set; non-unit kinds return `nil` for the id (`:143-151`).
 
-The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:162-182`):
+The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:162-185`):
 
-- **unit kind** (`UNIT_KINDS`) → `KILL`, detail `{ npcID }` (plus encounter id/difficulty when an encounter is live).
+- **unit kind** (`UNIT_KINDS`) → `KILL`, detail `{ npcID }` (plus encounter id/difficulty while an encounter is live, and for `Constants.ENCOUNTER_GRACE` seconds after a successful `ENCOUNTER_END`, because the boss corpse is looted after that event fires; a wipe clears the encounter context at once).
 - **`GameObject`** → `MPLUS` when a keystone context is active, else `CONTAINER`.
 - **`Item`** → `CONTAINER` (a lootable Item-GUID, e.g. a disenchant/mill mat window).
 - anything else → `OTHER`.
 
-The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS; a completion-time level of 0 never overwrites the started one (`modules/Attribution.lua:228-245`). It is **cleared** when the player leaves the party instance (`ZONE_CHANGED_NEW_AREA` with `Compat.InPartyInstance`, `core/Compat.lua:38`, false) or on `CHALLENGE_MODE_RESET`, so a herb, ore node or world chest looted afterwards reads CONTAINER again. A player who zones back into a running key gets no second `CHALLENGE_MODE_START`, so the same zone-change handler **re-arms** the context from the active keystone level (`modules/Attribution.lua:252-276`). Rows recorded as MPLUS before this lifetime existed cannot be repaired: nothing stored distinguishes them.
+The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS; a completion-time level of 0 never overwrites the started one (`modules/Attribution.lua:243-260`). It is **cleared** when the player leaves the party instance (`ZONE_CHANGED_NEW_AREA` with `Compat.InPartyInstance`, `core/Compat.lua:38`, false) or on `CHALLENGE_MODE_RESET`, so a herb, ore node or world chest looted afterwards reads CONTAINER again. A player who zones back into a running key gets no second `CHALLENGE_MODE_START`, so the same zone-change handler **re-arms** the context from the active keystone level (`modules/Attribution.lua:267-291`). Rows recorded as MPLUS before this lifetime existed cannot be repaired: nothing stored distinguishes them.
 
 ## Warbound bind state — two unreliable signals, merged
 
@@ -61,7 +61,7 @@ Auction-House proceeds arrive as mail, and LH attributes them to `AH` rather tha
 - sender equals the `AUCTION_HOUSE` global, **or**
 - subject starts with the prefix of any of `AUCTION_WON_MAIL_SUBJECT`, `AUCTION_EXPIRED_MAIL_SUBJECT`, `AUCTION_REMOVED_MAIL_SUBJECT`, `AUCTION_INVOICE_MAIL_SUBJECT` (each global like `"Auction won: %s"` is trimmed at `%s` to `"Auction won: "` and prefix-matched).
 
-`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:105-111`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:349-358`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:37-41`), as does every other source now that CRAFT/ROLL/REFUND are wired.
+`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:105-111`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:364-373`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:37-41`), as does every other source now that CRAFT/ROLL/REFUND are wired.
 
 ## C_Spell moved the spell-name lookup
 

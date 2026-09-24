@@ -319,7 +319,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Ratified exception (2026-07-20).** The "Minimum quality" setting is a *monotonic floor* — the
   collector records loot where `quality >= threshold` (`modules/Collector.lua`, `gateReason`), so a
   clean ladder would run Poor(0) → Legendary(5) and stop. `C.QUALITY_OPTIONS`
-  (`core/Constants.lua:94`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
+  (`core/Constants.lua:100`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
   explicit request. Because Heirloom's item-quality id (7) sorts *above* Legendary(5) and
   Artifact(6), selecting it floors capture at 7 — recording **only Heirlooms and WoW Tokens** and
   gating out Epics/Legendaries. That is the intended, user-chosen behavior, **not** a bug: do not

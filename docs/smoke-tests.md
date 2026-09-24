@@ -186,6 +186,12 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   pick a herb: it records as **Container**, and the debug console shows an `[Attr] keystone cleared`
   line on the zone change. Zoning out and back in mid-key keeps chest and object loot as **Mythic+**
   (a `keystone re-armed` line on re-entry). Resetting the key (`CHALLENGE_MODE_RESET`) also clears it.
+- **Boss-corpse loot keeps its encounter.** With `/lh debug on`, kill a boss and loot the corpse. The
+  console shows `[Attr] encounter end … kill: context kept 60s for the corpse` **before** the
+  `LOOT_OPENED` line, and the recorded row's `sourceDetail` carries `encounterID` and `difficulty`
+  (`/dump LootHistoryDB.global.history[#LootHistoryDB.global.history].sourceDetail`). A wipe logs
+  `wipe/no context: cleared` instead. If `LOOT_OPENED` arrives before `encounter end`, the grace
+  window is unnecessary: record that and revisit `Constants.ENCOUNTER_GRACE`.
 - Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
   a Lua error, never a missing row.
 - The denormalized columns render correctly: item link (exact tooltip), quality color, iLvl, bound

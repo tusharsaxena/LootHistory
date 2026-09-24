@@ -68,6 +68,41 @@ test("Attribution: ResolveLootSource creature in encounter → KILL + encounter 
   assertEqual(detail.difficulty, 16)
 end)
 
+-- The boss corpse is looted AFTER ENCOUNTER_END, so a won encounter keeps its context for
+-- Constants.ENCOUNTER_GRACE seconds. The resolver reads `now` off the state it is given.
+test("Attribution: KILL loot inside the post-kill grace window carries the encounter", function()
+  local state = { encounter = { id = 2902, difficulty = 16, expires = 100 }, now = 90 }
+  local source, detail = NS.Attribution:ResolveLootSource(CREATURE, state)
+  assertEqual(source, "KILL")
+  assertEqual(detail.encounterID, 2902)
+  assertEqual(detail.difficulty, 16)
+end)
+
+test("Attribution: KILL loot after the grace window has expired carries no encounter", function()
+  local state = { encounter = { id = 2902, difficulty = 16, expires = 100 }, now = 101 }
+  local source, detail = NS.Attribution:ResolveLootSource(CREATURE, state)
+  assertEqual(source, "KILL")
+  assertEqual(detail.npcID, 214506)
+  assertEqual(detail.encounterID, nil)
+  assertEqual(detail.difficulty, nil)
+end)
+
+test("Attribution: ENCOUNTER_END keeps the context with an expiry on a kill, clears it on a wipe",
+  function()
+  local saved = NS.State.encounter
+  mocks.__now = 50
+  NS.State.encounter = { id = 2902, name = "x", difficulty = 16 }
+  NS.Attribution:OnEncounterEnd(nil, 2902, "x", 16, 5, 0)
+  assertEqual(NS.State.encounter, nil)
+
+  NS.State.encounter = { id = 2902, name = "x", difficulty = 16 }
+  NS.Attribution:OnEncounterEnd(nil, 2902, "x", 16, 5, 1)
+  assertTrue(NS.State.encounter ~= nil, "a kill keeps the encounter context")
+  assertEqual(NS.State.encounter.expires, 50 + NS.Constants.ENCOUNTER_GRACE)
+  NS.State.encounter = saved
+  mocks.__now = 0
+end)
+
 test("Attribution: ResolveLootSource GameObject in keystone → MPLUS + level", function()
   local state = { keystone = { level = 12 } }
   local source, detail = NS.Attribution:ResolveLootSource(OBJECT, state)

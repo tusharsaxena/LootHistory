@@ -165,9 +165,12 @@ function Attribution:ResolveLootSource(guid, state)
   local kind, npcID = NS.Compat.DecodeGUID(guid)
   if NS.Compat.UNIT_KINDS[kind] then
     local detail = { npcID = npcID }
-    if state.encounter then
-      detail.encounterID = state.encounter.id
-      detail.difficulty = state.encounter.difficulty
+    -- A live encounter has no `expires`; a won one carries it for ENCOUNTER_GRACE after
+    -- ENCOUNTER_END (the corpse is looted after the kill). `state.now` lets tests fix the clock.
+    local enc = state.encounter
+    if enc and (enc.expires == nil or (state.now or GetTime()) <= enc.expires) then
+      detail.encounterID = enc.id
+      detail.difficulty = enc.difficulty
     end
     return S.KILL, detail
   elseif kind == "GameObject" then
@@ -220,9 +223,21 @@ function Attribution:OnEncounterStart(_, encounterID, encounterName, difficultyI
   end
 end
 
-function Attribution:OnEncounterEnd()
-  State.encounter = nil
-  if NS.State.debug and NS.Debug then NS.Debug("Attr", "encounter end") end
+-- A kill keeps the context for Constants.ENCOUNTER_GRACE seconds, because the boss corpse is
+-- looted AFTER this event; a wipe (success ~= 1) or a missing context clears it. The next
+-- ENCOUNTER_START replaces the table, so a new pull drops the old expiry.
+function Attribution:OnEncounterEnd(_, encounterID, _, _, _, success)
+  local kept = success == 1 and State.encounter ~= nil
+  if kept then
+    State.encounter.expires = GetTime() + Constants.ENCOUNTER_GRACE
+  else
+    State.encounter = nil
+  end
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Attr", "encounter end id=%s %s", tostring(encounterID),
+      kept and ("kill: context kept " .. Constants.ENCOUNTER_GRACE .. "s for the corpse")
+        or "wipe/no context: cleared")
+  end
 end
 
 function Attribution:OnChallengeModeStart()
@@ -381,7 +396,7 @@ function Attribution:Enable()
 
   bus:RegisterEvent("LOOT_OPENED", function() self:OnLootOpened() end)
   bus:RegisterEvent("ENCOUNTER_START", function(...) self:OnEncounterStart(...) end)
-  bus:RegisterEvent("ENCOUNTER_END", function() self:OnEncounterEnd() end)
+  bus:RegisterEvent("ENCOUNTER_END", function(...) self:OnEncounterEnd(...) end)
   bus:RegisterEvent("CHALLENGE_MODE_START", function() self:OnChallengeModeStart() end)
   bus:RegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
   bus:RegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
