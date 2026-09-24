@@ -1120,6 +1120,35 @@ test("Retention: declining restores the confirmed value, keeps every record, pri
   end)
 end)
 
+test("Retention: accepting applies the agreed value even when the store has moved", function()
+  -- red under: an accept that pruned to whatever the store held and only recorded `days`.
+  withRetentionFixture(function()
+    S:Set("settings.retentionDays", 7)
+    NS.db.global.settings.retentionDays = 90
+    T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnAccept(nil, { days = 7 })
+    assertEqual(NS.db.global.settings.retentionDays, 7, "the store does not hold the agreed value")
+    assertEqual(#NS.db.global.history, 2, "the prune did not run at the agreed value")
+  end)
+end)
+
+test("Retention: re-showing the confirm over an open one does not run the decline", function()
+  -- Blizzard's StaticPopup_Show cancels a visible dialog of the same `which` with reason
+  -- "override" before re-showing it. red under: an OnCancel that treated that as a No.
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 7)
+    S:Set("settings.retentionDays", 14)
+    assertEqual(#shown, 2)
+    T.mocks.__resetPrinted()
+    local dlg = T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE
+    dlg.OnCancel(nil, { days = 7 }, "override")
+    assertEqual(NS.db.global.settings.retentionDays, 14, "the override restored the old value")
+    assertEqual(#T.mocks.__printed(), 0, "the override printed a decline line")
+    dlg.OnAccept(nil, { days = 14 })
+    assertEqual(NS.db.global.settings.retentionDays, 14)
+    assertEqual(#NS.db.global.history, 3, "the prune did not run at 14 days")
+  end)
+end)
+
 test("Retention: with no StaticPopup_Show a shorter value prunes at once", function()
   withRetentionFixture(function()
     T.mocks.StaticPopup_Show = nil

@@ -633,7 +633,7 @@ badge and any count quoted in the docs must agree with it.
 - the same feature verbs act normally once the addon is enabled — the gate is not always-on
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 
-### test_schema.lua (68)
+### test_schema.lua (70)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -701,6 +701,8 @@ badge and any count quoted in the docs must agree with it.
 - Retention: a shorter value raises the prune confirm and deletes nothing yet
 - Retention: accepting the prune confirm deletes the older records
 - Retention: declining restores the confirmed value, keeps every record, prints one line
+- Retention: accepting applies the agreed value even when the store has moved
+- Retention: re-showing the confirm over an open one does not run the decline
 - Retention: with no StaticPopup_Show a shorter value prunes at once
 - Retention: a value that would delete nothing raises no confirm and prunes nothing
 
@@ -1011,7 +1013,7 @@ badge and any count quoted in the docs must agree with it.
 | test_debuglog.lua | 22 |
 | test_launcher.lua | 13 |
 | test_slash.lua | 60 |
-| test_schema.lua | 68 |
+| test_schema.lua | 70 |
 | test_schema_stub.lua | 4 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
@@ -1027,4 +1029,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **877** |
+| **Total** | **879** |

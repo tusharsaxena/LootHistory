@@ -703,21 +703,29 @@ function S:OnRetentionChanged(value)
   StaticPopup_Show("KA0S_LOOTHISTORY_PRUNE", retentionLabel(value), n, { days = value })
 end
 
---- KA0S_LOOTHISTORY_PRUNE's two answers. Accept prunes to the new value; decline restores the
---- last confirmed one through the write seam and says so in one line.
+--- Write `days` through the seam without re-entering OnRetentionChanged, then redraw the panel.
+local function writeRetentionQuietly(days)
+  restoring = true
+  local ok, err = pcall(S.Set, S, "settings.retentionDays", days)
+  restoring = false
+  if not ok then error(err, 0) end
+  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
+end
+
+--- KA0S_LOOTHISTORY_PRUNE's two answers. Accept stores the value the player agreed to (the store
+--- may have moved while the popup was open) and prunes to it; decline restores the last confirmed
+--- one through the write seam and says so in one line.
 function S:ConfirmRetention(days, accepted)
   if accepted then
+    local s = NS.db and NS.db.global and NS.db.global.settings
+    if s and s.retentionDays ~= days then writeRetentionQuietly(days) end
     if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     confirmedRetention = days
     return
   end
   local keep = confirmedRetention
   if keep == nil then keep = G.settings.retentionDays end
-  restoring = true
-  local ok, err = pcall(S.Set, S, "settings.retentionDays", keep)
-  restoring = false
-  if not ok then error(err, 0) end
-  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
+  writeRetentionQuietly(keep)
   print(("retention kept at %s; no records were deleted."):format(retentionLabel(keep)))
 end
 

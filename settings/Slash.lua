@@ -25,7 +25,12 @@ if type(StaticPopupDialogs) == "table" then
     button1 = YES or "Yes",
     button2 = NO or "No",
     OnAccept = function(_, data) NS.Schema:ConfirmRetention(data.days, true) end,
-    OnCancel = function(_, data) NS.Schema:ConfirmRetention(data.days, false) end,
+    -- StaticPopup_Show cancels a visible KA0S_LOOTHISTORY_PRUNE with reason "override" before it
+    -- re-shows it for a newer value. That is not the player's No, so it restores nothing.
+    OnCancel = function(_, data, reason)
+      if reason == "override" then return end
+      NS.Schema:ConfirmRetention(data.days, false)
+    end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
