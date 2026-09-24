@@ -77,7 +77,7 @@ core\Database.lua
 core\LauncherSetup.lua
 
 # Defaults
-# LOAD-BEARING POSITION: settings\Schema.lua takes NS.defaults.global as a file-scope local (:20)
+# LOAD-BEARING POSITION: settings\Schema.lua takes NS.defaults.global as a file-scope local (:21)
 # and reads its values into the rows' defaults at file load; this file must be above Schema.
 defaults\Global.lua
 

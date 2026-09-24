@@ -50,7 +50,7 @@ load-bearing, each carrying a `LOAD-BEARING POSITION` comment in the TOC (toc-fi
 - `core/DebugLogSetup.lua` sits **below `core/Constants.lua`**: its file-load `lib:New` descriptor reads
   `NS.Constants.FONT_MONO`.
 - `defaults/Global.lua` sits **above `settings/Schema.lua`**, which takes `NS.defaults.global` as a
-  file-scope local (`settings/Schema.lua:20`) and reads the rows' defaults from it at file load.
+  file-scope local (`settings/Schema.lua:21`) and reads the rows' defaults from it at file load.
 - `settings/OptionsSetup.lua` sits **above `settings/Schema.lua`**, which composes its Master controls
   tab at file load through `NS.Options.MasterControls` (options-ui-§15).
 - `settings/Slash.lua` sits **below `settings/Schema.lua`**: the dispatcher is built at file load with
