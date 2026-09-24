@@ -298,7 +298,7 @@ sets itself. They have no load pass: the AceDB defaults seed them and no `MIGRAT
 
 ### Recorded data: `history` and the repair bookkeeping
 
-[*Named non-setting state*](#named-non-setting-state-owners-and-writers) names both as recorded data;
+[*State outside the rows*](#state-outside-the-rows) names both as recorded data;
 this is the writer list. The player deletes rows of the log or clears it, but never authors a row.
 Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:293`)
 appends each kept loot or currency line (`modules/Collector.lua:150`, `:215`). `PruneOld`
