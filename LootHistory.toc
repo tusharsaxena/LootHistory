@@ -27,6 +27,7 @@ libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 libs\LibKa0s\LibKa0s.xml
 
 # Locales
+# CONVENTIONAL: nothing below reads a locale key at load.
 locales\enUS.lua
 
 # Core (Compat loads first)
@@ -41,20 +42,31 @@ core\ItemSetup.lua
 # LOAD-BEARING POSITION: publishes NS.MediaFont, which core\Constants.lua reads at file
 # load to resolve FONT_MONO. Below Constants and every consumer silently gets the client font.
 core\MediaSetup.lua
+# The plain Core run (Constants, Namespace, State, Util here; LootHistory, Database below) is
+# CONVENTIONAL: none of the six reads another of the six at load. Its fixed points are the seams
+# annotated around it, and the run as a whole stays above Modules, which take NS.State and
+# NS.Constants as file-scope upvalues.
 core\Constants.lua
 core\Namespace.lua
 core\State.lua
 core\Util.lua
+# LOAD-BEARING POSITION: lib:New{ prefix = NS.PREFIX } runs at file load (core\Namespace.lua must
+# be above), and NS.Print, published here, is captured as a file-scope local by modules\Browser.lua,
+# settings\Schema.lua and settings\Slash.lua (must be below them).
 core\CoreSetup.lua
 # The LibKa0s-Lifecycle-1.0 seam: the ONE latch every reason to be inert holds
 # (slash-commands-§7). Position is CONVENTIONAL, not load-bearing -- nothing here resolves at
 # load (every field is a closure and the printer is late-bound), and the latch is first TOUCHED
 # from addon:OnEnable, long after the whole TOC has run.
 core\LifecycleSetup.lua
-# Needs core\MediaSetup.lua above it: the dropdown art is resolved through NS.Icon.
+# CONVENTIONAL: the dropdown and reorder art resolves through NS.Icon (core\MediaSetup.lua) at
+# call time, inside NS.MakeDropdown / NS.MakeReorderList; nothing is read at load. Kept below Media.
 core\WidgetsSetup.lua
+# LOAD-BEARING POSITION: the file-load lib:New descriptor reads NS.Constants.FONT_MONO;
+# core\Constants.lua must be above.
 core\DebugLogSetup.lua
-# The LibKa0s-Pool seam. Before every module that pools a widget (Analytics, BrowserTable).
+# The LibKa0s-Pool seam. CONVENTIONAL: nothing resolves at load; every NS.Pool.New call is inside
+# a function (modules/Analytics.lua:616).
 core\PoolSetup.lua
 core\LootHistory.lua
 core\Database.lua
@@ -65,6 +77,8 @@ core\Database.lua
 core\LauncherSetup.lua
 
 # Defaults
+# LOAD-BEARING POSITION: settings\Schema.lua takes NS.defaults.global as a file-scope local (:20)
+# and reads its values into the rows' defaults at file load; this file must be above Schema.
 defaults\Global.lua
 
 # Modules (Attribution before Collector)
@@ -84,5 +98,8 @@ modules\Analytics.lua
 # over NS.Schema / NS.Panel -- so moving it above Schema costs nothing and buys the composer.
 settings\OptionsSetup.lua
 settings\Schema.lua
+# LOAD-BEARING POSITION: the dispatcher is built at file load with commands = NS.COMMANDS, assigned
+# by settings\Schema.lua; above Schema, LibKa0s-Slash :New raises (libs\LibKa0s\Slash.lua:487)
+# and /lh is never registered.
 settings\Slash.lua
 settings\Panel.lua
