@@ -725,12 +725,17 @@ badge and any count quoted in the docs must agree with it.
 - Retention: with no StaticPopup_Show a shorter value prunes at once
 - Retention: a value that would delete nothing raises no confirm and prunes nothing
 
-### test_schema_stub.lua (4)
+### test_schema_stub.lua (9)
 
 - Schema stub: SetMany refuses a batch holding an invalid entry and stores nothing
 - Schema stub: SetMany refuses an unknown path by its index
 - Schema stub: SetMany stores every entry, then runs every onChange in order
 - Schema stub: SetMany with opts.act runs its stores and reactions inside one bracket
+- Schema stub: a writeThrough path with no row stores through Set
+- Schema stub: a writeThrough path refuses when there is nowhere to store it
+- Schema stub: a row-less path NOT in writeThrough is still refused
+- Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
+- Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
 ### test_analytics.lua (62)
 
@@ -1033,7 +1038,7 @@ badge and any count quoted in the docs must agree with it.
 | test_launcher.lua | 17 |
 | test_slash.lua | 63 |
 | test_schema.lua | 72 |
-| test_schema_stub.lua | 4 |
+| test_schema_stub.lua | 9 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
@@ -1048,4 +1053,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **898** |
+| **Total** | **903** |

@@ -444,11 +444,25 @@ S.RESET_EXEMPT = { ["minimap.shown"] = "minimap.hide" }
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
 --
 -- WRITE-COMPLETING AND LOG-SILENT (LibKa0s docs/api/Schema/version-2-docs.md, "The degradation
--- stub"; SetMany is minor 2's all-or-nothing batch, with no bracket line to make). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
+-- stub"; this stub mirrors Schema minor 2). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
 -- BrowserTable's row height) and by host writers that need no other major (Reset all settings'
 -- wipe, below in settings/Slash.lua). So without the library, reads, writes, the row's reaction and
 -- the sweep veto all still work. The [Set] line and the bracket's tally are not reproduced, because
 -- the degraded DebugLog stub discards every line they would feed.
+--
+-- Minor 2's three additions, as the library has them:
+--   * `writeThrough`: the descriptor's list of paths stored WITHOUT a row. The stub reads the same
+--     list at `New`, once, into one synthetic `{ path = , writeThrough = true }` per path. A listed
+--     path with no row resolves the root (refusing "nowhere to store" without one) and is stored as
+--     a copy, with no validate and no onChange; a path that HAS a row always takes the row, and any
+--     other row-less path is still "unknown path". This is what lets `settings.enabled` land on this
+--     very load, where the Options stub's MasterControls composer is hollow and emits no row.
+--   * `SetMany`: the all-or-nothing batch. Every entry is prepared (row or writeThrough path, then
+--     validate, then the root) before anything is stored, and the first refusal answers
+--     `false, err, nil, index`; then every store, then every onChange. `opts.act` brackets the
+--     stores and reactions, so ApplyDefault's sweep veto sees the batch as a sweep.
+--   * The instance id: `Get(path, instanceId)` hands it to `row.get`, and `ApplyDefault(row,
+--     instanceId)` forwards it to `Set`. Every row in this addon ignores it.
 --
 -- THIS IS A DELIBERATE, DOCUMENTED DUPLICATION of the library's seam, trimmed from its reference
 -- stub (LibKa0s tests/test_schema.lua, `referenceStub`), with refusals in this addon's own words.
@@ -504,6 +518,13 @@ local function hostSchemaStub()
   function stubLib:New(d)
     local R, depth = {}, 0
     local rows = d.rows
+    -- writeThrough, read once: a later edit to the descriptor's list changes nothing, as in the
+    -- library. The synthetic row has no set, validate or onChange, so `prepare` below needs no
+    -- branch of its own for it: it is a stored row that nothing validates and nothing reacts to.
+    local through = {}
+    for _, p in ipairs(type(d.writeThrough) == "table" and d.writeThrough or {}) do
+      if type(p) == "string" and p ~= "" then through[p] = { path = p, writeThrough = true } end
+    end
     local function say(line) if type(d.print) == "function" then d.print(line) end end
     function R.AllRows() return rows end
     function R.FindRow(path)
@@ -520,9 +541,9 @@ local function hostSchemaStub()
       return #list
     end
     function R.Reindex() end
-    function R.Get(path)
+    function R.Get(path, instanceId)
       local row = R.FindRow(path)
-      if row and type(row.get) == "function" then return row.get() end
+      if row and type(row.get) == "function" then return row.get(instanceId) end
       if type(path) ~= "string" or (row and row.sessionOnly) then return nil end
       local root, first = d.resolveRoot()
       if type(root) ~= "table" then return nil end
@@ -533,7 +554,7 @@ local function hostSchemaStub()
     -- single write does (the library's own prepareWrite split). It answers `true, plan` or
     -- `false, err` with nothing called but the row's validate.
     local function prepare(path, value)
-      local row = R.FindRow(path)
+      local row = R.FindRow(path) or (type(path) == "string" and through[path]) or nil
       if not row then return false, "unknown path: " .. tostring(path) end
       local stored = type(row.set) ~= "function" and not row.sessionOnly
       local root, first
@@ -554,6 +575,7 @@ local function hostSchemaStub()
     local function react(p)
       if type(p.row.onChange) == "function" then p.row.onChange(p.value) end
     end
+    -- The library's third argument, `instanceId`, is dropped: no row in this addon reads one.
     function R.Set(path, value)
       local ok, plan = prepare(path, value)
       if not ok then return false, plan end
@@ -586,10 +608,10 @@ local function hostSchemaStub()
       local row = R.FindRow(path)
       return row and copy(row.default)
     end
-    function R.ApplyDefault(row)
+    function R.ApplyDefault(row, instanceId)
       if type(row) ~= "table" or type(row.path) ~= "string" or row.default == nil then return false end
       if depth > 0 and d.resetExempt[row.path] then return false end
-      return R.Set(row.path, copy(row.default))
+      return R.Set(row.path, copy(row.default), instanceId)
     end
     -- The bracket keeps its depth, because the sweep veto above reads it; it counts nothing.
     function R.BulkBegin() depth = depth + 1 end
@@ -649,6 +671,12 @@ local R = SchemaLib:New{
   -- Validate's line sink. Late-bound, so it survives core/LootHistory.lua's AceConsole reclaim.
   print        = function(line) NS.Print(line) end,
   resetExempt  = S.RESET_EXEMPT,
+  -- Paths the seam stores WITHOUT a row (Schema minor 2; options-ui-§1 route (a)). Data only: no
+  -- row, label, default or validate. On a full load the Master controls composer declares
+  -- `settings.enabled` and a write takes that row (validate, onChange, the latch). On a load where
+  -- the Options stub's composer is hollow there is no row, and this list is what lets the host's
+  -- enable/disable write still land, raw and with no reaction, instead of "unknown path".
+  writeThrough = { "settings.enabled" },
   -- This addon's refusal words, which callers and tests/test_schema.lua read back. A plain table:
   -- the library reads it with rawget, and NS.L here would mask nothing but is still the wrong table.
   L            = { NOT_FOUND = "unknown path: %s", INVALID = "invalid value" },
