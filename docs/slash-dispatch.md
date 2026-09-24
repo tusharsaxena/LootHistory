@@ -13,7 +13,7 @@ The dispatcher is the library's (`libs/LibKa0s/Slash.lua:481`), bound onto `NS.S
 - `/lh <known>` → runs that row's `entry[3](rest)`.
 - `/lh <unknown>` → `unknown command '<verb>'` then the help index.
 
-Only the verb is lower-cased; the remainder (`rest`) keeps its original case *and* its internal spacing, so schema paths like `settings.qualityThreshold` survive unchanged through `/lh set <path> <value>`. The `debug` handler additionally lower-cases its own `on`/`off` subargument (`settings/Schema.lua:925`).
+Only the verb is lower-cased; the remainder (`rest`) keeps its original case *and* its internal spacing, so schema paths like `settings.qualityThreshold` survive unchanged through `/lh set <path> <value>`. The `debug` handler additionally lower-cases its own `on`/`off` subargument (`settings/Schema.lua:926`).
 
 Every chat line routes through the single shared printer **`NS.Print`**, published from `LibKa0s-Core-1.0` in `core/CoreSetup.lua:263`, which prepends the mandated **cyan** `NS.PREFIX` `|cff00ffff[LH]|r` banner (`core/Namespace.lua:18`) and secret-stringifies each argument (events-frames-taint-§8) so a combat-protected "secret" value logs as `<secret>` instead of raising. Every file that emits chat does `local print = NS.Print` — call sites never call the global `print()`, never hand-write the tag, and never `..`-concatenate args before the printer. The dispatcher reaches it **late-bound** (`print = function(line) NS.Print(line) end`, `settings/Slash.lua:405`) so it survives `core/LootHistory.lua`'s reclaim of `NS.Print` from AceConsole's `:Print` mixin (architecture-§2). Cyan is the Ka0s house color every addon shares for its chat tag (slash-commands-§4).
 
@@ -121,7 +121,7 @@ Because the help index, the landing page and the dispatcher all read the same ta
 
 ## Session-only `debug`
 
-The `debug` handler (`settings/Schema.lua:925`) drives the debug console independently of the logging flag:
+The `debug` handler (`settings/Schema.lua:926`) drives the debug console independently of the logging flag:
 
 - `/lh debug` → `DebugLog:Toggle()` — flips the console **window** only; the logging flag is untouched.
 - `/lh debug on` / `/lh debug off` → `DebugLog:SetEnabled(true/false)` — sets the session-only logging flag `NS.State.debug`. Capture runs even with the window closed.
