@@ -229,7 +229,7 @@ test("Panel: a burst of RecordAdded collapses to ONE StorageStats pass", functio
   local ran, real = 0, NS.Database.StorageStats
   NS.Database.StorageStats = function(self, now) ran = ran + 1; return real(self, now) end
 
-  for _ = 1, 12 do NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", {}, 1) end
+  for _ = 1, 12 do NS.bus:SendMessage(NS.MSG.RECORD_ADDED, {}, 1) end
   assertEqual(ran, 0, "nothing walks the history synchronously on the loot path")
   T.mocks.__fireTimers()
   assertEqual(ran, 1, "twelve drops cost one pass — this was twelve before the fix")
@@ -249,7 +249,7 @@ test("Panel: HistoryChanged still repaints the readout immediately", function()
   local ran, real = 0, NS.Database.StorageStats
   NS.Database.StorageStats = function(self, now) ran = ran + 1; return real(self, now) end
 
-  NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged")
+  NS.bus:SendMessage(NS.MSG.HISTORY_CHANGED)
   assertEqual(ran, 1, "a deliberate change refreshes at once, with no timer in the way")
 
   NS.Database.StorageStats = real

@@ -533,7 +533,7 @@ test("browser: a burst of RecordAdded collapses to ONE OnHistoryChanged", functi
   local ran, real = 0, B.OnHistoryChanged
   B.OnHistoryChanged = function() ran = ran + 1 end
 
-  for _ = 1, 12 do NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", {}, 1) end
+  for _ = 1, 12 do NS.bus:SendMessage(NS.MSG.RECORD_ADDED, {}, 1) end
   assertEqual(ran, 0, "nothing repaints synchronously on the loot path")
   T.mocks.__fireTimers()
   assertEqual(ran, 1, "twelve drops cost one repaint — this was twelve before the fix")
@@ -549,7 +549,7 @@ test("browser: HistoryChanged still repaints immediately", function()
   local ran, real = 0, B.OnHistoryChanged
   B.OnHistoryChanged = function() ran = ran + 1 end
 
-  NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged")
+  NS.bus:SendMessage(NS.MSG.HISTORY_CHANGED)
   assertEqual(ran, 1, "a deliberate change repaints at once, with no timer in the way")
 
   B.OnHistoryChanged = real

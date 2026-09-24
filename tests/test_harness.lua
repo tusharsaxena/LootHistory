@@ -125,6 +125,10 @@ test("Harness: the runner's lifecycle kick is exactly what addon:OnInitialize ca
   end
 end)
 
+-- A probe wire name, not a catalog entry: it only proves the embed delivers. Declared once so the
+-- register, send, unregister and the assertion cannot drift apart on a typo.
+local PROBE = "Ka0s_LootHistory_HarnessProbe"
+
 -- ── the addon object carries exactly what its NewAddon list embeds ───────────────────────────
 --
 -- core/LootHistory.lua:4 asks for AceEvent, AceTimer and AceConsole, and NS.bus IS the addon
@@ -142,10 +146,10 @@ test("Harness: NS.bus is the NewAddon object and carries the message half and th
   end
   local listener = T.mocks.__libs["AceEvent-3.0"]:Embed({})
   local got
-  listener:RegisterMessage("Ka0s_LootHistory_HarnessProbe", function(msg, a) got = { msg, a } end)
-  NS.bus:SendMessage("Ka0s_LootHistory_HarnessProbe", 42)
-  listener:UnregisterMessage("Ka0s_LootHistory_HarnessProbe")
+  listener:RegisterMessage(PROBE, function(msg, a) got = { msg, a } end)
+  NS.bus:SendMessage(PROBE, 42)
+  listener:UnregisterMessage(PROBE)
   assertTrue(got ~= nil, "a message sent through NS.bus never reached a registered target")
-  assertEqual(got[1], "Ka0s_LootHistory_HarnessProbe")
+  assertEqual(got[1], PROBE)
   assertEqual(got[2], 42)
 end)

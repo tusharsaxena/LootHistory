@@ -470,11 +470,11 @@ test("Collector: live SettingsChanged refreshes the collector alongside another 
 
   -- A competing consumer registers the SAME message on the shared bus, exactly as B:Enable does.
   local browserGot = false
-  NS.bus:RegisterMessage("Ka0s_LootHistory_SettingsChanged", function() browserGot = true end)
+  NS.bus:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function() browserGot = true end)
 
   -- Broadcast the change the way Schema:Set does (DB already written to false).
   NS.db.global.settings.excludeQuestItems = false
-  NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "questfilter")
+  NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "questfilter")
 
   assertTrue(browserGot)                            -- the competing consumer still receives it
 
@@ -503,7 +503,7 @@ test("Collector SettingsChanged does not emit a redundant [Cfg] echo", function(
 
   NS.State.debug = true
   local before = #NS.DebugLog.buffer
-  NS.bus:SendMessage("Ka0s_LootHistory_SettingsChanged", "test")
+  NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "test")
 
   NS.Collector.RefreshUpvalues = realRefreshUpvalues
   NS.State.debug = false
