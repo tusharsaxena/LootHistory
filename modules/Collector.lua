@@ -215,8 +215,11 @@ function Collector:Enable()
   if not bus or self._enabled then return end
   self._enabled = true
   self:RefreshUpvalues()
-  bus:RegisterEvent("CHAT_MSG_LOOT", function(_, msg) self:OnChatMsgLoot(_, msg) end)
-  bus:RegisterEvent("CHAT_MSG_CURRENCY", function(_, msg) self:OnChatMsgCurrency(_, msg) end)
+  -- Per event through Core's helper (events-frames-taint-§1): a refused name costs only itself.
+  NS.SafeRegisterEvent(bus, "CHAT_MSG_LOOT", function(_, msg) self:OnChatMsgLoot(_, msg) end,
+    NS.RejectedEvents)
+  NS.SafeRegisterEvent(bus, "CHAT_MSG_CURRENCY",
+    function(_, msg) self:OnChatMsgCurrency(_, msg) end, NS.RejectedEvents)
   -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
   -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
   -- No `or bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and

@@ -1259,13 +1259,15 @@ function B:Enable()
     -- setting stops allowing goes away, and one it starts allowing is still the player's to open.
     -- The combat start also ends test mode (preview-mode, options-ui-§15): no sample row may sit
     -- over real loot in a fight. EndTestModeForCombat never opens the window.
-    B.__ev:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+    -- Per event through Core's helper (events-frames-taint-§1): a refused name costs only itself.
+    NS.SafeRegisterEvent(B.__ev, "PLAYER_REGEN_DISABLED", function()
       B:ApplyVisibility(true)
       if NS.BrowserTable and NS.BrowserTable.EndTestModeForCombat then
         NS.BrowserTable:EndTestModeForCombat()
       end
-    end)
-    B.__ev:RegisterEvent("PLAYER_REGEN_ENABLED",  function() B:ApplyVisibility(false) end)
+    end, NS.RejectedEvents)
+    NS.SafeRegisterEvent(B.__ev, "PLAYER_REGEN_ENABLED", function() B:ApplyVisibility(false) end,
+      NS.RejectedEvents)
   end
 end
 

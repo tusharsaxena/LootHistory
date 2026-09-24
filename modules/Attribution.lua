@@ -394,23 +394,31 @@ function Attribution:Enable()
   if not bus or self._enabled then return end
   self._enabled = true
 
-  bus:RegisterEvent("LOOT_OPENED", function() self:OnLootOpened() end)
-  bus:RegisterEvent("ENCOUNTER_START", function(...) self:OnEncounterStart(...) end)
-  bus:RegisterEvent("ENCOUNTER_END", function(...) self:OnEncounterEnd(...) end)
-  bus:RegisterEvent("CHALLENGE_MODE_START", function() self:OnChallengeModeStart() end)
-  bus:RegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
-  bus:RegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
-  bus:RegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
-  -- The keystone context's lifetime. PLAYER_ENTERING_WORLD is deliberately NOT used: the addon
-  -- object already binds it to OnEnterWorld (core/LifecycleSetup.lua), and a second registration
-  -- of that event on the same target would replace that handler.
-  bus:RegisterEvent("ZONE_CHANGED_NEW_AREA", function() self:OnZoneChanged() end)
-  bus:RegisterEvent("CHALLENGE_MODE_RESET", function() self:OnChallengeModeReset() end)
-  -- Recorded as they are registered, so Attribution:Disable unregisters exactly what Enable
-  -- registered rather than from a hand-typed second list that drifts the day an event is added.
-  self.__events = { "LOOT_OPENED", "ENCOUNTER_START", "ENCOUNTER_END", "CHALLENGE_MODE_START",
-                    "CHALLENGE_MODE_COMPLETED", "TRADE_ACCEPT_UPDATE", "QUEST_TURNED_IN",
-                    "ZONE_CHANGED_NEW_AREA", "CHALLENGE_MODE_RESET" }
+  -- Each name through Core's per-event helper (events-frames-taint-§1): a name this client refuses
+  -- costs only itself, lands once on NS.RejectedEvents, and is left out of `__events`, which holds
+  -- exactly the names that registered so Attribution:Disable unregisters exactly those rather than
+  -- from a hand-typed second list that drifts the day an event is added.
+  --
+  -- The keystone context's lifetime is ZONE_CHANGED_NEW_AREA + CHALLENGE_MODE_RESET.
+  -- PLAYER_ENTERING_WORLD is deliberately NOT used: the addon object already binds it to
+  -- OnEnterWorld (core/LifecycleSetup.lua), and a second registration of that event on the same
+  -- target would replace that handler.
+  local events = {}
+  local function safeRegisterEvent(event, handler)
+    if NS.SafeRegisterEvent(bus, event, handler, NS.RejectedEvents) then
+      events[#events + 1] = event
+    end
+  end
+  safeRegisterEvent("LOOT_OPENED", function() self:OnLootOpened() end)
+  safeRegisterEvent("ENCOUNTER_START", function(...) self:OnEncounterStart(...) end)
+  safeRegisterEvent("ENCOUNTER_END", function(...) self:OnEncounterEnd(...) end)
+  safeRegisterEvent("CHALLENGE_MODE_START", function() self:OnChallengeModeStart() end)
+  safeRegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
+  safeRegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
+  safeRegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
+  safeRegisterEvent("ZONE_CHANGED_NEW_AREA", function() self:OnZoneChanged() end)
+  safeRegisterEvent("CHALLENGE_MODE_RESET", function() self:OnChallengeModeReset() end)
+  self.__events = events
 
   -- Player-only spell-success via a dedicated RegisterUnitEvent frame — avoids the raid-wide
   -- firehose a bare RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") would deliver (every nameplate cast).
@@ -420,7 +428,7 @@ function Attribution:Enable()
   -- leak one frame per turn of the switch.
   local spellFrame = self.__spellFrame or CreateFrame("Frame")
   self.__spellFrame = spellFrame
-  spellFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+  NS.SafeRegisterUnitEvent(spellFrame, "UNIT_SPELLCAST_SUCCEEDED", NS.RejectedEvents, "player")
   spellFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
     self:OnSpellSucceeded(event, unit, castGUID, spellID)
   end)

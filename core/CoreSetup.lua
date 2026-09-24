@@ -67,10 +67,31 @@ local function fallbackCloseButton(parent, onClick)
   return close
 end
 
+-- The addon-owned list of event names this client refused (events-frames-taint-§1). Core's
+-- SafeRegister family appends a refused name to it once and keeps no state of its own, so the list
+-- lives here, on NS, where `/lh debug events` reads it. Declared OUTSIDE the branch: every
+-- registration site passes it on both paths, and a degraded install refuses names just the same.
+NS.RejectedEvents = {}
+
+-- One [Init] debug line per name, the first time it lands on the list: every name appended past
+-- `before`, the list's length from before the attempt. A disable/enable cycle that meets the same
+-- refusal again appends nothing and so says nothing new. NS.Debug is read at call time, because
+-- core/DebugLogSetup.lua loads after this file.
+local function lengthOf(rejected)
+  return type(rejected) == "table" and #rejected or 0
+end
+local function noteRefusals(rejected, before)
+  if not (NS.State and NS.State.debug and NS.Debug) then return end
+  for i = before + 1, lengthOf(rejected) do
+    NS.Debug("Init", "event %s refused by this client; skipped, the rest still register",
+      tostring(rejected[i]))
+  end
+end
+
 if not lib then
   -- A missing vendored library must degrade, not error at load: recording loot does not need a
-  -- shared printer. The stub therefore has to answer EVERY member this addon calls — five keys,
-  -- across ~40 call sites and four load-time upvalue captures — because a partial stub fails later
+  -- shared printer. The stub therefore has to answer EVERY member the live half publishes — the
+  -- set tests/test_surface_parity.lua derives from this file — because a partial stub fails later
   -- and further from the cause than a Lua error at load would.
   local function safeToString(v)
     if v == nil then return "nil" end
@@ -100,12 +121,47 @@ if not lib then
     for i = 1, select("#", ...) do parts[i + 1] = safeToString((select(i, ...))) end
     emit(table.concat(parts, " "))
   end
+  -- pcall'd, mirroring Core minor 8's printer.Format (LK-10): safeToString answers a STRING, so a
+  -- secret reaching a numeric slot hands "<secret>" to %d and string.format raises on it. On
+  -- failure the line still lands -- the format verbatim, then the stringified arguments.
   NS.Format = function(fmt, ...)
     local n = select("#", ...)
     if n == 0 then return NS.Print(fmt) end
+    local safeFmt = safeToString(fmt)
     local parts = {}
     for i = 1, n do parts[i] = safeToString((select(i, ...))) end
-    NS.Print(safeToString(fmt):format(unpack(parts)))
+    local ok, out = pcall(string.format, safeFmt, unpack(parts))
+    NS.Print(ok and out or (safeFmt .. " " .. table.concat(parts, " ")))
+  end
+
+  -- Core minor 8's SafeRegister family in one rung each (LK-11): a plain pcall of the registration,
+  -- with no C_EventUtils front gate, and a refused name appended once to the caller's list.
+  local function appendOnce(rejected, event)
+    if type(rejected) ~= "table" then return end
+    for i = 1, #rejected do
+      if rejected[i] == event then return end
+    end
+    rejected[#rejected + 1] = event
+  end
+  local function register(method, target, event, rejected, ...)
+    if pcall(method, target, event, ...) then return true end
+    local before = lengthOf(rejected)
+    appendOnce(rejected, event)
+    noteRefusals(rejected, before)
+    return false
+  end
+  NS.SafeRegisterEvent = function(target, event, handler, rejected)
+    return register(target.RegisterEvent, target, event, rejected, handler)
+  end
+  NS.SafeRegisterUnitEvent = function(frame, event, rejected, ...)
+    return register(frame.RegisterUnitEvent, frame, event, rejected, ...)
+  end
+  NS.SafeRegisterEvents = function(target, events, handler, rejected)
+    local n = 0
+    for _, event in ipairs(type(events) == "table" and events or {}) do
+      if register(target.RegisterEvent, target, event, rejected, handler) then n = n + 1 end
+    end
+    return n
   end
   -- The pre-library window edge, kept in THIS branch rather than in modules/Browser.lua. The live
   -- definition is Core.SKIN applied by Core.ApplySkin, and a host copy on the path where the
@@ -173,6 +229,29 @@ end
 -- which is the string docs/common-tasks.md and ~6 test cases already name.
 NS.IsConcatSafe = lib.IsConcatSafe
 NS.SafeToString = lib.SafeToString
+
+-- Core minor 8's per-event registration helpers (events-frames-taint-§1): IsEventValid front gate,
+-- a pcall'd registration, and a refused name appended once to the list the caller passes --
+-- NS.RejectedEvents at every site in this addon. The library prints nothing, so each is wrapped
+-- only to add the one [Init] debug line a first refusal earns; the answer is the library's.
+NS.SafeRegisterEvent = function(target, event, handler, rejected)
+  local before = lengthOf(rejected)
+  local ok = lib.SafeRegisterEvent(target, event, handler, rejected)
+  noteRefusals(rejected, before)
+  return ok
+end
+NS.SafeRegisterUnitEvent = function(frame, event, rejected, ...)
+  local before = lengthOf(rejected)
+  local ok = lib.SafeRegisterUnitEvent(frame, event, rejected, ...)
+  noteRefusals(rejected, before)
+  return ok
+end
+NS.SafeRegisterEvents = function(target, events, handler, rejected)
+  local before = lengthOf(rejected)
+  local n = lib.SafeRegisterEvents(target, events, handler, rejected)
+  noteRefusals(rejected, before)
+  return n
+end
 
 -- `prefix` is the plain string, not the function form: core/Namespace.lua defines NS.PREFIX two
 -- files earlier, so there is no load-order window to survive. `sep` is left at its default single

@@ -63,27 +63,31 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 **`OnUpdate` handlers: none. Repeating tickers: none.** The second grep returns zero lines, and
 `NewTicker` appears nowhere in the third's output.
 
-**Game events: fifteen registrations, fifteen rows.** The first grep returns **eighteen** lines;
-three of them are not registrations: `core/LifecycleSetup.lua:111` is the guard above the call, and `modules/Attribution.lua:415-416` are the pattern names inside a comment. The rows are
-in the order the grep prints them, so the two can be held side by side.
+**Game events: fifteen registrations, fifteen rows.** The first grep returns **thirty-two** lines;
+seventeen of them are not registrations: the twelve lines of Core's per-event helper bodies in
+`core/CoreSetup.lua` (the degraded stub at `:153-162`, the live wrappers at `:237-251`; see
+[ARCHITECTURE.md § Event subscriptions](ARCHITECTURE.md#event-subscriptions)),
+`core/LifecycleSetup.lua:111`, the guard above the call, `modules/Attribution.lua:407-408`, the local
+helper the nine bus events go through, and `modules/Attribution.lua:423-424`, the pattern names inside
+a comment. The rows are in the order the grep prints them, so the two can be held side by side.
 
 | Event | Registered at | Work done per fire |
 |---|---|---|
 | `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:112` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:75`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
-| `CHAT_MSG_LOOT` | `modules/Collector.lua:218` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:116`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:125` having allocated nothing. A **kept** line then runs `NS.Compat.GetItemExtras` (`:128`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:129`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
-| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:219` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
-| `LOOT_OPENED` | `modules/Attribution.lua:397` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
-| `ENCOUNTER_START` | `modules/Attribution.lua:398` | Two field writes, once per encounter. |
-| `ENCOUNTER_END` | `modules/Attribution.lua:399` | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
-| `CHALLENGE_MODE_START` | `modules/Attribution.lua:400` | Two field writes, once per key. |
-| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:401` | One keystone-level read and at most one field write, once per key. The context is kept for the reward chest. |
-| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:402` | Out of combat by construction. |
-| `QUEST_TURNED_IN` | `modules/Attribution.lua:403` | One context stamp. |
-| `ZONE_CHANGED_NEW_AREA` | `modules/Attribution.lua:407` | One API call per zone change (`IsInInstance`, through `Compat.InPartyInstance`), then either clears the keystone context or, on re-entry to an active key, one `GetActiveKeystoneInfo` read and one small table. Zone changes are rare and never a combat loop. |
-| `CHALLENGE_MODE_RESET` | `modules/Attribution.lua:408` | One field write, once per reset key. |
-| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:423` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1262` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1158`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1268` | The other edge of the same handler, same cost. |
+| `CHAT_MSG_LOOT` | `modules/Collector.lua:219` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:116`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:125` having allocated nothing. A **kept** line then runs `NS.Compat.GetItemExtras` (`:128`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:129`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
+| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:221` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
+| `LOOT_OPENED` | `modules/Attribution.lua:412` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
+| `ENCOUNTER_START` | `modules/Attribution.lua:413` | Two field writes, once per encounter. |
+| `ENCOUNTER_END` | `modules/Attribution.lua:414` | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
+| `CHALLENGE_MODE_START` | `modules/Attribution.lua:415` | Two field writes, once per key. |
+| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:416` | One keystone-level read and at most one field write, once per key. The context is kept for the reward chest. |
+| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:417` | Out of combat by construction. |
+| `QUEST_TURNED_IN` | `modules/Attribution.lua:418` | One context stamp. |
+| `ZONE_CHANGED_NEW_AREA` | `modules/Attribution.lua:419` | One API call per zone change (`IsInInstance`, through `Compat.InPartyInstance`), then either clears the keystone context or, on re-entry to an active key, one `GetActiveKeystoneInfo` read and one small table. Zone changes are rare and never a combat loop. |
+| `CHALLENGE_MODE_RESET` | `modules/Attribution.lua:420` | One field write, once per reset key. |
+| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:431` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1263` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1158`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1269` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: five, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** Grep the
 three patterns and most of what comes back is prose and guards; the call sites are the table below.

@@ -690,6 +690,7 @@ are **independent**.
 - With logging on and the window full of lines: **drag the right-edge scrollbar** up and down, and
   **mousewheel** over the log. Watch the **bottom-right line counter** (`N / 1500 lines`) as new lines
   arrive and after **Clear**.
+- `/lh debug events`. Then `/lh disable`, `/lh enable`, loot something, and `/lh debug events` again.
 - `/reload`.
 
 **Pass.**
@@ -707,6 +708,9 @@ are **independent**.
   on enable (immediately followed by the `[Init]` summary, below) and `[Debug] logging disabled` on disable.
 - **Copy** opens an editbox of plain text; **Clear** empties the log; **ESC** closes the window; the
   header **Debug: ON/OFF** toggle flips the same session flag as `/lh debug on|off` (same ack + lines).
+- `/lh debug events` prints `[LH] rejected events: none` on 12.1, both times, and toggles neither the
+  window nor the logging flag. After the disable/enable cycle loot still records: every registration
+  came back (events-frames-taint-§1).
 - After `/reload`, debug logging is back **off** and the console is closed.
 
 ### 13. Retention prune

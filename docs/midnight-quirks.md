@@ -74,3 +74,21 @@ A currency row's **Subtype** is its Currency-tab header ("The War Within", a sea
 ## C_Spell moved the spell-name lookup
 
 Attribution detects deconstruct casts (Disenchant / Milling / Prospecting), and Retail relocated the spell-name lookup to `C_Spell`. `Compat.GetSpellName` is `LibKa0s-Compat-1.0`'s member since v1.55.0: it prefers `C_Spell.GetSpellName(spellID)`, then `C_Spell.GetSpellInfo(spellID).name`, and falls back to the legacy `GetSpellInfo` when present (`core/Compat.lua:91-103`). `Attribution:DeconstructSource` resolves by **spell id first** — the locale-independent `DECONSTRUCT_ID` table — then, for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants, falls back to a **localized name-family** match: the cast's *localized* name is compared against reference tokens derived at match time from seed spellIDs via `GetSpellName` (`NAME_SEEDS`), so the check follows the client locale and never compares against a hardcoded English literal (`modules/Attribution.lua:32-97`). This is locale-independent on every client (Ka0s Standard localization-§4 / anti-pattern #37), not enUS-only.
+
+## Unknown event names — one refusal costs one edge
+
+Modern Retail **raises** `Attempt to register unknown event "<NAME>"` on a name the client does not
+know, and a block of bare registrations loses every line after the one that raised. Every event this
+addon listens to therefore registers through Core's per-event helper (`NS.SafeRegisterEvent` /
+`NS.SafeRegisterUnitEvent`, `core/CoreSetup.lua`), which asks `C_EventUtils.IsEventValid` first and
+`pcall`s the registration, and records a refused name once on `NS.RejectedEvents`
+(events-frames-taint-§1).
+
+- **The trade, taken deliberately.** A refused name is skipped, not worked around: the edge it covered
+  is simply absent on that client. If a patch retired `ENCOUNTER_START`, loot would still record, and
+  boss loot would lose its encounter detail until the event is replaced; if it retired
+  `UNIT_SPELLCAST_SUCCEEDED`, deconstruct yields would fall to OTHER / INFERRED. Losing one edge is
+  survivable; losing the rest of the block — every source stamp after the bad name — is not.
+- **Discoverable.** `/lh debug events` prints the list (`rejected events: none` on 12.1, where every
+  name is valid today), and with debug logging on each first refusal writes one `[Init]` line to the
+  console.

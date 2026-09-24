@@ -109,7 +109,7 @@ end
 --- the addon was off has to be the setting that comes back (performance-§6).
 function NS.StandUp()
   if NS.addon and NS.addon.RegisterEvent then
-    NS.addon:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnterWorld")
+    NS.SafeRegisterEvent(NS.addon, "PLAYER_ENTERING_WORLD", "OnEnterWorld", NS.RejectedEvents)
   end
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end

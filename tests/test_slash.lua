@@ -1043,3 +1043,27 @@ test("the refusal is never turned on a verb slash-commands-§2 keeps live, /lh e
     for k, v in pairs(saved) do g[k] = v end
     if not ok then error(err, 0) end
   end)
+
+-- ── /lh debug events: the rejected-names list is reachable (events-frames-taint-§1) ─────────────
+--
+-- A refused event name is recorded on NS.RejectedEvents, and a record nobody can read is the same
+-- silence one layer down. `/lh debug events` prints it, and says "none" rather than nothing, so a
+-- player on a healthy client gets an answer too. The debug window is not toggled by it.
+
+test("/lh debug events prints the rejected event names, or none", function()
+  local list = NS.RejectedEvents
+  assertTrue(type(list) == "table", "NS.RejectedEvents must be the addon-owned list")
+  local saved = {}
+  for i, v in ipairs(list) do saved[i] = v end
+  local ok, err = pcall(function()
+    for i = #list, 1, -1 do list[i] = nil end
+    local out = capture(function() Sl:OnSlash("debug events") end)
+    assertEqual(out[#out], NS.PREFIX .. " rejected events: none")
+    list[1], list[2] = "ENCOUNTER_START", "CHAT_MSG_CURRENCY"
+    out = capture(function() Sl:OnSlash("debug events") end)
+    assertEqual(out[#out], NS.PREFIX .. " rejected events: ENCOUNTER_START, CHAT_MSG_CURRENCY")
+  end)
+  for i = #list, 1, -1 do list[i] = nil end
+  for i, v in ipairs(saved) do list[i] = v end
+  if not ok then error(err, 0) end
+end)

@@ -362,6 +362,23 @@ standard sanctions, because that API has no un-hook; they gate their bodies at `
 All flavor-varying or deprecated calls behind these handlers are routed through
 `core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
 
+**Every event row above registers through one per-event helper** (events-frames-taint-§1).
+`core/CoreSetup.lua` publishes `LibKa0s-Core-1.0`'s `SafeRegisterEvent` and `SafeRegisterUnitEvent`
+(Core minor 8) as `NS.SafeRegisterEvent` / `NS.SafeRegisterUnitEvent`, plus `NS.SafeRegisterEvents`
+for a list: `C_EventUtils.IsEventValid` front gate, then a `pcall`ed registration, so a name the client
+refuses costs only itself and every other name in the block still binds. The live wrappers add one
+`[Init]` debug line per newly refused name and return the library's answer; the library-absent stub
+carries the same three members as one-rung bodies (a plain `pcall`, no front gate). No authored
+`:RegisterEvent(` / `:RegisterUnitEvent(` call exists outside those helper bodies.
+
+The **rejected list is the addon's**, not the library's: `NS.RejectedEvents`, declared in
+`core/CoreSetup.lua` on both paths and passed at every site, gets a refused name appended once, however
+many disable/enable cycles meet it again. `/lh debug events` prints it — `rejected events: <names>`, or
+`rejected events: none` on a healthy client ([slash-dispatch.md](slash-dispatch.md#session-only-debug)).
+`Attribution.__events` holds only the names that actually registered, so `Attribution:Disable`
+unregisters exactly those. The edge a refused event would have covered is simply lost on that client;
+[midnight-quirks.md](midnight-quirks.md#unknown-event-names--one-refusal-costs-one-edge) records the trade.
+
 ---
 
 ## Menus: two mechanisms, on purpose

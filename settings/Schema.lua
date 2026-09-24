@@ -922,10 +922,17 @@ NS.COMMANDS = gateFeatureVerbs{
   { "list",     "List all settings",     function() NS.Slash:CliList() end },
   { "reset",    "Reset one setting",     function(a) NS.Slash:CliReset(a) end },
   { "resetall", "Reset all settings",    function() NS.Slash:CliResetAll() end },
-  { "debug",    "Toggle window; 'on'/'off' set logging", function(rest)
+  { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
+    function(rest)
       -- `/lh debug` toggles the window only (state untouched); `/lh debug on|off` sets the
       -- session-only logging flag via the DebugLog seam. Logging runs even with the window closed.
+      -- `/lh debug events` prints the event names this client refused (events-frames-taint-§1):
+      -- the list core/CoreSetup.lua owns, "none" on a healthy client. It needs no console.
       local arg = rest and tostring(rest):lower():match("^%s*(%S*)") or ""
+      if arg == "events" then
+        local names = NS.RejectedEvents or {}
+        return print("rejected events: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+      end
       if not NS.DebugLog then return end
       if arg == "on" then NS.DebugLog:SetEnabled(true)
       elseif arg == "off" then NS.DebugLog:SetEnabled(false)

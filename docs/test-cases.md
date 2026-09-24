@@ -167,7 +167,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 
-### test_attribution.lua (33)
+### test_attribution.lua (37)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -202,6 +202,10 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: a completion-time keystone level of 0 does not overwrite the started level
 - Attribution: zoning back into an active key re-arms the keystone at its level
 - Attribution: Enable registers nine bus events, the player-only cast frame and five hooks
+- Attribution: a retired ENCOUNTER_START costs only itself (front gate)
+- Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
+- Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
+- Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
 
 ### test_filters.lua (19)
 
@@ -584,7 +588,7 @@ badge and any count quoted in the docs must agree with it.
 - launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint
 - launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing
 
-### test_slash.lua (62)
+### test_slash.lua (63)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -648,6 +652,7 @@ badge and any count quoted in the docs must agree with it.
 - a disabled addon refuses each FEATURE verb on ONE line naming /lh enable, and does not act
 - the same feature verbs act normally once the addon is enabled — the gate is not always-on
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
+- /lh debug events prints the rejected event names, or none
 
 ### test_slash_degraded.lua (10)
 
@@ -893,7 +898,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (22)
+### test_libka0s.lua (24)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -917,6 +922,8 @@ badge and any count quoted in the docs must agree with it.
 - the nine adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
+- degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing
+- degraded install: the SafeRegister stubs isolate a refused name and record it once
 
 ### test_surface_parity.lua (9)
 
@@ -1037,7 +1044,7 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 5 |
 | test_util.lua | 40 |
 | test_compat.lua | 39 |
-| test_attribution.lua | 33 |
+| test_attribution.lua | 37 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 26 |
 | test_collector.lua | 33 |
@@ -1048,7 +1055,7 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 26 |
 | test_debuglog.lua | 22 |
 | test_launcher.lua | 17 |
-| test_slash.lua | 62 |
+| test_slash.lua | 63 |
 | test_slash_degraded.lua | 10 |
 | test_schema.lua | 72 |
 | test_schema_stub.lua | 9 |
@@ -1056,7 +1063,7 @@ badge and any count quoted in the docs must agree with it.
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 22 |
+| test_libka0s.lua | 24 |
 | test_surface_parity.lua | 9 |
 | test_disabled.lua | 12 |
 | test_doc_structure.lua | 6 |
@@ -1066,4 +1073,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **912** |
+| **Total** | **919** |

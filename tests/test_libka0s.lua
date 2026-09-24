@@ -426,3 +426,45 @@ test("the Options page registry built every page this addon declares", function(
   assertEqual(table.concat(built, " | "), "General",
     "a raising builder is reported and skipped, and a leftover registration is a page nobody drew")
 end)
+
+-- ── degraded Core stub: the minor-8 surface (LK-10, LK-11) ────────────────────────────────────
+--
+-- The stub mirrors Core minor 8 in one rung each. printer.Format pcalls string.format, so a secret
+-- reaching a NUMERIC slot falls back to a joined line instead of raising; the SafeRegister family
+-- pcalls the registration with no C_EventUtils front gate and appends a refused name once to the
+-- caller's list.
+
+test("degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing",
+  function()
+    local ns, lines = loadDegraded()
+    local ok, err = pcall(ns.Format, "%d rows", {})
+    assertTrue(ok, "the degraded NS.Format raised on a secret in a %d slot: " .. tostring(err))
+    assertEqual(lines[#lines], ns.PREFIX .. " %d rows <secret>")
+    ns.Format("%d rows", 3)
+    assertEqual(lines[#lines], ns.PREFIX .. " 3 rows", "a satisfiable format is untouched")
+  end)
+
+test("degraded install: the SafeRegister stubs isolate a refused name and record it once",
+  function()
+    local ns = loadDegraded()
+    assertTrue(type(ns.RejectedEvents) == "table", "NS.RejectedEvents must exist on both paths")
+    local got = {}
+    local target = {
+      RegisterEvent = function(_, event)
+        if event == "GONE" then error("Attempt to register unknown event \"GONE\"") end
+        got[#got + 1] = event
+      end,
+      RegisterUnitEvent = function(_, event, u1)
+        if event == "GONE" then error("Attempt to register unknown event \"GONE\"") end
+        got[#got + 1] = event .. ":" .. tostring(u1)
+      end,
+    }
+    local rejected = {}
+    assertTrue(ns.SafeRegisterEvent(target, "A", nil, rejected) == true)
+    assertTrue(ns.SafeRegisterEvent(target, "GONE", nil, rejected) == false)
+    assertTrue(ns.SafeRegisterUnitEvent(target, "GONE", rejected, "player") == false)
+    assertTrue(ns.SafeRegisterUnitEvent(target, "U", rejected, "player") == true)
+    assertEqual(ns.SafeRegisterEvents(target, { "B", "GONE", "C" }, nil, rejected), 2)
+    assertEqual(table.concat(got, ","), "A,U:player,B,C")
+    assertEqual(table.concat(rejected, ","), "GONE", "a refused name is appended once")
+  end)

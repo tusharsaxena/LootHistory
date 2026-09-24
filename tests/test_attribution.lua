@@ -533,3 +533,93 @@ function()
     assertEqual(#rec.hooks, hooks, "a second Enable() installed the read-side hooks again")
   end)
 end)
+
+-- ── one retired event name does not abort the block (events-frames-taint-§1) ─────────────────
+--
+-- The client RAISES on a name it does not know, and a block of bare RegisterEvent calls loses every
+-- line after the one that raised. Enable therefore registers through Core's SafeRegister family,
+-- records a refused name once on the addon-owned NS.RejectedEvents, and keeps Attribution.__events
+-- to the names that actually registered so Disable unregisters exactly those. The kit's
+-- `__badEvents` models the retired name: C_EventUtils.IsEventValid answers false for it, an
+-- AceEvent target raises on it and a frame's RegisterUnitEvent raises on it. Each case runs once
+-- with C_EventUtils present (the front gate) and once without it (the pcall rung).
+
+local function wipeRejected()
+  local list = NS.RejectedEvents
+  if type(list) ~= "table" then return end
+  for i = #list, 1, -1 do list[i] = nil end
+end
+
+local function withBadEvent(name, noEventUtils, body)
+  local savedBad, savedUtils = mocks.__badEvents, mocks.C_EventUtils
+  mocks.__badEvents = { [name] = true }
+  if noEventUtils then mocks.C_EventUtils = nil end
+  wipeRejected()
+  local ok, err = pcall(withClientStubs, body)
+  mocks.__badEvents, mocks.C_EventUtils = savedBad, savedUtils
+  wipeRejected()
+  if not ok then error(err, 0) end
+end
+
+local function countOf(list, name)
+  assertTrue(type(list) == "table", "expected a list, got " .. type(list))
+  local n = 0
+  for _, v in ipairs(list) do if v == name then n = n + 1 end end
+  return n
+end
+
+local function addedSince(rec)
+  local added = {}
+  for event in pairs(NS.addon.__events) do
+    if not rec.before[event] then added[#added + 1] = event end
+  end
+  table.sort(added)
+  return added
+end
+
+local function without(list, name)
+  local out = {}
+  for _, v in ipairs(list) do if v ~= name then out[#out + 1] = v end end
+  return out
+end
+
+for _, rung in ipairs({ { "front gate", false }, { "pcall rung", true } }) do
+  test("Attribution: a retired ENCOUNTER_START costs only itself (" .. rung[1] .. ")", function()
+    withBadEvent("ENCOUNTER_START", rung[2], function(rec)
+      NS.Attribution:Enable()
+      local want = table.concat(without(ENABLE_EVENTS, "ENCOUNTER_START"), ",")
+      assertEqual(table.concat(addedSince(rec), ","), want,
+        "the other eight bus events must still register")
+      assertEqual(countOf(NS.RejectedEvents, "ENCOUNTER_START"), 1,
+        "NS.RejectedEvents must name ENCOUNTER_START exactly once")
+      assertEqual(countOf(NS.Attribution.__events, "ENCOUNTER_START"), 0,
+        "Attribution.__events must hold only the names that registered")
+      assertEqual(#NS.Attribution.__events, #ENABLE_EVENTS - 1)
+
+      -- Disable is symmetric, and a cycle does not grow the rejected list.
+      NS.Attribution:Disable()
+      assertEqual(#addedSince(rec), 0, "Disable left a stray bus registration")
+      NS.Attribution:Enable()
+      assertEqual(table.concat(addedSince(rec), ","), want)
+      assertEqual(countOf(NS.RejectedEvents, "ENCOUNTER_START"), 1,
+        "a disable/enable cycle must not append the name a second time")
+      NS.Attribution:Disable()
+      assertEqual(#addedSince(rec), 0)
+    end)
+  end)
+
+  test("Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound ("
+    .. rung[1] .. ")", function()
+    withBadEvent("UNIT_SPELLCAST_SUCCEEDED", rung[2], function(rec)
+      NS.Attribution:Enable()
+      assertEqual(table.concat(addedSince(rec), ","), table.concat(ENABLE_EVENTS, ","),
+        "every bus event must still register when the cast frame's event is refused")
+      assertEqual(countOf(NS.RejectedEvents, "UNIT_SPELLCAST_SUCCEEDED"), 1)
+      local frame = NS.Attribution.__spellFrame
+      assertTrue(frame.__unitEvents["UNIT_SPELLCAST_SUCCEEDED"] == nil,
+        "the refused unit event must not be recorded on the cast frame")
+      NS.Attribution:Disable()
+      assertEqual(#addedSince(rec), 0, "Disable left a stray bus registration")
+    end)
+  end)
+end

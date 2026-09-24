@@ -153,17 +153,17 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:17`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:228`). The quest-item gate keys on the locale-independent item class
+  (`modules/Collector.lua:231`). The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
 ### Chat output: one shared secret-safe printer
 
 - Every chat line goes through the single shared printer `NS.Print` — LibKa0s-Core-1.0's, published
-  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:184`,
+  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:263`,
   `:190`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
   **never** the global `print()`, **never** a hand-written `NS.PREFIX` tag, **never**
   `..`-concatenated args. `NS.Print` prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes
-  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:175` —
+  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:231` —
   so a combat-protected "secret" value logs as `<secret>` instead of raising (events-frames-taint-§8).
 - **`core/CoreSetup.lua` must load before every file that captures the printer at file scope**
   (`modules/Browser.lua`, `settings/Schema.lua`, `settings/Slash.lua`, `settings/Panel.lua` all do
@@ -252,7 +252,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
   | # | Class | Where |
   |---|---|---|
-  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:115`, `modules/Analytics.lua:11`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:296` |
+  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:171`, `modules/Analytics.lua:11`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:296` |
   | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1095`, `:1096`, `settings/Panel.lua:528`, `:529`, `:530` |
   | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1048`, `:1049` (the corner grabber, reasoned at `:1042-1047`), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` (the settings landing-page logo), `core/LauncherSetup.lua:49` (the launcher icon, minimap button and broker alike) |
