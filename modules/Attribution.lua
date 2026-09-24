@@ -28,7 +28,7 @@ local Constants = NS.Constants
 -- the *localized* name of a seed spell (resolved at match time via C_Spell), NEVER a hardcoded
 -- English literal: GetSpellName returns the client-locale name, so "Milling" on enUS becomes
 -- "Mahlen" on deDE and the check follows the player's language automatically
--- (Ka0s Standard localization-§4 / anti-pattern #37).
+-- (a localization-§4 / anti-pattern #37 departure, ratified in docs/ARCHITECTURE.md ## Documented deviations).
 local DECONSTRUCT_ID = {
   [13262] = "DISENCHANT", [289991] = "DISENCHANT",
   -- Milling: generic + per-expansion + a representative per-herb "Mass Mill" (seed for the name family)
