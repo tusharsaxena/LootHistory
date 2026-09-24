@@ -782,6 +782,20 @@ function Database:StorageStats(now)
   return { count = #history, days = days, bytes = bytes }
 end
 
+-- How many records a retention of `days` would drop, WITHOUT dropping them: what the
+-- "Keep history for" confirm names before anything is deleted (settings/Schema.lua,
+-- S:OnRetentionChanged). 0 for nil or 0 days ("Always"). Allocation-free: one counted pass.
+function Database:CountOlderThan(days)
+  if not days or days == 0 then return 0 end
+  local cutoff = time() - days * 86400
+  local history = NS.db.global.history
+  local n = 0
+  for i = 1, #history do
+    if (history[i].ts or 0) < cutoff then n = n + 1 end
+  end
+  return n
+end
+
 -- Retention cleanup. Drops records older than settings.retentionDays (0 == Never).
 -- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it runs.
 function Database:PruneOld()

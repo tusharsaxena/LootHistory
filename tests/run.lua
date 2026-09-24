@@ -42,6 +42,7 @@ local LIFECYCLE = {}
 local function kick(label, fn) LIFECYCLE[#LIFECYCLE + 1] = label; fn() end
 
 kick("NS:InitDB",          function() NS:InitDB() end)
+kick("NS.Schema:SyncRetention", function() NS.Schema:SyncRetention() end)
 kick("NS.Schema:Register", function() NS.Schema:Register() end)
 kick("NS.Slash:Register",  function() NS.Slash:Register() end)
 kick("NS.Panel:Register",  function() NS.Panel:Register() end)

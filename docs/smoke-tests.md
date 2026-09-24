@@ -48,7 +48,7 @@ Companion docs:
 | 10 | Panel chrome | options-ui-§10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
 | 11 | Minimap | LibDBIcon show/hide, click actions | [Minimap button](#11-minimap-button) |
 | 12 | Debug console | `/lh debug` window + session-only logging | [Debug console](#12-debug-console) |
-| 13 | Retention | `PruneOld` on login + onChange | [Retention prune](#13-retention-prune) |
+| 13 | Retention | `PruneOld` on login + confirmed change | [Retention prune](#13-retention-prune) |
 | 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
 | 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
 | 16 | Blacklist & whitelist | Capture gate (point-in-time) + Filters management UI | [Blacklist & whitelist](#16-blacklist--whitelist) |
@@ -699,13 +699,20 @@ are **independent**.
 `/lh test` data plus a short `retentionDays`).
 
 **Steps.**
-- Settings → set **Keep history for** to a short value (e.g. 7 days) with older records present.
-- Watch the History table / record count.
+- Settings → change **Keep history for** from 90 to 7 days with older records present. Answer **No**.
+- Change it to 7 days again and answer **Yes**. Watch the History table / record count.
+- `/lh set settings.retentionDays 7` with older records present.
 - `/reload` and wait ~5 seconds after login.
 
 **Pass.**
-- Setting a shorter retention fires the row's `onChange` → `PruneOld`, dropping records older than the
-  window immediately (rebuild-and-swap, no holes); the table and footer refresh.
+- A shorter retention that would delete records raises a confirm naming the record count; nothing
+  is deleted before it is answered.
+- **No** keeps every record, puts the dropdown back at 90 and prints one chat line
+  (`retention kept at 90 days; no records were deleted.`); a `/reload` afterwards deletes nothing.
+- **Yes** runs `PruneOld`, dropping records older than the window (rebuild-and-swap, no holes); the
+  table and footer refresh.
+- `/lh set settings.retentionDays 7` shows the same confirm. A value that would delete nothing asks
+  nothing.
 - `PruneOld` also runs **~5s after login** (`PLAYER_ENTERING_WORLD` deferred), so stale records are
   pruned on a fresh session even without touching the setting.
 - **"Always"** retention keeps everything (no prune). No error at either prune path.

@@ -16,6 +16,19 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- The "Keep history for" confirm (settings/Schema.lua, S:OnRetentionChanged): raised only when
+  -- a shorter retention would delete records. %s = the new retention's label, %s = the count.
+  -- No is not a mere dismissal: it writes the previous retention back, so nothing is deleted at
+  -- the next login either.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_PRUNE"] = {
+    text = "Shorten 'Keep history for' to %s? %s older records will be deleted. This cannot be undone.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function(_, data) NS.Schema:ConfirmRetention(data.days, true) end,
+    OnCancel = function(_, data) NS.Schema:ConfirmRetention(data.days, false) end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
   StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"] = {
     -- THE COLLECTION'S SECOND CANONICAL WORDING (options-ui-§12), verbatim: the one for an addon
     -- with no profile. The first one closes with "your other profiles are not affected", which is a
@@ -182,6 +195,8 @@ function Sl:ResetEverything()
   if db and db.global then
     traceSettingsReset(db.global)
     local removed = wipeGlobal(db.global)
+    -- The raw wipe fires no onChange, so the confirmed retention is re-read from the store here.
+    if NS.Schema and NS.Schema.SyncRetention then NS.Schema:SyncRetention() end
     if NS.State.debug and NS.Debug then
       NS.Debug("Data", "reset-all removed %s rows", tostring(removed))
     end

@@ -370,9 +370,8 @@ local ROWS = {
   { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
     page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
     tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
-    onChange = function()
-      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
-    end },
+    -- Confirm-gated when it would delete anything: S:OnRetentionChanged, below.
+    onChange = function(value) S:OnRetentionChanged(value) end },
 }
 
 -- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared
@@ -662,6 +661,65 @@ function S:ReadPath(root, path) return SchemaLib.Read(root, path) end
 function S:WritePath(root, path, value) SchemaLib.Write(root, path, value) end
 --- Stored-value equality, read by Sl:ResetEverything's settings-reset count.
 S.SameValue = SchemaLib.SameValue
+
+-- ── Keep history for: confirm before a shorter retention deletes (LootHistory-R-04) ──────────
+--
+-- The write still goes through Schema:Set first (architecture-§5); what the row's onChange no
+-- longer does is prune on the spot. It counts what the new value would drop and, when that is
+-- anything, raises KA0S_LOOTHISTORY_PRUNE (settings/Slash.lua) naming the count. Yes prunes. No
+-- writes the last CONFIRMED value back through Schema:Set, so the stored retention -- which the
+-- login prune (core/LootHistory.lua) reads -- never holds a value the player refused. With no
+-- StaticPopup_Show (headless) it prunes at once, as it always did.
+--
+-- `confirmedRetention` is the stored value the player last agreed to: seeded from the store by
+-- SyncRetention (addon:OnInitialize, and Sl:ResetEverything, whose raw wipe fires no onChange),
+-- and moved only by a change that deleted nothing or a confirm that was accepted. `restoring`
+-- keeps the decline's own write-back from raising a second confirm.
+local confirmedRetention, restoring = nil, false
+
+local function retentionLabel(days)
+  for _, opt in ipairs(C.RETENTION_OPTIONS) do
+    if opt.value == days then return opt.text end
+  end
+  return tostring(days) .. " days"
+end
+
+--- Seed the confirmed retention from the store. Call after anything that writes the row raw.
+function S:SyncRetention()
+  local s = NS.db and NS.db.global and NS.db.global.settings
+  confirmedRetention = s and s.retentionDays
+end
+
+--- The row's onChange. Prunes only once the player has confirmed, or when nothing can ask.
+function S:OnRetentionChanged(value)
+  if restoring then return end
+  local n = NS.Database and NS.Database.CountOlderThan and NS.Database:CountOlderThan(value) or 0
+  if n == 0 then confirmedRetention = value; return end
+  if type(StaticPopup_Show) ~= "function" then
+    if NS.Database.PruneOld then NS.Database:PruneOld() end
+    confirmedRetention = value
+    return
+  end
+  StaticPopup_Show("KA0S_LOOTHISTORY_PRUNE", retentionLabel(value), n, { days = value })
+end
+
+--- KA0S_LOOTHISTORY_PRUNE's two answers. Accept prunes to the new value; decline restores the
+--- last confirmed one through the write seam and says so in one line.
+function S:ConfirmRetention(days, accepted)
+  if accepted then
+    if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
+    confirmedRetention = days
+    return
+  end
+  local keep = confirmedRetention
+  if keep == nil then keep = G.settings.retentionDays end
+  restoring = true
+  local ok, err = pcall(S.Set, S, "settings.retentionDays", keep)
+  restoring = false
+  if not ok then error(err, 0) end
+  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
+  print(("retention kept at %s; no records were deleted."):format(retentionLabel(keep)))
+end
 
 --- The row shapes this addon ships. The library's default set is the four Options widget types;
 --- `table` is this addon's own set-valued type (the two MultiCheck rows).

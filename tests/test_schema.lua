@@ -1046,3 +1046,94 @@ test("seam: on the degraded build the boot check still reports a typo'd path, in
   assertEqual(table.concat(printed, " | "),
     "schema path does not resolve against defaults/Global.lua: settings.nosuchbranch.typo")
 end)
+
+-- ── Keep history for: a shorter retention asks before it deletes (LootHistory-R-04) ─────────────
+--
+-- The row's onChange used to call Database:PruneOld() on the spot, so a dropdown mis-click or
+-- `/lh set settings.retentionDays 7` dropped every older record in the same action. It now counts
+-- what the new value would delete and raises KA0S_LOOTHISTORY_PRUNE; Yes prunes, No writes the
+-- last confirmed value back through Schema:Set. The kit's StaticPopup_Show is a no-op function, so
+-- the popup-present path is the default here; the popup-absent case removes it.
+
+--- Run `fn(shown)` over five seeded rows (three older than 7 days, two fresh) at a confirmed
+--- 30-day retention, with StaticPopup_Show spied. History, the setting, the confirmed value, the
+--- mock and the print record are all restored before anything raises.
+local function withRetentionFixture(fn)
+  local M, g = T.mocks, NS.db.global
+  local savedHistory, savedDays, savedShow = g.history, g.settings.retentionDays, M.StaticPopup_Show
+  local now, day = os.time(), 86400
+  g.history = {
+    { ts = now - 40 * day, itemID = 1 }, { ts = now - 20 * day, itemID = 2 },
+    { ts = now - 10 * day, itemID = 3 }, { ts = now - 2 * day, itemID = 4 },
+    { ts = now - 3600, itemID = 5 },
+  }
+  g.settings.retentionDays = 30
+  S:SyncRetention()
+  local shown = {}
+  M.StaticPopup_Show = function(which, a1, a2, data)
+    shown[#shown + 1] = { which = which, a1 = a1, a2 = a2, data = data }
+  end
+  M.__resetPrinted()
+  local ok, err = pcall(fn, shown)
+  g.history, g.settings.retentionDays, M.StaticPopup_Show = savedHistory, savedDays, savedShow
+  S:SyncRetention()
+  if not ok then error(err, 0) end
+end
+
+test("Retention: a shorter value raises the prune confirm and deletes nothing yet", function()
+  -- red under: the old onChange, which pruned to 2 rows before any confirm existed.
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 7)
+    assertEqual(#NS.db.global.history, 5, "records were deleted before the player confirmed")
+    assertEqual(#shown, 1, "exactly one confirm is raised")
+    assertEqual(shown[1].which, "KA0S_LOOTHISTORY_PRUNE")
+    assertEqual(shown[1].a1, "7 days", "the confirm names the new retention by its label")
+    assertEqual(shown[1].a2, 3, "the confirm names how many records would go")
+    assertEqual(shown[1].data and shown[1].data.days, 7)
+  end)
+end)
+
+test("Retention: accepting the prune confirm deletes the older records", function()
+  withRetentionFixture(function()
+    S:Set("settings.retentionDays", 7)
+    local dlg = T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE
+    assertTrue(dlg ~= nil, "KA0S_LOOTHISTORY_PRUNE is not registered")
+    assertEqual(dlg.timeout, 0); assertTrue(dlg.whileDead and dlg.hideOnEscape and dlg.showAlert)
+    dlg.OnAccept(nil, { days = 7 })
+    assertEqual(#NS.db.global.history, 2)
+    assertEqual(NS.db.global.settings.retentionDays, 7)
+  end)
+end)
+
+test("Retention: declining restores the confirmed value, keeps every record, prints one line", function()
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 7)
+    T.mocks.__resetPrinted()
+    T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnCancel(nil, { days = 7 })
+    assertEqual(NS.db.global.settings.retentionDays, 30, "the previous retention was not restored")
+    assertEqual(#NS.db.global.history, 5, "declining deleted records")
+    assertEqual(#shown, 1, "writing the old value back must not raise a second confirm")
+    local printed = T.mocks.__printed()
+    assertEqual(#printed, 1, "decline prints exactly one line: " .. table.concat(printed, " | "))
+    assertTrue(printed[1]:find("retention kept at 30 days; no records were deleted.", 1, true) ~= nil,
+      "unexpected decline line: " .. printed[1])
+  end)
+end)
+
+test("Retention: with no StaticPopup_Show a shorter value prunes at once", function()
+  withRetentionFixture(function()
+    T.mocks.StaticPopup_Show = nil
+    S:Set("settings.retentionDays", 7)
+    assertEqual(#NS.db.global.history, 2)
+  end)
+end)
+
+test("Retention: a value that would delete nothing raises no confirm and prunes nothing", function()
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 60)
+    assertEqual(#shown, 0, "a confirm for zero records")
+    assertEqual(#NS.db.global.history, 5)
+    assertEqual(NS.Database:CountOlderThan(0), 0, "Always counts nothing")
+    assertEqual(NS.Database:CountOlderThan(nil), 0)
+  end)
+end)
