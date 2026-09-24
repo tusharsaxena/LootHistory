@@ -265,6 +265,12 @@ four suites plus the current complexity watch list — **one file, overwritten i
 history is the trend line — and each `<YYYYMMDD-HHMMSS>/` is a frozen bundle of that run's raw
 output. Bundles are never edited and never pruned.
 
+**Here, `complexity` is the only cost this addon measures.** No `tests/perf.lua` exists, under the
+`performance-§12` no-combat-path exemption ([performance.md](performance.md)), so the `perf` suite
+records skip reason (2) naming that register row rather than a pass. Cost-of-change is still
+measured: `lizard` runs in every bundle, and its watch list is in
+[`automated-tests/RESULTS.md`](automated-tests/RESULTS.md).
+
 `docs/complexity.md` was this addon's standalone complexity report through standard v2.18.0; it is
 **retired** — its raw output is each bundle's `complexity.txt` and its trend line is `RESULTS.md`.
 

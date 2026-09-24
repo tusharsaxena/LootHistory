@@ -56,7 +56,7 @@ end
 
 -- Group the capture set (tags) into { provider = { key = true } }.
 -- Rebuilt per kept loot line rather than memoized, deliberately: LOOTHISTORY-R-10, dispositioned in
--- docs/performance.md ("The allocation that is not measured"). There is no perf harness here to
+-- docs/combat-path-sweep.md ("The allocation that is not measured"). There is no perf harness here to
 -- size the saving with, and the pcall'd provider fetches below dwarf the guess.
 local function wantedByProvider(capture)
   local out = {}

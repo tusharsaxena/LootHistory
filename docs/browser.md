@@ -168,6 +168,21 @@ Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:615`
 
 Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTarget()` (`Analytics.lua:662`) and live-refreshes only while the Insights tab is visible.
 
+### Widget pools are recycled, and that is tested
+
+Every bar, stacked bar, swatch, strip segment and list row comes out of one of the 35 pools in
+`self.pool`, and `LayoutCharts` releases every one of them at the top of each layout pass
+(`NS.Pool.ReleaseAll`, `Analytics.lua:908`). That only costs nothing if released widgets come back.
+Until 2026-08-24 `releaseAll` hid each active object and dropped it, so `pool.free` was empty on
+every acquire and the factory ran each time: a fresh frame per chart element on every re-render,
+and frames are never destroyed in WoW, so a session's filter changes and tab switches piled up
+hidden frames for good.
+
+The guarantee is the test, not the fix: `tests/test_analytics.lua` counts factory calls across two
+passes through `NS.Pool` and requires the second to build nothing. Reading `pool.free` alone would
+pass against a pool nobody reuses. The one allocation on the loot path that is deliberately left
+unmeasured is recorded in [combat-path-sweep.md](combat-path-sweep.md#the-allocation-that-is-not-measured-and-stays-that-way).
+
 ## Menus: two mechanisms, on purpose
 
 This addon draws **two** kinds of menu and neither is a Blizzard `UIDropDownMenu` — both avoid that
