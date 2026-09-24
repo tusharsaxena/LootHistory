@@ -94,8 +94,9 @@ running. Without those, `/lh enable` would not exist and the switch would only g
 **The launcher's CLICK changes** (`launcher-§2`). This addon is rung (a), so the left click drives a
 primary window and is a feature: while disabled it prints the one refusal line, does nothing else
 and writes no SavedVariables. The gate is the library's (Launcher minor 2's `isEnabled` /
-`disabledLine`, fed `NS.AddonIsOff` and `NS.Slash.DisabledLine`), and the tooltip swaps its
-left-click hint for the same line while the addon is off. The rung-(c) carve-out does not reach it — that one is for a left
+`disabledLine`, fed `NS.AddonIsOff` and `NS.Slash.DisabledLine`). **The tooltip still shows while
+disabled** (Launcher minor 3, LibKa0s v1.57.0, the library's own block): it reads `Enabled: No`, and
+its left-click hint becomes `Left-click: disabled — /lh enable`, the command read out of that same line. The rung-(c) carve-out does not reach it — that one is for a left
 click that opens the settings panel and nothing else. **Right-click is unchanged in either state**,
 because the owner's ruling narrows the *slash* surface and a mouse click is not a slash command.
 

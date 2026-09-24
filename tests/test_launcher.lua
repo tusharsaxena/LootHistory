@@ -416,81 +416,137 @@ test("launcher: Reset all settings leaves a SHOWN button shown, and does not inv
     end)
   end)
 
--- ── the disabled gate is the LIBRARY's (Launcher minor 2, LootHistory-R-13) ───────────────────
+-- ── the status tooltip is the LIBRARY's (Launcher minor 3, launcher-§1, M5) ───────────────────
 --
 -- LibKa0s-Launcher-1.0 minor 2 gates a rung-(a)/(b) left click on the descriptor's `isEnabled` and
--- prints its `disabledLine()`. This addon used to carry that gate inside its own `onClick`, and the
--- tooltip still advertised a left click that a disabled addon refuses. The cases below pin the
--- adoption: the descriptor hands the library both functions, `onClick` no longer gates itself, and
--- the tooltip's title is NS.BRAND and its left-click line gives way to the refusal line while off.
+-- prints its `disabledLine()`; minor 3 (LibKa0s v1.57.0) also DRAWS the tooltip, on every host and
+-- while the addon is disabled: the title with the version, Enabled, Locked and Test mode where the
+-- host has them, the host's own lines, then the two click hints. This addon used to draw the whole
+-- tooltip itself -- title, hints and the disabled refusal line -- and under minor 3 every one of those
+-- would be drawn twice (anti-pattern #89). The cases below pin what is left: the descriptor answers
+-- the library's questions, and `onTooltipShow` adds the record count and nothing else.
 
---- Draw the launcher's tooltip into a fake GameTooltip and answer its lines, text and color.
+--- Strip WoW color escapes, so a line reads as the player reads it.
+local function plain(s)
+  return (tostring(s):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+end
+
+--- Draw the launcher's tooltip into a fake GameTooltip and answer its lines, as plain text.
 local function tooltipLines()
   local object = NS.Launcher:Object()
   assertTrue(object ~= nil and type(object.OnTooltipShow) == "function",
-    "the broker object must carry the addon's OnTooltipShow")
+    "the broker object must carry the library's OnTooltipShow")
   local lines = {}
-  local tt = { AddLine = function(_, text, r, g, b) lines[#lines + 1] = { text, r, g, b } end }
+  local tt = { AddLine = function(_, text) lines[#lines + 1] = plain(text) end }
   object.OnTooltipShow(tt)
   return lines
 end
 
-local function findLine(lines, needle)
-  for _, l in ipairs(lines) do
-    if type(l[1]) == "string" and l[1]:find(needle, 1, true) then return l end
-  end
+--- Run `fn` with the lock, the test mode and the enabled switch set as asked, then put them back.
+local function withState(state, fn)
+  local s = NS.db.global.settings
+  local BT = NS.BrowserTable
+  local was = { locked = s.locked, test = BT.testMode, enabled = NS.Schema:Get("settings.enabled") }
+  s.locked = state.locked
+  BT.testMode = state.test
+  NS.Schema:Set("settings.enabled", state.enabled)
+  local ok, res = pcall(fn)
+  s.locked, BT.testMode = was.locked, was.test
+  NS.Schema:Set("settings.enabled", was.enabled)
+  if not ok then error(res, 0) end
+  return res
 end
 
-test("launcher: the tooltip's title is NS.BRAND and it advertises the show/hide left click",
+local function recordLine()
+  local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
+  return n == 1 and "1 record" or (n .. " records")
+end
+
+test("launcher: the enabled tooltip is the library's block, with the addon's one line inside it",
   function()
-    -- red under: a hand-typed title (a second brand spelling) or the old 'open the history window'
-    -- wording, which undersold a left click that TOGGLES the window.
-    local lines = tooltipLines()
-    assertEqual(lines[1][1], NS.BRAND, "the tooltip's first line is the brand, read from NS.BRAND")
-    assertTrue(findLine(lines, "Left-click: show/hide the history window") ~= nil,
-      "the enabled tooltip names the left click as the window's show/hide switch")
-    assertTrue(findLine(lines, "Right-click: open settings") ~= nil, "the right-click line is unchanged")
+    -- launcher-§1 (standard v2.66.0): the exact shape, in order. The title carries the TOC version,
+    -- Locked and Test mode are drawn because this addon HAS both (the Lock frame row and the
+    -- History window's test mode), the record count is this addon's own line, and the left click
+    -- names rung (a)'s window.
+    -- red under: the old hand-drawn title or hints coming back (a second copy, anti-pattern #89), a
+    -- missing isLocked / isTestMode / version / leftClickLabel, or the count line going missing.
+    local lines = withState({ locked = false, test = false, enabled = true }, tooltipLines)
+    local want = {
+      NS.BRAND .. "  v" .. NS.Version(),
+      "Enabled: Yes",
+      "Locked: No",
+      "Test mode: Off",
+      recordLine(),
+      "Left-click: Toggle History window",
+      "Right-click: Open settings",
+    }
+    assertEqual(#lines, #want, "the tooltip draws exactly seven lines: " .. table.concat(lines, " / "))
+    for i, w in ipairs(want) do assertEqual(lines[i], w, "tooltip line " .. i) end
     assertTrue(Loader.readFile("core/LauncherSetup.lua"):find('"Ka0s Loot History"', 1, true) == nil,
       "core/LauncherSetup.lua must not re-type the brand string")
   end)
 
-test("launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint",
+test("launcher: Locked and Test mode are read on every show, never cached", function()
+  -- The accessors are the ones the Master-controls rows read: `settings.locked` in the store, and
+  -- BrowserTable.testMode (the session-only `state.testMode` row's own get).
+  -- red under: a value captured at Register time, or an accessor reading some other copy.
+  local lines = withState({ locked = true, test = true, enabled = true }, tooltipLines)
+  assertEqual(lines[3], "Locked: Yes", "the lock is read from settings.locked on this show")
+  assertEqual(lines[4], "Test mode: On", "the test mode is read from BrowserTable.testMode")
+  lines = withState({ locked = false, test = false, enabled = true }, tooltipLines)
+  assertEqual(lines[3], "Locked: No")
+  assertEqual(lines[4], "Test mode: Off")
+end)
+
+test("launcher: while disabled the tooltip still shows, says Enabled: No and points at /lh enable",
   function()
-    -- launcher-§2 / slash-commands-§7: the line is NS.Slash.DisabledLine(), DERIVED and never
-    -- hand-built, so the tooltip, the minimap click and `/lh` all say the same words.
-    -- red under: a tooltip that keeps promising a left click the library will refuse.
-    NS.Schema:Set("settings.enabled", false)
-    local ok, lines = pcall(tooltipLines)
-    NS.Schema:Set("settings.enabled", true)
-    if not ok then error(lines, 0) end
-    local refusal = findLine(lines, NS.Slash.DisabledLine())
-    assertTrue(refusal ~= nil, "the disabled tooltip must carry NS.Slash.DisabledLine()")
-    assertEqual(refusal[2], 0.5, "the refusal line is gray")
-    assertEqual(refusal[3], 0.5)
-    assertEqual(refusal[4], 0.5)
-    assertTrue(findLine(lines, "Left-click:") == nil, "no left-click hint while the addon is off")
-    assertTrue(findLine(lines, "Right-click: open settings") ~= nil,
-      "right-click still opens the panel, which is where the addon is switched back on")
+    -- The owner's ruling (M5): the button ALWAYS answers a hover, disabled included. The left
+    -- click on rung (a) is refused while off, so its hint gives way to the library's pointer, read
+    -- out of NS.Slash.DisabledLine(); the right click is never gated.
+    -- red under: a tooltip that keeps promising the window while the library refuses the click, the
+    -- addon's own refusal line drawn a second time, or the status block missing while off.
+    local lines = withState({ locked = false, test = false, enabled = false }, tooltipLines)
+    local want = {
+      NS.BRAND .. "  v" .. NS.Version(),
+      "Enabled: No",
+      "Locked: No",
+      "Test mode: Off",
+      recordLine(),
+      "Left-click: disabled \226\128\148 /lh enable",
+      "Right-click: Open settings",
+    }
+    assertEqual(#lines, #want, "the disabled tooltip draws exactly seven lines: "
+      .. table.concat(lines, " / "))
+    for i, w in ipairs(want) do assertEqual(lines[i], w, "disabled tooltip line " .. i) end
   end)
 
-test("launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing",
+test("launcher: the descriptor answers the library's questions, and onClick gates nothing",
   function()
     -- Re-run core/LauncherSetup.lua against a fake Launcher that records the descriptor, into a
     -- scratch namespace, so the fields the library reads are asserted rather than inferred.
-    -- red under: a descriptor without the minor-2 pair (the library could not refuse the click),
-    -- or an onClick that still carries its own AddonIsOff branch (two gates, two places to drift).
+    -- red under: a descriptor without the minor-2 pair (the library could not refuse the click), an
+    -- onClick that still carries its own AddonIsOff branch (two gates, two places to drift), a
+    -- minor-3 field missing or reading a cached value, or an onTooltipShow that draws a title,
+    -- a status line or a click hint again.
     local captured
     local fakeLauncher = { New = function(_, d) captured = d; return {} end }
     local fakeLibStub = setmetatable({}, { __call = function(_, name)
       if name == "LibKa0s-Launcher-1.0" then return fakeLauncher end
     end })
     local mocks = setmetatable({ LibStub = fakeLibStub }, { __index = T.mocks })
-    local off, toggles = false, 0
+    local off, toggles, locked = false, 0, false
     local ns = {
       BRAND = NS.BRAND,
+      L = setmetatable({}, { __index = function(_, k) return k end }),
+      Version = function() return "7.7.7" end,
       AddonIsOff = function() return off end,
       Slash = { DisabledLine = function() return "the one refusal line" end },
-      Browser = { Toggle = function() toggles = toggles + 1 end },
+      Browser = {
+        Toggle = function() toggles = toggles + 1 end,
+        IsLocked = function() return locked end,
+      },
+      BrowserTable = { testMode = false },
+      Database = { Count = function() return 3 end },
     }
     Loader.load("core/LauncherSetup.lua", ns, mocks)
     assertTrue(captured ~= nil, "the file must build its launcher through Launcher:New")
@@ -502,4 +558,29 @@ test("launcher: the descriptor hands the library isEnabled + disabledLine, and o
     assertEqual(captured.disabledLine(), "the one refusal line", "the line is NS.Slash.DisabledLine()")
     captured.onClick("LeftButton")
     assertEqual(toggles, 1, "onClick carries no gate of its own; the library's isEnabled is the gate")
+
+    -- Launcher minor 3: every one a FUNCTION, so the library asks on every show.
+    for _, k in ipairs({ "version", "isLocked", "isTestMode", "leftClickLabel" }) do
+      assertEqual(type(captured[k]), "function", "descriptor." .. k .. " (Launcher minor 3)")
+    end
+    assertEqual(captured.version(), "7.7.7", "the version is NS.Version(), the TOC's own")
+    assertEqual(captured.leftClickLabel(), "Toggle History window", "rung (a): the History window")
+    assertEqual(captured.isLocked(), false)
+    locked = true
+    assertEqual(captured.isLocked(), true, "isLocked reads B:IsLocked on every call")
+    assertEqual(captured.isTestMode(), false)
+    ns.BrowserTable.testMode = true
+    assertEqual(captured.isTestMode(), true, "isTestMode reads BrowserTable.testMode on every call")
+    assertEqual(captured.slash, nil, "no slash: the library reads /lh out of the disabled line")
+
+    -- The leftClickLabel goes through the addon's locale.
+    ns.L = setmetatable({ ["Toggle History window"] = "Verlaufsfenster" }, {
+      __index = function(_, k) return k end })
+    assertEqual(captured.leftClickLabel(), "Verlaufsfenster", "the label is read through NS.L")
+
+    -- The host hook draws the addon's OWN line and nothing else.
+    local drawn = {}
+    captured.onTooltipShow({ AddLine = function(_, text) drawn[#drawn + 1] = text end })
+    assertEqual(#drawn, 1, "onTooltipShow draws one line: " .. table.concat(drawn, " / "))
+    assertEqual(drawn[1], "3 records", "the record count is the addon's own line")
   end)

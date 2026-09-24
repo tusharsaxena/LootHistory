@@ -103,25 +103,40 @@ NS.Launcher = Launcher:New({
   -- ours opens a window. RIGHT-click is never gated (`openSettings` above), which is what keeps the
   -- panel one click away from a player who wants to switch the addon back on.
   --
-  -- The line is still NS.Slash.DisabledLine, never re-spelled here: one wording, and the launcher's
-  -- click, its tooltip and the dispatcher's gate all read the same string.
+  -- The line is still NS.Slash.DisabledLine, never re-spelled here: one wording, read by the
+  -- launcher's click, the tooltip's disabled hint and the dispatcher's gate alike.
   isEnabled    = function() return not (NS.AddonIsOff and NS.AddonIsOff()) end,
   disabledLine = function() return NS.Slash.DisabledLine() end,
 
-  -- The addon's own words, handed straight through. The title is NS.BRAND, the one spelling the
-  -- label and the refusal line share. While the addon is off the left-click hint gives way to the
-  -- refusal line itself (gray, derived, never hand-built), because the library refuses that click.
+  -- THE STATUS TOOLTIP IS THE LIBRARY'S (Launcher minor 3, LibKa0s v1.57.0; launcher-§1 as of
+  -- standard v2.66.0). The library draws it on every hover, INCLUDING while the addon is disabled:
+  -- `<label>  v<version>`, Enabled, Locked, Test mode, then the lines `onTooltipShow` adds, then
+  -- the two click hints (the left one reading `disabled — /lh enable` while off, the command read
+  -- out of `disabledLine()` above, so no `slash` field is passed). The fields below only ANSWER its
+  -- questions, and every one is a function because the library asks on every show and never caches.
+  --
+  -- The version is the TOC's (`NS.Version`, core/EnvSetup.lua), the one `/lh version` prints.
+  version = function() return NS.Version and NS.Version() end,
+
+  -- THIS ADDON HAS BOTH STATES, so both lines are drawn. Each reads what its Master-controls row
+  -- reads: `settings.locked` (the Lock frame row) through B:IsLocked, the History window's and the
+  -- export modal's own drag gate; and `state.testMode`'s get, BrowserTable.testMode, the one switch
+  -- `/lh test`, the Test mode box and the combat start share.
+  isLocked = function()
+    return (NS.Browser and NS.Browser.IsLocked and NS.Browser:IsLocked()) and true or false
+  end,
+  isTestMode = function() return NS.BrowserTable ~= nil and NS.BrowserTable.testMode == true end,
+
+  -- RUNG (a): what the left click does, in the addon's locale (NS.L, locales/enUS.lua), read on
+  -- every show so a locale loaded after this file still reaches it. ADDONS.md's roster: the browser.
+  leftClickLabel = function() return NS.L["Toggle History window"] end,
+
+  -- The addon's OWN line and nothing else: the record count. The title, the status and both click
+  -- hints are the library's now, and drawing any of them here is a second copy (anti-pattern #89)
+  -- -- which is what this hook did through Launcher minor 2, refusal line included.
   onTooltipShow = function(tt)
-    tt:AddLine(NS.BRAND, 1, 0.82, 0)
     local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
     tt:AddLine(n == 1 and "1 record" or (n .. " records"), 0.7, 0.7, 0.7)
-    tt:AddLine(" ")
-    if NS.AddonIsOff and NS.AddonIsOff() then
-      tt:AddLine(NS.Slash.DisabledLine(), 0.5, 0.5, 0.5)
-    else
-      tt:AddLine("Left-click: show/hide the history window", 0.5, 0.5, 0.5)
-    end
-    tt:AddLine("Right-click: open settings", 0.5, 0.5, 0.5)
   end,
 
   -- Late-bound, like every other seam's: core/LootHistory.lua reclaims NS.Print from AceConsole

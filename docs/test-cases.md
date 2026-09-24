@@ -571,7 +571,7 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_launcher.lua (17)
+### test_launcher.lua (18)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
 - launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
@@ -587,9 +587,10 @@ badge and any count quoted in the docs must agree with it.
 - launcher: Reset all settings leaves a hidden button hidden, across the wholesale wipe
 - launcher: RESET_EXEMPT maps the row path to the stored path, and both resets honor it
 - launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key
-- launcher: the tooltip's title is NS.BRAND and it advertises the show/hide left click
-- launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint
-- launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing
+- launcher: the enabled tooltip is the library's block, with the addon's one line inside it
+- launcher: Locked and Test mode are read on every show, never cached
+- launcher: while disabled the tooltip still shows, says Enabled: No and points at /lh enable
+- launcher: the descriptor answers the library's questions, and onClick gates nothing
 
 ### test_slash.lua (64)
 
@@ -1063,7 +1064,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
 | test_debuglog.lua | 19 |
-| test_launcher.lua | 17 |
+| test_launcher.lua | 18 |
 | test_slash.lua | 64 |
 | test_slash_degraded.lua | 10 |
 | test_schema.lua | 72 |
@@ -1082,4 +1083,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **928** |
+| **Total** | **929** |

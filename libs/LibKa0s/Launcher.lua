@@ -48,7 +48,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -78,7 +78,27 @@ lib.STRINGS = {
   NO_MINIMAP   = "%s: the launcher descriptor's `minimap` did not answer a table, so "
               .. "LibDBIcon has nowhere to keep the button's position.",
   CLICK_FAILED = "%s: the launcher's %s-click raised: %s",
+
+  -- The status tooltip (minor 3, launcher-§1). Every word of it is here so a host's `d.L` can
+  -- reach it; the only color is the green/red the code wraps a status value in, never a string.
+  TOOLTIP_TITLE_VERSION = "%s  v%s",
+  TOOLTIP_ENABLED       = "Enabled: %s",
+  TOOLTIP_LOCKED        = "Locked: %s",
+  TOOLTIP_TEST_MODE     = "Test mode: %s",
+  TOOLTIP_YES           = "Yes",
+  TOOLTIP_NO            = "No",
+  TOOLTIP_ON            = "On",
+  TOOLTIP_OFF           = "Off",
+  TOOLTIP_LEFT          = "Left-click: %s",
+  TOOLTIP_RIGHT         = "Right-click: %s",
+  TOOLTIP_OPEN_SETTINGS = "Open settings",
+  TOOLTIP_LEFT_DEFAULT  = "Toggle",
+  TOOLTIP_DISABLED_HINT = "disabled \226\128\148 %s enable",
+  TOOLTIP_DISABLED_BARE = "disabled",
 }
+
+-- The status values' two colors, and the only color the tooltip draws (launcher-§1).
+local GREEN, RED, RESET = "|cFF00FF00", "|cFFFF0000", "|r"
 
 --- The host's own printer, or the chat frame. Same shape every other major uses.
 local function makeEmit(d)
@@ -131,8 +151,23 @@ end
 ---   disabledLine   function  REQUIRED when `isEnabled` is given, since minor 2. Answers the line
 ---                            the refusal prints — the host's Slash dispatcher's own disabled line,
 ---                            so the minimap and `/<slash>` refuse in the same words.
----   onTooltipShow  function  optional. Handed straight to the LDB object; its contents are the
----                            addon's own and nothing here binds them (launcher-§1).
+---   onTooltipShow  function  optional. Since minor 3 it is NOT the LDB object's hook: the
+---                            library always draws the status tooltip and calls this once per
+---                            show, handed the tooltip, to APPEND the addon's own lines between
+---                            the status block and the click hints. It draws no title, version,
+---                            status line or click hint of its own (launcher-§1).
+---   version        str|fn    optional, since minor 3. The addon's version, drawn after the
+---                            label in the tooltip's title. A leading `v` is not doubled.
+---   isLocked       function  optional, since minor 3. Where the addon has a lock: answers
+---                            whether it is locked, and the tooltip draws `Locked: Yes|No`.
+---   isTestMode     function  optional, since minor 3. Where the addon has a test mode: answers
+---                            whether it is on, and the tooltip draws `Test mode: On|Off`.
+---   leftClickLabel str|fn    optional, since minor 3. What the left click does on rungs (a)/(b)
+---                            (`Toggle window`), drawn as `Left-click: <label>`. Ignored on rung
+---                            (c), which reads `Open settings`.
+---   slash          string    optional, since minor 3. The slash command (`/th` or `th`) the
+---                            disabled hint names. Without it the command is read out of
+---                            `disabledLine()`, which already names `/<slash> enable`.
 ---   print          function  optional. Where this module's own reports go. Defaults to the chat
 ---                            frame.
 ---   debug          function  optional. debug(tag, message) — the host's log seam, called with
@@ -188,6 +223,76 @@ function lib:New(d)
     if noticed[key] then return end
     noticed[key] = true
     emit(text(key):format(name))
+  end
+
+  --- One descriptor accessor, asked on this show and never cached, and never allowed to raise into
+  --- the client's hover dispatch. A raise is heard by the debug seam and answers nil; nothing goes
+  --- to chat, because a hover repeats and a chat line per hover is noise.
+  local function ask(fn, what)
+    if type(fn) ~= "function" then return fn end
+    local ok, v = pcall(fn)
+    if ok then return v end
+    log("tooltip: " .. what .. " raised: " .. tostring(v))
+    return nil
+  end
+
+  --- A status value, green when true and red when false.
+  local function status(flag, yes, no)
+    return (flag and GREEN or RED) .. text(flag and yes or no) .. RESET
+  end
+
+  --- `<label>  v<version>`, or the label alone where no version answers.
+  local function titleLine()
+    local label = d.label or name
+    local v = ask(d.version, "version")
+    if v == nil or v == "" then return label end
+    return text("TOOLTIP_TITLE_VERSION"):format(label, (tostring(v):gsub("^[vV]", "")))
+  end
+
+  --- The command the disabled hint names: `d.slash`, else the one `disabledLine()` names.
+  local function slashCommand()
+    local s = d.slash
+    if type(s) == "string" and s ~= "" then
+      return s:sub(1, 1) == "/" and s or "/" .. s
+    end
+    local line = ask(d.disabledLine, "disabledLine")
+    return type(line) == "string" and line:match("(/[^%s|]+) enable") or nil
+  end
+
+  --- What `Left-click:` says: the rung, stated (launcher-§2), or the refusal's pointer.
+  local function leftHint(enabled)
+    if type(d.onClick) ~= "function" then return text("TOOLTIP_OPEN_SETTINGS") end
+    if not enabled then
+      local slash = slashCommand()
+      return slash and text("TOOLTIP_DISABLED_HINT"):format(slash) or text("TOOLTIP_DISABLED_BARE")
+    end
+    local label = ask(d.leftClickLabel, "leftClickLabel")
+    return (type(label) == "string" and label ~= "") and label or text("TOOLTIP_LEFT_DEFAULT")
+  end
+
+  --- THE TOOLTIP (minor 3, launcher-§1). Always the LDB object's `OnTooltipShow`, on every host,
+  --- in one shape: title, Enabled, Locked and Test mode where the host has them, the host's own
+  --- lines, then the two click hints. Every state is read on this show, so the tooltip cannot
+  --- disagree with the panel, and it draws while the addon is disabled, which is when a player
+  --- most needs to ask. A host with no `isEnabled` is always enabled, as its clicks are.
+  local function drawTooltip(tt)
+    if type(tt) ~= "table" or type(tt.AddLine) ~= "function" then return end
+    local enabled = true
+    if type(d.isEnabled) == "function" then enabled = ask(d.isEnabled, "isEnabled") and true or false end
+    tt:AddLine(titleLine())
+    tt:AddLine(text("TOOLTIP_ENABLED"):format(status(enabled, "TOOLTIP_YES", "TOOLTIP_NO")))
+    if type(d.isLocked) == "function" then
+      tt:AddLine(text("TOOLTIP_LOCKED"):format(status(ask(d.isLocked, "isLocked"), "TOOLTIP_YES", "TOOLTIP_NO")))
+    end
+    if type(d.isTestMode) == "function" then
+      tt:AddLine(text("TOOLTIP_TEST_MODE"):format(status(ask(d.isTestMode, "isTestMode"), "TOOLTIP_ON", "TOOLTIP_OFF")))
+    end
+    if type(d.onTooltipShow) == "function" then
+      local ok, err = pcall(d.onTooltipShow, tt)
+      if not ok then log("tooltip: onTooltipShow raised: " .. tostring(err)) end
+    end
+    tt:AddLine(text("TOOLTIP_LEFT"):format(leftHint(enabled)))
+    tt:AddLine(text("TOOLTIP_RIGHT"):format(text("TOOLTIP_OPEN_SETTINGS")))
   end
 
   --- The LEFT click on rungs (a)/(b), behind the optional disabled gate (minor 2). A disabled
@@ -256,7 +361,7 @@ function lib:New(d)
       label = d.label or name,
       icon  = d.icon,
       OnClick = click,
-      OnTooltipShow = type(d.onTooltipShow) == "function" and d.onTooltipShow or nil,
+      OnTooltipShow = drawTooltip,   -- always the library's (minor 3); the host's lines go inside
     })
     if not object then
       -- NewDataObject answers nil for a name already taken. Take the existing object rather than

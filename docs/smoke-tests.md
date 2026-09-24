@@ -653,12 +653,15 @@ art actually appears.
 **Pass.**
 - **The AddOns list shows the addon's own logo**, not a Blizzard icon and not an empty square. The
   minimap button wears the same art, and so does the broker row.
-- The tooltip shows the brand ("Ka0s Loot History", read from `NS.BRAND`) + a live record count
-  ("N records") + the click hints: "Left-click: show/hide the history window" and "Right-click:
-  open settings".
-- **While disabled** the tooltip's left-click hint is gone, replaced by the gray refusal line
-  (`Ka0s Loot History is disabled — enable it with /lh enable`); a left-click prints that line once
-  and nothing opens (the gate is `LibKa0s-Launcher-1.0`'s, minor 2); right-click still opens Settings.
+- The tooltip is the library's block (Launcher minor 3, LibKa0s v1.57.0), in this order and with no
+  line twice: `Ka0s Loot History  v<the TOC version>`, `Enabled: Yes` (green), `Locked: No`,
+  `Test mode: Off`, a live record count ("N records", gray), `Left-click: Toggle History window`,
+  `Right-click: Open settings`. Tick **Lock frame** and **Test mode**, hover again: `Locked: Yes`,
+  `Test mode: On` (read on every show, never cached).
+- **While disabled** the tooltip still shows: `Enabled: No` (red), and the left-click line reads
+  `Left-click: disabled — /lh enable`; a left-click prints the refusal line
+  (`Ka0s Loot History is disabled — enable it with /lh enable`) once and nothing opens (the gate is
+  `LibKa0s-Launcher-1.0`'s, minor 2); right-click still opens Settings.
 - **Left-click toggles** the history window — this addon is **rung (a)**, it has a primary window —
   and **right-click opens Settings**, which is true on every Ka0s addon whatever its rung.
 - After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the
