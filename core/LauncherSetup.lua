@@ -12,8 +12,8 @@ local addonName, NS = ...
 -- one before and there is one now, and the rung rule is satisfied on the minimap and in a broker
 -- display by construction rather than by two implementations agreeing.
 --
--- THE REGISTRATION NAME CHANGED, and it is the one visible cost. It was the literal
--- "Ka0s Loot History"; launcher-§1 fixes it at the addon's FOLDER name, because LibDBIcon keys the
+-- THE REGISTRATION NAME CHANGED, and it is the one visible cost. It was the brand string
+-- itself (today's NS.BRAND); launcher-§1 fixes it at the addon's FOLDER name, because LibDBIcon keys the
 -- button by it and a broker display labels the plugin with it. The player's dragged POSITION
 -- survives the rename: LibDBIcon stores `minimapPos` in the `db` table it is handed
 -- (libs/LibDBIcon-1.0/LibDBIcon-1.0.lua:194, `self.db.minimapPos`), never under the name, and the
@@ -90,31 +90,37 @@ NS.Launcher = Launcher:New({
 
   -- LEFT-click: RUNG (a), the primary window. `B:Toggle` is the browser's own switch -- the one
   -- `/lh toggle` calls -- so the button drives the addon's existing state rather than a copy.
-  --
-  -- REFUSED WHILE THE ADDON IS DISABLED (launcher-§2, slash-commands-§7). Rung (a) drives a primary
-  -- window and that is a feature, so the left button prints the ONE refusal line and does nothing
-  -- else -- in particular it writes no SavedVariables, which is the failure the audit found on a
-  -- minimap button with no disabled gate at all. The rung-(c) carve-out does NOT reach this addon:
-  -- it is for a left-click that opens the settings panel and nothing else, and ours opens a window.
-  -- RIGHT-click is unchanged in either state (`openSettings` above), which is what keeps the panel
-  -- one click away from a player who wants to switch the addon back on.
-  --
-  -- The line comes from NS.Slash.DisabledLine, never re-spelled here: one wording, one call site
-  -- per surface, and the launcher's click reads the same string the dispatcher's gate prints.
   onClick = function()
-    if NS.AddonIsOff and NS.AddonIsOff() then
-      return NS.Print(NS.Slash.DisabledLine())
-    end
     if NS.Browser and NS.Browser.Toggle then NS.Browser:Toggle() end
   end,
 
-  -- The addon's own words, handed straight through. Unchanged from what modules/Browser.lua drew.
+  -- REFUSED WHILE THE ADDON IS DISABLED (launcher-§2, slash-commands-§7), and the gate is the
+  -- LIBRARY's since Launcher minor 2 (LibKa0s v1.56.0): where `isEnabled` answers false, a left
+  -- click prints `disabledLine()` through `print` below and `onClick` is never called. Rung (a)
+  -- drives a primary window and that is a feature, so the left button says the ONE refusal line and
+  -- does nothing else -- in particular it writes no SavedVariables. The rung-(c) carve-out does NOT
+  -- reach this addon: it is for a left-click that opens the settings panel and nothing else, and
+  -- ours opens a window. RIGHT-click is never gated (`openSettings` above), which is what keeps the
+  -- panel one click away from a player who wants to switch the addon back on.
+  --
+  -- The line is still NS.Slash.DisabledLine, never re-spelled here: one wording, and the launcher's
+  -- click, its tooltip and the dispatcher's gate all read the same string.
+  isEnabled    = function() return not (NS.AddonIsOff and NS.AddonIsOff()) end,
+  disabledLine = function() return NS.Slash.DisabledLine() end,
+
+  -- The addon's own words, handed straight through. The title is NS.BRAND, the one spelling the
+  -- label and the refusal line share. While the addon is off the left-click hint gives way to the
+  -- refusal line itself (gray, derived, never hand-built), because the library refuses that click.
   onTooltipShow = function(tt)
-    tt:AddLine("Ka0s Loot History", 1, 0.82, 0)
+    tt:AddLine(NS.BRAND, 1, 0.82, 0)
     local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
     tt:AddLine(n == 1 and "1 record" or (n .. " records"), 0.7, 0.7, 0.7)
     tt:AddLine(" ")
-    tt:AddLine("Left-click: open the history window", 0.5, 0.5, 0.5)
+    if NS.AddonIsOff and NS.AddonIsOff() then
+      tt:AddLine(NS.Slash.DisabledLine(), 0.5, 0.5, 0.5)
+    else
+      tt:AddLine("Left-click: show/hide the history window", 0.5, 0.5, 0.5)
+    end
     tt:AddLine("Right-click: open settings", 0.5, 0.5, 0.5)
   end,
 

@@ -394,3 +394,91 @@ test("launcher: Reset all settings leaves a SHOWN button shown, and does not inv
       assertEqual(keys, 1, "only `hide` is in there; nothing was invented beside it")
     end)
   end)
+
+-- ── the disabled gate is the LIBRARY's (Launcher minor 2, LootHistory-R-13) ───────────────────
+--
+-- LibKa0s-Launcher-1.0 minor 2 gates a rung-(a)/(b) left click on the descriptor's `isEnabled` and
+-- prints its `disabledLine()`. This addon used to carry that gate inside its own `onClick`, and the
+-- tooltip still advertised a left click that a disabled addon refuses. The cases below pin the
+-- adoption: the descriptor hands the library both functions, `onClick` no longer gates itself, and
+-- the tooltip's title is NS.BRAND and its left-click line gives way to the refusal line while off.
+
+--- Draw the launcher's tooltip into a fake GameTooltip and answer its lines, text and color.
+local function tooltipLines()
+  local object = NS.Launcher:Object()
+  assertTrue(object ~= nil and type(object.OnTooltipShow) == "function",
+    "the broker object must carry the addon's OnTooltipShow")
+  local lines = {}
+  local tt = { AddLine = function(_, text, r, g, b) lines[#lines + 1] = { text, r, g, b } end }
+  object.OnTooltipShow(tt)
+  return lines
+end
+
+local function findLine(lines, needle)
+  for _, l in ipairs(lines) do
+    if type(l[1]) == "string" and l[1]:find(needle, 1, true) then return l end
+  end
+end
+
+test("launcher: the tooltip's title is NS.BRAND and it advertises the show/hide left click",
+  function()
+    -- red under: a hand-typed title (a second brand spelling) or the old 'open the history window'
+    -- wording, which undersold a left click that TOGGLES the window.
+    local lines = tooltipLines()
+    assertEqual(lines[1][1], NS.BRAND, "the tooltip's first line is the brand, read from NS.BRAND")
+    assertTrue(findLine(lines, "Left-click: show/hide the history window") ~= nil,
+      "the enabled tooltip names the left click as the window's show/hide switch")
+    assertTrue(findLine(lines, "Right-click: open settings") ~= nil, "the right-click line is unchanged")
+    assertTrue(Loader.readFile("core/LauncherSetup.lua"):find('"Ka0s Loot History"', 1, true) == nil,
+      "core/LauncherSetup.lua must not re-type the brand string")
+  end)
+
+test("launcher: while disabled the tooltip shows the refusal line in gray and no left-click hint",
+  function()
+    -- launcher-§2 / slash-commands-§7: the line is NS.Slash.DisabledLine(), DERIVED and never
+    -- hand-built, so the tooltip, the minimap click and `/lh` all say the same words.
+    -- red under: a tooltip that keeps promising a left click the library will refuse.
+    NS.Schema:Set("settings.enabled", false)
+    local ok, lines = pcall(tooltipLines)
+    NS.Schema:Set("settings.enabled", true)
+    if not ok then error(lines, 0) end
+    local refusal = findLine(lines, NS.Slash.DisabledLine())
+    assertTrue(refusal ~= nil, "the disabled tooltip must carry NS.Slash.DisabledLine()")
+    assertEqual(refusal[2], 0.5, "the refusal line is gray")
+    assertEqual(refusal[3], 0.5)
+    assertEqual(refusal[4], 0.5)
+    assertTrue(findLine(lines, "Left-click:") == nil, "no left-click hint while the addon is off")
+    assertTrue(findLine(lines, "Right-click: open settings") ~= nil,
+      "right-click still opens the panel, which is where the addon is switched back on")
+  end)
+
+test("launcher: the descriptor hands the library isEnabled + disabledLine, and onClick gates nothing",
+  function()
+    -- Re-run core/LauncherSetup.lua against a fake Launcher that records the descriptor, into a
+    -- scratch namespace, so the fields the library reads are asserted rather than inferred.
+    -- red under: a descriptor without the minor-2 pair (the library could not refuse the click),
+    -- or an onClick that still carries its own AddonIsOff branch (two gates, two places to drift).
+    local captured
+    local fakeLauncher = { New = function(_, d) captured = d; return {} end }
+    local fakeLibStub = setmetatable({}, { __call = function(_, name)
+      if name == "LibKa0s-Launcher-1.0" then return fakeLauncher end
+    end })
+    local mocks = setmetatable({ LibStub = fakeLibStub }, { __index = T.mocks })
+    local off, toggles = false, 0
+    local ns = {
+      BRAND = NS.BRAND,
+      AddonIsOff = function() return off end,
+      Slash = { DisabledLine = function() return "the one refusal line" end },
+      Browser = { Toggle = function() toggles = toggles + 1 end },
+    }
+    Loader.load("core/LauncherSetup.lua", ns, mocks)
+    assertTrue(captured ~= nil, "the file must build its launcher through Launcher:New")
+    assertEqual(type(captured.isEnabled), "function", "descriptor.isEnabled (Launcher minor 2)")
+    assertEqual(type(captured.disabledLine), "function", "descriptor.disabledLine (Launcher minor 2)")
+    assertEqual(captured.isEnabled(), true, "enabled while AddonIsOff answers false")
+    off = true
+    assertEqual(captured.isEnabled(), false, "disabled while AddonIsOff answers true")
+    assertEqual(captured.disabledLine(), "the one refusal line", "the line is NS.Slash.DisabledLine()")
+    captured.onClick("LeftButton")
+    assertEqual(toggles, 1, "onClick carries no gate of its own; the library's isEnabled is the gate")
+  end)

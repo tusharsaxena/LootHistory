@@ -641,6 +641,7 @@ art actually appears.
 - Open the AddOns list at the character-select or in-game Interface list. Look at this addon's row.
 - Locate the minimap button; hover it.
 - Left-click it; right-click it.
+- `/lh disable`; hover the button again, left-click it, right-click it; `/lh enable`.
 - Settings → Master controls → uncheck **Minimap button**; check it again.
 - Drag the button to a new spot on the minimap ring.
 - `/reload`.
@@ -649,7 +650,12 @@ art actually appears.
 **Pass.**
 - **The AddOns list shows the addon's own logo**, not a Blizzard icon and not an empty square. The
   minimap button wears the same art, and so does the broker row.
-- The tooltip shows "Ka0s Loot History" + a live record count ("N records") + the click hints.
+- The tooltip shows the brand ("Ka0s Loot History", read from `NS.BRAND`) + a live record count
+  ("N records") + the click hints: "Left-click: show/hide the history window" and "Right-click:
+  open settings".
+- **While disabled** the tooltip's left-click hint is gone, replaced by the gray refusal line
+  (`Ka0s Loot History is disabled — enable it with /lh enable`); a left-click prints that line once
+  and nothing opens (the gate is `LibKa0s-Launcher-1.0`'s, minor 2); right-click still opens Settings.
 - **Left-click toggles** the history window — this addon is **rung (a)**, it has a primary window —
   and **right-click opens Settings**, which is true on every Ka0s addon whatever its rung.
 - After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the
