@@ -48,7 +48,7 @@ So the scan is deliberately **two steps per line, not longest-match-first**: dec
 
 - `itemID` / `classID` come from `C_Item.GetItemInfoInstant` (synchronous, cache-independent).
 - `name` falls back to the link's `[…]` bracket text.
-- `quality` falls back to `NS.Item.QualityFromLink` — parsing the link's `|cffRRGGBB` color prefix and reversing it through a hex→quality-id map built from `ITEM_QUALITY_COLORS` (`libs/LibKa0s/Item.lua:83`, reached through `core/ItemSetup.lua`).
+- `quality` falls back to `NS.Item.QualityFromLink` (`libs/LibKa0s/Item.lua:91`, reached through `core/ItemSetup.lua`), which reads the link's color in two rungs since Item minor 2 (LibKa0s v1.56.0). Since patch 11.1.5 the client colors a link by quality **number**, `|cnIQ<n>:`, and that rung is read first and needs no palette. The `|cffRRGGBB` hex rung stays as the fallback for the pre-11.1.5 links a stored row still holds: it reverses the hex through a hex→quality-id map built lazily from `ITEM_QUALITY_COLORS` and cached only once non-empty, so a first call that lands before the client populated the table is retried rather than pinned nil (`libs/LibKa0s/Item.lua:55-75`). `tests/test_itemsetup.lua` pins both shapes.
 
 The **primitive** moved into `LibKa0s-Item-1.0`; the **guess** did not. Falling back at all is this addon's policy — BankLedger's quality gate refuses an uncached item and records the skip instead — so `Compat.GetItemInfo` stays in `core/Compat.lua` and the library holds no opinion about how the primitives are composed.
 

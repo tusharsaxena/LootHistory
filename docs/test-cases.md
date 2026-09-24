@@ -74,13 +74,15 @@ badge and any count quoted in the docs must agree with it.
 - PoolSetup: a released object is reused rather than rebuilt
 - PoolSetup: ReleaseAll returns every active object to the free list
 
-### test_itemsetup.lua (5)
+### test_itemsetup.lua (7)
 
 - ItemSetup: the seam is published
 - ItemSetup: the primitives answer what the deleted shims answered
 - ItemSetup: this addon now HAS the id parser it lacked
 - ItemSetup: the moved shims are gone from Compat
 - ItemSetup: the resolver did NOT move, and still guesses when uncached
+- ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
+- ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 
 ### test_util.lua (40)
 
@@ -1041,7 +1043,7 @@ badge and any count quoted in the docs must agree with it.
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 10 |
 | test_poolsetup.lua | 3 |
-| test_itemsetup.lua | 5 |
+| test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
 | test_compat.lua | 39 |
 | test_attribution.lua | 37 |
@@ -1073,4 +1075,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **919** |
+| **Total** | **921** |
