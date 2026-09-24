@@ -337,6 +337,26 @@ test("Database: PruneOld drops records older than retentionDays", function()
   assertTrue(firedHistoryChanged(sent))
 end)
 
+-- LootHistory-R-18: a prune that removes nothing leaves the store alone and fires no
+-- HistoryChanged, so the Browser does not rebuild on every login with a fresh history. The spy
+-- is a real subscriber on its own bus target; it first proves it records a positive send.
+test("Database: PruneOld fires HistoryChanged only when it removed rows", function()
+  local now, day = os.time(), 86400
+  local spy, count = NS.NewBusTarget(), 0
+  spy:RegisterMessage(NS.MSG.HISTORY_CHANGED, function() count = count + 1 end)
+  NS.db.global.settings.retentionDays = 30
+  NS.db.global.history = { { ts = now - day, itemID = 1 }, { ts = now - 40 * day, itemID = 2 } }
+  NS.Database:PruneOld()
+  assertEqual(count, 1, "a prune that removes a row fires once")
+  count = 0
+  local fresh = { { ts = now - day, itemID = 1 } }
+  NS.db.global.history = fresh
+  assertEqual(NS.Database:PruneOld(), 0)
+  spy:UnregisterMessage(NS.MSG.HISTORY_CHANGED)
+  assertEqual(count, 0, "a prune that removes nothing fires nothing")
+  assertTrue(NS.db.global.history == fresh, "the store is not swapped when nothing is removed")
+end)
+
 test("Database: PruneOld with retentionDays=0 keeps everything", function()
   local now = os.time()
   NS.db.global.history = { { ts = now - 999 * 86400, itemID = 1 } }

@@ -798,7 +798,9 @@ function Database:CountOlderThan(days)
 end
 
 -- Retention cleanup. Drops records older than settings.retentionDays (0 == Never).
--- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it runs.
+-- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it removes
+-- rows; a prune that removes nothing leaves the store untouched and fires nothing (the login
+-- prune over a fresh history must not make the Browser rebuild).
 function Database:PruneOld()
   local days = NS.db.global.settings.retentionDays
   if not days or days == 0 then return 0 end
@@ -809,8 +811,10 @@ function Database:PruneOld()
     if (r.ts or 0) >= cutoff then kept[#kept + 1] = r end
   end
   local removed = #history - #kept
-  NS.db.global.history = kept
-  fireHistoryChanged()
+  if removed > 0 then
+    NS.db.global.history = kept
+    fireHistoryChanged()
+  end
   if NS.State.debug and NS.Debug then
     NS.Debug("Prune", "retention %sd: removed %s rows", tostring(days), tostring(removed))
   end
