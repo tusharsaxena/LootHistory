@@ -59,6 +59,21 @@ if not lib then
         NS.Print(NS.LIBKA0S_MISSING .. ", so the debug console window is unavailable.")
       end
     end,
+    -- The diagnostics report (DebugLog 14.1, debug-logging-14). With no library there is no
+    -- console to write it into, so the report prints the collection's placeholder line naming the
+    -- command, writes nothing and returns 0. The other two are carried for surface parity:
+    -- BuildDiagnostics answers an empty report, and DebugVerb answers false so the `debug` verb
+    -- keeps its own fallback.
+    RunDiagnostics = function()
+      if NS.Print then
+        NS.Print(NS.L["%s is unavailable: the LibKa0s library did not load."]:format("/lh diagnostics"))
+      end
+      return 0
+    end,
+    BuildDiagnostics = function()
+      return { lines = {}, dropped = 0, capped = false, capsHit = false }
+    end,
+    DebugVerb = function() return false end,
     ConsoleCheckbox = function()
       return {
         label   = "Debug console",

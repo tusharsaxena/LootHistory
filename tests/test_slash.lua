@@ -903,9 +903,9 @@ end)
 --- slash-commands-§2's live list, verbatim and spelled out here rather than read off the
 --- implementation: a test that imported the addon's own set would agree with it however wrong it
 --- got. `perf` is on the list and this addon does not register it (performance-§12), which is why
---- the loop below asks NS.COMMANDS which of these exist rather than assuming all twelve do.
+--- the loop below asks NS.COMMANDS which of these exist rather than assuming all thirteen do.
 local LIVE_WHILE_DISABLED = {
-  "help", "config", "version", "enable", "disable", "debug", "perf",
+  "help", "config", "version", "enable", "disable", "debug", "perf", "diagnostics",
   "get", "set", "list", "reset", "resetall",
 }
 

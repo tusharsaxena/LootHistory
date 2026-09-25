@@ -103,6 +103,11 @@ local SUITES = {
   -- `Files over the 1500-line cap` census in docs/ARCHITECTURE.md. Like test_eol it reads the
   -- checkout through git and no addon state, so it wants no particular slot.
   { name = "test_layout_cap", dir = "tests/_kit/" },
+  -- The kit's diagnostics contract (revision 27, debug-logging-14): the dispatcher half of the
+  -- report, run against this addon's own dispatcher through Kit.diagnostics. Until the report
+  -- lands that table is unset and the suite registers one declared skip naming the rule, which is
+  -- what keeps the re-vendor green before the addon has a report to test.
+  { name = "test_diagnostics_contract", dir = "tests/_kit/" },
   -- Last on purpose: its close-path cases build and show the History window, which attaches
   -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an
   -- unbuilt window.

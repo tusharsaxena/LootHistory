@@ -450,9 +450,9 @@ local Dispatcher = lib:New({
   -- STORED switch, not the latch: a perf capture is a reason to be inert and never a reason to
   -- refuse a verb.
   --
-  -- NO `liveVerbs`, AND THAT IS DELIBERATE. The library's default at minor 13 is the standard's
-  -- twelve reserved verbs -- help, config, version, enable, disable, debug, perf, get, set, list,
-  -- reset, resetall -- and the bare `/lh` runs `config` in either state, which opens the panel. An
+  -- NO `liveVerbs`, AND THAT IS DELIBERATE. The library's default at minor 16 is the standard's
+  -- thirteen reserved verbs -- help, config, version, enable, disable, debug, perf, diagnostics,
+  -- get, set, list, reset, resetall -- and the bare `/lh` runs `config` in either state, which opens the panel. An
   -- earlier pass narrowed that set to `enable` and `help`; the owner tested it, found `/lh` on a
   -- disabled addon answering a refusal instead of opening the one surface the addon can be
   -- switched back on from, and reversed it (standard v2.57.0). Passing a narrowed set here would

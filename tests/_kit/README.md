@@ -31,6 +31,7 @@ broken in the other eleven.
 | `test_prose.lua` | The US-English prose gate, a kit suite |
 | `prose_lists.lua` | The published lists `test_prose.lua` reads: both spelling lists, the folder exclusions and the store-root files read back out of them. `test_prose.lua` loads it from its own folder; nothing else does (kit revision 26) |
 | `test_layout_cap.lua` | The 1500-line cap gate, a kit suite |
+| `test_diagnostics_contract.lua` | The diagnostics dump's dispatcher contract (`debug-logging-§14`), a kit suite run against the consumer's own dispatcher (kit revision 27) |
 | `README.md` | This file |
 
 They vendor as one folder. A copy that leaves out `asserts.lua`, `mock_record.lua`,
@@ -384,6 +385,35 @@ Kit.run{ dir = "tests/", suites = { ..., { name = "test_layout_cap", dir = "test
 **A repo that wrote its own retires it by re-vendoring.** Leaving both is a basename collision the
 inventory reports, and the bare declaration wires the local file over the kit's. A repo that tracks
 no authored `.lua` wires nothing and the suite skips, with the reason said out loud.
+
+## `test_diagnostics_contract.lua`
+
+The fourth, new in kit revision 27. `debug-logging-§14` makes a diagnostics dump a MUST: exactly
+`/<slash> diagnostics` and `/<slash> debug diagnostics` write one report into the debug console,
+both work while the addon is disabled, the report appends and never clears, it lands with logging
+off, both markers carry the brand, and no other name (`diag`, `dx`, or a name the addon retired)
+runs it. LibKa0s builds the report; this suite checks the addon's half, through the addon's own
+dispatcher, and the addon's own suite adds its domain sections.
+
+The consumer's facts arrive on the kit table before `Kit.run`:
+
+```lua
+Kit.diagnostics = {
+  brand       = "Ka0s Aura Master",               -- the DebugLog descriptor's brandName
+  dispatch    = function(line) ... end,            -- run "/<slash> <line>" through the addon
+  console     = function() return NS.DebugLog end, -- the live DebugLog instance
+  setDebug    = function(on) ... end,              -- write the debug flag directly
+  setDisabled = function(off) ... end,             -- stand the addon down (true) or up (false)
+  retired     = { "dump" },                        -- optional: the addon's own retired names
+  reset       = function() ... end,                -- optional: run before every case
+}
+Kit.run{ dir = "tests/", suites = { ..., { name = "test_diagnostics_contract",
+  dir = "tests/_kit/" } } }
+```
+
+Until an addon has its report, `Kit.diagnostics` stays unset and the suite registers one declared
+skip that names the rule, so the re-vendor that brings this file in stays green. The skip shows in
+every run and in `docs/test-cases.md`.
 
 ## It is not a library
 

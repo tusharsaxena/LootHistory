@@ -549,10 +549,11 @@ badge and any count quoted in the docs must agree with it.
 - Export: showing the copy window puts the text in it
 - Export: the copy window is built once and reused
 
-### test_debuglog.lua (19)
+### test_debuglog.lua (20)
 
 - FONT_MONO constant is a JetBrains Mono TTF path
 - the degraded DebugLog stub's formatters carry no library format string
+- the degraded DebugLog stub's RunDiagnostics prints the placeholder, writes nothing, returns 0
 - NS.Debug renders a secret message arg as <secret> without raising
 - NS.Debug formats ordinary args (numbers included) through %s
 - /lh debug on enables state
@@ -1026,6 +1027,10 @@ badge and any count quoted in the docs must agree with it.
 - layoutcap self-test: a census that states nothing is told apart from one that states none
 - layoutcap self-test: the exempt set takes folders as well as paths
 
+### test_diagnostics_contract.lua (1)
+
+- diagnostics contract: debug-logging-§14 (skipped: Kit.diagnostics is not set in the runner, so this repo's dispatcher is not wired to the shared contract yet. Every Ka0s addon owes debug-logging-§14's report; wire Kit.diagnostics once the report exists)
+
 ### test_widgets.lua (17)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
@@ -1066,7 +1071,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browser.lua | 61 |
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
-| test_debuglog.lua | 19 |
+| test_debuglog.lua | 20 |
 | test_launcher.lua | 21 |
 | test_slash.lua | 64 |
 | test_slash_degraded.lua | 10 |
@@ -1085,5 +1090,6 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
+| test_diagnostics_contract.lua | 1 |
 | test_widgets.lua | 17 |
-| **Total** | **932** |
+| **Total** | **934** |

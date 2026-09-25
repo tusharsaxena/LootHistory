@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 26
+Kit.VERSION = 27
 
 -- ── the resource guard (kit revision 23) ───────────────────────────────────────────────────────
 --
@@ -603,6 +603,7 @@ local KIT_GATE_RULE = {
   test_prose      = "localization-§5",
   test_eol        = "line-endings-§7",
   test_layout_cap = "layout-§1",
+  test_diagnostics_contract = "debug-logging-§14",
 }
 
 --- Where a repository keeps its `## Documented deviations` register (`documentation-§3`): an addon
