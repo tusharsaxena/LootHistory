@@ -846,18 +846,20 @@ end
 -- reach for either is that the addon is misbehaving. `perf` is listed although this addon does not
 -- register it (performance-§12, ARCHITECTURE.md → Documented deviations): the verb stays reserved
 -- here as everywhere, so re-arming the harness later is a registration and never a rename.
+-- `diagnostics` (debug-logging-§14) is listed ahead of its registration for the same reason, and
+-- because a disabled addon is exactly the one a player is most likely to be reporting.
 --
 -- Everything NOT in the set is a feature verb — show/hide/toggle/test/purge, which draw, preview
 -- and destroy — and answers one tagged line naming `/lh enable`, having done nothing else.
 --
--- THE SET IS THE LIBRARY'S OWN, byte for byte: `lib.LIVE_VERBS` at Slash minor 13 is these twelve.
+-- THE SET IS THE LIBRARY'S OWN, byte for byte: `lib.LIVE_VERBS` at Slash minor 16 is these thirteen.
 -- It is restated here rather than read off the library because this table is built at FILE LOAD,
 -- before settings/Slash.lua has resolved anything, and because the wrapper below has to gate the
 -- LIBRARY-LESS dispatcher too — the one install where there is no `lib.LIVE_VERBS` to ask.
 -- tests/test_disabled.lua asserts the two agree, so the restatement cannot drift.
 local LIVE_WHILE_DISABLED = {
   help = true, config = true, version = true, enable = true, disable = true,
-  debug = true, perf = true,
+  debug = true, perf = true, diagnostics = true,
   get = true, set = true, list = true, reset = true, resetall = true,
 }
 

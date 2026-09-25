@@ -38,6 +38,9 @@ local LIB_FILES = {
   -- the hosts that do -- but the client loads every file of the XML, so the suite must too.
   "libs/LibKa0s/WidgetsDragHandle.lua",
   "libs/LibKa0s/DebugLog.lua",
+  -- New in v1.60.0: the diagnostics report, a second file of LibKa0s-DebugLog-1.0 (key 14.1) that
+  -- lib:New installs on each instance. Loaded after DebugLog.lua, as the XML orders it.
+  "libs/LibKa0s/DebugLogDiagnostics.lua",
   "libs/LibKa0s/Slash.lua",
   -- New in v1.39.0: LibKa0s-Launcher-1.0, the minimap button and the broker plugin as one
   -- object registered twice (launcher-§1). core/LauncherSetup.lua resolves it at file load.

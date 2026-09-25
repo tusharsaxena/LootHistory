@@ -34,7 +34,7 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 13
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 14
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -49,23 +49,49 @@ lib.MODULES.DebugLog = MINOR
 -- a console is a diagnostic window read by hand, and the cap and the message frame's own SetMaxLines
 -- must move together or the visible log and the copied buffer diverge.
 --
--- 1500 rather than the original 500 because the perf capture workflow pastes out of THIS buffer:
--- `perf report` prints its summary here and `perf dump` writes the whole JSON record as one line
--- (Perf.lua), so a long run overflowed 500 and lost its head with nothing saying so. The copy
--- window is a view of this array and caps nothing of its own, which is why raising this raises
--- both and why there is no second number.
-lib.MAX_BUFFER = 1500
+-- The history, because each step had its own reason. 500 through minor 10. 1500 from minor 11
+-- through minor 13, because the perf capture workflow pastes out of THIS buffer: `perf report`
+-- prints its summary here and `perf dump` writes the whole JSON record as one line (Perf.lua), so
+-- a long run overflowed 500 and lost its head with nothing saying so. 3000 from minor 14, because
+-- the diagnostics report (DebugLogDiagnostics.lua) is written into this same buffer after the
+-- debug trace, so a player copies both in one go. At 1500 a report at its 1200-line cap
+-- (DIAG_MAX_LINES) would leave as little as 300 lines of the trace it is meant to travel with.
+--
+-- Why 3000 and not 5000: measured in the live client on 2026-09-26 with a throwaway, uncommitted
+-- copy bench addon (open + highlight plus the next frame, the N = 0 baseline subtracted, median of
+-- three), not with TIME_COPY below, which only prints one ShowCopy's figures. At 120-column
+-- lines 3000 cost 246 ms against a 250 ms limit and 5000 cost 378 ms, and by hand the copy box at
+-- 5000 was sluggish. 3000 passes, only just, so this is the ceiling rather than a starting point.
+--
+-- The copy window is a view of this array and caps nothing of its own, which is why raising this
+-- raises both and why there is no second number.
+lib.MAX_BUFFER = 3000
 
 -- How far the raw array may run past MAX_BUFFER before it is compacted (minor 13). Through minor 12
 -- every Add past the cap ran table.remove(buffer, 1), a MAX_BUFFER-slot shift per line for as long
 -- as logging stayed on. Now the array grows to MAX_BUFFER + BUFFER_SLACK and the newest MAX_BUFFER
--- lines are then moved down in one pass: one compaction per 65 lines instead of a shift per line.
+-- lines are then moved down in one pass: one compaction per BUFFER_SLACK + 1 lines instead of a
+-- shift per line.
 --
 -- `buffer` stays a plain ordered array rather than a ring, because host suites across the
 -- collection index it directly. What moves is only its LENGTH past the cap: between compactions it
 -- may hold up to MAX_BUFFER + BUFFER_SLACK raw entries, and every public reader (BufferSize,
 -- LastLine, FindLine, CopyText, the status line) answers the newest MAX_BUFFER and no more.
-local BUFFER_SLACK = 64
+--
+-- Published at minor 14 rather than kept a local, and read by Add at call time like MAX_BUFFER.
+-- The two move together: moves per line is roughly MAX_BUFFER / (BUFFER_SLACK + 1), so a bigger
+-- buffer takes a bigger slack to keep the same amortized cost, and a suite that pinned 64 as a
+-- literal next to a constant it reads back would go stale the day the buffer moves. It did move,
+-- in the same minor: 64 at 1500 was about 23 moves per line, and 128 at 3000 keeps it there.
+lib.BUFFER_SLACK = 128
+
+-- Copy timing (minor 14). Off by default and never persisted: a session-only switch for measuring
+-- what the copy window costs at a given buffer size, set by hand with
+-- `/run LibStub("LibKa0s-DebugLog-1.0").TIME_COPY = true`. While it is on, every ShowCopy prints
+-- one COPY_TIMING line through the host's chat printer, never through Add, so a measurement does
+-- not grow the very buffer it is measuring. Lib-level on purpose: it is a question about the
+-- library's window, and one switch answers it for every console loaded.
+lib.TIME_COPY = false
 
 -- Re-exported rather than left for the host to reach into Core for. A host that draws a close
 -- button on its own windows should get the same one its console wears, from one factory — three
@@ -113,6 +139,13 @@ lib.STRINGS = {
   -- an empty substitution, because "Same as  debug." reads as a bug and this text ships frozen.
   CHECKBOX_TOOLTIP_NO_SLASH = "Show or hide the on-screen debug console window. Whether logging " ..
     "is on is separate \226\128\148 use the window's own toggle.",
+  -- Printed only while lib.TIME_COPY is on (minor 14). Milliseconds from debugprofilestop.
+  COPY_TIMING      = "copy timing: %d lines, %d bytes, concat %.1fms, open+highlight %.1fms, " ..
+    "next frame %.1fms",
+  -- The one chat line a diagnostics report prints (minor 14, DebugLogDiagnostics.lua). Localizable
+  -- like every string here; the report BODY is English diagnostic text and never goes through `L`.
+  DIAG_WRITTEN     = "Diagnostic report written to the debug console: %d lines. " ..
+    "Use Copy to share it.",
 }
 
 -- ── the formatters ─────────────────────────────────────────────────────────────────────────
@@ -318,6 +351,12 @@ end
 ---                         and shipped diagnostic windows that did not match the other three's.
 ---                         Pass this only for a close control that is genuinely DIFFERENT IN
 ---                         KIND — not merely the host's own.
+---   brandName   string    optional, minor 14. The addon's plain-text brand, `Ka0s <Name>`, named
+---                         in both diagnostics markers. Falls back to `title`.
+---   diagnostics function  optional, minor 14. Returns the host's report sections as
+---                         `{ { name, fn }, ... }`, each `fn(out)`. CALLED AT RUN TIME rather than
+---                         read at New, so a module that loads after the console can still supply
+---                         a section. Read only when DebugLogDiagnostics.lua is loaded.
 function lib:New(d)
   d = type(d) == "table" and d or {}
   for _, field in ipairs({ "name", "title", "font", "isEnabled", "setEnabled" }) do
@@ -619,9 +658,10 @@ function lib:New(d)
 
   -- ── logging ──────────────────────────────────────────────────────────────────────────────
 
-  --- Append one line. UNGATED on purpose: the enable seam's own bracket lines and a host's perf
-  --- output both have to land whatever the flag says. The gate lives in D.Debug.
-  function D:Add(tag, msg)
+  --- The append itself, without the repaint. Add is this plus one scrollbar and status update; the
+  --- diagnostics report (minor 14) writes up to DIAG_MAX_LINES lines through this and repaints once
+  --- at the end, rather than repainting the status line once per line.
+  local function append(tag, msg)
     -- Through the seam even though the two formatters end in string.format rather than
     -- table.concat: a WoW secret raises inside format just as it does inside concat, and Add is
     -- PUBLIC and ungated — it is the path a host's perf output and the enable brackets take. The
@@ -633,13 +673,19 @@ function lib:New(d)
     local buf = D.buffer
     buf[#buf + 1] = lib.FormatPlain(ts, tag, msg)
     local n, cap = #buf, lib.MAX_BUFFER
-    if n > cap + BUFFER_SLACK then
+    if n > cap + lib.BUFFER_SLACK then
       -- One pass: the newest `cap` lines move down to 1..cap, then the tail is cleared from the end
       -- so the array stays dense at every step.
       local drop = n - cap
       for i = 1, cap do buf[i] = buf[i + drop] end
       for i = n, cap + 1, -1 do buf[i] = nil end
     end
+  end
+
+  --- Append one line. UNGATED on purpose: the enable seam's own bracket lines and a host's perf
+  --- output both have to land whatever the flag says. The gate lives in D.Debug.
+  function D:Add(tag, msg)
+    append(tag, msg)
     D:UpdateScrollBar()
     D:UpdateStatus()
   end
@@ -731,12 +777,35 @@ function lib:New(d)
   --- MAX_BUFFER lines only, since minor 13: any slack past the cap is already evicted.
   function D:CopyText() return table.concat(D.buffer, "\n", firstKept(), #D.buffer) end
 
+  --- ShowCopy with the three costs measured (minor 14): the concat that builds the text, the open
+  --- (CopyWindow's SetText, cursor, Show, SetFocus and HighlightText), and whatever the client does
+  --- before the next frame, which is where laying out a large EditBox lands. Headless, or on a client
+  --- without either clock, the window opens untimed rather than raising: the flag is a measuring
+  --- aid, and a missing clock must never cost the user the copy window itself.
+  local function timedShowCopy(win)
+    local clock, timer = debugprofilestop, C_Timer
+    local after = type(timer) == "table" and timer.After
+    if type(clock) ~= "function" or type(after) ~= "function" then
+      win:Show(D:CopyText())
+      return
+    end
+    local t0 = clock()
+    local text = D:CopyText()
+    local t1 = clock()
+    win:Show(text)
+    local t2 = clock()
+    local lines, bytes = D:BufferSize(), #text
+    after(0, function()
+      emit(D:Text("COPY_TIMING"):format(lines, bytes, t1 - t0, t2 - t1, clock() - t2))
+    end)
+  end
+
   function D:ShowCopy()
     local win = EnsureCopyWindow()
     if not win then return end
     -- The width/text/cursor/show/focus/highlight order this used to spell out is CopyWindow's now,
     -- and it is load-bearing there for the same reasons it was here.
-    win:Show(D:CopyText())
+    if lib.TIME_COPY then timedShowCopy(win) else win:Show(D:CopyText()) end
     D._copyWindowForTest = win
     D._copyFrameForTest  = win:GetFrame()
   end
@@ -815,6 +884,21 @@ function lib:New(d)
         if v then D:Show() else D:Hide() end
       end,
     }
+  end
+
+  -- The diagnostics report (minor 14) lives in DebugLogDiagnostics.lua, a secondary file of this
+  -- major, and installs itself here when it loaded. It is handed the private pieces it needs and
+  -- nothing else: the batched append and the one repaint, the chat printer, the stringifier, and
+  -- the descriptor for `brandName`, `title`, `initSummary` and `diagnostics`. Absent, the instance
+  -- has no report methods, which is what a host's own degradation stub already answers for.
+  if type(lib.__installDiagnostics) == "function" then
+    lib.__installDiagnostics(D, {
+      d = d,
+      emit = emit,
+      safeToString = safeToString,
+      append = append,
+      repaint = function() D:UpdateScrollBar(); D:UpdateStatus() end,
+    })
   end
 
   return D

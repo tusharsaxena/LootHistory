@@ -1,5 +1,5 @@
 -- LibKa0s-Widgets-1.0 — the unlocked drag handle: a labeled strip with a help mark, dragged to move
--- the frame it belongs to.
+-- the frame it belongs to, and from minor 3 an opt-in close mark beside the help mark.
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -45,7 +45,7 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local DRAG_MINOR = 2
+local DRAG_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -125,9 +125,24 @@ lib.DRAG_HANDLE.RESERVE =
   - lib.DRAG_HANDLE.HELP_GUTTER
   + lib.DRAG_HANDLE.HELP_CLEAR
 
+-- THE CLOSE MARK (minor 3, opt-in through `spec.onClose`). It is the help mark's twin: a HELP_HIT
+-- frame around HELP art, the same tint and hover, sitting immediately left of the "?". CLOSE_GAP
+-- is the px between the two FRAMES, not the two arts; at 0 the arts sit 2 * HELP_GUTTER = 10px
+-- apart, which is the gutter each frame already carries and reads as a pair rather than as a gap.
+--
+-- NOT PART OF RESERVE, and that is the opt-in. RESERVE stays what every strip without an X keeps
+-- clear, byte for byte what minor 2 drew; a strip with an X keeps RESERVE + HELP_HIT + CLOSE_GAP
+-- on EACH side (dhReserve below), so the label stays centered and the clearance in front of the
+-- X's ink is still HELP_CLEAR.
+lib.DRAG_HANDLE.CLOSE_GAP = 0
+
 -- The last rung of the help mark's ladder, beside CHEVRON_FALLBACK and for the same reason: a host
 -- with no LibKa0s-Media passes no `helpIcon` and still gets a mark.
 local HELP_FALLBACK = "Interface\\FriendsFrame\\InformationIcon"
+
+-- The close mark's last rung, for the same reason: a host with no LibKa0s-Media passes no
+-- `closeIcon` and still gets an X.
+local CLOSE_FALLBACK = "Interface\\Buttons\\UI-StopButton"
 
 -- THE OTHER HALF OF THE SAME COMPLAINT: how loud the mark is, not only how big. Both copies drew
 -- the mark at full white -- the brightest thing on a strip whose own label is gold (1, 0.82, 0) on
@@ -363,6 +378,76 @@ local function dhBuildHelp(handle, spec)
   return help
 end
 
+--- The close mark, built only for a host that passes `spec.onClose`; nil otherwise, and nil where
+--- the client cannot make the frame.
+---
+--- THE HELP MARK'S TWIN IN EVERYTHING BUT ITS CLICK. The same HELP_HIT frame around the same HELP
+--- art at CENTER, the same resting tint, and the strip's own drag scripts, so a drag that starts on
+--- the X moves the frame like one that starts on the "?". It always brightens under the cursor,
+--- because unlike the "?" it always has a click behind it.
+---
+--- THE CLICK IS THE LEFT BUTTON'S. A left click calls `spec.onClose`; a right click is passed to
+--- `spec.onRightClick` when the host wired one, as the "?" passes it, so the X is not a dead zone
+--- for the strip's own right-click either. With no right-click the X registers the left alone. A
+--- drag is not a click: the client does not fire OnClick for a press that became a drag.
+---
+--- Anchored RIGHT to the "?"'s LEFT, so it follows the mark rather than restating its inset; on a
+--- strip whose "?" could not be built it takes the "?"'s own place. Its tooltip is
+--- `spec.closeTooltip`, falling back to `spec.tooltip`, read on every hover.
+local function dhBuildClose(handle, spec)
+  if not spec.onClose then return nil end
+  local D = lib.DRAG_HANDLE
+  local btn = CreateFrame("Button", nil, handle)
+  if not (btn and btn.SetSize) then return nil end
+  btn:SetSize(D.HELP_HIT, D.HELP_HIT)
+  if handle.help then
+    btn:SetPoint("RIGHT", handle.help, "LEFT", -D.CLOSE_GAP, 0)
+  else
+    btn:SetPoint("RIGHT", handle, "RIGHT", -D.HELP_INSET, 0)
+  end
+  btn:RegisterForDrag("LeftButton")
+  btn:SetScript("OnDragStart", handle:GetScript("OnDragStart"))
+  btn:SetScript("OnDragStop", handle:GetScript("OnDragStop"))
+  local icon = btn.CreateTexture and btn:CreateTexture(nil, "OVERLAY")
+  if icon and icon.SetTexture then
+    icon:SetSize(D.HELP, D.HELP)
+    icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    icon:SetTexture(spec.closeIcon or CLOSE_FALLBACK)
+    dhTint(icon, HELP_TINT)
+    btn.icon = icon
+  end
+  btn:SetScript("OnEnter", function()
+    dhTint(btn.icon, HELP_TINT_OVER)
+    dhShowTooltip(btn, spec, spec.closeTooltip or spec.tooltip)
+  end)
+  btn:SetScript("OnLeave", function()
+    dhTint(btn.icon, HELP_TINT)
+    dhHideTooltip()
+  end)
+  if spec.onRightClick then
+    btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  else
+    btn:RegisterForClicks("LeftButtonUp")
+  end
+  btn:SetScript("OnClick", function(_, button)
+    if button == "LeftButton" then
+      spec.onClose()
+    elseif button == "RightButton" and spec.onRightClick then
+      spec.onRightClick()
+    end
+  end)
+  return btn
+end
+
+--- What each side of the label keeps clear on THIS strip: RESERVE, plus the close mark's frame and
+--- its gap when the host asked for one. Read by dhBuildLabel and by Measure, so the bound the label
+--- truncates at and the width the strip is given cannot disagree.
+local function dhReserve(spec)
+  local D = lib.DRAG_HANDLE
+  if spec.onClose then return D.RESERVE + D.HELP_HIT + D.CLOSE_GAP end
+  return D.RESERVE
+end
+
 --- The strip's own chrome: a dark fill and a 1px gold edge, both guarded on the ANSWER rather than
 --- on the method, because a headless mock's CreateTexture can hand back nil.
 local function dhBuildChrome(handle, spec)
@@ -379,8 +464,9 @@ end
 --- The centered gold label, or nil where the client cannot make a FontString. Drawn in the same
 --- face dhLabelWidth measures in -- see LABEL_FONT_DEFAULT, which is the whole point of the field.
 ---
---- BOUNDED ON BOTH SIDES, NOT JUST CENTERED, and the bound is RESERVE -- the same number Measure()
---- spends on each side of the label. A FontString with a CENTER point and nothing else has no
+--- BOUNDED ON BOTH SIDES, NOT JUST CENTERED, and the bound is the strip's reserve (dhReserve:
+--- RESERVE, widened by the close mark where there is one) -- the same number Measure() spends on
+--- each side of the label. A FontString with a CENTER point and nothing else has no
 --- width of its own and grows both ways out of the strip, so a label longer than the strip runs
 --- under the mark and past the gold edge. There are three ways to get one, and none of them is
 --- exotic: a host floors the width at something narrower than the text (AuraMaster floors at one
@@ -397,7 +483,7 @@ local function dhBuildLabel(handle, spec)
   local face = spec.labelFont or LABEL_FONT_DEFAULT
   local label = handle.CreateFontString and handle:CreateFontString(nil, "OVERLAY", face)
   if not (label and label.SetPoint) then return nil end
-  local reserve = lib.DRAG_HANDLE.RESERVE
+  local reserve = dhReserve(spec)
   label:SetPoint("LEFT", handle, "LEFT", reserve, 0)
   label:SetPoint("RIGHT", handle, "RIGHT", -reserve, 0)
   if label.SetJustifyH then label:SetJustifyH("CENTER") end
@@ -428,7 +514,7 @@ local function dhSetDragScripts(handle, spec)
   end)
 end
 
---- The three methods a host calls. Attached per instance, because every field of the spec is.
+--- The four methods a host calls. Attached per instance, because every field of the spec is.
 local function dhAttachMethods(handle, spec)
   --- Re-text the strip. The width is NOT applied here: a host decides when it may touch geometry.
   function handle:SetLabel(text)
@@ -437,12 +523,20 @@ local function dhAttachMethods(handle, spec)
     return self
   end
 
-  --- The strip's natural width: the label, plus what each side of it keeps clear. RESERVE is spent
-  --- TWICE -- once on the right, where it pays for the mark's inset, its frame and the clearance
-  --- in front of its art, and once on the left as the matching empty gap, which is what keeps the
-  --- label optically centered. Both hosts wrote this expression out; neither does now.
+  --- The strip's natural width: the label, plus what each side of it keeps clear. The reserve is
+  --- spent TWICE -- once on the right, where it pays for the marks' inset, their frames and the
+  --- clearance in front of the leftmost art, and once on the left as the matching empty gap, which
+  --- is what keeps the label optically centered. Both hosts wrote this expression out; neither
+  --- does now.
   function handle:Measure()
-    return dhLabelWidth(spec, self.__label) + lib.DRAG_HANDLE.RESERVE * 2
+    return dhLabelWidth(spec, self.__label) + dhReserve(spec) * 2
+  end
+
+  --- What each side of the label keeps clear on this strip: DRAG_HANDLE.RESERVE without a close
+  --- mark, RESERVE + HELP_HIT + CLOSE_GAP with one. Published so a host that reasons about the
+  --- strip's width reads the number rather than restating the arithmetic.
+  function handle:Reserve()
+    return dhReserve(spec)
   end
 
   --- Set the width to the natural one, floored by `minWidth` -- ConsumableMaster's bar width,
@@ -468,6 +562,12 @@ end
 ---   onDragStart function|nil      called once the move has started.
 ---   onDragStop  function|nil      called once it has stopped -- where a host saves the position.
 ---   onRightClick function|nil     without it NEITHER the strip NOR the mark registers for clicks.
+---   onClose     function|nil      minor 3. Builds the close mark (an X) left of the help mark and
+---                                 calls this on its left click. Without it no X is built and the
+---                                 strip is exactly minor 2's.
+---   closeIcon   string|nil        resolved texture path for the X; nil falls back.
+---   closeTooltip table|nil        a descriptor of the tooltip shape, shown by the X alone; the X
+---                                 shows `tooltip` without it.
 ---   tooltip     table|nil         the descriptor the STRIP shows, and the mark's too unless
 ---                                 `helpTooltip` says otherwise:
 ---                                   { title, body = {…}, footer = {…}, owner, anchor }
@@ -511,6 +611,7 @@ function lib.DragHandle(parent, spec)
   dhSetClick(handle, spec, true)
 
   handle.help = dhBuildHelp(handle, spec)
+  handle.close = dhBuildClose(handle, spec)
   dhAttachMethods(handle, spec)
   handle:SetLabel(spec.label)
   -- See "WHAT THE HOST STILL OWNS" at the top: the one visibility call this file makes, at birth,

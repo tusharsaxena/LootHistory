@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 15
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 16
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -86,13 +86,15 @@ lib.DISABLED_LINE_FORMAT = "%s is disabled \226\128\148 enable it with |cFFFFFF0
 -- The verbs that still answer while disabled, and the set is DATA rather than a branch buried in
 -- dispatch so that a reader can see the whole of it at once and a suite can assert on it.
 --
--- It is the standard's twelve RESERVED verbs and nothing else (slash-commands-§2). The dispatcher
--- SURVIVES the disabled state: `help`, `config`, `version`, `enable`, `disable`, `debug`, `perf`
--- and the whole schema CLI — `get`, `set`, `list`, `reset`, `resetall` — keep answering. A player
--- must be able to READ AND REPAIR SETTINGS and to REACH THE PANEL while the addon is off, which is
--- precisely when they are most likely to need to, and `enable` above all, or the switch only goes
--- one way. `debug` and `perf` are diagnostics rather than features: the usual reason to reach for
--- either is that the addon is misbehaving.
+-- It is the standard's thirteen RESERVED verbs and nothing else (slash-commands-§2). The dispatcher
+-- SURVIVES the disabled state: `help`, `config`, `version`, `enable`, `disable`, `debug`, `perf`,
+-- `diagnostics` and the whole schema CLI — `get`, `set`, `list`, `reset`, `resetall` — keep
+-- answering. A player must be able to READ AND REPAIR SETTINGS and to REACH THE PANEL while the
+-- addon is off, which is precisely when they are most likely to need to, and `enable` above all, or
+-- the switch only goes one way. `debug`, `perf` and `diagnostics` are diagnostics rather than
+-- features: the usual reason to reach for any of them is that the addon is misbehaving.
+-- `diagnostics` joined at minor 16, under the standard's v2.68.0 (debug-logging-§14): the report is
+-- most needed from an addon that is off.
 --
 -- What the gate is left refusing is therefore exactly the HOST'S OWN FEATURE VERBS — the ones that
 -- draw, show, hide, track, record, test, clear or export the thing the addon exists to do. That is
@@ -110,7 +112,7 @@ lib.DISABLED_LINE_FORMAT = "%s is disabled \226\128\148 enable it with |cFFFFFF0
 -- must name the set names THIS one rather than a copy of it.
 lib.LIVE_VERBS = {
   "help", "config", "version", "enable", "disable", "debug",
-  "perf", "get", "set", "list", "reset", "resetall",
+  "perf", "diagnostics", "get", "set", "list", "reset", "resetall",
 }
 
 -- ── the formatters ─────────────────────────────────────────────────────────────────────────
@@ -475,9 +477,10 @@ end
 ---                          `label`. MUST NOT be derived from the TOC Title, which may carry color
 ---                          escapes.
 ---   liveVerbs    table     optional, minor 12. Array of the verbs that still answer while
----                          disabled, defaulting to lib.LIVE_VERBS — the standard's twelve reserved
----                          verbs since minor 13. Present so the set is data rather than a
----                          hard-coded branch; a host MAY narrow it to the verbs it ships.
+---                          disabled, defaulting to lib.LIVE_VERBS — the standard's reserved verbs
+---                          since minor 13, thirteen of them from minor 16. Present so the set is
+---                          data rather than a hard-coded branch; a host MAY narrow it to the verbs
+---                          it ships.
 function lib:New(d)
   d = type(d) == "table" and d or {}
   if type(d.slash) ~= "string" or d.slash == "" then
@@ -823,7 +826,7 @@ function lib:New(d)
     -- is one surface answering two ways.
     if aliases[cmd] then cmd = aliases[cmd] end
 
-    -- THE GATE. What is left once the twelve reserved verbs have passed is the host's own feature
+    -- THE GATE. What is left once the thirteen reserved verbs have passed is the host's own feature
     -- verbs, and input that is not a verb at all. Each gets the one line and nothing else. Not
     -- `unknown command '<verb>'`, and not the help index: both of those answer "I did not
     -- understand you", and the addon understood perfectly well. It is off.

@@ -308,7 +308,7 @@ test("slash-commands-§7 step 6: firing every event it used to watch writes noth
 --- these answers normally while disabled, and so does the bare `/lh`, which opens the panel. That
 --- last one is the case that settled it.
 local RESERVED = {
-  "help", "config", "version", "enable", "disable", "debug", "perf",
+  "help", "config", "version", "enable", "disable", "debug", "perf", "diagnostics",
   "get", "set", "list", "reset", "resetall",
 }
 
@@ -403,7 +403,7 @@ test("slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the
   for _, verb in ipairs(RESERVED) do
     assertTrue(libSet[verb] ~= nil, "the library's live set is missing " .. verb)
   end
-  assertEqual(#lib.LIVE_VERBS, #RESERVED, "the two sets must be the same twelve verbs")
+  assertEqual(#lib.LIVE_VERBS, #RESERVED, "the two sets must be the same thirteen verbs")
   for _, verb in ipairs(FEATURE) do
     assertTrue(libSet[verb] == nil, verb .. " is a feature verb and must not be on the live set")
   end

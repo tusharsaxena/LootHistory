@@ -18,6 +18,27 @@ test("the degraded DebugLog stub's formatters carry no library format string", f
   assertEqual(degradedNS.DebugLog.FormatPlain("t", "x", "m"), "m")
 end)
 
+-- debug-logging-§14's library-absent contract for the diagnostics report: the stub prints the
+-- collection's placeholder line naming the command, writes nothing and returns 0. The string is
+-- spelled out rather than read off the stub, so a changed wording fails here.
+test("the degraded DebugLog stub's RunDiagnostics prints the placeholder, writes nothing, returns 0", function()
+  local degradedNS, lines = dofile("tests/degraded_env.lua")()
+  local before = #lines
+  local n = degradedNS.DebugLog:RunDiagnostics()
+  assertEqual(n, 0, "the stub reports no lines written")
+  -- The degraded printer's one-shot "library is missing" notice fires on the first print of the
+  -- session, so it may precede the placeholder; the report itself adds exactly one line.
+  local mine = 0
+  for i = before + 1, #lines do
+    if not lines[i]:find("library is missing", 1, true) then mine = mine + 1 end
+  end
+  assertEqual(mine, 1, "exactly one report line")
+  assertTrue(lines[#lines]:find("/lh diagnostics is unavailable: the LibKa0s library did not load.", 1, true) ~= nil,
+    "the placeholder names the command: " .. tostring(lines[#lines]))
+  assertEqual(degradedNS.DebugLog:BufferSize(), 0, "nothing reaches a buffer")
+  assertEqual(degradedNS.DebugLog:DebugVerb("diagnostics"), false, "the stub's DebugVerb leaves the host its fallback")
+end)
+
 -- Secret-safe sink (events-frames-taint-§8): a combat "secret" arg must reach string.format only
 -- through NS.SafeToString, so it logs as <secret> instead of raising. Modeled as a table (which
 -- table.concat / string.format reject) — the same shape a real secret trips on.
