@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 7
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 8
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -390,6 +390,115 @@ function lib.ResolveColor(stored, on, unit)
   return cr, cg, cb, a
 end
 
+-- ── the pcalled event registration helper ──────────────────────────────────────────────────
+--
+-- The client RAISES `Attempt to register unknown event "<NAME>"` on a name it does not know, and a
+-- block of bare RegisterEvent calls loses every line after the one that raised: a single event
+-- retired by a patch takes an addon's whole enable path down (events-frames-taint-§1). These three
+-- are the collection's one helper for that, since minor 8.
+--
+-- The name is asked about BEFORE the target sees it, because the target's own answer lies for
+-- AceEvent: CallbackHandler stores the callback and only then asks the client's frame, and only
+-- for the event's FIRST registrant in a registry the whole client shares. The raise leaves that
+-- callback behind, so every later registrant -- the same target again, a second module, another
+-- addon -- gets a call that does not raise for a name the client never registered.
+--
+-- So: when `C_EventUtils.IsEventValid` exists and answers a boolean, that is the answer. Otherwise
+-- a private probe frame, made once, registers the name under pcall and unregisters it at once; a
+-- raw frame asks the client every time. A refused name is NEVER handed to the target. Only where
+-- neither is available (no CreateFrame: a load path with no UI) does the target's own pcall decide
+-- alone, and that rung inherits AceEvent's first-registrant blind spot. The target call is pcall'd
+-- on every rung all the same, so a raise for any other reason (a missing method name) rejects too.
+-- The helper never unregisters on the target: that would drop a live earlier registration.
+--
+-- The library keeps no registration state and prints nothing; the probe frame registers nothing
+-- between calls. `rejected` is the CALLER'S array, appended once per
+-- name, and the host decides where the player sees it ([Init], a debug verb). The call goes through
+-- `target.RegisterEvent`, whatever that is -- AceEvent's member, a Frame's, or a Bus tracking
+-- wrapper -- so a Bus-stamped target still records the registration for its replay.
+
+local probe  -- the private frame probeRefuses asks with; made on first need
+
+-- True when a raw frame of our own raises on `event`. False when there is no frame to ask with.
+local function probeRefuses(event)
+  if not probe then
+    if type(CreateFrame) ~= "function" then return false end
+    local ok, frame = pcall(CreateFrame, "Frame")
+    if not ok or type(frame) ~= "table" then return false end
+    probe = frame
+  end
+  if not pcall(probe.RegisterEvent, probe, event) then return true end
+  probe:UnregisterEvent(event)
+  return false
+end
+
+-- True when the client says `event` is not a name it knows: through IsEventValid when that answers
+-- a boolean, else through the probe frame. Absent both, the target's own pcall still gets its chance.
+local function clientRefuses(event)
+  local utils = C_EventUtils
+  if type(utils) == "table" and type(utils.IsEventValid) == "function" then
+    local ok, valid = pcall(utils.IsEventValid, event)
+    if ok and type(valid) == "boolean" then return not valid end
+  end
+  return probeRefuses(event)
+end
+
+-- Append `event` to the caller's list unless it is already there. A disable/enable cycle runs the
+-- same block twice, and a list that grew on every cycle would read as a new problem each time.
+local function noteRejected(rejected, event)
+  if type(rejected) ~= "table" then return end
+  for i = 1, #rejected do
+    if rejected[i] == event then return end
+  end
+  rejected[#rejected + 1] = event
+end
+
+-- The one body both members run: `method` is the target's RegisterEvent or RegisterUnitEvent.
+local function register(method, target, event, rejected, ...)
+  if clientRefuses(event) or not pcall(method, target, event, ...) then
+    noteRejected(rejected, event)
+    return false
+  end
+  return true
+end
+
+local function requireTarget(target, member)
+  if type(target) ~= "table" then
+    error(MAJOR .. ":" .. member .. " requires a target table - an AceEvent-embedded object or a frame", 3)
+  end
+end
+
+--- Register one event on `target` without letting an unknown name raise.
+---
+--- @param target table     an AceEvent-embedded object, a Bus target or a Frame
+--- @param event string
+--- @param handler any      passed through to target:RegisterEvent (a Frame ignores it)
+--- @param rejected table|nil  the caller's list; the name is appended once when refused
+--- @return boolean registered
+function lib.SafeRegisterEvent(target, event, handler, rejected)
+  requireTarget(target, "SafeRegisterEvent")
+  return register(target.RegisterEvent, target, event, rejected, handler)
+end
+
+--- Register one unit event on a frame without letting an unknown name raise. The unit tokens are
+--- passed through exactly as given (`unit1[, unit2]`).
+--- @return boolean registered
+function lib.SafeRegisterUnitEvent(frame, event, rejected, ...)
+  requireTarget(frame, "SafeRegisterUnitEvent")
+  return register(frame.RegisterUnitEvent, frame, event, rejected, ...)
+end
+
+--- Register every name in the array `events` on `target`, one refusal costing only itself.
+--- @return number how many registered
+function lib.SafeRegisterEvents(target, events, handler, rejected)
+  requireTarget(target, "SafeRegisterEvents")
+  local n = 0
+  for _, event in ipairs(type(events) == "table" and events or {}) do
+    if register(target.RegisterEvent, target, event, rejected, handler) then n = n + 1 end
+  end
+  return n
+end
+
 -- ── the prefixed chat printer ──────────────────────────────────────────────────────────────
 
 --- Build a printer for one host.
@@ -451,12 +560,24 @@ function lib:New(d)
 
   --- format() over pre-stringified arguments, so a secret reaching a %s slot renders as the
   --- sentinel instead of raising on its way to the chat frame.
+  ---
+  --- pcall'd since minor 8, and the fallback is the point. SafeToString answers a STRING, so a
+  --- secret reaching a NUMERIC slot (`Format("%d rows", secret)`) hands "<secret>" to %d, and
+  --- string.format raises on it exactly as the unguarded secret would have. On failure the line
+  --- still lands: the format verbatim, then the stringified arguments, space-joined, the same
+  --- fallback LibKa0s-DebugLog-1.0's D.Debug uses. A satisfiable format is untouched.
   function printer.Format(fmt, ...)
     local n = select("#", ...)
-    if n == 0 then emit(lib.SafeToString(fmt)) return end
+    local safeFmt = lib.SafeToString(fmt)
+    if n == 0 then emit(safeFmt) return end
     local parts = {}
     for i = 1, n do parts[i] = lib.SafeToString((select(i, ...))) end
-    emit(lib.SafeToString(fmt):format(unpack(parts)))
+    local ok, out = pcall(string.format, safeFmt, unpack(parts))
+    if ok then
+      emit(out)
+    else
+      emit(safeFmt .. " " .. table.concat(parts, " "))
+    end
   end
 
   return printer

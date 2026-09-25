@@ -22,7 +22,7 @@ Companion docs:
 - **Chat banner** — every line the addon prints starts with a cyan `[LH]` (`NS.PREFIX`). A line
   missing the banner, or a doubled `[LH][LH]`, is a bug.
 - **Slash roots** — `/lh` and `/loothistory` are equivalent; the examples use `/lh`. **Bare `/lh`
-  opens the Settings panel on its landing page** (slash-commands-§4), and `/lh help` prints the help
+  opens the Settings panel on its landing page** (slash-commands-§3), and `/lh help` prints the help
   index. Neither opens the loot window; use `/lh toggle|show|hide`.
 - **"Loot at/above threshold"** means loot an item whose quality is ≥ the `Minimum quality` setting
   (default Common). `CHAT_MSG_LOOT` (self lines only) is the authoritative capture signal — anything
@@ -48,7 +48,7 @@ Companion docs:
 | 10 | Panel chrome | options-ui-§10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
 | 11 | Minimap | LibDBIcon show/hide, click actions | [Minimap button](#11-minimap-button) |
 | 12 | Debug console | `/lh debug` window + session-only logging | [Debug console](#12-debug-console) |
-| 13 | Retention | `PruneOld` on login + onChange | [Retention prune](#13-retention-prune) |
+| 13 | Retention | `PruneOld` on login + confirmed change | [Retention prune](#13-retention-prune) |
 | 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
 | 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
 | 16 | Blacklist & whitelist | Capture gate (point-in-time) + Filters management UI | [Blacklist & whitelist](#16-blacklist--whitelist) |
@@ -83,23 +83,23 @@ Loot History**.
   `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/test/purge/help — sixteen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
-  `settings`, `minimap`, and `schemaVersion = 5`. (The seed value is 1; `NS:RunMigrations` — invoked
-  from `InitDB` before any read — applies the v1→v2, v2→v3, v3→v4, and v4→v5 migrations back-to-back
-  on a brand-new DB immediately, so the value persisted after the very first init is already 5. The
-  v3→v4 currency-quality and v4→v5 currency-bound backfills touch 0 rows here since `history` is
-  empty.)
+  `settings`, `minimap`, and `schemaVersion = 8`. (The declared default is 0, the savedvariables-§1
+  floor; `NS:RunMigrations`, invoked from `InitDB` before any read, walks v1→v2 through v7→v8
+  back-to-back on a brand-new DB, so the value persisted after the very first init is already 8.
+  Every step touches 0 rows here since `history` is empty.) `/dump LootHistoryDB.global.schemaVersion`
+  answers 8; on an existing account it also answers 8 and the history is intact.
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
-  `settings.excludedSources = table: …` (empty), `minimap.hide = true` — the row's sense is SHOWN
-  while the stored key is `hide = false`, which is the whole of launcher-§3's inversion and is what
-  the two spellings above are saying.
+  `settings.excludedSources = table: …` (empty), `minimap.shown = true` — the row path and its
+  sense are SHOWN while the one stored key is `minimap.hide = false`, which is the whole of
+  launcher-§3's inversion and is what the two spellings above are saying.
 - **The disabled state is TOTAL** (slash-commands-§7). `/lh disable` prints
   `settings.enabled = false`, and the addon **stops running** rather than staying loaded and
   ignoring what it sees: the History window closes and will not reopen, loot you take is not
   recorded, and `/lh show` answers one line —
-  `Ka0s Loot History is disabled — enable it with /lh enable` — and does nothing else. The same
-  line, and nothing else, is what a **left-click on the minimap button** gives you; a **right-click**
-  still opens the settings panel, in either state.
+  `Ka0s Loot History is disabled — enable it with /lh enable` — and does nothing else. The minimap
+  button refuses nothing: a **left-click** opens the settings panel in either state, and a
+  **right-click** opens its options menu with **Enabled** live and the other three entries grayed.
 - **And the command surface is unchanged while it is off.** Still with the addon disabled, check
   that a bare `/lh` opens the settings panel (this is the case the standard's v2.57.0 reversal
   turned on), `/lh version` prints, `/lh list` and `/lh get settings.qualityThreshold` read,
@@ -181,6 +181,17 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   appears just before the item's `[Loot] … src=ROLL`. If instead the item records as the boss's
   Kill/Container source, the client is emitting the compact "no-spam" roll variant and the ROLL path
   needs a follow-up (see ARCHITECTURE Known limitations).
+- **The keystone context ends with the key.** With `/lh debug on`, run a key, complete it and loot
+  the reward chest: it records as **Mythic+** (row 7). Leave the dungeon, then mine an ore node or
+  pick a herb: it records as **Container**, and the debug console shows an `[Attr] keystone cleared`
+  line on the zone change. Zoning out and back in mid-key keeps chest and object loot as **Mythic+**
+  (a `keystone re-armed` line on re-entry). Resetting the key (`CHALLENGE_MODE_RESET`) also clears it.
+- **Boss-corpse loot keeps its encounter.** With `/lh debug on`, kill a boss and loot the corpse. The
+  console shows `[Attr] encounter end … kill: context kept 60s for the corpse` **before** the
+  `LOOT_OPENED` line, and the recorded row's `sourceDetail` carries `encounterID` and `difficulty`
+  (`/dump LootHistoryDB.global.history[#LootHistoryDB.global.history].sourceDetail`). A wipe logs
+  `wipe/no context: cleared` instead. If `LOOT_OPENED` arrives before `encounter end`, the grace
+  window is unnecessary: record that and revisit `Constants.ENCOUNTER_GRACE`.
 - Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
   a Lua error, never a missing row.
 - The denormalized columns render correctly: item link (exact tooltip), quality color, iLvl, bound
@@ -193,6 +204,12 @@ partner if available; a quest with an item reward; optionally a M+ keystone.
   currency-by-character×type, currency-over-time). §F-010: verify the currency **category** (SubType) reads
   a real header like "The War Within" — if it's blank, `Compat.CurrencyCategory` couldn't resolve the
   currency-list headers on this client and needs a look.
+- **A currency first seen mid-session still gets its category (S-003).** At a season start, loot a
+  currency not yet seen this session (after at least one other currency loot built the category
+  cache). Its row's **Subtype** reads its Currency-tab header, not blank: a miss rebuilds the cache
+  once. Then collapse that header in the Currency tab, `/reload`, and loot a currency under it; record
+  in [midnight-quirks.md](midnight-quirks.md) *Currency category* whether the Subtype resolves (the
+  expectation is blank, because the list API skips a collapsed header's children).
 - **Currency quality (name color + Quality column).** The currency row's **Name** cell is colored by
   its own `C_CurrencyInfo` quality tier (not blank/white), and the **Quality** column shows that
   tier's label — the same rendering the History table already gives item rows. Hovering the row shows
@@ -513,7 +530,8 @@ History** (both must land on the same category).
   own when combat ends. Drag **Master scale** — the History window *and* the export window both
   change size, and **Window scale** on the Interface tab still multiplies on top of it. Drag
   **Master alpha** — both windows fade together. Tick **Lock frame** and try to drag either window
-  by its title bar: neither moves; untick it and both drag again.
+  by its title bar: neither moves; drag the History window's bottom-right resize grip: it does not
+  resize. Untick it and both drag again, and the grip resizes; `/reload` and the new size is kept.
 - Drag the **Window scale** slider (Interface); run `/lh get settings.windowScale`. Then
   `/lh set windowScale 1.5` and watch the slider. **The slider must move smoothly in 0.05 steps** —
   it shipped with no step and could only be dragged to 0.6 or 1.6.
@@ -560,7 +578,7 @@ History** (both must land on the same category).
   `[History]` —
   the tab names, in strip order. The headers follow the `group` field, so a tab rename lands here
   too and a stale `[Collection]` or `[Maintenance]` means one was missed.
-- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.hide`, `state.debugConsole`, `state.testMode`,
+- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.shown`, `state.debugConsole`, `state.testMode`,
   `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
   `settings.retentionDays`, `settings.excludedSources`).
 - The **Debug console** checkbox reflects the console window's visibility (not the logging flag),
@@ -612,7 +630,7 @@ destructive-action confirm dialogs.
 
 ONE LibDataBroker object registered twice (launcher-§1), built by `core/LauncherSetup.lua` on
 `LibKa0s-Launcher-1.0`: LibDBIcon draws the minimap button from it, and any broker display that is
-installed draws its own row from the very same object. Visibility lives in `minimap.hide`, in the
+installed draws its own row from the very same object. Visibility is stored in `minimap.hide` (the CLI row is `minimap.shown`), in the
 **global** store, and the panel row that drives it is **Minimap button** on Master controls — whose
 label says *shown* while the stored key says *hidden*. **This is the one check that cannot be made
 out of game**: a `## IconTexture` and a launcher icon in the wrong TGA flavor draw nothing and raise
@@ -622,8 +640,14 @@ art actually appears.
 **Steps.**
 - Open the AddOns list at the character-select or in-game Interface list. Look at this addon's row.
 - Locate the minimap button; hover it.
-- Left-click it; right-click it.
+- Left-click it. Close Settings, then right-click it and click each menu entry in turn (reopening the
+  menu each time): **Show window**, **Test mode**, **Locked**, then **Enabled**.
+- With the addon now disabled, hover the button, left-click it, right-click it and click a grayed
+  entry; then click **Enabled** in the menu to switch the addon back on.
 - Settings → Master controls → uncheck **Minimap button**; check it again.
+- Uncheck **Minimap button** again and run `/lh get minimap.shown`. Then Master controls →
+  **Reset all settings** (confirm). Then `/lh reset minimap.shown`.
+- `/lh set minimap.hide true`.
 - Drag the button to a new spot on the minimap ring.
 - `/reload`.
 - If you run Titan Panel, ElvUI data texts or Bazooka: add "LootHistory" from its plugin list.
@@ -631,16 +655,40 @@ art actually appears.
 **Pass.**
 - **The AddOns list shows the addon's own logo**, not a Blizzard icon and not an empty square. The
   minimap button wears the same art, and so does the broker row.
-- The tooltip shows "Ka0s Loot History" + a live record count ("N records") + the click hints.
-- **Left-click toggles** the history window — this addon is **rung (a)**, it has a primary window —
-  and **right-click opens Settings**, which is true on every Ka0s addon whatever its rung.
+- The tooltip is the library's block (Launcher minor 3, hints fixed at minor 4, LibKa0s v1.58.0),
+  in this order and with no line twice: `Ka0s Loot History  v<the TOC version>`, `Enabled: Yes`
+  (green), `Locked: No`, `Test mode: Off`, a live record count ("N records", gray),
+  `Left-click: Open settings`, `Right-click: Options menu`. Tick **Lock frame** and **Test mode**,
+  hover again: `Locked: Yes`, `Test mode: On` (read on every show, never cached).
+- **Left-click opens Settings**, on every Ka0s addon and in either state (launcher-§2, v2.67.0).
+- **Right-click opens the client's own context menu**, titled `Ka0s Loot History`, with four
+  checkboxes in this order, each ticked to match the current state: **Enabled**, **Locked**,
+  **Test mode**, **Show window**. Each entry does what its own command or row does, once, and the
+  menu closes:
+  - **Show window** opens or closes the History window exactly as `/lh toggle` does (the General
+    visibility setting refuses it with the same line);
+  - **Test mode** runs `/lh test` (`test mode on|off`, or the refusal in combat);
+  - **Locked** flips the Master controls **Lock frame** box (open the panel: it follows);
+  - **Enabled** while on runs `/lh disable` and prints `settings.enabled = false`.
+- **While disabled** the tooltip still shows, with `Enabled: No` (red) and the same two hints. A
+  left-click opens Settings and prints nothing. The right-click menu shows **Enabled** unticked and
+  live, and `Locked (enable the addon first)`, `Test mode (enable the addon first)`,
+  `Show window (enable the addon first)` grayed: clicking one does nothing. Clicking **Enabled**
+  prints `settings.enabled = true` and the addon comes back up.
 - After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the
   AceDB-default `minimap` table, with no seed from the launcher setup (#30). The **rename** of the
   registration from "Ka0s Loot History" to the folder name `LootHistory` does not move it: LibDBIcon
   stores the position in the table it is handed, not under the name.
 - Unchecking **Minimap button** hides the icon **immediately**, not at the next reload; checking it
   brings it back. The state **persists across `/reload`**.
-- The broker display's own row answers the same two clicks, because there is only one `OnClick`.
+- With the box unticked, `/lh get minimap.shown` prints `false` (the CLI path reads in the row's own
+  sense; the stored key underneath is `minimap.hide = true`). **Reset all settings** leaves the
+  button hidden (launcher-§3). `/lh reset minimap.shown` brings it back: that is the player naming
+  the row, not a bulk reset.
+- `/lh set minimap.hide true` answers `Setting not found: minimap.hide` — the pre-v2.65.0 path is
+  gone, so a macro written against it must become `/lh set minimap.shown false`.
+- The broker display's own row answers the same two clicks, and its right-click opens the same menu,
+  because there is only one `OnClick`.
 - Hiding the minimap button does **not** remove the broker row, and there is deliberately no setting
   that would: a display already offers its own per-plugin toggle (launcher-§1).
 
@@ -657,6 +705,7 @@ are **independent**.
 - With logging on and the window full of lines: **drag the right-edge scrollbar** up and down, and
   **mousewheel** over the log. Watch the **bottom-right line counter** (`N / 1500 lines`) as new lines
   arrive and after **Clear**.
+- `/lh debug events`. Then `/lh disable`, `/lh enable`, loot something, and `/lh debug events` again.
 - `/reload`.
 
 **Pass.**
@@ -674,6 +723,9 @@ are **independent**.
   on enable (immediately followed by the `[Init]` summary, below) and `[Debug] logging disabled` on disable.
 - **Copy** opens an editbox of plain text; **Clear** empties the log; **ESC** closes the window; the
   header **Debug: ON/OFF** toggle flips the same session flag as `/lh debug on|off` (same ack + lines).
+- `/lh debug events` prints `[LH] rejected events: none` on 12.1, both times, and toggles neither the
+  window nor the logging flag. After the disable/enable cycle loot still records: every registration
+  came back (events-frames-taint-§1).
 - After `/reload`, debug logging is back **off** and the console is closed.
 
 ### 13. Retention prune
@@ -682,13 +734,20 @@ are **independent**.
 `/lh test` data plus a short `retentionDays`).
 
 **Steps.**
-- Settings → set **Keep history for** to a short value (e.g. 7 days) with older records present.
-- Watch the History table / record count.
+- Settings → change **Keep history for** from 90 to 7 days with older records present. Answer **No**.
+- Change it to 7 days again and answer **Yes**. Watch the History table / record count.
+- `/lh set settings.retentionDays 7` with older records present.
 - `/reload` and wait ~5 seconds after login.
 
 **Pass.**
-- Setting a shorter retention fires the row's `onChange` → `PruneOld`, dropping records older than the
-  window immediately (rebuild-and-swap, no holes); the table and footer refresh.
+- A shorter retention that would delete records raises a confirm naming the record count; nothing
+  is deleted before it is answered.
+- **No** keeps every record, puts the dropdown back at 90 and prints one chat line
+  (`retention kept at 90 days; no records were deleted.`); a `/reload` afterwards deletes nothing.
+- **Yes** runs `PruneOld`, dropping records older than the window (rebuild-and-swap, no holes); the
+  table and footer refresh.
+- `/lh set settings.retentionDays 7` shows the same confirm. A value that would delete nothing asks
+  nothing.
 - `PruneOld` also runs **~5s after login** (`PLAYER_ENTERING_WORLD` deferred), so stale records are
   pruned on a fresh session even without touching the setting.
 - **"Always"** retention keeps everything (no prune). No error at either prune path.
@@ -701,11 +760,10 @@ are **independent**.
 - Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
 
 **Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 5` — `RunMigrations` (invoked from `InitDB`) applied
-  the v1→v2 (strips the retired `viaWhitelist` field), v2→v3 (`sellPrice` → `vendorPrice`), v3→v4
-  (backfills currency-record `quality` from `C_CurrencyInfo`), and v4→v5 (backfills currency-record
-  `bound` from `C_CurrencyInfo`) migrations and bumped the stamp to 5; re-running it on an already-v5
-  DB is a no-op (idempotent).
+- `LootHistoryDB["global"]["schemaVersion"] = 8` — `RunMigrations` (invoked from `InitDB`) applied
+  every pending step of the v1→v2 through v7→v8 ladder (the per-step contract is in
+  [schema.md](schema.md#schemaversion--the-migration-seam)) and stamped 8 after the last one;
+  re-running it on an already-v8 DB is a no-op (idempotent).
 - `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
   `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
   (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.
@@ -878,7 +936,16 @@ through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for
 7. **The export modal refuses and says why.** With no Export button in the bar there is no way to
    reach it from the toolbar; if you have another route to `NS.Export:Open`, it prints
    `…, so the export window is unavailable.` — the same cause clause as step 3 — and opens nothing.
-8. **Rename the folder back** and `/reload` before continuing.
+8. **Enable and disable still work.** `/lh` (the help) lists `/lh enable` and `/lh disable`, and
+   not `/lh set`. `/lh disable` prints one line, `settings.enabled = false`, raises no Lua error,
+   and recording stops (loot something: no new row). A feature verb now refuses with
+   `Ka0s Loot History is disabled — enable it with /lh enable`, the same line as with the library
+   present. `/lh enable` prints `settings.enabled = true` and recording resumes.
+9. **`/lh resetall` says what it cleared.** Put a couple of ids on the Filters lists first (with the
+   library present), then on the degraded install `/lh resetall` prints
+   `filters reset (N ids cleared); other settings need the LibKa0s library.` with N the number of
+   ids that were on the three lists (`1 id` in the singular) — never the bare "unavailable" line.
+10. **Rename the folder back** and `/reload` before continuing.
 
 **17b. The `L` trap — no SCREAMING_SNAKE on screen.** This addon passes no locale table to any
 descriptor, so every library string should render as English prose. A regression renders the *key*
@@ -1068,7 +1135,7 @@ by a headless suite.
 10. **The right-click row menu is unchanged and coexists.** Right-click a table row: the four-item
     action list still appears, still disables "Link to chat" without an item link and "Blacklist
     item" without an item id. It is deliberately NOT the library's widget (per-row disable is a
-    documented absence there) — see `docs/ARCHITECTURE.md` § *Menus: two mechanisms, on purpose*.
+    documented absence there) — see `docs/browser.md` § *Menus: two mechanisms, on purpose*.
     They remain two different mechanisms, but they no longer behave differently on dismissal.
     With the **row menu** open, left- or right-clicking anywhere outside it closes it — this addon's
     catcher registers both buttons (`modules/BrowserTable.lua`). **The filter dropdowns now do the
@@ -1186,7 +1253,7 @@ the same payload have no surface here. That is `ARCHITECTURE.md`'s documented de
 passed.** Run on a client set to **deDE or frFR**, the two the collection's other locale steps use
 (`ConsumableMaster/docs/smoke-tests.md` § 3c, `KickCD/docs/smoke-tests.md` § 9b).
 
-**Why this addon needs it more than most.** `core/Compat.lua:202-209` defines four English wordings
+**Why this addon needs it more than most.** `core/Compat.lua:210-217` defines four English wordings
 — `WARBAND_LINES`, plus `BIND_TO_WARBAND_PREFIX` and `UE_LITERAL = "until equipped"` — as the
 fallback for when the client leaves the `ITEM_ACCOUNTBOUND*` globals nil, and `isWarbandLine`
 (`:223-227`) and `ScanBound` (`:249`) reach them. The comment above them says the literals are safe
@@ -1199,7 +1266,7 @@ asserts against enUS mock globals: `tests/test_compat.lua:65-66` passes the lite
 this path whether it is right or wrong.
 
 **What the addon reads in the player's language.** Tooltip bind lines (`Compat.ScanBound`), the
-Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:113-127`), the
+Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:121-135`), the
 deconstruct spell names (`modules/Attribution.lua:53-97`), and zone and sub-zone names. What it
 **prints** is hardcoded English on every client, by the accepted scope decision — an English label
 on a German client is not a failure here and is not what these steps are looking for.

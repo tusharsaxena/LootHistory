@@ -16,9 +16,14 @@
 -- host's `resolveRoot` or the row's own `get`/`set`. It owns no migration, no AceDB defaults, no
 -- page ordering and no value formatting (the last is LibKa0s-Slash-1.0's, and this major takes the
 -- host's formatter rather than shipping a second one). It sends no message: what a write announces
--- is the host's `announce`. Every single-consumer write semantic the survey found (a post-validate
--- `normalize`, an all-or-nothing batch, per-write old values, skip flags) stays in the host that
--- has it, in front of this seam, rather than becoming a flag on it — library-stack-§7 bar 2.
+-- is the host's `announce` (or, for a batch, its `announceBatch`). Every single-consumer write
+-- semantic the survey found (per-write old values, skip flags) stays in the host that has it, in
+-- front of this seam, rather than becoming a flag on it — library-stack-§7 bar 2. Two semantics
+-- left that list at minor 2 because a second consumer arrived for each: a row's post-validate
+-- `normalize` (AuraMaster, ConsumableMaster) and the all-or-nothing batch `SetMany`
+-- (ConsumableMaster, MultiMeters, KickCD's copy styling). A third is not a host semantic but a
+-- load shape: `writeThrough`, the declared paths a host verb writes while the composer that would
+-- have declared their rows is absent (options-ui-§1's route (a); eight adopters).
 --
 -- WHY THE INSTANCE MEMBERS ARE DOT-CALLED. `inst.Set(path, value, id)`, never `inst:Set(...)`. The
 -- Options and Slash descriptors take their seams AS VALUES — the flow engine calls
@@ -36,7 +41,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Schema-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Schema-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -61,6 +66,9 @@ lib.STRINGS = {
 -- The bulk line's failure suffix (debug-logging-§10). Not a refusal text, so not in STRINGS: it is
 -- part of a debug line whose shape every host in the collection already prints byte for byte.
 local STOPPED = " (stopped by an error)"
+
+-- SetMany's options when a caller passes none. Read only, never written.
+local NO_OPTS = {}
 
 -- The four Options widget types, the shape check's default when a host names none.
 local DEFAULT_TYPES = { bool = true, number = true, string = true, color = true }
@@ -235,11 +243,13 @@ end
 ---   rows          array     The host's live schema array, held BY REFERENCE and never copied.
 ---   resolveRoot   function  (parts, instanceId) -> root, first, resolvedId | nil, reason
 ---   announce      function  (row, path, value, resolvedId) — the post-write tail
+---   announceBatch function  (writes, resolvedId) — SetMany's one tail, in place of announce
 ---   debug         function  (tag, fmt, ...) — the host's debug sink
 ---   debugEnabled  function  () -> boolean, consulted BEFORE a line is formatted
 ---   format        function  (row, value) -> string, renders a value for the `[Set]` line
 ---   print         function  (line), used by Validate only
 ---   resetExempt   set       { [path] = true }: rows a SWEEP must not reset
+---   writeThrough  array     { path, ... }: row-less paths Set still stores (read ONCE, at :New)
 ---   L             table     overrides lib.STRINGS by key (raw keys only; see text() below)
 function lib:New(descriptor)
   local d = type(descriptor) == "table" and descriptor or {}
@@ -248,6 +258,18 @@ function lib:New(descriptor)
   end
   local rows = d.rows
   local index = {}
+  -- The writeThrough rows: one synthetic `{ path =, writeThrough = true }` per listed path, built
+  -- here and handed out by identity forever after, so a write through one allocates nothing. Read
+  -- once, like `rows`, because the set is what the host declares its degraded writers reach, not
+  -- something a later call may widen.
+  local throughRows = {}
+  if type(d.writeThrough) == "table" then
+    for _, path in ipairs(d.writeThrough) do
+      if type(path) == "string" and path ~= "" and not throughRows[path] then
+        throughRows[path] = { path = path, writeThrough = true }
+      end
+    end
+  end
 
   -- The bracket: one tally shared across nesting levels, a depth, and the two flags that decide
   -- whether the outermost close speaks and what it says.
@@ -346,16 +368,16 @@ function lib:New(descriptor)
     return root, tonumber(first) or 1, rid
   end
 
-  --- The value at `path`. A row carrying `get` answers through it; a `sessionOnly` row without one
-  --- answers nil; everything else is read through `resolveRoot`. A path with NO row is still read
-  --- — `get` is a debugging tool, and a player inspecting an interior node is asking a real
-  --- question. Root absent answers nil.
+  --- The value at `path`. A row carrying `get` answers through it, handed `instanceId` (minor 2);
+  --- a `sessionOnly` row without one answers nil; everything else is read through `resolveRoot`.
+  --- A path with NO row is still read — `get` is a debugging tool, and a player inspecting an
+  --- interior node is asking a real question. Root absent answers nil.
   function S.Get(path, instanceId)
     if type(path) ~= "string" then return nil end
     local row = index[path]
     if row then
       local get = row.get
-      if type(get) == "function" then return get() end
+      if type(get) == "function" then return get(instanceId) end
       if row.sessionOnly then return nil end
     end
     local parts = splitPath(path)
@@ -365,6 +387,16 @@ function lib:New(descriptor)
   end
 
   -- ── the write seam ────────────────────────────────────────────────────────────────────────
+
+  --- The row a write to `path` goes through: the indexed row, else the path's writeThrough row,
+  --- else nil. A path with a row ALWAYS takes the row, so a listed path whose composer did load is
+  --- validated, normalized and reacted to like any other. A writeThrough row carries no validate,
+  --- normalize, set or onChange, so the pipeline below stores it raw (a copy), logs it and
+  --- announces it — and refuses it on a missing root, as any stored row.
+  local function writeRow(path)
+    if type(path) ~= "string" then return nil end
+    return index[path] or throughRows[path]
+  end
 
   --- Where a write to a STORED row's `path` lands. Answers `parts, root, first, rid`, or `parts,
   --- nil, nil, rid, reason` when there is nowhere. `rid` is the id the resolver named, or the
@@ -385,6 +417,43 @@ function lib:New(descriptor)
     local ok, why = validate(value, rid)
     if ok then return nil end
     return text("INVALID"):format(path), why
+  end
+
+  --- The value the row wants stored: `value` itself when the row has no `normalize`, else what
+  --- `normalize(value, rid)` answers. `nil` from it is a refusal — INVALID and its `why` — so a
+  --- normalize cannot clear a setting to absence; a row that needs that uses its own `set`.
+  local function normalizeValue(row, path, value, rid)
+    local normalize = row.normalize
+    if type(normalize) ~= "function" then return value end
+    local out, why = normalize(value, rid)
+    if out == nil then return nil, text("INVALID"):format(path), why end
+    return out
+  end
+
+  --- Everything the seam checks before it stores, shared by Set and SetMany so a batch refuses on
+  --- exactly the rules a single write does. Answers `true, value, rid, set, parts, root, first` —
+  --- `value` being the one to store, normalized — or `false, err, why, withWhy` with nothing
+  --- called but the row's own validate and normalize. `withWhy` keeps minor 1's answer count:
+  --- a value refusal answers `false, err, why` (three values, even when `why` is nil) and a
+  --- missing root answers `false, err` (two), and a host pinning `select("#", ...)` sees no change.
+  local function prepareWrite(row, path, value, instanceId)
+    local set = row.set
+    if type(set) ~= "function" then set = nil end
+    local stored = not set and not row.sessionOnly
+    local parts, root, first, reason
+    local rid = instanceId
+    if stored then parts, root, first, rid, reason = writeTarget(path, instanceId) end
+
+    -- Validate, then normalize, BEFORE the missing-root refusal, so a bad value is named as bad
+    -- even when there is also nowhere to put it — the error a player can act on comes first.
+    local invalid, why = invalidReason(row, path, value, rid)
+    if invalid then return false, invalid, why, true end
+    value, invalid, why = normalizeValue(row, path, value, rid)
+    if invalid then return false, invalid, why, true end
+    if stored and not root then
+      return false, reason or text("NO_ROOT"):format(path), nil, false
+    end
+    return true, value, rid, set, parts, root, first
   end
 
   --- Hand `value` to the row's own `set` (as given, never a copy), or copy it into a resolved
@@ -410,11 +479,16 @@ function lib:New(descriptor)
     debug("Set", "%s = %s", path, shown)
   end
 
+  --- The row's own reaction. Errors propagate.
+  local function runOnChange(row, value, rid)
+    local onChange = row.onChange
+    if type(onChange) == "function" then onChange(value, rid) end
+  end
+
   --- The write's tail, in the contract's order: the row's `onChange`, then the host's `announce`.
   --- Errors propagate, so a raising onChange means no announce.
   local function reactToWrite(row, path, value, rid)
-    local onChange = row.onChange
-    if type(onChange) == "function" then onChange(value, rid) end
+    runOnChange(row, value, rid)
     local announce = fn("announce")
     if announce then announce(row, path, value, rid) end
   end
@@ -425,57 +499,132 @@ function lib:New(descriptor)
     if not sameValue(before, S.Get(path, instanceId)) then tally = tally + 1 end
   end
 
-  --- The single write seam for every schema-row path (architecture-§5). THE ORDER IS THE CONTRACT:
-  --- refuse an unknown path; resolve the root; validate; refuse a missing root; store; tally;
-  --- log; react; announce. Answers `true`, or `false, err[, why]` with nothing stored and nothing
-  --- called.
-  function S.Set(path, value, instanceId)
-    local row = type(path) == "string" and index[path] or nil
-    if not row then
-      -- architecture-§5 scopes the seam to schema-row paths. A write to a path no row declares is
-      -- refused, not stored: silently storing it is how a typo'd key becomes a setting nothing
-      -- reads and nothing resets.
-      return false, text("NOT_FOUND"):format(tostring(path))
-    end
-
-    local set = row.set
-    if type(set) ~= "function" then set = nil end
-    local stored = not set and not row.sessionOnly
-    local parts, root, first, reason
-    local rid = instanceId
-    if stored then parts, root, first, rid, reason = writeTarget(path, instanceId) end
-
-    -- Validate BEFORE the missing-root refusal, so a bad value is named as bad even when there is
-    -- also nowhere to put it — the error a player can act on comes first.
-    local invalid, why = invalidReason(row, path, value, rid)
-    if invalid then return false, invalid, why end
-    if stored and not root then
-      return false, reason or text("NO_ROOT"):format(path)
-    end
-
-    -- The tally's before-image is read (and snapshotted, so a closure `set` that mutates a stored
-    -- table in place is still seen as a change) only inside a bracket: outside one this seam
-    -- carries every color-picker drag frame, and the comparison is needed for nothing but N.
-    -- An `if`, not `bulk and x or nil`: a stored `false` would read back as nil through the idiom
-    -- and every false-valued row in a sweep would count as changed.
+  --- Store a prepared write, then tally it (inside a bracket) or log it (outside one).
+  ---
+  --- The tally's before-image is read (and snapshotted, so a closure `set` that mutates a stored
+  --- table in place is still seen as a change) only inside a bracket: outside one this seam
+  --- carries every color-picker drag frame, and the comparison is needed for nothing but N.
+  --- An `if`, not `bulk and x or nil`: a stored `false` would read back as nil through the idiom
+  --- and every false-valued row in a sweep would count as changed.
+  ---
+  --- Counted before any host code runs, so a raising onChange cannot drop a write that did land
+  --- from N. Read-back rather than before-versus-argument, because a closure row may store
+  --- something other than what it was handed (an inverted key, a clear-to-absence). Logged
+  --- BEFORE the reaction, so a raising onChange cannot erase the trace of a write that landed;
+  --- muted inside a bracket, whose one line stands for the act.
+  local function commitWrite(row, path, value, instanceId, set, parts, root, first)
     local bulk = depth > 0
     local before
     if bulk then before = deepCopy(S.Get(path, instanceId)) end
-
     storeWrite(set, value, parts, root, first)
+    if bulk then
+      tallyIfMoved(before, path, instanceId)
+    else
+      logWrite(row, path, value)
+    end
+  end
 
-    -- Counted HERE, before any host code runs, so a raising onChange cannot drop a write that did
-    -- land from N. Read-back rather than before-versus-argument, because a closure row may store
-    -- something other than what it was handed (an inverted key, a clear-to-absence).
-    if bulk then tallyIfMoved(before, path, instanceId) end
-
-    -- Logged BEFORE the reaction, so a raising onChange cannot erase the trace of a write that
-    -- landed. Muted inside a bracket: the bracket's one line stands for the act.
-    if not bulk then logWrite(row, path, value) end
-
+  --- The single write seam for every schema-row path (architecture-§5). THE ORDER IS THE CONTRACT:
+  --- refuse an unknown path (a listed writeThrough path is not unknown); resolve the root;
+  --- validate; normalize; refuse a missing root; store; tally; log; react; announce. Answers
+  --- `true`, or `false, err[, why]` with nothing stored and nothing called.
+  function S.Set(path, value, instanceId)
+    local row = writeRow(path)
+    if not row then
+      -- architecture-§5 scopes the seam to schema-row paths. A write to a path no row declares is
+      -- refused, not stored: silently storing it is how a typo'd key becomes a setting nothing
+      -- reads and nothing resets. The one exception is a path the host LISTED in writeThrough.
+      return false, text("NOT_FOUND"):format(tostring(path))
+    end
+    -- On a refusal the next three answers are `err, why, withWhy` (see prepareWrite).
+    local ok, stored, rid, set, parts, root, first = prepareWrite(row, path, value, instanceId)
+    if not ok then
+      if set then return false, stored, rid end
+      return false, stored
+    end
+    commitWrite(row, path, stored, instanceId, set, parts, root, first)
     -- Errors propagate. The value is stored and the line written, so the host's error handler sees
     -- a failure that never claims less than happened.
-    reactToWrite(row, path, value, rid)
+    reactToWrite(row, path, stored, rid)
+    return true
+  end
+
+  -- ── the batch ─────────────────────────────────────────────────────────────────────────────
+
+  --- One entry of a batch, checked as Set would check it: a plan to commit, or `nil, err, why`.
+  local function prepareEntry(entry, instanceId)
+    local path = type(entry) == "table" and entry.path or nil
+    local row = writeRow(path)
+    if not row then return nil, text("NOT_FOUND"):format(tostring(path)) end
+    local ok, value, rid, set, parts, root, first = prepareWrite(row, path, entry.value, instanceId)
+    if not ok then return nil, value, rid end
+    return { row = row, path = path, value = value, rid = rid,
+             set = set, parts = parts, root = root, first = first }
+  end
+
+  --- Phase 1: every entry checked before any is stored. Answers the plans, or `nil, err, why, i`.
+  local function prepareBatch(entries, instanceId)
+    local plans = {}
+    for i = 1, #entries do
+      local plan, err, why = prepareEntry(entries[i], instanceId)
+      if not plan then return nil, err, why, i end
+      plans[i] = plan
+    end
+    return plans
+  end
+
+  --- Phase 2: store every plan in order, THEN run every onChange in order. Stores first, so a
+  --- reaction reading a sibling row sees the whole batch and a raising onChange cannot leave the
+  --- store half-written.
+  local function commitBatch(plans, instanceId)
+    for i = 1, #plans do
+      local p = plans[i]
+      commitWrite(p.row, p.path, p.value, instanceId, p.set, p.parts, p.root, p.first)
+    end
+    for i = 1, #plans do
+      local p = plans[i]
+      runOnChange(p.row, p.value, p.rid)
+    end
+  end
+
+  --- The batch's tail: the host's `announceBatch(writes, rid)` once, with `writes` an array of
+  --- `{ row, path, value, rid }` and `rid` the first write's resolved id; without it, `announce`
+  --- once per write. Nothing for an empty batch.
+  local function announceBatch(plans)
+    if #plans == 0 then return end
+    local batch = fn("announceBatch")
+    if batch then
+      local writes = {}
+      for i, p in ipairs(plans) do
+        writes[i] = { row = p.row, path = p.path, value = p.value, rid = p.rid }
+      end
+      batch(writes, plans[1].rid)
+      return
+    end
+    local announce = fn("announce")
+    if not announce then return end
+    for _, p in ipairs(plans) do announce(p.row, p.path, p.value, p.rid) end
+  end
+
+  --- Write several rows as ONE act, all or nothing. `entries = { { path =, value = }, ... }`,
+  --- `opts = { instanceId =, act =, scope = }`. Every entry is resolved, validated and normalized
+  --- first; one refusal answers `false, err, why, index` with nothing stored and nothing called.
+  --- Then every entry is stored in order — inside one bracket when `opts.act` is given, so one
+  --- `[Set] <act> <scope>: N rows` line, else one `[Set]` line per write — every row's onChange
+  --- runs, and the host is told once through `announceBatch` (or per write through `announce`).
+  --- A raising onChange propagates after every store landed; the bracket still closes.
+  function S.SetMany(entries, opts)
+    if type(entries) ~= "table" then entries = EMPTY end
+    if type(opts) ~= "table" then opts = NO_OPTS end
+    local instanceId = opts.instanceId
+    local plans, err, why, at = prepareBatch(entries, instanceId)
+    if not plans then return false, err, why, at end
+    if opts.act ~= nil then
+      S.BulkRun(opts.act, opts.scope, function() commitBatch(plans, instanceId) end)
+    else
+      commitBatch(plans, instanceId)
+    end
+    announceBatch(plans)
     return true
   end
 
@@ -493,12 +642,13 @@ function lib:New(descriptor)
   --- `default == nil` means NO RESTORE and answers false with nothing written: with no default, a
   --- reset does not reach the row (options-ui-§15's test mode reads this way). A row in
   --- `resetExempt` answers false ONLY WHILE A BRACKET IS OPEN, which is what makes it a sweep veto
-  --- (launcher-§3's minimap row) while a named single-row reset still works.
-  function S.ApplyDefault(row)
+  --- (launcher-§3's minimap row) while a named single-row reset still works. `instanceId` (minor
+  --- 2) reaches Set, so an instanced host resets the instance it names.
+  function S.ApplyDefault(row, instanceId)
     if type(row) ~= "table" or type(row.path) ~= "string" or row.default == nil then return false end
     local exempt = d.resetExempt
     if depth > 0 and type(exempt) == "table" and exempt[row.path] then return false end
-    return S.Set(row.path, deepCopy(row.default))
+    return S.Set(row.path, deepCopy(row.default), instanceId)
   end
 
   -- ── the bulk bracket (debug-logging-§10) ──────────────────────────────────────────────────

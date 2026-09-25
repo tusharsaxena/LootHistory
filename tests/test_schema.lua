@@ -54,7 +54,7 @@ local MASTER_ROWS = {
   -- line and Test mode pairs beside it, which is not a layout preference: EVERY addon has a
   -- minimap button and only SOME have a test mode, so the always-present row takes column 1 and
   -- the optional one pairs to its right (options-ui-§15).
-  { "minimap.hide",        "Minimap button" },
+  { "minimap.shown",        "Minimap button" },
   { "state.testMode",      "Test mode" },
 }
 
@@ -111,10 +111,10 @@ test("Schema: the fourth line is [Minimap button] [Test mode], composed and in t
     local consoleAt, minimapAt, testAt
     for i, row in ipairs(S.Schema) do
       if row.path == "state.debugConsole" then consoleAt = i end
-      if row.path == "minimap.hide" then minimapAt = i end
+      if row.path == "minimap.shown" then minimapAt = i end
       if row.path == "state.testMode" then testAt = i end
     end
-    assertTrue(minimapAt ~= nil, "minimap.hide row missing")
+    assertTrue(minimapAt ~= nil, "minimap.shown row missing")
     assertTrue(testAt ~= nil, "state.testMode row missing")
     assertEqual(minimapAt, consoleAt + 1, "Minimap button comes directly after Debug console")
     assertEqual(testAt, minimapAt + 1, "Test mode pairs directly after Minimap button")
@@ -299,9 +299,11 @@ test("Schema: FindRow resolves a known path and rejects an unknown one", functio
 end)
 
 test("Schema: every persisted path resolves against the shipped defaults", function()
-  -- This is Register's boot check, asserted rather than merely printed.
+  -- This is Register's boot check, asserted rather than merely printed. A row carrying its own get
+  -- AND set owns its storage and is skipped, as Register skips it: `minimap.shown` stores LibDBIcon's
+  -- `minimap.hide`, and that key is pinned by the shipped-equals-declared case below.
   for _, row in ipairs(S.Schema) do
-    if not row.sessionOnly then
+    if not row.sessionOnly and not (type(row.get) == "function" and type(row.set) == "function") then
       assertTrue(S:ReadPath(NS.defaults.global, row.path) ~= nil,
         row.path .. " has no entry in defaults/Global.lua")
     end
@@ -322,6 +324,20 @@ test("Schema: Register reports a typo'd path even when the row declares a defaul
   assertEqual(S:Register(), 0, "the probe row must be gone again")
 end)
 
+test("Schema: Register counts no missing path for the Minimap button row, which owns its storage",
+  function()
+    -- launcher-§3 (standard v2.65.0): the row is pathed `minimap.shown`, in its own sense, and no
+    -- `shown` key is ever stored or declared -- the one stored key is LibDBIcon's `minimap.hide`. A
+    -- row that carries BOTH its own get and set owns its storage, so the boot check's defaultsRoot
+    -- answers nil for it and the library's resolvesInDefaults neither resolves nor misses it.
+    -- red under: a defaultsRoot that hands every row the defaults tree, which reports
+    -- `minimap.shown` as a path that does not resolve against defaults/Global.lua.
+    assertTrue(S:FindRow("minimap.shown") ~= nil, "the row is pathed in its own sense")
+    assertEqual(S:FindRow("minimap.hide"), nil, "and the stored key is no row's path")
+    assertTrue(NS.defaults.global.minimap.shown == nil, "no `shown` default is declared either")
+    assertEqual(S:Register(), 0, "the renamed row is neither resolved nor missing")
+  end)
+
 -- Structural equality. `assertEqual` compares a table by identity, which is why the case below
 -- used to skip every `type = "table"` row: the set-valued defaults are two separate literals and an
 -- identity check could only ever fail. Skipping them is what let the AH lists drift apart
@@ -338,14 +354,15 @@ test("Schema: the shipped default equals the schema's declared default", functio
   -- Two sources of the same truth; a drift would make a reset change the value silently. Table
   -- rows are included and compared by shape — see deepEqual above.
   --
-  -- `minimap.hide` is compared INVERTED rather than skipped, which is the whole point of naming it:
-  -- the row's default is its own sense (SHOWN = true) and defaults/Global.lua ships LibDBIcon's key
-  -- (hide = false). They are one fact in two senses, so the pair is still checked -- flip either
-  -- side alone and this goes red exactly as it would for any other row (launcher-§3).
+  -- The `minimap.shown` row is compared INVERTED against its one stored key, `minimap.hide`, rather
+  -- than skipped, which is the whole point of naming it: the row's default is its own sense (SHOWN
+  -- = true) and defaults/Global.lua ships LibDBIcon's key (hide = false). They are one fact in two
+  -- senses, so the pair is still checked -- flip either side alone and this goes red exactly as it
+  -- would for any other row (launcher-§3). No `shown` default is shipped (anti-pattern #81).
   for _, row in ipairs(S.Schema) do
-    if row.path == "minimap.hide" then
-      assertEqual(S:ReadPath(NS.defaults.global, row.path), not row.default,
-        "minimap.hide: the shipped `hide` must be the inverse of the row's SHOWN default")
+    if row.path == "minimap.shown" then
+      assertEqual(S:ReadPath(NS.defaults.global, S.RESET_EXEMPT[row.path]), not row.default,
+        "minimap.shown: the shipped `hide` must be the inverse of the row's SHOWN default")
     elseif not row.sessionOnly then
       local shipped = S:ReadPath(NS.defaults.global, row.path)
       if row.type == "table" then
@@ -444,8 +461,8 @@ test("Schema: the slider default sits inside its own bounds", function()
   end
 end)
 
---- The ONE stored row entitled to its own accessors, and why. `minimap.hide` is the launcher-§3
---- row: the checkbox says SHOWN and LibDBIcon's key says HIDDEN, so the value the row carries is
+--- The ONE stored row entitled to its own accessors, and why. `minimap.shown` is the launcher-§3
+--- row, and its one stored key is `minimap.hide`: the checkbox says SHOWN and LibDBIcon's key says HIDDEN, so the value the row carries is
 --- the inverse of the value the store carries and a straight WritePath of the row's value would
 --- store the opposite of what was ticked. The inversion is the accessors, and there is deliberately
 --- no second key beside `hide` for the row to address instead (anti-pattern #81).
@@ -453,7 +470,7 @@ end)
 --- Named rather than dropped from the check: the rule this case enforces -- a stored row does not
 --- get to route around the write seam -- is still the rule, and the next row that wants an exemption
 --- has to be argued for here.
-local STORED_ROWS_WITH_ACCESSORS = { ["minimap.hide"] = true }
+local STORED_ROWS_WITH_ACCESSORS = { ["minimap.shown"] = true }
 
 test("Schema: only the session-only rows carry their own get/set", function()
   for _, row in ipairs(S.Schema) do
@@ -465,26 +482,26 @@ test("Schema: only the session-only rows carry their own get/set", function()
 end)
 
 test("Schema: the Minimap button row's accessors invert onto LibDBIcon's own `hide` key", function()
-  -- launcher-§3. The row's boolean is SHOWN; the stored key is HIDDEN; there is ONE boolean and no
-  -- `minimap.show` beside it. Driven through Schema:Set/Get, which is the single write seam the
+  -- launcher-§3. The row's path and boolean are SHOWN (`minimap.shown`); the stored key is HIDDEN
+  -- (`minimap.hide`); there is ONE boolean and no `shown` key beside it. Driven through Schema:Set/Get, which is the single write seam the
   -- panel checkbox, `/lh set`, `/lh reset` and `/lh resetall` all take.
   -- red under: dropping the inversion, storing the row's own sense, or a second key appearing.
   local before = NS.db.global.minimap.hide
 
-  assertTrue(S:Set("minimap.hide", false))
+  assertTrue(S:Set("minimap.shown", false))
   assertEqual(NS.db.global.minimap.hide, true, "unticked means HIDDEN in the store")
-  assertEqual(S:Get("minimap.hide"), false, "and the row reads back what was ticked")
+  assertEqual(S:Get("minimap.shown"), false, "and the row reads back what was ticked")
 
-  assertTrue(S:Set("minimap.hide", true))
+  assertTrue(S:Set("minimap.shown", true))
   assertEqual(NS.db.global.minimap.hide, false, "ticked means NOT hidden")
-  assertEqual(S:Get("minimap.hide"), true)
+  assertEqual(S:Get("minimap.shown"), true)
 
-  assertTrue(NS.db.global.minimap.show == nil,
+  assertTrue(NS.db.global.minimap.shown == nil and NS.db.global.minimap.show == nil,
     "no second key beside `hide`: one state, and LibDBIcon writes it too")
 
   -- The declared default is the row's sense, SHOWN, and a reset restores the button.
-  assertEqual(S:Default("minimap.hide"), true)
-  S:Set("minimap.hide", S:Default("minimap.hide"))
+  assertEqual(S:Default("minimap.shown"), true)
+  S:Set("minimap.shown", S:Default("minimap.shown"))
   assertEqual(NS.db.global.minimap.hide, false)
 
   NS.db.global.minimap.hide = before
@@ -914,8 +931,8 @@ test("seam: on the degraded build the composed Master controls rows are absent, 
   -- The degraded Options stub's MasterControls composes no rows, so the minimap, enable and session
   -- rows do not exist here. A write to one is refused like any unknown path and stores nothing.
   local ns = degradedWithStore()
-  assertEqual(ns.Schema:FindRow("minimap.hide"), nil)
-  assertEqual(ns.Schema:Set("minimap.hide", false), false)
+  assertEqual(ns.Schema:FindRow("minimap.shown"), nil)
+  assertEqual(ns.Schema:Set("minimap.shown", false), false)
   assertEqual(ns.db.global.minimap.hide, false, "the store is untouched")
 end)
 
@@ -927,7 +944,7 @@ test("seam: on the degraded build ApplyDefault restores, and spares an exempt ro
     local S2, g = ns.Schema, ns.db.global
     local q, c = S2:FindRow("settings.qualityThreshold"), S2:FindRow("settings.recordCurrency")
     g.settings.qualityThreshold, g.settings.recordCurrency = 4, false
-    S2.RESET_EXEMPT[c.path] = true
+    S2.RESET_EXEMPT[c.path] = c.path   -- row path -> stored path; the same here
     local ok, err = pcall(function()
       S2.BulkBegin("reset", "all")
       S2:ApplyDefault(q)
@@ -956,6 +973,20 @@ end)
 test("seam: on the degraded build the boot check passes", function()
   local ns = degradedWithStore()
   assertEqual(ns.Schema:Register(), 0)
+end)
+
+test("seam: on the degraded build the boot check skips a row that owns its storage", function()
+  -- The host stub's R.Validate takes the same skip as the library's: a row with its own get AND
+  -- set is not looked up in defaults/Global.lua. The degraded build composes no minimap row, so the
+  -- shape is probed with a row of its own, pulled before asserting.
+  -- red under: a stub Validate that calls defaultsRoot without the row, or ignores its answer.
+  local ns = degradedWithStore()
+  local rows = ns.Schema.Schema
+  rows[#rows + 1] = { path = "probe.ownsStorage", type = "bool", default = true,
+    get = function() return true end, set = function() end }
+  local problems = ns.Schema:Register()
+  rows[#rows] = nil
+  assertEqual(problems, 0, "a row that owns its storage is not a missing path")
 end)
 
 -- ── The seam is LibKa0s-Schema-1.0's ──────────────────────────────────────────────────────────
@@ -1045,4 +1076,124 @@ test("seam: on the degraded build the boot check still reports a typo'd path, in
   assertEqual(n, 1)
   assertEqual(table.concat(printed, " | "),
     "schema path does not resolve against defaults/Global.lua: settings.nosuchbranch.typo")
+end)
+
+-- ── Keep history for: a shorter retention asks before it deletes (LootHistory-R-04) ─────────────
+--
+-- The row's onChange used to call Database:PruneOld() on the spot, so a dropdown mis-click or
+-- `/lh set settings.retentionDays 7` dropped every older record in the same action. It now counts
+-- what the new value would delete and raises KA0S_LOOTHISTORY_PRUNE; Yes prunes, No writes the
+-- last confirmed value back through Schema:Set. The kit's StaticPopup_Show is a no-op function, so
+-- the popup-present path is the default here; the popup-absent case removes it.
+
+--- Run `fn(shown)` over five seeded rows (three older than 7 days, two fresh) at a confirmed
+--- 30-day retention, with StaticPopup_Show spied. History, the setting, the confirmed value, the
+--- mock and the print record are all restored before anything raises.
+local function withRetentionFixture(fn)
+  local M, g = T.mocks, NS.db.global
+  local savedHistory, savedDays, savedShow = g.history, g.settings.retentionDays, M.StaticPopup_Show
+  local now, day = os.time(), 86400
+  g.history = {
+    { ts = now - 40 * day, itemID = 1 }, { ts = now - 20 * day, itemID = 2 },
+    { ts = now - 10 * day, itemID = 3 }, { ts = now - 2 * day, itemID = 4 },
+    { ts = now - 3600, itemID = 5 },
+  }
+  g.settings.retentionDays = 30
+  S:SyncRetention()
+  local shown = {}
+  M.StaticPopup_Show = function(which, a1, a2, data)
+    shown[#shown + 1] = { which = which, a1 = a1, a2 = a2, data = data }
+  end
+  M.__resetPrinted()
+  local ok, err = pcall(fn, shown)
+  g.history, g.settings.retentionDays, M.StaticPopup_Show = savedHistory, savedDays, savedShow
+  S:SyncRetention()
+  if not ok then error(err, 0) end
+end
+
+test("Retention: a shorter value raises the prune confirm and deletes nothing yet", function()
+  -- red under: the old onChange, which pruned to 2 rows before any confirm existed.
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 7)
+    assertEqual(#NS.db.global.history, 5, "records were deleted before the player confirmed")
+    assertEqual(#shown, 1, "exactly one confirm is raised")
+    assertEqual(shown[1].which, "KA0S_LOOTHISTORY_PRUNE")
+    assertEqual(shown[1].a1, "7 days", "the confirm names the new retention by its label")
+    assertEqual(shown[1].a2, 3, "the confirm names how many records would go")
+    assertEqual(shown[1].data and shown[1].data.days, 7)
+  end)
+end)
+
+test("Retention: accepting the prune confirm deletes the older records", function()
+  withRetentionFixture(function()
+    S:Set("settings.retentionDays", 7)
+    local dlg = T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE
+    assertTrue(dlg ~= nil, "KA0S_LOOTHISTORY_PRUNE is not registered")
+    assertEqual(dlg.timeout, 0); assertTrue(dlg.whileDead and dlg.hideOnEscape and dlg.showAlert)
+    dlg.OnAccept(nil, { days = 7 })
+    assertEqual(#NS.db.global.history, 2)
+    assertEqual(NS.db.global.settings.retentionDays, 7)
+  end)
+end)
+
+test("Retention: declining restores the confirmed value, keeps every record, prints one line", function()
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 7)
+    T.mocks.__resetPrinted()
+    T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnCancel(nil, { days = 7 })
+    assertEqual(NS.db.global.settings.retentionDays, 30, "the previous retention was not restored")
+    assertEqual(#NS.db.global.history, 5, "declining deleted records")
+    assertEqual(#shown, 1, "writing the old value back must not raise a second confirm")
+    local printed = T.mocks.__printed()
+    assertEqual(#printed, 1, "decline prints exactly one line: " .. table.concat(printed, " | "))
+    assertTrue(printed[1]:find("retention kept at 30 days; no records were deleted.", 1, true) ~= nil,
+      "unexpected decline line: " .. printed[1])
+  end)
+end)
+
+test("Retention: accepting applies the agreed value even when the store has moved", function()
+  -- red under: an accept that pruned to whatever the store held and only recorded `days`.
+  withRetentionFixture(function()
+    S:Set("settings.retentionDays", 7)
+    NS.db.global.settings.retentionDays = 90
+    T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnAccept(nil, { days = 7 })
+    assertEqual(NS.db.global.settings.retentionDays, 7, "the store does not hold the agreed value")
+    assertEqual(#NS.db.global.history, 2, "the prune did not run at the agreed value")
+  end)
+end)
+
+test("Retention: re-showing the confirm over an open one does not run the decline", function()
+  -- Blizzard's StaticPopup_Show cancels a visible dialog of the same `which` with reason
+  -- "override" before re-showing it. red under: an OnCancel that treated that as a No.
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 7)
+    S:Set("settings.retentionDays", 14)
+    assertEqual(#shown, 2)
+    T.mocks.__resetPrinted()
+    local dlg = T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE
+    dlg.OnCancel(nil, { days = 7 }, "override")
+    assertEqual(NS.db.global.settings.retentionDays, 14, "the override restored the old value")
+    assertEqual(#T.mocks.__printed(), 0, "the override printed a decline line")
+    dlg.OnAccept(nil, { days = 14 })
+    assertEqual(NS.db.global.settings.retentionDays, 14)
+    assertEqual(#NS.db.global.history, 3, "the prune did not run at 14 days")
+  end)
+end)
+
+test("Retention: with no StaticPopup_Show a shorter value prunes at once", function()
+  withRetentionFixture(function()
+    T.mocks.StaticPopup_Show = nil
+    S:Set("settings.retentionDays", 7)
+    assertEqual(#NS.db.global.history, 2)
+  end)
+end)
+
+test("Retention: a value that would delete nothing raises no confirm and prunes nothing", function()
+  withRetentionFixture(function(shown)
+    S:Set("settings.retentionDays", 60)
+    assertEqual(#shown, 0, "a confirm for zero records")
+    assertEqual(#NS.db.global.history, 5)
+    assertEqual(NS.Database:CountOlderThan(0), 0, "Always counts nothing")
+    assertEqual(NS.Database:CountOlderThan(nil), 0)
+  end)
 end)

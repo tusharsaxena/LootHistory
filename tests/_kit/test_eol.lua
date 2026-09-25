@@ -40,6 +40,11 @@
 -- exited and which is therefore outside the runner's own pass. A red here for that file is the gate
 -- working, not the gate being wrong.
 --
+-- IT COUNTS LONE CRs TOO, from revision 26. A CR that no LF follows is invisible to a count of LFs
+-- and the CRs before them, and git's `text=auto` stores such a file unnormalized as binary, so both
+-- the old count and every renormalization walked past it (`AuraMaster-A-18`). It is counted over the
+-- same set as the terminator check and named at its line.
+--
 -- IT FAILS RATHER THAN PASSES WHEN IT CANNOT LOOK. No `io.popen`, no git, no answer from
 -- `check-attr` — all of those are a failure. A gate that goes quiet when it is blind reports
 -- success, which is worse than not existing. Same bargain tests/test_kitsync.lua and
@@ -172,21 +177,49 @@ local function readBytes(path)
   return data
 end
 
---- Count the line terminators in `data` and how many of them are CRLF rather than bare LF.
+--- Count the line terminators in `data`, how many of them are CRLF rather than bare LF, and the
+--- line of every lone CR: a byte 13 that no byte 10 follows.
+---
+--- THE LONE CR IS COUNTED BECAUSE THE PAIR COUNT CANNOT SEE IT. Counting LFs and asking which have a
+--- CR before them reads `a\r\r\n` as one clean CRLF, and git cannot see it either: `text=auto`
+--- classifies a file with a lone CR as binary and stores it unnormalized, so the index is `-text`
+--- and every normalization pass walks past it. Until revision 26 that was this gate's blind spot and
+--- line-endings-§7's known limit (the 2026-09-23 audit's `AuraMaster-A-18`). A line number here is
+--- the count of LFs before the CR, plus one: the line the CR sits on.
 local function terminators(data)
-  local total, crlf = 0, 0
+  local total, crlf, lone = 0, 0, {}
   for i = 1, #data do
-    if data:byte(i) == 10 then
+    local b = data:byte(i)
+    if b == 10 then
       total = total + 1
       if i > 1 and data:byte(i - 1) == 13 then crlf = crlf + 1 end
+    elseif b == 13 and data:byte(i + 1) ~= 10 then
+      lone[#lone + 1] = total + 1
     end
   end
-  return total, crlf
+  return total, crlf, lone
+end
+
+--- One tracked path's case-one verdict: a terminator hit (or nil) and a lone-CR hit per lone CR,
+--- the latter appended to `loneHits` as `path:line`. A path with a NUL byte is a binary nobody
+--- marked and is skipped whole, for both counts.
+local function scanPath(path, want, loneHits)
+  local data = readBytes(path)
+  if data == nil then
+    fail("eol gate: cannot read " .. path .. ", which git tracks", 3)
+  end
+  if data:find("\000", 1, true) ~= nil then return nil end
+  local total, crlf, lone = terminators(data)
+  for _, line in ipairs(lone) do loneHits[#loneHits + 1] = path .. ":" .. line end
+  local wrong = (want == "crlf") and (total - crlf) or crlf
+  if wrong == 0 then return nil end
+  return string.format("%s - declared %s, but %d of %d terminators are %s",
+    path, want, wrong, total, (want == "crlf") and "bare LF" or "CRLF")
 end
 
 test("eol: every tracked file carries the terminator .gitattributes declares for it", function()
   local order, attrs = trackedAttrs()
-  local hits = {}
+  local hits, loneHits = {}, {}
   for _, path in ipairs(order) do
     local want, text = attrs[path].eol, attrs[path].text
     if not want then
@@ -199,20 +232,24 @@ test("eol: every tracked file carries the terminator .gitattributes declares for
     -- .tga to a terminator count would be a red about an image. PanelMaster's extension-less
     -- `tools/artwork/bin/realesrgan-ncnn-vulkan` is the live case for that carve-out. The NUL guard
     -- below is the backstop, for a binary nobody remembered to mark.
+    --
+    -- The lone-CR count runs over exactly this set and is NOT keyed on the index's `-text`: a file
+    -- with a lone CR is `-text` in the index because `text=auto` calls it binary, but so is every
+    -- real binary that detection caught unmarked, and keying on it would redden the realesrgan
+    -- binary above for being a binary. The NUL guard is what tells the two apart.
     if (want == "crlf" or want == "lf") and text ~= "unset" then
-      local data = readBytes(path)
-      if data == nil then
-        fail("eol gate: cannot read " .. path .. ", which git tracks", 2)
-      end
-      if data:find("\000", 1, true) == nil then
-        local total, crlf = terminators(data)
-        local wrong = (want == "crlf") and (total - crlf) or crlf
-        if wrong > 0 then
-          hits[#hits + 1] = string.format("%s - declared %s, but %d of %d terminators are %s",
-            path, want, wrong, total, (want == "crlf") and "bare LF" or "CRLF")
-        end
-      end
+      hits[#hits + 1] = scanPath(path, want, loneHits)
     end
+  end
+  if #loneHits > 0 then
+    -- Every lone CR, at its line: there is no bulk repair for these the way there is for a file
+    -- written past git's filters, because checking the file out again restores the same bytes.
+    fail("eol: " .. #loneHits .. " lone CR(s) - a CR no LF follows - in tracked text. No terminator "
+      .. "is a bare CR in this collection, and git's `text=auto` classifies a file carrying one as "
+      .. "binary, so the index stores it unnormalized, `git add --renormalize` skips it and "
+      .. "`git checkout` restores it exactly as it is. Delete each CR at the line named (usually "
+      .. "the `\\r` of a doubled `\\r\\r\\n`), save, and stage the file:\n          "
+      .. table.concat(loneHits, "\n          "), 2)
   end
   if #hits > 0 then
     -- Name every file rather than the first: these arrive a whole directory at a time, and fixing
@@ -418,12 +455,11 @@ local CANONICAL_NONCLIENT = [==[
 ]==]
 
 local ATTRS = ".gitattributes"
--- The appendix delimiter line-endings-5 fixes, section sign and all. It is built from bytes
--- rather than typed because the shipped kit keeps its STRING literals ASCII (the em dash aside):
--- a high byte in a string reaches a player as an empty box in the owner's font, so the repo gates
--- for it and every section citation in a message below is spelled `line-endings-5`. This one is
--- not a citation but the exact text the file must carry, so it is assembled instead of respelled.
-local APPENDIX = "# --- line-endings-" .. string.char(194, 167) .. "5 appendix ---"
+-- The appendix delimiter line-endings-§5 fixes, section sign and all. It is not a citation but
+-- the exact text the file must carry. Revisions before 26 assembled it from bytes, when the kit
+-- kept its string literals ASCII; the kit prints to a terminal and never reaches a player, so it
+-- is typed as the document prints it, like every section citation in a message below.
+local APPENDIX = "# --- line-endings-§5 appendix ---"
 
 --- Split into lines on LF, dropping one trailing CR from each, and say whether the last line was
 --- left unterminated. The CR is dropped because §5 prints the body LF while a CRLF-pinned repo
@@ -526,7 +562,7 @@ local function repoKind(paths)
     "it ships nothing into the WoW client: no .toc, no tracked libs/, no library payload folder"
 end
 
-test("eol: .gitattributes is line-endings-5's canonical body for this repo kind", function()
+test("eol: .gitattributes is line-endings-§5's canonical body for this repo kind", function()
   local paths = trackedAttrs()
   local body, kind, why = repoKind(paths)
   local pin, carveOuts, binaries = marksOf(body)
@@ -539,13 +575,13 @@ test("eol: .gitattributes is line-endings-5's canonical body for this repo kind"
     if p == ATTRS then tracked = true break end
   end
   if not tracked then
-    fail("eol: git tracks no " .. ATTRS .. " at the repo root. line-endings-1 makes the file a "
+    fail("eol: git tracks no " .. ATTRS .. " at the repo root. line-endings-§1 makes the file a "
       .. "MUST for every repo in this collection, and is explicit that its absence is the defect "
       .. "rather than a neutral default: with no attributes, what lands on disk is decided by "
       .. "whichever `core.autocrlf` / `core.eol` each contributor's git happens to carry, so two "
       .. "people produce byte-different checkouts of the same commit and neither is doing anything "
-      .. "wrong. Copy line-endings-5's canonical body for this repo kind (" .. kind .. ", because " .. why
-      .. "), then renormalize per line-endings-6", 2)
+      .. "wrong. Copy line-endings-§5's canonical body for this repo kind (" .. kind .. ", because " .. why
+      .. "), then renormalize per line-endings-§6", 2)
   end
   local data = readBytes(ATTRS)
   if data == nil then
@@ -564,16 +600,16 @@ test("eol: .gitattributes is line-endings-5's canonical body for this repo kind"
     end
   end
   if #pins ~= 1 then
-    fail("eol: " .. ATTRS .. " carries " .. #pins .. " `* text=auto` pin(s); line-endings-2 "
+    fail("eol: " .. ATTRS .. " carries " .. #pins .. " `* text=auto` pin(s); line-endings-§2 "
       .. "allows exactly one, and git resolves a duplicate by taking the last match, so the file "
       .. "reads as one policy and behaves as another:\n          "
       .. ((#pins > 0) and table.concat(pins, "\n          ") or "(none)"), 2)
   end
   if pins[1]:gsub("^line %d+: ", "") ~= pin then
     fail("eol: " .. ATTRS .. " pins `" .. pins[1]:gsub("^line %d+: ", "") .. "`, but "
-      .. "line-endings-2 gives this repo `" .. pin .. "` because " .. why .. ". CRLF exists in "
+      .. "line-endings-§2 gives this repo `" .. pin .. "` because " .. why .. ". CRLF exists in "
       .. "this collection for exactly one reason - the client - and where the client is not "
-      .. "involved the reason does not apply. Changing a pin is line-endings-6's two steps, index "
+      .. "involved the reason does not apply. Changing a pin is line-endings-§6's two steps, index "
       .. "then working tree, not an edit to this line alone", 2)
   end
 
@@ -582,30 +618,30 @@ test("eol: .gitattributes is line-endings-5's canonical body for this repo kind"
   for _, line in ipairs(actual) do present[line] = true end
   local missing = {}
   for _, line in ipairs(carveOuts) do
-    if not present[line] then missing[#missing + 1] = line .. "   (line-endings-3)" end
+    if not present[line] then missing[#missing + 1] = line .. "   (line-endings-§3)" end
   end
   for _, line in ipairs(binaries) do
-    if not present[line] then missing[#missing + 1] = line .. "   (line-endings-4)" end
+    if not present[line] then missing[#missing + 1] = line .. "   (line-endings-§4)" end
   end
   if #missing > 0 then
-    fail("eol: " .. ATTRS .. " is missing " .. #missing .. " line(s) line-endings-3 and line-endings-4 "
+    fail("eol: " .. ATTRS .. " is missing " .. #missing .. " line(s) line-endings-§3 and line-endings-§4 "
       .. "require. A missing shebang carve-out is a file broken on EVERY checkout rather than in "
       .. "one contributor's tree - `#!/usr/bin/env bash` followed by CRLF sends the kernel looking "
       .. "for an interpreter named \"bash\\r\", and `python3` fails identically with an error "
       .. "naming \"python3\\r\", which is a string nobody greps for. A missing binary mark is an "
       .. "asset git may line-end convert, because `text=auto` detects by content and an ASCII-bodied "
-      .. "format fools it. Add each line where line-endings-5's body puts it:\n          "
+      .. "format fools it. Add each line where line-endings-§5's body puts it:\n          "
       .. table.concat(missing, "\n          "), 2)
   end
 
   -- (d) THE BODY, LINE FOR LINE, THROUGH ITS FINAL LINE.
   if #actual < #body then
-    fail("eol: " .. ATTRS .. " is " .. #actual .. " lines; line-endings-5's canonical body for "
+    fail("eol: " .. ATTRS .. " is " .. #actual .. " lines; line-endings-§5's canonical body for "
       .. "this repo kind (" .. kind .. ", because " .. why .. ") is " .. #body .. ". The body is "
       .. "fixed so that a repo can be DIFFED against the standard rather than read against it, "
       .. "which is what stopped eight hand-written 22-to-68-line variants being eight things to "
-      .. "keep in sync. Replace the file with line-endings-5's body, and put any binary mark no extension can "
-      .. "reach in a line-endings-5 appendix below it", 2)
+      .. "keep in sync. Replace the file with line-endings-§5's body, and put any binary mark no extension can "
+      .. "reach in a line-endings-§5 appendix below it", 2)
   end
   local diffs = {}
   for i = 1, #body do
@@ -618,16 +654,16 @@ test("eol: .gitattributes is line-endings-5's canonical body for this repo kind"
     -- Every differing line, not the first: this is the diff. They arrive as a block - one comment
     -- the standard rewrote upstream - and reporting them one red run at a time is the slowest
     -- possible way to find that out.
-    fail("eol: " .. ATTRS .. " differs from line-endings-5's canonical body on " .. #diffs
+    fail("eol: " .. ATTRS .. " differs from line-endings-§5's canonical body on " .. #diffs
       .. " line(s), for a repo that takes the " .. kind .. " body because " .. why .. ". The body "
-      .. "is copied whole from line-endings-5 and edited nowhere else: a change belongs upstream in the "
+      .. "is copied whole from line-endings-§5 and edited nowhere else: a change belongs upstream in the "
       .. "standard, and arrives here on the next kit revision and re-vendor. Thirteen of fourteen "
       .. "repositories diverged on the same six lines once already, because one edit failed to "
       .. "travel and nothing in any repository mentioned it again:\n          "
       .. table.concat(diffs, "\n          "), 2)
   end
   if #actual == #body and unterminated then
-    fail("eol: " .. ATTRS .. " matches line-endings-5's canonical body but its final line has no "
+    fail("eol: " .. ATTRS .. " matches line-endings-§5's canonical body but its final line has no "
       .. "terminator, so the file is one byte short of the body it is required to be. Append a "
       .. "newline", 2)
   end
@@ -647,8 +683,8 @@ test("eol: .gitattributes is line-endings-5's canonical body for this repo kind"
       if not delimiterAt then
         if line ~= APPENDIX then
           fail("eol: " .. ATTRS .. " carries " .. (#actual - #body) .. " line(s) below "
-            .. "line-endings-5's canonical body, and the first non-blank one is not the appendix "
-            .. "delimiter. line-endings-5 permits exactly one thing there, beginning with the line `" .. APPENDIX
+            .. "line-endings-§5's canonical body, and the first non-blank one is not the appendix "
+            .. "delimiter. line-endings-§5 permits exactly one thing there, beginning with the line `" .. APPENDIX
             .. "` and holding only `binary` marks keyed by path - that delimiter is what lets a "
             .. "reader tell an appendix from an edited body without reading either. Found at line "
             .. at .. ": " .. line, 2)
@@ -664,19 +700,19 @@ test("eol: .gitattributes is line-endings-5's canonical body for this repo kind"
         local path, mark = line:match("^(%S+)%s+(%S+)$")
         if mark ~= "binary" then
           problems[#problems + 1] = string.format(
-            "line %d: %s - an appendix holds `binary` marks and nothing else; line-endings-2 forbids a per-path "
+            "line %d: %s - an appendix holds `binary` marks and nothing else; line-endings-§2 forbids a per-path "
             .. "pin or a `-text` exemption and this is not a reopening of that", at, line)
         elseif path:find("[%*%?%[%]]") then
           problems[#problems + 1] = string.format(
             "line %d: %s - names a glob. Each entry names a SINGLE path, because a glob swallows "
             .. "the text file somebody adds under it next year, and a binary-marked text file is "
-            .. "neither diffed nor converted: line-endings-4's failure, self-inflicted by the fix for it",
+            .. "neither diffed nor converted: line-endings-§4's failure, self-inflicted by the fix for it",
             at, line)
         elseif not commented then
           problems[#problems + 1] = string.format(
             "line %d: %s - carries no comment above it saying what the file is and why no extension "
             .. "reaches it. The next reader's first question is whether it could have been an "
-            .. "extension, and anything that could belongs in line-endings-4's union list upstream, where all "
+            .. "extension, and anything that could belongs in line-endings-§4's union list upstream, where all "
             .. "fourteen repos get it", at, line)
         end
         commented = false
@@ -684,7 +720,7 @@ test("eol: .gitattributes is line-endings-5's canonical body for this repo kind"
     end
   end
   if #problems > 0 then
-    fail("eol: the line-endings-5 appendix in " .. ATTRS .. " does not conform to line-endings-5, on "
+    fail("eol: the line-endings-§5 appendix in " .. ATTRS .. " does not conform to line-endings-§5, on "
       .. #problems .. " line(s):\n          " .. table.concat(problems, "\n          "), 2)
   end
 end)

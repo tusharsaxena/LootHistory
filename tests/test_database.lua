@@ -289,6 +289,23 @@ test("Database: Export coerces a nil source to OTHER (parity with Stats bySource
   assertEqual(NS.Database:Stats({}).bySource.OTHER, 1)
 end)
 
+test("Database: Export deep-copies auctionPrice and sourceDetail (mutating the export leaves history intact)", function()
+  -- The export contract promises a plain copy; the nested tables used to be shared by reference,
+  -- so a consumer mutating the export silently rewrote the live SavedVariables row.
+  NS.db.global.history = {
+    { ts = 1, char = "A-Realm", itemID = 1, itemName = "Priced", quality = 3, source = "KILL",
+      auctionPrice = { tsm = { dbmarket = 100 } }, sourceDetail = { npcID = 1 } },
+  }
+  local out = NS.Database:Export({})
+  assertEqual(out[1].auctionPrice.tsm.dbmarket, 100)
+  assertEqual(out[1].sourceDetail.npcID, 1)
+  out[1].auctionPrice.tsm.dbmarket = 1
+  out[1].sourceDetail.npcID = 2
+  local live = NS.db.global.history[1]
+  assertEqual(live.auctionPrice.tsm.dbmarket, 100)
+  assertEqual(live.sourceDetail.npcID, 1)
+end)
+
 local function firedHistoryChanged(sent)
   for _, m in ipairs(sent) do
     if m.msg == "Ka0s_LootHistory_HistoryChanged" then return true end
@@ -318,6 +335,26 @@ test("Database: PruneOld drops records older than retentionDays", function()
   assertEqual(NS.Database:Count(), 1)
   assertEqual(NS.Database:History()[1].itemID, 1)
   assertTrue(firedHistoryChanged(sent))
+end)
+
+-- LootHistory-R-18: a prune that removes nothing leaves the store alone and fires no
+-- HistoryChanged, so the Browser does not rebuild on every login with a fresh history. The spy
+-- is a real subscriber on its own bus target; it first proves it records a positive send.
+test("Database: PruneOld fires HistoryChanged only when it removed rows", function()
+  local now, day = os.time(), 86400
+  local spy, count = NS.NewBusTarget(), 0
+  spy:RegisterMessage(NS.MSG.HISTORY_CHANGED, function() count = count + 1 end)
+  NS.db.global.settings.retentionDays = 30
+  NS.db.global.history = { { ts = now - day, itemID = 1 }, { ts = now - 40 * day, itemID = 2 } }
+  NS.Database:PruneOld()
+  assertEqual(count, 1, "a prune that removes a row fires once")
+  count = 0
+  local fresh = { { ts = now - day, itemID = 1 } }
+  NS.db.global.history = fresh
+  assertEqual(NS.Database:PruneOld(), 0)
+  spy:UnregisterMessage(NS.MSG.HISTORY_CHANGED)
+  assertEqual(count, 0, "a prune that removes nothing fires nothing")
+  assertTrue(NS.db.global.history == fresh, "the store is not swapped when nothing is removed")
 end)
 
 test("Database: PruneOld with retentionDays=0 keeps everything", function()
@@ -390,7 +427,7 @@ end)
 
 -- ── StorageStats byte estimate ─────────────────────────────────────────────────────────────
 -- Two fixtures, both fully populated across the seven string fields estimateRecordBytes
--- declares -- except that the currency row has no itemLink, because Collector.lua:195-204
+-- declares -- except that the currency row has no itemLink, because Collector.lua:205-214
 -- never builds one for a currency. The byte arithmetic is spelled out beside each row so a
 -- future reader can check the totals below without running anything.
 local RECORD_OVERHEAD = 256                       -- core/Database.lua's flat per-record charge
@@ -441,6 +478,38 @@ test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()
   assertEqual(NS.db.global.schemaVersion, 8)
+end)
+
+-- savedvariables-§1 (v2.65.0): the defaults declare 0, the pre-migration floor, and never the
+-- current version. AceDB strips a stored value equal to its default at logout and backfills a
+-- declared default onto an account that stored none, so a non-zero seed either loses the stamp or
+-- makes a legacy account read as partly migrated.
+test("Database: defaults declare schemaVersion 0, and the target is the ladder's highest step", function()
+  assertEqual(NS.defaults.global.schemaVersion, 0)
+  assertEqual(NS.SCHEMA_VERSION, 8)
+end)
+
+-- What AceDB hands a brand-new install: the declared default, 0. The runner walks every step and
+-- each [Migrate] line names the step it ran, v1->v2 through v7->v8.
+test("Database: a fresh store at schemaVersion 0 walks every step to 8", function()
+  local g = NS.db.global
+  local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
+  local savedDebug, savedFlag = NS.Debug, NS.State.debug
+  local lines = {}
+  NS.Debug = function(tag, fmt, ...) lines[#lines + 1] = tag .. " " .. fmt:format(...) end
+  NS.State.debug = true
+  g.history, g.savedView, g.schemaVersion = {}, nil, 0
+  NS:RunMigrations()
+  NS.Debug, NS.State.debug = savedDebug, savedFlag
+  local stamp = g.schemaVersion
+  g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView   -- restore shared state
+  assertEqual(stamp, 8)
+  local steps = {}
+  for _, l in ipairs(lines) do
+    local from, to = l:match("^Migrate v(%d+) %-> v(%d+),")
+    if from then steps[#steps + 1] = from .. "->" .. to end
+  end
+  assertEqual(table.concat(steps, " "), "1->2 2->3 3->4 4->5 5->6 6->7 7->8")
 end)
 
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
@@ -724,6 +793,27 @@ test("Database: RepairBoundStates repairs a row that has only a link", function(
   assertEqual(g.history[1].bound, "WARBAND_UE")
   _G.C_TooltipInfo = savedTI
   g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
+end)
+
+test("Database: RepairBoundStates warms the cache from the link when a row has no itemID", function()
+  -- LootHistory-R-15: the unsettled branch asked LoadItem(r.itemID), and a link-only row has no
+  -- itemID, so the request never went out and the row could only settle by luck.
+  local g = NS.db.global
+  local savedHist = g.history
+  local savedBind = NS.Compat.ItemBindState
+  local savedReq = T.mocks.C_Item.RequestLoadItemDataByID
+  local requested = {}
+  NS.Compat.ItemBindState = function() return nil, false end   -- the tooltip is not readable yet
+  T.mocks.C_Item.RequestLoadItemDataByID = function(id) requested[#requested + 1] = id end
+  g.history = { { bound = "WARBAND", itemLink = "|cffa335ee|Hitem:258586::::::::80:::::|h[Cache]|h|r" } }
+  g.boundRepairPending, g.boundRepairAttempts = true, nil
+  local ok, err = pcall(NS.Database.RepairBoundStates, NS.Database)
+  NS.Compat.ItemBindState = savedBind
+  T.mocks.C_Item.RequestLoadItemDataByID = savedReq
+  g.boundRepairPending, g.boundRepairAttempts, g.history = nil, nil, savedHist
+  if not ok then error(err, 0) end
+  assertEqual(#requested, 1, "the link-only row asks the client to cache its item")
+  assertEqual(requested[1], 258586)
 end)
 
 test("Database: RepairBoundStates resets the give-up budget on a pass that fixed something", function()

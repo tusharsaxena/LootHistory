@@ -246,7 +246,7 @@ local function resolveExempt(entries, tree)
   local set = {}
   if entries == nil then return set end
   if type(entries) ~= "table" then
-    fail("layout cap gate: Kit.layoutCap.exempt is the set of paths layout-1's generated-data "
+    fail("layout cap gate: Kit.layoutCap.exempt is the set of paths layout-§1's generated-data "
       .. "carve-out removes, as an array or a map; this runner set it to a " .. type(entries), 2)
   end
   for key, value in pairs(entries) do
@@ -302,7 +302,7 @@ local function locateCensus(headings)
   end
   if not register then
     return nil, "carries no `## " .. REGISTER_HEADING .. "` register, which is the census's fixed "
-      .. "parent in both hosts (documentation-3)"
+      .. "parent in both hosts (documentation-§3)"
   end
 
   local level = headings[register].level
@@ -517,7 +517,7 @@ end
 local function repository()
   local s = state()
   if s.count == 0 then
-    skip("this repository tracks no authored .lua file, so layout-1 leaves it no census to write "
+    skip("this repository tracks no authored .lua file, so layout-§1 leaves it no census to write "
       .. "and no cap to gate; the obligation arrives with its first authored .lua outside a frozen "
       .. "bundle")
   end
@@ -532,7 +532,7 @@ test("layoutcap: every authored file over the 1500-line cap is named in the cens
   local s = repository()
   local missing = audit(s.tree, s.section.rows, s.exempt)
   if #missing > 0 then
-    fail("over layout-1's " .. CAP .. "-line cap and remarked on nowhere: "
+    fail("over layout-§1's " .. CAP .. "-line cap and remarked on nowhere: "
       .. table.concat(missing, ", ") .. ". Peel it, open an issue naming the seam a peel would "
       .. "follow, or ratify a deviation row with a re-check trigger — then write the row into "
       .. s.hub .. "'s `" .. CENSUS_HEADING .. "` census. If the file is generated non-shipping "
@@ -552,14 +552,14 @@ test("layoutcap: no census row outlives the breach it records", function()
   end
 end)
 
-test("layoutcap: every over-cap census row carries one of layout-1's three terminal states",
+test("layoutcap: every over-cap census row carries one of layout-§1's three terminal states",
   function()
     local s = repository()
     local _, _, unstated = audit(s.tree, s.section.rows, s.exempt)
     if #unstated > 0 then
       fail(s.hub .. "'s cap census names these files and does not say which terminal state they "
         .. "sit in: " .. table.concat(unstated, ", ") .. ". A row acknowledges the line count; "
-        .. "layout-1 asks which of the three it is — the issue that names the seam, the deviation "
+        .. "layout-§1 asks which of the three it is — the issue that names the seam, the deviation "
         .. "row that ratified it, or the peel that is scheduled", 2)
     end
   end)
@@ -570,7 +570,7 @@ test("layoutcap: the census and the exempt set agree about which paths were exem
   if #disagreeing > 0 then
     fail("the cap census in " .. s.hub .. " and the exempt set in `Kit.layoutCap.exempt` disagree: "
       .. table.concat(disagreeing, "; ") .. ". Whether an exemption is LEGITIMATE is the auditor's "
-      .. "call against layout-1's three conditions and never this gate's; that the two records name "
+      .. "call against layout-§1's three conditions and never this gate's; that the two records name "
       .. "the same paths is the part a gate can see, so it is the part it holds you to", 2)
   end
 end)
@@ -596,7 +596,7 @@ local HUB = table.concat({
   "",
   "| Rule | What differs | Why | Decided | Re-check trigger |",
   "|---|---|---|---|---|",
-  "| `layout-2` | a folder of generated data | no home for it | 2026-01-01 | the folder moving |",
+  "| `layout-§2` | a folder of generated data | no home for it | 2026-01-01 | the folder moving |",
   "",
   "### Files over the 1500-line cap",
   "",
@@ -636,7 +636,7 @@ test("layoutcap self-test: a census outside its register, or at the wrong level,
     Kit.assertTrue(level:find("level 4", 1, true) ~= nil, "a level too deep says so: " .. level)
 
     local renamed = HUB:gsub("### Files over the 1500%-line cap",
-      "### Files by the `layout-1` band")
+      "### Files by the `layout-§1` band")
     local _, gone = parseCensus(renamed)
     Kit.assertTrue(gone:find("closest heading", 1, true) ~= nil, "a renamed census: " .. gone)
 

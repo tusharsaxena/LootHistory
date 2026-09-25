@@ -90,8 +90,9 @@ end
 test("Widgets: the seam builds a real library dropdown, art passed as parameters", function()
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(lib ~= nil, "LibKa0s-Widgets-1.0 did not register")
-  -- Re-pinned to 9 at the v1.24.0 re-vendor, and the pin did its job twice now: the bump stops the
-  -- suite and forces the re-read, which is the only reason this assertion exists.
+  -- Re-pinned to 9 at the v1.24.0 re-vendor and to 10 at the v1.56.0 one, and the pin did its job
+  -- three times now: the bump stops the suite and forces the re-read, which is the only reason this
+  -- assertion exists.
   --
   -- Minor 8 added `ReorderList` and this addon did not call it. Minor 9 is the release this addon
   -- ADOPTS it in: the AH Price tab's cascade is dragged now instead of clicked up and down
@@ -101,9 +102,17 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- three are read rather than restated here: core/WidgetsSetup.lua's NS.ReorderRowBox hands the
   -- table through and settings/Panel.lua reads HANDLE_W off it for the gutter.
   --
+  -- Minor 10 (LibKa0s docs/api/Widgets/version-10.2-docs.md) moves two ReorderList internals: the
+  -- drag poll runs on the library's own ghost frame, never on the row frame a host hands AddRow,
+  -- and the insertion line comes from a per-drag free list instead of being cached on the
+  -- container, so `Finish(container)` now returns nothing. Re-read against this addon: no row
+  -- frame settings/Panel.lua builds sets an OnUpdate, its `list:Finish(hf)` discards the return,
+  -- and no suite here fires a row frame's OnUpdate to drive a drag. Nothing to change; the drag
+  -- itself is an in-client smoke.
+  --
   -- `Dropdown`, `CloseMenu` and `CopyWindow` -- the three this file's other cases drive -- are
-  -- untouched across 7, 8 and 9.
-  assertEqual(lib.MODULES.Widgets, 9, "this adoption is written against Widgets minor 9")
+  -- untouched across 7, 8, 9 and 10.
+  assertEqual(lib.MODULES.Widgets, 10, "this adoption is written against Widgets minor 10")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

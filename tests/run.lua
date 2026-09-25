@@ -42,6 +42,7 @@ local LIFECYCLE = {}
 local function kick(label, fn) LIFECYCLE[#LIFECYCLE + 1] = label; fn() end
 
 kick("NS:InitDB",          function() NS:InitDB() end)
+kick("NS.Schema:SyncRetention", function() NS.Schema:SyncRetention() end)
 kick("NS.Schema:Register", function() NS.Schema:Register() end)
 kick("NS.Slash:Register",  function() NS.Slash:Register() end)
 kick("NS.Panel:Register",  function() NS.Panel:Register() end)
@@ -68,8 +69,8 @@ local SUITES = {
   "test_browser", "test_browsertable", "test_export", "test_debuglog",
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind, and
   -- every Reset all settings below reaches LibDBIcon through NS.RefreshLauncher.
-  "test_launcher", "test_slash",
-  "test_schema", "test_analytics", "test_panel", "test_panel_filters", "test_harness", "test_libka0s",
+  "test_launcher", "test_slash", "test_slash_degraded",
+  "test_schema", "test_schema_stub", "test_analytics", "test_panel", "test_panel_filters", "test_harness", "test_libka0s",
   -- After test_libka0s and after test_debuglog, both deliberately. It shares the degraded
   -- environment with the first, and the second is what attaches the library's `_frameForTest`
   -- seams to the live DebugLog instance -- the ignore entries naming them describe the state this
@@ -126,6 +127,10 @@ Kit.setSurfaceSource{
   ["LibKa0s-Bus-1.0"]      = mocks.LibStub("LibKa0s-Bus-1.0", true),
   ["LibKa0s-Compat-1.0"]   = mocks.LibStub("LibKa0s-Compat-1.0", true),
   ["LibKa0s-Schema-1.0"]   = mocks.LibStub("LibKa0s-Schema-1.0", true),
+  -- Item and Pool are library tables as well: core/ItemSetup.lua and core/PoolSetup.lua publish the
+  -- resolved major unchanged as NS.Item / NS.Pool, so each stub mirrors the library table itself.
+  ["LibKa0s-Item-1.0"]     = mocks.LibStub("LibKa0s-Item-1.0", true),
+  ["LibKa0s-Pool-1.0"]     = mocks.LibStub("LibKa0s-Pool-1.0", true),
 }
 
 _G.LH_TEST = Kit.expose{

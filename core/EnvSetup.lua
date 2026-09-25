@@ -28,7 +28,8 @@ local addonName, NS = ...
 --
 -- Because this is a seam, not a feature. An install missing LibKa0s must get exactly what this
 -- addon got before the library existed: every helper below repeats the ladder its deleted shim ran,
--- so such an install still reads its own TOC and still stamps its own zone. Nothing here is
+-- minus the pre-C_AddOns metadata rung no admitted client can reach (see NS.Meta), so such an
+-- install still reads its own TOC and still stamps its own zone. Nothing here is
 -- resolved at load beyond the LibStub lookup, so this file's TOC position is conventional — it sits
 -- next to core/Compat.lua, whose shims it took over.
 --
@@ -46,15 +47,18 @@ local Env = LibStub and LibStub("LibKa0s-Env-1.0", true)
 --- at all, which is exactly what a headless run looks like. A field the TOC does not carry also
 --- answers nil on a perfectly healthy client. Callers that need a value supply their own.
 ---
+--- Two rungs: the library, then `C_AddOns.GetAddOnMetadata`. There is deliberately no third rung
+--- on the bare global `GetAddOnMetadata`: every client this addon's `## Interface` admits serves the
+--- manifest through C_AddOns only, so that rung could never reach a working call, and compat
+--- (standard v2.65.0) says a dead rung is deleted rather than shimmed. tests/test_envsetup.lua pins
+--- that a stray global is not consulted.
+---
 --- @param field string  a TOC key: "Version", "Title", "Notes", "Author", …
 --- @return string|nil
 function NS.Meta(field)
   if Env then return Env.GetAddOnMetadata(addonName, field) end
   if C_AddOns and C_AddOns.GetAddOnMetadata then
     return C_AddOns.GetAddOnMetadata(addonName, field)
-  end
-  if type(GetAddOnMetadata) == "function" then
-    return GetAddOnMetadata(addonName, field)
   end
   return nil
 end
@@ -90,7 +94,7 @@ end
 
 --- Zone and subzone. ALWAYS two strings; "" when the client has no text yet.
 ---
---- The empty string is load-bearing rather than tidy. core/Database.lua:548 and
+--- The empty string is load-bearing rather than tidy. core/Database.lua:575 and
 --- modules/BrowserTable.lua's Zone column both bucket "" with nil on purpose — in Database:Stats, in the
 --- Browser's Zone filter and in the table's group-by-zone — because one named zone spans many
 --- UiMapIDs and a row captured before the client had text must not become its own bucket. A nil

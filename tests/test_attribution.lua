@@ -68,6 +68,41 @@ test("Attribution: ResolveLootSource creature in encounter → KILL + encounter 
   assertEqual(detail.difficulty, 16)
 end)
 
+-- The boss corpse is looted AFTER ENCOUNTER_END, so a won encounter keeps its context for
+-- Constants.ENCOUNTER_GRACE seconds. The resolver reads `now` off the state it is given.
+test("Attribution: KILL loot inside the post-kill grace window carries the encounter", function()
+  local state = { encounter = { id = 2902, difficulty = 16, expires = 100 }, now = 90 }
+  local source, detail = NS.Attribution:ResolveLootSource(CREATURE, state)
+  assertEqual(source, "KILL")
+  assertEqual(detail.encounterID, 2902)
+  assertEqual(detail.difficulty, 16)
+end)
+
+test("Attribution: KILL loot after the grace window has expired carries no encounter", function()
+  local state = { encounter = { id = 2902, difficulty = 16, expires = 100 }, now = 101 }
+  local source, detail = NS.Attribution:ResolveLootSource(CREATURE, state)
+  assertEqual(source, "KILL")
+  assertEqual(detail.npcID, 214506)
+  assertEqual(detail.encounterID, nil)
+  assertEqual(detail.difficulty, nil)
+end)
+
+test("Attribution: ENCOUNTER_END keeps the context with an expiry on a kill, clears it on a wipe",
+  function()
+  local saved = NS.State.encounter
+  mocks.__now = 50
+  NS.State.encounter = { id = 2902, name = "x", difficulty = 16 }
+  NS.Attribution:OnEncounterEnd(nil, 2902, "x", 16, 5, 0)
+  assertEqual(NS.State.encounter, nil)
+
+  NS.State.encounter = { id = 2902, name = "x", difficulty = 16 }
+  NS.Attribution:OnEncounterEnd(nil, 2902, "x", 16, 5, 1)
+  assertTrue(NS.State.encounter ~= nil, "a kill keeps the encounter context")
+  assertEqual(NS.State.encounter.expires, 50 + NS.Constants.ENCOUNTER_GRACE)
+  NS.State.encounter = saved
+  mocks.__now = 0
+end)
+
 test("Attribution: ResolveLootSource GameObject in keystone → MPLUS + level", function()
   local state = { keystone = { level = 12 } }
   local source, detail = NS.Attribution:ResolveLootSource(OBJECT, state)
@@ -149,7 +184,7 @@ end)
 
 -- Un-enumerated per-herb/expansion variants are matched by their *localized* name family, resolved
 -- from seed spellIDs via C_Spell — proving the check follows the client locale and never depends on
--- an English literal (Ka0s Standard localization-§4 / anti-pattern #37). GetSpellName is stubbed to
+-- an English literal (a ratified localization-§4 departure, see ARCHITECTURE.md). GetSpellName is stubbed to
 -- return the locale-specific seed names the live client would.
 test("Attribution: DeconstructSource matches un-enumerated variants by localized name family", function()
   local A = NS.Attribution
@@ -327,10 +362,76 @@ test("Attribution: taking a quest reward stamps QUEST", function()
   assertEqual(NS.Attribution:Consume(), "QUEST")
 end)
 
+-- ── The keystone context's lifetime ──────────────────────────────────────────────────────────
+--
+-- State.keystone turns every GameObject loot into MPLUS. It is kept through completion so the
+-- reward chest still records as MPLUS, and it must go when the player leaves the party instance or
+-- the key resets; otherwise every herb, ore node and world chest for the rest of the session is
+-- persisted as MPLUS with a keystone level. Each case puts the client context, C_ChallengeMode and
+-- the keystone back on the way out, whether the body passed or threw.
+local function withKeystoneEnv(ctx, activeLevel, body)
+  local savedCtx, savedCM, savedKey = mocks.__context, mocks.C_ChallengeMode, NS.State.keystone
+  local c = {}
+  for k, v in pairs(savedCtx) do c[k] = v end
+  for k, v in pairs(ctx) do c[k] = v end
+  mocks.__context = c
+  mocks.C_ChallengeMode = (activeLevel ~= nil)
+    and { GetActiveKeystoneInfo = function() return activeLevel end } or nil
+  local ok, err = pcall(body)
+  mocks.__context, mocks.C_ChallengeMode, NS.State.keystone = savedCtx, savedCM, savedKey
+  if not ok then error(err, 0) end
+end
+
+test("Attribution: leaving the party instance clears the keystone, so later objects are CONTAINER",
+function()
+  withKeystoneEnv({ inInstance = false, instanceType = "none" }, nil, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnZoneChanged()
+    assertEqual(NS.State.keystone, nil, "the keystone survived leaving the instance")
+    assertEqual(NS.Attribution:ResolveLootSource(OBJECT, NS.State), "CONTAINER")
+  end)
+end)
+
+test("Attribution: a zone change inside the party instance keeps the keystone (MPLUS 12)", function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, nil, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnZoneChanged()
+    local source, detail = NS.Attribution:ResolveLootSource(OBJECT, NS.State)
+    assertEqual(source, "MPLUS")
+    assertEqual(detail.keystoneLevel, 12)
+  end)
+end)
+
+test("Attribution: CHALLENGE_MODE_RESET clears the keystone", function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, nil, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnChallengeModeReset()
+    assertEqual(NS.State.keystone, nil, "the keystone survived CHALLENGE_MODE_RESET")
+  end)
+end)
+
+test("Attribution: a completion-time keystone level of 0 does not overwrite the started level",
+function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, 0, function()
+    NS.State.keystone = { level = 12 }
+    NS.Attribution:OnChallengeModeCompleted()
+    assertEqual(NS.State.keystone.level, 12)
+  end)
+end)
+
+test("Attribution: zoning back into an active key re-arms the keystone at its level", function()
+  withKeystoneEnv({ inInstance = true, instanceType = "party" }, 15, function()
+    NS.State.keystone = nil
+    NS.Attribution:OnZoneChanged()
+    assertTrue(NS.State.keystone ~= nil, "re-entry to an active key left no keystone context")
+    assertEqual(NS.State.keystone.level, 15)
+  end)
+end)
+
 -- ── Enable(): the wiring, not the handlers ───────────────────────────────────────────────────
 --
 -- Every case above hand-feeds an event straight to a stamper. Not one of them proves the stamper
--- is ever REACHED in the client. `Attribution:Enable` is what registers the seven bus events, the
+-- is ever REACHED in the client. `Attribution:Enable` is what registers the nine bus events, the
 -- player-only UNIT_SPELLCAST_SUCCEEDED frame and the five read-side hooks, and it had zero test
 -- callers: a mistyped event name or a dropped hooksecurefunc would have left every case above
 -- green while the attribution engine received nothing at all. testing-§8 asks the addon's own
@@ -342,12 +443,13 @@ end)
 -- the SHARED addon object, so the whole thing runs inside a wrapper that puts all of it back on
 -- the way out whether the body passed, failed or threw. Restoring on the last line of the body
 -- instead would put nothing back on a failure — tests/_kit/framework.lua pcalls the body — and the
--- next suite would run against a half-stubbed client with seven stray registrations on the bus.
+-- next suite would run against a half-stubbed client with nine stray registrations on the bus.
 
 -- Sorted: this asserts the SET Enable registers, and the registration order carries no meaning.
 local ENABLE_EVENTS = {
-  "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_START", "ENCOUNTER_END", "ENCOUNTER_START",
-  "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
+  "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_RESET", "CHALLENGE_MODE_START", "ENCOUNTER_END",
+  "ENCOUNTER_START", "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
+  "ZONE_CHANGED_NEW_AREA",
 }
 -- In Enable()'s own order: three globals hooked inline, then core/Compat.lua's two seams.
 local ENABLE_HOOKS = {
@@ -393,7 +495,7 @@ local function withClientStubs(body)
   if not ok then error(err, 0) end
 end
 
-test("Attribution: Enable registers seven bus events, the player-only cast frame and five hooks",
+test("Attribution: Enable registers nine bus events, the player-only cast frame and five hooks",
 function()
   withClientStubs(function(rec)
     NS.Attribution:Enable()
@@ -431,3 +533,93 @@ function()
     assertEqual(#rec.hooks, hooks, "a second Enable() installed the read-side hooks again")
   end)
 end)
+
+-- ── one retired event name does not abort the block (events-frames-taint-§1) ─────────────────
+--
+-- The client RAISES on a name it does not know, and a block of bare RegisterEvent calls loses every
+-- line after the one that raised. Enable therefore registers through Core's SafeRegister family,
+-- records a refused name once on the addon-owned NS.RejectedEvents, and keeps Attribution.__events
+-- to the names that actually registered so Disable unregisters exactly those. The kit's
+-- `__badEvents` models the retired name: C_EventUtils.IsEventValid answers false for it, an
+-- AceEvent target raises on it and a frame's RegisterUnitEvent raises on it. Each case runs once
+-- with C_EventUtils present (the front gate) and once without it (the pcall rung).
+
+local function wipeRejected()
+  local list = NS.RejectedEvents
+  if type(list) ~= "table" then return end
+  for i = #list, 1, -1 do list[i] = nil end
+end
+
+local function withBadEvent(name, noEventUtils, body)
+  local savedBad, savedUtils = mocks.__badEvents, mocks.C_EventUtils
+  mocks.__badEvents = { [name] = true }
+  if noEventUtils then mocks.C_EventUtils = nil end
+  wipeRejected()
+  local ok, err = pcall(withClientStubs, body)
+  mocks.__badEvents, mocks.C_EventUtils = savedBad, savedUtils
+  wipeRejected()
+  if not ok then error(err, 0) end
+end
+
+local function countOf(list, name)
+  assertTrue(type(list) == "table", "expected a list, got " .. type(list))
+  local n = 0
+  for _, v in ipairs(list) do if v == name then n = n + 1 end end
+  return n
+end
+
+local function addedSince(rec)
+  local added = {}
+  for event in pairs(NS.addon.__events) do
+    if not rec.before[event] then added[#added + 1] = event end
+  end
+  table.sort(added)
+  return added
+end
+
+local function without(list, name)
+  local out = {}
+  for _, v in ipairs(list) do if v ~= name then out[#out + 1] = v end end
+  return out
+end
+
+for _, rung in ipairs({ { "front gate", false }, { "pcall rung", true } }) do
+  test("Attribution: a retired ENCOUNTER_START costs only itself (" .. rung[1] .. ")", function()
+    withBadEvent("ENCOUNTER_START", rung[2], function(rec)
+      NS.Attribution:Enable()
+      local want = table.concat(without(ENABLE_EVENTS, "ENCOUNTER_START"), ",")
+      assertEqual(table.concat(addedSince(rec), ","), want,
+        "the other eight bus events must still register")
+      assertEqual(countOf(NS.RejectedEvents, "ENCOUNTER_START"), 1,
+        "NS.RejectedEvents must name ENCOUNTER_START exactly once")
+      assertEqual(countOf(NS.Attribution.__events, "ENCOUNTER_START"), 0,
+        "Attribution.__events must hold only the names that registered")
+      assertEqual(#NS.Attribution.__events, #ENABLE_EVENTS - 1)
+
+      -- Disable is symmetric, and a cycle does not grow the rejected list.
+      NS.Attribution:Disable()
+      assertEqual(#addedSince(rec), 0, "Disable left a stray bus registration")
+      NS.Attribution:Enable()
+      assertEqual(table.concat(addedSince(rec), ","), want)
+      assertEqual(countOf(NS.RejectedEvents, "ENCOUNTER_START"), 1,
+        "a disable/enable cycle must not append the name a second time")
+      NS.Attribution:Disable()
+      assertEqual(#addedSince(rec), 0)
+    end)
+  end)
+
+  test("Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound ("
+    .. rung[1] .. ")", function()
+    withBadEvent("UNIT_SPELLCAST_SUCCEEDED", rung[2], function(rec)
+      NS.Attribution:Enable()
+      assertEqual(table.concat(addedSince(rec), ","), table.concat(ENABLE_EVENTS, ","),
+        "every bus event must still register when the cast frame's event is refused")
+      assertEqual(countOf(NS.RejectedEvents, "UNIT_SPELLCAST_SUCCEEDED"), 1)
+      local frame = NS.Attribution.__spellFrame
+      assertTrue(frame.__unitEvents["UNIT_SPELLCAST_SUCCEEDED"] == nil,
+        "the refused unit event must not be recorded on the cast frame")
+      NS.Attribution:Disable()
+      assertEqual(#addedSince(rec), 0, "Disable left a stray bus registration")
+    end)
+  end)
+end

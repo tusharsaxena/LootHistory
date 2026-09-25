@@ -217,3 +217,71 @@ test("parity: the Schema stub library carries the major's lib-level surface", fu
     "STRINGS",
   })
 end)
+
+-- ── Item ───────────────────────────────────────────────────────────────────────────────────────
+
+test("parity: the Item stub carries the whole LibKa0s-Item-1.0 surface", function()
+  -- Members from: grep -nE "^function lib\.[A-Za-z]" libs/LibKa0s/Item.lua
+  -- core/ItemSetup.lua publishes the resolved major unchanged as NS.Item, so the stub mirrors the
+  -- library table and the by-name form is the right one. No ignore set: all four primitives are
+  -- called here (`grep -rnE "Item[.:](ItemIDFromLink|QualityFromLink|QualityLabel|LoadItem)" core
+  -- modules settings`), and a member the major adds later fails this case until the addon decides.
+  T.assertSurfaceParity(degradedNS.Item, "LibKa0s-Item-1.0")
+end)
+
+-- ── Pool ───────────────────────────────────────────────────────────────────────────────────────
+
+test("parity: the Pool stub carries the LibKa0s-Pool-1.0 surface this addon calls", function()
+  -- Members from: grep -nE "^function lib\.[A-Za-z]" libs/LibKa0s/Pool.lua
+  -- NS.Pool is the resolved major itself (core/PoolSetup.lua), so the by-name form applies.
+  T.assertSurfaceParity(degradedNS.Pool, "LibKa0s-Pool-1.0", {
+    -- The keyed pool family, live-only on purpose. `grep -rnE "Keyed\(" core modules settings`
+    -- returns nothing: every pool this addon owns (the chart pools in modules/Analytics.lua, the
+    -- row pool in modules/BrowserTable.lua) is a plain New/Acquire/ReleaseAll pool.
+    "NewKeyed", "AcquireKeyed", "ReleaseAllKeyed", "CountsKeyed",
+  })
+end)
+
+-- ── Lifecycle ──────────────────────────────────────────────────────────────────────────────────
+
+test("parity: the Lifecycle stand-in carries every member of the live latch", function()
+  -- Members from: grep -nE "^  function LC[:.]|^  LC\.[a-z]+ *=" libs/LibKa0s/Lifecycle.lua
+  -- Both arms are NS.Lifecycle: the live one is what `Lifecycle:New{...}` returned, the degraded one
+  -- is core/LifecycleSetup.lua's hand-built stand-in. An instance has no major to name, so this is
+  -- the two-table form, key for key, with nothing ignored.
+  T.assertSurfaceParity(NS.Lifecycle, degradedNS.Lifecycle, "Lifecycle latch vs host stand-in")
+end)
+
+-- ── Env and Media (NS members, derived from the seam file) ─────────────────────────────────────
+
+-- The NS members a seam file publishes, as a { name = true } set, found the way the grep in each
+-- case's comment finds them. Env and Media publish onto NS itself, like Core, so there is no table
+-- to compare and the member list has to be derived rather than re-typed.
+local function seamMembers(path)
+  local found = {}
+  for line in Loader.readFile(path):gmatch("[^\r\n]+") do
+    local key = line:match("^%s*function NS%.([A-Za-z_][A-Za-z0-9_]*)")
+      or line:match("^%s*NS%.([A-Za-z_][A-Za-z0-9_]*)%s*=")
+    if key then found[key] = true end
+  end
+  return found
+end
+
+local function assertSeamParity(path, known, label)
+  local found = seamMembers(path)
+  assertTrue(found[known], "the derivation found no NS." .. known .. " — " .. path
+    .. " changed shape and this case is now asserting nothing")
+  local live, degraded = {}, {}
+  for key in pairs(found) do live[key], degraded[key] = NS[key], degradedNS[key] end
+  T.assertSurfaceParity(live, degraded, label)
+end
+
+test("parity: the Env seam publishes the same NS members on both paths", function()
+  -- Members from: grep -nE '^\s*function NS\.[A-Za-z_]+|^\s*NS\.[A-Za-z_]+\s*=' core/EnvSetup.lua
+  assertSeamParity("core/EnvSetup.lua", "Version", "Env seam (NS members)")
+end)
+
+test("parity: the Media seam publishes the same NS members on both paths", function()
+  -- Members from: grep -nE '^\s*function NS\.[A-Za-z_]+|^\s*NS\.[A-Za-z_]+\s*=' core/MediaSetup.lua
+  assertSeamParity("core/MediaSetup.lua", "MediaFont", "Media seam (NS members)")
+end)

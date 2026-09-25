@@ -77,18 +77,21 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
   -- two session paths above -- but for a different reason: those live outside the store entirely,
   -- and this one lives in the GLOBAL store, which is where launcher-§3 fixes LibDBIcon's own table.
-  -- This addon has no profile at all and every schema path already resolves against `NS.db.global`,
-  -- so the verbatim path is simply `minimap.hide` and the `settings.` prefix above must not reach it.
+  -- This addon has no profile at all, so the verbatim path sits beside `settings.` rather than
+  -- under it, and the `settings.` prefix above must not reach it.
   --
-  -- THE ROW SAYS SHOWN AND THE STORED KEY SAYS HIDDEN. The composer emits a stored bool defaulting
-  -- to `true` labeled "Minimap button"; LibDBIcon owns the `hide` boolean underneath. The two
-  -- accessors stamped below are the whole of that inversion, and they are the only ones: Schema:Get
-  -- and Schema:Set are this addon's single write seam (options-ui-§1) and both honor a row's own
-  -- get/set, so the panel checkbox, `/lh set`, `/lh reset` and `/lh resetall` all invert once.
+  -- THE ROW PATH IS `minimap.shown`; THE ONE STORED KEY IS `minimap.hide` (launcher-§3, standard
+  -- v2.65.0). The CLI path reads in the row's own sense -- `/lh get minimap.shown` answers whether
+  -- the button is shown -- while LibDBIcon owns the `hide` boolean underneath, and no `shown` key is
+  -- ever stored (anti-pattern #81). The composer emits a bool defaulting to `true` labeled
+  -- "Minimap button". The two accessors stamped below are the whole of that inversion, and they are
+  -- the only ones: Schema:Get and Schema:Set are this addon's single write seam (options-ui-§1) and
+  -- both honor a row's own get/set, so the panel checkbox, `/lh set`, `/lh reset` and `/lh resetall`
+  -- all invert once. A row that owns its storage this way is skipped by Register's defaults check.
   --
   -- It REPLACES the "Hide minimap button" checkbox that used to sit on General > Interface under a
   -- `Minimap` subheading. Same stored key, same table, opposite sense, canonical position.
-  minimapPath      = "minimap.hide",
+  minimapPath      = "minimap.shown",
   defaults = {
     enabled    = G.settings.enabled,
     visibility = G.settings.visibility,
@@ -138,6 +141,14 @@ local function stamp(rows, extras)
   return rows
 end
 
+--- The reaction to a written `settings.enabled`: the latch first, then the bus. The Master controls
+--- row's onChange calls it, and so does the library-less Slash stub's CliSet (settings/Slash.lua),
+--- because there the write lands through the seam's writeThrough list, which runs no onChange.
+function S.OnEnabledWritten()
+  NS.OnEnabledChanged()
+  if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "enabled") end
+end
+
 stamp(MASTER_ROWS, {
   -- THE ADDON-WIDE SWITCH, and its onChange is where "disabled" stops being a flag somebody reads
   -- and becomes the addon actually standing down (slash-commands-§7). `/lh enable`, `/lh disable`,
@@ -154,10 +165,7 @@ stamp(MASTER_ROWS, {
   -- before the fan-out reaches them.
   ["settings.enabled"] = {
     widget = "CheckBox",
-    onChange = function()
-      NS.OnEnabledChanged()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "enabled") end
-    end,
+    onChange = function() S.OnEnabledWritten() end,
   },
   ["settings.visibility"] = {
     widget = "Dropdown",
@@ -202,15 +210,16 @@ stamp(MASTER_ROWS, {
   -- below) reads a path row's own `get`, and hands a path row's own `set` the value instead of
   -- writing it at the path, so the inversion happens once for every entry into the seam.
   --
-  -- The row's boolean is SHOWN. LibDBIcon's key is HIDDEN. ONE boolean is stored -- `minimap.hide`,
-  -- the library's own, which it writes too when the player uses the button's menu -- and never a
-  -- `minimap.show` beside it, which would be a copy free to disagree (launcher-§3, anti-pattern #81).
+  -- The row's path and boolean are SHOWN (`minimap.shown`). LibDBIcon's key is HIDDEN. ONE boolean
+  -- is stored -- `minimap.hide`, the library's own, which it writes too when the player uses the
+  -- button's menu -- and no `shown` key is ever stored beside it: the row path names the sense, not
+  -- a key, and a stored copy would be free to disagree (launcher-§3, anti-pattern #81).
   --
   -- `SetShown` writes `hide` a second time with the same value. That is the library's documented
   -- shape and it is deliberate: a caller that drives the button from somewhere else does not have
   -- to remember the inversion. The write above it is what keeps the store right on an install with
   -- no LibKa0s at all, where `NS.Launcher` is nil and there is nothing to call.
-  ["minimap.hide"] = {
+  ["minimap.shown"] = {
     widget = "CheckBox",
     get = function()
       local mm = NS.db and NS.db.global and NS.db.global.minimap
@@ -370,9 +379,8 @@ local ROWS = {
   { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
     page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
     tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
-    onChange = function()
-      if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
-    end },
+    -- Confirm-gated when it would delete anything: S:OnRetentionChanged, below.
+    onChange = function(value) S:OnRetentionChanged(value) end },
 }
 
 -- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared
@@ -414,9 +422,9 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 
 --- The rows NO BULK RESET may reach (launcher-§3, standard v2.54.0). Named ONCE, as data.
 ---
---- `minimap.hide` is a PER-INSTALLATION DISPLAY PREFERENCE, in the same class as the button
---- POSITION LibDBIcon keeps in the very same table -- not a configuration value a reset is meant to
---- walk back. Nobody has ever wanted *reset my settings* to mean *and put the button back on my
+--- The minimap button's visibility is a PER-INSTALLATION DISPLAY PREFERENCE, in the same class
+--- as the button POSITION LibDBIcon keeps in the very same table -- not a configuration value a
+--- reset is meant to walk back. Nobody has ever wanted *reset my settings* to mean *and put the button back on my
 --- minimap*. §3 used to DERIVE that from scope (the table is global, *Reset all settings* is a
 --- profile reset), and the derivation does not survive contact with THIS addon, twice over:
 ---
@@ -430,17 +438,36 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 --- So the exemption is stated as a PROPERTY, and both resets honor it: the seam's ApplyDefault
 --- skips the row while a bulk bracket is open (the descriptor's `resetExempt` below), and
 --- `wipeGlobal` carries the stored value across its wipe. ONE table, read by both: a single
---- `/lh reset minimap.hide` opens no bracket, so the player naming the row still resets it.
-S.RESET_EXEMPT = { ["minimap.hide"] = true }
+--- `/lh reset minimap.shown` opens no bracket, so the player naming the row still resets it.
+---
+--- A MAP FROM ROW PATH TO STORED PATH (launcher-§3, standard v2.65.0). The row is `minimap.shown`
+--- and the one stored key is `minimap.hide`, so the two resets read opposite sides: the KEYS are
+--- what the library's `resetExempt` veto and traceSettingsReset test a row's path against, and the
+--- VALUES are what wipeGlobal's raw read and write-back carry. No `shown` key is ever stored.
+S.RESET_EXEMPT = { ["minimap.shown"] = "minimap.hide" }
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
 --
--- WRITE-COMPLETING AND LOG-SILENT (LibKa0s docs/api/Schema/version-1-docs.md, "The degradation
--- stub"). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
+-- WRITE-COMPLETING AND LOG-SILENT (LibKa0s docs/api/Schema/version-2-docs.md, "The degradation
+-- stub"; this stub mirrors Schema minor 2). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
 -- BrowserTable's row height) and by host writers that need no other major (Reset all settings'
 -- wipe, below in settings/Slash.lua). So without the library, reads, writes, the row's reaction and
 -- the sweep veto all still work. The [Set] line and the bracket's tally are not reproduced, because
 -- the degraded DebugLog stub discards every line they would feed.
+--
+-- Minor 2's three additions, as the library has them:
+--   * `writeThrough`: the descriptor's list of paths stored WITHOUT a row. The stub reads the same
+--     list at `New`, once, into one synthetic `{ path = , writeThrough = true }` per path. A listed
+--     path with no row resolves the root (refusing "nowhere to store" without one) and is stored as
+--     a copy, with no validate and no onChange; a path that HAS a row always takes the row, and any
+--     other row-less path is still "unknown path". This is what lets `settings.enabled` land on this
+--     very load, where the Options stub's MasterControls composer is hollow and emits no row.
+--   * `SetMany`: the all-or-nothing batch. Every entry is prepared (row or writeThrough path, then
+--     validate, then the root) before anything is stored, and the first refusal answers
+--     `false, err, nil, index`; then every store, then every onChange. `opts.act` brackets the
+--     stores and reactions, so ApplyDefault's sweep veto sees the batch as a sweep.
+--   * The instance id: `Get(path, instanceId)` hands it to `row.get`, and `ApplyDefault(row,
+--     instanceId)` forwards it to `Set`. Every row in this addon ignores it.
 --
 -- THIS IS A DELIBERATE, DOCUMENTED DUPLICATION of the library's seam, trimmed from its reference
 -- stub (LibKa0s tests/test_schema.lua, `referenceStub`), with refusals in this addon's own words.
@@ -496,6 +523,13 @@ local function hostSchemaStub()
   function stubLib:New(d)
     local R, depth = {}, 0
     local rows = d.rows
+    -- writeThrough, read once: a later edit to the descriptor's list changes nothing, as in the
+    -- library. The synthetic row has no set, validate or onChange, so `prepare` below needs no
+    -- branch of its own for it: it is a stored row that nothing validates and nothing reacts to.
+    local through = {}
+    for _, p in ipairs(type(d.writeThrough) == "table" and d.writeThrough or {}) do
+      if type(p) == "string" and p ~= "" then through[p] = { path = p, writeThrough = true } end
+    end
     local function say(line) if type(d.print) == "function" then d.print(line) end end
     function R.AllRows() return rows end
     function R.FindRow(path)
@@ -512,17 +546,20 @@ local function hostSchemaStub()
       return #list
     end
     function R.Reindex() end
-    function R.Get(path)
+    function R.Get(path, instanceId)
       local row = R.FindRow(path)
-      if row and type(row.get) == "function" then return row.get() end
+      if row and type(row.get) == "function" then return row.get(instanceId) end
       if type(path) ~= "string" or (row and row.sessionOnly) then return nil end
       local root, first = d.resolveRoot()
       if type(root) ~= "table" then return nil end
       return stubLib.Read(root, path, first)
     end
-    -- The seam's order without its log and tally: refuse, validate, store, react.
-    function R.Set(path, value)
-      local row = R.FindRow(path)
+    -- The seam's order without its log and tally: refuse, validate, store, react. `prepare` is
+    -- every check before the store, shared with SetMany so a batch refuses on exactly the rules a
+    -- single write does (the library's own prepareWrite split). It answers `true, plan` or
+    -- `false, err` with nothing called but the row's validate.
+    local function prepare(path, value)
+      local row = R.FindRow(path) or (type(path) == "string" and through[path]) or nil
       if not row then return false, "unknown path: " .. tostring(path) end
       local stored = type(row.set) ~= "function" and not row.sessionOnly
       local root, first
@@ -531,22 +568,55 @@ local function hostSchemaStub()
         return false, "invalid value"
       end
       if stored and type(root) ~= "table" then return false, "nowhere to store " .. path end
-      if type(row.set) == "function" then
-        row.set(value)
-      elseif stored then
-        stubLib.Write(root, path, copy(value), first)
+      return true, { row = row, path = path, value = value, stored = stored, root = root, first = first }
+    end
+    local function store(p)
+      if type(p.row.set) == "function" then
+        p.row.set(p.value)
+      elseif p.stored then
+        stubLib.Write(p.root, p.path, copy(p.value), p.first)
       end
-      if type(row.onChange) == "function" then row.onChange(value) end
+    end
+    local function react(p)
+      if type(p.row.onChange) == "function" then p.row.onChange(p.value) end
+    end
+    -- The library's third argument, `instanceId`, is dropped: no row in this addon reads one.
+    function R.Set(path, value)
+      local ok, plan = prepare(path, value)
+      if not ok then return false, plan end
+      store(plan)
+      react(plan)
+      return true
+    end
+    -- Schema minor 2's all-or-nothing batch, log-silent (version-2-docs.md, "The batch: SetMany").
+    -- Phase 1 prepares every entry and refuses with `false, err, nil, index` before any store;
+    -- then every store, then every onChange, so a reaction reading a sibling row sees the whole
+    -- batch. `opts.act` brackets both, so the sweep veto sees the bracket.
+    function R.SetMany(entries, opts)
+      if type(entries) ~= "table" then entries = {} end
+      if type(opts) ~= "table" then opts = {} end
+      local plans = {}
+      for i, e in ipairs(entries) do
+        local ok, plan = false, "unknown path: " .. tostring(e)
+        if type(e) == "table" then ok, plan = prepare(e.path, e.value) end
+        if not ok then return false, plan, nil, i end
+        plans[i] = plan
+      end
+      local function commit()
+        for _, p in ipairs(plans) do store(p) end
+        for _, p in ipairs(plans) do react(p) end
+      end
+      if opts.act ~= nil then R.BulkRun(opts.act, opts.scope, commit) else commit() end
       return true
     end
     function R.Default(path)
       local row = R.FindRow(path)
       return row and copy(row.default)
     end
-    function R.ApplyDefault(row)
+    function R.ApplyDefault(row, instanceId)
       if type(row) ~= "table" or type(row.path) ~= "string" or row.default == nil then return false end
       if depth > 0 and d.resetExempt[row.path] then return false end
-      return R.Set(row.path, copy(row.default))
+      return R.Set(row.path, copy(row.default), instanceId)
     end
     -- The bracket keeps its depth, because the sweep veto above reads it; it counts nothing.
     function R.BulkBegin() depth = depth + 1 end
@@ -563,11 +633,16 @@ local function hostSchemaStub()
     function R.ResetCounted(fn) fn() end
     function R.ConsumeResetCount() return nil end
     -- The resolution walk only, in this addon's words (see the header for why it is not silent-0).
+    -- A root that is not a table skips the row, as the library's resolvesInDefaults does: that is
+    -- defaultsRoot saying the row owns its storage (the Minimap button row, see S:Register).
     function R.Validate(spec)
       local resolved, missing = 0, 0
       for _, row in ipairs(rows) do
+        local root, first
         if type(row) == "table" and type(row.path) == "string" and not row.sessionOnly then
-          local root, first = spec.defaultsRoot()
+          root, first = spec.defaultsRoot(nil, row)
+        end
+        if type(root) == "table" then
           if stubLib.Read(root, row.path, first) ~= nil then
             resolved = resolved + 1
           else
@@ -601,6 +676,12 @@ local R = SchemaLib:New{
   -- Validate's line sink. Late-bound, so it survives core/LootHistory.lua's AceConsole reclaim.
   print        = function(line) NS.Print(line) end,
   resetExempt  = S.RESET_EXEMPT,
+  -- Paths the seam stores WITHOUT a row (Schema minor 2; options-ui-§1 route (a)). Data only: no
+  -- row, label, default or validate. On a full load the Master controls composer declares
+  -- `settings.enabled` and a write takes that row (validate, onChange, the latch). On a load where
+  -- the Options stub's composer is hollow there is no row, and this list is what lets the host's
+  -- enable/disable write still land, raw and with no reaction, instead of "unknown path".
+  writeThrough = { "settings.enabled" },
   -- This addon's refusal words, which callers and tests/test_schema.lua read back. A plain table:
   -- the library reads it with rawget, and NS.L here would mask nothing but is still the wrong table.
   L            = { NOT_FOUND = "unknown path: %s", INVALID = "invalid value" },
@@ -628,6 +709,73 @@ function S:WritePath(root, path, value) SchemaLib.Write(root, path, value) end
 --- Stored-value equality, read by Sl:ResetEverything's settings-reset count.
 S.SameValue = SchemaLib.SameValue
 
+-- ── Keep history for: confirm before a shorter retention deletes (LootHistory-R-04) ──────────
+--
+-- The write still goes through Schema:Set first (architecture-§5); what the row's onChange no
+-- longer does is prune on the spot. It counts what the new value would drop and, when that is
+-- anything, raises KA0S_LOOTHISTORY_PRUNE (settings/Slash.lua) naming the count. Yes prunes. No
+-- writes the last CONFIRMED value back through Schema:Set, so the stored retention -- which the
+-- login prune (core/LootHistory.lua) reads -- never holds a value the player refused. With no
+-- StaticPopup_Show (headless) it prunes at once, as it always did.
+--
+-- `confirmedRetention` is the stored value the player last agreed to: seeded from the store by
+-- SyncRetention (addon:OnInitialize, and Sl:ResetEverything, whose raw wipe fires no onChange),
+-- and moved only by a change that deleted nothing or a confirm that was accepted. `restoring`
+-- keeps the decline's own write-back from raising a second confirm.
+local confirmedRetention, restoring = nil, false
+
+local function retentionLabel(days)
+  for _, opt in ipairs(C.RETENTION_OPTIONS) do
+    if opt.value == days then return opt.text end
+  end
+  return tostring(days) .. " days"
+end
+
+--- Seed the confirmed retention from the store. Call after anything that writes the row raw.
+function S:SyncRetention()
+  local s = NS.db and NS.db.global and NS.db.global.settings
+  confirmedRetention = s and s.retentionDays
+end
+
+--- The row's onChange. Prunes only once the player has confirmed, or when nothing can ask.
+function S:OnRetentionChanged(value)
+  if restoring then return end
+  local n = NS.Database and NS.Database.CountOlderThan and NS.Database:CountOlderThan(value) or 0
+  if n == 0 then confirmedRetention = value; return end
+  if type(StaticPopup_Show) ~= "function" then
+    if NS.Database.PruneOld then NS.Database:PruneOld() end
+    confirmedRetention = value
+    return
+  end
+  StaticPopup_Show("KA0S_LOOTHISTORY_PRUNE", retentionLabel(value), n, { days = value })
+end
+
+--- Write `days` through the seam without re-entering OnRetentionChanged, then redraw the panel.
+local function writeRetentionQuietly(days)
+  restoring = true
+  local ok, err = pcall(S.Set, S, "settings.retentionDays", days)
+  restoring = false
+  if not ok then error(err, 0) end
+  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
+end
+
+--- KA0S_LOOTHISTORY_PRUNE's two answers. Accept stores the value the player agreed to (the store
+--- may have moved while the popup was open) and prunes to it; decline restores the last confirmed
+--- one through the write seam and says so in one line.
+function S:ConfirmRetention(days, accepted)
+  if accepted then
+    local s = NS.db and NS.db.global and NS.db.global.settings
+    if s and s.retentionDays ~= days then writeRetentionQuietly(days) end
+    if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
+    confirmedRetention = days
+    return
+  end
+  local keep = confirmedRetention
+  if keep == nil then keep = G.settings.retentionDays end
+  writeRetentionQuietly(keep)
+  NS.Format("retention kept at %s; no records were deleted.", retentionLabel(keep))
+end
+
 --- The row shapes this addon ships. The library's default set is the four Options widget types;
 --- `table` is this addon's own set-valued type (the two MultiCheck rows).
 local VALIDATE_TYPES = { bool = true, number = true, string = true, color = true, table = true }
@@ -643,9 +791,16 @@ function S:Register()
   -- defaults/Global.lua loads before this file (LootHistory.toc), so `g` is present in any loaded
   -- client; there is nothing to validate against when it is not.
   if not g then return 0 end
+  -- A row carrying BOTH its own get and set owns its storage, so there is no defaults entry at its
+  -- path to find: `minimap.shown` reads and writes LibDBIcon's `minimap.hide`, and no `shown` key is
+  -- declared or stored (launcher-§3, anti-pattern #81). Answering nil makes the library's
+  -- resolvesInDefaults answer nil too -- neither resolved nor missing -- and the stub skips it alike.
   local errors, _, missing = R.Validate{
     types = VALIDATE_TYPES,
-    defaultsRoot = function() return g, 1 end,
+    defaultsRoot = function(_, row)
+      if row and type(row.get) == "function" and type(row.set) == "function" then return nil end
+      return g, 1
+    end,
   }
   return errors + missing
 end
@@ -756,9 +911,10 @@ NS.COMMANDS = gateFeatureVerbs{
   --
   -- THE DISPATCHER SURVIVES THE DISABLED STATE, which is what stops the pair being one-way. Nothing
   -- in this addon gates dispatch on `settings.enabled`: Sl:Register runs from OnInitialize
-  -- unconditionally, the chat command is never unregistered, and the only reader of the flag is
-  -- modules/Collector.lua's capture gate. So `/lh`, `/lh enable`, `/lh help`, `/lh config` and
-  -- `/lh version` all answer with the addon off. tests/test_slash.lua pins it.
+  -- unconditionally, the chat command is never unregistered, and the flag's only reader is
+  -- NS.AddonIsOff (core/LifecycleSetup.lua): it feeds the stand-down latch, the launcher's disabled
+  -- gate and the feature-verb refusal, never dispatch itself. So `/lh`, `/lh enable`, `/lh help`,
+  -- `/lh config` and `/lh version` all answer with the addon off. tests/test_slash.lua pins it.
   { "enable",   "Enable the addon",      function() NS.Slash:CliSet("settings.enabled true") end },
   { "disable",  "Disable the addon",     function() NS.Slash:CliSet("settings.enabled false") end },
   { "version",  "Print addon version",   function() NS.Slash:CliVersion() end },
@@ -767,10 +923,17 @@ NS.COMMANDS = gateFeatureVerbs{
   { "list",     "List all settings",     function() NS.Slash:CliList() end },
   { "reset",    "Reset one setting",     function(a) NS.Slash:CliReset(a) end },
   { "resetall", "Reset all settings",    function() NS.Slash:CliResetAll() end },
-  { "debug",    "Toggle window; 'on'/'off' set logging", function(rest)
+  { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
+    function(rest)
       -- `/lh debug` toggles the window only (state untouched); `/lh debug on|off` sets the
       -- session-only logging flag via the DebugLog seam. Logging runs even with the window closed.
+      -- `/lh debug events` prints the event names this client refused (events-frames-taint-§1):
+      -- the list core/CoreSetup.lua owns, "none" on a healthy client. It needs no console.
       local arg = rest and tostring(rest):lower():match("^%s*(%S*)") or ""
+      if arg == "events" then
+        local names = NS.RejectedEvents or {}
+        return print("rejected events: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+      end
       if not NS.DebugLog then return end
       if arg == "on" then NS.DebugLog:SetEnabled(true)
       elseif arg == "off" then NS.DebugLog:SetEnabled(false)
@@ -782,7 +945,7 @@ NS.COMMANDS = gateFeatureVerbs{
       local BT = NS.BrowserTable
       if not (BT and BT.ToggleTestMode) then return end
       local on, switched = BT:ToggleTestMode()
-      if switched then print("test mode " .. (on and "on" or "off")) end
+      if switched then NS.Format("test mode %s", on and "on" or "off") end
     end },
   { "purge", "Delete ALL loot history (asks to confirm)", function()
       if type(StaticPopup_Show) == "function" then

@@ -30,7 +30,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Item-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Item-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -58,16 +58,20 @@ end
 -- `libs/` before the client has populated ITEM_QUALITY_COLORS, so a map built at load would be
 -- empty for the life of the session and every lookup would answer nil — silently, since nil is
 -- also the legitimate answer for an uncolored link.
+--
+-- And committed only when NON-EMPTY (minor 2): a build that found nothing to map is not kept, so a
+-- first call that lands before the table is populated is retried on the next call rather than
+-- pinning nil for the session.
 local qualityByHex
 
 local function buildQualityByHex()
-  qualityByHex = {}
-  if type(ITEM_QUALITY_COLORS) == "table" then
-    for q = 0, 8 do
-      local c = ITEM_QUALITY_COLORS[q]
-      if c and c.hex then qualityByHex[c.hex:sub(-6)] = q end
-    end
+  if type(ITEM_QUALITY_COLORS) ~= "table" then return end
+  local map, any = {}, false
+  for q = 0, 8 do
+    local c = ITEM_QUALITY_COLORS[q]
+    if c and c.hex then map[c.hex:sub(-6)] = q; any = true end
   end
+  if any then qualityByHex = map end
 end
 
 --- The quality id encoded in an item link's color prefix, or nil.
@@ -78,14 +82,20 @@ end
 --- as. The link's color is the real one, available immediately, from the string the game already
 --- handed the addon.
 ---
+--- Two rungs. Since patch 11.1.5 the client colors an item link by quality NUMBER, `|cnIQ<n>:`,
+--- and that is read first (minor 2), anchored on the digits with no trailing ':' required. The
+--- `|cAARRGGBB` hex rung stays for the pre-11.1.5 links a saved variable still holds.
+---
 --- @param link string
 --- @return number|nil
 function lib.QualityFromLink(link)
   if not link then return nil end
+  local q = link:match("|cnIQ(%d+)")
+  if q then return tonumber(q) end
   local hex = link:match("|c%x%x(%x%x%x%x%x%x)")
   if not hex then return nil end
   if not qualityByHex then buildQualityByHex() end
-  return qualityByHex[hex]
+  return qualityByHex and qualityByHex[hex]
 end
 
 -- ── display ──────────────────────────────────────────────────────────────────────────────

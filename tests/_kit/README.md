@@ -14,6 +14,28 @@ The link is absolute on purpose. This file is byte-identical in twelve places �
 `tests/_kit/`, and each of the ten consumers' — so a relative path that resolved from one would be
 broken in the other eleven.
 
+## The files
+
+| File | What it is |
+|---|---|
+| `framework.lua` | The entry point: the resource guard, the registry, `Kit.skip`, `Kit.expose`, the suite inventory, the runner and the `--list` renderer |
+| `asserts.lua` | The assertions (`assertEqual` to `assertError`, `assertErrorMatches` and `assertLibraryConstant`) and the surface-parity gate (`setSurfaceSource`, `publicMembers`, `assertSurfaceParity`). `framework.lua` loads it from its own folder; nothing else does (kit revision 26) |
+| `loader.lua` | Headless source loading into the mocked environment |
+| `mock_base.lua` | The universal half of the WoW-API mock, and the Ace fakes |
+| `mock_record.lua` | The recording surveys; `mock_base.lua` loads it from its own folder |
+| `mock_events.lua` | `EventRegistry`, `C_EventUtils.IsEventValid`, and the raw frame registration's `__badEvents` raise; `mock_base.lua` loads it from its own folder (kit revision 26) |
+| `mock_ids.lua` | Opt-in id lookups, installed on a finished mock |
+| `vendor_sync.lua` | The consumer-side vendoring gate |
+| `run-automated-tests.sh` | The consolidated automated-test runner |
+| `test_eol.lua` | The line-ending gates, a kit suite |
+| `test_prose.lua` | The US-English prose gate, a kit suite |
+| `prose_lists.lua` | The published lists `test_prose.lua` reads: both spelling lists, the folder exclusions and the store-root files read back out of them. `test_prose.lua` loads it from its own folder; nothing else does (kit revision 26) |
+| `test_layout_cap.lua` | The 1500-line cap gate, a kit suite |
+| `README.md` | This file |
+
+They vendor as one folder. A copy that leaves out `asserts.lua`, `mock_record.lua`,
+`mock_events.lua` or `prose_lists.lua` fails at load rather than passing over nothing.
+
 ## `run-automated-tests.sh`
 
 The collection's consolidated automated-test runner, and the only executable in the kit. It runs the
@@ -48,6 +70,15 @@ about it are load-bearing:
   these cells carries `unknown` in both, never `clean` and never a sha reconstructed from
   archaeology (`automated-tests-§4`). The full sha, the branch and a boolean `dirty` are in each
   bundle's `manifest.json`, as they already were.
+- **From kit revision 26 a missing `tests/perf.lua` is read against the deviation register.**
+  `automated-tests-§3` sanctions two perf skip reasons. Before recording reason (1), *nothing to
+  run*, the runner reads the `## Documented deviations` table in `docs/ARCHITECTURE.md` and then the
+  root `CLAUDE.md`. A row whose Rule cell is exactly `performance-§12` records reason (2), the
+  ratified no-combat-path exemption, naming the file it came from, and `RESULTS.md`'s Perf section
+  points at `docs/performance.md`. A register the runner cannot read exits 2 before any suite runs.
+  `KA0S_PERF_EXEMPT=1` records reason (2) only in a repo that has no register.
+- **An empty watch-list table still prints its header row and separator** (kit revision 26,
+  `automated-tests-§4`), where revision 25 printed `None.`.
 - **The bundle is written to whatever `.gitattributes` declares for it**, read per path with
   `git check-attr text eol` at the end of the run — not assumed. Everything the runner writes goes
   down a plain shell redirect, which bypasses git's filters entirely, so before kit revision 10 every
@@ -102,7 +133,9 @@ the path and the case name.
 
 The first of the kit's three own suites. Its first case holds every file `git ls-files` reports to the
 terminator `.gitattributes` declares for it, reading the bytes rather than trusting git's own
-classification, and it is here rather than in each repo's `tests/` for the reason the rest of the
+classification. From revision 26 it also names every **lone CR** (a CR no LF follows) as
+`path:line`, over the same files: git's `text=auto` stores such a file as binary, so neither git nor
+a count of CRLF pairs sees it. It is here rather than in each repo's `tests/` for the reason the rest of the
 kit is here: eleven repositories need exactly the same gate and none of them should be asked to
 re-type it. `line-endings-§7` MUSTs the check be mechanical and supplies a command; a command is
 something someone runs, a suite is something the run runs.
@@ -162,6 +195,19 @@ Kit.run{ dir = "tests/", suites = { "test_schema", ..., { name = "test_prose", d
 
 **A repo that already has its own copy wires one or the other, never both.** Two gates over one
 rule is two lists to keep whole, which is the divergence this file exists to end.
+
+### What it reads
+
+Every tracked `.lua`, `.md` and `.toc` file and `.luacheckrc`, minus `localization-§5`'s named
+exclusions, which live in `prose_lists.lua` beside the gate: vendored code (`libs/`, `tests/_kit/`),
+the frozen stores (`docs/audits/`, `docs/automated-tests/`, `docs/perf-analysis/`, `docs/reviews/`,
+`docs/revendor/`, and from revision 26 `docs/superpowers/` and `docs/investigations/`),
+`locales/enGB.lua` and the gate's own files. **From revision 26 three store-root files are read back
+out of those folders**, named file by file in `SCAN_BACK`: `docs/automated-tests/README.md`,
+`docs/automated-tests/RESULTS.md` and `docs/perf-analysis/README.md`. A store's dated bundles are
+frozen, but these three are rewritten in place (`documentation-§3`), so they are authored text. A
+repository's own `skipDirs` entry that only restates one of the kit's folders does not undo the
+scan-back; one that is wider does, and so does `skipFiles`, both disclosed as below.
 
 ### `Kit.prose` — the generated-data carve-out
 
@@ -519,11 +565,12 @@ LOSES entries when the addon gives something up — which is the half that matte
 
 | Member | Answers |
 |---|---|
-| `M.__registrations()` | `{ target, kind, event, unit }` for every live registration. `kind` is `event`, `message`, `bucket`, `frame` (a raw `frame:RegisterEvent`) or `unit` (one row **per unit token**). |
+| `M.__registrations()` | `{ target, kind, event, unit }` for every live registration. `kind` is `event`, `message`, `bucket`, `frame` (a raw `frame:RegisterEvent`), `unit` (one row **per unit token**) or, from revision 26, `callback` — an `EventRegistry` callback, shaped `{ kind, event, owner }` with **no `target`**. |
 | `M.__timers()` | every armed AceTimer handle, un-canceled `C_Timer` ticker and frame carrying an `OnUpdate`. `M.__timers` **indexed** is still the pending queue it always was. |
-| `M.__shownFrames()` | every frame this build made that is shown, in creation order. |
+| `M.__shownFrames()` | every frame this build made that is shown, in creation order. From revision 26 a new frame starts **shown**, as `CreateFrame` returns one in the client, so a frame production builds and never hides is on this list. |
 | `M.__svWrites()` | `{ path, value }` for every write that reached a watched SavedVariables tree since `M.__resetSvWrites()`. `M.__watchSv("<Global>")` adds a root the AceDB fake did not create. |
 | `M.__printed()` | every line that reached the chat frame, plus `M.__resetPrinted()` and `M.__recordPrint(line)` for a printer that ends somewhere else. |
+| `M.__aceguiLive(type)` | from revision 26, how many widgets of that type the AceGUI fake has handed out and not taken back; with no type, `{ [type] = count }` for every type with one out. The fake never reuses a widget, so this count is the only way to see a render that Creates and never Releases. Assert on the difference across a render: the shared mock carries earlier suites' widgets. |
 
 Driving them: **`M.__fire(event, ...)` dispatches to the live registration set only** — what the
 client would do — and **`M.__fireUnconditional(target, event, ...)` fires at a target whose
@@ -540,6 +587,15 @@ not call back if it was unregistered before its tick.
 a survey a consumer forgets to switch on does not fail a stand-down suite, it passes it over an
 empty table. The kit vendors as one folder, and a copy missing `mock_record.lua` **raises** on the
 first `base()` rather than degrading. See `docs/api/testkit/version-22-docs.md`.
+
+**Revision 26** adds `mock_events.lua`, installed the same way. `M.EventRegistry` is a recording
+fake of Blizzard's CallbackRegistry — `RegisterCallback(event, func, owner)`,
+`UnregisterCallback(event, owner)`, `TriggerEvent(event, ...)`, one callback per (event, owner),
+invoked as `func(owner, ...)` — and every live callback is a `callback` row in `M.__registrations()`,
+so a stand-down suite sees one left behind. A raw `frame:RegisterEvent` or `RegisterUnitEvent` on a
+name in `M.__badEvents` now raises `Attempt to register unknown event "<NAME>"`, as the AceEvent path
+already did, and records nothing. `M.C_EventUtils.IsEventValid(name)` answers `false` for such a
+name; set `M.C_EventUtils = nil` to model an older client. See `docs/api/testkit/version-26-docs.md`.
 
 ## Id lookups for an id list (`mock_ids.lua`)
 
@@ -644,6 +700,18 @@ checked against the real Ace3 source. **Build on them rather than replacing them
 `M.__libs` and call the kit's through, and layer only what is genuinely your addon's. A harness that
 replaces a fake wholesale never receives a kit revision again. The fakes never read their receiver, so
 a wrapper that calls through with its own table as `self` is served.
+
+**Revision 26** makes the AceDB fake's profile verbs fail where AceDB-3.0 fails. `CopyProfile(name,
+silent)` raises `Cannot have the same source and destination profiles ("<name>").` when `name` is the
+active profile, and `Cannot copy profile "<name>" as it does not exist.` for a missing source unless
+`silent`; `DeleteProfile(name, silent)` raises `Cannot delete the active profile ("<name>") in an
+AceDBObject.` on the active profile, and `Cannot delete profile "<name>" as it does not exist.` on a
+missing one unless `silent`. The messages are AceDB-3.0's own, byte for byte (`AceDB-3.0.lua:531-537`
+and `:581-587`), raised at level 2. `CopyProfile` now resets the active profile before copying, as
+AceDB does, so a key the source lacks reads its default. `SetProfile` strips the **outgoing** profile
+of every value equal to its default (`:460-463`) — the scalar and plain-table arms of
+`removeDefaults`, not the `"*"`/`"**"` wildcards. Through revision 25 every bad name returned
+silently, so a consumer's copy or delete command passed its suite on a name that raises in the client.
 
 **Revision 19** fixes one more. The AceDB fake's `ResetProfile` fires `OnProfileReset` with the
 database alone, as AceDB-3.0 does (`self.callbacks:Fire("OnProfileReset", self)`); through revision

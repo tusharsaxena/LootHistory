@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 25
+Kit.VERSION = 26
 
 -- ── the resource guard (kit revision 23) ───────────────────────────────────────────────────────
 --
@@ -228,226 +228,24 @@ local function skipReasonOf(err)
   return nil
 end
 
--- ── assertions ─────────────────────────────────────────────────────────────────────────────
+-- ── assertions and the surface-parity gate ─────────────────────────────────────────────────
 --
--- `level + 1` on every failure so the reported line is the CALLER's, not this file's.
+-- In `asserts.lua` beside this file since kit revision 26, which took this file back under
+-- `layout-§1`'s cap; loaded once, here, where the block used to stand, so every member is on the kit
+-- table before `Kit.expose` copies it. The folder is found from this chunk's own name, the way
+-- `mock_base.lua` finds `mock_record.lua`, with the vendored layout as the fallback for a loader
+-- that rewrites chunk names. A missing file raises: a kit with no assertions cannot fail a case.
 
-local function fail(msg, level) error(msg, (level or 1) + 1) end
-Kit.fail = fail
-
-local function fmt(v)
-  if type(v) == "table" then return "<table>" end
-  return tostring(v)
+local function assertsFolder()
+  local info = debug and debug.getinfo and debug.getinfo(1, "S")
+  local dir = info and tostring(info.source or ""):match("^@(.*[/\\])")
+  local f = dir and io.open(dir .. "asserts.lua", "r")
+  if f then f:close(); return dir end
+  return "tests/_kit/"
 end
 
-function Kit.assertEqual(got, want, msg)
-  if got ~= want then
-    fail((msg or "assertEqual") ..
-      string.format(" (expected %s, got %s)", fmt(want), fmt(got)), 1)
-  end
-end
-
-function Kit.assertTrue(c, msg) if not c then fail(msg or "assertTrue failed", 1) end end
-function Kit.assertFalse(c, msg) if c then fail(msg or "assertFalse failed", 1) end end
-
-function Kit.assertNil(v, msg)
-  if v ~= nil then fail((msg or "assertNil") .. " (got " .. fmt(v) .. ")", 1) end
-end
-
---- Float comparison with an explicit tolerance. Never compare computed geometry with `==`.
-function Kit.assertNear(got, want, tolerance, msg)
-  tolerance = tolerance or 1e-6
-  if type(got) ~= "number" or math.abs(got - want) > tolerance then
-    fail((msg or "assertNear") ..
-      string.format(" (expected %s +/- %s, got %s)", fmt(want), fmt(tolerance), fmt(got)), 1)
-  end
-end
-
---- Assert that calling fn raises. Returns the error message so a caller can assert on its text —
---- an assertion that something raised, without checking WHAT, passes just as happily on a typo in
---- the test itself.
-function Kit.assertError(fn, msg)
-  local ok, err = pcall(fn)
-  if ok then fail(msg or "assertError: expected an error, got none", 1) end
-  return tostring(err)
-end
-
--- ── the surface source ─────────────────────────────────────────────────────────────────────
---
--- `Kit.assertSurfaceParity(stub, "LibKa0s-Options-1.0")` names a live surface instead of building
--- one, which is what turns a parity case into three lines a repo will actually write. The kit
--- cannot resolve that name on its own: it has no LibStub, no mock and no addon namespace, and
--- `_G.LibStub` is not it either — the loader hands each chunk a mocked environment rather than
--- writing into `_G` (`loader.lua`), so a kit that reached for the global would resolve nothing
--- headlessly and say the stub was fine.
---
--- So the harness supplies the source, once, and it takes either shape a harness naturally has:
---
---   * a CALLABLE — `Kit.setSurfaceSource(mocks.LibStub)`. Called as `src(name, true)`, which is
---     LibStub's own silent-lookup signature. This answers the LIBRARY TABLE for a major.
---   * a TABLE — `Kit.setSurfaceSource{ ["LibKa0s-Options-1.0"] = NS.Helpers }`. A map of name to
---     live surface, for the far commoner case where the stub mirrors an INSTANCE rather than the
---     library table. Every `settings/OptionsSetup.lua` degradation arm in this collection stubs
---     `NS.Helpers`, which is what `lib:New(descriptor)` returned — a surface the kit could never
---     have built for itself, because it needs the host's descriptor.
---
--- `Kit.expose` wires the callable shape automatically when the exposed table carries a mock with a
--- LibStub on it, so a repo whose stubs mirror library tables registers nothing. Anything else is
--- one explicit line in the runner, and the assertion FAILS rather than passes when the name does
--- not resolve — see the bargain in `assertSuiteInventory`.
-
-local surfaceSource
-
---- Register where `Kit.assertSurfaceParity(stub, name)` looks a live surface up, and return the
---- source that was registered before — so a case that swaps it can put the old one back.
----
---- `src` is a callable, a table, or nil to unregister.
-function Kit.setSurfaceSource(src)
-  local previous = surfaceSource
-  surfaceSource = src
-  return previous
-end
-
---- Is `v` reachable as a function call — a plain function, or a table with a `__call`?
-local function callable(v)
-  if type(v) == "function" then return true end
-  local mt = type(v) == "table" and getmetatable(v)
-  return (mt and mt.__call) ~= nil
-end
-
---- The live surface registered under `name`, or nil plus why not.
-local function resolveSurface(name)
-  if surfaceSource == nil then
-    return nil, ("no surface source is registered, so %q cannot be resolved and this gate cannot "
-      .. "run — call Kit.setSurfaceSource(mocks.LibStub) or "
-      .. "Kit.setSurfaceSource{ [%q] = <the live surface> } in the runner"):format(name, name)
-  end
-  local live
-  if callable(surfaceSource) then
-    local ok, got = pcall(surfaceSource, name, true)
-    if not ok then
-      return nil, ("the surface source raised on %q: %s"):format(name, tostring(got))
-    end
-    live = got
-  else
-    live = surfaceSource[name]
-  end
-  if type(live) ~= "table" then
-    return nil, ("the surface source answers %s for %q, not a table — either the name is wrong or "
-      .. "the live surface never loaded"):format(type(live), name)
-  end
-  return live
-end
-
--- ── the public surface of a live module ────────────────────────────────────────────────────
-
---- LibStub bookkeeping. Present on every registered major, carried by no degradation stub in this
---- collection, and rightly so: `MAJOR` and `MINOR` are how the LIBRARY answers "which copy am I",
---- and a stub that answered them would be claiming to be the library it is standing in for.
-local BOOKKEEPING = { MAJOR = true, MINOR = true, MODULES = true }
-
---- The public members of a live surface, sorted, as `{ { name = ..., kind = <type> }, ... }`.
----
---- Two exclusions, and they are the difference between a gate that gets adopted and one that does
---- not. `BOOKKEEPING` above, and every `__`-prefixed key: those are the module's own internals —
---- `__AttachWidgets`, `__widgetsMinor`, `__panelProbeMinor` — reached by a sibling file inside the
---- same major and by nothing else. Reported raw, the Options major alone would hand a stub author
---- ten divergences that are all correct omissions, and a gate whose first run is ten false
---- positives is a gate that gets an `ignore` list the size of its own output.
-function Kit.publicMembers(t)
-  local members = {}
-  if type(t) ~= "table" then return members end
-  for k, v in pairs(t) do
-    if type(k) == "string" and not BOOKKEEPING[k] and k:sub(1, 2) ~= "__" then
-      members[#members + 1] = { name = k, kind = type(v) }
-    end
-  end
-  table.sort(members, function(a, b) return a.name < b.name end)
-  return members
-end
-
---- Assert that a degraded-path stub carries the whole surface of the live module.
----
---- Two calling forms:
----
----   assertSurfaceParity(live, degraded, label, ignore)   -- two tables, compared key for key
----   assertSurfaceParity(stub, majorName, ignore)         -- the live half is looked up by name
----
---- The second is selected by a STRING in the second position, and is the one a degradation case
---- should use: it names the surface instead of rebuilding it, and it compares only the PUBLIC
---- members (`Kit.publicMembers`), which is what a stub is actually obliged to carry. The first form
---- compares every key of `live` and is unchanged — a repo comparing two namespaces it built itself
---- decides for itself what belongs in them.
----
---- `live` is the real thing; `degraded` is what the addon falls back to when the library is not
---- there. Three of this collection's surviving High findings are one omitted stub member: a stub
---- returns without assigning `FormatKV`, so the command raises on exactly the degraded path the
---- stub exists to survive.
----
---- Two divergences are reported:
----   * a key present in `live` and ABSENT from `degraded`;
----   * a key that is a FUNCTION live and something else degraded — `false`, a table, a string.
----     `Helpers.RefreshAllPanels = UI and UI.RefreshAllPanels` is the shape: when `UI` is nil the
----     assignment yields nil and the key is simply absent (caught by the first rule); when `UI` is
----     present but the member is not, or the guard yields `false`, the key IS there and the call
----     site raises anyway. A check that only asks "is the key set?" waves that through.
----
---- EVERY divergence goes into ONE message, not the first. A stub written from a stale surface is
---- typically wrong in several places, and one-at-a-time is one test run per missing member.
----
---- `ignore` encodes "this member is live-only, on purpose" as data — either as a set
---- (`{ Foo = true }`) or as an array (`{ "Foo" }`). An intentional omission and a bug are otherwise
---- indistinguishable, and the usual resolution for that is to delete the case.
-function Kit.assertSurfaceParity(live, degraded, label, ignore)
-  -- Form two: `(stub, majorName, ignore)`. A string in the second position is unambiguous — the
-  -- first form's second argument is the degraded table, and its third is the label.
-  local byName = type(degraded) == "string"
-  local publicOnly
-  if byName then
-    local name = degraded
-    local resolved, why = resolveSurface(name)
-    if not resolved then fail(name .. ": " .. why, 1) end
-    degraded, ignore, label, live = live, label, name, resolved
-    publicOnly = true
-  end
-
-  label = label or "surface"
-  if type(live) ~= "table" then fail(label .. ": the live surface is not a table", 1) end
-  if type(degraded) ~= "table" then fail(label .. ": the degraded surface is not a table", 1) end
-
-  local skip = {}
-  for k, v in pairs(ignore or {}) do
-    if v == true then skip[k] = true else skip[v] = true end
-  end
-
-  local keys = {}
-  if publicOnly then
-    for _, member in ipairs(Kit.publicMembers(live)) do
-      if not skip[member.name] then keys[#keys + 1] = member.name end
-    end
-  else
-    for k in pairs(live) do
-      if not skip[k] then keys[#keys + 1] = k end
-    end
-  end
-  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
-
-  local problems = {}
-  for _, k in ipairs(keys) do
-    local lv, dv = live[k], degraded[k]
-    if dv == nil then
-      problems[#problems + 1] = ("%s is missing (live: %s)"):format(tostring(k), type(lv))
-    elseif type(lv) == "function" and type(dv) ~= "function" then
-      problems[#problems + 1] =
-        ("%s is a function live but %s degraded"):format(tostring(k), type(dv))
-    end
-  end
-
-  if #problems > 0 then
-    fail(("%s: the degraded stub diverges from the live surface in %d place(s) — %s")
-      :format(label, #problems, table.concat(problems, "; ")), 1)
-  end
-end
+local asserts = dofile(assertsFolder() .. "asserts.lua")(Kit)
+local fail = asserts.fail
 
 --- Merge the registry and assertions into the host's `_G.<X>_TEST` table and return it, so a repo
 --- keeps its existing global name and key set and no suite file has to change.
@@ -463,6 +261,8 @@ function Kit.expose(t)
   t.assertNil   = Kit.assertNil
   t.assertNear  = Kit.assertNear
   t.assertError = Kit.assertError
+  t.assertErrorMatches = Kit.assertErrorMatches
+  t.assertLibraryConstant = Kit.assertLibraryConstant
   t.assertSuiteInventory = Kit.assertSuiteInventory
   t.assertSurfaceParity  = Kit.assertSurfaceParity
   t.publicMembers        = Kit.publicMembers
@@ -471,12 +271,13 @@ function Kit.expose(t)
   -- The by-name form needs somewhere to look, and every harness in this collection that stubs a
   -- LIBRARY TABLE already has it: the mock it just built. Wired here rather than demanded of the
   -- runner so that adoption is the case alone, and only when nothing is registered yet — a repo
-  -- that called setSurfaceSource itself (because its stubs mirror instances) keeps its own.
-  if surfaceSource == nil then
-    local mock = t.mocks or t.mock
-    local ls = t.LibStub or (type(mock) == "table" and mock.LibStub) or nil
-    if ls then Kit.setSurfaceSource(ls) end
-  end
+  -- that called setSurfaceSource itself (because its stubs mirror instances) keeps its own. The
+  -- same LibStub is always recorded as `assertLibraryConstant`'s fallback, since such a repo's
+  -- source answers an instance, and a lib-level constant is not on it.
+  local mock = t.mocks or t.mock
+  local ls = t.LibStub or (type(mock) == "table" and mock.LibStub) or nil
+  if ls then asserts.setLibraryFallback(ls) end
+  if ls and asserts.surfaceSource() == nil then Kit.setSurfaceSource(ls) end
   return t
 end
 
@@ -492,7 +293,7 @@ end
 ---
 --- Two runners in this collection resolve their own root out of `arg[0]` and fall back to `"."`,
 --- so the same directory reaches the kit twice in two spellings: `./tests/_kit/` from the runner's
---- `dir`, and `tests/_kit/` from the declaration, which is the literal form `testing-9` prescribes.
+--- `dir`, and `tests/_kit/` from the declaration, which is the literal form `testing-§9` prescribes.
 --- Raw string inequality reads those as two different directories, and the pair key, as it was
 --- first written, reported a COLLISION against a repo that had done exactly what the rule asks --
 --- with a remedy that said to delete a vendored file. It failed from `Kit.run`, so the whole suite
@@ -792,14 +593,16 @@ end
 --- hole in it. A kit suite with no row here is still declinable — the register row is then matched
 --- on the suite's name alone — but it loses the half of the match that says the row is about THIS
 --- rule, so a new kit gate adds its row in the revision that ships it.
--- Spelled WITHOUT the section sign, the way every other citation in a kit string is: these
--- values are printed into a failure message, and `tests/test_prose.lua`'s ASCII gate holds the
--- shipped payload to bytes under 128 in string literals. `normRule` below reduces both
--- spellings to one key, so a register cell that writes `localization-§5` still matches.
+-- Spelled `<file>-§N`, the way documentation-§6 spells every citation and every kit string now
+-- does (kit revision 26): these values are printed into a failure message a consumer cannot
+-- respell. Revisions before 26 dropped the section sign here, because LibKa0s's ASCII gate read
+-- the kit's string literals; that gate now reads only the shipped library, since the kit prints
+-- to a terminal and `tests/` never ships. `normRule` below reduces both spellings to one key, so
+-- a register cell that drops the sign still matches.
 local KIT_GATE_RULE = {
-  test_prose      = "localization-5",
-  test_eol        = "line-endings-7",
-  test_layout_cap = "layout-1",
+  test_prose      = "localization-§5",
+  test_eol        = "line-endings-§7",
+  test_layout_cap = "layout-§1",
 }
 
 --- Where a repository keeps its `## Documented deviations` register (`documentation-§3`): an addon
@@ -841,11 +644,10 @@ local function rowCells(row)
 end
 
 --- A rule reference reduced to the form both spellings share. This collection writes
---- `localization-§5` in documents and `localization-5` in several file headers, and a register cell
---- wraps whichever it used in backticks.
+--- `localization-§5`, some older file headers and register cells drop the section sign, and a
+--- register cell wraps whichever it used in backticks.
 local function normRule(s)
-  -- `string.char` rather than "\194\167": a decimal escape decodes to the same two bytes, and
-  -- the ASCII gate over the shipped payload reads the decoded form.
+  -- `string.char(194, 167)` is the section sign's two UTF-8 bytes, stripped wherever they fall.
   return (tostring(s):lower():gsub("[`%s]", ""):gsub(string.char(194, 167), ""))
 end
 

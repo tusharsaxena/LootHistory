@@ -33,14 +33,14 @@ read_globals = {
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
   "C_CurrencyInfo",
   "C_Container", "UseContainerItem", "C_Spell", "GetSpellInfo",
-  "C_AddOns", "GetAddOnMetadata",
+  "C_AddOns",
   "Auctionator", "TSM_API", "OEMarketInfo",   -- third-party AH-pricing addon globals (presence-gated)
   "ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "ITEM_BNETACCOUNTBOUND", "ITEM_BIND_TO_BNETACCOUNT",
   "ITEM_ACCOUNTBOUND", "ITEM_SOULBOUND", "RETRIEVING_ITEM_INFO",
   "GetLootSourceInfo", "GetNumLootItems", "GetInboxHeaderInfo", "TakeInboxItem", "AutoLootMailItem",
   "GetQuestReward", "GetQuestID",
   "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText", "AUCTION_HOUSE",
-  "InCombatLockdown", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
+  "InCombatLockdown", "UnitAffectingCombat", "IsInInstance", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
   "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",
   "CombatLogGetCurrentEventInfo", "GetDetailedItemLevelInfo",
   "GameTooltip", "GetCursorPosition", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
@@ -134,3 +134,10 @@ files["settings/Slash.lua"]       = { ignore = { "212/self" } }
 -- headless and fail in the client. These six are frame and font-string measurement stubs the
 -- harness hands back from `CreateFrame`, called as `frame:GetWidth()` by the code under test.
 files["tests/wow_mock.lua"] = { ignore = { "212/self" } }
+
+-- tests/mock_menu.lua is a VERBATIM copy of LibKa0s v1.58.0's MenuUtil stand-in (M6-LH), kept byte
+-- for byte so the addon's menu cases run against the double the library's own suite trusts; its
+-- methods are colon-declared to match the client's `root:CreateCheckbox(...)` call shape, and the
+-- two nested ones shadow the outer `self`. LibKa0s lints it under its top-level `212/self` and
+-- `432/self`; here the same two are scoped to this one file rather than edited out of the copy.
+files["tests/mock_menu.lua"] = { ignore = { "212/self", "432/self" } }

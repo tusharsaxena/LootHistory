@@ -55,7 +55,7 @@ badge and any count quoted in the docs must agree with it.
 - MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
 - MediaSetup: with no library there is no art and no face, and that is not an error
 
-### test_envsetup.lua (10)
+### test_envsetup.lua (11)
 
 - EnvSetup: NS.Meta asks about THIS addon's folder, not its title or its slash prefix
 - EnvSetup: NS.Meta degrades to nil when the client exposes no manifest reader
@@ -66,6 +66,7 @@ badge and any count quoted in the docs must agree with it.
 - EnvSetup: an absent zone reads as "", which storage buckets with nil
 - EnvSetup: NS.PlayerMapID answers the map id
 - EnvSetup degraded: an install with no LibKa0s still reads its TOC and stamps its zone
+- EnvSetup degraded: a bare global GetAddOnMetadata is not a rung
 - EnvSetup: the deleted shims are gone from Compat
 
 ### test_poolsetup.lua (3)
@@ -74,13 +75,15 @@ badge and any count quoted in the docs must agree with it.
 - PoolSetup: a released object is reused rather than rebuilt
 - PoolSetup: ReleaseAll returns every active object to the free list
 
-### test_itemsetup.lua (5)
+### test_itemsetup.lua (7)
 
 - ItemSetup: the seam is published
 - ItemSetup: the primitives answer what the deleted shims answered
 - ItemSetup: this addon now HAS the id parser it lacked
 - ItemSetup: the moved shims are gone from Compat
 - ItemSetup: the resolver did NOT move, and still guesses when uncached
+- ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
+- ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 
 ### test_util.lua (40)
 
@@ -125,7 +128,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 
-### test_compat.lua (37)
+### test_compat.lua (39)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -155,6 +158,8 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyLinkID parses the id from a currency link
 - Compat: GetCurrencyInfoFromLink returns id, name, icon
 - Compat: CurrencyCategory resolves a currency to its list header
+- Compat: CurrencyCategory rebuilds on a miss, so a currency first seen later resolves
+- Compat: CurrencyCategory walks the list at most once for an id that is truly absent
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
@@ -165,7 +170,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 
-### test_attribution.lua (25)
+### test_attribution.lua (37)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -174,6 +179,9 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: context survives repeated Consume (multi-line loot)
 - Attribution: ResolveLootSource creature → KILL + npcID
 - Attribution: ResolveLootSource creature in encounter → KILL + encounter detail
+- Attribution: KILL loot inside the post-kill grace window carries the encounter
+- Attribution: KILL loot after the grace window has expired carries no encounter
+- Attribution: ENCOUNTER_END keeps the context with an expiry on a kill, clears it on a wipe
 - Attribution: ResolveLootSource GameObject in keystone → MPLUS + level
 - Attribution: ResolveLootSource GameObject otherwise → CONTAINER
 - Attribution: ResolveLootSource Item GUID → CONTAINER
@@ -191,7 +199,16 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: an unrelated player spell does not stamp a source
 - Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
 - Attribution: taking a quest reward stamps QUEST
-- Attribution: Enable registers seven bus events, the player-only cast frame and five hooks
+- Attribution: leaving the party instance clears the keystone, so later objects are CONTAINER
+- Attribution: a zone change inside the party instance keeps the keystone (MPLUS 12)
+- Attribution: CHALLENGE_MODE_RESET clears the keystone
+- Attribution: a completion-time keystone level of 0 does not overwrite the started level
+- Attribution: zoning back into an active key re-arms the keystone at its level
+- Attribution: Enable registers nine bus events, the player-only cast frame and five hooks
+- Attribution: a retired ENCOUNTER_START costs only itself (front gate)
+- Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
+- Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
+- Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
 
 ### test_filters.lua (19)
 
@@ -215,11 +232,12 @@ badge and any count quoted in the docs must agree with it.
 - Filters: currency blacklist is independent of the item id lists
 - Filters: ClearList and ClearAll include the currency blacklist
 
-### test_auctionprice.lua (26)
+### test_auctionprice.lua (27)
 
 - AuctionPrice: GatherAll collects all captured keys into a nested map
 - AuctionPrice: Pick walks the priority list, first present wins
 - AuctionPrice: the shipped cascade reaches a non-default-collected key without the panel
+- AuctionPrice: Pick honors a reorder made by MovePriorityWithin
 - AuctionPrice: Pick respects a reordered priority list
 - AuctionPrice: GatherAll only captures keys in the capture set
 - AuctionPrice: GatherAll returns nil when nothing gathered / disabled
@@ -244,7 +262,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (33)
+### test_collector.lua (34)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -261,6 +279,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector: ShouldRecord flags a whitelist rescue but not a normal pass
 - Collector: ShouldRecord id lists ignore other item ids
 - Collector: end-to-end drops a blacklisted item, records after un-blacklisting
+- Collector: OnChatMsgLoot reuses one gate-config table across loot lines
 - Collector: whitelist records below threshold as a plain point-in-time row
 - Collector: end-to-end writes an attributed record
 - Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context
@@ -280,7 +299,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
 
-### test_database.lua (60)
+### test_database.lua (65)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -311,8 +330,10 @@ badge and any count quoted in the docs must agree with it.
 - Database: Export returns metatable-free copies with all fields
 - Database: Export carries currencyID through for currency rows
 - Database: Export coerces a nil source to OTHER (parity with Stats bySource)
+- Database: Export deep-copies auctionPrice and sourceDetail (mutating the export leaves history intact)
 - Database: Delete(pred) removes all matching, compacts, returns count
 - Database: PruneOld drops records older than retentionDays
+- Database: PruneOld fires HistoryChanged only when it removed rows
 - Database: PruneOld with retentionDays=0 keeps everything
 - Database: Purge wipes history and fires HistoryChanged
 - Database: PruneOld returns removed count and logs [Prune]
@@ -323,6 +344,8 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats charges a currency record for the strings it does carry
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
+- Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
+- Database: a fresh store at schemaVersion 0 walks every step to 8
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -340,10 +363,11 @@ badge and any count quoted in the docs must agree with it.
 - Database: RepairBoundStates promotes a BOE row the bind type filed too loosely
 - Database: a readable tooltip settles a row even when the bind type says otherwise
 - Database: RepairBoundStates repairs a row that has only a link
+- Database: RepairBoundStates warms the cache from the link when a row has no itemID
 - Database: RepairBoundStates resets the give-up budget on a pass that fixed something
 - Database: RepairBoundStates gives up after the attempt cap
 
-### test_stats.lua (19)
+### test_stats.lua (20)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -364,8 +388,9 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyBySource sums currency quantity per source across currencies
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
+- Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight
 
-### test_browser.lua (58)
+### test_browser.lua (61)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -425,8 +450,11 @@ badge and any count quoted in the docs must agree with it.
 - browser: General visibility answers all four modes against the combat state
 - browser: Show refuses while the visibility setting forbids it, and says why
 - browser: a combat transition re-applies visibility through the private event target
+- browser: 'Only out of combat' hides the window at the pull, before lockdown engages
+- browser: 'Only in combat' hides the window when combat ends
+- browser: Lock frame gates the resize grip as well as the title-bar drag
 
-### test_browsertable.lua (62)
+### test_browsertable.lua (63)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -489,9 +517,10 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: /lh test and the box drive the same switch and stay in step
 - Test mode: combat ends it with one line, unticks the box and opens nothing
 - Test mode: a refused start prints one line and leaves the box unticked
+- Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
 
-### test_export.lua (25)
+### test_export.lua (26)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -514,18 +543,16 @@ badge and any count quoted in the docs must agree with it.
 - Export: CSV emits a currency row with currencyID and blank item cells
 - Export: InsightsCSV includes currency sections
 - Export: InsightsCSV includes the per-character × category companions
+- Export: InsightsCSV bound labels match the row CSV's E:BoundLabel
 - Export: InsightsCSV names the per-currency breakdown Currency by Type x Source (no By-Source section)
 - Export: the copy window comes from LibKa0s-Widgets-1.0
 - Export: showing the copy window puts the text in it
 - Export: the copy window is built once and reused
 
-### test_debuglog.lua (22)
+### test_debuglog.lua (19)
 
 - FONT_MONO constant is a JetBrains Mono TTF path
-- FormatPlain wraps the tag in brackets with single-space separators
-- FormatPlain renders the tag verbatim (no padding or truncation)
-- FormatPlain tolerates a nil tag
-- FormatColored colors the timestamp and tag; pipe and content default
+- the degraded DebugLog stub's formatters carry no library format string
 - NS.Debug renders a secret message arg as <secret> without raising
 - NS.Debug formats ordinary args (numbers included) through %s
 - /lh debug on enables state
@@ -544,23 +571,31 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_launcher.lua (13)
+### test_launcher.lua (21)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
 - launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
 - launcher: with no LibDataBroker / LibDBIcon nothing raises, and the store is still the truth
 - launcher: ONE object, registered twice, under the addon's FOLDER name — and idempotent
 - launcher: the stored minimap table is the declared default, unseeded and unreplaced
-- launcher: RUNG (a) — left-click toggles the browser, the addon's own switch
-- launcher: right-click ALWAYS opens the settings panel
+- launcher: left-click opens the settings panel, enabled or disabled, and does nothing else
+- launcher: right-click with no client menu API degrades to the settings panel
+- launcher: right-click opens the options menu — the brand title, then the four entries in order
+- launcher: each menu entry toggles through the addon's own handler, once
+- launcher: while disabled, Enabled stays live and the other three are grayed and call nothing
 - launcher: the Minimap button row moves the real button, through the single write seam
 - launcher: Reset all settings re-points LibDBIcon at the new minimap table, so a drag persists
 - launcher: the broker label is the BRAND NAME in plain text, not the folder name
 - launcher: no BULK reset moves the minimap button — /lh resetall and the page Defaults button
 - launcher: Reset all settings leaves a hidden button hidden, across the wholesale wipe
+- launcher: RESET_EXEMPT maps the row path to the stored path, and both resets honor it
 - launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key
+- launcher: the enabled tooltip is the library's block, with the addon's one line inside it
+- launcher: Locked and Test mode are read on every show, never cached
+- launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
+- launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
-### test_slash.lua (60)
+### test_slash.lua (64)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -578,7 +613,10 @@ badge and any count quoted in the docs must agree with it.
 - /lh get with no argument prints a Usage line
 - /lh get on an unknown path prints Setting not found
 - /lh set echoes the stored value read back after writing
+- /lh set a value the row's validate refuses prints INVALID and leaves the value alone
 - /lh set on an unknown path prints Setting not found
+- /lh get minimap.shown reads the row's SHOWN sense; the old minimap.hide path is unknown
+- /lh on a legacy store: hide = true reads minimap.shown false, and a set invents no `shown` key
 - /lh version prints the cyan-tagged v<version> line
 - NS.COMMANDS registers a version verb
 - /lh reset on a table setting echoes (none), not a raw table pointer
@@ -615,15 +653,29 @@ badge and any count quoted in the docs must agree with it.
 - whitespace-only /lh is bare too and runs the config verb
 - the config verb opens the settings panel on its landing page
 - /lh help prints the command index and does not run the config verb
-- library-less install: the degraded help omits config, which would only decline
 - /lh enable and /lh disable write the Enable row's path, and hold no state of their own
 - /lh enable is the same write as /lh set settings.enabled true, and answers the same line
 - the dispatcher answers while the addon is disabled, so the pair is never one-way
 - a disabled addon refuses each FEATURE verb on ONE line naming /lh enable, and does not act
 - the same feature verbs act normally once the addon is enabled — the gate is not always-on
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
+- /lh debug events prints the rejected event names, or none
+- Clear-blacklist confirm and /lh test print their exact lines through the printer
 
-### test_schema.lua (63)
+### test_slash_degraded.lua (10)
+
+- library-less install: the Slash under test is the degraded stub
+- library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
+- library-less install: the refusal line names /lh enable, as the library's does
+- library-less install: the degraded help omits config, which would only decline
+- library-less install: the degraded help lists enable and disable, which now work
+- library-less install: /lh disable stores false, stands the addon down, and acks once
+- library-less install: /lh enable reverses /lh disable
+- library-less install: set on any other path, or a non-bool value, stays unavailable
+- library-less install: resetall clears the id lists and says how many
+- library-less install: resetall on one id says id, not ids
+
+### test_schema.lua (72)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -645,6 +697,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: FindRow resolves a known path and rejects an unknown one
 - Schema: every persisted path resolves against the shipped defaults
 - Schema: Register reports a typo'd path even when the row declares a default
+- Schema: Register counts no missing path for the Minimap button row, which owns its storage
 - Schema: the shipped default equals the schema's declared default
 - Schema: the AH priority cascade is declared once, in core/Constants.lua
 - Schema: every dropdown row offers values, and its default is one of them
@@ -683,11 +736,31 @@ badge and any count quoted in the docs must agree with it.
 - seam: on the degraded build ApplyDefault restores, and spares an exempt row only in a sweep
 - seam: on the degraded build Reset all settings keeps the hidden minimap button
 - seam: on the degraded build the boot check passes
+- seam: on the degraded build the boot check skips a row that owns its storage
 - seam: the live runtime is the library's, and the host names reach it
 - seam: a write with no store yet is refused, not raised
 - seam: a bracket counts a closure row's READ-BACK, so a write that did not move counts 0
 - seam: Register reports a duplicate path and a row with no group
 - seam: on the degraded build the boot check still reports a typo'd path, in its own words
+- Retention: a shorter value raises the prune confirm and deletes nothing yet
+- Retention: accepting the prune confirm deletes the older records
+- Retention: declining restores the confirmed value, keeps every record, prints one line
+- Retention: accepting applies the agreed value even when the store has moved
+- Retention: re-showing the confirm over an open one does not run the decline
+- Retention: with no StaticPopup_Show a shorter value prunes at once
+- Retention: a value that would delete nothing raises no confirm and prunes nothing
+
+### test_schema_stub.lua (9)
+
+- Schema stub: SetMany refuses a batch holding an invalid entry and stores nothing
+- Schema stub: SetMany refuses an unknown path by its index
+- Schema stub: SetMany stores every entry, then runs every onChange in order
+- Schema stub: SetMany with opts.act runs its stores and reactions inside one bracket
+- Schema stub: a writeThrough path with no row stores through Set
+- Schema stub: a writeThrough path refuses when there is nowhere to store it
+- Schema stub: a row-less path NOT in writeThrough is still refused
+- Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
+- Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
 ### test_analytics.lua (62)
 
@@ -833,7 +906,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (22)
+### test_libka0s.lua (24)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -857,8 +930,10 @@ badge and any count quoted in the docs must agree with it.
 - the nine adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
+- degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing
+- degraded install: the SafeRegister stubs isolate a refused name and record it once
 
-### test_surface_parity.lua (9)
+### test_surface_parity.lua (14)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -869,21 +944,26 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires
 - parity: the Schema stub instance carries every member of the live runtime
 - parity: the Schema stub library carries the major's lib-level surface
+- parity: the Item stub carries the whole LibKa0s-Item-1.0 surface
+- parity: the Pool stub carries the LibKa0s-Pool-1.0 surface this addon calls
+- parity: the Lifecycle stand-in carries every member of the live latch
+- parity: the Env seam publishes the same NS members on both paths
+- parity: the Media seam publishes the same NS members on both paths
 
 ### test_disabled.lua (12)
 
-- disabled-§7.1: enabled, the addon registers a NON-EMPTY set and draws
-- disabled-§7.3: disabling UNREGISTERS every event, unit-event and message the addon owns
-- disabled-§7.4: every deferral the addon armed is CANCELED, not left to find a flag
-- disabled-§7.5: the window goes down, and the SHOW LADDER is what keeps it down
-- disabled-§7.6: firing every event it used to watch writes nothing, prints nothing, draws nothing
-- disabled-§7.7: every RESERVED verb still answers, and the bare /lh opens the panel
-- disabled-§7.7: every FEATURE verb refuses on ONE line and reaches no write seam
-- disabled-§7.7: the live set the COMMANDS table gates on IS the library's own
-- disabled-§7.8: the left click is refused and writes nothing; the right click still opens the panel
-- disabled-§7.9: re-enabling restores the registration set, and from the settings as they are NOW
-- disabled-§7.10: releasing ONE hold does not resurrect an addon the other is still holding down
-- disabled-§7: the latch persists NOTHING, and the stored switch is the only thing that does
+- slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
+- slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
+- slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
+- slash-commands-§7 step 5: the window goes down, and the SHOW LADDER is what keeps it down
+- slash-commands-§7 step 6: firing every event it used to watch writes nothing, prints nothing, draws nothing
+- slash-commands-§7 step 7: every RESERVED verb still answers, and the bare /lh opens the panel
+- slash-commands-§7 step 7: every FEATURE verb refuses on ONE line and reaches no write seam
+- slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own
+- slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature
+- slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW
+- slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
+- slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
 
 ### test_doc_structure.lua (6)
 
@@ -903,8 +983,8 @@ badge and any count quoted in the docs must agree with it.
 
 ### test_prose.lua (15)
 
-- prose: no authored file carries a British spelling from localization-5's published list
-- prose: the gate carries localization-5's two lists whole, and nothing of its own
+- prose: no authored file carries a British spelling from localization-§5's published list
+- prose: the gate carries localization-§5's two lists whole, and nothing of its own
 - prose self-test: the carve-out suppresses the named generated folder, and only it
 - prose self-test: a path the carve-out does not name is not covered by one that looks like it
 - prose self-test: a carve-out that is not a set of path strings is a failure, not a silence
@@ -928,13 +1008,13 @@ badge and any count quoted in the docs must agree with it.
 ### test_eol.lua (2)
 
 - eol: every tracked file carries the terminator .gitattributes declares for it
-- eol: .gitattributes is line-endings-5's canonical body for this repo kind
+- eol: .gitattributes is line-endings-§5's canonical body for this repo kind
 
 ### test_layout_cap.lua (13)
 
 - layoutcap: every authored file over the 1500-line cap is named in the census
 - layoutcap: no census row outlives the breach it records
-- layoutcap: every over-cap census row carries one of layout-1's three terminal states
+- layoutcap: every over-cap census row carries one of layout-§1's three terminal states
 - layoutcap: the census and the exempt set agree about which paths were exempted
 - layoutcap: an empty census is written as a result rather than left standing empty
 - layoutcap self-test: the parser reads the census nested under the register, and stops there
@@ -972,30 +1052,32 @@ badge and any count quoted in the docs must agree with it.
 |-------|------:|
 | test_constants.lua | 32 |
 | test_mediasetup.lua | 11 |
-| test_envsetup.lua | 10 |
+| test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
-| test_itemsetup.lua | 5 |
+| test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
-| test_compat.lua | 37 |
-| test_attribution.lua | 25 |
+| test_compat.lua | 39 |
+| test_attribution.lua | 37 |
 | test_filters.lua | 19 |
-| test_auctionprice.lua | 26 |
-| test_collector.lua | 33 |
-| test_database.lua | 60 |
-| test_stats.lua | 19 |
-| test_browser.lua | 58 |
-| test_browsertable.lua | 62 |
-| test_export.lua | 25 |
-| test_debuglog.lua | 22 |
-| test_launcher.lua | 13 |
-| test_slash.lua | 60 |
-| test_schema.lua | 63 |
+| test_auctionprice.lua | 27 |
+| test_collector.lua | 34 |
+| test_database.lua | 65 |
+| test_stats.lua | 20 |
+| test_browser.lua | 61 |
+| test_browsertable.lua | 63 |
+| test_export.lua | 26 |
+| test_debuglog.lua | 19 |
+| test_launcher.lua | 21 |
+| test_slash.lua | 64 |
+| test_slash_degraded.lua | 10 |
+| test_schema.lua | 72 |
+| test_schema_stub.lua | 9 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 22 |
-| test_surface_parity.lua | 9 |
+| test_libka0s.lua | 24 |
+| test_surface_parity.lua | 14 |
 | test_disabled.lua | 12 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
@@ -1004,4 +1086,4 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_widgets.lua | 17 |
-| **Total** | **858** |
+| **Total** | **932** |

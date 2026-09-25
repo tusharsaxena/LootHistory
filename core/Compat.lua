@@ -33,6 +33,14 @@ function Compat.GetActiveKeystoneLevel()
   return nil
 end
 
+-- Is the player inside a party (5-player dungeon) instance? The Mythic+ keystone context lives only
+-- as long as this is true. Guarded by IsInInstance presence -- degrades to false when it is absent.
+function Compat.InPartyInstance()
+  if type(IsInInstance) ~= "function" then return false end
+  local inInst, kind = IsInInstance()
+  return (inInst and kind == "party") and true or false
+end
+
 -- Hook the "use a bag item" path. Opening a container item pushes its contents straight to bags
 -- with no LOOT_OPENED / source GUID, so attribution needs a stamp from here. Calls fn(bag, slot)
 -- after each use. Retail routes through C_Container; older clients expose a global.
@@ -365,9 +373,16 @@ function Compat.GetCurrencyInfoFromLink(link)
 end
 
 -- currencyID -> category (the currency window's expansion/type header, e.g. "The War Within").
--- Built once by walking the currency list and tracking the most recent header, then cached for the
--- session. nil when the API is absent or the id isn't in the list. Cheap after the first call.
+-- Built by walking the currency list and tracking the most recent header, then cached. A miss
+-- rebuilds the cache once and looks again, so a currency first discovered mid-session (routine at a
+-- season start) still resolves; currencyCategoryMissed remembers each id that missed, so an id that
+-- is truly absent costs at most one list walk per session. nil when the API is absent or the id isn't
+-- in the list. Known gap: GetCurrencyListInfo enumerates only the children of EXPANDED headers, so a
+-- currency under a header the player collapsed in the Currency tab is still missed. This deliberately
+-- does not call C_CurrencyInfo.ExpandCurrencyList from a loot handler: that would rewrite the player's
+-- Currency tab. See docs/midnight-quirks.md "Currency category".
 local currencyCategoryCache
+local currencyCategoryMissed = {}
 local function buildCurrencyCategoryCache()
   currencyCategoryCache = {}
   local api = C_CurrencyInfo
@@ -390,7 +405,13 @@ end
 function Compat.CurrencyCategory(currencyID)
   if not currencyID then return nil end
   if not currencyCategoryCache then buildCurrencyCategoryCache() end
-  return currencyCategoryCache[currencyID]
+  local h = currencyCategoryCache[currencyID]
+  if h == nil and not currencyCategoryMissed[currencyID] then
+    currencyCategoryMissed[currencyID] = true
+    buildCurrencyCategoryCache()
+    h = currencyCategoryCache[currencyID]
+  end
+  return h
 end
 
 -- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.

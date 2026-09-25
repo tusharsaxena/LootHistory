@@ -31,6 +31,8 @@ function addon:OnInitialize()
   -- core/Constants.lua had already resolved a path and settings/Schema.lua had already built rows
   -- naming the face -- a window in which a stored default named a font LSM had not yet heard of.
   NS:InitDB()
+  -- The "Keep history for" confirm's baseline: the stored retention is the confirmed one.
+  if NS.Schema and NS.Schema.SyncRetention then NS.Schema:SyncRetention() end
   if NS.Schema and NS.Schema.Register then NS.Schema:Register() end
   if NS.Slash and NS.Slash.Register then NS.Slash:Register() end
   if NS.Panel and NS.Panel.Register then NS.Panel:Register() end

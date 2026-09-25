@@ -16,6 +16,24 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- The "Keep history for" confirm (settings/Schema.lua, S:OnRetentionChanged): raised only when
+  -- a shorter retention would delete records. %s = the new retention's label, %s = the count.
+  -- No is not a mere dismissal: it writes the previous retention back, so nothing is deleted at
+  -- the next login either.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_PRUNE"] = {
+    text = "Shorten 'Keep history for' to %s? %s older records will be deleted. This cannot be undone.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function(_, data) NS.Schema:ConfirmRetention(data.days, true) end,
+    -- StaticPopup_Show cancels a visible KA0S_LOOTHISTORY_PRUNE with reason "override" before it
+    -- re-shows it for a newer value. That is not the player's No, so it restores nothing.
+    OnCancel = function(_, data, reason)
+      if reason == "override" then return end
+      NS.Schema:ConfirmRetention(data.days, false)
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
   StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"] = {
     -- THE COLLECTION'S SECOND CANONICAL WORDING (options-ui-§12), verbatim: the one for an addon
     -- with no profile. The first one closes with "your other profiles are not affected", which is a
@@ -37,7 +55,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("blacklist")) or 0
-      print(("blacklist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("blacklist cleared (%d %s).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
@@ -48,7 +66,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("whitelist")) or 0
-      print(("whitelist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("whitelist cleared (%d %s).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
@@ -59,7 +77,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearList and NS.Filters:ClearList("currencyBlacklist")) or 0
-      print(("currency blacklist cleared (%d %s)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("currency blacklist cleared (%d %s).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
@@ -73,7 +91,7 @@ if type(StaticPopupDialogs) == "table" then
     button2 = NO or "No",
     OnAccept = function()
       local n = (NS.Filters and NS.Filters.ClearAll and NS.Filters:ClearAll()) or 0
-      print(("filters reset (%d %s cleared)."):format(n, n == 1 and "id" or "ids"))
+      NS.Format("filters reset (%d %s cleared).", n, n == 1 and "id" or "ids")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
@@ -110,18 +128,21 @@ end
 --- history rows the wipe discarded, for the debug trace (debug-logging-§8).
 ---
 --- ONE ROW IS CARRIED ACROSS THE WIPE (launcher-§3, standard v2.54.0). This is the reset the rule
---- says `minimap.hide` must survive, and before this carve-out it did not: the merge puts
---- `defaults/Global.lua`'s `minimap = { hide = false }` back, so a player who had hidden the button
---- found it on their minimap again after asking for their SETTINGS to be reset. The exempt set is
---- `NS.Schema.RESET_EXEMPT`, declared there and read here, so the two resets cannot disagree about
---- which row it is. Read and written RAW, through ReadPath/WritePath rather than Schema:Get/Set:
---- the value is being put back exactly as it was, and a write through the seam inside this function
---- would fire an onChange and a second [Set] line in a reset that logs exactly one.
+--- says the minimap button's visibility must survive, and before this carve-out it did not: the
+--- merge puts `defaults/Global.lua`'s `minimap = { hide = false }` back, so a player who had hidden
+--- the button found it on their minimap again after asking for their SETTINGS to be reset. The
+--- exempt set is `NS.Schema.RESET_EXEMPT`, declared there and read here, so the two resets cannot
+--- disagree about which row it is. It maps ROW path to STORED path (launcher-§3, standard v2.65.0):
+--- the row is `minimap.shown`, the one stored key is `minimap.hide`, and no `shown` key is ever
+--- stored, so this wipe carries the map's VALUES. Read and written RAW, through ReadPath/WritePath
+--- rather than Schema:Get/Set: the value is being put back exactly as it was, and a write through
+--- the seam inside this function would fire an onChange and a second [Set] line in a reset that
+--- logs exactly one.
 local function wipeGlobal(g)
   local removed = type(g.history) == "table" and #g.history or 0
   local S = NS.Schema
   local kept = {}
-  for path in pairs(S.RESET_EXEMPT) do kept[path] = S:ReadPath(g, path) end
+  for _, storedPath in pairs(S.RESET_EXEMPT) do kept[storedPath] = S:ReadPath(g, storedPath) end
   for k in pairs(g) do g[k] = nil end
   -- Copied, never merged by reference: a store sharing a table with NS.defaults rewrites the
   -- declared default on its next write.
@@ -145,9 +166,10 @@ local function traceSettingsReset(g)
   local S, n = NS.Schema, 0
   for _, row in ipairs(S and S.Schema or {}) do
     -- Read in the ROW's own sense, not the store's. They are the same for every row but one:
-    -- `minimap.hide` says SHOWN while the stored key says HIDDEN (launcher-§3), so a raw ReadPath
-    -- compared against the row's default never matches and the row would be counted on every
-    -- reset, whether or not the wipe changes it. `row.get` reads the live `db.global`, which is
+    -- the row `minimap.shown` says SHOWN while its one stored key, `minimap.hide`, says HIDDEN
+    -- (launcher-§3), and no `shown` key is stored, so a raw ReadPath at the row's path finds nothing
+    -- and the row would be counted on every reset, whether or not the wipe changes it. The
+    -- exemption test below is keyed by that ROW path. `row.get` reads the live `db.global`, which is
     -- the same table `g` is: wipeGlobal empties it IN PLACE, and this runs before it.
     local current
     if row.get then current = row.get() else current = S:ReadPath(g, row.path) end
@@ -182,6 +204,8 @@ function Sl:ResetEverything()
   if db and db.global then
     traceSettingsReset(db.global)
     local removed = wipeGlobal(db.global)
+    -- The raw wipe fires no onChange, so the confirmed retention is re-read from the store here.
+    if NS.Schema and NS.Schema.SyncRetention then NS.Schema:SyncRetention() end
     if NS.State.debug and NS.Debug then
       NS.Debug("Data", "reset-all removed %s rows", tostring(removed))
     end
@@ -207,6 +231,14 @@ end
 -- filter-list half of `resetall`).
 
 local lib = LibStub and LibStub("LibKa0s-Slash-1.0", true)
+
+--- The ONE refusal line's template (slash-commands-§7), on BOTH paths so the Slash surface-parity
+--- case stays symmetric. With the library present it IS `lib.DISABLED_LINE_FORMAT`; without it,
+--- this literal is the one library string slash-commands-§1 lets a stub carry verbatim, and
+--- tests/test_slash_degraded.lua pins it byte for byte against the live library
+--- (Kit.assertLibraryConstant).
+Sl.DISABLED_LINE_FORMAT = lib and lib.DISABLED_LINE_FORMAT
+  or "%s is disabled \226\128\148 enable it with |cFFFFFF00%s|r"
 
 -- Type-aware value formatter for the two rows the library cannot render on its own.
 --
@@ -246,14 +278,13 @@ if not lib then
   Sl.FormatKV = function(path, valueStr)
     return ("|cFFFFFF00%s|r = |cFFFFFFFF%s|r"):format(tostring(path), tostring(valueStr))
   end
-  --- The ONE refusal line (slash-commands-§7), re-stated here for the same reason Sl.FormatKV and
-  --- formatRow below are: the library is not there to ask, and a degraded install must still look
-  --- like this addon and like the ten beside it. Byte-identical to `lib.DISABLED_LINE_FORMAT` --
-  --- brand name, em dash with one space either side, the command in the help index's gold and
-  --- carrying its leading slash, no trailing period. The wording is the collection's and takes no
-  --- verb: what the player needs is the way back in, not a restatement of what they typed.
+  --- The ONE refusal line (slash-commands-§7), rendered from Sl.DISABLED_LINE_FORMAT above with
+  --- the SAME arguments the library passes (libs/LibKa0s/Slash.lua's DisabledLine: the brand name
+  --- and `slash .. " enable"`), so the line matches the live one byte for byte, not just its
+  --- template. `/lh enable` works on this path too (Sl.CliSet below), so the way back in it names
+  --- is one the player can actually take.
   Sl.DisabledLine = function()
-    return ("%s is disabled \226\128\148 enable it with |cFFFFFF00%s|r"):format(NS.BRAND, "/lh")
+    return Sl.DISABLED_LINE_FORMAT:format(NS.BRAND, "/lh enable")
   end
   -- The verbs NOT to offer here, which is not the same set as the verbs that went through the
   -- library — and the old name, LIBRARY_OWNED, is what got it wrong. `config` never went through
@@ -266,23 +297,19 @@ if not lib then
   -- hand-typed list that would drift the day a verb is added — the same reason the dispatch below
   -- walks NS.COMMANDS instead of naming verbs. The price of subtraction is that a new verb is
   -- offered by default, so one that leans on the library has to be added here when it is declared;
-  -- tests/test_slash.lua's degraded case is what says so out loud.
+  -- tests/test_slash_degraded.lua's help cases are what say so out loud.
   --
   -- `help` is here for the other reason: it answers fine on this path (Sl.PrintHelp below is what
   -- is printing) and is omitted only because naming "help" inside help output is noise. Two
   -- reasons, one verdict, so one set carries both.
-  -- `enable` / `disable` are here for the first reason, and they are the case that comment names:
-  -- both are host-owned entries in NS.COMMANDS that delegate to CliSet, which on this path is the
-  -- `unavailable` stub. They cannot work here for a deeper reason than the delegation, too -- the
-  -- Options composer is the stub, so the Master controls block is EMPTY and `settings.enabled` has
-  -- no schema row for any seam to find. The stored value still exists (defaults/Global.lua) and
-  -- modules/Collector.lua still reads it; there is simply no supported way to write it here, and
-  -- writing `db.global.settings.enabled` around Schema:Set to fake one would be the second write
-  -- path architecture-§5 forbids. Advertising a verb that then declines is worse than omitting it.
+  -- `enable` / `disable` are NOT here: they work on this path. Both delegate to CliSet, and the
+  -- degraded CliSet below writes exactly one path, `settings.enabled`, through the seam's
+  -- writeThrough list (settings/Schema.lua; options-ui-§1 route (a)) -- the Options composer is
+  -- the stub, so there is no row, and writeThrough is what stores the value anyway. `set` stays
+  -- here, because only that one path writes: advertising it would promise the whole schema CLI.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
     reset = true, resetall = true, help = true, config = true,
-    enable = true, disable = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there
@@ -312,15 +339,32 @@ if not lib then
     NS.Print(Sl.HelpHeader())
     for _, row in ipairs(Sl.HelpRows()) do NS.Print(row) end
   end
-  Sl.CliList, Sl.CliGet, Sl.CliSet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
-    unavailable, unavailable, unavailable
+  Sl.CliList, Sl.CliGet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
+    unavailable, unavailable
+  --- The enable path only, which is what `/lh enable` and `/lh disable` delegate to. The row-less
+  --- write lands through the seam's writeThrough list, which runs no onChange, so the reaction the
+  --- Master controls row would have run (the latch, then the bus) is called here by the same name
+  --- the row's onChange calls it by. The ack is the `set` shape, re-read from the store.
+  Sl.CliSet = function(_, rest)
+    local path, value = tostring(rest or ""):match("^%s*(%S+)%s+(%S+)%s*$")
+    if path ~= "settings.enabled" or (value ~= "true" and value ~= "false") then
+      return unavailable()
+    end
+    if NS.Schema:Set(path, value == "true") ~= true then return unavailable() end
+    NS.Schema.OnEnabledWritten()
+    NS.Print(Sl.FormatKV(path, tostring(NS.Schema:Get(path))))
+  end
+  --- The three id lists have one writer that needs no library (NS.Filters), so they ARE reset here,
+  --- and the line says so with the count: a bare "unavailable" would hide that three lists were
+  --- just emptied. The schema rows need the library's walk, which is the second clause.
   Sl.CliResetAll = function()
-    if NS.Filters and NS.Filters.ClearAll then NS.Filters:ClearAll() end
-    unavailable()
+    local n = NS.Filters and NS.Filters.ClearAll and NS.Filters:ClearAll() or 0
+    NS.Format("filters reset (%d %s cleared); other settings need the LibKa0s library.",
+      n, n == 1 and "id" or "ids")
   end
   function Sl:OnSlash(input)
     local raw = (input or ""):match("^%s*(.-)%s*$") or ""
-    -- Bare `/lh` mirrors the library's Slash minor 11 (slash-commands-§4): run the registered
+    -- Bare `/lh` mirrors the library's Slash minor 11 (slash-commands-§3): run the registered
     -- `config` verb with "", and print help when there is none. The lookup goes through the same
     -- UNAVAILABLE_WITHOUT_LIB set the help list does, because on this path `config` is registered
     -- but cannot answer: its handler reaches the Options stub, which declines. So a bare `/lh`
@@ -369,13 +413,19 @@ local Dispatcher = lib:New({
   -- The schema CLI, wired to this addon's single write seam. Every `set` a user types takes the
   -- same path a panel click does: validate -> write -> onChange -> debug line.
   get          = function(path) return NS.Schema:Get(path) end,
-  set          = function(path, v) NS.Schema:Set(path, v) end,
+  -- Returns the seam's answer (Slash minor 15): a validate refusal comes back as `false, err`, and
+  -- CliSet prints INVALID with the reason instead of echoing the unchanged value as if it landed.
+  set          = function(path, v) return NS.Schema:Set(path, v) end,
   findRow      = function(path) return NS.Schema:FindRow(path) end,
   allRows      = function() return NS.Schema.Schema end,
   -- ONE reset policy, shared with the Options descriptor (settings/OptionsSetup.lua). It carries
   -- launcher-§3's one-row veto, which is what stops `/lh resetall` AND the General page's Defaults
   -- button — both of which arrive here, through Sl:CliResetAll — un-hiding the minimap button. A
-  -- single `/lh reset minimap.hide` still resets it: that is the player naming the row.
+  -- single `/lh reset minimap.shown` still resets it: that is the player naming the row, by its
+  -- row path (the stored key underneath stays LibDBIcon's `minimap.hide`).
+  -- A statement, deliberately, where `set` above returns: since Slash minor 15 an answer of
+  -- exactly false makes CliReset print NO_DEFAULT, and the reset-exempt veto is a skip rather
+  -- than a missing default. Answering nothing keeps every reset on the echo path.
   applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
 
   -- Slash minor 8's bulk bracket around CliResetAll's row walk (debug-logging-§10). The seam mutes
@@ -431,9 +481,10 @@ Sl.CliSet         = function(_, rest) return Dispatcher:CliSet(rest)  end
 Sl.CliReset       = function(_, rest) return Dispatcher:CliReset(rest) end
 Sl.CliVersion     = function()        return Dispatcher:CliVersion()  end
 --- The ONE refusal line, from the library, for every surface that prints it: the COMMANDS-table
---- gate in settings/Schema.lua and the launcher's refused left-click (launcher-§2). Neither writes
---- the wording itself -- slash-commands-§7 makes it the collection's rather than the addon's, and a
---- second call site spelling it again is how eleven addons ended up with eleven refusals.
+--- gate in settings/Schema.lua, the one call site left since Launcher minor 4 (LibKa0s v1.58.0,
+--- launcher-§2) retired the launcher's refused left-click. It never writes the wording itself --
+--- slash-commands-§7 makes it the collection's rather than the addon's, and a second call site
+--- spelling it again is how eleven addons ended up with eleven refusals.
 Sl.DisabledLine   = function()        return Dispatcher:DisabledLine() end
 
 --- The settings landing page's command rows: the same rows as the chat help, in the same colors

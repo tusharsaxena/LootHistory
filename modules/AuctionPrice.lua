@@ -56,7 +56,7 @@ end
 
 -- Group the capture set (tags) into { provider = { key = true } }.
 -- Rebuilt per kept loot line rather than memoized, deliberately: LOOTHISTORY-R-10, dispositioned in
--- docs/performance.md ("The allocation that is not measured"). There is no perf harness here to
+-- docs/combat-path-sweep.md ("The allocation that is not measured"). There is no perf harness here to
 -- size the saving with, and the pcall'd provider fetches below dwarf the guess.
 local function wantedByProvider(capture)
   local out = {}
@@ -85,6 +85,21 @@ function AuctionPrice:GatherAll(itemLink, itemID)
   return map
 end
 
+-- "provider:key" -> provider, key, parsed once per distinct tag string. Tags are immutable strings
+-- and the memo is keyed by the string, never by its position in the cascade, so a reorder needs no
+-- invalidation and no bus target. Measured (50,000 records, the default cascade): Pick was ~11% of
+-- a Database:Stats pass, most of it this match. A tag that does not parse memoizes `false`.
+local TAG_PROV, TAG_KEY = {}, {}
+local function splitTag(tag)
+  local prov = TAG_PROV[tag]
+  if prov == nil then
+    local p, k = tag:match("^(.-):(.+)$")
+    prov = p or false
+    TAG_PROV[tag], TAG_KEY[tag] = prov, k or false
+  end
+  return prov, TAG_KEY[tag]
+end
+
 -- Select one price from the map via the priority list. Returns price, tag ("provider:key"). The
 -- map only ever holds *collected* (enabled) keys — collection and priority are one flag now — so
 -- Pick simply returns the highest-ranked tag that has data.
@@ -93,7 +108,7 @@ function AuctionPrice:Pick(map)
   local _, priority = cfg()
   priority = priority or NS.Constants.AUCTION_PRIORITY_DEFAULT
   for _, tag in ipairs(priority) do
-    local prov, key = tag:match("^(.-):(.+)$")
+    local prov, key = splitTag(tag)
     local v = prov and key and map[prov] and map[prov][key]
     if v then return v, tag end
   end

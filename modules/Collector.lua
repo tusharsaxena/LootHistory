@@ -19,6 +19,15 @@ local recordCurrency = true
 local currencyBlacklist = {}
 local blacklist, whitelist = {}, {}
 
+-- The gate config handed to ShouldRecord, reused across every loot line rather than built per
+-- CHAT_MSG_LOOT (events-frames-taint-§7: no per-event allocation on a hot path). RefreshUpvalues
+-- rewrites its settings fields; OnChatMsgLoot sets only itemID per call. Safe to share because
+-- ShouldRecord reads cfg and never keeps it.
+local gateCfg = {
+  qualityThreshold = qualityThreshold, excludedSources = excludedSources,
+  excludeQuestItems = excludeQuestItems, blacklist = blacklist, whitelist = whitelist,
+}
+
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
 
 -- The normal collection gate (no id lists). Returns nil when the item passes, else the drop
@@ -86,6 +95,9 @@ function Collector:RefreshUpvalues()
   currencyBlacklist = g.currencyBlacklist or {}
   blacklist = g.blacklist or {}
   whitelist = g.whitelist or {}
+  gateCfg.qualityThreshold, gateCfg.excludedSources = qualityThreshold, excludedSources
+  gateCfg.excludeQuestItems = excludeQuestItems
+  gateCfg.blacklist, gateCfg.whitelist = blacklist, whitelist
 end
 
 function Collector:OnChatMsgLoot(_, msg)
@@ -113,10 +125,8 @@ function Collector:OnChatMsgLoot(_, msg)
     source, sourceDetail, confidence = NS.Attribution:Consume()
   end
 
-  local ok, reason = self:ShouldRecord(quality, source, classID,
-    { qualityThreshold = qualityThreshold, excludedSources = excludedSources,
-      excludeQuestItems = excludeQuestItems, itemID = itemID,
-      blacklist = blacklist, whitelist = whitelist })
+  gateCfg.itemID = itemID
+  local ok, reason = self:ShouldRecord(quality, source, classID, gateCfg)
   if not ok then
     if NS.State.debug and NS.Debug then
       NS.Debug("Drop", "%s q%s class=%s src=%s reason=%s",
@@ -215,8 +225,11 @@ function Collector:Enable()
   if not bus or self._enabled then return end
   self._enabled = true
   self:RefreshUpvalues()
-  bus:RegisterEvent("CHAT_MSG_LOOT", function(_, msg) self:OnChatMsgLoot(_, msg) end)
-  bus:RegisterEvent("CHAT_MSG_CURRENCY", function(_, msg) self:OnChatMsgCurrency(_, msg) end)
+  -- Per event through Core's helper (events-frames-taint-§1): a refused name costs only itself.
+  NS.SafeRegisterEvent(bus, "CHAT_MSG_LOOT", function(_, msg) self:OnChatMsgLoot(_, msg) end,
+    NS.RejectedEvents)
+  NS.SafeRegisterEvent(bus, "CHAT_MSG_CURRENCY",
+    function(_, msg) self:OnChatMsgCurrency(_, msg) end, NS.RejectedEvents)
   -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
   -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
   -- No `or bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and

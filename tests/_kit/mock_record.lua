@@ -238,8 +238,29 @@ return function(M, ctx)
         return names
       end
 
+      -- AceDB-3.0's removeDefaults (AceDB-3.0.lua:134-178), which SetProfile runs over the
+      -- OUTGOING profile before it switches (:460-463): a scalar equal to its default is removed,
+      -- a default table is recursed into and removed if that leaves it empty, and a key with no
+      -- default is never touched. So the SavedVariables file holds, for a profile nobody is using,
+      -- only what differs from the defaults, and a handler holding the old db.profile sees it
+      -- stripped in place. Modeled: the scalar arm and the plain-table arm. NOT modeled: the "*"
+      -- and "**" wildcard arms and the blocker argument they thread through the recursion — the
+      -- fake's copyDefaults does not expand wildcards either, so a "*" key here is an ordinary
+      -- key, filled and stripped as one.
+      local function removeDefaults(dest, src)
+        for k, v in pairs(src or {}) do
+          if type(v) == "table" and type(dest[k]) == "table" then
+            removeDefaults(dest[k], v)
+            if next(dest[k]) == nil then dest[k] = nil end
+          elseif dest[k] == v then
+            dest[k] = nil
+          end
+        end
+      end
+
       db.SetProfile = function(_, name)
         if name == current then return end
+        removeDefaults(sv.profiles[current], defaults and defaults.profile)
         current = name
         db.profile = ensureProfile(name)
         fire("OnProfileChanged", current)
@@ -254,17 +275,37 @@ return function(M, ctx)
         fire("OnProfileReset")   -- the db alone, as AceDB-3.0 fires it (revision 19)
       end
 
-      db.CopyProfile = function(_, name)
+      -- CopyProfile and DeleteProfile raise where AceDB-3.0 raises, with its messages byte for
+      -- byte and at level 2, so the position names the caller (AceDB-3.0.lua:531-537 and :581-587
+      -- in every consumer's vendored copy). Through revision 25 both returned silently on every
+      -- bad name, which let a consumer's copy or delete command pass a suite on a name that
+      -- raises a raw Lua error in the client — fidelity rule 5 (revision 26).
+      db.CopyProfile = function(_, name, silent)
+        if name == current then
+          error(("Cannot have the same source and destination profiles (%q)."):format(name), 2)
+        end
         local src = sv.profiles[name]
-        if not src or name == current then return end
+        if not src and not silent then
+          error(("Cannot copy profile %q as it does not exist."):format(name), 2)
+        end
+        -- AceDB resets the active profile first, then copies the source over it, so a key the
+        -- source lacks reads its default afterwards; a silent copy of a missing profile is
+        -- therefore a reset.
         local p = sv.profiles[current]
         for k in pairs(p) do p[k] = nil end
-        for k, v in pairs(deepcopy(src)) do p[k] = v end
+        for k, v in pairs(deepcopy(src or {})) do p[k] = v end
+        copyDefaults(p, defaults and defaults.profile)
         fire("OnProfileCopied", name)   -- the SOURCE, as AceDB-3.0 fires it (revision 18)
       end
 
-      db.DeleteProfile = function(_, name)
-        if name == current then return end
+      -- OnProfileDeleted is not fired: no consumer registers for it, and the fake never has.
+      db.DeleteProfile = function(_, name, silent)
+        if name == current then
+          error(("Cannot delete the active profile (%q) in an AceDBObject."):format(name), 2)
+        end
+        if not sv.profiles[name] and not silent then
+          error(("Cannot delete profile %q as it does not exist."):format(name), 2)
+        end
         sv.profiles[name] = nil
       end
 
@@ -610,6 +651,42 @@ return function(M, ctx)
       if f.__shown then out[#out + 1] = f end
     end
     table.sort(out, function(a, b) return (a.__seq or 0) < (b.__seq or 0) end)
+    return out
+  end
+
+  -- ── what AceGUI still holds (revision 26) ────────────────────────────────────────────────
+
+  -- Widgets the AceGUI fake handed out and has not taken back, per type. The fake never reuses a
+  -- widget, so a render that Creates on every pass and never Releases passes every other
+  -- assertion in the kit; the leak is visible only as a count of what is still out. That is how
+  -- a page banner minted a Dropdown per render in every consumer (review finding LibKa0s-R-02).
+  --
+  -- Fed by two lines in `mock_base.lua`: its `Create` reports a widget with the type it was asked
+  -- for, and its `Release` reports it back. A Release of a widget `Create` never handed out --
+  -- one a suite built with `M.__makeAceGUIWidget` -- is not owed, and is ignored rather than
+  -- driving a count below zero.
+  local aceguiType, aceguiLive = setmetatable({}, { __mode = "k" }), {}
+
+  --- Internal: the fake's Create reports `delta = 1` with the type; its Release reports -1.
+  function M.__aceguiNote(widget, wtype, delta)
+    if delta > 0 then
+      aceguiType[widget] = wtype
+    else
+      wtype = aceguiType[widget]
+      if wtype == nil then return end
+      aceguiType[widget] = nil
+    end
+    aceguiLive[wtype] = (aceguiLive[wtype] or 0) + delta
+  end
+
+  --- How many widgets of `wtype` are out (created, not released). With no type, a table of every
+  --- type that has at least one out, keyed by type -- a copy, so a suite can hold it across a render.
+  function M.__aceguiLive(wtype)
+    if wtype ~= nil then return aceguiLive[wtype] or 0 end
+    local out = {}
+    for k, n in pairs(aceguiLive) do
+      if n ~= 0 then out[k] = n end
+    end
     return out
   end
 

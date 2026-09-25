@@ -533,7 +533,7 @@ test("browser: a burst of RecordAdded collapses to ONE OnHistoryChanged", functi
   local ran, real = 0, B.OnHistoryChanged
   B.OnHistoryChanged = function() ran = ran + 1 end
 
-  for _ = 1, 12 do NS.bus:SendMessage("Ka0s_LootHistory_RecordAdded", {}, 1) end
+  for _ = 1, 12 do NS.bus:SendMessage(NS.MSG.RECORD_ADDED, {}, 1) end
   assertEqual(ran, 0, "nothing repaints synchronously on the loot path")
   T.mocks.__fireTimers()
   assertEqual(ran, 1, "twelve drops cost one repaint — this was twelve before the fix")
@@ -549,7 +549,7 @@ test("browser: HistoryChanged still repaints immediately", function()
   local ran, real = 0, B.OnHistoryChanged
   B.OnHistoryChanged = function() ran = ran + 1 end
 
-  NS.bus:SendMessage("Ka0s_LootHistory_HistoryChanged")
+  NS.bus:SendMessage(NS.MSG.HISTORY_CHANGED)
   assertEqual(ran, 1, "a deliberate change repaints at once, with no timer in the way")
 
   B.OnHistoryChanged = real
@@ -619,9 +619,11 @@ end)
 
 test("browser: General visibility answers all four modes against the combat state", function()
   -- red under: treating the row as a boolean (which is exactly what options-ui-§15 forbids: a
-  -- boolean can only ever answer two of the four).
-  local realCombat = T.mocks.InCombatLockdown
-  local function combat(v) T.mocks.InCombatLockdown = function() return v end end
+  -- boolean can only ever answer two of the four), or reading InCombatLockdown() for the
+  -- nil-argument case -- the lockdown stays false below, so only a UnitAffectingCombat read
+  -- answers the second half (events-frames-taint-§2).
+  local realCombat = T.mocks.__inCombat
+  local function combat(v) T.mocks.__inCombat = v end
 
   combat(false)
   withSettings({ visibility = "always" },      function() assertTrue(B:VisibilityAllows()) end)
@@ -635,7 +637,7 @@ test("browser: General visibility answers all four modes against the combat stat
   withSettings({ visibility = "inCombat" },    function() assertTrue(B:VisibilityAllows()) end)
   withSettings({ visibility = "outOfCombat" }, function() assertFalse(B:VisibilityAllows()) end)
 
-  T.mocks.InCombatLockdown = realCombat
+  T.mocks.__inCombat = realCombat
   -- An unset value is "always", so a profile from before the row existed still opens its window.
   withSettings({ visibility = nil }, function() assertTrue(B:VisibilityAllows()) end)
 end)
@@ -680,3 +682,64 @@ test("browser: a combat transition re-applies visibility through the private eve
     B.ApplyVisibility = real
     assertEqual(ran, 2, "both transitions re-apply the setting")
   end)
+
+--- Show the window under `patch` with the player's combat flag at `inCombat`, fire `event` through
+--- the kit's event bus and answer whether the window is still up. The flag does not move across the
+--- edge: both cases pin the argument the handler passes, not a state read that could lag it. Always
+--- leaves the window closed and the flag as it was.
+local function shownAfterEdge(patch, inCombat, event)
+  local realCombat = T.mocks.__inCombat
+  local shown
+  withSettings(patch, function()
+    B:Enable()
+    T.mocks.__inCombat = inCombat
+    B:Show()
+    local f = B:GetWindow()
+    assertTrue(f ~= nil and f:IsShown(), "the window did not open before the edge")
+    T.mocks.__fire(event)
+    shown = f:IsShown() and true or false
+    B:Hide()
+  end)
+  T.mocks.__inCombat = realCombat
+  return shown
+end
+
+test("browser: 'Only out of combat' hides the window at the pull, before lockdown engages", function()
+  -- PLAYER_REGEN_DISABLED fires BEFORE InCombatLockdown() turns true (events-frames-taint-§2), so
+  -- the lockdown and the player's combat flag both stay false here: the edge itself is the state.
+  -- red under: VisibilityAllows reading InCombatLockdown() (or UnitAffectingCombat) at the edge
+  -- instead of taking the `true` the PLAYER_REGEN_DISABLED handler passes.
+  assertFalse(shownAfterEdge({ visibility = "outOfCombat" }, false, "PLAYER_REGEN_DISABLED"),
+    "'Only out of combat' left the window up at the pull")
+end)
+
+test("browser: 'Only in combat' hides the window when combat ends", function()
+  -- The mirror edge: the player's combat flag still reads true when PLAYER_REGEN_ENABLED lands, so
+  -- only the `false` the handler passes decides.
+  -- red under: the PLAYER_REGEN_ENABLED handler calling ApplyVisibility() with no argument.
+  assertFalse(shownAfterEdge({ visibility = "inCombat" }, true, "PLAYER_REGEN_ENABLED"),
+    "'Only in combat' left the window up after combat ended")
+end)
+
+test("browser: Lock frame gates the resize grip as well as the title-bar drag", function()
+  -- Lock frame stops the window being dragged OR resized: a locked window that still resizes from
+  -- its corner grip, and persists the new size on release, is not locked.
+  -- red under: the grip's OnMouseDown calling frame:StartSizing without asking B:IsLocked().
+  withSettings({ visibility = "always" }, function()
+    B:Show()
+    local f = B:GetWindow()
+    local calls = 0
+    rawset(f, "StartSizing", function() calls = calls + 1 end)
+    local down = f.resizeGrip:GetScript("OnMouseDown")
+    local ok, err = pcall(function()
+      withSettings({ locked = true }, function() down() end)
+      assertEqual(calls, 0, "a locked window must not start sizing")
+      withSettings({ locked = false }, function() down() end)
+      assertEqual(calls, 1, "an unlocked window still resizes from its grip")
+    end)
+    rawset(f, "StartSizing", nil)
+    B:Hide()
+    if not ok then error(err, 0) end
+  end)
+end)
+

@@ -50,7 +50,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Lifecycle-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Lifecycle-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -88,6 +88,16 @@ lib.HOLD_PERF     = "perf"
 ---   print      function  optional. The host's tagged printer, used only by :PrintHolds(). The
 ---                        library emits nothing on its own — a latch that announced every edge
 ---                        would narrate a perf run and a profile switch into a player's chat.
+---
+--- RE-ENTRANCY. A `standDown` or `standUp` callback MUST NOT take or release a hold on its own
+--- latch (Hold, Release, Set, or a Reevaluate after either). The edge calls the callback
+--- synchronously, so a hold taken or released inside it re-enters the edge and the NESTED edge runs
+--- to completion inside the outer one: a `standDown` that releases a hold fires `standUp` before
+--- `standDown` has returned. The latch stays consistent — `down` is recorded before each callback,
+--- so the set, the recorded edge and IsDown() all agree afterwards — but the host's teardown and
+--- rebuild interleave, which is a state no host is written for. Nothing here queues or refuses a
+--- nested edge; the behavior is pinned by a case in tests/test_lifecycle.lua so it cannot change
+--- unannounced. A host that needs a follow-up edge defers it past the callback instead.
 function lib:New(descriptor)
   local d = type(descriptor) == "table" and descriptor or {}
   if type(d.name) ~= "string" or d.name == "" then

@@ -116,16 +116,21 @@ local MIGRATIONS = {
   end },
 }
 
--- Schema-migration runner (toc-file-§2 / savedvariables-§1). Reads/writes db.global.schemaVersion and
--- ships even with an effectively empty body — the *seam* is the requirement: future schema
--- changes get a single, idempotent upgrade path invoked once at init, before any read of
--- db.global.history. Safe no-op when the DB isn't ready yet.
--- The stamp is written AFTER apply() and only for steps that actually ran, so an error mid-chain
--- can never advance the version past unapplied work.
+-- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated
+-- DB carries. Derived from the table so appending a step moves it; the defaults stay at 0.
+NS.SCHEMA_VERSION = MIGRATIONS[#MIGRATIONS].to
+
+-- Schema-migration runner (toc-file-§2 / savedvariables-§1, standard v2.65.0). Reads/writes
+-- db.global.schemaVersion, invoked once at init before any read of db.global.history, and a safe
+-- no-op when the DB isn't ready yet. The defaults declare 0 (defaults/Global.lua says why), so a
+-- brand-new install and an account from before the stamp existed both enter at 0 and walk every
+-- step; each step is idempotent against an empty history. The runner owns the stamp: it is written
+-- AFTER apply() returns and only for steps that actually ran, so a step that raises leaves it at the
+-- last completed step and the next load retries rather than skips.
 function NS:RunMigrations()
   local g = NS.db and NS.db.global
   if not g then return end
-  g.schemaVersion = g.schemaVersion or 1
+  g.schemaVersion = g.schemaVersion or 0
   for i = 1, #MIGRATIONS do
     local m = MIGRATIONS[i]
     if g.schemaVersion < m.to then
@@ -211,7 +216,8 @@ local function examineRow(r)
   if not settled then
     -- Unsettled means the TOOLTIP wasn't readable. A bind type of BOE is not evidence the
     -- row isn't warbound (it lies for these items), so it must not end the row's retries.
-    NS.Item.LoadItem(r.itemID)   -- warm the cache so the next pass can answer
+    -- A link-only row has no itemID; the link names the same item, so warm the cache from it.
+    NS.Item.LoadItem(r.itemID or NS.Item.ItemIDFromLink(r.itemLink))
     return "pending"
   end
   local merged = NS.Compat.BestBound(r.bound, state)
@@ -354,6 +360,7 @@ end
 -- ts window is inclusive on both ends, and `text` arrives already lowered — once per call, never
 -- per record.
 local function matchRange(r, boundSet, from, to, text)
+  -- "NONE" (a persisted savedView.bound key) is the unbound sentinel here; Stats uses "UNBOUND".
   if boundSet and not boundSet[r.bound or "NONE"] then return false end
   if from and (r.ts or 0) < from then return false end
   if to and (r.ts or 0) > to then return false end
@@ -427,19 +434,19 @@ function Database:Query(filter)
   return self:QueryList(self:ActiveHistory(), filter)
 end
 
--- Plain, metatable-free copy of the (optionally filtered) history — the forward-compatible
--- v2 export contract (see docs/schema.md). Field shape is stable except for schema bumps
--- (v4 dropped the retired `sourceName`).
+-- Plain, metatable-free copy of the (optionally filtered) history, nested auctionPrice/sourceDetail
+-- deep-copied so an export never aliases a live row: the v2 export contract (docs/schema.md). Field
+-- shape is stable except for schema bumps (v4 dropped the retired `sourceName`).
 function Database:Export(filter)
   local out = {}
   for _, r in ipairs(self:Query(filter or {})) do
     out[#out + 1] = {
       ts = r.ts, char = r.char, classFile = r.classFile, itemID = r.itemID, currencyID = r.currencyID, itemLink = r.itemLink,
       itemName = r.itemName, quality = r.quality, itemLevel = r.itemLevel, bound = r.bound,
-      vendorPrice = r.vendorPrice, auctionPrice = r.auctionPrice,
+      vendorPrice = r.vendorPrice, auctionPrice = r.auctionPrice and NS.Util.DeepCopy(r.auctionPrice),
       itemType = r.itemType, itemSubType = r.itemSubType,
       quantity = r.quantity,
-      source = r.source or "OTHER", sourceDetail = r.sourceDetail,
+      source = r.source or "OTHER", sourceDetail = r.sourceDetail and NS.Util.DeepCopy(r.sourceDetail),
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
     }
   end
@@ -473,6 +480,8 @@ local function newAccumulator()
     totalValue = 0, totalQuantity = 0, epicPlus = 0,
     firstTs = nil, lastTs = nil,
     bestDrop = nil, richestDrop = nil, biggestHaul = nil,
+    -- accumulateTime's per-pass memo: floor(ts / 900) -> { day, hour, wday }. Scratch, not output.
+    timeMemo = {},
   }
 end
 
@@ -521,6 +530,7 @@ local function accumulateItem(A, r, ch, src, value)
   local ty = r.itemType
   if ty and ty ~= "" then A.byType[ty] = (A.byType[ty] or 0) + 1; bump(A.charByType, ch, ty, 1) end
 
+  -- "UNBOUND" keys the Analytics/BrowserTable styling; matchRange's filter uses "NONE" instead.
   local bk = r.bound or "UNBOUND"
   A.byBound[bk] = (A.byBound[bk] or 0) + 1
   bump(A.charByBound, ch, bk, 1)
@@ -531,14 +541,31 @@ end
 
 -- Day / hour / weekday buckets and the first-last timestamp span. Records with no ts contribute
 -- to every other breakdown but not to these.
+--
+-- date() is memoized per 900 s bucket of ts for the length of one Stats pass (A.timeMemo). Every
+-- real timezone offset is a multiple of 15 minutes, so a 900 s bucket never straddles a local
+-- day or hour, and records in one bucket share day, hour and weekday. Measured over 50,000
+-- records, the two unmemoized date() calls were the bulk of a Stats pass.
+local function timeBucket(A, ts)
+  local b = math.floor(ts / 900)
+  local m = A.timeMemo[b]
+  if not m then
+    local d = date("*t", ts)
+    m = { day = string.format("%04d-%02d-%02d", d.year, d.month, d.day), hour = d.hour,
+          wday = d.wday - 1 }  -- Lua wday 1=Sun → key 0=Sun
+    A.timeMemo[b] = m
+  end
+  return m
+end
+
 local function accumulateTime(A, r, value)
   if not r.ts then return end
-  local day = date("%Y-%m-%d", r.ts)
+  local m = timeBucket(A, r.ts)
+  local day = m.day
   A.byDay[day] = (A.byDay[day] or 0) + 1
   A.valueByDay[day] = (A.valueByDay[day] or 0) + value
-  local d = date("*t", r.ts)
-  A.byHour[d.hour] = (A.byHour[d.hour] or 0) + 1
-  A.byWeekday[d.wday - 1] = (A.byWeekday[d.wday - 1] or 0) + 1  -- Lua wday 1=Sun → key 0=Sun
+  A.byHour[m.hour] = (A.byHour[m.hour] or 0) + 1
+  A.byWeekday[m.wday] = (A.byWeekday[m.wday] or 0) + 1
   if not A.firstTs or r.ts < A.firstTs then A.firstTs = r.ts end
   if not A.lastTs or r.ts > A.lastTs then A.lastTs = r.ts end
 end
@@ -782,8 +809,24 @@ function Database:StorageStats(now)
   return { count = #history, days = days, bytes = bytes }
 end
 
+-- How many records a retention of `days` would drop, WITHOUT dropping them: what the
+-- "Keep history for" confirm names before anything is deleted (settings/Schema.lua,
+-- S:OnRetentionChanged). 0 for nil or 0 days ("Always"). Allocation-free: one counted pass.
+function Database:CountOlderThan(days)
+  if not days or days == 0 then return 0 end
+  local cutoff = time() - days * 86400
+  local history = NS.db.global.history
+  local n = 0
+  for i = 1, #history do
+    if (history[i].ts or 0) < cutoff then n = n + 1 end
+  end
+  return n
+end
+
 -- Retention cleanup. Drops records older than settings.retentionDays (0 == Never).
--- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it runs.
+-- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it removes
+-- rows; a prune that removes nothing leaves the store untouched and fires nothing (the login
+-- prune over a fresh history must not make the Browser rebuild).
 function Database:PruneOld()
   local days = NS.db.global.settings.retentionDays
   if not days or days == 0 then return 0 end
@@ -794,8 +837,10 @@ function Database:PruneOld()
     if (r.ts or 0) >= cutoff then kept[#kept + 1] = r end
   end
   local removed = #history - #kept
-  NS.db.global.history = kept
-  fireHistoryChanged()
+  if removed > 0 then
+    NS.db.global.history = kept
+    fireHistoryChanged()
+  end
   if NS.State.debug and NS.Debug then
     NS.Debug("Prune", "retention %sd: removed %s rows", tostring(days), tostring(removed))
   end

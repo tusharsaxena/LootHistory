@@ -76,6 +76,8 @@ local OWNED = {
   "event:CHALLENGE_MODE_COMPLETED:nil",
   "event:TRADE_ACCEPT_UPDATE:nil",
   "event:QUEST_TURNED_IN:nil",
+  "event:ZONE_CHANGED_NEW_AREA:nil",
+  "event:CHALLENGE_MODE_RESET:nil",
   "event:PLAYER_REGEN_DISABLED:nil",
   "event:PLAYER_REGEN_ENABLED:nil",
   "unit:UNIT_SPELLCAST_SUCCEEDED:player",
@@ -171,7 +173,7 @@ end
 
 -- ── 1. baseline ───────────────────────────────────────────────────────────────────────────────
 
-test("disabled-§7.1: enabled, the addon registers a NON-EMPTY set and draws", function()
+test("slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws", function()
   -- An addon that registers nothing when enabled passes every later assertion trivially, which is
   -- why §7 makes this step 1 rather than an implied precondition.
   bringUp()
@@ -183,7 +185,7 @@ end)
 
 -- ── 2/3. the registration set is empty ────────────────────────────────────────────────────────
 
-test("disabled-§7.3: disabling UNREGISTERS every event, unit-event and message the addon owns",
+test("slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns",
   function()
     -- THE ASSERTION THE WHOLE SUITE EXISTS FOR, and the one that reddens a draw gate. It is
     -- deliberately NOT written as "call a handler and assert it returned early": that is the draw
@@ -205,7 +207,7 @@ test("disabled-§7.3: disabling UNREGISTERS every event, unit-event and message 
 
 -- ── 4. nothing is left to wake up ─────────────────────────────────────────────────────────────
 
-test("disabled-§7.4: every deferral the addon armed is CANCELED, not left to find a flag",
+test("slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag",
   function()
     -- The retention prune is the case that makes this more than bookkeeping: it is a
     -- SavedVariables write on a five-second fuse lit by PLAYER_ENTERING_WORLD, and `C_Timer.After`
@@ -228,7 +230,7 @@ test("disabled-§7.4: every deferral the addon armed is CANCELED, not left to fi
 
 -- ── 5. every frame is hidden, and stays hidden ────────────────────────────────────────────────
 
-test("disabled-§7.5: the window goes down, and the SHOW LADDER is what keeps it down", function()
+test("slash-commands-§7 step 5: the window goes down, and the SHOW LADDER is what keeps it down", function()
   -- §7 asks for hiding enforced AT THE SOURCE rather than imperatively, for the reason
   -- performance-§6 already gives about suspend: hidden frames come back. A combat transition, a
   -- settings change or the next ApplyVisibility re-shows the window behind the switch's back, and
@@ -263,7 +265,7 @@ end)
 
 -- ── 6. fire everything anyway ─────────────────────────────────────────────────────────────────
 
-test("disabled-§7.6: firing every event it used to watch writes nothing, prints nothing, draws nothing",
+test("slash-commands-§7 step 6: firing every event it used to watch writes nothing, prints nothing, draws nothing",
   function()
     -- The client will not fire these, because nothing is registered — but a SURVIVOR would get
     -- them, and this is what says so. The combat-entry event is named explicitly because it is the
@@ -324,7 +326,7 @@ local function capture(fn)
   return out
 end
 
-test("disabled-§7.7: every RESERVED verb still answers, and the bare /lh opens the panel",
+test("slash-commands-§7 step 7: every RESERVED verb still answers, and the bare /lh opens the panel",
   function()
     -- STEP 7 IS NOT THE STAND-DOWN — steps 1-6 are, and a green step 7 says nothing about whether
     -- the addon is inert. What it says is that the addon is still REACHABLE: a player has to be
@@ -367,7 +369,7 @@ test("disabled-§7.7: every RESERVED verb still answers, and the bare /lh opens 
     setEnabled(true)
   end)
 
-test("disabled-§7.7: every FEATURE verb refuses on ONE line and reaches no write seam", function()
+test("slash-commands-§7 step 7: every FEATURE verb refuses on ONE line and reaches no write seam", function()
   -- The other half of step 7, and the addon's answer to §2's SHOULD pinned so it cannot drift. Both
   -- halves are asserted because either alone is passable by a broken implementation: a case that
   -- only read the line would pass over a verb that printed and then acted anyway.
@@ -390,7 +392,7 @@ test("disabled-§7.7: every FEATURE verb refuses on ONE line and reaches no writ
   setEnabled(true)
 end)
 
-test("disabled-§7.7: the live set the COMMANDS table gates on IS the library's own", function()
+test("slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own", function()
   -- The restatement in settings/Schema.lua exists because that table is built at file load, before
   -- the library is resolved, and because it has to gate the library-LESS dispatcher too. This is
   -- what stops the copy drifting from `lib.LIVE_VERBS` — in particular back to v2.56.0's narrowed
@@ -409,13 +411,13 @@ end)
 
 -- ── 8. the launcher ───────────────────────────────────────────────────────────────────────────
 
-test("disabled-§7.8: the left click is refused and writes nothing; the right click still opens the panel",
+test("slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature",
   function()
-    -- launcher-§2. Rung (a) drives a primary window and that is a feature, so the left button
-    -- prints the one refusal line and does nothing else. The rung-(c) carve-out does not reach this
-    -- addon: it is for a left-click that opens the settings panel and nothing else. Right-click is
-    -- unchanged in either state — the owner's ruling narrows the SLASH surface, and a mouse click
-    -- is not a slash command.
+    -- launcher-§2 (standard v2.67.0, Launcher minor 4). The left button opens the settings panel in
+    -- either state -- the panel is setup, and where the addon is switched back on -- so it prints no
+    -- refusal. The right button opens the options menu, where Enabled stays live and Locked, Test
+    -- mode and Show window are grayed with "enable the addon first": features refuse while off, and
+    -- a grayed entry calls no handler and writes nothing, even when a client dispatches it anyway.
     bringUp()
     local object = NS.Launcher and NS.Launcher:Object()
     assertTrue(object ~= nil, "tests/test_launcher.lua runs first and leaves the object registered")
@@ -425,26 +427,33 @@ test("disabled-§7.8: the left click is refused and writes nothing; the right cl
     local realOpen, opens = NS.Panel.Open, 0
     NS.Browser.Toggle = function() toggles = toggles + 1 end
     NS.Panel.Open = function() opens = opens + 1 end
+    local MENU = dofile("tests/mock_menu.lua")(M)
     M.__resetSvWrites()
 
     local out = capture(function() object.OnClick(object, "LeftButton") end)
-    local right = capture(function() object.OnClick(object, "RightButton") end)
+    local menuOut = capture(function()
+      object.OnClick(object, "RightButton")
+      for _, prefix in ipairs({ "Locked", "Test mode", "Show window" }) do MENU.last:ForceClick(prefix) end
+    end)
+    MENU.remove()
     NS.Browser.Toggle, NS.Panel.Open = realToggle, realOpen
 
-    assertEqual(#out, 1, "the refused left click is exactly one line, got: "
-      .. table.concat(out, " | "))
-    assertEqual(out[1], NS.PREFIX .. " " .. NS.Slash.DisabledLine(),
-      "the launcher must print the SAME line the dispatcher does, not a second wording")
-    assertEqual(toggles, 0, "a refused left click must not reach the window")
+    assertEqual(#out, 0, "the left click speaks no refusal, got: " .. table.concat(out, " | "))
+    assertEqual(opens, 1, "left-click must open the settings panel while disabled")
+    assertTrue(MENU.last ~= nil, "right-click must open the options menu while disabled")
+    assertTrue(MENU.last:Find("Enabled").enabled, "Enabled is the off switch and stays live")
+    for _, prefix in ipairs({ "Locked", "Test mode", "Show window" }) do
+      assertEqual(MENU.last:Find(prefix).enabled, false, prefix .. " must be grayed while disabled")
+    end
+    assertEqual(#menuOut, 0, "a grayed entry prints nothing, got: " .. table.concat(menuOut, " | "))
+    assertEqual(toggles, 0, "a grayed Show window must not reach the window")
     assertEqual(#M.__svWrites(), 0, "a launcher click wrote SavedVariables on a disabled addon")
-    assertEqual(#right, 0, "the right click speaks no refusal")
-    assertEqual(opens, 1, "right-click must still open the settings panel while disabled")
     setEnabled(true)
   end)
 
 -- ── 9. restoration, from CURRENT state ────────────────────────────────────────────────────────
 
-test("disabled-§7.9: re-enabling restores the registration set, and from the settings as they are NOW",
+test("slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW",
   function()
     -- performance-§6's restore-from-current-state rule, which §7 applies to this latch in full: the
     -- stand-up rebuilds from the enabled set AS IT IS, never from a snapshot taken when the hold
@@ -473,7 +482,7 @@ test("disabled-§7.9: re-enabling restores the registration set, and from the se
 
 -- ── 10. the latch ─────────────────────────────────────────────────────────────────────────────
 
-test("disabled-§7.10: releasing ONE hold does not resurrect an addon the other is still holding down",
+test("slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down",
   function()
     -- The trap, and the whole reason `LibKa0s-Lifecycle-1.0` is a hold set rather than a boolean.
     -- `/lh disable` is a live verb, so a player can switch the addon off DURING a suspended perf
@@ -513,7 +522,7 @@ test("disabled-§7.10: releasing ONE hold does not resurrect an addon the other 
     assertEqual(#lc:Holds(), 0, "no hold outlives this case")
   end)
 
-test("disabled-§7: the latch persists NOTHING, and the stored switch is the only thing that does",
+test("slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does",
   function()
     -- The `perf` hold is session-only and the `disabled` hold is re-taken at load from the stored
     -- enable path, which is why the latch itself writes nothing: a hold persisted across a reload

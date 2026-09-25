@@ -338,6 +338,53 @@ test("Compat: CurrencyCategory resolves a currency to its list header", function
   assertEqual(NS.Compat.CurrencyCategory(999999), nil)   -- unknown id -> nil
 end)
 
+-- The category cache is module-local, and the case above has already built it from the default mock.
+-- These cases do not reload core/Compat.lua: they use ids (100, 200, 999) no other case asks about,
+-- so each one is a fresh miss against the built cache, and they restore the default mock afterwards.
+-- A swapped-in currency list: header "Season" followed by the ids in `ids`. Counts list walks.
+local function seasonCurrencyList(ids)
+  local walks = { n = 0 }
+  local api = {
+    GetCurrencyListSize = function() walks.n = walks.n + 1; return 1 + #ids end,
+    GetCurrencyListInfo = function(i)
+      if i == 1 then return { name = "Season", isHeader = true } end
+      if ids[i - 1] then return { name = "C" .. ids[i - 1], isHeader = false } end
+      return nil
+    end,
+    GetCurrencyListLink = function(i)
+      local id = ids[i - 1]
+      return id and ("|Hcurrency:" .. id .. "::|h[C" .. id .. "]|h") or nil
+    end,
+  }
+  return api, walks
+end
+
+test("Compat: CurrencyCategory rebuilds on a miss, so a currency first seen later resolves", function()
+  local saved = T.mocks.C_CurrencyInfo
+  local ids = { 100 }
+  T.mocks.C_CurrencyInfo = seasonCurrencyList(ids)
+  local ok, err = pcall(function()
+    assertEqual(NS.Compat.CurrencyCategory(100), "Season")
+    ids[2] = 200   -- a currency the player discovers after the cache was built
+    assertEqual(NS.Compat.CurrencyCategory(200), "Season")
+  end)
+  T.mocks.C_CurrencyInfo = saved
+  if not ok then error(err, 0) end
+end)
+
+test("Compat: CurrencyCategory walks the list at most once for an id that is truly absent", function()
+  local saved = T.mocks.C_CurrencyInfo
+  local api, walks = seasonCurrencyList({ 100 })
+  T.mocks.C_CurrencyInfo = api
+  local ok, err = pcall(function()
+    assertEqual(NS.Compat.CurrencyCategory(999), nil)
+    assertEqual(NS.Compat.CurrencyCategory(999), nil)
+    assertEqual(walks.n, 1)   -- one rebuild across two lookups of the same missing id
+  end)
+  T.mocks.C_CurrencyInfo = saved
+  if not ok then error(err, 0) end
+end)
+
 test("Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)", function()
   -- ItemNameQuality and CurrencyName were written to label the Filters tab's rows. The tab is a
   -- LibKa0s IdList now, which resolves its own names, so a kept copy is a second answer nobody calls.

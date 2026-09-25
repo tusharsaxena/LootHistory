@@ -1,4 +1,5 @@
--- LibKa0s-Options-1.0 — the always-visible scrollbar patch.
+-- LibKa0s-Options-1.0 — the always-visible scrollbar patch, and the font preload (at the foot of
+-- the file; see its own header).
 --
 -- AceGUI's stock ScrollFrame.FixScroll auto-hides the scrollbar when the content fits inside the
 -- viewport. Across a settings panel's tabs that means a short page shows no scrollbar while a long
@@ -15,7 +16,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local SCROLL_MINOR = 3
+local SCROLL_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own. The scroll counter alone is not enough:
 -- two vendored copies can ship the same scroll minor over different Options.lua minors, and then
 -- the higher shell wins the LibStub race while the first-loaded copy's patch stays attached to it.
@@ -197,4 +198,111 @@ end
 --- shared pool property and nothing about patching one depends on which host asked.
 function lib.__AttachScroll(O)
   O.PatchAlwaysShowScrollbar = lib.PatchAlwaysShowScrollbar
+end
+
+-- ── the font preload (minor 17) ────────────────────────────────────────────────────────────
+--
+-- AceGUI-3.0-SharedMediaWidgets' `LSM30_Font` builds its pull-out list on OPEN, running
+-- `SetFont(face); SetText(name)` on one row per registered face. The client loads a font file on
+-- its first reference, and text set with a face that is not loaded yet draws blank until something
+-- sets it again — so the first open of any font dropdown in a session showed a blank row for every
+-- face nothing had used yet (third-party LSM faces, mostly), and the second open was fine. The
+-- widget is upstream and vendored, so it is not the thing to change; what the library can do is
+-- have every face loaded before a dropdown can be opened, which is after a panel has been shown.
+--
+-- WHEN: a settings panel's show, never load or PLAYER_LOGIN. Loading every face costs memory, and
+-- some of Blizzard's CJK faces are large; a player who never opens settings must not pay for it.
+-- Opening a font dropdown would load every face anyway, so a player who does open settings pays
+-- nothing extra, only earlier. The two call sites are in Options.lua's `lib:New` —
+-- `O.SetRenderer`'s OnShow and `O.CreatePanel`'s hook — and each says why it is where it is.
+--
+-- WHY THIS MAJOR and not Media.lua: the trigger is the panel lifecycle, which this major owns and
+-- Media.lua has none of; `getLSM` is already on this major's descriptor; and `LSM30_Font` is the
+-- dialogControl this major's own `O.FontGroup` writes. Media.lua's `RegisterLSM` puts faces IN;
+-- this is about the widget that lists them.
+--
+-- WHY THIS FILE (Options minor 24, SCROLL_MINOR 4): it lived in Options.lua from minor 17 to 23 and
+-- moved here, unchanged, to keep the shell under layout-§1's 1500-line cap. Like the scrollbar
+-- patch above it is stateless lib-level code with no instance half, and the shell's callers already
+-- looked it up on `lib` at call time and did nothing when it was absent — so a partial copy missing
+-- this file shows its pages with no preload, which is what minor 16 did, and never errors.
+--
+-- LIBRARY-LEVEL STATE, on `lib`, so every host instance shares it and a LibStub minor upgrade keeps
+-- it: every vendored copy in the session is handed the same `lib`, so a client running five Ka0s
+-- addons loads each face once, not five times. It is read through `preloadState()` at call time and
+-- never captured, and `lib.__PreloadFonts` is looked up on `lib` at call time by both of its callers
+-- — an instance built by an older copy, and the LSM callback — so after an upgrade the newest code
+-- is what runs.
+
+local function preloadState()
+  lib.__fontPreload = lib.__fontPreload or { paths = {} }
+  return lib.__fontPreload
+end
+preloadState()
+
+--- The one frame the strings hang off. Shown, at full alpha and parented to UIParent — the client
+--- may skip work for a hidden or fully transparent region, and a frame parented to a page would be
+--- hidden with it — but 1x1 and parked off the left edge of the screen, so it is never seen.
+local function preloadFrame(state)
+  if state.frame then return state.frame end
+  if type(CreateFrame) ~= "function" then return nil end
+  local f = CreateFrame("Frame", nil, UIParent)
+  if not f then return nil end
+  f:SetSize(1, 1)
+  if UIParent then f:SetPoint("TOPRIGHT", UIParent, "TOPLEFT", -64, 0) end
+  f:SetAlpha(1)
+  f:Show()
+  state.frame = f
+  return f
+end
+
+--- Load one face: a FontString per distinct PATH, since several LSM keys can name one file. The path
+--- is marked BEFORE it is tried, so a face the client refuses is tried once, not on every show; and
+--- the two calls are pcall'd together, because a SetFont that fails without raising leaves a string
+--- whose SetText raises instead.
+local function preloadPath(state, f, path)
+  if type(path) ~= "string" or path == "" or state.paths[path] then return false end
+  state.paths[path] = true
+  local fs = f:CreateFontString(nil, "BACKGROUND")
+  if not fs then return false end
+  fs:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+  return (pcall(function()
+    fs:SetFont(path, 12, "")
+    fs:SetText("Aa")
+  end))
+end
+
+--- Faces registered after the first preload — an addon that loads on demand, or registers late —
+--- are loaded as they arrive. ONE subscription for the library, whichever host's show made it: the
+--- target is the shared state table, and CallbackHandler keeps one callback per (event, target).
+local function subscribeLate(state, LSM)
+  if state.subscribed or type(LSM.RegisterCallback) ~= "function" then return end
+  state.subscribed = pcall(LSM.RegisterCallback, state, "LibSharedMedia_Registered",
+    function(_, mediatype)
+      if mediatype ~= "font" then return end
+      local preload = lib.__PreloadFonts
+      if type(preload) == "function" then pcall(preload, LSM) end
+    end)
+end
+
+--- Load every LibSharedMedia face not loaded yet, then subscribe (once) to faces registered later.
+--- Answers how many faces this call loaded. Anything that is not an LSM with a `HashTable` — `nil`
+--- included — answers 0 and creates nothing, and so does a client with no `CreateFrame`, in which
+--- case nothing is marked and the next call tries again.
+---
+--- @param LSM table|nil  LibSharedMedia-3.0, as the host's `getLSM()` returns it.
+--- @return number
+function lib.__PreloadFonts(LSM)
+  if type(LSM) ~= "table" or type(LSM.HashTable) ~= "function" then return 0 end
+  local ok, fonts = pcall(LSM.HashTable, LSM, "font")
+  if not ok or type(fonts) ~= "table" then return 0 end
+  local state = preloadState()
+  local f = preloadFrame(state)
+  if not f then return 0 end
+  local n = 0
+  for _, path in pairs(fonts) do
+    if preloadPath(state, f, path) then n = n + 1 end
+  end
+  subscribeLate(state, LSM)
+  return n
 end

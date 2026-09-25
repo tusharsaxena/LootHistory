@@ -39,13 +39,23 @@ registering and a per-file copy is how cross-major skew gets manufactured.
 
 Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `core/` (Compat first) →
 `defaults/` → `modules/` (Attribution and Filters before Collector) → `settings/` (last). **Nine**
-LibKa0s seams sit inside `core/`, and **four** of their positions are load-bearing rather than tidy:
-`core/ItemSetup.lua` and `core/MediaSetup.lua` must sit above `core/Constants.lua` (which calls
-`NS.Item.QualityLabel` and reads `NS.MediaFont` at file load), `core/WidgetsSetup.lua` below
-`core/MediaSetup.lua` (the dropdown art resolves through `NS.Icon`), and `core/PoolSetup.lua` above
-every module that pools a widget. **Two more** sit in `settings/` — `settings/OptionsSetup.lua` and
-`settings/Slash.lua` — and the Options one's position is load-bearing too: `settings/Schema.lua` composes its Master controls tab at file
-load through `NS.Options.MasterControls` (options-ui-§15), so the Options seam has to be above it. The rows below and [module-map.md](module-map.md) carry each one.
+LibKa0s seams sit inside `core/` and **two** in `settings/`. **Seven** TOC positions are
+load-bearing, each carrying a `LOAD-BEARING POSITION` comment in the TOC (toc-file-§5):
+
+- `core/ItemSetup.lua` and `core/MediaSetup.lua` sit **above `core/Constants.lua`**, which calls
+  `NS.Item.QualityLabel` and reads `NS.MediaFont` (for `FONT_MONO`) at file load.
+- `core/CoreSetup.lua` sits **below `core/Namespace.lua`** (`lib:New{ prefix = NS.PREFIX }` at load)
+  and **above every file-scope `NS.Print` capture** (`modules/Browser.lua:5`, `settings/Schema.lua:5`,
+  `settings/Slash.lua:4`); `core/DebugLogSetup.lua` sits **below `core/Constants.lua`** (`FONT_MONO`).
+- `defaults/Global.lua` and `settings/OptionsSetup.lua` sit **above `settings/Schema.lua`**, which takes
+  `NS.defaults.global` as a file-scope local (`settings/Schema.lua:21`) and composes its Master
+  controls tab through `NS.Options.MasterControls` at file load (options-ui-§15).
+- `settings/Slash.lua` sits **below `settings/Schema.lua`**: the dispatcher is built at load with
+  `commands = NS.COMMANDS`, which Schema assigns; above it, `:New` raises and `/lh` never registers.
+
+Every other position is **conventional**, and the TOC says so: `locales/`, the plain Core run and the
+Env, Lifecycle, Widgets, Pool and Launcher seams resolve nothing at load. The rows below and
+[module-map.md](module-map.md) carry each one.
 
 | File | Role |
 |---|---|
@@ -60,8 +70,8 @@ load through `NS.Options.MasterControls` (options-ui-§15), so the Options seam 
 | `core/CoreSetup.lua` | The **`LibKa0s-Core-1.0`** seam. Publishes the shared **secret-safe chat printer** — `NS.Print` / `NS.Format` / `NS.Util.print` (+ `IsConcatSafe` / `SafeToString`), the single seam every module prints through (events-frames-taint-§8), reclaimed from AceConsole's `:Print` in `core/LootHistory.lua` — which is why this file publishes to **both** keys. It also publishes **`NS.LIBKA0S_MISSING`**: one cause clause, appended to by every other LibKa0s seam in the addon, set outside the `if not lib` branch because they read it on both paths. A cross-file contract, not an implementation detail. Also publishes **`NS.ApplySkin`** and **`NS.MakeCloseButton`** — the latter wrapped once so `lib.MakeCloseButton`'s **third** argument, this addon's folder name, is passed from every close control it builds; a two-argument passthrough would run, return a button, stay green in every suite, and draw a multiplication sign forever (anti-patterns #64). |
 | `core/WidgetsSetup.lua` | The **`LibKa0s-Widgets-1.0`** seam: **`NS.MakeDropdown(parent, width)`**, **`NS.HasWidgets()`**, **`NS.CloseMenu()`** and **`NS.CopyWindow(descriptor)`** — the export copy window, a lazily-built handle rather than a frame, so a session that never exports creates nothing. One factory for all ten flat dropdowns this addon draws — the filter bar's nine and the export modal's Data Set picker — and it is where the widget's art is resolved: a vendored library cannot know which addon folder it sits in, so `chevron` and `check` are looked up through `NS.Icon` **here** and passed in as parameters, once, rather than at each call site. It passes **no `glyphFont`** and that is a decision: the field is a *precondition* for any option carrying `opt.glyph`, no option this addon builds carries one (the multi-select tick is markup the library splices itself, the Character rows' class icons are markup folded into a label), and a proportional face passed for a glyph nothing draws renders a box. It replaced 208 lines of `modules/Browser.lua` — the collection's third copy of one widget. `nil` is a real answer both ways: `NS.MakeDropdown` returns nil with no library and both surfaces refuse to draw rather than build a control that opens no menu, and `NS.CloseMenu` becomes a no-op. **`NS.HasWidgets()`** is the same question asked with nothing built — a surface whose only control is a dropdown would otherwise have to create its window to learn the answer, and `modules/Export.lua`'s window carries a global name, so a build-and-discard probe stranded one `LootHistoryExportWindow` per open. |
 | `core/DebugLogSetup.lua` | The **`LibKa0s-DebugLog-1.0`** seam: `NS.DebugLog` and the global `NS.Debug` sink. Replaced the 359-line `modules/DebugLog.lua`. The window chrome is deliberately split: `applySkin` **is** passed, as a closure resolving `NS.Browser` at frame-build time (hoisting it into a load-time local silently loses the skin — `modules/Browser.lua` loads long after `core/`), while **`makeCloseButton` is still deliberately not passed**. The descriptor does carry **`addonName = addonName` beside `name = addonName`**: `name` seeds the frame globals, `addonName` is what the library builds a texture path from, and that one line turns the console's title strip into three icon controls (`close`, `copy`, `clear`) on both the console and its copy window. The window *edge* is shared across every Ka0s window; the *close control* on a library-drawn window is the library's — and since Core minor 6 the library's is this collection's `close` mark, so the two now match without either side overriding the other (standalone-windows; closed issue [LIBKA0S-19](https://github.com/tusharsaxena/LootHistory/issues/26), asserted in `tests/test_debuglog.lua`). |
-| `core/PoolSetup.lua` | The **`LibKa0s-Pool-1.0`** seam: `NS.Pool` with `New`, `Acquire(pool, factory)`, `ReleaseAll(pool, before)` and `Counts(pool)`. Loads **before every module that pools a widget** (Analytics, BrowserTable). It ended this addon's one genuinely wrong copy of a shared idea: the old chart pool hid its active widgets and dropped them, so the free list stayed empty and every `LayoutCharts` pass allocated a fresh frame per chart element — and frames are never destroyed in WoW. The `before` hook is not garnish: a host releasing a pool of panels releases each panel's own row pool first. Since LibKa0s v1.17.0 (Pool minor 3) `ReleaseAll` parks the active set **backward** — `Acquire` pops the free list from the end, so releasing the last rank first hands every widget back to the rank it already held instead of alternating that mapping on every render. `core/PoolSetup.lua`'s degraded fallback releases backward too: the copy that calls itself “the same pool, locally” is the one place the published contract must not quietly differ. |
-| `core/LauncherSetup.lua` | The **`LibKa0s-Launcher-1.0`** seam: **`NS.Launcher`**, the minimap button and the broker plugin as **one** LibDataBroker object registered twice (launcher-§1), plus **`NS.RefreshLauncher()`**. It replaced `B:SetupMinimap` / `B:RefreshMinimap` / `B:SetMinimapHidden` in `modules/Browser.lua`. The descriptor's `name` is the addon's **folder** name on both registrations — LibDBIcon keys the button by it — its `icon` is `media/logos/loothistory.logo.128.tga`, the same file the TOC's `## IconTexture` names (launcher-§4), and `minimap` is a **function** answering `db.global.minimap` rather than the table, because AceDB replaces any table captured at file load. **Rung (a)** (launcher-§2): left-click is `NS.Browser:Toggle`, the addon's own switch, and right-click always opens the settings panel. `Register()` runs from `addon:OnInitialize`, after `NS:InitDB`. **No degradation stub** — unlike every other seam here, nothing in the addon calls into this module except `OnInitialize` and the `minimap.hide` row's `set`, and both already guard on `NS.Launcher`; a stub answering `IsShown`/`SetShown` would be a second copy of state that lives in `db.global.minimap`. `NS.RefreshLauncher()` re-points LibDBIcon at the store's new table after *Reset all settings*, which is the one call in this addon that still names LibDBIcon: the library publishes no re-point seam of its own. |
+| `core/PoolSetup.lua` | The **`LibKa0s-Pool-1.0`** seam: `NS.Pool` with `New`, `Acquire(pool, factory)`, `ReleaseAll(pool, before)` and `Counts(pool)`. TOC position is **conventional**: nothing resolves at load, and every `NS.Pool.New` call is inside a function (`modules/Analytics.lua:616`). It ended this addon's one genuinely wrong copy of a shared idea: the old chart pool hid its active widgets and dropped them, so the free list stayed empty and every `LayoutCharts` pass allocated a fresh frame per chart element — and frames are never destroyed in WoW. The `before` hook is not garnish: a host releasing a pool of panels releases each panel's own row pool first. Since LibKa0s v1.17.0 (Pool minor 3) `ReleaseAll` parks the active set **backward** — `Acquire` pops the free list from the end, so releasing the last rank first hands every widget back to the rank it already held instead of alternating that mapping on every render. `core/PoolSetup.lua`'s degraded fallback releases backward too: the copy that calls itself “the same pool, locally” is the one place the published contract must not quietly differ. |
+| `core/LauncherSetup.lua` | The **`LibKa0s-Launcher-1.0`** seam: **`NS.Launcher`**, the minimap button and the broker plugin as **one** LibDataBroker object registered twice (launcher-§1), plus **`NS.RefreshLauncher()`**. It replaced `B:SetupMinimap` / `B:RefreshMinimap` / `B:SetMinimapHidden` in `modules/Browser.lua`. The descriptor's `name` is the addon's **folder** name on both registrations — LibDBIcon keys the button by it — its `icon` is `media/logos/loothistory.logo.128.tga`, the same file the TOC's `## IconTexture` names (launcher-§4), and `minimap` is a **function** answering `db.global.minimap` rather than the table, because AceDB replaces any table captured at file load. **The two buttons are the library's** (Launcher minor 4, LibKa0s v1.58.0; launcher-§2, standard v2.67.0): **left-click opens the settings panel** (`openSettings`, `NS.Panel:Open`) in either state, and **right-click opens the options menu** — the client's context menu, titled with the label, with four checkboxes because this addon has all four states (ADDONS.md's row): **Enabled** (`isEnabled` = `not NS.AddonIsOff()`; `setEnabled(on)` runs the `/lh enable` or `/lh disable` handler), **Locked** (`isLocked` = `B:IsLocked`, the *Lock frame* row's `settings.locked`; `toggleLock` writes that row's path through `Schema:Set`, because this addon has no lock verb), **Test mode** (`isTestMode` = `BrowserTable.testMode`; `toggleTestMode` runs the `/lh test` handler) and **Show window** (`isWindowShown` = the History window's `IsShown`; `toggleWindow` runs the `/lh toggle` handler). The verb handlers are reached through a local `runVerb`, which looks the verb up in `NS.COMMANDS` at call time and calls its `entry[3]`, so every entry is the verb itself — feature-verb gate and chat line included — never a copy. While disabled the library grays the last three with "enable the addon first" and calls none of them. The retired `onClick`, `leftClickLabel` and `disabledLine` are no longer passed. The **status tooltip is the library's** too (Launcher minor 3, LibKa0s v1.57.0; launcher-§1): it draws on every hover, disabled included — `Ka0s Loot History  v<version>` (`NS.Version()`, the TOC's), `Enabled: Yes|No`, `Locked: Yes|No`, `Test mode: On|Off`, the addon's one line (`onTooltipShow`: the record count), then the fixed hints `Left-click: Open settings` and `Right-click: Options menu`. Every field is a function, asked on every show and every menu open. `Register()` runs from `addon:OnInitialize`, after `NS:InitDB`. **No degradation stub** — unlike every other seam here, nothing in the addon calls into this module except `OnInitialize` and the `minimap.shown` row's `set`, and both already guard on `NS.Launcher`; a stub answering `IsShown`/`SetShown` would be a second copy of state that lives in `db.global.minimap`. `NS.RefreshLauncher()` re-points LibDBIcon at the store's new table after *Reset all settings*, which is the one call in this addon that still names LibDBIcon: the library publishes no re-point seam of its own. |
 | `core/LootHistory.lua` | `AceAddon:NewAddon`; `OnInitialize`/`OnEnable`; `PLAYER_ENTERING_WORLD` → once-per-session retention prune. Owns `NS.bus`/`NS.addon` and the `NS.NewBusTarget()` bus-receiver factory. |
 | `core/Database.lua` | AceDB `InitDB` + `RunMigrations` (schema-migration seam) + `RepairBoundStates` (the deferred warbound-state split a migration can't do, armed by `ArmBoundRepair`), `Add`/`Query`/`ActiveHistory`/`Delete`/`PruneOld`/`Purge`/`Stats`/`Export`/`FireHistoryChanged`, retention. `ActiveHistory` is the read seam that swaps in the test dataset over the raw account-wide history — filtering is point-in-time (decided at capture), so reads never hide or resurrect a stored row (see Data model). |
 | `defaults/Global.lua` | `NS.defaults.global`: `schemaVersion`, `history`, `blacklist`, `whitelist`, `currencyBlacklist`, `settings` (incl. `recordCurrency` and the `auction` cascade), `minimap`. |
@@ -96,68 +106,17 @@ The full field table, the `SourceType` / `Confidence` enums, currency rows, the 
 
 `settings/Schema.lua` is the single source of truth: one row drives the AceDB default, the panel
 widget and the slash get/set/list/reset behavior, and every write to a row's path goes through
-`Schema:Set(path, value)` (validate → write to `NS.db.global` → `onChange`).
-The runtime behind the seam is **`LibKa0s-Schema-1.0`**: the file builds one instance over its rows
-(`NS.SchemaRuntime`; the resolved library is `NS.SchemaLib`), and every host name is a one-line
-delegate to it, so no caller moved. Its descriptor names the store (`NS.db.global`), the debug sink,
-the sweep-exempt minimap row and this addon's refusal words. The boot check `Schema:Register` is the
-library's `Validate`: row shape (`group`, `type`, no duplicate path) plus path resolution against
-`defaults/Global.lua`. With the library absent, a write-completing, log-silent stub in the same file
-keeps reads, writes, reactions and the sweep veto working ([schema.md](schema.md#the-schemaset-write-seam)).
-A bulk reset logs one `[Set] reset all: N rows` line, never one per row (`debug-logging-§10`): the
-Defaults button and `/lh resetall` reach the library's bracketed `CliResetAll`, N is the seam's own
-tally of rows whose stored value changed, and a raise part-way appends ` (stopped by an error)`.
-Reset all settings logs one `[Set] reset account-wide settings to defaults (N rows)`
-([slash-dispatch.md](slash-dispatch.md), [schema.md](schema.md#reset-semantics)).
+`Schema:Set(path, value)` (validate → write to `NS.db.global` → `onChange`). The runtime behind the
+seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
+and a write-completing, log-silent stub in the same file stands in when the library is absent.
 Seventeen rows ship today, on **one** schema-backed page: the General subcategory, whose six tabs are
 Master controls, Capture, AH Price, Interface, History and Filters, the last holding no rows.
 The `settings.auction.priority` cascade is written outside the helper and carries the
-`architecture-§5` row under Documented deviations. The row table, the storage-only state, the reset
-scopes and the history of each carve-out are in [schema.md](schema.md).
-
-Three more pieces are **named non-setting state** (`architecture-§5`): no control chooses their
-values and no row addresses them, so they are written outside the helper with no register row. Each
-has one owner, `NS.Browser` (`modules/Browser.lua`), and every writer is listed with the act that
-reaches it.
-
-- **`NS.db.global.settings.window`**, the window geometry `{ point, x, y, w, h }`. The local
-  `SaveWindow` (`:97`) writes it when a title-bar drag stops (`:964`) and when the resize grip is
-  released (`:1052`). `B:ResetWindow` (`:681`) writes `{}`, reached from the Master controls
-  **Reset position** button (`onResetPosition`, `settings/Schema.lua:109`) and from **Reset all
-  settings** (`Sl:ResetEverything`, `settings/Slash.lua:180`).
-- **`NS.db.global.savedView`**, the remembered view. `B:SaveView` (`:663`) stores the whole
-  `B:CaptureView()` when the player clicks the filter bar's **Save** (`:754`). `B:ResetView`
-  (`:672`) clears it to `nil`, reached from the filter bar's **Reset** (`:751`) and from
-  `Sl:ResetEverything` (`settings/Slash.lua:180`). The load pass reshapes it (migrations `to = 6`
-  and `to = 8` in `core/Database.lua`).
-- **`NS.db.global.minimap`**, apart from its `hide` row. `NS.Launcher:Register()`
-  (`core/LauncherSetup.lua`) hands the table to LibDBIcon and writes nothing to it, since the AceDB
-  default (`defaults/Global.lua:63`) supplies it. The one writer is the library: dragging the minimap
-  button stores `minimapPos` (`libs/LibDBIcon-1.0/LibDBIcon-1.0.lua:194`). The addon never calls the
-  library's `Lock`, `Unlock` or compartment functions, its only other writes into the table. The
-  scope is **global** and launcher-§3 fixes it there: a profile switch must not move a player's
-  buttons. This addon has no profile at all, so what that rule buys here is only the first half —
-  and `Sl:ResetEverything`, which is this addon's translation of options-ui-§12 for a profile-less
-  addon, does empty the table (see *Known limitations*).
-
-The loot log **`NS.db.global.history`** is named non-setting state too, **recorded data**: the
-player deletes rows of the log or clears it, but never authors a row. Its one owner, `NS.Database`
-(`core/Database.lua`), holds every writer, and [schema.md → *Recorded data*](schema.md#recorded-data-history-and-the-repair-bookkeeping)
-lists them with the act that reaches each. The warbound repair's bookkeeping beside it is recorded
-data of the same owner, and one key of it only the load pass writes: **`boundRepairRevision`**
-(`core/Database.lua:155`), stamped by `NS:ArmBoundRepair`, which only `NS:RunMigrations` calls.
-That call also arms **`boundRepairPending`** and **`boundRepairAttempts`**, which the deferred
-repair then advances and clears.
-
-The id filter sets are a structural registry (`architecture-§5`): the player adds and removes ids,
-the defaults ship the sets empty, and no schema row or whole-value path names them, so they need no
-register row while only the writer and load pass named here touch them. Their storage keys are
-`NS.db.global.blacklist` and `.whitelist` (`{ [itemID] = true }`) and `.currencyBlacklist`
-(`{ [currencyID] = true }`), declared empty in `defaults/Global.lua:20-22`. Their one writer is
-`NS.Filters` (`modules/Filters.lua`), whose per-id and reset verbs are called by the Filters tab,
-the History right-click menu, the Clear-all confirms and `Sl:CliResetAll`, none of which writes the
-sets itself. They have no load pass: the AceDB defaults seed them and no `MIGRATIONS` step in
-`core/Database.lua` touches them.
+`architecture-§5` row under Documented deviations. The rest of `db.global` is not a row: the named
+non-setting state (window geometry, `savedView`, LibDBIcon's `minimap` table, the loot log and its
+repair bookkeeping) and the id filter sets, a structural registry. Each one's storage key, owner and
+every writer, with the row table, the reset scopes and the bulk-reset log line, are in
+[schema.md](schema.md#state-outside-the-rows).
 
 ---
 
@@ -173,11 +132,8 @@ mistyped key raises at the call site. Only `Catalog` is adopted: the receivers b
 on purpose, so the major's stand-down record (`New`) is not used. Without the library a one-member
 stub hands back the plain table ([message-bus.md](message-bus.md#declared-once-as-nsmsg)).
 
-> **Receivers must register on a private bus target** (`NS.NewBusTarget()`), never on the shared
-> `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by `(message, target)`, so two
-> consumers of the same message that share a target silently clobber each other — only the last
-> registrant receives it. `SettingsChanged`, `RecordAdded`, and `HistoryChanged` each have multiple
-> consumers, so every consumer (Collector, Browser, Analytics, Panel) owns its own target.
+**Every receiver registers on its own `NS.NewBusTarget()`**, never on the shared `NS.bus` as `self`:
+CallbackHandler keys callbacks by `(message, target)`, so two consumers sharing a target clobber each other.
 
 | Message (`NS.MSG` key) | Sender | Payload | Consumers |
 |---|---|---|---|
@@ -185,53 +141,22 @@ stub hands back the plain table ([message-bus.md](message-bus.md#declared-once-a
 | `Ka0s_LootHistory_HistoryChanged` (`HISTORY_CHANGED`) | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` `onChange` — eight handlers, six reasons (enabled / quality / questfilter / currency / excludes, plus `chrome` from the Master controls tab's `scale` / `alpha` / `locked`) | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
-> A blacklist/whitelist edit stays within the one-sender rule: it re-caches the Collector via a
-> **direct** `Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) and broadcasts
-> `HistoryChanged` through `Database:FireHistoryChanged()` (so `Database` remains that message's sole
-> sender). The Panel's Filters TAB subscribes to `HistoryChanged` on its own second bus target.
-
-> `windowScale`, `rowHeight`, `retentionDays` and `minimap.hide` changes are **not** broadcast on
-> the bus — their `onChange` reaches `Browser:SetScale` / `BrowserTable:Bind` /
-> `Database:PruneOld` directly, and `minimap.hide` has no `onChange` at all: it is the one stored
-> row whose own `set` does the work, because the row says SHOWN and LibDBIcon's key says HIDDEN and
-> that inversion has to happen inside the write seam (launcher-§3). What does fan out via
-> `SettingsChanged` is the five capture settings (`enabled`, quality, currency, quest-item filter,
-> excludes) plus the Master controls tab's three chrome settings (`scale`, `alpha`, `locked`),
-> which share the one `"chrome"` reason.
+A blacklist/whitelist edit re-caches the Collector by a direct call and broadcasts through
+`Database:FireHistoryChanged()`; `windowScale`, `rowHeight`, `retentionDays` and `minimap.shown` are
+off the bus. Both are reasoned in the linked doc.
 
 ---
 
 ## Slash commands
 
 Registered by `settings/Slash.lua` for both `/lh` and `/loothistory`. Bare `/lh` **opens the
-Settings panel on its landing page** by running the `config` verb (slash-commands-§4, Slash minor
+Settings panel on its landing page** by running the `config` verb (slash-commands-§3, Slash minor
 11); `/lh help` prints the command index. Window display is explicit via `toggle`/`show`/`hide`.
 Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
-**The slash surface is UNCHANGED while the addon is disabled** (slash-commands-§2/§7, standard
-v2.57.0, LibKa0s v1.41.0 / Slash minor 13). Every reserved verb answers: `config` and the bare `/lh`
-open the panel, `version` prints, `debug` runs, and the whole schema CLI — `get`, `set`, `list`,
-`reset`, `resetall` — reads and repairs settings, which is precisely when a player most needs it.
-The standard narrowed this to `enable` and `help` at v2.56.0 and **reversed it** at v2.57.0; the
-case that settled the reversal was the smallest one, `/lh` on a disabled addon returning a refusal
-instead of the one surface it can be switched back on from by hand. This addon passes **no**
-`liveVerbs` to the dispatcher, so it takes the library's set rather than a copy that could drift.
-
-**A disabled addon refuses a feature verb** (slash-commands-§2's SHOULD, which survived the
-reversal and is the only refusal in the disabled state). While `settings.enabled` is `false`,
-`show` / `hide` / `toggle` / `test` / `purge` answer one tagged line naming `/lh enable` and do
-nothing else. The gate is **one gate**, wrapped round each feature handler as `NS.COMMANDS` is built
-(`settings/Schema.lua`), so every route into a verb passes it — the library's dispatcher, the
-positional walk the library-less install falls back to, and a direct call on the triple — and a verb
-declared tomorrow is gated by default. The live set is named once, as data (`LIVE_WHILE_DISABLED`),
-and is `lib.LIVE_VERBS` restated: `help`, `config`, `version`, `enable`, `disable`, `debug`, `perf`
-and the schema CLI. **The refusal line is the collection's, not this addon's** — one shape, built by
-`LibKa0s-Slash-1.0` from `NS.BRAND` and the slash and reached through `NS.Slash.DisabledLine()` from
-both call sites (the verb gate and the launcher's left click). It is no longer an `NS.L` string:
-`locales/enUS.lua` carried `SLASH_DISABLED_VERB` until v1.41.0, and slash-commands-§7 makes the
-wording the collection's rather than the addon's.
-
-**And the addon itself is genuinely INERT — see [§ The disabled state](#the-disabled-state).**
+**The slash surface is unchanged while the addon is disabled** (slash-commands-§2/§7): only the
+feature verbs `show` / `hide` / `toggle` / `test` / `purge` refuse, with the collection's one refusal
+line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-state.md).
 
 | Verb | Action |
 |---|---|
@@ -244,8 +169,8 @@ wording the collection's rather than the addon's.
 | `set <path> <value>` | Set a setting value |
 | `list` | List all settings |
 | `reset <path>` | Reset one setting to its default |
-| `resetall` | Reset all settings to defaults (non-destructive: history is untouched). `minimap.hide` is **exempt** — launcher-§3 makes the minimap button's visibility survive every reset. The **destructive** form is the Master controls tab's **Reset all settings** button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile. The two are deliberately different acts today: a **ratified** divergence from that rule's opening sentence, carried as a row in [§ Documented deviations](#documented-deviations); scope matrix in [`schema.md`](schema.md#reset-semantics) |
-| `debug` | Toggle the debug console (session-only) |
+| `resetall` | Reset all settings to defaults (non-destructive: history is untouched). `minimap.shown` is **exempt** (its stored key `minimap.hide` is carried across) — launcher-§3 makes the minimap button's visibility survive every reset. The **destructive** form is the Master controls tab's **Reset all settings** button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile. The two are deliberately different acts today: a **ratified** divergence from that rule's opening sentence, carried as a row in [§ Documented deviations](#documented-deviations); scope matrix in [`schema.md`](schema.md#reset-semantics) |
+| `debug` / `debug on` / `debug off` / `debug events` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console |
 | `test` | Toggle a synthetic preview dataset for the table and Insights (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
 | `purge` | Delete ALL loot history (confirm dialog) |
 | `help` | Print the generated command index |
@@ -254,88 +179,20 @@ wording the collection's rather than the addon's.
 
 ## The disabled state
 
-**Disabled means the addon is not running** (`slash-commands-§7`, standard v2.57.0). Not hidden, not
-quiet, not skipping a repaint — not running. A player who unticks **Enable Loot History** has asked
-for the same outcome they would get by unticking the addon in Blizzard's own AddOns list, minus the
-`/reload`.
-
-**This addon shipped a draw gate until v1.41.0, and it is worth naming.** `settings.enabled` was one
-hot-path upvalue `modules/Collector.lua` read at the top of `OnChatMsgLoot`, and nothing else
-changed: `CHAT_MSG_LOOT` stayed registered, so the client went on walking the registration list on
-every loot line in the raid, building the argument frame and entering Lua for an addon the player
-had switched off. The addon had not stopped watching — it had stopped reacting — and the dispatch it
-went on paying is precisely what a player switching it off is trying to stop paying
-(`anti-patterns #85`). The upvalue is gone; the registrations go instead.
-
-### One latch, named holds
-
-`core/LifecycleSetup.lua` is the `LibKa0s-Lifecycle-1.0` seam: ONE latch, stood down while at least
-one **hold** is taken and stood up only when the last is released. `NS.Lifecycle:Set("disabled", …)`
-is the one branch, and the checkbox, the `enable` / `disable` verbs, `/lh set settings.enabled` and
-AceDB's profile callbacks all arrive at it through `NS.OnEnabledChanged`. There is deliberately no
-bare stand-up: releasing one hold must not resurrect an addon another is still holding down.
-
-**This addon takes one hold today.** It declines `LibKa0s-Perf` (`performance-§12`, a ratified row in
-[§ Documented deviations](#documented-deviations)), so nothing here takes `perf`. The key is
-published (`NS.HOLD_PERF`) and the latch honors it, because the invariant is the library's rather
-than this addon's — `tests/test_disabled.lua` drives both holds through it, so arming the harness
-later is a registration and not a rewrite.
-
-### What stands down
-
-| Goes down | Where |
-|---|---|
-| The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's two chat events, Attribution's seven | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
-| The three private bus targets — `SettingsChanged`, `HistoryChanged`, `RecordAdded`, `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED` | `Collector:Disable` / `Browser:Disable` / `Analytics:Disable` |
-| Attribution's per-unit spell frame (`UNIT_SPELLCAST_SUCCEEDED`, `player`) | `Attribution:Disable` |
-| Every deferral the addon armed — the retention prune, the bound-state repair, both coalesced repaints | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
-| The History window, the export modal and the debug console | `NS.StandDown`, and kept down by the first rung of `B:VisibilityAllows` |
-
-**Hidden AT THE SOURCE, not imperatively.** The first rung of `B:VisibilityAllows` answers `false`
-while the latch is down, so every route into the window — the verb, the minimap click, the tab
-restore, the visibility dropdown — asks one question. An imperative hide alone would come back on
-the next combat transition or settings change, and the addon would be visibly running while it
-claimed to be off.
-
-**The one sanctioned gate is `hooksecurefunc`**, which has no un-hook. Five hooks reach
-`Attribution:Stamp` — `BuyMerchantItem`, `TakeInboxItem`, `AutoLootMailItem`, `UseContainerItem` and
-`GetQuestReward` — and that one funnel gates its body and returns. It is not license to gate
-anything that has a real unregister.
-
-**`NS.After` replaced bare `C_Timer.After` for the addon's own deferrals**, and that is load-bearing
-rather than tidy: the retention prune is a SavedVariables write on a five-second fuse lit by
-`PLAYER_ENTERING_WORLD`, and `C_Timer.After` cannot be put out. A player who switched the addon off
-inside those five seconds got the write anyway, from a game event, while it was disabled.
-
-### What survives, because it is SETUP
-
-The chat command and the dispatcher; `NS.COMMANDS`; the settings-category registration and the panel
-body, including the panel's own bus subscriptions; the AceDB handle, `Schema:Set` and AceDB's
-`OnProfileChanged` / `OnProfileCopied` / `OnProfileReset` callbacks; and the launcher's registration
-— the minimap button stays on the minimap and the broker row stays in the display, because
-`minimap.hide` is a per-installation display preference and says nothing about whether the addon is
-running. Without those, `/lh enable` would not exist and the switch would only go one way.
-
-**The launcher's CLICK changes** (`launcher-§2`). This addon is rung (a), so the left click drives a
-primary window and is a feature: while disabled it prints the one refusal line, does nothing else
-and writes no SavedVariables. The rung-(c) carve-out does not reach it — that one is for a left
-click that opens the settings panel and nothing else. **Right-click is unchanged in either state**,
-because the owner's ruling narrows the *slash* surface and a mouse click is not a slash command.
-
-### The conformance suite
-
-`tests/test_disabled.lua` is `slash-commands-§7`'s mandated suite, in the green gate like any other.
-Every negative case asserts on the **registration set** through the kit's recording mock, never on a
-handler's return value — an early return is exactly what a draw gate does, so a suite written
-against one certifies the thing it exists to catch. It was confirmed red against the draw gate by
-putting it back: steps 3, 4, 6 and 10 all redden, and the Collector's early return does not save it.
+**Disabled means the addon is not running** (`slash-commands-§7`). `core/LifecycleSetup.lua` is the
+`LibKa0s-Lifecycle-1.0` seam: one latch, stood down while any named hold is taken, and every route to
+the switch arrives at `NS.Lifecycle:Set("disabled", …)`. Standing down unregisters every event, bus
+subscription and unit frame, cancels every deferral `NS.After` armed and hides the windows at the
+source (`B:VisibilityAllows`); `hooksecurefunc` is the one sanctioned gate. The slash surface, the
+settings panel, AceDB and the launcher registration survive as setup, and `tests/test_disabled.lua`
+is the conformance suite. The full account is in [disabled-state.md](disabled-state.md).
 
 ---
 
 ## Event subscriptions
 
 **Every row below is torn out, not gated, while the addon is disabled** — see
-[§ The disabled state](#the-disabled-state). The `hooksecurefunc` rows are the one exception the
+[disabled-state.md](disabled-state.md). The `hooksecurefunc` rows are the one exception the
 standard sanctions, because that API has no un-hook; they gate their bodies at `Attribution:Stamp`.
 
 | Event / hook | Handler | Module |
@@ -346,6 +203,8 @@ standard sanctions, because that API has no un-hook; they gate their bodies at `
 | `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
 | `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`) | `modules/Attribution.lua` |
+| `ZONE_CHANGED_NEW_AREA` | `OnZoneChanged` — clears the keystone context on leaving the party instance (`Compat.InPartyInstance`), re-arms it on re-entry to an active key | `modules/Attribution.lua` |
+| `CHALLENGE_MODE_RESET` | `OnChallengeModeReset` — clears the keystone context | `modules/Attribution.lua` |
 | `TRADE_ACCEPT_UPDATE` | trade context (on mutual accept) | `modules/Attribution.lua` |
 | `QUEST_TURNED_IN` | `OnQuestTurnedIn` (questID detail; the reward stamp itself comes from the `GetQuestReward` hook below) | `modules/Attribution.lua` |
 | `UNIT_SPELLCAST_SUCCEEDED` (player-only) | `OnSpellSucceeded` → DISENCHANT/MILLING/PROSPECTING by spell id first, then a locale-independent localized name-family fallback | `modules/Attribution.lua` |
@@ -358,39 +217,20 @@ standard sanctions, because that API has no un-hook; they gate their bodies at `
 All flavor-varying or deprecated calls behind these handlers are routed through
 `core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
 
+**Every event row above registers through one per-event helper** (events-frames-taint-§1):
+`NS.SafeRegisterEvent` / `NS.SafeRegisterUnitEvent` / `NS.SafeRegisterEvents`, `LibKa0s-Core-1.0`'s
+(Core minor 8) published by `core/CoreSetup.lua`, so a name the client refuses costs only itself. The
+refused names land on the addon's own `NS.RejectedEvents`, which `/lh debug events` prints;
+[midnight-quirks.md](midnight-quirks.md#unknown-event-names--one-refusal-costs-one-edge) records the trade.
+
 ---
 
 ## Menus: two mechanisms, on purpose
 
-This addon draws **two** kinds of menu and neither is a Blizzard `UIDropDownMenu` — both avoid that
-API's protected-call taint surface, and neither is going to replace the other.
-
-**The flat dropdown is `LibKa0s-Widgets-1.0`'s**, reached through `core/WidgetsSetup.lua`'s
-`NS.MakeDropdown`. Ten instances: the filter bar's Group-by, Date, Bound, Quality, Type, SubType,
-Source, Zone and Character, plus the export modal's Data Set picker. Its popup is a **process-wide
-singleton** shared with every other Ka0s addon that has adopted the major — one menu open at a time
-across the whole client, parented to `UIParent` at `FULLSCREEN_DIALOG`, outliving any window that
-dropped it. Two consequences this addon has to honor: every frame that owns a dropdown sits *below*
-that strata (the History window is `HIGH`, the export modal is `DIALOG`) so the menu draws above
-whatever dropped it, and every **non-click close path** calls `NS.CloseMenu()` — the window's
-`OnHide` (which is also the Escape / `UISpecialFrames` route), `Browser:Hide` (the slash-command
-close) and the export modal's `OnHide`. A frame's own `Hide()` cannot reach a popup it does not own.
-
-The popup does **not** intercept the click that dismisses it. Since LibKa0s v1.13.0 (Widgets minor 5)
-it registers `GLOBAL_MOUSE_DOWN` while shown and hides on a press that is neither over itself nor
-over the dropdown that dropped it, so one press both closes the menu and reaches whatever is under
-the cursor (`libs/LibKa0s/Widgets.lua`). Through minor 4 it was a full-screen `Button` at
-`FULLSCREEN` whose lack of `RegisterForClicks` took `LeftButtonUp` and nothing else — and this addon
-is where that was found, because a right-click on a history row with a filter menu open simply did
-nothing.
-
-**`BrowserTable:ShowRowMenu` stays hand-rolled**, and coexists. It is a right-click **action list**,
-not a labeled selector: it shows no current value and picking an item performs an action (link to
-chat, blacklist, delete) rather than changing a setting. It also needs **per-row disable** —
-"Link to chat" is dead without an `itemLink`, "Blacklist item" without an `itemID` — and per-row
-disable is a *documented, deliberate absence* from the major: `opt.isActive` reports a state, it
-does not gate a click. Converting it would mean either losing the disable or growing the library a
-feature no consumer has asked for. It keeps its own small popup and its own catcher.
+Neither menu is a Blizzard `UIDropDownMenu`. The ten flat dropdowns are `LibKa0s-Widgets-1.0`'s,
+sharing one process-wide popup that every non-click close path shuts with `NS.CloseMenu()`; the
+History row's right-click action list stays hand-rolled because it needs per-row disable. See
+[browser.md](browser.md#menus-two-mechanisms-on-purpose).
 
 ---
 
@@ -414,10 +254,7 @@ feature no consumer has asked for. It keeps its own small popup and its own catc
 [§ Documented deviations](#documented-deviations) is the register, and a deviation in it is
 *ratified*: an audit records it as accepted rather than re-filing it. Audit bundles are frozen the
 day they are written and this file is not, so where the two disagree the register is the current
-answer. The third-party pricing shims live in `modules/AuctionPrice.lua` rather than
-`core/Compat.lua`. That departs from no rule, because the standard defines no boundary for
-non-Blizzard addon interop, and [compat-layer.md](compat-layer.md#third-party-pricing-addons-stay-out-of-compat)
-records the reasoning.
+answer. The pricing shims outside `core/Compat.lua` are the one standing non-row, listed there.
 
 ---
 
@@ -444,7 +281,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 |---|---|---|
 | `slash-dispatch.md` | Present | 16 verbs in `NS.COMMANDS` |
 | `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
-| `compat-layer.md` | Present | `core/Compat.lua` is 419 lines of addon-specific shimming beyond LibKa0s |
+| `compat-layer.md` | Present | 22 shims (`grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua`) of addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Not applicable | No profile control ships in the options UI — the addon is account-wide by design and never touches `db.profile` |
 | `debug.md` | Not applicable | The console is `LibKa0s-DebugLog-1.0`’s, with no debug surface of the addon’s own |
@@ -457,7 +294,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 | `testing.md` | How to run the harness and lint; the green commit gate |
 | `smoke-tests.md` | The in-game smoke-test suite |
 | `test-cases.md` | The generated case inventory (authoritative pass count) |
-| `performance.md` | The addon performance page |
+| `performance.md` | The one-screen exempt performance page: brackets nothing, criteria (a) and (c), where the sweep lives, what re-arms it |
 | `automated-tests/README.md` | What the automated-test record is and how to produce it |
 | `automated-tests/RESULTS.md` | One row per run; generated, never hand-edited |
 
@@ -465,7 +302,9 @@ generated directories are named once each and never enumerated per run: `docs/au
 
 | Doc | Covers |
 |---|---|
-| `browser.md` | The standalone History window: table, filter bar, and the Insights tab |
+| `browser.md` | The standalone History window: table, filter bar, menus, and the Insights tab |
+| `combat-path-sweep.md` | The committed whole-repo `RegisterEvent` / `OnUpdate` / `C_Timer` sweep behind the `performance-§12` exemption: every registration and timer with its per-fire work, and the allocation left unmeasured on purpose |
+| `disabled-state.md` | What *off* means here: the lifecycle latch and its holds, what stands down, what survives as setup, and the conformance suite |
 
 ## Documented deviations
 
@@ -481,16 +320,18 @@ Seven such records are named below the table rather than carried in it.
 
 | Rule | What differs | Why | Decided | Re-check trigger |
 |---|---|---|---|---|
-| `architecture-§5` | The **`settings.auction.priority`** ordered cascade, neither a schema row nor registry membership, is written to `NS.db.global` directly rather than through `NS.Schema:Set`. It is seeded empty on first read by `NS.AuctionPrice:GetPriority` (`modules/AuctionPrice.lua:116`), written by `ReconcilePriority` / `MovePriorityWithin` (`:124-180`), and refilled in place by `P:RestoreDefaults` (`settings/Panel.lua:1062-1066`). | The cascade is an order over a **fixed** member set, the `NS.Constants.AUCTION_KEYS` tags, which the player only reorders. `architecture-§5` makes that a **value**, not a registry, and a value with no row is what its **MUST NOT** leaves a register row for. No schema row type expresses a drag-reordered list, so there is no row for `Set` to validate against. Reasoned in [`schema.md`](schema.md) *Standards note*. The id filter sets and the named non-setting state left this row on 2026-09-12; see below. | 2026-07-17 | `settings.auction.priority` gains a schema row, an ordered-list row type or a whole-value row, and every write to it goes whole through `Schema:Set`. That retires this row. |
-| `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-analysis/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`performance.md`](performance.md), which names the per-event work for all thirteen registrations and all five one-shot timers, and states explicitly why `CHAT_MSG_LOOT` — the one handler that fires in combat and does real work on a kept line — stays inside (a): `Collector:ShouldRecord` gates the tooltip build and the price cascade, so a dropped line costs a match and a comparison. Criterion **(b)** is no longer claimed alongside them: it rested on calling that handler's work "one line", which it is not, and this addon has no harness with which to measure the difference. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. Closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22). | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
-| `options-ui-§12` | **Three reset controls, three blast radii**, where §12's opening sentence puts the **Reset all settings** control, the header **Defaults** button and `/lh resetall` behind **one** implementation. **Reset all settings** (Master controls) confirms and runs `Sl:ResetEverything` (`settings/Slash.lua:180`), which empties `db.global` wholesale — settings, the three id-lists, `savedView`, window geometry **and the recorded loot history**. The **Defaults** button (`P:RestoreDefaults`, `settings/Panel.lua:1059`) and the `resetall` verb (`Sl:CliResetAll`, `settings/Schema.lua:769`) reach the schema rows, the three id-lists and the auction cascade only, and never touch `history`. | §12's translation for an addon with **no profile section** is *empty the account-wide store wholesale*, and its own closing paragraph carves out an account-wide **record** as "a separate, separately-confirmed act — never folded into *reset settings*". This addon has both in **one** table: `db.global` holds the settings and the loot ledger, so the translation and the carve-out point opposite ways and the rule does not resolve itself. `/lh purge` is the separately-confirmed act for the ledger half. Re-pointing `resetall` — documented as non-destructive in README, `slash-dispatch.md` and `smoke-tests.md`, and the answer README gives to "reset my settings but keep the history" — at a history-destroying act is **data loss for anyone with the macro**, so it is a maintainer's call and not a refactor: raised at the v2 settings adoption and recorded rather than reconciled. Scope matrix in [`schema.md`](schema.md#reset-semantics). | 2026-09-02 | **The maintainer rules on one of the two reconciliations**, and either one ends this row: (a) all three route to `ResetEverything`, the slash verb confirm-gated like the button, with README / [`slash-dispatch.md`](slash-dispatch.md) rewritten and the behavior break called out in the release notes; or (b) `options-ui-§12` grows the profile-less split this addon needs — a settings reset that spares an account-wide **record**, beside that record's own separately-confirmed purge. |
+| `architecture-§5` | The **`settings.auction.priority`** ordered cascade, neither a schema row nor registry membership, is written to `NS.db.global` directly rather than through `NS.Schema:Set`. It is seeded empty on first read by `NS.AuctionPrice:GetPriority` (`modules/AuctionPrice.lua:131`), written by `ReconcilePriority` / `MovePriorityWithin` (`:139-195`), and refilled in place by `P:RestoreDefaults` (`settings/Panel.lua:1062-1066`). | The cascade is an order over a **fixed** member set, the `NS.Constants.AUCTION_KEYS` tags, which the player only reorders. `architecture-§5` makes that a **value**, not a registry, and a value with no row is what its **MUST NOT** leaves a register row for. No schema row type expresses a drag-reordered list, so there is no row for `Set` to validate against. Reasoned in [`schema.md`](schema.md) *Standards note*. The id filter sets and the named non-setting state left this row on 2026-09-12; see below. | 2026-07-17 | `settings.auction.priority` gains a schema row, an ordered-list row type or a whole-value row, and every write to it goes whole through `Schema:Set`. That retires this row. |
+| `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-analysis/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`combat-path-sweep.md`](combat-path-sweep.md), which names the per-event work for all fifteen registrations and all five one-shot timers, and states explicitly why `CHAT_MSG_LOOT` — the one handler that fires in combat and does real work on a kept line — stays inside (a): `Collector:ShouldRecord` gates the tooltip build and the price cascade, so a dropped line costs a match and a comparison. Criterion **(b)** is no longer claimed alongside them: it rested on calling that handler's work "one line", which it is not, and this addon has no harness with which to measure the difference. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. Closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22). | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
+| `options-ui-§12` | **Three reset controls, three blast radii**, where §12's opening sentence puts the **Reset all settings** control, the header **Defaults** button and `/lh resetall` behind **one** implementation. **Reset all settings** (Master controls) confirms and runs `Sl:ResetEverything` (`settings/Slash.lua:202`), which empties `db.global` wholesale — settings, the three id-lists, `savedView`, window geometry **and the recorded loot history**. The **Defaults** button (`P:RestoreDefaults`, `settings/Panel.lua:1059`) and the `resetall` verb (`Sl:CliResetAll`, `settings/Slash.lua:503`) reach the schema rows, the three id-lists and the auction cascade only, and never touch `history`. | §12's translation for an addon with **no profile section** is *empty the account-wide store wholesale*, and its own closing paragraph carves out an account-wide **record** as "a separate, separately-confirmed act — never folded into *reset settings*". This addon has both in **one** table: `db.global` holds the settings and the loot ledger, so the translation and the carve-out point opposite ways and the rule does not resolve itself. `/lh purge` is the separately-confirmed act for the ledger half. Re-pointing `resetall` — documented as non-destructive in README, `slash-dispatch.md` and `smoke-tests.md`, and the answer README gives to "reset my settings but keep the history" — at a history-destroying act is **data loss for anyone with the macro**, so it is a maintainer's call and not a refactor: raised at the v2 settings adoption and recorded rather than reconciled. Scope matrix in [`schema.md`](schema.md#reset-semantics). | 2026-09-02 | **The maintainer rules on one of the two reconciliations**, and either one ends this row: (a) all three route to `ResetEverything`, the slash verb confirm-gated like the button, with README / [`slash-dispatch.md`](slash-dispatch.md) rewritten and the behavior break called out in the release notes; or (b) `options-ui-§12` grows the profile-less split this addon needs — a settings reset that spares an account-wide **record**, beside that record's own separately-confirmed purge. |
 | `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. Closed issue [**LIBKA0S-14**](https://github.com/tusharsaxena/LootHistory/issues/20). | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
 | `localization-§1` | This addon ships **English only**: the `NS.L` seam is exported and `locales/enUS.lua` ships, but no user-facing string routes through `NS.L` — every label, tooltip and message is a hardcoded English literal. | `localization-§3` names English-only as one of the routing SHOULD's **two terminal compliant states**, and names this row as what makes it terminal: without it the SHOULD is formally open and every audit re-files it, which is what has been happening. Both `localization` MUSTs are met unconditionally — the seam is exported with the key-returning fallback (`locales/enUS.lua:5`) and `enUS.lua` ships carrying no dead keys. The argument was written at `locales/enUS.lua:7-11` and calls itself "an accepted scope decision, not an oversight"; a comment is exactly what `documentation-§3` says does not ratify a decision, which is why `LH-48` in `docs/audits/2026-09-07/` filed it. This row is the ratification the comment was standing in for. | 2026-09-08 | **The first non-English locale file added to `locales/`.** That change routes the strings and retires this row. |
+| `localization-§4` | **Deconstruct attribution falls back to matching a localized spell name.** `Attribution:DeconstructSource` resolves a player cast by spell id first (`DECONSTRUCT_ID`, `modules/Attribution.lua:32-43`); on a miss it compares the cast's **client-locale name** against tokens derived from seed spell ids (`NAME_SEEDS`, `:53-59`; `seedToken` resolves each through `NS.Compat.GetSpellName` at `:64`; the substring match is `:94`), where §4 says a game entity is identified by id, never by a localized display string. The reasoning is at `:20-31`, which points at this row. | Modern retail splits Milling and Prospecting into generic, per-expansion and **per-herb / per-ore "Mass Mill" / "Mass Prospect"** spells, and that id set is **not enumerable**: it is too large and grows every patch, so an id-only table silently stops attributing each new variant. The compared names are **derived from ids on the same client** at match time, so no English literal is ever compared and the match is locale-correct by construction: "Milling" on enUS is "Mahlen" on deDE on both sides of the compare. Closed issue [#2](https://github.com/tusharsaxena/LootHistory/issues/2); audit finding `LH-74` in `docs/audits/2026-09-23/`. | 2026-09-24 | **Blizzard exposes a stable deconstruct token or category** on the cast (a spell category, a profession-action flag, anything id-shaped), **or the Mass Mill / Mass Prospect id set becomes enumerable** (a stable list or an API that returns it). Either one moves the fallback onto ids and retires the row. |
+| `library-stack-§8` | The History window's **resize grip** draws Blizzard's corner grabber, `Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up` / `-Highlight` (`modules/Browser.lua:1048-1049`), where the LibKa0s icon catalog ships a `resize` mark (`libs/LibKa0s/Media.lua`, `media/icons/resize.tga`) and §8 says a mark the addon needs MUST come from the catalog. | **Collection-wide corner consistency.** Every other window corner in the collection draws the same grabber: BankLedger's `modules/Browser.lua` and `modules/SessionWindow.lua`, MultiMeters' `modules/Window.lua`. The catalog mark was tried here and reverted, because one addon's corner looking unlike every other window corner is drift, whichever mark is prettier on its own; the reasoning is at `modules/Browser.lua:1042-1047`, which points at this row. Audit finding `LH-76` in `docs/audits/2026-09-23/`. | 2026-09-24 | **The standard rules on the resize grip** (a `standalone-windows` or `library-stack-§8` ruling that it is a catalog mark), **or any other collection window adopts the catalog `resize` mark.** Either one moves this grip to `NS.Icon("resize")` and retires the row. |
 
 - Narrowed on 2026-09-12 ([#30](https://github.com/tusharsaxena/LootHistory/issues/30)): `settings.window` and `savedView` left the `architecture-§5`
-  row as named non-setting state (standard v2.44.0), and LibDBIcon's `minimapPos`, never in it, is named beside them in [Settings schema](#settings-schema); the `B:SetupMinimap` seed over the `minimap.hide` row was deleted.
+  row as named non-setting state (standard v2.44.0), and LibDBIcon's `minimapPos`, never in it, is named beside them in [schema.md](schema.md#named-non-setting-state-owners-and-writers); the `B:SetupMinimap` seed over the minimap row's stored `minimap.hide` key was deleted.
 - Narrowed on 2026-09-12: the id filter sets left the `architecture-§5` row, as a structural
-  registry whose writer and load pass [Settings schema](#settings-schema) names (history in `schema.md`, *Standards note*).
+  registry whose writer and load pass [schema.md](schema.md#the-id-filter-sets-a-structural-registry) names (history in `schema.md`, *Standards note*).
 - Retired on 2026-09-08: the `sessionOnly` row kind, which `options-ui-§15` and `options-ui-§12` now
   mandate (`LH-54` in `docs/audits/2026-09-07/`; the design is in [`settings-panel.md`](settings-panel.md)).
 - Retired: [`LIBKA0S-02`](https://github.com/tusharsaxena/LootHistory/issues/19)'s declined window skin, since `Core.SKIN` is this addon's
@@ -509,8 +350,8 @@ The `layout-§1` census: one row per authored, tracked `.lua` file over 1500 lin
 terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the cap. Gated by the
 kit's `tests/_kit/test_layout_cap.lua`.
 
-Nothing is over the cap today. The largest authored file is `modules/Browser.lua` at 1271 lines
-(`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-09-23); the
+Nothing is over the cap today. The largest authored file is `modules/Browser.lua` at 1280 lines
+(`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-09-24); the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
 
 ---
@@ -519,8 +360,8 @@ Nothing is over the cap today. The largest authored file is `modules/Browser.lua
 
 - **A reset still discards the minimap button's dragged position.** Standard v2.54.0 restated
   launcher-§3 as a **property** — a player's minimap-button choice survives both *Reset all settings*
-  and a page-scoped **Defaults** button — and this addon now exempts `minimap.hide` from both
-  (`NS.Schema.RESET_EXEMPT`, `Schema:ApplyDefault`, and the carry-across in `wipeGlobal`). What is
+  and a page-scoped **Defaults** button — and this addon now exempts the `minimap.shown` row from both
+  (`NS.Schema.RESET_EXEMPT`, a map from that row path to its one stored key `minimap.hide`, `Schema:ApplyDefault`, and the carry-across in `wipeGlobal`). What is
   **not** carried across is LibDBIcon's `minimapPos`, which lives in the same table: *Reset all
   settings* still empties `db.global` wholesale, so a button the player dragged returns to the
   library's default angle, and `NS.RefreshLauncher` then hands LibDBIcon the store's new table. §3
@@ -544,6 +385,11 @@ Nothing is over the cap today. The largest authored file is `modules/Browser.lua
   items more than ~1.5s apart from one open window can let later items fall back to
   `OTHER`/`INFERRED`. The single-slot context with a fixed TTL is a settled design decision, not an
   open backlog item — see [scope.md](scope.md) *Resolved design decisions*.
+- **A currency under a collapsed Currency-tab header has no category.** `Compat.CurrencyCategory`
+  rebuilds its cache once on a miss, but `C_CurrencyInfo.GetCurrencyListInfo` enumerates only the
+  children of expanded headers, so such a row keeps `itemSubType = nil` and falls out of the subtype
+  filter. The addon does not expand the list itself, since that would rewrite the player's Currency
+  tab; see [midnight-quirks.md](midnight-quirks.md) *Currency category*.
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
   [schema.md](schema.md).

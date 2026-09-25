@@ -88,7 +88,7 @@ end
 --- on an addon that never came up (the load path calls it when the stored switch is already off).
 function NS.StandDown()
   -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the two Collector and
-  -- seven Attribution events that register through it. UnregisterAllEvents reaches every one; it
+  -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
   -- does not touch messages, and this target subscribes to none.
   if NS.addon and NS.addon.UnregisterAllEvents then NS.addon:UnregisterAllEvents() end
   for _, m in ipairs({ NS.Collector, NS.Attribution, NS.Browser, NS.Analytics }) do
@@ -109,7 +109,7 @@ end
 --- the addon was off has to be the setting that comes back (performance-§6).
 function NS.StandUp()
   if NS.addon and NS.addon.RegisterEvent then
-    NS.addon:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnterWorld")
+    NS.SafeRegisterEvent(NS.addon, "PLAYER_ENTERING_WORLD", "OnEnterWorld", NS.RejectedEvents)
   end
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end

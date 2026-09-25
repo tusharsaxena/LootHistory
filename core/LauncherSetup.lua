@@ -9,25 +9,27 @@ local addonName, NS = ...
 -- that built the LDB object, resolved LibDBIcon and registered the two by hand. Every line of it
 -- was the wiring eleven addons were about to write in eleven spellings, which is what the library
 -- exists to make impossible (anti-pattern #81). The click implementation moved WITH it: there was
--- one before and there is one now, and the rung rule is satisfied on the minimap and in a broker
--- display by construction rather than by two implementations agreeing.
+-- one before and there is one now, and the two buttons (below) behave the same on the minimap and
+-- in a broker display by construction rather than by two implementations agreeing.
 --
--- THE REGISTRATION NAME CHANGED, and it is the one visible cost. It was the literal
--- "Ka0s Loot History"; launcher-§1 fixes it at the addon's FOLDER name, because LibDBIcon keys the
+-- THE REGISTRATION NAME CHANGED, and it is the one visible cost. It was the brand string
+-- itself (today's NS.BRAND); launcher-§1 fixes it at the addon's FOLDER name, because LibDBIcon keys the
 -- button by it and a broker display labels the plugin with it. The player's dragged POSITION
 -- survives the rename: LibDBIcon stores `minimapPos` in the `db` table it is handed
 -- (libs/LibDBIcon-1.0/LibDBIcon-1.0.lua:194, `self.db.minimapPos`), never under the name, and the
 -- table handed in is the same `NS.db.global.minimap` as before. What the rename does move is the
 -- label a broker display prints, so `label` below restores the old string explicitly.
 --
--- ── THE RUNG ──────────────────────────────────────────────────────────────────────────────────
+-- ── THE TWO BUTTONS ───────────────────────────────────────────────────────────────────────────
 --
--- (a), THE BROWSER (launcher-§2, and the standard's ADDONS.md roster records it). This addon has a
--- primary window -- the History browser -- so left-click toggles it. The rung is expressed by the
--- PRESENCE of `onClick` rather than by a flag, so it cannot be declared without being implemented.
--- Right-click ALWAYS opens the settings panel, which is what lets the left button spend itself on
--- something better.
---
+-- The LIBRARY's since Launcher minor 4 (LibKa0s v1.58.0; launcher-§2 as of standard v2.67.0), and
+-- the same on every Ka0s addon: LEFT-click opens the settings panel, RIGHT-click opens the options
+-- menu. What this file supplies is the accessor-and-toggle pair for each state the addon HAS, and
+-- this addon has all four (ADDONS.md's row: Enabled · Locked · Test mode · Show window). Every
+-- toggle is the addon's OWN handler -- the very function its slash verb or its settings row runs --
+-- so the refusals, the combat rules and the chat lines are the addon's, and the menu holds no state.
+-- The old rung (a) left-click onto the browser is now the menu's *Show window* entry.
+
 -- ── LOAD ORDER ────────────────────────────────────────────────────────────────────────────────
 --
 -- CONVENTIONAL, not load-bearing. Nothing here resolves at load: `minimap` is a function because
@@ -67,6 +69,24 @@ if not Launcher then
   return
 end
 
+--- Run one of the addon's own slash verbs, by name: the very function `/lh <verb>` dispatches to.
+---
+--- The menu's toggles call THIS rather than the model underneath (B:Toggle, CliSet, the test
+--- switch), so an entry is the verb and never a copy of it (launcher-§2, anti-pattern #81): the
+--- feature-verb gate settings/Schema.lua wraps round `toggle` and `test`, the confirmation line
+--- `enable` prints and the refusal `test` speaks all come along. Looked up at CALL time, because
+--- NS.COMMANDS is built by settings/Schema.lua, which loads after this file.
+local function runVerb(verb)
+  for _, entry in ipairs(NS.COMMANDS or {}) do
+    if entry[1] == verb then return entry[3]("") end
+  end
+end
+
+--- Whether the frames are locked: the *Lock frame* row's `settings.locked`, through B:IsLocked.
+local function lockedNow()
+  return (NS.Browser and NS.Browser.IsLocked and NS.Browser:IsLocked()) and true or false
+end
+
 NS.Launcher = Launcher:New({
   -- THE FOLDER NAME, used for BOTH registrations. Not cosmetic: see the rename note above.
   name  = addonName,
@@ -83,39 +103,63 @@ NS.Launcher = Launcher:New({
   -- same table (launcher-§3).
   minimap = function() return NS.db and NS.db.global and NS.db.global.minimap end,
 
-  -- RIGHT-click, always (launcher-§2). The same seam `/lh config` and a bare `/lh` reach.
+  -- LEFT-click, always and in either state (launcher-§2, Launcher minor 4). The same seam
+  -- `/lh config` and a bare `/lh` reach; the right click reaches it too on a client with no
+  -- context-menu API, where the library degrades to the panel.
   openSettings = function()
     if NS.Panel and NS.Panel.Open then NS.Panel:Open() end
   end,
 
-  -- LEFT-click: RUNG (a), the primary window. `B:Toggle` is the browser's own switch -- the one
-  -- `/lh toggle` calls -- so the button drives the addon's existing state rather than a copy.
+  -- ── the options menu (right-click) ──────────────────────────────────────────────────────────
   --
-  -- REFUSED WHILE THE ADDON IS DISABLED (launcher-§2, slash-commands-§7). Rung (a) drives a primary
-  -- window and that is a feature, so the left button prints the ONE refusal line and does nothing
-  -- else -- in particular it writes no SavedVariables, which is the failure the audit found on a
-  -- minimap button with no disabled gate at all. The rung-(c) carve-out does NOT reach this addon:
-  -- it is for a left-click that opens the settings panel and nothing else, and ours opens a window.
-  -- RIGHT-click is unchanged in either state (`openSettings` above), which is what keeps the panel
-  -- one click away from a player who wants to switch the addon back on.
-  --
-  -- The line comes from NS.Slash.DisabledLine, never re-spelled here: one wording, one call site
-  -- per surface, and the launcher's click reads the same string the dispatcher's gate prints.
-  onClick = function()
-    if NS.AddonIsOff and NS.AddonIsOff() then
-      return NS.Print(NS.Slash.DisabledLine())
-    end
-    if NS.Browser and NS.Browser.Toggle then NS.Browser:Toggle() end
+  -- ENABLED: the stored switch, asked on every show and every menu open. While it answers false
+  -- the library grays Locked / Test mode / Show window with "enable the addon first" and calls
+  -- none of their toggles; Enabled itself stays live. `setEnabled(on)` runs the `/lh enable` or
+  -- `/lh disable` verb itself -- each is `/lh set settings.enabled <bool>` through the single write
+  -- seam, so the Master-controls checkbox, the verbs and the menu are three surfaces onto one value
+  -- and the confirmation line is the verb's own.
+  isEnabled  = function() return not (NS.AddonIsOff and NS.AddonIsOff()) end,
+  setEnabled = function(on) runVerb(on and "enable" or "disable") end,
+
+  -- LOCKED: the *Lock frame* row's `settings.locked`, read through B:IsLocked (the History
+  -- window's and the export modal's own drag gate). This addon has NO lock/unlock verb, so the
+  -- toggle is the ROW's own write: Schema:Set on the row's path, the seam the panel checkbox and
+  -- `/lh set settings.locked` both take, so the row's onChange repaints the chrome.
+  isLocked   = lockedNow,
+  toggleLock = function()
+    if NS.Schema and NS.Schema.Set then NS.Schema:Set("settings.locked", not lockedNow()) end
   end,
 
-  -- The addon's own words, handed straight through. Unchanged from what modules/Browser.lua drew.
+  -- TEST MODE: `state.testMode`'s get, BrowserTable.testMode, the one switch `/lh test`, the Test
+  -- mode box and the combat start share. The toggle is the `/lh test` verb, so a refused start
+  -- prints its own one line and a switch prints "test mode on|off", exactly as typed.
+  isTestMode     = function() return NS.BrowserTable ~= nil and NS.BrowserTable.testMode == true end,
+  toggleTestMode = function() runVerb("test") end,
+
+  -- SHOW WINDOW: the History browser, this addon's primary window (standalone-windows). The toggle
+  -- is the `/lh toggle` verb -- B:Toggle, routed through B:Show, so the General visibility setting
+  -- refuses it with its own line exactly as it refuses the verb.
+  isWindowShown = function()
+    local f = NS.Browser and NS.Browser.GetWindow and NS.Browser:GetWindow()
+    return (f ~= nil and f:IsShown()) and true or false
+  end,
+  toggleWindow = function() runVerb("toggle") end,
+
+  -- THE STATUS TOOLTIP IS THE LIBRARY'S (Launcher minor 3, LibKa0s v1.57.0; launcher-§1). It draws
+  -- on every hover, INCLUDING while the addon is disabled: `<label>  v<version>`, Enabled, Locked,
+  -- Test mode (read through the accessors above), then the lines `onTooltipShow` adds, then the two
+  -- fixed hints `Left-click: Open settings` and `Right-click: Options menu` (minor 4). Every field
+  -- is a function because the library asks on every show and never caches.
+  --
+  -- The version is the TOC's (`NS.Version`, core/EnvSetup.lua), the one `/lh version` prints.
+  version = function() return NS.Version and NS.Version() end,
+
+  -- The addon's OWN line and nothing else: the record count. The title, the status and both click
+  -- hints are the library's now, and drawing any of them here is a second copy (anti-pattern #89)
+  -- -- which is what this hook did through Launcher minor 2, refusal line included.
   onTooltipShow = function(tt)
-    tt:AddLine("Ka0s Loot History", 1, 0.82, 0)
     local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
     tt:AddLine(n == 1 and "1 record" or (n .. " records"), 0.7, 0.7, 0.7)
-    tt:AddLine(" ")
-    tt:AddLine("Left-click: open the history window", 0.5, 0.5, 0.5)
-    tt:AddLine("Right-click: open settings", 0.5, 0.5, 0.5)
   end,
 
   -- Late-bound, like every other seam's: core/LootHistory.lua reclaims NS.Print from AceConsole

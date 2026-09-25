@@ -10,8 +10,10 @@
 -- that gets written eleven times in eleven spellings and then drifts on the first behavior change.
 -- That is anti-pattern #81, and it is what this module exists to make impossible.
 --
--- The HOST supplies what is genuinely its own: its folder name, its logo, what its left button
--- does, and how its settings panel opens. The library owns the rest.
+-- The HOST supplies what is genuinely its own: its folder name, its logo, how its settings panel
+-- opens, and the accessor-and-toggle pairs for the states it has (enabled, locked, test mode, its
+-- primary window). The library owns the rest: since minor 4 the left button opens the settings
+-- panel on every addon and the right button opens one context menu of those toggles (launcher-§2).
 --
 -- ── WHAT IT DELIBERATELY DOES NOT OWN ────────────────────────────────────────────────────────
 --
@@ -48,7 +50,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 4
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -66,13 +68,62 @@ local ICON_MAJOR = "LibDBIcon-1.0"
 
 -- Every user-visible string this module can emit. A literal table, as every other major's is: the
 -- library carries no locale, and a host that wants its own words passes `d.L` keyed to these.
+--
+-- UNTAGGED since minor 2. Every line goes out through the host's printer (makeEmit), which carries
+-- the host's own tag, so a library tag here read as two tags in chat. The `%s` is still the addon's
+-- folder name, so the chat-frame fallback still says whose launcher it is. The keys are unchanged,
+-- so a host's `d.L` override keeps working.
 lib.STRINGS = {
-  NO_BROKER    = "[LibKa0s] %s: LibDataBroker-1.1 is missing, so there is no launcher.",
-  NO_ICON      = "[LibKa0s] %s: LibDBIcon-1.0 is missing, so there is no minimap button. "
+  NO_BROKER    = "%s: LibDataBroker-1.1 is missing, so there is no launcher.",
+  NO_ICON      = "%s: LibDBIcon-1.0 is missing, so there is no minimap button. "
               .. "A broker display will still show the plugin.",
-  NO_MINIMAP   = "[LibKa0s] %s: the launcher descriptor's `minimap` did not answer a table, so "
+  NO_MINIMAP   = "%s: the launcher descriptor's `minimap` did not answer a table, so "
               .. "LibDBIcon has nowhere to keep the button's position.",
-  CLICK_FAILED = "[LibKa0s] %s: the launcher's %s-click raised: %s",
+  CLICK_FAILED = "%s: the launcher's %s-click raised: %s",
+
+  -- The status tooltip (minor 3, launcher-§1). Every word of it is here so a host's `d.L` can
+  -- reach it; the only color is the green/red the code wraps a status value in, never a string.
+  TOOLTIP_TITLE_VERSION = "%s  v%s",
+  TOOLTIP_ENABLED       = "Enabled: %s",
+  TOOLTIP_LOCKED        = "Locked: %s",
+  TOOLTIP_TEST_MODE     = "Test mode: %s",
+  TOOLTIP_YES           = "Yes",
+  TOOLTIP_NO            = "No",
+  TOOLTIP_ON            = "On",
+  TOOLTIP_OFF           = "Off",
+  TOOLTIP_LEFT          = "Left-click: %s",
+  TOOLTIP_RIGHT         = "Right-click: %s",
+  TOOLTIP_OPEN_SETTINGS = "Open settings",
+  -- Minor 4 (launcher-§2, v2.67.0): the hints are fixed. `TOOLTIP_LEFT_DEFAULT`,
+  -- `TOOLTIP_DISABLED_HINT` and `TOOLTIP_DISABLED_BARE` described the retired left-click rungs and
+  -- are gone; a host `d.L` still carrying them is read by nothing.
+  TOOLTIP_OPTIONS_MENU  = "Options menu",
+
+  -- The right-click options menu (minor 4, launcher-§2). The title is the plain-text label, so it
+  -- has no key. A grayed entry reads `<entry> (<note>)`, the note in its label rather than in a
+  -- tooltip, because the client does not run a disabled button's motion scripts by default and a
+  -- note in a tooltip nobody can raise is no note.
+  MENU_ENABLED          = "Enabled",
+  MENU_LOCKED           = "Locked",
+  MENU_TEST_MODE        = "Test mode",
+  MENU_SHOW_WINDOW      = "Show window",
+  MENU_NEEDS_ENABLE     = "enable the addon first",
+  MENU_GRAYED           = "%s (%s)",
+  MENU_FAILED           = "%s: the launcher menu's %s entry raised: %s",
+}
+
+-- The status values' two colors, and the only color the tooltip draws (launcher-§1).
+local GREEN, RED, RESET = "|cFF00FF00", "|cFFFF0000", "|r"
+
+--- The options menu's entries (minor 4, launcher-§2), in the one order the standard allows. Each
+--- is drawn only where the descriptor passes BOTH its accessor (`get`) and its toggle (`set`).
+--- `gated` entries drive features, which refuse while the addon is disabled (slash-commands-§7),
+--- so they are grayed then; Enabled is the off switch and must work in the off state.
+local ENTRIES = {
+  { key = "MENU_ENABLED",     get = "isEnabled",     set = "setEnabled",     gated = false },
+  { key = "MENU_LOCKED",      get = "isLocked",      set = "toggleLock",     gated = true  },
+  { key = "MENU_TEST_MODE",   get = "isTestMode",    set = "toggleTestMode", gated = true  },
+  { key = "MENU_SHOW_WINDOW", get = "isWindowShown", set = "toggleWindow",   gated = true  },
 }
 
 --- The host's own printer, or the chat frame. Same shape every other major uses.
@@ -104,26 +155,51 @@ end
 ---   icon           string    REQUIRED. The addon's own logo — the same file the TOC's
 ---                            `## IconTexture` names, `media/logos/<addon>.logo.128.tga`
 ---                            (launcher-§4). Never a Blizzard path and never a numeric file id.
----   label          string    optional. What a broker display labels the plugin. Defaults to
----                            `name`.
+---   label          string    optional. What a broker display labels the plugin, the tooltip's
+---                            title and the options menu's title. Defaults to `name`.
 ---   minimap        table|fn  REQUIRED. LibDBIcon's own table, `db.global.minimap`
 ---                            (launcher-§3), or a function answering it. A function is the usual
 ---                            shape — see minimapTable above.
----   openSettings   function  REQUIRED. Opens the addon's settings panel. RIGHT-click always
----                            calls it, on every addon, whatever rung its left click sits on; so
----                            does left-click on rung (c).
----   onClick        function  optional. The LEFT click's action, and which rung the addon is on
----                            (launcher-§2): pass the primary window's toggle for rung (a), the
----                            preview switch's toggle for rung (b), and pass NOTHING for rung
----                            (c), where left-click opens the settings panel too. It is handed
----                            the button name, so a host needing it does not have to re-read it.
----   onTooltipShow  function  optional. Handed straight to the LDB object; its contents are the
----                            addon's own and nothing here binds them (launcher-§1).
+---   openSettings   function  REQUIRED. Opens the addon's settings panel. Since minor 4 the LEFT
+---                            click calls it, on every addon and in either state (launcher-§2); so
+---                            does the right click on a client with no context-menu API.
+---   isEnabled      function  optional, since minor 2. Whether the addon is enabled. The tooltip's
+---                            Enabled line (minor 3), the menu's Enabled checkbox with
+---                            `setEnabled`, and, while it answers false, the menu's other entries
+---                            are grayed (minor 4). Asked on every show and every open, never
+---                            cached. A host without it is always enabled.
+---   setEnabled     function  optional, since minor 4. setEnabled(bool) — the addon's own
+---                            enable/disable path, the one `/<slash> enable|disable` writes. With
+---                            `isEnabled`, the menu draws the Enabled entry.
+---   isLocked       function  optional, since minor 3. Where the addon has a lock: answers whether
+---                            it is locked. Draws `Locked: Yes|No` in the tooltip, and with
+---                            `toggleLock` the menu's Locked entry (minor 4).
+---   toggleLock     function  optional, since minor 4. The addon's own lock/unlock toggle.
+---   isTestMode     function  optional, since minor 3. Where the addon has a test mode: answers
+---                            whether it is on. Draws `Test mode: On|Off` in the tooltip, and with
+---                            `toggleTestMode` the menu's Test mode entry (minor 4).
+---   toggleTestMode function  optional, since minor 4. The addon's own test-mode toggle.
+---   isWindowShown  function  optional, since minor 4. Where the addon has a primary window:
+---                            answers whether it is shown. With `toggleWindow`, the menu's Show
+---                            window entry.
+---   toggleWindow   function  optional, since minor 4. The primary window's own toggle.
+---   onTooltipShow  function  optional. Since minor 3 it is NOT the LDB object's hook: the
+---                            library always draws the status tooltip and calls this once per
+---                            show, handed the tooltip, to APPEND the addon's own lines between
+---                            the status block and the click hints. It draws no title, version,
+---                            status line or click hint of its own (launcher-§1).
+---   version        str|fn    optional, since minor 3. The addon's version, drawn after the
+---                            label in the tooltip's title. A leading `v` is not doubled.
 ---   print          function  optional. Where this module's own reports go. Defaults to the chat
 ---                            frame.
 ---   debug          function  optional. debug(tag, message) — the host's log seam, called with
 ---                            the tag "Launcher".
 ---   L              table     optional. Locale override, keyed to lib.STRINGS.
+---
+--- RETIRED at minor 4, with launcher-§2's left-click rungs, and ignored if passed (no error):
+--- `onClick` and `leftClickLabel` (the left button opens the settings panel now), and
+--- `disabledLine` and `slash`, which served only the retired disabled left-click refusal and its
+--- tooltip hint. Minor 2's rule that `isEnabled` needs a `disabledLine` goes with them.
 ---
 --- @return table  the launcher instance
 function lib:New(d)
@@ -135,7 +211,7 @@ function lib:New(d)
     error(MAJOR .. ":New requires descriptor.icon — the addon's own logo path", 2)
   end
   if type(d.openSettings) ~= "function" then
-    error(MAJOR .. ":New requires descriptor.openSettings — right-click ALWAYS opens the panel", 2)
+    error(MAJOR .. ":New requires descriptor.openSettings — left-click ALWAYS opens the panel", 2)
   end
 
   local strings = type(d.L) == "table" and d.L or nil
@@ -163,22 +239,163 @@ function lib:New(d)
     if type(d.debug) == "function" then d.debug("Launcher", message) end
   end
 
-  --- THE ONE CLICK IMPLEMENTATION (launcher-§1/§2). Both surfaces dispatch into it, so the rung
-  --- rule is satisfied on the minimap and in a broker display by construction rather than by two
+  --- A missing-library notice, printed ONCE per instance. Register is callable from OnInitialize
+  --- and again from login, and a Register that fails reaches its notice again each time; one
+  --- missing library is one line in chat, not one per call. The debug log still hears every call.
+  local noticed = {}
+  local function notice(key)
+    if noticed[key] then return end
+    noticed[key] = true
+    emit(text(key):format(name))
+  end
+
+  --- One descriptor accessor, asked now and never cached, and never allowed to raise into the
+  --- client's hover or menu dispatch. A raise is heard by the debug seam and answers nil; nothing
+  --- goes to chat, because a hover repeats and a chat line per hover is noise.
+  local function ask(fn, what)
+    if type(fn) ~= "function" then return fn end
+    local ok, v = pcall(fn)
+    if ok then return v end
+    log(what .. " raised: " .. tostring(v))
+    return nil
+  end
+
+  --- Whether the addon is enabled, read now. A host with no `isEnabled` is always enabled.
+  local function enabledNow(what)
+    if type(d.isEnabled) ~= "function" then return true end
+    return ask(d.isEnabled, what) and true or false
+  end
+
+  --- A status value, green when true and red when false.
+  local function status(flag, yes, no)
+    return (flag and GREEN or RED) .. text(flag and yes or no) .. RESET
+  end
+
+  --- `<label>  v<version>`, or the label alone where no version answers.
+  local function titleLine()
+    local label = d.label or name
+    local v = ask(d.version, "tooltip: version")
+    if v == nil or v == "" then return label end
+    return text("TOOLTIP_TITLE_VERSION"):format(label, (tostring(v):gsub("^[vV]", "")))
+  end
+
+  --- THE TOOLTIP (minor 3, launcher-§1). Always the LDB object's `OnTooltipShow`, on every host,
+  --- in one shape: title, Enabled, Locked and Test mode where the host has them, the host's own
+  --- lines, then the two click hints. Every state is read on this show, so the tooltip cannot
+  --- disagree with the panel, and it draws while the addon is disabled, which is when a player
+  --- most needs to ask. Since minor 4 the hints are fixed: the left button opens the settings
+  --- panel and the right one the options menu, in either state (launcher-§2).
+  local function drawTooltip(tt)
+    if type(tt) ~= "table" or type(tt.AddLine) ~= "function" then return end
+    local enabled = enabledNow("tooltip: isEnabled")
+    tt:AddLine(titleLine())
+    tt:AddLine(text("TOOLTIP_ENABLED"):format(status(enabled, "TOOLTIP_YES", "TOOLTIP_NO")))
+    if type(d.isLocked) == "function" then
+      tt:AddLine(text("TOOLTIP_LOCKED"):format(status(ask(d.isLocked, "tooltip: isLocked"), "TOOLTIP_YES", "TOOLTIP_NO")))
+    end
+    if type(d.isTestMode) == "function" then
+      tt:AddLine(text("TOOLTIP_TEST_MODE"):format(status(ask(d.isTestMode, "tooltip: isTestMode"), "TOOLTIP_ON", "TOOLTIP_OFF")))
+    end
+    if type(d.onTooltipShow) == "function" then
+      local ok, err = pcall(d.onTooltipShow, tt)
+      if not ok then log("tooltip: onTooltipShow raised: " .. tostring(err)) end
+    end
+    tt:AddLine(text("TOOLTIP_LEFT"):format(text("TOOLTIP_OPEN_SETTINGS")))
+    tt:AddLine(text("TOOLTIP_RIGHT"):format(text("TOOLTIP_OPTIONS_MENU")))
+  end
+
+  --- The menu's response to a click: close. The next open reads every state afresh, which is
+  --- simpler to trust than a refresh that re-reads checkmarks but not which entries are grayed.
+  --- `MenuResponse` is the client's; where it is absent the menu takes its own default.
+  local function closeMenu()
+    local R = MenuResponse
+    return type(R) == "table" and R.Close or nil
+  end
+
+  --- One entry clicked. Toggles through the HOST's own handler, once, so its refusals, combat
+  --- rules and messages are the addon's (launcher-§2). A gated entry clicked while disabled (a
+  --- client that ran the click despite the gray) calls nothing and writes nothing. pcall'd: this
+  --- runs in the client's menu dispatch, where a raise is a red error box naming no addon.
+  local function choose(entry)
+    if entry.gated and not enabledNow("menu: isEnabled") then
+      log("menu: " .. entry.set .. " refused while disabled")
+      return closeMenu()
+    end
+    local ok, err
+    if entry.set == "setEnabled" then
+      ok, err = pcall(d.setEnabled, not enabledNow("menu: isEnabled"))
+    else
+      ok, err = pcall(d[entry.set])
+    end
+    if not ok then emit(text("MENU_FAILED"):format(name, text(entry.key), tostring(err))) end
+    return closeMenu()
+  end
+
+  --- The entries this host supplies, in ENTRIES order: each needs both halves, the accessor and
+  --- the toggle, since an entry for a state the addon does not have is as wrong as a missing one.
+  local function suppliedEntries()
+    local out = {}
+    for _, entry in ipairs(ENTRIES) do
+      if type(d[entry.get]) == "function" and type(d[entry.set]) == "function" then
+        out[#out + 1] = entry
+      end
+    end
+    return out
+  end
+
+  --- THE OPTIONS MENU (minor 4, launcher-§2), as a Blizzard menu generator: the title, then one
+  --- checkbox per supplied entry. Every state is read HERE, when the menu opens, never cached;
+  --- while the addon is disabled the entries past Enabled are grayed with the note in the label.
+  local function buildMenu(_, root, entries)
+    if type(root) ~= "table" then return end
+    if type(root.CreateTitle) == "function" then root:CreateTitle(d.label or name) end
+    local enabled = enabledNow("menu: isEnabled")
+    for _, entry in ipairs(entries) do
+      local checked = ask(d[entry.get], "menu: " .. entry.get) and true or false
+      local grayed = entry.gated and not enabled
+      local label = text(entry.key)
+      if grayed then label = text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
+      local box = root:CreateCheckbox(label,
+        function() return checked end,
+        function() return choose(entry) end)
+      if grayed and type(box) == "table" and type(box.SetEnabled) == "function" then
+        box:SetEnabled(false)
+      end
+    end
+  end
+
+  --- The RIGHT click: the client's own context menu (`MenuUtil.CreateContextMenu`, 11.0+),
+  --- resolved at call time so a client without it — or a host supplying no toggle at all —
+  --- degrades to the settings panel rather than to a silent button.
+  local function openMenu(owner)
+    local MU = MenuUtil
+    if type(MU) ~= "table" or type(MU.CreateContextMenu) ~= "function" then
+      log("menu: MenuUtil.CreateContextMenu absent; right-click opens settings")
+      return d.openSettings("RightButton")
+    end
+    local entries = suppliedEntries()
+    if #entries == 0 then
+      log("menu: the descriptor supplies no toggle; right-click opens settings")
+      return d.openSettings("RightButton")
+    end
+    MU.CreateContextMenu(owner or UIParent, function(o, root) buildMenu(o, root, entries) end)
+  end
+
+  --- THE ONE CLICK IMPLEMENTATION (launcher-§1/§2). Both surfaces dispatch into it, so the rule is
+  --- satisfied on the minimap and in a broker display by construction rather than by two
   --- implementations agreeing.
   ---
-  --- RIGHT-click always opens the settings panel, which is what lets rungs (a) and (b) spend the
-  --- left button on something better. LEFT-click takes the host's action where it supplied one,
-  --- and otherwise opens the panel as well — that is rung (c), and it is expressed by the ABSENCE
-  --- of `onClick` rather than by a flag, so a host cannot declare a rung it did not implement.
+  --- Since minor 4 the buttons mean the same thing on every addon: LEFT opens the settings panel,
+  --- in either state — the panel is setup, not a feature, and is where a disabled addon is
+  --- re-enabled — and RIGHT opens the options menu. There is no rung and no refusal.
   ---
   --- pcall'd, because this runs inside the client's click dispatch: a raising handler there is a
   --- red error box over the player's minimap with nothing saying which addon caused it. One line
   --- names the addon and the button instead, and the launcher keeps working.
-  local function click(_, button)
+  local function click(owner, button)
     local right = button == "RightButton"
-    local fn = (not right) and type(d.onClick) == "function" and d.onClick or d.openSettings
-    local ok, err = pcall(fn, button)
+    local ok, err
+    if right then ok, err = pcall(openMenu, owner) else ok, err = pcall(d.openSettings, button) end
     if not ok then
       emit(text("CLICK_FAILED"):format(name, right and "right" or "left", tostring(err)))
     end
@@ -200,7 +417,7 @@ function lib:New(d)
     local LDB = LibStub and LibStub(LDB_MAJOR, true)
     if not LDB then
       log("LibDataBroker-1.1 absent; no launcher")
-      emit(text("NO_BROKER"):format(name))
+      notice("NO_BROKER")
       return false
     end
 
@@ -213,7 +430,7 @@ function lib:New(d)
       label = d.label or name,
       icon  = d.icon,
       OnClick = click,
-      OnTooltipShow = type(d.onTooltipShow) == "function" and d.onTooltipShow or nil,
+      OnTooltipShow = drawTooltip,   -- always the library's (minor 3); the host's lines go inside
     })
     if not object then
       -- NewDataObject answers nil for a name already taken. Take the existing object rather than
@@ -225,14 +442,14 @@ function lib:New(d)
     local icons = LibStub and LibStub(ICON_MAJOR, true)
     if not icons then
       log("LibDBIcon-1.0 absent; broker plugin only")
-      emit(text("NO_ICON"):format(name))
+      notice("NO_ICON")
       return false
     end
 
     minimap = minimapTable(d)
     if not minimap then
       log("descriptor.minimap answered no table; no minimap button")
-      emit(text("NO_MINIMAP"):format(name))
+      notice("NO_MINIMAP")
       return false
     end
 

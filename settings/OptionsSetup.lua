@@ -179,8 +179,8 @@ NS.Options = lib:New({
   get          = function(path) return NS.Schema:Get(path) end,
   set          = function(path, v) NS.Schema:Set(path, v) end,
   -- ONE reset policy, shared with the Slash descriptor: Schema:ApplyDefault carries launcher-§3's
-  -- one-row veto, so a page-scoped walk through this major cannot un-hide the minimap button
-  -- either. Nothing calls O.RestoreDefaults / O.RestoreAllDefaults today — the General page's
+  -- one-row veto (keyed by the row path `minimap.shown`; the stored key stays `minimap.hide`), so
+  -- a page-scoped walk through this major cannot un-hide the minimap button either. Nothing calls O.RestoreDefaults / O.RestoreAllDefaults today — the General page's
   -- Defaults click and the Blizzard footer both route to P:RestoreDefaults, which reaches
   -- Sl:CliResetAll — which is exactly why this one has to AGREE with the other rather than restate it.
   applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
@@ -199,9 +199,10 @@ NS.Options = lib:New({
   end,
   allRows = function() return NS.Schema.Schema end,
 
-  -- Backs the color picker's 50 ms drag throttle. No schema row is a color today, so nothing
-  -- reaches it — passed anyway because a future color row would otherwise commit every frame, and
-  -- a missing throttle is invisible until someone drags a swatch.
+  -- Backs the library's 50 ms slider and color-picker drag throttles. The return value is unused:
+  -- since OptionsWidgets minor 31 the library keeps its own armed flag, so this nil-returning
+  -- C_Timer.After wrapper throttles exactly as a handle-returning one would, and C_Timer.NewTimer
+  -- would buy nothing (the LK-26 option). No schema row is a color today; the sliders reach it.
   scheduleTimer = function(fn, delay)
     if C_Timer and C_Timer.After then C_Timer.After(delay, fn) end
   end,

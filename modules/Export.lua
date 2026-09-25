@@ -137,10 +137,10 @@ end
 -- Columns: Section, Label, Count, Value (Value = plain "Ng Ns Nc" value; blank when a row
 -- has no value dimension). Pure — takes a Database:Stats result, returns text; unit-tested.
 
-local BOUND_LABEL_CSV = {
-  BOP = "Soulbound", BOE = "BoE", WARBAND = "Warbound", WARBAND_UE = "Warbound (UE)",
-  UNBOUND = "Unbound",
-}
+-- Bound labels come from the row CSV's table so both exports share one vocabulary. Stats keys an
+-- unbound record as UNBOUND (the Analytics/BrowserTable styling sentinel); the row table calls
+-- that state NONE, so map it across.
+local function insightsBoundLabel(k) return E:BoundLabel(k == "UNBOUND" and "NONE" or k) end
 local WEEKDAY_CSV = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
 
 -- Count-map → array of { label, count, value } sorted count-desc then label-asc. `labelOf` maps a
@@ -218,7 +218,6 @@ function E:InsightsCSV(stats)
 
   local srcLabel = function(k) return NS.Constants.SourceLabel[k] or k end
   local qualityLabel = function(q) return NS.Item.QualityLabel(q) end
-  local boundLabel = function(b) return BOUND_LABEL_CSV[b] or b end
   -- LOOT breakdowns, each followed by its per-character "× Character" companion (mirrors the panel).
   -- All items-only (currency is excluded upstream in Database:Stats).
   section("By Source", rankedRows(stats.bySource, srcLabel, stats.valueBySource))
@@ -227,8 +226,8 @@ function E:InsightsCSV(stats)
   charMatrix("By Character x Quality", stats.charByQuality, qualityLabel)
   section("By Item Type", rankedRows(stats.byType))
   charMatrix("By Character x Item Type", stats.charByType)
-  section("By Bound Type", rankedRows(stats.byBound, boundLabel))
-  charMatrix("By Character x Bound Type", stats.charByBound, boundLabel)
+  section("By Bound Type", rankedRows(stats.byBound, insightsBoundLabel))
+  charMatrix("By Character x Bound Type", stats.charByBound, insightsBoundLabel)
 
   -- Per-character carries both count and value (byChar entries are { char, count, value }). byChar
   -- registers currency-only characters with count 0 (for class colors in the UI) — skip those here

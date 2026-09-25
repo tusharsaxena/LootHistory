@@ -6,20 +6,20 @@ Catalog of WoW Midnight (Interface 120100, 12.1.0) behaviors that Ka0s Loot Hist
 
 ## Retail-only: presence guards, not flavor branching
 
-LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branching. Every deprecated or flavor-varying API is gated by a direct `C_*` / global **presence check**; a missing API degrades the shim to `nil`/`false` rather than erroring (`core/Compat.lua:5-7`). Examples: `C_ChallengeMode.GetActiveKeystoneInfo` (`:30`), `C_Container.UseContainerItem` with a bare-global fallback (`:40`), `C_Container.GetContainerItemInfo` (`:50`), `C_TooltipInfo.GetHyperlink` (`:226`). This is the standard's compat-firewall rule: modules call `NS.Compat.X` and never test the game flavor inline.
+LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branching. Every deprecated or flavor-varying API is gated by a direct `C_*` / global **presence check**; a missing API degrades the shim to `nil`/`false` rather than erroring (`core/Compat.lua:5-7`). Examples: `C_ChallengeMode.GetActiveKeystoneInfo` (`:30`), `IsInInstance` (`:38`), `C_Container.UseContainerItem` with a bare-global fallback (`:48`), `C_Container.GetContainerItemInfo` (`:58`), `C_TooltipInfo.GetHyperlink` (`:242`). This is the standard's compat-firewall rule: modules call `NS.Compat.X` and never test the game flavor inline.
 
 ## GUID decode — npcID in field 6, KILL vs CONTAINER
 
-A dash-split WoW GUID (`Creature-0-…-<npcID>-…`) carries the creature/npc id in **field 6**, but only for *unit* kinds. `Compat.UNIT_KINDS` is the single source of truth for which kinds those are — `Creature`, `Vehicle`, `Pet`, `Vignette` (`core/Compat.lua:131`). `Compat.DecodeGUID` splits the GUID, returns the leading `kind`, and pulls field 6 as `npcID` **only** when the kind is in that set; non-unit kinds return `nil` for the id (`:135-143`).
+A dash-split WoW GUID (`Creature-0-…-<npcID>-…`) carries the creature/npc id in **field 6**, but only for *unit* kinds. `Compat.UNIT_KINDS` is the single source of truth for which kinds those are — `Creature`, `Vehicle`, `Pet`, `Vignette` (`core/Compat.lua:139`). `Compat.DecodeGUID` splits the GUID, returns the leading `kind`, and pulls field 6 as `npcID` **only** when the kind is in that set; non-unit kinds return `nil` for the id (`:143-151`).
 
-The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:162-182`):
+The attribution engine keys loot-source resolution off that kind so KILL detection can't drift from the decoder (`modules/Attribution.lua:162-185`):
 
-- **unit kind** (`UNIT_KINDS`) → `KILL`, detail `{ npcID }` (plus encounter id/difficulty when an encounter is live).
+- **unit kind** (`UNIT_KINDS`) → `KILL`, detail `{ npcID }` (plus encounter id/difficulty while an encounter is live, and for `Constants.ENCOUNTER_GRACE` seconds after a successful `ENCOUNTER_END`, because the boss corpse is looted after that event fires; a wipe clears the encounter context at once).
 - **`GameObject`** → `MPLUS` when a keystone context is active, else `CONTAINER`.
 - **`Item`** → `CONTAINER` (a lootable Item-GUID, e.g. a disenchant/mill mat window).
 - anything else → `OTHER`.
 
-The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS (`modules/Attribution.lua:228-243`).
+The keystone context that flips `GameObject` from CONTAINER to MPLUS comes from `Compat.GetActiveKeystoneLevel` (`core/Compat.lua:29`), stamped on `CHALLENGE_MODE_START` and kept alive through `CHALLENGE_MODE_COMPLETED` so the reward chest still reads MPLUS; a completion-time level of 0 never overwrites the started one (`modules/Attribution.lua:243-260`). It is **cleared** when the player leaves the party instance (`ZONE_CHANGED_NEW_AREA` with `Compat.InPartyInstance`, `core/Compat.lua:38`, false) or on `CHALLENGE_MODE_RESET`, so a herb, ore node or world chest looted afterwards reads CONTAINER again. A player who zones back into a running key gets no second `CHALLENGE_MODE_START`, so the same zone-change handler **re-arms** the context from the active keystone level (`modules/Attribution.lua:267-291`). Rows recorded as MPLUS before this lifetime existed cannot be repaired: nothing stored distinguishes them.
 
 ## Warbound bind state — two unreliable signals, merged
 
@@ -44,11 +44,11 @@ So the scan is deliberately **two steps per line, not longest-match-first**: dec
 
 ## Item-info uncached fallback — link-color quality
 
-`C_Item.GetItemInfo(link)` returns `nil` for an item the client hasn't cached yet, which for a just-looted item is the common case. `Compat.GetItemInfo` degrades to the item **link's own display data** instead of dropping the record (`core/Compat.lua:152-165`):
+`C_Item.GetItemInfo(link)` returns `nil` for an item the client hasn't cached yet, which for a just-looted item is the common case. `Compat.GetItemInfo` degrades to the item **link's own display data** instead of dropping the record (`core/Compat.lua:160-173`):
 
 - `itemID` / `classID` come from `C_Item.GetItemInfoInstant` (synchronous, cache-independent).
 - `name` falls back to the link's `[…]` bracket text.
-- `quality` falls back to `NS.Item.QualityFromLink` — parsing the link's `|cffRRGGBB` color prefix and reversing it through a hex→quality-id map built from `ITEM_QUALITY_COLORS` (`libs/LibKa0s/Item.lua:83`, reached through `core/ItemSetup.lua`).
+- `quality` falls back to `NS.Item.QualityFromLink` (`libs/LibKa0s/Item.lua:91`, reached through `core/ItemSetup.lua`), which reads the link's color in two rungs since Item minor 2 (LibKa0s v1.56.0). Since patch 11.1.5 the client colors a link by quality **number**, `|cnIQ<n>:`, and that rung is read first and needs no palette. The `|cffRRGGBB` hex rung stays as the fallback for the pre-11.1.5 links a stored row still holds: it reverses the hex through a hex→quality-id map built lazily from `ITEM_QUALITY_COLORS` and cached only once non-empty, so a first call that lands before the client populated the table is retried rather than pinned nil (`libs/LibKa0s/Item.lua:55-75`). `tests/test_itemsetup.lua` pins both shapes.
 
 The **primitive** moved into `LibKa0s-Item-1.0`; the **guess** did not. Falling back at all is this addon's policy — BankLedger's quality gate refuses an uncached item and records the skip instead — so `Compat.GetItemInfo` stays in `core/Compat.lua` and the library holds no opinion about how the primitives are composed.
 
@@ -56,13 +56,49 @@ So an uncached loot line still records the correct item id, name, and quality; t
 
 ## AH-mail detection — localized *_MAIL_SUBJECT globals
 
-Auction-House proceeds arrive as mail, and LH attributes them to `AH` rather than `MAIL`. There's no flag on the mail row, so `Compat.IsAuctionHouseMail` decides from sender + subject, locale-independently (`core/Compat.lua:113-127`):
+Auction-House proceeds arrive as mail, and LH attributes them to `AH` rather than `MAIL`. There's no flag on the mail row, so `Compat.IsAuctionHouseMail` decides from sender + subject, locale-independently (`core/Compat.lua:121-135`):
 
 - sender equals the `AUCTION_HOUSE` global, **or**
 - subject starts with the prefix of any of `AUCTION_WON_MAIL_SUBJECT`, `AUCTION_EXPIRED_MAIL_SUBJECT`, `AUCTION_REMOVED_MAIL_SUBJECT`, `AUCTION_INVOICE_MAIL_SUBJECT` (each global like `"Auction won: %s"` is trimmed at `%s` to `"Auction won: "` and prefix-matched).
 
-`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:90-96`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:316-325`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:37-41`), as does every other source now that CRAFT/ROLL/REFUND are wired.
+`Attribution:StampMail` reads sender/subject via `Compat.GetMailHeader` (`GetInboxHeaderInfo`, `:106-112`) and stamps `AH` or `MAIL` accordingly (`modules/Attribution.lua:364-373`). AH is a stamped, first-class source — it has a live capture path (`Constants.SOURCE_IMPLEMENTED`, `core/Constants.lua:37-41`), as does every other source now that CRAFT/ROLL/REFUND are wired.
+
+## Currency category — rebuild on a miss, blind to collapsed headers
+
+A currency row's **Subtype** is its Currency-tab header ("The War Within", a season name). No API answers that for an id, so `Compat.CurrencyCategory` walks `C_CurrencyInfo.GetCurrencyListSize` / `GetCurrencyListInfo` / `GetCurrencyListLink`, tracks the most recent header, and caches `currencyID -> header` (`core/Compat.lua:375-415`).
+
+- **The rule: rebuild once per missed id.** The cache is built at the first currency loot, and a currency the player discovers later (routine at a season start) is not in it. On a miss the resolver rebuilds the cache and looks again. A module-local `currencyCategoryMissed` set records each id that missed, so an id that is truly absent costs at most one list walk per session and every later lookup answers `nil` from the cache. Before this rule the first snapshot was kept for the whole session, and a new currency's row was persisted with `itemSubType = nil` for good.
+- **The gap: collapsed headers.** `GetCurrencyListInfo` enumerates only the children of **expanded** headers. A currency under a header the player collapsed is not in the walk, so the rebuild cannot find it: the row keeps `itemSubType = nil` and falls out of the subtype filter (see ARCHITECTURE.md *Known limitations*). `C_CurrencyInfo.ExpandCurrencyList` could open the headers for the walk, but it is deliberately **not** called: it would run from a loot handler and change the player's Currency tab.
+- **S-003 outcome:** not yet run in the client. Smoke-tests.md section 3 carries the check; record here whether a currency under a collapsed header resolves after `/reload`.
 
 ## C_Spell moved the spell-name lookup
 
-Attribution detects deconstruct casts (Disenchant / Milling / Prospecting), and Retail relocated the spell-name lookup to `C_Spell`. `Compat.GetSpellName` is `LibKa0s-Compat-1.0`'s member since v1.55.0: it prefers `C_Spell.GetSpellName(spellID)`, then `C_Spell.GetSpellInfo(spellID).name`, and falls back to the legacy `GetSpellInfo` when present (`core/Compat.lua:83-95`). `Attribution:DeconstructSource` resolves by **spell id first** — the locale-independent `DECONSTRUCT_ID` table — then, for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants, falls back to a **localized name-family** match: the cast's *localized* name is compared against reference tokens derived at match time from seed spellIDs via `GetSpellName` (`NAME_SEEDS`), so the check follows the client locale and never compares against a hardcoded English literal (`modules/Attribution.lua:32-97`). This is locale-independent on every client (Ka0s Standard localization-§4 / anti-pattern #37), not enUS-only.
+Attribution detects deconstruct casts (Disenchant / Milling / Prospecting), and Retail relocated the spell-name lookup to `C_Spell`. `Compat.GetSpellName` is `LibKa0s-Compat-1.0`'s member since v1.55.0: it prefers `C_Spell.GetSpellName(spellID)`, then `C_Spell.GetSpellInfo(spellID).name`, and falls back to the legacy `GetSpellInfo` when present (`core/Compat.lua:91-103`). `Attribution:DeconstructSource` resolves by **spell id first** — the locale-independent `DECONSTRUCT_ID` table — then, for the un-enumerated per-herb/ore "Mass Mill/Prospect" variants, falls back to a **localized name-family** match: the cast's *localized* name is compared against reference tokens derived at match time from seed spellIDs via `GetSpellName` (`NAME_SEEDS`), so the check follows the client locale and never compares against a hardcoded English literal (`modules/Attribution.lua:32-97`). This is locale-correct on every client, not enUS-only; matching a localized name at all is a localization-§4 / anti-pattern #37 departure, ratified in `docs/ARCHITECTURE.md` → Documented deviations.
+
+## Unknown event names — one refusal costs one edge
+
+Modern Retail **raises** `Attempt to register unknown event "<NAME>"` on a name the client does not
+know, and a block of bare registrations loses every line after the one that raised. Every event this
+addon listens to therefore registers through Core's per-event helper (`NS.SafeRegisterEvent` /
+`NS.SafeRegisterUnitEvent`, `core/CoreSetup.lua`), which asks `C_EventUtils.IsEventValid` first and
+`pcall`s the registration, and records a refused name once on `NS.RejectedEvents`
+(events-frames-taint-§1).
+
+- **The seam.** The helpers are `LibKa0s-Core-1.0`'s `SafeRegisterEvent` / `SafeRegisterUnitEvent`
+  (Core minor 8) plus the host's `NS.SafeRegisterEvents` for a list: the `IsEventValid` front gate,
+  then a `pcall`ed registration. The live wrappers add one `[Init]` debug line per newly refused name
+  and return the library's answer; the library-absent stub carries the same three members as
+  one-rung bodies (a plain `pcall`, no front gate). No authored `:RegisterEvent(` /
+  `:RegisterUnitEvent(` call exists outside those helper bodies.
+- **The rejected list is the addon's**, not the library's: `NS.RejectedEvents` is declared in
+  `core/CoreSetup.lua` on both paths and passed at every site, and a refused name is appended once,
+  however many disable/enable cycles meet it again. `Attribution.__events` holds only the names that
+  actually registered, so `Attribution:Disable` unregisters exactly those.
+- **The trade, taken deliberately.** A refused name is skipped, not worked around: the edge it covered
+  is simply absent on that client. If a patch retired `ENCOUNTER_START`, loot would still record, and
+  boss loot would lose its encounter detail until the event is replaced; if it retired
+  `UNIT_SPELLCAST_SUCCEEDED`, deconstruct yields would fall to OTHER / INFERRED. Losing one edge is
+  survivable; losing the rest of the block — every source stamp after the bad name — is not.
+- **Discoverable.** `/lh debug events` prints the list (`rejected events: none` on 12.1, where every
+  name is valid today), and with debug logging on each first refusal writes one `[Init]` line to the
+  console.

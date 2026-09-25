@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 14
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -46,6 +46,7 @@ lib.STRINGS = {
   USAGE_RESET      = "Usage: %s reset <path>",
   NOT_FOUND        = "Setting not found: %s",
   INVALID          = "Invalid value for %s",
+  NO_DEFAULT       = "%s has no default to restore",
   RESET_ALL        = "All settings reset to defaults",
   VERSION          = "v%s",
   NONE             = "(none)",
@@ -424,10 +425,16 @@ end
 ---   aliases      table     optional. Map of typed verb -> real verb, for backwards compatibility.
 ---   print        function  optional. Where lines go. Defaults to the chat frame.
 ---   version      function  optional. Returns the host's version string.
----   get/set      function  optional. Read and write one setting by path.
+---   get/set      function  optional. Read and write one setting by path. `set(path, value)` MAY
+---                          answer `false, reason[, why]` to refuse the write (minor 15), exactly
+---                          as LibKa0s-Schema-1.0's S.Set does: CliSet then prints INVALID for the
+---                          path, the reason and why on indented lines, and no echo. nil or true
+---                          both mean the write landed, as at minor 14.
 ---   findRow      function  optional. Resolve a path to a schema row, or nil.
 ---   allRows      function  optional. Every row, in declaration order.
----   applyDefault function  optional. Restore one row to its default.
+---   applyDefault function  optional. Restore one row to its default. Answering exactly false
+---                          (minor 15), as S.ApplyDefault does for a row with no default, makes
+---                          CliReset print NO_DEFAULT instead of echoing the unchanged value.
 ---   bulkBegin    function  optional, minor 8. function(act, scope). Called before CliResetAll
 ---                          writes its first row, act "reset", scope "all". Mute the host
 ---                          seam's per-row `[Set]` line here (debug-logging-§10).
@@ -666,6 +673,16 @@ function lib:New(d)
     emit(kv(row, read(row.path)))
   end
 
+  --- A refused write: the INVALID line for the path, then the seam's reason and why, each indented.
+  --- A reason that IS the INVALID line (Schema.Set's validate refusal carries exactly that) is not
+  --- printed twice.
+  local function emitRefusal(path, err, why)
+    local head = Sl:Text("INVALID"):format(path)
+    emit(head)
+    if type(err) == "string" and err ~= "" and err ~= head then emit("  " .. err) end
+    if type(why) == "string" and why ~= "" then emit("  " .. why) end
+  end
+
   function Sl:CliSet(rest)
     local path, value = (rest or ""):match("^(%S+)%s*(.*)$")
     if not path then return emit(self:Text("USAGE_SET"):format(d.slash, d.slash)) end
@@ -685,7 +702,13 @@ function lib:New(d)
     if row.type == "color" and type(d.colorEncode) == "function" and type(v) == "table" then
       v = d.colorEncode(v.r, v.g, v.b, v.a)
     end
-    if type(d.set) == "function" then d.set(row.path, v) end
+    -- The write seam may refuse (minor 15): Schema.Set answers `false, err[, why]` with nothing
+    -- stored when a row's validate rejects the value. Echoing the re-read here would show the old
+    -- value as though the write had landed, so the refusal is printed instead.
+    if type(d.set) == "function" then
+      local ok, reason, why = d.set(row.path, v)
+      if ok == false then return emitRefusal(row.path, reason, why) end
+    end
     -- Re-read rather than echo what was parsed: a clamped number is only visible to the user
     -- because the echo reports what was actually stored.
     emit(kv(row, read(row.path)))
@@ -700,7 +723,10 @@ function lib:New(d)
     -- not name.
     local row = rowFor(path)
     if not row then return emit(self:Text("NOT_FOUND"):format(path)) end
-    if type(d.applyDefault) == "function" then d.applyDefault(row) end
+    -- Exactly false, not falsy: a host applyDefault that returns nothing has always meant success.
+    if type(d.applyDefault) == "function" and d.applyDefault(row) == false then
+      return emit(self:Text("NO_DEFAULT"):format(row.path))
+    end
     emit(lib.FormatKV(row.path, formatValue(row, read(row.path))))
   end
 

@@ -42,13 +42,18 @@ touching code:
 - **[DEPENDENCIES.md](DEPENDENCIES.md)** (root) — the toolchain contract: what to install to run,
   test or release this addon.
 - Everything else — `scope.md`, `module-map.md`, `schema.md`,
-  `message-bus.md`, `browser.md`, `settings-panel.md`, `slash-dispatch.md`, `compat-layer.md`,
-  `midnight-quirks.md`, `performance.md`, `smoke-tests.md`, `test-cases.md`,
+  `message-bus.md`, `browser.md`, `disabled-state.md`, `settings-panel.md`, `slash-dispatch.md`, `compat-layer.md`,
+  `midnight-quirks.md`, `performance.md`, `combat-path-sweep.md`, `smoke-tests.md`, `test-cases.md`,
   `automated-tests/` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
+
+## Green gate
+
+Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game checks are in
+[docs/smoke-tests.md](docs/smoke-tests.md).
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.55.0 (MIT) — the Ka0s-owned shared
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.58.0 (MIT) — the Ka0s-owned shared
 library behind the chat printer, the debug console, the slash-command interface, the settings
 panel and the filter-bar dropdowns, vendored whole-folder into `libs/LibKa0s/` with its test kit
 under `tests/_kit/`.
@@ -58,8 +63,3 @@ it names, and diffs both vendored payloads against what LibKa0s published at tha
 provenance line and a payload that disagree fail the run. **Bump the line and re-vendor the bytes in
 the same commit**; a maintainer's question about which build carries which library is answered here
 rather than in the player-facing README.
-
-## Green gate
-
-Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game checks are in
-[docs/smoke-tests.md](docs/smoke-tests.md).

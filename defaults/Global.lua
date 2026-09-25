@@ -3,14 +3,16 @@ local _, NS = ...
 -- Account-wide defaults. History and settings both live under `global` (see docs/schema.md).
 NS.defaults = NS.defaults or {}
 NS.defaults.global = {
-  -- Version stamp for the persisted DB, and 1 here is the FLOOR, not the current shape. It is
-  -- deliberately never raised with the ladder: a fresh DB has to enter at the bottom so that
-  -- NS:RunMigrations (core/Database.lua) walks every step, and seeding today's number would hand a
-  -- brand-new install a stamp claiming migrations that never ran on it. The ladder itself is the
-  -- MIGRATIONS table over there, and its highest `to` is what a migrated DB ends up carrying —
-  -- 8 today, through v1→v2 (strip the retired per-record `viaWhitelist`) up to v7→v8 (the Zone
-  -- filter's move from mapID to zone name). Every step is non-destructive.
-  schemaVersion = 1,
+  -- Version stamp for the persisted DB, declared 0 per savedvariables-§1 (standard v2.65.0): the
+  -- pre-migration floor, never the current version, and it never moves. AceDB's removeDefaults
+  -- strips a stored value equal to its default at logout, and its defaults merge backfills a
+  -- declared default onto an account that stored no stamp; 0 has neither problem, since any stamp
+  -- the runner advanced differs from it and an unstamped account reads 0 and walks every step. The
+  -- runner owns the stamp: NS:RunMigrations (core/Database.lua) walks the MIGRATIONS table there,
+  -- and its highest `to`, NS.SCHEMA_VERSION, is what a migrated DB carries — 8 today, through
+  -- v1→v2 (strip the retired per-record `viaWhitelist`) up to v7→v8 (the Zone filter's move from
+  -- mapID to zone name). Every step is non-destructive.
+  schemaVersion = 0,
   history = {},          -- array of loot records
   -- Item-id filter lists (issue #14). Blacklisted ids are never recorded; rows already stored stay
   -- visible (point-in-time: a list change never hides or reveals history). Whitelisted ids are

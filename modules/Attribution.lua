@@ -28,7 +28,7 @@ local Constants = NS.Constants
 -- the *localized* name of a seed spell (resolved at match time via C_Spell), NEVER a hardcoded
 -- English literal: GetSpellName returns the client-locale name, so "Milling" on enUS becomes
 -- "Mahlen" on deDE and the check follows the player's language automatically
--- (Ka0s Standard localization-§4 / anti-pattern #37).
+-- (a localization-§4 / anti-pattern #37 departure, ratified in docs/ARCHITECTURE.md ## Documented deviations).
 local DECONSTRUCT_ID = {
   [13262] = "DISENCHANT", [289991] = "DISENCHANT",
   -- Milling: generic + per-expansion + a representative per-herb "Mass Mill" (seed for the name family)
@@ -165,9 +165,12 @@ function Attribution:ResolveLootSource(guid, state)
   local kind, npcID = NS.Compat.DecodeGUID(guid)
   if NS.Compat.UNIT_KINDS[kind] then
     local detail = { npcID = npcID }
-    if state.encounter then
-      detail.encounterID = state.encounter.id
-      detail.difficulty = state.encounter.difficulty
+    -- A live encounter has no `expires`; a won one carries it for ENCOUNTER_GRACE after
+    -- ENCOUNTER_END (the corpse is looted after the kill). `state.now` lets tests fix the clock.
+    local enc = state.encounter
+    if enc and (enc.expires == nil or (state.now or GetTime()) <= enc.expires) then
+      detail.encounterID = enc.id
+      detail.difficulty = enc.difficulty
     end
     return S.KILL, detail
   elseif kind == "GameObject" then
@@ -220,9 +223,21 @@ function Attribution:OnEncounterStart(_, encounterID, encounterName, difficultyI
   end
 end
 
-function Attribution:OnEncounterEnd()
-  State.encounter = nil
-  if NS.State.debug and NS.Debug then NS.Debug("Attr", "encounter end") end
+-- A kill keeps the context for Constants.ENCOUNTER_GRACE seconds, because the boss corpse is
+-- looted AFTER this event; a wipe (success ~= 1) or a missing context clears it. The next
+-- ENCOUNTER_START replaces the table, so a new pull drops the old expiry.
+function Attribution:OnEncounterEnd(_, encounterID, _, _, _, success)
+  local kept = success == 1 and State.encounter ~= nil
+  if kept then
+    State.encounter.expires = GetTime() + Constants.ENCOUNTER_GRACE
+  else
+    State.encounter = nil
+  end
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Attr", "encounter end id=%s %s", tostring(encounterID),
+      kept and ("kill: context kept " .. Constants.ENCOUNTER_GRACE .. "s for the corpse")
+        or "wipe/no context: cleared")
+  end
 end
 
 function Attribution:OnChallengeModeStart()
@@ -233,13 +248,46 @@ function Attribution:OnChallengeModeStart()
 end
 
 function Attribution:OnChallengeModeCompleted()
-  -- Keep the keystone context: the reward chest is looted shortly after completion.
+  -- Keep the keystone context: the reward chest is looted shortly after completion. A completion-time
+  -- level of 0 (or nil) is not a level, so it never overwrites the one CHALLENGE_MODE_START read.
   if State.keystone then
-    State.keystone.level = NS.Compat.GetActiveKeystoneLevel() or State.keystone.level
+    local lvl = NS.Compat.GetActiveKeystoneLevel()
+    if lvl and lvl > 0 then State.keystone.level = lvl end
     if NS.State.debug and NS.Debug then
       NS.Debug("Attr", "keystone completed +%s (reward chest still MPLUS)", tostring(State.keystone.level))
     end
   end
+end
+
+-- The keystone context's other end. Kept through completion (the reward chest), it goes when the
+-- player leaves the party instance -- otherwise every herb, ore node and world chest looted later
+-- in the session would record as MPLUS. Inside a party instance with no context, an active key
+-- re-arms it: CHALLENGE_MODE_START does not fire again for a player who zoned back into a running
+-- key. One IsInInstance call per zone change, plus one keystone read on the re-arm path.
+function Attribution:OnZoneChanged()
+  if not NS.Compat.InPartyInstance() then
+    if State.keystone then
+      State.keystone = nil
+      if NS.State.debug and NS.Debug then
+        NS.Debug("Attr", "keystone cleared (left the party instance; GameObject loot → CONTAINER)")
+      end
+    end
+    return
+  end
+  if State.keystone then return end
+  local lvl = NS.Compat.GetActiveKeystoneLevel()
+  if lvl and lvl > 0 then
+    State.keystone = { level = lvl }
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Attr", "keystone re-armed +%s on re-entry (GameObject loot → MPLUS)", tostring(lvl))
+    end
+  end
+end
+
+-- A reset key is over: nothing looted afterwards belongs to it.
+function Attribution:OnChallengeModeReset()
+  State.keystone = nil
+  if NS.State.debug and NS.Debug then NS.Debug("Attr", "keystone cleared (CHALLENGE_MODE_RESET)") end
 end
 
 -- Peripheral (non-loot-window) sources. Each stamps just before its resulting self-loot line.
@@ -346,17 +394,31 @@ function Attribution:Enable()
   if not bus or self._enabled then return end
   self._enabled = true
 
-  bus:RegisterEvent("LOOT_OPENED", function() self:OnLootOpened() end)
-  bus:RegisterEvent("ENCOUNTER_START", function(...) self:OnEncounterStart(...) end)
-  bus:RegisterEvent("ENCOUNTER_END", function() self:OnEncounterEnd() end)
-  bus:RegisterEvent("CHALLENGE_MODE_START", function() self:OnChallengeModeStart() end)
-  bus:RegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
-  bus:RegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
-  bus:RegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
-  -- Recorded as they are registered, so Attribution:Disable unregisters exactly what Enable
-  -- registered rather than from a hand-typed second list that drifts the day an event is added.
-  self.__events = { "LOOT_OPENED", "ENCOUNTER_START", "ENCOUNTER_END", "CHALLENGE_MODE_START",
-                    "CHALLENGE_MODE_COMPLETED", "TRADE_ACCEPT_UPDATE", "QUEST_TURNED_IN" }
+  -- Each name through Core's per-event helper (events-frames-taint-§1): a name this client refuses
+  -- costs only itself, lands once on NS.RejectedEvents, and is left out of `__events`, which holds
+  -- exactly the names that registered so Attribution:Disable unregisters exactly those rather than
+  -- from a hand-typed second list that drifts the day an event is added.
+  --
+  -- The keystone context's lifetime is ZONE_CHANGED_NEW_AREA + CHALLENGE_MODE_RESET.
+  -- PLAYER_ENTERING_WORLD is deliberately NOT used: the addon object already binds it to
+  -- OnEnterWorld (core/LifecycleSetup.lua), and a second registration of that event on the same
+  -- target would replace that handler.
+  local events = {}
+  local function safeRegisterEvent(event, handler)
+    if NS.SafeRegisterEvent(bus, event, handler, NS.RejectedEvents) then
+      events[#events + 1] = event
+    end
+  end
+  safeRegisterEvent("LOOT_OPENED", function() self:OnLootOpened() end)
+  safeRegisterEvent("ENCOUNTER_START", function(...) self:OnEncounterStart(...) end)
+  safeRegisterEvent("ENCOUNTER_END", function(...) self:OnEncounterEnd(...) end)
+  safeRegisterEvent("CHALLENGE_MODE_START", function() self:OnChallengeModeStart() end)
+  safeRegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
+  safeRegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
+  safeRegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
+  safeRegisterEvent("ZONE_CHANGED_NEW_AREA", function() self:OnZoneChanged() end)
+  safeRegisterEvent("CHALLENGE_MODE_RESET", function() self:OnChallengeModeReset() end)
+  self.__events = events
 
   -- Player-only spell-success via a dedicated RegisterUnitEvent frame — avoids the raid-wide
   -- firehose a bare RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") would deliver (every nameplate cast).
@@ -366,7 +428,7 @@ function Attribution:Enable()
   -- leak one frame per turn of the switch.
   local spellFrame = self.__spellFrame or CreateFrame("Frame")
   self.__spellFrame = spellFrame
-  spellFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+  NS.SafeRegisterUnitEvent(spellFrame, "UNIT_SPELLCAST_SUCCEEDED", NS.RejectedEvents, "player")
   spellFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
     self:OnSpellSucceeded(event, unit, castGUID, spellID)
   end)
@@ -394,7 +456,7 @@ function Attribution:Enable()
   end
 end
 
---- The stand-down half of Enable (slash-commands-§7). The seven shared-target events go by name --
+--- The stand-down half of Enable (slash-commands-§7). The nine shared-target events go by name --
 --- UnregisterAllEvents there would take the Collector's two and the addon's own with them -- and
 --- the per-unit spell frame goes wholesale, which is the registration a draw gate leaves visibly in
 --- place and no early return can take out.

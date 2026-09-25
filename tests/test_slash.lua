@@ -1,6 +1,5 @@
 local T = _G.LH_TEST
 local NS, test, assertTrue, assertEqual = T.NS, T.test, T.assertTrue, T.assertEqual
-local Loader = T.Loader
 
 local Sl = NS.Slash
 
@@ -138,10 +137,77 @@ test("/lh set echoes the stored value read back after writing", function()
   NS.Schema:Set("settings.enabled", true) -- restore
 end)
 
+test("/lh set a value the row's validate refuses prints INVALID and leaves the value alone", function()
+  -- Slash minor 15: the descriptor's `set` hands the seam's `false, err` back to CliSet, which
+  -- prints the refusal instead of echoing the unchanged value as though the write had landed.
+  local R = NS.SchemaRuntime
+  local probe = { path = "settings.__probe", type = "number", group = "Probe", default = 1,
+                  validate = function(v) return v < 5 end }
+  R.AddRows({ probe })
+  NS.db.global.settings.__probe = 1
+  local ok, out = pcall(capture, function() Sl:CliSet("settings.__probe 9") end)
+  local stored = NS.db.global.settings.__probe
+  for i, row in ipairs(NS.Schema.Schema) do if row == probe then table.remove(NS.Schema.Schema, i); break end end
+  R.Reindex()
+  NS.db.global.settings.__probe = nil
+  if not ok then error(out, 0) end
+  assertEqual(out[1], NS.PREFIX .. " Invalid value for settings.__probe", "the refusal names the path")
+  for _, line in ipairs(out) do
+    assertTrue(not line:find(Sl.FormatKV("settings.__probe", "1"), 1, true), "no echo of the old value")
+  end
+  assertEqual(stored, 1, "the refused value was not stored")
+end)
+
 test("/lh set on an unknown path prints Setting not found", function()
   local out = capture(function() Sl:CliSet("nope.not.real 1") end)
   assertEqual(out[1], NS.PREFIX .. " Setting not found: nope.not.real")
 end)
+
+test("/lh get minimap.shown reads the row's SHOWN sense; the old minimap.hide path is unknown",
+  function()
+    -- launcher-§3 (standard v2.65.0): the CLI path reads in the row's own sense, so a player typing
+    -- `/lh get minimap.shown` is told whether the button is shown. The one stored key is still
+    -- LibDBIcon's `minimap.hide`, which is why `true` is printed while it holds `false`.
+    -- red under: the row still pathed at `minimap.hide`, the shape this addon shipped before.
+    local mm = NS.db.global.minimap
+    local before = mm.hide
+    mm.hide = false
+    local got = capture(function() Sl:CliGet("minimap.shown") end)
+    local set = capture(function() Sl:CliSet("minimap.hide true") end)
+    local after = mm.hide
+    mm.hide = before
+    assertEqual(got[1], NS.PREFIX .. " " .. Sl.FormatKV("minimap.shown", "true"))
+    assertEqual(set[1], NS.PREFIX .. " Setting not found: minimap.hide",
+      "the old path answers the unknown-path refusal; a `/lh set minimap.hide` macro must be rewritten")
+    assertEqual(after, false, "the refused set wrote nothing")
+  end)
+
+test("/lh on a legacy store: hide = true reads minimap.shown false, and a set invents no `shown` key",
+  function()
+    -- The stored key does NOT move (WS-06 carry-over), so a player whose SavedVariables predate the
+    -- rename keeps their hidden button with no migration and no schema-version bump. A stored
+    -- `shown` key beside `hide` would be a second copy of one state (anti-pattern #81). Seeded IN
+    -- PLACE, because LibDBIcon holds this very table (launcher-§3) and a replacement would orphan it.
+    -- red under: the row still pathed at `minimap.hide`, or a set that writes at the row's path.
+    local mm = NS.db.global.minimap
+    local hide, pos = mm.hide, mm.minimapPos
+    mm.hide, mm.minimapPos = true, 200
+    local ok, err = pcall(function()
+      local out = capture(function() Sl:CliGet("minimap.shown") end)
+      assertEqual(out[1], NS.PREFIX .. " " .. Sl.FormatKV("minimap.shown", "false"))
+      assertEqual(NS.Launcher:IsShown(), false, "the button stays hidden")
+      assertEqual(mm.minimapPos, 200, "the button position is untouched by the read")
+      capture(function() Sl:CliSet("minimap.shown false") end)
+      assertEqual(mm.hide, true)
+      capture(function() Sl:CliSet("minimap.shown true") end)
+      assertEqual(mm.hide, false, "the set landed on LibDBIcon's own key")
+      assertEqual(mm.minimapPos, 200, "the button position is untouched by the sets")
+      assertTrue(mm.shown == nil, "no `shown` key is ever written to the raw store")
+    end)
+    mm.hide, mm.minimapPos = hide, pos
+    if NS.Launcher then NS.Launcher:SetShown(not hide) end
+    if not ok then error(err, 0) end
+  end)
 
 -- ── version verb (slash-commands-§3) ──
 
@@ -235,7 +301,7 @@ end
 
 --- How many rows a BULK reset actually sends through the write seam.
 ---
---- NOT `#NS.Schema.Schema` any more. launcher-§3 (standard v2.54.0) exempts `minimap.hide` from
+--- NOT `#NS.Schema.Schema` any more. launcher-§3 (standard v2.54.0) exempts `minimap.shown` from
 --- every bulk reset, so the walk skips it and it is not one of the rows the seam sees. Derived from
 --- `NS.Schema.RESET_EXEMPT` rather than written as a number, so this stays a statement about the
 --- veto: an exemption added or dropped moves the expectation with it, and a veto that stopped
@@ -662,7 +728,7 @@ test("an unknown verb says so and then prints the help index", function()
   assertEqual(out[3], NS.PREFIX .. " " .. Sl:HelpRows()[1])
 end)
 
--- ── bare `/lh` opens the settings panel (slash-commands-§4, Slash minor 11) ──────────────────
+-- ── bare `/lh` opens the settings panel (slash-commands-§3, Slash minor 11) ──────────────────
 --
 -- A bare `/lh` runs the `config` verb with "", which opens the settings panel on its landing page.
 -- `/lh help` is the command index. The config handler is swapped for a spy so the case measures the
@@ -726,49 +792,8 @@ test("/lh help prints the command index and does not run the config verb", funct
   end
 end)
 
--- ── the library-less install: the help list is rendered by subtraction ────────────────────────
---
--- On a load with no LibKa0s, settings/Slash.lua's `if not lib` branch renders help by SUBTRACTING
--- the verbs that cannot answer on that path from NS.COMMANDS, rather than from a second hand-typed
--- list that would drift. The subtraction is only honest if the subtracted set names every such
--- verb, and membership is not "went through the library" — `config` never did: its handler is
--- host-owned and calls NS.Panel:Open, which reaches O.OpenOptionsPanel, which on this path is
--- settings/OptionsSetup.lua's stub that prints "the settings panel is unavailable" and opens
--- nothing. slash-commands-§1 wants the degraded help to list what still WORKS; a verb that is
--- advertised and then declines is worse than one that is omitted, because the user spends a
--- command finding out.
-
-test("library-less install: the degraded help omits config, which would only decline", function()
-  local mocks = dofile("tests/wow_mock.lua")()
-  local ns = {}
-  Loader.loadAll(Loader.tocFiles("LootHistory.toc"), ns, mocks)
-  assertEqual(mocks.LibStub("LibKa0s-Slash-1.0", true), nil,
-    "this mock must have NO library, or the case below is measuring the live path")
-
-  local rows = ns.Slash.HelpRows()
-  local listed = {}
-  for _, row in ipairs(rows) do
-    local verb = row:match("^%s*|cFFFFFF00/lh (%S+)|r")
-    assertTrue(verb ~= nil, "unparseable help row: " .. tostring(row))
-    listed[verb] = true
-  end
-
-  assertTrue(not listed.config,
-    "`/lh config` reaches a stub that declines on this path, so it must not be advertised")
-  -- The verbs that genuinely still work have to survive, or "omit config" is satisfied by a help
-  -- list that omits everything -- the failure the subtraction shape exists to make impossible.
-  for _, verb in ipairs({ "show", "hide", "toggle", "debug", "test", "purge" }) do
-    assertTrue(listed[verb], "the degraded help must still offer /lh " .. verb)
-  end
-  -- And the library-owned half stays out, which is what the set did before config joined it.
-  -- `enable` / `disable` are subtracted for config's reason AND a deeper one: they delegate to
-  -- CliSet, and on this path the Options composer is the stub, so the Master controls block is
-  -- EMPTY and `settings.enabled` has no schema row for any seam to find.
-  for _, verb in ipairs({ "version", "get", "set", "list", "reset", "resetall", "help",
-                          "enable", "disable" }) do
-    assertTrue(not listed[verb], "/lh " .. verb .. " cannot answer with no library")
-  end
-end)
+-- The library-less install's cases (the degraded help, the refusal line, enable/disable and
+-- resetall on that path) live in tests/test_slash_degraded.lua.
 
 -- ── the two reserved verbs (slash-commands-§2) ────────────────────────────────────────────────
 
@@ -1018,3 +1043,52 @@ test("the refusal is never turned on a verb slash-commands-§2 keeps live, /lh e
     for k, v in pairs(saved) do g[k] = v end
     if not ok then error(err, 0) end
   end)
+
+-- ── /lh debug events: the rejected-names list is reachable (events-frames-taint-§1) ─────────────
+--
+-- A refused event name is recorded on NS.RejectedEvents, and a record nobody can read is the same
+-- silence one layer down. `/lh debug events` prints it, and says "none" rather than nothing, so a
+-- player on a healthy client gets an answer too. The debug window is not toggled by it.
+
+test("/lh debug events prints the rejected event names, or none", function()
+  local list = NS.RejectedEvents
+  assertTrue(type(list) == "table", "NS.RejectedEvents must be the addon-owned list")
+  local saved = {}
+  for i, v in ipairs(list) do saved[i] = v end
+  local ok, err = pcall(function()
+    for i = #list, 1, -1 do list[i] = nil end
+    local out = capture(function() Sl:OnSlash("debug events") end)
+    assertEqual(out[#out], NS.PREFIX .. " rejected events: none")
+    list[1], list[2] = "ENCOUNTER_START", "CHAT_MSG_CURRENCY"
+    out = capture(function() Sl:OnSlash("debug events") end)
+    assertEqual(out[#out], NS.PREFIX .. " rejected events: ENCOUNTER_START, CHAT_MSG_CURRENCY")
+  end)
+  for i = #list, 1, -1 do list[i] = nil end
+  for i, v in ipairs(saved) do list[i] = v end
+  if not ok then error(err, 0) end
+end)
+
+-- ── Chat lines hand their values to the printer's Format (events-frames-taint-§8) ───────────────
+--
+-- The count and toggle lines pass their values to NS.Format instead of pre-formatting them before
+-- the printer. The bytes a player sees do not change, and these cases pin them.
+
+test("Clear-blacklist confirm and /lh test print their exact lines through the printer", function()
+  local F, BT = NS.Filters, NS.BrowserTable
+  local realClear, realToggle = F.ClearList, BT.ToggleTestMode
+  local nextOn
+  F.ClearList = function() return 2 end
+  BT.ToggleTestMode = function() return nextOn, true end
+  local ok, err = pcall(function()
+    local out = capture(function() T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_CLEAR_BLACKLIST.OnAccept() end)
+    assertEqual(out[#out], NS.PREFIX .. " blacklist cleared (2 ids).")
+    nextOn = true
+    out = capture(function() Sl:OnSlash("test") end)
+    assertEqual(out[#out], NS.PREFIX .. " test mode on")
+    nextOn = false
+    out = capture(function() Sl:OnSlash("test") end)
+    assertEqual(out[#out], NS.PREFIX .. " test mode off")
+  end)
+  F.ClearList, BT.ToggleTestMode = realClear, realToggle
+  if not ok then error(err, 0) end
+end)
