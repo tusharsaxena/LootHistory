@@ -2,7 +2,7 @@ local addonName, NS = ...
 
 -- Shared namespace bootstrap. Runs early so common metadata exists regardless of load order.
 NS.name = addonName
-NS.version = "1.3.0"
+NS.version = "1.4.0"
 
 -- THE BRAND NAME, in plain text, and it is one string because it is read from three places that
 -- must agree: the LDB object's `label`, which a broker display prints beside ten others

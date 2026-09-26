@@ -1,6 +1,6 @@
 # Smoke tests
 
-Manual end-to-end smoke tests for **Ka0s Loot History** (v1.3.0). Run before claiming a non-trivial
+Manual end-to-end smoke tests for **Ka0s Loot History** (v1.4.0). Run before claiming a non-trivial
 change works, before tagging a release, and after refreshing `libs/` or bumping `## Interface:`. The
 headless harness (`lua tests/run.lua` + `luacheck .`, see [testing.md](testing.md)) covers the pure
 logic; everything below can only be verified **in-game** on the live client — **Retail (Midnight
@@ -999,7 +999,7 @@ instead, for every string at once, and only in game.
 
 Walk the whole surface and confirm **not one** all-caps underscored token is visible:
 
-- `/lh help` (the help index): the header reads `v1.3.0 — slash commands (/loothistory is an alias for
+- `/lh help` (the help index): the header reads `v1.4.0 — slash commands (/loothistory is an alias for
   /lh)` and each row is a gold `/lh <verb>`, an em dash, a white description — **not** `HELP_HEADER`
   or `UNKNOWN_COMMAND`.
 - `/lh list`, `/lh get settings.enabled`, `/lh set settings.enabled maybe` (which must refuse),
