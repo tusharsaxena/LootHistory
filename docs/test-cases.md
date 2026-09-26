@@ -663,7 +663,7 @@ badge and any count quoted in the docs must agree with it.
 - /lh debug events prints the rejected event names, or none
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
 
-### test_slash_degraded.lua (10)
+### test_slash_degraded.lua (12)
 
 - library-less install: the Slash under test is the degraded stub
 - library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
@@ -675,6 +675,8 @@ badge and any count quoted in the docs must agree with it.
 - library-less install: set on any other path, or a non-bool value, stays unavailable
 - library-less install: resetall clears the id lists and says how many
 - library-less install: resetall on one id says id, not ids
+- library-less install: both report forms answer with the library-absent line and nothing else
+- library-less install: the degraded help does not offer /lh diagnostics
 
 ### test_schema.lua (72)
 
@@ -951,7 +953,7 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 
-### test_disabled.lua (12)
+### test_disabled.lua (13)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
@@ -961,10 +963,30 @@ badge and any count quoted in the docs must agree with it.
 - slash-commands-§7 step 7: every RESERVED verb still answers, and the bare /lh opens the panel
 - slash-commands-§7 step 7: every FEATURE verb refuses on ONE line and reaches no write seam
 - slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own
+- slash-commands-§7 step 7: both diagnostics forms write a full report while stood down
 - slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature
 - slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
+
+### test_diagnostics.lua (16)
+
+- diagnostics: the report is bracketed by this addon's brand, and no section fails
+- diagnostics: every DX-LH section writes its own lead line, in the report's order
+- diagnostics: the identity section names the stored and code schema, and account-wide
+- diagnostics: a changed setting prints as path = value (default); the always rows print anyway
+- diagnostics: the AH section prints the priority cascade and which providers are loaded
+- diagnostics: a filter list past 40 ids prints the first 40 and says how many more
+- diagnostics: the history summary is aggregate: counts by source, quality, bound, characters
+- diagnostics: the tail is the newest 25 records, stored fields only, with no link escapes
+- diagnostics: the rejected events `/lh debug events` prints are folded into the report
+- diagnostics: while stood down, the capture section says so instead of printing empty wiring
+- diagnostics: the report calls no item, tooltip or keystone API and changes no state
+- diagnostics: a raising section costs exactly one line and the sections after it still land
+- diagnostics: an over-cap report ends with the truncated line, then the end marker
+- diagnostics: a secret value in the stored loot context does not raise the report
+- diagnostics: the COMMANDS row sits directly after debug
+- diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 
 ### test_doc_structure.lua (6)
 
@@ -1027,9 +1049,15 @@ badge and any count quoted in the docs must agree with it.
 - layoutcap self-test: a census that states nothing is told apart from one that states none
 - layoutcap self-test: the exempt set takes folders as well as paths
 
-### test_diagnostics_contract.lua (1)
+### test_diagnostics_contract.lua (7)
 
-- diagnostics contract: debug-logging-§14 (skipped: Kit.diagnostics is not set in the runner, so this repo's dispatcher is not wired to the shared contract yet. Every Ka0s addon owes debug-logging-§14's report; wire Kit.diagnostics once the report exists)
+- diagnostics contract: both forms run the report
+- diagnostics contract: the debug word is matched in any case
+- diagnostics contract: both markers carry the brand and the end counts the report
+- diagnostics contract: the report appends after what the console already holds
+- diagnostics contract: the report lands with logging off and leaves it off
+- diagnostics contract: both forms run while the addon is disabled
+- diagnostics contract: no other name runs the report
 
 ### test_widgets.lua (17)
 
@@ -1074,7 +1102,7 @@ badge and any count quoted in the docs must agree with it.
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 21 |
 | test_slash.lua | 64 |
-| test_slash_degraded.lua | 10 |
+| test_slash_degraded.lua | 12 |
 | test_schema.lua | 72 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 62 |
@@ -1083,13 +1111,14 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 24 |
 | test_surface_parity.lua | 14 |
-| test_disabled.lua | 12 |
+| test_disabled.lua | 13 |
+| test_diagnostics.lua | 16 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
-| test_diagnostics_contract.lua | 1 |
+| test_diagnostics_contract.lua | 7 |
 | test_widgets.lua | 17 |
-| **Total** | **934** |
+| **Total** | **959** |

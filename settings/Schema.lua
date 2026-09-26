@@ -927,11 +927,17 @@ NS.COMMANDS = gateFeatureVerbs{
   { "resetall", "Reset all settings",    function() NS.Slash:CliResetAll() end },
   { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
     function(rest)
+      -- `/lh debug diagnostics` is tested FIRST (debug-logging-§14): the same report as the
+      -- `diagnostics` row below, through the same call, so the two forms cannot diverge. It is
+      -- matched in any case, and no shorter word (`diag`, `dump`) reaches it: those fall through to
+      -- the toggle like any word this verb does not know.
       -- `/lh debug` toggles the window only (state untouched); `/lh debug on|off` sets the
       -- session-only logging flag via the DebugLog seam. Logging runs even with the window closed.
       -- `/lh debug events` prints the event names this client refused (events-frames-taint-§1):
-      -- the list core/CoreSetup.lua owns, "none" on a healthy client. It needs no console.
+      -- the list core/CoreSetup.lua owns, "none" on a healthy client. It needs no console, and the
+      -- report carries the same list, so a bug report does not need it run separately.
       local arg = rest and tostring(rest):lower():match("^%s*(%S*)") or ""
+      if arg == "diagnostics" then return NS.DebugLog:RunDiagnostics() end
       if arg == "events" then
         local names = NS.RejectedEvents or {}
         return print("rejected events: " .. (#names > 0 and table.concat(names, ", ") or "none"))
@@ -941,6 +947,12 @@ NS.COMMANDS = gateFeatureVerbs{
       elseif arg == "off" then NS.DebugLog:SetEnabled(false)
       else NS.DebugLog:Toggle() end
     end },
+  -- The diagnostics report (debug-logging-§14): appended to the debug console after whatever trace
+  -- is already there, with logging on or off, while the addon is disabled too (it is on
+  -- LIVE_WHILE_DISABLED above). The sections are modules/Diagnostics.lua's. With no LibKa0s the
+  -- DebugLog stub answers with the collection's library-absent line and writes nothing.
+  { "diagnostics", NS.L["Write the diagnostics report to the debug console"],
+    function() NS.DebugLog:RunDiagnostics() end },
   { "test", "Toggle a synthetic preview dataset (table + Insights)", function()
       -- The same switch as the Master controls `Test mode` box. A refused start prints its own one
       -- line, so this one prints only when the mode actually switched.

@@ -307,9 +307,13 @@ if not lib then
   -- writeThrough list (settings/Schema.lua; options-ui-§1 route (a)) -- the Options composer is
   -- the stub, so there is no row, and writeThrough is what stores the value anyway. `set` stays
   -- here, because only that one path writes: advertising it would promise the whole schema CLI.
+  -- `diagnostics` is here for `config`'s reason: it still DISPATCHES (its row is host-owned, and
+  -- the debug word reaches the same call), but the report is written into the LibKa0s console, so
+  -- on this path it lands on the DebugLog stub, which prints the collection's library-absent line
+  -- (debug-logging-§14) and writes nothing. Answering is not working, so help does not offer it.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
-    reset = true, resetall = true, help = true, config = true,
+    reset = true, resetall = true, help = true, config = true, diagnostics = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there

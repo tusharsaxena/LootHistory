@@ -409,6 +409,40 @@ test("slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the
   end
 end)
 
+test("slash-commands-§7 step 7: both diagnostics forms write a full report while stood down", function()
+  -- debug-logging-§14: a disabled addon is the one a player is most likely to be reporting, so the
+  -- report runs from the stand-down itself, not from a flag this case set. It reads state only, so
+  -- the registration set it leaves is the stood-down one.
+  bringUp()
+  setEnabled(false)
+  local D = NS.DebugLog
+  local before = regSet()
+  local ok, err = pcall(function()
+    for _, form in ipairs({ "diagnostics", "debug diagnostics" }) do
+      local mark = #D.buffer
+      -- red under: `diagnostics` left off LIVE_WHILE_DISABLED, which turns the row into a feature
+      -- verb and prints the refusal line instead; or a debug handler that refuses while disabled.
+      capture(function() NS.Slash:OnSlash(form) end)
+      local began, ended
+      for i = mark + 1, #D.buffer do
+        if D.buffer[i]:find("Ka0s Loot History diagnostics begin", 1, true) then began = i end
+        if D.buffer[i]:find("Ka0s Loot History diagnostics end:", 1, true) then ended = i end
+      end
+      assertTrue(began ~= nil and ended ~= nil and ended > began, "/lh " .. form .. " wrote a whole report")
+      -- red under: a capture section that prints the (empty) wiring of a stood-down addon.
+      local says
+      for i = began, ended do
+        if D.buffer[i]:find("capture: stood down", 1, true) then says = true end
+      end
+      assertTrue(says, "/lh " .. form .. ": the capture section says the addon is stood down")
+    end
+    assertEqual(table.concat(regSet(), ","), table.concat(before, ","),
+      "the report registered something on a stood-down addon")
+  end)
+  setEnabled(true)
+  if not ok then error(err, 0) end
+end)
+
 -- ── 8. the launcher ───────────────────────────────────────────────────────────────────────────
 
 test("slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature",

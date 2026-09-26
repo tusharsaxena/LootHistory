@@ -88,6 +88,7 @@ Env, Lifecycle, Widgets, Pool and Launcher seams resolve nothing at load. The ro
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`) at `DIALOG` strata, config-driven per invoking tab (`{ title, providers, csv }`): Data Set dropdown (All Data / Current View, a **`LibKa0s-Widgets-1.0`** dropdown through `core/WidgetsSetup.lua`); on an install with no library the modal **refuses to open**, decided by `NS.HasWidgets()` *before* the frame is created, so the refusal costs nothing and memoizes nothing; `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; the copy window is **`LibKa0s-Widgets-1.0`**'s `CopyWindow`, described (not built) here through `core/WidgetsSetup.lua`'s `NS.CopyWindow`. Called directly by the Browser; no bus message. |
 | `modules/Analytics.lua` | Insights tab, split by two dividers into a **LOOT** block (items-only stat/highlight cards + breakdowns: source, value, quality, item type, bound type, per-character companions, hour/weekday + per-day strips, top zones/items/value) and a **CURRENCY** block (Currency Collected, Currency by Type × Source, Currency by Character × Type, currency-per-day) shown only when the range has currency events — all from one `Database:Stats` pass, **scoped by the shared filter bar** (`Browser:CurrentFilter`, no range selector of its own). Pooled bar/strip/list renderers. |
+| `modules/Diagnostics.lua` | The diagnostics report's **sections** (`debug-logging-§14`): `/lh diagnostics` and `/lh debug diagnostics` both call `NS.DebugLog:RunDiagnostics()`, and **`LibKa0s-DebugLog-1.0`**'s helper writes the markers, its half of the identity header, a pcall per section, the cap and the append around the ordered list `NS.Diagnostics.Sections()` answers. Reads stored state and module fields only, never an item, tooltip or keystone API; see [module-map.md](module-map.md) for the section list. |
 
 ---
 
@@ -279,7 +280,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 
 | Doc | Status | Trigger |
 |---|---|---|
-| `slash-dispatch.md` | Present | 16 verbs in `NS.COMMANDS` |
+| `slash-dispatch.md` | Present | 17 verbs in `NS.COMMANDS` |
 | `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
 | `compat-layer.md` | Present | 22 shims (`grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua`) of addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |

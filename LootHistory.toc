@@ -90,6 +90,7 @@ modules\Browser.lua
 modules\BrowserTable.lua
 modules\Export.lua
 modules\Analytics.lua
+modules\Diagnostics.lua
 
 # Settings
 # LOAD-BEARING POSITION: settings\Schema.lua composes its Master controls tab at FILE LOAD
