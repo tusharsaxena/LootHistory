@@ -1,0 +1,1 @@
+clean: README Reporting a bug matches STD-17 verbatim with /lh (no link), STD-18 row present, live-verb list matches LIVE_WHILE_DISABLED; new doc cases fail on old and link-mutated README; gate re-run 961/0, luacheck 0/0, lizard clean, CRLF kept
