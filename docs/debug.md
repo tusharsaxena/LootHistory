@@ -42,7 +42,8 @@ What Loot History supplies, all in `core/DebugLogSetup.lua`:
 
 The tags in use, and the checks that each one fires once rather than once per row, are in
 [smoke-tests.md §15](smoke-tests.md#15-debug-console-coverage). On an install without LibKa0s the
-flag still works and `on` / `off` still confirm, but the window is gone and the stub says so.
+flag still flips on `on` / `off`, but the window is gone: instead of a confirmation, each prints the
+library-absent line ending `so the debug console window is unavailable.`
 
 ## The diagnostics report
 

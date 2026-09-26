@@ -763,7 +763,7 @@ means is in [debug.md](debug.md#the-diagnostics-report).
 - Step 5: none of them runs the report. `/lh diag` and `/lh dump` print `unknown command` and the
   help index; `/lh debug diag` toggles the console window like any other unknown word.
 - Step 6: both forms write a full report while the addon is off. It reads
-  `identity: enabled=false stoodDown=true` and
+  `identity: enabled=false stoodDown=true testMode=false` and
   `capture: stood down (the loot, currency and context events are unregistered)`, and no feature
   comes back on because of it.
 - Step 7: no Lua error. A value the client hides in combat prints as `<secret>` or `?`, never as a
