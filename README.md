@@ -6,11 +6,11 @@
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
 ![Tests](https://img.shields.io/badge/Tests-961%2F961_passing-green)
 
-Ka0s Loot History is a passive loot tracker for **World of Warcraft: Midnight**. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot, or switch to the **Insights** tab to see the same log broken down by source, value, quality and more.
+Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
-The history is account-wide. Every character writes to and reads from the one log, and it survives reloads and logouts. You choose a minimum quality; anything below it is ignored.
+The history is account-wide. Every character writes to and reads from the same log, and it survives reloads and logouts. You pick a minimum quality, and anything below it is ignored.
 
-Every item is filed under a source:
+Each item is filed under one of these sources:
 
 | Source | What it covers |
 | ------ | -------------- |
@@ -29,7 +29,7 @@ Every item is filed under a source:
 | Disenchant / Milling / Prospecting | Items produced by those actions |
 | Other | Anything that arrived with no clear source |
 
-Most items are filed straight from what the game reported, and those are marked **Certain**. When nothing says where an item came from, it is still recorded — filed under **Other** and marked **Inferred** rather than dropped on the floor. The distinction is on every row, so you always know which kind you are reading.
+Most items are filed straight from what the game reported, and those are marked **Certain**. Sometimes nothing says where an item came from. The addon still records it, under **Other** and marked **Inferred**, rather than dropping it on the floor. Every row shows which of the two it is, so you always know what you're reading.
 
 ## Screenshots
 
@@ -47,66 +47,76 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-On the first run after installing, log in, and the addon is already recording; there is nothing to set up first. Left-click the minimap button to open the settings. Right-click it for a small options menu with four ticks: **Enabled**, **Locked**, **Test mode** and **Show window**, the last of which opens and closes the History window (so does `/lh toggle`, and `/lh show` and `/lh hide` if you want only the one direction). Each tick does exactly what the matching command or setting does, and while the addon is switched off the last three are grayed out until you tick **Enabled** again. If you would rather not have the button at all, untick **Minimap button** on the Master controls tab. The same button turns up in Titan Panel, ElvUI's data texts or Bazooka if you run one; it is the same button, so it answers the same two clicks. Hover it for its status: whether the addon is enabled, whether the window is locked, whether test mode is on, and how many records you have, even while the addon is switched off. Drag the window by its title bar to place it, lock it once you are happy, and use **Reset position** if it ever ends up somewhere you cannot reach. A fresh install has nothing in it to look at, which makes the addon hard to judge, so it has a test mode: tick **Test mode** on the Master controls tab, or type `/lh test`, and the window opens with a sample dataset in the table and Insights. It stays on until you turn it off, entering combat turns it off for you, and it is never saved.
+There's nothing to set up. Install it, log in, and it's already recording.
 
-Click a column header to sort. The filter bar narrows what you are looking at — quality, type, source, zone, character, a name search — and **Group by** collapses rows together. That bar is shared with Insights, so the table and the charts always show the same slice of your loot rather than quietly disagreeing about which loot is under discussion. Insights takes that same slice and breaks it down by source, value, quality and character, with a Currency section of its own. When you have a view you like, **Save** stores its group, sort and filters as your account-wide default; **Clear** returns to that view and **Reset** drops the saved view back to stock. Sorting and filters only persist between sessions if you pressed Save.
+Left-click the minimap button to open the settings. Right-click it for a small options menu with four ticks: **Enabled**, **Locked**, **Test mode** and **Show window**. Show window opens and closes the History window. So does `/lh toggle`, and `/lh show` and `/lh hide` work if you only want one direction. Each tick does exactly what the matching command or setting does. While the addon is switched off, the last three are grayed out until you tick **Enabled** again.
 
-Rows do more than sit there. Hover one for the item's own tooltip (currency rows show the currency tooltip), shift-click to link it into chat, right-click for the row menu. **Blacklist item** stops future loots of that id being recorded and leaves the row you clicked exactly where it is; the filter lists are point-in-time and never edit history you already have. **Delete** is there for when you want the row itself gone.
+Hover the button to see its status: whether the addon is enabled, whether the window is locked, whether test mode is on, and how many records you have. That works even while the addon is switched off. If you run Titan Panel, ElvUI's data texts or Bazooka, the same button turns up there too and answers the same two clicks. If you'd rather not have the button at all, untick **Minimap button** on the Master controls tab.
 
-**Export** follows whichever tab you are on. From History it copies your loot rows as CSV; from Insights, an analytics summary that mirrors the charts. Either one honors the **Data Set** choice, so it is all your data or just the filtered view in front of you. Nothing leaves the game — the addon can't reach your system clipboard, so it opens a box with the text already selected for you to press Ctrl+C on.
+Drag the window by its title bar to place it, then lock it once you're happy with where it sits. If it ever ends up somewhere you can't reach, use **Reset position**.
 
-`/lh disable` turns the addon off and `/lh enable` turns it back on; it is the same switch as **Master controls ▸ Enable Loot History**. Switched off, the addon stops watching for loot, cancels anything it had pending and closes its window. It does not stay loaded and ignore what it sees. The slash commands keep working while it is off: a bare `/lh` still opens the settings panel, `/lh get` and `/lh set` still read and repair settings, `/lh debug` and `/lh diagnostics` still work so you can report a problem, and `/lh enable` is always there. Only the commands that drive the window refuse, and their one-line reply tells you how to switch the addon back on.
+A fresh install has nothing in it to look at, which makes the addon hard to judge. That's what test mode is for. Tick **Test mode** on the Master controls tab, or type `/lh test`, and the window opens with a sample dataset in the table and Insights. It stays on until you turn it off. Entering combat turns it off for you, and it's never saved.
 
-Everything else is configured under **Settings ▸ AddOns ▸ Ka0s Loot History**, which `/lh` (or `/loothistory`) opens; `/lh help` (or `/loothistory help`) lists the commands.
+Click a column header to sort. The filter bar narrows what you're looking at by quality, type, source, zone, character or a name search, and **Group by** collapses rows together. History and Insights share that bar, so the table and the charts always show the same slice of your loot instead of quietly disagreeing about which loot they mean. Insights breaks that slice down by source, value, quality and character, and gives currency a section of its own.
+
+When you have a view you like, press **Save** to store its group, sort and filters as your account-wide default. **Clear** goes back to that view, and **Reset** puts the saved view back to stock. Sorting and filters only carry over between sessions if you pressed Save.
+
+Hover a row for the item's own tooltip (currency rows show the currency tooltip). Shift-click it to link it in chat, or right-click for the row menu. **Blacklist item** stops future loots of that item id from being recorded, and leaves the row you clicked exactly where it is. The filter lists take effect from the moment you set them and never edit history you already have. When you want the row itself gone, use **Delete**.
+
+**Export** works on whichever tab you're on. From History it copies your loot rows as CSV. From Insights it copies an analytics summary that mirrors the charts. Both honor the **Data Set** choice, so you get either all your data or just the filtered view in front of you. Nothing leaves the game. The addon can't reach your system clipboard, so it opens a box with the text already selected and you press Ctrl+C.
+
+`/lh disable` turns the addon off and `/lh enable` turns it back on. It's the same switch as **Master controls ▸ Enable Loot History**. When it's off, the addon stops watching for loot, cancels anything it had pending and closes its window. It doesn't stay loaded and quietly ignore what it sees. The slash commands still work while it's off. A bare `/lh` opens the settings panel, `/lh get` and `/lh set` read and repair settings, `/lh debug` and `/lh diagnostics` are there so you can report a problem, and `/lh enable` is always available. Only the commands that drive the window refuse, and their one-line reply tells you how to switch the addon back on.
+
+Everything else is in **Settings ▸ AddOns ▸ Ka0s Loot History**. `/lh` (or `/loothistory`) opens it, and `/lh help` (or `/loothistory help`) lists the commands.
 
 ## How attribution works
 
-When an item arrives, the addon looks at what you were just doing. Killing a creature, opening a container, turning in a quest, taking mail, trading, buying from a vendor, winning an auction, finishing a Mythic+ run — each leaves a signal it reads at the moment the loot lands.
+When an item arrives, the addon looks at what you were just doing. Killing a creature leaves a signal it can read at the moment the loot lands. So do opening a container, turning in a quest, taking mail, trading, buying from a vendor, winning an auction and finishing a Mythic+ run.
 
-If a signal is there, the item is filed under that source and marked **Certain**. If nothing tells it where the item came from, the addon files it under **Other** and marks it **Inferred**, which is a better record than none. Everything from one loot window is filed under the same source, so a full chest of drops lands together.
+If there's a signal, the item goes under that source and is marked **Certain**. If nothing says where the item came from, it goes under **Other** and is marked **Inferred**. That's still a better record than none. Everything from one loot window gets the same source, so a full chest of drops lands together.
 
 ### What a drop was worth
 
-Attribution is only half of what is read as an item arrives. The other half is its value, and it is read then for the same reason: a price looked up later is a price from a different day.
+Where an item came from is half of what the addon reads when it arrives. The other half is what it's worth, and it reads that at the same moment for the same reason: a price looked up later is a price from a different day.
 
-If you have **Auctionator**, **TSM** or **OribosExchange** installed, an auction price is read for each item the moment you loot it. One is enough. With none of them, pricing is quietly skipped.
+If you have **Auctionator**, **TSM** or **OribosExchange** installed, the addon reads an auction price for each item the moment you loot it. One of them is enough. With none installed, it skips pricing.
 
-Which prices count is your call. **Settings ▸ AH Price** lists every price your installed addons can supply — TSM's market value against its region average, for instance — in one table. Tick the ones you want, and drag them by the handle on each row into the order you trust them in; where more than one has a price for an item, the highest-ranked ticked source wins. Unticked sources, and any whose addon isn't installed, fall to the bottom.
+You decide which prices count. **Settings ▸ AH Price** lists every price your installed addons can supply in one table (TSM's market value alongside its region average, for instance). Tick the ones you want and drag them by the handle on each row into the order you trust them in. When more than one has a price for an item, the highest-ranked ticked source wins. Unticked sources, and any whose addon isn't installed, drop to the bottom.
 
-The **value** shown throughout the History table and Insights is the higher of an item's vendor sell price and its auction price, so nothing ever reads as worth less than a vendor would pay for it.
+The value shown throughout the History table and Insights is the higher of an item's vendor sell price and its auction price. Nothing ever shows as worth less than a vendor would pay for it.
 
 ## FAQ
 
 | Question | Answer |
 |----------|--------|
-| Does this track loot for my whole account or just one character? | The whole account. One shared history with a Character column, so every character adds to and reads from the same log. |
+| Does this track loot for my whole account or just one character? | The whole account. There's one shared history with a Character column, and every character adds to and reads from the same log. |
 | Does it record other players' loot? | No. Only items **you** pick up. |
-| What does the "confidence" marker mean? | Each item is marked **Certain** or **Inferred**. Most are Certain, filed straight from what the game reported. When the source can't be worked out, the item is still kept — filed under **Other** and marked Inferred. |
-| Which sources can I toggle on or off? | Every source it records — Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft and Refund — under **Capture ▸ Record data from** in the settings. |
-| Will raising the quality threshold hide items I already looted? | No. The threshold only applies to new items. What you have already recorded stays until the retention setting clears it or you delete it by hand. |
-| Do I need another addon to see auction values? | Only if you want them. Prices come from **Auctionator**, **TSM** or **OribosExchange** if you have one installed; with none, every value falls back to the vendor sell price. The value shown is always the higher of the two. |
-| How do I stop tracking one specific item — or force-track one below my threshold? | The **Filters** tab in settings. Blacklist an item (by id, name or a shift-clicked link) to skip it from now on; whitelist one to record it always, even when it is below your quality threshold, from a muted source, or a quest item. Both are point-in-time: they change future loots only and never touch rows you already have. |
-| Does "Export to CSV" send my loot anywhere? | No. It builds the CSV text and opens a box for you to copy by hand. Nothing leaves the game; what you do with the copied text is your business. |
-| Do my filters and sorting stick between sessions? | Only if you save them. The filter bar's **Save** button stores the current group, sort and filters as your account-wide default view; **Clear** returns to that view, and **Reset** drops the saved view back to stock. |
-| How do I wipe everything and start clean? | `/lh purge` deletes all history, with a confirmation first. To reset your settings but keep the history, `/lh resetall`. |
-| What is `/lh test` for? | It turns on test mode, which loads a sample dataset into the window and Insights so you can see how they look without real loot. The **Test mode** checkbox on the Master controls tab is the same switch. It is never saved, and it clears when you run the command again, untick the box, or enter combat. |
-| Does history survive reloads and relogs? | Yes. It is saved and restored every time you log in. |
+| What does the "confidence" marker mean? | Each item is marked **Certain** or **Inferred**. Most are Certain, filed straight from what the game reported. When the source can't be worked out, the addon still keeps the item, files it under **Other** and marks it Inferred. |
+| Which sources can I toggle on or off? | Every source it records: Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft and Refund. They're under **Capture ▸ Record data from** in the settings. |
+| Will raising the quality threshold hide items I already looted? | No. The threshold only applies to new items. What you've already recorded stays until the retention setting clears it or you delete it by hand. |
+| Do I need another addon to see auction values? | Only if you want them. Prices come from **Auctionator**, **TSM** or **OribosExchange** if you have one installed. With none, every value falls back to the vendor sell price. The value shown is always the higher of the two. |
+| How do I stop tracking one specific item, or force-track one below my threshold? | Use the **Filters** tab in settings. Blacklist an item (by id, name or a shift-clicked link) to skip it from now on. Whitelist one to always record it, even if it's below your quality threshold, from a muted source, or a quest item. Both lists only affect future loots and never touch rows you already have. |
+| Does "Export to CSV" send my loot anywhere? | No. It builds the CSV text and opens a box for you to copy by hand. Nothing leaves the game, and what you do with the copied text is your business. |
+| Do my filters and sorting stick between sessions? | Only if you save them. The filter bar's **Save** button stores the current group, sort and filters as your account-wide default view. **Clear** returns to that view, and **Reset** puts the saved view back to stock. |
+| How do I wipe everything and start clean? | `/lh purge` deletes all history, and asks you to confirm first. To reset your settings but keep the history, use `/lh resetall`. |
+| What is `/lh test` for? | It turns on test mode, which loads a sample dataset into the window and Insights so you can see how they look before you have real loot. The **Test mode** checkbox on the Master controls tab is the same switch. It's never saved, and it clears when you run the command again, untick the box, or enter combat. |
+| Does history survive reloads and relogs? | Yes. It's saved, and restored every time you log in. |
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| Nothing is being recorded. | Check that **Master controls ▸ Enable Loot History** is on. If you expect grays or whites, lower **Capture ▸ Minimum quality**. The source may be turned off under **Record data from**. Quest items are skipped by default — uncheck **Capture ▸ Exclude quest items** to record them. The item may also be blacklisted on the **Filters** tab. |
+| Nothing is being recorded. | Check that **Master controls ▸ Enable Loot History** is on. If you expect grays or whites, lower **Capture ▸ Minimum quality**. The source may be turned off under **Record data from**. Quest items are skipped by default, so uncheck **Capture ▸ Exclude quest items** if you want them. The item may also be blacklisted on the **Filters** tab. |
 | The minimap button is gone. | It's hidden. Tick **Master controls ▸ Minimap button** back on, or open the window with `/lh toggle`. |
 | An item landed under the wrong source (or "Other"). | When nothing tells the addon where an item came from, it falls back to **Other** / **Inferred**. Open the debug console with `/lh debug` to see how an item was filed. |
-| The AH Price / value column is blank, or just matches the vendor price. | You need **Auctionator**, **TSM** or **OribosExchange** installed, **AH Price ▸ Enable AH pricing** on, and at least one price source ticked. Even then, a price only appears once that addon actually has one for the item — after its next scan, usually. Until then the value falls back to the vendor sell price. |
+| The AH Price / value column is blank, or just matches the vendor price. | You need **Auctionator**, **TSM** or **OribosExchange** installed, **AH Price ▸ Enable AH pricing** on, and at least one price source ticked. Even then, a price only shows up once that addon actually has one for the item, which is usually after its next scan. Until then the value falls back to the vendor sell price. |
 | I clicked Export to CSV but nothing was copied. | The addon can't write to your system clipboard. A box opens with the text already selected: press **Ctrl+C** to copy, then **Esc** to close. |
-| An item I don't want keeps being recorded. | Blacklist it on the **Filters** tab: type its id or name, or shift-click its link into the box. Future loots are skipped; rows you already have stay until you delete them. |
-| Rows are missing from the table. | A column filter or the search box is probably narrowing it. Press **Clear** on the filter bar to return to your saved view. Filters and sorting only persist between sessions if you pressed **Save**. |
-| `/lh debug on` doesn't open the debug window. | `on` / `off` control debug **logging**, which is session-only and off again after every reload. That is not the window. Show the window with `/lh debug` and no argument, or the **Master controls ▸ Debug console** toggle. Logging runs perfectly well with the window closed. |
-| The window is off-screen or the wrong size. | Position, size and scale are remembered per account. Adjust **Interface ▸ Window scale**, or drag it back into view. |
+| An item I don't want keeps being recorded. | Blacklist it on the **Filters** tab. Type its id or name, or shift-click its link into the box. Future loots are skipped, and rows you already have stay until you delete them. |
+| Rows are missing from the table. | A column filter or the search box is probably narrowing it. Press **Clear** on the filter bar to go back to your saved view. Filters and sorting only carry over between sessions if you pressed **Save**. |
+| `/lh debug on` doesn't open the debug window. | `on` / `off` control debug **logging**, not the window. Logging is session-only and switches off again after every reload. To show the window, use `/lh debug` with no argument, or the **Master controls ▸ Debug console** toggle. Logging runs fine with the window closed. |
+| The window is off-screen or the wrong size. | The addon remembers position, size and scale per account. Adjust **Interface ▸ Window scale**, or drag the window back into view. |
 | I want to preview the window but have no loot yet. | Tick **Master controls ▸ Test mode**, or type `/lh test`. Untick it, or run `/lh test` again, to clear it. |
-| I want to wipe everything and start over. | `/lh purge` clears all history, with a confirmation. `/lh resetall` resets settings without touching your history. |
+| I want to wipe everything and start over. | `/lh purge` clears all history, after you confirm. `/lh resetall` resets settings without touching your history. |
 | Something looks wrong and I want to report it. | Follow [Reporting a bug](#reporting-a-bug) below. |
 
 ## Reporting a bug
@@ -119,7 +129,7 @@ The report is added after the debug trace in the same window, so one copy carrie
 
 ## Issues and feature requests
 
-Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/issues](https://github.com/tusharsaxena/LootHistory/issues). Please file them there rather than in comments; it's the single place the project's to-do list lives.
+Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/issues](https://github.com/tusharsaxena/LootHistory/issues). Please file them there rather than in comments. That's where the project's to-do list lives.
 
 ## Version History
 
