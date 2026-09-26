@@ -190,6 +190,21 @@ local function filters(out)
   end
 end
 
+--- A context's `detail` as `key=value` pairs, keys sorted. Attribution:Stamp stores a TABLE here
+--- for a kill, a boss or a quest ({ npcID, encounterID, difficulty, keystoneLevel, questID }), and
+--- a table through `out:plain` is only its address. Anything else prints as itself.
+local function detailText(out, d)
+  if type(d) ~= "table" then return out:plain(d) end
+  local keys, byKey = {}, {}
+  for k, v in pairs(d) do
+    local name = out:str(k)
+    keys[#keys + 1], byKey[name] = name, v
+  end
+  table.sort(keys)
+  for i, name in ipairs(keys) do keys[i] = name .. "=" .. out:str(byKey[name]) end
+  return #keys > 0 and table.concat(keys, " ") or "-"
+end
+
 --- The stored loot context: what the next CHAT_MSG_LOOT would be attributed to. Its expiry is
 --- printed as seconds left only when both it and the clock read as numbers.
 local function context(out, ctx)
@@ -200,7 +215,7 @@ local function context(out, ctx)
     left = ("%.1f"):format(ctx.expires - now)
   end
   out:add(TAG, "attribution: context source=%s detail=%s confidence=%s expires in %s s",
-    ctx.source, out:plain(ctx.detail), ctx.confidence, left)
+    ctx.source, detailText(out, ctx.detail), ctx.confidence, left)
 end
 
 local function attribution(out)

@@ -282,6 +282,22 @@ test("diagnostics: a secret value in the stored loot context does not raise the 
   if not ok then error(err, 0) end
 end)
 
+test("diagnostics: the stored context's detail prints its fields, not a table address", function()
+  -- Attribution:Stamp stores `detail` as a table ({ npcID, encounterID, difficulty, ... }) for a
+  -- kill, a boss or a quest. red under: `out:plain(ctx.detail)`, which prints `table: 0x...`.
+  local saved = NS.State.lootContext
+  NS.State.lootContext = { source = "KILL", confidence = "CERTAIN", expires = 0,
+    detail = { npcID = 12345, encounterID = 2902, difficulty = 16 } }
+  local ok, err = pcall(function()
+    local line = find(build(), "attribution: context") or ""
+    assertTrue(line:find("detail=difficulty=16 encounterID=2902 npcID=12345", 1, true) ~= nil,
+      "the detail's fields, sorted: " .. line)
+    assertFalse(line:find("table:", 1, true) ~= nil, "no table address: " .. line)
+  end)
+  NS.State.lootContext = saved
+  if not ok then error(err, 0) end
+end)
+
 -- ── the dispatcher (the contract suite covers the rest) ───────────────────────────────────
 
 test("diagnostics: the COMMANDS row sits directly after debug", function()

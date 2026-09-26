@@ -969,7 +969,7 @@ badge and any count quoted in the docs must agree with it.
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
 
-### test_diagnostics.lua (16)
+### test_diagnostics.lua (17)
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
 - diagnostics: every DX-LH section writes its own lead line, in the report's order
@@ -985,6 +985,7 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: a raising section costs exactly one line and the sections after it still land
 - diagnostics: an over-cap report ends with the truncated line, then the end marker
 - diagnostics: a secret value in the stored loot context does not raise the report
+- diagnostics: the stored context's detail prints its fields, not a table address
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 
@@ -1112,7 +1113,7 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 24 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 13 |
-| test_diagnostics.lua | 16 |
+| test_diagnostics.lua | 17 |
 | test_doc_structure.lua | 6 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1121,4 +1122,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 7 |
 | test_widgets.lua | 17 |
-| **Total** | **959** |
+| **Total** | **960** |
