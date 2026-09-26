@@ -1,0 +1,1 @@
+fixed: DR-LH-05 docs match code, spec STD-20/DX-LH and rulings; two doc statements corrected in 1365325 (library-less debug on/off line, stood-down identity line); gate 961/0, luacheck 0/0, lizard clean
