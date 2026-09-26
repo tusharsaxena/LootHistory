@@ -141,3 +141,10 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 | 1.0.2 | 2026-07-12 | - **Exclude quest items** — a new opt-out setting (on by default) that skips the temporary items you pick up during quests. Uncheck it to record them too. |
 | 1.0.1 | 2026-07-12 | - Maintenance republish — a packaging-only change to refresh the CurseForge listing. No functional changes. |
 | 1.0.0 | 2026-07-12 | - Initial release: passive loot capture with source attribution and a Certain/Inferred confidence marker; account-wide history with a Character column; a standalone browser with filters (quality, type, source, zone, character), name search, sorting, and grouping; an Insights tab with breakdowns and highlights; a settings panel with full `/lh` slash support and per-source toggles; and a minimap button. |
+
+## Credits
+
+The debug console and the export window use [JetBrains Mono](https://www.jetbrains.com/lp/mono/),
+licensed under the SIL Open Font License 1.1, and the History window's lock, dropdown and checkbox
+marks, the export icons and the settings page's info button are drawn from [Open Iconic](https://github.com/iconic/open-iconic) (MIT). Both ship inside the bundled LibKa0s payload,
+with their license text beside them.
