@@ -58,6 +58,7 @@ local LIB_FILES = {
   -- every headless run and present in every real one.
   "libs/LibKa0s/OptionsCompose.lua",
   "libs/LibKa0s/OptionsScroll.lua",
+  "libs/LibKa0s/OptionsNav.lua",
   "libs/LibKa0s/Perf.lua",
   "libs/LibKa0s/PerfPanel.lua",
 }

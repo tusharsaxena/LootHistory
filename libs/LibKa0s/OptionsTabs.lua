@@ -42,7 +42,8 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- released per page rather than minted on every full render (review finding LibKa0s-R-02).
 -- The same minor takes O.RenderTabbedSchema in from OptionsWidgets.lua, with its `opts` argument,
 -- and gives O.PageBanner its `action` button (AuraMaster-R-04).
-local TABS_MINOR = 4
+-- Minor 5: the strip and the content panel start right of a nav rail (OptionsNav.lua's lib.__railInset).
+local TABS_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -561,14 +562,15 @@ local function drawContentPanel(ctx)
   if not (ctx.body and ctx.chrome) then return end
   ctx.__panelPool = ctx.__panelPool or Pool.New()
   local panel = Pool.Acquire(ctx.__panelPool, function() return newContentPanel(ctx) end)
+  local inset = lib.__railInset and lib.__railInset(ctx) or 0
 
   -- Vertically it hangs off the chrome, so it follows the band when a strip wraps to a second
   -- row. Horizontally it is anchored to the BODY, not the chrome: the box has to be wider than
   -- the content column it encloses, or the scrollbar is painted on its right edge and the
   -- left-hand labels butt against its left one.
-  panel:SetPoint("TOPLEFT",     ctx.chrome, "BOTTOMLEFT",  -(L.CONTENT_LEFT - L.PANEL_LEFT), 0)
+  panel:SetPoint("TOPLEFT",     ctx.chrome, "BOTTOMLEFT",  -(L.CONTENT_LEFT - L.PANEL_LEFT) + inset, 0)
   panel:SetPoint("TOPRIGHT",    ctx.chrome, "BOTTOMRIGHT",   L.CONTENT_RIGHT - L.PANEL_RIGHT, 0)
-  panel:SetPoint("BOTTOMLEFT",  ctx.body,   "BOTTOMLEFT",    L.PANEL_LEFT,  L.PANEL_BOTTOM)
+  panel:SetPoint("BOTTOMLEFT",  ctx.body,   "BOTTOMLEFT",    L.PANEL_LEFT + inset,  L.PANEL_BOTTOM)
   panel:SetPoint("BOTTOMRIGHT", ctx.body,   "BOTTOMRIGHT",  -L.PANEL_RIGHT, L.PANEL_BOTTOM)
 
   ctx.__tabKids[#ctx.__tabKids + 1] = panel
@@ -978,6 +980,8 @@ function lib.__AttachTabs(O, d)
 
   local function placeTabs(ctx, buttons, widths, available)
     ctx.__tabPlacedAt = available
+    local inset = lib.__railInset and lib.__railInset(ctx) or 0
+    local usable = inset > 0 and math.max(available - inset, L.TAB_MIN_W) or available
 
     local top = ctx.__bannerHeight or 0
     -- ONE NUMBER, MEASURED ONCE, from a state no click can change (options-ui-§13). It feeds both
@@ -986,12 +990,12 @@ function lib.__AttachTabs(O, d)
     -- the whole page.
     local pitch = tabArtHeight()
     local placement, rowCount =
-      O.__tabPlacement(widths, available, L.TAB_GAP, top, pitch)
+      O.__tabPlacement(widths, usable, L.TAB_GAP, top, pitch)
     for _, p in ipairs(placement) do
       local b = buttons[p.index]
       b:SetWidth(p.width)
       b:ClearAllPoints()
-      b:SetPoint("TOPLEFT", ctx.chrome, "TOPLEFT", p.x, p.y)
+      b:SetPoint("TOPLEFT", ctx.chrome, "TOPLEFT", p.x + inset, p.y)
       b:Show()
     end
 
