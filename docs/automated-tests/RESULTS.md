@@ -32,6 +32,7 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 | Run | Commit | Tree | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| [`20260926-160249`](20260926-160249/) | `3ce80a7` | clean | 1.3.0 | 0/0 | 70 | 961/0/961 | skip | 18443 | 2519 | 6.3 | 2.1 | 15 | 0 | **green** |
 | [`20260924-121347`](20260924-121347/) | `2f232f0` | clean | 1.3.0 | 0/0 | 67 | 928/0/928 | skip | 17579 | 2395 | 6.3 | 2.1 | 15 | 0 | **green** |
 | [`20260916-184506`](20260916-184506/) | unknown | unknown | 1.3.0 | 0/0 | 63 | 786/0/786 | skip | 15349 | 2045 | 6.4 | 2.1 | 15 | 0 | **green** |
 | [`20260916-094432`](20260916-094432/) | unknown | unknown | 1.3.0 | 0/0 | 59 | 768/0/768 | skip | 14889 | 1980 | 6.4 | 2.2 | 16 | 1 | **green** |
@@ -47,18 +48,18 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 ## Test suite
 
-**928 cases** — 928 passed, 0 failed, 0 skipped. The generated inventory
-[`20260924-121347/test-cases.md`](20260924-121347/test-cases.md) is the authority on which cases existed at this run;
+**961 cases** — 961 passed, 0 failed, 0 skipped. The generated inventory
+[`20260926-160249/test-cases.md`](20260926-160249/test-cases.md) is the authority on which cases existed at this run;
 `docs/test-cases.md` is that same list at HEAD.
 
-Moved **786 → 928** since the previous run.
+Moved **928 → 961** since the previous run.
 
 No case reported a `skip`, so passed and total agree and nothing in this row claims coverage
 that was not exercised.
 
 ## Lint
 
-**0 warnings / 0 errors over 67 files** (`luacheck .`).
+**0 warnings / 0 errors over 70 files** (`luacheck .`).
 
 Read that figure with its scope attached: `.luacheckrc` excludes 5 path(s) from it — `libs/`, `docs/audits/`, `docs/reviews/`, `_dev/`, `tests/_kit/` —
 so nothing under them is in the count above. A `0/0` that never moves is partly a statement about
@@ -75,7 +76,7 @@ combat path for one to measure, not because the question was never asked.
 
 ## Complexity watch list
 
-Current as of [`20260924-121347`](20260924-121347/) — **this run's measurement, not its diff.** Max CCN **15** across 2395
+Current as of [`20260926-160249`](20260926-160249/) — **this run's measurement, not its diff.** Max CCN **15** across 2519
 functions, **0** of them warned on; 6 file(s) in the 1000–1500 band and 0 over the 1500 cap
 (`layout-§1`).
 
