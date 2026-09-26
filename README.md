@@ -47,31 +47,25 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-There's nothing to set up. Install it, log in, and it's already recording.
+There's nothing to set up. Install it, log in, and it's already recording. At first all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows. Combat switches it off, and it's never saved.
 
-Left-click the minimap button to open the settings. Right-click it for a small options menu with four ticks: **Enabled**, **Locked**, **Test mode** and **Show window**. Show window opens and closes the History window. So does `/lh toggle`, and `/lh show` and `/lh hide` work if you only want one direction. Each tick does exactly what the matching command or setting does. While the addon is switched off, the last three are grayed out until you tick **Enabled** again.
+Reading back your loot happens in the History window, in this order:
 
-Hover the button to see its status: whether the addon is enabled, whether the window is locked, whether test mode is on, and how many records you have. That works even while the addon is switched off. If you run Titan Panel, ElvUI's data texts or Bazooka, the same button turns up there too and answers the same two clicks. If you'd rather not have the button at all, untick **Minimap button** on the Master controls tab.
+1. Open the window. Right-click the minimap button and tick **Show window**, or type `/lh toggle`. A left-click on the button opens the settings instead. The window has two tabs: History, a table of every item you've recorded, and Insights.
+2. Narrow it down. Click a column header to sort. The filter bar above the table picks by date, bound, quality, type, sub-type, source, zone or character, the search box matches item names, and **Group by** folds rows together. **Save** keeps that view as your default, **Clear** goes back to it, and **Reset** puts the saved view back to stock. Sorting and filters only carry over to your next session if you pressed Save.
+3. Handle a row. Hover it for the item's tooltip, or shift-click it to link the item in chat. Right-click opens a menu with **Link to chat**, **Blacklist item** and **Delete**. Blacklisting stops future loots of that item being recorded but leaves this row where it is, so use Delete when you want the row gone.
+4. Switch to Insights. It breaks the same slice down by source, value, quality and character, and gives currency a section of its own. The two tabs share the filter bar, so the charts and the table always cover the same loot.
+5. Export. The **Export** button copies the tab you're on: loot rows as CSV from History, or a summary of the charts from Insights. **Data Set** picks all your data or just the current view. The addon can't reach your clipboard, so it opens a box with the text selected and you press Ctrl+C.
 
-Drag the window by its title bar to place it, then lock it once you're happy with where it sits. If it ever ends up somewhere you can't reach, use **Reset position**.
+What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 
-A fresh install has nothing in it to look at, which makes the addon hard to judge. That's what test mode is for. Tick **Test mode** on the Master controls tab, or type `/lh test`, and the window opens with a sample dataset in the table and Insights. It stays on until you turn it off. Entering combat turns it off for you, and it's never saved.
-
-Click a column header to sort. The filter bar narrows what you're looking at by quality, type, source, zone, character or a name search, and **Group by** collapses rows together. History and Insights share that bar, so the table and the charts always show the same slice of your loot instead of quietly disagreeing about which loot they mean. Insights breaks that slice down by source, value, quality and character, and gives currency a section of its own.
-
-When you have a view you like, press **Save** to store its group, sort and filters as your account-wide default. **Clear** goes back to that view, and **Reset** puts the saved view back to stock. Sorting and filters only carry over between sessions if you pressed Save.
-
-Hover a row for the item's own tooltip (currency rows show the currency tooltip). Shift-click it to link it in chat, or right-click for the row menu. **Blacklist item** stops future loots of that item id from being recorded, and leaves the row you clicked exactly where it is. The filter lists take effect from the moment you set them and never edit history you already have. When you want the row itself gone, use **Delete**.
-
-**Export** works on whichever tab you're on. From History it copies your loot rows as CSV. From Insights it copies an analytics summary that mirrors the charts. Both honor the **Data Set** choice, so you get either all your data or just the filtered view in front of you. Nothing leaves the game. The addon can't reach your system clipboard, so it opens a box with the text already selected and you press Ctrl+C.
-
-`/lh disable` turns the addon off and `/lh enable` turns it back on. It's the same switch as **Master controls ▸ Enable Loot History**. When it's off, the addon stops watching for loot, cancels anything it had pending and closes its window. It doesn't stay loaded and quietly ignore what it sees. The slash commands still work while it's off. A bare `/lh` opens the settings panel, `/lh get` and `/lh set` read and repair settings, `/lh debug` and `/lh diagnostics` are there so you can report a problem, and `/lh enable` is always available. Only the commands that drive the window refuse, and their one-line reply tells you how to switch the addon back on.
-
-Everything else is in **Settings ▸ AddOns ▸ Ka0s Loot History**. `/lh` (or `/loothistory`) opens it, and `/lh help` (or `/loothistory help`) lists the commands.
+Everything else is on the addon's page under Settings → AddOns. `/lh` (or `/loothistory`) on its own opens it, and `/lh help` lists every command.
 
 ## How attribution works
 
-When an item arrives, the addon looks at what you were just doing. Killing a creature leaves a signal it can read at the moment the loot lands. So do opening a container, turning in a quest, taking mail, trading, buying from a vendor, winning an auction and finishing a Mythic+ run.
+The game tells addons about each item you receive through the loot message, the one that puts "You receive loot" in your chat. It says what arrived but not where from, so a kill, a chest and a mail attachment all look the same.
+
+So when an item arrives, the addon looks at what you were just doing. Killing a creature leaves a signal it can read at the moment the loot lands. So do opening a container, turning in a quest, taking mail, trading, buying from a vendor, winning an auction and finishing a Mythic+ run.
 
 If there's a signal, the item goes under that source and is marked **Certain**. If nothing says where the item came from, it goes under **Other** and is marked **Inferred**. That's still a better record than none. Everything from one loot window gets the same source, so a full chest of drops lands together.
 
@@ -81,7 +75,7 @@ Where an item came from is half of what the addon reads when it arrives. The oth
 
 If you have **Auctionator**, **TSM** or **OribosExchange** installed, the addon reads an auction price for each item the moment you loot it. One of them is enough. With none installed, it skips pricing.
 
-You decide which prices count. **Settings ▸ AH Price** lists every price your installed addons can supply in one table (TSM's market value alongside its region average, for instance). Tick the ones you want and drag them by the handle on each row into the order you trust them in. When more than one has a price for an item, the highest-ranked ticked source wins. Unticked sources, and any whose addon isn't installed, drop to the bottom.
+You decide which prices count. The **AH Price** tab in the settings lists every price your installed addons can supply in one table (TSM's market value alongside its region average, for instance). Tick the ones you want and drag them by the handle on each row into the order you trust them in. When more than one has a price for an item, the highest-ranked ticked source wins. Unticked sources, and any whose addon isn't installed, drop to the bottom.
 
 The value shown throughout the History table and Insights is the higher of an item's vendor sell price and its auction price. Nothing ever shows as worth less than a vendor would pay for it.
 

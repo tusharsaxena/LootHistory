@@ -1026,7 +1026,7 @@ already identical to the library's, so **anything that looks different here is t
    button | Test mode, then the button pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
    currency, then Exclude quest items alone, then the full-width **Record data from** grid;
    **AH Price** reads the *Pricing* heading, Enable AH pricing, the *Price sources* heading and the
-   eleven-row table; **Interface** reads Window scale | Row height, then Hide minimap button;
+   eleven-row table; **Interface** reads Window scale | Row height;
    **History** carries Keep history for and then the storage readout | **Purge history…**.
 4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
    edge does not shift** as you click between pages (options-ui-§10).
