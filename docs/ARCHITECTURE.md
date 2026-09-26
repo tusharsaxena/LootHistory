@@ -171,7 +171,8 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `list` | List all settings |
 | `reset <path>` | Reset one setting to its default |
 | `resetall` | Reset all settings to defaults (non-destructive: history is untouched). `minimap.shown` is **exempt** (its stored key `minimap.hide` is carried across) — launcher-§3 makes the minimap button's visibility survive every reset. The **destructive** form is the Master controls tab's **Reset all settings** button, which empties the whole account-wide store — `options-ui-§12`'s shape for an addon with no profile. The two are deliberately different acts today: a **ratified** divergence from that rule's opening sentence, carried as a row in [§ Documented deviations](#documented-deviations); scope matrix in [`schema.md`](schema.md#reset-semantics) |
-| `debug` / `debug on` / `debug off` / `debug events` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console |
+| `debug` / `debug on` / `debug off` / `debug diagnostics` / `debug events` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `diagnostics` is tested first and runs the same report as the `diagnostics` verb. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console |
+| `diagnostics` | Append the diagnostics report to the debug console (`debug-logging-§14`), after whatever trace it already holds, with logging on or off and while the addon is disabled. No other name (`diag`, `dump`) runs it. See [debug.md](debug.md) |
 | `test` | Toggle a synthetic preview dataset for the table and Insights (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
 | `purge` | Delete ALL loot history (confirm dialog) |
 | `help` | Print the generated command index |
@@ -221,7 +222,8 @@ All flavor-varying or deprecated calls behind these handlers are routed through
 **Every event row above registers through one per-event helper** (events-frames-taint-§1):
 `NS.SafeRegisterEvent` / `NS.SafeRegisterUnitEvent` / `NS.SafeRegisterEvents`, `LibKa0s-Core-1.0`'s
 (Core minor 8) published by `core/CoreSetup.lua`, so a name the client refuses costs only itself. The
-refused names land on the addon's own `NS.RejectedEvents`, which `/lh debug events` prints;
+refused names land on the addon's own `NS.RejectedEvents`, which `/lh debug events` prints and the
+diagnostics report carries;
 [midnight-quirks.md](midnight-quirks.md#unknown-event-names--one-refusal-costs-one-edge) records the trade.
 
 ---
@@ -285,7 +287,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 | `compat-layer.md` | Present | 22 shims (`grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua`) of addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Not applicable | No profile control ships in the options UI — the addon is account-wide by design and never touches `db.profile` |
-| `debug.md` | Not applicable | The console is `LibKa0s-DebugLog-1.0`’s, with no debug surface of the addon’s own |
+| `debug.md` | Present | The diagnostics report (`/lh diagnostics`, `debug-logging-§14`) is a debug surface of the addon's own, and every Ka0s addon ships it |
 | `perf-analysis/README.md` | Not applicable | No performance harness is wired — see `performance.md` and `ARCHITECTURE.md` → `## Documented deviations` |
 
 ### Verification and record

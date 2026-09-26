@@ -21,7 +21,8 @@ went on paying is precisely what a player switching it off is trying to stop pay
 
 **The slash surface is UNCHANGED while the addon is disabled** (slash-commands-§2/§7, standard
 v2.57.0, LibKa0s v1.41.0 / Slash minor 13). Every reserved verb answers: `config` and the bare `/lh`
-open the panel, `version` prints, `debug` runs, and the whole schema CLI — `get`, `set`, `list`,
+open the panel, `version` prints, `debug` runs, `diagnostics` writes its report (in both forms,
+`/lh diagnostics` and `/lh debug diagnostics`), and the whole schema CLI — `get`, `set`, `list`,
 `reset`, `resetall` — reads and repairs settings, which is precisely when a player most needs it.
 The standard narrowed this to `enable` and `help` at v2.56.0 and **reversed it** at v2.57.0; the
 case that settled the reversal was the smallest one, `/lh` on a disabled addon returning a refusal
@@ -35,8 +36,11 @@ nothing else. The gate is **one gate**, wrapped round each feature handler as `N
 (`settings/Schema.lua`), so every route into a verb passes it — the library's dispatcher, the
 positional walk the library-less install falls back to, and a direct call on the triple — and a verb
 declared tomorrow is gated by default. The live set is named once, as data (`LIVE_WHILE_DISABLED`),
-and is `lib.LIVE_VERBS` restated: `help`, `config`, `version`, `enable`, `disable`, `debug`, `perf`
-and the schema CLI. **The refusal line is the collection's, not this addon's** — one shape, built by
+and is `lib.LIVE_VERBS` restated (Slash minor 16): `help`, `config`, `version`, `enable`,
+`disable`, `debug`, `perf`, `diagnostics` and the schema CLI. `diagnostics` joined the set at
+LibKa0s v1.60.0 because a disabled addon is the one a player is most likely to be reporting; the
+report reads state only, takes no hold and registers nothing, and says which parts are stood down
+([debug.md](debug.md)). **The refusal line is the collection's, not this addon's** — one shape, built by
 `LibKa0s-Slash-1.0` from `NS.BRAND` and the slash and reached through `NS.Slash.DisabledLine()` by
 the verb gate, the one call site that prints it (the launcher's left click printed it too until
 Launcher minor 4, LibKa0s v1.58.0, retired the refusal: the left button now opens the panel in either
@@ -110,3 +114,8 @@ Every negative case asserts on the **registration set** through the kit's record
 handler's return value — an early return is exactly what a draw gate does, so a suite written
 against one certifies the thing it exists to catch. It was confirmed red against the draw gate by
 putting it back: steps 3, 4, 6 and 10 all redden, and the Collector's early return does not save it.
+
+Step 7 covers the diagnostics report too. Both forms, `/lh diagnostics` and
+`/lh debug diagnostics`, run while the addon is stood down. Each writes a full report, begin marker
+to end marker, and leaves the registration set as the stand-down left it. The kit's shared
+`tests/_kit/test_diagnostics_contract.lua` repeats the while-disabled check against this dispatcher.
