@@ -989,12 +989,13 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 
-### test_doc_structure.lua (6)
+### test_doc_structure.lua (7)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
 - every anchor pointing into docs/ARCHITECTURE.md resolves to a heading
 - the player-facing history has the ONE home documentation-§1 allows, and no second
 - README.md's top-level sections are the ones documentation-§1 names, in its order
+- README.md's Reporting a bug section is the standard's text with /lh, and links nowhere
 - every deviation id the register cites is assigned by a bundle in docs/audits/
 - docs/smoke-tests.md carries a non-English-client section
 
@@ -1114,7 +1115,7 @@ badge and any count quoted in the docs must agree with it.
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 13 |
 | test_diagnostics.lua | 17 |
-| test_doc_structure.lua | 6 |
+| test_doc_structure.lua | 7 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
@@ -1122,4 +1123,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 7 |
 | test_widgets.lua | 17 |
-| **Total** | **960** |
+| **Total** | **961** |
