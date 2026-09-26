@@ -15,8 +15,12 @@
 	<Script file="Slash.lua"/>
 	<Script file="Launcher.lua"/>
 	<Script file="Options.lua"/>
+	<Script file="OptionsRegistry.lua"/>
 	<Script file="OptionsWidgets.lua"/>
+	<Script file="OptionsIds.lua"/>
+	<Script file="OptionsIdList.lua"/>
 	<Script file="OptionsTabs.lua"/>
+	<Script file="OptionsCombat.lua"/>
 	<Script file="OptionsCompose.lua"/>
 	<Script file="OptionsScroll.lua"/>
 	<Script file="OptionsNav.lua"/>

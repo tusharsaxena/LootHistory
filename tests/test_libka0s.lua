@@ -46,12 +46,20 @@ local LIB_FILES = {
   -- object registered twice (launcher-§1). core/LauncherSetup.lua resolves it at file load.
   "libs/LibKa0s/Launcher.lua",
   "libs/LibKa0s/Options.lua",
+  -- New in v1.62.0: four peels, each a move with its own minor and no member change -- the page
+  -- registry out of Options.lua (OptionsRegistry), the id surface out of OptionsWidgets.lua
+  -- (OptionsIds, OptionsIdList) and the combat lock's page chrome out of OptionsTabs.lua
+  -- (OptionsCombat). Listed in XML order because the client loads them and the suite must too.
+  "libs/LibKa0s/OptionsRegistry.lua",
   "libs/LibKa0s/OptionsWidgets.lua",
+  "libs/LibKa0s/OptionsIds.lua",
+  "libs/LibKa0s/OptionsIdList.lua",
   -- New in v1.39.0: the tab-strip and page-chrome PEEL out of Options.lua. It adds, removes and
   -- renames no member -- O.TabStrip, O.PageBanner, O.PageHeader, O.SubTabStrip and the eight
   -- O.__ geometry seams all still attach to the same instance under the same names -- so no
   -- caller here changed. It is listed because the client loads it and the suite must too.
   "libs/LibKa0s/OptionsTabs.lua",
+  "libs/LibKa0s/OptionsCombat.lua",
   -- New in v1.24.0: the schema COMPOSERS, which settings/Schema.lua calls at file load for its
   -- Master controls block. A file listed in LibKa0s.xml and missing from tests/run.lua's explicit
   -- load list is a file the client loads and the suite does not, so the composers would be nil in

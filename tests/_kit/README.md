@@ -18,7 +18,8 @@ broken in the other eleven.
 
 | File | What it is |
 |---|---|
-| `framework.lua` | The entry point: the resource guard, the registry, `Kit.skip`, `Kit.expose`, the suite inventory, the runner and the `--list` renderer |
+| `framework.lua` | The entry point: the resource guard, the registry, `Kit.skip`, `Kit.expose`, the suite loader, the runner and the `--list` renderer |
+| `inventory.lua` | The suite inventory (`Kit.assertSuiteInventory`, the gate-rule table, the `## Documented deviations` reader and the decline matcher) and the path helpers it keys on. `framework.lua` loads it from its own folder; nothing else does (kit revision 28) |
 | `asserts.lua` | The assertions (`assertEqual` to `assertError`, `assertErrorMatches` and `assertLibraryConstant`) and the surface-parity gate (`setSurfaceSource`, `publicMembers`, `assertSurfaceParity`). `framework.lua` loads it from its own folder; nothing else does (kit revision 26) |
 | `loader.lua` | Headless source loading into the mocked environment |
 | `mock_base.lua` | The universal half of the WoW-API mock, and the Ace fakes |
@@ -30,12 +31,15 @@ broken in the other eleven.
 | `test_eol.lua` | The line-ending gates, a kit suite |
 | `test_prose.lua` | The US-English prose gate, a kit suite |
 | `prose_lists.lua` | The published lists `test_prose.lua` reads: both spelling lists, the folder exclusions and the store-root files read back out of them. `test_prose.lua` loads it from its own folder; nothing else does (kit revision 26) |
+| `prose_coverage.lua` | The prose gate's narrowing machinery: the validators for the three lists a repository narrows the gate by, the one resolved coverage set, the TOC and `.pkgmeta` readers, the two refusals and the disclosure line. `test_prose.lua` loads it from its own folder; nothing else does (kit revision 29) |
+| `prose_selftests.lua` | The prose gate's fixture-driven self-tests. Not a suite of its own: `test_prose.lua` loads it from its own folder and its cases register under `test_prose`, so a consumer wires nothing new (kit revision 29) |
 | `test_layout_cap.lua` | The 1500-line cap gate, a kit suite |
 | `test_diagnostics_contract.lua` | The diagnostics dump's dispatcher contract (`debug-logging-§14`), a kit suite run against the consumer's own dispatcher (kit revision 27) |
 | `README.md` | This file |
 
-They vendor as one folder. A copy that leaves out `asserts.lua`, `mock_record.lua`,
-`mock_events.lua` or `prose_lists.lua` fails at load rather than passing over nothing.
+They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `mock_record.lua`,
+`mock_events.lua`, `prose_lists.lua`, `prose_coverage.lua` or `prose_selftests.lua` fails at load
+rather than passing over nothing.
 
 ## `run-automated-tests.sh`
 
@@ -78,8 +82,19 @@ about it are load-bearing:
   ratified no-combat-path exemption, naming the file it came from, and `RESULTS.md`'s Perf section
   points at `docs/performance.md`. A register the runner cannot read exits 2 before any suite runs.
   `KA0S_PERF_EXEMPT=1` records reason (2) only in a repo that has no register.
-- **An empty watch-list table still prints its header row and separator** (kit revision 26,
-  `automated-tests-§4`), where revision 25 printed `None.`.
+- **An empty watch-list table prints its header row and separator, then `None.`** under a blank
+  line (`automated-tests-§4` and the playbook's Step 3). Revision 25 printed `None.` in place of the
+  header, and revisions 26 to 29 printed the header alone; from kit revision 30 it is both. The
+  blank line keeps GitHub-flavored Markdown from reading `None.` as a row of the table, and the
+  runner's own reader of the previous watch list skips it.
+- **The band table leaves out generated non-shipping data** (kit revision 31), `layout-§1`'s second
+  carve-out. Which files are generated is a fact about the repository that no path betrays, so the
+  runner does not guess: it asks the repo's own `tests/run.lua` with
+  `lua tests/run.lua --layout-cap-exempt PATH...`, which `Kit.run` answers from the
+  `Kit.layoutCap.exempt` set the cap gate reads, with the one matching rule both call
+  (`Kit.__layoutCapCovers`), before loading any suite. A file it leaves out is named in a line under
+  the table, and `manifest.json`'s `bandFiles` and `overCapFiles` no longer count it. With no
+  `tests/run.lua`, or no set, every file is listed as before.
 - **The bundle is written to whatever `.gitattributes` declares for it**, read per path with
   `git check-attr text eol` at the end of the run — not assumed. Everything the runner writes goes
   down a plain shell redirect, which bypasses git's filters entirely, so before kit revision 10 every
@@ -381,6 +396,9 @@ Kit.layoutCap = {
 }
 Kit.run{ dir = "tests/", suites = { ..., { name = "test_layout_cap", dir = "tests/_kit/" } } }
 ```
+
+From kit revision 31 the same `exempt` set also keeps those files out of `run-automated-tests.sh`'s
+band table, so it is declared once and read by both.
 
 **A repo that wrote its own retires it by re-vendoring.** Leaving both is a basename collision the
 inventory reports, and the bare declaration wires the local file over the kit's. A repo that tracks
