@@ -122,6 +122,14 @@ NS.DebugLog = lib:New({
   -- (on enable, as the [Init] line); only the host can know what it says.
   initSummary = function() return NS.InitSummary() end,
 
+  -- The diagnostics report (DebugLog 14.1, debug-logging-§14). The brand goes on both markers, so a
+  -- paste holding several addons' reports can be split. The sections are modules/Diagnostics.lua's,
+  -- looked up when the report runs rather than here, because that file loads long after this one.
+  brandName   = NS.BRAND,
+  diagnostics = function()
+    return NS.Diagnostics and NS.Diagnostics.Sections and NS.Diagnostics.Sections() or {}
+  end,
+
   -- Fired on the frame's OnShow AND OnHide, so the settings panel's "Debug console" checkbox tracks
   -- the window however it was closed. Strictly wider than what it replaces: modules/DebugLog.lua
   -- only synced from its own Show/Hide, so an Esc or a click on the x left the checkbox stale.

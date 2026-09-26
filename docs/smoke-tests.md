@@ -48,6 +48,7 @@ Companion docs:
 | 10 | Panel chrome | options-ui-§10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
 | 11 | Minimap | LibDBIcon show/hide, click actions | [Minimap button](#11-minimap-button) |
 | 12 | Debug console | `/lh debug` window + session-only logging | [Debug console](#12-debug-console) |
+| 12a | Diagnostics report | `/lh diagnostics`, `/lh debug diagnostics`: append, ungated, live while disabled | [Diagnostics report](#12a-diagnostics-report) |
 | 13 | Retention | `PruneOld` on login + confirmed change | [Retention prune](#13-retention-prune) |
 | 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
 | 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
@@ -80,7 +81,7 @@ Loot History**.
   command list), not the General sub-page. `/lh   ` (spaces only) does the same. The loot window
   does **not** open, and nothing is printed to chat.
 - `/lh help` prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
-  `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/test/purge/help — sixteen). Every
+  `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/diagnostics/test/purge/help — seventeen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
   `settings`, `minimap`, and `schemaVersion = 8`. (The declared default is 0, the savedvariables-§1
@@ -103,7 +104,8 @@ Loot History**.
 - **And the command surface is unchanged while it is off.** Still with the addon disabled, check
   that a bare `/lh` opens the settings panel (this is the case the standard's v2.57.0 reversal
   turned on), `/lh version` prints, `/lh list` and `/lh get settings.qualityThreshold` read,
-  `/lh set settings.scale 1.1` writes, and `/lh debug` still opens the console. Only `show`, `hide`,
+  `/lh set settings.scale 1.1` writes, `/lh debug` still opens the console, and `/lh diagnostics`
+  still writes its report (§12a). Only `show`, `hide`,
   `toggle`, `test` and `purge` refuse.
 - `/lh enable` prints `settings.enabled = true` and the addon comes back — loot records again and
   the window opens. Tick and untick **Master controls ▸ Enable Loot History** and confirm
@@ -703,8 +705,10 @@ are **independent**.
 - Close the console window, `/lh debug on`, loot again, then `/lh debug` to reopen the window.
 - In the console: press **Copy**, then **Clear**; press **ESC**; toggle the header **Debug: ON/OFF**.
 - With logging on and the window full of lines: **drag the right-edge scrollbar** up and down, and
-  **mousewheel** over the log. Watch the **bottom-right line counter** (`N / 1500 lines`) as new lines
+  **mousewheel** over the log. Watch the **bottom-right line counter** (`N / 3000 lines`) as new lines
   arrive and after **Clear**.
+- Fill the console past its cap: `/run for i = 1, 80 do SlashCmdList.ACECONSOLE_LH("diagnostics") end`
+  appends eighty reports, well past 3000 lines on any history. Then press **Copy**.
 - `/lh debug events`. Then `/lh disable`, `/lh enable`, loot something, and `/lh debug events` again.
 - `/reload`.
 
@@ -712,8 +716,9 @@ are **independent**.
 - The right-edge **scrollbar** scrolls the log; dragging the thumb and the mousewheel stay in sync
   (moving one moves the other's position). The thumb sits at the **bottom** when viewing the newest
   line and at the **top** for the oldest. When every line fits, the track is still shown but inert.
-- The **bottom status bar** reads `N / 1500 lines`, ticking up as lines are captured (capped at 1500),
-  and resetting to `0 / 1500 lines` after **Clear**.
+- The **bottom status bar** reads `N / 3000 lines`, ticking up as lines are captured (capped at 3000),
+  and resetting to `0 / 3000 lines` after **Clear**. Past the cap it pins at `3000 / 3000 lines`, and
+  **Copy** opens on all 3000 lines without a noticeable hitch.
 - Bare `/lh debug` toggles the console **window only** (logging flag untouched).
 - `/lh debug on` enables logging; loot emits a tagged `<ts> | [Loot] …` line (and gated drops emit
   `[Drop] …`). `/lh debug off` stops logging. Logging runs **even with the window closed** — reopening
@@ -727,6 +732,43 @@ are **independent**.
   window nor the logging flag. After the disable/enable cycle loot still records: every registration
   came back (events-frames-taint-§1).
 - After `/reload`, debug logging is back **off** and the console is closed.
+
+### 12a. Diagnostics report
+
+The one-shot state report a player pastes into a bug report (`debug-logging-§14`). What each line
+means is in [debug.md](debug.md#the-diagnostics-report).
+
+**Steps.**
+1. `/lh debug on`, loot something, then `/lh diagnostics`.
+2. Press **Copy** and paste into a text editor.
+3. `/lh debug off`, then `/lh diagnostics`. Loot something afterwards.
+4. `/lh debug diagnostics`, `/loothistory diagnostics` and `/loothistory debug diagnostics`.
+5. `/lh diag`, `/lh dump` and `/lh debug diag`.
+6. `/lh disable`, then `/lh diagnostics` and `/lh debug diagnostics`. Then `/lh enable`.
+7. Pull a target dummy and run `/lh diagnostics` in combat.
+8. `/reload` with the console closed, then follow the README's `## Reporting a bug` steps word for
+   word.
+
+**Pass.**
+- Step 1: the console opens if it was closed, the `[Loot]` trace is still there **above**
+  `[Diag] ==== Ka0s Loot History diagnostics begin ====`, and the report ends with
+  `==== Ka0s Loot History diagnostics end: N line(s) ====`. Chat shows one line:
+  `Diagnostic report written to the debug console: N lines. Use Copy to share it.` Nothing was
+  cleared.
+- Step 2: the paste holds the trace, the begin marker and the end marker, with no `|c`, `|H` or `|T`
+  escapes anywhere. The tail's item names are plain names, not links.
+- Step 3: the report lands in full with logging off. Afterwards the header still reads **Debug: OFF**
+  and the loot writes no new trace line.
+- Step 4: each form writes the same report as step 1.
+- Step 5: none of them runs the report. `/lh diag` and `/lh dump` print `unknown command` and the
+  help index; `/lh debug diag` toggles the console window like any other unknown word.
+- Step 6: both forms write a full report while the addon is off. It reads
+  `identity: enabled=false stoodDown=true testMode=false` and
+  `capture: stood down (the loot, currency and context events are unregistered)`, and no feature
+  comes back on because of it.
+- Step 7: no Lua error. A value the client hides in combat prints as `<secret>` or `?`, never as a
+  raise, and no `section <name> failed` line appears.
+- Step 8: every step works as written, and the paste holds the trace and the whole report.
 
 ### 13. Retention prune
 
@@ -894,12 +936,13 @@ of it record again.
 
 ### 17. LibKa0s adoption
 
-Eleven of LibKa0s's twelve majors are wired here — `Core` (the printer), `Media` (the art and the
-monospace face), `DebugLog` (the console), `Slash` (the dispatcher and CLI), `Options` (the settings
+Fourteen of LibKa0s's fifteen majors are wired here — `Core` (the printer), `Media` (the art and the
+monospace face), `DebugLog` (the console and the diagnostics report), `Slash` (the dispatcher and CLI), `Options` (the settings
 canvas), `Widgets` (every flat dropdown, and the export copy window), `Env` (the TOC read behind `/lh version`, plus the map
 and zone stamp on every captured row), `Item` (the link/quality primitives behind the capture gate),
 `Pool` (the widget pools behind the Insights charts and the History rows), `Lifecycle` (the latch
-behind the disabled state) and `Launcher` (the minimap button and the broker plugin). Only `Perf`
+behind the disabled state), `Launcher` (the minimap button and the broker plugin), `Schema` (the
+settings runtime), `Bus` (the message catalog) and `Compat` (the spell-name reader). Only `Perf`
 is not wired — a documented deviation, `ARCHITECTURE.md` → `## Documented deviations`. Everything in this section is
 invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
 and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
@@ -921,7 +964,10 @@ through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for
    `…, so the debug console window is unavailable.` `/lh config` says
    `…, so the settings panel is unavailable.` Each sentence starts with the **same cause clause**,
    word for word, as step 3 — that is deliberate: a user running several Ka0s addons on a broken
-   install should read one explanation, not four.
+   install should read one explanation, not four. `/lh diagnostics` and `/lh debug diagnostics`
+   both print the collection's own line instead,
+   `/lh diagnostics is unavailable: the LibKa0s library did not load.`, and write nothing; `/lh help`
+   does not list `diagnostics`.
 5. Loot something. It still records — capture never depended on the library. Check the new row's
    **Zone** column: it still names the zone you are standing in, and the row is not bucketed under
    `Unknown`. That is `core/EnvSetup.lua`'s written-out fallback ladder doing the work the deleted
@@ -960,7 +1006,7 @@ Walk the whole surface and confirm **not one** all-caps underscored token is vis
   `/lh reset settings.windowScale`, `/lh resetall`.
 - `/lh debug` → the console window: the title reads **Loot History — Debug**, the header toggle
   reads **Debug: ON** / **Debug: OFF**, the buttons read **Copy** and **Clear**, the status line
-  reads `N / 1500 lines`, and the copy window's title reads **Copy log — Ctrl+C, then Esc**.
+  reads `N / 3000 lines`, and the copy window's title reads **Copy log — Ctrl+C, then Esc**.
 - **Settings ▸** each of the four pages: the Defaults button reads **Defaults**; every checkbox,
   dropdown and slider label is English.
 
@@ -1407,6 +1453,9 @@ Currencies, so both a full row and an odd trailing one are visible.
 - **Export edits:** 17j, plus 6a and 8. Anything touching `modules/Export.lua`,
   `core/WidgetsSetup.lua`'s `NS.CopyWindow`, or a re-vendor of `libs/LibKa0s/Widgets.lua`.
   The copy window's focus, selection and Esc binding have no headless coverage at all.
+- **Diagnostics edits:** 12a, plus 17a step 4. Anything touching `modules/Diagnostics.lua`, the
+  `diagnostics` row or the `debug` handler, or a re-vendor that moves
+  `libs/LibKa0s/DebugLogDiagnostics.lua`.
 - **Debug/logging edits:** 12, 15. Anything touching `NS.Debug` call sites or
   `core/DebugLogSetup.lua` needs the tag-coverage + coalescing checklist — and 17b, since the
   console's strings are the library's now.

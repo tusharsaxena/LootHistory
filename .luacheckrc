@@ -83,6 +83,9 @@ files["tests/"] = {
     "_G.ITEM_ACCOUNTBOUND_UNTIL_EQUIP", "_G.ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP",
     -- The spell-name ladder's rungs, planted by tests/test_compat.lua's GetSpellName cases.
     "_G.C_Spell", "_G.GetSpellInfo",
+    -- Swapped for a recording stand-in by tests/test_diagnostics.lua, which proves the report never
+    -- reads the keystone API (debug-logging-§14: the report reads stored context only).
+    "_G.C_ChallengeMode",
   },
 }
 

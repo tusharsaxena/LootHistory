@@ -166,3 +166,23 @@ test("library-less install: resetall on one id says id, not ids", function()
   assertEqual(out[1], NS.PREFIX
     .. " filters reset (1 id cleared); other settings need the LibKa0s library.")
 end)
+
+-- ── the diagnostics report (debug-logging-§14) ────────────────────────────────────────────────
+
+test("library-less install: both report forms answer with the library-absent line and nothing else", function()
+  -- red under: a `diagnostics` row missing from NS.COMMANDS, which answers with the generic
+  -- unavailable line; or a debug word that falls through to the stub's silent Toggle.
+  local want = NS.PREFIX .. " /lh diagnostics is unavailable: the LibKa0s library did not load."
+  for _, form in ipairs({ "diagnostics", "debug diagnostics" }) do
+    local out = withDegradedStore(function() DSl:OnSlash(form) end)
+    assertEqual(#out, 1, "/lh " .. form .. " answers on one line: " .. table.concat(out, " | "))
+    assertEqual(out[1], want, "/lh " .. form)
+  end
+  assertEqual(degradedNS.DebugLog:BufferSize(), 0, "no report was written anywhere")
+end)
+
+test("library-less install: the degraded help does not offer /lh diagnostics", function()
+  -- red under: diagnostics missing from UNAVAILABLE_WITHOUT_LIB. It dispatches, but only to say
+  -- the library is missing, and slash-commands-§1 wants this list to hold what still works.
+  assertTrue(not listedVerbs().diagnostics, "/lh diagnostics cannot write a report with no library")
+end)

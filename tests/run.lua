@@ -80,6 +80,9 @@ local SUITES = {
   -- only suite that brings the WHOLE addon up through addon:OnEnable, and step 8 drives the LDB
   -- object test_launcher leaves registered.
   "test_disabled",
+  -- This addon's half of the diagnostics report (debug-logging-14): its sections, what they say
+  -- and what they must not touch. After test_disabled, which leaves the addon brought up.
+  "test_diagnostics",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
@@ -136,6 +139,21 @@ Kit.setSurfaceSource{
   -- resolved major unchanged as NS.Item / NS.Pool, so each stub mirrors the library table itself.
   ["LibKa0s-Item-1.0"]     = mocks.LibStub("LibKa0s-Item-1.0", true),
   ["LibKa0s-Pool-1.0"]     = mocks.LibStub("LibKa0s-Pool-1.0", true),
+}
+
+-- The kit's diagnostics contract (tests/_kit/test_diagnostics_contract.lua) runs against THIS
+-- addon's dispatcher through these facts. `dispatch` is the chat command's own entry, so both
+-- forms and the long alias reach the report the way a player's line does. `setDisabled` writes the
+-- stored switch through the single write seam, as the checkbox and `/lh disable` do, so a report
+-- that runs while disabled is running against the real stand-down, not a flag the case set.
+-- `setDebug` writes the session flag directly: the enable seam would print its [Init] line into
+-- the very buffer the contract counts.
+Kit.diagnostics = {
+  brand       = NS.BRAND,
+  dispatch    = function(line) NS.Slash:OnSlash(line) end,
+  console     = function() return NS.DebugLog end,
+  setDebug    = function(on) NS.State.debug = on and true or false end,
+  setDisabled = function(off) NS.Schema:Set("settings.enabled", not off) end,
 }
 
 _G.LH_TEST = Kit.expose{
