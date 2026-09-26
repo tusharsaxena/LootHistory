@@ -936,12 +936,13 @@ of it record again.
 
 ### 17. LibKa0s adoption
 
-Eleven of LibKa0s's twelve majors are wired here — `Core` (the printer), `Media` (the art and the
-monospace face), `DebugLog` (the console), `Slash` (the dispatcher and CLI), `Options` (the settings
+Fourteen of LibKa0s's fifteen majors are wired here — `Core` (the printer), `Media` (the art and the
+monospace face), `DebugLog` (the console and the diagnostics report), `Slash` (the dispatcher and CLI), `Options` (the settings
 canvas), `Widgets` (every flat dropdown, and the export copy window), `Env` (the TOC read behind `/lh version`, plus the map
 and zone stamp on every captured row), `Item` (the link/quality primitives behind the capture gate),
 `Pool` (the widget pools behind the Insights charts and the History rows), `Lifecycle` (the latch
-behind the disabled state) and `Launcher` (the minimap button and the broker plugin). Only `Perf`
+behind the disabled state), `Launcher` (the minimap button and the broker plugin), `Schema` (the
+settings runtime), `Bus` (the message catalog) and `Compat` (the spell-name reader). Only `Perf`
 is not wired — a documented deviation, `ARCHITECTURE.md` → `## Documented deviations`. Everything in this section is
 invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
 and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
