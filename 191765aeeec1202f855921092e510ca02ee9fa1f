@@ -1,0 +1,1 @@
+clean: NR-LH-01 matches its task: libs/LibKa0s byte-equal to v1.61.0 (c6183bd), kit unchanged, stub NavRail no-op and LIB_FILES OptionsNav.lua proven red without the change (22 vs 23; NavRail missing), CRLF kept, gate 961/0/0, luacheck 0/0, lizard clean
