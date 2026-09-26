@@ -1,0 +1,1 @@
+fixed: DR-LH-03 checked against the item row, DX-LH, STD-19, owner rulings and plan section 4; falsified (23 cases red without the code); one defect: the stored context's table detail printed as an address, fixed in 77963d0 with a red-first case; gate 960/0, luacheck 0/0, lizard clean
