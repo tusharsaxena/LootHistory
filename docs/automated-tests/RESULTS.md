@@ -32,6 +32,7 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 | Run | Commit | Tree | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| [`20260926-193103`](20260926-193103/) | `93e879d` | clean | 1.3.0 | 0/0 | 70 | 961/0/961 | skip | 18447 | 2519 | 6.3 | 2.1 | 15 | 0 | **green** |
 | [`20260926-160249`](20260926-160249/) | `3ce80a7` | clean | 1.3.0 | 0/0 | 70 | 961/0/961 | skip | 18443 | 2519 | 6.3 | 2.1 | 15 | 0 | **green** |
 | [`20260924-121347`](20260924-121347/) | `2f232f0` | clean | 1.3.0 | 0/0 | 67 | 928/0/928 | skip | 17579 | 2395 | 6.3 | 2.1 | 15 | 0 | **green** |
 | [`20260916-184506`](20260916-184506/) | unknown | unknown | 1.3.0 | 0/0 | 63 | 786/0/786 | skip | 15349 | 2045 | 6.4 | 2.1 | 15 | 0 | **green** |
@@ -49,10 +50,10 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 ## Test suite
 
 **961 cases** — 961 passed, 0 failed, 0 skipped. The generated inventory
-[`20260926-160249/test-cases.md`](20260926-160249/test-cases.md) is the authority on which cases existed at this run;
+[`20260926-193103/test-cases.md`](20260926-193103/test-cases.md) is the authority on which cases existed at this run;
 `docs/test-cases.md` is that same list at HEAD.
 
-Moved **928 → 961** since the previous run.
+Unchanged from the previous run at 961 cases.
 
 No case reported a `skip`, so passed and total agree and nothing in this row claims coverage
 that was not exercised.
@@ -76,7 +77,7 @@ combat path for one to measure, not because the question was never asked.
 
 ## Complexity watch list
 
-Current as of [`20260926-160249`](20260926-160249/) — **this run's measurement, not its diff.** Max CCN **15** across 2519
+Current as of [`20260926-193103`](20260926-193103/) — **this run's measurement, not its diff.** Max CCN **15** across 2519
 functions, **0** of them warned on; 6 file(s) in the 1000–1500 band and 0 over the 1500 cap
 (`layout-§1`).
 
@@ -90,16 +91,18 @@ cell is this file saying something crossed and nobody has ruled on it yet.
 | Function | CCN | Location | Disposition |
 |---|---|---|---|
 
+None.
+
 ### Files by `layout-§1` band
 
 | Band | File | LOC | Disposition |
 |---|---|---|---|
-| 1000–1500 (on notice) | `modules/Analytics.lua` | 1200 | **Peel — already tracked as #32** ([the issue](https://github.com/tusharsaxena/LootHistory/issues/32), `state:triaged`, `severity:low`: split the chart renderers from the formatting and segmenting helpers). That issue is the owned home the six previous runs asked for, so this cell stops restating the plan and points at it. Up from 1178 at [`20260916-184506`](20260916-184506/): 932 NLOC over 80 functions in [`complexity.txt`](20260924-121347/complexity.txt), still 300 lines under the cap. Re-rule when #32 closes, or at 1300 lines if it has not. |
-| 1000–1500 (on notice) | `modules/Browser.lua` | 1289 | **Accepted, own disposition — `LH-37`.** The window shell, filter bar and dropdown widget kit; if it needs peeling the seam is the widget kit into a sibling file. It **grew** this cycle, 1244 at [`20260916-184506`](20260916-184506/) to the count beside this cell (804 NLOC over 103 functions, [`complexity.txt`](20260924-121347/complexity.txt)); the earlier wording that it shrank described the run before that and is withdrawn. The growth is the disabled-state stand-down, the combat-edge visibility decision (`LH-05`), the resize grip's Lock-frame gate (`LH-10`) and `NS.SafeRegisterEvent` for the two combat edges (`LH-17`): more of the same responsibilities, not a new one. `LH-37` (`docs/audits/2026-08-05/02_DEVIATIONS.md`) is the live finding for its size; there is deliberately **no** deviation ID, because a file in the 1000–1500 band is the **compliant** state under `layout-§1`, on notice rather than in breach, so it is not filed in `docs/ARCHITECTURE.md`'s `## Documented deviations` register. Re-check at 1400 lines, and peel the widget kit then. |
-| 1000–1500 (on notice) | `modules/BrowserTable.lua` | 1227 | **Accepted.** Just over the line, and already three clean layers. Near flat this cycle (1225 at [`20260916-184506`](20260916-184506/)); 911 NLOC over 103 functions, and it still holds **three** of the addon's seven functions sitting at exactly CCN 15, now at `@659-707`, `@971-988` and `@1082-1125` ([`complexity.txt`](20260924-121347/complexity.txt)). Those are dense **guarding and defaulting**, not tangled control flow — cell-formatting bodies that fan out over column kinds. Do nothing yet. Re-check at 1300 lines, or the moment any of the three reaches 16. |
-| 1000–1500 (on notice) | `settings/Panel.lua` | 1107 | **Accepted.** Up from 1062 at [`20260916-184506`](20260916-184506/), from the Filters tab's id lists (two to a line, the X on each entry) and the bus-message catalog; 561 NLOC over 48 functions ([`complexity.txt`](20260924-121347/complexity.txt)), so well under half of it is code, because a settings page is mostly declarative layout. On notice, which is the compliant state under `layout-§1`, not a breach. Re-check at 1200, or the moment a fourth tab arrives. |
-| 1000–1500 (on notice) | `tests/test_schema.lua` | 1199 | **Accepted (2026-09-24).** New in the band: the schema suite grew with the `LibKa0s-Schema-1.0` handover, the retention-shortening confirm (`LH-04`) and the `minimap.shown` row (`LH-13`); 880 NLOC over 103 functions ([`complexity.txt`](20260924-121347/complexity.txt)). A test file has no runtime cost and its cases are already grouped by concern, so the split is mechanical when it is due. Re-check at 1300 lines, and peel by concern (row contract vs CLI) then, the way `test_slash_degraded.lua` came out of `test_slash.lua`. |
-| 1000–1500 (on notice) | `tests/test_slash.lua` | 1094 | **Accepted (2026-09-24).** New in the band, and already peeled once: `LH-16` moved the degraded-path cases into `tests/test_slash_degraded.lua` when it neared 1100. 743 NLOC over 167 small functions ([`complexity.txt`](20260924-121347/complexity.txt)), one per case. Re-check at 1300 lines, and split the next concern out then. |
+| 1000–1500 (on notice) | `modules/Analytics.lua` | 1200 | **Peel — already tracked as #32** ([the issue](https://github.com/tusharsaxena/LootHistory/issues/32), `state:triaged`, `severity:low`: split the chart renderers from the formatting and segmenting helpers). That issue is the owned home the six previous runs asked for, so this cell stops restating the plan and points at it. 1200 lines, up from 1178 at [`20260916-184506`](20260916-184506/) and unchanged since [`20260924-121347`](20260924-121347/) through this run: 932 NLOC over 80 functions in [`complexity.txt`](20260926-193103/complexity.txt), still 300 lines under the cap. Re-rule when #32 closes, or at 1300 lines if it has not. |
+| 1000–1500 (on notice) | `modules/Browser.lua` | 1289 | **Accepted, own disposition — `LH-37`.** The window shell, filter bar and dropdown widget kit; if it needs peeling the seam is the widget kit into a sibling file. It **grew** from 1244 at [`20260916-184506`](20260916-184506/) to 1289 by [`20260924-121347`](20260924-121347/) and has held there since: 1289 lines, 804 NLOC over 103 functions at this run ([`complexity.txt`](20260926-193103/complexity.txt)); the earlier wording that it shrank described the run before that and is withdrawn. The growth is the disabled-state stand-down, the combat-edge visibility decision (`LH-05`), the resize grip's Lock-frame gate (`LH-10`) and `NS.SafeRegisterEvent` for the two combat edges (`LH-17`): more of the same responsibilities, not a new one. `LH-37` (`docs/audits/2026-08-05/02_DEVIATIONS.md`) is the live finding for its size; there is deliberately **no** deviation ID, because a file in the 1000–1500 band is the **compliant** state under `layout-§1`, on notice rather than in breach, so it is not filed in `docs/ARCHITECTURE.md`'s `## Documented deviations` register. Re-check at 1400 lines, and peel the widget kit then. |
+| 1000–1500 (on notice) | `modules/BrowserTable.lua` | 1227 | **Accepted.** Just over the line, and already three clean layers. Near flat: 1225 at [`20260916-184506`](20260916-184506/), 1227 since [`20260924-121347`](20260924-121347/) and unchanged at this run; 911 NLOC over 103 functions, and it still holds **three** of the addon's seven functions sitting at exactly CCN 15, at `@659-707`, `@971-988` and `@1082-1125` ([`complexity.txt`](20260926-193103/complexity.txt)). Those are dense **guarding and defaulting**, not tangled control flow — cell-formatting bodies that fan out over column kinds. Do nothing yet. Re-check at 1300 lines, or the moment any of the three reaches 16. |
+| 1000–1500 (on notice) | `settings/Panel.lua` | 1107 | **Accepted.** 1107 lines, up from 1062 at [`20260916-184506`](20260916-184506/) (the Filters tab's id lists, two to a line with the X on each entry, and the bus-message catalog) and unchanged since [`20260924-121347`](20260924-121347/); 561 NLOC over 48 functions at this run ([`complexity.txt`](20260926-193103/complexity.txt)), so well under half of it is code, because a settings page is mostly declarative layout. On notice, which is the compliant state under `layout-§1`, not a breach. Re-check at 1200, or the moment a fourth tab arrives. |
+| 1000–1500 (on notice) | `tests/test_schema.lua` | 1199 | **Accepted (2026-09-24).** New in the band: the schema suite grew with the `LibKa0s-Schema-1.0` handover, the retention-shortening confirm (`LH-04`) and the `minimap.shown` row (`LH-13`). Unchanged since it entered at [`20260924-121347`](20260924-121347/): 1199 lines, 880 NLOC over 103 functions at this run ([`complexity.txt`](20260926-193103/complexity.txt)). A test file has no runtime cost and its cases are already grouped by concern, so the split is mechanical when it is due. Re-check at 1300 lines, and peel by concern (row contract vs CLI) then, the way `test_slash_degraded.lua` came out of `test_slash.lua`. |
+| 1000–1500 (on notice) | `tests/test_slash.lua` | 1094 | **Accepted (2026-09-24).** New in the band, and already peeled once: `LH-16` moved the degraded-path cases into `tests/test_slash_degraded.lua` when it neared 1100. Unchanged since it entered at [`20260924-121347`](20260924-121347/): 1094 lines, 743 NLOC over 167 small functions at this run ([`complexity.txt`](20260926-193103/complexity.txt)), one per case. Re-check at 1300 lines, and split the next concern out then. |
 
 `lizard` counts every `and`/`or` short-circuit as a decision, so in Lua a run of
 `t.k = rec.k or D.k` defaulting lines scores high with no visible branching at all: a large CCN
