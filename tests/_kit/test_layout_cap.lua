@@ -227,11 +227,11 @@ end
 --- Globs are not expanded. An entry that would only match through one matches nothing, which errs
 --- toward reporting a breach rather than toward excusing a file nobody meant to excuse — and the
 --- red that follows names the path, so the typo is one line from being read.
-local function exemptEntryCovers(entry, path)
-  if entry == path then return true end
-  local folder = (entry:sub(-1) == "/") and entry or (entry .. "/")
-  return path:sub(1, #folder) == folder
-end
+---
+--- The rule lives in `framework.lua` from kit revision 31 and this gate calls it there, because
+--- `run-automated-tests.sh` leaves the same files out of its band table by asking the same rule
+--- (`lua tests/run.lua --layout-cap-exempt PATH...`). One rule, so the two cannot disagree.
+local exemptEntryCovers = Kit.__layoutCapCovers
 
 --- The opts-borne exempt set, resolved against the tree into a set of concrete paths.
 ---

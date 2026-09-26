@@ -162,8 +162,8 @@ test("parity: the Options stub carries the whole live surface", function()
     "AceGUI", "BuildLandingPage", "PADDING_X", "TextRow",
     -- `__print` USED TO BE THE FIFTH ENTRY HERE, and its departure is the measurable half of
     -- M4-09. It is the one instance print sink the shell publishes so OptionsWidgets stops building
-    -- a second one from the same descriptor (libs/LibKa0s/Options.lua, read at
-    -- OptionsWidgets.lua:763), it arrived with v1.27.0 three days ago, and the library's comment
+    -- a second one from the same descriptor (libs/LibKa0s/Options.lua:499, read at
+    -- OptionsWidgets.lua:404), it arrived with v1.27.0 three days ago, and the library's comment
     -- where it is published says a degradation stub does not mirror it BECAUSE Kit.publicMembers
     -- drops the `__` prefix. That was true of the by-name form and not of the four-argument form
     -- this case used to use, so the exemption had to be typed. It no longer does, and neither will
