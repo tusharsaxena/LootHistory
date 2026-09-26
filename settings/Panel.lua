@@ -300,11 +300,11 @@ local function makeFilterSection(ctx, tab)
   -- CURRENCIES ASKED FOR ONE UNTIL THE OWNER SAW IT (2026-09-21). The reservation was that currency
   -- names are the long ones on this page -- "Weathered Harbinger Crest" -- and that above one
   -- column the library turns word wrap OFF on an entry's label (entryNoWrap,
-  -- libs/LibKa0s/OptionsWidgets.lua:2924, called from idLine at :3003-3007), because one name
+  -- libs/LibKa0s/OptionsIdList.lua:726, called from idLine at :817), because one name
   -- wrapping in the left column pushes the whole right column down and the grid stops lining up.
   -- The client truncates the TAIL instead, and the name and the gray `(id)` are ONE FontString
-  -- (entryLabel, :2643-2654), so an entry too long for its column loses the id ENTIRELY rather than
-  -- shortening it (:3296-3305 states that cost).
+  -- (entryLabel, :301-312), so an entry too long for its column loses the id ENTIRELY rather than
+  -- shortening it (:1128-1133 states that cost).
   --
   -- That cost is real and still applies. What the reservation got wrong was the premise: the
   -- currency ids a player actually mutes are crest and stone names -- "Veteran Mistcrest (3443)",
@@ -391,7 +391,7 @@ local CURRENCY_STRINGS = {
 -- `columns` is PER LIST rather than one number on the shared spec. All three lists ask for two
 -- today, so the key could be hoisted onto the shared spec -- it is kept per list because the count
 -- is a statement about THAT list's entries, and the Currencies entry has already changed its answer
--- once. An absent `columns` reads as one (libs/LibKa0s/OptionsWidgets.lua:3041-3051), so dropping
+-- once. An absent `columns` reads as one (idColumns, libs/LibKa0s/OptionsIdList.lua:856-863), so dropping
 -- the key is how a list opts back out. Why two is at the O.IdList call in makeFilterSection,
 -- beside the `removeStyle` the trade depends on.
 local FILTER_TABS = {

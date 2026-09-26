@@ -165,7 +165,7 @@ test("Panel: a blacklist change while the page is hidden repaints it on the next
 --- that go into it, and the library fills a row left to right before starting the next. An entry is
 --- an InteractiveLabel whose text carries the id -- either `|cff808080(12345)|r` after the name, or
 --- the library's "Unknown item 12345" while the client cannot name it yet (entryLabel,
---- libs/LibKa0s/OptionsWidgets.lua:2643-2654). Nothing else this page draws matches either shape.
+--- libs/LibKa0s/OptionsIdList.lua:301-312). Nothing else this page draws matches either shape.
 local function packedEntries(ws)
   local out = {}
   for line, w in ipairs(ws) do
