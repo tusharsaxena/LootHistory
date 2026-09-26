@@ -1243,7 +1243,7 @@ adoption, not an improvement.
    `Core.MakeCloseButton` now instead of `B:MakeCloseButton` — which called the very same function.
 
 **17k. The tab strip survives being pooled and re-dressed.** **Smoke, session 3. NOT YET RUN.** New
-with `M4-01`'s LibKa0s v1.27.0 re-vendor. `TabStrip` (`libs/LibKa0s/OptionsWidgets.lua`) no longer
+with `M4-01`'s LibKa0s v1.27.0 re-vendor. `TabStrip` (`libs/LibKa0s/OptionsTabs.lua` today; `OptionsWidgets.lua` when this step was written) no longer
 builds a button and a content panel per click: it acquires both from per-`ctx` `LibKa0s-Pool-1.0`
 pools and re-dresses them, re-setting `OnClick` on every dress. Its only headless proof counts
 `CreateFrame` calls on a second selection pass. `tests/test_panel.lua` does hold a wrap-invariance
