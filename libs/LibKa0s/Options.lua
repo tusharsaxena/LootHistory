@@ -1,10 +1,11 @@
 -- LibKa0s-Options-1.0 — the Blizzard settings-canvas shell: the panel factory, the page registry,
 -- the lazy Defaults button, and the reset/refresh trio every Ka0s addon's options UI runs on.
 --
--- Five files, one major. This one is the shell; OptionsWidgets.lua is the schema-row -> AceGUI
+-- Six files, one major. This one is the shell; OptionsWidgets.lua is the schema-row -> AceGUI
 -- translation and the two-column flow engine; OptionsTabs.lua is the page's chrome -- the tab
 -- strip, the banner, the header block and the secondary strip; OptionsCompose.lua is the schema
--- composers; OptionsScroll.lua is the always-shown scrollbar patch and the font preload. They are
+-- composers; OptionsScroll.lua is the always-shown scrollbar patch and the font preload;
+-- OptionsNav.lua is the nav rail a page may lead with (minor 25 reads its inset). They are
 -- one major because they are one feature: a host that ended up with a shell from one vendored copy
 -- and a flow engine from another would build panels that lay out wrong, and there is no version
 -- negotiation that would catch it.
@@ -23,7 +24,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 24
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 25
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -847,7 +848,10 @@ function lib:New(d)
     local f = ctx.scroll and ctx.scroll.frame
     if not f then return end
     f:ClearAllPoints()
-    f:SetPoint("TOPLEFT",     ctx.body, "TOPLEFT",     L.CONTENT_LEFT, -O.__scrollTopInset(ctx))
+    -- Right of a nav rail (minor 25): OptionsNav.lua's one inset, zero with no rail or no such file,
+    -- so a page without a rail is anchored exactly as before. placeTabs and drawContentPanel read it too.
+    local inset = lib.__railInset and lib.__railInset(ctx) or 0
+    f:SetPoint("TOPLEFT",     ctx.body, "TOPLEFT",     L.CONTENT_LEFT + inset, -O.__scrollTopInset(ctx))
     f:SetPoint("BOTTOMRIGHT", ctx.body, "BOTTOMRIGHT", -L.CONTENT_RIGHT, L.CONTENT_BOTTOM)
   end
 
@@ -1452,6 +1456,7 @@ function lib:New(d)
   if lib.__AttachTabs    then lib.__AttachTabs(O, d)    end
   if lib.__AttachCompose then lib.__AttachCompose(O, d) end
   if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
+  if lib.__AttachNav     then lib.__AttachNav(O)        end
 
   return O
 end

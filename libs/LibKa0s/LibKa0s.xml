@@ -19,6 +19,7 @@
 	<Script file="OptionsTabs.lua"/>
 	<Script file="OptionsCompose.lua"/>
 	<Script file="OptionsScroll.lua"/>
+	<Script file="OptionsNav.lua"/>
 	<Script file="Perf.lua"/>
 	<Script file="PerfPanel.lua"/>
 </Ui>

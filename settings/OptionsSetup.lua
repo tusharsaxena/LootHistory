@@ -113,6 +113,9 @@ if not lib then
     -- SelectTab, new at LibKa0s v1.36.0: reached only from a tab click on an already-rendered
     -- page. This addon does not adopt tab-scoped refresh, so the same inert no-op applies.
     SelectTab = noop,
+    -- NavRail, new at LibKa0s v1.61.0 (OptionsNav minor 1): drawn only by a page render, and no
+    -- page here draws a rail, so the same inert no-op applies.
+    NavRail = noop,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
