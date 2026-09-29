@@ -1,1469 +1,1057 @@
-# Smoke tests
-
-Manual end-to-end smoke tests for **Ka0s Loot History** (v1.4.0). Run before claiming a non-trivial
-change works, before tagging a release, and after refreshing `libs/` or bumping `## Interface:`. The
-headless harness (`lua tests/run.lua` + `luacheck .`, see [testing.md](testing.md)) covers the pure
-logic; everything below can only be verified **in-game** on the live client — **Retail (Midnight
-12.1.0 / Interface 120100)**.
-
-Companion docs:
-
-- Headless test harness + what each suite covers: [testing.md](testing.md).
-- What each slash verb dispatches to: [slash-dispatch.md](slash-dispatch.md).
-- Source-resolution model (how a drop gets its source + confidence): [data-flow.md](data-flow.md).
-- Window/table internals referenced throughout: [browser.md](browser.md).
-- Settings panel widgets + the options-ui-§10 scrollbar/button rules: [settings-panel.md](settings-panel.md).
-
-## Conventions
-
-- **`/reload`** is the abbreviation used below for `/console reloadui`.
-- **BugSack / BugGrabber** (or the stock Lua error frame, `/console scriptErrors 1`) is the primary
-  regression signal — a clean run is "no errors thrown at any point".
-- **Chat banner** — every line the addon prints starts with a cyan `[LH]` (`NS.PREFIX`). A line
-  missing the banner, or a doubled `[LH][LH]`, is a bug.
-- **Slash roots** — `/lh` and `/loothistory` are equivalent; the examples use `/lh`. **Bare `/lh`
-  opens the Settings panel on its landing page** (slash-commands-§3), and `/lh help` prints the help
-  index. Neither opens the loot window; use `/lh toggle|show|hide`.
-- **"Loot at/above threshold"** means loot an item whose quality is ≥ the `Minimum quality` setting
-  (default Common). `CHAT_MSG_LOOT` (self lines only) is the authoritative capture signal — anything
-  that produces a "You receive loot:" line is a candidate: mob kills, containers/nodes, vendor buys,
-  mail attachments, completed trades, quest rewards, M+ end-chests.
-- **"Pass"** lines describe what success looks like; if a step says "should X" and X does not happen,
-  the smoke test failed.
-
-## Suite
-
-| # | Area | Surfaces | Scenario |
-|---|------|----------|----------|
-| 1 | Cold load | TOC load order, `OnInitialize`/`OnEnable`, help printer | [Fresh install + first login](#1-fresh-install--first-login) |
-| 2 | Window | standalone-windows frame, ESC, position/size/scale persistence | [The history window](#2-the-history-window) |
-| 3 | Capture + attribution | `CHAT_MSG_LOOT`, gates, source stamping | [Capture + source attribution](#3-capture--source-attribution) |
-| 4 | Gates | Quality threshold, quest-item gate, source mute | [Collection gates](#4-collection-gates) |
-| 5 | History table | Filter / sort / group / search / row actions | [History table operations](#5-history-table-operations) |
-| 6 | Saved view | Save / Reset / Clear, character scope | [Saved view + character scope](#6-saved-view--character-scope) |
-| 6a | Export | Tab-aware CSV copy window, All Data / Current View | [Export](#6a-export) |
-| 7 | Insights | Shared filter scope, cards, breakdowns | [Insights tab](#7-insights-tab) |
-| 8 | Test mode | Synthetic dataset drives both tabs; Master controls **Test mode** box, combat end, refusals | [`/lh test` synthetic preview](#8-lh-test-synthetic-preview) |
-| 9 | Settings panel | Schema widgets ↔ CLI parity | [Settings panel + CLI parity](#9-settings-panel--cli-parity) |
-| 10 | Panel chrome | options-ui-§10 scrollbar + paired buttons, confirm dialogs | [Panel chrome + confirm dialogs](#10-panel-chrome--confirm-dialogs) |
-| 11 | Minimap | LibDBIcon show/hide, click actions | [Minimap button](#11-minimap-button) |
-| 12 | Debug console | `/lh debug` window + session-only logging | [Debug console](#12-debug-console) |
-| 12a | Diagnostics report | `/lh diagnostics`, `/lh debug diagnostics`: append, ungated, live while disabled | [Diagnostics report](#12a-diagnostics-report) |
-| 13 | Retention | `PruneOld` on login + confirmed change | [Retention prune](#13-retention-prune) |
-| 14 | SavedVariables | `schemaVersion` after logout | [SavedVariables integrity](#14-savedvariables-integrity) |
-| 15 | Debug console coverage | Tag inventory + coalesced-line spam checks | [Debug console coverage](#15-debug-console-coverage) |
-| 16 | Blacklist & whitelist | Capture gate (point-in-time) + Filters management UI | [Blacklist & whitelist](#16-blacklist--whitelist) |
-| 18 | Locale | Tooltip bind lines, AH mail subjects, the deconstruct name family | [Non-English client](#18-non-english-client-session-6-m5-08) |
-
----
-
-### 1. Fresh install + first login
-
-**Setup.** Quit WoW. Delete `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua` (and the
-`.lua.bak` if present). Confirm the addon is enabled in the character-select AddOns list as **Ka0s
-Loot History**.
-
-**Steps.**
-- Log in to a character.
-- Run `/reload`, then `/lh`.
-
-**Pass.**
-- Login and `/reload` complete with **no Lua errors**. Every TOC file loads (locales first, then
-  `core/` with Compat first, defaults, then modules with Attribution before Collector, and settings last).
-- **Load-order regression check** (the 2026-07-18 TOC reorder, audit LH-13). The TOC section order is
-  `Libraries → Locales → Core → Defaults → Modules → Settings`, so `settings/` now loads *after*
-  `modules/`. Confirm nothing depends on that having been the other way round: no Lua error on login
-  or `/reload`, `/lh help` prints the help index (below), and **Ka0s Loot History appears in the Blizzard
-  options list** (Esc → Options → AddOns) with its single **General** sub-page present (Filters and
-  AH Price are tabs on that page's strip since R6, not sub-pages of their own).
-  The headless suite loads in this same order, but the real TOC load path is not unit-testable.
-- `/lh` (bare) opens the **Settings panel on the Ka0s Loot History landing page** (logo, tagline,
-  command list), not the General sub-page. `/lh   ` (spaces only) does the same. The loot window
-  does **not** open, and nothing is printed to chat.
-- `/lh help` prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
-  `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/profile/debug/diagnostics/test/purge/help — eighteen). Every
-  line carries the cyan `[LH]` banner. The window does **not** open.
-- `LootHistoryDB` is present on disk after `/reload`: `global` holds `history = {}`, `minimap` and
-  `schemaVersion = 10`, and `profiles.Default` holds `settings`. (The declared default is 0, the
-  savedvariables-§1 floor; `NS:RunMigrations`, invoked from `InitDB` before any read, walks v1→v2
-  through v9→v10 back-to-back on a brand-new DB, so the value persisted after the first init is 10.
-  Every step touches 0 rows here.) `/dump LootHistoryDB.global.schemaVersion` answers 10; on an
-  existing account too, the history is intact, the old settings are in `profiles.Default`, and a
-  stored retention is `global.retentionDays`, in no profile.
-- `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
-  `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
-  `settings.excludedSources = table: …` (empty), `minimap.shown = true` — the row path and its
-  sense are SHOWN while the one stored key is `minimap.hide = false`, which is the whole of
-  launcher-§3's inversion and is what the two spellings above are saying.
-- **The disabled state is TOTAL** (slash-commands-§7). `/lh disable` prints
-  `settings.enabled = false`, and the addon **stops running** rather than staying loaded and
-  ignoring what it sees: the History window closes and will not reopen, loot you take is not
-  recorded, and `/lh show` answers one line —
-  `Ka0s Loot History is disabled — enable it with /lh enable` — and does nothing else. The minimap
-  button refuses nothing: a **left-click** opens the settings panel in either state, and a
-  **right-click** opens its options menu with **Enabled** live and the other three entries grayed.
-- **And the command surface is unchanged while it is off.** Still with the addon disabled, check
-  that a bare `/lh` opens the settings panel (this is the case the standard's v2.57.0 reversal
-  turned on), `/lh version` prints, `/lh list` and `/lh get settings.qualityThreshold` read,
-  `/lh set settings.scale 1.1` writes, `/lh debug` still opens the console, and `/lh diagnostics`
-  still writes its report (§12a). Only `show`, `hide`,
-  `toggle`, `test` and `purge` refuse.
-- `/lh enable` prints `settings.enabled = true` and the addon comes back — loot records again and
-  the window opens. Tick and untick **Master controls ▸ Enable Loot History** and confirm
-  `/lh get settings.enabled` follows it, and that unticking the box takes the window down exactly as
-  the verb does — one switch, three surfaces (slash-commands-§2).
-- **The one that needs timing, and it is worth the trouble.** `/reload`, and inside the first five
-  seconds after the loading screen clears, untick **Enable Loot History**. Nothing should be written:
-  the retention prune and the bound-state repair are deferred off the login spike, and before
-  v1.41.0 they fired anyway, on a disabled addon, because `C_Timer.After` cannot be canceled.
-
-### 2. The history window
-
-The standalone window follows the Standard's standalone-windows section: a non-secure `CreateFrame`, ESC-closable via
-`UISpecialFrames`, with persisted position/size/scale. It is **not** combat-gated.
-
-**Setup.** Any character with the addon loaded.
-
-**Steps.**
-- `/lh toggle` (opens), `/lh toggle` (closes).
-- `/lh show`, then `/lh hide`.
-- `/lh show`, then press **ESC**.
-- `/lh show`. Drag the title bar to a new position; drag the bottom-right resize grip to a new size;
-  `/lh set windowScale 1.3`.
-- `/reload`, then `/lh show`.
-- Enter combat (auto-attack a dummy) with the window open; click a row; drag/resize.
-
-**Pass.**
-- `toggle` flips visibility; `show`/`hide` are explicit. The window opens at the History tab (the
-  last-used tab is remembered within a session).
-- **ESC closes the window** (it is registered in `UISpecialFrames`), and any open filter dropdown menu
-  closes with it.
-- After `/reload`, the window reopens at the **dragged position**, the **resized dimensions** (never
-  below the minimum width that fits all columns), and **1.3× scale** — position/size persist in
-  `settings.window`, scale in `settings.windowScale`.
-- In combat: **no** "Interface action failed because of an AddOn" red error. The window stays fully
-  usable (non-secure by design). `/lh config` in combat is the *only* combat-blocked path (see §9).
-
-### 3. Capture + source attribution
-
-The empirical source matrix. Record PASS/FAIL per row; each looted item should appear as a new
-**History** row with the expected **Source** and a confidence of `CERTAIN` or `INFERRED`. Only
-sources with a live stamper are exercised here — see [data-flow.md](data-flow.md).
-
-**Setup.** Retail character with bag space; nearby vendor; mail with an item attachment; a trade
-partner if available; a quest with an item reward; optionally a M+ keystone.
-
-**Steps (loot, then `/lh show` → History and read the Source column).**
-
-| # | Action | Expected Source | Confidence |
-|---|--------|-----------------|------------|
-| 1 | Kill a mob and loot the corpse | **Kill** | CERTAIN |
-| 2 | Open a chest / lockbox / herb or ore node | **Container** | CERTAIN |
-| 3 | Turn in a quest with an item reward | **Quest** | CERTAIN |
-| 4 | Buy an item from a vendor | **Vendor** | CERTAIN/INFERRED |
-| 5 | Take an item attachment from mail | **Mail** | CERTAIN/INFERRED |
-| 6 | Complete a trade that gives you an item | **Trade** | CERTAIN/INFERRED |
-| 7 | Loot a Mythic+ end-of-run chest | **Mythic+** | CERTAIN |
-| 8 | Spend a bonus/seal roll on a boss kill | **Bonus Roll** | CERTAIN |
-| 9 | Win a group need/greed/transmog roll | **Roll** | CERTAIN |
-| 10 | Craft an item (any tradeskill "You create") | **Craft** | CERTAIN |
-| 11 | Refund a **currency**-paid vendor purchase within the buyback timer (get the currency back) | **Refund** — a `Type=Currency` row for the returned currency | CERTAIN |
-| 12 | Loot currency (M+ chest, world quest, PvP, etc.) with **Record currency** on | **Currency** row, `Type=Currency`, source from context | CERTAIN |
-
-**Pass.**
-- Rows 1-3 attribute to Kill/Container/Quest. Rows 4-7 record with the listed source (these were the
-  F-001 in-client confirmations for VENDOR/MAIL/TRADE via `CHAT_MSG_LOOT`).
-- Rows 8/10 attribute from the self-identifying loot line itself (bonus loot / "You create"),
-  overriding any stale kill/container context. **Row 11 (Refund)** is confirmed in-client: refunding a
-  currency-paid purchase returns the currency on `CHAT_MSG_CURRENCY` as a *"You are refunded: [currency]xN"*
-  line (not `CHAT_MSG_LOOT`), so it records as a `Type=Currency` row with `source=Refund`, CERTAIN —
-  overriding the stale `VENDOR` stamp from the purchase. With debug on (§12) it logs `[Currency] … src=REFUND`.
-  (Refunds that return an **item** are not yet exercised — tracked as a follow-up issue.) §F-009: **Row 9 is the one to
-  watch** — the `ROLL` source is stamped from the `LOOT_ROLL_YOU_WON` ("You won:") line that precedes
-  the item's receive line. With debug on (§12), confirm a `[Attr] stamp ROLL via roll-won` line
-  appears just before the item's `[Loot] … src=ROLL`. If instead the item records as the boss's
-  Kill/Container source, the client is emitting the compact "no-spam" roll variant and the ROLL path
-  needs a follow-up (see ARCHITECTURE Known limitations).
-- **The keystone context ends with the key.** With `/lh debug on`, run a key, complete it and loot
-  the reward chest: it records as **Mythic+** (row 7). Leave the dungeon, then mine an ore node or
-  pick a herb: it records as **Container**, and the debug console shows an `[Attr] keystone cleared`
-  line on the zone change. Zoning out and back in mid-key keeps chest and object loot as **Mythic+**
-  (a `keystone re-armed` line on re-entry). Resetting the key (`CHALLENGE_MODE_RESET`) also clears it.
-- **Boss-corpse loot keeps its encounter.** With `/lh debug on`, kill a boss and loot the corpse. The
-  console shows `[Attr] encounter end … kill: context kept 60s for the corpse` **before** the
-  `LOOT_OPENED` line, and the recorded row's `sourceDetail` carries `encounterID` and `difficulty`
-  (`/dump LootHistoryDB.global.history[#LootHistoryDB.global.history].sourceDetail`). A wipe logs
-  `wipe/no context: cleared` instead. If `LOOT_OPENED` arrives before `encounter end`, the grace
-  window is unnecessary: record that and revisit `Constants.ENCOUNTER_GRACE`.
-- Any loot the engine can't attribute falls back to **Source = Other**, confidence `INFERRED` — never
-  a Lua error, never a missing row.
-- The denormalized columns render correctly: item link (exact tooltip), quality color, iLvl, bound
-  glyph (BoE/BoP/Warbound/Warbound-until-equipped), the Vendor and AH price columns, type, zone,
-  and the Character column (class icon + class color).
-- With debug on (§12), a currency loot logs `[Currency] <name> x<n> id=<id> src=<source>` and adds a
-  `Type=Currency` row (blank iLvl/Vendor/AH cells; the Type filter isolates it). Turning
-  off **Record currency** stops new currency rows; muting a source stops that source's currency too.
-  The Insights tab shows a **Currency** block (top currencies, currency-by-type×source stacked bars,
-  currency-by-character×type, currency-over-time). §F-010: verify the currency **category** (SubType) reads
-  a real header like "The War Within" — if it's blank, `Compat.CurrencyCategory` couldn't resolve the
-  currency-list headers on this client and needs a look.
-- **A currency first seen mid-session still gets its category (S-003).** At a season start, loot a
-  currency not yet seen this session (after at least one other currency loot built the category
-  cache). Its row's **Subtype** reads its Currency-tab header, not blank: a miss rebuilds the cache
-  once. Then collapse that header in the Currency tab, `/reload`, and loot a currency under it; record
-  in [midnight-quirks.md](midnight-quirks.md) *Currency category* whether the Subtype resolves (the
-  expectation is blank, because the list API skips a collapsed header's children).
-- **Currency quality (name color + Quality column).** The currency row's **Name** cell is colored by
-  its own `C_CurrencyInfo` quality tier (not blank/white), and the **Quality** column shows that
-  tier's label — the same rendering the History table already gives item rows. Hovering the row shows
-  the **in-game currency tooltip** (`GameTooltip:SetCurrencyByID`), not an item tooltip and not a
-  blank tooltip.
-- **Currency bound glyph.** The currency row shows a **Bound** lock glyph (not blank): **blue/Warbound**
-  for a Warband-transferable currency (tooltip *"Warband Transferable"*, e.g. Timewarped Badge) and
-  **green/Bind on Pickup** for a non-transferable one (e.g. Nebulous Voidcore). Captured at loot time
-  from `C_CurrencyInfo.isAccountTransferable` (`Compat.CurrencyBound`).
-- **v3→v4 backfill.** With currency rows already in history from **before** this change (looted while
-  on an older build, so their `quality` is nil), run `/reload`. After reload, those older currency
-  rows go from **white/blank Name + blank Quality** to **colored Name + filled Quality** — the
-  migration backfilled `quality` in place without adding or removing any rows. (If no pre-change
-  currency rows are available, this step can be skipped — see §14 for the schema-stamp confirmation.)
-- **v4→v5 backfill (bound).** Same idea for the Bound column: currency rows captured **before** the
-  bound change have `bound = nil` (blank/faint-gray glyph). After `/reload`, the v4→v5 migration
-  backfills each resolvable currency's bound in place — Warband-transferable → **blue/Warbound**, else
-  **green/Bind on Pickup** — with no rows added or removed.
-
-> **Field-confirmed 2026-07-22** (basic flows, in-client): currency capture (`Type=Currency` rows) and
-> the currency-vendor **refund → `source=Refund`** flow both verified working. **Still owed:** the new
-> **currency bound glyph** at capture + the **v4→v5 bound backfill** (added after this test pass), plus
-> the §F-010 currency-category (SubType) resolution and the Insights currency block layout.
-
-### 4. Collection gates
-
-Three independent gates run before a record is written (`Collector:ShouldRecord`).
-
-**Setup.** Open Settings (`/lh config`).
-
-**Steps.**
-- **Quality:** set `Minimum quality` to **Rare**. Loot a Common/Uncommon item, then a Rare+ item.
-- **Quest items:** leave **Exclude quest items** checked. Loot a Quest-type item (a quest objective
-  drop). Uncheck it and loot another Quest-type item.
-- **Source mute:** in **Record data from**, uncheck **Kill**. Kill a mob and loot it. Re-check Kill.
-
-**Pass.**
-- Below-threshold loot is **dropped** (no row); Rare+ records. With debug on (§12) a `[Drop]` line
-  names the reason (`quality`).
-- With **Exclude quest items** on, Quest-class items are dropped (`reason=quest`, keyed on the
-  locale-independent item class `12`, not the localized type string); unchecking it lets them record.
-- With **Kill** unchecked, kill loot is dropped (`reason=source`); re-checking restores capture. The
-  mute list offers **every source** — Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail,
-  Auction House, Vendor, Disenchant, Milling, Prospecting, Craft, Refund, Other — now that all have a
-  live capture path.
-- All three gates react **live** to the setting change (upvalues refresh on `SettingsChanged`); no
-  `/reload` needed.
-
-### 5. History table operations
-
-**Setup.** A history with a spread of sources, zones, qualities, and characters (or use `/lh test`,
-§8). `/lh show` → History tab.
-
-**Steps.**
-- **Sort:** click each column header (Date, Time, iLvl, Item, Qty, Quality, Type, SubType, Source, Zone,
-  Vendor, Character); click again to flip ascending/descending. The active column shows a sort arrow.
-- **Group by:** cycle the **Group by** dropdown through None / Day / Quality / Type / Source / Zone /
-  Character. Collapse and expand a group header (left-click).
-- **Filters:** exercise each row-2 dropdown — **Date** (single-select: All / Today / Last 7 days /
-  Last 30 days), and the multi-select **Bound**, **Quality**, **Type**, **SubType**, **Source**,
-  **Zone**, **Character** (pick two values in one, confirm the collapsed label reads "N selected").
-- **Zone filter:** open **Zone** in a history that includes a multi-floor dungeon (Halls of Atonement,
-  Dire Maul, The Deadmines …). Confirm each zone name appears **exactly once** — the menu keys on the
-  name, not `mapID`, so a dungeon's floors no longer list one entry each — and that picking it shows
-  every row looted anywhere in that zone. If any row has no captured zone, one **Unknown** entry
-  appears and selects exactly those rows.
-- **Saved view upgrade:** with a view saved before this change (its Zone filter stored map ids),
-  `/reload` and re-open the browser. The Zone dropdown must come back selecting the same zones by
-  name (schema v7→v8), never silently unfiltered.
-- **Bound filter:** open **Bound** and pick **Not Bound**, then add **Bind on Equip**. The five
-  options (Not Bound / Bind on Equip / Bind on Pickup / Warbound / Warbound Until Equipped) match
-  the Bound column's header-tooltip legend. Confirm the visible rows' lock colors match the selected states, and that
-  **Not Bound** matches rows with no lock.
-- **Search:** type into **Search items…**; clear it.
-- **Row actions:** right-click a row → context menu (**Link to chat**, **Delete**). Shift-left-click a
-  row. Hover a row.
-
-**Pass.**
-- Every sort direction and every group mode renders without error; the group order mirrors the column
-  order (Day, Quality, Type, Source, Zone, Character).
-- Each filter narrows the visible rows; the footer reads **"Showing X of Y"** (bottom-left) and
-  updates live as filters change. Multi-select filters combine (intersection with the others).
-- The footer's bottom-right reads **"Database ≈ <size>"** (e.g. `≈ 12.4 kB`), right-aligned, matching
-  the settings panel's storage estimate. It does **not** change as filters change (it tracks stored
-  history, not the filtered view); it updates after looting a new item or deleting a row.
-- Search matches item names; clearing it restores the unsearched set.
-- Right-click **Delete** removes the row (fires `HistoryChanged`; the table + footer refresh and the
-  array is rebuilt dense, no holes). **Link to chat** and **Shift-click** both insert the item link
-  into the chat edit box. Hovering shows the item tooltip.
-
-### 6. Saved view + character scope
-
-The saved "view" = group + sort + column filters incl. Bound (NOT the character scope, which is a
-session default of "current player"), persisted to `savedView`.
-
-**Setup.** History with loot from **≥2 characters** on the account.
-
-**Steps.**
-- Set a distinctive group/sort/filter combination (include a **Bound** selection). Click **Save**.
-- Change the filters, then click **Clear**.
-- Click **Reset**.
-- **Character** dropdown (row-2): open it — the window is scoped to the current player on open. Add a
-  second character, then clear back to the current player only.
-- `/reload`, `/lh show`.
-
-**Pass.**
-- **Save** stores the current group/sort/filters (including Bound) as the account default ("view saved
-  as default.").
-- **Clear** returns filters/group/sort to the saved view and the character scope to the current player.
-- **Reset** drops the saved view back to stock defaults ("view reset to stock defaults.").
-- The **Bound selection survives Save → Clear → reload** as part of the view.
-- After `/reload`, the window opens on the **saved view + current player**: the Character dropdown's
-  collapsed button reads **"Character: Current"** and its menu lights that entry gold. This must hold
-  **even on a character with no recorded loot** (the footer reads "Showing 0 of N") — a stale build read
-  "Character: All" there, because the character had no data row to build a menu option from. There is no
-  longer a Current/All-players toggle — the Character dropdown alone controls scope.
-
-### 6a. Export
-
-**Setup.** A history with a spread of items (or `/lh test`, §8). `/lh show`.
-
-The **Export** button is **tab-aware** (issue #15): it lives in the shared filter bar, and what it
-exports depends on which tab is showing.
-
-**Steps (History tab).**
-- On the **History** tab, click **Export** (right of row 2). The modal header reads **Export History**.
-- Leave the **Data set** dropdown on **All Data** and click **Export to CSV**. Review the copy window;
-  press Ctrl+C, Esc.
-- Reopen Export, pick **Current View** (apply a filter first so it differs), then **Export to CSV** again.
-
-**Steps (Insights tab).**
-- Switch to the **Insights** tab, click **Export**. The modal header reads **Export Insights**.
-- Export **All Data** and **Current View** (with a filter applied) to CSV in turn.
-
-**Pass.**
-- **History export** — the CSV copy window opens with the loot-row header
-  (`ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`)
-  and one row per record. `date` reads DD-MMM-YYYY and `time` reads HH:MM; `quality` is a label beside
-  numeric `qualityRaw`; `vendorPrice`/`auctionPrice`/`value` read `Ng Ns Nc` beside their copper `*Raw`
-  columns (`auctionPrice`/`auctionPriceRaw` blank when no captured price is selectable by the priority
-  list); `value` is the derived worth (the higher of the picked auction price and `vendorPrice`);
-  `auctionSource` is the picked price's provenance tag (e.g. `tsm:dbmarket`), blank when unpriced; the
-  `auc_<provider>_<key>` columns are the raw copper value the addon actually captured for every
-  configured price key, independent of which one was picked; `bound` is a friendly label; comma-bearing
-  item names are quoted; `wowheadLink` is a `wowhead.com/item=…` URL (with `?bonus=…` when the item has
-  bonus IDs). Currency rows carry `currencyID` (and leave `itemID` blank) alongside the same columns as
-  item rows. `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence` are **not** exported.
-- **Insights export** — the CSV instead has the analytics header `Section,Label,Count,Value` and
-  mirrors the Insights panel **exactly**: a **Summary** block (records, distinct items, characters,
-  value, active days, epic+, best iLvl, richest, date range, busiest day — the KPI cards), then
-  **By Source**, **By Character x Source**, **By Quality**, **By Character x Quality**, **By Item Type**,
-  **By Character x Item Type**, **By Bound Type**, **By Character x Bound Type**, **By Character**,
-  **By Weekday**, **By Hour**, **Top Zones**, **Top Items by Count / Value**, **By Day**, and — when the
-  range has currency loot — **Currency Collected** (qty per currency), **Currency by Type x Source**
-  (one row per currency × source), **Currency by Character x Type**, and **Currency by Day**. Values
-  render `Ng Ns Nc`. The **`… x …`** sections are the per-character companions (`Char / Category` rows;
-  the source variant also carries its value). All loot sections are **items-only** (currency counts
-  only in its own Currency sections), so a character's total tallies across them. Confirm the export
-  has **no** By Keystone, Attribution Confidence, Currency by Source, flat Currency by Character, or
-  currency Summary rows — the dashboard dropped those, so the export does too.
-- **All Data** covers the whole (visible) history; **Current View** honors the **shared filter** — so
-  narrowing the filter bar shrinks *both* the History and the Insights export.
-- Text is auto-highlighted; Ctrl+C copies; Esc closes.
-- Both the modal and the copy window open **centered on the History window** (not the screen).
-
-### 7. Insights tab
-
-**Setup.** A history spanning several days (or `/lh test`, §8). `/lh show` → **Insights** tab.
-
-**Steps.**
-- Adjust the **shared filter bar** (Date dropdown, or any column filter / search).
-- Read the stat cards and scroll the breakdown sections.
-
-**Pass.**
-- Insights has **no range selector of its own** (issue #13): the shared filter bar scopes **all** cards
-  and charts. Changing the Date dropdown, a column filter, or the search box on the Insights tab
-  re-scopes the whole view live; switching tabs keeps the same filter, so the History table and the
-  Insights charts always show the same slice. The empty state (a filter matching nothing) hides the
-  chart sections cleanly instead of erroring.
-- The stat cards populate: **records, distinct items, characters, value, active days, epic+
-  drops, best drop (ilvl), richest drop, date range, busiest day**. "Value" is the derived worth
-  (the higher of the picked auction price and `vendorPrice`) `× quantity` — not raw vendor price alone.
-- **Headline font parity.** All KPI card values — including **value**, **richest drop**, **date range**,
-  and **busiest day** — render at the **same big size** as **records** / **distinct items** (no card is
-  smaller than the others). A long value stays on **one line**: it shrinks just enough to fit the card,
-  never wraps or clips off the edge.
-- **Smaller coin glyphs.** The gold/silver/copper icons in Insights money strings (value card, richest
-  drop, Value By Source, etc.) are **~25% smaller** than before — less chunky next to the text.
-- **Bigger, thicker section dividers.** The gold **LOOT** and **CURRENCY** separator titles are **~50%
-  larger** and their flanking rule lines **~25% thicker** than the sub-section headers.
-- **Title Case + renamed titles.** Every sub-section title is Title Case (e.g. "Loot By Source",
-  "Loot By Hour Of Day", "Top Items By Count"). The companions read **"Loot By Character × Source /
-  Quality / Item Type / Bound Type"** (and **"Value By Character × Source"**); the quality parent is
-  **"Loot By Quality"**.
-- The breakdown sections sit under two full-width dividers — a centered gold **LOOT** title, then the
-  item charts and ranked lists, then a centered gold **CURRENCY** title. Under **LOOT**, in order:
-  **Loot By Character** (now the **first** chart), **Loot By Source**, **Loot By Character × Source**,
-  **Value By Source**, **Value By Character × Source**, **Loot By Quality**, **Loot By Character ×
-  Quality**, **Loot By Item Type**, **Loot By Character × Item Type**, **Loot By Bound Type**, **Loot By
-  Character × Bound Type**, **Loot Over Time**, **Value Over Time**, **Loot By Hour Of Day**, **Loot By
-  Weekday**, then **Top Zones / Top Items By Count / Top Items By Value**. Confirm the old **Quality
-  mix**, **Mythic+ loot by keystone level**, and **Attribution confidence** charts are **gone** (the
-  keystone/confidence data remains in the Export).
-- **"… × Character" companions.** Immediately below each of the five categorical loot charts sits its
-  matching **stacked** companion — Loot By Character × Source / Quality / Item Type / Bound Type, and
-  Value By Character × Source — character on the Y axis, segments reusing the parent chart's category
-  colors. A companion with no data hides itself.
-- **Colored item-type / weekday / currency bars.** "Loot By Item Type", "Loot By Weekday", and
-  "Currency Collected" bars are now **distinctly colored per category** (item type / day / currency),
-  not a single flat color. Item-type and currency colors match their × Character companions.
-- **Bar-colored labels.** On single-bar charts the row label text is colored to **match its bar**
-  (e.g. Loot By Source labels take each source's color). Exceptions keep their own color: Loot By
-  Quality (quality color) and per-character bars (class color). Stacked-bar labels are unchanged.
-- **Palette + non-adjacency.** Categories without a predefined color (item types, currencies,
-  weekdays) draw from a standard **inverse-VIBGYOR** palette assigned by sort rank, so **no two similar
-  colors sit next to each other** in a chart or legend (contrast the old look where adjacent
-  currencies could be near-identical).
-- **Companion segment order.** In each × Character companion the stacked segments run in the **same
-  order as the parent chart's Y axis** — e.g. Loot By Character × Bound Type segments follow the same
-  order the bars appear in Loot By Bound Type; Value By Character × Source follows the value-desc order.
-- **Legends below every categorical chart.** Every single-bar categorical chart (Loot by source, Value
-  by source, Quality distribution, Loot by item type, Loot by bound type, Currency Collected) **and**
-  every stacked companion now shows a **color-swatch legend** beneath it. Each legend's swatches
-  **start at the bars' left edge**, aligned under the bars (not under the text-label column).
-- **Legend label truncation.** Long legend labels (e.g. "Artisan Enchanter's Moxie", "Midnight
-  Enchanting Knowledge") are **truncated with a "…"** so chips don't overlap; hovering a legend chip
-  shows the **full label**.
-- **Totals tally (items-only LOOT).** Currency is **excluded** from the LOOT charts, so a character's
-  total in **Loot by character** equals the sum of that character's segments in **Loot by Character ×
-  Source**, **Bound by Character**, **Quality by Character**, etc. (e.g. if Chopstix reads 384 in Loot
-  by character, its Bound-by-Character segments sum to 384). The headline **records** KPI still counts
-  currency (so it can exceed the Loot-by-source total); the CURRENCY section carries all currency.
-- **Label truncation + tooltips.** In both LOOT and CURRENCY sections, a long row label (currency /
-  source / item-type / character name) is **cut to ~16 chars with a "…"** instead of wrapping to a
-  second line, and **hovering the row label shows a tooltip with the full name**. Confirm the
-  previously clumped 2-line labels (e.g. "Artisan Enchanter's Moxie") now sit on one line.
-- **Every tooltip carries its value.** Hover a horizontal bar row, a stacked-bar row, a ranked-list row
-  (Top Zones / Top Items / Top by Value) and a bar-section legend chip: each reads
-  **"&lt;full label&gt;:  &lt;value&gt;"**, and the value matches the number printed on that row
-  (money rows keep their coin glyphs). Check one row whose label is ellipsised and one whose value
-  column is clipped — the tooltip must show both in full. The only label-only tooltips are the legend
-  chips under the "… by Character" companion charts, which have no single value.
-- **Cursor-anchored tooltips.** Every Insights hover tooltip (row labels and segments) appears just
-  **above-and-right of the cursor**, not pinned to the row's far-right edge.
-- **Per-segment tooltips.** Hovering an individual colored segment of any stacked bar (Character ×
-  Source, Currency by Type × Source, Currency by Character × Type, Quality mix, etc.) shows a tooltip
-  naming that segment: **"&lt;category&gt;: &lt;value&gt;"** (e.g. "Kill: 45", "Valorstones: 40").
-- Loot an item, then a currency (or use `/lh test`, §8, which seeds both) with Insights open on a
-  history/filter that includes currency loot: the **CURRENCY** divider appears below **LOOT** (the old
-  "Currency — N types — biggest: …" summary line is **gone**), followed by
-  **Currency Collected** (one distinctly-colored bar per currency, length = qty, with a legend),
-  **Currency by Type × Source** (one *stacked* bar per currency, segments colored by the source it
-  came from, with a source **legend** below), and **Currency by Character × Type** (one *stacked* bar per character,
-  one segment per currency, **each currency a distinct color**, with a per-currency **legend**
-  below), then **Currency over time** (a per-day strip). Confirm the old **Currency by Source** bar
-  chart is **gone** and the old flat "Currency by character" bar is **replaced** by the stacked
-  Character × Type chart. Narrow the filter to a range with **no** currency loot (e.g. a single day
-  before you started collecting currency) and confirm the whole **CURRENCY** block — divider included —
-  disappears cleanly while **LOOT** still renders.
-- Looting an item with Insights open updates the cards live (the tab reacts to `RecordAdded`).
-
-### 8. `/lh test` synthetic preview
-
-Test mode is session-only and drives **both** tabs (the `ActiveHistory` seam swaps in the synthetic
-dataset for Query/Stats/CurrentRecords).
-
-**Steps.**
-- `/lh hide`, then `/lh test` (chat prints "test mode on"). The window opens by itself.
-- Inspect the **History** tab, then the **Insights** tab.
-- Close the window, then `/lh test` again (prints "test mode off"). The window stays closed.
-- Open **Settings ▸ Ka0s Loot History ▸ General ▸ Master controls**. **Test mode** sits alone on the
-  line under Lock frame | Debug console. Tick it: the window opens in test mode. Untick it: test mode
-  ends. Tick it again, then type `/lh test`: the box unticks.
-- Tick **Test mode**, close the window, then attack a target dummy.
-- Out of combat, set **General visibility** to **Never** and tick **Test mode**. Set it back to
-  **Always**, attack the dummy again and, while in combat, type `/lh test`.
-- Tick **Test mode**, then **Reset all settings** and confirm.
-- Tick **Test mode** again, then `/reload`.
-
-**Pass.**
-- Combat start: chat prints `test mode off — combat started` once, the **Test mode** box unticks, and
-  the window does **not** open.
-- Visibility **Never**: chat prints one `test mode not started — …` line, no window opens and the box
-  stays unticked. The in-combat `/lh test` is refused the same way, with a line naming combat.
-- **Reset all settings** leaves test mode off and the box unticked.
-- Test mode on: a bright-red **TEST MODE** badge sits beside the window title; the table fills with
-  synthetic rows (spanning several synthetic characters), the filter dropdowns rebuild from the test
-  data, and the History view opens on the stock view + **All players** (the test chars differ from the
-  current one). Insights reflects the same synthetic dataset.
-- Test mode off: the badge clears, the table returns to the **live** history, and the view returns to
-  the saved view + Current player.
-- After `/reload`, test mode is **off** (it is never persisted).
-
-### 9. Settings panel + CLI parity
-
-Every user setting is a Schema row that drives the AceDB default, the panel widget, and the slash
-get/set/list/reset — one write seam (`Schema:Set`). See [settings-panel.md](settings-panel.md).
-
-**Setup.** Open Settings twice-over: `/lh config` **and** ESC → Options → AddOns → **Ka0s Loot
-History** (both must land on the same category).
-
-**Steps.**
-- **The strip.** There is exactly **one** sub-page under Ka0s Loot History now — General — and it
-  opens on **Master controls** with six tabs across the top: Master controls, Capture, AH Price,
-  Interface, History, Filters, in that order. The selected tab is the one you cannot click. Those
-  names and that order are shared with **Ka0s Bank Ledger**, whose strip is the same without AH
-  Price — open both panels side by side and check they agree, because that agreement is the point.
-  Click each in turn: the page's rows change and **no section heading** appears on any of them —
-  except the two tabs that mix subjects, which carry *subsection* headings: **AH Price**
-  (**Pricing** above the toggle, **Price sources** above the table) and **Interface** (**Window**
-  above the two size sliders, **Minimap** above the button toggle). Narrow the Settings window until the strip wraps to a
-  second row; the first row of controls must still start *below* the strip, never under it, and
-  every row must sit at the same height whichever tab is selected.
-- **Master controls.** Toggle **Enable Loot History**; run `/lh get settings.enabled`. Set
-  **General visibility** to *Never* and try `/lh show` — the window refuses and says so in chat; set
-  it back to *Always* and the window opens again. Set it to *Only out of combat*, open the window,
-  then pull something: the window hides itself when combat starts and does **not** reopen on its
-  own when combat ends. Drag **Master scale** — the History window *and* the export window both
-  change size, and **Window scale** on the Interface tab still multiplies on top of it. Drag
-  **Master alpha** — both windows fade together. Tick **Lock frame** and try to drag either window
-  by its title bar: neither moves; drag the History window's bottom-right resize grip: it does not
-  resize. Untick it and both drag again, and the grip resizes; `/reload` and the new size is kept.
-- Drag the **Window scale** slider (Interface); run `/lh get settings.windowScale`. Then
-  `/lh set windowScale 1.5` and watch the slider. **The slider must move smoothly in 0.05 steps** —
-  it shipped with no step and could only be dragged to 0.6 or 1.6.
-- Drag the **Row height** slider (Interface, beside Window scale) from 18 down to 14 and up to 28.
-  The History table's rows change height *and* the number of visible rows changes with them; no row
-  is left clipped at the bottom of the list. Set it back to 18 and confirm the table looks exactly
-  as it did before the slider existed. `/lh get settings.rowHeight` echoes the value.
-- Change **Minimum quality** (Capture), **Keep history for** (History), and toggle checkboxes
-  in **Record data from** (Capture) and **Minimap button** (Master controls) /
-  **Exclude quest items** (Capture).
-- **History tab.** The storage readout ("N items collected over D days", "Database size: ≈ …")
-  is there, with **Purge history…** beside it — and **nothing else**: the old *Reset Everything*
-  button is gone from this tab. Loot something with the panel open on that tab — the readout's item
-  count goes up on its own. Then click through to Capture and back to History and loot again:
-  the count must *still* update (the readout is rebuilt on every tab click, and the live listener
-  has to follow the new label).
-- **The reset pair (Master controls).** **Reset position** moves the History window back to the
-  center and changes nothing else — no setting is touched. **Reset all settings** raises the
-  profile-reset confirm; Cancel changes nothing. Neither button appears anywhere else in the panel.
-- **Filters tab.** Its three lists are a **secondary** strip *inside* the page, below the main one
-  and scrolling with the content — not a second pinned band. Click through Blacklist / Whitelist /
-  Currencies: exactly one add-box is on screen at a time. Leave for another tab and come back — the
-  sub-tab you were on is still selected. Reload: it is back on Blacklist (session-only).
-- **AH Price tab.** Its eleven rows are here rather than on a page of their own. Click away to
-  another tab and back several times, then leave the panel and reopen it: the table still draws
-  correctly, the tick/status columns are right, and **leaving this tab is instant** — this page
-  froze the client for ~1.7s before its rows were pooled, and the pooling has to survive the strip.
-- **Debug console** (Master controls, paired beside Lock frame): check it — the debug
-  console **window** opens; uncheck it — the window hides. Confirm it does **not** change the debug
-  **logging** state (`/lh get state.debugConsole` reports window visibility; logging is still governed
-  by `/lh debug on|off`). Toggle the window via `/lh debug` (no arg) and the console's own close
-  button — the checkbox tracks it. Reload: the checkbox is unchecked (session-only, never persisted).
-- **Minimap button** (Master controls, opening the line under Lock frame | Debug console): walked in §11.
-- **Test mode** (Master controls, paired beside Minimap button on that line): walked in §8.
-- `/lh list` — spot-check every panel row is present with its current value.
-- `/lh set windowScale 9` (out of range); `/lh set windowScale abc` (non-number).
-- `/lh reset settings.qualityThreshold`; `/lh reset settings.excludedSources`.
-- Mid-combat (auto-attack a dummy): `/lh config`.
-
-**Pass.**
-- Each panel write and each `/lh set` write the **same** value and fire `SettingsChanged`; an open
-  panel widget reflects a slash write live, and vice-versa. `/lh get` echoes the stored value.
-- `/lh list` groups its output under `[Master controls]`, `[Capture]`, `[AH Price]`, `[Interface]`,
-  `[History]` —
-  the tab names, in strip order. The headers follow the `group` field, so a tab rename lands here
-  too and a stale `[Collection]` or `[Maintenance]` means one was missed.
-- `/lh list` enumerates every Schema row (`settings.enabled`, `minimap.shown`, `state.debugConsole`, `state.testMode`,
-  `settings.windowScale`, `settings.qualityThreshold`, `settings.excludeQuestItems`,
-  `settings.retentionDays`, `settings.excludedSources`).
-- The **Debug console** checkbox reflects the console window's visibility (not the logging flag),
-  never persists across a reload, and stays in sync when the window is toggled by `/lh debug` or the
-  window's close button.
-- Out-of-range numbers clamp to the row's `min`/`max` (windowScale bounds 0.6–1.6); a non-number
-  prints "expected a number" and is rejected.
-- `/lh reset <path>` returns that one row to its default (deep-copied — resetting
-  `settings.excludedSources` never aliases the shared default table, so a later mute doesn't poison
-  it).
-- Mid-combat `/lh config` prints a one-line "can't open in combat" message and does **not** open the
-  panel (the Blizzard category switch is protected); out of combat it opens on the Ka0s Loot History
-  category. Both `/lh config` and the ESC → Options path reach it.
-
-### 10. Panel chrome + confirm dialogs
-
-Covers the options-ui-§10 always-shown scrollbar and the un-clipped paired action buttons, plus the two
-destructive-action confirm dialogs.
-
-**Setup.** `/lh config` → the panel body.
-
-**Steps.**
-- Observe the right-edge vertical **scrollbar** on a page that fits without scrolling.
-- Find the **Reset position** / **Reset all settings** pair (Master controls, the last line) and the
-  **Purge history…** button (History, right of the storage-stats label). Check each button's
-  right border.
-- Click **Purge history…** → in the confirm dialog, click **No/Cancel**, then run it again and confirm.
-- Click **Reset all settings** → confirm dialog.
-- `/lh purge` from chat.
-
-**Pass.**
-- The scrollbar is **always shown**: on a short page the bar renders parked at the top and **grayed /
-  disabled** (it does not auto-hide), so the right gutter is always reserved and the body's left/right
-  margins **don't jump** between a short and a long page.
-- **Reset position**, **Reset all settings** and **Purge history…** each draw their **full right
-  border** (not shaved by the scroll gutter) and line up cleanly with their left-hand neighbor — no
-  spill past the panel edge (`BUTTON_PAIR_REL`, the library's `InlineButtonPair` for the reset pair
-  and this addon's `makePairButton` for the purge).
-- **Purge history…** raises `KA0S_LOOTHISTORY_PURGE` ("Delete ALL … records? This cannot be undone.");
-  Cancel leaves the data intact, Accept wipes history and prints "history purged."
-- **Reset all settings** raises `KA0S_LOOTHISTORY_RESETALL` (options-ui-§12's first canonical
-  wording — "Reset this profile to the addon's defaults? Everything you have configured or added in
-  it is discarded — your other profiles are not affected."); Accept restores every setting of this
-  profile to default and refreshes the panel. The loot history is untouched.
-- **Reset position** raises no dialog and touches no setting: only the window moves.
-- `/lh purge` raises the same purge dialog as the button.
-
-### 11. The launcher — minimap button and broker plugin
-
-ONE LibDataBroker object registered twice (launcher-§1), built by `core/LauncherSetup.lua` on
-`LibKa0s-Launcher-1.0`: LibDBIcon draws the minimap button from it, and any broker display that is
-installed draws its own row from the very same object. Visibility is stored in `minimap.hide` (the CLI row is `minimap.shown`), in the
-**global** store, and the panel row that drives it is **Minimap button** on Master controls — whose
-label says *shown* while the stored key says *hidden*. **This is the one check that cannot be made
-out of game**: a `## IconTexture` and a launcher icon in the wrong TGA flavor draw nothing and raise
-nothing, so the bytes are gated headlessly (`tests/test_launcher.lua`) but only a client can say the
-art actually appears.
-
-**Steps.**
-- Open the AddOns list at the character-select or in-game Interface list. Look at this addon's row.
-- Locate the minimap button; hover it.
-- Left-click it. Close Settings, then right-click it and click each menu entry in turn (reopening the
-  menu each time): **Show window**, **Test mode**, **Locked**, then **Enabled**.
-- With the addon now disabled, hover the button, left-click it, right-click it and click a grayed
-  entry; then click **Enabled** in the menu to switch the addon back on.
-- Settings → Master controls → uncheck **Minimap button**; check it again.
-- Uncheck **Minimap button** again and run `/lh get minimap.shown`. Then Master controls →
-  **Reset all settings** (confirm). Then `/lh reset minimap.shown`.
-- `/lh set minimap.hide true`.
-- Drag the button to a new spot on the minimap ring.
-- `/reload`.
-- If you run Titan Panel, ElvUI data texts or Bazooka: add "LootHistory" from its plugin list.
-
-**Pass.**
-- **The AddOns list shows the addon's own logo**, not a Blizzard icon and not an empty square. The
-  minimap button wears the same art, and so does the broker row.
-- The tooltip is the library's block (Launcher minor 3, hints fixed at minor 4, LibKa0s v1.58.0),
-  in this order and with no line twice: `Ka0s Loot History  v<the TOC version>`, `Enabled: Yes`
-  (green), `Locked: No`, `Test mode: Off`, a live record count ("N records", gray),
-  `Left-click: Open settings`, `Right-click: Options menu`. Tick **Lock frame** and **Test mode**,
-  hover again: `Locked: Yes`, `Test mode: On` (read on every show, never cached).
-- **Left-click opens Settings**, on every Ka0s addon and in either state (launcher-§2, v2.67.0).
-- **Right-click opens the client's own context menu**, titled `Ka0s Loot History`, with four
-  checkboxes in this order, each ticked to match the current state: **Enabled**, **Locked**,
-  **Test mode**, **Show window**. Each entry does what its own command or row does, once, and the
-  menu closes:
-  - **Show window** opens or closes the History window exactly as `/lh toggle` does (the General
-    visibility setting refuses it with the same line);
-  - **Test mode** runs `/lh test` (`test mode on|off`, or the refusal in combat);
-  - **Locked** flips the Master controls **Lock frame** box (open the panel: it follows);
-  - **Enabled** while on runs `/lh disable` and prints `settings.enabled = false`.
-- **While disabled** the tooltip still shows, with `Enabled: No` (red) and the same two hints. A
-  left-click opens Settings and prints nothing. The right-click menu shows **Enabled** unticked and
-  live, and `Locked (enable the addon first)`, `Test mode (enable the addon first)`,
-  `Show window (enable the addon first)` grayed: clicking one does nothing. Clicking **Enabled**
-  prints `settings.enabled = true` and the addon comes back up.
-- After `/reload` the button sits where it was dragged: LibDBIcon's `minimapPos` persists in the
-  AceDB-default `minimap` table, with no seed from the launcher setup (#30). The **rename** of the
-  registration from "Ka0s Loot History" to the folder name `LootHistory` does not move it: LibDBIcon
-  stores the position in the table it is handed, not under the name.
-- Unchecking **Minimap button** hides the icon **immediately**, not at the next reload; checking it
-  brings it back. The state **persists across `/reload`**.
-- With the box unticked, `/lh get minimap.shown` prints `false` (the CLI path reads in the row's own
-  sense; the stored key underneath is `minimap.hide = true`). **Reset all settings** leaves the
-  button hidden (launcher-§3). `/lh reset minimap.shown` brings it back: that is the player naming
-  the row, not a bulk reset.
-- `/lh set minimap.hide true` answers `Setting not found: minimap.hide` — the pre-v2.65.0 path is
-  gone, so a macro written against it must become `/lh set minimap.shown false`.
-- The broker display's own row answers the same two clicks, and its right-click opens the same menu,
-  because there is only one `OnClick`.
-- Hiding the minimap button does **not** remove the broker row, and there is deliberately no setting
-  that would: a display already offers its own per-plugin toggle (launcher-§1).
-
-### 12. Debug console
-
-Session-only logging (`NS.State.debug`, default off, never persisted). The window and the logging flag
-are **independent**.
-
-**Steps.**
-- `/lh debug` (bare) → the console window toggles open.
-- `/lh debug on`; loot something at/above threshold. `/lh debug off`.
-- Close the console window, `/lh debug on`, loot again, then `/lh debug` to reopen the window.
-- In the console: press **Copy**, then **Clear**; press **ESC**; toggle the header **Debug: ON/OFF**.
-- With logging on and the window full of lines: **drag the right-edge scrollbar** up and down, and
-  **mousewheel** over the log. Watch the **bottom-right line counter** (`N / 3000 lines`) as new lines
-  arrive and after **Clear**.
-- Fill the console past its cap: `/run for i = 1, 80 do SlashCmdList.ACECONSOLE_LH("diagnostics") end`
-  appends eighty reports, well past 3000 lines on any history. Then press **Copy**.
-- `/lh debug events`. Then `/lh disable`, `/lh enable`, loot something, and `/lh debug events` again.
-- `/reload`.
-
-**Pass.**
-- The right-edge **scrollbar** scrolls the log; dragging the thumb and the mousewheel stay in sync
-  (moving one moves the other's position). The thumb sits at the **bottom** when viewing the newest
-  line and at the **top** for the oldest. When every line fits, the track is still shown but inert.
-- The **bottom status bar** reads `N / 3000 lines`, ticking up as lines are captured (capped at 3000),
-  and resetting to `0 / 3000 lines` after **Clear**. Past the cap it pins at `3000 / 3000 lines`, and
-  **Copy** opens on all 3000 lines without a noticeable hitch.
-- Bare `/lh debug` toggles the console **window only** (logging flag untouched).
-- `/lh debug on` enables logging; loot emits a tagged `<ts> | [Loot] …` line (and gated drops emit
-  `[Drop] …`). `/lh debug off` stops logging. Logging runs **even with the window closed** — reopening
-  the window shows the lines captured while it was hidden.
-- Each state change prints a color-coded chat ack — `[LH] debug logging |cff40ff40ON|r` (green) /
-  `|cffff4040OFF|r` (red) — and appends a console line at **both** transitions: `[Debug] logging enabled`
-  on enable (immediately followed by the `[Init]` summary, below) and `[Debug] logging disabled` on disable.
-- **Copy** opens an editbox of plain text; **Clear** empties the log; **ESC** closes the window; the
-  header **Debug: ON/OFF** toggle flips the same session flag as `/lh debug on|off` (same ack + lines).
-- `/lh debug events` prints `[LH] rejected events: none` on 12.1, both times, and toggles neither the
-  window nor the logging flag. After the disable/enable cycle loot still records: every registration
-  came back (events-frames-taint-§1).
-- After `/reload`, debug logging is back **off** and the console is closed.
-
-### 12a. Diagnostics report
-
-The one-shot state report a player pastes into a bug report (`debug-logging-§14`). What each line
-means is in [debug.md](debug.md#the-diagnostics-report).
-
-**Steps.**
-1. `/lh debug on`, loot something, then `/lh diagnostics`.
-2. Press **Copy** and paste into a text editor.
-3. `/lh debug off`, then `/lh diagnostics`. Loot something afterwards.
-4. `/lh debug diagnostics`, `/loothistory diagnostics` and `/loothistory debug diagnostics`.
-5. `/lh diag`, `/lh dump` and `/lh debug diag`.
-6. `/lh disable`, then `/lh diagnostics` and `/lh debug diagnostics`. Then `/lh enable`.
-7. Pull a target dummy and run `/lh diagnostics` in combat.
-8. `/reload` with the console closed, then follow the README's `## Reporting a bug` steps word for
-   word.
-
-**Pass.**
-- Step 1: the console opens if it was closed, the `[Loot]` trace is still there **above**
-  `[Diag] ==== Ka0s Loot History diagnostics begin ====`, and the report ends with
-  `==== Ka0s Loot History diagnostics end: N line(s) ====`. Chat shows one line:
-  `Diagnostic report written to the debug console: N lines. Use Copy to share it.` Nothing was
-  cleared.
-- Step 2: the paste holds the trace, the begin marker and the end marker, with no `|c`, `|H` or `|T`
-  escapes anywhere. The tail's item names are plain names, not links.
-- Step 3: the report lands in full with logging off. Afterwards the header still reads **Debug: OFF**
-  and the loot writes no new trace line.
-- Step 4: each form writes the same report as step 1.
-- Step 5: none of them runs the report. `/lh diag` and `/lh dump` print `unknown command` and the
-  help index; `/lh debug diag` toggles the console window like any other unknown word.
-- Step 6: both forms write a full report while the addon is off. It reads
-  `identity: enabled=false stoodDown=true testMode=false` and
-  `capture: stood down (the loot, currency and context events are unregistered)`, and no feature
-  comes back on because of it.
-- Step 7: no Lua error. A value the client hides in combat prints as `<secret>` or `?`, never as a
-  raise, and no `section <name> failed` line appears.
-- Step 8: every step works as written, and the paste holds the trace and the whole report.
-
-### 13. Retention prune
-
-**Setup.** A history containing records older than a short retention window (or edit timestamps via
-`/lh test` data plus a short `retentionDays`).
-
-**Steps.**
-- Settings → change **Keep history for** from 90 to 7 days with older records present. Answer **No**.
-- Change it to 7 days again and answer **Yes**. Watch the History table / record count.
-- `/lh set settings.retentionDays 7` with older records present.
-- Set **Keep history for** to 90, create a profile on the Profiles page and switch to it, then copy
-  and reset it. Hover **Keep history for**.
-- `/reload` and wait ~5 seconds after login.
-
-**Pass.**
-- A shorter retention that would delete records raises a confirm naming the record count; nothing
-  is deleted before it is answered.
-- **No** keeps every record, puts the dropdown back at 90 and prints one chat line
-  (`retention kept at 90 days; no records were deleted.`); a `/reload` afterwards deletes nothing.
-- **Yes** runs `PruneOld`, dropping records older than the window (rebuild-and-swap, no holes); the
-  table and footer refresh.
-- `/lh set settings.retentionDays 7` shows the same confirm. A value that would delete nothing asks
-  nothing.
-- `PruneOld` also runs **~5s after login** (`PLAYER_ENTERING_WORLD` deferred), so stale records are
-  pruned on a fresh session even without touching the setting.
-- **"Always"** retention keeps everything (no prune). No error at either prune path.
-- The retention is account-wide: the new profile shows 90, and the switch, copy and reset raise no
-  confirm and delete nothing. The tooltip says the setting is account-wide.
-
-### 14. SavedVariables integrity
-
-**Steps.**
-- After playing/looting a session, fully **log out** (character select is enough to flush
-  SavedVariables; a full quit is safest).
-- Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
-
-**Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 10` — `RunMigrations` (invoked from `InitDB`) applied
-  every pending step of the v1→v2 through v9→v10 ladder (the per-step contract is in
-  [schema.md](schema.md#schemaversion--the-migration-seam)) and stamped 10 after the last one;
-  re-running it on an already-v10 DB is a no-op (idempotent).
-- `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
-  `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `retentionDays` (if changed) and
-  `minimap` sit beside it in `global`, and `profiles.Default` holds `settings` and `savedView` (if
-  saved). Session-only state (`debug`, `testRecords`) is **absent**.
-
-### 15. Debug console coverage
-
-Confirms every debug tag fires and, critically, that the coalescing seams really emit **one line,
-not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`, then:
-
-- Enable debug (`/lh debug on` or the header toggle) → one `[Init]` line **on enable, not at login**
-  (the flag is session-only and off at login): `[Init] LootHistory v<ver>, schema v<n>, profile 'Default', <r> records`.
-- Loot a threshold item → one `[Loot]`; a sub-threshold item → one `[Drop]`.
-- Open a corpse/chest with many slots → exactly one `[Open] LOOT_OPENED N slots -> …`, not N lines.
-- Change a setting (panel or `/lh set …`) → exactly one `[Set] <path> = <value>`, no `[Cfg]`.
-- Change two settings, then press the General page's **Defaults** (or the Blizzard footer's **Defaults**) → exactly one `[Set] reset profile 'Default' to defaults (2 rows)` and no per-row `[Set]`; press it again → `(0 rows)`. `/lh resetall` logs the same one line; `/lh reset <path>` stays one `[Set] <path> = <value>` (debug-logging-§10).
-- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row (History right-click → **Delete**) → one `[Data] delete removed 1 rows`; change two settings, then **Reset all settings** (confirm) → one `[Set] reset profile 'Default' to defaults (2 rows)`, no `[Data]` line and no per-row `[Set]` (a profile reset is wholesale, and it never touches the history).
-- Open the browser → `[UI] window shown`; switch to Insights → `[UI] tab -> Insights` + one `[Insights] computed …`.
-- Type in the table's search / change group/sort → one `[Table] rendered M/T rows (…)` per change, never per row.
-- Add/remove a blacklist or whitelist id (with debug on) → one `[Filters] blacklist=B whitelist=W` line.
-
-### 16. Blacklist & whitelist
-
-Covers the item-id filter lists (issue #14): the capture gate and the Settings ▸ General ▸ Filters management
-UI. This is **point-in-time** filtering — editing either list only changes what happens to *future*
-loots; it never touches rows already stored. **Setup:** a real history with at least one repeated item.
-
-**Steps.**
-- In the History tab, right-click a row and choose **Blacklist item**. Note the popup's **gold border**.
-  The chat line reads `Manage in Settings ▸ General ▸ Filters ▸ Blacklist` — the full route, since
-  Filters is a tab of General and the list is a sub-tab of it. **Blacklist currency** names
-  **▸ Currencies**.
-- Open **Settings ▸ General ▸ Filters** (`/lh config` → General → Filters, the **last** tab on the
-  strip). It opens on the **Blacklist** sub-tab of a three-tab secondary strip — Blacklist,
-  Whitelist, Currencies — and shows one list, not three stacked. Note the item.
-- Loot that same item again (or `/lh test` won't help here — use a live drop).
-- On the Filters tab, click the **X** on the left of that item's row, then loot the item once more.
-- Click the **Whitelist** tab and add an item id that would normally be dropped (below your quality
-  threshold, or from a muted source), then loot it so a row appears. Exactly **one** add box is on
-  screen at a time, and it is the selected tab's.
-- Now click the **X** on that id's row on the whitelist and re-check the History table.
-- Add an id to the Blacklist that is already on the Whitelist (or vice-versa).
-- On the Blacklist, type the **name** of an item in your bags (e.g. `hearthstone`, any case) and
-  press Enter. Then shift-click an item link into the box and press **Add**.
-- **Suggestions (issue #31).** On the Blacklist, slowly type the first few letters of a crafted
-  consumable that has several quality ranks and is in your loot history (e.g. `hushed` for *Potion
-  of the Hushed Zephyr*). Watch the dropdown under the box, then click one rank.
-- Type that shared name in full and press **Enter without picking** a row.
-- Type the name of an item you have **not carried this session** but that is in your loot history
-  or already on the Whitelist, and press Enter.
-- Type the name of an item that is in **none** of your bags, your loot history or either list, and
-  press Enter.
-- Enter garbage (e.g. `abc`) into an add box and submit.
-- On **Currencies**, add a currency by id, then shift-click a currency link from the currency window.
-  Then type the name of a currency you have **looted** (it is in your history) and pick it from the
-  list. Then type the name of a currency you have never looted and that is not on the list (e.g.
-  `Honor` on a character with no Honor rows) and press Enter.
-- **Refresh perf (anti-pattern #39):** with a non-trivial blacklist (a dozen+ ids), click away to
-  another primary tab and back to **Filters** several times in a row, and click between its three
-  sub-tabs several times in a row. Then, with the panel closed,
-  right-click **Blacklist item** on a History row, and re-open the **Filters** tab.
-
-**Pass.**
-- **Blacklist item** (right-click) adds the id to the blacklist, but the **clicked row stays in the
-  table** — blacklisting only stops *future* captures; it never hides or deletes what's already
-  stored. A chat line confirms "blacklisted …".
-- While blacklisted, looting that item records **nothing new** (no new row; a
-  `[Drop] … reason=blacklist` line with debug on). Existing rows of that id are unaffected throughout.
-- Clicking the **X** on the Filters tab brings **nothing back** — nothing was ever hidden, so there
-  is nothing to restore. Looting the item again afterward records normally, confirming the gate is
-  lifted for future loots only.
-- A **whitelisted** id records **even when it would normally be dropped** (below threshold / muted
-  source / quest item) — the new row appears as a normal, plain row.
-- **Removing** that id from the whitelist afterward leaves the row(s) it added **exactly where they
-  are** — nothing is hidden or deleted. Only *future* loots of that id go back through the normal
-  gates (and are dropped again if they don't pass).
-- Adding an id to one list **removes it from the other** (an id is never on both). The Filters tab's
-  lists update live on the tab you are looking at; each entry shows an **X on the left**, then the
-  item's icon, name and id (or `Unknown item <id>` until the client caches it, after which the name
-  fills in by itself) — no right-hand Remove button; hovering an entry shows the item's own
-  tooltip; the empty state reads `(none)`.
-- Typing an item's **name** adds that item's id, whatever the case you typed; a shift-clicked link
-  adds the linked item. Each add clears the box, and the new entry appears at once.
-- **The dropdown appears** under the box as you type (from the second letter; digits match ids from
-  the first), above the rest of the panel and not clipped by it. A name several ranks share shows
-  **every rank as its own row**, side by side, each **labeled with its quality-tier icon** and its
-  id in gray. Clicking a rank **adds exactly that id**: the box clears, the dropdown closes and the
-  new entry appears at once. Up/Down move the highlight and Enter adds the highlighted row; Escape
-  closes the list.
-- Enter on a shared name with **no row picked** adds **nothing**. The orange line reads
-  `Several items are named '<name>' — pick one from the list, or use the id.` and the ranks stay
-  listed to pick from. This holds when the ranks are only **in your bags** too: carry two quality
-  ranks of one crafted or bought potion that you have never looted (neither is in the history nor on
-  a list), type its full name and press Enter without picking. Nothing is added and the same line
-  shows.
-- Arrow down to a row, then type another letter and press Enter at once: the **text** is submitted,
-  not the row that was highlighted before the keystroke.
-- An item you have **not carried this session** but that your loot history or a list holds
-  **resolves by name** and is added.
-- An item **nothing knows** (not carried, not in the history, on neither list) is refused, and the
-  orange line reads `No item named '<name>' that the game can find. Names work for items you carry
-  (or carried this session), items in your loot history and ones on these lists; otherwise use the
-  id or shift-click a link.` Hovering the add box shows the same sentence at the end of its tooltip.
-- Garbage input adds nothing: the box keeps the text and an **orange** line under it says why
-  (`No item named 'abc' that the game can find. …`). Nothing is printed to chat.
-- On **Currencies**, an id and a shift-clicked currency link both add, and the entry shows the
-  currency's name. A currency you have looted **is listed as you type** and adds by name. One you
-  have never looted and that is not on the list is refused, and the line reads `No currency named
-  '<name>' that this page knows. Currency names work for currencies in your loot history and ones on
-  this list; otherwise use the id or shift-click a currency link.`
-- To remove existing rows of a blacklisted (or any) item, use the row's **Delete** action — list
-  membership never does this for you.
-- The lists are **per profile** and survive `/reload`; there is **no** blacklist/whitelist option in
-  the browser's filter dropdowns (it is core logic, not a user-selectable display filter).
-- **Refresh perf:** repeatedly re-opening the Filters tab, and clicking between its three sub-tabs, is
-  **instant** — no per-click stutter or freeze even with a long blacklist (only the list on screen
-  is ever rebuilt) (the list rebuild is gated to first paint / on-screen edits /
-  dirty, per options-ui-§11; re-showing an unchanged page does no AceGUI teardown+rebuild). After a
-  right-click **Blacklist item** made while the page was closed, re-opening Filters shows the new id
-  (the off-screen change flagged the page dirty, so the next `OnShow` repaints exactly once).
-
-**Currency blacklist.** Separate id-set from the item blacklist/whitelist above (keyed by
-currencyID, no currency whitelist). In the History tab, right-click a currency row and choose
-**Blacklist currency**. Loot that same currency again — no new row records. Open **Settings ▸
-Filters ▸ Currencies**; the id appears with its name resolved, an X on the left of its row and no
-right-hand Remove button. Click the X, then loot the currency again — it records normally. Re-add
-it and use **Clear all** on the Currencies tab (confirm popup) — the list empties and future loots
-of it record again.
-
-### 17. LibKa0s adoption
-
-Fourteen of LibKa0s's fifteen majors are wired here — `Core` (the printer), `Media` (the art and the
-monospace face), `DebugLog` (the console and the diagnostics report), `Slash` (the dispatcher and CLI), `Options` (the settings
-canvas), `Widgets` (every flat dropdown, and the export copy window), `Env` (the TOC read behind `/lh version`, plus the map
-and zone stamp on every captured row), `Item` (the link/quality primitives behind the capture gate),
-`Pool` (the widget pools behind the Insights charts and the History rows), `Lifecycle` (the latch
-behind the disabled state), `Launcher` (the minimap button and the broker plugin), `Schema` (the
-settings runtime), `Bus` (the message catalog) and `Compat` (the spell-name reader). Only `Perf`
-is not wired — a documented deviation, `ARCHITECTURE.md` → `## Documented deviations`. Everything in this section is
-invisible to the headless gate: the degraded install, whether a raw locale key reaches the screen,
-and whether anything on the panel moved. See this repo's GitHub issues, [LIBKA0S-01](https://github.com/tusharsaxena/LootHistory/issues/23)
-through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for what was adopted and what was declined.
-
-**17a. The degraded install.** Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to
-`libs/LibKa0s.off` and `/reload`.
-
-1. **Zero Lua errors.** Not one, at load or after. This is the whole point of the branch.
-2. Type `/lh list`. The output must be **complete** — every schema row, grouped, exactly as it reads
-   with the library present. (The list is generated from `NS.Schema.Schema`, which the library never
-   owned, so a truncated list means a stub answered where it should have deferred.)
-3. The **first** line the addon prints carries the notice:
-   `[LH] The LibKa0s library is missing from this installation of Ka0s Loot History (expected in
-   libs/LibKa0s); running on reduced built-in fallbacks.`
-   Print several more lines (`/lh version`, `/lh get settings.enabled`) — the notice must appear
-   **exactly once** for the session, not on every line.
-4. `/lh debug on` still flips logging (the flag is this addon's, not the library's) and says
-   `…, so the debug console window is unavailable.` `/lh config` says
-   `…, so the settings panel is unavailable.` Each sentence starts with the **same cause clause**,
-   word for word, as step 3 — that is deliberate: a user running several Ka0s addons on a broken
-   install should read one explanation, not four. `/lh diagnostics` and `/lh debug diagnostics`
-   both print the collection's own line instead,
-   `/lh diagnostics is unavailable: the LibKa0s library did not load.`, and write nothing; `/lh help`
-   does not list `diagnostics`.
-5. Loot something. It still records — capture never depended on the library. Check the new row's
-   **Zone** column: it still names the zone you are standing in, and the row is not bucketed under
-   `Unknown`. That is `core/EnvSetup.lua`'s written-out fallback ladder doing the work the deleted
-   `Compat.GetZone` used to; a degraded install that stamped nothing would look identical until you
-   opened the Zone filter. `/lh version` likewise still answers the TOC's version rather than blank
-   or `?`.
-6. **The filter bar is absent, not dead.** Open the History window (`/lh show`). Row 1 and row 2 of
-   the toolbar are simply not there — no Group-by, no Date, no column filters, no search box, no
-   Save/Reset/Clear, no Export. What must NOT happen is a row of buttons that click and open
-   nothing. The tabs, the table, the footer counts and the resize grip all still work, and the
-   window still opens scoped to the current player.
-7. **The export modal refuses and says why.** With no Export button in the bar there is no way to
-   reach it from the toolbar; if you have another route to `NS.Export:Open`, it prints
-   `…, so the export window is unavailable.` — the same cause clause as step 3 — and opens nothing.
-8. **Enable and disable still work.** `/lh` (the help) lists `/lh enable` and `/lh disable`, and
-   not `/lh set`. `/lh disable` prints one line, `settings.enabled = false`, raises no Lua error,
-   and recording stops (loot something: no new row). A feature verb now refuses with
-   `Ka0s Loot History is disabled — enable it with /lh enable`, the same line as with the library
-   present. `/lh enable` prints `settings.enabled = true` and recording resumes.
-9. **`/lh resetall` still works.** Put a couple of ids on the Filters lists first (with the
-   library present), then on the degraded install `/lh resetall` prints
-   `settings reset to defaults.` and the lists are empty (AceDB's profile reset needs no
-   LibKa0s) — never the bare "unavailable" line.
-10. **Rename the folder back** and `/reload` before continuing.
-
-**17b. The `L` trap — no SCREAMING_SNAKE on screen.** This addon passes no locale table to any
-descriptor, so every library string should render as English prose. A regression renders the *key*
-instead, for every string at once, and only in game.
-
-Walk the whole surface and confirm **not one** all-caps underscored token is visible:
-
-- `/lh help` (the help index): the header reads `v1.4.0 — slash commands (/loothistory is an alias for
-  /lh)` and each row is a gold `/lh <verb>`, an em dash, a white description — **not** `HELP_HEADER`
-  or `UNKNOWN_COMMAND`.
-- `/lh list`, `/lh get settings.enabled`, `/lh set settings.enabled maybe` (which must refuse),
-  `/lh reset settings.windowScale`, `/lh resetall`.
-- `/lh debug` → the console window: the title reads **Loot History — Debug**, the header toggle
-  reads **Debug: ON** / **Debug: OFF**, the buttons read **Copy** and **Clear**, the status line
-  reads `N / 3000 lines`, and the copy window's title reads **Copy log — Ctrl+C, then Esc**.
-- **Settings ▸** each of the four pages: the Defaults button reads **Defaults**; every checkbox,
-  dropdown and slider label is English.
-
-**17c. Nothing moved (the parity check).** The layout constants and the breadcrumb separator were
-already identical to the library's, so **anything that looks different here is the finding**.
-
-1. Open **Settings ▸ Ka0s Loot History**. The landing page shows the logo, the tagline, a **Slash
-   Commands** heading and one row per command.
-2. **The one deliberate change:** those landing rows now use the same formatter the chat help does —
-   **single** spaces around the em dash, the dash no longer white-wrapped, the description white.
-   They previously had double spaces and a bare description. Everything else on the page is
-   unchanged.
-3. There is **one** sub-page, **General**. Its header reads `Ka0s Loot History ▸ General` with the
-   gold divider under it and a **Defaults** button top-right, and a six-tab strip below that (walked
-   in §9). The two-column pairing per tab: **Master controls** reads Enable Loot History | General
-   visibility, then Master scale | Master alpha, then Lock frame | Debug console, then Minimap
-   button | Test mode, then the button pair **Reset position** | **Reset all settings**; **Capture** reads Minimum quality | Record
-   currency, then Exclude quest items alone, then the full-width **Record data from** grid;
-   **AH Price** reads the *Pricing* heading, Enable AH pricing, the *Price sources* heading and the
-   eleven-row table; **Interface** reads Window scale | Row height;
-   **History** carries Keep history for and then the storage readout | **Purge history…**.
-4. The scrollbar is present and grayed on a short page, live on a long one, and **the body's right
-   edge does not shift** as you click between pages (options-ui-§10).
-5. On the **AH Price** tab, click away to another tab and back several times, then leave the panel
-   and reopen it. There must be **no freeze** — the eleven row slots are pooled, and R6 preserved
-   that through the merge by making their host a raw frame this addon owns for the session rather
-   than an AceGUI child a re-render would release
-   ([LIBKA0S-15](https://github.com/tusharsaxena/LootHistory/issues/21)).
-
-**17d. What the library newly fixes.** Three of these never worked before; confirm they do now.
-
-1. **The Settings window's own footer Defaults control.** Open **Settings ▸ Ka0s Loot History ▸
-   General**, change **Minimum quality**, then use the Blizzard Settings window's *own* defaults
-   control at the bottom (not the header button). It must reset, exactly as the header **Defaults**
-   button does. It did nothing before.
-2. **The combat guard on the sidebar path.** Enter combat (a target dummy is enough). Open the
-   Blizzard **AddOns** list and click **Ka0s Loot History ▸ General** directly. The Settings window
-   stays open (LibKa0s v1.46.x no longer closes it): the page shows only a gray cover reading
-   *Settings are locked during combat.*, nothing is drawn under it, and chat carries **one** gray
-   locked notice for the combat. Clicking the cover, a tab, or Blizzard's footer Defaults changes
-   nothing and prints no second line; no `ADDON_ACTION_BLOCKED`, and Esc closes the window normally.
-   `/lh config` in combat refuses with its own gray line and opens nothing. Also open the page first,
-   then pull: the cover drops over the open page the same way. Leave combat: the cover lifts and the
-   page draws in place, `/lh config` works again, and **nothing replays itself** — the panel must
-   not open on its own the moment combat drops.
-3. **Esc syncs the console checkbox.** Open the console (`/lh debug`), then open **Settings ▸
-   General** and confirm **Debug console** is ticked. Close the console with **Esc** (or its **×**),
-   then look at the checkbox again — it must now be unticked. It used to stay stale, because only
-   the addon's own `Show`/`Hide` synced it.
-
-**17e. The console's own chrome.** As of LibKa0s v1.3.0 this IS the library's style too — the Ka0s
-window edge is specified normatively in standalone-windows and `Core.SKIN` carries it, so the
-three sibling addons that used to draw a 12px tooltip border now match. Put two Ka0s consoles on
-screen at once and they must be indistinguishable. Open `/lh debug` and confirm: the
-flat 1px black border with the subtle lighter inner line, the **gold** title, the gray divider under
-the title bar — and, in the top-right, **three icon buttons of the same size**: a **✕ mark**, a
-**copy mark** and a **clear mark**, evenly spaced, none overlapping. They are the library's, and
-every other Ka0s addon's console draws the same three. Check the copy window (**Copy**) as well —
-it takes the same close mark.
-
-> **Regression:** if that strip reads as a **thin multiplication sign** with the WORDS "Copy" and
-> "Clear" beside it, the descriptor stopped passing `addonName` (`core/DebugLogSetup.lua`). Nothing
-> errors and no suite outside `tests/test_debuglog.lua` notices: a texture path built from a
-> missing folder name draws nothing and raises nothing, so the library falls back to words.
-
-**17f. Destructive verbs still ask.** `reset` is path-scoped and always was here, so nothing lost a
-guard — but check both entry points of each destructive action anyway:
-
-- `/lh purge` → confirm popup. Cancel: history intact. **Settings ▸ General ▸ Purge history…** →
-  the same popup.
-- **Settings ▸ General ▸ Master controls ▸ Reset all settings** → the canonical "Reset this profile
-  to the addon's defaults?" popup. Cancel: nothing changes. It is the same act as `/lh resetall` and
-  the page's **Defaults** (options-ui-§12): the active profile back to its defaults.
-- Each Filters list's own **Clear all** → its own popup. The page-wide **Defaults** button clears all
-  three lists as part of the profile reset (Filters is a tab on this page now, so its former
-  per-page Defaults button is gone).
-- `/lh resetall` is non-destructive (the profile only, history untouched) and correctly does **not**
-  ask.
-
-**17g. The shared art, and what its absence looks like.** New with LibKa0s v1.10: this addon draws
-no art of its own any more — every mark below comes out of `libs/LibKa0s/media/icons/`, and the
-monospace face out of `libs/LibKa0s/media/fonts/`. Open the History window and walk the list:
-
-- **The title-bar close** is the collection's ✕ mark, not a text glyph — and the same mark now
-  closes the **export modal** and the **export copy window**. All four windows must match.
-- **Every filter dropdown** (all eight, plus the export modal's **Data set** picker) ends in a
-  **chevron**, gray, vertically centered.
-- **The Export button** in the filter bar carries a small mark at its left edge with the word
-  **Export** still centered in the button — the label must NOT shift. Same shape on **Export to
-  CSV** in the modal, which carries a spreadsheet mark.
-- **Clear / Reset / Save** carry **no marks at all**. That is deliberate: the cluster is ~36px per
-  button and a mark plus a centered five-letter word does not fit. An off-center label there is a
-  regression, not a feature. (Save has no catalog mark either way — see below.)
-- **Sort a column**: the active header shows a single up or down arrow, and it is the shared mark,
-  not Blizzard's spinner arrow. Group by something and the group headers show a **chevron right**
-  when collapsed and a **chevron down** when expanded — not `+` / `-`.
-- **The Bound column** draws a padlock, and hovering its header shows a legend whose lock **is the
-  same padlock**, tinted per bind state. A legend drawing a different glyph from its column is the
-  drift a shared catalog exists to stop.
-- **A multi-select filter menu** (Quality, Source, …) shows a tick beside each selected row.
-- **Right-click a row**: the four menu items each carry a mark — a chat mark, two prohibition
-  marks, and the clear mark on **Delete** — and **every word stays**. "Which one deletes the row?"
-  must never become a hover question.
-- **The bottom-right resize grip** is Blizzard's ChatFrame size grabber — the same three-line
-  corner hatch BankLedger, MultiMeters and the rest of the collection draw, **not** a catalog
-  mark. It is deliberately NOT on the LibKa0s ladder: the collection's window corners match.
-- **The debug console and the export copy box** render in **JetBrains Mono** — columns line up,
-  digits are the same width. `/lh debug`, then compare a `[Init]` line's alignment.
-
-> **Regression, and it is silent by design:** a texture path that does not resolve **draws nothing
-> and raises nothing**. So the signal is a **blank space where a mark should be** — an empty
-> dropdown corner, a header with a gap instead of an arrow, a Bound column with nothing in it.
-> Two spellings cause it and both look identical in game: a path carrying `.tga` (the client
-> appends the extension itself), and an icon name the catalog does not carry.
->
-> **A DIFFERENT and correct outcome** is the Blizzard art returning — the old down-arrow, `+`/`-`,
-> the ChatFrame size grabber, the client lock atlas, the tick. That is the ladder working, and it
-> means `libs/LibKa0s/` is missing or incomplete. Confirm with `/lh version`: a degraded install
-> also prints the LibKa0s-missing clause and renders the console in a proportional font.
->
-> **Not a regression:** the minimap button and the addon's TOC icon are still full-color Blizzard
-> icons, and the settings panel is untouched — its drag handles, information icons and
-> ready-check ticks are `LibKa0s-Options-1.0`'s widgets and are deliberately out of scope. **Save**
-> in the filter bar has no mark because the 113-name catalog has no save/disk glyph; one is added
-> upstream in LibKa0s or not at all (anti-patterns #63).
-
-**17h. The shared dropdown (`LibKa0s-Widgets-1.0`), and the one menu it is not.** New with LibKa0s
-v1.12.0: the ten flat dropdowns this addon draws are the library's now, and their popup is a
-**process-wide singleton** shared with every other Ka0s addon. None of the following is reachable
-by a headless suite.
-
-1. **The first click opens a menu.** Open the History window and click **Group by**. A menu drops
-   under it. This is the check that earns its place on its own: LibKa0s v1.11.0 and v1.11.1 both
-   shipped `FontString:SetText(): Font not set` on exactly this click, with 553 green cases behind
-   them. If a Lua error frame appears here, nothing else in this section matters.
-2. **Every dropdown, once each.** Group-by, Date, Bound, Quality, Type, SubType, Source, Zone,
-   Character, and the export modal's **Data set** picker. Ten menus, no error, each anchored under
-   its own button and at least as wide as it.
-3. **Two of this addon's dropdowns do not fight.** Open **Quality**, then click **Zone** without
-   closing it. The Quality menu closes as the Zone menu opens — exactly one menu is open at a time,
-   the way a native game menu behaves. Then open **Source** and click somewhere empty in the world:
-   the menu closes. Open it once more and click *on the History window* behind the menu: the menu
-   closes **and the click lands** on the window in the same press — it raises and focuses as a
-   click there normally would. That changed at LibKa0s
-   v1.13.0 (Widgets minor 5), and item 10 is where the old behavior was reported from.
-4. **Escape closes the window AND the menu.** Open **Character**, leave the menu open, press
-   **Escape**. Both the menu and the History window go. A menu still floating over the game with no
-   window under it is the orphan bug `NS.CloseMenu()` exists to prevent.
-5. **A slash-command close does the same.** Open **Zone**, leave it open, type `/lh hide`. Menu
-   gone, window gone.
-6. **The export modal, both close routes.** `/lh show` → **Export** → open the **Data set** menu and
-   leave it open, then click the modal's **×**. Menu gone. Reopen, open the menu again, and press
-   **Escape** instead. Menu gone. Before this adoption the modal had no `OnHide` at all and both of
-   these left the menu behind — this is a bug fixed, not a feature kept.
-7. **The Character preset lights up and one-click-selects.** Open **Character**. The second row is
-   **Character: Current** and it is **gold** whenever the filter is exactly you — which it is when
-   the window first opens. Click a different character: Current goes gray, that character goes gold,
-   the button reads their name. Click **Character: Current** again: the selection snaps back to just
-   you in one click, the row goes gold again, and the button reads "Character: Current" — not
-   "current", and not a count.
-8. **A selected character who has no loot in view still shows.** Filter to a character, then narrow
-   the other filters (or `/lh test`) until that character has no rows in the dataset. The Character
-   button must **still read their name**, not "Character: All". A filter that is on must never
-   summarize as All.
-9. **The rows look right.** Each Character row shows its **class icon then the name**, tinted its
-   class color; a character with no class token shows the bare name. A selected multi-select row
-   shows the tick mark ahead of its label and goes gold. **No row shows an empty box** anywhere — a
-   box would mean a glyph was drawn in a proportional face, and this addon passes no monospace face
-   because no row of its carries a glyph.
-10. **The right-click row menu is unchanged and coexists.** Right-click a table row: the four-item
-    action list still appears, still disables "Link to chat" without an item link and "Blacklist
-    item" without an item id. It is deliberately NOT the library's widget (per-row disable is a
-    documented absence there) — see `docs/browser.md` § *Menus: two mechanisms, on purpose*.
-    They remain two different mechanisms, but they no longer behave differently on dismissal.
-    With the **row menu** open, left- or right-clicking anywhere outside it closes it — this addon's
-    catcher registers both buttons (`modules/BrowserTable.lua`). **The filter dropdowns now do the
-    same, and checking that is the point of this step.** With a **filter dropdown** open, right-click
-    a table row: the filter menu closes **and the row action list appears on that same press**. It
-    used to take two presses, and this addon is where that was found — the library dismissed its
-    menu with a full-screen `Button` registering `LeftButtonUp` and nothing else, so a right-click
-    landed on the catcher, found no handler and went nowhere, and only a left-click could clear the
-    menu first. LibKa0s v1.13.0 (Widgets minor 5) removed the catcher and this repo vendors it, so
-    the asymmetry this step used to record is fixed upstream: needing two presses is now a
-    regression, not the documented shape.
-
-**17i. The `LibKa0s-Env-1.0` seam — the version, the map and the zone.** New with LibKa0s v1.15.0.
-`core/EnvSetup.lua` took over three `core/Compat.lua` shims, and all three answer things the headless
-gate can only see through a mock: out of game there is no manifest to read and no client zone at all.
-The seam must not have changed a single answer, so this check is a comparison against what the addon
-did before, not a new feature to admire.
-
-1. `/lh version` prints the version from **`LootHistory.toc`'s `## Version` line**, not the constant
-   in `core/Namespace.lua`. Prove it: they are the same string today, so temporarily edit the TOC's
-   `## Version` to something obviously different, `/reload`, and confirm `/lh version` follows the
-   TOC. Put it back afterwards.
-2. Loot an item in a **named zone with a subzone** (a capital's district, an inn). Open the History
-   window: the row's **Zone** column reads the zone, and the row's tooltip/export carries the
-   subzone. Then loot in a zone with **no** subzone — the row still records, with the Zone column
-   filled and nothing blank-labeled.
-3. **Zone during a loading screen.** Loot on the very first frames after a portal or a summon, when
-   the client has no zone text yet. That row must bucket under **`Unknown`** in the Zone filter and
-   in group-by-zone, alongside rows that have no zone at all — never as its own blank-named group.
-   That is the `""`-buckets-with-nil contract `core/Database.lua` and `modules/BrowserTable.lua`
-   both depend on, and the one answer a nil from the seam would silently change.
-4. **The map id is still stamped.** Export the History (`Export ▸ CSV`) and confirm captured rows
-   carry a `mapID`. A dungeon floor and its entrance zone have different ids and the same zone name —
-   which is exactly why the Zone filter keys on the name and the export keeps the id.
-
-**17j. The export copy window (`LibKa0s-Widgets-1.0`'s `CopyWindow`).** New with the CopyWindow
-adoption. `modules/Export.lua` no longer builds the frame; it passes a descriptor through
-`core/WidgetsSetup.lua`'s `NS.CopyWindow` and the library builds, anchors and shows it. Three things
-this window does are invisible to the headless gate — keyboard **focus**, the **selection**, and the
-**Esc** binding — so they are only ever proved here. **No visual change is the pass condition:** the
-window is 640x420 at `FULLSCREEN` strata over the modal, `0.06/0.06/0.08/0.95` backdrop, 10pt
-monospace. Anything that looks different from the window this addon shipped before is a bug in the
-adoption, not an improvement.
-
-1. `/lh show` → **History** tab → `Export` → **Export to CSV**.
-2. The copy window opens **centered on the History window**, **above** the export modal (the modal
-   stays visible underneath), with the CSV **already selected**.
-3. `Ctrl+C`, paste into a text editor: the whole CSV, line breaks and all.
-4. `Esc` closes the copy window and **leaves the export modal open**.
-5. Repeat from the **Insights** tab — the second `:Open` path, with a different modal title. The
-   **same one window** is reused (it is a lazily-built singleton; a rebuild per open would leak a
-   frame per open, because frames are never destroyed in WoW).
-6. **Drag the History window** somewhere else and export again: the copy window follows it. That is
-   the `anchorTo` callback being consulted on every show rather than once at build.
-7. Close the History window entirely, then export from a path that does not need it — the copy
-   window centers on the **screen** rather than erroring.
-8. Drag the copy window itself by its title bar, and close it with the **title-bar close glyph**:
-   the same shared `close` mark every other window in this addon wears, drawn by
-   `Core.MakeCloseButton` now instead of `B:MakeCloseButton` — which called the very same function.
-
-**17k. The tab strip survives being pooled and re-dressed.** **Smoke, session 3. NOT YET RUN.** New
-with `M4-01`'s LibKa0s v1.27.0 re-vendor. `TabStrip` (`libs/LibKa0s/OptionsTabs.lua` today; `OptionsWidgets.lua` when this step was written) no longer
-builds a button and a content panel per click: it acquires both from per-`ctx` `LibKa0s-Pool-1.0`
-pools and re-dresses them, re-setting `OnClick` on every dress. Its only headless proof counts
-`CreateFrame` calls on a second selection pass. `tests/test_panel.lua` does hold a wrap-invariance
-case, but it measures a harness that answers a taller height for the selected-state art rather than
-real geometry — the shared mock answers `GetHeight` with 0 for every frame, and that flips at kit
-16, not here. **So a stale label, a mis-anchored button or a band that changes height on a re-dressed
-tab is invisible to every automated check in this repo.**
-
-1. `/lh config` → **General**. Cycle all six tabs of the strip three times, ending back on
-   **Master controls**.
-2. On the **Filters** tab, cycle its secondary strip three times as well — that is `SubTabStrip`,
-   pooled by the same change.
-3. Watch three things on each pass: the **label** is that tab's own, the **selected** tab is the one
-   you pressed, and the strip's **band height** does not move as you go through it.
-4. **Pass:** every tab labeled and selected correctly on all three passes, no band that grows or
-   shrinks, and the AH Price tab's pooled row slots still intact after the third pass.
-   **Fail:** a label carried over from the previously-dressed tab, a highlight on the wrong button, a
-   body drawn under the wrong tab, or a strip whose height moves between passes — each of which is
-   the pool handing back a frame it did not finish dressing.
-
-**17l. The AH Price table's tick and ⓘ are catalog marks now.** **Smoke, session 3. NOT YET RUN.** New
-with `M4-23`. `settings/Panel.lua` drew three Blizzard textures directly — `ReadyCheck-Ready`,
-`ReadyCheck-NotReady` and `FriendsFrame\InformationIcon`. All three now resolve through `NS.Icon` /
-`NS.IconMarkup` against `circle-check`, `ban` and `info`, with the Blizzard paths kept underneath as
-the fallback rung. **The headless suite cannot see any of this**: it proves the names are ones the
-library ships and that the escape is spelled in the long form, and a texture path that is wrong in
-any other way draws nothing and raises nothing.
-
-Two things changed on purpose and are not bugs. The **off** mark is a `ban` (a slash through a
-circle), not an X — the catalog has no X. The **ⓘ** is white-on-transparent rather than Blizzard's
-blue-and-white, because catalog art is white by contract and the row already dims it to 0.55 by
-vertex color.
-
-1. `/lh config` → **AH Price**.
-2. Every row carries a leading mark: a **green** one on each row whose Status reads *Collecting
-   data*, a **red** one on every other row. Not white, not black, not a blank gap.
-3. Every row carries an **ⓘ** trailing its Price Module text — bright on a collecting row, dimmed on
-   one that is not — and hovering it still shows that key's label and description.
-4. Untick a collecting row's **On** box: its mark flips green → red in place, and the row's Status
-   text and the mark agree with each other.
-5. **Pass:** two distinguishable colors, an ⓘ on every row, no gap where a mark should be.
-   **Fail:** a white or missing mark (the catalog name is wrong, or the tint was dropped), an ⓘ that
-   vanished (`NS.Icon("info")` answering nil with no fallback reached), or a mark that does not
-   change when the box does.
-
-(`Perf` is not wired in this addon, so the five respelled `LibKa0s-Perf-1.0` strings that came with
-the same payload have no surface here. That is `ARCHITECTURE.md`'s documented deviation, not a gap.)
-
-### 18. Non-English client (session 6, `M5-08`)
-
-**Session 6 of the 2026-09-07 remediation plan. NOT YET RUN — no WoW client was available when
-`M5-08` landed. Nothing in this section has been performed and no step in it is recorded as
-passed.** Run on a client set to **deDE or frFR**, the two the collection's other locale steps use
-(`ConsumableMaster/docs/smoke-tests.md` § 3c, `KickCD/docs/smoke-tests.md` § 9b).
-
-**Why this addon needs it more than most.** `core/Compat.lua:210-217` defines four English wordings
-— `WARBAND_LINES`, plus `BIND_TO_WARBAND_PREFIX` and `UE_LITERAL = "until equipped"` — as the
-fallback for when the client leaves the `ITEM_ACCOUNTBOUND*` globals nil, and `isWarbandLine`
-(`:223-227`) and `ScanBound` (`:249`) reach them. The comment above them says the literals are safe
-"because this addon is English-only". That is a claim about what the addon **prints**
-(`ARCHITECTURE.md`'s `localization-§1` deviation row), and the tooltip is not something the addon
-prints — it is text the **client** wrote, in the player's language. The same file calls the tooltip
-"the ONLY witness" for items whose bind type lies. Meanwhile every headless case on that path
-asserts against enUS mock globals: `tests/test_compat.lua:65-66` passes the literals
-`"Auction House"` and `"Auction won: %s"` in and checks they come back out. The suite is green on
-this path whether it is right or wrong.
-
-**What the addon reads in the player's language.** Tooltip bind lines (`Compat.ScanBound`), the
-Auction-House mail sender and subject (`Compat.IsAuctionHouseMail`, `core/Compat.lua:121-135`), the
-deconstruct spell names (`modules/Attribution.lua:53-97`), and zone and sub-zone names. What it
-**prints** is hardcoded English on every client, by the accepted scope decision — an English label
-on a German client is not a failure here and is not what these steps are looking for.
-
-18a. **The six warband globals — the answer this section exists to get.** Before looting anything,
-     run each of these and write down what comes back:
-
-     ```
-     /dump ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP
-     /dump ITEM_ACCOUNTBOUND_UNTIL_EQUIP
-     /dump ITEM_BIND_TO_BNETACCOUNT
-     /dump ITEM_BIND_TO_ACCOUNT
-     /dump ITEM_BNETACCOUNTBOUND
-     /dump ITEM_ACCOUNTBOUND
-     ```
-
-     **The literal fallback is only ever reached for a global the client leaves nil**, so which of
-     the six are nil on this client *is* the finding, either way. All six populated means the
-     globals path carries the whole load here and 18b tests that path; any of them nil means the
-     English literal is live on a German client and 18b is testing the failure directly. Record the
-     six values verbatim — nobody can work this out from the repository.
-
-18b. **Bind classification.** Acquire a **warbound** item and a **warbound-until-equipped** item
-     (any Warbands-era drop; the weekly cache pieces are the easy ones). `/lh` → History and read
-     the **Bind** column on both.
-
-     **Pass** — the warbound item reads warbound and the until-equipped item reads
-     warbound-until-equipped, distinctly. **Fail** — the until-equipped item classified as plain
-     warbound. That is the exact degradation the two-step scan was written to prevent: both wordings
-     contain the shorter one, so a missed "until equipped" qualifier silently demotes every
-     until-equipped drop. On a German client the qualifier is not the string `until equipped`, so
-     if `ITEM_ACCOUNTBOUND_UNTIL_EQUIP` came back nil in 18a, this is where it shows.
-     **Also fail** — an item whose Bind cell is empty where the enUS client fills it, which is
-     `ScanBound` returning nil because no line matched at all.
-
-18c. **Auction-House mail attribution.** Buy something on the auction house, take it from the
-     mailbox, and read the new row's **Source**.
-
-     **Pass** — the row is attributed to the auction house. `Compat.IsAuctionHouseMail` derives its
-     match from the localized `AUCTION_HOUSE` and `AUCTION_*_MAIL_SUBJECT` globals rather than from
-     a literal, so this is locale-independent by construction and this step is checking that the
-     construction holds. **Fail** — the row attributed to mail-from-a-player or to nothing, which
-     means one of those globals is nil or its `%s` prefix split differently in this language.
-
-18d. **The deconstruct name family — the one most likely to fail.** Disenchant something, then mill
-     a stack of herbs and prospect a stack of ore. Read the **Source** on all three rows.
-
-     Disenchant, plain Milling and plain Prospecting resolve by **spell id** (`DECONSTRUCT_ID`) and
-     must be right on any client. The **mass** variants do not: `modules/Attribution.lua:62-75`
-     builds a match token from the seed spell's **localized** name and then strips its final word
-     (`dropLast`), because in English the name is `Mass Mill <Herb>`. German and French do not build
-     that name the same way — a compound, or the herb word in another position, means the stripped
-     word is not the herb and the stem is wrong.
-
-     **Pass** — all three, plain and mass alike, carry their deconstruct source. **Fail** — a mass
-     mill or mass prospect row with no source, or with the wrong one, while the plain cast on the
-     same client is right. Record the client's names for the seeds so the stem can be reasoned about
-     offline: `/dump C_Spell.GetSpellName(434926)` (mass mill) and
-     `/dump C_Spell.GetSpellName(225904)` (mass prospect).
-
-18e. **Nothing else moved.** Walk § 1, § 3 and § 5 once on this client. **Pass** — capture, source
-     attribution and the History table behave exactly as on English. **Fail** — any Lua error at
-     all, which here means a localized string reached something that assumed an English one.
-
-**Sign-off without a non-English client.** There is none for 18a to 18d, and saying otherwise is
-what let this gap sit. `tests/test_compat.lua`'s `ScanBound` and `IsAuctionHouseMail` cases feed
-English literals into an enUS mock and check English literals come back; `tests/test_attribution.lua`
-does the same for the name family. Every one of them would stay green through the failures above.
-§ 18e alone is covered by the rest of this file on English. Until the pass runs, the honest state of
-this section is unrun, and it is recorded that way rather than as coverage.
-
----
-
----
-
-### 19. The filter lists pack two to a line (LibKa0s v1.47.0 `columns`)
-
-All three filter lists now draw **two entries per line**. The
-count is a MAXIMUM, not a promise — since LibKa0s v1.50.0 the list measures the width it actually
-has and drops back to one column when two cannot be paid for, so part of this is checking the
-fallback as well as the packing. Only the client can show either.
-
-**Setup:** a Blacklist with at least **six** items in it, and at least **two** currencies in
-Currencies, so both a full row and an odd trailing one are visible.
-
-**Steps.**
-- **Settings ▸ General ▸ Filters ▸ Blacklist** → entries are laid out **two to a line**, reading
-  left to right then down. The X, the icon and the name line up **across** the two columns as well
-  as down each one.
-- With an **odd** number of entries, the last line has one entry in the **left** column and empty
-  space to the right — not one entry stretched across the width.
-- **Whitelist** → the same.
-- **Currencies** → **two to a line** as well. It drew one per line until the tab was seen in the
-  client: the reservation was that currency names are long, and the ids a player actually mutes
-  turned out to be short enough to fit.
-- **The truncation trade, on the item lists.** Find (or blacklist) an item with a long name. At two
-  columns its name is cut from the tail rather than wrapped to a second line, and a long enough one
-  loses its `(id)` entirely. That is the cost of the grid — a wrapped name would push the column
-  beside it out of alignment. **Hovering the entry still names the item**, which is where the full
-  story lives.
-- **Remove** an entry with its X → the list rebuilds and stays a grid, with the remaining entries
-  repacked left-to-right. **Add** one → same.
-- **The fallback.** Make the settings canvas narrow — windowed mode at a small window width, and/or
-  a higher UI scale (`/console uiScale 1`). Below roughly **580px of panel** the item lists should
-  draw **one column**, full width, still correctly formed. What you are checking does NOT happen:
-  icons stacked over wrapped names, or an entry's X sitting on a line of its own.
-- Widen it back and re-open the panel → two columns return.
-
-> On a normal setup you may not be able to get narrow enough to trigger the fallback; the column cap
-> was chosen conservatively. If you cannot, the first bullet passing is still the meaningful result.
-
-## When to run which subset
-
-- **Pre-commit (capture/attribution edits):** 1, 3, 4. Anything touching `modules/Collector.lua`,
-  `modules/Attribution.lua`, `core/Compat.lua` or `core/EnvSetup.lua` needs the source matrix; the
-  last of those also needs 17i.
-- **Browser / table edits:** 2, 5, 6, 6a, 7, 8. `modules/Browser.lua` / `BrowserTable.lua` /
-  `Analytics.lua` / `Export.lua` — the shared filter bar and tab-aware Export cross all of these.
-- **Settings / schema edits:** 9, 10, plus §4's mute/quality gates for any new Data-Collection row.
-- **Blacklist/whitelist edits:** 16, plus §4 (the capture gate) — `modules/Filters.lua`,
-  `modules/Collector.lua`, `settings/Panel.lua`'s Filters tab.
-- **Media / art edits:** 17g, plus 5, 6 and 7. Anything touching `core/MediaSetup.lua`, an
-  `NS.Icon` / `NS.IconMarkup` call site, or a re-vendor of `libs/LibKa0s/media/`.
-- **LibKa0s / library edits:** 17 (including **17k** after any re-vendor), plus 9, 10 and 12. Anything touching `core/CoreSetup.lua`,
-  `core/WidgetsSetup.lua`, `core/DebugLogSetup.lua`, `settings/Slash.lua`,
-  `settings/OptionsSetup.lua` or a re-vendor of `libs/LibKa0s/` — and **always** 17a, which is the
-  only check that a degraded install still works.
-- **Dropdown / filter-bar edits:** 17h, plus 2, 5 and 6a. Anything touching
-  `core/WidgetsSetup.lua`, `B:BuildFilterBar`, an option builder, or `libs/LibKa0s/Widgets.lua`
-  arriving in a re-vendor. 17h step 1 is non-negotiable: the first click is where this widget has
-  broken before.
-- **Compat / attribution / tooltip-parsing edits, and any re-vendor that moves `core/Compat.lua`:**
-  **18**, on top of 1, 3 and 4. It is the only section that looks at what the client wrote rather
-  than at what the addon printed, and it needs a deDE or frFR client.
-- **Pre-release / TOC bump:** the **entire suite** — the 17 scenarios span every system the addon
-  owns. Always finish with the headless gate green: `luacheck .` (0/0) and `lua tests/run.lua` (see
-  [testing.md](testing.md)).
-- **Export edits:** 17j, plus 6a and 8. Anything touching `modules/Export.lua`,
-  `core/WidgetsSetup.lua`'s `NS.CopyWindow`, or a re-vendor of `libs/LibKa0s/Widgets.lua`.
-  The copy window's focus, selection and Esc binding have no headless coverage at all.
-- **Diagnostics edits:** 12a, plus 17a step 4. Anything touching `modules/Diagnostics.lua`, the
-  `diagnostics` row or the `debug` handler, or a re-vendor that moves
-  `libs/LibKa0s/DebugLogDiagnostics.lua`.
-- **Debug/logging edits:** 12, 15. Anything touching `NS.Debug` call sites or
-  `core/DebugLogSetup.lua` needs the tag-coverage + coalescing checklist — and 17b, since the
-  console's strings are the library's now.
-
-If a smoke test fails, capture the offending line from BugSack / the Lua error frame plus the exact
-slash sequence that produced it, and file an issue at the tracker referenced in
-[README.md](../README.md).
+# Smoke tests — Ka0s Loot History
+
+These are the in-client checks the headless suite cannot make: real `CHAT_MSG_LOOT` capture, the
+History window, the settings panel, the minimap button, combat locks and what the client draws. The
+pure logic is covered by `lua tests/run.lua` and `luacheck .` (see [testing.md](testing.md)). Run the
+suite on the live Retail client (Midnight 12.1.0, Interface 120100) before tagging a release, after a
+`## Interface:` bump and after a `libs/` refresh; run the themes a change touches before calling that
+change done (see *Which themes to run* below). Start each theme from a clean `/reload` with debug
+logging off unless a step turns it on. Record each check on its `Result:` line (pass, or what you
+saw). IDs are `<THEME>-<n>`: an ID is never renumbered or reused, and a new check takes the next
+free number in its theme.
+
+## Index
+
+| ID range | Theme | What it covers |
+|---|---|---|
+| INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
+| SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
+| PANEL-1 to 19 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
+| PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
+| STATE-1 to 11 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
+| COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
+| CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
+| HIST-1 to 33 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
+| INS-1 to 21 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
+| FILT-1 to 23 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
+| LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
+| DIAG-1 to 25 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, tag coverage, the diagnostics report |
+| DEGRADED-1 to 11 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
+| LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
+
+## Before you start
+
+- **`/reload`** means `/console reloadui`. **BugSack / BugGrabber** (or `/console scriptErrors 1`) is
+  the main regression signal: every check also fails on any Lua error.
+- Every line the addon prints starts with a cyan `[LH]`. A missing or doubled banner is a failure.
+- `/lh` and `/loothistory` are the same root; steps use `/lh`. A bare `/lh` opens the Settings panel
+  on its landing page; `/lh toggle|show|hide` drive the History window.
+- **"Loot at or above threshold"** means an item whose quality is at or above **Minimum quality**
+  (default Common). Anything that prints "You receive loot:" is a capture candidate: kills,
+  containers and nodes, vendor buys, mail, trades, quest rewards, M+ chests.
+- Have ready: two or more characters with recorded loot on the account, a target dummy, a vendor, a
+  mailbox, bag space, and (for CAP) a quest with an item reward and a trade partner if you can.
+- `/lh test` seeds a synthetic history for HIST and INS checks that do not need live loot.
+- On failure, capture the BugSack line and the exact slash sequence, and file an issue at the
+  tracker linked from [README.md](../README.md).
+
+**Which themes to run.**
+
+- Capture or attribution (`modules/Collector.lua`, `modules/Attribution.lua`, `core/Compat.lua`,
+  `core/EnvSetup.lua`): INSTALL, CAP; any change that moves `core/Compat.lua` also needs LOC.
+- Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `Analytics.lua`,
+  `Export.lua`): HIST, INS, STATE-7 to STATE-11.
+- Settings or schema: PANEL, SLASH, PROFILE, plus CAP-22 to CAP-24 for a new capture row.
+- Filter lists (`modules/Filters.lua`, the Filters tab): FILT, CAP-22 to CAP-24.
+- Media or art (`core/MediaSetup.lua`, an `NS.Icon` call site, `libs/LibKa0s/media/`): HIST-5,
+  HIST-6, HIST-13, HIST-15, HIST-17, HIST-22, HIST-23, PANEL-18, DIAG-10 and DIAG-11.
+- Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/Widgets.lua`):
+  HIST-2, HIST-3 and HIST-12 to HIST-21 (HIST-12 always: the first click is where this widget broke).
+- LibKa0s re-vendor or `core/*Setup.lua` / `settings/Slash.lua` / `settings/OptionsSetup.lua`:
+  DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-12 to HIST-17 and
+  HIST-28 to HIST-33.
+- Diagnostics or debug logging: DIAG, DEGRADED-4.
+- Release or `## Interface:` bump: every theme, then the headless gate green.
+
+## Install and upgrade
+
+**INSTALL-1. Clean first load.** Quit WoW, delete `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`
+(and its `.bak`), check the character-select AddOns list shows **Ka0s Loot History** enabled, log in,
+then `/reload` → no Lua error at login or after the reload. Result:
+
+**INSTALL-2. TOC load order.** The TOC order is Libraries → Locales → Core (Compat first) → Defaults →
+Modules (Attribution before Collector) → Settings, so `settings/` loads after `modules/`. After
+login run `/lh help` and open Esc → Options → AddOns → the help index prints, and **Ka0s Loot
+History** is in the list with two sub-pages, **General** and **Profiles** (Filters and AH Price are
+tabs on General, not pages). Result:
+
+**INSTALL-3. Fresh SavedVariables shape.** After INSTALL-1's `/reload`, `/dump
+LootHistoryDB.global.schemaVersion` → `10` (the declared default is 0; the runner walks v1→v2
+through v9→v10 on the empty DB, touching no rows). `global` holds `history = {}`, `minimap` and
+`schemaVersion`; `profiles.Default` holds `settings`. Result:
+
+**INSTALL-4. An existing account upgrades into a profile.** Log in on a SavedVariables file written
+by 1.4.0 or earlier (schema 8 or below) → `/dump LootHistoryDB.global.schemaVersion` answers `10`,
+every record is still in `global.history`, the old settings, id lists and saved view are in
+`profiles.Default`, and a stored retention sits at `global.retentionDays`, in no profile. Result:
+
+**INSTALL-5. SavedVariables after logout.** Loot for a while, log out to character select, open
+`LootHistoryDB.lua` → `global.schemaVersion = 10`; `history` is a dense array of full records (`ts`,
+`char`, `classFile`, `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `retentionDays`
+(if changed) and `minimap` sit beside it in `global`; `profiles.Default` holds `settings` and
+`savedView` (if saved); session-only state (`debug`, `testRecords`) is absent. Log back in and out:
+the file is unchanged apart from new loot (the ladder is idempotent). Result:
+
+**INSTALL-6. Currency quality backfill (v3→v4).** Skip without currency rows recorded before the
+quality field existed (their `quality` is nil). `/reload` on such a file → those rows go from a
+white Name and blank Quality to a colored Name and a filled Quality; no row added or removed.
+Result:
+
+**INSTALL-7. Currency bound backfill (v4→v5).** Skip without currency rows recorded before the bound
+field existed (`bound = nil`, blank or faint-gray glyph). `/reload` → each resolvable one shows
+**blue/Warbound** if Warband-transferable, else **green/Bind on Pickup**; no row added or removed.
+Result:
+
+**INSTALL-8. Saved view zone upgrade (v7→v8).** With a view saved while the Zone filter stored map
+ids, `/reload` and open the History window → the Zone dropdown selects the same zones by name,
+never silently unfiltered. Result:
+
+## Slash commands
+
+**SLASH-1. Bare `/lh` opens the landing page.** Type `/lh`, then `/lh   ` (spaces only), then
+`/loothistory` → each opens Settings on the Ka0s Loot History landing page (not General), the History
+window stays closed and nothing prints. Result:
+
+**SLASH-2. The help index.** `/lh help` → a header `v<version> — slash commands (/loothistory is an
+alias for /lh)`, then one row per command in this order: show, hide, toggle, config, enable, disable,
+version, get, set, list, reset, resetall, profile, debug, diagnostics, test, purge, help (eighteen).
+Each row is a gold `/lh <verb>`, an em dash and a white description; every line carries `[LH]`; no
+raw key such as `HELP_HEADER` shows; the window does not open. Result:
+
+**SLASH-3. `/lh list`.** On a fresh profile, `/lh list` → rows grouped under `[Master controls]`,
+`[Capture]`, `[AH Price]`, `[Interface]`, `[History]` in strip order (a `[Collection]` or
+`[Maintenance]` header is a missed rename), every schema row present, with the defaults
+`settings.enabled = true`, `settings.qualityThreshold = 1`, `settings.retentionDays = 30`,
+`settings.windowScale = 1`, `settings.excludeQuestItems = true`, `settings.excludedSources` empty and
+`minimap.shown = true` (the row reads SHOWN; the stored key underneath is `minimap.hide = false`).
+Result:
+
+**SLASH-4. Panel and CLI write one value.** With the panel open on the right tab, `/lh set
+windowScale 1.5` → the Window scale slider moves; drag the slider → `/lh get settings.windowScale`
+echoes it. Change **Minimum quality**, **Record data from**, **Exclude quest items** (Capture),
+**Keep history for** (History) and **Minimap button** (Master controls) → `/lh get` on each path
+echoes the new value, and an open widget follows a slash write live. Result:
+
+**SLASH-5. `set` refuses bad input.** `/lh set windowScale 9` → clamps to 1.6 (bounds 0.6 to 1.6);
+`/lh set windowScale abc` → prints "expected a number" and writes nothing; `/lh set settings.enabled
+maybe` → refused, nothing written. Result:
+
+**SLASH-6. `reset` one row.** Change Minimum quality and mute a source, then `/lh reset
+settings.qualityThreshold`, `/lh reset settings.excludedSources`, `/lh reset settings.windowScale` →
+each row alone returns to its default (`(none)` for the source list, not a table address); muting a
+source afterwards does not change what the next reset restores. Result:
+
+**SLASH-7. `resetall` is non-destructive and does not ask.** Change two settings and put an id on
+the Blacklist, then `/lh resetall` → prints `All settings reset to defaults`, raises no popup, and
+returns the active profile's settings, lists and saved view to defaults; the loot history, the
+retention and the minimap button are untouched. Result:
+
+**SLASH-8. No raw locale keys.** Run `/lh list`, `/lh get settings.enabled`, `/lh set
+settings.enabled maybe`, `/lh reset settings.windowScale`, `/lh resetall` → every line is English
+prose; not one all-caps underscored token (`UNKNOWN_COMMAND`, `RESET_ALL`, …) reaches chat. Result:
+
+**SLASH-9. `/lh version` reads the TOC.** Temporarily change `LootHistory.toc`'s `## Version` to
+something obviously different, `/reload`, `/lh version` → prints the TOC value, not the constant in
+`core/Namespace.lua`. Put the TOC back. Result:
+
+## Settings panel
+
+**PANEL-1. Both routes reach one category.** Out of combat, `/lh config`, then Esc → Options →
+AddOns → **Ka0s Loot History** → both land on the same category; the tree is the landing page,
+**General**, then **Profiles** last. Result:
+
+**PANEL-2. Landing page.** Open the landing page → logo, tagline, a **Slash Commands** heading and
+one row per command; each row uses the chat help's format: single spaces around an em dash that is
+not white-wrapped, and a white description. Result:
+
+**PANEL-3. General header and strip.** Open **General** → header `Ka0s Loot History ▸ General`, a
+gold divider under it, a **Defaults** button top-right, and six tabs: Master controls, Capture, AH
+Price, Interface, History, Filters, opening on Master controls; the selected tab cannot be clicked.
+Click each: no section heading appears, except AH Price's **Pricing** (above the toggle) and **Price
+sources** (above the table) subsection headings. Open **Ka0s Bank Ledger** beside it → the same
+names in the same order, without AH Price. Result:
+
+**PANEL-4. Strip wraps without overlap.** Narrow the Settings window until the strip wraps to a
+second row → the first control row still starts below the strip, and rows sit at the same height
+whichever tab is selected. Result:
+
+**PANEL-5. Per-tab layout.** Walk the tabs → **Master controls**: Enable Loot History | General
+visibility, Master scale | Master alpha, Lock frame | Debug console, Minimap button | Test mode, then
+the **Reset position** | **Reset all settings** pair. **Capture**: Minimum quality | Record currency,
+Exclude quest items alone, then the full-width **Record data from** grid. **AH Price**: *Pricing*,
+Enable AH pricing, *Price sources*, the eleven-row table. **Interface**: Window scale | Row height.
+**History**: Keep history for, then the storage readout | **Purge history…**. Result:
+
+**PANEL-6. The pooled strip survives re-dressing.** `/lh config` → General; cycle all six tabs three
+times ending on Master controls, then cycle the Filters sub-strip three times → on every pass each
+tab shows its own label, the pressed tab is the selected one, and the band height does not move;
+the AH Price rows are intact after the third pass. Fail: a label carried over from the previous
+tab, a highlight on the wrong button, a body under the wrong tab, or a band that changes height.
+(The headless case measures a mock that answers 0 for every height.) Result:
+
+**PANEL-7. Master scale and alpha.** Drag **Master scale** → the History window and the export window
+both resize, and **Window scale** (Interface) still multiplies on top; drag **Master alpha** → both
+fade together. Result:
+
+**PANEL-8. Window scale slider steps.** Drag **Window scale** → it moves smoothly in 0.05 steps
+across 0.6 to 1.6 (not only to the two ends). Result:
+
+**PANEL-9. Row height.** Drag **Row height** (Interface) from 18 to 14, then to 28 → table rows change
+height and the visible row count follows, with no row clipped at the bottom; back at 18 the table
+looks as it did before the slider existed; `/lh get settings.rowHeight` echoes the value. Result:
+
+**PANEL-10. History tab readout.** Open the History tab → the storage readout ("N items collected
+over D days", "Database size: ≈ …") with **Purge history…** beside it and nothing else. Loot
+something → the count rises on its own; click to Capture and back, loot again → it still rises.
+Result:
+
+**PANEL-11. Reset position.** Move the History window, then **Reset position** → the window returns
+to the screen center, no dialog appears and no setting changes. Result:
+
+**PANEL-12. Reset all settings.** Change two settings, click **Reset all settings** → a confirm reads
+"Reset this profile to the addon's defaults? Everything you have configured or added in it is
+discarded — your other profiles are not affected."; Cancel changes nothing; Accept returns every
+setting of this profile to default and refreshes the panel; the loot history is untouched. Neither
+reset button appears anywhere else in the panel. Result:
+
+**PANEL-13. Purge history.** Click **Purge history…** → the `KA0S_LOOTHISTORY_PURGE` confirm ("Delete
+ALL … records? This cannot be undone."); Cancel leaves the data; repeat and Accept → history wiped,
+`history purged.` printed. `/lh purge` raises the same dialog. Result:
+
+**PANEL-14. The page's Defaults, both controls.** Change **Minimum quality** and add a Blacklist id,
+then click the header **Defaults** → the page resets, the three filter lists clear with it. Repeat
+with the Blizzard Settings window's own footer defaults control → the same reset. Result:
+
+**PANEL-15. Scrollbar always shown.** Click between the landing page, General tabs and Profiles → the
+right-edge scrollbar is always there: parked, grayed and inert on a short page, live on a long one,
+and the body's right edge does not shift between pages. Result:
+
+**PANEL-16. Button borders.** Look at **Reset position**, **Reset all settings** and **Purge
+history…** → each draws its full right border (not shaved by the scroll gutter) and lines up with its
+left-hand neighbor, with nothing spilling past the panel edge. Result:
+
+**PANEL-17. AH Price does not freeze.** On AH Price, click away and back several times, then close
+and reopen the panel → the table draws correctly, tick and status columns right, and leaving the
+tab is instant (no ~1.7s hitch). Result:
+
+**PANEL-18. AH Price marks.** On AH Price → each row whose Status reads *Collecting data* has a
+**green** leading mark, every other row a **red** one (a `ban`, a slash through a circle, by design);
+every row has an ⓘ after its Price Module text, bright on a collecting row and dimmed otherwise,
+whose hover shows the key's label and description. Untick a collecting row's **On** → its mark turns
+red in place and agrees with Status. Fail: a white or missing mark, a missing ⓘ, or a mark that
+does not follow the box. Result:
+
+**PANEL-19. Panel labels are English.** On General (every tab) and Profiles → the Defaults button
+reads **Defaults** and every checkbox, dropdown and slider label is English, with no all-caps
+underscored key. Result:
+
+## Profiles
+
+**PROFILE-1. The Profiles page.** Open **Settings → AddOns → Ka0s Loot History → Profiles** → it is
+last in the tree and shows AceDBOptions' controls (current profile, New, Copy From, Delete, Reset
+Profile), with no Defaults button. Result:
+
+**PROFILE-2. Switching on the page adopts the profile.** `/lh debug on`. On Profiles create `Alt`
+(New), change Row height and Minimum quality and move the History window, then pick `Default` →
+the window returns to Default's geometry, row height and saved view, the Filters lists and the AH
+Price table redraw from Default, and the console shows one `[Profile] switched to profile 'Default'`
+line. Result:
+
+**PROFILE-3. Copy, reset and delete.** On `Alt`, **Copy From** `Default` → one `[Set] copied profile
+'Default' → 'Alt'` line and Default's values show; **Reset Profile** → one `[Set] reset profile 'Alt'
+to defaults` line; switch back to Default and **Delete** `Alt` → it leaves the list. Result:
+
+**PROFILE-4. Retention is account-wide.** Set **Keep history for** to 90, create a profile and switch
+to it, then copy into it and reset it → the new profile shows 90; none of the three raises the
+retention confirm or deletes a record; hovering **Keep history for** says the setting is
+account-wide. Result:
+
+**PROFILE-5. Filter lists are per profile.** Add an id to the Blacklist on `Default`, switch to a new
+profile → its lists are empty; switch back → the id is there, and survives `/reload`. Result:
+
+**PROFILE-6. Enabled is per profile.** Create `Off`, switch to it and untick **Enable Loot History**,
+then switch to `Default` → the addon comes back up (loot records again); switch to `Off` → it stands
+down as with `/lh disable`. Result:
+
+**PROFILE-7. `/lh profile` lists.** With profiles `Default`, `alt` and `Main` → `/lh profile` prints a
+`Profiles` header (no trailing colon), then `alt`, `Default` (current), `Main` sorted ignoring case,
+the current one suffixed `(current)`, then `/lh profile <name> switches profile`. Result:
+
+**PROFILE-8. `/lh profile <name>` switches.** `/lh profile Main` → `Switched to profile 'Main'.`, the
+settings adopt as in PROFILE-2, an open panel refreshes, and with debug on the console shows one
+`[Profile] switched to profile 'Main'` line; open Profiles → the picker reads Main. `/lh profile
+Main` again → `Already on profile 'Main'.` and nothing changes. Result:
+
+**PROFILE-9. An unknown name is refused.** `/lh profile main` → `No profile named 'main'.`, then `Did
+you mean 'Main'?`, then the list; `/lh profile Nope` → the refusal and the list, no did-you-mean.
+Open Profiles → no `main` or `Nope` profile was created. Result:
+
+**PROFILE-10. Quotes and spaces.** Create `My Alt` on the page. `/lh profile "My Alt"` → switches to
+`My Alt`; `/lh profile 'Default'` → switches to Default; `/lh profile My Alt` → switches too (inner
+spaces kept). Result:
+
+**PROFILE-11. Answers while disabled.** `/lh disable`, then `/lh profile` → the list prints (no
+disabled refusal); `/lh profile Main` on a profile where the addon is enabled → switches and the addon
+comes back up. Result:
+
+**PROFILE-12. Refused in combat.** Attack a target dummy; in combat `/lh profile Main` → `Can't switch
+profiles in combat.` and nothing switches; `/lh profile` and `/lh profile Nope` still answer. Out of
+combat the same switch works. Result:
+
+**PROFILE-13. The page follows a slash switch.** With the Profiles page open, close Settings, `/lh
+profile Main`, reopen Profiles → the picker reads Main. Result:
+
+## Enabled state, lock and test mode
+
+**STATE-1. Disabled is total.** `/lh disable` → prints `settings.enabled = false`; the History window
+closes and will not reopen; loot you take is not recorded; `/lh show` answers `Ka0s Loot History is
+disabled — enable it with /lh enable` and does nothing else. Result:
+
+**STATE-2. The command surface while disabled.** Still disabled: bare `/lh` opens the panel, `/lh
+version` prints, `/lh list` and `/lh get settings.qualityThreshold` read, `/lh set settings.scale
+1.1` writes, `/lh debug` opens the console, `/lh diagnostics` writes its report → all answer; only
+`show`, `hide`, `toggle`, `test` and `purge` refuse with the disabled line. Result:
+
+**STATE-3. One switch, three surfaces.** `/lh enable` → prints `settings.enabled = true`, loot records
+again and the window opens. Tick and untick **Master controls ▸ Enable Loot History** → `/lh get
+settings.enabled` follows, and unticking takes the window down as the verb does. Result:
+
+**STATE-4. Disabled right after login writes nothing.** `/reload` and, within five seconds of the
+loading screen clearing, untick **Enable Loot History** → nothing is written: the deferred
+retention prune and bound-state repair do not run on the disabled addon, so records older than the
+retention are still there. Result:
+
+**STATE-5. General visibility Never.** Set **General visibility** to *Never*, `/lh show` → refused
+with a chat line; set *Always* → the window opens. Result:
+
+**STATE-6. Lock frame.** Tick **Lock frame**, drag the History and export windows by their title bars
+and pull the resize grip → nothing moves or resizes; untick → both drag and the grip resizes;
+`/reload` keeps the new size. Result:
+
+**STATE-7. Test mode from the slash.** `/lh hide`, `/lh test` → `test mode on`, the window opens by
+itself; close it, `/lh test` → `test mode off`, the window stays closed. Result:
+
+**STATE-8. What test mode shows.** With test mode on → a bright-red **TEST MODE** badge beside the
+window title; synthetic rows across several synthetic characters; the filter dropdowns rebuilt from
+them; the view on stock + all players; Insights on the same dataset. Turn it off → badge gone, the
+live history, the saved view and the current player back. Result:
+
+**STATE-9. The Test mode box.** Master controls: tick **Test mode** → the window opens in test mode;
+untick → test mode ends; tick it, then `/lh test` → the box unticks. Result:
+
+**STATE-10. Test mode refused under Never.** Set **General visibility** to *Never*, tick **Test
+mode** → one `test mode not started — …` line, no window, the box stays unticked. Result:
+
+**STATE-11. Test mode never outlives a reset or reload.** Tick **Test mode**, then **Reset all
+settings** and confirm → test mode off, box unticked. Tick it again, `/reload` → off. Result:
+
+## Combat
+
+**COMBAT-1. The window works in combat.** With the window open, attack a dummy; click a row, drag and
+resize the window → no "Interface action failed because of an AddOn" error; it stays usable.
+Result:
+
+**COMBAT-2. `/lh config` in combat.** In combat, `/lh config` → one gray "can't open in combat" line,
+nothing opens. Leave combat → `/lh config` opens the panel, and the panel does not open on its own
+when combat drops. Result:
+
+**COMBAT-3. The sidebar path is locked in combat.** In combat, open the Blizzard AddOns list and click
+**Ka0s Loot History ▸ General** (then **Profiles**) → the Settings window stays open with a gray cover
+reading *Settings are locked during combat.* and nothing drawn under it; chat gets one gray locked
+notice for the fight; clicking the cover, a tab or the footer Defaults changes nothing and prints
+nothing more; no `ADDON_ACTION_BLOCKED`; Esc closes the window. Result:
+
+**COMBAT-4. The cover drops on an open page and lifts after.** Open General, then pull → the cover
+drops over the open page. Leave combat → the cover lifts and the page draws in place. Result:
+
+**COMBAT-5. Only out of combat.** Set **General visibility** to *Only out of combat*, open the window,
+pull → the window hides at combat start and does not reopen by itself when combat ends. Result:
+
+**COMBAT-6. Combat ends test mode.** Tick **Test mode**, close the window, attack a dummy → one `test
+mode off — combat started` line, the box unticks, the window does not open. Result:
+
+**COMBAT-7. `/lh test` in combat.** In combat, `/lh test` → refused with one line naming combat; no
+window, box unticked. Result:
+
+**COMBAT-8. Diagnostics in combat.** Pull a dummy, `/lh diagnostics` in combat → no Lua error; a value
+the client hides prints as `<secret>` or `?`, and no `section <name> failed` line appears. Result:
+
+## Capture, attribution and retention
+
+Loot, then `/lh show` → History and read the new row's **Source** and confidence. With debug on, the
+`[Attr]` and `[Loot]` lines in the console say why (see [data-flow.md](data-flow.md)).
+
+**CAP-1. Kill.** Kill a mob and loot it → **Kill**, CERTAIN. Result:
+
+**CAP-2. Container.** Open a chest, lockbox, herb or ore node → **Container**, CERTAIN. Result:
+
+**CAP-3. Quest.** Turn in a quest with an item reward → **Quest**, CERTAIN. Result:
+
+**CAP-4. Vendor.** Buy an item from a vendor → **Vendor**, CERTAIN or INFERRED (review F-001). Result:
+
+**CAP-5. Mail.** Take an item attachment from mail → **Mail**, CERTAIN or INFERRED (review F-001).
+Result:
+
+**CAP-6. Trade.** Complete a trade that gives you an item → **Trade**, CERTAIN or INFERRED (review
+F-001). Result:
+
+**CAP-7. Mythic+ chest.** Loot a Mythic+ end-of-run chest → **Mythic+**, CERTAIN. Result:
+
+**CAP-8. Bonus roll.** Spend a bonus roll on a boss kill → **Bonus Roll**, CERTAIN, overriding the
+kill context. Result:
+
+**CAP-9. Roll win.** `/lh debug on`, win a need/greed/transmog roll → **Roll**, CERTAIN, with an
+`[Attr] stamp ROLL via roll-won` line just before the item's `[Loot] … src=ROLL` (review F-009).
+Fail: the item records as the boss's Kill or Container, meaning the client sent the compact
+"no-spam" roll line; see ARCHITECTURE Known limitations. Result:
+
+**CAP-10. Craft.** Craft any item ("You create") → **Craft**, CERTAIN, overriding stale context.
+Result:
+
+**CAP-11. Currency refund.** Refund a currency-paid vendor purchase inside the buyback timer → a
+`Type=Currency` row, **Refund**, CERTAIN (from the "You are refunded:" `CHAT_MSG_CURRENCY` line),
+overriding the purchase's Vendor stamp; with debug on, `[Currency] … src=REFUND`. Result:
+
+**CAP-12. Currency loot.** With **Record currency** on, loot a currency → a `Type=Currency` row with
+its source from context, blank iLvl, Vendor and AH cells; the Type filter isolates it; with debug on
+`[Currency] <name> x<n> id=<id> src=<source>`. Result:
+
+**CAP-13. Record currency and the source mute.** Untick **Record currency**, loot a currency → no row;
+tick it and mute that currency's source → still no row. Result:
+
+**CAP-14. The keystone context ends with the key.** `/lh debug on`, run and complete a key and loot the
+chest (**Mythic+**); leave the dungeon, gather a node → **Container**, with `[Attr] keystone cleared`
+on the zone change. Zoning out and back mid-key keeps chest and object loot on **Mythic+** (`keystone
+re-armed` on re-entry); `CHALLENGE_MODE_RESET` also clears it. Result:
+
+**CAP-15. Boss-corpse loot keeps its encounter.** `/lh debug on`, kill a boss and loot it → `[Attr]
+encounter end … kill: context kept 60s for the corpse` before the `LOOT_OPENED` line, and `/dump
+LootHistoryDB.global.history[#LootHistoryDB.global.history].sourceDetail` shows `encounterID` and
+`difficulty`. A wipe logs `wipe/no context: cleared`. If `LOOT_OPENED` arrives before `encounter end`,
+write that down: the grace window (`Constants.ENCOUNTER_GRACE`) is then unneeded. Result:
+
+**CAP-16. Unattributed loot.** Loot something with no fresh context → **Other**, INFERRED; never a Lua
+error, never a missing row. Result:
+
+**CAP-17. Row columns render.** Read a few rows → exact item-link tooltip, quality color, iLvl, bound
+glyph (BoE/BoP/Warbound/Warbound-until-equipped), Vendor and AH price, type, zone, and the Character
+column's class icon and class color. Result:
+
+**CAP-18. Currency category.** Loot a currency → its **Subtype** reads a real Currency-tab header such
+as "The War Within" (review F-010). Fail: blank, meaning `Compat.CurrencyCategory` could not read the
+headers on this client. Result:
+
+**CAP-19. A currency first seen mid-session.** At a season start, after one currency loot, loot a
+currency not yet seen this session → its Subtype reads its header, not blank (a miss rebuilds the
+cache once). Then collapse that header in the Currency tab, `/reload` and loot a currency under it;
+write in [midnight-quirks.md](midnight-quirks.md) *Currency category* whether Subtype resolves (the
+expectation is blank). Result:
+
+**CAP-20. Currency name color, quality and tooltip.** A currency row's Name is colored by its
+`C_CurrencyInfo` quality tier, the Quality column shows the tier label, and hovering shows the
+in-game currency tooltip (not an item tooltip, not blank). Result:
+
+**CAP-21. Currency bound glyph.** Loot a Warband-transferable currency (Timewarped Badge) and a
+non-transferable one (Nebulous Voidcore) → blue/Warbound (tooltip "Warband Transferable") and
+green/Bind on Pickup respectively, not blank. Result:
+
+**CAP-22. Quality gate.** Set **Minimum quality** to Rare; loot a Common or Uncommon item, then a Rare
+→ the first is dropped (with debug on, `[Drop] … quality`), the Rare records, and no `/reload` was
+needed. Result:
+
+**CAP-23. Quest-item gate.** With **Exclude quest items** ticked, loot a quest objective drop →
+dropped (`reason=quest`, keyed on item class 12); untick it and loot another → recorded. Result:
+
+**CAP-24. Source mute.** In **Record data from**, untick **Kill**, kill and loot a mob → dropped
+(`reason=source`); tick it again → captured. The list offers every source: Kill, Container, Mythic+,
+Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft,
+Refund, Other. Result:
+
+**CAP-25. Zone and subzone stamps.** Loot in a zone with a subzone (a capital district, an inn) → the
+Zone column reads the zone and the row's tooltip carries the subzone; loot in a zone with no
+subzone → the Zone column is filled and nothing is blank-labeled. Result:
+
+**CAP-26. Zone during a loading screen.** Loot in the first frames after a portal or summon, before
+the client has zone text → the row buckets under **Unknown** in the Zone filter and in group-by-zone,
+with rows that have no zone, never as a blank-named group. Result:
+
+**CAP-27. The map id is stamped.** Loot in a dungeon, then `/dump
+LootHistoryDB.global.history[#LootHistoryDB.global.history].mapID` → a number (the CSV export does not
+carry `mapID`; see HIST-25). Result:
+
+**CAP-28. A shorter retention asks first.** With records older than 7 days, change **Keep history
+for** from 90 to 7 → a confirm names the record count, and nothing is deleted before it is answered.
+Answer **No** → every record stays, the dropdown returns to 90, one line `retention kept at 90 days;
+no records were deleted.`; a `/reload` then deletes nothing. Result:
+
+**CAP-29. Yes prunes.** Change to 7 again and answer **Yes** → records older than 7 days go (no holes),
+the table and footer refresh. Result:
+
+**CAP-30. The slash path asks too.** `/lh set settings.retentionDays 7` with older records → the same
+confirm; a value that would delete nothing asks nothing. Result:
+
+**CAP-31. Login prune.** With records older than the retention, `/reload` and wait about five seconds
+→ the stale records are pruned without touching the setting; no Lua error. Result:
+
+**CAP-32. Always keeps everything.** Set **Keep history for** to *Always*, `/reload` → nothing is
+pruned. Result:
+
+## History window
+
+**HIST-1. Toggle, show and hide.** `/lh toggle` twice, then `/lh show`, `/lh hide` → toggle flips,
+show and hide are explicit; the window opens on History, and the last tab used is remembered within
+the session. Result:
+
+**HIST-2. Esc closes the window and its menu.** Open **Character**, leave its menu open, press Esc
+→ the menu and the window both close; no menu is left floating. Result:
+
+**HIST-3. `/lh hide` closes an open menu.** Open **Zone**, leave it open, `/lh hide` → menu and window
+both gone. Result:
+
+**HIST-4. Position, size and scale persist.** Drag the title bar, drag the bottom-right grip, `/lh
+set windowScale 1.3`, `/reload`, `/lh show` → same position, same size (never below the width that
+fits every column), 1.3× scale. Result:
+
+**HIST-5. Sort.** Click each header (Date, Time, iLvl, Item, Qty, Quality, Type, SubType, Source, Zone,
+Vendor, Character), twice each → each direction renders; the active header shows one shared up or
+down arrow, not Blizzard's spinner arrow. Result:
+
+**HIST-6. Group by.** Cycle **Group by** through None, Day, Quality, Type, Source, Zone, Character;
+collapse and expand a header → each renders in column order; headers show a chevron right when
+collapsed and a chevron down when expanded, not `+` / `-`. Result:
+
+**HIST-7. Filters and the row count.** Use **Date** (All, Today, Last 7 days, Last 30 days) and pick two
+values in **Bound**, **Quality**, **Type**, **SubType**, **Source**, **Zone**, **Character** → rows narrow
+(the filters intersect), a two-value menu reads "N selected", and the bottom-left footer "Showing X of
+Y" updates live. Result:
+
+**HIST-8. Database size footer.** Read the bottom-right footer → "Database ≈ <size>", matching the
+panel's estimate; it does not change with filters, and does change after a new loot or a delete.
+Result:
+
+**HIST-9. Zone filter keys on the name.** With loot from a multi-floor dungeon (Halls of Atonement,
+Dire Maul, The Deadmines), open **Zone** → each zone once; picking it shows every row from any floor;
+rows with no zone share one **Unknown** entry that selects exactly them. Result:
+
+**HIST-10. Bound filter.** Open **Bound** → five options (Not Bound, Bind on Equip, Bind on Pickup,
+Warbound, Warbound Until Equipped) matching the Bound header legend; pick Not Bound, add Bind on
+Equip → the visible lock colors match, and Not Bound rows show no lock. Result:
+
+**HIST-11. Search.** Type in **Search items…**, then clear it → matches item names; clearing restores
+the unsearched set. Result:
+
+**HIST-12. The first dropdown click.** On a fresh `/reload`, click **Group by** → a menu opens under it
+with no Lua error (LibKa0s v1.11.0 and v1.11.1 shipped a `Font not set` error on exactly this click).
+Result:
+
+**HIST-13. Every dropdown once.** Open Group by, Date, Bound, Quality, Type, SubType, Source, Zone,
+Character and the export modal's **Data set** → ten menus, no error, each anchored under its own
+button, at least as wide as it, and each button ends in a gray, vertically centered chevron.
+Result:
+
+**HIST-14. One menu at a time.** Open **Quality**, click **Zone** → Quality closes as Zone opens. Open
+**Source**, click empty world → it closes. Open it, click the History window behind it → the menu
+closes and the click lands on the window in the same press. Result:
+
+**HIST-15. Row actions.** Right-click a row → **Link to chat**, **Blacklist item** (or **Blacklist
+currency**), and **Delete**, each with its mark and every word kept; Link to chat is disabled without
+an item link and Blacklist item without an item id. Link to chat and Shift-click both put the link in
+the chat box; hover shows the item tooltip; **Delete** removes the row and the table and footer
+refresh with no gap. Result:
+
+**HIST-16. The two menus dismiss alike.** With the row menu open, left- or right-click outside → it
+closes. With a filter menu open, right-click a table row → the filter menu closes and the row menu
+opens on that same press (two presses is a regression). Result:
+
+**HIST-17. Dropdown rows.** Open **Character** and **Quality** → character rows show class icon, then
+name in class color (a character with no class token shows the bare name); a selected multi-select
+row shows a tick and goes gold; no row shows an empty box. Result:
+
+**HIST-18. Save, Clear, Reset.** Set a group, sort and filters including a **Bound** pick, **Save** →
+"view saved as default."; change filters, **Clear** → back to the saved view and the current player;
+**Reset** → "view reset to stock defaults.". Save again, Clear, `/reload` → the Bound pick survived.
+Result:
+
+**HIST-19. The window opens on the current player.** `/reload`, `/lh show` → the saved view and the
+current player; **Character** reads "Character: Current" with that menu row gold. On a character with
+no loot (footer "Showing 0 of N") → still "Character: Current", not "Character: All". Result:
+
+**HIST-20. The Character preset.** Open **Character**, click another character → Current goes gray,
+that character goes gold, the button reads their name; click **Character: Current** → back to you in
+one click, the button reads "Character: Current". Result:
+
+**HIST-21. A selected character with no rows in view.** Filter to a character, then narrow the other
+filters until they have no rows → the button still reads their name, never "Character: All".
+Result:
+
+**HIST-22. Window and button marks.** The title-bar close is the collection's ✕ mark, and the export
+modal and copy window wear the same; **Export** carries a small left mark with its word still
+centered, **Export to CSV** a spreadsheet mark; **Clear**, **Reset** and **Save** carry no mark. Fail:
+a blank space where a mark belongs (a path with `.tga`, or a name the catalog lacks); Blizzard art in
+its place means the library is missing (DEGRADED-11). Result:
+
+**HIST-23. Bound padlock and the resize grip.** The Bound column draws a padlock, and its header
+legend uses the same padlock tinted per state; the bottom-right grip is Blizzard's ChatFrame
+three-line hatch, as on the rest of the collection. Result:
+
+**HIST-24. Export is tab-aware.** On History, click **Export** (right of filter row 2) → the modal reads
+**Export History**; on Insights → **Export Insights**. Result:
+
+**HIST-25. History CSV.** Export **All Data** → the header `ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`
+and one row per record: `date` DD-MMM-YYYY, `time` HH:MM; `quality` a label beside `qualityRaw`;
+prices as `Ng Ns Nc` beside copper `*Raw` (auction blank when no price is selectable); `value` the
+higher of the picked auction price and `vendorPrice`; `auctionSource` the provenance tag (e.g.
+`tsm:dbmarket`); `auc_*` the raw captured copper per key; `bound` a label; comma names quoted;
+`wowheadLink` a `wowhead.com/item=…` URL with `?bonus=…` when bonus IDs exist; currency rows fill
+`currencyID` and leave `itemID` blank. `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence`
+are absent. Result:
+
+**HIST-26. Insights CSV.** From Insights export → header `Section,Label,Count,Value`, mirroring the
+panel: Summary (the KPI cards), By Source, By Character x Source, By Quality, By Character x Quality,
+By Item Type, By Character x Item Type, By Bound Type, By Character x Bound Type, By Character, By
+Weekday, By Hour, Top Zones, Top Items by Count / Value, By Day, and with currency in range Currency
+Collected, Currency by Type x Source, Currency by Character x Type, Currency by Day. Loot sections are
+items-only; no By Keystone, Attribution Confidence, Currency by Source, flat Currency by Character or
+currency Summary rows. Result:
+
+**HIST-27. All Data and Current View.** Apply a filter, export **Current View** from each tab → both
+CSVs honor the shared filter; **All Data** covers the whole visible history. Result:
+
+**HIST-28. The copy window opens right.** History → Export → **Export to CSV** → the copy window opens
+centered on the History window, above the modal (visible underneath), CSV pre-selected; it looks as
+it always has (640x420, `FULLSCREEN` strata, dark backdrop, 10pt monospace). Result:
+
+**HIST-29. Copy and Esc.** `Ctrl+C`, paste into an editor → the whole CSV with line breaks; `Esc` →
+the copy window closes and the export modal stays open. Result:
+
+**HIST-30. One copy window.** Export from Insights after History → the same window is reused (a
+different modal title, no second frame). Result:
+
+**HIST-31. The copy window follows its anchor.** Drag the History window elsewhere and export → the
+copy window centers on it; close the History window and export by another route → it centers on the
+screen, with no error. Result:
+
+**HIST-32. Copy window chrome.** Drag the copy window by its title bar, close it with its title-bar ✕
+→ it moves, and the close mark matches every other window in the addon. Result:
+
+**HIST-33. The export modal closes its menu.** Open **Data set** in the modal, click the modal's ×
+→ the menu goes; reopen, open the menu, press Esc → the menu goes. Result:
+
+## Insights
+
+Open `/lh show` → **Insights** on a history spanning several days with currency loot (or `/lh test`).
+
+**INS-1. The shared filter scopes everything.** Change the Date dropdown, a column filter and the
+search on Insights → every card and chart re-scopes live; switching tabs keeps the same slice; a
+filter matching nothing hides the charts cleanly. Insights has no range selector of its own.
+Result:
+
+**INS-2. KPI cards.** → records, distinct items, characters, value, active days, epic+ drops, best drop
+(ilvl), richest drop, date range, busiest day; "value" is the higher of the picked auction price and
+`vendorPrice`, times quantity. Result:
+
+**INS-3. Headline size.** Every KPI value (value, richest drop, date range, busiest day too) renders at
+the size of records; a long value stays on one line, shrinking to fit, never wrapping or clipping.
+Result:
+
+**INS-4. Coin glyphs.** Money strings (value card, richest drop, Value By Source) use coin icons about
+25% smaller than the text's line. Result:
+
+**INS-5. Section dividers.** The gold **LOOT** and **CURRENCY** titles are about 50% larger, with rule
+lines about 25% thicker, than sub-section headers. Result:
+
+**INS-6. Titles.** Every sub-section title is Title Case ("Loot By Source", "Loot By Hour Of Day",
+"Top Items By Count"); the companions read "Loot By Character × Source / Quality / Item Type / Bound
+Type" and "Value By Character × Source". Result:
+
+**INS-7. LOOT order.** Under LOOT: Loot By Character, Loot By Source, Loot By Character × Source, Value
+By Source, Value By Character × Source, Loot By Quality, Loot By Character × Quality, Loot By Item
+Type, Loot By Character × Item Type, Loot By Bound Type, Loot By Character × Bound Type, Loot Over
+Time, Value Over Time, Loot By Hour Of Day, Loot By Weekday, Top Zones, Top Items By Count, Top Items
+By Value. No Quality mix, Mythic+ loot by keystone level or Attribution confidence chart. Result:
+
+**INS-8. Companions.** Under each of the five categorical loot charts sits its stacked × Character
+companion (character on the Y axis, the parent's colors); a companion with no data hides. Result:
+
+**INS-9. Per-category bar colors.** Loot By Item Type, Loot By Weekday and Currency Collected bars are
+each colored per category, matching their companions. Result:
+
+**INS-10. Bar-colored labels.** On single-bar charts the row label takes its bar's color, except Loot
+By Quality (quality color) and per-character bars (class color); stacked labels are unchanged.
+Result:
+
+**INS-11. No similar neighbors.** Item types, currencies and weekdays draw from the inverse-VIBGYOR
+palette by rank → no two similar colors side by side in a chart or legend. Result:
+
+**INS-12. Companion segment order.** Each companion's segments follow the parent chart's Y order (Loot
+By Character × Bound Type follows Loot By Bound Type; Value By Character × Source is value-desc).
+Result:
+
+**INS-13. Legends.** Every single-bar categorical chart (Loot By Source, Value By Source, Loot By
+Quality, Loot By Item Type, Loot By Bound Type, Currency Collected) and every companion has a swatch
+legend under it, starting at the bars' left edge. Result:
+
+**INS-14. Legend truncation.** A long legend label ("Artisan Enchanter's Moxie") ends in "…" without
+overlapping; hovering the chip shows the full label. Result:
+
+**INS-15. Totals tally.** Currency is excluded from LOOT: a character's Loot By Character total equals
+the sum of its segments in each × Character companion; the records KPI still counts currency.
+Result:
+
+**INS-16. Row label truncation.** In LOOT and CURRENCY, a long row label is cut near 16 characters with
+"…" on one line; hovering shows the full name. Result:
+
+**INS-17. Tooltips carry the value.** Hover a bar row, a stacked row, a ranked-list row and a
+bar-section legend chip → each reads "<full label>:  <value>" matching the row (money with coin
+glyphs), including an ellipsized label and a clipped value. Only the companion legend chips are
+label-only. Result:
+
+**INS-18. Tooltip position.** Every Insights tooltip appears just above and right of the cursor.
+Result:
+
+**INS-19. Segment tooltips.** Hover one segment of any stacked bar (Character × Source, Currency by
+Type × Source, Currency by Character × Type) → "<category>: <value>" (e.g. "Kill: 45"). Result:
+
+**INS-20. The CURRENCY block.** With currency in range → the CURRENCY divider under LOOT, then
+Currency Collected (one colored bar per currency, with a legend), Currency by Type × Source (stacked
+by source, source legend), Currency by Character × Type (one stacked bar per character, a distinct
+color per currency, legend), Currency over time; no "Currency — N types" summary, no Currency by
+Source chart, no flat Currency by character. Narrow to a range with no currency → the whole block,
+divider included, disappears and LOOT still renders. Result:
+
+**INS-21. Live update.** Loot an item with Insights open → the cards update. Result:
+
+## Filter lists
+
+Filtering is point-in-time: a list changes what happens to future loot and never touches stored rows.
+
+**FILT-1. The Filters tab and its sub-strip.** `/lh config` → General → **Filters** (the last tab) →
+it opens on **Blacklist** in a secondary strip (Blacklist, Whitelist, Currencies) that scrolls with
+the content; one list and one add box show at a time. Leave for another tab and back → the same
+sub-tab; `/reload` → back on Blacklist. Result:
+
+**FILT-2. Blacklist from a row.** In History, right-click a row → **Blacklist item** → the chat line
+`Manage in Settings ▸ General ▸ Filters ▸ Blacklist` ("blacklisted …"), a gold-bordered popup, and the
+row stays in the table. **Blacklist currency** on a currency row names **▸ Currencies**. Result:
+
+**FILT-3. The blacklist stops future capture.** Loot the blacklisted item again → no new row (with
+debug on, `[Drop] … reason=blacklist`); its old rows are untouched. Result:
+
+**FILT-4. Removing brings nothing back.** Click the **X** on its entry, loot it again → nothing
+reappeared (nothing was hidden) and the new loot records. Result:
+
+**FILT-5. The whitelist overrides the gates.** On **Whitelist**, add an id that would be dropped
+(below threshold, muted source or quest item), loot it → a plain row records. Result:
+
+**FILT-6. Leaving the whitelist keeps rows.** Remove that id → its rows stay; later loot of it goes
+through the gates again. Result:
+
+**FILT-7. One list per id.** Add a Whitelist id to the Blacklist (or the reverse) → it leaves the other
+list. Result:
+
+**FILT-8. Entry layout.** Each entry reads X on the left, icon, name and id (`Unknown item <id>` until
+cached, then the name fills in), no right-hand Remove button; hover shows the item tooltip; an empty
+list reads `(none)`. Result:
+
+**FILT-9. Add by name or link.** On Blacklist, type a bag item's name in any case (`hearthstone`) and
+press Enter; shift-click a link into the box and press **Add** → each adds that id, clears the box,
+and shows at once. Result:
+
+**FILT-10. Suggestions.** Type the first letters of a multi-rank crafted consumable in your history
+(`hushed`) → from the second letter (digits from the first) a list opens under the box, above the
+panel, with each rank on its own row, quality-tier icon and gray id; Up/Down move, Enter adds the
+highlighted row, Escape closes; clicking a rank adds exactly that id and closes the list. Result:
+
+**FILT-11. A shared name needs a pick.** Type the shared name in full and press Enter without picking
+→ nothing added; orange `Several items are named '<name>' — pick one from the list, or use the id.`
+with the ranks still listed. Same with two ranks only in your bags and never looted. Result:
+
+**FILT-12. Typing after an arrow submits the text.** Arrow to a row, type another letter and press
+Enter at once → the typed text is submitted, not the earlier highlight. Result:
+
+**FILT-13. History and list items resolve by name.** Type the name of an item not carried this
+session but in your history or on the Whitelist → it resolves and adds. Result:
+
+**FILT-14. Unknown names and garbage.** Type an item name that no bag, history or list knows, then
+`abc` → nothing added, the text stays, and an orange line reads `No item named '<name>' that the game
+can find. Names work for items you carry (or carried this session), items in your loot history and
+ones on these lists; otherwise use the id or shift-click a link.`; hovering the box ends with the
+same sentence; nothing prints to chat. Result:
+
+**FILT-15. Currencies.** On **Currencies**, add by id and by shift-clicked currency link → each shows
+its name; type a looted currency → it is suggested and adds by name; type one never looted and not
+listed (`Honor`) → refused with `No currency named '<name>' that this page knows. Currency names work
+for currencies in your loot history and ones on this list; otherwise use the id or shift-click a
+currency link.` Result:
+
+**FILT-16. The currency blacklist.** Right-click a currency row → **Blacklist currency**; loot it again
+→ no new row; on Currencies it shows its name, an X on the left and no Remove button; click X, loot
+→ it records. Re-add it, **Clear all** → a confirm; Accept → the list empties and loot records.
+Result:
+
+**FILT-17. Lists never touch stored rows.** To remove existing rows use the row's **Delete**; the
+browser's filter dropdowns offer no blacklist or whitelist option. Result:
+
+**FILT-18. Refresh is instant.** With a dozen or more Blacklist ids, click away from Filters and back
+several times, and between its three sub-tabs → no stutter or freeze. Result:
+
+**FILT-19. An off-screen add repaints once.** With the panel closed, blacklist a row from History, then
+open Filters → the new id is there. Result:
+
+**FILT-20. Two to a line.** With six or more Blacklist ids and two or more currencies → each list reads
+two entries per line, left to right then down, with X, icon and name aligned across and down.
+Result:
+
+**FILT-21. An odd count.** With an odd number of entries → the last line has one entry on the left
+and space to its right, not one entry stretched across. Result:
+
+**FILT-22. Long names truncate.** A long item name is cut at the tail (a long one loses its `(id)`)
+instead of wrapping; hovering the entry names the item. Result:
+
+**FILT-23. Grid repacks and falls back.** Remove an entry, then add one → the grid repacks left to
+right. Narrow the canvas (small windowed width or `/console uiScale 1`) below about 580px of panel →
+item lists draw one full-width column, with no icons stacked over wrapped names and no X on a line
+of its own; widen and reopen → two columns. If you cannot get that narrow, record that. Result:
+
+## Launcher
+
+One LibDataBroker object drives the minimap button (LibDBIcon) and any broker display. Its visibility
+is `minimap.hide`, shown in the CLI and panel as **Minimap button** / `minimap.shown`, in `global`.
+
+**LAUNCH-1. The art appears.** Look at the AddOns list row, the minimap button and a broker row (Titan
+Panel, ElvUI data texts or Bazooka, "LootHistory") → each shows the addon's own logo, not a Blizzard
+icon or an empty square. Only a client can show this. Result:
+
+**LAUNCH-2. Tooltip.** Hover the button → in order, each once: `Ka0s Loot History  v<TOC version>`,
+`Enabled: Yes` (green), `Locked: No`, `Test mode: Off`, "N records" (gray), `Left-click: Open
+settings`, `Right-click: Options menu`. Tick Lock frame and Test mode, hover → `Locked: Yes`, `Test
+mode: On`. Result:
+
+**LAUNCH-3. Left-click.** Left-click → Settings opens, enabled or disabled, printing nothing. Result:
+
+**LAUNCH-4. The right-click menu.** Right-click → a menu titled `Ka0s Loot History` with checkboxes
+**Enabled**, **Locked**, **Test mode**, **Show window**, each ticked to match. Click each (reopening
+the menu) → Show window acts as `/lh toggle` (General visibility refuses it the same way); Test mode
+runs `/lh test`; Locked flips **Lock frame**; Enabled runs `/lh disable` and prints `settings.enabled
+= false`. Result:
+
+**LAUNCH-5. Disabled.** While disabled → the tooltip shows `Enabled: No` (red) and the two hints; the
+menu has **Enabled** live and `Locked (enable the addon first)`, `Test mode (enable the addon
+first)`, `Show window (enable the addon first)` grayed and inert; **Enabled** prints
+`settings.enabled = true` and the addon comes back. Result:
+
+**LAUNCH-6. Position persists.** Drag the button around the ring, `/reload` → it stays where dragged
+(LibDBIcon's `minimapPos` in the `minimap` table, not keyed by the registration name, so the rename
+of the registration to `LootHistory` did not move it). Result:
+
+**LAUNCH-7. Minimap button toggle.** Untick **Minimap button** → the icon hides at once; tick → back;
+the state survives `/reload`. Result:
+
+**LAUNCH-8. Hidden stays hidden through a reset.** Untick **Minimap button**, `/lh get minimap.shown`
+→ `false`; **Reset all settings** (confirm) → still hidden; `/lh reset minimap.shown` → shown. Result:
+
+**LAUNCH-9. The broker row clicks alike.** Left- and right-click the broker row → the same actions
+and the same menu as the button. Result:
+
+**LAUNCH-10. Hiding the button keeps the broker row.** Untick **Minimap button** → the broker row
+stays (a display offers its own per-plugin toggle). Result:
+
+## Debug console and diagnostics
+
+Logging (`/lh debug on|off`) is session-only and independent of the console window. Tags and their
+meaning are in [debug.md](debug.md).
+
+**DIAG-1. Bare `/lh debug` toggles the window only.** `/lh debug` twice → the console opens and closes;
+the logging flag does not change. Result:
+
+**DIAG-2. Logging on and off.** `/lh debug on`, loot at threshold, loot below it, `/lh debug off` →
+a `<ts> | [Loot] …` line and a `[Drop] …` line, then nothing more. Close the console, `/lh debug
+on`, loot, `/lh debug` → the lines captured while it was closed are there. Result:
+
+**DIAG-3. The acks and the `[Init]` line.** `/lh debug on` then off (and the header **Debug: ON/OFF**
+toggle) → chat `[LH] debug logging ON` (green) / `OFF` (red); the console gets `[Debug] logging
+enabled` followed by one `[Init] LootHistory v<ver>, schema v<n>, profile 'Default', <r> records`
+(on enable, not at login), and `[Debug] logging disabled`. Result:
+
+**DIAG-4. Copy, Clear, Esc.** In the console, **Copy** → an editbox of plain text; **Clear** → empty;
+**Esc** → closes. Result:
+
+**DIAG-5. Scrolling.** With many lines, drag the scrollbar and mousewheel over the log → both move
+together; the thumb sits at the bottom on the newest line, the top on the oldest; when every line
+fits the track shows but is inert. Result:
+
+**DIAG-6. The line counter and cap.** Watch the bottom-right `N / 3000 lines` → it ticks up and reads
+`0 / 3000 lines` after Clear. `/run for i = 1, 80 do SlashCmdList.ACECONSOLE_LH("diagnostics") end` →
+it pins at `3000 / 3000 lines`; **Copy** opens all 3000 without a noticeable hitch. Result:
+
+**DIAG-7. `/lh debug events`.** Run it, then `/lh disable`, `/lh enable`, loot, and run it again →
+`[LH] rejected events: none` both times; window and logging untouched; the loot records. Result:
+
+**DIAG-8. After a reload.** `/reload` → logging off, console closed. Result:
+
+**DIAG-9. The console checkbox follows the window.** Tick **Debug console** (Master controls) → the
+console opens; untick → it hides, and `/lh debug on|off` still owns logging (`/lh get
+state.debugConsole` reports the window). Open the console with `/lh debug`, then close it with Esc
+or its ✕ → the checkbox unticks. `/reload` → unticked. Result:
+
+**DIAG-10. Console chrome.** Open `/lh debug` → a flat 1px black border with a lighter inner line, a
+gold title, a gray divider, and three same-size icon buttons top-right (✕, copy, clear) evenly spaced;
+the copy window takes the same ✕. It matches every other Ka0s console. Fail: a thin × with the words
+"Copy" and "Clear", meaning `core/DebugLogSetup.lua` stopped passing `addonName`. Result:
+
+**DIAG-11. Console strings and font.** The title reads **Loot History — Debug**, the toggle **Debug:
+ON** / **Debug: OFF**, the status `N / 3000 lines`, and the copy window **Copy log — Ctrl+C, then
+Esc**; the console and the export copy box render in JetBrains Mono (an `[Init]` line's columns line
+up). Result:
+
+**DIAG-12. One `[Open]` per loot window.** `/lh debug on`, open a corpse or chest with many slots →
+exactly one `[Open] LOOT_OPENED N slots -> …`. Result:
+
+**DIAG-13. One `[Set]` per setting.** Change a setting (panel or `/lh set`) → one `[Set] <path> =
+<value>`, no `[Cfg]`. Result:
+
+**DIAG-14. A bulk reset is one line.** Change two settings, press General's **Defaults** (or the
+footer control) → one `[Set] reset profile 'Default' to defaults (2 rows)`, no per-row `[Set]`;
+again → `(0 rows)`; `/lh resetall` logs the same one line; `/lh reset <path>` stays one `[Set]
+<path> = <value>`. Result:
+
+**DIAG-15. Data and reset-all lines.** `/lh purge` (confirm) → one `[Data] purge-all removed N rows`;
+delete a row → one `[Data] delete removed 1 rows`; change two settings, **Reset all settings**
+(confirm) → one `[Set] reset profile 'Default' to defaults (2 rows)`, no `[Data]` line. Result:
+
+**DIAG-16. Window and Insights lines.** Open the window → `[UI] window shown`; switch to Insights →
+`[UI] tab -> Insights` and one `[Insights] computed …`. Result:
+
+**DIAG-17. One `[Table]` per change.** Type in search, change group or sort → one `[Table] rendered
+M/T rows (…)` per change, never per row. Result:
+
+**DIAG-18. One `[Filters]` per list edit.** Add or remove a Blacklist or Whitelist id → one `[Filters]
+blacklist=B whitelist=W`. Result:
+
+**DIAG-19. The report.** `/lh debug on`, loot, `/lh diagnostics` → the console opens if closed; the
+`[Loot]` line is still above `[Diag] ==== Ka0s Loot History diagnostics begin ====`; the report ends
+`==== Ka0s Loot History diagnostics end: N line(s) ====`; chat shows one line `Diagnostic report
+written to the debug console: N lines. Use Copy to share it.`; nothing was cleared. Result:
+
+**DIAG-20. The paste is plain.** **Copy** and paste into an editor → trace, begin and end markers,
+no `|c`, `|H` or `|T` escapes; item names in the tail are plain. Result:
+
+**DIAG-21. Ungated by logging.** `/lh debug off`, `/lh diagnostics`, then loot → the full report
+lands; the header still reads **Debug: OFF** and the loot writes no trace. Result:
+
+**DIAG-22. Every form.** `/lh debug diagnostics`, `/loothistory diagnostics`, `/loothistory debug
+diagnostics` → each writes the same report. Result:
+
+**DIAG-23. No short aliases.** `/lh diag` and `/lh dump` → `unknown command` and the help index; `/lh
+debug diag` → toggles the console like any unknown word. Result:
+
+**DIAG-24. While disabled.** `/lh disable`, then `/lh diagnostics` and `/lh debug diagnostics` → full
+reports reading `identity: enabled=false stoodDown=true testMode=false` and `capture: stood down
+(the loot, currency and context events are unregistered)`; nothing comes back on. `/lh enable`.
+Result:
+
+**DIAG-25. The README steps.** `/reload` with the console closed, then follow the README's `##
+Reporting a bug` steps word for word → each works, and the paste holds the trace and the whole
+report. Result:
+
+## Degraded install
+
+Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
+to DEGRADED-11; rename it back and `/reload` when done.
+
+**DEGRADED-1. No Lua error.** Load and play → not one Lua error. Result:
+
+**DEGRADED-2. `/lh list` is complete.** `/lh list` → every schema row, grouped, as with the library.
+Result:
+
+**DEGRADED-3. The notice, once.** The first line the addon prints is `[LH] The LibKa0s library is
+missing from this installation of Ka0s Loot History (expected in libs/LibKa0s); running on reduced
+built-in fallbacks.`; `/lh version` and `/lh get settings.enabled` do not repeat it. Result:
+
+**DEGRADED-4. What is unavailable says why.** `/lh debug on` flips logging and says `…, so the debug
+console window is unavailable.`; `/lh config` says `…, so the settings panel is unavailable.`, with
+the notice's cause clause word for word; `/lh diagnostics` and `/lh debug diagnostics` print
+`/lh diagnostics is unavailable: the LibKa0s library did not load.` and write nothing; `/lh help`
+lists no `diagnostics`. Result:
+
+**DEGRADED-5. Capture still works.** Loot → it records, its Zone names where you stand (not
+**Unknown**), and `/lh version` prints the TOC version. Result:
+
+**DEGRADED-6. The filter bar is absent, not dead.** `/lh show` → no Group by, Date, column filters,
+search, Save/Reset/Clear or Export; no button that clicks to nothing. Tabs, table, footer and grip
+work; the window opens on the current player. Result:
+
+**DEGRADED-7. Export refuses.** Any route to the export window → `…, so the export window is
+unavailable.` and nothing opens. Result:
+
+**DEGRADED-8. Enable and disable.** Bare `/lh` → the help, listing `/lh enable` and `/lh disable`
+but not `/lh set`; `/lh disable` → `settings.enabled = false`, recording stops, a feature verb
+refuses with the disabled line; `/lh enable` → `settings.enabled = true`, recording resumes. Result:
+
+**DEGRADED-9. `resetall` still works.** Put ids on the Filters lists with the library present, then
+degraded `/lh resetall` → `settings reset to defaults.` and the lists are empty. Result:
+
+**DEGRADED-10. `/lh profile` is unavailable.** `/lh profile` and `/lh profile Default` → `/lh profile
+is unavailable: the LibKa0s library did not load.`, nothing switches, and the help does not offer
+`profile`. Result:
+
+**DEGRADED-11. The art falls back.** Open the window → Blizzard art (down-arrow, `+`/`-`, the client
+lock atlas, the tick) where the catalog marks were, and the console in a proportional font. This is
+the fallback working, not a failure. Result:
+
+## Non-English client
+
+Run on a client set to **deDE or frFR**, the two locales ConsumableMaster LOC-1 and KickCD LOC-1 use.
+The addon prints English on every client by the accepted scope decision (`localization-§1`
+deviation), so an English label on a German client is not a failure. What it **reads** in the
+player's language is the tooltip bind lines (`Compat.ScanBound`), the Auction-House mail sender and
+subject (`Compat.IsAuctionHouseMail`), the deconstruct spell names (`modules/Attribution.lua`), and
+zone names. `core/Compat.lua`'s `WARBAND_LINES`, `BIND_TO_WARBAND_PREFIX` and `UE_LITERAL` are English
+fallbacks for `ITEM_ACCOUNTBOUND*` globals the client leaves nil, and every headless case on this path
+feeds enUS literals into an enUS mock (`tests/test_compat.lua`, `tests/test_attribution.lua`), so the
+suite stays green whether it is right or wrong. There is no sign-off for LOC-1 to LOC-4 without a
+non-English client; until one runs they stay in Pending sign-off.
+
+**LOC-1. The six warband globals.** Before looting, run `/dump` on `ITEM_BIND_TO_ACCOUNT_UNTIL_EQUIP`,
+`ITEM_ACCOUNTBOUND_UNTIL_EQUIP`, `ITEM_BIND_TO_BNETACCOUNT`, `ITEM_BIND_TO_ACCOUNT`,
+`ITEM_BNETACCOUNTBOUND`, `ITEM_ACCOUNTBOUND` → record all six verbatim. Which are nil is the finding:
+all set means the globals path carries the load; any nil means the English literal is live and LOC-2
+tests that failure directly. Result:
+
+**LOC-2. Bind classification.** Get a warbound and a warbound-until-equipped item, `/lh show` →
+History, read **Bound** → each reads its own state. Fail: the until-equipped item reads plain
+warbound (the qualifier missed), or a cell empty where enUS fills it (`ScanBound` matched no line).
+Result:
+
+**LOC-3. Auction-House mail.** Buy on the auction house, take it from the mailbox → **Source** is the
+auction house. Fail: mail-from-a-player or nothing, meaning a localized `AUCTION_HOUSE` or
+`AUCTION_*_MAIL_SUBJECT` global is nil or splits its `%s` differently. Result:
+
+**LOC-4. The deconstruct name family.** Disenchant an item, mill herbs, prospect ore (plain and mass)
+→ every row carries its deconstruct source. Plain casts resolve by spell id; the mass variants build
+a stem from the localized name minus its last word, which a German or French name may break. Fail:
+a mass mill or mass prospect row with no source or the wrong one while the plain cast is right.
+Record `/dump C_Spell.GetSpellName(434926)` and `/dump C_Spell.GetSpellName(225904)`. Result:
+
+**LOC-5. Nothing else moved.** Walk INSTALL-1, CAP-1 to CAP-12 and HIST-5 to HIST-11 on this client →
+behavior matches English. Fail: any Lua error, which here means a localized string reached code that
+assumed English. Result:
+
+## Pending sign-off
+
+Owner checks with no recorded pass. Origin is the old suite's section, or the change that added them.
+
+| ID | Origin |
+|---|---|
+| INSTALL-4 | Old §1 (existing-account upgrade), added with the move of settings into profiles |
+| INSTALL-7 | Old §3 v4→v5 backfill, "still owed" in the 2026-07-22 field note |
+| CAP-9 | Old §3 matrix row 9 (review F-009), open in ARCHITECTURE Known limitations |
+| CAP-18 | Old §3 currency category (review F-010), "still owed" in the 2026-07-22 field note |
+| CAP-19 | Old §3 S-003; [midnight-quirks.md](midnight-quirks.md) records it not yet run |
+| CAP-21 | Old §3 currency bound glyph, "still owed" in the 2026-07-22 field note |
+| INS-20 | Old §7 CURRENCY block, "still owed" (layout) in the 2026-07-22 field note |
+| PANEL-6 | Old §17k, "NOT YET RUN" |
+| PANEL-18 | Old §17l, "NOT YET RUN" |
+| PROFILE-1 to PROFILE-13 | New with the Profiles page and `/lh profile`; PROFILE-4 is old §13's last step, PROFILE-5 old §16's per-profile note |
+| DEGRADED-10 | New with `/lh profile` |
+| LOC-1 to LOC-5 | Old §18a to §18e, "NOT YET RUN" |

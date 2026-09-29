@@ -41,7 +41,8 @@ What Loot History supplies, all in `core/DebugLogSetup.lua`:
   and the console checkbox follows the window however it was closed.
 
 The tags in use, and the checks that each one fires once rather than once per row, are in
-[smoke-tests.md §15](smoke-tests.md#15-debug-console-coverage). On an install without LibKa0s the
+[smoke-tests.md](smoke-tests.md#debug-console-and-diagnostics) DIAG-2, DIAG-3 and DIAG-12 to
+DIAG-18. On an install without LibKa0s the
 flag still flips on `on` / `off`, but the window is gone: instead of a confirmation, each prints the
 library-absent line ending `so the debug console window is unavailable.`
 
@@ -148,7 +149,7 @@ The degraded help does not offer `diagnostics`, because answering is not the sam
 
 The command rows are in [slash-dispatch.md](slash-dispatch.md), the disabled-state behavior in
 [disabled-state.md](disabled-state.md), and the player-facing steps in the README's
-`## Reporting a bug`. The in-game checks are §12 and §12a in [smoke-tests.md](smoke-tests.md). The
+`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-25 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
 suites are `tests/test_diagnostics.lua` (this addon's sections), the kit's shared
 `tests/_kit/test_diagnostics_contract.lua` (wired in `tests/run.lua`), `tests/test_disabled.lua`
 (both forms while stood down) and `tests/test_slash_degraded.lua` (both forms with no library).

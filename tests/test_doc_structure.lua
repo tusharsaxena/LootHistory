@@ -350,7 +350,7 @@ end)
 -- asserts against enUS mock globals -- tests/test_compat.lua passes the literal strings
 -- "Auction House" and "Auction won: %s" in, and checks that they come back out. So the suite is
 -- green on that path whether it is right or wrong: the test and the bug agree with each other, and
--- section 18 is the only thing in this repository that looks at it from the other side.
+-- the Non-English client section is the only thing in this repository that looks at it from the other side.
 --
 -- The failure vocabulary is matched loosely on purpose: this file's sections say "Fail" where
 -- others say "the finding", and pinning one spelling would redden the tree for a rewording.

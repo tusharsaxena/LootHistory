@@ -50,7 +50,7 @@ Load-bearing choices that look like candidates for "improvement" but are intenti
 Boundaries that are real today but are not deliberate non-goals — they are places the current version stops short.
 
 - **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting items more than ~1.5s apart from a single open window can let later items fall back to `OTHER` / `INFERRED`.
-- **Roll-win line assumption.** The `ROLL` source is stamped from `LOOT_ROLL_YOU_WON` ("You won:"). If a client emits the compact "no-spam" roll variant instead, a rolled item falls back to whatever context is fresh (usually the kill/container it dropped from). Verify in-game (smoke §F-009).
+- **Roll-win line assumption.** The `ROLL` source is stamped from `LOOT_ROLL_YOU_WON` ("You won:"). If a client emits the compact "no-spam" roll variant instead, a rolled item falls back to whatever context is fresh (usually the kill/container it dropped from). Verify in-game (smoke CAP-9, review F-009).
 - **No upgrade-scoring addon interop** (Pawn / Loot Appraiser). Vendor `vendorPrice` and, since the Rev-2 AH-price integration, auction-house prices from Auctionator / TSM / OribosExchange are both captured — see [ARCHITECTURE.md](ARCHITECTURE.md) and [schema.md](schema.md) — but no third-party upgrade/BiS scoring is read.
 
 ## Backlog

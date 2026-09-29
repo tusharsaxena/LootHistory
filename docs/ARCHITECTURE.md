@@ -382,9 +382,9 @@ Nothing is over the cap today. The largest authored file is `modules/Browser.lua
   spell id); `AH` is stamped from Auction-House mail; `BONUS_ROLL`/`CRAFT`/`REFUND` are attributed
   straight from their self-identifying loot lines; `ROLL` is stamped from the "You won:" roll line
   just before the item's receive line (see [data-flow.md](data-flow.md)). `VENDOR`/`MAIL`/`TRADE`
-  were confirmed recording in-client (smoke §F-001, passed). NB: the `ROLL` path assumes the client
+  were confirmed recording in-client (smoke CAP-4 to CAP-6, review F-001, passed). NB: the `ROLL` path assumes the client
   emits `LOOT_ROLL_YOU_WON` ("You won:") rather than the compact "no-spam" roll variant — verify
-  in-game (smoke §F-009).
+  in-game (smoke CAP-9, review F-009).
 - **No per-item source name.** The "From" column and its combat-log kill-name cache were removed:
   for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name was
   resolvable, so the column was almost always blank. Records keep `source` and the machine-readable
