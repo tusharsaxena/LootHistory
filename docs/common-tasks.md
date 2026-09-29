@@ -18,10 +18,10 @@ One row, one file, four surfaces. A row in `settings/Schema.lua` drives the AceD
 widget, the slash `get`/`set`/`list`/`reset` verbs, and the Defaults/Reset-all resets at once — so
 **never** write a parallel mutator for a field that already has a row.
 
-1. Add the shipped value to `defaults/Global.lua` under `global.settings.*`. That is the **one**
+1. Add the shipped value to `defaults/Profile.lua` under `profile.settings.*`. That is the **one**
    declaration site (`savedvariables-§2`).
-2. Add the row to `S.Schema` in `settings/Schema.lua`. Its `default` **reads** `G.settings.<path>`
-   rather than restating the literal — two literals for one value is exactly how the AH cascade
+2. Add the row to `S.Schema` in `settings/Schema.lua`. Its `default` **reads** `PD.settings.<path>`
+   (the file's `local PD = NS.defaults.profile`) rather than restating the literal — two literals for one value is exactly how the AH cascade
    drifted (LH-R-01), and `tests/test_schema.lua`'s "shipped default equals the schema's declared
    default" case can only catch a drift while two things exist to compare.
 3. Use the **library's** row vocabulary, not the pre-adoption names: `type = "bool"` (not
