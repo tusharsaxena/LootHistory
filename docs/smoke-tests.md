@@ -508,14 +508,20 @@ for** from 90 to 7 → a confirm names the record count, and nothing is deleted 
 Answer **No** → every record stays, the dropdown returns to 90, one line `retention kept at 90 days;
 no records were deleted.`; a `/reload` then deletes nothing. Result:
 
-**CAP-29. Yes prunes.** Change to 7 again and answer **Yes** → records older than 7 days go (no holes),
-the table and footer refresh. Result:
+**CAP-29. The slash path asks too.** The records older than 7 days are still there (CAP-28 answered
+**No**). `/lh set settings.retentionDays 7` → the same confirm; answer **No** → every record stays
+and the same `retention kept at 90 days; no records were deleted.` line prints. Then `/lh set
+settings.retentionDays 0` (*Always*), a value that would delete nothing → no confirm, and no record
+is deleted. Result:
 
-**CAP-30. The slash path asks too.** `/lh set settings.retentionDays 7` with older records → the same
-confirm; a value that would delete nothing asks nothing. Result:
+**CAP-30. Yes prunes.** Change **Keep history for** to 7 days and answer **Yes** → records older than
+7 days go (no holes), the table and footer refresh. Result:
 
-**CAP-31. Login prune.** With records older than the retention, `/reload` and wait about five seconds
-→ the stale records are pruned without touching the setting; no Lua error. Result:
+**CAP-31. Login prune.** Retention is 7 days (CAP-30) and at least one record is left. Age the
+last record past it and count the records: `/run local h = LootHistoryDB.global.history;
+h[#h].ts = h[#h].ts - 8 * 86400; print(#h)`. `/reload`, wait about five seconds, then `/run
+print(#LootHistoryDB.global.history)` → one fewer than the first count; **Keep history for** still
+reads 7 days; no Lua error. Result:
 
 **CAP-32. Always keeps everything.** Set **Keep history for** to *Always*, `/reload` → nothing is
 pruned. Result:
@@ -1090,18 +1096,20 @@ Fail: any Lua error, which here means a localized string reached code that assum
 ## Pending sign-off
 
 The old suite recorded no result for any check, so every check carried over from it is owed unless
-a record of the owner's pass exists. Three do. Review F-001 passed CAP-4 to CAP-6 (ARCHITECTURE
+a record of the owner's pass exists. Four do. Review F-001 passed CAP-4 to CAP-6 (ARCHITECTURE
 Known limitations). The 2026-07-22 field note in the old § 3 passed currency capture and the refund
 flow (CAP-11, CAP-12). The diagnostics rollout's owner pass on 2026-09-26
 (Ka0sAddonsCommonTasks `2026-09-25-DIAGNOSTICS_COMMAND/99_REPORT.md`, LH-S1 to LH-S11 and LH-X1)
-passed DIAG-19 to DIAG-22, DIAG-24, DIAG-25 and COMBAT-8. Those twelve checks are not listed. The
-same rollout passed half of DIAG-6, half of DEGRADED-4 and two of DIAG-23's three inputs (LH-S8
-never ran `/lh dump`); all three stay listed for the rest. The 2026-09-23
-remediation plan (`06_SMOKE_TESTS.md` Session LH, Session Q and X2.4, and the post-M6 minimap
-re-check in its `checkpoints.tsv`) is recorded as owed; a row names the plan step its check
-carries. Checks new in this rework (SP-LH-01 to SP-LH-03R), and checks whose steps or expectation
-it corrected against the code, are listed with what changed. Sign one off on its own `Result:`
-line, then remove its row here.
+passed DIAG-19 to DIAG-22, DIAG-24, DIAG-25 and COMBAT-8. The 2026-09-23 remediation plan's X1.4
+(`06_SMOKE_TESTS.md`, recorded PASS on 2026-09-25 after M6: `/lh disable`, then left-click opens
+Settings, right-click opens the options menu, the status tooltip shows) passed LAUNCH-3. Those
+thirteen checks are not listed. The diagnostics rollout passed half of DIAG-6, half of DEGRADED-4
+and two of DIAG-23's three inputs (LH-S8 never ran `/lh dump`), and X1.4 passed part of LAUNCH-2,
+LAUNCH-4 and LAUNCH-5; all six stay listed for the rest. The rest of the 2026-09-23 plan
+(`06_SMOKE_TESTS.md` Session LH, Session Q and X2.4) is recorded as owed; a row names the plan step
+its check carries. Checks new in this rework (SP-LH-01 to SP-LH-03R), and checks whose steps or
+expectation it corrected against the code, are listed with what changed. Sign one off on its own
+`Result:` line, then remove its row here.
 
 | ID | Origin in the old suite | Owed because |
 |---|---|---|
@@ -1168,8 +1176,10 @@ line, then remove its row here.
 | CAP-25 | § 17i.2 | No result recorded; expectation corrected by SP-LH-03R (the subzone is read with `/dump`) |
 | CAP-26 | § 17i.3 | No result recorded |
 | CAP-27 | § 17i.4 | No result recorded; expectation corrected by SP-LH-03 (the map id is read with `/dump`; the CSV does not carry it) |
-| CAP-28 to CAP-30 | § 13 retention confirm | No result recorded; the 2026-09-23 plan's LH.5 is owed |
-| CAP-31, CAP-32 | § 13 | No result recorded |
+| CAP-28 | § 13 retention confirm | No result recorded; the 2026-09-23 plan's LH.5 is owed |
+| CAP-29, CAP-30 | § 13 retention confirm | No result recorded; the 2026-09-23 plan's LH.5 is owed; reordered by SP-LH-03R (the slash confirm is answered **No** before the **Yes** prune, and the no-op is `0`), because after the prune no record is older than 7 days and no confirm can appear |
+| CAP-31 | § 13 login prune | No result recorded; given a runnable step by SP-LH-03R (a `/run` ages a record past the retention) |
+| CAP-32 | § 13 | No result recorded |
 | HIST-1 to HIST-3 | § 2, § 17h.4, § 17h.5 | No result recorded |
 | HIST-4 | § 2 persistence | No result recorded; step corrected by SP-LH-03R (`settings.windowScale`) |
 | HIST-5 to HIST-21 | § 5, § 6, § 17g, § 17h | No result recorded |
@@ -1186,7 +1196,9 @@ line, then remove its row here.
 | FILT-1 to FILT-23 | § 9, § 16, § 19 | No result recorded |
 | FILT-24 | § 17f Clear all | No result recorded; expectation spelled out by SP-LH-03R (the popup text and the chat line) |
 | LAUNCH-1 | § 11 art | No result recorded |
-| LAUNCH-2 to LAUNCH-5 | § 11 tooltip, clicks, menu, disabled state; § 1 | No result recorded; the owner's post-M6 minimap re-check (2026-09-23 plan `checkpoints.tsv`, 2026-09-25 M6 row) is owed |
+| LAUNCH-2 | § 11 tooltip | X1.4 passed the status tooltip on 2026-09-25; the re-hover after ticking **Lock frame** and **Test mode** (`Locked: Yes`, `Test mode: On`) is not in X1.4's steps and has no result |
+| LAUNCH-4 | § 11 menu | X1.4 passed the menu opening on 2026-09-25; its four entries' actions have no result |
+| LAUNCH-5 | § 11 disabled state; § 1 | X1.4 passed the tooltip and the menu opening while disabled on 2026-09-25; the grayed entries doing nothing and the menu's **Enabled** bringing the addon back have no result (X1.4 re-enabled with `/lh enable`) |
 | LAUNCH-6, LAUNCH-7 | § 11 | No result recorded |
 | LAUNCH-8 | § 11 `minimap.shown` | No result recorded; the 2026-09-23 plan's LH.2 is owed |
 | LAUNCH-9, LAUNCH-10 | § 11 broker row | No result recorded |
