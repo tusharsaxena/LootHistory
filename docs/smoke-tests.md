@@ -330,17 +330,19 @@ version` prints, `/lh list` and `/lh get settings.qualityThreshold` read, `/lh s
 `show`, `hide`, `toggle`, `test` and `purge` refuse with the disabled line. Result:
 
 **STATE-3. One switch, three surfaces.** `/lh enable` → prints `settings.enabled = true`, loot records
-again and `/lh show` opens the window (enabling does not open it by itself). Tick and untick **Master
-controls ▸ Enable Loot History** → `/lh get settings.enabled` follows, and unticking takes the window
-down as the verb does. Result:
+again and `/lh show` opens the window (enabling does not open it by itself). Untick **Master controls
+▸ Enable Loot History**, then tick it again → `/lh get settings.enabled` follows each change, and
+unticking takes the window down as the verb does. The box ends ticked. Result:
 
 **STATE-4. Disabled right after login writes nothing.** `/reload` and, within five seconds of the
 loading screen clearing, untick **Enable Loot History** → nothing is written: the deferred
 retention prune and bound-state repair do not run on the disabled addon, so records older than the
-retention are still there. Result:
+retention are still there. Tick **Enable Loot History** again before STATE-5: every check after this
+one needs the addon enabled. Result:
 
-**STATE-5. General visibility Never.** Set **General visibility** to *Never*, `/lh show` → refused
-with a chat line; set *Always* → the window opens. Result:
+**STATE-5. General visibility Never.** Set **General visibility** to *Never*, `/lh show` → one line,
+`the window is hidden by the General visibility setting.`, and no window. Set *Always* → nothing
+opens by itself; `/lh show` again → the window opens. Result:
 
 **STATE-6. Lock frame.** Tick **Lock frame**, drag the History and export windows by their title bars
 and pull the resize grip → nothing moves or resizes; untick → both drag and the grip resizes;
@@ -358,7 +360,8 @@ live history, the saved view and the current player back. Result:
 untick → test mode ends; tick it, then `/lh test` → the box unticks. Result:
 
 **STATE-10. Test mode refused under Never.** Set **General visibility** to *Never*, tick **Test
-mode** → one `test mode not started — …` line, no window, the box stays unticked. Result:
+mode** → one `test mode not started — …` line, no window, the box stays unticked. Set **General
+visibility** back to *Always*. Result:
 
 **STATE-11. Test mode never outlives a reset or reload.** Tick **Test mode**, then **Reset all
 settings** and confirm → test mode off, box unticked. Tick it again, `/reload` → off. Result:
@@ -435,7 +438,8 @@ its source from context, blank iLvl, Vendor and AH cells; the Type filter isolat
 `[Currency] <name> x<n> id=<id> src=<source>`. Result:
 
 **CAP-13. Record currency and the source mute.** Untick **Record currency**, loot a currency → no row;
-tick it and mute that currency's source → still no row. Result:
+tick it and mute that currency's source → still no row. Tick that source again in **Record data
+from**. Result:
 
 **CAP-14. The keystone context ends with the key.** `/lh debug on`, run and complete a key and loot the
 chest (**Mythic+**); leave the dungeon, gather a node → **Container**, with `[Attr] keystone cleared`
@@ -475,7 +479,7 @@ green/Bind on Pickup respectively, not blank. Result:
 
 **CAP-22. Quality gate.** Set **Minimum quality** to Rare; loot a Common or Uncommon item, then a Rare
 → the first is dropped (with debug on, `[Drop] … quality`), the Rare records, and no `/reload` was
-needed. Result:
+needed. Set **Minimum quality** back to Common. Result:
 
 **CAP-23. Quest-item gate.** With **Exclude quest items** ticked, loot a quest objective drop →
 dropped (`reason=quest`, keyed on item class 12); untick it and loot another → recorded. Result:
@@ -1134,10 +1138,12 @@ line, then remove its row here.
 | PROFILE-6 | New | New with the Profiles page (SP-LH-01) |
 | PROFILE-7 to PROFILE-13 | New | New with `/lh profile` (SP-LH-02); PROFILE-8's step corrected by SP-LH-03R (`/lh debug on` before the switch) |
 | STATE-1, STATE-2 | § 1 disable | No result recorded |
-| STATE-3 | § 1 enable, § 9 master | No result recorded; expectation corrected by SP-LH-03R (enabling does not open the window) |
-| STATE-4, STATE-5 | § 1 deferred writes, § 9 master | No result recorded |
+| STATE-3 | § 1 enable, § 9 master | No result recorded; expectation corrected by SP-LH-03R (enabling does not open the window; the box ends ticked) |
+| STATE-4 | § 1 deferred writes | No result recorded; SP-LH-03R added the closing re-tick, so the checks after it run enabled |
+| STATE-5 | § 9 master General visibility | No result recorded; expectation corrected by SP-LH-03R (the refusal line quoted; setting *Always* opens nothing until `/lh show`) |
 | STATE-6 | § 9 master Lock frame | No result recorded; the 2026-09-23 plan's LH.6 is owed |
-| STATE-7 to STATE-11 | § 8 | No result recorded |
+| STATE-7 to STATE-9, STATE-11 | § 8 | No result recorded |
+| STATE-10 | § 8 | No result recorded; SP-LH-03R restored the old step that sets General visibility back to *Always* |
 | COMBAT-1 | § 2 | No result recorded |
 | COMBAT-2 | § 2, § 9 and § 17d.2 `/lh config` in combat | No result recorded; expectation corrected by SP-LH-03R (the library's printed line) |
 | COMBAT-3 | § 17d.2 sidebar in combat | No result recorded; expectation rewritten by SP-LH-03 (Profiles covered too) |
@@ -1148,7 +1154,7 @@ line, then remove its row here.
 | CAP-1 to CAP-3 | § 3 matrix rows 1-3 | No result recorded |
 | CAP-7, CAP-8, CAP-10 | § 3 matrix rows 7, 8, 10 | No result recorded |
 | CAP-9 | § 3 matrix row 9 (review F-009) | No result recorded; open in ARCHITECTURE Known limitations |
-| CAP-13 | § 3 record currency and mute | No result recorded |
+| CAP-13 | § 3 record currency and mute | No result recorded; SP-LH-03R added the closing unmute |
 | CAP-14 | § 3 keystone context | No result recorded; the 2026-09-23 plan's Q.1 is owed |
 | CAP-15 | § 3 boss-corpse loot | The 2026-09-23 plan's Q.2 recorded a PASS on 2026-09-24 for the console order and the stamp's `encounterID` only: the loot was gold, so no row was written and the `sourceDetail` dump and the wipe line have no result |
 | CAP-16, CAP-17 | § 3 | No result recorded |
@@ -1156,7 +1162,8 @@ line, then remove its row here.
 | CAP-19 | § 3 S-003 | Not yet run per [midnight-quirks.md](midnight-quirks.md); the 2026-09-23 plan's Q.3 is owed |
 | CAP-20 | § 3 currency quality | No result recorded |
 | CAP-21 | § 3 currency bound glyph | "Still owed" in the 2026-07-22 field note |
-| CAP-22 to CAP-24 | § 4 | No result recorded |
+| CAP-22 | § 4 quality gate | No result recorded; SP-LH-03R added the closing reset to Common, which CAP-23 and CAP-24 need |
+| CAP-23, CAP-24 | § 4 | No result recorded |
 | CAP-25 | § 17i.2 | No result recorded; expectation corrected by SP-LH-03R (the subzone is read with `/dump`) |
 | CAP-26 | § 17i.3 | No result recorded |
 | CAP-27 | § 17i.4 | No result recorded; expectation corrected by SP-LH-03 (the map id is read with `/dump`; the CSV does not carry it) |
