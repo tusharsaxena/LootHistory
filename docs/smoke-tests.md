@@ -50,19 +50,23 @@ free number in its theme.
 **Which themes to run.**
 
 - Capture or attribution (`modules/Collector.lua`, `modules/Attribution.lua`, `core/Compat.lua`,
-  `core/EnvSetup.lua`): INSTALL, CAP; any change that moves `core/Compat.lua` also needs LOC.
+  `core/EnvSetup.lua`): INSTALL, CAP, SLASH-1 to SLASH-3, STATE-1 to STATE-4, LAUNCH-5 and INS-20;
+  a change to `core/EnvSetup.lua` also needs SLASH-9, and one that moves `core/Compat.lua` also
+  needs LOC.
 - Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `Analytics.lua`,
-  `Export.lua`): HIST, INS, STATE-7 to STATE-11.
-- Settings or schema: PANEL, SLASH, PROFILE, plus CAP-22 to CAP-24 for a new capture row.
-- Filter lists (`modules/Filters.lua`, the Filters tab): FILT, CAP-22 to CAP-24.
-- Media or art (`core/MediaSetup.lua`, an `NS.Icon` call site, `libs/LibKa0s/media/`): HIST-5,
-  HIST-6, HIST-13, HIST-15, HIST-17, HIST-22, HIST-23, PANEL-18, DIAG-10 and DIAG-11.
+  `Export.lua`): HIST, INS, STATE-7 to STATE-11, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
+- Settings or schema: PANEL, SLASH, PROFILE, STATE-3, STATE-5, STATE-6, COMBAT-2, COMBAT-5, DIAG-9
+  and FILT-1, plus CAP-22 to CAP-24 for a new capture row.
+- Filter lists (`modules/Filters.lua`, the Filters tab): FILT, PROFILE-5, CAP-22 to CAP-24.
+- Media or art (`core/MediaSetup.lua`, an `NS.Icon` call site, `libs/LibKa0s/media/`): HIST-5 to
+  HIST-11, HIST-13, HIST-15, HIST-17 to HIST-19, HIST-22, HIST-23, INS, PANEL-18, DIAG-10 and DIAG-11.
 - Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/Widgets.lua`):
-  HIST-2, HIST-3 and HIST-12 to HIST-21 (HIST-12 always: the first click is where this widget broke).
+  HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2 and INSTALL-8.
 - LibKa0s re-vendor or `core/*Setup.lua` / `settings/Slash.lua` / `settings/OptionsSetup.lua`:
-  DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-12 to HIST-17 and
-  HIST-28 to HIST-33.
-- Diagnostics or debug logging: DIAG, DEGRADED-4.
+  DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-5, HIST-12 to HIST-23,
+  HIST-28 to HIST-33, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to CAP-27, FILT-1,
+  FILT-16 and FILT-24.
+- Diagnostics or debug logging: DIAG, COMBAT-8, DEGRADED-4, SLASH-2, SLASH-8 and PANEL-19.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
 
 ## Install and upgrade
@@ -277,15 +281,17 @@ then switch to `Default` → the addon comes back up (loot records again); switc
 down as with `/lh disable`. Result:
 
 **PROFILE-7. `/lh profile` lists.** On Profiles, pick `Default` and **Delete** `Ret`, `Lists` and
-`Off`; create `alt` and then `Main` with **New**, and pick `Default` again. `/lh profile` → a
-`Profiles` header (no trailing colon), then `alt`, `Default (current)`, `Main`, sorted ignoring case
-(any other profile already on the account sorts in among them), only the current one suffixed
-`(current)`, then `/lh profile <name> switches profile`. Result:
+`Off`; create `alt` and then `Main` with **New**, set Main's **Row height** (General → Interface) to
+24, and pick `Default` again. `/lh profile` → a `Profiles` header (no trailing colon), then `alt`,
+`Default (current)`, `Main`, sorted ignoring case (any other profile already on the account sorts in
+among them), only the current one suffixed `(current)`, then `/lh profile <name> switches profile`.
+Result:
 
-**PROFILE-8. `/lh profile <name>` switches.** `/lh profile Main` → `Switched to profile 'Main'.`, the
-settings adopt as in PROFILE-2, an open panel refreshes, and with debug on the console shows one
-`[Profile] switched to profile 'Main'` line. `/lh profile Main` again → `Already on profile 'Main'.`
-and nothing changes. Result:
+**PROFILE-8. `/lh profile <name>` switches.** With Settings open on General → Interface (Row height
+reads Default's value), `/lh profile Main` → `Switched to profile 'Main'.`, the settings adopt as in
+PROFILE-2, the open panel's Row height moves to Main's 24 without reopening it, and with debug on the
+console shows one `[Profile] switched to profile 'Main'` line. `/lh profile Main` again → `Already on
+profile 'Main'.` and nothing changes. Result:
 
 **PROFILE-9. An unknown name is refused.** `/lh profile main` → `No profile named 'main'.`, then `Did
 you mean 'Main'?`, then the list; `/lh profile Nope` → the refusal and the list, no did-you-mean.
@@ -596,8 +602,8 @@ filters until they have no rows → the button still reads their name, never "Ch
 Result:
 
 **HIST-22. Window and button marks.** The title-bar close is the collection's ✕ mark, and the export
-modal and copy window wear the same; **Export** carries a small left mark with its word still
-centered, **Export to CSV** a spreadsheet mark; **Clear**, **Reset** and **Save** carry no mark. Fail:
+modal and copy window wear the same; the modal's **Export to CSV** carries a spreadsheet mark; the
+filter bar's **Export**, **Clear**, **Reset** and **Save** carry no mark, only their word. Fail:
 a blank space where a mark belongs (a path with `.tga`, or a name the catalog lacks); Blizzard art in
 its place means the library is missing (DEGRADED-11). Result:
 
@@ -640,8 +646,9 @@ the copy window closes and the export modal stays open. Result:
 different modal title, no second frame). Result:
 
 **HIST-31. The copy window follows its anchor.** Drag the History window elsewhere and export → the
-copy window centers on it; close the History window and export by another route → it centers on the
-screen, with no error. Result:
+copy window centers on it. Close the copy window, click **Export** to open the modal, type `/lh hide`
+(the History window closes; the modal stays up), then click **Export to CSV** → the copy window
+centers on the screen, with no error. Result:
 
 **HIST-32. Copy window chrome.** Drag the copy window by its title bar, close it with its title-bar ✕
 → it moves, and the close mark matches every other window in the addon. Result:
@@ -850,9 +857,9 @@ mode: On`. Result:
 
 **LAUNCH-4. The right-click menu.** Right-click → a menu titled `Ka0s Loot History` with checkboxes
 **Enabled**, **Locked**, **Test mode**, **Show window**, each ticked to match. Click each (reopening
-the menu) → Show window acts as `/lh toggle` (General visibility refuses it the same way); Test mode
-runs `/lh test`; Locked flips **Lock frame**; Enabled runs `/lh disable` and prints `settings.enabled
-= false`. Result:
+the menu) → each acts once and the menu closes: Show window acts as `/lh toggle` (General visibility
+refuses it the same way); Test mode runs `/lh test`; Locked flips **Lock frame**; Enabled runs `/lh
+disable` and prints `settings.enabled = false`. Result:
 
 **LAUNCH-5. Disabled.** While disabled → the tooltip shows `Enabled: No` (red) and the two hints; the
 menu has **Enabled** live and `Locked (enable the addon first)`, `Test mode (enable the addon
@@ -911,8 +918,8 @@ it pins at `3000 / 3000 lines`; **Copy** opens all 3000 without a noticeable hit
 **DIAG-9. The console checkbox follows the window.** Tick **Debug console** (Master controls) → the
 console opens; untick → it hides, and `/lh debug on|off` still owns logging (`/lh get
 state.debugConsole` reports the window). With the console closed, `/lh debug` → the console opens
-and the checkbox is ticked; close it with Esc or its ✕ → the checkbox unticks. `/reload` →
-unticked. Result:
+and the checkbox is ticked; `/lh debug` again → the console closes and the checkbox unticks; open
+it once more and close it with Esc or its ✕ → the checkbox unticks. `/reload` → unticked. Result:
 
 **DIAG-10. Console chrome.** Open `/lh debug` → a flat 1px black border with a lighter inner line, a
 gold title, a gray divider, and three same-size icon buttons top-right (✕, copy, clear) evenly spaced;
@@ -981,12 +988,15 @@ to DEGRADED-11; rename it back and `/reload` when done.
 
 **DEGRADED-1. No Lua error.** Load and play → not one Lua error. Result:
 
-**DEGRADED-2. `/lh list` is complete.** `/lh list` → every schema row, grouped, as with the library.
-Result:
+**DEGRADED-2. The schema commands say why.** `/lh list`, `/lh get settings.enabled`, `/lh set
+settings.rowHeight 20`, `/lh reset settings.rowHeight` and `/lh version` → each prints the one line
+`[LH] The LibKa0s library is missing from this installation of Ka0s Loot History (expected in
+libs/LibKa0s), so the slash command interface is unavailable.` and changes nothing. Result:
 
 **DEGRADED-3. The notice, once.** The first line the addon prints is `[LH] The LibKa0s library is
 missing from this installation of Ka0s Loot History (expected in libs/LibKa0s); running on reduced
-built-in fallbacks.`; `/lh version` and `/lh get settings.enabled` do not repeat it. Result:
+built-in fallbacks.`; `/lh version` and `/lh get settings.enabled` do not repeat it (they print
+DEGRADED-2's line). Result:
 
 **DEGRADED-4. What is unavailable says why.** `/lh debug on` flips logging and says `…, so the debug
 console window is unavailable.`; `/lh config` says `…, so the settings panel is unavailable.`, with
@@ -994,15 +1004,17 @@ the notice's cause clause word for word; `/lh diagnostics` and `/lh debug diagno
 `/lh diagnostics is unavailable: the LibKa0s library did not load.` and write nothing; `/lh help`
 lists no `diagnostics`. Result:
 
-**DEGRADED-5. Capture still works.** Loot → it records, its Zone names where you stand (not
-**Unknown**), and `/lh version` prints the TOC version. Result:
+**DEGRADED-5. Capture still works.** Loot, then `/lh show` → the row is there, and its Zone names
+where you stand (not **Unknown**). Result:
 
 **DEGRADED-6. The filter bar is absent, not dead.** `/lh show` → no Group by, Date, column filters,
 search, Save/Reset/Clear or Export; no button that clicks to nothing. Tabs, table, footer and grip
 work; the window opens on the current player. Result:
 
-**DEGRADED-7. Export refuses.** Any route to the export window → `…, so the export window is
-unavailable.` and nothing opens. Result:
+**DEGRADED-7. Export refuses.** With no Export button (DEGRADED-6), call the button's own handler:
+`/run LibStub("AceAddon-3.0"):GetAddon("LootHistory").Browser:OpenExport()` twice → each prints `…,
+so the export window is unavailable.`, nothing opens, and `/dump LootHistoryExportWindow` then
+shows an empty result (no frame was built). Result:
 
 **DEGRADED-8. Enable and disable.** Bare `/lh` → the help, listing `/lh enable` and `/lh disable`
 but not `/lh set`; `/lh disable` → `settings.enabled = false`, recording stops, a feature verb
@@ -1060,19 +1072,32 @@ Fail: any Lua error, which here means a localized string reached code that assum
 
 ## Pending sign-off
 
-Owner checks with no recorded pass. Origin is the old suite's section, or the change that added them.
+Owner checks with no recorded pass. Origin is the old suite's section, or the change that added
+them or rewrote their expectation (a rewritten expectation has not been run in its new form).
 
 | ID | Origin |
 |---|---|
+| INSTALL-3 | Old §1 fresh DB shape, expectation rewritten by SP-LH-01 (schema 10, `profiles.Default`) |
 | INSTALL-4 | Old §1 (existing-account upgrade), added with the move of settings into profiles |
+| INSTALL-5 | Old §14, expectation rewritten by SP-LH-01 (schema 10, the global/profile split) |
 | INSTALL-7 | Old §3 v4→v5 backfill, "still owed" in the 2026-07-22 field note |
+| SLASH-2 | Old §1 help index, expectation rewritten by SP-LH-02 (the `profile` row, eighteen rows) |
+| SLASH-7 | Old §17f resetall, expectation rewritten by SP-LH-01 (`resetall` is the profile reset) |
+| PANEL-6 | Old §17k, "NOT YET RUN" |
+| PANEL-12 | Old §10 and §17f reset all, expectation rewritten by SP-LH-01 (profile-reset wording, history untouched) |
+| PANEL-14 | Old §17d.1 and §17f Defaults, expectation rewritten by SP-LH-01 (Defaults is the profile reset) |
+| PANEL-18 | Old §17l, "NOT YET RUN" |
+| PROFILE-1 to PROFILE-13 | New with the Profiles page and `/lh profile`; PROFILE-4 is old §13's last step, PROFILE-5 old §16's per-profile note |
 | CAP-9 | Old §3 matrix row 9 (review F-009), open in ARCHITECTURE Known limitations |
 | CAP-18 | Old §3 currency category (review F-010), "still owed" in the 2026-07-22 field note |
 | CAP-19 | Old §3 S-003; [midnight-quirks.md](midnight-quirks.md) records it not yet run |
 | CAP-21 | Old §3 currency bound glyph, "still owed" in the 2026-07-22 field note |
+| HIST-22 | Old §17g, expectation corrected by SP-LH-03R (the filter bar's Export carries no mark) |
 | INS-20 | Old §7 CURRENCY block, "still owed" (layout) in the 2026-07-22 field note |
-| PANEL-6 | Old §17k, "NOT YET RUN" |
-| PANEL-18 | Old §17l, "NOT YET RUN" |
-| PROFILE-1 to PROFILE-13 | New with the Profiles page and `/lh profile`; PROFILE-4 is old §13's last step, PROFILE-5 old §16's per-profile note |
+| DIAG-14 | Old §15 bulk-reset line, expectation rewritten by SP-LH-01 (`[Set] reset profile 'Default' …`) |
+| DIAG-15 | Old §15 data and reset-all lines, expectation rewritten by SP-LH-01 (no `[Data]` line on Reset all settings) |
+| DEGRADED-2 | Old §17a.2, expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
+| DEGRADED-7 | Old §17a.7, given a runnable step by SP-LH-03R |
+| DEGRADED-9 | Old §17a.9, expectation rewritten by SP-LH-01 (`settings reset to defaults.`) |
 | DEGRADED-10 | New with `/lh profile` |
 | LOC-1 to LOC-5 | Old §18a to §18e, "NOT YET RUN" |
