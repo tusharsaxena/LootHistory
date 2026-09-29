@@ -23,7 +23,7 @@ free number in its theme.
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 33 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
 | INS-1 to 21 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
-| FILT-1 to 23 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
+| FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 25 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, tag coverage, the diagnostics report |
 | DEGRADED-1 to 11 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
@@ -39,6 +39,8 @@ free number in its theme.
 - **"Loot at or above threshold"** means an item whose quality is at or above **Minimum quality**
   (default Common). Anything that prints "You receive loot:" is a capture candidate: kills,
   containers and nodes, vendor buys, mail, trades, quest rewards, M+ chests.
+- Run every theme on the `Default` profile (`/lh profile Default`). PROFILE switches profiles and
+  ends by switching back to `Default`; the expected `[Init]` and `[Set]` lines in DIAG name it.
 - Have ready: two or more characters with recorded loot on the account, a target dummy, a vendor, a
   mailbox, bag space, and (for CAP) a quest with an item reward and a trade partner if you can.
 - `/lh test` seeds a synthetic history for HIST and INS checks that do not need live loot.
@@ -241,9 +243,9 @@ whose hover shows the key's label and description. Untick a collecting row's **O
 red in place and agrees with Status. Fail: a white or missing mark, a missing ⓘ, or a mark that
 does not follow the box. Result:
 
-**PANEL-19. Panel labels are English.** On General (every tab) and Profiles → the Defaults button
-reads **Defaults** and every checkbox, dropdown and slider label is English, with no all-caps
-underscored key. Result:
+**PANEL-19. Panel labels are English.** On General (every tab) → the Defaults button reads
+**Defaults**; on General and Profiles → every checkbox, dropdown and slider label is English, with no
+all-caps underscored key. Result:
 
 ## Profiles
 
@@ -261,45 +263,50 @@ line. Result:
 'Default' → 'Alt'` line and Default's values show; **Reset Profile** → one `[Set] reset profile 'Alt'
 to defaults` line; switch back to Default and **Delete** `Alt` → it leaves the list. Result:
 
-**PROFILE-4. Retention is account-wide.** Set **Keep history for** to 90, create a profile and switch
-to it, then copy into it and reset it → the new profile shows 90; none of the three raises the
-retention confirm or deletes a record; hovering **Keep history for** says the setting is
-account-wide. Result:
+**PROFILE-4. Retention is account-wide.** Set **Keep history for** to 90, create `Ret` (New, which
+switches to it), then **Copy From** `Default` and **Reset Profile** → `Ret` shows 90 after each;
+none of the three raises the retention confirm or deletes a record; hovering **Keep history for**
+says the setting is account-wide. Result:
 
-**PROFILE-5. Filter lists are per profile.** Add an id to the Blacklist on `Default`, switch to a new
-profile → its lists are empty; switch back → the id is there, and survives `/reload`. Result:
+**PROFILE-5. Filter lists are per profile.** Pick `Default`, add an id to the Blacklist, then create
+`Lists` (New) → its lists are empty; pick `Default` → the id is there, and survives `/reload`.
+Result:
 
 **PROFILE-6. Enabled is per profile.** Create `Off`, switch to it and untick **Enable Loot History**,
 then switch to `Default` → the addon comes back up (loot records again); switch to `Off` → it stands
 down as with `/lh disable`. Result:
 
-**PROFILE-7. `/lh profile` lists.** With profiles `Default`, `alt` and `Main` → `/lh profile` prints a
-`Profiles` header (no trailing colon), then `alt`, `Default` (current), `Main` sorted ignoring case,
-the current one suffixed `(current)`, then `/lh profile <name> switches profile`. Result:
+**PROFILE-7. `/lh profile` lists.** On Profiles, pick `Default` and **Delete** `Ret`, `Lists` and
+`Off`; create `alt` and then `Main` with **New**, and pick `Default` again. `/lh profile` → a
+`Profiles` header (no trailing colon), then `alt`, `Default (current)`, `Main`, sorted ignoring case
+(any other profile already on the account sorts in among them), only the current one suffixed
+`(current)`, then `/lh profile <name> switches profile`. Result:
 
 **PROFILE-8. `/lh profile <name>` switches.** `/lh profile Main` → `Switched to profile 'Main'.`, the
 settings adopt as in PROFILE-2, an open panel refreshes, and with debug on the console shows one
-`[Profile] switched to profile 'Main'` line; open Profiles → the picker reads Main. `/lh profile
-Main` again → `Already on profile 'Main'.` and nothing changes. Result:
+`[Profile] switched to profile 'Main'` line. `/lh profile Main` again → `Already on profile 'Main'.`
+and nothing changes. Result:
 
 **PROFILE-9. An unknown name is refused.** `/lh profile main` → `No profile named 'main'.`, then `Did
 you mean 'Main'?`, then the list; `/lh profile Nope` → the refusal and the list, no did-you-mean.
 Open Profiles → no `main` or `Nope` profile was created. Result:
 
-**PROFILE-10. Quotes and spaces.** Create `My Alt` on the page. `/lh profile "My Alt"` → switches to
-`My Alt`; `/lh profile 'Default'` → switches to Default; `/lh profile My Alt` → switches too (inner
-spaces kept). Result:
+**PROFILE-10. Quotes and spaces.** Create `My Alt` on the page (New), then pick `Main` again.
+`/lh profile "My Alt"` → switches to `My Alt`; `/lh profile 'Default'` → switches to Default;
+`/lh profile My Alt` → switches too (inner spaces kept). Result:
 
-**PROFILE-11. Answers while disabled.** `/lh disable`, then `/lh profile` → the list prints (no
-disabled refusal); `/lh profile Main` on a profile where the addon is enabled → switches and the addon
-comes back up. Result:
+**PROFILE-11. Answers while disabled.** On `My Alt`, `/lh disable`, then `/lh profile` → the list
+prints (no disabled refusal); `/lh profile Main` (a profile where the addon is enabled) → switches and
+the addon comes back up. Result:
 
-**PROFILE-12. Refused in combat.** Attack a target dummy; in combat `/lh profile Main` → `Can't switch
-profiles in combat.` and nothing switches; `/lh profile` and `/lh profile Nope` still answer. Out of
-combat the same switch works. Result:
+**PROFILE-12. Refused in combat.** On `Main`, attack a target dummy; in combat `/lh profile Default`
+→ `Can't switch profiles in combat.` and the profile stays `Main`; `/lh profile` and `/lh profile
+Nope` still answer. Out of combat `/lh profile Default` → `Switched to profile 'Default'.` Result:
 
-**PROFILE-13. The page follows a slash switch.** With the Profiles page open, close Settings, `/lh
-profile Main`, reopen Profiles → the picker reads Main. Result:
+**PROFILE-13. The page follows a slash switch.** On `Default`, open Profiles (the picker reads
+`Default`), close Settings, `/lh profile Main`, reopen Profiles → the picker reads `Main`. Finish
+with `/lh profile Default`, which leaves the character on `Default` for the themes that follow.
+Result:
 
 ## Enabled state, lock and test mode
 
@@ -468,8 +475,10 @@ Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling
 Refund, Other. Result:
 
 **CAP-25. Zone and subzone stamps.** Loot in a zone with a subzone (a capital district, an inn) → the
-Zone column reads the zone and the row's tooltip carries the subzone; loot in a zone with no
-subzone → the Zone column is filled and nothing is blank-labeled. Result:
+Zone column reads the zone, and `/dump
+LootHistoryDB.global.history[#LootHistoryDB.global.history].subzone` prints the subzone (neither the
+row tooltip nor the CSV export shows it); loot in a zone with no subzone → the Zone column is filled
+and nothing is blank-labeled. Result:
 
 **CAP-26. Zone during a loading screen.** Loot in the first frames after a portal or summon, before
 the client has zone text → the row buckets under **Unknown** in the Zone filter and in group-by-zone,
@@ -553,9 +562,11 @@ Result:
 **Source**, click empty world → it closes. Open it, click the History window behind it → the menu
 closes and the click lands on the window in the same press. Result:
 
-**HIST-15. Row actions.** Right-click a row → **Link to chat**, **Blacklist item** (or **Blacklist
-currency**), and **Delete**, each with its mark and every word kept; Link to chat is disabled without
-an item link and Blacklist item without an item id. Link to chat and Shift-click both put the link in
+**HIST-15. Row actions.** Right-click a row → a menu of four entries, every word kept: **Link to
+chat** with a chat mark, **Blacklist item** and **Blacklist currency** with a prohibition mark each,
+and a red **Delete** with the clear mark. Link to chat is disabled without an item link, Blacklist
+item without an item id (a currency row) and Blacklist currency without a currency id (an item
+row). Link to chat and Shift-click both put the link in
 the chat box; hover shows the item tooltip; **Delete** removes the row and the table and footer
 refresh with no gap. Result:
 
@@ -594,8 +605,9 @@ its place means the library is missing (DEGRADED-11). Result:
 legend uses the same padlock tinted per state; the bottom-right grip is Blizzard's ChatFrame
 three-line hatch, as on the rest of the collection. Result:
 
-**HIST-24. Export is tab-aware.** On History, click **Export** (right of filter row 2) → the modal reads
-**Export History**; on Insights → **Export Insights**. Result:
+**HIST-24. The export modal.** Drag the History window away from the screen center. On History,
+click **Export** (right of filter row 2) → the modal opens centered on the History window, not the
+screen, and reads **Export History**; on Insights → **Export Insights**. Result:
 
 **HIST-25. History CSV.** Export **All Data** → the header `ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`
 and one row per record: `date` DD-MMM-YYYY, `time` HH:MM; `quality` a label beside `qualityRaw`;
@@ -813,6 +825,13 @@ right. Narrow the canvas (small windowed width or `/console uiScale 1`) below ab
 item lists draw one full-width column, with no icons stacked over wrapped names and no X on a line
 of its own; widen and reopen → two columns. If you cannot get that narrow, record that. Result:
 
+**FILT-24. Blacklist and Whitelist Clear all ask.** With ids on **Blacklist**, click its **Clear
+all** → a popup reads `Clear ALL item ids from the blacklist? Future loots of them will be recorded
+again; your existing history is unaffected.`; **No** → the ids stay; **Clear all** again, **Yes** →
+the list empties and chat prints `blacklist cleared (N ids).` On **Whitelist** the same → `Clear ALL
+item ids from the whitelist?`, then `whitelist cleared (N ids).` The Currencies list's Clear all is
+FILT-16. Result:
+
 ## Launcher
 
 One LibDataBroker object drives the minimap button (LibDBIcon) and any broker display. Its visibility
@@ -891,8 +910,9 @@ it pins at `3000 / 3000 lines`; **Copy** opens all 3000 without a noticeable hit
 
 **DIAG-9. The console checkbox follows the window.** Tick **Debug console** (Master controls) → the
 console opens; untick → it hides, and `/lh debug on|off` still owns logging (`/lh get
-state.debugConsole` reports the window). Open the console with `/lh debug`, then close it with Esc
-or its ✕ → the checkbox unticks. `/reload` → unticked. Result:
+state.debugConsole` reports the window). With the console closed, `/lh debug` → the console opens
+and the checkbox is ticked; close it with Esc or its ✕ → the checkbox unticks. `/reload` →
+unticked. Result:
 
 **DIAG-10. Console chrome.** Open `/lh debug` → a flat 1px black border with a lighter inner line, a
 gold title, a gray divider, and three same-size icon buttons top-right (✕, copy, clear) evenly spaced;
@@ -1033,9 +1053,10 @@ a stem from the localized name minus its last word, which a German or French nam
 a mass mill or mass prospect row with no source or the wrong one while the plain cast is right.
 Record `/dump C_Spell.GetSpellName(434926)` and `/dump C_Spell.GetSpellName(225904)`. Result:
 
-**LOC-5. Nothing else moved.** Walk INSTALL-1, CAP-1 to CAP-12 and HIST-5 to HIST-11 on this client →
-behavior matches English. Fail: any Lua error, which here means a localized string reached code that
-assumed English. Result:
+**LOC-5. Nothing else moved.** Walk INSTALL-1 to INSTALL-4, SLASH-1 to SLASH-3, STATE-1 to STATE-4,
+LAUNCH-5, CAP-1 to CAP-21, INSTALL-6, INSTALL-7, INS-20, HIST-5 to HIST-11, HIST-15 and INSTALL-8 on
+this client → behavior matches English (CAP-18 and CAP-19 read the localized Currency-tab headers).
+Fail: any Lua error, which here means a localized string reached code that assumed English. Result:
 
 ## Pending sign-off
 
