@@ -83,12 +83,12 @@ Loot History**.
 - `/lh help` prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
   `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/diagnostics/test/purge/help — seventeen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
-- `LootHistoryDB` is present on disk after `/reload` with a `global` table holding `history = {}`,
-  `settings`, `minimap`, and `schemaVersion = 8`. (The declared default is 0, the savedvariables-§1
-  floor; `NS:RunMigrations`, invoked from `InitDB` before any read, walks v1→v2 through v7→v8
-  back-to-back on a brand-new DB, so the value persisted after the very first init is already 8.
-  Every step touches 0 rows here since `history` is empty.) `/dump LootHistoryDB.global.schemaVersion`
-  answers 8; on an existing account it also answers 8 and the history is intact.
+- `LootHistoryDB` is present on disk after `/reload`: `global` holds `history = {}`, `minimap` and
+  `schemaVersion = 9`, and `profiles.Default` holds `settings`. (The declared default is 0, the
+  savedvariables-§1 floor; `NS:RunMigrations`, invoked from `InitDB` before any read, walks v1→v2
+  through v8→v9 back-to-back on a brand-new DB, so the value persisted after the first init is 9.
+  Every step touches 0 rows here.) `/dump LootHistoryDB.global.schemaVersion` answers 9; on an
+  existing account too, the history is intact and the old settings are in `profiles.Default`.
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
   `settings.excludedSources = table: …` (empty), `minimap.shown = true` — the row path and its
@@ -552,7 +552,7 @@ History** (both must land on the same category).
   has to follow the new label).
 - **The reset pair (Master controls).** **Reset position** moves the History window back to the
   center and changes nothing else — no setting is touched. **Reset all settings** raises the
-  total-wipe confirm; Cancel changes nothing. Neither button appears anywhere else in the panel.
+  profile-reset confirm; Cancel changes nothing. Neither button appears anywhere else in the panel.
 - **Filters tab.** Its three lists are a **secondary** strip *inside* the page, below the main one
   and scrolling with the content — not a second pinned band. Click through Blacklist / Whitelist /
   Currencies: exactly one add-box is on screen at a time. Leave for another tab and come back — the
@@ -621,10 +621,10 @@ destructive-action confirm dialogs.
   and this addon's `makePairButton` for the purge).
 - **Purge history…** raises `KA0S_LOOTHISTORY_PURGE` ("Delete ALL … records? This cannot be undone.");
   Cancel leaves the data intact, Accept wipes history and prints "history purged."
-- **Reset all settings** raises `KA0S_LOOTHISTORY_RESETALL` (options-ui-§12's second canonical
-  wording — "Reset this addon to its defaults? Everything you have configured or recorded is
-  discarded, for every character on this account — this cannot be undone."); Accept wipes history
-  **and** restores every setting to default, then refreshes the panel.
+- **Reset all settings** raises `KA0S_LOOTHISTORY_RESETALL` (options-ui-§12's first canonical
+  wording — "Reset this profile to the addon's defaults? Everything you have configured or added in
+  it is discarded — your other profiles are not affected."); Accept restores every setting of this
+  profile to default and refreshes the panel. The loot history is untouched.
 - **Reset position** raises no dialog and touches no setting: only the window moves.
 - `/lh purge` raises the same purge dialog as the button.
 
@@ -802,10 +802,10 @@ means is in [debug.md](debug.md#the-diagnostics-report).
 - Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
 
 **Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 8` — `RunMigrations` (invoked from `InitDB`) applied
-  every pending step of the v1→v2 through v7→v8 ladder (the per-step contract is in
-  [schema.md](schema.md#schemaversion--the-migration-seam)) and stamped 8 after the last one;
-  re-running it on an already-v8 DB is a no-op (idempotent).
+- `LootHistoryDB["global"]["schemaVersion"] = 9` — `RunMigrations` (invoked from `InitDB`) applied
+  every pending step of the v1→v2 through v8→v9 ladder (the per-step contract is in
+  [schema.md](schema.md#schemaversion--the-migration-seam)) and stamped 9 after the last one;
+  re-running it on an already-v9 DB is a no-op (idempotent).
 - `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
   `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
   (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.
@@ -820,8 +820,8 @@ not N** per event. Enable with `/lh debug on`, open the console with `/lh debug`
 - Loot a threshold item → one `[Loot]`; a sub-threshold item → one `[Drop]`.
 - Open a corpse/chest with many slots → exactly one `[Open] LOOT_OPENED N slots -> …`, not N lines.
 - Change a setting (panel or `/lh set …`) → exactly one `[Set] <path> = <value>`, no `[Cfg]`.
-- Change two settings, then press the General page's **Defaults** (or the Blizzard footer's **Defaults**) → exactly one `[Set] reset all: 2 rows` and no per-row `[Set]`; press it again → `[Set] reset all: 0 rows`. `/lh resetall` logs the same one line; `/lh reset <path>` stays one `[Set] <path> = <value>` (debug-logging-§10).
-- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row (History right-click → **Delete**) → one `[Data] delete removed 1 rows`; change two settings, then **Reset all settings** (confirm) → one `[Set] reset account-wide settings to defaults (2 rows)` and one `[Data] reset-all removed N rows`, and no per-row `[Set]` (the wipe is wholesale, not a walk through `Schema:Set`; the `[Data]` line is the history purge's own trace).
+- Change two settings, then press the General page's **Defaults** (or the Blizzard footer's **Defaults**) → exactly one `[Set] reset profile 'Default' to defaults (2 rows)` and no per-row `[Set]`; press it again → `(0 rows)`. `/lh resetall` logs the same one line; `/lh reset <path>` stays one `[Set] <path> = <value>` (debug-logging-§10).
+- `/lh purge` (confirm) → one `[Data] purge-all removed N rows`; delete a row (History right-click → **Delete**) → one `[Data] delete removed 1 rows`; change two settings, then **Reset all settings** (confirm) → one `[Set] reset profile 'Default' to defaults (2 rows)`, no `[Data]` line and no per-row `[Set]` (a profile reset is wholesale, and it never touches the history).
 - Open the browser → `[UI] window shown`; switch to Insights → `[UI] tab -> Insights` + one `[Insights] computed …`.
 - Type in the table's search / change group/sort → one `[Table] rendered M/T rows (…)` per change, never per row.
 - Add/remove a blacklist or whitelist id (with debug on) → one `[Filters] blacklist=B whitelist=W` line.
@@ -917,7 +917,7 @@ loots; it never touches rows already stored. **Setup:** a real history with at l
   this list; otherwise use the id or shift-click a currency link.`
 - To remove existing rows of a blacklisted (or any) item, use the row's **Delete** action — list
   membership never does this for you.
-- The lists are **account-wide** and survive `/reload`; there is **no** blacklist/whitelist option in
+- The lists are **per profile** and survive `/reload`; there is **no** blacklist/whitelist option in
   the browser's filter dropdowns (it is core logic, not a user-selectable display filter).
 - **Refresh perf:** repeatedly re-opening the Filters tab, and clicking between its three sub-tabs, is
   **instant** — no per-click stutter or freeze even with a long blacklist (only the list on screen
@@ -987,10 +987,10 @@ through [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), for
    and recording stops (loot something: no new row). A feature verb now refuses with
    `Ka0s Loot History is disabled — enable it with /lh enable`, the same line as with the library
    present. `/lh enable` prints `settings.enabled = true` and recording resumes.
-9. **`/lh resetall` says what it cleared.** Put a couple of ids on the Filters lists first (with the
+9. **`/lh resetall` still works.** Put a couple of ids on the Filters lists first (with the
    library present), then on the degraded install `/lh resetall` prints
-   `filters reset (N ids cleared); other settings need the LibKa0s library.` with N the number of
-   ids that were on the three lists (`1 id` in the singular) — never the bare "unavailable" line.
+   `settings reset to defaults.` and the lists are empty (AceDB's profile reset needs no
+   LibKa0s) — never the bare "unavailable" line.
 10. **Rename the folder back** and `/reload` before continuing.
 
 **17b. The `L` trap — no SCREAMING_SNAKE on screen.** This addon passes no locale table to any
@@ -1077,16 +1077,14 @@ guard — but check both entry points of each destructive action anyway:
 
 - `/lh purge` → confirm popup. Cancel: history intact. **Settings ▸ General ▸ Purge history…** →
   the same popup.
-- **Settings ▸ General ▸ Master controls ▸ Reset all settings** → the canonical "everything you have
-  configured or recorded is discarded" popup. Cancel: nothing changes. It does **more** than
-  `/lh resetall` below — a **ratified** divergence from options-ui-§12's opening sentence rather than
-  a design, carried as a register row in
-  [ARCHITECTURE.md](ARCHITECTURE.md#documented-deviations).
+- **Settings ▸ General ▸ Master controls ▸ Reset all settings** → the canonical "Reset this profile
+  to the addon's defaults?" popup. Cancel: nothing changes. It is the same act as `/lh resetall` and
+  the page's **Defaults** (options-ui-§12): the active profile back to its defaults.
 - Each Filters list's own **Clear all** → its own popup. The page-wide **Defaults** button clears all
-  three lists as part of a page reset (Filters is a tab on this page now, so its former per-page
-  Defaults button is gone).
-- `/lh resetall` is non-destructive (settings + the id-lists only, history untouched) and correctly
-  does **not** ask.
+  three lists as part of the profile reset (Filters is a tab on this page now, so its former
+  per-page Defaults button is gone).
+- `/lh resetall` is non-destructive (the profile only, history untouched) and correctly does **not**
+  ask.
 
 **17g. The shared art, and what its absence looks like.** New with LibKa0s v1.10: this addon draws
 no art of its own any more — every mark below comes out of `libs/LibKa0s/media/icons/`, and the

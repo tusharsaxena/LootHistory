@@ -9,13 +9,13 @@ local F = NS.Filters
 --     ever hidden, deleted, or otherwise touched at read time.
 --   * Whitelist — ids that must ALWAYS be recorded, bypassing the quality / source / quest gates.
 --
--- The lists are stored account-wide in NS.db.global.{blacklist,whitelist,currencyBlacklist} (NOT
--- settings, NOT Schema rows). They are an architecture-§5 structural registry and this module is
+-- The lists are stored in the active profile, NS.db.profile.{blacklist,whitelist,currencyBlacklist}
+-- (NOT Schema rows), so a profile switch, copy or reset carries them with every other setting. They are an architecture-§5 structural registry and this module is
 -- their one named writer: panel, menu and slash code call the verbs below and never write the sets
 -- themselves. An id can be on at most ONE item list (adding to one drops it from the other), so the
 -- collector's whitelist/blacklist checks can never contradict.
 --
--- Every mutation writes a FRESH table back to NS.db.global (copy-on-write) so it never mutates an
+-- Every mutation writes a FRESH table back to NS.db.profile (copy-on-write) so it never mutates an
 -- AceDB shared-default table in place, then propagates the change WITHOUT adding a second bus
 -- sender (message-bus's "one sender per message" invariant): it re-caches the Collector's list
 -- upvalues by a direct call, and broadcasts HistoryChanged through Database's own emitter so the
@@ -23,7 +23,7 @@ local F = NS.Filters
 -- ever hidden or revealed by a list change).
 
 local function currentSet(key)
-  return (NS.db and NS.db.global and NS.db.global[key]) or {}
+  return (NS.db and NS.db.profile and NS.db.profile[key]) or {}
 end
 
 -- Shallow copy of a set, so the write never aliases the stored (or AceDB default) table.
@@ -70,9 +70,9 @@ function F:_move(listKey, id)
   local target = currentSet(listKey)
   local sibling = currentSet(siblingKey)
   if target[id] and not sibling[id] then return false end
-  local t = setCopy(target); t[id] = true; NS.db.global[listKey] = t
+  local t = setCopy(target); t[id] = true; NS.db.profile[listKey] = t
   if sibling[id] then
-    local s = setCopy(sibling); s[id] = nil; NS.db.global[siblingKey] = s
+    local s = setCopy(sibling); s[id] = nil; NS.db.profile[siblingKey] = s
   end
   self:_notify()
   return true
@@ -84,7 +84,7 @@ function F:_remove(listKey, id)
   if not id then return false end
   local target = currentSet(listKey)
   if not target[id] then return false end
-  local t = setCopy(target); t[id] = nil; NS.db.global[listKey] = t
+  local t = setCopy(target); t[id] = nil; NS.db.profile[listKey] = t
   self:_notify()
   return true
 end
@@ -100,7 +100,7 @@ function F:AddCurrencyBlacklist(id)
   if not id then return false end
   local target = currentSet("currencyBlacklist")
   if target[id] then return false end
-  local t = setCopy(target); t[id] = true; NS.db.global.currencyBlacklist = t
+  local t = setCopy(target); t[id] = true; NS.db.profile.currencyBlacklist = t
   self:_notify()
   return true
 end
@@ -113,7 +113,7 @@ function F:ClearList(listKey)
   if listKey ~= "blacklist" and listKey ~= "whitelist" and listKey ~= "currencyBlacklist" then return 0 end
   local removed = self:Count(currentSet(listKey))
   if removed == 0 then return 0 end
-  NS.db.global[listKey] = {}
+  NS.db.profile[listKey] = {}
   self:_notify()
   return removed
 end
@@ -124,9 +124,9 @@ function F:ClearAll()
   local removed = self:Count(self:Blacklist()) + self:Count(self:Whitelist())
     + self:Count(self:CurrencyBlacklist())
   if removed == 0 then return 0 end
-  NS.db.global.blacklist = {}
-  NS.db.global.whitelist = {}
-  NS.db.global.currencyBlacklist = {}
+  NS.db.profile.blacklist = {}
+  NS.db.profile.whitelist = {}
+  NS.db.profile.currencyBlacklist = {}
   self:_notify()
   return removed
 end

@@ -65,7 +65,6 @@ if not Launcher then
   -- LibKa0s once per session, and eleven seams repeating it is the noise that sentence exists to
   -- avoid.
   NS.Launcher = nil
-  NS.RefreshLauncher = function() end
   return
 end
 
@@ -167,23 +166,3 @@ NS.Launcher = Launcher:New({
   print = function(line) NS.Print(line) end,
   debug = function(tag, message) if NS.Debug then NS.Debug(tag, message) end end,
 })
-
---- Hand LibDBIcon the LIVE `minimap` table again, after something replaced it.
----
---- `Sl:ResetEverything` empties `db.global` in place and merges the declared defaults back, so
---- `minimap` is a NEW table while the button still holds the old one -- and a drag before /reload
---- would store `minimapPos` in that orphan and lose the position. The library caches the table it
---- resolved at Register time in a closure local and publishes no re-point seam of its own
---- (Launcher minor 1: Register / IsRegistered / Object / IsShown / SetShown), so the call goes to
---- LibDBIcon directly, exactly as `B:RefreshMinimap` did before the adoption.
----
---- This is NOT a second copy of the button's state and not a second click implementation: it
---- re-points one registration at one table. It is the one place in this addon that still names
---- LibDBIcon, and it is named here rather than in Slash.lua so the whole launcher stays in one file.
-function NS.RefreshLauncher()
-  local mm = NS.db and NS.db.global and NS.db.global.minimap
-  local icons = LibStub and LibStub("LibDBIcon-1.0", true)
-  if mm and icons and icons:IsRegistered(addonName) then
-    icons:Refresh(addonName, mm)
-  end
-end

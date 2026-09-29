@@ -46,36 +46,36 @@ test("AuctionPrice: the shipped cascade reaches a non-default-collected key with
     -- ReconcilePriority and appended the missing four. The stored default now IS the one
     -- declaration, so the key is reachable with the panel never opened.
     local shipped = {}
-    for i, tag in ipairs(NS.defaults.global.settings.auction.priority) do shipped[i] = tag end
-    NS.db.global.settings.auction = { enabled = true, priority = shipped }
+    for i, tag in ipairs(NS.defaults.profile.settings.auction.priority) do shipped[i] = tag end
+    NS.db.profile.settings.auction = { enabled = true, priority = shipped }
     local price, tag = NS.AuctionPrice:Pick({ tsm = { dbhistorical = 39000 } })
     assertEqual(price, 39000); assertEqual(tag, "tsm:dbhistorical")
-    NS.db.global.settings.auction = nil
+    NS.db.profile.settings.auction = nil
   end)
 
 test("AuctionPrice: Pick honors a reorder made by MovePriorityWithin", function()
   -- red under: a Pick that caches its answer (or the parsed cascade) past a reorder. Pick's
   -- tag-split memo is keyed by the immutable tag string, never by position, so a drag that swaps
   -- the two tags must flip which price wins on the very next call.
-  NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbmarket", "auctionator:price" } }
+  NS.db.profile.settings.auction = { enabled = true, priority = { "tsm:dbmarket", "auctionator:price" } }
   local map = { tsm = { dbmarket = 5 }, auctionator = { price = 9 } }
   local price, tag = NS.AuctionPrice:Pick(map)
   assertEqual(price, 5); assertEqual(tag, "tsm:dbmarket")
   assertTrue(NS.AuctionPrice:MovePriorityWithin({ "tsm:dbmarket", "auctionator:price" }, 2, 1))
   price, tag = NS.AuctionPrice:Pick(map)
   assertEqual(price, 9); assertEqual(tag, "auctionator:price")
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 test("AuctionPrice: Pick respects a reordered priority list", function()
-  NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbminbuyout", "oribos:market" } }
+  NS.db.profile.settings.auction = { enabled = true, priority = { "tsm:dbminbuyout", "oribos:market" } }
   local price, tag = NS.AuctionPrice:Pick({ tsm = { dbminbuyout = 47000 }, oribos = { market = 51000 } })
   assertEqual(price, 47000); assertEqual(tag, "tsm:dbminbuyout")
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 test("AuctionPrice: GatherAll only captures keys in the capture set", function()
-  NS.db.global.settings.auction = { enabled = true, capture = { ["oribos:market"] = true } }
+  NS.db.profile.settings.auction = { enabled = true, capture = { ["oribos:market"] = true } }
   withGlobals({ OEMarketInfo = function(_i, t) t.market = 51000; t.region = 53000 end,
                 Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 48000 end } } } },
   function()
@@ -84,16 +84,16 @@ test("AuctionPrice: GatherAll only captures keys in the capture set", function()
     assertEqual(m.auctionator, nil)       -- not in capture set
     assertEqual(m.oribos.region, nil)     -- not in capture set
   end)
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 test("AuctionPrice: GatherAll returns nil when nothing gathered / disabled", function()
   assertEqual(NS.AuctionPrice:GatherAll(LINK, 210501), nil)
-  NS.db.global.settings.auction = { enabled = false }
+  NS.db.profile.settings.auction = { enabled = false }
   withGlobals({ OEMarketInfo = function(_i, t) t.market = 1 end }, function()
     assertEqual(NS.AuctionPrice:GatherAll(LINK, 210501), nil)
   end)
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 test("AuctionPrice: IsProviderAvailable reflects addon globals", function()
@@ -107,7 +107,7 @@ test("AuctionPrice: IsProviderAvailable reflects addon globals", function()
 end)
 
 test("AuctionPrice: ReconcilePriority appends missing tags and drops unknown", function()
-  NS.db.global.settings.auction = { priority = { "tsm:dbmarket", "bogus:x" } }
+  NS.db.profile.settings.auction = { priority = { "tsm:dbmarket", "bogus:x" } }
   local p = NS.AuctionPrice:ReconcilePriority()
   assertEqual(p[1], "tsm:dbmarket")                 -- kept, order preserved
   local set = {}; for _, t in ipairs(p) do set[t] = true end
@@ -115,7 +115,7 @@ test("AuctionPrice: ReconcilePriority appends missing tags and drops unknown", f
   for _, k in ipairs(NS.Constants.AUCTION_KEYS) do  -- every known tag present
     assertTrue(set[k.provider .. ":" .. k.key], "missing " .. k.provider .. ":" .. k.key)
   end
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 -- ── MovePriorityWithin: the drag's one write ──────────────────────────────────
@@ -128,7 +128,7 @@ test("AuctionPrice: MovePriorityWithin splices a tag to an index, not a run of s
   -- red under: reimplementing this as repeated adjacent swaps (the intermediate orders would still
   -- land on the same final array, so the ASSERTION that catches it is the four-position move below
   -- landing in one call rather than the end state).
-  NS.db.global.settings.auction = { priority = { "a:1", "b:2", "c:3", "d:4", "e:5" } }
+  NS.db.profile.settings.auction = { priority = { "a:1", "b:2", "c:3", "d:4", "e:5" } }
   local subset = { "a:1", "b:2", "c:3", "d:4", "e:5" }
   assertTrue(NS.AuctionPrice:MovePriorityWithin(subset, 1, 5))
   local p = NS.AuctionPrice:GetPriority()
@@ -137,7 +137,7 @@ test("AuctionPrice: MovePriorityWithin splices a tag to an index, not a run of s
   assertTrue(NS.AuctionPrice:MovePriorityWithin({ "b:2", "c:3", "d:4", "e:5", "a:1" }, 5, 2))
   assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","), "b:2,a:1,c:3,d:4,e:5",
     "and back up, four positions, in one more")
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 test("AuctionPrice: MovePriorityWithin leaves the tags OUTSIDE the subset exactly where they are",
@@ -145,22 +145,22 @@ test("AuctionPrice: MovePriorityWithin leaves the tags OUTSIDE the subset exactl
     -- red under: rebuilding the whole array from the subset, or splicing against the array's own
     -- indices instead of the subset's slots. The panel drags within the COLLECTING partition only,
     -- and a reorder there must not silently re-rank a source you are not collecting.
-    NS.db.global.settings.auction = { priority = { "a:1", "x:9", "b:2", "y:8", "c:3" } }
+    NS.db.profile.settings.auction = { priority = { "a:1", "x:9", "b:2", "y:8", "c:3" } }
     assertTrue(NS.AuctionPrice:MovePriorityWithin({ "a:1", "b:2", "c:3" }, 3, 1))
     assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","), "c:3,x:9,a:1,y:8,b:2",
       "the subset re-lays into its OWN slots; x:9 and y:8 never move")
-    NS.db.global.settings.auction = nil
+    NS.db.profile.settings.auction = nil
   end)
 
 test("AuctionPrice: MovePriorityWithin refuses a no-op and an out-of-range index", function()
-  NS.db.global.settings.auction = { priority = { "a:1", "b:2", "c:3" } }
+  NS.db.profile.settings.auction = { priority = { "a:1", "b:2", "c:3" } }
   local subset = { "a:1", "b:2", "c:3" }
   assertFalse(NS.AuctionPrice:MovePriorityWithin(subset, 2, 2), "a drag that landed where it started")
   assertFalse(NS.AuctionPrice:MovePriorityWithin(subset, 0, 2))
   assertFalse(NS.AuctionPrice:MovePriorityWithin(subset, 1, 9))
   assertFalse(NS.AuctionPrice:MovePriorityWithin(nil, 1, 2))
   assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","), "a:1,b:2,c:3", "nothing was written")
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 -- ── Pick: robustness against partial or absent price maps ─────────────────────
@@ -184,22 +184,22 @@ test("AuctionPrice: Pick skips a tag the map does not carry", function()
 end)
 
 test("AuctionPrice: Pick still works when the stored priority list is empty", function()
-  local saved = NS.db.global.settings.auction
-  NS.db.global.settings.auction = { enabled = true, priority = {} }
+  local saved = NS.db.profile.settings.auction
+  NS.db.profile.settings.auction = { enabled = true, priority = {} }
   assertEqual((NS.AuctionPrice:Pick({ tsm = { dbmarket = 5 } })), nil,
     "an empty cascade selects nothing")
-  NS.db.global.settings.auction = saved
+  NS.db.profile.settings.auction = saved
 end)
 
 test("AuctionPrice: the default cascade prefers TSM market value over a min buyout", function()
-  local saved = NS.db.global.settings.auction
-  NS.db.global.settings.auction = nil
+  local saved = NS.db.profile.settings.auction
+  NS.db.profile.settings.auction = nil
   local _, tag = NS.AuctionPrice:Pick({
     tsm = { dbmarket = 50000, dbminbuyout = 47000 },
     auctionator = { minbuyout = 48000 },
   })
   assertEqual(tag, "tsm:dbmarket", "the 'what's it worth' number leads the stock cascade")
-  NS.db.global.settings.auction = saved
+  NS.db.profile.settings.auction = saved
 end)
 
 -- ── GatherAll: third-party boundary ───────────────────────────────────────────
@@ -253,48 +253,48 @@ end)
 -- ── Priority list maintenance ─────────────────────────────────────────────────
 
 test("AuctionPrice: ReconcilePriority de-duplicates without reordering the survivors", function()
-  local saved = NS.db.global.settings.auction
-  NS.db.global.settings.auction = { priority = { "oribos:market", "tsm:dbmarket", "oribos:market" } }
+  local saved = NS.db.profile.settings.auction
+  NS.db.profile.settings.auction = { priority = { "oribos:market", "tsm:dbmarket", "oribos:market" } }
   local p = NS.AuctionPrice:ReconcilePriority()
   assertEqual(p[1], "oribos:market")
   assertEqual(p[2], "tsm:dbmarket")
   assertEqual(p[3] ~= "oribos:market", true, "the duplicate is dropped, the first wins")
-  NS.db.global.settings.auction = saved
+  NS.db.profile.settings.auction = saved
 end)
 
 test("AuctionPrice: ReconcilePriority always ends up covering every known key once", function()
-  local saved = NS.db.global.settings.auction
-  NS.db.global.settings.auction = { priority = { "tsm:dbmarket" } }
+  local saved = NS.db.profile.settings.auction
+  NS.db.profile.settings.auction = { priority = { "tsm:dbmarket" } }
   local p, seen = NS.AuctionPrice:ReconcilePriority(), {}
   for _, tag in ipairs(p) do
     assertFalse(seen[tag], tag .. " appears twice after reconcile")
     seen[tag] = true
   end
   assertEqual(#p, #NS.Constants.AUCTION_KEYS)
-  NS.db.global.settings.auction = saved
+  NS.db.profile.settings.auction = saved
 end)
 
 test("AuctionPrice: ReconcilePriority rewrites in place, keeping the same table", function()
   -- The panel holds a reference to this array; replacing it would strand the UI on a stale list.
-  local saved = NS.db.global.settings.auction
-  NS.db.global.settings.auction = { priority = { "bogus:key" } }
+  local saved = NS.db.profile.settings.auction
+  NS.db.profile.settings.auction = { priority = { "bogus:key" } }
   local before = NS.AuctionPrice:GetPriority()
   assertTrue(NS.AuctionPrice:ReconcilePriority() == before, "the array identity is preserved")
-  NS.db.global.settings.auction = saved
+  NS.db.profile.settings.auction = saved
 end)
 
 test("AuctionPrice: GetPriority creates the array on first use", function()
-  local saved = NS.db.global.settings.auction
-  NS.db.global.settings.auction = { enabled = true }
+  local saved = NS.db.profile.settings.auction
+  NS.db.profile.settings.auction = { enabled = true }
   assertEqual(type(NS.AuctionPrice:GetPriority()), "table")
-  NS.db.global.settings.auction = saved
+  NS.db.profile.settings.auction = saved
 end)
 
 test("AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry",
   function()
-    local saved = NS.db.global.settings.auction
-    NS.db.global.settings.auction = { priority = { "tsm:dbmarket", "oribos:market" } }
+    local saved = NS.db.profile.settings.auction
+    NS.db.profile.settings.auction = { priority = { "tsm:dbmarket", "oribos:market" } }
     assertFalse(NS.AuctionPrice:MovePriorityWithin({ "tsm:dbmarket", "nosuch:tag" }, 1, 2))
     assertEqual(NS.AuctionPrice:GetPriority()[1], "tsm:dbmarket", "the list is left alone")
-    NS.db.global.settings.auction = saved
+    NS.db.profile.settings.auction = saved
   end)

@@ -7,8 +7,8 @@ local F = NS.Filters
 
 -- Each test leaves the lists empty so later suites (Collector/Database) start clean.
 local function clear()
-  NS.db.global.blacklist = {}
-  NS.db.global.whitelist = {}
+  NS.db.profile.blacklist = {}
+  NS.db.profile.whitelist = {}
 end
 
 test("Filters: AddBlacklist stores the id in the blacklist set", function()
@@ -47,9 +47,9 @@ end)
 
 test("Filters: mutations write a fresh table (no shared-default aliasing)", function()
   clear()
-  local before = NS.db.global.blacklist
+  local before = NS.db.profile.blacklist
   F:AddBlacklist(9)
-  assertTrue(NS.db.global.blacklist ~= before, "blacklist table replaced, not mutated in place")
+  assertTrue(NS.db.profile.blacklist ~= before, "blacklist table replaced, not mutated in place")
   clear()
 end)
 
@@ -113,9 +113,9 @@ end)
 test("Filters: ClearList writes a fresh table (no shared-default aliasing)", function()
   clear()
   F:AddBlacklist(5)
-  local before = NS.db.global.blacklist
+  local before = NS.db.profile.blacklist
   F:ClearList("blacklist")
-  assertTrue(NS.db.global.blacklist ~= before, "blacklist table replaced, not mutated in place")
+  assertTrue(NS.db.profile.blacklist ~= before, "blacklist table replaced, not mutated in place")
   clear()
 end)
 
@@ -173,7 +173,7 @@ test("Filters: the add-box parsers are gone (LibKa0s IdList parses its own add b
 end)
 
 test("Filters: currency blacklist add / remove / query", function()
-  NS.db.global.currencyBlacklist = {}
+  NS.db.profile.currencyBlacklist = {}
   assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
   assertTrue(NS.Filters:AddCurrencyBlacklist(3008))
   assertTrue(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
@@ -184,7 +184,7 @@ test("Filters: currency blacklist add / remove / query", function()
 end)
 
 test("Filters: currency blacklist is independent of the item id lists", function()
-  NS.db.global.blacklist = {}; NS.db.global.currencyBlacklist = {}
+  NS.db.profile.blacklist = {}; NS.db.profile.currencyBlacklist = {}
   NS.Filters:AddBlacklist(3008)            -- item id 3008
   NS.Filters:AddCurrencyBlacklist(3008)    -- currency id 3008 (same number, different namespace)
   assertTrue(NS.Filters:Blacklist()[tonumber(3008)] == true)
@@ -192,11 +192,11 @@ test("Filters: currency blacklist is independent of the item id lists", function
   NS.Filters:RemoveCurrencyBlacklist(3008)
   assertTrue(NS.Filters:Blacklist()[tonumber(3008)] == true)          -- item list untouched
   assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)
-  NS.db.global.blacklist = {}
+  NS.db.profile.blacklist = {}
 end)
 
 test("Filters: ClearList and ClearAll include the currency blacklist", function()
-  NS.db.global.currencyBlacklist = {}; NS.db.global.blacklist = {}; NS.db.global.whitelist = {}
+  NS.db.profile.currencyBlacklist = {}; NS.db.profile.blacklist = {}; NS.db.profile.whitelist = {}
   NS.Filters:AddCurrencyBlacklist(3008); NS.Filters:AddCurrencyBlacklist(2914)
   assertEqual(NS.Filters:ClearList("currencyBlacklist"), 2)
   assertFalse(NS.Filters:CurrencyBlacklist()[tonumber(3008)] == true)

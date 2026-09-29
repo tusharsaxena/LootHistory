@@ -261,17 +261,19 @@ test("Util: FormatBytes scales B / kB / MB", function()
   assertEqual(NS.Util.FormatBytes(3 * 1024 * 1024), "3.0 MB")
 end)
 
-test("Database: InitDB creates account-wide store", function()
-  assertEqual(NS.db.global.schemaVersion, 8)
+test("Database: InitDB creates the account-wide store and the Default profile", function()
+  assertEqual(NS.db.global.schemaVersion, 9)
   assertTrue(type(NS.db.global.history) == "table")
   assertEqual(#NS.db.global.history, 0)
-  assertEqual(NS.db.global.settings.qualityThreshold, 1)   -- default: Common (white) and above
+  assertEqual(NS.db:GetCurrentProfile(), "Default")
+  assertEqual(NS.db.profile.settings.qualityThreshold, 1)   -- default: Common (white) and above
+  assertEqual(NS.db.global.settings, nil, "no setting is stored account-wide")
 end)
 
 test("Schema: Set writes through the single seam", function()
   local ok = NS.Schema:Set("settings.qualityThreshold", 4)
   assertTrue(ok)
-  assertEqual(NS.db.global.settings.qualityThreshold, 4)
+  assertEqual(NS.db.profile.settings.qualityThreshold, 4)
 end)
 
 test("Schema: Set unknown path returns false", function()
@@ -296,7 +298,7 @@ test("Schema: reset does not alias the table-typed default (F-003)", function()
   local def = NS.Schema:Default("settings.excludedSources")
   NS.Schema:Set("settings.excludedSources", def)
   -- Mutating the stored set in place must not poison the schema default.
-  NS.db.global.settings.excludedSources.KILL = true
+  NS.db.profile.settings.excludedSources.KILL = true
   local fresh = NS.Schema:Default("settings.excludedSources")
   assertTrue(fresh.KILL == nil)
   -- Two Default() calls must not share identity either.
@@ -307,13 +309,13 @@ test("Schema: reset does not alias the table-typed default (F-003)", function()
 end)
 
 test("Util: RecordValue = max(pickedAuction, vendorPrice), else whichever exists", function()
-  NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbmarket" } }
+  NS.db.profile.settings.auction = { enabled = true, priority = { "tsm:dbmarket" } }
   assertEqual(NS.Util.RecordValue({ vendorPrice = 10, auctionPrice = { tsm = { dbmarket = 500 } } }), 500)
   assertEqual(NS.Util.RecordValue({ vendorPrice = 800, auctionPrice = { tsm = { dbmarket = 500 } } }), 800) -- vendor higher
   assertEqual(NS.Util.RecordValue({ vendorPrice = 10 }), 10)                       -- no auction
   assertEqual(NS.Util.RecordValue({ auctionPrice = { tsm = { dbmarket = 500 } } }), 500) -- no vendor
   assertEqual(NS.Util.RecordValue({}), nil)
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 -- ── Coalesce ────────────────────────────────────────────────────────────────────────────────

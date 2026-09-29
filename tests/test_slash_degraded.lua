@@ -4,7 +4,8 @@
 -- here runs against the namespace tests/degraded_env.lua builds: the whole TOC loaded with
 -- libs/LibKa0s absent, so each setup file's degradation stub is the one under test, never a
 -- hand-written copy. The degraded load calls no InitDB, so the cases that write hand it a store of
--- their own through `degradedNS.db` and take it back afterwards.
+-- their own through `degradedNS.db` and take it back afterwards. AceDB is vendored beside the addon
+-- rather than inside LibKa0s, so that store is a real (faked) AceDB object with a working profile.
 
 local T = _G.LH_TEST
 local NS, test, assertTrue, assertEqual = T.NS, T.test, T.assertTrue, T.assertEqual
@@ -16,7 +17,8 @@ local DSl = degradedNS.Slash
 degradedNS.Print("")
 
 --- Run `act` with a fresh store on the degraded namespace and the chat capture emptied. Returns
---- the lines printed and the store. Both are restored however the case ends.
+--- the lines printed and the store, which is the active profile. Both are restored however the case
+--- ends.
 local function withDegradedStore(act, lists)
   local store = {
     settings = { enabled = true },
@@ -25,7 +27,8 @@ local function withDegradedStore(act, lists)
     currencyBlacklist = lists and lists.currencyBlacklist or {},
   }
   local savedDb = degradedNS.db
-  degradedNS.db = { global = store }
+  degradedNS.db = T.mocks.LibStub("AceDB-3.0"):New({ profiles = { Default = store } },
+    degradedNS.defaults, true)
   for i = #lines, 1, -1 do lines[i] = nil end
   local ok, err = pcall(act, store)
   local out = {}
@@ -94,16 +97,17 @@ test("library-less install: the degraded help omits config, which would only dec
   end
   -- The library-owned half stays out. `set` among them: the degraded CliSet writes only the
   -- enable path, so advertising the verb would promise the whole schema CLI.
-  for _, verb in ipairs({ "version", "get", "set", "list", "reset", "resetall", "help" }) do
+  for _, verb in ipairs({ "version", "get", "set", "list", "reset", "help" }) do
     assertTrue(not listed[verb], "/lh " .. verb .. " cannot answer with no library")
   end
 end)
 
-test("library-less install: the degraded help lists enable and disable, which now work", function()
-  -- red under: enable/disable still in UNAVAILABLE_WITHOUT_LIB.
+test("library-less install: the degraded help lists enable, disable and resetall, which work", function()
+  -- red under: any of the three still in UNAVAILABLE_WITHOUT_LIB.
   local listed = listedVerbs()
   assertTrue(listed.enable, "/lh enable works degraded, so the help must offer it")
   assertTrue(listed.disable, "/lh disable works degraded, so the help must offer it")
+  assertTrue(listed.resetall, "/lh resetall is AceDB's profile reset, so the help must offer it")
 end)
 
 -- ── enable / disable write through (options-ui-§1 route (a)) ──────────────────────────────────
@@ -146,25 +150,34 @@ end)
 
 -- ── resetall (R-14) ───────────────────────────────────────────────────────────────────────────
 
-test("library-less install: resetall clears the id lists and says how many", function()
-  -- red under: a stub that clears all three lists and then only prints "unavailable".
-  local out, store = withDegradedStore(function() DSl:CliResetAll() end, {
+test("library-less install: resetall resets the whole profile and says so on one line", function()
+  -- options-ui-§12's global reset is AceDB's ResetProfile, which a missing LibKa0s does not take
+  -- away: the id lists and every setting come back, on this path as on the live one.
+  -- red under: the old partial stub (the lists alone, then "other settings need the library").
+  local out, store = withDegradedStore(function(s)
+    s.settings.qualityThreshold = 4
+    DSl:CliResetAll()
+  end, {
     blacklist = { [101] = true, [102] = true },
     whitelist = { [201] = true },
-    currencyBlacklist = {},
+    currencyBlacklist = { [3008] = true },
   })
   assertEqual(#out, 1, "one line: " .. table.concat(out, " | "))
-  assertEqual(out[1], NS.PREFIX
-    .. " filters reset (3 ids cleared); other settings need the LibKa0s library.")
+  assertEqual(out[1], NS.PREFIX .. " settings reset to defaults.")
   assertEqual(next(store.blacklist), nil)
   assertEqual(next(store.whitelist), nil)
+  assertEqual(next(store.currencyBlacklist), nil)
+  assertEqual(store.settings.qualityThreshold, 1, "the setting is back at its shipped value")
 end)
 
-test("library-less install: resetall on one id says id, not ids", function()
-  local out = withDegradedStore(function() DSl:CliResetAll() end,
-    { currencyBlacklist = { [3008] = true } })
-  assertEqual(out[1], NS.PREFIX
-    .. " filters reset (1 id cleared); other settings need the LibKa0s library.")
+test("library-less install: resetall is the same act through the verb table", function()
+  -- The COMMANDS row reaches the degraded CliResetAll, so a typed `/lh resetall` works too.
+  local out, store = withDegradedStore(function(s)
+    s.settings.recordCurrency = false
+    handler("resetall")("")
+  end)
+  assertEqual(out[#out], NS.PREFIX .. " settings reset to defaults.")
+  assertEqual(store.settings.recordCurrency, true)
 end)
 
 -- ── the diagnostics report (debug-logging-§14) ────────────────────────────────────────────────

@@ -5,15 +5,14 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 -- ── The launcher: the minimap button and the broker plugin, as ONE object (launcher-§1) ────────
 --
 -- Everything here used to be three functions on modules/Browser.lua. It is `LibKa0s-Launcher-1.0`
--- now, wired from core/LauncherSetup.lua, and the two cases that moved with it kept their names'
--- meaning: the registration happens once, and Reset all settings re-points LibDBIcon at the store's
--- new table.
+-- now, wired from core/LauncherSetup.lua, and the cases that moved with it kept their names'
+-- meaning: the registration happens once, and Reset all settings -- a profile reset since profiles
+-- arrived -- never touches LibDBIcon's global table at all.
 --
 -- ORDER IS LOAD-BEARING INSIDE THIS FILE. The degradation case runs FIRST, while nothing has
 -- registered LibDataBroker or LibDBIcon — which is the state every headless run starts in and the
 -- state the lifecycle kick already met. The fakes are registered after it and stay behind, inert,
--- for the later suites (every Reset all settings in test_slash reaches Refresh through
--- NS.RefreshLauncher).
+-- for the later suites.
 
 local ADDON = "LootHistory"   -- the FOLDER name, which is both registration keys (launcher-§1)
 
@@ -88,9 +87,6 @@ test("launcher: with no LibDataBroker / LibDBIcon nothing raises, and the store 
     NS.Launcher:SetShown(true)
     assertEqual(NS.db.global.minimap.hide, false)
     NS.db.global.minimap.hide = before
-
-    -- The reset re-point is a no-op rather than an error when there is no button to re-point.
-    NS.RefreshLauncher()
   end)
 
 -- ── the wired launcher ────────────────────────────────────────────────────────────────────────
@@ -199,7 +195,7 @@ end
 
 --- Run `fn` with the lock, the test mode and the enabled switch set as asked, then put them back.
 local function withState(state, fn)
-  local s = NS.db.global.settings
+  local s = NS.db.profile.settings
   local BT = NS.BrowserTable
   local was = { locked = s.locked, test = BT.testMode, enabled = NS.Schema:Get("settings.enabled") }
   s.locked = state.locked
@@ -364,7 +360,7 @@ test("launcher: each menu entry toggles through the addon's own handler, once", 
       assertEqual(#sets, 1, "Locked writes once, through the single write seam")
       assertEqual(sets[1][1], "settings.locked", "the Lock frame row's own path")
       assertEqual(sets[1][2], true, "unlocked -> locked")
-      assertEqual(NS.db.global.settings.locked, true, "and the lock landed")
+      assertEqual(NS.db.profile.settings.locked, true, "and the lock landed")
       assertEqual(#calls.verbs, 3, "Locked runs no verb")
     end)
     -- The other direction: Enabled while the addon is off runs /lh enable.
@@ -391,14 +387,14 @@ test("launcher: while disabled, Enabled stays live and the other three are graye
           "Test mode (enable the addon first)", "Show window (enable the addon first)" }
         for i, w in ipairs(want) do assertEqual(texts[i], w, "disabled menu entry " .. i) end
         assertTrue(menu:Find("Enabled").enabled, "Enabled stays clickable while off")
-        local lockedBefore = NS.db.global.settings.locked
+        local lockedBefore = NS.db.profile.settings.locked
         for _, prefix in ipairs({ "Locked", "Test mode", "Show window" }) do
           assertEqual(menu:Find(prefix).enabled, false, prefix .. " must be grayed while off")
           assertTrue(menu:Click(prefix) == nil, "a grayed entry cannot be clicked")
           menu:ForceClick(prefix)
         end
         assertEqual(#calls.verbs, 0, "a grayed entry must call no handler: " .. table.concat(calls.verbs, ", "))
-        assertEqual(NS.db.global.settings.locked, lockedBefore, "a grayed Locked writes nothing")
+        assertEqual(NS.db.profile.settings.locked, lockedBefore, "a grayed Locked writes nothing")
       end)
     end)
   end)
@@ -427,35 +423,27 @@ test("launcher: the Minimap button row moves the real button, through the single
     NS.db.global.minimap.hide = before
   end)
 
-test("launcher: Reset all settings re-points LibDBIcon at the new minimap table, so a drag persists",
+test("launcher: Reset all settings leaves LibDBIcon's global table alone, so nothing needs re-pointing",
   function()
-    -- Sl:ResetEverything empties db.global and merges fresh defaults back, so `minimap` is a NEW
-    -- table afterwards while LibDBIcon's button still holds the old one. A drag before /reload would
-    -- write `minimapPos` into that orphan and the position would be lost. The call moved out of
-    -- NS.Browser with the rest of the launcher; the library publishes no re-point seam of its own,
-    -- so NS.RefreshLauncher reaches LibDBIcon directly.
-    -- red under: a ResetEverything that never hands the library the live table.
+    -- Reset all settings is a PROFILE reset (options-ui-§12), and LibDBIcon's `minimap` table is
+    -- GLOBAL (launcher-§3), so the reset cannot replace it: the button keeps the very table it was
+    -- handed at Register, and a drag after the reset lands in the store. Before profiles the reset
+    -- emptied db.global wholesale and had to re-point LibDBIcon at a new table.
+    -- red under: a reset that reaches db.global again, which would orphan the button's table.
     local refreshed = {}
     local realRefresh = icons.Refresh
     function icons.Refresh(_, name, db) refreshed[#refreshed + 1] = { name, db } end
-
-    -- The reset empties the shared store, and later suites read state earlier ones seeded (the
-    -- migrated schemaVersion, for one), so the store's contents are put back afterwards.
     local g = NS.db.global
-    local saved = {}
-    for k, v in pairs(g) do saved[k] = v end
     local before = g.minimap
-    local ok, err = pcall(NS.Slash.ResetEverything, NS.Slash)
-    local live = g.minimap
+    local p = NS.db.profile
+    local saved = NS.Util.DeepCopy(p)
+    local ok, err = pcall(NS.Slash.CliResetAll, NS.Slash)
     icons.Refresh = realRefresh
-    for k in pairs(g) do g[k] = nil end
-    for k, v in pairs(saved) do g[k] = v end
+    for k in pairs(p) do p[k] = nil end
+    for k, v in pairs(saved) do p[k] = v end
     if not ok then error(err, 0) end
-
-    assertTrue(live ~= nil and live ~= before, "the reset gives the store a new minimap table")
-    assertEqual(#refreshed, 1, "the reset refreshes the LibDBIcon button exactly once")
-    assertEqual(refreshed[1][1], ADDON, "registration key")
-    assertTrue(refreshed[1][2] == live, "LibDBIcon must be handed the live minimap table")
+    assertTrue(g.minimap == before, "the reset leaves the global minimap table where it was")
+    assertEqual(#refreshed, 0, "and has no reason to refresh the LibDBIcon button")
   end)
 
 -- ── the broker label (launcher-§1, standard v2.54.0) ──────────────────────────────────────────
@@ -485,28 +473,27 @@ end)
 -- ── reset survival (launcher-§3, standard v2.54.0) ────────────────────────────────────────────
 --
 -- A player's minimap-button choice is a PER-INSTALLATION DISPLAY PREFERENCE and survives a reset,
--- and that is a property of the setting rather than a consequence of where it is stored. Both of
--- this addon's resets reached the row before the exemption landed, and for different reasons:
---
---   * `/lh resetall` and the General page's Defaults button (settings/Panel.lua routes the click to
---     Sl:CliResetAll) walk EVERY schema row through applyDefault.
---   * *Reset all settings* is Sl:ResetEverything, which empties `db.global` wholesale and merges
---     defaults/Global.lua's `minimap = { hide = false }` back -- this addon has no profile, so the
---     scope argument §3 used to rest on never applied here at all.
---
--- Both cases below RUN the reset and read the stored visibility back; a case that only asserted the
--- veto's configuration would pass over a walk that skipped a different row.
+-- and that is a property of the setting rather than a consequence of where it is stored. Before
+-- profiles, both of this addon's resets reached the row: `/lh resetall` walked every schema row,
+-- and *Reset all settings* emptied `db.global` wholesale. Both are now ONE act, the profile reset
+-- (Sl:CliResetAll), and the table is global, so the reset cannot reach it -- the cases below RUN
+-- the reset and read the stored visibility back, because a case that only asserted where the table
+-- lives would pass over a reset that reached into global again.
 
---- Run `act` with the account store saved and put back afterwards. Both resets below empty
---- `db.global`, and the suites after this one read state earlier ones seeded.
+--- Run `act` with the active profile saved and put back afterwards. The reset below empties the
+--- profile, and the suites after this one read state earlier ones seeded.
 local function acrossAReset(act)
-  local g = NS.db.global
-  local saved = {}
-  for k, v in pairs(g) do saved[k] = v end
+  local p = NS.db.profile
+  local saved = NS.Util.DeepCopy(p)
   local ok, err = pcall(act)
-  for k in pairs(g) do g[k] = nil end
-  for k, v in pairs(saved) do g[k] = v end
+  for k in pairs(p) do p[k] = nil end
+  for k, v in pairs(saved) do p[k] = v end
   if not ok then error(err, 0) end
+end
+
+--- The Master controls' Reset all settings, as a click reaches it: the confirm's Yes.
+local function resetAllSettings()
+  T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"].OnAccept()
 end
 
 test("launcher: no BULK reset moves the minimap button — /lh resetall and the page Defaults button",
@@ -539,42 +526,37 @@ test("launcher: no BULK reset moves the minimap button — /lh resetall and the 
     end)
   end)
 
-test("launcher: Reset all settings leaves a hidden button hidden, across the wholesale wipe",
+test("launcher: Reset all settings leaves a hidden button hidden, and the history untouched",
   function()
-    -- options-ui-§12's global reset, in the shape it takes for an addon with NO profile: empty the
-    -- account-wide store and merge the declared defaults back. The declared default is SHOWN, so
-    -- without the carve-out the merge itself is what un-hides the button.
-    -- red under: a wipeGlobal that carries nothing across, which is what this addon shipped.
+    -- options-ui-§12's global reset is the PROFILE reset, and the button's table is global
+    -- (launcher-§3), so the declared default -- SHOWN -- is never merged back over it.
+    -- red under: a reset that reaches db.global, which is what this addon shipped before profiles.
     acrossAReset(function()
       local g = NS.db.global
       NS.Schema:Set("minimap.shown", false)
       assertEqual(g.minimap.hide, true, "the player hid the button")
-      local before = g.minimap
+      local before, records = g.minimap, #g.history
 
-      NS.Slash:ResetEverything()
+      resetAllSettings()
 
-      assertTrue(g.minimap ~= before,
-        "the wipe still gives the store a new minimap table, so this is a real carry-across")
+      assertTrue(g.minimap == before, "the reset leaves the global table where it was")
       assertEqual(g.minimap.hide, true, "Reset all settings must not un-hide the button")
       assertEqual(NS.Launcher:IsShown(), false, "the button itself is still hidden")
-      assertEqual(#NS.db.global.history, 0, "and the reset still did everything else it does")
+      assertEqual(#g.history, records, "and the account-wide history is not a setting")
     end)
   end)
 
-test("launcher: RESET_EXEMPT maps the row path to the stored path, and both resets honor it",
+test("launcher: RESET_EXEMPT maps the row path to the stored path, and the reset honors it",
   function()
     -- launcher-§3 (standard v2.65.0) renamed the row to `minimap.shown` while the stored key stays
-    -- `minimap.hide`. The two resets read the exemption on different sides of that split: the bulk
-    -- walk's veto is keyed by ROW path, and wipeGlobal carries the STORED path across its raw wipe.
-    -- So RESET_EXEMPT is a map `{ [row path] = stored path }`, and each reset reads its own side.
-    -- red under: the rename landing WITHOUT the map (`{ ["minimap.shown"] = true }`), which is the
-    -- regression the map prevents -- wipeGlobal then carries a `shown` path that is never stored,
-    -- the merge puts `hide = false` back, and Reset all settings un-hides the button.
+    -- `minimap.hide`. The bulk walk's veto is keyed by ROW path, so RESET_EXEMPT is a map
+    -- `{ [row path] = stored path }`.
+    -- red under: a veto keyed by the stored path, which the walk never matches.
     assertEqual(NS.Schema.RESET_EXEMPT["minimap.shown"], "minimap.hide")
     acrossAReset(function()
       local g = NS.db.global
       NS.Schema:Set("minimap.shown", false)
-      NS.Slash:ResetEverything()
+      resetAllSettings()
       assertEqual(g.minimap.hide, true, "Reset all settings keeps the hidden button hidden")
       assertTrue(g.minimap.shown == nil, "and carries no `shown` key into the store")
       NS.Slash:CliResetAll()
@@ -584,14 +566,12 @@ test("launcher: RESET_EXEMPT maps the row path to the stored path, and both rese
 
 test("launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key",
   function()
-    -- The carry-across must not become a copy of the state. One boolean is stored -- LibDBIcon's own
-    -- `hide` -- and the wipe puts that one value back, never a `shown` key beside it.
-    -- red under: a carve-out that writes through Schema:Set (a second [Set] line inside a reset that
-    -- logs exactly one) or that seeds a parallel key.
+    -- One boolean is stored -- LibDBIcon's own `hide` -- and the reset writes nothing beside it.
+    -- red under: a reset that re-hides a shown button, or that seeds a parallel `shown` key.
     acrossAReset(function()
       local g = NS.db.global
       NS.Schema:Set("minimap.shown", true)
-      NS.Slash:ResetEverything()
+      resetAllSettings()
       assertEqual(g.minimap.hide, false, "a shown button stays shown")
       local keys = 0
       for _ in pairs(g.minimap) do keys = keys + 1 end

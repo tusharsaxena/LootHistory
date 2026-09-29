@@ -191,9 +191,9 @@ test("Schema: a profile written before this release gets visibility from the shi
     -- red under: dropping the key from defaults/Global.lua, or declaring it as anything the
     -- dropdown cannot select. The behavior half (an absent stored value still resolving to a
     -- visible window) is pinned in tests/test_browser.lua.
-    assertEqual(NS.defaults.global.settings.visibility, "always")
+    assertEqual(NS.defaults.profile.settings.visibility, "always")
     local row = NS.Schema:FindRow("settings.visibility")
-    assertEqual(row.values[NS.defaults.global.settings.visibility] ~= nil, true,
+    assertEqual(row.values[NS.defaults.profile.settings.visibility] ~= nil, true,
       "the shipped default must be one of the four the dropdown offers")
   end)
 
@@ -220,7 +220,7 @@ end)
 
 test("Schema: a normal (persisted) row still writes db.global", function()
   NS.Schema:Set("settings.enabled", false)
-  assertEqual(NS.db.global.settings.enabled, false, "normal row must persist to db.global")
+  assertEqual(NS.db.profile.settings.enabled, false, "normal row must persist to db.global")
   assertEqual(NS.Schema:Get("settings.enabled"), false)
   NS.Schema:Set("settings.enabled", true) -- restore default
 end)
@@ -252,7 +252,7 @@ end)
 
 test("Schema: recordCurrency row exists, defaults true, settable", function()
   assertEqual(NS.Schema:Default("settings.recordCurrency"), true)
-  assertEqual(NS.defaults.global.settings.recordCurrency, true)
+  assertEqual(NS.defaults.profile.settings.recordCurrency, true)
   assertTrue(NS.Schema:Set("settings.recordCurrency", false))
   assertEqual(NS.Schema:Get("settings.recordCurrency"), false)
   NS.Schema:Set("settings.recordCurrency", true)   -- restore default
@@ -304,8 +304,8 @@ test("Schema: every persisted path resolves against the shipped defaults", funct
   -- `minimap.hide`, and that key is pinned by the shipped-equals-declared case below.
   for _, row in ipairs(S.Schema) do
     if not row.sessionOnly and not (type(row.get) == "function" and type(row.set) == "function") then
-      assertTrue(S:ReadPath(NS.defaults.global, row.path) ~= nil,
-        row.path .. " has no entry in defaults/Global.lua")
+      assertTrue(NS.SchemaLib.Read(NS.defaults.profile, row.path) ~= nil,
+        row.path .. " has no entry in defaults/Profile.lua")
     end
   end
 end)
@@ -331,7 +331,7 @@ test("Schema: Register counts no missing path for the Minimap button row, which 
     -- row that carries BOTH its own get and set owns its storage, so the boot check's defaultsRoot
     -- answers nil for it and the library's resolvesInDefaults neither resolves nor misses it.
     -- red under: a defaultsRoot that hands every row the defaults tree, which reports
-    -- `minimap.shown` as a path that does not resolve against defaults/Global.lua.
+    -- `minimap.shown` as a path that does not resolve against defaults/Profile.lua.
     assertTrue(S:FindRow("minimap.shown") ~= nil, "the row is pathed in its own sense")
     assertEqual(S:FindRow("minimap.hide"), nil, "and the stored key is no row's path")
     assertTrue(NS.defaults.global.minimap.shown == nil, "no `shown` default is declared either")
@@ -356,20 +356,21 @@ test("Schema: the shipped default equals the schema's declared default", functio
   --
   -- The `minimap.shown` row is compared INVERTED against its one stored key, `minimap.hide`, rather
   -- than skipped, which is the whole point of naming it: the row's default is its own sense (SHOWN
-  -- = true) and defaults/Global.lua ships LibDBIcon's key (hide = false). They are one fact in two
+  -- = true) and defaults/Global.lua ships LibDBIcon's key (hide = false) in the global store, where
+  -- launcher-§3 fixes it; every other row is declared in defaults/Profile.lua. They are one fact in two
   -- senses, so the pair is still checked -- flip either side alone and this goes red exactly as it
   -- would for any other row (launcher-§3). No `shown` default is shipped (anti-pattern #81).
   for _, row in ipairs(S.Schema) do
     if row.path == "minimap.shown" then
-      assertEqual(S:ReadPath(NS.defaults.global, S.RESET_EXEMPT[row.path]), not row.default,
+      assertEqual(NS.SchemaLib.Read(NS.defaults.global, S.RESET_EXEMPT[row.path]), not row.default,
         "minimap.shown: the shipped `hide` must be the inverse of the row's SHOWN default")
     elseif not row.sessionOnly then
-      local shipped = S:ReadPath(NS.defaults.global, row.path)
+      local shipped = NS.SchemaLib.Read(NS.defaults.profile, row.path)
       if row.type == "table" then
         assertTrue(deepEqual(shipped, row.default),
-          row.path .. " disagrees with defaults/Global.lua")
+          row.path .. " disagrees with defaults/Profile.lua")
       else
-        assertEqual(shipped, row.default, row.path .. " disagrees with defaults/Global.lua")
+        assertEqual(shipped, row.default, row.path .. " disagrees with defaults/Profile.lua")
       end
     end
   end
@@ -381,7 +382,7 @@ test("Schema: the AH priority cascade is declared once, in core/Constants.lua", 
   -- had drifted to 7 of the 11 tags. It is now filled from AUCTION_PRIORITY_DEFAULT, which is the
   -- only place the cascade is written down. Re-splitting the two turns this red.
   local declared = NS.Constants.AUCTION_PRIORITY_DEFAULT
-  local shipped  = NS.defaults.global.settings.auction.priority
+  local shipped  = NS.defaults.profile.settings.auction.priority
   assertTrue(shipped ~= declared,
     "the shipped default must be a copy — an alias lets a reorder rewrite the constant")
   assertEqual(#shipped, #declared,
@@ -507,28 +508,6 @@ test("Schema: the Minimap button row's accessors invert onto LibDBIcon's own `hi
   NS.db.global.minimap.hide = before
 end)
 
--- ── Path plumbing ──────────────────────────────────────────────────────────────
-
-test("Schema.ReadPath walks a nested path and stops safely at a missing branch", function()
-  local root = { settings = { auction = { enabled = true } } }
-  assertEqual(S:ReadPath(root, "settings.auction.enabled"), true)
-  assertEqual(S:ReadPath(root, "settings.nope.enabled"), nil)
-  assertEqual(S:ReadPath(root, "settings.auction.enabled.deeper"), nil,
-    "walking through a non-table returns nil rather than erroring")
-end)
-
-test("Schema.WritePath creates the intermediate tables it needs", function()
-  local root = {}
-  S:WritePath(root, "a.b.c", 42)
-  assertEqual(root.a.b.c, 42)
-end)
-
-test("Schema.WritePath replaces a non-table sitting in the way", function()
-  local root = { a = "scalar" }
-  S:WritePath(root, "a.b", 1)
-  assertEqual(root.a.b, 1)
-end)
-
 -- ── Get / Set / Default ────────────────────────────────────────────────────────
 
 test("Schema.Set refuses an unknown path and reports why", function()
@@ -541,8 +520,8 @@ test("Schema.Set stores a deep copy, never a reference to the caller's table", f
   local live = { KILL = true }
   S:Set("settings.excludedSources", live)
   live.AH = true   -- a later mutation of the caller's table must not reach the DB
-  assertEqual(NS.db.global.settings.excludedSources.AH, nil)
-  assertEqual(NS.db.global.settings.excludedSources.KILL, true)
+  assertEqual(NS.db.profile.settings.excludedSources.AH, nil)
+  assertEqual(NS.db.profile.settings.excludedSources.KILL, true)
   S:Set("settings.excludedSources", {})
 end)
 
@@ -868,7 +847,9 @@ end)
 --- A degraded namespace with a store seeded from its own shipped defaults, the way AceDB would.
 local function degradedWithStore()
   local ns = dofile("tests/degraded_env.lua")()
-  ns.db = { global = NS.Util.DeepCopy(ns.defaults.global) }
+  -- AceDB is vendored beside the addon, not inside LibKa0s, so a degraded install still has a real
+  -- profile store: the kit's AceDB fake, over a fresh SavedVariables table.
+  ns.db = T.mocks.LibStub("AceDB-3.0"):New({}, ns.defaults, true)
   return ns
 end
 
@@ -910,20 +891,20 @@ test("seam: on the degraded build a write lands, is copied, reacts, and an unkno
     local live = { KILL = true }
     assertEqual(ns.Schema:Set("settings.excludedSources", live), true)
     live.AH = true
-    assertEqual(ns.db.global.settings.excludedSources.KILL, true, "the write landed")
-    assertEqual(ns.db.global.settings.excludedSources.AH, nil, "as a copy")
+    assertEqual(ns.db.profile.settings.excludedSources.KILL, true, "the write landed")
+    assertEqual(ns.db.profile.settings.excludedSources.AH, nil, "as a copy")
     assertTrue(got == live, "onChange got the value as given")
     local ok, err = ns.Schema:Set("settings.nosuchthing", 1)
     assertEqual(ok, false)
     assertEqual(err, "unknown path: settings.nosuchthing")
-    assertEqual(ns.db.global.settings.nosuchthing, nil, "and nothing was stored")
+    assertEqual(ns.db.profile.settings.nosuchthing, nil, "and nothing was stored")
   end)
 
 test("seam: on the degraded build the runtime readers read the store", function()
   local ns = degradedWithStore()
-  assertEqual(ns.Schema:Get("settings.rowHeight"), ns.defaults.global.settings.rowHeight)
+  assertEqual(ns.Schema:Get("settings.rowHeight"), ns.defaults.profile.settings.rowHeight)
   assertFalse(ns.AddonIsOff(), "enabled by default")
-  ns.db.global.settings.enabled = false
+  ns.db.profile.settings.enabled = false
   assertTrue(ns.AddonIsOff(), "core/LifecycleSetup.lua reads the switch through the seam")
 end)
 
@@ -941,7 +922,7 @@ test("seam: on the degraded build ApplyDefault restores, and spares an exempt ro
     -- The exemption is exercised on a row the degraded build HAS, by naming it in the same
     -- RESET_EXEMPT table the seam reads, and restored before asserting.
     local ns = degradedWithStore()
-    local S2, g = ns.Schema, ns.db.global
+    local S2, g = ns.Schema, ns.db.profile
     local q, c = S2:FindRow("settings.qualityThreshold"), S2:FindRow("settings.recordCurrency")
     g.settings.qualityThreshold, g.settings.recordCurrency = 4, false
     S2.RESET_EXEMPT[c.path] = c.path   -- row path -> stored path; the same here
@@ -955,19 +936,19 @@ test("seam: on the degraded build ApplyDefault restores, and spares an exempt ro
     S2:ApplyDefault(c)
     S2.RESET_EXEMPT[c.path] = nil
     if not ok then error(err, 0) end
-    assertEqual(g.settings.qualityThreshold, ns.defaults.global.settings.qualityThreshold)
+    assertEqual(g.settings.qualityThreshold, ns.defaults.profile.settings.qualityThreshold)
     assertEqual(sweptC, false, "a sweep never resets an exempt row (launcher-3)")
     assertEqual(g.settings.recordCurrency, true, "a named reset still does")
   end)
 
-test("seam: on the degraded build Reset all settings keeps the hidden minimap button", function()
+test("seam: on the degraded build the reset resets the profile and keeps the hidden minimap button", function()
+  -- The global reset is AceDB's ResetProfile on this path too; the button's table is global.
   local ns = degradedWithStore()
-  local g = ns.db.global
-  g.settings.qualityThreshold = 4
-  g.minimap.hide = true
-  ns.Slash:ResetEverything()
-  assertEqual(ns.db.global.settings.qualityThreshold, ns.defaults.global.settings.qualityThreshold)
-  assertEqual(ns.db.global.minimap.hide, true, "carried across the wipe through ReadPath/WritePath")
+  ns.db.profile.settings.qualityThreshold = 4
+  ns.db.global.minimap.hide = true
+  ns.Slash:CliResetAll()
+  assertEqual(ns.db.profile.settings.qualityThreshold, ns.defaults.profile.settings.qualityThreshold)
+  assertEqual(ns.db.global.minimap.hide, true, "the profile reset cannot reach the global table")
 end)
 
 test("seam: on the degraded build the boot check passes", function()
@@ -977,7 +958,7 @@ end)
 
 test("seam: on the degraded build the boot check skips a row that owns its storage", function()
   -- The host stub's R.Validate takes the same skip as the library's: a row with its own get AND
-  -- set is not looked up in defaults/Global.lua. The degraded build composes no minimap row, so the
+  -- set is not looked up in defaults/Profile.lua. The degraded build composes no minimap row, so the
   -- shape is probed with a row of its own, pulled before asserting.
   -- red under: a stub Validate that calls defaultsRoot without the row, or ignores its answer.
   local ns = degradedWithStore()
@@ -1002,12 +983,11 @@ test("seam: the live runtime is the library's, and the host names reach it", fun
   if not ok then error(err, 0) end
   assertEqual(hit, "settings.recordCurrency", "NS.Schema:Set delegates to the runtime's Set")
   assertTrue(S.BulkBegin == R.BulkBegin and S.BulkEnd == R.BulkEnd, "the bracket is the runtime's")
-  assertTrue(S.SameValue == lib.SameValue, "and so is the stored-value equality")
   assertTrue(R.AllRows() == S.Schema, "the rows are held by reference, never copied")
 end)
 
 test("seam: a write with no store yet is refused, not raised", function()
-  -- Before InitDB there is no db.global. The old seam indexed nil and raised; the runtime's root
+  -- Before InitDB there is no db.profile. The old seam indexed nil and raised; the runtime's root
   -- resolver answers `nil, 1`, which it reads as "nowhere, now".
   local saved = NS.db
   NS.db = nil
@@ -1018,7 +998,7 @@ test("seam: a write with no store yet is refused, not raised", function()
   assertEqual(a, false)
   assertTrue(type(b) == "string" and b:find("settings.recordCurrency", 1, true) ~= nil, tostring(b))
   assertEqual(got, nil, "and a read answers nil")
-  assertEqual(NS.db.global.settings.recordCurrency, true, "nothing reached the real store")
+  assertEqual(NS.db.profile.settings.recordCurrency, true, "nothing reached the real store")
 end)
 
 test("seam: a bracket counts a closure row's READ-BACK, so a write that did not move counts 0", function()
@@ -1075,7 +1055,7 @@ test("seam: on the degraded build the boot check still reports a typo'd path, in
   ns.Print = savedPrint
   assertEqual(n, 1)
   assertEqual(table.concat(printed, " | "),
-    "schema path does not resolve against defaults/Global.lua: settings.nosuchbranch.typo")
+    "schema path does not resolve against defaults/Profile.lua: settings.nosuchbranch.typo")
 end)
 
 -- ── Keep history for: a shorter retention asks before it deletes (LootHistory-R-04) ─────────────
@@ -1090,15 +1070,15 @@ end)
 --- 30-day retention, with StaticPopup_Show spied. History, the setting, the confirmed value, the
 --- mock and the print record are all restored before anything raises.
 local function withRetentionFixture(fn)
-  local M, g = T.mocks, NS.db.global
-  local savedHistory, savedDays, savedShow = g.history, g.settings.retentionDays, M.StaticPopup_Show
+  local M, g, p = T.mocks, NS.db.global, NS.db.profile
+  local savedHistory, savedDays, savedShow = g.history, p.settings.retentionDays, M.StaticPopup_Show
   local now, day = os.time(), 86400
   g.history = {
     { ts = now - 40 * day, itemID = 1 }, { ts = now - 20 * day, itemID = 2 },
     { ts = now - 10 * day, itemID = 3 }, { ts = now - 2 * day, itemID = 4 },
     { ts = now - 3600, itemID = 5 },
   }
-  g.settings.retentionDays = 30
+  p.settings.retentionDays = 30
   S:SyncRetention()
   local shown = {}
   M.StaticPopup_Show = function(which, a1, a2, data)
@@ -1106,7 +1086,7 @@ local function withRetentionFixture(fn)
   end
   M.__resetPrinted()
   local ok, err = pcall(fn, shown)
-  g.history, g.settings.retentionDays, M.StaticPopup_Show = savedHistory, savedDays, savedShow
+  g.history, p.settings.retentionDays, M.StaticPopup_Show = savedHistory, savedDays, savedShow
   S:SyncRetention()
   if not ok then error(err, 0) end
 end
@@ -1132,7 +1112,7 @@ test("Retention: accepting the prune confirm deletes the older records", functio
     assertEqual(dlg.timeout, 0); assertTrue(dlg.whileDead and dlg.hideOnEscape and dlg.showAlert)
     dlg.OnAccept(nil, { days = 7 })
     assertEqual(#NS.db.global.history, 2)
-    assertEqual(NS.db.global.settings.retentionDays, 7)
+    assertEqual(NS.db.profile.settings.retentionDays, 7)
   end)
 end)
 
@@ -1141,7 +1121,7 @@ test("Retention: declining restores the confirmed value, keeps every record, pri
     S:Set("settings.retentionDays", 7)
     T.mocks.__resetPrinted()
     T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnCancel(nil, { days = 7 })
-    assertEqual(NS.db.global.settings.retentionDays, 30, "the previous retention was not restored")
+    assertEqual(NS.db.profile.settings.retentionDays, 30, "the previous retention was not restored")
     assertEqual(#NS.db.global.history, 5, "declining deleted records")
     assertEqual(#shown, 1, "writing the old value back must not raise a second confirm")
     local printed = T.mocks.__printed()
@@ -1155,9 +1135,9 @@ test("Retention: accepting applies the agreed value even when the store has move
   -- red under: an accept that pruned to whatever the store held and only recorded `days`.
   withRetentionFixture(function()
     S:Set("settings.retentionDays", 7)
-    NS.db.global.settings.retentionDays = 90
+    NS.db.profile.settings.retentionDays = 90
     T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnAccept(nil, { days = 7 })
-    assertEqual(NS.db.global.settings.retentionDays, 7, "the store does not hold the agreed value")
+    assertEqual(NS.db.profile.settings.retentionDays, 7, "the store does not hold the agreed value")
     assertEqual(#NS.db.global.history, 2, "the prune did not run at the agreed value")
   end)
 end)
@@ -1172,10 +1152,10 @@ test("Retention: re-showing the confirm over an open one does not run the declin
     T.mocks.__resetPrinted()
     local dlg = T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE
     dlg.OnCancel(nil, { days = 7 }, "override")
-    assertEqual(NS.db.global.settings.retentionDays, 14, "the override restored the old value")
+    assertEqual(NS.db.profile.settings.retentionDays, 14, "the override restored the old value")
     assertEqual(#T.mocks.__printed(), 0, "the override printed a decline line")
     dlg.OnAccept(nil, { days = 14 })
-    assertEqual(NS.db.global.settings.retentionDays, 14)
+    assertEqual(NS.db.profile.settings.retentionDays, 14)
     assertEqual(#NS.db.global.history, 3, "the prune did not run at 14 days")
   end)
 end)

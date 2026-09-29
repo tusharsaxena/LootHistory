@@ -283,11 +283,11 @@ test("BrowserTable.RenderSummary is a single coalesced line", function()
 end)
 
 test("BrowserTable: auction column shows the picked price from the map", function()
-  NS.db.global.settings.auction = { enabled = true, priority = { "tsm:dbmarket" } }
+  NS.db.profile.settings.auction = { enabled = true, priority = { "tsm:dbmarket" } }
   assertEqual(cell("auction", { auctionPrice = { tsm = { dbmarket = 12345 } } }),
     NS.Util.FormatMoney(12345))
   assertEqual(cell("auction", {}), "")
-  NS.db.global.settings.auction = nil
+  NS.db.profile.settings.auction = nil
 end)
 
 test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1220)", function()
@@ -655,7 +655,7 @@ test("BrowserTable: the shipped row height is still the literal it replaced", fu
   -- is redrawn by a change nobody asked for.
   NS.Schema:Set("settings.rowHeight", NS.Schema:Default("settings.rowHeight"))
   assertEqual(NS.BrowserTable.RowHeight(), 18)
-  assertEqual(NS.defaults.global.settings.rowHeight, 18, "and the shipped mirror agrees")
+  assertEqual(NS.defaults.profile.settings.rowHeight, 18, "and the shipped mirror agrees")
 end)
 
 test("BrowserTable: the clamp's bounds ARE the slider's bounds", function()
@@ -703,9 +703,9 @@ test("BrowserTable: a corrupt row height falls back to the shipped one, never to
   -- `Schema:Set` validates nothing about type here, and an older profile can hold anything. A nil
   -- or a string reaching SetHeight raises inside a layout pass and takes the whole table down.
   local restore = NS.Schema:Get("settings.rowHeight")
-  NS.Schema:WritePath(NS.db.global, "settings.rowHeight", "tall")
+  NS.SchemaLib.Write(NS.db.profile, "settings.rowHeight", "tall")
   assertEqual(NS.BrowserTable.RowHeight(), 18)
-  NS.Schema:WritePath(NS.db.global, "settings.rowHeight", nil)
+  NS.SchemaLib.Write(NS.db.profile, "settings.rowHeight", nil)
   assertEqual(NS.BrowserTable.RowHeight(), 18)
   NS.Schema:Set("settings.rowHeight", restore)
 end)
@@ -721,7 +721,7 @@ end)
 --- leaves test mode off and the window closed.
 local function withTestMode(fn)
   local BT, B = NS.BrowserTable, NS.Browser
-  local s = NS.db.global.settings
+  local s = NS.db.profile.settings
   local savedVis, savedCombat = s.visibility, T.mocks.__inCombat
   local savedGroup, savedFilter = BT.groupBy, BT.filter
   local lines, refreshes = {}, 0
@@ -819,7 +819,7 @@ end)
 test("Test mode: a refused start prints one line and leaves the box unticked", function()
   withTestMode(function(lines, refreshes)
     -- The General visibility setting forbids the window, so the preview could not be seen.
-    NS.db.global.settings.visibility = "never"
+    NS.db.profile.settings.visibility = "never"
     local n, before = #lines, refreshes()
     NS.Schema:Set("state.testMode", true)
     assertFalse(NS.BrowserTable.testMode, "a start the window cannot show went ahead invisibly")
@@ -843,7 +843,7 @@ test("Test mode: a start in combat is refused from the player's combat flag, not
   -- PLAYER_REGEN_DISABLED, and only UnitAffectingCombat("player") says the player is fighting.
   -- red under: testModeRefusal reading InCombatLockdown().
   withTestMode(function(lines)
-    NS.db.global.settings.visibility = "always"
+    NS.db.profile.settings.visibility = "always"
     T.mocks.__inCombat = true
     assertFalse(T.mocks.InCombatLockdown(), "the case needs the lockdown flag false")
     local n = #lines
@@ -856,18 +856,15 @@ end)
 
 test("Test mode: Reset all settings and /lh resetall both end it", function()
   -- options-ui-§15: the mode is "ended by Reset all settings (the row declares default = false)".
-  -- The Master controls button runs Sl:ResetEverything, a wholesale db.global wipe that never
-  -- walks the session-only rows, so it ends test mode itself; `/lh resetall` walks every row and
-  -- restores this one to its default.
+  -- Both are the ONE reset act (Sl:CliResetAll): the library's RestoreAllDefaults restores the
+  -- session-only rows row by row -- this one among them -- before it resets the profile. The
+  -- button reaches it through its confirm's Yes, the verb directly.
   withTestMode(function()
-    local g = NS.db.global
-    local saved = {}
-    for k, v in pairs(g) do saved[k] = v end
+    local p = NS.db.profile
+    local saved = NS.Util.DeepCopy(p)
     NS.Schema:Set("state.testMode", true)
-    local ok, err = pcall(NS.Slash.ResetEverything, NS.Slash)
+    local ok, err = pcall(T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"].OnAccept)
     local after = NS.BrowserTable.testMode
-    for k in pairs(g) do g[k] = nil end
-    for k, v in pairs(saved) do g[k] = v end
     if not ok then error(err, 0) end
     assertFalse(after, "Reset all settings left test mode on")
     assertEqual(NS.Schema:Get("state.testMode"), false)
@@ -876,5 +873,7 @@ test("Test mode: Reset all settings and /lh resetall both end it", function()
     NS.Slash:CliResetAll()
     assertFalse(NS.BrowserTable.testMode, "/lh resetall left test mode on")
     assertEqual(NS.Schema:Get("state.testMode"), false)
+    for k in pairs(p) do p[k] = nil end
+    for k, v in pairs(saved) do p[k] = v end
   end)
 end)

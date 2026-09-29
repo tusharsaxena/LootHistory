@@ -97,14 +97,14 @@ end
 local function SaveWindow()
   if not frame then return end
   local point, _, _, x, y = frame:GetPoint(1)
-  NS.db.global.settings.window = {
+  NS.db.profile.settings.window = {
     point = point, x = x, y = y,
     w = frame:GetWidth(), h = frame:GetHeight(),
   }
 end
 
 local function RestoreWindow()
-  local w = NS.db and NS.db.global.settings.window
+  local w = NS.db and NS.db.profile.settings.window
   frame:ClearAllPoints()
   if w and w.point then
     frame:SetPoint(w.point, UIParent, w.point, w.x or 0, w.y or 0)
@@ -246,7 +246,7 @@ local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
 -- session-only default of "current player"). This is the stock/reset baseline; the user's
--- saved view lives in NS.db.global.savedView. `date` stores the range option (not an absolute
+-- saved view lives in the profile, NS.db.profile.savedView. `date` stores the range option (not an absolute
 -- `from`) so it recomputes correctly on each load.
 local STOCK_VIEW = {
   groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
@@ -254,7 +254,7 @@ local STOCK_VIEW = {
   date = "all", bound = "all", search = "",
 }
 local function savedViewOrStock()
-  local v = NS.db and NS.db.global and NS.db.global.savedView
+  local v = NS.db and NS.db.profile and NS.db.profile.savedView
   if type(v) == "table" then return v end
   return STOCK_VIEW
 end
@@ -659,33 +659,49 @@ function B:ApplyView(view, scope)
   end
 end
 
--- Save the current view as the account-wide default; Reset drops it back to stock.
+-- Save the current view as this profile's default; Reset drops it back to stock.
 function B:SaveView()
-  if NS.db and NS.db.global then
-    NS.db.global.savedView = self:CaptureView()
+  if NS.db and NS.db.profile then
+    NS.db.profile.savedView = self:CaptureView()
     print("view saved as default.")
   end
 end
--- Drop the saved view back to stock. `silent` suppresses the chat line when called programmatically
--- (the destructive "Reset Everything" prints its own single confirmation) — the filter-bar Reset button
--- calls it with no argument and keeps the message.
+-- Drop the saved view back to stock. `silent` suppresses the chat line when called programmatically;
+-- the filter-bar Reset button calls it with no argument and keeps the message.
 function B:ResetView(silent)
-  if NS.db and NS.db.global then NS.db.global.savedView = nil end
+  if NS.db and NS.db.profile then NS.db.profile.savedView = nil end
   self:ApplyView(STOCK_VIEW, "current")
   if not silent then print("view reset to stock defaults.") end
 end
 
 -- Reset the persisted window geometry (named non-setting state, see the NOTE above SaveWindow) and recenter the
--- live frame. Reached from the Master controls "Reset position" button and from "Reset all settings" —
--- window position is runtime state, so the non-destructive settings resets deliberately leave it alone.
+-- live frame. Reached from the Master controls "Reset position" button. "Reset all settings" does not
+-- call it: the geometry lives in the profile, and the profile reset brings it back (options-ui-§12).
 function B:ResetWindow()
-  if NS.db and NS.db.global and NS.db.global.settings then
-    NS.db.global.settings.window = {}
+  if NS.db and NS.db.profile and NS.db.profile.settings then
+    NS.db.profile.settings.window = {}
   end
   if frame then
     frame:ClearAllPoints()
     RestoreWindow()   -- empty geometry → RestoreWindow centers the frame
   end
+end
+
+--- The History window's half of the profile adopt path (NS.OnProfileEvent, core/LootHistory.lua).
+--- Everything the window draws from the profile is re-read from the NEW one: its geometry, its
+--- saved view (or the stock view when the profile has none), its row height and its chrome. A
+--- window that was never built has nothing to re-read; its first build reads the new profile.
+--- Test mode keeps its stock view: the preview is session state, not the profile's.
+function B:AdoptProfile()
+  if not frame then return end
+  frame:ClearAllPoints()
+  RestoreWindow()
+  if not (NS.BrowserTable and NS.BrowserTable.testMode) then
+    self:ApplyView(savedViewOrStock(), "current")
+  end
+  if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
+  B:ApplyChrome(frame, NS.db.profile.settings.windowScale)
+  B:ApplyVisibility()
 end
 
 -- Clear returns the filters/group/sort to the saved default (or stock), and the player scope
@@ -1081,7 +1097,7 @@ local function EnsureFrame()
 
   B:ApplySkin(frame)
   RestoreWindow()
-  B:ApplyChrome(frame, NS.db and NS.db.global.settings.windowScale)
+  B:ApplyChrome(frame, NS.db and NS.db.profile.settings.windowScale)
   frame:Hide()
 
   if type(UISpecialFrames) == "table" then
@@ -1104,7 +1120,7 @@ end
 
 --- The addon-wide scale, alpha and lock, with the shipped values as the floor.
 function B:MasterChrome()
-  local s = (NS.db and NS.db.global and NS.db.global.settings) or {}
+  local s = (NS.db and NS.db.profile and NS.db.profile.settings) or {}
   return s.scale or 1.0, s.alpha or 1.0, s.locked and true or false
 end
 
@@ -1138,8 +1154,8 @@ function B:VisibilityAllows(inCombat)
   -- running while it claims to be off. Refusing here means every route into the window -- the verb,
   -- the minimap click, the tab restore, the visibility dropdown -- answers no from one place.
   if NS.IsStoodDown and NS.IsStoodDown() then return false end
-  local mode = (NS.db and NS.db.global and NS.db.global.settings
-                and NS.db.global.settings.visibility) or "always"
+  local mode = (NS.db and NS.db.profile and NS.db.profile.settings
+                and NS.db.profile.settings.visibility) or "always"
   if mode == "never"  then return false end
   if mode == "always" then return true end
   -- A display decision, so never the combat-lockdown flag (events-frames-taint-§2):
@@ -1209,7 +1225,7 @@ end
 -- exists. The export modal is reached from here rather than from a bus target of its own: it is
 -- built lazily and may not exist, and E:Open re-applies on every open regardless.
 function B:OnSettingsChanged()
-  B:ApplyChrome(frame, NS.db.global.settings.windowScale)
+  B:ApplyChrome(frame, NS.db.profile.settings.windowScale)
   if NS.Export and NS.Export.ApplyChrome then NS.Export:ApplyChrome() end
   B:ApplyVisibility()
   -- The MINIMAP BUTTON is deliberately not re-applied here any more. It is the Master controls

@@ -90,7 +90,7 @@ cut out of a longer trace by tag alone.
 |---|---|
 | (begin) | `==== Ka0s Loot History diagnostics begin ====` |
 | library header | The `[Init]` summary line (above); the client's version, build, date and interface from `GetBuildInfo()`; the locale; the logging flag; `InCombatLockdown` and `UnitAffectingCombat("player")`; the **running** LibKa0s minors, file by file, which under LibStub may come from another addon's vendored copy |
-| identity | Brand, version and folder; the stored and code schema versions; `profile: account-wide` (everything lives under `db.global`); `enabled`, `stoodDown` and `testMode` |
+| identity | Brand, version and folder; the stored and code schema versions; the active profile, `profile: '<name>' (settings per profile; history account-wide)`; `enabled`, `stoodDown` and `testMode` |
 | patterns | How many of the client globals the self-loot and self-currency patterns are built from are present, and which are missing; whether the roll-won global is present. Read by name, so no pattern set is built or cached by the report |
 | lifecycle | The Lifecycle holds, whether the addon is stood down, and whether the latch is `LibKa0s-Lifecycle-1.0` or the local fallback |
 | capture | Whether the Collector and Attribution are wired and how many events Attribution holds; while stood down, one line saying the loot, currency and context events are unregistered. Then the rejected events, the same list `/lh debug events` prints |

@@ -1,8 +1,12 @@
 local _, NS = ...
 
--- AceDB init. Account-wide: all history + settings live in NS.db.global.
+-- AceDB init. Two scopes: the loot history (recorded data) is account-wide in NS.db.global, and
+-- every setting is profile-scoped in NS.db.profile (docs/schema.md, docs/profiles.md). The `true`
+-- names the shared `Default` profile, so a character starts on it until the Profiles page moves it.
 function NS:InitDB()
   NS.db = LibStub("AceDB-3.0"):New("LootHistoryDB", NS.defaults, true)
+  -- BEFORE anything reads db.profile (savedvariables-§1): the v8->v9 step writes the stored
+  -- settings into the raw `Default` profile, and AceDB merges the defaults in on that first read.
   NS:RunMigrations()   -- normalize the persisted schema before any history read
 end
 
@@ -12,10 +16,65 @@ local function migrateLog(from, to, n)
   if NS.State.debug and NS.Debug then NS.Debug("Migrate", "%s", NS.MigrationSummary(from, to, n)) end
 end
 
+-- The v8->v9 move: every key the profile now owns, lifted out of the account-wide store. The
+-- settings block, the three id filter lists and the saved view are what the player CONFIGURED;
+-- `history`, the repair bookkeeping and LibDBIcon's `minimap` table stay where they are.
+local MOVED_TO_PROFILE = { "settings", "blacklist", "whitelist", "currencyBlacklist", "savedView" }
+
+-- The profile every character used before profiles existed: InitDB has always passed `true`, which
+-- maps each character to AceDB's shared `Default`, and nothing could move one off it.
+local LEGACY_PROFILE = "Default"
+
+-- Lay `src` over `dest`, key by key, so a value the account stored wins and a key it never stored
+-- keeps whatever `dest` already holds. A stored scalar or a stored table that `dest` lacks is moved
+-- across as it stands; two tables are merged. Every value in `src` came off disk, so no table here
+-- is shared with NS.defaults.
+local function layOver(dest, src)
+  for k, v in pairs(src) do
+    if type(v) == "table" and type(dest[k]) == "table" then
+      layOver(dest[k], v)
+    else
+      dest[k] = v
+    end
+  end
+end
+
+-- The v8->v9 step's body: copy each stored settings value from db.global into the `Default`
+-- profile (created if absent), then clear it from global. Reads the RAW SavedVariables through
+-- `db.sv`, because the runner runs before anything has read db.profile. Answers the number of keys
+-- moved; a second run finds nothing left in global and moves none.
+local function moveSettingsToProfile(g)
+  local sv = NS.db and NS.db.sv
+  if type(sv) ~= "table" then return 0 end
+  sv.profiles = sv.profiles or {}
+  local n = 0
+  for _, key in ipairs(MOVED_TO_PROFILE) do
+    local v = g[key]
+    if v ~= nil then
+      local dest = sv.profiles[LEGACY_PROFILE] or {}
+      sv.profiles[LEGACY_PROFILE] = dest
+      if type(v) == "table" and type(dest[key]) == "table" then
+        layOver(dest[key], v)
+      else
+        dest[key] = v
+      end
+      g[key] = nil
+      n = n + 1
+    end
+  end
+  return n
+end
+
 -- The schema-upgrade chain, in ascending order — one entry per step, `to` being the version the
 -- step stamps once it has run. Each `apply(g)` mutates db.global in place and returns the number
 -- of rows it touched (for the [Migrate] line). Array order IS the run order: a step sees every
 -- earlier step's output, so entries are appended, never reordered.
+--
+-- Every step here is ACCOUNT-WIDE: each one runs once, against db.global, before anything has read
+-- a profile. The v6 and v8 steps reshape `savedView` while it still lives in global, and v9 is the
+-- step that moves it. No step is profile-scoped (savedvariables-§1), so a profile created, copied
+-- or switched to later has nothing to be carried through; the profile events' adopt path
+-- (core/LootHistory.lua) is where one would run if a step ever needs it.
 local MIGRATIONS = {
   -- v1 -> v2: point-in-time filtering (removed soft-add/soft-delete). Strip the retired
   -- per-record `viaWhitelist` flag; rows are never hidden/resurrected after capture. Non-
@@ -114,6 +173,11 @@ local MIGRATIONS = {
     end
     return n
   end },
+
+  -- v8 -> v9: profiles (D5, settings only). Every setting, the three id filter lists and the saved
+  -- view move from db.global into the `Default` profile every character was already on; the loot
+  -- history and its repair bookkeeping stay account-wide. The row count is the keys moved.
+  { to = 9, apply = function(g) return moveSettingsToProfile(g) end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated
@@ -734,7 +798,7 @@ local function fireHistoryChanged()
 end
 
 -- Public HistoryChanged emitter for non-Database owners of a visible-history change (the
--- blacklist/whitelist lists in NS.Filters call this after mutating db.global). Keeps Database the
+-- blacklist/whitelist lists in NS.Filters call this after mutating the profile). Keeps Database the
 -- single sending module for this message (message-bus's one-sender-per-message invariant).
 function Database:FireHistoryChanged()
   fireHistoryChanged()
@@ -823,12 +887,13 @@ function Database:CountOlderThan(days)
   return n
 end
 
--- Retention cleanup. Drops records older than settings.retentionDays (0 == Never).
+-- Retention cleanup. Drops records older than the ACTIVE PROFILE's settings.retentionDays (0 ==
+-- Never): the setting is profile-scoped, the history it prunes is account-wide.
 -- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it removes
 -- rows; a prune that removes nothing leaves the store untouched and fires nothing (the login
 -- prune over a fresh history must not make the Browser rebuild).
 function Database:PruneOld()
-  local days = NS.db.global.settings.retentionDays
+  local days = NS.db.profile.settings.retentionDays
   if not days or days == 0 then return 0 end
   local cutoff = time() - days * 86400
   local history = NS.db.global.history

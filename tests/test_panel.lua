@@ -381,7 +381,7 @@ test("Panel: clicking a checkbox writes through NS.Schema:Set", function()
   NS.Schema:Set("settings.enabled", true)
   cb:__fire("OnValueChanged", false)
   assertEqual(NS.Schema:Get("settings.enabled"), false, "the click must reach the write seam")
-  assertEqual(NS.db.global.settings.enabled, false, "and land in db.global")
+  assertEqual(NS.db.profile.settings.enabled, false, "and land in db.global")
   cb:__fire("OnValueChanged", true)
   assertEqual(NS.Schema:Get("settings.enabled"), true)
 end)
@@ -395,7 +395,7 @@ test("Panel: the Test mode checkbox starts test mode, and a refused start redraw
     local created = show(mocks.__subcategories["General"])
     local cb = findByLabel(created, "Test mode")
     assertTrue(cb ~= nil and cb.type == "CheckBox", "Test mode is not drawn as a checkbox")
-    local BT, s = NS.BrowserTable, NS.db.global.settings
+    local BT, s = NS.BrowserTable, NS.db.profile.settings
     local savedVis = s.visibility
     local cf = mocks.DEFAULT_CHAT_FRAME
     local oldAdd = cf.AddMessage
@@ -528,9 +528,10 @@ test("Panel: the General Defaults click is PAGE-wide — it reaches the id-lists
   function()
     -- options-ui-§13: a per-page Defaults button's blast radius must not narrow to the visible tab.
     -- Filters and AH Price are tabs of this page now, so what their own Defaults buttons used to
-    -- own — the three id-lists (a structural registry, cleared through NS.Filters) and the cascade
-    -- array (a ratified carve-out) — belongs to this one button; no schema row walk reaches either.
-    -- red under: dropping either half, which a schema-only reset would do silently.
+    -- own — the three id-lists (a structural registry) and the cascade array (a ratified
+    -- carve-out) — belongs to this one button. Neither has a schema row; both live in the profile,
+    -- and the button is options-ui-§12's profile reset, which is what reaches them.
+    -- red under: a schema-row walk, which would drop both halves silently.
     show(mocks.__subcategories["General"])
     NS.Filters:AddBlacklist(4242)
     NS.Schema:Set("settings.auction.capture", { ["tsm:dbmarket"] = true })
@@ -542,11 +543,9 @@ test("Panel: the General Defaults click is PAGE-wide — it reaches the id-lists
     assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "the id-lists are part of this page")
     assertEqual(NS.Schema:Get("settings.auction.capture")["auctionator:minbuyout"], true,
       "the capture set is a schema row and comes back with the rest")
-    -- The cascade is a ratified carve-out array with no schema row, so the walk cannot see it and
-    -- the handler resets it separately — in place, keeping the same table reference, because the
-    -- price table's closures hold it.
+    -- The cascade comes back with the profile. The price table re-reads it on every repaint
+    -- (refreshAuctionTable asks ReconcilePriority), so a new table is what it draws from.
     local after = NS.AuctionPrice:GetPriority()
-    assertTrue(after == priority, "reset in place: the table reference must not change")
     for i, tag in ipairs(NS.Constants.AUCTION_PRIORITY_DEFAULT) do
       assertEqual(after[i], tag, "cascade entry " .. i .. " was not restored")
     end
@@ -565,10 +564,11 @@ test("Panel: the General Defaults click does NOT move the window", function()
   assertEqual(moved, 0, "a page reset must not recenter the window as a side effect")
 end)
 
--- debug-logging-§10 (standard v2.44.0): the Defaults button is a bulk reset through the helper, so
--- it logs ONE `[Set] reset all: N rows` line and no per-row [Set]. It reaches the library's Slash
--- CliResetAll (P:RestoreDefaults), whose walk Slash minor 8 brackets; the Options major's own
--- RestoreDefaults is never called for this page, and the Blizzard footer forwards to the same click.
+-- debug-logging-§10: the Defaults button is options-ui-§12's profile reset (P:RestoreDefaults ->
+-- Sl:CliResetAll -> O.RestoreAllDefaults), so it logs ONE line, the profile event's
+-- `[Set] reset profile '<name>' to defaults (N rows)`, and no per-row [Set]. The Options major's
+-- page-scoped RestoreDefaults is never called for this page, and the Blizzard footer forwards to
+-- the same click.
 --- The [Set] lines `click` logs, and how many writes it sent through the seam. A fresh buffer for the
 --- act: the real one is capped and shifts when full, so an index taken before it can miss.
 local function setLinesDuring(click)
@@ -602,23 +602,22 @@ local function setLinesDuring(click)
   return lines, writes
 end
 
---- How many rows a BULK reset actually sends through the write seam. NOT `#NS.Schema.Schema`:
---- launcher-§3 (standard v2.54.0) exempts `minimap.shown` from every bulk reset, the page's Defaults
---- button included, so the walk skips it. Derived from `NS.Schema.RESET_EXEMPT` so the number
---- cannot drift from the veto.
+--- How many rows the reset sends through the write seam: the session-only rows alone, every stored
+--- row being the profile reset's (options-ui-§12). Derived from the shared veto so the number cannot
+--- drift from it.
 local function rowsThroughSeam()
   local n = 0
   for _, row in ipairs(NS.Schema.Schema) do
-    if not NS.Schema.RESET_EXEMPT[row.path] then n = n + 1 end
+    if not NS.Schema.VetoedFromResetAll(row) then n = n + 1 end
   end
   return n
 end
 
-test("Panel: the General Defaults click logs ONE [Set] reset all: N rows line and no per-row [Set]",
+test("Panel: the General Defaults click logs ONE [Set] reset profile line and no per-row [Set]",
   function()
     -- N is the rows whose stored value changed, so a second press on settings already at their
-    -- defaults logs `0 rows`. red under: an unbracketed walk, N taken from the library's `count`
-    -- (every row the walk reached), or a footer Defaults that walks the rows a second way.
+    -- defaults logs `0 rows`. red under: a schema walk (a `reset all` line), N taken from the
+    -- schema's size, or a footer Defaults that resets a second way.
     local panel = mocks.__subcategories["General"]
     show(panel)
     assertTrue(type(panel.OnDefault) == "function", "the Blizzard footer forwarder is on the panel")
@@ -629,14 +628,15 @@ test("Panel: the General Defaults click logs ONE [Set] reset all: N rows line an
       local lines, writes = setLinesDuring(click)
       assertEqual(#lines, 1, "exactly one [Set] line per Defaults click, got: "
         .. table.concat(lines, " | "))
-      assertEqual(writes, rowsThroughSeam(), "every unexempt row still goes through the seam")
-      assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil,
-        "the one line names the act, the scope and the two rows that changed: " .. lines[1])
+      assertEqual(writes, rowsThroughSeam(), "only the session-only rows go through the seam")
+      assertTrue(lines[1]:find("[Set] reset profile 'Default' to defaults (2 rows)", 1, true) ~= nil,
+        "the one line names the act, the profile and the two rows that changed: " .. lines[1])
 
       lines = setLinesDuring(click)
       assertEqual(#lines, 1, "a press on defaults still logs its one line, got: "
         .. table.concat(lines, " | "))
-      assertTrue(lines[1]:find("[Set] reset all: 0 rows", 1, true) ~= nil, lines[1])
+      assertTrue(lines[1]:find("[Set] reset profile 'Default' to defaults (0 rows)", 1, true) ~= nil,
+        lines[1])
     end
   end)
 
@@ -713,7 +713,7 @@ test("Panel: the cascade is a reorder list — a handle per draggable row, a box
     -- No provider addon is present in the harness, so every source partitions to "not installed":
     -- nothing is draggable and the boundary is zero. That IS the invariant — handles follow the
     -- collecting partition, never the row count.
-    local capture = NS.db.global.settings.auction.capture or {}
+    local capture = NS.db.profile.settings.auction.capture or {}
     local collecting = 0
     for _, tag in ipairs(NS.AuctionPrice:ReconcilePriority()) do
       local prov = tag:match("^(.-):")

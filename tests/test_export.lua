@@ -127,7 +127,7 @@ end)
 -- ── Insights CSV (issue #15) ─────────────────────────────────────────────────────
 -- Build a Stats result off a tiny known history so the analytics-CSV assertions are deterministic.
 local function insightsStats()
-  NS.db.global.blacklist = {}
+  NS.db.profile.blacklist = {}
   NS.db.global.history = {
     { ts = 1000, char = "A-Realm", itemID = 1, itemName = "Red, Potion",
       quality = 4, source = "KILL",      mapID = 10, zone = "Zone A", vendorPrice = 500, quantity = 1 },
@@ -163,15 +163,15 @@ test("Export: InsightsCSV quotes a label containing a comma", function()
 end)
 
 test("Export: InsightsCSV includes already-stored rows regardless of blacklist (point-in-time)", function()
-  NS.db.global.blacklist = {}
+  NS.db.profile.blacklist = {}
   NS.db.global.history = {
     { ts = 1, char = "A-Realm", itemID = 1, itemName = "Kept",   quality = 3, source = "KILL", quantity = 1 },
     { ts = 2, char = "A-Realm", itemID = 2, itemName = "Blacklisted after capture", quality = 3, source = "KILL", quantity = 1 },
   }
-  NS.db.global.blacklist = { [2] = true }
+  NS.db.profile.blacklist = { [2] = true }
   local csv = NS.Export:InsightsCSV(NS.Database:Stats({}))
   assertTrue(csv:find("Summary,Records,2,", 1, true) ~= nil, "both stored records still present")
-  NS.db.global.blacklist = {}
+  NS.db.profile.blacklist = {}
 end)
 
 test("Export: CSV emits a currency row with currencyID and blank item cells", function()

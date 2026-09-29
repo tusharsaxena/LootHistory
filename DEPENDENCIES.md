@@ -20,8 +20,11 @@ or a documented command. Nothing is listed on a hunch.
 player installs one addon and no dependencies. `LootHistory.toc:8` declares
 `## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0`
 — that line exists only to fix **load order** when a player happens to have those libraries as
-standalone addons; the copies under `libs/` (loaded at `LootHistory.toc:16-27`) are what the addon
-actually uses (`library-stack`). There is no `## Dependencies` line, and there must not be one.
+standalone addons; the copies under `libs/` (loaded at `LootHistory.toc:16-29`) are what the addon
+actually uses (`library-stack`). The Ace3 set includes AceConfig-3.0 (with its Registry, Cmd and
+Dialog parts) and AceDBOptions-3.0, which only the Profiles settings page uses (`options-ui-§3`,
+`settings/Profiles.lua`), copied from the same Ace3 release the rest of the collection vendors.
+There is no `## Dependencies` line, and there must not be one.
 
 ### Optional in-game integrations (addons, not tooling)
 

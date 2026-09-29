@@ -117,7 +117,7 @@ end)
 test("Collector: end-to-end drops a blacklisted item, records after un-blacklisting", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 1
+  NS.db.profile.settings.qualityThreshold = 1
   NS.Filters:AddBlacklist(211296)   -- the mock item id
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("KILL", nil, "CERTAIN")
@@ -168,7 +168,7 @@ end)
 test("Collector: whitelist records below threshold as a plain point-in-time row", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 5   -- mock item is quality 4 -> would drop
+  NS.db.profile.settings.qualityThreshold = 5   -- mock item is quality 4 -> would drop
   NS.Filters:AddWhitelist(211296)
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("KILL", nil, "CERTAIN")
@@ -186,7 +186,7 @@ test("Collector: whitelist records below threshold as a plain point-in-time row"
   assertEqual(NS.Database:Count(), before + 1)                 -- still stored
   assertEqual(#NS.Database:ActiveHistory(), before + 1)        -- still visible
 
-  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
   NS.Database:Purge()                          -- clean up the synthetic row
 end)
@@ -217,7 +217,7 @@ end)
 test("Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 1
+  NS.db.profile.settings.qualityThreshold = 1
   NS.Collector:RefreshUpvalues()
   -- A fresh, unrelated KILL context is present: the bonus-roll line must NOT inherit it — the loot
   -- string itself is the authoritative "this is a bonus roll" signal.
@@ -232,14 +232,14 @@ test("Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overridi
   assertEqual(r.confidence, "CERTAIN")
   assertEqual(r.itemID, 211296)
 
-  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
 test("Collector: end-to-end attributes a created line to CRAFT, overriding context", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 1
+  NS.db.profile.settings.qualityThreshold = 1
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("KILL", { npcID = 999 }, "CERTAIN")   -- stale, unrelated context
 
@@ -251,7 +251,7 @@ test("Collector: end-to-end attributes a created line to CRAFT, overriding conte
   assertEqual(r.sourceDetail, nil)
   assertEqual(r.confidence, "CERTAIN")
 
-  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
@@ -259,7 +259,7 @@ test("Collector: end-to-end attributes a refund line to REFUND", function()
   local mocks = T.mocks
   mocks.__now = 0
   NS.State.lootContext = nil
-  NS.db.global.settings.qualityThreshold = 1
+  NS.db.profile.settings.qualityThreshold = 1
   NS.Collector:RefreshUpvalues()
 
   local before = NS.Database:Count()
@@ -269,14 +269,14 @@ test("Collector: end-to-end attributes a refund line to REFUND", function()
   assertEqual(r.source, "REFUND")
   assertEqual(r.confidence, "CERTAIN")
 
-  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
 test("Collector: a roll-won line writes no record but stamps ROLL for the receive line", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 1
+  NS.db.profile.settings.qualityThreshold = 1
   NS.Collector:RefreshUpvalues()
   -- A stale KILL context is present; the roll-won stamp must supersede it for the receive line.
   NS.Attribution:Stamp("KILL", { npcID = 999 }, "CERTAIN")
@@ -293,7 +293,7 @@ test("Collector: a roll-won line writes no record but stamps ROLL for the receiv
   assertEqual(r.source, "ROLL")
   assertEqual(r.confidence, "CERTAIN")
 
-  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
@@ -303,8 +303,8 @@ test("Collector: end-to-end records a currency line as Type=Currency", function(
   local mocks = T.mocks
   mocks.__now = 0
   NS.State.lootContext = nil
-  NS.db.global.settings.qualityThreshold = 5   -- high: proves currency ignores the quality gate
-  NS.db.global.settings.recordCurrency = true
+  NS.db.profile.settings.qualityThreshold = 5   -- high: proves currency ignores the quality gate
+  NS.db.profile.settings.recordCurrency = true
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("MPLUS", { keystoneLevel = 12 }, "CERTAIN")
 
@@ -322,14 +322,14 @@ test("Collector: end-to-end records a currency line as Type=Currency", function(
   assertEqual(r.quality, 4)         -- currency quality now stored at capture (from C_CurrencyInfo mock)
   assertEqual(r.bound, "WARBAND")   -- 3008 is Warband-transferable -> bound stored at capture
 
-  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
 test("Collector: recordCurrency off drops currency", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.recordCurrency = false
+  NS.db.profile.settings.recordCurrency = false
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
 
@@ -337,15 +337,15 @@ test("Collector: recordCurrency off drops currency", function()
   NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED, CURRENCY_LINK))
   assertEqual(NS.Database:Count(), before)
 
-  NS.db.global.settings.recordCurrency = true   -- restore
+  NS.db.profile.settings.recordCurrency = true   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
 test("Collector: a muted source drops its currency too", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.recordCurrency = true
-  NS.db.global.settings.excludedSources = { MPLUS = true }
+  NS.db.profile.settings.recordCurrency = true
+  NS.db.profile.settings.excludedSources = { MPLUS = true }
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
 
@@ -353,15 +353,15 @@ test("Collector: a muted source drops its currency too", function()
   NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED, CURRENCY_LINK))
   assertEqual(NS.Database:Count(), before)
 
-  NS.db.global.settings.excludedSources = {}   -- restore
+  NS.db.profile.settings.excludedSources = {}   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
 test("Collector: a blacklisted currency is dropped, records after un-blacklisting", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.recordCurrency = true
-  NS.db.global.currencyBlacklist = {}
+  NS.db.profile.settings.recordCurrency = true
+  NS.db.profile.currencyBlacklist = {}
   NS.Filters:AddCurrencyBlacklist(3008)     -- the mock currency id
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
@@ -380,8 +380,8 @@ test("Collector: a currency refund line records as Type=Currency, source REFUND"
   local mocks = T.mocks
   mocks.__now = 0
   NS.State.lootContext = nil
-  NS.db.global.settings.recordCurrency = true
-  NS.db.global.settings.excludedSources = {}
+  NS.db.profile.settings.recordCurrency = true
+  NS.db.profile.settings.excludedSources = {}
   NS.Collector:RefreshUpvalues()
   -- The purchase left a fresh VENDOR stamp; the self-identifying refund line must override it
   -- (CERTAIN), not inherit VENDOR.
@@ -401,22 +401,22 @@ end)
 test("Collector: a muted REFUND source drops the refunded currency", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.recordCurrency = true
-  NS.db.global.settings.excludedSources = { REFUND = true }
+  NS.db.profile.settings.recordCurrency = true
+  NS.db.profile.settings.excludedSources = { REFUND = true }
   NS.Collector:RefreshUpvalues()
 
   local before = NS.Database:Count()
   NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.LOOT_ITEM_REFUND, CURRENCY_LINK))
   assertEqual(NS.Database:Count(), before)
 
-  NS.db.global.settings.excludedSources = {}   -- restore
+  NS.db.profile.settings.excludedSources = {}   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
 test("Collector: end-to-end drops loot below the quality threshold", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 5   -- Legendary+; mock item is quality 4
+  NS.db.profile.settings.qualityThreshold = 5   -- Legendary+; mock item is quality 4
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("KILL", nil, "CERTAIN")
 
@@ -424,7 +424,7 @@ test("Collector: end-to-end drops loot below the quality threshold", function()
   NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
   assertEqual(NS.Database:Count(), before)
 
-  NS.db.global.settings.qualityThreshold = 2   -- restore
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
 end)
 
@@ -432,7 +432,7 @@ test("Collector: end-to-end drops quest items when the filter is on", function()
   local mocks = T.mocks
   mocks.__now = 0
   mocks.__itemClassID = NS.Constants.ITEMCLASS_QUEST
-  NS.db.global.settings.excludeQuestItems = true
+  NS.db.profile.settings.excludeQuestItems = true
   NS.Collector:RefreshUpvalues()
   NS.Attribution:Stamp("KILL", nil, "CERTAIN")
 
@@ -441,7 +441,7 @@ test("Collector: end-to-end drops quest items when the filter is on", function()
   assertEqual(NS.Database:Count(), before)   -- quest item dropped
 
   -- restore: filter off, non-quest class → records again
-  NS.db.global.settings.excludeQuestItems = false
+  NS.db.profile.settings.excludeQuestItems = false
   mocks.__itemClassID = 0
   NS.Collector:RefreshUpvalues()
   NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
@@ -450,7 +450,7 @@ end)
 
 test("Schema: excludeQuestItems row exists, defaults true, settable", function()
   assertEqual(NS.Schema:Default("settings.excludeQuestItems"), true)
-  assertEqual(NS.defaults.global.settings.excludeQuestItems, true)
+  assertEqual(NS.defaults.profile.settings.excludeQuestItems, true)
   assertTrue(NS.Schema:Set("settings.excludeQuestItems", false))
   assertEqual(NS.Schema:Get("settings.excludeQuestItems"), false)
   NS.Schema:Set("settings.excludeQuestItems", true)   -- restore to default
@@ -463,8 +463,8 @@ end)
 test("Collector: live SettingsChanged refreshes the collector alongside another bus consumer", function()
   local mocks = T.mocks
   mocks.__now = 0
-  NS.db.global.settings.qualityThreshold = 1
-  NS.db.global.settings.excludeQuestItems = true    -- start ON: a stale cached flag would drop the item
+  NS.db.profile.settings.qualityThreshold = 1
+  NS.db.profile.settings.excludeQuestItems = true    -- start ON: a stale cached flag would drop the item
   NS.Collector._enabled = nil                       -- allow (re-)enable in the harness
   NS.Collector:Enable()                             -- collector caches excludeQuestItems = true
 
@@ -473,7 +473,7 @@ test("Collector: live SettingsChanged refreshes the collector alongside another 
   NS.bus:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function() browserGot = true end)
 
   -- Broadcast the change the way Schema:Set does (DB already written to false).
-  NS.db.global.settings.excludeQuestItems = false
+  NS.db.profile.settings.excludeQuestItems = false
   NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "questfilter")
 
   assertTrue(browserGot)                            -- the competing consumer still receives it

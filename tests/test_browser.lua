@@ -26,11 +26,11 @@ local FIXTURE = {
 -- Every option builder and the view helpers read the live dataset / db, so each case runs inside
 -- a park-and-restore. Test order must never matter.
 local function withFixture(records, fn)
-  local savedTest, savedView = NS.State.testRecords, NS.db.global.savedView
+  local savedTest, savedView = NS.State.testRecords, NS.db.profile.savedView
   local savedFilter, savedDd = B.activeFilter, B._dd
   NS.State.testRecords = records
   local ok, err = pcall(fn)
-  NS.State.testRecords, NS.db.global.savedView = savedTest, savedView
+  NS.State.testRecords, NS.db.profile.savedView = savedTest, savedView
   B.activeFilter, B._dd = savedFilter, savedDd
   if not ok then error(err, 0) end
 end
@@ -278,21 +278,21 @@ end)
 
 test("Browser: with no saved view, Clear falls back to the stock view", function()
   withFixture(FIXTURE, function()
-    NS.db.global.savedView = nil
+    NS.db.profile.savedView = nil
     assertEqual(B._savedViewOrStock(), B._stockView)
   end)
 end)
 
 test("Browser: a saved view wins over stock", function()
   withFixture(FIXTURE, function()
-    NS.db.global.savedView = { groupBy = "zone", sortKey = "ilvl" }
+    NS.db.profile.savedView = { groupBy = "zone", sortKey = "ilvl" }
     assertEqual(B._savedViewOrStock().groupBy, "zone")
   end)
 end)
 
 test("Browser: a corrupt (non-table) saved view degrades to stock rather than erroring", function()
   withFixture(FIXTURE, function()
-    NS.db.global.savedView = "garbage"
+    NS.db.profile.savedView = "garbage"
     assertEqual(B._savedViewOrStock(), B._stockView)
   end)
 end)
@@ -423,9 +423,9 @@ test("Browser.SaveView then ResetView clears the stored default", function()
     B._dd = nil
     B:ApplyView({ groupBy = "zone", date = "all" }, "all")
     B:SaveView()
-    assertEqual(NS.db.global.savedView.groupBy, "zone")
+    assertEqual(NS.db.profile.savedView.groupBy, "zone")
     B:ResetView(true)
-    assertEqual(NS.db.global.savedView, nil, "reset drops back to stock")
+    assertEqual(NS.db.profile.savedView, nil, "reset drops back to stock")
     assertEqual(NS.BrowserTable.groupBy, "none")
   end)
 end)
@@ -512,11 +512,11 @@ test("Browser: a preset that reports itself inactive does not name the selection
 end)
 
 test("Browser.ResetWindow empties the persisted geometry carve-out", function()
-  local saved = NS.db.global.settings.window
-  NS.db.global.settings.window = { x = 100, y = 200, width = 1400 }
+  local saved = NS.db.profile.settings.window
+  NS.db.profile.settings.window = { x = 100, y = 200, width = 1400 }
   B:ResetWindow()
-  assertEqual(next(NS.db.global.settings.window), nil)
-  NS.db.global.settings.window = saved
+  assertEqual(next(NS.db.profile.settings.window), nil)
+  NS.db.profile.settings.window = saved
 end)
 
 -- ── the RecordAdded repaint is coalesced (issue #27) ────────────────────────────────────────
@@ -563,7 +563,7 @@ end)
 -- rather than against the schema that declares it.
 
 local function withSettings(patch, fn)
-  local s = NS.db.global.settings
+  local s = NS.db.profile.settings
   local saved = {}
   for k, v in pairs(patch) do saved[k] = s[k]; s[k] = v end
   local ok, err = pcall(fn)

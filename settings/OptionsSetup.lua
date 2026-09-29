@@ -123,8 +123,8 @@ if not lib then
     -- product of a composer is DECLARATION -- rows that only a settings panel and a slash CLI read,
     -- and on this path both of those come from the same absent library. settings/Schema.lua
     -- therefore ships its Master controls block empty on a degraded install; every stored value it
-    -- declares still exists, because defaults/Global.lua is what AceDB merges and modules read
-    -- `NS.db.global.settings` directly (modules/Collector.lua, modules/Browser.lua) rather than
+    -- declares still exists, because defaults/Profile.lua is what AceDB merges and modules read
+    -- `NS.db.profile.settings` directly (modules/Collector.lua, modules/Browser.lua) rather than
     -- through Schema:Get.
     --
     -- MasterControls returns TWO values -- the rows and the afterGroup hook that draws the closing
@@ -183,10 +183,25 @@ NS.Options = lib:New({
   set          = function(path, v) NS.Schema:Set(path, v) end,
   -- ONE reset policy, shared with the Slash descriptor: Schema:ApplyDefault carries launcher-§3's
   -- one-row veto (keyed by the row path `minimap.shown`; the stored key stays `minimap.hide`), so
-  -- a page-scoped walk through this major cannot un-hide the minimap button either. Nothing calls O.RestoreDefaults / O.RestoreAllDefaults today — the General page's
-  -- Defaults click and the Blizzard footer both route to P:RestoreDefaults, which reaches
-  -- Sl:CliResetAll — which is exactly why this one has to AGREE with the other rather than restate it.
+  -- a walk through this major cannot un-hide the minimap button either.
   applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
+
+  -- RESET ALL SETTINGS IS A PROFILE RESET (options-ui-§12). Sl:CliResetAll (settings/Slash.lua) --
+  -- behind `/lh resetall`, the General page's Defaults button and the Master controls' Reset all
+  -- settings -- calls O.RestoreAllDefaults, which restores the session-only rows, then calls this:
+  -- AceDB empties the active profile, the defaults merge back, and OnProfileReset reaches the
+  -- adopt path (NS.OnProfileEvent, core/LootHistory.lua), which re-applies everything. The loot
+  -- history is account-wide and outside the profile.
+  resetProfile = function() NS.Schema.ResetProfile() end,
+  -- The Profiles sub-page ships (settings/Profiles.lua), so the Reset all settings tooltip names
+  -- the equivalence options-ui-§12 asks for: the same thing Profiles -> Reset Profile does.
+  profilesPage = true,
+  -- The veto, named once in settings/Schema.lua and shared with the library-less `/lh resetall`.
+  skipRestoreAll = function(row) return NS.Schema.VetoedFromResetAll(row) end,
+  -- The bulk bracket (debug-logging-§10): the session rows the walk restores write through the seam
+  -- muted, and a reset that reached the profile is logged ONCE, by the adopt path's [Set] line.
+  bulkBegin = function(act, scope) NS.Schema.BulkBegin(act, scope) end,
+  bulkEnd   = function(...) NS.Schema.BulkEnd(...) end,
 
   -- This addon has no per-unit or per-page filter, so `filter` is ignored. `pageKey` matches the
   -- row's `page` — the canvas subcategory — and NOT its `group`, which is now the TAB within that

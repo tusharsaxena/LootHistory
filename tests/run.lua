@@ -67,10 +67,13 @@ local SUITES = {
   "test_compat", "test_attribution",
   "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
   "test_browser", "test_browsertable", "test_export", "test_debuglog",
-  -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind, and
-  -- every Reset all settings below reaches LibDBIcon through NS.RefreshLauncher.
+  -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
+  -- suites after it, which bring the launcher up on a registered button.
   "test_launcher", "test_slash", "test_slash_degraded",
-  "test_schema", "test_schema_stub", "test_analytics", "test_panel", "test_panel_filters", "test_harness", "test_libka0s",
+  "test_schema", "test_schema_stub", "test_analytics", "test_panel", "test_panel_filters",
+  -- After the panel suites, which build the General page the adopt path refreshes; before
+  -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
+  "test_profiles", "test_harness", "test_libka0s",
   -- After test_libka0s and after test_debuglog, both deliberately. It shares the degraded
   -- environment with the first, and the second is what attaches the library's `_frameForTest`
   -- seams to the live DebugLog instance -- the ignore entries naming them describe the state this

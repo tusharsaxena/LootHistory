@@ -70,7 +70,10 @@ local TALLIES = {
   { "history: by bound",      "bound" },
 }
 
+-- The two scopes: the account-wide store (the history, its repair bookkeeping, the schema stamp,
+-- LibDBIcon's table) and the active profile (every setting, the id lists, the saved view).
 local function store() return NS.db and NS.db.global end
+local function profile() return NS.db and NS.db.profile end
 local function yn(v) return v and "yes" or "no" end
 
 --- `{ "NAME=n", ... }` for a tally table, keys sorted, for `out:joined`.
@@ -101,7 +104,8 @@ local function identity(out)
     NS.name)
   out:add(TAG, "identity: schema stored v%s, code v%s", g and g.schemaVersion or "?",
     NS.SCHEMA_VERSION)
-  out:add(TAG, "identity: profile: account-wide (this addon stores everything under db.global)")
+  out:add(TAG, "identity: profile: '%s' (settings per profile; history account-wide)",
+    NS.db and NS.db.GetCurrentProfile and NS.db:GetCurrentProfile() or "?")
   local BT = NS.BrowserTable
   out:add(TAG, "identity: enabled=%s stoodDown=%s testMode=%s",
     tostring(not NS.AddonIsOff()), tostring(NS.IsStoodDown()), tostring(BT and BT.testMode == true))
@@ -163,8 +167,8 @@ local function settings(out)
 end
 
 local function auction(out)
-  local g = store()
-  local a = g and g.settings and g.settings.auction or {}
+  local prof = profile()
+  local a = prof and prof.settings and prof.settings.auction or {}
   local keys = 0
   for _, on in pairs(type(a.capture) == "table" and a.capture or {}) do
     if on then keys = keys + 1 end
@@ -292,8 +296,8 @@ local function browser(out)
       BT.sortAsc and "asc" or "desc", BT.groupBy, BT.matchCount or "-",
       type(NS.State.testRecords) == "table" and #NS.State.testRecords or "-")
   end
-  local g = store()
-  local view = g and type(g.savedView) == "table" and g.savedView or nil
+  local p = profile()
+  local view = p and type(p.savedView) == "table" and p.savedView or nil
   local keys = {}
   for k in pairs(view or {}) do keys[#keys + 1] = tostring(k) end
   table.sort(keys)

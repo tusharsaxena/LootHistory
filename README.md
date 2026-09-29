@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-961%2F961_passing-green)
+![Tests](https://img.shields.io/badge/Tests-970%2F970_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -84,6 +84,7 @@ The value shown throughout the History table and Insights is the higher of an it
 | Question | Answer |
 |----------|--------|
 | Does this track loot for my whole account or just one character? | The whole account. There's one shared history with a Character column, and every character adds to and reads from the same log. |
+| Can I use different settings on different characters? | Yes. Settings live in profiles, and every character starts on the shared **Default** one. Pick, create, copy or reset a profile on the **Profiles** page in the settings. Your loot history is shared by every profile, so switching never hides or deletes a record. |
 | Does it record other players' loot? | No. Only items **you** pick up. |
 | What does the "confidence" marker mean? | Each item is marked **Certain** or **Inferred**. Most are Certain, filed straight from what the game reported. When the source can't be worked out, the addon still keeps the item, files it under **Other** and marks it Inferred. |
 | Which sources can I toggle on or off? | Every source it records: Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft and Refund. They're under **Capture ▸ Record data from** in the settings. |
@@ -91,8 +92,8 @@ The value shown throughout the History table and Insights is the higher of an it
 | Do I need another addon to see auction values? | Only if you want them. Prices come from **Auctionator**, **TSM** or **OribosExchange** if you have one installed. With none, every value falls back to the vendor sell price. The value shown is always the higher of the two. |
 | How do I stop tracking one specific item, or force-track one below my threshold? | Use the **Filters** tab in settings. Blacklist an item (by id, name or a shift-clicked link) to skip it from now on. Whitelist one to always record it, even if it's below your quality threshold, from a muted source, or a quest item. Both lists only affect future loots and never touch rows you already have. |
 | Does "Export to CSV" send my loot anywhere? | No. It builds the CSV text and opens a box for you to copy by hand. Nothing leaves the game, and what you do with the copied text is your business. |
-| Do my filters and sorting stick between sessions? | Only if you save them. The filter bar's **Save** button stores the current group, sort and filters as your account-wide default view. **Clear** returns to that view, and **Reset** puts the saved view back to stock. |
-| How do I wipe everything and start clean? | `/lh purge` deletes all history, and asks you to confirm first. To reset your settings but keep the history, use `/lh resetall`. |
+| Do my filters and sorting stick between sessions? | Only if you save them. The filter bar's **Save** button stores the current group, sort and filters as your profile's default view. **Clear** returns to that view, and **Reset** puts the saved view back to stock. |
+| How do I wipe everything and start clean? | `/lh purge` deletes all history, and asks you to confirm first. To reset your settings but keep the history, use `/lh resetall`, or **Reset all settings** on the Master controls tab. Both reset only the profile you're on. |
 | What is `/lh test` for? | It turns on test mode, which loads a sample dataset into the window and Insights so you can see how they look before you have real loot. The **Test mode** checkbox on the Master controls tab is the same switch. It's never saved, and it clears when you run the command again, untick the box, or enter combat. |
 | Does history survive reloads and relogs? | Yes. It's saved, and restored every time you log in. |
 
@@ -108,7 +109,7 @@ The value shown throughout the History table and Insights is the higher of an it
 | An item I don't want keeps being recorded. | Blacklist it on the **Filters** tab. Type its id or name, or shift-click its link into the box. Future loots are skipped, and rows you already have stay until you delete them. |
 | Rows are missing from the table. | A column filter or the search box is probably narrowing it. Press **Clear** on the filter bar to go back to your saved view. Filters and sorting only carry over between sessions if you pressed **Save**. |
 | `/lh debug on` doesn't open the debug window. | `on` / `off` control debug **logging**, not the window. Logging is session-only and switches off again after every reload. To show the window, use `/lh debug` with no argument, or the **Master controls ▸ Debug console** toggle. Logging runs fine with the window closed. |
-| The window is off-screen or the wrong size. | The addon remembers position, size and scale per account. Adjust **Interface ▸ Window scale**, or drag the window back into view. |
+| The window is off-screen or the wrong size. | The addon remembers position, size and scale per profile. Adjust **Interface ▸ Window scale**, or drag the window back into view. |
 | I want to preview the window but have no loot yet. | Tick **Master controls ▸ Test mode**, or type `/lh test`. Untick it, or run `/lh test` again, to clear it. |
 | I want to wipe everything and start over. | `/lh purge` clears all history, after you confirm. `/lh resetall` resets settings without touching your history. |
 | Something looks wrong and I want to report it. | Follow [Reporting a bug](#reporting-a-bug) below. |

@@ -53,7 +53,7 @@ wording the collection's rather than the addon's.
 `core/LifecycleSetup.lua` is the `LibKa0s-Lifecycle-1.0` seam: ONE latch, stood down while at least
 one **hold** is taken and stood up only when the last is released. `NS.Lifecycle:Set("disabled", …)`
 is the one branch, and the checkbox, the `enable` / `disable` verbs, `/lh set settings.enabled` and
-AceDB's profile callbacks all arrive at it through `NS.OnEnabledChanged`. There is deliberately no
+AceDB's profile callbacks all arrive at it through `NS.OnEnabledChanged` (the callbacks by way of the profile adopt path, `NS.OnProfileEvent`, because `settings.enabled` is per profile: switching to a profile where the addon is off stands it down). There is deliberately no
 bare stand-up: releasing one hold must not resurrect an addon another is still holding down.
 
 **This addon takes one hold today.** It declines `LibKa0s-Perf` (`performance-§12`, a ratified row in
