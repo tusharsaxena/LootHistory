@@ -1094,8 +1094,9 @@ a record of the owner's pass exists. Three do. Review F-001 passed CAP-4 to CAP-
 Known limitations). The 2026-07-22 field note in the old § 3 passed currency capture and the refund
 flow (CAP-11, CAP-12). The diagnostics rollout's owner pass on 2026-09-26
 (Ka0sAddonsCommonTasks `2026-09-25-DIAGNOSTICS_COMMAND/99_REPORT.md`, LH-S1 to LH-S11 and LH-X1)
-passed DIAG-19 to DIAG-25 and COMBAT-8. Those thirteen checks are not listed. The same rollout
-passed half of DIAG-6 and half of DEGRADED-4; both stay listed for the other half. The 2026-09-23
+passed DIAG-19 to DIAG-22, DIAG-24, DIAG-25 and COMBAT-8. Those twelve checks are not listed. The
+same rollout passed half of DIAG-6, half of DEGRADED-4 and two of DIAG-23's three inputs (LH-S8
+never ran `/lh dump`); all three stay listed for the rest. The 2026-09-23
 remediation plan (`06_SMOKE_TESTS.md` Session LH, Session Q and X2.4, and the post-M6 minimap
 re-check in its `checkpoints.tsv`) is recorded as owed; a row names the plan step its check
 carries. Checks new in this rework (SP-LH-01 to SP-LH-03R), and checks whose steps or expectation
@@ -1196,6 +1197,7 @@ line, then remove its row here.
 | DIAG-14 | § 15 bulk-reset line | No result recorded; expectation rewritten by SP-LH-01 (`[Set] reset profile 'Default' …`) |
 | DIAG-15 | § 15 data and reset-all lines | No result recorded; expectation rewritten by SP-LH-01 (no `[Data]` line on Reset all settings) |
 | DIAG-16 to DIAG-18 | § 15 | No result recorded |
+| DIAG-23 | § 12a step 5 | LH-S8 passed `/lh diag` and `/lh debug diag` on 2026-09-26; `/lh dump` has no result |
 | DEGRADED-1 | § 17a.1 | No result recorded |
 | DEGRADED-2 | § 17a.2 | No result recorded; expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
 | DEGRADED-3 | § 17a.3 | No result recorded; expectation corrected by SP-LH-03R (`/lh version` and `/lh get` print DEGRADED-2's line) |
