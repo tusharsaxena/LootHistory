@@ -106,7 +106,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `default` table (e.g. `settings.excludedSources = {}`), and any later in-place mutation would
   poison the default for the rest of the session. The library copies on every stored write
   (`tests/test_schema.lua` pins it, on both builds).
-- **Paths resolve against the active profile, `NS.db.profile`** — every setting but one is per
+- **Paths resolve against the active profile, `NS.db.profile`** — every setting but two is per
   profile, so `Schema:Get`/`:Set` read and write `NS.db.profile` (the descriptor's `resolveRoot`,
   `settings/Schema.lua:697`, asked at call time so a profile switch retargets it). Only the loot
   history, its repair bookkeeping, the schema stamp, the retention (`retentionDays`, owner decision
