@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 16
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 17
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -56,6 +56,16 @@ lib.STRINGS = {
   ERR_ALLOWED      = "allowed values: %s",
   ERR_COLOR        = "expected: r g b [a] (each 0-1 or 0-255)",
   ERR_TYPE         = "unknown setting type '%s'",
+  -- The profile verb (minor 17). The header has no trailing colon (slash-commands-§4).
+  PROFILE_UNAVAILABLE  = "Profiles are not available.",
+  PROFILE_LIST_HEADER  = "Profiles",
+  PROFILE_CURRENT_MARK = "(current)",
+  PROFILE_HINT         = "%s profile <name> switches profile",
+  PROFILE_ALREADY      = "Already on profile '%s'.",
+  PROFILE_COMBAT       = "Can't switch profiles in combat.",
+  PROFILE_SWITCHED     = "Switched to profile '%s'.",
+  PROFILE_UNKNOWN      = "No profile named '%s'.",
+  PROFILE_DID_YOU_MEAN = "Did you mean '%s'?",
 }
 
 -- ── the disabled gate ──────────────────────────────────────────────────────────────────────
@@ -247,6 +257,55 @@ function lib.CommandRows(prefix, commands, indent)
     out[#out + 1] = indent .. lib.FormatRow(prefix .. " " .. entry[1], entry[2])
   end
   return out
+end
+
+-- ── profiles (minor 17) ────────────────────────────────────────────────────────────────────
+--
+-- A profile store is DUCK-TYPED on AceDB-3.0's three methods, and the library never requires AceDB
+-- (slash-commands.md:34). A store missing any of them is no store, so nothing is half-called.
+local function isProfileStore(store)
+  return type(store) == "table" and type(store.GetProfiles) == "function"
+    and type(store.GetCurrentProfile) == "function" and type(store.SetProfile) == "function"
+end
+
+-- Case-insensitive, with a case-sensitive tie-break so "Main" and "main" always print in one order.
+local function profileOrder(a, b)
+  local la, lb = a:lower(), b:lower()
+  if la ~= lb then return la < lb end
+  return a < b
+end
+
+--- The store's profile names, sorted case-insensitively, and the current one, which is listed even
+--- when GetProfiles leaves it out. `{}, nil` for anything that is not a profile store.
+function lib.ProfileNames(store)
+  local names = {}
+  if not isProfileStore(store) then return names, nil end
+  local current = store:GetCurrentProfile()
+  local got, n = store:GetProfiles({})
+  local seen = {}
+  if type(got) == "table" then
+    for i = 1, tonumber(n) or #got do
+      local name = got[i]
+      if type(name) == "string" and not seen[name] then
+        seen[name] = true
+        names[#names + 1] = name
+      end
+    end
+  end
+  if type(current) == "string" and not seen[current] then names[#names + 1] = current end
+  table.sort(names, profileOrder)
+  return names, current
+end
+
+--- The typed name: trimmed, ONE pair of matching surrounding quotes stripped, trimmed again. Case
+--- and inner spaces are kept, because profile names are case-sensitive user data.
+local function profileArg(rest)
+  local name = tostring(rest or ""):match("^%s*(.-)%s*$")
+  local q = name:sub(1, 1)
+  if #name >= 2 and (q == '"' or q == "'") and name:sub(-1) == q then
+    name = name:sub(2, -2):match("^%s*(.-)%s*$")
+  end
+  return name
 end
 
 -- ── the parser ─────────────────────────────────────────────────────────────────────────────
@@ -481,6 +540,10 @@ end
 ---                          since minor 13, thirteen of them from minor 16. Present so the set is
 ---                          data rather than a hard-coded branch; a host MAY narrow it to the verbs
 ---                          it ships.
+---   profiles     function  optional, minor 17. -> the host's profile store, or nil. Duck-typed:
+---                          `GetProfiles(tbl) -> tbl, n`, `GetCurrentProfile()`, `SetProfile(name)`,
+---                          AceDB-3.0's shape, and never required to BE AceDB. Asked at call time.
+---                          Absent, or answering nil, CliProfile prints PROFILE_UNAVAILABLE.
 function lib:New(d)
   d = type(d) == "table" and d or {}
   if type(d.slash) ~= "string" or d.slash == "" then
@@ -782,6 +845,72 @@ function lib:New(d)
   function Sl:CliVersion()
     local version = type(d.version) == "function" and d.version() or "?"
     emit(self:Text("VERSION"):format(core.SafeToString(version)))
+  end
+
+  -- ── the profile verb (minor 17) ──────────────────────────────────────────────────────────
+  --
+  -- The host registers its own `profile` row and routes it here. `profile` is NOT in LIVE_VERBS; a
+  -- host widens its own liveVerbs. The library logs nothing: the one switch line debug-logging-§10
+  -- asks for is the host's profile handler's. The store is asked for at CALL time, because a
+  -- host's db is built at ADDON_LOADED, after the slash file that built this dispatcher.
+  local function profileStore()
+    if type(d.profiles) ~= "function" then return nil end
+    local store = d.profiles()
+    if not isProfileStore(store) then return nil end
+    return store
+  end
+
+  local function emitProfileList(names, current)
+    emit("|cff33ff99" .. Sl:Text("PROFILE_LIST_HEADER") .. "|r")
+    local mark = Sl:Text("PROFILE_CURRENT_MARK")
+    for _, name in ipairs(names) do
+      emit("  " .. name .. (name == current and (" " .. mark) or ""))
+    end
+    emit(Sl:Text("PROFILE_HINT"):format(d.slash))
+  end
+
+  --- Switch to an already-parsed `name` (a host's `profile use <name>` routes here). True only when
+  --- it switched. An exact match switches unless in combat; an unknown name is refused with a
+  --- did-you-mean and the list, and NEVER created, since SetProfile creates what it is handed.
+  function Sl:ProfileSwitch(name)
+    local store = profileStore()
+    if not store then
+      emit(self:Text("PROFILE_UNAVAILABLE"))
+      return false
+    end
+    name = tostring(name or "")
+    local names, current = lib.ProfileNames(store)
+    if name == "" then
+      emitProfileList(names, current)
+      return false
+    end
+    if name == current then
+      emit(self:Text("PROFILE_ALREADY"):format(name))
+      return false
+    end
+    local lowered, guess, guesses = name:lower(), nil, 0
+    for _, known in ipairs(names) do
+      if known == name then
+        if InCombatLockdown and InCombatLockdown() then
+          emit(self:Text("PROFILE_COMBAT"))
+          return false
+        end
+        store:SetProfile(name)
+        emit(self:Text("PROFILE_SWITCHED"):format(name))
+        return true
+      end
+      if known:lower() == lowered then guess, guesses = known, guesses + 1 end
+    end
+    emit(self:Text("PROFILE_UNKNOWN"):format(name))
+    if guesses == 1 then emit(self:Text("PROFILE_DID_YOU_MEAN"):format(guess)) end
+    emitProfileList(names, current)
+    return false
+  end
+
+  --- The `profile` verb: bare lists the profiles, current marked; a name goes to ProfileSwitch.
+  function Sl:CliProfile(rest)
+    if not profileStore() then return emit(self:Text("PROFILE_UNAVAILABLE")) end
+    self:ProfileSwitch(profileArg(rest))
   end
 
   -- ── dispatch ─────────────────────────────────────────────────────────────────────────────
