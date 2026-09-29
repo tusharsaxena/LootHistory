@@ -1,0 +1,1 @@
+OK SP-LH-01 settings moved to AceDB profiles with an idempotent v9/v10 migration, retention account-wide per D6, no profile event prunes; gate 976/0, luacheck 0/0, 17 mutations all caught
