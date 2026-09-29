@@ -1,7 +1,8 @@
 local _, NS = ...
 
--- AceDB init. Two scopes: the loot history (recorded data) is account-wide in NS.db.global, and
--- every setting is profile-scoped in NS.db.profile (docs/schema.md, docs/profiles.md). The `true`
+-- AceDB init. Two scopes: the loot history (recorded data) and the retention that prunes it are
+-- account-wide in NS.db.global, and every other setting is profile-scoped in NS.db.profile
+-- (docs/schema.md, docs/profiles.md). The `true`
 -- names the shared `Default` profile, so a character starts on it until the Profiles page moves it.
 function NS:InitDB()
   NS.db = LibStub("AceDB-3.0"):New("LootHistoryDB", NS.defaults, true)
@@ -65,14 +66,58 @@ local function moveSettingsToProfile(g)
   return n
 end
 
+-- The retention that is kept when more than one stored value competes: the one that deletes the
+-- least. 0 is "keep Always", so it beats any day count; otherwise the longer window wins.
+local function keepsMore(a, b)
+  if a == nil then return b end
+  if b == nil then return a end
+  if a == 0 or b == 0 then return 0 end
+  return math.max(a, b)
+end
+
+-- The v9->v10 step's body (owner decision D6): `retentionDays` governs RECORDED data, so it lives
+-- account-wide in `db.global.retentionDays`, outside every profile, and no profile switch, copy or
+-- reset can change what the login prune deletes. Two stored shapes reach this step:
+--   * `global.settings.retentionDays` -- the pre-profiles store, left where it was only when the v9
+--     step had no raw file to move it through;
+--   * `profiles.<name>.settings.retentionDays` -- where the v9 step put it (the `Default` profile),
+--     plus any profile a character wrote it into while the setting was per profile.
+-- Every value found is lifted out, and the one that deletes the least becomes the account's, so the
+-- move itself can never shorten the window. Reads the RAW SavedVariables through `db.sv`, before
+-- anything has read db.profile. Answers the number of stored values lifted; a second run finds none
+-- and changes nothing.
+local function moveRetentionToGlobal(g)
+  local found, n = nil, 0
+  local legacy = g.settings
+  if type(legacy) == "table" and legacy.retentionDays ~= nil then
+    found, n = keepsMore(found, legacy.retentionDays), n + 1
+    legacy.retentionDays = nil
+    if next(legacy) == nil then g.settings = nil end
+  end
+  local sv = NS.db and NS.db.sv
+  local profiles = type(sv) == "table" and sv.profiles
+  if type(profiles) == "table" then
+    for _, prof in pairs(profiles) do
+      local s = type(prof) == "table" and prof.settings
+      if type(s) == "table" and s.retentionDays ~= nil then
+        found, n = keepsMore(found, s.retentionDays), n + 1
+        s.retentionDays = nil
+      end
+    end
+  end
+  if found ~= nil then g.retentionDays = found end
+  return n
+end
+
 -- The schema-upgrade chain, in ascending order — one entry per step, `to` being the version the
 -- step stamps once it has run. Each `apply(g)` mutates db.global in place and returns the number
 -- of rows it touched (for the [Migrate] line). Array order IS the run order: a step sees every
 -- earlier step's output, so entries are appended, never reordered.
 --
 -- Every step here is ACCOUNT-WIDE: each one runs once, against db.global, before anything has read
--- a profile. The v6 and v8 steps reshape `savedView` while it still lives in global, and v9 is the
--- step that moves it. No step is profile-scoped (savedvariables-§1), so a profile created, copied
+-- a profile. The v6 and v8 steps reshape `savedView` while it still lives in global, v9 is the
+-- step that moves it, and v10 lifts `retentionDays` out of the raw profiles back into global. No
+-- step is profile-scoped (savedvariables-§1), so a profile created, copied
 -- or switched to later has nothing to be carried through; the profile events' adopt path
 -- (core/LootHistory.lua) is where one would run if a step ever needs it.
 local MIGRATIONS = {
@@ -178,6 +223,11 @@ local MIGRATIONS = {
   -- view move from db.global into the `Default` profile every character was already on; the loot
   -- history and its repair bookkeeping stay account-wide. The row count is the keys moved.
   { to = 9, apply = function(g) return moveSettingsToProfile(g) end },
+
+  -- v9 -> v10: retention back to the account (D6). The one setting that governs recorded data
+  -- leaves every profile for `global.retentionDays`, keeping the value that deletes the least. The
+  -- row count is the stored values lifted.
+  { to = 10, apply = function(g) return moveRetentionToGlobal(g) end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated
@@ -887,13 +937,14 @@ function Database:CountOlderThan(days)
   return n
 end
 
--- Retention cleanup. Drops records older than the ACTIVE PROFILE's settings.retentionDays (0 ==
--- Never): the setting is profile-scoped, the history it prunes is account-wide.
+-- Retention cleanup. Drops records older than the account-wide `global.retentionDays` (0 ==
+-- Never). The setting and the history it prunes are both account-wide (D6), so which profile is
+-- active never changes what a prune deletes.
 -- Rebuild-and-swap avoids O(n^2) shifting and array holes. Fires HistoryChanged when it removes
 -- rows; a prune that removes nothing leaves the store untouched and fires nothing (the login
 -- prune over a fresh history must not make the Browser rebuild).
 function Database:PruneOld()
-  local days = NS.db.profile.settings.retentionDays
+  local days = NS.db.global.retentionDays
   if not days or days == 0 then return 0 end
   local cutoff = time() - days * 86400
   local history = NS.db.global.history

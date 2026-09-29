@@ -84,11 +84,12 @@ Loot History**.
   `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/diagnostics/test/purge/help — seventeen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload`: `global` holds `history = {}`, `minimap` and
-  `schemaVersion = 9`, and `profiles.Default` holds `settings`. (The declared default is 0, the
+  `schemaVersion = 10`, and `profiles.Default` holds `settings`. (The declared default is 0, the
   savedvariables-§1 floor; `NS:RunMigrations`, invoked from `InitDB` before any read, walks v1→v2
-  through v8→v9 back-to-back on a brand-new DB, so the value persisted after the first init is 9.
-  Every step touches 0 rows here.) `/dump LootHistoryDB.global.schemaVersion` answers 9; on an
-  existing account too, the history is intact and the old settings are in `profiles.Default`.
+  through v9→v10 back-to-back on a brand-new DB, so the value persisted after the first init is 10.
+  Every step touches 0 rows here.) `/dump LootHistoryDB.global.schemaVersion` answers 10; on an
+  existing account too, the history is intact, the old settings are in `profiles.Default`, and a
+  stored retention is `global.retentionDays`, in no profile.
 - `/lh list` shows the seeded defaults: `settings.enabled = true`, `settings.qualityThreshold = 1`,
   `settings.retentionDays = 30`, `settings.windowScale = 1`, `settings.excludeQuestItems = true`,
   `settings.excludedSources = table: …` (empty), `minimap.shown = true` — the row path and its
@@ -779,6 +780,8 @@ means is in [debug.md](debug.md#the-diagnostics-report).
 - Settings → change **Keep history for** from 90 to 7 days with older records present. Answer **No**.
 - Change it to 7 days again and answer **Yes**. Watch the History table / record count.
 - `/lh set settings.retentionDays 7` with older records present.
+- Set **Keep history for** to 90, create a profile on the Profiles page and switch to it, then copy
+  and reset it. Hover **Keep history for**.
 - `/reload` and wait ~5 seconds after login.
 
 **Pass.**
@@ -793,6 +796,8 @@ means is in [debug.md](debug.md#the-diagnostics-report).
 - `PruneOld` also runs **~5s after login** (`PLAYER_ENTERING_WORLD` deferred), so stale records are
   pruned on a fresh session even without touching the setting.
 - **"Always"** retention keeps everything (no prune). No error at either prune path.
+- The retention is account-wide: the new profile shows 90, and the switch, copy and reset raise no
+  confirm and delete nothing. The tooltip says the setting is account-wide.
 
 ### 14. SavedVariables integrity
 
@@ -802,13 +807,14 @@ means is in [debug.md](debug.md#the-diagnostics-report).
 - Open `WTF/Account/<ACCOUNT>/SavedVariables/LootHistoryDB.lua`.
 
 **Pass.**
-- `LootHistoryDB["global"]["schemaVersion"] = 9` — `RunMigrations` (invoked from `InitDB`) applied
-  every pending step of the v1→v2 through v8→v9 ladder (the per-step contract is in
-  [schema.md](schema.md#schemaversion--the-migration-seam)) and stamped 9 after the last one;
-  re-running it on an already-v9 DB is a no-op (idempotent).
+- `LootHistoryDB["global"]["schemaVersion"] = 10` — `RunMigrations` (invoked from `InitDB`) applied
+  every pending step of the v1→v2 through v9→v10 ladder (the per-step contract is in
+  [schema.md](schema.md#schemaversion--the-migration-seam)) and stamped 10 after the last one;
+  re-running it on an already-v10 DB is a no-op (idempotent).
 - `history` is a dense array of loot records (each with the full field set: `ts`, `char`, `classFile`,
-  `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `settings`, `minimap`, and `savedView`
-  (if saved) are present. Session-only state (`debug`, `testRecords`) is **absent**.
+  `itemID`, `itemLink`, `quality`, `source`, `confidence`, …); `retentionDays` (if changed) and
+  `minimap` sit beside it in `global`, and `profiles.Default` holds `settings` and `savedView` (if
+  saved). Session-only state (`debug`, `testRecords`) is **absent**.
 
 ### 15. Debug console coverage
 

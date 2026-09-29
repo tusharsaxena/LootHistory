@@ -144,7 +144,7 @@ test("Schema: the fourth line is [Minimap button] [Test mode], composed and in t
       "the tooltip is this addon's own, not the composer's generic one: " .. tostring(row.tooltip))
   end)
 
-test("Schema: Test mode is never written to db.global, and ships no stored default", function()
+test("Schema: Test mode is never written to the store, and ships no stored default", function()
   local BT = NS.BrowserTable
   NS.db.global.state = nil
   local realSet = BT.SetTestMode
@@ -160,7 +160,12 @@ test("Schema: Test mode is never written to db.global, and ships no stored defau
   BT.SetTestMode, BT.testMode = realSet, false
   if not ok then error(err, 0) end
   assertEqual(#asked, 2, "the set switches only when the value differs")
+  -- The seam's root is the active profile (settings/Schema.lua resolveRoot), so a session row that
+  -- leaked into the store would land in db.profile.state; db.global is checked too, for a root
+  -- that ever moved back. red under: a row that lost `sessionOnly` and its own accessors.
+  assertTrue(NS.db.profile.state == nil, "session-only row must not persist to db.profile")
   assertTrue(NS.db.global.state == nil, "session-only row must not persist to db.global")
+  assertTrue(NS.defaults.profile.state == nil, "nothing in defaults/Profile.lua for a session row")
   assertTrue(NS.defaults.global.state == nil, "nothing in defaults/Global.lua for a session row")
 end)
 
@@ -197,8 +202,8 @@ test("Schema: a profile written before this release gets visibility from the shi
       "the shipped default must be one of the four the dropdown offers")
   end)
 
-test("Schema: setting debugConsole toggles the window, never writes db.global", function()
-  NS.db.global.state = nil
+test("Schema: setting debugConsole toggles the window, never writes the store", function()
+  NS.db.profile.state, NS.db.global.state = nil, nil
   withDebugLogSpies(function(calls)
     NS.Schema:Set("state.debugConsole", true)
     assertEqual(calls.show, 1, "Set(true) should Show the console window")
@@ -206,6 +211,8 @@ test("Schema: setting debugConsole toggles the window, never writes db.global", 
     NS.Schema:Set("state.debugConsole", false)
     assertEqual(calls.hide, 1, "Set(false) should Hide the console window")
   end)
+  -- The seam writes under db.profile, so that is where a leak would show.
+  assertTrue(NS.db.profile.state == nil, "session-only row must not persist to db.profile")
   assertTrue(NS.db.global.state == nil, "session-only row must not persist to db.global")
 end)
 
@@ -218,9 +225,9 @@ test("Schema: getting debugConsole reflects the window visibility", function()
   end)
 end)
 
-test("Schema: a normal (persisted) row still writes db.global", function()
+test("Schema: a normal (persisted) row writes the active profile", function()
   NS.Schema:Set("settings.enabled", false)
-  assertEqual(NS.db.profile.settings.enabled, false, "normal row must persist to db.global")
+  assertEqual(NS.db.profile.settings.enabled, false, "normal row must persist to db.profile")
   assertEqual(NS.Schema:Get("settings.enabled"), false)
   NS.Schema:Set("settings.enabled", true) -- restore default
 end)
@@ -360,10 +367,18 @@ test("Schema: the shipped default equals the schema's declared default", functio
   -- launcher-§3 fixes it; every other row is declared in defaults/Profile.lua. They are one fact in two
   -- senses, so the pair is still checked -- flip either side alone and this goes red exactly as it
   -- would for any other row (launcher-§3). No `shown` default is shipped (anti-pattern #81).
+  --
+  -- `settings.retentionDays` is compared against its stored key in defaults/Global.lua, and is
+  -- absent from defaults/Profile.lua: it is account-wide (D6).
   for _, row in ipairs(S.Schema) do
     if row.path == "minimap.shown" then
       assertEqual(NS.SchemaLib.Read(NS.defaults.global, S.RESET_EXEMPT[row.path]), not row.default,
         "minimap.shown: the shipped `hide` must be the inverse of the row's SHOWN default")
+    elseif row.path == "settings.retentionDays" then
+      assertEqual(NS.SchemaLib.Read(NS.defaults.global, S.RESET_EXEMPT[row.path]), row.default,
+        "settings.retentionDays disagrees with defaults/Global.lua")
+      assertEqual(NS.SchemaLib.Read(NS.defaults.profile, row.path), nil,
+        "settings.retentionDays is account-wide and must not be declared per profile")
     elseif not row.sessionOnly then
       local shipped = NS.SchemaLib.Read(NS.defaults.profile, row.path)
       if row.type == "table" then
@@ -471,7 +486,12 @@ end)
 --- Named rather than dropped from the check: the rule this case enforces -- a stored row does not
 --- get to route around the write seam -- is still the rule, and the next row that wants an exemption
 --- has to be argued for here.
-local STORED_ROWS_WITH_ACCESSORS = { ["minimap.shown"] = true }
+---
+--- `settings.retentionDays` is the second, argued by owner decision D6: the setting that decides
+--- what the prune deletes from the shared history is account-wide, so its accessors read and write
+--- `global.retentionDays` instead of the active profile. It still takes the seam: validate, the
+--- [Set] line and its confirm-gated onChange all run (the Retention cases below).
+local STORED_ROWS_WITH_ACCESSORS = { ["minimap.shown"] = true, ["settings.retentionDays"] = true }
 
 test("Schema: only the session-only rows carry their own get/set", function()
   for _, row in ipairs(S.Schema) do
@@ -1070,15 +1090,15 @@ end)
 --- 30-day retention, with StaticPopup_Show spied. History, the setting, the confirmed value, the
 --- mock and the print record are all restored before anything raises.
 local function withRetentionFixture(fn)
-  local M, g, p = T.mocks, NS.db.global, NS.db.profile
-  local savedHistory, savedDays, savedShow = g.history, p.settings.retentionDays, M.StaticPopup_Show
+  local M, g = T.mocks, NS.db.global
+  local savedHistory, savedDays, savedShow = g.history, g.retentionDays, M.StaticPopup_Show
   local now, day = os.time(), 86400
   g.history = {
     { ts = now - 40 * day, itemID = 1 }, { ts = now - 20 * day, itemID = 2 },
     { ts = now - 10 * day, itemID = 3 }, { ts = now - 2 * day, itemID = 4 },
     { ts = now - 3600, itemID = 5 },
   }
-  p.settings.retentionDays = 30
+  g.retentionDays = 30   -- account-wide (D6): the row's own get/set read and write it here
   S:SyncRetention()
   local shown = {}
   M.StaticPopup_Show = function(which, a1, a2, data)
@@ -1086,7 +1106,7 @@ local function withRetentionFixture(fn)
   end
   M.__resetPrinted()
   local ok, err = pcall(fn, shown)
-  g.history, p.settings.retentionDays, M.StaticPopup_Show = savedHistory, savedDays, savedShow
+  g.history, g.retentionDays, M.StaticPopup_Show = savedHistory, savedDays, savedShow
   S:SyncRetention()
   if not ok then error(err, 0) end
 end
@@ -1112,7 +1132,7 @@ test("Retention: accepting the prune confirm deletes the older records", functio
     assertEqual(dlg.timeout, 0); assertTrue(dlg.whileDead and dlg.hideOnEscape and dlg.showAlert)
     dlg.OnAccept(nil, { days = 7 })
     assertEqual(#NS.db.global.history, 2)
-    assertEqual(NS.db.profile.settings.retentionDays, 7)
+    assertEqual(NS.db.global.retentionDays, 7)
   end)
 end)
 
@@ -1121,7 +1141,7 @@ test("Retention: declining restores the confirmed value, keeps every record, pri
     S:Set("settings.retentionDays", 7)
     T.mocks.__resetPrinted()
     T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnCancel(nil, { days = 7 })
-    assertEqual(NS.db.profile.settings.retentionDays, 30, "the previous retention was not restored")
+    assertEqual(NS.db.global.retentionDays, 30, "the previous retention was not restored")
     assertEqual(#NS.db.global.history, 5, "declining deleted records")
     assertEqual(#shown, 1, "writing the old value back must not raise a second confirm")
     local printed = T.mocks.__printed()
@@ -1135,9 +1155,9 @@ test("Retention: accepting applies the agreed value even when the store has move
   -- red under: an accept that pruned to whatever the store held and only recorded `days`.
   withRetentionFixture(function()
     S:Set("settings.retentionDays", 7)
-    NS.db.profile.settings.retentionDays = 90
+    NS.db.global.retentionDays = 90
     T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE.OnAccept(nil, { days = 7 })
-    assertEqual(NS.db.profile.settings.retentionDays, 7, "the store does not hold the agreed value")
+    assertEqual(NS.db.global.retentionDays, 7, "the store does not hold the agreed value")
     assertEqual(#NS.db.global.history, 2, "the prune did not run at the agreed value")
   end)
 end)
@@ -1152,10 +1172,10 @@ test("Retention: re-showing the confirm over an open one does not run the declin
     T.mocks.__resetPrinted()
     local dlg = T.mocks.StaticPopupDialogs.KA0S_LOOTHISTORY_PRUNE
     dlg.OnCancel(nil, { days = 7 }, "override")
-    assertEqual(NS.db.profile.settings.retentionDays, 14, "the override restored the old value")
+    assertEqual(NS.db.global.retentionDays, 14, "the override restored the old value")
     assertEqual(#T.mocks.__printed(), 0, "the override printed a decline line")
     dlg.OnAccept(nil, { days = 14 })
-    assertEqual(NS.db.profile.settings.retentionDays, 14)
+    assertEqual(NS.db.global.retentionDays, 14)
     assertEqual(#NS.db.global.history, 3, "the prune did not run at 14 days")
   end)
 end)

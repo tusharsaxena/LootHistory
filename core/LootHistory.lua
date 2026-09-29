@@ -63,8 +63,12 @@ end
 --      rows wholesale, so each is one [Set] line and no bulk bracket adds a second; a switch
 --      rewrites no row and is the [Profile] trace.
 --   4. Every setting's effect, re-applied: the History window (geometry, saved view, chrome,
---      visibility, row height), the retention confirm and the Collector's upvalues through
---      NS.Schema:AdoptProfile (the one SettingsChanged message), and every open settings panel.
+--      visibility, row height), the Collector's upvalues through NS.Schema:AdoptProfile (the one
+--      SettingsChanged message), and every open settings panel.
+--
+-- What this path NEVER does is touch the loot history (owner decision D6). The history and the
+-- retention that prunes it are account-wide, outside every profile, so no event here counts,
+-- confirms or prunes a record; the only prune is the login one in addon:OnEnterWorld below.
 
 local function currentProfile()
   return (NS.db and NS.db.GetCurrentProfile and NS.db:GetCurrentProfile()) or "?"
@@ -92,8 +96,8 @@ function NS.OnProfileEvent(event, key)
   NS.OnEnabledChanged()
   traceProfileEvent(event, key)
   if NS.Browser and NS.Browser.AdoptProfile then NS.Browser:AdoptProfile() end
-  -- The retention confirm, then the one SettingsChanged("profile") every setting's reactor already
-  -- listens to (docs/message-bus.md). Through the Schema module, the message's one sender.
+  -- The one SettingsChanged("profile") every setting's reactor already listens to
+  -- (docs/message-bus.md). Through the Schema module, the message's one sender.
   if NS.Schema and NS.Schema.AdoptProfile then NS.Schema:AdoptProfile() end
   -- STRUCTURAL: the Filters tab's lists and the AH Price table are drawn off the profile's tables.
   if NS.Options and NS.Options.RefreshAllPanels then NS.Options.RefreshAllPanels() end

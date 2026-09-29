@@ -79,10 +79,10 @@ core\Database.lua
 core\LauncherSetup.lua
 
 # Defaults
-# LOAD-BEARING POSITION: settings\Schema.lua takes NS.defaults.profile as a file-scope local and
-# reads its values into the rows' defaults at file load, so both files must be above Schema.
-# Global is the account-wide half (the loot history, the schema stamp, the minimap table);
-# Profile is every setting. Neither reads the other, so their relative order is conventional.
+# LOAD-BEARING POSITION: settings\Schema.lua takes both defaults tables as file-scope locals and
+# reads their values into the rows' defaults at file load, so both files must be above Schema.
+# Global is the account-wide half (the loot history, its retention, the stamp, the minimap table);
+# Profile is every other setting. Neither reads the other, so their relative order is conventional.
 defaults\Global.lua
 defaults\Profile.lua
 

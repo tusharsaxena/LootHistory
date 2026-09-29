@@ -1,11 +1,16 @@
 -- tests/test_profiles.lua — profiles (docs/profiles.md).
 --
--- Every setting lives in the active AceDB profile; the loot history, its repair bookkeeping, the
--- schema stamp and LibDBIcon's table stay account-wide. Three things are pinned here:
+-- Every setting but one lives in the active AceDB profile; the loot history, the retention that
+-- prunes it (owner decision D6), its repair bookkeeping, the schema stamp and LibDBIcon's table
+-- stay account-wide. Four things are pinned here:
 --
 --   * the v8->v9 migration that moved every stored setting out of db.global into the `Default`
 --     profile (savedvariables-§1): values land, global is cleared, recorded data is untouched, and
 --     a second run is a no-op;
+--   * the v9->v10 migration that lifts `retentionDays` back out of every profile into
+--     `global.retentionDays`, from either stored shape, keeping the value that deletes the least;
+--   * retention is account-wide: it reads and writes global, and no profile event prunes, counts
+--     or confirms against the history;
 --   * the ONE adopt path the three profile events share (NS.OnProfileEvent, core/LootHistory.lua):
 --     reads follow the profile, the latch follows its switch, every setting's effect is re-applied,
 --     and each event logs exactly one line (debug-logging-§10);
@@ -22,7 +27,7 @@ local test, assertEqual, assertTrue, assertFalse =
 -- ── helpers ───────────────────────────────────────────────────────────────────────────────────
 
 --- Run `fn(db)` and then put the harness back: on `Default`, every other profile deleted, Default's
---- contents restored in place, the latch and the confirmed retention re-read from it.
+--- contents restored in place, the latch and the confirmed retention re-read.
 local function onProfiles(fn)
   local db = NS.db
   local saved = NS.Util.DeepCopy(db.profile)
@@ -73,7 +78,7 @@ local function count(list, want)
   return n
 end
 
--- ── the v8 -> v9 migration (savedvariables-§1) ────────────────────────────────────────────────
+-- ── the v8 -> v9 -> v10 migrations (savedvariables-§1) ────────────────────────────────────────────────
 
 --- A pre-profiles SavedVariables file at schema v8: every setting, the id lists and the saved view
 --- in `global`, beside the history and LibDBIcon's table.
@@ -84,7 +89,7 @@ local function legacySv()
       history = { { ts = 1, itemID = 11 }, { ts = 2, itemID = 12 } },
       minimap = { hide = true, minimapPos = 200 },
       settings = {
-        qualityThreshold = 4, recordCurrency = false,
+        qualityThreshold = 4, recordCurrency = false, retentionDays = 90,
         window = { point = "TOP", x = 1, y = 2, w = 900, h = 600 },
         auction = { capture = { ["auctionator:minbuyout"] = false },
                     priority = { "tsm:dbmarket", "auctionator:minbuyout" } },
@@ -122,7 +127,10 @@ test("Migrate v8->v9: every stored setting lands in the Default profile and leav
   for _, key in ipairs({ "settings", "blacklist", "whitelist", "currencyBlacklist", "savedView" }) do
     assertEqual(sv.global[key], nil, key .. " is cleared from global")
   end
-  assertEqual(sv.global.schemaVersion, 9)
+  -- ...all but the retention, which v10 lifts straight back to the account (D6).
+  assertEqual(d.settings.retentionDays, nil, "no profile holds the retention")
+  assertEqual(sv.global.retentionDays, 90, "the stored retention is the account's")
+  assertEqual(sv.global.schemaVersion, 10)
 end)
 
 test("Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched", function()
@@ -167,12 +175,84 @@ test("Migrate v8->v9: a second run is a no-op", function()
   local ok, err = pcall(migrate, db)
   NS.Debug, NS.State.debug = savedDebug, savedFlag
   if not ok then error(err, 0) end
-  assertEqual(sv.global.schemaVersion, 9)
+  assertEqual(sv.global.schemaVersion, 10)
   assertEqual(sv.profiles.Default.settings.qualityThreshold, after.Default.settings.qualityThreshold)
   assertEqual(sv.profiles.Default.savedView.groupBy, "source")
-  local moved
-  for _, l in ipairs(lines) do moved = moved or l:match("^Migrate v8 %-> v9, (%d+) rows touched") end
+  assertEqual(sv.global.retentionDays, 90, "the retention stayed the account's")
+  local moved, lifted
+  for _, l in ipairs(lines) do
+    moved = moved or l:match("^Migrate v8 %-> v9, (%d+) rows touched")
+    lifted = lifted or l:match("^Migrate v9 %-> v10, (%d+) rows touched")
+  end
   assertEqual(moved, "0", "the re-run moved nothing")
+  assertEqual(lifted, "0", "and lifted nothing")
+end)
+
+--- A SavedVariables file this branch's first v9 step wrote: the retention was per profile then, so
+--- it sits in the `Default` profile the step created and in any profile a character wrote it into.
+local function v9Sv(profiles)
+  return {
+    global = { schemaVersion = 9, history = { { ts = 1, itemID = 11 } }, minimap = { hide = false } },
+    profiles = profiles,
+  }
+end
+
+test("Migrate v9->v10: a retention stored in the profiles moves to global and leaves every profile", function()
+  -- D6. red under: a step that copies without clearing, reads only the `Default` profile, or
+  -- takes whichever profile it happens to walk first rather than the value that deletes the least.
+  local sv = v9Sv({
+    Default = { settings = { retentionDays = 7, qualityThreshold = 3 } },
+    Raid    = { settings = { retentionDays = 60 } },
+    Empty   = {},
+  })
+  local history = sv.global.history
+  migrate({ global = sv.global, sv = sv })
+  assertEqual(sv.global.retentionDays, 60, "the longer window is the account's")
+  assertEqual(sv.profiles.Default.settings.retentionDays, nil, "Default no longer holds it")
+  assertEqual(sv.profiles.Raid.settings.retentionDays, nil, "nor does any other profile")
+  assertEqual(sv.profiles.Default.settings.qualityThreshold, 3, "every other setting stays put")
+  assertTrue(sv.global.history == history and #history == 1, "the history is untouched")
+  assertEqual(sv.global.schemaVersion, 10)
+end)
+
+test("Migrate v9->v10: keep Always (0) wins over any day count", function()
+  local sv = v9Sv({
+    Default = { settings = { retentionDays = 365 } },
+    Alt     = { settings = { retentionDays = 0 } },
+  })
+  migrate({ global = sv.global, sv = sv })
+  assertEqual(sv.global.retentionDays, 0, "the move must never shorten what is kept")
+end)
+
+test("Migrate v9->v10: a retention still under global.settings is lifted too, and the empty table goes", function()
+  -- The pre-profiles shape, left in place when the v9 step had no raw file to move it through.
+  local g = { schemaVersion = 9, history = {}, settings = { retentionDays = 14 } }
+  migrate({ global = g })
+  assertEqual(g.retentionDays, 14)
+  assertEqual(g.settings, nil, "nothing is left under global.settings")
+end)
+
+test("Migrate v9->v10: a second run is a no-op, and a file with no stored retention keeps its own", function()
+  local sv = v9Sv({ Default = { settings = { retentionDays = 45 } } })
+  local db = { global = sv.global, sv = sv }
+  migrate(db)
+  sv.global.schemaVersion = 9
+  local lines = {}
+  local savedDebug, savedFlag = NS.Debug, NS.State.debug
+  NS.Debug = function(tag, fmt, ...) lines[#lines + 1] = tag .. " " .. fmt:format(...) end
+  NS.State.debug = true
+  local ok, err = pcall(migrate, db)
+  NS.Debug, NS.State.debug = savedDebug, savedFlag
+  if not ok then error(err, 0) end
+  assertEqual(sv.global.retentionDays, 45, "the re-run left the account's retention alone")
+  local lifted
+  for _, l in ipairs(lines) do lifted = lifted or l:match("^Migrate v9 %-> v10, (%d+) rows touched") end
+  assertEqual(lifted, "0", "the re-run lifted nothing")
+
+  local fresh = v9Sv({ Default = { settings = { qualityThreshold = 2 } } })
+  fresh.global.retentionDays = 21
+  migrate({ global = fresh.global, sv = fresh })
+  assertEqual(fresh.global.retentionDays, 21, "no stored profile value, so nothing overwrote global")
 end)
 
 -- ── reads follow the active profile ───────────────────────────────────────────────────────────
@@ -319,52 +399,90 @@ test("Profiles: each profile event logs exactly one line, worded by the event", 
   end)
 end)
 
-test("Profiles: a switch to a shorter retention asks before deleting, and No keeps every record", function()
-  -- The history is account-wide, so the new profile's retention has never been confirmed against
-  -- it. It goes through the same confirm a change would (S:AdoptRetention), and No writes the
-  -- confirmed retention into the new profile, so the next login deletes nothing either.
-  -- red under: an adopt path that only re-seeds the confirmed value, which would let the next
-  -- login prune everything older than the new profile's retention, unasked.
-  onProfiles(function(db)
-    local g, M = NS.db.global, mocks
-    local savedHistory, savedShow = g.history, M.StaticPopup_Show
-    local now, day = os.time(), 86400
-    g.history = { { ts = now - 40 * day, itemID = 1 }, { ts = now - 20 * day, itemID = 2 },
-                  { ts = now - 3600, itemID = 3 } }
-    local shown = {}
-    M.StaticPopup_Show = function(which, _, a2, data)
-      shown[#shown + 1] = { which = which, a2 = a2, data = data }
-    end
-    local ok, err = pcall(function()
-      NS.Schema:Set("settings.retentionDays", 0)   -- Default keeps everything, confirmed at once
-      db:SetProfile("Week")
-      -- The profile holds a week, stored in some earlier session; nothing here confirms it.
-      NS.db.profile.settings.retentionDays = 7
+-- ── retention is account-wide (owner decision D6) ──────────────────────────────────────────────
+
+--- Run `fn(g)` with the account's history and retention saved and put back however it ends.
+local function keepingHistory(fn)
+  local g = NS.db.global
+  local savedHistory, savedDays = g.history, g.retentionDays
+  local ok, err = pcall(fn, g)
+  g.history, g.retentionDays = savedHistory, savedDays
+  NS.Schema:SyncRetention()
+  if not ok then error(err, 0) end
+end
+
+test("Profiles: retention reads and writes global, and a switch never changes it", function()
+  -- red under: a retention row whose root is the active profile again, which gives each profile
+  -- its own window over the one shared history.
+  keepingHistory(function(g)
+    g.history = {}
+    onProfiles(function(db)
+      assertTrue(NS.Schema:Set("settings.retentionDays", 90))
+      assertEqual(g.retentionDays, 90, "the write landed in db.global")
+      assertEqual(db.profile.settings.retentionDays, nil, "and not in the profile")
+      db:SetProfile("Alt")
+      assertEqual(NS.Schema:Get("settings.retentionDays"), 90, "a new profile reads the same value")
+      assertTrue(NS.Schema:Set("settings.retentionDays", 14))
       db:SetProfile("Default")
-      shown = {}
-      db:SetProfile("Week")
-      assertEqual(#shown, 1, "the switch asked before anything was deleted")
-      assertEqual(shown[1].which, "KA0S_LOOTHISTORY_PRUNE")
-      assertEqual(#g.history, 3, "nothing was deleted on the switch")
-      NS.Schema:ConfirmRetention(shown[1].data.days, false)
-      assertEqual(NS.Schema:Get("settings.retentionDays"), 0,
-        "No wrote the confirmed retention into the new profile")
-      assertEqual(#g.history, 3, "and kept every record")
+      assertEqual(NS.Schema:Get("settings.retentionDays"), 14, "a write under Alt is Default's too")
+      assertEqual(db.profile.settings.retentionDays, nil)
     end)
-    g.history, M.StaticPopup_Show = savedHistory, savedShow
-    if not ok then error(err, 0) end
+  end)
+  -- The player is told on the History tab, where the row is: its tooltip says account-wide.
+  local tip = NS.Schema:FindRow("settings.retentionDays").tooltip
+  assertTrue(tip:find("Account-wide", 1, true) ~= nil, "the tooltip marks it account-wide: " .. tip)
+end)
+
+test("Profiles: the login prune reads the account-wide retention, never a profile's", function()
+  -- A stray per-profile value (a file from before v10, or a hand edit) must not decide what goes.
+  -- red under: Database:PruneOld reading NS.db.profile.settings.retentionDays.
+  keepingHistory(function(g)
+    onProfiles(function(db)
+      local now, day = os.time(), 86400
+      g.history = { { ts = now - 40 * day, itemID = 1 }, { ts = now - day, itemID = 2 } }
+      g.retentionDays = 30
+      db.profile.settings.retentionDays = 0   -- "keep Always", in the wrong store
+      assertEqual(NS.Database:PruneOld(), 1, "the prune used the account's 30 days")
+      assertEqual(#g.history, 1)
+    end)
   end)
 end)
 
-test("Profiles: a switch to a profile with the same retention asks nothing", function()
-  onProfiles(function(db)
-    local M = mocks
-    local savedShow, shown = M.StaticPopup_Show, 0
-    M.StaticPopup_Show = function() shown = shown + 1 end
-    local ok, err = pcall(function() db:SetProfile("Alt") end)
-    M.StaticPopup_Show = savedShow
-    if not ok then error(err, 0) end
-    assertEqual(shown, 0)
+test("Profiles: a switch, a copy and a reset leave the loot history untouched and never prune", function()
+  -- D6: a profile event never deletes or prunes history. The history holds records a 7-day
+  -- retention WOULD drop, so any prune, count or confirm on the adopt path shows up here.
+  -- red under: an adopt path that calls Database:PruneOld or the retention confirm, or a profile
+  -- reset (AceDBOptions' Reset Profile, /lh resetall) that moves the account's retention.
+  keepingHistory(function(g)
+    onProfiles(function(db)
+      local now, day = os.time(), 86400
+      local history = { { ts = now - 40 * day, itemID = 1 }, { ts = now - 20 * day, itemID = 2 },
+                        { ts = now - 3600, itemID = 3 } }
+      g.history, g.retentionDays = history, 7
+      NS.Schema:SyncRetention()
+      local D, M = NS.Database, mocks
+      local realPrune, realCount, realShow = D.PruneOld, D.CountOlderThan, M.StaticPopup_Show
+      local pruned, counted, shown = 0, 0, 0
+      D.PruneOld = function(...) pruned = pruned + 1; return realPrune(...) end
+      D.CountOlderThan = function(...) counted = counted + 1; return realCount(...) end
+      M.StaticPopup_Show = function() shown = shown + 1 end
+      local ok, err = pcall(function()
+        db:SetProfile("Alt")
+        NS.Schema:Set("settings.qualityThreshold", 3)
+        db:SetProfile("Default")
+        db:CopyProfile("Alt")
+        db:ResetProfile()
+        NS.Slash:CliResetAll()
+        db:SetProfile("Alt")
+      end)
+      D.PruneOld, D.CountOlderThan, M.StaticPopup_Show = realPrune, realCount, realShow
+      if not ok then error(err, 0) end
+      assertEqual(pruned, 0, "no profile event pruned")
+      assertEqual(counted, 0, "or counted records against a retention")
+      assertEqual(shown, 0, "or raised a confirm")
+      assertTrue(g.history == history and #history == 3, "every record is still there")
+      assertEqual(g.retentionDays, 7, "and the account's retention did not move")
+    end)
   end)
 end)
 

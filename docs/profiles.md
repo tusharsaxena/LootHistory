@@ -1,6 +1,7 @@
 # Profiles
 
-Ka0s Loot History keeps its settings in AceDB profiles and its loot history account-wide. This page
+Ka0s Loot History keeps its settings in AceDB profiles and its loot history, with the retention that
+prunes it, account-wide. This page
 says what a profile holds, what stays outside every profile, how the addon reacts when the profile
 changes, and how the old account-wide settings got into a profile. The stored shape is in
 [schema.md](schema.md); the panel is in [settings-panel.md](settings-panel.md).
@@ -9,18 +10,26 @@ changes, and how the old account-wide settings got into a profile. The stored sh
 
 | Scope | Where | What |
 |---|---|---|
-| **Profile** (`db.profile`) | `defaults/Profile.lua` | Every schema row under `settings.*` (the Master controls, Capture, AH Price, Interface and History tabs), the AH price cascade (`settings.auction.priority`), the three id filter lists (`blacklist`, `whitelist`, `currencyBlacklist`), the saved table view (`savedView`) and the History window's geometry (`settings.window`) |
-| **Account-wide** (`db.global`) | `defaults/Global.lua` | The recorded loot history (`history`) and the warbound repair's bookkeeping beside it, LibDBIcon's `minimap` table (whether the button is shown, and where), the `schemaVersion` stamp |
+| **Profile** (`db.profile`) | `defaults/Profile.lua` | Every schema row under `settings.*` except `settings.retentionDays` (the Master controls, Capture, AH Price and Interface tabs), the AH price cascade (`settings.auction.priority`), the three id filter lists (`blacklist`, `whitelist`, `currencyBlacklist`), the saved table view (`savedView`) and the History window's geometry (`settings.window`) |
+| **Account-wide** (`db.global`) | `defaults/Global.lua` | The recorded loot history (`history`) and the warbound repair's bookkeeping beside it; **Keep history for** (`retentionDays`, the row `settings.retentionDays`), the one setting that governs what the prune deletes from that history; LibDBIcon's `minimap` table (whether the button is shown, and where), the `schemaVersion` stamp |
 | **Session only** | `NS.State`, the modules | Test mode, the debug console window, the debug logging flag, the character scope of the History window |
 
 The split is the owner's decision D5 (2026-09-29): **settings only**. Loot is collected across every
 character on the account and every record carries the looter in its `char` column, so the browser
 and the Insights tab can show one alt's drops or all of them. A per-profile history would split the
 very thing the addon exists to join up, so the history is in no profile. Everything a player
-configures is. The minimap button stays global for a different reason: launcher-§3 makes it part of
-the installation, so a profile switch must not move it or hide it.
+configures is, with one exception, below. The minimap button stays global for a different reason:
+launcher-§3 makes it part of the installation, so a profile switch must not move it or hide it.
 
-The db is created with `AceDB:New("LootHistoryDB", NS.defaults, true)` (`core/Database.lua:6`): the
+**Retention is account-wide** (owner decision D6, 2026-09-29). **Keep history for** decides what the
+login prune deletes from the one shared history, so it is one value for the whole account and no
+profile holds a copy. Its row keeps the CLI path `settings.retentionDays`, but its own `get` and `set`
+read and write `db.global.retentionDays` (`settings/Schema.lua`), and its tooltip on the History tab
+says it is account-wide. A profile switch, copy or reset never changes it, never prunes and never
+deletes a record. A per-profile retention would let a switch to a profile that keeps a week delete
+everything older at the next login for every profile.
+
+The db is created with `AceDB:New("LootHistoryDB", NS.defaults, true)` (`core/Database.lua:7`): the
 `true` puts every character on one shared profile, `Default`, until the player picks another. So out
 of the box the addon behaves exactly as it did when the settings were account-wide.
 
@@ -55,18 +64,19 @@ reset. `NS.BindLifecycle` (`core/LifecycleSetup.lua`) registers all three onto *
 4. **Every setting's effect, re-applied**:
    - **The History window** re-reads its geometry, its saved view (or the stock view), its row
      height and its chrome (`B:AdoptProfile`, `modules/Browser.lua`).
-   - **Retention, then the one message**, both in `S:AdoptProfile` (`settings/Schema.lua`), the
-     module that is `SettingsChanged`'s one sender. The new profile's `settings.retentionDays` was
-     never confirmed against this history, so `S:AdoptRetention` treats a different value as a
-     change: it asks before a shorter retention deletes anything, and **No** writes the confirmed
-     retention into the new profile. Then one `SettingsChanged("profile")` goes out, which the
-     Collector (its gates and id lists) and the Browser (chrome and visibility) already listen to
-     (`message-bus.md`).
+   - **The one message**, from `S:AdoptProfile` (`settings/Schema.lua`), the module that is
+     `SettingsChanged`'s one sender: one `SettingsChanged("profile")`, which the Collector (its
+     gates and id lists) and the Browser (chrome and visibility) already listen to
+     (`message-bus.md`). There is no retention step: the retention is account-wide, so the new
+     profile brings none of its own.
    - **Every settings panel** re-renders, so the Filters tab's lists and the AH Price table redraw
      from the new profile's tables.
 
-The loot history is not touched by any of this. A copy or a reset changes the profile and nothing
-else.
+The loot history is not touched by any of this (D6). Nothing on this path prunes, counts records
+against a retention or raises the prune confirm; the only prune is the once-per-session login one
+(`addon:OnEnterWorld`, `core/LootHistory.lua`), which reads the account-wide retention. A copy or a
+reset changes the profile and nothing else. `tests/test_profiles.lua` pins it: a switch, a copy, a
+reset and `/lh resetall` over records a short retention would drop leave every record in place.
 
 ## The global reset is the profile reset
 
@@ -74,7 +84,8 @@ else.
 settings** are one act, `Sl:CliResetAll` (`settings/Slash.lua`), and it is `db:ResetProfile()`
 (`options-ui-§12`): the session-only rows are restored first (test mode ends, the debug console
 closes), then the active profile goes back to its defaults, whole. Other profiles and the profile
-list are untouched, and so are the history and the minimap button. Reset all settings confirms first,
+list are untouched, and so are the history, the retention and the minimap button (both rows are in
+`NS.Schema.RESET_EXEMPT`). Reset all settings confirms first,
 in the collection's profile wording. Clearing the history is `/lh purge`, a separate act with its own
 confirm. The scope matrix is in [schema.md](schema.md#reset-semantics).
 
@@ -87,6 +98,14 @@ raw `Default` profile (creating it if absent) and clears them from global. A sto
 over whatever the profile already holds, so a value the account stored wins and a key it never
 stored keeps its default. A second run finds nothing left to move. `tests/test_profiles.lua` pins
 it, along with the adopt path and the Profiles page.
+
+The v9→v10 migration (`moveRetentionToGlobal`, `core/Database.lua`) takes the retention back out
+(D6). It reads both stored shapes: a `retentionDays` still under `global.settings` (a file the v9 step
+could not move) and one in any raw profile (where v9 put it, in `Default`, and wherever a character
+wrote it while it was per profile). Every value found is cleared from where it was, and the one that
+deletes the least (`0`, keep Always, beats any day count; otherwise the longer window) becomes
+`global.retentionDays`, so the move can never shorten what is kept. A second run finds nothing and
+leaves the account's value alone.
 
 ## The `profile` verb
 

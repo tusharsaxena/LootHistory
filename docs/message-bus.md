@@ -6,7 +6,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
-| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:357`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
+| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:407`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
@@ -18,9 +18,9 @@ Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua)
 
 ## `Ka0s_LootHistory_RecordAdded` payload
 
-Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:357`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
+Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:407`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
 
-Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:348`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
+Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:398`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
 
 ## `Ka0s_LootHistory_HistoryChanged` payload
 
@@ -28,7 +28,7 @@ The bulk-mutation counterpart to `RecordAdded`: no payload, meaning "the history
 
 - `Database:Delete(pred)` — predicate delete.
 - `Database:Purge()` — the `/lh purge` wipe.
-- `Database:PruneOld()` — retention rebuild-and-swap, sent only when it removed at least one row (a prune with nothing to drop fires nothing, so the login prune over a fresh history causes no repaint) (also invoked when the player accepts the `retentionDays` row's prune confirm, so a retention change surfaces as `HistoryChanged`, not `SettingsChanged`).
+- `Database:PruneOld()` — retention rebuild-and-swap, sent only when it removed at least one row (a prune with nothing to drop fires nothing, so the login prune over a fresh history causes no repaint) (also invoked when the player accepts the `retentionDays` row's prune confirm, so a retention change surfaces as `HistoryChanged`, not `SettingsChanged`). Never from a profile event: the retention is account-wide (owner decision D6), so the adopt path has nothing to prune.
 - `Database:RepairBoundStates()` — the deferred warbound-state split, which fires **only when a pass actually fixed rows** (`fixed > 0`). It sends directly rather than through `fireHistoryChanged`, because the repair is defined above that helper; the window can already be open when a pass lands and renders the Bound column off those rows, so it repaints rather than leaving stale locks until the next open.
 - `Database:FireHistoryChanged()` — the public wrapper `NS.Filters` calls after a **blacklist/whitelist** edit. Filtering is point-in-time, so a list edit never changes what a query returns for already-stored rows; the message exists so the Settings ▸ General ▸ Filters tab's live id list re-renders. Emitting through this wrapper keeps `Database` the one sender (the Filters module never sends on the bus itself).
 

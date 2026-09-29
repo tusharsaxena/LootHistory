@@ -345,7 +345,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 9
+- Database: a fresh store at schemaVersion 0 walks every step to 10
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -683,12 +683,12 @@ badge and any count quoted in the docs must agree with it.
 - Schema: the Master controls tab holds exactly the canonical rows, in canonical order
 - Schema: every canonical row is declared ONCE — nothing was copied here, it was moved
 - Schema: the fourth line is [Minimap button] [Test mode], composed and in that order
-- Schema: Test mode is never written to db.global, and ships no stored default
+- Schema: Test mode is never written to the store, and ships no stored default
 - Schema: General visibility is a four-value dropdown, not a boolean
 - Schema: a profile written before this release gets visibility from the shipped defaults
-- Schema: setting debugConsole toggles the window, never writes db.global
+- Schema: setting debugConsole toggles the window, never writes the store
 - Schema: getting debugConsole reflects the window visibility
-- Schema: a normal (persisted) row still writes db.global
+- Schema: a normal (persisted) row writes the active profile
 - Schema: auction rows exist with the AH Price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
@@ -894,20 +894,25 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
 - Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
 
-### test_profiles.lua (15)
+### test_profiles.lua (20)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
 - Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched
 - Migrate v8->v9: over a profile AceDB already filled, a stored value wins and an unstored key keeps its default
 - Migrate v8->v9: a second run is a no-op
+- Migrate v9->v10: a retention stored in the profiles moves to global and leaves every profile
+- Migrate v9->v10: keep Always (0) wins over any day count
+- Migrate v9->v10: a retention still under global.settings is lifted too, and the empty table goes
+- Migrate v9->v10: a second run is a no-op, and a file with no stored retention keeps its own
 - Profiles: every read and write resolves against the ACTIVE profile
 - Profiles: the loot history is shared by every profile
 - Profiles: a switch re-applies every setting through the one adopt path
 - Profiles: a switch, a copy and a reset each refresh every open settings panel once
 - Profiles: a switch to a profile where the addon is off stands it down, and back brings it up
 - Profiles: each profile event logs exactly one line, worded by the event
-- Profiles: a switch to a shorter retention asks before deleting, and No keeps every record
-- Profiles: a switch to a profile with the same retention asks nothing
+- Profiles: retention reads and writes global, and a switch never changes it
+- Profiles: the login prune reads the account-wide retention, never a profile's
+- Profiles: a switch, a copy and a reset leave the loot history untouched and never prune
 - Profiles page: the global reset's veto keeps only the session-only rows, never the Profiles page
 - Profiles page: without AceDBOptions the page opts out, and nothing is registered
 - Profiles page: AceDBOptions' table over this db, drawn by AceConfigDialog into a Profiles canvas
@@ -1123,7 +1128,7 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
-| test_profiles.lua | 15 |
+| test_profiles.lua | 20 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 24 |
 | test_surface_parity.lua | 14 |
@@ -1137,4 +1142,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 7 |
 | test_widgets.lua | 17 |
-| **Total** | **971** |
+| **Total** | **976** |

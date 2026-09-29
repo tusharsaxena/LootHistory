@@ -262,12 +262,15 @@ test("Util: FormatBytes scales B / kB / MB", function()
 end)
 
 test("Database: InitDB creates the account-wide store and the Default profile", function()
-  assertEqual(NS.db.global.schemaVersion, 9)
+  assertEqual(NS.db.global.schemaVersion, 10)
   assertTrue(type(NS.db.global.history) == "table")
   assertEqual(#NS.db.global.history, 0)
   assertEqual(NS.db:GetCurrentProfile(), "Default")
   assertEqual(NS.db.profile.settings.qualityThreshold, 1)   -- default: Common (white) and above
-  assertEqual(NS.db.global.settings, nil, "no setting is stored account-wide")
+  assertEqual(NS.db.global.settings, nil, "no profile setting is stored account-wide")
+  -- The one account-wide setting (D6): the retention that prunes the shared history.
+  assertEqual(NS.db.global.retentionDays, NS.defaults.global.retentionDays)
+  assertEqual(NS.db.profile.settings.retentionDays, nil, "and no profile carries a copy of it")
 end)
 
 test("Schema: Set writes through the single seam", function()

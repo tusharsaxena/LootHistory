@@ -19,10 +19,16 @@ local O = NS.Options
 -- now has nothing to diverge from on these rows. defaults/Profile.lua loads before this file
 -- (LootHistory.toc), and every value read here is a scalar, so no row aliases the shipped table.
 local PD = NS.defaults.profile
+-- The account-wide declarations (defaults/Global.lua, which loads before defaults/Profile.lua): read
+-- for the one setting that lives there, `retentionDays` (D6).
+local GD = NS.defaults.global
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
--- Paths resolve against the ACTIVE PROFILE, NS.db.profile. The one stored row outside it is the
--- Master controls' `minimap.shown`, which owns its storage in the global LibDBIcon table.
+-- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Two stored rows live outside it, in
+-- the global store, and each owns its storage through its own get/set: the Master controls'
+-- `minimap.shown` (the LibDBIcon table, launcher-§3) and the History tab's `settings.retentionDays`
+-- (`global.retentionDays`, owner decision D6: the setting that governs recorded data stays
+-- account-wide, so no profile event can change what the prune deletes).
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
 -- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
@@ -377,9 +383,26 @@ local ROWS = {
   -- no path, which no partition test can count. tests/test_schema.lua exempts it BY NAME.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
   -- button now, which is where options-ui-§15 puts the global reset.)
-  { path = "settings.retentionDays", default = PD.settings.retentionDays, type = "number", widget = "Dropdown",
+  --
+  -- ACCOUNT-WIDE, NOT PER PROFILE (owner decision D6). The history this prunes is shared by every
+  -- profile, so the window it is kept for is too: the row's own get/set read and write
+  -- `NS.db.global.retentionDays`, and a profile switch, copy or reset never moves it. The CLI path
+  -- keeps its `settings.` name, so `/lh set settings.retentionDays <n>` reads as it always did;
+  -- S.RESET_EXEMPT maps it to the stored key, and Register's defaults check skips it (it owns its
+  -- storage, like `minimap.shown`).
+  { path = "settings.retentionDays", default = GD.retentionDays, type = "number", widget = "Dropdown",
     page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
-    tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
+    tooltip = "Automatically drop records older than this. 'Never' keeps everything. "
+      .. "Account-wide: one setting for every profile, and switching, copying or resetting a "
+      .. "profile never changes it.",
+    get = function()
+      local g = NS.db and NS.db.global
+      return g and g.retentionDays
+    end,
+    set = function(days)
+      local g = NS.db and NS.db.global
+      if g then g.retentionDays = days end
+    end,
     -- Confirm-gated when it would delete anything: S:OnRetentionChanged, below.
     onChange = function(value) S:OnRetentionChanged(value) end },
 }
@@ -437,7 +460,16 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 --- and the one stored key is `minimap.hide`: the KEYS are what the library's `resetExempt` veto and
 --- S.ResetProfile's count test a row's path against, and the VALUE names the one key LibDBIcon
 --- stores. No `shown` key is ever stored.
-S.RESET_EXEMPT = { ["minimap.shown"] = "minimap.hide" }
+---
+--- `settings.retentionDays` is the second entry, for the same structural reason (owner decision
+--- D6): it is stored at `global.retentionDays`, outside every profile, so the profile reset cannot
+--- reach it, no sweep may either, and S.ResetProfile's count leaves it out. A reset that changed
+--- it would change what the prune deletes from the shared history. `/lh reset
+--- settings.retentionDays` still resets it, through the same confirm as any change.
+S.RESET_EXEMPT = {
+  ["minimap.shown"]         = "minimap.hide",
+  ["settings.retentionDays"] = "retentionDays",
+}
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
 --
@@ -710,8 +742,8 @@ end
 --- `resetProfile` (settings/OptionsSetup.lua) and the library-less `/lh resetall`
 --- (settings/Slash.lua) both call it. Counted through the runtime's ResetCounted, so the profile
 --- event's one `[Set]` line carries N: the stored rows off their default just before the reset.
---- The Minimap button row is not counted, because its storage is global and the reset cannot move
---- it (launcher-§3).
+--- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3) and the retention
+--- (D6) -- because their storage is global and the reset cannot move them.
 function S.ResetProfile()
   local db = NS.db
   if not (db and db.ResetProfile) then return end
@@ -730,9 +762,10 @@ end
 --
 -- `confirmedRetention` is the stored value the player last agreed to: seeded from the store by
 -- SyncRetention (addon:OnInitialize), and moved only by a change that deleted nothing or a confirm
--- that was accepted. A profile the addon adopts (a switch, a copy or a reset) brings its own
--- retention, which is checked against it by AdoptRetention below. `restoring`
--- keeps the decline's own write-back from raising a second confirm.
+-- that was accepted. The store is `global.retentionDays`, outside every profile (D6), so a profile
+-- the addon adopts (a switch, a copy or a reset) brings no retention of its own: the adopt path has
+-- nothing to confirm and never prunes. `restoring` keeps the decline's own write-back from raising
+-- a second confirm.
 local confirmedRetention, restoring = nil, false
 
 local function retentionLabel(days)
@@ -742,31 +775,26 @@ local function retentionLabel(days)
   return tostring(days) .. " days"
 end
 
+--- The stored retention: account-wide, outside every profile (D6).
+local function storedRetention()
+  local g = NS.db and NS.db.global
+  return g and g.retentionDays
+end
+
 --- Seed the confirmed retention from the store. Call after anything that writes the row raw.
 function S:SyncRetention()
-  local s = NS.db and NS.db.profile and NS.db.profile.settings
-  confirmedRetention = s and s.retentionDays
+  confirmedRetention = storedRetention()
 end
 
---- The retention row's effect, re-applied for a profile the addon just adopted
---- (NS.OnProfileEvent). The new profile's `retentionDays` has never been confirmed against THIS
---- history, which is account-wide, so a value that differs from the confirmed one goes through the
---- same confirm a change would: nothing to drop confirms it silently; something to drop asks
---- first, and No writes the confirmed retention into the new profile. Without it, switching to a
---- profile that keeps a week would delete everything older at the next login, unasked.
-function S:AdoptRetention()
-  local s = NS.db and NS.db.profile and NS.db.profile.settings
-  local days = s and s.retentionDays
-  if days == nil or days == confirmedRetention then return end
-  S:OnRetentionChanged(days)
-end
-
---- The settings half of the profile adopt path (NS.OnProfileEvent, core/LootHistory.lua): the
---- retention check above, then ONE SettingsChanged("profile") for every reactor that already
---- follows a settings write -- the Collector's gates and id lists, the Browser's chrome and
---- visibility. Sent from HERE because this module is the message's one sender (architecture-§4).
+--- The settings half of the profile adopt path (NS.OnProfileEvent, core/LootHistory.lua): ONE
+--- SettingsChanged("profile") for every reactor that already follows a settings write -- the
+--- Collector's gates and id lists, the Browser's chrome and visibility. Sent from HERE because this
+--- module is the message's one sender (architecture-§4).
+---
+--- NO RETENTION STEP, and that is D6 rather than an omission: the retention is account-wide, so a
+--- switch, a copy or a reset leaves it exactly where it was, and nothing on this path counts,
+--- confirms or prunes the history.
 function S:AdoptProfile()
-  S:AdoptRetention()
   if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "profile") end
 end
 
@@ -797,14 +825,14 @@ end
 --- one through the write seam and says so in one line.
 function S:ConfirmRetention(days, accepted)
   if accepted then
-    local s = NS.db and NS.db.profile and NS.db.profile.settings
-    if s and s.retentionDays ~= days then writeRetentionQuietly(days) end
+    local stored = storedRetention()
+    if stored ~= nil and stored ~= days then writeRetentionQuietly(days) end
     if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     confirmedRetention = days
     return
   end
   local keep = confirmedRetention
-  if keep == nil then keep = PD.settings.retentionDays end
+  if keep == nil then keep = GD.retentionDays end
   writeRetentionQuietly(keep)
   NS.Format("retention kept at %s; no records were deleted.", retentionLabel(keep))
 end
@@ -826,7 +854,8 @@ function S:Register()
   if not g then return 0 end
   -- A row carrying BOTH its own get and set owns its storage, so there is no defaults entry at its
   -- path to find: `minimap.shown` reads and writes LibDBIcon's `minimap.hide`, and no `shown` key is
-  -- declared or stored (launcher-§3, anti-pattern #81). Answering nil makes the library's
+  -- declared or stored (launcher-§3, anti-pattern #81); `settings.retentionDays` reads and writes
+  -- `global.retentionDays`, declared in defaults/Global.lua (D6). Answering nil makes the library's
   -- resolvesInDefaults answer nil too -- neither resolved nor missing -- and the stub skips it alike.
   local errors, _, missing = R.Validate{
     types = VALIDATE_TYPES,

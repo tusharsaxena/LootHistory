@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-971%2F971_passing-green)
+![Tests](https://img.shields.io/badge/Tests-976%2F976_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -84,7 +84,7 @@ The value shown throughout the History table and Insights is the higher of an it
 | Question | Answer |
 |----------|--------|
 | Does this track loot for my whole account or just one character? | The whole account. There's one shared history with a Character column, and every character adds to and reads from the same log. |
-| Can I use different settings on different characters? | Yes. Settings live in profiles, and every character starts on the shared **Default** one. Pick, create, copy or reset a profile on the **Profiles** page in the settings. Your loot history is shared by every profile, so switching never hides or deletes a record. |
+| Can I use different settings on different characters? | Yes. Settings live in profiles, and every character starts on the shared **Default** one. Pick, create, copy or reset a profile on the **Profiles** page in the settings. Your loot history is shared by every profile, so switching never hides or deletes a record. **Keep history for** is shared too: it is one setting for the whole account, so a profile switch never changes what gets cleared out. |
 | Does it record other players' loot? | No. Only items **you** pick up. |
 | What does the "confidence" marker mean? | Each item is marked **Certain** or **Inferred**. Most are Certain, filed straight from what the game reported. When the source can't be worked out, the addon still keeps the item, files it under **Other** and marks it Inferred. |
 | Which sources can I toggle on or off? | Every source it records: Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft and Refund. They're under **Capture ▸ Record data from** in the settings. |

@@ -1,9 +1,11 @@
 local _, NS = ...
 
--- Profile defaults: every setting (savedvariables-§2). A profile holds what the player CONFIGURED:
--- the schema rows under `settings`, the three id filter lists, the window geometry and the saved
--- table view. What the account RECORDED stays account-wide in defaults/Global.lua, so switching,
--- copying or resetting a profile never touches the loot history (docs/profiles.md).
+-- Profile defaults: every setting but one (savedvariables-§2). A profile holds what the player
+-- CONFIGURED: the schema rows under `settings`, the three id filter lists, the window geometry and
+-- the saved table view. What the account RECORDED stays account-wide in defaults/Global.lua, and so
+-- does the one setting that governs it, `retentionDays` (owner decision D6), so switching, copying
+-- or resetting a profile never touches the loot history or what the next prune deletes
+-- (docs/profiles.md).
 NS.defaults = NS.defaults or {}
 NS.defaults.profile = {
   -- Item-id filter lists (issue #14). Blacklisted ids are never recorded; rows already stored stay
@@ -35,7 +37,8 @@ NS.defaults.profile = {
     excludeQuestItems = true,  -- on by default (opt-out): drop Quest-class items at capture
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
     excludedSources  = {},     -- set of muted SourceType keys
-    retentionDays    = 30,     -- 0 == keep Always
+    -- NO retentionDays here: it governs the account-wide history, so it is account-wide too
+    -- (defaults/Global.lua, D6).
     windowScale      = 1.0,
     -- History-table row height, in pixels. Was `local ROW_H = 18` in modules/BrowserTable.lua and
     -- ships as the same 18, so a player who never touches it sees the table it always drew.
