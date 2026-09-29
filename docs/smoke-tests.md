@@ -63,9 +63,9 @@ free number in its theme.
 - Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/Widgets.lua`):
   HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2 and INSTALL-8.
 - LibKa0s re-vendor or `core/*Setup.lua` / `settings/Slash.lua` / `settings/OptionsSetup.lua`:
-  DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-5, HIST-12 to HIST-23,
-  HIST-28 to HIST-33, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to CAP-27, FILT-1,
-  FILT-16 and FILT-24.
+  DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-2, HIST-3, HIST-5,
+  HIST-12 to HIST-23, HIST-28 to HIST-33, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
+  CAP-27, FILT-1, FILT-16 and FILT-24.
 - Diagnostics or debug logging: DIAG, COMBAT-8, DEGRADED-4, SLASH-2, SLASH-8 and PANEL-19.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
 
@@ -124,23 +124,26 @@ version, get, set, list, reset, resetall, profile, debug, diagnostics, test, pur
 Each row is a gold `/lh <verb>`, an em dash and a white description; every line carries `[LH]`; no
 raw key such as `HELP_HEADER` shows; the window does not open. Result:
 
-**SLASH-3. `/lh list`.** On a fresh profile, `/lh list` → rows grouped under `[Master controls]`,
-`[Capture]`, `[AH Price]`, `[Interface]`, `[History]` in strip order (a `[Collection]` or
-`[Maintenance]` header is a missed rename), every schema row present, with the defaults
-`settings.enabled = true`, `settings.qualityThreshold = 1`, `settings.retentionDays = 30`,
-`settings.windowScale = 1`, `settings.excludeQuestItems = true`, `settings.excludedSources` empty and
-`minimap.shown = true` (the row reads SHOWN; the stored key underneath is `minimap.hide = false`).
-Result:
+**SLASH-3. `/lh list`.** `/lh resetall` (the profile back to its defaults), then `/lh list` → an
+`Available settings` header, then rows grouped under `[Master controls]`, `[Capture]`, `[AH Price]`,
+`[Interface]`, `[History]` in strip order (a `[Collection]` or `[Maintenance]` header is a missed
+rename), every schema row present, with the defaults `settings.enabled = true`,
+`settings.qualityThreshold = 1`, `settings.windowScale = 1.00x`, `settings.excludeQuestItems = true`,
+`settings.excludedSources = (none)` and `minimap.shown = true` (the row reads SHOWN; the stored key
+underneath is `minimap.hide = false`). `settings.retentionDays` is account-wide, so no profile reset
+moves it: `30` on a fresh install, `90` once PROFILE-4 has run. Result:
 
 **SLASH-4. Panel and CLI write one value.** With the panel open on the right tab, `/lh set
-windowScale 1.5` → the Window scale slider moves; drag the slider → `/lh get settings.windowScale`
-echoes it. Change **Minimum quality**, **Record data from**, **Exclude quest items** (Capture),
-**Keep history for** (History) and **Minimap button** (Master controls) → `/lh get` on each path
-echoes the new value, and an open widget follows a slash write live. Result:
+settings.windowScale 1.5` → the Window scale slider moves; drag the slider → `/lh get
+settings.windowScale` echoes it. Change **Minimum quality**, **Record data from**, **Exclude quest
+items** (Capture), **Keep history for** (History) and **Minimap button** (Master controls) → `/lh get`
+on each path echoes the new value, and an open widget follows a slash write live. Result:
 
-**SLASH-5. `set` refuses bad input.** `/lh set windowScale 9` → clamps to 1.6 (bounds 0.6 to 1.6);
-`/lh set windowScale abc` → prints "expected a number" and writes nothing; `/lh set settings.enabled
-maybe` → refused, nothing written. Result:
+**SLASH-5. `set` clamps and refuses bad input.** `/lh set settings.windowScale 9` →
+`settings.windowScale = 1.60x` (clamped to the 0.6 to 1.6 bounds); `/lh set settings.windowScale abc`
+→ `Invalid value for settings.windowScale`, then `expected a number`, and nothing is written;
+`/lh set settings.enabled maybe` → `Invalid value for settings.enabled`, then
+`expected true/false/on/off/1/0/yes/no`, and nothing is written. Result:
 
 **SLASH-6. `reset` one row.** Change Minimum quality and mute a source, then `/lh reset
 settings.qualityThreshold`, `/lh reset settings.excludedSources`, `/lh reset settings.windowScale` →
@@ -228,9 +231,10 @@ ALL … records? This cannot be undone."); Cancel leaves the data; repeat and Ac
 then click the header **Defaults** → the page resets, the three filter lists clear with it. Repeat
 with the Blizzard Settings window's own footer defaults control → the same reset. Result:
 
-**PANEL-15. Scrollbar always shown.** Click between the landing page, General tabs and Profiles → the
+**PANEL-15. Scrollbar always shown.** Click between the landing page and the General tabs → the
 right-edge scrollbar is always there: parked, grayed and inert on a short page, live on a long one,
-and the body's right edge does not shift between pages. Result:
+and the body's right edge does not shift between pages. (Profiles is AceDBOptions' own layout and
+draws no scrollbar; it is not part of this check.) Result:
 
 **PANEL-16. Button borders.** Look at **Reset position**, **Reset all settings** and **Purge
 history…** → each draws its full right border (not shaved by the scroll gutter) and lines up with its
@@ -288,10 +292,10 @@ among them), only the current one suffixed `(current)`, then `/lh profile <name>
 Result:
 
 **PROFILE-8. `/lh profile <name>` switches.** With Settings open on General → Interface (Row height
-reads Default's value), `/lh profile Main` → `Switched to profile 'Main'.`, the settings adopt as in
-PROFILE-2, the open panel's Row height moves to Main's 24 without reopening it, and with debug on the
-console shows one `[Profile] switched to profile 'Main'` line. `/lh profile Main` again → `Already on
-profile 'Main'.` and nothing changes. Result:
+reads Default's value), `/lh debug on`, then `/lh profile Main` → `Switched to profile 'Main'.`, the
+settings adopt as in PROFILE-2, the open panel's Row height moves to Main's 24 without reopening it,
+and the console shows one `[Profile] switched to profile 'Main'` line. `/lh profile Main` again →
+`Already on profile 'Main'.` and nothing changes. Result:
 
 **PROFILE-9. An unknown name is refused.** `/lh profile main` → `No profile named 'main'.`, then `Did
 you mean 'Main'?`, then the list; `/lh profile Nope` → the refusal and the list, no did-you-mean.
@@ -326,8 +330,9 @@ version` prints, `/lh list` and `/lh get settings.qualityThreshold` read, `/lh s
 `show`, `hide`, `toggle`, `test` and `purge` refuse with the disabled line. Result:
 
 **STATE-3. One switch, three surfaces.** `/lh enable` → prints `settings.enabled = true`, loot records
-again and the window opens. Tick and untick **Master controls ▸ Enable Loot History** → `/lh get
-settings.enabled` follows, and unticking takes the window down as the verb does. Result:
+again and `/lh show` opens the window (enabling does not open it by itself). Tick and untick **Master
+controls ▸ Enable Loot History** → `/lh get settings.enabled` follows, and unticking takes the window
+down as the verb does. Result:
 
 **STATE-4. Disabled right after login writes nothing.** `/reload` and, within five seconds of the
 loading screen clearing, untick **Enable Loot History** → nothing is written: the deferred
@@ -364,9 +369,9 @@ settings** and confirm → test mode off, box unticked. Tick it again, `/reload`
 resize the window → no "Interface action failed because of an AddOn" error; it stays usable.
 Result:
 
-**COMBAT-2. `/lh config` in combat.** In combat, `/lh config` → one gray "can't open in combat" line,
-nothing opens. Leave combat → `/lh config` opens the panel, and the panel does not open on its own
-when combat drops. Result:
+**COMBAT-2. `/lh config` in combat.** In combat, `/lh config` → one gray `cannot open settings during
+combat — Blizzard's category-switch is protected` line, nothing opens. Leave combat → `/lh config`
+opens the panel, and the panel does not open on its own when combat drops. Result:
 
 **COMBAT-3. The sidebar path is locked in combat.** In combat, open the Blizzard AddOns list and click
 **Ka0s Loot History ▸ General** (then **Profiles**) → the Settings window stays open with a gray cover
@@ -523,9 +528,9 @@ the session. Result:
 **HIST-3. `/lh hide` closes an open menu.** Open **Zone**, leave it open, `/lh hide` → menu and window
 both gone. Result:
 
-**HIST-4. Position, size and scale persist.** Drag the title bar, drag the bottom-right grip, `/lh
-set windowScale 1.3`, `/reload`, `/lh show` → same position, same size (never below the width that
-fits every column), 1.3× scale. Result:
+**HIST-4. Position, size and scale persist.** Drag the title bar, drag the bottom-right grip, `/lh set
+settings.windowScale 1.3`, `/reload`, `/lh show` → same position, same size (never below the width
+that fits every column), 1.3× scale. Result:
 
 **HIST-5. Sort.** Click each header (Date, Time, iLvl, Item, Qty, Quality, Type, SubType, Source, Zone,
 Vendor, Character), twice each → each direction renders; the active header shows one shared up or
@@ -604,8 +609,8 @@ Result:
 **HIST-22. Window and button marks.** The title-bar close is the collection's ✕ mark, and the export
 modal and copy window wear the same; the modal's **Export to CSV** carries a spreadsheet mark; the
 filter bar's **Export**, **Clear**, **Reset** and **Save** carry no mark, only their word. Fail:
-a blank space where a mark belongs (a path with `.tga`, or a name the catalog lacks); Blizzard art in
-its place means the library is missing (DEGRADED-11). Result:
+a blank space where a mark belongs (a path with `.tga`, or a name the catalog lacks); a thin text ×
+in place of the close mark means the library did not load (DEGRADED-11). Result:
 
 **HIST-23. Bound padlock and the resize grip.** The Bound column draws a padlock, and its header
 legend uses the same padlock tinted per state; the bottom-right grip is Blizzard's ChatFrame
@@ -628,9 +633,11 @@ are absent. Result:
 panel: Summary (the KPI cards), By Source, By Character x Source, By Quality, By Character x Quality,
 By Item Type, By Character x Item Type, By Bound Type, By Character x Bound Type, By Character, By
 Weekday, By Hour, Top Zones, Top Items by Count / Value, By Day, and with currency in range Currency
-Collected, Currency by Type x Source, Currency by Character x Type, Currency by Day. Loot sections are
-items-only; no By Keystone, Attribution Confidence, Currency by Source, flat Currency by Character or
-currency Summary rows. Result:
+Collected, Currency by Type x Source, Currency by Character x Type, Currency by Day. Values render
+`Ng Ns Nc`. The `… x …` sections are the per-character companions, one `Char / Category` row each (By
+Character x Source rows also carry the value). Loot sections are items-only, so a character's total
+tallies across them; no By Keystone, Attribution Confidence, Currency by Source, flat Currency by
+Character or currency Summary rows. Result:
 
 **HIST-27. All Data and Current View.** Apply a filter, export **Current View** from each tab → both
 CSVs honor the shared filter; **All Data** covers the whole visible history. Result:
@@ -728,15 +735,16 @@ label-only. Result:
 **INS-18. Tooltip position.** Every Insights tooltip appears just above and right of the cursor.
 Result:
 
-**INS-19. Segment tooltips.** Hover one segment of any stacked bar (Character × Source, Currency by
-Type × Source, Currency by Character × Type) → "<category>: <value>" (e.g. "Kill: 45"). Result:
+**INS-19. Segment tooltips.** Hover one segment of any stacked bar (Loot By Character × Source,
+Currency By Type × Source, Currency By Character × Type) → "<category>: <value>" (e.g. "Kill: 45").
+Result:
 
 **INS-20. The CURRENCY block.** With currency in range → the CURRENCY divider under LOOT, then
-Currency Collected (one colored bar per currency, with a legend), Currency by Type × Source (stacked
-by source, source legend), Currency by Character × Type (one stacked bar per character, a distinct
-color per currency, legend), Currency over time; no "Currency — N types" summary, no Currency by
-Source chart, no flat Currency by character. Narrow to a range with no currency → the whole block,
-divider included, disappears and LOOT still renders. Result:
+Currency Collected (one colored bar per currency, with a legend), Currency By Type × Source (stacked
+by source, source legend), Currency By Character × Type (one stacked bar per character, a distinct
+color per currency, legend), Currency Over Time (Per Day); no "Currency — N types" summary, no
+Currency by Source chart, no flat Currency by character. Narrow to a range with no currency → the
+whole block, divider included, disappears and LOOT still renders. Result:
 
 **INS-21. Live update.** Loot an item with Insights open → the cards update. Result:
 
@@ -1027,9 +1035,11 @@ degraded `/lh resetall` → `settings reset to defaults.` and the lists are empt
 is unavailable: the LibKa0s library did not load.`, nothing switches, and the help does not offer
 `profile`. Result:
 
-**DEGRADED-11. The art falls back.** Open the window → Blizzard art (down-arrow, `+`/`-`, the client
-lock atlas, the tick) where the catalog marks were, and the console in a proportional font. This is
-the fallback working, not a failure. Result:
+**DEGRADED-11. The art falls back.** `/lh show` → the Bound column draws the client's lock atlas (a
+plain colored square on a client with none) instead of the catalog padlock, the sorted column's
+header shows Blizzard's up or down arrow instead of the shared mark, and the title-bar close is a
+thin text × (gray, class-colored on hover) instead of the ✕ mark. This is the fallback working, not
+a failure. Result:
 
 ## Non-English client
 
@@ -1072,32 +1082,57 @@ Fail: any Lua error, which here means a localized string reached code that assum
 
 ## Pending sign-off
 
-Owner checks with no recorded pass. Origin is the old suite's section, or the change that added
-them or rewrote their expectation (a rewritten expectation has not been run in its new form).
+Checks with no pass recorded in their current form, each with its origin. Two kinds: old checks
+whose last result was owed or not run, and every check this rework (SP-LH-01 to SP-LH-03R) added or
+whose steps or expectation it corrected against the code, since none of those has run as written.
+Sign one off on its own `Result:` line, then remove its row here.
 
 | ID | Origin |
 |---|---|
+| INSTALL-2 | Old §1 load order, expectation rewritten by SP-LH-03 (a second sub-page, Profiles) |
 | INSTALL-3 | Old §1 fresh DB shape, expectation rewritten by SP-LH-01 (schema 10, `profiles.Default`) |
 | INSTALL-4 | Old §1 (existing-account upgrade), added with the move of settings into profiles |
 | INSTALL-5 | Old §14, expectation rewritten by SP-LH-01 (schema 10, the global/profile split) |
 | INSTALL-7 | Old §3 v4→v5 backfill, "still owed" in the 2026-07-22 field note |
 | SLASH-2 | Old §1 help index, expectation rewritten by SP-LH-02 (the `profile` row, eighteen rows) |
+| SLASH-3 | Old §1 and §9 `/lh list`, expectation corrected by SP-LH-03R (`1.00x`, `(none)`, retention account-wide) |
+| SLASH-4 | Old §9 panel and CLI writes, step corrected by SP-LH-03R (`settings.windowScale`; the short path is not found) |
+| SLASH-5 | Old §9 clamp and refusal, steps and expectation corrected by SP-LH-03R (full path, the printed lines) |
 | SLASH-7 | Old §17f resetall, expectation rewritten by SP-LH-01 (`resetall` is the profile reset) |
+| PANEL-1 | Old §9 setup, expectation rewritten by SP-LH-03 (Profiles last in the tree) |
+| PANEL-3 | Old §9 strip and §17c.3, expectation corrected by SP-LH-03 (the Interface tab has no subsection headings) |
 | PANEL-6 | Old §17k, "NOT YET RUN" |
 | PANEL-12 | Old §10 and §17f reset all, expectation rewritten by SP-LH-01 (profile-reset wording, history untouched) |
 | PANEL-14 | Old §17d.1 and §17f Defaults, expectation rewritten by SP-LH-01 (Defaults is the profile reset) |
 | PANEL-18 | Old §17l, "NOT YET RUN" |
-| PROFILE-1 to PROFILE-13 | New with the Profiles page and `/lh profile`; PROFILE-4 is old §13's last step, PROFILE-5 old §16's per-profile note |
+| PANEL-19 | Old §17b panel labels, expectation rewritten by SP-LH-03R (General and Profiles; no Defaults button on Profiles) |
+| PROFILE-1 to PROFILE-3 | New with the Profiles page (SP-LH-01) |
+| PROFILE-4 | Old §13 last step, rewritten by SP-LH-01 (retention account-wide, D6) |
+| PROFILE-5 | Old §16 note, rewritten by SP-LH-01 (the filter lists are per profile) |
+| PROFILE-6 | New with the Profiles page (SP-LH-01) |
+| PROFILE-7 to PROFILE-13 | New with `/lh profile` (SP-LH-02); PROFILE-8's step corrected by SP-LH-03R (`/lh debug on` before the switch) |
+| STATE-3 | Old §1 enable, expectation corrected by SP-LH-03R (enabling does not open the window) |
+| COMBAT-2 | Old §2 and §9 `/lh config` in combat, expectation corrected by SP-LH-03R (the library's printed line) |
+| COMBAT-3 | Old §17d.2 sidebar in combat, expectation rewritten by SP-LH-03 (Profiles covered too) |
 | CAP-9 | Old §3 matrix row 9 (review F-009), open in ARCHITECTURE Known limitations |
 | CAP-18 | Old §3 currency category (review F-010), "still owed" in the 2026-07-22 field note |
 | CAP-19 | Old §3 S-003; [midnight-quirks.md](midnight-quirks.md) records it not yet run |
 | CAP-21 | Old §3 currency bound glyph, "still owed" in the 2026-07-22 field note |
-| HIST-22 | Old §17g, expectation corrected by SP-LH-03R (the filter bar's Export carries no mark) |
+| CAP-25 | Old §17i.2, expectation corrected by SP-LH-03R (the subzone is read with `/dump`) |
+| CAP-27 | Old §17i.4, expectation corrected by SP-LH-03 (the map id is read with `/dump`; the CSV does not carry it) |
+| HIST-4 | Old §2 persistence, step corrected by SP-LH-03R (`settings.windowScale`) |
+| HIST-22 | Old §17g, expectation corrected by SP-LH-03R (no mark on the filter bar's Export; the degraded close is a text ×) |
+| HIST-31 | Old §17j.6 and §17j.7, given a runnable route by SP-LH-03R |
+| INS-19 | Old §7 segment tooltips, chart names corrected by SP-LH-03R (Title Case, as drawn) |
 | INS-20 | Old §7 CURRENCY block, "still owed" (layout) in the 2026-07-22 field note |
+| FILT-24 | Old §17f Clear all, expectation spelled out by SP-LH-03R (the popup text and the chat line) |
 | DIAG-14 | Old §15 bulk-reset line, expectation rewritten by SP-LH-01 (`[Set] reset profile 'Default' …`) |
 | DIAG-15 | Old §15 data and reset-all lines, expectation rewritten by SP-LH-01 (no `[Data]` line on Reset all settings) |
 | DEGRADED-2 | Old §17a.2, expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
+| DEGRADED-3 | Old §17a.3, expectation corrected by SP-LH-03R (`/lh version` and `/lh get` print DEGRADED-2's line) |
+| DEGRADED-5 | Old §17a.5, expectation corrected by SP-LH-03R (the `/lh version` clause dropped) |
 | DEGRADED-7 | Old §17a.7, given a runnable step by SP-LH-03R |
 | DEGRADED-9 | Old §17a.9, expectation rewritten by SP-LH-01 (`settings reset to defaults.`) |
-| DEGRADED-10 | New with `/lh profile` |
-| LOC-1 to LOC-5 | Old §18a to §18e, "NOT YET RUN" |
+| DEGRADED-10 | New with `/lh profile` (SP-LH-02) |
+| DEGRADED-11 | Old §17g ladder note, expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
+| LOC-1 to LOC-5 | Old §18a to §18e, "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
