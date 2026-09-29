@@ -42,7 +42,7 @@ subcategory, through the library's renderer so the combat lock covers it. `P:Reg
 (`settings/Panel.lua`) registers it after General, so it is last in the tree, and it has **no
 Defaults button**: AceDBOptions' Reset Profile is the page's reset. It is the only AceConfig use in
 the addon. With AceDBOptions or AceConfig missing, the builder answers nil and the page is simply
-absent. No slash verb switches profiles yet; this page is the control.
+absent. `/lh profile` (below) switches from chat.
 
 ## One adopt path for every profile event
 
@@ -109,5 +109,28 @@ leaves the account's value alone.
 
 ## The `profile` verb
 
-There is no `/lh profile` verb yet. The collection's `profile <name>` verb arrives with the LibKa0s
-release that carries it; until then the Profiles page is the only way to switch.
+`/lh profile` lists the profiles, sorted case-insensitively, the current one marked `(current)`,
+then a hint row. `/lh profile <name>` switches to that profile. The name must match an existing
+profile exactly, case included; one pair of surrounding quotes is stripped (`/lh profile "My Alt"`)
+and inner spaces are kept.
+
+- The current profile answers `Already on profile '<name>'.` and switches nothing.
+- An unknown name answers `No profile named '<name>'.`, then `Did you mean '<name>'?` when exactly
+  one profile matches ignoring case, then the list. **It never creates a profile**: AceDB's
+  `SetProfile` creates whatever it is handed, so a typo would otherwise become a stray profile.
+  Creating one is the Profiles page's job.
+- In combat the switch answers `Can't switch profiles in combat.`; the list and the refusals above
+  still answer.
+- The verb **answers while the addon is disabled**. `settings.enabled` belongs to the profile, so
+  switching to a profile where the addon is on brings it back up. The descriptor passes
+  `lib.LIVE_VERBS` plus `profile` as its `liveVerbs` (`settings/Slash.lua`), and the COMMANDS-table
+  gate lists it in `LIVE_WHILE_DISABLED` (`settings/Schema.lua`).
+
+The behavior is `LibKa0s-Slash-1.0`'s (`CliProfile`, Slash minor 17), shared by the whole
+collection; this addon owns the COMMANDS row and hands the dispatcher its store,
+`profiles = function() return NS.db end`. A switch goes through AceDB's `SetProfile`, so it reaches
+the same adopt path as the Profiles page and logs the same one `[Profile] switched to profile '<name>'`
+line; the library logs nothing of its own. With LibKa0s absent, the verb prints
+`/lh profile is unavailable: the LibKa0s library did not load.` and switches nothing, and the
+degraded help does not offer it. `tests/test_profiles.lua`, `tests/test_disabled.lua` and
+`tests/test_slash_degraded.lua` pin it.

@@ -15,6 +15,8 @@
 --     reads follow the profile, the latch follows its switch, every setting's effect is re-applied,
 --     and each event logs exactly one line (debug-logging-§10);
 --   * the Profiles page (settings/Profiles.lua, options-ui-§3) and the reset veto it shares.
+--   * the `/lh profile` verb (LibKa0s Slash minor 17): its COMMANDS row, the list, a switch through
+--     the adopt path, the already-current and unknown-name refusals, quotes, and combat.
 --
 -- Every case leaves the harness on `Default`, with no other profile stored and Default's contents
 -- put back, because the suites after this one read state the earlier ones seeded.
@@ -396,6 +398,154 @@ test("Profiles: each profile event logs exactly one line, worded by the event", 
     assertEqual(#l, 1, table.concat(l, " | "))
     assertTrue(l[1]:find("[Set] reset profile 'Default' to defaults", 1, true) ~= nil, l[1])
     assertTrue(l[1]:find("rows)", 1, true) == nil, "an uncounted reset names no count: " .. l[1])
+  end)
+end)
+
+-- ── the `profile` verb (LibKa0s Slash minor 17) ─────────────────────────────────────────────────
+--
+-- `/lh profile` lists the profiles and `/lh profile <name>` switches to an existing one. The
+-- behavior is the library's (Sl:CliProfile); what is this addon's is the COMMANDS row, the store it
+-- hands the descriptor (`profiles = NS.db`), the live-while-disabled choice and the one log line
+-- the adopt path writes when the switch lands. The disabled pins are in tests/test_disabled.lua,
+-- the library-absent stub's in tests/test_slash_degraded.lua.
+
+local Sl = NS.Slash
+
+--- Every chat line `fn` printed, in order, tags included.
+local function chatDuring(fn)
+  local cf, out = mocks.DEFAULT_CHAT_FRAME, {}
+  local old = cf.AddMessage
+  cf.AddMessage = function(_, line) out[#out + 1] = line end
+  local ok, err = pcall(fn)
+  cf.AddMessage = old
+  if not ok then error(err, 0) end
+  return out
+end
+
+local function tagged(line) return NS.PREFIX .. " " .. line end
+
+--- The stored profile names, sorted and joined: the witness that nothing was created.
+local function storedProfiles(db)
+  local names = db:GetProfiles()
+  table.sort(names)
+  return table.concat(names, ",")
+end
+
+test("profile verb: a COMMANDS row after resetall, and the whole verb order pinned", function()
+  -- red under: a missing row, one placed away from the settings verbs, or a changed description.
+  local order = {}
+  for i, c in ipairs(NS.COMMANDS) do order[i] = c[1] end
+  assertEqual(table.concat(order, " "), "show hide toggle config enable disable version get set "
+    .. "list reset resetall profile debug diagnostics test purge help")
+  assertEqual(#NS.COMMANDS, 18, "eighteen verbs")
+  assertEqual(NS.COMMANDS[13][2], "List profiles, or switch to one: profile <name>")
+end)
+
+test("profile verb: help prints the header and one row per verb, profile among them", function()
+  local out = chatDuring(function() Sl:PrintHelp() end)
+  assertEqual(#out, 1 + #NS.COMMANDS, table.concat(out, " | "))
+  local found = 0
+  for _, line in ipairs(out) do
+    if line:find("/lh profile", 1, true) and line:find("List profiles, or switch to one", 1, true) then
+      found = found + 1
+    end
+  end
+  assertEqual(found, 1, "the profile row is in the help index once")
+end)
+
+test("profile verb: bare /lh profile lists every profile, sorted, current marked, then the hint", function()
+  -- red under: a descriptor with no `profiles` field (the list reads "Profiles are not available.").
+  onProfiles(function(db)
+    db:SetProfile("zeta")
+    db:SetProfile("Alt")
+    local out = chatDuring(function() Sl:OnSlash("profile") end)
+    assertEqual(table.concat(out, "\n"), table.concat({
+      tagged("|cff33ff99Profiles|r"),
+      tagged("  Alt (current)"),
+      tagged("  Default"),
+      tagged("  zeta"),
+      tagged("/lh profile <name> switches profile"),
+    }, "\n"))
+    for _, line in ipairs(out) do
+      assertTrue(line:sub(-1) ~= ":", "no trailing colon (slash-commands-§4): " .. line)
+    end
+  end)
+end)
+
+test("profile verb: /lh profile <name> switches, and the adopt path logs the one switch line", function()
+  -- red under: a verb that switched without the store's callback (no [Profile] line, no adopt).
+  onProfiles(function(db)
+    db:SetProfile("Alt")
+    NS.Schema:Set("settings.qualityThreshold", 4)
+    db:SetProfile("Default")
+    NS.Schema:Set("settings.qualityThreshold", 1)
+    local out
+    local logged = loggedDuring(function()
+      out = chatDuring(function() Sl:OnSlash("profile Alt") end)
+    end)
+    assertEqual(table.concat(out, " | "), tagged("Switched to profile 'Alt'."))
+    assertEqual(db:GetCurrentProfile(), "Alt")
+    assertEqual(NS.Schema:Get("settings.qualityThreshold"), 4, "reads follow the new profile")
+    local switched = 0
+    for _, line in ipairs(logged) do
+      if line:find("[Profile] switched to profile 'Alt'", 1, true) then switched = switched + 1 end
+    end
+    assertEqual(switched, 1, "one switch line, from the host's profile handler")
+  end)
+end)
+
+test("profile verb: the current profile answers 'Already on', and switches nothing", function()
+  onProfiles(function(db)
+    local out = chatDuring(function() Sl:OnSlash("profile Default") end)
+    assertEqual(table.concat(out, " | "), tagged("Already on profile 'Default'."))
+    assertEqual(db:GetCurrentProfile(), "Default")
+  end)
+end)
+
+test("profile verb: an unknown name is refused with a did-you-mean and the list, and nothing is created", function()
+  -- Profile names are case-sensitive, so `alt` is not `Alt`. AceDB's SetProfile creates whatever
+  -- it is handed, which is how a typo would become a stray profile.
+  onProfiles(function(db)
+    db:SetProfile("Alt")
+    db:SetProfile("Default")
+    local before = storedProfiles(db)
+    local out = chatDuring(function() Sl:OnSlash("profile alt") end)
+    assertEqual(out[1], tagged("No profile named 'alt'."))
+    assertEqual(out[2], tagged("Did you mean 'Alt'?"))
+    assertEqual(out[3], tagged("|cff33ff99Profiles|r"))
+    assertEqual(#out, 6, table.concat(out, " | "))
+    assertEqual(db:GetCurrentProfile(), "Default", "no switch")
+    assertEqual(storedProfiles(db), before, "no profile created")
+  end)
+end)
+
+test("profile verb: surrounding quotes are stripped, and inner spaces and case are kept", function()
+  onProfiles(function(db)
+    db:SetProfile("My Alt")
+    db:SetProfile("Default")
+    local out = chatDuring(function() Sl:OnSlash('profile "My Alt"') end)
+    assertEqual(table.concat(out, " | "), tagged("Switched to profile 'My Alt'."))
+    assertEqual(db:GetCurrentProfile(), "My Alt")
+    out = chatDuring(function() Sl:OnSlash("profile 'Default'") end)
+    assertEqual(table.concat(out, " | "), tagged("Switched to profile 'Default'."))
+  end)
+end)
+
+test("profile verb: in combat the switch is refused, and the list still answers", function()
+  onProfiles(function(db)
+    db:SetProfile("Alt")
+    db:SetProfile("Default")
+    local real = mocks.InCombatLockdown
+    mocks.InCombatLockdown = function() return true end
+    local ok, err = pcall(function()
+      local out = chatDuring(function() Sl:OnSlash("profile Alt") end)
+      assertEqual(table.concat(out, " | "), tagged("Can't switch profiles in combat."))
+      assertEqual(db:GetCurrentProfile(), "Default")
+      out = chatDuring(function() Sl:OnSlash("profile") end)
+      assertEqual(out[1], tagged("|cff33ff99Profiles|r"))
+    end)
+    mocks.InCombatLockdown = real
+    if not ok then error(err, 0) end
   end)
 end)
 

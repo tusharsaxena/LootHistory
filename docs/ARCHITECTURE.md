@@ -181,6 +181,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `list` | List all settings |
 | `reset <path>` | Reset one setting to its default |
 | `resetall` | Reset all settings to defaults: `options-ui-§12`'s global reset, the **profile reset** (`db:ResetProfile()`). The same act as the General page's **Defaults** button and the Master controls tab's **Reset all settings** (which confirms first): the active profile's settings, id lists, AH cascade, saved view and window geometry come back as shipped, and test mode ends. The loot history is account-wide and untouched (`/lh purge` clears it), and so is the minimap button (launcher-§3). Scope matrix in [`schema.md`](schema.md#reset-semantics) |
+| `profile` / `profile <name>` | Bare: list the profiles, the current one marked. With a name: switch to that existing profile (exact case; surrounding quotes stripped, spaces kept). An unknown name is refused with the list and never created; a switch in combat is refused. The behavior is `LibKa0s-Slash-1.0`'s `CliProfile` (Slash minor 17) over `NS.db`, and it answers while the addon is disabled. See [profiles.md](profiles.md) |
 | `debug` / `debug on` / `debug off` / `debug diagnostics` / `debug events` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `diagnostics` is tested first and runs the same report as the `diagnostics` verb. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console |
 | `diagnostics` | Append the diagnostics report to the debug console (`debug-logging-§14`), after whatever trace it already holds, with logging on or off and while the addon is disabled. No other name (`diag`, `dump`) runs it. See [debug.md](debug.md) |
 | `test` | Toggle a synthetic preview dataset for the table and Insights (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
@@ -292,7 +293,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 
 | Doc | Status | Trigger |
 |---|---|---|
-| `slash-dispatch.md` | Present | 17 verbs in `NS.COMMANDS` |
+| `slash-dispatch.md` | Present | 18 verbs in `NS.COMMANDS` |
 | `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
 | `compat-layer.md` | Present | 22 shims (`grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua`) of addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |

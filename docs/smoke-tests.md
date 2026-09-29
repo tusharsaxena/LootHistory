@@ -81,7 +81,7 @@ Loot History**.
   command list), not the General sub-page. `/lh   ` (spaces only) does the same. The loot window
   does **not** open, and nothing is printed to chat.
 - `/lh help` prints the **help index** — the version line plus one `/lh <cmd> — <desc>` row per
-  `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/debug/diagnostics/test/purge/help — seventeen). Every
+  `NS.COMMANDS` entry (show/hide/toggle/config/enable/disable/version/get/set/list/reset/resetall/profile/debug/diagnostics/test/purge/help — eighteen). Every
   line carries the cyan `[LH]` banner. The window does **not** open.
 - `LootHistoryDB` is present on disk after `/reload`: `global` holds `history = {}`, `minimap` and
   `schemaVersion = 10`, and `profiles.Default` holds `settings`. (The declared default is 0, the

@@ -26,8 +26,11 @@ open the panel, `version` prints, `debug` runs, `diagnostics` writes its report 
 `reset`, `resetall` — reads and repairs settings, which is precisely when a player most needs it.
 The standard narrowed this to `enable` and `help` at v2.56.0 and **reversed it** at v2.57.0; the
 case that settled the reversal was the smallest one, `/lh` on a disabled addon returning a refusal
-instead of the one surface it can be switched back on from by hand. This addon passes **no**
-`liveVerbs` to the dispatcher, so it takes the library's set rather than a copy that could drift.
+instead of the one surface it can be switched back on from by hand. This addon builds its
+`liveVerbs` from `lib.LIVE_VERBS`, so it takes the library's set rather than a copy that could drift,
+and adds one host verb: `profile` (Slash minor 17) lists and switches profiles while disabled, because
+`settings.enabled` is per profile and the profile a player switches to may be the one where the
+addon is on.
 
 **A disabled addon refuses a feature verb** (slash-commands-§2's SHOULD, which survived the
 reversal and is the only refusal in the disabled state). While `settings.enabled` is `false`,
@@ -36,8 +39,8 @@ nothing else. The gate is **one gate**, wrapped round each feature handler as `N
 (`settings/Schema.lua`), so every route into a verb passes it — the library's dispatcher, the
 positional walk the library-less install falls back to, and a direct call on the triple — and a verb
 declared tomorrow is gated by default. The live set is named once, as data (`LIVE_WHILE_DISABLED`),
-and is `lib.LIVE_VERBS` restated (Slash minor 16): `help`, `config`, `version`, `enable`,
-`disable`, `debug`, `perf`, `diagnostics` and the schema CLI. `diagnostics` joined the set at
+and is `lib.LIVE_VERBS` restated (Slash minor 17): `help`, `config`, `version`, `enable`,
+`disable`, `debug`, `perf`, `diagnostics` and the schema CLI, plus the host verb `profile`. `diagnostics` joined the set at
 LibKa0s v1.60.0 because a disabled addon is the one a player is most likely to be reporting; the
 report reads state only, takes no hold and registers nothing, and says which parts are stood down
 ([debug.md](debug.md)). **The refusal line is the collection's, not this addon's** — one shape, built by

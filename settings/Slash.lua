@@ -190,9 +190,11 @@ if not lib then
   -- (debug-logging-§14) and writes nothing. Answering is not working, so help does not offer it.
   -- `resetall` is NOT here either: it is the profile reset, and AceDB is vendored beside this
   -- addon rather than inside LibKa0s, so Sl.CliResetAll below runs it in full.
+  -- `profile` IS here: the verb is the library's (Slash minor 17), so on this path its row reaches
+  -- Sl.CliProfile below, which only says the library is missing.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
-    reset = true, help = true, config = true, diagnostics = true,
+    reset = true, help = true, config = true, diagnostics = true, profile = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there
@@ -224,6 +226,14 @@ if not lib then
   end
   Sl.CliList, Sl.CliGet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
     unavailable, unavailable
+  --- The profile verb's two members (Slash minor 17), because the live dispatcher has both
+  --- (slash-commands-§1). Route (b): with no library there is no dispatcher to switch through, so
+  --- each prints the collection's library-absent line for `/lh profile` and switches nothing.
+  local function profileUnavailable()
+    NS.Print(NS.L["%s is unavailable: the LibKa0s library did not load."]:format("/lh profile"))
+  end
+  Sl.CliProfile = function() profileUnavailable() end
+  Sl.ProfileSwitch = function() profileUnavailable(); return false end
   --- The enable path only, which is what `/lh enable` and `/lh disable` delegate to. The row-less
   --- write lands through the seam's writeThrough list, which runs no onChange, so the reaction the
   --- Master controls row would have run (the latch, then the bus) is called here by the same name
@@ -282,6 +292,15 @@ end
 -- trailing colon; identical to what this file used to own, but in the library's UPPER-case hex.
 Sl.FormatKV = lib.FormatKV
 
+--- `lib.LIVE_VERBS` plus the one host verb this addon keeps live while disabled (see `liveVerbs`
+--- below). Copied, so the library's table is never written.
+local function liveVerbs()
+  local verbs = {}
+  for i, verb in ipairs(lib.LIVE_VERBS) do verbs[i] = verb end
+  verbs[#verbs + 1] = "profile"
+  return verbs
+end
+
 local Dispatcher = lib:New({
   slash        = "/lh",
   slashAliases = { "/loothistory" },
@@ -335,19 +354,27 @@ local Dispatcher = lib:New({
   -- STORED switch, not the latch: a perf capture is a reason to be inert and never a reason to
   -- refuse a verb.
   --
-  -- NO `liveVerbs`, AND THAT IS DELIBERATE. The library's default at minor 16 is the standard's
-  -- thirteen reserved verbs -- help, config, version, enable, disable, debug, perf, diagnostics,
-  -- get, set, list, reset, resetall -- and the bare `/lh` runs `config` in either state, which opens the panel. An
-  -- earlier pass narrowed that set to `enable` and `help`; the owner tested it, found `/lh` on a
-  -- disabled addon answering a refusal instead of opening the one surface the addon can be
-  -- switched back on from, and reversed it (standard v2.57.0). Passing a narrowed set here would
-  -- re-introduce exactly that, so this addon passes none and takes the library's.
+  -- `liveVerbs` IS THE LIBRARY'S SET PLUS `profile`, and nothing else. `lib.LIVE_VERBS` at minor
+  -- 17 is the standard's thirteen reserved verbs -- help, config, version, enable, disable, debug,
+  -- perf, diagnostics, get, set, list, reset, resetall -- and the bare `/lh` runs `config` in either
+  -- state, which opens the panel. An earlier pass narrowed that set to `enable` and `help`; the
+  -- owner tested it, found `/lh` on a disabled addon answering a refusal instead of opening the one
+  -- surface the addon can be switched back on from, and reversed it (standard v2.57.0). So the set
+  -- is built FROM the library's rather than typed out, and only widened: `profile` is a host verb
+  -- (not reserved, not in LIVE_VERBS), kept live because `settings.enabled` is profile-scoped and
+  -- the profile a disabled player switches to may be the one where the addon is on.
   --
   -- What is left refused is §2's feature-verb SHOULD -- show/hide/toggle/test/purge -- and this
   -- addon gates those at the COMMANDS table (settings/Schema.lua), which is the one seam BOTH its
   -- dispatchers pass through. The two gates print the same string, because both build it here.
   isEnabled = function() return not NS.AddonIsOff() end,
   brandName = NS.BRAND,
+  liveVerbs = liveVerbs(),
+
+  -- The profile verb's store (Slash minor 17), asked at call time: NS.db is built at
+  -- OnInitialize, after this file ran. The library switches through AceDB's SetProfile, whose
+  -- OnProfileChanged reaches the adopt path (core/LootHistory.lua), which logs the one line.
+  profiles = function() return NS.db end,
 })
 
 -- ── the surface the rest of the addon calls ────────────────────────────────────────────────────
@@ -365,6 +392,8 @@ Sl.CliGet         = function(_, rest) return Dispatcher:CliGet(rest)  end
 Sl.CliSet         = function(_, rest) return Dispatcher:CliSet(rest)  end
 Sl.CliReset       = function(_, rest) return Dispatcher:CliReset(rest) end
 Sl.CliVersion     = function()        return Dispatcher:CliVersion()  end
+Sl.CliProfile     = function(_, rest) return Dispatcher:CliProfile(rest) end
+Sl.ProfileSwitch  = function(_, name) return Dispatcher:ProfileSwitch(name) end
 --- The ONE refusal line, from the library, for every surface that prints it: the COMMANDS-table
 --- gate in settings/Schema.lua, the one call site left since Launcher minor 4 (LibKa0s v1.58.0,
 --- launcher-§2) retired the launcher's refused left-click. It never writes the wording itself --

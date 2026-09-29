@@ -661,7 +661,7 @@ badge and any count quoted in the docs must agree with it.
 - /lh debug events prints the rejected event names, or none
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
 
-### test_slash_degraded.lua (12)
+### test_slash_degraded.lua (14)
 
 - library-less install: the Slash under test is the degraded stub
 - library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
@@ -675,6 +675,8 @@ badge and any count quoted in the docs must agree with it.
 - library-less install: resetall is the same act through the verb table
 - library-less install: both report forms answer with the library-absent line and nothing else
 - library-less install: the degraded help does not offer /lh diagnostics
+- library-less install: /lh profile answers with the library-absent line and switches nothing
+- library-less install: the degraded help does not offer /lh profile
 
 ### test_schema.lua (69)
 
@@ -894,7 +896,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
 - Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
 
-### test_profiles.lua (20)
+### test_profiles.lua (28)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
 - Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched
@@ -910,6 +912,14 @@ badge and any count quoted in the docs must agree with it.
 - Profiles: a switch, a copy and a reset each refresh every open settings panel once
 - Profiles: a switch to a profile where the addon is off stands it down, and back brings it up
 - Profiles: each profile event logs exactly one line, worded by the event
+- profile verb: a COMMANDS row after resetall, and the whole verb order pinned
+- profile verb: help prints the header and one row per verb, profile among them
+- profile verb: bare /lh profile lists every profile, sorted, current marked, then the hint
+- profile verb: /lh profile <name> switches, and the adopt path logs the one switch line
+- profile verb: the current profile answers 'Already on', and switches nothing
+- profile verb: an unknown name is refused with a did-you-mean and the list, and nothing is created
+- profile verb: surrounding quotes are stripped, and inner spaces and case are kept
+- profile verb: in combat the switch is refused, and the list still answers
 - Profiles: retention reads and writes global, and a switch never changes it
 - Profiles: the login prune reads the account-wide retention, never a profile's
 - Profiles: a switch, a copy and a reset leave the loot history untouched and never prune
@@ -971,14 +981,15 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 
-### test_disabled.lua (13)
+### test_disabled.lua (14)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
 - slash-commands-§7 step 5: the window goes down, and the SHOW LADDER is what keeps it down
 - slash-commands-§7 step 6: firing every event it used to watch writes nothing, prints nothing, draws nothing
-- slash-commands-§7 step 7: every RESERVED verb still answers, and the bare /lh opens the panel
+- slash-commands-§7 step 7: every RESERVED verb and /lh profile still answer, and the bare /lh opens the panel
+- slash-commands-§7 step 7: /lh profile switches while disabled, and a profile where the addon is on brings it up
 - slash-commands-§7 step 7: every FEATURE verb refuses on ONE line and reaches no write seam
 - slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own
 - slash-commands-§7 step 7: both diagnostics forms write a full report while stood down
@@ -1122,17 +1133,17 @@ badge and any count quoted in the docs must agree with it.
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 21 |
 | test_slash.lua | 62 |
-| test_slash_degraded.lua | 12 |
+| test_slash_degraded.lua | 14 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
-| test_profiles.lua | 20 |
+| test_profiles.lua | 28 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 24 |
 | test_surface_parity.lua | 14 |
-| test_disabled.lua | 13 |
+| test_disabled.lua | 14 |
 | test_diagnostics.lua | 17 |
 | test_doc_structure.lua | 7 |
 | test_lintconfig.lua | 4 |
@@ -1142,4 +1153,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 7 |
 | test_widgets.lua | 17 |
-| **Total** | **976** |
+| **Total** | **987** |

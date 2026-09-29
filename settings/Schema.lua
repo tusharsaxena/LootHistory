@@ -911,18 +911,26 @@ end
 -- `diagnostics` (debug-logging-§14) is listed ahead of its registration for the same reason, and
 -- because a disabled addon is exactly the one a player is most likely to be reporting.
 --
+-- `profile` is the one HOST verb on the set (LibKa0s Slash minor 17). It is not reserved and not in
+-- `lib.LIVE_VERBS`, so the descriptor passes `lib.LIVE_VERBS` plus `profile` as its `liveVerbs`
+-- (settings/Slash.lua) and this set names it beside the thirteen. It reads and switches settings
+-- rather than driving a feature, and `settings.enabled` is profile-scoped: the profile a disabled
+-- player switches to may be the one where the addon is on.
+--
 -- Everything NOT in the set is a feature verb — show/hide/toggle/test/purge, which draw, preview
 -- and destroy — and answers one tagged line naming `/lh enable`, having done nothing else.
 --
--- THE SET IS THE LIBRARY'S OWN, byte for byte: `lib.LIVE_VERBS` at Slash minor 16 is these thirteen.
+-- THE SET IS THE LIBRARY'S OWN PLUS `profile`: `lib.LIVE_VERBS` at Slash minor 17 is the thirteen.
 -- It is restated here rather than read off the library because this table is built at FILE LOAD,
 -- before settings/Slash.lua has resolved anything, and because the wrapper below has to gate the
 -- LIBRARY-LESS dispatcher too — the one install where there is no `lib.LIVE_VERBS` to ask.
--- tests/test_disabled.lua asserts the two agree, so the restatement cannot drift.
+-- tests/test_disabled.lua asserts the two agree and that `profile` answers while disabled, so the
+-- restatement cannot drift.
 local LIVE_WHILE_DISABLED = {
   help = true, config = true, version = true, enable = true, disable = true,
   debug = true, perf = true, diagnostics = true,
   get = true, set = true, list = true, reset = true, resetall = true,
+  profile = true,
 }
 
 --- The STORED enable path, and deliberately not `NS.IsStoodDown` — a perf capture is a reason to be
@@ -987,6 +995,12 @@ NS.COMMANDS = gateFeatureVerbs{
   { "list",     "List all settings",     function() NS.Slash:CliList() end },
   { "reset",    "Reset one setting",     function(a) NS.Slash:CliReset(a) end },
   { "resetall", "Reset all settings",    function() NS.Slash:CliResetAll() end },
+  -- The profile verb (LibKa0s Slash minor 17): bare lists the profiles, current marked; a name
+  -- switches to an existing profile and never creates one. The behavior is the library's; the
+  -- store is NS.db (the descriptor's `profiles`), and the switch's one log line is the adopt path's
+  -- (NS.OnProfileEvent, core/LootHistory.lua). Live while disabled, per LIVE_WHILE_DISABLED above.
+  { "profile",  NS.L["List profiles, or switch to one: profile <name>"],
+    function(rest) NS.Slash:CliProfile(rest) end },
   { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
     function(rest)
       -- `/lh debug diagnostics` is tested FIRST (debug-logging-§14): the same report as the

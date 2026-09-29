@@ -199,3 +199,31 @@ test("library-less install: the degraded help does not offer /lh diagnostics", f
   -- the library is missing, and slash-commands-§1 wants this list to hold what still works.
   assertTrue(not listedVerbs().diagnostics, "/lh diagnostics cannot write a report with no library")
 end)
+
+-- ── the profile verb (LibKa0s Slash minor 17) ─────────────────────────────────────────────────
+
+test("library-less install: /lh profile answers with the library-absent line and switches nothing", function()
+  -- The stub carries both profile members the live dispatcher has (slash-commands-§1), on route
+  -- (b): with no library there is no dispatcher to switch through, so each prints one line.
+  -- red under: a stub with no CliProfile (the row raises), or one that calls SetProfile itself.
+  local want = NS.PREFIX .. " /lh profile is unavailable: the LibKa0s library did not load."
+  for _, form in ipairs({ "profile", "profile Alt", 'profile "My Alt"' }) do
+    local current
+    local out = withDegradedStore(function()
+      degradedNS.db:SetProfile("Alt")
+      degradedNS.db:SetProfile("Default")
+      DSl:OnSlash(form)
+      current = degradedNS.db:GetCurrentProfile()
+    end)
+    assertEqual(table.concat(out, " | "), want, "/lh " .. form)
+    assertEqual(current, "Default", "/lh " .. form .. " switched nothing")
+  end
+  local out = withDegradedStore(function() assertEqual(DSl:ProfileSwitch("Alt"), false) end)
+  assertEqual(table.concat(out, " | "), want, "ProfileSwitch answers the same line and false")
+end)
+
+test("library-less install: the degraded help does not offer /lh profile", function()
+  -- red under: profile missing from UNAVAILABLE_WITHOUT_LIB. It dispatches, but only to say the
+  -- library is missing.
+  assertTrue(not listedVerbs().profile, "/lh profile cannot switch with no library")
+end)
