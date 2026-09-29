@@ -248,6 +248,33 @@ test("Profiles: a switch re-applies every setting through the one adopt path", f
   end)
 end)
 
+test("Profiles: a switch, a copy and a reset each refresh every open settings panel once", function()
+  -- The Filters tab's id lists and the AH Price table are drawn off the profile's own tables, so an
+  -- open panel has to be re-rendered against the new profile (options-ui: a profile callback
+  -- refreshes an open panel).
+  -- red under: an adopt path that drops the NS.Options.RefreshAllPanels call, which would leave an
+  -- open panel showing the old profile's lists.
+  onProfiles(function(db)
+    local O = NS.Options
+    local realRefresh, refreshed = O.RefreshAllPanels, 0
+    O.RefreshAllPanels = function(...) refreshed = refreshed + 1; return realRefresh(...) end
+    local ok, err = pcall(function()
+      db:SetProfile("Alt")
+      assertEqual(refreshed, 1, "the switch refreshed the open panels")
+      NS.Schema:Set("settings.qualityThreshold", 3)
+      db:SetProfile("Default")
+      refreshed = 0
+      db:CopyProfile("Alt")
+      assertEqual(refreshed, 1, "the copy refreshed the open panels")
+      refreshed = 0
+      db:ResetProfile()
+      assertEqual(refreshed, 1, "the reset refreshed the open panels")
+    end)
+    O.RefreshAllPanels = realRefresh
+    if not ok then error(err, 0) end
+  end)
+end)
+
 test("Profiles: a switch to a profile where the addon is off stands it down, and back brings it up", function()
   -- `settings.enabled` is profile-scoped, so the latch follows the profile (slash-commands-§7).
   -- red under: an adopt path that re-applies settings but never re-reads the switch.
@@ -370,21 +397,41 @@ test("Profiles page: AceDBOptions' table over this db, drawn by AceConfigDialog 
   libs["AceConfigDialog-3.0"] = {
     Open = function(_, app, container) opened[#opened + 1] = { app = app, container = container } end,
   }
+  -- The mock's SimpleGroup is born shown, which would pass a renderer that never shows it. The
+  -- client's AceGUI:Create hands back a POOLED group, which AceGUI:Release hid before pooling, so
+  -- the builder is given one in that state: every SimpleGroup it creates arrives hidden.
+  local savedAceGUI = NS.AceGUI
+  local realAceGUI = savedAceGUI or libs["AceGUI-3.0"]
+  local created
+  NS.AceGUI = setmetatable({
+    Create = function(_, wtype)
+      local w = realAceGUI:Create(wtype)
+      if wtype == "SimpleGroup" then w.frame:Hide(); created = w end
+      return w
+    end,
+  }, { __index = realAceGUI })
   local ok, err = pcall(function()
     local category = NS.ProfilesPage.Build({})
+    NS.AceGUI = savedAceGUI
     assertTrue(category ~= nil, "the page registered")
     local opts = registered["LootHistory-Profiles"]
     assertTrue(opts ~= nil and opts.db == NS.db, "the options table is AceDBOptions' over NS.db")
     local panel = mocks.__subcategories["Profiles"]
     assertTrue(panel ~= nil, "the canvas is registered under the name Profiles")
     local ctx = NS.ProfilesPage.ctx
+    assertTrue(created ~= nil and not created.frame:IsShown(), "the pooled container starts hidden")
+    -- The library records the option at CreatePanel and builds the button on the first show
+    -- (libs/LibKa0s/Options.lua, O.EnsureDefaultsButton), so both halves are read.
+    assertEqual(ctx.panel.wantsDefaultsButton, false, "the page declares no Defaults button")
     ctx.panel:Show()
     ctx.panel:__fire("OnShow")
     assertEqual(#opened, 1, "the first show opens the profile manager once")
     assertEqual(opened[1].app, "LootHistory-Profiles")
-    assertTrue(opened[1].container.frame:IsShown(), "the container AceConfigDialog fills is shown")
-    assertTrue(panel.defaultsOnClick == nil, "no Defaults button: AceDBOptions carries Reset Profile")
+    assertTrue(opened[1].container == created, "AceConfigDialog fills the page's own container")
+    assertTrue(created.frame:IsShown(), "the render showed the pooled container")
+    assertEqual(ctx.panel.defaultsBtn, nil, "no Defaults button: AceDBOptions carries Reset Profile")
   end)
+  NS.AceGUI = savedAceGUI
   libs["AceDBOptions-3.0"], libs["AceConfig-3.0"], libs["AceConfigDialog-3.0"] = nil, nil, nil
   mocks.__subcategories["Profiles"] = nil
   if NS.ProfilesPage.ctx then NS.ProfilesPage.ctx.panel:Hide() end

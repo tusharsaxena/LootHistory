@@ -894,7 +894,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
 - Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
 
-### test_profiles.lua (14)
+### test_profiles.lua (15)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
 - Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched
@@ -903,6 +903,7 @@ badge and any count quoted in the docs must agree with it.
 - Profiles: every read and write resolves against the ACTIVE profile
 - Profiles: the loot history is shared by every profile
 - Profiles: a switch re-applies every setting through the one adopt path
+- Profiles: a switch, a copy and a reset each refresh every open settings panel once
 - Profiles: a switch to a profile where the addon is off stands it down, and back brings it up
 - Profiles: each profile event logs exactly one line, worded by the event
 - Profiles: a switch to a shorter retention asks before deleting, and No keeps every record
@@ -1122,7 +1123,7 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
-| test_profiles.lua | 14 |
+| test_profiles.lua | 15 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 24 |
 | test_surface_parity.lua | 14 |
@@ -1136,4 +1137,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 7 |
 | test_widgets.lua | 17 |
-| **Total** | **970** |
+| **Total** | **971** |
