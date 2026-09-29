@@ -1,0 +1,1 @@
+OK SP-LH-02 vendor byte-identical to v1.63.0 (libs+kit); provenance+bundle ok; COMMANDS row/NS.L/profiles/liveVerbs(+profile only)/stub CliProfile+ProfileSwitch ok; 8 mutations all caught; docs/citations/CRLF/test-cases/badge 987 ok; gate 987/0, luacheck 0/0
