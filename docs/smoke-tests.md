@@ -680,8 +680,11 @@ Result:
 the size of records; a long value stays on one line, shrinking to fit, never wrapping or clipping.
 Result:
 
-**INS-4. Coin glyphs.** Money strings (value card, richest drop, Value By Source) use coin icons about
-25% smaller than the text's line. Result:
+**INS-4. Coin glyphs.** Look at a money string on Insights (the value card, richest drop, Value By
+Source), then at a Vendor or AH price cell on History → the Insights gold, silver and copper icons
+are smaller: a fixed 10 px, about 25% under the client's default of about 14 px, which the History
+price cells use. The size does not follow the text: on a KPI card the coins sit well below the
+digits' height, and on a Value By Source row they are about as tall as the text. Result:
 
 **INS-5. Section dividers.** The gold **LOOT** and **CURRENCY** titles are about 50% larger, with rule
 lines about 25% thicker, than sub-section headers. Result:
@@ -1082,57 +1085,119 @@ Fail: any Lua error, which here means a localized string reached code that assum
 
 ## Pending sign-off
 
-Checks with no pass recorded in their current form, each with its origin. Two kinds: old checks
-whose last result was owed or not run, and every check this rework (SP-LH-01 to SP-LH-03R) added or
-whose steps or expectation it corrected against the code, since none of those has run as written.
-Sign one off on its own `Result:` line, then remove its row here.
+The old suite recorded no result for any check, so every check carried over from it is owed unless
+a record of the owner's pass exists. Three do. Review F-001 passed CAP-4 to CAP-6 (ARCHITECTURE
+Known limitations). The 2026-07-22 field note in the old § 3 passed currency capture and the refund
+flow (CAP-11, CAP-12). The diagnostics rollout's owner pass on 2026-09-26
+(Ka0sAddonsCommonTasks `2026-09-25-DIAGNOSTICS_COMMAND/99_REPORT.md`, LH-S1 to LH-S11 and LH-X1)
+passed DIAG-19 to DIAG-25 and COMBAT-8. Those thirteen checks are not listed. The same rollout
+passed half of DIAG-6 and half of DEGRADED-4; both stay listed for the other half. The 2026-09-23
+remediation plan (`06_SMOKE_TESTS.md` Session LH, Session Q and X2.4, and the post-M6 minimap
+re-check in its `checkpoints.tsv`) is recorded as owed; a row names the plan step its check
+carries. Checks new in this rework (SP-LH-01 to SP-LH-03R), and checks whose steps or expectation
+it corrected against the code, are listed with what changed. Sign one off on its own `Result:`
+line, then remove its row here.
 
-| ID | Origin |
-|---|---|
-| INSTALL-2 | Old §1 load order, expectation rewritten by SP-LH-03 (a second sub-page, Profiles) |
-| INSTALL-3 | Old §1 fresh DB shape, expectation rewritten by SP-LH-01 (schema 10, `profiles.Default`) |
-| INSTALL-4 | Old §1 (existing-account upgrade), added with the move of settings into profiles |
-| INSTALL-5 | Old §14, expectation rewritten by SP-LH-01 (schema 10, the global/profile split) |
-| INSTALL-7 | Old §3 v4→v5 backfill, "still owed" in the 2026-07-22 field note |
-| SLASH-2 | Old §1 help index, expectation rewritten by SP-LH-02 (the `profile` row, eighteen rows) |
-| SLASH-3 | Old §1 and §9 `/lh list`, expectation corrected by SP-LH-03R (`1.00x`, `(none)`, retention account-wide) |
-| SLASH-4 | Old §9 panel and CLI writes, step corrected by SP-LH-03R (`settings.windowScale`; the short path is not found) |
-| SLASH-5 | Old §9 clamp and refusal, steps and expectation corrected by SP-LH-03R (full path, the printed lines) |
-| SLASH-7 | Old §17f resetall, expectation rewritten by SP-LH-01 (`resetall` is the profile reset) |
-| PANEL-1 | Old §9 setup, expectation rewritten by SP-LH-03 (Profiles last in the tree) |
-| PANEL-3 | Old §9 strip and §17c.3, expectation corrected by SP-LH-03 (the Interface tab has no subsection headings) |
-| PANEL-6 | Old §17k, "NOT YET RUN" |
-| PANEL-12 | Old §10 and §17f reset all, expectation rewritten by SP-LH-01 (profile-reset wording, history untouched) |
-| PANEL-14 | Old §17d.1 and §17f Defaults, expectation rewritten by SP-LH-01 (Defaults is the profile reset) |
-| PANEL-18 | Old §17l, "NOT YET RUN" |
-| PANEL-19 | Old §17b panel labels, expectation rewritten by SP-LH-03R (General and Profiles; no Defaults button on Profiles) |
-| PROFILE-1 to PROFILE-3 | New with the Profiles page (SP-LH-01) |
-| PROFILE-4 | Old §13 last step, rewritten by SP-LH-01 (retention account-wide, D6) |
-| PROFILE-5 | Old §16 note, rewritten by SP-LH-01 (the filter lists are per profile) |
-| PROFILE-6 | New with the Profiles page (SP-LH-01) |
-| PROFILE-7 to PROFILE-13 | New with `/lh profile` (SP-LH-02); PROFILE-8's step corrected by SP-LH-03R (`/lh debug on` before the switch) |
-| STATE-3 | Old §1 enable, expectation corrected by SP-LH-03R (enabling does not open the window) |
-| COMBAT-2 | Old §2 and §9 `/lh config` in combat, expectation corrected by SP-LH-03R (the library's printed line) |
-| COMBAT-3 | Old §17d.2 sidebar in combat, expectation rewritten by SP-LH-03 (Profiles covered too) |
-| CAP-9 | Old §3 matrix row 9 (review F-009), open in ARCHITECTURE Known limitations |
-| CAP-18 | Old §3 currency category (review F-010), "still owed" in the 2026-07-22 field note |
-| CAP-19 | Old §3 S-003; [midnight-quirks.md](midnight-quirks.md) records it not yet run |
-| CAP-21 | Old §3 currency bound glyph, "still owed" in the 2026-07-22 field note |
-| CAP-25 | Old §17i.2, expectation corrected by SP-LH-03R (the subzone is read with `/dump`) |
-| CAP-27 | Old §17i.4, expectation corrected by SP-LH-03 (the map id is read with `/dump`; the CSV does not carry it) |
-| HIST-4 | Old §2 persistence, step corrected by SP-LH-03R (`settings.windowScale`) |
-| HIST-22 | Old §17g, expectation corrected by SP-LH-03R (no mark on the filter bar's Export; the degraded close is a text ×) |
-| HIST-31 | Old §17j.6 and §17j.7, given a runnable route by SP-LH-03R |
-| INS-19 | Old §7 segment tooltips, chart names corrected by SP-LH-03R (Title Case, as drawn) |
-| INS-20 | Old §7 CURRENCY block, "still owed" (layout) in the 2026-07-22 field note |
-| FILT-24 | Old §17f Clear all, expectation spelled out by SP-LH-03R (the popup text and the chat line) |
-| DIAG-14 | Old §15 bulk-reset line, expectation rewritten by SP-LH-01 (`[Set] reset profile 'Default' …`) |
-| DIAG-15 | Old §15 data and reset-all lines, expectation rewritten by SP-LH-01 (no `[Data]` line on Reset all settings) |
-| DEGRADED-2 | Old §17a.2, expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
-| DEGRADED-3 | Old §17a.3, expectation corrected by SP-LH-03R (`/lh version` and `/lh get` print DEGRADED-2's line) |
-| DEGRADED-5 | Old §17a.5, expectation corrected by SP-LH-03R (the `/lh version` clause dropped) |
-| DEGRADED-7 | Old §17a.7, given a runnable step by SP-LH-03R |
-| DEGRADED-9 | Old §17a.9, expectation rewritten by SP-LH-01 (`settings reset to defaults.`) |
-| DEGRADED-10 | New with `/lh profile` (SP-LH-02) |
-| DEGRADED-11 | Old §17g ladder note, expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
-| LOC-1 to LOC-5 | Old §18a to §18e, "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
+| ID | Origin in the old suite | Owed because |
+|---|---|---|
+| INSTALL-1 | § 1 setup, pass 1 | No result recorded |
+| INSTALL-2 | § 1 load order | No result recorded; expectation rewritten by SP-LH-03 (a second sub-page, Profiles) |
+| INSTALL-3 | § 1 fresh DB | No result recorded; expectation rewritten by SP-LH-01 (schema 10, `profiles.Default`); the 2026-09-23 plan's LH.9 is owed |
+| INSTALL-4 | § 1 existing account | Added with the move of settings into profiles (SP-LH-01) |
+| INSTALL-5 | § 14 | No result recorded; expectation rewritten by SP-LH-01 (schema 10, the global/profile split) |
+| INSTALL-6 | § 3 v3→v4 backfill | No result recorded |
+| INSTALL-7 | § 3 v4→v5 backfill | "Still owed" in the 2026-07-22 field note |
+| INSTALL-8 | § 5 saved view v7→v8 | No result recorded |
+| SLASH-1 | § 1 bare `/lh` | No result recorded |
+| SLASH-2 | § 1 help index, § 17b | No result recorded; expectation rewritten by SP-LH-02 (the `profile` row, eighteen rows) |
+| SLASH-3 | § 1 and § 9 `/lh list` | No result recorded; expectation corrected by SP-LH-03R (`1.00x`, `(none)`, retention account-wide) |
+| SLASH-4 | § 9 panel and CLI writes | No result recorded; step corrected by SP-LH-03R (`settings.windowScale`; the short path is not found) |
+| SLASH-5 | § 9 clamp and refusal | No result recorded; steps and expectation corrected by SP-LH-03R (full path, the printed lines) |
+| SLASH-6 | § 9 `reset <path>` | No result recorded; SP-LH-03R added the `(none)` echo for the source list |
+| SLASH-7 | § 17f resetall | No result recorded; expectation rewritten by SP-LH-01 (`resetall` is the profile reset) |
+| SLASH-8, SLASH-9 | § 17b raw keys, § 17i.1 | No result recorded |
+| PANEL-1 | § 9 setup | No result recorded; expectation rewritten by SP-LH-03 (Profiles last in the tree) |
+| PANEL-2 | § 17c.1-2 | No result recorded |
+| PANEL-3 | § 9 strip, § 17c.3 | No result recorded; expectation corrected by SP-LH-03 (the Interface tab has no subsection headings) |
+| PANEL-4, PANEL-5 | § 9 strip, § 17c.3 pairing | No result recorded |
+| PANEL-6 | § 17k | "NOT YET RUN" |
+| PANEL-7 to PANEL-11 | § 9 master and sliders, History tab readout, reset pair; § 10 | No result recorded |
+| PANEL-12 | § 10 and § 17f reset all | No result recorded; expectation rewritten by SP-LH-01 (profile-reset wording, history untouched) |
+| PANEL-13 | § 10 and § 17f purge | No result recorded |
+| PANEL-14 | § 17d.1 and § 17f Defaults | No result recorded; expectation rewritten by SP-LH-01 (Defaults is the profile reset) |
+| PANEL-15 to PANEL-17 | § 10, § 17c.4, § 17c.5, § 9 | No result recorded |
+| PANEL-18 | § 17l | "NOT YET RUN" |
+| PANEL-19 | § 17b panel labels | No result recorded; expectation rewritten by SP-LH-03R (General and Profiles; no Defaults button on Profiles) |
+| PROFILE-1 to PROFILE-3 | New | New with the Profiles page (SP-LH-01) |
+| PROFILE-4 | § 13 last step | Rewritten by SP-LH-01 (retention account-wide, D6) |
+| PROFILE-5 | § 16 note | Rewritten by SP-LH-01 (the filter lists are per profile) |
+| PROFILE-6 | New | New with the Profiles page (SP-LH-01) |
+| PROFILE-7 to PROFILE-13 | New | New with `/lh profile` (SP-LH-02); PROFILE-8's step corrected by SP-LH-03R (`/lh debug on` before the switch) |
+| STATE-1, STATE-2 | § 1 disable | No result recorded |
+| STATE-3 | § 1 enable, § 9 master | No result recorded; expectation corrected by SP-LH-03R (enabling does not open the window) |
+| STATE-4, STATE-5 | § 1 deferred writes, § 9 master | No result recorded |
+| STATE-6 | § 9 master Lock frame | No result recorded; the 2026-09-23 plan's LH.6 is owed |
+| STATE-7 to STATE-11 | § 8 | No result recorded |
+| COMBAT-1 | § 2 | No result recorded |
+| COMBAT-2 | § 2, § 9 and § 17d.2 `/lh config` in combat | No result recorded; expectation corrected by SP-LH-03R (the library's printed line) |
+| COMBAT-3 | § 17d.2 sidebar in combat | No result recorded; expectation rewritten by SP-LH-03 (Profiles covered too) |
+| COMBAT-4 | § 17d.2 cover lifts | No result recorded |
+| COMBAT-5 | § 9 master Only out of combat | No result recorded; the 2026-09-23 plan's LH.8 is owed |
+| COMBAT-6 | § 8 | No result recorded |
+| COMBAT-7 | § 8 | No result recorded; the 2026-09-23 plan's LH.8 is owed |
+| CAP-1 to CAP-3 | § 3 matrix rows 1-3 | No result recorded |
+| CAP-7, CAP-8, CAP-10 | § 3 matrix rows 7, 8, 10 | No result recorded |
+| CAP-9 | § 3 matrix row 9 (review F-009) | No result recorded; open in ARCHITECTURE Known limitations |
+| CAP-13 | § 3 record currency and mute | No result recorded |
+| CAP-14 | § 3 keystone context | No result recorded; the 2026-09-23 plan's Q.1 is owed |
+| CAP-15 | § 3 boss-corpse loot | The 2026-09-23 plan's Q.2 recorded a PASS on 2026-09-24 for the console order and the stamp's `encounterID` only: the loot was gold, so no row was written and the `sourceDetail` dump and the wipe line have no result |
+| CAP-16, CAP-17 | § 3 | No result recorded |
+| CAP-18 | § 3 currency category (review F-010) | "Still owed" in the 2026-07-22 field note |
+| CAP-19 | § 3 S-003 | Not yet run per [midnight-quirks.md](midnight-quirks.md); the 2026-09-23 plan's Q.3 is owed |
+| CAP-20 | § 3 currency quality | No result recorded |
+| CAP-21 | § 3 currency bound glyph | "Still owed" in the 2026-07-22 field note |
+| CAP-22 to CAP-24 | § 4 | No result recorded |
+| CAP-25 | § 17i.2 | No result recorded; expectation corrected by SP-LH-03R (the subzone is read with `/dump`) |
+| CAP-26 | § 17i.3 | No result recorded |
+| CAP-27 | § 17i.4 | No result recorded; expectation corrected by SP-LH-03 (the map id is read with `/dump`; the CSV does not carry it) |
+| CAP-28 to CAP-30 | § 13 retention confirm | No result recorded; the 2026-09-23 plan's LH.5 is owed |
+| CAP-31, CAP-32 | § 13 | No result recorded |
+| HIST-1 to HIST-3 | § 2, § 17h.4, § 17h.5 | No result recorded |
+| HIST-4 | § 2 persistence | No result recorded; step corrected by SP-LH-03R (`settings.windowScale`) |
+| HIST-5 to HIST-21 | § 5, § 6, § 17g, § 17h | No result recorded |
+| HIST-22 | § 17g | No result recorded; expectation corrected by SP-LH-03R (no mark on the filter bar's Export; the degraded close is a text ×) |
+| HIST-23 to HIST-30 | § 6a, § 17g, § 17j.1-5 | No result recorded |
+| HIST-31 | § 17j.6 and § 17j.7 | No result recorded; given a runnable route by SP-LH-03R |
+| HIST-32, HIST-33 | § 17j.8, § 17h.6 | No result recorded |
+| INS-1 to INS-3 | § 7 | No result recorded |
+| INS-4 | § 7 coin glyphs | No result recorded; expectation corrected by SP-LH-03R (a fixed 10 px against the client's default of about 14 px, read beside the History price cells) |
+| INS-5 to INS-18 | § 7 | No result recorded |
+| INS-19 | § 7 segment tooltips | No result recorded; chart names corrected by SP-LH-03R (Title Case, as drawn) |
+| INS-20 | § 7 CURRENCY block, § 3 | "Still owed" (layout) in the 2026-07-22 field note |
+| INS-21 | § 7 live cards | No result recorded |
+| FILT-1 to FILT-23 | § 9, § 16, § 19 | No result recorded |
+| FILT-24 | § 17f Clear all | No result recorded; expectation spelled out by SP-LH-03R (the popup text and the chat line) |
+| LAUNCH-1 | § 11 art | No result recorded |
+| LAUNCH-2 to LAUNCH-5 | § 11 tooltip, clicks, menu, disabled state; § 1 | No result recorded; the owner's post-M6 minimap re-check (2026-09-23 plan `checkpoints.tsv`, 2026-09-25 M6 row) is owed |
+| LAUNCH-6, LAUNCH-7 | § 11 | No result recorded |
+| LAUNCH-8 | § 11 `minimap.shown` | No result recorded; the 2026-09-23 plan's LH.2 is owed |
+| LAUNCH-9, LAUNCH-10 | § 11 broker row | No result recorded |
+| DIAG-1 to DIAG-5 | § 12, § 15 | No result recorded |
+| DIAG-6 | § 12 counter and cap | LH-S7 passed the cap half on 2026-09-26 (`3000 / 3000 lines`, Copy); the counter ticking up and Clear's reset have no result |
+| DIAG-7 | § 12 `/lh debug events` | No result recorded; the 2026-09-23 plan's LH.4 is owed |
+| DIAG-8 to DIAG-13 | § 12, § 15, § 9, § 17b, § 17d.3, § 17e, § 17g | No result recorded |
+| DIAG-14 | § 15 bulk-reset line | No result recorded; expectation rewritten by SP-LH-01 (`[Set] reset profile 'Default' …`) |
+| DIAG-15 | § 15 data and reset-all lines | No result recorded; expectation rewritten by SP-LH-01 (no `[Data]` line on Reset all settings) |
+| DIAG-16 to DIAG-18 | § 15 | No result recorded |
+| DEGRADED-1 | § 17a.1 | No result recorded |
+| DEGRADED-2 | § 17a.2 | No result recorded; expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
+| DEGRADED-3 | § 17a.3 | No result recorded; expectation corrected by SP-LH-03R (`/lh version` and `/lh get` print DEGRADED-2's line) |
+| DEGRADED-4 | § 17a.4 | LH-X1 passed the diagnostics half on 2026-09-26; the `debug` and `config` lines have no result |
+| DEGRADED-5 | § 17a.5 | No result recorded; expectation corrected by SP-LH-03R (the `/lh version` clause dropped) |
+| DEGRADED-6 | § 17a.6 | No result recorded |
+| DEGRADED-7 | § 17a.7 | No result recorded; given a runnable step by SP-LH-03R |
+| DEGRADED-8 | § 17a.8 | No result recorded; the 2026-09-23 plan's X2.4 is owed |
+| DEGRADED-9 | § 17a.9 | No result recorded; expectation rewritten by SP-LH-01 (`settings reset to defaults.`) |
+| DEGRADED-10 | New | New with `/lh profile` (SP-LH-02) |
+| DEGRADED-11 | § 17g ladder note | No result recorded; expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
+| LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
