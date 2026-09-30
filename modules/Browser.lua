@@ -1142,6 +1142,12 @@ function B:ApplyChrome(f, windowScale)
   f:SetAlpha(alpha)
 end
 
+--- The stored General visibility mode, "always" when nothing is stored yet.
+local function visibilityMode()
+  return (NS.db and NS.db.profile and NS.db.profile.settings
+          and NS.db.profile.settings.visibility) or "always"
+end
+
 --- Whether the History window is allowed on screen right now (the General visibility dropdown).
 ---
 --- The window is opened on demand — a slash verb, the minimap button, a keybind — so honoring the
@@ -1151,12 +1157,6 @@ end
 ---
 --- `inCombat` is the combat edge when a transition calls in (true from PLAYER_REGEN_DISABLED, false
 --- from PLAYER_REGEN_ENABLED); nil everywhere else, and the player's combat flag answers.
---- The stored General visibility mode, "always" when nothing is stored yet.
-local function visibilityMode()
-  return (NS.db and NS.db.profile and NS.db.profile.settings
-          and NS.db.profile.settings.visibility) or "always"
-end
-
 function B:VisibilityAllows(inCombat)
   -- THE FIRST RUNG, and it is the whole of slash-commands-§7's "hidden AT THE SOURCE". A window
   -- taken down imperatively comes back: the next combat transition, the next settings change or
