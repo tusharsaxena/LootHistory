@@ -25,6 +25,7 @@ broken in the other twelve.
 | `mock_base.lua` | The universal half of the WoW-API mock, and the Ace fakes |
 | `mock_record.lua` | The recording surveys; `mock_base.lua` loads it from its own folder |
 | `mock_events.lua` | `EventRegistry`, `C_EventUtils.IsEventValid`, and the raw frame registration's `__badEvents` raise; `mock_base.lua` loads it from its own folder (kit revision 26) |
+| `mock_resize.lua` | A frame's resize surface: `SetResizable` / `IsResizable`, `SetResizeBounds` / `GetResizeBounds`, `StartSizing`, `StopMovingOrSizing` and `SetUserPlaced` / `IsUserPlaced`, recorded, with `StartSizing` and `StartMoving` marking the frame user-placed as the client does; `mock_base.lua` loads it from its own folder (kit revision 33) |
 | `mock_ids.lua` | Opt-in id lookups, installed on a finished mock |
 | `vendor_sync.lua` | The consumer-side vendoring gate |
 | `run-automated-tests.sh` | The consolidated automated-test runner |
@@ -38,7 +39,7 @@ broken in the other twelve.
 | `README.md` | This file |
 
 They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `mock_record.lua`,
-`mock_events.lua`, `prose_lists.lua`, `prose_coverage.lua` or `prose_selftests.lua` fails at load
+`mock_events.lua`, `mock_resize.lua`, `prose_lists.lua`, `prose_coverage.lua` or `prose_selftests.lua` fails at load
 rather than passing over nothing.
 
 ## `run-automated-tests.sh`

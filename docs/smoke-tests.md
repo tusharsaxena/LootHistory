@@ -25,7 +25,7 @@ free number in its theme.
 | INS-1 to 21 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
-| DIAG-1 to 25 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, tag coverage, the diagnostics report |
+| DIAG-1 to 29 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report |
 | DEGRADED-1 to 11 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -61,7 +61,8 @@ free number in its theme.
 - Media or art (`core/MediaSetup.lua`, an `NS.Icon` call site, `libs/LibKa0s/media/`): HIST-5 to
   HIST-11, HIST-13, HIST-15, HIST-17 to HIST-19, HIST-22, HIST-23, INS, PANEL-18, DIAG-10 and DIAG-11.
 - Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/Widgets.lua`):
-  HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2 and INSTALL-8.
+  HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2, INSTALL-8
+  and DIAG-28 (the copy windows are this file's `CopyWindow`).
 - LibKa0s re-vendor or `core/*Setup.lua` / `settings/Slash.lua` / `settings/OptionsSetup.lua`:
   DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-2, HIST-3, HIST-5,
   HIST-12 to HIST-23, HIST-28 to HIST-33, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
@@ -1002,6 +1003,28 @@ Result:
 Reporting a bug` steps word for word → each works, and the paste holds the trace and the whole
 report. Result:
 
+**DIAG-26. The console resizes.** Open `/lh debug`, fill it past one screen (`/lh diagnostics`) →
+a size grabber in the bottom-right corner, over the frame and clear of the `N / 3000 lines` counter.
+Drag it larger and smaller on both axes → the log reflows to the new size, the scrollbar thumb and
+the counter stay in step, the title and the three top-right buttons stay placed, and the lines and
+scroll position are kept. Drag it as small as it goes → it stops where the title and every button
+still fit side by side and a few lines still show; nothing overlaps. Result:
+
+**DIAG-27. Session size, default after a reload.** Resize the console, close it (✕, Esc or `/lh
+debug`) and reopen it → the same size. Drag it somewhere else and reopen → the size is still yours.
+`/reload`, then `/lh debug` → back to the default 700 × 344. Result:
+
+**DIAG-28. The copy windows resize.** In the console, **Copy** → the copy window has its own grabber;
+drag it on both axes → the text box widens and narrows with it, the scroll bar's down arrow stays
+clickable above the grabber, and it stops at a minimum. Close and **Copy** again → the same size;
+the console keeps its own size. The History window's **Export** copy box does the same, with a size
+of its own that neither console window shares. `/reload` → both open at their default. Result:
+
+**DIAG-29. Another addon's console is its own.** With a second Ka0s addon loaded, resize this
+console, then open that addon's `/<prefix> debug` → it opens at its default; resize it and reopen
+`/lh debug` → this console keeps the size you gave it. Skip, and say so, when no other Ka0s addon is
+installed. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1210,6 +1233,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DIAG-15 | § 15 data and reset-all lines | No result recorded; expectation rewritten by SP-LH-01 (no `[Data]` line on Reset all settings) |
 | DIAG-16 to DIAG-18 | § 15 | No result recorded |
 | DIAG-23 | § 12a step 5 | LH-S8 passed `/lh diag` and `/lh debug diag` on 2026-09-26; `/lh dump` has no result |
+| DIAG-26 to DIAG-29 | New | New with the resizable console and copy windows (DL-LH-01, LibKa0s v1.64.0) |
 | DEGRADED-1 | § 17a.1 | No result recorded |
 | DEGRADED-2 | § 17a.2 | No result recorded; expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
 | DEGRADED-3 | § 17a.3 | No result recorded; expectation corrected by SP-LH-03R (`/lh version` and `/lh get` print DEGRADED-2's line) |

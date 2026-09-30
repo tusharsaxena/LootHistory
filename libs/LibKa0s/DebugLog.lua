@@ -34,7 +34,7 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 14
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -173,6 +173,10 @@ end
 local TITLE_H  = 26      -- drag bar height
 local STATUS_H = 16      -- bottom status bar height
 local BAR_W    = 8       -- scrollbar gutter width
+-- The line counter's right inset. Core.MakeResizable's grip is 16 px square at 1 px in from the
+-- bottom-right corner and ten levels above the console, so a counter at the old 10 px drew its last
+-- digits under the grip's art; 22 clears the grip's 17 px with a 5 px gap.
+local COUNT_INSET = 22
 local DEFAULT_FONT_SIZE = 10
 
 -- Title-bar arithmetic. PAD is the one gap between every control and its neighbor; CLOSE_W is what
@@ -187,6 +191,20 @@ local COPY_W   = 40
 -- buttons were 42 and 40 wide and only lined up by arithmetic.
 local ICON_W   = 18
 local ICON_ART = 12
+
+-- The console's default size, which is the size it has always opened at (debug-logging-§1). From
+-- minor 15 it is resizable from a bottom-right grip (Core.MakeResizable), and this is still the
+-- size every session starts at: the size the player drags to lives on the frame for the session
+-- and is never saved.
+local CONSOLE_W, CONSOLE_H = 700, 344
+
+-- The header toggle's slot, at the bar's left edge. Named because the minimum width reads it.
+local TOGGLE_X, TOGGLE_W = 8, 80
+
+-- The fewest log lines the console may be sized down to show, and what a character of the title is
+-- taken to measure when the font string cannot say (before layout, or headless).
+local MIN_LINES    = 4
+local TITLE_CHAR_W = 7
 
 -- Gray at rest, gold under the pointer -- what the text labels have done since minor 1, kept so the
 -- title bar does not change temperature just because its controls changed shape.
@@ -289,6 +307,27 @@ local function buildTitleControls(titleBar, spec)
   copy:SetPoint("RIGHT", titleBar, "RIGHT", copyRight, 0)
 
   return close, clear, copy, { close = -PAD, clear = clearRight, copy = copyRight }
+end
+
+--- How narrow the console may go: every title-bar control and the centered title still fit, with
+--- PAD between the title and the wider of the two control groups. The title is centered, so it is
+--- the WIDER side that sets the margin on both. Never above the default, so a long title cannot
+--- leave the window smaller than its own minimum on the day it is built.
+local function consoleMinWidth(offsets, copyBtn, title, titleText)
+  local copyW = (type(copyBtn) == "table" and type(copyBtn.icon) == "table") and ICON_W or COPY_W
+  local right = -offsets.copy + copyW
+  local left = TOGGLE_X + TOGGLE_W
+  local titleW = title.GetStringWidth and title:GetStringWidth()
+  if type(titleW) ~= "number" or titleW <= 0 then
+    titleW = string.len(titleText) * TITLE_CHAR_W
+  end
+  local w = 2 * (math.max(left, right) + PAD) + titleW
+  return math.min(math.ceil(w), CONSOLE_W)
+end
+
+--- How short: the title bar, the status bar and MIN_LINES lines of the log between them.
+local function consoleMinHeight(fontSize)
+  return TITLE_H + 6 + MIN_LINES * (fontSize + 2) + STATUS_H + 4
 end
 
 local function escClose(name)
@@ -457,7 +496,7 @@ function lib:New(d)
 
     local name = d.name .. "DebugWindow"
     frame = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
-    frame:SetSize(700, 344)
+    frame:SetSize(CONSOLE_W, CONSOLE_H)
     frame:SetPoint("CENTER", 220, -80)
     frame:SetFrameStrata("DIALOG")
     frame:EnableMouse(true)
@@ -514,8 +553,8 @@ function lib:New(d)
     -- The header toggle. OnLeave restores the resting color by re-running RefreshHeader, so the
     -- label's color is always the flag's color rather than whatever the last hover left behind.
     local toggleBtn = CreateFrame("Button", nil, titleBar)
-    toggleBtn:SetSize(80, 18)
-    toggleBtn:SetPoint("LEFT", titleBar, "LEFT", 8, 0)
+    toggleBtn:SetSize(TOGGLE_W, 18)
+    toggleBtn:SetPoint("LEFT", titleBar, "LEFT", TOGGLE_X, 0)
     local toggleFS = toggleBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     toggleFS:SetPoint("LEFT")
     toggleBtn:SetScript("OnEnter", function() toggleFS:SetTextColor(1, 0.82, 0) end)
@@ -582,7 +621,7 @@ function lib:New(d)
     statusDivider:SetColorTexture(0.24, 0.24, 0.27, 0.85)
 
     local lineCount = frame:CreateFontString(nil, "OVERLAY")
-    lineCount:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 3)
+    lineCount:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -COUNT_INSET, 3)
     lineCount:SetFont(d.font, fontSize, "")
     lineCount:SetJustifyH("RIGHT")
     lineCount:SetTextColor(0.6, 0.6, 0.62)
@@ -603,6 +642,19 @@ function lib:New(d)
     -- the skin or the scroll sync must not abort them and leave a visible window nobody can close —
     -- and `frame` is already assigned, so EnsureFrame would never try again.
     applySkin(frame)
+    -- Resizable from minor 15, when the Core under it has the grip (Core minor 9). Resolved through
+    -- the table at call time, as `lib.MakeCloseButton` is, and GUARDED rather than floored: an
+    -- older Core leaves this exactly the fixed 700 x 344 window it was. The message frame, the
+    -- scrollbar and the status line are anchored to the window, so they follow it on their own;
+    -- what does not is the scrollbar's range and the line counter, which the relayout resyncs. The
+    -- buffer and the scroll position are not touched.
+    if type(core.MakeResizable) == "function" then
+      core.MakeResizable(frame, {
+        minWidth  = consoleMinWidth(offsets, copyBtn, title, frame.titleText),
+        minHeight = consoleMinHeight(fontSize),
+        onResize  = function() D:UpdateScrollBar(); D:UpdateStatus() end,
+      })
+    end
     D:UpdateScrollBar()
     D:UpdateStatus()
     return frame
