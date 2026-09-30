@@ -1037,13 +1037,14 @@ badge and any count quoted in the docs must agree with it.
 - coverage: N Insights recomputes with nothing changed log one [Insights] line
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 
-### test_doc_structure.lua (7)
+### test_doc_structure.lua (8)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
 - every anchor pointing into docs/ARCHITECTURE.md resolves to a heading
 - the player-facing history has the ONE home documentation-§1 allows, and no second
 - README.md's top-level sections are the ones documentation-§1 names, in its order
 - README.md's Reporting a bug section is the standard's text with /lh, and links nowhere
+- README.md carries no numbered list (CurseForge does not render one)
 - every deviation id the register cites is assigned by a bundle in docs/audits/
 - docs/smoke-tests.md carries a non-English-client section
 
@@ -1167,7 +1168,7 @@ badge and any count quoted in the docs must agree with it.
 | test_disabled.lua | 14 |
 | test_diagnostics.lua | 17 |
 | test_debug_coverage.lua | 16 |
-| test_doc_structure.lua | 7 |
+| test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
@@ -1175,4 +1176,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 9 |
 | test_widgets.lua | 17 |
-| **Total** | **1005** |
+| **Total** | **1006** |
