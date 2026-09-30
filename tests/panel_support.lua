@@ -131,7 +131,7 @@ end
 --- It matters from LibKa0s v1.50.0, which made `columns` a MAXIMUM: O.IdList measures the content
 --- width at draw time and drops toward one column when the count cannot be paid for -- 520px for
 --- two entries in the icon style, 584 in the default one (fitIdColumns / entryMinContent,
---- libs/LibKa0s/OptionsIdList.lua:948-968 and :990-999). At 380 every multi-column list collapses to one,
+--- libs/LibKa0s/OptionsIdList.lua:952-972 and :994-1003). At 380 every multi-column list collapses to one,
 --- which is the library being right about a number the harness invented. So a case asserting how a
 --- list PACKS has to say what canvas it packs into, or it is asserting the fixture.
 ---

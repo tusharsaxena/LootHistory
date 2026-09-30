@@ -186,18 +186,18 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
-  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:793`). The console is LibKa0s-DebugLog-1.0's; the sink is
+  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:787`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
-  (`core/DebugLogSetup.lua:166`), which is also where `NS.DebugLog` is instantiated.
+  (`core/DebugLogSetup.lua:172`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
   `settings/Schema.lua:1016`); the header's `Debug: ON`/`OFF` control flips the same flag
-  (`libs/LibKa0s/DebugLog.lua:602`). The flag stays the **host's** throughout — the descriptor hands
-  the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:109-110`)
+  (`libs/LibKa0s/DebugLog.lua:596`). The flag stays the **host's** throughout — the descriptor hands
+  the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:115-116`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
   is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:206`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
-  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:160`; the colored console
+  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:152`; the colored console
   variant is `lib.FormatColored`, `:168`). `tag` is one short word, printed verbatim — no padding,
   no truncation.
 - `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
@@ -296,8 +296,8 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
   `O.OpenOptionsPanel` (`settings/Panel.lua:1115`), whose combat refusal lives in the library
-  (`libs/LibKa0s/OptionsRegistry.lua:251`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
-  (`coverOnShow`, `libs/LibKa0s/Options.lua:573`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
+  (`libs/LibKa0s/OptionsRegistry.lua:254`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
+  (`coverOnShow`, `libs/LibKa0s/Options.lua:593`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
   pattern (the standalone browser window follows the separate standalone-windows non-secure pattern).
 
@@ -306,7 +306,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Right-edge inset (options-ui-§6/§8).** Cell-filling *action* buttons (Purge history, and the
   Master controls tab's Reset position / Reset all settings pair) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
-  constant is the library's (`libs/LibKa0s/Options.lua:111`), re-exported on the instance as
+  constant is the library's (`libs/LibKa0s/Options.lua:113`), re-exported on the instance as
   `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:34`).
   Label-inset controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` —
   they are immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't
@@ -314,7 +314,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Always-shown scrollbar (options-ui-§10).** `PatchAlwaysShowScrollbar` overrides AceGUI's stock
   `FixScroll` so the panel scrollbar is *always* visible and the 20px right gutter is *always*
   reserved (`libs/LibKa0s/OptionsScroll.lua:84`, applied to every ScrollFrame `O.EnsureScroll`
-  creates, `libs/LibKa0s/Options.lua:849`). AceGUI would otherwise hide the bar and reclaim the gutter
+  creates, `libs/LibKa0s/Options.lua:869`). AceGUI would otherwise hide the bar and reclaim the gutter
   when content fits, shifting the body width between a short page and a long one. When there's
   nothing to scroll the override parks the thumb at the top and grays the bar inert, so the body
   width is identical on the landing page and the General page alike. More on the panel in
