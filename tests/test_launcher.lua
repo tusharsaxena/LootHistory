@@ -89,6 +89,22 @@ test("launcher: with no LibDataBroker / LibDBIcon nothing raises, and the store 
     NS.db.global.minimap.hide = before
   end)
 
+test("launcher: Register's state lines go to the console's at-enable queue, not the gated sink",
+  function()
+    -- Launcher minor 5. Register runs from OnInitialize with the session-only flag off, so a state
+    -- line on `debug` never landed; the descriptor's `debugAtEnable` hands it to NS.DebugAtEnable,
+    -- which holds it for `debug on` (debug-logging-§4, §8 Dependencies).
+    -- red under: dropping `debugAtEnable` from core/LauncherSetup.lua's descriptor.
+    local savedQ, savedD, held, sunk = NS.DebugAtEnable, NS.Debug, {}, {}
+    NS.DebugAtEnable = function(tag, fmt, msg) held[#held + 1] = tostring(tag) .. " " .. fmt:format(msg) end
+    NS.Debug = function(tag, msg) sunk[#sunk + 1] = tostring(tag) .. " " .. tostring(msg) end
+    local ok, err = pcall(function() return NS.Launcher:Register() end)
+    NS.DebugAtEnable, NS.Debug = savedQ, savedD
+    if not ok then error(err, 0) end
+    assertEqual(table.concat(held, "\n"), "Launcher LibDataBroker-1.1 absent; no launcher")
+    assertEqual(#sunk, 0, "a state line reached the gated sink: " .. table.concat(sunk, "\n"))
+  end)
+
 -- ── the wired launcher ────────────────────────────────────────────────────────────────────────
 
 -- The two fakes, registered through the kit's real NewLibrary INSIDE the first wired case rather

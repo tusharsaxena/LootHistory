@@ -165,4 +165,12 @@ NS.Launcher = Launcher:New({
   -- after this file runs, and NS.Debug is only assigned once core/DebugLogSetup.lua has.
   print = function(line) NS.Print(line) end,
   debug = function(tag, message) if NS.Debug then NS.Debug(tag, message) end end,
+  -- Register's four STATE lines (Launcher minor 5: a broker library absent, no minimap table,
+  -- `registered`) go to the console's at-enable queue instead. Register runs from OnInitialize with
+  -- the session-only flag off, so through `debug` they never landed; held, they are written the
+  -- first time the player turns logging on (debug-logging-§4, §8 Dependencies). Events stay on
+  -- `debug`. Late-bound for the same reason as the line above.
+  debugAtEnable = function(tag, message)
+    if NS.DebugAtEnable then NS.DebugAtEnable(tag, "%s", message) end
+  end,
 })

@@ -25,7 +25,8 @@ if not lib then return end
 
 -- Minor 1: the id surface's resolution, suggestions and input, moved here from OptionsWidgets.lua
 -- (issue #32) with no change in behavior.
-local IDS_MINOR = 1
+-- Minor 2: a refused host callback is named "id list change", for the shell's Cfg line (gap G3).
+local IDS_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idsMinor and lib.__idsMinor >= IDS_MINOR
@@ -707,7 +708,7 @@ function lib.__AttachIds(O, w)
     if type(fn) ~= "function" then return false end
     -- Refused in combat (minor 23), answering false: an add puts its text back, a remove rebuilds
     -- nothing.
-    if refused() then return false end
+    if refused("id list change") then return false end
     local ok, err = pcall(fn, ...)
     if not ok then print(lib.STRINGS.BUTTON_FAILED:format(tostring(err))) end
     return ok

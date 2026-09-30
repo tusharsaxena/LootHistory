@@ -10,8 +10,8 @@ Loot History has two debug surfaces, and both write into the same window:
   line means.
 
 The console itself is the library's, and its contract lives in LibKa0s's
-[`docs/api/DebugLog/version-17.2-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-17.2-docs.md)
-(DebugLog 17 with DebugLogDiagnostics 2 is the vendored pair, from LibKa0s v1.64.0). This page covers only what Loot History
+[`docs/api/DebugLog/version-18.2.1-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-18.2.1-docs.md)
+(DebugLog 18 with DebugLogDiagnostics 2 and DebugLogGates 1 is the vendored set, from LibKa0s v1.65.0). This page covers only what Loot History
 adds on top.
 
 ## The console
@@ -43,7 +43,8 @@ What Loot History supplies, all in `core/DebugLogSetup.lua`:
 Every tag in use, what writes it and when, is in [Coverage](#coverage) below. The in-game checks that
 each one fires once rather than once per row are in
 [smoke-tests.md](smoke-tests.md#debug-console-and-diagnostics) DIAG-2, DIAG-3 and DIAG-12 to
-DIAG-18. On an install without LibKa0s the
+DIAG-18; the library's own `[Cmd]` and `[Lifecycle]` lines, and the state lines held for `debug on`,
+are DIAG-31 to DIAG-33, pinned headlessly in `tests/test_debug_coverage.lua`. On an install without LibKa0s the
 flag still flips on `on` / `off`, but the window is gone: instead of a confirmation, each prints the
 library-absent line ending `so the debug console window is unavailable.`
 
@@ -51,22 +52,36 @@ library-absent line ending `so the debug console window is unavailable.`
 
 What the log carries, tag by tag (`debug-logging-§8` flows and Diagnosis, `§9` coalescing and quiet
 steady state). Every line is one gated `NS.Debug` call with its string-building behind the flag,
-except the two library brackets written through the raw append. The tags are single words, rendered
-verbatim; `Debug`, `Init`, `Cfg` and `Launcher` lines come from the library, and the rest from this
-addon's own files.
+except the two library brackets written through the raw append, the lines the console's change
+gates write (`DebugOnce` / `DebugChanged`, gated the same way), and the state lines held in the
+console's at-enable queue (`DebugAtEnable`, below). The tags are single words, rendered verbatim.
+
+**Which lines are the library's.** `Debug` (the enable bracket and a full at-enable queue), the
+`Init` session summary, `Cmd` (every refusal the slash dispatcher decides, Slash 18), `Lifecycle`
+(each latch edge, Lifecycle 3), `Launcher` (Launcher 5) and the combat lock's `Cfg` lines (Options
+27) are written by `LibKa0s` through the sink this addon passes each descriptor as `debug`
+(`debug-logging-§4`, *The library's own lines*); this addon writes no copy of any of them. Everything
+else is this addon's own.
+
+**Held for `debug on`.** Logging is off at login, so a state line written then goes through
+`NS.DebugAtEnable` and lands the first time the player turns logging on, after the `[Init]` line:
+the launcher's registration lines (through the Launcher descriptor's `debugAtEnable`), the
+stand-up's `dependencies:` line and a refused event name. With logging already on each is written
+at once.
 
 | Tag | What emits it | When |
 |---|---|---|
 | `Debug` | `LibKa0s-DebugLog-1.0`, `SetEnabled` | `logging enabled` / `logging disabled`, once at each end of a session |
-| `Init` | the library on enable (`NS.InitSummary`, `core/Database.lua`); `core/CoreSetup.lua` | the session summary line, right after `logging enabled`; `event X refused by this client`, once per name the first time a registration is refused |
-| `State` | `NS.StandDown` / `NS.StandUp`, `core/LifecycleSetup.lua` | once per latch edge: `stood down (holds: …): capture unregistered, N deferral(s) canceled`, and `stood up: capture registered (price providers: …; latch: …)`, which is also the once-per-enable dependency line. The load-time stand-up runs with the flag off, so a session sees these only on an edge after `debug on` |
+| `Init` | the library on enable (`NS.InitSummary`, `core/Database.lua`); `core/CoreSetup.lua` | the session summary line, right after `logging enabled`; `event X refused by this client`, once per name the first time a registration is refused, held for `debug on` when logging is off |
+| `Lifecycle` | `LibKa0s-Lifecycle-1.0` (minor 3), through the descriptor's `debug` in `core/LifecycleSetup.lua` | once per latch edge, before the host's callback: `stood down: added <key> (holds: <set>)` and `stood up: released <key> (holds: none)`. A call that moves no edge writes nothing |
+| `State` | `NS.StandDown` / `NS.StandUp`, `core/LifecycleSetup.lua` | right after each `[Lifecycle]` edge, only what this addon took from it: `stand-down: capture unregistered, N deferral(s) canceled`, and `stand-up: capture registered`. Neither repeats the edge or the holds. Each stand-up also writes the dependency line, `dependencies: price providers: …; latch: …`, through the at-enable queue: the load-time stand-up runs with the flag off, so that one is held and lands at `debug on`, while the two edge lines of that stand-up are not |
 | `Set` | `LibKa0s-Schema-1.0` (per write and bulk acts); `traceProfileEvent`, `core/LootHistory.lua`; `S:Set`, `settings/Schema.lua` | one line per accepted write (`path = value`) or bulk act (`act scope: N rows`); a profile reset or copy; a refused write, `path rejected: <reason>` |
 | `Profile` | `traceProfileEvent`, `core/LootHistory.lua` | a profile switch |
 | `Migrate` | `core/Database.lua` | a migration step that ran (`vN -> vM, N rows touched`); the bound repair armed; each repair pass, `N fixed, N pending, N candidates (attempt N, still pending / done / gave up)` |
 | `Prune` | `Database:PruneOld` | each retention prune with its count; `skipped: retention is Always` when there is nothing to prune by |
 | `Data` | `Database:Delete` / `Database:Purge` | each delete and each purge, with the rows removed |
 | `Loot` | `Collector:OnChatMsgLoot` | an item recorded: name, quality, item level, source, confidence |
-| `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message for the session |
+| `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message through the console's `DebugOnce` gate, so a Clear or a fresh `debug on` re-arms it |
 | `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` | an item or currency not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, and for the player's own currency lines `recordCurrency-off` and `unresolved-link` |
 | `Currency` | `Collector:OnChatMsgCurrency` | a currency recorded |
 | `Attr` | `modules/Attribution.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down` |
@@ -74,12 +89,12 @@ addon's own files.
 | `Cast` | `Attribution:OnSpellSucceeded` | a deconstruct cast only, never the rest of the rotation |
 | `Mail` | `Attribution:StampMail` | a mail attachment taken, with the AH-or-mail verdict |
 | `UI` | `modules/Browser.lua`; `modules/Export.lua` | the window shown and hidden; a tab switch; an open refused (`stood down`, or `visibility=<mode>`); the window hidden by the visibility setting, on a combat edge or when the setting is written (an edge that changes nothing logs nothing); a CSV export, with the data set and the text's size |
-| `Table` | `BrowserTable:Refresh` / `SetTestMode` | the render summary, **change-gated**: logged only when it differs from the last one logged, and once again after each window open. Test mode on (with the sample row count), off (with the reason, `combat started`), or refused with its reason |
-| `Insights` | `Analytics:Refresh` | the recompute summary, **change-gated** the same way: the live refresh on every coalesced `RecordAdded` stays quiet while the numbers do not move |
+| `Table` | `BrowserTable:Refresh` / `SetTestMode` | the render summary, **change-gated** through the console's `DebugChanged`: logged only when it differs from the last one logged, once again after each window open (`DebugForget`), and again after a Clear or a fresh `debug on`, which re-arm the console's gates. Test mode on (with the sample row count), off (with the reason, `combat started`), or refused with its reason |
+| `Insights` | `Analytics:Refresh` | the recompute summary, **change-gated** the same way (`DebugChanged`, forgotten on each open, re-armed by a Clear): the live refresh on every coalesced `RecordAdded` stays quiet while the numbers do not move |
 | `Filters` | `Filters:_notify` | each list edit, naming the act and id, with all three list sizes after it |
-| `Cmd` | `traceDisabledRefusal`, `settings/Slash.lua` | a feature verb the dispatcher refuses because the addon is switched off. A live verb or a typo logs nothing |
-| `Cfg` | `LibKa0s-Options-1.0`; `runRebuilders`, `settings/Panel.lua` | the panel registration parked or the open refused in combat, and opened; a list rebuilder that raised, once per distinct message |
-| `Launcher` | `LibKa0s-Launcher-1.0` | registration, and the broker or minimap library missing, once at register |
+| `Cmd` | `LibKa0s-Slash-1.0` (minor 18), through the descriptor's `debug` in `settings/Slash.lua` | every refusal the dispatcher decides, after its chat line, `refused <verb>[ <arg>]: <guard>`: a feature verb while the addon is switched off (`disabled`), an unknown verb, `get` / `set` / `reset` usage, not found, parse or write refusal, a reset with no default, and the profile verb's `unavailable`, `already current`, `in combat` and `unknown profile`. A live verb that runs logs nothing |
+| `Cfg` | `LibKa0s-Options-1.0` (minor 27); `runRebuilders`, `settings/Panel.lua` | the panel registration parked in combat and its `register flushed (combat ended)`, the open refused in combat, and opened; each write, Defaults, button, toggle, tab or id-list change the combat lock refuses, `<what> refused (in combat)`, once per text per combat; a list rebuilder that raised, once per distinct message (`DebugOnce`, re-armed by a Clear) |
+| `Launcher` | `LibKa0s-Launcher-1.0` (minor 5) | registration, and the broker or minimap library missing, once at register; these are state lines on the descriptor's `debugAtEnable`, held for `debug on` because register runs at login with logging off |
 | `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
 
 ### Deliberately not logged
@@ -212,7 +227,7 @@ The degraded help does not offer `diagnostics`, because answering is not the sam
 
 The command rows are in [slash-dispatch.md](slash-dispatch.md), the disabled-state behavior in
 [disabled-state.md](disabled-state.md), and the player-facing steps in the README's
-`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-30 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
+`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-33 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
 suites are `tests/test_diagnostics.lua` (this addon's sections), the kit's shared
 `tests/_kit/test_diagnostics_contract.lua` (wired in `tests/run.lua`), `tests/test_disabled.lua`
 (both forms while stood down) and `tests/test_slash_degraded.lua` (both forms with no library).

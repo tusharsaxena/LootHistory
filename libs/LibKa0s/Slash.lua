@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 17
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -544,6 +544,8 @@ end
 ---                          `GetProfiles(tbl) -> tbl, n`, `GetCurrentProfile()`, `SetProfile(name)`,
 ---                          AceDB-3.0's shape, and never required to BE AceDB. Asked at call time.
 ---                          Absent, or answering nil, CliProfile prints PROFILE_UNAVAILABLE.
+---   debug        function  optional, minor 18. debug(tag, message), the host's gated log seam, as
+---                          Launcher's. Each refusal this module decides writes one `Cmd` line.
 function lib:New(d)
   d = type(d) == "table" and d or {}
   if type(d.slash) ~= "string" or d.slash == "" then
@@ -582,20 +584,20 @@ function lib:New(d)
     if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(line) end
   end
 
+  -- A refusal this module decides (minor 18): the chat line exactly as before, then ONE `Cmd` line
+  -- to the host's `debug` naming the verb and the guard. No `debug`, no line (Launcher's shape).
+  local function refuse(line, verb, guard)
+    emit(line)
+    if type(d.debug) == "function" then d.debug("Cmd", ("refused %s: %s"):format(verb, guard)) end
+  end
+
   local Sl = {}
   local annotator
 
-  --- Resolve one user-visible string, host override first.
-  ---
-  --- rawget, NOT a plain index, and this is load-bearing rather than pedantic. Every Ka0s host's
-  --- locale table carries a metatable fallback that answers an unknown key WITH THE KEY (the
-  --- standard mandates it — anti-patterns #2). A plain index therefore accepts that synthesized
-  --- string for every key, these STRINGS become unreachable, and the host renders raw keys like
-  --- LIST_HEADER in place of English. It shipped exactly that way in a consumer's perf panel, for
-  --- every string at once, and no headless case caught it because a synthesized value IS a string.
-  ---
-  --- rawget asks the only question that matters — did the host actually put a value here? — so a
-  --- genuine entry still wins and a fallback-only table correctly falls through.
+  --- Resolve one user-visible string, host override first. rawget, NOT a plain index: every Ka0s
+  --- host's locale table answers an unknown key WITH THE KEY (anti-patterns #2), so a plain index
+  --- accepts that synthesized string and these STRINGS become unreachable (it shipped that way in a
+  --- consumer's perf panel). rawget asks whether the host actually put a value here.
   function Sl:Text(key)
     local v = strings and rawget(strings, key)
     if type(v) == "string" then return v end
@@ -733,9 +735,9 @@ function lib:New(d)
 
   function Sl:CliGet(rest)
     local path = (rest or ""):match("^(%S+)")
-    if not path then return emit(self:Text("USAGE_GET"):format(d.slash)) end
+    if not path then return refuse(self:Text("USAGE_GET"):format(d.slash), "get", "usage") end
     local row = rowFor(path)
-    if not row then return emit(self:Text("NOT_FOUND"):format(path)) end
+    if not row then return refuse(self:Text("NOT_FOUND"):format(path), "get " .. path, "not found") end
     emit(kv(row, read(row.path)))
   end
 
@@ -744,21 +746,23 @@ function lib:New(d)
   --- printed twice.
   local function emitRefusal(path, err, why)
     local head = Sl:Text("INVALID"):format(path)
-    emit(head)
+    local said = type(err) == "string" and err ~= ""
+    refuse(head, "set " .. path, said and ("write refused (" .. err .. ")") or "write refused")
     if type(err) == "string" and err ~= "" and err ~= head then emit("  " .. err) end
     if type(why) == "string" and why ~= "" then emit("  " .. why) end
   end
 
   function Sl:CliSet(rest)
     local path, value = (rest or ""):match("^(%S+)%s*(.*)$")
-    if not path then return emit(self:Text("USAGE_SET"):format(d.slash, d.slash)) end
+    if not path then return refuse(self:Text("USAGE_SET"):format(d.slash, d.slash), "set", "usage") end
     local row = rowFor(path)
-    if not row then return emit(self:Text("NOT_FOUND"):format(path)) end
+    if not row then return refuse(self:Text("NOT_FOUND"):format(path), "set " .. path, "not found") end
 
     local v, err = parse(row, value or "")
     if v == nil then
-      emit(self:Text("INVALID"):format(row.path))
-      if err and err ~= "" then emit("  " .. err) end
+      local said = err and err ~= ""
+      refuse(self:Text("INVALID"):format(row.path), "set " .. row.path, "parse" .. (said and (" (" .. tostring(err) .. ")") or ""))
+      if said then emit("  " .. err) end
       return
     end
 
@@ -784,14 +788,14 @@ function lib:New(d)
   --- settings panel, and every such panel already carries a Defaults button that resets its page.
   function Sl:CliReset(rest)
     local path = (rest or ""):match("^(%S+)")
-    if not path then return emit(self:Text("USAGE_RESET"):format(d.slash)) end
+    if not path then return refuse(self:Text("USAGE_RESET"):format(d.slash), "reset", "usage") end
     -- Not lowercased. A path is case-sensitive, so folding it would resolve a setting the user did
     -- not name.
     local row = rowFor(path)
-    if not row then return emit(self:Text("NOT_FOUND"):format(path)) end
+    if not row then return refuse(self:Text("NOT_FOUND"):format(path), "reset " .. path, "not found") end
     -- Exactly false, not falsy: a host applyDefault that returns nothing has always meant success.
     if type(d.applyDefault) == "function" and d.applyDefault(row) == false then
-      return emit(self:Text("NO_DEFAULT"):format(row.path))
+      return refuse(self:Text("NO_DEFAULT"):format(row.path), "reset " .. row.path, "no default")
     end
     emit(lib.FormatKV(row.path, formatValue(row, read(row.path))))
   end
@@ -850,9 +854,9 @@ function lib:New(d)
   -- ── the profile verb (minor 17) ──────────────────────────────────────────────────────────
   --
   -- The host registers its own `profile` row and routes it here. `profile` is NOT in LIVE_VERBS; a
-  -- host widens its own liveVerbs. The library logs nothing: the one switch line debug-logging-§10
-  -- asks for is the host's profile handler's. The store is asked for at CALL time, because a
-  -- host's db is built at ADDON_LOADED, after the slash file that built this dispatcher.
+  -- host widens its own liveVerbs. The one switch line debug-logging-§10 asks for is the host's
+  -- profile handler's; the library logs only its own refusals (minor 18). The store is asked for
+  -- at CALL time, because a host's db is built at ADDON_LOADED, after the slash file that built this.
   local function profileStore()
     if type(d.profiles) ~= "function" then return nil end
     local store = d.profiles()
@@ -875,7 +879,7 @@ function lib:New(d)
   function Sl:ProfileSwitch(name)
     local store = profileStore()
     if not store then
-      emit(self:Text("PROFILE_UNAVAILABLE"))
+      refuse(self:Text("PROFILE_UNAVAILABLE"), "profile", "unavailable")
       return false
     end
     name = tostring(name or "")
@@ -885,14 +889,14 @@ function lib:New(d)
       return false
     end
     if name == current then
-      emit(self:Text("PROFILE_ALREADY"):format(name))
+      refuse(self:Text("PROFILE_ALREADY"):format(name), "profile " .. name, "already current")
       return false
     end
     local lowered, guess, guesses = name:lower(), nil, 0
     for _, known in ipairs(names) do
       if known == name then
         if InCombatLockdown and InCombatLockdown() then
-          emit(self:Text("PROFILE_COMBAT"))
+          refuse(self:Text("PROFILE_COMBAT"), "profile " .. name, "in combat")
           return false
         end
         store:SetProfile(name)
@@ -901,7 +905,7 @@ function lib:New(d)
       end
       if known:lower() == lowered then guess, guesses = known, guesses + 1 end
     end
-    emit(self:Text("PROFILE_UNKNOWN"):format(name))
+    refuse(self:Text("PROFILE_UNKNOWN"):format(name), "profile " .. name, "unknown profile")
     if guesses == 1 then emit(self:Text("PROFILE_DID_YOU_MEAN"):format(guess)) end
     emitProfileList(names, current)
     return false
@@ -909,7 +913,7 @@ function lib:New(d)
 
   --- The `profile` verb: bare lists the profiles, current marked; a name goes to ProfileSwitch.
   function Sl:CliProfile(rest)
-    if not profileStore() then return emit(self:Text("PROFILE_UNAVAILABLE")) end
+    if not profileStore() then return refuse(self:Text("PROFILE_UNAVAILABLE"), "profile", "unavailable") end
     self:ProfileSwitch(profileArg(rest))
   end
 
@@ -974,7 +978,7 @@ function lib:New(d)
     -- Gating BEFORE the lookup conflated the two and answered a misspelling with "the addon is
     -- disabled" — a true sentence and the wrong answer, since it tells a player who mistyped that
     -- their spelling was fine.
-    if isDown and entry and not liveVerbs[cmd] then return emit(self:DisabledLine()) end
+    if isDown and entry and not liveVerbs[cmd] then return refuse(self:DisabledLine(), cmd, "disabled") end
 
     if entry then return entry[3](rest) end
 
@@ -987,7 +991,7 @@ function lib:New(d)
     -- look like it swallowed a command the addon never had — five of the eleven consumers reported
     -- exactly that for `/<slash> perf`. Nothing was refused, so nothing says it was.
 
-    emit(self:Text("UNKNOWN_COMMAND"):format(cmd))
+    refuse(self:Text("UNKNOWN_COMMAND"):format(cmd), cmd, "unknown verb")
     self:PrintHelp()
   end
 

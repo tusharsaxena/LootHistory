@@ -25,7 +25,7 @@ free number in its theme.
 | INS-1 to 21 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
-| DIAG-1 to 30 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link |
+| DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | DEGRADED-1 to 11 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -1041,6 +1041,27 @@ report appends once more with no second `logging enabled` line, and logging stay
 toggle between ON and OFF → the gap after it holds for either word. Drag the console as small as it
 goes (DIAG-26) → the link still fits beside the toggle and the title. Result:
 
+**DIAG-31. A slash refusal is the library's one `[Cmd]` line.** `/lh debug on`, then `/lh get` → chat
+prints the `get` usage line; the console gains exactly one `[Cmd] refused get: usage`. `/lh
+nosuchverb` → chat prints `unknown command` and the help index; the console gains one `[Cmd] refused
+nosuchverb: unknown verb`. `/lh disable`, then `/lh show` → chat prints the disabled line; the
+console gains one `[Cmd] refused show: disabled`, and no second line for the same refusal (no `/lh
+show refused: addon disabled`). `/lh version` → it prints; no `[Cmd]` line. `/lh enable`. Result:
+
+**DIAG-32. A latch edge is the library's one `[Lifecycle]` line.** `/lh debug on`, then `/lh disable`
+→ after `[Set] settings.enabled = false`, one `[Lifecycle] stood down: added disabled (holds:
+disabled)`, then `[State] stand-down: capture unregistered, N deferral(s) canceled`; only the
+`[Lifecycle]` line names the holds. `/lh disable` again → no `[Lifecycle]` line (nothing moved).
+`/lh enable` → one `[Lifecycle] stood up: released disabled (holds: none)`, then `[State] stand-up:
+capture registered` and `[State] dependencies: price providers: <the ones installed, or none>;
+latch: LibKa0s-Lifecycle-1.0`. Result:
+
+**DIAG-33. State lines from login land at `debug on`.** `/reload` (logging off, DIAG-8), then `/lh
+debug on` → after `[Debug] logging enabled` and the `[Init]` line, the console holds `[Launcher]
+registered` and `[State] dependencies: price providers: …; latch: LibKa0s-Lifecycle-1.0`, each once,
+written at the enable although login ran them with logging off. `/lh debug off`, `/lh debug on` →
+neither line again. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1254,6 +1275,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DIAG-23 | § 12a step 5 | LH-S8 passed `/lh diag` and `/lh debug diag` on 2026-09-26; `/lh dump` has no result |
 | DIAG-26 to DIAG-29 | New | New with the resizable console and copy windows (DL-LH-01, LibKa0s v1.64.0) |
 | DIAG-30 | New | New with the console's Diagnostics link (DL-LH-03, LibKa0s v1.64.0, DebugLog 16 and later) |
+| DIAG-31 to DIAG-33 | New | New with the library's own debug lines (DG-LH-01, LibKa0s v1.65.0: Slash 18, Lifecycle 3, Launcher 5, DebugLogGates 1) |
 | DEGRADED-1 | § 17a.1 | No result recorded |
 | DEGRADED-2 | § 17a.2 | No result recorded; expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
 | DEGRADED-3 | § 17a.3 | No result recorded; expectation corrected by SP-LH-03R (`/lh version` and `/lh get` print DEGRADED-2's line) |

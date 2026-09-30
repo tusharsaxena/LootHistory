@@ -1035,29 +1035,29 @@ function BrowserTable.RenderSummary(matchCount, total, filterCount, groupBy, sor
     tostring(sortKey), sortAsc and "asc" or "desc", tostring(filterCount or 0))
 end
 
--- The last [Table] summary logged, for the quiet-steady-state gate (debug-logging-§9). A repaint
--- that changes nothing -- a coalesced RecordAdded in test mode, a resize, a HistoryChanged that
--- moved no row this view shows -- logs nothing; every real change still lands, because the line
--- is the comparison. Reset by the History window's OnShow, so each open logs its render once.
-local lastRenderLine
+-- The quiet-steady-state gate for the [Table] summary (debug-logging-§9), the console's DebugChanged
+-- under one key. A repaint that changes nothing -- a coalesced RecordAdded in test mode, a resize, a
+-- HistoryChanged that moved no row this view shows -- logs nothing; every real change still lands,
+-- because the line is the comparison. Forgotten by the History window's OnShow, so each open logs
+-- its render once, and re-armed by the console itself on a Clear or a fresh `debug on`.
+local RENDER_KEY = "Table.render"
 
-function BrowserTable.ResetRenderTrace() lastRenderLine = nil end
+function BrowserTable.ResetRenderTrace()
+  if NS.DebugForget then NS.DebugForget(RENDER_KEY) end
+end
 
 -- Recompute the display list and repaint. Safe to call before Attach (no-op).
 function BrowserTable:Refresh()
   if not self.frame then return end
   self.displayList = self:BuildDisplayList()
   self:Bind()
-  if NS.State.debug and NS.Debug then
+  if NS.State.debug and NS.DebugChanged then
     local total = #(NS.Database:ActiveHistory() or {})
     local fc = 0
     for _ in pairs(self.filter or {}) do fc = fc + 1 end
     local line = BrowserTable.RenderSummary(
       self.matchCount or 0, total, fc, self.groupBy, self.sortKey, self.sortAsc)
-    if line ~= lastRenderLine then
-      lastRenderLine = line
-      NS.Debug("Table", "%s", line)
-    end
+    NS.DebugChanged(RENDER_KEY, "Table", "%s", line)
   end
 end
 

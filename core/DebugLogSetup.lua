@@ -74,6 +74,12 @@ if not lib then
       return { lines = {}, dropped = 0, capped = false, capsHit = false }
     end,
     DebugVerb = function() return false end,
+    -- The change gates and the at-enable queue (DebugLogGates 1, LibKa0s v1.65.0). With no console
+    -- there is nothing to write to, so each answers nothing, as the stub NS.Debug below does.
+    DebugOnce     = function() end,
+    DebugChanged  = function() end,
+    DebugForget   = function() end,
+    DebugAtEnable = function() end,
     ConsoleCheckbox = function()
       return {
         label   = "Debug console",
@@ -84,6 +90,8 @@ if not lib then
     end,
   }
   NS.Debug = function() end
+  NS.DebugOnce, NS.DebugChanged = NS.DebugLog.DebugOnce, NS.DebugLog.DebugChanged
+  NS.DebugForget, NS.DebugAtEnable = NS.DebugLog.DebugForget, NS.DebugLog.DebugAtEnable
   return
 end
 
@@ -164,3 +172,12 @@ NS.DebugLog = lib:New({
 -- The gated sink, republished under the name ~40 call sites across seven files already use. A plain
 -- bindable function, never a method: every site calls it as NS.Debug("Tag", "fmt %s", value).
 NS.Debug = NS.DebugLog.Debug
+
+-- The console's change gates and at-enable queue (DebugLogGates 1, LibKa0s v1.65.0; debug-logging-§1,
+-- §9), bound bare the same way. DebugOnce / DebugChanged replace the four memos this addon kept by
+-- hand (the [AHPrice] and [Cfg] once-per-error lines, the [Table] and [Insights] change gates): the
+-- console re-arms them on Clear and on enable, which a file-local memo never was. DebugAtEnable
+-- holds a STATE line written while logging is off -- the load-time stand-up's dependency line, a
+-- refused event name, the launcher's registration -- until the player turns logging on.
+NS.DebugOnce, NS.DebugChanged = NS.DebugLog.DebugOnce, NS.DebugLog.DebugChanged
+NS.DebugForget, NS.DebugAtEnable = NS.DebugLog.DebugForget, NS.DebugLog.DebugAtEnable

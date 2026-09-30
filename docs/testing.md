@@ -187,7 +187,7 @@ Whenever the suite changes — a case added, removed, or renamed, or the pass co
 exactly what resolving a test failure does) — you **MUST**, as part of the same change:
 
 1. Regenerate the inventory: `lua tests/run.lua --list > docs/test-cases.md`.
-2. Update the README `tests` badge (`![tests](https://img.shields.io/badge/tests-<pass>%2F<total>_passing-brightgreen)`)
+2. Update the README `Tests` badge (`![Tests](https://img.shields.io/badge/Tests-<pass>%2F<total>_passing-green)`)
    to the new count.
 
 The inventory doc and the badge are part of the change, not a follow-up.

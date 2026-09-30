@@ -75,15 +75,18 @@ NS.RejectedEvents = {}
 
 -- One [Init] debug line per name, the first time it lands on the list: every name appended past
 -- `before`, the list's length from before the attempt. A disable/enable cycle that meets the same
--- refusal again appends nothing and so says nothing new. NS.Debug is read at call time, because
--- core/DebugLogSetup.lua loads after this file.
+-- refusal again appends nothing and so says nothing new. A refused name is client STATE, and the
+-- registrations run at load with the session-only flag off, so the line goes through the console's
+-- at-enable queue (DebugLogGates 1): held until logging is turned on, written at once when it is
+-- already on. NS.DebugAtEnable is read at call time, because core/DebugLogSetup.lua loads after
+-- this file.
 local function lengthOf(rejected)
   return type(rejected) == "table" and #rejected or 0
 end
 local function noteRefusals(rejected, before)
-  if not (NS.State and NS.State.debug and NS.Debug) then return end
+  if not NS.DebugAtEnable then return end
   for i = before + 1, lengthOf(rejected) do
-    NS.Debug("Init", "event %s refused by this client; skipped, the rest still register",
+    NS.DebugAtEnable("Init", "event %s refused by this client; skipped, the rest still register",
       tostring(rejected[i]))
   end
 end

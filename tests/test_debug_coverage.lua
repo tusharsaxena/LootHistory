@@ -9,17 +9,22 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 -- pins the lines that were added for it and the two change gates.
 --
 -- Every case records through a stand-in NS.Debug. Each call site gates on NS.State.debug and then
--- calls NS.Debug by name at call time (the Schema and Options descriptors late-bind it the same
--- way), so the stand-in sees exactly what the library's sink would, without the 3000-line buffer
--- deciding whether a count moved.
+-- calls NS.Debug by name at call time (the Schema, Options, Slash, Lifecycle and Launcher
+-- descriptors late-bind it the same way), so the stand-in sees exactly what the library's sink
+-- would, without the 3000-line buffer deciding whether a count moved. The console's own writers --
+-- the DebugOnce / DebugChanged gates and the at-enable queue (DebugLogGates 1) -- append through
+-- NS.DebugLog:Add rather than the sink, so the console's Add is recorded into the same list for the
+-- call. The two never overlap: the stand-in never reaches Add, so no line is counted twice.
 
 --- Run `fn` with logging on and NS.Debug recording. Returns the lines, "[Tag] message".
 local function capture(fn)
-  local lines, saved, savedFlag = {}, NS.Debug, NS.State.debug
+  local D = NS.DebugLog
+  local lines, saved, savedAdd, savedFlag = {}, NS.Debug, D.Add, NS.State.debug
   NS.Debug = function(tag, fmt, ...) lines[#lines + 1] = "[" .. tag .. "] " .. fmt:format(...) end
+  D.Add = function(_, tag, msg) lines[#lines + 1] = "[" .. tostring(tag) .. "] " .. tostring(msg) end
   NS.State.debug = true
   local ok, err = pcall(fn)
-  NS.Debug, NS.State.debug = saved, savedFlag
+  NS.Debug, D.Add, NS.State.debug = saved, savedAdd, savedFlag
   if not ok then error(err, 0) end
   return lines
 end
@@ -61,39 +66,112 @@ end
 
 -- ── state edges ──────────────────────────────────────────────────────────────────────────────
 
-test("coverage: a stand-down and a stand-up are one [State] line each, naming holds and dependencies", function()
-  -- red under: dropping either line from NS.StandDown / NS.StandUp (core/LifecycleSetup.lua). The
-  -- latch narrates nothing, so without them a switched-off addon's silence reads exactly like a
-  -- broken capture, and a pasted log cannot say which price providers the session had.
+test("coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line", function()
+  -- red under: dropping `debug` from the Lifecycle descriptor (core/LifecycleSetup.lua), which
+  -- leaves the edge and its holds unlogged; dropping either host line from NS.StandDown /
+  -- NS.StandUp, which leaves what this addon took down unsaid; or a host line that names the holds
+  -- again, which logs the one edge twice (debug-logging-§4, "The library's own lines").
   local lines = whileDisabled(function() end)
-  assertEqual(count(lines, "[State] stood down"), 1, table.concat(lines, "\n"))
-  assertEqual(count(lines, "[State] stood up"), 1, table.concat(lines, "\n"))
-  local down = first(lines, "[State] stood down")
-  assertTrue(down:find("holds: disabled", 1, true) ~= nil, down)
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Lifecycle] stood down: added disabled (holds: disabled)"), 1, all)
+  assertEqual(count(lines, "[Lifecycle] stood up: released disabled (holds: none)"), 1, all)
+  assertEqual(count(lines, "[Lifecycle]"), 2, all)
+  assertEqual(count(lines, "[State] stand-down"), 1, all)
+  assertEqual(count(lines, "[State] stand-up"), 1, all)
+  assertEqual(count(lines, "holds:"), 2, "only the library's lines name the holds:\n" .. all)
+  local down = first(lines, "[State] stand-down")
   assertTrue(down:match("%d+ deferral%(s%) canceled") ~= nil, down)
-  local up = first(lines, "[State] stood up")
-  assertTrue(up:find("price providers: none", 1, true) ~= nil, up)
-  assertTrue(up:find("latch: LibKa0s-Lifecycle-1.0", 1, true) ~= nil, up)
+  -- With logging on, the stand-up's dependency line goes through the at-enable queue and so lands
+  -- at once, right after the edge.
+  assertEqual(count(lines, "[State] dependencies: "), 1, all)
+  local deps = first(lines, "[State] dependencies: ")
+  assertTrue(deps:find("price providers: none", 1, true) ~= nil, deps)
+  assertTrue(deps:find("latch: LibKa0s-Lifecycle-1.0", 1, true) ~= nil, deps)
 end)
 
-test("coverage: with logging off, an edge builds and writes nothing", function()
-  local saved, calls = NS.Debug, 0
-  NS.Debug = function() calls = calls + 1 end
+-- ── state at enable: the console's at-enable queue (DebugLogGates 1) ─────────────────────────
+
+--- Turn logging on through the console's one seam, as `/lh debug on` does, and return the lines it
+--- wrote, from the enable bracket on. Chat is swallowed; the flag is put back afterwards.
+local function enableAndRead(D)
+  local before = #D.buffer
+  quietChat(function() D:SetEnabled(true) end)
+  local lines = {}
+  for i = before + 1, #D.buffer do lines[#lines + 1] = D.buffer[i] end
+  quietChat(function() D:SetEnabled(false) end)
+  return lines
+end
+
+test("coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]", function()
+  -- red under: the dependency line on the gated sink (the load-time stand-up runs from OnEnable
+  -- with the session-only flag off, so the line never landed: debug-logging-§8, Dependencies).
+  local D, savedFlag = NS.DebugLog, NS.State.debug
+  NS.State.debug = false
+  quietChat(function()
+    NS.Schema:Set("settings.enabled", false)
+    NS.Schema:Set("settings.enabled", true)
+  end)
+  local lines = enableAndRead(D)
+  NS.State.debug = savedFlag
+  local all = table.concat(lines, "\n")
+  local initAt, depsAt
+  for i, l in ipairs(lines) do
+    if not initAt and l:find("[Init] ", 1, true) then initAt = i end
+    if l:find("[State] dependencies: price providers: none; latch: LibKa0s-Lifecycle-1.0", 1, true) then
+      assertTrue(depsAt == nil, "the held line was written twice:\n" .. all)
+      depsAt = i
+    end
+  end
+  assertTrue(depsAt ~= nil, "the held dependency line did not land:\n" .. all)
+  assertTrue(initAt ~= nil and initAt < depsAt, "held lines follow the [Init] summary:\n" .. all)
+  -- One-shot: a second `debug on` has nothing held to write.
+  assertEqual(count(enableAndRead(D), "[State] dependencies: "), 0, "the queue is one-shot")
+end)
+
+test("coverage: an event name this client refuses is held for `debug on`, once per name", function()
+  -- red under: the [Init] refusal line on the gated sink, which the load-time registrations meet
+  -- with logging off. The name is client state, so it waits in the at-enable queue.
+  local D, savedFlag = NS.DebugLog, NS.State.debug
+  NS.State.debug = false
+  local rejected = {}
+  local target = { RegisterEvent = function() error("refused", 0) end }
+  NS.SafeRegisterEvent(target, "LH_COVERAGE_NO_SUCH_EVENT", function() end, rejected)
+  NS.SafeRegisterEvent(target, "LH_COVERAGE_NO_SUCH_EVENT", function() end, rejected)
+  local lines = enableAndRead(D)
+  NS.State.debug = savedFlag
+  assertEqual(count(lines, "[Init] event LH_COVERAGE_NO_SUCH_EVENT refused by this client"), 1,
+    table.concat(lines, "\n"))
+end)
+
+test("coverage: with logging off, an edge builds nothing of the host's and writes nothing", function()
+  -- The library builds its own [Lifecycle] line and hands it to the sink, which drops it at the
+  -- gate; everything else is the host's, and none of it may reach the sink with logging off.
+  local saved, tags = NS.Debug, {}
+  NS.Debug = function(tag) tags[#tags + 1] = tostring(tag) end
   NS.State.debug = false
   quietChat(function()
     NS.Schema:Set("settings.enabled", false)
     NS.Schema:Set("settings.enabled", true)
   end)
   NS.Debug = saved
-  assertEqual(calls, 0, "a gated line reached the sink with logging off")
+  for _, tag in ipairs(tags) do
+    assertEqual(tag, "Lifecycle", "a host line reached the sink with logging off")
+  end
+  local D, before = NS.DebugLog, #NS.DebugLog.buffer
+  quietChat(function()
+    NS.Schema:Set("settings.enabled", false)
+    NS.Schema:Set("settings.enabled", true)
+  end)
+  assertEqual(#D.buffer, before, "the real sink wrote a line with logging off")
 end)
 
 -- ── refusals, each naming its guard ──────────────────────────────────────────────────────────
 
 test("coverage: while stood down, a hook's stamp, an open and a feature verb each name the guard", function()
-  -- red under: dropping the gated line from Attribution:Stamp's stood-down return, from B:Show's
-  -- stood-down return, or settings/Slash.lua's traceDisabledRefusal. The report is "nothing
-  -- happened"; each line is the answer.
+  -- red under: dropping the gated line from Attribution:Stamp's stood-down return or from B:Show's
+  -- stood-down return, or dropping `debug` from the Slash descriptor (settings/Slash.lua), whose
+  -- disabled gate then refuses in chat only. The report is "nothing happened"; each line is the
+  -- answer. The [Cmd] line is the library's (Slash minor 18); a host copy would be a second one.
   local live = {}
   for _, v in ipairs(M.LibStub("LibKa0s-Slash-1.0").LIVE_VERBS) do live[v:lower()] = true end
   live.profile = true
@@ -109,16 +187,67 @@ test("coverage: while stood down, a hook's stamp, an open and a feature verb eac
   end)
   assertEqual(count(lines, "[Attr] stamp VENDOR ignored: stood down"), 1, table.concat(lines, "\n"))
   assertEqual(count(lines, "[UI] open refused: stood down"), 1, table.concat(lines, "\n"))
-  assertEqual(count(lines, "[Cmd] /lh " .. verb .. " refused: addon disabled"), 1,
-    table.concat(lines, "\n"))
+  assertEqual(count(lines, "[Cmd] refused " .. verb .. ": disabled"), 1, table.concat(lines, "\n"))
+  assertEqual(count(lines, "[Cmd]"), 1, "one refusal, one line:\n" .. table.concat(lines, "\n"))
 end)
 
-test("coverage: a live verb or a typo while disabled is not logged as a refusal", function()
+test("coverage: while disabled, a live verb logs no refusal and a typo is the unknown-verb line", function()
+  -- A live verb runs; a typo is not the disabled gate's refusal (slash-commands-§3) but the
+  -- dispatcher's unknown-verb refusal, its own one line.
   local lines = whileDisabled(function()
     NS.Slash:OnSlash("version")
     NS.Slash:OnSlash("nosuchverb")
   end)
-  assertEqual(count(lines, "[Cmd]"), 0, table.concat(lines, "\n"))
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Cmd] refused nosuchverb: unknown verb"), 1, all)
+  assertEqual(count(lines, "[Cmd]"), 1, all)
+  assertEqual(count(lines, "[Cmd] refused version"), 0, all)
+end)
+
+test("coverage: the library's own lines land in this addon's console, once each", function()
+  -- Through the REAL sink and the real buffer, not a stand-in: what a player copies out. A Slash
+  -- refusal (Slash minor 18) and a Lifecycle edge (Lifecycle minor 3) each land as exactly one line.
+  local D, savedFlag = NS.DebugLog, NS.State.debug
+  NS.State.debug = true
+  local before = #D.buffer
+  local ok, err = pcall(quietChat, function()
+    NS.Slash:OnSlash("get")
+    NS.Schema:Set("settings.enabled", false)
+    NS.Schema:Set("settings.enabled", true)
+  end)
+  NS.State.debug = savedFlag
+  if not ok then error(err, 0) end
+  local lines = {}
+  for i = before + 1, #D.buffer do lines[#lines + 1] = D.buffer[i] end
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Cmd] refused get: usage"), 1, all)
+  assertEqual(count(lines, "[Lifecycle] stood down: added disabled (holds: disabled)"), 1, all)
+  assertEqual(count(lines, "[Lifecycle] stood up: released disabled (holds: none)"), 1, all)
+  assertEqual(count(lines, "[Cmd]"), 1, all)
+end)
+
+test("coverage: an Options combat-lock refusal is the library's one [Cfg] line in this console", function()
+  -- red under: dropping `debug` from the Options descriptor (settings/OptionsSetup.lua), which
+  -- leaves the combat lock's refusals (Options minor 27) unlogged; or a host line beside it, which
+  -- logs the one refusal twice (debug-logging-§4, "The library's own lines"). Through the REAL sink
+  -- and buffer, as the Slash and Lifecycle case above. The mock's InCombatLockdown answers true for
+  -- the call, so the page's Defaults (O.RestoreDefaults) is refused at the lock and writes nothing.
+  local O, D, savedFlag = NS.Options, NS.DebugLog, NS.State.debug
+  local pages = O.__pages()
+  assertTrue(pages[1] ~= nil and pages[1].key ~= nil, "no Options page to refuse on")
+  local pageKey = pages[1].key
+  local realCombat = M.InCombatLockdown
+  M.InCombatLockdown = function() return true end
+  NS.State.debug = true
+  local before = #D.buffer
+  local ok, err = pcall(quietChat, function() O.RestoreDefaults(pageKey) end)
+  M.InCombatLockdown, NS.State.debug = realCombat, savedFlag
+  if not ok then error(err, 0) end
+  local lines = {}
+  for i = before + 1, #D.buffer do lines[#lines + 1] = D.buffer[i] end
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Cfg] defaults " .. tostring(pageKey) .. " refused (in combat)"), 1, all)
+  assertEqual(count(lines, "[Cfg]"), 1, "one refusal, one line, no host copy:\n" .. all)
 end)
 
 test("coverage: the visibility refusal and the visibility hide name the mode", function()
@@ -193,7 +322,7 @@ end)
 
 test("coverage: a price provider that raises is one [AHPrice] line per distinct error", function()
   -- red under: dropping traceFetchError (the pcall then costs nothing visible at all), or its
-  -- seen-set (the same fault repeats on every kept loot line).
+  -- DebugOnce gate (the same fault repeats on every kept loot line).
   -- Planted and restored through a table walk, as tests/test_auctionprice.lua's withGlobals does.
   local plant = { Auctionator = { API = { v1 = {
     GetAuctionPriceByItemID = function() error("coverage-boom", 0) end } } } }
@@ -301,6 +430,39 @@ test("coverage: N Insights recomputes with nothing changed log one [Insights] li
   end)
   A.content, A.UpdateCards, A.Layout = savedContent, savedCards, savedLayout
   assertEqual(count(lines, "[Insights]"), 1, table.concat(lines, "\n"))
+end)
+
+test("coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console", function()
+  -- red under: a hand-rolled memo in place of the console's DebugOnce / DebugChanged (a file-local
+  -- seen-set or last-line string survives a Clear, so the first pass after it writes nothing and
+  -- the player copies an empty console). The gates are the console's (DebugLogGates 1), and Clear
+  -- re-arms them.
+  local plant = { Auctionator = { API = { v1 = {
+    GetAuctionPriceByItemID = function() error("rearm-boom", 0) end } } } }
+  local saved = {}
+  for k, v in pairs(plant) do saved[k] = _G[k]; _G[k] = v end
+  local A = NS.Analytics
+  local savedContent, savedCards, savedLayout = A.content, A.UpdateCards, A.Layout
+  A.content, A.UpdateCards, A.Layout = A.content or {}, function() end, function() end
+  local function pass()
+    return capture(function()
+      NS.AuctionPrice:GatherAll("|Hitem:1|h[x]|h", 1)
+      A:Refresh()
+    end)
+  end
+  local ok, err = pcall(function()
+    pass()                               -- arms both keys
+    local quiet = pass()
+    assertEqual(count(quiet, "[AHPrice] auctionator fetch failed: rearm-boom"), 0, table.concat(quiet, "\n"))
+    assertEqual(count(quiet, "[Insights]"), 0, table.concat(quiet, "\n"))
+    NS.DebugLog:Clear()
+    local again = pass()
+    assertEqual(count(again, "[AHPrice] auctionator fetch failed: rearm-boom"), 1, table.concat(again, "\n"))
+    assertEqual(count(again, "[Insights]"), 1, table.concat(again, "\n"))
+  end)
+  for k in pairs(plant) do _G[k] = saved[k] end
+  A.content, A.UpdateCards, A.Layout = savedContent, savedCards, savedLayout
+  if not ok then error(err, 0) end
 end)
 
 -- ── the test-mode material effect ────────────────────────────────────────────────────────────

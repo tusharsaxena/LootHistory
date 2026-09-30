@@ -572,11 +572,12 @@ badge and any count quoted in the docs must agree with it.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_launcher.lua (21)
+### test_launcher.lua (22)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
 - launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
 - launcher: with no LibDataBroker / LibDBIcon nothing raises, and the store is still the truth
+- launcher: Register's state lines go to the console's at-enable queue, not the gated sink
 - launcher: ONE object, registered twice, under the addon's FOLDER name — and idempotent
 - launcher: the stored minimap table is the declared default, unseeded and unreplaced
 - launcher: left-click opens the settings panel, enabled or disabled, and does nothing else
@@ -1018,12 +1019,16 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 
-### test_debug_coverage.lua (16)
+### test_debug_coverage.lua (21)
 
-- coverage: a stand-down and a stand-up are one [State] line each, naming holds and dependencies
-- coverage: with logging off, an edge builds and writes nothing
+- coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
+- coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]
+- coverage: an event name this client refuses is held for `debug on`, once per name
+- coverage: with logging off, an edge builds nothing of the host's and writes nothing
 - coverage: while stood down, a hook's stamp, an open and a feature verb each name the guard
-- coverage: a live verb or a typo while disabled is not logged as a refusal
+- coverage: while disabled, a live verb logs no refusal and a typo is the unknown-verb line
+- coverage: the library's own lines land in this addon's console, once each
+- coverage: an Options combat-lock refusal is the library's one [Cfg] line in this console
 - coverage: the visibility refusal and the visibility hide name the mode
 - coverage: a refused schema write is one [Set] line with the seam's reason
 - coverage: a currency line refused before it names a currency says why
@@ -1035,6 +1040,7 @@ badge and any count quoted in the docs must agree with it.
 - coverage: N table repaints with nothing changed log one [Table] line, and a real change logs
 - coverage: each open of the History window logs its render once, even when unchanged
 - coverage: N Insights recomputes with nothing changed log one [Insights] line
+- coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 
 ### test_doc_structure.lua (8)
@@ -1153,7 +1159,7 @@ badge and any count quoted in the docs must agree with it.
 | test_browsertable.lua | 63 |
 | test_export.lua | 26 |
 | test_debuglog.lua | 20 |
-| test_launcher.lua | 21 |
+| test_launcher.lua | 22 |
 | test_slash.lua | 62 |
 | test_slash_degraded.lua | 14 |
 | test_schema.lua | 69 |
@@ -1167,7 +1173,7 @@ badge and any count quoted in the docs must agree with it.
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 14 |
 | test_diagnostics.lua | 17 |
-| test_debug_coverage.lua | 16 |
+| test_debug_coverage.lua | 21 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1176,4 +1182,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 9 |
 | test_widgets.lua | 17 |
-| **Total** | **1006** |
+| **Total** | **1012** |

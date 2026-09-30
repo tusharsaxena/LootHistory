@@ -34,7 +34,7 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 17
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -97,18 +97,10 @@ lib.TIME_COPY = false
 -- button on its own windows should get the same one its console wears, from one factory — three
 -- copies of "the addon's close button" is exactly how two windows that should look identical drift.
 --
--- A forwarder rather than `lib.MakeCloseButton = core.MakeCloseButton`, and the indirection is the
--- point: LibStub upgrades a major IN PLACE, so the `core` TABLE stashed above survives a Core minor
--- bump while the FUNCTION on it is replaced. A host carrying a newer Core.lua beside an unchanged
--- DebugLog.lua returns early at the guard and never re-snapshots — so a copied value would leave this
--- console drawing the older Core's button while lib.MODULES.Core truthfully reports the newer minor.
--- Resolving through the table at CALL time keeps the two halves honest, and costs one call frame
--- once per window built. Same shape PerfPanel.lua already uses.
---- THE THIRD ARGUMENT IS THE WHOLE POINT OF MINOR 10. This forwarder took two arguments and Core's
---- gained a third at Core minor 6 -- so minor 9 shipped a console whose copy and clear drew the
---- collection's art while its close, which goes through here, silently fell back to the
---- multiplication sign. A dropped argument is not a failure anything can report: Core simply saw no
---- addon name and did what it does without one.
+-- A forwarder rather than a copied value: LibStub upgrades a major IN PLACE, so the `core` TABLE
+-- survives a Core minor bump while the FUNCTION on it is replaced, and resolving at CALL time keeps
+-- the console on the live Core's button (as PerfPanel.lua does). The third argument is minor 10's
+-- fix: minor 9 dropped it, and its close silently fell back to the multiplication sign.
 function lib.MakeCloseButton(parent, onClick, addonName)
   return core.MakeCloseButton(parent, onClick, addonName)
 end
@@ -436,6 +428,8 @@ end
 ---                         read at New, so a module that loads after the console can still supply
 ---                         a section. Read only when DebugLogDiagnostics.lua is loaded, like:
 ---   diagnosticsEnablesLogging  optional, minor 17. `false` stops a report run turning logging on.
+---   onClear     function  optional, minor 18. Called by `D:Clear()` after the wipe, pcall'd (a
+---                         raise costs one line), so a host re-arms its own change gates.
 function lib:New(d)
   d = type(d) == "table" and d or {}
   for _, field in ipairs({ "name", "title", "font", "isEnabled", "setEnabled" }) do
@@ -460,7 +454,7 @@ function lib:New(d)
   -- wants the copy box. The copy window's own handle lives beside its builder further down, since
   -- minor 12 — it is Widgets' now, and only that one function touches it.
   local D = {}
-  local frame
+  local frame, rearm, flushAtEnable   -- DebugLogGates.lua's gate reset and queue flush, or nil
 
   D.buffer = {}
   D.FormatPlain, D.FormatColored = lib.FormatPlain, lib.FormatColored
@@ -844,6 +838,11 @@ function lib:New(d)
   function D:Clear()
     if frame and frame.log then frame.log:Clear() end
     for i = #D.buffer, 1, -1 do D.buffer[i] = nil end
+    if rearm then rearm() end
+    if type(d.onClear) == "function" then
+      local ok, err = pcall(d.onClear)
+      if not ok then append("Debug", "onClear raised: " .. safeToString(err)) end
+    end
     D:UpdateScrollBar()
     D:UpdateStatus()
   end
@@ -941,6 +940,7 @@ function lib:New(d)
   function D:SetEnabled(on)
     on = not not on
     d.setEnabled(on)
+    if on and rearm then rearm() end   -- a new session hears every gated line again
     D:RefreshHeader()
     -- Color-coded chat ack: the state word is ON green (40ff40) / OFF red (ff4040), mirroring the
     -- title-bar toggle so the flag reads identically in chat and on the console header.
@@ -959,6 +959,7 @@ function lib:New(d)
       local line = d.initSummary()
       if line ~= nil then D:Add("Init", safeToString(line)) end
     end
+    if on and flushAtEnable then flushAtEnable() end   -- the at-enable queue, after the bracket
   end
 
   -- ── the checkbox data contract ───────────────────────────────────────────────────────────
@@ -981,18 +982,16 @@ function lib:New(d)
     }
   end
 
-  -- The diagnostics report (minor 14) lives in DebugLogDiagnostics.lua, a secondary file of this
-  -- major, and installs itself here when it loaded, handed only what it needs: the batched append,
-  -- the one repaint, the chat printer, the stringifier and the descriptor (for its own fields).
-  -- Absent, the instance has no report methods, which a host's degradation stub already answers.
+  -- The secondary files of this major install themselves here when they loaded, each handed only
+  -- what it needs: the gates and queue (minor 18, DebugLogGates.lua) the stringifier, and the report
+  -- (minor 14, DebugLogDiagnostics.lua) the append, repaint, printer, stringifier and descriptor.
+  -- Absent, the instance lacks those members, which a host's degradation stub already answers.
+  if type(lib.__installGates) == "function" then
+    rearm, flushAtEnable = lib.__installGates(D, { safeToString = safeToString })
+  end
   if type(lib.__installDiagnostics) == "function" then
-    lib.__installDiagnostics(D, {
-      d = d,
-      emit = emit,
-      safeToString = safeToString,
-      append = append,
-      repaint = function() D:UpdateScrollBar(); D:UpdateStatus() end,
-    })
+    lib.__installDiagnostics(D, { d = d, emit = emit, safeToString = safeToString, append = append,
+      repaint = function() D:UpdateScrollBar(); D:UpdateStatus() end })
   end
 
   return D

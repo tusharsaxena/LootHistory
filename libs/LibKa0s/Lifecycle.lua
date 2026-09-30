@@ -50,7 +50,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Lifecycle-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Lifecycle-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -88,6 +88,13 @@ lib.HOLD_PERF     = "perf"
 ---   print      function  optional. The host's tagged printer, used only by :PrintHolds(). The
 ---                        library emits nothing on its own — a latch that announced every edge
 ---                        would narrate a perf run and a profile switch into a player's chat.
+---   debug      function  optional, since minor 3. debug(tag, message) — the host's gated log seam,
+---                        as Launcher's and Slash's descriptors take it. Each stand-down and each
+---                        stand-up edge writes ONE `Lifecycle` line naming the hold that caused
+---                        it and the resulting set, before the host's callback runs; a call that
+---                        fires no edge writes nothing. pcall'd, so a raising sink cannot strand
+---                        the latch between its recorded edge and the host's callback. Absent,
+---                        nothing is written (minor 2's behavior).
 ---
 --- RE-ENTRANCY. A `standDown` or `standUp` callback MUST NOT take or release a hold on its own
 --- latch (Hold, Release, Set, or a Reevaluate after either). The edge calls the callback
@@ -130,10 +137,18 @@ function lib:New(descriptor)
   --- `Hold` fires no `standDown` and the addon is stranded half-alive with no hold to release.
   --- Update-before means a throwing `standUp` still leaves the set empty and the latch up: the
   --- error reaches the host's own error handler, and the NEXT hold behaves correctly.
-  local function edge()
+  ---
+  --- `cause` ("added <key>" / "released <key>") is for the debug line only, which is written after
+  --- `down` and before the callback, so a nested edge logs in the order the edges ran.
+  local function edge(cause)
     local wanted = taken > 0
     if wanted == down then return false end
     down = wanted
+    if type(d.debug) == "function" then
+      local list = LC:Holds()
+      pcall(d.debug, "Lifecycle", ("%s%s (holds: %s)"):format(wanted and "stood down" or "stood up",
+        cause and (": " .. cause) or "", #list > 0 and table.concat(list, ", ") or "none"))
+    end
     if wanted then d.standDown() else d.standUp() end
     return true
   end
@@ -150,7 +165,7 @@ function lib:New(descriptor)
     end
     if holds[key] then return false end
     holds[key], taken = true, taken + 1
-    return edge()
+    return edge("added " .. key)
   end
 
   --- Release `key`. A key that is not held is a NO-OP and MUST NOT call `standUp`: that is the
@@ -164,7 +179,7 @@ function lib:New(descriptor)
     end
     if not holds[key] then return false end
     holds[key], taken = nil, taken - 1
-    return edge()
+    return edge("released " .. key)
   end
 
   --- Hold or release by a boolean, which is the shape a settings onChange actually has. A host
@@ -202,7 +217,7 @@ function lib:New(descriptor)
   --- a stand-down or a stand-up only if the new profile actually disagrees with the old one.
   function LC:Reevaluate() return edge() end
 
-  --- The ONE line this library ever prints, and only when a host asks for it. Held keys or
+  --- The ONE line this library ever prints to chat, and only when a host asks for it. Held keys or
   --- `(none)`, through the host's own tagged printer so it carries the host's prefix like every
   --- other line the addon emits. A latch that narrated its own edges would print into a player's
   --- chat on every perf window and every profile switch.

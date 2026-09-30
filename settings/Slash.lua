@@ -375,6 +375,12 @@ local Dispatcher = lib:New({
   -- OnInitialize, after this file ran. The library switches through AceDB's SetProfile, whose
   -- OnProfileChanged reaches the adopt path (core/LootHistory.lua), which logs the one line.
   profiles = function() return NS.db end,
+
+  -- The host's gated sink (Slash minor 18). Every refusal the dispatcher decides -- the disabled
+  -- gate, an unknown verb, a get/set/reset usage, not-found, parse or write refusal, a reset with
+  -- no default, the profile verb's refusals -- writes one `[Cmd] refused <verb>: <guard>` line here
+  -- after its chat line (debug-logging-§4, §8). Late-bound: NS.Debug may be a suite's stand-in.
+  debug = function(tag, message) if NS.Debug then NS.Debug(tag, message) end end,
 })
 
 -- ── the surface the rest of the addon calls ────────────────────────────────────────────────────
@@ -382,24 +388,10 @@ local Dispatcher = lib:New({
 -- Bound onto NS.Slash by name rather than replacing it, because ~20 call sites across the schema
 -- table, the settings panel and the suite already reach for `NS.Slash:CliList()` and friends.
 
--- A verb the dispatcher is about to refuse because the addon is switched off leaves one [Cmd] line
--- naming that guard (debug-logging-§8, refusals). The library prints the refusal to chat and logs
--- nothing; this reads the same three facts its gate does -- the stored switch, the verb is one of
--- NS.COMMANDS, and it is not live -- and only while logging is on. A typo is not a refusal and logs
--- nothing; an alias the library resolves is not matched here, so it costs a missing line, never a
--- wrong one.
-local LIVE = {}
-for _, verb in ipairs(liveVerbs()) do LIVE[verb:lower()] = true end
-local function traceDisabledRefusal(msg)
-  if not (NS.State.debug and NS.Debug and NS.AddonIsOff()) then return end
-  local verb = (tostring(msg or ""):match("^%s*(%S+)") or ""):lower()
-  if verb == "" or LIVE[verb] then return end
-  for _, entry in ipairs(NS.COMMANDS) do
-    if entry[1] == verb then return NS.Debug("Cmd", "/lh %s refused: addon disabled", verb) end
-  end
-end
-
-Sl.OnSlash        = function(_, msg)  traceDisabledRefusal(msg); return Dispatcher:OnSlash(msg)  end
+-- No host [Cmd] line here any more: the disabled gate's refusal is the dispatcher's own line through
+-- the `debug` sink above (Slash minor 18), so a copy that re-read the gate's facts would log the
+-- one refusal twice (debug-logging-§4, "The library's own lines").
+Sl.OnSlash        = function(_, msg)  return Dispatcher:OnSlash(msg)  end
 Sl.PrintHelp      = function()        return Dispatcher:PrintHelp()   end
 Sl.HelpHeader     = function()        return Dispatcher:HelpHeader()  end
 Sl.HelpRows       = function()        return Dispatcher:HelpRows()    end

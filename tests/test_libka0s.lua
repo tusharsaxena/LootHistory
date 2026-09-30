@@ -41,6 +41,9 @@ local LIB_FILES = {
   -- New in v1.60.0: the diagnostics report, a second file of LibKa0s-DebugLog-1.0 (key 14.1) that
   -- lib:New installs on each instance. Loaded after DebugLog.lua, as the XML orders it.
   "libs/LibKa0s/DebugLogDiagnostics.lua",
+  -- New in v1.65.0: the change gates and the at-enable queue, a third file of LibKa0s-DebugLog-1.0
+  -- (key 18.2.1) that lib:New attaches to each instance. Loaded after DebugLogDiagnostics.lua.
+  "libs/LibKa0s/DebugLogGates.lua",
   "libs/LibKa0s/Slash.lua",
   -- New in v1.39.0: LibKa0s-Launcher-1.0, the minimap button and the broker plugin as one
   -- object registered twice (launcher-§1). core/LauncherSetup.lua resolves it at file load.

@@ -40,7 +40,8 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
 -- Minor 32: the id surface moved out to OptionsIds.lua and OptionsIdList.lua (issue #32), attached
 -- from lib.__AttachWidgets where it used to be defined; no change in behavior.
-local WIDGETS_MINOR = 32
+-- Minor 33: each refusal names what it refused, for the shell's Cfg line (gap G3, 2026-09-30).
+local WIDGETS_MINOR = 33
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -423,12 +424,12 @@ function lib.__AttachWidgets(O, d)
   -- every control that would reach the host -- a write, a button, a session toggle, an id list's
   -- add or remove. It prints the gray notice once per combat. A refused control is put back, by
   -- the refresh its caller already runs or by an explicit reset where the caller runs none.
-  local function refused()
-    return O.__combatRefused ~= nil and O.__combatRefused()
+  local function refused(kind, ...)
+    return O.__combatRefused ~= nil and O.__combatRefused(kind, ...)
   end
 
   local function write(row, value)
-    if refused() then return end
+    if refused("write", row.path or row.label or "?") then return end
     if row.path == nil and type(row.set) == "function" then return row.set(value) end
     return d.set(row.path, value)
   end
@@ -648,7 +649,7 @@ function lib.__AttachWidgets(O, d)
       btn:SetCallback("OnClick", function()
         if not spec.onClick then return end
         -- Refused in combat (minor 23): "Reset all settings" is one of these buttons.
-        if refused() then return end
+        if refused("button", spec.text or "?") then return end
         -- pcall'd and REPORTED. A host's button body reaches into live addon state, and a raise
         -- here would propagate into AceGUI's own dispatch and take the click handling of every
         -- widget on the frame down with it.
@@ -872,7 +873,7 @@ function lib.__AttachWidgets(O, d)
     -- on every panel every 50 ms. This is the one maker that declines the refresh.
     local function commit(r, g, b, a)
       -- Refused in combat (minor 23), and the swatch put back: this maker runs no refresh.
-      if refused() then return refresh() end
+      if refused("write", row.path or row.label or "?") then return refresh() end
       write(row, encodeColor(r, g, b, a))
     end
 
@@ -953,7 +954,7 @@ function lib.__AttachWidgets(O, d)
     local function refresh() cb:SetValue(spec.get() and true or false) end
 
     cb:SetCallback("OnValueChanged", function(_, _, value)
-      if refused() then return refresh() end        -- minor 23; the box reads live state again
+      if refused("toggle", spec.label or "?") then return refresh() end  -- minor 23
       spec.set(value and true or false)
     end)
 
@@ -1152,7 +1153,7 @@ function lib.__AttachWidgets(O, d)
       x:SetText(cell.text or "")
       if type(cell.onClick) == "function" then
         x:SetCallback("OnClick", function()
-          if refused() then return end                -- minor 23
+          if refused("button", cell.text or "?") then return end   -- minor 23
           cell.onClick()
         end)
       end

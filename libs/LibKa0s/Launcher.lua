@@ -50,7 +50,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 4
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -194,6 +194,14 @@ end
 ---                            frame.
 ---   debug          function  optional. debug(tag, message) — the host's log seam, called with
 ---                            the tag "Launcher".
+---   debugAtEnable  function  optional, since minor 5. debugAtEnable(tag, message) — where the
+---                            STATE lines go (a broker library absent, no minimap table,
+---                            registered): the console's `D.DebugAtEnable`, which holds a line
+---                            written while logging is off and writes it when logging is turned
+---                            on. Register runs at OnEnable, when the session-only flag is always
+---                            off, so through `debug` these lines never land (debug-logging-§8).
+---                            Absent, they go to `debug`, as before minor 5. Events (shown,
+---                            hidden, a refusal, a raise) always go to `debug`.
 ---   L              table     optional. Locale override, keyed to lib.STRINGS.
 ---
 --- RETIRED at minor 4, with launcher-§2's left-click rungs, and ignored if passed (no error):
@@ -237,6 +245,12 @@ function lib:New(d)
 
   local function log(message)
     if type(d.debug) == "function" then d.debug("Launcher", message) end
+  end
+
+  --- A state line (minor 5): held for the enable edge where the host wired the queue.
+  local function logState(message)
+    if type(d.debugAtEnable) == "function" then return d.debugAtEnable("Launcher", message) end
+    log(message)
   end
 
   --- A missing-library notice, printed ONCE per instance. Register is callable from OnInitialize
@@ -416,7 +430,7 @@ function lib:New(d)
 
     local LDB = LibStub and LibStub(LDB_MAJOR, true)
     if not LDB then
-      log("LibDataBroker-1.1 absent; no launcher")
+      logState("LibDataBroker-1.1 absent; no launcher")
       notice("NO_BROKER")
       return false
     end
@@ -441,14 +455,14 @@ function lib:New(d)
 
     local icons = LibStub and LibStub(ICON_MAJOR, true)
     if not icons then
-      log("LibDBIcon-1.0 absent; broker plugin only")
+      logState("LibDBIcon-1.0 absent; broker plugin only")
       notice("NO_ICON")
       return false
     end
 
     minimap = minimapTable(d)
     if not minimap then
-      log("descriptor.minimap answered no table; no minimap button")
+      logState("descriptor.minimap answered no table; no minimap button")
       notice("NO_MINIMAP")
       return false
     end
@@ -459,7 +473,7 @@ function lib:New(d)
     -- used (launcher-§3, anti-pattern #81).
     iconLib = icons
     icons:Register(name, object, minimap)
-    log("registered")
+    logState("registered")
     return true
   end
 

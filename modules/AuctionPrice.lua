@@ -69,17 +69,15 @@ local function wantedByProvider(capture)
   return out
 end
 
--- A provider fetch that raised, logged once per distinct (provider, message) for the session
--- (debug-logging-§8, errors caught): the pcall below keeps a broken pricing addon from costing the
--- loot row, and without this line it would cost nothing visible at all. Once, because the same
--- fault repeats on every kept loot line. Built and compared only while logging is on.
-local seenFetchError = {}
+-- A provider fetch that raised, logged once per distinct (provider, message) (debug-logging-§8,
+-- errors caught): the pcall below keeps a broken pricing addon from costing the loot row, and
+-- without this line it would cost nothing visible at all. Once, because the same fault repeats on
+-- every kept loot line. The memory is the console's change gate (DebugOnce, debug-logging-§9), so a
+-- Clear or a fresh `debug on` re-arms it; the key is built only while logging is on.
 local function traceFetchError(prov, err)
-  if not (NS.State.debug and NS.Debug) then return end
-  local key = tostring(prov) .. "\0" .. NS.SafeToString(err)
-  if seenFetchError[key] then return end
-  seenFetchError[key] = true
-  NS.Debug("AHPrice", "%s fetch failed: %s", tostring(prov), err)
+  if not (NS.State.debug and NS.DebugOnce) then return end
+  NS.DebugOnce("AHPrice.fetch\0" .. tostring(prov) .. "\0" .. NS.SafeToString(err),
+    "AHPrice", "%s fetch failed: %s", tostring(prov), err)
 end
 
 -- Capture every configured key. Returns { provider = { key = copper } } or nil if empty.

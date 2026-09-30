@@ -89,18 +89,17 @@ end
 
 -- ── the two edge lines (debug-logging-§8, Diagnosis) ─────────────────────────────────────────
 --
--- The latch narrates nothing (libs/LibKa0s/Lifecycle.lua: "a latch that narrated its own edges
--- would print into a player's chat"), so the host writes the one [State] line per edge. Both are
+-- The EDGE is the library's line: from Lifecycle minor 3 (LibKa0s v1.65.0) the latch writes one
+-- [Lifecycle] line per stand-down / stand-up through the `debug` sink passed below, naming the hold
+-- added or released and the resulting set, before this host's callback runs. The host's [State]
+-- line names only what the library's cannot know -- what this addon took down or brought up -- so
+-- it never repeats the edge or the holds (debug-logging-§4, "The library's own lines"). Both are
 -- built only while logging is on.
 
-local function holdsText()
-  local lc = NS.Lifecycle
-  local held = lc and lc.Holds and lc:Holds() or {}
-  return #held > 0 and table.concat(held, ",") or "none"
-end
-
 --- The price providers found, named once per stand-up: the only optional companions this addon
---- consults (debug-logging-§8, Dependencies). The latch kind rides the same line.
+--- consults (debug-logging-§8, Dependencies). The latch kind rides the same line. Written through
+--- the console's at-enable queue, because the load-time stand-up runs from OnEnable with the flag
+--- off: held, it lands the first time logging is turned on, and on a later edge it lands at once.
 local function dependencyText()
   local AP, found = NS.AuctionPrice, {}
   for _, p in ipairs({ "auctionator", "tsm", "oribos" }) do
@@ -124,8 +123,7 @@ function NS.StandDown()
   end
   local dropped = NS.CancelDeferrals()
   if NS.State.debug and NS.Debug then
-    NS.Debug("State", "stood down (holds: %s): capture unregistered, %d deferral(s) canceled",
-      holdsText(), dropped)
+    NS.Debug("State", "stand-down: capture unregistered, %d deferral(s) canceled", dropped)
   end
   -- Hidden here as well as refused in the ladder, and both are needed: the ladder stops the window
   -- coming back, this takes down the one that is already up.
@@ -147,9 +145,8 @@ function NS.StandUp()
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
   if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
-  if NS.State.debug and NS.Debug then
-    NS.Debug("State", "stood up: capture registered (%s)", dependencyText())
-  end
+  if NS.State.debug and NS.Debug then NS.Debug("State", "stand-up: capture registered") end
+  if NS.DebugAtEnable then NS.DebugAtEnable("State", "dependencies: %s", dependencyText()) end
 end
 
 -- ── the latch ─────────────────────────────────────────────────────────────────────────────────
@@ -164,6 +161,9 @@ if Lifecycle then
     -- Late-bound like every other seam's: core/LootHistory.lua reclaims NS.Print from AceConsole
     -- after this file has run.
     print     = function(line) NS.Print(line) end,
+    -- The host's gated sink (Lifecycle minor 3): each edge's [Lifecycle] line lands in this addon's
+    -- console. Late-bound, because core/DebugLogSetup.lua publishes NS.Debug after this file runs.
+    debug     = function(tag, message) if NS.Debug then NS.Debug(tag, message) end end,
   })
 else
   -- Degrade, not error, and not by absence either. Every caller below reaches the latch on the
