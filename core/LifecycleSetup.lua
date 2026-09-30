@@ -97,7 +97,9 @@ end
 -- built only while logging is on.
 
 --- The price providers found, named once per stand-up: the only optional companions this addon
---- consults (debug-logging-§8, Dependencies). The latch kind rides the same line.
+--- consults (debug-logging-§8, Dependencies). The latch kind rides the same line. Written through
+--- the console's at-enable queue, because the load-time stand-up runs from OnEnable with the flag
+--- off: held, it lands the first time logging is turned on, and on a later edge it lands at once.
 local function dependencyText()
   local AP, found = NS.AuctionPrice, {}
   for _, p in ipairs({ "auctionator", "tsm", "oribos" }) do
@@ -143,9 +145,8 @@ function NS.StandUp()
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
   if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
-  if NS.State.debug and NS.Debug then
-    NS.Debug("State", "stand-up: capture registered (%s)", dependencyText())
-  end
+  if NS.State.debug and NS.Debug then NS.Debug("State", "stand-up: capture registered") end
+  if NS.DebugAtEnable then NS.DebugAtEnable("State", "dependencies: %s", dependencyText()) end
 end
 
 -- ── the latch ─────────────────────────────────────────────────────────────────────────────────

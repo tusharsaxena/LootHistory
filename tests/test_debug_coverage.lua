@@ -81,9 +81,66 @@ test("coverage: each latch edge is the library's one [Lifecycle] line plus the h
   assertEqual(count(lines, "holds:"), 2, "only the library's lines name the holds:\n" .. all)
   local down = first(lines, "[State] stand-down")
   assertTrue(down:match("%d+ deferral%(s%) canceled") ~= nil, down)
-  local up = first(lines, "[State] stand-up")
-  assertTrue(up:find("price providers: none", 1, true) ~= nil, up)
-  assertTrue(up:find("latch: LibKa0s-Lifecycle-1.0", 1, true) ~= nil, up)
+  -- With logging on, the stand-up's dependency line goes through the at-enable queue and so lands
+  -- at once, right after the edge.
+  assertEqual(count(lines, "[State] dependencies: "), 1, all)
+  local deps = first(lines, "[State] dependencies: ")
+  assertTrue(deps:find("price providers: none", 1, true) ~= nil, deps)
+  assertTrue(deps:find("latch: LibKa0s-Lifecycle-1.0", 1, true) ~= nil, deps)
+end)
+
+-- ── state at enable: the console's at-enable queue (DebugLogGates 1) ─────────────────────────
+
+--- Turn logging on through the console's one seam, as `/lh debug on` does, and return the lines it
+--- wrote, from the enable bracket on. Chat is swallowed; the flag is put back afterwards.
+local function enableAndRead(D)
+  local before = #D.buffer
+  quietChat(function() D:SetEnabled(true) end)
+  local lines = {}
+  for i = before + 1, #D.buffer do lines[#lines + 1] = D.buffer[i] end
+  quietChat(function() D:SetEnabled(false) end)
+  return lines
+end
+
+test("coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]", function()
+  -- red under: the dependency line on the gated sink (the load-time stand-up runs from OnEnable
+  -- with the session-only flag off, so the line never landed: debug-logging-§8, Dependencies).
+  local D, savedFlag = NS.DebugLog, NS.State.debug
+  NS.State.debug = false
+  quietChat(function()
+    NS.Schema:Set("settings.enabled", false)
+    NS.Schema:Set("settings.enabled", true)
+  end)
+  local lines = enableAndRead(D)
+  NS.State.debug = savedFlag
+  local all = table.concat(lines, "\n")
+  local initAt, depsAt
+  for i, l in ipairs(lines) do
+    if not initAt and l:find("[Init] ", 1, true) then initAt = i end
+    if l:find("[State] dependencies: price providers: none; latch: LibKa0s-Lifecycle-1.0", 1, true) then
+      assertTrue(depsAt == nil, "the held line was written twice:\n" .. all)
+      depsAt = i
+    end
+  end
+  assertTrue(depsAt ~= nil, "the held dependency line did not land:\n" .. all)
+  assertTrue(initAt ~= nil and initAt < depsAt, "held lines follow the [Init] summary:\n" .. all)
+  -- One-shot: a second `debug on` has nothing held to write.
+  assertEqual(count(enableAndRead(D), "[State] dependencies: "), 0, "the queue is one-shot")
+end)
+
+test("coverage: an event name this client refuses is held for `debug on`, once per name", function()
+  -- red under: the [Init] refusal line on the gated sink, which the load-time registrations meet
+  -- with logging off. The name is client state, so it waits in the at-enable queue.
+  local D, savedFlag = NS.DebugLog, NS.State.debug
+  NS.State.debug = false
+  local rejected = {}
+  local target = { RegisterEvent = function() error("refused", 0) end }
+  NS.SafeRegisterEvent(target, "LH_COVERAGE_NO_SUCH_EVENT", function() end, rejected)
+  NS.SafeRegisterEvent(target, "LH_COVERAGE_NO_SUCH_EVENT", function() end, rejected)
+  local lines = enableAndRead(D)
+  NS.State.debug = savedFlag
+  assertEqual(count(lines, "[Init] event LH_COVERAGE_NO_SUCH_EVENT refused by this client"), 1,
+    table.concat(lines, "\n"))
 end)
 
 test("coverage: with logging off, an edge builds nothing of the host's and writes nothing", function()
@@ -241,7 +298,7 @@ end)
 
 test("coverage: a price provider that raises is one [AHPrice] line per distinct error", function()
   -- red under: dropping traceFetchError (the pcall then costs nothing visible at all), or its
-  -- seen-set (the same fault repeats on every kept loot line).
+  -- DebugOnce gate (the same fault repeats on every kept loot line).
   -- Planted and restored through a table walk, as tests/test_auctionprice.lua's withGlobals does.
   local plant = { Auctionator = { API = { v1 = {
     GetAuctionPriceByItemID = function() error("coverage-boom", 0) end } } } }
