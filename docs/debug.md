@@ -66,7 +66,7 @@ addon's own files.
 | `Prune` | `Database:PruneOld` | each retention prune with its count; `skipped: retention is Always` when there is nothing to prune by |
 | `Data` | `Database:Delete` / `Database:Purge` | each delete and each purge, with the rows removed |
 | `Loot` | `Collector:OnChatMsgLoot` | an item recorded: name, quality, item level, source, confidence |
-| `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message for the session |
+| `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message through the console's `DebugOnce` gate, so a Clear or a fresh `debug on` re-arms it |
 | `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` | an item or currency not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, and for the player's own currency lines `recordCurrency-off` and `unresolved-link` |
 | `Currency` | `Collector:OnChatMsgCurrency` | a currency recorded |
 | `Attr` | `modules/Attribution.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down` |
@@ -74,11 +74,11 @@ addon's own files.
 | `Cast` | `Attribution:OnSpellSucceeded` | a deconstruct cast only, never the rest of the rotation |
 | `Mail` | `Attribution:StampMail` | a mail attachment taken, with the AH-or-mail verdict |
 | `UI` | `modules/Browser.lua`; `modules/Export.lua` | the window shown and hidden; a tab switch; an open refused (`stood down`, or `visibility=<mode>`); the window hidden by the visibility setting, on a combat edge or when the setting is written (an edge that changes nothing logs nothing); a CSV export, with the data set and the text's size |
-| `Table` | `BrowserTable:Refresh` / `SetTestMode` | the render summary, **change-gated**: logged only when it differs from the last one logged, and once again after each window open. Test mode on (with the sample row count), off (with the reason, `combat started`), or refused with its reason |
-| `Insights` | `Analytics:Refresh` | the recompute summary, **change-gated** the same way: the live refresh on every coalesced `RecordAdded` stays quiet while the numbers do not move |
+| `Table` | `BrowserTable:Refresh` / `SetTestMode` | the render summary, **change-gated** through the console's `DebugChanged`: logged only when it differs from the last one logged, once again after each window open (`DebugForget`), and again after a Clear or a fresh `debug on`, which re-arm the console's gates. Test mode on (with the sample row count), off (with the reason, `combat started`), or refused with its reason |
+| `Insights` | `Analytics:Refresh` | the recompute summary, **change-gated** the same way (`DebugChanged`, forgotten on each open, re-armed by a Clear): the live refresh on every coalesced `RecordAdded` stays quiet while the numbers do not move |
 | `Filters` | `Filters:_notify` | each list edit, naming the act and id, with all three list sizes after it |
 | `Cmd` | `traceDisabledRefusal`, `settings/Slash.lua` | a feature verb the dispatcher refuses because the addon is switched off. A live verb or a typo logs nothing |
-| `Cfg` | `LibKa0s-Options-1.0`; `runRebuilders`, `settings/Panel.lua` | the panel registration parked or the open refused in combat, and opened; a list rebuilder that raised, once per distinct message |
+| `Cfg` | `LibKa0s-Options-1.0`; `runRebuilders`, `settings/Panel.lua` | the panel registration parked or the open refused in combat, and opened; a list rebuilder that raised, once per distinct message (`DebugOnce`, re-armed by a Clear) |
 | `Launcher` | `LibKa0s-Launcher-1.0` | registration, and the broker or minimap library missing, once at register |
 | `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
 

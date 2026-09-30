@@ -1018,7 +1018,7 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 
-### test_debug_coverage.lua (16)
+### test_debug_coverage.lua (17)
 
 - coverage: a stand-down and a stand-up are one [State] line each, naming holds and dependencies
 - coverage: with logging off, an edge builds and writes nothing
@@ -1035,6 +1035,7 @@ badge and any count quoted in the docs must agree with it.
 - coverage: N table repaints with nothing changed log one [Table] line, and a real change logs
 - coverage: each open of the History window logs its render once, even when unchanged
 - coverage: N Insights recomputes with nothing changed log one [Insights] line
+- coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 
 ### test_doc_structure.lua (8)
@@ -1167,7 +1168,7 @@ badge and any count quoted in the docs must agree with it.
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 14 |
 | test_diagnostics.lua | 17 |
-| test_debug_coverage.lua | 16 |
+| test_debug_coverage.lua | 17 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1176,4 +1177,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 9 |
 | test_widgets.lua | 17 |
-| **Total** | **1006** |
+| **Total** | **1007** |

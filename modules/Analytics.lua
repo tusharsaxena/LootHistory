@@ -462,13 +462,16 @@ function Analytics.SummaryLine(scope, count)
   return ("computed range=%s, %s records"):format(tostring(scope), tostring(count))
 end
 
--- The last [Insights] summary logged, for the quiet-steady-state gate (debug-logging-§9). The live
--- refresh runs on every coalesced RecordAdded while the tab is up; under a filter the new loot
--- does not match (or in test mode, never reaches), the recompute is identical and logs nothing.
--- Reset by the History window's OnShow, so each open logs its first recompute.
-local lastSummaryLine
+-- The quiet-steady-state gate for the [Insights] summary (debug-logging-§9), the console's
+-- DebugChanged under one key. The live refresh runs on every coalesced RecordAdded while the tab is
+-- up; under a filter the new loot does not match (or in test mode, never reaches), the recompute is
+-- identical and logs nothing. Forgotten by the History window's OnShow, so each open logs its first
+-- recompute, and re-armed by the console on a Clear or a fresh `debug on`.
+local SUMMARY_KEY = "Insights.summary"
 
-function Analytics.ResetRenderTrace() lastSummaryLine = nil end
+function Analytics.ResetRenderTrace()
+  if NS.DebugForget then NS.DebugForget(SUMMARY_KEY) end
+end
 
 function Analytics:Refresh()
   if not self.content then return end
@@ -479,12 +482,9 @@ function Analytics:Refresh()
   self.stats = stats
   self:UpdateCards(stats)
   self:Layout() -- Layout → LayoutCharts binds the charts off self.stats
-  if NS.State.debug and NS.Debug then
+  if NS.State.debug and NS.DebugChanged then
     local line = Analytics.SummaryLine(next(filter) and "filtered" or "all", stats.totals.records)
-    if line ~= lastSummaryLine then
-      lastSummaryLine = line
-      NS.Debug("Insights", "%s", line)
-    end
+    NS.DebugChanged(SUMMARY_KEY, "Insights", "%s", line)
   end
 end
 

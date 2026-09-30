@@ -9,17 +9,22 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 -- pins the lines that were added for it and the two change gates.
 --
 -- Every case records through a stand-in NS.Debug. Each call site gates on NS.State.debug and then
--- calls NS.Debug by name at call time (the Schema and Options descriptors late-bind it the same
--- way), so the stand-in sees exactly what the library's sink would, without the 3000-line buffer
--- deciding whether a count moved.
+-- calls NS.Debug by name at call time (the Schema, Options, Slash, Lifecycle and Launcher
+-- descriptors late-bind it the same way), so the stand-in sees exactly what the library's sink
+-- would, without the 3000-line buffer deciding whether a count moved. The console's own writers --
+-- the DebugOnce / DebugChanged gates and the at-enable queue (DebugLogGates 1) -- append through
+-- NS.DebugLog:Add rather than the sink, so the console's Add is recorded into the same list for the
+-- call. The two never overlap: the stand-in never reaches Add, so no line is counted twice.
 
 --- Run `fn` with logging on and NS.Debug recording. Returns the lines, "[Tag] message".
 local function capture(fn)
-  local lines, saved, savedFlag = {}, NS.Debug, NS.State.debug
+  local D = NS.DebugLog
+  local lines, saved, savedAdd, savedFlag = {}, NS.Debug, D.Add, NS.State.debug
   NS.Debug = function(tag, fmt, ...) lines[#lines + 1] = "[" .. tag .. "] " .. fmt:format(...) end
+  D.Add = function(_, tag, msg) lines[#lines + 1] = "[" .. tostring(tag) .. "] " .. tostring(msg) end
   NS.State.debug = true
   local ok, err = pcall(fn)
-  NS.Debug, NS.State.debug = saved, savedFlag
+  NS.Debug, D.Add, NS.State.debug = saved, savedAdd, savedFlag
   if not ok then error(err, 0) end
   return lines
 end
@@ -301,6 +306,39 @@ test("coverage: N Insights recomputes with nothing changed log one [Insights] li
   end)
   A.content, A.UpdateCards, A.Layout = savedContent, savedCards, savedLayout
   assertEqual(count(lines, "[Insights]"), 1, table.concat(lines, "\n"))
+end)
+
+test("coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console", function()
+  -- red under: a hand-rolled memo in place of the console's DebugOnce / DebugChanged (a file-local
+  -- seen-set or last-line string survives a Clear, so the first pass after it writes nothing and
+  -- the player copies an empty console). The gates are the console's (DebugLogGates 1), and Clear
+  -- re-arms them.
+  local plant = { Auctionator = { API = { v1 = {
+    GetAuctionPriceByItemID = function() error("rearm-boom", 0) end } } } }
+  local saved = {}
+  for k, v in pairs(plant) do saved[k] = _G[k]; _G[k] = v end
+  local A = NS.Analytics
+  local savedContent, savedCards, savedLayout = A.content, A.UpdateCards, A.Layout
+  A.content, A.UpdateCards, A.Layout = A.content or {}, function() end, function() end
+  local function pass()
+    return capture(function()
+      NS.AuctionPrice:GatherAll("|Hitem:1|h[x]|h", 1)
+      A:Refresh()
+    end)
+  end
+  local ok, err = pcall(function()
+    pass()                               -- arms both keys
+    local quiet = pass()
+    assertEqual(count(quiet, "[AHPrice] auctionator fetch failed: rearm-boom"), 0, table.concat(quiet, "\n"))
+    assertEqual(count(quiet, "[Insights]"), 0, table.concat(quiet, "\n"))
+    NS.DebugLog:Clear()
+    local again = pass()
+    assertEqual(count(again, "[AHPrice] auctionator fetch failed: rearm-boom"), 1, table.concat(again, "\n"))
+    assertEqual(count(again, "[Insights]"), 1, table.concat(again, "\n"))
+  end)
+  for k in pairs(plant) do _G[k] = saved[k] end
+  A.content, A.UpdateCards, A.Layout = savedContent, savedCards, savedLayout
+  if not ok then error(err, 0) end
 end)
 
 -- ── the test-mode material effect ────────────────────────────────────────────────────────────

@@ -181,15 +181,12 @@ end
 -- returns early on `_rendered and not _dirty`, so an off-screen change would never repaint.
 --
 -- A rebuilder that raises is swallowed so one broken list cannot blank the page, and logged once
--- per distinct message for the session (debug-logging-§8, errors caught): a repaint runs on every
--- list edit, and the same fault would otherwise be one line per repaint or no line at all.
-local seenRebuildError = {}
+-- per distinct message (debug-logging-§8, errors caught): a repaint runs on every list edit, and the
+-- same fault would otherwise be one line per repaint or no line at all. The memory is the console's
+-- DebugOnce gate (debug-logging-§9), re-armed by a Clear or a fresh `debug on`.
 local function traceRebuildError(err)
-  if not (NS.State.debug and NS.Debug) then return end
-  local key = NS.SafeToString(err)
-  if seenRebuildError[key] then return end
-  seenRebuildError[key] = true
-  NS.Debug("Cfg", "panel rebuilder failed: %s", err)
+  if not (NS.State.debug and NS.DebugOnce) then return end
+  NS.DebugOnce("Cfg.rebuild\0" .. NS.SafeToString(err), "Cfg", "panel rebuilder failed: %s", err)
 end
 
 local function runRebuilders(ctx)
