@@ -5,13 +5,13 @@ Loot History has two debug surfaces, and both write into the same window:
 - **The debug console** is `LibKa0s-DebugLog-1.0`'s window. Tagged `NS.Debug` lines land there while
   the session flag is on.
 - **The diagnostics report** is a one-shot snapshot of the addon's state, written into the console
-  by `/lh diagnostics` (`debug-logging-§14`). It is why this page exists (`documentation-§3`, Tier 2):
+  by `/lh diagnostics` or the console's orange **Diagnostics** link (`debug-logging-§14`). It is why this page exists (`documentation-§3`, Tier 2):
   every Ka0s addon ships the report, and a maintainer reading a pasted one needs to know what each
   line means.
 
 The console itself is the library's, and its contract lives in LibKa0s's
-[`docs/api/DebugLog/version-14.1-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-14.1-docs.md)
-(DebugLog 14.1 is the vendored minor, from LibKa0s v1.60.0). This page covers only what Loot History
+[`docs/api/DebugLog/version-17.2-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-17.2-docs.md)
+(DebugLog 17 with DebugLogDiagnostics 2 is the vendored pair, from LibKa0s v1.64.0). This page covers only what Loot History
 adds on top.
 
 ## The console
@@ -80,7 +80,7 @@ addon's own files.
 | `Cmd` | `traceDisabledRefusal`, `settings/Slash.lua` | a feature verb the dispatcher refuses because the addon is switched off. A live verb or a typo logs nothing |
 | `Cfg` | `LibKa0s-Options-1.0`; `runRebuilders`, `settings/Panel.lua` | the panel registration parked or the open refused in combat, and opened; a list rebuilder that raised, once per distinct message |
 | `Launcher` | `LibKa0s-Launcher-1.0` | registration, and the broker or minimap library missing, once at register |
-| `Diag` | `/lh diagnostics` | the report (below), ungated |
+| `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
 
 ### Deliberately not logged
 
@@ -104,6 +104,10 @@ There are exactly two forms, and no third:
 - `/lh diagnostics`, a row of `NS.COMMANDS` in `settings/Schema.lua`, directly after `debug`;
 - `/lh debug diagnostics`, the first word the `debug` handler tests, in any case.
 
+Beside the two slash forms, the console's title bar carries the library's orange **Diagnostics** link,
+just right of the **Debug: ON/OFF** toggle (DebugLog 16 and later). It is not a slash form: a click
+runs `NS.DebugLog:RunDiagnostics()`, the same call both forms make.
+
 `/loothistory` reaches both, as it reaches every verb. `diag`, `dump`, `dx` and every other short name
 are ordinary unknown words: `/lh diag` prints `unknown command 'diag'` and the help index, and
 `/lh debug diag` toggles the console window like any word the `debug` verb does not know.
@@ -118,8 +122,16 @@ below).
 - **It appends.** The report lands after whatever the console already holds, so the trace a player
   has just reproduced stays above it and one Copy carries both. Nothing the report reaches calls
   `Clear()`.
-- **It is ungated.** It writes through the library's raw append, not `NS.Debug`, so it lands in full
-  with logging off, and it does not read or change the flag: the header reads the same afterwards.
+- **It turns logging on for the session.** When logging is off, the run first calls the flag's one
+  seam, `NS.DebugLog:SetEnabled(true)` (debug-logging-§14, standard v2.71.0; DebugLogDiagnostics 2),
+  as `/lh debug on` would: chat prints `[LH] debug logging ON`, the console gets `[Debug] logging
+  enabled` and the `[Init]` line ahead of the begin marker, the report's
+  header line reads `debug logging: on` and the console's toggle **Debug: ON**.
+  What the player does next is traced. It never turns logging off, and with logging already on it
+  writes no second enable line. A `/reload` turns it off again, as always. This addon keeps the
+  library's default: its descriptor does not set `diagnosticsEnablesLogging = false`.
+- **It is ungated.** It writes through the library's raw append, not `NS.Debug`. The sections only
+  print the flag; only the run, before it writes, sets it.
 - **It reveals the console** if it is hidden, then prints one chat line:
   `Diagnostic report written to the debug console: N lines. Use Copy to share it.`
 - **It is plain text.** The library strips color, texture, atlas and hyperlink escapes from every
@@ -179,7 +191,8 @@ and the library header around no sections.
   differently from when the record was written. The report says what the addon was working with, not
   what a fresh lookup says now. No raw loot or currency chat text is printed, because the addon never
   keeps any.
-- **It writes nothing.** No Lifecycle hold taken or released, no event registered, no timer armed, no
+- **It writes nothing else.** Past the run turning session logging on (above), which the sections
+  never do: no Lifecycle hold taken or released, no event registered, no timer armed, no
   cache rebuilt, no `Schema:Set`. The AH cascade is read raw rather than through
   `AuctionPrice:GetPriority()`, which would write an empty cascade into a store that has none.
 - **It calls no protected API**, so it is safe in combat.
@@ -190,7 +203,8 @@ and the library header around no sections.
   maintainer needs to reproduce the bug, character names included.
 
 With no LibKa0s the stub's `RunDiagnostics` prints
-`/lh diagnostics is unavailable: the LibKa0s library did not load.`, writes nothing and returns 0.
+`/lh diagnostics is unavailable: the LibKa0s library did not load.`, writes nothing, turns no logging
+on and returns 0.
 The degraded help does not offer `diagnostics`, because answering is not the same as working
 ([slash-dispatch.md](slash-dispatch.md)).
 
@@ -198,7 +212,7 @@ The degraded help does not offer `diagnostics`, because answering is not the sam
 
 The command rows are in [slash-dispatch.md](slash-dispatch.md), the disabled-state behavior in
 [disabled-state.md](disabled-state.md), and the player-facing steps in the README's
-`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-29 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
+`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-30 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
 suites are `tests/test_diagnostics.lua` (this addon's sections), the kit's shared
 `tests/_kit/test_diagnostics_contract.lua` (wired in `tests/run.lua`), `tests/test_disabled.lua`
 (both forms while stood down) and `tests/test_slash_degraded.lua` (both forms with no library).
