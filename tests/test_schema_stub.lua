@@ -43,7 +43,7 @@ local function withProbes(fn)
   local first = #rows + 1
   R.AddRows({ row("__probeA"), row("__probeB") })
   local savedDb = degradedNS.db
-  degradedNS.db = { global = store }
+  degradedNS.db = { profile = store }
   local ok, err = pcall(fn, store.settings, log)
   degradedNS.db = savedDb
   table.remove(rows, first + 1)
@@ -114,7 +114,7 @@ end)
 local function withDegradedDb(fn)
   local store = { settings = { enabled = true } }
   local savedDb = degradedNS.db
-  degradedNS.db = { global = store }
+  degradedNS.db = { profile = store }
   local ok, err = pcall(fn, store.settings)
   degradedNS.db = savedDb
   if not ok then error(err, 0) end
@@ -149,7 +149,7 @@ end)
 
 test("Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses", function()
   withProbes(function(stored)
-    degradedNS.db.global.settings.enabled = true
+    degradedNS.db.profile.settings.enabled = true
     local ok, _, _, index = R.SetMany({
       { path = "settings.enabled", value = false },
       { path = "settings.__probeA", value = 9 },

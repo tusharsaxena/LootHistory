@@ -41,7 +41,7 @@ touching code:
   publishing, object pooling, hot-path upvalues.
 - **[DEPENDENCIES.md](DEPENDENCIES.md)** (root) — the toolchain contract: what to install to run,
   test or release this addon.
-- Everything else — `scope.md`, `module-map.md`, `schema.md`,
+- Everything else — `scope.md`, `module-map.md`, `schema.md`, `profiles.md`,
   `message-bus.md`, `browser.md`, `debug.md`, `disabled-state.md`, `settings-panel.md`, `slash-dispatch.md`, `compat-layer.md`,
   `midnight-quirks.md`, `performance.md`, `combat-path-sweep.md`, `smoke-tests.md`, `test-cases.md`,
   `automated-tests/` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
@@ -53,7 +53,7 @@ Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game chec
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.62.0 (MIT) — the Ka0s-owned shared
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.63.0 (MIT) — the Ka0s-owned shared
 library behind the chat printer, the debug console, the slash-command interface, the settings
 panel and the filter-bar dropdowns, vendored whole-folder into `libs/LibKa0s/` with its test kit
 under `tests/_kit/`.

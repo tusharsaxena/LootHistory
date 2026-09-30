@@ -85,16 +85,16 @@ end
 -- ── Runtime path ──────────────────────────────────────────────────────────────
 
 function Collector:RefreshUpvalues()
-  local g = NS.db and NS.db.global
-  local s = g and g.settings
+  local p = NS.db and NS.db.profile
+  local s = p and p.settings
   if not s then return end
   qualityThreshold = s.qualityThreshold
   excludedSources = s.excludedSources or {}
   excludeQuestItems = s.excludeQuestItems
   recordCurrency = s.recordCurrency
-  currencyBlacklist = g.currencyBlacklist or {}
-  blacklist = g.blacklist or {}
-  whitelist = g.whitelist or {}
+  currencyBlacklist = p.currencyBlacklist or {}
+  blacklist = p.blacklist or {}
+  whitelist = p.whitelist or {}
   gateCfg.qualityThreshold, gateCfg.excludedSources = qualityThreshold, excludedSources
   gateCfg.excludeQuestItems = excludeQuestItems
   gateCfg.blacklist, gateCfg.whitelist = blacklist, whitelist

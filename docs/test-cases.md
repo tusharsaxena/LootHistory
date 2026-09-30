@@ -116,7 +116,7 @@ badge and any count quoted in the docs must agree with it.
 - Util: FormatDate is DD-MMM-YYYY
 - Util: FormatMoney shows non-zero parts
 - Util: FormatBytes scales B / kB / MB
-- Database: InitDB creates account-wide store
+- Database: InitDB creates the account-wide store and the Default profile
 - Schema: Set writes through the single seam
 - Schema: Set unknown path returns false
 - Schema: nested minimap path writes
@@ -345,7 +345,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 8
+- Database: a fresh store at schemaVersion 0 walks every step to 10
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -585,18 +585,18 @@ badge and any count quoted in the docs must agree with it.
 - launcher: each menu entry toggles through the addon's own handler, once
 - launcher: while disabled, Enabled stays live and the other three are grayed and call nothing
 - launcher: the Minimap button row moves the real button, through the single write seam
-- launcher: Reset all settings re-points LibDBIcon at the new minimap table, so a drag persists
+- launcher: Reset all settings leaves LibDBIcon's global table alone, so nothing needs re-pointing
 - launcher: the broker label is the BRAND NAME in plain text, not the folder name
 - launcher: no BULK reset moves the minimap button — /lh resetall and the page Defaults button
-- launcher: Reset all settings leaves a hidden button hidden, across the wholesale wipe
-- launcher: RESET_EXEMPT maps the row path to the stored path, and both resets honor it
+- launcher: Reset all settings leaves a hidden button hidden, and the history untouched
+- launcher: RESET_EXEMPT maps the row path to the stored path, and the reset honors it
 - launcher: Reset all settings leaves a SHOWN button shown, and does not invent a second key
 - launcher: the enabled tooltip is the library's block, with the addon's one line inside it
 - launcher: Locked and Test mode are read on every show, never cached
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
-### test_slash.lua (64)
+### test_slash.lua (62)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -621,22 +621,20 @@ badge and any count quoted in the docs must agree with it.
 - /lh version prints the cyan-tagged v<version> line
 - NS.COMMANDS registers a version verb
 - /lh reset on a table setting echoes (none), not a raw table pointer
-- /lh resetall also clears the blacklist and whitelist (non-destructive settings reset)
-- /lh resetall logs ONE [Set] reset all: N rows line, N the rows whose value changed
-- /lh resetall on settings already at their defaults logs [Set] reset all: 0 rows
-- a bracket opened around resetall logs ONE line, summing the rows both levels changed
+- /lh resetall is the profile reset: every setting, list, view and window back, history kept
+- /lh resetall logs ONE [Set] reset profile line, N the stored rows off their default
+- /lh resetall on settings already at their defaults logs (0 rows)
+- a bracket opened around resetall logs only the profile reset's line
 - a nested bracket where any level reset the profile logs no bulk line
 - /lh reset <path> is still ONE [Set] <path> = <value> line, and not muted
-- /lh resetall typed at the dispatcher logs ONE [Set] reset all: N rows line
-- a row that raises mid-resetall logs ONE line marked as stopped, re-raises, and unmutes
+- /lh resetall typed at the dispatcher logs ONE [Set] reset profile line
+- a profile reset that raises logs ONE line marked as stopped, re-raises, and unmutes
 - the host seam clears its mute when a bracketed row raises
 - an unpaired BulkEnd at depth 0 logs nothing
-- Reset Everything logs ONE [Set] line for the settings it resets, beside its [Data] line
-- Reset Everything purges history and clears settings + filter lists + view + window
-- Reset Everything is WHOLESALE, not a list of keys somebody kept current
-- Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table
-- Reset Everything logs one [Data] line with the history rows it discarded, and nothing when debug is off
-- Reset Everything copies the declared defaults, so a later write cannot change them
+- Reset all settings confirms first, in the profile wording, and runs the one reset act
+- Reset all settings resets the ACTIVE profile only, and publishes the profile message
+- Reset all settings discards no history and logs no [Data] line
+- Reset all settings copies the declared defaults, so a later write cannot change them
 - NS.PREFIX is the mandated cyan [LH] tag
 - every Slash string this addon renders resolves to prose, not to a key
 - the help header names /loothistory as the alias for /lh
@@ -663,34 +661,36 @@ badge and any count quoted in the docs must agree with it.
 - /lh debug events prints the rejected event names, or none
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
 
-### test_slash_degraded.lua (12)
+### test_slash_degraded.lua (14)
 
 - library-less install: the Slash under test is the degraded stub
 - library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
 - library-less install: the refusal line names /lh enable, as the library's does
 - library-less install: the degraded help omits config, which would only decline
-- library-less install: the degraded help lists enable and disable, which now work
+- library-less install: the degraded help lists enable, disable and resetall, which work
 - library-less install: /lh disable stores false, stands the addon down, and acks once
 - library-less install: /lh enable reverses /lh disable
 - library-less install: set on any other path, or a non-bool value, stays unavailable
-- library-less install: resetall clears the id lists and says how many
-- library-less install: resetall on one id says id, not ids
+- library-less install: resetall resets the whole profile and says so on one line
+- library-less install: resetall is the same act through the verb table
 - library-less install: both report forms answer with the library-absent line and nothing else
 - library-less install: the degraded help does not offer /lh diagnostics
+- library-less install: /lh profile answers with the library-absent line and switches nothing
+- library-less install: the degraded help does not offer /lh profile
 
-### test_schema.lua (72)
+### test_schema.lua (69)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
 - Schema: the Master controls tab holds exactly the canonical rows, in canonical order
 - Schema: every canonical row is declared ONCE — nothing was copied here, it was moved
 - Schema: the fourth line is [Minimap button] [Test mode], composed and in that order
-- Schema: Test mode is never written to db.global, and ships no stored default
+- Schema: Test mode is never written to the store, and ships no stored default
 - Schema: General visibility is a four-value dropdown, not a boolean
 - Schema: a profile written before this release gets visibility from the shipped defaults
-- Schema: setting debugConsole toggles the window, never writes db.global
+- Schema: setting debugConsole toggles the window, never writes the store
 - Schema: getting debugConsole reflects the window visibility
-- Schema: a normal (persisted) row still writes db.global
+- Schema: a normal (persisted) row writes the active profile
 - Schema: auction rows exist with the AH Price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
@@ -709,9 +709,6 @@ badge and any count quoted in the docs must agree with it.
 - Schema: the slider default sits inside its own bounds
 - Schema: only the session-only rows carry their own get/set
 - Schema: the Minimap button row's accessors invert onto LibDBIcon's own `hide` key
-- Schema.ReadPath walks a nested path and stops safely at a missing branch
-- Schema.WritePath creates the intermediate tables it needs
-- Schema.WritePath replaces a non-table sitting in the way
 - Schema.Set refuses an unknown path and reports why
 - Schema.Set stores a deep copy, never a reference to the caller's table
 - Schema.Default hands out a copy of a table default, not the shared one
@@ -737,7 +734,7 @@ badge and any count quoted in the docs must agree with it.
 - seam: on the degraded build the runtime readers read the store
 - seam: on the degraded build the composed Master controls rows are absent, and refused
 - seam: on the degraded build ApplyDefault restores, and spares an exempt row only in a sweep
-- seam: on the degraded build Reset all settings keeps the hidden minimap button
+- seam: on the degraded build the reset resets the profile and keeps the hidden minimap button
 - seam: on the degraded build the boot check passes
 - seam: on the degraded build the boot check skips a row that owns its storage
 - seam: the live runtime is the library's, and the host names reach it
@@ -860,7 +857,7 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the General Defaults click restores every schema default
 - Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
-- Panel: the General Defaults click logs ONE [Set] reset all: N rows line and no per-row [Set]
+- Panel: the General Defaults click logs ONE [Set] reset profile line and no per-row [Set]
 - Panel: the AH Price tab draws one reusable row slot per known price source
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
@@ -898,6 +895,37 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: currency names resolve through the loot history, and a refusal says where names work
 - Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
 - Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
+
+### test_profiles.lua (28)
+
+- Migrate v8->v9: every stored setting lands in the Default profile and leaves global
+- Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched
+- Migrate v8->v9: over a profile AceDB already filled, a stored value wins and an unstored key keeps its default
+- Migrate v8->v9: a second run is a no-op
+- Migrate v9->v10: a retention stored in the profiles moves to global and leaves every profile
+- Migrate v9->v10: keep Always (0) wins over any day count
+- Migrate v9->v10: a retention still under global.settings is lifted too, and the empty table goes
+- Migrate v9->v10: a second run is a no-op, and a file with no stored retention keeps its own
+- Profiles: every read and write resolves against the ACTIVE profile
+- Profiles: the loot history is shared by every profile
+- Profiles: a switch re-applies every setting through the one adopt path
+- Profiles: a switch, a copy and a reset each refresh every open settings panel once
+- Profiles: a switch to a profile where the addon is off stands it down, and back brings it up
+- Profiles: each profile event logs exactly one line, worded by the event
+- profile verb: a COMMANDS row after resetall, and the whole verb order pinned
+- profile verb: help prints the header and one row per verb, profile among them
+- profile verb: bare /lh profile lists every profile, sorted, current marked, then the hint
+- profile verb: /lh profile <name> switches, and the adopt path logs the one switch line
+- profile verb: the current profile answers 'Already on', and switches nothing
+- profile verb: an unknown name is refused with a did-you-mean and the list, and nothing is created
+- profile verb: surrounding quotes are stripped, and inner spaces and case are kept
+- profile verb: in combat the switch is refused, and the list still answers
+- Profiles: retention reads and writes global, and a switch never changes it
+- Profiles: the login prune reads the account-wide retention, never a profile's
+- Profiles: a switch, a copy and a reset leave the loot history untouched and never prune
+- Profiles page: the global reset's veto keeps only the session-only rows, never the Profiles page
+- Profiles page: without AceDBOptions the page opts out, and nothing is registered
+- Profiles page: AceDBOptions' table over this db, drawn by AceConfigDialog into a Profiles canvas
 
 ### test_harness.lua (7)
 
@@ -953,14 +981,15 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 
-### test_disabled.lua (13)
+### test_disabled.lua (14)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
 - slash-commands-§7 step 5: the window goes down, and the SHOW LADDER is what keeps it down
 - slash-commands-§7 step 6: firing every event it used to watch writes nothing, prints nothing, draws nothing
-- slash-commands-§7 step 7: every RESERVED verb still answers, and the bare /lh opens the panel
+- slash-commands-§7 step 7: every RESERVED verb and /lh profile still answer, and the bare /lh opens the panel
+- slash-commands-§7 step 7: /lh profile switches while disabled, and a profile where the addon is on brings it up
 - slash-commands-§7 step 7: every FEATURE verb refuses on ONE line and reaches no write seam
 - slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own
 - slash-commands-§7 step 7: both diagnostics forms write a full report while stood down
@@ -973,7 +1002,7 @@ badge and any count quoted in the docs must agree with it.
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
 - diagnostics: every DX-LH section writes its own lead line, in the report's order
-- diagnostics: the identity section names the stored and code schema, and account-wide
+- diagnostics: the identity section names the stored and code schema, and the active profile
 - diagnostics: a changed setting prints as path = value (default); the always rows print anyway
 - diagnostics: the AH section prints the priority cascade and which providers are loaded
 - diagnostics: a filter list past 40 ids prints the first 40 and says how many more
@@ -1103,17 +1132,18 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 26 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 21 |
-| test_slash.lua | 64 |
-| test_slash_degraded.lua | 12 |
-| test_schema.lua | 72 |
+| test_slash.lua | 62 |
+| test_slash_degraded.lua | 14 |
+| test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 62 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
+| test_profiles.lua | 28 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 24 |
 | test_surface_parity.lua | 14 |
-| test_disabled.lua | 13 |
+| test_disabled.lua | 14 |
 | test_diagnostics.lua | 17 |
 | test_doc_structure.lua | 7 |
 | test_lintconfig.lua | 4 |
@@ -1123,4 +1153,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 7 |
 | test_widgets.lua | 17 |
-| **Total** | **961** |
+| **Total** | **987** |

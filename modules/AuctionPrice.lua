@@ -47,7 +47,7 @@ end
 local PROVIDER_FETCH = { auctionator = fetchAuctionator, tsm = fetchTSM, oribos = fetchOribos }
 
 local function cfg()
-  local s = NS.db and NS.db.global and NS.db.global.settings and NS.db.global.settings.auction
+  local s = NS.db and NS.db.profile and NS.db.profile.settings and NS.db.profile.settings.auction
   if s and s.enabled == false then return nil end
   local capture = (s and s.capture) or NS.Constants.AUCTION_CAPTURE_DEFAULT
   local priority = (s and s.priority) or NS.Constants.AUCTION_PRIORITY_DEFAULT
@@ -129,7 +129,7 @@ end
 
 -- Priority-list accessors used by the settings panel (R6) to render/reorder the cascade.
 function AuctionPrice:GetPriority()
-  local s = NS.db.global.settings.auction
+  local s = NS.db.profile.settings.auction
   s.priority = s.priority or {}
   return s.priority
 end

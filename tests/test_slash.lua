@@ -144,12 +144,12 @@ test("/lh set a value the row's validate refuses prints INVALID and leaves the v
   local probe = { path = "settings.__probe", type = "number", group = "Probe", default = 1,
                   validate = function(v) return v < 5 end }
   R.AddRows({ probe })
-  NS.db.global.settings.__probe = 1
+  NS.db.profile.settings.__probe = 1
   local ok, out = pcall(capture, function() Sl:CliSet("settings.__probe 9") end)
-  local stored = NS.db.global.settings.__probe
+  local stored = NS.db.profile.settings.__probe
   for i, row in ipairs(NS.Schema.Schema) do if row == probe then table.remove(NS.Schema.Schema, i); break end end
   R.Reindex()
-  NS.db.global.settings.__probe = nil
+  NS.db.profile.settings.__probe = nil
   if not ok then error(out, 0) end
   assertEqual(out[1], NS.PREFIX .. " Invalid value for settings.__probe", "the refusal names the path")
   for _, line in ipairs(out) do
@@ -222,7 +222,7 @@ test("NS.COMMANDS registers a version verb", function()
   assertTrue(found ~= nil, "a 'version' command must be registered")
 end)
 
--- ── reset verbs: reset / resetall / ResetEverything ──
+-- ── reset verbs: reset / resetall / Reset all settings ──
 
 test("/lh reset on a table setting echoes (none), not a raw table pointer", function()
   -- RENDERED CHANGE (LibKa0s adoption). The reset echo used to be a bespoke
@@ -240,22 +240,57 @@ test("/lh reset on a table setting echoes (none), not a raw table pointer", func
     NS.Schema:Get("settings.excludedSources")), "(none)", "value actually reset to empty")
 end)
 
-test("/lh resetall also clears the blacklist and whitelist (non-destructive settings reset)", function()
-  NS.Filters:AddBlacklist(101)
-  NS.Filters:AddWhitelist(202)
-  local out = capture(function() Sl:CliResetAll() end)
-  -- RENDERED CHANGE: the acknowledgment is the library's, capital A. The filter-list half is not
-  -- the library's and cannot be — the id lists are a structural registry with no schema row, so
-  -- NS.Slash:CliResetAll wraps the library verb to clear them (through NS.Filters) first.
-  assertEqual(out[1], NS.PREFIX .. " All settings reset to defaults")
-  assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
-  assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")
+--- Run `fn` with the active profile saved and put back afterwards: the profile reset empties it,
+--- and the suites after this one read state earlier ones seeded.
+local function acrossAProfileReset(fn)
+  local p = NS.db.profile
+  local saved = NS.Util.DeepCopy(p)
+  local ok, err = pcall(fn)
+  for k in pairs(p) do p[k] = nil end
+  for k, v in pairs(saved) do p[k] = v end
+  if not ok then error(err, 0) end
+end
+
+test("/lh resetall is the profile reset: every setting, list, view and window back, history kept", function()
+  -- options-ui-§12: the global reset restores EVERYTHING the profile holds, and the account-wide
+  -- loot history is not settings. The id lists, the AH cascade, the saved view and the window
+  -- geometry carry no schema row, so a row walk would have missed every one of them.
+  -- red under: the library's row walk (lists, cascade, view and window survive), or a reset that
+  -- reaches db.global (the history goes).
+  acrossAProfileReset(function()
+    capture(function() Sl:CliResetAll() end)   -- start from a fresh profile
+    local history = NS.db.global.history
+    NS.db.global.history = { { id = 1 }, { id = 2 } }
+    NS.Filters:AddBlacklist(101)
+    NS.Filters:AddBlacklist(102)
+    NS.Filters:AddWhitelist(202)
+    NS.Filters:AddCurrencyBlacklist(303)
+    NS.db.profile.savedView = { groupBy = "source" }
+    NS.db.profile.settings.window = { point = "TOPLEFT", x = 5, y = 5, w = 800, h = 600 }
+    local p = NS.AuctionPrice:GetPriority()
+    p[1], p[2] = p[2], p[1]
+    NS.Schema:Set("settings.qualityThreshold", 4)
+
+    local out = capture(function() Sl:CliResetAll() end)
+
+    assertEqual(out[#out], NS.PREFIX .. " All settings reset to defaults")
+    assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
+    assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")
+    assertEqual(NS.Filters:Count(NS.Filters:CurrencyBlacklist()), 0, "currency blacklist cleared")
+    assertEqual(NS.db.profile.savedView, nil, "savedView cleared")
+    assertEqual(next(NS.db.profile.settings.window), nil, "window geometry cleared")
+    assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","),
+      table.concat(NS.Constants.AUCTION_PRIORITY_DEFAULT, ","), "the cascade is back in shipped order")
+    assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1, "schema setting back to default")
+    local kept = #NS.db.global.history
+    NS.db.global.history = history
+    assertEqual(kept, 2, "the loot history is account-wide and untouched")
+  end)
 end)
 
--- debug-logging-§10 (standard v2.44.0): a bulk reset through the helper is ONE [Set] line naming the
--- act, its scope and the rows it actually wrote, and never a per-row [Set] line. `/lh resetall`
--- reaches the library's CliResetAll, whose row walk Slash minor 8 brackets with the descriptor's
--- bulkBegin/bulkEnd; the seam mutes its per-row line between the two.
+-- debug-logging-§10: a whole-profile reset is logged ONCE, by the profile-event handler, as a [Set]
+-- line worded by the act, and no bulk bracket adds a second line. The act still brackets its row
+-- walk (the session-only rows), so those rows' per-row lines stay muted.
 
 --- The debug console's [Set] lines an act logs, and how many writes the act sent through the seam. The
 --- call count is every row the walk touched; the N in the line is only the rows whose stored value
@@ -299,17 +334,14 @@ local function setLinesDuring(act)
   return lines, writes, logged
 end
 
---- How many rows a BULK reset actually sends through the write seam.
----
---- NOT `#NS.Schema.Schema` any more. launcher-§3 (standard v2.54.0) exempts `minimap.shown` from
---- every bulk reset, so the walk skips it and it is not one of the rows the seam sees. Derived from
---- `NS.Schema.RESET_EXEMPT` rather than written as a number, so this stays a statement about the
---- veto: an exemption added or dropped moves the expectation with it, and a veto that stopped
---- working shows up here as one row too many.
+--- How many rows the global reset sends through the write seam: the session-only rows alone
+--- (options-ui-§12). Every stored row is the profile reset's, and the Profiles page is vetoed.
+--- Derived from the shared veto rather than written as a number, so this stays a statement about
+--- it: a row the veto stopped sparing shows up here as one row too many.
 local function rowsThroughSeam()
   local n = 0
   for _, row in ipairs(NS.Schema.Schema) do
-    if not NS.Schema.RESET_EXEMPT[row.path] then n = n + 1 end
+    if not NS.Schema.VetoedFromResetAll(row) then n = n + 1 end
   end
   return n
 end
@@ -321,47 +353,46 @@ local function twoRowsOffDefault()
   NS.Schema:Set("settings.recordCurrency", false)
 end
 
-test("/lh resetall logs ONE [Set] reset all: N rows line, N the rows whose value changed", function()
-  -- N is the rows the act actually wrote (debug-logging-§10): a row already at its default is not
-  -- counted, although the walk still sends it through the seam for validation and onChange.
-  -- red under: an unbracketed walk (one `[Set] <path> = <value>` per row), N taken from the
-  -- library's `count` (every row the walk reached), or the summary under any tag but [Set].
+test("/lh resetall logs ONE [Set] reset profile line, N the stored rows off their default", function()
+  -- N is the rows the reset changed (debug-logging-§10): a row already at its default is not
+  -- counted, and neither is the Minimap button row, whose table is global and out of reach.
+  -- red under: the library's row walk (a `reset all: N rows` line), N taken from the schema's size,
+  -- or a second line from the bracket.
   twoRowsOffDefault()
   local lines, writes = setLinesDuring(function() Sl:CliResetAll() end)
   assertEqual(#lines, 1, "exactly one [Set] line per resetall, got: " .. table.concat(lines, " | "))
-  assertEqual(writes, rowsThroughSeam(), "every unexempt row still goes through the seam")
-  assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil,
-    "the one line names the act, the scope and the two rows that changed: " .. lines[1])
+  assertEqual(writes, rowsThroughSeam(), "only the session-only rows go through the seam")
+  assertTrue(lines[1]:find("[Set] reset profile 'Default' to defaults (2 rows)", 1, true) ~= nil,
+    "the one line names the act, the profile and the two rows that changed: " .. lines[1])
 end)
 
-test("/lh resetall on settings already at their defaults logs [Set] reset all: 0 rows", function()
-  -- The act still happened, so it still logs its one line; it wrote nothing, so N is 0.
+test("/lh resetall on settings already at their defaults logs (0 rows)", function()
+  -- The act still happened, so it still logs its one line; it changed nothing, so N is 0.
   capture(function() Sl:CliResetAll() end)
   local lines = setLinesDuring(function() Sl:CliResetAll() end)
   assertEqual(#lines, 1, "one [Set] line, got: " .. table.concat(lines, " | "))
-  assertTrue(lines[1]:find("[Set] reset all: 0 rows", 1, true) ~= nil, lines[1])
+  assertTrue(lines[1]:find("[Set] reset profile 'Default' to defaults (0 rows)", 1, true) ~= nil,
+    lines[1])
 end)
 
-test("a bracket opened around resetall logs ONE line, summing the rows both levels changed", function()
-  -- A host act that wraps CliResetAll opens a second bracket. The inner bulkEnd must not log: the
-  -- line is emitted once, when the depth returns to 0, with the tally of every level.
-  -- red under: logging at every bulkEnd (two lines), or resetting the tally per level (N = 1).
+test("a bracket opened around resetall logs only the profile reset's line", function()
+  -- A host act that wraps the reset opens a second bracket. The profile reset marks the bracket as
+  -- one (ConsumeResetCount), so no bulk line is added at any level.
+  -- red under: a bracket that logs its own `reset all: N rows` beside the profile line.
   twoRowsOffDefault()
-  NS.Schema:Set("settings.recordCurrency", true)   -- one row off default is the inner walk's
   local lines = setLinesDuring(function()
     NS.Schema.BulkBegin("reset", "all")
     NS.Schema:Set("settings.qualityThreshold", 1)  -- the outer level's own write
-    NS.Schema:Set("settings.recordCurrency", false)
-    Sl:CliResetAll()                               -- the inner level: recordCurrency back to true
+    Sl:CliResetAll()
     NS.Schema.BulkEnd("reset", "all", 0, nil, { profileReset = false })
   end)
   assertEqual(#lines, 1, "one [Set] line for the nested act, got: " .. table.concat(lines, " | "))
-  assertTrue(lines[1]:find("[Set] reset all: 3 rows", 1, true) ~= nil, lines[1])
+  assertTrue(lines[1]:find("[Set] reset profile 'Default' to defaults", 1, true) ~= nil, lines[1])
 end)
 
 test("a nested bracket where any level reset the profile logs no bulk line", function()
   -- debug-logging-§10: a whole-profile reset is logged once, by the profile-event handler, and no
-  -- bracket adds a second line. This addon has no profile, so the flag is the contract only.
+  -- bracket adds a second line. The flag alone, with no reset behind it, must still silence it.
   twoRowsOffDefault()
   local lines = setLinesDuring(function()
     NS.Schema.BulkBegin("reset", "all")
@@ -385,36 +416,38 @@ test("/lh reset <path> is still ONE [Set] <path> = <value> line, and not muted",
   assertTrue(lines[1]:find("[Set] settings.qualityThreshold = 1", 1, true) ~= nil, lines[1])
 end)
 
-test("/lh resetall typed at the dispatcher logs ONE [Set] reset all: N rows line", function()
+test("/lh resetall typed at the dispatcher logs ONE [Set] reset profile line", function()
   -- The cases above call Sl:CliResetAll directly. This one goes in through Sl:OnSlash, the
-  -- function AceConsole calls for a typed `/lh resetall`, so the verb table, the host wrapper
-  -- and the library bracket are all on the path.
-  -- red under: a `resetall` entry in NS.COMMANDS that reaches an unbracketed walk.
+  -- function AceConsole calls for a typed `/lh resetall`, so the verb table and the host act are
+  -- both on the path.
+  -- red under: a `resetall` entry in NS.COMMANDS that reaches the library's row walk.
   twoRowsOffDefault()
   local lines, writes = setLinesDuring(function() Sl:OnSlash("resetall") end)
   assertEqual(#lines, 1, "one [Set] line for the typed verb, got: " .. table.concat(lines, " | "))
-  assertEqual(writes, rowsThroughSeam(), "every unexempt row still goes through the seam")
-  assertTrue(lines[1]:find("[Set] reset all: 2 rows", 1, true) ~= nil, lines[1])
+  assertEqual(writes, rowsThroughSeam(), "only the session-only rows go through the seam")
+  assertTrue(lines[1]:find("[Set] reset profile 'Default' to defaults (2 rows)", 1, true) ~= nil,
+    lines[1])
 end)
 
-test("a row that raises mid-resetall logs ONE line marked as stopped, re-raises, and unmutes", function()
-  -- The library calls bulkEnd with the raised value whenever bulkBegin ran, then re-raises it.
-  -- The line still comes, once, counting the rows changed before the raise, and says the reset
-  -- stopped, so the count is not read as a finished reset. qualityThreshold comes before
-  -- recordCurrency in schema order; recordCurrency is written and counted, then its onChange raises.
+test("a profile reset that raises logs ONE line marked as stopped, re-raises, and unmutes", function()
+  -- A reset that raised may never have reached the profile-event handler, so the bracket is the
+  -- only record left: bulkEnd is handed the error, logs its one line marked as stopped, and the
+  -- library re-raises. The profile is untouched, because the reset never ran.
   -- red under: a BulkEnd that ignores `err` (no marker), or a seam left muted after the raise.
   twoRowsOffDefault()
-  local row = NS.Schema:FindRow("settings.recordCurrency")
-  local orig = row.onChange
-  row.onChange = function() error("boom", 0) end
+  local db = NS.db
+  local realReset = db.ResetProfile
+  db.ResetProfile = function() error("boom", 0) end
   local lines, _, ok, err = setLinesProtected(function() Sl:CliResetAll() end)
-  row.onChange = orig
+  db.ResetProfile = realReset
+  local kept = NS.Schema:Get("settings.qualityThreshold")
   capture(function() Sl:CliResetAll() end)   -- leave every row at its default
-  assertTrue(not ok, "the raising row's error must reach the caller")
+  assertTrue(not ok, "the raising reset's error must reach the caller")
   assertEqual(err, "boom", "the error is re-raised unchanged")
+  assertEqual(kept, 4, "a reset that raised changed nothing in the profile")
   assertEqual(#lines, 1, "one line for the one act, got: " .. table.concat(lines, " | "))
-  assertTrue(lines[1]:find("[Set] reset all: 2 rows (stopped by an error)", 1, true) ~= nil,
-    "the line counts the rows changed before the raise and is marked: " .. lines[1])
+  assertTrue(lines[1]:find("[Set] reset all: 0 rows (stopped by an error)", 1, true) ~= nil,
+    "the bracket's line is marked: " .. lines[1])
 
   local after = setLinesDuring(function() NS.Schema:Set("settings.qualityThreshold", 3) end)
   NS.Schema:Set("settings.qualityThreshold", 1)
@@ -453,122 +486,110 @@ test("an unpaired BulkEnd at depth 0 logs nothing", function()
   -- it re-logged the last act's stale tally.
   -- red under: a BulkEnd that logs whenever the depth is 0 after it.
   twoRowsOffDefault()
-  capture(function() Sl:CliResetAll() end)   -- leaves a tally of 2 behind
+  capture(function() Sl:CliResetAll() end)
   local lines = setLinesDuring(function() NS.Schema.BulkEnd("reset", "all", 0, nil, nil) end)
   assertEqual(#lines, 0, "no line, got: " .. table.concat(lines, " | "))
   lines = setLinesDuring(function() NS.Schema:Set("settings.qualityThreshold", 1) end)
   assertEqual(#lines, 1, "the depth did not go negative: a single write still logs")
 end)
 
-test("Reset Everything logs ONE [Set] line for the settings it resets, beside its [Data] line", function()
-  -- orchestrator ruling 2026-09-12, correcting the earlier "no [Set] line": this addon has no
-  -- profile, so the wholesale wipe of db.global is its reset-profile equivalent (options-ui-§12),
-  -- and debug-logging-§10 logs a wholesale replacement ONCE, as a [Set] line worded by the act.
-  -- It still writes no row through the seam. N is the stored rows the wipe changes: a row at its
-  -- default is not counted, nor is the session-only console row, which lives outside db.global.
-  -- red under: no [Set] line, or N counting every stored row rather than the two that differ.
-  capture(function() Sl:ResetEverything() end)   -- baseline: every row at its default
-  NS.Schema:Set("settings.qualityThreshold", 4)
-  NS.Schema:Set("settings.recordCurrency", false)
-  local lines, writes, logged = setLinesDuring(function() Sl:ResetEverything() end)
-  assertEqual(writes, 0, "Reset Everything wrote rows through Schema:Set")
-  assertEqual(#lines, 1, "one [Set] line, got: " .. table.concat(lines, " | "))
-  assertTrue(lines[1]:find("[Set] reset account-wide settings to defaults (2 rows)", 1, true) ~= nil,
-    lines[1])
-  local data = 0
-  for _, line in ipairs(logged) do
-    if line:find("[Data]", 1, true) then data = data + 1 end
-  end
-  assertEqual(data, 1, "the [Data] data-purge line is unchanged")
+-- ── the global reset's blast radius (options-ui-§12, Testing MUST) ──────────────────────────────
+
+--- The Master controls' Reset all settings, as a click reaches it: the confirm's Yes.
+local function resetAllSettings()
+  T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"].OnAccept()
+end
+
+test("Reset all settings confirms first, in the profile wording, and runs the one reset act", function()
+  -- options-ui-§12: the first canonical confirmation, verbatim, because this addon has a profile
+  -- section; the second one (for an addon with none) promised to discard what was RECORDED, which a
+  -- profile reset never touches.
+  local dlg = T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"]
+  assertEqual(dlg.text, "Reset this profile to the addon's defaults? Everything you have "
+    .. "configured or added in it is discarded \226\128\148 your other profiles are not affected.")
+  assertEqual(dlg.button1, T.mocks.YES or "Yes")
+  assertEqual(dlg.timeout, 0)
+  assertTrue(dlg.whileDead and dlg.hideOnEscape, "the house popup flags")
 end)
 
-test("Reset Everything purges history and clears settings + filter lists + view + window", function()
-  NS.db.global.history = { { id = 1 } }
-  NS.db.global.savedView = { groupBy = "source" }
-  NS.db.global.settings.window = { point = "TOPLEFT", x = 5, y = 5, w = 800, h = 600 }
-  NS.Filters:AddBlacklist(303)
-  NS.Schema:Set("settings.qualityThreshold", 4)
+test("Reset all settings resets the ACTIVE profile only, and publishes the profile message", function()
+  -- The blast radius, not the mechanism: two filter ids and a changed row on the active profile all
+  -- go; a second profile keeps its own value; the profile LIST and the active profile are the ones
+  -- the player had; the session-only rows were swept; and the one SettingsChanged("profile")
+  -- message went out, so every window redraws off the reset.
+  -- red under: a reset of every profile, a DeleteProfile, a reset that leaves the session rows, or
+  -- one that empties the profile without the message.
+  acrossAProfileReset(function()
+    local db = NS.db
+    db:SetProfile("Alt")
+    NS.Schema:Set("settings.qualityThreshold", 3)
+    db:SetProfile("Default")
+    NS.Filters:AddBlacklist(111)
+    NS.Filters:AddBlacklist(222)
+    NS.Schema:Set("settings.qualityThreshold", 4)
+    NS.Schema:Set("state.testMode", true)
+    local before = table.concat(db:GetProfiles(), ",")
 
-  capture(function() Sl:ResetEverything() end)
-
-  assertEqual(#NS.db.global.history, 0, "history purged")
-  assertEqual(NS.db.global.savedView, nil, "savedView cleared")
-  assertEqual(next(NS.db.global.settings.window), nil, "window geometry cleared")
-  assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
-  assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1, "schema setting back to default")
-end)
-
-test("Reset Everything is WHOLESALE, not a list of keys somebody kept current", function()
-  -- The old body was three enumerations -- a history purge, a schema walk and a filter-list clear
-  -- -- which between them happened to cover the whole store. That is the shape that quietly stops
-  -- being true: anything a later version writes beside them survives a reset that took everything
-  -- around it. options-ui-§12 forbids the key list for exactly that reason.
-  --
-  -- The probe key is one no enumeration could have named, because it does not exist anywhere in
-  -- this addon. If it survives, the reset is still working from a list.
-  -- red under: reinstating the purge + CliResetAll + ClearAll composition.
-  NS.db.global.__probeNothingNames = { deep = { value = 1 } }
-
-  capture(function() Sl:ResetEverything() end)
-
-  assertEqual(NS.db.global.__probeNothingNames, nil,
-    "a key no enumeration names survived the reset")
-  -- And the declared defaults came back rather than the store being left empty.
-  assertEqual(NS.db.global.settings.qualityThreshold, 1)
-  assertEqual(type(NS.db.global.history), "table")
-end)
-
-test("Reset Everything keeps db.global's IDENTITY, so nothing is left on a stale table", function()
-  -- Modules capture NS.db.global at load. Replacing the table would leave every one of them
-  -- pointing at the old one -- and a suite that re-reads NS.db.global on every access cannot see
-  -- that. So the wipe is in place, which is what the real library does to a profile.
-  -- red under: `db.global = deepcopy(defaults)`.
-  local before = NS.db.global
-  capture(function() Sl:ResetEverything() end)
-  assertEqual(NS.db.global, before, "the store was replaced rather than emptied")
-end)
-
--- debug-logging-§8 (v2.44.0 §10): the global reset discards the recorded history along with the
--- settings, and a purge of recorded data is a data mutation the log must show, like Purge and Delete.
-test("Reset Everything logs one [Data] line with the history rows it discarded, and nothing when debug is off",
-  function()
-    NS.State.debug = false
-    NS.db.global.history = { { id = 1 }, { id = 2 } }
-    local before = #NS.DebugLog.buffer
-    capture(function() Sl:ResetEverything() end)
-    assertEqual(#NS.DebugLog.buffer, before, "no line logged when debug off")
-
-    NS.db.global.history = { { id = 1 }, { id = 2 }, { id = 3 } }
-    NS.State.debug = true
-    before = #NS.DebugLog.buffer
-    local ok, err = pcall(capture, function() Sl:ResetEverything() end)
-    NS.State.debug = false
-    if not ok then error(err, 0) end
-    local found
-    for i = before + 1, #NS.DebugLog.buffer do
-      local line = NS.DebugLog.buffer[i]
-      if line:find("[Data]", 1, true) then
-        assertTrue(found == nil, "exactly one [Data] line per reset")
-        found = line
-      end
+    local sent = {}
+    local realSend = NS.bus.SendMessage
+    NS.bus.SendMessage = function(self, msg, a, ...)
+      sent[#sent + 1] = msg .. ":" .. tostring(a)
+      return realSend(self, msg, a, ...)
     end
-    assertTrue(found ~= nil, "Reset Everything logged no [Data] line")
-    assertTrue(found:find("reset-all removed 3 rows", 1, true) ~= nil, "the line carries the count: " .. found)
-  end)
+    local ok, err = pcall(resetAllSettings)
+    NS.bus.SendMessage = realSend
+    if not ok then error(err, 0) end
 
-test("Reset Everything copies the declared defaults, so a later write cannot change them", function()
-  -- NS.Util.DeepCopy was named here but never defined, so the reset fell back to merging
-  -- NS.defaults.global's own sub-tables into the store by reference. After Reset all settings,
-  -- db.global.settings WAS the defaults table: the next Schema:Set rewrote the declared default,
-  -- and `/lh reset` then "restored" the player's own value.
+    assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "the shipped set is empty")
+    assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1, "the active profile's row is back")
+    assertEqual(NS.Schema:Get("state.testMode"), false, "the session-only rows were swept")
+    assertEqual(db:GetCurrentProfile(), "Default", "still on the profile the player was on")
+    assertEqual(table.concat(db:GetProfiles(), ","), before, "the profile list is unchanged")
+    local profileMsgs = 0
+    for _, m in ipairs(sent) do
+      if m == NS.MSG.SETTINGS_CHANGED .. ":profile" then profileMsgs = profileMsgs + 1 end
+    end
+    assertEqual(profileMsgs, 1, "one profile message: " .. table.concat(sent, " | "))
+    db:SetProfile("Alt")
+    local alt = NS.Schema:Get("settings.qualityThreshold")
+    db:SetProfile("Default")
+    db:DeleteProfile("Alt")
+    assertEqual(alt, 3, "the other profile keeps its own value")
+  end)
+end)
+
+test("Reset all settings discards no history and logs no [Data] line", function()
+  -- Before profiles, the global reset emptied db.global wholesale and took the loot history with
+  -- it, logging a [Data] line for what it discarded. The history is account-wide RECORDED data now,
+  -- never settings, and `/lh purge` is the one act that clears it (options-ui-§12).
+  -- red under: a reset that reaches db.global.
+  acrossAProfileReset(function()
+    local history = NS.db.global.history
+    NS.db.global.history = { { id = 1 }, { id = 2 }, { id = 3 } }
+    local _, _, logged = setLinesDuring(resetAllSettings)
+    local kept = #NS.db.global.history
+    NS.db.global.history = history
+    assertEqual(kept, 3, "the history survived the reset")
+    for _, line in ipairs(logged) do
+      assertTrue(line:find("[Data]", 1, true) == nil, "no data line: " .. line)
+    end
+  end)
+end)
+
+test("Reset all settings copies the declared defaults, so a later write cannot change them", function()
+  -- A reset that merged NS.defaults.profile's own sub-tables into the store by reference would
+  -- leave db.profile.settings BEING the defaults table: the next Schema:Set would rewrite the
+  -- declared default, and `/lh reset` would then "restore" the player's own value.
   -- red under: the defaults merged into the store without a copy.
-  capture(function() Sl:ResetEverything() end)
-  local aliased = NS.db.global.settings == NS.defaults.global.settings
-  NS.Schema:Set("settings.qualityThreshold", 4)
-  local shipped = NS.defaults.global.settings.qualityThreshold
-  NS.Schema:Set("settings.qualityThreshold", 1)   -- before asserting, so a red run poisons nothing
-  assertTrue(not aliased, "db.global.settings is the defaults table itself")
-  assertEqual(shipped, 1, "a write after the reset changed the declared default")
+  acrossAProfileReset(function()
+    resetAllSettings()
+    local aliased = NS.db.profile.settings == NS.defaults.profile.settings
+    NS.Schema:Set("settings.qualityThreshold", 4)
+    local shipped = NS.defaults.profile.settings.qualityThreshold
+    NS.Schema:Set("settings.qualityThreshold", 1)   -- before asserting, so a red run poisons nothing
+    assertTrue(not aliased, "db.profile.settings is the defaults table itself")
+    assertEqual(shipped, 1, "a write after the reset changed the declared default")
+  end)
 end)
 
 -- ── prefix color (slash-commands-§4): the shared tag must be cyan ──
@@ -809,7 +830,7 @@ test("/lh enable and /lh disable write the Enable row's path, and hold no state 
     assertTrue(byName.enable ~= nil and byName.disable ~= nil,
       "both reserved verbs must be registered")
 
-    local before = NS.db.global.settings.enabled
+    local before = NS.db.profile.settings.enabled
     -- Every write is recorded, so "through the seam" is asserted rather than inferred from the
     -- stored value -- which a direct table write would also produce.
     local realSet, writes = NS.Schema.Set, {}
@@ -819,9 +840,9 @@ test("/lh enable and /lh disable write the Enable row's path, and hold no state 
     end
     local ok, err = pcall(function()
       capture(function() byName.disable("") end)
-      assertEqual(NS.db.global.settings.enabled, false, "/lh disable turns the addon off")
+      assertEqual(NS.db.profile.settings.enabled, false, "/lh disable turns the addon off")
       capture(function() byName.enable("") end)
-      assertEqual(NS.db.global.settings.enabled, true, "/lh enable turns it back on")
+      assertEqual(NS.db.profile.settings.enabled, true, "/lh enable turns it back on")
     end)
     NS.Schema.Set = realSet
     NS.Schema:Set("settings.enabled", before)
@@ -835,7 +856,7 @@ test("/lh enable and /lh disable write the Enable row's path, and hold no state 
 
     -- No state of their own: the value the verbs set is the value the row reads back, and there is
     -- no second key beside it.
-    assertTrue(NS.db.global.settings.enable == nil and NS.db.global.enabled == nil,
+    assertTrue(NS.db.profile.settings.enable == nil and NS.db.global.enabled == nil,
       "no second key was invented beside settings.enabled")
     assertTrue(NS.enabled == nil, "no namespace-level flag either")
   end)
@@ -848,7 +869,7 @@ test("/lh enable is the same write as /lh set settings.enabled true, and answers
     -- red under: a hand-written acknowledgment that drifts from the `set` line beside it.
     local byName = {}
     for _, cmd in ipairs(NS.COMMANDS) do byName[cmd[1]] = cmd[3] end
-    local before = NS.db.global.settings.enabled
+    local before = NS.db.profile.settings.enabled
 
     NS.Schema:Set("settings.enabled", true)
     local short = capture(function() byName.disable("") end)
@@ -867,7 +888,7 @@ test("the dispatcher answers while the addon is disabled, so the pair is never o
   -- any of those has built a switch that only goes one way -- the player turns it off and the verb
   -- that turns it back on no longer exists.
   -- red under: gating Sl:Register, OnSlash or any COMMANDS entry on settings.enabled.
-  local before = NS.db.global.settings.enabled
+  local before = NS.db.profile.settings.enabled
   NS.Schema:Set("settings.enabled", false)
   local ok, err = pcall(function()
     -- Bare `/lh` runs the `config` verb (Slash minor 11), which must still reach the panel.
@@ -885,7 +906,7 @@ test("the dispatcher answers while the addon is disabled, so the pair is never o
 
     -- And the one that matters most: the way back.
     capture(function() Sl:OnSlash("enable") end)
-    assertEqual(NS.db.global.settings.enabled, true, "/lh enable must work while disabled")
+    assertEqual(NS.db.profile.settings.enabled, true, "/lh enable must work while disabled")
   end)
   NS.Schema:Set("settings.enabled", before)
   if not ok then error(err, 0) end
@@ -927,7 +948,7 @@ end
 --- put the stored value back and leave the addon STOOD DOWN -- registrations gone, window refused --
 --- for every suite that runs after this one.
 local function whileDisabled(act)
-  local before = NS.db.global.settings.enabled
+  local before = NS.db.profile.settings.enabled
   NS.Schema:Set("settings.enabled", false)
   local ok, err = pcall(act)
   NS.Schema:Set("settings.enabled", before)
@@ -1036,7 +1057,7 @@ test("the refusal is never turned on a verb slash-commands-§2 keeps live, /lh e
       -- And the one that matters most, asserted on its effect rather than on its output.
       NS.Schema:Set("settings.enabled", false)
       capture(function() Sl:OnSlash("enable") end)
-      assertEqual(NS.db.global.settings.enabled, true, "/lh enable must still turn the addon on")
+      assertEqual(NS.db.profile.settings.enabled, true, "/lh enable must still turn the addon on")
     end)
     NS.Panel.Open = realOpen
     for k in pairs(g) do g[k] = nil end

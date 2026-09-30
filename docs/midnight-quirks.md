@@ -69,7 +69,7 @@ A currency row's **Subtype** is its Currency-tab header ("The War Within", a sea
 
 - **The rule: rebuild once per missed id.** The cache is built at the first currency loot, and a currency the player discovers later (routine at a season start) is not in it. On a miss the resolver rebuilds the cache and looks again. A module-local `currencyCategoryMissed` set records each id that missed, so an id that is truly absent costs at most one list walk per session and every later lookup answers `nil` from the cache. Before this rule the first snapshot was kept for the whole session, and a new currency's row was persisted with `itemSubType = nil` for good.
 - **The gap: collapsed headers.** `GetCurrencyListInfo` enumerates only the children of **expanded** headers. A currency under a header the player collapsed is not in the walk, so the rebuild cannot find it: the row keeps `itemSubType = nil` and falls out of the subtype filter (see ARCHITECTURE.md *Known limitations*). `C_CurrencyInfo.ExpandCurrencyList` could open the headers for the walk, but it is deliberately **not** called: it would run from a loot handler and change the player's Currency tab.
-- **S-003 outcome:** not yet run in the client. Smoke-tests.md section 3 carries the check; record here whether a currency under a collapsed header resolves after `/reload`.
+- **S-003 outcome:** not yet run in the client. smoke-tests.md CAP-19 carries the check; record here whether a currency under a collapsed header resolves after `/reload`.
 
 ## C_Spell moved the spell-name lookup
 

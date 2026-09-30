@@ -53,6 +53,20 @@ local function freshStore()
   return NS.Util.DeepCopy(NS.defaults.global)
 end
 
+--- Run `fn` with the active profile swapped for `p`, then put the real one back however it ends.
+local function withProfile(p, fn)
+  local real = NS.db.profile
+  NS.db.profile = p
+  local ok, err = pcall(fn)
+  NS.db.profile = real
+  if not ok then error(err, 0) end
+end
+
+--- A profile shaped like defaults/Profile.lua's, deep-copied so a case can bend it freely.
+local function freshProfile()
+  return NS.Util.DeepCopy(NS.defaults.profile)
+end
+
 local function record(i, over)
   local r = {
     ts = 1700000000 + i, char = "Alt" .. (i % 3) .. "-Realm", classFile = "MAGE",
@@ -95,20 +109,22 @@ test("diagnostics: every DX-LH section writes its own lead line, in the report's
   end
 end)
 
-test("diagnostics: the identity section names the stored and code schema, and account-wide", function()
+test("diagnostics: the identity section names the stored and code schema, and the active profile", function()
   local lines = build()
   assertTrue(find(lines, "code v" .. tostring(NS.SCHEMA_VERSION)) ~= nil,
     "the code schema version is printed")
-  assertTrue(find(lines, "profile: account-wide") ~= nil,
-    "an addon with no profile says account-wide (STD-10)")
+  assertTrue(find(lines, "profile: '" .. NS.db:GetCurrentProfile() .. "'") ~= nil,
+    "the active profile is named (STD-10)")
+  assertTrue(find(lines, "history account-wide") ~= nil,
+    "and the line says the history is not per profile")
 end)
 
 -- ── settings ──────────────────────────────────────────────────────────────────────────────
 
 test("diagnostics: a changed setting prints as path = value (default); the always rows print anyway", function()
-  local g = freshStore()
-  g.settings.qualityThreshold = 4
-  withStore(g, function()
+  local p = freshProfile()
+  p.settings.qualityThreshold = 4
+  withProfile(p, function()
     local lines = build()
     assertTrue(find(lines, "settings.qualityThreshold = 4 (1)") ~= nil,
       "a non-default row prints with its default")
@@ -135,10 +151,10 @@ end)
 -- ── filters ───────────────────────────────────────────────────────────────────────────────
 
 test("diagnostics: a filter list past 40 ids prints the first 40 and says how many more", function()
-  local g = freshStore()
-  for id = 1, 45 do g.blacklist[id] = true end
-  g.whitelist[7] = true
-  withStore(g, function()
+  local p = freshProfile()
+  for id = 1, 45 do p.blacklist[id] = true end
+  p.whitelist[7] = true
+  withProfile(p, function()
     local lines, report = build()
     local line = find(lines, "filters: blacklist (45)")
     assertTrue(line ~= nil, "the blacklist is counted")

@@ -21,6 +21,8 @@ libs\AceTimer-3.0\AceTimer-3.0.xml
 libs\AceConsole-3.0\AceConsole-3.0.xml
 libs\AceDB-3.0\AceDB-3.0.xml
 libs\AceGUI-3.0\AceGUI-3.0.xml
+libs\AceConfig-3.0\AceConfig-3.0.xml
+libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
 libs\LibSharedMedia-3.0\lib.xml
 libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
@@ -77,9 +79,12 @@ core\Database.lua
 core\LauncherSetup.lua
 
 # Defaults
-# LOAD-BEARING POSITION: settings\Schema.lua takes NS.defaults.global as a file-scope local (:21)
-# and reads its values into the rows' defaults at file load; this file must be above Schema.
+# LOAD-BEARING POSITION: settings\Schema.lua takes both defaults tables as file-scope locals and
+# reads their values into the rows' defaults at file load, so both files must be above Schema.
+# Global is the account-wide half (the loot history, its retention, the stamp, the minimap table);
+# Profile is every other setting. Neither reads the other, so their relative order is conventional.
 defaults\Global.lua
+defaults\Profile.lua
 
 # Modules (Attribution before Collector)
 modules\Attribution.lua
@@ -104,3 +109,6 @@ settings\Schema.lua
 # and /lh is never registered.
 settings\Slash.lua
 settings\Panel.lua
+# CONVENTIONAL: the Profiles page's builder is registered from P:Register (settings\Panel.lua) at
+# addon:OnInitialize, after General's, so nothing here resolves at load.
+settings\Profiles.lua

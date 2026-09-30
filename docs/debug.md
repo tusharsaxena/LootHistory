@@ -41,7 +41,8 @@ What Loot History supplies, all in `core/DebugLogSetup.lua`:
   and the console checkbox follows the window however it was closed.
 
 The tags in use, and the checks that each one fires once rather than once per row, are in
-[smoke-tests.md §15](smoke-tests.md#15-debug-console-coverage). On an install without LibKa0s the
+[smoke-tests.md](smoke-tests.md#debug-console-and-diagnostics) DIAG-2, DIAG-3 and DIAG-12 to
+DIAG-18. On an install without LibKa0s the
 flag still flips on `on` / `off`, but the window is gone: instead of a confirmation, each prints the
 library-absent line ending `so the debug console window is unavailable.`
 
@@ -90,7 +91,7 @@ cut out of a longer trace by tag alone.
 |---|---|
 | (begin) | `==== Ka0s Loot History diagnostics begin ====` |
 | library header | The `[Init]` summary line (above); the client's version, build, date and interface from `GetBuildInfo()`; the locale; the logging flag; `InCombatLockdown` and `UnitAffectingCombat("player")`; the **running** LibKa0s minors, file by file, which under LibStub may come from another addon's vendored copy |
-| identity | Brand, version and folder; the stored and code schema versions; `profile: account-wide` (everything lives under `db.global`); `enabled`, `stoodDown` and `testMode` |
+| identity | Brand, version and folder; the stored and code schema versions; the active profile, `profile: '<name>' (settings per profile; history account-wide)`; `enabled`, `stoodDown` and `testMode` |
 | patterns | How many of the client globals the self-loot and self-currency patterns are built from are present, and which are missing; whether the roll-won global is present. Read by name, so no pattern set is built or cached by the report |
 | lifecycle | The Lifecycle holds, whether the addon is stood down, and whether the latch is `LibKa0s-Lifecycle-1.0` or the local fallback |
 | capture | Whether the Collector and Attribution are wired and how many events Attribution holds; while stood down, one line saying the loot, currency and context events are unregistered. Then the rejected events, the same list `/lh debug events` prints |
@@ -148,7 +149,7 @@ The degraded help does not offer `diagnostics`, because answering is not the sam
 
 The command rows are in [slash-dispatch.md](slash-dispatch.md), the disabled-state behavior in
 [disabled-state.md](disabled-state.md), and the player-facing steps in the README's
-`## Reporting a bug`. The in-game checks are §12 and §12a in [smoke-tests.md](smoke-tests.md). The
+`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-25 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
 suites are `tests/test_diagnostics.lua` (this addon's sections), the kit's shared
 `tests/_kit/test_diagnostics_contract.lua` (wired in `tests/run.lua`), `tests/test_disabled.lua`
 (both forms while stood down) and `tests/test_slash_degraded.lua` (both forms with no library).

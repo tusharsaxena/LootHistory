@@ -337,7 +337,7 @@ test("Panel: Filters: an item list adds by id, through AddBlacklist, and keeps t
       if not ok then error(err, 0) end
       assertEqual(#calls, 1, "one add calls the Filters writer once")
       assertEqual(calls[1], 12345)
-      assertSetShape(NS.db.global.blacklist, { [12345] = true }, "blacklist")
+      assertSetShape(NS.db.profile.blacklist, { [12345] = true }, "blacklist")
       assertTrue(liveText("InteractiveLabel", "12345") ~= nil, "the new id is drawn as an entry")
     end)
   end)
@@ -345,12 +345,12 @@ test("Panel: Filters: an item list adds by id, through AddBlacklist, and keeps t
 test("Panel: Filters: an item list adds by a shift-clicked link, and the add still moves it off the other list",
   function()
     -- The exclusivity is Filters:_move's, unchanged; the widget only hands it the id.
-    -- red under: an onAdd that writes db.global.whitelist itself instead of calling AddWhitelist.
+    -- red under: an onAdd that writes db.profile.whitelist itself instead of calling AddWhitelist.
     onFilterList("whitelist", function()
       NS.Filters:AddBlacklist(67890)
       typeAndEnter(ITEM_ADD_LABEL, "|cff0070dd|Hitem:67890::::::::80:::::|h[Some Blade]|h|r")
-      assertSetShape(NS.db.global.whitelist, { [67890] = true }, "whitelist")
-      assertSetShape(NS.db.global.blacklist, {}, "blacklist")
+      assertSetShape(NS.db.profile.whitelist, { [67890] = true }, "whitelist")
+      assertSetShape(NS.db.profile.blacklist, {}, "blacklist")
     end)
   end)
 
@@ -359,7 +359,7 @@ test("Panel: Filters: an item list adds by name, ignoring case, and names the en
   onFilterList("blacklist", function()
     ids.addIdRecord("item", 6948, "Hearthstone", 134414)
     typeAndEnter(ITEM_ADD_LABEL, "hearthstone")
-    assertSetShape(NS.db.global.blacklist, { [6948] = true }, "blacklist")
+    assertSetShape(NS.db.profile.blacklist, { [6948] = true }, "blacklist")
     local entry = liveText("InteractiveLabel", "Hearthstone")
     assertTrue(entry ~= nil, "the entry reads the item's name")
     assertTrue(entry.text:find("(6948)", 1, true) ~= nil, "and its id beside it: " .. entry.text)
@@ -371,7 +371,7 @@ test("Panel: Filters: an unknown name adds nothing, keeps the text and says why"
   -- red under: a submit that adds before it resolves, or clears the box on a miss.
   onFilterList("blacklist", function()
     local eb = typeAndEnter(ITEM_ADD_LABEL, "No Such Thing")
-    assertSetShape(NS.db.global.blacklist, {}, "blacklist")
+    assertSetShape(NS.db.profile.blacklist, {}, "blacklist")
     local status = liveText("Label", "No item named 'No Such Thing' that the game can find.")
     assertTrue(status ~= nil, "the status line names the reason")
     assertEqual(status.color and status.color.g, 0.5, "in the widget's warning orange")
@@ -388,7 +388,7 @@ test("Panel: Filters: the Currencies list takes an id or a currency link, and re
   onFilterList("currencyBlacklist", function()
     typeAndEnter(CURRENCY_ADD_LABEL, "3008")
     typeAndEnter(CURRENCY_ADD_LABEL, "|cffffffff|Hcurrency:2914::|h[Weathered Harbinger Crest]|h|r")
-    assertSetShape(NS.db.global.currencyBlacklist, { [3008] = true, [2914] = true },
+    assertSetShape(NS.db.profile.currencyBlacklist, { [3008] = true, [2914] = true },
       "currencyBlacklist")
     assertTrue(liveText("InteractiveLabel", "Valorstones") ~= nil, "a currency entry reads its name")
 
@@ -396,9 +396,9 @@ test("Panel: Filters: the Currencies list takes an id or a currency link, and re
     assertTrue(liveText("Label", "No currency named 'Honor Points'") ~= nil,
       "a name nothing knows is refused with the reason")
     typeAndEnter(CURRENCY_ADD_LABEL, "|Hitem:12345::|h[Not a currency]|h")
-    assertSetShape(NS.db.global.currencyBlacklist, { [3008] = true, [2914] = true },
+    assertSetShape(NS.db.profile.currencyBlacklist, { [3008] = true, [2914] = true },
       "currencyBlacklist")
-    assertSetShape(NS.db.global.blacklist, {}, "an item list")
+    assertSetShape(NS.db.profile.blacklist, {}, "an item list")
   end)
 end)
 
@@ -427,7 +427,7 @@ test("Panel: Filters: each entry's X calls that list's own Filters writer, and a
         if not ok then error(err, 0) end
         assertEqual(#calls, 1, case.key .. ": the X calls " .. case.verb .. " once")
         assertEqual(calls[1], 3008)
-        assertSetShape(NS.db.global[case.key], {}, case.key)
+        assertSetShape(NS.db.profile[case.key], {}, case.key)
         assertTrue(liveText("Label", "(none)") ~= nil, case.key .. ": an empty list reads (none)")
       end)
     end
@@ -447,7 +447,7 @@ test("Panel: Filters: one add redraws the page once, not twice", function()
       if w.type == "EditBox" and w.labelText == ITEM_ADD_LABEL then boxes = boxes + 1 end
     end
     assertEqual(boxes, 1, "exactly one repaint follows one add")
-    assertSetShape(NS.db.global.blacklist, { [4321] = true }, "blacklist")
+    assertSetShape(NS.db.profile.blacklist, { [4321] = true }, "blacklist")
   end)
 end)
 
@@ -590,7 +590,7 @@ test("Panel: Filters: a name the game cannot look up resolves through the loot h
     records = { { 55001, "Starlit Draught" } },
   }, function()
     typeAndEnter(ITEM_ADD_LABEL, "starlit draught")
-    assertSetShape(NS.db.global.blacklist, { [55001] = true }, "blacklist")
+    assertSetShape(NS.db.profile.blacklist, { [55001] = true }, "blacklist")
   end)
 end)
 
@@ -607,7 +607,7 @@ test("Panel: Filters: picking a suggestion adds that rank through the Filters wr
       if not ok then error(err, 0) end
       assertEqual(#calls, 1, "one pick calls the Filters writer once")
       assertEqual(calls[1], 191396, "with the rank picked")
-      assertSetShape(NS.db.global.blacklist, { [191396] = true }, "blacklist")
+      assertSetShape(NS.db.profile.blacklist, { [191396] = true }, "blacklist")
       assertEqual(shownIds(), "", "the pick closes the list")
     end)
 end)
@@ -627,7 +627,7 @@ test("Panel: Filters: a name several ranks share lists every rank, and Enter wit
           "row " .. i .. " is labeled with its rank: " .. tostring(row.labelText))
       end
       typeAndEnter(ITEM_ADD_LABEL, ZEPHYR)
-      assertSetShape(NS.db.global.blacklist, {}, "neither one rank nor all of them")
+      assertSetShape(NS.db.profile.blacklist, {}, "neither one rank nor all of them")
       assertTrue(liveText("Label", "Several items are named '" .. ZEPHYR ..
         "' \226\128\148 pick one from the list, or use the id.") ~= nil, "the refusal says why")
       assertEqual(shownIds(), "191395,191396,191397", "the ranks the refusal points at stay listed")
@@ -644,7 +644,7 @@ test("Panel: Filters: a name two ranks in the bags share, with none in the histo
                                  tiers = ZEPHYR_TIERS, bags = { [191395] = true, [191396] = true } },
       function()
         typeAndEnter(ITEM_ADD_LABEL, ZEPHYR)
-        assertSetShape(NS.db.global.blacklist, {}, "neither one rank nor both")
+        assertSetShape(NS.db.profile.blacklist, {}, "neither one rank nor both")
         assertTrue(liveText("Label", "Several items are named '" .. ZEPHYR ..
           "' \226\128\148 pick one from the list, or use the id.") ~= nil, "the refusal says why")
       end)
@@ -658,7 +658,7 @@ test("Panel: Filters: currency names resolve through the loot history, and a ref
       typeText(CURRENCY_ADD_LABEL, "weathered")
       assertEqual(shownIds(), "2914", "a currency the loot history holds is listed")
       typeAndEnter(CURRENCY_ADD_LABEL, "weathered harbinger crest")
-      assertSetShape(NS.db.global.currencyBlacklist, { [2914] = true }, "currencyBlacklist")
+      assertSetShape(NS.db.profile.currencyBlacklist, { [2914] = true }, "currencyBlacklist")
       typeAndEnter(CURRENCY_ADD_LABEL, "Honor Points")
       -- "this page", not the library's "this list": the page looks in the loot history too.
       assertTrue(liveText("Label", "No currency named 'Honor Points' that this page knows. " ..

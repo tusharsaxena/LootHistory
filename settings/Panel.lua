@@ -27,7 +27,7 @@ local LOGO_SIZE     = 300  -- landing-page logo display size
 -- ROW_VSPACER 8, the 10/6/26 section triple, BUTTON_PAIR_REL 0.492). The three this file's own page
 -- code still needs are re-exported on the instance so host layout stays in lockstep with the engine.
 
--- ── Shared maker for a paired action button (Reset Everything, Purge) ───────────────────
+-- ── Shared maker for a paired action button (Purge) ─────────────────────────────────────
 -- Insets to BUTTON_PAIR_REL rather than a flat 0.5 so the right border isn't shaved by the
 -- ScrollFrame clip (options-ui-§6/§8). Kept host-side: the library's InlineButtonPair builds its own
 -- Flow row, and both of this addon's uses need a bare button to drop into a row someone else owns.
@@ -86,7 +86,7 @@ local function makeMultiCheck(ctx, row, scroll)
 end
 
 
--- ── The History tab's body: live DB stats, Purge, Reset Everything ─────────────
+-- ── The History tab's body: live DB stats and Purge ────────────────────────────
 --
 -- Drawn from RenderTabbedSchema's `afterGroup` hook, keyed to the History group, rather than
 -- appended by the page renderer. That is not decoration: a tab click re-enters RenderTabbedSchema
@@ -116,11 +116,10 @@ local function renderHistory(ctx)
   rowFrame:AddChild(purgeBtn)
   scroll:AddChild(rowFrame)
 
-  -- "Reset Everything" is NOT here any more. It is the confirm-gated global reset (options-ui-§12)
-  -- and options-ui-§15 puts that on the Master controls tab as the closing button pair's
-  -- "Reset all settings", drawn by the composer's own afterGroup hook. Same popup, same
-  -- Sl:ResetEverything, same blast radius — two buttons over one act is the thing this pass exists
-  -- to remove, so this one is gone rather than duplicated.
+  -- "Reset Everything" is NOT here any more. The global reset (options-ui-§12) is the Master controls
+  -- tab's "Reset all settings" (options-ui-§15), drawn by the composer's own afterGroup hook, and it
+  -- is a PROFILE reset that never touches the history. Purge history… above is the one act that
+  -- clears the account-wide record.
 
   local function refreshStats()
     local s = NS.Database:StorageStats()
@@ -196,7 +195,7 @@ end
 --
 -- THE WIDGET NEVER WRITES. NS.Filters is these sets' one named writer (architecture-§5), so the
 -- IdList's onAdd / onRemove call the same verbs the old add row and Remove buttons called, and the
--- stored shape — `db.global.<list>[id] = true` — does not move.
+-- stored shape — `db.profile.<list>[id] = true` — does not move.
 
 --- Repaint the Filters tab: at once while the page is on screen, else on its next OnShow through the
 --- library's own dirty flag. The HistoryChanged listener and the IdList's `ctx.rebuild` (an add, a
@@ -651,7 +650,7 @@ local function refreshAuctionTable(ctx)
   if not rows then return end
   local hf = ctx._priHost
   local priority = NS.AuctionPrice:ReconcilePriority()
-  local capture = NS.db.global.settings.auction.capture or {}
+  local capture = NS.db.profile.settings.auction.capture or {}
 
   local collecting, notCollecting, notInstalled = {}, {}, {}
   for _, tag in ipairs(priority) do
@@ -975,9 +974,10 @@ end
 -- after a structural refresh marked it dirty while hidden. Every one starts by releasing the
 -- previous render's children, because a renderer the library may re-run must be idempotent.
 
--- No banner (options-ui-§14): this addon is account-wide — every path resolves against db.global
--- and there is no profile, no per-window state and nothing for a banner to be a picker FOR. It
--- draws no page-header block either: nothing on this page applies to every tab.
+-- No banner (options-ui-§14): the page edits ONE thing, the active profile, and the profile is
+-- chosen on the Profiles page (settings/Profiles.lua), as in every Ka0s addon with profiles; there
+-- is no per-window or per-unit state for a banner to be a picker FOR. It draws no page-header block
+-- either: nothing on this page applies to every tab.
 local function renderGeneral(ctx)
   -- FIRST, before ClearScroll and before the first widget of the new pass exists. The reorder
   -- controller's handles and boxes are pooled and are parented to frames ClearScroll is about to
@@ -1048,26 +1048,12 @@ end
 
 --- The General page's Defaults button — page-wide, and the page is the whole panel now
 --- (options-ui-§13: a per-page Defaults button's blast radius MUST NOT narrow to the visible tab).
---- It therefore covers what the Filters and AH Price pages' own Defaults buttons used to:
----
----   * every schema row plus the three id-lists          — Slash:CliResetAll
----   * the auction cascade, a carve-out array with no schema row that the walk cannot see
----
---- It does NOT recenter the window any more. That was folded in here when there was nowhere else to
---- put it; "Reset position" is a real button on the Master controls tab now, and a player asking for
---- defaults no longer gets their window moved as a side effect (options-ui-§12/§15).
+--- It is options-ui-§12's ONE global reset, the act `/lh resetall` and Reset all settings reach:
+--- Sl:CliResetAll, the active profile back to its defaults. The profile holds every schema row,
+--- the three id-lists, the auction cascade, the saved view and the window geometry, so nothing is
+--- left for a second walk here, and O.RestoreAllDefaults re-renders every panel itself.
 function P:RestoreDefaults()
   if NS.Slash and NS.Slash.CliResetAll then NS.Slash:CliResetAll() end
-  -- Clear-and-refill the SAME table so the price table's closures see the new contents.
-  if NS.AuctionPrice and NS.AuctionPrice.GetPriority then
-    local p = NS.AuctionPrice:GetPriority()
-    for i = #p, 1, -1 do p[i] = nil end
-    for i, tag in ipairs(NS.Constants.AUCTION_PRIORITY_DEFAULT) do p[i] = tag end
-  end
-  P:Refresh()
-  -- Structural as well as scalar: the price table repaints off the cascade, and the id-lists off
-  -- their rebuilders, neither of which a refresher sweep touches.
-  if P.general then O.RefreshPanel(P.general, true) end
 end
 
 -- ── Registration ────────────────────────────────────────────────────────────────
@@ -1083,8 +1069,9 @@ function P:Register()
           and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
-  -- ONE sub-page. Filters and AH Price were sub-pages of their own until R6 folded them into
-  -- General's strip; their bodies are unchanged and their two registrations are gone.
+  -- TWO sub-pages: General, then Profiles. Filters and AH Price were sub-pages of their own until R6
+  -- folded them into General's strip; their bodies are unchanged and their two registrations are
+  -- gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)
     local ctx = O.CreatePanel(nil, "General", { pageKey = "General", defaultsButton = true })
     P.general = ctx
@@ -1093,6 +1080,12 @@ function P:Register()
     O.SetRenderer(ctx, renderGeneral)
     Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
   end)
+  -- Profiles LAST in the Settings tree (options-ui-§3), registered here rather than at its own file
+  -- load so the order is this function's and not the TOC's. The builder answers nil -- the page
+  -- opts out -- when AceDBOptions or AceConfig is missing.
+  if NS.ProfilesPage then
+    O.RegisterOptionsPage("Profiles", NS.L["Profiles"], NS.ProfilesPage.Build)
+  end
 
   -- Resolves AceGUI, hands it over as NS.AceGUI, registers the main canvas (whose body is the
   -- landing page, drawn on its first OnShow through the descriptor's buildMain) and then runs the

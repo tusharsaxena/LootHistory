@@ -12,16 +12,23 @@ local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-fr
 local O = NS.Options
 
 -- ONE declaration site per shipped value (savedvariables-§2). A row's `default` READS the
--- account-wide declaration in defaults/Global.lua rather than restating the literal — the same move
+-- profile declaration in defaults/Profile.lua rather than restating the literal — the same move
 -- `settings.auction.capture` already makes against core/Constants.lua. Two literals for one value is
 -- exactly how the AH cascade drifted (LH-R-01); tests/test_schema.lua's "shipped default equals the
 -- schema's declared default" case can only catch a drift while two things exist to compare, and it
--- now has nothing to diverge from on these rows. defaults/Global.lua loads before this file
+-- now has nothing to diverge from on these rows. defaults/Profile.lua loads before this file
 -- (LootHistory.toc), and every value read here is a scalar, so no row aliases the shipped table.
-local G = NS.defaults.global
+local PD = NS.defaults.profile
+-- The account-wide declarations (defaults/Global.lua, which loads before defaults/Profile.lua): read
+-- for the one setting that lives there, `retentionDays` (D6).
+local GD = NS.defaults.global
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
--- Paths resolve against NS.db.global (account-wide), not .profile.
+-- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Two stored rows live outside it, in
+-- the global store, and each owns its storage through its own get/set: the Master controls'
+-- `minimap.shown` (the LibDBIcon table, launcher-§3) and the History tab's `settings.retentionDays`
+-- (`global.retentionDays`, owner decision D6: the setting that governs recorded data stays
+-- account-wide, so no profile event can change what the prune deletes).
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
 -- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
@@ -61,7 +68,7 @@ local G = NS.defaults.global
 -- window (modules/Browser.lua) and the export modal (modules/Export.lua) -- so every frame-only
 -- row applies and none may be omitted.
 --
--- `defaults` is passed for the same reason every row below reads `G.<path>`: ONE declaration site
+-- `defaults` is passed for the same reason every row below reads `PD.<path>`: ONE declaration site
 -- per shipped value (savedvariables-§2). Without it the composer's own literals would be a second
 -- copy of five defaults, and tests/test_schema.lua's shipped-equals-declared case would have
 -- nothing left to compare.
@@ -77,8 +84,9 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
   -- two session paths above -- but for a different reason: those live outside the store entirely,
   -- and this one lives in the GLOBAL store, which is where launcher-§3 fixes LibDBIcon's own table.
-  -- This addon has no profile at all, so the verbatim path sits beside `settings.` rather than
-  -- under it, and the `settings.` prefix above must not reach it.
+  -- Every other row lives in the profile under `settings.`; this one sits beside that prefix rather
+  -- than under it, and the prefix above must not reach it, because a profile switch must not move
+  -- or hide a player's minimap button.
   --
   -- THE ROW PATH IS `minimap.shown`; THE ONE STORED KEY IS `minimap.hide` (launcher-§3, standard
   -- v2.65.0). The CLI path reads in the row's own sense -- `/lh get minimap.shown` answers whether
@@ -93,12 +101,12 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- `Minimap` subheading. Same stored key, same table, opposite sense, canonical position.
   minimapPath      = "minimap.shown",
   defaults = {
-    enabled    = G.settings.enabled,
-    visibility = G.settings.visibility,
-    scale      = G.settings.scale,
-    alpha      = G.settings.alpha,
-    locked     = G.settings.locked,
-    -- Session-only, so there is nothing in defaults/Global.lua to read it from: the console is
+    enabled    = PD.settings.enabled,
+    visibility = PD.settings.visibility,
+    scale      = PD.settings.scale,
+    alpha      = PD.settings.alpha,
+    locked     = PD.settings.locked,
+    -- Session-only, so there is nothing in defaults/Profile.lua to read it from: the console is
     -- closed at every load and "closed" is `false`. Declared all the same, because a row with no
     -- default is a row `/lh reset` cannot restore and a `Schema:Default` that answers nil.
     debugConsole = false,
@@ -112,15 +120,14 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   onResetPosition = function()
     if NS.Browser and NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
   end,
-  -- options-ui-§12's global reset, verbatim: the confirm-gated total reset this addon already
-  -- shipped as the Maintenance tab's "Reset Everything" button. Same popup, same wording, same
-  -- blast radius -- only the label and the tab moved, and both moved because the standard names
-  -- them.
+  -- options-ui-§12's global reset: confirm first, then the ONE reset act the Defaults button and
+  -- `/lh resetall` reach too (Sl:CliResetAll, settings/Slash.lua) -- the active profile back to its
+  -- defaults. The loot history is account-wide and outside it; `/lh purge` is its own act.
   onResetAll = function()
     if type(StaticPopup_Show) == "function" then
       StaticPopup_Show("KA0S_LOOTHISTORY_RESETALL")
-    elseif NS.Slash and NS.Slash.ResetEverything then
-      NS.Slash:ResetEverything()
+    elseif NS.Slash and NS.Slash.CliResetAll then
+      NS.Slash:CliResetAll()
     end
   end,
 }
@@ -193,7 +200,7 @@ stamp(MASTER_ROWS, {
   },
   -- Session-only (never persisted): its value is the debug console WINDOW's visibility, not the
   -- NS.State.debug logging flag. get/set route to NS.DebugLog (Show/Hide/IsShown); Schema:Set skips
-  -- the db.global write for sessionOnly rows. Mirrors `/lh debug` (no-arg), which toggles the
+  -- the store write for sessionOnly rows. Mirrors `/lh debug` (no-arg), which toggles the
   -- window too. The composer declares the row and marks it sessionOnly; WHERE the value lives is
   -- this addon's, so the two accessors are stamped here.
   ["state.debugConsole"] = {
@@ -269,14 +276,14 @@ local ROWS = {
   -- Row order drives the two-column panel pairing, so declaration order IS the layout: the quality
   -- gate pairs with "Record currency" on the first line, "Exclude quest items" opens the second,
   -- and the wide source picker lands under both from `afterGroup`.
-  { path = "settings.qualityThreshold", default = G.settings.qualityThreshold, type = "number", widget = "Dropdown",
+  { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
     page = "General", group = "Capture", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Only record items at or above this quality.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "quality") end
     end },
 
-  { path = "settings.recordCurrency", default = G.settings.recordCurrency, type = "bool", widget = "CheckBox",
+  { path = "settings.recordCurrency", default = PD.settings.recordCurrency, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", label = "Record currency",
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
@@ -284,7 +291,7 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
     end },
 
-  { path = "settings.excludeQuestItems", default = G.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
+  { path = "settings.excludeQuestItems", default = PD.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
@@ -310,7 +317,7 @@ local ROWS = {
   -- The tab mixes a plain toggle with an eleven-row reorder table, so it carries SUBSECTION
   -- headings (options-ui-§7): both are declared by a row, never drawn by the builder, which is
   -- what keeps the tab list derivable from `group` alone.
-  { path = "settings.auction.enabled", default = G.settings.auction.enabled, type = "bool",
+  { path = "settings.auction.enabled", default = PD.settings.auction.enabled, type = "bool",
     widget = "CheckBox",
     page = "General", group = "AH Price", subgroup = "Pricing", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
@@ -341,7 +348,7 @@ local ROWS = {
   -- launcher-§3 and options-ui-§15 put it, so what is left is two rows of ONE subject -- and a lone
   -- `Window` heading over a tab whose every row is about the window repeats the tab's own name,
   -- which §7 forbids in as many words.
-  { path = "settings.windowScale", default = G.settings.windowScale, type = "number",
+  { path = "settings.windowScale", default = PD.settings.windowScale, type = "number",
     min = 0.6, max = 1.6, step = 0.05, widget = "Slider",
     -- `step` is not decoration. `SetSliderValues(min, max, row.step or 1)` means a row with no
     -- step declares a step of ONE — on a 0.6..1.6 range that is a slider a player can only drag
@@ -358,7 +365,7 @@ local ROWS = {
   -- replaced, so a player who never touches it sees the table drawn exactly as it always was.
   -- Clamped on read (BrowserTable.rowHeight), because this arrives from SavedVariables and a
   -- hand-edited 400 is a table with one row on it rather than an error.
-  { path = "settings.rowHeight", default = G.settings.rowHeight, type = "number",
+  { path = "settings.rowHeight", default = PD.settings.rowHeight, type = "number",
     min = 14, max = 28, step = 1, widget = "Slider",
     fmt = "%dpx",
     page = "General", group = "Interface", label = "Row height",
@@ -376,9 +383,26 @@ local ROWS = {
   -- no path, which no partition test can count. tests/test_schema.lua exempts it BY NAME.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
   -- button now, which is where options-ui-§15 puts the global reset.)
-  { path = "settings.retentionDays", default = G.settings.retentionDays, type = "number", widget = "Dropdown",
+  --
+  -- ACCOUNT-WIDE, NOT PER PROFILE (owner decision D6). The history this prunes is shared by every
+  -- profile, so the window it is kept for is too: the row's own get/set read and write
+  -- `NS.db.global.retentionDays`, and a profile switch, copy or reset never moves it. The CLI path
+  -- keeps its `settings.` name, so `/lh set settings.retentionDays <n>` reads as it always did;
+  -- S.RESET_EXEMPT maps it to the stored key, and Register's defaults check skips it (it owns its
+  -- storage, like `minimap.shown`).
+  { path = "settings.retentionDays", default = GD.retentionDays, type = "number", widget = "Dropdown",
     page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
-    tooltip = "Automatically drop records older than this. 'Never' keeps everything.",
+    tooltip = "Automatically drop records older than this. 'Never' keeps everything. "
+      .. "Account-wide: one setting for every profile, and switching, copying or resetting a "
+      .. "profile never changes it.",
+    get = function()
+      local g = NS.db and NS.db.global
+      return g and g.retentionDays
+    end,
+    set = function(days)
+      local g = NS.db and NS.db.global
+      if g then g.retentionDays = days end
+    end,
     -- Confirm-gated when it would delete anything: S:OnRetentionChanged, below.
     onChange = function(value) S:OnRetentionChanged(value) end },
 }
@@ -395,7 +419,7 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 -- NOTE: the debug LOGGING flag (NS.State.debug) is NOT a schema setting — session-only, set via
 -- `/lh debug on|off`, always off after a reload. The debug CONSOLE WINDOW's visibility IS the
 -- `state.debugConsole` row above: a session-only schema row (rendered in the panel, driven through
--- Schema:Get/Set) whose value lives in the DebugLog window state and is never written to db.global.
+-- Schema:Get/Set) whose value lives in the DebugLog window state and is never written to the profile.
 
 -- ── The seam: LibKa0s-Schema-1.0 (architecture-§5, debug-logging-§10) ──────────────────────────
 --
@@ -408,7 +432,7 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 --
 -- THE ORDER OF ONE WRITE is the library's contract, and it is the order this seam always had:
 -- refuse an unknown path; validate; store (a row's own `set` with the value as given; nothing for
--- a bare sessionOnly row; otherwise a deep COPY at the path under db.global, so a reset can never
+-- a bare sessionOnly row; otherwise a deep COPY at the path under db.profile, so a reset can never
 -- alias the shared default table); inside a bracket, tally; outside one, the `[Set] <path> =
 -- <value>` line; then the row's onChange. No `format` is handed over, so the line prints
 -- `tostring(value)` exactly as it did, and no `announce`: each row's onChange sends its own
@@ -425,34 +449,35 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 --- The minimap button's visibility is a PER-INSTALLATION DISPLAY PREFERENCE, in the same class
 --- as the button POSITION LibDBIcon keeps in the very same table -- not a configuration value a
 --- reset is meant to walk back. Nobody has ever wanted *reset my settings* to mean *and put the button back on my
---- minimap*. §3 used to DERIVE that from scope (the table is global, *Reset all settings* is a
---- profile reset), and the derivation does not survive contact with THIS addon, twice over:
----
----   * this addon HAS NO PROFILE. Everything it stores is `db.global`, so the reset the rule
----     pointed at is the wholesale `wipeGlobal` in settings/Slash.lua -- which merges
----     `defaults/Global.lua`'s `minimap = { hide = false }` straight back over a hidden button.
----   * the General page's own **Defaults** button routes to `P:RestoreDefaults` ->
----     `Sl:CliResetAll` -> the library's row walk (settings/Panel.lua), which hands EVERY schema
----     row to `applyDefault`. It reached this row whatever the scope argument said.
----
---- So the exemption is stated as a PROPERTY, and both resets honor it: the seam's ApplyDefault
---- skips the row while a bulk bracket is open (the descriptor's `resetExempt` below), and
---- `wipeGlobal` carries the stored value across its wipe. ONE table, read by both: a single
---- `/lh reset minimap.shown` opens no bracket, so the player naming the row still resets it.
+--- minimap*. Its table is GLOBAL (defaults/Global.lua), so *Reset all settings* -- a profile reset
+--- -- cannot reach it by construction. The exemption is still stated as a PROPERTY rather than left
+--- to that derivation, because a reset that is not the profile reset can reach the row: the seam's
+--- ApplyDefault skips it while any bulk bracket is open (the descriptor's `resetExempt` below), and
+--- S.ResetProfile leaves it out of the reset's row count. A single `/lh reset minimap.shown` opens
+--- no bracket, so the player naming the row still resets it.
 ---
 --- A MAP FROM ROW PATH TO STORED PATH (launcher-§3, standard v2.65.0). The row is `minimap.shown`
---- and the one stored key is `minimap.hide`, so the two resets read opposite sides: the KEYS are
---- what the library's `resetExempt` veto and traceSettingsReset test a row's path against, and the
---- VALUES are what wipeGlobal's raw read and write-back carry. No `shown` key is ever stored.
-S.RESET_EXEMPT = { ["minimap.shown"] = "minimap.hide" }
+--- and the one stored key is `minimap.hide`: the KEYS are what the library's `resetExempt` veto and
+--- S.ResetProfile's count test a row's path against, and the VALUE names the one key LibDBIcon
+--- stores. No `shown` key is ever stored.
+---
+--- `settings.retentionDays` is the second entry, for the same structural reason (owner decision
+--- D6): it is stored at `global.retentionDays`, outside every profile, so the profile reset cannot
+--- reach it, no sweep may either, and S.ResetProfile's count leaves it out. A reset that changed
+--- it would change what the prune deletes from the shared history. `/lh reset
+--- settings.retentionDays` still resets it, through the same confirm as any change.
+S.RESET_EXEMPT = {
+  ["minimap.shown"]         = "minimap.hide",
+  ["settings.retentionDays"] = "retentionDays",
+}
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
 --
 -- WRITE-COMPLETING AND LOG-SILENT (LibKa0s docs/api/Schema/version-2-docs.md, "The degradation
 -- stub"; this stub mirrors Schema minor 2). This major is reached by the feature runtime (core/LifecycleSetup.lua's enable switch,
--- BrowserTable's row height) and by host writers that need no other major (Reset all settings'
--- wipe, below in settings/Slash.lua). So without the library, reads, writes, the row's reaction and
--- the sweep veto all still work. The [Set] line and the bracket's tally are not reproduced, because
+-- BrowserTable's row height) and by host writers that need no other major (the library-less
+-- `/lh resetall`, which runs S.ResetProfile below). So without the library, reads, writes, the
+-- row's reaction and the sweep veto all still work. The [Set] line and the bracket's tally are not reproduced, because
 -- the degraded DebugLog stub discards every line they would feed.
 --
 -- Minor 2's three additions, as the library has them:
@@ -647,7 +672,7 @@ local function hostSchemaStub()
             resolved = resolved + 1
           else
             missing = missing + 1
-            say("schema path does not resolve against defaults/Global.lua: " .. row.path)
+            say("schema path does not resolve against defaults/Profile.lua: " .. row.path)
           end
         end
       end
@@ -666,9 +691,10 @@ NS.SchemaLib = SchemaLib
 local R = SchemaLib:New{
   -- Held by reference, never copied: the Options and Slash descriptors walk this same array.
   rows         = S.Schema,
-  -- Every stored path in this addon lives in the ACCOUNT-WIDE store; there is no profile. Answers
-  -- `nil, 1` before InitDB, which the seam reads as "nowhere, now" and refuses rather than raising.
-  resolveRoot  = function() return NS.db and NS.db.global, 1 end,
+  -- Every stored row resolves against the ACTIVE PROFILE, read at call time so a switch retargets
+  -- the next read and write. Answers `nil, 1` before InitDB, which the seam reads as "nowhere, now"
+  -- and refuses rather than raising.
+  resolveRoot  = function() return NS.db and NS.db.profile, 1 end,
   -- Late-bound, so the sink core/DebugLogSetup.lua publishes (and a suite's stand-in) is the one
   -- called, and asked BEFORE a line is formatted, exactly as the old seam's guard was.
   debug        = function(tag, fmt, ...) if NS.Debug then NS.Debug(tag, fmt, ...) end end,
@@ -702,12 +728,28 @@ function S:ApplyDefault(row) return R.ApplyDefault(row) end
 S.BulkBegin = R.BulkBegin
 S.BulkEnd   = R.BulkEnd
 
--- The path primitives, for the one host caller that must go under the seam: Reset all settings'
--- wipe (settings/Slash.lua) carries the exempt row's raw stored value across `wipeGlobal`.
-function S:ReadPath(root, path) return SchemaLib.Read(root, path) end
-function S:WritePath(root, path, value) SchemaLib.Write(root, path, value) end
---- Stored-value equality, read by Sl:ResetEverything's settings-reset count.
-S.SameValue = SchemaLib.SameValue
+--- The global reset's row veto (options-ui-§3, §12), named ONCE and shared by the Options
+--- descriptor's `skipRestoreAll` (settings/OptionsSetup.lua) and the library-less `/lh resetall`'s
+--- own loop (settings/Slash.lua). The profile reset below takes every stored row whole, so the row
+--- walk keeps only the session-only rows, whose storage is their own `set()`; and nothing on the
+--- Profiles page is ever a reset's to touch, because resetting it deletes profiles.
+function S.VetoedFromResetAll(row)
+  return not row.sessionOnly or row.page == "Profiles"
+end
+
+--- options-ui-§12's global reset, the act itself: the ACTIVE PROFILE back to its defaults, through
+--- `db:ResetProfile()` and never a second walk of the schema. The Options descriptor's
+--- `resetProfile` (settings/OptionsSetup.lua) and the library-less `/lh resetall`
+--- (settings/Slash.lua) both call it. Counted through the runtime's ResetCounted, so the profile
+--- event's one `[Set]` line carries N: the stored rows off their default just before the reset.
+--- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3) and the retention
+--- (D6) -- because their storage is global and the reset cannot move them.
+function S.ResetProfile()
+  local db = NS.db
+  if not (db and db.ResetProfile) then return end
+  R.ResetCounted(function() db:ResetProfile() end,
+    function(row) return not S.RESET_EXEMPT[row.path] end)
+end
 
 -- ── Keep history for: confirm before a shorter retention deletes (LootHistory-R-04) ──────────
 --
@@ -719,9 +761,11 @@ S.SameValue = SchemaLib.SameValue
 -- StaticPopup_Show (headless) it prunes at once, as it always did.
 --
 -- `confirmedRetention` is the stored value the player last agreed to: seeded from the store by
--- SyncRetention (addon:OnInitialize, and Sl:ResetEverything, whose raw wipe fires no onChange),
--- and moved only by a change that deleted nothing or a confirm that was accepted. `restoring`
--- keeps the decline's own write-back from raising a second confirm.
+-- SyncRetention (addon:OnInitialize), and moved only by a change that deleted nothing or a confirm
+-- that was accepted. The store is `global.retentionDays`, outside every profile (D6), so a profile
+-- the addon adopts (a switch, a copy or a reset) brings no retention of its own: the adopt path has
+-- nothing to confirm and never prunes. `restoring` keeps the decline's own write-back from raising
+-- a second confirm.
 local confirmedRetention, restoring = nil, false
 
 local function retentionLabel(days)
@@ -731,10 +775,27 @@ local function retentionLabel(days)
   return tostring(days) .. " days"
 end
 
+--- The stored retention: account-wide, outside every profile (D6).
+local function storedRetention()
+  local g = NS.db and NS.db.global
+  return g and g.retentionDays
+end
+
 --- Seed the confirmed retention from the store. Call after anything that writes the row raw.
 function S:SyncRetention()
-  local s = NS.db and NS.db.global and NS.db.global.settings
-  confirmedRetention = s and s.retentionDays
+  confirmedRetention = storedRetention()
+end
+
+--- The settings half of the profile adopt path (NS.OnProfileEvent, core/LootHistory.lua): ONE
+--- SettingsChanged("profile") for every reactor that already follows a settings write -- the
+--- Collector's gates and id lists, the Browser's chrome and visibility. Sent from HERE because this
+--- module is the message's one sender (architecture-§4).
+---
+--- NO RETENTION STEP, and that is D6 rather than an omission: the retention is account-wide, so a
+--- switch, a copy or a reset leaves it exactly where it was, and nothing on this path counts,
+--- confirms or prunes the history.
+function S:AdoptProfile()
+  if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "profile") end
 end
 
 --- The row's onChange. Prunes only once the player has confirmed, or when nothing can ask.
@@ -764,14 +825,14 @@ end
 --- one through the write seam and says so in one line.
 function S:ConfirmRetention(days, accepted)
   if accepted then
-    local s = NS.db and NS.db.global and NS.db.global.settings
-    if s and s.retentionDays ~= days then writeRetentionQuietly(days) end
+    local stored = storedRetention()
+    if stored ~= nil and stored ~= days then writeRetentionQuietly(days) end
     if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     confirmedRetention = days
     return
   end
   local keep = confirmedRetention
-  if keep == nil then keep = G.settings.retentionDays end
+  if keep == nil then keep = GD.retentionDays end
   writeRetentionQuietly(keep)
   NS.Format("retention kept at %s; no records were deleted.", retentionLabel(keep))
 end
@@ -787,13 +848,14 @@ local VALIDATE_TYPES = { bool = true, number = true, string = true, color = true
 -- PATH resolves; only the path is what AceDB and the seam walk, so a typo'd path is reported whether
 -- or not the row carries a default.
 function S:Register()
-  local g = NS.defaults and NS.defaults.global
-  -- defaults/Global.lua loads before this file (LootHistory.toc), so `g` is present in any loaded
+  local g = NS.defaults and NS.defaults.profile
+  -- defaults/Profile.lua loads before this file (LootHistory.toc), so `g` is present in any loaded
   -- client; there is nothing to validate against when it is not.
   if not g then return 0 end
   -- A row carrying BOTH its own get and set owns its storage, so there is no defaults entry at its
   -- path to find: `minimap.shown` reads and writes LibDBIcon's `minimap.hide`, and no `shown` key is
-  -- declared or stored (launcher-§3, anti-pattern #81). Answering nil makes the library's
+  -- declared or stored (launcher-§3, anti-pattern #81); `settings.retentionDays` reads and writes
+  -- `global.retentionDays`, declared in defaults/Global.lua (D6). Answering nil makes the library's
   -- resolvesInDefaults answer nil too -- neither resolved nor missing -- and the stub skips it alike.
   local errors, _, missing = R.Validate{
     types = VALIDATE_TYPES,
@@ -849,18 +911,26 @@ end
 -- `diagnostics` (debug-logging-§14) is listed ahead of its registration for the same reason, and
 -- because a disabled addon is exactly the one a player is most likely to be reporting.
 --
+-- `profile` is the one HOST verb on the set (LibKa0s Slash minor 17). It is not reserved and not in
+-- `lib.LIVE_VERBS`, so the descriptor passes `lib.LIVE_VERBS` plus `profile` as its `liveVerbs`
+-- (settings/Slash.lua) and this set names it beside the thirteen. It reads and switches settings
+-- rather than driving a feature, and `settings.enabled` is profile-scoped: the profile a disabled
+-- player switches to may be the one where the addon is on.
+--
 -- Everything NOT in the set is a feature verb — show/hide/toggle/test/purge, which draw, preview
 -- and destroy — and answers one tagged line naming `/lh enable`, having done nothing else.
 --
--- THE SET IS THE LIBRARY'S OWN, byte for byte: `lib.LIVE_VERBS` at Slash minor 16 is these thirteen.
+-- THE SET IS THE LIBRARY'S OWN PLUS `profile`: `lib.LIVE_VERBS` at Slash minor 17 is the thirteen.
 -- It is restated here rather than read off the library because this table is built at FILE LOAD,
 -- before settings/Slash.lua has resolved anything, and because the wrapper below has to gate the
 -- LIBRARY-LESS dispatcher too — the one install where there is no `lib.LIVE_VERBS` to ask.
--- tests/test_disabled.lua asserts the two agree, so the restatement cannot drift.
+-- tests/test_disabled.lua asserts the two agree and that `profile` answers while disabled, so the
+-- restatement cannot drift.
 local LIVE_WHILE_DISABLED = {
   help = true, config = true, version = true, enable = true, disable = true,
   debug = true, perf = true, diagnostics = true,
   get = true, set = true, list = true, reset = true, resetall = true,
+  profile = true,
 }
 
 --- The STORED enable path, and deliberately not `NS.IsStoodDown` — a perf capture is a reason to be
@@ -925,6 +995,12 @@ NS.COMMANDS = gateFeatureVerbs{
   { "list",     "List all settings",     function() NS.Slash:CliList() end },
   { "reset",    "Reset one setting",     function(a) NS.Slash:CliReset(a) end },
   { "resetall", "Reset all settings",    function() NS.Slash:CliResetAll() end },
+  -- The profile verb (LibKa0s Slash minor 17): bare lists the profiles, current marked; a name
+  -- switches to an existing profile and never creates one. The behavior is the library's; the
+  -- store is NS.db (the descriptor's `profiles`), and the switch's one log line is the adopt path's
+  -- (NS.OnProfileEvent, core/LootHistory.lua). Live while disabled, per LIVE_WHILE_DISABLED above.
+  { "profile",  NS.L["List profiles, or switch to one: profile <name>"],
+    function(rest) NS.Slash:CliProfile(rest) end },
   { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
     function(rest)
       -- `/lh debug diagnostics` is tested FIRST (debug-logging-§14): the same report as the

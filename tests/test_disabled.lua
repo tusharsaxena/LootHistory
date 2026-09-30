@@ -312,6 +312,13 @@ local RESERVED = {
   "get", "set", "list", "reset", "resetall",
 }
 
+--- The host verbs this addon keeps live besides the reserved set: its descriptor passes
+--- `lib.LIVE_VERBS` plus these as `liveVerbs`, and settings/Schema.lua's LIVE_WHILE_DISABLED names
+--- them too. `profile` (LibKa0s Slash minor 17) is a host verb, not a reserved one, so it is not in
+--- the library's thirteen; a disabled addon still lists and switches profiles, because the profile
+--- it switches to may be the one where the addon is on.
+local HOST_LIVE = { "profile" }
+
 --- The addon's own FEATURE verbs — the ones §2's SHOULD refuses. This addon takes that SHOULD, so
 --- the suite pins the choice and it cannot drift silently.
 local FEATURE = { "show", "hide", "toggle", "test", "purge" }
@@ -326,7 +333,7 @@ local function capture(fn)
   return out
 end
 
-test("slash-commands-§7 step 7: every RESERVED verb still answers, and the bare /lh opens the panel",
+test("slash-commands-§7 step 7: every RESERVED verb and /lh profile still answer, and the bare /lh opens the panel",
   function()
     -- STEP 7 IS NOT THE STAND-DOWN — steps 1-6 are, and a green step 7 says nothing about whether
     -- the addon is inert. What it says is that the addon is still REACHABLE: a player has to be
@@ -343,7 +350,13 @@ test("slash-commands-§7 step 7: every RESERVED verb still answers, and the bare
     for k, v in pairs(NS.db.global) do saved[k] = v end
 
     local ok, err = pcall(function()
-      for _, verb in ipairs(RESERVED) do
+      local live = {}
+      for _, verb in ipairs(RESERVED) do live[#live + 1] = verb end
+      for _, verb in ipairs(HOST_LIVE) do
+        assertTrue(byName[verb], "/lh " .. verb .. " is a COMMANDS row")
+        live[#live + 1] = verb
+      end
+      for _, verb in ipairs(live) do
         if byName[verb] then
           -- Re-asserted per verb, because `enable` in this very list turns the addon back on.
           setEnabled(false)
@@ -368,6 +381,28 @@ test("slash-commands-§7 step 7: every RESERVED verb still answers, and the bare
     if not ok then error(err, 0) end
     setEnabled(true)
   end)
+
+test("slash-commands-§7 step 7: /lh profile switches while disabled, and a profile where the addon is on brings it up", function()
+  -- `settings.enabled` is profile-scoped, so the way back in may be a profile rather than a verb.
+  -- red under: `profile` missing from the descriptor's liveVerbs or from LIVE_WHILE_DISABLED
+  -- (either gate would answer the refusal line and switch nothing).
+  bringUp()
+  local db = NS.db
+  db:SetProfile("On")
+  db:SetProfile("Default")
+  setEnabled(false)
+  local ok, err = pcall(function()
+    local out = capture(function() NS.Slash:OnSlash("profile On") end)
+    assertEqual(table.concat(out, " | "), NS.PREFIX .. " Switched to profile 'On'.")
+    assertEqual(db:GetCurrentProfile(), "On")
+    assertTrue(not NS.AddonIsOff(), "the new profile's switch is on")
+    assertTrue(not NS.Lifecycle:IsHeld(NS.HOLD_DISABLED), "and the latch released the disabled hold")
+  end)
+  if db:GetCurrentProfile() ~= "Default" then db:SetProfile("Default") end
+  db:DeleteProfile("On")
+  setEnabled(true)
+  if not ok then error(err, 0) end
+end)
 
 test("slash-commands-§7 step 7: every FEATURE verb refuses on ONE line and reaches no write seam", function()
   -- The other half of step 7, and the addon's answer to §2's SHOULD pinned so it cannot drift. Both
@@ -404,6 +439,10 @@ test("slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the
     assertTrue(libSet[verb] ~= nil, "the library's live set is missing " .. verb)
   end
   assertEqual(#lib.LIVE_VERBS, #RESERVED, "the two sets must be the same thirteen verbs")
+  -- The host's own live verbs widen the set here and are never the library's (Slash minor 17).
+  for _, verb in ipairs(HOST_LIVE) do
+    assertTrue(libSet[verb] == nil, verb .. " is a host verb and must not be on the library's set")
+  end
   for _, verb in ipairs(FEATURE) do
     assertTrue(libSet[verb] == nil, verb .. " is a feature verb and must not be on the live set")
   end

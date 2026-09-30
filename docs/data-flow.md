@@ -26,7 +26,7 @@ for its source, since currency is delivered inside the same loot window. Currenc
 `currencyID` + `itemType = "Currency"` (never an `itemID`), take a slimmer gate (the `recordCurrency`
 master toggle + the per-source mute list; no quality/quest gate), and are stored in the same
 `global.history` array. The gate does check its own **currency blacklist** —
-`global.currencyBlacklist`, a separate id-set from the item blacklist/whitelist — so a
+`profile.currencyBlacklist` (per profile since schema v9), a separate id-set from the item blacklist/whitelist — so a
 currency-blacklisted id is dropped at capture the same way a blacklisted item id is. See
 [schema.md](schema.md) and the currency-capture spec.
 

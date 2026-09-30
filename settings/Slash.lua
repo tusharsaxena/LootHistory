@@ -35,13 +35,14 @@ if type(StaticPopupDialogs) == "table" then
     preferredIndex = 3,
   }
   StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"] = {
-    -- THE COLLECTION'S SECOND CANONICAL WORDING (options-ui-§12), verbatim: the one for an addon
-    -- with no profile. The first one closes with "your other profiles are not affected", which is a
-    -- promise this addon cannot keep -- it has none.
-    text = "Reset this addon to its defaults? Everything you have configured or recorded is discarded, for every character on this account — this cannot be undone.",
+    -- THE COLLECTION'S FIRST CANONICAL WORDING (options-ui-§12), verbatim: the one for an addon
+    -- with a `profile` section. This addon has both scopes, and §12 is explicit about that case:
+    -- the reset is the PROFILE reset, and the account-wide loot history is not settings -- it is
+    -- cleared only by its own separately confirmed act, `/lh purge` (KA0S_LOOTHISTORY_PURGE above).
+    text = "Reset this profile to the addon's defaults? Everything you have configured or added in it is discarded — your other profiles are not affected.",
     button1 = YES or "Yes",
     button2 = NO or "No",
-    OnAccept = function() Sl:ResetEverything() end,
+    OnAccept = function() Sl:CliResetAll() end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
@@ -98,137 +99,13 @@ if type(StaticPopupDialogs) == "table" then
   }
 end
 
--- Full reset (the panel's confirm-gated "Reset Everything" button, NOT the `/lh resetall` verb,
--- which is settings + id-lists only): wipe history AND restore every persisted piece of
--- account state to its stock shape. CliResetAll covers the schema settings + the filter lists; this
--- adds the two view/window carve-outs that the non-destructive resets deliberately leave alone —
--- savedView (back to stock) and the window geometry (recentered) — so "Reset ALL" is truly total.
---- The global reset (options-ui-§12), in the shape that rule takes for an addon with
---- NO PROFILE.
----
---- Everything this addon stores is account-wide: `NS.defaults.global` carries the
---- history, the three filter lists AND the settings, and there is no `profile`
---- section at all (docs/schema.md). `db:ResetProfile()` -- which is what the rule
---- asks of an addon that has one -- would be a no-op here, so the rule translates:
---- empty the account-wide store wholesale and merge the declared defaults back, so
---- what comes back is indistinguishable from a fresh install.
----
---- WIPED IN PLACE, and NOT key by key. `NS.db.global` is held by modules from load,
---- so replacing the table would leave every holder on a stale one. And a
---- hand-written list of keys to clear fails exactly the way a row-by-row schema
---- sweep fails -- one release later, when something new is stored beside the ones
---- the list names -- which is what this function used to be: a purge, a schema
---- walk and a filter-list clear, three enumerations that between them happened to
---- cover the whole table. AceDB ships no `ResetGlobal`, so it is written here.
----
---- The view state lives in `refreshAfterReset` below. It is not stored data: the Browser's
---- sort/filter view and its frame are rebuilt from what is now an empty store.
----
---- Empty `g` in place and merge the declared defaults back. Returns how many recorded
---- history rows the wipe discarded, for the debug trace (debug-logging-§8).
----
---- ONE ROW IS CARRIED ACROSS THE WIPE (launcher-§3, standard v2.54.0). This is the reset the rule
---- says the minimap button's visibility must survive, and before this carve-out it did not: the
---- merge puts `defaults/Global.lua`'s `minimap = { hide = false }` back, so a player who had hidden
---- the button found it on their minimap again after asking for their SETTINGS to be reset. The
---- exempt set is `NS.Schema.RESET_EXEMPT`, declared there and read here, so the two resets cannot
---- disagree about which row it is. It maps ROW path to STORED path (launcher-§3, standard v2.65.0):
---- the row is `minimap.shown`, the one stored key is `minimap.hide`, and no `shown` key is ever
---- stored, so this wipe carries the map's VALUES. Read and written RAW, through ReadPath/WritePath
---- rather than Schema:Get/Set: the value is being put back exactly as it was, and a write through
---- the seam inside this function would fire an onChange and a second [Set] line in a reset that
---- logs exactly one.
-local function wipeGlobal(g)
-  local removed = type(g.history) == "table" and #g.history or 0
-  local S = NS.Schema
-  local kept = {}
-  for _, storedPath in pairs(S.RESET_EXEMPT) do kept[storedPath] = S:ReadPath(g, storedPath) end
-  for k in pairs(g) do g[k] = nil end
-  -- Copied, never merged by reference: a store sharing a table with NS.defaults rewrites the
-  -- declared default on its next write.
-  for k, v in pairs(NS.Util.DeepCopy(NS.defaults.global)) do g[k] = v end
-  for path, v in pairs(kept) do
-    if v ~= nil then S:WritePath(g, path, v) end
-  end
-  return removed
-end
-
---- debug-logging-§10: the wipe replaces every stored setting, and that is logged ONCE, as a [Set]
---- line worded by the act. This addon has no profile, so this is its form of the profile handler's
---- `reset profile '<name>' to defaults (N rows)` (options-ui-§12): wholesale replacement, not a walk
---- through the helper, so the write seam never runs and there is no per-row line to mute. N is the
---- stored rows the wipe actually changes: a row already at its default is not counted, and neither
---- is a session-only row (the console toggle), which lives outside db.global. So it is read BEFORE
---- the wipe, while the old values are still there. Worded apart from the [Data] line's "reset-all"
---- on purpose: that line is the separate debug-logging-§8 trace of the history purge.
-local function traceSettingsReset(g)
-  if not (NS.State and NS.State.debug and NS.Debug) then return end
-  local S, n = NS.Schema, 0
-  for _, row in ipairs(S and S.Schema or {}) do
-    -- Read in the ROW's own sense, not the store's. They are the same for every row but one:
-    -- the row `minimap.shown` says SHOWN while its one stored key, `minimap.hide`, says HIDDEN
-    -- (launcher-§3), and no `shown` key is stored, so a raw ReadPath at the row's path finds nothing
-    -- and the row would be counted on every reset, whether or not the wipe changes it. The
-    -- exemption test below is keyed by that ROW path. `row.get` reads the live `db.global`, which is
-    -- the same table `g` is: wipeGlobal empties it IN PLACE, and this runs before it.
-    local current
-    if row.get then current = row.get() else current = S:ReadPath(g, row.path) end
-    -- An EXEMPT row is carried across the wipe (launcher-§3), so it is never one of the rows the
-    -- act changed and counting it would overstate N by one for every player who hid the button.
-    if not row.sessionOnly and not S.RESET_EXEMPT[row.path]
-       and not S.SameValue(current, row.default) then
-      n = n + 1
-    end
-  end
-  NS.Debug("Set", "reset account-wide settings to defaults (%d rows)", n)
-end
-
---- The post-wipe repaint, lifted out of `Sl:ResetEverything` so that function stays under the
---- complexity ceiling the release gate enforces (`performance-§10`). It is a fan-out of guarded
---- calls and nothing else. Each target is optional because a reset can land before a module has
---- built its frame, and none of them touch stored data: the Browser's sort/filter view and its
---- frame are rebuilt from what is now an empty store.
-local function refreshAfterReset()
-  if NS.Browser then
-    if NS.Browser.ResetView then NS.Browser:ResetView(true) end   -- silent: one line above is enough
-    if NS.Browser.ResetWindow then NS.Browser:ResetWindow() end
-  end
-  -- `minimap` is a new table now; LibDBIcon must be pointed at it or the next drag is lost. The
-  -- call moved out of NS.Browser with the rest of the launcher (core/LauncherSetup.lua).
-  if NS.RefreshLauncher then NS.RefreshLauncher() end
-  if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
-end
-
-function Sl:ResetEverything()
-  local db = NS.db
-  if db and db.global then
-    traceSettingsReset(db.global)
-    local removed = wipeGlobal(db.global)
-    -- The raw wipe fires no onChange, so the confirmed retention is re-read from the store here.
-    if NS.Schema and NS.Schema.SyncRetention then NS.Schema:SyncRetention() end
-    if NS.State.debug and NS.Debug then
-      NS.Debug("Data", "reset-all removed %s rows", tostring(removed))
-    end
-  end
-  -- Test mode is a session-only row, so the wipe above never reaches it, and options-ui-§15 says
-  -- Reset all settings ends it. Switched directly rather than written through Schema:Set, which
-  -- would log a per-row [Set] line inside a reset that logs exactly one.
-  if NS.BrowserTable and NS.BrowserTable.testMode and NS.BrowserTable.SetTestMode then
-    NS.BrowserTable:SetTestMode(false)
-  end
-  if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
-  print("this addon reset to defaults.")
-  refreshAfterReset()
-end
-
-
 -- ── LibKa0s-Slash-1.0 seam ─────────────────────────────────────────────────────────────────────
 --
 -- The dispatcher, the help renderer, the landing rows, the schema CLI and the type-aware value
 -- parser are all the library's now. What stays here is what is genuinely this addon's: the confirm
--- popups above, the total-reset composition above, the chat-command registration, and the two
--- adapters below (`FormatSchemaValue` for the set-valued rows the library has no type for, and the
--- filter-list half of `resetall`).
+-- popups above, the chat-command registration, the adapter below (`FormatSchemaValue` for the
+-- set-valued rows the library has no type for), and `resetall`, which is the profile reset rather
+-- than the library's row walk (options-ui-§12).
 
 local lib = LibStub and LibStub("LibKa0s-Slash-1.0", true)
 
@@ -311,9 +188,13 @@ if not lib then
   -- the debug word reaches the same call), but the report is written into the LibKa0s console, so
   -- on this path it lands on the DebugLog stub, which prints the collection's library-absent line
   -- (debug-logging-§14) and writes nothing. Answering is not working, so help does not offer it.
+  -- `resetall` is NOT here either: it is the profile reset, and AceDB is vendored beside this
+  -- addon rather than inside LibKa0s, so Sl.CliResetAll below runs it in full.
+  -- `profile` IS here: the verb is the library's (Slash minor 17), so on this path its row reaches
+  -- Sl.CliProfile below, which only says the library is missing.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
-    reset = true, resetall = true, help = true, config = true, diagnostics = true,
+    reset = true, help = true, config = true, diagnostics = true, profile = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there
@@ -345,6 +226,14 @@ if not lib then
   end
   Sl.CliList, Sl.CliGet, Sl.CliReset, Sl.CliVersion = unavailable, unavailable,
     unavailable, unavailable
+  --- The profile verb's two members (Slash minor 17), because the live dispatcher has both
+  --- (slash-commands-§1). Route (b): with no library there is no dispatcher to switch through, so
+  --- each prints the collection's library-absent line for `/lh profile` and switches nothing.
+  local function profileUnavailable()
+    NS.Print(NS.L["%s is unavailable: the LibKa0s library did not load."]:format("/lh profile"))
+  end
+  Sl.CliProfile = function() profileUnavailable() end
+  Sl.ProfileSwitch = function() profileUnavailable(); return false end
   --- The enable path only, which is what `/lh enable` and `/lh disable` delegate to. The row-less
   --- write lands through the seam's writeThrough list, which runs no onChange, so the reaction the
   --- Master controls row would have run (the latch, then the bus) is called here by the same name
@@ -358,13 +247,16 @@ if not lib then
     NS.Schema.OnEnabledWritten()
     NS.Print(Sl.FormatKV(path, tostring(NS.Schema:Get(path))))
   end
-  --- The three id lists have one writer that needs no library (NS.Filters), so they ARE reset here,
-  --- and the line says so with the count: a bare "unavailable" would hide that three lists were
-  --- just emptied. The schema rows need the library's walk, which is the second clause.
+  --- options-ui-§12's global reset works on this path too: the act is AceDB's, not the library's.
+  --- The session-only rows are restored first, through the seam as the library's walk does, and
+  --- then S.ResetProfile resets the active profile, whose OnProfileReset reaches the adopt path
+  --- (core/LootHistory.lua). The loot history is account-wide and untouched.
   Sl.CliResetAll = function()
-    local n = NS.Filters and NS.Filters.ClearAll and NS.Filters:ClearAll() or 0
-    NS.Format("filters reset (%d %s cleared); other settings need the LibKa0s library.",
-      n, n == 1 and "id" or "ids")
+    for _, row in ipairs(NS.Schema.Schema) do
+      if not NS.Schema.VetoedFromResetAll(row) then NS.Schema:ApplyDefault(row) end
+    end
+    NS.Schema.ResetProfile()
+    NS.Print("settings reset to defaults.")
   end
   function Sl:OnSlash(input)
     local raw = (input or ""):match("^%s*(.-)%s*$") or ""
@@ -400,6 +292,15 @@ end
 -- trailing colon; identical to what this file used to own, but in the library's UPPER-case hex.
 Sl.FormatKV = lib.FormatKV
 
+--- `lib.LIVE_VERBS` plus the one host verb this addon keeps live while disabled (see `liveVerbs`
+--- below). Copied, so the library's table is never written.
+local function liveVerbs()
+  local verbs = {}
+  for i, verb in ipairs(lib.LIVE_VERBS) do verbs[i] = verb end
+  verbs[#verbs + 1] = "profile"
+  return verbs
+end
+
 local Dispatcher = lib:New({
   slash        = "/lh",
   slashAliases = { "/loothistory" },
@@ -423,19 +324,18 @@ local Dispatcher = lib:New({
   findRow      = function(path) return NS.Schema:FindRow(path) end,
   allRows      = function() return NS.Schema.Schema end,
   -- ONE reset policy, shared with the Options descriptor (settings/OptionsSetup.lua). It carries
-  -- launcher-§3's one-row veto, which is what stops `/lh resetall` AND the General page's Defaults
-  -- button — both of which arrive here, through Sl:CliResetAll — un-hiding the minimap button. A
-  -- single `/lh reset minimap.shown` still resets it: that is the player naming the row, by its
-  -- row path (the stored key underneath stays LibDBIcon's `minimap.hide`).
+  -- launcher-§3's one-row veto for any bulk bracket. `/lh resetall` no longer walks the rows (it is
+  -- the profile reset, Sl:CliResetAll below), so what reaches this is `/lh reset <path>`: a single
+  -- `/lh reset minimap.shown` still resets the button, because that is the player naming the row,
+  -- by its row path (the stored key underneath stays LibDBIcon's `minimap.hide`).
   -- A statement, deliberately, where `set` above returns: since Slash minor 15 an answer of
   -- exactly false makes CliReset print NO_DEFAULT, and the reset-exempt veto is a skip rather
   -- than a missing default. Answering nothing keeps every reset on the echo path.
   applyDefault = function(row) NS.Schema:ApplyDefault(row) end,
 
-  -- Slash minor 8's bulk bracket around CliResetAll's row walk (debug-logging-§10). The seam mutes
-  -- its per-row [Set] line inside it and logs `[Set] reset all: N rows` once at the end. Not handed
-  -- to the Options descriptor: nothing here calls O.RestoreDefaults or O.RestoreAllDefaults (the
-  -- General page's Defaults click and the Blizzard footer both route to P:RestoreDefaults, here).
+  -- Slash minor 8's bulk bracket around the library's CliResetAll row walk (debug-logging-§10). This
+  -- addon's `resetall` does not reach that walk any more (Sl:CliResetAll below), but the bracket is
+  -- the same pair the Options descriptor takes, so a library walk that ever does run is one line.
   bulkBegin    = function(act, scope) NS.Schema.BulkBegin(act, scope) end,
   bulkEnd      = function(...) NS.Schema.BulkEnd(...) end,
 
@@ -454,19 +354,27 @@ local Dispatcher = lib:New({
   -- STORED switch, not the latch: a perf capture is a reason to be inert and never a reason to
   -- refuse a verb.
   --
-  -- NO `liveVerbs`, AND THAT IS DELIBERATE. The library's default at minor 16 is the standard's
-  -- thirteen reserved verbs -- help, config, version, enable, disable, debug, perf, diagnostics,
-  -- get, set, list, reset, resetall -- and the bare `/lh` runs `config` in either state, which opens the panel. An
-  -- earlier pass narrowed that set to `enable` and `help`; the owner tested it, found `/lh` on a
-  -- disabled addon answering a refusal instead of opening the one surface the addon can be
-  -- switched back on from, and reversed it (standard v2.57.0). Passing a narrowed set here would
-  -- re-introduce exactly that, so this addon passes none and takes the library's.
+  -- `liveVerbs` IS THE LIBRARY'S SET PLUS `profile`, and nothing else. `lib.LIVE_VERBS` at minor
+  -- 17 is the standard's thirteen reserved verbs -- help, config, version, enable, disable, debug,
+  -- perf, diagnostics, get, set, list, reset, resetall -- and the bare `/lh` runs `config` in either
+  -- state, which opens the panel. An earlier pass narrowed that set to `enable` and `help`; the
+  -- owner tested it, found `/lh` on a disabled addon answering a refusal instead of opening the one
+  -- surface the addon can be switched back on from, and reversed it (standard v2.57.0). So the set
+  -- is built FROM the library's rather than typed out, and only widened: `profile` is a host verb
+  -- (not reserved, not in LIVE_VERBS), kept live because `settings.enabled` is profile-scoped and
+  -- the profile a disabled player switches to may be the one where the addon is on.
   --
   -- What is left refused is §2's feature-verb SHOULD -- show/hide/toggle/test/purge -- and this
   -- addon gates those at the COMMANDS table (settings/Schema.lua), which is the one seam BOTH its
   -- dispatchers pass through. The two gates print the same string, because both build it here.
   isEnabled = function() return not NS.AddonIsOff() end,
   brandName = NS.BRAND,
+  liveVerbs = liveVerbs(),
+
+  -- The profile verb's store (Slash minor 17), asked at call time: NS.db is built at
+  -- OnInitialize, after this file ran. The library switches through AceDB's SetProfile, whose
+  -- OnProfileChanged reaches the adopt path (core/LootHistory.lua), which logs the one line.
+  profiles = function() return NS.db end,
 })
 
 -- ── the surface the rest of the addon calls ────────────────────────────────────────────────────
@@ -484,6 +392,8 @@ Sl.CliGet         = function(_, rest) return Dispatcher:CliGet(rest)  end
 Sl.CliSet         = function(_, rest) return Dispatcher:CliSet(rest)  end
 Sl.CliReset       = function(_, rest) return Dispatcher:CliReset(rest) end
 Sl.CliVersion     = function()        return Dispatcher:CliVersion()  end
+Sl.CliProfile     = function(_, rest) return Dispatcher:CliProfile(rest) end
+Sl.ProfileSwitch  = function(_, name) return Dispatcher:ProfileSwitch(name) end
 --- The ONE refusal line, from the library, for every surface that prints it: the COMMANDS-table
 --- gate in settings/Schema.lua, the one call site left since Launcher minor 4 (LibKa0s v1.58.0,
 --- launcher-§2) retired the launcher's refused left-click. It never writes the wording itself --
@@ -499,15 +409,23 @@ Sl.DisabledLine   = function()        return Dispatcher:DisabledLine() end
 --- help two files away for no reason anyone recorded. Both now render through lib.FormatRow.
 function Sl:LandingRows() return Dispatcher:LandingRows() end
 
---- Reset every user setting to its default.
+--- The global reset (options-ui-§12): ONE act behind three controls -- `/lh resetall`, the General
+--- page's Defaults button (P:RestoreDefaults) and the Master controls' Reset all settings, whose
+--- confirm (KA0S_LOOTHISTORY_RESETALL above) calls this on Yes.
 ---
---- Wraps rather than re-exports, because the three id filter lists carry no schema row (they are
---- an architecture-§5 structural registry, written only through NS.Filters), so the library's
---- row walk cannot see them. Cleared FIRST so the library's acknowledgment is the last line
---- printed and reads as the summary of everything that happened.
+--- The act is the library's O.RestoreAllDefaults over a descriptor that supplies `resetProfile`
+--- (settings/OptionsSetup.lua): the session-only rows -- the debug console and test mode -- are
+--- restored row by row, then `db:ResetProfile()` empties the active profile, and every panel
+--- refreshes. The profile holds every setting, the three id lists, the AH cascade, the saved view
+--- and the window geometry, so all of them come back as a fresh profile has them; no other profile
+--- and not the profile list is touched. The loot history is account-wide and never reached:
+--- clearing it is `/lh purge`, a separately confirmed act.
+---
+--- Not the library's own CliResetAll, whose row walk is the shape §12 forbids for an AceDB host.
+--- The acknowledgment is the library's string, so the line reads as it always did.
 function Sl:CliResetAll()
-  if NS.Filters and NS.Filters.ClearAll then NS.Filters:ClearAll() end
-  Dispatcher:CliResetAll()
+  NS.Options.RestoreAllDefaults()
+  NS.Print(Dispatcher:Text("RESET_ALL"))
 end
 
 function Sl:Register()

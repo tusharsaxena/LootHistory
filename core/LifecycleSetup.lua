@@ -173,7 +173,7 @@ end
 --- checkbox and this can never answer from two places. Guarded because the table exists only after
 --- NS:InitDB, and a read before that is not a disabled addon -- it is an unbuilt one.
 function NS.AddonIsOff()
-  if not (NS.db and NS.db.global and NS.Schema) then return false end
+  if not (NS.db and NS.db.profile and NS.Schema) then return false end
   return NS.Schema:Get("settings.enabled") == false
 end
 
@@ -184,18 +184,16 @@ function NS.OnEnabledChanged()
   NS.Lifecycle:Set(NS.HOLD_DISABLED, NS.AddonIsOff())
 end
 
---- AceDB's profile callbacks can flip the stored path with no verb and no checkbox touched, so the
---- latch re-reads it and re-evaluates. This addon stores everything in `global` and declares no
---- `profile` section at all (docs/schema.md), so the callbacks are a belt slash-commands-§7 asks
---- for rather than a live path here -- but they are the cheap half of "a profile switch can flip
---- `enabled`", and an addon that grows a profile later inherits the wiring rather than the bug.
+--- AceDB's three profile callbacks, all onto ONE adopt path (NS.OnProfileEvent, core/LootHistory.lua).
+--- `settings.enabled` is profile-scoped, so a switch, a copy or a reset can flip the stored path
+--- with no verb and no checkbox touched; the adopt path re-reads it into the latch first, then
+--- re-applies every other setting. A disabled addon KEEPS these registrations (slash-commands-§7):
+--- switching to a profile where the addon is on is one of the ways it comes back up.
 function NS.BindLifecycle()
   local db = NS.db
   if not (db and db.RegisterCallback) then return false end
-  local function onProfile()
-    NS.Lifecycle:Set(NS.HOLD_DISABLED, NS.AddonIsOff())
-    NS.Lifecycle:Reevaluate()
-  end
+  -- AceDB hands (event, db, key): the profile switched TO, the SOURCE of a copy, nothing on a reset.
+  local function onProfile(event, _, key) NS.OnProfileEvent(event, key) end
   db.RegisterCallback(NS, "OnProfileChanged", onProfile)
   db.RegisterCallback(NS, "OnProfileCopied",  onProfile)
   db.RegisterCallback(NS, "OnProfileReset",   onProfile)

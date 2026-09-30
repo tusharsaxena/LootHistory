@@ -10,9 +10,9 @@ LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
 <https://github.com/tusharsaxena/LibKa0s/tree/master/docs/api/testkit>. This file covers what the kit
 *is* and how to vendor it; that directory is the reference, and is the source of truth.
 
-The link is absolute on purpose. This file is byte-identical in twelve places — here, this repo's
-`tests/_kit/`, and each of the ten consumers' — so a relative path that resolved from one would be
-broken in the other eleven.
+The link is absolute on purpose. This file is byte-identical in thirteen places — here, this repo's
+`tests/_kit/`, and each of the eleven consumers' — so a relative path that resolved from one would be
+broken in the other twelve.
 
 ## The files
 
@@ -152,7 +152,7 @@ terminator `.gitattributes` declares for it, reading the bytes rather than trust
 classification. From revision 26 it also names every **lone CR** (a CR no LF follows) as
 `path:line`, over the same files: git's `text=auto` stores such a file as binary, so neither git nor
 a count of CRLF pairs sees it. It is here rather than in each repo's `tests/` for the reason the rest of the
-kit is here: eleven repositories need exactly the same gate and none of them should be asked to
+kit is here: twelve repositories need exactly the same gate and none of them should be asked to
 re-type it. `line-endings-§7` MUSTs the check be mechanical and supplies a command; a command is
 something someone runs, a suite is something the run runs.
 
@@ -191,7 +191,7 @@ being one.
 
 ## `test_prose.lua`
 
-The second, and it is here for the reason the first one is: eleven repositories need
+The second, and it is here for the reason the first one is: twelve repositories need
 the same gate and none of them should be asked to re-type it. `localization-§5` makes US English
 the source dialect, publishes the `BRITISH` and `ALLOWED` lists a gate MUST carry **whole**, and
 requires the rule to be enforced mechanically — `luacheck` does not read English, and a repo's own
@@ -239,7 +239,7 @@ Kit.prose = { exempt = { "GlobalStrings/" } }   -- generated, loaded by nothing,
 Kit.run{ dir = "tests/", suites = { ..., { name = "test_prose", dir = "tests/_kit/" } } }
 ```
 
-Absent is the normal case and means a repository with no generated data, which is ten of the eleven.
+Absent is the normal case and means a repository with no generated data, which is eleven of the twelve.
 An entry is a tracked path or a folder ending in `/`; globs are not expanded, and a folder is
 compared as `entry .. "/"`, so a sibling whose name merely starts with it is not swept in. An exempt
 path is dropped **before it is opened** rather than filtered after the fact. An entry that matches

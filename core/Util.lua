@@ -11,9 +11,9 @@ function Util.PlayerKey()
   return name .. "-" .. realm
 end
 
--- Deep-copy a value: tables are copied all the way down, anything else is returned as is. The
--- global reset (settings/Slash.lua) merges the declared defaults into the store through it, so the
--- store never holds a reference to a table in NS.defaults.
+-- Deep-copy a value: tables are copied all the way down, anything else is returned as is.
+-- Database:Export copies each record's nested tables through it, so an export never aliases a
+-- live SavedVariables row.
 function Util.DeepCopy(v)
   if type(v) ~= "table" then return v end
   local out = {}
