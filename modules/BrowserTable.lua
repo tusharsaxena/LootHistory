@@ -550,16 +550,28 @@ local function testModeRefusal()
   end
 end
 
+--- A material effect (debug-logging-§10): every table and Insights line after this one reads the
+--- sample rows, not the history, and nothing else in the log says so.
+local function traceTestMode(on, why)
+  if not (NS.State.debug and NS.Debug) then return end
+  if on then
+    NS.Debug("Table", "test mode on: %d sample rows", #(NS.State.testRecords or {}))
+  else
+    NS.Debug("Table", "test mode off%s", why and (" (" .. why .. ")") or "")
+  end
+end
+
 --- Turn test mode on or off. Returns true when test mode now matches `on`, false for a refused
 --- start, which prints one line and leaves the checkbox unticked. A start opens the window; a stop
---- never does.
-function BrowserTable:SetTestMode(on)
+--- never does. `why` (optional) is the reason a stop names in its [Table] line.
+function BrowserTable:SetTestMode(on, why)
   on = on and true or false
   if on == (self.testMode == true) then return true end
   if on then
-    local why = testModeRefusal()
-    if why then
-      NS.Print("test mode not started \226\128\148 " .. why)
+    local refusal = testModeRefusal()
+    if refusal then
+      if NS.State.debug and NS.Debug then NS.Debug("Table", "test mode refused: %s", refusal) end
+      NS.Print("test mode not started \226\128\148 " .. refusal)
       refreshPanel()
       return false
     end
@@ -567,6 +579,7 @@ function BrowserTable:SetTestMode(on)
   self.testMode = on
   -- Publish to State so every read-path query (table + Insights) resolves against the same data.
   NS.State.testRecords = on and self:BuildTestData() or nil
+  traceTestMode(on, why)
   if on and NS.Browser and NS.Browser.Show then NS.Browser:Show() end
   -- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the
   -- new dataset, refresh the footer, and toggle the Test-Mode badge.
@@ -588,7 +601,7 @@ end
 --- PLAYER_REGEN_DISABLED (modules/Browser.lua): end a running test mode with one line. Opens nothing.
 function BrowserTable:EndTestModeForCombat()
   if not self.testMode then return end
-  self:SetTestMode(false)
+  self:SetTestMode(false, "combat started")
   NS.Print("test mode off \226\128\148 combat started")
 end
 
@@ -1022,6 +1035,14 @@ function BrowserTable.RenderSummary(matchCount, total, filterCount, groupBy, sor
     tostring(sortKey), sortAsc and "asc" or "desc", tostring(filterCount or 0))
 end
 
+-- The last [Table] summary logged, for the quiet-steady-state gate (debug-logging-§9). A repaint
+-- that changes nothing -- a coalesced RecordAdded in test mode, a resize, a HistoryChanged that
+-- moved no row this view shows -- logs nothing; every real change still lands, because the line
+-- is the comparison. Reset by the History window's OnShow, so each open logs its render once.
+local lastRenderLine
+
+function BrowserTable.ResetRenderTrace() lastRenderLine = nil end
+
 -- Recompute the display list and repaint. Safe to call before Attach (no-op).
 function BrowserTable:Refresh()
   if not self.frame then return end
@@ -1031,8 +1052,12 @@ function BrowserTable:Refresh()
     local total = #(NS.Database:ActiveHistory() or {})
     local fc = 0
     for _ in pairs(self.filter or {}) do fc = fc + 1 end
-    NS.Debug("Table", "%s", BrowserTable.RenderSummary(
-      self.matchCount or 0, total, fc, self.groupBy, self.sortKey, self.sortAsc))
+    local line = BrowserTable.RenderSummary(
+      self.matchCount or 0, total, fc, self.groupBy, self.sortKey, self.sortAsc)
+    if line ~= lastRenderLine then
+      lastRenderLine = line
+      NS.Debug("Table", "%s", line)
+    end
   end
 end
 

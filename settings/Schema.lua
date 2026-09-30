@@ -720,7 +720,19 @@ function S:FindRow(path) return R.FindRow(path) end
 function S:Get(path) return R.Get(path) end
 function S:Default(path) return R.Default(path) end
 -- Single write seam. Panel widgets and slash `set` both route through here.
-function S:Set(path, value) return R.Set(path, value) end
+--
+-- A refused write leaves one [Set] line naming the reason (debug-logging-§8, refusals). The
+-- library logs the accepted write and prints the refusal to chat; the log is where a support read
+-- looks, and without this line a rejected value is simply absent from it.
+-- Passes every answer through untouched, arity included: `true` stays one value.
+local function traceRefusal(path, ...)
+  local ok, err = ...
+  if ok ~= true and NS.State.debug and NS.Debug then
+    NS.Debug("Set", "%s rejected: %s", tostring(path), tostring(err))
+  end
+  return ...
+end
+function S:Set(path, value) return traceRefusal(path, R.Set(path, value)) end
 --- The descriptor's `applyDefault(row)` for BOTH majors. The sweep veto is the runtime's, reading
 --- S.RESET_EXEMPT through `resetExempt`, so the two reset walks share one policy.
 function S:ApplyDefault(row) return R.ApplyDefault(row) end

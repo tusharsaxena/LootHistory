@@ -166,6 +166,12 @@ function Collector:OnChatMsgLoot(_, msg)
   end
 end
 
+-- The [Drop] line for a currency line refused before it names a currency. `reason` is a constant,
+-- so the call builds nothing while logging is off.
+local function traceCurrencyLineDrop(reason)
+  if NS.State.debug and NS.Debug then NS.Debug("Drop", "currency line reason=%s", reason) end
+end
+
 -- CHAT_MSG_CURRENCY: currency loot. Reuses the same attribution context as items (currency fires in
 -- the same loot window), but takes a slimmer gate — the recordCurrency master toggle, the per-source
 -- mute list, and the currency-specific blacklist; the quality threshold, quest filter, and itemID
@@ -173,12 +179,20 @@ end
 -- a self-identifying "You are refunded" line — attributed to REFUND directly, bypassing the context
 -- (which by then holds the stale VENDOR stamp from the purchase).
 function Collector:OnChatMsgCurrency(_, msg)
-  if not recordCurrency then return end
+  -- A line the self-parse rejects (another player's, or not a currency gain) returns silently: no
+  -- decision of ours. Past it, each guard names itself in a [Drop] line (debug-logging-§8).
   local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
   if not link then return end
+  if not recordCurrency then
+    traceCurrencyLineDrop("recordCurrency-off")
+    return
+  end
 
   local currencyID, name = NS.Compat.GetCurrencyInfoFromLink(link)
-  if not currencyID then return end
+  if not currencyID then
+    traceCurrencyLineDrop("unresolved-link")
+    return
+  end
 
   if currencyBlacklist[currencyID] then
     if NS.State.debug and NS.Debug then

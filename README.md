@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-987%2F987_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1005%2F1005_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -51,11 +51,11 @@ There's nothing to set up. Install it, log in, and it's already recording. At fi
 
 Reading back your loot happens in the History window, in this order:
 
-1. Open the window. Right-click the minimap button and tick **Show window**, or type `/lh toggle`. A left-click on the button opens the settings instead. The window has two tabs: History, a table of every item you've recorded, and Insights.
-2. Narrow it down. Click a column header to sort. The filter bar above the table picks by date, bound, quality, type, sub-type, source, zone or character, the search box matches item names, and **Group by** folds rows together. **Save** keeps that view as your default, **Clear** goes back to it, and **Reset** puts the saved view back to stock. Sorting and filters only carry over to your next session if you pressed Save.
-3. Handle a row. Hover it for the item's tooltip, or shift-click it to link the item in chat. Right-click opens a menu with **Link to chat**, **Blacklist item** and **Delete**. Blacklisting stops future loots of that item being recorded but leaves this row where it is, so use Delete when you want the row gone.
-4. Switch to Insights. It breaks the same slice down by source, value, quality and character, and gives currency a section of its own. The two tabs share the filter bar, so the charts and the table always cover the same loot.
-5. Export. The **Export** button copies the tab you're on: loot rows as CSV from History, or a summary of the charts from Insights. **Data Set** picks all your data or just the current view. The addon can't reach your clipboard, so it opens a box with the text selected and you press Ctrl+C.
+- Open the window. Right-click the minimap button and tick **Show window**, or type `/lh toggle`. A left-click on the button opens the settings instead. The window has two tabs: History, a table of every item you've recorded, and Insights.
+- Narrow it down. Click a column header to sort. The filter bar above the table picks by date, bound, quality, type, sub-type, source, zone or character, the search box matches item names, and **Group by** folds rows together. **Save** keeps that view as your default, **Clear** goes back to it, and **Reset** puts the saved view back to stock. Sorting and filters only carry over to your next session if you pressed Save.
+- Handle a row. Hover it for the item's tooltip, or shift-click it to link the item in chat. Right-click opens a menu with **Link to chat**, **Blacklist item** and **Delete**. Blacklisting stops future loots of that item being recorded but leaves this row where it is, so use Delete when you want the row gone.
+- Switch to Insights. It breaks the same slice down by source, value, quality and character, and gives currency a section of its own. The two tabs share the filter bar, so the charts and the table always cover the same loot.
+- Export. The **Export** button copies the tab you're on: loot rows as CSV from History, or a summary of the charts from Insights. **Data Set** picks all your data or just the current view. The addon can't reach your clipboard, so it opens a box with the text selected and you press Ctrl+C.
 
 What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 
@@ -116,9 +116,9 @@ The value shown throughout the History table and Insights is the higher of an it
 
 ## Reporting a bug
 
-1. Type `/lh debug on` and reproduce the bug.
-2. Type `/lh diagnostics`.
-3. If the debug window isn't open, open it with `/lh debug`. Press **Copy**, copy the entire output, and include it with your bug report.
+- Type `/lh debug on` and reproduce the bug.
+- Type `/lh diagnostics`.
+- If the debug window isn't open, open it with `/lh debug`. Press **Copy**, copy the entire output, and include it with your bug report.
 
 The report is added after the debug trace in the same window, so one copy carries both.
 

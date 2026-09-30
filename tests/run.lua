@@ -86,6 +86,9 @@ local SUITES = {
   -- This addon's half of the diagnostics report (debug-logging-14): its sections, what they say
   -- and what they must not touch. After test_disabled, which leaves the addon brought up.
   "test_diagnostics",
+  -- debug-logging-8's Diagnosis lines and 9's quiet steady state. After test_diagnostics, which
+  -- leaves the addon brought up: its edge cases switch it off and on again through the stored switch.
+  "test_debug_coverage",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
@@ -109,10 +112,9 @@ local SUITES = {
   -- `Files over the 1500-line cap` census in docs/ARCHITECTURE.md. Like test_eol it reads the
   -- checkout through git and no addon state, so it wants no particular slot.
   { name = "test_layout_cap", dir = "tests/_kit/" },
-  -- The kit's diagnostics contract (revision 27, debug-logging-14): the dispatcher half of the
-  -- report, run against this addon's own dispatcher through Kit.diagnostics. Until the report
-  -- lands that table is unset and the suite registers one declared skip naming the rule, which is
-  -- what keeps the re-vendor green before the addon has a report to test.
+  -- The kit's diagnostics contract (revision 34, debug-logging-14): the dispatcher half of the
+  -- report, run against this addon's own dispatcher through Kit.diagnostics (set below), including
+  -- the run turning logging on for the session.
   { name = "test_diagnostics_contract", dir = "tests/_kit/" },
   -- Last on purpose: its close-path cases build and show the History window, which attaches
   -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an

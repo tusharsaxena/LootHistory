@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 8
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -497,6 +497,177 @@ function lib.SafeRegisterEvents(target, events, handler, rejected)
     if register(target.RegisterEvent, target, event, rejected, handler) then n = n + 1 end
   end
   return n
+end
+
+-- ── the resize grip ────────────────────────────────────────────────────────────────────────
+--
+-- Minor 9. The debug console, every Widgets.CopyWindow and the perf panel are resizable from a
+-- grip in the bottom-right corner, and all three reach it here: one grip, one set of bounds rules
+-- and one answer to the layout cache, rather than three. It is ADDITIVE and GUARDED from the
+-- caller's side: no module raises its Core floor for it, and each caller checks the member exists
+-- and keeps today's fixed window when it does not, because a floor raise would make DebugLog,
+-- Widgets and Perf absent in any host still carrying an older Core.lua (docs/releasing.md).
+--
+-- THE SIZE IS SESSION STATE, AND THE FRAME IS WHERE IT LIVES. Every window this serves is built
+-- once and kept, so a size the player drags to survives a hide and a show with nothing to restore
+-- it: this function never stores a size, and nothing reapplies the default on a later show. It is
+-- never written to SavedVariables (the standard forbids it: debug-logging-§1), and a /reload
+-- rebuilds each window at its default.
+--
+-- WHAT THE CLIENT'S LAYOUT CACHE DOES, AND WHAT THIS DOES ABOUT IT. The client keeps
+-- `layout-local.txt` for frames the player moved or sized: `StartMoving` and `StartSizing` both
+-- mark a frame USER-PLACED, and a named user-placed frame has its anchor and its size written to
+-- the cache at logout and put back when a frame of that name is created again. All three windows
+-- are named, and today's drag goes through `StartMoving` and never clears the flag, so a DRAGGED
+-- window is user-placed today. That is left exactly as it is: position behavior does not change.
+-- What must not happen is that a RESIZE makes a window user-placed that a drag had not, since that
+-- is the one route by which a size the player chose could reach the next session. So the grip
+-- reads `IsUserPlaced()` before `StartSizing` and puts that answer back after
+-- `StopMovingOrSizing`. A window only resized stays out of the cache; a window dragged as well is
+-- in it exactly as it is today. Each window's builder then sets its default size AFTER
+-- `CreateFrame` returns, so a size the cache put back at creation (the dragged case) is replaced
+-- by the default before the window is ever shown. What a headless suite cannot prove is when the
+-- client applies the cache; the in-game smoke check (resize, /reload, default size back) is the
+-- confirmation, dragged and undragged.
+
+local GRIP_SIZE = 16
+-- The client's own chat size grabber, which every player already reads as "drag here to resize".
+-- Stock art rather than a collection icon: it ships with every client, so it needs no addon folder
+-- to resolve (the reason Core.MakeCloseButton needs one) and cannot fail to draw.
+local GRIP_ART = {
+  normal    = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
+  highlight = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
+  pushed    = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down",
+}
+-- How far above the window's own level the grip sits, so no content child covers it.
+local GRIP_LEVEL = 10
+-- The maximum when UIParent cannot say how big the screen is (a headless harness). A live client
+-- always can, so this bounds nothing a player ever sees.
+local FALLBACK_MAX = 4096
+
+-- A positive number, or nil. The frame API answers 0 before a first layout pass, and a headless
+-- stub may answer anything, so every size read goes through this.
+local function positive(v)
+  if type(v) == "number" and v > 0 then return v end
+  return nil
+end
+
+local function readSize(frame)
+  local w = type(frame.GetWidth) == "function" and positive(frame:GetWidth()) or nil
+  local h = type(frame.GetHeight) == "function" and positive(frame:GetHeight()) or nil
+  return w, h
+end
+
+-- The screen, which is the default maximum on both axes: a window may be sized up to the whole
+-- UI and no further, and SetClampedToScreen keeps it on it.
+local function screenSize()
+  local w, h
+  if type(UIParent) == "table" then w, h = readSize(UIParent) end
+  return w or FALLBACK_MAX, h or FALLBACK_MAX
+end
+
+--- The four bounds, from the options and the frame. `widthOnly` pins the height: min and max are
+--- both `minHeight`, or the frame's current height when no `minHeight` is given.
+local function resolveBounds(frame, opts)
+  local w, h = readSize(frame)
+  local sw, sh = screenSize()
+  local minW = positive(opts.minWidth) or w or 0
+  local minH = positive(opts.minHeight) or h or 0
+  local maxW = positive(opts.maxWidth) or math.max(sw, minW)
+  local maxH = positive(opts.maxHeight) or math.max(sh, minH)
+  if opts.widthOnly then maxH = minH end
+  return minW, minH, maxW, maxH
+end
+
+-- The Compat-style guard. `SetResizeBounds` replaced the `SetMinResize` / `SetMaxResize` pair in
+-- 10.0, and a frame answering neither is left unbounded rather than raised on.
+local function setBounds(frame, minW, minH, maxW, maxH)
+  if type(frame.SetResizeBounds) == "function" then
+    frame:SetResizeBounds(minW, minH, maxW, maxH)
+    return
+  end
+  if type(frame.SetMinResize) == "function" then frame:SetMinResize(minW, minH) end
+  if type(frame.SetMaxResize) == "function" then frame:SetMaxResize(maxW, maxH) end
+end
+
+-- A strict boolean, because the flag is put back verbatim and a stand-in that answers something
+-- else must not be written back as "placed".
+local function isUserPlaced(frame)
+  return type(frame.IsUserPlaced) == "function" and frame:IsUserPlaced() == true
+end
+
+local function buildGrip(frame)
+  local grip = CreateFrame("Button", nil, frame)
+  grip:SetSize(GRIP_SIZE, GRIP_SIZE)
+  -- Inside the 1px edge, so the grip does not sit on top of the border it belongs to.
+  grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
+  local level = type(frame.GetFrameLevel) == "function" and frame:GetFrameLevel()
+  if type(level) == "number" then grip:SetFrameLevel(level + GRIP_LEVEL) end
+  grip:EnableMouse(true)
+  grip:SetNormalTexture(GRIP_ART.normal)
+  grip:SetHighlightTexture(GRIP_ART.highlight)
+  grip:SetPushedTexture(GRIP_ART.pushed)
+  grip:Show()
+  return grip
+end
+
+-- The two mouse handlers. Sizing that never started (a right-click, or a mouse-up that arrives
+-- without a mouse-down) is not stopped, so a stray mouse-up cannot rewrite the user-placed flag.
+local function wireGrip(grip, frame, relayout)
+  local sizing, wasPlaced = false, false
+  grip:SetScript("OnMouseDown", function(_, button)
+    if button ~= nil and button ~= "LeftButton" then return end
+    wasPlaced = isUserPlaced(frame)
+    sizing = true
+    frame:StartSizing("BOTTOMRIGHT")
+  end)
+  grip:SetScript("OnMouseUp", function()
+    if not sizing then return end
+    sizing = false
+    frame:StopMovingOrSizing()
+    if type(frame.SetUserPlaced) == "function" then frame:SetUserPlaced(wasPlaced) end
+    relayout(readSize(frame))
+  end)
+end
+
+--- Make `frame` resizable from a grip in its bottom-right corner. Answers the grip, also kept as
+--- `frame.resizeGrip`, or nil (and changes nothing) where there is no CreateFrame or the frame has
+--- no sizing API. Call it once, after the frame has its default size.
+---
+--- opts (all optional):
+---   minWidth, minHeight  number    the smallest the window may be; default its current size
+---   maxWidth, maxHeight  number    the largest; default the size of UIParent
+---   widthOnly            boolean   pin the height: min and max height are both `minHeight`, or
+---                                  the current height when no `minHeight` is given
+---   onResize             function  function(width, height), run on mouse-up after sizing and on
+---                                  every OnSizeChanged. Either argument may be nil where the
+---                                  frame cannot say; relayout from the frame when it matters.
+---
+--- @param frame table
+--- @param opts table|nil
+--- @return table|nil grip
+function lib.MakeResizable(frame, opts)
+  if type(frame) ~= "table" or type(CreateFrame) ~= "function" then return nil end
+  if type(frame.SetResizable) ~= "function" or type(frame.StartSizing) ~= "function" then
+    return nil
+  end
+  opts = type(opts) == "table" and opts or {}
+  local onResize = type(opts.onResize) == "function" and opts.onResize or nil
+  local function relayout(w, h)
+    if onResize then onResize(w, h) end
+  end
+
+  frame:SetResizable(true)
+  setBounds(frame, resolveBounds(frame, opts))
+
+  local grip = buildGrip(frame)
+  wireGrip(grip, frame, relayout)
+  -- Hooked, not set: a host may already own the window's OnSizeChanged.
+  if type(frame.HookScript) == "function" then
+    frame:HookScript("OnSizeChanged", function(_, w, h) relayout(w, h) end)
+  end
+  frame.resizeGrip = grip
+  return grip
 end
 
 -- ── the prefixed chat printer ──────────────────────────────────────────────────────────────

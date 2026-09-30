@@ -45,12 +45,16 @@ function F:CurrencyBlacklist() return currentSet("currencyBlacklist") end
 -- (not a bus message — the lists aren't schema settings, and the Collector is the only capture-side
 -- consumer), then broadcast HistoryChanged through Database's sole emitter so the browser + Insights
 -- re-query to refresh their counts/lists. No second sender is introduced for either message.
-function F:_notify()
+--- `fmt, ...` name the edit for the one [Filters] line (debug-logging-§8, data mutations): which
+--- list, which id, and the three sizes after it, so a paste shows what changed and not only the
+--- result. Passed as a format and its values, so nothing is built while logging is off (§4).
+function F:_notify(fmt, ...)
   if NS.Collector and NS.Collector.RefreshUpvalues then NS.Collector:RefreshUpvalues() end
   if NS.Database and NS.Database.FireHistoryChanged then NS.Database:FireHistoryChanged() end
   if NS.State and NS.State.debug and NS.Debug then
-    NS.Debug("Filters", "blacklist=%d whitelist=%d",
-      self:Count(self:Blacklist()), self:Count(self:Whitelist()))
+    local act = fmt and fmt:format(...) or "edit"
+    NS.Debug("Filters", "%s: blacklist=%d whitelist=%d currency=%d", act,
+      self:Count(self:Blacklist()), self:Count(self:Whitelist()), self:Count(self:CurrencyBlacklist()))
   end
 end
 
@@ -74,7 +78,7 @@ function F:_move(listKey, id)
   if sibling[id] then
     local s = setCopy(sibling); s[id] = nil; NS.db.profile[siblingKey] = s
   end
-  self:_notify()
+  self:_notify("add %s %s", listKey, id)
   return true
 end
 
@@ -85,7 +89,7 @@ function F:_remove(listKey, id)
   local target = currentSet(listKey)
   if not target[id] then return false end
   local t = setCopy(target); t[id] = nil; NS.db.profile[listKey] = t
-  self:_notify()
+  self:_notify("remove %s %s", listKey, id)
   return true
 end
 
@@ -101,7 +105,7 @@ function F:AddCurrencyBlacklist(id)
   local target = currentSet("currencyBlacklist")
   if target[id] then return false end
   local t = setCopy(target); t[id] = true; NS.db.profile.currencyBlacklist = t
-  self:_notify()
+  self:_notify("add currencyBlacklist %s", id)
   return true
 end
 function F:RemoveCurrencyBlacklist(id) return self:_remove("currencyBlacklist", id) end
@@ -114,7 +118,7 @@ function F:ClearList(listKey)
   local removed = self:Count(currentSet(listKey))
   if removed == 0 then return 0 end
   NS.db.profile[listKey] = {}
-  self:_notify()
+  self:_notify("clear %s (%d ids)", listKey, removed)
   return removed
 end
 
@@ -127,7 +131,7 @@ function F:ClearAll()
   NS.db.profile.blacklist = {}
   NS.db.profile.whitelist = {}
   NS.db.profile.currencyBlacklist = {}
-  self:_notify()
+  self:_notify("clear all (%d ids)", removed)
   return removed
 end
 

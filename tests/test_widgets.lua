@@ -110,9 +110,16 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- and no suite here fires a row frame's OnUpdate to drive a drag. Nothing to change; the drag
   -- itself is an in-client smoke.
   --
-  -- `Dropdown`, `CloseMenu` and `CopyWindow` -- the three this file's other cases drive -- are
-  -- untouched across 7, 8, 9 and 10.
-  assertEqual(lib.MODULES.Widgets, 10, "this adoption is written against Widgets minor 10")
+  -- Minor 11 (LibKa0s v1.64.0, docs/api/Widgets/version-11.3-docs.md) makes every CopyWindow
+  -- resizable on both axes for the session (Core.MakeResizable's grip; the edit box re-widens on
+  -- each resize, and the scroll frame's bottom inset moves from 10 to 18 px to clear the grip).
+  -- Re-read against this addon: the export modal's CopyWindow descriptor keeps its width/height as
+  -- the default, nothing here saves or reapplies a size, and no suite asserts the insets. Nothing
+  -- to change; the resize itself is an in-client smoke.
+  --
+  -- `Dropdown` and `CloseMenu` are untouched across 7 through 11; `CopyWindow` is untouched across
+  -- 7 through 10 and gains only the resize above at 11.
+  assertEqual(lib.MODULES.Widgets, 11, "this adoption is written against Widgets minor 11")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

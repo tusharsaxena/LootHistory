@@ -33,7 +33,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 10
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 11
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -451,6 +451,26 @@ local COPY_DEFAULTS = {
   backdrop = { 0.06, 0.06, 0.08, 0.95 },
 }
 
+-- The smallest a copy window may be sized down to (minor 11): room for the title bar's centered
+-- title and close control and a few lines of text. Capped at the descriptor's own size, so a window
+-- declared smaller than this is its own minimum rather than one it could never be built at.
+local COPY_MIN_W, COPY_MIN_H = 240, 140
+-- The scroll frame's bottom inset. UIPanelScrollFrameTemplate hangs its scroll-down button at the
+-- scroll frame's bottom edge, and Core.MakeResizable's grip covers the window's bottom 17 px (16 px
+-- square, 1 px in, ten levels up), so at the old 10 px a click on the button's lower part started a
+-- resize instead of scrolling. 18 puts the whole button above the grip.
+local COPY_SCROLL_BOTTOM = 18
+
+--- The edit box's width for a window `w` wide. The scroll frame's own width once the client has laid
+--- it out; before that (or headless) the window's width less the same margin the descriptor's
+--- `editWidth` keeps from its `width`, so a resized window keeps the gap the declared one had.
+local function copyEditWidth(f, d, w)
+  local sw = f.scroll:GetWidth()
+  if type(sw) == "number" and sw > 0 then return sw end
+  if type(w) == "number" and w > 0 then return w - (d.width - d.editWidth) end
+  return d.editWidth
+end
+
 --- Fill a caller's descriptor out with the collection's defaults, without mutating theirs.
 local function copyDescriptor(d)
   local out = {
@@ -481,6 +501,21 @@ local function copyDescriptor(d)
   }
   out.editWidth = d.editWidth or (out.width - 50)
   return out
+end
+
+--- Resizable on both axes from minor 11, when the Core under it has the grip (Core minor 9);
+--- guarded, so an older Core leaves the fixed window this always was. The descriptor's `width` and
+--- `height` stay the size it opens at, and a named window keeps its own size for the session: the
+--- frame is built once per handle and never resized on a later Show. The scroll frame is anchored
+--- to both corners and follows on its own; the edit box inside it is a scroll CHILD and does not,
+--- so its width is set again on every resize.
+local function makeCopyResizable(f, d, coreLib)
+  if not (coreLib and type(coreLib.MakeResizable) == "function") then return end
+  coreLib.MakeResizable(f, {
+    minWidth  = math.min(COPY_MIN_W, d.width),
+    minHeight = math.min(COPY_MIN_H, d.height),
+    onResize  = function(w) f.edit:SetWidth(copyEditWidth(f, d, w)) end,
+  })
 end
 
 --- Build the frame. Called once, lazily, on the first Show — a modal rebuilt per open leaks a
@@ -523,7 +558,7 @@ local function buildCopyFrame(d)
 
   local scroll = CreateFrame("ScrollFrame", d.scrollName, f, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", 8, -30)
-  scroll:SetPoint("BOTTOMRIGHT", -28, 10)
+  scroll:SetPoint("BOTTOMRIGHT", -28, COPY_SCROLL_BOTTOM)
 
   local edit = CreateFrame("EditBox", nil, scroll)
   edit:SetMultiLine(true)
@@ -555,6 +590,8 @@ local function buildCopyFrame(d)
   if type(UISpecialFrames) == "table" then
     table.insert(UISpecialFrames, d.name)
   end
+
+  makeCopyResizable(f, d, coreLib)
   return f
 end
 
@@ -605,8 +642,8 @@ function lib.CopyWindow(d)
       f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
 
-    local w = f.scroll:GetWidth()
-    f.edit:SetWidth((type(w) == "number" and w > 0) and w or desc.editWidth)
+    -- The window's current width, not the declared one: a resized window keeps its edit box.
+    f.edit:SetWidth(copyEditWidth(f, desc, f:GetWidth()))
     f.edit:SetText(text or "")
     f.edit:SetCursorPosition(0)
     f:Show()

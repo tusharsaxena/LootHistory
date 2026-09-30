@@ -22,21 +22,31 @@
 -- instance simply has no report methods, which is the state a host's degradation stub already
 -- answers for.
 --
+-- ── WHAT A RUN DOES TO THE FLAG (minor 2) ────────────────────────────────────────────────────
+--
+-- A RUN turns debug logging on for the session, before it writes, when logging is off: through the
+-- flag's one seam, `D:SetEnabled(true)`, so the `[Debug] logging enabled` line, the host's `[Init]`
+-- summary and the chat ack come first and the player's next reproduction is traced (debug-logging-
+-- §14 at v2.71.0, the owner's call of 2026-09-30). It never turns logging OFF, and with logging
+-- already on it calls nothing, so there is no second enable line. A host opts out with the
+-- descriptor field `diagnosticsEnablesLogging = false`, read at every run; only false opts out.
+-- BUILDING the report never touches the flag, and neither does any section: the sections read.
+--
 -- ── THE FOUR THINGS THE REPORT NEVER DOES ────────────────────────────────────────────────────
 --
--- It never CLEARS the console: the trace above it is half the evidence. It never reads or writes
--- the debug-logging flag except to print it: the report is written through the ungated append, so
--- it lands with logging off and leaves logging off. It never reads the host's enabled state:
--- whether a disabled addon may run it is the dispatcher's question (Slash's live verbs), not the
--- report's. And it never calls a protected API or does arithmetic on a value it has not proved
--- readable, so it is safe in combat and on a secret value.
+-- It never CLEARS the console: the trace above it is half the evidence. Its sections never write
+-- the debug-logging flag, only print it, and the report is written through the ungated append, so
+-- an opted-out run lands with logging off and leaves logging off. It never reads the host's
+-- enabled state: whether a disabled addon may run it is the dispatcher's question (Slash's live
+-- verbs), not the report's. And it never calls a protected API or does arithmetic on a value it
+-- has not proved readable, so it is safe in combat and on a secret value.
 --
 -- Depends on the DebugLog shell, and through it on Core; on no addon framework.
 
 local lib = LibStub and LibStub("LibKa0s-DebugLog-1.0", true)
 if not lib then return end
 
-local DIAG_MINOR = 1
+local DIAG_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, exactly as WidgetsDragHandle.lua pairs on
 -- Widgets': a report that attached to an older console would install methods that call private
 -- pieces the shell no longer hands over, and nothing would say the two came from different copies.
@@ -382,8 +392,11 @@ function lib.__installDiagnostics(D, ctx)
 
   --- Build the report and append it to the console: every line through the ungated append, one
   --- repaint at the end, the console shown if it was hidden, and one chat line naming the count.
-  --- Never clears, never touches the logging flag. Returns the number of lines written.
+  --- Never clears. With logging off it first turns logging on through SetEnabled (minor 2), unless
+  --- the descriptor sets `diagnosticsEnablesLogging = false`; it never turns logging off. Returns
+  --- the number of report lines written (the enable line and the summary are SetEnabled's).
   function D:RunDiagnostics(spec)
+    if ctx.d.diagnosticsEnablesLogging ~= false and not D:IsEnabled() then D:SetEnabled(true) end
     local report = build(D, ctx, spec)
     for _, line in ipairs(report.lines) do ctx.append(line[1], line[2]) end
     ctx.repaint()

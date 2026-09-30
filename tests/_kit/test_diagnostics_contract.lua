@@ -4,7 +4,9 @@
 -- WHAT IT PROVES. The half of the rule that lives in each addon rather than in the library: that
 -- exactly the two forms, `/<slash> diagnostics` and `/<slash> debug diagnostics`, run the report;
 -- that both still run it while the addon is disabled; that the report appends after what is already
--- in the console rather than clearing it; that it lands with debug logging off and leaves the flag
+-- in the console rather than clearing it; that it lands with debug logging off and turns logging on
+-- for the session before it writes, once, and not a second time when logging is already on (kit
+-- revision 34, debug-logging-§14 at v2.71.0), or, for an addon whose descriptor opts out, leaves it
 -- off; that both markers carry the addon's brand and the end marker counts the lines between them;
 -- and that `debug diag`, `diag` and any name this addon retired do not run it. What one report
 -- writes is the library's own suite's business (LibKa0s `tests/test_debuglog_diagnostics.lua`);
@@ -24,7 +26,14 @@
 --     setDisabled = function(off) ... end,             -- stand the addon down (true) or up (false)
 --     retired     = { "dump" },                        -- optional: this addon's own retired names
 --     reset       = function() ... end,                -- optional: run before every case
+--     enablesLogging = false,                          -- optional: ONLY when the descriptor sets
+--                                                      -- diagnosticsEnablesLogging = false
 --   }
+--
+-- `enablesLogging` declares the addon's choice rather than reading it, because the descriptor is
+-- the addon's own table and the instance does not hand it out. The declaration is still checked:
+-- the case for the other choice is a declared skip, and the case for this one fails if the live
+-- report does the opposite.
 --   Kit.run{ dir = "tests/", suites = { ..., { name = "test_diagnostics_contract",
 --     dir = "tests/_kit/" } } }
 --
@@ -76,6 +85,10 @@ local function checkFacts()
   if #missing > 0 then
     fail("diagnostics contract: Kit.diagnostics is missing " .. table.concat(missing, ", "), 3)
   end
+  if facts.enablesLogging ~= nil and type(facts.enablesLogging) ~= "boolean" then
+    fail("diagnostics contract: Kit.diagnostics.enablesLogging is a boolean (false to declare the "
+      .. "descriptor's opt-out), not a " .. type(facts.enablesLogging), 3)
+  end
   local D = facts.console()
   if type(D) ~= "table" or type(D.buffer) ~= "table" then
     fail("diagnostics contract: Kit.diagnostics.console() must answer the live DebugLog "
@@ -95,6 +108,20 @@ local function begins(D)
   end
   return at
 end
+
+--- Every buffer index holding the console's `[Debug] logging enabled` line, in the instance's own
+--- wording (a host's `L` may override it).
+local function enables(D)
+  local word = type(D.Text) == "function" and D:Text("LOG_ENABLED") or "logging enabled"
+  local needle, at = "[Debug] " .. tostring(word), {}
+  for i, line in ipairs(D.buffer) do
+    if line:find(needle, 1, true) then at[#at + 1] = i end
+  end
+  return at
+end
+
+-- Only an explicit false opts out, as only an explicit false in the descriptor does.
+local OPTED_OUT = facts.enablesLogging == false
 
 --- Before every case: the consumer's own reset, logging off, the addon standing up.
 local function fresh()
@@ -164,13 +191,47 @@ test("diagnostics contract: the report appends after what the console already ho
   Kit.assertTrue(#at > 0 and at[#at] > kept, "and the report follows it")
 end)
 
-test("diagnostics contract: the report lands with logging off and leaves it off", function()
-  local D = fresh()
-  facts.setDebug(false)
-  -- red under: a report written through the gated D.Debug sink, or one that switches logging on
-  Kit.assertTrue(runs(D, "diagnostics"), "the report landed with the flag off")
-  Kit.assertFalse(D:IsEnabled(), "and the flag is still off")
-end)
+test("diagnostics contract: the report lands with logging off and turns it on for the session",
+  (not OPTED_OUT) and function()
+    local D = fresh()
+    facts.setDebug(false)
+    local before = #enables(D)
+    -- red under: a dispatcher that writes the report some way other than D:RunDiagnostics(), or a
+    -- vendored LibKa0s older than DebugLogDiagnostics 2, whose run leaves the flag alone
+    Kit.assertTrue(runs(D, "diagnostics"), "the report landed with the flag off")
+    Kit.assertTrue(D:IsEnabled(), "and logging is on afterwards")
+    local on, at = enables(D), begins(D)
+    Kit.assertEqual(#on, before + 1, "through the one seam: one `[Debug] logging enabled` line")
+    Kit.assertTrue(on[#on] < at[#at], "written before the report, not after it")
+  end or nil,
+  OPTED_OUT and "Kit.diagnostics.enablesLogging is false: this addon's descriptor opts out "
+    .. "(diagnosticsEnablesLogging = false), so the opt-out case below holds its report" or nil)
+
+test("diagnostics contract: an addon that opts out lands the report and leaves logging off",
+  OPTED_OUT and function()
+    local D = fresh()
+    facts.setDebug(false)
+    local before = #enables(D)
+    -- red under: a descriptor that does not set diagnosticsEnablesLogging = false after all, or a
+    -- report written through the gated D.Debug sink
+    Kit.assertTrue(runs(D, "diagnostics"), "the report landed with the flag off")
+    Kit.assertFalse(D:IsEnabled(), "and the flag is still off")
+    Kit.assertEqual(#enables(D), before, "no enable line was written")
+  end or nil,
+  (not OPTED_OUT) and "this addon keeps the default (Kit.diagnostics.enablesLogging is not false), "
+    .. "so its report turns logging on; the case above holds it" or nil)
+
+test("diagnostics contract: with logging already on, the report writes no second enable line",
+  function()
+    local D = fresh()
+    facts.setDebug(true)
+    local before = #enables(D)
+    -- red under: a dispatcher that calls SetEnabled(true) itself before the report, or a run that
+    -- enables without reading the flag first
+    Kit.assertTrue(runs(D, "diagnostics"), "the report landed with the flag on")
+    Kit.assertTrue(D:IsEnabled(), "logging is still on")
+    Kit.assertEqual(#enables(D), before, "and no second `[Debug] logging enabled` line")
+  end)
 
 test("diagnostics contract: both forms run while the addon is disabled", function()
   local D = fresh()

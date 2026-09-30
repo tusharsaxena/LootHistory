@@ -34,7 +34,7 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 14
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 17
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -130,6 +130,8 @@ lib.STRINGS = {
   LOG_DISABLED     = "logging disabled",
   CLEAR            = "Clear",
   COPY             = "Copy",
+  -- The title-bar link that runs the diagnostics report (minor 16), drawn beside the toggle.
+  DIAGNOSTICS      = "Diagnostics",
   COPY_TITLE       = "Copy log \226\128\148 Ctrl+C, then Esc",
   LINES            = "%d / %d lines",
   CHECKBOX_LABEL   = "Debug console",
@@ -173,6 +175,10 @@ end
 local TITLE_H  = 26      -- drag bar height
 local STATUS_H = 16      -- bottom status bar height
 local BAR_W    = 8       -- scrollbar gutter width
+-- The line counter's right inset. Core.MakeResizable's grip is 16 px square at 1 px in from the
+-- bottom-right corner and ten levels above the console, so a counter at the old 10 px drew its last
+-- digits under the grip's art; 22 clears the grip's 17 px with a 5 px gap.
+local COUNT_INSET = 22
 local DEFAULT_FONT_SIZE = 10
 
 -- Title-bar arithmetic. PAD is the one gap between every control and its neighbor; CLOSE_W is what
@@ -187,6 +193,26 @@ local COPY_W   = 40
 -- buttons were 42 and 40 wide and only lined up by arithmetic.
 local ICON_W   = 18
 local ICON_ART = 12
+
+-- The console's default size, which is the size it has always opened at (debug-logging-§1). From
+-- minor 15 it is resizable from a bottom-right grip (Core.MakeResizable), and this is still the
+-- size every session starts at: the size the player drags to lives on the frame for the session
+-- and is never saved.
+local CONSOLE_W, CONSOLE_H = 700, 344
+
+-- The header toggle's slot, at the bar's left edge. Named because the minimum width reads it.
+local TOGGLE_X, TOGGLE_W = 8, 80
+
+-- The Diagnostics link (minor 16): its gap after the toggle's label, and its orange at rest and
+-- under the pointer, so it reads as an action beside a state word. Plain text, like that label.
+local DIAG_GAP  = 10
+local DIAG_REST = { 1, 0.5, 0 }
+local DIAG_HOT  = { 1, 0.72, 0.28 }
+
+-- The fewest log lines the console may be sized down to show, and what a character of the title is
+-- taken to measure when the font string cannot say (before layout, or headless).
+local MIN_LINES    = 4
+local TITLE_CHAR_W = 7
 
 -- Gray at rest, gold under the pointer -- what the text labels have done since minor 1, kept so the
 -- title bar does not change temperature just because its controls changed shape.
@@ -291,6 +317,58 @@ local function buildTitleControls(titleBar, spec)
   return close, clear, copy, { close = -PAD, clear = clearRight, copy = copyRight }
 end
 
+--- What font string `fs` measures holding `text` (set on it): its string width when the client can
+--- say, else TITLE_CHAR_W per byte (before layout, or headless).
+local function textWidth(fs, text, keep)
+  if not keep then fs:SetText(text) end
+  local w = fs.GetStringWidth and fs:GetStringWidth()
+  if type(w) ~= "number" or w <= 0 then w = string.len(text) * TITLE_CHAR_W end
+  return w
+end
+
+--- The Diagnostics link, drawn only when the instance has the report, and how far its right edge
+--- reaches from the bar's left (the WIDER toggle word's case); nil and 0 without the report. Its
+--- click is what `/<prefix> diagnostics` runs, D:RunDiagnostics(), which turns logging on. ANCHORED
+--- TO THE LABEL'S FONT STRING, not the toggle's 80-wide button, so the gap holds after either word;
+--- a level above that button, which runs on under it.
+local function buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D)
+  if type(D.RunDiagnostics) ~= "function" then return nil, 0 end
+  local labelW = math.max(textWidth(toggleFS, D:Text("DEBUG_ON")),
+    textWidth(toggleFS, D:Text("DEBUG_OFF")))
+  local b = CreateFrame("Button", nil, titleBar)
+  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  fs:SetPoint("LEFT")
+  local w = textWidth(fs, D:Text("DIAGNOSTICS"))
+  b:SetSize(w, 18)
+  b:SetPoint("LEFT", toggleFS, "RIGHT", DIAG_GAP, 0)
+  local level = toggleBtn.GetFrameLevel and toggleBtn:GetFrameLevel()
+  if type(level) == "number" then b:SetFrameLevel(level + 1) end
+  fs:SetTextColor(DIAG_REST[1], DIAG_REST[2], DIAG_REST[3])
+  b:SetScript("OnEnter", function() fs:SetTextColor(DIAG_HOT[1], DIAG_HOT[2], DIAG_HOT[3]) end)
+  b:SetScript("OnLeave", function() fs:SetTextColor(DIAG_REST[1], DIAG_REST[2], DIAG_REST[3]) end)
+  b:SetScript("OnClick", function() D:RunDiagnostics() end)
+  return b, TOGGLE_X + labelW + DIAG_GAP + w
+end
+
+--- How narrow the console may go: every title-bar control and the centered title still fit, with
+--- PAD between the title and the wider of the two control groups. The title is centered, so it is
+--- the WIDER side that sets the margin on both. Never above the default, so a long title cannot
+--- leave the window smaller than its own minimum on the day it is built. `linkReach` is the
+--- Diagnostics link's right edge from the bar's left (0 without the link, minor 16).
+local function consoleMinWidth(offsets, copyBtn, title, titleText, linkReach)
+  local copyW = (type(copyBtn) == "table" and type(copyBtn.icon) == "table") and ICON_W or COPY_W
+  local right = -offsets.copy + copyW
+  local left = math.max(TOGGLE_X + TOGGLE_W, linkReach)
+  local titleW = textWidth(title, titleText, true)
+  local w = 2 * (math.max(left, right) + PAD) + titleW
+  return math.min(math.ceil(w), CONSOLE_W)
+end
+
+--- How short: the title bar, the status bar and MIN_LINES lines of the log between them.
+local function consoleMinHeight(fontSize)
+  return TITLE_H + 6 + MIN_LINES * (fontSize + 2) + STATUS_H + 4
+end
+
 local function escClose(name)
   if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, name) end
 end
@@ -356,7 +434,8 @@ end
 ---   diagnostics function  optional, minor 14. Returns the host's report sections as
 ---                         `{ { name, fn }, ... }`, each `fn(out)`. CALLED AT RUN TIME rather than
 ---                         read at New, so a module that loads after the console can still supply
----                         a section. Read only when DebugLogDiagnostics.lua is loaded.
+---                         a section. Read only when DebugLogDiagnostics.lua is loaded, like:
+---   diagnosticsEnablesLogging  optional, minor 17. `false` stops a report run turning logging on.
 function lib:New(d)
   d = type(d) == "table" and d or {}
   for _, field in ipairs({ "name", "title", "font", "isEnabled", "setEnabled" }) do
@@ -457,7 +536,7 @@ function lib:New(d)
 
     local name = d.name .. "DebugWindow"
     frame = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
-    frame:SetSize(700, 344)
+    frame:SetSize(CONSOLE_W, CONSOLE_H)
     frame:SetPoint("CENTER", 220, -80)
     frame:SetFrameStrata("DIALOG")
     frame:EnableMouse(true)
@@ -514,8 +593,8 @@ function lib:New(d)
     -- The header toggle. OnLeave restores the resting color by re-running RefreshHeader, so the
     -- label's color is always the flag's color rather than whatever the last hover left behind.
     local toggleBtn = CreateFrame("Button", nil, titleBar)
-    toggleBtn:SetSize(80, 18)
-    toggleBtn:SetPoint("LEFT", titleBar, "LEFT", 8, 0)
+    toggleBtn:SetSize(TOGGLE_W, 18)
+    toggleBtn:SetPoint("LEFT", titleBar, "LEFT", TOGGLE_X, 0)
     local toggleFS = toggleBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     toggleFS:SetPoint("LEFT")
     toggleBtn:SetScript("OnEnter", function() toggleFS:SetTextColor(1, 0.82, 0) end)
@@ -524,6 +603,9 @@ function lib:New(d)
     toggleBtn:SetScript("OnClick", onToggleClick)
     frame.debugToggle = toggleFS
     frame.debugToggleBtn = toggleBtn
+    -- The Diagnostics link beside it (minor 16), recorded as clearButton and copyButton are.
+    local linkReach
+    frame.diagnosticsButton, linkReach = buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D)
     D._toggleClickForTest = onToggleClick   -- test seam (a headless mock stubs GetScript)
     -- The other test seam. A headless mock's Show()/Hide() track visibility without firing the
     -- OnShow/OnHide scripts, so the only way to exercise the visibility callback below is to drive
@@ -582,7 +664,7 @@ function lib:New(d)
     statusDivider:SetColorTexture(0.24, 0.24, 0.27, 0.85)
 
     local lineCount = frame:CreateFontString(nil, "OVERLAY")
-    lineCount:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 3)
+    lineCount:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -COUNT_INSET, 3)
     lineCount:SetFont(d.font, fontSize, "")
     lineCount:SetJustifyH("RIGHT")
     lineCount:SetTextColor(0.6, 0.6, 0.62)
@@ -603,6 +685,19 @@ function lib:New(d)
     -- the skin or the scroll sync must not abort them and leave a visible window nobody can close —
     -- and `frame` is already assigned, so EnsureFrame would never try again.
     applySkin(frame)
+    -- Resizable from minor 15, when the Core under it has the grip (Core minor 9). Resolved through
+    -- the table at call time, as `lib.MakeCloseButton` is, and GUARDED rather than floored: an
+    -- older Core leaves this exactly the fixed 700 x 344 window it was. The message frame, the
+    -- scrollbar and the status line are anchored to the window, so they follow it on their own;
+    -- what does not is the scrollbar's range and the line counter, which the relayout resyncs. The
+    -- buffer and the scroll position are not touched.
+    if type(core.MakeResizable) == "function" then
+      core.MakeResizable(frame, {
+        minWidth  = consoleMinWidth(offsets, copyBtn, title, frame.titleText, linkReach),
+        minHeight = consoleMinHeight(fontSize),
+        onResize  = function() D:UpdateScrollBar(); D:UpdateStatus() end,
+      })
+    end
     D:UpdateScrollBar()
     D:UpdateStatus()
     return frame
@@ -887,10 +982,9 @@ function lib:New(d)
   end
 
   -- The diagnostics report (minor 14) lives in DebugLogDiagnostics.lua, a secondary file of this
-  -- major, and installs itself here when it loaded. It is handed the private pieces it needs and
-  -- nothing else: the batched append and the one repaint, the chat printer, the stringifier, and
-  -- the descriptor for `brandName`, `title`, `initSummary` and `diagnostics`. Absent, the instance
-  -- has no report methods, which is what a host's own degradation stub already answers for.
+  -- major, and installs itself here when it loaded, handed only what it needs: the batched append,
+  -- the one repaint, the chat printer, the stringifier and the descriptor (for its own fields).
+  -- Absent, the instance has no report methods, which a host's degradation stub already answers.
   if type(lib.__installDiagnostics) == "function" then
     lib.__installDiagnostics(D, {
       d = d,

@@ -1010,7 +1010,7 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the tail is the newest 25 records, stored fields only, with no link escapes
 - diagnostics: the rejected events `/lh debug events` prints are folded into the report
 - diagnostics: while stood down, the capture section says so instead of printing empty wiring
-- diagnostics: the report calls no item, tooltip or keystone API and changes no state
+- diagnostics: the report calls no item, tooltip or keystone API; the sections leave the debug flag alone and the run turns it on
 - diagnostics: a raising section costs exactly one line and the sections after it still land
 - diagnostics: an over-cap report ends with the truncated line, then the end marker
 - diagnostics: a secret value in the stored loot context does not raise the report
@@ -1018,13 +1018,33 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 
-### test_doc_structure.lua (7)
+### test_debug_coverage.lua (16)
+
+- coverage: a stand-down and a stand-up are one [State] line each, naming holds and dependencies
+- coverage: with logging off, an edge builds and writes nothing
+- coverage: while stood down, a hook's stamp, an open and a feature verb each name the guard
+- coverage: a live verb or a typo while disabled is not logged as a refusal
+- coverage: the visibility refusal and the visibility hide name the mode
+- coverage: a refused schema write is one [Set] line with the seam's reason
+- coverage: a currency line refused before it names a currency says why
+- coverage: a container use logs only the spell-targeting refusal, never a non-loot item
+- coverage: a price provider that raises is one [AHPrice] line per distinct error
+- coverage: the deferred bound repair's end names done or gave up, with the real attempt
+- coverage: a prune with retention Always says it skipped
+- coverage: a filter-list edit names the act and all three list sizes
+- coverage: N table repaints with nothing changed log one [Table] line, and a real change logs
+- coverage: each open of the History window logs its render once, even when unchanged
+- coverage: N Insights recomputes with nothing changed log one [Insights] line
+- coverage: test mode's start, combat stop and refusal are one [Table] line each
+
+### test_doc_structure.lua (8)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
 - every anchor pointing into docs/ARCHITECTURE.md resolves to a heading
 - the player-facing history has the ONE home documentation-§1 allows, and no second
 - README.md's top-level sections are the ones documentation-§1 names, in its order
 - README.md's Reporting a bug section is the standard's text with /lh, and links nowhere
+- README.md carries no numbered list (CurseForge does not render one)
 - every deviation id the register cites is assigned by a bundle in docs/audits/
 - docs/smoke-tests.md carries a non-English-client section
 
@@ -1080,13 +1100,15 @@ badge and any count quoted in the docs must agree with it.
 - layoutcap self-test: a census that states nothing is told apart from one that states none
 - layoutcap self-test: the exempt set takes folders as well as paths
 
-### test_diagnostics_contract.lua (7)
+### test_diagnostics_contract.lua (9)
 
 - diagnostics contract: both forms run the report
 - diagnostics contract: the debug word is matched in any case
 - diagnostics contract: both markers carry the brand and the end counts the report
 - diagnostics contract: the report appends after what the console already holds
-- diagnostics contract: the report lands with logging off and leaves it off
+- diagnostics contract: the report lands with logging off and turns it on for the session
+- diagnostics contract: an addon that opts out lands the report and leaves logging off (skipped: this addon keeps the default (Kit.diagnostics.enablesLogging is not false), so its report turns logging on; the case above holds it)
+- diagnostics contract: with logging already on, the report writes no second enable line
 - diagnostics contract: both forms run while the addon is disabled
 - diagnostics contract: no other name runs the report
 
@@ -1145,12 +1167,13 @@ badge and any count quoted in the docs must agree with it.
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 14 |
 | test_diagnostics.lua | 17 |
-| test_doc_structure.lua | 7 |
+| test_debug_coverage.lua | 16 |
+| test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
-| test_diagnostics_contract.lua | 7 |
+| test_diagnostics_contract.lua | 9 |
 | test_widgets.lua | 17 |
-| **Total** | **987** |
+| **Total** | **1006** |

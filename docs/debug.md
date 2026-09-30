@@ -5,13 +5,13 @@ Loot History has two debug surfaces, and both write into the same window:
 - **The debug console** is `LibKa0s-DebugLog-1.0`'s window. Tagged `NS.Debug` lines land there while
   the session flag is on.
 - **The diagnostics report** is a one-shot snapshot of the addon's state, written into the console
-  by `/lh diagnostics` (`debug-logging-§14`). It is why this page exists (`documentation-§3`, Tier 2):
+  by `/lh diagnostics` or the console's orange **Diagnostics** link (`debug-logging-§14`). It is why this page exists (`documentation-§3`, Tier 2):
   every Ka0s addon ships the report, and a maintainer reading a pasted one needs to know what each
   line means.
 
 The console itself is the library's, and its contract lives in LibKa0s's
-[`docs/api/DebugLog/version-14.1-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-14.1-docs.md)
-(DebugLog 14.1 is the vendored minor, from LibKa0s v1.60.0). This page covers only what Loot History
+[`docs/api/DebugLog/version-17.2-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-17.2-docs.md)
+(DebugLog 17 with DebugLogDiagnostics 2 is the vendored pair, from LibKa0s v1.64.0). This page covers only what Loot History
 adds on top.
 
 ## The console
@@ -40,11 +40,60 @@ What Loot History supplies, all in `core/DebugLogSetup.lua`:
 - **The chrome is ours.** The window takes the History window's skin through the `applySkin` hook,
   and the console checkbox follows the window however it was closed.
 
-The tags in use, and the checks that each one fires once rather than once per row, are in
+Every tag in use, what writes it and when, is in [Coverage](#coverage) below. The in-game checks that
+each one fires once rather than once per row are in
 [smoke-tests.md](smoke-tests.md#debug-console-and-diagnostics) DIAG-2, DIAG-3 and DIAG-12 to
 DIAG-18. On an install without LibKa0s the
 flag still flips on `on` / `off`, but the window is gone: instead of a confirmation, each prints the
 library-absent line ending `so the debug console window is unavailable.`
+
+## Coverage
+
+What the log carries, tag by tag (`debug-logging-§8` flows and Diagnosis, `§9` coalescing and quiet
+steady state). Every line is one gated `NS.Debug` call with its string-building behind the flag,
+except the two library brackets written through the raw append. The tags are single words, rendered
+verbatim; `Debug`, `Init`, `Cfg` and `Launcher` lines come from the library, and the rest from this
+addon's own files.
+
+| Tag | What emits it | When |
+|---|---|---|
+| `Debug` | `LibKa0s-DebugLog-1.0`, `SetEnabled` | `logging enabled` / `logging disabled`, once at each end of a session |
+| `Init` | the library on enable (`NS.InitSummary`, `core/Database.lua`); `core/CoreSetup.lua` | the session summary line, right after `logging enabled`; `event X refused by this client`, once per name the first time a registration is refused |
+| `State` | `NS.StandDown` / `NS.StandUp`, `core/LifecycleSetup.lua` | once per latch edge: `stood down (holds: …): capture unregistered, N deferral(s) canceled`, and `stood up: capture registered (price providers: …; latch: …)`, which is also the once-per-enable dependency line. The load-time stand-up runs with the flag off, so a session sees these only on an edge after `debug on` |
+| `Set` | `LibKa0s-Schema-1.0` (per write and bulk acts); `traceProfileEvent`, `core/LootHistory.lua`; `S:Set`, `settings/Schema.lua` | one line per accepted write (`path = value`) or bulk act (`act scope: N rows`); a profile reset or copy; a refused write, `path rejected: <reason>` |
+| `Profile` | `traceProfileEvent`, `core/LootHistory.lua` | a profile switch |
+| `Migrate` | `core/Database.lua` | a migration step that ran (`vN -> vM, N rows touched`); the bound repair armed; each repair pass, `N fixed, N pending, N candidates (attempt N, still pending / done / gave up)` |
+| `Prune` | `Database:PruneOld` | each retention prune with its count; `skipped: retention is Always` when there is nothing to prune by |
+| `Data` | `Database:Delete` / `Database:Purge` | each delete and each purge, with the rows removed |
+| `Loot` | `Collector:OnChatMsgLoot` | an item recorded: name, quality, item level, source, confidence |
+| `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message for the session |
+| `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` | an item or currency not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, and for the player's own currency lines `recordCurrency-off` and `unresolved-link` |
+| `Currency` | `Collector:OnChatMsgCurrency` | a currency recorded |
+| `Attr` | `modules/Attribution.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down` |
+| `Open` | `Attribution:OnLootOpened` / `OnContainerItemUse` | one summary per loot window (never per slot); a lootable bag item `ignored: spell targeting`. A bag item with no loot logs nothing: a merchant sale is one `UseContainerItem` per item |
+| `Cast` | `Attribution:OnSpellSucceeded` | a deconstruct cast only, never the rest of the rotation |
+| `Mail` | `Attribution:StampMail` | a mail attachment taken, with the AH-or-mail verdict |
+| `UI` | `modules/Browser.lua`; `modules/Export.lua` | the window shown and hidden; a tab switch; an open refused (`stood down`, or `visibility=<mode>`); the window hidden by the visibility setting, on a combat edge or when the setting is written (an edge that changes nothing logs nothing); a CSV export, with the data set and the text's size |
+| `Table` | `BrowserTable:Refresh` / `SetTestMode` | the render summary, **change-gated**: logged only when it differs from the last one logged, and once again after each window open. Test mode on (with the sample row count), off (with the reason, `combat started`), or refused with its reason |
+| `Insights` | `Analytics:Refresh` | the recompute summary, **change-gated** the same way: the live refresh on every coalesced `RecordAdded` stays quiet while the numbers do not move |
+| `Filters` | `Filters:_notify` | each list edit, naming the act and id, with all three list sizes after it |
+| `Cmd` | `traceDisabledRefusal`, `settings/Slash.lua` | a feature verb the dispatcher refuses because the addon is switched off. A live verb or a typo logs nothing |
+| `Cfg` | `LibKa0s-Options-1.0`; `runRebuilders`, `settings/Panel.lua` | the panel registration parked or the open refused in combat, and opened; a list rebuilder that raised, once per distinct message |
+| `Launcher` | `LibKa0s-Launcher-1.0` | registration, and the broker or minimap library missing, once at register |
+| `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
+
+### Deliberately not logged
+
+- **Other players' loot and currency lines.** `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` fire for the
+  whole group; a line that is not the player's is not a decision this addon made, so it is parsed
+  away before any guard (currency capture off included) gets to log it.
+- **A partial trade accept, a non-deconstruct cast, a zone change that moves no keystone state.**
+  Each fires often and changes nothing.
+- **Each coalesced repaint trigger.** The held repaint is one timer per burst; its flush is the
+  `[Table]` / `[Insights]` line, and a stand-down that cancels it is counted in the `[State]` line.
+- **The login deferrals.** The five- and twenty-second prune and repair passes run with the flag off
+  (it is session-only), so their `[Prune]` and `[Migrate]` lines land only when logging is already on.
+- **Positions, sizes and the saved view.** Named non-setting state (`debug-logging-§10`).
 
 ## The diagnostics report
 
@@ -54,6 +103,10 @@ There are exactly two forms, and no third:
 
 - `/lh diagnostics`, a row of `NS.COMMANDS` in `settings/Schema.lua`, directly after `debug`;
 - `/lh debug diagnostics`, the first word the `debug` handler tests, in any case.
+
+Beside the two slash forms, the console's title bar carries the library's orange **Diagnostics** link,
+just right of the **Debug: ON/OFF** toggle (DebugLog 16 and later). It is not a slash form: a click
+runs `NS.DebugLog:RunDiagnostics()`, the same call both forms make.
 
 `/loothistory` reaches both, as it reaches every verb. `diag`, `dump`, `dx` and every other short name
 are ordinary unknown words: `/lh diag` prints `unknown command 'diag'` and the help index, and
@@ -69,8 +122,16 @@ below).
 - **It appends.** The report lands after whatever the console already holds, so the trace a player
   has just reproduced stays above it and one Copy carries both. Nothing the report reaches calls
   `Clear()`.
-- **It is ungated.** It writes through the library's raw append, not `NS.Debug`, so it lands in full
-  with logging off, and it does not read or change the flag: the header reads the same afterwards.
+- **It turns logging on for the session.** When logging is off, the run first calls the flag's one
+  seam, `NS.DebugLog:SetEnabled(true)` (debug-logging-§14, standard v2.71.0; DebugLogDiagnostics 2),
+  as `/lh debug on` would: chat prints `[LH] debug logging ON`, the console gets `[Debug] logging
+  enabled` and the `[Init]` line ahead of the begin marker, the report's
+  header line reads `debug logging: on` and the console's toggle **Debug: ON**.
+  What the player does next is traced. It never turns logging off, and with logging already on it
+  writes no second enable line. A `/reload` turns it off again, as always. This addon keeps the
+  library's default: its descriptor does not set `diagnosticsEnablesLogging = false`.
+- **It is ungated.** It writes through the library's raw append, not `NS.Debug`. The sections only
+  print the flag; only the run, before it writes, sets it.
 - **It reveals the console** if it is hidden, then prints one chat line:
   `Diagnostic report written to the debug console: N lines. Use Copy to share it.`
 - **It is plain text.** The library strips color, texture, atlas and hyperlink escapes from every
@@ -130,7 +191,8 @@ and the library header around no sections.
   differently from when the record was written. The report says what the addon was working with, not
   what a fresh lookup says now. No raw loot or currency chat text is printed, because the addon never
   keeps any.
-- **It writes nothing.** No Lifecycle hold taken or released, no event registered, no timer armed, no
+- **It writes nothing else.** Past the run turning session logging on (above), which the sections
+  never do: no Lifecycle hold taken or released, no event registered, no timer armed, no
   cache rebuilt, no `Schema:Set`. The AH cascade is read raw rather than through
   `AuctionPrice:GetPriority()`, which would write an empty cascade into a store that has none.
 - **It calls no protected API**, so it is safe in combat.
@@ -141,7 +203,8 @@ and the library header around no sections.
   maintainer needs to reproduce the bug, character names included.
 
 With no LibKa0s the stub's `RunDiagnostics` prints
-`/lh diagnostics is unavailable: the LibKa0s library did not load.`, writes nothing and returns 0.
+`/lh diagnostics is unavailable: the LibKa0s library did not load.`, writes nothing, turns no logging
+on and returns 0.
 The degraded help does not offer `diagnostics`, because answering is not the same as working
 ([slash-dispatch.md](slash-dispatch.md)).
 
@@ -149,7 +212,7 @@ The degraded help does not offer `diagnostics`, because answering is not the sam
 
 The command rows are in [slash-dispatch.md](slash-dispatch.md), the disabled-state behavior in
 [disabled-state.md](disabled-state.md), and the player-facing steps in the README's
-`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-25 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
+`## Reporting a bug`. The in-game checks are DIAG-1 to DIAG-30 and COMBAT-8 in [smoke-tests.md](smoke-tests.md). The
 suites are `tests/test_diagnostics.lua` (this addon's sections), the kit's shared
 `tests/_kit/test_diagnostics_contract.lua` (wired in `tests/run.lua`), `tests/test_disabled.lua`
 (both forms while stood down) and `tests/test_slash_degraded.lua` (both forms with no library).

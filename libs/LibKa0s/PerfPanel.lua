@@ -10,7 +10,7 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 5
+local PANEL_MINOR = 6
 -- Paired on the PROBE's minor as well as the panel's own. The panel counter alone is not enough:
 -- two vendored copies can ship the same panel minor over different Perf.lua minors, and then the
 -- higher probe wins the LibStub race while the first-loaded copy's panel stays attached to it —
@@ -146,14 +146,34 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     return b
   end
 
+  --- Stretch every step row to the panel's width less its padding (panel minor 6). The rows are
+  --- anchored at their top-left and sized, so this is what makes them follow a resize; the command
+  --- column is anchored to each row's right edge and follows the row.
+  local function stretchRows(w)
+    if type(w) ~= "number" or w <= 0 then w = frame:GetWidth() end
+    if type(w) ~= "number" or w <= 0 then return end
+    for _, b in pairs(frame.buttons) do b:SetWidth(w - PAD * 2) end
+  end
+
+  --- WIDTH ONLY, from panel minor 6, when the Core under it has the grip (Core minor 9). The row
+  --- count is fixed, so height the player added would be empty space: the height is pinned at the
+  --- computed one. Today's width is the minimum. Guarded, so an older Core leaves the fixed panel.
+  local function makeResizable(width, height)
+    if type(core.MakeResizable) ~= "function" then return end
+    core.MakeResizable(frame, {
+      minWidth = width, minHeight = height, widthOnly = true, onResize = stretchRows,
+    })
+  end
+
   local function EnsureFrame()
     if frame then return frame end
     if type(CreateFrame) ~= "function" then return nil end
 
     local name = d.name .. "PerfPanel"
     local height = TITLE_H + PAD * 2 + #P.STEPS * (ROW_H + GAP)
+    local width = ROW_W + PAD * 2
     frame = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
-    frame:SetSize(ROW_W + PAD * 2, height)
+    frame:SetSize(width, height)
     frame:SetPoint("CENTER", -320, 0)
     frame:SetFrameStrata("DIALOG")
     frame:EnableMouse(true)
@@ -206,6 +226,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     if type(UISpecialFrames) == "table" then
       table.insert(UISpecialFrames, name)
     end
+    makeResizable(width, height)
     return frame
   end
 

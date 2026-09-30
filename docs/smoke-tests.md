@@ -25,7 +25,7 @@ free number in its theme.
 | INS-1 to 21 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
-| DIAG-1 to 25 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, tag coverage, the diagnostics report |
+| DIAG-1 to 30 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link |
 | DEGRADED-1 to 11 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -61,7 +61,8 @@ free number in its theme.
 - Media or art (`core/MediaSetup.lua`, an `NS.Icon` call site, `libs/LibKa0s/media/`): HIST-5 to
   HIST-11, HIST-13, HIST-15, HIST-17 to HIST-19, HIST-22, HIST-23, INS, PANEL-18, DIAG-10 and DIAG-11.
 - Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/Widgets.lua`):
-  HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2 and INSTALL-8.
+  HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2, INSTALL-8
+  and DIAG-28 (the copy windows are this file's `CopyWindow`).
 - LibKa0s re-vendor or `core/*Setup.lua` / `settings/Slash.lua` / `settings/OptionsSetup.lua`:
   DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-2, HIST-3, HIST-5,
   HIST-12 to HIST-23, HIST-28 to HIST-33, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
@@ -984,8 +985,13 @@ written to the debug console: N lines. Use Copy to share it.`; nothing was clear
 **DIAG-20. The paste is plain.** **Copy** and paste into an editor → trace, begin and end markers,
 no `|c`, `|H` or `|T` escapes; item names in the tail are plain. Result:
 
-**DIAG-21. Ungated by logging.** `/lh debug off`, `/lh diagnostics`, then loot → the full report
-lands; the header still reads **Debug: OFF** and the loot writes no trace. Result:
+**DIAG-21. Diagnostics turns logging on for the session.** `/reload` → logging is off (DIAG-8).
+`/lh diagnostics` → chat prints `[LH] debug logging ON`, then the report's line-count line; the
+console holds `[Debug] logging enabled` and the `[Init]` line above `[Diag] ==== Ka0s Loot History
+diagnostics begin ====`, the report's header reads `debug logging: on`, and the title bar reads
+**Debug: ON**. Loot at threshold → a `[Loot]` line streams. `/lh diagnostics` again → the report
+appends with no second `logging enabled` line. `/reload` → logging is off again; `/lh debug
+diagnostics` → the same, logging on for the session. Result:
 
 **DIAG-22. Every form.** `/lh debug diagnostics`, `/loothistory diagnostics`, `/loothistory debug
 diagnostics` → each writes the same report. Result:
@@ -995,12 +1001,45 @@ debug diag` → toggles the console like any unknown word. Result:
 
 **DIAG-24. While disabled.** `/lh disable`, then `/lh diagnostics` and `/lh debug diagnostics` → full
 reports reading `identity: enabled=false stoodDown=true testMode=false` and `capture: stood down
-(the loot, currency and context events are unregistered)`; nothing comes back on. `/lh enable`.
+(the loot, currency and context events are unregistered)`; debug logging turns on (DIAG-21) but
+nothing else comes back on. `/lh enable`.
 Result:
 
 **DIAG-25. The README steps.** `/reload` with the console closed, then follow the README's `##
 Reporting a bug` steps word for word → each works, and the paste holds the trace and the whole
 report. Result:
+
+**DIAG-26. The console resizes.** Open `/lh debug`, fill it past one screen (`/lh diagnostics`) →
+a size grabber in the bottom-right corner, over the frame and clear of the `N / 3000 lines` counter.
+Drag it larger and smaller on both axes → the log reflows to the new size, the scrollbar thumb and
+the counter stay in step, the title and the three top-right buttons stay placed, and the lines and
+scroll position are kept. Drag it as small as it goes → it stops where the title and every button
+still fit side by side and a few lines still show; nothing overlaps. Result:
+
+**DIAG-27. Session size, default after a reload.** Resize the console, close it (✕, Esc or `/lh
+debug`) and reopen it → the same size. Drag it somewhere else and reopen → the size is still yours.
+`/reload`, then `/lh debug` → back to the default 700 × 344. Result:
+
+**DIAG-28. The copy windows resize.** In the console, **Copy** → the copy window has its own grabber;
+drag it on both axes → the text box widens and narrows with it, the scroll bar's down arrow stays
+clickable above the grabber, and it stops at a minimum. Close and **Copy** again → the same size;
+the console keeps its own size. The History window's **Export** copy box does the same, with a size
+of its own that neither console window shares. `/reload` → both open at their default. Result:
+
+**DIAG-29. Another addon's console is its own.** With a second Ka0s addon loaded, resize this
+console, then open that addon's `/<prefix> debug` → it opens at its default; resize it and reopen
+`/lh debug` → this console keeps the size you gave it. Skip, and say so, when no other Ka0s addon is
+installed. Result:
+
+**DIAG-30. The Diagnostics link.** `/lh debug` → in the title bar, top left, the word **Diagnostics**
+sits just right of the **Debug: ON/OFF** toggle with a small gap, drawn orange in the same plain text
+as the toggle: no button art, border or background. Hover it → it brightens; move off → orange
+again. With logging off, click it → logging turns on first (the toggle reads **Debug: ON**, chat
+prints `[LH] debug logging ON`, the console gains `[Debug] logging enabled` and the `[Init]` line),
+then the report lands after them as DIAG-19 describes, with its one chat line. Click it again → the
+report appends once more with no second `logging enabled` line, and logging stays on. Click the
+toggle between ON and OFF → the gap after it holds for either word. Drag the console as small as it
+goes (DIAG-26) → the link still fits beside the toggle and the title. Result:
 
 ## Degraded install
 
@@ -1100,10 +1139,12 @@ a record of the owner's pass exists. Four do. Review F-001 passed CAP-4 to CAP-6
 Known limitations). The 2026-07-22 field note in the old § 3 passed currency capture and the refund
 flow (CAP-11, CAP-12). The diagnostics rollout's owner pass on 2026-09-26
 (Ka0sAddonsCommonTasks `2026-09-25-DIAGNOSTICS_COMMAND/99_REPORT.md`, LH-S1 to LH-S11 and LH-X1)
-passed DIAG-19 to DIAG-22, DIAG-24, DIAG-25 and COMBAT-8. The 2026-09-23 remediation plan's X1.4
+passed DIAG-19, DIAG-20, DIAG-22, DIAG-24, DIAG-25 and COMBAT-8; it passed DIAG-21 too, as then
+written, but standard v2.71.0 rewrote that check (diagnostics now turns logging on), so it is listed
+again. The 2026-09-23 remediation plan's X1.4
 (`06_SMOKE_TESTS.md`, recorded PASS on 2026-09-25 after M6: `/lh disable`, then left-click opens
 Settings, right-click opens the options menu, the status tooltip shows) passed LAUNCH-3. Those
-thirteen checks are not listed. The diagnostics rollout passed half of DIAG-6, half of DEGRADED-4
+twelve checks are not listed. The diagnostics rollout passed half of DIAG-6, half of DEGRADED-4
 and two of DIAG-23's three inputs (LH-S8 never ran `/lh dump`), and X1.4 passed part of LAUNCH-2,
 LAUNCH-4 and LAUNCH-5; all six stay listed for the rest. The rest of the 2026-09-23 plan
 (`06_SMOKE_TESTS.md` Session LH, Session Q and X2.4) is recorded as owed; a row names the plan step
@@ -1209,7 +1250,10 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DIAG-14 | § 15 bulk-reset line | No result recorded; expectation rewritten by SP-LH-01 (`[Set] reset profile 'Default' …`) |
 | DIAG-15 | § 15 data and reset-all lines | No result recorded; expectation rewritten by SP-LH-01 (no `[Data]` line on Reset all settings) |
 | DIAG-16 to DIAG-18 | § 15 | No result recorded |
+| DIAG-21 | § 12a, the diagnostics rollout (LH-S1 to LH-S11) | Passed on 2026-09-26 as then written; expectation rewritten by DL-LH-03 (the run turns logging on for the session: standard v2.71.0, DebugLogDiagnostics 2) |
 | DIAG-23 | § 12a step 5 | LH-S8 passed `/lh diag` and `/lh debug diag` on 2026-09-26; `/lh dump` has no result |
+| DIAG-26 to DIAG-29 | New | New with the resizable console and copy windows (DL-LH-01, LibKa0s v1.64.0) |
+| DIAG-30 | New | New with the console's Diagnostics link (DL-LH-03, LibKa0s v1.64.0, DebugLog 16 and later) |
 | DEGRADED-1 | § 17a.1 | No result recorded |
 | DEGRADED-2 | § 17a.2 | No result recorded; expectation corrected by SP-LH-03R (the schema commands print the unavailable line) |
 | DEGRADED-3 | § 17a.3 | No result recorded; expectation corrected by SP-LH-03R (`/lh version` and `/lh get` print DEGRADED-2's line) |

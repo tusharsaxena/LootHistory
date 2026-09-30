@@ -229,9 +229,9 @@ end)
 -- text with this addon's slash, word for word. It names no destination and carries no link, so a
 -- player follows the same three steps whatever channel the bug report goes through.
 local REPORTING_A_BUG = table.concat({
-  "1. Type `/lh debug on` and reproduce the bug.",
-  "2. Type `/lh diagnostics`.",
-  "3. If the debug window isn't open, open it with `/lh debug`. Press **Copy**, copy the entire "
+  "- Type `/lh debug on` and reproduce the bug.",
+  "- Type `/lh diagnostics`.",
+  "- If the debug window isn't open, open it with `/lh debug`. Press **Copy**, copy the entire "
     .. "output, and include it with your bug report.",
   "",
   "The report is added after the debug trace in the same window, so one copy carries both.",
@@ -246,6 +246,18 @@ test("README.md's Reporting a bug section is the standard's text with /lh, and l
     .. "documentation-§1 item 9; found:\n" .. section)
   assertTrue(not section:find("](", 1, true) and not section:lower():find("github", 1, true),
     README .. "'s `## Reporting a bug` names a destination or a link, which the standard forbids")
+end)
+
+-- documentation-§1: README.md is the CurseForge description, and CurseForge's description page does
+-- not render numbered lists, so the README uses bullets and lets the words carry any order.
+test("README.md carries no numbered list (CurseForge does not render one)", function()
+  local bad = {}
+  local n = 0
+  for line in (read(README) .. "\n"):gmatch("([^\n]*)\n") do
+    n = n + 1
+    if line:match("^%s*%d+[.)]%s") then bad[#bad + 1] = n .. ": " .. line end
+  end
+  assertTrue(#bad == 0, README .. " carries a numbered list; use `- ` bullets:\n" .. table.concat(bad, "\n"))
 end)
 
 -- ── The deviation register's own citations resolve ─────────────────────────────

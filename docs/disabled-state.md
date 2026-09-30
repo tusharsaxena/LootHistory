@@ -42,8 +42,9 @@ declared tomorrow is gated by default. The live set is named once, as data (`LIV
 and is `lib.LIVE_VERBS` restated (Slash minor 17): `help`, `config`, `version`, `enable`,
 `disable`, `debug`, `perf`, `diagnostics` and the schema CLI, plus the host verb `profile`. `diagnostics` joined the set at
 LibKa0s v1.60.0 because a disabled addon is the one a player is most likely to be reporting; the
-report reads state only, takes no hold and registers nothing, and says which parts are stood down
-([debug.md](debug.md)). **The refusal line is the collection's, not this addon's** — one shape, built by
+report's sections read state only, take no hold and register nothing, and say which parts are stood
+down; the run turns session logging on first when it is off, which is the debug flag, not the addon
+coming back on, and the console's **Diagnostics** link runs the same call ([debug.md](debug.md)). **The refusal line is the collection's, not this addon's** — one shape, built by
 `LibKa0s-Slash-1.0` from `NS.BRAND` and the slash and reached through `NS.Slash.DisabledLine()` by
 the verb gate, the one call site that prints it (the launcher's left click printed it too until
 Launcher minor 4, LibKa0s v1.58.0, retired the refusal: the left button now opens the panel in either

@@ -228,10 +228,10 @@ end)
 
 -- ── what the report must not touch (STD-05, DX-LH "Never") ────────────────────────────────
 
-test("diagnostics: the report calls no item, tooltip or keystone API and changes no state", function()
+test("diagnostics: the report calls no item, tooltip or keystone API; the sections leave the debug flag alone and the run turns it on", function()
   local C = NS.Compat
   local saved = { gi = C.GetItemInfo, sb = C.ScanBound, cm = _G.C_ChallengeMode,
-                  clear = NS.DebugLog.Clear }
+                  clear = NS.DebugLog.Clear, debug = NS.State.debug }
   local touched = {}
   C.GetItemInfo = function() touched[#touched + 1] = "GetItemInfo" end
   C.ScanBound = function() touched[#touched + 1] = "ScanBound" end
@@ -242,17 +242,30 @@ test("diagnostics: the report calls no item, tooltip or keystone API and changes
   NS.DebugLog.Clear = function() touched[#touched + 1] = "Clear" end
   local regsBefore = #M.__registrations()
   local holdsBefore = table.concat(NS.Lifecycle:Holds(), ",")
-  local debugBefore = NS.State.debug
-  local ok, err = pcall(function() NS.DebugLog:RunDiagnostics() end)
+  -- Set the flag off explicitly: an earlier suite may leave it on, and then the run's enable
+  -- would be a no-op and this case could not tell a run that turns logging on from one that doesn't.
+  NS.State.debug = false
+  local debugAfterSections, debugAfterRun
+  local ok, err = pcall(function()
+    -- The sections alone (BuildDiagnostics runs every one of them and writes nothing): only the
+    -- run may set the flag (debug-logging-14), so a section that flipped it is caught here.
+    build()
+    debugAfterSections = NS.State.debug
+    NS.DebugLog:RunDiagnostics()
+    debugAfterRun = NS.State.debug
+  end)
   C.GetItemInfo, C.ScanBound, _G.C_ChallengeMode = saved.gi, saved.sb, saved.cm
   NS.DebugLog.Clear = saved.clear
+  NS.State.debug = saved.debug
   if not ok then error(err, 0) end
   -- red under: a history section that resolved names through GetItemInfo, a bound readout that
   -- rebuilt a tooltip, or a keystone line read live instead of from the stored context.
   assertEqual(table.concat(touched, ", "), "", "the report reached an API it must not")
   assertEqual(#M.__registrations(), regsBefore, "the report registered or unregistered something")
   assertEqual(table.concat(NS.Lifecycle:Holds(), ","), holdsBefore, "the report moved a hold")
-  assertEqual(NS.State.debug, debugBefore, "the report changed the debug flag")
+  assertEqual(debugAfterSections, false, "a section changed the debug flag")
+  -- red under: a run that left logging off (debug-logging-14: the run turns it on for the session).
+  assertEqual(debugAfterRun, true, "the run did not turn logging on")
 end)
 
 -- ── STD-19's host cases, against this addon's own sections ────────────────────────────────
