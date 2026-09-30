@@ -66,39 +66,55 @@ end
 
 -- ── state edges ──────────────────────────────────────────────────────────────────────────────
 
-test("coverage: a stand-down and a stand-up are one [State] line each, naming holds and dependencies", function()
-  -- red under: dropping either line from NS.StandDown / NS.StandUp (core/LifecycleSetup.lua). The
-  -- latch narrates nothing, so without them a switched-off addon's silence reads exactly like a
-  -- broken capture, and a pasted log cannot say which price providers the session had.
+test("coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line", function()
+  -- red under: dropping `debug` from the Lifecycle descriptor (core/LifecycleSetup.lua), which
+  -- leaves the edge and its holds unlogged; dropping either host line from NS.StandDown /
+  -- NS.StandUp, which leaves what this addon took down unsaid; or a host line that names the holds
+  -- again, which logs the one edge twice (debug-logging-§4, "The library's own lines").
   local lines = whileDisabled(function() end)
-  assertEqual(count(lines, "[State] stood down"), 1, table.concat(lines, "\n"))
-  assertEqual(count(lines, "[State] stood up"), 1, table.concat(lines, "\n"))
-  local down = first(lines, "[State] stood down")
-  assertTrue(down:find("holds: disabled", 1, true) ~= nil, down)
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Lifecycle] stood down: added disabled (holds: disabled)"), 1, all)
+  assertEqual(count(lines, "[Lifecycle] stood up: released disabled (holds: none)"), 1, all)
+  assertEqual(count(lines, "[Lifecycle]"), 2, all)
+  assertEqual(count(lines, "[State] stand-down"), 1, all)
+  assertEqual(count(lines, "[State] stand-up"), 1, all)
+  assertEqual(count(lines, "holds:"), 2, "only the library's lines name the holds:\n" .. all)
+  local down = first(lines, "[State] stand-down")
   assertTrue(down:match("%d+ deferral%(s%) canceled") ~= nil, down)
-  local up = first(lines, "[State] stood up")
+  local up = first(lines, "[State] stand-up")
   assertTrue(up:find("price providers: none", 1, true) ~= nil, up)
   assertTrue(up:find("latch: LibKa0s-Lifecycle-1.0", 1, true) ~= nil, up)
 end)
 
-test("coverage: with logging off, an edge builds and writes nothing", function()
-  local saved, calls = NS.Debug, 0
-  NS.Debug = function() calls = calls + 1 end
+test("coverage: with logging off, an edge builds nothing of the host's and writes nothing", function()
+  -- The library builds its own [Lifecycle] line and hands it to the sink, which drops it at the
+  -- gate; everything else is the host's, and none of it may reach the sink with logging off.
+  local saved, tags = NS.Debug, {}
+  NS.Debug = function(tag) tags[#tags + 1] = tostring(tag) end
   NS.State.debug = false
   quietChat(function()
     NS.Schema:Set("settings.enabled", false)
     NS.Schema:Set("settings.enabled", true)
   end)
   NS.Debug = saved
-  assertEqual(calls, 0, "a gated line reached the sink with logging off")
+  for _, tag in ipairs(tags) do
+    assertEqual(tag, "Lifecycle", "a host line reached the sink with logging off")
+  end
+  local D, before = NS.DebugLog, #NS.DebugLog.buffer
+  quietChat(function()
+    NS.Schema:Set("settings.enabled", false)
+    NS.Schema:Set("settings.enabled", true)
+  end)
+  assertEqual(#D.buffer, before, "the real sink wrote a line with logging off")
 end)
 
 -- ── refusals, each naming its guard ──────────────────────────────────────────────────────────
 
 test("coverage: while stood down, a hook's stamp, an open and a feature verb each name the guard", function()
-  -- red under: dropping the gated line from Attribution:Stamp's stood-down return, from B:Show's
-  -- stood-down return, or settings/Slash.lua's traceDisabledRefusal. The report is "nothing
-  -- happened"; each line is the answer.
+  -- red under: dropping the gated line from Attribution:Stamp's stood-down return or from B:Show's
+  -- stood-down return, or dropping `debug` from the Slash descriptor (settings/Slash.lua), whose
+  -- disabled gate then refuses in chat only. The report is "nothing happened"; each line is the
+  -- answer. The [Cmd] line is the library's (Slash minor 18); a host copy would be a second one.
   local live = {}
   for _, v in ipairs(M.LibStub("LibKa0s-Slash-1.0").LIVE_VERBS) do live[v:lower()] = true end
   live.profile = true
@@ -114,16 +130,43 @@ test("coverage: while stood down, a hook's stamp, an open and a feature verb eac
   end)
   assertEqual(count(lines, "[Attr] stamp VENDOR ignored: stood down"), 1, table.concat(lines, "\n"))
   assertEqual(count(lines, "[UI] open refused: stood down"), 1, table.concat(lines, "\n"))
-  assertEqual(count(lines, "[Cmd] /lh " .. verb .. " refused: addon disabled"), 1,
-    table.concat(lines, "\n"))
+  assertEqual(count(lines, "[Cmd] refused " .. verb .. ": disabled"), 1, table.concat(lines, "\n"))
+  assertEqual(count(lines, "[Cmd]"), 1, "one refusal, one line:\n" .. table.concat(lines, "\n"))
 end)
 
-test("coverage: a live verb or a typo while disabled is not logged as a refusal", function()
+test("coverage: while disabled, a live verb logs no refusal and a typo is the unknown-verb line", function()
+  -- A live verb runs; a typo is not the disabled gate's refusal (slash-commands-§3) but the
+  -- dispatcher's unknown-verb refusal, its own one line.
   local lines = whileDisabled(function()
     NS.Slash:OnSlash("version")
     NS.Slash:OnSlash("nosuchverb")
   end)
-  assertEqual(count(lines, "[Cmd]"), 0, table.concat(lines, "\n"))
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Cmd] refused nosuchverb: unknown verb"), 1, all)
+  assertEqual(count(lines, "[Cmd]"), 1, all)
+  assertEqual(count(lines, "[Cmd] refused version"), 0, all)
+end)
+
+test("coverage: the library's own lines land in this addon's console, once each", function()
+  -- Through the REAL sink and the real buffer, not a stand-in: what a player copies out. A Slash
+  -- refusal (Slash minor 18) and a Lifecycle edge (Lifecycle minor 3) each land as exactly one line.
+  local D, savedFlag = NS.DebugLog, NS.State.debug
+  NS.State.debug = true
+  local before = #D.buffer
+  local ok, err = pcall(quietChat, function()
+    NS.Slash:OnSlash("get")
+    NS.Schema:Set("settings.enabled", false)
+    NS.Schema:Set("settings.enabled", true)
+  end)
+  NS.State.debug = savedFlag
+  if not ok then error(err, 0) end
+  local lines = {}
+  for i = before + 1, #D.buffer do lines[#lines + 1] = D.buffer[i] end
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Cmd] refused get: usage"), 1, all)
+  assertEqual(count(lines, "[Lifecycle] stood down: added disabled (holds: disabled)"), 1, all)
+  assertEqual(count(lines, "[Lifecycle] stood up: released disabled (holds: none)"), 1, all)
+  assertEqual(count(lines, "[Cmd]"), 1, all)
 end)
 
 test("coverage: the visibility refusal and the visibility hide name the mode", function()

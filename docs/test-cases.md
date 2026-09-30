@@ -1018,12 +1018,13 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 
-### test_debug_coverage.lua (17)
+### test_debug_coverage.lua (18)
 
-- coverage: a stand-down and a stand-up are one [State] line each, naming holds and dependencies
-- coverage: with logging off, an edge builds and writes nothing
+- coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
+- coverage: with logging off, an edge builds nothing of the host's and writes nothing
 - coverage: while stood down, a hook's stamp, an open and a feature verb each name the guard
-- coverage: a live verb or a typo while disabled is not logged as a refusal
+- coverage: while disabled, a live verb logs no refusal and a typo is the unknown-verb line
+- coverage: the library's own lines land in this addon's console, once each
 - coverage: the visibility refusal and the visibility hide name the mode
 - coverage: a refused schema write is one [Set] line with the seam's reason
 - coverage: a currency line refused before it names a currency says why
@@ -1168,7 +1169,7 @@ badge and any count quoted in the docs must agree with it.
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 14 |
 | test_diagnostics.lua | 17 |
-| test_debug_coverage.lua | 17 |
+| test_debug_coverage.lua | 18 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1177,4 +1178,4 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 9 |
 | test_widgets.lua | 17 |
-| **Total** | **1007** |
+| **Total** | **1008** |

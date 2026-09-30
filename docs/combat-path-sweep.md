@@ -37,13 +37,13 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 seventeen of them are not registrations: the twelve lines of Core's per-event helper bodies in
 `core/CoreSetup.lua` (the degraded stub at `:153-162`, the live wrappers at `:237-251`; see
 [ARCHITECTURE.md § Event subscriptions](ARCHITECTURE.md#event-subscriptions)),
-`core/LifecycleSetup.lua:143`, the guard above the call, `modules/Attribution.lua:415-416`, the local
+`core/LifecycleSetup.lua:139`, the guard above the call, `modules/Attribution.lua:415-416`, the local
 helper the nine bus events go through, and `modules/Attribution.lua:431-432`, the pattern names inside
 a comment. The rows are in the order the grep prints them, so the two can be held side by side.
 
 | Event | Registered at | Work done per fire |
 |---|---|---|
-| `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:144` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:130`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
+| `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:140` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:130`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
 | `CHAT_MSG_LOOT` | `modules/Collector.lua:243` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:129`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:135` having allocated nothing: the gate config it hands `ShouldRecord` is one module-level `gateCfg` table, refreshed with the settings and given only the line's `itemID` per call, not a table built per line (`LootHistory-R-16`). A **kept** line then runs `NS.Compat.GetItemExtras` (`:138`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:139`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
 | `CHAT_MSG_CURRENCY` | `modules/Collector.lua:245` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
 | `LOOT_OPENED` | `modules/Attribution.lua:420` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
