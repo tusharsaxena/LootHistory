@@ -1010,7 +1010,7 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the tail is the newest 25 records, stored fields only, with no link escapes
 - diagnostics: the rejected events `/lh debug events` prints are folded into the report
 - diagnostics: while stood down, the capture section says so instead of printing empty wiring
-- diagnostics: the report calls no item, tooltip or keystone API and changes no state
+- diagnostics: the report calls no item, tooltip or keystone API; the sections leave the debug flag alone and the run turns it on
 - diagnostics: a raising section costs exactly one line and the sections after it still land
 - diagnostics: an over-cap report ends with the truncated line, then the end marker
 - diagnostics: a secret value in the stored loot context does not raise the report
