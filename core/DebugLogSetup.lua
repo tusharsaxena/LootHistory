@@ -74,6 +74,12 @@ if not lib then
       return { lines = {}, dropped = 0, capped = false, capsHit = false }
     end,
     DebugVerb = function() return false end,
+    -- The change gates and the at-enable queue (DebugLogGates 1, LibKa0s v1.65.0). With no console
+    -- there is nothing to write to, so each answers nothing, as the stub NS.Debug below does.
+    DebugOnce     = function() end,
+    DebugChanged  = function() end,
+    DebugForget   = function() end,
+    DebugAtEnable = function() end,
     ConsoleCheckbox = function()
       return {
         label   = "Debug console",

@@ -23,7 +23,8 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 
 -- Minor 1: O.NavRail, the one inset the strip, the content panel and the scroll read
 -- (lib.__railInset), and the rail's top measured off the selected tab's art.
-local NAV_MINOR = 1
+-- Minor 2: a refused rail click names its entry, for the shell's Cfg line (gap G3, 2026-09-30).
+local NAV_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__navMinor and lib.__navMinor >= NAV_MINOR
   and lib.__navShellMinor == lib.MINOR then return end
@@ -194,7 +195,7 @@ local function dressEntry(O, b, entry, selected, onSelect)
     if selected then return end
     -- A rail switch is a structural re-render, refused in combat exactly as a tab click is
     -- (options-ui-§2, §13). The library owns the refusal; a host adds no guard of its own.
-    if O.__combatRefused and O.__combatRefused() then return end
+    if O.__combatRefused and O.__combatRefused("rail", entry.key) then return end
     if onSelect then pcall(onSelect, entry.key) end
   end)
 end

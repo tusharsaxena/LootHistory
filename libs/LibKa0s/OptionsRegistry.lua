@@ -25,7 +25,9 @@ if not lib then return end
 
 -- Minor 1: the page registry and the registration park, moved here from Options.lua (its minors
 -- 1 to 25) with no change in behavior.
-local REGISTRY_MINOR = 1
+-- Minor 2: the replay of a parked registration writes "register flushed (combat ended)" through
+-- the descriptor's `debug`, the pair to the parked line (gap G3 of the 2026-09-30 debug-gaps run).
+local REGISTRY_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__registryMinor and lib.__registryMinor >= REGISTRY_MINOR
@@ -173,6 +175,7 @@ function lib.__AttachRegistry(O, d)
     if not (InCombatLockdown and InCombatLockdown()) then return false end
     parked = lib.__parkRegistration(function()
       parked = false
+      if type(d.debug) == "function" then d.debug("Cfg", "register flushed (combat ended)") end
       O.CreateOptionsPanel()
     end)
     if parked and type(d.debug) == "function" then d.debug("Cfg", "register parked (in combat)") end

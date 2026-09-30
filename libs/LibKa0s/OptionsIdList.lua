@@ -14,7 +14,8 @@ local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
 -- Minor 1: the id list, moved here from OptionsWidgets.lua (issue #32) with no change in behavior.
-local IDLIST_MINOR = 1
+-- Minor 2: a toggle asks the lock once, naming the entry, so a refusal is one Cfg line (gap G3).
+local IDLIST_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -403,9 +404,12 @@ function lib.__AttachIdList(O, d, ids)
       w:SetLabel(spec.toggleLabel or "")
       w:SetValue(entry.on and true or false)
       w:SetCallback("OnValueChanged", function(_, _, value)
-        if not callHost(spec.onToggle, entry.id, value and true or false) and refused() then
-          w:SetValue(entry.on and true or false)   -- refused in combat (minor 23): put it back
+        -- Refused in combat (minor 23): put it back. Asked here, once, before callHost (minor 2):
+        -- asking after it as well wrote the refusal's line twice.
+        if refused("id list toggle", entry.id) then
+          return w:SetValue(entry.on and true or false)
         end
+        callHost(spec.onToggle, entry.id, value and true or false)
       end)
     else
       w = O.AceGUI:Create("Button")

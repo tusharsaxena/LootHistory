@@ -12,6 +12,7 @@
 	<Script file="WidgetsDragHandle.lua"/>
 	<Script file="DebugLog.lua"/>
 	<Script file="DebugLogDiagnostics.lua"/>
+	<Script file="DebugLogGates.lua"/>
 	<Script file="Slash.lua"/>
 	<Script file="Launcher.lua"/>
 	<Script file="Options.lua"/>
