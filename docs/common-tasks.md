@@ -186,19 +186,19 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
   **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
-  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:698`). The console is LibKa0s-DebugLog-1.0's; the sink is
+  (`D.Debug`, `libs/LibKa0s/DebugLog.lua:793`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
   (`core/DebugLogSetup.lua:166`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
   `settings/Schema.lua:1016`); the header's `Debug: ON`/`OFF` control flips the same flag
-  (`libs/LibKa0s/DebugLog.lua:523`). The flag stays the **host's** throughout — the descriptor hands
+  (`libs/LibKa0s/DebugLog.lua:602`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:109-110`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
   is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:206`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
-  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:158`; the colored console
-  variant is `lib.FormatColored`, `:166`). `tag` is one short word, printed verbatim — no padding,
+  `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:160`; the colored console
+  variant is `lib.FormatColored`, `:168`). `tag` is one short word, printed verbatim — no padding,
   no truncation.
 - `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
   `NS.SafeToString` before it reaches `string.format`, so a combat-protected "secret" value logs as

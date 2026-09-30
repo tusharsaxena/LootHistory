@@ -410,8 +410,12 @@ no authored `.lua` wires nothing and the suite skips, with the reason said out l
 The fourth, new in kit revision 27. `debug-logging-§14` makes a diagnostics dump a MUST: exactly
 `/<slash> diagnostics` and `/<slash> debug diagnostics` write one report into the debug console,
 both work while the addon is disabled, the report appends and never clears, it lands with logging
-off, both markers carry the brand, and no other name (`diag`, `dx`, or a name the addon retired)
-runs it. LibKa0s builds the report; this suite checks the addon's half, through the addon's own
+off and turns logging on for the session before it writes (once: no second enable line when logging
+is already on; kit revision 34, `debug-logging-§14` at v2.71.0), both markers carry the brand, and
+no other name (`diag`, `dx`, or a name the addon retired) runs it. An addon whose DebugLog
+descriptor opts out (`diagnosticsEnablesLogging = false`) declares `enablesLogging = false`, and its
+report must leave logging off instead; the case for the choice it did not declare is a declared
+skip. LibKa0s builds the report; this suite checks the addon's half, through the addon's own
 dispatcher, and the addon's own suite adds its domain sections.
 
 The consumer's facts arrive on the kit table before `Kit.run`:
@@ -425,6 +429,7 @@ Kit.diagnostics = {
   setDisabled = function(off) ... end,             -- stand the addon down (true) or up (false)
   retired     = { "dump" },                        -- optional: the addon's own retired names
   reset       = function() ... end,                -- optional: run before every case
+  enablesLogging = false,                          -- optional: ONLY when the descriptor opts out
 }
 Kit.run{ dir = "tests/", suites = { ..., { name = "test_diagnostics_contract",
   dir = "tests/_kit/" } } }
