@@ -35,7 +35,7 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 
 **Game events: fifteen registrations, fifteen rows.** The first grep returns **thirty-two** lines;
 seventeen of them are not registrations: the twelve lines of Core's per-event helper bodies in
-`core/CoreSetup.lua` (the degraded stub at `:153-162`, the live wrappers at `:237-251`; see
+`core/CoreSetup.lua` (the degraded stub at `:156-165`, the live wrappers at `:240-254`; see
 [ARCHITECTURE.md § Event subscriptions](ARCHITECTURE.md#event-subscriptions)),
 `core/LifecycleSetup.lua:141`, the guard above the call, `modules/Attribution.lua:415-416`, the local
 helper the nine bus events go through, and `modules/Attribution.lua:431-432`, the pattern names inside

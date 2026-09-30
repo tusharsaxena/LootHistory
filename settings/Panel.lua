@@ -312,11 +312,11 @@ local function makeFilterSection(ctx, tab)
   -- CURRENCIES ASKED FOR ONE UNTIL THE OWNER SAW IT (2026-09-21). The reservation was that currency
   -- names are the long ones on this page -- "Weathered Harbinger Crest" -- and that above one
   -- column the library turns word wrap OFF on an entry's label (entryNoWrap,
-  -- libs/LibKa0s/OptionsIdList.lua:730, called from idLine at :817), because one name
+  -- libs/LibKa0s/OptionsIdList.lua:730, called from idLine at :821), because one name
   -- wrapping in the left column pushes the whole right column down and the grid stops lining up.
   -- The client truncates the TAIL instead, and the name and the gray `(id)` are ONE FontString
-  -- (entryLabel, :301-312), so an entry too long for its column loses the id ENTIRELY rather than
-  -- shortening it (:1128-1133 states that cost).
+  -- (entryLabel, :302-313), so an entry too long for its column loses the id ENTIRELY rather than
+  -- shortening it (:1132-1137 states that cost).
   --
   -- That cost is real and still applies. What the reservation got wrong was the premise: the
   -- currency ids a player actually mutes are crest and stone names -- "Veteran Mistcrest (3443)",

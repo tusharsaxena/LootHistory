@@ -226,6 +226,30 @@ test("coverage: the library's own lines land in this addon's console, once each"
   assertEqual(count(lines, "[Cmd]"), 1, all)
 end)
 
+test("coverage: an Options combat-lock refusal is the library's one [Cfg] line in this console", function()
+  -- red under: dropping `debug` from the Options descriptor (settings/OptionsSetup.lua), which
+  -- leaves the combat lock's refusals (Options minor 27) unlogged; or a host line beside it, which
+  -- logs the one refusal twice (debug-logging-§4, "The library's own lines"). Through the REAL sink
+  -- and buffer, as the Slash and Lifecycle case above. The mock's InCombatLockdown answers true for
+  -- the call, so the page's Defaults (O.RestoreDefaults) is refused at the lock and writes nothing.
+  local O, D, savedFlag = NS.Options, NS.DebugLog, NS.State.debug
+  local pages = O.__pages()
+  assertTrue(pages[1] ~= nil and pages[1].key ~= nil, "no Options page to refuse on")
+  local pageKey = pages[1].key
+  local realCombat = M.InCombatLockdown
+  M.InCombatLockdown = function() return true end
+  NS.State.debug = true
+  local before = #D.buffer
+  local ok, err = pcall(quietChat, function() O.RestoreDefaults(pageKey) end)
+  M.InCombatLockdown, NS.State.debug = realCombat, savedFlag
+  if not ok then error(err, 0) end
+  local lines = {}
+  for i = before + 1, #D.buffer do lines[#lines + 1] = D.buffer[i] end
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Cfg] defaults " .. tostring(pageKey) .. " refused (in combat)"), 1, all)
+  assertEqual(count(lines, "[Cfg]"), 1, "one refusal, one line, no host copy:\n" .. all)
+end)
+
 test("coverage: the visibility refusal and the visibility hide name the mode", function()
   -- red under: dropping the [UI] line from B:Show's visibility refusal or from B:ApplyVisibility.
   local s = NS.db.profile.settings

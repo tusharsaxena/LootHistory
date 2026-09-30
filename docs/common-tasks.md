@@ -198,7 +198,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:206`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
   `<ts> | [<tag>] <content>` (`lib.FormatPlain`, `libs/LibKa0s/DebugLog.lua:152`; the colored console
-  variant is `lib.FormatColored`, `:168`). `tag` is one short word, printed verbatim — no padding,
+  variant is `lib.FormatColored`, `:160`). `tag` is one short word, printed verbatim — no padding,
   no truncation.
 - `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
   `NS.SafeToString` before it reaches `string.format`, so a combat-protected "secret" value logs as
