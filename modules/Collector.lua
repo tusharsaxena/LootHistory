@@ -179,14 +179,14 @@ local function traceCurrencyLineDrop(reason)
 end
 
 function Collector:OnChatMsgCurrency(_, msg)
-  -- The two silent returns below each name their guard in a [Drop] line (debug-logging-§8,
-  -- refusals): "my currency was not recorded" is the report, and the guard is the answer.
+  -- A line the self-parse rejects (another player's, or not a currency gain) returns silently: no
+  -- decision of ours. Past it, each guard names itself in a [Drop] line (debug-logging-§8).
+  local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
+  if not link then return end
   if not recordCurrency then
     traceCurrencyLineDrop("recordCurrency-off")
     return
   end
-  local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
-  if not link then return end
 
   local currencyID, name = NS.Compat.GetCurrencyInfoFromLink(link)
   if not currencyID then

@@ -151,16 +151,19 @@ test("coverage: a refused schema write is one [Set] line with the seam's reason"
 end)
 
 test("coverage: a currency line refused before it names a currency says why", function()
-  -- red under: the two bare returns at the top of Collector:OnChatMsgCurrency.
+  -- red under: bare returns for the recordCurrency and unresolved-link guards in
+  -- Collector:OnChatMsgCurrency, or running the recordCurrency check before the self-parse (the
+  -- first call below is not a self line and must log nothing even with capture off).
   local C, U, Cp = NS.Collector, NS.Util, NS.Compat
   local realParse, realInfo = U.ParseSelfCurrency, Cp.GetCurrencyInfoFromLink
   local lines = capture(function()
     NS.db.profile.settings.recordCurrency = false
     C:RefreshUpvalues()
+    C:OnChatMsgCurrency(nil, "not a currency line")
+    U.ParseSelfCurrency = function() return "|Hcurrency:0|h[x]|h", 1 end
     C:OnChatMsgCurrency(nil, "anything")
     NS.db.profile.settings.recordCurrency = true
     C:RefreshUpvalues()
-    U.ParseSelfCurrency = function() return "|Hcurrency:0|h[x]|h", 1 end
     Cp.GetCurrencyInfoFromLink = function() return nil end
     C:OnChatMsgCurrency(nil, "anything")
   end)

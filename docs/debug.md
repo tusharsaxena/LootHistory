@@ -67,7 +67,7 @@ addon's own files.
 | `Data` | `Database:Delete` / `Database:Purge` | each delete and each purge, with the rows removed |
 | `Loot` | `Collector:OnChatMsgLoot` | an item recorded: name, quality, item level, source, confidence |
 | `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message for the session |
-| `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` | an item or currency not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, and for currency `recordCurrency-off` and `unresolved-link` |
+| `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` | an item or currency not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, and for the player's own currency lines `recordCurrency-off` and `unresolved-link` |
 | `Currency` | `Collector:OnChatMsgCurrency` | a currency recorded |
 | `Attr` | `modules/Attribution.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down` |
 | `Open` | `Attribution:OnLootOpened` / `OnContainerItemUse` | one summary per loot window (never per slot); a lootable bag item `ignored: spell targeting`. A bag item with no loot logs nothing: a merchant sale is one `UseContainerItem` per item |
@@ -84,8 +84,9 @@ addon's own files.
 
 ### Deliberately not logged
 
-- **Other players' loot lines.** `CHAT_MSG_LOOT` fires for the whole group; a line that is not the
-  player's is not a decision this addon made.
+- **Other players' loot and currency lines.** `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` fire for the
+  whole group; a line that is not the player's is not a decision this addon made, so it is parsed
+  away before any guard (currency capture off included) gets to log it.
 - **A partial trade accept, a non-deconstruct cast, a zone change that moves no keystone state.**
   Each fires often and changes nothing.
 - **Each coalesced repaint trigger.** The held repaint is one timer per burst; its flush is the
