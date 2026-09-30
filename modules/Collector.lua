@@ -172,13 +172,27 @@ end
 -- blacklist don't apply to currency. A currency-vendor refund arrives here (not on CHAT_MSG_LOOT) as
 -- a self-identifying "You are refunded" line — attributed to REFUND directly, bypassing the context
 -- (which by then holds the stale VENDOR stamp from the purchase).
+-- The [Drop] line for a currency line refused before it names a currency. `reason` is a constant,
+-- so the call builds nothing while logging is off.
+local function traceCurrencyLineDrop(reason)
+  if NS.State.debug and NS.Debug then NS.Debug("Drop", "currency line reason=%s", reason) end
+end
+
 function Collector:OnChatMsgCurrency(_, msg)
-  if not recordCurrency then return end
+  -- The two silent returns below each name their guard in a [Drop] line (debug-logging-§8,
+  -- refusals): "my currency was not recorded" is the report, and the guard is the answer.
+  if not recordCurrency then
+    traceCurrencyLineDrop("recordCurrency-off")
+    return
+  end
   local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
   if not link then return end
 
   local currencyID, name = NS.Compat.GetCurrencyInfoFromLink(link)
-  if not currencyID then return end
+  if not currencyID then
+    traceCurrencyLineDrop("unresolved-link")
+    return
+  end
 
   if currencyBlacklist[currencyID] then
     if NS.State.debug and NS.Debug then

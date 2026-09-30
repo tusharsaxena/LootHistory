@@ -99,7 +99,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:723`),
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:735`),
   a one-line delegate to the **`LibKa0s-Schema-1.0`** runtime (`NS.SchemaRuntime`). That seam is:
   look the row up → run its optional `validate` → write a **deep copy** of the value → fire the
   row's `onChange`. The deep copy is load-bearing: without it a reset would alias the DB to a shared
@@ -156,7 +156,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:17`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:241`), which also rewrites the one module-level `gateCfg` table
+  (`modules/Collector.lua:255`), which also rewrites the one module-level `gateCfg` table
   (`modules/Collector.lua:26`) the handler passes to `ShouldRecord` — a loot line sets only
   `gateCfg.itemID`, never builds a config table. The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
@@ -191,7 +191,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`core/DebugLogSetup.lua:166`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:1004`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:1016`); the header's `Debug: ON`/`OFF` control flips the same flag
   (`libs/LibKa0s/DebugLog.lua:523`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:109-110`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
@@ -258,7 +258,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   | # | Class | Where |
   |---|---|---|
   | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:171`, `modules/Analytics.lua:11`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:296` |
-  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1097`, `:1098`, `settings/Panel.lua:527`, `:529`, `:530` |
+  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1097`, `:1098`, `settings/Panel.lua:543`, `:529`, `:530` |
   | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1064`, `:1065` (the corner grabber, reasoned at `:1058-1063`), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
 
@@ -295,7 +295,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1099`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1115`), whose combat refusal lives in the library
   (`libs/LibKa0s/OptionsRegistry.lua:251`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow`, `libs/LibKa0s/Options.lua:573`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas

@@ -86,6 +86,9 @@ local SUITES = {
   -- This addon's half of the diagnostics report (debug-logging-14): its sections, what they say
   -- and what they must not touch. After test_disabled, which leaves the addon brought up.
   "test_diagnostics",
+  -- debug-logging-8's Diagnosis lines and 9's quiet steady state. After test_diagnostics, which
+  -- leaves the addon brought up: its edge cases switch it off and on again through the stored switch.
+  "test_debug_coverage",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

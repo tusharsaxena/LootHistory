@@ -366,12 +366,16 @@ local function finishPass(g, fixed, pending, candidates)
   -- The cap counts *fruitless* passes, not passes: a run that fixed something proves the client is
   -- answering, so the job has earned its full budget again for whatever is still unresolved.
   g.boundRepairAttempts = fixed > 0 and 0 or (g.boundRepairAttempts or 0) + 1
+  local attempt, outcome = g.boundRepairAttempts, "still pending"
   if pending == 0 or g.boundRepairAttempts >= BOUND_REPAIR_MAX_ATTEMPTS then
     g.boundRepairPending, g.boundRepairAttempts = nil, nil
+    outcome = pending == 0 and "done" or "gave up"
   end
+  -- The outcome word is the deferred job's end (debug-logging-§8, deferred work): the attempt read
+  -- BEFORE the clear, so a give-up names the pass it gave up on rather than a reset 0.
   if NS.State.debug and NS.Debug then
-    NS.Debug("Migrate", "bound repair: %s fixed, %s pending, %s candidates (attempt %s)",
-      tostring(fixed), tostring(pending), tostring(candidates), tostring(g.boundRepairAttempts or 0))
+    NS.Debug("Migrate", "bound repair: %s fixed, %s pending, %s candidates (attempt %s, %s)",
+      tostring(fixed), tostring(pending), tostring(candidates), tostring(attempt), outcome)
   end
 end
 
@@ -945,7 +949,11 @@ end
 -- prune over a fresh history must not make the Browser rebuild).
 function Database:PruneOld()
   local days = NS.db.global.retentionDays
-  if not days or days == 0 then return 0 end
+  if not days or days == 0 then
+    -- The no-op names its reason (debug-logging-§8): "old rows were not pruned" is answered here.
+    if NS.State.debug and NS.Debug then NS.Debug("Prune", "skipped: retention is Always") end
+    return 0
+  end
   local cutoff = time() - days * 86400
   local history = NS.db.global.history
   local kept = {}

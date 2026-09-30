@@ -6,7 +6,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
-| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:407`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
+| `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:411`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
 
@@ -18,9 +18,9 @@ Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua)
 
 ## `Ka0s_LootHistory_RecordAdded` payload
 
-Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:407`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
+Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua) (`core/Database.lua:411`). The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
 
-Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:398`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
+Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:402`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
 
 ## `Ka0s_LootHistory_HistoryChanged` payload
 
@@ -41,7 +41,7 @@ Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schem
 Sent from eight schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), carrying six distinct `reason` strings between them: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, `"excludes"`, and `"chrome"` — the last one new with the Master controls tab, sent by `settings.scale` / `settings.alpha` / `settings.locked` so the Browser re-applies the addon-wide chrome to both of its frames. A seventh, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The first five are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
 
 - **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
-- **Browser** (`modules/Browser.lua:1261`) calls `OnSettingsChanged()` to reflect the change in the open window. On a profile event the adopt path has already called `B:AdoptProfile` directly, for what the window reads from the profile outside the chrome (geometry, saved view, row height).
+- **Browser** (`modules/Browser.lua:1286`) calls `OnSettingsChanged()` to reflect the change in the open window. On a profile event the adopt path has already called `B:AdoptProfile` directly, for what the window reads from the profile outside the chrome (geometry, saved view, row height).
 
 ### What does NOT broadcast
 
@@ -64,10 +64,10 @@ The reason: **CallbackHandler keys registered callbacks by `(message, target)`.*
 
 Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters tab) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters tab's live list rebuild):
 
-- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:240`).
-- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1260`).
-- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:662`).
-- Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:153`) and the Filters tab's id-lists (`settings/Panel.lua:486`), each on its own target.
+- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:254`).
+- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1285`).
+- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:673`).
+- Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:153`) and the Filters tab's id-lists (`settings/Panel.lua:502`), each on its own target.
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.
 

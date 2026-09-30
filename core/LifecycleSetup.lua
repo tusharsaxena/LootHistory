@@ -74,12 +74,40 @@ end
 --- Drop every deferral still waiting. Both halves matter: the flag stops a `C_Timer.After` fallback
 --- body that is already queued, and `Cancel` takes the handle out of the client's own ticker list
 --- so nothing is left to wake up at all.
+--- Returns how many were dropped: the stand-down line names that count, because a held deferral
+--- that never runs is exactly what debug-logging-§8's "held, then never flushed" asks to see.
 function NS.CancelDeferrals()
+  local n = 0
   for h in pairs(live) do
     h.canceled = true
     if h.timer and h.timer.Cancel then h.timer:Cancel() end
     live[h] = nil
+    n = n + 1
   end
+  return n
+end
+
+-- ── the two edge lines (debug-logging-§8, Diagnosis) ─────────────────────────────────────────
+--
+-- The latch narrates nothing (libs/LibKa0s/Lifecycle.lua: "a latch that narrated its own edges
+-- would print into a player's chat"), so the host writes the one [State] line per edge. Both are
+-- built only while logging is on.
+
+local function holdsText()
+  local lc = NS.Lifecycle
+  local held = lc and lc.Holds and lc:Holds() or {}
+  return #held > 0 and table.concat(held, ",") or "none"
+end
+
+--- The price providers found, named once per stand-up: the only optional companions this addon
+--- consults (debug-logging-§8, Dependencies). The latch kind rides the same line.
+local function dependencyText()
+  local AP, found = NS.AuctionPrice, {}
+  for _, p in ipairs({ "auctionator", "tsm", "oribos" }) do
+    if AP and AP.IsProviderAvailable and AP:IsProviderAvailable(p) then found[#found + 1] = p end
+  end
+  return ("price providers: %s; latch: %s"):format(#found > 0 and table.concat(found, ",") or "none",
+    Lifecycle and "LibKa0s-Lifecycle-1.0" or "local fallback")
 end
 
 -- ── the two host callbacks ────────────────────────────────────────────────────────────────────
@@ -94,7 +122,11 @@ function NS.StandDown()
   for _, m in ipairs({ NS.Collector, NS.Attribution, NS.Browser, NS.Analytics }) do
     if m and m.Disable then m:Disable() end
   end
-  NS.CancelDeferrals()
+  local dropped = NS.CancelDeferrals()
+  if NS.State.debug and NS.Debug then
+    NS.Debug("State", "stood down (holds: %s): capture unregistered, %d deferral(s) canceled",
+      holdsText(), dropped)
+  end
   -- Hidden here as well as refused in the ladder, and both are needed: the ladder stops the window
   -- coming back, this takes down the one that is already up.
   if NS.CloseMenu then NS.CloseMenu() end
@@ -115,6 +147,9 @@ function NS.StandUp()
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
   if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
+  if NS.State.debug and NS.Debug then
+    NS.Debug("State", "stood up: capture registered (%s)", dependencyText())
+  end
 end
 
 -- ── the latch ─────────────────────────────────────────────────────────────────────────────────

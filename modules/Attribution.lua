@@ -123,7 +123,10 @@ function Attribution:Stamp(source, detail, confidence, trigger)
   -- UseContainerItem and GetQuestReward -- and `hooksecurefunc` has no un-hook, so gating the body
   -- and returning is the one move available. It MUST NOT be read as license to gate anything that
   -- has a real unregister: every event this module owns is torn out in Attribution:Disable.
-  if NS.IsStoodDown and NS.IsStoodDown() then return end
+  if NS.IsStoodDown and NS.IsStoodDown() then
+    if NS.State.debug and NS.Debug then NS.Debug("Attr", "stamp %s ignored: stood down", tostring(source)) end
+    return
+  end
   State.lootContext = {
     source = source,
     detail = detail,
@@ -309,16 +312,21 @@ end
 -- Stamp CONTAINER, but only when the used item actually has loot AND we're not applying a pending
 -- spell to it (clicking a bag item as a Disenchant/Enchant target also routes through
 -- UseContainerItem — that must NOT be read as opening a container).
+--
+-- The trace names only the two outcomes that decide attribution: a stamp (Stamp's own [Attr] line)
+-- and a lootable item refused because a spell was waiting for a target. A use of an item with no
+-- loot logs nothing: UseContainerItem is also how a merchant sale and a bag addon's bulk actions
+-- reach the client, and a line per item there is the per-item stream debug-logging-§9 forbids.
 function Attribution:OnContainerItemUse(bag, slot)
   local hasLoot = NS.Compat.ContainerItemHasLoot(bag, slot)
-  local targeting = NS.Compat.IsSpellTargeting()
-  if NS.State.debug and NS.Debug then
-    NS.Debug("Open", "UseContainerItem bag=%s slot=%s hasLoot=%s spellTargeting=%s",
-      tostring(bag), tostring(slot), tostring(hasLoot), tostring(targeting))
+  if not hasLoot then return end
+  if NS.Compat.IsSpellTargeting() then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Open", "container use bag=%s slot=%s ignored: spell targeting", tostring(bag), tostring(slot))
+    end
+    return
   end
-  if hasLoot and not targeting then
-    self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN, "container-open")
-  end
+  self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN, "container-open")
 end
 
 -- Deconstruct abilities turn an item into materials that arrive right when the cast SUCCEEDS (so the

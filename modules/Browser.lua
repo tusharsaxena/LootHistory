@@ -1083,6 +1083,10 @@ local function EnsureFrame()
   -- B:Hide, ESC, or a raw frame:Hide()).
   frame:HookScript("OnShow", function()
     if NS.State.debug and NS.Debug then NS.Debug("UI", "window shown") end
+    -- An open is a view open (debug-logging-§8): the first [Table] / [Insights] summary after it
+    -- lands even when it matches the last one logged, which the change gate would otherwise hold.
+    if NS.BrowserTable and NS.BrowserTable.ResetRenderTrace then NS.BrowserTable.ResetRenderTrace() end
+    if NS.Analytics and NS.Analytics.ResetRenderTrace then NS.Analytics.ResetRenderTrace() end
     -- Give the pending bound-state repair another pass here. By the time the user opens the
     -- window the item cache is warm, which is exactly what the login passes may have lacked —
     -- and this is the moment the wrong lock color would be looked at. No-op once it completes.
@@ -1147,6 +1151,12 @@ end
 ---
 --- `inCombat` is the combat edge when a transition calls in (true from PLAYER_REGEN_DISABLED, false
 --- from PLAYER_REGEN_ENABLED); nil everywhere else, and the player's combat flag answers.
+--- The stored General visibility mode, "always" when nothing is stored yet.
+local function visibilityMode()
+  return (NS.db and NS.db.profile and NS.db.profile.settings
+          and NS.db.profile.settings.visibility) or "always"
+end
+
 function B:VisibilityAllows(inCombat)
   -- THE FIRST RUNG, and it is the whole of slash-commands-§7's "hidden AT THE SOURCE". A window
   -- taken down imperatively comes back: the next combat transition, the next settings change or
@@ -1154,8 +1164,7 @@ function B:VisibilityAllows(inCombat)
   -- running while it claims to be off. Refusing here means every route into the window -- the verb,
   -- the minimap click, the tab restore, the visibility dropdown -- answers no from one place.
   if NS.IsStoodDown and NS.IsStoodDown() then return false end
-  local mode = (NS.db and NS.db.profile and NS.db.profile.settings
-                and NS.db.profile.settings.visibility) or "always"
+  local mode = visibilityMode()
   if mode == "never"  then return false end
   if mode == "always" then return true end
   -- A display decision, so never the combat-lockdown flag (events-frames-taint-§2):
@@ -1171,8 +1180,16 @@ end
 
 --- Hide the window if the visibility setting no longer allows it. Called on every combat
 --- transition (which passes the edge through as `inCombat`) and whenever the dropdown is written.
+---
+--- The one [UI] line names the setting that took the window down, so a window that "vanished at
+--- the pull" reads as the choice it was (debug-logging-§8, state edges). An edge that changes
+--- nothing logs nothing.
 function B:ApplyVisibility(inCombat)
   if frame and frame:IsShown() and not B:VisibilityAllows(inCombat) then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("UI", "window hidden by visibility=%s (%s)", tostring(visibilityMode()),
+        inCombat == nil and "setting changed" or ("combat=" .. tostring(inCombat)))
+    end
     frame:Hide()
   end
 end
@@ -1181,8 +1198,16 @@ function B:Show()
   -- Silently, and only here: a stood-down addon's refusal is the DISPATCHER's one line, and a
   -- second line from the show ladder underneath it would be the two-line lecture §7 forbids. The
   -- visibility refusal below still speaks, because that one is about a setting the player chose.
-  if NS.IsStoodDown and NS.IsStoodDown() then return end
+  -- Both refusals still leave one gated [UI] line naming the guard (debug-logging-§8): the chat
+  -- rule above is about the player's chat, and the log is where "nothing opened" gets its answer.
+  if NS.IsStoodDown and NS.IsStoodDown() then
+    if NS.State.debug and NS.Debug then NS.Debug("UI", "open refused: stood down") end
+    return
+  end
   if not B:VisibilityAllows() then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("UI", "open refused: visibility=%s", tostring(visibilityMode()))
+    end
     print("the window is hidden by the General visibility setting.")
     return
   end

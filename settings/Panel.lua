@@ -179,8 +179,24 @@ end
 -- The flag is the LIBRARY's `ctx._dirty` — the one O.SetRenderer's OnShow actually reads — and not
 -- a private `ctx.dirty` alongside it. A page-local flag is written and never read: the library
 -- returns early on `_rendered and not _dirty`, so an off-screen change would never repaint.
+--
+-- A rebuilder that raises is swallowed so one broken list cannot blank the page, and logged once
+-- per distinct message for the session (debug-logging-§8, errors caught): a repaint runs on every
+-- list edit, and the same fault would otherwise be one line per repaint or no line at all.
+local seenRebuildError = {}
+local function traceRebuildError(err)
+  if not (NS.State.debug and NS.Debug) then return end
+  local key = NS.SafeToString(err)
+  if seenRebuildError[key] then return end
+  seenRebuildError[key] = true
+  NS.Debug("Cfg", "panel rebuilder failed: %s", err)
+end
+
 local function runRebuilders(ctx)
-  for _, fn in ipairs(ctx.rebuilders or {}) do pcall(fn) end
+  for _, fn in ipairs(ctx.rebuilders or {}) do
+    local ok, err = pcall(fn)
+    if not ok then traceRebuildError(err) end
+  end
   ctx._dirty = false
   if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
 end

@@ -482,7 +482,14 @@ local function EnsureFrame()
   -- Export-to-CSV button, spanning the full row (aligned under the Data Set dropdown).
   local csvBtn = makeButton(frame, "Export to CSV", 150, function()
     local serialize = config.csv or function(d) return E:CSV(d) end
-    ShowCopy(serialize(selectedData()))
+    local text = serialize(selectedData())
+    -- The export flow's one line (debug-logging-§8): which data set, how big the text handed to
+    -- the copy window was. Never the text itself.
+    if NS.State.debug and NS.Debug then
+      NS.Debug("UI", "export csv: data set=%s, %d chars", tostring(dataset),
+        type(text) == "string" and #text or 0)
+    end
+    ShowCopy(text)
   end, "spreadsheet")
   csvBtn:SetPoint("TOPLEFT", 16, -80)
   csvBtn:SetPoint("TOPRIGHT", -16, -80)

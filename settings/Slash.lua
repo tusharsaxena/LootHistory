@@ -382,7 +382,24 @@ local Dispatcher = lib:New({
 -- Bound onto NS.Slash by name rather than replacing it, because ~20 call sites across the schema
 -- table, the settings panel and the suite already reach for `NS.Slash:CliList()` and friends.
 
-Sl.OnSlash        = function(_, msg)  return Dispatcher:OnSlash(msg)  end
+-- A verb the dispatcher is about to refuse because the addon is switched off leaves one [Cmd] line
+-- naming that guard (debug-logging-§8, refusals). The library prints the refusal to chat and logs
+-- nothing; this reads the same three facts its gate does -- the stored switch, the verb is one of
+-- NS.COMMANDS, and it is not live -- and only while logging is on. A typo is not a refusal and logs
+-- nothing; an alias the library resolves is not matched here, so it costs a missing line, never a
+-- wrong one.
+local LIVE = {}
+for _, verb in ipairs(liveVerbs()) do LIVE[verb:lower()] = true end
+local function traceDisabledRefusal(msg)
+  if not (NS.State.debug and NS.Debug and NS.AddonIsOff()) then return end
+  local verb = (tostring(msg or ""):match("^%s*(%S+)") or ""):lower()
+  if verb == "" or LIVE[verb] then return end
+  for _, entry in ipairs(NS.COMMANDS) do
+    if entry[1] == verb then return NS.Debug("Cmd", "/lh %s refused: addon disabled", verb) end
+  end
+end
+
+Sl.OnSlash        = function(_, msg)  traceDisabledRefusal(msg); return Dispatcher:OnSlash(msg)  end
 Sl.PrintHelp      = function()        return Dispatcher:PrintHelp()   end
 Sl.HelpHeader     = function()        return Dispatcher:HelpHeader()  end
 Sl.HelpRows       = function()        return Dispatcher:HelpRows()    end

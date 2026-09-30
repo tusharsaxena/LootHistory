@@ -69,6 +69,19 @@ local function wantedByProvider(capture)
   return out
 end
 
+-- A provider fetch that raised, logged once per distinct (provider, message) for the session
+-- (debug-logging-§8, errors caught): the pcall below keeps a broken pricing addon from costing the
+-- loot row, and without this line it would cost nothing visible at all. Once, because the same
+-- fault repeats on every kept loot line. Built and compared only while logging is on.
+local seenFetchError = {}
+local function traceFetchError(prov, err)
+  if not (NS.State.debug and NS.Debug) then return end
+  local key = tostring(prov) .. "\0" .. NS.SafeToString(err)
+  if seenFetchError[key] then return end
+  seenFetchError[key] = true
+  NS.Debug("AHPrice", "%s fetch failed: %s", tostring(prov), err)
+end
+
 -- Capture every configured key. Returns { provider = { key = copper } } or nil if empty.
 function AuctionPrice:GatherAll(itemLink, itemID)
   local capture = (cfg())
@@ -79,7 +92,8 @@ function AuctionPrice:GatherAll(itemLink, itemID)
     local fetch = PROVIDER_FETCH[prov]
     if fetch then
       local ok, sub = pcall(fetch, keys, itemLink, itemID)
-      if ok and sub and next(sub) then map = map or {}; map[prov] = sub end
+      if not ok then traceFetchError(prov, sub)
+      elseif sub and next(sub) then map = map or {}; map[prov] = sub end
     end
   end
   return map

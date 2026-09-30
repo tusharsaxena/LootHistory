@@ -462,6 +462,14 @@ function Analytics.SummaryLine(scope, count)
   return ("computed range=%s, %s records"):format(tostring(scope), tostring(count))
 end
 
+-- The last [Insights] summary logged, for the quiet-steady-state gate (debug-logging-§9). The live
+-- refresh runs on every coalesced RecordAdded while the tab is up; under a filter the new loot
+-- does not match (or in test mode, never reaches), the recompute is identical and logs nothing.
+-- Reset by the History window's OnShow, so each open logs its first recompute.
+local lastSummaryLine
+
+function Analytics.ResetRenderTrace() lastSummaryLine = nil end
+
 function Analytics:Refresh()
   if not self.content then return end
   -- Scope by the browser's shared filter (issue #13) so the Insights view and the History table
@@ -472,8 +480,11 @@ function Analytics:Refresh()
   self:UpdateCards(stats)
   self:Layout() -- Layout → LayoutCharts binds the charts off self.stats
   if NS.State.debug and NS.Debug then
-    local scope = next(filter) and "filtered" or "all"
-    NS.Debug("Insights", "%s", Analytics.SummaryLine(scope, stats.totals.records))
+    local line = Analytics.SummaryLine(next(filter) and "filtered" or "all", stats.totals.records)
+    if line ~= lastSummaryLine then
+      lastSummaryLine = line
+      NS.Debug("Insights", "%s", line)
+    end
   end
 end
 
