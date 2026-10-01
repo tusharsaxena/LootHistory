@@ -259,7 +259,7 @@ all-caps underscored key. Result:
 **PANEL-20. AH Price reorder still drags.** On AH Price, drag a price source by its handle two rows
 down and drop it → the ghost follows the cursor, the row lands where dropped, and closing and
 reopening the panel shows the new order. Fail: no ghost, a row that snaps back, or a Lua error.
-Result:
+Result: pass (owner, 2026-10-02)
 
 ## Profiles
 
@@ -771,6 +771,7 @@ whole block, divider included, disappears and LOOT still renders. Result:
 under `/lh test` → no Lua error; every LOOT and CURRENCY section, every legend, the hover tooltips
 (bars, stacked segments, strip bars, list rows, legend chips) and the three strips draw as they did
 before the split; resize the window → it re-lays out; change a filter → it refreshes live. Result:
+pass (owner, 2026-10-02)
 
 ## Filter lists
 
@@ -1166,7 +1167,7 @@ Fail: any Lua error, which here means a localized string reached code that assum
 ## Pending sign-off
 
 The old suite recorded no result for any check, so every check carried over from it is owed unless
-a record of the owner's pass exists. Four do. Review F-001 passed CAP-4 to CAP-6 (ARCHITECTURE
+a record of the owner's pass exists. Five do. Review F-001 passed CAP-4 to CAP-6 (ARCHITECTURE
 Known limitations). The 2026-07-22 field note in the old § 3 passed currency capture and the refund
 flow (CAP-11, CAP-12). The diagnostics rollout's owner pass on 2026-09-26
 (Ka0sAddonsCommonTasks `2026-09-25-DIAGNOSTICS_COMMAND/99_REPORT.md`, LH-S1 to LH-S11 and LH-X1)
@@ -1174,9 +1175,11 @@ passed DIAG-19, DIAG-20, DIAG-22, DIAG-24, DIAG-25 and COMBAT-8; it passed DIAG-
 written, but standard v2.71.0 rewrote that check (diagnostics now turns logging on), so it is listed
 again. The 2026-09-23 remediation plan's X1.4
 (`06_SMOKE_TESTS.md`, recorded PASS on 2026-09-25 after M6: `/lh disable`, then left-click opens
-Settings, right-click opens the options menu, the status tooltip shows) passed LAUNCH-3. Those
-twelve checks are not listed. The diagnostics rollout passed half of DIAG-6, half of DEGRADED-4
-and two of DIAG-23's three inputs (LH-S8 never ran `/lh dump`), and X1.4 passed part of LAUNCH-2,
+Settings, right-click opens the options menu, the status tooltip shows) passed LAUNCH-3. The 2026-10-01
+GitHub issue pass (Ka0sAddonsCommonTasks `2026-10-01-GITHUB_ISSUE_PASS/04_SMOKE_TESTS.md`, owner
+pass on 2026-10-02) passed its two new checks, PANEL-20 and INS-22. Those fourteen checks are not
+listed. The diagnostics rollout passed half of DIAG-6, half of DEGRADED-4 and two of DIAG-23's
+three inputs (LH-S8 never ran `/lh dump`), and X1.4 passed part of LAUNCH-2,
 LAUNCH-4 and LAUNCH-5; all six stay listed for the rest. The rest of the 2026-09-23 plan
 (`06_SMOKE_TESTS.md` Session LH, Session Q and X2.4) is recorded as owed; a row names the plan step
 its check carries. Checks new in this rework (SP-LH-01 to SP-LH-03R), and checks whose steps or
@@ -1213,7 +1216,6 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | PANEL-15 to PANEL-17 | § 10, § 17c.4, § 17c.5, § 9 | No result recorded |
 | PANEL-18 | § 17l | "NOT YET RUN" |
 | PANEL-19 | § 17b panel labels | No result recorded; expectation rewritten by SP-LH-03R (General and Profiles; no Defaults button on Profiles) |
-| PANEL-20 | New | New with LibKa0s v1.66.0 (GI-LH-RV): `ReorderList` now loads from `WidgetsReorder.lua` (Widgets 12, WidgetsReorder 1) |
 | PROFILE-1 to PROFILE-3 | New | New with the Profiles page (SP-LH-01) |
 | PROFILE-4 | § 13 last step | Rewritten by SP-LH-01 (retention account-wide, D6) |
 | PROFILE-5 | § 16 note | Rewritten by SP-LH-01 (the filter lists are per profile) |
@@ -1266,7 +1268,6 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | INS-19 | § 7 segment tooltips | No result recorded; chart names corrected by SP-LH-03R (Title Case, as drawn) |
 | INS-20 | § 7 CURRENCY block, § 3 | "Still owed" (layout) in the 2026-07-22 field note |
 | INS-21 | § 7 live cards | No result recorded |
-| INS-22 | New | New with the Insights split into AnalyticsFormat / Analytics / AnalyticsCharts and LayoutCharts's refactor (GI-LH-01, GI-LH-02, issue #32) |
 | FILT-1 to FILT-23 | § 9, § 16, § 19 | No result recorded |
 | FILT-24 | § 17f Clear all | No result recorded; expectation spelled out by SP-LH-03R (the popup text and the chat line) |
 | LAUNCH-1 | § 11 art | No result recorded |
