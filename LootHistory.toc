@@ -96,6 +96,7 @@ modules\BrowserTable.lua
 modules\Export.lua
 modules\AnalyticsFormat.lua
 modules\Analytics.lua
+modules\AnalyticsCharts.lua
 modules\Diagnostics.lua
 
 # Settings
