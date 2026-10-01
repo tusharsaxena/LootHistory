@@ -22,7 +22,7 @@ free number in its theme.
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 33 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
-| INS-1 to 21 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
+| INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
@@ -53,8 +53,8 @@ free number in its theme.
   `core/EnvSetup.lua`): INSTALL, CAP, SLASH-1 to SLASH-3, STATE-1 to STATE-4, LAUNCH-5 and INS-20;
   a change to `core/EnvSetup.lua` also needs SLASH-9, and one that moves `core/Compat.lua` also
   needs LOC.
-- Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `Analytics.lua`,
-  `Export.lua`): HIST, INS, STATE-7 to STATE-11, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
+- Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `AnalyticsFormat.lua`,
+  `Analytics.lua`, `AnalyticsCharts.lua`, `Export.lua`): HIST, INS, STATE-7 to STATE-11, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
 - Settings or schema: PANEL, SLASH, PROFILE, STATE-3, STATE-5, STATE-6, COMBAT-2, COMBAT-5, DIAG-9
   and FILT-1, plus CAP-22 to CAP-24 for a new capture row.
 - Filter lists (`modules/Filters.lua`, the Filters tab): FILT, PROFILE-5, CAP-22 to CAP-24.
@@ -767,6 +767,11 @@ whole block, divider included, disappears and LOOT still renders. Result:
 
 **INS-21. Live update.** Loot an item with Insights open → the cards update. Result:
 
+**INS-22. The three-file Insights renders as before.** Open Insights with real history, then again
+under `/lh test` → no Lua error; every LOOT and CURRENCY section, every legend, the hover tooltips
+(bars, stacked segments, strip bars, list rows, legend chips) and the three strips draw as they did
+before the split; resize the window → it re-lays out; change a filter → it refreshes live. Result:
+
 ## Filter lists
 
 Filtering is point-in-time: a list changes what happens to future loot and never touches stored rows.
@@ -1261,6 +1266,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | INS-19 | § 7 segment tooltips | No result recorded; chart names corrected by SP-LH-03R (Title Case, as drawn) |
 | INS-20 | § 7 CURRENCY block, § 3 | "Still owed" (layout) in the 2026-07-22 field note |
 | INS-21 | § 7 live cards | No result recorded |
+| INS-22 | New | New with the Insights split into AnalyticsFormat / Analytics / AnalyticsCharts and LayoutCharts's refactor (GI-LH-01, GI-LH-02, issue #32) |
 | FILT-1 to FILT-23 | § 9, § 16, § 19 | No result recorded |
 | FILT-24 | § 17f Clear all | No result recorded; expectation spelled out by SP-LH-03R (the popup text and the chat line) |
 | LAUNCH-1 | § 11 art | No result recorded |

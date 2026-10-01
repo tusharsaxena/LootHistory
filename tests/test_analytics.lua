@@ -453,6 +453,17 @@ test("Analytics: every pool goes through the LibKa0s seam", function()
   end
 end)
 
+test("Analytics: the TOC loads Format, then Analytics, then Charts", function()
+  -- modules/Analytics.lua binds AnalyticsFormat's helpers at file load, and resolves
+  -- AnalyticsCharts' Analytics._charts only inside BuildCharts, so this order is load-bearing both
+  -- ways: Format above Analytics or the binds read nil, Charts below it or nothing changes.
+  local pos = {}
+  for i, path in ipairs(T.addonFiles) do pos[path] = i end
+  local f, a, c = pos["modules/AnalyticsFormat.lua"], pos["modules/Analytics.lua"], pos["modules/AnalyticsCharts.lua"]
+  assertTrue(f and a and c, "the TOC names all three Insights files")
+  assertTrue(f < a and a < c, "AnalyticsFormat precedes Analytics, which precedes AnalyticsCharts")
+end)
+
 test("Analytics: the module's function surface is exactly the published one", function()
   -- Pinned before modules/Analytics.lua was split three ways (LootHistory#32): every caller -- the
   -- Browser, the stand-down, this suite -- reaches the module through these names, so a split or a
