@@ -33,6 +33,9 @@ local LIB_FILES = {
   "libs/LibKa0s/Item.lua",
   "libs/LibKa0s/Media.lua",
   "libs/LibKa0s/Widgets.lua",
+  -- New in v1.66.0: ReorderList PEELS out of Widgets.lua into its own file and its own minor
+  -- (WidgetsReorder 1), with no member change; NS.MakeReorderList still calls W.ReorderList.
+  "libs/LibKa0s/WidgetsReorder.lua",
   -- New in v1.48.0: the drag handle PEELS out of Widgets.lua as its own file and its own
   -- LibStub minor. This addon adopts nothing from it -- ConsumableMaster and Aura Master are
   -- the hosts that do -- but the client loads every file of the XML, so the suite must too.
@@ -45,6 +48,8 @@ local LIB_FILES = {
   -- (key 18.2.1) that lib:New attaches to each instance. Loaded after DebugLogDiagnostics.lua.
   "libs/LibKa0s/DebugLogGates.lua",
   "libs/LibKa0s/Slash.lua",
+  -- New in v1.66.0: the value parsers peel out of Slash.lua (SlashParse 1), no member change.
+  "libs/LibKa0s/SlashParse.lua",
   -- New in v1.39.0: LibKa0s-Launcher-1.0, the minimap button and the broker plugin as one
   -- object registered twice (launcher-§1). core/LauncherSetup.lua resolves it at file load.
   "libs/LibKa0s/Launcher.lua",
@@ -71,6 +76,10 @@ local LIB_FILES = {
   "libs/LibKa0s/OptionsScroll.lua",
   "libs/LibKa0s/OptionsNav.lua",
   "libs/LibKa0s/Perf.lua",
+  -- New in v1.66.0: the capture (PerfSampler 1) and the command surface (PerfCommands 1) peel
+  -- out of Perf.lua, in that XML order. This addon wires no Perf module; the client loads them.
+  "libs/LibKa0s/PerfSampler.lua",
+  "libs/LibKa0s/PerfCommands.lua",
   "libs/LibKa0s/PerfPanel.lua",
 }
 

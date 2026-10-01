@@ -41,7 +41,8 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Minor 32: the id surface moved out to OptionsIds.lua and OptionsIdList.lua (issue #32), attached
 -- from lib.__AttachWidgets where it used to be defined; no change in behavior.
 -- Minor 33: each refusal names what it refused, for the shell's Cfg line (gap G3, 2026-09-30).
-local WIDGETS_MINOR = 33
+-- Minor 34: RenderGrid takes a parent and opts.gap, and a failed item leaves no row (KickCD#10).
+local WIDGETS_MINOR = 34
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -97,7 +98,7 @@ end
 -- Evaluated at call time, not at load: a host's media list is populated by another addon and is
 -- not knowable when the schema row is declared.
 --
--- Duplicated verbatim in Slash.lua and OptionsWidgets.lua rather than hoisted into Core. The two
+-- Duplicated verbatim in SlashParse.lua and OptionsWidgets.lua rather than hoisted into Core. The two
 -- readers MUST agree — a CLI that accepts a value the dropdown cannot display is worse than
 -- either being wrong alone — but hoisting would raise NEEDS_CORE in two majors, and
 -- docs/releasing.md is explicit that a floor raise is a breaking change to the VENDORING: every
@@ -167,6 +168,13 @@ local function startRow(O)
   r:SetLayout("Flow")
   r:SetFullWidth(true)
   return r
+end
+
+--- RenderGrid's spacer height (minor 34): absent, the row gap every page has; false or 0, none.
+local function gridGap(opts)
+  local gap = type(opts) == "table" and opts.gap
+  if gap == nil or type(opts) ~= "table" then return L.ROW_VSPACER end
+  return gap ~= false and gap ~= 0 and gap or nil
 end
 
 --- Render one row (or one bespoke item) through `fn`, absorbing a raise and reporting it against
@@ -1024,36 +1032,49 @@ function lib.__AttachWidgets(O, d)
   ---
   --- Each item is either a schema row, or `{ make = function(ctx, parent, relativeWidth) end }`
   --- for a bespoke widget. `wide = true` breaks the item onto its own full-width row.
-  function O.RenderGrid(ctx, items)
-    local scroll = O.EnsureScroll(ctx)
+  --- Minor 34: `parent` replaces the page scroll as the container; `opts.gap` is the spacer after
+  --- each row (absent `L.ROW_VSPACER`; `false` or `0` none, for a fixed-stride ReorderList); and an
+  --- item that raised, or whose `make` answered exactly `false`, takes no cell, a wide one no row
+  --- and no gap (its row is released). A `make` answering nil still counts as drawn.
+  --- IT DOES NOT LAY OUT, deliberately: hosts render several grids and lay out once. Call
+  --- `container:DoLayout()` after the last render, as RenderRows does for you.
+  function O.RenderGrid(ctx, items, parent, opts)
+    local scroll = parent or O.EnsureScroll(ctx)
     if not scroll then return end
+    local gap = gridGap(opts)
     local pendingRow, pendingCount = nil, 0
+
+    local function addRow(r)
+      scroll:AddChild(r)
+      if gap then O.AddSpacer(scroll, gap) end
+    end
 
     local function flushRow()
       if pendingRow then
-        scroll:AddChild(pendingRow)
-        O.AddSpacer(scroll, L.ROW_VSPACER)
+        addRow(pendingRow)
         pendingRow, pendingCount = nil, 0
       end
     end
 
     -- Guarded per item, for the same reason RenderRows guards per row: a bespoke `make` reaches
     -- into live addon state, and a raise inside AceGUI's layout pass would cost every item after
-    -- it.
-    local function renderInto(item, parent, relativeWidth)
-      if type(item.make) == "function" then
-        return renderRowGuarded(print, item.path, item.make, ctx, parent, relativeWidth)
+    -- it. True when the item drew.
+    local function renderInto(item, into, relativeWidth)
+      if type(item.make) ~= "function" then
+        return renderRowGuarded(print, item.path, O.RenderField, ctx, item, into, relativeWidth)
       end
-      return renderRowGuarded(print, item.path, O.RenderField, ctx, item, parent, relativeWidth)
+      local answer
+      local ok = renderRowGuarded(print, item.path, function()
+        answer = item.make(ctx, into, relativeWidth)
+      end)
+      return ok and answer ~= false
     end
 
     for _, item in ipairs(items) do
       if item.wide then
         flushRow()
         local r = startRow(O)
-        renderInto(item, r, nil)
-        scroll:AddChild(r)
-        O.AddSpacer(scroll, L.ROW_VSPACER)
+        if renderInto(item, r, nil) then addRow(r) else r:Release() end
       else
         if not pendingRow then pendingRow = startRow(O) end
         if renderInto(item, pendingRow, HALF) then

@@ -16,7 +16,7 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
-| PANEL-1 to 19 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
+| PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 11 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
@@ -255,6 +255,11 @@ does not follow the box. Result:
 **PANEL-19. Panel labels are English.** On General (every tab) → the Defaults button reads
 **Defaults**; on General and Profiles → every checkbox, dropdown and slider label is English, with no
 all-caps underscored key. Result:
+
+**PANEL-20. AH Price reorder still drags.** On AH Price, drag a price source by its handle two rows
+down and drop it → the ghost follows the cursor, the row lands where dropped, and closing and
+reopening the panel shows the new order. Fail: no ghost, a row that snaps back, or a Lua error.
+Result:
 
 ## Profiles
 
@@ -1203,6 +1208,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | PANEL-15 to PANEL-17 | § 10, § 17c.4, § 17c.5, § 9 | No result recorded |
 | PANEL-18 | § 17l | "NOT YET RUN" |
 | PANEL-19 | § 17b panel labels | No result recorded; expectation rewritten by SP-LH-03R (General and Profiles; no Defaults button on Profiles) |
+| PANEL-20 | New | New with LibKa0s v1.66.0 (GI-LH-RV): `ReorderList` now loads from `WidgetsReorder.lua` (Widgets 12, WidgetsReorder 1) |
 | PROFILE-1 to PROFILE-3 | New | New with the Profiles page (SP-LH-01) |
 | PROFILE-4 | § 13 last step | Rewritten by SP-LH-01 (retention account-wide, D6) |
 | PROFILE-5 | § 16 note | Rewritten by SP-LH-01 (the filter lists are per profile) |

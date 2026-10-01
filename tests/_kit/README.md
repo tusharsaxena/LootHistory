@@ -2,8 +2,8 @@
 
 The shared headless test harness for the Ka0s addon collection: the test registry and assertions,
 the source loader, the universal half of the WoW-API mock and its opt-in id lookups, the
-consolidated automated-test runner, the consumer-side vendoring gate, and three suites of its
-own.
+consolidated automated-test runner and the sighted shadow its complexity suite measures, the
+consumer-side vendoring gate, and five suites of its own.
 
 **The full surface — every function, every mock seam, every fidelity rule — is documented in the
 LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
@@ -36,11 +36,14 @@ broken in the other twelve.
 | `prose_selftests.lua` | The prose gate's fixture-driven self-tests. Not a suite of its own: `test_prose.lua` loads it from its own folder and its cases register under `test_prose`, so a consumer wires nothing new (kit revision 29) |
 | `test_layout_cap.lua` | The 1500-line cap gate, a kit suite |
 | `test_diagnostics_contract.lua` | The diagnostics dump's dispatcher contract (`debug-logging-§14`), a kit suite run against the consumer's own dispatcher (kit revision 27) |
+| `lizard_sighted.lua` | The sanitized shadow `run-automated-tests.sh`'s complexity suite measures, and the function-count parity check over it (`automated-tests-§3`, kit revision 35) |
+| `test_lizard_sighted.lua` | The sighted complexity gate's own cases, a kit suite (kit revision 35) |
 | `README.md` | This file |
 
 They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `mock_record.lua`,
-`mock_events.lua`, `mock_resize.lua`, `prose_lists.lua`, `prose_coverage.lua` or `prose_selftests.lua` fails at load
-rather than passing over nothing.
+`mock_events.lua`, `mock_resize.lua`, `prose_lists.lua`, `prose_coverage.lua`, `prose_selftests.lua` or
+`lizard_sighted.lua` fails at load rather than passing over nothing; without `lizard_sighted.lua` the
+runner's complexity suite is a skip.
 
 ## `run-automated-tests.sh`
 
@@ -96,6 +99,14 @@ about it are load-bearing:
   (`Kit.__layoutCapCovers`), before loading any suite. A file it leaves out is named in a line under
   the table, and `manifest.json`'s `bandFiles` and `overCapFiles` no longer count it. With no
   `tests/run.lua`, or no set, every file is listed as before.
+- **The complexity suite is sighted** (kit revision 35, `automated-tests-§3`). lizard 1.24.0 loses
+  whole functions over `#` and over its Ruby-like reader's `it`, `class`, `module`, `begin` and
+  `unless`, so the runner measures a sanitized shadow of the tree instead (`lizard_sighted.lua`;
+  same command, same paths, same line numbers; methods listed as `a.b`), then compares every file's
+  `function` tokens with what lizard listed. A mismatch is a file lizard was still blind in:
+  `complexity` is `fail`, the verdict `amber`, the files are named on the console and in
+  `RESULTS.md`, and `manifest.json` counts them as `suites.complexity.blindFiles`. That blocks the
+  tag and never the run or the commit. No Lua to build the shadow is a skip.
 - **The bundle is written to whatever `.gitattributes` declares for it**, read per path with
   `git check-attr text eol` at the end of the run — not assumed. Everything the runner writes goes
   down a plain shell redirect, which bypasses git's filters entirely, so before kit revision 10 every
@@ -148,7 +159,7 @@ the path and the case name.
 
 ## `test_eol.lua`
 
-The first of the kit's three own suites. Its first case holds every file `git ls-files` reports to the
+The first of the kit's own suites. Its first case holds every file `git ls-files` reports to the
 terminator `.gitattributes` declares for it, reading the bytes rather than trusting git's own
 classification. From revision 26 it also names every **lone CR** (a CR no LF follows) as
 `path:line`, over the same files: git's `text=auto` stores such a file as binary, so neither git nor
@@ -438,6 +449,20 @@ Kit.run{ dir = "tests/", suites = { ..., { name = "test_diagnostics_contract",
 Until an addon has its report, `Kit.diagnostics` stays unset and the suite registers one declared
 skip that names the rule, so the re-vendor that brings this file in stays green. The skip shows in
 every run and in `docs/test-cases.md`.
+
+## `test_lizard_sighted.lua`
+
+The fifth, new in kit revision 35 (`automated-tests-§3`, WowAddonStandards#6). It pins
+`lizard_sighted.lua`, the module the runner builds its complexity shadow with: every hazard rewritten
+where lizard 1.24.0 loses a function over it and nothing else (fields after `.`, strings, comments,
+`itself`), the method rewrite, line count and terminators preserved, the token count, lizard's
+per-file table read once per file, and parity naming exactly the files that differ. With lizard on
+PATH one more case sanitizes a fixture holding every hazard and asserts full parity end to end;
+without it that case is a declared skip. It needs no consumer facts:
+
+```lua
+Kit.run{ dir = "tests/", suites = { ..., { name = "test_lizard_sighted", dir = "tests/_kit/" } } }
+```
 
 ## It is not a library
 

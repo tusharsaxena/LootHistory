@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 18
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 19
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -176,7 +176,9 @@ end
 -- enforced nowhere: a host whose `d.get` returns a derived or live value (an absorb total, a
 -- health fraction) hands us a secret, and a secret RAISES inside `string.format` exactly as it
 -- does inside `table.concat`. Guarding the input rather than the output keeps every rendered
--- byte of an ordinary value identical.
+-- byte of an ordinary value identical. `S` resolves a string key (minor 19): Sl:Text, or this.
+local function libText(key) return lib.STRINGS[key] end
+
 local FORMATTERS = {
   color = function(_, v)
     if type(v) ~= "table" then return nil end
@@ -196,19 +198,19 @@ local FORMATTERS = {
 
   bool = function(_, v) return v and "true" or "false" end,
 
-  string = function(_, v)
-    if v == "" then return lib.STRINGS.NONE end
+  string = function(_, v, S)
+    if v == "" then return S("NONE") end
     return nil
   end,
 }
 
---- Render a stored value for display, by the row's declared type.
-function lib.FormatValue(row, v)
+--- Render a stored value for display, by the row's declared type; `textOf` as in lib.ParseValue.
+function lib.FormatValue(row, v, textOf)
   row = row or {}
   if v == nil then return "nil" end
   local f = FORMATTERS[row.type]
   -- No formatter can return false, so the `and` is a plain "call it if there is one".
-  local s = f and f(row, v)
+  local s = f and f(row, v, textOf or libText)
   if s ~= nil then return s end
   return core.SafeToString(v)
 end
@@ -310,167 +312,61 @@ end
 
 -- ── the parser ─────────────────────────────────────────────────────────────────────────────
 --
--- Type-aware, and that is the whole point of taking this shape rather than the coercing one. A
--- number out of range CLAMPS rather than failing, because a user typing a width larger than the
--- panel allows means "as wide as it goes"; a string outside its enum FAILS, because there is no
--- such reading of a misspelt texture name.
---
--- Failure is signaled by a nil first return plus a message. A row type whose valid value could
--- itself be nil would be indistinguishable from an error — none exists, and adding one would be a
--- contract change, not a new type.
-
--- The exact eight-word set lib.STRINGS.ERR_BOOL already advertises. Module-level and booleans
--- only, so a miss is unambiguously nil rather than a stored false.
-local BOOL_WORDS = {
-  ["true"] = true,  ["1"] = true,  ["on"]  = true,  ["yes"] = true,
-  ["false"] = false, ["0"] = false, ["off"] = false, ["no"] = false,
-}
-
---- One boolean word, case-insensitively, or nil.
----
---- nil means "not a boolean word" — never "false" — which is what lets a caller implement
---- toggle-on-absent rather than having to distinguish the two by re-reading the raw text.
-function lib.ParseBool(word)
-  if type(word) ~= "string" then return nil end
-  return BOOL_WORDS[word:lower()]
-end
-
-local function parseBool(args)
-  local v = lib.ParseBool(args[1])
-  if v == nil then return nil, lib.STRINGS.ERR_BOOL end
-  return v
-end
-
--- Both enum shapes the collection actually declares, normalized to one ordered list of
--- { value =, text = }.
---
---   ordered array   { { value = "SHORT", text = "Short" }, ... }   the Ka0s options schema
---   key map         { SHORT = "Short", LONG = "Long" }             AceGUI's own SetList shape
---   key set         { SHORT = true, LONG = true }                  the degenerate key map
---
--- The array is identified by its FIRST element being a table carrying `value`; nothing else in
--- play can look like that, so the two are distinguishable without a declared discriminator.
--- Array POSITION is the order — that is the entire point of the shape — so `sorting` is ignored
--- there. A key map keeps the existing rule: `sorting` if the row declares one, else sorted keys.
---
--- Evaluated at call time, not at load: a host's media list is populated by another addon and is
--- not knowable when the schema row is declared.
---
--- Duplicated verbatim in Slash.lua and OptionsWidgets.lua rather than hoisted into Core. The two
--- readers MUST agree — a CLI that accepts a value the dropdown cannot display is worse than
--- either being wrong alone — but hoisting would raise NEEDS_CORE in two majors, and
--- docs/releasing.md is explicit that a floor raise is a breaking change to the VENDORING: every
--- consumer carrying a stale Core.lua would lose both majors outright. The agreement is pinned by
--- a cross-major parity case instead, which is the cheaper guarantee.
-local function enumList(row)
-  local v = type(row.values) == "function" and row.values() or row.values
-  if type(v) ~= "table" then return {} end
-
-  if type(v[1]) == "table" and v[1].value ~= nil then
-    local out = {}
-    for i, item in ipairs(v) do
-      out[i] = { value = item.value, text = item.text or tostring(item.value) }
-    end
-    return out
-  end
-
-  local keys = {}
-  if type(row.sorting) == "table" then
-    for i, k in ipairs(row.sorting) do keys[i] = k end
-  else
-    for k in pairs(v) do keys[#keys + 1] = k end
-    -- Mixed key types would raise on a bare `<`. Homogeneous string keys sort exactly as before.
-    table.sort(keys, function(a, b)
-      if type(a) == type(b) then return a < b end
-      return tostring(a) < tostring(b)
-    end)
-  end
-  local out = {}
-  for i, k in ipairs(keys) do
-    -- `true` is the SET shape, and rendering it as the label is how a key set becomes a dropdown
-    -- of entries all reading "true". The key is the only honest label such a row has.
-    local text = v[k]
-    out[i] = { value = k, text = type(text) == "string" and text or tostring(k) }
-  end
-  return out
-end
-
-local function allowedText(list)
-  local parts = {}
-  for i, item in ipairs(list) do parts[i] = tostring(item.value) end
-  return table.concat(parts, ", ")
-end
-
-local function parseNumber(args, row)
-  local n = tonumber(args[1])
-  if not n then return nil, lib.STRINGS.ERR_NUMBER end
-  -- A NUMERIC dropdown constrains rather than clamps. Clamping a value that is merely outside the
-  -- list lands BETWEEN two entries, and the renderer then has no label for what is stored — the
-  -- row reads as blank and the user cannot tell what they set.
-  local allowed = enumList(row)
-  if #allowed > 0 then
-    for _, item in ipairs(allowed) do
-      if tonumber(item.value) == n then return n end
-    end
-    return nil, lib.STRINGS.ERR_ALLOWED:format(allowedText(allowed))
-  end
-  if row.min then n = math.max(row.min, n) end
-  if row.max then n = math.min(row.max, n) end
-  return n
-end
-
--- A string row takes the WHOLE remainder, trimmed at both ends, never its first token (minor 10).
--- Through minor 9 it took `args[1]`, so `set container.name My Raid Buffs` stored "My" and an enum
--- whose values carry a space -- an LSM font such as "Friz Quadrata TT", the "OUTLINE, MONOCHROME"
--- font flag -- could not be named at all. The truncation was silent: the value was stored, nothing
--- was raised, and only the echo showed it. Internal spacing is kept verbatim, because it is the
--- user's data; only the edges are trimmed.
-local function parseString(text, row)
-  local v = (text or ""):match("^%s*(.-)%s*$")
-  if v == "" then return nil, lib.STRINGS.ERR_STRING end
-  local allowed = enumList(row)
-  -- Only CONSTRAINED when the row declares a list. A free-text row (dialogControl = "EditBox")
-  -- carries no `values` at all, and the old code walked an empty list and therefore refused every
-  -- value — so that widget type shipped un-settable from the CLI. A constrained row is matched on
-  -- the full string, so trailing words after a valid entry are refused rather than dropped.
-  if #allowed == 0 then return v end
-  for _, item in ipairs(allowed) do
-    if tostring(item.value) == v then return v end
-  end
-  return nil, lib.STRINGS.ERR_ALLOWED:format(allowedText(allowed))
-end
-
-local function parseColor(args)
-  local r, g, b = tonumber(args[1]), tonumber(args[2]), tonumber(args[3])
-  local a = tonumber(args[4]) or 1
-  if not (r and g and b) then return nil, lib.STRINGS.ERR_COLOR end
-  -- Rescaled JOINTLY, not per channel: "255 128 0" is one color expressed in one scale, and
-  -- dividing only the channels that happen to exceed 1 would mangle the others.
-  if r > 1 or g > 1 or b > 1 then r, g, b = r / 255, g / 255, b / 255 end
-  if a > 1 then a = a / 255 end
-  local function clamp01(n) return math.max(0, math.min(1, n)) end
-  return { r = clamp01(r), g = clamp01(g), b = clamp01(b), a = clamp01(a) }
-end
-
---- Parse `text` for `row`. Returns the value, or nil plus a reason.
----
---- A `string` row reads the whole of `text`, trimmed at both ends (minor 10); every other type
---- reads whitespace-separated tokens exactly as before — a bool and a number their first, a color
---- its first four.
-function lib.ParseValue(row, text)
-  row = row or {}
-  if row.type == "string" then return parseString(text, row) end
-
-  local args = {}
-  for w in (text or ""):gmatch("%S+") do args[#args + 1] = w end
-
-  if row.type == "bool"   then return parseBool(args)        end
-  if row.type == "number" then return parseNumber(args, row) end
-  if row.type == "color"  then return parseColor(args)       end
-  return nil, lib.STRINGS.ERR_TYPE:format(tostring(row.type))
-end
+-- In LibKa0s/SlashParse.lua since Slash minor 19: lib.ParseBool and lib.ParseValue, with the row
+-- type parsers behind them. A payload without that file has neither, and an instance's `set`
+-- answers this line through its INVALID refusal rather than calling a nil (lib:New's default
+-- `parse`). A host that passes its own `parse` never reaches it.
+local PARSE_MISSING = "the value parser is not installed \226\128\148 SlashParse.lua is missing "
+  .. "from this copy of LibKa0s; re-vendor the whole folder"
+local function parseMissing() return nil, PARSE_MISSING end
 
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
+
+-- `lib:New`'s descriptor reads, at file level so the instance's closure carries none of their
+-- decisions (WowAddonStandards#6: lizard counts every `and`/`or`, and the sighted complexity gate
+-- measured the closure at CCN 24). Every default is the one the inline reads gave.
+
+--- `v` when it is a `kind`, else `fallback`: how an optional descriptor field is read. A field of
+--- the wrong type is read as absent, never raised on.
+local function field(v, kind, fallback)
+  if type(v) == kind then return v end
+  return fallback
+end
+
+--- Where lines go when the host passes no `print`.
+local function chatPrint(line)
+  if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(line) end
+end
+
+--- The heading a row lists under when the host passes no `groupKey`.
+local function pageOf(row) return row.page or "settings" end
+
+--- The set of verbs that answer while disabled, lowercased.
+local function verbSet(verbs)
+  local set = {}
+  for _, verb in ipairs(verbs) do set[tostring(verb):lower()] = true end
+  return set
+end
+
+--- `lib:New`'s refusals, raised at the host's call: level 3 is this helper, then New, then the host.
+local function checkDescriptor(d)
+  if type(d.slash) ~= "string" or d.slash == "" then
+    error(MAJOR .. ":New requires descriptor.slash — the command prefix, e.g. \"/at\"", 3)
+  end
+  if type(d.commands) ~= "table" then
+    error(MAJOR .. ":New requires descriptor.commands — the host's own verb table", 3)
+  end
+  if type(d.isEnabled) == "function" and (type(d.brandName) ~= "string" or d.brandName == "") then
+    -- Refused at construction rather than rendered as "nil is disabled" at the one moment a
+    -- confused player is reading the line. `brandName` is the plain-text `Ka0s <Name>` a host
+    -- already MUSTs as its LDB object's label, and the reuse is load-bearing rather than tidy:
+    -- that field already forbids escape sequences, which is what makes it safe to drop into a
+    -- colored line, and it means an addon has ONE brand spelling rather than a second one invented
+    -- for this message. It MUST NOT be derived from the TOC Title, which may carry color escapes.
+    error(MAJOR .. ":New requires descriptor.brandName alongside isEnabled — the plain-text "
+      .. "`Ka0s <Name>`, the same string the LDB object takes as its label", 3)
+  end
+end
 
 --- Build a dispatcher for one host. Bare /slash runs the host's `config` verb when it has one
 --- (minor 11, slash-commands-§4); `help` prints the index.
@@ -510,7 +406,8 @@ end
 ---                          writes that changed a stored value, never `count`.
 ---   parse        function  optional, defaults to lib.ParseValue. Handed the row and the whole
 ---                          remainder after the path, untrimmed; lib.ParseValue gives a `string`
----                          row all of it (minor 10).
+---                          row all of it (minor 10). From minor 19 also handed a third argument,
+---                          the instance's key -> string resolver, to pass on to lib.ParseValue.
 ---   format       function  optional, minor 5. function(row, storedValue) -> string. Renders a
 ---                          value for display, replacing lib.FormatValue outright, at every one
 ---                          of the list/get/set/reset echoes. The counterpart of `parse`, for a
@@ -521,8 +418,9 @@ end
 ---                          form, then the positional one. Same field name as the Options
 ---                          descriptor's, so a host passes one pair to both majors.
 ---   colorEncode  function  optional. r, g, b, a -> stored. Defaults to { r =, g =, b =, a = }.
----   L            table     optional. Locale override, keyed to lib.STRINGS. It does NOT reach the
----                          disabled refusal line: that wording is the collection's rather than the
+---   L            table     optional. Locale override, keyed to lib.STRINGS. From minor 19 it reaches
+---                          every parse refusal and the empty-string "(none)" as well. It does NOT
+---                          reach the disabled refusal line: that wording is the collection's, not the
 ---                          addon's, and a locale table is the obvious place for eleven addons to
 ---                          each grow their own version of it.
 ---   isEnabled    function  optional, minor 12. -> boolean. ABSENT means the gate is OFF and this
@@ -547,42 +445,19 @@ end
 ---   debug        function  optional, minor 18. debug(tag, message), the host's gated log seam, as
 ---                          Launcher's. Each refusal this module decides writes one `Cmd` line.
 function lib:New(d)
-  d = type(d) == "table" and d or {}
-  if type(d.slash) ~= "string" or d.slash == "" then
-    error(MAJOR .. ":New requires descriptor.slash — the command prefix, e.g. \"/at\"", 2)
-  end
-  if type(d.commands) ~= "table" then
-    error(MAJOR .. ":New requires descriptor.commands — the host's own verb table", 2)
-  end
+  d = field(d, "table", {})
+  checkDescriptor(d)
 
   -- The gate is OFF when `isEnabled` is absent, and that is the whole of the migration story: a
   -- host that has not adopted the stand-down latch yet passes no `isEnabled`, and its dispatcher
   -- behaves byte for byte as it did at minor 11. There is no half-adopted state to reason about.
-  local isEnabled = type(d.isEnabled) == "function" and d.isEnabled or nil
-  if isEnabled and (type(d.brandName) ~= "string" or d.brandName == "") then
-    -- Refused at construction rather than rendered as "nil is disabled" at the one moment a
-    -- confused player is reading the line. `brandName` is the plain-text `Ka0s <Name>` a host
-    -- already MUSTs as its LDB object's label, and the reuse is load-bearing rather than tidy:
-    -- that field already forbids escape sequences, which is what makes it safe to drop into a
-    -- colored line, and it means an addon has ONE brand spelling rather than a second one invented
-    -- for this message. It MUST NOT be derived from the TOC Title, which may carry color escapes.
-    error(MAJOR .. ":New requires descriptor.brandName alongside isEnabled — the plain-text "
-      .. "`Ka0s <Name>`, the same string the LDB object takes as its label", 2)
-  end
-  local liveVerbs = {}
-  for _, verb in ipairs(type(d.liveVerbs) == "table" and d.liveVerbs or lib.LIVE_VERBS) do
-    liveVerbs[tostring(verb):lower()] = true
-  end
+  local isEnabled = field(d.isEnabled, "function", nil)
+  local liveVerbs = verbSet(field(d.liveVerbs, "table", lib.LIVE_VERBS))
 
-  local strings = type(d.L) == "table" and d.L or nil
-  local parse   = type(d.parse) == "function" and d.parse or lib.ParseValue
-  local aliases = type(d.aliases) == "table" and d.aliases or {}
-  local groupKey = type(d.groupKey) == "function" and d.groupKey
-    or function(row) return row.page or "settings" end
-
-  local emit = type(d.print) == "function" and d.print or function(line)
-    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(line) end
-  end
+  local strings = field(d.L, "table", nil)
+  local aliases = field(d.aliases, "table", {})
+  local groupKey = field(d.groupKey, "function", pageOf)
+  local emit = field(d.print, "function", chatPrint)
 
   -- A refusal this module decides (minor 18): the chat line exactly as before, then ONE `Cmd` line
   -- to the host's `debug` naming the verb and the guard. No `debug`, no line (Launcher's shape).
@@ -603,6 +478,9 @@ function lib:New(d)
     if type(v) == "string" then return v end
     return lib.STRINGS[key]
   end
+  local function textOf(key) return Sl:Text(key) end   -- minor 19: L reaches parse and format
+  local hostParse = field(d.parse, "function", field(lib.ParseValue, "function", parseMissing))
+  local function parse(row, text) return hostParse(row, text, textOf) end
 
   --- Whatever the host wants appended to a rendered setting — a note that a value is not the one
   --- actually in effect, most usefully. Applied at exactly three sites: a list row, a get echo and
@@ -634,9 +512,9 @@ function lib:New(d)
     if row and row.type == "color" and type(d.colorDecode) == "function"
         and type(value) == "table" then
       local r, g, b, a = d.colorDecode(value)
-      return lib.FormatValue(row, { r = r, g = g, b = b, a = a })
+      return lib.FormatValue(row, { r = r, g = g, b = b, a = a }, textOf)
     end
-    return lib.FormatValue(row, value)
+    return lib.FormatValue(row, value, textOf)
   end
 
   local function kv(row, value)

@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 34
+Kit.VERSION = 35
 
 -- ── the resource guard (kit revision 23) ───────────────────────────────────────────────────────
 --
@@ -525,6 +525,50 @@ local function countIn(suite)
   return n
 end
 
+-- renderInventory's parts (split at kit revision 35: it measured CCN 17 once the complexity suite
+-- was sighted). The rendered bytes are unchanged; `docs/test-cases.md` is their characterization.
+
+--- A case as the inventory lists it: a declared skip is disclosed, so a reader of
+--- docs/test-cases.md sees that the case exists AND that it is not currently being evaluated.
+local function caseLabel(t)
+  return t.skip and (t.name .. " (skipped: " .. t.skip .. ")") or t.name
+end
+
+--- The labels of every case registered under `suite`, in registration order; nil names the cases
+--- the runner registered itself.
+local function caseLabels(suite)
+  local names = {}
+  for _, t in ipairs(tests) do
+    if t.suite == suite then names[#names + 1] = caseLabel(t) end
+  end
+  return names
+end
+
+--- One `### heading (n)` group and its bullet list, or nothing for an empty group.
+local function renderGroup(heading, names)
+  if #names == 0 then return end
+  out()
+  out(string.format("### %s (%d)", heading, #names))
+  out()
+  for _, name in ipairs(names) do out("- " .. name) end
+end
+
+--- The `## Totals` table: the runner's own cases first, then each declared suite with any cases.
+local function renderTotals(suites, looseCount)
+  out()
+  out("## Totals")
+  out()
+  out("| Suite | Cases |")
+  out("|-------|------:|")
+  if looseCount > 0 then out(string.format("| the runner | %d |", looseCount)) end
+  for _, entry in ipairs(suites) do
+    local suite = suiteEntry(entry)
+    local n = countIn(suite)
+    if n > 0 then out(string.format("| %s.lua | %d |", suite, n)) end
+  end
+  out(string.format("| **Total** | **%d** |", #tests))
+end
+
 local function renderInventory(suites)
   out("# Test Cases")
   out()
@@ -538,51 +582,17 @@ local function renderInventory(suites)
   -- 25). They are emitted first, because that is when they run, and they are emitted at all because
   -- the `## Totals` line counts the whole registry: a case in no group would make the table's rows
   -- and its own total disagree, which is a worse way to lose a decline than never printing it.
-  local loose = {}
-  for _, t in ipairs(tests) do
-    if t.suite == nil then
-      loose[#loose + 1] = t.skip and (t.name .. " (skipped: " .. t.skip .. ")") or t.name
-    end
-  end
-  if #loose > 0 then
-    out()
-    out(string.format("### the runner (%d)", #loose))
-    out()
-    for _, name in ipairs(loose) do out("- " .. name) end
-  end
+  local loose = caseLabels(nil)
+  renderGroup("the runner", loose)
 
   -- Declared-suite order, not first-seen and not sorted: the suite list is load-order-sensitive and
   -- the inventory should read the way the run reads.
   for _, entry in ipairs(suites) do
     local suite = suiteEntry(entry)
-    local names = {}
-    for _, t in ipairs(tests) do
-      if t.suite == suite then
-        -- A declared skip is disclosed in the inventory, so a reader of docs/test-cases.md sees
-        -- that the case exists AND that it is not currently being evaluated.
-        names[#names + 1] = t.skip and (t.name .. " (skipped: " .. t.skip .. ")") or t.name
-      end
-    end
-    if #names > 0 then
-      out()
-      out(string.format("### %s.lua (%d)", suite, #names))
-      out()
-      for _, name in ipairs(names) do out("- " .. name) end
-    end
+    renderGroup(suite .. ".lua", caseLabels(suite))
   end
 
-  out()
-  out("## Totals")
-  out()
-  out("| Suite | Cases |")
-  out("|-------|------:|")
-  if #loose > 0 then out(string.format("| the runner | %d |", #loose)) end
-  for _, entry in ipairs(suites) do
-    local suite = suiteEntry(entry)
-    local n = countIn(suite)
-    if n > 0 then out(string.format("| %s.lua | %d |", suite, n)) end
-  end
-  out(string.format("| **Total** | **%d** |", #tests))
+  renderTotals(suites, #loose)
 end
 
 -- ── run ────────────────────────────────────────────────────────────────────────────────────

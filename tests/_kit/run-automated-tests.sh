@@ -8,7 +8,8 @@
 #   lint        luacheck .                     GATING
 #   tests       lua tests/run.lua              GATING
 #   perf        lua tests/perf.lua             recorded — gates the TAG, never the run or the commit
-#   complexity  lizard -l lua -x ... .         recorded — gates the TAG, never the run or the commit
+#   complexity  lizard -l lua -L 1500 -x ... . recorded — gates the TAG, never the run or the commit
+#               (measured over the sighted shadow, with function-count parity; kit revision 35)
 #
 # WHY perf AND complexity DO NOT GATE THE RUN OR THE COMMIT. `performance-§9`/`§10`: a threshold that
 # fails a run teaches everyone to reach for --no-verify, after which the gate protects nothing and the
@@ -165,6 +166,8 @@ NOCOLOR=""
 [ -n "$LUACHECK_VERSION" ] && luacheck --help 2>&1 | grep -q -- "--no-color" && NOCOLOR="--no-color"
 LIZARD_VERSION=""
 command -v lizard >/dev/null 2>&1 && LIZARD_VERSION="$(lizard --version 2>/dev/null | head -1 | tr -d '\r')"
+# The sighted shadow's builder and parity check, beside this script in every vendored copy.
+SIGHTED="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/lizard_sighted.lua"
 
 GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo "")"
 GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
@@ -348,6 +351,7 @@ CCN_WARN=0; CCN_NLOC=0; CCN_FUNCS=0; CCN_AVG=0; CCN_MAX=0; CCN_BAND=0; CCN_OVER=
 # the two tables generated from the run that measured them, so they are captured where the
 # measurement happens rather than re-derived from the counters afterwards.
 CCN_WARN_ROWS=""; CCN_BAND_ROWS=""; CCN_EXEMPT_ROWS=""
+CCN_BLIND=0; CCN_BLIND_ROWS=""; CCN_BLIND_NOTE=""
 CCN_AVG_NLOC=0; CCN_AVG_TOKEN=0; CCN_FUN_RT=0; CCN_NLOC_RT=0
 
 # Strip ANSI color before writing. luacheck and the harness color their output when they
@@ -485,11 +489,29 @@ if wants complexity; then
     t0=$(now_ms)
     if [ -z "$LIZARD_VERSION" ]; then
         ST[complexity]="skip"; NOTE[complexity]="lizard not on PATH — install: pipx install lizard"
+    elif [ -z "$LUA" ] || [ ! -f "$SIGHTED" ] || ! CX_TMP="$(mktemp -d 2>/dev/null)"; then
+        ST[complexity]="skip"
+        NOTE[complexity]="the sighted shadow cannot be built (no Lua, no lizard_sighted.lua beside this runner, or no mktemp), and lizard alone is blind in Lua"
     else
-        # The standard fixes this invocation (performance-§10). Do not add flags, re-tune
-        # thresholds or narrow the path: a locally "improved" command produces a report that
-        # cannot be diffed against any other, which is the one property the fixed command protects.
-        raw="$(bounded lizard -l lua -x "./libs/*" -x "./tests/_kit/*" . 2>&1)"
+        # THE SIGHTED SHADOW (kit revision 35, `automated-tests-§3`). lizard 1.24.0 loses whole
+        # functions over `#` and over the Ruby-like reader's it/class/module/begin/unless, and a
+        # lost function is never measured. Every file the command would read is copied, sanitized
+        # line for line (lizard_sighted.lua says how), into a temporary tree, and the command runs
+        # THERE, so complexity.txt's paths and line numbers are the real files'. The standard fixes
+        # the invocation itself (performance-§10): do not add flags, re-tune thresholds or narrow
+        # the path, because a locally "improved" command produces a report nothing can be diffed
+        # against. The two `-x` switches have nothing left to exclude in the shadow and stay anyway.
+        # `-L 1500` is part of that fixed command: length is layout-§1's file cap, so a warning is CCN.
+        find . -name '*.lua' -not -path './libs/*' -not -path './tests/_kit/*' | sed 's|^\./||' \
+            | LC_ALL=C sort > "$CX_TMP/files"
+        mkdir -p "$CX_TMP/src" && $LUA "$SIGHTED" shadow "$CX_TMP/src" < "$CX_TMP/files"
+        raw="$(cd "$CX_TMP/src" && bounded lizard -l lua -L 1500 -x "./libs/*" -x "./tests/_kit/*" . 2>&1)"
+        # PARITY: a file whose `function` tokens and listed functions differ is a file lizard was
+        # still blind in, through a spot the sanitizer does not know. Its functions went unmeasured,
+        # so complexity does not pass: `fail`, which blocks the tag and never the run or the commit.
+        printf '%s\n' "$raw" > "$CX_TMP/lizard.txt"
+        CCN_BLIND_ROWS="$(cd "$CX_TMP/src" && $LUA "$SIGHTED" parity "$CX_TMP/lizard.txt" < "$CX_TMP/files")"
+        rm -rf "$CX_TMP"
         printf '%s\n' "$raw" | emit complexity.txt
         # lizard's footer, whole:
         #   Total nloc  Avg.NLOC  AvgCCN  Avg.token  Fun Cnt  Warning cnt  Fun Rt  nloc Rt
@@ -580,7 +602,13 @@ BANDPATHS
         CCN_BAND=$(printf '%s' "$CCN_BAND_ROWS" | grep -c '^1000' || true)
         CCN_OVER=$(printf '%s' "$CCN_BAND_ROWS" | grep -c '^> 1500' || true)
         [ -z "$CCN_BAND" ] && CCN_BAND=0; [ -z "$CCN_OVER" ] && CCN_OVER=0
+        CCN_BLIND=$(printf '%s' "$CCN_BLIND_ROWS" | grep -c . || true)
         ST[complexity]="pass"
+        if [ "${CCN_BLIND:-0}" -gt 0 ]; then
+            ST[complexity]="fail"
+            CCN_BLIND_NOTE="lizard blind in $CCN_BLIND file(s): $(printf '%s\n' "$CCN_BLIND_ROWS" \
+                | awk -F '\t' '{ printf "%s`%s` (%s of %s functions listed)", (NR > 1 ? ", " : ""), $1, $3, $2 }')"
+        fi
     fi
     DUR[complexity]=$(elapsed_ms "$t0" "$(now_ms)")
 fi
@@ -596,6 +624,7 @@ done
 if [ "$VERDICT" != "red" ]; then
     for s in lint tests; do [ "${ST[$s]}" = "skip" ] && VERDICT="amber"; done
     [ "${ST[perf]}" = "fail" ] && VERDICT="amber"
+    [ "${ST[complexity]}" = "fail" ] && VERDICT="amber"
 fi
 
 RUN_DURATION=$(elapsed_ms "$RUN_START" "$(now_ms)")
@@ -618,6 +647,7 @@ for s in lint tests perf complexity; do
         printf '  %-11s skip  — %s\n' "$s" "${NOTE[$s]}"
     else
         printf '  %-11s %-5s — %s%s\n' "$s" "${ST[$s]}" "$(fmt "$s")" "$gate"
+        [ "$s" = "complexity" ] && [ -n "$CCN_BLIND_NOTE" ] && printf '              %s\n' "$CCN_BLIND_NOTE"
     fi
 done
 echo "  verdict: $VERDICT"
@@ -664,7 +694,7 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
         suite_json lint       ", \"warnings\": $LINT_WARN, \"errors\": $LINT_ERR, \"files\": $LINT_FILES, $GATE_COMMIT"; printf ',\n'
         suite_json tests      ", \"passed\": $TESTS_PASS, \"failed\": $TESTS_FAIL, \"skipped\": $TESTS_SKIP, \"total\": $TESTS_TOTAL, $GATE_COMMIT"; printf ',\n'
         suite_json perf       ", \"scenarios\": $PERF_SCENARIOS, $GATE_RECORD"; printf ',\n'
-        suite_json complexity ", \"warnings\": $CCN_WARN, \"maxCcn\": $CCN_MAX, \"nloc\": $CCN_NLOC, \"functions\": $CCN_FUNCS, \"avgCcn\": $CCN_AVG, \"avgNloc\": $CCN_AVG_NLOC, \"avgToken\": $CCN_AVG_TOKEN, \"warnFunRatio\": $CCN_FUN_RT, \"warnNlocRatio\": $CCN_NLOC_RT, \"bandFiles\": $CCN_BAND, \"overCapFiles\": $CCN_OVER, $GATE_RECORD"; printf '\n'
+        suite_json complexity ", \"warnings\": $CCN_WARN, \"maxCcn\": $CCN_MAX, \"nloc\": $CCN_NLOC, \"functions\": $CCN_FUNCS, \"avgCcn\": $CCN_AVG, \"avgNloc\": $CCN_AVG_NLOC, \"avgToken\": $CCN_AVG_TOKEN, \"warnFunRatio\": $CCN_FUN_RT, \"warnNlocRatio\": $CCN_NLOC_RT, \"bandFiles\": $CCN_BAND, \"overCapFiles\": $CCN_OVER, \"blindFiles\": $CCN_BLIND, $GATE_RECORD"; printf '\n'
         printf '  },\n'
         printf '  "verdict": "%s"\n' "$VERDICT"
         printf '}\n'
@@ -1031,6 +1061,7 @@ TOTALS
         printf 'Current as of [`%s`](%s/) — **this run'"'"'s measurement, not its diff.** Max CCN **%s** across %s\n' "$STAMP" "$STAMP" "$CCN_MAX" "$CCN_FUNCS"
         printf 'functions, **%s** of them warned on; %s file(s) in the 1000–1500 band and %s over the 1500 cap\n' "$CCN_WARN" "$CCN_BAND" "$CCN_OVER"
         printf '(`layout-§1`).\n\n'
+        [ -n "$CCN_BLIND_NOTE" ] && printf '**Not sighted — complexity did not pass** (`automated-tests-§3`): %s. Those files'"'"'\nfunctions went unmeasured, so the figures below undercount them.\n\n' "$CCN_BLIND_NOTE"
         printf 'Every row below is generated from this run'"'"'s own `lizard` output. **The `Disposition` column is\n'
         printf 'the one authored cell in this file** (`automated-tests-§4`, *the one boundary*): it is carried\n'
         printf 'forward verbatim while its entry is unchanged, and left **blank** when the entry is new — a blank\n'

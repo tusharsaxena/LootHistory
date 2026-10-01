@@ -144,6 +144,6 @@ anti-pattern (`anti-patterns #85`), and declining the harness is not a license t
 `tests/test_disabled.lua` drives both holds through the latch, so the invariant that matters —
 releasing one hold must not resurrect an addon the other is still holding down — is under test here
 today. See [disabled-state.md](disabled-state.md). `libs/LibKa0s/` is
-still vendored **whole** — `Perf.lua` and `PerfPanel.lua` included — because the folder is copied
+still vendored **whole** — `Perf.lua`, `PerfSampler.lua`, `PerfCommands.lua` and `PerfPanel.lua` included — because the folder is copied
 whole or not at all (library-stack-§7, anti-pattern #48), and `perf` stays a reserved verb
 (slash-commands-§2): it is simply never registered, so it can never come to mean anything else here.

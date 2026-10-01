@@ -562,37 +562,40 @@ local function repoKind(paths)
     "it ships nothing into the WoW client: no .toc, no tracked libs/, no library payload folder"
 end
 
-test("eol: .gitattributes is line-endings-§5's canonical body for this repo kind", function()
-  local paths = trackedAttrs()
-  local body, kind, why = repoKind(paths)
-  local pin, carveOuts, binaries = marksOf(body)
+-- Case two's checks, one helper each, in the order the case runs them (split out of the case body
+-- at kit revision 35: it measured CCN 34 once the complexity suite was sighted). Every failure is
+-- raised at level 3, the case body's own call, which is where the inline version reported it.
 
-  -- (a) PRESENT AT THE ROOT, AND TRACKED. Untracked is not the lesser failure it looks like:
-  -- attributes reach a contributor's checkout only through the repository, so a .gitattributes
-  -- nobody else receives is the absent file §1 calls the defect, wearing the right name.
-  local tracked = false
+--- (a) PRESENT AT THE ROOT, AND TRACKED. Untracked is not the lesser failure it looks like:
+--- attributes reach a contributor's checkout only through the repository, so a .gitattributes
+--- nobody else receives is the absent file §1 calls the defect, wearing the right name.
+local function checkTracked(paths, kind, why)
   for _, p in ipairs(paths) do
-    if p == ATTRS then tracked = true break end
+    if p == ATTRS then return end
   end
-  if not tracked then
-    fail("eol: git tracks no " .. ATTRS .. " at the repo root. line-endings-§1 makes the file a "
-      .. "MUST for every repo in this collection, and is explicit that its absence is the defect "
-      .. "rather than a neutral default: with no attributes, what lands on disk is decided by "
-      .. "whichever `core.autocrlf` / `core.eol` each contributor's git happens to carry, so two "
-      .. "people produce byte-different checkouts of the same commit and neither is doing anything "
-      .. "wrong. Copy line-endings-§5's canonical body for this repo kind (" .. kind .. ", because " .. why
-      .. "), then renormalize per line-endings-§6", 2)
-  end
+  fail("eol: git tracks no " .. ATTRS .. " at the repo root. line-endings-§1 makes the file a "
+    .. "MUST for every repo in this collection, and is explicit that its absence is the defect "
+    .. "rather than a neutral default: with no attributes, what lands on disk is decided by "
+    .. "whichever `core.autocrlf` / `core.eol` each contributor's git happens to carry, so two "
+    .. "people produce byte-different checkouts of the same commit and neither is doing anything "
+    .. "wrong. Copy line-endings-§5's canonical body for this repo kind (" .. kind .. ", because " .. why
+    .. "), then renormalize per line-endings-§6", 3)
+end
+
+--- The tracked `.gitattributes` as lines, and whether its last line is unterminated.
+local function readAttrs()
   local data = readBytes(ATTRS)
   if data == nil then
     fail("eol gate: cannot read " .. ATTRS .. ", which git tracks; this gate cannot run, and must "
-      .. "not be reported as passing", 2)
+      .. "not be reported as passing", 3)
   end
-  local actual, unterminated = splitLines(data)
+  return splitLines(data)
+end
 
-  -- (b) EXACTLY ONE PIN, AND THE ONE §2 GIVES THIS REPO KIND. Two pins is not a stricter policy but
-  -- an unreadable one: git takes the last match, so the file says one thing to a reader and another
-  -- to the tool.
+--- (b) EXACTLY ONE PIN, AND THE ONE §2 GIVES THIS REPO KIND. Two pins is not a stricter policy but
+--- an unreadable one: git takes the last match, so the file says one thing to a reader and another
+--- to the tool.
+local function checkPin(actual, pin, why)
   local pins = {}
   for i, line in ipairs(actual) do
     if line:match("^%*%s") and line:find("text=auto", 1, true) then
@@ -603,17 +606,19 @@ test("eol: .gitattributes is line-endings-§5's canonical body for this repo kin
     fail("eol: " .. ATTRS .. " carries " .. #pins .. " `* text=auto` pin(s); line-endings-§2 "
       .. "allows exactly one, and git resolves a duplicate by taking the last match, so the file "
       .. "reads as one policy and behaves as another:\n          "
-      .. ((#pins > 0) and table.concat(pins, "\n          ") or "(none)"), 2)
+      .. ((#pins > 0) and table.concat(pins, "\n          ") or "(none)"), 3)
   end
   if pins[1]:gsub("^line %d+: ", "") ~= pin then
     fail("eol: " .. ATTRS .. " pins `" .. pins[1]:gsub("^line %d+: ", "") .. "`, but "
       .. "line-endings-§2 gives this repo `" .. pin .. "` because " .. why .. ". CRLF exists in "
       .. "this collection for exactly one reason - the client - and where the client is not "
       .. "involved the reason does not apply. Changing a pin is line-endings-§6's two steps, index "
-      .. "then working tree, not an edit to this line alone", 2)
+      .. "then working tree, not an edit to this line alone", 3)
   end
+end
 
-  -- (c) §3's SHEBANG CARVE-OUTS AND §4's BINARY MARKS, each read out of the canonical body above.
+--- (c) §3's SHEBANG CARVE-OUTS AND §4's BINARY MARKS, each read out of the canonical body above.
+local function checkMarks(actual, carveOuts, binaries)
   local present = {}
   for _, line in ipairs(actual) do present[line] = true end
   local missing = {}
@@ -631,17 +636,19 @@ test("eol: .gitattributes is line-endings-§5's canonical body for this repo kin
       .. "naming \"python3\\r\", which is a string nobody greps for. A missing binary mark is an "
       .. "asset git may line-end convert, because `text=auto` detects by content and an ASCII-bodied "
       .. "format fools it. Add each line where line-endings-§5's body puts it:\n          "
-      .. table.concat(missing, "\n          "), 2)
+      .. table.concat(missing, "\n          "), 3)
   end
+end
 
-  -- (d) THE BODY, LINE FOR LINE, THROUGH ITS FINAL LINE.
+--- (d) THE BODY, LINE FOR LINE, THROUGH ITS FINAL LINE.
+local function checkBody(actual, body, kind, why, unterminated)
   if #actual < #body then
     fail("eol: " .. ATTRS .. " is " .. #actual .. " lines; line-endings-§5's canonical body for "
       .. "this repo kind (" .. kind .. ", because " .. why .. ") is " .. #body .. ". The body is "
       .. "fixed so that a repo can be DIFFED against the standard rather than read against it, "
       .. "which is what stopped eight hand-written 22-to-68-line variants being eight things to "
       .. "keep in sync. Replace the file with line-endings-§5's body, and put any binary mark no extension can "
-      .. "reach in a line-endings-§5 appendix below it", 2)
+      .. "reach in a line-endings-§5 appendix below it", 3)
   end
   local diffs = {}
   for i = 1, #body do
@@ -660,20 +667,46 @@ test("eol: .gitattributes is line-endings-§5's canonical body for this repo kin
       .. "standard, and arrives here on the next kit revision and re-vendor. Thirteen of fourteen "
       .. "repositories diverged on the same six lines once already, because one edit failed to "
       .. "travel and nothing in any repository mentioned it again:\n          "
-      .. table.concat(diffs, "\n          "), 2)
+      .. table.concat(diffs, "\n          "), 3)
   end
   if #actual == #body and unterminated then
     fail("eol: " .. ATTRS .. " matches line-endings-§5's canonical body but its final line has no "
       .. "terminator, so the file is one byte short of the body it is required to be. Append a "
-      .. "newline", 2)
+      .. "newline", 3)
   end
+end
 
-  -- THE §5 APPENDIX, WHICH IS THE ONE THING PERMITTED BELOW THE BODY. It exists for a real bind:
-  -- §4 MUSTs that every binary be marked and keys its union list by extension, so a vendored binary
-  -- with NO extension - PanelMaster's `tools/artwork/bin/realesrgan-ncnn-vulkan` is the live one -
-  -- sits between two MUSTs and can satisfy exactly one. The appendix lets it satisfy both, at the
-  -- price of a shape strict enough that an auditor can tell an appendix from an edited body without
-  -- reading either.
+--- What is wrong with one appendix entry (a line that is neither blank, a comment nor the
+--- delimiter), or nil when it conforms.
+local function appendixEntryProblem(line, at, commented)
+  local path, mark = line:match("^(%S+)%s+(%S+)$")
+  if mark ~= "binary" then
+    return string.format(
+      "line %d: %s - an appendix holds `binary` marks and nothing else; line-endings-§2 forbids a per-path "
+      .. "pin or a `-text` exemption and this is not a reopening of that", at, line)
+  elseif path:find("[%*%?%[%]]") then
+    return string.format(
+      "line %d: %s - names a glob. Each entry names a SINGLE path, because a glob swallows "
+      .. "the text file somebody adds under it next year, and a binary-marked text file is "
+      .. "neither diffed nor converted: line-endings-§4's failure, self-inflicted by the fix for it",
+      at, line)
+  elseif not commented then
+    return string.format(
+      "line %d: %s - carries no comment above it saying what the file is and why no extension "
+      .. "reaches it. The next reader's first question is whether it could have been an "
+      .. "extension, and anything that could belongs in line-endings-§4's union list upstream, where all "
+      .. "fourteen repos get it", at, line)
+  end
+  return nil
+end
+
+--- THE §5 APPENDIX, WHICH IS THE ONE THING PERMITTED BELOW THE BODY. It exists for a real bind:
+--- §4 MUSTs that every binary be marked and keys its union list by extension, so a vendored binary
+--- with NO extension - PanelMaster's `tools/artwork/bin/realesrgan-ncnn-vulkan` is the live one -
+--- sits between two MUSTs and can satisfy exactly one. The appendix lets it satisfy both, at the
+--- price of a shape strict enough that an auditor can tell an appendix from an edited body without
+--- reading either.
+local function checkAppendix(actual, body)
   local problems, commented, delimiterAt = {}, false, nil
   for i = #body + 1, #actual do
     local line, at = actual[i], i
@@ -687,7 +720,7 @@ test("eol: .gitattributes is line-endings-§5's canonical body for this repo kin
             .. "delimiter. line-endings-§5 permits exactly one thing there, beginning with the line `" .. APPENDIX
             .. "` and holding only `binary` marks keyed by path - that delimiter is what lets a "
             .. "reader tell an appendix from an edited body without reading either. Found at line "
-            .. at .. ": " .. line, 2)
+            .. at .. ": " .. line, 3)
         end
         delimiterAt = at
       elseif line == APPENDIX then
@@ -697,30 +730,25 @@ test("eol: .gitattributes is line-endings-§5's canonical body for this repo kin
       elseif line:match("^#") then
         commented = true
       else
-        local path, mark = line:match("^(%S+)%s+(%S+)$")
-        if mark ~= "binary" then
-          problems[#problems + 1] = string.format(
-            "line %d: %s - an appendix holds `binary` marks and nothing else; line-endings-§2 forbids a per-path "
-            .. "pin or a `-text` exemption and this is not a reopening of that", at, line)
-        elseif path:find("[%*%?%[%]]") then
-          problems[#problems + 1] = string.format(
-            "line %d: %s - names a glob. Each entry names a SINGLE path, because a glob swallows "
-            .. "the text file somebody adds under it next year, and a binary-marked text file is "
-            .. "neither diffed nor converted: line-endings-§4's failure, self-inflicted by the fix for it",
-            at, line)
-        elseif not commented then
-          problems[#problems + 1] = string.format(
-            "line %d: %s - carries no comment above it saying what the file is and why no extension "
-            .. "reaches it. The next reader's first question is whether it could have been an "
-            .. "extension, and anything that could belongs in line-endings-§4's union list upstream, where all "
-            .. "fourteen repos get it", at, line)
-        end
+        problems[#problems + 1] = appendixEntryProblem(line, at, commented)
         commented = false
       end
     end
   end
   if #problems > 0 then
     fail("eol: the line-endings-§5 appendix in " .. ATTRS .. " does not conform to line-endings-§5, on "
-      .. #problems .. " line(s):\n          " .. table.concat(problems, "\n          "), 2)
+      .. #problems .. " line(s):\n          " .. table.concat(problems, "\n          "), 3)
   end
+end
+
+test("eol: .gitattributes is line-endings-§5's canonical body for this repo kind", function()
+  local paths = trackedAttrs()
+  local body, kind, why = repoKind(paths)
+  local pin, carveOuts, binaries = marksOf(body)
+  checkTracked(paths, kind, why)
+  local actual, unterminated = readAttrs()
+  checkPin(actual, pin, why)
+  checkMarks(actual, carveOuts, binaries)
+  checkBody(actual, body, kind, why, unterminated)
+  checkAppendix(actual, body)
 end)

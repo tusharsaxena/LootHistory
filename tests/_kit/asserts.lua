@@ -236,6 +236,55 @@ return function(Kit)
     return members
   end
 
+  -- assertSurfaceParity's three steps, one helper each (split at kit revision 35: the function
+  -- measured CCN 19 once the complexity suite was sighted). Failures raise at the assertion's line.
+
+  --- Form two, `(stub, majorName, ignore)`, rewritten as form one's `(live, degraded, label,
+  --- ignore)`, plus whether only public members are compared. A string in the second position is
+  --- unambiguous: the first form's second argument is the degraded table, and its third the label.
+  local function parityArgs(live, degraded, label, ignore)
+    if type(degraded) ~= "string" then return live, degraded, label, ignore, false end
+    local resolved, why = resolveSurface(degraded)
+    if not resolved then fail(degraded .. ": " .. why, 2) end
+    return resolved, live, degraded, label, true
+  end
+
+  --- The live keys to compare, `ignore` (a set or an array) taken out, in a stable order.
+  local function parityKeys(live, ignore, publicOnly)
+    local skip = {}
+    for k, v in pairs(ignore or {}) do
+      if v == true then skip[k] = true else skip[v] = true end
+    end
+
+    local keys = {}
+    if publicOnly then
+      for _, member in ipairs(Kit.publicMembers(live)) do
+        if not skip[member.name] then keys[#keys + 1] = member.name end
+      end
+    else
+      for k in pairs(live) do
+        if not skip[k] then keys[#keys + 1] = k end
+      end
+    end
+    table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+    return keys
+  end
+
+  --- One line per divergence over `keys`, in their order.
+  local function parityProblems(keys, live, degraded)
+    local problems = {}
+    for _, k in ipairs(keys) do
+      local lv, dv = live[k], degraded[k]
+      if dv == nil then
+        problems[#problems + 1] = ("%s is missing (live: %s)"):format(tostring(k), type(lv))
+      elseif type(lv) == "function" and type(dv) ~= "function" then
+        problems[#problems + 1] =
+          ("%s is a function live but %s degraded"):format(tostring(k), type(dv))
+      end
+    end
+    return problems
+  end
+
   --- Assert that a degraded-path stub carries the whole surface of the live module.
   ---
   --- Two calling forms:
@@ -269,50 +318,14 @@ return function(Kit)
   --- (`{ Foo = true }`) or as an array (`{ "Foo" }`). An intentional omission and a bug are otherwise
   --- indistinguishable, and the usual resolution for that is to delete the case.
   function Kit.assertSurfaceParity(live, degraded, label, ignore)
-    -- Form two: `(stub, majorName, ignore)`. A string in the second position is unambiguous — the
-    -- first form's second argument is the degraded table, and its third is the label.
-    local byName = type(degraded) == "string"
     local publicOnly
-    if byName then
-      local name = degraded
-      local resolved, why = resolveSurface(name)
-      if not resolved then fail(name .. ": " .. why, 1) end
-      degraded, ignore, label, live = live, label, name, resolved
-      publicOnly = true
-    end
+    live, degraded, label, ignore, publicOnly = parityArgs(live, degraded, label, ignore)
 
     label = label or "surface"
     if type(live) ~= "table" then fail(label .. ": the live surface is not a table", 1) end
     if type(degraded) ~= "table" then fail(label .. ": the degraded surface is not a table", 1) end
 
-    local skip = {}
-    for k, v in pairs(ignore or {}) do
-      if v == true then skip[k] = true else skip[v] = true end
-    end
-
-    local keys = {}
-    if publicOnly then
-      for _, member in ipairs(Kit.publicMembers(live)) do
-        if not skip[member.name] then keys[#keys + 1] = member.name end
-      end
-    else
-      for k in pairs(live) do
-        if not skip[k] then keys[#keys + 1] = k end
-      end
-    end
-    table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
-
-    local problems = {}
-    for _, k in ipairs(keys) do
-      local lv, dv = live[k], degraded[k]
-      if dv == nil then
-        problems[#problems + 1] = ("%s is missing (live: %s)"):format(tostring(k), type(lv))
-      elseif type(lv) == "function" and type(dv) ~= "function" then
-        problems[#problems + 1] =
-          ("%s is a function live but %s degraded"):format(tostring(k), type(dv))
-      end
-    end
-
+    local problems = parityProblems(parityKeys(live, ignore, publicOnly), live, degraded)
     if #problems > 0 then
       fail(("%s: the degraded stub diverges from the live surface in %d place(s) — %s")
         :format(label, #problems, table.concat(problems, "; ")), 1)

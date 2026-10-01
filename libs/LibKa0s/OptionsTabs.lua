@@ -46,7 +46,9 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Minor 5: the strip and the content panel start right of a nav rail (OptionsNav.lua's lib.__railInset).
 -- Minor 6: the combat lock's page chrome moves out to OptionsCombat.lua (LK-ATS-03); no behavior change.
 -- Minor 7: each refusal names what it refused, for the shell's Cfg line (gap G3, 2026-09-30).
-local TABS_MINOR = 7
+-- Minor 8: RenderTabbedSchema's opt-in untabbedSkipRender, disabledReplaces (+ disabledNoticeFont)
+-- and rerender, for a host that composed the strip itself to get them (AbsorbTracker#32).
+local TABS_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -1133,17 +1135,43 @@ function lib.__AttachTabs(O, d)
 
   local NO_OPTS = {}
 
-  --- The page's groups in declaration order, and each group's rows.
+  --- The page's groups in declaration order, each group's rows, and (minor 8) which groups hold a
+  --- row the flow engine draws, i.e. one that is not skipRender.
   local function partition(rows)
-    local groups, byGroup = {}, {}
+    local groups, byGroup, drawable = {}, {}, {}
     for _, row in ipairs(rows) do
       local g = row.group
       if g ~= nil then
         if not byGroup[g] then byGroup[g], groups[#groups + 1] = {}, g end
         byGroup[g][#byGroup[g] + 1] = row
+        if not row.skipRender then drawable[g] = true end
       end
     end
-    return groups, byGroup
+    return groups, byGroup, drawable
+  end
+
+  --- A host tab entry the strip honors: keyed, with a render function.
+  local function isHostTab(t)
+    return type(t) == "table" and t.key ~= nil and type(t.render) == "function"
+  end
+
+  --- The groups `opts.untabbedSkipRender` (minor 8) keeps off the strip: every row skipRender, and
+  --- neither a host tab nor an afterGroup hook keyed by the group, either of which draws it. The
+  --- rows stay in their bucket, so a mixed group's skipRender row is skipped as before.
+  local function untabbedGroups(opts, groups, drawable, afterGroup)
+    if not opts.untabbedSkipRender then return NO_OPTS end
+    local claimed = {}
+    for _, t in ipairs(type(opts.tabs) == "table" and opts.tabs or NO_OPTS) do
+      if isHostTab(t) then claimed[t.key] = true end
+    end
+    if type(afterGroup) == "table" then
+      for g in pairs(afterGroup) do claimed[g] = true end
+    end
+    local skip = {}
+    for _, g in ipairs(groups) do
+      if not (drawable[g] or claimed[g]) then skip[g] = true end
+    end
+    return skip
   end
 
   --- Put a host tab ahead of the tab `before` names, or last when this render draws no such tab.
@@ -1157,14 +1185,16 @@ function lib.__AttachTabs(O, d)
   --- The strip: one tab per group, then the host's tabs. A host tab keyed by a group takes that
   --- group's place (and may relabel it) rather than adding a second tab. An entry with no key or
   --- no render function is not a tab.
-  local function collectTabs(groups, byGroup, hostTabs)
+  local function collectTabs(groups, byGroup, hostTabs, skip)
     local tabs, index, bespoke = {}, {}, {}
-    for i, name in ipairs(groups) do
-      tabs[i] = { key = name, label = name }
-      index[name] = tabs[i]
+    for _, name in ipairs(groups) do
+      if not skip[name] then
+        tabs[#tabs + 1] = { key = name, label = name }
+        index[name] = tabs[#tabs]
+      end
     end
     for _, t in ipairs(type(hostTabs) == "table" and hostTabs or NO_OPTS) do
-      if type(t) == "table" and t.key ~= nil and type(t.render) == "function" then
+      if isHostTab(t) then
         bespoke[t.key] = t
         local own = index[t.key]
         if own then
@@ -1202,7 +1232,7 @@ function lib.__AttachTabs(O, d)
       notice = ok and text or nil
     end
     if type(notice) ~= "string" or notice == "" or not O.TextRow then return end
-    O.TextRow(ctx, notice, { fontObject = "GameFontHighlightSmall" })
+    O.TextRow(ctx, notice, { fontObject = opts.disabledNoticeFont or "GameFontHighlightSmall" })
     local scroll = O.EnsureScroll(ctx)
     if scroll and O.AddSpacer then O.AddSpacer(scroll, L.ROW_VSPACER) end
   end
@@ -1224,12 +1254,28 @@ function lib.__AttachTabs(O, d)
     local disabled = pageDisabled(opts)
     if type(opts.chrome) == "function" then opts.chrome(ctx) end
     if disabled then drawDisabledNotice(ctx, opts) end
+    if disabled and opts.disabledReplaces then return end
     if tab then
       renderHostTab(ctx, tab, rows, disabled)
     elseif rows then
       O.RenderRows(ctx, rows, flow.afterGroup, flow.pairWith,
         { noHeadings = flow.noHeadings, disabled = disabled })
     end
+  end
+
+  --- A tab click: the host's `rerender` when it passed one (minor 8), else ClearScroll and a render
+  --- with the same arguments.
+  local function selectTab(ctx, key, pageKey, afterGroup, pairWith, opts)
+    if key == ctx.activeTab then return end
+    ctx.activeTab = key
+    -- The re-render a change of subject takes. In combat the tab button refuses the click.
+    if type(opts.rerender) == "function" then
+      local ok, err = pcall(opts.rerender, ctx)
+      if not ok then print(lib.STRINGS.RENDER_FAILED:format(tostring(pageKey), tostring(err))) end
+      return
+    end
+    O.ClearScroll(ctx)
+    O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith, opts)
   end
 
   --- Render one page as a tab strip over its sections (options-ui-§13). The partition is by
@@ -1251,21 +1297,36 @@ function lib.__AttachTabs(O, d)
   ---   cfg             the subject this render edits, handed to `disabledFor` and `disabledNotice`.
   ---   disabledFor     function(cfg) answering true to draw the page disabled: `disabledNotice`
   ---                   above the rows, and every row (a host tab's widgets through
-  ---                   `ctx.__renderDisabled`) disabled. The rows are still drawn.
-  ---   disabledNotice  a string, or function(cfg) answering one, drawn in the small font.
+  ---                   `ctx.__renderDisabled`) disabled. The rows are still drawn, unless
+  ---                   `disabledReplaces`.
+  ---   disabledNotice  a string, or function(cfg) answering one, drawn in the small font unless
+  ---                   `disabledNoticeFont` names another.
   ---   chrome          function(ctx), called once per render after the strip and before the
   ---                   notice and the rows: a line that belongs above every tab. A banner is not
   ---                   chrome here -- draw it before calling this, as PageBanner says.
-  --- A tab click re-renders with the same `opts`.
+  ---   untabbedSkipRender  (minor 8) a group whose rows are ALL skipRender is no tab, unless a host
+  ---                   tab or an afterGroup hook is keyed by it. Its rows stay in the page. The
+  ---                   returned groups still name it.
+  ---   disabledReplaces  (minor 8) a disabled page draws the notice and nothing under it: no rows
+  ---                   and no host tab.
+  ---   disabledNoticeFont  (minor 8) the notice's font object, by name; default
+  ---                   "GameFontHighlightSmall".
+  ---   rerender        (minor 8) function(ctx): a tab click sets `ctx.activeTab` and calls this
+  ---                   instead of ClearScroll and a render of its own, so the host's whole redraw
+  ---                   (its chrome above, its refreshers after) runs. A raise is reported.
+  --- Otherwise a tab click re-renders with the same `opts`. All four are off by default.
   function O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith, opts)
     opts = type(opts) == "table" and opts or NO_OPTS
     local rows = d.rowsForPage(pageKey, ctx.unit) or {}
-    local groups, byGroup = partition(rows)
+    local groups, byGroup, drawable = partition(rows)
     if not O.AceGUI then return {}, {} end
 
-    local tabs, bespoke = collectTabs(groups, byGroup, opts.tabs)
+    local skip = untabbedGroups(opts, groups, drawable, afterGroup)
+    local tabs, bespoke = collectTabs(groups, byGroup, opts.tabs, skip)
     if #tabs == 0 then
-      print(lib.STRINGS.NO_GROUPS:format(tostring(pageKey)))
+      -- Reported only when the page has no group at all: one whose groups are all kept off the
+      -- strip by untabbedSkipRender is not an authoring defect.
+      if #groups == 0 then print(lib.STRINGS.NO_GROUPS:format(tostring(pageKey))) end
       renderBody(ctx, opts, nil, rows, { afterGroup = afterGroup, pairWith = pairWith })
       return groups, {}
     end
@@ -1274,13 +1335,7 @@ function lib.__AttachTabs(O, d)
     O.TabStrip(ctx, {
       tabs  = tabs,
       value = ctx.activeTab,
-      onSelect = function(key)
-        if key == ctx.activeTab then return end
-        ctx.activeTab = key
-        -- The re-render a change of subject takes. In combat the tab button refuses the click.
-        O.ClearScroll(ctx)
-        O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith, opts)
-      end,
+      onSelect = function(key) selectTab(ctx, key, pageKey, afterGroup, pairWith, opts) end,
     })
 
     local active = ctx.activeTab
