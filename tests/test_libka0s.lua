@@ -455,6 +455,33 @@ test("the Options page registry built every page this addon declares", function(
     "a raising builder is reported and skipped, and a leftover registration is a page nobody drew")
 end)
 
+test("the Options descriptor passes addonName, the FOLDER name, to the library", function()
+  -- LibKa0s#42. OptionsIdList draws a help mark's art from Interface\AddOns\<addonName>\libs\
+  -- LibKa0s\media\icons\info, and the Options descriptor carries no other field that names the
+  -- folder: parentTitle is the brand and mainPanelName is a frame global. A descriptor field is not
+  -- observable after lib:New returns, so the source is the only place to pin it. The value is the
+  -- first vararg, not a typed string: "Ka0s Loot History" here would build a path to nothing, and
+  -- the library's loaded-addon guard would quietly draw the client glyph instead.
+  --
+  -- No item list here carries `help` today, so nothing visible rides on this; it protects the first
+  -- help line anyone adds.
+  local src = T.Loader.readFile("settings/OptionsSetup.lua")
+  assertTrue(src:find("^local addonName, NS = %.%.%.") ~= nil,
+    "settings/OptionsSetup.lua must keep its first vararg as `addonName`, not discard it as `_`")
+  local desc = src:match("NS%.Options = lib:New%((%b{})%)")
+  assertTrue(desc ~= nil, "settings/OptionsSetup.lua must build NS.Options through lib:New({ ... })")
+  assertTrue(desc:find("addonName%s*=%s*addonName%s*,") ~= nil,
+    "the Options descriptor must carry `addonName = addonName,`")
+end)
+
+test("the vendored info art the help mark points at is on disk", function()
+  -- The one residual the library's guard cannot catch: a correct folder name with the art missing
+  -- (a partial vendor, or a payload outside libs/LibKa0s). The path would build and draw nothing.
+  local f = io.open("libs/LibKa0s/media/icons/info.tga", "rb")
+  assertTrue(f ~= nil, "libs/LibKa0s/media/icons/info.tga is missing: the folder was not copied whole")
+  if f then f:close() end
+end)
+
 -- ── degraded Core stub: the minor-8 surface (LK-10, LK-11) ────────────────────────────────────
 --
 -- The stub mirrors Core minor 8 in one rung each. printer.Format pcalls string.format, so a secret

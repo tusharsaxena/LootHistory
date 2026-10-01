@@ -23,7 +23,7 @@ free number in its theme.
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 33 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
-| FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
+| FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | DEGRADED-1 to 11 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
@@ -872,6 +872,11 @@ the list empties and chat prints `blacklist cleared (N ids).` On **Whitelist** t
 item ids from the whitelist?`, then `whitelist cleared (N ids).` The Currencies list's Clear all is
 FILT-16. Result:
 
+**FILT-25. The item lists draw as before.** `/lh debug on`, then `/lh config` → General → **Filters**
+→ step through **Blacklist**, **Whitelist** and **Currencies** → every list renders exactly as before
+(no help marks: no entry here carries help), with no Lua error and no `[Cfg] help art:` line in the
+console. Result:
+
 ## Launcher
 
 One LibDataBroker object drives the minimap button (LibDBIcon) and any broker display. Its visibility
@@ -1270,6 +1275,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | INS-21 | § 7 live cards | No result recorded |
 | FILT-1 to FILT-23 | § 9, § 16, § 19 | No result recorded |
 | FILT-24 | § 17f Clear all | No result recorded; expectation spelled out by SP-LH-03R (the popup text and the chat line) |
+| FILT-25 | New | New with the Options descriptor's `addonName` (CA-LH-NM, LibKa0s#42) |
 | LAUNCH-1 | § 11 art | No result recorded |
 | LAUNCH-2 | § 11 tooltip | X1.4 passed the status tooltip on 2026-09-25; the re-hover after ticking **Lock frame** and **Test mode** (`Locked: Yes`, `Test mode: On`) is not in X1.4's steps and has no result |
 | LAUNCH-4 | § 11 menu | X1.4 passed the menu opening on 2026-09-25; its four entries' actions have no result |

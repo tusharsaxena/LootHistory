@@ -1,4 +1,4 @@
-local _, NS = ...
+local addonName, NS = ...
 
 -- LibKa0s-Options-1.0 seam: the Blizzard settings-canvas shell, the page registry, the lazy
 -- Defaults button, the five widget makers and the two-column flow engine.
@@ -173,6 +173,9 @@ NS.Options = lib:New({
   -- Named rather than anonymous so /framestack attributes the canvas to this addon and two addons
   -- cannot collide on it. The frame was anonymous before this adoption.
   mainPanelName = "LootHistorySettingsPanel",
+  -- The FOLDER name (first vararg), not the parentTitle brand: OptionsIdList builds the help-mark
+  -- art path from it (LibKa0s#42). The library checks it against the loaded-addon list.
+  addonName     = addonName,
 
   print = function(line) NS.Print(line) end,
   debug = function(tag, fmt, ...) if NS.Debug then NS.Debug(tag, fmt, ...) end end,
