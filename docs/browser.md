@@ -113,7 +113,7 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 
 ### Breakdown sections
 
-`LayoutCharts` (`Analytics.lua:281`) binds and positions each section top-down off `self.stats`, returning the running y-cursor (empty sections are skipped entirely). The sections sit under two full-width dividers (`sectionDivider`, `Analytics.lua:553`) — a centered gold title flanked by rule lines — that split the pane into **LOOT** and **CURRENCY**:
+`LayoutCharts` (`Analytics.lua:621`) binds and positions each section top-down off `self.stats` through one file-local helper per section (`layoutCharacters` … `layoutRankedLists`, then `layoutCurrency`), returning the running y-cursor (empty sections are skipped entirely). The sections sit under two full-width dividers (`sectionDivider`, `AnalyticsCharts.lua:187`) — a centered gold title flanked by rule lines — that split the pane into **LOOT** and **CURRENCY**:
 
 **LOOT** — every item-centric chart, plus the Top zones/items panels (moved under this divider so the whole item side of Insights is one block). The source/character/value charts here are **items-only** — currency is excluded so per-character totals tally with the item-attribute charts (currency lives entirely in the CURRENCY section). The headline **records** KPI still counts everything.
 
@@ -172,7 +172,7 @@ Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTa
 
 Every bar, stacked bar, swatch, strip segment and list row comes out of one of the 35 pools in
 `self.pool`, and `LayoutCharts` releases every one of them at the top of each layout pass
-(`NS.Pool.ReleaseAll`, `Analytics.lua:289`). That only costs nothing if released widgets come back.
+(`NS.Pool.ReleaseAll`, `Analytics.lua:624`). That only costs nothing if released widgets come back.
 Until 2026-08-24 `releaseAll` hid each active object and dropped it, so `pool.free` was empty on
 every acquire and the factory ran each time: a fresh frame per chart element on every re-render,
 and frames are never destroyed in WoW, so a session's filter changes and tab switches piled up

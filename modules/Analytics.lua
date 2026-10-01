@@ -277,38 +277,41 @@ function Analytics:Disable()
   self._subscribed = nil
 end
 
--- Bind + position every chart off self.stats for the given width; return the final y cursor.
-function Analytics:LayoutCharts(y, w, pad)
-  local stats, P = self.stats, self.pool
-  for _, name in ipairs({ "source", "vsource", "quality", "itype", "bound", "char",
-                          "day", "vday", "hour", "weekday", "zone", "item", "itemval",
-                          "curcollected", "curcollectedleg", "cursrc", "curlegend", "curchar", "curcharlegend", "curday",
-                          "sourceleg", "vsourceleg", "qualityleg", "itypeleg", "boundleg",
-                          "chsource", "chsourceleg", "chvsource", "chvsourceleg", "chquality", "chqualityleg",
-                          "chtype", "chtypeleg", "chbound", "chboundleg" }) do
-    NS.Pool.ReleaseAll(P[name])
-  end
+-- ── LayoutCharts, one helper per section ────────────────────────────────────────────────────────
+--
+-- LayoutCharts was one 300-line function at CCN 86, measured once lizard could see it (kit
+-- revision 35's sighted complexity suite; WowAddonStandards#6). It is now a sequence of the
+-- section helpers below, each taking the instance and the running y cursor and returning the new
+-- one, in the order the sections draw. They are file-local rather than methods so the module's
+-- public surface does not grow; the bodies are the old function's, moved (GI-LH-02), and
+-- tests/test_analytics_layout.lua's golden snapshots pin that they draw the same thing.
 
-  if not stats or stats.totals.records == 0 then
-    self:HideAllCharts()
-    self.emptyText:ClearAllPoints()
-    self.emptyText:SetPoint("TOP", self.content, "TOP", 0, y - 10)
-    self.emptyText:Show()
-    return y - 50
-  end
-  self.emptyText:Hide()
-  local H, total = self.headers, stats.totals.records
-  local rows
+-- Every pool LayoutCharts draws from, released at the top of each pass.
+local CHART_POOLS = { "source", "vsource", "quality", "itype", "bound", "char",
+                      "day", "vday", "hour", "weekday", "zone", "item", "itemval",
+                      "curcollected", "curcollectedleg", "cursrc", "curlegend", "curchar", "curcharlegend", "curday",
+                      "sourceleg", "vsourceleg", "qualityleg", "itypeleg", "boundleg",
+                      "chsource", "chsourceleg", "chvsource", "chvsourceleg", "chquality", "chqualityleg",
+                      "chtype", "chtypeleg", "chbound", "chboundleg" }
 
-  self.lootDivider:ClearAllPoints()
-  self.lootDivider:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
-  self.lootDivider:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -pad, y)
-  self.lootDivider:Show()
-  y = y - 30
+local function srcColor(k) return SOURCE_COLOR[k] or NEUTRAL end
+local function srcLabel(k) return NS.Constants.SourceLabel[k] or k end
+local function countText(t) return tostring(t) end
+local function moneyText(t) return money(t) end
 
-  -- Loot by character (first chart in the LOOT section) — class-colored, sorted by count desc.
-  -- byChar registers currency-only characters with count 0 (for class colors elsewhere); skip them.
-  rows = {}
+-- A full-width divider (LOOT / CURRENCY) anchored across the content at y; returns the new y.
+local function placeDivider(self, divider, y, pad)
+  divider:ClearAllPoints()
+  divider:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
+  divider:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -pad, y)
+  divider:Show()
+  return y - 30
+end
+
+-- Loot by character (first chart in the LOOT section) — class-colored, sorted by count desc.
+-- byChar registers currency-only characters with count 0 (for class colors elsewhere); skip them.
+local function layoutCharacters(self, stats, y, w, pad)
+  local rows = {}
   local chRows = {}
   for _, ce in pairs(stats.byChar) do if ce.count > 0 then chRows[#chRows + 1] = ce end end
   table.sort(chRows, function(a, b)
@@ -321,10 +324,14 @@ function Analytics:LayoutCharts(y, w, pad)
     rows[#rows + 1] = { label = shortChar(ce.char), color = classColor(ce.classFile),
       frac = ce.count / chMax, value = tostring(ce.count) }
   end
-  y = self:renderBarSection(P.char, H.char, rows, y, w, pad)
+  return self:renderBarSection(self.pool.char, self.headers.char, rows, y, w, pad)
+end
 
-  -- Loot by source — length = share of all records.
-  rows = {}
+-- Loot by source — length = share of all records — and its Character × Source companion, whose
+-- segment order matches the parent's Y axis (count desc).
+local function layoutSources(self, stats, y, w, pad)
+  local P, H, total = self.pool, self.headers, stats.totals.records
+  local rows = {}
   for _, e in ipairs(sortedByCount(stats.bySource)) do
     rows[#rows + 1] = {
       label = NS.Constants.SourceLabel[e.key] or e.key, color = SOURCE_COLOR[e.key] or NEUTRAL,
@@ -333,16 +340,17 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.source, H.source, rows, y, w, pad, P.sourceleg)
 
-  -- Loot by Character × Source — companion. Segment order matches the parent's Y axis (count desc).
   local srcOrder = {}
   for _, e in ipairs(sortedByCount(stats.bySource)) do srcOrder[#srcOrder + 1] = e.key end
-  local function srcColor(k) return SOURCE_COLOR[k] or NEUTRAL end
-  local function srcLabel(k) return NS.Constants.SourceLabel[k] or k end
-  y = self:renderCharCompanion("chsource", "chsourceleg", H.charBySource, stats.charBySource,
-    srcOrder, srcColor, srcLabel, function(t) return tostring(t) end, y, w, pad)
+  return self:renderCharCompanion("chsource", "chsourceleg", H.charBySource, stats.charBySource,
+    srcOrder, srcColor, srcLabel, countText, y, w, pad)
+end
 
-  -- Vendor value by source — length relative to the biggest bucket, ordered by value desc.
-  rows = {}
+-- Vendor value by source — length relative to the biggest bucket, ordered by value desc — and its
+-- Character × Source companion, in the same order.
+local function layoutValueSources(self, stats, y, w, pad)
+  local P, H = self.pool, self.headers
+  local rows = {}
   local vMax = 1
   for _, v in pairs(stats.valueBySource) do if v > vMax then vMax = v end end
   local vsrc = {}
@@ -358,12 +366,15 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.vsource, H.vsource, rows, y, w, pad, P.vsourceleg)
 
-  -- Value by Character × Source — companion. Segment order matches the parent's Y axis (value desc).
-  y = self:renderCharCompanion("chvsource", "chvsourceleg", H.charValueSource, stats.charValueBySource,
-    vsrcOrder, srcColor, srcLabel, function(t) return money(t) end, y, w, pad)
+  return self:renderCharCompanion("chvsource", "chvsourceleg", H.charValueSource, stats.charValueBySource,
+    vsrcOrder, srcColor, srcLabel, moneyText, y, w, pad)
+end
 
-  -- Quality distribution — bars in quality order, length relative to the biggest bucket.
-  rows = {}
+-- Quality distribution — bars in quality order, length relative to the biggest bucket — and its
+-- Character × Quality companion, segments colored by item quality (parent order).
+local function layoutQualities(self, stats, y, w, pad)
+  local P, H = self.pool, self.headers
+  local rows = {}
   local qRows, qMax = {}, 1
   for q, c in pairs(stats.byQuality) do qRows[#qRows + 1] = { q = q, c = c }; if c > qMax then qMax = c end end
   table.sort(qRows, function(a, b) return a.q < b.q end)
@@ -374,31 +385,36 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.quality, H.quality, rows, y, w, pad, P.qualityleg)
 
-  -- Loot by Character × Quality — companion, segments colored by item quality (parent order).
   local qOrder = {}
   for q = 0, 8 do if stats.byQuality[q] then qOrder[#qOrder + 1] = q end end
-  y = self:renderCharCompanion("chquality", "chqualityleg", H.charQuality, stats.charByQuality,
+  return self:renderCharCompanion("chquality", "chqualityleg", H.charQuality, stats.charByQuality,
     qOrder, function(q) return qualityColor(q) end, function(q) return NS.Item.QualityLabel(q) end,
-    function(t) return tostring(t) end, y, w, pad)
+    countText, y, w, pad)
+end
 
-  -- Loot by item type — bars colored per type from the standard palette (rank = sort order); the
-  -- Character × Item Type companion reuses the same map so a type keeps its color across both.
+-- Loot by item type — bars colored per type from the standard palette (rank = sort order); the
+-- Character × Item Type companion reuses the same map so a type keeps its color across both.
+local function layoutItemTypes(self, stats, y, w, pad)
+  local P, H, total = self.pool, self.headers, stats.totals.records
   local tyKeys = {}
   for _, e in ipairs(sortedByCount(stats.byType)) do tyKeys[#tyKeys + 1] = e.key end
   local typeColor = paletteMap(tyKeys)
-  rows = {}
+  local rows = {}
   for _, e in ipairs(sortedByCount(stats.byType)) do
     rows[#rows + 1] = { label = e.key, color = typeColor[e.key] or NEUTRAL,
       frac = e.count / total, value = tostring(e.count) }
   end
   y = self:renderBarSection(P.itype, H.itype, rows, y, w, pad, P.itypeleg)
 
-  y = self:renderCharCompanion("chtype", "chtypeleg", H.charType, stats.charByType,
+  return self:renderCharCompanion("chtype", "chtypeleg", H.charType, stats.charByType,
     tyKeys, function(k) return typeColor[k] or NEUTRAL end, function(k) return k end,
-    function(t) return tostring(t) end, y, w, pad)
+    countText, y, w, pad)
+end
 
-  -- Loot by bound type — sorted count desc; the companion reuses this exact order for its segments.
-  rows = {}
+-- Loot by bound type — sorted count desc; the companion reuses this exact order for its segments.
+local function layoutBoundTypes(self, stats, y, w, pad)
+  local P, H, total = self.pool, self.headers, stats.totals.records
+  local rows = {}
   local bRows = {}
   for _, bk in ipairs(BOUND_ORDER) do
     local c = stats.byBound[bk]
@@ -413,12 +429,15 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   y = self:renderBarSection(P.bound, H.bound, rows, y, w, pad, P.boundleg)
 
-  -- Loot by Character × Bound Type — companion. Segment order matches the parent's Y axis (count desc).
-  y = self:renderCharCompanion("chbound", "chboundleg", H.charBound, stats.charByBound,
+  return self:renderCharCompanion("chbound", "chboundleg", H.charBound, stats.charByBound,
     boundOrder, function(k) return BOUND_COLOR[k] or NEUTRAL end,
-    function(k) return BOUND_LABEL[k] or k end, function(t) return tostring(t) end, y, w, pad)
+    function(k) return BOUND_LABEL[k] or k end, countText, y, w, pad)
+end
 
-  -- Loot over time + vendor value over time — two per-day strips over the same day range.
+-- Loot over time + vendor value over time — two per-day strips over the same day range — then
+-- loot by hour of day, 24 fixed buckets.
+local function layoutTimeStrips(self, stats, y, w, pad)
+  local P, H = self.pool, self.headers
   local keys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
   local dayB, valB = {}, {}
   for _, k in ipairs(keys) do
@@ -431,16 +450,17 @@ function Analytics:LayoutCharts(y, w, pad)
   y = self:renderStrip(P.day, H.time, self.dayStrip, dayB, y, w, pad)
   y = self:renderStrip(P.vday, H.vtime, self.valueStrip, valB, y, w, pad)
 
-  -- Loot by hour of day — 24 fixed buckets.
   local hourB = {}
   for h = 0, 23 do
     local c = stats.byHour[h] or 0
     hourB[#hourB + 1] = { info = string.format("%02d:00  %d", h, c), count = c, label = string.format("%02d", h) }
   end
-  y = self:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
+  return self:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
+end
 
-  -- Loot by weekday — Sun..Sat, each day a unique palette color (Sun=rank 1 … Sat=rank 7).
-  rows = {}
+-- Loot by weekday — Sun..Sat, each day a unique palette color (Sun=rank 1 … Sat=rank 7).
+local function layoutWeekdays(self, stats, y, w, pad)
+  local rows = {}
   local wMax = 1
   for _, c in pairs(stats.byWeekday) do if c > wMax then wMax = c end end
   for d = 0, 6 do
@@ -448,35 +468,40 @@ function Analytics:LayoutCharts(y, w, pad)
     if c then rows[#rows + 1] = { label = WEEKDAY[d], color = Analytics.paletteColor(d + 1),
       frac = c / wMax, value = tostring(c) } end
   end
-  y = self:renderBarSection(P.weekday, H.weekday, rows, y, w, pad)
+  return self:renderBarSection(self.pool.weekday, self.headers.weekday, rows, y, w, pad)
+end
 
-  -- Ranked lists — two half-width columns:
-  --   left  : Top items by value → Top zones (stacked)
-  --   right : Top items by count
+-- One ranked-list row per top item, star-marked at epic and above; `right` formats the value
+-- column, and `keep` (optional) drops an item from the list.
+local function itemListRows(items, right, keep)
+  local out = {}
+  for i = 1, math.min(10, #items) do
+    local it = items[i]
+    if not keep or keep(it) then
+      local star = ((it.quality or 1) >= 4) and starMarkup() or ""
+      out[#out + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
+        nameColor = qualityColor(it.quality or 1), right = right(it) }
+    end
+  end
+  return out
+end
+
+local function itemValue(it) return money(it.value) end
+local function itemCount(it) return tostring(it.count) end
+local function hasValue(it) return (it.value or 0) > 0 end
+
+-- Ranked lists — two half-width columns:
+--   left  : Top items by value → Top zones (stacked)
+--   right : Top items by count
+local function layoutRankedLists(self, stats, y, w, pad)
+  local P = self.pool
   local colGap = 12
   local colW = math.floor((w - pad * 2 - colGap) / 2)
   local leftX, rightX = pad, pad + colW + colGap
   local MONEY_W = 110  -- value column wide enough for "Ng Ns Nc" coin strings (no wrapping)
 
-  -- Top items by value (left, top).
-  local valRows = {}
-  for i = 1, math.min(10, #stats.topItemsByValue) do
-    local it = stats.topItemsByValue[i]
-    if (it.value or 0) > 0 then
-      local star = ((it.quality or 1) >= 4) and starMarkup() or ""
-      valRows[#valRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
-        nameColor = qualityColor(it.quality or 1), right = money(it.value) }
-    end
-  end
-
-  -- Top items by count (right, top).
-  local itemRows = {}
-  for i = 1, math.min(10, #stats.topItems) do
-    local it = stats.topItems[i]
-    local star = ((it.quality or 1) >= 4) and starMarkup() or ""
-    itemRows[#itemRows + 1] = { name = star .. (it.itemName or ("item " .. (it.itemID or "?"))),
-      nameColor = qualityColor(it.quality or 1), right = tostring(it.count) }
-  end
+  local valRows = itemListRows(stats.topItemsByValue, itemValue, hasValue)   -- left, top
+  local itemRows = itemListRows(stats.topItems, itemCount)                    -- right, top
 
   -- Top zones (left, below the value list).
   local zoneRows = {}
@@ -496,85 +521,128 @@ function Analytics:LayoutCharts(y, w, pad)
   local hZone = self:renderListPanel(P.zone, self.zonePanel, zoneRows, zoneY, colW, leftX)
 
   local leftH = (y - zoneY) + hZone -- top of column (y) down to the bottom of the zone panel
-  y = y - math.max(leftH, hItem) - SECTION_GAP
-  -- (fall through to Currency)
+  return y - math.max(leftH, hItem) - SECTION_GAP
+end
 
-  -- ── Currency ──────────────────────────────────────────────────────────────────
+-- The source legend under Currency by Type × Source, ordered by each source's currency total.
+local function layoutCurrencySourceLegend(self, stats, y, w, pad)
+  local legendRows = {}
+  for _, le in ipairs(sortedByCount(stats.currencyBySource or {})) do
+    legendRows[#legendRows + 1] = { label = NS.Constants.SourceLabel[le.key] or le.key,
+      color = SOURCE_COLOR[le.key] or NEUTRAL }
+  end
+  return self:renderLegend(self.pool.curlegend, legendRows, y, w, pad)
+end
+
+-- Currency by Type × Source: one stacked bar per currency, segments colored by source, then the
+-- source legend.
+local function layoutCurrencySources(self, stats, y, w, pad)
+  local P, H = self.pool, self.headers
+  local curMax = 1
+  for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMax then curMax = curTotal end end
+  local stackRows = {}
+  for _, e in ipairs(sortedByCount(stats.byCurrency)) do
+    local perSrc = stats.currencySourceMatrix[e.key] or {}
+    local order = {}
+    for srcKey in pairs(perSrc) do order[#order + 1] = srcKey end
+    table.sort(order, function(a, b) return (perSrc[a] or 0) > (perSrc[b] or 0) end)
+    local curSegs = {}
+    for _, srcKey in ipairs(order) do
+      curSegs[#curSegs + 1] = { frac = (perSrc[srcKey] or 0) / curMax, color = SOURCE_COLOR[srcKey] or NEUTRAL,
+        tip = (NS.Constants.SourceLabel[srcKey] or srcKey) .. ": " .. (perSrc[srcKey] or 0) }
+    end
+    stackRows[#stackRows + 1] = { label = e.key, value = tostring(e.count), segments = curSegs }
+  end
+  y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)
+  return layoutCurrencySourceLegend(self, stats, y, w, pad)
+end
+
+-- The CURRENCY block, under its divider: Currency Collected, Currency by Type × Source, Currency by
+-- Character × Type and Currency Over Time.
+local function layoutCurrency(self, stats, y, w, pad)
+  local P, H = self.pool, self.headers
+  y = placeDivider(self, self.currencyDivider, y, pad)
+
+  -- Currency Collected — one bar per currency, colored per currency from the standard palette
+  -- (rank = qty order). curColor is shared with Currency by Character × Type so a currency keeps one
+  -- color across both charts.
+  local curKeys = {}
+  for _, e in ipairs(sortedByCount(stats.byCurrency)) do curKeys[#curKeys + 1] = e.key end
+  local curColor = paletteMap(curKeys)
+  local curMaxCollected = 1
+  for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMaxCollected then curMaxCollected = curTotal end end
+  local collectedRows = {}
+  for _, e in ipairs(sortedByCount(stats.byCurrency)) do
+    collectedRows[#collectedRows + 1] = { label = e.key, color = curColor[e.key] or NEUTRAL,
+      frac = e.count / curMaxCollected, value = tostring(e.count) }
+  end
+  y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad, P.curcollectedleg)
+
+  y = layoutCurrencySources(self, stats, y, w, pad)
+
+  -- Currency by Character × Type — one stacked bar per character, segmented by currency (each a
+  -- distinct palette color, shared with Currency Collected via curColor). Currencies ordered by
+  -- global qty so a given currency keeps a consistent segment position across character rows.
+  local ccRows = Analytics._buildCharStackRows(stats.currencyCharMatrix, stats.byChar, curKeys,
+    function(cname) return curColor[cname] or NEUTRAL end, countText,
+    function(cname) return cname end)
+  y = self:renderStackedBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
+
+  -- Legend: one swatch per currency, matching the segment colors.
+  local curCharLegend = {}
+  for _, cname in ipairs(curKeys) do
+    curCharLegend[#curCharLegend + 1] = { label = cname, color = curColor[cname] or NEUTRAL }
+  end
+  y = self:renderLegend(P.curcharlegend, curCharLegend, y, w, pad)
+
+  -- Currency over time (per-day strip of total currency quantity).
+  local ckeys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
+  local curDayB = {}
+  for _, k in ipairs(ckeys) do
+    local c = stats.currencyByDay[k] or 0
+    curDayB[#curDayB + 1] = { info = k .. ":  " .. c, count = c, label = shortDay(k) }
+  end
+  return self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
+end
+
+local function hideCurrency(self)
+  local H = self.headers
+  H.currencyCollected:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
+  self.currencyStrip:Hide()
+  self.currencyDivider:Hide()
+end
+
+-- The LOOT sections, in draw order, after the LOOT divider.
+local LOOT_SECTIONS = { layoutCharacters, layoutSources, layoutValueSources, layoutQualities,
+                        layoutItemTypes, layoutBoundTypes, layoutTimeStrips, layoutWeekdays,
+                        layoutRankedLists }
+
+-- Bind + position every chart off self.stats for the given width; return the final y cursor.
+function Analytics:LayoutCharts(y, w, pad)
+  local stats, P = self.stats, self.pool
+  for _, name in ipairs(CHART_POOLS) do
+    NS.Pool.ReleaseAll(P[name])
+  end
+
+  if not stats or stats.totals.records == 0 then
+    self:HideAllCharts()
+    self.emptyText:ClearAllPoints()
+    self.emptyText:SetPoint("TOP", self.content, "TOP", 0, y - 10)
+    self.emptyText:Show()
+    return y - 50
+  end
+  self.emptyText:Hide()
+
+  y = placeDivider(self, self.lootDivider, y, pad)
+  for _, section in ipairs(LOOT_SECTIONS) do
+    y = section(self, stats, y, w, pad)
+  end
+
   local ct = stats.currencyTotals or { distinct = 0, events = 0 }
   if ct.events and ct.events > 0 then
-    self.currencyDivider:ClearAllPoints()
-    self.currencyDivider:SetPoint("TOPLEFT", self.content, "TOPLEFT", pad, y)
-    self.currencyDivider:SetPoint("TOPRIGHT", self.content, "TOPRIGHT", -pad, y)
-    self.currencyDivider:Show()
-    y = y - 30
-
-    -- Currency Collected — one bar per currency, colored per currency from the standard palette
-    -- (rank = qty order). curColor is shared with Currency by Character × Type so a currency keeps one
-    -- color across both charts.
-    local curKeys = {}
-    for _, e in ipairs(sortedByCount(stats.byCurrency)) do curKeys[#curKeys + 1] = e.key end
-    local curColor = paletteMap(curKeys)
-    local curMaxCollected = 1
-    for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMaxCollected then curMaxCollected = curTotal end end
-    local collectedRows = {}
-    for _, e in ipairs(sortedByCount(stats.byCurrency)) do
-      collectedRows[#collectedRows + 1] = { label = e.key, color = curColor[e.key] or NEUTRAL,
-        frac = e.count / curMaxCollected, value = tostring(e.count) }
-    end
-    y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad, P.curcollectedleg)
-
-    -- Currency by Type × Source: one stacked bar per currency, segments colored by source.
-    local curMax = 1
-    for _, curTotal in pairs(stats.byCurrency) do if curTotal > curMax then curMax = curTotal end end
-    local stackRows = {}
-    for _, e in ipairs(sortedByCount(stats.byCurrency)) do
-      local perSrc = stats.currencySourceMatrix[e.key] or {}
-      local order = {}
-      for srcKey in pairs(perSrc) do order[#order + 1] = srcKey end
-      table.sort(order, function(a, b) return (perSrc[a] or 0) > (perSrc[b] or 0) end)
-      local curSegs = {}
-      for _, srcKey in ipairs(order) do
-        curSegs[#curSegs + 1] = { frac = (perSrc[srcKey] or 0) / curMax, color = SOURCE_COLOR[srcKey] or NEUTRAL,
-          tip = (NS.Constants.SourceLabel[srcKey] or srcKey) .. ": " .. (perSrc[srcKey] or 0) }
-      end
-      stackRows[#stackRows + 1] = { label = e.key, value = tostring(e.count), segments = curSegs }
-    end
-    y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)
-
-    local legendRows = {}
-    for _, le in ipairs(sortedByCount(stats.currencyBySource or {})) do
-      legendRows[#legendRows + 1] = { label = NS.Constants.SourceLabel[le.key] or le.key,
-        color = SOURCE_COLOR[le.key] or NEUTRAL }
-    end
-    y = self:renderLegend(P.curlegend, legendRows, y, w, pad)
-
-    -- Currency by Character × Type — one stacked bar per character, segmented by currency (each a
-    -- distinct palette color, shared with Currency Collected via curColor). Currencies ordered by
-    -- global qty so a given currency keeps a consistent segment position across character rows.
-    local ccRows = Analytics._buildCharStackRows(stats.currencyCharMatrix, stats.byChar, curKeys,
-      function(cname) return curColor[cname] or NEUTRAL end, function(t) return tostring(t) end,
-      function(cname) return cname end)
-    y = self:renderStackedBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
-
-    -- Legend: one swatch per currency, matching the segment colors.
-    local curCharLegend = {}
-    for _, cname in ipairs(curKeys) do
-      curCharLegend[#curCharLegend + 1] = { label = cname, color = curColor[cname] or NEUTRAL }
-    end
-    y = self:renderLegend(P.curcharlegend, curCharLegend, y, w, pad)
-
-    -- Currency over time (per-day strip of total currency quantity).
-    local ckeys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
-    local curDayB = {}
-    for _, k in ipairs(ckeys) do
-      local c = stats.currencyByDay[k] or 0
-      curDayB[#curDayB + 1] = { info = k .. ":  " .. c, count = c, label = shortDay(k) }
-    end
-    y = self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
+    y = layoutCurrency(self, stats, y, w, pad)
   else
-    H.currencyCollected:Hide(); H.currencySrc:Hide(); H.currencyChar:Hide(); H.currencyTime:Hide()
-    self.currencyStrip:Hide()
-    self.currencyDivider:Hide()
+    hideCurrency(self)
   end
 
   return y
