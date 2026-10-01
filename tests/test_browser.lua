@@ -743,3 +743,89 @@ test("browser: Lock frame gates the resize grip as well as the title-bar drag", 
   end)
 end)
 
+-- ── The resize grip (#33) ──────────────────────────────────────────────────────
+-- Pinned before the grip moved onto Core.MakeResizable, so the move is proven to keep what the
+-- player sees: the floor, the save on release, and one table refresh per drag rather than per step.
+
+-- Opens the window, runs `fn(f)` with settings.window and the frame's armed geometry put back
+-- afterwards, so neither a saved size nor a dragged one outlives the case.
+local function withGripWindow(fn)
+  withSettings({ visibility = "always", locked = false }, function()
+    local s = NS.db.profile.settings
+    local savedWindow = s.window
+    B:Show()
+    local f = B:GetWindow()
+    local gw, gh = f:GetWidth(), f:GetHeight()
+    local ok, err = pcall(fn, f)
+    f:SetSize(gw, gh)
+    s.window = savedWindow
+    B:Hide()
+    if not ok then error(err, 0) end
+  end)
+end
+
+local function dragGrip(f)
+  f.resizeGrip:__fire("OnMouseDown", "LeftButton")
+  f.resizeGrip:__fire("OnMouseUp", "LeftButton")
+end
+
+test("browser: the History window resizes down to B:MinWidth() x SKIN.minH", function()
+  -- The floor is every column's width by the minimum height, not the 700px the window opens at.
+  -- red under: a resizable helper handed no minHeight, which defaults the floor to the current size.
+  withGripWindow(function(f)
+    assertTrue(f.__resizable, "the History window must be resizable")
+    local b = f.__resizeBounds
+    assertTrue(b ~= nil, "the History window must be bounded")
+    assertEqual(b[1], B:MinWidth())
+    assertEqual(b[2], B.SKIN.minH)
+  end)
+end)
+
+test("browser: releasing the resize grip persists the window geometry", function()
+  -- red under: the save left off the grip's release, so a dragged size is lost at /reload.
+  withGripWindow(function(f)
+    f:SetSize(1300, 520)  -- the size the drag reached (the mock's StartSizing moves nothing)
+    local stops = f.__stopCount
+    dragGrip(f)
+    local w = NS.db.profile.settings.window
+    assertTrue(w ~= nil, "the release must save settings.window")
+    assertEqual(w.w, 1300)
+    assertEqual(w.h, 520)
+    assertEqual(f.__stopCount, stops + 1, "the release must stop the sizing")
+  end)
+end)
+
+test("browser: a resize refreshes the table once, on release, not per size step", function()
+  -- A full BuildDisplayList per OnSizeChanged would run every frame of a drag, and on every open.
+  -- red under: SaveWindow and BrowserTable:Refresh wired as the grip's onResize.
+  local BT = NS.BrowserTable
+  local stock = BT.Refresh
+  local refreshes = 0
+  BT.Refresh = function() refreshes = refreshes + 1 end
+  local ok, err = pcall(withGripWindow, function(f)
+    NS.db.profile.settings.window = nil
+    refreshes = 0  -- opening the window refreshes the table; only the drag is counted
+    f:SetSize(1200, 500)
+    for _ = 1, 3 do f:__fire("OnSizeChanged", 1200, 500) end
+    assertEqual(refreshes, 0, "a size step must not refresh the table")
+    assertEqual(NS.db.profile.settings.window, nil, "a size step must not save the window")
+    dragGrip(f)
+    assertEqual(refreshes, 1, "the release refreshes the table exactly once")
+  end)
+  BT.Refresh = stock
+  if not ok then error(err, 0) end
+end)
+
+test("browser: a locked grip starts no sizing", function()
+  withGripWindow(function(f)
+    local sizing = f.__sizingCount
+    withSettings({ locked = true }, function()
+      NS.db.profile.settings.window = nil
+      dragGrip(f)
+    end)
+    assertEqual(f.__sizingCount, sizing, "a locked window must not start sizing")
+    -- Today the release is ungated: StopMovingOrSizing and SaveWindow run after a refused press.
+    assertTrue(NS.db.profile.settings.window ~= nil, "today a locked release still saves")
+  end)
+end)
+

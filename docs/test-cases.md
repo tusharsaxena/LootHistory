@@ -394,7 +394,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: per-character category matrices split each char by category
 - Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight
 
-### test_browser.lua (61)
+### test_browser.lua (65)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -457,6 +457,10 @@ badge and any count quoted in the docs must agree with it.
 - browser: 'Only out of combat' hides the window at the pull, before lockdown engages
 - browser: 'Only in combat' hides the window when combat ends
 - browser: Lock frame gates the resize grip as well as the title-bar drag
+- browser: the History window resizes down to B:MinWidth() x SKIN.minH
+- browser: releasing the resize grip persists the window geometry
+- browser: a resize refreshes the table once, on release, not per size step
+- browser: a locked grip starts no sizing
 
 ### test_browsertable.lua (63)
 
@@ -1195,7 +1199,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 38 |
 | test_database.lua | 65 |
 | test_stats.lua | 20 |
-| test_browser.lua | 61 |
+| test_browser.lua | 65 |
 | test_browsertable.lua | 63 |
 | test_export.lua | 29 |
 | test_debuglog.lua | 20 |
@@ -1225,4 +1229,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1043** |
+| **Total** | **1047** |
