@@ -11,7 +11,8 @@
 -- tests/_kit/ — that folder must stay byte-identical to LibKa0s/testkit — and it is not a suite, so
 -- tests/run.lua does not list it; callers dofile it the way they dofile tests/wow_mock.lua.
 --
--- Returns `ns, lines`: the namespace the load built, and every line the addon printed while it did.
+-- Returns `ns, lines, mocks`: the namespace the load built, every line the addon printed while it
+-- did, and the mock set it loaded over (a suite that wraps one of its factories wraps that one).
 -- The chat capture is part of the environment rather than an extra the caller wires up, because the
 -- one-shot degradation notice is emitted DURING the load — a caller that installed its own
 -- AddMessage afterwards would have missed it.
@@ -36,5 +37,5 @@ return function()
   -- order, because a list that reordered the setup files would let a hoisted lookup pass here and
   -- fail in the client.
   Loader.loadAll(Loader.tocFiles("LootHistory.toc"), ns, mocks)
-  return ns, lines
+  return ns, lines, mocks
 end

@@ -25,6 +25,11 @@ local addonName, NS = ...
 -- decline would now mean shipping, on purpose, the exact glyph that is the collection's
 -- regression signature for a dropped folder name.
 --
+-- `Core.MakeResizable` is the History browser's corner grip (#33), adopted once Core minor 10
+-- (LibKa0s#41) could say "not now": `canResize` keeps the grip drawn and inert while Lock frame is
+-- ticked, and `onResizeStop` saves the size once per release rather than on every size step.
+-- Published as NS.MakeResizable on both paths; the degraded one is the grip the browser drew itself.
+--
 -- ── LOAD ORDER (all four constraints bind; see docs/module-map.md) ──────────────────────────────
 --   AFTER  core/Namespace.lua   — NS.PREFIX is the tag, passed verbatim as a plain string.
 --   AFTER  core/Util.lua        — that file publishes NS.Util, which this one writes `print` onto.
@@ -65,6 +70,50 @@ local function fallbackCloseButton(parent, onClick)
   close:SetScript("OnLeave", function() x:SetTextColor(0.85, 0.85, 0.85) end)
   close:SetScript("OnClick", onClick)
   return close
+end
+
+-- The pre-library resize grip, for the same reason as the close control above. It is the grip
+-- modules/Browser.lua built before the seam existed, moved: a 16x16 button two pixels inside the
+-- bottom-right corner, the client's chat size-grabber art (the art Core.MakeResizable draws too),
+-- StartSizing on any button. It honors the subset of Core.MakeResizable's opts this addon passes --
+-- minWidth / minHeight (default: the current size), canResize (asked at every mouse-down) and
+-- onResizeStop (once per release that ends a sizing it started) -- so a degraded install keeps the
+-- floor, the lock and the save.
+local function fallbackMakeResizable(frame, opts)
+  if type(CreateFrame) ~= "function" then return nil end
+  if type(frame) ~= "table" or type(frame.SetResizable) ~= "function"
+      or type(frame.StartSizing) ~= "function" then
+    return nil
+  end
+  opts = type(opts) == "table" and opts or {}
+  local minW, minH = opts.minWidth or frame:GetWidth(), opts.minHeight or frame:GetHeight()
+  frame:SetResizable(true)
+  if frame.SetResizeBounds then
+    frame:SetResizeBounds(minW, minH)
+  elseif frame.SetMinResize then
+    frame:SetMinResize(minW, minH)
+  end
+  local grip = CreateFrame("Button", nil, frame)
+  grip:SetSize(16, 16)
+  grip:SetPoint("BOTTOMRIGHT", -2, 2)
+  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  local sizing = false
+  grip:SetScript("OnMouseDown", function()
+    if type(opts.canResize) == "function" and not opts.canResize(frame) then return end
+    sizing = true
+    frame:StartSizing("BOTTOMRIGHT")
+  end)
+  grip:SetScript("OnMouseUp", function()
+    if not sizing then return end
+    sizing = false
+    frame:StopMovingOrSizing()
+    if type(opts.onResizeStop) == "function" then
+      opts.onResizeStop(frame:GetWidth(), frame:GetHeight())
+    end
+  end)
+  frame.resizeGrip = grip
+  return grip
 end
 
 -- The addon-owned list of event names this client refused (events-frames-taint-§1). Core's
@@ -195,6 +244,7 @@ if not lib then
   end
 
   NS.MakeCloseButton = fallbackCloseButton
+  NS.MakeResizable = fallbackMakeResizable
 
   NS.Util = NS.Util or {}
   NS.Util.print = NS.Print
@@ -226,6 +276,12 @@ NS.ApplySkin = lib.ApplySkin
 NS.MakeCloseButton = function(parent, onClick)
   return lib.MakeCloseButton(parent, onClick, addonName)
 end
+
+-- The History browser's corner grip (#33). Lib-level and stateless, so published by reference: the
+-- lock gate (opts.canResize) and the save on release (opts.onResizeStop) are Core minor 10's
+-- (LibKa0s#41), and modules/Browser.lua passes both. Never the save as opts.onResize, which also
+-- runs on every OnSizeChanged.
+NS.MakeResizable = lib.MakeResizable
 
 -- Lib-level and stateless, so they are published by reference rather than wrapped. Identical in
 -- behavior to the implementations they replace, down to the sentinel: `lib.SECRET` is "<secret>",

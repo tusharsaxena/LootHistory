@@ -281,8 +281,9 @@ has one owner, `NS.Browser` (`modules/Browser.lua`), and every writer is listed 
 reaches it.
 
 - **`NS.db.profile.settings.window`**, the window geometry `{ point, x, y, w, h }`. The local
-  `SaveWindow` (`:97`) writes it when a title-bar drag stops (`:980`) and when the resize grip is
-  released (`:1075`). `B:ResetWindow` (`:680`) writes `{}`, reached from the Master controls
+  `SaveWindow` (`:97`) writes it when a title-bar drag stops (`:975`) and when a resize ends
+  (`:1063`, the `onResizeStop` the browser hands `Core.MakeResizable`, which runs once per release
+  of a sizing the grip started and never after a press Lock frame refused). `B:ResetWindow` (`:680`) writes `{}`, reached from the Master controls
   **Reset position** button (`onResetPosition`, `settings/Schema.lua:120`). A profile reset brings
   it back with the rest of the profile, and every profile event re-reads it (`B:AdoptProfile`,
   `:695`).
@@ -328,7 +329,7 @@ that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:814`)
 (`core/Database.lua:863`) drops the row the History right-click **Delete** names
 (`modules/BrowserTable.lua:1207`). `RepairBoundStates` (`core/Database.lua:382`) rewrites a row's
 `bound` (`core/Database.lua:339`) from two deferrals after login (`core/LootHistory.lua:138`, `:142`)
-and each window open (`modules/Browser.lua:1093`). No settings reset and no profile event reaches
+and each window open (`modules/Browser.lua:1081`). No settings reset and no profile event reaches
 it: the history is account-wide and outside every profile. Purge and delete each log one `[Data]`
 line, the prune one `[Prune]` (`debug-logging-§8`).
 

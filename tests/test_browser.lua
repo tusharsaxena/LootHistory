@@ -816,16 +816,66 @@ test("browser: a resize refreshes the table once, on release, not per size step"
   if not ok then error(err, 0) end
 end)
 
-test("browser: a locked grip starts no sizing", function()
+test("browser: a locked grip starts no sizing and its release saves nothing", function()
+  -- Core.MakeResizable's canResize (LibKa0s#41): a refused press leaves the release inert. Until
+  -- #33 the hand-rolled release was ungated and re-saved the unchanged geometry after a locked
+  -- press; that write is gone on purpose (CA-LH-01, design D3.4).
+  -- red under: canResize not passed, or the save hooked onto the grip's OnMouseUp ungated.
   withGripWindow(function(f)
-    local sizing = f.__sizingCount
+    local sizing, stops = f.__sizingCount, f.__stopCount
     withSettings({ locked = true }, function()
       NS.db.profile.settings.window = nil
       dragGrip(f)
     end)
     assertEqual(f.__sizingCount, sizing, "a locked window must not start sizing")
-    -- Today the release is ungated: StopMovingOrSizing and SaveWindow run after a refused press.
-    assertTrue(NS.db.profile.settings.window ~= nil, "today a locked release still saves")
+    assertEqual(f.__stopCount, stops, "a refused press leaves nothing to stop")
+    assertEqual(NS.db.profile.settings.window, nil, "a locked release must not save the window")
   end)
+end)
+
+-- Builds a grip through the seam on a fresh frame with every Button the build makes recording its
+-- art, so the corner can be read back (the kit's stub answers the frame for any setter).
+local function seamGrip(makeResizable, mocks, opts)
+  local stock = mocks.CreateFrame
+  mocks.CreateFrame = function(kind, ...)
+    local made = stock(kind, ...)
+    if kind == "Button" then
+      rawset(made, "SetNormalTexture", function(self, p) self.__normalArt = p end)
+      rawset(made, "SetHighlightTexture", function(self, p) self.__highlightArt = p end)
+    end
+    return made
+  end
+  local f = stock("Frame")
+  f:SetSize(1116, 700)
+  local ok, grip = pcall(makeResizable, f, opts)
+  mocks.CreateFrame = stock
+  if not ok then error(grip, 0) end
+  return f, grip
+end
+
+test("browser: the resize grip is the Blizzard chat size grabber", function()
+  -- Held through the move onto Core.MakeResizable (#33): the corner every window in the
+  -- collection wears, 16px, not the catalog's `resize` mark (docs/common-tasks.md).
+  local f, grip = seamGrip(NS.MakeResizable, T.mocks, {})
+  assertTrue(grip ~= nil and f.resizeGrip == grip, "the seam must answer the grip it keeps")
+  assertEqual(grip.__normalArt, "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  assertEqual(grip.__highlightArt, "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  assertEqual(grip:GetWidth(), 16)
+  assertEqual(grip:GetHeight(), 16)
+end)
+
+test("browser: the History grip is Core.MakeResizable, not a hand-rolled copy", function()
+  -- red under: NS.MakeResizable wrapping or re-implementing the library on a working install, or
+  -- modules/Browser.lua sizing the window itself again.
+  local lib = T.mocks.LibStub("LibKa0s-Core-1.0", true)
+  assertTrue(lib ~= nil and NS.MakeResizable == lib.MakeResizable,
+    "NS.MakeResizable must be Core.MakeResizable by reference")
+  local src = T.Loader.readFile("modules/Browser.lua")
+  assertTrue(src:find("NS.MakeResizable(frame, {", 1, true) ~= nil,
+    "modules/Browser.lua must build its grip through the seam")
+  assertTrue(src:find("StartSizing(", 1, true) == nil and src:find("SizeGrabber", 1, true) == nil,
+    "no grip may be hand-rolled in modules/Browser.lua; the degraded one lives in core/CoreSetup.lua")
+  assertTrue(src:find("onResize =", 1, true) == nil,
+    "the save must not ride opts.onResize, which runs on every size step")
 end)
 

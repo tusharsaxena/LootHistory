@@ -198,6 +198,56 @@ test("every window this addon owns closes through that one wrapper", function()
     "no multiplication sign may be drawn here any more; the degraded one lives in core/CoreSetup.lua")
 end)
 
+test("degraded install: NS.MakeResizable keeps today's grip, the floor, the lock and the save", function()
+  -- The library-absent arm of core/CoreSetup.lua is the grip modules/Browser.lua drew before #33,
+  -- moved, honoring the opts the browser passes (design D3.2). red under: a degraded stub answering
+  -- nil (no grip at all), or a fallback that ignores canResize or minHeight.
+  local ns, _, mocks = loadDegraded()
+  assertTrue(type(ns.MakeResizable) == "function", "the degraded path must publish NS.MakeResizable")
+  local stock = mocks.CreateFrame
+  mocks.CreateFrame = function(kind, ...)
+    local made = stock(kind, ...)
+    if kind == "Button" then
+      rawset(made, "SetNormalTexture", function(self, p) self.__normalArt = p end)
+      rawset(made, "SetPoint", function(self, ...) self.__point = { ... } end)
+    end
+    return made
+  end
+  local f = stock("Frame")
+  f:SetSize(1116, 700)
+  local locked, stops = true, {}
+  local ok, grip = pcall(ns.MakeResizable, f, {
+    minWidth = 1116, minHeight = 460,
+    canResize = function() return not locked end,
+    onResizeStop = function(w, h) stops[#stops + 1] = { w, h } end,
+  })
+  mocks.CreateFrame = stock
+  if not ok then error(grip, 0) end
+
+  assertTrue(grip ~= nil and f.resizeGrip == grip, "the fallback must build and keep a grip")
+  assertTrue(f.__resizable, "the fallback must make the frame resizable")
+  assertEqual(f.__resizeBounds[1], 1116)
+  assertEqual(f.__resizeBounds[2], 460)
+  assertEqual(grip.__normalArt, "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  assertEqual(grip.__point[1], "BOTTOMRIGHT")
+  assertEqual(grip.__point[2], -2, "the degraded grip keeps its old 2px inset")
+
+  grip:__fire("OnMouseDown", "LeftButton")
+  grip:__fire("OnMouseUp", "LeftButton")
+  assertEqual(f.__sizingCount, 0, "a locked press must not start sizing")
+  assertEqual(#stops, 0, "a release after a refused press must not save")
+
+  locked = false
+  grip:__fire("OnMouseDown", "LeftButton")
+  f:SetSize(1300, 520)
+  grip:__fire("OnMouseUp", "LeftButton")
+  assertEqual(f.__sizingCount, 1)
+  assertEqual(f.__stopCount, 1)
+  assertEqual(#stops, 1, "the release that ends a sizing saves once")
+  assertEqual(stops[1][1], 1300)
+  assertEqual(stops[1][2], 520)
+end)
+
 test("degraded install: a bare /lh prints help listing the verbs that still work", function()
   -- slash-commands-§3. It used to fall through the verb walk to the "unavailable" line, which
   -- blacks out the whole command surface in the one install where a user most needs to be told

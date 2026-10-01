@@ -394,7 +394,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: per-character category matrices split each char by category
 - Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight
 
-### test_browser.lua (65)
+### test_browser.lua (67)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -460,7 +460,9 @@ badge and any count quoted in the docs must agree with it.
 - browser: the History window resizes down to B:MinWidth() x SKIN.minH
 - browser: releasing the resize grip persists the window geometry
 - browser: a resize refreshes the table once, on release, not per size step
-- browser: a locked grip starts no sizing
+- browser: a locked grip starts no sizing and its release saves nothing
+- browser: the resize grip is the Blizzard chat size grabber
+- browser: the History grip is Core.MakeResizable, not a hand-rolled copy
 
 ### test_browsertable.lua (63)
 
@@ -966,7 +968,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (26)
+### test_libka0s.lua (27)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -976,6 +978,7 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the Core stub answers every member the addon calls
 - NS.MakeCloseButton hands the library this addon's FOLDER name as the third argument
 - every window this addon owns closes through that one wrapper
+- degraded install: NS.MakeResizable keeps today's grip, the floor, the lock and the save
 - degraded install: a bare /lh prints help listing the verbs that still work
 - degraded install: bare /lh skips the config verb, which cannot answer here, for help
 - degraded install: /lh help prints the same degraded help list
@@ -1199,7 +1202,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 38 |
 | test_database.lua | 65 |
 | test_stats.lua | 20 |
-| test_browser.lua | 65 |
+| test_browser.lua | 67 |
 | test_browsertable.lua | 63 |
 | test_export.lua | 29 |
 | test_debuglog.lua | 20 |
@@ -1215,7 +1218,7 @@ badge and any count quoted in the docs must agree with it.
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 28 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 26 |
+| test_libka0s.lua | 27 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 14 |
 | test_diagnostics.lua | 20 |
@@ -1229,4 +1232,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1047** |
+| **Total** | **1050** |
