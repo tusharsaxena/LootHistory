@@ -268,3 +268,31 @@ test("Export: the copy window is built once and reused", function()
   NS.Export.__showCopy("second")
   assertTrue(NS.Export.__copyWindow:GetFrame() == f, "no rebuild per open")
 end)
+
+-- ── InsightsCSV, the whole document (characterization) ────────────────────────────────────────
+--
+-- Pinned whole before E:InsightsCSV, CCN 41 once lizard could see it, was split into per-section
+-- helpers (GI-LH-02). The cases above assert pieces; these compare every line against
+-- tests/export_golden.txt, generated from the pre-refactor code, over the same fixture histories
+-- the Insights render suite draws (tests/fixture_insights.lua): items and currency, items with no
+-- value or currency, an empty history, a bare table and nil.
+
+local FX = dofile("tests/fixture_insights.lua")
+local checkCsv = dofile("tests/golden.lua").file("tests/export_golden.txt")
+
+-- One line per row; the closing CRLF every document ends with is asserted by the header case above.
+local function csvLines(csv) return (csv:gsub("\r\n$", ""):gsub("\r\n", "\n")) end
+
+test("Export: InsightsCSV over items and currency matches the golden document", function()
+  checkCsv("rich", csvLines(NS.Export:InsightsCSV(FX.statsFor(FX.richHistory()))))
+end)
+
+test("Export: InsightsCSV over zero-value items with no currency matches the golden document", function()
+  checkCsv("plain", csvLines(NS.Export:InsightsCSV(FX.statsFor(FX.plainHistory()))))
+end)
+
+test("Export: InsightsCSV over an empty history, a bare table and nil", function()
+  checkCsv("empty history", csvLines(NS.Export:InsightsCSV(FX.statsFor({}))))
+  checkCsv("bare table", csvLines(NS.Export:InsightsCSV({})))
+  checkCsv("nil", csvLines(NS.Export:InsightsCSV(nil)))
+end)

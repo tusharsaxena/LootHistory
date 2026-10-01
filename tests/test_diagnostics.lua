@@ -346,3 +346,66 @@ test("diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could 
   NS.Slash:OnSlash("debug events")
   assertFalse(find(NS.DebugLog.buffer, "diagnostics begin") ~= nil, "`debug events` is not the report")
 end)
+
+-- ── the browser section, every branch (characterization) ──────────────────────────────────────
+--
+-- Pinned before the section, CCN 18 once lizard could see it, was split into one helper per line
+-- group (GI-LH-02). Driven directly through Dx.Sections() with a recording `out`, over the states
+-- the report can meet: no window and no table module, a built and shown window with an ascending
+-- sort, test records and a saved view, and a hidden window with a descending sort, no match count
+-- and no saved view.
+
+local function browserSection()
+  for _, sec in ipairs(NS.Diagnostics.Sections()) do
+    if sec[1] == "browser" then return sec[2] end
+  end
+end
+
+local function runBrowser(B, BT, testRecords, savedView)
+  local lines = {}
+  local out = {}
+  out.add = function(_, _, fmt, ...)
+    local args = { ... }
+    for i = 1, select("#", ...) do args[i] = tostring(args[i]) end
+    lines[#lines + 1] = fmt:format(unpack(args))
+  end
+  out.joined = function(_, _, lead, parts) lines[#lines + 1] = lead .. " " .. table.concat(parts, ", ") end
+  local savedB, savedBT, savedRecords = NS.Browser, NS.BrowserTable, NS.State.testRecords
+  local p = freshProfile()
+  p.savedView = savedView
+  NS.Browser, NS.BrowserTable, NS.State.testRecords = B, BT, testRecords
+  local ok, err = pcall(withProfile, p, function() browserSection()(out) end)
+  NS.Browser, NS.BrowserTable, NS.State.testRecords = savedB, savedBT, savedRecords
+  if not ok then error(err, 0) end
+  return table.concat(lines, "\n")
+end
+
+local function fakeWindow(shown) return { IsShown = function() return shown end } end
+
+test("diagnostics: the browser section with no window and no table module", function()
+  assertEqual(runBrowser(nil, nil, nil, nil), table.concat({
+    "browser: window built=no shown=no locked=no",
+    "browser: saved view none",
+  }, "\n"))
+end)
+
+test("diagnostics: the browser section with a shown window, test records and a saved view", function()
+  local B = { GetWindow = function() return fakeWindow(true) end, IsLocked = function() return true end }
+  local BT = { sortKey = "ts", sortAsc = true, groupBy = "none", matchCount = 42 }
+  assertEqual(runBrowser(B, BT, { {}, {}, {} }, { zeta = 1, alpha = true, [3] = "x" }), table.concat({
+    "browser: window built=yes shown=yes locked=yes",
+    "browser: sort ts asc, groupBy none, matched 42, test records 3",
+    "browser: saved view keys 3, alpha, zeta",
+  }, "\n"))
+end)
+
+test("diagnostics: the browser section with a hidden window, a descending sort and no view", function()
+  local B = { GetWindow = function() return fakeWindow(false) end }
+  local BT = { sortKey = "quality", sortAsc = false, groupBy = "item" }
+  assertEqual(runBrowser(B, BT, nil, "not a table"), table.concat({
+    "browser: window built=yes shown=no locked=no",
+    "browser: sort quality desc, groupBy item, matched -, test records -",
+    "browser: saved view none",
+  }, "\n"))
+end)
+

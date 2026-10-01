@@ -522,3 +522,110 @@ test("Collector: BuildRecord stores the auctionPrice map, no priceSource", funct
   assertEqual(rec.priceSource, nil)
   assertEqual(rec.vendorPrice, 10)
 end)
+
+-- ── OnChatMsgLoot's debug lines (characterization) ────────────────────────────────────────────
+--
+-- Pinned before Collector:OnChatMsgLoot, CCN 20 once lizard could see it, had its source
+-- resolution and its debug lines moved into helpers (GI-LH-02). The record itself is pinned by the
+-- end-to-end cases above; these pin the exact [Drop], [Loot] and [AHPrice] lines, with logging on
+-- and off. The mock's GetItemInfo names every item "Item Name" and its GetItemExtras gives no item
+-- level, which is what the lines below carry.
+
+local function withDebugSpy(fn)
+  local lines = {}
+  local savedDebug, savedFlag = NS.Debug, NS.State.debug
+  local savedGather, savedPick = NS.AuctionPrice.GatherAll, NS.AuctionPrice.Pick
+  NS.Debug = function(tag, fmt, ...)
+    local args = { ... }
+    for i = 1, select("#", ...) do args[i] = tostring(args[i]) end
+    lines[#lines + 1] = "[" .. tag .. "] " .. fmt:format(unpack(args))
+  end
+  local ok, err = pcall(fn, lines)
+  NS.Debug, NS.State.debug = savedDebug, savedFlag
+  NS.AuctionPrice.GatherAll, NS.AuctionPrice.Pick = savedGather, savedPick
+  NS.db.profile.settings.qualityThreshold = 2
+  NS.Collector:RefreshUpvalues()
+  if not ok then error(err, 0) end
+  return lines
+end
+
+test("Collector: a recorded loot line logs [Loot] and [AHPrice], prices sorted, the pick named", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  local lines = withDebugSpy(function()
+    NS.State.debug = true
+    NS.Collector:RefreshUpvalues()
+    NS.AuctionPrice.GatherAll = function()
+      return { tsm = { dbmarket = 120, dbminbuyout = 90 }, auctionator = { minbuyout = 80 } }
+    end
+    NS.AuctionPrice.Pick = function() return 120, "tsm:dbmarket" end
+    NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  end)
+  local loot, price
+  for _, l in ipairs(lines) do
+    if l:find("^%[Loot%]") then loot = l end
+    if l:find("^%[AHPrice%]") then price = l end
+  end
+  assertEqual(loot, "[Loot] Item Name q4 ilvl=- src=KILL conf=CERTAIN")
+  assertEqual(price, "[AHPrice] Item Name | gathered: auctionator:minbuyout=80 tsm:dbmarket=120 "
+    .. "tsm:dbminbuyout=90 | pick: 120(tsm:dbmarket)")
+end)
+
+test("Collector: with no price gathered the [AHPrice] line says none and picks nothing", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  local lines = withDebugSpy(function()
+    NS.State.debug = true
+    NS.Collector:RefreshUpvalues()
+    NS.AuctionPrice.GatherAll = function() return nil end
+    NS.AuctionPrice.Pick = function() return nil, nil end
+    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_BONUS_ROLL_SELF, LINK))
+  end)
+  local price, loot
+  for _, l in ipairs(lines) do
+    if l:find("^%[AHPrice%]") then price = l end
+    if l:find("^%[Loot%]") then loot = l end
+  end
+  assertEqual(loot, "[Loot] Item Name q4 ilvl=- src=BONUS_ROLL conf=CERTAIN")
+  assertEqual(price, "[AHPrice] Item Name | gathered: none | pick: -(-)")
+end)
+
+test("Collector: a refused loot line logs one [Drop] line naming the reason, and nothing else", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  local lines = withDebugSpy(function()
+    NS.State.debug = true
+    NS.db.profile.settings.qualityThreshold = 5
+    NS.Collector:RefreshUpvalues()
+    NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  end)
+  local drops, other = {}, 0
+  for _, l in ipairs(lines) do
+    if l:find("^%[Drop%]") then drops[#drops + 1] = l
+    elseif l:find("^%[Loot%]") or l:find("^%[AHPrice%]") then other = other + 1 end
+  end
+  assertEqual(#drops, 1)
+  assertEqual(drops[1], "[Drop] Item Name q4 class=0 src=KILL reason=quality")
+  assertEqual(other, 0, "a refused line writes no [Loot] or [AHPrice] line")
+end)
+
+test("Collector: with logging off a loot line calls the debug sink not at all", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  local before = NS.Database:Count()
+  local lines = withDebugSpy(function()
+    NS.State.debug = false
+    NS.Collector:RefreshUpvalues()
+    NS.Attribution:Stamp("KILL", nil, "CERTAIN")
+    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  end)
+  assertEqual(NS.Database:Count(), before + 1, "the record is still written")
+  local mine = 0
+  for _, l in ipairs(lines) do
+    if l:find("^%[Loot%]") or l:find("^%[AHPrice%]") or l:find("^%[Drop%]") then mine = mine + 1 end
+  end
+  assertEqual(mine, 0)
+end)
+

@@ -8,7 +8,7 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 -- Written before modules/Analytics.lua was split three ways and LayoutCharts brought under CCN 15
 -- (GI-LH-01 / GI-LH-02, LootHistory#32). Nothing else in the suite drew a chart: Analytics:Attach
 -- never ran headless, so a section dropped or reordered by the refactor would have passed every
--- case. The golden file, tests/analytics_golden.txt, was generated from the pre-split code and is
+-- case. The golden file, tests/analytics_golden.txt (read by tests/golden.lua), was generated from the pre-split code and is
 -- never regenerated to make a refactor pass; a deliberate render change rewrites it in its own
 -- commit and says so.
 --
@@ -23,75 +23,10 @@ local mocks = T.mocks   -- addon chunks resolve WoW globals here, not in _G (tes
 
 -- ── fixtures ──────────────────────────────────────────────────────────────────────────────────
 --
--- Timestamps sit at 12:00 UTC, so a day key is the same date in every timezone from UTC-11 to
--- UTC+11. byHour and byWeekday are overwritten with fixed buckets after Stats, so the hour and
--- weekday charts do not depend on the machine's timezone either.
+-- The histories live in tests/fixture_insights.lua, shared with tests/test_export.lua.
 
-local DAY = 86400
-local NOON = 1600000000 - (1600000000 % DAY) + 12 * 3600
-
-local SOURCES = { "KILL", "CONTAINER", "MPLUS", "ROLL", "BONUS_ROLL", "QUEST", "TRADE", "MAIL",
-                  "AH", "VENDOR", "CRAFT", "DISENCHANT" }
-local TYPES = { "Armor", "Weapon", "Consumable", "Tradeskill", "Recipe", "Gem", "Miscellaneous" }
-local BOUNDS = { "BOP", "BOE", "WARBAND", "WARBAND_UE", nil }
-
-local function richHistory()
-  local h = {}
-  local chars = { { "Alpha-Realm", "WARRIOR" }, { "Beta-Realm", "MAGE" }, { "Gamma-Realm", "PRIEST" } }
-  for i = 1, 40 do
-    local c = chars[(i % 3) + 1]
-    h[#h + 1] = {
-      ts = NOON + (i % 9) * DAY, char = c[1], classFile = c[2],
-      itemID = 100 + (i % 14), itemName = "Item " .. (i % 14),
-      quality = i % 6, itemLevel = 400 + i, bound = BOUNDS[(i % 5) + 1],
-      itemType = TYPES[(i % 7) + 1], vendorPrice = (i % 4 == 0) and 0 or i * 1234,
-      quantity = (i % 3) + 1, source = SOURCES[(math.floor(i / 3) % 12) + 1],
-      zone = (i % 2 == 0) and "Valley" or ((i % 3 == 0) and "Cavern" or "Spire"),
-    }
-  end
-  -- Currency, including a character who looted only currency (byChar count 0).
-  for i = 1, 8 do
-    h[#h + 1] = {
-      ts = NOON + (i % 4) * DAY, char = (i % 2 == 0) and "Delta-Realm" or "Alpha-Realm",
-      classFile = (i % 2 == 0) and "ROGUE" or "WARRIOR",
-      currencyID = 3000 + (i % 3), itemName = "Coin " .. (i % 3), quantity = i * 5,
-      source = SOURCES[(i % 4) + 1], zone = "Valley",
-    }
-  end
-  return h
-end
-
--- Items only, every value zero: the Value By Source section and the Top Items By Value panel
--- draw nothing, and the CURRENCY section takes its hidden branch. Spread over 70 days, so the
--- per-day strips trim to the 60 most recent.
-local function plainHistory()
-  local h = {}
-  for i = 1, 12 do
-    h[#h + 1] = {
-      ts = NOON + (i - 1) * 6 * DAY, char = "Solo-Realm", classFile = "HUNTER",
-      itemID = 500 + (i % 3), itemName = "Plain " .. (i % 3), quality = 1 + (i % 2),
-      itemType = "Junk", vendorPrice = 0, source = (i % 2 == 0) and "KILL" or "QUEST",
-    }
-  end
-  return h
-end
-
-local FIXED_HOURS = { [0] = 2, [7] = 5, [13] = 9, [22] = 1 }
-local FIXED_WEEKDAYS = { [0] = 3, [2] = 7, [5] = 4 }
-
-local function statsFor(history)
-  local saved = NS.db.global.history
-  NS.db.global.history = history
-  local savedTest = NS.State.testRecords
-  NS.State.testRecords = nil
-  local stats = NS.Database:Stats({})
-  NS.db.global.history = saved
-  NS.State.testRecords = savedTest
-  if stats.totals.records > 0 then
-    stats.byHour, stats.byWeekday = FIXED_HOURS, FIXED_WEEKDAYS
-  end
-  return stats
-end
+local FX = dofile("tests/fixture_insights.lua")
+local richHistory, plainHistory, statsFor = FX.richHistory, FX.plainHistory, FX.statsFor
 
 -- ── the harness: a private Insights instance on a recording mock ──────────────────────────────
 
@@ -237,61 +172,10 @@ local function counts(inst)
 end
 
 -- ── the golden master ─────────────────────────────────────────────────────────────────────────
+--
+-- tests/golden.lua reads and compares; the snapshots run to some 700 lines.
 
--- Plain text rather than a Lua module: the snapshots run to some 1,700 lines, past layout-§1's
--- 1500-line cap for a .lua file. Sections open with `== <name> ==`; CR is stripped on read
--- because the working tree is CRLF (.gitattributes).
-local GOLDEN_PATH = "tests/analytics_golden.txt"
-
-local function readGolden()
-  local f = io.open(GOLDEN_PATH, "rb")
-  if not f then return {} end
-  local body = f:read("*a"):gsub("\r", "")
-  f:close()
-  local out, name, lines = {}, nil, nil
-  for line in (body .. "\n"):gmatch("(.-)\n") do
-    local header = line:match("^== (.-) ==$")
-    if header then
-      if name then out[name] = table.concat(lines, "\n") end
-      name, lines = header, {}
-    elseif name then
-      lines[#lines + 1] = line
-    end
-  end
-  if name then
-    while lines[#lines] == "" do lines[#lines] = nil end
-    out[name] = table.concat(lines, "\n")
-  end
-  return out
-end
-
-local golden = readGolden()
-
--- Set LH_WRITE_ANALYTICS_GOLDEN=1 to print the current snapshots in golden-file form instead of
--- comparing them; a deliberate render change rewrites the file from that output in its own commit.
-local WRITE = os.getenv("LH_WRITE_ANALYTICS_GOLDEN") == "1"
-
-local function firstDiff(a, b)
-  local la, lb = {}, {}
-  for line in (a .. "\n"):gmatch("(.-)\n") do la[#la + 1] = line end
-  for line in (b .. "\n"):gmatch("(.-)\n") do lb[#lb + 1] = line end
-  for i = 1, math.max(#la, #lb) do
-    if la[i] ~= lb[i] then
-      return ("line %d:\n  want: %s\n  got:  %s"):format(i, tostring(la[i]), tostring(lb[i]))
-    end
-  end
-  return "no difference"
-end
-
-local function assertGolden(key, got)
-  if WRITE then
-    print(("-- GOLDEN BEGIN\n== %s ==\n%s\n-- GOLDEN END"):format(key, got))
-    return
-  end
-  local want = golden[key]
-  assertTrue(want ~= nil, "no golden snapshot named " .. key .. " in " .. GOLDEN_PATH)
-  assertTrue(want == got, key .. " differs from the golden snapshot at " .. firstDiff(want, got))
-end
+local assertGolden = dofile("tests/golden.lua").file("tests/analytics_golden.txt")
 
 -- ── cases ─────────────────────────────────────────────────────────────────────────────────────
 
