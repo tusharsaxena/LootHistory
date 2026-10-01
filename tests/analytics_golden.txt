@@ -1,0 +1,730 @@
+== rich ==
+y=-3315.000
+header bound shown pt=TOPLEFT>content.TOPLEFT(8.000,-1808.000) text="Loot By Bound Type"/1.000,0.820,0.000
+header char shown pt=TOPLEFT>content.TOPLEFT(8.000,-130.000) text="Loot By Character"/1.000,0.820,0.000
+header charBound shown pt=TOPLEFT>content.TOPLEFT(8.000,-1953.000) text="Loot By Character × Bound Type"/1.000,0.820,0.000
+header charBySource shown pt=TOPLEFT>content.TOPLEFT(8.000,-531.000) text="Loot By Character × Source"/1.000,0.820,0.000
+header charQuality shown pt=TOPLEFT>content.TOPLEFT(8.000,-1331.000) text="Loot By Character × Quality"/1.000,0.820,0.000
+header charType shown pt=TOPLEFT>content.TOPLEFT(8.000,-1669.000) text="Loot By Character × Item Type"/1.000,0.820,0.000
+header charValueSource shown pt=TOPLEFT>content.TOPLEFT(8.000,-996.000) text="Value By Character × Source"/1.000,0.820,0.000
+header currencyChar shown pt=TOPLEFT>content.TOPLEFT(8.000,-3087.000) text="Currency By Character × Type"/1.000,0.820,0.000
+header currencyCollected shown pt=TOPLEFT>content.TOPLEFT(8.000,-2857.000) text="Currency Collected"/1.000,0.820,0.000
+header currencySrc shown pt=TOPLEFT>content.TOPLEFT(8.000,-2964.000) text="Currency By Type × Source"/1.000,0.820,0.000
+header currencyTime shown pt=TOPLEFT>content.TOPLEFT(8.000,-3191.000) text="Currency Over Time (Per Day)"/1.000,0.820,0.000
+header hour shown pt=TOPLEFT>content.TOPLEFT(8.000,-2324.000) text="Loot By Hour Of Day"/1.000,0.820,0.000
+header itype shown pt=TOPLEFT>content.TOPLEFT(8.000,-1470.000) text="Loot By Item Type"/1.000,0.820,0.000
+header quality shown pt=TOPLEFT>content.TOPLEFT(8.000,-1151.000) text="Loot By Quality"/1.000,0.820,0.000
+header source shown pt=TOPLEFT>content.TOPLEFT(8.000,-221.000) text="Loot By Source"/1.000,0.820,0.000
+header time shown pt=TOPLEFT>content.TOPLEFT(8.000,-2076.000) text="Loot Over Time (Per Day)"/1.000,0.820,0.000
+header vsource shown pt=TOPLEFT>content.TOPLEFT(8.000,-686.000) text="Value By Source"/1.000,0.820,0.000
+header vtime shown pt=TOPLEFT>content.TOPLEFT(8.000,-2200.000) text="Value Over Time (Per Day)"/1.000,0.820,0.000
+header weekday shown pt=TOPLEFT>content.TOPLEFT(8.000,-2448.000) text="Loot By Weekday"/1.000,0.820,0.000
+frame lootDivider shown pt=TOPRIGHT>content.TOPRIGHT(-8.000,-100.000) w=0.000 h=1.250 ct=1.000,0.820,0.000,0.350 fs="LOOT"/1.000,0.820,0.000
+frame currencyDivider shown pt=TOPRIGHT>content.TOPRIGHT(-8.000,-2827.000) w=0.000 h=1.250 ct=1.000,0.820,0.000,0.350 fs="CURRENCY"/1.000,0.820,0.000
+frame dayStrip shown pt=BOTTOMRIGHT>dayStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame valueStrip shown pt=BOTTOMRIGHT>valueStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame hourStrip shown pt=BOTTOMRIGHT>hourStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame zonePanel shown pt=TOPLEFT>content.TOPLEFT(8.000,-2739.000) w=376.000 h=72.000 ct=-
+frame itemPanel shown pt=TOPLEFT>content.TOPLEFT(396.000,-2539.000) w=376.000 h=184.000 ct=-
+frame itemValuePanel shown pt=TOPLEFT>content.TOPLEFT(8.000,-2539.000) w=376.000 h=184.000 ct=-
+frame currencyStrip shown pt=BOTTOMRIGHT>currencyStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+emptyText hidden pt=-
+pool bound active=5 free=0
+  bound#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.550,0.800,0.600,0.950 _fullLabel="BoE:  8" label="BoE"/0.550,0.800,0.600 value="8"/0.800,0.800,0.820
+  bound#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.850,0.450,0.450,0.950 _fullLabel="Soulbound:  8" label="Soulbound"/0.850,0.450,0.450 value="8"/0.800,0.800,0.820
+  bound#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.600,0.600,0.650,0.950 _fullLabel="Unbound:  8" label="Unbound"/0.600,0.600,0.650 value="8"/0.800,0.800,0.820
+  bound#4 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.300,0.580,0.980,0.950 _fullLabel="Warbound:  8" label="Warbound"/0.300,0.580,0.980 value="8"/0.800,0.800,0.820
+  bound#5 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.950,0.520,0.120,0.950 _fullLabel="Warbound (UE):  8" label="Warbound (UE)"/0.950,0.520,0.120 value="8"/0.800,0.800,0.820
+pool boundleg active=5 free=0
+  boundleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1921.000) w=120.000 h=10.000 ct=0.550,0.800,0.600,0.950 _full="BoE:  8" fs="BoE"/0.800,0.800,0.820
+  boundleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1921.000) w=120.000 h=10.000 ct=0.850,0.450,0.450,0.950 _full="Soulbound:  8" fs="Soulbound"/0.800,0.800,0.820
+  boundleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1921.000) w=120.000 h=10.000 ct=0.600,0.600,0.650,0.950 _full="Unbound:  8" fs="Unbound"/0.800,0.800,0.820
+  boundleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1921.000) w=120.000 h=10.000 ct=0.300,0.580,0.980,0.950 _full="Warbound:  8" fs="Warbound"/0.800,0.800,0.820
+  boundleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1921.000) w=120.000 h=10.000 ct=0.950,0.520,0.120,0.950 _full="Warbound (UE):  8" fs="Warbound (UE)"/0.800,0.800,0.820
+pool char active=3 free=0
+  char#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.250,0.780,0.920,0.950 _fullLabel="Beta:  14" label="Beta"/0.250,0.780,0.920 value="14"/0.800,0.800,0.820
+  char#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=512.571 h=12.000 ct=0.780,0.610,0.430,0.950 _fullLabel="Alpha:  13" label="Alpha"/0.780,0.610,0.430 value="13"/0.800,0.800,0.820
+  char#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=512.571 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Gamma:  13" label="Gamma"/1.000,1.000,1.000 value="13"/0.800,0.800,0.820
+pool chbound active=3 free=0
+  chbound#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Beta:  14" label="Beta"/0.250,0.780,0.920 value="14"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=118.286 h=12.000 ct=0.550,0.800,0.600,0.950 info="BoE: 3"
+    seg2 pt=LEFT>frame.LEFT(118.286,0.000) w=118.286 h=12.000 ct=0.850,0.450,0.450,0.950 info="Soulbound: 3"
+    seg3 pt=LEFT>frame.LEFT(236.571,0.000) w=118.286 h=12.000 ct=0.600,0.600,0.650,0.950 info="Unbound: 3"
+    seg4 pt=LEFT>frame.LEFT(354.857,0.000) w=118.286 h=12.000 ct=0.300,0.580,0.980,0.950 info="Warbound: 3"
+    seg5 pt=LEFT>frame.LEFT(473.143,0.000) w=78.857 h=12.000 ct=0.950,0.520,0.120,0.950 info="Warbound (UE): 2"
+  chbound#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Alpha:  13" label="Alpha"/0.780,0.610,0.430 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=118.286 h=12.000 ct=0.550,0.800,0.600,0.950 info="BoE: 3"
+    seg2 pt=LEFT>frame.LEFT(118.286,0.000) w=78.857 h=12.000 ct=0.850,0.450,0.450,0.950 info="Soulbound: 2"
+    seg3 pt=LEFT>frame.LEFT(197.143,0.000) w=118.286 h=12.000 ct=0.600,0.600,0.650,0.950 info="Unbound: 3"
+    seg4 pt=LEFT>frame.LEFT(315.429,0.000) w=78.857 h=12.000 ct=0.300,0.580,0.980,0.950 info="Warbound: 2"
+    seg5 pt=LEFT>frame.LEFT(394.286,0.000) w=118.286 h=12.000 ct=0.950,0.520,0.120,0.950 info="Warbound (UE): 3"
+  chbound#3 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Gamma:  13" label="Gamma"/1.000,1.000,1.000 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=78.857 h=12.000 ct=0.550,0.800,0.600,0.950 info="BoE: 2"
+    seg2 pt=LEFT>frame.LEFT(78.857,0.000) w=118.286 h=12.000 ct=0.850,0.450,0.450,0.950 info="Soulbound: 3"
+    seg3 pt=LEFT>frame.LEFT(197.143,0.000) w=78.857 h=12.000 ct=0.600,0.600,0.650,0.950 info="Unbound: 2"
+    seg4 pt=LEFT>frame.LEFT(276.000,0.000) w=118.286 h=12.000 ct=0.300,0.580,0.980,0.950 info="Warbound: 3"
+    seg5 pt=LEFT>frame.LEFT(394.286,0.000) w=118.286 h=12.000 ct=0.950,0.520,0.120,0.950 info="Warbound (UE): 3"
+pool chboundleg active=5 free=0
+  chboundleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-2044.000) w=120.000 h=10.000 ct=0.550,0.800,0.600,0.950 _full="BoE" fs="BoE"/0.800,0.800,0.820
+  chboundleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-2044.000) w=120.000 h=10.000 ct=0.850,0.450,0.450,0.950 _full="Soulbound" fs="Soulbound"/0.800,0.800,0.820
+  chboundleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-2044.000) w=120.000 h=10.000 ct=0.600,0.600,0.650,0.950 _full="Unbound" fs="Unbound"/0.800,0.800,0.820
+  chboundleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-2044.000) w=120.000 h=10.000 ct=0.300,0.580,0.980,0.950 _full="Warbound" fs="Warbound"/0.800,0.800,0.820
+  chboundleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-2044.000) w=120.000 h=10.000 ct=0.950,0.520,0.120,0.950 _full="Warbound (UE)" fs="Warbound (UE)"/0.800,0.800,0.820
+pool chquality active=3 free=0
+  chquality#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Beta:  14" label="Beta"/0.250,0.780,0.920 value="14"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Common: 7"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Epic: 7"
+  chquality#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Alpha:  13" label="Alpha"/0.780,0.610,0.430 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=236.571 h=12.000 ct=1.000,1.000,1.000,0.950 info="Poor: 6"
+    seg2 pt=LEFT>frame.LEFT(236.571,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Rare: 7"
+  chquality#3 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Gamma:  13" label="Gamma"/1.000,1.000,1.000 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Uncommon: 7"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=236.571 h=12.000 ct=1.000,1.000,1.000,0.950 info="Legendary: 6"
+pool chqualityleg active=6 free=0
+  chqualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1422.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Poor" fs="Poor"/0.800,0.800,0.820
+  chqualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1422.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common" fs="Common"/0.800,0.800,0.820
+  chqualityleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1422.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Uncommon" fs="Uncommon"/0.800,0.800,0.820
+  chqualityleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1422.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Rare" fs="Rare"/0.800,0.800,0.820
+  chqualityleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1422.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Epic" fs="Epic"/0.800,0.800,0.820
+  chqualityleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1438.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Legendary" fs="Legendary"/0.800,0.800,0.820
+pool chsource active=3 free=0
+  chsource#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Beta:  14" label="Beta"/0.250,0.780,0.920 value="14"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=78.857 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 2"
+    seg2 pt=LEFT>frame.LEFT(78.857,0.000) w=78.857 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 2"
+    seg3 pt=LEFT>frame.LEFT(157.714,0.000) w=39.429 h=12.000 ct=0.760,0.340,0.670,0.950 info="Auction House: 1"
+    seg4 pt=LEFT>frame.LEFT(197.143,0.000) w=39.429 h=12.000 ct=0.250,0.400,0.740,0.950 info="Bonus Roll: 1"
+    seg5 pt=LEFT>frame.LEFT(236.571,0.000) w=39.429 h=12.000 ct=0.000,0.520,0.360,0.950 info="Craft: 1"
+    seg6 pt=LEFT>frame.LEFT(276.000,0.000) w=39.429 h=12.000 ct=0.520,0.440,0.900,0.950 info="Disenchant: 1"
+    seg7 pt=LEFT>frame.LEFT(315.429,0.000) w=39.429 h=12.000 ct=0.000,0.560,0.880,0.950 info="Mail: 1"
+    seg8 pt=LEFT>frame.LEFT(354.857,0.000) w=39.429 h=12.000 ct=0.530,0.310,0.650,0.950 info="Mythic+: 1"
+    seg9 pt=LEFT>frame.LEFT(394.286,0.000) w=157.714 h=12.000 ct=0.550,0.620,0.720,0.950 info="Other: 4"
+  chsource#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Alpha:  13" label="Alpha"/0.780,0.610,0.430 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=78.857 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 2"
+    seg2 pt=LEFT>frame.LEFT(78.857,0.000) w=39.429 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 1"
+    seg3 pt=LEFT>frame.LEFT(118.286,0.000) w=39.429 h=12.000 ct=0.760,0.340,0.670,0.950 info="Auction House: 1"
+    seg4 pt=LEFT>frame.LEFT(157.714,0.000) w=39.429 h=12.000 ct=0.250,0.400,0.740,0.950 info="Bonus Roll: 1"
+    seg5 pt=LEFT>frame.LEFT(197.143,0.000) w=39.429 h=12.000 ct=0.000,0.520,0.360,0.950 info="Craft: 1"
+    seg6 pt=LEFT>frame.LEFT(236.571,0.000) w=39.429 h=12.000 ct=0.520,0.440,0.900,0.950 info="Disenchant: 1"
+    seg7 pt=LEFT>frame.LEFT(276.000,0.000) w=39.429 h=12.000 ct=0.000,0.560,0.880,0.950 info="Mail: 1"
+    seg8 pt=LEFT>frame.LEFT(315.429,0.000) w=39.429 h=12.000 ct=0.530,0.310,0.650,0.950 info="Mythic+: 1"
+    seg9 pt=LEFT>frame.LEFT(354.857,0.000) w=157.714 h=12.000 ct=0.550,0.620,0.720,0.950 info="Other: 4"
+  chsource#3 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Gamma:  13" label="Gamma"/1.000,1.000,1.000 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=39.429 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 1"
+    seg2 pt=LEFT>frame.LEFT(39.429,0.000) w=78.857 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 2"
+    seg3 pt=LEFT>frame.LEFT(118.286,0.000) w=39.429 h=12.000 ct=0.760,0.340,0.670,0.950 info="Auction House: 1"
+    seg4 pt=LEFT>frame.LEFT(157.714,0.000) w=39.429 h=12.000 ct=0.250,0.400,0.740,0.950 info="Bonus Roll: 1"
+    seg5 pt=LEFT>frame.LEFT(197.143,0.000) w=39.429 h=12.000 ct=0.000,0.520,0.360,0.950 info="Craft: 1"
+    seg6 pt=LEFT>frame.LEFT(236.571,0.000) w=39.429 h=12.000 ct=0.520,0.440,0.900,0.950 info="Disenchant: 1"
+    seg7 pt=LEFT>frame.LEFT(276.000,0.000) w=39.429 h=12.000 ct=0.000,0.560,0.880,0.950 info="Mail: 1"
+    seg8 pt=LEFT>frame.LEFT(315.429,0.000) w=39.429 h=12.000 ct=0.530,0.310,0.650,0.950 info="Mythic+: 1"
+    seg9 pt=LEFT>frame.LEFT(354.857,0.000) w=157.714 h=12.000 ct=0.550,0.620,0.720,0.950 info="Other: 4"
+pool chsourceleg active=12 free=0
+  chsourceleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-622.000) w=120.000 h=10.000 ct=0.830,0.370,0.000,0.950 _full="Container" fs="Container"/0.800,0.800,0.820
+  chsourceleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-622.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill" fs="Kill"/0.800,0.800,0.820
+  chsourceleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-622.000) w=120.000 h=10.000 ct=0.760,0.340,0.670,0.950 _full="Auction House" fs="Auction House"/0.800,0.800,0.820
+  chsourceleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-622.000) w=120.000 h=10.000 ct=0.250,0.400,0.740,0.950 _full="Bonus Roll" fs="Bonus Roll"/0.800,0.800,0.820
+  chsourceleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-622.000) w=120.000 h=10.000 ct=0.000,0.520,0.360,0.950 _full="Craft" fs="Craft"/0.800,0.800,0.820
+  chsourceleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-638.000) w=120.000 h=10.000 ct=0.520,0.440,0.900,0.950 _full="Disenchant" fs="Disenchant"/0.800,0.800,0.820
+  chsourceleg#7 shown pt=TOPLEFT>content.TOPLEFT(242.000,-638.000) w=120.000 h=10.000 ct=0.000,0.560,0.880,0.950 _full="Mail" fs="Mail"/0.800,0.800,0.820
+  chsourceleg#8 shown pt=TOPLEFT>content.TOPLEFT(362.000,-638.000) w=120.000 h=10.000 ct=0.530,0.310,0.650,0.950 _full="Mythic+" fs="Mythic+"/0.800,0.800,0.820
+  chsourceleg#9 shown pt=TOPLEFT>content.TOPLEFT(482.000,-638.000) w=120.000 h=10.000 ct=0.650,0.510,0.000,0.950 _full="Quest" fs="Quest"/0.800,0.800,0.820
+  chsourceleg#10 shown pt=TOPLEFT>content.TOPLEFT(602.000,-638.000) w=120.000 h=10.000 ct=0.200,0.620,0.230,0.950 _full="Roll" fs="Roll"/0.800,0.800,0.820
+  chsourceleg#11 shown pt=TOPLEFT>content.TOPLEFT(122.000,-654.000) w=120.000 h=10.000 ct=0.000,0.640,0.630,0.950 _full="Trade" fs="Trade"/0.800,0.800,0.820
+  chsourceleg#12 shown pt=TOPLEFT>content.TOPLEFT(242.000,-654.000) w=120.000 h=10.000 ct=0.610,0.350,0.000,0.950 _full="Vendor" fs="Vendor"/0.800,0.800,0.820
+pool chtype active=3 free=0
+  chtype#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Beta:  14" label="Beta"/0.250,0.780,0.920 value="14"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=78.857 h=12.000 ct=0.900,0.250,0.250,0.950 info="Consumable: 2"
+    seg2 pt=LEFT>frame.LEFT(78.857,0.000) w=78.857 h=12.000 ct=0.950,0.550,0.150,0.950 info="Gem: 2"
+    seg3 pt=LEFT>frame.LEFT(157.714,0.000) w=78.857 h=12.000 ct=0.880,0.820,0.220,0.950 info="Recipe: 2"
+    seg4 pt=LEFT>frame.LEFT(236.571,0.000) w=78.857 h=12.000 ct=0.350,0.750,0.380,0.950 info="Tradeskill: 2"
+    seg5 pt=LEFT>frame.LEFT(315.429,0.000) w=78.857 h=12.000 ct=0.280,0.550,0.900,0.950 info="Weapon: 2"
+    seg6 pt=LEFT>frame.LEFT(394.286,0.000) w=78.857 h=12.000 ct=0.420,0.380,0.820,0.950 info="Armor: 2"
+    seg7 pt=LEFT>frame.LEFT(473.143,0.000) w=78.857 h=12.000 ct=0.720,0.420,0.860,0.950 info="Miscellaneous: 2"
+  chtype#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Alpha:  13" label="Alpha"/0.780,0.610,0.430 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=78.857 h=12.000 ct=0.900,0.250,0.250,0.950 info="Consumable: 2"
+    seg2 pt=LEFT>frame.LEFT(78.857,0.000) w=78.857 h=12.000 ct=0.950,0.550,0.150,0.950 info="Gem: 2"
+    seg3 pt=LEFT>frame.LEFT(157.714,0.000) w=78.857 h=12.000 ct=0.880,0.820,0.220,0.950 info="Recipe: 2"
+    seg4 pt=LEFT>frame.LEFT(236.571,0.000) w=78.857 h=12.000 ct=0.350,0.750,0.380,0.950 info="Tradeskill: 2"
+    seg5 pt=LEFT>frame.LEFT(315.429,0.000) w=78.857 h=12.000 ct=0.280,0.550,0.900,0.950 info="Weapon: 2"
+    seg6 pt=LEFT>frame.LEFT(394.286,0.000) w=39.429 h=12.000 ct=0.420,0.380,0.820,0.950 info="Armor: 1"
+    seg7 pt=LEFT>frame.LEFT(433.714,0.000) w=78.857 h=12.000 ct=0.720,0.420,0.860,0.950 info="Miscellaneous: 2"
+  chtype#3 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Gamma:  13" label="Gamma"/1.000,1.000,1.000 value="13"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=78.857 h=12.000 ct=0.900,0.250,0.250,0.950 info="Consumable: 2"
+    seg2 pt=LEFT>frame.LEFT(78.857,0.000) w=78.857 h=12.000 ct=0.950,0.550,0.150,0.950 info="Gem: 2"
+    seg3 pt=LEFT>frame.LEFT(157.714,0.000) w=78.857 h=12.000 ct=0.880,0.820,0.220,0.950 info="Recipe: 2"
+    seg4 pt=LEFT>frame.LEFT(236.571,0.000) w=78.857 h=12.000 ct=0.350,0.750,0.380,0.950 info="Tradeskill: 2"
+    seg5 pt=LEFT>frame.LEFT(315.429,0.000) w=78.857 h=12.000 ct=0.280,0.550,0.900,0.950 info="Weapon: 2"
+    seg6 pt=LEFT>frame.LEFT(394.286,0.000) w=78.857 h=12.000 ct=0.420,0.380,0.820,0.950 info="Armor: 2"
+    seg7 pt=LEFT>frame.LEFT(473.143,0.000) w=39.429 h=12.000 ct=0.720,0.420,0.860,0.950 info="Miscellaneous: 1"
+pool chtypeleg active=7 free=0
+  chtypeleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1760.000) w=120.000 h=10.000 ct=0.900,0.250,0.250,0.950 _full="Consumable" fs="Consumable"/0.800,0.800,0.820
+  chtypeleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1760.000) w=120.000 h=10.000 ct=0.950,0.550,0.150,0.950 _full="Gem" fs="Gem"/0.800,0.800,0.820
+  chtypeleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1760.000) w=120.000 h=10.000 ct=0.880,0.820,0.220,0.950 _full="Recipe" fs="Recipe"/0.800,0.800,0.820
+  chtypeleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1760.000) w=120.000 h=10.000 ct=0.350,0.750,0.380,0.950 _full="Tradeskill" fs="Tradeskill"/0.800,0.800,0.820
+  chtypeleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1760.000) w=120.000 h=10.000 ct=0.280,0.550,0.900,0.950 _full="Weapon" fs="Weapon"/0.800,0.800,0.820
+  chtypeleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1776.000) w=120.000 h=10.000 ct=0.420,0.380,0.820,0.950 _full="Armor" fs="Armor"/0.800,0.800,0.820
+  chtypeleg#7 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1776.000) w=120.000 h=10.000 ct=0.720,0.420,0.860,0.950 _full="Miscellaneous" fs="Miscellaneous"/0.800,0.800,0.820
+pool chvsource active=3 free=0
+  chvsource#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Gamma:  74g 4s" label="Gamma"/1.000,1.000,1.000 value="74g 4s"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=96.600 h=12.000 ct=0.520,0.440,0.900,0.950 info="Disenchant: 12g 95s 70c"
+    seg2 pt=LEFT>frame.LEFT(96.600,0.000) w=110.400 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 14g 80s 80c"
+    seg3 pt=LEFT>frame.LEFT(207.000,0.000) w=63.480 h=12.000 ct=0.000,0.560,0.880,0.950 info="Mail: 8g 51s 46c"
+    seg4 pt=LEFT>frame.LEFT(270.480,0.000) w=71.760 h=12.000 ct=0.760,0.340,0.670,0.950 info="Auction House: 9g 62s 52c"
+    seg5 pt=LEFT>frame.LEFT(342.240,0.000) w=80.040 h=12.000 ct=0.610,0.350,0.000,0.950 info="Vendor: 10g 73s 58c"
+    seg6 pt=LEFT>frame.LEFT(422.280,0.000) w=38.640 h=12.000 ct=0.250,0.400,0.740,0.950 info="Bonus Roll: 5g 18s 28c"
+    seg7 pt=LEFT>frame.LEFT(460.920,0.000) w=46.920 h=12.000 ct=0.650,0.510,0.000,0.950 info="Quest: 6g 29s 34c"
+    seg8 pt=LEFT>frame.LEFT(507.840,0.000) w=30.360 h=12.000 ct=0.200,0.620,0.230,0.950 info="Roll: 4g 7s 22c"
+    seg9 pt=LEFT>frame.LEFT(538.200,0.000) w=13.800 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 1g 85s 10c"
+  chvsource#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Beta:  49g 11s 32c" label="Beta"/0.250,0.780,0.920 value="49g 11s 32c"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=62.560 h=12.000 ct=0.520,0.440,0.900,0.950 info="Disenchant: 8g 39s 12c"
+    seg2 pt=LEFT>frame.LEFT(62.560,0.000) w=69.920 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 9g 37s 84c"
+    seg3 pt=LEFT>frame.LEFT(132.480,0.000) w=40.480 h=12.000 ct=0.000,0.560,0.880,0.950 info="Mail: 5g 42s 96c"
+    seg4 pt=LEFT>frame.LEFT(172.960,0.000) w=46.000 h=12.000 ct=0.760,0.340,0.670,0.950 info="Auction House: 6g 17s"
+    seg5 pt=LEFT>frame.LEFT(218.960,0.000) w=57.040 h=12.000 ct=0.000,0.520,0.360,0.950 info="Craft: 7g 65s 8c"
+    seg6 pt=LEFT>frame.LEFT(276.000,0.000) w=23.920 h=12.000 ct=0.250,0.400,0.740,0.950 info="Bonus Roll: 3g 20s 84c"
+    seg7 pt=LEFT>frame.LEFT(299.920,0.000) w=18.400 h=12.000 ct=0.200,0.620,0.230,0.950 info="Roll: 2g 46s 80c"
+    seg8 pt=LEFT>frame.LEFT(318.320,0.000) w=34.960 h=12.000 ct=0.000,0.640,0.630,0.950 info="Trade: 4g 68s 92c"
+    seg9 pt=LEFT>frame.LEFT(353.280,0.000) w=12.880 h=12.000 ct=0.530,0.310,0.650,0.950 info="Mythic+: 1g 72s 76c"
+  chvsource#3 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Alpha:  24g 80s 34c" label="Alpha"/0.780,0.610,0.430 value="24g 80s 34c"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=30.360 h=12.000 ct=0.520,0.440,0.900,0.950 info="Disenchant: 4g 7s 22c"
+    seg2 pt=LEFT>frame.LEFT(30.360,0.000) w=19.320 h=12.000 ct=0.000,0.560,0.880,0.950 info="Mail: 2g 59s 14c"
+    seg3 pt=LEFT>frame.LEFT(49.680,0.000) w=24.840 h=12.000 ct=0.610,0.350,0.000,0.950 info="Vendor: 3g 33s 18c"
+    seg4 pt=LEFT>frame.LEFT(74.520,0.000) w=27.600 h=12.000 ct=0.000,0.520,0.360,0.950 info="Craft: 3g 70s 20c"
+    seg5 pt=LEFT>frame.LEFT(102.120,0.000) w=13.800 h=12.000 ct=0.650,0.510,0.000,0.950 info="Quest: 1g 85s 10c"
+    seg6 pt=LEFT>frame.LEFT(115.920,0.000) w=8.280 h=12.000 ct=0.200,0.620,0.230,0.950 info="Roll: 1g 11s 6c"
+    seg7 pt=LEFT>frame.LEFT(124.200,0.000) w=38.640 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 5g 18s 28c"
+    seg8 pt=LEFT>frame.LEFT(162.840,0.000) w=16.560 h=12.000 ct=0.000,0.640,0.630,0.950 info="Trade: 2g 22s 12c"
+    seg9 pt=LEFT>frame.LEFT(179.400,0.000) w=5.520 h=12.000 ct=0.530,0.310,0.650,0.950 info="Mythic+: 74s 4c"
+pool chvsourceleg active=12 free=0
+  chvsourceleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1087.000) w=120.000 h=10.000 ct=0.520,0.440,0.900,0.950 _full="Disenchant" fs="Disenchant"/0.800,0.800,0.820
+  chvsourceleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1087.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill" fs="Kill"/0.800,0.800,0.820
+  chvsourceleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1087.000) w=120.000 h=10.000 ct=0.000,0.560,0.880,0.950 _full="Mail" fs="Mail"/0.800,0.800,0.820
+  chvsourceleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1087.000) w=120.000 h=10.000 ct=0.760,0.340,0.670,0.950 _full="Auction House" fs="Auction House"/0.800,0.800,0.820
+  chvsourceleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1087.000) w=120.000 h=10.000 ct=0.610,0.350,0.000,0.950 _full="Vendor" fs="Vendor"/0.800,0.800,0.820
+  chvsourceleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1103.000) w=120.000 h=10.000 ct=0.000,0.520,0.360,0.950 _full="Craft" fs="Craft"/0.800,0.800,0.820
+  chvsourceleg#7 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1103.000) w=120.000 h=10.000 ct=0.250,0.400,0.740,0.950 _full="Bonus Roll" fs="Bonus Roll"/0.800,0.800,0.820
+  chvsourceleg#8 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1103.000) w=120.000 h=10.000 ct=0.650,0.510,0.000,0.950 _full="Quest" fs="Quest"/0.800,0.800,0.820
+  chvsourceleg#9 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1103.000) w=120.000 h=10.000 ct=0.200,0.620,0.230,0.950 _full="Roll" fs="Roll"/0.800,0.800,0.820
+  chvsourceleg#10 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1103.000) w=120.000 h=10.000 ct=0.830,0.370,0.000,0.950 _full="Container" fs="Container"/0.800,0.800,0.820
+  chvsourceleg#11 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1119.000) w=120.000 h=10.000 ct=0.000,0.640,0.630,0.950 _full="Trade" fs="Trade"/0.800,0.800,0.820
+  chvsourceleg#12 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1119.000) w=120.000 h=10.000 ct=0.530,0.310,0.650,0.950 _full="Mythic+" fs="Mythic+"/0.800,0.800,0.820
+pool curchar active=2 free=0
+  curchar#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Delta:  100" label="Delta"/1.000,0.960,0.410 value="100"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=0.900,0.250,0.250,0.950 info="Coin 2: 50"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=110.400 h=12.000 ct=0.950,0.550,0.150,0.950 info="Coin 1: 20"
+    seg3 pt=LEFT>frame.LEFT(386.400,0.000) w=165.600 h=12.000 ct=0.880,0.820,0.220,0.950 info="Coin 0: 30"
+  curchar#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Alpha:  80" label="Alpha"/0.780,0.610,0.430 value="80"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=138.000 h=12.000 ct=0.900,0.250,0.250,0.950 info="Coin 2: 25"
+    seg2 pt=LEFT>frame.LEFT(138.000,0.000) w=220.800 h=12.000 ct=0.950,0.550,0.150,0.950 info="Coin 1: 40"
+    seg3 pt=LEFT>frame.LEFT(358.800,0.000) w=82.800 h=12.000 ct=0.880,0.820,0.220,0.950 info="Coin 0: 15"
+pool curcharlegend active=3 free=0
+  curcharlegend#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-3159.000) w=120.000 h=10.000 ct=0.900,0.250,0.250,0.950 _full="Coin 2" fs="Coin 2"/0.800,0.800,0.820
+  curcharlegend#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-3159.000) w=120.000 h=10.000 ct=0.950,0.550,0.150,0.950 _full="Coin 1" fs="Coin 1"/0.800,0.800,0.820
+  curcharlegend#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-3159.000) w=120.000 h=10.000 ct=0.880,0.820,0.220,0.950 _full="Coin 0" fs="Coin 0"/0.800,0.800,0.820
+pool curcollected active=3 free=0
+  curcollected#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.900,0.250,0.250,0.950 _fullLabel="Coin 2:  75" label="Coin 2"/0.900,0.250,0.250 value="75"/0.800,0.800,0.820
+  curcollected#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=441.600 h=12.000 ct=0.950,0.550,0.150,0.950 _fullLabel="Coin 1:  60" label="Coin 1"/0.950,0.550,0.150 value="60"/0.800,0.800,0.820
+  curcollected#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.880,0.820,0.220,0.950 _fullLabel="Coin 0:  45" label="Coin 0"/0.880,0.820,0.220 value="45"/0.800,0.800,0.820
+pool curcollectedleg active=3 free=0
+  curcollectedleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-2932.000) w=120.000 h=10.000 ct=0.900,0.250,0.250,0.950 _full="Coin 2:  75" fs="Coin 2"/0.800,0.800,0.820
+  curcollectedleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-2932.000) w=120.000 h=10.000 ct=0.950,0.550,0.150,0.950 _full="Coin 1:  60" fs="Coin 1"/0.800,0.800,0.820
+  curcollectedleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-2932.000) w=120.000 h=10.000 ct=0.880,0.820,0.220,0.950 _full="Coin 0:  45" fs="Coin 0"/0.800,0.800,0.820
+pool curday active=9 free=0
+  curday#1 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(0.000,0.000) w=14.000 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-09-13:  60" axis="9/13"/0.700,0.700,0.720
+  curday#2 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(84.889,0.000) w=14.000 h=22.000 ct=0.400,0.600,0.950,0.900 info="2020-09-14:  30" axis="9/14"/0.700,0.700,0.720
+  curday#3 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(169.778,0.000) w=14.000 h=29.333 ct=0.400,0.600,0.950,0.900 info="2020-09-15:  40" axis="9/15"/0.700,0.700,0.720
+  curday#4 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(254.667,0.000) w=14.000 h=36.667 ct=0.400,0.600,0.950,0.900 info="2020-09-16:  50" axis="9/16"/0.700,0.700,0.720
+  curday#5 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(339.556,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-17:  0" axis="9/17"/0.700,0.700,0.720
+  curday#6 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(424.444,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-18:  0" axis="9/18"/0.700,0.700,0.720
+  curday#7 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(509.333,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-19:  0" axis="9/19"/0.700,0.700,0.720
+  curday#8 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(594.222,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-20:  0" axis="9/20"/0.700,0.700,0.720
+  curday#9 shown pt=BOTTOMLEFT>currencyStrip.BOTTOMLEFT(679.111,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-21:  0" axis="9/21"/0.700,0.700,0.720
+pool curlegend active=4 free=0
+  curlegend#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-3055.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill" fs="Kill"/0.800,0.800,0.820
+  curlegend#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-3055.000) w=120.000 h=10.000 ct=0.200,0.620,0.230,0.950 _full="Roll" fs="Roll"/0.800,0.800,0.820
+  curlegend#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-3055.000) w=120.000 h=10.000 ct=0.530,0.310,0.650,0.950 _full="Mythic+" fs="Mythic+"/0.800,0.800,0.820
+  curlegend#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-3055.000) w=120.000 h=10.000 ct=0.830,0.370,0.000,0.950 _full="Container" fs="Container"/0.800,0.800,0.820
+pool cursrc active=3 free=0
+  cursrc#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Coin 2:  75" label="Coin 2"/0.900,0.900,0.900 value="75"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=294.400 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 40"
+    seg2 pt=LEFT>frame.LEFT(294.400,0.000) w=184.000 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 25"
+    seg3 pt=LEFT>frame.LEFT(478.400,0.000) w=73.600 h=12.000 ct=0.530,0.310,0.650,0.950 info="Mythic+: 10"
+  cursrc#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Coin 1:  60" label="Coin 1"/0.900,0.900,0.900 value="60"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=257.600 h=12.000 ct=0.200,0.620,0.230,0.950 info="Roll: 35"
+    seg2 pt=LEFT>frame.LEFT(257.600,0.000) w=147.200 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 20"
+    seg3 pt=LEFT>frame.LEFT(404.800,0.000) w=36.800 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 5"
+  cursrc#3 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Coin 0:  45" label="Coin 0"/0.900,0.900,0.900 value="45"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=220.800 h=12.000 ct=0.530,0.310,0.650,0.950 info="Mythic+: 30"
+    seg2 pt=LEFT>frame.LEFT(220.800,0.000) w=110.400 h=12.000 ct=0.200,0.620,0.230,0.950 info="Roll: 15"
+pool day active=9 free=0
+  day#1 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(0.000,0.000) w=14.000 h=37.714 ct=0.400,0.600,0.950,0.900 info="2020-09-13:  6" axis="9/13"/0.700,0.700,0.720
+  day#2 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(84.889,0.000) w=14.000 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-09-14:  7" axis="9/14"/0.700,0.700,0.720
+  day#3 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(169.778,0.000) w=14.000 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-09-15:  7" axis="9/15"/0.700,0.700,0.720
+  day#4 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(254.667,0.000) w=14.000 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-09-16:  7" axis="9/16"/0.700,0.700,0.720
+  day#5 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(339.556,0.000) w=14.000 h=31.429 ct=0.400,0.600,0.950,0.900 info="2020-09-17:  5" axis="9/17"/0.700,0.700,0.720
+  day#6 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(424.444,0.000) w=14.000 h=25.143 ct=0.400,0.600,0.950,0.900 info="2020-09-18:  4" axis="9/18"/0.700,0.700,0.720
+  day#7 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(509.333,0.000) w=14.000 h=25.143 ct=0.400,0.600,0.950,0.900 info="2020-09-19:  4" axis="9/19"/0.700,0.700,0.720
+  day#8 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(594.222,0.000) w=14.000 h=25.143 ct=0.400,0.600,0.950,0.900 info="2020-09-20:  4" axis="9/20"/0.700,0.700,0.720
+  day#9 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(679.111,0.000) w=14.000 h=25.143 ct=0.400,0.600,0.950,0.900 info="2020-09-21:  4" axis="9/21"/0.700,0.700,0.720
+pool hour active=24 free=0
+  hour#1 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(0.000,0.000) w=14.000 h=9.778 ct=0.400,0.600,0.950,0.900 info="00:00  2" axis="00"/0.700,0.700,0.720
+  hour#2 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(31.833,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="01:00  0" axis="01"/0.700,0.700,0.720
+  hour#3 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(63.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="02:00  0" axis="02"/0.700,0.700,0.720
+  hour#4 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(95.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="03:00  0" axis="03"/0.700,0.700,0.720
+  hour#5 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(127.333,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="04:00  0" axis="04"/0.700,0.700,0.720
+  hour#6 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(159.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="05:00  0" axis="05"/0.700,0.700,0.720
+  hour#7 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(191.000,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="06:00  0" axis="06"/0.700,0.700,0.720
+  hour#8 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(222.833,0.000) w=14.000 h=24.444 ct=0.400,0.600,0.950,0.900 info="07:00  5" axis="07"/0.700,0.700,0.720
+  hour#9 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(254.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="08:00  0" axis="08"/0.700,0.700,0.720
+  hour#10 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(286.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="09:00  0" axis="09"/0.700,0.700,0.720
+  hour#11 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(318.333,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="10:00  0" axis="10"/0.700,0.700,0.720
+  hour#12 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(350.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="11:00  0" axis="11"/0.700,0.700,0.720
+  hour#13 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(382.000,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="12:00  0" axis="12"/0.700,0.700,0.720
+  hour#14 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(413.833,0.000) w=14.000 h=44.000 ct=0.400,0.600,0.950,0.900 info="13:00  9" axis="13"/0.700,0.700,0.720
+  hour#15 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(445.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="14:00  0" axis="14"/0.700,0.700,0.720
+  hour#16 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(477.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="15:00  0" axis="15"/0.700,0.700,0.720
+  hour#17 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(509.333,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="16:00  0" axis="16"/0.700,0.700,0.720
+  hour#18 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(541.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="17:00  0" axis="17"/0.700,0.700,0.720
+  hour#19 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(573.000,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="18:00  0" axis="18"/0.700,0.700,0.720
+  hour#20 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(604.833,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="19:00  0" axis="19"/0.700,0.700,0.720
+  hour#21 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(636.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="20:00  0" axis="20"/0.700,0.700,0.720
+  hour#22 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(668.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="21:00  0" axis="21"/0.700,0.700,0.720
+  hour#23 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(700.333,0.000) w=14.000 h=4.889 ct=0.400,0.600,0.950,0.900 info="22:00  1" axis="22"/0.700,0.700,0.720
+  hour#24 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(732.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="23:00  0" axis="23"/0.700,0.700,0.720
+pool item active=10 free=0
+  item#1 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 5:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 5"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#2 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 11:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 11"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#3 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 4:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 4"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#4 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-68.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 10:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 10"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#5 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-84.000) w=368.000 h=16.000 ct=- _fullName="Item 3:  3" name="Item 3"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#6 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-100.000) w=368.000 h=16.000 ct=- _fullName="Item 9:  3" name="Item 9"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#7 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-116.000) w=368.000 h=16.000 ct=- _fullName="Item 2:  3" name="Item 2"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#8 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-132.000) w=368.000 h=16.000 ct=- _fullName="Item 8:  3" name="Item 8"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#9 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-148.000) w=368.000 h=16.000 ct=- _fullName="Item 1:  3" name="Item 1"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+  item#10 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-164.000) w=368.000 h=16.000 ct=- _fullName="Item 7:  3" name="Item 7"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
+pool itemval active=10 free=0
+  itemval#1 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Item 9:  18g 75s 68c" name="Item 9"/1.000,1.000,1.000 count="18g 75s 68c"/0.800,0.800,0.820
+  itemval#2 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="Item 7:  17g 27s 60c" name="Item 7"/1.000,1.000,1.000 count="17g 27s 60c"/0.800,0.800,0.820
+  itemval#3 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 10:  16g 53s 56c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 10"/1.000,1.000,1.000 count="16g 53s 56c"/0.800,0.800,0.820
+  itemval#4 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-68.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 11:  15g 5s 48c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 11"/1.000,1.000,1.000 count="15g 5s 48c"/0.800,0.800,0.820
+  itemval#5 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-84.000) w=368.000 h=16.000 ct=- _fullName="Item 3:  14g 31s 44c" name="Item 3"/1.000,1.000,1.000 count="14g 31s 44c"/0.800,0.800,0.820
+  itemval#6 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-100.000) w=368.000 h=16.000 ct=- _fullName="Item 1:  12g 83s 36c" name="Item 1"/1.000,1.000,1.000 count="12g 83s 36c"/0.800,0.800,0.820
+  itemval#7 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-116.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 5:  10g 61s 24c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 5"/1.000,1.000,1.000 count="10g 61s 24c"/0.800,0.800,0.820
+  itemval#8 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-132.000) w=368.000 h=16.000 ct=- _fullName="Item 12:  9g 62s 52c" name="Item 12"/1.000,1.000,1.000 count="9g 62s 52c"/0.800,0.800,0.820
+  itemval#9 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-148.000) w=368.000 h=16.000 ct=- _fullName="Item 6:  9g 13s 16c" name="Item 6"/1.000,1.000,1.000 count="9g 13s 16c"/0.800,0.800,0.820
+  itemval#10 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-164.000) w=368.000 h=16.000 ct=- _fullName="Item 13:  6g 54s 2c" name="Item 13"/1.000,1.000,1.000 count="6g 54s 2c"/0.800,0.800,0.820
+pool itype active=7 free=0
+  itype#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.900,0.250,0.250,0.950 _fullLabel="Consumable:  6" label="Consumable"/0.900,0.250,0.250 value="6"/0.800,0.800,0.820
+  itype#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.950,0.550,0.150,0.950 _fullLabel="Gem:  6" label="Gem"/0.950,0.550,0.150 value="6"/0.800,0.800,0.820
+  itype#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.880,0.820,0.220,0.950 _fullLabel="Recipe:  6" label="Recipe"/0.880,0.820,0.220 value="6"/0.800,0.800,0.820
+  itype#4 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.350,0.750,0.380,0.950 _fullLabel="Tradeskill:  6" label="Tradeskill"/0.350,0.750,0.380 value="6"/0.800,0.800,0.820
+  itype#5 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.280,0.550,0.900,0.950 _fullLabel="Weapon:  6" label="Weapon"/0.280,0.550,0.900 value="6"/0.800,0.800,0.820
+  itype#6 shown pt=LEFT>self.LEFT(0.000,0.000) w=460.000 h=12.000 ct=0.420,0.380,0.820,0.950 _fullLabel="Armor:  5" label="Armor"/0.420,0.380,0.820 value="5"/0.800,0.800,0.820
+  itype#7 shown pt=LEFT>self.LEFT(0.000,0.000) w=460.000 h=12.000 ct=0.720,0.420,0.860,0.950 _fullLabel="Miscellaneous:  5" label="Miscellaneous"/0.720,0.420,0.860 value="5"/0.800,0.800,0.820
+pool itypeleg active=7 free=0
+  itypeleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1621.000) w=120.000 h=10.000 ct=0.900,0.250,0.250,0.950 _full="Consumable:  6" fs="Consumable"/0.800,0.800,0.820
+  itypeleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1621.000) w=120.000 h=10.000 ct=0.950,0.550,0.150,0.950 _full="Gem:  6" fs="Gem"/0.800,0.800,0.820
+  itypeleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1621.000) w=120.000 h=10.000 ct=0.880,0.820,0.220,0.950 _full="Recipe:  6" fs="Recipe"/0.800,0.800,0.820
+  itypeleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1621.000) w=120.000 h=10.000 ct=0.350,0.750,0.380,0.950 _full="Tradeskill:  6" fs="Tradeskill"/0.800,0.800,0.820
+  itypeleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1621.000) w=120.000 h=10.000 ct=0.280,0.550,0.900,0.950 _full="Weapon:  6" fs="Weapon"/0.800,0.800,0.820
+  itypeleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1637.000) w=120.000 h=10.000 ct=0.420,0.380,0.820,0.950 _full="Armor:  5" fs="Armor"/0.800,0.800,0.820
+  itypeleg#7 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1637.000) w=120.000 h=10.000 ct=0.720,0.420,0.860,0.950 _full="Miscellaneous:  5" fs="Miscellaneous"/0.800,0.800,0.820
+pool quality active=6 free=0
+  quality#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=473.143 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Poor:  6" label="Poor"/1.000,1.000,1.000 value="6"/0.800,0.800,0.820
+  quality#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Common:  7" label="Common"/1.000,1.000,1.000 value="7"/0.800,0.800,0.820
+  quality#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Uncommon:  7" label="Uncommon"/1.000,1.000,1.000 value="7"/0.800,0.800,0.820
+  quality#4 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Rare:  7" label="Rare"/1.000,1.000,1.000 value="7"/0.800,0.800,0.820
+  quality#5 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Epic:  7" label="Epic"/1.000,1.000,1.000 value="7"/0.800,0.800,0.820
+  quality#6 shown pt=LEFT>self.LEFT(0.000,0.000) w=473.143 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Legendary:  6" label="Legendary"/1.000,1.000,1.000 value="6"/0.800,0.800,0.820
+pool qualityleg active=6 free=0
+  qualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1283.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Poor:  6" fs="Poor"/0.800,0.800,0.820
+  qualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1283.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common:  7" fs="Common"/0.800,0.800,0.820
+  qualityleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1283.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Uncommon:  7" fs="Uncommon"/0.800,0.800,0.820
+  qualityleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1283.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Rare:  7" fs="Rare"/0.800,0.800,0.820
+  qualityleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1283.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Epic:  7" fs="Epic"/0.800,0.800,0.820
+  qualityleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1299.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Legendary:  6" fs="Legendary"/0.800,0.800,0.820
+pool source active=12 free=0
+  source#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.830,0.370,0.000,0.950 _fullLabel="Container:  5  10%" label="Container"/0.830,0.370,0.000 value="5  10%"/0.800,0.800,0.820
+  source#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.680,0.270,0.260,0.950 _fullLabel="Kill:  5  10%" label="Kill"/0.680,0.270,0.260 value="5  10%"/0.800,0.800,0.820
+  source#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.760,0.340,0.670,0.950 _fullLabel="Auction House:  3  6%" label="Auction House"/0.760,0.340,0.670 value="3  6%"/0.800,0.800,0.820
+  source#4 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.250,0.400,0.740,0.950 _fullLabel="Bonus Roll:  3  6%" label="Bonus Roll"/0.250,0.400,0.740 value="3  6%"/0.800,0.800,0.820
+  source#5 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.000,0.520,0.360,0.950 _fullLabel="Craft:  3  6%" label="Craft"/0.000,0.520,0.360 value="3  6%"/0.800,0.800,0.820
+  source#6 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.520,0.440,0.900,0.950 _fullLabel="Disenchant:  3  6%" label="Disenchant"/0.520,0.440,0.900 value="3  6%"/0.800,0.800,0.820
+  source#7 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.000,0.560,0.880,0.950 _fullLabel="Mail:  3  6%" label="Mail"/0.000,0.560,0.880 value="3  6%"/0.800,0.800,0.820
+  source#8 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.530,0.310,0.650,0.950 _fullLabel="Mythic+:  3  6%" label="Mythic+"/0.530,0.310,0.650 value="3  6%"/0.800,0.800,0.820
+  source#9 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.650,0.510,0.000,0.950 _fullLabel="Quest:  3  6%" label="Quest"/0.650,0.510,0.000 value="3  6%"/0.800,0.800,0.820
+  source#10 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.200,0.620,0.230,0.950 _fullLabel="Roll:  3  6%" label="Roll"/0.200,0.620,0.230 value="3  6%"/0.800,0.800,0.820
+  source#11 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.000,0.640,0.630,0.950 _fullLabel="Trade:  3  6%" label="Trade"/0.000,0.640,0.630 value="3  6%"/0.800,0.800,0.820
+  source#12 shown pt=LEFT>self.LEFT(0.000,0.000) w=331.200 h=12.000 ct=0.610,0.350,0.000,0.950 _fullLabel="Vendor:  3  6%" label="Vendor"/0.610,0.350,0.000 value="3  6%"/0.800,0.800,0.820
+pool sourceleg active=12 free=0
+  sourceleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-467.000) w=120.000 h=10.000 ct=0.830,0.370,0.000,0.950 _full="Container:  5  10%" fs="Container"/0.800,0.800,0.820
+  sourceleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-467.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill:  5  10%" fs="Kill"/0.800,0.800,0.820
+  sourceleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-467.000) w=120.000 h=10.000 ct=0.760,0.340,0.670,0.950 _full="Auction House:  3  6%" fs="Auction House"/0.800,0.800,0.820
+  sourceleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-467.000) w=120.000 h=10.000 ct=0.250,0.400,0.740,0.950 _full="Bonus Roll:  3  6%" fs="Bonus Roll"/0.800,0.800,0.820
+  sourceleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-467.000) w=120.000 h=10.000 ct=0.000,0.520,0.360,0.950 _full="Craft:  3  6%" fs="Craft"/0.800,0.800,0.820
+  sourceleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-483.000) w=120.000 h=10.000 ct=0.520,0.440,0.900,0.950 _full="Disenchant:  3  6%" fs="Disenchant"/0.800,0.800,0.820
+  sourceleg#7 shown pt=TOPLEFT>content.TOPLEFT(242.000,-483.000) w=120.000 h=10.000 ct=0.000,0.560,0.880,0.950 _full="Mail:  3  6%" fs="Mail"/0.800,0.800,0.820
+  sourceleg#8 shown pt=TOPLEFT>content.TOPLEFT(362.000,-483.000) w=120.000 h=10.000 ct=0.530,0.310,0.650,0.950 _full="Mythic+:  3  6%" fs="Mythic+"/0.800,0.800,0.820
+  sourceleg#9 shown pt=TOPLEFT>content.TOPLEFT(482.000,-483.000) w=120.000 h=10.000 ct=0.650,0.510,0.000,0.950 _full="Quest:  3  6%" fs="Quest"/0.800,0.800,0.820
+  sourceleg#10 shown pt=TOPLEFT>content.TOPLEFT(602.000,-483.000) w=120.000 h=10.000 ct=0.200,0.620,0.230,0.950 _full="Roll:  3  6%" fs="Roll"/0.800,0.800,0.820
+  sourceleg#11 shown pt=TOPLEFT>content.TOPLEFT(122.000,-499.000) w=120.000 h=10.000 ct=0.000,0.640,0.630,0.950 _full="Trade:  3  6%" fs="Trade"/0.800,0.800,0.820
+  sourceleg#12 shown pt=TOPLEFT>content.TOPLEFT(242.000,-499.000) w=120.000 h=10.000 ct=0.610,0.350,0.000,0.950 _full="Vendor:  3  6%" fs="Vendor"/0.800,0.800,0.820
+pool vday active=9 free=0
+  vday#1 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(0.000,0.000) w=14.000 h=9.900 ct=0.400,0.600,0.950,0.900 info="2020-09-13:  6g 66s 36c" axis="9/13"/0.700,0.700,0.720
+  vday#2 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(84.889,0.000) w=14.000 h=24.567 ct=0.400,0.600,0.950,0.900 info="2020-09-14:  16g 53s 56c" axis="9/14"/0.700,0.700,0.720
+  vday#3 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(169.778,0.000) w=14.000 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-09-15:  29g 61s 60c" axis="9/15"/0.700,0.700,0.720
+  vday#4 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(254.667,0.000) w=14.000 h=17.050 ct=0.400,0.600,0.950,0.900 info="2020-09-16:  11g 47s 62c" axis="9/16"/0.700,0.700,0.720
+  vday#5 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(339.556,0.000) w=14.000 h=24.200 ct=0.400,0.600,0.950,0.900 info="2020-09-17:  16g 28s 88c" axis="9/17"/0.700,0.700,0.720
+  vday#6 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(424.444,0.000) w=14.000 h=23.100 ct=0.400,0.600,0.950,0.900 info="2020-09-18:  15g 54s 84c" axis="9/18"/0.700,0.700,0.720
+  vday#7 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(509.333,0.000) w=14.000 h=9.900 ct=0.400,0.600,0.950,0.900 info="2020-09-19:  6g 66s 36c" axis="9/19"/0.700,0.700,0.720
+  vday#8 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(594.222,0.000) w=14.000 h=24.200 ct=0.400,0.600,0.950,0.900 info="2020-09-20:  16g 28s 88c" axis="9/20"/0.700,0.700,0.720
+  vday#9 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(679.111,0.000) w=14.000 h=42.900 ct=0.400,0.600,0.950,0.900 info="2020-09-21:  28g 87s 56c" axis="9/21"/0.700,0.700,0.720
+pool vsource active=12 free=0
+  vsource#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.520,0.440,0.900,0.950 _fullLabel="Disenchant:  25g 42s 4c" label="Disenchant"/0.520,0.440,0.900 value="25g 42s 4c"/0.800,0.800,0.820
+  vsource#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=525.204 h=12.000 ct=0.680,0.270,0.260,0.950 _fullLabel="Kill:  24g 18s 64c" label="Kill"/0.680,0.270,0.260 value="24g 18s 64c"/0.800,0.800,0.820
+  vsource#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=359.068 h=12.000 ct=0.000,0.560,0.880,0.950 _fullLabel="Mail:  16g 53s 56c" label="Mail"/0.000,0.560,0.880 value="16g 53s 56c"/0.800,0.800,0.820
+  vsource#4 shown pt=LEFT>self.LEFT(0.000,0.000) w=342.990 h=12.000 ct=0.760,0.340,0.670,0.950 _fullLabel="Auction House:  15g 79s 52c" label="Auction House"/0.760,0.340,0.670 value="15g 79s 52c"/0.800,0.800,0.820
+  vsource#5 shown pt=LEFT>self.LEFT(0.000,0.000) w=305.476 h=12.000 ct=0.610,0.350,0.000,0.950 _fullLabel="Vendor:  14g 6s 76c" label="Vendor"/0.610,0.350,0.000 value="14g 6s 76c"/0.800,0.800,0.820
+  vsource#6 shown pt=LEFT>self.LEFT(0.000,0.000) w=246.524 h=12.000 ct=0.000,0.520,0.360,0.950 _fullLabel="Craft:  11g 35s 28c" label="Craft"/0.000,0.520,0.360 value="11g 35s 28c"/0.800,0.800,0.820
+  vsource#7 shown pt=LEFT>self.LEFT(0.000,0.000) w=182.214 h=12.000 ct=0.250,0.400,0.740,0.950 _fullLabel="Bonus Roll:  8g 39s 12c" label="Bonus Roll"/0.250,0.400,0.740 value="8g 39s 12c"/0.800,0.800,0.820
+  vsource#8 shown pt=LEFT>self.LEFT(0.000,0.000) w=176.854 h=12.000 ct=0.650,0.510,0.000,0.950 _fullLabel="Quest:  8g 14s 44c" label="Quest"/0.650,0.510,0.000 value="8g 14s 44c"/0.800,0.800,0.820
+  vsource#9 shown pt=LEFT>self.LEFT(0.000,0.000) w=166.136 h=12.000 ct=0.200,0.620,0.230,0.950 _fullLabel="Roll:  7g 65s 8c" label="Roll"/0.200,0.620,0.230 value="7g 65s 8c"/0.800,0.800,0.820
+  vsource#10 shown pt=LEFT>self.LEFT(0.000,0.000) w=152.738 h=12.000 ct=0.830,0.370,0.000,0.950 _fullLabel="Container:  7g 3s 38c" label="Container"/0.830,0.370,0.000 value="7g 3s 38c"/0.800,0.800,0.820
+  vsource#11 shown pt=LEFT>self.LEFT(0.000,0.000) w=150.058 h=12.000 ct=0.000,0.640,0.630,0.950 _fullLabel="Trade:  6g 91s 4c" label="Trade"/0.000,0.640,0.630 value="6g 91s 4c"/0.800,0.800,0.820
+  vsource#12 shown pt=LEFT>self.LEFT(0.000,0.000) w=53.592 h=12.000 ct=0.530,0.310,0.650,0.950 _fullLabel="Mythic+:  2g 46s 80c" label="Mythic+"/0.530,0.310,0.650 value="2g 46s 80c"/0.800,0.800,0.820
+pool vsourceleg active=12 free=0
+  vsourceleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-932.000) w=120.000 h=10.000 ct=0.520,0.440,0.900,0.950 _full="Disenchant:  25g 42s 4c" fs="Disenchant"/0.800,0.800,0.820
+  vsourceleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-932.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill:  24g 18s 64c" fs="Kill"/0.800,0.800,0.820
+  vsourceleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-932.000) w=120.000 h=10.000 ct=0.000,0.560,0.880,0.950 _full="Mail:  16g 53s 56c" fs="Mail"/0.800,0.800,0.820
+  vsourceleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-932.000) w=120.000 h=10.000 ct=0.760,0.340,0.670,0.950 _full="Auction House:  15g 79s 52c" fs="Auction House"/0.800,0.800,0.820
+  vsourceleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-932.000) w=120.000 h=10.000 ct=0.610,0.350,0.000,0.950 _full="Vendor:  14g 6s 76c" fs="Vendor"/0.800,0.800,0.820
+  vsourceleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-948.000) w=120.000 h=10.000 ct=0.000,0.520,0.360,0.950 _full="Craft:  11g 35s 28c" fs="Craft"/0.800,0.800,0.820
+  vsourceleg#7 shown pt=TOPLEFT>content.TOPLEFT(242.000,-948.000) w=120.000 h=10.000 ct=0.250,0.400,0.740,0.950 _full="Bonus Roll:  8g 39s 12c" fs="Bonus Roll"/0.800,0.800,0.820
+  vsourceleg#8 shown pt=TOPLEFT>content.TOPLEFT(362.000,-948.000) w=120.000 h=10.000 ct=0.650,0.510,0.000,0.950 _full="Quest:  8g 14s 44c" fs="Quest"/0.800,0.800,0.820
+  vsourceleg#9 shown pt=TOPLEFT>content.TOPLEFT(482.000,-948.000) w=120.000 h=10.000 ct=0.200,0.620,0.230,0.950 _full="Roll:  7g 65s 8c" fs="Roll"/0.800,0.800,0.820
+  vsourceleg#10 shown pt=TOPLEFT>content.TOPLEFT(602.000,-948.000) w=120.000 h=10.000 ct=0.830,0.370,0.000,0.950 _full="Container:  7g 3s 38c" fs="Container"/0.800,0.800,0.820
+  vsourceleg#11 shown pt=TOPLEFT>content.TOPLEFT(122.000,-964.000) w=120.000 h=10.000 ct=0.000,0.640,0.630,0.950 _full="Trade:  6g 91s 4c" fs="Trade"/0.800,0.800,0.820
+  vsourceleg#12 shown pt=TOPLEFT>content.TOPLEFT(242.000,-964.000) w=120.000 h=10.000 ct=0.530,0.310,0.650,0.950 _full="Mythic+:  2g 46s 80c" fs="Mythic+"/0.800,0.800,0.820
+pool weekday active=3 free=0
+  weekday#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=236.571 h=12.000 ct=0.900,0.250,0.250,0.950 _fullLabel="Sun:  3" label="Sun"/0.900,0.250,0.250 value="3"/0.800,0.800,0.820
+  weekday#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.880,0.820,0.220,0.950 _fullLabel="Tue:  7" label="Tue"/0.880,0.820,0.220 value="7"/0.800,0.800,0.820
+  weekday#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=315.429 h=12.000 ct=0.420,0.380,0.820,0.950 _fullLabel="Fri:  4" label="Fri"/0.420,0.380,0.820 value="4"/0.800,0.800,0.820
+pool zone active=3 free=0
+  zone#1 shown pt=TOPLEFT>zonePanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Valley:  28" name="Valley"/0.900,0.900,0.900 count="28"/0.800,0.800,0.820
+  zone#2 shown pt=TOPLEFT>zonePanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="Spire:  13" name="Spire"/0.900,0.900,0.900 count="13"/0.800,0.800,0.820
+  zone#3 shown pt=TOPLEFT>zonePanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="Cavern:  7" name="Cavern"/0.900,0.900,0.900 count="7"/0.800,0.800,0.820
+== plain ==
+y=-1473.000
+header bound shown pt=TOPLEFT>content.TOPLEFT(8.000,-768.000) text="Loot By Bound Type"/1.000,0.820,0.000
+header char shown pt=TOPLEFT>content.TOPLEFT(8.000,-130.000) text="Loot By Character"/1.000,0.820,0.000
+header charBound shown pt=TOPLEFT>content.TOPLEFT(8.000,-837.000) text="Loot By Character × Bound Type"/1.000,0.820,0.000
+header charBySource shown pt=TOPLEFT>content.TOPLEFT(8.000,-271.000) text="Loot By Character × Source"/1.000,0.820,0.000
+header charQuality shown pt=TOPLEFT>content.TOPLEFT(8.000,-529.000) text="Loot By Character × Quality"/1.000,0.820,0.000
+header charType shown pt=TOPLEFT>content.TOPLEFT(8.000,-683.000) text="Loot By Character × Item Type"/1.000,0.820,0.000
+header charValueSource shown pt=TOPLEFT>content.TOPLEFT(8.000,-356.000) text="Value By Character × Source"/1.000,0.820,0.000
+header currencyChar hidden pt=TOPLEFT>content.TOPLEFT(8.000,-3087.000) text="Currency By Character × Type"/1.000,0.820,0.000(hidden)
+header currencyCollected hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2857.000) text="Currency Collected"/1.000,0.820,0.000(hidden)
+header currencySrc hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2964.000) text="Currency By Type × Source"/1.000,0.820,0.000(hidden)
+header currencyTime hidden pt=TOPLEFT>content.TOPLEFT(8.000,-3191.000) text="Currency Over Time (Per Day)"/1.000,0.820,0.000(hidden)
+header hour shown pt=TOPLEFT>content.TOPLEFT(8.000,-1170.000) text="Loot By Hour Of Day"/1.000,0.820,0.000
+header itype shown pt=TOPLEFT>content.TOPLEFT(8.000,-614.000) text="Loot By Item Type"/1.000,0.820,0.000
+header quality shown pt=TOPLEFT>content.TOPLEFT(8.000,-441.000) text="Loot By Quality"/1.000,0.820,0.000
+header source shown pt=TOPLEFT>content.TOPLEFT(8.000,-183.000) text="Loot By Source"/1.000,0.820,0.000
+header time shown pt=TOPLEFT>content.TOPLEFT(8.000,-922.000) text="Loot Over Time (Per Day)"/1.000,0.820,0.000
+header vsource hidden pt=TOPLEFT>content.TOPLEFT(8.000,-686.000) text="Value By Source"/1.000,0.820,0.000(hidden)
+header vtime shown pt=TOPLEFT>content.TOPLEFT(8.000,-1046.000) text="Value Over Time (Per Day)"/1.000,0.820,0.000
+header weekday shown pt=TOPLEFT>content.TOPLEFT(8.000,-1294.000) text="Loot By Weekday"/1.000,0.820,0.000
+frame lootDivider shown pt=TOPRIGHT>content.TOPRIGHT(-8.000,-100.000) w=0.000 h=1.250 ct=1.000,0.820,0.000,0.350 fs="LOOT"/1.000,0.820,0.000
+frame currencyDivider hidden pt=TOPRIGHT>content.TOPRIGHT(-8.000,-2827.000) w=0.000 h=1.250 ct=1.000,0.820,0.000,0.350 fs="CURRENCY"/1.000,0.820,0.000
+frame dayStrip shown pt=BOTTOMRIGHT>dayStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame valueStrip shown pt=BOTTOMRIGHT>valueStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame hourStrip shown pt=BOTTOMRIGHT>hourStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame zonePanel shown pt=TOPLEFT>content.TOPLEFT(8.000,-1385.000) w=376.000 h=40.000 ct=-
+frame itemPanel shown pt=TOPLEFT>content.TOPLEFT(396.000,-1385.000) w=376.000 h=72.000 ct=-
+frame itemValuePanel hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2539.000) w=376.000 h=184.000 ct=-
+frame currencyStrip hidden pt=BOTTOMRIGHT>currencyStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+emptyText hidden pt=-
+pool bound active=1 free=4
+  bound#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.600,0.600,0.650,0.950 _fullLabel="Unbound:  12" label="Unbound"/0.600,0.600,0.650 value="12"/0.800,0.800,0.820
+pool boundleg active=1 free=4
+  boundleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-805.000) w=120.000 h=10.000 ct=0.600,0.600,0.650,0.950 _full="Unbound:  12" fs="Unbound"/0.800,0.800,0.820
+pool char active=1 free=2
+  char#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.700,0.700,0.720,0.950 _fullLabel="Solo:  12" label="Solo"/0.700,0.700,0.720 value="12"/0.800,0.800,0.820
+pool chbound active=1 free=2
+  chbound#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Solo:  12" label="Solo"/0.700,0.700,0.720 value="12"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.600,0.600,0.650,0.950 info="Unbound: 12"
+pool chboundleg active=1 free=4
+  chboundleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-890.000) w=120.000 h=10.000 ct=0.600,0.600,0.650,0.950 _full="Unbound" fs="Unbound"/0.800,0.800,0.820
+pool chquality active=1 free=2
+  chquality#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Solo:  12" label="Solo"/0.700,0.700,0.720 value="12"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Common: 6"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Uncommon: 6"
+pool chqualityleg active=2 free=4
+  chqualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-582.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common" fs="Common"/0.800,0.800,0.820
+  chqualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-582.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Uncommon" fs="Uncommon"/0.800,0.800,0.820
+pool chsource active=1 free=2
+  chsource#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Solo:  12" label="Solo"/0.700,0.700,0.720 value="12"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 6"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=276.000 h=12.000 ct=0.650,0.510,0.000,0.950 info="Quest: 6"
+pool chsourceleg active=2 free=10
+  chsourceleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-324.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill" fs="Kill"/0.800,0.800,0.820
+  chsourceleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-324.000) w=120.000 h=10.000 ct=0.650,0.510,0.000,0.950 _full="Quest" fs="Quest"/0.800,0.800,0.820
+pool chtype active=1 free=2
+  chtype#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Solo:  12" label="Solo"/0.700,0.700,0.720 value="12"/0.800,0.800,0.820
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.900,0.250,0.250,0.950 info="Junk: 12"
+pool chtypeleg active=1 free=6
+  chtypeleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-736.000) w=120.000 h=10.000 ct=0.900,0.250,0.250,0.950 _full="Junk" fs="Junk"/0.800,0.800,0.820
+pool chvsource active=1 free=2
+  chvsource#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Solo:  0" label="Solo"/0.700,0.700,0.720 value="0"/0.800,0.800,0.820
+pool chvsourceleg active=2 free=10
+  chvsourceleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-409.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill" fs="Kill"/0.800,0.800,0.820
+  chvsourceleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-409.000) w=120.000 h=10.000 ct=0.650,0.510,0.000,0.950 _full="Quest" fs="Quest"/0.800,0.800,0.820
+pool curchar active=0 free=2
+pool curcharlegend active=0 free=3
+pool curcollected active=0 free=3
+pool curcollectedleg active=0 free=3
+pool curday active=0 free=9
+pool curlegend active=0 free=4
+pool cursrc active=0 free=3
+pool day active=60 free=0
+  day#1 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(0.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-20:  0" axis="9/20"/0.700,0.700,0.720
+  day#2 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(12.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-21:  0" axis="9/21"/0.700,0.700,0.720
+  day#3 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(25.467,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-22:  0" axis="9/22"/0.700,0.700,0.720
+  day#4 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(38.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-23:  0" axis="9/23"/0.700,0.700,0.720
+  day#5 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(50.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-24:  0" axis="9/24"/0.700,0.700,0.720
+  day#6 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(63.667,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-09-25:  1" axis="9/25"/0.700,0.700,0.720
+  day#7 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(76.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-26:  0" axis="9/26"/0.700,0.700,0.720
+  day#8 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(89.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-27:  0" axis="9/27"/0.700,0.700,0.720
+  day#9 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(101.867,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-28:  0" axis="9/28"/0.700,0.700,0.720
+  day#10 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(114.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-29:  0" axis="9/29"/0.700,0.700,0.720
+  day#11 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(127.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-30:  0" axis="9/30"/0.700,0.700,0.720
+  day#12 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(140.067,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-10-01:  1" axis="10/1"/0.700,0.700,0.720
+  day#13 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(152.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-02:  0" axis="10/2"/0.700,0.700,0.720
+  day#14 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(165.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-03:  0" axis="10/3"/0.700,0.700,0.720
+  day#15 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(178.267,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-04:  0" axis="10/4"/0.700,0.700,0.720
+  day#16 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(191.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-05:  0" axis="10/5"/0.700,0.700,0.720
+  day#17 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(203.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-06:  0" axis="10/6"/0.700,0.700,0.720
+  day#18 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(216.467,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-10-07:  1" axis="10/7"/0.700,0.700,0.720
+  day#19 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(229.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-08:  0" axis="10/8"/0.700,0.700,0.720
+  day#20 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(241.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-09:  0" axis="10/9"/0.700,0.700,0.720
+  day#21 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(254.667,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-10:  0" axis="10/10"/0.700,0.700,0.720
+  day#22 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(267.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-11:  0" axis="10/11"/0.700,0.700,0.720
+  day#23 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(280.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-12:  0" axis="10/12"/0.700,0.700,0.720
+  day#24 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(292.867,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-10-13:  1" axis="10/13"/0.700,0.700,0.720
+  day#25 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(305.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-14:  0" axis="10/14"/0.700,0.700,0.720
+  day#26 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(318.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-15:  0" axis="10/15"/0.700,0.700,0.720
+  day#27 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(331.067,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-16:  0" axis="10/16"/0.700,0.700,0.720
+  day#28 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(343.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-17:  0" axis="10/17"/0.700,0.700,0.720
+  day#29 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(356.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-18:  0" axis="10/18"/0.700,0.700,0.720
+  day#30 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(369.267,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-10-19:  1" axis="10/19"/0.700,0.700,0.720
+  day#31 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(382.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-20:  0" axis="10/20"/0.700,0.700,0.720
+  day#32 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(394.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-21:  0" axis="10/21"/0.700,0.700,0.720
+  day#33 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(407.467,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-22:  0" axis="10/22"/0.700,0.700,0.720
+  day#34 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(420.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-23:  0" axis="10/23"/0.700,0.700,0.720
+  day#35 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(432.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-24:  0" axis="10/24"/0.700,0.700,0.720
+  day#36 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(445.667,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-10-25:  1" axis="10/25"/0.700,0.700,0.720
+  day#37 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(458.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-26:  0" axis="10/26"/0.700,0.700,0.720
+  day#38 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(471.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-27:  0" axis="10/27"/0.700,0.700,0.720
+  day#39 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(483.867,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-28:  0" axis="10/28"/0.700,0.700,0.720
+  day#40 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(496.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-29:  0" axis="10/29"/0.700,0.700,0.720
+  day#41 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(509.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-30:  0" axis="10/30"/0.700,0.700,0.720
+  day#42 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(522.067,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-10-31:  1" axis="10/31"/0.700,0.700,0.720
+  day#43 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(534.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-01:  0" axis="11/1"/0.700,0.700,0.720
+  day#44 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(547.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-02:  0" axis="11/2"/0.700,0.700,0.720
+  day#45 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(560.267,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-03:  0" axis="11/3"/0.700,0.700,0.720
+  day#46 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(573.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-04:  0" axis="11/4"/0.700,0.700,0.720
+  day#47 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(585.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-05:  0" axis="11/5"/0.700,0.700,0.720
+  day#48 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(598.467,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-11-06:  1" axis="11/6"/0.700,0.700,0.720
+  day#49 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(611.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-07:  0" axis="11/7"/0.700,0.700,0.720
+  day#50 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(623.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-08:  0" axis="11/8"/0.700,0.700,0.720
+  day#51 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(636.667,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-09:  0" axis="11/9"/0.700,0.700,0.720
+  day#52 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(649.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-10:  0" axis="11/10"/0.700,0.700,0.720
+  day#53 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(662.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-11:  0" axis="11/11"/0.700,0.700,0.720
+  day#54 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(674.867,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-11-12:  1" axis="11/12"/0.700,0.700,0.720
+  day#55 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(687.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-13:  0" axis="11/13"/0.700,0.700,0.720
+  day#56 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(700.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-14:  0" axis="11/14"/0.700,0.700,0.720
+  day#57 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(713.067,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-15:  0" axis="11/15"/0.700,0.700,0.720
+  day#58 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(725.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-16:  0" axis="11/16"/0.700,0.700,0.720
+  day#59 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(738.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-17:  0" axis="11/17"/0.700,0.700,0.720
+  day#60 shown pt=BOTTOMLEFT>dayStrip.BOTTOMLEFT(751.267,0.000) w=10.733 h=44.000 ct=0.400,0.600,0.950,0.900 info="2020-11-18:  1" axis="11/18"/0.700,0.700,0.720
+pool hour active=24 free=0
+  hour#1 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(0.000,0.000) w=14.000 h=9.778 ct=0.400,0.600,0.950,0.900 info="00:00  2" axis="00"/0.700,0.700,0.720
+  hour#2 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(31.833,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="01:00  0" axis="01"/0.700,0.700,0.720
+  hour#3 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(63.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="02:00  0" axis="02"/0.700,0.700,0.720
+  hour#4 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(95.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="03:00  0" axis="03"/0.700,0.700,0.720
+  hour#5 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(127.333,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="04:00  0" axis="04"/0.700,0.700,0.720
+  hour#6 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(159.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="05:00  0" axis="05"/0.700,0.700,0.720
+  hour#7 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(191.000,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="06:00  0" axis="06"/0.700,0.700,0.720
+  hour#8 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(222.833,0.000) w=14.000 h=24.444 ct=0.400,0.600,0.950,0.900 info="07:00  5" axis="07"/0.700,0.700,0.720
+  hour#9 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(254.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="08:00  0" axis="08"/0.700,0.700,0.720
+  hour#10 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(286.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="09:00  0" axis="09"/0.700,0.700,0.720
+  hour#11 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(318.333,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="10:00  0" axis="10"/0.700,0.700,0.720
+  hour#12 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(350.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="11:00  0" axis="11"/0.700,0.700,0.720
+  hour#13 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(382.000,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="12:00  0" axis="12"/0.700,0.700,0.720
+  hour#14 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(413.833,0.000) w=14.000 h=44.000 ct=0.400,0.600,0.950,0.900 info="13:00  9" axis="13"/0.700,0.700,0.720
+  hour#15 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(445.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="14:00  0" axis="14"/0.700,0.700,0.720
+  hour#16 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(477.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="15:00  0" axis="15"/0.700,0.700,0.720
+  hour#17 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(509.333,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="16:00  0" axis="16"/0.700,0.700,0.720
+  hour#18 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(541.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="17:00  0" axis="17"/0.700,0.700,0.720
+  hour#19 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(573.000,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="18:00  0" axis="18"/0.700,0.700,0.720
+  hour#20 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(604.833,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="19:00  0" axis="19"/0.700,0.700,0.720
+  hour#21 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(636.667,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="20:00  0" axis="20"/0.700,0.700,0.720
+  hour#22 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(668.500,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="21:00  0" axis="21"/0.700,0.700,0.720
+  hour#23 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(700.333,0.000) w=14.000 h=4.889 ct=0.400,0.600,0.950,0.900 info="22:00  1" axis="22"/0.700,0.700,0.720
+  hour#24 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(732.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="23:00  0" axis="23"/0.700,0.700,0.720
+pool item active=3 free=7
+  item#1 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Plain 0:  4" name="Plain 0"/1.000,1.000,1.000 count="4"/0.800,0.800,0.820
+  item#2 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="Plain 1:  4" name="Plain 1"/1.000,1.000,1.000 count="4"/0.800,0.800,0.820
+  item#3 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="Plain 2:  4" name="Plain 2"/1.000,1.000,1.000 count="4"/0.800,0.800,0.820
+pool itemval active=0 free=10
+pool itype active=1 free=6
+  itype#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.900,0.250,0.250,0.950 _fullLabel="Junk:  12" label="Junk"/0.900,0.250,0.250 value="12"/0.800,0.800,0.820
+pool itypeleg active=1 free=6
+  itypeleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-651.000) w=120.000 h=10.000 ct=0.900,0.250,0.250,0.950 _full="Junk:  12" fs="Junk"/0.800,0.800,0.820
+pool quality active=2 free=4
+  quality#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Common:  6" label="Common"/1.000,1.000,1.000 value="6"/0.800,0.800,0.820
+  quality#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Uncommon:  6" label="Uncommon"/1.000,1.000,1.000 value="6"/0.800,0.800,0.820
+pool qualityleg active=2 free=4
+  qualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-497.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common:  6" fs="Common"/0.800,0.800,0.820
+  qualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-497.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Uncommon:  6" fs="Uncommon"/0.800,0.800,0.820
+pool source active=2 free=10
+  source#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.680,0.270,0.260,0.950 _fullLabel="Kill:  6  50%" label="Kill"/0.680,0.270,0.260 value="6  50%"/0.800,0.800,0.820
+  source#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.650,0.510,0.000,0.950 _fullLabel="Quest:  6  50%" label="Quest"/0.650,0.510,0.000 value="6  50%"/0.800,0.800,0.820
+pool sourceleg active=2 free=10
+  sourceleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-239.000) w=120.000 h=10.000 ct=0.680,0.270,0.260,0.950 _full="Kill:  6  50%" fs="Kill"/0.800,0.800,0.820
+  sourceleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-239.000) w=120.000 h=10.000 ct=0.650,0.510,0.000,0.950 _full="Quest:  6  50%" fs="Quest"/0.800,0.800,0.820
+pool vday active=60 free=0
+  vday#1 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(0.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-20:  0" axis="9/20"/0.700,0.700,0.720
+  vday#2 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(12.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-21:  0" axis="9/21"/0.700,0.700,0.720
+  vday#3 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(25.467,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-22:  0" axis="9/22"/0.700,0.700,0.720
+  vday#4 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(38.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-23:  0" axis="9/23"/0.700,0.700,0.720
+  vday#5 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(50.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-24:  0" axis="9/24"/0.700,0.700,0.720
+  vday#6 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(63.667,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-25:  0" axis="9/25"/0.700,0.700,0.720
+  vday#7 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(76.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-26:  0" axis="9/26"/0.700,0.700,0.720
+  vday#8 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(89.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-27:  0" axis="9/27"/0.700,0.700,0.720
+  vday#9 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(101.867,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-28:  0" axis="9/28"/0.700,0.700,0.720
+  vday#10 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(114.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-29:  0" axis="9/29"/0.700,0.700,0.720
+  vday#11 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(127.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-09-30:  0" axis="9/30"/0.700,0.700,0.720
+  vday#12 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(140.067,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-01:  0" axis="10/1"/0.700,0.700,0.720
+  vday#13 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(152.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-02:  0" axis="10/2"/0.700,0.700,0.720
+  vday#14 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(165.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-03:  0" axis="10/3"/0.700,0.700,0.720
+  vday#15 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(178.267,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-04:  0" axis="10/4"/0.700,0.700,0.720
+  vday#16 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(191.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-05:  0" axis="10/5"/0.700,0.700,0.720
+  vday#17 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(203.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-06:  0" axis="10/6"/0.700,0.700,0.720
+  vday#18 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(216.467,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-07:  0" axis="10/7"/0.700,0.700,0.720
+  vday#19 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(229.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-08:  0" axis="10/8"/0.700,0.700,0.720
+  vday#20 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(241.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-09:  0" axis="10/9"/0.700,0.700,0.720
+  vday#21 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(254.667,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-10:  0" axis="10/10"/0.700,0.700,0.720
+  vday#22 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(267.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-11:  0" axis="10/11"/0.700,0.700,0.720
+  vday#23 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(280.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-12:  0" axis="10/12"/0.700,0.700,0.720
+  vday#24 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(292.867,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-13:  0" axis="10/13"/0.700,0.700,0.720
+  vday#25 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(305.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-14:  0" axis="10/14"/0.700,0.700,0.720
+  vday#26 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(318.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-15:  0" axis="10/15"/0.700,0.700,0.720
+  vday#27 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(331.067,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-16:  0" axis="10/16"/0.700,0.700,0.720
+  vday#28 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(343.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-17:  0" axis="10/17"/0.700,0.700,0.720
+  vday#29 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(356.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-18:  0" axis="10/18"/0.700,0.700,0.720
+  vday#30 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(369.267,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-19:  0" axis="10/19"/0.700,0.700,0.720
+  vday#31 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(382.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-20:  0" axis="10/20"/0.700,0.700,0.720
+  vday#32 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(394.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-21:  0" axis="10/21"/0.700,0.700,0.720
+  vday#33 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(407.467,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-22:  0" axis="10/22"/0.700,0.700,0.720
+  vday#34 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(420.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-23:  0" axis="10/23"/0.700,0.700,0.720
+  vday#35 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(432.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-24:  0" axis="10/24"/0.700,0.700,0.720
+  vday#36 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(445.667,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-25:  0" axis="10/25"/0.700,0.700,0.720
+  vday#37 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(458.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-26:  0" axis="10/26"/0.700,0.700,0.720
+  vday#38 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(471.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-27:  0" axis="10/27"/0.700,0.700,0.720
+  vday#39 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(483.867,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-28:  0" axis="10/28"/0.700,0.700,0.720
+  vday#40 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(496.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-29:  0" axis="10/29"/0.700,0.700,0.720
+  vday#41 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(509.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-30:  0" axis="10/30"/0.700,0.700,0.720
+  vday#42 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(522.067,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-10-31:  0" axis="10/31"/0.700,0.700,0.720
+  vday#43 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(534.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-01:  0" axis="11/1"/0.700,0.700,0.720
+  vday#44 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(547.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-02:  0" axis="11/2"/0.700,0.700,0.720
+  vday#45 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(560.267,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-03:  0" axis="11/3"/0.700,0.700,0.720
+  vday#46 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(573.000,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-04:  0" axis="11/4"/0.700,0.700,0.720
+  vday#47 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(585.733,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-05:  0" axis="11/5"/0.700,0.700,0.720
+  vday#48 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(598.467,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-06:  0" axis="11/6"/0.700,0.700,0.720
+  vday#49 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(611.200,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-07:  0" axis="11/7"/0.700,0.700,0.720
+  vday#50 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(623.933,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-08:  0" axis="11/8"/0.700,0.700,0.720
+  vday#51 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(636.667,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-09:  0" axis="11/9"/0.700,0.700,0.720
+  vday#52 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(649.400,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-10:  0" axis="11/10"/0.700,0.700,0.720
+  vday#53 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(662.133,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-11:  0" axis="11/11"/0.700,0.700,0.720
+  vday#54 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(674.867,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-12:  0" axis="11/12"/0.700,0.700,0.720
+  vday#55 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(687.600,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-13:  0" axis="11/13"/0.700,0.700,0.720
+  vday#56 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(700.333,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-14:  0" axis="11/14"/0.700,0.700,0.720
+  vday#57 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(713.067,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-15:  0" axis="11/15"/0.700,0.700,0.720
+  vday#58 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(725.800,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-16:  0" axis="11/16"/0.700,0.700,0.720
+  vday#59 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(738.533,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-17:  0" axis="11/17"/0.700,0.700,0.720
+  vday#60 shown pt=BOTTOMLEFT>valueStrip.BOTTOMLEFT(751.267,0.000) w=10.733 h=1.000 ct=0.400,0.600,0.950,0.900 info="2020-11-18:  0" axis="11/18"/0.700,0.700,0.720
+pool vsource active=0 free=12
+pool vsourceleg active=0 free=12
+pool weekday active=3 free=0
+  weekday#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=236.571 h=12.000 ct=0.900,0.250,0.250,0.950 _fullLabel="Sun:  3" label="Sun"/0.900,0.250,0.250 value="3"/0.800,0.800,0.820
+  weekday#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.880,0.820,0.220,0.950 _fullLabel="Tue:  7" label="Tue"/0.880,0.820,0.220 value="7"/0.800,0.800,0.820
+  weekday#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=315.429 h=12.000 ct=0.420,0.380,0.820,0.950 _fullLabel="Fri:  4" label="Fri"/0.420,0.380,0.820 value="4"/0.800,0.800,0.820
+pool zone active=1 free=2
+  zone#1 shown pt=TOPLEFT>zonePanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Unknown:  12" name="Unknown"/0.900,0.900,0.900 count="12"/0.800,0.800,0.820
+== empty ==
+y=-150.000
+header bound hidden pt=TOPLEFT>content.TOPLEFT(8.000,-1808.000) text="Loot By Bound Type"/1.000,0.820,0.000(hidden)
+header char hidden pt=TOPLEFT>content.TOPLEFT(8.000,-130.000) text="Loot By Character"/1.000,0.820,0.000(hidden)
+header charBound hidden pt=TOPLEFT>content.TOPLEFT(8.000,-1953.000) text="Loot By Character × Bound Type"/1.000,0.820,0.000(hidden)
+header charBySource hidden pt=TOPLEFT>content.TOPLEFT(8.000,-531.000) text="Loot By Character × Source"/1.000,0.820,0.000(hidden)
+header charQuality hidden pt=TOPLEFT>content.TOPLEFT(8.000,-1331.000) text="Loot By Character × Quality"/1.000,0.820,0.000(hidden)
+header charType hidden pt=TOPLEFT>content.TOPLEFT(8.000,-1669.000) text="Loot By Character × Item Type"/1.000,0.820,0.000(hidden)
+header charValueSource hidden pt=TOPLEFT>content.TOPLEFT(8.000,-996.000) text="Value By Character × Source"/1.000,0.820,0.000(hidden)
+header currencyChar hidden pt=TOPLEFT>content.TOPLEFT(8.000,-3087.000) text="Currency By Character × Type"/1.000,0.820,0.000(hidden)
+header currencyCollected hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2857.000) text="Currency Collected"/1.000,0.820,0.000(hidden)
+header currencySrc hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2964.000) text="Currency By Type × Source"/1.000,0.820,0.000(hidden)
+header currencyTime hidden pt=TOPLEFT>content.TOPLEFT(8.000,-3191.000) text="Currency Over Time (Per Day)"/1.000,0.820,0.000(hidden)
+header hour hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2324.000) text="Loot By Hour Of Day"/1.000,0.820,0.000(hidden)
+header itype hidden pt=TOPLEFT>content.TOPLEFT(8.000,-1470.000) text="Loot By Item Type"/1.000,0.820,0.000(hidden)
+header quality hidden pt=TOPLEFT>content.TOPLEFT(8.000,-1151.000) text="Loot By Quality"/1.000,0.820,0.000(hidden)
+header source hidden pt=TOPLEFT>content.TOPLEFT(8.000,-221.000) text="Loot By Source"/1.000,0.820,0.000(hidden)
+header time hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2076.000) text="Loot Over Time (Per Day)"/1.000,0.820,0.000(hidden)
+header vsource hidden pt=TOPLEFT>content.TOPLEFT(8.000,-686.000) text="Value By Source"/1.000,0.820,0.000(hidden)
+header vtime hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2200.000) text="Value Over Time (Per Day)"/1.000,0.820,0.000(hidden)
+header weekday hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2448.000) text="Loot By Weekday"/1.000,0.820,0.000(hidden)
+frame lootDivider hidden pt=TOPRIGHT>content.TOPRIGHT(-8.000,-100.000) w=0.000 h=1.250 ct=1.000,0.820,0.000,0.350 fs="LOOT"/1.000,0.820,0.000
+frame currencyDivider hidden pt=TOPRIGHT>content.TOPRIGHT(-8.000,-2827.000) w=0.000 h=1.250 ct=1.000,0.820,0.000,0.350 fs="CURRENCY"/1.000,0.820,0.000
+frame dayStrip hidden pt=BOTTOMRIGHT>dayStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame valueStrip hidden pt=BOTTOMRIGHT>valueStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame hourStrip hidden pt=BOTTOMRIGHT>hourStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+frame zonePanel hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2739.000) w=376.000 h=72.000 ct=-
+frame itemPanel hidden pt=TOPLEFT>content.TOPLEFT(396.000,-2539.000) w=376.000 h=184.000 ct=-
+frame itemValuePanel hidden pt=TOPLEFT>content.TOPLEFT(8.000,-2539.000) w=376.000 h=184.000 ct=-
+frame currencyStrip hidden pt=BOTTOMRIGHT>currencyStrip.BOTTOMRIGHT(0.000,-2.000) w=764.000 h=1.000 ct=0.450,0.450,0.500,0.800
+emptyText shown pt=TOP>content.TOP(0.000,-110.000)
+pool bound active=0 free=5
+pool boundleg active=0 free=5
+pool char active=0 free=3
+pool chbound active=0 free=3
+pool chboundleg active=0 free=5
+pool chquality active=0 free=3
+pool chqualityleg active=0 free=6
+pool chsource active=0 free=3
+pool chsourceleg active=0 free=12
+pool chtype active=0 free=3
+pool chtypeleg active=0 free=7
+pool chvsource active=0 free=3
+pool chvsourceleg active=0 free=12
+pool curchar active=0 free=2
+pool curcharlegend active=0 free=3
+pool curcollected active=0 free=3
+pool curcollectedleg active=0 free=3
+pool curday active=0 free=9
+pool curlegend active=0 free=4
+pool cursrc active=0 free=3
+pool day active=0 free=9
+pool hour active=0 free=24
+pool item active=0 free=10
+pool itemval active=0 free=10
+pool itype active=0 free=7
+pool itypeleg active=0 free=7
+pool quality active=0 free=6
+pool qualityleg active=0 free=6
+pool source active=0 free=12
+pool sourceleg active=0 free=12
+pool vday active=0 free=9
+pool vsource active=0 free=12
+pool vsourceleg active=0 free=12
+pool weekday active=0 free=3
+pool zone active=0 free=3

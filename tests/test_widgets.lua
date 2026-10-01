@@ -119,7 +119,12 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   --
   -- `Dropdown` and `CloseMenu` are untouched across 7 through 11; `CopyWindow` is untouched across
   -- 7 through 10 and gains only the resize above at 11.
-  assertEqual(lib.MODULES.Widgets, 11, "this adoption is written against Widgets minor 11")
+  --
+  -- Minor 12 (LibKa0s v1.66.0, docs/api/Widgets/version-12.1.3-docs.md) moves ReorderList, ROW_BOX
+  -- and their machinery unchanged into WidgetsReorder.lua (minor 1). No member, opts field or
+  -- controller method moves, and Dropdown, CloseMenu and CopyWindow are untouched. Nothing to
+  -- change; the drag-reorder itself is an in-client smoke.
+  assertEqual(lib.MODULES.Widgets, 12, "this adoption is written against Widgets minor 12")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

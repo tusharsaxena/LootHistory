@@ -16,13 +16,13 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
-| PANEL-1 to 19 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
+| PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 11 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 33 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
-| INS-1 to 21 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
+| INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
@@ -53,8 +53,8 @@ free number in its theme.
   `core/EnvSetup.lua`): INSTALL, CAP, SLASH-1 to SLASH-3, STATE-1 to STATE-4, LAUNCH-5 and INS-20;
   a change to `core/EnvSetup.lua` also needs SLASH-9, and one that moves `core/Compat.lua` also
   needs LOC.
-- Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `Analytics.lua`,
-  `Export.lua`): HIST, INS, STATE-7 to STATE-11, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
+- Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `AnalyticsFormat.lua`,
+  `Analytics.lua`, `AnalyticsCharts.lua`, `Export.lua`): HIST, INS, STATE-7 to STATE-11, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
 - Settings or schema: PANEL, SLASH, PROFILE, STATE-3, STATE-5, STATE-6, COMBAT-2, COMBAT-5, DIAG-9
   and FILT-1, plus CAP-22 to CAP-24 for a new capture row.
 - Filter lists (`modules/Filters.lua`, the Filters tab): FILT, PROFILE-5, CAP-22 to CAP-24.
@@ -255,6 +255,11 @@ does not follow the box. Result:
 **PANEL-19. Panel labels are English.** On General (every tab) → the Defaults button reads
 **Defaults**; on General and Profiles → every checkbox, dropdown and slider label is English, with no
 all-caps underscored key. Result:
+
+**PANEL-20. AH Price reorder still drags.** On AH Price, drag a price source by its handle two rows
+down and drop it → the ghost follows the cursor, the row lands where dropped, and closing and
+reopening the panel shows the new order. Fail: no ghost, a row that snaps back, or a Lua error.
+Result: pass (owner, 2026-10-02)
 
 ## Profiles
 
@@ -762,6 +767,12 @@ whole block, divider included, disappears and LOOT still renders. Result:
 
 **INS-21. Live update.** Loot an item with Insights open → the cards update. Result:
 
+**INS-22. The three-file Insights renders as before.** Open Insights with real history, then again
+under `/lh test` → no Lua error; every LOOT and CURRENCY section, every legend, the hover tooltips
+(bars, stacked segments, strip bars, list rows, legend chips) and the three strips draw as they did
+before the split; resize the window → it re-lays out; change a filter → it refreshes live. Result:
+pass (owner, 2026-10-02)
+
 ## Filter lists
 
 Filtering is point-in-time: a list changes what happens to future loot and never touches stored rows.
@@ -1156,7 +1167,7 @@ Fail: any Lua error, which here means a localized string reached code that assum
 ## Pending sign-off
 
 The old suite recorded no result for any check, so every check carried over from it is owed unless
-a record of the owner's pass exists. Four do. Review F-001 passed CAP-4 to CAP-6 (ARCHITECTURE
+a record of the owner's pass exists. Five do. Review F-001 passed CAP-4 to CAP-6 (ARCHITECTURE
 Known limitations). The 2026-07-22 field note in the old § 3 passed currency capture and the refund
 flow (CAP-11, CAP-12). The diagnostics rollout's owner pass on 2026-09-26
 (Ka0sAddonsCommonTasks `2026-09-25-DIAGNOSTICS_COMMAND/99_REPORT.md`, LH-S1 to LH-S11 and LH-X1)
@@ -1164,9 +1175,11 @@ passed DIAG-19, DIAG-20, DIAG-22, DIAG-24, DIAG-25 and COMBAT-8; it passed DIAG-
 written, but standard v2.71.0 rewrote that check (diagnostics now turns logging on), so it is listed
 again. The 2026-09-23 remediation plan's X1.4
 (`06_SMOKE_TESTS.md`, recorded PASS on 2026-09-25 after M6: `/lh disable`, then left-click opens
-Settings, right-click opens the options menu, the status tooltip shows) passed LAUNCH-3. Those
-twelve checks are not listed. The diagnostics rollout passed half of DIAG-6, half of DEGRADED-4
-and two of DIAG-23's three inputs (LH-S8 never ran `/lh dump`), and X1.4 passed part of LAUNCH-2,
+Settings, right-click opens the options menu, the status tooltip shows) passed LAUNCH-3. The 2026-10-01
+GitHub issue pass (Ka0sAddonsCommonTasks `2026-10-01-GITHUB_ISSUE_PASS/04_SMOKE_TESTS.md`, owner
+pass on 2026-10-02) passed its two new checks, PANEL-20 and INS-22. Those fourteen checks are not
+listed. The diagnostics rollout passed half of DIAG-6, half of DEGRADED-4 and two of DIAG-23's
+three inputs (LH-S8 never ran `/lh dump`), and X1.4 passed part of LAUNCH-2,
 LAUNCH-4 and LAUNCH-5; all six stay listed for the rest. The rest of the 2026-09-23 plan
 (`06_SMOKE_TESTS.md` Session LH, Session Q and X2.4) is recorded as owed; a row names the plan step
 its check carries. Checks new in this rework (SP-LH-01 to SP-LH-03R), and checks whose steps or

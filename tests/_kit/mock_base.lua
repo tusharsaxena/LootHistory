@@ -171,23 +171,23 @@ local function stubFrame(track)
   -- rawsetting nil to restore, which would erase an explicit definition for good.
   function f:GetName() return nil end
   -- GEOMETRY IS RECORDED HERE, AND ANSWERED ONLY WHERE A TEST ASKED FOR IT. `__geomLive` is the
-  -- whole of the opt-in/flip split, and it is one word wide on purpose: at the flip revision the
-  -- `self.__geomLive and` falls out of these two lines and every frame answers what was recorded on
-  -- it. That is a real behavioral change to a mock roughly 308 test files across ten repositories
-  -- lean on -- every assertion that passes today BECAUSE geometry answers zero flips with it -- so
-  -- it is its own revision with its own adoption, sharing it with nothing. Revision 15 planned it
-  -- as revision 16; revision 16 carried the Ace-fake fixes instead, revision 17 the Ace surfaces
-  -- six consumer harnesses migrate onto, revision 18 AceDB's OnProfileCopied key and revision 19
-  -- its keyless OnProfileReset, so the flip is the next revision that ships it alone, 20 at the
-  -- earliest.
+  -- whole opt-in, one word wide. The kit-wide flip, every frame answering what was recorded on it,
+  -- was planned from revision 15 and is RETIRED at revision 35: it would churn some 308 consumer
+  -- test files to re-test geometry four consumers draw through one library helper (`H.TabStrip`).
+  -- The defect it was for, a tab strip whose band moves with the selection (LibKa0s#17-#20), is
+  -- pinned where the pitch and band are computed, in LibKa0s's `tests/test_options_tabs.lua`: its
+  -- selection-invariance cases arm geometry through an instrumented harness whose two atlas
+  -- families answer different heights, so they fail without any flip here. Zero stays the default
+  -- answer of an unarmed frame, and an assertion that relies on it is relying on the kit's
+  -- contract, not on a stopgap. See docs/api/testkit/version-35-docs.md.
   function f:GetHeight() return (self.__geomLive and self.__geomH) or 0 end
   function f:GetWidth() return (self.__geomLive and self.__geomW) or 0 end
 
   -- The opt-in, and the ONLY thing that arms a frame. It has to be the test's call and not
   -- production's: `OptionsWidgets.lua` measures its tab pitch by calling `SetAtlas` on a probe
   -- texture it builds itself, so a `SetAtlas` that armed geometry on its own would silently switch
-  -- that measurement on in every suite in the collection -- which is the flip, arriving by accident,
-  -- three revisions early. Arm with no arguments and let production dress the frame, or hand it the
+  -- that measurement on in every suite in the collection -- the retired flip, arriving by accident
+  -- through a side door. Arm with no arguments and let production dress the frame, or hand it the
   -- two numbers directly; both are the same switch.
   function f:__setGeom(w, h) self.__geomW, self.__geomH, self.__geomLive = w, h, true; return self end
 

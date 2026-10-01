@@ -319,7 +319,7 @@ defaults.
 [*State outside the rows*](#state-outside-the-rows) names both as recorded data;
 this is the writer list. The player deletes rows of the log or clears it, but never authors a row.
 Its one owner, `NS.Database` (`core/Database.lua`), holds every writer. `Add` (`core/Database.lua:411`)
-appends each kept loot or currency line (`modules/Collector.lua:150`, `:215`). `PruneOld`
+appends each kept loot or currency line (`modules/Collector.lua:175`, `:240`). `PruneOld`
 (`core/Database.lua:950`) drops rows past the account-wide `retentionDays` once per session after
 `PLAYER_ENTERING_WORLD` (`core/LootHistory.lua:130`) and when the player accepts the prune confirm
 that row's `onChange` raises (`S:OnRetentionChanged`, `settings/Schema.lua:814`). `Purge` (`core/Database.lua:882`) empties it from the purge confirm

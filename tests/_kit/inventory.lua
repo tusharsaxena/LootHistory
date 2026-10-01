@@ -221,6 +221,7 @@ return function(Kit, fail)
     test_eol        = "line-endings-§7",
     test_layout_cap = "layout-§1",
     test_diagnostics_contract = "debug-logging-§14",
+    test_lizard_sighted = "automated-tests-§3",
   }
 
   --- Where a repository keeps its `## Documented deviations` register (`documentation-§3`): an addon

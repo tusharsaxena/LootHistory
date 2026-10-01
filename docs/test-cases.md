@@ -262,7 +262,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (34)
+### test_collector.lua (38)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -298,6 +298,10 @@ badge and any count quoted in the docs must agree with it.
 - Collector: live SettingsChanged refreshes the collector alongside another bus consumer
 - Collector SettingsChanged does not emit a redundant [Cfg] echo
 - Collector: BuildRecord stores the auctionPrice map, no priceSource
+- Collector: a recorded loot line logs [Loot] and [AHPrice], prices sorted, the pick named
+- Collector: with no price gathered the [AHPrice] line says none and picks nothing
+- Collector: a refused loot line logs one [Drop] line naming the reason, and nothing else
+- Collector: with logging off a loot line calls the debug sink not at all
 
 ### test_database.lua (65)
 
@@ -520,7 +524,7 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
 
-### test_export.lua (26)
+### test_export.lua (29)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -548,6 +552,9 @@ badge and any count quoted in the docs must agree with it.
 - Export: the copy window comes from LibKa0s-Widgets-1.0
 - Export: showing the copy window puts the text in it
 - Export: the copy window is built once and reused
+- Export: InsightsCSV over items and currency matches the golden document
+- Export: InsightsCSV over zero-value items with no currency matches the golden document
+- Export: InsightsCSV over an empty history, a bare table and nil
 
 ### test_debuglog.lua (20)
 
@@ -763,7 +770,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (62)
+### test_analytics.lua (64)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -827,6 +834,17 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: a nil label becomes an empty string
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
+- Analytics: the TOC loads Format, then Analytics, then Charts
+- Analytics: the module's function surface is exactly the published one
+
+### test_analytics_layout.lua (6)
+
+- Insights layout: the fixtures exercise the branches they are meant to
+- Insights layout: a full pass over items and currency matches the golden snapshot
+- Insights layout: a second pass re-acquires the same widgets and draws the same thing
+- Insights layout: items with no value and no currency, over a trimmed day range
+- Insights layout: an empty range hides every chart and shows the empty text
+- Insights layout: a nil stats table takes the empty branch too
 
 ### test_panel.lua (43)
 
@@ -896,6 +914,12 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: currency names resolve through the loot history, and a refusal says where names work
 - Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
 - Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
+
+### test_panel_auction.lua (3)
+
+- AH table: two providers present, some sources collecting, one captured but absent
+- AH table: every provider present and nothing captured
+- AH table: no provider present
 
 ### test_profiles.lua (28)
 
@@ -999,7 +1023,7 @@ badge and any count quoted in the docs must agree with it.
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
 
-### test_diagnostics.lua (17)
+### test_diagnostics.lua (20)
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
 - diagnostics: every DX-LH section writes its own lead line, in the report's order
@@ -1018,6 +1042,9 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the stored context's detail prints its fields, not a table address
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
+- diagnostics: the browser section with no window and no table module
+- diagnostics: the browser section with a shown window, test records and a saved view
+- diagnostics: the browser section with a hidden window, a descending sort and no view
 
 ### test_debug_coverage.lua (21)
 
@@ -1118,6 +1145,17 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics contract: both forms run while the addon is disabled
 - diagnostics contract: no other name runs the report
 
+### test_lizard_sighted.lua (8)
+
+- lizard sighted: every hazard lizard loses a function over is neutralized
+- lizard sighted: fields, strings, comments and look-alike names come through unchanged
+- lizard sighted: a method definition is rewritten to its dot form with self
+- lizard sighted: no line is added or removed, CRLF included
+- lizard sighted: countFunctions counts the keyword, not strings, comments or longer names
+- lizard sighted: listedCounts reads the per-file table, once per file
+- lizard sighted: parity names every file whose counts differ, and only those
+- lizard sighted: lizard lists every function of a hazard fixture once it is sanitized
+
 ### test_widgets.lua (17)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
@@ -1152,27 +1190,29 @@ badge and any count quoted in the docs must agree with it.
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 34 |
+| test_collector.lua | 38 |
 | test_database.lua | 65 |
 | test_stats.lua | 20 |
 | test_browser.lua | 61 |
 | test_browsertable.lua | 63 |
-| test_export.lua | 26 |
+| test_export.lua | 29 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
 | test_slash.lua | 62 |
 | test_slash_degraded.lua | 14 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 62 |
+| test_analytics.lua | 64 |
+| test_analytics_layout.lua | 6 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
+| test_panel_auction.lua | 3 |
 | test_profiles.lua | 28 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 24 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 14 |
-| test_diagnostics.lua | 17 |
+| test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
@@ -1181,5 +1221,6 @@ badge and any count quoted in the docs must agree with it.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 9 |
+| test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1012** |
+| **Total** | **1041** |

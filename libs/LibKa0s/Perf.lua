@@ -34,7 +34,7 @@ local lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 local NEEDS_LIFECYCLE = 1
 if not lifecycle or (lifecycle.MINOR or 0) < NEEDS_LIFECYCLE then return end   -- module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 13
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 14
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -172,6 +172,27 @@ local function deriveArm(a)
     }
 end
 
+-- Emit every declared ancestor a recorded bucket names, with zero counts where it never fired
+-- (issue #12). Buckets are created lazily, on the first Note, so a parent that recorded no calls
+-- was absent from the record while its child's `within` named it, and a reader of dump.json had
+-- no descriptor to fall back on. Only ANCESTORS are added: a declared bucket with no fired
+-- descendant stays absent, so a record does not grow by every idle bucket a host declares. An
+-- added parent claims no observation. The depth guard is addBucketLines' own, against a malformed
+-- descriptor whose `within` chain loops.
+local function fillAncestors(out, withinMap)
+  local named = {}
+  for _, b in pairs(out) do
+    if b.within then named[#named + 1] = b.within end
+  end
+  for _, parent in ipairs(named) do
+    local depth = 0
+    while parent and not out[parent] and depth < 8 do
+      out[parent] = { calls = 0, totalMs = 0, maxMs = 0, within = withinMap[parent] }
+      parent, depth = withinMap[parent], depth + 1
+    end
+  end
+end
+
 -- The interface version this capture was taken on, as a number.
 --
 -- GetBuildInfo's FOURTH return, NOT GetAddOnMetadata(name, "Interface"). Blizzard does not serve
@@ -284,6 +305,65 @@ local function addNestingNote(add, P, record)
   end
 end
 
+-- Per-bucket budgets (issue #1): REPORT-ONLY, by decision. An in-game capture is noisy, and the
+-- deterministic offline counters already gate releases, so a budget states a ceiling and the
+-- report says whether the capture stayed inside it. Nothing refuses, raises or exits on OVER.
+--
+-- The record's own budget first, so a capture read back off the ring is judged against the
+-- ceiling it was built with; the live descriptor's for a budgeted bucket the record never got.
+-- `secs` is the active seconds, as for the bucket table. Returns nil when no bucket declares a
+-- budget, which is what keeps an un-adopted host's report and finish ack exactly as they were.
+local function axis(parts, label, observed, ceiling)
+  if not ceiling then return false end
+  local over = observed > ceiling
+  parts[#parts + 1] = ("%s %.3f / %.3f %s"):format(label, observed, ceiling, over and "OVER" or "ok")
+  return over
+end
+
+local function budgetRows(P, record, secs)
+  local rows, over = {}, 0
+  for _, key in ipairs(P.BUCKET_ORDER) do
+    local b = record.buckets[key]
+    local budget = b and b.budget or P.BUCKET_BUDGET[key]
+    if budget then
+      local row = { key = key, parts = {} }
+      if not b or b.calls == 0 then
+        row.status = "not exercised"
+      else
+        local rate = secs > 0 and (b.totalMs / secs) or 0
+        local hot = axis(row.parts, "ms/s", rate, budget.msPerSec)
+        hot = axis(row.parts, "max ms", b.maxMs, budget.maxMs) or hot
+        row.status = hot and "OVER" or "ok"
+        if hot then over = over + 1 end
+      end
+      rows[#rows + 1] = row
+    end
+  end
+  if #rows == 0 then return nil end
+  return rows, over
+end
+
+local function addBudgetLines(add, P, record, secs)
+  local rows = budgetRows(P, record, secs)
+  if not rows then return end
+  add("")
+  add("budget (report-only): observed / ceiling")
+  for _, row in ipairs(rows) do
+    if row.status == "not exercised" then
+      add("  %-14s not exercised", row.key)
+    else
+      add("  %-14s %-4s  %s", row.key, row.status, table.concat(row.parts, ", "))
+    end
+  end
+end
+
+--- How many budgeted buckets a record went over, or nil when no bucket declares a budget. For the
+--- finish acknowledgment in PerfCommands.lua, which says one line about it and gates on nothing.
+function lib.__budgetOver(P, record)
+  local _, over = budgetRows(P, record, record.fps.active.seconds)
+  return over
+end
+
 -- ── Instances ──────────────────────────────────────────────────────────────────────────────
 
 -- One step's state, at the one precedence the panel encodes: busy > done > ready > locked.
@@ -316,6 +396,147 @@ local function armStates(P, completed)
   return a, b, fin, finished
 end
 
+-- P.Context's client reads, at file level so the function is a loop over them (it measured CCN 19
+-- sighted, WowAddonStandards#6). Each asks one global, existence-checked, so the headless harness
+-- (and any client that renames one) degrades to the field's default rather than erroring.
+
+--- The player's specialization name, or nil. Namespaced rung first, deprecated global second, nil
+--- where neither is there — the shape `Env.lua`'s C_AddOns shim models, applied here because the
+--- spec reader moved the same way. The global still answers on today's client, which is exactly why
+--- this was easy to miss: the day it stops, every saved record names the spec "?" and a record is
+--- read weeks later, when there is nothing left to go and look at. `GetSpecializationInfo` keeps its
+--- own guard on the global rather than being paired with a namespaced rung, because the reader that
+--- moved is the INDEX one and this shim claims no more than it has checked.
+local function specName()
+    local specIndex = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization
+        or GetSpecialization
+    if not (specIndex and GetSpecializationInfo) then return nil end
+    local index = specIndex()
+    if not index then return nil end
+    local _, name = GetSpecializationInfo(index)
+    return name
+end
+
+--- { field, reader } in the order P.Context always read them. A reader answering nil (or false)
+--- leaves the field at its default.
+local CONTEXT_READS = {
+    { "character", function() return UnitName and UnitName("player") end },
+    { "realm",     function() return GetRealmName and GetRealmName() end },
+    { "class",     function() return UnitClass and (UnitClass("player")) end },
+    { "level",     function() return UnitLevel and UnitLevel("player") end },
+    { "spec",      specName },
+    { "zone",      function() return GetZoneText and GetZoneText() end },
+    { "subZone",   function() return GetSubZoneText and GetSubZoneText() end },
+}
+
+-- The descriptor's optional host sinks, resolved once so the hot-ish paths do not re-branch on
+-- presence. At file level rather than inside lib:New, so the four presence tests are this
+-- function's branches and not the closure's: a sighted lizard run counted every `and`/`or` in
+-- them against lib:New (issue #7).
+local function noop() end
+local function printLine(line) print(line) end
+
+local function resolveHooks(d)
+  local function hook(f, default)
+    if type(f) == "function" then return f end
+    return default
+  end
+  return hook(d.log, printLine), hook(d.print, printLine), hook(d.showLog, noop),
+    hook(d.onChange, noop)
+end
+
+-- What a probe with no PerfCommands.lua or no PerfSampler.lua beside it answers (issue #7). Both
+-- files are part of this major and a whole-folder re-vendor always carries them, so this arises only
+-- from a hand-trimmed copy; one line naming the file says what to fix, where a nil member would
+-- raise in the host's slash layer or the panel's click path. OnCommand keeps its contract: a table,
+-- never nil. Without the capture the commands have nothing to drive, so they answer its line.
+local COMMANDS_MISSING = "perf commands are not installed \226\128\148 PerfCommands.lua is missing "
+  .. "from this copy of LibKa0s; re-vendor the whole folder"
+local SAMPLER_MISSING = "perf capture is not installed \226\128\148 PerfSampler.lua is missing "
+  .. "from this copy of LibKa0s; re-vendor the whole folder"
+
+local function installCommandStub(P, line)
+  local function missing() return { line } end
+  P.Usage, P.StatusLines, P.OnCommand = missing, missing, missing
+end
+
+-- The capture's members, inert. The brackets are no-ops (P.on is never set without the windows,
+-- so they were never going to record); Start says why in the log and runs nothing; Stop still
+-- hands back a record, an empty one, because a host driving the API directly reads it.
+local function installSamplerStub(P)
+  local function no() return false end
+  P.Open, P.Close, P.__sampler = noop, noop, noop
+  P.Start   = function() P.Log(SAMPLER_MISSING) end
+  P.Measure = function() return nil, "no experiment" end
+  P.Stop    = function() return P.BuildRecord(P.label) end
+  P.Cancel, P.Suspend, P.Resume = no, no, no
+end
+
+-- The two secondary files lib:New installs from, or their stubs. Returns what P.Reset calls to
+-- close every open bracket. At file level so lib:New carries none of these branches.
+local function installPeers(P, ctx)
+  if not lib.__installSampler then
+    installSamplerStub(P)
+    installCommandStub(P, SAMPLER_MISSING)
+    return noop
+  end
+  local resetOpenDepth = lib.__installSampler(P, ctx)
+  if lib.__installCommands then
+    lib.__installCommands(P, ctx)
+  else
+    installCommandStub(P, COMMANDS_MISSING)
+  end
+  return resetOpenDepth
+end
+
+-- The descriptor's `buckets`, validated per entry rather than trusted: an entry with no `key` used
+-- to raise a raw "table index is nil" from inside the loop, which tells a host nothing about which
+-- of its buckets is wrong. A `budget` is refused the same way, naming the entry and the field
+-- (issue #1). The levels blame lib:New's caller, the descriptor's author. The budget is copied, so
+-- a host that edits its descriptor table later does not move a ceiling under a live instance.
+local function ceiling(i, budget, field)
+  local v = budget[field]
+  if v ~= nil and (type(v) ~= "number" or v ~= v or v <= 0) then   -- v ~= v: NaN
+    error(("LibKa0s-Perf: descriptor.buckets[%d].budget.%s must be a positive number")
+      :format(i, field), 5)
+  end
+  return v
+end
+
+local function readBudget(i, budget)
+  if budget == nil then return nil end
+  if type(budget) ~= "table" then
+    error(("LibKa0s-Perf: descriptor.buckets[%d].budget must be a table"):format(i), 4)
+  end
+  local out = { msPerSec = ceiling(i, budget, "msPerSec"), maxMs = ceiling(i, budget, "maxMs") }
+  if not (out.msPerSec or out.maxMs) then
+    error(("LibKa0s-Perf: descriptor.buckets[%d].budget must name msPerSec or maxMs"):format(i), 4)
+  end
+  return out
+end
+
+local function readBuckets(d)
+  local order, within, budgets = {}, {}, {}
+  for i, b in ipairs(d.buckets or {}) do
+    if type(b) ~= "table" or type(b.key) ~= "string" then
+      error(("LibKa0s-Perf: descriptor.buckets[%d].key must be a string"):format(i), 3)
+    end
+    order[#order + 1] = b.key
+    if b.within then within[b.key] = b.within end
+    budgets[b.key] = readBudget(i, b.budget)
+  end
+  return order, within, budgets
+end
+
+-- The declared budget onto each emitted bucket, a copy per record so editing a saved record cannot
+-- move the host's ceiling. Additive within schema 2: an unbudgeted bucket carries no `budget` key.
+local function attachBudgets(out, budgets)
+  for key, b in pairs(out) do
+    local g = budgets[key]
+    if g then b.budget = { msPerSec = g.msPerSec, maxMs = g.maxMs } end
+  end
+end
+
 local function required(d, key, wanted)
   if type(d[key]) ~= wanted then
     error(("LibKa0s-Perf: descriptor.%s must be a %s"):format(key, wanted), 3)
@@ -344,11 +565,7 @@ function lib:New(descriptor)
   local P = {}
 
   -- Optional host sinks, resolved once so the hot-ish paths do not re-branch on presence.
-  local noop     = function() end
-  local hostLog  = type(d.log)     == "function" and d.log     or function(line) print(line) end
-  local hostPrint= type(d.print)   == "function" and d.print   or function(line) print(line) end
-  local showLog  = type(d.showLog) == "function" and d.showLog or noop
-  local onChange = type(d.onChange)== "function" and d.onChange or noop
+  local hostLog, hostPrint, showLog, onChange = resolveHooks(d)
   local L        = d.L or {}
   -- rawget, NOT a plain index. Every Ka0s host's locale table carries a metatable fallback that
   -- answers an unknown key WITH THE KEY (the standard mandates it — anti-patterns #2), so a plain
@@ -383,19 +600,10 @@ function lib:New(descriptor)
   local ring = tonumber(d.ring) or lib.DEFAULT_RING
   P.ringMax = ring >= 1 and ring or 1
 
-  -- Report order, and the declared nesting. Membership controls only PRESENTATION — Note() accepts
-  -- any key, so a bracket nobody declared still records, it just does not print.
-  --
-  -- Validated per entry rather than trusted: an entry with no `key` used to raise a raw "table index
-  -- is nil" from inside the loop, which tells a host nothing about which of its buckets is wrong.
-  P.BUCKET_ORDER, P.BUCKET_WITHIN = {}, {}
-  for i, b in ipairs(d.buckets or {}) do
-    if type(b) ~= "table" or type(b.key) ~= "string" then
-      error(("LibKa0s-Perf: descriptor.buckets[%d].key must be a string"):format(i), 2)
-    end
-    P.BUCKET_ORDER[#P.BUCKET_ORDER + 1] = b.key
-    if b.within then P.BUCKET_WITHIN[b.key] = b.within end
-  end
+  -- Report order, the declared nesting and the declared budgets (readBuckets). Membership controls
+  -- only PRESENTATION — Note() accepts any key, so a bracket nobody declared still records, it just
+  -- does not print.
+  P.BUCKET_ORDER, P.BUCKET_WITHIN, P.BUCKET_BUDGET = readBuckets(d)
 
   -- Capture running? Read directly by every bracket call site, so it must stay a plain boolean RAW
   -- field — no accessor. The instance does carry a metatable (below), but it exists only for
@@ -486,109 +694,10 @@ function lib:New(descriptor)
     end
   end
 
-  -- Shape B's open slots, innermost last (performance-§2). Touched only while `P.on` is true, so a
-  -- dormant probe neither allocates into it nor reads it.
-  --
-  -- A HIGH-WATER FREE LIST, not a stack of fresh tables. `slots[i]` is the slot for nesting depth
-  -- i and is built ONCE, the first time any capture in this session nests that deep; `openDepth`
-  -- is how many of them are open right now, and it is what bounds every read below rather than
-  -- `#slots`. The old shape allocated `{ key = key, t0 = ... }` per Open, which is one table per
-  -- bracketed call for the length of a window — garbage the collector then walks during the very
-  -- capture that is trying to hold everything else still and read somebody else's frame cost.
-  -- Depth is small and bounded by the host's own nesting (two, in every descriptor shipped), so
-  -- the list stops growing after the first few brackets and the steady state allocates nothing.
-  local slots = {}
-  local openDepth = 0
-
-  --- Open a Shape B bracket on `key` (performance-§2). Pair with P.Close(key) on EVERY exit.
-  ---
-  --- STATE THE COST HONESTLY, because the docstring this replaces did not. This pair is NOT free
-  --- when capture is off: it is two real Lua calls plus the boolean test inside each. The inline
-  --- Shape A bracket —
-  ---
-  ---     local t0 = P.on and debugprofilestop()
-  ---     ...
-  ---     if t0 then P.Note("paintBar", debugprofilestop() - t0) end
-  ---
-  --- — costs one upvalue read, one field read and one boolean test, and NO call at all. Shape A is
-  --- therefore the default and is mandatory on anything running per frame or per combat-log event;
-  --- the earlier claim here that the pair cost "one boolean test and nothing else, and allocates
-  --- nothing on either path" was simply false, and a docstring that says so is a defect rather
-  --- than a description to trust.
-  ---
-  --- What the pair buys is a MULTI-EXIT region: four exits do not each repeat
-  --- `if t0 then P.Note(key, debugprofilestop() - t0) end`. That ergonomic difference is not
-  --- cosmetic — a host's four-exit poll had its instrumentation omitted precisely because the exits
-  --- made it awkward, and the omission then cost 73.9 ms of unattributed time in the first live
-  --- capture. Where a multi-exit region is ALSO a hot path, restructure it to one exit and use
-  --- Shape A rather than paying two calls a frame.
-  ---
-  ---     P.Open("pollSpell")
-  ---     if not pollable(id) then P.Close("pollSpell") return nil end
-  ---     ...
-  ---     P.Close("pollSpell")
-  ---     return state
-  ---
-  --- Open TAKES THE KEY (it did not, through minor 6, and the reading was handed back to the call
-  --- site instead). A slot with no identity cannot be matched to its Close and cannot name a parent
-  --- for a bracket opened inside it, so the containment performance-§3 requires was unknowable from
-  --- the pair. With the key here, a bracket opened inside another records its parent OBSERVED.
-  ---
-  --- Deliberately NOT a closure-returning Bracket(key): a closure per bracket would allocate on a
-  --- path whose entire contract is costing nothing when the probe is off, and `P.on` is read
-  --- directly by every call site precisely so it stays a plain boolean raw field. P.Note is
-  --- unchanged, so a host already calling it directly keeps working untouched.
-  ---
-  --- THE ACTIVE ARM COSTS, and the figure is stated here for the same reason the off-path figure
-  --- is: the docstring above told the truth about the arm nobody pays for and said nothing at all
-  --- about the arm a capture actually runs. With `P.on` true the pair is two calls, one table
-  --- index into the free list, two field writes, a linear scan back through the open slots to find
-  --- the match, and a P.Note. It ALLOCATES NOTHING in the steady state — slots are reused from a
-  --- high-water free list (see its declaration above) and P.Note allocates one bucket per KEY, not
-  --- per call. Measured over 10,000 active pairs at depth one: 0.0 KB, against 1406.2 KB for the
-  --- per-Open table this replaced (`tests/test_perf_isolation.lua`, both arms). The scan is O(open
-  --- depth), which is two in every descriptor this collection ships; a host nesting brackets
-  --- dozens deep on a per-frame path is outside what Shape B is for and should use Shape A.
-  function P.Open(key)
-    if not P.on then return end
-    if key == nil then
-      error(MAJOR .. ": Perf.Open requires a bucket key (got nil)", 2)
-    end
-    openDepth = openDepth + 1
-    local slot = slots[openDepth]
-    if not slot then
-      slot = {}
-      slots[openDepth] = slot
-    end
-    slot.key = key
-    slot.t0  = debugprofilestop()
-  end
-
-  --- Close the bracket P.Open(key) opened, recording its elapsed ms under `key` and the key of the
-  --- bracket enclosing it as the OBSERVED parent. A Close with the probe off, or with no matching
-  --- open slot, is a silent no-op — that is what lets an early exit carry one unconditional
-  --- statement instead of its own `if`.
-  ---
-  --- An exit that forgot its Close leaves a slot below this one. Those slots are DISCARDED here
-  --- rather than closed at a stop time they never reached: crediting a leaked bracket with the
-  --- elapsed time of whatever ran after it would put a fabricated number in the report, and a
-  --- fabricated number is worse than a missing one.
-  function P.Close(key)
-    if not P.on then return end
-    local ms = debugprofilestop()
-    local at
-    for i = openDepth, 1, -1 do
-      if slots[i].key == key then at = i break end
-    end
-    if not at then return end
-    local slot = slots[at]
-    -- The parent is read BEFORE the depth drops, because dropping it is now the whole of the
-    -- discard: a leaked slot is not niled, it is simply left above `openDepth` where nothing
-    -- reads it and the next Open at that depth overwrites it in place.
-    local parent = at > 1 and slots[at - 1].key or nil
-    openDepth = at - 1
-    P.Note(key, ms - slot.t0, parent)
-  end
+  -- The open depth of the Shape B brackets lives in PerfSampler.lua with P.Open and P.Close since
+  -- Perf minor 14 (issue #7); P.Reset zeroes it through this, which the installer hands back. Until
+  -- then, and for good in a payload without that file, there is nothing to close.
+  local resetOpenDepth = noop
 
   function P.Reset()
     buckets   = {}
@@ -596,7 +705,7 @@ function lib:New(descriptor)
     -- it here would make the first brackets of every run allocate again, which is the cost this
     -- shape exists to pay once. Nothing reads a slot above `openDepth`, so leaving them is not a
     -- leak of state between runs — the next Open at that depth overwrites both fields.
-    openDepth = 0
+    resetOpenDepth()
     completed = { active = false, suspended = false }
     reviewed  = { report = false }
     fpsArms   = {
@@ -700,28 +809,10 @@ function lib:New(descriptor)
           character = "?", realm = "?", class = "?", spec = "?",
           level = 0, zone = "?", subZone = "", group = "solo",
       }
-      if UnitName then ctx.character = UnitName("player") or "?" end
-      if GetRealmName then ctx.realm = GetRealmName() or "?" end
-      if UnitClass then ctx.class = (UnitClass("player")) or "?" end
-      if UnitLevel then ctx.level = UnitLevel("player") or 0 end
-      -- Namespaced rung first, deprecated global second, nil where neither is there — the shape
-      -- `Env.lua`'s C_AddOns shim models, applied here because the spec reader moved the same way.
-      -- The global still answers on today's client, which is exactly why this was easy to miss:
-      -- the day it stops, every saved record names the spec "?" and a record is read weeks later,
-      -- when there is nothing left to go and look at. `GetSpecializationInfo` keeps its own guard
-      -- on the global below rather than being paired with a namespaced rung here, because the
-      -- reader that moved is the INDEX one and this shim claims no more than it has checked.
-      local specIndex = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization
-          or GetSpecialization
-      if specIndex and GetSpecializationInfo then
-          local index = specIndex()
-          if index then
-              local _, name = GetSpecializationInfo(index)
-              ctx.spec = name or "?"
-          end
+      for _, read in ipairs(CONTEXT_READS) do
+          local value = read[2]()
+          if value then ctx[read[1]] = value end
       end
-      if GetZoneText then ctx.zone = GetZoneText() or "?" end
-      if GetSubZoneText then ctx.subZone = GetSubZoneText() or "" end
       ctx.group = groupContext()
       return ctx
   end
@@ -768,6 +859,8 @@ function lib:New(descriptor)
         observedMixed  = b.observedMixed,
       }
     end
+    fillAncestors(out, P.BUCKET_WITHIN)
+    attachBudgets(out, P.BUCKET_BUDGET)
 
     return {
       schema    = lib.SCHEMA,
@@ -835,460 +928,23 @@ function lib:New(descriptor)
     addFpsLines(add, f)
     addBucketLines(add, P, record, f.active.seconds)
     addNestingNote(add, P, record)
+    addBudgetLines(add, P, record, f.active.seconds)
 
     return lines
   end
 
-  -- ── Measurement windows + the FPS sampler ──────────────────────────────────────────────────
+  -- ── The capture, and the command surface ────────────────────────────────────────────────
   --
-  -- An experiment is a sequence of explicitly-armed, COMBAT-GATED windows:
-  --
-  --     perf.Start(label)     begin the experiment (samples nothing yet)
-  --     perf.Measure("a")     arm window A - starts the moment combat does, ends when it does
-  --     perf.Measure("b")     arm window B - same, with the host suspended
-  --     perf.Stop()           report both windows and hand back the record
-  --
-  -- Why windows rather than sampling continuously and splitting by suspend state (the original
-  -- design): continuous sampling silently folds every difference between the arms into the result.
-  -- Two real captures were lost to exactly that - one where the active arm was ~78% combat against a
-  -- suspended arm at ~100%, and one where the arms ran 72.3s and 59.2s. Both produced a delta that
-  -- described the environment rather than the addon. A window that opens on PLAYER combat and closes
-  -- when it ends measures a comparable slice by construction, and lets the user walk to the pull,
-  -- reset a dungeon, or wait out a respawn between arms without contaminating anything.
-  --
-  -- Combat is read from UnitAffectingCombat("player") on the sampler's own OnUpdate rather than from
-  -- the combat EVENTS, deliberately: P.Suspend() calls the host's suspend callback, which is free to
-  -- unregister the host's event frames - so window B, the suspended arm, would never see
-  -- PLAYER_REGEN_DISABLED fire if this polled events instead. Polling a cheap C call on a frame that
-  -- only exists during an experiment sidesteps that entirely.
-  --
-  -- Window A maps to the `active` arm and window B to `suspended`, so the record schema and the delta
-  -- computation are unchanged. `measure b` suspends the host and `measure a` resumes it, so the two
-  -- windows differ by the host and nothing else - there is no way to forget the suspend.
-
-  -- Window token -> FPS arm.
-  P.EXPERIMENTS = { a = "active", b = "suspended" }
-
-  -- Reverse map, so every message names the experiment the way the user typed it.
-  P.LABELS = { active = "A", suspended = "B" }
-
-  local sampler
-
-  -- Created on first experiment and reused. The OnUpdate script is attached only while an
-  -- experiment is running - an idle instance must not pay for a per-frame callback that exists
-  -- purely to measure.
-  local function ensureSampler()
-    if sampler then return sampler end
-    if type(CreateFrame) ~= "function" then return nil end
-    -- Created under the CALLING HOST's ownership, never shared between instances. A shared sampler
-    -- would bill its OnUpdate to whichever addon created it — the precise attribution failure this
-    -- library exists to work around.
-    sampler = CreateFrame("Frame", d.name .. "PerfSampler")
-    sampler:Hide()
-    return sampler
-  end
-
-  function P.__sampler() return sampler end
-
-  -- Blizzard's stopwatch, driven so the user has an on-screen timer for the window actually being
-  -- measured. Called as Lua functions rather than by running "/sw play" as a macro: RunMacroText is
-  -- protected and would taint or fail outright in combat, whereas these FrameXML helpers are plain
-  -- and safe to call mid-fight. Every one is existence-checked, so a client that has renamed or
-  -- removed them degrades to no stopwatch rather than an error mid-capture.
-  local function stopwatch(action)
-    if action == "reset" then
-      if type(Stopwatch_Clear) == "function" then Stopwatch_Clear() end
-      if StopwatchFrame and StopwatchFrame.Show then StopwatchFrame:Show() end
-    elseif action == "play" then
-      if type(Stopwatch_Play) == "function" then Stopwatch_Play() end
-    elseif action == "pause" then
-      if type(Stopwatch_Pause) == "function" then Stopwatch_Pause() end
-    end
-  end
-
-  local function inCombat()
-    return UnitAffectingCombat and UnitAffectingCombat("player") and true or false
-  end
-
-  -- Both a chat line and a debug line, deliberately. These fire mid-combat, when the debug console is
-  -- usually not what the user is looking at — the chat line is what tells them the recording actually
-  -- started — while the console line is what survives into the copied log for later analysis.
-  local function openWindow()
-    P.recording = P.armed
-    P.armed = false
-    -- A bracket leaked by a host error in an earlier window must not parent this window's
-    -- brackets, so the open depth starts clean at each window edge.
-    openDepth = 0
-    P.on = true              -- the brackets record only inside an experiment
-    stopwatch("play")
-    publishState()
-    P.Announce("Experiment |cFFFFFF00%s|r |cff40ff40RECORDING|r \226\128\148 combat started",
-        P.LABELS[P.recording] or P.recording)
-  end
-
-  local function closeWindow()
-    local w = P.recording
-    P.recording = false
-    P.on = false
-    openDepth = 0
-    stopwatch("pause")
-    if not w then return end
-    completed[w] = true
-    publishState()
-    local a = fpsArms[w]
-    P.Announce("Experiment |cFFFFFF00%s|r |cffff4040ENDED|r \226\128\148 %s, %s frames, %s fps",
-        P.LABELS[w] or w, ("%.1fs"):format(a.seconds), a.frames,
-        ("%.1f"):format(a.seconds > 0 and (a.frames / a.seconds) or 0))
-  end
-
-  local function onUpdate(_, elapsed)
-    if not P.run then return end
-    local combat = inCombat()
-
-    -- Open first, then fall THROUGH to accumulate: the frame that opens a window is itself an
-    -- in-combat frame and belongs in the sample. Returning after openWindow() silently dropped it,
-    -- which is invisible over a 60s pull but wrong, and wrong in a way that biases both arms.
-    if not P.recording then
-      if not (P.armed and combat) then return end
-      openWindow()
-    end
-
-    if combat then
-      local a = fpsArms[P.recording]
-      a.seconds = a.seconds + elapsed
-      a.frames  = a.frames + 1
-    else
-      closeWindow()
-    end
-  end
-
-  --- Begin an experiment. Samples nothing until a window is armed with Measure().
-  function P.Start(label)
-    P.Reset()
-    P.label = label or false
-    P.run = true
-    P.armed, P.recording = false, false
-    P.on = false
-    -- Lifecycle lines are never gated behind a host debug flag, unlike a host's own debug logging
-    -- (that gate exists to keep the host quiet while idle). A perf run is explicit user action, so
-    -- a user who started a run should not have to have debug logging enabled first to see it working.
-    P.context = P.Context()
-    P.Log("run started \226\128\148 %s", P.label or "unlabeled")
-    for _, line in ipairs(P.ContextLines(P.context)) do P.Log(line) end
-    local s = ensureSampler()
-    if s then
-      s:SetScript("OnUpdate", onUpdate)
-      s:Show()
-    end
-    publishState()
-  end
-
-  --- Arm a measurement window. Returns the arm name, or nil plus the offending token.
-  ---
-  --- Re-arming a window that already has data ZEROES it first, so a botched pull can simply be redone
-  --- with the same command instead of silently averaging into the previous attempt.
-  function P.Measure(token)
-    if not P.run then return nil, "no experiment" end
-    local arm = P.EXPERIMENTS[tostring(token or ""):lower()]
-    if not arm then return nil, "unknown window" end
-
-    if P.recording then closeWindow() end
-
-    -- The suspend state IS the independent variable, so it is set here rather than left to the
-    -- user: window B with the host still running would look like a null result.
-    if arm == "suspended" then P.Suspend() else P.Resume() end
-
-    fpsArms[arm].seconds, fpsArms[arm].frames = 0, 0
-    completed[arm] = false          -- re-arming redoes the step, so it is no longer done
-    P.armed = arm
-    stopwatch("reset")
-    P.Log("experiment %s armed (addon %s) \226\128\148 waiting for combat",
-        P.LABELS[arm] or arm, arm == "suspended" and "SUSPENDED" or "active")
-    publishState()
-    return arm
-  end
-
-  --- End the experiment and hand back the assembled record. Detaches the sampler so the OnUpdate cost
-  --- goes away entirely rather than idling.
-  ---
-  --- DOES NOT RESUME. If Experiment B ran, the host is still inert when this returns, and a Stop()
-  --- with no Resume() after it leaves the addon dead until a /reload. That is deliberate rather than
-  --- an oversight: SUBS.finish resumes BEFORE it saves, so an error in Save or FormatReport cannot
-  --- strand the host — and it can only order it that way if Stop() leaves the suspend state alone.
-  --- A host driving this API directly instead of through OnCommand owns the matching Resume().
-  function P.Stop()
-    if P.recording then closeWindow() end
-    P.run = false
-    P.armed = false
-    P.on = false
-    stopwatch("pause")
-    P.Log("run finished \226\128\148 A %s / %s frames, B %s / %s frames",
-        ("%.1fs"):format(fpsArms.active.seconds), fpsArms.active.frames,
-        ("%.1fs"):format(fpsArms.suspended.seconds), fpsArms.suspended.frames)
-    if sampler then
-      sampler:SetScript("OnUpdate", nil)
-      sampler:Hide()
-    end
-    publishState()
-    return P.BuildRecord(P.label)
-  end
-
-  --- Abandon a run. Everything measured is discarded — nothing is saved to the ring — the host is
-  --- restored, and the counters are zeroed so the next Start() begins clean.
-  ---
-  --- Deliberately does NOT go through closeWindow(): that marks the experiment completed and announces
-  --- it ENDED, which would be a lie about a run being thrown away.
-  function P.Cancel()
-    if not (P.run or P.armed or P.recording) then return false end
-
-    P.run, P.armed, P.recording = false, false, false
-    P.on = false
-    stopwatch("pause")
-    if sampler then
-      sampler:SetScript("OnUpdate", nil)
-      sampler:Hide()
-    end
-    -- Restore before zeroing: Resume() lets the host republish its own state, and that needs to
-    -- happen whatever else follows.
-    if P.suspended then P.Resume() end
-    P.Reset()
-    P.label = false
-    -- The context stamp goes with the run it described. Left standing, a `perf report` after a
-    -- cancel prints empty buckets wearing the discarded run's character, realm and zone — a record
-    -- that looks like a capture of somewhere nobody measured.
-    P.context = nil
-    P.Log("run CANCELED \226\128\148 measurements discarded, nothing saved")
-    publishState()
-    return true
-  end
-
-  -- ── Suspend / resume ─────────────────────────────────────────────────────────────────────
-  --
-  -- TWO HOLDS ON ONE LATCH, and this arm owns exactly one of them. The host owns what "inert"
-  -- means — its `standDown` is what these two reach, through the latch — and this module owns only
-  -- when the `perf` hold is taken and when it is given back. It keeps NO suspended boolean: the
-  -- latch's answer is the answer, because the session where the player disables the addon halfway
-  -- through a capture is the session where a second boolean and the latch disagree, and whichever
-  -- was written last decides whether the addon comes back.
-  --
-  -- Two rules the host contract depends on, both learned the hard way and both documented in the
-  -- README:
-  --
-  --   * Suspend MUST make the addon inert WITHOUT a reload. Reloading or disabling an addon shifts
-  --     shared-frame ownership, which is the confound that makes the built-in Addon Profiler
-  --     useless for this question.
-  --   * Visibility MUST be enforced at the source — a `perf.suspended` check inside the host's own
-  --     show-decision — rather than by imperatively hiding frames here. Otherwise a combat
-  --     transition, a target swap or a settings change re-shows a bar behind suspend's back.
-
-  function P.Suspend()
-    if lc:IsHeld(HOLD) then return false end
-    P.Log("addon SUSPENDED \226\128\148 inert")
-    -- Taking the hold is what runs the host's teardown, and only if this is the FIRST hold. An
-    -- addon the player has already disabled is already inert, so Experiment B measures exactly what
-    -- it means to measure and nothing is torn down twice.
-    lc:Hold(HOLD)
-    return true
-  end
-
-  --- Release the perf hold. NOT a stand-up: whether the addon actually comes back is the latch's
-  --- decision, not this module's, and it says no while `disabled` is still taken. The log line
-  --- follows the answer rather than announcing a restore that did not happen — a player reading
-  --- "events and frames restored" over an addon that is still off has been told the opposite of
-  --- what occurred, and will go looking for the bug in the wrong addon.
-  function P.Resume()
-    if not lc:IsHeld(HOLD) then return false end
-    if lc:Release(HOLD) then
-      P.Log("addon RESUMED \226\128\148 events and frames restored")
-    else
-      P.Log("perf hold RELEASED \226\128\148 the addon stays down, another hold is still taken")
-    end
-    return true
-  end
-
-  -- ── Command surface ──────────────────────────────────────────────────────────────────────
-  --
-  -- The lib MUST NOT register a slash command of its own — the Ka0s standard mandates schema-driven
-  -- dispatch through each addon's own COMMANDS table, and third-party hosts do not use that pattern
-  -- at all. What the lib supplies is behavior and help text; the host owns its slash surface and
-  -- decides how `perf` is reached. OnCommand returns lines rather than printing them, which is also
-  -- what lets a panel click and a typed command run the identical code path.
-
-  --- Help text for the host to print. Returned rather than printed, so a host can fold it into its
-  --- own help output however it likes.
-  function P.Usage()
-    local s = P.slash
-    -- ONE ROW PER VERB, through lib.FormatRow -- the same formatter the slash-command help uses,
-    -- which is why that block reads cleanly and this one did not. It hand-aligned a second column
-    -- with leading spaces and pushed the rest of each description onto a continuation line; chat is
-    -- a PROPORTIONAL font and wraps on its own, so the columns never lined up and the continuations
-    -- arrived as orphaned fragments under the wrong verb.
-    --
-    -- THE PIPES ARE DOUBLED, and that is a real bug rather than tidiness. `<...|cancel|report|...>`
-    -- put `|r` in a chat string, which the client reads as a color RESET and removes -- the words
-    -- fused into "canceleport", `show|hide|toggle` lost `|h` and `|t` the same way, and the eaten
-    -- reset left the whole line gold because the run it was meant to close never closed. `||` is
-    -- the escape for a literal pipe.
-    -- Reached through LibStub rather than duplicated: the Slash major's API document calls
-    -- FormatRow "the one command-row formatter in the collection", and a second copy here would
-    -- make that sentence false. Optional, in the idiom this file already uses for Core -- and
-    -- degrading to an uncolored row rather than to a second gold format, because a duplicate that
-    -- only appears when a library is missing is still a duplicate.
-    local slash = LibStub and LibStub("LibKa0s-Slash-1.0", true)
-    local row = (slash and slash.FormatRow)
-      or function(c, dsc) return ("%s \226\128\148 %s"):format(tostring(c), tostring(dsc)) end
-    return {
-      ("usage: |cFFFFFF00%s perf <start||measure||finish||cancel||report||show||hide||toggle>|r")
-        :format(s) .. " \226\128\148 or just click the panel",
-      "  " .. row("start [label]",
-        "begin a run; zeroes the counters and records who and where you are"),
-      "  " .. row("measure a",
-        "arm Experiment A, addon ACTIVE \226\128\148 records only while combat lasts"),
-      "  " .. row("measure b",
-        "arm Experiment B \226\128\148 the same, with the addon suspended first"),
-      "  " .. row("finish",
-        ("end the run and save it to %s; prints nothing, and `/reload` flushes it"):format(d.sv)),
-      "  " .. row("cancel",
-        "abandon a run in flight \226\128\148 discards it unsaved and restores the addon"),
-      "  " .. row("report",
-        "print the summary and the JSON line to copy; opens the log window if hidden"),
-      "  " .. row("show / hide / toggle",
-        "the step panel \226\128\148 hiding it never touches the run"),
-    }
-  end
-
-  -- Sub-verb handlers, one entry each. A dispatch table rather than an if/elseif ladder: the ladder
-  -- form measured CCN 24 under `lizard`, the worst in the addon this was extracted from, purely
-  -- from the shape of the dispatch. Each handler here is CCN 1-3 and reads on its own.
-  --
-  -- Handlers take (out, rest) and append chat lines to `out`. Returning lines rather than printing
-  -- them is what lets the host own its output — and is why the lib needs no chat frame of its own.
-  local SUBS = {}
-
-  -- `rest` is the free text after the sub-verb: an optional capture label. Captures accumulate in a
-  -- ring across sessions, so an auto-timestamp alone makes two runs from the same afternoon
-  -- near-impossible to tell apart when reading the SavedVariables file later. A supplied label is
-  -- appended to the timestamp, never replaces it.
-  function SUBS.start(out, rest)
-    local stamp = date and date("%Y-%m-%d %H:%M") or "capture"
-    local label = (rest or ""):match("^%s*(.-)%s*$")
-    P.Start(label ~= "" and (stamp .. " " .. label) or stamp)
-    P.Announce("perf run |cff40ff40STARTED|r \226\128\148 %s", P.label or "unlabeled")
-    for _, line in ipairs(P.ContextLines(P.context)) do out[#out + 1] = line end
-    showLog()
-    -- The clickable equivalent of the steps just printed. Chat scrolls away the moment combat
-    -- starts; the panel does not.
-    P.ShowPanel()
-  end
-
-  function SUBS.measure(out, rest)
-    local token = (rest or ""):match("^(%S*)")
-    local armName, err = P.Measure(token)
-    if not armName then
-      if err == "no experiment" then
-        out[#out + 1] = ("start one first \226\128\148 `%s perf start`"):format(P.slash)
-      else
-        out[#out + 1] = ("unknown window '%s' \226\128\148 use `measure a` or `measure b`")
-          :format(token ~= "" and token or "?")
-      end
-      return
-    end
-    out[#out + 1] = ("Experiment |cFFFFFF00%s|r |cffffff00ARMED|r (%s) \226\128\148 recording starts "
-      .. "when combat does, and ends when combat does"):format(token:upper(),
-      armName == "suspended" and "addon |cffff4040SUSPENDED|r" or "addon |cff40ff40active|r")
-  end
-
-  function SUBS.show()   P.ShowPanel()   end
-  function SUBS.hide()   P.HidePanel()   end
-  function SUBS.toggle() P.TogglePanel() end
-
-  function SUBS.cancel(out)
-    if not P.Cancel() then
-      out[#out + 1] = "no perf run to cancel"
-      return
-    end
-    out[#out + 1] = "perf run |cffcc5252CANCELED|r \226\128\148 nothing saved"
-  end
-
-  function SUBS.finish(out)
-    if not P.run then
-      out[#out + 1] = ("no perf run is active \226\128\148 `%s perf start`"):format(P.slash)
-      return
-    end
-    local record = P.Stop()
-    -- RELEASE THE PERF HOLD BEFORE SAVING OR FORMATTING (performance-§6). Experiment B leaves the
-    -- hold taken, and with no manual resume verb the only other way back is a /reload — so a raise
-    -- inside Save or FormatReport must not be able to strand the hold for the rest of the session.
-    -- Ordering is what guarantees that, not a pcall: by the time anything below can fail, the hold
-    -- is already gone and the latch has already decided whether the addon stands up.
-    --
-    -- Whether it DID stand up is the latch's answer, and the line follows it. A run finished on an
-    -- addon the player disabled mid-capture releases `perf`, keeps `disabled`, and stays down;
-    -- announcing "restored" there would be the bare stand-up the latch exists to prevent, written
-    -- as chat text.
-    if P.suspended then
-      P.Resume()
-      out[#out + 1] = (not lc:IsDown())
-        and "addon |cff40ff40RESUMED|r \226\128\148 restored"
-        or "perf hold |cffffff00RELEASED|r \226\128\148 the addon stays down"
-    end
-    P.Save(record)
-    -- Deliberately does NOT print the summary. `finish` fires the moment a fight ends, when the log
-    -- is buried under combat output and the numbers scroll past unread.
-    P.Announce("perf run |cffff4040FINISHED|r \226\128\148 saved; `Report` or `Dump` in the panel "
-      .. "to read it, `/reload` to flush it to SavedVariables")
-  end
-
-  -- ONE STEP, TWO ARTIFACTS. `dump` was a verb and a panel step of its own until 2026-09-09. Both
-  -- halves go to the same log, both describe the same finished run, and the perf-analysis workflow
-  -- asks for BOTH -- so splitting them was a second click, a second thing to remember, and a run
-  -- reported without its dump was the easy mistake to make.
-  --
-  -- The summary first and the JSON last, deliberately: the summary is what a person reads and the
-  -- JSON is what they copy, and a copy-paste starts at the bottom of the window.
-  function SUBS.report()
-    showLog()
-    local record = P.BuildRecord(P.label)
-    for _, line in ipairs(P.FormatReport(record)) do P.Log(line) end
-    P.Log(lib.EncodeJSON(record))
-    P.MarkReviewed("report")
-  end
-
-  --- Phase summary plus the usage. Bare `<slash> perf` IS the entry point: the panel's first row
-  --- starts a run, so this is how someone who remembers one command reaches all of them.
-  function P.StatusLines()
-    local phase = "|cffff4040stopped|r"
-    if P.recording then
-      phase = ("|cff40ff40SAMPLING window %s|r"):format(P.recording)
-    elseif P.armed then
-      phase = ("|cffffff00window %s armed|r \226\128\148 waiting for combat"):format(P.armed)
-    elseif P.run then
-      phase = "|cffffff00run active|r \226\128\148 no experiment armed"
-    end
-    local out = { ("perf %s, addon %s"):format(phase,
-      P.suspended and "|cffff4040SUSPENDED|r" or "|cff40ff40active|r") }
-    for _, line in ipairs(P.Usage()) do out[#out + 1] = line end
-    return out
-  end
-
-  --- Run one perf sub-command. `args` is everything after the host's own `perf` verb. Returns the
-  --- chat lines the host should print — never nil, so a caller can always ipairs() the result.
-  function P.OnCommand(args)
-    args = tostring(args or "")
-    -- A panel row hands back its full command ("perf measure a"); a slash handler hands back only
-    -- what followed its own verb. Accept both so the two paths cannot diverge.
-    args = args:gsub("^%s*perf%s*", "")
-    local sub = (args:match("^(%S*)") or ""):lower()
-    local handler = SUBS[sub]
-    if not handler then
-      P.ShowPanel()
-      return P.StatusLines()
-    end
-    local out = {}
-    handler(out, args:match("^%S*%s+(.*)$"))
-    return out
-  end
-
+  -- In LibKa0s/PerfSampler.lua since Perf minor 14 (issue #7): the Shape B brackets, the
+  -- measurement windows, the FPS sampler, P.Start through P.Cancel, and P.Suspend / P.Resume. In
+  -- LibKa0s/PerfCommands.lua: P.Usage, the sub-verb handlers, P.StatusLines and P.OnCommand. A
+  -- payload without either file still answers every command, with one line naming it, so a host's
+  -- slash layer and the panel's click path never meet a nil (installPeers).
+  resetOpenDepth = installPeers(P, {
+    d = d, showLog = showLog, publishState = publishState, hold = HOLD,
+    arms = function() return fpsArms end,
+    completed = function() return completed end,
+  })
   -- No-panel fallbacks: a host can call or index these unconditionally, whether or not PerfPanel.lua
   -- was loaded alongside this file. lib.__AttachPanel overwrites every one of them when it runs.
   P.ShowPanel     = function() end

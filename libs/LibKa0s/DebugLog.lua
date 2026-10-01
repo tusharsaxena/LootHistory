@@ -34,7 +34,7 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 18
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 19
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -367,6 +367,18 @@ end
 
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
 
+-- lib:New's descriptor reads, out of its closure (CCN 27 sighted, WowAddonStandards#6). Same defaults.
+local function field(v, kind, fallback) if type(v) == kind then return v end return fallback end
+local function nonEmpty(v) if type(v) == "string" and v ~= "" then return v end return nil end
+local function chatPrint(line) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(line) end end
+local function checkDescriptor(d)
+  for _, key in ipairs({ "name", "title", "font", "isEnabled", "setEnabled" }) do
+    local wanted = (key == "isEnabled" or key == "setEnabled") and "function" or "string"
+    if type(d[key]) ~= wanted then error(MAJOR .. ":New requires descriptor." .. key .. " (a " .. wanted .. ")", 3) end
+  end
+  return d
+end
+
 --- Build a console for one host.
 ---
 --- Descriptor:
@@ -431,23 +443,13 @@ end
 ---   onClear     function  optional, minor 18. Called by `D:Clear()` after the wipe, pcall'd (a
 ---                         raise costs one line), so a host re-arms its own change gates.
 function lib:New(d)
-  d = type(d) == "table" and d or {}
-  for _, field in ipairs({ "name", "title", "font", "isEnabled", "setEnabled" }) do
-    local wanted = (field == "isEnabled" or field == "setEnabled") and "function" or "string"
-    if type(d[field]) ~= wanted then
-      error(MAJOR .. ":New requires descriptor." .. field .. " (a " .. wanted .. ")", 2)
-    end
-  end
-
-  local fontSize    = type(d.fontSize) == "number" and d.fontSize or DEFAULT_FONT_SIZE
-  local safeToString = type(d.safeToString) == "function" and d.safeToString or core.SafeToString
-  local skin        = type(d.skin) == "table" and d.skin or core.SKIN
-  local slash       = type(d.slash) == "string" and d.slash ~= "" and d.slash or nil
-  local strings     = type(d.L) == "table" and d.L or nil
-
-  local emit = type(d.print) == "function" and d.print or function(line)
-    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(line) end
-  end
+  d = checkDescriptor(field(d, "table", {}))
+  local fontSize    = field(d.fontSize, "number", DEFAULT_FONT_SIZE)
+  local safeToString = field(d.safeToString, "function", core.SafeToString)
+  local skin        = field(d.skin, "table", core.SKIN)
+  local slash       = nonEmpty(d.slash)
+  local strings     = field(d.L, "table", nil)
+  local emit        = field(d.print, "function", chatPrint)
 
   -- Per-instance state. The console frame and the copy window are built lazily and separately: a
   -- host may copy a buffer it never opened a window on, and the console may be open when nobody
@@ -495,7 +497,7 @@ function lib:New(d)
   --
   -- It is handed the fully-built frame, so `frame.title` and `frame.divider` are already assigned
   -- and a host's existing "tint whatever this window has" helper works unmodified.
-  local applySkin = type(d.applySkin) == "function" and d.applySkin or defaultApplySkin
+  local applySkin = field(d.applySkin, "function", defaultApplySkin)
 
   -- The x. Defaults to Core's, through the same forwarder `lib.MakeCloseButton` uses, so a host
   -- that says nothing still tracks a Core upgraded underneath an unchanged DebugLog.
@@ -505,8 +507,7 @@ function lib:New(d)
   -- that all their windows should match, and ended up with diagnostic windows that matched their
   -- own addon and no other. These windows are the LIBRARY's; the edge is shared across every
   -- Ka0s window (Core.SKIN) but the close control on a library window is the library's.
-  local makeCloseButton = type(d.makeCloseButton) == "function" and d.makeCloseButton
-    or lib.MakeCloseButton
+  local makeCloseButton = field(d.makeCloseButton, "function", lib.MakeCloseButton)
 
   local function dragBar(parent, height)
     local bar = CreateFrame("Frame", nil, parent)

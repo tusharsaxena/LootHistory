@@ -156,7 +156,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:17`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:255`), which also rewrites the one module-level `gateCfg` table
+  (`modules/Collector.lua:266`), which also rewrites the one module-level `gateCfg` table
   (`modules/Collector.lua:26`) the handler passes to `ShouldRecord` — a loot line sets only
   `gateCfg.itemID`, never builds a config table. The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
@@ -208,8 +208,10 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### File size cap
 
 - Source files are capped at **1500 LOC** (Ka0s standard layout-§1). The browser is deliberately split
-  three ways to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table),
-  `Analytics.lua` (Insights) — the largest, `Browser.lua`, sitting near ~1270 lines.
+  to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table), and the
+  Insights tab in three: `AnalyticsFormat.lua` (pure helpers), `Analytics.lua` (cards, refresh,
+  layout) and `AnalyticsCharts.lua` (widget factories and renderers) — the largest, `Browser.lua`,
+  sitting at 1330 lines.
 
 ### Media: the shared LibKa0s payload, then Blizzard defaults
 
@@ -244,7 +246,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:72`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:22`, drawn at `:856`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:22`, drawn at `:888`) — branding art, not a re-skinnable surface.
 - **Nineteen hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
@@ -257,7 +259,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
   | # | Class | Where |
   |---|---|---|
-  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:174`, `modules/Analytics.lua:11`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:296` |
+  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:174`, `modules/AnalyticsFormat.lua:12`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1127`, `modules/Export.lua:322` |
   | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1097`, `:1098`, `settings/Panel.lua:540`, `:529`, `:530` |
   | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `modules/Browser.lua:1064`, `:1065` (the corner grabber, reasoned at `:1058-1063`), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
@@ -295,7 +297,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1112`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1132`), whose combat refusal lives in the library
   (`libs/LibKa0s/OptionsRegistry.lua:254`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow`, `libs/LibKa0s/Options.lua:593`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas

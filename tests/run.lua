@@ -70,7 +70,7 @@ local SUITES = {
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
   "test_launcher", "test_slash", "test_slash_degraded",
-  "test_schema", "test_schema_stub", "test_analytics", "test_panel", "test_panel_filters",
+  "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_panel", "test_panel_filters", "test_panel_auction",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",
@@ -116,6 +116,10 @@ local SUITES = {
   -- report, run against this addon's own dispatcher through Kit.diagnostics (set below), including
   -- the run turning logging on for the session.
   { name = "test_diagnostics_contract", dir = "tests/_kit/" },
+  -- The kit's sighted-complexity gate (revision 35, automated-tests-3): pins lizard_sighted.lua,
+  -- the sanitizer the runner's complexity suite measures through, so a blind spot in lizard's Lua
+  -- reader cannot hide a function. It reads no addon state, so it wants no particular slot.
+  { name = "test_lizard_sighted", dir = "tests/_kit/" },
   -- Last on purpose: its close-path cases build and show the History window, which attaches
   -- BrowserTable to a mock that has no FauxScrollFrame_* globals. Nothing after it may assume an
   -- unbuilt window.

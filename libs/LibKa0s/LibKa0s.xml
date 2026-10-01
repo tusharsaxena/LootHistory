@@ -9,11 +9,13 @@
 	<Script file="Item.lua"/>
 	<Script file="Media.lua"/>
 	<Script file="Widgets.lua"/>
+	<Script file="WidgetsReorder.lua"/>
 	<Script file="WidgetsDragHandle.lua"/>
 	<Script file="DebugLog.lua"/>
 	<Script file="DebugLogDiagnostics.lua"/>
 	<Script file="DebugLogGates.lua"/>
 	<Script file="Slash.lua"/>
+	<Script file="SlashParse.lua"/>
 	<Script file="Launcher.lua"/>
 	<Script file="Options.lua"/>
 	<Script file="OptionsRegistry.lua"/>
@@ -26,5 +28,7 @@
 	<Script file="OptionsScroll.lua"/>
 	<Script file="OptionsNav.lua"/>
 	<Script file="Perf.lua"/>
+	<Script file="PerfSampler.lua"/>
+	<Script file="PerfCommands.lua"/>
 	<Script file="PerfPanel.lua"/>
 </Ui>
