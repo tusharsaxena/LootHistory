@@ -246,7 +246,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.ApplySkin` (`modules/Browser.lua:72`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:22`, drawn at `:856`) — branding art, not a re-skinnable surface.
+  (`LOGO_PATH`, `settings/Panel.lua:22`, drawn at `:888`) — branding art, not a re-skinnable surface.
 - **Nineteen hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
@@ -297,7 +297,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1112`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1132`), whose combat refusal lives in the library
   (`libs/LibKa0s/OptionsRegistry.lua:254`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow`, `libs/LibKa0s/Options.lua:593`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas

@@ -655,16 +655,10 @@ local function cancelReorder(ctx)
   if list then list:Cancel() end
 end
 
--- Re-partition the tags into three groups and repaint the reused row slots. Group order (each keeps
--- the natural priority-array order within it): Collecting → Not collecting → Addon not installed.
--- Only the Collecting group (top) is draggable, and `boundary` is what stops a drag leaving it.
-local function refreshAuctionTable(ctx)
-  local rows = ctx._priRows
-  if not rows then return end
-  local hf = ctx._priHost
-  local priority = NS.AuctionPrice:ReconcilePriority()
-  local capture = NS.db.profile.settings.auction.capture or {}
-
+-- The tags in display order: Collecting → Not collecting → Addon not installed, each group keeping
+-- the natural priority-array order within it. Also hands back the collecting group, whose display
+-- slots 1..#collecting are the draggable ones and whose indices a drag's onMove speaks in.
+local function partitionTags(priority, capture)
   local collecting, notCollecting, notInstalled = {}, {}, {}
   for _, tag in ipairs(priority) do
     local prov = tag:match("^(.-):")
@@ -676,6 +670,62 @@ local function refreshAuctionTable(ctx)
   for _, t in ipairs(collecting)    do order[#order + 1] = t end
   for _, t in ipairs(notCollecting) do order[#order + 1] = t end
   for _, t in ipairs(notInstalled)  do order[#order + 1] = t end
+  return order, collecting
+end
+
+-- A source's Status cell: its text and its color.
+local function auctionStatus(avail, on)
+  if not avail then return "Addon not installed", STATUS_RGB.notinstalled end
+  if on then return "Collecting data", STATUS_RGB.collecting end
+  return "Not collecting data", STATUS_RGB.notcollecting
+end
+
+-- Repaint one reused row slot for `tag`.
+local function paintAuctionRow(r, tag, capture)
+  local prov = tag:match("^(.-):")
+  local avail = NS.AuctionPrice:IsProviderAvailable(prov)
+  local on = capture[tag] and true or false
+  local live = on and avail          -- collecting right now
+  r._tag = tag
+
+  r.tick:SetText(live and TICK_ON or TICK_OFF)
+
+  -- Addon name: no per-provider color any more — just near-white, dimmed when inactive.
+  r.addon:SetText(providerNameOf(tag))
+  local ag = live and 0.86 or 0.5
+  r.addon:SetTextColor(ag, ag, ag)
+
+  local mg = live and 0.9 or 0.5
+  r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(mg, mg, mg)
+  -- ⓘ trails the Price Module text with a small gap (per-row, since the text width varies).
+  local mw = r.module:GetStringWidth() or 0
+  r.info:ClearAllPoints()
+  r.info:SetPoint("LEFT", r.frame, "LEFT", r._gutter + ACOL.module + mw + 6, 0)
+
+  local text, sc = auctionStatus(avail, on)
+  r.status:SetText(text)
+  r.status:SetTextColor(sc[1], sc[2], sc[3])
+
+  local tint = live and 1 or 0.55
+  r.info.tex:SetVertexColor(tint, tint, tint)
+
+  -- Enabled box: checked only when actually collecting (an uninstalled source reads unchecked),
+  -- and non-interactive when the addon isn't present.
+  r.check:SetValue(live)
+  r.check:SetDisabled(not avail)
+end
+
+-- Re-partition the tags into three groups and repaint the reused row slots. Only the Collecting
+-- group (top) is draggable, and `boundary` is what stops a drag leaving it. The partition, the row
+-- paint and the status cell are the helpers above (GI-LH-02: this was one function at CCN 36 once
+-- lizard could see it); tests/test_panel_auction.lua pins every row's paint.
+local function refreshAuctionTable(ctx)
+  local rows = ctx._priRows
+  if not rows then return end
+  local hf = ctx._priHost
+  local priority = NS.AuctionPrice:ReconcilePriority()
+  local capture = NS.db.profile.settings.auction.capture or {}
+  local order, collecting = partitionTags(priority, capture)
   local nActive = #collecting
 
   -- A repaint is a NEW controller: it holds the rows of the pass that built it (the library says so
@@ -698,37 +748,7 @@ local function refreshAuctionTable(ctx)
 
   for i, tag in ipairs(order) do
     local r = rows[i]
-    local prov = tag:match("^(.-):")
-    local avail = NS.AuctionPrice:IsProviderAvailable(prov)
-    local on = capture[tag] and true or false
-    local live = on and avail          -- collecting right now
-    r._tag = tag
-
-    r.tick:SetText(live and TICK_ON or TICK_OFF)
-
-    -- Addon name: no per-provider color any more — just near-white, dimmed when inactive.
-    r.addon:SetText(providerNameOf(tag))
-    local ag = live and 0.86 or 0.5
-    r.addon:SetTextColor(ag, ag, ag)
-
-    local mg = live and 0.9 or 0.5
-    r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(mg, mg, mg)
-    -- ⓘ trails the Price Module text with a small gap (per-row, since the text width varies).
-    local mw = r.module:GetStringWidth() or 0
-    r.info:ClearAllPoints()
-    r.info:SetPoint("LEFT", r.frame, "LEFT", r._gutter + ACOL.module + mw + 6, 0)
-
-    local sc = (not avail) and STATUS_RGB.notinstalled
-      or (on and STATUS_RGB.collecting or STATUS_RGB.notcollecting)
-    r.status:SetText((not avail) and "Addon not installed" or (on and "Collecting data" or "Not collecting data"))
-    r.status:SetTextColor(sc[1], sc[2], sc[3])
-
-    r.info.tex:SetVertexColor(live and 1 or 0.55, live and 1 or 0.55, live and 1 or 0.55)
-
-    -- Enabled box: checked only when actually collecting (an uninstalled source reads unchecked),
-    -- and non-interactive when the addon isn't present.
-    r.check:SetValue(live)
-    r.check:SetDisabled(not avail)
+    paintAuctionRow(r, tag, capture)
 
     -- Registered in DISPLAY order, every row, draggable or not: an inert row is still a place a drag
     -- can LAND, still counts for the index arithmetic, and still wants the bounded box — a stack
