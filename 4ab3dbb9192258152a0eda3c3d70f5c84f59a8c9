@@ -1,0 +1,1 @@
+OK GI-LH-02 — all five sighted CCN>15 functions now <=15 (suite max 15, 0 warnings); refactors behaviour-equivalent (HEAD tests green on pre-refactor modules, mutations in each area turn 7 characterization cases red); doc citations re-pointed
