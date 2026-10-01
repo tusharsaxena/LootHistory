@@ -763,7 +763,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (62)
+### test_analytics.lua (63)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -827,6 +827,16 @@ badge and any count quoted in the docs must agree with it.
 - Analytics._truncate: a nil label becomes an empty string
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
+- Analytics: the module's function surface is exactly the published one
+
+### test_analytics_layout.lua (6)
+
+- Insights layout: the fixtures exercise the branches they are meant to
+- Insights layout: a full pass over items and currency matches the golden snapshot
+- Insights layout: a second pass re-acquires the same widgets and draws the same thing
+- Insights layout: items with no value and no currency, over a trimmed day range
+- Insights layout: an empty range hides every chart and shows the empty text
+- Insights layout: a nil stats table takes the empty branch too
 
 ### test_panel.lua (43)
 
@@ -1175,7 +1185,8 @@ badge and any count quoted in the docs must agree with it.
 | test_slash_degraded.lua | 14 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 62 |
+| test_analytics.lua | 63 |
+| test_analytics_layout.lua | 6 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_profiles.lua | 28 |
@@ -1194,4 +1205,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1020** |
+| **Total** | **1027** |

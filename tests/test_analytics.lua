@@ -428,13 +428,43 @@ test("Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis", f
   assertEqual(#text, 9 + 3, "9 kept characters + the 3-byte ellipsis")
 end)
 
+-- Every file of the Insights module, read off the TOC rather than listed here, so a file split out
+-- of modules/Analytics.lua (LootHistory#32) is scanned the day it lands.
+local function analyticsFiles()
+  local files = {}
+  for _, path in ipairs(T.addonFiles) do
+    if path:match("^modules/Analytics[%w]*%.lua$") then files[#files + 1] = path end
+  end
+  return files
+end
+
 test("Analytics: every pool goes through the LibKa0s seam", function()
   -- The same guard the published-helper case used to be, against the new shape. A pool built from
   -- a literal is a pool the seam never sees, and a second local releaseAll is a second chance to
   -- leak — neither is visible from any behavioral assertion in this suite.
-  local source = io.open("modules/Analytics.lua"):read("*a")
-  local _, literals = source:gsub("{%s*free%s*=%s*{}%s*,%s*active%s*=%s*{}%s*}", "")
-  assertEqual(literals, 0, "a hand-built pool literal is a pool the seam never sees")
-  local _, locals = source:gsub("local function releaseAll", "")
-  assertEqual(locals, 0, "the local helpers are gone")
+  local files = analyticsFiles()
+  assertTrue(#files >= 1, "the TOC names modules/Analytics.lua")
+  for _, path in ipairs(files) do
+    local source = io.open(path):read("*a")
+    local _, literals = source:gsub("{%s*free%s*=%s*{}%s*,%s*active%s*=%s*{}%s*}", "")
+    assertEqual(literals, 0, path .. ": a hand-built pool literal is a pool the seam never sees")
+    local _, locals = source:gsub("local function releaseAll", "")
+    assertEqual(locals, 0, path .. ": the local helpers are gone")
+  end
+end)
+
+test("Analytics: the module's function surface is exactly the published one", function()
+  -- Pinned before modules/Analytics.lua was split three ways (LootHistory#32): every caller -- the
+  -- Browser, the stand-down, this suite -- reaches the module through these names, so a split or a
+  -- refactor that drops, renames or adds one is a surface change, not a move.
+  local want = { "Attach", "BuildCharts", "Disable", "Enable", "HideAllCharts", "Layout",
+    "LayoutCharts", "Refresh", "ResetRenderTrace", "SummaryLine", "UpdateCards",
+    "_buildCharStackRows", "_charStackSegments", "_classColor", "_dayKeyList", "_fitFontSize",
+    "_money", "_paletteMap", "_qualityColor", "_shortChar", "_shortDay", "_sortedByCount",
+    "_tipText", "_truncate", "paletteColor", "renderBarSection", "renderCharCompanion",
+    "renderLegend", "renderListPanel", "renderStackedBarSection", "renderStrip" }
+  local got = {}
+  for k, v in pairs(A) do if type(v) == "function" then got[#got + 1] = k end end
+  table.sort(got)
+  assertEqual(table.concat(got, " "), table.concat(want, " "))
 end)
