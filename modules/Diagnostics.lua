@@ -286,22 +286,36 @@ local function boundRepair(out)
     g.boundRepairAttempts or 0, g.boundRepairRevision or "-")
 end
 
-local function browser(out)
-  local B, BT = NS.Browser, NS.BrowserTable
+-- The browser section is three line groups, one helper each (GI-LH-02: one function at CCN 18 once
+-- lizard could see it); tests/test_diagnostics.lua pins every branch.
+local function browserWindow(out)
+  local B = NS.Browser
   local w = B and B.GetWindow and B:GetWindow()
   out:add(TAG, "browser: window built=%s shown=%s locked=%s", yn(w), yn(w and w:IsShown()),
     yn(B and B.IsLocked and B:IsLocked()))
-  if BT then
-    out:add(TAG, "browser: sort %s %s, groupBy %s, matched %s, test records %s", BT.sortKey,
-      BT.sortAsc and "asc" or "desc", BT.groupBy, BT.matchCount or "-",
-      type(NS.State.testRecords) == "table" and #NS.State.testRecords or "-")
-  end
+end
+
+local function browserTable(out)
+  local BT = NS.BrowserTable
+  if not BT then return end
+  out:add(TAG, "browser: sort %s %s, groupBy %s, matched %s, test records %s", BT.sortKey,
+    BT.sortAsc and "asc" or "desc", BT.groupBy, BT.matchCount or "-",
+    type(NS.State.testRecords) == "table" and #NS.State.testRecords or "-")
+end
+
+local function browserSavedView(out)
   local p = profile()
   local view = p and type(p.savedView) == "table" and p.savedView or nil
   local keys = {}
   for k in pairs(view or {}) do keys[#keys + 1] = tostring(k) end
   table.sort(keys)
   if view then out:joined(TAG, "browser: saved view keys", keys) else out:add(TAG, "browser: saved view none") end
+end
+
+local function browser(out)
+  browserWindow(out)
+  browserTable(out)
+  browserSavedView(out)
 end
 
 local function launcher(out)
