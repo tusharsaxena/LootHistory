@@ -100,6 +100,44 @@ function Collector:RefreshUpvalues()
   gateCfg.blacklist, gateCfg.whitelist = blacklist, whitelist
 end
 
+-- Some loot lines are self-identifying: the line itself names the source (a bonus roll, a crafted
+-- "You create", a token/vendor refund), so we attribute it directly with CERTAIN confidence rather
+-- than reading the peripheral context — which by now may be stale or belong to an unrelated kill.
+-- Everything else consumes the stamped context (which a roll-won stamp may have set to ROLL).
+local function resolveLootSource(directSource)
+  if directSource then
+    return NS.Constants.SourceType[directSource], nil, NS.Constants.Confidence.CERTAIN
+  end
+  return NS.Attribution:Consume()
+end
+
+-- The [Drop] line for a loot line the gate refused. Builds nothing while logging is off.
+local function traceLootDrop(itemName, quality, classID, source, reason)
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Drop", "%s q%s class=%s src=%s reason=%s",
+      tostring(itemName), tostring(quality or 0), tostring(classID or "-"), tostring(source), tostring(reason))
+  end
+end
+
+-- The [Loot] line for a written record, then [AHPrice]: every gathered price, sorted, and the pick.
+-- Builds nothing while logging is off.
+local function traceLootRecorded(itemName, quality, itemLevel, source, confidence, auctionPrice)
+  if not (NS.State.debug and NS.Debug) then return end
+  NS.Debug("Loot", "%s q%s ilvl=%s src=%s conf=%s",
+    tostring(itemName), quality or 0, tostring(itemLevel or "-"), source, confidence)
+
+  local parts = {}
+  if auctionPrice then
+    for prov, sub in pairs(auctionPrice) do
+      for k, v in pairs(sub) do parts[#parts + 1] = prov .. ":" .. k .. "=" .. tostring(v) end
+    end
+  end
+  table.sort(parts)
+  local pp, ptag = NS.AuctionPrice:Pick(auctionPrice)
+  NS.Debug("AHPrice", "%s | gathered: %s | pick: %s(%s)", tostring(itemName),
+    (#parts > 0 and table.concat(parts, " ") or "none"), tostring(pp or "-"), tostring(ptag or "-"))
+end
+
 function Collector:OnChatMsgLoot(_, msg)
   -- A roll-won line ("You won: <item>") is not a receipt — the item arrives a moment later on its own
   -- "You receive loot:" line. Stamp ROLL context so that imminent line attributes to the roll rather
@@ -113,25 +151,12 @@ function Collector:OnChatMsgLoot(_, msg)
   if not link then return end
 
   local itemID, itemName, quality, classID = NS.Compat.GetItemInfo(link)
-  -- Some loot lines are self-identifying: the line itself names the source (a bonus roll, a crafted
-  -- "You create", a token/vendor refund), so we attribute it directly with CERTAIN confidence rather
-  -- than reading the peripheral context — which by now may be stale or belong to an unrelated kill.
-  -- Everything else consumes the stamped context (which a roll-won stamp above may have set to ROLL).
-  local source, sourceDetail, confidence
-  if directSource then
-    source, sourceDetail, confidence =
-      NS.Constants.SourceType[directSource], nil, NS.Constants.Confidence.CERTAIN
-  else
-    source, sourceDetail, confidence = NS.Attribution:Consume()
-  end
+  local source, sourceDetail, confidence = resolveLootSource(directSource)
 
   gateCfg.itemID = itemID
   local ok, reason = self:ShouldRecord(quality, source, classID, gateCfg)
   if not ok then
-    if NS.State.debug and NS.Debug then
-      NS.Debug("Drop", "%s q%s class=%s src=%s reason=%s",
-        tostring(itemName), tostring(quality or 0), tostring(classID or "-"), tostring(source), tostring(reason))
-    end
+    traceLootDrop(itemName, quality, classID, source, reason)
     return
   end
 
@@ -149,21 +174,7 @@ function Collector:OnChatMsgLoot(_, msg)
 
   NS.Database:Add(record)
 
-  if NS.State.debug and NS.Debug then
-    NS.Debug("Loot", "%s q%s ilvl=%s src=%s conf=%s",
-      tostring(itemName), quality or 0, tostring(itemLevel or "-"), source, confidence)
-
-    local parts = {}
-    if auctionPrice then
-      for prov, sub in pairs(auctionPrice) do
-        for k, v in pairs(sub) do parts[#parts + 1] = prov .. ":" .. k .. "=" .. tostring(v) end
-      end
-    end
-    table.sort(parts)
-    local pp, ptag = NS.AuctionPrice:Pick(auctionPrice)
-    NS.Debug("AHPrice", "%s | gathered: %s | pick: %s(%s)", tostring(itemName),
-      (#parts > 0 and table.concat(parts, " ") or "none"), tostring(pp or "-"), tostring(ptag or "-"))
-  end
+  traceLootRecorded(itemName, quality, itemLevel, source, confidence, auctionPrice)
 end
 
 -- The [Drop] line for a currency line refused before it names a currency. `reason` is a constant,

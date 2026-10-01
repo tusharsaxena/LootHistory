@@ -64,7 +64,7 @@ The reason: **CallbackHandler keys registered callbacks by `(message, target)`.*
 
 Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters tab) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters tab's live list rebuild):
 
-- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:254`).
+- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:265`).
 - Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1285`).
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:259`).
 - Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:153`) and the Filters tab's id-lists (`settings/Panel.lua:499`), each on its own target.
