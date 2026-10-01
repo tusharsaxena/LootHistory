@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 9
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 10
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -596,12 +596,15 @@ local function isUserPlaced(frame)
   return type(frame.IsUserPlaced) == "function" and frame:IsUserPlaced() == true
 end
 
-local function buildGrip(frame)
-  local grip = CreateFrame("Button", nil, frame)
+-- `parent` is the frame the grip is drawn on: the sized frame itself, or a host's `gripParent`
+-- (an art frame laid over a clean anchor). Its parent, anchor and level come from there; what is
+-- sized is decided by wireGrip, never here.
+local function buildGrip(parent)
+  local grip = CreateFrame("Button", nil, parent)
   grip:SetSize(GRIP_SIZE, GRIP_SIZE)
   -- Inside the 1px edge, so the grip does not sit on top of the border it belongs to.
-  grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
-  local level = type(frame.GetFrameLevel) == "function" and frame:GetFrameLevel()
+  grip:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -1, 1)
+  local level = type(parent.GetFrameLevel) == "function" and parent:GetFrameLevel()
   if type(level) == "number" then grip:SetFrameLevel(level + GRIP_LEVEL) end
   grip:EnableMouse(true)
   grip:SetNormalTexture(GRIP_ART.normal)
@@ -611,12 +614,16 @@ local function buildGrip(frame)
   return grip
 end
 
--- The two mouse handlers. Sizing that never started (a right-click, or a mouse-up that arrives
--- without a mouse-down) is not stopped, so a stray mouse-up cannot rewrite the user-placed flag.
-local function wireGrip(grip, frame, relayout)
+-- The two mouse handlers. Sizing that never started (a right-click, a mouse-down `canResize`
+-- refused, or a mouse-up that arrives without a mouse-down) is not stopped, so a stray mouse-up
+-- cannot rewrite the user-placed flag, and runs neither `relayout` nor `onStop`. `canResize` is
+-- asked at every mouse-down and never at mouse-up: a drag already under way finishes even if the
+-- answer flips while it lasts.
+local function wireGrip(grip, frame, relayout, canResize, onStop)
   local sizing, wasPlaced = false, false
   grip:SetScript("OnMouseDown", function(_, button)
     if button ~= nil and button ~= "LeftButton" then return end
+    if canResize and not canResize(frame) then return end
     wasPlaced = isUserPlaced(frame)
     sizing = true
     frame:StartSizing("BOTTOMRIGHT")
@@ -627,7 +634,18 @@ local function wireGrip(grip, frame, relayout)
     frame:StopMovingOrSizing()
     if type(frame.SetUserPlaced) == "function" then frame:SetUserPlaced(wasPlaced) end
     relayout(readSize(frame))
+    if onStop then onStop(readSize(frame)) end
   end)
+end
+
+-- The three callbacks in `opts`, each nil unless it is a function: a value of the wrong type is
+-- ignored rather than raised on, the same rule for all three.
+local function callbacksOf(opts)
+  local function fn(v)
+    if type(v) == "function" then return v end
+    return nil
+  end
+  return fn(opts.onResize), fn(opts.canResize), fn(opts.onResizeStop)
 end
 
 --- Make `frame` resizable from a grip in its bottom-right corner. Answers the grip, also kept as
@@ -642,6 +660,21 @@ end
 ---   onResize             function  function(width, height), run on mouse-up after sizing and on
 ---                                  every OnSizeChanged. Either argument may be nil where the
 ---                                  frame cannot say; relayout from the frame when it matters.
+---                                  It runs every size tick: relayout here, never persist.
+---   canResize            function  (minor 10) function(frame) -> truthy|falsy, read fresh at every
+---                                  left mouse-down. Falsy refuses: nothing starts and the next
+---                                  mouse-up is inert. A drag under way finishes even if the answer
+---                                  flips. It never touches the grip's visibility.
+---   onResizeStop         function  (minor 10) function(width, height), run once per mouse-up that
+---                                  ends a sizing the grip started, after onResize. Never from
+---                                  OnSizeChanged. Persist geometry here.
+---   gripParent           table     (minor 10) the frame the grip is built on, anchored to and
+---                                  leveled from; default `frame`. Sizing, bounds, the user-placed
+---                                  flag and `frame.resizeGrip` stay on `frame`.
+---
+--- A value of the wrong type for any of these is ignored. None of the callbacks is pcall'd: one that
+--- raises is a host bug and reaches the error handler. The grip is shown once, at build, and the
+--- library never hides it; a host that hides a locked grip owns that, and canResize is the gate.
 ---
 --- @param frame table
 --- @param opts table|nil
@@ -652,7 +685,8 @@ function lib.MakeResizable(frame, opts)
     return nil
   end
   opts = type(opts) == "table" and opts or {}
-  local onResize = type(opts.onResize) == "function" and opts.onResize or nil
+  local onResize, canResize, onStop = callbacksOf(opts)
+  local gripParent = type(opts.gripParent) == "table" and opts.gripParent or frame
   local function relayout(w, h)
     if onResize then onResize(w, h) end
   end
@@ -660,8 +694,8 @@ function lib.MakeResizable(frame, opts)
   frame:SetResizable(true)
   setBounds(frame, resolveBounds(frame, opts))
 
-  local grip = buildGrip(frame)
-  wireGrip(grip, frame, relayout)
+  local grip = buildGrip(gripParent)
+  wireGrip(grip, frame, relayout, canResize, onStop)
   -- Hooked, not set: a host may already own the window's OnSizeChanged.
   if type(frame.HookScript) == "function" then
     frame:HookScript("OnSizeChanged", function(_, w, h) relayout(w, h) end)

@@ -15,7 +15,9 @@ if not lib then return end
 
 -- Minor 1: the id list, moved here from OptionsWidgets.lua (issue #32) with no change in behavior.
 -- Minor 2: a toggle asks the lock once, naming the entry, so a refusal is one Cfg line (gap G3).
-local IDLIST_MINOR = 2
+-- Minor 3: the help mark takes the descriptor's addonName only when the client reports that addon
+-- loaded, and a fall past that rung writes one Cfg line saying why (LibKa0s#42).
+local IDLIST_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -238,12 +240,16 @@ function lib.__AttachIdList(O, d, ids)
   -- bargain Core.MakeCloseButton (Core.lua:239-242) and DebugLog's makeIconButton
   -- (DebugLog.lua:179-182) already strike for the same art. NOTHING IS COPIED ACROSS THE SEAM: this
   -- file names the major and asks, so a payload with Options and no Media is still a working
-  -- payload. See idHelpIcon for the ladder and what each rung answers.
+  -- payload. From minor 3 the name is CHECKED against the client's loaded addons before it is used,
+  -- because a wrong one builds a path to nothing, and a list that falls past it writes one Cfg line
+  -- through the descriptor's `debug`. Every collection host passes `addonName` from v1.67.0. See
+  -- idHelpIcon for the ladder and what each rung answers.
   local ID_HELP_ICON     = "info"
   -- The same last rung the drag handle's mark falls back to (its HELP_FALLBACK), so a host that
   -- passes no `helpIcon` and names no addon gets the client's own information glyph rather than a
-  -- blank square. Reached whenever the rung above cannot answer: no `addonName`, no Media major, or
-  -- a Media that does not know the icon name.
+  -- blank square. Reached whenever the rung above cannot answer: no `addonName`, an `addonName` the
+  -- client does not report loaded (minor 3), no Media major, or a Media that does not know the icon
+  -- name.
   local ID_HELP_FALLBACK = "Interface\\FriendsFrame\\InformationIcon"
 
   -- Uncached items. `itemLoads[id]` counts the asks this instance has made for an id, capped at
@@ -458,16 +464,55 @@ function lib.__AttachIdList(O, d, ids)
   --- every file of this payload is loaded by one LibKa0s.xml before any panel exists.
   ---
   --- `false` rather than nil for "the ladder fell through", because nil is the not-asked-yet state:
-  --- a host with no `addonName` would otherwise re-ask, and re-fail, on every mark forever.
+  --- a host with no `addonName` would otherwise re-ask, and re-fail, on every mark forever. The same
+  --- cache is what makes the fall-through's debug line once per instance rather than once per mark.
+  ---
+  --- THE NAME IS CHECKED, from minor 3 (LibKa0s#42). `Media.Icon` validates only that the name is a
+  --- non-empty string, so a wrong one -- the MasterControls compose spec's DISPLAY `addonName`
+  --- ("Aura Master"), or a misspelled folder -- builds a well-formed path to a file that does not
+  --- exist, and the client draws nothing with nothing raised. The descriptor's name is therefore
+  --- taken only when the client says that addon is loaded (hostLoaded below), and a ladder that
+  --- falls past that rung writes one `Cfg` line through the descriptor's `debug` saying why.
+  --- Every collection host passes its first vararg as `addonName` from v1.67.0.
   local idHelpDefault
+
+  --- Does the client report `name` as a loaded addon? `C_AddOns.IsAddOnLoaded`, else the
+  --- deprecated global. TRUSTED when neither exists (a harness, or a client that has neither) and
+  --- when the check raises: the guard exists to catch a wrong name, not to veto a right one on a
+  --- client that cannot answer. Asked lazily, at the first helped mark -- a panel draw, long after
+  --- the host's own ADDON_LOADED -- never at file load.
+  local function hostLoaded(name)
+    local api = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    if type(api) ~= "function" then return true end
+    local ok, loaded = pcall(api, name)
+    return not ok or (loaded and true or false)
+  end
+
+  --- The descriptor's addonName when the client vouches for it, else nil and the reason, which is
+  --- the developer line the fall-through writes (nil when there is nothing to report).
+  local function vouchedHost()
+    local host = type(d.addonName) == "string" and d.addonName ~= "" and d.addonName or nil
+    if not host then return nil, "help art: no addonName on the Options descriptor; drawing the client glyph" end
+    if not hostLoaded(host) then
+      return nil, ("help art: addonName \"%s\" is not a loaded addon; drawing the client glyph"):format(host)
+    end
+    return host
+  end
+
+  --- Resolve the instance's default art once: the vouched host's `info` out of LibKa0s-Media-1.0,
+  --- or `false`. A fall past the loaded-addon rung writes its reason as one Cfg line.
+  local function resolveHelpDefault()
+    local host, why = vouchedHost()
+    local media = host and LibStub and LibStub("LibKa0s-Media-1.0", true)
+    local art = media and media.Icon and media.Icon(host, ID_HELP_ICON)
+    if why and type(d.debug) == "function" then d.debug("Cfg", why) end
+    return art or false
+  end
+
   local function idHelpIcon(spec)
     local given = type(spec) == "table" and spec.helpIcon or nil
     if type(given) == "string" and given ~= "" then return given end
-    if idHelpDefault == nil then
-      local host = type(d.addonName) == "string" and d.addonName ~= "" and d.addonName or nil
-      local media = host and LibStub and LibStub("LibKa0s-Media-1.0", true)
-      idHelpDefault = (media and media.Icon and media.Icon(host, ID_HELP_ICON)) or false
-    end
+    if idHelpDefault == nil then idHelpDefault = resolveHelpDefault() end
     return idHelpDefault or ID_HELP_FALLBACK
   end
 
@@ -1144,9 +1189,13 @@ function lib.__AttachIdList(O, d, ids)
   ---                 Since minor 29 the default is this library's own `info` art, resolved out of
   ---                 LibKa0s-Media-1.0 from the Options descriptor's `addonName` -- so a host that
   ---                 names itself gets the collection's glyph and needs this field only to draw
-  ---                 something else. With no `addonName`, no Media major, or a Media that does not
-  ---                 know the name, the mark falls back to the client's own information glyph, and
-  ---                 the level tints below are muted there because that art is not white;
+  ---                 something else. With no `addonName`, an `addonName` the client does not
+  ---                 report loaded (minor 3: C_AddOns.IsAddOnLoaded, else the global; trusted when
+  ---                 neither exists), no Media major, or a Media that does not know the name, the
+  ---                 mark falls back to the client's own information glyph -- with one Cfg line
+  ---                 through the descriptor's `debug` per instance when the name was missing or
+  ---                 not loaded -- and the level tints below are muted there because that art is
+  ---                 not white;
   ---   strings     = as O.IdInput's, plus remove and unknown.
   ---
   --- An entry may carry, beside its id:
