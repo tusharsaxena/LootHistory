@@ -109,7 +109,7 @@ Insights has **no range selector of its own**. `Analytics:Refresh` scopes every 
 
 ### Stat & highlight cards
 
-`CARD_DEFS` (`Analytics.lua:23`) — 4 columns per row, `wide` cards spanning 2: records, distinct items, characters, value, active days, epic+ drops, best drop (ilvl), richest drop, date range (wide), busiest day (wide). `UpdateCards` (`Analytics.lua:491`) reads them straight from `stats.totals`; string cards (value, richest, span, busy) use a smaller font. "Value" throughout Insights is the **derived** per-record worth (`Util.RecordValue` — auction price snapshot if captured, else vendor sell price) `× quantity`, never the raw vendor price alone. See [schema.md](schema.md).
+`CARD_DEFS` (`Analytics.lua:23`) — 4 columns per row, `wide` cards spanning 2: records, distinct items, characters, value, active days, epic+ drops, best drop (ilvl), richest drop, date range (wide), busiest day (wide). `UpdateCards` (`Analytics.lua:120`) reads them straight from `stats.totals`; string cards (value, richest, span, busy) use a smaller font. "Value" throughout Insights is the **derived** per-record worth (`Util.RecordValue` — auction price snapshot if captured, else vendor sell price) `× quantity`, never the raw vendor price alone. See [schema.md](schema.md).
 
 ### Breakdown sections
 
@@ -164,7 +164,7 @@ Labels on bar/stacked-bar rows are capped to `LABEL_MAXCHARS` glyphs with an ell
 - **`renderStrip`** (`AnalyticsCharts.lua:328`) — a per-bucket vertical strip with an axis line and rotated x-axis labels (thinned out when bars get narrow); each bar's hover shows the bucket's info line. The per-day strips share a `firstTs..lastTs` day-key list (gaps included) from `dayKeyList`, capped to the most recent `MAX_DAY_BARS = 60`.
 - **`renderListPanel`** (`AnalyticsCharts.lua:377`) — a ranked list panel capped at 10 rows; item rows are quality-colored with a gold star before epic+ items (`starMarkup`, `AnalyticsFormat.lua:73`, resolved against a fallback atlas list). The two item lists share the same entry tables from `stats.byItem` — two orderings, count-desc and value-desc.
 
-Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:212`); `LayoutCharts` releases all pools up front, then re-acquires only the widgets it needs, so no chart holds a widget per data point. `Analytics:Layout` (`Analytics.lua:511`) sets the scroll child height from the final y-cursor. If the range has no records, `HideAllCharts` runs and an empty-state label shows (both dividers hide with it).
+Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:212`); `LayoutCharts` releases all pools up front, then re-acquires only the widgets it needs, so no chart holds a widget per data point. `Analytics:Layout` (`Analytics.lua:140`) sets the scroll child height from the final y-cursor. If the range has no records, `HideAllCharts` runs and an empty-state label shows (both dividers hide with it).
 
 Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTarget()` (`Analytics.lua:259`) and live-refreshes only while the Insights tab is visible.
 
