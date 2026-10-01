@@ -158,50 +158,57 @@ local function rankedRows(map, labelOf, valueMap)
   return rows
 end
 
-function E:InsightsCSV(stats)
-  stats = stats or {}
-  local t = stats.totals or {}
-  local lines = { "Section,Label,Count,Value" }
-  local function row(section, label, count, valueCopper)
+-- InsightsCSV is a sequence of the section writers below (GI-LH-02: one function at CCN 41 once
+-- lizard could see it). Each takes `row`, the line writer, and the stats; the bodies are the old
+-- function's, moved, and tests/test_export.lua's golden documents pin that they write the same.
+
+-- A row writer over `lines`: Section, Label, Count, Value, each CSV-quoted; a nil count or value
+-- is a blank cell.
+local function csvRowWriter(lines)
+  return function(section, label, count, valueCopper)
     lines[#lines + 1] = table.concat({
       csvField(section), csvField(label),
       count ~= nil and csvField(count) or "",
       valueCopper ~= nil and csvField(money(valueCopper)) or "",
     }, ",")
   end
-  local function section(name, rows)
-    for _, r in ipairs(rows) do row(name, r.label, r.count, r.value) end
-  end
-  -- Emit a { char → { catKey → magnitude } } matrix — the panel's "× Character" companion charts —
-  -- as "Char / CategoryLabel" rows: Count = magnitude, Value = optional parallel value-matrix cell.
-  -- Characters sorted by total desc then name; categories within a char by magnitude desc.
-  local function charMatrix(name, matrix, labelOf, valueMatrix)
-    local chars = {}
-    for ch, cats in pairs(matrix or {}) do
-      local total = 0
-      for _, m in pairs(cats) do total = total + m end
-      chars[#chars + 1] = { ch = ch, total = total, cats = cats }
-    end
-    table.sort(chars, function(a, b)
-      if a.total ~= b.total then return a.total > b.total end
-      return tostring(a.ch) < tostring(b.ch)
-    end)
-    for _, c in ipairs(chars) do
-      local keys = {}
-      for k in pairs(c.cats) do keys[#keys + 1] = k end
-      table.sort(keys, function(a, b)
-        if c.cats[a] ~= c.cats[b] then return c.cats[a] > c.cats[b] end
-        return tostring(a) < tostring(b)
-      end)
-      local vm = valueMatrix and valueMatrix[c.ch]
-      for _, k in ipairs(keys) do
-        row(name, tostring(c.ch) .. " / " .. (labelOf and labelOf(k) or tostring(k)),
-          c.cats[k], vm and vm[k] or nil)
-      end
-    end
-  end
+end
 
-  -- Summary (the stat/highlight cards).
+local function emitSection(row, name, rows)
+  for _, r in ipairs(rows) do row(name, r.label, r.count, r.value) end
+end
+
+-- Emit a { char → { catKey → magnitude } } matrix — the panel's "× Character" companion charts —
+-- as "Char / CategoryLabel" rows: Count = magnitude, Value = optional parallel value-matrix cell.
+-- Characters sorted by total desc then name; categories within a char by magnitude desc.
+local function emitCharMatrix(row, name, matrix, labelOf, valueMatrix)
+  local chars = {}
+  for ch, cats in pairs(matrix or {}) do
+    local total = 0
+    for _, m in pairs(cats) do total = total + m end
+    chars[#chars + 1] = { ch = ch, total = total, cats = cats }
+  end
+  table.sort(chars, function(a, b)
+    if a.total ~= b.total then return a.total > b.total end
+    return tostring(a.ch) < tostring(b.ch)
+  end)
+  for _, c in ipairs(chars) do
+    local keys = {}
+    for k in pairs(c.cats) do keys[#keys + 1] = k end
+    table.sort(keys, function(a, b)
+      if c.cats[a] ~= c.cats[b] then return c.cats[a] > c.cats[b] end
+      return tostring(a) < tostring(b)
+    end)
+    local vm = valueMatrix and valueMatrix[c.ch]
+    for _, k in ipairs(keys) do
+      row(name, tostring(c.ch) .. " / " .. (labelOf and labelOf(k) or tostring(k)),
+        c.cats[k], vm and vm[k] or nil)
+    end
+  end
+end
+
+-- Summary (the stat/highlight cards).
+local function emitSummary(row, t)
   local dash = ""
   row("Summary", "Records", t.records or 0)
   row("Summary", "Distinct items", t.distinctItems or 0)
@@ -215,23 +222,28 @@ function E:InsightsCSV(stats)
     row("Summary", "Date range", NS.Util.FormatDate(t.firstTs) .. " to " .. NS.Util.FormatDate(t.lastTs))
   end
   if t.busiestDay then row("Summary", "Busiest day", t.busiestDay.day .. " (" .. t.busiestDay.count .. ")") end
+end
 
-  local srcLabel = function(k) return NS.Constants.SourceLabel[k] or k end
-  local qualityLabel = function(q) return NS.Item.QualityLabel(q) end
-  -- LOOT breakdowns, each followed by its per-character "× Character" companion (mirrors the panel).
-  -- All items-only (currency is excluded upstream in Database:Stats).
-  section("By Source", rankedRows(stats.bySource, srcLabel, stats.valueBySource))
-  charMatrix("By Character x Source", stats.charBySource, srcLabel, stats.charValueBySource)
-  section("By Quality", rankedRows(stats.byQuality, qualityLabel))
-  charMatrix("By Character x Quality", stats.charByQuality, qualityLabel)
-  section("By Item Type", rankedRows(stats.byType))
-  charMatrix("By Character x Item Type", stats.charByType)
-  section("By Bound Type", rankedRows(stats.byBound, insightsBoundLabel))
-  charMatrix("By Character x Bound Type", stats.charByBound, insightsBoundLabel)
+local function insightsSourceLabel(k) return NS.Constants.SourceLabel[k] or k end
+local function insightsQualityLabel(q) return NS.Item.QualityLabel(q) end
 
-  -- Per-character carries both count and value (byChar entries are { char, count, value }). byChar
-  -- registers currency-only characters with count 0 (for class colors in the UI) — skip those here
-  -- so "By Character" stays items-only, matching the dashboard.
+-- LOOT breakdowns, each followed by its per-character "× Character" companion (mirrors the panel).
+-- All items-only (currency is excluded upstream in Database:Stats).
+local function emitLootBreakdowns(row, stats)
+  emitSection(row, "By Source", rankedRows(stats.bySource, insightsSourceLabel, stats.valueBySource))
+  emitCharMatrix(row, "By Character x Source", stats.charBySource, insightsSourceLabel, stats.charValueBySource)
+  emitSection(row, "By Quality", rankedRows(stats.byQuality, insightsQualityLabel))
+  emitCharMatrix(row, "By Character x Quality", stats.charByQuality, insightsQualityLabel)
+  emitSection(row, "By Item Type", rankedRows(stats.byType))
+  emitCharMatrix(row, "By Character x Item Type", stats.charByType)
+  emitSection(row, "By Bound Type", rankedRows(stats.byBound, insightsBoundLabel))
+  emitCharMatrix(row, "By Character x Bound Type", stats.charByBound, insightsBoundLabel)
+end
+
+-- Per-character carries both count and value (byChar entries are { char, count, value }). byChar
+-- registers currency-only characters with count 0 (for class colors in the UI) — skip those here
+-- so "By Character" stays items-only, matching the dashboard. Then weekday and hour.
+local function emitCharactersAndTime(row, stats)
   local charRows = {}
   for _, ce in pairs(stats.byChar or {}) do
     if (ce.count or 0) > 0 then
@@ -242,11 +254,14 @@ function E:InsightsCSV(stats)
     if a.count ~= b.count then return a.count > b.count end
     return tostring(a.label) < tostring(b.label)
   end)
-  section("By Character", charRows)
+  emitSection(row, "By Character", charRows)
 
-  section("By Weekday", rankedRows(stats.byWeekday, function(d) return WEEKDAY_CSV[d] or tostring(d) end))
-  section("By Hour", rankedRows(stats.byHour, function(h) return string.format("%02d:00", h) end))
+  emitSection(row, "By Weekday", rankedRows(stats.byWeekday, function(d) return WEEKDAY_CSV[d] or tostring(d) end))
+  emitSection(row, "By Hour", rankedRows(stats.byHour, function(h) return string.format("%02d:00", h) end))
+end
 
+-- The ranked lists, then per-day activity (chronological), count + value.
+local function emitListsAndDays(row, stats)
   for _, z in ipairs(stats.topZones or {}) do row("Top Zones", z.zone, z.count, z.value) end
   for _, it in ipairs(stats.topItems or {}) do
     row("Top Items by Count", it.itemName or ("item " .. tostring(it.itemID)), it.count, it.value)
@@ -255,17 +270,18 @@ function E:InsightsCSV(stats)
     row("Top Items by Value", it.itemName or ("item " .. tostring(it.itemID)), it.count, it.value)
   end
 
-  -- Per-day activity (chronological), count + value.
   local dayKeys = {}
   for day in pairs(stats.byDay or {}) do dayKeys[#dayKeys + 1] = day end
   table.sort(dayKeys)
   for _, day in ipairs(dayKeys) do
     row("By Day", day, stats.byDay[day], (stats.valueByDay or {})[day] or 0)
   end
+end
 
-  -- Currency (issue: currency capture). Top currencies by quantity, then one row per currency×source,
-  -- then per-character and per-day, plus the highlight summary rows.
-  section("Currency Collected", rankedRows(stats.byCurrency))
+-- Currency (issue: currency capture). Top currencies by quantity, then one row per currency×source,
+-- then per-character and per-day, plus the highlight summary rows.
+local function emitCurrency(row, stats)
+  emitSection(row, "Currency Collected", rankedRows(stats.byCurrency))
   local matrix = stats.currencySourceMatrix or {}
   local curNames = {}
   for cname in pairs(matrix) do curNames[#curNames + 1] = cname end
@@ -275,16 +291,26 @@ function E:InsightsCSV(stats)
     for s in pairs(perSrc) do srcs[#srcs + 1] = s end
     table.sort(srcs, function(a, b) return (perSrc[a] or 0) > (perSrc[b] or 0) end)
     for _, s in ipairs(srcs) do
-      row("Currency by Type x Source", cname .. " / " .. srcLabel(s), perSrc[s])
+      row("Currency by Type x Source", cname .. " / " .. insightsSourceLabel(s), perSrc[s])
     end
   end
   -- Per-character currency split by type — the panel's "Currency by Character × Type" companion.
-  charMatrix("Currency by Character x Type", stats.currencyCharMatrix)
+  emitCharMatrix(row, "Currency by Character x Type", stats.currencyCharMatrix)
   local curDayKeys = {}
   for day in pairs(stats.currencyByDay or {}) do curDayKeys[#curDayKeys + 1] = day end
   table.sort(curDayKeys)
   for _, day in ipairs(curDayKeys) do row("Currency by Day", day, stats.currencyByDay[day]) end
+end
 
+function E:InsightsCSV(stats)
+  stats = stats or {}
+  local lines = { "Section,Label,Count,Value" }
+  local row = csvRowWriter(lines)
+  emitSummary(row, stats.totals or {})
+  emitLootBreakdowns(row, stats)
+  emitCharactersAndTime(row, stats)
+  emitListsAndDays(row, stats)
+  emitCurrency(row, stats)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 
