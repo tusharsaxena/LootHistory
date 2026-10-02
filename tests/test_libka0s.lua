@@ -198,6 +198,56 @@ test("every window this addon owns closes through that one wrapper", function()
     "no multiplication sign may be drawn here any more; the degraded one lives in core/CoreSetup.lua")
 end)
 
+test("degraded install: NS.MakeResizable keeps today's grip, the floor, the lock and the save", function()
+  -- The library-absent arm of core/CoreSetup.lua is the grip modules/Browser.lua drew before #33,
+  -- moved, honoring the opts the browser passes (design D3.2). red under: a degraded stub answering
+  -- nil (no grip at all), or a fallback that ignores canResize or minHeight.
+  local ns, _, mocks = loadDegraded()
+  assertTrue(type(ns.MakeResizable) == "function", "the degraded path must publish NS.MakeResizable")
+  local stock = mocks.CreateFrame
+  mocks.CreateFrame = function(kind, ...)
+    local made = stock(kind, ...)
+    if kind == "Button" then
+      rawset(made, "SetNormalTexture", function(self, p) self.__normalArt = p end)
+      rawset(made, "SetPoint", function(self, ...) self.__point = { ... } end)
+    end
+    return made
+  end
+  local f = stock("Frame")
+  f:SetSize(1116, 700)
+  local locked, stops = true, {}
+  local ok, grip = pcall(ns.MakeResizable, f, {
+    minWidth = 1116, minHeight = 460,
+    canResize = function() return not locked end,
+    onResizeStop = function(w, h) stops[#stops + 1] = { w, h } end,
+  })
+  mocks.CreateFrame = stock
+  if not ok then error(grip, 0) end
+
+  assertTrue(grip ~= nil and f.resizeGrip == grip, "the fallback must build and keep a grip")
+  assertTrue(f.__resizable, "the fallback must make the frame resizable")
+  assertEqual(f.__resizeBounds[1], 1116)
+  assertEqual(f.__resizeBounds[2], 460)
+  assertEqual(grip.__normalArt, "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  assertEqual(grip.__point[1], "BOTTOMRIGHT")
+  assertEqual(grip.__point[2], -2, "the degraded grip keeps its old 2px inset")
+
+  grip:__fire("OnMouseDown", "LeftButton")
+  grip:__fire("OnMouseUp", "LeftButton")
+  assertEqual(f.__sizingCount, 0, "a locked press must not start sizing")
+  assertEqual(#stops, 0, "a release after a refused press must not save")
+
+  locked = false
+  grip:__fire("OnMouseDown", "LeftButton")
+  f:SetSize(1300, 520)
+  grip:__fire("OnMouseUp", "LeftButton")
+  assertEqual(f.__sizingCount, 1)
+  assertEqual(f.__stopCount, 1)
+  assertEqual(#stops, 1, "the release that ends a sizing saves once")
+  assertEqual(stops[1][1], 1300)
+  assertEqual(stops[1][2], 520)
+end)
+
 test("degraded install: a bare /lh prints help listing the verbs that still work", function()
   -- slash-commands-§3. It used to fall through the verb walk to the "unavailable" line, which
   -- blacks out the whole command surface in the one install where a user most needs to be told
@@ -453,6 +503,33 @@ test("the Options page registry built every page this addon declares", function(
   for _, page in ipairs(NS.Options.__pages()) do built[#built + 1] = page.key end
   assertEqual(table.concat(built, " | "), "General | Profiles",
     "a raising builder is reported and skipped, and a leftover registration is a page nobody drew")
+end)
+
+test("the Options descriptor passes addonName, the FOLDER name, to the library", function()
+  -- LibKa0s#42. OptionsIdList draws a help mark's art from Interface\AddOns\<addonName>\libs\
+  -- LibKa0s\media\icons\info, and the Options descriptor carries no other field that names the
+  -- folder: parentTitle is the brand and mainPanelName is a frame global. A descriptor field is not
+  -- observable after lib:New returns, so the source is the only place to pin it. The value is the
+  -- first vararg, not a typed string: "Ka0s Loot History" here would build a path to nothing, and
+  -- the library's loaded-addon guard would quietly draw the client glyph instead.
+  --
+  -- No item list here carries `help` today, so nothing visible rides on this; it protects the first
+  -- help line anyone adds.
+  local src = T.Loader.readFile("settings/OptionsSetup.lua")
+  assertTrue(src:find("^local addonName, NS = %.%.%.") ~= nil,
+    "settings/OptionsSetup.lua must keep its first vararg as `addonName`, not discard it as `_`")
+  local desc = src:match("NS%.Options = lib:New%((%b{})%)")
+  assertTrue(desc ~= nil, "settings/OptionsSetup.lua must build NS.Options through lib:New({ ... })")
+  assertTrue(desc:find("addonName%s*=%s*addonName%s*,") ~= nil,
+    "the Options descriptor must carry `addonName = addonName,`")
+end)
+
+test("the vendored info art the help mark points at is on disk", function()
+  -- The one residual the library's guard cannot catch: a correct folder name with the art missing
+  -- (a partial vendor, or a payload outside libs/LibKa0s). The path would build and draw nothing.
+  local f = io.open("libs/LibKa0s/media/icons/info.tga", "rb")
+  assertTrue(f ~= nil, "libs/LibKa0s/media/icons/info.tga is missing: the folder was not copied whole")
+  if f then f:close() end
 end)
 
 -- ── degraded Core stub: the minor-8 surface (LK-10, LK-11) ────────────────────────────────────

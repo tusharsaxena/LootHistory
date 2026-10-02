@@ -28,7 +28,9 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 
 -- Minor 27: each combat-lock refusal writes one Cfg line naming what it refused, through the
 -- descriptor's `debug` (gap G3 of the 2026-09-30 debug-gaps run); nothing moves without one.
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 27
+-- Minor 28: docblock only -- the descriptor's `addonName` is read by OptionsIdList.lua, is the
+-- host's FOLDER name, and is checked against the client's loaded addons there (LibKa0s#42).
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 28
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -380,17 +382,21 @@ end
 --- Descriptor (`d`):
 ---   parentTitle     string     brand shown on the main page and in every sub-page breadcrumb.
 ---   mainPanelName   string     frame name for the main canvas, so /framestack attributes it.
----   addonName       string     optional, read by OptionsWidgets.lua (its minor 29). The host's own
----                              addon FOLDER name, from its first vararg -- the same field
----                              LibKa0s-DebugLog-1.0 takes (DebugLog.lua:278) and for the same
----                              reason: `Media.Icon` builds an absolute
----                              `Interface\AddOns\<addon>\...` path, and a VENDORED copy cannot know
----                              which addon folder it sits in (Media.lua's WHY THIS TAKES AN ADDON
----                              NAME). Supply it and the library draws the collection's own art
----                              where it has some -- today, O.IdList's per-entry help mark. Omit
----                              it, or ship no Media major, and those controls fall back to a
----                              Blizzard texture, which is what every host got before this field
----                              existed.
+---   addonName       string     RECOMMENDED for every host, read by OptionsIdList.lua. The host's
+---                              own addon FOLDER name, passed as its first vararg
+---                              (`local addonName, NS = ...`) -- the same field
+---                              LibKa0s-DebugLog-1.0 takes and for the same reason: `Media.Icon`
+---                              builds an absolute `Interface\AddOns\<addon>\...` path, and a
+---                              VENDORED copy cannot know which addon folder it sits in (Media.lua's
+---                              WHY THIS TAKES AN ADDON NAME). Supply it and the library draws the
+---                              collection's own art where it has some -- today, O.IdList's
+---                              per-entry help mark. The name is checked against the client's
+---                              loaded addons (OptionsIdList minor 3), so a wrong one draws the
+---                              Blizzard glyph and writes one Cfg line through `debug` rather than
+---                              a path to nothing. Omit it, or ship no Media major, and those
+---                              controls fall back to the Blizzard texture. NOT the MasterControls
+---                              compose spec's `addonName`, which is a DISPLAY label ("Aura
+---                              Master"): same field name, a different question.
 ---   print(line)                where a user-facing line goes. Pass the host's tagged printer.
 ---   get(path)                  read a stored value.
 ---   set(path, value)           write one. Route it through the host's single write seam, so a

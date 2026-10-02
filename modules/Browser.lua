@@ -953,13 +953,8 @@ local function EnsureFrame()
   frame:SetFrameStrata("HIGH")
   frame:EnableMouse(true)   -- capture clicks over the whole window; no click-through to the world
   frame:SetMovable(true)
-  frame:SetResizable(true)
   frame:SetClampedToScreen(true)
-  if frame.SetResizeBounds then
-    frame:SetResizeBounds(minW, minH)
-  elseif frame.SetMinResize then
-    frame:SetMinResize(minW, minH)
-  end
+  -- Resizable, and its bounds, come from the corner grip below (NS.MakeResizable).
 
   -- Title bar (also the drag handle), flat with a divider line beneath it.
   local titleBar = CreateFrame("Frame", nil, frame)
@@ -1035,7 +1030,7 @@ local function EnsureFrame()
 
   -- Shared footer: "Showing X of Y" (bottom-left) + estimated DB size (bottom-right). Both track
   -- the shared filter, so they read the same on either tab. x=-20 keeps the size text left of the
-  -- 16px resize grip (frame BOTTOMRIGHT -2) so they never overlap.
+  -- 16px resize grip (frame BOTTOMRIGHT -1, or -2 on a degraded install) so they never overlap.
   local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 3)
   B._footer = footer
@@ -1051,31 +1046,24 @@ local function EnsureFrame()
   B:ApplyView(savedViewOrStock(), "current")
   B:UpdateDbSize()
 
-  -- Resize grip, bottom-right.
-  local grip = CreateFrame("Button", nil, frame)
-  grip:SetSize(16, 16)
-  grip:SetPoint("BOTTOMRIGHT", -2, 2)
-  -- Blizzard's corner grabber, which is what BankLedger, MultiMeters and the rest of the
-  -- collection draw -- three diagonal hatch lines that sit INSIDE the window's corner and read as
-  -- part of the frame. This briefly drew the catalog's `resize` mark instead (a big two-headed
-  -- arrow, tinted, with a gold hover): one addon's window corner looking unlike every other
-  -- window corner in the collection is drift, whichever mark is prettier on its own. Ratified as
-  -- the `library-stack-§8` row in docs/ARCHITECTURE.md -> ## Documented deviations.
-  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-  -- Lock frame gates the resize as well as the title-bar drag: both change the window's geometry
-  -- and both persist it through SaveWindow. OnMouseUp stays ungated (StopMovingOrSizing on a
-  -- window that never started sizing is a no-op).
-  grip:SetScript("OnMouseDown", function()
-    if B:IsLocked() then return end
-    frame:StartSizing("BOTTOMRIGHT")
-  end)
-  grip:SetScript("OnMouseUp", function()
-    frame:StopMovingOrSizing()
-    SaveWindow()
-    if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh() end
-  end)
-  frame.resizeGrip = grip
+  -- Resize grip, bottom-right: Core.MakeResizable through the seam (#33). The library draws the
+  -- client's chat size grabber, the same corner every window in the collection wears.
+  --   * minHeight is passed on purpose: the library's default floor is the CURRENT size, and the
+  --     window opens at SKIN.defaultH, so leaving it out would raise the floor from minH to 700.
+  --   * Lock frame gates the resize as well as the title-bar drag (canResize, read at every press):
+  --     the grip stays drawn and does nothing while locked, and a refused press saves nothing.
+  --   * The save and the table refresh run once per release (onResizeStop). Never onResize, which
+  --     also runs on every OnSizeChanged -- every frame of a drag, and RestoreWindow's SetSize. The
+  --     live relayout during a drag is the scroll frames' own OnSizeChanged.
+  NS.MakeResizable(frame, {
+    minWidth = minW,
+    minHeight = minH,
+    canResize = function() return not B:IsLocked() end,
+    onResizeStop = function()
+      SaveWindow()
+      if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh() end
+    end,
+  })
 
   -- Close any open dropdown menu whenever the window hides (covers the ESC/UISpecialFrames
   -- path, which calls frame:Hide() directly instead of B:Hide()). Also the single seam for the

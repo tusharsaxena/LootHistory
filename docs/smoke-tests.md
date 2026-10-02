@@ -18,15 +18,15 @@ free number in its theme.
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
 | PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
-| STATE-1 to 11 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
+| STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
-| HIST-1 to 33 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
+| HIST-1 to 34 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
-| FILT-1 to 24 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
+| FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
-| DEGRADED-1 to 11 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
+| DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -54,7 +54,7 @@ free number in its theme.
   a change to `core/EnvSetup.lua` also needs SLASH-9, and one that moves `core/Compat.lua` also
   needs LOC.
 - Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `AnalyticsFormat.lua`,
-  `Analytics.lua`, `AnalyticsCharts.lua`, `Export.lua`): HIST, INS, STATE-7 to STATE-11, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
+  `Analytics.lua`, `AnalyticsCharts.lua`, `Export.lua`): HIST, INS, STATE-6, STATE-7 to STATE-12, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
 - Settings or schema: PANEL, SLASH, PROFILE, STATE-3, STATE-5, STATE-6, COMBAT-2, COMBAT-5, DIAG-9
   and FILT-1, plus CAP-22 to CAP-24 for a new capture row.
 - Filter lists (`modules/Filters.lua`, the Filters tab): FILT, PROFILE-5, CAP-22 to CAP-24.
@@ -65,7 +65,7 @@ free number in its theme.
   and DIAG-28 (the copy windows are this file's `CopyWindow`).
 - LibKa0s re-vendor or `core/*Setup.lua` / `settings/Slash.lua` / `settings/OptionsSetup.lua`:
   DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-2, HIST-3, HIST-5,
-  HIST-12 to HIST-23, HIST-28 to HIST-33, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
+  HIST-12 to HIST-23, HIST-28 to HIST-34, STATE-12, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
   CAP-27, FILT-1, FILT-16 and FILT-24.
 - Diagnostics or debug logging: DIAG, COMBAT-8, DEGRADED-4, SLASH-2, SLASH-8 and PANEL-19.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
@@ -371,6 +371,10 @@ visibility** back to *Always*. Result:
 
 **STATE-11. Test mode never outlives a reset or reload.** Tick **Test mode**, then **Reset all
 settings** and confirm → test mode off, box unticked. Tick it again, `/reload` → off. Result:
+
+**STATE-12. Lock frame gates the library grip.** Tick **Lock frame**, pull the History window's
+resize grip → the grip is still drawn, nothing resizes and no size is saved (`/reload`, `/lh show`
+keeps the old size); untick → the grip resizes again and `/reload` keeps the new size. Result:
 
 ## Combat
 
@@ -679,6 +683,12 @@ centers on the screen, with no error. Result:
 **HIST-33. The export modal closes its menu.** Open **Data set** in the modal, click the modal's ×
 → the menu goes; reopen, open the menu, press Esc → the menu goes. Result:
 
+**HIST-34. The library resize grip.** `/lh show`, drag the bottom-right grip with the **left**
+button → the window resizes, the grip shows the pressed hatch while held and sits flush inside the
+1px corner; it will not shrink narrower than every column fits or shorter than the minimum (about
+460px), and the DB-size footer never sits under the grip. Release, `/reload`, `/lh show` → the same
+size. Right-click the grip → nothing resizes. Result:
+
 ## Insights
 
 Open `/lh show` → **Insights** on a history spanning several days with currency loot (or `/lh test`).
@@ -871,6 +881,11 @@ again; your existing history is unaffected.`; **No** → the ids stay; **Clear a
 the list empties and chat prints `blacklist cleared (N ids).` On **Whitelist** the same → `Clear ALL
 item ids from the whitelist?`, then `whitelist cleared (N ids).` The Currencies list's Clear all is
 FILT-16. Result:
+
+**FILT-25. The item lists draw as before.** `/lh debug on`, then `/lh config` → General → **Filters**
+→ step through **Blacklist**, **Whitelist** and **Currencies** → every list renders exactly as before
+(no help marks: no entry here carries help), with no Lua error and no `[Cfg] help art:` line in the
+console. Result:
 
 ## Launcher
 
@@ -1125,6 +1140,11 @@ header shows Blizzard's up or down arrow instead of the shared mark, and the tit
 thin text × (gray, class-colored on hover) instead of the ✕ mark. This is the fallback working, not
 a failure. Result:
 
+**DEGRADED-12. The grip without the library.** `/lh show` → the bottom-right grip still draws the chat
+hatch (two pixels inside the corner, no pressed art) and resizes, and `/reload` keeps the size; with
+**Lock frame** ticked (set on a working install first, since the degraded panel cannot) it does not
+resize. No Lua error. Result:
+
 ## Non-English client
 
 Run on a client set to **deDE or frFR**, the two locales ConsumableMaster LOC-1 and KickCD LOC-1 use.
@@ -1228,6 +1248,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | STATE-6 | § 9 master Lock frame | No result recorded; the 2026-09-23 plan's LH.6 is owed |
 | STATE-7 to STATE-9, STATE-11 | § 8 | No result recorded |
 | STATE-10 | § 8 | No result recorded; SP-LH-03R restored the old step that sets General visibility back to *Always* |
+| STATE-12 | New | New with the library resize grip's `canResize` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
 | COMBAT-1 | § 2 | No result recorded |
 | COMBAT-2 | § 2, § 9 and § 17d.2 `/lh config` in combat | No result recorded; expectation corrected by SP-LH-03R (the library's printed line) |
 | COMBAT-3 | § 17d.2 sidebar in combat | No result recorded; expectation rewritten by SP-LH-03 (Profiles covered too) |
@@ -1262,6 +1283,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | HIST-23 to HIST-30 | § 6a, § 17g, § 17j.1-5 | No result recorded |
 | HIST-31 | § 17j.6 and § 17j.7 | No result recorded; given a runnable route by SP-LH-03R |
 | HIST-32, HIST-33 | § 17j.8, § 17h.6 | No result recorded |
+| HIST-34 | New | New with the History grip on `Core.MakeResizable` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
 | INS-1 to INS-3 | § 7 | No result recorded |
 | INS-4 | § 7 coin glyphs | No result recorded; expectation corrected by SP-LH-03R (a fixed 10 px against the client's default of about 14 px, read beside the History price cells) |
 | INS-5 to INS-18 | § 7 | No result recorded |
@@ -1270,6 +1292,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | INS-21 | § 7 live cards | No result recorded |
 | FILT-1 to FILT-23 | § 9, § 16, § 19 | No result recorded |
 | FILT-24 | § 17f Clear all | No result recorded; expectation spelled out by SP-LH-03R (the popup text and the chat line) |
+| FILT-25 | New | New with the Options descriptor's `addonName` (CA-LH-NM, LibKa0s#42) |
 | LAUNCH-1 | § 11 art | No result recorded |
 | LAUNCH-2 | § 11 tooltip | X1.4 passed the status tooltip on 2026-09-25; the re-hover after ticking **Lock frame** and **Test mode** (`Locked: Yes`, `Test mode: On`) is not in X1.4's steps and has no result |
 | LAUNCH-4 | § 11 menu | X1.4 passed the menu opening on 2026-09-25; its four entries' actions have no result |
@@ -1300,4 +1323,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-9 | § 17a.9 | No result recorded; expectation rewritten by SP-LH-01 (`settings reset to defaults.`) |
 | DEGRADED-10 | New | New with `/lh profile` (SP-LH-02) |
 | DEGRADED-11 | § 17g ladder note | No result recorded; expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
+| DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
