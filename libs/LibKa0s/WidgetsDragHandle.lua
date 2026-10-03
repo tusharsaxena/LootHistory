@@ -1,5 +1,6 @@
 -- LibKa0s-Widgets-1.0 — the unlocked drag handle: a labeled strip with a help mark, dragged to move
--- the frame it belongs to, and from minor 3 an opt-in close mark beside the help mark.
+-- the frame it belongs to, from minor 3 an opt-in close mark beside the help mark, and from minor 4
+-- an opt-in host hook that places the tooltip (`tooltipPlace`).
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -45,7 +46,7 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local DRAG_MINOR = 3
+local DRAG_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -290,22 +291,68 @@ local function dhOwnTooltip(tip, frame, spec, t)
   end
 end
 
---- The three-band shape both copies built out of different text: a gold title, white wrapped body
---- lines, then -- only when at least one survives -- a blank spacer and gray footer lines. Drawn
---- for `frame`, which is the frame hovered and therefore the frame a non-cursor owner owns by.
+--- The host's placement hook for this descriptor, or nil (minor 4). The descriptor's own `place`
+--- wins over `spec.tooltipPlace`, as `owner` and `anchor` win over theirs. A value that is not a
+--- function is ignored rather than called, so a typo costs the hook and not the tooltip's owner.
+local function dhPlacer(spec, t)
+  if type(t.place) == "function" then return t.place end
+  if type(spec.tooltipPlace) == "function" then return spec.tooltipPlace end
+  return nil
+end
+
+--- The three-band shape both copies built out of different text, EVALUATED ONCE for this hover: a
+--- gold title, white wrapped body lines, then -- only when at least one survives -- gray footer
+--- lines. Evaluated apart from the drawing so a placement fallback (dhShowPlaced) redraws the same
+--- lines rather than calling a host's line functions a second time.
+local function dhTooltipLines(t)
+  local title, tr, tg, tb = dhEntry(t.title)
+  return {
+    title  = { title or "", tr or 1, tg or 0.82, tb or 0 },
+    body   = dhBand(t.body, 1, 1, 1) or {},
+    footer = dhBand(t.footer, 0.6, 0.6, 0.6),
+  }
+end
+
+--- Draw evaluated lines into an owned tooltip and show it. The blank spacer before the footer is
+--- drawn only when a footer line survived.
+local function dhDrawTooltip(tip, lines)
+  local title = lines.title
+  tip:SetText(title[1], title[2], title[3], title[4])
+  for _, l in ipairs(lines.body) do tip:AddLine(l[1], l[2], l[3], l[4], true) end
+  if lines.footer then
+    tip:AddLine(" ")
+    for _, l in ipairs(lines.footer) do tip:AddLine(l[1], l[2], l[3], l[4], true) end
+  end
+  tip:Show()
+end
+
+--- THE HOST PLACES IT (minor 4). Owned by UIParent at ANCHOR_NONE -- the owner AuraMaster's
+--- restricted anchor allows -- drawn and SHOWN first, so the host's placement can read the
+--- tooltip's measured size, then handed to `place(tip, frame)` under pcall. Only a literal `true`
+--- means placed. A raise or any other answer falls back to the cursor owner, re-owned and redrawn
+--- from the same evaluated lines, because SetOwner clears the tooltip.
+local function dhShowPlaced(tip, frame, lines, place)
+  tip:SetOwner(UIParent, "ANCHOR_NONE")
+  dhDrawTooltip(tip, lines)
+  local ok, placed = pcall(place, tip, frame)
+  if ok and placed == true then return end
+  tip:SetOwner(UIParent, "ANCHOR_CURSOR")
+  dhDrawTooltip(tip, lines)
+end
+
+--- Show the descriptor's tooltip for `frame`, which is the frame hovered and therefore the frame
+--- a non-cursor owner owns by and the frame a placement hook is handed. Without a hook the calls
+--- are minor 3's, in minor 3's order: own, evaluate and draw, Show.
 local function dhShowTooltip(frame, spec, t)
   local tip = GameTooltip
   if not (t and tip and tip.SetOwner and tip.SetText) then return end
-  dhOwnTooltip(tip, frame, spec, t)
-  local title, tr, tg, tb = dhEntry(t.title)
-  tip:SetText(title or "", tr or 1, tg or 0.82, tb or 0)
-  for _, l in ipairs(dhBand(t.body, 1, 1, 1) or {}) do tip:AddLine(l[1], l[2], l[3], l[4], true) end
-  local footer = dhBand(t.footer, 0.6, 0.6, 0.6)
-  if footer then
-    tip:AddLine(" ")
-    for _, l in ipairs(footer) do tip:AddLine(l[1], l[2], l[3], l[4], true) end
+  local place = dhPlacer(spec, t)
+  if place then
+    dhShowPlaced(tip, frame, dhTooltipLines(t), place)
+    return
   end
-  tip:Show()
+  dhOwnTooltip(tip, frame, spec, t)
+  dhDrawTooltip(tip, dhTooltipLines(t))
 end
 
 local function dhHideTooltip()
@@ -570,7 +617,7 @@ end
 ---                                 shows `tooltip` without it.
 ---   tooltip     table|nil         the descriptor the STRIP shows, and the mark's too unless
 ---                                 `helpTooltip` says otherwise:
----                                   { title, body = {…}, footer = {…}, owner, anchor }
+---                                   { title, body = {…}, footer = {…}, owner, anchor, place }
 ---                                 every band entry may be a string, a function called on each
 ---                                 hover whose nil return drops the line, or a
 ---                                 { <either>, r, g, b } table carrying its own color. No tooltip
@@ -586,6 +633,13 @@ end
 ---                                 `owner` wins. See dhOwnTooltip -- this is correctness.
 ---   tooltipAnchor string|nil      the default "self" anchor point, overridden by a descriptor's
 ---                                 own `anchor`. Defaults to "ANCHOR_TOP".
+---   tooltipPlace function|nil     minor 4. tooltipPlace(tip, frame) -> true when it placed the
+---                                 tooltip. Set, the tooltip is owned by UIParent at ANCHOR_NONE,
+---                                 drawn, shown, and then handed to this under pcall with the
+---                                 frame hovered; the owner and anchor fields are not read. A raise
+---                                 or any answer but `true` falls back to the "cursor" owner, with
+---                                 the same lines redrawn. A descriptor's own `place` wins; a value
+---                                 that is not a function is ignored. See dhShowPlaced.
 ---   edge        function|nil      the host's own 1px edge painter, called as
 ---                                 edge(frame, size, r, g, b, a). Defaults to four strips of ours.
 ---   number      function|nil      number(v, fallback) -- a secret-safe numeric guard.
