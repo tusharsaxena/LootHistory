@@ -256,7 +256,7 @@ fail a run and never block a commit: they are measured, recorded and diffed, bec
 that fails a run teaches everyone to reach for `--no-verify`, after which the gate protects nothing
 and the habit remains. They contribute `amber`, which is a signal rather than a stop. **The tag is
 gated on all four suites at `pass` plus zero functions above CCN 15** (automated-tests-§3, *The
-release gate*), evaluated by `/wow-addon:bump-version` from the release run's `manifest.json` — not
+release gate*), evaluated by `/dev-copilot:bump-version` from the release run's `manifest.json` — not
 by the runner, whose exit code is unchanged. **A missing tool is a skip recorded with its reason**,
 never a pass, and at the release gate a skip is **NOT EVALUATED** rather than passed.
 

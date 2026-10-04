@@ -12,7 +12,7 @@ the analysis of a given run is its `ANALYSIS.md`.
 read and compared, not thresholded (`performance-§9`, `performance-§10`).
 
 **The tag is gated on all four suites at `pass`, plus zero functions above CCN 15**
-(`automated-tests-§3`, *The release gate*), evaluated by `/wow-addon:bump-version` from the
+(`automated-tests-§3`, *The release gate*), evaluated by `/dev-copilot:bump-version` from the
 `manifest.json` the release run writes — not by this script, whose exit code is unchanged.
 
 A `skip` is a suite that did not run at all. It is never a pass, and at the release gate it is

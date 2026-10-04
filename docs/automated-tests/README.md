@@ -33,7 +33,7 @@ which the gate protects nothing and the habit remains. They contribute `amber`, 
 rather than a stop.
 
 **The tag is a different checkpoint**: it is gated on all four suites at `pass` plus zero functions
-above CCN 15 (automated-tests-§3, *The release gate*), evaluated by `/wow-addon:bump-version` from
+above CCN 15 (automated-tests-§3, *The release gate*), evaluated by `/dev-copilot:bump-version` from
 the release run's `manifest.json` — not by the runner, whose exit code stays the commit gate's.
 
 **A missing tool is a skip, not a failure**, and the skip is recorded with its reason — so a green
