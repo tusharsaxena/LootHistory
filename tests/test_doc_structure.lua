@@ -9,7 +9,7 @@
 -- WHY THE THIRD CASE EXISTS. This README grew a `## Unreleased` section holding two fixes that had
 -- landed since the 1.2.0 tag. Nothing about it was dishonest, and that is the trap: a third history
 -- surface is useful right up to the moment someone bumps the version, rolls the release notes into
--- `## Version History` from the git log the way `wow-addon:bump-version` does, and leaves the other
+-- `## Version History` from the git log the way `dev-copilot:bump-version` does, and leaves the other
 -- one behind. Then the repository states two versions of what shipped and the
 -- stale one is the one at the top of the page. §1 gives the history exactly one home for that
 -- reason, and §3 adds that `docs/` is not where a forbidden root doc goes to live — so the check
@@ -21,7 +21,7 @@
 --
 -- WHAT IT DOES NOT DO, DELIBERATELY. It does not check that the top `## Version History` row names
 -- the TOC's version,
--- and it does not check heading ORDER. The first is `wow-addon:bump-version`'s job and pinning it
+-- and it does not check heading ORDER. The first is `dev-copilot:bump-version`'s job and pinning it
 -- here would redden the tree between the bump's own two edits; the second would go red on every
 -- ordinary addition, which is a gate with a standing reason to be switched off.
 --
