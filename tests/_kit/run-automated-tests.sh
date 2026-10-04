@@ -183,7 +183,7 @@ GIT_SHA_SHORT="$(git rev-parse --short HEAD 2>/dev/null || true)"
 [ -z "$GIT_SHA_SHORT" ] && GIT_SHA_SHORT="${GIT_SHA:0:7}"
 
 # A RELEASE RECORD IS REFUSED ON A DIRTY TREE. `--release X.Y.Z` does not label the run, it makes it
-# the evidence for that version: `automated-tests-§3`'s release gate and `/wow-addon:bump-version`
+# the evidence for that version: `automated-tests-§3`'s release gate and `/dev-copilot:bump-version`
 # read this manifest and nothing else when they decide whether the tag may be cut. A tree with
 # uncommitted changes is not a commit, so the `git.sha` recorded beside the claim names bytes that
 # are not the bytes that were measured, and nobody reading the record later can reconstruct what ran.
@@ -684,7 +684,7 @@ if [ "$WRITE_BUNDLE" -eq 1 ]; then
         # "these two gate nothing" — the same half-truth the RESULTS.md lead-in used to carry, in
         # machine-readable form. `gates` names both checkpoints instead.
         #
-        # NEITHER FIELD IS READ BY ANYTHING. `/wow-addon:bump-version` evaluates the release gate
+        # NEITHER FIELD IS READ BY ANYTHING. `/dev-copilot:bump-version` evaluates the release gate
         # from `suites.<name>.status` and `suites.complexity.warnings` — never from `gating` and
         # never from `gates`. Both are descriptive, and `gates` is the honest description. The legacy
         # boolean stays beside it for one revision so no reader breaks on the way past.
@@ -1109,7 +1109,7 @@ TOTALS
             printf '**`perf` and `complexity` never fail a run and never block a commit** — they are recorded,\n'
             printf 'read and compared, not thresholded (`performance-§9`, `performance-§10`).\n\n'
             printf '**The tag is gated on all four suites at `pass`, plus zero functions above CCN 15**\n'
-            printf '(`automated-tests-§3`, *The release gate*), evaluated by `/wow-addon:bump-version` from the\n'
+            printf '(`automated-tests-§3`, *The release gate*), evaluated by `/dev-copilot:bump-version` from the\n'
             printf '`manifest.json` the release run writes — not by this script, whose exit code is unchanged.\n\n'
             printf 'A `skip` is a suite that did not run at all. It is never a pass, and at the release gate it is\n'
             printf '**NOT EVALUATED** rather than passed: install the tool and re-run. A `—` is a suite that was\n'
@@ -1174,7 +1174,7 @@ TOTALS
     # line of defense, but it cannot be the first — a binary format that happens to be NUL-free
     # (ncnn `.param`, an ASCII-armored key, a truncated asset) walks straight through it and gets
     # rewritten. This is the same correction §7 made to the audit's working-tree check and
-    # `wow-addon/scripts/normalize-eol.sh` made to the Write/Edit hook; the three now agree.
+    # `dev-copilot/scripts/normalize-eol.sh` made to the Write/Edit hook; the three now agree.
     #
     # Rewrites are content-conditional (`cmp -s`), so in an LF-pinned repo — and on a second pass
     # over a file that is already right — not one byte and not one mtime moves. The rewrite strips

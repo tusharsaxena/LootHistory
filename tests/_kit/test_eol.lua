@@ -36,7 +36,7 @@
 -- IT ASSERTS THE INVARIANT, NOT THE IMPLEMENTATION. It never looks at the runner's source. It asks
 -- git what each path's terminator is declared to be and then reads the bytes, so it also catches a
 -- file the runner does not write at all — most usefully `ANALYSIS.md`, which the
--- `/wow-addon:automated-tests` skill agent drops into the bundle directory after the runner has
+-- `/dev-copilot:wow-automated-tests` skill agent drops into the bundle directory after the runner has
 -- exited and which is therefore outside the runner's own pass. A red here for that file is the gate
 -- working, not the gate being wrong.
 --
