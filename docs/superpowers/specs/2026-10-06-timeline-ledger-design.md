@@ -1,6 +1,6 @@
 # Timeline ledger — gains, losses, holdings & timeline — design spec
 
-**Status:** design, pending user review — **not built**
+**Status:** design approved incl. §13 resolutions (2026-10-06) — **not built**; next: implementation plan
 **Date:** 2026-10-06
 **Branch:** none yet (trunk-based on `master` unless asked otherwise)
 **Scope:** turn Loot History from a *gains-only loot log* into a full **ledger** of items,
@@ -270,8 +270,9 @@ window-wide singleton; each tab declares which filters it honors (unused ones ar
   `ledgerSince`; a holder with `partial=true` draws dashed until its bank is first seen.
 - **Hover:** crosshair + tooltip per date with each line's value and that day's in/out.
 - **Primitive:** new pooled line-chart renderer using `Texture:CreateLine` (`SetStartPoint`,
-  `SetEndPoint`, `SetThickness`) — none exists today. Lives in `modules/TimelineChart.lua`;
-  segments pooled via `NS.Pool`, downsampled to ≤ 1 point per 2 px of width.
+  `SetEndPoint`, `SetThickness`) — none exists today. Built **in LibKa0s** (F3) as a pooled line-chart widget
+  (lines, axes, ticks, crosshair hook), downsampled to ≤ 1 point per 2 px of width; reached here
+  through a host seam `NS.MakeLineChart` (same pattern as `NS.MakeDropdown`).
 
 ### 8.2 Holdings (4th tab)
 
@@ -341,7 +342,7 @@ are never reset by this prompt (they are new and correct).
 | `modules/Holdings.lua` | holdings store API (`Get`, `Set`, `Total(thingKey)`, `Search(query, filter)`, `ForgetHolder`). |
 | `modules/Attribution.lua` | extended with outbound stamps (§5.4). |
 | `modules/Browser.lua` | tab registry refactor (§8.0). |
-| `modules/TimelineChart.lua` | pooled line-chart primitive. |
+| `core/WidgetsSetup.lua` | `NS.MakeLineChart` seam over the LibKa0s line-chart widget (F3). |
 | `modules/Timeline.lua` | Timeline tab. |
 | `modules/HoldingsTab.lua` | Holdings tab. |
 | `core/Database.lua` | migration v11, rollup prune, `Stats` gains/losses, export fields. |
@@ -381,15 +382,15 @@ Every new module gets a real `Disable` (disabled-state conformance suite).
   crafting, disenchant, reset popup (all three buttons + Esc), Timeline with 1 / 8 / 16 lines,
   Holdings search for an uncached item, `C_Bank.FetchDepositedMoney` outside the bank.
 
-## 13. Standards & scope flags (decide before planning)
+## 13. Standards & scope flags — resolved 2026-10-06
 
-| # | Item | Proposal |
+| # | Item | Resolution (user-ratified) |
 |---|---|---|
-| F1 | `docs/scope.md:213` lists **gold** as a non-goal; scope also defines the addon as "a personal loot ledger". | **Scope change**, not a standard deviation — rewrite scope.md (currency-reversal precedent, `scope.md:201`). |
-| F2 | `performance-§12` exemption (no perf harness) has re-check trigger "first in-combat handler doing real work". Bag/money diffing at volume trips it. | **Conform:** wire the vendored-but-unused LibKa0s Perf, drop the exemption row. |
-| F3 | Line-chart primitive is a reusable widget — candidate for LibKa0s (`library-stack`). | Build locally first; propose upstreaming after it stabilizes. Confirm the standard permits local-first. |
-| F4 | Export field shape is a "resolved decision" (`scope.md:223-226`). | Append `dir, kind, holder, from, to` columns; legacy consumers keep column order; note in CHANGELOG. |
-| F5 | Min-quality setting changes meaning (gates rich records + default History view, no longer what gets captured). | Re-label in settings text; document in scope.md. |
+| F1 | `docs/scope.md:213` lists **gold** as a non-goal; scope also defines the addon as "a personal loot ledger". **Reverse the non-goal.** Scope change, not a standard deviation — rewrite scope.md (currency-reversal precedent, `scope.md:201`). |
+| F2 | `performance-§12` exemption (no perf harness) has re-check trigger "first in-combat handler doing real work". Bag/money diffing at volume trips it. **Conform — add the perf harness:** wire the vendored-but-unused LibKa0s Perf and drop the exemption row from the deviations register (supersedes the decline recorded in issue #29). |
+| F3 | Line-chart primitive is a reusable widget — candidate for LibKa0s (`library-stack`). **Build in LibKa0s from the start** as a new widget (e.g. `LibKa0s-Widgets` `LineChart`, or its own `LibKa0s-Chart` major), with its own tests in the LibKa0s repo; release a LibKa0s tag, then re-vendor here and bump the CLAUDE.md provenance line in the same commit (`test_vendor_sync`). |
+| F4 | Export field shape is a "resolved decision" (`scope.md:223-226`). **Accepted:** append `dir, kind, holder, from, to` columns; existing columns keep their order; note in CHANGELOG and update the export field list in schema.md. |
+| F5 | Min-quality setting changes meaning (gates rich records + default History view, no longer what gets captured). **Accepted:** re-label in settings text; document in scope.md. |
 | F6 | `StaticPopupDialogs` for the reset prompt. | Matches existing host-owned confirms in `settings/Slash.lua`; no deviation expected. |
 
 ## 14. Delivery phases (one plan, gated milestones; green gate + commit at each)
@@ -398,7 +399,11 @@ Every new module gets a real `Disable` (disabled-state conformance suite).
    tab registry refactor, **Holdings tab**, reset popup. *(Useful on its own.)*
 2. **Ledger capture** — Reconciler, claims, outbound attribution, gold, coalescing, History
    direction column/filter, Insights gains-vs-losses.
-3. **Timeline** — rollup writing/pruning, line-chart primitive, **Timeline tab**, perf wiring (F2).
+3. **Timeline** — LibKa0s line-chart widget (built, tested and tagged in the LibKa0s repo, then
+   re-vendored), rollup writing/pruning, **Timeline tab**.
+
+Perf harness wiring (F2) lands in **phase 2**, together with the first in-combat handlers that trip
+the exemption's re-check trigger.
 
 ## 15. Out of scope / deferred
 
