@@ -53,13 +53,13 @@ test("Browser.MinWidth is wide enough for both the columns and the toolbar", fun
   -- The window floor is the wider of the two constraints; neither may be clipped.
   local minW = B:MinWidth()
   assertTrue(minW >= NS.BrowserTable:MinFrameWidth(), "the columns must fit")
-  assertTrue(minW >= 1116, "the two dropdown rows + a minimum Export must fit")
+  assertTrue(minW >= B:ToolbarSpan() + 8 + 120 + 12, "the two dropdown rows + a minimum Export must fit")
 end)
 
 test("Browser.ExportWidth exactly consumes the bar remainder at minimum width", function()
   -- Export fills from the Character dropdown's right edge to the bar's right edge at min width.
-  -- 976 = the dropdown span, +8 gap, 12 = the pane margins.
-  assertEqual(B:ExportWidth(), math.max(120, (B:MinWidth() - 12) - (976 + 8)))
+  -- ToolbarSpan = the measured dropdown span, +8 gap, 12 = the pane margins.
+  assertEqual(B:ExportWidth(), math.max(120, (B:MinWidth() - 12) - (B:ToolbarSpan() + 8)))
 end)
 
 test("Browser.ExportWidth never falls below its floor", function()
@@ -1107,4 +1107,80 @@ test("Browser: DateRange reads the Date dropdown, all when there is none", funct
   end)
   NS.Browser:Hide()
   if not ok then error(err, 0) end
+end)
+
+-- ── One-line filter controls (timeline-ledger P4 Task 1) ───────────────────────────────────────
+-- Owner feedback: "Direction: 2 selected" and "Quality: Common+" wrapped onto a second line inside
+-- their dropdowns. Each control is now as wide as the widest label it can show, its label never
+-- wraps, Direction and Bound share one width, and the window floor is what the two rows need.
+
+local FILTER_DD = { "group", "dir", "date", "bound", "quality", "type", "subtype", "source", "zone",
+                    "char" }
+local ROW2_DD = { "date", "bound", "quality", "type", "subtype", "source", "zone", "char" }
+
+test("filter bar: every dropdown label is one non-wrapping line", function()
+  -- red under: the library's collapsed label left at the client default, which wraps.
+  withGripWindow(function()
+    for _, k in ipairs(FILTER_DD) do
+      local fs = B._dd[k].text
+      assertEqual(fs:GetWordWrap(), false, k .. ": the label must not word-wrap")
+      assertEqual(fs:GetMaxLines(), 1, k .. ": the label is one line")
+    end
+  end)
+end)
+
+test("filter bar: Direction and Bound are the same width", function()
+  -- red under: the fixed 104 / 96 widths the bar was built with.
+  withGripWindow(function()
+    assertEqual(B._dd.dir:GetWidth(), B._dd.bound:GetWidth())
+    -- The mock's CreateTexture hands back the frame itself, so the library's 12px arrow lands on the
+    -- dropdown's own size; only a width set AFTER the build (the fit pass) reads back here.
+    assertTrue(B._dd.dir:GetWidth() >= 104, "Direction keeps at least its shipped width")
+  end)
+end)
+
+test("filter bar: each width covers the widest label that control can show", function()
+  -- A 6px-per-character measurer stands in for the client's font metrics, which the mock answers 0.
+  -- red under: widths that ignore the labels (the old fixed table).
+  local function measure(_, text) return #text * 6 end
+  local w, pad = B._filterWidths(measure), B._DD_PAD
+  local function covers(key, label)
+    assertTrue(w[key] >= #label * 6 + pad, key .. " must fit '" .. label .. "'")
+  end
+  covers("dir", "Direction: 3 selected")
+  covers("bound", "Warbound Until Equipped")
+  covers("quality", "Quality: " .. NS.Item.QualityLabel(2) .. "+")
+  covers("quality", "Quality: 9 selected")
+  covers("char", "Character: Current")
+  covers("group", "Group: Character")
+  covers("source", "Source: All")
+  assertEqual(w.dir, w.bound, "Direction and Bound share the larger width")
+  assertEqual(w.group, w.date, "Group stays aligned over the Date dropdown below it")
+  -- Never narrower than the widths the bar shipped with, even when the font measures nothing.
+  local floor = B._filterWidths(function() return 0 end)
+  for _, k in ipairs(FILTER_DD) do assertTrue(w[k] >= floor[k], k .. " never shrinks below its floor") end
+end)
+
+test("filter bar: the window floor fits both rows at the built widths", function()
+  withGripWindow(function()
+    local dd, gap, margins = B._dd, 8, 12
+    local row2 = 0
+    for _, k in ipairs(ROW2_DD) do row2 = row2 + dd[k]:GetWidth() end
+    row2 = row2 + (#ROW2_DD - 1) * gap + gap + B._exportBtn:GetWidth()
+    assertTrue(B._minW >= row2 + margins, "row 2 (eight dropdowns + Export) must fit the floor")
+    local row1 = dd.group:GetWidth() + gap + dd.dir:GetWidth() + gap + B._SEARCH_MIN
+      + gap + B._exportBtn:GetWidth()   -- the Save/Reset/Clear cluster spans Export's width
+    assertTrue(B._minW >= row1 + margins, "row 1 (Group, Direction, Search, the cluster) must fit")
+    assertEqual(B._minW, B:MinWidth(), "the frame floor is the measured toolbar floor")
+  end)
+end)
+
+test("filter bar: a saved window narrower than the floor is widened on restore", function()
+  -- An older build saved a smaller size; restoring it must clamp to the new minimum.
+  withGripWindow(function(f)
+    NS.db.profile.settings.window = { point = "CENTER", x = 0, y = 0, w = 600, h = 200 }
+    B:AdoptProfile()
+    assertEqual(f:GetWidth(), B._minW)
+    assertEqual(f:GetHeight(), B.SKIN.minH)
+  end)
 end)

@@ -311,6 +311,16 @@ return function()
       return c[1], c[2], c[3], c[4]
     end
     function fs:GetStringWidth() return 0 end
+    -- The filter bar sizes its dropdowns from GetUnboundedStringWidth (0 here, like GetStringWidth,
+    -- so a built bar keeps its floor widths in every suite) and pins each label to one line; both
+    -- setters are recorded so a case can see the label will not wrap. The client defaults to
+    -- wrapping, and so does this stub.
+    function fs:GetUnboundedStringWidth() return 0 end
+    fs.__wordWrap, fs.__maxLines = true, 0
+    function fs:SetWordWrap(v) self.__wordWrap = not not v; return self end
+    function fs:GetWordWrap() return self.__wordWrap end
+    function fs:SetMaxLines(n) self.__maxLines = n; return self end
+    function fs:GetMaxLines() return self.__maxLines end
     return fs
   end
   M.__stubFontString = stubFontString

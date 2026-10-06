@@ -305,14 +305,17 @@ test("BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 
   -- actually needs — which is the +8 that made it 1220. The ledger's Direction column (18 wide plus
   -- its 8px gap) makes it 1246. Comfortably past the old 1160 toolbar
   -- floor and wide enough for the money columns. B:MinWidth() takes the wider of this and the
-  -- toolbar-fit floor (TOOLBAR_MIN 1116), and the static Export button fills the slack to the bar's
-  -- right edge: (1246-12) - (976+8) = 250.
+  -- toolbar-fit floor (the dropdown span + 8 + a 120 Export + 12), and the static Export button
+  -- fills the slack to the bar's right edge. Headless the font measures 0, so the span is the floor
+  -- widths with Direction and Bound paired at 104 (P4): (1246-12) - (984+8) = 242.
   assertEqual(NS.BrowserTable:MinFrameWidth(), 1246)
   assertTrue(NS.BrowserTable:MinFrameWidth() >= 1160,
     "AH column must keep the frame past the old 1160 floor")
   assertEqual(NS.Browser:MinWidth(), 1246)
-  assertTrue(NS.Browser:MinWidth() >= 1116, "must be at least the toolbar-fit floor")
-  assertEqual(NS.Browser:ExportWidth(), 250)
+  assertTrue(NS.Browser:MinWidth() >= NS.Browser:ToolbarSpan() + 8 + 120 + 12,
+    "must be at least the toolbar-fit floor")
+  assertEqual(NS.Browser:ToolbarSpan(), 984)
+  assertEqual(NS.Browser:ExportWidth(), 242)
 end)
 
 test("BrowserTable: quality column is blank for a currency row", function()

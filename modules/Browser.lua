@@ -24,32 +24,32 @@ local SKIN = {
 B.SKIN = SKIN
 
 -- ── Toolbar geometry (single source of truth) ──────────────────────────────────
--- The 8 row-2 filter dropdowns pack left from the pane's left edge; their combined span
--- (fixed widths + inter-gaps) never changes. The row-2 Export button and the row-1
--- Save/Reset/Clear cluster above it fill the slack from the Character dropdown's right edge
--- to the window's right edge AT MIN WIDTH, and are STATIC — they don't grow when the window
--- widens (the extra space opens up on the right). Both EnsureFrame (the window floor) and
--- BuildFilterBar (Export/cluster sizing) read B:MinWidth() / DROPDOWNS_W here, so the window
--- floor and the toolbar packing can never drift apart.
---   Row-2 dropdowns: Date120 Bound96 Quality100 Type112 SubType100 Source100 Zone146 Character146
-local DROPDOWNS_W = 120 + 96 + 100 + 112 + 100 + 100 + 146 + 146 + 7 * 8   -- = 976 (widths + 7×8 gaps)
+-- The 8 row-2 filter dropdowns pack left from the pane's left edge. Their combined span is
+-- MEASURED, not fixed: modules/BrowserFilterBar.lua sizes every control from the widest label it
+-- can show, so no label wraps, and B:ToolbarSpan answers the span those widths need (row 2, or
+-- row 1's Group + Direction + a minimum Search if that is ever wider; the floor widths until the
+-- bar is built). The row-2 Export button and the row-1 Save/Reset/Clear cluster above it fill the
+-- slack from the Character dropdown's right edge to the window's right edge AT MIN WIDTH, and are
+-- STATIC — they don't grow when the window widens (the extra space opens up on the right). Both
+-- EnsureFrame (the window floor) and BuildFilterBar (Export/cluster sizing) read B:MinWidth() /
+-- B:ToolbarSpan(), so the window floor and the toolbar packing can never drift apart.
 local EXPORT_MIN  = 120                                                    -- Export never narrower than this
-local TOOLBAR_MIN = DROPDOWNS_W + 8 + EXPORT_MIN + 12                      -- dropdowns + gap + min Export + pane margins = 1116
 
 -- Minimum (and default-open) window width: the wider of the column-derived table floor
--- (BrowserTable:MinFrameWidth) and the toolbar-fit floor (TOOLBAR_MIN). Shared by EnsureFrame
--- and the filter-bar builder so Export/cluster geometry stays consistent with the frame size.
+-- (BrowserTable:MinFrameWidth) and the toolbar-fit floor (the dropdown span + an 8px gap + a
+-- minimum Export + 12px pane margins). Shared by EnsureFrame and the filter-bar builder so
+-- Export/cluster geometry stays consistent with the frame size.
 function B:MinWidth()
   local colW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
     or 822
-  return math.max(colW, TOOLBAR_MIN)
+  return math.max(colW, self:ToolbarSpan() + 8 + EXPORT_MIN + 12)
 end
 
 -- Static Export button width: fills from the Character dropdown's right edge (+8px gap) to the
 -- bar's right edge at min width, clamped to EXPORT_MIN. (minW-12) is the bar inner width at min
 -- (6px pane margin each side); minus the dropdown span + gap leaves exactly the Export width.
 function B:ExportWidth()
-  return math.max(EXPORT_MIN, (self:MinWidth() - 12) - (DROPDOWNS_W + 8))
+  return math.max(EXPORT_MIN, (self:MinWidth() - 12) - (self:ToolbarSpan() + 8))
 end
 
 -- Wear the shared Ka0s window edge. Every value this used to spell out — the WHITE8x8 backdrop at
@@ -270,6 +270,7 @@ local BOUND_LABEL = {
   WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
 }
 local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
+B._boundLabel, B._boundOrder = BOUND_LABEL, BOUND_ORDER   -- the filter bar measures every label
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
 -- session-only default of "current player"). This is the stock/reset baseline; the user's
@@ -858,12 +859,13 @@ local function EnsureFrame()
   frame = CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")
   -- Default size == minimum size: wide enough for every column, so it can grow but never
   -- shrink into horizontal overflow. B:MinWidth() is the single source of truth — the wider of
-  -- the column-derived table floor (BrowserTable:MinFrameWidth) and the toolbar-fit floor
-  -- (TOOLBAR_MIN = the 8 row-2 dropdowns 976 + an 8px gap + a min Export 120 + 12px pane margins).
-  -- The old hard 1160 floor is gone: with the toolbar now packed left and the Export button + the
-  -- Save/Reset/Clear cluster filling the slack to the right edge (static), the window may shrink to
-  -- whichever floor is larger. The filter bar reads the SAME helper (B:ExportWidth), so the Export/
-  -- cluster geometry and this frame width can't drift.
+  -- the column-derived table floor (BrowserTable:MinFrameWidth) and the toolbar-fit floor (the
+  -- measured dropdown span + an 8px gap + a min Export 120 + 12px pane margins). The toolbar is
+  -- packed left and the Export button + the Save/Reset/Clear cluster fill the slack to the right
+  -- edge (static), so the window may shrink to whichever floor is larger. The floor is taken here
+  -- from the bar's floor widths and taken AGAIN once BuildFilterBar has measured its labels (below);
+  -- the bar reads the SAME helper (B:ExportWidth), so the Export/cluster geometry and this frame
+  -- width can't drift.
   local minW = B:MinWidth()
   local minH = SKIN.minH
   B._minW, B._minH = minW, minH
@@ -949,6 +951,11 @@ local function EnsureFrame()
   -- Build the shared filter controls, populate their options, and apply the saved view (opens
   -- scoped to the current player). The table/charts attach lazily per tab and pick up this filter.
   B:BuildFilterBar(filterHost)
+  -- The bar has measured its labels, so the toolbar floor is final only now. The grip below and
+  -- RestoreWindow both clamp to it, which widens a size saved by a build with narrower controls.
+  minW = B:MinWidth()
+  B._minW = minW
+  frame:SetWidth(minW)
   B:RefreshFilterOptions()
   B:ApplyView(savedViewOrStock(), "current")
   B:UpdateDbSize()

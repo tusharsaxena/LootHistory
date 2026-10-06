@@ -592,7 +592,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: ledger gains, losses, net and transfers
 - Stats: preLedgerRows counts rows older than ledgerSince
 
-### test_browser.lua (82)
+### test_browser.lua (87)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -676,6 +676,11 @@ badge and any count quoted in the docs must agree with it.
 - Browser: SetViewField remembers a field with no Save, from a copy of the stock view
 - Browser: CaptureView keeps the remembered Timeline pick
 - Browser: DateRange reads the Date dropdown, all when there is none
+- filter bar: every dropdown label is one non-wrapping line
+- filter bar: Direction and Bound are the same width
+- filter bar: each width covers the widest label that control can show
+- filter bar: the window floor fits both rows at the built widths
+- filter bar: a saved window narrower than the floor is widened on restore
 
 ### test_browsertable.lua (69)
 
@@ -1518,7 +1523,7 @@ badge and any count quoted in the docs must agree with it.
 | test_escrow.lua | 11 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
-| test_browser.lua | 82 |
+| test_browser.lua | 87 |
 | test_browsertable.lua | 69 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
@@ -1553,4 +1558,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1315** |
+| **Total** | **1320** |
