@@ -220,6 +220,36 @@ test("slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event a
     setEnabled(true)
   end)
 
+test("slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after", function()
+  -- red under: drop the NS.DropLedgerResetOffer call from NS.StandDown -- the one-shot
+  -- PLAYER_REGEN_ENABLED target survives and the popup appears from a game event while off.
+  bringUp()
+  local g, realCombat, realShow = NS.db.global, M.InCombatLockdown, M.StaticPopup_Show
+  local savedH, savedUp, savedPrompt = g.history, NS.State.upgradedFrom, g.resetPrompt
+  local function regen()
+    local n = 0
+    for _, r in ipairs(M.__registrations()) do
+      if r.event == "PLAYER_REGEN_ENABLED" then n = n + 1 end
+    end
+    return n
+  end
+  local shown = {}
+  g.history, g.resetPrompt, NS.State.upgradedFrom = { {} }, nil, 10
+  M.StaticPopup_Show = function(which) shown[#shown + 1] = which end
+  M.InCombatLockdown = function() return true end
+  local before = regen()
+  NS.OfferLedgerReset()
+  assertEqual(regen(), before + 1, "the combat-held offer did not register its one-shot target")
+  setEnabled(false)
+  assertEqual(regen(), before - before, "the held offer survived NS.StandDown")
+  M.InCombatLockdown = function() return false end
+  M.__fire("PLAYER_REGEN_ENABLED")
+  assertEqual(#shown, 0, "the reset popup appeared while the addon was stood down")
+  setEnabled(true)
+  M.StaticPopup_Show, M.InCombatLockdown = realShow, realCombat
+  g.history, NS.State.upgradedFrom, g.resetPrompt = savedH, savedUp, savedPrompt
+end)
+
 -- ── 4. nothing is left to wake up ─────────────────────────────────────────────────────────────
 
 test("slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag",

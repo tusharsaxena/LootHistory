@@ -1084,10 +1084,11 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 
-### test_disabled.lua (14)
+### test_disabled.lua (15)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
+- slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
 - slash-commands-§7 step 5: the window goes down, and the SHOW LADDER is what keeps it down
 - slash-commands-§7 step 6: firing every event it used to watch writes nothing, prints nothing, draws nothing
@@ -1295,7 +1296,7 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 27 |
 | test_surface_parity.lua | 14 |
-| test_disabled.lua | 14 |
+| test_disabled.lua | 15 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_doc_structure.lua | 8 |
@@ -1307,4 +1308,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1101** |
+| **Total** | **1102** |
