@@ -137,7 +137,7 @@ badge and any count quoted in the docs must agree with it.
 - Util: row accessors give legacy defaults
 - Constants: ledger enums and warband key
 
-### test_compat.lua (44)
+### test_compat.lua (45)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -170,6 +170,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyCategory rebuilds on a miss, so a currency first seen later resolves
 - Compat: CurrencyCategory walks the list at most once for an id that is truly absent
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
+- Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
 - Compat: GetSpellName answers C_Spell.GetSpellName's name, as one value
@@ -190,6 +191,17 @@ badge and any count quoted in the docs must agree with it.
 - Scanner: equipped slots and equipped bags
 - Scanner: currencies split account-wide to warband
 - Scanner: money reads
+
+### test_holdings.lua (8)
+
+- Holdings: ApplyContainer replaces one column and keeps others
+- Holdings: unchanged container reports no change
+- Holdings: Total sums holders and warband, sorted by count
+- Holdings: gold and currency totals
+- Holdings: genesis is set once; partial until bank seen
+- Holdings: Holders lists characters then warband
+- Holdings: Search keeps uncached items and filters by holder
+- Holdings: ForgetHolder drops the entry
 
 ### test_attribution.lua (37)
 
@@ -1221,8 +1233,9 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
 | test_ledger.lua | 6 |
-| test_compat.lua | 44 |
+| test_compat.lua | 45 |
 | test_scanner.lua | 4 |
+| test_holdings.lua | 8 |
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
@@ -1259,4 +1272,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1069** |
+| **Total** | **1078** |

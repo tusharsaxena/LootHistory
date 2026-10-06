@@ -389,7 +389,15 @@ test("Compat: the filter-row label shims are gone (LibKa0s IdList labels its own
   -- ItemNameQuality and CurrencyName were written to label the Filters tab's rows. The tab is a
   -- LibKa0s IdList now, which resolves its own names, so a kept copy is a second answer nobody calls.
   assertEqual(NS.Compat.ItemNameQuality, nil)
-  assertEqual(NS.Compat.CurrencyName, nil)
+  -- Compat.CurrencyName returned later for the holdings search (a new caller); tested below.
+end)
+
+test("Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil", function()
+  assertEqual(NS.Compat.CurrencyName(3008), "Valorstones")
+  assertEqual(NS.Compat.CurrencyName(999999), nil)
+  assertEqual(NS.Compat.CurrencyName(nil), nil)
+  local a, b = NS.Compat.GetItemTypeInfo(nil)
+  assertEqual(a, nil); assertEqual(b, nil)
 end)
 
 test("Compat: CurrencyQuality returns the tier, nil when unknown", function()

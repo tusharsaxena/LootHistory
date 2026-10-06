@@ -425,6 +425,28 @@ function Compat.CurrencyQuality(currencyID)
   return nil
 end
 
+-- Localized currency name for a currency id, from C_CurrencyInfo; nil when uncached/absent. The
+-- holdings search names currency rows from this, so it must not throw headless.
+function Compat.CurrencyName(currencyID)
+  if not currencyID then return nil end
+  if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if info then return info.name end
+  end
+  return nil
+end
+
+-- Localized item type + subtype ("Armor", "Cloth") for an item id or link; nil, nil when the item
+-- is not cached or the API is absent. Kept apart from GetItemInfo, whose four-value shape other
+-- callers depend on.
+function Compat.GetItemTypeInfo(idOrLink)
+  if idOrLink and C_Item and C_Item.GetItemInfo then
+    local results = { C_Item.GetItemInfo(idOrLink) }
+    return results[6], results[7]
+  end
+  return nil, nil
+end
+
 -- Bound state for a currency, from C_CurrencyInfo: "WARBAND" for a Warband-transferable currency
 -- (the tooltip's "Warband Transferable" = `isAccountTransferable`), else "BOP" (currencies are
 -- otherwise soulbound). Returns nil when the API can't resolve the id (headless / uncached) so callers
