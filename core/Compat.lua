@@ -559,3 +559,155 @@ function Compat.ListCurrencies()
   for k = #expanded, 1, -1 do CI.ExpandCurrencyList(expanded[k], false) end
   return out
 end
+
+-- ── Ledger capture (timeline ledger Phase 2) ─────────────────────────────────────────────────
+
+-- hooksecurefunc, presence-gated. A missing target (renamed between builds, absent on a flavor)
+-- returns false and installs nothing; the hook BODY must gate itself on NS.IsStoodDown (there is
+-- no un-hook — slash-commands-§7's carve-out).
+function Compat.HookSecure(name, fn)
+  if type(hooksecurefunc) ~= "function" or type(_G[name]) ~= "function" then return false end
+  hooksecurefunc(name, fn)
+  return true
+end
+
+function Compat.HookSecureMember(tbl, member, fn)
+  if type(hooksecurefunc) ~= "function" or type(tbl) ~= "table" or type(tbl[member]) ~= "function" then
+    return false
+  end
+  hooksecurefunc(tbl, member, fn)
+  return true
+end
+
+-- Consumable = Enum.ItemClass.Consumable (0), locale-independent.
+function Compat.IsConsumable(itemID)
+  local fn = C_Item and C_Item.GetItemInfoInstant
+  if not (fn and itemID) then return false end
+  local classID = select(6, fn(itemID))
+  return classID == 0
+end
+
+function Compat.CurrencyIsAccountWide(id)
+  local fn = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+  local info = fn and fn(id)
+  return info ~= nil and info.isAccountWide == true
+end
+
+local function enumName(enum, value)
+  if type(enum) ~= "table" or value == nil then return nil end
+  for name, v in pairs(enum) do if v == value then return name end end
+  return nil
+end
+
+-- CURRENCY_DISPLAY_UPDATE's 4th/5th args, as the Enum MEMBER NAME (C.CURRENCY_SOURCE_REASON keys).
+function Compat.CurrencySourceName(gainSource, destroyReason, change)
+  local E = Enum or {}
+  if (change or 0) > 0 then return enumName(E.CurrencySource, gainSource) end
+  if (change or 0) < 0 then return enumName(E.CurrencyDestroyReason, destroyReason) end
+  return nil
+end
+
+local function addCount(counts, links, id, n, link)
+  if not id or not n or n <= 0 then return end
+  counts[id] = (counts[id] or 0) + n
+  if link and not links[id] then links[id] = link end
+end
+
+-- Every attachment in the inbox the client has loaded (readable only while the mailbox is open).
+function Compat.ScanInbox()
+  local counts, links = {}, {}
+  if type(GetInboxNumItems) ~= "function" or type(GetInboxItem) ~= "function" then return counts, links end
+  local maxA = ATTACHMENTS_MAX_RECEIVE or 16
+  for i = 1, (GetInboxNumItems() or 0) do
+    for a = 1, maxA do
+      local _, itemID, _, count = GetInboxItem(i, a)
+      if itemID then
+        addCount(counts, links, itemID, count or 1, type(GetInboxItemLink) == "function" and GetInboxItemLink(i, a) or nil)
+      end
+    end
+  end
+  return counts, links
+end
+
+-- What is staged in the Send Mail frame right now (read from the SendMail post-hook).
+function Compat.ReadSendMail()
+  local items = {}
+  if type(GetSendMailItem) == "function" then
+    for slot = 1, (ATTACHMENTS_MAX_SEND or 12) do
+      local _, itemID, _, count = GetSendMailItem(slot)
+      if itemID then items[itemID] = (items[itemID] or 0) + (count or 1) end
+    end
+  end
+  local money = type(GetSendMailMoney) == "function" and (GetSendMailMoney() or 0) or 0
+  return items, money
+end
+
+-- Active owned auctions (sold-but-uncollected ones have left the player's escrow already).
+function Compat.ScanOwnedAuctions()
+  local counts, links = {}, {}
+  local AH = C_AuctionHouse
+  if not (AH and AH.GetNumOwnedAuctions and AH.GetOwnedAuctionInfo) then return counts, links end
+  local active = (Enum and Enum.AuctionStatus and Enum.AuctionStatus.Active) or 0
+  for i = 1, (AH.GetNumOwnedAuctions() or 0) do
+    local a = AH.GetOwnedAuctionInfo(i)
+    if a and a.status == active and a.itemKey then
+      addCount(counts, links, a.itemKey.itemID, a.quantity or 1, a.itemLink)
+    end
+  end
+  return counts, links
+end
+
+function Compat.ItemLocationID(loc)
+  local fn = C_Item and C_Item.GetItemID
+  return (fn and loc) and fn(loc) or nil
+end
+
+-- Auction-house mail subject -> kind, item name. Built from the localized global strings, so it
+-- follows the client language (the same rule as Compat.IsAuctionHouseMail).
+local AH_SUBJECTS
+local function ahSubjects()
+  if AH_SUBJECTS then return AH_SUBJECTS end
+  AH_SUBJECTS = {}
+  for kind, g in pairs({ sold = AUCTION_SOLD_MAIL_SUBJECT, expired = AUCTION_EXPIRED_MAIL_SUBJECT,
+                         cancelled = AUCTION_REMOVED_MAIL_SUBJECT, won = AUCTION_WON_MAIL_SUBJECT }) do
+    if type(g) == "string" then
+      local p = g:gsub("([%^%$%(%)%.%[%]%*%+%-%?%%])", "%%%1"):gsub("%%%%s", "(.+)")
+      AH_SUBJECTS[#AH_SUBJECTS + 1] = { kind = kind, pattern = "^" .. p .. "$" }
+    end
+  end
+  return AH_SUBJECTS
+end
+
+function Compat.AuctionMailKind(subject)
+  if type(subject) ~= "string" then return nil end
+  for _, s in ipairs(ahSubjects()) do
+    local name = subject:match(s.pattern)
+    if name then return s.kind, name end
+  end
+  return nil
+end
+
+-- The trade partner as a holder key. UnitName("NPC") is the open trade's other party.
+function Compat.TradeTargetKey()
+  if type(UnitName) ~= "function" then return nil end
+  local name, realm = UnitName("NPC")
+  if not name or name == "" then return nil end
+  if name:find("-", 1, true) then return name end
+  realm = (realm and realm ~= "") and realm
+    or (type(GetNormalizedRealmName) == "function" and GetNormalizedRealmName()) or nil
+  return realm and (name .. "-" .. realm) or name
+end
+
+-- The newest warband currency transfer this character made (CURRENCY_TRANSFER_LOG_UPDATE). Field
+-- names are the 11.x CurrencyTransferTransaction shape as recalled; smoke LED-P2-13 verifies them.
+function Compat.LatestCurrencyTransfer()
+  local fn = C_CurrencyInfo and C_CurrencyInfo.FetchCurrencyTransferTransactions
+  local list = fn and fn()
+  if type(list) ~= "table" or #list == 0 then return nil end
+  local t = list[#list]
+  local to = t.destinationCharacterName
+  if to and not to:find("-", 1, true) and type(GetNormalizedRealmName) == "function" then
+    to = to .. "-" .. (GetNormalizedRealmName() or "")
+  end
+  return { currencyID = t.currencyType, quantity = t.quantityTransferred, toKey = to }
+end

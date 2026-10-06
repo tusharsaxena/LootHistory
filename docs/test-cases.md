@@ -90,7 +90,7 @@ badge and any count quoted in the docs must agree with it.
 - ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 
-### test_util.lua (40)
+### test_util.lua (41)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -132,6 +132,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a later burst schedules a fresh run rather than being dropped
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
+- Util: ParseSelfMoney reads looted and shared money
 
 ### test_ledger.lua (28)
 
@@ -164,7 +165,7 @@ badge and any count quoted in the docs must agree with it.
 - Ledger: PickReason — currency source names map before scopes
 - Ledger: CurrencyReason maps known enum member names, nil otherwise
 
-### test_compat.lua (47)
+### test_compat.lua (55)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -213,6 +214,14 @@ badge and any count quoted in the docs must agree with it.
 - Compat: GetMoney nets cursor and trade money
 - Compat: GetWarbandMoney reads the account bank, nil when API absent
 - Compat: ListCurrencies expands collapsed headers and restores them
+- Compat: IsConsumable reads the item class
+- Compat: account-wide currency and currency-source names
+- Compat: inbox scan sums attachments by itemID
+- Compat: send-mail read returns attachments and money
+- Compat: owned auctions count only active ones
+- Compat: AuctionMailKind parses the localized subjects
+- Compat: TradeTargetKey appends the player's realm when missing
+- Compat: HookSecure is presence-gated
 
 ### test_scanner.lua (5)
 
@@ -1307,9 +1316,9 @@ badge and any count quoted in the docs must agree with it.
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
-| test_util.lua | 40 |
+| test_util.lua | 41 |
 | test_ledger.lua | 28 |
-| test_compat.lua | 47 |
+| test_compat.lua | 55 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_attribution.lua | 37 |
@@ -1351,4 +1360,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1145** |
+| **Total** | **1154** |

@@ -25,6 +25,7 @@ exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/_kit
 -- and one name, `212/self`, and they are below in per-file stanzas.
 -- tests/test_lintconfig.lua is what keeps the blanket from re-entering.
 read_globals = {
+  "GetInboxNumItems", "GetInboxItem", "GetInboxItemLink", "GetSendMailItem", "GetSendMailItemLink", "GetSendMailMoney", "ATTACHMENTS_MAX_RECEIVE", "ATTACHMENTS_MAX_SEND", "C_TradeSkillUI", "GuildBankFrame", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT", "YOU_LOOT_MONEY_GUILD", "GOLD_AMOUNT", "SILVER_AMOUNT", "COPPER_AMOUNT", "AUCTION_SOLD_MAIL_SUBJECT", "AUCTION_EXPIRED_MAIL_SUBJECT", "AUCTION_REMOVED_MAIL_SUBJECT", "AUCTION_WON_MAIL_SUBJECT", "debugprofilestop",
   "_G", "LibStub", "CreateFrame", "UIParent", "GetTime", "time", "date", "DEFAULT_CHAT_FRAME",
   "UnitName", "UnitGUID", "UnitClass", "GetRealmName", "GetNormalizedRealmName",
   "RAID_CLASS_COLORS", "CLASS_ICON_TCOORDS", "StaticPopup_Show", "YES", "NO",

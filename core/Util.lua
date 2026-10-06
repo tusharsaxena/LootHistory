@@ -274,3 +274,37 @@ function Util.RowKind(r)
   return "ITEM"
 end
 function Util.RowHolder(r) return r.holder or r.char end
+
+-- CHAT_MSG_MONEY (timeline-ledger spec §5.4 "Gold gains"): the player's own looted money and their
+-- party share. The money text is the localized "1 Gold, 2 Silver, 3 Copper" built from
+-- GOLD_AMOUNT / SILVER_AMOUNT / COPPER_AMOUNT, any part omitted when zero.
+local moneyPatterns, coinPatterns
+function Util.BuildMoneyPatterns()
+  moneyPatterns, coinPatterns = {}, {}
+  for _, g in ipairs({ YOU_LOOT_MONEY_GUILD, LOOT_MONEY_SPLIT, YOU_LOOT_MONEY }) do
+    if type(g) == "string" then moneyPatterns[#moneyPatterns + 1] = toLootPattern(g) end
+  end
+  for mult, g in pairs({ [10000] = GOLD_AMOUNT, [100] = SILVER_AMOUNT, [1] = COPPER_AMOUNT }) do
+    if type(g) == "string" then
+      local p = g:gsub("([%^%$%(%)%.%[%]%*%+%-%?%%])", "%%%1"):gsub("%%%%d", "(%%d+)")
+      coinPatterns[#coinPatterns + 1] = { pattern = p, mult = mult }
+    end
+  end
+end
+
+function Util.ParseSelfMoney(msg)
+  if not msg then return nil end
+  if not moneyPatterns then Util.BuildMoneyPatterns() end
+  for _, p in ipairs(moneyPatterns) do
+    local text = msg:match(p)
+    if text then
+      local copper = 0
+      for _, c in ipairs(coinPatterns) do
+        local n = text:match(c.pattern)
+        if n then copper = copper + tonumber(n) * c.mult end
+      end
+      return copper > 0 and copper or nil
+    end
+  end
+  return nil
+end

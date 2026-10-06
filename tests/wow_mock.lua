@@ -374,5 +374,78 @@ return function()
   -- still recorded per target on `t.__events`, and `M.__fireEvent(event, ...)` dispatches one the
   -- way AceEvent's frame does.
 
+  -- ── ledger capture (timeline ledger P2) ────────────────────────────────────
+  M.Enum = M.Enum or {}
+  -- Member names as the 12.x client ships them (as recalled; verified by smoke LED-P2-14). The
+  -- numbers are arbitrary here on purpose: the addon reverse-looks-up by NAME.
+  M.Enum.CurrencySource = { Loot = 0, QuestReward = 1, Vendor = 3, Trade = 4, ItemRefund = 5, AccountTransfer = 50 }
+  M.Enum.CurrencyDestroyReason = { Vendor = 3, Trade = 4, Spell = 1, FulfillCraftingOrder = 9,
+    ConcentrationCast = 12, AccountTransfer = 13 }
+  M.Enum.AuctionStatus = { Active = 0, Sold = 1 }
+  M.Enum.PlayerInteractionType = M.Enum.PlayerInteractionType or {}
+  M.Enum.PlayerInteractionType.Trainer = 7
+  M.Enum.PlayerInteractionType.TaxiNode = 2
+  M.__currencyAccountWide = {}
+  local baseGetCurrencyInfo = M.C_CurrencyInfo.GetCurrencyInfo
+  M.C_CurrencyInfo.GetCurrencyInfo = function(id)
+    local info = baseGetCurrencyInfo(id)
+    if info then info.isAccountWide = M.__currencyAccountWide[id] or false; return info end
+    if M.__currencyAccountWide[id] then return { name = "currency " .. id, quantity = 0, isAccountWide = true } end
+    return nil
+  end
+  M.__currencyTransfers = {}
+  M.C_CurrencyInfo.FetchCurrencyTransferTransactions = function() return M.__currencyTransfers end
+
+  M.ATTACHMENTS_MAX_RECEIVE, M.ATTACHMENTS_MAX_SEND = 16, 12
+  M.__inbox = {}
+  M.GetInboxNumItems = function() return #M.__inbox end
+  M.GetInboxItem = function(i, a)
+    local att = M.__inbox[i] and M.__inbox[i].items and M.__inbox[i].items[a]
+    if not att then return nil end
+    return "name", att.itemID, nil, att.count
+  end
+  M.GetInboxItemLink = function(i, a)
+    local att = M.__inbox[i] and M.__inbox[i].items and M.__inbox[i].items[a]
+    return att and att.link
+  end
+  M.__sendMail = { items = {}, money = 0 }
+  M.GetSendMailItem = function(slot)
+    local it = M.__sendMail.items[slot]
+    if not it then return nil end
+    return "name", it.itemID, nil, it.count
+  end
+  M.GetSendMailItemLink = function(slot) local it = M.__sendMail.items[slot]; return it and it.link end
+  M.GetSendMailMoney = function() return M.__sendMail.money or 0 end
+
+  M.__ownedAuctions = {}
+  M.C_AuctionHouse = {
+    GetNumOwnedAuctions = function() return #M.__ownedAuctions end,
+    GetOwnedAuctionInfo = function(i)
+      local a = M.__ownedAuctions[i]
+      if not a then return nil end
+      return { itemKey = { itemID = a.itemID }, itemLink = a.link, quantity = a.quantity, status = a.status }
+    end,
+    PostItem = function() end, PostCommodity = function() end,
+    PlaceBid = function() end, ConfirmCommoditiesPurchase = function() end,
+  }
+  M.C_Item.GetItemID = function(loc) return loc and loc.__itemID end
+  M.C_TradeSkillUI = { CraftRecipe = function() end, CraftSalvage = function() end, CraftEnchant = function() end }
+
+  M.__tradeTarget = nil
+  local baseUnitName = M.UnitName
+  M.UnitName = function(unit)
+    if unit == "NPC" then return M.__tradeTarget end
+    return baseUnitName(unit)
+  end
+
+  M.YOU_LOOT_MONEY = "You loot %s"
+  M.LOOT_MONEY_SPLIT = "Your share of the loot is %s."
+  M.YOU_LOOT_MONEY_GUILD = "You loot %s (%s deposited to guild bank)"
+  M.GOLD_AMOUNT, M.SILVER_AMOUNT, M.COPPER_AMOUNT = "%d Gold", "%d Silver", "%d Copper"
+  M.AUCTION_SOLD_MAIL_SUBJECT = "Auction successful: %s"
+  M.AUCTION_EXPIRED_MAIL_SUBJECT = "Auction expired: %s"
+  M.AUCTION_REMOVED_MAIL_SUBJECT = "Auction cancelled: %s"
+  M.AUCTION_WON_MAIL_SUBJECT = "Auction won: %s"
+
   return M
 end

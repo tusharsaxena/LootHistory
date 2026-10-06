@@ -553,3 +553,81 @@ test("Compat: ListCurrencies expands collapsed headers and restores them", funct
   assertTrue(m.__currencyList[1].collapsed)   -- restored
   m.__currencyList = saved
 end)
+
+test("Compat: IsConsumable reads the item class", function()
+  local m = T.mocks
+  m.__itemClassID = 0; assertTrue(NS.Compat.IsConsumable(211296))
+  m.__itemClassID = 4; assertFalse(NS.Compat.IsConsumable(211296))
+  m.__itemClassID = 0
+end)
+
+test("Compat: account-wide currency and currency-source names", function()
+  local m = T.mocks
+  m.__currencyAccountWide = { [2032] = true }
+  assertTrue(NS.Compat.CurrencyIsAccountWide(2032))
+  assertFalse(NS.Compat.CurrencyIsAccountWide(3008))
+  assertEqual(NS.Compat.CurrencySourceName(m.Enum.CurrencySource.Vendor, nil, 5), "Vendor")
+  assertEqual(NS.Compat.CurrencySourceName(nil, m.Enum.CurrencyDestroyReason.AccountTransfer, -5), "AccountTransfer")
+  assertEqual(NS.Compat.CurrencySourceName(nil, nil, 5), nil)
+end)
+
+test("Compat: inbox scan sums attachments by itemID", function()
+  local m = T.mocks
+  m.__inbox = {
+    { items = { { itemID = 9, count = 2, link = "L9" }, { itemID = 9, count = 1, link = "L9" } } },
+    { items = { { itemID = 4, count = 5, link = "L4" } } },
+  }
+  local c, l = NS.Compat.ScanInbox()
+  assertEqual(c[9], 3); assertEqual(c[4], 5); assertEqual(l[4], "L4")
+  m.__inbox = {}
+end)
+
+test("Compat: send-mail read returns attachments and money", function()
+  local m = T.mocks
+  m.__sendMail = { items = { [1] = { itemID = 7, count = 3, link = "L7" } }, money = 5000 }
+  local items, money = NS.Compat.ReadSendMail()
+  assertEqual(items[7], 3); assertEqual(money, 5000)
+  m.__sendMail = { items = {}, money = 0 }
+end)
+
+test("Compat: owned auctions count only active ones", function()
+  local m = T.mocks
+  m.__ownedAuctions = {
+    { itemID = 3, quantity = 2, link = "L3", status = 0 },
+    { itemID = 3, quantity = 1, link = "L3", status = 1 },
+  }
+  local c = NS.Compat.ScanOwnedAuctions()
+  assertEqual(c[3], 2)
+  m.__ownedAuctions = {}
+end)
+
+test("Compat: AuctionMailKind parses the localized subjects", function()
+  assertEqual((NS.Compat.AuctionMailKind("Auction successful: Herb")), "sold")
+  local kind, name = NS.Compat.AuctionMailKind("Auction expired: Herb")
+  assertEqual(kind, "expired"); assertEqual(name, "Herb")
+  assertEqual(NS.Compat.AuctionMailKind("Hello"), nil)
+end)
+
+test("Compat: TradeTargetKey appends the player's realm when missing", function()
+  T.mocks.__tradeTarget = "Alt"
+  assertEqual(NS.Compat.TradeTargetKey(), "Alt-Realm")
+  T.mocks.__tradeTarget = nil
+  assertEqual(NS.Compat.TradeTargetKey(), nil)
+end)
+
+test("Compat: HookSecure is presence-gated", function()
+  local m = T.mocks
+  local savedHook = m.hooksecurefunc
+  local hooked = {}
+  m.hooksecurefunc = function(a, b) hooked[#hooked + 1] = type(a) == "table" and b or a end
+  -- HookSecure resolves the target BY NAME through _G (as hooksecurefunc itself does), and the
+  -- loader env only falls through to _G after the mocks, so the stub goes on _G (core/Compat.lua's
+  -- IsAuctionHouseMail global-string lookup is exercised the same way).
+  rawset(_G, "RepairAllItems", function() end)
+  assertTrue(NS.Compat.HookSecure("RepairAllItems", function() end))
+  assertFalse(NS.Compat.HookSecure("NoSuchFunction", function() end))
+  assertTrue(NS.Compat.HookSecureMember(m.C_AuctionHouse, "PostItem", function() end))
+  assertEqual(table.concat(hooked, ","), "RepairAllItems,PostItem")
+  m.hooksecurefunc = savedHook
+  rawset(_G, "RepairAllItems", nil)
+end)

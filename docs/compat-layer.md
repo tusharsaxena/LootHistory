@@ -70,6 +70,18 @@ primitives and holds no opinion about how they are composed.
 | `Compat.BagInventorySlot(bagID)` | `C_Container.ContainerIDToInventoryID` | The inventory slot a bag container is equipped in, `nil` for the backpack or when absent. |
 | `Compat.ListCurrencies()` | `C_CurrencyInfo.GetCurrencyListSize`/`…ListInfo`/`…ListLink`/`ExpandCurrencyList` | Every currency the character has as `{id, quantity, accountWide}`. Collapsed headers are expanded for the walk and collapsed again after (last-to-first), because the list hides their children; `{}` when the API is absent. |
 | `Compat.InteractionType(name)` | `Enum.PlayerInteractionType[name]` | Numeric interaction type for a name (`"Banker"`, `"AccountBanker"`, …) so handlers never hardcode the number; `nil` when unknown. |
+| `Compat.HookSecure(name, fn)` | `hooksecurefunc` (global) | Presence-gated post-hook by global name; `false` and nothing installed when the target is absent. No un-hook exists, so the body gates itself on `NS.IsStoodDown`. |
+| `Compat.HookSecureMember(tbl, member, fn)` | `hooksecurefunc` (table member) | Same gate for a namespace function such as `C_AuctionHouse.PostItem`. |
+| `Compat.IsConsumable(itemID)` | `C_Item.GetItemInfoInstant` | `true` when the item's class id is Consumable (0), locale-independent; `false` when absent. |
+| `Compat.CurrencyIsAccountWide(id)` | `C_CurrencyInfo.GetCurrencyInfo` | `isAccountWide` as a strict boolean; `false` when absent. |
+| `Compat.CurrencySourceName(gain, destroy, change)` | `Enum.CurrencySource` / `Enum.CurrencyDestroyReason` | Reverse-looks-up the CURRENCY_DISPLAY_UPDATE source or destroy reason to its Enum member NAME by the sign of `change`; `nil` when unknown. |
+| `Compat.ScanInbox()` | `GetInboxNumItems` / `GetInboxItem` / `GetInboxItemLink` | Attachment counts and links by itemID across the loaded inbox; empty tables when absent. |
+| `Compat.ReadSendMail()` | `GetSendMailItem` / `GetSendMailMoney` | Staged send-mail attachments by itemID plus the staged money in copper. |
+| `Compat.ScanOwnedAuctions()` | `C_AuctionHouse.GetNumOwnedAuctions` / `GetOwnedAuctionInfo` | Counts and links of the player's ACTIVE auctions only, by itemID. |
+| `Compat.ItemLocationID(loc)` | `C_Item.GetItemID` | itemID for an ItemLocation; `nil` when absent. |
+| `Compat.AuctionMailKind(subject)` | `AUCTION_SOLD/EXPIRED/REMOVED/WON_MAIL_SUBJECT` | `"sold"`, `"expired"`, `"cancelled"` or `"won"` plus the item name, parsed from the localized subject globals; `nil` otherwise. |
+| `Compat.TradeTargetKey()` | `UnitName("NPC")`, `GetNormalizedRealmName` | The open trade's other party as a `Name-Realm` holder key; `nil` when none. |
+| `Compat.LatestCurrencyTransfer()` | `C_CurrencyInfo.FetchCurrencyTransferTransactions` | Newest warband currency transfer as `{currencyID, quantity, toKey}`; `nil` when none or absent. |
 
 ## Boundary rule
 

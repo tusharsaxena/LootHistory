@@ -383,3 +383,10 @@ test("Coalesce: with no C_Timer it runs straight through", function()
   T.mocks.C_Timer = saved
   assertEqual(ran, 1, "it ran immediately rather than being dropped")
 end)
+
+test("Util: ParseSelfMoney reads looted and shared money", function()
+  assertEqual(NS.Util.ParseSelfMoney("You loot 1 Gold, 2 Silver, 3 Copper"), 10203)
+  assertEqual(NS.Util.ParseSelfMoney("You loot 45 Copper"), 45)
+  assertEqual(NS.Util.ParseSelfMoney("Your share of the loot is 2 Silver."), 200)
+  assertEqual(NS.Util.ParseSelfMoney("Bob loots 3 Gold"), nil)
+end)
