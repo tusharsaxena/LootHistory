@@ -34,6 +34,12 @@ local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
 -- The Bound lock, one size for the header and the rows. They were 14 and briefly disagreed; a
 -- column label and the cells beneath it drawing the same mark at two sizes reads as two marks.
 local LOCK_SIZE = 11
+-- The Direction cell's glyph (▲/▼/⇄) is its own FontString, drawn in the mono face at the left of
+-- the cell, with the label ("Gain"/"Loss"/"Transfer") in the row font beside it -- BankLedger's
+-- Direction column (LedgerTable.lua), same 12px glyph and 2px gap. The default font has none of the
+-- three glyphs and draws boxes, so only the glyph takes C.FONT_MONO; the label stays in the row font
+-- so it reads like every other cell. Both take one color (paintDirectionCell).
+local ARROW_SIZE, ARROW_GAP = 12, 2
 -- Every row shows a lock; color + opacity encode the binding state. {r, g, b, alpha}
 -- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
 local BOUND_STYLE = {
@@ -177,11 +183,12 @@ BrowserTable.COLUMNS = {
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
-  -- Direction (timeline-ledger spec §7). The glyphs exist only in the mono face (`mono`, BuildRow);
-  -- the default font draws them as boxes. Color comes from BindRow.
-  { key = "dir", label = "", width = 18, align = "CENTER", mono = true,
+  -- Direction (timeline-ledger spec §7). The cell text is the LABEL; the glyph is a separate mono
+  -- FontString in front of it (BuildRow, paintDirectionCell). 86 = the 12px glyph + 2px gap + the
+  -- widest label ("Transfer") at the row font with room to spare; BankLedger's is 82.
+  { key = "dir", label = "Direction", width = 86, align = "LEFT",
     desc = "Direction: green up = gain, red down = loss, gray arrows = transfer between your own containers or characters.",
-    valueFn = function(r) return NS.LedgerFormat.Glyph(NS.Util.RowDir(r)) end,
+    valueFn = function(r) local d = NS.Util.RowDir(r); return C.DirLabel[d] or d end,
     sortFn = function(r) return DIR_RANK[NS.Util.RowDir(r)] or 0 end },
   { key = "ilvl", label = "iLvl", width = 34, align = "RIGHT",
     desc = "Item level (equippable gear only).",
@@ -810,9 +817,18 @@ function BrowserTable:BuildRow()
     fs:SetJustifyH(col.align)
     fs:SetHeight(rowHeight())
     fs:SetWordWrap(false)
-    if col.mono then fs:SetFont(C.FONT_MONO, 12, "") end
     row.cells[col.key] = fs
   end
+
+  -- The direction glyph, drawn to the left of the Direction label and colored with it. Hidden until
+  -- paintDirectionCell shows it, so a row that is never bound as data never shows one.
+  local glyph = row:CreateFontString(nil, "OVERLAY")
+  glyph:SetFont(C.FONT_MONO, ARROW_SIZE, "")
+  glyph:SetJustifyH("CENTER")
+  glyph:SetWidth(ARROW_SIZE)
+  glyph:SetHeight(rowHeight())
+  glyph:Hide()
+  row.dirGlyph = glyph
 
   -- Bound-state lock icon (Bound column); tinted + shown per record in BindRow.
   local boundIcon = row:CreateTexture(nil, "OVERLAY")
@@ -912,8 +928,17 @@ function BrowserTable:LayoutRowCells(row, rh)
     local w = col.flex and flexW or col.width
     local fs = row.cells[col.key]
     fs:ClearAllPoints()
-    fs:SetPoint("LEFT", row, "LEFT", x, 0)
-    fs:SetWidth(w)
+    -- The Direction cell gives its first ARROW_SIZE+ARROW_GAP pixels to the direction glyph.
+    if col.key == "dir" and row.dirGlyph then
+      row.dirGlyph:ClearAllPoints()
+      row.dirGlyph:SetPoint("LEFT", row, "LEFT", x, 0)
+      row.dirGlyph:SetHeight(rh)
+      fs:SetPoint("LEFT", row, "LEFT", x + ARROW_SIZE + ARROW_GAP, 0)
+      fs:SetWidth(math.max(1, w - ARROW_SIZE - ARROW_GAP))
+    else
+      fs:SetPoint("LEFT", row, "LEFT", x, 0)
+      fs:SetWidth(w)
+    end
     fs:SetHeight(rh)
     if col.icon and row.boundIcon then
       row.boundIcon:ClearAllPoints()
@@ -1131,6 +1156,45 @@ function BrowserTable:Bind()
   end
 end
 
+-- The only painter that SHOWS the row's glyph FontString, and it sets text, color AND shown-state
+-- every time: rows are pooled, so a glyph left over from the record that last used this row is the
+-- failure mode. A legacy row (no `dir`) reads as a gain through NS.Util.RowDir.
+local function paintDirectionCell(fs, r, glyphFS)
+  local dir = NS.Util.RowDir(r)
+  local cr, cg, cb = NS.LedgerFormat.Color(dir)
+  fs:SetTextColor(cr, cg, cb)
+  if glyphFS then
+    local glyph = C.DirGlyph[dir]
+    glyphFS:SetText(glyph or "")
+    glyphFS:SetTextColor(cr, cg, cb)
+    glyphFS:SetShown(glyph ~= nil)
+  end
+end
+
+-- Paint ONE data cell: its text from the column's valueFn, its color from the column's rule.
+-- `glyphFS` is the row's direction glyph; the Direction column shows it, and any other column that
+-- is handed it hides it, so no column but Direction can ever leave a glyph on screen.
+function BrowserTable:PaintCell(fs, colKey, r, glyphFS)
+  local col = COLUMN_BY_KEY[colKey]
+  if not (fs and col and r) then return end
+  fs:SetText(col.valueFn(r))
+  if colKey == "dir" then
+    paintDirectionCell(fs, r, glyphFS)
+    return
+  end
+  if glyphFS then glyphFS:Hide() end
+  if colKey == "item" or colKey == "quality" then
+    fs:SetTextColor(qualityColor(r.quality))
+  elseif colKey == "char" then
+    local cc = RAID_CLASS_COLORS and r.classFile and RAID_CLASS_COLORS[r.classFile]
+    if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
+  elseif colKey == "qty" then
+    fs:SetTextColor(NS.LedgerFormat.QtyColor(r))
+  else
+    fs:SetTextColor(0.9, 0.9, 0.9)
+  end
+end
+
 function BrowserTable:BindRow(row, entry, absIndex)
   row.entry = entry
   row.stripe:SetShown(absIndex % 2 == 0)
@@ -1138,6 +1202,7 @@ function BrowserTable:BindRow(row, entry, absIndex)
   if entry.kind == "header" then
     for _, col in ipairs(self.COLUMNS) do row.cells[col.key]:SetText("") end
     row.boundIcon:Hide()
+    row.dirGlyph:Hide()
     row.header:Show()
     -- The disclosure mark: chevron right when collapsed, chevron down when expanded. The catalog
     -- carries `add` (a plus) but no minus, so the Blizzard +/- pair cannot be reproduced in the
@@ -1155,22 +1220,9 @@ function BrowserTable:BindRow(row, entry, absIndex)
 
   row.header:Hide()
   local r = entry.record
+  -- (INFERRED rows no longer get a dot before the item name; the row tooltip still notes it.)
   for _, col in ipairs(self.COLUMNS) do
-    local fs = row.cells[col.key]
-    -- (INFERRED rows no longer get a dot before the item name; the row tooltip still notes it.)
-    fs:SetText(col.valueFn(r))
-    if col.key == "item" or col.key == "quality" then
-      fs:SetTextColor(qualityColor(r.quality))
-    elseif col.key == "char" then
-      local cc = RAID_CLASS_COLORS and r.classFile and RAID_CLASS_COLORS[r.classFile]
-      if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
-    elseif col.key == "dir" then
-      fs:SetTextColor(NS.LedgerFormat.Color(NS.Util.RowDir(r)))
-    elseif col.key == "qty" then
-      fs:SetTextColor(NS.LedgerFormat.QtyColor(r))
-    else
-      fs:SetTextColor(0.9, 0.9, 0.9)
-    end
+    self:PaintCell(row.cells[col.key], col.key, r, col.key == "dir" and row.dirGlyph or nil)
   end
 
   -- Bound lock icon (always shown): blue = warbound, white = soulbound, faint gray = unbound.

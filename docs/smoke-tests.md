@@ -1213,7 +1213,23 @@ Caveat: the opening read runs about 0.35 s after the bank frame shows (the flush
 made inside that window is folded into the drift read: its bank side lands as an `UNTRACKED` IN and
 its bags side is classified on its own, so it is not a MOVE pair. Wait a moment after opening the
 bank before depositing, and record what a quick deposit shows if you test it.
+
 Result:
+
+**LED-11. History Direction column (P5).** Open History with the Direction dropdown on **All** so
+gains, losses and transfers all show. Check each of these:
+
+- The column header reads **Direction**, and the column is wide enough that `Transfer` is not cut off.
+- A gain reads `▲ Gain` in green, a loss `▼ Loss` in red, a transfer `⇄ Transfer` in gray. The glyph
+  and the label share one color, and the glyph is a real arrow, not a box.
+- A row recorded before the ledger existed (no direction stored) reads `▲ Gain` in green.
+- Scroll the list up and down several pages so rows are reused: every row keeps the glyph, label and
+  color that match its own direction, with no glyph left over from another row.
+- Pick **Group: Direction**: the group-header rows show no glyph, and the rows under each header
+  match it. Click the Direction header to sort: gains, losses, transfers (and the reverse).
+
+Result:
+
 ## Ledger capture (timeline ledger Phase 2)
 
 The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`):
@@ -1646,6 +1662,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
 | LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); no result recorded |
 | LED-10 | New | New with the timeline ledger P4 polish (bank and warband-tab drift on a visit's first read is `UNTRACKED`); no result recorded |
+| LED-11 | New | New with the timeline ledger P5 (History Direction column: glyph plus colored label); no result recorded |
 | LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions |
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |

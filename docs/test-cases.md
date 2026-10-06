@@ -687,7 +687,7 @@ badge and any count quoted in the docs must agree with it.
 - filter bar: the window floor fits both rows at the built widths
 - filter bar: a saved window narrower than the floor is widened on restore
 
-### test_browsertable.lua (69)
+### test_browsertable.lua (72)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -707,7 +707,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
 - BrowserTable: auction column shows the picked price from the map
-- BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1246)
+- BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1314)
 - BrowserTable: quality column is blank for a currency row
 - BrowserTable: group keys are namespaced, so a zone can share a source's name
 - BrowserTable: a missing zone/character/type groups under 'Unknown'
@@ -752,7 +752,10 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a refused start prints one line and leaves the box unticked
 - Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
-- BrowserTable: a Direction column follows Time and draws in the mono face
+- BrowserTable: a Direction column follows Time, labeled and wide enough for glyph + Transfer
+- BrowserTable: the Direction cell paints glyph, label and color for IN/OUT/MOVE/legacy
+- BrowserTable: re-binding a pooled row from MOVE to IN leaves no stale glyph or color
+- BrowserTable: a non-direction cell never shows the glyph FontString
 - BrowserTable: the Qty column shows signed quantities
 - BrowserTable: group by Direction and by Holder
 - History row menu: Show in Timeline opens the Timeline on that row's thing
@@ -1542,7 +1545,7 @@ badge and any count quoted in the docs must agree with it.
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 87 |
-| test_browsertable.lua | 69 |
+| test_browsertable.lua | 72 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1576,4 +1579,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1338** |
+| **Total** | **1341** |

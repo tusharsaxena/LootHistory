@@ -298,24 +298,25 @@ test("BrowserTable: auction column shows the picked price from the map", functio
   NS.db.profile.settings.auction = nil
 end)
 
-test("BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1246)", function()
+test("BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1314)", function()
   -- R4-6 narrowed Date 76→66 and Time 38→32 (−16px), dropping the column-derived floor to 1196;
   -- widening Vendor Price and Auction Price 72→80 (+16px total) restored it to 1212. Time then went
   -- back to 40 — BankLedger's width for the same column, and the width "Time" plus a sort arrow
   -- actually needs — which is the +8 that made it 1220. The ledger's Direction column (18 wide plus
-  -- its 8px gap) makes it 1246. Comfortably past the old 1160 toolbar
+  -- its 8px gap) made it 1246, and P5 widened Direction to 86 (glyph + "Transfer", BankLedger
+  -- style; +68) for 1314. Comfortably past the old 1160 toolbar
   -- floor and wide enough for the money columns. B:MinWidth() takes the wider of this and the
   -- toolbar-fit floor (the dropdown span + 8 + a 120 Export + 12), and the static Export button
   -- fills the slack to the bar's right edge. Headless the font measures 0, so the span is the floor
-  -- widths with Direction and Bound paired at 104 (P4): (1246-12) - (984+8) = 242.
-  assertEqual(NS.BrowserTable:MinFrameWidth(), 1246)
+  -- widths with Direction and Bound paired at 104 (P4): (1314-12) - (984+8) = 310.
+  assertEqual(NS.BrowserTable:MinFrameWidth(), 1314)
   assertTrue(NS.BrowserTable:MinFrameWidth() >= 1160,
     "AH column must keep the frame past the old 1160 floor")
-  assertEqual(NS.Browser:MinWidth(), 1246)
+  assertEqual(NS.Browser:MinWidth(), 1314)
   assertTrue(NS.Browser:MinWidth() >= NS.Browser:ToolbarSpan() + 8 + 120 + 12,
     "must be at least the toolbar-fit floor")
   assertEqual(NS.Browser:ToolbarSpan(), 984)
-  assertEqual(NS.Browser:ExportWidth(), 242)
+  assertEqual(NS.Browser:ExportWidth(), 310)
 end)
 
 test("BrowserTable: quality column is blank for a currency row", function()
@@ -890,11 +891,70 @@ test("Test mode: Reset all settings and /lh resetall both end it", function()
   end)
 end)
 
-test("BrowserTable: a Direction column follows Time and draws in the mono face", function()
+test("BrowserTable: a Direction column follows Time, labeled and wide enough for glyph + Transfer", function()
   local cols = NS.BrowserTable.COLUMNS
   assertEqual(cols[2].key, "time"); assertEqual(cols[3].key, "dir")
-  assertTrue(cols[3].mono)
-  assertEqual(cols[3].valueFn({ dir = "MOVE" }), NS.Constants.DirGlyph.MOVE)
+  local dir = cols[3]
+  assertEqual(dir.label, "Direction")
+  assertEqual(dir.width, 86)
+  assertEqual(dir.align, "LEFT")
+  assertTrue(dir.desc ~= nil and dir.desc ~= "", "the header tooltip text stays")
+  assertEqual(dir.valueFn({ dir = "MOVE" }), NS.Constants.DirLabel.MOVE)
+  assertEqual(dir.valueFn({}), "Gain", "a legacy row reads as a gain")
+  -- Sort order is unchanged: gains, losses, transfers.
+  assertTrue(dir.sortFn({ dir = "IN" }) < dir.sortFn({ dir = "OUT" }))
+  assertTrue(dir.sortFn({ dir = "OUT" }) < dir.sortFn({ dir = "MOVE" }))
+end)
+
+-- The Direction cell is two FontStrings on one pooled row: the glyph (mono face) and the label
+-- (row font), both in the direction's color. Built and bound through the real BuildRow/BindRow.
+local function dataEntry(rec) return { kind = "row", record = rec } end
+local function sameColor(fs, dir)
+  local r, g, b = fs:GetTextColor()
+  local er, eg, eb = NS.LedgerFormat.Color(dir)
+  return r == er and g == eg and b == eb
+end
+
+test("BrowserTable: the Direction cell paints glyph, label and color for IN/OUT/MOVE/legacy", function()
+  local BT, C = NS.BrowserTable, NS.Constants
+  local row = BT:BuildRow()
+  assertTrue(row.dirGlyph ~= nil, "BuildRow made no direction glyph FontString")
+  assertTrue(row.dirGlyph ~= row.cells.dir, "glyph and label must be two FontStrings")
+  assertEqual(row.dirGlyph:GetFont(), C.FONT_MONO, "the glyph draws in the mono face")
+  assertTrue(row.cells.dir:GetFont() ~= C.FONT_MONO, "the label draws in the row font")
+  for _, case in ipairs({ { "IN", "IN" }, { "OUT", "OUT" }, { "MOVE", "MOVE" }, { nil, "IN" } }) do
+    local stored, dir = case[1], case[2]
+    BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = stored }), 1)
+    assertEqual(row.dirGlyph:GetText(), C.DirGlyph[dir])
+    assertTrue(row.dirGlyph:IsShown(), "glyph hidden for " .. dir)
+    assertEqual(row.cells.dir:GetText(), C.DirLabel[dir])
+    assertTrue(sameColor(row.dirGlyph, dir), "glyph color for " .. dir)
+    assertTrue(sameColor(row.cells.dir, dir), "label color for " .. dir)
+  end
+end)
+
+test("BrowserTable: re-binding a pooled row from MOVE to IN leaves no stale glyph or color", function()
+  local BT, C = NS.BrowserTable, NS.Constants
+  local row = BT:BuildRow()
+  BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = "MOVE" }), 1)
+  BT:BindRow(row, dataEntry({ itemName = "Y", quantity = 2, dir = "IN" }), 2)
+  assertEqual(row.dirGlyph:GetText(), C.DirGlyph.IN)
+  assertEqual(row.cells.dir:GetText(), "Gain")
+  assertTrue(sameColor(row.dirGlyph, "IN")); assertTrue(sameColor(row.cells.dir, "IN"))
+end)
+
+test("BrowserTable: a non-direction cell never shows the glyph FontString", function()
+  local BT = NS.BrowserTable
+  local row = BT:BuildRow()
+  assertFalse(row.dirGlyph:IsShown(), "a fresh row shows a glyph before any bind")
+  BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = "OUT" }), 1)
+  -- Painting any other column through the shared painter hides a glyph it is handed.
+  BT:PaintCell(row.cells.item, "item", { itemName = "X" }, row.dirGlyph)
+  assertFalse(row.dirGlyph:IsShown(), "the Item column showed the direction glyph")
+  -- A group-header bind on the same pooled row hides it too.
+  BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = "OUT" }), 1)
+  BT:BindRow(row, { kind = "header", key = "k", label = "L", count = 1 }, 2)
+  assertFalse(row.dirGlyph:IsShown(), "a group-header row showed the direction glyph")
 end)
 
 test("BrowserTable: the Qty column shows signed quantities", function()
