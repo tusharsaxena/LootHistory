@@ -151,3 +151,43 @@ case("Timeline tab: a live repaint drops a hover left up, so the next tick re-ho
   NS.Timeline.OnHover = real
   if not ok then error(err, 0) end
 end)
+
+-- Smoke LED-9: the owner saw faint green text ("Cou...", "<Tr...") over the Holdings header and over
+-- History rows after visiting the Timeline. A Timeline region parented outside its pane would stay
+-- on screen once the pane hides, so the Timeline is built fresh under tests/region_trace.lua on a
+-- traced pane, drawn (chart, strip, legend, open suggestion list), and then every region it made
+-- must read as hidden by the client's rule once History, and then Holdings, is the tab shown.
+local RT = dofile("tests/region_trace.lua")
+
+case("Timeline tab: nothing it draws stays visible over History or Holdings (LED-9)", function()
+  seed()
+  NS.Browser:Show()
+  local win, TL = NS.Browser:GetWindow(), NS.Timeline
+  local savedPane, saved = win.panes.Timeline, {}
+  for k, v in pairs(TL) do
+    if type(k) == "string" and k:match("^%l") and type(v) ~= "function" then saved[k] = v end
+  end
+  for k in pairs(saved) do TL[k] = nil end
+  local ok, err = pcall(function()
+    local made = RT.Trace(function()
+      local pane = T.mocks.CreateFrame("Frame", nil, win)
+      pane:Hide(); win.panes.Timeline = pane
+      NS.Browser:SetCharSet(nil)
+      NS.Browser:SelectTab("Timeline")
+      TL:SetThing("g"); TL:Layout(640, 320)
+      TL:RenderSuggestions("gol")
+    end)
+    assertTrue(RT.ShownText(made) > 0, "the Timeline drew labels while it was the tab shown")
+    for _, tab in ipairs({ "History", "Holdings" }) do
+      NS.Browser:SelectTab(tab)
+      local leaks = RT.Leaks(made)
+      assertEqual(#leaks, 0, tab .. " shown, still visible: " .. table.concat(leaks, ", "))
+    end
+  end)
+  win.panes.Timeline = savedPane
+  for k, v in pairs(TL) do
+    if type(k) == "string" and k:match("^%l") and type(v) ~= "function" then TL[k] = nil end
+  end
+  for k, v in pairs(saved) do TL[k] = v end
+  if not ok then error(err, 0) end
+end)

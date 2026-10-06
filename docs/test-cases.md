@@ -1095,7 +1095,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights ledger: back-to-back rows share one peak and sort by total
 - Insights ledger: HasLedger is false for gains-only ranges
 
-### test_analytics_layout.lua (8)
+### test_analytics_layout.lua (9)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -1105,6 +1105,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: a nil stats table takes the empty branch too
 - Insights layout: a range with losses draws the gains-vs-losses section first
 - Insights layout: losses only — no empty text, no LOOT divider
+- Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
 
 ### test_holdingstab.lua (23)
 
@@ -1154,7 +1155,7 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: HoverLines reads each line's value and that day's flows
 - Timeline model: Suggest puts Gold first, then the biggest totals, capped
 
-### test_timelinetab.lua (10)
+### test_timelinetab.lua (11)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1166,6 +1167,7 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: a hover with no model or index hides the tooltip and does not raise
 - Schema: timelineMaxLines is a 2-16 slider under Interface, default 8
 - Timeline tab: a live repaint drops a hover left up, so the next tick re-hovers on the new data
+- Timeline tab: nothing it draws stays visible over History or Holdings (LED-9)
 
 ### test_panel.lua (43)
 
@@ -1557,10 +1559,10 @@ badge and any count quoted in the docs must agree with it.
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 67 |
-| test_analytics_layout.lua | 8 |
+| test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 23 |
 | test_timeline.lua | 19 |
-| test_timelinetab.lua | 10 |
+| test_timelinetab.lua | 11 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1581,4 +1583,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1343** |
+| **Total** | **1345** |
