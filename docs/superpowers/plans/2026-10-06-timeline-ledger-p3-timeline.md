@@ -43,6 +43,8 @@
 
 ## Standards flags (resolve before the named task)
 
+> **Resolved by the user 2026-10-06:** **S1 → (a) record a deviation** (row in LibKa0s `CLAUDE.md` → `## Documented deviations`, added in Task A2's commit). **S3 → re-vendor ALL consumers** after v1.69.0 is tagged (the other ten addons, each via its own re-vendor commit; LootHistory is Task B1). S2 remains an upstream-standard recount to flag at A4.
+
 | # | Where | What | Why it may deviate | Proposed resolution (user decides) |
 |---|---|---|---|---|
 | S1 | Task A2 (LibKa0s) | `library-stack-§7` "What earns promotion into a Ka0s-owned lib (MUST)", bar 1: **two or more consumers with the same semantics**. The line chart has exactly **one** consumer (LootHistory). | Spec §13 F3 is a user ratification to build it in LibKa0s from the start, but a ratification recorded only in an addon's spec is not in any register. | Either (a) a row in LibKa0s `CLAUDE.md` → `## Documented deviations` (`library-stack-§7` · one consumer at promotion · F3, 2026-10-06 · re-check trigger: a second addon draws a chart, or one release passes with no second consumer named), or (b) an upstream evolution of the standard allowing a single-consumer widget when the owner pre-commits it. **Ask at the start of A2; do not write A2's file until answered.** |
@@ -404,7 +406,7 @@ EOF
 
 ### Task A2: `WidgetsLineChart.lua` — the pairing guard and the chart math
 
-> **STOP first: Standards flag S1.** Ask the user how the one-consumer promotion is recorded (deviation row in LibKa0s `CLAUDE.md`, or an upstream standard change). If (a), add the row to `## Documented deviations` in this task's commit and update the "**Five rows.**" paragraph under it to six.
+> **Standards flag S1 — RESOLVED (a), 2026-10-06: record a deviation.** Add the row to `## Documented deviations` in this task's commit and update the "**Five rows.**" paragraph under it to six.
 
 **Files:**
 - Create: `LibKa0s/WidgetsLineChart.lua`
