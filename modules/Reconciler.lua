@@ -50,10 +50,10 @@ end
 -- Outside the bank the client answers a bank slot as EMPTY, not as unknown, so reading it would
 -- record the whole bank as lost; the same holds for a closed mailbox. Escrow's two (mailbox,
 -- auction house) are listed here because the readable flags are this module's; what to DO with the
--- mail/auctions columns is modules/Escrow.lua's.
+-- mail/auctions columns is modules/Escrow.lua's. `drift`: the first read of a visit is a drift pass.
 R.READABLE_ON = {
-  Banker        = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" } },
-  AccountBanker = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" } },
+  Banker        = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" }, drift = true },
+  AccountBanker = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" }, drift = true },
   MailInfo      = { flag = "mail",         parts = { "mail" } },
   Auctioneer    = { flag = "auctionHouse", parts = {} },
 }
@@ -62,12 +62,15 @@ function R:OnInteraction(shown, interactionType)
   for name, spec in pairs(R.READABLE_ON) do
     if interactionType ~= nil and interactionType == Compat.InteractionType(name) then
       if shown then
+        -- Only the opening of a visit: a second banker frame inside it is not a fresh read.
+        if spec.drift and not self.readable[spec.flag] then self.driftPending = true end
         self.readable[spec.flag] = true
         for _, p in ipairs(spec.parts) do self:MarkDirty(p) end
         scheduleFlush(self)
       else
         self:Flush()                                       -- final read while still readable
         self.readable[spec.flag] = nil
+        if spec.drift then self.driftPending = nil end
         if spec.flag == "auctionHouse" then self.readable.auctions = nil end
       end
     end
@@ -215,6 +218,8 @@ function R:Plan(snap, me, clock)
       if e and e.meta.genesis then planHolder(plan, holder, e, s) end
     end
   end
+  -- A bank drift pass pairs nothing: what moved while nobody watched is each holder's own drift.
+  if self.drift then return plan end
   for _, step in ipairs(R.PLAN_STEPS) do step(self, plan, me, clock) end
   return plan
 end
@@ -539,11 +544,36 @@ local function flushBody(self)
   if n > 0 and NS.State.debug and NS.Debug then NS.Debug("Holdings", "flush: %d holder(s) changed", n) end
 end
 
+-- Bank drift (timeline-ledger spec §5.6, P4 Task 4). The bank and the warband tabs are only
+-- readable at a banker, so whatever changed there while the addon was not watching (disabled, or
+-- another PC) is first seen on the opening read of the next visit. That read runs as its own pass
+-- over these parts alone, like a login: UNTRACKED, no hold, no pairing, no claims. Every other dirty
+-- part keeps normal classification in the pass that follows. A container never read before has no
+-- baseline, so its first read is its genesis (no rows) either way.
+local DRIFT_PARTS = { "bank", "tabs", "warbandMoney" }
+
+local function driftPass(self)
+  local rest, only = self.dirty, {}
+  for _, p in ipairs(DRIFT_PARTS) do
+    if rest[p] then only[p], rest[p] = true, nil end
+  end
+  -- A hold the normal pass is in (its start, its memoized reasons) survives the drift pass.
+  local memo, since = self.reasonMemo, self._holdSince
+  self.dirty, self.reasonMemo = only, {}
+  self.forceReason, self.drift = C.SourceType.UNTRACKED, true
+  flushBody(self)
+  self.forceReason, self.drift = nil, nil
+  self.reasonMemo, self._holdSince = memo, since
+  for p in pairs(self.dirty) do rest[p] = true end         -- anything the pass could not read
+  self.dirty = rest
+end
+
 --- Scan, plan, then hold or commit. A part that is not readable (the bank with no banker open)
 --- stays dirty for the next flush; in combat the whole pass waits for the regen edge.
 function R:Flush()
   if Compat.InCombatLockdown() then self.deferred = true; return end
   self._flushing = true
+  if self.driftPending and self.readable.bank then self.driftPending = nil; driftPass(self) end
   flushBody(self)
   self._flushing = nil
 end
@@ -617,7 +647,7 @@ end
 function R:DisableCapture()
   if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
   self.dirty, self.readable = {}, {}
-  self.deferred, self._pending = nil, nil
+  self.deferred, self._pending, self.driftPending = nil, nil, nil
   self.claims, self.recent, self.reasonMemo = {}, {}, {}
   self.pendingCur, self.curGain, self.curLoss, self.pendingTransfer, self.loginPending = {}, {}, {}, nil, nil
   self._holdSince, self._recheck = nil, nil

@@ -398,3 +398,83 @@ case("Reconciler: a hidden currency's delta writes nothing, and the next login r
   R():LoginScan()
   assertEqual(#H(), 0)
 end)
+
+-- Bank drift (P4 Task 4): the bank and the warband tabs are only readable at a banker, so what
+-- changed there while the addon was not watching (disabled, or another PC) surfaces on the FIRST
+-- read of the next visit. That read is a drift pass for those parts: UNTRACKED, no hold, no pairing.
+local function closeBank(kind)
+  R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", NS.Compat.InteractionType(kind or "Banker"))
+end
+
+local function rowsBy(holder, id)
+  local out = {}
+  for _, r in ipairs(H()) do if r.holder == holder and r.itemID == id then out[#out + 1] = r end end
+  return out
+end
+
+case("Reconciler: bank drift since the last visit is UNTRACKED on the first read of the next", function()
+  reset()
+  m.__itemClassID = 0                                     -- consumable: a bag loss would read CONSUME
+  setBag(0, { [1] = { itemID = 191, link = "L191", count = 4 } })
+  genesis()
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+  openBank(); R():Flush(); closeBank()                    -- the bank's baseline
+  assertEqual(#H(), 0)
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 2 }, [2] = { itemID = 8, link = "L8", count = 1 } })
+  setBag(0, { [1] = { itemID = 191, link = "L191", count = 3 } }); R():MarkDirty("bags")
+  m.__now = 200
+  openBank(); R():Flush()
+  assertEqual(#H(), 2)                                    -- exactly the bank's difference
+  local out7, in8 = rowsBy(ME, 7)[1], rowsBy(ME, 8)[1]
+  assertEqual(out7.dir, "OUT"); assertEqual(out7.quantity, 3); assertEqual(out7.source, "UNTRACKED")
+  assertEqual(in8.dir, "IN"); assertEqual(in8.quantity, 1); assertEqual(in8.source, "UNTRACKED")
+  assertEqual(#rowsBy(ME, 191), 0)                        -- the bags change is normal capture: held ...
+  m.__now = 210; R():Flush()
+  local bag = rowsBy(ME, 191)
+  assertEqual(#bag, 1); assertEqual(bag[1].source, "CONSUME") -- ... then classified as usual
+  assertEqual(NS.Holdings:Get(ME).items[7].bank, 2)
+  -- A deposit later in the same visit is ordinary capture: a MOVE, not drift.
+  m.__now = 220
+  setBag(0, {}); setBag(6, { [1] = { itemID = 7, link = "L7", count = 2 }, [2] = { itemID = 8, link = "L8", count = 1 },
+    [3] = { itemID = 191, link = "L191", count = 3 } })
+  R():MarkDirty("bags"); R():MarkDirty("bank"); R():Flush()
+  local moved = rowsBy(ME, 191)
+  assertEqual(#moved, 2); assertEqual(moved[2].dir, "MOVE"); assertEqual(moved[2].source, "TRANSFER")
+  assertEqual(#H(), 4)
+end)
+
+case("Reconciler: a bank never read before is a silent first read that ends partial", function()
+  reset()
+  genesis()
+  assertTrue(NS.Holdings:Get(ME).meta.partial)
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+  openBank(); R():Flush()
+  assertEqual(#H(), 0)
+  local e = NS.Holdings:Get(ME)
+  assertEqual(e.meta.partial, false); assertEqual(e.items[7].bank, 5)
+end)
+
+case("Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired", function()
+  reset()
+  m.__warbandMoney = 1000
+  genesis()
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } }); setBag(12, {})
+  openBank(); R():Flush(); closeBank()                    -- first reads: silent for both holders
+  assertEqual(#H(), 0); assertEqual(NS.Holdings:Get("§warband").meta.partial, false)
+  -- Elsewhere: 5 of item 7 moved bank -> warband tab, and the warband gained 500 gold.
+  setBag(6, {}); setBag(12, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 1500
+  m.__now = 200
+  openBank(); R():Flush()
+  assertEqual(#H(), 3)
+  for _, r in ipairs(H()) do assertEqual(r.source, "UNTRACKED"); assertTrue(r.dir ~= "MOVE") end
+  assertEqual(rowsBy(ME, 7)[1].dir, "OUT"); assertEqual(rowsBy("§warband", 7)[1].dir, "IN")
+  local gold
+  for _, r in ipairs(H()) do if r.kind == "GOLD" then gold = r end end
+  assertEqual(gold.holder, "§warband"); assertEqual(gold.dir, "IN"); assertEqual(gold.quantity, 500)
+  closeBank()
+  -- The warband-only banker opens the same drift read.
+  setBag(12, { [1] = { itemID = 7, link = "L7", count = 4 } })
+  m.__now = 300
+  openBank("AccountBanker"); R():Flush()
+  assertEqual(#H(), 4); assertEqual(H()[4].source, "UNTRACKED"); assertEqual(H()[4].holder, "§warband")
+end)
