@@ -1173,7 +1173,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (28)
+### test_libka0s.lua (29)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1183,6 +1183,7 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the Core stub answers every member the addon calls
 - NS.MakeCloseButton hands the library this addon's FOLDER name as the third argument
 - every window this addon owns closes through that one wrapper
+- degraded install: NS.MakeLineChart answers nil rather than a dead frame
 - degraded install: NS.MakeResizable keeps today's grip, the floor, the lock and the save
 - degraded install: a bare /lh prints help listing the verbs that still work
 - degraded install: bare /lh skips the config verb, which cannot answer here, for help
@@ -1382,7 +1383,7 @@ badge and any count quoted in the docs must agree with it.
 - lizard sighted: parity names every file whose counts differ, and only those
 - lizard sighted: lizard lists every function of a hazard fixture once it is sanitized
 
-### test_widgets.lua (17)
+### test_widgets.lua (20)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
 - Widgets: no option table in this addon sets a glyph
@@ -1401,6 +1402,9 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the filter bar refuses to draw and the browser still comes up
 - degraded install: the export modal's refusal builds no frame, on the first Open or the tenth
 - degraded install: the export modal refuses rather than calling methods on a nil dropdown
+- seam: NS.MakeLineChart builds the library's chart and routes hover back to the host
+- seam: NS.MakeLineChart copies the host's opts rather than stamping them
+- seam: the chart draws Line regions, not textures
 
 ## Totals
 
@@ -1445,7 +1449,7 @@ badge and any count quoted in the docs must agree with it.
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 28 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 28 |
+| test_libka0s.lua | 29 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 16 |
 | test_perf.lua | 6 |
@@ -1459,5 +1463,5 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
-| test_widgets.lua | 17 |
-| **Total** | **1234** |
+| test_widgets.lua | 20 |
+| **Total** | **1238** |

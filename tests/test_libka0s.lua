@@ -201,6 +201,12 @@ test("every window this addon owns closes through that one wrapper", function()
     "no multiplication sign may be drawn here any more; the degraded one lives in core/CoreSetup.lua")
 end)
 
+test("degraded install: NS.MakeLineChart answers nil rather than a dead frame", function()
+  local ns = loadDegraded()
+  assertTrue(type(ns.MakeLineChart) == "function", "the seam is published on the degraded path too")
+  assertEqual(ns.MakeLineChart({}, {}), nil)
+end)
+
 test("degraded install: NS.MakeResizable keeps today's grip, the floor, the lock and the save", function()
   -- The library-absent arm of core/CoreSetup.lua is the grip modules/Browser.lua drew before #33,
   -- moved, honoring the opts the browser passes (design D3.2). red under: a degraded stub answering
@@ -464,8 +470,8 @@ test("the nine adopted majors all resolved, and the seams are wired to them", fu
   assertTrue(NS.DebugLog ~= nil and NS.Debug ~= nil, "DebugLog seam not published")
   assertTrue(NS.Slash.CliList ~= nil and NS.Slash.LandingRows ~= nil, "Slash seam not published")
   assertTrue(NS.Options ~= nil and NS.Options.RenderRows ~= nil, "Options seam not published")
-  assertTrue(type(NS.MakeDropdown) == "function" and type(NS.CloseMenu) == "function",
-    "Widgets seam not published")
+  assertTrue(type(NS.MakeDropdown) == "function" and type(NS.CloseMenu) == "function"
+    and type(NS.MakeLineChart) == "function", "Widgets seam not published")
   assertTrue(type(NS.Meta) == "function" and type(NS.Version) == "function"
     and type(NS.Zone) == "function" and type(NS.PlayerMapID) == "function",
     "Env seam not published")
