@@ -397,7 +397,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (47)
+### test_collector.lua (48)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -445,6 +445,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector+Reconciler: a hidden currency with a listed twin records once, under the twin, claimed
 - Collector: a hidden currency with no listed twin records nothing and claims nothing
 - Collector+Reconciler: a new listed currency already in the list records one claimed chat row
+- Collector: with trackLedger off an unlisted, unheld currency with no twin records one chat row
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 
 ### test_reconciler.lua (7)
@@ -594,7 +595,7 @@ badge and any count quoted in the docs must agree with it.
 - Migrate v12->v13: the touched day's in/out tallies are rebuilt from the rows; closes stay
 - Migrate v12->v13: a day the rollup no longer holds is not recreated
 
-### test_stats.lua (24)
+### test_stats.lua (25)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -620,6 +621,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: ledger gains, losses, net and transfers
 - Stats: preLedgerRows counts rows older than ledgerSince
 - Stats: a holder move is a loss and a gain under its own reason, per holder
+- Stats: holder-move pairs stay out of the legacy loot breakdowns
 
 ### test_browser.lua (93)
 
@@ -1593,12 +1595,12 @@ badge and any count quoted in the docs must agree with it.
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 47 |
+| test_collector.lua | 48 |
 | test_reconciler.lua | 7 |
 | test_reconciler_rows.lua | 31 |
 | test_escrow.lua | 14 |
 | test_database.lua | 83 |
-| test_stats.lua | 24 |
+| test_stats.lua | 25 |
 | test_browser.lua | 93 |
 | test_browsertable.lua | 75 |
 | test_export.lua | 32 |
@@ -1635,4 +1637,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1393** |
+| **Total** | **1395** |

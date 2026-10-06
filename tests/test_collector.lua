@@ -786,6 +786,21 @@ voidcoreCase("Collector+Reconciler: a new listed currency already in the list re
   assertEqual(NS.Holdings:Get(S.me()).currency[LISTED], 1)
 end)
 
+-- Final review: with the ledger off there is no current baseline and no diff to fall back on, so a
+-- currency the list walk misses (under a collapsed header) and the stale baseline lacks keeps the
+-- link's id rather than going unrecorded.
+voidcoreCase("Collector: with trackLedger off an unlisted, unheld currency with no twin records one chat row", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  local s = NS.db.profile.settings
+  s.trackLedger = false; NS.Collector:RefreshUpvalues()
+  local ok, err = pcall(chatCurrency, m, LISTED, 1)
+  s.trackLedger = true; NS.Collector:RefreshUpvalues()
+  if not ok then error(err, 0) end
+  local rows = currencyRows()
+  assertEqual(#rows, 1)
+  assertEqual(rows[1].currencyID, LISTED); assertEqual(rows[1].quantity, 1)
+end)
+
 voidcoreCase("Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan", function(m)
   currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
   chatCurrency(m, LISTED, 1)

@@ -232,12 +232,15 @@ local function currencyLine(self, msg)
   -- The link can name a hidden tracking currency the token list never shows: its listed same-name
   -- twin takes the row and the claim, and with no twin the line is dropped (a row there would be a
   -- duplicate no holdings delta ever claims). A new currency not yet listed drops here too; its
-  -- first gain is the holdings diff's, once the list has it.
-  currencyID = NS.Compat.ListedCurrencyID(currencyID, name)
-  if not currencyID then
+  -- first gain is the holdings diff's, once the list has it. With the ledger off there is no
+  -- current baseline and no diff to fall back on, so a currency under a collapsed header the stale
+  -- baseline lacks keeps the link's id rather than going unrecorded (the twin remap still applies).
+  local listedID = NS.Compat.ListedCurrencyID(currencyID, name)
+  if not listedID and trackLedger then
     traceCurrencyLineDrop("unlisted")
     return
   end
+  currencyID = listedID or currencyID
 
   if currencyBlacklist[currencyID] then
     if NS.State.debug and NS.Debug then

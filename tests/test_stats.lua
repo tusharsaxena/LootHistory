@@ -395,3 +395,43 @@ test("Stats: a holder move is a loss and a gain under its own reason, per holder
   assertEqual(L.charOut[W], 500); assertEqual(L.charIn["A-Realm"], 500)
   assertEqual(L.charOut["A-Realm"], 30); assertEqual(L.charIn["B-Realm"], 30)
 end)
+
+-- Final review: the IN half of a holder move is written by the sender, so the gains-only legacy
+-- breakdowns (which have no OUT to offset it) leave both halves out — a Warband deposit or a
+-- currency transfer is not loot for the character who gave the things away.
+test("Stats: holder-move pairs stay out of the legacy loot breakdowns", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local kill = { ts = T1, char = "A-Realm", holder = "A-Realm", itemID = 10, itemName = "Sword", quality = 4,
+    source = "KILL", quantity = 1, vendorPrice = 100, zone = "Valley" }
+  NS.db.global.history = { kill }
+  local base = NS.Database:Stats({})
+  NS.db.global.history = {
+    kill,
+    { ts = T2, char = "A-Realm", holder = "A-Realm", kind = "ITEM", itemID = 11, itemName = "Potion",
+      quality = 1, source = "WARBAND_DEPOSIT", dir = "OUT", quantity = 50, vendorPrice = 10, zone = "Valley",
+      from = "A-Realm/bags", to = W .. "/tabs", pairId = "2:1" },
+    { ts = T2, char = "A-Realm", holder = W, kind = "ITEM", itemID = 11, itemName = "Potion",
+      quality = 1, source = "WARBAND_DEPOSIT", dir = "IN", quantity = 50, vendorPrice = 10, zone = "Valley",
+      from = "A-Realm/bags", to = W .. "/tabs", pairId = "2:1" },
+    { ts = T2, char = "A-Realm", holder = "A-Realm", kind = "CURRENCY", currencyID = 3008,
+      itemName = "Valorstones", source = "CURRENCY_TRANSFER", dir = "OUT", quantity = 40, zone = "Valley",
+      pairId = "2:2" },
+    { ts = T2, char = "A-Realm", holder = "B-Realm", kind = "CURRENCY", currencyID = 3008,
+      itemName = "Valorstones", source = "CURRENCY_TRANSFER", dir = "IN", quantity = 40, zone = "Valley",
+      pairId = "2:2" },
+  }
+  local s = NS.Database:Stats({})
+  assertEqual(s.totals.records, base.totals.records)
+  assertEqual(s.totals.totalValue, base.totals.totalValue)
+  assertEqual(s.totals.totalQuantity, base.totals.totalQuantity)
+  assertEqual(s.bySource.KILL, 1)
+  assertEqual(s.bySource.WARBAND_DEPOSIT, nil)
+  assertEqual(s.byItem[11], nil)
+  assertEqual(s.byChar["A-Realm"].count, base.byChar["A-Realm"].count)
+  assertEqual(s.byChar["A-Realm"].value, base.byChar["A-Realm"].value)
+  assertEqual(s.byCurrency["Valorstones"], nil)
+  assertEqual(s.currencyByChar["A-Realm"], nil)
+  assertEqual(s.byZone["Valley"], base.byZone["Valley"])
+  -- The ledger still sees both halves of each move.
+  assertEqual(s.ledger.reasonIn.WARBAND_DEPOSIT, 1); assertEqual(s.ledger.reasonOut.CURRENCY_TRANSFER, 1)
+end)

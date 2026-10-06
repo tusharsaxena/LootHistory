@@ -468,14 +468,17 @@ end
 
 -- A move between two holders (timeline-ledger Phase 7): the sender's OUT and the receiver's IN share
 -- one pairId, `ts:n`. If the OUT amended a row inside the coalescing window, the IN takes that row's id.
+-- An own-alt mail (`senderOnly`) has its IN written when the alt takes it, in another pass and often
+-- another session, so neither half carries a pairId: an id only the OUT held would read as an orphan.
 local function writePair(self, p, now, from, to)
-  self.pairSeq = (self.pairSeq or 0) + 1
   local reason = p.reason or "TRANSFER"
-  local out = self:Write(p.from, p.key, "OUT", reason, p.qty, now, from, to, now .. ":" .. self.pairSeq)
-  -- An own-alt mail's IN is written when the alt takes it (Escrow), not when it is sent.
-  if not p.senderOnly then
-    self:Write(p.to, p.key, "IN", reason, p.qty, now, from, to, out and out.pairId or nil)
+  if p.senderOnly then
+    self:Write(p.from, p.key, "OUT", reason, p.qty, now, from, to)
+    return
   end
+  self.pairSeq = (self.pairSeq or 0) + 1
+  local out = self:Write(p.from, p.key, "OUT", reason, p.qty, now, from, to, now .. ":" .. self.pairSeq)
+  self:Write(p.to, p.key, "IN", reason, p.qty, now, from, to, out and out.pairId or nil)
 end
 
 function R:WriteRows(plan, now, clock)

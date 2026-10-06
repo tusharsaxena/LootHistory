@@ -35,6 +35,8 @@ case("Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-ori
   end
   assertEqual(alts.ITEM.quantity, 3); assertEqual(alts.ITEM.to, "Alt-Realm/mail")
   assertEqual(alts.GOLD.quantity, 1000)
+  -- The alt's IN is written in another pass, so neither half of an alt mail carries a pairId.
+  assertEqual(alts.ITEM.pairId, nil); assertEqual(alts.GOLD.pairId, nil)
   assertEqual(postage.kind, "GOLD"); assertEqual(postage.quantity, 30); assertEqual(postage.source, "MAIL_SEND")
   local alt = NS.db.global.holdings["Alt-Realm"]
   assertEqual(alt.items[7].mail, 3)
@@ -77,6 +79,7 @@ case("Escrow: taking an alt's mail is an ALT_MAIL gain; a returned auction stays
   for _, r in ipairs(H()) do by[r.dir .. ":" .. r.source] = r; assertEqual(r.holder, S.me()) end
   assertEqual(#H(), 3)
   assertEqual(by["IN:ALT_MAIL"].quantity, 2); assertEqual(by["IN:ALT_MAIL"].from, S.me() .. "/mail")
+  assertEqual(by["IN:ALT_MAIL"].pairId, nil)
   assertEqual(by["MOVE:TRANSFER"].quantity, 1)
   assertEqual(by["IN:MAIL"].quantity, 3)
   assertEqual(esc.mailOwn[9], nil); assertEqual(esc.mailAlt[9], nil)

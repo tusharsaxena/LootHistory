@@ -986,6 +986,7 @@ function Database:Stats(filter)
   local L = newLedger()
   local since = NS.db and NS.db.global and NS.db.global.ledgerSince
   local loot = 0
+  local HOLDER_MOVE_REASON = NS.Ledger.HOLDER_MOVE_REASON
 
   for _, r in ipairs(records) do
     local qty = r.quantity or 1
@@ -1004,8 +1005,9 @@ function Database:Stats(filter)
     if since and r.ts and r.ts < since then L.preLedgerRows = L.preLedgerRows + 1 end
 
     -- Only gains of items and currency feed the legacy breakdowns, so a pre-ledger history
-    -- produces the numbers it always did.
-    if dir == "IN" and kind ~= "GOLD" then
+    -- produces the numbers it always did. The IN half of a holder move is not loot: it is written
+    -- by the sender (char = the depositor), and these gains-only charts have no OUT to offset it.
+    if dir == "IN" and kind ~= "GOLD" and not HOLDER_MOVE_REASON[src] then
       loot = loot + 1
       local isCurrency = kind == "CURRENCY"
       A.totalValue = A.totalValue + value
