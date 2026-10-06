@@ -85,7 +85,10 @@ local function planPost(_, plan, me)
 end
 
 -- Gold an own alt mailed in: taking it is the alt's move landing here, an IN ALT_MAIL (mail -> money,
--- one row: the alt wrote its OUT when it sent the gold). Not while a
+-- one row: the alt wrote its OUT when it sent the gold). Only the part credited since Phase 7
+-- (`mailMoneyAlt`) is: gold sent before it already has its pair (v13 makes that an OUT + IN), so
+-- the rest of mailMoney is a MOVE as it always was. The alt part is taken first: a stale legacy
+-- balance (a send that came back) must not turn new alt gold into MOVEs. Not while a
 -- sale mail's payout is live (that gold is AH_SOLD), and not when the mail just taken names a
 -- sender who is not an own holder (another player's gold is a gain). A take the TakeInboxMoney
 -- hook never saw (no mailTaken) falls back to the mailMoney balance alone.
@@ -97,8 +100,15 @@ local function planMailMoney(self, plan, me, clock)
   if sold and sold.expires >= clock then return end
   if taken and taken.expires >= clock and not taken.own then return end
   local q = math.min(net.g, esc.mailMoney)
-  plan.pairs[#plan.pairs + 1] = { key = "g", qty = q, from = me, to = me, fromC = C.Container.MAIL,
-    toC = "money", debitMailMoney = q, dir = "IN", reason = "ALT_MAIL" }
+  local alt = math.min(q, esc.mailMoneyAlt or 0)
+  if alt > 0 then
+    plan.pairs[#plan.pairs + 1] = { key = "g", qty = alt, from = me, to = me, fromC = C.Container.MAIL,
+      toC = "money", debitMailMoney = alt, debitMailMoneyAlt = alt, dir = "IN", reason = "ALT_MAIL" }
+  end
+  if q > alt then
+    plan.pairs[#plan.pairs + 1] = { key = "g", qty = q - alt, from = me, to = me, fromC = C.Container.MAIL,
+      toC = "money", debitMailMoney = q - alt }
+  end
   reduce(net, "g", -q)                                     -- a gain: reduce toward zero from above
 end
 
@@ -163,9 +173,13 @@ local function commitPairs(plan)
     end
     if p.creditMailMoney and Hd:Get(p.to) then
       local esc = Hd:Escrow(p.to); esc.mailMoney = (esc.mailMoney or 0) + p.qty
+      esc.mailMoneyAlt = (esc.mailMoneyAlt or 0) + p.qty
     end
     if p.debitMailMoney then
       local esc = Hd:Escrow(p.from); esc.mailMoney = math.max(0, (esc.mailMoney or 0) - p.debitMailMoney)
+      if p.debitMailMoneyAlt then
+        esc.mailMoneyAlt = math.max(0, (esc.mailMoneyAlt or 0) - p.debitMailMoneyAlt)
+      end
     end
   end
 end

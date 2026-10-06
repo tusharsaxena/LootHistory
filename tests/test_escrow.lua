@@ -39,7 +39,7 @@ case("Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-ori
   local alt = NS.db.global.holdings["Alt-Realm"]
   assertEqual(alt.items[7].mail, 3)
   assertEqual(alt.escrow.mailOwn[7], 3); assertEqual(alt.escrow.mailMoney, 1000)
-  assertEqual(alt.escrow.mailAlt[7], 3)
+  assertEqual(alt.escrow.mailAlt[7], 3); assertEqual(alt.escrow.mailMoneyAlt, 1000)
   assertEqual(NS.State.pendingMail, nil)
 end)
 
@@ -145,13 +145,46 @@ case("Escrow: mail money taken from an own alt's send is an ALT_MAIL gain", func
   S.reset()
   m.__money = 0
   S.genesis()
-  NS.Holdings:Escrow(S.me()).mailMoney = 1000
+  NS.Holdings:Escrow(S.me()).mailMoney = 1000; NS.Holdings:Escrow(S.me()).mailMoneyAlt = 1000
   S.show("MailInfo"); R():Flush()
   m.__money = 1000
   R():MarkDirty("money"); R():Flush()
   assertEqual(#H(), 1); assertEqual(H()[1].dir, "IN"); assertEqual(H()[1].source, "ALT_MAIL")
   assertEqual(H()[1].holder, S.me()); assertEqual(H()[1].to, S.me() .. "/money")
-  assertEqual(NS.Holdings:Escrow(S.me()).mailMoney, 0)
+  assertEqual(NS.Holdings:Escrow(S.me()).mailMoney, 0); assertEqual(NS.Holdings:Escrow(S.me()).mailMoneyAlt, 0)
+end)
+
+-- Gold sent before Phase 7 credited mailMoney but not mailMoneyAlt, and its sender-side MOVE pair
+-- becomes OUT + IN in v13; taking it must stay a MOVE, or the alt's gain counts twice.
+case("Escrow: mail money credited before Phase 7 (no mailMoneyAlt) is still a MOVE when taken", function()
+  S.reset()
+  m.__money = 0
+  S.genesis()
+  local esc = NS.Holdings:Escrow(S.me())
+  esc.mailMoney = 1000
+  S.show("MailInfo"); R():Flush()
+  m.__money = 1000
+  R():MarkDirty("money"); R():Flush()
+  assertEqual(#H(), 1); assertEqual(H()[1].dir, "MOVE"); assertEqual(H()[1].source, "TRANSFER")
+  assertEqual(H()[1].from, S.me() .. "/mail"); assertEqual(H()[1].to, S.me() .. "/money")
+  assertEqual(#rowsBy("IN"), 0)
+  assertEqual(esc.mailMoney, 0); assertEqual(esc.mailMoneyAlt, nil)
+end)
+
+case("Escrow: mixed mail money: the alt-sent part is an ALT_MAIL gain, the pre-Phase 7 rest a MOVE", function()
+  S.reset()
+  m.__money = 0
+  S.genesis()
+  local esc = NS.Holdings:Escrow(S.me())
+  esc.mailMoney, esc.mailMoneyAlt = 1000, 400              -- 400 sent since Phase 7, 600 before it
+  S.show("MailInfo"); R():Flush()
+  m.__money = 700
+  R():MarkDirty("money"); R():Flush()
+  local by = {}
+  for _, r in ipairs(H()) do by[r.dir .. ":" .. r.source] = r; assertEqual(r.holder, S.me()) end
+  assertEqual(#H(), 2)
+  assertEqual(by["IN:ALT_MAIL"].quantity, 400); assertEqual(by["MOVE:TRANSFER"].quantity, 300)
+  assertEqual(esc.mailMoney, 300); assertEqual(esc.mailMoneyAlt, 0)
 end)
 
 case("Escrow: the mailbox is unreadable once closed", function()
@@ -182,7 +215,7 @@ case("Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the a
   S.reset()
   m.__money = 0
   S.genesis(); altEntry()
-  NS.Holdings:Escrow(S.me()).mailMoney = 1000
+  NS.Holdings:Escrow(S.me()).mailMoney = 1000; NS.Holdings:Escrow(S.me()).mailMoneyAlt = 1000
   S.show("MailInfo"); R():Flush()
   withSender({ "Auction House", "Auction successful: Herb" }, function() NS.Attribution:OnTakeInboxMoney(1) end)
   m.__money = 500
@@ -209,7 +242,7 @@ case("Escrow: gold from another player is a gain even while an alt's gold waits"
   S.reset()
   m.__money = 0
   S.genesis(); altEntry()
-  NS.Holdings:Escrow(S.me()).mailMoney = 1000
+  NS.Holdings:Escrow(S.me()).mailMoney = 1000; NS.Holdings:Escrow(S.me()).mailMoneyAlt = 1000
   S.show("MailInfo"); R():Flush()
   withSender({ "Stranger-Otherrealm", "for you" }, function() NS.Attribution:OnTakeInboxMoney(1) end)
   m.__money = 300
@@ -247,5 +280,6 @@ case("Escrow: a money-only pass leaves the staged items for the item pass; both 
   local alt = NS.db.global.holdings["Alt-Realm"]
   assertEqual(alt.items[7].mail, 3)
   assertEqual(alt.escrow.mailOwn[7], 3); assertEqual(alt.escrow.mailMoney, 1000)
+  assertEqual(alt.escrow.mailMoneyAlt, 1000)
   assertEqual(NS.State.pendingMail, nil)
 end)

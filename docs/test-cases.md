@@ -490,7 +490,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
 - Reconciler: a deferred login with the banker open keeps its bags drift UNTRACKED
 
-### test_escrow.lua (12)
+### test_escrow.lua (14)
 
 - Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-origin are credited
 - Escrow: taking mail splits own-origin (MOVE) from outside gains (IN)
@@ -500,6 +500,8 @@ badge and any count quoted in the docs must agree with it.
 - Escrow: an AH sale mail books the pending exit as AH_SOLD
 - Escrow: an exit unresolved for 30 days is booked as sold
 - Escrow: mail money taken from an own alt's send is an ALT_MAIL gain
+- Escrow: mail money credited before Phase 7 (no mailMoneyAlt) is still a MOVE when taken
+- Escrow: mixed mail money: the alt-sent part is an ALT_MAIL gain, the pre-Phase 7 rest a MOVE
 - Escrow: the mailbox is unreadable once closed
 - Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the alt's gold is ALT_MAIL
 - Escrow: gold from another player is a gain even while an alt's gold waits
@@ -1579,7 +1581,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 47 |
 | test_reconciler.lua | 7 |
 | test_reconciler_rows.lua | 31 |
-| test_escrow.lua | 12 |
+| test_escrow.lua | 14 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 92 |
@@ -1618,4 +1620,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1376** |
+| **Total** | **1378** |
