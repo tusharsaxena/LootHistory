@@ -45,8 +45,10 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 
 **Capture** — what gets recorded
 
-* **Minimum quality** — only record items at or above this quality (default **Common**). Raising it never removes items you've already recorded.
+* **Minimum quality (detailed records)** — items at or above this quality get a detailed loot record (source, zone, encounter, price); default **Common**. Every item is still tracked in the ledger, and History hides items below this quality until you pick qualities in its Quality filter (whitelisted items are exempt). Raising it never removes anything already recorded.
 * **Record currency** — record looted currency (Valorstones, crests, and the like) as Currency rows. Obeys **Record data from**; ignores the quality threshold.
+* **Track holdings and losses** — keep the ledger: what every character and your warband holds, plus every gain, loss and transfer. Off records loot gains only.
+* **Record gold** — write a History row for every gold gain and loss (loot, vendor, repairs, auction house, mail, guild bank). Holdings keep counting gold either way. On by default.
 * **Exclude quest items** — skip the temporary items you pick up during quests. **On by default**; uncheck it to record them too.
 * **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here.
 
@@ -64,6 +66,7 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 
 * **Keep history for** — how long to keep records. Older ones are cleared out once per session; choose **Always** to keep everything (default **30 days**). **Account-wide**: one value for every profile, and a profile switch, copy or reset never changes it (its tooltip says so).
 * A live readout of how many items you have collected, over how many days, and roughly how much space they take.
+* **Show transfers by default** — include transfers (bank deposits, warband moves, mail to your alts) in History's default Direction filter. Takes effect the next time the default view is loaded (Clear, or reopening the window). Off by default.
 * **Purge history…** — delete every recorded item, and nothing else. Asks first.
 
 **Filters** — items you never, or always, want tracked
@@ -147,15 +150,15 @@ The General page is **six tabs**, and it is the whole panel: every page in this 
 | Tab | Body | Rows |
 |---|---|---|
 | **Master controls** | schema rows + the composer's closing button pair | 6 |
-| **Capture** | schema rows + the host-drawn inverted source picker | 4 |
+| **Capture** | schema rows + the host-drawn inverted source picker | 6 |
 | **AH Price** | schema toggle + the pooled price-source reorder table | 2 |
-| **Interface** | schema rows | 3 |
-| **History** | schema row + the storage readout and **Purge history…** | 1 |
+| **Interface** | schema rows | 2 |
+| **History** | schema rows + the storage readout and **Purge history…** | 2 |
 | **Filters** | bespoke: a **secondary strip** over three id-lists | 0 |
 
 | | Before R6 | After |
 |---|---|---|
-| **General** | strip: Collection (5) · Interface (4) · Maintenance (1) | strip: **Master controls** (6) · **Capture** (4) · **AH Price** (2) · **Interface** (3) · **History** (1) · **Filters** |
+| **General** | strip: Collection (5) · Interface (4) · Maintenance (1) | strip: **Master controls** (6) · **Capture** (6) · **AH Price** (2) · **Interface** (2) · **History** (2) · **Filters** |
 | **Filters** | its own sub-page, strip: Blacklist · Whitelist · Currencies | a **tab** on General, with those three as a **secondary** strip inside the scroll |
 | **AH Price** | its own sub-page, one group, **no strip** | a **tab** on General |
 | **Landing** | logo, tagline, slash rows | unchanged (exempt, options-ui-§13) |

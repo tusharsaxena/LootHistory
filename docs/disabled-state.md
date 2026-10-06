@@ -74,6 +74,10 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 | The Reconciler's two private bus targets (the `SettingsChanged` listener and the eleven capture events) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
 | A held reset-recommendation popup (the `PLAYER_REGEN_ENABLED` one-shot, and the "Export first" re-ask the export window's `OnHide` would fire as `NS.StandDown` hides it) | `NS.DropLedgerResetOffer`, from `NS.StandDown` |
+| `CHAT_MSG_MONEY`, the Collector's third chat event | `Collector:Disable` (it unregisters `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` and `CHAT_MSG_MONEY`) |
+| The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop) |
+| The Reconciler's ledger state: claims, recent-row coalescing map, memoized reasons, settle hold and recheck, currency accumulators (`pendingCur`, `curGain`, `curLoss`), `pendingTransfer`, `loginPending` | `Reconciler:Disable` / `DisableCapture` |
+| The `perf` hold: LibKa0s-Perf's Suspend takes the latch, and everything above goes down with it; Resume stands it back up and the Reconciler schedules a resume scan, so changes made while held land as `UNTRACKED` | `NS.StandDown` / `NS.StandUp` |
 | Attribution's per-unit spell frame (`UNIT_SPELLCAST_SUCCEEDED`, `player`) | `Attribution:Disable` |
 | Every deferral the addon armed — the retention prune, the bound-state repair, both coalesced repaints, the Reconciler's flush fuse and the five-second reset offer | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
 | The History window, the export modal and the debug console | `NS.StandDown`, and kept down by the first rung of `B:VisibilityAllows` |
@@ -88,6 +92,10 @@ claimed to be off.
 `Attribution:Stamp` — `BuyMerchantItem`, `TakeInboxItem`, `AutoLootMailItem`, `UseContainerItem` and
 `GetQuestReward` — and that one funnel gates its body and returns. It is not license to gate
 anything that has a real unregister.
+
+**The ledger's hooks are a second funnel, same rule.** `modules/AttributionOut.lua` installs its post-hooks once per session: `RepairAllItems`, `BuyMerchantItem` (a second hook beside the vendor one), `BuybackItem`, `DeleteCursorItem`, `SendMail`, `TakeInboxMoney`, `C_AuctionHouse.PostItem` / `PostCommodity` / `PlaceBid` / `ConfirmCommoditiesPurchase`, `C_TradeSkillUI.CraftRecipe` / `CraftSalvage` / `CraftEnchant`, and `GuildBankFrame`'s `OnShow` / `OnHide`. Each body checks the latch first (`StampOut`, or the `On*` body that owns the work) and returns, so a hook firing while the addon is down stamps nothing and sets no scope.
+
+**Modules that register nothing have no `Disable`, by ruling.** `modules/Escrow.lua` (which only appends Reconciler steps), `modules/LedgerFormat.lua` (pure helpers) and `modules/AnalyticsLedger.lua` (drawn by the Insights tab, owns no events) hold no registration, so `tests/test_disabled.lua` has nothing to survey for them; the Reconciler's `Disable` clears the escrow-related state they read.
 
 **`NS.After` replaced bare `C_Timer.After` for the addon's own deferrals**, and that is load-bearing
 rather than tidy: the retention prune is a SavedVariables write on a five-second fuse lit by

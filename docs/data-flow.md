@@ -169,6 +169,79 @@ A second, independent engine sits beside loot capture: the **Reconciler** (`modu
 **Login genesis and drift.** `LoginScan` marks everything dirty and flushes, then stamps `meta.genesis` and `meta.partial` on the character (and on the Warband when it already exists). The first login after v11 flushes `silent` (no rows: the snapshot is the genesis); every later login flushes with `forceReason = UNTRACKED`, so whatever changed while the addon was not watching is written as `UNTRACKED` rows with no hold and no claim consumed. `Enable` after a stand-down in a session that already logged in schedules the same scan a second later, so changes made while stood down land as `UNTRACKED` too. A login inside combat (a reload mid-pull) sets `loginPending` and defers both the read and the stamp to the regen edge, so genesis never lands on a holder that was not scanned. A fresh holder stays `partial` until its bank (for the Warband, its tabs) has been read once, which is why a new character's bank shows **never** until the first banker visit.
 
 **Turning it off.** Unticking `trackLedger` runs `DisableCapture`: the capture target is unregistered, dirty bits and `deferred` are cleared, and the `SettingsChanged` listener stays so re-ticking re-registers. `NS.StandDown` runs the full `Disable`. See [disabled-state.md](disabled-state.md).
+## The ledger: holdings diff + claims
+
+Phase 2 turns the holdings scan into the ledger's writer (timeline-ledger spec §5). The Reconciler still only *reads* the account; what changed is what it does with a difference. This section follows one `Flush` through its steps. Placement note: it sits after [Holdings scan](#holdings-scan) rather than directly after [The collector's gates](#the-collectors-gates), because it builds on the fuse, readability and combat rules stated there.
+
+### Scan → plan → hold or commit
+
+`flushBody` (`modules/Reconciler.lua`) runs four steps, and three of them are extension lists so a module can add its own without editing the Reconciler:
+
+1. **Scan.** `R:Scan` reads every dirty, readable part into a snapshot, then runs each `R.SCAN_STEPS` function. `modules/Escrow.lua` adds the mail and owned-auction columns; the currency step turns the per-id accumulator into a currency map (see [Currency](#currency-from-event-args-not-a-rescan)).
+2. **Plan.** `R:Plan` diffs the snapshot against the stored holdings (`Ledger.Diff`), classifies each item (the three cases below), then runs each `R.PLAN_STEPS` function (mail sends, auction posts, mail money, exits, account currency transfers). The result is `plan.moves`, `plan.pairs`, `plan.net` and `plan.extra`.
+3. **Hold or commit.** `R:DecideHold` may postpone the whole pass (next paragraph). Otherwise each `R.COMMIT_STEPS` function runs (claims consume, escrow credits, the currency memo), `applySnap` writes the new counts into Holdings, and `WriteRows` writes the rows.
+4. **Announce.** `HOLDINGS_CHANGED` once per changed holder, as in Phase 1.
+
+**Hold.** A pass is held (nothing written, dirty bits kept, the stored baseline untouched) while a change is plausibly half done: a one-sided item change at an open bank, mailbox or auction house (the other half is a server round trip away), a one-sided gold change at a bank, or a gain whose chat claim has not arrived yet. `Ledger.ShouldHold` bounds both waits: `SETTLE_TIMEOUT` = 6 s for the one-sided case, `CLAIM_WAIT` = 1.5 s for the unclaimed gain. `ScheduleRecheck` arms a `CLAIM_WAIT` timer so a quiet client still comes back; events do the real re-checks. A one-sided gold change at a mailbox (postage) or a vendor is never held, because nothing is coming to pair with it. A login or resume pass (`forceReason`) and a genesis pass (`silent`) never hold.
+
+### The three classification cases (spec §5.1)
+
+`Ledger.ClassifyItems` compares the before and after count of one item across every container that was readable in both scans (a container that was not read is never inferred empty):
+
+1. **Intra-holder MOVE.** An item left one container of a holder and arrived in another (bags to bank, bags to mail, mail to bags). One `MOVE` row, `from` and `to` naming `holder/container`. Mail and auction columns are *escrow*: they pair only with a non-escrow container, and an escrow source moves only its own-origin count (`escrow.mailOwn`); the rest is a gain from outside.
+2. **Inter-holder MOVE pair.** The same thing went down on one holder and up on another in the same flush (warband bank, warband gold, an account currency transferred to an alt, a send to an own alt). `Ledger.PairHolders` pairs opposite-sign nets for the smaller magnitude and `WriteRows` writes **one `MOVE` row per holder**, both carrying the same `from` / `to`, so each holder's own timeline shows the move.
+3. **Net IN / OUT.** What is left after pairing is a real gain or loss, written as `IN` or `OUT` with a reason (below).
+
+### Claims: the chat paths and the diff meet
+
+A loot, currency or money chat line writes its rich row immediately (source, zone, price) and **posts a claim** for that thing (`Collector`'s `claim`, then `Reconciler:PostClaim` into `Ledger.PostClaim`). When the diff sees the same thing arrive, `Ledger.ConsumeClaim` matches it, and the commit step's claim pass stamps the existing chat row as the ledger row it now is (`dir = "IN"`, `holder`, `claimed = true`, `kind`) instead of writing a second one. Only an unclaimed remainder becomes a diff row.
+
+- **Both orders work.** Claim first (the usual case: the chat line precedes the bag update) consumes on the next flush. Delta first holds the pass for up to `CLAIM_WAIT` waiting for the line; past that the gain is written as a plain row.
+- **Partial.** A claim for 3 against a gain of 5 consumes 3 and leaves 2 for the diff; a claim for 5 against a gain of 3 leaves 2 on the claim for the next arrival.
+- **TTL.** A claim expires `CLAIM_TTL` = 5 s after it is posted; `PruneClaims` drops the dead ones at the top of every flush.
+- **Gated-out lines post none.** A line the Collector gates out (quality below **Minimum quality**, a muted source, a quest item) writes no rich row and posts no claim, so the diff books the arrival as a plain row (spec D2: the ledger counts everything, the gate only decides which rows are *detailed*). A blacklisted id or currency never gets a row at all, and `recordCurrency` / `recordGold` off suppress those kinds (`rowAllowed`); holdings count them regardless.
+
+### Reasons
+
+Every diff row needs a reason, and `Ledger.PickReason(kind, dir, ctx)` chooses it from what the two stamp slots and the interaction scopes say. `Attribution:ReasonContext` (`modules/AttributionOut.lua`) hands it the context. There are **two context slots**: `State.lootContext`, the Phase 1 stamp that says why something *arrived*, and `State.outContext`, the new one that says why something *left* (`StampOut`; fresh for `CONTEXT_TTL`, restricted to the `dirs` and `kinds` it names). Beside them `State.scopes` records which interaction frames are open (merchant, trainer, taxi, mailbox, auction, bank, guildBank), set from `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` and the `GuildBankFrame` hooks.
+
+Precedence, first match wins:
+
+1. `forced`: a login or resume pass says `UNTRACKED`.
+2. A live **outbound stamp** that applies to this direction and kind (`REPAIR`, `BUY`, `DESTROY`, `AH_SOLD`, `TRADE_GIVE`, ...).
+3. A **currency source** reason (`CURRENCY_DISPLAY_UPDATE`'s gain or destroy enum, mapped through `C.CURRENCY_SOURCE_REASON`).
+4. An open **scope**: guild bank (`GUILD_DEPOSIT` / `GUILD_WITHDRAW`); merchant (`SELL` / `BUY` for what leaves, `VENDOR` for an item that arrives, `SELL` for gold that arrives); for gold leaving: trainer `TRAINING`, taxi `TRAVEL`, auction house `AH_POST_FEE`, mailbox `MAIL_SEND`.
+5. For an **item loss**: a fresh deconstruct loot context gives `DECONSTRUCT`, a craft window (`CRAFT_TTL` = 6 s after a `C_TradeSkillUI` craft call) gives `CRAFT_REAGENT`, a consumable item gives `CONSUME`.
+6. For a **gain**: the live loot context's source, else `MAIL` at an open mailbox, else `AH` at the auction house.
+7. `OTHER`.
+
+The reason for a key is **memoized** when the pass is planned or held (`memoReasons`), so a stamp that expires during a hold still attributes the change it was stamped for.
+
+### Coalescing
+
+`R:Write` keeps `recent[coalesceKey]`, with the key built from holder, thing, direction, reason and route. A same-key row younger than `COALESCE_WINDOW` = 60 s is **amended** (`Database:Amend(index, addQty)`) instead of appended, so three potions drunk across a pull, or a stack sold in chunks, become one row. Amend runs the same write hooks as Add and sends `RECORD_ADDED` again with the same `(record, index)`. Coalescing also happens within a single pass, because the net is already summed per key.
+
+### Currency from event args, not a rescan
+
+`CURRENCY_DISPLAY_UPDATE` carries `(currencyType, quantity, quantityChange, gainSource, lostSource)`, so `R:OnCurrencyUpdate` folds the change into `pendingCur[id]` and keeps the two source enums; no currency list is walked. A nil id (the client's bulk refresh) marks `currency` for a full rescan instead, and a full rescan in the same pass is authoritative over the deltas. A holder with no stored currency baseline also falls back to a rescan, because a delta on nothing would invent a whole balance. Account-wide currencies (`Compat.CurrencyIsAccountWide`) accrue to `§warband`. `CURRENCY_TRANSFER_LOG_UPDATE` sets `pendingTransfer`; the plan step pairs the loss with the own alt named in `Compat.LatestCurrencyTransfer` as a `MOVE` and credits that alt's stored currency, so its next login reconciles clean. Whatever the transfer consumed beyond what arrived stays an `OUT` with reason `TRANSFER`.
+
+### Mail and auction-house escrow (`modules/Escrow.lua`)
+
+Items in transit are *holdings-only* until they resolve: they sit in the `mail` and `auctions` columns with no row.
+
+- **Send to an own alt.** The `SendMail` post-hook stages `State.pendingMail`; `MAIL_SEND_SUCCESS` confirms it. The plan pairs the loss in bags with a `MOVE` into the alt's mail (and `escrow.mailOwn` / `escrow.mailMoney` on the alt grow), and attachment gold that left is a gold `MOVE` pair; postage stays `OUT MAIL_SEND`.
+- **Taking mail.** The own-origin part (`mailOwn`) is a `MOVE` mail to bags and consumes `mailOwn`; the rest is an `IN` (`MAIL`, or `AH` for auction mail) from outside.
+- **Post.** A post hook records `State.pendingPost[itemID]`; the item leaving bags and appearing in the owned-auction list is a `MOVE` to `me/auctions`, and the deposit is `OUT AH_POST_FEE`.
+- **Exit.** An auction that leaves the owned list is held as an *exit* (`escrow.exits[id] = { n, ts }`) until it resolves: it comes back by mail (a return: own-origin mail, so the take is a `MOVE`), a sale mail names it (item `OUT AH_SOLD`; the gold arrives `IN AH_SOLD` when the money is taken), or `EXIT_TTL` = 30 days passes and it is booked as sold.
+
+### Login and resume: `UNTRACKED`
+
+`LoginScan` and the resume scan run with `forceReason = UNTRACKED`: no hold, no claims, and every difference between the stored holdings and what the account holds now becomes an `UNTRACKED` row. The first login after the upgrade runs `silent` (genesis, no rows). Resume means `Enable` after a stand-down in a session that already logged in; it schedules the same scan one second later. The disabled-at-login gap is a known limitation (ARCHITECTURE.md).
+
+### Combat
+
+A handler in combat does **nothing but set a dirty bit**, or, for `CURRENCY_DISPLAY_UPDATE`, add to the per-id accumulator (a table write, no allocation after a currency's first event). No scan, plan, claim or row work runs; `PLAYER_REGEN_ENABLED` flushes once. A login in combat defers the scan and its genesis stamp to the same edge. The five handlers that do run in combat are the `LibKa0s-Perf` buckets (`core/PerfSetup.lua`, [performance.md](performance.md)).
+
 ## Known limitation
 
 The whole design assumes the peripheral event and its loot line fall within `CONTEXT_TTL` (~1.5s). **Slow manual click-looting** — opening a corpse or container and hovering before clicking an item well past the TTL — lets the stamp expire, so that item falls back to `OTHER` / `INFERRED`. This is an accepted trade-off: a longer TTL would risk bleeding a stale source onto an unrelated later loot. Auto-loot (the common case) fires the loot lines immediately, comfortably inside the window.
