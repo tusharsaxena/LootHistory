@@ -368,9 +368,13 @@ function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
   if t0 then Perf.Note("spellCast", debugprofilestop() - t0) end
 end
 
+-- A trade with an own alt stamps ALT_TRADE (a holder move, timeline-ledger Phase 7), the same
+-- reason the giving side's loss carries (AttributionOut OnTradeAccept).
 function Attribution:OnTradeAcceptUpdate(_, playerAccepted, targetAccepted)
   if playerAccepted == 1 and targetAccepted == 1 then
-    self:Stamp(Constants.SourceType.TRADE, nil, Constants.Confidence.CERTAIN, "trade-complete")
+    local own = self.IsOwnAlt and self:IsOwnAlt(NS.Compat.TradeTargetKey())
+    local source = own and Constants.SourceType.ALT_TRADE or Constants.SourceType.TRADE
+    self:Stamp(source, nil, Constants.Confidence.CERTAIN, "trade-complete")
   end
 end
 

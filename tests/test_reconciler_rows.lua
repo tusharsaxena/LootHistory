@@ -76,6 +76,7 @@ case("Reconciler: bag to bank deposit writes one MOVE and no gain or loss", func
   assertEqual(r.dir, "MOVE"); assertEqual(r.source, "TRANSFER"); assertEqual(r.quantity, 5)
   assertEqual(r.from, ME .. "/bags"); assertEqual(r.to, ME .. "/bank")
   assertEqual(r.holder, ME); assertEqual(r.kind, "ITEM"); assertEqual(r.itemID, 7)
+  assertEqual(r.pairId, nil)                              -- one holder: a single MOVE, no pair (Review Focus 2)
 end)
 
 case("Reconciler: a one-sided change at an open bank is held, then paired", function()
@@ -145,7 +146,9 @@ case("Reconciler: rows after the 60 s window append", function()
   assertEqual(#H(), 2)
 end)
 
-case("Reconciler: a warband deposit is a MOVE pair, one row per holder", function()
+-- Phase 7 (owner decision 2026-10-06): a move between two DIFFERENT holders is a loss on the sender
+-- and a gain on the receiver, both carrying the action's reason and one shared pairId.
+case("Reconciler: a warband deposit is an OUT on the character and an IN on the warband", function()
   reset()
   setBag(0, { [1] = { itemID = 7, link = "L7", count = 2 } })
   genesis()
@@ -154,12 +157,77 @@ case("Reconciler: a warband deposit is a MOVE pair, one row per holder", functio
   setBag(0, {}); setBag(12, { [1] = { itemID = 7, link = "L7", count = 2 } })
   R():MarkDirty("bags"); R():MarkDirty("tabs"); R():Flush()
   assertEqual(#H(), 2)
-  local holders = {}
+  local by = {}
   for _, r in ipairs(H()) do
-    assertEqual(r.dir, "MOVE"); assertEqual(r.from, ME .. "/bags"); assertEqual(r.to, "§warband/tabs")
-    holders[r.holder] = true
+    assertEqual(r.source, "WARBAND_DEPOSIT"); assertEqual(r.quantity, 2)
+    assertEqual(r.from, ME .. "/bags"); assertEqual(r.to, "§warband/tabs")
+    by[r.holder] = r
   end
-  assertTrue(holders[ME] and holders["§warband"])
+  assertEqual(by[ME].dir, "OUT"); assertEqual(by["§warband"].dir, "IN")
+  assertTrue(by[ME].pairId ~= nil); assertEqual(by[ME].pairId, by["§warband"].pairId)
+end)
+
+local function warbandWithBalance()
+  setBag(0, {})
+  genesis()
+  openBank("AccountBanker")
+  setBag(12, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 500000
+  R():MarkDirty("warbandMoney"); R():Flush()              -- the tabs' and warband gold's first read
+  NS.Holdings:MarkGenesis(NS.Constants.WARBAND_HOLDER, m.__epoch)
+  assertEqual(#H(), 0)
+end
+
+local function withdraw(item, gold)
+  local held = NS.Holdings:Get(NS.Constants.WARBAND_HOLDER)
+  setBag(12, { [1] = { itemID = 7, link = "L7", count = held.items[7].tabs - item } })
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = ((NS.Holdings:Get(ME).items[7] or {}).bags or 0) + item } })
+  m.__warbandMoney = m.__warbandMoney - gold; m.__money = m.__money + gold
+  for _, p in ipairs({ "bags", "tabs", "money", "warbandMoney" }) do R():MarkDirty(p) end
+  R():Flush()
+end
+
+-- Review Focus 1: the owner's report (1383g 99s and a Dawn Crystal out of the warband bank).
+case("Reconciler: a warband withdraw of gold and an item is one OUT and one IN each, no MOVE", function()
+  reset()
+  warbandWithBalance()
+  withdraw(1, 13839900)
+  assertEqual(#H(), 4)
+  local rows = {}
+  for _, r in ipairs(H()) do
+    assertTrue(r.dir ~= "MOVE", "no MOVE row for an inter-holder move")
+    assertEqual(r.source, "WARBAND_WITHDRAW")
+    rows[r.kind .. ":" .. r.dir] = r
+  end
+  for _, k in ipairs({ "ITEM", "GOLD" }) do
+    local out, inn = rows[k .. ":OUT"], rows[k .. ":IN"]
+    assertEqual(out.holder, "§warband"); assertEqual(inn.holder, ME)
+    assertEqual(out.quantity, inn.quantity)
+    assertTrue(out.pairId ~= nil); assertEqual(out.pairId, inn.pairId)
+  end
+  assertEqual(rows["GOLD:IN"].quantity, 13839900); assertEqual(rows["ITEM:IN"].quantity, 1)
+  assertEqual(rows["GOLD:OUT"].from, "§warband/money"); assertEqual(rows["GOLD:OUT"].to, ME .. "/money")
+  assertTrue(rows["GOLD:IN"].pairId ~= rows["ITEM:IN"].pairId, "each thing's move has its own pairId")
+end)
+
+-- Review Focus 5: inside the 60 s window a second withdraw amends each half in place; an IN never
+-- folds into an OUT and the warband's half never folds into the character's.
+case("Reconciler: coalescing amends each half of a holder move separately", function()
+  reset()
+  warbandWithBalance()
+  withdraw(1, 0)
+  m.__epoch = m.__epoch + 30
+  withdraw(2, 0)
+  assertEqual(#H(), 2)
+  local by = {}
+  for _, r in ipairs(H()) do by[r.holder .. ":" .. r.dir] = r end
+  assertEqual(by["§warband:OUT"].quantity, 3); assertEqual(by[ME .. ":IN"].quantity, 3)
+  assertEqual(by["§warband:OUT"].pairId, by[ME .. ":IN"].pairId)
+  -- A deposit back inside the same window is its own pair: different holders, dirs and reason.
+  m.__epoch = m.__epoch + 10
+  withdraw(-1, 0)
+  assertEqual(#H(), 4)
+  assertEqual(by["§warband:OUT"].quantity, 3); assertEqual(by[ME .. ":IN"].quantity, 3)
+  for i = 3, 4 do assertEqual(H()[i].source, "WARBAND_DEPOSIT"); assertEqual(H()[i].quantity, 1) end
 end)
 
 case("Reconciler: a posted claim absorbs the gain and stamps the chat row", function()
@@ -347,7 +415,7 @@ case("Reconciler: an account-wide currency change lands on the warband holder", 
   m.__currencyAccountWide = {}
 end)
 
-case("Reconciler: an account currency transfer to an own alt is a MOVE pair and credits the alt", function()
+case("Reconciler: an account currency transfer to an own alt is an OUT and an IN and credits the alt", function()
   reset()
   genesisWithCurrency({ { id = 3008, quantity = 50 } })
   NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { currency = 1 },
@@ -356,12 +424,17 @@ case("Reconciler: an account currency transfer to an own alt is a MOVE pair and 
   R():OnEvent("CURRENCY_TRANSFER_LOG_UPDATE")
   R():OnEvent("CURRENCY_DISPLAY_UPDATE", 3008, 38, -12, nil, m.Enum.CurrencyDestroyReason.AccountTransfer)
   R():Flush()
-  local moves, outs = 0, 0
+  local xfer, fee = {}, 0
   for _, r in ipairs(H()) do
-    if r.dir == "MOVE" then moves = moves + 1; assertEqual(r.to, "Alt-Realm/currency") end
-    if r.dir == "OUT" then outs = outs + 1; assertEqual(r.quantity, 2); assertEqual(r.source, "TRANSFER") end
+    assertTrue(r.dir ~= "MOVE")
+    if r.source == "CURRENCY_TRANSFER" then
+      xfer[r.holder .. ":" .. r.dir] = r
+      assertEqual(r.quantity, 10); assertEqual(r.to, "Alt-Realm/currency")
+    elseif r.dir == "OUT" then fee = fee + 1; assertEqual(r.quantity, 2); assertEqual(r.source, "TRANSFER") end
   end
-  assertEqual(moves, 2); assertEqual(outs, 1)               -- 10 moved, 2 was the transfer fee
+  assertEqual(#H(), 3); assertEqual(fee, 1)                 -- 10 moved, 2 was the transfer fee
+  assertTrue(xfer[ME .. ":OUT"] ~= nil and xfer["Alt-Realm:IN"] ~= nil)
+  assertEqual(xfer[ME .. ":OUT"].pairId, xfer["Alt-Realm:IN"].pairId)
   assertEqual(NS.db.global.holdings["Alt-Realm"].currency[3008], 10)
   m.__currencyTransfers = {}
 end)
@@ -445,7 +518,7 @@ end)
 
 -- Review fix: the drift pass sets the currency delta aside, so it must not clear the currency
 -- accumulators either; the normal pass that follows still writes the change with its own reason,
--- and an account transfer pending in the same flush keeps its MOVE pair and the alt's credit.
+-- and an account transfer pending in the same flush keeps its OUT + IN pair and the alt's credit.
 case("Reconciler: a currency delta pending when the banker opens survives the drift pass", function()
   reset()
   genesisWithCurrency({ { id = 3008, quantity = 50 } })
@@ -462,7 +535,7 @@ case("Reconciler: a currency delta pending when the banker opens survives the dr
   assertEqual(cur.dir, "OUT"); assertEqual(cur.quantity, 10); assertEqual(cur.source, "BUY")
   assertEqual(NS.Holdings:Get(ME).currency[3008], 40)
   closeBank()
-  -- A pending account transfer flushed with the opening read keeps its MOVE pair and the credit.
+  -- A pending account transfer flushed with the opening read keeps its OUT + IN pair and the credit.
   NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { currency = 1 },
     items = {}, currency = {}, links = {} }
   m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
@@ -471,15 +544,15 @@ case("Reconciler: a currency delta pending when the banker opens survives the dr
   R():OnEvent("CURRENCY_TRANSFER_LOG_UPDATE")
   R():OnEvent("CURRENCY_DISPLAY_UPDATE", 3008, 28, -12, nil, m.Enum.CurrencyDestroyReason.AccountTransfer)
   openBank(); R():Flush()
-  local moves, outs = 0, 0
+  local xfer, outs = 0, 0
   for i = 3, #H() do
     local r = H()[i]
-    if r.kind == "CURRENCY" and r.dir == "MOVE" then moves = moves + 1 end
-    if r.kind == "CURRENCY" and r.dir == "OUT" then
-      outs = outs + 1; assertEqual(r.quantity, 2); assertEqual(r.source, "TRANSFER")
+    if r.kind == "CURRENCY" and r.source == "CURRENCY_TRANSFER" then xfer = xfer + 1 end
+    if r.kind == "CURRENCY" and r.source == "TRANSFER" then
+      outs = outs + 1; assertEqual(r.dir, "OUT"); assertEqual(r.quantity, 2)
     end
   end
-  assertEqual(moves, 2); assertEqual(outs, 1)
+  assertEqual(xfer, 2); assertEqual(outs, 1)
   assertEqual(NS.db.global.holdings["Alt-Realm"].currency[3008], 10)
   assertEqual(NS.Holdings:Get(ME).currency[3008], 28)
   m.__currencyTransfers = {}

@@ -328,7 +328,7 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
 
-### test_attribution_out.lua (12)
+### test_attribution_out.lua (13)
 
 - AttributionOut: StampOut writes the outbound slot with TTL and filters
 - AttributionOut: interaction show/hide toggles scopes
@@ -338,6 +338,7 @@ badge and any count quoted in the docs must agree with it.
 - AttributionOut: posting records the item in flight and stamps the deposit
 - AttributionOut: taking AH sale money stamps AH_SOLD and names the item
 - AttributionOut: a completed trade stamps TRADE_GIVE and records the partner
+- AttributionOut: a trade with an own alt stamps ALT_TRADE on both halves
 - AttributionOut: a craft arms the reagent window
 - AttributionOut: guild bank frame OnShow/OnHide drive the guildBank scope
 - AttributionOut: stood down, stamps and scopes are ignored
@@ -455,14 +456,16 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
-### test_reconciler_rows.lua (29)
+### test_reconciler_rows.lua (31)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
 - Reconciler: vendor sale writes item OUT SELL and gold IN SELL
 - Reconciler: combat potion burst lands as one CONSUME row and coalesces
 - Reconciler: rows after the 60 s window append
-- Reconciler: a warband deposit is a MOVE pair, one row per holder
+- Reconciler: a warband deposit is an OUT on the character and an IN on the warband
+- Reconciler: a warband withdraw of gold and an item is one OUT and one IN each, no MOVE
+- Reconciler: coalescing amends each half of a holder move separately
 - Reconciler: a posted claim absorbs the gain and stamps the chat row
 - Reconciler: blacklisted items never get a row but holdings still count them
 - Reconciler: recordGold off suppresses gold rows only
@@ -478,7 +481,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: a currency spend from the event args is an OUT with its mapped reason
 - Reconciler: currency events in combat accumulate, one row after regen
 - Reconciler: an account-wide currency change lands on the warband holder
-- Reconciler: an account currency transfer to an own alt is a MOVE pair and credits the alt
+- Reconciler: an account currency transfer to an own alt is an OUT and an IN and credits the alt
 - Reconciler: changes made while stood down land as UNTRACKED on resume
 - Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing
 - Reconciler: bank drift since the last visit is UNTRACKED on the first read of the next
@@ -487,19 +490,20 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
 - Reconciler: a deferred login with the banker open keeps its bags drift UNTRACKED
 
-### test_escrow.lua (11)
+### test_escrow.lua (12)
 
-- Escrow: mail to an own alt is a MOVE pair; the alt's mail and own-origin are credited
+- Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-origin are credited
 - Escrow: taking mail splits own-origin (MOVE) from outside gains (IN)
+- Escrow: taking an alt's mail is an ALT_MAIL gain; a returned auction stays a MOVE
 - Escrow: posting moves bags to auctions and credits the auctions column
 - Escrow: an auction that leaves and comes back by mail is a return, not a sale
 - Escrow: an AH sale mail books the pending exit as AH_SOLD
 - Escrow: an exit unresolved for 30 days is booked as sold
-- Escrow: mail money taken from an own alt's send is a MOVE
+- Escrow: mail money taken from an own alt's send is an ALT_MAIL gain
 - Escrow: the mailbox is unreadable once closed
-- Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the alt's gold is a MOVE
+- Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the alt's gold is ALT_MAIL
 - Escrow: gold from another player is a gain even while an alt's gold waits
-- Escrow: a money-only pass leaves the staged items for the item pass; both are MOVEs
+- Escrow: a money-only pass leaves the staged items for the item pass; both are ALT_MAIL losses
 
 ### test_database.lua (76)
 
@@ -1569,13 +1573,13 @@ badge and any count quoted in the docs must agree with it.
 | test_holdings.lua | 8 |
 | test_rollup.lua | 20 |
 | test_attribution.lua | 37 |
-| test_attribution_out.lua | 12 |
+| test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 47 |
 | test_reconciler.lua | 7 |
-| test_reconciler_rows.lua | 29 |
-| test_escrow.lua | 11 |
+| test_reconciler_rows.lua | 31 |
+| test_escrow.lua | 12 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 92 |
@@ -1614,4 +1618,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1372** |
+| **Total** | **1376** |

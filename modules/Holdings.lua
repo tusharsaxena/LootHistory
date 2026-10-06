@@ -261,6 +261,15 @@ function Holdings:Escrow(holder)
   return e.escrow
 end
 
+-- The part of `mailOwn` an own alt sent (timeline-ledger Phase 7): taking it is that alt's move
+-- landing, an IN ALT_MAIL, where the rest of mailOwn (an auction's return) is a MOVE. Created on
+-- first use, so escrow written before it existed reads as "no alt mail".
+function Holdings:MailAlt(holder)
+  local esc = self:Escrow(holder)
+  esc.mailAlt = esc.mailAlt or {}
+  return esc.mailAlt
+end
+
 -- Put `qty` of `id` into a holder's escrow container without a scan (a send to an alt, a post).
 -- The column's scanned time is left alone: the next real scan is authoritative.
 function Holdings:CreditEscrow(holder, container, id, qty, own)

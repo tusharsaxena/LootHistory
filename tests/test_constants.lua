@@ -335,7 +335,9 @@ end)
 
 local LEDGER_KEYS = { "SELL", "BUY", "REPAIR", "MAIL_SEND", "TRADE_GIVE", "AH_POST_FEE", "AH_SOLD",
   "AH_BUY", "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
-  "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED" }
+  "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED",
+  -- Phase 7 (2026-10-06): a move between two holders is a loss + gain under the action's reason.
+  "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE", "CURRENCY_TRANSFER" }
 
 test("Constants: ledger reasons are appended SourceType members with labels", function()
   for _, k in ipairs(LEDGER_KEYS) do

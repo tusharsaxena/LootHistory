@@ -107,10 +107,18 @@ function Attribution:OnTakeInboxMoney(index)
   end
 end
 
+-- True when `key` is another of this account's holders (a character the addon has holdings for).
+function Attribution:IsOwnAlt(key)
+  return key ~= nil and key ~= NS.Util.PlayerKey() and NS.Holdings ~= nil and NS.Holdings:Get(key) ~= nil
+end
+
+-- A trade with an own alt is a holder move (timeline-ledger Phase 7): the loss is ALT_TRADE, and so is
+-- the gain (Attribution:OnTradeAcceptUpdate), not TRADE_GIVE / TRADE.
 function Attribution:OnTradeAccept(playerAccepted, targetAccepted)
   if playerAccepted == 1 and targetAccepted == 1 then
     State.tradeTarget = NS.Compat.TradeTargetKey()
-    self:StampOut("TRADE_GIVE", { dirs = { OUT = true } }, "trade-complete")
+    local reason = self:IsOwnAlt(State.tradeTarget) and "ALT_TRADE" or "TRADE_GIVE"
+    self:StampOut(reason, { dirs = { OUT = true } }, "trade-complete")
   end
 end
 

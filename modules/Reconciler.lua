@@ -225,11 +225,14 @@ function R:Plan(snap, me, clock)
 end
 
 -- Plan step 1: char <-> warband transfers (warband bank deposit/withdraw, warband gold, account
--- currency moving between the two holders).
+-- currency moving between the two holders). Two holders, so the reason names the direction.
 R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(_, plan, me)
   local a, b = plan.net[me], plan.net[WARBAND]
   if not (a and b) then return end
-  for _, p in ipairs(L.PairHolders(me, a, WARBAND, b)) do plan.pairs[#plan.pairs + 1] = p end
+  for _, p in ipairs(L.PairHolders(me, a, WARBAND, b)) do
+    p.reason = (p.from == WARBAND) and "WARBAND_WITHDRAW" or "WARBAND_DEPOSIT"
+    plan.pairs[#plan.pairs + 1] = p
+  end
 end
 
 -- Reasons are decided when a change is FIRST seen, not when its hold ends: a stamp with a 1.5 s
@@ -348,8 +351,8 @@ R.SCAN_STEPS[#R.SCAN_STEPS + 1] = function(self, snap, me)
 end
 
 -- Plan step: a warband-transferable currency sent to an own alt (CURRENCY_TRANSFER_LOG_UPDATE) is a
--- transfer, not a loss. Whatever the transfer consumed beyond the amount received stays an OUT
--- (reason TRANSFER — the transfer's cost).
+-- holder move: an OUT here and an IN on the alt, both CURRENCY_TRANSFER. Whatever the transfer
+-- consumed beyond the amount received stays a plain OUT (reason TRANSFER — the transfer's cost).
 R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(self, plan, me)
   local net = plan.net[me]
   if not (net and self.pendingTransfer) then return end
@@ -361,7 +364,7 @@ R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(self, plan, me)
   local q = math.min(-dlt, t.quantity or 0)
   if q <= 0 then return end
   plan.pairs[#plan.pairs + 1] = { key = key, qty = q, from = me, to = t.toKey,
-    fromC = "currency", toC = "currency", creditCurrency = t.currencyID }
+    fromC = "currency", toC = "currency", creditCurrency = t.currencyID, reason = "CURRENCY_TRANSFER" }
   net[key] = (dlt + q ~= 0) and (dlt + q) or nil
 end
 
@@ -413,13 +416,13 @@ local function linkFor(holder, id)
 end
 
 -- Called as R:MakeRow(...); it reads no Reconciler state, hence the `_` receiver.
-function R.MakeRow(_, holder, kind, id, dir, reason, qty, now, from, to)
+function R.MakeRow(_, holder, kind, id, dir, reason, qty, now, from, to, pairId)
   local zone, subzone = NS.Zone()
   local row = {
     ts = now, char = NS.Util.PlayerKey(), classFile = Compat.PlayerClassFile(),
     holder = holder, dir = dir, kind = kind, quantity = qty, source = reason,
     confidence = (reason == "OTHER" or reason == "UNTRACKED") and C.Confidence.INFERRED or C.Confidence.CERTAIN,
-    zone = zone, subzone = subzone, mapID = NS.PlayerMapID(), from = from, to = to,
+    zone = zone, subzone = subzone, mapID = NS.PlayerMapID(), from = from, to = to, pairId = pairId,
   }
   if kind == "ITEM" then
     local link = linkFor(holder, id)
@@ -439,8 +442,9 @@ function R.MakeRow(_, holder, kind, id, dir, reason, qty, now, from, to)
   return row
 end
 
--- Write one ledger row, or amend the same-key row written under COALESCE_WINDOW seconds ago.
-function R:Write(holder, key, dir, reason, qty, now, from, to)
+-- Write one ledger row, or amend the same-key row written under COALESCE_WINDOW seconds ago. An
+-- amended row keeps the pairId it was written with.
+function R:Write(holder, key, dir, reason, qty, now, from, to, pairId)
   local kind, id = L.ParseThingKey(key)
   if not kind or qty <= 0 or not rowAllowed(kind, id) then return nil end
   local ck = L.CoalesceKey(holder, key, dir, reason, from and (from .. ">" .. (to or "")) or nil)
@@ -449,7 +453,7 @@ function R:Write(holder, key, dir, reason, qty, now, from, to)
     NS.Database:Amend(recent.index, qty)
     return recent.row
   end
-  local row = self:MakeRow(holder, kind, id, dir, reason, qty, now, from, to)
+  local row = self:MakeRow(holder, kind, id, dir, reason, qty, now, from, to, pairId)
   local index = NS.Database:Add(row)
   self.recent[ck] = { row = row, index = index, ts = now }
   return row
@@ -462,19 +466,33 @@ local function sideOf(key, holder, explicit)
   return holder == WARBAND and CT.TABS or CT.BAGS
 end
 
+-- A move between two holders (timeline-ledger Phase 7): the sender's OUT and the receiver's IN share
+-- one pairId, `ts:n`. If the OUT amended a row inside the coalescing window, the IN takes that row's id.
+local function writePair(self, p, now, from, to)
+  self.pairSeq = (self.pairSeq or 0) + 1
+  local reason = p.reason or "TRANSFER"
+  local out = self:Write(p.from, p.key, "OUT", reason, p.qty, now, from, to, now .. ":" .. self.pairSeq)
+  -- An own-alt mail's IN is written when the alt takes it (Escrow), not when it is sent.
+  if not p.senderOnly then
+    self:Write(p.to, p.key, "IN", reason, p.qty, now, from, to, out and out.pairId or nil)
+  end
+end
+
 function R:WriteRows(plan, now, clock)
   -- A genesis pass applies holdings and writes nothing, whatever a plan step added.
   if self.silent then self.reasonMemo = {}; return end
   for _, mv in ipairs(plan.moves) do
-    self:Write(mv.holder, L.ThingKey("ITEM", mv.id), "MOVE", "TRANSFER", mv.qty, now,
-      mv.holder .. "/" .. mv.from, mv.holder .. "/" .. mv.to)
+    local key, from, to = L.ThingKey("ITEM", mv.id), mv.holder .. "/" .. mv.from, mv.holder .. "/" .. mv.to
+    -- What an own alt mailed is that alt's move landing here: a gain (Escrow marks it `alt`).
+    if (mv.alt or 0) > 0 then self:Write(mv.holder, key, "IN", "ALT_MAIL", mv.alt, now, from, to) end
+    self:Write(mv.holder, key, "MOVE", "TRANSFER", mv.qty - (mv.alt or 0), now, from, to)
   end
   for _, p in ipairs(plan.pairs) do
     local from = p.from .. "/" .. sideOf(p.key, p.from, p.fromC)
     local to = p.to .. "/" .. sideOf(p.key, p.to, p.toC)
-    self:Write(p.from, p.key, "MOVE", p.reason or "TRANSFER", p.qty, now, from, to)
-    -- A pair within one holder (mail money taken) is one row, not two.
-    if p.to ~= p.from then self:Write(p.to, p.key, "MOVE", p.reason or "TRANSFER", p.qty, now, from, to) end
+    if p.to ~= p.from then writePair(self, p, now, from, to)
+    -- A pair within one holder is one row (an alt's gold taken from mail: its `dir` says IN).
+    else self:Write(p.from, p.key, p.dir or "MOVE", p.reason or "TRANSFER", p.qty, now, from, to) end
   end
   for _, x in ipairs(plan.extra or {}) do self:Write(x.holder, x.key, x.dir, x.reason, x.qty, now) end
   for holder, net in pairs(plan.net) do

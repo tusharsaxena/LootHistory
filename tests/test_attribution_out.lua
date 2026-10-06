@@ -92,6 +92,27 @@ test("AttributionOut: a completed trade stamps TRADE_GIVE and records the partne
   T.mocks.__tradeTarget = nil
 end)
 
+-- Phase 7: a trade with an own alt is a holder move, so both halves carry ALT_TRADE (the giver's
+-- loss stamp here, the receiver's gain stamp in Attribution:OnTradeAcceptUpdate).
+test("AttributionOut: a trade with an own alt stamps ALT_TRADE on both halves", function()
+  reset()
+  local savedHoldings, savedLoot = NS.db.global.holdings, S().lootContext
+  NS.db.global.holdings = { ["Bob-Realm"] = { meta = {}, items = {}, currency = {}, links = {}, scanned = {} } }
+  T.mocks.__tradeTarget = "Bob"
+  local ok, err = pcall(function()
+    A():OnTradeAccept(1, 1)
+    assertEqual(S().outContext.reason, "ALT_TRADE"); assertTrue(S().outContext.dirs.OUT)
+    A():OnTradeAcceptUpdate(nil, 1, 1)
+    assertEqual(S().lootContext.source, "ALT_TRADE")
+    NS.db.global.holdings = {}                             -- a stranger: the plain trade reasons
+    A():OnTradeAccept(1, 1); assertEqual(S().outContext.reason, "TRADE_GIVE")
+    A():OnTradeAcceptUpdate(nil, 1, 1); assertEqual(S().lootContext.source, "TRADE")
+  end)
+  T.mocks.__tradeTarget = nil
+  NS.db.global.holdings, S().lootContext = savedHoldings, savedLoot
+  if not ok then error(err, 0) end
+end)
+
 test("AttributionOut: a craft arms the reagent window", function()
   reset()
   A():OnCraft()

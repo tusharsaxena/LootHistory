@@ -18,6 +18,11 @@ C.SourceType = {
   CONSUME = "CONSUME", CRAFT_REAGENT = "CRAFT_REAGENT", DECONSTRUCT = "DECONSTRUCT",
   GUILD_DEPOSIT = "GUILD_DEPOSIT", GUILD_WITHDRAW = "GUILD_WITHDRAW", TRAINING = "TRAINING",
   TRAVEL = "TRAVEL", TRANSFER = "TRANSFER", UNTRACKED = "UNTRACKED",
+  -- Holder moves (timeline-ledger Phase 7, owner decision 2026-10-06), APPENDED: a move between two
+  -- DIFFERENT holders is an OUT on the sender and an IN on the receiver, both under one of these.
+  -- TRANSFER stays the reason of a move inside one holder (bags <-> bank, a post).
+  WARBAND_DEPOSIT = "WARBAND_DEPOSIT", WARBAND_WITHDRAW = "WARBAND_WITHDRAW", ALT_MAIL = "ALT_MAIL",
+  ALT_TRADE = "ALT_TRADE", CURRENCY_TRANSFER = "CURRENCY_TRANSFER",
 }
 
 -- Display order for grouping/analytics (most to least "interesting").
@@ -29,6 +34,7 @@ C.SourceOrder = {
   "SELL", "BUY", "REPAIR", "MAIL_SEND", "TRADE_GIVE", "AH_POST_FEE", "AH_SOLD", "AH_BUY",
   "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
   "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED",
+  "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE", "CURRENCY_TRANSFER",
 }
 
 -- Short human labels for the UI.
@@ -43,6 +49,8 @@ C.SourceLabel = {
   CONSUME = "Consumed", CRAFT_REAGENT = "Crafting Reagent", DECONSTRUCT = "Deconstructed",
   GUILD_DEPOSIT = "Guild Deposit", GUILD_WITHDRAW = "Guild Withdraw", TRAINING = "Training",
   TRAVEL = "Travel", TRANSFER = "Transfer", UNTRACKED = "Untracked",
+  WARBAND_DEPOSIT = "Warband deposit", WARBAND_WITHDRAW = "Warband withdraw", ALT_MAIL = "Alt mail",
+  ALT_TRADE = "Alt trade", CURRENCY_TRANSFER = "Currency transfer",
 }
 
 -- Sources with a live capture path today — every enum member now has one, so all are offered in the
@@ -58,16 +66,20 @@ C.SOURCE_IMPLEMENTED = {
   AH_SOLD = true, AH_BUY = true, DESTROY = true, CONSUME = true, CRAFT_REAGENT = true,
   DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
   TRANSFER = true, UNTRACKED = true,
+  WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true, ALT_TRADE = true, CURRENCY_TRANSFER = true,
 }
 
 -- The reasons only the LEDGER writes (holdings diffs, timeline-ledger spec §5.4). They have live
 -- paths (so SOURCE_IMPLEMENTED stays total) but they are NOT capture mutes: the mute list gates the
--- rich chat record (Collector), and no chat line ever carries one of these.
+-- rich chat record (Collector), and no chat line carries one of these -- except ALT_TRADE, which an
+-- own alt's trade stamps on the gain side too (Attribution:OnTradeAcceptUpdate), so a TRADE mute
+-- does not silence a trade between two own characters.
 C.LEDGER_REASON = {
   SELL = true, BUY = true, REPAIR = true, MAIL_SEND = true, TRADE_GIVE = true, AH_POST_FEE = true,
   AH_SOLD = true, AH_BUY = true, DESTROY = true, CONSUME = true, CRAFT_REAGENT = true,
   DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
   TRANSFER = true, UNTRACKED = true,
+  WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true, ALT_TRADE = true, CURRENCY_TRANSFER = true,
 }
 
 -- Attribution confidence.

@@ -7,10 +7,12 @@ local Escrow = NS.Escrow
 -- / OWNED_AUCTIONS_UPDATED are the Reconciler's), so it has nothing to stand down.
 --
 -- The rules: an arrival in mail or auctions is HOLDINGS-ONLY (no row) until it resolves —
---   * mail taken into bags: own-origin part is a MOVE, the rest a gain (Ledger.ClassifyItems);
+--   * mail taken into bags: own-origin part is a MOVE, the rest a gain (Ledger.ClassifyItems); the
+--     part an own alt sent (`mailAlt`) is that alt's move landing: an IN ALT_MAIL;
 --   * an auction that leaves the list: held as an EXIT until it comes back by mail (a return:
 --     own-origin mail) or a sale mail names it (OUT AH_SOLD), or EXIT_TTL passes (sold).
--- Outbound: a send to an own alt is a MOVE pair into the alt's mail; a post is a MOVE into auctions.
+-- Outbound: a send to an own alt is an OUT ALT_MAIL here and an in-flight credit of the alt's mail
+-- (its IN is written when the alt takes it, timeline-ledger Phase 7); a post is a MOVE into auctions.
 
 local L = NS.Ledger
 local R = NS.Reconciler
@@ -43,7 +45,8 @@ local function reduce(net, key, q)
   net[key] = (v ~= 0) and v or nil
 end
 
--- A sent mail to an own alt: what left the bags/purse is that alt's mail now.
+-- A sent mail to an own alt: what left the bags/purse is that alt's mail now. Two holders, so the
+-- sender writes its OUT now (`senderOnly`) and the alt its IN when it takes the mail.
 local function planMail(_, plan, me, clock)
   local p, net = NS.State.pendingMail, plan.net[me]
   if not (p and p.sent and p.to and p.expires >= clock and net) then return end
@@ -53,14 +56,14 @@ local function planMail(_, plan, me, clock)
     if dlt and dlt < 0 then
       local q = math.min(-dlt, n)
       plan.pairs[#plan.pairs + 1] = { key = key, qty = q, from = me, to = p.to,
-        fromC = C.Container.BAGS, toC = C.Container.MAIL, creditMail = id }
+        fromC = C.Container.BAGS, toC = C.Container.MAIL, creditMail = id, reason = "ALT_MAIL", senderOnly = true }
       reduce(net, key, q)
     end
   end
   if (p.money or 0) > 0 and net.g and net.g < 0 then
     local q = math.min(-net.g, p.money)
     plan.pairs[#plan.pairs + 1] = { key = "g", qty = q, from = me, to = p.to, fromC = "money",
-      toC = C.Container.MAIL, creditMailMoney = true }
+      toC = C.Container.MAIL, creditMailMoney = true, reason = "ALT_MAIL", senderOnly = true }
     reduce(net, "g", q)
   end
 end
@@ -81,7 +84,8 @@ local function planPost(_, plan, me)
   end
 end
 
--- Gold an own alt mailed in: taking it is a MOVE inside this holder (mail -> money). Not while a
+-- Gold an own alt mailed in: taking it is the alt's move landing here, an IN ALT_MAIL (mail -> money,
+-- one row: the alt wrote its OUT when it sent the gold). Not while a
 -- sale mail's payout is live (that gold is AH_SOLD), and not when the mail just taken names a
 -- sender who is not an own holder (another player's gold is a gain). A take the TakeInboxMoney
 -- hook never saw (no mailTaken) falls back to the mailMoney balance alone.
@@ -94,8 +98,21 @@ local function planMailMoney(self, plan, me, clock)
   if taken and taken.expires >= clock and not taken.own then return end
   local q = math.min(net.g, esc.mailMoney)
   plan.pairs[#plan.pairs + 1] = { key = "g", qty = q, from = me, to = me, fromC = C.Container.MAIL,
-    toC = "money", debitMailMoney = q }
+    toC = "money", debitMailMoney = q, dir = "IN", reason = "ALT_MAIL" }
   reduce(net, "g", -q)                                     -- a gain: reduce toward zero from above
+end
+
+-- Mail taken into bags: the part of its own-origin MOVE that an own alt sent (`escrow.mailAlt`, a
+-- subset of mailOwn) is marked `alt`; the row writer books it as an IN ALT_MAIL, the rest a MOVE.
+local function planMailAlt(_, plan)
+  for _, mv in ipairs(plan.moves) do
+    if mv.from == C.Container.MAIL then
+      local e = NS.Holdings:Get(mv.holder)
+      local alt = e and e.escrow and e.escrow.mailAlt
+      local n = alt and alt[mv.id] or 0
+      if n > 0 then mv.alt = math.min(n, mv.qty) end
+    end
+  end
 end
 
 local function itemName(e, id)
@@ -132,6 +149,7 @@ end
 
 R.PLAN_STEPS[#R.PLAN_STEPS + 1] = planMail
 R.PLAN_STEPS[#R.PLAN_STEPS + 1] = planPost
+R.PLAN_STEPS[#R.PLAN_STEPS + 1] = planMailAlt
 R.PLAN_STEPS[#R.PLAN_STEPS + 1] = planMailMoney
 R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(self, plan, me, clock) planExits(self, plan, me, clock, time()) end
 
@@ -139,7 +157,10 @@ R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(self, plan, me, clock) planExits(self
 local function commitPairs(plan)
   local Hd = NS.Holdings
   for _, p in ipairs(plan.pairs) do
-    if p.creditMail then Hd:CreditEscrow(p.to, C.Container.MAIL, p.creditMail, p.qty, true) end
+    if p.creditMail and Hd:CreditEscrow(p.to, C.Container.MAIL, p.creditMail, p.qty, true) then
+      local alt = Hd:MailAlt(p.to)
+      alt[p.creditMail] = (alt[p.creditMail] or 0) + p.qty
+    end
     if p.creditMailMoney and Hd:Get(p.to) then
       local esc = Hd:Escrow(p.to); esc.mailMoney = (esc.mailMoney or 0) + p.qty
     end
@@ -161,6 +182,11 @@ local function commitMoves(plan)
       local own = Hd:Escrow(mv.holder).mailOwn
       local left = (own[mv.id] or 0) - mv.qty
       own[mv.id] = (left > 0) and left or nil
+      if (mv.alt or 0) > 0 then
+        local alt = Hd:MailAlt(mv.holder)
+        left = (alt[mv.id] or 0) - mv.alt
+        alt[mv.id] = (left > 0) and left or nil
+      end
     end
   end
 end
