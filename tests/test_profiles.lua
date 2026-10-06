@@ -132,7 +132,7 @@ test("Migrate v8->v9: every stored setting lands in the Default profile and leav
   -- ...all but the retention, which v10 lifts straight back to the account (D6).
   assertEqual(d.settings.retentionDays, nil, "no profile holds the retention")
   assertEqual(sv.global.retentionDays, 90, "the stored retention is the account's")
-  assertEqual(sv.global.schemaVersion, 11)
+  assertEqual(sv.global.schemaVersion, 12)
 end)
 
 test("Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched", function()
@@ -177,7 +177,7 @@ test("Migrate v8->v9: a second run is a no-op", function()
   local ok, err = pcall(migrate, db)
   NS.Debug, NS.State.debug = savedDebug, savedFlag
   if not ok then error(err, 0) end
-  assertEqual(sv.global.schemaVersion, 11)
+  assertEqual(sv.global.schemaVersion, 12)
   assertEqual(sv.profiles.Default.settings.qualityThreshold, after.Default.settings.qualityThreshold)
   assertEqual(sv.profiles.Default.savedView.groupBy, "source")
   assertEqual(sv.global.retentionDays, 90, "the retention stayed the account's")
@@ -214,7 +214,7 @@ test("Migrate v9->v10: a retention stored in the profiles moves to global and le
   assertEqual(sv.profiles.Raid.settings.retentionDays, nil, "nor does any other profile")
   assertEqual(sv.profiles.Default.settings.qualityThreshold, 3, "every other setting stays put")
   assertTrue(sv.global.history == history and #history == 1, "the history is untouched")
-  assertEqual(sv.global.schemaVersion, 11)
+  assertEqual(sv.global.schemaVersion, 12)
 end)
 
 test("Migrate v9->v10: keep Always (0) wins over any day count", function()
@@ -704,4 +704,37 @@ test("Profiles page: AceDBOptions' table over this db, drawn by AceConfigDialog 
   mocks.__subcategories["Profiles"] = nil
   if NS.ProfilesPage.ctx then NS.ProfilesPage.ctx.panel:Hide() end
   if not ok then error(err, 0) end
+end)
+
+-- ── the v11 -> v12 migration: Show transfers defaults on ───────────────────────────────────────────
+test("Migrate v11->v12: an explicit showTransfers = false is dropped from every profile", function()
+  -- red under: a step that skips non-Default profiles, or leaves the stored false in place.
+  local sv = {
+    global = { schemaVersion = 11, history = {}, minimap = { hide = false } },
+    profiles = {
+      Default = { settings = { showTransfers = false, qualityThreshold = 3 } },
+      Raid    = { settings = { showTransfers = true } },
+      Empty   = {},
+    },
+  }
+  migrate({ global = sv.global, sv = sv })
+  assertEqual(sv.profiles.Default.settings.showTransfers, nil, "the stored false is gone, the default applies")
+  assertEqual(sv.profiles.Default.settings.qualityThreshold, 3, "every other setting stays put")
+  assertEqual(sv.profiles.Raid.settings.showTransfers, true, "a stored true is kept")
+  assertEqual(sv.global.schemaVersion, 12)
+end)
+
+test("Migrate v11->v12: a false set after the step stays false; a re-run changes nothing", function()
+  local sv = {
+    global = { schemaVersion = 11, history = {}, minimap = { hide = false } },
+    profiles = { Default = { settings = { showTransfers = false } } },
+  }
+  migrate({ global = sv.global, sv = sv })
+  sv.profiles.Default.settings.showTransfers = false   -- the player turns it off afterwards
+  migrate({ global = sv.global, sv = sv })
+  assertEqual(sv.profiles.Default.settings.showTransfers, false, "an at-version DB is not walked again")
+end)
+
+test("Defaults: Show transfers is on for a new profile", function()
+  assertEqual(NS.defaults.profile.settings.showTransfers, true)
 end)

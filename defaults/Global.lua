@@ -11,7 +11,7 @@ NS.defaults.global = {
   -- declared default onto an account that stored no stamp; 0 has neither problem, since any stamp
   -- the runner advanced differs from it and an unstamped account reads 0 and walks every step. The
   -- runner owns the stamp: NS:RunMigrations (core/Database.lua) walks the MIGRATIONS table there,
-  -- and its highest `to`, NS.SCHEMA_VERSION, is what a migrated DB carries — 11 today, through
+  -- and its highest `to`, NS.SCHEMA_VERSION, is what a migrated DB carries — 12 today, through
   -- v1→v2 (strip the retired per-record `viaWhitelist`), v8→v9 (every setting moved from this
   -- store into the `Default` profile) and v9→v10 (`retentionDays` lifted back out of every profile
   -- into this store). Every step is non-destructive.

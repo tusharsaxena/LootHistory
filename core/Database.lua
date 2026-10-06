@@ -109,6 +109,27 @@ local function moveRetentionToGlobal(g)
   return n
 end
 
+-- v11 -> v12 helper: Show transfers now defaults on. AceDB strips a value equal to its default at
+-- logout, so a profile can only hold an explicit `false` from a player who flipped it in the old
+-- default-off world; drop it so the new default applies. Raw profiles, as the v9/v10 steps walk them.
+-- The row count is the profiles changed. A false the player sets AFTER the step is not touched: the
+-- step runs once, gated by the stamp.
+local function dropStoredTransfersOff()
+  local n = 0
+  local sv = NS.db and NS.db.sv
+  local profiles = type(sv) == "table" and sv.profiles
+  if type(profiles) == "table" then
+    for _, prof in pairs(profiles) do
+      local s = type(prof) == "table" and prof.settings
+      if type(s) == "table" and s.showTransfers == false then
+        s.showTransfers = nil
+        n = n + 1
+      end
+    end
+  end
+  return n
+end
+
 -- The schema-upgrade chain, in ascending order — one entry per step, `to` being the version the
 -- step stamps once it has run. Each `apply(g)` mutates db.global in place and returns the number
 -- of rows it touched (for the [Migrate] line). Array order IS the run order: a step sees every
@@ -248,6 +269,10 @@ local MIGRATIONS = {
     end
     return 0
   end },
+
+  -- v11 -> v12: Show transfers by default flips to on (P4 owner review). Removes an explicit
+  -- `showTransfers = false` from every stored profile so the new default applies. Idempotent.
+  { to = 12, apply = function() return dropStoredTransfersOff() end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated

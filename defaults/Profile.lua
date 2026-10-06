@@ -38,7 +38,7 @@ NS.defaults.profile = {
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
     trackLedger      = true,   -- holdings + (Phase 2) gains/losses/transfers/gold; off = legacy gains-only
     recordGold       = true,   -- gold gains/losses as ledger rows (holdings track gold regardless)
-    showTransfers    = false,  -- History's Direction filter includes transfers by default
+    showTransfers    = true,   -- History's Direction filter includes transfers by default
     excludedSources  = {},     -- set of muted SourceType keys
     -- NO retentionDays here: it governs the account-wide history, so it is account-wide too
     -- (defaults/Global.lua, D6).

@@ -533,7 +533,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 11
+- Database: a fresh store at schemaVersion 0 walks every step to 12
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -1232,7 +1232,7 @@ badge and any count quoted in the docs must agree with it.
 - AH table: every provider present and nothing captured
 - AH table: no provider present
 
-### test_profiles.lua (28)
+### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
 - Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched
@@ -1262,6 +1262,9 @@ badge and any count quoted in the docs must agree with it.
 - Profiles page: the global reset's veto keeps only the session-only rows, never the Profiles page
 - Profiles page: without AceDBOptions the page opts out, and nothing is registered
 - Profiles page: AceDBOptions' table over this db, drawn by AceConfigDialog into a Profiles canvas
+- Migrate v11->v12: an explicit showTransfers = false is dropped from every profile
+- Migrate v11->v12: a false set after the step stays false; a re-run changes nothing
+- Defaults: Show transfers is on for a new profile
 
 ### test_harness.lua (7)
 
@@ -1551,7 +1554,7 @@ badge and any count quoted in the docs must agree with it.
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
-| test_profiles.lua | 28 |
+| test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 29 |
 | test_surface_parity.lua | 14 |
@@ -1568,4 +1571,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1330** |
+| **Total** | **1333** |
