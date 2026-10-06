@@ -676,7 +676,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser: CaptureView keeps the remembered Timeline pick
 - Browser: DateRange reads the Date dropdown, all when there is none
 
-### test_browsertable.lua (66)
+### test_browsertable.lua (69)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -744,6 +744,9 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: a Direction column follows Time and draws in the mono face
 - BrowserTable: the Qty column shows signed quantities
 - BrowserTable: group by Direction and by Holder
+- History row menu: Show in Timeline opens the Timeline on that row's thing
+- History row menu: Show in Timeline is disabled for a row that names no thing
+- History row menu: the existing four entries keep their order around the new one
 
 ### test_export.lua (32)
 
@@ -1087,7 +1090,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: a range with losses draws the gains-vs-losses section first
 - Insights layout: losses only — no empty text, no LOOT divider
 
-### test_holdingstab.lua (7)
+### test_holdingstab.lua (13)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -1096,6 +1099,12 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab: tab is registered after History and Insights
 - HoldingsTab: attach builds rows and recycles them on refresh
 - HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is closed
+- Holdings row actions: a thing line offers Show in Timeline
+- Holdings row actions: Forget is offered for an alt, never for the warband or the logged-in character
+- Forget this character: drops holdings and rollup cells, keeps history rows, announces once
+- Forget this character: a holder with nothing stored is a no-op and announces nothing
+- Forget this character: refuses the logged-in character and the warband
+- Forget popup: registered, and its accept forgets the holder it carries
 
 ### test_timeline.lua (18)
 
@@ -1507,7 +1516,7 @@ badge and any count quoted in the docs must agree with it.
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 81 |
-| test_browsertable.lua | 66 |
+| test_browsertable.lua | 69 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1518,7 +1527,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 67 |
 | test_analytics_layout.lua | 8 |
-| test_holdingstab.lua | 7 |
+| test_holdingstab.lua | 13 |
 | test_timeline.lua | 18 |
 | test_timelinetab.lua | 9 |
 | test_panel.lua | 43 |
@@ -1541,4 +1550,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1303** |
+| **Total** | **1312** |

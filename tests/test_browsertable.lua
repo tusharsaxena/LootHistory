@@ -918,3 +918,49 @@ test("BrowserTable: group by Direction and by Holder", function()
   assertEqual(table.concat(labels, "|"), "Holder: A-Realm|Holder: Warband")
   BT.groupBy = saved
 end)
+
+-- ---------------------------------------------------------------------------
+-- "Show in Timeline" on the History row menu (timeline ledger P3, spec §8.2)
+-- ---------------------------------------------------------------------------
+-- Adapted from the plan's snippet: ShowTimeline opens the window and materializes the saved view
+-- (SetThing writes `timelineThing`), so the case puts back the saved view, the session pick and the
+-- tab, and closes the window, on every path. The chunk has no global `time`; os.time() stands in.
+
+test("History row menu: Show in Timeline opens the Timeline on that row's thing", function()
+  local p = NS.db.profile
+  local view = p.savedView
+  local hadView = type(view) == "table"
+  local viewThing = hadView and view.timelineThing or nil
+  local thing = NS.Timeline and NS.Timeline.thing
+  local ok, err = pcall(function()
+    local rec = { itemID = 7, itemName = "Apple", quantity = 1, ts = os.time(), char = "Mock-Realm" }
+    local show
+    for _, it in ipairs(NS.BrowserTable:RowMenuItems(rec)) do
+      if it.label == "Show in Timeline" then show = it end
+    end
+    assertTrue(show ~= nil and show.enabled)
+    show.fn()
+    assertEqual(NS.Browser:ActiveTab(), "Timeline")
+    assertEqual(NS.Timeline:Thing(), "i:7")
+  end)
+  NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  if hadView then p.savedView = view; view.timelineThing = viewThing else p.savedView = nil end
+  if NS.Timeline then NS.Timeline.thing = thing end
+  if not ok then error(err, 0) end
+end)
+
+test("History row menu: Show in Timeline is disabled for a row that names no thing", function()
+  local seen = false
+  for _, it in ipairs(NS.BrowserTable:RowMenuItems({ kind = "ITEM", quantity = 1 })) do
+    if it.label == "Show in Timeline" then seen = true; assertFalse(it.enabled) end
+  end
+  assertTrue(seen, "the row menu carries no Show in Timeline entry")
+end)
+
+test("History row menu: the existing four entries keep their order around the new one", function()
+  local labels = {}
+  for _, it in ipairs(NS.BrowserTable:RowMenuItems({ itemID = 7 })) do labels[#labels + 1] = it.label end
+  assertEqual(labels[1], "Link to chat"); assertEqual(labels[2], "Show in Timeline")
+  assertEqual(labels[3], "Blacklist item"); assertEqual(labels[4], "Blacklist currency")
+  assertEqual(labels[5], "|cffff5555Delete|r"); assertEqual(#labels, 5)
+end)

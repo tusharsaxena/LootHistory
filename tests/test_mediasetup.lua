@@ -22,14 +22,15 @@ local VENDORED = "Interface\\AddOns\\LootHistory\\libs\\LibKa0s\\media\\"
 --
 --   grep -rhno 'NS\.Icon("[a-z-]*")\|NS\.IconMarkup("[a-z-]*"' core modules settings
 --
--- plus the three the row menu names as data (`icon = "..."` in BrowserTable:ShowRowMenu), the one
+-- plus the names the row menus carry as data (`icon = "..."` in BrowserTable:RowMenuItems and
+-- HoldingsTab.RowActions -- `graph` is "Show in Timeline" on both), the one
 -- passed as a trailing argument to a button factory ("spreadsheet", on the export window's
 -- "Export to CSV" -- the filter bar's Export button is deliberately unmarked), and the three the
 -- LIBRARY draws on this addon's behalf once core/DebugLogSetup.lua tells it the folder name.
 local DRAWN = {
   -- this addon's own art
   "chevron-down", "chevron-right", "confirm", "lock", "sort-down", "sort-up",
-  "ban", "chat", "clear", "spreadsheet",
+  "ban", "chat", "clear", "graph", "spreadsheet",
   -- the AH Price table's leading tick and its per-row info button (settings/Panel.lua). The
   -- tick's OFF half is `ban`, already listed above because the row menu draws it too -- a name
   -- earns one entry, not one per drawing site.
@@ -122,6 +123,9 @@ test("MediaSetup: the source names no icon the DRAWN list above has forgotten", 
   for _, name in ipairs(DRAWN) do drawn[name] = true end
   local unlisted = {}
   for _, file in ipairs({ "modules/Browser.lua", "modules/BrowserTable.lua", "modules/Export.lua",
+                          -- The Holdings tab's row actions name their marks as data, like the
+                          -- History row menu does.
+                          "modules/HoldingsTab.lua",
                           "core/Constants.lua", "core/CoreSetup.lua", "core/DebugLogSetup.lua",
                           -- The dropdown chevron, the multi-select tick and the reorder handle are
                           -- all resolved in this one file. It was missing from the list, so the

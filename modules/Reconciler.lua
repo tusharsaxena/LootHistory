@@ -630,3 +630,18 @@ function R:Disable()
   self:DisableCapture()
   if self._settings then self._settings:UnregisterAllMessages(); self._settings = nil end
 end
+
+-- "Forget this character" (spec §8.2): drop a character's holdings and its Timeline cells. History
+-- rows are kept -- they are what happened. The logged-in character would be re-created by its next
+-- scan, and the warband is not a character, so both are refused. The Reconciler announces the change
+-- because it is HOLDINGS_CHANGED's one sender (docs/message-bus.md).
+-- Called as R:ForgetHolder(holder); it reads no Reconciler state, hence the `_` receiver.
+function R.ForgetHolder(_, holder)
+  if holder == nil or holder == WARBAND then return false, "warband" end
+  if holder == NS.Util.PlayerKey() then return false, "current" end
+  local had = NS.Holdings:ForgetHolder(holder)
+  local cells = (NS.Rollup and NS.Rollup:ForgetHolder(holder)) or 0
+  if not (had or cells > 0) then return false end
+  NS.bus:SendMessage(NS.MSG.HOLDINGS_CHANGED, holder)
+  return true
+end

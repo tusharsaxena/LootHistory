@@ -1205,17 +1205,20 @@ local function EnsureRowMenu()
   return rowMenu
 end
 
-function BrowserTable:ShowRowMenu(anchor, record)
-  local m = EnsureRowMenu()
-  -- EVERY LABEL STAYS. A 150px row holds a 14px mark and the words after it, and three of these
-  -- four are hard to take back -- "which one deletes the row?" must never become a hover question.
-  -- `clear` for Delete rather than a bin of its own: the debug console already spells "remove this
-  -- data" that way, and one verb should not have two marks inside one addon.
-  local MENU_ROW_H, W = 18, 150
-  local items = {
+-- The History row's context entries, as data (tests/test_browsertable.lua reads them).
+-- EVERY LABEL STAYS. A 150px row holds a 14px mark and the words after it, and three of these
+-- five are hard to take back -- "which one deletes the row?" must never become a hover question.
+-- `clear` for Delete rather than a bin of its own: the debug console already spells "remove this
+-- data" that way, and one verb should not have two marks inside one addon.
+function BrowserTable:RowMenuItems(record)
+  local thing = NS.Ledger and NS.Ledger.RowThingKey and NS.Ledger.RowThingKey(record)
+  return {
     { label = "Link to chat", icon = "chat", enabled = record.itemLink ~= nil, fn = function()
         if record.itemLink and ChatEdit_InsertLink then ChatEdit_InsertLink(record.itemLink) end
       end },
+    -- Chart this row's item, currency or gold over time (timeline ledger P3, spec §8.2).
+    { label = "Show in Timeline", icon = "graph", enabled = thing ~= nil and NS.Timeline ~= nil,
+      fn = function() NS.Browser:ShowTimeline(thing) end },
     -- Blacklist this item: stop recording future loots of this id. Point-in-time — the row you
     -- clicked (and other existing rows of the same id) stay in the history; use Delete to remove
     -- them. Manage the list in Settings ▸ General ▸ Filters ▸ Blacklist.
@@ -1239,7 +1242,13 @@ function BrowserTable:ShowRowMenu(anchor, record)
         BrowserTable:Refresh() -- repaint immediately (in case nothing else listens)
       end },
   }
+end
 
+-- One flat context menu at `anchor`, from item data ({ label, icon, enabled, fn } each). Shared by
+-- the History table and the Holdings tab so the collection has one row-menu look, not two.
+function BrowserTable:ShowMenu(anchor, items)
+  local m = EnsureRowMenu()
+  local MENU_ROW_H, W = 18, 150
   for _, b in ipairs(m.buttons) do b:Hide() end
   for i, item in ipairs(items) do
     local b = m.buttons[i]
@@ -1280,4 +1289,8 @@ function BrowserTable:ShowRowMenu(anchor, record)
   m:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 4, 0)
   m.catcher:Show()
   m:Show()
+end
+
+function BrowserTable:ShowRowMenu(anchor, record)
+  self:ShowMenu(anchor, self:RowMenuItems(record))
 end

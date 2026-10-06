@@ -34,6 +34,19 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- "Forget this character" from a Holdings holder row (spec §8.2). The holder key arrives as the
+  -- popup's data, never through a module-level variable, so two quick right-clicks cannot cross.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_FORGET_HOLDER"] = {
+    text = "Forget %s?\n\nTheir holdings and Timeline history are removed. Loot history rows are " ..
+      "kept. Logging in on them again starts their ledger afresh.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function(_, data)
+      if data and data.holder and NS.Reconciler then NS.Reconciler:ForgetHolder(data.holder) end
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
   StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"] = {
     -- THE COLLECTION'S FIRST CANONICAL WORDING (options-ui-§12), verbatim: the one for an addon
     -- with a `profile` section. This addon has both scopes, and §12 is explicit about that case:

@@ -77,6 +77,27 @@ function HT.BuildModel(filter, expanded, sortKey)
   return lines
 end
 
+-- Right-click actions for one Holdings line, as data (tests/test_holdingstab.lua reads them). A thing
+-- line charts the thing; a holder line also offers to forget the character (spec §8.2), never the
+-- warband and never the character you are logged in on (its next scan would put it straight back).
+function HT.RowActions(line)
+  local items = {
+    { label = "Show in Timeline", icon = "graph", enabled = NS.Timeline ~= nil,
+      fn = function() NS.Browser:ShowTimeline(line.key) end },
+  }
+  if line.kind == "holder" then
+    local h = line.holder
+    local forgettable = h ~= NS.Constants.WARBAND_HOLDER and h ~= NS.Util.PlayerKey()
+    items[#items + 1] = { label = "|cffff5555Forget this character|r", icon = "clear", enabled = forgettable,
+      fn = function()
+        if type(StaticPopup_Show) == "function" then
+          StaticPopup_Show("KA0S_LOOTHISTORY_FORGET_HOLDER", h, nil, { holder = h })
+        end
+      end }
+  end
+  return items
+end
+
 -- ── view ──────────────────────────────────────────────────────────────────────────────────────
 
 HT.expanded, HT.sortKey = {}, "name"
@@ -105,7 +126,18 @@ local function makeRow(parent)
   row.name:SetJustifyH("LEFT"); row.name:SetWordWrap(false)
   row.detail = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   row.detail:SetPoint("RIGHT", row.total, "LEFT", -8, 0); row.detail:SetJustifyH("RIGHT")
-  row:SetScript("OnClick", function(self) if self.thingKey then HT:Toggle(self.thingKey) end end)
+  -- Left click toggles a thing line; right click opens the row actions (HT.RowActions) in the
+  -- History table's own menu, so the collection has one row-menu look.
+  row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  row:SetScript("OnClick", function(self, button)
+    if button == "RightButton" then
+      if self.line and NS.BrowserTable and NS.BrowserTable.ShowMenu then
+        NS.BrowserTable:ShowMenu(self, HT.RowActions(self.line))
+      end
+    elseif self.thingKey then
+      HT:Toggle(self.thingKey)
+    end
+  end)
   return row
 end
 
@@ -184,6 +216,7 @@ function HT:Refresh()
     row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -(i - 1) * ROW_H)
     row:SetWidth(w)
     row.name:ClearAllPoints()
+    row.line = l
     if l.kind == "thing" then bindThing(row, l) else bindHolder(row, l, now) end
   end
   self.content:SetSize(w, math.max(1, #lines * ROW_H))

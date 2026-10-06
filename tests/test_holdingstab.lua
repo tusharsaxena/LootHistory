@@ -102,3 +102,99 @@ test("HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is
   NS.Browser:Show(); NS.Browser:SetCharSet(savedChar); NS.Browser:SelectTab("History"); NS.Browser:Hide()
   if not ok then error(err, 0) end
 end)
+
+-- ---------------------------------------------------------------------------
+-- Row actions and "Forget this character" (timeline ledger P3, spec §8.2)
+-- ---------------------------------------------------------------------------
+-- Adapted from the plan's snippets: each store-touching case runs through `keep`, which puts the
+-- holdings and daily stores and the Rollup key index back as it found them (addenda, Global); the
+-- chunk has no global `time`, so the seeds read os.time().
+
+local assertFalse = T.assertFalse
+
+local function keep(fn)
+  local g = NS.db.global
+  local holdings, daily, keys = g.holdings, g.daily, NS.Rollup and NS.Rollup._keys
+  local ok, err = pcall(fn)
+  g.holdings, g.daily = holdings, daily
+  if NS.Rollup then NS.Rollup._keys = keys end
+  if not ok then error(err, 0) end
+end
+
+local function captureChanged(fn)
+  local got, orig = {}, NS.bus.SendMessage
+  NS.bus.SendMessage = function(self, msg, a, ...)
+    if msg == NS.MSG.HOLDINGS_CHANGED then got[#got + 1] = a end
+    return orig(self, msg, a, ...)
+  end
+  local ok, err = pcall(fn)
+  NS.bus.SendMessage = orig
+  if not ok then error(err, 0) end
+  return got
+end
+
+local function labels(items)
+  local out = {}
+  for _, it in ipairs(items) do out[(it.label:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))] = it end
+  return out
+end
+
+test("Holdings row actions: a thing line offers Show in Timeline", function()
+  local a = labels(NS.HoldingsTab.RowActions({ kind = "thing", key = "c:3008" }))
+  assertTrue(a["Show in Timeline"] ~= nil and a["Show in Timeline"].enabled)
+  assertEqual(a["Forget this character"], nil, "a thing line is not a character")
+end)
+
+test("Holdings row actions: Forget is offered for an alt, never for the warband or the logged-in character", function()
+  local alt = labels(NS.HoldingsTab.RowActions({ kind = "holder", key = "g", holder = "Alt-Realm" }))
+  assertTrue(alt["Forget this character"].enabled)
+  local wb = labels(NS.HoldingsTab.RowActions({ kind = "holder", key = "g", holder = NS.Constants.WARBAND_HOLDER }))
+  assertFalse(wb["Forget this character"].enabled)
+  local me = labels(NS.HoldingsTab.RowActions({ kind = "holder", key = "g", holder = NS.Util.PlayerKey() }))
+  assertFalse(me["Forget this character"].enabled)
+end)
+
+test("Forget this character: drops holdings and rollup cells, keeps history rows, announces once", function()
+  keep(function()
+    NS.db.global.holdings, NS.db.global.daily = {}, {}
+    local t = os.time()
+    NS.Holdings:ApplyMoney("Alt-Realm", 100, t)
+    NS.Holdings:ApplyMoney("Keep-Realm", 5, t)
+    -- A rollup cell for the alt whether or not the write hook is live in this harness.
+    NS.Ledger.RollupClose(NS.db.global.daily, NS.Ledger.DayKey(t), "Alt-Realm", "g", 100)
+    local hist = #NS.db.global.history
+    local got = captureChanged(function() assertTrue(NS.Reconciler:ForgetHolder("Alt-Realm")) end)
+    assertEqual(NS.Holdings:Get("Alt-Realm"), nil)
+    for _, holders in pairs(NS.db.global.daily) do assertEqual(holders["Alt-Realm"], nil) end
+    assertTrue(NS.Holdings:Get("Keep-Realm") ~= nil)
+    assertEqual(#NS.db.global.history, hist)
+    assertEqual(#got, 1); assertEqual(got[1], "Alt-Realm")
+  end)
+end)
+
+test("Forget this character: a holder with nothing stored is a no-op and announces nothing", function()
+  keep(function()
+    NS.db.global.holdings, NS.db.global.daily = {}, {}
+    local ok
+    local got = captureChanged(function() ok = NS.Reconciler:ForgetHolder("Nobody-Realm") end)
+    assertFalse(ok); assertEqual(#got, 0)
+  end)
+end)
+
+test("Forget this character: refuses the logged-in character and the warband", function()
+  local ok, why = NS.Reconciler:ForgetHolder(NS.Util.PlayerKey())
+  assertFalse(ok); assertEqual(why, "current")
+  ok, why = NS.Reconciler:ForgetHolder(NS.Constants.WARBAND_HOLDER)
+  assertFalse(ok); assertEqual(why, "warband")
+end)
+
+test("Forget popup: registered, and its accept forgets the holder it carries", function()
+  keep(function()
+    local d = T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_FORGET_HOLDER"]
+    assertTrue(d ~= nil and d.text:find("%s", 1, true) ~= nil)
+    NS.db.global.holdings, NS.db.global.daily = {}, {}
+    NS.Holdings:ApplyMoney("Alt-Realm", 1, os.time())
+    d.OnAccept(nil, { holder = "Alt-Realm" })
+    assertEqual(NS.Holdings:Get("Alt-Realm"), nil)
+  end)
+end)
