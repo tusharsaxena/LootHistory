@@ -551,6 +551,11 @@ function E:Hide()
   if frame then frame:Hide() end
 end
 
+--- Test seam: the modal once built (nil before the first Open, and on a degraded install). The
+--- frame is memoized for the session, so a suite that runs after another one opened it cannot
+--- catch it at CreateFrame.
+function E:Window() return frame end
+
 function E:Open(cfg)
   config = cfg or {}
   local f = EnsureFrame()

@@ -138,7 +138,7 @@ badge and any count quoted in the docs must agree with it.
 - Util: row accessors give legacy defaults
 - Constants: ledger enums and warband key
 
-### test_compat.lua (46)
+### test_compat.lua (47)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -182,15 +182,17 @@ badge and any count quoted in the docs must agree with it.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 - Compat: bag-id groups come from Enum.BagIndex names, type constants excluded
+- Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers
 - Compat: container slot read and empty slot
 - Compat: GetMoney nets cursor and trade money
 - Compat: GetWarbandMoney reads the account bank, nil when API absent
 - Compat: ListCurrencies expands collapsed headers and restores them
 
-### test_scanner.lua (4)
+### test_scanner.lua (5)
 
 - Scanner: variants sum by itemID across slots and bags
 - Scanner: equipped slots and equipped bags
+- Scanner: equipped bags come from the Enum.BagIndex-derived BAG_IDS, not a literal range
 - Scanner: currencies split account-wide to warband
 - Scanner: money reads
 
@@ -348,7 +350,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
-### test_database.lua (69)
+### test_database.lua (71)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -408,8 +410,10 @@ badge and any count quoted in the docs must agree with it.
 - Migrations: v7->v8 rewrites a saved mapID filter as the zone names those ids carried
 - Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in the history
 - Migrate: v10->v11 creates the ledger stores and rewrites no rows
+- Migrate: the v11 step does not arm the reset prompt on an empty (fresh-install) history
 - Migrate: v11 step is idempotent and keeps existing holdings
-- Migrate: an already-current DB does not set upgradedFrom
+- Migrate: an already-current DB does not arm the reset prompt
+- Database: Purge retires the pending reset prompt
 - Defaults: trackLedger defaults on; resetPrompt undeclared
 - Database: ArmBoundRepair re-arms on a revision bump, and only then
 - Database: RepairBoundStates raises rows to the state the tooltip witnesses
@@ -744,13 +748,15 @@ badge and any count quoted in the docs must agree with it.
 - library-less install: /lh profile answers with the library-absent line and switches nothing
 - library-less install: the degraded help does not offer /lh profile
 
-### test_resetprompt.lua (5)
+### test_resetprompt.lua (7)
 
-- Reset prompt: offered only for an upgraded, non-empty, undecided DB
+- Reset prompt: offered only for an upgraded (armed), non-empty, undecided DB
+- Reset prompt: an Esc on the upgrade login is asked again on the NEXT session
 - Reset prompt: dialogs are registered with three choices
 - Reset prompt: Keep stores the choice; Esc leaves it undecided
 - Reset prompt: confirmed reset purges history and keeps holdings
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
+- Reset prompt: closing the export window after "Export first" asks again, once
 
 ### test_schema.lua (69)
 
@@ -912,7 +918,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: an empty range hides every chart and shows the empty text
 - Insights layout: a nil stats table takes the empty branch too
 
-### test_holdingstab.lua (6)
+### test_holdingstab.lua (7)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -920,6 +926,7 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab: container and age formatting
 - HoldingsTab: tab is registered after History and Insights
 - HoldingsTab: attach builds rows and recycles them on refresh
+- HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is closed
 
 ### test_panel.lua (43)
 
@@ -1084,11 +1091,12 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 
-### test_disabled.lua (15)
+### test_disabled.lua (16)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
 - slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
+- slash-commands-§7 step 3: an "Export first" re-ask does not pop the reset prompt during NS.StandDown
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
 - slash-commands-§7 step 5: the window goes down, and the SHOW LADDER is what keeps it down
 - slash-commands-§7 step 6: firing every event it used to watch writes nothing, prints nothing, draws nothing
@@ -1266,15 +1274,15 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
 | test_ledger.lua | 6 |
-| test_compat.lua | 46 |
-| test_scanner.lua | 4 |
+| test_compat.lua | 47 |
+| test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 38 |
 | test_reconciler.lua | 7 |
-| test_database.lua | 69 |
+| test_database.lua | 71 |
 | test_stats.lua | 20 |
 | test_browser.lua | 69 |
 | test_browsertable.lua | 63 |
@@ -1283,12 +1291,12 @@ badge and any count quoted in the docs must agree with it.
 | test_launcher.lua | 22 |
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 14 |
-| test_resetprompt.lua | 5 |
+| test_resetprompt.lua | 7 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 64 |
 | test_analytics_layout.lua | 6 |
-| test_holdingstab.lua | 6 |
+| test_holdingstab.lua | 7 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1296,7 +1304,7 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 27 |
 | test_surface_parity.lua | 14 |
-| test_disabled.lua | 15 |
+| test_disabled.lua | 16 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_doc_structure.lua | 8 |
@@ -1308,4 +1316,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1102** |
+| **Total** | **1110** |

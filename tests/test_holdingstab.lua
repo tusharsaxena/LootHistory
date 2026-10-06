@@ -73,3 +73,32 @@ test("HoldingsTab: attach builds rows and recycles them on refresh", function()
   NS.Browser:SetCharSet(savedChar); NS.Browser:SelectTab("History"); NS.Browser:Hide()
   if not ok then error(err, 0) end
 end)
+
+test("HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is closed", function()
+  -- red under: the handler gating on pane:IsShown() -- closing the browser with Holdings as the
+  -- last tab leaves the pane shown inside a hidden window, and every Reconciler flush then ran a
+  -- full off-screen BuildModel (AH-price lookups included). The kit's IsVisible does not walk
+  -- parents, so the pane is told what the client would answer: shown, but not visible.
+  seed()
+  local savedChar = NS.Browser:CurrentFilter().char
+  local realRefresh, calls = NS.HoldingsTab.Refresh, 0
+  local pane, realVisible
+  local ok, err = pcall(function()
+    NS.Browser:Show(); NS.Browser:SetCharSet(nil); NS.Browser:SelectTab("Holdings")
+    pane = NS.HoldingsTab.pane
+    assertTrue(pane ~= nil, "the Holdings pane was not attached")
+    NS.HoldingsTab.Refresh = function(self, ...) calls = calls + 1; return realRefresh(self, ...) end
+    NS.bus:SendMessage(NS.MSG.HOLDINGS_CHANGED, "A-Realm")
+    assertEqual(calls, 1, "the visible pane did not repaint on HOLDINGS_CHANGED")
+    NS.Browser:Hide()
+    realVisible = pane.IsVisible
+    pane.IsVisible = function() return false end
+    assertTrue(pane:IsShown(), "the case needs the pane still shown inside the hidden window")
+    NS.bus:SendMessage(NS.MSG.HOLDINGS_CHANGED, "A-Realm")
+    assertEqual(calls, 1, "HOLDINGS_CHANGED rebuilt the Holdings pane while the window was closed")
+  end)
+  NS.HoldingsTab.Refresh = realRefresh
+  if pane and realVisible then pane.IsVisible = realVisible end
+  NS.Browser:Show(); NS.Browser:SetCharSet(savedChar); NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)

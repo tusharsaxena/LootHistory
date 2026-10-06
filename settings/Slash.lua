@@ -98,7 +98,8 @@ if type(StaticPopupDialogs) == "table" then
     preferredIndex = 3,
   }
   -- The one-time timeline-ledger reset recommendation (spec 9.2). Esc/close decides nothing, so it
-  -- is asked again next session; only Keep and a confirmed Reset store a choice.
+  -- is asked again next session (the persisted db.global.resetPromptPending carries it there); only
+  -- Keep and a confirmed Reset store a choice, and both retire the marker.
   StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"] = {
     text = "|cffffd100Loot History has become a full ledger.|r\n\n" ..
       "It now tracks what every character and your warband holds, and will track gains AND losses " ..
@@ -115,7 +116,10 @@ if type(StaticPopupDialogs) == "table" then
     -- button2 reports reason "clicked"; Esc hides through OnHide and never reaches here, and a
     -- re-show reports "override"/"timeout". Only the deliberate click is a decision.
     OnCancel = function(_, _, reason)
-      if reason == "clicked" then NS.db.global.resetPrompt = "kept"; print("keeping your loot history.") end
+      if reason == "clicked" then
+        NS.db.global.resetPrompt, NS.db.global.resetPromptPending = "kept", nil
+        print("keeping your loot history.")
+      end
     end,
     OnAlt = function()
       NS._ledgerResetAfterExport = true
@@ -129,17 +133,18 @@ if type(StaticPopupDialogs) == "table" then
     OnAccept = function()
       local g = NS.db.global
       if NS.Database and NS.Database.Purge then NS.Database:Purge() end
-      g.resetPrompt, g.ledgerSince = "reset", time()
+      g.resetPrompt, g.resetPromptPending, g.ledgerSince = "reset", nil, time()
       print("history reset; the ledger starts now.")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
   }
 end
 
---- True iff the one-time reset recommendation is due: an upgrade from before the ledger (schema < 11,
---- recorded by NS:RunMigrations), history worth resetting, and no choice stored yet.
-function NS.ShouldOfferLedgerReset(g, upgradedFrom)
-  return g ~= nil and g.resetPrompt == nil and upgradedFrom ~= nil and upgradedFrom < 11
+--- True iff the one-time reset recommendation is due: armed by the v11 migration step (an upgrade
+--- from before the ledger with history in it, persisted as `resetPromptPending` so an Esc on one
+--- login is asked again on the next), history still worth resetting, and no choice stored yet.
+function NS.ShouldOfferLedgerReset(g)
+  return g ~= nil and g.resetPrompt == nil and g.resetPromptPending == true
     and type(g.history) == "table" and #g.history > 0
 end
 
@@ -148,14 +153,18 @@ end
 local offerTarget
 
 --- Drop a held offer. Called from NS.StandDown: a prompt must not appear from a game event while off.
+--- The "Export first" re-ask goes with it: StandDown hides the export window AFTER this runs, and
+--- that window's OnHide would otherwise show the popup on an addon that was just switched off. The
+--- persisted pending marker is untouched, so the question still comes back on a later login.
 function NS.DropLedgerResetOffer()
   if offerTarget then offerTarget:UnregisterAllEvents(); offerTarget = nil end
+  NS._ledgerResetAfterExport = nil
 end
 
 function NS.OfferLedgerReset()
   local g = NS.db and NS.db.global
-  if not NS.ShouldOfferLedgerReset(g, NS.State.upgradedFrom) then return end
-  if InCombatLockdown and InCombatLockdown() then
+  if not NS.ShouldOfferLedgerReset(g) then return end
+  if NS.Compat.InCombatLockdown() then
     if offerTarget then return end
     offerTarget = NS.NewBusTarget()
     if not offerTarget then return end
@@ -165,7 +174,7 @@ function NS.OfferLedgerReset()
     end, NS.RejectedEvents)
     return
   end
-  StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET", #g.history)
+  if type(StaticPopup_Show) == "function" then StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET", #g.history) end
 end
 
 -- ── LibKa0s-Slash-1.0 seam ─────────────────────────────────────────────────────────────────────

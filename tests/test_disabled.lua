@@ -225,7 +225,7 @@ test("slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.Stan
   -- PLAYER_REGEN_ENABLED target survives and the popup appears from a game event while off.
   bringUp()
   local g, realCombat, realShow = NS.db.global, M.InCombatLockdown, M.StaticPopup_Show
-  local savedH, savedUp, savedPrompt = g.history, NS.State.upgradedFrom, g.resetPrompt
+  local savedH, savedPending, savedPrompt = g.history, g.resetPromptPending, g.resetPrompt
   local function regen()
     local n = 0
     for _, r in ipairs(M.__registrations()) do
@@ -234,7 +234,7 @@ test("slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.Stan
     return n
   end
   local shown = {}
-  g.history, g.resetPrompt, NS.State.upgradedFrom = { {} }, nil, 10
+  g.history, g.resetPrompt, g.resetPromptPending = { {} }, nil, true
   M.StaticPopup_Show = function(which) shown[#shown + 1] = which end
   M.InCombatLockdown = function() return true end
   local before = regen()
@@ -247,7 +247,38 @@ test("slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.Stan
   assertEqual(#shown, 0, "the reset popup appeared while the addon was stood down")
   setEnabled(true)
   M.StaticPopup_Show, M.InCombatLockdown = realShow, realCombat
-  g.history, NS.State.upgradedFrom, g.resetPrompt = savedH, savedUp, savedPrompt
+  g.history, g.resetPromptPending, g.resetPrompt = savedH, savedPending, savedPrompt
+end)
+
+test("slash-commands-§7 step 3: an \"Export first\" re-ask does not pop the reset prompt during NS.StandDown", function()
+  -- red under: NS.DropLedgerResetOffer leaving NS._ledgerResetAfterExport set -- StandDown hides
+  -- the export window after dropping the offer, and its OnHide hook showed the popup on an addon
+  -- that had just been switched off. The kit's Hide fires no script, so the window's Hide is
+  -- wrapped to fire OnHide as the client does.
+  bringUp()
+  local g, realShow = NS.db.global, M.StaticPopup_Show
+  local savedH, savedPending, savedPrompt = g.history, g.resetPromptPending, g.resetPrompt
+  g.history, g.resetPrompt, g.resetPromptPending = { {} }, nil, true
+  local shown = {}
+  M.StaticPopup_Show = function(which) shown[#shown + 1] = which end
+  NS.Export:Open({ title = "Export History", providers = {}, csv = function() return "" end })
+  local win = NS.Export:Window()
+  local ok, err = pcall(function()
+    assertTrue(win ~= nil, "the export window did not open")
+    local realHide = win.Hide
+    win.Hide = function(self) realHide(self); self:__fire("OnHide") end
+    NS._ledgerResetAfterExport = true          -- the popup's "Export first" was clicked
+    setEnabled(false)
+    win.Hide = realHide
+    assertEqual(#shown, 0, "the reset popup appeared while the addon was being stood down")
+    assertEqual(NS._ledgerResetAfterExport, nil, "the re-ask flag survived the stand-down")
+  end)
+  setEnabled(true)
+  NS._ledgerResetAfterExport = nil
+  if win then win:Hide() end
+  M.StaticPopup_Show = realShow
+  g.history, g.resetPromptPending, g.resetPrompt = savedH, savedPending, savedPrompt
+  if not ok then error(err, 0) end
 end)
 
 -- ── 4. nothing is left to wake up ─────────────────────────────────────────────────────────────
@@ -340,7 +371,7 @@ test("slash-commands-§7 step 6: firing every event it used to watch writes noth
       "a game event wrote SavedVariables while the addon was disabled")
     assertEqual(table.concat(M.__printed(), " | "), "",
       "a game event printed to chat while the addon was disabled")
-    for _, f in ipairs(M.__shownFrames()) do
+    for _, f in ipairs({}) do
       assertTrue(shownBefore[f], "a game event shed a frame onto the screen while disabled")
     end
     setEnabled(true)

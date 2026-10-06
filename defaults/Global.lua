@@ -21,7 +21,8 @@ NS.defaults.global = {
   -- "§warband" holder currently owns; daily[day][holder][thingKey] is the sparse rollup Phase 3 reads.
   holdings = {},
   daily = {},
-  -- ledgerSince (ts the v11 step ran) and resetPrompt (nil | "reset" | "kept") are deliberately NOT
+  -- ledgerSince (ts the v11 step ran), resetPrompt (nil | "reset" | "kept") and resetPromptPending
+  -- (nil | true, the v11 step's persisted "ask about a reset" marker) are deliberately NOT
   -- declared: AceDB would strip a value equal to its default and backfill it onto old accounts.
   -- "Keep history for", in days (0 == keep Always). ACCOUNT-WIDE, outside every profile (owner
   -- decision D6): it decides what the login prune deletes from the shared history, so a profile

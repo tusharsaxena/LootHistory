@@ -37,6 +37,21 @@ test("Scanner: equipped slots and equipped bags", function()
   m.__inventory = {}
 end)
 
+test("Scanner: equipped bags come from the Enum.BagIndex-derived BAG_IDS, not a literal range", function()
+  -- red under: `for bagID = 1, 5` -- a bag id the derived group does not carry is still read.
+  local m, C = T.mocks, NS.Constants
+  local savedIds = C.BAG_IDS
+  m.__inventory = { [31] = { itemID = 901, link = "L901" }, [32] = { itemID = 902, link = "L902" } }
+  C.BAG_IDS = { 0, 2 }                 -- the backpack (no inventory slot) and bag 2 only
+  local ok, err = pcall(function()
+    local counts = NS.Scanner.ScanEquipped()
+    assertEqual(counts[901], nil, "bag 1 is not in BAG_IDS but was read")
+    assertEqual(counts[902], 1)
+  end)
+  C.BAG_IDS, m.__inventory = savedIds, {}
+  if not ok then error(err, 0) end
+end)
+
 test("Scanner: currencies split account-wide to warband", function()
   local m = T.mocks
   local saved = m.__currencyList

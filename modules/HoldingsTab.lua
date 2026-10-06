@@ -200,12 +200,15 @@ end
 function HT:VisibleRowCount() return self._visible or 0 end
 
 --- HOLDINGS_CHANGED repaints the pane while it is on screen. The Reconciler sends it from Flush,
---- which never runs in combat (spec §5.2), so this handler never lands mid-pull.
+--- which never runs in combat (spec §5.2), so this handler never lands mid-pull. IsVisible, not
+--- IsShown, as Analytics' live handler does: closing the browser with Holdings as the last tab
+--- leaves the pane SHOWN inside a hidden window, and every flush (any bag, gold or currency change)
+--- would then rebuild the whole model off screen, AH-price lookups and pool churn included.
 function HT:Enable()
   if not NS.bus or self.__ev then return end
   self.__ev = NS.NewBusTarget()
   self.__ev:RegisterMessage(NS.MSG.HOLDINGS_CHANGED, function()
-    if self.pane and self.pane:IsShown() then self:Refresh() end
+    if self.pane and self.pane:IsVisible() then self:Refresh() end
   end)
 end
 

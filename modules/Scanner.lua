@@ -34,7 +34,9 @@ end
 function Scanner.ScanEquipped()
   local counts, links = {}, {}
   for _, slot in ipairs(NS.Constants.EQUIP_SLOTS) do addEquipped(counts, links, Compat.GetInventoryItem(slot)) end
-  for bagID = 1, 5 do
+  -- The bag ids come from the Enum.BagIndex-derived group, never a literal range. The backpack is
+  -- in that group but sits in no inventory slot, so BagInventorySlot answers nil and it is skipped.
+  for _, bagID in ipairs(NS.Constants.BAG_IDS) do
     local inv = Compat.BagInventorySlot(bagID)
     if inv then addEquipped(counts, links, Compat.GetInventoryItem(inv)) end
   end

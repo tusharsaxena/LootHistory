@@ -234,10 +234,18 @@ local MIGRATIONS = {
   -- REWRITES NO ROW: every legacy row was a gain recorded by `char`, which is exactly what the
   -- NS.Util.Row* accessors default to, so stamping `dir`/`kind`/`holder` would only bloat the file.
   -- Idempotent: an existing store or stamp is kept.
+  -- It also ARMS the one-time reset recommendation (spec §9.2) when there is pre-ledger history to
+  -- reset. The arming is persisted, not held in NS.State: this step stamps schemaVersion = 11 in the
+  -- same load, so a session-only marker was gone by the next login, and a player who closed the
+  -- popup with Esc (which decides nothing) was never asked again. The popup's Keep / Reset and a
+  -- purge retire it. A fresh install walks this step with an empty history and is never armed.
   { to = 11, apply = function(g)
     g.holdings = g.holdings or {}
     g.daily = g.daily or {}
     g.ledgerSince = g.ledgerSince or time()
+    if g.resetPrompt == nil and type(g.history) == "table" and #g.history > 0 then
+      g.resetPromptPending = true
+    end
     return 0
   end },
 }
@@ -257,9 +265,6 @@ function NS:RunMigrations()
   local g = NS.db and NS.db.global
   if not g then return end
   g.schemaVersion = g.schemaVersion or 0
-  -- Recorded BEFORE the loop (it advances the stamp) so the one-time reset prompt can tell an
-  -- upgrade from a fresh install; only set when a step below will actually run.
-  if g.schemaVersion < 11 then NS.State.upgradedFrom = g.schemaVersion end
   for i = 1, #MIGRATIONS do
     local m = MIGRATIONS[i]
     if g.schemaVersion < m.to then
@@ -897,6 +902,9 @@ end
 function Database:Purge()
   local removed = #NS.db.global.history
   NS.db.global.history = {}
+  -- An emptied history leaves nothing pre-ledger for the reset recommendation to offer to delete,
+  -- so a purge answers it: without this, loot recorded after `/lh purge` would re-arm the popup.
+  NS.db.global.resetPromptPending = nil
   fireHistoryChanged()
   if NS.State.debug and NS.Debug then
     NS.Debug("Data", "purge-all removed %s rows", tostring(removed))

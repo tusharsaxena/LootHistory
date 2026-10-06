@@ -495,6 +495,21 @@ test("Compat: bag-id groups come from Enum.BagIndex names, type constants exclud
   assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
 end)
 
+test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers", function()
+  -- red under: a numeric fallback such as { 0, 1, 2, 3, 4, 5 } when the enum is absent -- container
+  -- ids come from Enum.BagIndex member names only, and Blizzard has renumbered them before.
+  local Loader = dofile("tests/_kit/loader.lua")
+  Loader.addonName = "LootHistory"
+  local mocks = dofile("tests/wow_mock.lua")()
+  mocks.Enum.BagIndex = nil
+  -- core/ItemSetup.lua loads first in the TOC; only its quality label is read here.
+  local ns = { Item = { QualityLabel = function() return "" end } }
+  Loader.load("core/Constants.lua", ns, mocks)
+  assertEqual(#ns.Constants.BAG_IDS, 0)
+  assertEqual(#ns.Constants.BANK_IDS, 0)
+  assertEqual(#ns.Constants.WARBAND_TAB_IDS, 0)
+end)
+
 test("Compat: container slot read and empty slot", function()
   local m = T.mocks
   m.__bagSlots[0] = 2

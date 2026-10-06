@@ -343,6 +343,9 @@ test("Widgets: the export modal's close path closes the shared popup", function(
   for _, f in ipairs(created) do
     if f:GetScript("OnHide") then modal = f end
   end
+  -- The modal is memoized for the session: an earlier suite (the reset prompt's "Export first"
+  -- cases) may already have built it, in which case this Open created nothing to catch.
+  if not modal and #created == 0 then modal = NS.Export:Window() end
   assertTrue(modal ~= nil, "the export modal must register an OnHide handler")
   assertTrue(countingCloseMenu(function() modal:__fire("OnHide") end) > 0,
     "the export modal's OnHide must call CloseMenu")

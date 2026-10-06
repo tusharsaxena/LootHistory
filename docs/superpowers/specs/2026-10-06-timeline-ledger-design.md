@@ -293,14 +293,16 @@ window-wide singleton; each tab declares which filters it honors (unused ones ar
 ### 9.1 Migration step (appended to `MIGRATIONS`, `to = 11`)
 
 Creates `holdings = {}`, `daily = {}`, sets `ledgerSince = time()`; rewrites **no** rows (legacy
-defaults via accessors, §4.1). Idempotent; returns 0 rows changed. Records in-memory
-`NS.State.upgradedFrom = <old version>` for §9.2. Fresh installs (no history) skip §9.2.
+defaults via accessors, §4.1). Idempotent; returns 0 rows changed. Arms §9.2 by persisting
+`global.resetPromptPending = true` when the history is non-empty (persisted, not in-memory: the
+same load stamps schemaVersion 11, so a session-only marker could not re-ask after an Esc). Fresh
+installs (no history) skip §9.2.
 
 ### 9.2 Reset recommendation popup
 
 **When:** first `PLAYER_ENTERING_WORLD` (+5 s, out of combat — deferred to
-`PLAYER_REGEN_ENABLED` otherwise) of a session where `global.resetPrompt == nil`, the DB was
-migrated from < 11, and `#history > 0`. Shown **once per account**; the choice is stored in
+`PLAYER_REGEN_ENABLED` otherwise) of a session where `global.resetPrompt == nil`, `global.resetPromptPending` is set (the DB was
+migrated from < 11 with history; Keep, Reset and `/lh purge` clear it), and `#history > 0`. Shown **once per account**; the choice is stored in
 `global.resetPrompt`. Re-reachable later with `/lh purge` (unchanged).
 
 **Mechanism:** `StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"]`, alongside the existing

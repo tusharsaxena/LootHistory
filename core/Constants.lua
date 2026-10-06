@@ -246,7 +246,9 @@ end
 C.BAG_IDS         = idsMatching(GROUP_PATTERNS.BAGS)
 C.BANK_IDS        = idsMatching(GROUP_PATTERNS.BANK)
 C.WARBAND_TAB_IDS = idsMatching(GROUP_PATTERNS.TABS)
-if #C.BAG_IDS == 0 then C.BAG_IDS = { 0, 1, 2, 3, 4, 5 } end
+-- No numeric fallback when Enum.BagIndex is absent: the groups degrade to EMPTY (compat-layer
+-- degrade-to-nothing), so a build without the enum scans no container rather than guessing ids
+-- Blizzard has renumbered before. Holdings then simply has no bag column for that build.
 
 C.EQUIP_SLOTS = {}
 for s = (INVSLOT_FIRST_EQUIPPED or 1), (INVSLOT_LAST_EQUIPPED or 19) do C.EQUIP_SLOTS[#C.EQUIP_SLOTS + 1] = s end

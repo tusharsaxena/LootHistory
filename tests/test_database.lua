@@ -688,16 +688,27 @@ test("Migrate: v10->v11 creates the ledger stores and rewrites no rows", functio
   local row = { ts = 1, itemID = 4, char = "A-Realm", quantity = 1 }
   g.history, g.holdings, g.daily, g.ledgerSince = { row }, nil, nil, nil
   g.schemaVersion = 10
-  NS.State.upgradedFrom = nil
+  local savedPrompt, savedPending = g.resetPrompt, g.resetPromptPending
+  g.resetPrompt, g.resetPromptPending = nil, nil
   NS:RunMigrations()
   assertEqual(g.schemaVersion, 11)
   assertEqual(type(g.holdings), "table")
   assertEqual(type(g.daily), "table")
   assertEqual(type(g.ledgerSince), "number")
-  assertEqual(NS.State.upgradedFrom, 10)
+  assertEqual(g.resetPromptPending, true, "an upgrade with history must arm the reset prompt")
   assertTrue(g.history[1] == row)
   assertEqual(row.dir, nil); assertEqual(row.kind, nil); assertEqual(row.holder, nil)
   g.history, g.holdings, g.daily, g.ledgerSince = savedH, savedHold, savedDaily, savedSince
+  g.resetPrompt, g.resetPromptPending = savedPrompt, savedPending
+end)
+
+test("Migrate: the v11 step does not arm the reset prompt on an empty (fresh-install) history", function()
+  local g = NS.db.global
+  local savedH, savedPending = g.history, g.resetPromptPending
+  g.history, g.resetPromptPending, g.schemaVersion = {}, nil, 10
+  NS:RunMigrations()
+  assertEqual(g.resetPromptPending, nil)
+  g.history, g.resetPromptPending = savedH, savedPending
 end)
 
 test("Migrate: v11 step is idempotent and keeps existing holdings", function()
@@ -712,11 +723,23 @@ test("Migrate: v11 step is idempotent and keeps existing holdings", function()
   g.holdings, g.ledgerSince = savedHold, savedSince
 end)
 
-test("Migrate: an already-current DB does not set upgradedFrom", function()
-  NS.State.upgradedFrom = nil
-  NS.db.global.schemaVersion = 11
+test("Migrate: an already-current DB does not arm the reset prompt", function()
+  local g = NS.db.global
+  local savedH, savedPending = g.history, g.resetPromptPending
+  g.history, g.resetPromptPending, g.schemaVersion = { {} }, nil, 11
   NS:RunMigrations()
-  assertEqual(NS.State.upgradedFrom, nil)
+  assertEqual(g.resetPromptPending, nil)
+  g.history, g.resetPromptPending = savedH, savedPending
+end)
+
+test("Database: Purge retires the pending reset prompt", function()
+  -- red under: Purge leaving the marker -- loot recorded after `/lh purge` re-arms the popup.
+  local g = NS.db.global
+  local savedH, savedPending = g.history, g.resetPromptPending
+  g.history, g.resetPromptPending = { { itemID = 1 } }, true
+  NS.Database:Purge()
+  assertEqual(g.resetPromptPending, nil)
+  g.history, g.resetPromptPending = savedH, savedPending
 end)
 
 test("Defaults: trackLedger defaults on; resetPrompt undeclared", function()
