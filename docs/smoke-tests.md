@@ -1182,11 +1182,15 @@ listed, and check each of these:
 - **No stray text after the Timeline (P5).** The owner saw faint green text (`Cou…`, `Coun… <Tr…`)
   over the Holdings header near **Total** and over History rows (under Item on a Gain row, and near
   Source), at different places on the two tabs. The suspected cause was a Timeline or Insights
-  region parented outside its pane. The headless suites now rule that out: `tests/region_trace.lua`
-  records the owner of every frame, FontString, Texture and Line the Timeline tab and the Insights
-  chrome make, and with their pane hidden none of them reads as visible (the Timeline case visits
-  Timeline, then History, then Holdings). **The bug is still open: no fix has shipped and the
-  source is unconfirmed.** A fix waits on the in-game frame path below. To check: open the
+  region parented outside its pane. The headless suites rule out one form of that: creation-time
+  parenting of the Timeline tab and the Insights chart layout. `tests/region_trace.lua` records the
+  parent each frame, FontString, Texture and Line is given when it is created, and with the pane
+  hidden none of them reads as visible (the Timeline case visits Timeline, then History, then
+  Holdings). The trace does not cover a region re-parented after it is made (`SetParent`,
+  `SetScrollChild`), the Insights pane's own chain (`Analytics:Attach`, its scroll frame and the
+  stat cards; the test builds the chart layout under a stand-in root), or GameTooltip and other
+  shared frames, so a leak through any of those is still a lead. **The bug is still open: no fix
+  has shipped and the source is unconfirmed.** A fix waits on the in-game frame path below. To check: open the
   **Timeline**, chart Gold, type in Search so the suggestion list opens, hover the chart, then
   switch to **History** and to **Holdings**, and do the same from **Insights**. Neither tab shows
   any green text that is not its own. If any appears, note its text, its color and the tab you came
@@ -1683,7 +1687,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-11 | § 17g ladder note | No result recorded; expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
 | DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
 | LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
-| LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); P5 widened the stray-text check to History and to a Timeline or Insights visit, after the headless trace ruled out a pane-parenting leak; the stray-text bug stays open (no fix shipped, needs the `/fstack` frame path); no result recorded |
+| LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); P5 widened the stray-text check to History and to a Timeline or Insights visit, after the headless trace ruled out creation-time pane parenting (re-parenting, the Insights Attach/scroll/card chain and shared frames are not traced); the stray-text bug stays open (no fix shipped, needs the `/fstack` frame path); no result recorded |
 | LED-10 | New | New with the timeline ledger P4 polish (bank and warband-tab drift on a visit's first read is `UNTRACKED`); no result recorded |
 | LED-11 | New | New with the timeline ledger P5 (History Direction column: glyph plus colored label); no result recorded |
 | LED-12 | New | New with the timeline ledger P5 (measured Qty width for gold, BankLedger-style Gold tooltip); no result recorded |

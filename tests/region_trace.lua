@@ -8,6 +8,13 @@
 -- ancestor is shown. A region parented outside the traced tree (the browser window, UIParent, or no
 -- parent at all, which the client reads as UIParent) ends the walk as visible, which is the leak
 -- this exists to catch.
+--
+-- Limits, so a clean run is not read as more than it is: the parent recorded is the one a region
+-- is given at creation, through m.CreateFrame and a traced frame's CreateFontString, CreateTexture
+-- or CreateLine. A later SetParent or SetScrollChild is not followed, a region made by any other
+-- factory is not recorded, and GameTooltip or other shared frames are invisible to it. The
+-- Insights case builds its content under a stand-in root and never runs Analytics:Attach, so the
+-- real pane, its scroll frame and the stat cards are not traced either.
 local T = _G.LH_TEST
 local m = T.mocks
 local R = {}
