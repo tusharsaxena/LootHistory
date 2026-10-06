@@ -109,9 +109,11 @@ local function moveRetentionToGlobal(g)
   return n
 end
 
--- v11 -> v12 helper: Show transfers now defaults on. AceDB strips a value equal to its default at
--- logout, so a profile can only hold an explicit `false` from a player who flipped it in the old
--- default-off world; drop it so the new default applies. Raw profiles, as the v9/v10 steps walk them.
+-- v11 -> v12 helper: Show transfers now defaults on. The flip itself is defaults/Profile.lua's: under
+-- the old default (false) AceDB stripped a stored false at logout, so an existing profile simply
+-- picks up the new `true`. This step only drops an explicit `false` that reached the raw profile
+-- without going through AceDB (one the v8 -> v9 raw copy carried in, say), so the new default
+-- applies there too. Raw profiles, as the v9/v10 steps walk them.
 -- The row count is the profiles changed. A false the player sets AFTER the step is not touched: the
 -- step runs once, gated by the stamp.
 local function dropStoredTransfersOff()

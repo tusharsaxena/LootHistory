@@ -560,11 +560,12 @@ local function driftPass(self)
     if rest[p] then only[p], rest[p] = true, nil end
   end
   -- A hold the normal pass is in (its start, its memoized reasons) survives the drift pass.
-  local memo, since = self.reasonMemo, self._holdSince
+  -- So does a login's UNTRACKED (a combat login deferred to the regen edge with the banker open).
+  local memo, since, prevForce = self.reasonMemo, self._holdSince, self.forceReason
   self.dirty, self.reasonMemo = only, {}
   self.forceReason, self.drift = C.SourceType.UNTRACKED, true
   flushBody(self)
-  self.forceReason, self.drift = nil, nil
+  self.forceReason, self.drift = prevForce, nil
   self.reasonMemo, self._holdSince = memo, since
   for p in pairs(self.dirty) do rest[p] = true end         -- anything the pass could not read
   self.dirty = rest

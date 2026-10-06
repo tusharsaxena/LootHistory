@@ -21,13 +21,13 @@ free number in its theme.
 | STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
-| HIST-1 to 34 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
+| HIST-1 to 35 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export, the one-line filter bar |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
-| LED-1 to 9 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row |
+| LED-1 to 10 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TL-1 to 13 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, and the WoW API facts to verify |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
@@ -698,6 +698,25 @@ button → the window resizes, the grip shows the pressed hatch while held and s
 460px), and the DB-size footer never sits under the grip. Release, `/reload`, `/lh show` → the same
 size. Right-click the grip → nothing resizes. Result:
 
+**HIST-35. The filter bar on one line (P4).** The widths come from the client's font metrics, and
+the headless mock measures every string as 0, so only the client can check this. `/lh show`, then
+drag the grip down to the minimum width. Check each of these:
+
+- Every filter control's label sits on one line, with no wrap and no clipped tail. Pick two
+  **Direction** options and read `Direction: 2 selected`. Pick **Common** in **Quality** and read
+  `Quality: Common+`. Check **Character: Current**, the **Bound** and **Source** summaries, and
+  `N selected` on each multi-select too.
+- **Direction** and **Bound** are the same width. Compare their right edges with `/fstack`, or by eye
+  against the controls stacked above or below them.
+- The window's minimum width grows when the measured span needs it: the grip stops where the last
+  control on each row still fits. An older saved size narrower than that opens widened to it after
+  `/reload`.
+- At the minimum width, **Export** and each button of the **Save / Reset / Clear** cluster are at
+  least 120 px wide (`/fstack`, or `/dump` on the button's `GetWidth()`), and none overlaps the
+  dropdown to its left.
+
+Result:
+
 ## Insights
 
 Open `/lh show` → **Insights** on a history spanning several days with currency loot (or `/lh test`).
@@ -1174,6 +1193,27 @@ listed, and check each of these:
   moves to that header.
 
 Result:
+
+**LED-10. Bank drift from outside the addon (P4).** This is the answer to "what if I trade with the
+addon off, or on another PC?" The headless mock cannot reproduce the client's read of the bank as it
+opens, so run it in the client. Visit a banker once with the addon on (the bank and the warband tab
+now have a baseline), then leave. Change the bank and a warband tab with the addon off: `/lh
+disable` (or untick it in the AddOns list) and deposit or withdraw a few known items, or do the same
+from another PC that has no copy of this SavedVariables file. Turn the addon back on, `/reload`, and
+visit a banker. Check each of these:
+
+- History gets `UNTRACKED` rows for **exactly** the difference: one IN or OUT per item that changed,
+  each with the changed count, on the character for the bank and on **Warband** for the tab. No row
+  is a MOVE (⇄), and no row has a guessed reason such as Vendor or Loot.
+- Deposit one more item in the same visit → a MOVE pair (bags → bank), not `UNTRACKED`.
+- The Holdings tab's bank and warband counts match the bank you see.
+- A bank never read before (a new character's first visit) writes no rows at all.
+
+Caveat: the opening read runs about 0.35 s after the bank frame shows (the flush debounce). A deposit
+made inside that window is folded into the drift read: its bank side lands as an `UNTRACKED` IN and
+its bags side is classified on its own, so it is not a MOVE pair. Wait a moment after opening the
+bank before depositing, and record what a quick deposit shows if you test it.
+Result:
 ## Ledger capture (timeline ledger Phase 2)
 
 The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`):
@@ -1562,6 +1602,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | HIST-31 | § 17j.6 and § 17j.7 | No result recorded; given a runnable route by SP-LH-03R |
 | HIST-32, HIST-33 | § 17j.8, § 17h.6 | No result recorded |
 | HIST-34 | New | New with the History grip on `Core.MakeResizable` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
+| HIST-35 | New | New with the timeline ledger P4 polish (the one-line filter bar, equal Direction/Bound widths, the measured minimum width); no result recorded |
 | INS-1 to INS-3 | § 7 | No result recorded |
 | INS-4 | § 7 coin glyphs | No result recorded; expectation corrected by SP-LH-03R (a fixed 10 px against the client's default of about 14 px, read beside the History price cells) |
 | INS-5 to INS-18 | § 7 | No result recorded |
@@ -1604,6 +1645,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
 | LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
 | LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); no result recorded |
+| LED-10 | New | New with the timeline ledger P4 polish (bank and warband-tab drift on a visit's first read is `UNTRACKED`); no result recorded |
 | LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions |
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |

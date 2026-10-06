@@ -520,3 +520,28 @@ case("Reconciler: warband tab and gold drift lands UNTRACKED on the warband, nev
   openBank("AccountBanker"); R():Flush()
   assertEqual(#H(), 4); assertEqual(H()[4].source, "UNTRACKED"); assertEqual(H()[4].holder, "§warband")
 end)
+
+-- Final-review fix: a combat login deferred to the regen edge, with a banker opened in the same
+-- combat, runs the bank drift pass first; the login's own UNTRACKED must survive it.
+case("Reconciler: a deferred login with the banker open keeps its bags drift UNTRACKED", function()
+  reset()
+  m.__itemClassID = 0                                     -- consumable: a normal pass would hold it
+  setBag(0, { [1] = { itemID = 191, link = "L191", count = 4 } })
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+  R():LoginScan()                                         -- first login: genesis
+  openBank(); R():Flush(); closeBank()                    -- the bank's baseline
+  assertEqual(#H(), 0)
+  setBag(0, { [1] = { itemID = 191, link = "L191", count = 3 } })
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 4 } })
+  m.__now = 200
+  m.InCombatLockdown = function() return true end
+  R():LoginScan(); openBank()
+  assertTrue(R().loginPending); assertTrue(R().driftPending)
+  m.InCombatLockdown = function() return false end
+  R():OnEvent("PLAYER_REGEN_ENABLED")
+  assertEqual(#H(), 2)
+  local bag, bank = rowsBy(ME, 191)[1], rowsBy(ME, 7)[1]
+  assertEqual(bag.dir, "OUT"); assertEqual(bag.quantity, 1); assertEqual(bag.source, "UNTRACKED")
+  assertEqual(bank.dir, "OUT"); assertEqual(bank.quantity, 1); assertEqual(bank.source, "UNTRACKED")
+  assertEqual(R().forceReason, nil)
+end)
