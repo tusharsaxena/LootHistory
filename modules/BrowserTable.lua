@@ -530,6 +530,10 @@ local function testSubType(ty, idBase)
   return list[(idBase % #list) + 1]
 end
 
+-- The sample's universe, shared with test mode's ledger half (modules/TestData.lua), so the Holdings
+-- and Timeline samples hold the same items, under the same names, as the History sample's rows.
+BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000 }
+
 function BrowserTable:BuildTestData()
   local now = time()
   local rng = testRng(0x10A75AFE)   -- fixed seed → identical dataset every run
@@ -655,6 +659,8 @@ function BrowserTable:SetTestMode(on, why)
   self.testMode = on
   -- Publish to State so every read-path query (table + Insights) resolves against the same data.
   NS.State.testRecords = on and self:BuildTestData() or nil
+  -- ...and the Holdings / Timeline sample beside it (modules/TestData.lua), built from those rows.
+  if NS.TestData then NS.TestData.Publish(NS.State.testRecords) end
   traceTestMode(on, why)
   if on and NS.Browser and NS.Browser.Show then NS.Browser:Show() end
   -- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the

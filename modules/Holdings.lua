@@ -40,6 +40,19 @@ function Holdings:Store()
   return g.holdings
 end
 
+-- The store every READ path resolves against (the Holdings tab, the Timeline, the Character list,
+-- /lh's holdings search): test mode's session-only sample (NS.State.testHoldings, modules/TestData.lua)
+-- while it is on, otherwise the live store -- as Database:ActiveHistory is for the loot rows. Every
+-- write (Get with create, Apply*, Credit*, ForgetHolder, the rollup seed) stays on Store().
+function Holdings:ActiveStore()
+  return (NS.State and NS.State.testHoldings) or self:Store()
+end
+
+-- One holder's entry for DISPLAY (class color, meta). Get is the writers' accessor and stays live.
+function Holdings:View(holder)
+  return self:ActiveStore()[holder]
+end
+
 function Holdings:Get(holder, create)
   local s = self:Store()
   local e = s[holder]
@@ -119,7 +132,7 @@ end
 
 function Holdings:Holders()
   local chars, hasWarband = {}, false
-  for h in pairs(self:Store()) do
+  for h in pairs(self:ActiveStore()) do
     if h == WARBAND then hasWarband = true else chars[#chars + 1] = h end
   end
   table.sort(chars)
@@ -146,7 +159,7 @@ function Holdings:Total(thingKey, holderSet)
   local kind, id = NS.Ledger.ParseThingKey(thingKey)
   local total, rows = 0, {}
   if not kind then return 0, rows end
-  for h, e in pairs(self:Store()) do
+  for h, e in pairs(self:ActiveStore()) do
     if not holderSet or holderSet[h] then
       local n, split, at = holderCount(e, kind, id)
       if n ~= 0 then
@@ -165,6 +178,9 @@ end
 -- Display fields for a thing. Uncached items keep a row: name falls back to the link's bracket text,
 -- then to "item:<id>" (Review Focus 2).
 local function describe(key, kind, id, link)
+  -- Test mode names a sample thing the way the History sample does, not by the live client's item.
+  local sample = NS.State.testHoldings and NS.TestData and NS.TestData.Describe(key)
+  if sample then return sample end
   if kind == "GOLD" then return { name = _G.GOLD or "Gold", itemType = _G.GOLD or "Gold" } end
   if kind == "CURRENCY" then
     return { name = NS.Compat.CurrencyName(id) or ("currency:" .. id), quality = NS.Compat.CurrencyQuality(id),
@@ -182,7 +198,7 @@ function Holdings:Describe(key)
   if not kind then return { name = tostring(key) } end
   local link
   if kind == "ITEM" then
-    for _, e in pairs(self:Store()) do link = link or (e.links and e.links[id]) end
+    for _, e in pairs(self:ActiveStore()) do link = link or (e.links and e.links[id]) end
   end
   return describe(key, kind, id, link)
 end
@@ -194,7 +210,7 @@ function Holdings:Search(filter)
   local holderSet = (filter.char and next(filter.char)) and filter.char or nil
   local text = filter.text and filter.text ~= "" and filter.text:lower() or nil
   local seen, links = {}, {}
-  for _, e in pairs(self:Store()) do
+  for _, e in pairs(self:ActiveStore()) do
     for id in pairs(e.items) do seen["i:" .. id] = true; links[id] = links[id] or e.links[id] end
     for id in pairs(e.currency) do seen["c:" .. id] = true end
     if e.money then seen.g = true end

@@ -202,7 +202,7 @@ local ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-
 
 local function holderLabel(holder)
   if holder == NS.Constants.WARBAND_HOLDER then return "Warband", { 0.4, 0.78, 1 } end
-  local e = NS.Holdings:Get(holder)
+  local e = NS.Holdings:View(holder)
   return holder, NS.Analytics._classColor(e and e.meta and e.meta.classFile)
 end
 

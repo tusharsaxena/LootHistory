@@ -1169,6 +1169,13 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: a live repaint drops a hover left up, so the next tick re-hovers on the new data
 - Timeline tab: nothing it draws stays visible over History or Holdings (LED-9)
 
+### test_testdata.lua (4)
+
+- TestData: the sample holdings and daily stores build deterministically
+- TestData: a day's close is its flows applied to the day before
+- Test mode: Holdings and Timeline show the sample, and the real stores come back after
+- Test mode: ledger writes go to the real stores, never the sample
+
 ### test_panel.lua (43)
 
 - Panel: the parent category and its ONE sub-page are registered
@@ -1563,6 +1570,7 @@ badge and any count quoted in the docs must agree with it.
 | test_holdingstab.lua | 23 |
 | test_timeline.lua | 19 |
 | test_timelinetab.lua | 11 |
+| test_testdata.lua | 4 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1583,4 +1591,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1345** |
+| **Total** | **1349** |

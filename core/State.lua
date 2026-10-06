@@ -15,6 +15,8 @@ State.cleanupDone = false   -- retention prune runs once per session
 State.debug = false         -- session-only logging flag; independent of window visibility. /lh debug on|off; default off
 State.testRecords = nil     -- session-only synthetic dataset published by /lh test; when set, all read-path
                             -- queries (table + Insights) resolve against it instead of the live history
+State.testHoldings = nil    -- its Holdings / Timeline half (modules/TestData.lua): db.global.holdings' and
+State.testDaily = nil       -- db.global.daily's shapes, read through Holdings/Rollup:ActiveStore, never written
 
 -- Outbound (loss-side) context for the ledger (timeline-ledger spec §5.4). A SECOND single slot
 -- beside lootContext, same TTL engine: one BuyMerchantItem must stamp an inbound VENDOR for the

@@ -19,6 +19,7 @@ free number in its theme.
 | PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
+| TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 35 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export, the one-line filter bar |
@@ -384,6 +385,12 @@ settings** and confirm → test mode off, box unticked. Tick it again, `/reload`
 **STATE-12. Lock frame gates the library grip.** Tick **Lock frame**, pull the History window's
 resize grip → the grip is still drawn, nothing resizes and no size is saved (`/reload`, `/lh show`
 keeps the old size); untick → the grip resizes again and `/reload` keeps the new size. Result:
+
+**TM-1. Test mode fills Holdings and Timeline too.** `/lh test`, open **Holdings** → sample things
+held by four sample characters and the Warband (expand one to see the holders; the Character list
+offers the same five); open **Timeline** → Gold draws a line per holder plus Total across about 120
+days, and picking a sample item (Sunwell Cinder) draws at least two lines. `/lh test` again → both
+tabs are back on your own holdings and Timeline, and nothing of the sample is left in either. Result:
 
 ## Combat
 
@@ -1610,6 +1617,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | STATE-7 to STATE-9, STATE-11 | § 8 | No result recorded |
 | STATE-10 | § 8 | No result recorded; SP-LH-03R restored the old step that sets General visibility back to *Always* |
 | STATE-12 | New | New with the library resize grip's `canResize` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
+| TM-1 | New | New with the timeline ledger P6 (test mode's Holdings and Timeline sample); no result recorded |
 | COMBAT-1 | § 2 | No result recorded |
 | COMBAT-2 | § 2, § 9 and § 17d.2 `/lh config` in combat | No result recorded; expectation corrected by SP-LH-03R (the library's printed line) |
 | COMBAT-3 | § 17d.2 sidebar in combat | No result recorded; expectation rewritten by SP-LH-03 (Profiles covered too) |

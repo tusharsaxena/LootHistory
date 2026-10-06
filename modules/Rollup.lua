@@ -24,6 +24,13 @@ function Rollup:Store()
   return g.daily
 end
 
+-- The day table every READ path resolves against (the Timeline's model and picker): test mode's
+-- session-only sample (NS.State.testDaily, modules/TestData.lua) while it is on, else the live store.
+-- NoteClose / NoteFlow, the seed, Prune and ForgetHolder all write Store() and never see the sample.
+function Rollup:ActiveStore()
+  return (NS.State and NS.State.testDaily) or self:Store()
+end
+
 local function learnKey(self, key)
   if self._keys then self._keys[key] = true end
 end
@@ -64,16 +71,27 @@ end
 -- Every thing the rollup has a cell for. Built once per session from the store and kept current by
 -- NoteClose/NoteFlow, so the Timeline's picker can offer a thing nobody holds any more without
 -- walking every day on every keystroke.
-function Rollup:Keys()
-  if self._keys then return self._keys end
+local function keysOf(daily)
   local keys = {}
-  for _, holders in pairs(self:Store()) do
+  for _, holders in pairs(daily) do
     for _, things in pairs(holders) do
       for key in pairs(things) do keys[key] = true end
     end
   end
-  self._keys = keys
   return keys
+end
+
+-- The sample's keys are cached apart, against the sample table they came from, so the live index
+-- (kept current by the writers) is never filled from it and a new sample is never served old keys.
+function Rollup:Keys()
+  local sample = NS.State and NS.State.testDaily
+  if sample then
+    if self._sampleFor ~= sample then self._sampleKeys, self._sampleFor = keysOf(sample), sample end
+    return self._sampleKeys
+  end
+  if self._keys then return self._keys end
+  self._keys = keysOf(self:Store())
+  return self._keys
 end
 
 -- A write hook, not a bus subscription: it holds no event or message registration, so the

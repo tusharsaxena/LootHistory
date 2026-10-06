@@ -114,6 +114,7 @@ modules\AnalyticsLedger.lua
 modules\HoldingsTab.lua
 modules\TimelineModel.lua
 modules\Timeline.lua
+modules\TestData.lua
 modules\Diagnostics.lua
 
 # Settings

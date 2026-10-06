@@ -134,7 +134,7 @@ function TM.Latest(key)
 end
 
 function TM.Meta(holder)
-  local e = NS.Holdings:Get(holder)
+  local e = NS.Holdings:View(holder)
   return (e and e.meta) or {}
 end
 

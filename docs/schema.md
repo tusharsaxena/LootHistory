@@ -472,7 +472,7 @@ function Database:ActiveHistory()
 end
 ```
 
-`NS.State.testRecords` (`core/State.lua:16`) is a session-only synthetic dataset published by test mode (`BrowserTable:SetTestMode`, behind the Master controls `Test mode` checkbox and `/lh test`). When set, `Query`, `Stats`, `Export`, and thus the History table **and** the Insights tab all render off the same fake data. Write paths (`Add`, the delete/prune family) always target the real `history` and never see the override.
+`NS.State.testRecords` (`core/State.lua:16`) is a session-only synthetic dataset published by test mode (`BrowserTable:SetTestMode`, behind the Master controls `Test mode` checkbox and `/lh test`). When set, `Query`, `Stats`, `Export`, and thus the History table **and** the Insights tab all render off the same fake data. Write paths (`Add`, the delete/prune family) always target the real `history` and never see the override. Beside it, `NS.State.testHoldings` and `NS.State.testDaily` (`modules/TestData.lua`) are the Holdings and Timeline sample, in the shapes of `db.global.holdings` and `db.global.daily`; their reads go through `Holdings:ActiveStore` and `Rollup:ActiveStore`, and no ledger write touches them.
 
 **Blacklist/whitelist filtering is point-in-time (decided at capture), not a read-time filter.**
 `modules/Collector.lua`'s gate runs on every `CHAT_MSG_LOOT`: a **blacklisted** id is an absolute

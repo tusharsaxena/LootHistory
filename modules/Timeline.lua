@@ -126,11 +126,15 @@ local function ledgerOn()
   return not s or s.trackLedger ~= false
 end
 
+-- In test mode the sample stands in for the rollup and the rows (NS.Rollup:ActiveStore and
+-- Database:ActiveHistory); it has no ledgerSince, so it draws no marker and stays on daily points.
 function TL:Params(f)
   local g, s = NS.db.global, NS.db.profile.settings
+  local sample = NS.State.testDaily ~= nil
   return { thing = self:Thing(), range = NS.Browser:DateRange(), from = f.from, now = time(),
-    allowed = f.char, maxLines = s.timelineMaxLines or 8, daily = g.daily or {},
-    history = NS.Database:History(), ledgerSince = g.ledgerSince, retentionDays = g.retentionDays or 0 }
+    allowed = f.char, maxLines = s.timelineMaxLines or 8, daily = NS.Rollup:ActiveStore(),
+    history = NS.Database:ActiveHistory(), ledgerSince = (not sample) and g.ledgerSince or nil,
+    retentionDays = g.retentionDays or 0 }
 end
 
 function TL:Refresh()

@@ -351,7 +351,7 @@ end
 local function holderCharItems()
   local items = {}
   for _, h in ipairs(NS.Holdings and NS.Holdings:Holders() or {}) do
-    local e = NS.Holdings:Get(h)
+    local e = NS.Holdings:View(h)
     local cf = e and e.meta and e.meta.classFile
     local icon = (cf and NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
       and NS.BrowserTable:ClassIconMarkup(cf)) or ""
