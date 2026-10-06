@@ -615,6 +615,17 @@ test("Compat: TradeTargetKey appends the player's realm when missing", function(
   assertEqual(NS.Compat.TradeTargetKey(), nil)
 end)
 
+test("Compat: LatestCurrencyTransfer appends the realm only when the client knows it", function()
+  local m = T.mocks
+  local savedRealm, savedXfer = m.GetNormalizedRealmName, m.__currencyTransfers
+  m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
+  assertEqual(NS.Compat.LatestCurrencyTransfer().toKey, "Alt-Realm")
+  m.GetNormalizedRealmName = function() return nil end   -- early in login
+  local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
+  m.GetNormalizedRealmName, m.__currencyTransfers = savedRealm, savedXfer
+  assertTrue(ok); assertEqual(t.toKey, "Alt")             -- never the bare "Alt-"
+end)
+
 test("Compat: HookSecure is presence-gated", function()
   local m = T.mocks
   local savedHook = m.hooksecurefunc

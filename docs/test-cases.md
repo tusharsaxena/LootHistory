@@ -173,7 +173,7 @@ badge and any count quoted in the docs must agree with it.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (55)
+### test_compat.lua (56)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -229,6 +229,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: owned auctions count only active ones
 - Compat: AuctionMailKind parses the localized subjects
 - Compat: TradeTargetKey appends the player's realm when missing
+- Compat: LatestCurrencyTransfer appends the realm only when the client knows it
 - Compat: HookSecure is presence-gated
 
 ### test_scanner.lua (5)
@@ -413,7 +414,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
-### test_reconciler_rows.lua (23)
+### test_reconciler_rows.lua (24)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -438,8 +439,9 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: an account-wide currency change lands on the warband holder
 - Reconciler: an account currency transfer to an own alt is a MOVE pair and credits the alt
 - Reconciler: changes made while stood down land as UNTRACKED on resume
+- Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing
 
-### test_escrow.lua (8)
+### test_escrow.lua (11)
 
 - Escrow: mail to an own alt is a MOVE pair; the alt's mail and own-origin are credited
 - Escrow: taking mail splits own-origin (MOVE) from outside gains (IN)
@@ -449,6 +451,9 @@ badge and any count quoted in the docs must agree with it.
 - Escrow: an exit unresolved for 30 days is booked as sold
 - Escrow: mail money taken from an own alt's send is a MOVE
 - Escrow: the mailbox is unreadable once closed
+- Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the alt's gold is a MOVE
+- Escrow: gold from another player is a gain even while an alt's gold waits
+- Escrow: a money-only pass leaves the staged items for the item pass; both are MOVEs
 
 ### test_database.lua (76)
 
@@ -1408,7 +1413,7 @@ badge and any count quoted in the docs must agree with it.
 | test_util.lua | 41 |
 | test_ledger.lua | 28 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 55 |
+| test_compat.lua | 56 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_attribution.lua | 37 |
@@ -1417,8 +1422,8 @@ badge and any count quoted in the docs must agree with it.
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 43 |
 | test_reconciler.lua | 7 |
-| test_reconciler_rows.lua | 23 |
-| test_escrow.lua | 8 |
+| test_reconciler_rows.lua | 24 |
+| test_escrow.lua | 11 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 73 |
@@ -1454,4 +1459,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1228** |
+| **Total** | **1233** |

@@ -63,7 +63,6 @@ local function planMail(_, plan, me, clock)
       toC = C.Container.MAIL, creditMailMoney = true }
     reduce(net, "g", q)
   end
-  plan.mailConsumed = true
 end
 
 -- A post: what left the bags is in this character's auctions now (before the owned list says so).
@@ -82,11 +81,17 @@ local function planPost(_, plan, me)
   end
 end
 
--- Gold an own alt mailed in: taking it is a MOVE inside this holder (mail -> money).
-local function planMailMoney(self, plan, me)
+-- Gold an own alt mailed in: taking it is a MOVE inside this holder (mail -> money). Not while a
+-- sale mail's payout is live (that gold is AH_SOLD), and not when the mail just taken names a
+-- sender who is not an own holder (another player's gold is a gain). A take the TakeInboxMoney
+-- hook never saw (no mailTaken) falls back to the mailMoney balance alone.
+local function planMailMoney(self, plan, me, clock)
   local net, e = plan.net[me], NS.Holdings:Get(me)
   local esc = e and e.escrow
   if not (net and net.g and net.g > 0 and esc and (esc.mailMoney or 0) > 0 and self.readable.mail) then return end
+  local sold, taken = NS.State.soldMail, NS.State.mailTaken
+  if sold and sold.expires >= clock then return end
+  if taken and taken.expires >= clock and not taken.own then return end
   local q = math.min(net.g, esc.mailMoney)
   plan.pairs[#plan.pairs + 1] = { key = "g", qty = q, from = me, to = me, fromC = C.Container.MAIL,
     toC = "money", debitMailMoney = q }
@@ -179,9 +184,26 @@ local function commitExits(plan, me, now)
   if next(plan.sold or {}) then NS.State.soldMail = nil end
 end
 
+-- The staged send is used up only as far as it paired: a money-only pass (PLAYER_MONEY's fuse
+-- before the bag change lands) leaves the items for the next pass; `expires` retires leftovers.
+local function consumeMail(plan)
+  local pm = NS.State.pendingMail
+  if not pm then return end
+  local any = false
+  for _, p in ipairs(plan.pairs) do
+    if p.creditMail then
+      local left = (pm.items[p.creditMail] or 0) - p.qty
+      pm.items[p.creditMail] = (left > 0) and left or nil
+      any = true
+    end
+    if p.creditMailMoney then pm.money = math.max(0, (pm.money or 0) - p.qty); any = true end
+  end
+  if any and next(pm.items) == nil and (pm.money or 0) <= 0 then NS.State.pendingMail = nil end
+end
+
 R.COMMIT_STEPS[#R.COMMIT_STEPS + 1] = function(_, plan, me, _, now)
   commitPairs(plan)
   commitMoves(plan)
   commitExits(plan, me, now or time())
-  if plan.mailConsumed then NS.State.pendingMail = nil end
+  consumeMail(plan)
 end

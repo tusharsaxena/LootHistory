@@ -132,3 +132,83 @@ case("Escrow: the mailbox is unreadable once closed", function()
   R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", NS.Compat.InteractionType("MailInfo"))
   assertEqual(R():IsReadable("mail"), false)
 end)
+
+-- Final-review fixes: the mail money MOVE is only an own alt's gold, and a staged send is used up
+-- only as far as it paired.
+local function withSender(sender, body)
+  local saved = m.GetInboxHeaderInfo
+  m.GetInboxHeaderInfo = function() return nil, nil, sender[1], sender[2] end
+  local ok, err = pcall(body)
+  m.GetInboxHeaderInfo = saved
+  if not ok then error(err, 0) end
+end
+
+local function altEntry()
+  NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { bags = 1 }, items = {},
+    currency = {}, links = {} }
+end
+
+case("Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the alt's gold is a MOVE", function()
+  S.reset()
+  m.__money = 0
+  S.genesis(); altEntry()
+  NS.Holdings:Escrow(S.me()).mailMoney = 1000
+  S.show("MailInfo"); R():Flush()
+  withSender({ "Auction House", "Auction successful: Herb" }, function() NS.Attribution:OnTakeInboxMoney(1) end)
+  m.__money = 500
+  R():MarkDirty("money"); R():Flush()
+  m.__now = 102; R():Flush()
+  local ins = rowsBy("IN")
+  assertEqual(#ins, 1); assertEqual(ins[1].kind, "GOLD"); assertEqual(ins[1].quantity, 500)
+  assertEqual(ins[1].source, "AH_SOLD")
+  assertEqual(#rowsBy("MOVE"), 0)
+  assertEqual(NS.Holdings:Escrow(S.me()).mailMoney, 1000)
+  m.__now = 120                                            -- the sale mail's window has passed
+  withSender({ "Alt", "gold" }, function() NS.Attribution:OnTakeInboxMoney(2) end)
+  m.__money = 1500
+  R():MarkDirty("money"); R():Flush()
+  m.__now = 128; R():Flush()
+  assertEqual(#rowsBy("IN"), 1)
+  assertEqual(#rowsBy("MOVE"), 1); assertEqual(rowsBy("MOVE")[1].quantity, 1000)
+  assertEqual(rowsBy("MOVE")[1].to, S.me() .. "/money")
+  assertEqual(NS.Holdings:Escrow(S.me()).mailMoney, 0)
+end)
+
+case("Escrow: gold from another player is a gain even while an alt's gold waits", function()
+  S.reset()
+  m.__money = 0
+  S.genesis(); altEntry()
+  NS.Holdings:Escrow(S.me()).mailMoney = 1000
+  S.show("MailInfo"); R():Flush()
+  withSender({ "Stranger-Otherrealm", "for you" }, function() NS.Attribution:OnTakeInboxMoney(1) end)
+  m.__money = 300
+  R():MarkDirty("money"); R():Flush()
+  m.__now = 108; R():Flush()
+  assertEqual(#rowsBy("MOVE"), 0)
+  local ins = rowsBy("IN")
+  assertEqual(#ins, 1); assertEqual(ins[1].kind, "GOLD"); assertEqual(ins[1].quantity, 300)
+  assertEqual(NS.Holdings:Escrow(S.me()).mailMoney, 1000)
+end)
+
+case("Escrow: a money-only pass leaves the staged items for the item pass; both are MOVEs", function()
+  S.reset()
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 3 } }); m.__money = 5000
+  S.genesis(); altEntry()
+  NS.State.pendingMail = { to = "Alt-Realm", items = { [7] = 3 }, money = 1000, sent = true, expires = 200 }
+  NS.Attribution:StampOut("MAIL_SEND", { dirs = { OUT = true } })
+  S.show("MailInfo")
+  m.__money = 3970                                         -- PLAYER_MONEY's fuse runs before the bags land
+  R():MarkDirty("money"); R():Flush()
+  assertEqual(#rowsBy("MOVE"), 2)
+  assertEqual(#rowsBy("OUT"), 1); assertEqual(rowsBy("OUT")[1].quantity, 30)
+  assertTrue(NS.State.pendingMail ~= nil); assertEqual(NS.State.pendingMail.items[7], 3)
+  assertEqual(NS.State.pendingMail.money, 0)
+  setBag(0, {})
+  R():MarkDirty("bags"); R():Flush()
+  assertEqual(#rowsBy("MOVE"), 4)                          -- the item pair joins the gold pair
+  assertEqual(#rowsBy("OUT"), 1)                           -- no OUT MAIL_SEND for the item
+  local alt = NS.db.global.holdings["Alt-Realm"]
+  assertEqual(alt.items[7].mail, 3)
+  assertEqual(alt.escrow.mailOwn[7], 3); assertEqual(alt.escrow.mailMoney, 1000)
+  assertEqual(NS.State.pendingMail, nil)
+end)

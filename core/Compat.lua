@@ -707,7 +707,8 @@ function Compat.LatestCurrencyTransfer()
   local t = list[#list]
   local to = t.destinationCharacterName
   if to and not to:find("-", 1, true) and type(GetNormalizedRealmName) == "function" then
-    to = to .. "-" .. (GetNormalizedRealmName() or "")
+    local realm = GetNormalizedRealmName()                 -- nil early in login: never a bare "Name-"
+    if realm and realm ~= "" then to = to .. "-" .. realm end
   end
   return { currencyID = t.currencyType, quantity = t.quantityTransferred, toKey = to }
 end

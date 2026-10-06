@@ -9,6 +9,7 @@ local function reset()
   T.mocks.__now = 100
   local st = S()
   st.outContext, st.pendingMail, st.pendingPost, st.soldMail, st.tradeTarget, st.craftUntil = nil, nil, {}, nil, nil, nil
+  st.mailTaken = nil
   for k in pairs(st.scopes) do st.scopes[k] = nil end
 end
 
@@ -78,6 +79,7 @@ test("AttributionOut: taking AH sale money stamps AH_SOLD and names the item", f
   A():OnTakeInboxMoney(1)
   assertEqual(S().outContext.reason, "AH_SOLD"); assertTrue(S().outContext.dirs.IN)
   assertEqual(S().soldMail.itemName, "Herb")
+  assertEqual(S().mailTaken.own, false)                   -- the Auction House is no own holder
   T.mocks.GetInboxHeaderInfo = saved
 end)
 
@@ -127,8 +129,10 @@ test("AttributionOut: EnableOut registers on a private target; DisableOut unregi
   assertTrue(ev.__events.PLAYER_INTERACTION_MANAGER_FRAME_SHOW ~= nil)
   assertTrue(ev.__events.MAIL_SEND_SUCCESS ~= nil)
   S().scopes.merchant = true
+  S().mailTaken = { own = true, expires = 200 }
   A():DisableOut()
   assertEqual(A().__outEv, nil)
   assertEqual(next(ev.__events), nil)
   assertEqual(S().scopes.merchant, nil)
+  assertEqual(S().mailTaken, nil)
 end)

@@ -383,3 +383,18 @@ case("Reconciler: changes made while stood down land as UNTRACKED on resume", fu
   assertEqual(#H(), 1); assertEqual(H()[1].source, "UNTRACKED"); assertEqual(H()[1].quantity, 2)
   R():Disable()
 end)
+
+-- Final-review fix: CURRENCY_DISPLAY_UPDATE also fires for hidden and tracking currencies the token
+-- list never shows. Folding one would write an IN now and an UNTRACKED OUT at the next full rescan.
+case("Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing", function()
+  reset()
+  genesisWithCurrency({ { id = 3008, quantity = 50 } })
+  R():OnEvent("CURRENCY_DISPLAY_UPDATE", 9999, 5, 5, 1, nil)
+  R():Flush()
+  m.__now = 108; R():Flush()                               -- past any settle hold
+  assertEqual(#H(), 0)
+  assertEqual(NS.Holdings:Get(ME).currency[9999], nil)
+  assertEqual(NS.Holdings:Get(ME).currency[3008], 50)
+  R():LoginScan()
+  assertEqual(#H(), 0)
+end)

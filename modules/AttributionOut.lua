@@ -62,7 +62,7 @@ end
 -- ── Hook bodies ─────────────────────────────────────────────────────────────────────────────
 
 -- SendMail is a POST-hook: the attachments are still staged in the Send Mail frame when it runs
--- (verified by smoke LED-P2-06). The bags only change on MAIL_SEND_SUCCESS.
+-- (to be verified by smoke LED-P2-06). The bags only change on MAIL_SEND_SUCCESS.
 function Attribution:OnSendMail(recipient)
   if stoodDown() then return end
   local items, money = NS.Compat.ReadSendMail()
@@ -92,9 +92,14 @@ function Attribution:OnAuctionBuy()
   self:StampOut("AH_BUY", { kinds = { GOLD = true }, dirs = { OUT = true }, ttl = 5 }, "AuctionBuy")
 end
 
+-- Every money take records whether its sender is an own holder, so the escrow plan books only an
+-- own alt's gold as a mail -> money MOVE (another player's gold, a sale payout, stay gains).
 function Attribution:OnTakeInboxMoney(index)
   if stoodDown() then return end
-  local _, subject = NS.Compat.GetMailHeader(index)
+  local sender, subject = NS.Compat.GetMailHeader(index)
+  local key = NS.Util.QualifyName(sender)
+  local own = key ~= nil and NS.Holdings ~= nil and NS.Holdings:Get(key) ~= nil
+  State.mailTaken = { own = own, expires = GetTime() + 10 }
   local kind, itemName = NS.Compat.AuctionMailKind(subject)
   if kind == "sold" then
     State.soldMail = { itemName = itemName, expires = GetTime() + 10 }
@@ -173,6 +178,7 @@ function Attribution:DisableOut()
     self.__outEv = nil
   end
   State.outContext, State.pendingMail, State.soldMail, State.tradeTarget, State.craftUntil = nil, nil, nil, nil, nil
+  State.mailTaken = nil
   for k in pairs(State.scopes) do State.scopes[k] = nil end
   for k in pairs(State.pendingPost) do State.pendingPost[k] = nil end
 end

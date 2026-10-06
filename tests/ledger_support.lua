@@ -42,7 +42,7 @@ function S.reset()
   r.pendingCur, r.curGain, r.curLoss, r.pendingTransfer, r.loginPending = {}, {}, {}, nil, nil
   r._enabled = true
   local st = NS.State
-  st.outContext, st.lootContext, st.pendingMail, st.soldMail = nil, nil, nil, nil
+  st.outContext, st.lootContext, st.pendingMail, st.soldMail, st.mailTaken = nil, nil, nil, nil, nil
   for k in pairs(st.scopes) do st.scopes[k] = nil end
   for k in pairs(st.pendingPost) do st.pendingPost[k] = nil end
 end

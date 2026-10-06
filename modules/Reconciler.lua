@@ -314,20 +314,23 @@ end
 
 -- Scan step: the pending deltas become a currency map per holder (account-wide -> §warband),
 -- built on the stored baseline. A full list rescan in the same pass is authoritative instead, and
--- so is a holder with no currency baseline yet: a delta on nothing would invent its whole balance.
+-- so is a holder with no currency baseline yet (a delta on nothing would invent its whole balance)
+-- or a delta for an id the baseline does not hold: the event also carries hidden and tracking
+-- currencies the list never shows, and a folded one would come back as an UNTRACKED OUT at the
+-- next full rescan. A genuinely new currency is listed, so the rescan picks it up.
 R.SCAN_STEPS[#R.SCAN_STEPS + 1] = function(self, snap, me)
   if not self.dirty.currencyDelta or self.dirty.currency then return end
   for id, dlt in pairs(self.pendingCur) do
     local holder = Compat.CurrencyIsAccountWide(id) and WARBAND or me
     local s = snapFor(snap, holder)
+    local e = NS.Holdings:Get(holder)
+    if not (e and e.scanned.currency and e.currency[id] ~= nil) then
+      local ch, wb = NS.Scanner.ScanCurrencies()
+      snapFor(snap, me).currency = ch
+      snapFor(snap, WARBAND).currency = wb
+      return
+    end
     if not s.currency then
-      local e = NS.Holdings:Get(holder)
-      if not (e and e.scanned.currency) then
-        local ch, wb = NS.Scanner.ScanCurrencies()
-        snapFor(snap, me).currency = ch
-        snapFor(snap, WARBAND).currency = wb
-        return
-      end
       s.currency = {}
       for k, v in pairs(e.currency) do s.currency[k] = v end
     end

@@ -26,4 +26,5 @@ State.pendingMail = nil    -- { to, items, money, sent, expires } staged by the 
 State.pendingPost = {}     -- [itemID] = qty posted to the auction house, not yet seen in `auctions`
 State.craftUntil = nil     -- GetTime() until which item losses read as CRAFT_REAGENT
 State.soldMail = nil       -- { itemName, expires } from taking an "Auction successful" mail's money
+State.mailTaken = nil      -- { own, expires } from any mail money take: was the sender an own holder
 State.tradeTarget = nil    -- holder key of the last completed trade's partner

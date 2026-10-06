@@ -71,11 +71,11 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 |---|---|
 | The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's two chat events, Attribution's nine | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
 | The three private bus targets — `SettingsChanged`, `HistoryChanged`, `RecordAdded`, `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED` | `Collector:Disable` / `Browser:Disable` / `Analytics:Disable` |
-| The Reconciler's two private bus targets (the `SettingsChanged` listener and the eleven capture events) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
+| The Reconciler's two private bus targets (the `SettingsChanged` listener and the fourteen capture events) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
 | A held reset-recommendation popup (the `PLAYER_REGEN_ENABLED` one-shot, and the "Export first" re-ask the export window's `OnHide` would fire as `NS.StandDown` hides it) | `NS.DropLedgerResetOffer`, from `NS.StandDown` |
 | `CHAT_MSG_MONEY`, the Collector's third chat event | `Collector:Disable` (it unregisters `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` and `CHAT_MSG_MONEY`) |
-| The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop) |
+| The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop) |
 | The Reconciler's ledger state: claims, recent-row coalescing map, memoized reasons, settle hold and recheck, currency accumulators (`pendingCur`, `curGain`, `curLoss`), `pendingTransfer`, `loginPending` | `Reconciler:Disable` / `DisableCapture` |
 | The `perf` hold: LibKa0s-Perf's Suspend takes the latch, and everything above goes down with it; Resume stands it back up and the Reconciler schedules a resume scan, so changes made while held land as `UNTRACKED` | `NS.StandDown` / `NS.StandUp` |
 | Attribution's per-unit spell frame (`UNIT_SPELLCAST_SUCCEEDED`, `player`) | `Attribution:Disable` |
