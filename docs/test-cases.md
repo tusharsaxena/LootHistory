@@ -400,6 +400,20 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
+### test_reconciler_rows.lua (11)
+
+- Reconciler: bag to bank deposit writes one MOVE and no gain or loss
+- Reconciler: a one-sided change at an open bank is held, then paired
+- Reconciler: vendor sale writes item OUT SELL and gold IN SELL
+- Reconciler: combat potion burst lands as one CONSUME row and coalesces
+- Reconciler: rows after the 60 s window append
+- Reconciler: a warband deposit is a MOVE pair, one row per holder
+- Reconciler: a posted claim absorbs the gain and stamps the chat row
+- Reconciler: blacklisted items never get a row but holdings still count them
+- Reconciler: recordGold off suppresses gold rows only
+- Reconciler: no genesis, no rows
+- Reconciler: an unexplained loss with no stamp is OTHER
+
 ### test_database.lua (76)
 
 - Database: Add appends, increments Count, returns index
@@ -1342,6 +1356,7 @@ badge and any count quoted in the docs must agree with it.
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 38 |
 | test_reconciler.lua | 7 |
+| test_reconciler_rows.lua | 11 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 69 |
@@ -1376,4 +1391,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1166** |
+| **Total** | **1177** |

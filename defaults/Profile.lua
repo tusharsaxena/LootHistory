@@ -37,6 +37,7 @@ NS.defaults.profile = {
     excludeQuestItems = true,  -- on by default (opt-out): drop Quest-class items at capture
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
     trackLedger      = true,   -- holdings + (Phase 2) gains/losses/transfers/gold; off = legacy gains-only
+    recordGold       = true,   -- gold gains/losses as ledger rows (holdings track gold regardless)
     excludedSources  = {},     -- set of muted SourceType keys
     -- NO retentionDays here: it governs the account-wide history, so it is account-wide too
     -- (defaults/Global.lua, D6).

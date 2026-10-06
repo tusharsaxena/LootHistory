@@ -4,8 +4,8 @@ local R = NS.Reconciler
 
 -- Keeps db.global.holdings current (timeline-ledger spec §5.2). Every event only marks a part
 -- dirty; Flush does the work, and never in combat (spec §5.2 "Combat"): a bag event storm in a
--- raid pull costs a table write per event and nothing else. Phase 2 inserts the
--- diff -> gain/loss/transfer rows step into Flush; this file is shaped for that.
+-- raid pull costs a table write per event and nothing else. Phase 2's flush plans the
+-- diff -> gain/loss/transfer rows against the stored baseline before it writes holdings.
 --
 -- One writer: NS.Holdings is only ever written through the Apply* calls below. Scanner and Holdings
 -- are read at CALL time, never captured at load, so the TOC order between them and this file is
@@ -94,47 +94,330 @@ function R:OnEvent(event, a1)
   end
 end
 
--- Scan one dirty part into Holdings. Returns the holder it changed, or nil.
-local function flushPart(part, me, now)
-  local S, H = NS.Scanner, NS.Holdings
-  if part == "bags" then
-    local c, l = S.ScanContainers(C.BAG_IDS)
-    return H:ApplyContainer(me, CT.BAGS, c, l, now) and me or nil
-  elseif part == "equipped" then
-    local c, l = S.ScanEquipped()
-    return H:ApplyContainer(me, CT.EQUIPPED, c, l, now) and me or nil
-  elseif part == "bank" then
-    local c, l = S.ScanContainers(C.BANK_IDS)
-    return H:ApplyContainer(me, CT.BANK, c, l, now) and me or nil
-  elseif part == "tabs" then
-    local c, l = S.ScanContainers(C.WARBAND_TAB_IDS)
-    return H:ApplyContainer(WARBAND, CT.TABS, c, l, now) and WARBAND or nil
-  elseif part == "money" then
-    return H:ApplyMoney(me, S.ReadMoney(), now) and me or nil
-  elseif part == "warbandMoney" then
+-- ── Phase 2: scan -> plan -> hold or commit (timeline-ledger spec §5.1-§5.5) ─────────────────
+--
+-- A pass READS every dirty, readable part without touching db.global.holdings; PLANS rows against
+-- the stored baseline; and either HOLDS (keeps baseline and dirty bits, looks again shortly) or
+-- COMMITS (consume claims, write holdings, write rows). Holding is what lets the two halves of one
+-- bank deposit, which arrive a server round-trip apart, meet in one pass (BankLedger's
+-- settleBaseline), and what gives a chat line the moment it needs to claim its delta.
+
+R.claims, R.recent, R.reasonMemo = {}, {}, {}
+-- Extension points, in order. Escrow (Task 10) and currency deltas (Task 9) append to them.
+R.SCAN_STEPS, R.PLAN_STEPS, R.COMMIT_STEPS = {}, {}, {}
+
+local L = NS.Ledger
+
+local function snapFor(snap, holder)
+  local s = snap[holder]
+  if not s then s = { items = {}, links = {} }; snap[holder] = s end
+  return s
+end
+
+local function addLinks(dst, src) for id, l in pairs(src or {}) do if not dst[id] then dst[id] = l end end end
+
+-- part -> whose container it is, which column, how to read it.
+local CONTAINER_READS = {
+  bags     = { mine = true,  c = CT.BAGS,     ids = function() return C.BAG_IDS end },
+  bank     = { mine = true,  c = CT.BANK,     ids = function() return C.BANK_IDS end },
+  tabs     = { mine = false, c = CT.TABS,     ids = function() return C.WARBAND_TAB_IDS end },
+  equipped = { mine = true,  c = CT.EQUIPPED },
+}
+
+function R:Scan(me)
+  local snap, d, S = {}, self.dirty, NS.Scanner
+  for part, spec in pairs(CONTAINER_READS) do
+    if d[part] and self:IsReadable(part) then
+      local counts, links
+      if spec.ids then counts, links = S.ScanContainers(spec.ids()) else counts, links = S.ScanEquipped() end
+      local s = snapFor(snap, spec.mine and me or WARBAND)
+      s.items[spec.c] = counts
+      addLinks(s.links, links)
+    end
+  end
+  if d.money then snapFor(snap, me).money = S.ReadMoney() end
+  if d.warbandMoney and self:IsReadable("warbandMoney") then
     local v = S.ReadWarbandMoney()
-    return v ~= nil and H:ApplyMoney(WARBAND, v, now) and WARBAND or nil
+    if v then snapFor(snap, WARBAND).money = v end
+  end
+  if d.currency then
+    local ch, wb = S.ScanCurrencies()
+    snapFor(snap, me).currency = ch
+    snapFor(snap, WARBAND).currency = wb
+  end
+  for _, step in ipairs(R.SCAN_STEPS) do step(self, snap, me) end
+  return snap
+end
+
+local function columnOf(e, c)
+  local out = {}
+  for id, row in pairs(e.items) do if row[c] then out[id] = row[c] end end
+  return out
+end
+
+-- One holder's net change per thing, plus its intra-holder moves and escrow traffic. Only
+-- containers that already had a baseline take part (a container's first scan is its genesis).
+local function planHolder(plan, holder, e, s)
+  local before, after = {}, {}
+  for c, counts in pairs(s.items) do
+    if e.scanned[c] then before[c] = columnOf(e, c); after[c] = counts end
+  end
+  local own = e.escrow and { mail = e.escrow.mailOwn } or nil
+  local moves, ids, arrivals, exits = L.ClassifyItems(before, after, own)
+  local net = {}
+  for id, dlt in pairs(ids) do net[L.ThingKey("ITEM", id)] = dlt end
+  if s.money and e.scanned.money then
+    local dm = s.money - (e.money or 0)
+    if dm ~= 0 then net.g = dm end
+  end
+  if s.currency and e.scanned.currency then
+    for _, x in ipairs(L.Diff(e.currency, s.currency)) do net[L.ThingKey("CURRENCY", x.key)] = x.delta end
+  end
+  plan.net[holder] = net
+  for _, mv in ipairs(moves) do mv.holder = holder; plan.moves[#plan.moves + 1] = mv end
+  plan.arrivals[holder], plan.exits[holder] = arrivals, exits
+end
+
+function R:Plan(snap, me, clock)
+  local plan = { net = {}, moves = {}, pairs = {}, arrivals = {}, exits = {} }
+  if not self.silent then
+    for holder, s in pairs(snap) do
+      local e = NS.Holdings:Get(holder)
+      if e and e.meta.genesis then planHolder(plan, holder, e, s) end
+    end
+  end
+  for _, step in ipairs(R.PLAN_STEPS) do step(self, plan, me, clock) end
+  return plan
+end
+
+-- Plan step 1: char <-> warband transfers (warband bank deposit/withdraw, warband gold, account
+-- currency moving between the two holders).
+R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(_, plan, me)
+  local a, b = plan.net[me], plan.net[WARBAND]
+  if not (a and b) then return end
+  for _, p in ipairs(L.PairHolders(me, a, WARBAND, b)) do plan.pairs[#plan.pairs + 1] = p end
+end
+
+-- Reasons are decided when a change is FIRST seen, not when its hold ends: a stamp with a 1.5 s
+-- TTL would be gone by then. Memoized per holder/thing/direction and dropped at commit.
+local function computeReason(self, key, dir, clock)
+  if self.forceReason then return self.forceReason end
+  local kind, id = L.ParseThingKey(key)
+  local ctx = NS.Attribution.ReasonContext and NS.Attribution:ReasonContext(clock) or { now = clock, scopes = {} }
+  ctx.consumable = (kind == "ITEM" and dir == "OUT" and NS.Compat.IsConsumable(id)) or nil
+  ctx.currencySrc = self.CurrencyReasonFor and self:CurrencyReasonFor(kind, id, dir) or nil
+  return L.PickReason(kind, dir, ctx)
+end
+
+function R:ReasonFor(holder, key, dir, clock)
+  local mk = holder .. "\001" .. tostring(key) .. "\001" .. dir
+  return self.reasonMemo[mk] or computeReason(self, key, dir, clock)
+end
+
+local function memoReasons(self, plan, clock)
+  for holder, net in pairs(plan.net) do
+    for key, dlt in pairs(net) do
+      local dir = dlt > 0 and "IN" or "OUT"
+      local mk = holder .. "\001" .. tostring(key) .. "\001" .. dir
+      if not self.reasonMemo[mk] then self.reasonMemo[mk] = computeReason(self, key, dir, clock) end
+    end
   end
 end
 
---- Read every dirty part that is readable now, apply it, and announce each holder that moved ONCE.
---- A part that is not readable (the bank with no banker open) stays dirty for the next flush.
-function R:Flush()
-  if Compat.InCombatLockdown() then self.deferred = true; return end
-  local me, now, changed = NS.Util.PlayerKey(), time(), {}
-  for part in pairs(self.dirty) do
-    if self:IsReadable(part) then
-      if part == "currency" then
-        local char, wb = NS.Scanner.ScanCurrencies()
-        if NS.Holdings:ApplyCurrency(me, char, now) then changed[me] = true end
-        if NS.Holdings:ApplyCurrency(WARBAND, wb, now) then changed[WARBAND] = true end
-      else
-        local h = flushPart(part, me, now)
-        if h then changed[h] = true end
-      end
-      self.dirty[part] = nil
+-- What can still be waiting for its other half: items while a bank, mailbox or auction house is
+-- open (a deposit, a mail take, a post), gold only at a bank (warband gold). A one-sided gold change
+-- at a mailbox (postage) or a vendor has no other half coming and is never held for one.
+function R:DecideHold(plan, clock)
+  if self.forceReason or self.silent then return false end
+  local itemPairing = self.readable.bank or self.readable.mail or self.readable.auctionHouse
+  local goldPairing = self.readable.bank
+  local oneSided, unclaimed = false, false
+  for _, net in pairs(plan.net) do
+    for key, dlt in pairs(net) do
+      local isItem = tostring(key):sub(1, 2) == "i:"
+      if (isItem and itemPairing) or (key == "g" and goldPairing) then oneSided = true end
+      if dlt > 0 and L.ClaimAvailable(self.claims, key, clock) < dlt then unclaimed = true end
     end
   end
+  local hold = L.ShouldHold(oneSided, unclaimed, self._holdSince, clock)
+  if hold then memoReasons(self, plan, clock) end
+  return hold
+end
+
+-- Commit step 1: consume chat claims against gains; the matched chat rows are stamped as the
+-- ledger rows they now are (spec §5.3), and only the unclaimed remainder becomes a diff row.
+R.COMMIT_STEPS[#R.COMMIT_STEPS + 1] = function(self, plan, _, clock)
+  if self.forceReason then return end
+  for holder, net in pairs(plan.net) do
+    for key, dlt in pairs(net) do
+      if dlt > 0 then
+        local rest, matched = L.ConsumeClaim(self.claims, key, dlt, clock)
+        for _, row in ipairs(matched or {}) do
+          row.dir, row.holder, row.claimed = "IN", holder, true
+          row.kind = NS.Util.RowKind(row)
+        end
+        net[key] = (rest ~= 0) and rest or nil
+      end
+    end
+  end
+end
+
+local function applySnap(snap, now)
+  local Hd, changed = NS.Holdings, {}
+  for holder, s in pairs(snap) do
+    for c, counts in pairs(s.items) do
+      if Hd:ApplyContainer(holder, c, counts, s.links, now) then changed[holder] = true end
+    end
+    if s.money ~= nil and Hd:ApplyMoney(holder, s.money, now) then changed[holder] = true end
+    if s.currency and Hd:ApplyCurrency(holder, s.currency, now) then changed[holder] = true end
+  end
+  return changed
+end
+
+-- ── The row writer ──────────────────────────────────────────────────────────────────────────
+
+local function rowAllowed(kind, id)
+  local p = NS.db.profile
+  local s = p.settings
+  if kind == "ITEM" then return not (p.blacklist and p.blacklist[id]) end
+  if kind == "CURRENCY" then
+    return s.recordCurrency ~= false and not (p.currencyBlacklist and p.currencyBlacklist[id])
+  end
+  return s.recordGold ~= false
+end
+
+local function linkFor(holder, id)
+  for _, h in ipairs({ holder, NS.Util.PlayerKey(), WARBAND }) do
+    local e = NS.Holdings:Get(h)
+    if e and e.links[id] then return e.links[id] end
+  end
+  return "item:" .. id
+end
+
+-- Called as R:MakeRow(...); it reads no Reconciler state, hence the `_` receiver.
+function R.MakeRow(_, holder, kind, id, dir, reason, qty, now, from, to)
+  local zone, subzone = NS.Zone()
+  local row = {
+    ts = now, char = NS.Util.PlayerKey(), classFile = Compat.PlayerClassFile(),
+    holder = holder, dir = dir, kind = kind, quantity = qty, source = reason,
+    confidence = (reason == "OTHER" or reason == "UNTRACKED") and C.Confidence.INFERRED or C.Confidence.CERTAIN,
+    zone = zone, subzone = subzone, mapID = NS.PlayerMapID(), from = from, to = to,
+  }
+  if kind == "ITEM" then
+    local link = linkFor(holder, id)
+    local _, name, quality = NS.Compat.GetItemInfo(link)
+    local ilvl, bound, sell, itype, isub = NS.Compat.GetItemExtras(link)
+    row.itemID, row.itemLink, row.itemName, row.quality = id, link, name or ("item:" .. id), quality
+    row.itemLevel, row.bound, row.vendorPrice, row.itemType, row.itemSubType = ilvl, bound, sell, itype, isub
+    if dir ~= "MOVE" then row.auctionPrice = NS.AuctionPrice:GatherAll(link, id) end
+  elseif kind == "CURRENCY" then
+    row.currencyID = id
+    row.itemName = NS.Compat.CurrencyName(id) or ("currency:" .. id)
+    row.itemType, row.itemSubType = C.CURRENCY_TYPE, NS.Compat.CurrencyCategory(id)
+    row.quality, row.bound = NS.Compat.CurrencyQuality(id), NS.Compat.CurrencyBound(id)
+  else
+    row.itemName, row.itemType = "Gold", C.GOLD_TYPE
+  end
+  return row
+end
+
+-- Write one ledger row, or amend the same-key row written under COALESCE_WINDOW seconds ago.
+function R:Write(holder, key, dir, reason, qty, now, from, to)
+  local kind, id = L.ParseThingKey(key)
+  if not kind or qty <= 0 or not rowAllowed(kind, id) then return nil end
+  local ck = L.CoalesceKey(holder, key, dir, reason, from and (from .. ">" .. (to or "")) or nil)
+  local recent = self.recent[ck]
+  if L.Amendable(recent, now) and NS.db.global.history[recent.index] == recent.row then
+    NS.Database:Amend(recent.index, qty)
+    return recent.row
+  end
+  local row = self:MakeRow(holder, kind, id, dir, reason, qty, now, from, to)
+  local index = NS.Database:Add(row)
+  self.recent[ck] = { row = row, index = index, ts = now }
+  return row
+end
+
+local function sideOf(key, holder, explicit)
+  if explicit then return explicit end
+  if key == "g" then return "money" end
+  if tostring(key):sub(1, 2) == "c:" then return "currency" end
+  return holder == WARBAND and CT.TABS or CT.BAGS
+end
+
+function R:WriteRows(plan, now, clock)
+  -- A genesis pass applies holdings and writes nothing, whatever a plan step added.
+  if self.silent then self.reasonMemo = {}; return end
+  for _, mv in ipairs(plan.moves) do
+    self:Write(mv.holder, L.ThingKey("ITEM", mv.id), "MOVE", "TRANSFER", mv.qty, now,
+      mv.holder .. "/" .. mv.from, mv.holder .. "/" .. mv.to)
+  end
+  for _, p in ipairs(plan.pairs) do
+    local from = p.from .. "/" .. sideOf(p.key, p.from, p.fromC)
+    local to = p.to .. "/" .. sideOf(p.key, p.to, p.toC)
+    self:Write(p.from, p.key, "MOVE", p.reason or "TRANSFER", p.qty, now, from, to)
+    self:Write(p.to, p.key, "MOVE", p.reason or "TRANSFER", p.qty, now, from, to)
+  end
+  for holder, net in pairs(plan.net) do
+    for key, dlt in pairs(net) do
+      local dir = dlt > 0 and "IN" or "OUT"
+      self:Write(holder, key, dir, self:ReasonFor(holder, key, dir, clock), math.abs(dlt), now)
+    end
+  end
+  self.reasonMemo = {}
+end
+
+-- ── Claims API (the chat paths post here, Task 8) ───────────────────────────────────────────
+function R:PostClaim(key, qty, row)
+  if not self._enabled or not key or not qty or qty <= 0 then return end
+  L.PostClaim(self.claims, key, qty, row, GetTime())
+end
+
+-- ── Flush ───────────────────────────────────────────────────────────────────────────────────
+
+-- While holding, look again every CLAIM_WAIT seconds (bounded by SETTLE_TIMEOUT in ShouldHold).
+-- Events drive the real re-checks; this is the deadline. `_flushing` stops a deferral that runs
+-- straight through (no C_Timer) from re-entering Flush.
+function R:ScheduleRecheck()
+  if self._recheck then return end
+  self._recheck = true
+  local h = NS.After(L.CLAIM_WAIT, function()
+    self._recheck = nil
+    if not self._flushing then self:Flush() end
+  end)
+  if h == nil then self._recheck = nil end
+end
+
+local function clearReadDirty(self)
+  for part in pairs(self.dirty) do
+    if self:IsReadable(part) then self.dirty[part] = nil end
+  end
+end
+
+-- Holders seen in this pass: a warband entry with no genesis gets it now (its first scan), and a
+-- character's `partial` flag is recomputed once its bank has been read.
+local function settleGenesis(snap, now)
+  for holder in pairs(snap) do
+    local e = NS.Holdings:Get(holder)
+    if e and (e.meta.genesis or holder == WARBAND) then NS.Holdings:MarkGenesis(holder, now) end
+  end
+end
+
+local function flushBody(self)
+  local me, now, clock = NS.Util.PlayerKey(), time(), GetTime()
+  L.PruneClaims(self.claims, clock)
+  local snap = self:Scan(me)
+  local plan = self:Plan(snap, me, clock)
+  if self:DecideHold(plan, clock) then
+    self._holdSince = self._holdSince or clock
+    self:ScheduleRecheck()
+    return
+  end
+  self._holdSince = nil
+  for _, step in ipairs(R.COMMIT_STEPS) do step(self, plan, me, clock, now) end
+  local changed = applySnap(snap, now)
+  self:WriteRows(plan, now, clock)
+  clearReadDirty(self)
+  if not self.silent then settleGenesis(snap, now) end
   local e = NS.Holdings:Get(me)
   if e and not e.meta.classFile then e.meta.classFile = Compat.PlayerClassFile() end
   local n = 0
@@ -144,6 +427,15 @@ function R:Flush()
   end
   -- Only a flush that moved something writes a line (debug-logging-§9, quiet steady state).
   if n > 0 and NS.State.debug and NS.Debug then NS.Debug("Holdings", "flush: %d holder(s) changed", n) end
+end
+
+--- Scan, plan, then hold or commit. A part that is not readable (the bank with no banker open)
+--- stays dirty for the next flush; in combat the whole pass waits for the regen edge.
+function R:Flush()
+  if Compat.InCombatLockdown() then self.deferred = true; return end
+  self._flushing = true
+  flushBody(self)
+  self._flushing = nil
 end
 
 --- Genesis for this character, and for the warband when its gold was read (spec §5.6).
@@ -202,6 +494,8 @@ function R:DisableCapture()
   if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
   self.dirty, self.readable = {}, {}
   self.deferred, self._pending, self._genesisPending = nil, nil, nil
+  self.claims, self.recent, self.reasonMemo = {}, {}, {}
+  self._holdSince, self._recheck = nil, nil
   self._enabled = nil
 end
 

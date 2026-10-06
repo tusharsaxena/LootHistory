@@ -299,6 +299,14 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
     end },
 
+  { path = "settings.recordGold", default = PD.settings.recordGold, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", label = "Record gold",
+    tooltip = "Write a History row for every gold gain and loss (loot, vendor, repairs, auction house, " ..
+      "mail, guild bank). Holdings keep counting gold either way.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
+    end },
+
   { path = "settings.excludeQuestItems", default = PD.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
