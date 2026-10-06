@@ -142,6 +142,9 @@ local function makeSuggestRow(parent)
   return b
 end
 
+-- ReleaseAll's per-bar hook: a parked bar must not keep the day it last showed.
+local function clearFlow(bar) bar.flow = nil end
+
 -- A day's column is its own hover region: the frame spans the strip's full height and the day's
 -- width, so the gain bar, the loss bar and the gap between them all hover it, and it is pooled with
 -- the bars it holds. The strip sits below the chart, so this never meets the chart's crosshair.
@@ -295,7 +298,7 @@ function TL:Refresh()
     self.title:SetText(self.chart and "Turn on ledger tracking (Settings, Capture) to see the Timeline." or "")
     self.totalOnlyBtn:Hide()
     if self.chart then self.chart:Clear(); self.emptyMsg:Hide() end
-    NS.Pool.ReleaseAll(self.stripPool); NS.Pool.ReleaseAll(self.legendPool)
+    NS.Pool.ReleaseAll(self.stripPool, clearFlow); NS.Pool.ReleaseAll(self.legendPool)
     self.legendButtons = {}
     self:HideFlowTip()
     return
@@ -365,8 +368,7 @@ local function stripScale(self)
 end
 
 function TL:RenderStrip()
-  NS.Pool.ReleaseAll(self.stripPool)
-  for _, bar in ipairs(self.stripPool.free) do bar.flow = nil end
+  NS.Pool.ReleaseAll(self.stripPool, clearFlow)
   local m = self.model
   local left, pw, px0, px1 = stripScale(self)
   if not (left and pw and pw > 0) then self:RefreshFlowTip(); return end

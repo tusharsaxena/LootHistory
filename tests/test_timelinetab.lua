@@ -10,9 +10,9 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 -- Every window case runs through `case`, which puts back what the plan's snippets would otherwise
 -- leave behind (addenda, Global): the holdings and daily stores, the Rollup key index, the saved
 -- view's `timelineThing` and `timelineTotalOnly` (SetThing materializes the saved view), the session
--- pick, the session hidden-line set, the line cap and the Character scope. It then returns the browser to History and closes it, because a window left
--- on screen keeps repainting under the suites that run next. The chunk has no global `time`, so the
--- seeds read os.time().
+-- pick, the session hidden-line set, the line cap and the Character scope. It then returns the
+-- browser to History and closes it, because a window left on screen keeps repainting under the
+-- suites that run next. The chunk has no global `time`, so the seeds read os.time().
 
 local function case(name, fn)
   test(name, function()

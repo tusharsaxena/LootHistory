@@ -391,10 +391,12 @@ keeps the old size); untick → the grip resizes again and `/reload` keeps the n
 
 **TM-1. Test mode fills Holdings and Timeline too.** `/lh test`, open **Holdings** → sample things
 held by four sample characters and the Warband (expand one to see the holders; the Character list
-offers the same five); open **Timeline** → it opens on Everlight Crystal with lines already drawn,
-and picking Gold draws a line per holder plus Total across about 120 days, and picking another sample
-item (Sunwell Cinder) draws at least two lines. `/lh test` again → both
-tabs are back on your own holdings and Timeline (your own pick, not the sample's), and nothing of the sample is left in either. Result:
+offers the same five); open **Timeline** → with no Timeline pick saved (or one the sample lacks) it
+opens on Everlight Crystal with lines already drawn, while a saved pick the sample holds (e.g. Gold)
+is kept, and picking Gold draws a line per holder plus Total across about 120 days, and picking
+another sample item (Sunwell Cinder) draws at least two lines. `/lh test` again → both tabs are back
+on your own holdings and Timeline (your own pick, not the sample's), and nothing of the sample is
+left in either. Result:
 
 ## Combat
 
