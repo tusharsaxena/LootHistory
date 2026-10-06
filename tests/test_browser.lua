@@ -967,3 +967,113 @@ test("Browser: group options offer Direction and Holder", function()
   for _, o in ipairs(B._groupOptions) do seen[o.value] = true end
   assertTrue(seen.dir and seen.holder)
 end)
+
+-- ── timeline ledger P3: date options, per-tab filters, holders, the remembered pick ────────────
+-- Every case that opens the window does it under visibility "always" (withSettings) and leaves
+-- History selected; savedView and global.holdings are parked and put back.
+
+test("Browser: date options offer 90 days and 1 year after 30 days", function()
+  local vals = {}
+  for _, o in ipairs(NS.Browser._dateOptions) do vals[#vals + 1] = o.value end
+  assertEqual(table.concat(vals, ","), "all,today,7d,30d,90d,1y")
+end)
+
+test("Browser: _filterHonored - no set honors everything, a set honors only its keys", function()
+  local f = NS.Browser._filterHonored
+  assertTrue(f(nil, "bound")); assertTrue(f({}, "bound"))
+  assertTrue(f({ filters = { date = true } }, "date"))
+  assertFalse(f({ filters = { date = true } }, "bound"))
+  assertFalse(f({ filters = { date = true } }, "search"))
+end)
+
+test("Browser: a tab grays the controls it does not honor, and History restores them", function()
+  NS.Browser:RegisterTab{ name = "ZGray", order = 98, filters = { date = true }, build = function() end }
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show()
+    NS.Browser:SelectTab("ZGray")
+    local dd = NS.Browser._dd
+    assertTrue(dd.date:IsEnabled())
+    assertFalse(dd.bound:IsEnabled()); assertFalse(dd.char:IsEnabled()); assertFalse(dd.group:IsEnabled())
+    assertFalse(NS.Browser._search:IsEnabled()); assertFalse(NS.Browser._exportBtn:IsEnabled())
+    assertTrue(dd.bound:IsShown(), "grayed, never hidden: the bar does not reflow between tabs")
+    NS.Browser:SelectTab("History")
+    assertTrue(dd.bound:IsEnabled()); assertTrue(NS.Browser._search:IsEnabled())
+    assertTrue(NS.Browser._exportBtn:IsEnabled())
+  end)
+  NS.Browser:SelectTab("History")
+  NS.Browser:_UnregisterTabForTest("ZGray")
+  NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: the Holdings tab grays Date, Source, Bound, Zone and Group", function()
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show(); NS.Browser:SelectTab("Holdings")
+    local dd = NS.Browser._dd
+    for _, k in ipairs({ "date", "source", "bound", "zone", "group", "dir" }) do
+      assertFalse(dd[k]:IsEnabled(), k .. " is not a Holdings filter")
+    end
+    for _, k in ipairs({ "quality", "type", "subtype", "char" }) do
+      assertTrue(dd[k]:IsEnabled(), k .. " is a Holdings filter")
+    end
+  end)
+  NS.Browser:SelectTab("History")
+  NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: a holders tab lists holders, with the warband as Warband", function()
+  local savedHoldings = NS.db.global.holdings
+  NS.db.global.holdings = {}
+  local ok, err = pcall(function()
+    local W = NS.Constants.WARBAND_HOLDER
+    NS.Holdings:ApplyMoney(W, 5, 1)
+    NS.Holdings:ApplyMoney("Alt-Realm", 5, 1)
+    local labels = {}
+    for _, o in ipairs(NS.Browser._options.char(true)) do labels[o.value] = o.label end
+    assertTrue(labels[W] ~= nil and labels[W]:find("Warband", 1, true) ~= nil)
+    assertTrue(labels["Alt-Realm"] ~= nil)
+    assertTrue(labels["current"] ~= nil, "the Current preset stays")
+  end)
+  NS.db.global.holdings = savedHoldings
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: SetViewField remembers a field with no Save, from a copy of the stock view", function()
+  local p = NS.db.profile
+  local saved = p.savedView
+  p.savedView = nil
+  local ok, err = pcall(function()
+    NS.Browser:SetViewField("timelineThing", "c:3008")
+    assertEqual(NS.Browser:ViewField("timelineThing"), "c:3008")
+    assertEqual(p.savedView.groupBy, NS.Browser._stockView.groupBy, "everything else is stock")
+    assertTrue(p.savedView ~= NS.Browser._stockView, "a copy, never the stock table itself")
+    assertEqual(NS.Browser._stockView.timelineThing, nil)
+  end)
+  p.savedView = saved
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: CaptureView keeps the remembered Timeline pick", function()
+  local p = NS.db.profile
+  local saved = p.savedView
+  p.savedView = nil
+  local ok, err = pcall(function()
+    NS.Browser:SetViewField("timelineThing", "i:7")
+    assertEqual(NS.Browser:CaptureView().timelineThing, "i:7")
+  end)
+  p.savedView = saved
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: DateRange reads the Date dropdown, all when there is none", function()
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show()
+    NS.Browser._dd.date:SelectValue("90d")
+    assertEqual(NS.Browser:DateRange(), "90d")
+    NS.Browser._dd.date:SelectValue("all")
+    assertEqual(NS.Browser:DateRange(), "all")
+  end)
+  NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)

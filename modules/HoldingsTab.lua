@@ -221,5 +221,8 @@ function HT:Disable()
 end
 
 NS.Browser:RegisterTab{ name = "Holdings", order = 40,
+  -- Holdings are current state: no Date, Source, Bound, Zone or grouping applies (spec §8.2).
+  filters = { search = true, quality = true, type = true, subtype = true, char = true },
+  charSource = "holders",
   build = function(pane) HT:Attach(pane) end,
   refresh = function() HT:Refresh() end }

@@ -146,6 +146,7 @@ end
 function B:SelectTab(name)
   if not (frame and tabSpecs[name]) then return end
   lastTab = name
+  B:ApplyTabFilters(name)
   for _, t in ipairs(tabOrder) do
     local active = (t == name)
     frame.panes[t]:SetShown(active)
@@ -158,6 +159,35 @@ function B:SelectTab(name)
   B:UpdateFooter()
   B:UpdateDbSize()
   if NS.State.debug and NS.Debug then NS.Debug("UI", "tab -> %s", tostring(name)) end
+end
+
+-- Per-tab filters (spec §8.0). The bar is one window-wide singleton; a tab that does not honor a
+-- control GRAYS it rather than hiding it, so the bar never reflows when the player switches tabs and
+-- the filter it still holds is visible. A spec with no `filters` set honors every control (History,
+-- Insights). Keys are B._dd's keys plus "search" and "export".
+local GRAY_ALPHA = 0.4
+
+function B._filterHonored(spec, key)
+  if not (spec and spec.filters) then return true end
+  return spec.filters[key] == true
+end
+
+-- SetEnabled where the widget has it (Buttons: the dropdowns, Export); Enable/Disable otherwise
+-- (an EditBox), so a grayed control also stops taking input rather than only looking dim.
+local function setHonored(ctl, on)
+  if not ctl then return end
+  if ctl.SetEnabled then ctl:SetEnabled(on)
+  elseif on and ctl.Enable then ctl:Enable()
+  elseif not on and ctl.Disable then ctl:Disable() end
+  if ctl.SetAlpha then ctl:SetAlpha(on and 1 or GRAY_ALPHA) end
+end
+
+function B:ApplyTabFilters(name)
+  local spec = tabSpecs[name]
+  for key, ctl in pairs(self._dd or {}) do setHonored(ctl, B._filterHonored(spec, key)) end
+  setHonored(self._search, B._filterHonored(spec, "search"))
+  setHonored(self._exportBtn, B._filterHonored(spec, "export"))
+  self:RefreshFilterOptions()
 end
 
 -- Strip on first call, missing buttons, then every button placed by index (late tabs re-flow it).
@@ -251,6 +281,8 @@ local DATE_OPTIONS = {
   { value = "today", label = "Today" },
   { value = "7d", label = "Last 7 days" },
   { value = "30d", label = "Last 30 days" },
+  { value = "90d", label = "Last 90 days" },
+  { value = "1y", label = "Last year" },
 }
 -- Binding-state filter labels + fixed display order. "NONE" matches unbound records (r.bound == nil);
 -- the other tokens match their bound state. Labels mirror the Bound column's tooltip legend
@@ -363,7 +395,7 @@ local function sourceOptions()
   end
   return withAll("Source: All", items)
 end
-local function charOptions()
+local function historyCharItems()
   local seen, items = {}, {}
   for _, r in ipairs(dataset()) do
     local c = r.char
@@ -383,6 +415,28 @@ local function charOptions()
       }
     end
   end
+  return items
+end
+
+-- The Character list for a tab whose rows are HOLDERS rather than history rows (Timeline, Holdings):
+-- every holder the ledger knows, and the warband under the name a player reads, "Warband".
+local function holderCharItems()
+  local items = {}
+  for _, h in ipairs(NS.Holdings and NS.Holdings:Holders() or {}) do
+    local e = NS.Holdings:Get(h)
+    local cf = e and e.meta and e.meta.classFile
+    local icon = (cf and NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
+      and NS.BrowserTable:ClassIconMarkup(cf)) or ""
+    local cc = cf and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cf]
+    local name = NS.LedgerFormat.HolderLabel(h)
+    items[#items + 1] = { value = h, label = (icon ~= "" and (icon .. " " .. name) or name),
+      color = cc and { cc.r, cc.g, cc.b } or nil }
+  end
+  return items
+end
+
+local function charOptions(holdersMode)
+  local items = holdersMode and holderCharItems() or historyCharItems()
   -- Sorted on the character name, not on the icon-prefixed label -- see withAll's `sortText`.
   local opts = withAll("Character: All", items, function(o) return o.value end)
   -- "Character: Current" is a one-click preset (see dd.char.presets below), not a real char value —
@@ -530,6 +584,7 @@ end
 -- these exact functions, so a test that pins their behavior pins the shipped behavior. Read-only
 -- from outside the module — nothing here mutates browser state.
 B._stockView    = STOCK_VIEW
+B._dateOptions  = DATE_OPTIONS
 B._savedViewOrStock = savedViewOrStock
 B._setToFilter  = setToFilter
 B._asSet        = asSet
@@ -563,6 +618,36 @@ function B:CurrentFilter()
   return out
 end
 
+-- The Date dropdown's range KEY ("today", "7d", ...), not its resolved `from`: the Timeline draws
+-- intraday points for Today / 7d only, which a timestamp cannot tell it.
+function B:DateRange()
+  local dd = self._dd
+  return (dd and dd.date and dd.date._value) or "all"
+end
+
+-- One field of the saved view, written without a Save (the Timeline's last pick, spec §8.1). With no
+-- saved view yet, the view is materialized as a COPY of the stock one, which applies exactly as stock
+-- does, so remembering a pick never changes anything else a later Reset or Save would see.
+function B:SetViewField(k, v)
+  local p = NS.db and NS.db.profile
+  if not p then return end
+  if type(p.savedView) ~= "table" then
+    local copy = {}
+    for kk, vv in pairs(STOCK_VIEW) do copy[kk] = vv end
+    p.savedView = copy
+  end
+  p.savedView[k] = v
+end
+
+function B:ViewField(k) return savedViewOrStock()[k] end
+
+-- "Show in Timeline" from a History or Holdings row (spec §8.2).
+function B:ShowTimeline(key)
+  if NS.Timeline and NS.Timeline.SetThing then NS.Timeline:SetThing(key, true) end
+  self:Show()
+  self:SelectTab("Timeline")
+end
+
 function B:UpdateFooter()
   if not self._footer then return end
   local shown = (NS.BrowserTable and NS.BrowserTable.matchCount) or 0
@@ -588,7 +673,8 @@ function B:RefreshFilterOptions()
   dd.source:SetOptions(sourceOptions())
   dd.type:SetOptions(typeOptions())
   dd.subtype:SetOptions(subtypeOptions())
-  dd.char:SetOptions(charOptions())
+  local spec = tabSpecs[lastTab]
+  dd.char:SetOptions(charOptions(spec ~= nil and spec.charSource == "holders"))
   dd.zone:SetOptions(zoneOptions())
 end
 
@@ -669,6 +755,7 @@ function B:CaptureView()
   captureFilters(dd, v)
   v.date   = (dd and dd.date._value) or "all"
   v.search = (self._search and self._search:GetText()) or ""
+  v.timelineThing = savedViewOrStock().timelineThing
   return v
 end
 
@@ -835,6 +922,7 @@ function B:BuildFilterBar(bar)
   -- says WHERE the result lands.
   local exportBtn = makeBarButton(bar, "Export", exportW, function() B:OpenExport() end,
     "Export the current tab — loot rows (History) or the analytics summary (Insights).")
+  self._exportBtn = exportBtn
 
   -- Right cluster (row 1): Save · Reset · Clear, spanning exactly exportW so its right edge sits
   -- flush above Export's. Three buttons + two 6px gaps = exportW: Clear/Reset each take

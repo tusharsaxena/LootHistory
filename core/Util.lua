@@ -43,7 +43,8 @@ end
 
 -- A date-range key → a `from` epoch timestamp (nil = no lower bound / "all"). "today" is the
 -- current calendar day; "7d"/"30d" are rolling windows. Shared by the Browser date filter and
--- the Insights range selector so the two can't drift.
+-- the Insights range selector so the two can't drift. 90d/1y were added for the Timeline (spec
+-- §8.1); History and Insights offer them too, since the filter is one singleton.
 function Util.RangeFrom(range)
   local now = time()
   if range == "today" then
@@ -53,6 +54,10 @@ function Util.RangeFrom(range)
     return now - 7 * 86400
   elseif range == "30d" then
     return now - 30 * 86400
+  elseif range == "90d" then
+    return now - 90 * 86400
+  elseif range == "1y" then
+    return now - 365 * 86400
   end
   return nil
 end

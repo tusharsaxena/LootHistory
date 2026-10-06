@@ -90,7 +90,7 @@ badge and any count quoted in the docs must agree with it.
 - ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 
-### test_util.lua (41)
+### test_util.lua (42)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -133,6 +133,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 - Util: ParseSelfMoney reads looted and shared money
+- Util.RangeFrom: 90d and 1y are rolling windows
 
 ### test_ledger.lua (36)
 
@@ -591,7 +592,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: ledger gains, losses, net and transfers
 - Stats: preLedgerRows counts rows older than ledgerSince
 
-### test_browser.lua (73)
+### test_browser.lua (81)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -666,6 +667,14 @@ badge and any count quoted in the docs must agree with it.
 - Browser: the default view floors items at the minimum-quality setting
 - Browser: the Quality 'all' option names the floor
 - Browser: group options offer Direction and Holder
+- Browser: date options offer 90 days and 1 year after 30 days
+- Browser: _filterHonored - no set honors everything, a set honors only its keys
+- Browser: a tab grays the controls it does not honor, and History restores them
+- Browser: the Holdings tab grays Date, Source, Bound, Zone and Group
+- Browser: a holders tab lists holders, with the warband as Warband
+- Browser: SetViewField remembers a field with no Save, from a copy of the stock view
+- Browser: CaptureView keeps the remembered Timeline pick
+- Browser: DateRange reads the Date dropdown, all when there is none
 
 ### test_browsertable.lua (66)
 
@@ -1468,7 +1477,7 @@ badge and any count quoted in the docs must agree with it.
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
-| test_util.lua | 41 |
+| test_util.lua | 42 |
 | test_ledger.lua | 36 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 56 |
@@ -1485,7 +1494,7 @@ badge and any count quoted in the docs must agree with it.
 | test_escrow.lua | 11 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
-| test_browser.lua | 73 |
+| test_browser.lua | 81 |
 | test_browsertable.lua | 66 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
@@ -1519,4 +1528,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1285** |
+| **Total** | **1294** |
