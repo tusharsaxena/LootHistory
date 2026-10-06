@@ -118,7 +118,8 @@ function NS.StandDown()
   -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
   -- does not touch messages, and this target subscribes to none.
   if NS.addon and NS.addon.UnregisterAllEvents then NS.addon:UnregisterAllEvents() end
-  for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics, NS.HoldingsTab }) do
+  for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics, NS.HoldingsTab,
+                      NS.Rollup }) do
     if m and m.Disable then m:Disable() end
   end
   if NS.Attribution and NS.Attribution.DisableOut then NS.Attribution:DisableOut() end
@@ -147,6 +148,7 @@ function NS.StandUp()
   if NS.Attribution and NS.Attribution.EnableOut then NS.Attribution:EnableOut() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
   if NS.Reconciler and NS.Reconciler.Enable then NS.Reconciler:Enable() end
+  if NS.Rollup and NS.Rollup.Enable then NS.Rollup:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
   if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
   if NS.HoldingsTab and NS.HoldingsTab.Enable then NS.HoldingsTab:Enable() end

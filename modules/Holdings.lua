@@ -4,10 +4,34 @@ NS.Holdings = NS.Holdings or {}
 local Holdings = NS.Holdings
 
 -- The holdings ledger (timeline-ledger spec §4.2): db.global.holdings[holder]. Account-wide; one
--- writer (the Reconciler, through the Apply* calls); every reader goes through this API.
+-- writer (the Reconciler, through the Apply* calls, plus the Credit* writes it makes for an own
+-- alt's transfer or escrow); every reader goes through this API. Every one of those writes reports
+-- each total it changed to the daily rollup (NS.Rollup:NoteClose, timeline-ledger P3), so the
+-- rollup's closes are exactly this store.
 
 local C = NS.Constants
 local WARBAND = C.WARBAND_HOLDER
+
+-- The rollup's close seam (timeline-ledger P3, plan "Phase 2 contract"): every total that changes
+-- here is reported once, after the write, so the Timeline's daily close is exactly this store.
+local function noteClose(holder, key, ts, n)
+  if NS.Rollup and NS.Rollup.NoteClose then NS.Rollup:NoteClose(holder, key, ts, n) end
+end
+
+local function itemTotal(row)
+  local n = 0
+  if row then for _, k in pairs(row) do n = n + k end end
+  return n
+end
+
+-- A holder is partial from genesis until its gate container (bank / warband tabs) is first read;
+-- the Timeline draws that stretch dashed, so the moment it ends is recorded once.
+local function endPartial(e, holder, container, ts)
+  local gate = (holder == WARBAND) and C.Container.TABS or C.Container.BANK
+  if container == gate and e.meta.genesis and e.meta.partial and not e.meta.completeAt then
+    e.meta.partial, e.meta.completeAt = false, ts
+  end
+end
 
 function Holdings:Store()
   local g = NS.db and NS.db.global
@@ -28,34 +52,40 @@ end
 
 function Holdings:ApplyContainer(holder, container, counts, links, ts)
   local e = self:Get(holder, true)
-  local changed = false
+  local touched = {}
   for id, row in pairs(e.items) do
     local want = counts[id]
     if row[container] ~= want then
-      row[container] = want; changed = true
+      row[container] = want; touched[id] = true
       if next(row) == nil then e.items[id] = nil end
     end
   end
   for id, n in pairs(counts) do
     local row = e.items[id]
     if not row then row = {}; e.items[id] = row end
-    if row[container] ~= n then row[container] = n; changed = true end
+    if row[container] ~= n then row[container] = n; touched[id] = true end
   end
   for id, link in pairs(links or {}) do e.links[id] = link end
   e.scanned[container] = ts
   e.meta.lastSeen = ts
+  endPartial(e, holder, container, ts)
+  local changed = false
+  for id in pairs(touched) do
+    changed = true
+    noteClose(holder, "i:" .. id, ts, itemTotal(e.items[id]))
+  end
   return changed
-end
-
-local function sameMap(a, b)
-  for k, v in pairs(a) do if b[k] ~= v then return false end end
-  for k in pairs(b) do if a[k] == nil then return false end end
-  return true
 end
 
 function Holdings:ApplyCurrency(holder, map, ts)
   local e = self:Get(holder, true)
-  local changed = not sameMap(e.currency, map)
+  local old, changed = e.currency, false
+  for id, n in pairs(map) do
+    if old[id] ~= n then changed = true; noteClose(holder, "c:" .. id, ts, n) end
+  end
+  for id in pairs(old) do
+    if map[id] == nil then changed = true; noteClose(holder, "c:" .. id, ts, 0) end
+  end
   e.currency = map
   e.scanned.currency, e.meta.lastSeen = ts, ts
   return changed
@@ -66,6 +96,7 @@ function Holdings:ApplyMoney(holder, copper, ts)
   local changed = e.money ~= copper
   e.money = copper
   e.scanned.money, e.meta.lastSeen = ts, ts
+  if changed then noteClose(holder, "g", ts, copper or 0) end
   return changed
 end
 
@@ -144,6 +175,18 @@ local function describe(key, kind, id, link)
   return { name = name or ("item:" .. id), quality = quality, itemType = itemType, itemSubType = itemSubType, key = key }
 end
 
+-- The display fields for one thing key, for surfaces that hold a key and not a Search row (the
+-- Timeline's title and its picker's rollup-only suggestions). Uses any holder's last-seen link.
+function Holdings:Describe(key)
+  local kind, id = NS.Ledger.ParseThingKey(key)
+  if not kind then return { name = tostring(key) } end
+  local link
+  if kind == "ITEM" then
+    for _, e in pairs(self:Store()) do link = link or (e.links and e.links[id]) end
+  end
+  return describe(key, kind, id, link)
+end
+
 local function setPasses(set, v) return not set or next(set) == nil or (v ~= nil and set[v]) end
 
 function Holdings:Search(filter)
@@ -189,6 +232,7 @@ function Holdings:CreditCurrency(holder, id, qty)
   if not (e and e.scanned.currency) then return false end
   local v = (e.currency[id] or 0) + qty
   e.currency[id] = (v > 0) and v or nil
+  noteClose(holder, "c:" .. id, time(), e.currency[id] or 0)
   return true
 end
 
@@ -213,5 +257,6 @@ function Holdings:CreditEscrow(holder, container, id, qty, own)
     local esc = self:Escrow(holder)
     esc.mailOwn[id] = (esc.mailOwn[id] or 0) + qty
   end
+  noteClose(holder, "i:" .. id, time(), itemTotal(e.items[id]))
   return true
 end

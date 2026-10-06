@@ -259,6 +259,24 @@ badge and any count quoted in the docs must agree with it.
 - Holdings: Search keeps uncached items and filters by holder
 - Holdings: ForgetHolder drops the entry
 
+### test_rollup.lua (15)
+
+- Rollup: a holdings change writes that day's close for the thing that moved
+- Rollup: an unchanged thing writes no cell
+- Rollup: a thing leaving every container closes at 0
+- Rollup: currency and money changes write closes
+- Rollup: the write hook tallies gains and losses; transfers tally nothing
+- Rollup: an amend tallies only its delta, on the day it happens
+- Rollup: the gate container's first scan after genesis ends the partial window
+- Rollup: the warband's gate is its tabs
+- Rollup: wired through the write hook - Database:Add reaches the tally
+- Rollup: Keys indexes every thing in the rollup and learns new ones
+- Rollup: escrow and currency credits write closes too (Phase 2's direct holdings writes)
+- Rollup: Disable removes the write hook
+- Rollup: ForgetHolder drops every cell of that holder
+- Holdings: Describe names a thing by key, Gold included
+- Rollup: the suite restores the shared state it changed
+
 ### test_attribution.lua (37)
 
 - Attribution: Consume returns stamped context within TTL
@@ -1230,10 +1248,11 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 
-### test_disabled.lua (16)
+### test_disabled.lua (17)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
+- slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell
 - slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
 - slash-commands-§7 step 3: an "Export first" re-ask does not pop the reset prompt during NS.StandDown
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
@@ -1429,6 +1448,7 @@ badge and any count quoted in the docs must agree with it.
 | test_compat.lua | 56 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
+| test_rollup.lua | 15 |
 | test_attribution.lua | 37 |
 | test_attribution_out.lua | 12 |
 | test_filters.lua | 19 |
@@ -1459,7 +1479,7 @@ badge and any count quoted in the docs must agree with it.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 29 |
 | test_surface_parity.lua | 14 |
-| test_disabled.lua | 16 |
+| test_disabled.lua | 17 |
 | test_perf.lua | 6 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
@@ -1472,4 +1492,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1246** |
+| **Total** | **1262** |

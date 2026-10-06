@@ -66,7 +66,7 @@ local SUITES = {
   "test_constants", "test_mediasetup", "test_envsetup", "test_poolsetup", "test_itemsetup", "test_util",
   "test_ledger",
   "test_ledgerformat",
-  "test_compat", "test_scanner", "test_holdings", "test_attribution", "test_attribution_out",
+  "test_compat", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
   "test_browser", "test_browsertable", "test_export", "test_debuglog",
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the

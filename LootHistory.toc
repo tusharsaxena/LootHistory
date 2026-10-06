@@ -97,6 +97,7 @@ modules\AttributionOut.lua
 modules\Filters.lua
 modules\Scanner.lua
 modules\Holdings.lua
+modules\Rollup.lua
 modules\Reconciler.lua
 modules\Escrow.lua
 modules\AuctionPrice.lua

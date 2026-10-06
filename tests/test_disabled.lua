@@ -228,6 +228,40 @@ test("slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event a
     setEnabled(true)
   end)
 
+--- A stable text form of a table, keys sorted, for "is this store byte-for-byte what it was".
+local function dump(v)
+  if type(v) ~= "table" then return tostring(v) end
+  local keys = {}
+  for k in pairs(v) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local out = {}
+  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. dump(v[k]) end
+  return "{" .. table.concat(out, ",") .. "}"
+end
+
+test("slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell", function()
+  -- The rollup's write hook (modules/Rollup.lua) is a NS.Database:OnWrite function, not an event or
+  -- message registration, so the survey above cannot see it: this proof is behavioral.
+  -- red under: drop NS.Rollup from NS.StandDown's Disable list -- the hook stays on the Database and
+  -- the stood-down Add below writes an in-tally for A-R.
+  bringUp()
+  local g, h = NS.db.global, NS.db.global.history
+  local savedDaily = g.daily
+  g.daily = {}
+  local n = #h
+  NS.Database:Add({ ts = os.time(), dir = "IN", kind = "GOLD", holder = "A-R", quantity = 1 })
+  assertTrue(next(g.daily) ~= nil, "precondition: with the addon up, the same Add does tally")
+  h[n + 1] = nil
+  g.daily = {}
+  local before = dump(g.daily)
+  setEnabled(false)
+  NS.Database:Add({ ts = os.time(), dir = "IN", kind = "GOLD", holder = "A-R", quantity = 1 })
+  assertEqual(dump(g.daily), before, "a stood-down addon wrote a daily rollup cell")
+  h[n + 1] = nil
+  g.daily = savedDaily
+  setEnabled(true)
+end)
+
 test("slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after", function()
   -- red under: drop the NS.DropLedgerResetOffer call from NS.StandDown -- the one-shot
   -- PLAYER_REGEN_ENABLED target survives and the popup appears from a game event while off.
