@@ -245,12 +245,12 @@ test("Widgets: a selected character with no option row still counts in the colla
 
 -- ── the ten live instances ───────────────────────────────────────────────────────────────────
 
-test("Widgets: the filter bar builds all nine of its dropdowns through the seam", function()
+test("Widgets: the filter bar builds all ten of its dropdowns through the seam", function()
   -- COUNTING THE LIBRARY CALL IS THE WHOLE POINT. "Has a SetOptions method" was also true of the
   -- hand-rolled widget this adoption deleted, so shape alone pins nothing: the case only pins the
   -- SEAM if it can tell a library dropdown from a look-alike. So lib.Dropdown is wrapped for the
-  -- duration of the build and every frame it returns is remembered by identity -- nine calls, and
-  -- each of the nine published fields must be one of the frames the library itself handed back.
+  -- duration of the build and every frame it returns is remembered by identity -- ten calls, and
+  -- each of the ten published fields must be one of the frames the library itself handed back.
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   local stock, built, n = lib.Dropdown, {}, 0
   lib.Dropdown = function(parent, width, opts)
@@ -265,8 +265,8 @@ test("Widgets: the filter bar builds all nine of its dropdowns through the seam"
   if not ok then error(err, 0) end
   local dd = B._dd
   assertTrue(dd ~= nil, "the filter bar must build with the library present")
-  assertEqual(n, 9, "the filter bar must build exactly nine dropdowns through the library")
-  for _, key in ipairs({ "group", "date", "bound", "quality", "type", "subtype",
+  assertEqual(n, 10, "the filter bar must build exactly ten dropdowns through the library")
+  for _, key in ipairs({ "group", "dir", "date", "bound", "quality", "type", "subtype",
                          "source", "zone", "char" }) do
     assertTrue(type(dd[key]) == "table" and type(dd[key].SetOptions) == "function",
       "dd." .. key .. " is not a library dropdown")
@@ -274,7 +274,7 @@ test("Widgets: the filter bar builds all nine of its dropdowns through the seam"
       "dd." .. key .. " was not built by LibKa0s-Widgets-1.0's own Dropdown")
   end
   assertFalse(dd.group.multi, "Group-by is single-select")
-  for _, key in ipairs({ "bound", "quality", "type", "subtype", "source", "zone", "char" }) do
+  for _, key in ipairs({ "dir", "bound", "quality", "type", "subtype", "source", "zone", "char" }) do
     assertEqual(dd[key].multi, true, "dd." .. key .. " must be multi-select")
   end
   assertTrue(dd.char.presets ~= nil and dd.char.presets.current ~= nil,

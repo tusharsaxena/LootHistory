@@ -909,3 +909,61 @@ test("Browser: a registered tab builds lazily and refreshes on select", function
   if not ok then error(err, 0) end
   assertEqual(#NS.Browser:Tabs(), before, "the test tab must leave no trace")
 end)
+
+-- ── Ledger direction + the minimum-quality view floor ──────────────────────────
+-- Each case parks the settings it flips and puts them back, so test order never matters.
+
+test("Browser: the stock view shows gains and losses, transfers per setting", function()
+  local s = NS.db.profile.settings
+  local savedShow = s.showTransfers
+  withFixture(FIXTURE, function()
+    B._dd = nil
+    s.showTransfers = false
+    B:ApplyView(B._stockView, "all")
+    local f = B:CurrentFilter()
+    assertTrue(f.dir.IN and f.dir.OUT); assertEqual(f.dir.MOVE, nil)
+    s.showTransfers = true
+    B:ApplyView(B._stockView, "all")
+    assertTrue(B:CurrentFilter().dir.MOVE)
+    s.showTransfers = false
+    B:ApplyView({ dir = {}, date = "all" }, "all")
+    assertEqual(B:CurrentFilter().dir, nil, "a saved empty set is All")
+  end)
+  s.showTransfers = savedShow
+end)
+
+test("Browser: the default view floors items at the minimum-quality setting", function()
+  local p = NS.db.profile
+  local savedT, savedWl = p.settings.qualityThreshold, p.whitelist
+  withFixture(FIXTURE, function()
+    B._dd = nil
+    p.settings.qualityThreshold = 2
+    p.whitelist = { [42] = true }
+    B:ApplyView(B._stockView, "all")
+    local f = B:CurrentFilter()
+    assertEqual(f.minQuality, 2); assertTrue(f.minQualityExempt[42])
+    B:ApplyView({ quality = { [0] = true }, date = "all" }, "all")
+    assertEqual(B:CurrentFilter().minQuality, nil, "an explicit quality selection replaces the floor")
+  end)
+  p.settings.qualityThreshold, p.whitelist = savedT, savedWl
+end)
+
+test("Browser: the Quality 'all' option names the floor", function()
+  local s = NS.db.profile.settings
+  local savedT = s.qualityThreshold
+  withFixture(FIXTURE, function()
+    s.qualityThreshold = 2
+    local all = B._options.quality()[1]
+    assertEqual(all.value, "all")
+    assertEqual(all.label, "Quality: " .. NS.Item.QualityLabel(2) .. "+")
+    s.qualityThreshold = 0
+    assertEqual(B._options.quality()[1].label, "Quality: All")
+  end)
+  s.qualityThreshold = savedT
+end)
+
+test("Browser: group options offer Direction and Holder", function()
+  local seen = {}
+  for _, o in ipairs(B._groupOptions) do seen[o.value] = true end
+  assertTrue(seen.dir and seen.holder)
+end)

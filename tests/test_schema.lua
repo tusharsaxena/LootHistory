@@ -648,7 +648,7 @@ end)
 local PARTITION = {
   ["General"] = {
     { "Master controls", 8 }, { "Capture", 6 }, { "AH Price", 2 },
-    { "Interface", 2 }, { "History", 1 },
+    { "Interface", 2 }, { "History", 2 },
   },
 }
 

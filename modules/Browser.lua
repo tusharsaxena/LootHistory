@@ -243,6 +243,8 @@ local GROUP_OPTIONS = {
   { value = "source", label = "Group: Source" },
   { value = "zone", label = "Group: Zone" },
   { value = "char", label = "Group: Character" },
+  { value = "dir", label = "Group: Direction" },
+  { value = "holder", label = "Group: Holder" },
 }
 local DATE_OPTIONS = {
   { value = "all", label = "Date: All" },
@@ -259,11 +261,21 @@ local BOUND_LABEL = {
   WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
 }
 local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
+-- Direction filter (timeline-ledger spec §7). Values are the stored `dir` tokens; a legacy row with
+-- no `dir` reads as IN everywhere (Util.RowDir, Database's dirSet match).
+local DIR_OPTIONS = {
+  { value = "all",  label = "Direction: All" },
+  { value = "IN",   label = "Gains" },
+  { value = "OUT",  label = "Losses" },
+  { value = "MOVE", label = "Transfers" },
+}
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
 -- session-only default of "current player"). This is the stock/reset baseline; the user's
 -- saved view lives in the profile, NS.db.profile.savedView. `date` stores the range option (not an absolute
--- `from`) so it recomputes correctly on each load.
+-- `from`) so it recomputes correctly on each load. `dir` is deliberately ABSENT: a view that never
+-- stored one takes the Direction default (defaultDirSet, settings.showTransfers) at apply time, and
+-- the minimum-quality floor (applyQualityFloor) rides on `quality` staying unselected.
 local STOCK_VIEW = {
   groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
   quality = "all", source = "all", itemType = "all", itemSubType = "all", zone = "all",
@@ -441,7 +453,11 @@ local function qualityOptions()
     end
   end
   table.sort(items, function(a, b) return a.value < b.value end)
-  table.insert(items, 1, { value = "all", label = "Quality: All" })
+  -- With a minimum-quality setting above Poor, "all" is not all: the default view floors items at
+  -- it (applyQualityFloor), so the sentinel names the floor rather than promising every row.
+  local t = NS.db and NS.db.profile and NS.db.profile.settings and NS.db.profile.settings.qualityThreshold
+  local allLabel = (type(t) == "number" and t > 0) and ("Quality: " .. NS.Item.QualityLabel(t) .. "+") or "Quality: All"
+  table.insert(items, 1, { value = "all", label = allLabel })
   return items
 end
 -- Distinct binding states present in the dataset (nil → the "NONE" sentinel), kept in the fixed
@@ -479,6 +495,37 @@ local function asSet(v)
   return s
 end
 
+-- The Direction filter's default (spec §7): gains and losses; transfers only when the player asked
+-- for them in settings. Applied to a view that never stored a `dir` (the stock view, and every view
+-- saved before the ledger existed); a stored empty set means "All".
+local function defaultDirSet()
+  local s = NS.db and NS.db.profile and NS.db.profile.settings
+  return { IN = true, OUT = true, MOVE = (s and s.showTransfers) and true or nil }
+end
+
+-- The minimum-quality setting is also the default History view's floor (spec §5.3, F5): items
+-- below it are captured now, but hidden until the player picks qualities explicitly. Whitelisted
+-- ids are exempt, exactly as they were exempt from the capture gate.
+local function applyQualityFloor(f)
+  local p = NS.db and NS.db.profile
+  local t = p and p.settings and p.settings.qualityThreshold
+  if f.quality or type(t) ~= "number" or t <= 0 then
+    f.minQuality, f.minQualityExempt = nil, nil
+  else
+    f.minQuality, f.minQualityExempt = t, p.whitelist
+  end
+end
+
+local VIEW_DEFAULTS = { dir = defaultDirSet }
+
+-- A view field as a selection set: the stored set, or the field's default when the view never
+-- stored one.
+local function viewSet(view, key)
+  local v = view[key]
+  if v == nil and VIEW_DEFAULTS[key] then return VIEW_DEFAULTS[key]() end
+  return asSet(v)
+end
+
 -- Pure helpers published for the headless suite (tests/test_browser.lua). The UI binds through
 -- these exact functions, so a test that pins their behavior pins the shipped behavior. Read-only
 -- from outside the module — nothing here mutates browser state.
@@ -487,6 +534,9 @@ B._savedViewOrStock = savedViewOrStock
 B._setToFilter  = setToFilter
 B._asSet        = asSet
 B._withAll      = withAll
+B._groupOptions = GROUP_OPTIONS
+B._defaultDirSet = defaultDirSet
+B._applyQualityFloor = applyQualityFloor
 B._options = {
   source = sourceOptions, char = charOptions, itemType = typeOptions,
   itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
@@ -580,13 +630,15 @@ function B:SetCharSet(set)
   ApplyFilter()
 end
 
--- The six multi-select column filters, as { view key, dropdown key } in the order the widgets are
--- laid out. One ordered descriptor drives all three passes — capture, the dropdown push and the
--- filter resolution — so a seventh column filter is one entry here rather than three edits. The
--- activeFilter key IS the view key for all six, which is why one list serves them all.
+-- The seven multi-select filters (six column filters plus Direction), as { view key, dropdown key }
+-- in the order the widgets are laid out. One ordered descriptor drives all three passes — capture,
+-- the dropdown push and the filter resolution — so another filter is one entry here rather than
+-- three edits. The activeFilter key IS the view key for all seven, which is why one list serves
+-- them all. A field with a VIEW_DEFAULTS entry (Direction) takes that default when a view never
+-- stored it.
 local VIEW_FILTERS = {
   { "quality", "quality" }, { "itemType", "type" }, { "itemSubType", "subtype" },
-  { "source", "source" }, { "zone", "zone" }, { "bound", "bound" },
+  { "source", "source" }, { "zone", "zone" }, { "bound", "bound" }, { "dir", "dir" },
 }
 
 -- The table's own group/sort state. With no table yet (headless, pre-UI) every field reads its
@@ -639,7 +691,7 @@ local function applyDropdowns(dd, view)
   dd.group:SelectValue(view.groupBy or "none")
   for i = 1, #VIEW_FILTERS do
     local f = VIEW_FILTERS[i]
-    dd[f[2]]:SetSelected(asSet(view[f[1]]))
+    dd[f[2]]:SetSelected(viewSet(view, f[1]))
   end
   dd.date:SelectValue(view.date or "all")
 end
@@ -649,8 +701,9 @@ end
 local function resolveFilter(self, view)
   for i = 1, #VIEW_FILTERS do
     local vk = VIEW_FILTERS[i][1]
-    self.activeFilter[vk] = setToFilter(asSet(view[vk]))
+    self.activeFilter[vk] = setToFilter(viewSet(view, vk))
   end
+  applyQualityFloor(self.activeFilter)
   if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
   if view.search and view.search ~= "" then self.activeFilter.text = view.search end
 end
@@ -728,13 +781,13 @@ end
 -- once in EnsureFrame, above both tab panes, so a single filter drives the History table AND the
 -- Insights charts. The footer is shared window chrome too (built in EnsureFrame); this function
 -- owns only the two rows of controls:
---   Row 1: Group by · [search…] · Save · Reset · Clear
+--   Row 1: Group by · Direction · [search…] · Save · Reset · Clear
 --   Row 2: column filters in table order — Date · Bound · Quality · Type · SubType · Source ·
 --          Zone · Character · Export
 function B:BuildFilterBar(bar)
   local ROW1, ROW2 = 0, -24
 
-  -- REFUSE TO DRAW rather than build dead controls. The nine dropdowns below are the whole point
+  -- REFUSE TO DRAW rather than build dead controls. The ten dropdowns below are the whole point
   -- of this bar, and NS.MakeDropdown answers nil on an install with no LibKa0s: a bar of buttons
   -- that open no menu is strictly worse than no bar. The FIRST dropdown is the probe -- one real
   -- control, not a throwaway -- and `self._dd` is published only once it exists, so it stays nil
@@ -745,7 +798,7 @@ function B:BuildFilterBar(bar)
   if not dd.group then return end
   self._dd = dd
 
-  -- ── Row 1: Group by · Search · Clear ──
+  -- ── Row 1: Group by · Direction · Search · Clear ──
   -- Group width matches the Date dropdown directly below it (120); the Save+Reset+Clear cluster is
   -- anchored above the Export button (not the bar's right edge) and resized so its span (three
   -- buttons + two 6px gaps) exactly matches Export's width (B:ExportWidth), so the cluster sits
@@ -754,6 +807,18 @@ function B:BuildFilterBar(bar)
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
   dd.group.onSelect = function(v) if NS.BrowserTable then NS.BrowserTable:SetGroupBy(v) end end
+
+  -- Direction (multi-select), between Group and Search: row 2's span is the toolbar's width floor
+  -- (DROPDOWNS_W), so a ninth row-2 dropdown would widen the minimum window by 104 px; row 1's
+  -- search box absorbs it instead.
+  dd.dir = NS.MakeDropdown(bar, 104)
+  dd.dir:SetPoint("LEFT", dd.group, "RIGHT", 8, 0)
+  dd.dir:SetMulti(true)
+  dd.dir:SetOptions(DIR_OPTIONS)
+  dd.dir.onMultiSelect = function(set)
+    B.activeFilter.dir = setToFilter(set)
+    ApplyFilter()
+  end
 
   -- Export button is created here (row 1, ahead of its row-2 position further down) so the
   -- Save/Reset/Clear cluster below can anchor its top-right corner to it; SetPoint only needs the
@@ -785,14 +850,14 @@ function B:BuildFilterBar(bar)
     "Save the current group, sort and filters as your default view.")
   saveBtn:SetPoint("RIGHT", resetBtn, "LEFT", -6, 0)
 
-  -- Item-name search box (row 1). Its LEFT sits beside Group; its RIGHT is pinned to the row-2
+  -- Item-name search box (row 1). Its LEFT sits beside Direction; its RIGHT is pinned to the row-2
   -- Character dropdown's right edge below it (set once dd.char exists) so the two right edges stay
   -- aligned at every window width — top-corner anchoring keeps the box in row 1 despite the
   -- row-2 reference (the -ROW2 y-offset lifts it back up). The Save/Reset/Clear cluster sits to
   -- its right; the min window width guarantees they never overlap.
   local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   search:SetHeight(20)
-  search:SetPoint("TOPLEFT", dd.group, "TOPRIGHT", 8, 0)
+  search:SetPoint("TOPLEFT", dd.dir, "TOPRIGHT", 8, 0)
   search:SetAutoFocus(false)
   search:SetFontObject("GameFontHighlightSmall")
   search:SetTextInsets(6, 6, 0, 0)
@@ -842,6 +907,7 @@ function B:BuildFilterBar(bar)
   dd.quality:SetOptions(qualityOptions())
   dd.quality.onMultiSelect = function(set)
     B.activeFilter.quality = setToFilter(set)
+    applyQualityFloor(B.activeFilter)
     ApplyFilter()
   end
 
@@ -1245,6 +1311,12 @@ function B:OnSettingsChanged()
   -- "Minimap button" row, and that row's set drives NS.Launcher:SetShown through this addon's
   -- single write seam (settings/Schema.lua) the instant it is flipped -- so re-asserting it on
   -- every unrelated chrome message would be a second writer of one state (launcher-§3).
+  -- The minimum-quality floor follows the setting live while the window is up.
+  if frame and frame:IsShown() and B.activeFilter then
+    applyQualityFloor(B.activeFilter)
+    if B._dd and B._dd.quality then B._dd.quality:SetOptions(qualityOptions()) end
+    ApplyFilter()
+  end
 end
 
 -- Keep the browser current when the underlying history changes (new loot, a row delete, retention

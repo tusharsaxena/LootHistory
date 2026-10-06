@@ -19,7 +19,7 @@ test("BrowserTable: CellText renders each column", function()
   local r = { ts = 1000, itemName = "Sword", quantity = 3, quality = 4,
               source = "KILL", zone = "Valley", char = "Ka0z-Realm" }
   assertEqual(cell("item", r), "Sword")
-  assertEqual(cell("qty", r), "3")
+  assertEqual(cell("qty", r), "+3")
   assertEqual(cell("quality", r), "Epic")
   assertEqual(cell("source", r), "Kill")
   assertEqual(cell("zone", r), "Valley")
@@ -298,20 +298,21 @@ test("BrowserTable: auction column shows the picked price from the map", functio
   NS.db.profile.settings.auction = nil
 end)
 
-test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1220)", function()
+test("BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1246)", function()
   -- R4-6 narrowed Date 76→66 and Time 38→32 (−16px), dropping the column-derived floor to 1196;
   -- widening Vendor Price and Auction Price 72→80 (+16px total) restored it to 1212. Time then went
   -- back to 40 — BankLedger's width for the same column, and the width "Time" plus a sort arrow
-  -- actually needs — which is the +8 that makes this 1220. Comfortably past the old 1160 toolbar
+  -- actually needs — which is the +8 that made it 1220. The ledger's Direction column (18 wide plus
+  -- its 8px gap) makes it 1246. Comfortably past the old 1160 toolbar
   -- floor and wide enough for the money columns. B:MinWidth() takes the wider of this and the
   -- toolbar-fit floor (TOOLBAR_MIN 1116), and the static Export button fills the slack to the bar's
-  -- right edge: (1220-12) - (976+8) = 224.
-  assertEqual(NS.BrowserTable:MinFrameWidth(), 1220)
+  -- right edge: (1246-12) - (976+8) = 250.
+  assertEqual(NS.BrowserTable:MinFrameWidth(), 1246)
   assertTrue(NS.BrowserTable:MinFrameWidth() >= 1160,
     "AH column must keep the frame past the old 1160 floor")
-  assertEqual(NS.Browser:MinWidth(), 1220)
+  assertEqual(NS.Browser:MinWidth(), 1246)
   assertTrue(NS.Browser:MinWidth() >= 1116, "must be at least the toolbar-fit floor")
-  assertEqual(NS.Browser:ExportWidth(), 224)
+  assertEqual(NS.Browser:ExportWidth(), 250)
 end)
 
 test("BrowserTable: quality column is blank for a currency row", function()
@@ -522,7 +523,7 @@ test("BrowserTable: the auction column is blank when no price map was captured",
 end)
 
 test("BrowserTable: quantity defaults to 1 when a record omits it", function()
-  assertEqual(cell("qty", {}), "1")
+  assertEqual(cell("qty", {}), "+1")
 end)
 
 test("BrowserTable: type and subtype cells are blank rather than nil-crashing", function()
@@ -884,4 +885,36 @@ test("Test mode: Reset all settings and /lh resetall both end it", function()
     for k in pairs(p) do p[k] = nil end
     for k, v in pairs(saved) do p[k] = v end
   end)
+end)
+
+test("BrowserTable: a Direction column follows Time and draws in the mono face", function()
+  local cols = NS.BrowserTable.COLUMNS
+  assertEqual(cols[2].key, "time"); assertEqual(cols[3].key, "dir")
+  assertTrue(cols[3].mono)
+  assertEqual(cols[3].valueFn({ dir = "MOVE" }), NS.Constants.DirGlyph.MOVE)
+end)
+
+test("BrowserTable: the Qty column shows signed quantities", function()
+  local qty
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do if c.key == "qty" then qty = c end end
+  assertEqual(qty.valueFn({ quantity = 2, dir = "OUT" }), "-2")
+  assertEqual(qty.sortFn({ quantity = 2, dir = "OUT" }), -2)
+end)
+
+test("BrowserTable: group by Direction and by Holder", function()
+  local BT = NS.BrowserTable
+  local saved = BT.groupBy
+  local rows = { { dir = "OUT", char = "A-Realm" }, { char = "A-Realm" },
+                 { dir = "MOVE", char = "A-Realm", holder = "§warband" } }
+  BT.groupBy = "dir"
+  local labels = {}
+  for _, e in ipairs(BT:GroupRecords(rows)) do if e.kind == "header" then labels[#labels + 1] = e.label end end
+  table.sort(labels)
+  assertEqual(table.concat(labels, "|"), "Direction: Gain|Direction: Loss|Direction: Transfer")
+  BT.groupBy = "holder"
+  labels = {}
+  for _, e in ipairs(BT:GroupRecords(rows)) do if e.kind == "header" then labels[#labels + 1] = e.label end end
+  table.sort(labels)
+  assertEqual(table.concat(labels, "|"), "Holder: A-Realm|Holder: Warband")
+  BT.groupBy = saved
 end)

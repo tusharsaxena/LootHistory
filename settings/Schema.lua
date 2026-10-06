@@ -277,8 +277,10 @@ local ROWS = {
   -- gate pairs with "Record currency" on the first line, "Exclude quest items" opens the second,
   -- and the wide source picker lands under both from `afterGroup`.
   { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
-    page = "General", group = "Capture", label = "Minimum quality", values = C.QUALITY_OPTIONS,
-    tooltip = "Only record items at or above this quality.",
+    page = "General", group = "Capture", label = "Minimum quality (detailed records)", values = C.QUALITY_OPTIONS,
+    tooltip = "Items at or above this quality get a detailed loot record (source, zone, encounter). " ..
+      "Every item is still tracked in the ledger; History hides items below this quality until you " ..
+      "pick qualities in its Quality filter.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "quality") end
     end },
@@ -394,8 +396,9 @@ local ROWS = {
   -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
   -- and leaves; the Filters tab that follows it on the strip declares no rows at all. Called
   -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
-  -- Maintenance, which named the chore rather than the subject. ONE stored row, and it is the sanctioned exemption from the two-controls-per-tab rule:
-  -- the rest of the tab is bespoke — the live storage readout and "Purge history…" — controls with
+  -- Maintenance, which named the chore rather than the subject. It held ONE stored row until the
+  -- ledger added "Show transfers by default", and was the sanctioned exemption from the
+  -- two-controls-per-tab rule (the exemption is now harmless; it stays): the rest of the tab is bespoke — the live storage readout and "Purge history…" — controls with
   -- no path, which no partition test can count. tests/test_schema.lua exempts it BY NAME.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
   -- button now, which is where options-ui-§15 puts the global reset.)
@@ -421,6 +424,15 @@ local ROWS = {
     end,
     -- Confirm-gated when it would delete anything: S:OnRetentionChanged, below.
     onChange = function(value) S:OnRetentionChanged(value) end },
+  -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
+  -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
+  { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
+    page = "General", group = "History", label = "Show transfers by default",
+    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
+      "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
+    end },
 }
 
 -- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared

@@ -97,6 +97,7 @@ modules\Reconciler.lua
 modules\Escrow.lua
 modules\AuctionPrice.lua
 modules\Collector.lua
+modules\LedgerFormat.lua
 modules\Browser.lua
 modules\BrowserTable.lua
 modules\Export.lua

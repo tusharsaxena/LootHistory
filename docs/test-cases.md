@@ -165,6 +165,14 @@ badge and any count quoted in the docs must agree with it.
 - Ledger: PickReason — currency source names map before scopes
 - Ledger: CurrencyReason maps known enum member names, nil otherwise
 
+### test_ledgerformat.lua (5)
+
+- LedgerFormat: glyph and color per direction, legacy reads as a gain
+- LedgerFormat: quantity text is signed; transfers unsigned; gold as money
+- LedgerFormat: gold quantity is pale gold; others take the direction color
+- LedgerFormat: signed count and money; zero is a gray dash
+- LedgerFormat: the warband holder reads as Warband
+
 ### test_compat.lua (55)
 
 - Compat: DecodeGUID creature → kind + npcID
@@ -547,7 +555,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: ledger gains, losses, net and transfers
 - Stats: preLedgerRows counts rows older than ledgerSince
 
-### test_browser.lua (69)
+### test_browser.lua (73)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -618,8 +626,12 @@ badge and any count quoted in the docs must agree with it.
 - browser: the History grip is Core.MakeResizable, not a hand-rolled copy
 - Browser: tab registry orders History, Insights, then registered tabs
 - Browser: a registered tab builds lazily and refreshes on select
+- Browser: the stock view shows gains and losses, transfers per setting
+- Browser: the default view floors items at the minimum-quality setting
+- Browser: the Quality 'all' option names the floor
+- Browser: group options offer Direction and Holder
 
-### test_browsertable.lua (63)
+### test_browsertable.lua (66)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -639,7 +651,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
 - BrowserTable: auction column shows the picked price from the map
-- BrowserTable: MinFrameWidth accounts for the AH column (>= 1220)
+- BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1246)
 - BrowserTable: quality column is blank for a currency row
 - BrowserTable: group keys are namespaced, so a zone can share a source's name
 - BrowserTable: a missing zone/character/type groups under 'Unknown'
@@ -684,6 +696,9 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a refused start prints one line and leaves the box unticked
 - Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
+- BrowserTable: a Direction column follows Time and draws in the mono face
+- BrowserTable: the Qty column shows signed quantities
+- BrowserTable: group by Direction and by Holder
 
 ### test_export.lua (30)
 
@@ -1353,7 +1368,7 @@ badge and any count quoted in the docs must agree with it.
 - Widgets: the Character preset row lights up through its own isActive
 - Widgets: the Character preset is a one-click 'only me', not a toggle of its own value
 - Widgets: a selected character with no option row still counts in the collapsed label
-- Widgets: the filter bar builds all nine of its dropdowns through the seam
+- Widgets: the filter bar builds all ten of its dropdowns through the seam
 - Widgets: the Character options fold the class icon into the label, not into an icon field
 - Widgets: the History window's OnHide closes the shared popup
 - Widgets: Browser:Hide closes the shared popup
@@ -1375,6 +1390,7 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 7 |
 | test_util.lua | 41 |
 | test_ledger.lua | 28 |
+| test_ledgerformat.lua | 5 |
 | test_compat.lua | 55 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
@@ -1388,8 +1404,8 @@ badge and any count quoted in the docs must agree with it.
 | test_escrow.lua | 8 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
-| test_browser.lua | 69 |
-| test_browsertable.lua | 63 |
+| test_browser.lua | 73 |
+| test_browsertable.lua | 66 |
 | test_export.lua | 30 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1420,4 +1436,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1202** |
+| **Total** | **1214** |

@@ -157,6 +157,9 @@ local function charDisplay(r)
   return icon ~= "" and (icon .. " " .. name) or name
 end
 
+-- Direction column sort order: gains, then losses, then transfers (C.DirOrder).
+local DIR_RANK = { IN = 1, OUT = 2, MOVE = 3 }
+
 -- Column model. width 0 + flex=true means "absorb the remaining width" (the Item column).
 -- Order note: the Character column is intentionally LAST, and Vendor second-last. Any new
 -- columns (AH price, Pawn, …) should be inserted BEFORE Character so it stays the last column.
@@ -174,6 +177,12 @@ BrowserTable.COLUMNS = {
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
+  -- Direction (timeline-ledger spec §7). The glyphs exist only in the mono face (`mono`, BuildRow);
+  -- the default font draws them as boxes. Color comes from BindRow.
+  { key = "dir", label = "", width = 18, align = "CENTER", mono = true,
+    desc = "Direction: green up = gain, red down = loss, gray arrows = transfer between your own containers or characters.",
+    valueFn = function(r) return NS.LedgerFormat.Glyph(NS.Util.RowDir(r)) end,
+    sortFn = function(r) return DIR_RANK[NS.Util.RowDir(r)] or 0 end },
   { key = "ilvl", label = "iLvl", width = 34, align = "RIGHT",
     desc = "Item level (equippable gear only).",
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
@@ -192,9 +201,9 @@ BrowserTable.COLUMNS = {
     end,
     sortFn = function(r) return (r.itemName or ""):lower() end },
   { key = "qty", label = "Qty", width = 34, align = "RIGHT",
-    desc = "Quantity looted in this event.",
-    valueFn = function(r) return tostring(r.quantity or 1) end,
-    sortFn = function(r) return r.quantity or 1 end },
+    desc = "Quantity: + gained, - lost, unsigned for a transfer. Gold rows show the amount.",
+    valueFn = function(r) return NS.LedgerFormat.QtyText(r) end,
+    sortFn = function(r) return NS.LedgerFormat.SignedQty(r) end },
   { key = "quality", label = "Quality", width = 64, align = "LEFT",
     desc = "Item quality (Poor → Legendary).",
     valueFn = function(r) return r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "" end,
@@ -243,7 +252,7 @@ BrowserTable.sortAsc = false
 
 -- Columns whose sortFn yields a number. New sort on these starts descending (largest/
 -- newest first); text columns start ascending (A→Z). Re-clicking a column toggles.
-local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, quality = true, vendor = true, auction = true }
+local NUMERIC_SORT = { date = true, time = true, dir = true, ilvl = true, qty = true, quality = true, vendor = true, auction = true }
 
 -- The default WoW font has no ▲/▼/▶ glyphs, so all arrows use inline texture markup instead.
 -- ":0" sizes the texture to the surrounding line height.
@@ -296,6 +305,14 @@ local GROUP_OF = {
   day = function(r)
     return date("%Y-%m-%d", r.ts or 0), NS.Util.FormatDate(r.ts or 0)
   end,
+  dir = function(r)
+    local d = NS.Util.RowDir(r)
+    return d, C.DirLabel[d] or d
+  end,
+  holder = function(r)
+    local h = NS.Util.RowHolder(r) or "Unknown"
+    return h, NS.LedgerFormat.HolderLabel(h)
+  end,
 }
 
 -- Group identity + display label for a record under the active group-by. The key is
@@ -310,8 +327,10 @@ end
 
 -- groupBy mode → the table column it corresponds to (drives the header arrow + group-order
 -- toggle) and the human prefix shown in each group header ("Quality: Poor").
-local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", type = "type", day = "date" }
-local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", type = "Type", day = "Day" }
+local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", type = "type", day = "date",
+                       dir = "dir" }
+local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", type = "Type", day = "Day",
+                       dir = "Direction", holder = "Holder" }
 
 -- Synthetic dataset for /lh test. A deliberately NON-uniform spread so the Insights charts read
 -- like real play: weighted-random sources/qualities/classes/zones/types/timestamps, a handful of
@@ -791,6 +810,7 @@ function BrowserTable:BuildRow()
     fs:SetJustifyH(col.align)
     fs:SetHeight(rowHeight())
     fs:SetWordWrap(false)
+    if col.mono then fs:SetFont(C.FONT_MONO, 12, "") end
     row.cells[col.key] = fs
   end
 
@@ -1144,6 +1164,10 @@ function BrowserTable:BindRow(row, entry, absIndex)
     elseif col.key == "char" then
       local cc = RAID_CLASS_COLORS and r.classFile and RAID_CLASS_COLORS[r.classFile]
       if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
+    elseif col.key == "dir" then
+      fs:SetTextColor(NS.LedgerFormat.Color(NS.Util.RowDir(r)))
+    elseif col.key == "qty" then
+      fs:SetTextColor(NS.LedgerFormat.QtyColor(r))
     else
       fs:SetTextColor(0.9, 0.9, 0.9)
     end
