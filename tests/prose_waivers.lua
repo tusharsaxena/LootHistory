@@ -10,6 +10,7 @@ return {
     -- reason map keys on, and the spelling of Blizzard's own enUS AUCTION_REMOVED_MAIL_SUBJECT
     -- ("Auction cancelled: %s"). Game data, not authored prose.
     ["core/Compat.lua"] = { cancelled = true },
+    ["docs/compat-layer.md"] = { cancelled = true },   -- the shim row quotes the returned kind
     -- The mock mirrors the same two game strings: that subject text and the Enum member name.
     ["tests/wow_mock.lua"] = { cancelled = true, fulfil = true },
   },
