@@ -427,22 +427,54 @@ function Database:Count()
   return #NS.db.global.history
 end
 
--- Append a record to the account-wide history; fire RecordAdded; return its index.
+-- Per-row write hooks (timeline-ledger spec §4.3): the daily rollup (Phase 3) and any later
+-- per-row accountant register here and are called SYNCHRONOUSLY for every row this module writes
+-- or amends, with the quantity that changed. Synchronous on purpose: a bus message would let a
+-- receiver see the row after a later amend, and the rollup's in/out cells must add each delta once.
+local writeHooks = {}
+
+function Database:OnWrite(fn)
+  writeHooks[#writeHooks + 1] = fn
+  return fn
+end
+
+function Database:RemoveWriteHook(fn)
+  for i = #writeHooks, 1, -1 do if writeHooks[i] == fn then table.remove(writeHooks, i) end end
+end
+
+local function runWriteHooks(record, delta, isNew)
+  for i = 1, #writeHooks do writeHooks[i](record, delta, isNew) end
+end
+
+-- Append a record to the account-wide history; run the write hooks; fire RecordAdded; return its index.
 function Database:Add(record)
   local history = NS.db.global.history
   history[#history + 1] = record
   local index = #history
+  runWriteHooks(record, record.quantity or 1, true)
   if NS.bus then
     NS.bus:SendMessage(NS.MSG.RECORD_ADDED, record, index)
   end
   return index
 end
 
+-- Grow an existing row in place (the Reconciler's 60 s coalescing, spec §5.5). RecordAdded is sent
+-- again with the same (record, index): every receiver is a coalesced repaint, never a counter.
+function Database:Amend(index, addQty)
+  local r = NS.db.global.history[index]
+  if not r or not addQty or addQty == 0 then return nil end
+  r.quantity = (r.quantity or 1) + addQty
+  runWriteHooks(r, addQty, false)
+  if NS.bus then NS.bus:SendMessage(NS.MSG.RECORD_ADDED, r, index) end
+  return r
+end
+
 -- Filter an arbitrary record array by the filter spec. Fields, all optional (AND-combined).
 -- source/char/itemType/zone each accept a scalar (equality) OR a set table (membership, for
 -- the Browser's multi-select filters); quality accepts a number (EXACT match) or a set table.
 --   quality · source · char · itemType · zone · from/to (ts, inclusive) · text (case-
---   insensitive substring on itemName). Empty/nil filter returns all.
+--   insensitive substring on itemName) · dir · minQuality · minQualityExempt. Empty/nil filter
+--   returns all.
 -- `zone` matches the zone NAME, not mapID: one named zone spans many UiMapIDs (each dungeon floor
 -- and sub-map carries its own), so an id-keyed filter splits a single zone into several. A record
 -- with no captured name matches the empty string — the "Unknown" bucket.
@@ -509,6 +541,17 @@ local function matchRange(r, boundSet, from, to, text)
   return true
 end
 
+-- The ledger clauses (timeline-ledger spec §7): direction (a legacy row has no `dir` and is a gain)
+-- and the default view's min-quality floor, which applies to ITEM rows only — currency never had
+-- the quality gate and gold has no quality — and never to a whitelisted id.
+local function matchLedger(r, dirSet, minQ, exempt)
+  if dirSet and not dirSet[r.dir or "IN"] then return false end
+  if minQ and r.itemID ~= nil and (r.quality or 0) < minQ and not (exempt and exempt[r.itemID]) then
+    return false
+  end
+  return true
+end
+
 -- Compile a filter into a query plan, ONCE PER CALL. Every clause is normalized to the exact form
 -- the loop wants — a membership set, a number, or nil for unfiltered — and each of the three groups
 -- carries a flag saying whether anything in it is filtered at all, so an unfiltered group costs one
@@ -536,10 +579,14 @@ local function compileFilter(filter)
     from     = filter.from,
     to       = filter.to,
     text     = filter.text and filter.text:lower(),
+    dirSet   = membershipSet(filter.dir),
+    minQ     = type(filter.minQuality) == "number" and filter.minQuality or nil,
+    minQEx   = type(filter.minQualityExempt) == "table" and filter.minQualityExempt or nil,
   }
   p.anyQ      = p.qSet or p.qExact
   p.anyScalar = p.srcSet or p.chrSet or p.itypeSet or p.isubSet or p.zoneSet
   p.anyRange  = p.boundSet or p.from or p.to or p.text
+  p.anyLedger = p.dirSet or p.minQ
   return p
 end
 
@@ -555,12 +602,14 @@ function Database:QueryList(records, filter)
   local qSet, qExact = p.qSet, p.qExact
   local srcSet, chrSet, itypeSet, isubSet, zoneSet = p.srcSet, p.chrSet, p.itypeSet, p.isubSet, p.zoneSet
   local boundSet, from, to, text = p.boundSet, p.from, p.to, p.text
+  local anyLedger, dirSet, minQ, minQEx = p.anyLedger, p.dirSet, p.minQ, p.minQEx
 
   local out = {}
   for _, r in ipairs(records) do
     if (not anyQ or matchQuality(r, qSet, qExact))
         and (not anyScalar or matchScalarOrSet(r, srcSet, chrSet, itypeSet, isubSet, zoneSet))
-        and (not anyRange or matchRange(r, boundSet, from, to, text)) then
+        and (not anyRange or matchRange(r, boundSet, from, to, text))
+        and (not anyLedger or matchLedger(r, dirSet, minQ, minQEx)) then
       out[#out + 1] = r
     end
   end
@@ -586,6 +635,8 @@ function Database:Export(filter)
       quantity = r.quantity,
       source = r.source or "OTHER", sourceDetail = r.sourceDetail and NS.Util.DeepCopy(r.sourceDetail),
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
+      dir = NS.Util.RowDir(r), kind = NS.Util.RowKind(r), holder = NS.Util.RowHolder(r),
+      from = r.from, to = r.to, claimed = r.claimed,
     }
   end
   return out
@@ -621,6 +672,35 @@ local function newAccumulator()
     -- accumulateTime's per-pass memo: floor(ts / 900) -> { day, hour, wday }. Scratch, not output.
     timeMemo = {},
   }
+end
+
+-- The ledger half of a Stats pass (timeline-ledger spec §6). Every row lands here; only gains of
+-- items and currency also feed the legacy breakdowns, so their meaning does not change.
+local function newLedger()
+  return {
+    gainedCount = 0, lostCount = 0, movedCount = 0, gainedValue = 0, lostValue = 0,
+    reasonIn = {}, reasonOut = {}, valueReasonIn = {}, valueReasonOut = {},
+    charIn = {}, charOut = {}, kindIn = {}, kindOut = {}, goldIn = 0, goldOut = 0,
+    preLedgerRows = 0,
+  }
+end
+
+local function accumulateLedger(L, dir, kind, qty, value, src, ch)
+  if dir == "MOVE" then L.movedCount = L.movedCount + 1; return end
+  local v = (kind == "GOLD") and qty or value
+  local gain = dir ~= "OUT"
+  local reasons, values, chars, kinds =
+    gain and L.reasonIn or L.reasonOut, gain and L.valueReasonIn or L.valueReasonOut,
+    gain and L.charIn or L.charOut, gain and L.kindIn or L.kindOut
+  if gain then L.gainedCount, L.gainedValue = L.gainedCount + 1, L.gainedValue + v
+  else L.lostCount, L.lostValue = L.lostCount + 1, L.lostValue + v end
+  reasons[src] = (reasons[src] or 0) + 1
+  values[src] = (values[src] or 0) + v
+  if ch then chars[ch] = (chars[ch] or 0) + v end
+  kinds[kind] = (kinds[kind] or 0) + 1
+  if kind == "GOLD" then
+    if gain then L.goldIn = L.goldIn + qty else L.goldOut = L.goldOut + qty end
+  end
 end
 
 -- Highlights: best gear (max itemLevel, ties → higher quality) + richest single drop. Ties keep the
@@ -816,27 +896,43 @@ end
 function Database:Stats(filter)
   local records = self:Query(filter or {})
   local A = newAccumulator()
+  local L = newLedger()
+  local since = NS.db and NS.db.global and NS.db.global.ledgerSince
+  local loot = 0
 
   for _, r in ipairs(records) do
     local qty = r.quantity or 1
-    local value = (NS.Util.RecordValue(r) or 0) * qty
-    local isCurrency = r.currencyID ~= nil
-    local ch = r.char
+    -- Inline legacy defaults (NS.Util.RowDir/RowKind) — no per-record call on the read path.
+    local dir = r.dir or "IN"
+    local kind = r.kind or ((r.itemID == nil and r.currencyID ~= nil) and "CURRENCY" or "ITEM")
+    -- A currency row carries no vendor/auction price, so its value was always 0; gold is valued in
+    -- copper by accumulateLedger, never here.
+    local value = (kind == "ITEM") and (NS.Util.RecordValue(r) or 0) * qty or 0
     -- `src` is read for the currency charts too, which is why it is resolved out here.
     local src = r.source or "OTHER"
+    local ch = r.char
+    accumulateLedger(L, dir, kind, qty, value, src, ch)
+    if since and r.ts and r.ts < since then L.preLedgerRows = L.preLedgerRows + 1 end
 
-    A.totalValue = A.totalValue + value
-    A.totalQuantity = A.totalQuantity + qty
-
-    if isCurrency then
-      accumulateCurrency(A, r, src, qty)
-    else
-      accumulateItem(A, r, ch, src, value)
+    -- Only gains of items and currency feed the legacy breakdowns, so a pre-ledger history
+    -- produces the numbers it always did.
+    if dir == "IN" and kind ~= "GOLD" then
+      loot = loot + 1
+      local isCurrency = kind == "CURRENCY"
+      A.totalValue = A.totalValue + value
+      A.totalQuantity = A.totalQuantity + qty
+      if isCurrency then
+        accumulateCurrency(A, r, src, qty)
+      else
+        accumulateItem(A, r, ch, src, value)
+      end
+      accumulateTime(A, r, value)
+      accumulateProvenance(A, r, value)
+      accumulateChar(A, r, ch, isCurrency, value)
     end
-    accumulateTime(A, r, value)
-    accumulateProvenance(A, r, value)
-    accumulateChar(A, r, ch, isCurrency, value)
   end
+  L.netValue = L.gainedValue - L.lostValue
+  L.netCount = L.gainedCount - L.lostCount
 
   local topZones, topItems, topItemsByValue, activeDays, busiestDay = derive(A)
 
@@ -857,8 +953,9 @@ function Database:Stats(filter)
     currencyBySource = A.currencyBySource,
     currencyTotals = { distinct = A.currencyDistinct, events = A.currencyEvents,
                        biggestHaul = A.biggestHaul },
+    ledger = L,
     totals = {
-      records = #records, distinctItems = A.distinctItems, distinctChars = A.distinctChars,
+      records = loot, distinctItems = A.distinctItems, distinctChars = A.distinctChars,
       firstTs = A.firstTs, lastTs = A.lastTs,
       totalValue = A.totalValue, totalQuantity = A.totalQuantity,
       activeDays = activeDays, busiestDay = busiestDay,

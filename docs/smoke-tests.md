@@ -644,7 +644,7 @@ three-line hatch, as on the rest of the collection. Result:
 click **Export** (right of filter row 2) → the modal opens centered on the History window, not the
 screen, and reads **Export History**; on Insights → **Export Insights**. Result:
 
-**HIST-25. History CSV.** Export **All Data** → the header `ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`
+**HIST-25. History CSV.** Export **All Data** → the header `ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink,dir,kind,holder,from,to`
 and one row per record: `date` DD-MMM-YYYY, `time` HH:MM; `quality` a label beside `qualityRaw`;
 prices as `Ng Ns Nc` beside copper `*Raw` (auction blank when no price is selectable); `value` the
 higher of the picked auction price and `vendorPrice`; `auctionSource` the provenance tag (e.g.

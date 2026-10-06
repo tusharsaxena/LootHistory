@@ -915,3 +915,68 @@ test("Database: RepairBoundStates gives up after the attempt cap", function()
   assertEqual(g.history[1].bound, "WARBAND")   -- never downgraded, just left as looted
   g.history = savedHist
 end)
+
+test("Database: OnWrite hooks see Add and Amend with the quantity delta", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {}
+  local seen = {}
+  local hook = NS.Database:OnWrite(function(r, d, isNew) seen[#seen + 1] = { r = r, d = d, n = isNew } end)
+  local row = { ts = 1, itemID = 7, quantity = 2, dir = "OUT", source = "CONSUME" }
+  local idx = NS.Database:Add(row)
+  NS.Database:Amend(idx, 3)
+  NS.Database:RemoveWriteHook(hook)
+  NS.Database:Add({ ts = 2, itemID = 8, quantity = 1 })
+  assertEqual(#seen, 2)
+  assertTrue(seen[1].r == row); assertEqual(seen[1].d, 2); assertTrue(seen[1].n)
+  assertEqual(seen[2].d, 3); assertFalse(seen[2].n)
+  assertEqual(row.quantity, 5)
+  g.history = saved
+end)
+
+test("Database: Amend re-sends RecordAdded with the same record and index", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {}
+  local got, orig = {}, NS.bus.SendMessage
+  NS.bus.SendMessage = function(_, msg, r, i) if msg == NS.MSG.RECORD_ADDED then got[#got + 1] = { r, i } end end
+  local idx = NS.Database:Add({ ts = 1, itemID = 7, quantity = 1 })
+  NS.Database:Amend(idx, 1)
+  NS.bus.SendMessage = orig
+  assertEqual(#got, 2); assertTrue(got[2][1] == g.history[idx]); assertEqual(got[2][2], idx)
+  assertEqual(NS.Database:Amend(99, 1), nil)
+  g.history = saved
+end)
+
+test("Database: QueryList dir clause treats legacy rows as gains", function()
+  local rows = { { itemID = 1 }, { itemID = 2, dir = "OUT" }, { itemID = 3, dir = "MOVE" } }
+  assertEqual(#NS.Database:QueryList(rows, { dir = "IN" }), 1)
+  assertEqual(#NS.Database:QueryList(rows, { dir = { IN = true, OUT = true } }), 2)
+  assertEqual(#NS.Database:QueryList(rows, {}), 3)
+end)
+
+test("Database: minQuality floors items only, whitelist exempt", function()
+  local rows = {
+    { itemID = 1, quality = 0 }, { itemID = 2, quality = 2 }, { itemID = 3, quality = 0 },
+    { currencyID = 3008, quality = 1 }, { kind = "GOLD", quantity = 100 },
+  }
+  local out = NS.Database:QueryList(rows, { minQuality = 1, minQualityExempt = { [3] = true } })
+  local ids = {}
+  for _, r in ipairs(out) do ids[#ids + 1] = tostring(r.itemID or r.currencyID or r.kind) end
+  assertEqual(table.concat(ids, ","), "2,3,3008,GOLD")
+end)
+
+test("Database: Export carries the ledger fields with legacy defaults", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {
+    { ts = 1, char = "A-Realm", itemID = 1, quantity = 1 },
+    { ts = 2, char = "A-Realm", kind = "GOLD", dir = "MOVE", holder = "§warband", quantity = 50,
+      from = "A-Realm/money", to = "§warband/money" },
+  }
+  local out = NS.Database:Export({})
+  assertEqual(out[1].dir, "IN"); assertEqual(out[1].kind, "ITEM"); assertEqual(out[1].holder, "A-Realm")
+  assertEqual(out[2].dir, "MOVE"); assertEqual(out[2].kind, "GOLD")
+  assertEqual(out[2].from, "A-Realm/money"); assertEqual(out[2].to, "§warband/money")
+  g.history = saved
+end)

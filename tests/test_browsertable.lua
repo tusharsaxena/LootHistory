@@ -249,8 +249,16 @@ test("BrowserTable: test mode filters the synthetic dataset", function()
   assertEqual(BT.matchCount, #killed)
 
   -- Insights reads the same override: Stats aggregates the test dataset, not the live history.
+  -- totals.records counts gains of items and currency only (timeline-ledger spec §6), and the
+  -- preview seeds one loss/transfer per ledger reason, so it is the dataset less those rows.
   local stats = NS.Database:Stats({})
-  assertEqual(stats.totals.records, all)
+  local gains = 0
+  for _, r in ipairs(NS.State.testRecords) do
+    if NS.Util.RowDir(r) == "IN" and NS.Util.RowKind(r) ~= "GOLD" then gains = gains + 1 end
+  end
+  assertTrue(gains < all)                   -- the preview really carries ledger rows
+  assertEqual(stats.totals.records, gains)
+  assertEqual(stats.ledger.gainedCount + stats.ledger.lostCount + stats.ledger.movedCount, all)
   assertTrue(stats.bySource.KILL and stats.bySource.KILL > 0)
 
   BT.testMode, NS.State.testRecords, BT.filter = false, nil, {} -- restore shared state

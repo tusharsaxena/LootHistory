@@ -76,7 +76,8 @@ end
 -- (Pick's tag, e.g. "tsm:dbmarket", or "" when unpriced). After the vendor/source/zone block, one
 -- RAW `auc_<provider>_<key>` column is appended per NS.Constants.AUCTION_KEYS entry (deterministic,
 -- capture-config order) exposing every price the addon actually captured, independent of which one
--- Pick chose. `wowheadLink` (from the item's bonus IDs) is last.
+-- Pick chose. `wowheadLink` follows the auction columns; the five ledger columns (`dir, kind,
+-- holder, from, to`) are appended after it.
 -- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
 local COLUMNS = {
   { "ts",           function(r) return r.ts end },
@@ -105,13 +106,20 @@ local COLUMNS = {
   { "zone",         function(r) return r.zone end },
 }
 -- One raw column per captured provider:key (deterministic — Constants.AUCTION_KEYS order), inserted
--- here (before wowheadLink is appended below) so wowheadLink stays the final column.
+-- here (before wowheadLink is appended below) so wowheadLink follows them.
 for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
   local prov, key = k.provider, k.key
   COLUMNS[#COLUMNS + 1] = { "auc_" .. prov .. "_" .. key,
     function(r) return r.auctionPrice and r.auctionPrice[prov] and r.auctionPrice[prov][key] or nil end }
 end
 COLUMNS[#COLUMNS + 1] = { "wowheadLink", function(r) return E:WowheadLink(r) end }
+-- Ledger columns (timeline-ledger spec §13 F4), APPENDED after wowheadLink so every earlier column
+-- keeps its index for existing spreadsheets. Legacy rows export their accessor defaults.
+COLUMNS[#COLUMNS + 1] = { "dir",    function(r) return NS.Util.RowDir(r) end }
+COLUMNS[#COLUMNS + 1] = { "kind",   function(r) return NS.Util.RowKind(r) end }
+COLUMNS[#COLUMNS + 1] = { "holder", function(r) return NS.Util.RowHolder(r) end }
+COLUMNS[#COLUMNS + 1] = { "from",   function(r) return r.from end }
+COLUMNS[#COLUMNS + 1] = { "to",     function(r) return r.to end }
 local HEADER = {}
 for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 

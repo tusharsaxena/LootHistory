@@ -478,12 +478,16 @@ strictly point-in-time: a blacklisted currency id is dropped at capture and neve
 
 ### Export — the v2 contract
 
-`Database:Export(filter)` (`core/Database.lua:558`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. The nested `auctionPrice` and `sourceDetail` tables are deep-copied (`NS.Util.DeepCopy`), so a consumer that mutates an export never rewrites the live SavedVariables row; the copy is paid once per export. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
+`Database:Export(filter)` (`core/Database.lua:627`) returns a plain, **metatable-free** copy of the (optionally filtered) history — the forward-compatible v2 export contract. The nested `auctionPrice` and `sourceDetail` tables are deep-copied (`NS.Util.DeepCopy`), so a consumer that mutates an export never rewrites the live SavedVariables row; the copy is paid once per export. It rebuilds each record field-by-field so the emitted shape is explicit and stable across internal refactors (the retired `sourceName` field, for example, is intentionally absent). The exported fields are exactly the record fields listed above:
 
 ```
-ts · char · classFile · itemID · itemLink · itemName · quality · itemLevel · bound ·
+ts · char · classFile · itemID · currencyID · itemLink · itemName · quality · itemLevel · bound ·
 vendorPrice · auctionPrice · itemType · itemSubType · quantity · source · sourceDetail ·
-zone · mapID · subzone · confidence
+zone · mapID · subzone · confidence · dir · kind · holder · from · to · claimed
 ```
+
+`dir`, `kind` and `holder` are emitted through the `NS.Util.RowDir` / `RowKind` / `RowHolder`
+accessors, so a pre-ledger row exports `IN`, its derived kind and its `char`; `from`, `to` and
+`claimed` are copied as stored (nil on a legacy row).
 
 The CSV/Insights export (`modules/Export.lua`) serializes on top of this seam. See [module-map.md](./module-map.md) for where the pieces live.

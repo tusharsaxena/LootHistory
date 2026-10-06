@@ -327,3 +327,46 @@ test("Stats: the time buckets match a per-record date() across 10:00, 10:05 and 
     assertEqual(s.byHour[23], 1, "the second before midnight stays in hour 23")
     assertEqual(s.byHour[0], 2, "midnight and one second after land in hour 0")
   end)
+
+local function seedLedger()
+  NS.db.global.history = {
+    { ts = T1, char = "A-Realm", itemID = 10, itemName = "Sword", quality = 4, source = "KILL", quantity = 1, vendorPrice = 100 },
+    { ts = T1, char = "A-Realm", itemID = 11, itemName = "Potion", quality = 1, source = "CONSUME",
+      dir = "OUT", kind = "ITEM", quantity = 5, vendorPrice = 10 },
+    { ts = T2, char = "A-Realm", kind = "GOLD", itemName = "Gold", source = "SELL", dir = "IN", quantity = 700 },
+    { ts = T2, char = "B-Realm", kind = "GOLD", itemName = "Gold", source = "REPAIR", dir = "OUT", quantity = 300 },
+    { ts = T2, char = "A-Realm", itemID = 10, itemName = "Sword", quality = 4, source = "TRANSFER",
+      dir = "MOVE", kind = "ITEM", quantity = 1, from = "A-Realm/bags", to = "A-Realm/bank" },
+  }
+end
+
+test("Stats: legacy breakdowns count only gains of items and currency", function()
+  seedLedger()
+  local s = NS.Database:Stats({})
+  assertEqual(s.totals.records, 1)
+  assertEqual(s.bySource.KILL, 1)
+  assertEqual(s.bySource.CONSUME, nil)
+  assertEqual(s.bySource.SELL, nil)
+end)
+
+test("Stats: ledger gains, losses, net and transfers", function()
+  seedLedger()
+  local L = NS.Database:Stats({}).ledger
+  assertEqual(L.gainedCount, 2); assertEqual(L.lostCount, 2); assertEqual(L.movedCount, 1)
+  assertEqual(L.gainedValue, 100 + 700)           -- sword value + gold copper
+  assertEqual(L.lostValue, 5 * 10 + 300)
+  assertEqual(L.netValue, 800 - 350); assertEqual(L.netCount, 0)
+  assertEqual(L.reasonOut.CONSUME, 1); assertEqual(L.reasonIn.SELL, 1)
+  assertEqual(L.goldIn, 700); assertEqual(L.goldOut, 300)
+  assertEqual(L.charOut["B-Realm"], 300)
+  assertEqual(L.kindIn.GOLD, 1); assertEqual(L.kindOut.ITEM, 1)
+end)
+
+test("Stats: preLedgerRows counts rows older than ledgerSince", function()
+  seedLedger()
+  local g = NS.db.global
+  local saved = g.ledgerSince
+  g.ledgerSince = T2
+  assertEqual(NS.Database:Stats({}).ledger.preLedgerRows, 2)
+  g.ledgerSince = saved
+end)

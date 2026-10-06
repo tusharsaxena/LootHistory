@@ -38,7 +38,7 @@ test("Export: CSV header order — ts,date,time first; computed + per-key auctio
     "auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg," ..
     "auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical," ..
     "auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region," ..
-    "wowheadLink")
+    "wowheadLink,dir,kind,holder,from,to")
 end)
 
 test("Export: CSV auction/value columns — auction present and vendor fallback", function()
@@ -295,4 +295,15 @@ test("Export: InsightsCSV over an empty history, a bare table and nil", function
   checkCsv("empty history", csvLines(NS.Export:InsightsCSV(FX.statsFor({}))))
   checkCsv("bare table", csvLines(NS.Export:InsightsCSV({})))
   checkCsv("nil", csvLines(NS.Export:InsightsCSV(nil)))
+end)
+
+test("Export: CSV ledger columns follow wowheadLink and default for legacy rows", function()
+  local csv = NS.Export:CSV({
+    { ts = 1, char = "A-Realm", itemID = 1, quantity = 1 },
+    { ts = 2, char = "A-Realm", kind = "GOLD", dir = "OUT", holder = "A-Realm", quantity = 5, source = "REPAIR" },
+  })
+  local lines = {}
+  for line in csv:gmatch("(.-)\r\n") do lines[#lines + 1] = line end
+  assertTrue(lines[2]:find(",IN,ITEM,A%-Realm,,$") ~= nil, lines[2])
+  assertTrue(lines[3]:find(",OUT,GOLD,A%-Realm,,$") ~= nil, lines[3])
 end)

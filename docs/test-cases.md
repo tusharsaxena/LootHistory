@@ -376,7 +376,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
-### test_database.lua (71)
+### test_database.lua (76)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -449,8 +449,13 @@ badge and any count quoted in the docs must agree with it.
 - Database: RepairBoundStates warms the cache from the link when a row has no itemID
 - Database: RepairBoundStates resets the give-up budget on a pass that fixed something
 - Database: RepairBoundStates gives up after the attempt cap
+- Database: OnWrite hooks see Add and Amend with the quantity delta
+- Database: Amend re-sends RecordAdded with the same record and index
+- Database: QueryList dir clause treats legacy rows as gains
+- Database: minQuality floors items only, whitelist exempt
+- Database: Export carries the ledger fields with legacy defaults
 
-### test_stats.lua (20)
+### test_stats.lua (23)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -472,6 +477,9 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 - Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight
+- Stats: legacy breakdowns count only gains of items and currency
+- Stats: ledger gains, losses, net and transfers
+- Stats: preLedgerRows counts rows older than ledgerSince
 
 ### test_browser.lua (69)
 
@@ -611,7 +619,7 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
 
-### test_export.lua (29)
+### test_export.lua (30)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -642,6 +650,7 @@ badge and any count quoted in the docs must agree with it.
 - Export: InsightsCSV over items and currency matches the golden document
 - Export: InsightsCSV over zero-value items with no currency matches the golden document
 - Export: InsightsCSV over an empty history, a bare table and nil
+- Export: CSV ledger columns follow wowheadLink and default for legacy rows
 
 ### test_debuglog.lua (20)
 
@@ -1308,11 +1317,11 @@ badge and any count quoted in the docs must agree with it.
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 38 |
 | test_reconciler.lua | 7 |
-| test_database.lua | 71 |
-| test_stats.lua | 20 |
+| test_database.lua | 76 |
+| test_stats.lua | 23 |
 | test_browser.lua | 69 |
 | test_browsertable.lua | 63 |
-| test_export.lua | 29 |
+| test_export.lua | 30 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
 | test_slash.lua | 63 |
@@ -1342,4 +1351,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1136** |
+| **Total** | **1145** |

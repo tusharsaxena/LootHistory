@@ -257,7 +257,8 @@ NS.Constants.RECORD_ADDED_COALESCE = 0.2
 -- The wire strings are the contract every receiver depends on and they did not change when the
 -- constants arrived; tests/test_constants.lua pins each one by driving its real sender.
 local MSG = {
-  -- Sender: core/Database.lua `Database:Add`. Payload: (record, index).
+  -- Sender: core/Database.lua `Database:Add` and `Database:Amend`. Payload: (record, index) — a row
+  -- was added OR grew in place (60 s coalescing). Receivers repaint; none may count it as one more.
   RECORD_ADDED     = "Ka0s_LootHistory_RecordAdded",
   -- Sender: core/Database.lua (Delete, PruneOld, Purge, FireHistoryChanged, RepairBoundStates).
   -- Payload: none.
