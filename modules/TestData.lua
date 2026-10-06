@@ -236,3 +236,32 @@ function TD.Publish(records)
     NS.State.testHoldings, NS.State.testDaily = nil, nil
   end
 end
+
+--- The thing the Timeline opens on while the sample is up: "Everlight Crystal" when the sample holds
+--- it, else the sample item with the most rollup days (ties to the lowest thing key). nil with no
+--- sample published.
+function TD.DefaultTimelineThing()
+  local daily = NS.State.testDaily
+  if not daily then return nil end
+  local days = {}
+  for _, holders in pairs(daily) do
+    local seen = {}
+    for _, things in pairs(holders) do
+      for key in pairs(things) do
+        if not seen[key] and key:sub(1, 2) == "i:" then
+          seen[key] = true
+          days[key] = (days[key] or 0) + 1
+        end
+      end
+    end
+  end
+  for idBase, name in ipairs(sample().itemNames) do
+    local key = "i:" .. (sample().idBase + idBase)
+    if name == "Everlight Crystal" and days[key] then return key end
+  end
+  local best
+  for key, n in pairs(days) do
+    if not best or n > days[best] or (n == days[best] and key < best) then best = key end
+  end
+  return best
+end

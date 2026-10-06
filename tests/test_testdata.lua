@@ -194,3 +194,68 @@ test("TestData: the sample rollup books a holder move's loss and gain on each ho
   end
   assertTrue(checked >= 1, "no holder-move row lands on a held series")
 end)
+
+-- Test mode opens the Timeline on a sample item and keeps the user's own pick out of the saved view.
+local function withTimeline(fn)
+  withStores(function()
+    local p, TL = NS.db.profile, NS.Timeline
+    local view, hadView = p.savedView, type(p.savedView) == "table"
+    local viewThing = hadView and view.timelineThing or nil
+    local thing, testThing = TL.thing, TL.testThing
+    local ok, err = pcall(function()
+      NS.Browser:Show(); NS.Browser:SelectTab("Timeline"); TL:Layout(640, 320)
+      fn(TL)
+    end)
+    if NS.BrowserTable.testMode then NS.BrowserTable:SetTestMode(false) end
+    NS.Browser:SelectTab("History")
+    if hadView then p.savedView = view; view.timelineThing = viewThing else p.savedView = nil end
+    TL.thing, TL.testThing = thing, testThing
+    if not ok then error(err, 0) end
+  end)
+end
+
+test("TestData: the default Timeline thing is Everlight Crystal, nil without a sample", function()
+  withStores(function()
+    assertEqual(NS.TestData.DefaultTimelineThing(), nil, "a default with no sample")
+    NS.BrowserTable:SetTestMode(true)
+    local d = NS.TestData.DefaultTimelineThing()
+    assertEqual(NS.TestData.Describe(d).name, "Everlight Crystal")
+  end)
+end)
+
+test("Test mode: the Timeline opens on the default sample item with lines drawn, saved view untouched", function()
+  withTimeline(function(TL)
+    TL.thing = nil
+    local before = NS.Browser:ViewField("timelineThing")
+    NS.BrowserTable:SetTestMode(true)
+    TL:Refresh()
+    assertEqual(TL:Thing(), NS.TestData.DefaultTimelineThing())
+    assertTrue(#TL.model.series >= 2, "no lines drawn for the default item")
+    assertTrue(TL.title:GetText():find("Everlight Crystal", 1, true) ~= nil, "title: " .. tostring(TL.title:GetText()))
+    assertEqual(NS.Browser:ViewField("timelineThing"), before, "the saved view changed")
+  end)
+end)
+
+test("Test mode: a pick made in test mode survives refreshes and never reaches the saved view", function()
+  withTimeline(function(TL)
+    TL:SetThing("c:3008", true)   -- the user's own, real pick before test mode
+    local before = NS.Browser:ViewField("timelineThing")
+    NS.BrowserTable:SetTestMode(true)
+    TL:SetThing("g")
+    TL:Refresh(); TL:Refresh()
+    assertEqual(TL:Thing(), "g", "the pick was reset by a refresh")
+    assertEqual(NS.Browser:ViewField("timelineThing"), before, "the saved view changed")
+    NS.BrowserTable:SetTestMode(false)
+    assertEqual(TL:Thing(), "c:3008", "the previous selection did not come back")
+  end)
+end)
+
+test("Test mode: a pick of a thing the sample lacks falls back to the default", function()
+  withTimeline(function(TL)
+    TL:SetThing("i:999999", true)
+    NS.BrowserTable:SetTestMode(true)
+    assertEqual(TL:Thing(), NS.TestData.DefaultTimelineThing())
+    NS.BrowserTable:SetTestMode(false)
+    assertEqual(TL:Thing(), "i:999999")
+  end)
+end)

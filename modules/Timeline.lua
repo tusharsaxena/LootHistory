@@ -25,15 +25,39 @@ local DIM_ALPHA = 0.4
 
 TL.hidden = TL.hidden or {}
 
+-- Test mode charts the sample, which holds only sample things: a pick made there is session-only
+-- (testThing, never the saved view), and with nothing valid picked the sample's default item opens.
+local function sampleHas(key)
+  local d = NS.State.testDaily
+  if not (d and key) then return false end
+  for _, holders in pairs(d) do
+    for _, things in pairs(holders) do
+      if things[key] then return true end
+    end
+  end
+  return false
+end
+
 function TL:Thing()
+  if NS.State.testDaily then
+    if sampleHas(self.testThing) then return self.testThing end
+    local real = self.thing or (NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineThing"))
+    if sampleHas(real) then return real end
+    return NS.TestData.DefaultTimelineThing() or "g"
+  end
+  self.testThing = nil
   if self.thing then return self.thing end
   local v = NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineThing")
   return v or "g"
 end
 
 function TL:SetThing(key, quiet)
-  self.thing = key
-  if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineThing", key) end
+  if NS.State.testDaily then
+    self.testThing = key
+  else
+    self.thing = key
+    if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineThing", key) end
+  end
   if not quiet then self:RefreshIfShown() end
 end
 

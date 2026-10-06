@@ -1235,7 +1235,7 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it
 - Timeline tab: the chart's hover ending does not hide the strip's tooltip
 
-### test_testdata.lua (6)
+### test_testdata.lua (10)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1243,6 +1243,10 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: ledger writes go to the real stores, never the sample
 - TestData: the History sample writes holder moves as a loss and a gain
 - TestData: the sample rollup books a holder move's loss and gain on each holder
+- TestData: the default Timeline thing is Everlight Crystal, nil without a sample
+- Test mode: the Timeline opens on the default sample item with lines drawn, saved view untouched
+- Test mode: a pick made in test mode survives refreshes and never reaches the saved view
+- Test mode: a pick of a thing the sample lacks falls back to the default
 
 ### test_panel.lua (43)
 
@@ -1638,7 +1642,7 @@ badge and any count quoted in the docs must agree with it.
 | test_holdingstab.lua | 32 |
 | test_timeline.lua | 26 |
 | test_timelinetab.lua | 24 |
-| test_testdata.lua | 6 |
+| test_testdata.lua | 10 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1659,4 +1663,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1417** |
+| **Total** | **1421** |
