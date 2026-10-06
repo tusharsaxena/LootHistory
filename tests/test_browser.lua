@@ -56,14 +56,12 @@ test("Browser.MinWidth is wide enough for both the columns and the toolbar", fun
   assertTrue(minW >= B:ToolbarSpan() + 8 + 120 + 12, "the two dropdown rows + a minimum Export must fit")
 end)
 
-test("Browser.ExportWidth exactly consumes the bar remainder at minimum width", function()
-  -- Export fills from the Character dropdown's right edge to the bar's right edge at min width.
-  -- ToolbarSpan = the measured dropdown span, +8 gap, 12 = the pane margins.
-  assertEqual(B:ExportWidth(), math.max(120, (B:MinWidth() - 12) - (B:ToolbarSpan() + 8)))
-end)
-
-test("Browser.ExportWidth never falls below its floor", function()
-  assertTrue(B:ExportWidth() >= 120, "Export stays clickable at any window size")
+test("Browser: Export reaches the bar's right edge at minimum width, never below its floor", function()
+  -- Export is row 2's last control, so it ends where the bar does at min width (12 = the pane
+  -- margins) and keeps its 120px base however the row scales (B:LayoutFilterBar).
+  local L = B._filterBarLayout(B._filterWidths(function() return 0 end), B:MinWidth() - 12)
+  assertEqual(L.x.export + L.w.export, B:MinWidth() - 12)
+  assertTrue(L.w.export >= 120, "Export stays clickable at any window size")
 end)
 
 -- ── setToFilter: dropdown selection → query filter ─────────────────────────────
@@ -1182,5 +1180,168 @@ test("filter bar: a saved window narrower than the floor is widened on restore",
     B:AdoptProfile()
     assertEqual(f:GetWidth(), B._minW)
     assertEqual(f:GetHeight(), B.SKIN.minH)
+  end)
+end)
+
+-- ── The filter bar fills the window (timeline-ledger P6 Task 3) ────────────────────────────────
+-- Owner feedback: the controls stopped ~120px short of the right border while the left gap was
+-- ~6px. Row 2 (eight dropdowns + Export) now spans the bar exactly: every control keeps its
+-- measured base width b_i and is scaled by ONE ratio r = A / sum(b_i), A = the bar width less the
+-- inter-control gaps, floored at 1; Export takes the rounding remainder. Row 1 sits on row 2's grid.
+
+local LAYOUT_ROW2 = { "date", "bound", "quality", "type", "subtype", "source", "zone", "char",
+                      "export" }
+local function sixPx(_, text) return #text * 6 end
+
+-- The bar width at which row 2 exactly fits its base widths (r == 1).
+local function baseBarWidth(widths)
+  local L = B._filterBarLayout(widths, 0)
+  local sum = 0
+  for _, k in ipairs(LAYOUT_ROW2) do sum = sum + L.base[k] end
+  return sum + (#LAYOUT_ROW2 - 1) * B._FILTER_GAP
+end
+
+local function rightEdge(L) return L.x.export + L.w.export end
+
+test("filter bar layout: at the base width r == 1 and row 2 ends at the bar's right edge", function()
+  -- red under: the static Export that stopped short of the right border.
+  local widths = B._filterWidths(sixPx)
+  local barW = baseBarWidth(widths)
+  local L = B._filterBarLayout(widths, barW)
+  assertEqual(L.r, 1)
+  for _, k in ipairs(LAYOUT_ROW2) do assertEqual(L.w[k], L.base[k], k .. " keeps its base width") end
+  assertEqual(L.x.date, 0, "row 2 starts at the bar's left edge (the window's left margin)")
+  assertEqual(rightEdge(L), barW, "row 2 ends at the bar's right edge: right gap == left gap")
+  assertEqual(L.base.export, 120, "Export's base width is its 120px floor")
+end)
+
+test("filter bar layout: a wider window scales every control by the same ratio", function()
+  local widths = B._filterWidths(sixPx)
+  local barW = baseBarWidth(widths) + 300
+  local L = B._filterBarLayout(widths, barW)
+  local gaps, sum = (#LAYOUT_ROW2 - 1) * B._FILTER_GAP, 0
+  for _, k in ipairs(LAYOUT_ROW2) do sum = sum + L.base[k] end
+  local r = (barW - gaps) / sum
+  assertTrue(math.abs(L.r - r) < 1e-9, "r = available / sum of base widths")
+  assertTrue(L.r > 1, "the controls grow")
+  for i, k in ipairs(LAYOUT_ROW2) do
+    if i < #LAYOUT_ROW2 then
+      assertEqual(L.w[k], math.floor(L.base[k] * r), k .. " is floor(b * r)")
+    else
+      assertTrue(L.w[k] >= math.floor(L.base[k] * r), "Export takes the rounding remainder")
+      assertTrue(L.w[k] - L.base[k] * r < #LAYOUT_ROW2, "the remainder is only rounding")
+    end
+  end
+  -- Each control starts one gap after the previous one ends; row 2 ends exactly at the right edge.
+  for i = 2, #LAYOUT_ROW2 do
+    local p, k = LAYOUT_ROW2[i - 1], LAYOUT_ROW2[i]
+    assertEqual(L.x[k], L.x[p] + L.w[p] + B._FILTER_GAP, k .. " sits one gap after " .. p)
+  end
+  assertEqual(L.x.date, 0)
+  assertEqual(rightEdge(L), barW, "right gap == left gap at any width")
+end)
+
+test("filter bar layout: row 1 sits on row 2's grid", function()
+  local widths = B._filterWidths(sixPx)
+  for _, extra in ipairs({ 0, 300, 457 }) do
+    local L = B._filterBarLayout(widths, baseBarWidth(widths) + extra)
+    local G = B._FILTER_GAP
+    assertEqual(L.x.group, L.x.date); assertEqual(L.w.group, L.w.date)
+    assertEqual(L.x.dir, L.x.bound); assertEqual(L.w.dir, L.w.bound)
+    -- Save · Reset · Clear span exactly Export's x-range, gaps G, the three widths equal (the
+    -- left-most absorbs at most 2px of rounding).
+    assertEqual(L.x.save, L.x.export)
+    assertEqual(L.x.reset, L.x.save + L.w.save + G)
+    assertEqual(L.x.clear, L.x.reset + L.w.reset + G)
+    assertEqual(L.x.clear + L.w.clear, rightEdge(L), "the cluster ends where Export ends")
+    assertEqual(L.w.reset, L.w.clear)
+    assertTrue(L.w.save - L.w.clear >= 0 and L.w.save - L.w.clear <= 2, "three equal buttons")
+    -- The search box fills between Direction and the cluster.
+    assertEqual(L.x.search, L.x.dir + L.w.dir + G)
+    assertEqual(L.x.search + L.w.search, L.x.save - G)
+    assertTrue(L.w.search >= B._SEARCH_MIN, "the search box keeps its minimum")
+  end
+end)
+
+test("filter bar layout: a bar narrower than the base never shrinks a control", function()
+  local widths = B._filterWidths(sixPx)
+  local L = B._filterBarLayout(widths, baseBarWidth(widths) - 200)
+  assertEqual(L.r, 1)
+  for _, k in ipairs(LAYOUT_ROW2) do assertEqual(L.w[k], L.base[k], k .. " stays at its base") end
+end)
+
+-- A fresh bar built into a scratch host, with every FontString measuring 6px a character (the
+-- mock's font measures 0), so the base widths are real measurements. The window's singleton bar
+-- state is put back afterwards.
+local function withMeasuredBar(fn)
+  local saved = {}
+  local KEYS = { "_dd", "_search", "_exportBtn", "_ddWidths", "_bar", "_barCtl", "_barW" }
+  for _, k in ipairs(KEYS) do saved[k] = B[k] end
+  local mocks = T.mocks
+  local realCreateFrame = mocks.CreateFrame
+  mocks.CreateFrame = function(...)
+    local f = realCreateFrame(...)
+    local realCFS = f.CreateFontString
+    f.CreateFontString = function(self, ...)
+      local fs = realCFS(self, ...)
+      fs.GetUnboundedStringWidth = function(s) return #(s:GetText() or "") * 6 end
+      return fs
+    end
+    return f
+  end
+  local ok, err = pcall(function()
+    local host = realCreateFrame("Frame")
+    B:BuildFilterBar(host)
+    mocks.CreateFrame = realCreateFrame
+    fn(host)
+  end)
+  mocks.CreateFrame = realCreateFrame
+  for _, k in ipairs(KEYS) do B[k] = saved[k] end
+  if not ok then error(err, 0) end
+end
+
+local function placed(ctl)
+  local p = ctl:__lastPoint()
+  return p.x, ctl:GetWidth(), p
+end
+
+test("filter bar: the built bar fills the bar width at the base width and 300px wider", function()
+  withMeasuredBar(function(host)
+    local widths = B._ddWidths
+    assertTrue(widths.char > 146, "the scratch build measured its labels (6px a character)")
+    for _, extra in ipairs({ 0, 300 }) do
+      local barW = baseBarWidth(widths) + extra
+      B:LayoutFilterBar(barW)
+      local L = B._filterBarLayout(widths, barW)
+      local ctl = { group = B._dd.group, dir = B._dd.dir, search = B._search,
+                    export = B._exportBtn }
+      for _, k in ipairs(LAYOUT_ROW2) do ctl[k] = ctl[k] or B._dd[k] end
+      for k, c in pairs(ctl) do
+        local x, w, p = placed(c)
+        assertEqual(p.point, "TOPLEFT", k .. " is anchored by its top-left corner")
+        assertEqual(p.relativeTo, host, k .. " is anchored to the bar itself")
+        assertEqual(x, L.x[k], k .. " x at +" .. extra)
+        assertEqual(w, L.w[k], k .. " width at +" .. extra)
+      end
+      local ex, ew = placed(B._exportBtn)
+      assertEqual(ex + ew, barW, "Export ends at the bar's right edge at +" .. extra)
+      local dx = placed(B._dd.date)
+      assertEqual(dx, 0, "Date starts at the bar's left edge")
+      if extra == 0 then assertEqual(L.r, 1) end
+    end
+  end)
+end)
+
+test("filter bar: resizing the window re-lays the bar out to its new width", function()
+  -- red under: a bar laid out once at build time, which leaves the gap on the right as it widens.
+  withGripWindow(function(f)
+    local w = B._minW + 300
+    f:SetSize(w, B.SKIN.minH)
+    f:__fire("OnSizeChanged", w, B.SKIN.minH)
+    local ex, ew = placed(B._exportBtn)
+    assertEqual(ex + ew, w - 12, "row 2 ends 6px in from the right border, as it starts on the left")
+    assertEqual((placed(B._dd.date)), 0)
+    local cx, cw = placed(B._barCtl.clear)
+    assertEqual(cx + cw, w - 12, "the Save/Reset/Clear cluster ends there too")
   end)
 end)

@@ -23,6 +23,7 @@ free number in its theme.
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 35 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export, the one-line filter bar |
+| FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
@@ -718,11 +719,19 @@ drag the grip down to the minimum width. Check each of these:
 - The window's minimum width grows when the measured span needs it: the grip stops where the last
   control on each row still fits. An older saved size narrower than that opens widened to it after
   `/reload`.
-- At the minimum width, **Export** and each button of the **Save / Reset / Clear** cluster are at
-  least 120 px wide (`/fstack`, or `/dump` on the button's `GetWidth()`), and none overlaps the
-  dropdown to its left.
+- At the minimum width, **Export** is at least 120 px wide (`/fstack`, or `/dump` on the button's
+  `GetWidth()`), the **Save / Reset / Clear** cluster spans exactly Export's width above it, and
+  none overlaps the dropdown to its left.
 
 Result:
+
+**FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
+→ both filter rows end the same distance in from the right border as they start from the left
+(about 6 px), with **Export** and **Clear** flush to that margin. Drag the window wider, then
+narrower again → every row-2 dropdown and Export grow and shrink together in proportion, both rows
+keep the same right margin as the left at every width, **Group** stays exactly over **Date**,
+**Direction** over **Bound**, and **Save / Reset / Clear** over **Export**. Open a dropdown's menu,
+then drag the grip → the menu closes rather than hanging off a moved control. Result:
 
 ## Insights
 
@@ -1655,7 +1664,8 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | HIST-31 | § 17j.6 and § 17j.7 | No result recorded; given a runnable route by SP-LH-03R |
 | HIST-32, HIST-33 | § 17j.8, § 17h.6 | No result recorded |
 | HIST-34 | New | New with the History grip on `Core.MakeResizable` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
-| HIST-35 | New | New with the timeline ledger P4 polish (the one-line filter bar, equal Direction/Bound widths, the measured minimum width); no result recorded |
+| HIST-35 | New | New with the timeline ledger P4 polish (the one-line filter bar, equal Direction/Bound widths, the measured minimum width); no result recorded; the Export/cluster bullet corrected by P6 (the bar now scales) |
+| FB-1 | New | New with the timeline ledger P6 (the filter bar fills the window and scales proportionally); no result recorded |
 | INS-1 to INS-3 | § 7 | No result recorded |
 | INS-4 | § 7 coin glyphs | No result recorded; expectation corrected by SP-LH-03R (a fixed 10 px against the client's default of about 14 px, read beside the History price cells) |
 | INS-5 to INS-18 | § 7 | No result recorded |

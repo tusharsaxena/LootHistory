@@ -85,6 +85,7 @@ B._groupOptionsFor = groupOptionsFor
 -- that measures 0 builds the bar exactly as before). Direction and Bound share the larger of their
 -- two widths (owner ask), and Group stays as wide as the Date dropdown directly below it.
 local GAP, SEARCH_MIN = 8, 120   -- the gap between controls; the narrowest the Search box may get
+local ROW1_Y, ROW2_Y = 0, -24    -- the two rows' y offsets inside the bar
 -- The library's collapsed label sits 6 px in from the left and 16 px in from the right (the arrow),
 -- plus 4 px so the longest label never touches the arrow.
 local DD_PAD = 6 + 16 + 4
@@ -162,12 +163,81 @@ local function spanOf(w)
 end
 
 -- The span at the built bar's measured widths, or at the floor widths before the bar is built
--- (B:MinWidth / B:ExportWidth in modules/Browser.lua read it either way).
+-- (B:MinWidth in modules/Browser.lua reads it either way).
 function B:ToolbarSpan()
   return spanOf(self._ddWidths or filterWidths(function() return 0 end))
 end
 
+-- ── Layout: the bar fills the window, scaled by one ratio (P6 Task 3) ─────────────────────────
+-- Owner feedback: the controls stopped ~120px short of the right border while the left gap was the
+-- 6px pane margin. Row 2 now spans the bar exactly, so the right gap always equals the left one:
+--   * each row-2 control i (eight dropdowns + Export) has a base width b_i — its measured one-line
+--     width (filterWidths), Export its EXPORT_MIN floor;
+--   * A = barW - 8 gaps; r = A / sum(b_i), floored at 1 so nothing narrows below its base;
+--   * w_i = floor(b_i * r), and Export takes the rounding remainder so the row ends exactly at
+--     barW (when r == 1 the row is just the base widths, which the window floor guarantees fit).
+-- One ratio for every control keeps their proportions — the widest label stays the widest box.
+-- Row 1 sits on row 2's grid: Group over Date, Direction over Bound (same x and width), the
+-- Save/Reset/Clear cluster over Export's x-range, and the search box fills between them.
+-- Pure given the widths, so the suite drives it directly; B:LayoutFilterBar applies it.
+local LAYOUT_ROW2 = { "date", "bound", "quality", "type", "subtype", "source", "zone", "char",
+                      "export" }
+local ON_ROW1 = { group = true, dir = true, search = true, save = true, reset = true, clear = true }
+
+local function filterBarLayout(widths, barW)
+  local base = {}
+  for _, k in ipairs(LAYOUT_ROW2) do base[k] = widths[k] end
+  base.export = B._EXPORT_MIN
+  local sum = 0
+  for _, k in ipairs(LAYOUT_ROW2) do sum = sum + base[k] end
+  local avail = barW - (#LAYOUT_ROW2 - 1) * GAP
+  local r = math.max(1, avail / sum)
+  local x, w, cursor, used = {}, {}, 0, 0
+  for i, k in ipairs(LAYOUT_ROW2) do
+    if i < #LAYOUT_ROW2 then
+      w[k] = math.floor(base[k] * r)
+      used = used + w[k]
+    else
+      w[k] = (r > 1) and (avail - used) or base[k]
+    end
+    x[k] = cursor
+    cursor = cursor + w[k] + GAP
+  end
+  x.group, w.group = x.date, w.date
+  x.dir, w.dir = x.bound, w.bound
+  -- Three buttons, two gaps, exactly Export's width: equal widths, the left-most (Save) absorbing
+  -- the 0-2px rounding remainder.
+  local btn = math.floor((w.export - 2 * GAP) / 3)
+  w.save = w.export - 2 * GAP - 2 * btn
+  w.reset, w.clear = btn, btn
+  x.save = x.export
+  x.reset = x.save + w.save + GAP
+  x.clear = x.reset + w.reset + GAP
+  x.search = x.dir + w.dir + GAP
+  w.search = math.max(0, x.save - GAP - x.search)
+  return { r = r, base = base, x = x, w = w }
+end
+
 B._filterWidths, B._DD_PAD, B._SEARCH_MIN = filterWidths, DD_PAD, SEARCH_MIN
+B._filterBarLayout, B._FILTER_GAP = filterBarLayout, GAP
+
+-- Position and size every bar control for a bar `barW` wide. Cheap — anchors and widths only, no
+-- rebuild — and skipped when the width has not changed, because the window's OnSizeChanged
+-- (modules/Browser.lua) calls it on every frame of a drag, height-only drags included. A menu left
+-- open would hang off a dropdown that just moved, so it is closed first. No-op on a degraded
+-- install, where the bar was never built.
+function B:LayoutFilterBar(barW)
+  local ctl = self._barCtl
+  if not (ctl and self._ddWidths and type(barW) == "number") or barW == self._barW then return end
+  self._barW = barW
+  NS.CloseMenu()
+  local L = filterBarLayout(self._ddWidths, barW)
+  for k, c in pairs(ctl) do
+    c:ClearAllPoints()
+    c:SetPoint("TOPLEFT", self._bar, "TOPLEFT", L.x[k], ON_ROW1[k] and ROW1_Y or ROW2_Y)
+    c:SetWidth(L.w[k])
+  end
+end
 
 -- A small flat-skin text button for the filter bar (Export / Clear / Save / Reset).
 --
@@ -218,9 +288,9 @@ end
 --   Row 1: Group by · Direction · [search…] · Save · Reset · Clear
 --   Row 2: column filters in table order — Date · Bound · Quality · Type · SubType · Source ·
 --          Zone · Character · Export
+-- Nothing is anchored here: every control's position and width belong to B:LayoutFilterBar, which
+-- the window re-runs whenever its width changes.
 function B:BuildFilterBar(bar)
-  local ROW1, ROW2 = 0, -24
-
   -- REFUSE TO DRAW rather than build dead controls. The ten dropdowns below are the whole point
   -- of this bar, and NS.MakeDropdown answers nil on an install with no LibKa0s: a bar of buttons
   -- that open no menu is strictly worse than no bar. The FIRST dropdown is the probe -- one real
@@ -232,12 +302,9 @@ function B:BuildFilterBar(bar)
   if not dd.group then return end
   self._dd = dd
 
-  -- ── Row 1: Group by · Direction · Search · Clear ──
-  -- Group width matches the Date dropdown directly below it (the fit pairs them); the
-  -- Save+Reset+Clear cluster is anchored above the Export button (not the bar's right edge) and resized so its span (three
-  -- buttons + two 6px gaps) exactly matches Export's width (B:ExportWidth), so the cluster sits
-  -- flush above it and both stay static as the window widens.
-  dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
+  -- ── Row 1: Group by · Direction · Search · Save · Reset · Clear ──
+  -- Group sits over the Date dropdown below it, Direction over Bound, and the Save/Reset/Clear
+  -- cluster over Export (B:LayoutFilterBar).
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
   -- The active tab's group (B:SetGroup): History's table, or a tab that owns its own (Holdings).
@@ -247,7 +314,6 @@ function B:BuildFilterBar(bar)
   -- (B:ToolbarSpan), so a ninth row-2 dropdown would widen the minimum window by its whole width;
   -- row 1's search box absorbs it instead. As wide as Bound (the fit pairs them).
   dd.dir = NS.MakeDropdown(bar, FLOOR.dir)
-  dd.dir:SetPoint("LEFT", dd.group, "RIGHT", 8, 0)
   dd.dir:SetMulti(true)
   dd.dir:SetOptions(DIR_OPTIONS)
   dd.dir.onMultiSelect = function(set)
@@ -255,14 +321,10 @@ function B:BuildFilterBar(bar)
     ApplyFilter()
   end
 
-  -- Item-name search box (row 1). Its LEFT sits beside Direction; its RIGHT is pinned to the row-2
-  -- Character dropdown's right edge below it (set once dd.char exists) so the two right edges stay
-  -- aligned at every window width — top-corner anchoring keeps the box in row 1 despite the
-  -- row-2 reference (the -ROW2 y-offset lifts it back up). The Save/Reset/Clear cluster sits to
-  -- its right; the min window width guarantees they never overlap.
+  -- Item-name search box (row 1): it fills from Direction to the Save/Reset/Clear cluster, so its
+  -- right edge lines up with the row-2 Character dropdown's at every window width.
   local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
   search:SetHeight(20)
-  search:SetPoint("TOPLEFT", dd.dir, "TOPRIGHT", 8, 0)
   search:SetAutoFocus(false)
   search:SetFontObject("GameFontHighlightSmall")
   search:SetTextInsets(6, 6, 0, 0)
@@ -286,7 +348,6 @@ function B:BuildFilterBar(bar)
   -- ── Row 2: column filters, left→right in the same order the columns appear in the table:
   --   Date · Bound · Quality · Type · SubType · Source · Zone · Character ──
   dd.date = NS.MakeDropdown(bar, FLOOR.date)
-  dd.date:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
   dd.date:SetOptions(DATE_OPTIONS)
   dd.date:SetValue("all", "Date: All")
   dd.date.onSelect = function(v)
@@ -296,7 +357,6 @@ function B:BuildFilterBar(bar)
 
   -- Bound (multi-select): binding-state filter. "NONE" matches unbound records.
   dd.bound = NS.MakeDropdown(bar, FLOOR.bound)
-  dd.bound:SetPoint("LEFT", dd.date, "RIGHT", 8, 0)
   dd.bound:SetMulti(true)
   dd.bound:SetOptions(boundOptions())
   dd.bound.onMultiSelect = function(set)
@@ -307,7 +367,6 @@ function B:BuildFilterBar(bar)
   -- Quality/Type/Source/Zone/Character are multi-select: their onMultiSelect receives the current
   -- selection set (empty = All), copied into the matching filter field. The "all" menu item clears.
   dd.quality = NS.MakeDropdown(bar, FLOOR.quality)
-  dd.quality:SetPoint("LEFT", dd.bound, "RIGHT", 8, 0)
   dd.quality:SetMulti(true)
   dd.quality:SetOptions(qualityOptions())
   dd.quality.onMultiSelect = function(set)
@@ -317,7 +376,6 @@ function B:BuildFilterBar(bar)
   end
 
   dd.type = NS.MakeDropdown(bar, FLOOR.type)
-  dd.type:SetPoint("LEFT", dd.quality, "RIGHT", 8, 0)
   dd.type:SetMulti(true)
   dd.type.onMultiSelect = function(set)
     B.activeFilter.itemType = setToFilter(set)
@@ -325,7 +383,6 @@ function B:BuildFilterBar(bar)
   end
 
   dd.subtype = NS.MakeDropdown(bar, FLOOR.subtype)
-  dd.subtype:SetPoint("LEFT", dd.type, "RIGHT", 8, 0)
   dd.subtype:SetMulti(true)
   dd.subtype.onMultiSelect = function(set)
     B.activeFilter.itemSubType = setToFilter(set)
@@ -333,7 +390,6 @@ function B:BuildFilterBar(bar)
   end
 
   dd.source = NS.MakeDropdown(bar, FLOOR.source)
-  dd.source:SetPoint("LEFT", dd.subtype, "RIGHT", 8, 0)
   dd.source:SetMulti(true)
   dd.source.onMultiSelect = function(set)
     B.activeFilter.source = setToFilter(set)
@@ -341,7 +397,6 @@ function B:BuildFilterBar(bar)
   end
 
   dd.zone = NS.MakeDropdown(bar, FLOOR.zone)
-  dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 8, 0)
   dd.zone:SetMulti(true)
   dd.zone.onMultiSelect = function(set)
     B.activeFilter.zone = setToFilter(set)
@@ -349,7 +404,6 @@ function B:BuildFilterBar(bar)
   end
 
   dd.char = NS.MakeDropdown(bar, FLOOR.char)
-  dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 8, 0)
   dd.char:SetMulti(true)
   -- "Current" is a preset, not a toggle: it REPLACES the selection with just the current player's
   -- key (a one-click "only me"), nil-guarded so it's a no-op if PlayerKey() is unavailable.
@@ -373,44 +427,32 @@ function B:BuildFilterBar(bar)
   end
   self._ddWidths = widths
 
-  -- Export button is created here, after the fit, because its width is static and DERIVED from the
-  -- measured dropdown span (B:ExportWidth): at min window width it fills from the Character
-  -- dropdown's right edge to the bar's right edge; it does NOT grow when the window widens (no
-  -- right anchor to the bar). The Save/Reset/Clear cluster above it anchors its top-right corner to
-  -- it.
-  local exportW = B:ExportWidth()
+  -- Export (row 2) and the Save/Reset/Clear cluster above it. Their widths are not fixed:
+  -- B:LayoutFilterBar scales Export with the rest of row 2 and splits its x-range three ways for
+  -- the cluster, so they are built at Export's base width and sized there.
   --
-  -- NO MARK ON THIS ONE. The filter bar's Export button is one word in a row of four plain word
+  -- NO MARK ON EXPORT. The filter bar's Export button is one word in a row of four plain word
   -- buttons (Save/Reset/Clear beside it), and a download arrow on the widest of them made the row
   -- read as one decorated button among three bare ones. The mark stays where it explains
   -- something: the export window's "Export to CSV" (modules/Export.lua), where the spreadsheet
   -- says WHERE the result lands.
+  --
+  -- Tab-aware (issue #15): on History it exports loot rows (All Data / Current View → CSV); on
+  -- Insights the analytics summary. Both respect the shared filter.
+  local exportW = B._EXPORT_MIN
   local exportBtn = makeBarButton(bar, "Export", exportW, function() B:OpenExport() end,
     "Export the current tab — loot rows (History) or the analytics summary (Insights).")
   self._exportBtn = exportBtn
-
-  -- Right cluster (row 1): Save · Reset · Clear, spanning exactly exportW so its right edge sits
-  -- flush above Export's. Three buttons + two 6px gaps = exportW: Clear/Reset each take
-  -- floor((exportW-12)/3); Save takes the remainder so the widths sum exactly. Static (no growth).
-  local btnW = math.floor((exportW - 12) / 3)
-  local clear = makeBarButton(bar, "Clear", btnW, function() B:ClearFilters() end,
+  local clear = makeBarButton(bar, "Clear", exportW, function() B:ClearFilters() end,
     "Clear filters and group/sort back to your saved view.")
-  clear:SetPoint("TOPRIGHT", exportBtn, "TOPRIGHT", 0, ROW1 - ROW2)
-  local resetBtn = makeBarButton(bar, "Reset", btnW, function() B:ResetView() end,
+  local resetBtn = makeBarButton(bar, "Reset", exportW, function() B:ResetView() end,
     "Reset the saved view to stock defaults.")
-  resetBtn:SetPoint("RIGHT", clear, "LEFT", -6, 0)
-  local saveBtn = makeBarButton(bar, "Save", exportW - 12 - 2 * btnW, function() B:SaveView() end,
+  local saveBtn = makeBarButton(bar, "Save", exportW, function() B:SaveView() end,
     "Save the current group, sort and filters as your default view.")
-  saveBtn:SetPoint("RIGHT", resetBtn, "LEFT", -6, 0)
 
-  -- Pin the row-1 Search box's right edge to the Character dropdown's right edge (see the search
-  -- box creation above). -ROW2 lifts the top-right corner from row 2 back up into row 1.
-  search:SetPoint("TOPRIGHT", dd.char, "TOPRIGHT", 0, -ROW2)
-
-  -- Export button (row 2): tab-aware (issue #15). On History it exports loot rows (All Data /
-  -- Current View → CSV); on Insights it exports the analytics summary (issue #15's Insights CSV).
-  -- Both respect the shared filter. Anchored immediately right of the Character
-  -- dropdown (8px gap) rather than the bar's far-right edge; the Save/Reset/Clear cluster above it
-  -- is re-anchored to Export's top-right corner (see `clear` above), so the two rows stay aligned.
-  exportBtn:SetPoint("LEFT", dd.char, "RIGHT", 8, 0)
+  -- Every control B:LayoutFilterBar places, keyed like filterBarLayout's x / w tables.
+  local ctl = { search = search, export = exportBtn, save = saveBtn, reset = resetBtn, clear = clear }
+  for k, d in pairs(dd) do ctl[k] = d end
+  self._bar, self._barCtl, self._barW = bar, ctl, nil
+  self:LayoutFilterBar(bar:GetWidth())
 end

@@ -24,32 +24,24 @@ local SKIN = {
 B.SKIN = SKIN
 
 -- ── Toolbar geometry (single source of truth) ──────────────────────────────────
--- The 8 row-2 filter dropdowns pack left from the pane's left edge. Their combined span is
--- MEASURED, not fixed: modules/BrowserFilterBar.lua sizes every control from the widest label it
--- can show, so no label wraps, and B:ToolbarSpan answers the span those widths need (row 2, or
--- row 1's Group + Direction + a minimum Search if that is ever wider; the floor widths until the
--- bar is built). The row-2 Export button and the row-1 Save/Reset/Clear cluster above it fill the
--- slack from the Character dropdown's right edge to the window's right edge AT MIN WIDTH, and are
--- STATIC — they don't grow when the window widens (the extra space opens up on the right). Both
--- EnsureFrame (the window floor) and BuildFilterBar (Export/cluster sizing) read B:MinWidth() /
--- B:ToolbarSpan(), so the window floor and the toolbar packing can never drift apart.
+-- The filter bar's controls are MEASURED, not fixed: modules/BrowserFilterBar.lua sizes every
+-- control from the widest label it can show, so no label wraps, and B:ToolbarSpan answers the span
+-- those widths need (row 2's eight dropdowns, or row 1's Group + Direction + a minimum Search if
+-- that is ever wider; the floor widths until the bar is built). The window floor adds an 8px gap,
+-- Export's EXPORT_MIN and the 12px pane margins, so at the toolbar floor row 2 fits exactly at its
+-- base widths. Wider than that, B:LayoutFilterBar scales every row-2 control by one ratio so the
+-- bar always ends 6px in from the right border, as it starts on the left (P6 Task 3).
 local EXPORT_MIN  = 120                                                    -- Export never narrower than this
+B._EXPORT_MIN = EXPORT_MIN   -- Export's base width in the filter bar's layout
+local BAR_INSET   = 6        -- the filter bar host's left and right inset (EnsureFrame)
 
 -- Minimum (and default-open) window width: the wider of the column-derived table floor
 -- (BrowserTable:MinFrameWidth) and the toolbar-fit floor (the dropdown span + an 8px gap + a
--- minimum Export + 12px pane margins). Shared by EnsureFrame and the filter-bar builder so
--- Export/cluster geometry stays consistent with the frame size.
+-- minimum Export + 12px pane margins). Shared by EnsureFrame and the resize grip.
 function B:MinWidth()
   local colW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
     or 822
-  return math.max(colW, self:ToolbarSpan() + 8 + EXPORT_MIN + 12)
-end
-
--- Static Export button width: fills from the Character dropdown's right edge (+8px gap) to the
--- bar's right edge at min width, clamped to EXPORT_MIN. (minW-12) is the bar inner width at min
--- (6px pane margin each side); minus the dropdown span + gap leaves exactly the Export width.
-function B:ExportWidth()
-  return math.max(EXPORT_MIN, (self:MinWidth() - 12) - (self:ToolbarSpan() + 8))
+  return math.max(colW, self:ToolbarSpan() + 8 + EXPORT_MIN + 2 * BAR_INSET)
 end
 
 -- Wear the shared Ka0s window edge. Every value this used to spell out — the WHITE8x8 backdrop at
@@ -114,6 +106,9 @@ local function RestoreWindow()
     -- Default (fresh install / after a settings reset): dead-center of the screen, H and V.
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
+  -- The client's OnSizeChanged re-lays the filter bar out too; this covers a size that did not
+  -- change (and is a no-op then).
+  B:LayoutFilterBar(frame:GetWidth() - 2 * BAR_INSET)
 end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -882,12 +877,10 @@ local function EnsureFrame()
   -- Default size == minimum size: wide enough for every column, so it can grow but never
   -- shrink into horizontal overflow. B:MinWidth() is the single source of truth — the wider of
   -- the column-derived table floor (BrowserTable:MinFrameWidth) and the toolbar-fit floor (the
-  -- measured dropdown span + an 8px gap + a min Export 120 + 12px pane margins). The toolbar is
-  -- packed left and the Export button + the Save/Reset/Clear cluster fill the slack to the right
-  -- edge (static), so the window may shrink to whichever floor is larger. The floor is taken here
-  -- from the bar's floor widths and taken AGAIN once BuildFilterBar has measured its labels (below);
-  -- the bar reads the SAME helper (B:ExportWidth), so the Export/cluster geometry and this frame
-  -- width can't drift.
+  -- measured dropdown span + an 8px gap + a min Export 120 + 12px pane margins). The filter bar
+  -- scales to fill whatever width the window has (B:LayoutFilterBar), so the window may shrink to
+  -- whichever floor is larger. The floor is taken here from the bar's floor widths and taken AGAIN
+  -- once BuildFilterBar has measured its labels (below).
   local minW = B:MinWidth()
   local minH = SKIN.minH
   B._minW, B._minH = minW, minH
@@ -954,8 +947,8 @@ local function EnsureFrame()
 
   -- Shared singleton filter bar host, anchored below the tab strip and above the panes.
   local filterHost = CreateFrame("Frame", nil, frame)
-  filterHost:SetPoint("TOPLEFT",  frame, "TOPLEFT",   6, -barTop)
-  filterHost:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -barTop)
+  filterHost:SetPoint("TOPLEFT",  frame, "TOPLEFT",   BAR_INSET, -barTop)
+  filterHost:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -BAR_INSET, -barTop)
   filterHost:SetHeight(FILTERBAR_H)
   frame.filterHost = filterHost
 
@@ -1003,6 +996,10 @@ local function EnsureFrame()
       if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh() end
     end,
   })
+  -- The filter bar follows the window's width live, every frame of a drag (P6 Task 3): anchors and
+  -- widths only, skipped when the width did not change. Hooked AFTER MakeResizable so a library
+  -- that SETS OnSizeChanged cannot replace it.
+  frame:HookScript("OnSizeChanged", function(_, w) B:LayoutFilterBar(w - 2 * BAR_INSET) end)
 
   -- Close any open dropdown menu whenever the window hides (covers the ESC/UISpecialFrames
   -- path, which calls frame:Hide() directly instead of B:Hide()). Also the single seam for the

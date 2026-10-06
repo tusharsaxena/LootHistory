@@ -306,9 +306,9 @@ test("BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 
   -- its 8px gap) made it 1246, and P5 widened Direction to 86 (glyph + "Transfer", BankLedger
   -- style; +68) for 1314. Comfortably past the old 1160 toolbar
   -- floor and wide enough for the money columns. B:MinWidth() takes the wider of this and the
-  -- toolbar-fit floor (the dropdown span + 8 + a 120 Export + 12), and the static Export button
-  -- fills the slack to the bar's right edge. Headless the font measures 0, so the span is the floor
-  -- widths with Direction and Bound paired at 104 (P4): (1314-12) - (984+8) = 310.
+  -- toolbar-fit floor (the dropdown span + 8 + a 120 Export + 12), and the filter bar scales to
+  -- fill the bar (B:LayoutFilterBar). Headless the font measures 0, so the span is the floor
+  -- widths with Direction and Bound paired at 104 (P4).
   assertEqual(NS.BrowserTable:MinFrameWidth(), 1314)
   assertTrue(NS.BrowserTable:MinFrameWidth() >= 1160,
     "AH column must keep the frame past the old 1160 floor")
@@ -316,7 +316,6 @@ test("BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 
   assertTrue(NS.Browser:MinWidth() >= NS.Browser:ToolbarSpan() + 8 + 120 + 12,
     "must be at least the toolbar-fit floor")
   assertEqual(NS.Browser:ToolbarSpan(), 984)
-  assertEqual(NS.Browser:ExportWidth(), 310)
 end)
 
 test("BrowserTable: quality column is blank for a currency row", function()

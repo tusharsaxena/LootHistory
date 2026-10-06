@@ -597,11 +597,10 @@ badge and any count quoted in the docs must agree with it.
 - Stats: ledger gains, losses, net and transfers
 - Stats: preLedgerRows counts rows older than ledgerSince
 
-### test_browser.lua (87)
+### test_browser.lua (92)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
-- Browser.ExportWidth exactly consumes the bar remainder at minimum width
-- Browser.ExportWidth never falls below its floor
+- Browser: Export reaches the bar's right edge at minimum width, never below its floor
 - Browser.setToFilter turns a selection set into a filter value
 - Browser.setToFilter maps an empty selection to nil (no filter at all)
 - Browser.setToFilter copies rather than aliases the live selection
@@ -686,6 +685,12 @@ badge and any count quoted in the docs must agree with it.
 - filter bar: each width covers the widest label that control can show
 - filter bar: the window floor fits both rows at the built widths
 - filter bar: a saved window narrower than the floor is widened on restore
+- filter bar layout: at the base width r == 1 and row 2 ends at the bar's right edge
+- filter bar layout: a wider window scales every control by the same ratio
+- filter bar layout: row 1 sits on row 2's grid
+- filter bar layout: a bar narrower than the base never shrinks a control
+- filter bar: the built bar fills the bar width at the base width and 300px wider
+- filter bar: resizing the window re-lays the bar out to its new width
 
 ### test_browsertable.lua (74)
 
@@ -1563,7 +1568,7 @@ badge and any count quoted in the docs must agree with it.
 | test_escrow.lua | 11 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
-| test_browser.lua | 87 |
+| test_browser.lua | 92 |
 | test_browsertable.lua | 74 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
@@ -1599,4 +1604,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1357** |
+| **Total** | **1362** |
