@@ -997,8 +997,9 @@ local function EnsureFrame()
     end,
   })
   -- The filter bar follows the window's width live, every frame of a drag (P6 Task 3): anchors and
-  -- widths only, skipped when the width did not change. Hooked AFTER MakeResizable so a library
-  -- that SETS OnSizeChanged cannot replace it.
+  -- widths only, skipped when the width did not change. Its own hook rather than MakeResizable's
+  -- opts.onResize (which the library also runs off a hooked OnSizeChanged): onResize stays unused,
+  -- per the note above, and this relayout is cheap enough for every size tick.
   frame:HookScript("OnSizeChanged", function(_, w) B:LayoutFilterBar(w - 2 * BAR_INSET) end)
 
   -- Close any open dropdown menu whenever the window hides (covers the ESC/UISpecialFrames

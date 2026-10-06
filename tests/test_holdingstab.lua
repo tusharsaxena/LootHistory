@@ -154,6 +154,17 @@ test("Holdings row actions: Forget is offered for an alt, never for the warband 
   assertFalse(me["Forget this character"].enabled)
 end)
 
+test("Holdings row actions: Forget is disabled in test mode, even for an alt", function()
+  local prev = NS.State.testHoldings
+  NS.State.testHoldings = {}
+  local ok, err = pcall(function()
+    local alt = labels(NS.HoldingsTab.RowActions({ kind = "holder", key = "g", holder = "Alt-Realm" }))
+    assertFalse(alt["Forget this character"].enabled, "test mode must never offer to forget a real character")
+  end)
+  NS.State.testHoldings = prev
+  if not ok then error(err, 0) end
+end)
+
 test("Forget this character: drops holdings and rollup cells, keeps history rows, announces once", function()
   keep(function()
     NS.db.global.holdings, NS.db.global.daily = {}, {}

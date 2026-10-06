@@ -1112,7 +1112,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: losses only — no empty text, no LOOT divider
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
 
-### test_holdingstab.lua (31)
+### test_holdingstab.lua (32)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -1123,6 +1123,7 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is closed
 - Holdings row actions: a thing line offers Show in Timeline
 - Holdings row actions: Forget is offered for an alt, never for the warband or the logged-in character
+- Holdings row actions: Forget is disabled in test mode, even for an alt
 - Forget this character: drops holdings and rollup cells, keeps history rows, announces once
 - Forget this character: a holder with nothing stored is a no-op and announces nothing
 - Forget this character: refuses the logged-in character and the warband
@@ -1580,7 +1581,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 67 |
 | test_analytics_layout.lua | 9 |
-| test_holdingstab.lua | 31 |
+| test_holdingstab.lua | 32 |
 | test_timeline.lua | 19 |
 | test_timelinetab.lua | 11 |
 | test_testdata.lua | 4 |
@@ -1604,4 +1605,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1362** |
+| **Total** | **1363** |

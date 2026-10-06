@@ -268,6 +268,8 @@ end
 -- Right-click actions for one Holdings line, as data (tests/test_holdingstab.lua reads them). A thing
 -- line charts the thing; a holder line also offers to forget the character (spec §8.2), never the
 -- warband and never the character you are logged in on (its next scan would put it straight back).
+-- Never in test mode either: a sample holder can share a real character's key, and Forget acts on the
+-- LIVE stores, so a preview screen must not be able to delete real holdings.
 function HT.RowActions(line)
   local items = {
     { label = "Show in Timeline", icon = "graph", enabled = NS.Timeline ~= nil,
@@ -275,7 +277,8 @@ function HT.RowActions(line)
   }
   if line.kind == "holder" then
     local h = line.holder
-    local forgettable = h ~= NS.Constants.WARBAND_HOLDER and h ~= NS.Util.PlayerKey()
+    local forgettable = not NS.State.testHoldings
+      and h ~= NS.Constants.WARBAND_HOLDER and h ~= NS.Util.PlayerKey()
     items[#items + 1] = { label = "|cffff5555Forget this character|r", icon = "clear", enabled = forgettable,
       fn = function()
         if type(StaticPopup_Show) == "function" then

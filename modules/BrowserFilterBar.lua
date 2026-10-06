@@ -244,7 +244,8 @@ end
 -- `icon` is a catalog name and is OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
 -- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather
 -- than off-center. Only buttons at least ~120px wide are given one -- a 14px mark plus a centered
--- five-letter word does not fit the 36px Clear/Reset cluster, and an off-center label is worse
+-- five-letter word does not fit a Clear/Save/Reset button (Export's scaled width split three ways
+-- with 8px gaps: about 34px at the toolbar floor, wider above it), and an off-center label is worse
 -- than no mark (see docs/browser.md).
 --
 -- The existing `tooltip` stays and is NOT a tooltip on the mark: it predates the art, it is
