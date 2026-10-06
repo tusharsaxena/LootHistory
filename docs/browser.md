@@ -183,6 +183,14 @@ passes through `NS.Pool` and requires the second to build nothing. Reading `pool
 pass against a pool nobody reuses. The one allocation on the loot path that is deliberately left
 unmeasured is recorded in [combat-path-sweep.md](combat-path-sweep.md#the-allocation-that-is-not-measured-and-stays-that-way).
 
+## Holdings tab
+
+`modules/HoldingsTab.lua` registers the third tab (`{ name = "Holdings", order = 40 }`) through `B:RegisterTab` (timeline-ledger spec §8.2). It lists what the account **holds right now**, from `NS.Holdings:Search` over `db.global.holdings`: one line per thing (item, currency, or gold) with its account total and value; clicking a line expands it into one indented line per holder — the character's name class-colored (`§warband` reads "Warband"), the container split (`Bags 12 · Bank 40 · Warband 100`, fixed order bags, equipped, bank, mail, AH, warband tabs) and the age of the oldest scan feeding that count, grayed once it is a day old.
+
+`HoldingsTab.BuildModel(filter, expanded, sortKey)` is pure and carries every decision; the view is a scroll frame of fixed-height rows from one `NS.Pool` pool, released and re-acquired on each `Refresh`, so a repaint reuses its frames. The Name / Total / Value header buttons pick the sort (`name` ascending, `total` and `value` descending). Value is gold's own copper, `0` for a currency, and for an item `NS.Util.RecordValue` over the live picked auction price and the vendor sell price (`Compat.GetItemSellPrice`) times the count. The tab repaints on `HoldingsChanged` while on screen (its own `NS.NewBusTarget()`, `HoldingsTab.__ev`, dropped by `NS.StandDown`); the Reconciler only sends that from its out-of-combat flush.
+
+**Filters.** It reads the shared filter like the other tabs, but only the fields `Holdings:Search` understands: search text, Quality, Type, SubType and Character (which narrows the holders, and so the totals). Date, Source, Bound and Zone describe a loot event, not something held: in Phase 1 they stay visible and are **ignored** on this tab. Graying per-tab filters is spec §8.0 and lands with the Timeline tab in Phase 3. The window opens scoped to the logged-in character, so the tab first shows that character's holdings; widen the Character filter for the account.
+
 ## Menus: two mechanisms, on purpose
 
 This addon draws **two** kinds of menu and neither is a Blizzard `UIDropDownMenu` — both avoid that

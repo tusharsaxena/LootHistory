@@ -894,6 +894,7 @@ test("Browser: a registered tab builds lazily and refreshes on select", function
   -- late path: the pane and tab button are created on the fly.
   -- red under: SelectTab looping a fixed TABS list, or rebuilding a built pane on every select.
   local built, refreshed = 0, 0
+  local before = #NS.Browser:Tabs()   -- later modules (Holdings) register their own tabs too
   NS.Browser:RegisterTab{ name = "ZTest", order = 99,
     build = function() built = built + 1 end, refresh = function() refreshed = refreshed + 1 end }
   local ok, err = pcall(withSettings, { visibility = "always" }, function()
@@ -906,5 +907,5 @@ test("Browser: a registered tab builds lazily and refreshes on select", function
   end)
   NS.Browser:_UnregisterTabForTest("ZTest")
   if not ok then error(err, 0) end
-  assertEqual(#NS.Browser:Tabs(), 2, "the test tab must leave no trace")
+  assertEqual(#NS.Browser:Tabs(), before, "the test tab must leave no trace")
 end)

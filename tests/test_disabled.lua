@@ -96,6 +96,8 @@ local OWNED = {
   "event:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED:nil",
   "event:PLAYER_INTERACTION_MANAGER_FRAME_SHOW:nil",
   "event:PLAYER_INTERACTION_MANAGER_FRAME_HIDE:nil",
+  -- modules/HoldingsTab.lua: repaints the Holdings pane when the Reconciler's flush lands.
+  "message:Ka0s_LootHistory_HoldingsChanged:nil",
 }
 
 --- WHAT SURVIVES, AND WHY THE SET IS NOT SIMPLY EMPTY. §7 exempts a short named list as SETUP
@@ -119,7 +121,8 @@ local OWNED = {
 local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
-                            NS.Attribution.__spellFrame, NS.Reconciler.__ev, NS.Reconciler._settings }) do
+                            NS.Attribution.__spellFrame, NS.Reconciler.__ev, NS.Reconciler._settings,
+                            NS.HoldingsTab.__ev }) do
     if target then t[target] = true end
   end
   return t

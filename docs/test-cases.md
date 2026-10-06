@@ -138,7 +138,7 @@ badge and any count quoted in the docs must agree with it.
 - Util: row accessors give legacy defaults
 - Constants: ledger enums and warband key
 
-### test_compat.lua (45)
+### test_compat.lua (46)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -172,6 +172,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyCategory walks the list at most once for an id that is truly absent
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
 - Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil
+- Compat: GetItemSellPrice degrades to nil
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
 - Compat: GetSpellName answers C_Spell.GetSpellName's name, as one value
@@ -902,6 +903,15 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: an empty range hides every chart and shows the empty text
 - Insights layout: a nil stats table takes the empty branch too
 
+### test_holdingstab.lua (6)
+
+- HoldingsTab: model lists things collapsed by default
+- HoldingsTab: expanding a thing adds one line per holder
+- HoldingsTab: character filter narrows holders
+- HoldingsTab: container and age formatting
+- HoldingsTab: tab is registered after History and Insights
+- HoldingsTab: attach builds rows and recycles them on refresh
+
 ### test_panel.lua (43)
 
 - Panel: the parent category and its ONE sub-page are registered
@@ -1246,7 +1256,7 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
 | test_ledger.lua | 6 |
-| test_compat.lua | 45 |
+| test_compat.lua | 46 |
 | test_scanner.lua | 4 |
 | test_holdings.lua | 8 |
 | test_attribution.lua | 37 |
@@ -1267,6 +1277,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 64 |
 | test_analytics_layout.lua | 6 |
+| test_holdingstab.lua | 6 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1286,4 +1297,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1088** |
+| **Total** | **1095** |

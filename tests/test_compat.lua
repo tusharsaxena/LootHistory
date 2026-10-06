@@ -400,6 +400,10 @@ test("Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil", func
   assertEqual(a, nil); assertEqual(b, nil)
 end)
 
+test("Compat: GetItemSellPrice degrades to nil", function()
+  assertEqual(NS.Compat.GetItemSellPrice(nil), nil)
+end)
+
 test("Compat: CurrencyQuality returns the tier, nil when unknown", function()
   assertEqual(NS.Compat.CurrencyQuality(3008), 4)
   assertEqual(NS.Compat.CurrencyQuality(999999), nil)

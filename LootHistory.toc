@@ -101,6 +101,7 @@ modules\Export.lua
 modules\AnalyticsFormat.lua
 modules\Analytics.lua
 modules\AnalyticsCharts.lua
+modules\HoldingsTab.lua
 modules\Diagnostics.lua
 
 # Settings

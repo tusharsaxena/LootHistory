@@ -447,6 +447,17 @@ function Compat.GetItemTypeInfo(idOrLink)
   return nil, nil
 end
 
+-- Per-unit vendor sell price (copper) for an item id or link; nil when the item is not cached, the
+-- API is absent, or it cannot be sold. The holdings tab values a stack from this beside the picked
+-- auction price -- through here, not GetItemExtras, which also scans the tooltip for bind state.
+function Compat.GetItemSellPrice(idOrLink)
+  if idOrLink and C_Item and C_Item.GetItemInfo then
+    local results = { C_Item.GetItemInfo(idOrLink) }
+    return results[11]
+  end
+  return nil
+end
+
 -- Bound state for a currency, from C_CurrencyInfo: "WARBAND" for a Warband-transferable currency
 -- (the tooltip's "Warband Transferable" = `isAccountTransferable`), else "BOP" (currencies are
 -- otherwise soulbound). Returns nil when the API can't resolve the id (headless / uncached) so callers
