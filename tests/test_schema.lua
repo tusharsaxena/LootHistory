@@ -368,17 +368,17 @@ test("Schema: the shipped default equals the schema's declared default", functio
   -- senses, so the pair is still checked -- flip either side alone and this goes red exactly as it
   -- would for any other row (launcher-§3). No `shown` default is shipped (anti-pattern #81).
   --
-  -- `settings.retentionDays` is compared against its stored key in defaults/Global.lua, and is
-  -- absent from defaults/Profile.lua: it is account-wide (D6).
+  -- `settings.retentionDays` and `settings.rollupRetentionDays` are compared against their stored
+  -- keys in defaults/Global.lua, and are absent from defaults/Profile.lua: both are account-wide (D6).
   for _, row in ipairs(S.Schema) do
     if row.path == "minimap.shown" then
       assertEqual(NS.SchemaLib.Read(NS.defaults.global, S.RESET_EXEMPT[row.path]), not row.default,
         "minimap.shown: the shipped `hide` must be the inverse of the row's SHOWN default")
-    elseif row.path == "settings.retentionDays" then
+    elseif row.path == "settings.retentionDays" or row.path == "settings.rollupRetentionDays" then
       assertEqual(NS.SchemaLib.Read(NS.defaults.global, S.RESET_EXEMPT[row.path]), row.default,
-        "settings.retentionDays disagrees with defaults/Global.lua")
+        row.path .. " disagrees with defaults/Global.lua")
       assertEqual(NS.SchemaLib.Read(NS.defaults.profile, row.path), nil,
-        "settings.retentionDays is account-wide and must not be declared per profile")
+        row.path .. " is account-wide and must not be declared per profile")
     elseif not row.sessionOnly then
       local shipped = NS.SchemaLib.Read(NS.defaults.profile, row.path)
       if row.type == "table" then
@@ -491,7 +491,13 @@ end)
 --- what the prune deletes from the shared history is account-wide, so its accessors read and write
 --- `global.retentionDays` instead of the active profile. It still takes the seam: validate, the
 --- [Set] line and its confirm-gated onChange all run (the Retention cases below).
-local STORED_ROWS_WITH_ACCESSORS = { ["minimap.shown"] = true, ["settings.retentionDays"] = true }
+---
+--- `settings.rollupRetentionDays` (the Timeline's daily rollup, timeline ledger P3) is the third,
+--- for the same reason: it governs recorded data every profile shares.
+local STORED_ROWS_WITH_ACCESSORS = {
+  ["minimap.shown"] = true, ["settings.retentionDays"] = true,
+  ["settings.rollupRetentionDays"] = true,
+}
 
 test("Schema: only the session-only rows carry their own get/set", function()
   for _, row in ipairs(S.Schema) do
@@ -648,7 +654,7 @@ end)
 local PARTITION = {
   ["General"] = {
     { "Master controls", 8 }, { "Capture", 6 }, { "AH Price", 2 },
-    { "Interface", 2 }, { "History", 2 },
+    { "Interface", 2 }, { "History", 3 },
   },
 }
 
@@ -705,22 +711,18 @@ test("Schema: a group's rows are contiguous, so no tab is drawn twice", function
 end)
 
 test("Schema: no tab holds fewer than two controls", function()
-  -- A tab over one control is a click that reveals a single dropdown. General's History is
-  -- the one exemption and it is exempted BY NAME, never by loosening the rule: its single stored
-  -- row (Keep history for) shares the tab with three BESPOKE controls that have no path and
-  -- cannot be rows — the live storage readout, "Purge history…" and "Reset Everything"
-  -- (settings/Panel.lua renderHistory).
+  -- A tab over one control is a click that reveals a single dropdown. General ▸ History was
+  -- exempted by name while it held one stored row; "Show transfers by default" made it two and the
+  -- Timeline's rollup retention row (timeline ledger P3) three, so the rule now binds every tab
+  -- with no exemption.
   -- red under: a tab losing rows until one is left, or a new one-row group.
-  local EXEMPT = { ["History"] = true }
   local counts, pageOf = {}, {}
   for _, row in ipairs(S.Schema) do
     counts[row.group] = (counts[row.group] or 0) + 1
     pageOf[row.group] = row.page
   end
   for group, n in pairs(counts) do
-    if not EXEMPT[group] then
-      assertTrue(n >= 2, pageOf[group] .. " / " .. group .. " holds only " .. n)
-    end
+    assertTrue(n >= 2, pageOf[group] .. " / " .. group .. " holds only " .. n)
   end
 end)
 
@@ -800,13 +802,14 @@ end)
 local NUMBER_WORD = {
   ten = 10, eleven = 11, twelve = 12, thirteen = 13, fourteen = 14, fifteen = 15,
   sixteen = 16, seventeen = 17, eighteen = 18, nineteen = 19, twenty = 20,
+  ["twenty-one"] = 21, ["twenty-two"] = 22,
 }
 
 local COUNT_CLAIMS = {
-  { "docs/ARCHITECTURE.md",   "\n(%a+) rows ship today, on %*%*one%*%* schema%-backed page" },
-  { "docs/settings-panel.md", "%*%*(%a+) rows ship today%*%*" },
+  { "docs/ARCHITECTURE.md",   "\n([%a%-]+) rows ship today, on %*%*one%*%* schema%-backed page" },
+  { "docs/settings-panel.md", "%*%*([%a%-]+) rows ship today%*%*" },
   { "docs/module-map.md",     "Schema%.lua%s+— (%d+) rows, one per setting" },
-  { "docs/module-map.md",     "`NS%.Schema` %(alias `S`%): %*%*(%a+)%*%* rows, one per setting" },
+  { "docs/module-map.md",     "`NS%.Schema` %(alias `S`%): %*%*([%a%-]+)%*%* rows, one per setting" },
 }
 
 test("Schema: every doc that counts the rows counts the same number the schema ships", function()

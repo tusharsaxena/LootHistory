@@ -179,6 +179,16 @@ C.RETENTION_OPTIONS = {
   { value = 0,   text = "Always" },
 }
 
+-- How long the Timeline's daily rollup is kept (settings.rollupRetentionDays). Longer floors than the
+-- raw history's: the rollup is the long-term record, one small cell per changed thing per day.
+C.ROLLUP_RETENTION_OPTIONS = {
+  { value = 90,  text = "90 days" },
+  { value = 180, text = "180 days" },
+  { value = 365, text = "1 year" },
+  { value = 730, text = "2 years" },
+  { value = 0,   text = "Always" },
+}
+
 -- Per-source mute options, derived from the source order. Only sources with a live capture path
 -- (SOURCE_IMPLEMENTED) are offered — an unreachable bucket would be a dead checkbox in the panel.
 C.SOURCE_OPTIONS = {}

@@ -152,6 +152,65 @@ test("Holdings: Describe names a thing by key, Gold included", function()
   assertTrue(type(NS.Holdings:Describe("i:7").name) == "string")
 end)
 
+-- ── retention, the login prune and the one-time seed ─────────────────────────────────────────
+
+test("Rollup: Prune with Always (0) keeps every day", function()
+  reset()
+  NS.db.global.daily = { ["2020-01-01"] = { ["A-R"] = { g = { c = 1 } } } }
+  NS.db.global.rollupRetentionDays = 0
+  assertEqual(NS.Rollup:Prune(T0), 0)
+  assertTrue(NS.db.global.daily["2020-01-01"] ~= nil)
+end)
+
+test("Rollup: Prune drops days past the retention and carries their closes", function()
+  reset()
+  NS.db.global.daily = {
+    [day(T0 - 400 * 86400)] = { ["A-R"] = { g = { c = 5 } } },
+    [day(T0 - 10 * 86400)] = { ["A-R"] = { ["i:7"] = { c = 1 } } },
+  }
+  NS.db.global.rollupRetentionDays = 365
+  assertEqual(NS.Rollup:Prune(T0), 1)
+  local cutoff = day(T0 - 365 * 86400)
+  assertEqual(NS.db.global.daily[cutoff]["A-R"].g.c, 5)
+  NS.db.global.rollupRetentionDays = 0
+end)
+
+test("Rollup: SeedOnce writes today's close for every held thing, once per account", function()
+  reset()
+  NS.db.global.rollupSeeded = nil
+  NS.db.global.holdings = { ["A-R"] = { meta = {}, scanned = {}, links = {},
+    items = { [7] = { bags = 2, bank = 3 } }, currency = { [3008] = 4 }, money = 99 } }
+  local n = NS.Rollup:SeedOnce(T0)
+  assertEqual(n, 3)
+  assertEqual(cell(T0, "A-R", "i:7").c, 5); assertEqual(cell(T0, "A-R", "c:3008").c, 4)
+  assertEqual(cell(T0, "A-R", "g").c, 99)
+  assertEqual(NS.db.global.rollupSeeded, T0)
+  assertEqual(NS.Rollup:SeedOnce(T0 + 86400), 0, "the second call is a no-op")
+  NS.db.global.rollupSeeded = nil
+end)
+
+test("Rollup: SeedOnce never overwrites a close already written today", function()
+  reset()
+  NS.db.global.rollupSeeded = nil
+  NS.db.global.holdings = { ["A-R"] = { meta = {}, scanned = {}, links = {}, items = {}, currency = {}, money = 99 } }
+  NS.Rollup:NoteClose("A-R", "g", T0, 42)
+  NS.Rollup:SeedOnce(T0)
+  assertEqual(cell(T0, "A-R", "g").c, 42)
+  NS.db.global.rollupSeeded = nil
+end)
+
+test("Schema: rollupRetentionDays is account-wide, defaults to Always and is reset-exempt", function()
+  local S = NS.Schema
+  local row = S:FindRow("settings.rollupRetentionDays")
+  assertTrue(row ~= nil)
+  assertEqual(row.default, 0); assertEqual(row.group, "History")
+  S:Set("settings.rollupRetentionDays", 365)
+  assertEqual(NS.db.global.rollupRetentionDays, 365)
+  assertEqual(NS.db.profile.settings.rollupRetentionDays, nil, "never stored per profile")
+  assertEqual(S.RESET_EXEMPT["settings.rollupRetentionDays"], "rollupRetentionDays")
+  S:Set("settings.rollupRetentionDays", 0)
+end)
+
 -- Not a behavior case: puts the stores, the key index and the write hook back the way this suite
 -- found them, so the suites after it see no rollup state of this file's making.
 test("Rollup: the suite restores the shared state it changed", function()

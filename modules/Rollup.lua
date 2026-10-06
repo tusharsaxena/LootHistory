@@ -89,3 +89,57 @@ function Rollup:Disable()
   NS.Database:RemoveWriteHook(self._hook)
   self._hook = nil
 end
+
+-- ── Retention and the one-time seed (both run from the login deferral, core/LootHistory.lua) ──
+
+local DAY = 86400
+
+local function seedCell(daily, day, holder, key, n)
+  local d = daily[day]
+  local c = d and d[holder] and d[holder][key]
+  if c and c.c ~= nil then return 0 end
+  Ledger.RollupClose(daily, day, holder, key, n)
+  return 1
+end
+
+local function seedHolder(daily, day, holder, e)
+  local n = 0
+  for id, row in pairs(e.items or {}) do
+    local total = 0
+    for _, k in pairs(row) do total = total + k end
+    n = n + seedCell(daily, day, holder, "i:" .. id, total)
+  end
+  for id, q in pairs(e.currency or {}) do n = n + seedCell(daily, day, holder, "c:" .. id, q) end
+  if e.money then n = n + seedCell(daily, day, holder, "g", e.money) end
+  return n
+end
+
+-- Once per account. Holdings that existed before the rollup was written (the Phase 1/2 releases)
+-- have no cell anywhere, and a thing that never changes again would never get one, so its line would
+-- never draw. Today's close of everything held is the honest starting point; a close already written
+-- today (a change this session) is the fresher fact and is never overwritten.
+function Rollup:SeedOnce(ts)
+  local g = NS.db and NS.db.global
+  if not g or g.rollupSeeded then return 0 end
+  local daily, day, n = self:Store(), Ledger.DayKey(ts), 0
+  for holder, e in pairs(NS.Holdings:Store()) do n = n + seedHolder(daily, day, holder, e) end
+  g.rollupSeeded = ts
+  self._keys = nil
+  if NS.State.debug and NS.Debug then NS.Debug("Rollup", "seeded %d cells", n) end
+  return n
+end
+
+-- db.global.rollupRetentionDays: 0 = Always, a no-op. Days before the cutoff go, and each thing's
+-- last close among them is carried onto the cutoff day (Ledger.PruneDaily), so a line still starts
+-- from its last known value.
+function Rollup:Prune(now)
+  local days = NS.db and NS.db.global and NS.db.global.rollupRetentionDays
+  if not days or days == 0 then
+    if NS.State.debug and NS.Debug then NS.Debug("Rollup", "prune skipped: retention is Always") end
+    return 0
+  end
+  local removed = Ledger.PruneDaily(self:Store(), Ledger.DayKey((now or time()) - days * DAY))
+  if removed > 0 then self._keys = nil end
+  if NS.State.debug and NS.Debug then NS.Debug("Rollup", "retention %dd: removed %d days", days, removed) end
+  return removed
+end

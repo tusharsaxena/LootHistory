@@ -29,6 +29,9 @@ NS.defaults.global = {
   -- switch, copy or reset must never change it. The schema row `settings.retentionDays` reads and
   -- writes this key through its own get/set (settings/Schema.lua).
   retentionDays = 30,
+  rollupRetentionDays = 0,   -- the Timeline's daily rollup: 0 = Always (spec §11)
+  -- rollupSeeded (ts of the one-time seed, modules/Rollup.lua) is deliberately NOT declared, for
+  -- the reason ledgerSince is not: AceDB strips a value equal to its default.
   -- LibDBIcon's table. GLOBAL by launcher-§3: the minimap button belongs to the installation, and a
   -- profile switch must not move it or hide it.
   minimap = { hide = false },

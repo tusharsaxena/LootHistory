@@ -20,15 +20,16 @@ local O = NS.Options
 -- (LootHistory.toc), and every value read here is a scalar, so no row aliases the shipped table.
 local PD = NS.defaults.profile
 -- The account-wide declarations (defaults/Global.lua, which loads before defaults/Profile.lua): read
--- for the one setting that lives there, `retentionDays` (D6).
+-- for the two settings that live there, `retentionDays` (D6) and `rollupRetentionDays`.
 local GD = NS.defaults.global
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
--- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Two stored rows live outside it, in
+-- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Three stored rows live outside it, in
 -- the global store, and each owns its storage through its own get/set: the Master controls'
 -- `minimap.shown` (the LibDBIcon table, launcher-§3) and the History tab's `settings.retentionDays`
 -- (`global.retentionDays`, owner decision D6: the setting that governs recorded data stays
--- account-wide, so no profile event can change what the prune deletes).
+-- account-wide, so no profile event can change what the prune deletes) and
+-- `settings.rollupRetentionDays` (`global.rollupRetentionDays`, the Timeline's rollup, same reason).
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
 -- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
@@ -398,8 +399,10 @@ local ROWS = {
   -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
   -- Maintenance, which named the chore rather than the subject. It held ONE stored row until the
   -- ledger added "Show transfers by default", and was the sanctioned exemption from the
-  -- two-controls-per-tab rule (the exemption is now harmless; it stays): the rest of the tab is bespoke — the live storage readout and "Purge history…" — controls with
-  -- no path, which no partition test can count. tests/test_schema.lua exempts it BY NAME.
+  -- two-controls-per-tab rule. The Timeline's rollup retention row made it three stored rows, so
+  -- the exemption is gone: tests/test_schema.lua binds every tab by the same rule. The rest of the
+  -- tab is bespoke -- the live storage readout and "Purge history…" -- controls with no path,
+  -- which no partition test can count.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
   -- button now, which is where options-ui-§15 puts the global reset.)
   --
@@ -424,6 +427,24 @@ local ROWS = {
     end,
     -- Confirm-gated when it would delete anything: S:OnRetentionChanged, below.
     onChange = function(value) S:OnRetentionChanged(value) end },
+  -- The Timeline's daily rollup (timeline ledger P3). ACCOUNT-WIDE for the reason retentionDays is
+  -- (D6): it governs recorded data every profile shares. No confirm: nothing is deleted on change --
+  -- the prune runs once per session from the login deferral (core/LootHistory.lua), so the new
+  -- window takes effect at the next login, which the tooltip says.
+  { path = "settings.rollupRetentionDays", default = GD.rollupRetentionDays, type = "number",
+    widget = "Dropdown", page = "General", group = "History", label = "Keep Timeline days for",
+    values = C.ROLLUP_RETENTION_OPTIONS,
+    tooltip = "How long the Timeline keeps its daily balances. 'Always' keeps every day. A shorter "
+      .. "window is applied at your next login; each line still starts from its last known value. "
+      .. "Account-wide.",
+    get = function()
+      local g = NS.db and NS.db.global
+      return g and g.rollupRetentionDays
+    end,
+    set = function(days)
+      local g = NS.db and NS.db.global
+      if g then g.rollupRetentionDays = days end
+    end },
   -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
   -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
   { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
@@ -494,9 +515,12 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 --- reach it, no sweep may either, and S.ResetProfile's count leaves it out. A reset that changed
 --- it would change what the prune deletes from the shared history. `/lh reset
 --- settings.retentionDays` still resets it, through the same confirm as any change.
+---
+--- `settings.rollupRetentionDays` is the third, for the same reason as the second.
 S.RESET_EXEMPT = {
-  ["minimap.shown"]         = "minimap.hide",
-  ["settings.retentionDays"] = "retentionDays",
+  ["minimap.shown"]               = "minimap.hide",
+  ["settings.retentionDays"]       = "retentionDays",
+  ["settings.rollupRetentionDays"] = "rollupRetentionDays",
 }
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
@@ -782,8 +806,8 @@ end
 --- `resetProfile` (settings/OptionsSetup.lua) and the library-less `/lh resetall`
 --- (settings/Slash.lua) both call it. Counted through the runtime's ResetCounted, so the profile
 --- event's one `[Set]` line carries N: the stored rows off their default just before the reset.
---- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3) and the retention
---- (D6) -- because their storage is global and the reset cannot move them.
+--- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3) and the two
+--- retentions (D6) -- because their storage is global and the reset cannot move them.
 function S.ResetProfile()
   local db = NS.db
   if not (db and db.ResetProfile) then return end
@@ -895,7 +919,8 @@ function S:Register()
   -- A row carrying BOTH its own get and set owns its storage, so there is no defaults entry at its
   -- path to find: `minimap.shown` reads and writes LibDBIcon's `minimap.hide`, and no `shown` key is
   -- declared or stored (launcher-§3, anti-pattern #81); `settings.retentionDays` reads and writes
-  -- `global.retentionDays`, declared in defaults/Global.lua (D6). Answering nil makes the library's
+  -- `global.retentionDays`, declared in defaults/Global.lua (D6), and `settings.rollupRetentionDays`
+  -- `global.rollupRetentionDays` beside it. Answering nil makes the library's
   -- resolvesInDefaults answer nil too -- neither resolved nor missing -- and the stub skips it alike.
   local errors, _, missing = R.Validate{
     types = VALIDATE_TYPES,

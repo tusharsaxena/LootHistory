@@ -138,6 +138,12 @@ function addon:OnEnterWorld()
   NS.After(5, function()
     if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
+    -- The Timeline's rollup: seed once (holdings that predate it), then prune by its own retention.
+    -- After the 3 s login scan, so the seed reads this login's holdings.
+    if NS.Rollup and NS.Rollup._hook then
+      NS.Rollup:SeedOnce(time())
+      NS.Rollup:Prune(time())
+    end
   end)
   NS.After(20, function()
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end

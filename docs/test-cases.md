@@ -259,7 +259,7 @@ badge and any count quoted in the docs must agree with it.
 - Holdings: Search keeps uncached items and filters by holder
 - Holdings: ForgetHolder drops the entry
 
-### test_rollup.lua (15)
+### test_rollup.lua (20)
 
 - Rollup: a holdings change writes that day's close for the thing that moved
 - Rollup: an unchanged thing writes no cell
@@ -275,6 +275,11 @@ badge and any count quoted in the docs must agree with it.
 - Rollup: Disable removes the write hook
 - Rollup: ForgetHolder drops every cell of that holder
 - Holdings: Describe names a thing by key, Gold included
+- Rollup: Prune with Always (0) keeps every day
+- Rollup: Prune drops days past the retention and carries their closes
+- Rollup: SeedOnce writes today's close for every held thing, once per account
+- Rollup: SeedOnce never overwrites a close already written today
+- Schema: rollupRetentionDays is account-wide, defaults to Always and is reset-exempt
 - Rollup: the suite restores the shared state it changed
 
 ### test_attribution.lua (37)
@@ -1448,7 +1453,7 @@ badge and any count quoted in the docs must agree with it.
 | test_compat.lua | 56 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
-| test_rollup.lua | 15 |
+| test_rollup.lua | 20 |
 | test_attribution.lua | 37 |
 | test_attribution_out.lua | 12 |
 | test_filters.lua | 19 |
@@ -1492,4 +1497,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1262** |
+| **Total** | **1267** |
