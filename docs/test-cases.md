@@ -700,7 +700,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: the Qty column shows signed quantities
 - BrowserTable: group by Direction and by Holder
 
-### test_export.lua (30)
+### test_export.lua (32)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -732,6 +732,8 @@ badge and any count quoted in the docs must agree with it.
 - Export: InsightsCSV over zero-value items with no currency matches the golden document
 - Export: InsightsCSV over an empty history, a bare table and nil
 - Export: CSV ledger columns follow wowheadLink and default for legacy rows
+- Export: InsightsCSV appends Ledger sections only when the range has losses
+- Export: InsightsCSV writes a negative copper value with a leading minus
 
 ### test_debuglog.lua (20)
 
@@ -958,7 +960,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (64)
+### test_analytics.lua (67)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -1024,8 +1026,11 @@ badge and any count quoted in the docs must agree with it.
 - Analytics: every pool goes through the LibKa0s seam
 - Analytics: the TOC loads Format, then Analytics, then Charts
 - Analytics: the module's function surface is exactly the published one
+- Insights ledger: the caveat shows only for kept history with pre-ledger rows
+- Insights ledger: back-to-back rows share one peak and sort by total
+- Insights ledger: HasLedger is false for gains-only ranges
 
-### test_analytics_layout.lua (6)
+### test_analytics_layout.lua (8)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -1033,6 +1038,8 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: items with no value and no currency, over a trimmed day range
 - Insights layout: an empty range hides every chart and shows the empty text
 - Insights layout: a nil stats table takes the empty branch too
+- Insights layout: a range with losses draws the gains-vs-losses section first
+- Insights layout: losses only — no empty text, no LOOT divider
 
 ### test_holdingstab.lua (7)
 
@@ -1406,7 +1413,7 @@ badge and any count quoted in the docs must agree with it.
 | test_stats.lua | 23 |
 | test_browser.lua | 73 |
 | test_browsertable.lua | 66 |
-| test_export.lua | 30 |
+| test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
 | test_slash.lua | 63 |
@@ -1414,8 +1421,8 @@ badge and any count quoted in the docs must agree with it.
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 64 |
-| test_analytics_layout.lua | 6 |
+| test_analytics.lua | 67 |
+| test_analytics_layout.lua | 8 |
 | test_holdingstab.lua | 7 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
@@ -1436,4 +1443,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1214** |
+| **Total** | **1221** |

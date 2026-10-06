@@ -479,3 +479,31 @@ test("Analytics: the module's function surface is exactly the published one", fu
   table.sort(got)
   assertEqual(table.concat(got, " "), table.concat(want, " "))
 end)
+
+-- ── the ledger half (timeline-ledger spec §6) ───────────────────────────────────────
+local AL = function() return NS.Analytics._ledger end
+
+test("Insights ledger: the caveat shows only for kept history with pre-ledger rows", function()
+  assertEqual(AL().Caveat(nil, 1000, 5), nil)
+  assertEqual(AL().Caveat("reset", 1000, 5), nil)
+  assertEqual(AL().Caveat("kept", 1000, 0), nil)
+  local text = AL().Caveat("kept", 1000, 5)
+  assertTrue(text:find(NS.Util.FormatDate(1000), 1, true) ~= nil)
+  assertTrue(text:find("only gains were recorded", 1, true) ~= nil)
+end)
+
+test("Insights ledger: back-to-back rows share one peak and sort by total", function()
+  local rows = AL().BackToBackRows({ SELL = 4, KILL = 10 }, { SELL = 8, REPAIR = 2 },
+    function(k) return k end, nil, NS.LedgerFormat.SignedCount, tostring)
+  assertEqual(rows[1].key, "SELL"); assertEqual(rows[2].key, "KILL"); assertEqual(rows[3].key, "REPAIR")
+  assertEqual(rows[1].rightFrac, 0.4); assertEqual(rows[1].leftFrac, 0.8)
+  assertEqual(rows[2].rightFrac, 1.0)
+  assertEqual(rows[1].value, NS.LedgerFormat.SignedCount(-4))
+  assertEqual(rows[1].leftTip, "Lost: 8"); assertEqual(rows[1].rightTip, "Gained: 4")
+end)
+
+test("Insights ledger: HasLedger is false for gains-only ranges", function()
+  assertEqual(AL().HasLedger({ ledger = { lostCount = 0, movedCount = 0 } }), false)
+  assertEqual(AL().HasLedger({ ledger = { lostCount = 1, movedCount = 0 } }), true)
+  assertEqual(AL().HasLedger({}), false)
+end)

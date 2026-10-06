@@ -19,6 +19,7 @@ function E:BoundLabel(token) return BOUND_LABEL[token or "NONE"] or tostring(tok
 local function money(copper)
   if copper == nil then return "" end
   copper = tonumber(copper) or 0
+  if copper < 0 then return "-" .. money(-copper) end
   return string.format("%dg %ds %dc",
     math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100)
 end
@@ -310,6 +311,20 @@ local function emitCurrency(row, stats)
   for _, day in ipairs(curDayKeys) do row("Currency by Day", day, stats.currencyByDay[day]) end
 end
 
+-- The ledger summary (timeline-ledger spec §6), appended LAST so every earlier row keeps its place
+-- for an existing spreadsheet, and only when the range holds a loss or transfer: a gains-only
+-- range (every legacy history) exports exactly as before.
+local function emitLedger(row, stats)
+  local L = stats.ledger
+  if not L or ((L.lostCount or 0) == 0 and (L.movedCount or 0) == 0) then return end
+  row("Ledger", "Gained", L.gainedCount, L.gainedValue)
+  row("Ledger", "Lost", L.lostCount, L.lostValue)
+  row("Ledger", "Net", L.netCount, L.netValue)
+  row("Ledger", "Transfers", L.movedCount)
+  emitSection(row, "Gains by Reason", rankedRows(L.reasonIn, insightsSourceLabel, L.valueReasonIn))
+  emitSection(row, "Losses by Reason", rankedRows(L.reasonOut, insightsSourceLabel, L.valueReasonOut))
+end
+
 function E:InsightsCSV(stats)
   stats = stats or {}
   local lines = { "Section,Label,Count,Value" }
@@ -319,6 +334,7 @@ function E:InsightsCSV(stats)
   emitCharactersAndTime(row, stats)
   emitListsAndDays(row, stats)
   emitCurrency(row, stats)
+  emitLedger(row, stats)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 

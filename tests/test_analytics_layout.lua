@@ -66,10 +66,14 @@ end
 
 local function layout(inst, stats)
   local savedCF = mocks.CreateFrame
+  local g = NS.db.global
+  local savedRP = g.resetPrompt
+  g.resetPrompt = nil                       -- the pre-ledger caveat is pinned by its own case
   mocks.CreateFrame = recordingCreateFrame()
   inst.stats = stats
   local ok, y = pcall(inst.LayoutCharts, inst, -100, 780, 8)
   mocks.CreateFrame = savedCF
+  g.resetPrompt = savedRP
   if not ok then error(y, 0) end
   return y
 end
@@ -239,3 +243,34 @@ test("Insights layout: a nil stats table takes the empty branch too", function()
   assertTrue(inst.emptyText.__shown, "the empty text is shown")
 end)
 
+
+test("Insights layout: a range with losses draws the gains-vs-losses section first", function()
+  local T1 = 1600000000
+  local stats = statsFor({
+    { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 10, itemName = "Sword", quality = 4, source = "KILL", quantity = 1, vendorPrice = 100 },
+    { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 11, itemName = "Potion", quality = 1, source = "CONSUME",
+      dir = "OUT", kind = "ITEM", quantity = 5, vendorPrice = 10 },
+    { ts = T1, char = "A-Realm", classFile = "MAGE", kind = "GOLD", itemName = "Gold", source = "REPAIR", dir = "OUT", quantity = 300 },
+  })
+  local inst = newInstance()
+  local y = layout(inst, stats)
+  local ui = inst.ledgerUI
+  assertTrue(ui.divider.__shown, "the GAINS & LOSSES divider is shown")
+  assertTrue(ui.headers.reason.__shown)
+  assertEqual(#ui.pools.reason.active, 3)                 -- KILL, CONSUME, REPAIR
+  assertTrue(inst.lootDivider.__shown, "the LOOT sections still draw for the gain")
+  assertTrue(y < -100)
+  -- Drawn above LOOT: the divider's anchor y is above the loot divider's.
+  assertTrue(ui.divider:__lastPoint().y > inst.lootDivider:__lastPoint().y)
+end)
+
+test("Insights layout: losses only — no empty text, no LOOT divider", function()
+  local stats = statsFor({
+    { ts = 1600000000, char = "A-Realm", classFile = "MAGE", kind = "GOLD", itemName = "Gold", source = "REPAIR", dir = "OUT", quantity = 300 },
+  })
+  local inst = newInstance()
+  layout(inst, stats)
+  assertTrue(not inst.emptyText.__shown)
+  assertTrue(not inst.lootDivider.__shown)
+  assertTrue(inst.ledgerUI.divider.__shown)
+end)
