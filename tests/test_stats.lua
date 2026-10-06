@@ -370,3 +370,28 @@ test("Stats: preLedgerRows counts rows older than ledgerSince", function()
   assertEqual(NS.Database:Stats({}).ledger.preLedgerRows, 2)
   g.ledgerSince = saved
 end)
+
+-- Timeline ledger Phase 7: a move between two holders is a loss on the sender and a gain on the
+-- receiver, under the action's own reason, and Insights counts it like any other gain or loss.
+test("Stats: a holder move is a loss and a gain under its own reason, per holder", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  NS.db.global.history = {
+    { ts = T1, char = "A-Realm", holder = W, kind = "GOLD", itemName = "Gold", source = "WARBAND_WITHDRAW",
+      dir = "OUT", quantity = 500, from = W .. "/tabs", to = "A-Realm/bags", pairId = "1:1" },
+    { ts = T1, char = "A-Realm", holder = "A-Realm", kind = "GOLD", itemName = "Gold", source = "WARBAND_WITHDRAW",
+      dir = "IN", quantity = 500, from = W .. "/tabs", to = "A-Realm/bags", pairId = "1:1" },
+    { ts = T2, char = "A-Realm", holder = "A-Realm", kind = "ITEM", itemID = 11, itemName = "Potion",
+      source = "ALT_MAIL", dir = "OUT", quantity = 3, vendorPrice = 10, from = "A-Realm/bags", to = "B-Realm/mail" },
+    { ts = T2, char = "B-Realm", holder = "B-Realm", kind = "ITEM", itemID = 11, itemName = "Potion",
+      source = "ALT_MAIL", dir = "IN", quantity = 3, vendorPrice = 10, from = "B-Realm/mail", to = "B-Realm/bags" },
+  }
+  local L = NS.Database:Stats({}).ledger
+  assertEqual(L.movedCount, 0)
+  assertEqual(L.gainedCount, 2); assertEqual(L.lostCount, 2)
+  assertEqual(L.reasonIn.WARBAND_WITHDRAW, 1); assertEqual(L.reasonOut.WARBAND_WITHDRAW, 1)
+  assertEqual(L.reasonIn.ALT_MAIL, 1); assertEqual(L.reasonOut.ALT_MAIL, 1)
+  assertEqual(L.netValue, 0)
+  -- By character reads the row's holder, so the Warband carries its own half.
+  assertEqual(L.charOut[W], 500); assertEqual(L.charIn["A-Realm"], 500)
+  assertEqual(L.charOut["A-Realm"], 30); assertEqual(L.charIn["B-Realm"], 30)
+end)

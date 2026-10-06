@@ -594,7 +594,7 @@ badge and any count quoted in the docs must agree with it.
 - Migrate v12->v13: the touched day's in/out tallies are rebuilt from the rows; closes stay
 - Migrate v12->v13: a day the rollup no longer holds is not recreated
 
-### test_stats.lua (23)
+### test_stats.lua (24)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -619,8 +619,9 @@ badge and any count quoted in the docs must agree with it.
 - Stats: legacy breakdowns count only gains of items and currency
 - Stats: ledger gains, losses, net and transfers
 - Stats: preLedgerRows counts rows older than ledgerSince
+- Stats: a holder move is a loss and a gain under its own reason, per holder
 
-### test_browser.lua (92)
+### test_browser.lua (93)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -714,8 +715,9 @@ badge and any count quoted in the docs must agree with it.
 - filter bar layout: a bar narrower than the base never shrinks a control
 - filter bar: the built bar fills the bar width at the base width and 300px wider
 - filter bar: resizing the window re-lays the bar out to its new width
+- Browser: Character Current shows the character's half of a warband move, Warband the other
 
-### test_browsertable.lua (74)
+### test_browsertable.lua (75)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -791,6 +793,7 @@ badge and any count quoted in the docs must agree with it.
 - History row menu: Show in Timeline opens the Timeline on that row's thing
 - History row menu: Show in Timeline is disabled for a row that names no thing
 - History row menu: the existing four entries keep their order around the new one
+- BrowserTable: the Character column shows the row's holder
 
 ### test_export.lua (32)
 
@@ -1053,7 +1056,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (67)
+### test_analytics.lua (69)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -1122,6 +1125,8 @@ badge and any count quoted in the docs must agree with it.
 - Insights ledger: the caveat shows only for kept history with pre-ledger rows
 - Insights ledger: back-to-back rows share one peak and sort by total
 - Insights ledger: HasLedger is false for gains-only ranges
+- Insights ledger: every ledger reason has its own chart color
+- Insights ledger: the by-character chart names a holder, the Warband as Warband
 
 ### test_analytics_layout.lua (9)
 
@@ -1206,12 +1211,14 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: a live repaint drops a hover left up, so the next tick re-hovers on the new data
 - Timeline tab: nothing it draws stays visible over History or Holdings (LED-9)
 
-### test_testdata.lua (4)
+### test_testdata.lua (6)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
 - Test mode: Holdings and Timeline show the sample, and the real stores come back after
 - Test mode: ledger writes go to the real stores, never the sample
+- TestData: the History sample writes holder moves as a loss and a gain
+- TestData: the sample rollup books a holder move's loss and gain on each holder
 
 ### test_panel.lua (43)
 
@@ -1591,9 +1598,9 @@ badge and any count quoted in the docs must agree with it.
 | test_reconciler_rows.lua | 31 |
 | test_escrow.lua | 14 |
 | test_database.lua | 83 |
-| test_stats.lua | 23 |
-| test_browser.lua | 92 |
-| test_browsertable.lua | 74 |
+| test_stats.lua | 24 |
+| test_browser.lua | 93 |
+| test_browsertable.lua | 75 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1602,12 +1609,12 @@ badge and any count quoted in the docs must agree with it.
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 67 |
+| test_analytics.lua | 69 |
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 32 |
 | test_timeline.lua | 19 |
 | test_timelinetab.lua | 11 |
-| test_testdata.lua | 4 |
+| test_testdata.lua | 6 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1628,4 +1635,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1386** |
+| **Total** | **1393** |

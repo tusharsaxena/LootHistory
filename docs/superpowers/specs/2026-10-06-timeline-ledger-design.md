@@ -33,6 +33,7 @@ Answer two questions equally well:
 | D7 | Holdings search lives in a **4th tab "Holdings"**. |
 | D8 | Timeline charts **one thing at a time** (Gold, one currency, or one item). Lines = **holders** (Total + up to *X* characters/Warband). |
 | D9 | On first load after upgrade with existing history, show a **reset recommendation popup** (§9). |
+| D10 | **Amendment 2026-10-06 (owner decision, Phase 7):** a move between two **different** holders is a **loss on the sender and a gain on the receiver**, each under the action's reason, not a `MOVE` pair. Moves inside one holder stay a single `MOVE`. Amends §4.1, §5.1 rule 2, §5.2, §5.4, §6 and §7 below; stored pairs are converted by the v13 migration. |
 
 ## 3. Concepts
 
@@ -73,7 +74,8 @@ New optional fields on every row; **absent on legacy rows, which read as default
 | `dir` | `"IN"` / `"OUT"` / `"MOVE"` | `"IN"` |
 | `kind` | `"ITEM"` / `"CURRENCY"` / `"GOLD"` | derived: `itemID` → ITEM, `currencyID` → CURRENCY |
 | `holder` | holder key | `char` |
-| `from`, `to` | `"<holder>/<container>"` (MOVE rows only) | — |
+| `from`, `to` | `"<holder>/<container>"` (MOVE rows, and both halves of a holder move — D10) | — |
+| `pairId` | shared by the `OUT` and `IN` of one holder move, `"<ts>:<n>"` (D10) | — |
 | `claimed` | `true` on rows written by the chat path that the diff matched | — |
 
 - Accessors `Util.RowDir(r)`, `Util.RowKind(r)`, `Util.RowHolder(r)` encapsulate the defaults;
@@ -84,6 +86,10 @@ New optional fields on every row; **absent on legacy rows, which read as default
   `SELL, BUY, REPAIR, MAIL_SEND, TRADE_GIVE, AH_POST_FEE, AH_SOLD, AH_BUY, DESTROY, CONSUME,
   CRAFT_REAGENT, DECONSTRUCT, GUILD_DEPOSIT, GUILD_WITHDRAW, TRAINING, TRAVEL, TRANSFER,
   UNTRACKED`. Existing members unchanged (`VENDOR` stays the gain-from-merchant source).
+  **Amendment 2026-10-06 (D10):** appended `WARBAND_DEPOSIT` (character → §warband),
+  `WARBAND_WITHDRAW` (§warband → character), `ALT_MAIL`, `ALT_TRADE`, `CURRENCY_TRANSFER` — the
+  reasons of a holder move; both halves carry the same one. `TRANSFER` stays the reason of a
+  single-holder `MOVE` and of currency a transfer consumed beyond what arrived.
 
 ### 4.2 Holdings (`global.holdings`)
 
@@ -130,8 +136,11 @@ sorted by thingKey for testability — BankLedger pattern), then classifies each
 1. **Intra-holder** — the thing went down in one container and up in another of the **same
    holder** by a matching amount → `MOVE` row (`from`/`to`), net 0.
 2. **Inter-holder (own)** — char ↔ §warband (warband bank, warband gold deposit/withdraw,
-   account-currency transfer), or char → own alt (mail/trade to a known holder) → opposite
-   `MOVE` pair; recipient's `mail` container gets the in-flight count.
+   account-currency transfer), or char → own alt (mail/trade to a known holder) → **an `OUT` on
+   the sender and an `IN` on the receiver** under the action's reason (`WARBAND_DEPOSIT`,
+   `WARBAND_WITHDRAW`, `ALT_MAIL`, `ALT_TRADE`, `CURRENCY_TRANSFER`), one shared `pairId`
+   (amended 2026-10-06, D10; was an opposite `MOVE` pair). An alt mail's `IN` is written when the
+   alt takes it; the recipient's `mail` container holds the in-flight count meanwhile.
 3. **Net change** — whatever remains after (1)/(2) and after **claims** (5.3) → `IN` or `OUT`
    row with a reason from the context stamp (5.4).
 
@@ -149,7 +158,7 @@ last snapshot and is never inferred to be empty.
 | `PLAYERBANKSLOTS_CHANGED`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | rescan bank / tab |
 | `PLAYER_MONEY`, `ACCOUNT_MONEY` | money reconcile (`GetMoney() - GetCursorMoney() - GetPlayerTradeMoney()`) |
 | `CURRENCY_DISPLAY_UPDATE(id, qty, change, gainSrc, lostSrc)` | currency delta direct from args; `gainSrc`/`lostSrc` map to reasons |
-| `CURRENCY_TRANSFER_LOG_UPDATE` | currency transfer between holders → MOVE pair |
+| `CURRENCY_TRANSFER_LOG_UPDATE` | currency transfer between holders → `OUT` + `IN` `CURRENCY_TRANSFER` (D10; was a MOVE pair) |
 | `MAIL_INBOX_UPDATE` (debounced 0.3 s) | rescan `mail` |
 | `OWNED_AUCTIONS_UPDATED` | rescan `auctions` |
 | `PLAYER_REGEN_ENABLED` | run any reconcile deferred by combat |
@@ -189,8 +198,9 @@ Extend `Attribution` with **outbound** stamps using the same single-slot TTL eng
 | Reason | Stamp |
 |---|---|
 | `SELL` / `BUY` / `REPAIR` | merchant frame open + `hooksecurefunc` on `SellCursorItem`/`UseContainerItem` (sell), `BuyMerchantItem` (existing), `RepairAllItems` |
-| `MAIL_SEND` / own-alt `TRANSFER` | `SendMail` hook (recipient resolved against holders) + `MAIL_SEND_SUCCESS` |
-| `TRADE_GIVE` / own-alt `TRANSFER` | `TRADE_ACCEPT_UPDATE` (existing) + trade target name |
+| `MAIL_SEND` / own-alt `ALT_MAIL` (D10; was `TRANSFER`) | `SendMail` hook (recipient resolved against holders) + `MAIL_SEND_SUCCESS` |
+| `TRADE_GIVE` / own-alt `ALT_TRADE` (D10; was `TRANSFER`) | `TRADE_ACCEPT_UPDATE` (existing) + trade target name |
+| `WARBAND_DEPOSIT` / `WARBAND_WITHDRAW` (D10) | the direction of a paired move with `§warband` |
 | `AH_POST_FEE`, post (→ `auctions` MOVE), `AH_SOLD`, `AH_BUY` | AH frame + `C_AuctionHouse.PostItem/PostCommodity` hooks; sale detected when an auction leaves `auctions` without returning to mail as expired |
 | `DESTROY` | `DeleteCursorItem` hook |
 | `CONSUME` | unexplained decrease of a usable item (`C_Item.IsUsableItem` / consumable class) |
@@ -230,6 +240,10 @@ stored snapshot for this holder.
 - New section **Gains vs losses by reason**: back-to-back bars about a center axis, losses left in
   red, gains right in green, shared scale (`PeakShares`). Same treatment by character and by kind.
 - Existing gain-only charts filter to `dir == IN` so their meaning does not change.
+- **Amendment 2026-10-06 (D10):** a holder move's two halves count as a loss and a gain like any
+  other (the owner accepted that account-wide totals net out), under their own reasons with their own
+  chart colors; no special exclusion. The *by character* chart keys on the row's holder, so the
+  Warband carries its own half.
 - If the date range spans `ledgerSince` and history was kept, a one-line note:
   *"Before <date> only gains were recorded — totals for that period overstate net."*
 
@@ -241,6 +255,9 @@ stored snapshot for this holder.
 - Quantity column shows signed values; gold rows formatted as money (pale gold).
 - New **Direction** multi-select filter: Gains, Losses, Transfers — default Gains + Losses.
 - New group-by modes: Direction, Holder. Source filter/group lists the new reasons.
+- **Amendment 2026-10-06 (D10):** the **Character** column shows the row's **holder**
+  (`HolderLabel`, so `§warband` reads "Warband"), not the acting character, and the Character filter
+  matches the holder (Warband selectable). Quantities are signed as for any gain or loss.
 
 ## 8. New tabs
 

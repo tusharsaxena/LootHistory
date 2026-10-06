@@ -1106,3 +1106,26 @@ test("History row menu: the existing four entries keep their order around the ne
   assertEqual(labels[3], "Blacklist item"); assertEqual(labels[4], "Blacklist currency")
   assertEqual(labels[5], "|cffff5555Delete|r"); assertEqual(#labels, 5)
 end)
+
+-- Timeline ledger Phase 7: the Character column names the row's HOLDER, so the Warband half of a
+-- warband move reads "Warband" and the character's half reads the character.
+test("BrowserTable: the Character column shows the row's holder", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local wb = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = W, source = "WARBAND_DEPOSIT" }
+  local me = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = "Ka0z-Realm", source = "WARBAND_DEPOSIT" }
+  assertEqual(cell("char", wb), "Warband", "the Warband half carries no class icon")
+  assertTrue(cell("char", me):find("Ka0z-Realm", 1, true) ~= nil)
+  assertEqual(cell("char", { char = "Old-Realm" }), "Old-Realm", "a legacy row's holder is its char")
+  local sortFn
+  for _, col in ipairs(NS.BrowserTable.COLUMNS) do if col.key == "char" then sortFn = col.sortFn end end
+  assertEqual(sortFn(wb), "warband")
+  -- Group: Character follows the column.
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.collapsed, BT.groupAsc, BT.groupBy = {}, true, "char"
+    local labels = {}
+    for _, e in ipairs(BT:GroupRecords({ wb, me })) do if e.kind == "header" then labels[#labels + 1] = e.label end end
+    table.sort(labels)
+    assertEqual(table.concat(labels, "|"), "Character: Ka0z-Realm|Character: Warband")
+  end)
+end)

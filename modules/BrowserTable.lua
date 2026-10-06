@@ -155,11 +155,23 @@ end
 -- icon the Character column renders.
 function BrowserTable:ClassIconMarkup(classFile) return classIconMarkup(classFile) end
 
--- Class-colored, icon-prefixed display value for a looter. Shows the full "Name-Realm" so
--- same-named characters on different realms stay distinct.
+-- The class of the row's HOLDER (timeline-ledger Phase 7: the Character column names the holder,
+-- not the character that wrote the row). A row on its writer is the row's own classFile; a row on
+-- another character (an alt's half of a currency transfer) reads that holder's stored class; the
+-- Warband has none.
+local function holderClassFile(r)
+  local h = r.holder or r.char
+  if h == r.char then return r.classFile end
+  local e = NS.Holdings and NS.Holdings:View(h)
+  return e and e.meta and e.meta.classFile or nil
+end
+function BrowserTable:HolderClassFile(r) return holderClassFile(r) end
+
+-- Class-colored, icon-prefixed display value for the row's holder. Shows the full "Name-Realm" so
+-- same-named characters on different realms stay distinct, and the Warband as "Warband".
 local function charDisplay(r)
-  local name = r.char or ""
-  local icon = classIconMarkup(r.classFile)
+  local name = NS.LedgerFormat.HolderLabel(r.holder or r.char)
+  local icon = classIconMarkup(holderClassFile(r))
   return icon ~= "" and (icon .. " " .. name) or name
 end
 
@@ -243,9 +255,9 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return (NS.AuctionPrice:Pick(r.auctionPrice)) or 0 end },
   -- Character is always the last column (see order note above).
   { key = "char", label = "Character", width = 132, align = "LEFT",
-    desc = "Character who looted the item — full Name-Realm, class-colored.",
+    desc = "Character the row belongs to — full Name-Realm, class-colored; Warband for the warband's half of a move.",
     valueFn = function(r) return charDisplay(r) end,
-    sortFn = function(r) return (r.char or ""):lower() end },
+    sortFn = function(r) return NS.LedgerFormat.HolderLabel(r.holder or r.char):lower() end },
 }
 
 local COLUMN_BY_KEY = {}
@@ -340,8 +352,8 @@ local GROUP_OF = {
     return label, label
   end,
   char = function(r)
-    local raw = r.char or "Unknown"
-    return raw, raw
+    local raw = r.holder or r.char or "Unknown"
+    return raw, NS.LedgerFormat.HolderLabel(raw)
   end,
   type = function(r)
     local label = r.itemType or "Unknown"
@@ -534,6 +546,40 @@ end
 -- and Timeline samples hold the same items, under the same names, as the History sample's rows.
 BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000 }
 
+-- Timeline ledger Phase 7: a move between two holders is an OUT on the sender and an IN on the
+-- receiver under the same reason and pairId, never a MOVE pair. Each holder-move row the seed walk
+-- wrote (an OUT on its character) is turned into that pair: the Warband is the other end of a
+-- warband move (the sender of a withdraw), the next sample class the other end of an alt move.
+-- Draws nothing from the PRNG, so the rows before it are the ones the walk always made.
+local function holderMoves(out)
+  local W, n = C.WARBAND_HOLDER, 0
+  for i = 1, #out do
+    local r = out[i]
+    if NS.Ledger.HOLDER_MOVE_REASON[r.source] then
+      n = n + 1
+      local other, otherClass = W, nil
+      if r.source ~= "WARBAND_DEPOSIT" and r.source ~= "WARBAND_WITHDRAW" then
+        local k = 1
+        while TEST_CLASSES[k] and TEST_CLASSES[k] ~= r.classFile do k = k + 1 end
+        otherClass = TEST_CLASSES[(k % #TEST_CLASSES) + 1]
+        other = otherClass:sub(1, 1) .. otherClass:sub(2):lower() .. "-Ravencrest"
+      end
+      local fromH, toH = r.char, other
+      if r.source == "WARBAND_WITHDRAW" then fromH, toH = W, r.char end
+      local CT = C.Container
+      local into = (toH == W) and CT.TABS or (r.source == "ALT_MAIL") and CT.MAIL or CT.BAGS
+      local gain = NS.Util.DeepCopy(r)
+      r.holder, gain.holder, gain.dir = fromH, toH, "IN"
+      if toH == other and otherClass then gain.char, gain.classFile = other, otherClass end
+      r.from, r.to = fromH .. "/" .. ((fromH == W) and CT.TABS or CT.BAGS), toH .. "/" .. into
+      gain.from, gain.to = r.from, r.to
+      r.pairId = r.ts .. ":" .. n
+      gain.pairId = r.pairId
+      out[#out + 1] = gain
+    end
+  end
+end
+
 function BrowserTable:BuildTestData()
   local now = time()
   local rng = testRng(0x10A75AFE)   -- fixed seed → identical dataset every run
@@ -576,12 +622,16 @@ function BrowserTable:BuildTestData()
       mapID = zone.mapID,
       confidence = conf,
     }
-    -- A ledger reason in the seed walk is a loss (TRANSFER a transfer), so the preview shows the
-    -- Direction column and the gains-vs-losses charts with real shapes.
+    -- A ledger reason in the seed walk is a loss (TRANSFER a transfer within one character), so the
+    -- preview shows the Direction column and the gains-vs-losses charts with real shapes. A holder
+    -- move's receiving half is added by holderMoves below, once the walk is done.
     if C.LEDGER_REASON[source] then
       local rec = out[#out]
       rec.dir = (source == "TRANSFER") and "MOVE" or "OUT"
       rec.kind, rec.holder = "ITEM", rec.char
+      if source == "TRANSFER" then
+        rec.from, rec.to = rec.char .. "/" .. C.Container.BAGS, rec.char .. "/" .. C.Container.BANK
+      end
     end
   end
 
@@ -600,6 +650,7 @@ function BrowserTable:BuildTestData()
          testPick(rng, TEST_CLASS_W), rng(#TEST_BINDINGS))
   end
 
+  holderMoves(out)
   return out
 end
 
@@ -1240,7 +1291,8 @@ function BrowserTable:PaintCell(fs, colKey, r, glyphFS)
   if colKey == "item" or colKey == "quality" then
     fs:SetTextColor(qualityColor(r.quality))
   elseif colKey == "char" then
-    local cc = RAID_CLASS_COLORS and r.classFile and RAID_CLASS_COLORS[r.classFile]
+    local cf = holderClassFile(r)
+    local cc = RAID_CLASS_COLORS and cf and RAID_CLASS_COLORS[cf]
     if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
   elseif colKey == "qty" then
     fs:SetTextColor(NS.LedgerFormat.QtyColor(r))

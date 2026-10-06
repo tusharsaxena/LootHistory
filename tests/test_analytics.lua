@@ -507,3 +507,24 @@ test("Insights ledger: HasLedger is false for gains-only ranges", function()
   assertEqual(AL().HasLedger({ ledger = { lostCount = 1, movedCount = 0 } }), true)
   assertEqual(AL().HasLedger({}), false)
 end)
+
+test("Insights ledger: every ledger reason has its own chart color", function()
+  local SC = NS.Analytics._fmt.SOURCE_COLOR
+  for k in pairs(NS.Constants.LEDGER_REASON) do
+    assertTrue(SC[k] ~= nil, k .. " has no chart color")
+  end
+  -- The five holder-move reasons are told apart from each other and from TRANSFER.
+  local seen = {}
+  for _, k in ipairs({ "TRANSFER", "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE",
+                       "CURRENCY_TRANSFER" }) do
+    local c = SC[k]
+    local sig = ("%.2f,%.2f,%.2f"):format(c[1], c[2], c[3])
+    assertTrue(not seen[sig], k .. " shares a color with " .. tostring(seen[sig]))
+    seen[sig] = k
+  end
+end)
+
+test("Insights ledger: the by-character chart names a holder, the Warband as Warband", function()
+  assertEqual(AL().HolderShort(NS.Constants.WARBAND_HOLDER), "Warband")
+  assertEqual(AL().HolderShort("Ka0z-Realm"), "Ka0z")
+end)

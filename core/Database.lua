@@ -601,10 +601,12 @@ end
 -- tested when each was written out by hand. Every argument arrives as a membership set (or nil for
 -- an unfiltered clause), so a clause costs one local test and at most one lookup — no nested call.
 -- `zone` is the only one with a default: a record with no captured name matches "" — the
--- "Unknown" bucket.
+-- "Unknown" bucket. The Character clause matches the row's HOLDER (Util.RowHolder, inlined: a
+-- legacy row's holder is its char), so the Warband half of a holder move answers to the Warband
+-- and the character's half to the character (timeline-ledger Phase 7).
 local function matchScalarOrSet(r, srcSet, chrSet, itypeSet, isubSet, zoneSet)
   if srcSet and not srcSet[r.source] then return false end
-  if chrSet and not chrSet[r.char] then return false end
+  if chrSet and not chrSet[r.holder or r.char] then return false end
   if itypeSet and not itypeSet[r.itemType] then return false end
   if isubSet and not isubSet[r.itemSubType] then return false end
   if zoneSet and not zoneSet[r.zone or ""] then return false end
@@ -996,7 +998,9 @@ function Database:Stats(filter)
     -- `src` is read for the currency charts too, which is why it is resolved out here.
     local src = r.source or "OTHER"
     local ch = r.char
-    accumulateLedger(L, dir, kind, qty, value, src, ch)
+    -- The ledger's by-character chart reads the HOLDER (inline Util.RowHolder), as the History
+    -- Character column does, so each half of a holder move lands on its own holder.
+    accumulateLedger(L, dir, kind, qty, value, src, r.holder or ch)
     if since and r.ts and r.ts < since then L.preLedgerRows = L.preLedgerRows + 1 end
 
     -- Only gains of items and currency feed the legacy breakdowns, so a pre-ledger history

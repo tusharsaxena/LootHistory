@@ -1345,3 +1345,28 @@ test("filter bar: resizing the window re-lays the bar out to its new width", fun
     assertEqual(cx + cw, w - 12, "the Save/Reset/Clear cluster ends there too")
   end)
 end)
+
+-- ── Timeline ledger Phase 7: the Character filter matches the row's holder (Review Focus 4) ──────
+test("Browser: Character Current shows the character's half of a warband move, Warband the other", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local me = NS.Util.PlayerKey()
+  local rows = {
+    { ts = 100, char = me, holder = W, dir = "OUT", kind = "GOLD", itemName = "Gold", quantity = 500,
+      source = "WARBAND_WITHDRAW", from = W .. "/tabs", to = me .. "/bags", pairId = "100:1" },
+    { ts = 100, char = me, holder = me, dir = "IN", kind = "GOLD", itemName = "Gold", quantity = 500,
+      source = "WARBAND_WITHDRAW", from = W .. "/tabs", to = me .. "/bags", pairId = "100:1" },
+  }
+  withFixture(rows, function()
+    -- The list offers the Warband, under the name a player reads.
+    local labels = {}
+    for _, o in ipairs(NS.Browser._options.char(false)) do labels[o.value] = o.label end
+    assertEqual(labels[W], "Warband")
+    assertTrue(labels[me] ~= nil)
+    -- "Character: Current" is the set { [me] = true }.
+    local mine = NS.Database:Query({ char = { [me] = true } })
+    assertEqual(#mine, 1); assertEqual(mine[1].holder, me); assertEqual(mine[1].dir, "IN")
+    local wb = NS.Database:Query({ char = { [W] = true } })
+    assertEqual(#wb, 1); assertEqual(wb[1].holder, W); assertEqual(wb[1].dir, "OUT")
+    assertEqual(#NS.Database:Query({}), 2, "Character: All shows both halves")
+  end)
+end)

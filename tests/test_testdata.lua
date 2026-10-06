@@ -148,3 +148,49 @@ test("Test mode: ledger writes go to the real stores, never the sample", functio
     assertTrue(deepEqual(NS.State.testDaily, sampleD), "a rollup write reached the sample")
   end)
 end)
+
+-- Timeline ledger Phase 7: the sample's holder moves are an OUT on the sender and an IN on the
+-- receiver under the action's reason, sharing a pairId -- never an inter-holder MOVE.
+test("TestData: the History sample writes holder moves as a loss and a gain", function()
+  local L, U = NS.Ledger, NS.Util
+  local byPair, reasons = {}, {}
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    if U.RowDir(r) == "MOVE" and r.from and r.to then
+      assertEqual(L.LocationHolder(r.from), L.LocationHolder(r.to), "an inter-holder MOVE in the sample")
+    end
+    if L.HOLDER_MOVE_REASON[r.source] then
+      assertTrue(r.pairId ~= nil, r.source .. " row has no pairId")
+      byPair[r.pairId] = byPair[r.pairId] or {}
+      byPair[r.pairId][U.RowDir(r)] = r
+    end
+  end
+  for id, p in pairs(byPair) do
+    assertTrue(p.OUT and p.IN, id .. " is not an OUT + IN pair")
+    assertEqual(p.OUT.source, p.IN.source); assertEqual(p.OUT.quantity, p.IN.quantity)
+    assertTrue(U.RowHolder(p.OUT) ~= U.RowHolder(p.IN), id .. " stays on one holder")
+    assertEqual(L.LocationHolder(p.OUT.from), U.RowHolder(p.OUT))
+    assertEqual(L.LocationHolder(p.IN.to), U.RowHolder(p.IN))
+    if p.OUT.source == "WARBAND_DEPOSIT" then assertEqual(U.RowHolder(p.IN), WARBAND) end
+    if p.OUT.source == "WARBAND_WITHDRAW" then assertEqual(U.RowHolder(p.OUT), WARBAND) end
+    reasons[p.OUT.source] = true
+  end
+  for k in pairs(L.HOLDER_MOVE_REASON) do assertTrue(reasons[k], "no " .. k .. " pair in the sample") end
+end)
+
+test("TestData: the sample rollup books a holder move's loss and gain on each holder", function()
+  local now = os.time({ year = 2026, month = 10, day = 6, hour = 15 })
+  local records = NS.BrowserTable:BuildTestData()
+  local _, daily = NS.TestData.Build(records, now)
+  local checked = 0
+  for _, r in ipairs(records) do
+    local h, key = NS.Util.RowHolder(r), NS.Ledger.RowThingKey(r)
+    local cellv = daily[NS.Ledger.DayKey(r.ts)]
+    cellv = cellv and cellv[h] and cellv[h][key]
+    if NS.Ledger.HOLDER_MOVE_REASON[r.source] and cellv then
+      local side = (NS.Util.RowDir(r) == "OUT") and cellv.o or cellv.i
+      assertTrue((side or 0) >= r.quantity, r.source .. " " .. NS.Util.RowDir(r) .. " not in " .. h .. "'s tally")
+      checked = checked + 1
+    end
+  end
+  assertTrue(checked >= 1, "no holder-move row lands on a held series")
+end)

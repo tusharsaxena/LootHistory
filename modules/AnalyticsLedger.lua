@@ -55,6 +55,13 @@ function AL.BackToBackRows(inMap, outMap, labelOf, labelColorOf, signedFmt, plai
   return rows
 end
 
+-- The by-character chart's label for a holder key (the stats key it by holder, as History's
+-- Character column does): the Warband as "Warband", a character by its name without the realm.
+function AL.HolderShort(k)
+  local s = NS.LedgerFormat.HolderLabel(k)
+  return s:match("^[^-]+") or s
+end
+
 -- ── Widgets ─────────────────────────────────────────────────────────────────────────────────
 
 local function makeBar(parent)
@@ -185,7 +192,7 @@ function AL.Layout(inst, stats, y, w, pad)
   end
   y = section(inst, "reason", AL.BackToBackRows(L.reasonIn, L.reasonOut, srcLabel, nil, LF.SignedCount, tostring),
     y, w, pad)
-  y = section(inst, "char", AL.BackToBackRows(L.charIn, L.charOut, function(k) return (k:match("^[^-]+") or k) end,
+  y = section(inst, "char", AL.BackToBackRows(L.charIn, L.charOut, AL.HolderShort,
     charColor, LF.SignedMoney, function(v) return NS.Util.FormatMoney(v) end), y, w, pad)
   y = section(inst, "kind", AL.BackToBackRows(L.kindIn, L.kindOut, function(k) return KIND_LABEL[k] or k end,
     nil, LF.SignedCount, tostring), y, w, pad)

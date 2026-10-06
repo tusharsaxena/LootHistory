@@ -21,6 +21,7 @@ free number in its theme.
 | STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
+| TR-1 to 3 | [Ledger capture (timeline ledger Phase 2)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 35 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export, the one-line filter bar |
@@ -1242,13 +1243,13 @@ visit a banker. Check each of these:
 - History gets `UNTRACKED` rows for **exactly** the difference: one IN or OUT per item that changed,
   each with the changed count, on the character for the bank and on **Warband** for the tab. No row
   is a MOVE (⇄), and no row has a guessed reason such as Vendor or Loot.
-- Deposit one more item in the same visit → a MOVE pair (bags → bank), not `UNTRACKED`.
+- Deposit one more item in the same visit → one MOVE row (bags → bank), not `UNTRACKED`.
 - The Holdings tab's bank and warband counts match the bank you see.
 - A bank never read before (a new character's first visit) writes no rows at all.
 
 Caveat: the opening read runs about 0.35 s after the bank frame shows (the flush debounce). A deposit
 made inside that window is folded into the drift read: its bank side lands as an `UNTRACKED` IN and
-its bags side is classified on its own, so it is not a MOVE pair. Wait a moment after opening the
+its bags side is classified on its own, so it is not a MOVE row. Wait a moment after opening the
 bank before depositing, and record what a quick deposit shows if you test it.
 
 Result:
@@ -1286,8 +1287,9 @@ Result:
 The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`):
 every gain, loss and transfer written as History rows. Run on the live account with **Track holdings
 and losses** and **Record gold** ticked, History's Direction filter set to **All** (Direction
-dropdown, row 1 of the filter bar) so transfers show, and Quality left on its default. A transfer is
-one row per holder it touches. **Bracketed lines are API facts the headless suite could not verify**:
+dropdown, row 1 of the filter bar) so transfers show, and Quality left on its default. A move inside
+one holder is one `⇄` row; since Phase 7 a move between two holders is a loss on the sender and a
+gain on the receiver under the action's reason (TR-1 to TR-3). **Bracketed lines are API facts the headless suite could not verify**:
 when one fails, the fix is a Compat or mock correction in a follow-up commit, and the check is
 re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are recorded.
 
@@ -1295,8 +1297,8 @@ re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are record
 half of it → only `⇄` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
 row for the item, and the Holdings tab's bank column updates. Result:
 
-**LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → a `⇄` pair
-for each, one row per holder (the character and the Warband). [`ACCOUNT_MONEY` fires on a warband gold
+**LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → for each, an
+`OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `⇄`). [`ACCOUNT_MONEY` fires on a warband gold
 deposit; `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` answers while the bank is open.] Result:
 
 **LED-P2-03. Vendor.** Sell a junk item, repair, buy one item, buy one back → item `OUT SELL` and
@@ -1313,8 +1315,9 @@ from `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT`.] Result:
 exactly one `OUT CONSUME` row with quantity 3. A second pull within 60 s amends that row instead of
 adding a second. Result:
 
-**LED-P2-06. Mail to your own alt.** Send items and gold to an alt → `⇄` pairs to `Alt/mail`, and a
-gold `OUT MAIL_SEND` for the postage. Log the alt in and take the mail → `⇄` rows only, no `IN`.
+**LED-P2-06. Mail to your own alt.** Send items and gold to an alt → `OUT ALT_MAIL` rows on the
+sender (Phase 7), and a gold `OUT MAIL_SEND` for the postage. Log the alt in and take the mail →
+`IN ALT_MAIL` rows on the alt, no `⇄` and no second loss.
 [`SendMail` is a post-hook and `GetSendMailItem` / `GetSendMailMoney` still return the staged
 attachments when it runs; `MAIL_SEND_SUCCESS` fires after the bags change or within the 10 s window.]
 Result:
@@ -1345,8 +1348,9 @@ hookable.] Result:
 **LED-P2-12. Disenchant.** Disenchant one item → the item as `OUT DECONSTRUCT` and the materials as
 `IN DISENCHANT`. Result:
 
-**LED-P2-13. Warband currency transfer.** Transfer a transferable currency to an alt → a `⇄` pair to
-`Alt/currency`, and any fee as `OUT TRANSFER`. The alt's next login shows no `UNTRACKED` row for it.
+**LED-P2-13. Warband currency transfer.** Transfer a transferable currency to an alt → an
+`OUT CURRENCY_TRANSFER` on you and an `IN CURRENCY_TRANSFER` on the alt (to `Alt/currency`, one shared
+`pairId`; Phase 7), and any fee as `OUT TRANSFER`. The alt's next login shows no `UNTRACKED` row for it.
 [`CURRENCY_TRANSFER_LOG_UPDATE` fires; `C_CurrencyInfo.FetchCurrencyTransferTransactions()` returns
 records with `currencyType`, `quantityTransferred` and `destinationCharacterName`;
 `CURRENCY_DISPLAY_UPDATE`'s `destroyReason` names `AccountTransfer`.] Result:
@@ -1393,6 +1397,26 @@ names the trade partner while the trade window is open.] Result:
 
 **LED-P2-24. Destroy.** Delete an item from your bags → `OUT DESTROY`. [`DeleteCursorItem` is a
 hookable global.] Result:
+
+### Holder moves (timeline ledger Phase 7)
+
+Owner decision 2026-10-06: a move between two **different** holders is a loss on the sender and a
+gain on the receiver, each under the action's reason; a move inside one holder stays one `⇄` row.
+History's **Character** column names the row's holder (the Warband reads **Warband**), and the
+Character filter matches it. Same setup as above (Direction **All**).
+
+**TR-1. Warband withdraw, gold and an item.** At a banker, withdraw some gold and one item stack from
+the warband bank → exactly two rows for each: a `▼ Loss` on **Warband** and a `▲ Gain` on the
+character, both reason **Warband withdraw**, same quantity; no `⇄ Transfer` row. With the Character
+filter on **Character: Current** only the gains show; pick **Warband** and only the losses show.
+Insights → Gains Vs Losses By Reason has a **Warband withdraw** row with both sides. Result:
+
+**TR-2. Bags to your own bank.** Deposit an item stack from your bags into your character bank →
+exactly one `⇄ Transfer` row (Bags to Bank) on the character, and no gain or loss. Result:
+
+**TR-3. Mail an item to an alt.** Send an item to an own alt → a `▼ Loss` on the sender, reason
+**Alt mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt mail**; no `⇄`
+row and no `UNTRACKED` row. Result:
 
 ## Timeline
 
@@ -1720,6 +1744,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | LED-10 | New | New with the timeline ledger P4 polish (bank and warband-tab drift on a visit's first read is `UNTRACKED`); no result recorded |
 | LED-11 | New | New with the timeline ledger P5 (History Direction column: glyph plus colored label); no result recorded |
 | LED-12 | New | New with the timeline ledger P5 (measured Qty width for gold, BankLedger-style Gold tooltip); no result recorded |
-| LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions |
+| LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions; LED-P2-02, -06 and -13 rewritten by P7 (holder moves are a loss and a gain) |
+| TR-1 to TR-3 | New | New with the timeline ledger P7 (holder moves are a loss and a gain; the Character column and filter read the holder); no result recorded |
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |

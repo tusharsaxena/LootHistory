@@ -407,8 +407,11 @@ local function containerOf(loc)
   return type(loc) == "string" and loc:match("/([^/]*)$") or nil
 end
 
+-- The five reasons a move between two holders is written under (an OUT on the sender, an IN on the
+-- receiver). Published for test mode's History sample, which writes its holder moves the same way.
 local HOLDER_MOVE_REASON = { WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true,
   ALT_TRADE = true, CURRENCY_TRANSFER = true }
+Ledger.HOLDER_MOVE_REASON = HOLDER_MOVE_REASON
 
 -- The reason a stored move between two different holders takes (the v13 step). The Warband end
 -- names the direction; between characters, a mail end means ALT_MAIL, a currency CURRENCY_TRANSFER,
