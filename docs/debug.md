@@ -11,7 +11,7 @@ Loot History has two debug surfaces, and both write into the same window:
 
 The console itself is the library's, and its contract lives in LibKa0s's
 [`docs/api/DebugLog/version-19.2.1-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-19.2.1-docs.md)
-(DebugLog 19 with DebugLogDiagnostics 2 and DebugLogGates 1 is the vendored set, from LibKa0s v1.68.1). This page covers only what Loot History
+(DebugLog 19 with DebugLogDiagnostics 2 and DebugLogGates 1 is the vendored set, from LibKa0s v1.69.0). This page covers only what Loot History
 adds on top.
 
 ## The console

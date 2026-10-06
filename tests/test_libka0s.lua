@@ -40,6 +40,9 @@ local LIB_FILES = {
   -- LibStub minor. This addon adopts nothing from it -- ConsumableMaster and Aura Master are
   -- the hosts that do -- but the client loads every file of the XML, so the suite must too.
   "libs/LibKa0s/WidgetsDragHandle.lua",
+  -- New in v1.69.0: the line chart (WidgetsLineChart 1, Widgets key 12.1.4.1), a fourth file of
+  -- LibKa0s-Widgets-1.0 that attaches lib.LineChart / lib.ChartMath / lib.LINE_CHART.
+  "libs/LibKa0s/WidgetsLineChart.lua",
   "libs/LibKa0s/DebugLog.lua",
   -- New in v1.60.0: the diagnostics report, a second file of LibKa0s-DebugLog-1.0 (key 14.1) that
   -- lib:New installs on each instance. Loaded after DebugLog.lua, as the XML orders it.
@@ -573,3 +576,11 @@ test("degraded install: the SafeRegister stubs isolate a refused name and record
     assertEqual(table.concat(got, ","), "A,U:player,B,C")
     assertEqual(table.concat(rejected, ","), "GONE", "a refused name is appended once")
   end)
+
+test("v1.69.0: the line chart is vendored and attached to the Widgets major", function()
+  local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  assertTrue(W ~= nil and type(W.LineChart) == "function",
+    "lib.LineChart missing: re-vendor v1.69.0")
+  assertEqual(W.MODULES.WidgetsLineChart, 1)
+  assertEqual(T.KIT_VERSION, 37)
+end)
