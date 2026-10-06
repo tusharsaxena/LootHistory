@@ -211,3 +211,11 @@ function NS.MakeLineChart(parent, opts)
     o.font = o.font or "GameFontDisableSmall"
     return W.LineChart(parent, o)
 end
+
+--- The chart's published chrome (its paddings), or nil when the chart is absent. Read by a host that
+--- lines a decoration up with the plot while the chart has no plot rect to ask (a cleared chart).
+---
+--- @return table|nil    LibKa0s's LINE_CHART table
+function NS.LineChartChrome()
+    return (W and W.LineChart) and W.LINE_CHART or nil
+end

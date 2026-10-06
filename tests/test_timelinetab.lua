@@ -264,9 +264,26 @@ case("Timeline tab: hiding every holder by hand reads as Total only, and showing
   assertTrue(NS.Timeline:TotalOnlyShown())
 end)
 
+-- Where the strip's bars sit, in order: the in/out strip is the Total's flow whatever is hidden.
+local function stripXs()
+  local out = {}
+  for i, bar in ipairs(NS.Timeline.stripPool.active) do out[i] = bar:__lastPoint().x end
+  return out
+end
+
 case("Timeline tab: every line hidden shows the empty state, not an axis", function()
   -- Review Focus 1
-  seed(); open()
+  seed()
+  -- seed() writes closes only; give today an in/out so the strip has a bar to keep
+  local daily, today = NS.db.global.daily, NS.Ledger.DayKey(os.time())
+  daily[today] = daily[today] or {}
+  daily[today]["Mock-Realm"] = daily[today]["Mock-Realm"] or {}
+  local cell = daily[today]["Mock-Realm"].g or {}
+  daily[today]["Mock-Realm"].g = cell
+  cell.i, cell.o = 20000, 5000
+  open()
+  local xs = stripXs()
+  assertTrue(#xs > 0, "the strip draws with lines shown")
   NS.Timeline:SetTotalOnly(true)
   legendButton(TOTAL):__fire("OnClick")
   NS.Timeline:Layout(640, 320)
@@ -274,6 +291,9 @@ case("Timeline tab: every line hidden shows the empty state, not an axis", funct
   assertTrue(NS.Timeline.emptyMsg:IsShown())
   assertEqual(NS.Timeline.emptyMsg:GetText(), "All lines hidden \226\128\148 click a legend entry to show it.")
   assertEqual(NS.Timeline.chart:GetPlotRect(), nil, "no axes drawn")
+  local hiddenXs = stripXs()
+  assertEqual(#hiddenXs, #xs, "the in/out strip stays with every line hidden")
+  for i = 1, #xs do assertEqual(hiddenXs[i], xs[i], "and its bars do not move") end
   assertEqual(#NS.Timeline.legendButtons, 3, "the legend stays to bring a line back")
   assertFalse(NS.Timeline.totalOnlyBtn.checked, "the Total is hidden too")
   NS.Timeline:OnHover(1)

@@ -296,7 +296,8 @@ function TL:Layout(w, h)
   if not (self.pane and self.chart and self.model) then return end
   w = w or self.pane:GetWidth() or 0
   h = h or self.pane:GetHeight() or 0
-  self.chart:Render(w - 4, h - BAR_H - 4 - STRIP_H - LEGEND_H - 2 * GAP)
+  self.chartW = w - 4
+  self.chart:Render(self.chartW, h - BAR_H - 4 - STRIP_H - LEGEND_H - 2 * GAP)
   self:RenderStrip()
   self:RenderLegend()
 end
@@ -319,22 +320,37 @@ local function paintFlow(bar, f, peak, half, w)
   bar.down:SetShown(f.o > 0)
 end
 
+-- The strip's x mapping: the chart's own while it has a plot. With every line hidden the chart is
+-- cleared (no axes) and has none, but the strip is the Total's flow and stays, so it takes the same
+-- mapping from the chart's published paddings and the width Layout last rendered at.
+local function stripScale(self)
+  local c, m = self.chart, self.model
+  local left, _, pw = c:GetPlotRect()
+  if left then return left, pw, c:XToPixel(m.xMin), c:XToPixel(m.xMax) end
+  local LC = NS.LineChartChrome()
+  if not (LC and self.chartW and m.xMin and m.xMax) then return nil end
+  pw = math.max(0, self.chartW - LC.PAD_LEFT - LC.PAD_RIGHT)
+  return LC.PAD_LEFT, pw, LC.PAD_LEFT, LC.PAD_LEFT + pw
+end
+
 function TL:RenderStrip()
   NS.Pool.ReleaseAll(self.stripPool)
-  local m, c = self.model, self.chart
-  local left, _, pw = c:GetPlotRect()
+  local m = self.model
+  local left, pw, px0, px1 = stripScale(self)
   if not (left and pw and pw > 0) then return end
+  local span = m.xMax - m.xMin
+  local function toPx(x) return span == 0 and px0 or px0 + (x - m.xMin) / span * (px1 - px0) end
   self.stripAxis:ClearAllPoints()
   self.stripAxis:SetPoint("LEFT", self.strip, "LEFT", left, 0)
   self.stripAxis:SetSize(pw, 1)
   local peak = 0
   for _, f in ipairs(m.flows) do peak = math.max(peak, f.i, f.o) end
   if peak == 0 then return end
-  local dayPx = math.max(2, math.min(24, c:XToPixel(m.xMin + DAY) - c:XToPixel(m.xMin) - 1))
+  local dayPx = math.max(2, math.min(24, toPx(m.xMin + DAY) - toPx(m.xMin) - 1))
   for _, f in ipairs(m.flows) do
     local bar = NS.Pool.Acquire(self.stripPool, function() return makeFlowBar(self.strip) end)
     bar:ClearAllPoints()
-    bar:SetPoint("BOTTOMLEFT", self.strip, "BOTTOMLEFT", c:XToPixel(f.x), 0)
+    bar:SetPoint("BOTTOMLEFT", self.strip, "BOTTOMLEFT", toPx(f.x), 0)
     bar:SetSize(dayPx, STRIP_H)
     paintFlow(bar, f, peak, STRIP_H / 2 - 2, dayPx)
   end
