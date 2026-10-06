@@ -51,6 +51,19 @@ C.ITEMCLASS_QUEST = 12
 -- items never carry this GetItemInfo type, so it doubles as a display label and a Type-filter value.
 C.CURRENCY_TYPE = "Currency"
 
+-- ── Ledger enums (timeline-ledger spec §3/§4.1) ──────────────────────────────────────────────
+-- Stored strings, part of the export contract: never rename a member, only append.
+C.Dir  = { IN = "IN", OUT = "OUT", MOVE = "MOVE" }
+C.Kind = { ITEM = "ITEM", CURRENCY = "CURRENCY", GOLD = "GOLD" }
+-- Where a holder keeps a thing. Values are the column keys inside db.global.holdings[h].items[id].
+C.Container = {
+  BAGS = "bags", EQUIPPED = "equipped", BANK = "bank",
+  MAIL = "mail", AUCTIONS = "auctions", TABS = "tabs",
+}
+-- The virtual holder for the warband bank, warband gold and account-wide currencies. `§` marks a
+-- system key (BagSync's convention): code that means "characters" skips keys starting with it.
+C.WARBAND_HOLDER = "§warband"
+
 -- The monospace face used by the debug console and the export copy box. WoW ships no monospace
 -- font object, so one has to come from somewhere; as of LibKa0s v1.10 it comes from the LIBRARY
 -- payload rather than from this addon's own media/, which is why media/fonts/ is gone and the

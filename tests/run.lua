@@ -64,6 +64,7 @@ kick("NS.BindLifecycle", function() NS.BindLifecycle() end)
 -- docs/test-cases.md and nobody reading the inventory can tell whether it ran.
 local SUITES = {
   "test_constants", "test_mediasetup", "test_envsetup", "test_poolsetup", "test_itemsetup", "test_util",
+  "test_ledger",
   "test_compat", "test_attribution",
   "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
   "test_browser", "test_browsertable", "test_export", "test_debuglog",

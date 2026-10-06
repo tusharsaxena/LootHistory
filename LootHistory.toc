@@ -44,14 +44,15 @@ core\ItemSetup.lua
 # LOAD-BEARING POSITION: publishes NS.MediaFont, which core\Constants.lua reads at file
 # load to resolve FONT_MONO. Below Constants and every consumer silently gets the client font.
 core\MediaSetup.lua
-# The plain Core run (Constants, Namespace, State, Util here; LootHistory, Database below) is
-# CONVENTIONAL: none of the six reads another of the six at load. Its fixed points are the seams
+# The plain Core run (Constants, Namespace, State, Util, Ledger here; LootHistory, Database below) is
+# CONVENTIONAL: none of the seven reads another of the seven at load. Its fixed points are the seams
 # annotated around it, and the run as a whole stays above Modules, which take NS.State and
 # NS.Constants as file-scope upvalues.
 core\Constants.lua
 core\Namespace.lua
 core\State.lua
 core\Util.lua
+core\Ledger.lua
 # LOAD-BEARING POSITION: lib:New{ prefix = NS.PREFIX } runs at file load (core\Namespace.lua must
 # be above), and NS.Print, published here, is captured as a file-scope local by modules\Browser.lua,
 # settings\Schema.lua and settings\Slash.lua (must be below them).

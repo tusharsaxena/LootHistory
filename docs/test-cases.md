@@ -128,6 +128,15 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 
+### test_ledger.lua (6)
+
+- Ledger: ThingKey round-trips for every kind
+- Ledger: Diff reports signed deltas, sorted, zeros omitted
+- Ledger: Diff treats nil maps as empty
+- Ledger: DirSign totals
+- Util: row accessors give legacy defaults
+- Constants: ledger enums and warband key
+
 ### test_compat.lua (39)
 
 - Compat: DecodeGUID creature → kind + npcID
@@ -1195,6 +1204,7 @@ badge and any count quoted in the docs must agree with it.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
+| test_ledger.lua | 6 |
 | test_compat.lua | 39 |
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
@@ -1232,4 +1242,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1050** |
+| **Total** | **1056** |

@@ -264,3 +264,13 @@ function Util.Coalesce(fn, delay)
 end
 
 NS.Coalesce = Util.Coalesce
+
+-- Row accessors (timeline-ledger spec §4.1). Rows written before schema v11 carry none of `dir`,
+-- `kind`, `holder`; they were all gains, recorded by `char`. No consumer reads the raw fields.
+function Util.RowDir(r) return r.dir or "IN" end
+function Util.RowKind(r)
+  if r.kind then return r.kind end
+  if r.itemID == nil and r.currencyID ~= nil then return "CURRENCY" end
+  return "ITEM"
+end
+function Util.RowHolder(r) return r.holder or r.char end
