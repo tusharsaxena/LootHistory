@@ -312,7 +312,7 @@ badge and any count quoted in the docs must agree with it.
 - Collector: a refused loot line logs one [Drop] line naming the reason, and nothing else
 - Collector: with logging off a loot line calls the debug sink not at all
 
-### test_database.lua (65)
+### test_database.lua (69)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -358,7 +358,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 10
+- Database: a fresh store at schemaVersion 0 walks every step to 11
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -371,6 +371,10 @@ badge and any count quoted in the docs must agree with it.
 - Migrations: the warbound split is armed, never run inline
 - Migrations: v7->v8 rewrites a saved mapID filter as the zone names those ids carried
 - Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in the history
+- Migrate: v10->v11 creates the ledger stores and rewrites no rows
+- Migrate: v11 step is idempotent and keeps existing holdings
+- Migrate: an already-current DB does not set upgradedFrom
+- Defaults: trackLedger defaults on; resetPrompt undeclared
 - Database: ArmBoundRepair re-arms on a revision bump, and only then
 - Database: RepairBoundStates raises rows to the state the tooltip witnesses
 - Database: RepairBoundStates promotes a BOE row the bind type filed too loosely
@@ -1210,7 +1214,7 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 38 |
-| test_database.lua | 65 |
+| test_database.lua | 69 |
 | test_stats.lua | 20 |
 | test_browser.lua | 67 |
 | test_browsertable.lua | 63 |
@@ -1242,4 +1246,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1056** |
+| **Total** | **1060** |

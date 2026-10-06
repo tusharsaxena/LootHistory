@@ -228,6 +228,18 @@ local MIGRATIONS = {
   -- leaves every profile for `global.retentionDays`, keeping the value that deletes the least. The
   -- row count is the stored values lifted.
   { to = 10, apply = function(g) return moveRetentionToGlobal(g) end },
+
+  -- v10 -> v11: the timeline ledger (docs/superpowers/specs/2026-10-06-timeline-ledger-design.md
+  -- §9.1). Creates the holdings and daily-rollup stores and records when ledger capture began.
+  -- REWRITES NO ROW: every legacy row was a gain recorded by `char`, which is exactly what the
+  -- NS.Util.Row* accessors default to, so stamping `dir`/`kind`/`holder` would only bloat the file.
+  -- Idempotent: an existing store or stamp is kept.
+  { to = 11, apply = function(g)
+    g.holdings = g.holdings or {}
+    g.daily = g.daily or {}
+    g.ledgerSince = g.ledgerSince or time()
+    return 0
+  end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated
@@ -245,6 +257,9 @@ function NS:RunMigrations()
   local g = NS.db and NS.db.global
   if not g then return end
   g.schemaVersion = g.schemaVersion or 0
+  -- Recorded BEFORE the loop (it advances the stamp) so the one-time reset prompt can tell an
+  -- upgrade from a fresh install; only set when a step below will actually run.
+  if g.schemaVersion < 11 then NS.State.upgradedFrom = g.schemaVersion end
   for i = 1, #MIGRATIONS do
     local m = MIGRATIONS[i]
     if g.schemaVersion < m.to then

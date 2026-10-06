@@ -477,7 +477,7 @@ end)
 test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 11)
 end)
 
 -- savedvariables-§1 (v2.65.0): the defaults declare 0, the pre-migration floor, and never the
@@ -486,12 +486,12 @@ end)
 -- makes a legacy account read as partly migrated.
 test("Database: defaults declare schemaVersion 0, and the target is the ladder's highest step", function()
   assertEqual(NS.defaults.global.schemaVersion, 0)
-  assertEqual(NS.SCHEMA_VERSION, 10)
+  assertEqual(NS.SCHEMA_VERSION, 11)
 end)
 
 -- What AceDB hands a brand-new install: the declared default, 0. The runner walks every step and
--- each [Migrate] line names the step it ran, v1->v2 through v9->v10.
-test("Database: a fresh store at schemaVersion 0 walks every step to 10", function()
+-- each [Migrate] line names the step it ran, v1->v2 through v10->v11.
+test("Database: a fresh store at schemaVersion 0 walks every step to 11", function()
   local g = NS.db.global
   local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
   local savedDebug, savedFlag = NS.Debug, NS.State.debug
@@ -503,25 +503,25 @@ test("Database: a fresh store at schemaVersion 0 walks every step to 10", functi
   NS.Debug, NS.State.debug = savedDebug, savedFlag
   local stamp = g.schemaVersion
   g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView   -- restore shared state
-  assertEqual(stamp, 10)
+  assertEqual(stamp, 11)
   local steps = {}
   for _, l in ipairs(lines) do
     local from, to = l:match("^Migrate v(%d+) %-> v(%d+),")
     if from then steps[#steps + 1] = from .. "->" .. to end
   end
-  assertEqual(table.concat(steps, " "), "1->2 2->3 3->4 4->5 5->6 6->7 7->8 8->9 9->10")
+  assertEqual(table.concat(steps, " "), "1->2 2->3 3->4 4->5 5->6 6->7 7->8 8->9 9->10 10->11")
 end)
 
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
   NS.db.global.schemaVersion = 6
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 11)
 end)
 
 test("Database: RunMigrations is idempotent across repeated runs", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations(); NS:RunMigrations(); NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 11)
 end)
 
 test("Database: RunMigrations is a safe no-op when the DB is absent", function()
@@ -542,7 +542,7 @@ test("Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
     { ts = 2, itemID = 5, itemName = "Was via whitelist", quality = 0, viaWhitelist = true },
   }
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 11)
   assertTrue(NS.db.global.history[2].viaWhitelist == nil)  -- field stripped
   assertEqual(#NS.db.global.history, 2)                    -- nothing deleted
 end)
@@ -552,7 +552,7 @@ test("Migrate: v2->v3 renames sellPrice to vendorPrice", function()
   g.schemaVersion = 2
   g.history = { { itemName = "X", sellPrice = 250, quantity = 1 } }
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 11)
   assertEqual(g.history[1].vendorPrice, 250)
   assertEqual(g.history[1].sellPrice, nil)
 end)
@@ -567,7 +567,7 @@ test("Migrations: v3->v4 backfills currency-record quality", function()
   }
   g.schemaVersion = 3
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 11)
   assertEqual(g.history[1].quality, 4)   -- backfilled from the mock (Epic)
   assertEqual(g.history[2].quality, 4)   -- item unchanged
   assertEqual(g.history[3].quality, 3)   -- already-set currency unchanged
@@ -585,7 +585,7 @@ test("Migrations: v4->v5 backfills currency-record bound", function()
   }
   g.schemaVersion = 4
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 11)
   assertEqual(g.history[1].bound, "WARBAND")  -- 3008 is Warband-transferable (mock)
   assertEqual(g.history[2].bound, "BOP")      -- 2914 is not -> soulbound
   assertEqual(g.history[3].bound, "BOE")      -- item unchanged
@@ -609,7 +609,7 @@ test("Migrations: v5->v6 parks the retired ACCOUNT rows on WARBAND", function()
   g.savedView = { bound = { ACCOUNT = true, BOE = true } }
   g.schemaVersion = 5
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 11)
   assertEqual(g.history[1].bound, "WARBAND")
   assertEqual(g.history[2].bound, "WARBAND")
   assertEqual(g.history[3].bound, "BOE")
@@ -634,7 +634,7 @@ test("Migrations: the warbound split is armed, never run inline", function()
   g.boundRepairPending, g.boundRepairRevision = nil, nil
   g.schemaVersion = 6
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 11)
   assertTrue(g.boundRepairPending, "the repair must still be pending after the migration")
   g.boundRepairPending, g.boundRepairAttempts = nil, nil
   g.schemaVersion, g.boundRepairRevision = savedVer, savedRev
@@ -655,7 +655,7 @@ test("Migrations: v7->v8 rewrites a saved mapID filter as the zone names those i
   g.savedView = { mapID = { [10] = true, [30] = true }, bound = { BOE = true } }
   g.schemaVersion = 7
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 11)
   local view = NS.db.profile.savedView   -- reshaped by v8 in global, then carried over by v9
   assertEqual(view.mapID, nil, "the retired field must not linger")
   assertTrue(view.zone["Dire Maul"])
@@ -680,6 +680,48 @@ test("Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in t
   assertEqual(view.mapID, nil)
   g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView
   NS.db.profile.savedView = savedProfileView
+end)
+
+test("Migrate: v10->v11 creates the ledger stores and rewrites no rows", function()
+  local g = NS.db.global
+  local savedH, savedHold, savedDaily, savedSince = g.history, g.holdings, g.daily, g.ledgerSince
+  local row = { ts = 1, itemID = 4, char = "A-Realm", quantity = 1 }
+  g.history, g.holdings, g.daily, g.ledgerSince = { row }, nil, nil, nil
+  g.schemaVersion = 10
+  NS.State.upgradedFrom = nil
+  NS:RunMigrations()
+  assertEqual(g.schemaVersion, 11)
+  assertEqual(type(g.holdings), "table")
+  assertEqual(type(g.daily), "table")
+  assertEqual(type(g.ledgerSince), "number")
+  assertEqual(NS.State.upgradedFrom, 10)
+  assertTrue(g.history[1] == row)
+  assertEqual(row.dir, nil); assertEqual(row.kind, nil); assertEqual(row.holder, nil)
+  g.history, g.holdings, g.daily, g.ledgerSince = savedH, savedHold, savedDaily, savedSince
+end)
+
+test("Migrate: v11 step is idempotent and keeps existing holdings", function()
+  local g = NS.db.global
+  local savedHold, savedSince = g.holdings, g.ledgerSince
+  g.holdings = { ["A-Realm"] = { money = 5 } }
+  g.ledgerSince = 123
+  g.schemaVersion = 10
+  NS:RunMigrations()
+  assertEqual(g.holdings["A-Realm"].money, 5)
+  assertEqual(g.ledgerSince, 123)
+  g.holdings, g.ledgerSince = savedHold, savedSince
+end)
+
+test("Migrate: an already-current DB does not set upgradedFrom", function()
+  NS.State.upgradedFrom = nil
+  NS.db.global.schemaVersion = 11
+  NS:RunMigrations()
+  assertEqual(NS.State.upgradedFrom, nil)
+end)
+
+test("Defaults: trackLedger defaults on; resetPrompt undeclared", function()
+  assertEqual(NS.defaults.profile.settings.trackLedger, true)
+  assertEqual(NS.defaults.global.resetPrompt, nil)
 end)
 
 test("Database: ArmBoundRepair re-arms on a revision bump, and only then", function()

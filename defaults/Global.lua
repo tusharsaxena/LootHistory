@@ -11,12 +11,18 @@ NS.defaults.global = {
   -- declared default onto an account that stored no stamp; 0 has neither problem, since any stamp
   -- the runner advanced differs from it and an unstamped account reads 0 and walks every step. The
   -- runner owns the stamp: NS:RunMigrations (core/Database.lua) walks the MIGRATIONS table there,
-  -- and its highest `to`, NS.SCHEMA_VERSION, is what a migrated DB carries — 10 today, through
+  -- and its highest `to`, NS.SCHEMA_VERSION, is what a migrated DB carries — 11 today, through
   -- v1→v2 (strip the retired per-record `viaWhitelist`), v8→v9 (every setting moved from this
   -- store into the `Default` profile) and v9→v10 (`retentionDays` lifted back out of every profile
   -- into this store). Every step is non-destructive.
   schemaVersion = 0,
   history = {},          -- array of loot records: recorded data, account-wide by design
+  -- Timeline ledger stores (schema v11). holdings[holder] is what each character and the virtual
+  -- "§warband" holder currently owns; daily[day][holder][thingKey] is the sparse rollup Phase 3 reads.
+  holdings = {},
+  daily = {},
+  -- ledgerSince (ts the v11 step ran) and resetPrompt (nil | "reset" | "kept") are deliberately NOT
+  -- declared: AceDB would strip a value equal to its default and backfill it onto old accounts.
   -- "Keep history for", in days (0 == keep Always). ACCOUNT-WIDE, outside every profile (owner
   -- decision D6): it decides what the login prune deletes from the shared history, so a profile
   -- switch, copy or reset must never change it. The schema row `settings.retentionDays` reads and
