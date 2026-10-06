@@ -1039,6 +1039,37 @@ test("Browser: a holders tab lists holders, with the warband as Warband", functi
   if not ok then error(err, 0) end
 end)
 
+test("Browser: a holder picked on Holdings does not empty History", function()
+  -- One Character control, two option sources. The warband is a holder and never a history row, so
+  -- carried to History it would filter every row out under a raw-key label.
+  local g = NS.db.global
+  local savedHoldings, savedHistory = g.holdings, g.history
+  local savedChar = B.activeFilter and B.activeFilter.char
+  local W = NS.Constants.WARBAND_HOLDER
+  g.holdings = {}
+  g.history = {
+    { ts = 100, itemID = 1, quality = 2, source = "KILL", char = "Alt-Realm" },
+    { ts = 200, itemID = 2, quality = 2, source = "KILL", char = "Alt-Realm" },
+  }
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Holdings:ApplyMoney(W, 5, 1)
+    B:Show(); B:SelectTab("Holdings")
+    B:SetCharSet({ [W] = true })
+    assertTrue(B.activeFilter.char[W], "a Holdings pick")
+    B:SelectTab("History")
+    local char = B.activeFilter.char
+    assertTrue(char == nil or not char[W], "the warband is dropped on the switch to history rows")
+    assertFalse(NS.Browser._dd.char._selected[W], "and the dropdown follows")
+    local rows = NS.Database:QueryList(NS.BrowserTable:CurrentRecords(), NS.BrowserTable.filter)
+    assertEqual(#rows, 2, "the filter does not hide every row")
+  end)
+  B:SelectTab("History")
+  B:SetCharSet(savedChar)
+  B:Hide()
+  g.holdings, g.history = savedHoldings, savedHistory
+  if not ok then error(err, 0) end
+end)
+
 test("Browser: SetViewField remembers a field with no Save, from a copy of the stock view", function()
   local p = NS.db.profile
   local saved = p.savedView

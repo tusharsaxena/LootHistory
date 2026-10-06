@@ -128,3 +128,26 @@ test("Schema: timelineMaxLines is a 2-16 slider under Interface, default 8", fun
   assertEqual(row.default, 8); assertEqual(row.min, 2); assertEqual(row.max, 16)
   assertEqual(row.group, "Interface"); assertEqual(row.widget, "Slider")
 end)
+
+case("Timeline tab: a live repaint drops a hover left up, so the next tick re-hovers on the new data", function()
+  -- The chart only re-fires onHover when the nearest index changes; without the drop a coalesced
+  -- HOLDINGS_CHANGED repaint under a resting cursor kept the old model's tooltip and crosshair.
+  seed(); open()
+  local chart, seen = NS.Timeline.chart, {}
+  local real = NS.Timeline.OnHover
+  NS.Timeline.OnHover = function(self, i) seen[#seen + 1] = i or false; return real(self, i) end
+  local ok, err = pcall(function()
+    local left, _, w = chart:GetPlotRect()
+    local px = left + w
+    assertTrue(chart:HoverAtPixel(px) ~= nil, "the hover lands on a point")
+    local idx = chart:HoverIndex()
+    NS.Timeline:Refresh(); NS.Timeline:Layout(640, 320)
+    assertEqual(chart:HoverIndex(), nil, "the repaint drops the hover")
+    assertEqual(seen[#seen], false, "and tells the host, which hides the tooltip")
+    local n = #seen
+    assertEqual(chart:HoverAtPixel(px), idx)
+    assertEqual(#seen, n + 1, "the same pixel re-fires onHover against the new model")
+  end)
+  NS.Timeline.OnHover = real
+  if not ok then error(err, 0) end
+end)

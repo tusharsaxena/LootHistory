@@ -86,6 +86,25 @@ case("Timeline model: ValueAt and TotalSeries treat a not-yet-started holder as 
   assertEqual(t[1].y, 10); assertEqual(t[2].y, 25)
 end)
 
+case("Timeline model: TotalSeries keeps an intraday step vertical", function()
+  -- A step is two points at one x, (x, before) then (x, after). The Total must step at the same x,
+  -- not join the pre-step point to the post-step value with a diagonal.
+  local a = { { x = 0, y = 100 }, { x = 50, y = 100 }, { x = 50, y = 200 }, { x = 100, y = 200 } }
+  local t = TM().TotalSeries({ a })
+  assertEqual(#t, 4, "one holder's Total is that holder's line")
+  for i = 1, 4 do
+    assertEqual(t[i].x, a[i].x, "point " .. i .. " x"); assertEqual(t[i].y, a[i].y, "point " .. i .. " y")
+  end
+  -- a second, flat holder lifts both sides of the step by its own value
+  local b = { { x = 0, y = 5 }, { x = 100, y = 5 } }
+  t = TM().TotalSeries({ a, b })
+  assertEqual(#t, 4)
+  assertEqual(t[2].x, 50); assertEqual(t[2].y, 105)
+  assertEqual(t[3].x, 50); assertEqual(t[3].y, 205)
+  assertEqual(TM().ValueBefore(a, 50), 100); assertEqual(TM().ValueBefore(a, 75), 200)
+  assertEqual(TM().ValueBefore(b, -1), nil)
+end)
+
 -- ── ranking and the cap ──
 
 case("Timeline model: RankHolders applies the Character filter before the cap", function()

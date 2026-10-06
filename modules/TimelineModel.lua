@@ -73,6 +73,21 @@ function TM.ValueAt(points, x)
   return ans
 end
 
+-- The value a series holds as x is approached from the left. An intraday series steps by carrying
+-- two points at one x, (x, before) then (x, after); the left limit is the first of them. Without a
+-- point at x it is whatever the series carried into x, which is ValueAt.
+function TM.ValueBefore(points, x)
+  local lo, hi, first = 1, #points, nil
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    if points[mid].x >= x then first, hi = mid, mid - 1 else lo = mid + 1 end
+  end
+  if first and points[first].x == x then return points[first].y end
+  return TM.ValueAt(points, x)
+end
+
+-- Summed point by point. Where any input steps at x the Total steps too: it emits the left-limit sum
+-- before the post-step sum, so it overlays the holder lines instead of cutting a diagonal across them.
 function TM.TotalSeries(list)
   local xs, seen = {}, {}
   for _, pts in ipairs(list) do
@@ -83,9 +98,13 @@ function TM.TotalSeries(list)
   table.sort(xs)
   local out = {}
   for _, x in ipairs(xs) do
-    local sum = 0
-    for _, pts in ipairs(list) do sum = sum + (TM.ValueAt(pts, x) or 0) end
-    out[#out + 1] = { x = x, y = sum }
+    local before, after = 0, 0
+    for _, pts in ipairs(list) do
+      before = before + (TM.ValueBefore(pts, x) or 0)
+      after = after + (TM.ValueAt(pts, x) or 0)
+    end
+    if before ~= after then out[#out + 1] = { x = x, y = before } end
+    out[#out + 1] = { x = x, y = after }
   end
   return out
 end

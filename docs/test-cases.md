@@ -592,7 +592,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: ledger gains, losses, net and transfers
 - Stats: preLedgerRows counts rows older than ledgerSince
 
-### test_browser.lua (81)
+### test_browser.lua (82)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -672,6 +672,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser: a tab grays the controls it does not honor, and History restores them
 - Browser: the Holdings tab grays Date, Source, Bound, Zone and Group
 - Browser: a holders tab lists holders, with the warband as Warband
+- Browser: a holder picked on Holdings does not empty History
 - Browser: SetViewField remembers a field with no Save, from a copy of the stock view
 - Browser: CaptureView keeps the remembered Timeline pick
 - Browser: DateRange reads the Date dropdown, all when there is none
@@ -1106,13 +1107,14 @@ badge and any count quoted in the docs must agree with it.
 - Forget this character: refuses the logged-in character and the warband
 - Forget popup: registered, and its accept forgets the holder it carries
 
-### test_timeline.lua (18)
+### test_timeline.lua (19)
 
 - Timeline model: NextDay and DayStart walk local calendar days
 - Timeline model: DailySeries carries the last close forward
 - Timeline model: DailySeries starts at genesis and picks up each day's close
 - Timeline model: a flow-only cell does not break the carry
 - Timeline model: ValueAt and TotalSeries treat a not-yet-started holder as 0
+- Timeline model: TotalSeries keeps an intraday step vertical
 - Timeline model: RankHolders applies the Character filter before the cap
 - Timeline model: Build draws Total plus at most maxLines holders, richest first
 - Timeline model: a holder with nothing now but a balance in range is still a candidate
@@ -1127,7 +1129,7 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: HoverLines reads each line's value and that day's flows
 - Timeline model: Suggest puts Gold first, then the biggest totals, capped
 
-### test_timelinetab.lua (9)
+### test_timelinetab.lua (10)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1138,6 +1140,7 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: grays every filter but Search, Date and Character
 - Timeline tab: a hover with no model or index hides the tooltip and does not raise
 - Schema: timelineMaxLines is a 2-16 slider under Interface, default 8
+- Timeline tab: a live repaint drops a hover left up, so the next tick re-hovers on the new data
 
 ### test_panel.lua (43)
 
@@ -1515,7 +1518,7 @@ badge and any count quoted in the docs must agree with it.
 | test_escrow.lua | 11 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
-| test_browser.lua | 81 |
+| test_browser.lua | 82 |
 | test_browsertable.lua | 69 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
@@ -1528,8 +1531,8 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 67 |
 | test_analytics_layout.lua | 8 |
 | test_holdingstab.lua | 13 |
-| test_timeline.lua | 18 |
-| test_timelinetab.lua | 9 |
+| test_timeline.lua | 19 |
+| test_timelinetab.lua | 10 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1550,4 +1553,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1312** |
+| **Total** | **1315** |

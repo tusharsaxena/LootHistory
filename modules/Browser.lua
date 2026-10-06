@@ -674,7 +674,12 @@ function B:RefreshFilterOptions()
   dd.type:SetOptions(typeOptions())
   dd.subtype:SetOptions(subtypeOptions())
   local spec = tabSpecs[lastTab]
-  dd.char:SetOptions(charOptions(spec ~= nil and spec.charSource == "holders"))
+  local holders = spec ~= nil and spec.charSource == "holders"
+  local charOpts = charOptions(holders)
+  dd.char:SetOptions(charOpts)
+  -- One Character control, two option sources: on a source switch, drop picks the new list lacks.
+  if self._charHolders ~= nil and self._charHolders ~= holders then self:PruneCharSet(charOpts) end
+  self._charHolders = holders
   dd.zone:SetOptions(zoneOptions())
 end
 
@@ -714,6 +719,20 @@ function B:SetCharSet(set)
   local dd = self._dd
   if dd and dd.char then dd.char:SetSelected(filter or {}) end
   ApplyFilter()
+end
+
+-- A pick the shown option list does not offer (the warband or an alt with no history rows, carried
+-- from Holdings to History) would filter to nothing under a raw-key label; it goes through SetCharSet.
+-- The current player stays: "Character: Current" is a preset even before they have a history row.
+function B:PruneCharSet(opts)
+  local cur = self.activeFilter and self.activeFilter.char
+  if not cur then return end
+  local listed, keep, dropped, me = {}, {}, false, currentKey()
+  for _, o in ipairs(opts) do listed[o.value] = true end
+  for k in pairs(cur) do
+    if listed[k] or k == me then keep[k] = true else dropped = true end
+  end
+  if dropped then self:SetCharSet(keep) end
 end
 
 -- The seven multi-select filters (six column filters plus Direction), as { view key, dropdown key }

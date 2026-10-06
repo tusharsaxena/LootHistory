@@ -146,6 +146,10 @@ function TL:Refresh()
   end
   self.model = TM.Build(self:Params(f))
   self.title:SetText(self.model.title or "")
+  -- The chart re-fires onHover only when the nearest index CHANGES, so a hover left up across a live
+  -- repaint would keep the old model's tooltip and crosshair. Dropping it here lets the armed OnUpdate
+  -- hover again against the new data on the next frame.
+  self.chart:ClearHover()
   self.chart:SetData(TM.ChartData(self.model))
   self:Layout()
 end
