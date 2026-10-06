@@ -349,7 +349,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (38)
+### test_collector.lua (43)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -389,6 +389,11 @@ badge and any count quoted in the docs must agree with it.
 - Collector: with no price gathered the [AHPrice] line says none and picks nothing
 - Collector: a refused loot line logs one [Drop] line naming the reason, and nothing else
 - Collector: with logging off a loot line calls the debug sink not at all
+- Collector: a recorded loot line claims its stack for the holdings diff
+- Collector: a gated-out loot line claims nothing
+- Collector: a recorded currency line claims its amount
+- Collector: CHAT_MSG_MONEY writes a GOLD gain and claims it
+- Collector: CHAT_MSG_MONEY with recordGold or trackLedger off writes nothing
 
 ### test_reconciler.lua (7)
 
@@ -400,7 +405,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
-### test_reconciler_rows.lua (11)
+### test_reconciler_rows.lua (15)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -413,6 +418,10 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: recordGold off suppresses gold rows only
 - Reconciler: no genesis, no rows
 - Reconciler: an unexplained loss with no stamp is OTHER
+- Collector+Reconciler: a looted stack is counted once, chat first
+- Collector+Reconciler: a looted stack is counted once, delta first
+- Collector+Reconciler: a partial claim leaves the remainder as a diff row
+- Collector+Reconciler: looted gold is counted once
 
 ### test_database.lua (76)
 
@@ -1354,9 +1363,9 @@ badge and any count quoted in the docs must agree with it.
 | test_attribution_out.lua | 12 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 38 |
+| test_collector.lua | 43 |
 | test_reconciler.lua | 7 |
-| test_reconciler_rows.lua | 11 |
+| test_reconciler_rows.lua | 15 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 69 |
@@ -1391,4 +1400,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1177** |
+| **Total** | **1186** |

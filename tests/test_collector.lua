@@ -629,3 +629,74 @@ test("Collector: with logging off a loot line calls the debug sink not at all", 
   assertEqual(mine, 0)
 end)
 
+
+-- ── Ledger claims and gold (timeline-ledger spec §5.3, §5.4) ──────────────────
+
+local function claimsReset()
+  NS.Reconciler.claims = {}
+  NS.Reconciler._enabled = true
+end
+
+test("Collector: a recorded loot line claims its stack for the holdings diff", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  claimsReset()
+  NS.db.profile.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF_MULTIPLE, LINK, 3))
+  local list = NS.Reconciler.claims["i:211296"]
+  assertTrue(list ~= nil, "no claim posted")
+  assertEqual(list[1].qty, 3)
+  assertTrue(list[1].row == NS.Database:History()[NS.Database:Count()])
+  NS.Reconciler.claims = {}
+end)
+
+test("Collector: a gated-out loot line claims nothing", function()
+  local mocks = T.mocks
+  claimsReset()
+  NS.db.profile.settings.qualityThreshold = 5
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Reconciler.claims["i:211296"], nil)
+  NS.db.profile.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+end)
+
+test("Collector: a recorded currency line claims its amount", function()
+  local mocks = T.mocks
+  claimsReset()
+  NS.db.profile.settings.recordCurrency = true
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED_MULTIPLE, CURRENCY_LINK, 25))
+  assertEqual(NS.Reconciler.claims["c:3008"][1].qty, 25)
+  NS.Reconciler.claims = {}
+end)
+
+test("Collector: CHAT_MSG_MONEY writes a GOLD gain and claims it", function()
+  claimsReset()
+  NS.db.profile.settings.recordGold, NS.db.profile.settings.trackLedger = true, true
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("KILL", { npcID = 5 }, "CERTAIN")
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgMoney(nil, "You loot 1 Gold, 2 Silver, 3 Copper")
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.kind, "GOLD"); assertEqual(r.dir, "IN"); assertEqual(r.quantity, 10203)
+  assertEqual(r.itemName, "Gold"); assertEqual(r.itemType, "Gold"); assertEqual(r.source, "KILL")
+  assertEqual(r.holder, NS.Util.PlayerKey())
+  assertEqual(NS.Reconciler.claims.g[1].qty, 10203)
+  NS.Reconciler.claims = {}
+end)
+
+test("Collector: CHAT_MSG_MONEY with recordGold or trackLedger off writes nothing", function()
+  claimsReset()
+  local s = NS.db.profile.settings
+  s.recordGold = false; NS.Collector:RefreshUpvalues()
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgMoney(nil, "You loot 5 Copper")
+  s.recordGold, s.trackLedger = true, false; NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgMoney(nil, "You loot 5 Copper")
+  assertEqual(NS.Database:Count(), before)
+  assertEqual(NS.Reconciler.claims.g, nil)
+  s.trackLedger = true; NS.Collector:RefreshUpvalues()
+end)

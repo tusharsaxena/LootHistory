@@ -2,8 +2,9 @@ local _, NS = ...
 NS.Collector = NS.Collector or {}
 local Collector = NS.Collector
 
--- Owns the acquisition path: CHAT_MSG_LOOT self-filter, quality gate, record build + write
--- (see docs/data-flow.md).
+-- Owns the acquisition path: CHAT_MSG_LOOT self-filter, quality gate, record build + write, the
+-- CHAT_MSG_CURRENCY and CHAT_MSG_MONEY lines, and the claim each written row posts to the
+-- Reconciler so the holdings diff never counts the same gain twice (see docs/data-flow.md).
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (events-frames-taint-§7).
 --
@@ -11,11 +12,12 @@ local Collector = NS.Collector
 -- tidy-up. It used to be read at the top of OnChatMsgLoot and OnChatMsgCurrency, which is the DRAW
 -- GATE anti-patterns #85 names: the handler stopped reacting and the addon never stopped watching,
 -- so the client walked the registration list, built the argument frame and entered Lua on every
--- loot line in the raid for an addon the player had switched off. The switch now tears the two
+-- loot line in the raid for an addon the player had switched off. The switch now tears the chat
 -- registrations out (Collector:Disable, below), so there is nothing left to gate -- and a flag kept
 -- beside a real unregister is a second answer to "is this addon running" that can disagree with it.
 local qualityThreshold, excludedSources, excludeQuestItems = 1, {}, false
 local recordCurrency = true
+local recordGold, trackLedger = true, true
 local currencyBlacklist = {}
 local blacklist, whitelist = {}, {}
 
@@ -92,6 +94,8 @@ function Collector:RefreshUpvalues()
   excludedSources = s.excludedSources or {}
   excludeQuestItems = s.excludeQuestItems
   recordCurrency = s.recordCurrency
+  recordGold = s.recordGold ~= false
+  trackLedger = s.trackLedger ~= false
   currencyBlacklist = p.currencyBlacklist or {}
   blacklist = p.blacklist or {}
   whitelist = p.whitelist or {}
@@ -138,6 +142,16 @@ local function traceLootRecorded(itemName, quality, itemLevel, source, confidenc
     (#parts > 0 and table.concat(parts, " ") or "none"), tostring(pp or "-"), tostring(ptag or "-"))
 end
 
+-- The holdings diff will see this same thing land. The claim tells it the gain is already written,
+-- so only an unclaimed remainder becomes a diff row (timeline-ledger spec §5.3). Posted ONLY for a
+-- row that was written: a gated-out line posts nothing, and the diff then records the item as a
+-- plain row (spec D2). PostClaim is itself a no-op while ledger capture is off.
+local function claim(kind, id, qty, record)
+  if (id or kind == "GOLD") and NS.Reconciler and NS.Reconciler.PostClaim then
+    NS.Reconciler:PostClaim(NS.Ledger.ThingKey(kind, id), qty, record)
+  end
+end
+
 function Collector:OnChatMsgLoot(_, msg)
   -- A roll-won line ("You won: <item>") is not a receipt — the item arrives a moment later on its own
   -- "You receive loot:" line. Stamp ROLL context so that imminent line attributes to the roll rather
@@ -173,6 +187,7 @@ function Collector:OnChatMsgLoot(_, msg)
       zone = zone, mapID = NS.PlayerMapID(), subzone = subzone })
 
   NS.Database:Add(record)
+  claim("ITEM", itemID, qty, record)
 
   traceLootRecorded(itemName, quality, itemLevel, source, confidence, auctionPrice)
 end
@@ -238,11 +253,38 @@ function Collector:OnChatMsgCurrency(_, msg)
     zone = zone, mapID = NS.PlayerMapID(), subzone = subzone,
   }
   NS.Database:Add(record)
+  claim("CURRENCY", currencyID, qty, record)
 
   if NS.State.debug and NS.Debug then
     NS.Debug("Currency", "%s x%s id=%s src=%s conf=%s",
       tostring(name), tostring(qty), tostring(currencyID), source, confidence)
   end
+end
+
+-- CHAT_MSG_MONEY: the player's own looted money and party share (timeline-ledger spec §5.4). Writes
+-- the rich gold row -- the loot context still says which kill or chest it came from -- and claims it,
+-- exactly as a loot line does for an item. Gold rows are a ledger feature: nothing is written while
+-- `trackLedger` (legacy gains-only) or `recordGold` is off.
+function Collector:OnChatMsgMoney(_, msg)
+  local copper = NS.Util.ParseSelfMoney(msg)
+  if not copper then return end
+  if not (trackLedger and recordGold) then
+    if NS.State.debug and NS.Debug then NS.Debug("Drop", "money %s reason=gold-off", tostring(copper)) end
+    return
+  end
+  local source, sourceDetail, confidence = NS.Attribution:Consume()
+  local zone, subzone = NS.Zone()
+  local me = NS.Util.PlayerKey()
+  local record = {
+    ts = time(), char = me, classFile = NS.Compat.PlayerClassFile(),
+    holder = me, dir = "IN", kind = "GOLD",
+    itemName = "Gold", itemType = NS.Constants.GOLD_TYPE, quantity = copper,
+    source = source, sourceDetail = sourceDetail, confidence = confidence,
+    zone = zone, mapID = NS.PlayerMapID(), subzone = subzone,
+  }
+  NS.Database:Add(record)
+  claim("GOLD", nil, copper, record)
+  if NS.State.debug and NS.Debug then NS.Debug("Money", "%sc src=%s", tostring(copper), tostring(source)) end
 end
 
 function Collector:Enable()
@@ -255,6 +297,8 @@ function Collector:Enable()
     NS.RejectedEvents)
   NS.SafeRegisterEvent(bus, "CHAT_MSG_CURRENCY",
     function(_, msg) self:OnChatMsgCurrency(_, msg) end, NS.RejectedEvents)
+  NS.SafeRegisterEvent(bus, "CHAT_MSG_MONEY", function(_, msg) self:OnChatMsgMoney(_, msg) end,
+    NS.RejectedEvents)
   -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
   -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
   -- No `or bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and
@@ -269,7 +313,7 @@ function Collector:Enable()
 end
 
 --- The stand-down half of Enable (slash-commands-§7). Every registration this module made is
---- actually UNREGISTERED, never gated: the two chat events off the shared AceAddon target by name
+--- actually UNREGISTERED, never gated: the three chat events off the shared AceAddon target by name
 --- (UnregisterAllEvents there would take the other modules' registrations with it), and the private
 --- bus target wholesale.
 ---
@@ -280,6 +324,7 @@ function Collector:Disable()
   if bus and bus.UnregisterEvent then
     bus:UnregisterEvent("CHAT_MSG_LOOT")
     bus:UnregisterEvent("CHAT_MSG_CURRENCY")
+    bus:UnregisterEvent("CHAT_MSG_MONEY")
   end
   if self.__ev then
     self.__ev:UnregisterAllMessages()

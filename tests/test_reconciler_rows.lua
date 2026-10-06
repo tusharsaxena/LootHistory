@@ -213,3 +213,59 @@ case("Reconciler: an unexplained loss with no stamp is OTHER", function()
   R():MarkDirty("bags"); R():Flush()
   assertEqual(H()[1].source, "OTHER"); assertEqual(H()[1].confidence, "INFERRED")
 end)
+
+-- The chat path and the holdings diff together (Task 8): a chat row claims its gain, so the diff
+-- never writes the same stack twice, whichever side lands first.
+local LINK = "|cffa335ee|Hitem:211296::::::::80:::::|h[Vial of Fun]|h|r"
+
+local function chatLoot(qty)
+  NS.db.profile.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgLoot(nil, string.format(m.LOOT_ITEM_SELF_MULTIPLE, LINK, qty))
+end
+
+case("Collector+Reconciler: a looted stack is counted once, chat first", function()
+  reset()
+  genesis()
+  chatLoot(3)
+  setBag(0, { [1] = { itemID = 211296, link = LINK, count = 3 } })
+  R():MarkDirty("bags"); R():Flush()
+  assertEqual(#H(), 1)
+  assertTrue(H()[1].claimed); assertEqual(H()[1].dir, "IN")
+  assertEqual(NS.Holdings:Get(ME).items[211296].bags, 3)
+end)
+
+case("Collector+Reconciler: a looted stack is counted once, delta first", function()
+  reset()
+  genesis()
+  setBag(0, { [1] = { itemID = 211296, link = LINK, count = 3 } })
+  R():MarkDirty("bags"); R():Flush()
+  assertEqual(#H(), 0)                                    -- held: waiting for the claim
+  m.__now = 100.4
+  chatLoot(3)
+  R():Flush()
+  assertEqual(#H(), 1); assertTrue(H()[1].claimed)
+end)
+
+case("Collector+Reconciler: a partial claim leaves the remainder as a diff row", function()
+  reset()
+  genesis()
+  chatLoot(2)
+  setBag(0, { [1] = { itemID = 211296, link = LINK, count = 5 } })
+  R():MarkDirty("bags"); R():Flush()                      -- 3 unclaimed: held
+  m.__now = 102; R():Flush()
+  assertEqual(#H(), 2)
+  assertEqual(H()[2].quantity, 3); assertEqual(H()[2].dir, "IN"); assertTrue(H()[2].claimed == nil)
+end)
+
+case("Collector+Reconciler: looted gold is counted once", function()
+  reset()
+  m.__money = 0
+  genesis()
+  NS.db.profile.settings.trackLedger = true
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgMoney(nil, "You loot 45 Copper")
+  m.__money = 45
+  R():MarkDirty("money"); R():Flush()
+  assertEqual(#H(), 1); assertEqual(H()[1].kind, "GOLD"); assertTrue(H()[1].claimed)
+end)
