@@ -134,7 +134,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: with no C_Timer it runs straight through
 - Util: ParseSelfMoney reads looted and shared money
 
-### test_ledger.lua (28)
+### test_ledger.lua (36)
 
 - Ledger: ThingKey round-trips for every kind
 - Ledger: Diff reports signed deltas, sorted, zeros omitted
@@ -164,6 +164,14 @@ badge and any count quoted in the docs must agree with it.
 - Ledger: PickReason — gains read the inbound loot stamp, then mailbox/AH scope
 - Ledger: PickReason — currency source names map before scopes
 - Ledger: CurrencyReason maps known enum member names, nil otherwise
+- Ledger: DayKey is the local calendar day and sorts chronologically
+- Ledger: RowThingKey covers items, currencies, gold and legacy rows
+- Ledger: RollupClose overwrites the day's close; RollupFlow accumulates by direction
+- Ledger: a MOVE or a zero flow creates no cell (the rollup stays sparse)
+- Ledger: PruneDaily drops old days and folds each thing's last close onto the cutoff day
+- Ledger: PruneDaily never overwrites a close already on the cutoff day
+- Ledger: PruneDaily with nothing old is a no-op
+- Ledger: ForgetHolderDaily removes a holder's cells and days it leaves empty
 
 ### test_ledgerformat.lua (5)
 
@@ -1416,7 +1424,7 @@ badge and any count quoted in the docs must agree with it.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
 | test_util.lua | 41 |
-| test_ledger.lua | 28 |
+| test_ledger.lua | 36 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 56 |
 | test_scanner.lua | 5 |
@@ -1464,4 +1472,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1238** |
+| **Total** | **1246** |

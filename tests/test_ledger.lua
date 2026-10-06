@@ -228,3 +228,77 @@ test("Ledger: CurrencyReason maps known enum member names, nil otherwise", funct
   assertEqual(L().CurrencyReason("NoSuchMember", "IN"), nil)
   assertEqual(L().CurrencyReason(nil, "IN"), nil)
 end)
+
+-- ── daily rollup cells (timeline ledger P3, spec §4.3) ───────────────────────────────────────
+
+test("Ledger: DayKey is the local calendar day and sorts chronologically", function()
+  local late = os.time({ year = 2026, month = 10, day = 6, hour = 23, min = 59 })
+  assertEqual(NS.Ledger.DayKey(late), "2026-10-06")
+  assertTrue(NS.Ledger.DayKey(late) < NS.Ledger.DayKey(late + 120), "string order is day order")
+end)
+
+test("Ledger: RowThingKey covers items, currencies, gold and legacy rows", function()
+  local LG = NS.Ledger
+  assertEqual(LG.RowThingKey({ itemID = 7 }), "i:7")                       -- legacy loot row
+  assertEqual(LG.RowThingKey({ currencyID = 3008 }), "c:3008")
+  assertEqual(LG.RowThingKey({ kind = "GOLD", quantity = 5 }), "g")
+  assertEqual(LG.RowThingKey({ kind = "ITEM" }), nil)                       -- no id, no thing
+end)
+
+test("Ledger: RollupClose overwrites the day's close; RollupFlow accumulates by direction", function()
+  local d, LG = {}, NS.Ledger
+  LG.RollupClose(d, "2026-10-06", "A-R", "g", 100)
+  LG.RollupClose(d, "2026-10-06", "A-R", "g", 120)
+  LG.RollupFlow(d, "2026-10-06", "A-R", "g", "IN", 30)
+  LG.RollupFlow(d, "2026-10-06", "A-R", "g", "IN", 5)
+  LG.RollupFlow(d, "2026-10-06", "A-R", "g", "OUT", 10)
+  local c = d["2026-10-06"]["A-R"].g
+  assertEqual(c.c, 120); assertEqual(c.i, 35); assertEqual(c.o, 10)
+end)
+
+test("Ledger: a MOVE or a zero flow creates no cell (the rollup stays sparse)", function()
+  local d = {}
+  NS.Ledger.RollupFlow(d, "2026-10-06", "A-R", "g", "MOVE", 99)
+  NS.Ledger.RollupFlow(d, "2026-10-06", "A-R", "g", "IN", 0)
+  assertEqual(next(d), nil)
+end)
+
+test("Ledger: PruneDaily drops old days and folds each thing's last close onto the cutoff day", function()
+  -- Review Focus 3
+  local d = {
+    ["2026-01-01"] = { ["A-R"] = { g = { c = 10, i = 10 }, ["i:7"] = { c = 3 } } },
+    ["2026-02-01"] = { ["A-R"] = { g = { c = 40 } } },
+    ["2026-06-01"] = { ["A-R"] = { ["i:7"] = { c = 9 } } },
+  }
+  assertEqual(NS.Ledger.PruneDaily(d, "2026-05-01"), 2)
+  assertEqual(d["2026-01-01"], nil); assertEqual(d["2026-02-01"], nil)
+  assertEqual(d["2026-05-01"]["A-R"].g.c, 40, "the newest pruned close is the one carried")
+  assertEqual(d["2026-05-01"]["A-R"].g.i, nil, "flows are history, not state: never carried")
+  assertEqual(d["2026-05-01"]["A-R"]["i:7"].c, 3, "carried to the cutoff even though June has a close")
+  assertEqual(d["2026-06-01"]["A-R"]["i:7"].c, 9, "days at or after the cutoff are untouched")
+end)
+
+test("Ledger: PruneDaily never overwrites a close already on the cutoff day", function()
+  local d = {
+    ["2026-01-01"] = { ["A-R"] = { g = { c = 10 } } },
+    ["2026-05-01"] = { ["A-R"] = { g = { c = 77, o = 3 } } },
+  }
+  NS.Ledger.PruneDaily(d, "2026-05-01")
+  assertEqual(d["2026-05-01"]["A-R"].g.c, 77); assertEqual(d["2026-05-01"]["A-R"].g.o, 3)
+end)
+
+test("Ledger: PruneDaily with nothing old is a no-op", function()
+  local d = { ["2026-06-01"] = { ["A-R"] = { g = { c = 1 } } } }
+  assertEqual(NS.Ledger.PruneDaily(d, "2026-05-01"), 0)
+  assertEqual(d["2026-05-01"], nil)
+end)
+
+test("Ledger: ForgetHolderDaily removes a holder's cells and days it leaves empty", function()
+  local d = {
+    ["2026-10-01"] = { ["A-R"] = { g = { c = 1 }, ["i:7"] = { c = 2 } } },
+    ["2026-10-02"] = { ["A-R"] = { g = { c = 3 } }, ["B-R"] = { g = { c = 4 } } },
+  }
+  assertEqual(NS.Ledger.ForgetHolderDaily(d, "A-R"), 3)
+  assertEqual(d["2026-10-01"], nil)
+  assertEqual(d["2026-10-02"]["A-R"], nil); assertEqual(d["2026-10-02"]["B-R"].g.c, 4)
+end)

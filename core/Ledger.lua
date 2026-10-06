@@ -261,3 +261,98 @@ function Ledger.CurrencyReason(name, dir)
   local map = NS.Constants.CURRENCY_SOURCE_REASON[dir == "IN" and "gain" or "loss"]
   return map and map[name] or nil
 end
+
+-- ── Daily rollup cells (timeline-ledger spec §4.3) ───────────────────────────────────────────
+--
+-- daily[day][holder][thingKey] = { c = close, i = gained, o = lost }. SPARSE twice over: a cell
+-- exists only for a (day, holder, thing) that changed, and inside it a field exists only when it is
+-- non-zero / known. `c` is the holder's total of the thing at the end of that day as far as the
+-- addon has seen; the Timeline carries the last `c` forward across days with no cell.
+
+local DAY_FMT = "%Y-%m-%d"
+
+-- The local calendar day of `ts`. "YYYY-MM-DD" is zero-padded, so plain string comparison orders
+-- days chronologically -- PruneDaily and the Timeline's day walk both rely on that.
+function Ledger.DayKey(ts) return date(DAY_FMT, ts) end
+
+function Ledger.RowThingKey(r)
+  local kind = NS.Util.RowKind(r)
+  if kind == "GOLD" then return "g" end
+  local id = (kind == "CURRENCY") and r.currencyID or r.itemID
+  if id == nil then return nil end
+  return Ledger.ThingKey(kind, id)
+end
+
+local function cellOf(daily, day, holder, key)
+  local d = daily[day]
+  if not d then d = {}; daily[day] = d end
+  local h = d[holder]
+  if not h then h = {}; d[holder] = h end
+  local c = h[key]
+  if not c then c = {}; h[key] = c end
+  return c
+end
+
+function Ledger.RollupClose(daily, day, holder, key, close)
+  cellOf(daily, day, holder, key).c = close
+end
+
+function Ledger.RollupFlow(daily, day, holder, key, dir, qty)
+  if not qty or qty <= 0 then return end
+  if dir == "IN" then
+    local c = cellOf(daily, day, holder, key); c.i = (c.i or 0) + qty
+  elseif dir == "OUT" then
+    local c = cellOf(daily, day, holder, key); c.o = (c.o or 0) + qty
+  end
+end
+
+-- Newest close per (holder, key) across `days` (sorted ascending), as last[holder][key].
+local function lastCloses(daily, days)
+  local last = {}
+  for _, day in ipairs(days) do
+    for holder, things in pairs(daily[day]) do
+      local h = last[holder] or {}
+      last[holder] = h
+      for key, cell in pairs(things) do
+        if cell.c ~= nil then h[key] = cell.c end
+      end
+    end
+  end
+  return last
+end
+
+-- Drop days before `cutoffDay`. What a pruned day knew that the Timeline still needs is each
+-- thing's last close -- without it a balance that did not move after the cutoff would draw nothing
+-- until its next change -- so the newest pruned close is folded onto the cutoff day, unless that
+-- day already has a close of its own (which is newer). In/out tallies are not folded.
+function Ledger.PruneDaily(daily, cutoffDay)
+  local old = {}
+  for day in pairs(daily) do
+    if day < cutoffDay then old[#old + 1] = day end
+  end
+  if #old == 0 then return 0 end
+  table.sort(old)
+  local last = lastCloses(daily, old)
+  for _, day in ipairs(old) do daily[day] = nil end
+  for holder, things in pairs(last) do
+    for key, c in pairs(things) do
+      local d = daily[cutoffDay]
+      local cell = d and d[holder] and d[holder][key]
+      if not (cell and cell.c ~= nil) then Ledger.RollupClose(daily, cutoffDay, holder, key, c) end
+    end
+  end
+  return #old
+end
+
+function Ledger.ForgetHolderDaily(daily, holder)
+  local removed = 0
+  for day, holders in pairs(daily) do
+    local things = holders[holder]
+    if things then
+      for _ in pairs(things) do removed = removed + 1 end
+      holders[holder] = nil
+      if next(holders) == nil then daily[day] = nil end
+    end
+  end
+  return removed
+end
