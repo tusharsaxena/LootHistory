@@ -130,7 +130,7 @@ local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
                             NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
-                            NS.HoldingsTab.__ev }) do
+                            NS.HoldingsTab.__ev, NS.Timeline.__ev }) do
     if target then t[target] = true end
   end
   return t

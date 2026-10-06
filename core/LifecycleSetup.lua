@@ -119,7 +119,7 @@ function NS.StandDown()
   -- does not touch messages, and this target subscribes to none.
   if NS.addon and NS.addon.UnregisterAllEvents then NS.addon:UnregisterAllEvents() end
   for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics, NS.HoldingsTab,
-                      NS.Rollup }) do
+                      NS.Timeline, NS.Rollup }) do
     if m and m.Disable then m:Disable() end
   end
   if NS.Attribution and NS.Attribution.DisableOut then NS.Attribution:DisableOut() end
@@ -152,6 +152,7 @@ function NS.StandUp()
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
   if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
   if NS.HoldingsTab and NS.HoldingsTab.Enable then NS.HoldingsTab:Enable() end
+  if NS.Timeline and NS.Timeline.Enable then NS.Timeline:Enable() end
   if NS.State.debug and NS.Debug then NS.Debug("State", "stand-up: capture registered") end
   if NS.DebugAtEnable then NS.DebugAtEnable("State", "dependencies: %s", dependencyText()) end
 end

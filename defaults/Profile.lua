@@ -46,6 +46,7 @@ NS.defaults.profile = {
     -- History-table row height, in pixels. Was `local ROW_H = 18` in modules/BrowserTable.lua and
     -- ships as the same 18, so a player who never touches it sees the table it always drew.
     rowHeight        = 18,
+    timelineMaxLines = 8,      -- lines besides the Total on the Timeline (2-16)
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,

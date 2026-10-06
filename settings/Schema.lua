@@ -393,6 +393,17 @@ local ROWS = {
       if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
     end },
 
+  -- How many holders the Timeline draws besides its Total (spec §11). The richest holders of the
+  -- charted thing win the slots; the Character filter narrows the field first.
+  { path = "settings.timelineMaxLines", default = PD.settings.timelineMaxLines, type = "number",
+    min = 2, max = 16, step = 1, widget = "Slider", fmt = "%d",
+    page = "General", group = "Interface", label = "Timeline lines",
+    tooltip = "How many characters the Timeline draws as their own line, besides the Total. "
+      .. "The ones holding the most of the charted item, currency or gold are shown first.",
+    onChange = function()
+      if NS.Timeline and NS.Timeline.RefreshIfShown then NS.Timeline:RefreshIfShown() end
+    end },
+
   -- ── General ▸ History ──
   -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
   -- and leaves; the Filters tab that follows it on the strip declares no rows at all. Called

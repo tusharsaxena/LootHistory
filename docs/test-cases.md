@@ -1118,6 +1118,18 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: HoverLines reads each line's value and that day's flows
 - Timeline model: Suggest puts Gold first, then the biggest totals, capped
 
+### test_timelinetab.lua (9)
+
+- Timeline tab: registered between Insights and Holdings
+- Timeline tab: Total plus one line per holder; the Character filter narrows it
+- Timeline tab: refresh twice recycles Lines and pooled rows
+- Timeline tab: maxLines caps the holders drawn
+- Timeline tab: typing in Search offers matching things, Gold first
+- Timeline tab: the pick is remembered in the saved view
+- Timeline tab: grays every filter but Search, Date and Character
+- Timeline tab: a hover with no model or index hides the tooltip and does not raise
+- Schema: timelineMaxLines is a 2-16 slider under Interface, default 8
+
 ### test_panel.lua (43)
 
 - Panel: the parent category and its ONE sub-page are registered
@@ -1508,6 +1520,7 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics_layout.lua | 8 |
 | test_holdingstab.lua | 7 |
 | test_timeline.lua | 18 |
+| test_timelinetab.lua | 9 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1528,4 +1541,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1294** |
+| **Total** | **1303** |

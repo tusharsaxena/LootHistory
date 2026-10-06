@@ -104,14 +104,14 @@ The **row vocabulary is LibKa0s's** (`Schema.lua:49`), and four names moved when
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Twenty-one rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
+**Twenty-two rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
 | General | **Master controls** | 8 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole`, `minimap.shown`, `state.testMode` |
 | General | **Capture** | 6 | `settings.qualityThreshold`, `settings.recordCurrency`, `settings.trackLedger`, `settings.recordGold`, `settings.excludeQuestItems`, `settings.excludedSources` |
 | General | **AH Price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
-| General | **Interface** | 2 | `settings.windowScale`, `settings.rowHeight` |
+| General | **Interface** | 3 | `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines` |
 | General | **History** | 3 | `settings.retentionDays`, `settings.rollupRetentionDays`, `settings.showTransfers` |
 
 The **Master controls** block is **composed, never hand-written**: `O.MasterControls` (`OptionsCompose.lua:458`) emits the canonical block — eight rows plus the closing button pair — from one declaration in `settings/Schema.lua`, which is what stops nine addons drifting into nine orders (options-ui-§15). This addon passes `prefix = "settings."`, its own `defaults` (so `defaults/Profile.lua` stays the one declaration site for every shipped value, and the two session rows default to `false`), both reset handlers, `minimapPath = "minimap.shown"` (verbatim and unprefixed; the row path is in the row's own sense and the one stored key underneath is `minimap.hide`, because LibDBIcon's own table lives in the **global** store outside the block's `settings.` prefix — launcher-§3) and `testModePath = "state.testMode"`, which are what add the `Minimap button` and `Test mode` rows; it is **not** `frameless`, because `modules/Browser.lua` and `modules/Export.lua` both call `SetMovable(true)`, so it draws all four of §15's frame-only controls — the `scale`, `alpha` and `locked` rows, plus the **Reset position** half of the closing button pair (the composer's `frameless` branch drops exactly those four together). What the composer does not know — this addon's `onChange` hooks, the `fmt` the CLI prints a scale with, the two session toggles' `get`/`set`, and the test-mode row's own tooltip — is stamped onto the emitted rows by path (`stamp`, `Schema.lua`), never typed into a second copy of the block.
