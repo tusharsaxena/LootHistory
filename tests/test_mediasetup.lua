@@ -122,7 +122,8 @@ test("MediaSetup: the source names no icon the DRAWN list above has forgotten", 
   local drawn = {}
   for _, name in ipairs(DRAWN) do drawn[name] = true end
   local unlisted = {}
-  for _, file in ipairs({ "modules/Browser.lua", "modules/BrowserTable.lua", "modules/Export.lua",
+  for _, file in ipairs({ "modules/Browser.lua", "modules/BrowserFilterBar.lua", "modules/BrowserTable.lua",
+                          "modules/Export.lua",
                           -- The Holdings tab's row actions name their marks as data, like the
                           -- History row menu does.
                           "modules/HoldingsTab.lua",

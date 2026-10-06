@@ -104,6 +104,7 @@ modules\AuctionPrice.lua
 modules\Collector.lua
 modules\LedgerFormat.lua
 modules\Browser.lua
+modules\BrowserFilterBar.lua
 modules\BrowserTable.lua
 modules\Export.lua
 modules\AnalyticsFormat.lua

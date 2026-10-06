@@ -141,7 +141,8 @@ end)
 test("Widgets: no option table in this addon sets a glyph", function()
   -- The other half of the case above: the seam passing no face is only correct while this stays
   -- true. The class icon and the tick are inline texture markup, not monospace characters.
-  for _, path in ipairs({ "modules/Browser.lua", "modules/Export.lua", "core/WidgetsSetup.lua" }) do
+  for _, path in ipairs({ "modules/Browser.lua", "modules/BrowserFilterBar.lua", "modules/Export.lua",
+                        "core/WidgetsSetup.lua" }) do
     local src = Loader.readFile(path)
     assertTrue(src:find("glyph%s*=") == nil,
       path .. " sets `glyph` on an option, which needs opts.glyphFont passed by the seam")
