@@ -458,6 +458,62 @@ function Compat.GetItemSellPrice(idOrLink)
   return nil
 end
 
+-- Item level of a piece of gear (a weapon or armor with an equip slot) for an item id or link; nil
+-- for anything else, as GetItemExtras answers, but without its tooltip scan for bind state. The
+-- holdings tab's iLvl column reads it once per held item per refresh.
+function Compat.GearItemLevel(idOrLink)
+  if not (idOrLink and C_Item and C_Item.GetItemInfoInstant) then return nil end
+  local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(idOrLink)
+  if not ((classID == ITEMCLASS_WEAPON or classID == ITEMCLASS_ARMOR) and equipLoc and equipLoc ~= "") then
+    return nil
+  end
+  local ilvl = C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(idOrLink)
+  if not ilvl and C_Item.GetItemInfo then ilvl = select(4, C_Item.GetItemInfo(idOrLink)) end
+  return ilvl
+end
+
+-- GameTooltip, presence-gated: each Show* answers false (and draws nothing) when the tooltip or the
+-- method it needs is missing, so a hover never errors on a client or harness without them.
+local function tooltip(method)
+  local tt = GameTooltip
+  if type(tt) ~= "table" or (method and type(tt[method]) ~= "function") then return nil end
+  return tt
+end
+
+function Compat.ShowItemTooltip(owner, link, anchor)
+  local tt = tooltip("SetHyperlink")
+  if not (tt and link) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetHyperlink(link)
+  tt:Show()
+  return true
+end
+
+function Compat.ShowCurrencyTooltip(owner, currencyID, anchor)
+  local tt = tooltip("SetCurrencyByID")
+  if not (tt and currencyID) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetCurrencyByID(currencyID)
+  tt:Show()
+  return true
+end
+
+-- A plain tooltip: a gold title, then an optional wrapped body line.
+function Compat.ShowTextTooltip(owner, title, body, anchor)
+  local tt = tooltip("AddLine")
+  if not (tt and title) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:AddLine(title, 1, 0.82, 0)
+  if body and body ~= "" then tt:AddLine(body, 0.9, 0.9, 0.9, true) end
+  tt:Show()
+  return true
+end
+
+function Compat.HideTooltip()
+  local tt = tooltip("Hide")
+  if tt then tt:Hide() end
+end
+
 -- Bound state for a currency, from C_CurrencyInfo: "WARBAND" for a Warband-transferable currency
 -- (the tooltip's "Warband Transferable" = `isAccountTransferable`), else "BOP" (currencies are
 -- otherwise soulbound). Returns nil when the API can't resolve the id (headless / uncached) so callers

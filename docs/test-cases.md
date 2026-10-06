@@ -1096,7 +1096,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: a range with losses draws the gains-vs-losses section first
 - Insights layout: losses only — no empty text, no LOOT divider
 
-### test_holdingstab.lua (13)
+### test_holdingstab.lua (23)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -1111,6 +1111,16 @@ badge and any count quoted in the docs must agree with it.
 - Forget this character: a holder with nothing stored is a no-op and announces nothing
 - Forget this character: refuses the logged-in character and the warband
 - Forget popup: registered, and its accept forgets the holder it carries
+- HoldingsTab: an item line carries iLvl, quality label, type, subtype and the AH unit price
+- HoldingsTab: a non-gear item has no iLvl
+- HoldingsTab: a currency line reads Currency / its category, with no iLvl or AH price
+- HoldingsTab: the gold line reads Gold with no subtype, quality, iLvl or AH price
+- HoldingsTab: stripes alternate per thing and an expanded thing's holders keep its stripe
+- HoldingsTab: header sorts by every column and a second click flips the direction
+- HoldingsTab: columns hide right to left as the pane narrows; Name, Total and Value stay
+- HoldingsTab: hovering a thing shows the right tooltip for an item, a currency and gold
+- HoldingsTab: the pane's rows hover and leave through the tooltip; the header holds exactly the column labels
+- HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise
 
 ### test_timeline.lua (19)
 
@@ -1535,7 +1545,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 67 |
 | test_analytics_layout.lua | 8 |
-| test_holdingstab.lua | 13 |
+| test_holdingstab.lua | 23 |
 | test_timeline.lua | 19 |
 | test_timelinetab.lua | 10 |
 | test_panel.lua | 43 |
@@ -1558,4 +1568,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1320** |
+| **Total** | **1330** |

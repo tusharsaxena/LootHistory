@@ -198,3 +198,215 @@ test("Forget popup: registered, and its accept forgets the holder it carries", f
     assertEqual(NS.Holdings:Get("Alt-Realm"), nil)
   end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Metadata columns, banding, tooltips and the header (timeline ledger P4 polish, Task 2)
+-- ---------------------------------------------------------------------------
+-- Adapted from the plan's list: the kit's CreateFontString answers the frame itself (mock_base's
+-- "Known divergence"), so a header's FontStrings cannot be enumerated; the header is pinned through
+-- its cell set and the text each cell was given (HT:HeaderLabels). Tooltips are recorded by swapping
+-- the mock GameTooltip's methods for recorders, since the stub's own methods no-op.
+
+local mocks = T.mocks
+
+-- Run `fn` with the item API describing a cached piece of gear and the AH price sources answering
+-- one price, then put every swapped function back.
+local function withGear(fn)
+  local item, AP = mocks.C_Item, NS.AuctionPrice
+  local saved = { item.GetItemInfoInstant, item.GetItemInfo, item.GetDetailedItemLevelInfo, AP.GatherAll, AP.Pick }
+  item.GetItemInfoInstant = function() return 7, "Armor", "Cloth", "INVTYPE_HEAD", nil, 4 end
+  item.GetItemInfo = function(l)
+    return "Apple", l, 3, 600, nil, "Armor", "Cloth", nil, "INVTYPE_HEAD", nil, 50
+  end
+  item.GetDetailedItemLevelInfo = function() return 610 end
+  AP.GatherAll = function() return { mock = { unit = 1234 } } end
+  AP.Pick = function(_, map) return map and map.mock and map.mock.unit, map and "mock:unit" end
+  local ok, err = pcall(fn)
+  item.GetItemInfoInstant, item.GetItemInfo, item.GetDetailedItemLevelInfo, AP.GatherAll, AP.Pick =
+    saved[1], saved[2], saved[3], saved[4], saved[5]
+  if not ok then error(err, 0) end
+end
+
+local function byKey(lines)
+  local out = {}
+  for _, l in ipairs(lines) do if l.kind == "thing" then out[l.key] = l end end
+  return out
+end
+
+test("HoldingsTab: an item line carries iLvl, quality label, type, subtype and the AH unit price", function()
+  withGear(function()
+    seed()
+    local l = byKey(NS.HoldingsTab.BuildModel({}, {}, "name"))["i:7"]
+    assertEqual(l.ilvl, 610)
+    assertEqual(l.qualityLabel, NS.Item.QualityLabel(3))
+    assertEqual(l.itemType, "Armor"); assertEqual(l.itemSubType, "Cloth")
+    assertEqual(l.ahUnit, 1234)
+    assertEqual(l.value, 1234 * 11, "value is the picked unit price times the held total")
+  end)
+end)
+
+test("HoldingsTab: a non-gear item has no iLvl", function()
+  seed()   -- the stock mock item is a consumable (class 0, no equip slot)
+  assertEqual(byKey(NS.HoldingsTab.BuildModel({}, {}, "name"))["i:7"].ilvl, nil)
+end)
+
+test("HoldingsTab: a currency line reads Currency / its category, with no iLvl or AH price", function()
+  keep(function()
+    NS.db.global.holdings = {}
+    NS.Holdings:ApplyCurrency("A-Realm", { [3008] = 40 }, 100)
+    local l = byKey(NS.HoldingsTab.BuildModel({}, {}, "name"))["c:3008"]
+    assertEqual(l.itemType, NS.Constants.CURRENCY_TYPE)
+    assertEqual(l.itemSubType, NS.Compat.CurrencyCategory(3008))
+    assertEqual(l.ilvl, nil); assertEqual(l.ahUnit, nil)
+    assertEqual(l.qualityLabel, NS.Item.QualityLabel(4))
+  end)
+end)
+
+test("HoldingsTab: the gold line reads Gold with no subtype, quality, iLvl or AH price", function()
+  seed()
+  local l = byKey(NS.HoldingsTab.BuildModel({}, {}, "name"))["g"]
+  assertEqual(l.itemType, "Gold"); assertEqual(l.itemSubType, nil)
+  assertEqual(l.qualityLabel, nil); assertEqual(l.ilvl, nil); assertEqual(l.ahUnit, nil)
+end)
+
+test("HoldingsTab: stripes alternate per thing and an expanded thing's holders keep its stripe", function()
+  seed()
+  local lines = NS.HoldingsTab.BuildModel({}, { ["i:7"] = true, g = true }, "name")
+  -- name sort: Gold (1 holder), then the item (2 holders; the stock mock names every item "Item Name")
+  local seen = {}
+  for _, l in ipairs(lines) do seen[#seen + 1] = l.kind .. ":" .. l.stripe end
+  assertEqual(table.concat(seen, ","), "thing:1,holder:1,thing:2,holder:2,holder:2")
+end)
+
+test("HoldingsTab: header sorts by every column and a second click flips the direction", function()
+  local HT = NS.HoldingsTab
+  local saved = { HT.sortKey, HT.sortAsc }
+  local ok, err = pcall(function()
+    seed()
+    local function firstKey() return HT.BuildModel({}, {}, HT.sortKey, HT.sortAsc)[1].key end
+    HT:SetSort("name")
+    if HT.sortKey ~= "name" or HT.sortAsc ~= true then HT:SetSort("name") end
+    assertEqual(HT.sortAsc, true); assertEqual(firstKey(), "g")     -- Gold before Item Name
+    HT:SetSort("name")
+    assertEqual(HT.sortAsc, false); assertEqual(firstKey(), "i:7")
+    HT:SetSort("total")                                              -- numeric: starts descending
+    assertEqual(HT.sortAsc, false); assertEqual(firstKey(), "g")      -- 10000 copper beats 11
+    HT:SetSort("total")
+    assertEqual(HT.sortAsc, true); assertEqual(firstKey(), "i:7")
+    for _, col in ipairs(HT.COLUMNS) do
+      HT:SetSort(col.key)
+      assertEqual(HT.sortKey, col.key)
+      assertTrue(#HT.BuildModel({}, {}, HT.sortKey, HT.sortAsc) == 2, col.key .. " sort lost a line")
+    end
+  end)
+  HT.sortKey, HT.sortAsc = saved[1], saved[2]
+  if not ok then error(err, 0) end
+end)
+
+test("HoldingsTab: columns hide right to left as the pane narrows; Name, Total and Value stay", function()
+  local HT = NS.HoldingsTab
+  local function keys(w)
+    local out = {}
+    for _, c in ipairs(HT.ColumnLayout(w)) do out[#out + 1] = c.key end
+    return table.concat(out, ",")
+  end
+  assertEqual(keys(2000), "name,ilvl,quality,type,subtype,ah,total,value")
+  local narrow = keys(1)
+  assertEqual(narrow, "name,total,value")
+  -- Somewhere between, AH price goes before SubType, SubType before Type, and so on.
+  local prev = 8
+  for w = 2000, 1, -10 do
+    local n = #HT.ColumnLayout(w)
+    assertTrue(n <= prev, "a narrower pane showed more columns")
+    prev = n
+    local s = keys(w)
+    if not s:find("subtype", 1, true) then assertTrue(not s:find(",ah,", 1, true), "AH stayed after SubType went") end
+    if not s:find(",type,", 1, true) then assertTrue(not s:find("subtype", 1, true), "SubType stayed after Type went") end
+  end
+end)
+
+-- Record GameTooltip's calls for the length of `fn`.
+local function recordTooltip(fn)
+  local tt, calls, saved = mocks.GameTooltip, {}, {}
+  for _, m in ipairs({ "SetOwner", "SetHyperlink", "SetCurrencyByID", "AddLine", "Show", "Hide" }) do
+    saved[m] = rawget(tt, m)
+    tt[m] = function(_, a) calls[#calls + 1] = m .. "(" .. tostring(a) .. ")"; return tt end
+  end
+  local ok, err = pcall(fn)
+  for m, f in pairs(saved) do tt[m] = f end
+  for _, m in ipairs({ "SetOwner", "SetHyperlink", "SetCurrencyByID", "AddLine", "Show", "Hide" }) do
+    if saved[m] == nil then tt[m] = nil end
+  end
+  if not ok then error(err, 0) end
+  return table.concat(calls, " ")
+end
+
+test("HoldingsTab: hovering a thing shows the right tooltip for an item, a currency and gold", function()
+  local HT, owner = NS.HoldingsTab, {}
+  local got = recordTooltip(function()
+    HT.ShowTooltip(owner, { kind = "thing", thingKind = "ITEM", id = 7, link = "|Hitem:7|h[Apple]|h" })
+  end)
+  assertTrue(got:find("SetHyperlink(|Hitem:7|h[Apple]|h)", 1, true) ~= nil, got)
+  got = recordTooltip(function() HT.ShowTooltip(owner, { kind = "thing", thingKind = "ITEM", id = 7 }) end)
+  assertTrue(got:find("SetHyperlink(item:7)", 1, true) ~= nil, got)
+  got = recordTooltip(function() HT.ShowTooltip(owner, { kind = "thing", thingKind = "CURRENCY", id = 3008 }) end)
+  assertTrue(got:find("SetCurrencyByID(3008)", 1, true) ~= nil, got)
+  got = recordTooltip(function()
+    HT.ShowTooltip(owner, { kind = "thing", thingKind = "GOLD", key = "g", name = "Gold", total = 10000 })
+  end)
+  assertTrue(got:find("AddLine(Gold)", 1, true) ~= nil, got)
+  assertTrue(got:find("SetHyperlink", 1, true) == nil and got:find("SetCurrencyByID", 1, true) == nil, got)
+  got = recordTooltip(function() HT.ShowTooltip(owner, { kind = "holder", key = "g", holder = "A-Realm" }) end)
+  assertEqual(got, "", "a holder line has no tooltip")
+end)
+
+test("HoldingsTab: the pane's rows hover and leave through the tooltip; the header holds exactly the column labels", function()
+  seed()
+  local HT = NS.HoldingsTab
+  local savedChar = NS.Browser:CurrentFilter().char
+  local saved = { HT.sortKey, HT.sortAsc }
+  local scroll, savedWidth
+  local ok, err = pcall(function()
+    NS.Browser:Show(); NS.Browser:SetCharSet(nil); NS.Browser:SelectTab("Holdings")
+    HT.sortKey, HT.sortAsc = "name", true
+    scroll = HT.scroll; savedWidth = rawget(scroll, "GetWidth")
+    -- The kit's frames measure 0 wide; a wide pane is asked for, so every column is laid out.
+    HT.scroll.GetWidth = function() return 2000 end
+    HT:Refresh()
+    -- Header: one cell per column, each carrying its own label, the sorted one with its arrow.
+    local texts = HT:HeaderLabels()
+    assertEqual(#texts, #HT.COLUMNS)
+    for i, col in ipairs(HT.COLUMNS) do
+      local plain = texts[i]:gsub("%s*|T.-|t", "")
+      assertEqual(plain, col.label)
+      assertEqual(texts[i] ~= col.label, col.key == "name", col.key .. " arrow")
+    end
+    -- Rows: every acquired row hovers without error, gold included, and leaving hides the tooltip.
+    local rows = HT:Rows()
+    assertTrue(#rows >= 2)
+    local got = recordTooltip(function()
+      for _, row in ipairs(rows) do
+        row:GetScript("OnEnter")(row)
+        row:GetScript("OnLeave")(row)
+      end
+    end)
+    assertTrue(got:find("AddLine(Gold)", 1, true) ~= nil, got)
+    assertTrue(got:find("Hide", 1, true) ~= nil, got)
+  end)
+  HT.sortKey, HT.sortAsc = saved[1], saved[2]
+  if scroll then scroll.GetWidth = savedWidth end
+  NS.Browser:SetCharSet(savedChar); NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)
+
+test("HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise", function()
+  local saved = mocks.GameTooltip
+  mocks.GameTooltip = nil
+  local ok, err = pcall(function()
+    assertFalse(NS.HoldingsTab.ShowTooltip({}, { kind = "thing", thingKind = "ITEM", id = 7 }))
+    assertFalse(NS.HoldingsTab.ShowTooltip({}, { kind = "thing", thingKind = "GOLD", name = "Gold", total = 1 }))
+    NS.Compat.HideTooltip()
+  end)
+  mocks.GameTooltip = saved
+  if not ok then error(err, 0) end
+end)
