@@ -208,3 +208,56 @@ function Ledger.ShouldHold(oneSided, unclaimedGain, holdSince, now)
 end
 
 function Ledger.Signed(dir, qty) return (qty or 0) * (Ledger.DirSign[dir] or 0) end
+
+-- ── Reasons (timeline-ledger spec §5.4) ─────────────────────────────────────────────────────
+local DECONSTRUCT_SOURCE = { DISENCHANT = true, MILLING = true, PROSPECTING = true }
+
+local function stampApplies(o, kind, dir, now)
+  return o and o.expires >= now and (not o.dirs or o.dirs[dir]) and (not o.kinds or o.kinds[kind])
+end
+
+local function scopeReason(kind, dir, s)
+  if s.guildBank then return dir == "OUT" and "GUILD_DEPOSIT" or "GUILD_WITHDRAW" end
+  if s.merchant then
+    if dir == "OUT" then return kind == "ITEM" and "SELL" or "BUY" end
+    return kind == "ITEM" and "VENDOR" or "SELL"
+  end
+  if kind == "GOLD" and dir == "OUT" then
+    if s.trainer then return "TRAINING" end
+    if s.taxi then return "TRAVEL" end
+    if s.auction then return "AH_POST_FEE" end
+    if s.mailbox then return "MAIL_SEND" end
+  end
+  return nil
+end
+
+local function inferItemLoss(c)
+  local l = c.loot
+  if l and l.expires >= c.now and DECONSTRUCT_SOURCE[l.source] then return "DECONSTRUCT" end
+  if c.craftUntil and c.craftUntil >= c.now then return "CRAFT_REAGENT" end
+  if c.consumable then return "CONSUME" end
+  return nil
+end
+
+function Ledger.PickReason(kind, dir, c)
+  if c.forced then return c.forced end
+  if stampApplies(c.out, kind, dir, c.now) then return c.out.reason end
+  if c.currencySrc then return c.currencySrc end
+  local s = c.scopes or {}
+  local r = scopeReason(kind, dir, s)
+  if r then return r end
+  if kind == "ITEM" and dir == "OUT" then r = inferItemLoss(c); if r then return r end end
+  if dir == "IN" then
+    local l = c.loot
+    if l and l.expires >= c.now then return l.source end
+    if s.mailbox then return "MAIL" end
+    if s.auction then return "AH" end
+  end
+  return "OTHER"
+end
+
+function Ledger.CurrencyReason(name, dir)
+  if not name then return nil end
+  local map = NS.Constants.CURRENCY_SOURCE_REASON[dir == "IN" and "gain" or "loss"]
+  return map and map[name] or nil
+end

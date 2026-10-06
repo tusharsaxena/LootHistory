@@ -311,3 +311,19 @@ if not Bus then
 end
 NS.BusLib = Bus
 NS.MSG = Bus.Catalog((...), MSG)
+
+-- CURRENCY_DISPLAY_UPDATE's gainSource / destroyReason, mapped BY ENUM MEMBER NAME
+-- (Enum.CurrencySource / Enum.CurrencyDestroyReason, reverse-looked-up in core/Compat.lua) to a
+-- ledger reason. By name, never by number: the numbers are not documented as stable. A member not
+-- listed maps to nil and the reason falls through to the context stamps. The names below are the
+-- 12.x members as recalled; docs/smoke-tests.md LED-P2-14 verifies them in the client.
+C.CURRENCY_SOURCE_REASON = {
+  gain = {
+    QuestReward = "QUEST", Vendor = "VENDOR", Trade = "TRADE", ItemRefund = "REFUND",
+    GuildBankWithdrawal = "GUILD_WITHDRAW", AccountTransfer = "TRANSFER",
+  },
+  loss = {
+    Vendor = "BUY", Trade = "TRADE_GIVE", FulfillCraftingOrder = "CRAFT_REAGENT",
+    ConcentrationCast = "CRAFT_REAGENT", AccountTransfer = "TRANSFER", Spell = "CONSUME",
+  },
+}

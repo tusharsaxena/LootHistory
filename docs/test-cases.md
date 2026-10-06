@@ -133,7 +133,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 
-### test_ledger.lua (19)
+### test_ledger.lua (28)
 
 - Ledger: ThingKey round-trips for every kind
 - Ledger: Diff reports signed deltas, sorted, zeros omitted
@@ -154,6 +154,15 @@ badge and any count quoted in the docs must agree with it.
 - Ledger: coalesce key and the 60 s amend window
 - Ledger: ShouldHold — one-sided waits 6 s, unclaimed gain waits 1.5 s
 - Ledger: Signed applies DirSign
+- Ledger: PickReason — forced wins (login drift)
+- Ledger: PickReason — a fresh outbound stamp beats scopes, filtered by kind/dir
+- Ledger: PickReason — merchant scope
+- Ledger: PickReason — guild bank is outside the account
+- Ledger: PickReason — gold-out scopes
+- Ledger: PickReason — item losses by inference
+- Ledger: PickReason — gains read the inbound loot stamp, then mailbox/AH scope
+- Ledger: PickReason — currency source names map before scopes
+- Ledger: CurrencyReason maps known enum member names, nil otherwise
 
 ### test_compat.lua (47)
 
@@ -1290,7 +1299,7 @@ badge and any count quoted in the docs must agree with it.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
-| test_ledger.lua | 19 |
+| test_ledger.lua | 28 |
 | test_compat.lua | 47 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
@@ -1333,4 +1342,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1127** |
+| **Total** | **1136** |

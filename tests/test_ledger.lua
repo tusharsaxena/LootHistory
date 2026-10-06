@@ -161,3 +161,70 @@ end)
 test("Ledger: Signed applies DirSign", function()
   assertEqual(L().Signed("IN", 4), 4); assertEqual(L().Signed("OUT", 4), -4); assertEqual(L().Signed("MOVE", 4), 0)
 end)
+
+local function ctx(t)
+  t.now = t.now or 100
+  t.scopes = t.scopes or {}
+  return t
+end
+
+test("Ledger: PickReason — forced wins (login drift)", function()
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ forced = "UNTRACKED", scopes = { merchant = true } })), "UNTRACKED")
+end)
+
+test("Ledger: PickReason — a fresh outbound stamp beats scopes, filtered by kind/dir", function()
+  local c = ctx({ out = { reason = "REPAIR", expires = 101, kinds = { GOLD = true }, dirs = { OUT = true } },
+                  scopes = { merchant = true } })
+  assertEqual(L().PickReason("GOLD", "OUT", c), "REPAIR")
+  assertEqual(L().PickReason("ITEM", "OUT", c), "SELL")        -- stamp is gold-only
+  c.out.expires = 99
+  assertEqual(L().PickReason("GOLD", "OUT", c), "BUY")         -- stale stamp: merchant scope
+end)
+
+test("Ledger: PickReason — merchant scope", function()
+  local c = ctx({ scopes = { merchant = true } })
+  assertEqual(L().PickReason("ITEM", "OUT", c), "SELL")
+  assertEqual(L().PickReason("GOLD", "IN", c), "SELL")
+  assertEqual(L().PickReason("GOLD", "OUT", c), "BUY")
+  assertEqual(L().PickReason("ITEM", "IN", c), "VENDOR")
+end)
+
+test("Ledger: PickReason — guild bank is outside the account", function()
+  local c = ctx({ scopes = { guildBank = true, merchant = true } })
+  assertEqual(L().PickReason("ITEM", "OUT", c), "GUILD_DEPOSIT")
+  assertEqual(L().PickReason("GOLD", "IN", c), "GUILD_WITHDRAW")
+end)
+
+test("Ledger: PickReason — gold-out scopes", function()
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = { trainer = true } })), "TRAINING")
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = { taxi = true } })), "TRAVEL")
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = { auction = true } })), "AH_POST_FEE")
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = { mailbox = true } })), "MAIL_SEND")
+end)
+
+test("Ledger: PickReason — item losses by inference", function()
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ loot = { source = "DISENCHANT", expires = 101 } })), "DECONSTRUCT")
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ craftUntil = 105 })), "CRAFT_REAGENT")
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ consumable = true })), "CONSUME")
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({})), "OTHER")
+end)
+
+test("Ledger: PickReason — gains read the inbound loot stamp, then mailbox/AH scope", function()
+  assertEqual(L().PickReason("ITEM", "IN", ctx({ loot = { source = "KILL", expires = 101 } })), "KILL")
+  assertEqual(L().PickReason("ITEM", "IN", ctx({ scopes = { mailbox = true } })), "MAIL")
+  assertEqual(L().PickReason("ITEM", "IN", ctx({ scopes = { auction = true } })), "AH")
+  assertEqual(L().PickReason("CURRENCY", "IN", ctx({})), "OTHER")
+end)
+
+test("Ledger: PickReason — currency source names map before scopes", function()
+  assertEqual(L().PickReason("CURRENCY", "OUT", ctx({ currencySrc = "CRAFT_REAGENT", scopes = { merchant = true } })),
+    "CRAFT_REAGENT")
+end)
+
+test("Ledger: CurrencyReason maps known enum member names, nil otherwise", function()
+  assertEqual(L().CurrencyReason("Vendor", "OUT"), "BUY")
+  assertEqual(L().CurrencyReason("QuestReward", "IN"), "QUEST")
+  assertEqual(L().CurrencyReason("AccountTransfer", "OUT"), "TRANSFER")
+  assertEqual(L().CurrencyReason("NoSuchMember", "IN"), nil)
+  assertEqual(L().CurrencyReason(nil, "IN"), nil)
+end)
