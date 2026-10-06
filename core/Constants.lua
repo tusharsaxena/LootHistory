@@ -49,8 +49,8 @@ C.SourceLabel = {
   CONSUME = "Consumed", CRAFT_REAGENT = "Crafting Reagent", DECONSTRUCT = "Deconstructed",
   GUILD_DEPOSIT = "Guild Deposit", GUILD_WITHDRAW = "Guild Withdraw", TRAINING = "Training",
   TRAVEL = "Travel", TRANSFER = "Transfer", UNTRACKED = "Untracked",
-  WARBAND_DEPOSIT = "Warband deposit", WARBAND_WITHDRAW = "Warband withdraw", ALT_MAIL = "Alt mail",
-  ALT_TRADE = "Alt trade", CURRENCY_TRANSFER = "Currency transfer",
+  WARBAND_DEPOSIT = "Warband Deposit", WARBAND_WITHDRAW = "Warband Withdraw", ALT_MAIL = "Alt Mail",
+  ALT_TRADE = "Alt Trade", CURRENCY_TRANSFER = "Currency Transfer",
 }
 
 -- Sources with a live capture path today — every enum member now has one, so all are offered in the

@@ -1408,15 +1408,15 @@ Character filter matches it. Same setup as above (Direction **All**).
 
 **TR-1. Warband withdraw, gold and an item.** At a banker, withdraw some gold and one item stack from
 the warband bank → exactly two rows for each: a `▼ Loss` on **Warband** and a `▲ Gain` on the
-character, both reason **Warband withdraw**, same quantity; no `⇄ Transfer` row. With the Character
+character, both reason **Warband Withdraw**, same quantity; no `⇄ Transfer` row. With the Character
 filter on **Character: Current** only the gains show; pick **Warband** and only the losses show.
-Insights → Gains Vs Losses By Reason has a **Warband withdraw** row with both sides. Result:
+Insights → Gains Vs Losses By Reason has a **Warband Withdraw** row with both sides. Result:
 
 **TR-2. Bags to your own bank.** Deposit an item stack from your bags into your character bank →
 exactly one `⇄ Transfer` row (Bags to Bank) on the character, and no gain or loss. Result:
 
 **TR-3. Mail an item to an alt.** Send an item to an own alt → a `▼ Loss` on the sender, reason
-**Alt mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt mail**; no `⇄`
+**Alt Mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt Mail**; no `⇄`
 row and no `UNTRACKED` row. Result:
 
 ## Timeline
