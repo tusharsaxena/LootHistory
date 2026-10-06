@@ -111,7 +111,7 @@ global.daily["YYYY-MM-DD"][holder][thingKey] = { c=<close>, i=<in>, o=<out> }
 ```
 
 Sparse: a cell exists only for a (day, holder, thing) that changed. The Timeline carries the last
-`c` forward. Written by the reconciler alongside each row (O(1) per row). Own retention setting
+`c` forward. Closes are written from `NS.Holdings`' write methods and in/out tallies from the `NS.Database:OnWrite` hook (Phase 3 plan, 'Phase 2 contract') (O(1) per change). Own retention setting
 `rollupRetentionDays` (default **0 = Always**). Pruned with the existing once-per-session prune.
 
 ### 4.4 Bookkeeping

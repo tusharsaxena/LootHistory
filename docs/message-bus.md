@@ -6,12 +6,14 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
-| `Ka0s_LootHistory_RecordAdded` | `Database:Add` **and** `Database:Amend` ([`core/Database.lua`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
+| `Ka0s_LootHistory_RecordAdded` | `Database:Add` **and** `Database:Amend` ([`core/Database.lua`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (coalesced repaint; never counted: the rollup's tallies come from the `Database:OnWrite` hook, because this message is re-sent on every amend) — Browser, Analytics and Timeline repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (re-registers or drops its capture events on the `"ledger"` and `"profile"` reasons) |
-| `Ka0s_LootHistory_HoldingsChanged` | `Reconciler:Flush` (`modules/Reconciler.lua`), once per holder whose holdings moved in a flush | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen) |
+| `Ka0s_LootHistory_HoldingsChanged` | the Reconciler only (`modules/Reconciler.lua`): `Reconciler:Flush`, once per holder whose holdings moved in a flush, and `Reconciler:ForgetHolder`, once for a forgotten character | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen), Timeline (the same coalesced repaint as above, only while its pane is visible) |
 
-Exactly one sender is allowed per message — the table is sender-authoritative.
+Exactly one sender is allowed per message — the table is sender-authoritative. `HoldingsChanged` keeps its one sender, the Reconciler, even for "Forget this character": `Holdings:ForgetHolder` and `Rollup:ForgetHolder` do the dropping, and `Reconciler:ForgetHolder` announces it.
+
+**The daily rollup is not a bus receiver.** `modules/Rollup.lua` takes its closes from `NS.Holdings`' write methods and its gained/lost tallies from `NS.Database:OnWrite`, a synchronous hook, so it holds no message registration and no event, and the disabled-state survey has nothing of it to find (see [data-flow.md](data-flow.md#daily-rollup)).
 
 ## Declared once, as `NS.MSG`
 

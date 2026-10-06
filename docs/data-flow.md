@@ -242,6 +242,34 @@ Items in transit are *holdings-only* until they resolve: they sit in the `mail` 
 
 A handler in combat does **nothing but set a dirty bit**, or, for `CURRENCY_DISPLAY_UPDATE`, add to the per-id accumulator (a table write, no allocation after a currency's first event). No scan, plan, claim or row work runs; `PLAYER_REGEN_ENABLED` flushes once. A login in combat defers the scan and its genesis stamp to the same edge. The five handlers that do run in combat are the `LibKa0s-Perf` buckets (`core/PerfSetup.lua`, [performance.md](performance.md)).
 
+## Daily rollup
+
+The Timeline reads `db.global.daily`, a sparse `["YYYY-MM-DD"][holder][thingKey] = { c, i, o }` store (close, gained, lost; see [schema.md](schema.md#the-ledger-stores)), written by `modules/Rollup.lua`. The spec (§4.3) first said the reconciler writes it "alongside each row"; Phase 3 split it across two seams instead, and the reasoning is kept here because a later change to capture has to know what it would break (Phase 3 plan, S4).
+
+### The two seams
+
+**Closes come from `NS.Holdings`' write methods; gained and lost tallies come from `NS.Database:OnWrite`.** Phase 2 already provided the second seam. The Phase 2 contract the rollup relies on, verbatim from the Phase 3 plan:
+
+1. **Every holdings write goes through `NS.Holdings`' methods** — `ApplyContainer`, `ApplyCurrency`, `ApplyMoney` (Phase 1) and `CreditCurrency`, `CreditEscrow` (Phase 2). Phase 3 adds, inside each, a call `NS.Rollup:NoteClose(holder, thingKey, ts, close)` for every thing whose total changed, with `close` read from the store **after** the write. Nothing writes `db.global.holdings[...]` tables directly.
+2. **Every IN/OUT/MOVE row is written through `NS.Database:Add` or `NS.Database:Amend`**, which run the `OnWrite` hooks synchronously with the quantity that changed (`deltaQty`) and `isNew`. The receiver is `NS.Rollup:OnWrite(row, deltaQty, isNew)`; it reads only `NS.Util.RowDir/RowKind/RowHolder`, `row.itemID`, `row.currencyID`, `row.ts`. `MOVE` rows tally nothing; an amend tallies only its delta, on the day it happens.
+3. **`RECORD_ADDED` stays a repaint signal.** The Timeline listens to it (coalesced) to repaint; nothing in Phase 3 counts it, because Phase 2 re-sends it on every amend.
+4. **An inter-holder transfer is a `MOVE` pair, one row per holder**, each with `holder` = that side and `from` / `to` = `"<holder>/<container>"` (Phase 2 `R:WriteRows`). Only the Timeline's intraday (Today / 7 d) reconstruction reads this, and it falls back to daily points whenever the rebuilt balance disagrees with the rollup, so a violation degrades the resolution rather than drawing a wrong line.
+
+**Why two seams and not one Reconciler call.** The close is a holdings fact, and `NS.Holdings`' write methods are the only place a total changes, so they see every change exactly once (genesis, login drift, intra-holder moves, both sides of a transfer, escrow credits) with no knowledge of the Reconciler's scan, plan and commit internals. A chat-path row (`Collector`) is written *before* the Reconciler commits the matching delta, so a close read when that row is written would be stale, while the tally of the same row is exactly right. And the row hook is synchronous and carries the delta, so an amended row is counted once per delta; counting `RECORD_ADDED` would count an amended row's whole quantity again. Both receivers are O(1) table writes, which is why they are allowed on the combat path (see [Combat](#combat) below: they add no scan and no allocation beyond a day's first cell).
+
+### Seed, prune and forget
+
+- **Seed.** Holdings that existed before the rollup was written have no cell anywhere, and a thing that never changes again would never get one. `Rollup:SeedOnce(ts)` writes today's close for everything held, once per account (`db.global.rollupSeeded`), and never overwrites a close already written today.
+- **Prune.** `Rollup:Prune(now)` applies `db.global.rollupRetentionDays` (`0` = Always, a no-op). It drops the days before the cutoff and folds each thing's newest pruned close onto the cutoff day first (`Ledger.PruneDaily`), so a line still starts from its last known value. In and out tallies are not folded.
+- **Timing.** Both run from the five-second login deferral in `core/LootHistory.lua` (`NS.After`, cancelable, after the three-second login scan so the seed reads this login's holdings), and only while the rollup is enabled. Neither runs on an event. A retention change is applied at the next login; changing it deletes nothing on the spot.
+- **Forget.** `Reconciler:ForgetHolder` calls `Holdings:ForgetHolder` and `Rollup:ForgetHolder` (which drops that holder's cells from every day and empties the days it leaves bare), then sends `HOLDINGS_CHANGED`. History rows are kept.
+
+### The Timeline's read of it
+
+`TimelineModel.Build` walks the days of the chosen range, carries each holder's last close forward across days with no cell, ranks the holders of the thing by latest balance, caps them at `settings.timelineMaxLines` and adds a Total. A holder's line starts at its genesis (never before: back-casting is out of scope), is drawn dashed until `meta.completeAt` (its gate container's first read), and the ledger's `ledgerSince` is drawn as a dashed rule when the range reaches it.
+
+**Intraday.** Today and 7 d, when the range lies inside the retention and after `ledgerSince`, are rebuilt from event time rather than from daily points: `IntradaySeries` starts at the holder's balance *now* and undoes each history row of the thing, newest first, so it needs no stored snapshot. Two checks keep it honest. The balance it arrives at for the range start must not be negative, and it must equal the rollup's last close before that day when there is one. If either fails for any shown holder, the whole chart falls back to daily points (all holders or none, because mixing event-time and midnight points would make the Total add two clocks).
+
 ## Known limitation
 
 The whole design assumes the peripheral event and its loot line fall within `CONTEXT_TTL` (~1.5s). **Slow manual click-looting** — opening a corpse or container and hovering before clicking an item well past the TTL — lets the stamp expire, so that item falls back to `OTHER` / `INFERRED`. This is an accepted trade-off: a longer TTL would risk bleeding a stale source onto an unrelated later loot. Auto-loot (the common case) fires the loot lines immediately, comfortably inside the window.

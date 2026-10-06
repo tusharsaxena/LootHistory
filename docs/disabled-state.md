@@ -73,13 +73,15 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 | The three private bus targets — `SettingsChanged`, `HistoryChanged`, `RecordAdded`, `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED` | `Collector:Disable` / `Browser:Disable` / `Analytics:Disable` |
 | The Reconciler's two private bus targets (the `SettingsChanged` listener and the fourteen capture events) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
+| The Timeline tab's private bus target (`HOLDINGS_CHANGED` and `RECORD_ADDED`, one coalesced repaint) and any tooltip it owns | `Timeline:Disable`, from `NS.StandDown` |
+| The daily rollup's write hook (the `NS.Database:OnWrite` function; it holds no event and no bus target, so nothing in the event survey shows it, and the proof is behavioral: a row written while stood down tallies nothing) | `Rollup:Disable`, from `NS.StandDown`; `NS.StandUp` re-adds it. The login seed and prune are `NS.After` deferrals, so `NS.CancelDeferrals` drops them |
 | A held reset-recommendation popup (the `PLAYER_REGEN_ENABLED` one-shot, and the "Export first" re-ask the export window's `OnHide` would fire as `NS.StandDown` hides it) | `NS.DropLedgerResetOffer`, from `NS.StandDown` |
 | `CHAT_MSG_MONEY`, the Collector's third chat event | `Collector:Disable` (it unregisters `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` and `CHAT_MSG_MONEY`) |
 | The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop) |
 | The Reconciler's ledger state: claims, recent-row coalescing map, memoized reasons, settle hold and recheck, currency accumulators (`pendingCur`, `curGain`, `curLoss`), `pendingTransfer`, `loginPending` | `Reconciler:Disable` / `DisableCapture` |
 | The `perf` hold: LibKa0s-Perf's Suspend takes the latch, and everything above goes down with it; Resume stands it back up and the Reconciler schedules a resume scan, so changes made while held land as `UNTRACKED` | `NS.StandDown` / `NS.StandUp` |
 | Attribution's per-unit spell frame (`UNIT_SPELLCAST_SUCCEEDED`, `player`) | `Attribution:Disable` |
-| Every deferral the addon armed — the retention prune, the bound-state repair, both coalesced repaints, the Reconciler's flush fuse and the five-second reset offer | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
+| Every deferral the addon armed — the retention prune, the rollup seed and prune, the bound-state repair, the coalesced repaints (Browser, Insights, Timeline), the Reconciler's flush fuse and the five-second reset offer | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
 | The History window, the export modal and the debug console | `NS.StandDown`, and kept down by the first rung of `B:VisibilityAllows` |
 
 **Hidden AT THE SOURCE, not imperatively.** The first rung of `B:VisibilityAllows` answers `false`

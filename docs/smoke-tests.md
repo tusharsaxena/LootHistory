@@ -29,6 +29,7 @@ free number in its theme.
 | DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
 | LED-1 to 8 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
+| TL-1 to 13 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, and the WoW API facts to verify |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -75,6 +76,7 @@ free number in its theme.
   HIST-1 to HIST-3, INSTALL (the upgrade checks), SLASH-2 and STATE-1 to STATE-4. The Phase 2 writers
   (`core/Ledger.lua`, `modules/Reconciler.lua`, `Escrow.lua`, `AttributionOut.lua`, `LedgerFormat.lua`,
   `AnalyticsLedger.lua`, `core/PerfSetup.lua`) add LED-P2 and COMBAT-1.
+- The Timeline (`modules/Rollup.lua`, `TimelineModel.lua`, `Timeline.lua`, the Browser's per-tab filters and Date options, `BrowserTable:ShowMenu`, `HoldingsTab.RowActions`, `Reconciler:ForgetHolder`, `core/WidgetsSetup.lua`'s `NS.MakeLineChart`): TL, LED-4, COMBAT-1 and HIST-12. A LibKa0s re-vendor that moves `WidgetsLineChart.lua` also needs TL-1, TL-3, TL-12 and TL-13.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
 
 ## Install and upgrade
@@ -1264,6 +1266,85 @@ names the trade partner while the trade window is open.] Result:
 **LED-P2-24. Destroy.** Delete an item from your bags → `OUT DESTROY`. [`DeleteCursorItem` is a
 hookable global.] Result:
 
+## Timeline
+
+The timeline ledger's Phase 3 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`): the
+daily rollup and the **Timeline** tab. Run on the live account with **Track holdings and losses** on,
+`/console scriptErrors 1`, and at least two characters that have logged in since the upgrade (the
+Timeline starts at the upgrade, so there is nothing to chart before it). The window opens scoped to
+the logged-in character: widen the **Character** filter to **All** wherever a check needs more than
+one holder. **Phase 3 is signed off only when all of TL-1 to TL-13 are recorded**, and a "no" in
+TL-13 is a stop-and-fix before the release.
+
+**TL-1. Line regions draw.** Open the Timeline on Gold with two or more characters known → lines, y
+labels in gold (a `g` suffix), date labels, and no Lua error. Result:
+
+**TL-2. Line cap.** Set **Timeline lines** (Settings > General > Interface) to 2, 8 and 16 → the line
+count follows (Total plus N), richest first. With the Character filter on one alt, only that alt and
+the Total draw. Result:
+
+**TL-3. Hover.** Move across the plot → the crosshair snaps per day and the tooltip lists each
+line's value and that day's Gained / Lost. Leaving the plot hides both. Hiding the window mid-hover
+leaves no tooltip behind. Result:
+
+**TL-4. Picker.** Type part of a potion's name in Search → suggestions appear (Gold first when "gol"
+is typed). Pick one → the chart switches and Search clears. `/reload` → the pick is remembered.
+Result:
+
+**TL-5. Ranges.** **Today** and **Last 7 days** show intraday steps after a vendor sale and a loot.
+**Last 30 days**, **Last 90 days**, **Last year** and **All** show daily points. History and Insights
+also offer **Last 90 days** and **Last year**. Result:
+
+**TL-6. Partial and marker.** A character created after the upgrade draws dashed until its bank is
+first opened, and solid after. The dashed `ledgerSince` rule shows when **All** is selected. Result:
+
+**TL-7. Warband and colors.** **Warband** appears in the Character list on the Timeline and Holdings
+tabs, labeled "Warband", and draws in its own blue. Characters draw in class colors (one that has not
+logged in since the upgrade draws gray, which is expected). Result:
+
+**TL-8. Filter graying.** On the Timeline, Group, Bound, Quality, Type, SubType, Source, Zone and
+Export are grayed and **do not open** on click. On Holdings, Group, Date, Source, Bound, Zone and
+Export are grayed. History and Insights gray nothing. Result:
+
+**TL-9. Show in Timeline.** Right-click a History row → **Show in Timeline**. Right-click a Holdings
+thing → **Show in Timeline**. Both land on the Timeline charting that thing. Result:
+
+**TL-10. Forget.** Right-click an alt's holder line on Holdings → **Forget this character** →
+confirm. The alt leaves Holdings and the Timeline; its History rows remain. The option is grayed on
+the logged-in character and on the Warband. Result:
+
+**TL-11. Rollup retention.** Set **Keep Timeline days for** to 90 days and `/reload` → after about
+five seconds the older days are gone (**All** starts no more than 90 days back) and every line still
+starts at its carried value. Result:
+
+**TL-12. Load.** **Last year** on Gold with 16 lines (**Timeline lines** 16, Character on **All**),
+then resize the window repeatedly → no visible hitch, and the in/out strip stays aligned under the
+plot. Result:
+
+**TL-13. WoW API facts.** The assumptions the headless suite cannot prove. Record each answer
+(yes, or what you saw) in the smoke log; any "no" is a stop-and-fix before the addon's release and,
+for 1 to 4, a LibKa0s patch release. Result:
+
+1. `Frame:CreateLine(name, drawLayer)` exists on a plain `Frame` and returns a `Line` region.
+2. `Line:SetStartPoint(relativePoint, relativeTo, offsetX, offsetY)` and `SetEndPoint(...)` take
+   that argument order, and the offsets are in the **relative frame's** coordinate space (the
+   chart's `BOTTOMLEFT`), so a chart inside a scaled window draws at the window's scale.
+3. `Line:SetThickness(n)` accepts a fractional thickness (1.5, 2.5), and
+   `Line:SetColorTexture(r, g, b, a)` colors a Line.
+4. Several hundred Lines on one frame (TL-12: 16 lines of up to about 300 segments, plus dashes)
+   render without a visible hitch, and hidden pooled Lines cost nothing per frame.
+5. `GetCursorPosition()` returns UI-scaled pixels that `/ frame:GetEffectiveScale() -
+   frame:GetLeft()` turns into a chart-local x, and an `OnUpdate` armed on `OnEnter` and cleared on
+   `OnLeave` fires only while hovered.
+6. A disabled LibKa0s dropdown (a `Button`, `SetEnabled(false)`) refuses `OnClick`;
+   `EditBox:SetEnabled(false)` blocks typing in the Search box; `SetAlpha(0.4)` reads as grayed
+   against the flat skin.
+7. `date("*t", ts)` and `time{...}` give local midnight across a daylight-saving change (EU
+   2026-10-25, US 2026-11-01): Timeline day labels stay on midnight and no day repeats or vanishes.
+8. `GameTooltip:AddDoubleLine` renders `GetCoinTextureString` coin markup on the right side.
+9. `StaticPopup_Show(name, text1, text2, data)` hands `data` to `OnAccept(self, data)` on 12.1.
+10. `RAID_CLASS_COLORS[classFile]` still carries `r, g, b` for every class, Evoker included.
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1502,4 +1583,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
 | LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
 | LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions |
+| TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
