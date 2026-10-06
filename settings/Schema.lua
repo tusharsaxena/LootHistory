@@ -1021,6 +1021,8 @@ NS.COMMANDS = gateFeatureVerbs{
   -- (NS.OnProfileEvent, core/LootHistory.lua). Live while disabled, per LIVE_WHILE_DISABLED above.
   { "profile",  NS.L["List profiles, or switch to one: profile <name>"],
     function(rest) NS.Slash:CliProfile(rest) end },
+  { "holdings", "Search what your characters and warband hold: holdings <query>",
+    function(rest) NS.Slash:Holdings(rest) end },
   { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
     function(rest)
       -- `/lh debug diagnostics` is tested FIRST (debug-logging-§14): the same report as the

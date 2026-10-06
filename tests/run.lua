@@ -70,7 +70,7 @@ local SUITES = {
   "test_browser", "test_browsertable", "test_export", "test_debuglog",
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
-  "test_launcher", "test_slash", "test_slash_degraded",
+  "test_launcher", "test_slash", "test_slash_degraded", "test_resetprompt",
   "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_panel", "test_panel_filters", "test_panel_auction",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.

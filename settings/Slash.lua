@@ -97,6 +97,75 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- The one-time timeline-ledger reset recommendation (spec 9.2). Esc/close decides nothing, so it
+  -- is asked again next session; only Keep and a confirmed Reset store a choice.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"] = {
+    text = "|cffffd100Loot History has become a full ledger.|r\n\n" ..
+      "It now tracks what every character and your warband holds, and will track gains AND losses " ..
+      "of items, currencies and gold.\n\n" ..
+      "|cffffd100Recommended: start a fresh history.|r Your %d existing records only ever captured " ..
+      "gains. Mixed with the new data, any period before today would show income with no spending, " ..
+      "so net totals and Insights for those dates overstate what you kept.\n\n" ..
+      "|cffffd100If you keep it:|r nothing is lost and older loot stays browsable, but net and loss " ..
+      "figures are only accurate from today; ranges that include older dates carry a warning.\n\n" ..
+      "|cffffd100If you reset:|r older loot records are deleted permanently. Settings, filters and " ..
+      "profiles are kept. Choose Export first for a copy.",
+    button1 = "Reset history", button2 = "Keep history", button3 = "Export first",
+    OnAccept = function() StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM", #NS.db.global.history) end,
+    -- button2 reports reason "clicked"; Esc hides through OnHide and never reaches here, and a
+    -- re-show reports "override"/"timeout". Only the deliberate click is a decision.
+    OnCancel = function(_, _, reason)
+      if reason == "clicked" then NS.db.global.resetPrompt = "kept"; print("keeping your loot history.") end
+    end,
+    OnAlt = function()
+      NS._ledgerResetAfterExport = true
+      if NS.Browser then NS.Browser:Show(); NS.Browser:SelectTab("History"); NS.Browser:OpenExport() end
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+  }
+  StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM"] = {
+    text = "Delete %d loot records permanently? This cannot be undone.",
+    button1 = YES or "Yes", button2 = NO or "No",
+    OnAccept = function()
+      local g = NS.db.global
+      if NS.Database and NS.Database.Purge then NS.Database:Purge() end
+      g.resetPrompt, g.ledgerSince = "reset", time()
+      print("history reset; the ledger starts now.")
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+  }
+end
+
+--- True iff the one-time reset recommendation is due: an upgrade from before the ledger (schema < 11,
+--- recorded by NS:RunMigrations), history worth resetting, and no choice stored yet.
+function NS.ShouldOfferLedgerReset(g, upgradedFrom)
+  return g ~= nil and g.resetPrompt == nil and upgradedFrom ~= nil and upgradedFrom < 11
+    and type(g.history) == "table" and #g.history > 0
+end
+
+-- The one-shot PLAYER_REGEN_ENABLED target that holds the offer back through combat. Module-level
+-- so a second call does not stack a second one and NS.StandDown can drop it.
+local offerTarget
+
+--- Drop a held offer. Called from NS.StandDown: a prompt must not appear from a game event while off.
+function NS.DropLedgerResetOffer()
+  if offerTarget then offerTarget:UnregisterAllEvents(); offerTarget = nil end
+end
+
+function NS.OfferLedgerReset()
+  local g = NS.db and NS.db.global
+  if not NS.ShouldOfferLedgerReset(g, NS.State.upgradedFrom) then return end
+  if InCombatLockdown and InCombatLockdown() then
+    if offerTarget then return end
+    offerTarget = NS.NewBusTarget()
+    if not offerTarget then return end
+    NS.SafeRegisterEvent(offerTarget, "PLAYER_REGEN_ENABLED", function()
+      NS.DropLedgerResetOffer()
+      NS.OfferLedgerReset()
+    end, NS.RejectedEvents)
+    return
+  end
+  StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET", #g.history)
 end
 
 -- ── LibKa0s-Slash-1.0 seam ─────────────────────────────────────────────────────────────────────
@@ -139,6 +208,18 @@ function Sl.FormatSchemaValue(row, v)
   -- CLI and the settings panel cannot render the same value two ways.
   if lib then return lib.FormatValue(row, v) end
   return tostring(v)
+end
+
+--- `/lh holdings <query>`: the top ten account-wide holdings whose name contains the query.
+function Sl:Holdings(query)
+  query = query or ""
+  local rows = NS.Holdings and NS.Holdings:Search({ text = query }) or {}
+  if #rows == 0 then print("no holdings match '" .. query .. "'."); return end
+  for i = 1, math.min(10, #rows) do
+    local r = rows[i]
+    local total = r.key == "g" and NS.Util.FormatMoney(r.total) or tostring(r.total)
+    print(("%s: %s"):format(r.name, total))
+  end
 end
 
 if not lib then

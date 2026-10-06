@@ -121,6 +121,7 @@ function NS.StandDown()
   for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics, NS.HoldingsTab }) do
     if m and m.Disable then m:Disable() end
   end
+  if NS.DropLedgerResetOffer then NS.DropLedgerResetOffer() end
   local dropped = NS.CancelDeferrals()
   if NS.State.debug and NS.Debug then
     NS.Debug("State", "stand-down: capture unregistered, %d deferral(s) canceled", dropped)

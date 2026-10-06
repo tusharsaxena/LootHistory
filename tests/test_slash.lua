@@ -1113,3 +1113,17 @@ test("Clear-blacklist confirm and /lh test print their exact lines through the p
   F.ClearList, BT.ToggleTestMode = realClear, realToggle
   if not ok then error(err, 0) end
 end)
+
+test("/lh holdings <query> prints the matching name and its account-wide total", function()
+  local saved = NS.db.global.holdings
+  NS.db.global.holdings = {}
+  NS.Holdings:ApplyContainer("A-Realm", "bags", { [7] = 2 }, { [7] = "|Hitem:7|h[Apple]|h" }, 100)
+  NS.Holdings:ApplyContainer("B-Realm", "bank", { [7] = 9 }, {}, 50)
+  local out = capture(function() Sl:Holdings("item name") end)
+  NS.db.global.holdings = {}
+  local none = capture(function() Sl:Holdings("item name") end)
+  NS.db.global.holdings = saved
+  assertEqual(#out, 1)
+  assertTrue(out[1]:find("Item Name: 11", 1, true) ~= nil, out[1])
+  assertTrue(none[1]:find("no holdings match 'item name'", 1, true) ~= nil, none[1])
+end)

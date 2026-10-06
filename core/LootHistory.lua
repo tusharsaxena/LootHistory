@@ -147,4 +147,6 @@ function addon:OnEnterWorld()
   NS.After(3, function()
     if NS.Reconciler and NS.Reconciler._enabled then NS.Reconciler:LoginScan() end
   end)
+  -- One-time reset recommendation (spec 9.2); in combat it holds for PLAYER_REGEN_ENABLED.
+  NS.After(5, function() if NS.OfferLedgerReset then NS.OfferLedgerReset() end end)
 end

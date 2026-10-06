@@ -527,6 +527,13 @@ local function EnsureFrame()
   -- registration below) or the title-bar close left the Data Set menu floating over the game with
   -- nothing left to hide it. One hook covers both, because both route through Hide().
   frame:HookScript("OnHide", function() NS.CloseMenu() end)
+  -- "Export first" on the ledger reset prompt: once the copy window closes, ask again.
+  frame:HookScript("OnHide", function()
+    if NS._ledgerResetAfterExport then
+      NS._ledgerResetAfterExport = nil
+      if NS.OfferLedgerReset then NS.OfferLedgerReset() end
+    end
+  end)
   frame:Hide()
   if type(UISpecialFrames) == "table" then
     table.insert(UISpecialFrames, "LootHistoryExportWindow")

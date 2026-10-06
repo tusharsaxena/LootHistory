@@ -661,7 +661,7 @@ badge and any count quoted in the docs must agree with it.
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
-### test_slash.lua (62)
+### test_slash.lua (63)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -725,6 +725,7 @@ badge and any count quoted in the docs must agree with it.
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 - /lh debug events prints the rejected event names, or none
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
+- /lh holdings <query> prints the matching name and its account-wide total
 
 ### test_slash_degraded.lua (14)
 
@@ -742,6 +743,14 @@ badge and any count quoted in the docs must agree with it.
 - library-less install: the degraded help does not offer /lh diagnostics
 - library-less install: /lh profile answers with the library-absent line and switches nothing
 - library-less install: the degraded help does not offer /lh profile
+
+### test_resetprompt.lua (5)
+
+- Reset prompt: offered only for an upgraded, non-empty, undecided DB
+- Reset prompt: dialogs are registered with three choices
+- Reset prompt: Keep stores the choice; Esc leaves it undecided
+- Reset prompt: confirmed reset purges history and keeps holdings
+- Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 
 ### test_schema.lua (69)
 
@@ -1271,8 +1280,9 @@ badge and any count quoted in the docs must agree with it.
 | test_export.lua | 29 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
-| test_slash.lua | 62 |
+| test_slash.lua | 63 |
 | test_slash_degraded.lua | 14 |
+| test_resetprompt.lua | 5 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 64 |
@@ -1297,4 +1307,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1095** |
+| **Total** | **1101** |
