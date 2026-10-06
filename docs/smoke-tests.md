@@ -20,6 +20,7 @@ free number in its theme.
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample |
+| CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 35 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export, the one-line filter bar |
@@ -552,6 +553,13 @@ reads 7 days; no Lua error. Result:
 
 **CAP-32. Always keeps everything.** Set **Keep history for** to *Always*, `/reload` → nothing is
 pruned. Result:
+
+**CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
+tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
+3418) → History shows **one** Gain row for it, SubType the Currency-tab header (here *Midnight*), not
+two a second apart with one SubType blank. With `/lh debug on` a line naming no listed currency logs
+`[Drop] currency line reason=unlisted` and writes nothing. Rows recorded under the hidden id before
+this fix stay: delete them from the row menu. Result:
 
 ## History window
 
@@ -1656,6 +1664,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | CAP-29, CAP-30 | § 13 retention confirm | No result recorded; the 2026-09-23 plan's LH.5 is owed; reordered by SP-LH-03R (the slash confirm is answered **No** before the **Yes** prune, and the no-op is `0`), because after the prune no record is older than 7 days and no confirm can appear |
 | CAP-31 | § 13 login prune | No result recorded; given a runnable step by SP-LH-03R (a `/run` ages a record past the retention) |
 | CAP-32 | § 13 | No result recorded |
+| CUR-1 | New | New with the timeline ledger P7 (hidden tracking currencies never record; a same-name twin takes the row); no result recorded |
 | HIST-1 to HIST-3 | § 2, § 17h.4, § 17h.5 | No result recorded |
 | HIST-4 | § 2 persistence | No result recorded; step corrected by SP-LH-03R (`settings.windowScale`) |
 | HIST-5 to HIST-21 | § 5, § 6, § 17g, § 17h | No result recorded |

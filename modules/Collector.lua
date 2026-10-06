@@ -229,6 +229,15 @@ local function currencyLine(self, msg)
     traceCurrencyLineDrop("unresolved-link")
     return
   end
+  -- The link can name a hidden tracking currency the token list never shows: its listed same-name
+  -- twin takes the row and the claim, and with no twin the line is dropped (a row there would be a
+  -- duplicate no holdings delta ever claims). A new currency not yet listed drops here too; its
+  -- first gain is the holdings diff's, once the list has it.
+  currencyID = NS.Compat.ListedCurrencyID(currencyID, name)
+  if not currencyID then
+    traceCurrencyLineDrop("unlisted")
+    return
+  end
 
   if currencyBlacklist[currencyID] then
     if NS.State.debug and NS.Debug then

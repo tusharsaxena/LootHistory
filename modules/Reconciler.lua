@@ -301,9 +301,12 @@ end
 -- CURRENCY_DISPLAY_UPDATE carries the change itself (timeline-ledger spec §5.2), so currency needs
 -- no list rescan: the delta is folded into a per-id accumulator (combat-safe, no allocation after a
 -- currency's first event) and the raw source/destroy enums are kept for the reason. A nil id is the
--- client's bulk refresh: rescan the whole list instead.
+-- client's bulk refresh: rescan the whole list instead, and drop the category resolver's cache.
 function R:OnCurrencyUpdate(id, change, gainSrc, lostSrc)
-  if not id then self:MarkDirty("currency"); scheduleFlush(self); return end
+  if not id then
+    Compat.CurrencyListChanged()   -- the list may have changed: a missed id may be listed now
+    self:MarkDirty("currency"); scheduleFlush(self); return
+  end
   if not change or change == 0 then return end
   self.pendingCur[id] = (self.pendingCur[id] or 0) + change
   if gainSrc ~= nil then self.curGain[id] = gainSrc end

@@ -182,7 +182,7 @@ badge and any count quoted in the docs must agree with it.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (56)
+### test_compat.lua (61)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -214,6 +214,11 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyCategory resolves a currency to its list header
 - Compat: CurrencyCategory rebuilds on a miss, so a currency first seen later resolves
 - Compat: CurrencyCategory walks the list at most once for an id that is truly absent
+- Compat: CurrencyCategory resolves an id that missed once the list grows to include it
+- Compat: a nil-id currency refresh lets a missed id resolve when the list size is unchanged
+- Compat: ListedCurrencyID keeps a listed id and remaps a hidden one to its one same-name twin
+- Compat: ListedCurrencyID drops a hidden id whose name matches two listed currencies
+- Compat: ListedCurrencyID keeps an id under a collapsed header that the stored baseline holds
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
 - Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil
 - Compat: GetItemSellPrice degrades to nil
@@ -390,7 +395,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (43)
+### test_collector.lua (47)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -435,6 +440,10 @@ badge and any count quoted in the docs must agree with it.
 - Collector: a recorded currency line claims its amount
 - Collector: CHAT_MSG_MONEY writes a GOLD gain and claims it
 - Collector: CHAT_MSG_MONEY with recordGold or trackLedger off writes nothing
+- Collector+Reconciler: a hidden currency with a listed twin records once, under the twin, claimed
+- Collector: a hidden currency with no listed twin records nothing and claims nothing
+- Collector+Reconciler: a new listed currency already in the list records one claimed chat row
+- Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 
 ### test_reconciler.lua (7)
 
@@ -1555,7 +1564,7 @@ badge and any count quoted in the docs must agree with it.
 | test_util.lua | 42 |
 | test_ledger.lua | 36 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 56 |
+| test_compat.lua | 61 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_rollup.lua | 20 |
@@ -1563,7 +1572,7 @@ badge and any count quoted in the docs must agree with it.
 | test_attribution_out.lua | 12 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 43 |
+| test_collector.lua | 47 |
 | test_reconciler.lua | 7 |
 | test_reconciler_rows.lua | 29 |
 | test_escrow.lua | 11 |
@@ -1605,4 +1614,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1363** |
+| **Total** | **1372** |

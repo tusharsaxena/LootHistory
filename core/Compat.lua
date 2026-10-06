@@ -376,42 +376,95 @@ end
 -- Built by walking the currency list and tracking the most recent header, then cached. A miss
 -- rebuilds the cache once and looks again, so a currency first discovered mid-session (routine at a
 -- season start) still resolves; currencyCategoryMissed remembers each id that missed, so an id that
--- is truly absent costs at most one list walk per session. nil when the API is absent or the id isn't
--- in the list. Known gap: GetCurrencyListInfo enumerates only the children of EXPANDED headers, so a
--- currency under a header the player collapsed in the Currency tab is still missed. This deliberately
--- does not call C_CurrencyInfo.ExpandCurrencyList from a loot handler: that would rewrite the player's
--- Currency tab. See docs/midnight-quirks.md "Currency category".
-local currencyCategoryCache
+-- is truly absent costs at most one list walk -- until the list itself changes. A different
+-- GetCurrencyListSize, or the client's bulk refresh (Compat.CurrencyListChanged, called on a nil-id
+-- CURRENCY_DISPLAY_UPDATE), drops the cache and the memo, so an id that missed and is listed LATER
+-- still resolves. nil when the API is absent or the id isn't in the list. Known gap:
+-- GetCurrencyListInfo enumerates only the children of EXPANDED headers, so a currency under a
+-- header the player collapsed in the Currency tab is still missed. This deliberately does not call
+-- C_CurrencyInfo.ExpandCurrencyList from a loot handler: that would rewrite the player's Currency
+-- tab. See docs/midnight-quirks.md "Currency category". currencyListed (id -> list name) is the same
+-- walk's set of listed ids, which Compat.ListedCurrencyID tests a chat line against.
+local currencyCategoryCache, currencyListed, currencyListSize
 local currencyCategoryMissed = {}
-local function buildCurrencyCategoryCache()
-  currencyCategoryCache = {}
+local function listSize()
   local api = C_CurrencyInfo
-  if not (api and api.GetCurrencyListSize and api.GetCurrencyListInfo and api.GetCurrencyListLink) then
-    return
-  end
+  return (api and api.GetCurrencyListSize and api.GetCurrencyListSize()) or 0
+end
+local function buildCurrencyCategoryCache()
+  currencyCategoryCache, currencyListed, currencyListSize = {}, {}, listSize()
+  local api = C_CurrencyInfo
+  if not (api and api.GetCurrencyListInfo and api.GetCurrencyListLink) then return end
   local header
-  for i = 1, (api.GetCurrencyListSize() or 0) do
+  for i = 1, currencyListSize do
     local info = api.GetCurrencyListInfo(i)
     if info then
       if info.isHeader then
         header = info.name
       else
         local id = Compat.CurrencyLinkID(api.GetCurrencyListLink(i))
-        if id and header then currencyCategoryCache[id] = header end
+        if id then
+          currencyListed[id] = info.name or true
+          if header then currencyCategoryCache[id] = header end
+        end
       end
     end
   end
 end
-function Compat.CurrencyCategory(currencyID)
-  if not currencyID then return nil end
+function Compat.CurrencyListChanged()
+  currencyCategoryCache = nil
+  for k in pairs(currencyCategoryMissed) do currencyCategoryMissed[k] = nil end
+end
+-- The cache, fresh enough to answer for `currencyID`: rebuilt when absent or when the list changed
+-- size, and once more on an id's first miss.
+local function currencyCacheFor(currencyID)
+  if currencyCategoryCache and listSize() ~= currencyListSize then Compat.CurrencyListChanged() end
   if not currencyCategoryCache then buildCurrencyCategoryCache() end
-  local h = currencyCategoryCache[currencyID]
-  if h == nil and not currencyCategoryMissed[currencyID] then
+  if currencyListed[currencyID] == nil and not currencyCategoryMissed[currencyID] then
     currencyCategoryMissed[currencyID] = true
     buildCurrencyCategoryCache()
-    h = currencyCategoryCache[currencyID]
   end
-  return h
+end
+function Compat.CurrencyCategory(currencyID)
+  if not currencyID then return nil end
+  currencyCacheFor(currencyID)
+  return currencyCategoryCache[currencyID]
+end
+
+-- The currency id a chat currency line should record under, or nil to drop it. The chat link can
+-- name a HIDDEN tracking currency the token list never shows (owner report 2026-10-06: "Nebulous
+-- Voidcore" arrived as both hidden 3513 and listed 3418), and a row under that id is a duplicate no
+-- holdings delta ever claims. `id` stands when it is listed, or held in the current character's or
+-- the warband's stored currency baseline (which covers a currency under a collapsed header);
+-- otherwise exactly one listed or held currency of the same name is the one it stands for; anything
+-- else is nil.
+local function heldCurrency(holder)
+  local e = NS.Holdings and NS.Holdings.Get and NS.Holdings:Get(holder)
+  return e and e.currency
+end
+function Compat.ListedCurrencyID(id, name)
+  if not id then return nil end
+  currencyCacheFor(id)
+  local mine = heldCurrency(NS.Util.PlayerKey())
+  local warband = heldCurrency(NS.Constants.WARBAND_HOLDER)
+  if currencyListed[id] ~= nil or (mine and mine[id] ~= nil) or (warband and warband[id] ~= nil) then
+    return id
+  end
+  if not name then return nil end
+  local twin
+  local function consider(cid, cname)
+    if cid == twin then return true end
+    if cname == true or cname == nil then cname = Compat.CurrencyName(cid) end
+    if cname ~= name then return true end
+    if twin then twin = false; return false end   -- a second match: ambiguous
+    twin = cid
+    return true
+  end
+  for cid, cname in pairs(currencyListed) do if not consider(cid, cname) then return nil end end
+  for _, held in ipairs({ mine or {}, warband or {} }) do
+    for cid in pairs(held) do if not consider(cid, currencyListed[cid]) then return nil end end
+  end
+  return twin or nil
 end
 
 -- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.

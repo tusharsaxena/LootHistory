@@ -30,6 +30,20 @@ master toggle + the per-source mute list; no quality/quest gate), and are stored
 currency-blacklisted id is dropped at capture the same way a blacklisted item id is. See
 [schema.md](schema.md) and the currency-capture spec.
 
+**Listed currencies only.** The chat link can name a **hidden tracking currency** the token list never
+shows (the 2026-10-06 report: "Nebulous Voidcore" arrived as hidden 3513 and listed 3418 a second
+apart, two rows). After resolving the link, `Compat.ListedCurrencyID(id, name)` picks the id the row
+records under: `id` itself when it is in the token list (the category cache's walk) or in the current
+character's or `§warband`'s stored currency baseline (which covers a currency under a collapsed
+header); otherwise the one listed or held currency with the same name (3513 → 3418); otherwise nil,
+and the line is dropped with `[Drop] currency line reason=unlisted` and posts **no claim**. The
+remapped id carries both the row and its claim, so the twin's holdings delta consumes it. A genuinely
+new currency whose list entry is not there yet at chat time is dropped the same way; its first gain
+then arrives as a diff row once the list has it (accepted). Rows stored under a hidden id before this
+rule are not migrated (a cold client at migration time cannot tell listed from hidden); the owner
+deletes them from the row menu. The holdings diff is already list-only (`Scanner.ScanCurrencies` →
+`Compat.ListCurrencies`).
+
 A **currency-vendor refund** rides this channel too: when you refund a purchase paid for with a
 currency, the game returns the currency on `CHAT_MSG_CURRENCY` as a *"You are refunded"* line
 (`LOOT_ITEM_REFUND` / `LOOT_ITEM_REFUND_MULTIPLE`) — **not** on `CHAT_MSG_LOOT`. So `ParseSelfCurrency`

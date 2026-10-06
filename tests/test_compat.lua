@@ -341,12 +341,14 @@ end)
 -- The category cache is module-local, and the case above has already built it from the default mock.
 -- These cases do not reload core/Compat.lua: they use ids (100, 200, 999) no other case asks about,
 -- so each one is a fresh miss against the built cache, and they restore the default mock afterwards.
--- A swapped-in currency list: header "Season" followed by the ids in `ids`. Counts list walks.
+-- A swapped-in currency list: header "Season" followed by the ids in `ids`. Counts list walks (a
+-- read of the first row; the size alone is read on every lookup, to notice the list changing).
 local function seasonCurrencyList(ids)
   local walks = { n = 0 }
   local api = {
-    GetCurrencyListSize = function() walks.n = walks.n + 1; return 1 + #ids end,
+    GetCurrencyListSize = function() return 1 + #ids end,
     GetCurrencyListInfo = function(i)
+      if i == 1 then walks.n = walks.n + 1 end   -- a walk starts at the first row
       if i == 1 then return { name = "Season", isHeader = true } end
       if ids[i - 1] then return { name = "C" .. ids[i - 1], isHeader = false } end
       return nil
@@ -377,12 +379,98 @@ test("Compat: CurrencyCategory walks the list at most once for an id that is tru
   local api, walks = seasonCurrencyList({ 100 })
   T.mocks.C_CurrencyInfo = api
   local ok, err = pcall(function()
+    NS.Compat.CurrencyCategory(100)   -- the swapped list's own first build
+    walks.n = 0
     assertEqual(NS.Compat.CurrencyCategory(999), nil)
     assertEqual(NS.Compat.CurrencyCategory(999), nil)
     assertEqual(walks.n, 1)   -- one rebuild across two lookups of the same missing id
   end)
   T.mocks.C_CurrencyInfo = saved
   if not ok then error(err, 0) end
+end)
+
+-- P7 Task 0: an id that missed and is listed LATER still resolves its SubType, whether the list grew
+-- (a different size) or the client's bulk refresh said so (a nil-id CURRENCY_DISPLAY_UPDATE).
+test("Compat: CurrencyCategory resolves an id that missed once the list grows to include it", function()
+  local saved = T.mocks.C_CurrencyInfo
+  local ids = { 100 }
+  T.mocks.C_CurrencyInfo = seasonCurrencyList(ids)
+  local ok, err = pcall(function()
+    assertEqual(NS.Compat.CurrencyCategory(300), nil)   -- missed, and memoized
+    ids[2] = 300
+    assertEqual(NS.Compat.CurrencyCategory(300), "Season")
+  end)
+  T.mocks.C_CurrencyInfo = saved
+  NS.Compat.CurrencyListChanged()
+  if not ok then error(err, 0) end
+end)
+
+test("Compat: a nil-id currency refresh lets a missed id resolve when the list size is unchanged", function()
+  local saved = T.mocks.C_CurrencyInfo
+  local ids = { 100 }
+  T.mocks.C_CurrencyInfo = seasonCurrencyList(ids)
+  local savedEnabled = NS.Reconciler._enabled
+  local ok, err = pcall(function()
+    assertEqual(NS.Compat.CurrencyCategory(400), nil)
+    ids[1] = 400                                          -- same size, a different id
+    assertEqual(NS.Compat.CurrencyCategory(400), nil)    -- the memo holds
+    NS.Reconciler:OnCurrencyUpdate(nil)                   -- the client's bulk refresh
+    assertEqual(NS.Compat.CurrencyCategory(400), "Season")
+  end)
+  NS.Reconciler._enabled, NS.Reconciler.dirty = savedEnabled, {}
+  T.mocks.C_CurrencyInfo = saved
+  NS.Compat.CurrencyListChanged()
+  if not ok then error(err, 0) end
+end)
+
+-- Compat.ListedCurrencyID: the id a chat currency line records under (hidden ids remap or drop).
+local function withListed(list, holdings, body)
+  local m = T.mocks
+  local savedList, savedNames, savedHold = m.__currencyList, m.__currencyNames, NS.db.global.holdings
+  m.__currencyNames = setmetatable({ [3513] = "Nebulous Voidcore", [3418] = "Nebulous Voidcore",
+    [3419] = "Nebulous Voidcore" }, { __index = savedNames })
+  m.__currencyList, NS.db.global.holdings = list, holdings
+  NS.Compat.CurrencyListChanged()
+  local ok, err = pcall(body)
+  m.__currencyList, m.__currencyNames, NS.db.global.holdings = savedList, savedNames, savedHold
+  NS.Compat.CurrencyListChanged()
+  if not ok then error(err, 0) end
+end
+
+test("Compat: ListedCurrencyID keeps a listed id and remaps a hidden one to its one same-name twin", function()
+  withListed({ { header = true, name = "Midnight" }, { id = 3418, name = "Nebulous Voidcore" },
+    { id = 3008, name = "Valorstones" } }, {}, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), 3418)
+    assertEqual(NS.Compat.ListedCurrencyID(3008, "Valorstones"), 3008)
+    assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), 3418)
+    assertEqual(NS.Compat.ListedCurrencyID(3513, "Something Else"), nil)
+    assertEqual(NS.Compat.ListedCurrencyID(3513, nil), nil)
+    assertEqual(NS.Compat.ListedCurrencyID(nil, "Valorstones"), nil)
+  end)
+end)
+
+test("Compat: ListedCurrencyID drops a hidden id whose name matches two listed currencies", function()
+  withListed({ { header = true, name = "Midnight" }, { id = 3418, name = "Nebulous Voidcore" },
+    { id = 3419, name = "Nebulous Voidcore" } }, {}, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), nil)
+  end)
+end)
+
+test("Compat: ListedCurrencyID keeps an id under a collapsed header that the stored baseline holds", function()
+  local me = NS.Util.PlayerKey()
+  local list = { { header = true, name = "Midnight", collapsed = true }, { id = 3418, name = "Nebulous Voidcore" } }
+  withListed(list, { [me] = { meta = {}, scanned = { currency = 1 }, items = {}, currency = { [3418] = 5 }, links = {} } },
+    function()
+      assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), 3418)
+      assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), 3418)   -- the held twin
+    end)
+  withListed(list, { ["§warband"] = { meta = {}, scanned = { currency = 1 }, items = {}, currency = { [3418] = 5 },
+    links = {} } }, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), 3418)
+  end)
+  withListed(list, {}, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), nil)          -- neither listed nor held
+  end)
 end)
 
 test("Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)", function()

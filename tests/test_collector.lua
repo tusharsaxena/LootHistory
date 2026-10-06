@@ -700,3 +700,101 @@ test("Collector: CHAT_MSG_MONEY with recordGold or trackLedger off writes nothin
   assertEqual(NS.Reconciler.claims.g, nil)
   s.trackLedger = true; NS.Collector:RefreshUpvalues()
 end)
+
+-- ── Hidden and tracking currencies (P7 Task 0) ───────────────────────────────────────────────
+-- A chat currency link can name a HIDDEN tracking currency the token list never shows (owner report
+-- 2026-10-06: "Nebulous Voidcore" as hidden 3513 and listed 3418). The chat row and its claim go to
+-- the listed same-name twin, or nowhere; the holdings diff stays list-only either way.
+local S = dofile("tests/ledger_support.lua")
+local VOIDCORE = "Nebulous Voidcore"
+local HIDDEN, LISTED = 3513, 3418
+
+local function voidcoreCase(name, body)
+  S.case(name, function()
+    local m = T.mocks
+    local savedList, savedNames = m.__currencyList, m.__currencyNames
+    m.__currencyNames = setmetatable({ [HIDDEN] = VOIDCORE, [LISTED] = VOIDCORE }, { __index = savedNames })
+    local ok, err = pcall(function()
+      S.reset()
+      NS.db.profile.settings.recordCurrency = true
+      NS.db.profile.currencyBlacklist = {}
+      NS.Collector:RefreshUpvalues()
+      body(m)
+    end)
+    m.__currencyList, m.__currencyNames = savedList, savedNames
+    NS.Compat.CurrencyListChanged()
+    if not ok then error(err, 0) end
+  end)
+end
+
+local function currencyGenesis(m, list)
+  m.__currencyList = list
+  NS.Compat.CurrencyListChanged()
+  local r = S.R()
+  for _, p in ipairs({ "bags", "equipped", "money", "currency" }) do r:MarkDirty(p) end
+  r.silent = true; r:Flush(); r.silent = nil
+  NS.Holdings:MarkGenesis(S.me(), m.__epoch)
+end
+
+local function chatCurrency(m, id, qty)
+  local link = "|cffffffff|Hcurrency:" .. id .. "::|h[" .. VOIDCORE .. "]|h|r"
+  NS.Collector:OnChatMsgCurrency(nil, string.format(m.CURRENCY_GAINED_MULTIPLE, link, qty))
+end
+
+local function currencyRows()
+  local out = {}
+  for _, r in ipairs(S.H()) do if r.itemType == "Currency" then out[#out + 1] = r end end
+  return out
+end
+
+voidcoreCase("Collector+Reconciler: a hidden currency with a listed twin records once, under the twin, claimed", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" },
+    { id = LISTED, name = VOIDCORE, quantity = 10 }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  chatCurrency(m, HIDDEN, 1)
+  assertEqual(NS.Reconciler.claims["c:" .. HIDDEN], nil)
+  assertEqual(NS.Reconciler.claims["c:" .. LISTED][1].qty, 1)
+  m.__currencyList[2].quantity = 11
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", HIDDEN, 1, 1, nil, nil)
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", LISTED, 11, 1, nil, nil)
+  S.R():Flush()
+  m.__now = 110; S.R():Flush()                          -- past any claim wait: no OTHER diff row
+  local rows = currencyRows()
+  assertEqual(#rows, 1)
+  assertEqual(rows[1].currencyID, LISTED); assertEqual(rows[1].itemSubType, "Midnight")
+  assertTrue(rows[1].claimed); assertEqual(rows[1].dir, "IN")
+  assertEqual(NS.Holdings:Get(S.me()).currency[HIDDEN], nil)
+end)
+
+voidcoreCase("Collector: a hidden currency with no listed twin records nothing and claims nothing", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  chatCurrency(m, HIDDEN, 1)
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", HIDDEN, 1, 1, nil, nil)
+  S.R():Flush(); m.__now = 110; S.R():Flush()
+  assertEqual(#currencyRows(), 0)
+  assertEqual(next(NS.Reconciler.claims), nil)
+  assertEqual(NS.Holdings:Get(S.me()).currency[HIDDEN], nil)
+end)
+
+voidcoreCase("Collector+Reconciler: a new listed currency already in the list records one claimed chat row", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  m.__currencyList[3] = { id = LISTED, name = VOIDCORE, quantity = 1 }   -- listed before the chat line
+  chatCurrency(m, LISTED, 1)
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", LISTED, 1, 1, nil, nil)
+  S.R():Flush(); m.__now = 110; S.R():Flush()
+  local rows = currencyRows()
+  assertEqual(#rows, 1); assertEqual(rows[1].currencyID, LISTED); assertTrue(rows[1].claimed)
+  assertEqual(NS.Holdings:Get(S.me()).currency[LISTED], 1)
+end)
+
+voidcoreCase("Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  chatCurrency(m, LISTED, 1)
+  assertEqual(#currencyRows(), 0)
+  assertEqual(next(NS.Reconciler.claims), nil)
+  m.__currencyList[3] = { id = LISTED, name = VOIDCORE, quantity = 1 }
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", LISTED, 1, 1, nil, nil)
+  S.R():Flush(); m.__now = 110; S.R():Flush()
+  local rows = currencyRows()
+  assertEqual(#rows, 1)
+  assertEqual(rows[1].currencyID, LISTED); assertEqual(rows[1].dir, "IN"); assertEqual(rows[1].claimed, nil)
+end)

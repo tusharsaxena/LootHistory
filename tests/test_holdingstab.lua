@@ -475,10 +475,19 @@ test("HoldingsTab group: Type and SubType headers are alphabetical", function()
     seedGroups()
     local lines = NS.HoldingsTab.BuildModel({}, {}, "name", nil, "type", {})
     assertEqual(headers(lines), "Type: Armor (1) | Type: Currency (1) | Type: Gold (1)")
-    -- The mock names no currency category, so the currency shares Unknown with gold (no subtype).
-    assertEqual(NS.Compat.CurrencyCategory(3008), nil)
-    assertEqual(headers(NS.HoldingsTab.BuildModel({}, {}, "name", nil, "subtype", {})),
-      "SubType: Cloth (1) | SubType: Unknown (2)")
+    -- A header-less currency list names no currency category, so the currency shares Unknown with
+    -- gold (no subtype). Set here rather than leaned on: the category cache now follows the list.
+    local savedList = mocks.__currencyList
+    mocks.__currencyList = { { id = 3008, name = "Valorstones" } }
+    NS.Compat.CurrencyListChanged()
+    local ok, err = pcall(function()
+      assertEqual(NS.Compat.CurrencyCategory(3008), nil)
+      assertEqual(headers(NS.HoldingsTab.BuildModel({}, {}, "name", nil, "subtype", {})),
+        "SubType: Cloth (1) | SubType: Unknown (2)")
+    end)
+    mocks.__currencyList = savedList
+    NS.Compat.CurrencyListChanged()
+    if not ok then error(err, 0) end
   end) end)
 end)
 
