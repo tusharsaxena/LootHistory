@@ -19,13 +19,17 @@ Defaults are declared in `defaults/Global.lua`; AceDB merges them under `db.glob
 
 ```lua
 db.global = {
-  schemaVersion = 10,          -- DB schema stamp; declared 0, carried to 10 by NS:RunMigrations at init
+  schemaVersion = 11,          -- DB schema stamp; declared 0, carried to 11 by NS:RunMigrations at init
   history = {},                -- dense array of loot records (one per loot event)
   retentionDays = 30,          -- "Keep history for" (row settings.retentionDays); 0 == keep Always. Account-wide (D6)
   minimap = { hide = false },  -- LibDBIcon visibility state (global by launcher-§3)
   boundRepairPending = <true|nil>,  -- migration job: rows still to be split (see below)
   boundRepairAttempts = <n|nil>,    -- fruitless passes so far; both clear when the job completes
   boundRepairRevision = <n|nil>,    -- which build of that job has run; a bump re-arms it
+  holdings = {},               -- timeline ledger: what each holder owns now (see The ledger stores)
+  daily = {},                  -- timeline ledger: sparse daily rollup (store created v11, written Phase 3)
+  ledgerSince = <ts|nil>,      -- when ledger capture began (v11 step; the reset popup rewrites it)
+  resetPrompt = <nil|"reset"|"kept">,  -- the one-time reset recommendation's recorded answer
 }
 ```
 
@@ -249,6 +253,7 @@ A row's `page` is the canvas subcategory it is edited on, its `group` is the tab
 | `state.testMode` | General ▸ Master controls | CheckBox | `false` | **Session-only**: the History window's test mode, composed from `testModePath`, pairing beside **Minimap button**. `get` reads `BrowserTable.testMode`; `set` switches through `BrowserTable:SetTestMode` only when the value differs. Never persisted. The same switch as `/lh test`; combat, Reset all settings and `/lh resetall` end it. |
 | `settings.qualityThreshold` | General ▸ Capture | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
 | `settings.recordCurrency` | General ▸ Capture | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys the per-source mute list, ignores the quality filter. Fires `SettingsChanged` (`"currency"`). |
+| `settings.trackLedger` | General ▸ Capture | CheckBox | `true` | "Track holdings and losses": keeps `db.global.holdings` current (and, from Phase 2, writes gain/loss/transfer rows). Off = loot gains only, as before. Fires `SettingsChanged` (`"ledger"`), which the Reconciler hears to register or drop its capture events. |
 | `settings.excludeQuestItems` | General ▸ Capture | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
 | `settings.excludedSources` | General ▸ Capture | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"), host-drawn from `afterGroup`. Fires `SettingsChanged`. |
 | `settings.auction.enabled` | General ▸ AH Price ▸ *Pricing* | CheckBox | `true` | Master switch; `false` short-circuits the capture path (`GatherAll` gathers nothing), so new drops store no auction map — already-stored records are unaffected. |
@@ -341,6 +346,33 @@ written only by the load pass: `NS:ArmBoundRepair` (`core/Database.lua:270`), wh
 (`core/Database.lua:365`) advances `boundRepairAttempts` and clears both once nothing is pending or
 the fruitless-pass cap is reached. The defaults declare none of the three.
 
+### The ledger stores
+
+The timeline ledger (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md` §4) adds four pieces of account-wide state beside `history`. All four are `db.global`, outside every profile, and no settings reset reaches them. `core/Ledger.lua` holds the pure primitives (thing keys, `Diff`); `NS.Holdings` (`modules/Holdings.lua`) owns `holdings`.
+
+```lua
+db.global.holdings = {            -- one writer: NS.Reconciler, through the NS.Holdings Apply* calls
+  ["Ka0z-Ravencrest"] = {         -- NS.Util.PlayerKey(); the Warband is the literal key "§warband"
+    meta    = { genesis = <ts>, lastSeen = <ts>, partial = <bool>, classFile = "MAGE" },
+    scanned = { bags = <ts>, equipped = <ts>, bank = <ts>, money = <ts>, currency = <ts> },
+    items   = { [itemID] = { bags = 12, bank = 40 } },   -- count per container (bags / equipped / bank / mail / auctions / tabs)
+    currency = { [currencyID] = quantity },
+    links   = { [itemID] = "|cff...|Hitem:...|h[Name]|h|r" },  -- the last link seen, for display
+    money   = <copper>,           -- gold
+  },
+  ["§warband"] = { ... },         -- tabs (warband bank), warband gold, account-wide currency
+}
+db.global.daily      = {}         -- ["YYYY-MM-DD"][holder][thingKey] = { c, i, o } (close, in, out): created empty at v11, first written in Phase 3
+db.global.ledgerSince = <ts>      -- when capture began; a Reset from the popup restamps it
+db.global.resetPrompt = nil | "reset" | "kept"   -- the answer to the one-time popup
+```
+
+- **Keys.** Container ids are derived from `Enum.BagIndex` member names, never hardcoded numbers. A thing key is `"i:<itemID>"`, `"c:<currencyID>"` or `"g"` (gold) (`Ledger.ThingKey` / `ParseThingKey`). `§` marks a system holder: code that means "characters" skips keys that start with it.
+- **`scanned` is the staleness clock.** A container never read has no timestamp, and the Holdings tab shows it as "never". `meta.partial` is true until the holder's bank (or, for the Warband, its tabs) has been read once, so a first-login character is not presented as owning an empty bank.
+- **Row fields reserved for Phase 2.** A loot row may carry `dir` (`IN` / `OUT` / `MOVE`), `kind` (`ITEM` / `CURRENCY` / `GOLD`), `holder`, and `from` / `to` (the two holders of a transfer). Nothing writes them in Phase 1. Every reader goes through `Util.RowDir` / `RowKind` / `RowHolder`, which default an unmarked row to a gain by `char`, so the v11 migration rewrote no row.
+- **`ledgerSince` and `resetPrompt` are deliberately not declared in `defaults/Global.lua`.** AceDB strips a stored value equal to its default and backfills a declared default onto old accounts; an undeclared `nil` means "never decided" on an account that was upgraded and "not applicable" on a new one.
+- **The reset popup** (`KA0S_LOOTHISTORY_LEDGER_RESET`, `settings/Slash.lua`) is offered once, about five seconds after login, when `NS.State.upgradedFrom` is below 11, the history is non-empty and `resetPrompt` is `nil`. **Keep** stores `"kept"`. Esc stores nothing, so the next login asks again. **Export first** opens the export window and re-asks when it closes. **Reset** confirms, calls `Database:Purge`, stores `"reset"` and restamps `ledgerSince`; holdings are untouched. A combat login holds the offer for `PLAYER_REGEN_ENABLED`, and `NS.StandDown` drops a held offer (`NS.DropLedgerResetOffer`).
+- **Writers.** `holdings`: `Reconciler:Flush` only. `ledgerSince`: the v11 step and the popup's Reset. `resetPrompt`: the popup only. `daily`: the v11 step creates it; Phase 3 writes it.
 ### Reset semantics
 
 The reset surfaces write these tables. Since profiles arrived, the global reset is ONE act behind three controls, and its blast radius is the active profile (`options-ui-§12`):
@@ -365,7 +397,7 @@ The reset surfaces write these tables. Since profiles arrived, the global reset 
 
 ## schemaVersion & the migration seam
 
-`schemaVersion` is a version stamp on the persisted DB, declared `0` in `defaults/Global.lua:18` and carried to the current shape **10** (`NS.SCHEMA_VERSION`, the ladder's highest `to`) by the migrations below. It lives alongside `history` and `minimap` under `global`: one stamp for the account, because every step is account-wide.
+`schemaVersion` is a version stamp on the persisted DB, declared `0` in `defaults/Global.lua:18` and carried to the current shape **11** (`NS.SCHEMA_VERSION`, the ladder's highest `to`) by the migrations below. It lives alongside `history` and `minimap` under `global`: one stamp for the account, because every step is account-wide.
 
 **The `0` floor** (savedvariables-§1, standard v2.65.0). The declared default is the pre-migration floor, never the current version, and it never moves. AceDB's `removeDefaults` strips a stored value equal to its default at logout, and its defaults merge backfills a declared default onto an account that stored no stamp; `0` has neither problem, since any stamp the runner advanced differs from it and persists, and an unstamped account reads `0` and walks every step. The runner, not the defaults, owns the stamp. Every step is idempotent against an empty history, so a brand-new install walking the whole ladder changes nothing but the stamp.
 
@@ -386,13 +418,14 @@ The reset surfaces write these tables. Since profiles arrived, the global reset 
 -- { to = 8, apply = function(g) <rewrite a savedView mapID filter as zone names>   return n end },
 -- { to = 9, apply = function(g) <move every setting into the Default profile>      return n end },
 -- { to = 10, apply = function(g) <lift retentionDays out of every profile into global> return n end },
+-- { to = 11, apply = function(g) <create holdings{} and daily{}, stamp ledgerSince; rewrites no row> return 0 end },
 ```
 
 Array order **is** run order, so a step always sees every earlier step's output and entries are appended, never reordered. The runner owns the version arithmetic that each step used to carry itself: it runs a step when `g.schemaVersion < m.to` (which is what makes the chain skip-forward and idempotent), writes `g.schemaVersion = m.to` **after** `apply` returns — so an error mid-chain can never advance the stamp past unapplied work — and emits the `[Migrate]` line from the row count `apply` returns.
 
 The **v1→v2** migration strips the retired per-record `viaWhitelist` field from every stored row — point-in-time filtering simply no longer hides stored rows, so the old soft-delete annotation is dead weight. The **v2→v3** migration (Rev-2 AH-price integration) renames the per-record `sellPrice` field to `vendorPrice` on every stored row — non-destructive, the value is preserved, only the key changes (making room for the derived `value` model's vendor/auction naming). The **v3→v4** migration (currency quality) backfills `quality` on every stored currency row (`currencyID` set, `quality` still nil) from `C_CurrencyInfo`, so currency looted before this change gets the same Name-color + Quality-column treatment as currency looted after it; a currency the client can't resolve at init stays nil. The **v4→v5** migration (currency bound) likewise backfills `bound` on every stored currency row (`currencyID` set, `bound` still nil) — `"WARBAND"` for a Warband-transferable currency, else `"BOP"` — so currency looted before the change gets the Bound-glyph too; unresolved ids stay nil. The **v5→v6** migration retires the `"ACCOUNT"` bind state: Retail has had no account-bound wording distinct from Warbound since 11.0, so every stored `ACCOUNT` row is a mislabeled warbound drop of one kind or the other (see [midnight-quirks.md](midnight-quirks.md)). Which kind isn't recoverable from the record, so it parks them all on `"WARBAND"` and rewrites a `savedView` Bound filter naming the retired token (else the restored view would match nothing). The **v6→v7** migration then hands the split to a deferred repair, whose arming is versioned by its own `boundRepairRevision` rather than by the schema stamp — that job has been wrong more than once, and each fix has to re-run it on DBs that already ran and cleared a broken pass ([schema.md](schema.md)). **Neither does the work inline, and that is the point:** migrations run from `InitDB` at `ADDON_LOADED`, when the item cache is cold — `C_Item.GetItemInfo` answers nothing and the tooltip carries no bind line — so a one-shot pass reads "no rows to fix" and then bumps the stamp, burning the only chance. Instead they set `boundRepairPending`, and `Database:RepairBoundStates` (deferred: twice per session after login, plus every window open) does the split off both bind signals, keeping the flag until every candidate row is **settled** (item cached *and* a real tooltip, not the `RETRIEVING_ITEM_INFO` placeholder) or the fruitless-pass cap is hit. The **v7→v8** migration follows the Zone filter's move from `mapID` to the zone **name** (see the `mapID` row above): it rewrites a `savedView`'s stored `mapID` set into the names those ids were recorded under, since the restored view would otherwise filter on a field nothing reads. Ids no longer present in the history resolve to nothing and the filter drops. The **v8→v9** migration (profiles; `moveSettingsToProfile`, `core/Database.lua:47`) moves what the player configured out of the account-wide store: the `settings` block, the three id lists and `savedView` are copied from `db.global` into the raw `Default` profile (`db.sv.profiles.Default`, created if absent) and then cleared from global. `Default` is the profile every character was already on, because `InitDB` has always passed `true`. A stored table is laid over one the profile already holds, key by key, so a value the account stored wins and a key it never stored (AceDB's logout strip removed it for equaling the default) keeps the default. The history, its repair bookkeeping and LibDBIcon's `minimap` table stay where they are. A second run finds nothing left in global and moves nothing. The **v9→v10** migration (`moveRetentionToGlobal`, owner decision D6) takes `retentionDays` back out: the setting that decides what the prune deletes from the shared history belongs to the account, not to a profile. It reads both stored shapes — a `retentionDays` still under `global.settings` (left there when the v9 step had no raw file to move it through) and one in any raw profile under `db.sv.profiles` (where v9 put it, and wherever a character wrote it while it was per profile) — clears every one, and stores the value that deletes the least as `global.retentionDays`: `0` (keep Always) beats any day count, otherwise the longer window wins, so the move can never shorten what is kept. With nothing stored anywhere the account keeps its own value, and a second run lifts nothing. None of the nine migrations deletes any records.
 
-All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v10. `tests/test_profiles.lua` pins the v9 and v10 steps: the values land, global is cleared, recorded data is untouched, an unstored key keeps its default, the retention lands in global from either shape keeping the longest window, and a re-run is a no-op.
+All are safe no-ops when the DB isn't ready yet, and idempotent once a DB is already at v11. `tests/test_profiles.lua` pins the v9 and v10 steps: the values land, global is cleared, recorded data is untouched, an unstored key keeps its default, the retention lands in global from either shape keeping the longest window, and a re-run is a no-op.
 
 **Arming the deferred repair is versioned separately**, by `boundRepairRevision` against a `BOUND_REPAIR_REVISION` constant (`NS:ArmBoundRepair`, run on every init) — not by `schemaVersion`. The repair has been wrong more than once, and each fix must re-run it on DBs that already ran and *cleared* a broken pass; tying that to the schema stamp meant a migration per bug. Bumping the constant re-arms on the next login and is a no-op otherwise. `Database:RepairBoundStates` runs it deferred — twice per session from `OnEnterWorld`, and again on every window open, where the item cache is warmest and the wrong lock is about to be looked at. Each candidate row (parked `"WARBAND"` **or** `"BOE"` — BoE because a capture that trusted the lying bind type filed these one state too loose — with an id or a link) is re-read through `Compat.ItemBindState` and merged with `BestBound`, so a row only ever moves toward the more specific warbound state; a genuine BoE reads back BoE and stays. A row counts as resolved only once its **item data is cached and its tooltip is real** — an uncached item returns a legible `RETRIEVING_ITEM_INFO` tooltip, which must not count (the bind type answering BoE is not evidence it isn't warbound — that mistake made an earlier revision of this job clear itself in one pass); unsettled rows are requested and left for the next pass, as is anything past the 200-row per-pass budget; `boundRepairPending`/`boundRepairAttempts` clear once none are pending, or after 10 *fruitless* passes (a pass that fixed something resets the budget, since it proves the client is answering). The `defaults/Global.lua` value stays `0` for brand-new DBs; every DB is carried to `10` by these migrations on its first load after upgrade.
 

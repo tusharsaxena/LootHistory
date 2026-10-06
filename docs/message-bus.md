@@ -2,19 +2,20 @@
 
 All inter-module communication uses `AceEvent`-style messages with a fixed name set. The bus is `NS.bus` — the AceEvent-embedded addon object created in [`core/LootHistory.lua:6`](../core/LootHistory.lua). New entries belong here, in the module headers, and in the [module map](module-map.md). **Don't invent new messages without a reason** — the closed list is what keeps cross-module coupling auditable.
 
-## The three messages
+## The four messages
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` ([`core/Database.lua:411`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats) — Browser and Analytics repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (re-registers or drops its capture events on the `"ledger"` and `"profile"` reasons) |
+| `Ka0s_LootHistory_HoldingsChanged` | `Reconciler:Flush` (`modules/Reconciler.lua`), once per holder whose holdings moved in a flush | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen) |
 
 Exactly one sender is allowed per message — the table is sender-authoritative.
 
 ## Declared once, as `NS.MSG`
 
-Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua) (this addon has no `core/Bus.lua`), and every `SendMessage` / `RegisterMessage` in the addon names the constant — `NS.MSG.RECORD_ADDED`, `NS.MSG.HISTORY_CHANGED`, `NS.MSG.SETTINGS_CHANGED` — never the literal (`architecture-§4`). The table is passed through **`LibKa0s-Bus-1.0`'s `Catalog`**, which checks the names at load and answers a strict copy: reading an undeclared key raises, so a mistyped constant fails at the call site for a sender as well as a receiver. Only `Catalog` is used. The receivers stay untracked on `NS.NewBusTarget()` (below), so the major's stand-down record (`New`) is not adopted. With the library absent, `core/Constants.lua` falls back to a stub `Catalog` that returns the plain table: the names are the same and only the strictness is lost. `tests/test_constants.lua` pins each wire string by driving its real sender, and it scans every TOC file for a stray literal.
+Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua) (this addon has no `core/Bus.lua`), and every `SendMessage` / `RegisterMessage` in the addon names the constant — `NS.MSG.RECORD_ADDED`, `NS.MSG.HISTORY_CHANGED`, `NS.MSG.SETTINGS_CHANGED`, `NS.MSG.HOLDINGS_CHANGED` — never the literal (`architecture-§4`). The table is passed through **`LibKa0s-Bus-1.0`'s `Catalog`**, which checks the names at load and answers a strict copy: reading an undeclared key raises, so a mistyped constant fails at the call site for a sender as well as a receiver. Only `Catalog` is used. The receivers stay untracked on `NS.NewBusTarget()` (below), so the major's stand-down record (`New`) is not adopted. With the library absent, `core/Constants.lua` falls back to a stub `Catalog` that returns the plain table: the names are the same and only the strictness is lost. `tests/test_constants.lua` pins each wire string by driving its real sender, and it scans every TOC file for a stray literal.
 
 ## `Ka0s_LootHistory_RecordAdded` payload
 
@@ -36,6 +37,11 @@ Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schem
 
 > The blacklist/whitelist edit also re-caches the Collector's list upvalues via a **direct** `NS.Collector:RefreshUpvalues()` call (not a `SettingsChanged` message) — the lists aren't schema settings and the Collector is their only capture-side consumer, so no second `SettingsChanged` sender is introduced.
 
+## `Ka0s_LootHistory_HoldingsChanged` payload
+
+Fired by `Reconciler:Flush` after a scan changed a holder's stored holdings: one send **per changed holder**, never one per scanned part, so a vendor sale that touches bags, gold and a currency in the same debounce window announces its holder once. The payload is the `holder` key — the character's `NS.Util.PlayerKey()`, or the literal `"§warband"` for the virtual Warband holder. A flush that changed nothing sends nothing, and a flush that cannot run (in combat, or a bank part with no banker open) defers rather than sending.
+
+The one receiver is `HoldingsTab`, on its own private target (`HT.__ev`), which repaints only while its pane is shown and otherwise lets the next tab selection refresh it. The payload is a hint, not a patch: a receiver re-reads `NS.Holdings`. Phase 2 will add its own receivers under the same one-sender rule.
 ## `Ka0s_LootHistory_SettingsChanged` payload
 
 Sent from eight schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), carrying six distinct `reason` strings between them: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, `"excludes"`, and `"chrome"` — the last one new with the Master controls tab, sent by `settings.scale` / `settings.alpha` / `settings.locked` so the Browser re-applies the addon-wide chrome to both of its frames. A seventh, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The first five are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
@@ -67,6 +73,8 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` h
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:265`).
 - Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1273`).
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:259`).
+- Reconciler — **two** targets: `self._settings` hears `SettingsChanged("ledger" | "profile")` for as long as the addon is up, so ticking `trackLedger` back on can re-register; `self.__ev` carries the capture events and exists only while the setting is on (`modules/Reconciler.lua`).
+- HoldingsTab — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` (`modules/HoldingsTab.lua`).
 - Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:153`) and the Filters tab's id-lists (`settings/Panel.lua:499`), each on its own target.
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.

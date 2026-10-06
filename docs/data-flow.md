@@ -138,6 +138,34 @@ The three gate settings are cached as file-local upvalues (`modules/Collector.lu
 
 `Constants.SOURCE_IMPLEMENTED` (`core/Constants.lua:37`) is the gate: it lists sources with a live capture path, and drives `SOURCE_OPTIONS` so the settings panel's per-source **mute list** never shows a dead checkbox. With every source now wired, all appear in the mute list. The enum stays whole for the export seam. See [compat-layer.md](compat-layer.md) for the shims and [module-map.md](module-map.md) for where these modules sit.
 
+## Holdings scan
+
+A second, independent engine sits beside loot capture: the **Reconciler** (`modules/Reconciler.lua`) keeps `db.global.holdings` equal to what the account owns, using `NS.Scanner` for the reads and `NS.Holdings` for the writes (timeline-ledger spec §5.2). It never touches `CHAT_MSG_LOOT` or the attribution context; Phase 2 is where the two meet, as a diff of successive scans that the existing context then claims.
+
+**Events mark, `Flush` works.** Eleven events register one by one on a private bus target, and only while `settings.trackLedger` is on. A handler does nothing but set a dirty bit (`MarkDirty`) and, for the events that close a burst, arm a 0.35 s `NS.After` fuse:
+
+| Event | Marks | Arms the fuse |
+|---|---|---|
+| `BAG_UPDATE(bagID)` | `bags` (that bag), or `bank` / `tabs` when the bag id belongs to the bank or a warband tab | no |
+| `BAG_UPDATE_DELAYED` | nothing | yes (it ends the burst of `BAG_UPDATE`s) |
+| `PLAYER_EQUIPMENT_CHANGED` | `equipped` | yes |
+| `PLAYER_MONEY` / `ACCOUNT_MONEY` | `money` / `warbandMoney` | yes |
+| `CURRENCY_DISPLAY_UPDATE` | `currency` | yes |
+| `PLAYERBANKSLOTS_CHANGED` / `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | `bank` / `tabs` | yes |
+| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | bank, tabs, warband gold (on show, for a Banker or AccountBanker only) | show yes; hide runs a final `Flush` itself |
+| `PLAYER_REGEN_ENABLED` | nothing | replays a deferred flush |
+
+`BAG_UPDATE` carries no fuse of its own on purpose: a raid-pull storm costs one table write per event and nothing else.
+
+**Combat deferral.** `Flush` begins with `Compat.InCombatLockdown()`. In combat it sets `deferred` and returns, leaving every dirty bit in place; `PLAYER_REGEN_ENABLED` clears `deferred` and flushes once, so five potions drunk mid-pull cost one refresh after the fight, not five scans during it.
+
+**Readability.** The client answers an unopened bank slot as *empty*, not as *unknown*, so reading it away from a banker would record the whole bank as lost. `R:IsReadable(part)` therefore gates `bank` and `tabs` on `readable.bank`, set only between the show and hide of a `Banker` or `AccountBanker` interaction (`Compat.InteractionType`); warband gold is readable only when `Compat.GetWarbandMoney()` answers non-nil. An unreadable part **stays dirty** for the next flush rather than being dropped. The hide handler flushes once more while the bank is still readable, then clears the flag.
+
+**Changed once.** `Flush` applies each readable part (`ApplyContainer` / `ApplyCurrency` / `ApplyMoney`, each returning whether anything moved), collects the changed holders into a set and sends `HOLDINGS_CHANGED` once per holder. A flush that changed nothing sends nothing and, with debug on, writes nothing.
+
+**Login genesis.** `LoginScan` marks everything dirty and flushes, then stamps `meta.genesis` and `meta.partial` on the character (and on the Warband when it already exists). A login inside combat (a reload mid-pull) defers both the read and the stamp to the regen edge, so genesis never lands on a holder that was not scanned. A fresh holder stays `partial` until its bank (for the Warband, its tabs) has been read once, which is why a new character's bank shows **never** until the first banker visit.
+
+**Turning it off.** Unticking `trackLedger` runs `DisableCapture`: the capture target is unregistered, dirty bits and `deferred` are cleared, and the `SettingsChanged` listener stays so re-ticking re-registers. `NS.StandDown` runs the full `Disable`. See [disabled-state.md](disabled-state.md).
 ## Known limitation
 
 The whole design assumes the peripheral event and its loot line fall within `CONTEXT_TTL` (~1.5s). **Slow manual click-looting** — opening a corpse or container and hovering before clicking an item well past the TTL — lets the stamp expire, so that item falls back to `OTHER` / `INFERRED`. This is an accepted trade-off: a longer TTL would risk bleeding a stale source onto an unrelated later loot. Auto-loot (the common case) fires the loot lines immediately, comfortably inside the window.

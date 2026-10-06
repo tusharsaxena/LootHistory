@@ -27,6 +27,7 @@ free number in its theme.
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
+| LED-1 to 8 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -68,6 +69,9 @@ free number in its theme.
   HIST-12 to HIST-23, HIST-28 to HIST-34, STATE-12, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
   CAP-27, FILT-1, FILT-16 and FILT-24.
 - Diagnostics or debug logging: DIAG, COMBAT-8, DEGRADED-4, SLASH-2, SLASH-8 and PANEL-19.
+- Ledger or holdings (`core/Ledger.lua`, `modules/Scanner.lua`, `Holdings.lua`, `Reconciler.lua`,
+  `HoldingsTab.lua`, the v11 migration, the reset popup in `settings/Slash.lua`): LED, COMBAT-1,
+  HIST-1 to HIST-3, INSTALL (the upgrade checks), SLASH-2 and STATE-1 to STATE-4.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
 
 ## Install and upgrade
@@ -121,7 +125,7 @@ window stays closed and nothing prints. Result:
 
 **SLASH-2. The help index.** `/lh help` → a header `v<version> — slash commands (/loothistory is an
 alias for /lh)`, then one row per command in this order: show, hide, toggle, config, enable, disable,
-version, get, set, list, reset, resetall, profile, debug, diagnostics, test, purge, help (eighteen).
+version, get, set, list, reset, resetall, profile, holdings, debug, diagnostics, test, purge, help (nineteen).
 Each row is a gold `/lh <verb>`, an em dash and a white description; every line carries `[LH]`; no
 raw key such as `HELP_HEADER` shows; the window does not open. Result:
 
@@ -1088,6 +1092,62 @@ registered` and `[State] dependencies: price providers: …; latch: LibKa0s-Life
 written at the enable although login ran them with logging off. `/lh debug off`, `/lh debug on` →
 neither line again. Result:
 
+## Ledger and holdings
+
+The timeline ledger's Phase 1 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`).
+Run LED-5 on an account that still holds a **schema 10** SavedVariables file with loot history in it
+(copy `LootHistory.lua` from before the upgrade into `WTF/Account/<account>/SavedVariables/`, then
+log in). Every other check runs on the live account, with the ledger tick left on (**Track
+holdings and losses** under Settings > General > Capture).
+
+**LED-1. Fresh login.** Log in a character with items in its bags and equipped, some gold and a few
+currencies, then open the window and select the **Holdings** tab → the tab lists the character's bag
+items, equipped items, gold and currencies, each with a total. Expand one item → one line for the
+character, class-colored, with `Bags n` (and `Equipped` where it applies) and an age of `now`. The
+bank has not been read yet, so a bank line, where shown, reads **never**. Result:
+
+**LED-2. Open the bank.** At a banker, open the bank and the warband bank, then close them → the
+`Bank` and `Warband` containers populate on the Holdings tab, warband gold appears on a **Warband**
+line, and the ages read `now`. `/reload`, reopen Holdings away from the bank → the same values are
+there, now with ages (`m`, `h` or `d`, rising with real time) and no bank line has gone to zero.
+Result:
+
+**LED-3. A second character.** Log in a second character, open Holdings, and clear the Character
+filter to **All** → both characters appear, each class-colored, and the Warband appears **once**,
+labeled `Warband` and never as `§warband`. The first character's lines keep the ages they had.
+Result:
+
+**LED-4. Potions in combat.** With 5 of one potion in your bags and the Holdings tab open, drink all
+five during a fight with a dummy (or in a dungeon) → no lag, stutter or Lua error while the events
+fire. Leave combat → the bag count drops by exactly 5, in one refresh (the tab repaints once, not
+five times). `/lh debug on` shows at most one `[Holdings] flush: 1 holder(s) changed` line for the
+whole fight. Result:
+
+**LED-5. Upgrade from schema 10.** Log in on the schema 10 file with history → about five seconds in,
+one popup with the reset recommendation, showing your record count. Run all four ways, restoring the
+saved copy each time. **Keep history** → prints `keeping your loot history.` and never asks again.
+**Esc** → closes without a choice and asks again at the next login. **Export first** → opens the
+window's export box; closing it shows the popup again. **Reset history** → asks `Delete N loot
+records permanently?`; **Yes** empties History (`/lh purge` would find nothing) and prints `history
+reset; the ledger starts now.`, and the Holdings tab still lists everything it held. A character
+already on schema 11 gets no popup. Result:
+
+**LED-6. Warband gold away from the bank.** Open the warband bank once, close it, walk away from any
+banker, `/reload`, and read the **Warband** line's gold on the Holdings tab → record whether the
+value is the last-read amount (the client answered `C_Bank.FetchDepositedMoney`) or the line shows
+an age far older than the others (it answered `nil`). Either is a valid outcome — this check
+**records** which one the client does, for spec §5.6's open question and ARCHITECTURE's known
+limitations. It must never show `0` that was not there. Result:
+
+**LED-7. `/lh holdings <name>`.** `/lh holdings hearthstone` (any item you hold) → up to ten lines
+`<name>: <total>`, each total matching the Holdings tab. A currency name prints the count. `/lh
+holdings zzzz` → `no holdings match 'zzzz'.` With the addon disabled (`/lh disable`), the verb answers
+the one disabled line. Result:
+
+**LED-8. The tracking switch.** Untick **Track holdings and losses**, then `/etrace` (filter on
+`BAG_UPDATE`) → no `BAG_UPDATE` handling by LootHistory, and drinking a potion changes nothing on the
+Holdings tab. Re-tick it → the events are handled again and the tab catches up on the next bag
+change. `/lh set settings.trackLedger false` and `true` do the same. Result:
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1324,4 +1384,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-10 | New | New with `/lh profile` (SP-LH-02) |
 | DEGRADED-11 | § 17g ladder note | No result recorded; expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
 | DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
+| LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
