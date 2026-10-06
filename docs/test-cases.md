@@ -184,6 +184,13 @@ badge and any count quoted in the docs must agree with it.
 - Compat: GetWarbandMoney reads the account bank, nil when API absent
 - Compat: ListCurrencies expands collapsed headers and restores them
 
+### test_scanner.lua (4)
+
+- Scanner: variants sum by itemID across slots and bags
+- Scanner: equipped slots and equipped bags
+- Scanner: currencies split account-wide to warband
+- Scanner: money reads
+
 ### test_attribution.lua (37)
 
 - Attribution: Consume returns stamped context within TTL
@@ -1215,6 +1222,7 @@ badge and any count quoted in the docs must agree with it.
 | test_util.lua | 40 |
 | test_ledger.lua | 6 |
 | test_compat.lua | 44 |
+| test_scanner.lua | 4 |
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
@@ -1251,4 +1259,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1065** |
+| **Total** | **1069** |

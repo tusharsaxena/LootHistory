@@ -90,6 +90,7 @@ defaults\Profile.lua
 # Modules (Attribution before Collector)
 modules\Attribution.lua
 modules\Filters.lua
+modules\Scanner.lua
 modules\AuctionPrice.lua
 modules\Collector.lua
 modules\Browser.lua
