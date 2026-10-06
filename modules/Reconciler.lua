@@ -363,12 +363,14 @@ R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(self, plan, me)
 end
 
 -- Commit step: credit the recipient's stored currency, freeze the currency reasons into the memo
--- (WriteRows runs after this), then clear the accumulators.
+-- (WriteRows runs after this), then clear the accumulators. A bank drift pass sets the currency
+-- delta aside, so it leaves them for the normal pass that follows.
 R.COMMIT_STEPS[#R.COMMIT_STEPS + 1] = function(self, plan, _, clock)
   for _, p in ipairs(plan.pairs) do
     if p.creditCurrency then NS.Holdings:CreditCurrency(p.to, p.creditCurrency, p.qty) end
   end
   memoReasons(self, plan, clock)
+  if self.drift then return end
   for k in pairs(self.pendingCur) do self.pendingCur[k] = nil end
   for k in pairs(self.curGain) do self.curGain[k] = nil end
   for k in pairs(self.curLoss) do self.curLoss[k] = nil end

@@ -443,6 +443,48 @@ case("Reconciler: bank drift since the last visit is UNTRACKED on the first read
   assertEqual(#H(), 4)
 end)
 
+-- Review fix: the drift pass sets the currency delta aside, so it must not clear the currency
+-- accumulators either; the normal pass that follows still writes the change with its own reason,
+-- and an account transfer pending in the same flush keeps its MOVE pair and the alt's credit.
+case("Reconciler: a currency delta pending when the banker opens survives the drift pass", function()
+  reset()
+  genesisWithCurrency({ { id = 3008, quantity = 50 } })
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+  openBank(); R():Flush(); closeBank()                    -- the bank's baseline
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 4 } })
+  m.__now = 200
+  R():OnEvent("CURRENCY_DISPLAY_UPDATE", 3008, 40, -10, nil, m.Enum.CurrencyDestroyReason.Vendor)
+  openBank(); R():Flush()
+  assertEqual(#H(), 2)
+  assertEqual(rowsBy(ME, 7)[1].source, "UNTRACKED")
+  local cur
+  for _, r in ipairs(H()) do if r.kind == "CURRENCY" then cur = r end end
+  assertEqual(cur.dir, "OUT"); assertEqual(cur.quantity, 10); assertEqual(cur.source, "BUY")
+  assertEqual(NS.Holdings:Get(ME).currency[3008], 40)
+  closeBank()
+  -- A pending account transfer flushed with the opening read keeps its MOVE pair and the credit.
+  NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { currency = 1 },
+    items = {}, currency = {}, links = {} }
+  m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 3 } })
+  m.__now = 300
+  R():OnEvent("CURRENCY_TRANSFER_LOG_UPDATE")
+  R():OnEvent("CURRENCY_DISPLAY_UPDATE", 3008, 28, -12, nil, m.Enum.CurrencyDestroyReason.AccountTransfer)
+  openBank(); R():Flush()
+  local moves, outs = 0, 0
+  for i = 3, #H() do
+    local r = H()[i]
+    if r.kind == "CURRENCY" and r.dir == "MOVE" then moves = moves + 1 end
+    if r.kind == "CURRENCY" and r.dir == "OUT" then
+      outs = outs + 1; assertEqual(r.quantity, 2); assertEqual(r.source, "TRANSFER")
+    end
+  end
+  assertEqual(moves, 2); assertEqual(outs, 1)
+  assertEqual(NS.db.global.holdings["Alt-Realm"].currency[3008], 10)
+  assertEqual(NS.Holdings:Get(ME).currency[3008], 28)
+  m.__currencyTransfers = {}
+end)
+
 case("Reconciler: a bank never read before is a silent first read that ends partial", function()
   reset()
   genesis()

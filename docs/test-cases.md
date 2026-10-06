@@ -446,7 +446,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
-### test_reconciler_rows.lua (27)
+### test_reconciler_rows.lua (28)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -473,6 +473,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: changes made while stood down land as UNTRACKED on resume
 - Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing
 - Reconciler: bank drift since the last visit is UNTRACKED on the first read of the next
+- Reconciler: a currency delta pending when the banker opens survives the drift pass
 - Reconciler: a bank never read before is a silent first read that ends partial
 - Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
 
@@ -1535,7 +1536,7 @@ badge and any count quoted in the docs must agree with it.
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 43 |
 | test_reconciler.lua | 7 |
-| test_reconciler_rows.lua | 27 |
+| test_reconciler_rows.lua | 28 |
 | test_escrow.lua | 11 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
@@ -1574,4 +1575,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1336** |
+| **Total** | **1337** |
