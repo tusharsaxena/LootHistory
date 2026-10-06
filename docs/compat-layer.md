@@ -57,6 +57,14 @@ primitives and holds no opinion about how they are composed.
 | `Compat.CurrencyCategory(currencyID)` | `C_CurrencyInfo.GetCurrencyListSize`/`…ListInfo`/`…ListLink` | The currency window's expansion/type header (e.g. "The War Within") for the record's `itemSubType`, built once by walking the list and cached for the session; `nil` when absent. |
 | `Compat.CurrencyQuality(currencyID)` | `C_CurrencyInfo.GetCurrencyInfo` | The currency's `Enum.ItemQuality` tier — colors the Name cell + fills the Quality column for currency rows, and drives the v3→v4 backfill migration; `nil` when uncached/absent. |
 | `Compat.CurrencyBound(currencyID)` | `C_CurrencyInfo.GetCurrencyInfo` (`isAccountTransferable`) | `"WARBAND"` for a Warband-transferable currency, else `"BOP"` — drives the currency Bound-column glyph and the v4→v5 backfill migration; `nil` when the id can't be resolved. |
+| `Compat.GetContainerNumSlots(bagID)` | `C_Container.GetContainerNumSlots` | Slot count of a bag or bank tab; `0` when the API is absent, so a holdings walk over a missing container is a no-op. |
+| `Compat.GetContainerSlot(bagID, slot)` | `C_Container.GetContainerItemInfo` | `{itemID, link, count}` for an occupied slot, `nil` when empty or absent; flattens `hyperlink`/`stackCount` so callers never see the client's info-table shape. |
+| `Compat.GetMoney()` | `GetMoney` − `GetCursorMoney` − `GetPlayerTradeMoney` | Purse copper as the player owns it: money held on the cursor or staged in a trade window is still theirs. Missing parts read `0`. |
+| `Compat.GetWarbandMoney()` | `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` | Warband bank gold in copper; `nil` when the API or enum is absent (distinct from a real `0`). |
+| `Compat.GetInventoryItem(slot)` | `GetInventoryItemID` + `GetInventoryItemLink` | `itemID, link` for an equipped slot of the player; `nil` when empty or absent. |
+| `Compat.BagInventorySlot(bagID)` | `C_Container.ContainerIDToInventoryID` | The inventory slot a bag container is equipped in, `nil` for the backpack or when absent. |
+| `Compat.ListCurrencies()` | `C_CurrencyInfo.GetCurrencyListSize`/`…ListInfo`/`…ListLink`/`ExpandCurrencyList` | Every currency the character has as `{id, quantity, accountWide}`. Collapsed headers are expanded for the walk and collapsed again after (last-to-first), because the list hides their children; `{}` when the API is absent. |
+| `Compat.InteractionType(name)` | `Enum.PlayerInteractionType[name]` | Numeric interaction type for a name (`"Banker"`, `"AccountBanker"`, …) so handlers never hardcode the number; `nil` when unknown. |
 
 ## Boundary rule
 

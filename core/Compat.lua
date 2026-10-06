@@ -438,3 +438,77 @@ function Compat.CurrencyBound(currencyID)
   end
   return nil
 end
+
+-- ── Holdings reads (timeline ledger, spec §3) ─────────────────────────────────────────────────
+function Compat.GetContainerNumSlots(bagID)
+  local fn = C_Container and C_Container.GetContainerNumSlots
+  return fn and (fn(bagID) or 0) or 0
+end
+
+function Compat.GetContainerSlot(bagID, slot)
+  local fn = C_Container and C_Container.GetContainerItemInfo
+  if not fn then return nil end
+  local info = fn(bagID, slot)
+  if not info or not info.itemID then return nil end
+  return { itemID = info.itemID, link = info.hyperlink, count = info.stackCount or 1 }
+end
+
+-- Purse money as the player owns it: copper on the cursor or staged in an open trade window is
+-- still theirs (BagSync events.lua's formula).
+function Compat.GetMoney()
+  if type(GetMoney) ~= "function" then return 0 end
+  local cursor = type(GetCursorMoney) == "function" and GetCursorMoney() or 0
+  local trade = type(GetPlayerTradeMoney) == "function" and GetPlayerTradeMoney() or 0
+  return (GetMoney() or 0) - (cursor or 0) - (trade or 0)
+end
+
+function Compat.GetWarbandMoney()
+  local fn = C_Bank and C_Bank.FetchDepositedMoney
+  local t = Enum and Enum.BankType and Enum.BankType.Account
+  if type(fn) ~= "function" or t == nil then return nil end
+  return fn(t)
+end
+
+function Compat.GetInventoryItem(slot)
+  if type(GetInventoryItemID) ~= "function" then return nil end
+  local id = GetInventoryItemID("player", slot)
+  if not id then return nil end
+  return id, type(GetInventoryItemLink) == "function" and GetInventoryItemLink("player", slot) or nil
+end
+
+function Compat.BagInventorySlot(bagID)
+  local fn = C_Container and C_Container.ContainerIDToInventoryID
+  return fn and fn(bagID) or nil
+end
+
+function Compat.InteractionType(name)
+  local e = Enum and Enum.PlayerInteractionType
+  return e and e[name] or nil
+end
+
+-- Every currency the character has, with its quantity. The client's list hides the children of a
+-- collapsed header, so collapsed headers are expanded for the walk and collapsed again after,
+-- last-to-first so indices stay valid (BagSync scanner.lua does the same).
+function Compat.ListCurrencies()
+  local CI = C_CurrencyInfo
+  if not (CI and CI.GetCurrencyListSize and CI.GetCurrencyListInfo and CI.GetCurrencyListLink) then return {} end
+  local expanded = {}
+  local i = 1
+  while i <= CI.GetCurrencyListSize() do
+    local info = CI.GetCurrencyListInfo(i)
+    if info and info.isHeader and not info.isHeaderExpanded and CI.ExpandCurrencyList then
+      CI.ExpandCurrencyList(i, true); expanded[#expanded + 1] = i
+    end
+    i = i + 1
+  end
+  local out = {}
+  for j = 1, CI.GetCurrencyListSize() do
+    local info = CI.GetCurrencyListInfo(j)
+    if info and not info.isHeader then
+      local id = Compat.CurrencyLinkID(CI.GetCurrencyListLink(j))
+      if id then out[#out + 1] = { id = id, quantity = info.quantity or 0, accountWide = info.isAccountWide == true } end
+    end
+  end
+  for k = #expanded, 1, -1 do CI.ExpandCurrencyList(expanded[k], false) end
+  return out
+end

@@ -475,3 +475,54 @@ test("Compat: the degraded build's GetSpellName answers nil even with C_Spell pr
     assertEqual(ns.Compat.GetSpellName(51005), nil)
   end)
 end)
+
+test("Compat: bag-id groups come from Enum.BagIndex names, type constants excluded", function()
+  local C = NS.Constants
+  assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
+  assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
+  assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
+end)
+
+test("Compat: container slot read and empty slot", function()
+  local m = T.mocks
+  m.__bagSlots[0] = 2
+  m.__bags[0] = { [1] = { itemID = 7, link = "|Hitem:7|h[Seven]|h", count = 3 } }
+  assertEqual(NS.Compat.GetContainerNumSlots(0), 2)
+  local s = NS.Compat.GetContainerSlot(0, 1)
+  assertEqual(s.itemID, 7); assertEqual(s.count, 3)
+  assertEqual(NS.Compat.GetContainerSlot(0, 2), nil)
+  m.__bags[0], m.__bagSlots[0] = {}, 0
+end)
+
+test("Compat: GetMoney nets cursor and trade money", function()
+  local m = T.mocks
+  m.__money, m.__cursorMoney, m.__tradeMoney = 1000, 100, 50
+  assertEqual(NS.Compat.GetMoney(), 850)
+  m.__money, m.__cursorMoney, m.__tradeMoney = 0, 0, 0
+end)
+
+test("Compat: GetWarbandMoney reads the account bank, nil when API absent", function()
+  local m = T.mocks
+  m.__warbandMoney = 777
+  assertEqual(NS.Compat.GetWarbandMoney(), 777)
+  local saved = m.C_Bank; m.C_Bank = nil; rawset(_G, "C_Bank", nil)
+  assertEqual(NS.Compat.GetWarbandMoney(), nil)
+  m.C_Bank = saved; rawset(_G, "C_Bank", saved)
+  m.__warbandMoney = 0
+end)
+
+test("Compat: ListCurrencies expands collapsed headers and restores them", function()
+  local m = T.mocks
+  local saved = m.__currencyList
+  m.__currencyList = {
+    { header = true, collapsed = true, name = "Midnight" },
+    { id = 3008, quantity = 40, accountWide = false },
+    { id = 2032, quantity = 5, accountWide = true },
+  }
+  local list = NS.Compat.ListCurrencies()
+  assertEqual(#list, 2)
+  assertEqual(list[1].id, 3008); assertEqual(list[1].quantity, 40)
+  assertEqual(list[2].accountWide, true)
+  assertTrue(m.__currencyList[1].collapsed)   -- restored
+  m.__currencyList = saved
+end)

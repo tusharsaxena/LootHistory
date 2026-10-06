@@ -217,6 +217,38 @@ local MSG = {
   SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
 }
 
+-- ── Container id groups (copied from BankLedger core/Constants.lua, which paid for the lesson) ──
+-- Derived BY MEMBER NAME from Enum.BagIndex, never by number: Blizzard renumbers between builds,
+-- and 12.0.7 also carries type constants (Characterbanktab = -2, Accountbanktab = -3) a loose
+-- pattern would scoop up. Anchored, case-sensitive patterns only.
+local GROUP_PATTERNS = {
+  BAGS = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$" },
+  BANK = { "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$" },
+  TABS = { "^AccountBankTab_%d+$" },
+}
+local function idsMatching(patterns)
+  local seen, ids = {}, {}
+  local members = Enum and Enum.BagIndex
+  if type(members) == "table" then
+    for name, value in pairs(members) do
+      if type(value) == "number" then
+        for _, pattern in ipairs(patterns) do
+          if name:match(pattern) and not seen[value] then seen[value] = true; ids[#ids + 1] = value; break end
+        end
+      end
+    end
+  end
+  table.sort(ids)
+  return ids
+end
+C.BAG_IDS         = idsMatching(GROUP_PATTERNS.BAGS)
+C.BANK_IDS        = idsMatching(GROUP_PATTERNS.BANK)
+C.WARBAND_TAB_IDS = idsMatching(GROUP_PATTERNS.TABS)
+if #C.BAG_IDS == 0 then C.BAG_IDS = { 0, 1, 2, 3, 4, 5 } end
+
+C.EQUIP_SLOTS = {}
+for s = (INVSLOT_FIRST_EQUIPPED or 1), (INVSLOT_LAST_EQUIPPED or 19) do C.EQUIP_SLOTS[#C.EQUIP_SLOTS + 1] = s end
+
 local Bus = LibStub and LibStub("LibKa0s-Bus-1.0", true)
 if not Bus then
   -- Degraded: the payload is missing. The names are still declared once and still used everywhere;

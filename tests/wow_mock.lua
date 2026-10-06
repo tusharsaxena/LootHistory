@@ -44,18 +44,6 @@ return function()
   M.__currencyNames = { [3008] = "Valorstones", [2914] = "Weathered Harbinger Crest" }
   M.__currencyTransferable = { [3008] = true }   -- 3008 is Warband-transferable; 2914 is not
   M.C_CurrencyInfo = {
-    GetCurrencyListSize = function() return 3 end,
-    GetCurrencyListInfo = function(i)
-      if i == 1 then return { name = "The War Within", isHeader = true } end
-      if i == 2 then return { name = M.__currencyNames[3008], isHeader = false } end
-      if i == 3 then return { name = M.__currencyNames[2914], isHeader = false } end
-      return nil
-    end,
-    GetCurrencyListLink = function(i)
-      if i == 2 then return "|Hcurrency:3008::|h[Valorstones]|h" end
-      if i == 3 then return "|Hcurrency:2914::|h[Weathered Harbinger Crest]|h" end
-      return nil
-    end,
     GetCurrencyInfoFromLink = function(link)
       local id = tonumber(link and link:match("|?H?currency:(%d+)"))
       if not id then return nil end
@@ -68,6 +56,68 @@ return function()
         isAccountTransferable = M.__currencyTransferable[id] or false }
     end,
   }
+
+  -- ── holdings reads (timeline ledger) ───────────────────────────────────────
+  -- Enum.BagIndex as 12.0.7 ships it, INCLUDING the two type constants (-2/-3) the name patterns
+  -- must not scoop up (BankLedger's double-count bug).
+  M.Enum = M.Enum or {}
+  M.Enum.BagIndex = {
+    Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, ReagentBag = 5,
+    CharacterBankTab_1 = 6, CharacterBankTab_2 = 7, CharacterBankTab_3 = 8,
+    CharacterBankTab_4 = 9, CharacterBankTab_5 = 10, CharacterBankTab_6 = 11,
+    AccountBankTab_1 = 12, AccountBankTab_2 = 13, AccountBankTab_3 = 14,
+    AccountBankTab_4 = 15, AccountBankTab_5 = 16,
+    Characterbanktab = -2, Accountbanktab = -3,
+  }
+  M.Enum.BankType = { Character = 0, Guild = 1, Account = 2 }
+  M.Enum.PlayerInteractionType = { Banker = 8, AccountBanker = 68, MailInfo = 17, Auctioneer = 21, Merchant = 5, GuildBanker = 10 }
+  M.__bags, M.__bagSlots = {}, {}
+  M.C_Container = M.C_Container or {}
+  M.C_Container.GetContainerNumSlots = function(bag) return M.__bagSlots[bag] or 0 end
+  M.C_Container.GetContainerItemInfo = function(bag, slot)
+    local s = M.__bags[bag] and M.__bags[bag][slot]
+    if not s then return nil end
+    return { itemID = s.itemID, hyperlink = s.link, stackCount = s.count }
+  end
+  M.C_Container.ContainerIDToInventoryID = function(bag) if bag >= 1 and bag <= 5 then return 30 + bag end end
+  M.__money, M.__cursorMoney, M.__tradeMoney, M.__warbandMoney = 0, 0, 0, 0
+  M.GetMoney = function() return M.__money end
+  M.GetCursorMoney = function() return M.__cursorMoney end
+  M.GetPlayerTradeMoney = function() return M.__tradeMoney end
+  M.C_Bank = { FetchDepositedMoney = function(t) if t == 2 then return M.__warbandMoney end end }
+  M.INVSLOT_FIRST_EQUIPPED, M.INVSLOT_LAST_EQUIPPED = 1, 19
+  M.__inventory = {}
+  M.GetInventoryItemID = function(_, slot) return M.__inventory[slot] and M.__inventory[slot].itemID end
+  M.GetInventoryItemLink = function(_, slot) return M.__inventory[slot] and M.__inventory[slot].link end
+  -- The currency LIST (the window), distinct from the by-id lookups above. Collapsed headers hide
+  -- their children from GetCurrencyListSize exactly as the client does. Seeded with the fixture the
+  -- category tests read: one expansion header ("The War Within") then two currencies under it.
+  M.__currencyList = {
+    { header = true, name = "The War Within" },
+    { id = 3008, name = M.__currencyNames[3008] },
+    { id = 2914, name = M.__currencyNames[2914] },
+  }
+  local function visible()
+    local out, hidden = {}, false
+    for _, e in ipairs(M.__currencyList) do
+      if e.header then out[#out + 1] = e; hidden = e.collapsed
+      elseif not hidden then out[#out + 1] = e end
+    end
+    return out
+  end
+  M.C_CurrencyInfo.GetCurrencyListSize = function() return #visible() end
+  M.C_CurrencyInfo.GetCurrencyListInfo = function(i)
+    local e = visible()[i]; if not e then return nil end
+    return { name = e.name, isHeader = e.header or false, isHeaderExpanded = not e.collapsed,
+             quantity = e.quantity, isAccountWide = e.accountWide }
+  end
+  M.C_CurrencyInfo.GetCurrencyListLink = function(i)
+    local e = visible()[i]
+    if e and e.id then return "|Hcurrency:" .. e.id .. "::|h[" .. (e.name or "x") .. "]|h" end
+  end
+  M.C_CurrencyInfo.ExpandCurrencyList = function(i, expand)
+    local e = visible()[i]; if e and e.header then e.collapsed = not expand end
+  end
 
   -- ── loot / currency global strings ─────────────────────────────────────────
   M.LOOT_ITEM_SELF = "You receive loot: %s."

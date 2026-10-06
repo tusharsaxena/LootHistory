@@ -137,7 +137,7 @@ badge and any count quoted in the docs must agree with it.
 - Util: row accessors give legacy defaults
 - Constants: ledger enums and warband key
 
-### test_compat.lua (39)
+### test_compat.lua (44)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -178,6 +178,11 @@ badge and any count quoted in the docs must agree with it.
 - Compat: GetSpellName is LibKa0s-Compat-1.0's member on the live path
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
+- Compat: bag-id groups come from Enum.BagIndex names, type constants excluded
+- Compat: container slot read and empty slot
+- Compat: GetMoney nets cursor and trade money
+- Compat: GetWarbandMoney reads the account bank, nil when API absent
+- Compat: ListCurrencies expands collapsed headers and restores them
 
 ### test_attribution.lua (37)
 
@@ -1209,7 +1214,7 @@ badge and any count quoted in the docs must agree with it.
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
 | test_ledger.lua | 6 |
-| test_compat.lua | 39 |
+| test_compat.lua | 44 |
 | test_attribution.lua | 37 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
@@ -1246,4 +1251,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1060** |
+| **Total** | **1065** |
