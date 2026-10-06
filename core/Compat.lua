@@ -509,6 +509,20 @@ function Compat.ShowTextTooltip(owner, title, body, anchor)
   return true
 end
 
+-- An amount tooltip (BankLedger's gold-row shape): a colored title, one "label .... value" double
+-- line, then an optional gray hint. `rgb` is the title color ({ r, g, b }); nil = header gold.
+function Compat.ShowAmountTooltip(owner, title, rgb, label, value, hint, anchor)
+  local tt = tooltip("AddDoubleLine")
+  if not (tt and title) then return false end
+  rgb = rgb or { 1, 0.82, 0 }
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:AddLine(title, rgb[1], rgb[2], rgb[3])
+  tt:AddDoubleLine(label or "", value or "", 0.9, 0.9, 0.9, 1, 1, 1)
+  if hint and hint ~= "" then tt:AddLine(hint, 0.5, 0.5, 0.5) end
+  tt:Show()
+  return true
+end
+
 function Compat.HideTooltip()
   local tt = tooltip("Hide")
   if tt then tt:Hide() end

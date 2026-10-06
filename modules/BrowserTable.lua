@@ -207,6 +207,8 @@ BrowserTable.COLUMNS = {
       return r.itemName or (r.itemLink and r.itemLink:match("%[(.-)%]")) or "?"
     end,
     sortFn = function(r) return (r.itemName or ""):lower() end },
+  -- 34 is the FLOOR (an item or currency count). The column is widened to the widest signed gold
+  -- string once the window can measure fonts (BrowserTable:MeasureColumns, below).
   { key = "qty", label = "Qty", width = 34, align = "RIGHT",
     desc = "Quantity: + gained, - lost, unsigned for a transfer. Gold rows show the amount.",
     valueFn = function(r) return NS.LedgerFormat.QtyText(r) end,
@@ -248,6 +250,47 @@ BrowserTable.COLUMNS = {
 
 local COLUMN_BY_KEY = {}
 for _, col in ipairs(BrowserTable.COLUMNS) do COLUMN_BY_KEY[col.key] = col end
+
+-- ── Measured Qty width (P5 owner feedback) ───────────────────────────────────────
+-- A fixed 34px truncated gold amounts ("9661…"). The column is measured instead, at the row font,
+-- against the widest signed gold string the cell can show: the gold cap (9,999,999g 99s 99c) with
+-- either sign, rendered through the Qty column's own valueFn so the measured string IS the cell's.
+-- QTY_FLOOR is the width the column shipped with, so a font that measures 0 (headless) changes
+-- nothing; QTY_PAD absorbs the measurer's sub-pixel rounding.
+local QTY_FLOOR, QTY_PAD = COLUMN_BY_KEY.qty.width, 2
+local QTY_GOLD_CAP = 99999999999   -- copper
+
+local function qtySamples()
+  local out, valueFn = {}, COLUMN_BY_KEY.qty.valueFn
+  for _, dir in ipairs({ "IN", "OUT" }) do
+    out[#out + 1] = valueFn({ kind = C.Kind.GOLD, dir = dir, quantity = QTY_GOLD_CAP })
+  end
+  return out
+end
+
+-- The Qty width from `measure(text)` (pixels): the widest sample + QTY_PAD, never under the floor.
+local function qtyWidth(measure)
+  local widest = 0
+  for _, text in ipairs(qtySamples()) do widest = math.max(widest, measure(text) or 0) end
+  return math.max(QTY_FLOOR, math.ceil(widest) + QTY_PAD)
+end
+
+-- Measure with a throwaway FontString in the row font on `parent`. Browser calls this before it
+-- takes the window floor (B:MinWidth reads MinFrameWidth, which sums column widths).
+function BrowserTable:MeasureColumns(parent)
+  if not (parent and parent.CreateFontString) then return end
+  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetWordWrap(false)
+  fs:Hide()
+  COLUMN_BY_KEY.qty.width = qtyWidth(function(text)
+    fs:SetText(text)
+    local w = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+    return type(w) == "number" and w or 0
+  end)
+  fs:SetText("")
+end
+
+BrowserTable._qtySamples, BrowserTable._qtyWidth, BrowserTable._QTY_GOLD_CAP = qtySamples, qtyWidth, QTY_GOLD_CAP
 
 -- ── Pipeline ───────────────────────────────────────────────────────────────────
 BrowserTable.filter = {}
@@ -846,13 +889,18 @@ function BrowserTable:BuildRow()
 
   -- Hover → the full in-game item tooltip for this row's record (or the currency tooltip for
   -- currency rows); INFERRED rows get a note explaining the source is a guess. A hint line
-  -- advertises the click interactions.
+  -- advertises the click interactions. A gold row has no link to hover, so it gets BankLedger's
+  -- hand-built tooltip: a gold "Gold" title, the signed amount as "Amount", and the menu hint (gold
+  -- rows carry no link, so there is nothing to shift-click).
   row:SetScript("OnEnter", function(self2)
     local e = self2.entry
     if not (e and e.kind == "row") then return end
     local r = e.record
     local shown = false
-    if r.itemLink then
+    if NS.Util.RowKind(r) == C.Kind.GOLD then
+      NS.Compat.ShowAmountTooltip(self2, C.GOLD_TYPE, C.GOLD_RGB, "Amount",
+        NS.LedgerFormat.QtyText(r), "Right-click for options")
+    elseif r.itemLink then
       GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
       GameTooltip:SetHyperlink(r.itemLink)
       shown = true
@@ -869,7 +917,7 @@ function BrowserTable:BuildRow()
       GameTooltip:Show()
     end
   end)
-  row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  row:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
 
   -- Header left-click toggles collapse. Data rows: shift-left-click links the item to chat;
   -- right-click opens the row action menu.

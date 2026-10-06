@@ -1230,6 +1230,20 @@ gains, losses and transfers all show. Check each of these:
 
 Result:
 
+**LED-12. History gold amounts and the Gold tooltip (P5).** With **Record gold** ticked, open History
+on rows that include gold gains and losses (a large one if you have it, six or seven digits of gold).
+
+- The Qty column shows every gold amount in full, sign included (`+1,521g 3s 7c`, `-9,661g …`), with no
+  `…` cut-off; item and currency counts still read as before.
+- Hover a gold row: the tooltip matches BankLedger's gold row: a `Gold` title in pale gold, an
+  `Amount` line with the signed coin string on the right, and a gray `Right-click for options` line.
+  It never shows an item tooltip. Moving off the row hides it.
+- Hover an item row and a currency row: their own tooltips are unchanged.
+- The window's minimum width still shows every column: drag the grip to the smallest size and no
+  column overlaps its neighbor.
+
+Result:
+
 ## Ledger capture (timeline ledger Phase 2)
 
 The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`):
@@ -1663,6 +1677,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); no result recorded |
 | LED-10 | New | New with the timeline ledger P4 polish (bank and warband-tab drift on a visit's first read is `UNTRACKED`); no result recorded |
 | LED-11 | New | New with the timeline ledger P5 (History Direction column: glyph plus colored label); no result recorded |
+| LED-12 | New | New with the timeline ledger P5 (measured Qty width for gold, BankLedger-style Gold tooltip); no result recorded |
 | LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions |
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |

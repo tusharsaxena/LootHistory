@@ -953,6 +953,9 @@ local function EnsureFrame()
   B:BuildFilterBar(filterHost)
   -- The bar has measured its labels, so the toolbar floor is final only now. The grip below and
   -- RestoreWindow both clamp to it, which widens a size saved by a build with narrower controls.
+  -- The table's Qty column is measured here too (gold amounts at the row font), since the column
+  -- floor is summed from the column widths.
+  if NS.BrowserTable and NS.BrowserTable.MeasureColumns then NS.BrowserTable:MeasureColumns(frame) end
   minW = B:MinWidth()
   B._minW = minW
   frame:SetWidth(minW)

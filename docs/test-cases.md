@@ -687,7 +687,7 @@ badge and any count quoted in the docs must agree with it.
 - filter bar: the window floor fits both rows at the built widths
 - filter bar: a saved window narrower than the floor is widened on restore
 
-### test_browsertable.lua (72)
+### test_browsertable.lua (74)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -757,6 +757,8 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: re-binding a pooled row from MOVE to IN leaves no stale glyph or color
 - BrowserTable: a non-direction cell never shows the glyph FontString
 - BrowserTable: the Qty column shows signed quantities
+- BrowserTable: the Qty column is measured wide enough for the widest signed gold amount
+- BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own
 - BrowserTable: group by Direction and by Holder
 - History row menu: Show in Timeline opens the Timeline on that row's thing
 - History row menu: Show in Timeline is disabled for a row that names no thing
@@ -1545,7 +1547,7 @@ badge and any count quoted in the docs must agree with it.
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 87 |
-| test_browsertable.lua | 72 |
+| test_browsertable.lua | 74 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1579,4 +1581,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1341** |
+| **Total** | **1343** |

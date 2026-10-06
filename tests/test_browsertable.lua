@@ -964,6 +964,86 @@ test("BrowserTable: the Qty column shows signed quantities", function()
   assertEqual(qty.sortFn({ quantity = 2, dir = "OUT" }), -2)
 end)
 
+-- P5 owner feedback: the Qty cell truncated gold amounts ("9661…"). The column is now measured at
+-- the row font against the widest signed gold string the cell can show (the gold cap, both signs).
+-- Headless fonts measure 0, so the kit's builds keep the 34px floor; a 6px-a-character measurer
+-- stands in for the client's font here.
+local function qtyColumn()
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do if c.key == "qty" then return c end end
+end
+local function fakeMeasurer(px)
+  local fs = { __text = "" }
+  function fs:SetText(t) self.__text = t or "" end
+  function fs:GetText() return self.__text end
+  function fs:GetUnboundedStringWidth() return #self.__text * px end
+  function fs.SetWordWrap() end
+  function fs.Hide() end
+  return { CreateFontString = function() return fs end }
+end
+
+test("BrowserTable: the Qty column is measured wide enough for the widest signed gold amount", function()
+  local BT, qty = NS.BrowserTable, qtyColumn()
+  local floorW, floorFrame = qty.width, BT:MinFrameWidth()
+  local measure = function(text) return #text * 6 end
+  local samples = BT._qtySamples()
+  assertTrue(#samples >= 2, "the gold cap with both signs")
+  for _, s in ipairs(samples) do
+    assertTrue(s:find(NS.Util.FormatMoney(BT._QTY_GOLD_CAP), 1, true) ~= nil,
+      "samples go through the cell's own money formatter: " .. s)
+  end
+  assertEqual(BT._qtyWidth(function() return 0 end), floorW, "a font that measures 0 keeps the floor")
+  local ok, err = pcall(function()
+    BT:MeasureColumns(fakeMeasurer(6))
+    for _, s in ipairs(samples) do
+      assertTrue(qty.width >= measure(s), "Qty " .. qty.width .. " < " .. s)
+    end
+    assertTrue(qty.width > floorW, "the measured width did not widen the column")
+    assertEqual(BT:MinFrameWidth(), floorFrame + (qty.width - floorW), "the window floor tracks it")
+  end)
+  BT:MeasureColumns(fakeMeasurer(0))
+  assertEqual(qty.width, floorW, "re-measuring at 0 restores the floor")
+  if not ok then error(err, 0) end
+end)
+
+-- Record GameTooltip's calls (method and first two args) for the length of `fn`.
+local TT_METHODS = { "SetOwner", "SetHyperlink", "SetCurrencyByID", "AddLine", "AddDoubleLine", "Show", "Hide" }
+local function recordTooltip(fn)
+  local tt, calls, saved = T.mocks.GameTooltip, {}, {}
+  for _, m in ipairs(TT_METHODS) do
+    saved[m] = rawget(tt, m)
+    tt[m] = function(_, a, b)
+      calls[#calls + 1] = m .. "(" .. tostring(a) .. (m == "AddDoubleLine" and ("," .. tostring(b)) or "") .. ")"
+      return tt
+    end
+  end
+  local ok, err = pcall(fn)
+  for _, m in ipairs(TT_METHODS) do tt[m] = saved[m] end
+  if not ok then error(err, 0) end
+  return table.concat(calls, " ")
+end
+
+test("BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own", function()
+  local BT = NS.BrowserTable
+  local row = BT:BuildRow()
+  local gold = { kind = "GOLD", itemName = "Gold", quantity = 1234567, dir = "OUT" }
+  BT:BindRow(row, dataEntry(gold), 1)
+  local got = recordTooltip(function()
+    row:GetScript("OnEnter")(row)
+    row:GetScript("OnLeave")(row)
+  end)
+  assertTrue(got:find("AddLine(" .. NS.Constants.GOLD_TYPE .. ")", 1, true) ~= nil, got)
+  assertTrue(got:find("AddDoubleLine(Amount," .. NS.LedgerFormat.QtyText(gold) .. ")", 1, true) ~= nil, got)
+  assertTrue(got:find("AddLine(Right-click for options)", 1, true) ~= nil, got)
+  assertTrue(got:find("Show(", 1, true) ~= nil, got)
+  assertTrue(got:find("SetHyperlink", 1, true) == nil, "a gold row has no hyperlink: " .. got)
+  assertTrue(got:find("Hide(", 1, true) ~= nil, "OnLeave hides: " .. got)
+
+  BT:BindRow(row, dataEntry({ itemName = "Apple", itemLink = "|Hitem:7|h[Apple]|h", quantity = 1 }), 2)
+  got = recordTooltip(function() row:GetScript("OnEnter")(row) end)
+  assertTrue(got:find("SetHyperlink(|Hitem:7|h[Apple]|h)", 1, true) ~= nil, got)
+  assertTrue(got:find("AddDoubleLine", 1, true) == nil, got)
+end)
+
 test("BrowserTable: group by Direction and by Holder", function()
   local BT = NS.BrowserTable
   local saved = BT.groupBy
