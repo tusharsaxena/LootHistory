@@ -96,6 +96,10 @@ local OWNED = {
   "event:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED:nil",
   "event:PLAYER_INTERACTION_MANAGER_FRAME_SHOW:nil",
   "event:PLAYER_INTERACTION_MANAGER_FRAME_HIDE:nil",
+  -- modules/AttributionOut.lua: the ledger's loss-side mail and guild-bank events, on `__outEv`.
+  "event:MAIL_SEND_SUCCESS:nil",
+  "event:MAIL_FAILED:nil",
+  "event:ADDON_LOADED:nil",
   -- modules/HoldingsTab.lua: repaints the Holdings pane when the Reconciler's flush lands.
   "message:Ka0s_LootHistory_HoldingsChanged:nil",
 }
@@ -121,7 +125,7 @@ local OWNED = {
 local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
-                            NS.Attribution.__spellFrame, NS.Reconciler.__ev, NS.Reconciler._settings,
+                            NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
                             NS.HoldingsTab.__ev }) do
     if target then t[target] = true end
   end

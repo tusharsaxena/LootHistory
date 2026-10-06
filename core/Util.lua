@@ -308,3 +308,12 @@ function Util.ParseSelfMoney(msg)
   end
   return nil
 end
+
+-- "Name" or "Name-Realm" -> "Name-Realm" on the player's own (normalized) realm. Mail recipients and
+-- trade partners are typed or shown without a realm when they share the player's.
+function Util.QualifyName(name)
+  if not name or name == "" then return nil end
+  if name:find("-", 1, true) then return (name:gsub("%s+", "")) end
+  local realm = (GetNormalizedRealmName and GetNormalizedRealmName()) or (GetRealmName and GetRealmName()) or ""
+  return name .. "-" .. tostring(realm):gsub("%s+", "")
+end

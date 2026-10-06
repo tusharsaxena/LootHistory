@@ -282,6 +282,21 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
 
+### test_attribution_out.lua (12)
+
+- AttributionOut: StampOut writes the outbound slot with TTL and filters
+- AttributionOut: interaction show/hide toggles scopes
+- AttributionOut: ReasonContext exposes both slots and the scopes, resetting per-call fields
+- AttributionOut: SendMail to an own alt resolves the holder and stages attachments
+- AttributionOut: SendMail to a stranger leaves `to` nil
+- AttributionOut: posting records the item in flight and stamps the deposit
+- AttributionOut: taking AH sale money stamps AH_SOLD and names the item
+- AttributionOut: a completed trade stamps TRADE_GIVE and records the partner
+- AttributionOut: a craft arms the reagent window
+- AttributionOut: guild bank frame OnShow/OnHide drive the guildBank scope
+- AttributionOut: stood down, stamps and scopes are ignored
+- AttributionOut: EnableOut registers on a private target; DisableOut unregisters and clears
+
 ### test_filters.lua (19)
 
 - Filters: AddBlacklist stores the id in the blacklist set
@@ -1322,6 +1337,7 @@ badge and any count quoted in the docs must agree with it.
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_attribution.lua | 37 |
+| test_attribution_out.lua | 12 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 38 |
@@ -1360,4 +1376,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1154** |
+| **Total** | **1166** |

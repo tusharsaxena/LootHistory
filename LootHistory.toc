@@ -89,6 +89,7 @@ defaults\Profile.lua
 
 # Modules (Attribution before Collector)
 modules\Attribution.lua
+modules\AttributionOut.lua
 modules\Filters.lua
 modules\Scanner.lua
 modules\Holdings.lua

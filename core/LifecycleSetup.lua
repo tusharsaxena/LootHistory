@@ -40,9 +40,11 @@ local _, NS = ...
 -- launcher's registration. Without those, `/lh enable` would not exist and the switch would only
 -- go one way.
 --
--- The one carve-out on the teardown side is `hooksecurefunc`, which has no un-hook: the three
--- merchant/mail hooks and the two in core/Compat.lua gate their own bodies instead, at
--- NS.Attribution:Stamp, which is the single funnel every one of them lands in.
+-- The one carve-out on the teardown side is `hooksecurefunc`, which has no un-hook, so every hook
+-- gates its own body instead, through one of two funnels. The three merchant/mail hooks and the two
+-- in core/Compat.lua land in NS.Attribution:Stamp; the ledger's loss-side hooks (repair, buy, delete,
+-- mail, auction, craft, guild bank) land in NS.Attribution:StampOut or one of the On* bodies beside
+-- it in modules/AttributionOut.lua, each of which checks the latch first.
 
 local Lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 
@@ -121,6 +123,7 @@ function NS.StandDown()
   for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics, NS.HoldingsTab }) do
     if m and m.Disable then m:Disable() end
   end
+  if NS.Attribution and NS.Attribution.DisableOut then NS.Attribution:DisableOut() end
   if NS.DropLedgerResetOffer then NS.DropLedgerResetOffer() end
   local dropped = NS.CancelDeferrals()
   if NS.State.debug and NS.Debug then
@@ -143,6 +146,7 @@ function NS.StandUp()
     NS.SafeRegisterEvent(NS.addon, "PLAYER_ENTERING_WORLD", "OnEnterWorld", NS.RejectedEvents)
   end
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
+  if NS.Attribution and NS.Attribution.EnableOut then NS.Attribution:EnableOut() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
   if NS.Reconciler and NS.Reconciler.Enable then NS.Reconciler:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end

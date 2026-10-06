@@ -98,8 +98,8 @@ files["tests/"] = {
 --
 -- Every stanza below names ONE file, and every entry names the code AND the variable, in luacheck's
 -- `<code>/<variable>` form. Note precisely what changed, because the blanket this replaced ALSO
--- named its variables: the difference is SCOPE, not spelling. These thirteen stanzas answer for
--- thirteen files, so an unused `self` in any of the other 46 still reports, and so does an unused
+-- named its variables: the difference is SCOPE, not spelling. These fourteen stanzas answer for
+-- fourteen files, so an unused `self` in any of the other 46 still reports, and so does an unused
 -- argument under any other name anywhere at all.
 --
 -- Measured rather than assumed, and measured on that axis: an unused `self` and an unread
@@ -125,6 +125,7 @@ files["core/LootHistory.lua"] = { ignore = { "212/self" } }
 -- receiver: Database through `local Database`, Browser through `local B`, and so on.
 files["core/Database.lua"]        = { ignore = { "212/self" } }
 files["modules/Attribution.lua"]  = { ignore = { "212/self" } }
+files["modules/AttributionOut.lua"] = { ignore = { "212/self" } }
 files["modules/AuctionPrice.lua"] = { ignore = { "212/self" } }
 files["modules/Browser.lua"]      = { ignore = { "212/self" } }
 files["modules/BrowserTable.lua"] = { ignore = { "212/self" } }

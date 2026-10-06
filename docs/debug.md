@@ -84,7 +84,7 @@ at once.
 | `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message through the console's `DebugOnce` gate, so a Clear or a fresh `debug on` re-arms it |
 | `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` | an item or currency not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, and for the player's own currency lines `recordCurrency-off` and `unresolved-link` |
 | `Currency` | `Collector:OnChatMsgCurrency` | a currency recorded |
-| `Attr` | `modules/Attribution.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down` |
+| `Attr` | `modules/Attribution.lua`; `modules/AttributionOut.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down`; for the ledger's loss side, an outbound stamp and its trigger (`stamp-out <reason> via <trigger>`, or `stamp-out <reason> ignored: stood down`) and an interaction frame opening or closing (`scope <name> open` or `closed`) |
 | `Open` | `Attribution:OnLootOpened` / `OnContainerItemUse` | one summary per loot window (never per slot); a lootable bag item `ignored: spell targeting`. A bag item with no loot logs nothing: a merchant sale is one `UseContainerItem` per item |
 | `Cast` | `Attribution:OnSpellSucceeded` | a deconstruct cast only, never the rest of the rotation |
 | `Mail` | `Attribution:StampMail` | a mail attachment taken, with the AH-or-mail verdict |
