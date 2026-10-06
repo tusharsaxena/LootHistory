@@ -371,7 +371,7 @@ test("slash-commands-§7 step 6: firing every event it used to watch writes noth
       "a game event wrote SavedVariables while the addon was disabled")
     assertEqual(table.concat(M.__printed(), " | "), "",
       "a game event printed to chat while the addon was disabled")
-    for _, f in ipairs({}) do
+    for _, f in ipairs(M.__shownFrames()) do
       assertTrue(shownBefore[f], "a game event shed a frame onto the screen while disabled")
     end
     setEnabled(true)

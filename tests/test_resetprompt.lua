@@ -19,7 +19,6 @@ test("Reset prompt: an Esc on the upgrade login is asked again on the NEXT sessi
   local savedH, savedPrompt, savedPending, savedVer = g.history, g.resetPrompt, g.resetPromptPending, g.schemaVersion
   g.history, g.resetPrompt, g.resetPromptPending, g.schemaVersion = { {} }, nil, true, 11
   NS:RunMigrations()                   -- the second login's runner: nothing left to migrate
-  NS.State.upgradedFrom = nil
   local shown, realShow = {}, M.StaticPopup_Show
   M.StaticPopup_Show = function(which) shown[#shown + 1] = which end
   local ok, err = pcall(NS.OfferLedgerReset)
