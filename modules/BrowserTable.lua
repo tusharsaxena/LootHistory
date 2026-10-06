@@ -503,6 +503,13 @@ function BrowserTable:BuildTestData()
       mapID = zone.mapID,
       confidence = conf,
     }
+    -- A ledger reason in the seed walk is a loss (TRANSFER a transfer), so the preview shows the
+    -- Direction column and the gains-vs-losses charts with real shapes.
+    if C.LEDGER_REASON[source] then
+      local rec = out[#out]
+      rec.dir = (source == "TRANSFER") and "MOVE" or "OUT"
+      rec.kind, rec.holder = "ITEM", rec.char
+    end
   end
 
   -- 1) Coverage seed: guarantee every source/quality/class/binding appears at least once and that

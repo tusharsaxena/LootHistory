@@ -11,6 +11,13 @@ C.SourceType = {
   ROLL = "ROLL", BONUS_ROLL = "BONUS_ROLL", MPLUS = "MPLUS", OTHER = "OTHER",
   DISENCHANT = "DISENCHANT", MILLING = "MILLING", PROSPECTING = "PROSPECTING",
   REFUND = "REFUND",
+  -- Ledger reasons (timeline-ledger spec §4.1/§5.4), APPENDED in 2026-10: `source` now carries the
+  -- reason for gains AND losses. Stored strings and export contract like every member above.
+  SELL = "SELL", BUY = "BUY", REPAIR = "REPAIR", MAIL_SEND = "MAIL_SEND", TRADE_GIVE = "TRADE_GIVE",
+  AH_POST_FEE = "AH_POST_FEE", AH_SOLD = "AH_SOLD", AH_BUY = "AH_BUY", DESTROY = "DESTROY",
+  CONSUME = "CONSUME", CRAFT_REAGENT = "CRAFT_REAGENT", DECONSTRUCT = "DECONSTRUCT",
+  GUILD_DEPOSIT = "GUILD_DEPOSIT", GUILD_WITHDRAW = "GUILD_WITHDRAW", TRAINING = "TRAINING",
+  TRAVEL = "TRAVEL", TRANSFER = "TRANSFER", UNTRACKED = "UNTRACKED",
 }
 
 -- Display order for grouping/analytics (most to least "interesting").
@@ -18,6 +25,10 @@ C.SourceOrder = {
   "KILL", "CONTAINER", "MPLUS", "BONUS_ROLL", "ROLL", "QUEST",
   "TRADE", "MAIL", "AH", "VENDOR",
   "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "REFUND", "OTHER",
+  -- Ledger reasons, appended (append-only display order; the gain sources above keep their slots).
+  "SELL", "BUY", "REPAIR", "MAIL_SEND", "TRADE_GIVE", "AH_POST_FEE", "AH_SOLD", "AH_BUY",
+  "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
+  "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED",
 }
 
 -- Short human labels for the UI.
@@ -27,6 +38,11 @@ C.SourceLabel = {
   TRADE = "Trade", MAIL = "Mail", AH = "Auction House", VENDOR = "Vendor", CRAFT = "Craft",
   DISENCHANT = "Disenchant", MILLING = "Milling", PROSPECTING = "Prospecting",
   REFUND = "Refund", OTHER = "Other",
+  SELL = "Sell", BUY = "Buy", REPAIR = "Repair", MAIL_SEND = "Mail Sent", TRADE_GIVE = "Trade Given",
+  AH_POST_FEE = "AH Deposit", AH_SOLD = "AH Sold", AH_BUY = "AH Bought", DESTROY = "Destroyed",
+  CONSUME = "Consumed", CRAFT_REAGENT = "Crafting Reagent", DECONSTRUCT = "Deconstructed",
+  GUILD_DEPOSIT = "Guild Deposit", GUILD_WITHDRAW = "Guild Withdraw", TRAINING = "Training",
+  TRAVEL = "Travel", TRANSFER = "Transfer", UNTRACKED = "Untracked",
 }
 
 -- Sources with a live capture path today — every enum member now has one, so all are offered in the
@@ -38,6 +54,20 @@ C.SOURCE_IMPLEMENTED = {
   KILL = true, CONTAINER = true, MPLUS = true, QUEST = true, VENDOR = true,
   MAIL = true, TRADE = true, AH = true, BONUS_ROLL = true, ROLL = true, OTHER = true,
   DISENCHANT = true, MILLING = true, PROSPECTING = true, CRAFT = true, REFUND = true,
+  SELL = true, BUY = true, REPAIR = true, MAIL_SEND = true, TRADE_GIVE = true, AH_POST_FEE = true,
+  AH_SOLD = true, AH_BUY = true, DESTROY = true, CONSUME = true, CRAFT_REAGENT = true,
+  DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
+  TRANSFER = true, UNTRACKED = true,
+}
+
+-- The reasons only the LEDGER writes (holdings diffs, timeline-ledger spec §5.4). They have live
+-- paths (so SOURCE_IMPLEMENTED stays total) but they are NOT capture mutes: the mute list gates the
+-- rich chat record (Collector), and no chat line ever carries one of these.
+C.LEDGER_REASON = {
+  SELL = true, BUY = true, REPAIR = true, MAIL_SEND = true, TRADE_GIVE = true, AH_POST_FEE = true,
+  AH_SOLD = true, AH_BUY = true, DESTROY = true, CONSUME = true, CRAFT_REAGENT = true,
+  DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
+  TRANSFER = true, UNTRACKED = true,
 }
 
 -- Attribution confidence.
@@ -63,6 +93,25 @@ C.Container = {
 -- The virtual holder for the warband bank, warband gold and account-wide currencies. `§` marks a
 -- system key (BagSync's convention): code that means "characters" skips keys starting with it.
 C.WARBAND_HOLDER = "§warband"
+
+-- Direction display (History column, Insights, Timeline). Cosmetic only — never stored. Colors are
+-- BankLedger's (core/Constants.lua DirectionRGB) so a gain/loss reads the same in both addons.
+C.DirOrder = { "IN", "OUT", "MOVE" }
+C.DirLabel = { IN = "Gain", OUT = "Loss", MOVE = "Transfer" }
+C.DirRGB = {
+  IN   = { 0.35, 0.80, 0.45 },
+  OUT  = { 1.00, 0.33, 0.33 },
+  MOVE = { 0.62, 0.62, 0.66 },
+}
+-- TEXT glyphs: the default font has none of them and draws a box, so any FontString showing one
+-- MUST use C.FONT_MONO (the LibKa0s JetBrains Mono face). U+25B2, U+25BC, U+21C4 as UTF-8 escapes.
+C.DirGlyph = { IN = "\226\150\178", OUT = "\226\150\188", MOVE = "\226\135\132" }
+-- Gold rows (kind GOLD): the Type value they carry, and the pale gold their quantity is drawn in.
+C.GOLD_TYPE = "Gold"
+C.GOLD_RGB = { 1.00, 0.86, 0.55 }
+-- Seconds a tradeskill craft keeps reagent losses attributed to CRAFT_REAGENT (a cast is 1-3 s; a
+-- queued "craft all" re-arms it per CraftRecipe call).
+C.CRAFT_TTL = 6
 
 -- The monospace face used by the debug console and the export copy box. WoW ships no monospace
 -- font object, so one has to come from somewhere; as of LibKa0s v1.10 it comes from the LIBRARY
@@ -134,7 +183,7 @@ C.RETENTION_OPTIONS = {
 -- (SOURCE_IMPLEMENTED) are offered — an unreachable bucket would be a dead checkbox in the panel.
 C.SOURCE_OPTIONS = {}
 for _, s in ipairs(C.SourceOrder) do
-  if C.SOURCE_IMPLEMENTED[s] then
+  if C.SOURCE_IMPLEMENTED[s] and not C.LEDGER_REASON[s] then
     C.SOURCE_OPTIONS[#C.SOURCE_OPTIONS + 1] = { value = s, text = C.SourceLabel[s] }
   end
 end

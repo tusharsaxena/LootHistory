@@ -63,7 +63,7 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceType.REFUND, "REFUND")
   assertEqual(NS.Constants.SourceLabel.REFUND, "Refund")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
-  assertEqual(#NS.Constants.SourceOrder, 16)   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND
+  assertEqual(#NS.Constants.SourceOrder, 34)   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND + 18 ledger reasons
   -- Every enum member now has a live capture path, so all are offered in the mute list: CRAFT (from
   -- "You create"), REFUND (from "You are refunded") and ROLL (from the "You won:" roll line) joined
   -- the wired sources (deconstruct abilities, AH from mail, BONUS_ROLL from the bonus-roll line).

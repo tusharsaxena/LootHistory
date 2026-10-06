@@ -72,7 +72,7 @@ end)
 test("Constants: the mute options are the implemented sources, in display order", function()
   local i = 0
   for _, s in ipairs(C.SourceOrder) do
-    if C.SOURCE_IMPLEMENTED[s] then
+    if C.SOURCE_IMPLEMENTED[s] and not C.LEDGER_REASON[s] then
       i = i + 1
       assertEqual(C.SOURCE_OPTIONS[i].value, s, "mute option " .. i .. " out of order")
       assertEqual(C.SOURCE_OPTIONS[i].text, C.SourceLabel[s])
@@ -331,4 +331,38 @@ test("bus: the degraded build declares the same names, without the library", fun
   for k, v in pairs(NS.MSG) do
     assertEqual(ns.MSG[k], v, "degraded NS.MSG." .. k)
   end
+end)
+
+local LEDGER_KEYS = { "SELL", "BUY", "REPAIR", "MAIL_SEND", "TRADE_GIVE", "AH_POST_FEE", "AH_SOLD",
+  "AH_BUY", "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
+  "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED" }
+
+test("Constants: ledger reasons are appended SourceType members with labels", function()
+  for _, k in ipairs(LEDGER_KEYS) do
+    assertEqual(C.SourceType[k], k)
+    assertTrue(C.LEDGER_REASON[k], k .. " missing from LEDGER_REASON")
+    assertTrue(type(C.SourceLabel[k]) == "string" and C.SourceLabel[k] ~= "", k .. " has no label")
+  end
+  local n = 0; for _ in pairs(C.LEDGER_REASON) do n = n + 1 end
+  assertEqual(n, #LEDGER_KEYS)
+end)
+
+test("Constants: existing sources keep their order positions (append-only)", function()
+  local legacy = { "KILL", "CONTAINER", "MPLUS", "BONUS_ROLL", "ROLL", "QUEST", "TRADE", "MAIL", "AH",
+    "VENDOR", "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "REFUND", "OTHER" }
+  for i, s in ipairs(legacy) do assertEqual(C.SourceOrder[i], s) end
+  for i, s in ipairs(LEDGER_KEYS) do assertEqual(C.SourceOrder[#legacy + i], s) end
+end)
+
+test("Constants: no ledger reason is offered as a capture mute", function()
+  for _, o in ipairs(C.SOURCE_OPTIONS) do assertFalse(C.LEDGER_REASON[o.value], o.value) end
+end)
+
+test("Constants: direction palette and glyphs", function()
+  for _, d in ipairs(C.DirOrder) do
+    assertEqual(#C.DirRGB[d], 3)
+    assertTrue(type(C.DirGlyph[d]) == "string" and #C.DirGlyph[d] >= 3, "glyph is a multibyte char")
+    assertTrue(type(C.DirLabel[d]) == "string")
+  end
+  assertEqual(C.GOLD_TYPE, "Gold")
 end)
