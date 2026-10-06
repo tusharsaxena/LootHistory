@@ -442,7 +442,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: per-character category matrices split each char by category
 - Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight
 
-### test_browser.lua (67)
+### test_browser.lua (69)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser.ExportWidth exactly consumes the bar remainder at minimum width
@@ -511,6 +511,8 @@ badge and any count quoted in the docs must agree with it.
 - browser: a locked grip starts no sizing and its release saves nothing
 - browser: the resize grip is the Blizzard chat size grabber
 - browser: the History grip is Core.MakeResizable, not a hand-rolled copy
+- Browser: tab registry orders History, Insights, then registered tabs
+- Browser: a registered tab builds lazily and refreshes on select
 
 ### test_browsertable.lua (63)
 
@@ -1254,7 +1256,7 @@ badge and any count quoted in the docs must agree with it.
 | test_reconciler.lua | 7 |
 | test_database.lua | 69 |
 | test_stats.lua | 20 |
-| test_browser.lua | 67 |
+| test_browser.lua | 69 |
 | test_browsertable.lua | 63 |
 | test_export.lua | 29 |
 | test_debuglog.lua | 20 |
@@ -1284,4 +1286,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1086** |
+| **Total** | **1088** |

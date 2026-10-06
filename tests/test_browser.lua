@@ -879,3 +879,32 @@ test("browser: the History grip is Core.MakeResizable, not a hand-rolled copy", 
     "the save must not ride opts.onResize, which runs on every size step")
 end)
 
+
+-- ── Tab registry (timeline-ledger spec §8.0) ──────────────────────────────────────
+-- The pane strip is a registry each owning module adds a spec to, not a hard-coded pair. History
+-- and Insights register inside Browser.lua itself, so they always lead in order.
+
+test("Browser: tab registry orders History, Insights, then registered tabs", function()
+  local names = NS.Browser:Tabs()
+  assertEqual(names[1], "History"); assertEqual(names[2], "Insights")
+end)
+
+test("Browser: a registered tab builds lazily and refreshes on select", function()
+  -- Registered AFTER the window may already exist (earlier cases opened it), so this also pins the
+  -- late path: the pane and tab button are created on the fly.
+  -- red under: SelectTab looping a fixed TABS list, or rebuilding a built pane on every select.
+  local built, refreshed = 0, 0
+  NS.Browser:RegisterTab{ name = "ZTest", order = 99,
+    build = function() built = built + 1 end, refresh = function() refreshed = refreshed + 1 end }
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show()
+    NS.Browser:SelectTab("ZTest"); NS.Browser:SelectTab("History"); NS.Browser:SelectTab("ZTest")
+    assertEqual(built, 1); assertEqual(refreshed, 2)
+    assertEqual(NS.Browser:ActiveTab(), "ZTest")
+    NS.Browser:SelectTab("History")
+    NS.Browser:Hide()
+  end)
+  NS.Browser:_UnregisterTabForTest("ZTest")
+  if not ok then error(err, 0) end
+  assertEqual(#NS.Browser:Tabs(), 2, "the test tab must leave no trace")
+end)

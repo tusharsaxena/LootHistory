@@ -118,74 +118,90 @@ local function RestoreWindow()
 end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
-local TABS = { "History", "Insights" }
+-- A registry, not a hard-coded pair (timeline-ledger spec §8.0): each tab is a spec its owning
+-- module registers -- { name, order, build(pane), refresh(), export(title), filters }. The filter
+-- bar and footer are shared window chrome (EnsureFrame, issue #13); a pane holds only its view.
+local tabSpecs, tabOrder = {}, {}
 local lastTab = "History"   -- remembered within a session
+local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18   -- shared chrome heights; panes sit between
 
--- Lazily let the owning modules build their pane content the first time it's shown. The filter bar
--- and footer are NOT here — they are shared window chrome built once in EnsureFrame (issue #13), so
--- both panes render off the same singleton filter. Each pane holds only its view: the table
--- (History) or the analytics charts (Insights).
+function B:Tabs() local out = {}; for i, n in ipairs(tabOrder) do out[i] = n end; return out end
+function B:ActiveTab() return lastTab end
+
+-- Lazily let the owning module build its pane content the first time it's shown.
 local function BuildPane(name)
   local pane = frame.panes[name]
-  if pane._built then return end
-  pane._built = true
-  if name == "History" then
-    B:BuildTable(pane)
-  elseif name == "Insights" and NS.Analytics and NS.Analytics.Attach then
-    NS.Analytics:Attach(pane)
-  end
+  if not pane._built then pane._built = true; tabSpecs[name].build(pane) end
+end
+
+-- One content pane, filling between the shared filter bar and the shared footer.
+local function CreatePane(name)
+  local top = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + FILTERBAR_H + FILTER_GAP
+  local pane = CreateFrame("Frame", nil, frame)
+  pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -top)
+  pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
+  pane:Hide(); frame.panes[name] = pane
 end
 
 function B:SelectTab(name)
-  if not frame then return end
+  if not (frame and tabSpecs[name]) then return end
   lastTab = name
-  for _, t in ipairs(TABS) do
+  for _, t in ipairs(tabOrder) do
     local active = (t == name)
     frame.panes[t]:SetShown(active)
     frame.tabs[t].label:SetTextColor(unpack(active and SKIN.tabActive or SKIN.tabIdle))
     frame.tabs[t].underline:SetShown(active)
   end
   BuildPane(name)
-  -- Refresh the newly shown view against the shared filter, then repaint the shared footer/DB size
-  -- (issue #13: both read the same filter, so they're kept current on either tab).
-  if name == "History" and NS.BrowserTable and NS.BrowserTable.Refresh then
-    NS.BrowserTable:Refresh()
-    B:RefreshFilterOptions()
-  elseif name == "Insights" and NS.Analytics and NS.Analytics.Refresh then
-    NS.Analytics:Refresh()
-  end
+  -- Refresh the shown view against the shared filter, then the shared footer/DB size (issue #13).
+  if tabSpecs[name].refresh then tabSpecs[name].refresh() end
   B:UpdateFooter()
   B:UpdateDbSize()
   if NS.State.debug and NS.Debug then NS.Debug("UI", "tab -> %s", tostring(name)) end
 end
 
-local function CreateTabStrip()
-  local strip = CreateFrame("Frame", nil, frame)
-  strip:SetPoint("TOPLEFT", frame.divider, "BOTTOMLEFT", 6, -2)
-  strip:SetPoint("TOPRIGHT", frame.divider, "BOTTOMRIGHT", -6, -2)
-  strip:SetHeight(SKIN.tabStripH)
-  frame.tabStrip = strip
-  frame.tabs = {}
-
-  local x = 0
-  for _, name in ipairs(TABS) do
-    local tab = CreateFrame("Button", nil, strip)
-    tab:SetSize(90, SKIN.tabStripH)
-    tab:SetPoint("LEFT", x, 0)
-    local label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    label:SetPoint("CENTER")
-    label:SetText(name)
-    tab.label = label
-    local underline = tab:CreateTexture(nil, "ARTWORK")
-    underline:SetColorTexture(unpack(SKIN.tabActive))
-    underline:SetHeight(2)
-    underline:SetPoint("BOTTOMLEFT", 8, 0)
-    underline:SetPoint("BOTTOMRIGHT", -8, 0)
-    tab.underline = underline
-    tab:SetScript("OnClick", function() B:SelectTab(name) end)
-    frame.tabs[name] = tab
-    x = x + 94
+-- Strip on first call, missing buttons, then every button placed by index (late tabs re-flow it).
+local function LayoutTabButtons()
+  local strip = frame.tabStrip
+  if not strip then
+    strip = CreateFrame("Frame", nil, frame)
+    strip:SetPoint("TOPLEFT", frame.divider, "BOTTOMLEFT", 6, -2)
+    strip:SetPoint("TOPRIGHT", frame.divider, "BOTTOMRIGHT", -6, -2)
+    strip:SetHeight(SKIN.tabStripH)
+    frame.tabStrip, frame.tabs = strip, {}
   end
+  for i, name in ipairs(tabOrder) do
+    local tab = frame.tabs[name]
+    if not tab then
+      tab = CreateFrame("Button", nil, strip); tab:SetSize(90, SKIN.tabStripH)
+      tab.label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      tab.label:SetPoint("CENTER"); tab.label:SetText(name)
+      tab.underline = tab:CreateTexture(nil, "ARTWORK")
+      tab.underline:SetColorTexture(unpack(SKIN.tabActive)); tab.underline:SetHeight(2)
+      tab.underline:SetPoint("BOTTOMLEFT", 8, 0); tab.underline:SetPoint("BOTTOMRIGHT", -8, 0)
+      tab:SetScript("OnClick", function() B:SelectTab(name) end)
+      frame.tabs[name] = tab
+    end
+    tab:ClearAllPoints(); tab:SetPoint("LEFT", (i - 1) * 94, 0)
+  end
+end
+
+-- Meant for file load, before the window is built; a later call creates the pane + button on the spot.
+function B:RegisterTab(spec)
+  if not tabSpecs[spec.name] then tabOrder[#tabOrder + 1] = spec.name end
+  tabSpecs[spec.name] = spec
+  table.sort(tabOrder, function(a, b) return tabSpecs[a].order < tabSpecs[b].order end)
+  if frame then if not frame.panes[spec.name] then CreatePane(spec.name) end; LayoutTabButtons() end
+end
+
+-- Test-only: drop a tab, its pane and its button; an active one falls back to History.
+function B:_UnregisterTabForTest(name)
+  for i, n in ipairs(tabOrder) do if n == name then table.remove(tabOrder, i); break end end
+  tabSpecs[name] = nil
+  if lastTab == name then lastTab = "History" end
+  if not frame then return end
+  for _, set in ipairs({ frame.panes, frame.tabs }) do if set[name] then set[name]:Hide(); set[name] = nil end end
+  LayoutTabButtons()
 end
 
 -- ── Filter bar ──────────────────────────────────────────────────────────────────
@@ -478,16 +494,14 @@ B._options = {
 
 -- Push the current filter to the table and refresh the footer count. The filter is a singleton
 -- for the whole browser (issue #13): it always drives the table (keeping matchCount + the footer
--- current for both tabs), and it drives the Insights charts live while the Insights tab is the one
--- on screen. Switching to Insights re-runs Analytics:Refresh against this same filter (SelectTab),
--- so a filter changed while viewing History is already reflected when Insights is next shown —
--- without paying for an Insights relayout on every History-side keystroke.
+-- current on every tab), and it live-refreshes any other built tab while it is on screen. SelectTab
+-- re-runs a tab's refresh on switch, so a filter changed on History is already in Insights when
+-- next shown — without an Insights relayout on every History-side keystroke.
 local function ApplyFilter()
   if NS.BrowserTable then NS.BrowserTable:SetFilter(B.activeFilter) end
   B:UpdateFooter()
-  if lastTab == "Insights" and NS.Analytics and NS.Analytics.Refresh and NS.Analytics.pane then
-    NS.Analytics:Refresh()
-  end
+  local s = tabSpecs[lastTab]
+  if lastTab ~= "History" and s and s.refresh and frame and frame.panes[lastTab]._built then s.refresh() end
 end
 
 -- The active filter as a plain copy, for Analytics:Stats (issue #13). Shares the exact field shape
@@ -889,35 +903,20 @@ function B:BuildFilterBar(bar)
   exportBtn:SetPoint("LEFT", dd.char, "RIGHT", 8, 0)
 end
 
--- Route the Export button to the right modal for the active tab (issue #15). History exports the
--- loot rows; Insights exports the analytics summary computed off the SAME shared filter.
+-- Route the Export button to the active tab's modal (issue #15), titled after the tab ("Export
+-- Insights"). A spec carrying `export` owns its modal (Insights: the analytics summary off the SAME
+-- shared filter); every other tab gets the default below, the History loot rows.
 function B:OpenExport()
-  -- Title tracks the invoking tab ("Export History" / "Export Insights") and generalizes to any
-  -- future tab name — the tab that opens the modal supplies its own label. Export to CSV is
-  -- tab-specific: History exports the loot rows, Insights the analytics summary.
   local title = "Export " .. tostring(lastTab)
-  if lastTab == "Insights" then
-    NS.Export:Open({
-      title = title,
-      providers = {
-        allData     = function() return NS.Database:Stats({}) end,
-        currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
-      },
-      csv = function(stats) return NS.Export:InsightsCSV(stats) end,
-    })
-  else
-    NS.Export:Open({
-      title = title,
-      providers = {
-        allData     = function() return NS.Database:Export({}) end,
-        currentView = function()
-          return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
-            and NS.BrowserTable:OrderedFilteredRecords()) or {}
-        end,
-      },
-      csv = function(records) return NS.Export:CSV(records) end,
-    })
-  end
+  local s = tabSpecs[lastTab]
+  if s and s.export then return s.export(title) end
+  NS.Export:Open({ title = title,
+    providers = { allData = function() return NS.Database:Export({}) end,
+      currentView = function()
+        return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
+          and NS.BrowserTable:OrderedFilteredRecords()) or {}
+      end },
+    csv = function(records) return NS.Export:CSV(records) end })
 end
 
 -- Attach the virtualized History table to its pane (issue #13: the pane now holds only the table;
@@ -931,6 +930,18 @@ function B:BuildTable(pane)
     NS.BrowserTable:Attach(host)
   end
 end
+
+-- The built-in tabs. History's filter push stays ApplyFilter's unconditional half (the footer needs it).
+B:RegisterTab{ name = "History", order = 10,
+  build = function(pane) B:BuildTable(pane) end,
+  refresh = function() if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh(); B:RefreshFilterOptions() end end }
+B:RegisterTab{ name = "Insights", order = 20,
+  build = function(pane) if NS.Analytics and NS.Analytics.Attach then NS.Analytics:Attach(pane) end end,
+  refresh = function() if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end end,
+  export = function(title) NS.Export:Open({ title = title,   -- the analytics summary, same filter
+    providers = { allData = function() return NS.Database:Stats({}) end,
+                  currentView = function() return NS.Database:Stats(B:CurrentFilter()) end },
+    csv = function(stats) return NS.Export:InsightsCSV(stats) end }) end }
 
 -- ── Frame construction ─────────────────────────────────────────────────────────
 
@@ -1005,21 +1016,10 @@ local function EnsureFrame()
   -- Shared window chrome (issue #13): one singleton filter bar above both panes, and one shared
   -- footer below them. Layout from the top: title bar · tab strip · content gap · FILTER BAR ·
   -- panes · FOOTER. The panes now hold only their view (table / charts).
-  local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18
-  local barTop  = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap
-  local paneTop = barTop + FILTERBAR_H + FILTER_GAP
-
-  -- Content panes, one per tab, filling between the shared filter bar and the shared footer.
+  local barTop = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap
   frame.panes = {}
-  for _, name in ipairs(TABS) do
-    local pane = CreateFrame("Frame", nil, frame)
-    pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -paneTop)
-    pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
-    pane:Hide()
-    frame.panes[name] = pane
-  end
-
-  CreateTabStrip()
+  for _, name in ipairs(tabOrder) do CreatePane(name) end   -- one content pane per registered tab
+  LayoutTabButtons()   -- builds the tab strip on its first call
 
   -- Shared singleton filter bar host, anchored below the tab strip and above the panes.
   local filterHost = CreateFrame("Frame", nil, frame)
