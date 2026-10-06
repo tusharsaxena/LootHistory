@@ -338,3 +338,17 @@ C.CURRENCY_SOURCE_REASON = {
     ConcentrationCast = "CRAFT_REAGENT", AccountTransfer = "TRANSFER", Spell = "CONSUME",
   },
 }
+
+-- The Timeline's look (timeline-ledger spec §8.1). Total is the gold accent; the warband has its own
+-- hue so it never reads as a class; gains/losses ARE the History Direction column's (C.DirRGB,
+-- spec §7), so this block must stay below C.DirRGB in this file.
+C.TIMELINE = {
+  TOTAL   = { 1, 0.82, 0, 1 },
+  WARBAND = { 0.25, 0.75, 0.95, 1 },
+  OTHER   = { 0.7, 0.7, 0.72, 1 },
+  MARKER  = { 0.8, 0.8, 0.8, 0.6 },
+  GAIN    = C.DirRGB.IN,     -- Phase 2's direction colors: one definition
+  LOSS    = C.DirRGB.OUT,
+  TOTAL_W = 2.5,
+  LINE_W  = 1.5,
+}

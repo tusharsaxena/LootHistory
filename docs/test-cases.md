@@ -1088,6 +1088,27 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab: attach builds rows and recycles them on refresh
 - HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is closed
 
+### test_timeline.lua (18)
+
+- Timeline model: NextDay and DayStart walk local calendar days
+- Timeline model: DailySeries carries the last close forward
+- Timeline model: DailySeries starts at genesis and picks up each day's close
+- Timeline model: a flow-only cell does not break the carry
+- Timeline model: ValueAt and TotalSeries treat a not-yet-started holder as 0
+- Timeline model: RankHolders applies the Character filter before the cap
+- Timeline model: Build draws Total plus at most maxLines holders, richest first
+- Timeline model: a holder with nothing now but a balance in range is still a candidate
+- Timeline model: ledgerSince inside the range is a dashed marker; outside it is not
+- Timeline model: a partial holder is dashed from genesis until its bank was first seen
+- Timeline model: Flows sum the shown holders' gains and losses per day
+- Timeline model: gold reaches the chart in gold units and stays copper in the model
+- Timeline model: IntradaySeries rebuilds steps from rows, newest backwards from now
+- Timeline model: IntradaySeries gives up when the rows disagree with the rollup
+- Timeline model: a MOVE row moves the holder's own balance by its side
+- Timeline model: intraday only for Today / 7d, inside retention, after the ledger began
+- Timeline model: HoverLines reads each line's value and that day's flows
+- Timeline model: Suggest puts Gold first, then the biggest totals, capped
+
 ### test_panel.lua (43)
 
 - Panel: the parent category and its ONE sub-page are registered
@@ -1477,6 +1498,7 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 67 |
 | test_analytics_layout.lua | 8 |
 | test_holdingstab.lua | 7 |
+| test_timeline.lua | 18 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1497,4 +1519,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1267** |
+| **Total** | **1285** |

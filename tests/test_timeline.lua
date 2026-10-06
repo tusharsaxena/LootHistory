@@ -1,0 +1,225 @@
+local T = _G.LH_TEST
+local NS = T.NS
+local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
+
+local DAY = 86400
+local function TM() return NS.TimelineModel end
+
+-- The Timeline's model (timeline-ledger spec §8.1). Pure apart from Build, which reads NS.Holdings
+-- and the rollup store. Every case runs through `case`, which puts NS.db.global.holdings / daily and
+-- the Rollup's key index back the way it found them, so the suites after this one see no seed.
+local function case(name, fn)
+  test(name, function()
+    local g = NS.db.global
+    local holdings, daily, keys = g.holdings, g.daily, NS.Rollup and NS.Rollup._keys
+    if NS.Rollup then NS.Rollup._keys = nil end
+    local ok, err = pcall(fn)
+    g.holdings, g.daily = holdings, daily
+    if NS.Rollup then NS.Rollup._keys = keys end
+    if not ok then error(err, 0) end
+  end)
+end
+local function noon(y, m, d) return os.time({ year = y, month = m, day = d, hour = 12 }) end
+
+local function seedMoney(holders, ts)
+  NS.db.global.holdings, NS.db.global.daily = {}, {}
+  for h, copper in pairs(holders) do NS.Holdings:ApplyMoney(h, copper, ts) end
+end
+
+local function params(over)
+  local p = { thing = "g", range = "30d", now = noon(2026, 10, 5), maxLines = 8,
+    daily = NS.db.global.daily, history = {}, retentionDays = 0 }
+  p.from = p.now - 30 * DAY
+  for k, v in pairs(over or {}) do p[k] = v end
+  return p
+end
+
+local function byHolder(m, h)
+  for _, s in ipairs(m.series) do if s.holder == h then return s end end
+end
+
+-- ── day walk ──
+
+case("Timeline model: NextDay and DayStart walk local calendar days", function()
+  assertEqual(TM().NextDay("2026-10-31"), "2026-11-01")
+  assertEqual(TM().NextDay("2026-12-31"), "2027-01-01")
+  assertEqual(os.date("*t", TM().DayStart("2026-10-25")).hour, 0)
+  assertEqual(NS.Ledger.DayKey(TM().DayStart("2026-10-25")), "2026-10-25")
+end)
+
+-- ── carry-forward ──
+
+case("Timeline model: DailySeries carries the last close forward", function()
+  -- Review Focus 2: no change inside the range still draws a flat line at the pre-range close
+  local daily = { ["2026-09-01"] = { ["A-R"] = { g = { c = 500 } } } }
+  local pts = TM().DailySeries(daily, TM().SortedDays(daily), "A-R", "g", "2026-10-01", "2026-10-03", nil)
+  assertEqual(#pts, 3)
+  for _, p in ipairs(pts) do assertEqual(p.y, 500) end
+  assertEqual(pts[1].x, TM().DayStart("2026-10-01"))
+end)
+
+case("Timeline model: DailySeries starts at genesis and picks up each day's close", function()
+  local daily = {
+    ["2026-10-02"] = { ["A-R"] = { g = { c = 10 } } },
+    ["2026-10-04"] = { ["A-R"] = { g = { c = 30, i = 20 } } },
+  }
+  local pts = TM().DailySeries(daily, TM().SortedDays(daily), "A-R", "g", "2026-10-01", "2026-10-05", "2026-10-02")
+  assertEqual(#pts, 4)       -- 02, 03 (carried), 04, 05 (carried); nothing for 01
+  assertEqual(pts[1].y, 10); assertEqual(pts[2].y, 10); assertEqual(pts[3].y, 30); assertEqual(pts[4].y, 30)
+end)
+
+case("Timeline model: a flow-only cell does not break the carry", function()
+  local daily = {
+    ["2026-10-01"] = { ["A-R"] = { g = { c = 10 } } },
+    ["2026-10-02"] = { ["A-R"] = { g = { i = 4 } } },
+  }
+  local pts = TM().DailySeries(daily, TM().SortedDays(daily), "A-R", "g", "2026-10-01", "2026-10-02", nil)
+  assertEqual(pts[2].y, 10)
+end)
+
+case("Timeline model: ValueAt and TotalSeries treat a not-yet-started holder as 0", function()
+  local a = { { x = 1, y = 10 }, { x = 2, y = 20 } }
+  local b = { { x = 2, y = 5 } }
+  assertEqual(TM().ValueAt(a, 1.5), 10); assertEqual(TM().ValueAt(b, 1), nil)
+  local t = TM().TotalSeries({ a, b })
+  assertEqual(#t, 2)
+  assertEqual(t[1].y, 10); assertEqual(t[2].y, 25)
+end)
+
+-- ── ranking and the cap ──
+
+case("Timeline model: RankHolders applies the Character filter before the cap", function()
+  -- Review Focus 4
+  local latest = { ["A-R"] = 100, ["B-R"] = 300, ["C-R"] = 200, ["§warband"] = 50 }
+  local cands = { "A-R", "B-R", "C-R", "§warband" }
+  assertEqual(table.concat(TM().RankHolders(latest, cands, nil, 2), ","), "B-R,C-R")
+  assertEqual(table.concat(TM().RankHolders(latest, cands, { ["A-R"] = true, ["§warband"] = true }, 2), ","),
+    "A-R,§warband")
+  assertEqual(#TM().RankHolders(latest, cands, {}, 8), 4, "an empty selection means everyone")
+end)
+
+case("Timeline model: Build draws Total plus at most maxLines holders, richest first", function()
+  -- Review Focus 4, end to end
+  local holders = {}
+  for i = 1, 12 do holders[("H%02d-R"):format(i)] = i * 100 end
+  seedMoney(holders, noon(2026, 10, 1))
+  local m = TM().Build(params({ maxLines = 8 }))
+  assertEqual(#m.series, 9)
+  assertEqual(m.series[#m.series].holder, TM().TOTAL, "Total is drawn last, on top")
+  assertEqual(m.series[1].holder, "H12-R")
+  assertEqual(m.series[#m.series].points[#m.series[#m.series].points].y,
+    1200 + 1100 + 1000 + 900 + 800 + 700 + 600 + 500, "Total sums the SHOWN holders")
+end)
+
+case("Timeline model: a holder with nothing now but a balance in range is still a candidate", function()
+  seedMoney({ ["A-R"] = 100, ["B-R"] = 50 }, noon(2026, 10, 1))
+  NS.Holdings:ApplyMoney("B-R", 0, noon(2026, 10, 3))
+  local m = TM().Build(params())
+  assertTrue(byHolder(m, "B-R") ~= nil)
+  assertEqual(byHolder(m, "B-R").points[#byHolder(m, "B-R").points].y, 0)
+end)
+
+-- ── decorations ──
+
+case("Timeline model: ledgerSince inside the range is a dashed marker; outside it is not", function()
+  seedMoney({ ["A-R"] = 1 }, noon(2026, 10, 1))
+  local inside = TM().Build(params({ ledgerSince = noon(2026, 10, 2) }))
+  assertEqual(#inside.markers, 1); assertTrue(inside.markers[1].dashed)
+  local outside = TM().Build(params({ ledgerSince = noon(2026, 1, 1) }))
+  assertEqual(#outside.markers, 0)
+end)
+
+case("Timeline model: a partial holder is dashed from genesis until its bank was first seen", function()
+  local g, done = noon(2026, 10, 1), noon(2026, 10, 3)
+  assertEqual(TM().DashRange({ genesis = g, partial = false, completeAt = done }, 0), g)
+  assertEqual(select(2, TM().DashRange({ genesis = g, partial = false, completeAt = done }, 0)), done)
+  local from, to = TM().DashRange({ genesis = g, partial = true }, noon(2026, 10, 5))
+  assertEqual(from, g); assertEqual(to, noon(2026, 10, 5))
+  assertEqual(TM().DashRange({ genesis = g, partial = false }, 0), nil, "complete at genesis: solid")
+end)
+
+case("Timeline model: Flows sum the shown holders' gains and losses per day", function()
+  local daily = {
+    ["2026-10-02"] = { ["A-R"] = { g = { c = 1, i = 10, o = 3 } }, ["B-R"] = { g = { i = 5 } },
+                       ["C-R"] = { g = { i = 999 } } },
+  }
+  local f = TM().Flows(daily, TM().SortedDays(daily), { "A-R", "B-R" }, "g", "2026-10-01", "2026-10-05")
+  assertEqual(#f, 1); assertEqual(f[1].i, 15); assertEqual(f[1].o, 3)
+end)
+
+case("Timeline model: gold reaches the chart in gold units and stays copper in the model", function()
+  seedMoney({ ["A-R"] = 25000 }, noon(2026, 10, 1))
+  local m = TM().Build(params())
+  local data = TM().ChartData(m)
+  assertEqual(m.series[1].points[1].y, 25000)
+  assertEqual(data.series[1].points[1].y, 2.5)
+  assertFalse(data.integer, "gold is fractional on the chart")
+end)
+
+-- ── intraday (Today / 7 d) ──
+
+case("Timeline model: IntradaySeries rebuilds steps from rows, newest backwards from now", function()
+  local from = TM().DayStart("2026-10-05")
+  local now = from + 18 * 3600
+  local rows = {
+    { ts = from + 3600, dir = "IN", kind = "GOLD", holder = "A-R", quantity = 100 },
+    { ts = from + 7200, dir = "OUT", kind = "GOLD", holder = "A-R", quantity = 30 },
+    { ts = from + 7300, dir = "IN", kind = "GOLD", holder = "B-R", quantity = 999 },
+  }
+  local pts = TM().IntradaySeries(rows, "A-R", "g", from, now, 570, 500)
+  assertEqual(#pts, 6)
+  assertEqual(pts[1].x, from); assertEqual(pts[1].y, 500)
+  assertEqual(pts[3].y, 600); assertEqual(pts[5].y, 570)
+  assertEqual(pts[6].x, now); assertEqual(pts[6].y, 570)
+end)
+
+case("Timeline model: IntradaySeries gives up when the rows disagree with the rollup", function()
+  local from = TM().DayStart("2026-10-05")
+  local rows = { { ts = from + 60, dir = "IN", kind = "GOLD", holder = "A-R", quantity = 100 } }
+  assertEqual(TM().IntradaySeries(rows, "A-R", "g", from, from + 3600, 570, 400), nil)
+  assertEqual(TM().IntradaySeries(rows, "A-R", "g", from, from + 3600, 50, nil), nil, "negative start")
+end)
+
+case("Timeline model: a MOVE row moves the holder's own balance by its side", function()
+  local out = { dir = "MOVE", kind = "GOLD", holder = "A-R", quantity = 40, from = "A-R/money", to = "§warband/money" }
+  local inn = { dir = "MOVE", kind = "GOLD", holder = "§warband", quantity = 40, from = "A-R/money", to = "§warband/money" }
+  local intra = { dir = "MOVE", kind = "ITEM", itemID = 7, holder = "A-R", quantity = 5, from = "A-R/bags", to = "A-R/bank" }
+  assertEqual(TM().RowDelta(out, "A-R"), -40)
+  assertEqual(TM().RowDelta(inn, "§warband"), 40)
+  assertEqual(TM().RowDelta(intra, "A-R"), 0)
+  assertEqual(TM().RowDelta(out, "§warband"), 0, "another holder's row never moves this one")
+end)
+
+case("Timeline model: intraday only for Today / 7d, inside retention, after the ledger began", function()
+  local now = noon(2026, 10, 5)
+  assertTrue(TM().IntradayOK("today", now - 3600, now, 0, now - 99 * DAY))
+  assertTrue(TM().IntradayOK("7d", now - 7 * DAY, now, 30, now - 99 * DAY))
+  assertFalse(TM().IntradayOK("30d", now - 30 * DAY, now, 0, now - 99 * DAY))
+  assertFalse(TM().IntradayOK("7d", now - 7 * DAY, now, 3, now - 99 * DAY), "rows pruned at 3 days")
+  assertFalse(TM().IntradayOK("7d", now - 7 * DAY, now, 0, now - DAY), "rows before ledgerSince are gains-only")
+end)
+
+-- ── hover and picker ──
+
+case("Timeline model: HoverLines reads each line's value and that day's flows", function()
+  seedMoney({ ["A-R"] = 500 }, noon(2026, 10, 1))
+  NS.Rollup:NoteFlow("A-R", "g", noon(2026, 10, 1), "IN", 500)
+  local m = TM().Build(params())
+  local i
+  for k, x in ipairs(m.hoverXs) do if NS.Ledger.DayKey(x) == "2026-10-01" then i = k end end
+  local h = TM().HoverLines(m, i)
+  assertEqual(h.rows[1].text, TM().FormatValue("GOLD", 500))
+  assertEqual(h.gain, TM().FormatValue("GOLD", 500))
+  assertEqual(h.loss, TM().FormatValue("GOLD", 0))
+end)
+
+case("Timeline model: Suggest puts Gold first, then the biggest totals, capped", function()
+  local things = {
+    { key = "i:1", name = "Gloom Potion", total = 3 },
+    { key = "g", name = "Gold", total = 10 },
+    { key = "i:2", name = "Golden Potion", total = 50 },
+  }
+  local s = TM().Suggest("o", things, 2)
+  assertEqual(#s, 2); assertEqual(s[1].key, "g"); assertEqual(s[2].key, "i:2")
+  assertEqual(#TM().Suggest("zzz", things, 8), 0)
+end)

@@ -111,6 +111,7 @@ modules\Analytics.lua
 modules\AnalyticsCharts.lua
 modules\AnalyticsLedger.lua
 modules\HoldingsTab.lua
+modules\TimelineModel.lua
 modules\Diagnostics.lua
 
 # Settings
