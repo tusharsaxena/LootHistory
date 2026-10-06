@@ -133,7 +133,7 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
 
-### test_ledger.lua (6)
+### test_ledger.lua (19)
 
 - Ledger: ThingKey round-trips for every kind
 - Ledger: Diff reports signed deltas, sorted, zeros omitted
@@ -141,6 +141,19 @@ badge and any count quoted in the docs must agree with it.
 - Ledger: DirSign totals
 - Util: row accessors give legacy defaults
 - Constants: ledger enums and warband key
+- Ledger: ClassifyItems pairs a bag-to-bank deposit into one MOVE, no net
+- Ledger: ClassifyItems keeps the unpaired remainder as net change
+- Ledger: ClassifyItems ignores containers not rescanned on both sides
+- Ledger: mail taken is a gain unless it was own-origin
+- Ledger: escrow arrivals and auction exits never become net
+- Ledger: posting bags to auctions is a MOVE
+- Ledger: PairHolders turns a warband deposit into one pair and clears both nets
+- Ledger: PairHolders leaves same-sign changes alone
+- Ledger: claims consume fully, partially, and expire
+- Ledger: a late claim is still consumed inside its TTL
+- Ledger: coalesce key and the 60 s amend window
+- Ledger: ShouldHold — one-sided waits 6 s, unclaimed gain waits 1.5 s
+- Ledger: Signed applies DirSign
 
 ### test_compat.lua (47)
 
@@ -1277,7 +1290,7 @@ badge and any count quoted in the docs must agree with it.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
 | test_util.lua | 40 |
-| test_ledger.lua | 6 |
+| test_ledger.lua | 19 |
 | test_compat.lua | 47 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
@@ -1320,4 +1333,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1114** |
+| **Total** | **1127** |
