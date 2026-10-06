@@ -730,3 +730,31 @@ test("Compat: HookSecure is presence-gated", function()
   m.hooksecurefunc = savedHook
   rawset(_G, "RepairAllItems", nil)
 end)
+
+test("Compat: ShowLinesTooltip draws a gold title and one colored double line per row", function()
+  local tt = T.mocks.GameTooltip
+  local saved, lines, doubles = { AddLine = rawget(tt, "AddLine"), AddDoubleLine = rawget(tt, "AddDoubleLine") }, {}, {}
+  tt.AddLine = function(_, text, r) lines[#lines + 1] = { text, r } end
+  tt.AddDoubleLine = function(_, l, v, lr, _, _, rr) doubles[#doubles + 1] = { l, v, lr, rr } end
+  local ok, err = pcall(function()
+    assertTrue(NS.Compat.ShowLinesTooltip({}, "Title", {
+      { label = "Gained", text = "+3", color = { 0.2, 1, 0.2 } }, { label = "Net", text = "0" } }))
+  end)
+  tt.AddLine, tt.AddDoubleLine = saved.AddLine, saved.AddDoubleLine
+  if not ok then error(err, 0) end
+  assertEqual(lines[1][1], "Title"); assertEqual(lines[1][2], 1)
+  assertEqual(#doubles, 2)
+  assertEqual(doubles[1][1], "Gained"); assertEqual(doubles[1][2], "+3")
+  assertEqual(doubles[1][3], 0.2); assertEqual(doubles[1][4], 0.2, "both sides in the row's color")
+  assertEqual(doubles[2][3], 1, "no color reads white")
+  tt:Hide()
+end)
+
+test("Compat: ShowLinesTooltip answers false without a GameTooltip", function()
+  local m = T.mocks
+  local saved = m.GameTooltip
+  m.GameTooltip = nil
+  local ok, res = pcall(NS.Compat.ShowLinesTooltip, {}, "Title", {})
+  m.GameTooltip = saved
+  assertTrue(ok, tostring(res)); assertFalse(res)
+end)

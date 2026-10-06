@@ -343,3 +343,130 @@ case("Timeline tab: the hover tooltip lists only the visible lines", function()
   assertTrue(got:find("Total", 1, true) ~= nil, got)
   assertTrue(got:find("Alt", 1, true) == nil, "a hidden line is not in the tooltip: " .. got)
 end)
+
+-- ── the in/out strip's tooltip (P8) ──
+
+-- seed() writes closes only: today gets an in/out, yesterday keeps a close and no flow.
+local function seedFlow(i, o)
+  seed()
+  local daily, today = NS.db.global.daily, NS.Ledger.DayKey(os.time())
+  daily[today] = daily[today] or {}
+  daily[today]["Mock-Realm"] = daily[today]["Mock-Realm"] or {}
+  local cell = daily[today]["Mock-Realm"].g or {}
+  daily[today]["Mock-Realm"].g = cell
+  cell.i, cell.o = i, o
+  return today
+end
+
+-- Records what the strip's hover puts on GameTooltip, and puts the methods back.
+local function spyTooltip(fn)
+  local tt, got = T.mocks.GameTooltip, { lines = {}, doubles = {}, hides = 0 }
+  local names = { "SetOwner", "GetOwner", "AddLine", "AddDoubleLine", "Hide" }
+  local saved = {}
+  for _, n in ipairs(names) do saved[n] = rawget(tt, n) end
+  tt.SetOwner = function(_, owner, anchor) got.owner, got.anchor = owner, anchor end
+  tt.GetOwner = function() return got.owner end
+  tt.AddLine = function(_, text) got.lines[#got.lines + 1] = text end
+  tt.AddDoubleLine = function(_, l, r, lr, lg, lb, rr, rg, rb)
+    got.doubles[#got.doubles + 1] = { l = l, r = r, lc = { lr, lg, lb }, rc = { rr, rg, rb } }
+  end
+  tt.Hide = function(self) got.hides = got.hides + 1; self.__shown = false; return self end
+  local ok, err = pcall(fn, got)
+  for _, n in ipairs(names) do rawset(tt, n, saved[n]) end
+  if not ok then error(err, 0) end
+  return got
+end
+
+case("Timeline tab: hovering a day's strip column shows its Gained / Lost / Net, and OnLeave hides it", function()
+  local today = seedFlow(20000, 5000)
+  open()
+  local bars = NS.Timeline.stripPool.active
+  assertEqual(#bars, 1, "one hit region for the one day with a flow")
+  local bar = bars[1]
+  assertEqual(bar.flow.day, today)
+  local G, L = NS.Constants.TIMELINE.GAIN, NS.Constants.TIMELINE.LOSS
+  local got = spyTooltip(function(g)
+    bar:__fire("OnEnter")
+    assertTrue(g.owner == bar, "the tooltip belongs to the column")
+    bar:__fire("OnLeave")
+  end)
+  assertEqual(got.lines[1], os.date("%d %b %Y", NS.TimelineModel.DayStart(today)) .. " \194\183 Total")
+  assertEqual(#got.doubles, 3)
+  assertEqual(got.doubles[1].l, "Gained"); assertEqual(got.doubles[1].r, "+" .. NS.Util.FormatMoney(20000))
+  assertEqual(got.doubles[2].l, "Lost"); assertEqual(got.doubles[2].r, "-" .. NS.Util.FormatMoney(5000))
+  assertEqual(got.doubles[3].l, "Net"); assertEqual(got.doubles[3].r, "+" .. NS.Util.FormatMoney(15000))
+  assertEqual(got.doubles[1].rc[1], G[1]); assertEqual(got.doubles[2].rc[1], L[1])
+  assertEqual(got.doubles[3].rc[2], G[2], "a positive net is green")
+  assertTrue(got.hides >= 1, "OnLeave hides the tooltip")
+end)
+
+case("Timeline tab: the strip tooltip stays the Total's with lines hidden", function()
+  seedFlow(20000, 5000)
+  open()
+  NS.Timeline:SetTotalOnly(true)
+  legendButton(TOTAL):__fire("OnClick")
+  NS.Timeline:Layout(640, 320)
+  local bar = NS.Timeline.stripPool.active[1]
+  local got = spyTooltip(function() bar:__fire("OnEnter") end)
+  assertEqual(got.doubles[3].r, "+" .. NS.Util.FormatMoney(15000))
+end)
+
+case("Timeline tab: a day with no flow has no strip hit region; regions are pooled across redraws", function()
+  seedFlow(20000, 5000)
+  open()
+  local before = {}
+  for i, b in ipairs(NS.Timeline.stripPool.active) do
+    before[i] = b
+    assertTrue(b.flow.i > 0 or b.flow.o > 0, "every region is a day with a flow")
+    assertTrue(b:GetScript("OnEnter") ~= nil and b:GetScript("OnLeave") ~= nil, "every bar is a hover region")
+  end
+  assertEqual(#before, #NS.Timeline.model.flows)
+  local f1, a1 = NS.Pool.Counts(NS.Timeline.stripPool)
+  for _ = 1, 3 do NS.Timeline:Refresh(); NS.Timeline:Layout(640, 320) end
+  local f2, a2 = NS.Pool.Counts(NS.Timeline.stripPool)
+  assertEqual(f1 + a1, f2 + a2, "no new frames across redraws")
+  assertEqual(a2, a1)
+  for i, b in ipairs(NS.Timeline.stripPool.active) do assertTrue(b == before[i], "the same frame comes back") end
+end)
+
+case("Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it", function()
+  seedFlow(20000, 5000)
+  open()
+  -- Refresh lays out at the pane's own size, which the mock answers as 0: give it one, so the repaint
+  -- draws the strip as the client would.
+  local pane = NS.Timeline.pane
+  local gw, gh = rawget(pane, "GetWidth"), rawget(pane, "GetHeight")
+  pane.GetWidth, pane.GetHeight = function() return 640 end, function() return 320 end
+  local bar = NS.Timeline.stripPool.active[1]
+  local got
+  local ok, err = pcall(function() got = spyTooltip(function(g)
+    bar:__fire("OnEnter")
+    g.doubles = {}
+    NS.Timeline:Refresh()
+    assertEqual(#g.doubles, 3, "a live repaint re-shows the tooltip against the new data")
+    local today = NS.Ledger.DayKey(os.time())
+    local cell = NS.db.global.daily[today]["Mock-Realm"].g
+    cell.i, cell.o = 0, 0
+    NS.Timeline:Refresh(); NS.Timeline:Layout(640, 320)
+  end) end)
+  pane.GetWidth, pane.GetHeight = gw, gh
+  if not ok then error(err, 0) end
+  assertTrue(got.hides >= 1, "the day's region is gone, so its tooltip goes too")
+  assertEqual(NS.Timeline.flowTipOwner, nil)
+end)
+
+case("Timeline tab: the chart's hover ending does not hide the strip's tooltip", function()
+  seedFlow(20000, 5000)
+  open()
+  local bar = NS.Timeline.stripPool.active[1]
+  local got = spyTooltip(function(g)
+    bar:__fire("OnEnter")
+    NS.Timeline:OnHover(nil)
+    assertEqual(g.hides, 0, "the strip's tooltip stays up")
+    NS.Timeline:OnHover(#NS.Timeline.model.hoverXs)
+    assertTrue(g.owner == NS.Timeline.chart, "a chart hover takes the tooltip")
+    assertEqual(NS.Timeline.flowTipOwner, nil)
+    NS.Timeline:OnHover(nil)
+  end)
+  assertEqual(got.hides, 1, "and its end hides the chart's own")
+end)

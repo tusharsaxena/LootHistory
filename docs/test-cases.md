@@ -182,7 +182,7 @@ badge and any count quoted in the docs must agree with it.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (61)
+### test_compat.lua (63)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -245,6 +245,8 @@ badge and any count quoted in the docs must agree with it.
 - Compat: TradeTargetKey appends the player's realm when missing
 - Compat: LatestCurrencyTransfer appends the realm only when the client knows it
 - Compat: HookSecure is presence-gated
+- Compat: ShowLinesTooltip draws a gold title and one colored double line per row
+- Compat: ShowLinesTooltip answers false without a GameTooltip
 
 ### test_scanner.lua (5)
 
@@ -1177,7 +1179,7 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
-### test_timeline.lua (23)
+### test_timeline.lua (26)
 
 - Timeline model: NextDay and DayStart walk local calendar days
 - Timeline model: DailySeries carries the last close forward
@@ -1202,8 +1204,11 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: YRange spans only the series it is handed
 - Timeline model: ChartData draws only the visible lines and scales y over them
 - Timeline model: HoverLines lists only the visible lines, flows unchanged
+- Timeline model: FlowLines titles the day as the Total's and signs Gained / Lost / Net
+- Timeline model: FlowLines counts a currency, shows a zero side as 0 and a negative net red
+- Timeline model: FlowLines answers nil for a day with no flow
 
-### test_timelinetab.lua (19)
+### test_timelinetab.lua (24)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1224,6 +1229,11 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: the hidden set survives a change of thing and range, and ignores absent holders
 - Timeline tab: Total only is remembered in the saved view, the per-line set is not
 - Timeline tab: the hover tooltip lists only the visible lines
+- Timeline tab: hovering a day's strip column shows its Gained / Lost / Net, and OnLeave hides it
+- Timeline tab: the strip tooltip stays the Total's with lines hidden
+- Timeline tab: a day with no flow has no strip hit region; regions are pooled across redraws
+- Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it
+- Timeline tab: the chart's hover ending does not hide the strip's tooltip
 
 ### test_testdata.lua (6)
 
@@ -1599,7 +1609,7 @@ badge and any count quoted in the docs must agree with it.
 | test_util.lua | 42 |
 | test_ledger.lua | 36 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 61 |
+| test_compat.lua | 63 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_rollup.lua | 21 |
@@ -1626,8 +1636,8 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 69 |
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 32 |
-| test_timeline.lua | 23 |
-| test_timelinetab.lua | 19 |
+| test_timeline.lua | 26 |
+| test_timelinetab.lua | 24 |
 | test_testdata.lua | 6 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
@@ -1649,4 +1659,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1407** |
+| **Total** | **1417** |

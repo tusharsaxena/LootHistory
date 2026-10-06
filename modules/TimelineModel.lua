@@ -381,6 +381,27 @@ function TM.HoverLines(m, i, hidden)
   return out
 end
 
+-- The in/out strip's tooltip for one day (spec §8.1, P8). The strip is the Total's, so the title says
+-- so whatever lines are hidden. Signs are ASCII (LedgerFormat.QtyText: the default font has no U+2212)
+-- and a zero side reads "0"; a day with no flow has no strip column, so it answers nil.
+local NEUTRAL = { 1, 1, 1, 1 }
+
+function TM.FlowLines(m, f)
+  local i, o = f and f.i or 0, f and f.o or 0
+  if i <= 0 and o <= 0 then return nil end
+  local function signed(v)
+    if v == 0 then return "0" end
+    return (v > 0 and "+" or "-") .. TM.FormatValue(m.kind, math.abs(v))
+  end
+  local net = i - o
+  local netColor = (net > 0 and C().GAIN) or (net < 0 and C().LOSS) or NEUTRAL
+  return { title = date("%d %b %Y", f.x) .. " \194\183 Total", rows = {
+    { label = "Gained", text = signed(i), color = C().GAIN },
+    { label = "Lost", text = signed(-o), color = C().LOSS },
+    { label = "Net", text = signed(net), color = netColor },
+  } }
+end
+
 -- Only the visible lines reach the chart, with the y range taken over them. The in/out strip is not
 -- here: it stays the Total's whatever is hidden (m.flows).
 function TM.ChartData(m, hidden)

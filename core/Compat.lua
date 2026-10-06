@@ -576,6 +576,21 @@ function Compat.ShowAmountTooltip(owner, title, rgb, label, value, hint, anchor)
   return true
 end
 
+-- A title over several "label .... value" lines, each pair in its row's color (the Timeline strip's
+-- Gained / Lost / Net). `rows` is { { label, text, color = { r, g, b } }, ... }; nil color = white.
+function Compat.ShowLinesTooltip(owner, title, rows, anchor)
+  local tt = tooltip("AddDoubleLine")
+  if not (tt and title) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:AddLine(title, 1, 0.82, 0)
+  for _, r in ipairs(rows or {}) do
+    local c = r.color or { 1, 1, 1 }
+    tt:AddDoubleLine(r.label or "", r.text or "", c[1], c[2], c[3], c[1], c[2], c[3])
+  end
+  tt:Show()
+  return true
+end
+
 function Compat.HideTooltip()
   local tt = tooltip("Hide")
   if tt then tt:Hide() end

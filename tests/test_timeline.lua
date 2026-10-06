@@ -287,3 +287,35 @@ case("Timeline model: HoverLines lists only the visible lines, flows unchanged",
   assertEqual(h.rows[1].label, TM().Label("B-R")); assertEqual(h.rows[2].label, "Total")
   assertEqual(#TM().HoverLines(m, i).rows, 3)
 end)
+
+-- ── the in/out strip's tooltip (P8) ──
+
+case("Timeline model: FlowLines titles the day as the Total's and signs Gained / Lost / Net", function()
+  local x = TM().DayStart("2026-08-14")
+  local G, L = NS.Constants.TIMELINE.GAIN, NS.Constants.TIMELINE.LOSS
+  local h = TM().FlowLines({ kind = "GOLD" }, { x = x, day = "2026-08-14", i = 20000, o = 5000 })
+  assertEqual(h.title, "14 Aug 2026 \194\183 Total")
+  assertEqual(#h.rows, 3)
+  assertEqual(h.rows[1].label, "Gained"); assertEqual(h.rows[1].text, "+" .. NS.Util.FormatMoney(20000))
+  assertEqual(h.rows[2].label, "Lost"); assertEqual(h.rows[2].text, "-" .. NS.Util.FormatMoney(5000))
+  assertEqual(h.rows[3].label, "Net"); assertEqual(h.rows[3].text, "+" .. NS.Util.FormatMoney(15000))
+  assertTrue(h.rows[1].color == G and h.rows[2].color == L and h.rows[3].color == G, "gain green, loss red, net by sign")
+end)
+
+case("Timeline model: FlowLines counts a currency, shows a zero side as 0 and a negative net red", function()
+  local x = TM().DayStart("2026-08-14")
+  local L = NS.Constants.TIMELINE.LOSS
+  local h = TM().FlowLines({ kind = "CURRENCY" }, { x = x, i = 3, o = 10 })
+  assertEqual(h.rows[1].text, "+3"); assertEqual(h.rows[2].text, "-10"); assertEqual(h.rows[3].text, "-7")
+  assertTrue(h.rows[3].color == L)
+  h = TM().FlowLines({ kind = "GOLD" }, { x = x, i = 0, o = 4 })
+  assertEqual(h.rows[1].text, "0", "the zero side reads 0 when the other is not")
+  assertEqual(h.rows[3].text, "-" .. NS.Util.FormatMoney(4))
+  h = TM().FlowLines({ kind = "ITEM" }, { x = x, i = 2, o = 2 })
+  assertEqual(h.rows[3].text, "0", "an even day nets to an unsigned 0")
+end)
+
+case("Timeline model: FlowLines answers nil for a day with no flow", function()
+  assertEqual(TM().FlowLines({ kind = "GOLD" }, { x = 0, i = 0, o = 0 }), nil)
+  assertEqual(TM().FlowLines({ kind = "GOLD" }, nil), nil)
+end)

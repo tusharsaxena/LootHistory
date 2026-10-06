@@ -1508,6 +1508,15 @@ the Total too → the plot says "All lines hidden — click a legend entry to sh
 Lua error. Change the thing and the Date range → the hidden lines stay hidden. Tick **Total only** and
 `/reload` → it is still on. The in/out strip never changes with any of this. Result:
 
+**TL-15. Strip tooltips.** On Gold over **Last 30 days**, hover a day's column in the green/red strip
+under the chart (the gain bar, the loss bar and the gap between them) → a tooltip at the cursor titled
+`<day> · Total` (the hover's date format, e.g. `14 Aug 2026 · Total`) with **Gained** `+<coins>` in
+green, **Lost** `-<coins>` in red and **Net** signed in its sign's color (white `0` on an even day); a
+side with nothing reads `0`. A day with no bars shows nothing. Move off the strip → it hides. Move from
+the plot straight down onto the strip → the strip's tooltip stays up (the chart's crosshair hover
+ending does not hide it), and back up onto the plot → the day tooltip takes over. Hide every line with
+the legend → the strip tooltip still reads the Total. Pick a currency → counts, not coins. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1757,4 +1766,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | TR-1 to TR-3 | New | New with the timeline ledger P7 (holder moves are a loss and a gain; the Character column and filter read the holder); no result recorded |
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | TL-14 | New | New with the timeline ledger P8 (Total only and the click-to-toggle legend); no result recorded |
+| TL-15 | New | New with the timeline ledger P8 (tooltips on the in/out strip); no result recorded |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |

@@ -118,10 +118,16 @@ local function makeSuggestRow(parent)
   return b
 end
 
+-- A day's column is its own hover region: the frame spans the strip's full height and the day's
+-- width, so the gain bar, the loss bar and the gap between them all hover it, and it is pooled with
+-- the bars it holds. The strip sits below the chart, so this never meets the chart's crosshair.
 local function makeFlowBar(parent)
   local f = CreateFrame("Frame", nil, parent)
   f.up = f:CreateTexture(nil, "ARTWORK")
   f.down = f:CreateTexture(nil, "ARTWORK")
+  f:EnableMouse(true)
+  f:SetScript("OnEnter", function(self2) TL:ShowFlowTip(self2) end)
+  f:SetScript("OnLeave", function() TL:HideFlowTip() end)
   return f
 end
 
@@ -267,6 +273,7 @@ function TL:Refresh()
     if self.chart then self.chart:Clear(); self.emptyMsg:Hide() end
     NS.Pool.ReleaseAll(self.stripPool); NS.Pool.ReleaseAll(self.legendPool)
     self.legendButtons = {}
+    self:HideFlowTip()
     return
   end
   self.model = TM.Build(self:Params(f))
@@ -335,9 +342,10 @@ end
 
 function TL:RenderStrip()
   NS.Pool.ReleaseAll(self.stripPool)
+  for _, bar in ipairs(self.stripPool.free) do bar.flow = nil end
   local m = self.model
   local left, pw, px0, px1 = stripScale(self)
-  if not (left and pw and pw > 0) then return end
+  if not (left and pw and pw > 0) then self:RefreshFlowTip(); return end
   local span = m.xMax - m.xMin
   local function toPx(x) return span == 0 and px0 or px0 + (x - m.xMin) / span * (px1 - px0) end
   self.stripAxis:ClearAllPoints()
@@ -345,7 +353,7 @@ function TL:RenderStrip()
   self.stripAxis:SetSize(pw, 1)
   local peak = 0
   for _, f in ipairs(m.flows) do peak = math.max(peak, f.i, f.o) end
-  if peak == 0 then return end
+  if peak == 0 then self:RefreshFlowTip(); return end
   local dayPx = math.max(2, math.min(24, toPx(m.xMin + DAY) - toPx(m.xMin) - 1))
   for _, f in ipairs(m.flows) do
     local bar = NS.Pool.Acquire(self.stripPool, function() return makeFlowBar(self.strip) end)
@@ -353,7 +361,33 @@ function TL:RenderStrip()
     bar:SetPoint("BOTTOMLEFT", self.strip, "BOTTOMLEFT", toPx(f.x), 0)
     bar:SetSize(dayPx, STRIP_H)
     paintFlow(bar, f, peak, STRIP_H / 2 - 2, dayPx)
+    bar.flow = f
   end
+  self:RefreshFlowTip()
+end
+
+-- ── the strip's tooltip ──
+
+function TL:ShowFlowTip(bar)
+  local h = self.model and TM.FlowLines(self.model, bar.flow)
+  if not h then self:HideFlowTip(); return end
+  self.flowTipOwner = bar
+  NS.Compat.ShowLinesTooltip(bar, h.title, h.rows, "ANCHOR_CURSOR")
+end
+
+function TL:HideFlowTip()
+  if not self.flowTipOwner then return end
+  self.flowTipOwner = nil
+  NS.Compat.HideTooltip()
+end
+
+-- A live repaint under a resting cursor: the column keeps its day (the pool hands each bar back to
+-- the rank it held), so its tooltip is redrawn on the new numbers; a column whose day lost its flow
+-- went back to the pool, and its tooltip goes with it.
+function TL:RefreshFlowTip()
+  local bar = self.flowTipOwner
+  if not bar then return end
+  if bar.flow and bar:IsShown() then self:ShowFlowTip(bar) else self:HideFlowTip() end
 end
 
 -- Total first in the legend (it is drawn last, on top of the chart). Every line keeps its entry and
@@ -421,8 +455,14 @@ end
 function TL:OnHover(i)
   if not GameTooltip then return end
   local h = i and self.model and TM.HoverLines(self.model, i, self:HiddenSet())
-  if not h then GameTooltip:Hide(); return end
+  -- The chart reports its hover ending a frame after the cursor has left the plot, by which time
+  -- the cursor may be on the strip below and the strip's tooltip up: only the chart's own goes.
+  if not h then
+    if GameTooltip:GetOwner() == self.chart then GameTooltip:Hide() end
+    return
+  end
   local C = NS.Constants.TIMELINE
+  self.flowTipOwner = nil   -- the tooltip is the chart's now; a strip repaint must not take it back
   GameTooltip:SetOwner(self.chart, "ANCHOR_CURSOR")
   GameTooltip:SetText(h.title, 1, 0.82, 0)
   for _, r in ipairs(h.rows) do
@@ -461,6 +501,7 @@ function TL:Disable()
   self.__ev:UnregisterAllEvents()
   self.__ev = nil
   if GameTooltip and self.chart and GameTooltip:GetOwner() == self.chart then GameTooltip:Hide() end
+  self:HideFlowTip()
 end
 
 NS.Browser:RegisterTab{ name = "Timeline", order = 30,
