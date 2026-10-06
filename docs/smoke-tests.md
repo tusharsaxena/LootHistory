@@ -27,7 +27,7 @@ free number in its theme.
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
-| LED-1 to 8 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch |
+| LED-1 to 9 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TL-1 to 13 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, and the WoW API facts to verify |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
@@ -1153,6 +1153,27 @@ the one disabled line. Result:
 `BAG_UPDATE`) → no `BAG_UPDATE` handling by LootHistory, and drinking a potion changes nothing on the
 Holdings tab. Re-tick it → the events are handled again and the tab catches up on the next bag
 change. `/lh set settings.trackLedger false` and `true` do the same. Result:
+
+**LED-9. Holdings columns, banding, tooltips and the header row (P4).** Open the window at its
+minimum size on the **Holdings** tab with a few items of different qualities, one currency and gold
+listed, and check each of these:
+
+- The header row reads exactly `Name · iLvl · Quality · Type · SubType · AH Price · Total · Value`,
+  gold, one line each, over the right columns. **No other text sits in the header row.** In
+  particular, nothing green (the earlier `Cou…` label) is drawn on or above **Total**. If anything
+  is, note its text, its color and the tab you came from, then hover it with `/fstack` and record the
+  frame path. That path names the leaking FontString. The headless suite only shows that the Holdings
+  header holds its eight labels; it cannot see a string another frame draws over it.
+- Widen and narrow the window. The optional columns hide right to left (AH Price first, iLvl
+  last), and Name, Total and Value always stay.
+- Every other item line has the faint stripe. Expand a striped item and the holder lines under it
+  have the same stripe. Expand an unstriped one and its holder lines are unstriped too.
+- Hovering an item's name shows its item tooltip, hovering the currency shows the currency tooltip,
+  and hovering Gold shows `Gold` with the total. Moving off the row hides the tooltip.
+- Clicking a header sorts by that column. Clicking it again reverses the order, and the arrow
+  moves to that header.
+
+Result:
 ## Ledger capture (timeline ledger Phase 2)
 
 The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`):
@@ -1582,6 +1603,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-11 | § 17g ladder note | No result recorded; expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
 | DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
 | LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
+| LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); no result recorded |
 | LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions |
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
