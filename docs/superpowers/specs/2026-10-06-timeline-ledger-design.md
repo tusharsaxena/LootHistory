@@ -286,6 +286,14 @@ window-wide singleton; each tab declares which filters it honors (unused ones ar
 - **Genesis / gaps:** a holder's line starts at its genesis; a vertical dashed marker at
   `ledgerSince`; a holder with `partial=true` draws dashed until its bank is first seen.
 - **Hover:** crosshair + tooltip per date with each line's value and that day's in/out.
+- **Line toggles (P8, owner feedback 2026-10-07):** each legend entry is a button that hides or shows
+  its line (hidden entries stay in place, dimmed); a header **Total only** toggle hides every holder
+  and keeps Total, and turning it off restores the lines shown before. The toggle reads as on exactly
+  when Total is visible and every holder hidden. Only visible lines are drawn, hovered and used for the
+  y range; the under-strip stays the Total's. With every line hidden the plot shows "All lines hidden
+  — click a legend entry to show it." and no axes. **Total only** persists in `savedView`
+  (`timelineTotalOnly`, default off); the per-holder hidden set is session-only, survives changing the
+  thing and range, and ignores holders not in the chart.
 - **Primitive:** new pooled line-chart renderer using `Texture:CreateLine` (`SetStartPoint`,
   `SetEndPoint`, `SetThickness`) — none exists today. Built **in LibKa0s** (F3) as a pooled line-chart widget
   (lines, axes, ticks, crosshair hook), downsampled to ≤ 1 point per 2 px of width; reached here

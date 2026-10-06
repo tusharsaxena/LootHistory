@@ -9,11 +9,21 @@ local TL = NS.Timeline
 -- The THING is picked with the browser's shared Search box: typing offers matching things (what is
 -- held now, plus anything the rollup has a day for), clicking one charts it, and the pick is
 -- remembered in the saved view.
+--
+-- Each line can be hidden (spec §8.1, P8): a legend entry is a button that toggles its line, and the
+-- header's "Total only" toggle hides every holder at once. The per-line hidden set is session-only and
+-- keyed by holder, so it outlives a change of thing or range; "Total only" is remembered in the saved
+-- view. The in/out strip stays the Total's whatever is hidden.
 
 local TM = NS.TimelineModel
 local DAY = 86400
 local BAR_H, STRIP_H, LEGEND_H, ROW_H, SUGGEST_MAX, LEGEND_W, GAP = 22, 56, 16, 18, 8, 120, 6
 local WHITE = "Interface\\Buttons\\WHITE8X8"
+local TOTAL = TM.TOTAL
+local EMPTY_TEXT = "All lines hidden — click a legend entry to show it."
+local DIM_ALPHA = 0.4
+
+TL.hidden = TL.hidden or {}
 
 function TL:Thing()
   if self.thing then return self.thing end
@@ -25,6 +35,69 @@ function TL:SetThing(key, quiet)
   self.thing = key
   if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineThing", key) end
   if not quiet then self:RefreshIfShown() end
+end
+
+-- ── line visibility ──
+
+-- The remembered toggle. Under it every holder is hidden whatever the session set says, so turning it
+-- off hands back exactly the set that was shown before it went on.
+local function totalOnly()
+  return NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineTotalOnly") == true
+end
+
+local function setTotalOnlyField(on)
+  if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineTotalOnly", on) end
+end
+
+function TL:IsHidden(key)
+  if totalOnly() then return key ~= TOTAL end
+  return self.hidden[key] == true
+end
+
+-- The set handed to the model: only the keys this chart draws, so an absent holder never counts.
+function TL:HiddenSet()
+  local out = {}
+  for _, s in ipairs(self.model and self.model.series or {}) do
+    if self:IsHidden(s.holder) then out[s.holder] = true end
+  end
+  return out
+end
+
+-- What the toggle reads as: the Total drawn and every holder in this chart hidden, however it got so.
+function TL:TotalOnlyShown()
+  if not self.model then return totalOnly() end
+  for _, s in ipairs(self.model.series) do
+    if (s.holder == TOTAL) == self:IsHidden(s.holder) then return false end
+  end
+  return true
+end
+
+function TL:SetTotalOnly(on)
+  setTotalOnlyField(on and true or false)
+  -- Off with the session set itself hiding every holder (they were hidden by hand): show them, or
+  -- the toggle would read as off and change nothing.
+  if not on and self:TotalOnlyShown() then
+    for _, s in ipairs(self.model.series) do
+      if s.holder ~= TOTAL then self.hidden[s.holder] = nil end
+    end
+  end
+  self:Refresh()
+end
+
+-- A legend click. Under Total only the click first turns what is shown into the session set, so the
+-- one line clicked changes and every other stays as it was.
+function TL:ToggleSeries(key)
+  if totalOnly() then
+    for _, s in ipairs(self.model and self.model.series or {}) do
+      self.hidden[s.holder] = (s.holder ~= TOTAL) or nil
+    end
+  end
+  self.hidden[key] = (not self.hidden[key]) or nil
+  -- Cleared first so the reading below is of the session set alone; a click that leaves every holder
+  -- hidden and the Total drawn turns the remembered toggle on.
+  setTotalOnlyField(false)
+  setTotalOnlyField(self:TotalOnlyShown())
+  self:Refresh()
 end
 
 -- ── pooled pieces ──
@@ -53,11 +126,49 @@ local function makeFlowBar(parent)
 end
 
 local function makeLegendEntry(parent)
-  local f = CreateFrame("Frame", nil, parent)
+  local f = CreateFrame("Button", nil, parent)
   f:SetSize(LEGEND_W, LEGEND_H)
   f.fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.fs:SetPoint("LEFT", 0, 0); f.fs:SetWidth(LEGEND_W - 4); f.fs:SetWordWrap(false); f.fs:SetJustifyH("LEFT")
+  f:SetScript("OnClick", function(self2) TL:ToggleSeries(self2.key) end)
+  f:SetScript("OnEnter", function(self2)
+    NS.Compat.ShowTextTooltip(self2, self2.label, "Click to hide/show", "ANCHOR_TOP")
+  end)
+  f:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
   return f
+end
+
+-- The house's flat bar-button skin (BrowserFilterBar's makeBarButton) with a box that fills gold when
+-- on. A plain Button rather than a CheckButton: the state is derived (TL:TotalOnlyShown), so the
+-- button only ever paints it.
+local function makeToggle(parent, text, onClick, tip)
+  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  b:SetSize(84, 18)
+  b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+  b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
+  b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
+  b.box = b:CreateTexture(nil, "ARTWORK")
+  b.box:SetSize(10, 10); b.box:SetPoint("LEFT", 6, 0)
+  b.box:SetColorTexture(0.24, 0.24, 0.27, 1)
+  b.tick = b:CreateTexture(nil, "OVERLAY")
+  b.tick:SetSize(6, 6); b.tick:SetPoint("CENTER", b.box, "CENTER", 0, 0)
+  b.tick:SetColorTexture(1, 0.82, 0, 1)
+  b.fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  b.fs:SetPoint("LEFT", b.box, "RIGHT", 5, 0)
+  b.fs:SetText(text)
+  function b:SetChecked(on)
+    self.checked = on and true or false
+    self.tick:SetShown(self.checked)
+  end
+  b:SetChecked(false)
+  b:SetScript("OnClick", onClick)
+  b:SetScript("OnEnter", function(self2)
+    b.fs:SetTextColor(1, 0.82, 0)
+    NS.Compat.ShowTextTooltip(self2, text, tip, "ANCHOR_BOTTOM")
+  end)
+  b:SetScript("OnLeave", function() b.fs:SetTextColor(1, 1, 1); NS.Compat.HideTooltip() end)
+  return b
 end
 
 -- ── build ──
@@ -68,8 +179,11 @@ local function buildHeader(self, pane)
   bar:SetHeight(BAR_H)
   self.title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   self.title:SetPoint("LEFT", 4, 0)
+  self.totalOnlyBtn = makeToggle(bar, "Total only", function() TL:SetTotalOnly(not TL:TotalOnlyShown()) end,
+    "Hide every character's line and keep the Total. Turn it off to bring back the lines shown before.")
+  self.totalOnlyBtn:SetPoint("LEFT", self.title, "RIGHT", 10, 0)
   local hint = bar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  hint:SetPoint("LEFT", self.title, "RIGHT", 10, 0)
+  hint:SetPoint("LEFT", self.totalOnlyBtn, "RIGHT", 10, 0)
   hint:SetText("Type in Search to chart an item or currency.")
   self.bar = bar
   local sug = CreateFrame("Frame", nil, pane, "BackdropTemplate")
@@ -100,6 +214,7 @@ end
 function TL:Attach(pane)
   if self.pane then return end
   self.pane = pane
+  self.hidden = self.hidden or {}
   buildHeader(self, pane)
   self.chart = NS.MakeLineChart(pane, {
     onHover = function(_, i) TL:OnHover(i) end,
@@ -108,6 +223,10 @@ function TL:Attach(pane)
   if self.chart then
     self.chart:SetPoint("TOPLEFT", self.bar, "BOTTOMLEFT", 0, -4)
     self.chart:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -4, STRIP_H + LEGEND_H + 2 * GAP)
+    self.emptyMsg = self.chart:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    self.emptyMsg:SetPoint("CENTER")
+    self.emptyMsg:SetText(EMPTY_TEXT)
+    self.emptyMsg:Hide()
   else
     -- Degraded install: say why, draw nothing else (core/WidgetsSetup.lua's header).
     self.missing = pane:CreateFontString(nil, "OVERLAY", "GameFontDisable")
@@ -144,17 +263,25 @@ function TL:Refresh()
   if not (self.chart and ledgerOn()) then
     self.model = nil
     self.title:SetText(self.chart and "Turn on ledger tracking (Settings, Capture) to see the Timeline." or "")
-    if self.chart then self.chart:Clear() end
+    self.totalOnlyBtn:Hide()
+    if self.chart then self.chart:Clear(); self.emptyMsg:Hide() end
     NS.Pool.ReleaseAll(self.stripPool); NS.Pool.ReleaseAll(self.legendPool)
+    self.legendButtons = {}
     return
   end
   self.model = TM.Build(self:Params(f))
   self.title:SetText(self.model.title or "")
+  self.totalOnlyBtn:Show()
+  self.totalOnlyBtn:SetChecked(self:TotalOnlyShown())
   -- The chart re-fires onHover only when the nearest index CHANGES, so a hover left up across a live
   -- repaint would keep the old model's tooltip and crosshair. Dropping it here lets the armed OnUpdate
   -- hover again against the new data on the next frame.
   self.chart:ClearHover()
-  self.chart:SetData(TM.ChartData(self.model))
+  -- Every line hidden: no data at all, so the chart draws no axes (a zero-range y would be meaningless)
+  -- and the message says how to get a line back. The legend stays.
+  local allHidden = self:VisibleSeriesCount() == 0
+  self.emptyMsg:SetShown(allHidden)
+  if allHidden then self.chart:Clear() else self.chart:SetData(TM.ChartData(self.model, self:HiddenSet())) end
   self:Layout()
 end
 
@@ -213,9 +340,11 @@ function TL:RenderStrip()
   end
 end
 
--- Total first in the legend (it is drawn last, on top of the chart).
+-- Total first in the legend (it is drawn last, on top of the chart). Every line keeps its entry and
+-- its place when hidden; a hidden one is dimmed gray.
 function TL:RenderLegend()
   NS.Pool.ReleaseAll(self.legendPool)
+  self.legendButtons = {}
   local s = self.model.series
   local order = { s[#s] }
   for i = 1, #s - 1 do order[#order + 1] = s[i] end
@@ -223,8 +352,14 @@ function TL:RenderLegend()
     local e = NS.Pool.Acquire(self.legendPool, function() return makeLegendEntry(self.legend) end)
     e:ClearAllPoints()
     e:SetPoint("LEFT", self.legend, "LEFT", (i - 1) * LEGEND_W, 0)
+    e.key, e.label = sr.holder, sr.label
     e.fs:SetText(sr.label)
-    e.fs:SetTextColor(sr.color[1], sr.color[2], sr.color[3])
+    if self:IsHidden(sr.holder) then
+      e.fs:SetTextColor(0.5, 0.5, 0.5, DIM_ALPHA)
+    else
+      e.fs:SetTextColor(sr.color[1], sr.color[2], sr.color[3], 1)
+    end
+    self.legendButtons[i] = e
   end
 end
 
@@ -269,7 +404,7 @@ end
 
 function TL:OnHover(i)
   if not GameTooltip then return end
-  local h = i and self.model and TM.HoverLines(self.model, i)
+  local h = i and self.model and TM.HoverLines(self.model, i, self:HiddenSet())
   if not h then GameTooltip:Hide(); return end
   local C = NS.Constants.TIMELINE
   GameTooltip:SetOwner(self.chart, "ANCHOR_CURSOR")
@@ -282,7 +417,10 @@ function TL:OnHover(i)
   GameTooltip:Show()
 end
 
-function TL:VisibleSeriesCount() return self.model and #self.model.series or 0 end
+function TL:VisibleSeriesCount()
+  if not self.model then return 0 end
+  return #TM.Visible(self.model.series, self:HiddenSet())
+end
 
 -- ── lifecycle ──
 

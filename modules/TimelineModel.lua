@@ -340,12 +340,38 @@ function TM.Build(p)
     hoverXs = hoverDays(w), markers = markers(p, xMin, xMax) }
 end
 
-function TM.HoverLines(m, i)
+-- ── visibility (spec §8.1: the Total-only toggle and the click-to-toggle legend) ──
+--
+-- `hidden` is a set keyed by holder key, TM.TOTAL for the Total. The view owns it (session-only, so it
+-- outlives a change of thing or range); a key the model does not draw is simply never asked about.
+
+function TM.Visible(series, hidden)
+  local out = {}
+  for _, s in ipairs(series) do
+    if not (hidden and hidden[s.holder]) then out[#out + 1] = s end
+  end
+  return out
+end
+
+-- The y span of exactly the series handed in, so hiding a big holder lets the rest fill the plot.
+-- Nil, nil when nothing is drawn; the view shows its empty state rather than a zero-range axis.
+function TM.YRange(series)
+  local lo, hi
+  for _, s in ipairs(series) do
+    for _, pt in ipairs(s.points or {}) do
+      if not lo or pt.y < lo then lo = pt.y end
+      if not hi or pt.y > hi then hi = pt.y end
+    end
+  end
+  return lo, hi
+end
+
+function TM.HoverLines(m, i, hidden)
   local x = m and m.hoverXs[i]
   if not x then return nil end
   local xEnd = math.min(x + DAY - 1, m.now)
   local out = { title = date("%d %b %Y", x), rows = {} }
-  for _, s in ipairs(m.series) do
+  for _, s in ipairs(TM.Visible(m.series, hidden)) do
     local v = TM.ValueAt(s.points, xEnd)
     if v ~= nil then out.rows[#out.rows + 1] = { label = s.label, text = TM.FormatValue(m.kind, v), color = s.color } end
   end
@@ -355,14 +381,17 @@ function TM.HoverLines(m, i)
   return out
 end
 
-function TM.ChartData(m)
+-- Only the visible lines reach the chart, with the y range taken over them. The in/out strip is not
+-- here: it stays the Total's whatever is hidden (m.flows).
+function TM.ChartData(m, hidden)
   local scale = (m.kind == "GOLD") and (1 / 10000) or 1
   local series = {}
-  for i, s in ipairs(m.series) do
+  for i, s in ipairs(TM.Visible(m.series, hidden)) do
     local pts = {}
     for j, pt in ipairs(s.points) do pts[j] = { x = pt.x, y = pt.y * scale } end
     series[i] = { points = pts, color = s.color, thickness = s.thickness, dashFrom = s.dashFrom, dashTo = s.dashTo }
   end
-  return { xMin = m.xMin, xMax = m.xMax, integer = m.kind ~= "GOLD", series = series,
-    markers = m.markers, hoverXs = m.hoverXs }
+  local yMin, yMax = TM.YRange(series)
+  return { xMin = m.xMin, xMax = m.xMax, yMin = yMin, yMax = yMax, integer = m.kind ~= "GOLD",
+    series = series, markers = m.markers, hoverXs = m.hoverXs }
 end

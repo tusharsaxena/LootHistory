@@ -1177,7 +1177,7 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
-### test_timeline.lua (19)
+### test_timeline.lua (23)
 
 - Timeline model: NextDay and DayStart walk local calendar days
 - Timeline model: DailySeries carries the last close forward
@@ -1198,8 +1198,12 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: intraday only for Today / 7d, inside retention, after the ledger began
 - Timeline model: HoverLines reads each line's value and that day's flows
 - Timeline model: Suggest puts Gold first, then the biggest totals, capped
+- Timeline model: Visible drops the hidden series and ignores keys it does not draw
+- Timeline model: YRange spans only the series it is handed
+- Timeline model: ChartData draws only the visible lines and scales y over them
+- Timeline model: HoverLines lists only the visible lines, flows unchanged
 
-### test_timelinetab.lua (11)
+### test_timelinetab.lua (19)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1212,6 +1216,14 @@ badge and any count quoted in the docs must agree with it.
 - Schema: timelineMaxLines is a 2-16 slider under Interface, default 8
 - Timeline tab: a live repaint drops a hover left up, so the next tick re-hovers on the new data
 - Timeline tab: nothing it draws stays visible over History or Holdings (LED-9)
+- Timeline tab: one legend button per series, Total first, reused across rebuilds
+- Timeline tab: a legend click hides the line, dims its entry and a second click restores it
+- Timeline tab: Total only hides every holder; off restores the set shown before
+- Timeline tab: hiding every holder by hand reads as Total only, and showing one clears it
+- Timeline tab: every line hidden shows the empty state, not an axis
+- Timeline tab: the hidden set survives a change of thing and range, and ignores absent holders
+- Timeline tab: Total only is remembered in the saved view, the per-line set is not
+- Timeline tab: the hover tooltip lists only the visible lines
 
 ### test_testdata.lua (6)
 
@@ -1614,8 +1626,8 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 69 |
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 32 |
-| test_timeline.lua | 19 |
-| test_timelinetab.lua | 11 |
+| test_timeline.lua | 23 |
+| test_timelinetab.lua | 19 |
 | test_testdata.lua | 6 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
@@ -1637,4 +1649,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1395** |
+| **Total** | **1407** |

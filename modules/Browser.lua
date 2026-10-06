@@ -725,6 +725,7 @@ function B:CaptureView()
   v.date   = (dd and dd.date._value) or "all"
   v.search = (self._search and self._search:GetText()) or ""
   v.timelineThing = savedViewOrStock().timelineThing
+  v.timelineTotalOnly = savedViewOrStock().timelineTotalOnly
   return v
 end
 

@@ -9,8 +9,8 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 --
 -- Every window case runs through `case`, which puts back what the plan's snippets would otherwise
 -- leave behind (addenda, Global): the holdings and daily stores, the Rollup key index, the saved
--- view's `timelineThing` (SetThing materializes the saved view), the session pick, the line cap and
--- the Character scope. It then returns the browser to History and closes it, because a window left
+-- view's `timelineThing` and `timelineTotalOnly` (SetThing materializes the saved view), the session
+-- pick, the session hidden-line set, the line cap and the Character scope. It then returns the browser to History and closes it, because a window left
 -- on screen keeps repainting under the suites that run next. The chunk has no global `time`, so the
 -- seeds read os.time().
 
@@ -21,7 +21,10 @@ local function case(name, fn)
     local view = p.savedView
     local hadView = type(view) == "table"
     local viewThing = hadView and view.timelineThing or nil
+    local viewTotalOnly = hadView and view.timelineTotalOnly or nil
     local thing, maxLines = NS.Timeline and NS.Timeline.thing, p.settings.timelineMaxLines
+    local hidden = NS.Timeline and NS.Timeline.hidden
+    if NS.Timeline then NS.Timeline.hidden = {} end
     local char = NS.Browser:CurrentFilter().char
     if NS.Rollup then NS.Rollup._keys = nil end
     local ok, err = pcall(fn)
@@ -31,8 +34,10 @@ local function case(name, fn)
     NS.Browser:SelectTab("History"); NS.Browser:Hide()
     g.holdings, g.daily = holdings, daily
     if NS.Rollup then NS.Rollup._keys = keys end
-    if hadView then p.savedView = view; view.timelineThing = viewThing else p.savedView = nil end
-    if NS.Timeline then NS.Timeline.thing = thing end
+    if hadView then
+      p.savedView = view; view.timelineThing = viewThing; view.timelineTotalOnly = viewTotalOnly
+    else p.savedView = nil end
+    if NS.Timeline then NS.Timeline.thing, NS.Timeline.hidden = thing, hidden end
     p.settings.timelineMaxLines = maxLines
     if not ok then error(err, 0) end
   end)
@@ -190,4 +195,131 @@ case("Timeline tab: nothing it draws stays visible over History or Holdings (LED
   end
   for k, v in pairs(saved) do TL[k] = v end
   if not ok then error(err, 0) end
+end)
+
+-- ── line toggles (P8): the Total-only toggle and the click-to-toggle legend ──
+
+local function legendButton(key)
+  for _, b in ipairs(NS.Timeline.legendButtons or {}) do if b.key == key then return b end end
+end
+
+local TOTAL = "__total"
+
+case("Timeline tab: one legend button per series, Total first, reused across rebuilds", function()
+  seed(); open()
+  local btns = NS.Timeline.legendButtons
+  assertEqual(#btns, #NS.Timeline.model.series)
+  assertEqual(btns[1].key, TOTAL)
+  local b1 = btns[1]
+  NS.Timeline:ToggleSeries("Alt-Realm")
+  assertEqual(#NS.Timeline.legendButtons, 3, "a hidden line keeps its legend entry")
+  local free, active = NS.Pool.Counts(NS.Timeline.legendPool)
+  assertEqual(free + active, 3, "the toggle rebuilt the legend from the pool")
+  assertTrue(NS.Timeline.legendButtons[1] == b1 or NS.Timeline.legendButtons[2] == b1
+    or NS.Timeline.legendButtons[3] == b1, "a pooled button came back")
+end)
+
+case("Timeline tab: a legend click hides the line, dims its entry and a second click restores it", function()
+  seed(); open()
+  legendButton("Alt-Realm"):__fire("OnClick")
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 2)
+  local _, _, _, a = legendButton("Alt-Realm").fs:GetTextColor()
+  assertEqual(a, 0.4, "a hidden entry is dimmed")
+  assertEqual(#NS.Timeline.chart.__data.series, 2, "the chart draws only what is visible")
+  legendButton("Alt-Realm"):__fire("OnClick")
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 3)
+  _, _, _, a = legendButton("Alt-Realm").fs:GetTextColor()
+  assertEqual(a, 1)
+end)
+
+case("Timeline tab: Total only hides every holder; off restores the set shown before", function()
+  seed(); open()
+  NS.Timeline:ToggleSeries("Alt-Realm")
+  assertFalse(NS.Timeline:TotalOnlyShown())
+  NS.Timeline:SetTotalOnly(true)
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 1)
+  assertTrue(NS.Timeline:TotalOnlyShown()); assertTrue(NS.Timeline.totalOnlyBtn.checked)
+  NS.Timeline:SetTotalOnly(false)
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 2)
+  assertTrue(NS.Timeline:IsHidden("Alt-Realm")); assertFalse(NS.Timeline:IsHidden("Mock-Realm"))
+  assertFalse(NS.Timeline.totalOnlyBtn.checked)
+end)
+
+case("Timeline tab: hiding every holder by hand reads as Total only, and showing one clears it", function()
+  seed(); open()
+  legendButton("Alt-Realm"):__fire("OnClick")
+  legendButton("Mock-Realm"):__fire("OnClick")
+  assertTrue(NS.Timeline.totalOnlyBtn.checked)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), true)
+  legendButton("Mock-Realm"):__fire("OnClick")
+  assertFalse(NS.Timeline.totalOnlyBtn.checked)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), false)
+  -- under Total only, clicking a holder shows that one line and leaves the rest hidden
+  NS.Timeline:SetTotalOnly(true)
+  legendButton("Alt-Realm"):__fire("OnClick")
+  assertFalse(NS.Timeline:IsHidden("Alt-Realm")); assertTrue(NS.Timeline:IsHidden("Mock-Realm"))
+  assertFalse(NS.Timeline.totalOnlyBtn.checked)
+  -- the toggle button itself
+  NS.Timeline.totalOnlyBtn:__fire("OnClick")
+  assertTrue(NS.Timeline:TotalOnlyShown())
+end)
+
+case("Timeline tab: every line hidden shows the empty state, not an axis", function()
+  -- Review Focus 1
+  seed(); open()
+  NS.Timeline:SetTotalOnly(true)
+  legendButton(TOTAL):__fire("OnClick")
+  NS.Timeline:Layout(640, 320)
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 0)
+  assertTrue(NS.Timeline.emptyMsg:IsShown())
+  assertEqual(NS.Timeline.emptyMsg:GetText(), "All lines hidden \226\128\148 click a legend entry to show it.")
+  assertEqual(NS.Timeline.chart:GetPlotRect(), nil, "no axes drawn")
+  assertEqual(#NS.Timeline.legendButtons, 3, "the legend stays to bring a line back")
+  assertFalse(NS.Timeline.totalOnlyBtn.checked, "the Total is hidden too")
+  NS.Timeline:OnHover(1)
+  legendButton(TOTAL):__fire("OnClick")
+  NS.Timeline:Layout(640, 320)
+  assertFalse(NS.Timeline.emptyMsg:IsShown())
+  assertTrue(NS.Timeline.chart:GetPlotRect() ~= nil)
+end)
+
+case("Timeline tab: the hidden set survives a change of thing and range, and ignores absent holders", function()
+  seed(); open()
+  NS.Timeline:ToggleSeries("Alt-Realm")
+  NS.Timeline.hidden["Gone-Realm"] = true
+  NS.Timeline:SetThing("c:3008")
+  NS.Timeline:SetThing("g")
+  assertTrue(NS.Timeline:IsHidden("Alt-Realm"))
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 2)
+  NS.Timeline:ToggleSeries("Mock-Realm")
+  assertTrue(NS.Timeline:TotalOnlyShown(), "a holder not in this chart does not count")
+end)
+
+case("Timeline tab: Total only is remembered in the saved view, the per-line set is not", function()
+  -- Review Focus 3
+  seed(); open()
+  NS.Timeline:SetTotalOnly(true)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), true)
+  assertEqual(NS.Browser:CaptureView().timelineTotalOnly, true, "a Save keeps it")
+  NS.Timeline.hidden = {}   -- what a /reload leaves of the session set
+  NS.Timeline:Refresh()
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 1)
+  assertTrue(NS.Timeline.totalOnlyBtn.checked)
+  NS.Timeline:SetTotalOnly(false)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), false)
+  assertEqual(NS.Timeline:VisibleSeriesCount(), 3)
+end)
+
+case("Timeline tab: the hover tooltip lists only the visible lines", function()
+  seed(); open()
+  NS.Timeline:ToggleSeries("Alt-Realm")
+  local tt, labels = T.mocks.GameTooltip, {}
+  local saved = rawget(tt, "AddDoubleLine")
+  tt.AddDoubleLine = function(_, l) labels[#labels + 1] = l end
+  local ok, err = pcall(function() NS.Timeline:OnHover(#NS.Timeline.model.hoverXs) end)
+  tt.AddDoubleLine = saved
+  if not ok then error(err, 0) end
+  local got = table.concat(labels, ",")
+  assertTrue(got:find("Total", 1, true) ~= nil, got)
+  assertTrue(got:find("Alt", 1, true) == nil, "a hidden line is not in the tooltip: " .. got)
 end)

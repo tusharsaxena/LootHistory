@@ -242,3 +242,48 @@ case("Timeline model: Suggest puts Gold first, then the biggest totals, capped",
   assertEqual(#s, 2); assertEqual(s[1].key, "g"); assertEqual(s[2].key, "i:2")
   assertEqual(#TM().Suggest("zzz", things, 8), 0)
 end)
+
+-- ── visibility (P8: the Total-only toggle and the click-to-toggle legend) ──
+
+case("Timeline model: Visible drops the hidden series and ignores keys it does not draw", function()
+  local series = { { holder = "A-R" }, { holder = "B-R" }, { holder = TM().TOTAL } }
+  local v = TM().Visible(series, { ["B-R"] = true, ["Gone-R"] = true })
+  assertEqual(#v, 2); assertEqual(v[1].holder, "A-R"); assertEqual(v[2].holder, TM().TOTAL)
+  assertEqual(#TM().Visible(series, nil), 3, "no set hides nothing")
+  assertEqual(#TM().Visible(series, { ["A-R"] = true, ["B-R"] = true, [TM().TOTAL] = true }), 0)
+end)
+
+case("Timeline model: YRange spans only the series it is handed", function()
+  local series = { { points = { { x = 1, y = 5 }, { x = 2, y = 900 } } },
+                   { points = { { x = 1, y = 20 }, { x = 2, y = 40 } } } }
+  local lo, hi = TM().YRange(series)
+  assertEqual(lo, 5); assertEqual(hi, 900)
+  lo, hi = TM().YRange({ series[2] })
+  assertEqual(lo, 20); assertEqual(hi, 40)
+  lo, hi = TM().YRange({})
+  assertEqual(lo, nil); assertEqual(hi, nil)
+end)
+
+case("Timeline model: ChartData draws only the visible lines and scales y over them", function()
+  -- Review Focus 2: the axis rescales to what is drawn
+  seedMoney({ ["A-R"] = 2000000, ["B-R"] = 30000 }, noon(2026, 10, 1))
+  local m = TM().Build(params())
+  local all = TM().ChartData(m)
+  assertEqual(#all.series, 3)
+  assertEqual(all.yMax, 203, "the Total, in gold")
+  local hidden = { ["A-R"] = true, [TM().TOTAL] = true }
+  local data = TM().ChartData(m, hidden)
+  assertEqual(#data.series, 1, "B-R alone")
+  assertEqual(data.yMin, 3); assertEqual(data.yMax, 3)
+  assertEqual(#data.hoverXs, #all.hoverXs, "the hover days do not depend on what is drawn")
+end)
+
+case("Timeline model: HoverLines lists only the visible lines, flows unchanged", function()
+  seedMoney({ ["A-R"] = 500, ["B-R"] = 700 }, noon(2026, 10, 1))
+  local m = TM().Build(params())
+  local i = #m.hoverXs
+  local h = TM().HoverLines(m, i, { ["A-R"] = true })
+  assertEqual(#h.rows, 2)
+  assertEqual(h.rows[1].label, TM().Label("B-R")); assertEqual(h.rows[2].label, "Total")
+  assertEqual(#TM().HoverLines(m, i).rows, 3)
+end)

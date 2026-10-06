@@ -33,7 +33,7 @@ free number in its theme.
 | LED-1 to 10 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
-| TL-1 to 13 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, and the WoW API facts to verify |
+| TL-1 to 14 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, and the line toggles |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -1499,6 +1499,15 @@ for 1 to 4, a LibKa0s patch release. Result:
 9. `StaticPopup_Show(name, text1, text2, data)` hands `data` to `OnAccept(self, data)` on 12.1.
 10. `RAID_CLASS_COLORS[classFile]` still carries `r, g, b` for every class, Evoker included.
 
+**TL-14. Line toggles.** On Gold with Character on **All** and three or more lines: click a holder's
+legend entry → its line goes, the entry dims in place, the y axis rescales to what is left, and the
+hover tooltip no longer lists it; click again → it is back. Hover an entry → "Click to hide/show".
+Hide one holder, then tick **Total only** → only the Total draws; untick → the lines from before come
+back with that one holder still hidden. Hide every holder by hand → **Total only** ticks itself. Hide
+the Total too → the plot says "All lines hidden — click a legend entry to show it." with no axes and no
+Lua error. Change the thing and the Date range → the hidden lines stay hidden. Tick **Total only** and
+`/reload` → it is still on. The in/out strip never changes with any of this. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1747,4 +1756,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions; LED-P2-02, -06 and -13 rewritten by P7 (holder moves are a loss and a gain) |
 | TR-1 to TR-3 | New | New with the timeline ledger P7 (holder moves are a loss and a gain; the Character column and filter read the holder); no result recorded |
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
+| TL-14 | New | New with the timeline ledger P8 (Total only and the click-to-toggle legend); no result recorded |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
