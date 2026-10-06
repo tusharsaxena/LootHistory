@@ -8,8 +8,8 @@ local HT = NS.HoldingsTab
 --
 -- It reads the browser's shared filter like the other tabs, but only the fields NS.Holdings:Search
 -- understands (text, quality, itemType, itemSubType, char). Date / Source / Bound / Zone describe a
--- loot EVENT, not something held, so they are ignored here; graying them per tab is spec §8.0 and
--- lands with the Timeline tab (docs/browser.md).
+-- loot EVENT, not something held, so they are ignored here and grayed while this tab is active
+-- (spec §8.0, docs/browser.md). The Group dropdown is live here over its own modes (HT.GROUPS).
 
 local ORDER = { "bags", "equipped", "bank", "mail", "auctions", "tabs" }
 local LABEL = { bags = "Bags", equipped = "Equipped", bank = "Bank", mail = "Mail", auctions = "AH", tabs = "Warband" }
@@ -132,26 +132,124 @@ local function sorter(key, asc)
   end
 end
 
+-- Group-by (P6). Holdings keeps its OWN group value (HT.groupBy, session-only, outside the saved
+-- view): the window's Group dropdown is shared, but a pick made here never moves History's
+-- BrowserTable.groupBy, and History's pick never regroups this view. GROUPS is the set this tab
+-- offers, in menu order; any other mode (Day, Source, Zone, Direction, Holder) reads as None.
+HT.GROUPS = { "none", "quality", "type", "subtype", "char" }
+local GROUP_PREFIX = { quality = "Quality", type = "Type", subtype = "SubType", char = "Character" }
+local NO_QUALITY = "\226\128\148"   -- History's label for a group with no quality (an em dash)
+
+-- One handler per mode: (raw key part, display label, order value) for a thing, or for a holder
+-- under Character. Quality orders by rank DESCENDING (the negated rank; no quality last), the text
+-- modes alphabetically, holders alphabetically with the warband last -- the order History's
+-- groups read in.
+local GROUP_OF = {
+  quality = function(t)
+    if t.quality == nil then return "-", NO_QUALITY, 1 end
+    return tostring(t.quality), NS.Item.QualityLabel(t.quality), -t.quality
+  end,
+  type = function(t)
+    local v = t.itemType or "Unknown"
+    return v, v, v:lower()
+  end,
+  subtype = function(t)
+    local v = t.itemSubType or "Unknown"
+    return v, v, v:lower()
+  end,
+  char = function(_, h)
+    if h == NS.Constants.WARBAND_HOLDER then return h, NS.LedgerFormat.HolderLabel(h), "\255" end
+    return h, NS.LedgerFormat.HolderLabel(h), h:lower()
+  end,
+}
+
+function HT.GroupMode(groupBy) return GROUP_OF[groupBy] and groupBy or "none" end
+
+-- The group a thing (or, under Character, one holder's share of it) belongs in, made on first use.
+-- Keys are namespaced by mode, as History's are, so one collapsed-state map serves every mode.
+local function groupFor(groups, byKey, mode, t, h)
+  local raw, label, order = GROUP_OF[mode](t, h)
+  local key = mode .. "\001" .. raw
+  local g = byKey[key]
+  if not g then
+    g = { key = key, label = GROUP_PREFIX[mode] .. ": " .. label, order = order, things = {} }
+    byKey[key] = g; groups[#groups + 1] = g
+  end
+  return g
+end
+
+-- Under Character a thing is listed once per holder, carrying that holder's count as its total and
+-- its value scaled to that count; every other mode keeps the all-holders total.
+local function holderShare(t, h)
+  local share = {}
+  for k, v in pairs(t) do share[k] = v end
+  share.total, share.holders, share.holder = h.count, { h }, h.holder
+  share.value = (t.total ~= 0) and (t.value * h.count / t.total) or 0
+  return share
+end
+
+local function partition(things, mode)
+  local groups, byKey = {}, {}
+  for _, t in ipairs(things) do
+    if mode == "char" then
+      for _, h in ipairs(t.holders) do
+        local g = groupFor(groups, byKey, mode, t, h.holder)
+        g.things[#g.things + 1] = holderShare(t, h)
+      end
+    else
+      local g = groupFor(groups, byKey, mode, t)
+      g.things[#g.things + 1] = t
+    end
+  end
+  table.sort(groups, function(a, b)
+    if a.order ~= b.order then return a.order < b.order end
+    return a.key < b.key
+  end)
+  return groups
+end
+
+-- A thing line, then (when it is open) one line per holder repeating its stripe. Under Character
+-- the expand key names the holder too, so opening a thing in one holder's group leaves its other
+-- copies closed.
+local function emitThing(lines, t, expanded, stripe)
+  local expandKey = t.holder and (t.holder .. "\001" .. t.key) or t.key
+  local open = expanded and expanded[expandKey] or false
+  lines[#lines + 1] = { kind = "thing", key = t.key, name = t.name, quality = t.quality,
+    total = t.total, value = t.value, expanded = open, thingKind = t.kind, id = t.id, link = t.link,
+    ilvl = t.ilvl, qualityLabel = t.qualityLabel, itemType = t.itemType, itemSubType = t.itemSubType,
+    ahUnit = t.ahUnit, stripe = stripe, holder = t.holder, expandKey = expandKey }
+  if open then
+    for _, h in ipairs(t.holders) do
+      lines[#lines + 1] = { kind = "holder", key = t.key, holder = h.holder, count = h.count,
+        containers = h.containers, scannedAt = h.scannedAt, stripe = stripe }
+    end
+  end
+end
+
 -- `sortAsc` nil means the column's own first-click direction. Each thing line carries its stripe
--- index (one per THING); its holder lines repeat it, so an expanded thing reads as one band.
-function HT.BuildModel(filter, expanded, sortKey, sortAsc)
+-- index (one per THING, counted down the whole list rather than restarting per group); its holder
+-- lines repeat it, so an expanded thing reads as one band. A group header carries none. With a
+-- group mode the sort holds within each group, and a collapsed group (`collapsed[header key]`)
+-- emits only its header, still counting its things.
+function HT.BuildModel(filter, expanded, sortKey, sortAsc, groupBy, collapsed)
   local things = NS.Holdings:Search(filter or {})
   for _, t in ipairs(things) do enrich(t) end
   local key = SORT_VAL[sortKey or "name"] and (sortKey or "name") or "name"
   if sortAsc == nil then sortAsc = not NUMERIC[key] end
-  table.sort(things, sorter(key, sortAsc))
-  local lines = {}
-  for k, t in ipairs(things) do
-    local open = expanded and expanded[t.key] or false
-    lines[#lines + 1] = { kind = "thing", key = t.key, name = t.name, quality = t.quality,
-      total = t.total, value = t.value, expanded = open, thingKind = t.kind, id = t.id, link = t.link,
-      ilvl = t.ilvl, qualityLabel = t.qualityLabel, itemType = t.itemType, itemSubType = t.itemSubType,
-      ahUnit = t.ahUnit, stripe = k }
-    if open then
-      for _, h in ipairs(t.holders) do
-        lines[#lines + 1] = { kind = "holder", key = t.key, holder = h.holder, count = h.count,
-          containers = h.containers, scannedAt = h.scannedAt, stripe = k }
-      end
+  local cmp = sorter(key, sortAsc)
+  local lines, stripe = {}, 0
+  local mode = HT.GroupMode(groupBy)
+  if mode == "none" then
+    table.sort(things, cmp)
+    for _, t in ipairs(things) do stripe = stripe + 1; emitThing(lines, t, expanded, stripe) end
+    return lines
+  end
+  for _, g in ipairs(partition(things, mode)) do
+    local shut = collapsed and collapsed[g.key] or false
+    lines[#lines + 1] = { kind = "header", key = g.key, label = g.label, count = #g.things, collapsed = shut }
+    if not shut then
+      table.sort(g.things, cmp)
+      for _, t in ipairs(g.things) do stripe = stripe + 1; emitThing(lines, t, expanded, stripe) end
     end
   end
   return lines
@@ -191,6 +289,7 @@ end
 -- ── view ──────────────────────────────────────────────────────────────────────────────────────
 
 HT.expanded, HT.sortKey, HT.sortAsc = {}, "name", true
+HT.groupBy, HT.collapsed = "none", {}   -- this tab's own group mode and collapsed groups (session)
 
 -- The two color helpers Insights already publishes from modules/AnalyticsFormat.lua (loaded first):
 -- one answer for "what color is this quality / class" across both tabs.
@@ -228,14 +327,21 @@ local function makeRow(parent)
   for _, col in ipairs(HT.COLUMNS) do row.cells[col.key] = cellFont(row, col) end
   row.detail = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   row.detail:SetJustifyH("RIGHT"); row.detail:SetWordWrap(false)
-  -- Left click toggles a thing line; right click opens the row actions (HT.RowActions) in the
-  -- History table's own menu, so the collection has one row-menu look.
+  -- A group header's one label: History's (BrowserTable:BuildRow), font, inset and gold alike.
+  row.header = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  row.header:SetPoint("LEFT", 4, 0); row.header:SetTextColor(GOLD_R, GOLD_G, GOLD_B); row.header:Hide()
+  -- Left click toggles a thing line or collapses a group header; right click opens the row
+  -- actions (HT.RowActions) in the History table's own menu, so the collection has one row-menu
+  -- look. A header has no actions.
   row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   row:SetScript("OnClick", function(self, button)
+    local line = self.line
     if button == "RightButton" then
-      if self.line and NS.BrowserTable and NS.BrowserTable.ShowMenu then
-        NS.BrowserTable:ShowMenu(self, HT.RowActions(self.line))
+      if line and line.kind ~= "header" and NS.BrowserTable and NS.BrowserTable.ShowMenu then
+        NS.BrowserTable:ShowMenu(self, HT.RowActions(line))
       end
+    elseif line and line.kind == "header" then
+      HT:ToggleCollapse(line.key)
     elseif self.thingKey then
       HT:Toggle(self.thingKey)
     end
@@ -280,7 +386,7 @@ local function setCell(row, key, text, r, g, b)
 end
 
 local function bindThing(row, l)
-  row.thingKey = l.key
+  row.thingKey = l.expandKey or l.key
   setCell(row, "name", (l.expanded and "- " or "+ ") .. l.name, rgb(NS.Analytics._qualityColor(l.quality or 1)))
   setCell(row, "ilvl", l.ilvl and tostring(l.ilvl) or "")
   if l.qualityLabel then
@@ -305,6 +411,19 @@ local function bindHolder(row, l, now)
   local stale = l.scannedAt and (now - l.scannedAt) >= DAY
   local shade = stale and 0.5 or 0.85
   setCell(row, "value", HT.FormatAge(l.scannedAt, now), shade, shade, shade)
+end
+
+-- A group header: History's (BrowserTable:BindRow) -- the gold chevron (right when collapsed, down
+-- when open), "<Prefix>: <Value>" and the gray "(N)" -- over a row with every cell emptied.
+local function bindHeader(row, l)
+  row.thingKey = nil
+  for _, fs in pairs(row.cells) do fs:SetText(""); fs:Hide() end
+  row.detail:SetText(""); row.detail:Hide()
+  local arrow = l.collapsed
+    and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
+    or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
+  row.header:SetText(arrow .. "  " .. l.label .. "  |cff808080(" .. l.count .. ")|r")
+  row.header:Show()
 end
 
 -- A header cell: History's header style (GameFontNormalSmall in header gold, a sort arrow on the
@@ -377,7 +496,7 @@ end
 function HT:Refresh()
   if not self.pane then return end
   local filter = NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter() or {}
-  local lines = HT.BuildModel(filter, self.expanded, self.sortKey, self.sortAsc)
+  local lines = HT.BuildModel(filter, self.expanded, self.sortKey, self.sortAsc, self.groupBy, self.collapsed)
   NS.Pool.ReleaseAll(self.rows)
   local w = math.max(1, (self.scroll.GetWidth and self.scroll:GetWidth()) or 1)
   local layout = HT.ColumnLayout(w)
@@ -390,9 +509,14 @@ function HT:Refresh()
     row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -(i - 1) * ROW_H)
     row:SetWidth(w)
     row.line = l
-    row.stripe:SetShown(l.stripe % 2 == 0)
-    placeCells(row, layout, l.kind == "holder")
-    if l.kind == "thing" then bindThing(row, l) else bindHolder(row, l, now) end
+    row.stripe:SetShown(l.stripe ~= nil and l.stripe % 2 == 0)
+    if l.kind == "header" then
+      bindHeader(row, l)
+    else
+      row.header:Hide()
+      placeCells(row, layout, l.kind == "holder")
+      if l.kind == "thing" then bindThing(row, l) else bindHolder(row, l, now) end
+    end
     self._rowList[i] = row
   end
   self.content:SetSize(w, math.max(1, #lines * ROW_H))
@@ -402,6 +526,18 @@ end
 
 function HT:Toggle(key)
   self.expanded[key] = (not self.expanded[key]) or nil
+  self:Refresh()
+end
+
+-- The Group dropdown's pick while Holdings is the active tab (Browser:SetGroup routes it here). A
+-- mode this tab does not offer is stored as None, so History's choice never leaks in.
+function HT:SetGroupBy(mode)
+  self.groupBy = HT.GroupMode(mode)
+  self:Refresh()
+end
+
+function HT:ToggleCollapse(key)
+  self.collapsed[key] = (not self.collapsed[key]) or nil
   self:Refresh()
 end
 
@@ -433,8 +569,12 @@ function HT:Disable()
 end
 
 NS.Browser:RegisterTab{ name = "Holdings", order = 40,
-  -- Holdings are current state: no Date, Source, Bound, Zone or grouping applies (spec §8.2).
-  filters = { search = true, quality = true, type = true, subtype = true, char = true },
+  -- Holdings are current state: no Date, Source, Bound or Zone applies (spec §8.2). Group is live,
+  -- over this tab's own modes and its own value (P6; see HT.GROUPS).
+  filters = { search = true, quality = true, type = true, subtype = true, char = true, group = true },
+  groups = HT.GROUPS,
+  group = function() return HT.groupBy end,
+  setGroup = function(mode) HT:SetGroupBy(mode) end,
   charSource = "holders",
   build = function(pane) HT:Attach(pane) end,
   refresh = function() HT:Refresh() end }

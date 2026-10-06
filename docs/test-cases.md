@@ -675,7 +675,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser: date options offer 90 days and 1 year after 30 days
 - Browser: _filterHonored - no set honors everything, a set honors only its keys
 - Browser: a tab grays the controls it does not honor, and History restores them
-- Browser: the Holdings tab grays Date, Source, Bound, Zone and Group
+- Browser: the Holdings tab grays Date, Source, Bound and Zone, and keeps Group live
 - Browser: a holders tab lists holders, with the warband as Warband
 - Browser: a holder picked on Holdings does not empty History
 - Browser: SetViewField remembers a field with no Save, from a copy of the stock view
@@ -1107,7 +1107,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: losses only — no empty text, no LOOT divider
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
 
-### test_holdingstab.lua (23)
+### test_holdingstab.lua (31)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -1132,6 +1132,14 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab: hovering a thing shows the right tooltip for an item, a currency and gold
 - HoldingsTab: the pane's rows hover and leave through the tooltip; the header holds exactly the column labels
 - HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise
+- HoldingsTab group: Quality headers by rank (highest first), N = things in the group
+- HoldingsTab group: Type and SubType headers are alphabetical
+- HoldingsTab group: Character lists a thing under every holder with that holder's count, Warband last
+- HoldingsTab group: under Character an expanded thing lists only that holder's containers
+- HoldingsTab group: a collapsed group keeps its header and count and hides its members
+- HoldingsTab group: stripes run per thing across groups; headers carry none; holders keep the parent's
+- HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
+- HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
 ### test_timeline.lua (19)
 
@@ -1567,7 +1575,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 67 |
 | test_analytics_layout.lua | 9 |
-| test_holdingstab.lua | 23 |
+| test_holdingstab.lua | 31 |
 | test_timeline.lua | 19 |
 | test_timelinetab.lua | 11 |
 | test_testdata.lua | 4 |
@@ -1591,4 +1599,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1349** |
+| **Total** | **1357** |

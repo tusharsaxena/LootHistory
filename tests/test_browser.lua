@@ -1006,14 +1006,14 @@ test("Browser: a tab grays the controls it does not honor, and History restores 
   if not ok then error(err, 0) end
 end)
 
-test("Browser: the Holdings tab grays Date, Source, Bound, Zone and Group", function()
+test("Browser: the Holdings tab grays Date, Source, Bound and Zone, and keeps Group live", function()
   local ok, err = pcall(withSettings, { visibility = "always" }, function()
     NS.Browser:Show(); NS.Browser:SelectTab("Holdings")
     local dd = NS.Browser._dd
-    for _, k in ipairs({ "date", "source", "bound", "zone", "group", "dir" }) do
+    for _, k in ipairs({ "date", "source", "bound", "zone", "dir" }) do
       assertFalse(dd[k]:IsEnabled(), k .. " is not a Holdings filter")
     end
-    for _, k in ipairs({ "quality", "type", "subtype", "char" }) do
+    for _, k in ipairs({ "quality", "type", "subtype", "char", "group" }) do
       assertTrue(dd[k]:IsEnabled(), k .. " is a Holdings filter")
     end
   end)

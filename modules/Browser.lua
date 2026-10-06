@@ -186,7 +186,29 @@ function B:ApplyTabFilters(name)
   for key, ctl in pairs(self._dd or {}) do setHonored(ctl, B._filterHonored(spec, key)) end
   setHonored(self._search, B._filterHonored(spec, "search"))
   setHonored(self._exportBtn, B._filterHonored(spec, "export"))
+  self:SyncGroupControl()
   self:RefreshFilterOptions()
+end
+
+-- Per-tab grouping (P6). A spec may own its group mode: `groups` (the modes it offers, in menu
+-- order), `group()` (its current mode) and `setGroup(mode)`. The one Group dropdown then offers
+-- only those modes and shows that tab's value while the tab is active, and a pick goes to the tab.
+-- A spec with none of that (History, Insights) drives the History table's groupBy, as always.
+function B:SetGroup(mode)
+  local spec = tabSpecs[lastTab]
+  if spec and spec.setGroup then return spec.setGroup(mode) end
+  if NS.BrowserTable then NS.BrowserTable:SetGroupBy(mode) end
+end
+
+-- Repaint the Group dropdown for the active tab: its option set and its value. SelectValue does
+-- not fire onSelect, so this never regroups anything.
+function B:SyncGroupControl()
+  local dd = self._dd and self._dd.group
+  if not dd then return end
+  local spec = tabSpecs[lastTab]
+  dd:SetOptions(B._groupOptionsFor(spec))
+  local mode = (spec and spec.group) and spec.group() or (NS.BrowserTable and NS.BrowserTable.groupBy)
+  dd:SelectValue(mode or "none")
 end
 
 -- Strip on first call, missing buttons, then every button placed by index (late tabs re-flow it).
@@ -747,7 +769,7 @@ function B:ApplyView(view, scope)
   self.activeFilter = {}
   applyTableState(view)
   local dd = self._dd
-  if dd then applyDropdowns(dd, view) end
+  if dd then applyDropdowns(dd, view); self:SyncGroupControl() end   -- a tab with its own group keeps it
   if self._search then self._search:SetText(view.search or "") end
   resolveFilter(self, view)
   -- Character scope resets to `scope` (default "current"). SetCharSet also calls ApplyFilter,

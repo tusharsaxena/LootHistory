@@ -1414,8 +1414,10 @@ tabs, labeled "Warband", and draws in its own blue. Characters draw in class col
 logged in since the upgrade draws gray, which is expected). Result:
 
 **TL-8. Filter graying.** On the Timeline, Group, Bound, Quality, Type, SubType, Source, Zone and
-Export are grayed and **do not open** on click. On Holdings, Group, Date, Source, Bound, Zone and
-Export are grayed. History and Insights gray nothing. Result:
+Export are grayed and **do not open** on click. On Holdings, Date, Direction, Source, Bound, Zone
+and Export are grayed; Group stays live and offers only None, Quality, Type, SubType and Character,
+grouping the list under collapsible "<Prefix>: <Value> (N)" headers without changing History's own
+group. History and Insights gray nothing. Result:
 
 **TL-9. Show in Timeline.** Right-click a History row → **Show in Timeline**. Right-click a Holdings
 thing → **Show in Timeline**. Both land on the Timeline charting that thing. Result:

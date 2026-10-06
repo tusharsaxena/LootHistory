@@ -30,6 +30,23 @@ local GROUP_OPTIONS = {
   { value = "dir", label = "Group: Direction" },
   { value = "holder", label = "Group: Holder" },
 }
+-- Modes only a tab's own `groups` list offers (Holdings' SubType); History's menu stays the set above.
+local GROUP_EXTRA = {
+  { value = "subtype", label = "Group: SubType" },
+}
+
+-- The Group menu for a tab spec: History's full set by default, or exactly the spec's `groups`, in
+-- its order (Browser:SyncGroupControl).
+local function groupOptionsFor(spec)
+  if not (spec and spec.groups) then return GROUP_OPTIONS end
+  local byValue, out = {}, {}
+  for _, set in ipairs({ GROUP_OPTIONS, GROUP_EXTRA }) do
+    for _, o in ipairs(set) do byValue[o.value] = o end
+  end
+  for _, v in ipairs(spec.groups) do out[#out + 1] = byValue[v] end
+  return out
+end
+
 local DATE_OPTIONS = {
   { value = "all", label = "Date: All" },
   { value = "today", label = "Today" },
@@ -52,6 +69,7 @@ local DIR_OPTIONS = {
 -- modules/Browser.lua publishes.
 B._dateOptions  = DATE_OPTIONS
 B._groupOptions = GROUP_OPTIONS
+B._groupOptionsFor = groupOptionsFor
 
 -- ── Control widths: every label on one line ──────────────────────────────────────────────────
 -- Owner feedback (P4): fixed widths let "Direction: 2 selected" and "Quality: Common+" wrap onto a
@@ -92,6 +110,7 @@ local function widthLabels()
               type = { "Type: All" }, subtype = { "SubType: All" }, zone = { "Zone: All" },
               char = { "Character: All", "Character: Current" } }
   addLabels(L.group, GROUP_OPTIONS)
+  addLabels(L.group, GROUP_EXTRA)
   addLabels(L.date, DATE_OPTIONS)
   addLabels(L.dir, DIR_OPTIONS)
   addSummaries(L.dir, "Direction", #DIR_OPTIONS - 1)
@@ -221,7 +240,8 @@ function B:BuildFilterBar(bar)
   dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
   dd.group:SetOptions(GROUP_OPTIONS)
   dd.group:SetValue("none", "Group: None")
-  dd.group.onSelect = function(v) if NS.BrowserTable then NS.BrowserTable:SetGroupBy(v) end end
+  -- The active tab's group (B:SetGroup): History's table, or a tab that owns its own (Holdings).
+  dd.group.onSelect = function(v) B:SetGroup(v) end
 
   -- Direction (multi-select), between Group and Search: row 2's span is the toolbar's width floor
   -- (B:ToolbarSpan), so a ninth row-2 dropdown would widen the minimum window by its whole width;

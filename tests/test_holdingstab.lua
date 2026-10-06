@@ -410,3 +410,176 @@ test("HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not
   mocks.GameTooltip = saved
   if not ok then error(err, 0) end
 end)
+
+-- ---------------------------------------------------------------------------
+-- Group-by (timeline ledger P6, Task 2)
+-- ---------------------------------------------------------------------------
+-- Holdings keeps its OWN group value (HT.groupBy), so a Holdings pick never moves History's
+-- BrowserTable.groupBy; a mode Holdings does not support reads as None.
+
+local W = NS.Constants.WARBAND_HOLDER
+
+-- Gear (item 7: Rare, Armor/Cloth) held by A, B and the warband; gold and a currency on A.
+local function seedGroups()
+  NS.db.global.holdings = {}
+  NS.Holdings:ApplyContainer("A-Realm", "bags", { [7] = 2 }, { [7] = "|Hitem:7|h[Apple]|h" }, 100)
+  NS.Holdings:ApplyContainer("B-Realm", "bank", { [7] = 9 }, {}, 50)
+  NS.Holdings:ApplyContainer(W, "tabs", { [7] = 5 }, {}, 80)
+  NS.Holdings:ApplyMoney("A-Realm", 10000, 100)
+  NS.Holdings:ApplyCurrency("A-Realm", { [3008] = 40 }, 100)
+end
+
+-- "<label> (count)" for every header, in order, and the thing keys under each.
+local function headers(lines)
+  local out = {}
+  for _, l in ipairs(lines) do
+    if l.kind == "header" then out[#out + 1] = l.label .. " (" .. l.count .. ")" end
+  end
+  return table.concat(out, " | ")
+end
+local function members(lines)
+  local out, cur = {}, nil
+  for _, l in ipairs(lines) do
+    if l.kind == "header" then cur = l.label; out[cur] = {}
+    elseif l.kind == "thing" then local m = out[cur]; m[#m + 1] = l.key .. "=" .. l.total end
+  end
+  for k, v in pairs(out) do out[k] = table.concat(v, ",") end
+  return out
+end
+
+test("HoldingsTab group: Quality headers by rank (highest first), N = things in the group", function()
+  withGear(function() keep(function()
+    seedGroups()
+    local lines = NS.HoldingsTab.BuildModel({}, {}, "name", nil, "quality", {})
+    local Q = NS.Item.QualityLabel
+    assertEqual(headers(lines), "Quality: " .. Q(4) .. " (1) | Quality: " .. Q(3) .. " (1) | Quality: \226\128\148 (1)")
+    local m = members(lines)
+    assertEqual(m["Quality: " .. Q(3)], "i:7=16", "the item keeps its all-holders total")
+    assertEqual(m["Quality: \226\128\148"], "g=10000")
+  end) end)
+end)
+
+test("HoldingsTab group: Type and SubType headers are alphabetical", function()
+  withGear(function() keep(function()
+    seedGroups()
+    local lines = NS.HoldingsTab.BuildModel({}, {}, "name", nil, "type", {})
+    assertEqual(headers(lines), "Type: Armor (1) | Type: Currency (1) | Type: Gold (1)")
+    -- The mock names no currency category, so the currency shares Unknown with gold (no subtype).
+    assertEqual(NS.Compat.CurrencyCategory(3008), nil)
+    assertEqual(headers(NS.HoldingsTab.BuildModel({}, {}, "name", nil, "subtype", {})),
+      "SubType: Cloth (1) | SubType: Unknown (2)")
+  end) end)
+end)
+
+test("HoldingsTab group: Character lists a thing under every holder with that holder's count, Warband last", function()
+  withGear(function() keep(function()
+    seedGroups()
+    local lines = NS.HoldingsTab.BuildModel({}, {}, "total", nil, "char", {})
+    assertEqual(headers(lines), "Character: A-Realm (3) | Character: B-Realm (1) | Character: Warband (1)")
+    local m = members(lines)
+    assertEqual(m["Character: A-Realm"], "g=10000,c:3008=40,i:7=2", "sorted by total within the group")
+    assertEqual(m["Character: B-Realm"], "i:7=9")
+    assertEqual(m["Character: Warband"], "i:7=5")
+  end) end)
+end)
+
+test("HoldingsTab group: under Character an expanded thing lists only that holder's containers", function()
+  keep(function()
+    seedGroups()
+    local HT = NS.HoldingsTab
+    local lines = HT.BuildModel({}, {}, "name", nil, "char", {})
+    local key
+    for _, l in ipairs(lines) do
+      if l.kind == "thing" and l.key == "i:7" and l.holder == "B-Realm" then key = l.expandKey end
+    end
+    assertTrue(key ~= nil, "a Character-grouped thing line carries its own expand key")
+    local holderLines = {}
+    for _, l in ipairs(HT.BuildModel({}, { [key] = true }, "name", nil, "char", {})) do
+      if l.kind == "holder" then holderLines[#holderLines + 1] = l end
+    end
+    assertEqual(#holderLines, 1, "only the B group's copy expanded")
+    assertEqual(holderLines[1].holder, "B-Realm"); assertEqual(holderLines[1].count, 9)
+    assertEqual(holderLines[1].containers.bank, 9)
+  end)
+end)
+
+test("HoldingsTab group: a collapsed group keeps its header and count and hides its members", function()
+  keep(function()
+    seedGroups()
+    local HT = NS.HoldingsTab
+    local open = HT.BuildModel({}, {}, "name", nil, "char", {})
+    local aKey
+    for _, l in ipairs(open) do if l.kind == "header" and l.label == "Character: A-Realm" then aKey = l.key end end
+    local lines = HT.BuildModel({}, {}, "name", nil, "char", { [aKey] = true })
+    assertEqual(headers(lines), "Character: A-Realm (3) | Character: B-Realm (1) | Character: Warband (1)")
+    assertEqual(lines[1].collapsed, true)
+    assertEqual(lines[2].kind, "header", "the A group's members are hidden")
+    assertEqual(#lines, #open - 3)
+  end)
+end)
+
+test("HoldingsTab group: stripes run per thing across groups; headers carry none; holders keep the parent's", function()
+  withGear(function() keep(function()
+    seedGroups()
+    local lines = NS.HoldingsTab.BuildModel({}, { ["i:7"] = true }, "name", nil, "type", {})
+    local seen = {}
+    for _, l in ipairs(lines) do seen[#seen + 1] = l.kind .. ":" .. tostring(l.stripe) end
+    -- Armor (the item, three holders), then Currency, then Gold
+    assertEqual(table.concat(seen, ","),
+      "header:nil,thing:1,holder:1,holder:1,holder:1,header:nil,thing:2,header:nil,thing:3")
+  end) end)
+end)
+
+test("HoldingsTab group: an unsupported mode reads as None and leaves History's group alone", function()
+  keep(function()
+    seedGroups()
+    local HT, BT = NS.HoldingsTab, NS.BrowserTable
+    for _, mode in ipairs({ "day", "source", "zone", "dir", "holder", "bogus" }) do
+      for _, l in ipairs(HT.BuildModel({}, {}, "name", nil, mode, {})) do
+        assertTrue(l.kind ~= "header", mode .. " grouped the Holdings view")
+      end
+    end
+    local savedBT, savedHT = BT.groupBy, HT.groupBy
+    BT.groupBy = "zone"
+    HT:SetGroupBy("day")
+    assertEqual(HT.groupBy, "none")
+    HT:SetGroupBy("subtype")
+    assertEqual(HT.groupBy, "subtype")
+    assertEqual(BT.groupBy, "zone", "a Holdings pick never moves History's group")
+    BT.groupBy, HT.groupBy = savedBT, savedHT
+  end)
+end)
+
+test("HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick", function()
+  local HT, BT, B = NS.HoldingsTab, NS.BrowserTable, NS.Browser
+  local savedChar = B:CurrentFilter().char
+  local savedBT, savedHT, savedCollapsed = BT.groupBy, HT.groupBy, HT.collapsed
+  local ok, err = pcall(function() keep(function()
+    seedGroups()
+    B:Show(); B:SetCharSet(nil)
+    BT:SetGroupBy("zone"); B._dd.group:SelectValue("zone")
+    B:SelectTab("Holdings")
+    local dd = B._dd.group
+    assertTrue(dd:IsEnabled(), "Group is a Holdings control")
+    local vals = {}
+    for _, o in ipairs(dd._options) do vals[#vals + 1] = o.value end
+    assertEqual(table.concat(vals, ","), "none,quality,type,subtype,char")
+    assertEqual(dd._value, "none", "Holdings shows its own group, not History's Zone")
+    dd.onSelect("char")
+    assertEqual(HT.groupBy, "char"); assertEqual(BT.groupBy, "zone")
+    -- 3 headers + 5 thing lines (A: gold, currency, item; B: item; Warband: item)
+    assertEqual(HT:VisibleRowCount(), 8)
+    local first = HT:Rows()[1]
+    assertEqual(first.line.kind, "header")
+    first:GetScript("OnClick")(first, "LeftButton")
+    assertEqual(HT:VisibleRowCount(), 5, "clicking a header collapses its group")
+    B:SelectTab("History")
+    assertEqual(B._dd.group._value, "zone", "History's own pick comes back")
+    assertTrue(#B._dd.group._options > 5, "History offers every mode again")
+    B:SelectTab("Holdings")
+    assertEqual(B._dd.group._value, "char"); assertEqual(HT:VisibleRowCount(), 5, "collapse is remembered")
+  end) end)
+  BT.groupBy, HT.groupBy, HT.collapsed = savedBT, savedHT, savedCollapsed
+  B:SetCharSet(savedChar); B:SelectTab("History"); B._dd.group:SelectValue(savedBT); B:Hide()
+  if not ok then error(err, 0) end
+end)
