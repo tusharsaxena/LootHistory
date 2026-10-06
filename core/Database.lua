@@ -132,6 +132,59 @@ local function dropStoredTransfersOff()
   return n
 end
 
+-- v12 -> v13 helper (timeline-ledger Phase 7, owner decision 2026-10-06): a move between two
+-- DIFFERENT holders is a loss on the sender and a gain on the receiver, not a MOVE pair. Every stored
+-- MOVE whose `from` and `to` name different holders becomes an OUT on the from-holder's row and an IN
+-- on the other, under the action's reason (Ledger.HolderMoveReason). A move inside one holder (bags
+-- to bank, mail money taken) stays a MOVE. A converted row with no pairId gets one: the two halves
+-- of a pair (same ts, thing, quantity and ends, opposite direction) share `<ts>:m<n>`, and a half
+-- with no partner left gets its own. Then every (day, holder, thing) a converted row touched has its
+-- rollup in/out rebuilt from the rows (closes are Holdings' and stay). The row count is the rows
+-- converted; a second run finds no inter-holder MOVE and changes nothing.
+local function pairBucket(r)
+  return table.concat({ tostring(r.ts), tostring(NS.Ledger.RowThingKey(r)), tostring(r.quantity),
+    r.from, r.to }, "|")
+end
+
+local function convertHolderMoves(g)
+  local L, U = NS.Ledger, NS.Util
+  local rows = g.history or {}
+  local n, queued, buckets, touched = 0, {}, {}, {}
+  for _, r in ipairs(rows) do
+    local fromH, toH = L.LocationHolder(r.from), L.LocationHolder(r.to)
+    if r.dir == "MOVE" and fromH and toH and fromH ~= toH then
+      local holder = U.RowHolder(r)
+      r.dir = (holder == fromH) and "OUT" or "IN"
+      r.source = L.HolderMoveReason(r, fromH, toH)
+      n = n + 1
+      if r.pairId == nil then
+        queued[#queued + 1] = r
+        local b = pairBucket(r)
+        buckets[b] = buckets[b] or { OUT = {}, IN = {} }
+        local side = buckets[b][r.dir]
+        side[#side + 1] = r
+      end
+      local key = L.RowThingKey(r)
+      if key and r.ts and holder then
+        local day = L.DayKey(r.ts)
+        touched[day] = touched[day] or {}
+        touched[day][holder] = touched[day][holder] or {}
+        touched[day][holder][key] = true
+      end
+    end
+  end
+  for i, r in ipairs(queued) do
+    if r.pairId == nil then
+      r.pairId = tostring(r.ts) .. ":m" .. i
+      for _, other in ipairs(buckets[pairBucket(r)][r.dir == "OUT" and "IN" or "OUT"]) do
+        if other.pairId == nil then other.pairId = r.pairId; break end
+      end
+    end
+  end
+  if n > 0 and type(g.daily) == "table" then L.RecomputeFlows(g.daily, rows, touched) end
+  return n
+end
+
 -- The schema-upgrade chain, in ascending order — one entry per step, `to` being the version the
 -- step stamps once it has run. Each `apply(g)` mutates db.global in place and returns the number
 -- of rows it touched (for the [Migrate] line). Array order IS the run order: a step sees every
@@ -275,6 +328,11 @@ local MIGRATIONS = {
   -- v11 -> v12: Show transfers by default flips to on (P4 owner review). Removes an explicit
   -- `showTransfers = false` from every stored profile so the new default applies. Idempotent.
   { to = 12, apply = function() return dropStoredTransfersOff() end },
+
+  -- v12 -> v13: holder moves become a loss and a gain (timeline-ledger Phase 7). Converts every
+  -- stored MOVE between two different holders to OUT + IN under its action's reason and rebuilds the
+  -- touched days' rollup in/out. Idempotent.
+  { to = 13, apply = function(g) return convertHolderMoves(g) end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated

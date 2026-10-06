@@ -265,7 +265,7 @@ badge and any count quoted in the docs must agree with it.
 - Holdings: Search keeps uncached items and filters by holder
 - Holdings: ForgetHolder drops the entry
 
-### test_rollup.lua (20)
+### test_rollup.lua (21)
 
 - Rollup: a holdings change writes that day's close for the thing that moved
 - Rollup: an unchanged thing writes no cell
@@ -286,6 +286,7 @@ badge and any count quoted in the docs must agree with it.
 - Rollup: SeedOnce writes today's close for every held thing, once per account
 - Rollup: SeedOnce never overwrites a close already written today
 - Schema: rollupRetentionDays is account-wide, defaults to Always and is reset-exempt
+- Rollup: RecomputeFlows rebuilds only the touched cells from IN / OUT rows, closes untouched
 - Rollup: the suite restores the shared state it changed
 
 ### test_attribution.lua (37)
@@ -507,7 +508,7 @@ badge and any count quoted in the docs must agree with it.
 - Escrow: gold from another player is a gain even while an alt's gold waits
 - Escrow: a money-only pass leaves the staged items for the item pass; both are ALT_MAIL losses
 
-### test_database.lua (76)
+### test_database.lua (83)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -553,7 +554,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 12
+- Database: a fresh store at schemaVersion 0 walks every step to 13
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -585,6 +586,13 @@ badge and any count quoted in the docs must agree with it.
 - Database: QueryList dir clause treats legacy rows as gains
 - Database: minQuality floors items only, whitelist exempt
 - Database: Export carries the ledger fields with legacy defaults
+- Migrate v12->v13: a warband deposit pair becomes OUT + IN WARBAND_DEPOSIT with one pairId
+- Migrate v12->v13: a warband withdraw of gold becomes OUT on the Warband, IN on the character
+- Migrate v12->v13: character-to-character pairs take ALT_MAIL / CURRENCY_TRANSFER / ALT_TRADE
+- Migrate v12->v13: a move inside one holder stays a MOVE; an existing pairId is kept
+- Migrate v12->v13: a second run changes nothing
+- Migrate v12->v13: the touched day's in/out tallies are rebuilt from the rows; closes stay
+- Migrate v12->v13: a day the rollup no longer holds is not recreated
 
 ### test_stats.lua (23)
 
@@ -1573,7 +1581,7 @@ badge and any count quoted in the docs must agree with it.
 | test_compat.lua | 61 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
-| test_rollup.lua | 20 |
+| test_rollup.lua | 21 |
 | test_attribution.lua | 37 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
@@ -1582,7 +1590,7 @@ badge and any count quoted in the docs must agree with it.
 | test_reconciler.lua | 7 |
 | test_reconciler_rows.lua | 31 |
 | test_escrow.lua | 14 |
-| test_database.lua | 76 |
+| test_database.lua | 83 |
 | test_stats.lua | 23 |
 | test_browser.lua | 92 |
 | test_browsertable.lua | 74 |
@@ -1620,4 +1628,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1378** |
+| **Total** | **1386** |

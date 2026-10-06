@@ -262,7 +262,7 @@ test("Util: FormatBytes scales B / kB / MB", function()
 end)
 
 test("Database: InitDB creates the account-wide store and the Default profile", function()
-  assertEqual(NS.db.global.schemaVersion, 12)
+  assertEqual(NS.db.global.schemaVersion, 13)
   assertTrue(type(NS.db.global.history) == "table")
   assertEqual(#NS.db.global.history, 0)
   assertEqual(NS.db:GetCurrentProfile(), "Default")

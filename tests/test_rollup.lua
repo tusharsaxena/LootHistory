@@ -211,6 +211,26 @@ test("Schema: rollupRetentionDays is account-wide, defaults to Always and is res
   S:Set("settings.rollupRetentionDays", 0)
 end)
 
+-- The v13 step's rebuild (core/Ledger.lua RecomputeFlows): a touched cell's tallies are re-summed
+-- from the rows, so a stale tally is replaced, not added to; MOVE rows count nothing.
+test("Rollup: RecomputeFlows rebuilds only the touched cells from IN / OUT rows, closes untouched", function()
+  -- red under: a rebuild that adds to the stored tally instead of replacing it (i would read 9).
+  local D = day(T0)
+  local daily = { [D] = { ["A-R"] = { ["i:7"] = { c = 3, i = 4, o = 2 }, ["g"] = { i = 50 } } } }
+  local rows = {
+    { ts = T0, holder = "A-R", dir = "IN", kind = "ITEM", itemID = 7, quantity = 5 },
+    { ts = T0 + 1, holder = "A-R", dir = "MOVE", kind = "ITEM", itemID = 7, quantity = 8 },
+    { ts = T0 + 2, holder = "B-R", dir = "OUT", kind = "ITEM", itemID = 7, quantity = 1 },
+    { ts = T0 + 86400, holder = "A-R", dir = "OUT", kind = "ITEM", itemID = 7, quantity = 6 },
+  }
+  local n = NS.Ledger.RecomputeFlows(daily, rows, { [D] = { ["A-R"] = { ["i:7"] = true } } })
+  assertEqual(n, 1)
+  local c = daily[D]["A-R"]["i:7"]
+  assertEqual(c.i, 5); assertEqual(c.o, nil); assertEqual(c.c, 3)
+  assertEqual(daily[D]["A-R"].g.i, 50, "an untouched thing keeps its tally")
+  assertEqual(daily[day(T0 + 86400)], nil, "another day is not written")
+end)
+
 -- Not a behavior case: puts the stores, the key index and the write hook back the way this suite
 -- found them, so the suites after it see no rollup state of this file's making.
 test("Rollup: the suite restores the shared state it changed", function()

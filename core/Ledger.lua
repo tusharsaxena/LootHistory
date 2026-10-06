@@ -356,3 +356,71 @@ function Ledger.ForgetHolderDaily(daily, holder)
   end
   return removed
 end
+
+-- Rebuild the in/out tallies of the cells named in touched[day][holder][key] from `rows` (the v13
+-- step, timeline-ledger Phase 7): each such cell's `i` / `o` is cleared and re-summed from every IN /
+-- OUT row of that day, holder and thing, so a tally always matches the rows that produced it. A day
+-- the rollup no longer holds (pruned) is skipped, never recreated, and a close is never touched.
+-- Answers the number of cells rebuilt.
+function Ledger.RecomputeFlows(daily, rows, touched)
+  local want, n = {}, 0
+  for day, holders in pairs(touched) do
+    local d = daily[day]
+    if d then
+      for holder, keys in pairs(holders) do
+        local w = want[holder] or {}
+        want[holder] = w
+        for key in pairs(keys) do
+          w[key] = true
+          local c = d[holder] and d[holder][key]
+          if c then c.i, c.o = nil, nil end
+          n = n + 1
+        end
+      end
+    end
+  end
+  if n == 0 then return 0 end
+  for _, r in ipairs(rows) do
+    local dir, holder = NS.Util.RowDir(r), NS.Util.RowHolder(r)
+    local w = dir ~= "MOVE" and r.ts and want[holder]
+    local key = w and Ledger.RowThingKey(r)
+    if key and w[key] then
+      local day = Ledger.DayKey(r.ts)
+      local t = touched[day]
+      if daily[day] and t and t[holder] and t[holder][key] then
+        Ledger.RollupFlow(daily, day, holder, key, dir, r.quantity)
+      end
+    end
+  end
+  return n
+end
+
+-- ── Holder moves (timeline-ledger Phase 7, owner decision 2026-10-06) ──
+-- A `from` / `to` end is "<holder>/<container>". Neither a PlayerKey nor "§warband" carries a "/",
+-- so the holder is everything before the last one.
+function Ledger.LocationHolder(loc)
+  if type(loc) ~= "string" then return nil end
+  return loc:match("^(.*)/[^/]*$")
+end
+
+local function containerOf(loc)
+  return type(loc) == "string" and loc:match("/([^/]*)$") or nil
+end
+
+local HOLDER_MOVE_REASON = { WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true,
+  ALT_TRADE = true, CURRENCY_TRANSFER = true }
+
+-- The reason a stored move between two different holders takes (the v13 step). The Warband end
+-- names the direction; between characters, a mail end means ALT_MAIL, a currency CURRENCY_TRANSFER,
+-- and anything else, which the row cannot tell apart, reads as ALT_TRADE. A row already carrying a
+-- holder-move reason keeps it.
+function Ledger.HolderMoveReason(r, fromH, toH)
+  if HOLDER_MOVE_REASON[r.source] then return r.source end
+  local warband = NS.Constants.WARBAND_HOLDER
+  if toH == warband then return "WARBAND_DEPOSIT" end
+  if fromH == warband then return "WARBAND_WITHDRAW" end
+  local mail = NS.Constants.Container.MAIL
+  if containerOf(r.from) == mail or containerOf(r.to) == mail then return "ALT_MAIL" end
+  if NS.Util.RowKind(r) == "CURRENCY" then return "CURRENCY_TRANSFER" end
+  return "ALT_TRADE"
+end
