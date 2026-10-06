@@ -94,6 +94,7 @@ modules\Filters.lua
 modules\Scanner.lua
 modules\Holdings.lua
 modules\Reconciler.lua
+modules\Escrow.lua
 modules\AuctionPrice.lua
 modules\Collector.lua
 modules\Browser.lua

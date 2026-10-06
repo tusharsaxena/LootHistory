@@ -191,3 +191,27 @@ function Holdings:CreditCurrency(holder, id, qty)
   e.currency[id] = (v > 0) and v or nil
   return true
 end
+
+-- Escrow bookkeeping (timeline-ledger spec §3 `mail`/`auctions`): how much of a holder's mail came
+-- from an own source (an alt's send, a returned auction), gold mailed in from an alt, and auctions
+-- that left the AH without yet resolving to a sale or a return. Persisted: a mail can sit for weeks.
+function Holdings:Escrow(holder)
+  local e = self:Get(holder, true)
+  e.escrow = e.escrow or { mailOwn = {}, mailMoney = 0, exits = {} }
+  return e.escrow
+end
+
+-- Put `qty` of `id` into a holder's escrow container without a scan (a send to an alt, a post).
+-- The column's scanned time is left alone: the next real scan is authoritative.
+function Holdings:CreditEscrow(holder, container, id, qty, own)
+  local e = self:Get(holder)
+  if not e then return false end
+  local row = e.items[id]
+  if not row then row = {}; e.items[id] = row end
+  row[container] = (row[container] or 0) + qty
+  if own then
+    local esc = self:Escrow(holder)
+    esc.mailOwn[id] = (esc.mailOwn[id] or 0) + qty
+  end
+  return true
+end

@@ -431,6 +431,17 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: an account currency transfer to an own alt is a MOVE pair and credits the alt
 - Reconciler: changes made while stood down land as UNTRACKED on resume
 
+### test_escrow.lua (8)
+
+- Escrow: mail to an own alt is a MOVE pair; the alt's mail and own-origin are credited
+- Escrow: taking mail splits own-origin (MOVE) from outside gains (IN)
+- Escrow: posting moves bags to auctions and credits the auctions column
+- Escrow: an auction that leaves and comes back by mail is a return, not a sale
+- Escrow: an AH sale mail books the pending exit as AH_SOLD
+- Escrow: an exit unresolved for 30 days is booked as sold
+- Escrow: mail money taken from an own alt's send is a MOVE
+- Escrow: the mailbox is unreadable once closed
+
 ### test_database.lua (76)
 
 - Database: Add appends, increments Count, returns index
@@ -1374,6 +1385,7 @@ badge and any count quoted in the docs must agree with it.
 | test_collector.lua | 43 |
 | test_reconciler.lua | 7 |
 | test_reconciler_rows.lua | 23 |
+| test_escrow.lua | 8 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 69 |
@@ -1408,4 +1420,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1194** |
+| **Total** | **1202** |

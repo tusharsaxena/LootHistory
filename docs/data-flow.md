@@ -142,7 +142,7 @@ The three gate settings are cached as file-local upvalues (`modules/Collector.lu
 
 A second, independent engine sits beside loot capture: the **Reconciler** (`modules/Reconciler.lua`) keeps `db.global.holdings` equal to what the account owns, using `NS.Scanner` for the reads and `NS.Holdings` for the writes (timeline-ledger spec §5.2). It never touches `CHAT_MSG_LOOT` or the attribution context; Phase 2 is where the two meet, as a diff of successive scans that the existing context then claims.
 
-**Events mark, `Flush` works.** Twelve events register one by one on a private bus target, and only while `settings.trackLedger` is on. A handler does nothing but set a dirty bit (`MarkDirty`) and, for the events that close a burst, arm a 0.35 s `NS.After` fuse:
+**Events mark, `Flush` works.** Fourteen events register one by one on a private bus target, and only while `settings.trackLedger` is on. A handler does nothing but set a dirty bit (`MarkDirty`) and, for the events that close a burst, arm a 0.35 s `NS.After` fuse:
 
 | Event | Marks | Arms the fuse |
 |---|---|---|
@@ -153,7 +153,9 @@ A second, independent engine sits beside loot capture: the **Reconciler** (`modu
 | `CURRENCY_DISPLAY_UPDATE(id, qty, change, gainSrc, lostSrc)` | `currencyDelta` (the change is folded into `pendingCur[id]`, the source enums kept for the reason); a nil id marks `currency` for a full list rescan | yes |
 | `CURRENCY_TRANSFER_LOG_UPDATE` | `currencyDelta` (sets `pendingTransfer`: the flush pairs the loss with the own alt as a MOVE and credits the alt's stored currency) | yes |
 | `PLAYERBANKSLOTS_CHANGED` / `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | `bank` / `tabs` | yes |
-| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | bank, tabs, warband gold (on show, for a Banker or AccountBanker only) | show yes; hide runs a final `Flush` itself |
+| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | per `R.READABLE_ON`: bank, tabs, warband gold for a Banker or AccountBanker; `mail` for the mailbox; nothing for the auction house (its list waits for `OWNED_AUCTIONS_UPDATED`). Show sets the readable flag | show yes; hide runs a final `Flush` itself, then clears the flag |
+| `MAIL_INBOX_UPDATE` | `mail`, only while the mailbox is open (escrow: `modules/Escrow.lua`) | yes |
+| `OWNED_AUCTIONS_UPDATED` | `auctions`, only while the auction house is open; it is also what makes the owned list readable | yes |
 | `PLAYER_REGEN_ENABLED` | nothing | runs a pending login reconcile, else replays a deferred flush |
 
 `BAG_UPDATE` carries no fuse of its own on purpose: a raid-pull storm costs one table write per event and nothing else.

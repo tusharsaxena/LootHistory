@@ -98,6 +98,8 @@ local OWNED = {
   "event:PLAYER_INTERACTION_MANAGER_FRAME_SHOW:nil",
   "event:PLAYER_INTERACTION_MANAGER_FRAME_HIDE:nil",
   "event:CURRENCY_TRANSFER_LOG_UPDATE:nil",
+  "event:MAIL_INBOX_UPDATE:nil",
+  "event:OWNED_AUCTIONS_UPDATED:nil",
   -- modules/AttributionOut.lua: the ledger's loss-side mail and guild-bank events, on `__outEv`.
   "event:MAIL_SEND_SUCCESS:nil",
   "event:MAIL_FAILED:nil",

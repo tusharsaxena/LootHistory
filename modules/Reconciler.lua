@@ -21,12 +21,10 @@ local DEBOUNCE = 0.35
 
 R.dirty, R.readable = {}, {}
 
--- The two interactions that make the bank's containers readable. Outside them the client answers
--- a bank slot as EMPTY, not as unknown, so reading it would record the whole bank as lost.
-local BANK_INTERACTIONS = { "Banker", "AccountBanker" }
-
 function R:IsReadable(part)
   if part == "bank" or part == "tabs" then return self.readable.bank == true end
+  if part == "mail" then return self.readable.mail == true end
+  if part == "auctions" then return self.readable.auctions == true end
   if part == "warbandMoney" then return Compat.GetWarbandMoney() ~= nil end
   return true
 end
@@ -47,18 +45,39 @@ local function scheduleFlush(self)
   self._pending = NS.After(DEBOUNCE, function() self._pending = nil; self:Flush() end)
 end
 
+-- Which interaction frame makes which containers readable, and which parts to rescan on open.
+-- Outside the bank the client answers a bank slot as EMPTY, not as unknown, so reading it would
+-- record the whole bank as lost; the same holds for a closed mailbox. Escrow's two (mailbox,
+-- auction house) are listed here because the readable flags are this module's; what to DO with the
+-- mail/auctions columns is modules/Escrow.lua's.
+R.READABLE_ON = {
+  Banker        = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" } },
+  AccountBanker = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" } },
+  MailInfo      = { flag = "mail",         parts = { "mail" } },
+  Auctioneer    = { flag = "auctionHouse", parts = {} },
+}
+
+function R:OnInteraction(shown, interactionType)
+  for name, spec in pairs(R.READABLE_ON) do
+    if interactionType ~= nil and interactionType == Compat.InteractionType(name) then
+      if shown then
+        self.readable[spec.flag] = true
+        for _, p in ipairs(spec.parts) do self:MarkDirty(p) end
+        scheduleFlush(self)
+      else
+        self:Flush()                                       -- final read while still readable
+        self.readable[spec.flag] = nil
+        if spec.flag == "auctionHouse" then self.readable.auctions = nil end
+      end
+    end
+  end
+end
+
 -- Which part a BAG_UPDATE belongs to. Bank and warband tab bags fire it too; they are routed to
 -- their own parts so a "bags" flush only ever reads the carried bags, and a closed bank is never
 -- read as empty.
 local function isIn(list, id)
   for _, v in ipairs(list) do if v == id then return true end end
-  return false
-end
-
-local function isBankInteraction(kind)
-  for _, name in ipairs(BANK_INTERACTIONS) do
-    if kind ~= nil and kind == Compat.InteractionType(name) then return true end
-  end
   return false
 end
 
@@ -78,16 +97,14 @@ function R:OnEvent(event, a1, _, a3, a4, a5)
     self:MarkDirty("currencyDelta"); scheduleFlush(self)
   elseif event == "PLAYERBANKSLOTS_CHANGED" then self:MarkDirty("bank"); scheduleFlush(self)
   elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then self:MarkDirty("tabs"); scheduleFlush(self)
-  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
-    if isBankInteraction(a1) then
-      self.readable.bank = true
-      self:MarkDirty("bank"); self:MarkDirty("tabs"); self:MarkDirty("warbandMoney")
-      scheduleFlush(self)
-    end
-  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
-    if isBankInteraction(a1) then
-      self:Flush()                 -- the final read, while the bank is still readable
-      self.readable.bank = nil
+  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then self:OnInteraction(true, a1)
+  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then self:OnInteraction(false, a1)
+  elseif event == "MAIL_INBOX_UPDATE" then
+    if self.readable.mail then self:MarkDirty("mail"); scheduleFlush(self) end
+  elseif event == "OWNED_AUCTIONS_UPDATED" then
+    -- The owned list is only trustworthy once the client has answered the query, which is this event.
+    if self.readable.auctionHouse then
+      self.readable.auctions = true; self:MarkDirty("auctions"); scheduleFlush(self)
     end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if self.loginPending then self:LoginScan()
@@ -115,6 +132,7 @@ local function snapFor(snap, holder)
   if not s then s = { items = {}, links = {} }; snap[holder] = s end
   return s
 end
+R.SnapFor = snapFor
 
 local function addLinks(dst, src) for id, l in pairs(src or {}) do if not dst[id] then dst[id] = l end end end
 
@@ -433,8 +451,10 @@ function R:WriteRows(plan, now, clock)
     local from = p.from .. "/" .. sideOf(p.key, p.from, p.fromC)
     local to = p.to .. "/" .. sideOf(p.key, p.to, p.toC)
     self:Write(p.from, p.key, "MOVE", p.reason or "TRANSFER", p.qty, now, from, to)
-    self:Write(p.to, p.key, "MOVE", p.reason or "TRANSFER", p.qty, now, from, to)
+    -- A pair within one holder (mail money taken) is one row, not two.
+    if p.to ~= p.from then self:Write(p.to, p.key, "MOVE", p.reason or "TRANSFER", p.qty, now, from, to) end
   end
+  for _, x in ipairs(plan.extra or {}) do self:Write(x.holder, x.key, x.dir, x.reason, x.qty, now) end
   for holder, net in pairs(plan.net) do
     for key, dlt in pairs(net) do
       local dir = dlt > 0 and "IN" or "OUT"
@@ -548,7 +568,7 @@ local EVENTS = {
   "BAG_UPDATE", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_MONEY", "ACCOUNT_MONEY",
   "CURRENCY_DISPLAY_UPDATE", "PLAYERBANKSLOTS_CHANGED", "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED",
   "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "PLAYER_REGEN_ENABLED",
-  "CURRENCY_TRANSFER_LOG_UPDATE",
+  "CURRENCY_TRANSFER_LOG_UPDATE", "MAIL_INBOX_UPDATE", "OWNED_AUCTIONS_UPDATED",
 }
 
 local function trackLedgerOn()
