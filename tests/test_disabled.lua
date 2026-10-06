@@ -97,6 +97,7 @@ local OWNED = {
   "event:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED:nil",
   "event:PLAYER_INTERACTION_MANAGER_FRAME_SHOW:nil",
   "event:PLAYER_INTERACTION_MANAGER_FRAME_HIDE:nil",
+  "event:CURRENCY_TRANSFER_LOG_UPDATE:nil",
   -- modules/AttributionOut.lua: the ledger's loss-side mail and guild-bank events, on `__outEv`.
   "event:MAIL_SEND_SUCCESS:nil",
   "event:MAIL_FAILED:nil",
@@ -297,9 +298,12 @@ test("slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not
     --
     -- MEASURED AS A DELTA. The kit's live-timer set is shared with every suite that ran before this
     -- one, so the absolute count is not this addon's to assert; what is this addon's is that the
-    -- deferrals it armed are gone again.
-    bringUp()
+    -- deferrals it armed are gone again. The baseline is read while the addon is DOWN: bringing it
+    -- up can itself arm one (the Reconciler's resume reconcile, once a session has logged in), and
+    -- that one has to be canceled by the stand-down too.
+    setEnabled(false)
     local before = #M.__timers()
+    bringUp()
     NS.State.cleanupDone = false
     assertTrue(M.__fire("PLAYER_ENTERING_WORLD") > 0, "the login handler must be registered")
     assertTrue(#M.__timers() > before, "PLAYER_ENTERING_WORLD must arm the retention deferrals")

@@ -46,6 +46,7 @@ local function reset()
   r.dirty, r.readable, r.deferred, r._holdSince = {}, {}, nil, nil
   r.claims, r.recent, r.reasonMemo = {}, {}, {}
   r._pending, r._recheck = nil, nil                       -- a stale fuse from another case never suppresses scheduling
+  r.pendingCur, r.curGain, r.curLoss, r.pendingTransfer, r.loginPending = {}, {}, {}, nil, nil
   r._enabled = true
   NS.State.outContext, NS.State.lootContext = nil, nil
   for k in pairs(NS.State.scopes) do NS.State.scopes[k] = nil end
@@ -268,4 +269,117 @@ case("Collector+Reconciler: looted gold is counted once", function()
   m.__money = 45
   R():MarkDirty("money"); R():Flush()
   assertEqual(#H(), 1); assertEqual(H()[1].kind, "GOLD"); assertTrue(H()[1].claimed)
+end)
+
+-- ── Task 9: currency deltas, account transfers, login and resume reconcile (spec §5.2, §5.6) ──
+
+local function genesisWithCurrency(list)
+  m.__currencyList = list
+  for _, p in ipairs({ "bags", "equipped", "money", "currency" }) do R():MarkDirty(p) end
+  R().silent = true; R():Flush(); R().silent = nil
+  NS.Holdings:MarkGenesis(ME, m.__epoch)
+  if NS.Holdings:Get("§warband") then NS.Holdings:MarkGenesis("§warband", m.__epoch) end
+end
+
+case("Reconciler: first login is genesis and writes nothing", function()
+  reset()
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 4 } }); m.__money = 900
+  R():LoginScan()
+  assertEqual(#H(), 0)
+  local e = NS.Holdings:Get(ME)
+  assertTrue(e.meta.genesis ~= nil); assertEqual(e.items[7].bags, 4); assertEqual(e.money, 900)
+end)
+
+case("Reconciler: login drift writes UNTRACKED rows, no holds, claims untouched", function()
+  reset()
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 4 } }); m.__money = 900
+  R():LoginScan()
+  R():PostClaim("i:7", 2, {})
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 6 } }); m.__money = 400
+  R():LoginScan()
+  assertEqual(#H(), 2)
+  for _, r in ipairs(H()) do assertEqual(r.source, "UNTRACKED"); assertEqual(r.confidence, "INFERRED") end
+  assertEqual(NS.Ledger.ClaimAvailable(R().claims, "i:7", m.__now), 2)
+end)
+
+case("Reconciler: a login in combat waits for regen", function()
+  reset()
+  m.InCombatLockdown = function() return true end
+  R():LoginScan()
+  assertEqual(NS.Holdings:Get(ME), nil); assertTrue(R().loginPending)
+  m.InCombatLockdown = function() return false end
+  R():OnEvent("PLAYER_REGEN_ENABLED")
+  assertTrue(NS.Holdings:Get(ME).meta.genesis ~= nil)
+end)
+
+case("Reconciler: a currency spend from the event args is an OUT with its mapped reason", function()
+  reset()
+  genesisWithCurrency({ { id = 3008, quantity = 50 } })
+  R():OnEvent("CURRENCY_DISPLAY_UPDATE", 3008, 40, -10, nil, m.Enum.CurrencyDestroyReason.Vendor)
+  R():Flush()
+  assertEqual(#H(), 1)
+  local r = H()[1]
+  assertEqual(r.kind, "CURRENCY"); assertEqual(r.currencyID, 3008); assertEqual(r.dir, "OUT")
+  assertEqual(r.quantity, 10); assertEqual(r.source, "BUY")
+  assertEqual(NS.Holdings:Get(ME).currency[3008], 40)
+end)
+
+case("Reconciler: currency events in combat accumulate, one row after regen", function()
+  reset()
+  genesisWithCurrency({ { id = 3008, quantity = 50 } })
+  m.InCombatLockdown = function() return true end
+  for _ = 1, 5 do R():OnEvent("CURRENCY_DISPLAY_UPDATE", 3008, nil, -2, nil, m.Enum.CurrencyDestroyReason.Spell) end
+  R():Flush()
+  assertEqual(#H(), 0)
+  m.InCombatLockdown = function() return false end
+  R():OnEvent("PLAYER_REGEN_ENABLED")
+  assertEqual(#H(), 1); assertEqual(H()[1].quantity, 10); assertEqual(H()[1].source, "CONSUME")
+end)
+
+case("Reconciler: an account-wide currency change lands on the warband holder", function()
+  reset()
+  m.__currencyAccountWide = { [2032] = true }
+  genesisWithCurrency({ { id = 2032, quantity = 5, accountWide = true } })
+  R():OnEvent("CURRENCY_DISPLAY_UPDATE", 2032, 3, -2, nil, nil)
+  R():Flush()
+  assertEqual(H()[1].holder, "§warband")
+  assertEqual(NS.Holdings:Get("§warband").currency[2032], 3)
+  m.__currencyAccountWide = {}
+end)
+
+case("Reconciler: an account currency transfer to an own alt is a MOVE pair and credits the alt", function()
+  reset()
+  genesisWithCurrency({ { id = 3008, quantity = 50 } })
+  NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { currency = 1 },
+    items = {}, currency = {}, links = {} }
+  m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
+  R():OnEvent("CURRENCY_TRANSFER_LOG_UPDATE")
+  R():OnEvent("CURRENCY_DISPLAY_UPDATE", 3008, 38, -12, nil, m.Enum.CurrencyDestroyReason.AccountTransfer)
+  R():Flush()
+  local moves, outs = 0, 0
+  for _, r in ipairs(H()) do
+    if r.dir == "MOVE" then moves = moves + 1; assertEqual(r.to, "Alt-Realm/currency") end
+    if r.dir == "OUT" then outs = outs + 1; assertEqual(r.quantity, 2); assertEqual(r.source, "TRANSFER") end
+  end
+  assertEqual(moves, 2); assertEqual(outs, 1)               -- 10 moved, 2 was the transfer fee
+  assertEqual(NS.db.global.holdings["Alt-Realm"].currency[3008], 10)
+  m.__currencyTransfers = {}
+end)
+
+-- Adapted from the plan's snippet: the mock's C_Timer queues rather than runs, so the resume
+-- deferral is captured and called by hand; and the case ends on Disable (not DisableCapture) so the
+-- `_settings` target Enable created is torn down for tests/test_disabled.lua's survey.
+case("Reconciler: changes made while stood down land as UNTRACKED on resume", function()
+  reset()
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 1 } })
+  R():LoginScan()
+  R():DisableCapture()
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 3 } })
+  local savedAfter, fn = NS.After, nil
+  NS.After = function(_, f) fn = f end
+  R():Enable()
+  NS.After = savedAfter
+  fn()
+  assertEqual(#H(), 1); assertEqual(H()[1].source, "UNTRACKED"); assertEqual(H()[1].quantity, 2)
+  R():Disable()
 end)

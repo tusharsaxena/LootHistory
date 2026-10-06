@@ -405,7 +405,7 @@ badge and any count quoted in the docs must agree with it.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 
-### test_reconciler_rows.lua (15)
+### test_reconciler_rows.lua (23)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -422,6 +422,14 @@ badge and any count quoted in the docs must agree with it.
 - Collector+Reconciler: a looted stack is counted once, delta first
 - Collector+Reconciler: a partial claim leaves the remainder as a diff row
 - Collector+Reconciler: looted gold is counted once
+- Reconciler: first login is genesis and writes nothing
+- Reconciler: login drift writes UNTRACKED rows, no holds, claims untouched
+- Reconciler: a login in combat waits for regen
+- Reconciler: a currency spend from the event args is an OUT with its mapped reason
+- Reconciler: currency events in combat accumulate, one row after regen
+- Reconciler: an account-wide currency change lands on the warband holder
+- Reconciler: an account currency transfer to an own alt is a MOVE pair and credits the alt
+- Reconciler: changes made while stood down land as UNTRACKED on resume
 
 ### test_database.lua (76)
 
@@ -1365,7 +1373,7 @@ badge and any count quoted in the docs must agree with it.
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 43 |
 | test_reconciler.lua | 7 |
-| test_reconciler_rows.lua | 15 |
+| test_reconciler_rows.lua | 23 |
 | test_database.lua | 76 |
 | test_stats.lua | 23 |
 | test_browser.lua | 69 |
@@ -1400,4 +1408,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1186** |
+| **Total** | **1194** |

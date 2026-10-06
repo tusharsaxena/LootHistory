@@ -180,3 +180,14 @@ function Holdings:ForgetHolder(holder)
   s[holder] = nil
   return true
 end
+
+-- Credit an own alt's stored currency for a transfer this character just made, so the alt's next
+-- login does not read the arrival as untracked drift. Only a holder whose currency was ever scanned:
+-- an alt with no baseline gets the amount as part of its genesis instead.
+function Holdings:CreditCurrency(holder, id, qty)
+  local e = self:Get(holder)
+  if not (e and e.scanned.currency) then return false end
+  local v = (e.currency[id] or 0) + qty
+  e.currency[id] = (v > 0) and v or nil
+  return true
+end

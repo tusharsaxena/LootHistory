@@ -62,7 +62,7 @@ local function isBankInteraction(kind)
   return false
 end
 
-function R:OnEvent(event, a1)
+function R:OnEvent(event, a1, _, a3, a4, a5)
   if event == "BAG_UPDATE" then
     if isIn(C.BANK_IDS, a1) then self:MarkDirty("bank")
     elseif isIn(C.WARBAND_TAB_IDS, a1) then self:MarkDirty("tabs")
@@ -71,7 +71,11 @@ function R:OnEvent(event, a1)
   elseif event == "PLAYER_EQUIPMENT_CHANGED" then self:MarkDirty("equipped"); scheduleFlush(self)
   elseif event == "PLAYER_MONEY" then self:MarkDirty("money"); scheduleFlush(self)
   elseif event == "ACCOUNT_MONEY" then self:MarkDirty("warbandMoney"); scheduleFlush(self)
-  elseif event == "CURRENCY_DISPLAY_UPDATE" then self:MarkDirty("currency"); scheduleFlush(self)
+  elseif event == "CURRENCY_DISPLAY_UPDATE" then
+    self:OnCurrencyUpdate(a1, a3, a4, a5)                 -- (id, quantity, change, gainSrc, lostSrc)
+  elseif event == "CURRENCY_TRANSFER_LOG_UPDATE" then
+    self.pendingTransfer = true
+    self:MarkDirty("currencyDelta"); scheduleFlush(self)
   elseif event == "PLAYERBANKSLOTS_CHANGED" then self:MarkDirty("bank"); scheduleFlush(self)
   elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then self:MarkDirty("tabs"); scheduleFlush(self)
   elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
@@ -86,11 +90,8 @@ function R:OnEvent(event, a1)
       self.readable.bank = nil
     end
   elseif event == "PLAYER_REGEN_ENABLED" then
-    if self.deferred then
-      self.deferred = nil
-      self:Flush()
-      if self._genesisPending and not self.deferred then self:MarkLoginGenesis() end
-    end
+    if self.loginPending then self:LoginScan()
+    elseif self.deferred then self.deferred = nil; self:Flush() end
   end
 end
 
@@ -103,6 +104,7 @@ end
 -- settleBaseline), and what gives a chat line the moment it needs to claim its delta.
 
 R.claims, R.recent, R.reasonMemo = {}, {}, {}
+R.pendingCur, R.curGain, R.curLoss = {}, {}, {}
 -- Extension points, in order. Escrow (Task 10) and currency deltas (Task 9) append to them.
 R.SCAN_STEPS, R.PLAN_STEPS, R.COMMIT_STEPS = {}, {}, {}
 
@@ -260,6 +262,82 @@ R.COMMIT_STEPS[#R.COMMIT_STEPS + 1] = function(self, plan, _, clock)
       end
     end
   end
+end
+
+-- ── Currency deltas and account transfers (timeline-ledger spec §5.2) ───────────────────────
+
+-- CURRENCY_DISPLAY_UPDATE carries the change itself (timeline-ledger spec §5.2), so currency needs
+-- no list rescan: the delta is folded into a per-id accumulator (combat-safe, no allocation after a
+-- currency's first event) and the raw source/destroy enums are kept for the reason. A nil id is the
+-- client's bulk refresh: rescan the whole list instead.
+function R:OnCurrencyUpdate(id, change, gainSrc, lostSrc)
+  if not id then self:MarkDirty("currency"); scheduleFlush(self); return end
+  if not change or change == 0 then return end
+  self.pendingCur[id] = (self.pendingCur[id] or 0) + change
+  if gainSrc ~= nil then self.curGain[id] = gainSrc end
+  if lostSrc ~= nil then self.curLoss[id] = lostSrc end
+  self:MarkDirty("currencyDelta"); scheduleFlush(self)
+end
+
+function R:CurrencyReasonFor(kind, id, dir)
+  if kind ~= "CURRENCY" then return nil end
+  local name = Compat.CurrencySourceName(self.curGain[id], self.curLoss[id], dir == "IN" and 1 or -1)
+  return L.CurrencyReason(name, dir)
+end
+
+-- Scan step: the pending deltas become a currency map per holder (account-wide -> §warband),
+-- built on the stored baseline. A full list rescan in the same pass is authoritative instead, and
+-- so is a holder with no currency baseline yet: a delta on nothing would invent its whole balance.
+R.SCAN_STEPS[#R.SCAN_STEPS + 1] = function(self, snap, me)
+  if not self.dirty.currencyDelta or self.dirty.currency then return end
+  for id, dlt in pairs(self.pendingCur) do
+    local holder = Compat.CurrencyIsAccountWide(id) and WARBAND or me
+    local s = snapFor(snap, holder)
+    if not s.currency then
+      local e = NS.Holdings:Get(holder)
+      if not (e and e.scanned.currency) then
+        local ch, wb = NS.Scanner.ScanCurrencies()
+        snapFor(snap, me).currency = ch
+        snapFor(snap, WARBAND).currency = wb
+        return
+      end
+      s.currency = {}
+      for k, v in pairs(e.currency) do s.currency[k] = v end
+    end
+    local v = (s.currency[id] or 0) + dlt
+    s.currency[id] = (v > 0) and v or nil
+  end
+end
+
+-- Plan step: a warband-transferable currency sent to an own alt (CURRENCY_TRANSFER_LOG_UPDATE) is a
+-- transfer, not a loss. Whatever the transfer consumed beyond the amount received stays an OUT
+-- (reason TRANSFER — the transfer's cost).
+R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(self, plan, me)
+  local net = plan.net[me]
+  if not (net and self.pendingTransfer) then return end
+  local t = Compat.LatestCurrencyTransfer()
+  if not (t and t.currencyID and t.toKey and t.toKey ~= me) then return end
+  local key = L.ThingKey("CURRENCY", t.currencyID)
+  local dlt = net[key]
+  if not dlt or dlt >= 0 then return end
+  local q = math.min(-dlt, t.quantity or 0)
+  if q <= 0 then return end
+  plan.pairs[#plan.pairs + 1] = { key = key, qty = q, from = me, to = t.toKey,
+    fromC = "currency", toC = "currency", creditCurrency = t.currencyID }
+  net[key] = (dlt + q ~= 0) and (dlt + q) or nil
+end
+
+-- Commit step: credit the recipient's stored currency, freeze the currency reasons into the memo
+-- (WriteRows runs after this), then clear the accumulators.
+R.COMMIT_STEPS[#R.COMMIT_STEPS + 1] = function(self, plan, _, clock)
+  for _, p in ipairs(plan.pairs) do
+    if p.creditCurrency then NS.Holdings:CreditCurrency(p.to, p.creditCurrency, p.qty) end
+  end
+  memoReasons(self, plan, clock)
+  for k in pairs(self.pendingCur) do self.pendingCur[k] = nil end
+  for k in pairs(self.curGain) do self.curGain[k] = nil end
+  for k in pairs(self.curLoss) do self.curLoss[k] = nil end
+  self.pendingTransfer = nil
 end
 
 local function applySnap(snap, now)
@@ -438,23 +516,31 @@ function R:Flush()
   self._flushing = nil
 end
 
---- Genesis for this character, and for the warband when its gold was read (spec §5.6).
-function R:MarkLoginGenesis()
-  self._genesisPending = nil
+--- Genesis for this character, and for the warband when its gold was read (spec §5.6). Called as
+--- R:MarkLoginGenesis(); it reads no Reconciler state, hence the `_` receiver.
+function R.MarkLoginGenesis(_)
   local now = time()
   NS.Holdings:MarkGenesis(NS.Util.PlayerKey(), now)
   if NS.Holdings:Get(WARBAND) then NS.Holdings:MarkGenesis(WARBAND, now) end
 end
 
---- The login read (spec §5.6): everything carried, plus warband gold where the client answers it.
---- The bank and the warband tabs need the banker, so a fresh holder stays `partial` until then. A
---- login inside combat (a reload mid-pull) defers the read AND the genesis stamp to the regen edge,
---- so genesis never lands on a holder that was not actually scanned.
+-- Login reconcile (timeline-ledger spec §5.6). The first login after v11 writes the snapshot as
+-- this holder's GENESIS and no rows. Every later login diffs against the stored snapshot: whatever
+-- changed while the addon was not watching is written as UNTRACKED — no holds (nothing is in
+-- flight), no claims (no chat line belongs to it) — so holdings and the rows reconcile. The bank
+-- and the warband tabs need the banker, so a fresh holder stays `partial` until then. A login
+-- inside combat (a reload mid-pull) defers the read AND the genesis stamp to the regen edge, so
+-- genesis never lands on a holder that was not actually scanned.
 function R:LoginScan()
-  for _, p in ipairs({ "equipped", "money", "currency", "warbandMoney" }) do self:MarkDirty(p) end
-  self:MarkDirty("bags")
+  self._sessionStarted = true
+  if Compat.InCombatLockdown() then self.loginPending, self.deferred = true, true; return end
+  self.loginPending, self.deferred = nil, nil
+  for _, p in ipairs({ "bags", "equipped", "money", "currency", "warbandMoney" }) do self:MarkDirty(p) end
+  local e = NS.Holdings:Get(NS.Util.PlayerKey())
+  local first = not (e and e.meta.genesis)
+  if first then self.silent = true else self.forceReason = C.SourceType.UNTRACKED end
   self:Flush()
-  if self.deferred then self._genesisPending = true; return end
+  self.silent, self.forceReason = nil, nil
   self:MarkLoginGenesis()
 end
 
@@ -462,6 +548,7 @@ local EVENTS = {
   "BAG_UPDATE", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_MONEY", "ACCOUNT_MONEY",
   "CURRENCY_DISPLAY_UPDATE", "PLAYERBANKSLOTS_CHANGED", "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED",
   "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "PLAYER_REGEN_ENABLED",
+  "CURRENCY_TRANSFER_LOG_UPDATE",
 }
 
 local function trackLedgerOn()
@@ -487,14 +574,20 @@ function R:Enable()
     NS.SafeRegisterEvent(self.__ev, ev, function(_, ...) self:OnEvent(ev, ...) end, NS.RejectedEvents)
   end
   self._enabled = true
+  -- Back up after a stand-down (disable, perf suspend) in a session that already logged in: what
+  -- changed while nothing was watching is drift, exactly like a login.
+  if self._sessionStarted then
+    NS.After(1, function() if self._enabled then self:LoginScan() end end)
+  end
 end
 
 --- Capture off (trackLedger unticked) while the module keeps listening for the setting coming back.
 function R:DisableCapture()
   if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
   self.dirty, self.readable = {}, {}
-  self.deferred, self._pending, self._genesisPending = nil, nil, nil
+  self.deferred, self._pending = nil, nil
   self.claims, self.recent, self.reasonMemo = {}, {}, {}
+  self.pendingCur, self.curGain, self.curLoss, self.pendingTransfer, self.loginPending = {}, {}, {}, nil, nil
   self._holdSince, self._recheck = nil, nil
   self._enabled = nil
 end

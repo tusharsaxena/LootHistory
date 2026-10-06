@@ -142,7 +142,7 @@ The three gate settings are cached as file-local upvalues (`modules/Collector.lu
 
 A second, independent engine sits beside loot capture: the **Reconciler** (`modules/Reconciler.lua`) keeps `db.global.holdings` equal to what the account owns, using `NS.Scanner` for the reads and `NS.Holdings` for the writes (timeline-ledger spec §5.2). It never touches `CHAT_MSG_LOOT` or the attribution context; Phase 2 is where the two meet, as a diff of successive scans that the existing context then claims.
 
-**Events mark, `Flush` works.** Eleven events register one by one on a private bus target, and only while `settings.trackLedger` is on. A handler does nothing but set a dirty bit (`MarkDirty`) and, for the events that close a burst, arm a 0.35 s `NS.After` fuse:
+**Events mark, `Flush` works.** Twelve events register one by one on a private bus target, and only while `settings.trackLedger` is on. A handler does nothing but set a dirty bit (`MarkDirty`) and, for the events that close a burst, arm a 0.35 s `NS.After` fuse:
 
 | Event | Marks | Arms the fuse |
 |---|---|---|
@@ -150,10 +150,11 @@ A second, independent engine sits beside loot capture: the **Reconciler** (`modu
 | `BAG_UPDATE_DELAYED` | nothing | yes (it ends the burst of `BAG_UPDATE`s) |
 | `PLAYER_EQUIPMENT_CHANGED` | `equipped` | yes |
 | `PLAYER_MONEY` / `ACCOUNT_MONEY` | `money` / `warbandMoney` | yes |
-| `CURRENCY_DISPLAY_UPDATE` | `currency` | yes |
+| `CURRENCY_DISPLAY_UPDATE(id, qty, change, gainSrc, lostSrc)` | `currencyDelta` (the change is folded into `pendingCur[id]`, the source enums kept for the reason); a nil id marks `currency` for a full list rescan | yes |
+| `CURRENCY_TRANSFER_LOG_UPDATE` | `currencyDelta` (sets `pendingTransfer`: the flush pairs the loss with the own alt as a MOVE and credits the alt's stored currency) | yes |
 | `PLAYERBANKSLOTS_CHANGED` / `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | `bank` / `tabs` | yes |
 | `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | bank, tabs, warband gold (on show, for a Banker or AccountBanker only) | show yes; hide runs a final `Flush` itself |
-| `PLAYER_REGEN_ENABLED` | nothing | replays a deferred flush |
+| `PLAYER_REGEN_ENABLED` | nothing | runs a pending login reconcile, else replays a deferred flush |
 
 `BAG_UPDATE` carries no fuse of its own on purpose: a raid-pull storm costs one table write per event and nothing else.
 
@@ -163,7 +164,7 @@ A second, independent engine sits beside loot capture: the **Reconciler** (`modu
 
 **Changed once.** `Flush` applies each readable part (`ApplyContainer` / `ApplyCurrency` / `ApplyMoney`, each returning whether anything moved), collects the changed holders into a set and sends `HOLDINGS_CHANGED` once per holder. A flush that changed nothing sends nothing and, with debug on, writes nothing.
 
-**Login genesis.** `LoginScan` marks everything dirty and flushes, then stamps `meta.genesis` and `meta.partial` on the character (and on the Warband when it already exists). A login inside combat (a reload mid-pull) defers both the read and the stamp to the regen edge, so genesis never lands on a holder that was not scanned. A fresh holder stays `partial` until its bank (for the Warband, its tabs) has been read once, which is why a new character's bank shows **never** until the first banker visit.
+**Login genesis and drift.** `LoginScan` marks everything dirty and flushes, then stamps `meta.genesis` and `meta.partial` on the character (and on the Warband when it already exists). The first login after v11 flushes `silent` (no rows: the snapshot is the genesis); every later login flushes with `forceReason = UNTRACKED`, so whatever changed while the addon was not watching is written as `UNTRACKED` rows with no hold and no claim consumed. `Enable` after a stand-down in a session that already logged in schedules the same scan a second later, so changes made while stood down land as `UNTRACKED` too. A login inside combat (a reload mid-pull) sets `loginPending` and defers both the read and the stamp to the regen edge, so genesis never lands on a holder that was not scanned. A fresh holder stays `partial` until its bank (for the Warband, its tabs) has been read once, which is why a new character's bank shows **never** until the first banker visit.
 
 **Turning it off.** Unticking `trackLedger` runs `DisableCapture`: the capture target is unregistered, dirty bits and `deferred` are cleared, and the `SettingsChanged` listener stays so re-ticking re-registers. `NS.StandDown` runs the full `Disable`. See [disabled-state.md](disabled-state.md).
 ## Known limitation

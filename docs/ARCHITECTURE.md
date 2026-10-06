@@ -244,10 +244,11 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `BAG_UPDATE_DELAYED` | arms the 0.35 s flush fuse (`NS.After`) | `modules/Reconciler.lua` |
 | `PLAYER_EQUIPMENT_CHANGED` | marks `equipped`; arms the fuse | `modules/Reconciler.lua` |
 | `PLAYER_MONEY` / `ACCOUNT_MONEY` | marks `money` / `warbandMoney`; arms the fuse | `modules/Reconciler.lua` |
-| `CURRENCY_DISPLAY_UPDATE` | marks `currency`; arms the fuse | `modules/Reconciler.lua` |
+| `CURRENCY_DISPLAY_UPDATE` | `OnCurrencyUpdate` folds the event's own change into a per-id accumulator (marks `currencyDelta`); a nil id marks `currency` for a full list rescan; arms the fuse | `modules/Reconciler.lua` |
+| `CURRENCY_TRANSFER_LOG_UPDATE` | flags an account currency transfer so the next flush pairs it as a MOVE to the own alt; arms the fuse | `modules/Reconciler.lua` |
 | `PLAYERBANKSLOTS_CHANGED` / `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | marks `bank` / `tabs`; arms the fuse | `modules/Reconciler.lua` |
 | `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | a Banker or AccountBanker interaction makes the bank readable (marks bank, tabs and warband gold on show; a final `Flush` on hide, then unreadable) | `modules/Reconciler.lua` |
-| `PLAYER_REGEN_ENABLED` | replays a flush deferred by combat, then stamps login genesis if it was pending | `modules/Reconciler.lua` |
+| `PLAYER_REGEN_ENABLED` | runs a login reconcile deferred by combat, else replays a deferred flush | `modules/Reconciler.lua` |
 
 All flavor-varying or deprecated calls behind these handlers are routed through
 `core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
