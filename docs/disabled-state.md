@@ -60,11 +60,10 @@ is the one branch, and the checkbox, the `enable` / `disable` verbs, `/lh set se
 AceDB's profile callbacks all arrive at it through `NS.OnEnabledChanged` (the callbacks by way of the profile adopt path, `NS.OnProfileEvent`, because `settings.enabled` is per profile: switching to a profile where the addon is off stands it down). There is deliberately no
 bare stand-up: releasing one hold must not resurrect an addon another is still holding down.
 
-**This addon takes one hold today.** It declines `LibKa0s-Perf` (`performance-§12`, a ratified row in
-[§ Documented deviations](ARCHITECTURE.md#documented-deviations)), so nothing here takes `perf`. The key is
-published (`NS.HOLD_PERF`) and the latch honors it, because the invariant is the library's rather
-than this addon's — `tests/test_disabled.lua` drives both holds through it, so arming the harness
-later is a registration and not a rewrite.
+**This addon takes both holds.** `disabled` comes from the stored switch; `perf` comes from
+`LibKa0s-Perf`'s Suspend/Resume (`core/PerfSetup.lua`, wired for the timeline ledger, see
+[performance.md](performance.md)). `tests/test_disabled.lua` drives both holds through the latch,
+and `tests/test_perf.lua` drives the `perf` hold through the harness.
 
 ## What stands down
 

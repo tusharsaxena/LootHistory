@@ -282,9 +282,11 @@ if not lib then
   -- addon rather than inside LibKa0s, so Sl.CliResetAll below runs it in full.
   -- `profile` IS here: the verb is the library's (Slash minor 17), so on this path its row reaches
   -- Sl.CliProfile below, which only says the library is missing.
+  -- `perf` is here for `diagnostics`' reason: its row dispatches to core/PerfSetup.lua's stub, which
+  -- answers "perf capture unavailable." and captures nothing.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
-    reset = true, help = true, config = true, diagnostics = true, profile = true,
+    reset = true, help = true, config = true, diagnostics = true, profile = true, perf = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there

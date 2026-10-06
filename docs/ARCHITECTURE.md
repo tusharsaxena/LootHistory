@@ -318,13 +318,13 @@ generated directories are named once each and never enumerated per run: `docs/au
 
 | Doc | Status | Trigger |
 |---|---|---|
-| `slash-dispatch.md` | Present | 19 verbs in `NS.COMMANDS` |
+| `slash-dispatch.md` | Present | 20 verbs in `NS.COMMANDS` |
 | `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
 | `compat-layer.md` | Present | 47 shims (`grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua`) of addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Present | Every setting but the retention is per profile and a Profiles page ships (`settings/Profiles.lua`); the page says what a profile holds, what stays account-wide (the history and its retention, D6), the adopt path and the v9 and v10 moves |
 | `debug.md` | Present | The diagnostics report (`/lh diagnostics`, `debug-logging-§14`) is a debug surface of the addon's own, and every Ka0s addon ships it |
-| `perf-analysis/README.md` | Not applicable | No performance harness is wired — see `performance.md` and `ARCHITECTURE.md` → `## Documented deviations` |
+| `perf-analysis/README.md` | Present | The in-game capture store: bundle naming, the three artifacts, schema pointer, how to capture with `/lh perf`, the capture index |
 
 ### Verification and record
 
@@ -333,7 +333,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 | `testing.md` | How to run the harness and lint; the green commit gate |
 | `smoke-tests.md` | The in-game smoke-test suite |
 | `test-cases.md` | The generated case inventory (authoritative pass count) |
-| `performance.md` | The one-screen exempt performance page: brackets nothing, criteria (a) and (c), where the sweep lives, what re-arms it |
+| `performance.md` | The harness: buckets and why, the zero-overhead evidence, how to capture |
 | `automated-tests/README.md` | What the automated-test record is and how to produce it |
 | `automated-tests/RESULTS.md` | One row per run; generated, never hand-edited |
 
@@ -342,7 +342,7 @@ generated directories are named once each and never enumerated per run: `docs/au
 | Doc | Covers |
 |---|---|
 | `browser.md` | The standalone History window: table, filter bar, menus, and the Insights tab |
-| `combat-path-sweep.md` | The committed whole-repo `RegisterEvent` / `OnUpdate` / `C_Timer` sweep behind the `performance-§12` exemption: every registration and timer with its per-fire work, and the allocation left unmeasured on purpose |
+| `combat-path-sweep.md` | The whole-repo event/timer inventory with per-fire work (kept as the event census; it no longer backs an exemption) |
 | `disabled-state.md` | What *off* means here: the lifecycle latch and its holds, what stands down, what survives as setup, and the conformance suite |
 
 ## Documented deviations
@@ -355,12 +355,11 @@ An audit reads this table, records these as accepted, and does not count them to
 **Re-check trigger** is the condition that *ends* the deviation, written so a reader can tell whether
 it has already fired. This table is **not a graveyard**: a row whose cited rule the standard has since
 changed — so the behavior is now mandated or permitted outright — is retired, not kept for history.
-Nine such records are named below the table rather than carried in it.
+Ten such records are named below the table rather than carried in it.
 
 | Rule | What differs | Why | Decided | Re-check trigger |
 |---|---|---|---|---|
 | `architecture-§5` | The **`settings.auction.priority`** ordered cascade, neither a schema row nor registry membership, is written to the active profile (`NS.db.profile.settings.auction.priority`) directly rather than through `NS.Schema:Set`. It is seeded empty on first read by `NS.AuctionPrice:GetPriority` (`modules/AuctionPrice.lua:143`) and written by `ReconcilePriority` / `MovePriorityWithin` (`:139-195`); the global reset brings it back with the rest of the profile. | The cascade is an order over a **fixed** member set, the `NS.Constants.AUCTION_KEYS` tags, which the player only reorders. `architecture-§5` makes that a **value**, not a registry, and a value with no row is what its **MUST NOT** leaves a register row for. No schema row type expresses a drag-reordered list, so there is no row for `Set` to validate against. Reasoned in [`schema.md`](schema.md) *Standards note*. The id filter sets and the named non-setting state left this row on 2026-09-12; see below. | 2026-07-17 | `settings.auction.priority` gains a schema row, an ordered-list row type or a whole-value row, and every write to it goes whole through `Schema:Set`. That retires this row. |
-| `performance-§12` | **No perf harness is wired.** No `core/PerfSetup.lua`, no `LootHistoryPerfDB`, no `/lh perf` verb, no suspend/resume contract, no `tests/perf.lua`, no `docs/perf-analysis/` store. `libs/LibKa0s/` is still vendored whole and `perf` is still a reserved verb. | Criterion **(a)** — no `OnUpdate`, no repeating ticker, no in-combat handler doing more than occasional work — proven by the committed whole-repo `RegisterEvent` / `SetScript("OnUpdate"` / `C_Timer` sweep in [`combat-path-sweep.md`](combat-path-sweep.md), which names the per-event work for all fifteen registrations and all five one-shot timers, and states explicitly why `CHAT_MSG_LOOT` — the one handler that fires in combat and does real work on a kept line — stays inside (a): `Collector:ShouldRecord` gates the tooltip build and the price cascade, so a dropped line costs a match and a comparison. Criterion **(b)** is no longer claimed alongside them: it rested on calling that handler's work "one line", which it is not, and this addon has no harness with which to measure the difference. Plus criterion **(c)**: `suspend` must make the host inert for the whole of window B, which for this addon means not recording the loot that drops during that fight — one experiment would cost the user real history. Closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22). | 2026-08-05 | **The first `OnUpdate` handler, repeating ticker, or in-combat event handler doing real work re-arms the full wiring MUST.** |
 | `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. Closed issue [**LIBKA0S-14**](https://github.com/tusharsaxena/LootHistory/issues/20). | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
 | `localization-§1` | This addon ships **English only**: the `NS.L` seam is exported and `locales/enUS.lua` ships, but only a handful of strings route through `NS.L` (the Profiles page name, the `profile` and `diagnostics` help descriptions and the library-absent line) — every other label, tooltip and message is a hardcoded English literal. | `localization-§3` names English-only as one of the routing SHOULD's **two terminal compliant states**, and names this row as what makes it terminal: without it the SHOULD is formally open and every audit re-files it, which is what has been happening. Both `localization` MUSTs are met unconditionally — the seam is exported with the key-returning fallback (`locales/enUS.lua:5`) and `enUS.lua` ships carrying no dead keys. The argument was written at `locales/enUS.lua:7-11` and calls itself "an accepted scope decision, not an oversight"; a comment is exactly what `documentation-§3` says does not ratify a decision, which is why `LH-48` in `docs/audits/2026-09-07/` filed it. This row is the ratification the comment was standing in for. | 2026-09-08 | **The first non-English locale file added to `locales/`.** That change routes the strings and retires this row. |
 | `localization-§4` | **Deconstruct attribution falls back to matching a localized spell name.** `Attribution:DeconstructSource` resolves a player cast by spell id first (`DECONSTRUCT_ID`, `modules/Attribution.lua:32-43`); on a miss it compares the cast's **client-locale name** against tokens derived from seed spell ids (`NAME_SEEDS`, `:53-59`; `seedToken` resolves each through `NS.Compat.GetSpellName` at `:64`; the substring match is `:94`), where §4 says a game entity is identified by id, never by a localized display string. The reasoning is at `:20-31`, which points at this row. | Modern retail splits Milling and Prospecting into generic, per-expansion and **per-herb / per-ore "Mass Mill" / "Mass Prospect"** spells, and that id set is **not enumerable**: it is too large and grows every patch, so an id-only table silently stops attributing each new variant. The compared names are **derived from ids on the same client** at match time, so no English literal is ever compared and the match is locale-correct by construction: "Milling" on enUS is "Mahlen" on deDE on both sides of the compare. Closed issue [#2](https://github.com/tusharsaxena/LootHistory/issues/2); audit finding `LH-74` in `docs/audits/2026-09-23/`. | 2026-09-24 | **Blizzard exposes a stable deconstruct token or category** on the cast (a spell category, a profession-action flag, anything id-shaped), **or the Mass Mill / Mass Prospect id set becomes enumerable** (a stable list or an API that returns it). Either one moves the fallback onto ids and retires the row. |
@@ -369,6 +368,12 @@ Nine such records are named below the table rather than carried in it.
   row as named non-setting state (standard v2.44.0), and LibDBIcon's `minimapPos`, never in it, is named beside them in [schema.md](schema.md#named-non-setting-state-owners-and-writers); the `B:SetupMinimap` seed over the minimap row's stored `minimap.hide` key was deleted.
 - Narrowed on 2026-09-12: the id filter sets left the `architecture-§5` row, as a structural
   registry whose writer and load pass [schema.md](schema.md#the-id-filter-sets-a-structural-registry) names (history in `schema.md`, *Standards note*).
+- Retired on 2026-10-06: the `performance-§12` row (*no perf harness is wired*, decided 2026-08-05,
+  closed issue [**LIBKA0S-17**](https://github.com/tusharsaxena/LootHistory/issues/22) and the decline in
+  [#29](https://github.com/tusharsaxena/LootHistory/issues/29)). Its re-check trigger fired: the timeline
+  ledger put real work behind in-combat `BAG_UPDATE`, money and currency events, and the owner ratified
+  wiring the harness (spec F2). `core/PerfSetup.lua` now brackets the five in-combat handlers, `/lh perf`
+  is registered, and [performance.md](performance.md) is the harness page.
 - Retired on 2026-10-02: the `library-stack-§8` row (*the History grip draws Blizzard's corner
   grabber, not the catalog's `resize` mark*, decided 2026-09-24, audit finding `LH-76`). Since
   [#33](https://github.com/tusharsaxena/LootHistory/issues/33) the grip is `Core.MakeResizable`'s, so

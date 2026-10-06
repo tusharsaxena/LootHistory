@@ -1,6 +1,7 @@
 local _, NS = ...
 NS.Collector = NS.Collector or {}
 local Collector = NS.Collector
+local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
 
 -- Owns the acquisition path: CHAT_MSG_LOOT self-filter, quality gate, record build + write, the
 -- CHAT_MSG_CURRENCY and CHAT_MSG_MONEY lines, and the claim each written row posts to the
@@ -152,7 +153,7 @@ local function claim(kind, id, qty, record)
   end
 end
 
-function Collector:OnChatMsgLoot(_, msg)
+local function lootLine(self, msg)
   -- A roll-won line ("You won: <item>") is not a receipt — the item arrives a moment later on its own
   -- "You receive loot:" line. Stamp ROLL context so that imminent line attributes to the roll rather
   -- than inheriting a stale kill/container stamp, then wait for it (no record is written here).
@@ -192,6 +193,15 @@ function Collector:OnChatMsgLoot(_, msg)
   traceLootRecorded(itemName, quality, itemLevel, source, confidence, auctionPrice)
 end
 
+-- Shape A brackets (performance-§2): one exit, so the dormant cost is one upvalue read, one field
+-- read and one test. Each body is a file-local function so the bracket wraps every early return.
+function Collector:OnChatMsgLoot(_, msg)
+  local t0 = Perf.on and debugprofilestop()
+  lootLine(self, msg)
+  if t0 then Perf.Note("lootLine", debugprofilestop() - t0) end
+end
+Collector._lootLine = lootLine   -- the unbracketed body: tests/perf.lua's zero-overhead baseline
+
 -- The [Drop] line for a currency line refused before it names a currency. `reason` is a constant,
 -- so the call builds nothing while logging is off.
 local function traceCurrencyLineDrop(reason)
@@ -204,7 +214,7 @@ end
 -- blacklist don't apply to currency. A currency-vendor refund arrives here (not on CHAT_MSG_LOOT) as
 -- a self-identifying "You are refunded" line — attributed to REFUND directly, bypassing the context
 -- (which by then holds the stale VENDOR stamp from the purchase).
-function Collector:OnChatMsgCurrency(_, msg)
+local function currencyLine(self, msg)
   -- A line the self-parse rejects (another player's, or not a currency gain) returns silently: no
   -- decision of ours. Past it, each guard names itself in a [Drop] line (debug-logging-§8).
   local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
@@ -261,11 +271,17 @@ function Collector:OnChatMsgCurrency(_, msg)
   end
 end
 
+function Collector:OnChatMsgCurrency(_, msg)
+  local t0 = Perf.on and debugprofilestop()
+  currencyLine(self, msg)
+  if t0 then Perf.Note("currencyLine", debugprofilestop() - t0) end
+end
+
 -- CHAT_MSG_MONEY: the player's own looted money and party share (timeline-ledger spec §5.4). Writes
 -- the rich gold row -- the loot context still says which kill or chest it came from -- and claims it,
 -- exactly as a loot line does for an item. Gold rows are a ledger feature: nothing is written while
 -- `trackLedger` (legacy gains-only) or `recordGold` is off.
-function Collector:OnChatMsgMoney(_, msg)
+local function moneyLine(self, msg)
   local copper = NS.Util.ParseSelfMoney(msg)
   if not copper then return end
   if not (trackLedger and recordGold) then
@@ -285,6 +301,12 @@ function Collector:OnChatMsgMoney(_, msg)
   NS.Database:Add(record)
   claim("GOLD", nil, copper, record)
   if NS.State.debug and NS.Debug then NS.Debug("Money", "%sc src=%s", tostring(copper), tostring(source)) end
+end
+
+function Collector:OnChatMsgMoney(_, msg)
+  local t0 = Perf.on and debugprofilestop()
+  moneyLine(self, msg)
+  if t0 then Perf.Note("moneyLine", debugprofilestop() - t0) end
 end
 
 function Collector:Enable()

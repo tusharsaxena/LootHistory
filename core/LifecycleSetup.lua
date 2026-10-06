@@ -22,11 +22,9 @@ local _, NS = ...
 -- one hold is taken, stood up only when the last is released. There is deliberately no StandUp
 -- member on the library instance -- a bare stand-up is the bug the latch exists to prevent.
 --
--- THIS ADDON TAKES ONE HOLD TODAY. It declines LibKa0s-Perf (performance-§12, recorded in
--- ARCHITECTURE.md -> Documented deviations), so nothing here ever takes `perf`. The key is still
--- published and the latch still honors it, because the invariant is the library's and not this
--- addon's: tests/test_disabled.lua drives both holds through it, and the day the harness is armed
--- the wiring is a registration rather than a rewrite.
+-- THIS ADDON TAKES BOTH HOLDS. `disabled` from the stored switch, `perf` from LibKa0s-Perf's
+-- Suspend/Resume (core/PerfSetup.lua, wired for the timeline ledger, spec §13 F2).
+-- tests/test_disabled.lua and tests/test_perf.lua drive both through the latch.
 --
 -- ── WHAT STANDS DOWN, AND WHAT DOES NOT ───────────────────────────────────────────────────────
 --

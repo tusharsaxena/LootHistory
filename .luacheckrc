@@ -61,6 +61,7 @@ read_globals = {
 }
 globals = {
   "LootHistoryDB",     -- the SavedVariables write target
+  "LootHistoryPerfDB", -- the perf harness's capture ring (performance-§5), outside AceDB
   "StaticPopupDialogs", -- we register a purge-confirm dialog
 }
 

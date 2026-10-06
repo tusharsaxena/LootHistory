@@ -13,6 +13,7 @@ local R = NS.Reconciler
 
 local C = NS.Constants
 local Compat = NS.Compat
+local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
 local CT = C.Container
 local WARBAND = C.WARBAND_HOLDER
 -- BAG_UPDATE_DELAYED already closes a burst of BAG_UPDATEs; the short fuse also folds the money,
@@ -81,7 +82,7 @@ local function isIn(list, id)
   return false
 end
 
-function R:OnEvent(event, a1, _, a3, a4, a5)
+local function onEvent(self, event, a1, a3, a4, a5)
   if event == "BAG_UPDATE" then
     if isIn(C.BANK_IDS, a1) then self:MarkDirty("bank")
     elseif isIn(C.WARBAND_TAB_IDS, a1) then self:MarkDirty("tabs")
@@ -110,6 +111,14 @@ function R:OnEvent(event, a1, _, a3, a4, a5)
     if self.loginPending then self:LoginScan()
     elseif self.deferred then self.deferred = nil; self:Flush() end
   end
+end
+
+-- Shape A bracket (performance-§2): every capture event, in combat included, is a dirty bit or a
+-- debounce here; the flush it schedules is not inside this bucket (tests/perf.lua measures it).
+function R:OnEvent(event, a1, _, a3, a4, a5)
+  local t0 = Perf.on and debugprofilestop()
+  onEvent(self, event, a1, a3, a4, a5)
+  if t0 then Perf.Note("ledgerEvent", debugprofilestop() - t0) end
 end
 
 -- ── Phase 2: scan -> plan -> hold or commit (timeline-ledger spec §5.1-§5.5) ─────────────────

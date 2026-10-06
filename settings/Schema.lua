@@ -945,11 +945,12 @@ end
 -- side: a player must be able to READ AND REPAIR SETTINGS and REACH THE PANEL while the addon is
 -- off — which is exactly when they are most likely to need to — and `enable` above all, or the
 -- pair is one-way. `debug` and `perf` are diagnostics rather than features: the usual reason to
--- reach for either is that the addon is misbehaving. `perf` is listed although this addon does not
--- register it (performance-§12, ARCHITECTURE.md → Documented deviations): the verb stays reserved
--- here as everywhere, so re-arming the harness later is a registration and never a rename.
--- `diagnostics` (debug-logging-§14) is listed ahead of its registration for the same reason, and
--- because a disabled addon is exactly the one a player is most likely to be reporting.
+-- reach for either is that the addon is misbehaving. `perf` is registered since the timeline ledger
+-- (spec §13 F2) retired the performance-§12 exemption: the verb was kept reserved here throughout,
+-- so arming the harness was a registration and not a rename. A capture is usually started on an
+-- addon that is behaving oddly, and LibKa0s-Perf's own `perf` hold is what stands it down.
+-- `diagnostics` (debug-logging-§14) is listed for the same reason, and because a disabled addon is
+-- exactly the one a player is most likely to be reporting.
 --
 -- `profile` is the one HOST verb on the set (LibKa0s Slash minor 17). It is not reserved and not in
 -- `lib.LIVE_VERBS`, so the descriptor passes `lib.LIVE_VERBS` plus `profile` as its `liveVerbs`
@@ -1071,6 +1072,12 @@ NS.COMMANDS = gateFeatureVerbs{
   -- DebugLog stub answers with the collection's library-absent line and writes nothing.
   { "diagnostics", NS.L["Write the diagnostics report to the debug console"],
     function() NS.DebugLog:RunDiagnostics() end },
+  -- The A/B performance capture (performance-§4). The verb is the host's; the library returns
+  -- lines and this prints them. Live while disabled (LIVE_WHILE_DISABLED). With no LibKa0s the
+  -- core/PerfSetup.lua stub answers "perf capture unavailable.".
+  { "perf", NS.L["A/B performance capture \226\128\148 /lh perf opens the step panel"], function(rest)
+      for _, line in ipairs(NS.Perf.OnCommand(rest or "")) do print(line) end
+    end },
   { "test", "Toggle a synthetic preview dataset (table + Insights)", function()
       -- The same switch as the Master controls `Test mode` box. A refused start prints its own one
       -- line, so this one prints only when the mode actually switched.

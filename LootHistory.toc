@@ -4,7 +4,7 @@
 ## Author: add1kted2ka0s
 ## Version: 1.4.0
 ## IconTexture: Interface\AddOns\LootHistory\media\logos\loothistory.logo.128.tga
-## SavedVariables: LootHistoryDB
+## SavedVariables: LootHistoryDB, LootHistoryPerfDB
 ## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0
 ## DefaultState: enabled
 ## Category-enUS: Misc
@@ -58,10 +58,14 @@ core\Ledger.lua
 # settings\Schema.lua and settings\Slash.lua (must be below them).
 core\CoreSetup.lua
 # The LibKa0s-Lifecycle-1.0 seam: the ONE latch every reason to be inert holds
-# (slash-commands-§7). Position is CONVENTIONAL, not load-bearing -- nothing here resolves at
-# load (every field is a closure and the printer is late-bound), and the latch is first TOUCHED
-# from addon:OnEnable, long after the whole TOC has run.
+# (slash-commands-§7). LOAD-BEARING relative to core\PerfSetup.lua only, which hands NS.Lifecycle
+# to lib:New at file load; nothing in this file resolves at load (every field is a closure and the
+# printer is late-bound), and the latch is first TOUCHED from addon:OnEnable.
 core\LifecycleSetup.lua
+# LOAD-BEARING POSITION: the LibKa0s-Perf-1.0 seam (performance-§1). lib:New reads NS.Lifecycle
+# (above) and NS.Version (core\EnvSetup.lua, above) at file load, and it must sit above every module
+# that takes `local Perf = NS.Perf` as a load-time upvalue (Collector, Attribution, Reconciler).
+core\PerfSetup.lua
 # CONVENTIONAL: the dropdown and reorder art resolves through NS.Icon (core\MediaSetup.lua) at
 # call time, inside NS.MakeDropdown / NS.MakeReorderList; nothing is read at load. Kept below Media.
 core\WidgetsSetup.lua

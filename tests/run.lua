@@ -85,6 +85,9 @@ local SUITES = {
   -- only suite that brings the WHOLE addon up through addon:OnEnable, and step 8 drives the LDB
   -- object test_launcher leaves registered.
   "test_disabled",
+  -- The LibKa0s-Perf wiring (core/PerfSetup.lua). After test_disabled, which leaves the whole addon
+  -- brought up: its suspend case asserts on the live registration set.
+  "test_perf",
   -- This addon's half of the diagnostics report (debug-logging-14): its sections, what they say
   -- and what they must not touch. After test_disabled, which leaves the addon brought up.
   "test_diagnostics",

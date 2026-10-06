@@ -849,7 +849,7 @@ badge and any count quoted in the docs must agree with it.
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
 - /lh holdings <query> prints the matching name and its account-wide total
 
-### test_slash_degraded.lua (14)
+### test_slash_degraded.lua (15)
 
 - library-less install: the Slash under test is the degraded stub
 - library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
@@ -865,6 +865,7 @@ badge and any count quoted in the docs must agree with it.
 - library-less install: the degraded help does not offer /lh diagnostics
 - library-less install: /lh profile answers with the library-absent line and switches nothing
 - library-less install: the degraded help does not offer /lh profile
+- library-less install: NS.Perf is the degradation stub and /lh perf answers
 
 ### test_resetprompt.lua (7)
 
@@ -1233,6 +1234,15 @@ badge and any count quoted in the docs must agree with it.
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
 
+### test_perf.lua (6)
+
+- perf: the buckets are declared in report order
+- perf: every declared bucket is reached by a real bracket
+- perf: a dormant probe notes nothing
+- perf: suspend makes the addon inert and resume restores it
+- perf: suspend and resume log to the console whatever the debug flag says
+- perf: /lh perf dispatches to the harness
+
 ### test_diagnostics.lua (20)
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
@@ -1417,7 +1427,7 @@ badge and any count quoted in the docs must agree with it.
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
 | test_slash.lua | 63 |
-| test_slash_degraded.lua | 14 |
+| test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
@@ -1432,6 +1442,7 @@ badge and any count quoted in the docs must agree with it.
 | test_libka0s.lua | 27 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 16 |
+| test_perf.lua | 6 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_doc_structure.lua | 8 |
@@ -1443,4 +1454,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1221** |
+| **Total** | **1228** |

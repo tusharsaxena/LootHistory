@@ -227,3 +227,16 @@ test("library-less install: the degraded help does not offer /lh profile", funct
   -- library is missing.
   assertTrue(not listedVerbs().profile, "/lh profile cannot switch with no library")
 end)
+
+-- ── the perf verb (performance-§1) ────────────────────────────────────────────────────────────
+
+test("library-less install: NS.Perf is the degradation stub and /lh perf answers", function()
+  -- red under: core/PerfSetup.lua raising at load with no library, or a stub missing a member a
+  -- bracket or the verb reaches.
+  assertEqual(degradedNS.Perf.on, false)
+  degradedNS.Perf.Note("lootLine", 1)                    -- a bracket call is a no-op, never an error
+  assertEqual(degradedNS.Perf.OnCommand("")[1], "perf capture unavailable.")
+  handler("perf")("")
+  -- Answering is not working, so the degraded help does not offer it (UNAVAILABLE_WITHOUT_LIB).
+  assertTrue(not listedVerbs().perf, "/lh perf cannot capture with no library")
+end)

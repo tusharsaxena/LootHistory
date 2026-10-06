@@ -15,6 +15,7 @@ local Attribution = NS.Attribution
 -- (debug-logging). Turn it on and reproduce a loot to trace exactly which path attributes an item.
 
 local State = NS.State
+local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
 local Constants = NS.Constants
 
 -- Deconstruct abilities (Disenchant / Milling / Prospecting) each stamp their OWN source. Their
@@ -337,7 +338,7 @@ end
 -- rotation). Only conclusive results are cached (see DeconstructSource): a positive always, a
 -- negative only once the seed names have resolved, so a not-yet-cached name can't freeze a wrong miss.
 -- Debug logs ONLY the deconstruct hits (not the non-deconstruct majority) — no per-cast spam.
-function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
+local function spellCast(self, unit, spellID)
   if unit ~= "player" then return end
   local cache = self._deconCache
   if not cache then cache = {}; self._deconCache = cache end
@@ -358,6 +359,13 @@ function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
         tostring(spellID), tostring(NS.Compat.GetSpellName(spellID)), src)
     end
   end
+end
+
+-- Shape A bracket (performance-§2) around the body above, so its early return is measured too.
+function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
+  local t0 = Perf.on and debugprofilestop()
+  spellCast(self, unit, spellID)
+  if t0 then Perf.Note("spellCast", debugprofilestop() - t0) end
 end
 
 function Attribution:OnTradeAcceptUpdate(_, playerAccepted, targetAccepted)

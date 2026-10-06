@@ -1,10 +1,16 @@
 # The combat-path sweep
 
-The committed evidence behind this addon's `performance-§12` no-combat-path exemption. The
-exemption itself, and the criteria it rests on, are on [performance.md](performance.md) and in the
-register row in [ARCHITECTURE.md § Documented deviations](ARCHITECTURE.md#documented-deviations).
-**Re-run the sweep before trusting this page**: a new hit that can run while the player is fighting
-is the change that ends the exemption.
+> **Retained as the event census. It no longer backs the `performance-§12` exemption (retired
+> 2026-10-06, timeline ledger F2).** The addon is now wired into LibKa0s-Perf; the buckets are on
+> [performance.md](performance.md). The tables below were written for the exemption and are kept
+> as the inventory of what runs per fire. The timeline-ledger registrations are in
+> [their own section](#timeline-ledger-registrations-phases-1-and-2). A new handler that can run in
+> combat needs a bucket in `core/PerfSetup.lua`.
+
+This page was the committed evidence behind the exemption. The criteria it rested on are in
+closed issue [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), and the retirement
+is noted under [ARCHITECTURE.md § Documented deviations](ARCHITECTURE.md#documented-deviations).
+**Re-run the sweep before trusting this page.**
 
 ## Why `CHAT_MSG_LOOT` stays inside criterion (a)
 
@@ -102,6 +108,29 @@ history to estimate bytes — `settings/Panel.lua:169`. `HistoryChanged` stays i
 delete or a prune is one deliberate action. Issue #27.
 
 The bus is therefore **in** the sweep's scope from now on, and the entry above is what it found.
+
+## Timeline-ledger registrations (phases 1 and 2)
+
+Added by the timeline ledger, after the sweep above was taken. All register one by one through
+`NS.SafeRegisterEvent` on private bus targets, and all go down with the latch.
+
+| Event | Registered at | Work done per fire |
+|---|---|---|
+| `CHAT_MSG_MONEY` | `modules/Collector.lua` (`Collector:Enable`) | Fires in combat on looted money. Parse, then one gold row and one claim (an accumulator add on the Reconciler). Bucket `moneyLine`. |
+| `BAG_UPDATE` | `modules/Reconciler.lua` (`R:Enable`, the `EVENTS` list) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
+| `BAG_UPDATE_DELAYED` | same | Arms the 0.35 s debounce (one `NS.After`, swallowed while one is pending). |
+| `PLAYER_EQUIPMENT_CHANGED`, `PLAYER_MONEY`, `ACCOUNT_MONEY`, `PLAYERBANKSLOTS_CHANGED`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | same | One dirty bit and the debounce. |
+| `CURRENCY_DISPLAY_UPDATE` | same | One accumulator add per currency id (the signed change and its gain/loss source), one dirty bit, the debounce. |
+| `CURRENCY_TRANSFER_LOG_UPDATE` | same | One flag, one dirty bit, the debounce. |
+| `MAIL_INBOX_UPDATE`, `OWNED_AUCTIONS_UPDATED` | same | Only while the mailbox / auction house is open: one dirty bit and the debounce. |
+| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | same, and `modules/AttributionOut.lua` (`EnableOut`) | Not a combat path (an NPC frame). Reconciler: readability flags, and on hide one final flush. AttributionOut: one scope stamp. |
+| `PLAYER_REGEN_ENABLED` | `modules/Reconciler.lua` | **Where the deferred work runs.** `R:Flush` returns at once in combat and sets `deferred`; this edge runs the one reconcile (or the deferred login scan). |
+| `MAIL_SEND_SUCCESS`, `MAIL_FAILED` | `modules/AttributionOut.lua` | Out of combat by construction. A stamp, or one field clear. |
+| `TRADE_ACCEPT_UPDATE` | `modules/AttributionOut.lua` | Out of combat by construction. One stamp on a completed trade. |
+| `ADDON_LOADED` | `modules/AttributionOut.lua` | Hooks the guild bank frame once when `Blizzard_GuildBankUI` loads; otherwise one string compare. |
+
+The reconcile itself (`Reconciler:Flush`: scan, plan, hold or commit) never runs in combat, so it is
+not a perf bucket. `tests/perf.lua` scenario 3 bounds it at one container scan per dirty group.
 
 ## The allocation that is not measured, and stays that way
 

@@ -649,9 +649,9 @@ test("slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon
     -- arm; `/lh enable` is live too. A resume that called a bare StandUp would bring the addon back
     -- mid-capture and silently ruin the run.
     --
-    -- This addon declines LibKa0s-Perf (performance-§12), so nothing in it takes the `perf` hold
-    -- today. The invariant is the latch's rather than the addon's, and it is driven here directly
-    -- so that arming the harness later is a registration and not a rewrite.
+    -- LibKa0s-Perf takes the `perf` hold through P.Suspend (core/PerfSetup.lua; tests/test_perf.lua
+    -- drives that route). The invariant is the latch's rather than the harness's, so it is driven
+    -- here directly, hold by hold.
     -- red under: an `enable` path that calls NS.StandUp() directly instead of releasing the hold,
     -- or a perf resume that does — either one stands the addon up under a player who switched it
     -- off, and the registration set below comes back non-empty.
