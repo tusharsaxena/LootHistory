@@ -121,7 +121,7 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Seventeen rows ship today, on **one** schema-backed page: the General subcategory, whose six tabs are
+Eighteen rows ship today, on **one** schema-backed page: the General subcategory, whose six tabs are
 Master controls, Capture, AH Price, Interface, History and Filters, the last holding no rows.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named

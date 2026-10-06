@@ -142,4 +142,9 @@ function addon:OnEnterWorld()
   NS.After(20, function()
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
   end)
+  -- Holdings genesis / login scan (timeline-ledger spec §5.6). Three seconds in, after the item
+  -- cache has had a moment; cancelable through NS.CancelDeferrals like the prune.
+  NS.After(3, function()
+    if NS.Reconciler and NS.Reconciler._enabled then NS.Reconciler:LoginScan() end
+  end)
 end

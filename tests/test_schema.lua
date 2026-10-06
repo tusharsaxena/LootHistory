@@ -647,7 +647,7 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 8 }, { "Capture", 4 }, { "AH Price", 2 },
+    { "Master controls", 8 }, { "Capture", 5 }, { "AH Price", 2 },
     { "Interface", 2 }, { "History", 1 },
   },
 }

@@ -6,7 +6,7 @@ badge and any count quoted in the docs must agree with it.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (32)
+### test_constants.lua (33)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member appears in the display order
@@ -36,7 +36,8 @@ badge and any count quoted in the docs must agree with it.
 - bus: Database:Add sends RecordAdded with the record and its index
 - bus: Database:FireHistoryChanged sends HistoryChanged with no payload
 - bus: a settings write sends SettingsChanged with its reason
-- bus: NS.MSG declares exactly the three wire names
+- bus: Reconciler:Flush sends HoldingsChanged once per holder that moved
+- bus: NS.MSG declares exactly the four wire names
 - bus: NS.MSG is the library's strict catalog, so a mistyped key raises
 - bus: no addon file but core/Constants.lua types a Ka0s_LootHistory_ literal
 - bus: the degraded build declares the same names, without the library
@@ -335,6 +336,16 @@ badge and any count quoted in the docs must agree with it.
 - Collector: with no price gathered the [AHPrice] line says none and picks nothing
 - Collector: a refused loot line logs one [Drop] line naming the reason, and nothing else
 - Collector: with logging off a loot line calls the debug sink not at all
+
+### test_reconciler.lua (7)
+
+- Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
+- Reconciler: bag flush never touches bank column
+- Reconciler: bank is unreadable until the banker interaction shows
+- Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
+- Reconciler: LoginScan seeds genesis, partial until bank seen
+- Reconciler: account-wide currency lands on the warband holder
+- Reconciler: trackLedger off unregisters, on registers again
 
 ### test_database.lua (69)
 
@@ -1226,7 +1237,7 @@ badge and any count quoted in the docs must agree with it.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 32 |
+| test_constants.lua | 33 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -1240,6 +1251,7 @@ badge and any count quoted in the docs must agree with it.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 38 |
+| test_reconciler.lua | 7 |
 | test_database.lua | 69 |
 | test_stats.lua | 20 |
 | test_browser.lua | 67 |
@@ -1272,4 +1284,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 17 |
-| **Total** | **1078** |
+| **Total** | **1086** |

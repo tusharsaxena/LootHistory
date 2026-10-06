@@ -101,12 +101,12 @@ The **row vocabulary is LibKa0s's** (`Schema.lua:49`), and four names moved when
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Seventeen rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
+**Eighteen rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
 | General | **Master controls** | 8 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole`, `minimap.shown`, `state.testMode` |
-| General | **Capture** | 4 | `settings.qualityThreshold`, `settings.recordCurrency`, `settings.excludeQuestItems`, `settings.excludedSources` |
+| General | **Capture** | 5 | `settings.qualityThreshold`, `settings.recordCurrency`, `settings.trackLedger`, `settings.excludeQuestItems`, `settings.excludedSources` |
 | General | **AH Price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
 | General | **Interface** | 2 | `settings.windowScale`, `settings.rowHeight` |
 | General | **History** | 1 | `settings.retentionDays` |

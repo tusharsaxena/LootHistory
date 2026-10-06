@@ -268,18 +268,32 @@ test("bus: a settings write sends SettingsChanged with its reason", function()
   end
 end)
 
-test("bus: NS.MSG declares exactly the three wire names", function()
+test("bus: Reconciler:Flush sends HoldingsChanged once per holder that moved", function()
+  -- On a scratch holdings store, restored before asserting: later suites read the real one.
+  local g, m, Rc = NS.db.global, T.mocks, NS.Reconciler
+  local saved, savedMoney = g.holdings, m.__money
+  g.holdings, m.__money = {}, 4242
+  Rc.dirty, Rc.deferred = {}, nil
+  local sent = busSends(function() Rc:MarkDirty("money"); Rc:Flush() end)
+  g.holdings, m.__money = saved, savedMoney
+  assertEqual(#sent, 1)
+  assertEqual(sent[1].msg, "Ka0s_LootHistory_HoldingsChanged")
+  assertEqual(sent[1].a, NS.Util.PlayerKey())
+end)
+
+test("bus: NS.MSG declares exactly the four wire names", function()
   local want = {
     RECORD_ADDED     = "Ka0s_LootHistory_RecordAdded",
     HISTORY_CHANGED  = "Ka0s_LootHistory_HistoryChanged",
     SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
+    HOLDINGS_CHANGED = "Ka0s_LootHistory_HoldingsChanged",
   }
   local n = 0
   for k, v in pairs(NS.MSG) do
     n = n + 1
     assertEqual(v, want[k], "NS.MSG." .. tostring(k))
   end
-  assertEqual(n, 3, "no fourth key")
+  assertEqual(n, 4, "no fifth key")
 end)
 
 test("bus: NS.MSG is the library's strict catalog, so a mistyped key raises", function()

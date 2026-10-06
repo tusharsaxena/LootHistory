@@ -215,6 +215,8 @@ local MSG = {
   HISTORY_CHANGED  = "Ka0s_LootHistory_HistoryChanged",
   -- Sender: settings/Schema.lua, the rows' onChange handlers. Payload: the reason string.
   SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
+  -- Sender: modules/Reconciler.lua `Flush`. Payload: (holder) — once per holder whose holdings moved.
+  HOLDINGS_CHANGED = "Ka0s_LootHistory_HoldingsChanged",
 }
 
 -- ── Container id groups (copied from BankLedger core/Constants.lua, which paid for the lesson) ──

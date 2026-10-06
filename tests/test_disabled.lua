@@ -84,6 +84,18 @@ local OWNED = {
   "message:Ka0s_LootHistory_SettingsChanged:nil",
   "message:Ka0s_LootHistory_HistoryChanged:nil",
   "message:Ka0s_LootHistory_RecordAdded:nil",
+  -- modules/Reconciler.lua (trackLedger defaults on): the holdings capture events. Its
+  -- SettingsChanged subscription is already named above, on its own private target.
+  "event:BAG_UPDATE:nil",
+  "event:BAG_UPDATE_DELAYED:nil",
+  "event:PLAYER_EQUIPMENT_CHANGED:nil",
+  "event:PLAYER_MONEY:nil",
+  "event:ACCOUNT_MONEY:nil",
+  "event:CURRENCY_DISPLAY_UPDATE:nil",
+  "event:PLAYERBANKSLOTS_CHANGED:nil",
+  "event:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED:nil",
+  "event:PLAYER_INTERACTION_MANAGER_FRAME_SHOW:nil",
+  "event:PLAYER_INTERACTION_MANAGER_FRAME_HIDE:nil",
 }
 
 --- WHAT SURVIVES, AND WHY THE SET IS NOT SIMPLY EMPTY. §7 exempts a short named list as SETUP
@@ -107,7 +119,7 @@ local OWNED = {
 local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
-                            NS.Attribution.__spellFrame }) do
+                            NS.Attribution.__spellFrame, NS.Reconciler.__ev, NS.Reconciler._settings }) do
     if target then t[target] = true end
   end
   return t

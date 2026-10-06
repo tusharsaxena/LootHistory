@@ -291,6 +291,14 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
     end },
 
+  { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", label = "Track holdings and losses",
+    tooltip = "Keep a ledger of what every character and your warband holds, and (from the next " ..
+      "update) every gain, loss and transfer. Off = record loot gains only, as before.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
+    end },
+
   { path = "settings.excludeQuestItems", default = PD.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",

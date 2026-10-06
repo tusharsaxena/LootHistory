@@ -508,6 +508,20 @@ function Compat.InteractionType(name)
   return e and e[name] or nil
 end
 
+-- The Reconciler's combat gate. The LOCKDOWN flag and not UnitAffectingCombat on purpose: this
+-- decides whether a scan may run (events-frames-taint-§2), not whether something is displayed, and
+-- the deferred work resumes on the PLAYER_REGEN_ENABLED edge that clears it. Read at call time.
+function Compat.InCombatLockdown()
+  return type(InCombatLockdown) == "function" and InCombatLockdown() == true
+end
+
+-- The player's class token ("MAGE"), stamped on a holder's meta for the class-colored name.
+function Compat.PlayerClassFile()
+  if type(UnitClass) ~= "function" then return nil end
+  local _, classFile = UnitClass("player")
+  return classFile
+end
+
 -- Every currency the character has, with its quantity. The client's list hides the children of a
 -- collapsed header, so collapsed headers are expanded for the walk and collapsed again after,
 -- last-to-first so indices stay valid (BagSync scanner.lua does the same).

@@ -118,7 +118,7 @@ function NS.StandDown()
   -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
   -- does not touch messages, and this target subscribes to none.
   if NS.addon and NS.addon.UnregisterAllEvents then NS.addon:UnregisterAllEvents() end
-  for _, m in ipairs({ NS.Collector, NS.Attribution, NS.Browser, NS.Analytics }) do
+  for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics }) do
     if m and m.Disable then m:Disable() end
   end
   local dropped = NS.CancelDeferrals()
@@ -143,6 +143,7 @@ function NS.StandUp()
   end
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
+  if NS.Reconciler and NS.Reconciler.Enable then NS.Reconciler:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
   if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
   if NS.State.debug and NS.Debug then NS.Debug("State", "stand-up: capture registered") end
