@@ -20,15 +20,16 @@ local O = NS.Options
 -- (LootHistory.toc), and every value read here is a scalar, so no row aliases the shipped table.
 local PD = NS.defaults.profile
 -- The account-wide declarations (defaults/Global.lua, which loads before defaults/Profile.lua): read
--- for the one setting that lives there, `retentionDays` (D6).
+-- for the two settings that live there, `retentionDays` (D6) and `rollupRetentionDays`.
 local GD = NS.defaults.global
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
--- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Two stored rows live outside it, in
+-- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Three stored rows live outside it, in
 -- the global store, and each owns its storage through its own get/set: the Master controls'
 -- `minimap.shown` (the LibDBIcon table, launcher-§3) and the History tab's `settings.retentionDays`
 -- (`global.retentionDays`, owner decision D6: the setting that governs recorded data stays
--- account-wide, so no profile event can change what the prune deletes).
+-- account-wide, so no profile event can change what the prune deletes) and
+-- `settings.rollupRetentionDays` (`global.rollupRetentionDays`, the Timeline's rollup, same reason).
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
 -- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
@@ -277,8 +278,10 @@ local ROWS = {
   -- gate pairs with "Record currency" on the first line, "Exclude quest items" opens the second,
   -- and the wide source picker lands under both from `afterGroup`.
   { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
-    page = "General", group = "Capture", label = "Minimum quality", values = C.QUALITY_OPTIONS,
-    tooltip = "Only record items at or above this quality.",
+    page = "General", group = "Capture", label = "Minimum quality (detailed records)", values = C.QUALITY_OPTIONS,
+    tooltip = "Items at or above this quality get a detailed loot record (source, zone, encounter). " ..
+      "Every item is still tracked in the ledger; History hides items below this quality until you " ..
+      "pick qualities in its Quality filter.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "quality") end
     end },
@@ -289,6 +292,22 @@ local ROWS = {
       "Obeys the per-source mute list; ignores the minimum-quality filter.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
+    end },
+
+  { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", label = "Track holdings and losses",
+    tooltip = "Keep a ledger of what every character and your warband holds, and (from the next " ..
+      "update) every gain, loss and transfer. Off = record loot gains only, as before.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
+    end },
+
+  { path = "settings.recordGold", default = PD.settings.recordGold, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", label = "Record gold",
+    tooltip = "Write a History row for every gold gain and loss (loot, vendor, repairs, auction house, " ..
+      "mail, guild bank). Holdings keep counting gold either way.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
     end },
 
   { path = "settings.excludeQuestItems", default = PD.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
@@ -374,13 +393,27 @@ local ROWS = {
       if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
     end },
 
+  -- How many holders the Timeline draws besides its Total (spec §11). The richest holders of the
+  -- charted thing win the slots; the Character filter narrows the field first.
+  { path = "settings.timelineMaxLines", default = PD.settings.timelineMaxLines, type = "number",
+    min = 2, max = 16, step = 1, widget = "Slider", fmt = "%d",
+    page = "General", group = "Interface", label = "Timeline lines",
+    tooltip = "How many characters the Timeline draws as their own line, besides the Total. "
+      .. "The ones holding the most of the charted item, currency or gold are shown first.",
+    onChange = function()
+      if NS.Timeline and NS.Timeline.RefreshIfShown then NS.Timeline:RefreshIfShown() end
+    end },
+
   -- ── General ▸ History ──
   -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
   -- and leaves; the Filters tab that follows it on the strip declares no rows at all. Called
   -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
-  -- Maintenance, which named the chore rather than the subject. ONE stored row, and it is the sanctioned exemption from the two-controls-per-tab rule:
-  -- the rest of the tab is bespoke — the live storage readout and "Purge history…" — controls with
-  -- no path, which no partition test can count. tests/test_schema.lua exempts it BY NAME.
+  -- Maintenance, which named the chore rather than the subject. It held ONE stored row until the
+  -- ledger added "Show transfers by default", and was the sanctioned exemption from the
+  -- two-controls-per-tab rule. The Timeline's rollup retention row made it three stored rows, so
+  -- the exemption is gone: tests/test_schema.lua binds every tab by the same rule. The rest of the
+  -- tab is bespoke -- the live storage readout and "Purge history…" -- controls with no path,
+  -- which no partition test can count.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
   -- button now, which is where options-ui-§15 puts the global reset.)
   --
@@ -405,6 +438,33 @@ local ROWS = {
     end,
     -- Confirm-gated when it would delete anything: S:OnRetentionChanged, below.
     onChange = function(value) S:OnRetentionChanged(value) end },
+  -- The Timeline's daily rollup (timeline ledger P3). ACCOUNT-WIDE for the reason retentionDays is
+  -- (D6): it governs recorded data every profile shares. No confirm: nothing is deleted on change --
+  -- the prune runs once per session from the login deferral (core/LootHistory.lua), so the new
+  -- window takes effect at the next login, which the tooltip says.
+  { path = "settings.rollupRetentionDays", default = GD.rollupRetentionDays, type = "number",
+    widget = "Dropdown", page = "General", group = "History", label = "Keep Timeline days for",
+    values = C.ROLLUP_RETENTION_OPTIONS,
+    tooltip = "How long the Timeline keeps its daily balances. 'Always' keeps every day. A shorter "
+      .. "window is applied at your next login; each line still starts from its last known value. "
+      .. "Account-wide.",
+    get = function()
+      local g = NS.db and NS.db.global
+      return g and g.rollupRetentionDays
+    end,
+    set = function(days)
+      local g = NS.db and NS.db.global
+      if g then g.rollupRetentionDays = days end
+    end },
+  -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
+  -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
+  { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
+    page = "General", group = "History", label = "Show transfers by default",
+    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
+      "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
+    end },
 }
 
 -- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared
@@ -466,9 +526,12 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 --- reach it, no sweep may either, and S.ResetProfile's count leaves it out. A reset that changed
 --- it would change what the prune deletes from the shared history. `/lh reset
 --- settings.retentionDays` still resets it, through the same confirm as any change.
+---
+--- `settings.rollupRetentionDays` is the third, for the same reason as the second.
 S.RESET_EXEMPT = {
-  ["minimap.shown"]         = "minimap.hide",
-  ["settings.retentionDays"] = "retentionDays",
+  ["minimap.shown"]               = "minimap.hide",
+  ["settings.retentionDays"]       = "retentionDays",
+  ["settings.rollupRetentionDays"] = "rollupRetentionDays",
 }
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────
@@ -754,8 +817,8 @@ end
 --- `resetProfile` (settings/OptionsSetup.lua) and the library-less `/lh resetall`
 --- (settings/Slash.lua) both call it. Counted through the runtime's ResetCounted, so the profile
 --- event's one `[Set]` line carries N: the stored rows off their default just before the reset.
---- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3) and the retention
---- (D6) -- because their storage is global and the reset cannot move them.
+--- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3) and the two
+--- retentions (D6) -- because their storage is global and the reset cannot move them.
 function S.ResetProfile()
   local db = NS.db
   if not (db and db.ResetProfile) then return end
@@ -867,7 +930,8 @@ function S:Register()
   -- A row carrying BOTH its own get and set owns its storage, so there is no defaults entry at its
   -- path to find: `minimap.shown` reads and writes LibDBIcon's `minimap.hide`, and no `shown` key is
   -- declared or stored (launcher-§3, anti-pattern #81); `settings.retentionDays` reads and writes
-  -- `global.retentionDays`, declared in defaults/Global.lua (D6). Answering nil makes the library's
+  -- `global.retentionDays`, declared in defaults/Global.lua (D6), and `settings.rollupRetentionDays`
+  -- `global.rollupRetentionDays` beside it. Answering nil makes the library's
   -- resolvesInDefaults answer nil too -- neither resolved nor missing -- and the stub skips it alike.
   local errors, _, missing = R.Validate{
     types = VALIDATE_TYPES,
@@ -917,11 +981,12 @@ end
 -- side: a player must be able to READ AND REPAIR SETTINGS and REACH THE PANEL while the addon is
 -- off — which is exactly when they are most likely to need to — and `enable` above all, or the
 -- pair is one-way. `debug` and `perf` are diagnostics rather than features: the usual reason to
--- reach for either is that the addon is misbehaving. `perf` is listed although this addon does not
--- register it (performance-§12, ARCHITECTURE.md → Documented deviations): the verb stays reserved
--- here as everywhere, so re-arming the harness later is a registration and never a rename.
--- `diagnostics` (debug-logging-§14) is listed ahead of its registration for the same reason, and
--- because a disabled addon is exactly the one a player is most likely to be reporting.
+-- reach for either is that the addon is misbehaving. `perf` is registered since the timeline ledger
+-- (spec §13 F2) retired the performance-§12 exemption: the verb was kept reserved here throughout,
+-- so arming the harness was a registration and not a rename. A capture is usually started on an
+-- addon that is behaving oddly, and LibKa0s-Perf's own `perf` hold is what stands it down.
+-- `diagnostics` (debug-logging-§14) is listed for the same reason, and because a disabled addon is
+-- exactly the one a player is most likely to be reporting.
 --
 -- `profile` is the one HOST verb on the set (LibKa0s Slash minor 17). It is not reserved and not in
 -- `lib.LIVE_VERBS`, so the descriptor passes `lib.LIVE_VERBS` plus `profile` as its `liveVerbs`
@@ -1013,6 +1078,8 @@ NS.COMMANDS = gateFeatureVerbs{
   -- (NS.OnProfileEvent, core/LootHistory.lua). Live while disabled, per LIVE_WHILE_DISABLED above.
   { "profile",  NS.L["List profiles, or switch to one: profile <name>"],
     function(rest) NS.Slash:CliProfile(rest) end },
+  { "holdings", "Search what your characters and warband hold: holdings <query>",
+    function(rest) NS.Slash:Holdings(rest) end },
   { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
     function(rest)
       -- `/lh debug diagnostics` is tested FIRST (debug-logging-§14): the same report as the
@@ -1041,6 +1108,12 @@ NS.COMMANDS = gateFeatureVerbs{
   -- DebugLog stub answers with the collection's library-absent line and writes nothing.
   { "diagnostics", NS.L["Write the diagnostics report to the debug console"],
     function() NS.DebugLog:RunDiagnostics() end },
+  -- The A/B performance capture (performance-§4). The verb is the host's; the library returns
+  -- lines and this prints them. Live while disabled (LIVE_WHILE_DISABLED). With no LibKa0s the
+  -- core/PerfSetup.lua stub answers "perf capture unavailable.".
+  { "perf", NS.L["A/B performance capture \226\128\148 /lh perf opens the step panel"], function(rest)
+      for _, line in ipairs(NS.Perf.OnCommand(rest or "")) do print(line) end
+    end },
   { "test", "Toggle a synthetic preview dataset (table + Insights)", function()
       -- The same switch as the Master controls `Test mode` box. A refused start prints its own one
       -- line, so this one prints only when the mode actually switched.

@@ -19,7 +19,7 @@
 -- see what a real row build produced -- LibKa0s docs/api/Widgets/version-7-docs.md forbids a HOST from reading library
 -- internals and notes that the library's own suite reads them anyway, because a suite pinning
 -- behavior needs some seam to pin it through. This is that, one layer out. The line that matters is
--- kept elsewhere: no `__`-prefixed field is touched anywhere, nothing is ever WRITTEN onto a pooled
+-- kept elsewhere: no `__`-prefixed field is touched anywhere (bar the kit recorder `__madeLines`, which is mock state and not a library internal), nothing is ever WRITTEN onto a pooled
 -- row, and no shipping file in modules/ or core/ reads any of this. If the library reshapes a row,
 -- these cases are the ones to re-anchor -- and that is a cost this suite accepts to keep the first
 -- click covered.
@@ -141,7 +141,8 @@ end)
 test("Widgets: no option table in this addon sets a glyph", function()
   -- The other half of the case above: the seam passing no face is only correct while this stays
   -- true. The class icon and the tick are inline texture markup, not monospace characters.
-  for _, path in ipairs({ "modules/Browser.lua", "modules/Export.lua", "core/WidgetsSetup.lua" }) do
+  for _, path in ipairs({ "modules/Browser.lua", "modules/BrowserFilterBar.lua", "modules/Export.lua",
+                        "core/WidgetsSetup.lua" }) do
     local src = Loader.readFile(path)
     assertTrue(src:find("glyph%s*=") == nil,
       path .. " sets `glyph` on an option, which needs opts.glyphFont passed by the seam")
@@ -245,12 +246,12 @@ test("Widgets: a selected character with no option row still counts in the colla
 
 -- ── the ten live instances ───────────────────────────────────────────────────────────────────
 
-test("Widgets: the filter bar builds all nine of its dropdowns through the seam", function()
+test("Widgets: the filter bar builds all ten of its dropdowns through the seam", function()
   -- COUNTING THE LIBRARY CALL IS THE WHOLE POINT. "Has a SetOptions method" was also true of the
   -- hand-rolled widget this adoption deleted, so shape alone pins nothing: the case only pins the
   -- SEAM if it can tell a library dropdown from a look-alike. So lib.Dropdown is wrapped for the
-  -- duration of the build and every frame it returns is remembered by identity -- nine calls, and
-  -- each of the nine published fields must be one of the frames the library itself handed back.
+  -- duration of the build and every frame it returns is remembered by identity -- ten calls, and
+  -- each of the ten published fields must be one of the frames the library itself handed back.
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   local stock, built, n = lib.Dropdown, {}, 0
   lib.Dropdown = function(parent, width, opts)
@@ -265,8 +266,8 @@ test("Widgets: the filter bar builds all nine of its dropdowns through the seam"
   if not ok then error(err, 0) end
   local dd = B._dd
   assertTrue(dd ~= nil, "the filter bar must build with the library present")
-  assertEqual(n, 9, "the filter bar must build exactly nine dropdowns through the library")
-  for _, key in ipairs({ "group", "date", "bound", "quality", "type", "subtype",
+  assertEqual(n, 10, "the filter bar must build exactly ten dropdowns through the library")
+  for _, key in ipairs({ "group", "dir", "date", "bound", "quality", "type", "subtype",
                          "source", "zone", "char" }) do
     assertTrue(type(dd[key]) == "table" and type(dd[key].SetOptions) == "function",
       "dd." .. key .. " is not a library dropdown")
@@ -274,7 +275,7 @@ test("Widgets: the filter bar builds all nine of its dropdowns through the seam"
       "dd." .. key .. " was not built by LibKa0s-Widgets-1.0's own Dropdown")
   end
   assertFalse(dd.group.multi, "Group-by is single-select")
-  for _, key in ipairs({ "bound", "quality", "type", "subtype", "source", "zone", "char" }) do
+  for _, key in ipairs({ "dir", "bound", "quality", "type", "subtype", "source", "zone", "char" }) do
     assertEqual(dd[key].multi, true, "dd." .. key .. " must be multi-select")
   end
   assertTrue(dd.char.presets ~= nil and dd.char.presets.current ~= nil,
@@ -343,6 +344,9 @@ test("Widgets: the export modal's close path closes the shared popup", function(
   for _, f in ipairs(created) do
     if f:GetScript("OnHide") then modal = f end
   end
+  -- The modal is memoized for the session: an earlier suite (the reset prompt's "Export first"
+  -- cases) may already have built it, in which case this Open created nothing to catch.
+  if not modal and #created == 0 then modal = NS.Export:Window() end
   assertTrue(modal ~= nil, "the export modal must register an OnHide handler")
   assertTrue(countingCloseMenu(function() modal:__fire("OnHide") end) > 0,
     "the export modal's OnHide must call CloseMenu")
@@ -428,3 +432,30 @@ test("degraded install: the export modal refuses rather than calling methods on 
     assertTrue(body:find(ns.LIBKA0S_MISSING, 1, true) ~= nil,
       "the refusal must be explained through the shared cause clause: " .. body)
   end)
+
+-- ── the line chart seam (timeline ledger, Phase 3) ─────────────────────────────────────────────
+
+test("seam: NS.MakeLineChart builds the library's chart and routes hover back to the host", function()
+  local hovered = "unset"
+  local c = NS.MakeLineChart(T.mocks.UIParent, { onHover = function(_, i) hovered = i end })
+  assertTrue(c ~= nil, "the library is present in this run, so the seam must build")
+  assertTrue(type(c.SetData) == "function" and type(c.Render) == "function")
+  c:SetData({ xMin = 0, xMax = 100, series = { { points = { { x = 0, y = 1 }, { x = 100, y = 2 } } } },
+    hoverXs = { 0, 100 } })
+  c:Render(300, 150)
+  c:HoverAtPixel(c:XToPixel(90))
+  assertEqual(hovered, 2)
+end)
+
+test("seam: NS.MakeLineChart copies the host's opts rather than stamping them", function()
+  local opts = { onHover = function() end }
+  NS.MakeLineChart(T.mocks.UIParent, opts)
+  assertEqual(opts.font, nil, "the seam's default face must not be written into the caller's table")
+end)
+
+test("seam: the chart draws Line regions, not textures", function()
+  local c = NS.MakeLineChart(T.mocks.UIParent, {})
+  c:SetData({ xMin = 0, xMax = 10, series = { { points = { { x = 0, y = 0 }, { x = 10, y = 1 } } } } })
+  c:Render(300, 150)
+  assertTrue(#c.__madeLines >= 3, "crosshair, axis and at least one segment, all Lines")
+end)

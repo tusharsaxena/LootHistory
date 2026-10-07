@@ -34,6 +34,19 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- "Forget this character" from a Holdings holder row (spec §8.2). The holder key arrives as the
+  -- popup's data, never through a module-level variable, so two quick right-clicks cannot cross.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_FORGET_HOLDER"] = {
+    text = "Forget %s?\n\nTheir holdings and Timeline history are removed. Loot history rows are " ..
+      "kept. Logging in on them again starts their ledger afresh.",
+    button1 = YES or "Yes",
+    button2 = NO or "No",
+    OnAccept = function(_, data)
+      if data and data.holder and NS.Reconciler then NS.Reconciler:ForgetHolder(data.holder) end
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+    preferredIndex = 3,
+  }
   StaticPopupDialogs["KA0S_LOOTHISTORY_RESETALL"] = {
     -- THE COLLECTION'S FIRST CANONICAL WORDING (options-ui-§12), verbatim: the one for an addon
     -- with a `profile` section. This addon has both scopes, and §12 is explicit about that case:
@@ -97,6 +110,84 @@ if type(StaticPopupDialogs) == "table" then
     timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
     preferredIndex = 3,
   }
+  -- The one-time timeline-ledger reset recommendation (spec 9.2). Esc/close decides nothing, so it
+  -- is asked again next session (the persisted db.global.resetPromptPending carries it there); only
+  -- Keep and a confirmed Reset store a choice, and both retire the marker.
+  StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"] = {
+    text = "|cffffd100Loot History has become a full ledger.|r\n\n" ..
+      "It now tracks what every character and your warband holds, and will track gains AND losses " ..
+      "of items, currencies and gold.\n\n" ..
+      "|cffffd100Recommended: start a fresh history.|r Your %d existing records only ever captured " ..
+      "gains. Mixed with the new data, any period before today would show income with no spending, " ..
+      "so net totals and Insights for those dates overstate what you kept.\n\n" ..
+      "|cffffd100If you keep it:|r nothing is lost and older loot stays browsable, but net and loss " ..
+      "figures are only accurate from today; ranges that include older dates carry a warning.\n\n" ..
+      "|cffffd100If you reset:|r older loot records are deleted permanently. Settings, filters and " ..
+      "profiles are kept. Choose Export first for a copy.",
+    button1 = "Reset history", button2 = "Keep history", button3 = "Export first",
+    OnAccept = function() StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM", #NS.db.global.history) end,
+    -- button2 reports reason "clicked"; Esc hides through OnHide and never reaches here, and a
+    -- re-show reports "override"/"timeout". Only the deliberate click is a decision.
+    OnCancel = function(_, _, reason)
+      if reason == "clicked" then
+        NS.db.global.resetPrompt, NS.db.global.resetPromptPending = "kept", nil
+        print("keeping your loot history.")
+      end
+    end,
+    OnAlt = function()
+      NS._ledgerResetAfterExport = true
+      if NS.Browser then NS.Browser:Show(); NS.Browser:SelectTab("History"); NS.Browser:OpenExport() end
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+  }
+  StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM"] = {
+    text = "Delete %d loot records permanently? This cannot be undone.",
+    button1 = YES or "Yes", button2 = NO or "No",
+    OnAccept = function()
+      local g = NS.db.global
+      if NS.Database and NS.Database.Purge then NS.Database:Purge() end
+      g.resetPrompt, g.resetPromptPending, g.ledgerSince = "reset", nil, time()
+      print("history reset; the ledger starts now.")
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true, preferredIndex = 3,
+  }
+end
+
+--- True iff the one-time reset recommendation is due: armed by the v11 migration step (an upgrade
+--- from before the ledger with history in it, persisted as `resetPromptPending` so an Esc on one
+--- login is asked again on the next), history still worth resetting, and no choice stored yet.
+function NS.ShouldOfferLedgerReset(g)
+  return g ~= nil and g.resetPrompt == nil and g.resetPromptPending == true
+    and type(g.history) == "table" and #g.history > 0
+end
+
+-- The one-shot PLAYER_REGEN_ENABLED target that holds the offer back through combat. Module-level
+-- so a second call does not stack a second one and NS.StandDown can drop it.
+local offerTarget
+
+--- Drop a held offer. Called from NS.StandDown: a prompt must not appear from a game event while off.
+--- The "Export first" re-ask goes with it: StandDown hides the export window AFTER this runs, and
+--- that window's OnHide would otherwise show the popup on an addon that was just switched off. The
+--- persisted pending marker is untouched, so the question still comes back on a later login.
+function NS.DropLedgerResetOffer()
+  if offerTarget then offerTarget:UnregisterAllEvents(); offerTarget = nil end
+  NS._ledgerResetAfterExport = nil
+end
+
+function NS.OfferLedgerReset()
+  local g = NS.db and NS.db.global
+  if not NS.ShouldOfferLedgerReset(g) then return end
+  if NS.Compat.InCombatLockdown() then
+    if offerTarget then return end
+    offerTarget = NS.NewBusTarget()
+    if not offerTarget then return end
+    NS.SafeRegisterEvent(offerTarget, "PLAYER_REGEN_ENABLED", function()
+      NS.DropLedgerResetOffer()
+      NS.OfferLedgerReset()
+    end, NS.RejectedEvents)
+    return
+  end
+  if type(StaticPopup_Show) == "function" then StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET", #g.history) end
 end
 
 -- ── LibKa0s-Slash-1.0 seam ─────────────────────────────────────────────────────────────────────
@@ -139,6 +230,18 @@ function Sl.FormatSchemaValue(row, v)
   -- CLI and the settings panel cannot render the same value two ways.
   if lib then return lib.FormatValue(row, v) end
   return tostring(v)
+end
+
+--- `/lh holdings <query>`: the top ten account-wide holdings whose name contains the query.
+function Sl:Holdings(query)
+  query = query or ""
+  local rows = NS.Holdings and NS.Holdings:Search({ text = query }) or {}
+  if #rows == 0 then print("no holdings match '" .. query .. "'."); return end
+  for i = 1, math.min(10, #rows) do
+    local r = rows[i]
+    local total = r.key == "g" and NS.Util.FormatMoney(r.total) or tostring(r.total)
+    print(("%s: %s"):format(r.name, total))
+  end
 end
 
 if not lib then
@@ -192,9 +295,11 @@ if not lib then
   -- addon rather than inside LibKa0s, so Sl.CliResetAll below runs it in full.
   -- `profile` IS here: the verb is the library's (Slash minor 17), so on this path its row reaches
   -- Sl.CliProfile below, which only says the library is missing.
+  -- `perf` is here for `diagnostics`' reason: its row dispatches to core/PerfSetup.lua's stub, which
+  -- answers "perf capture unavailable." and captures nothing.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
-    reset = true, help = true, config = true, diagnostics = true, profile = true,
+    reset = true, help = true, config = true, diagnostics = true, profile = true, perf = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there

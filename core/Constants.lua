@@ -11,6 +11,18 @@ C.SourceType = {
   ROLL = "ROLL", BONUS_ROLL = "BONUS_ROLL", MPLUS = "MPLUS", OTHER = "OTHER",
   DISENCHANT = "DISENCHANT", MILLING = "MILLING", PROSPECTING = "PROSPECTING",
   REFUND = "REFUND",
+  -- Ledger reasons (timeline-ledger spec §4.1/§5.4), APPENDED in 2026-10: `source` now carries the
+  -- reason for gains AND losses. Stored strings and export contract like every member above.
+  SELL = "SELL", BUY = "BUY", REPAIR = "REPAIR", MAIL_SEND = "MAIL_SEND", TRADE_GIVE = "TRADE_GIVE",
+  AH_POST_FEE = "AH_POST_FEE", AH_SOLD = "AH_SOLD", AH_BUY = "AH_BUY", DESTROY = "DESTROY",
+  CONSUME = "CONSUME", CRAFT_REAGENT = "CRAFT_REAGENT", DECONSTRUCT = "DECONSTRUCT",
+  GUILD_DEPOSIT = "GUILD_DEPOSIT", GUILD_WITHDRAW = "GUILD_WITHDRAW", TRAINING = "TRAINING",
+  TRAVEL = "TRAVEL", TRANSFER = "TRANSFER", UNTRACKED = "UNTRACKED",
+  -- Holder moves (timeline-ledger Phase 7, owner decision 2026-10-06), APPENDED: a move between two
+  -- DIFFERENT holders is an OUT on the sender and an IN on the receiver, both under one of these.
+  -- TRANSFER stays the reason of a move inside one holder (bags <-> bank, a post).
+  WARBAND_DEPOSIT = "WARBAND_DEPOSIT", WARBAND_WITHDRAW = "WARBAND_WITHDRAW", ALT_MAIL = "ALT_MAIL",
+  ALT_TRADE = "ALT_TRADE", CURRENCY_TRANSFER = "CURRENCY_TRANSFER",
 }
 
 -- Display order for grouping/analytics (most to least "interesting").
@@ -18,6 +30,11 @@ C.SourceOrder = {
   "KILL", "CONTAINER", "MPLUS", "BONUS_ROLL", "ROLL", "QUEST",
   "TRADE", "MAIL", "AH", "VENDOR",
   "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "REFUND", "OTHER",
+  -- Ledger reasons, appended (append-only display order; the gain sources above keep their slots).
+  "SELL", "BUY", "REPAIR", "MAIL_SEND", "TRADE_GIVE", "AH_POST_FEE", "AH_SOLD", "AH_BUY",
+  "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
+  "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED",
+  "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE", "CURRENCY_TRANSFER",
 }
 
 -- Short human labels for the UI.
@@ -27,6 +44,13 @@ C.SourceLabel = {
   TRADE = "Trade", MAIL = "Mail", AH = "Auction House", VENDOR = "Vendor", CRAFT = "Craft",
   DISENCHANT = "Disenchant", MILLING = "Milling", PROSPECTING = "Prospecting",
   REFUND = "Refund", OTHER = "Other",
+  SELL = "Sell", BUY = "Buy", REPAIR = "Repair", MAIL_SEND = "Mail Sent", TRADE_GIVE = "Trade Given",
+  AH_POST_FEE = "AH Deposit", AH_SOLD = "AH Sold", AH_BUY = "AH Bought", DESTROY = "Destroyed",
+  CONSUME = "Consumed", CRAFT_REAGENT = "Crafting Reagent", DECONSTRUCT = "Deconstructed",
+  GUILD_DEPOSIT = "Guild Deposit", GUILD_WITHDRAW = "Guild Withdraw", TRAINING = "Training",
+  TRAVEL = "Travel", TRANSFER = "Transfer", UNTRACKED = "Untracked",
+  WARBAND_DEPOSIT = "Warband Deposit", WARBAND_WITHDRAW = "Warband Withdraw", ALT_MAIL = "Alt Mail",
+  ALT_TRADE = "Alt Trade", CURRENCY_TRANSFER = "Currency Transfer",
 }
 
 -- Sources with a live capture path today — every enum member now has one, so all are offered in the
@@ -38,6 +62,24 @@ C.SOURCE_IMPLEMENTED = {
   KILL = true, CONTAINER = true, MPLUS = true, QUEST = true, VENDOR = true,
   MAIL = true, TRADE = true, AH = true, BONUS_ROLL = true, ROLL = true, OTHER = true,
   DISENCHANT = true, MILLING = true, PROSPECTING = true, CRAFT = true, REFUND = true,
+  SELL = true, BUY = true, REPAIR = true, MAIL_SEND = true, TRADE_GIVE = true, AH_POST_FEE = true,
+  AH_SOLD = true, AH_BUY = true, DESTROY = true, CONSUME = true, CRAFT_REAGENT = true,
+  DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
+  TRANSFER = true, UNTRACKED = true,
+  WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true, ALT_TRADE = true, CURRENCY_TRANSFER = true,
+}
+
+-- The reasons only the LEDGER writes (holdings diffs, timeline-ledger spec §5.4). They have live
+-- paths (so SOURCE_IMPLEMENTED stays total) but they are NOT capture mutes: the mute list gates the
+-- rich chat record (Collector), and no chat line carries one of these -- except ALT_TRADE, which an
+-- own alt's trade stamps on the gain side too (Attribution:OnTradeAcceptUpdate), so a TRADE mute
+-- does not silence a trade between two own characters.
+C.LEDGER_REASON = {
+  SELL = true, BUY = true, REPAIR = true, MAIL_SEND = true, TRADE_GIVE = true, AH_POST_FEE = true,
+  AH_SOLD = true, AH_BUY = true, DESTROY = true, CONSUME = true, CRAFT_REAGENT = true,
+  DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
+  TRANSFER = true, UNTRACKED = true,
+  WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true, ALT_TRADE = true, CURRENCY_TRANSFER = true,
 }
 
 -- Attribution confidence.
@@ -50,6 +92,38 @@ C.ITEMCLASS_QUEST = 12
 -- The itemType string used for currency records (they reuse the item Type/SubType columns). Real
 -- items never carry this GetItemInfo type, so it doubles as a display label and a Type-filter value.
 C.CURRENCY_TYPE = "Currency"
+
+-- ── Ledger enums (timeline-ledger spec §3/§4.1) ──────────────────────────────────────────────
+-- Stored strings, part of the export contract: never rename a member, only append.
+C.Dir  = { IN = "IN", OUT = "OUT", MOVE = "MOVE" }
+C.Kind = { ITEM = "ITEM", CURRENCY = "CURRENCY", GOLD = "GOLD" }
+-- Where a holder keeps a thing. Values are the column keys inside db.global.holdings[h].items[id].
+C.Container = {
+  BAGS = "bags", EQUIPPED = "equipped", BANK = "bank",
+  MAIL = "mail", AUCTIONS = "auctions", TABS = "tabs",
+}
+-- The virtual holder for the warband bank, warband gold and account-wide currencies. `§` marks a
+-- system key (BagSync's convention): code that means "characters" skips keys starting with it.
+C.WARBAND_HOLDER = "§warband"
+
+-- Direction display (History column, Insights, Timeline). Cosmetic only — never stored. Colors are
+-- BankLedger's (core/Constants.lua DirectionRGB) so a gain/loss reads the same in both addons.
+C.DirOrder = { "IN", "OUT", "MOVE" }
+C.DirLabel = { IN = "Gain", OUT = "Loss", MOVE = "Transfer" }
+C.DirRGB = {
+  IN   = { 0.35, 0.80, 0.45 },
+  OUT  = { 1.00, 0.33, 0.33 },
+  MOVE = { 0.62, 0.62, 0.66 },
+}
+-- TEXT glyphs: the default font has none of them and draws a box, so any FontString showing one
+-- MUST use C.FONT_MONO (the LibKa0s JetBrains Mono face). U+25B2, U+25BC, U+21C4 as UTF-8 escapes.
+C.DirGlyph = { IN = "\226\150\178", OUT = "\226\150\188", MOVE = "\226\135\132" }
+-- Gold rows (kind GOLD): the Type value they carry, and the pale gold their quantity is drawn in.
+C.GOLD_TYPE = "Gold"
+C.GOLD_RGB = { 1.00, 0.86, 0.55 }
+-- Seconds a tradeskill craft keeps reagent losses attributed to CRAFT_REAGENT (a cast is 1-3 s; a
+-- queued "craft all" re-arms it per CraftRecipe call).
+C.CRAFT_TTL = 6
 
 -- The monospace face used by the debug console and the export copy box. WoW ships no monospace
 -- font object, so one has to come from somewhere; as of LibKa0s v1.10 it comes from the LIBRARY
@@ -117,11 +191,21 @@ C.RETENTION_OPTIONS = {
   { value = 0,   text = "Always" },
 }
 
+-- How long the Timeline's daily rollup is kept (settings.rollupRetentionDays). Longer floors than the
+-- raw history's: the rollup is the long-term record, one small cell per changed thing per day.
+C.ROLLUP_RETENTION_OPTIONS = {
+  { value = 90,  text = "90 days" },
+  { value = 180, text = "180 days" },
+  { value = 365, text = "1 year" },
+  { value = 730, text = "2 years" },
+  { value = 0,   text = "Always" },
+}
+
 -- Per-source mute options, derived from the source order. Only sources with a live capture path
 -- (SOURCE_IMPLEMENTED) are offered — an unreachable bucket would be a dead checkbox in the panel.
 C.SOURCE_OPTIONS = {}
 for _, s in ipairs(C.SourceOrder) do
-  if C.SOURCE_IMPLEMENTED[s] then
+  if C.SOURCE_IMPLEMENTED[s] and not C.LEDGER_REASON[s] then
     C.SOURCE_OPTIONS[#C.SOURCE_OPTIONS + 1] = { value = s, text = C.SourceLabel[s] }
   end
 end
@@ -195,14 +279,51 @@ NS.Constants.RECORD_ADDED_COALESCE = 0.2
 -- The wire strings are the contract every receiver depends on and they did not change when the
 -- constants arrived; tests/test_constants.lua pins each one by driving its real sender.
 local MSG = {
-  -- Sender: core/Database.lua `Database:Add`. Payload: (record, index).
+  -- Sender: core/Database.lua `Database:Add` and `Database:Amend`. Payload: (record, index) — a row
+  -- was added OR grew in place (60 s coalescing). Receivers repaint; none may count it as one more.
   RECORD_ADDED     = "Ka0s_LootHistory_RecordAdded",
   -- Sender: core/Database.lua (Delete, PruneOld, Purge, FireHistoryChanged, RepairBoundStates).
   -- Payload: none.
   HISTORY_CHANGED  = "Ka0s_LootHistory_HistoryChanged",
   -- Sender: settings/Schema.lua, the rows' onChange handlers. Payload: the reason string.
   SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
+  -- Sender: modules/Reconciler.lua `Flush`. Payload: (holder) — once per holder whose holdings moved.
+  HOLDINGS_CHANGED = "Ka0s_LootHistory_HoldingsChanged",
 }
+
+-- ── Container id groups (copied from BankLedger core/Constants.lua, which paid for the lesson) ──
+-- Derived BY MEMBER NAME from Enum.BagIndex, never by number: Blizzard renumbers between builds,
+-- and 12.0.7 also carries type constants (Characterbanktab = -2, Accountbanktab = -3) a loose
+-- pattern would scoop up. Anchored, case-sensitive patterns only.
+local GROUP_PATTERNS = {
+  BAGS = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$" },
+  BANK = { "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$" },
+  TABS = { "^AccountBankTab_%d+$" },
+}
+local function idsMatching(patterns)
+  local seen, ids = {}, {}
+  local members = Enum and Enum.BagIndex
+  if type(members) == "table" then
+    for name, value in pairs(members) do
+      if type(value) == "number" then
+        for _, pattern in ipairs(patterns) do
+          if name:match(pattern) and not seen[value] then seen[value] = true; ids[#ids + 1] = value; break end
+        end
+      end
+    end
+  end
+  table.sort(ids)
+  return ids
+end
+C.BAG_IDS         = idsMatching(GROUP_PATTERNS.BAGS)
+C.BANK_IDS        = idsMatching(GROUP_PATTERNS.BANK)
+C.WARBAND_TAB_IDS = idsMatching(GROUP_PATTERNS.TABS)
+-- No numeric fallback when Enum.BagIndex is absent: the groups degrade to EMPTY (compat-layer
+-- degrade-to-nothing), so a build without the enum scans no container rather than guessing ids
+-- Blizzard has renumbered before. Holdings then simply has no bag column for that build.
+
+C.EQUIP_SLOTS = {}
+for s = (INVSLOT_FIRST_EQUIPPED or 1), (INVSLOT_LAST_EQUIPPED or 19) do C.EQUIP_SLOTS[#C.EQUIP_SLOTS + 1] = s end
 
 local Bus = LibStub and LibStub("LibKa0s-Bus-1.0", true)
 if not Bus then
@@ -213,3 +334,34 @@ if not Bus then
 end
 NS.BusLib = Bus
 NS.MSG = Bus.Catalog((...), MSG)
+
+-- CURRENCY_DISPLAY_UPDATE's gainSource / destroyReason, mapped BY ENUM MEMBER NAME
+-- (Enum.CurrencySource / Enum.CurrencyDestroyReason, reverse-looked-up in core/Compat.lua) to a
+-- ledger reason. By name, never by number: the numbers are not documented as stable. A member not
+-- listed maps to nil and the reason falls through to the context stamps. The names below are the
+-- 12.x members as recalled; docs/smoke-tests.md LED-P2-14 verifies them in the client.
+C.CURRENCY_SOURCE_REASON = {
+  gain = {
+    QuestReward = "QUEST", Vendor = "VENDOR", Trade = "TRADE", ItemRefund = "REFUND",
+    GuildBankWithdrawal = "GUILD_WITHDRAW", AccountTransfer = "TRANSFER",
+  },
+  loss = {
+    Vendor = "BUY", Trade = "TRADE_GIVE", FulfillCraftingOrder = "CRAFT_REAGENT",
+    ConcentrationCast = "CRAFT_REAGENT", AccountTransfer = "TRANSFER", Spell = "CONSUME",
+  },
+}
+
+-- The Timeline's look (timeline-ledger spec §8.1). Total is the gold accent; the warband has its own
+-- hue so it never reads as a class; gains/losses ARE the History Direction column's (C.DirRGB,
+-- spec §7), so this block must stay below C.DirRGB in this file.
+C.TIMELINE = {
+  TOTAL   = { 1, 0.82, 0, 1 },
+  WARBAND = { 0.25, 0.75, 0.95, 1 },
+  OTHER   = { 0.7, 0.7, 0.72, 1 },
+  MARKER  = { 0.8, 0.8, 0.8, 0.6 },
+  GAIN    = C.DirRGB.IN,     -- Phase 2's direction colors: one definition
+  LOSS    = C.DirRGB.OUT,
+  TOTAL_W = 2.5,
+  LINE_W  = 2,
+  PX_PER_POINT = 6,    -- chart point spacing: fewer, longer segments read smoother
+}

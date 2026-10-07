@@ -26,11 +26,11 @@ local FIXTURE = {
 -- Every option builder and the view helpers read the live dataset / db, so each case runs inside
 -- a park-and-restore. Test order must never matter.
 local function withFixture(records, fn)
-  local savedTest, savedView = NS.State.testRecords, NS.db.profile.savedView
+  local savedTest, savedViews = NS.State.testRecords, NS.Util.DeepCopy(NS.db.profile.savedViews)
   local savedFilter, savedDd = B.activeFilter, B._dd
   NS.State.testRecords = records
   local ok, err = pcall(fn)
-  NS.State.testRecords, NS.db.profile.savedView = savedTest, savedView
+  NS.State.testRecords, NS.db.profile.savedViews = savedTest, savedViews
   B.activeFilter, B._dd = savedFilter, savedDd
   if not ok then error(err, 0) end
 end
@@ -53,17 +53,15 @@ test("Browser.MinWidth is wide enough for both the columns and the toolbar", fun
   -- The window floor is the wider of the two constraints; neither may be clipped.
   local minW = B:MinWidth()
   assertTrue(minW >= NS.BrowserTable:MinFrameWidth(), "the columns must fit")
-  assertTrue(minW >= 1116, "the two dropdown rows + a minimum Export must fit")
+  assertTrue(minW >= B:ToolbarSpan() + 8 + 120 + 12, "the two dropdown rows + a minimum Export must fit")
 end)
 
-test("Browser.ExportWidth exactly consumes the bar remainder at minimum width", function()
-  -- Export fills from the Character dropdown's right edge to the bar's right edge at min width.
-  -- 976 = the dropdown span, +8 gap, 12 = the pane margins.
-  assertEqual(B:ExportWidth(), math.max(120, (B:MinWidth() - 12) - (976 + 8)))
-end)
-
-test("Browser.ExportWidth never falls below its floor", function()
-  assertTrue(B:ExportWidth() >= 120, "Export stays clickable at any window size")
+test("Browser: Export reaches the bar's right edge at minimum width, never below its floor", function()
+  -- Export is row 2's last control, so it ends where the bar does at min width (12 = the pane
+  -- margins) and keeps its 120px base however the row scales (B:LayoutFilterBar).
+  local L = B._filterBarLayout(B._filterWidths(function() return 0 end), B:MinWidth() - 12)
+  assertEqual(L.x.export + L.w.export, B:MinWidth() - 12)
+  assertTrue(L.w.export >= 120, "Export stays clickable at any window size")
 end)
 
 -- ── setToFilter: dropdown selection → query filter ─────────────────────────────
@@ -278,21 +276,24 @@ end)
 
 test("Browser: with no saved view, Clear falls back to the stock view", function()
   withFixture(FIXTURE, function()
-    NS.db.profile.savedView = nil
+    NS.db.profile.savedViews = nil
     assertEqual(B._savedViewOrStock(), B._stockView)
   end)
 end)
 
 test("Browser: a saved view wins over stock", function()
   withFixture(FIXTURE, function()
-    NS.db.profile.savedView = { groupBy = "zone", sortKey = "ilvl" }
+    NS.db.profile.savedViews = { History = { groupBy = "zone", sortKey = "ilvl" } }
     assertEqual(B._savedViewOrStock().groupBy, "zone")
+    assertEqual(B._savedViewOrStock("Insights"), B._stockView, "a tab's saved view is its own")
   end)
 end)
 
 test("Browser: a corrupt (non-table) saved view degrades to stock rather than erroring", function()
   withFixture(FIXTURE, function()
-    NS.db.profile.savedView = "garbage"
+    NS.db.profile.savedViews = { History = "garbage" }
+    assertEqual(B._savedViewOrStock(), B._stockView)
+    NS.db.profile.savedViews = "garbage"
     assertEqual(B._savedViewOrStock(), B._stockView)
   end)
 end)
@@ -418,15 +419,41 @@ test("Browser.CaptureView omits the character scope (it is session-only)", funct
   end)
 end)
 
-test("Browser.SaveView then ResetView clears the stored default", function()
+test("Browser.SaveView stores the tab's view; ClearFilters restores it; ResetView drops it for stock", function()
+  -- Original meanings, per tab: Clear goes back to the saved view (keeping it), Reset deletes it.
   withFixture(FIXTURE, function()
     B._dd = nil
     B:ApplyView({ groupBy = "zone", date = "all" }, "all")
     B:SaveView()
-    assertEqual(NS.db.profile.savedView.groupBy, "zone")
+    assertEqual(NS.db.profile.savedViews.History.groupBy, "zone")
+    B:ApplyView({ groupBy = "source", date = "all" }, "all")
+    B:ClearFilters()
+    assertEqual(NS.BrowserTable.groupBy, "zone", "clear restores the saved view")
+    assertEqual(NS.db.profile.savedViews.History.groupBy, "zone", "and keeps it")
     B:ResetView(true)
-    assertEqual(NS.db.profile.savedView, nil, "reset drops back to stock")
-    assertEqual(NS.BrowserTable.groupBy, "none")
+    assertEqual(NS.BrowserTable.groupBy, "none", "reset goes to stock")
+    assertEqual(NS.db.profile.savedViews, nil, "and deletes the saved view")
+  end)
+end)
+
+test("Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it", function()
+  local vals, label = {}, nil
+  for _, o in ipairs(B._groupOptions) do
+    vals[#vals + 1] = o.value
+    if o.value == "typesub" then label = o.label end
+  end
+  assertTrue(table.concat(vals, ","):find("type,typesub,source", 1, true) ~= nil, table.concat(vals, ","))
+  assertEqual(label, "Group: Type & SubType")
+  withFixture(FIXTURE, function()
+    B._dd = nil
+    B:ApplyView({ groupBy = "typesub", date = "all" }, "all")
+    assertEqual(NS.BrowserTable.groupBy, "typesub")
+    B:SaveView()
+    assertEqual(NS.db.profile.savedViews.History.groupBy, "typesub")
+    B:ApplyView({ groupBy = "zone", date = "all" }, "all")
+    B:ApplyView(B._savedViewOrStock(), "all")
+    assertEqual(NS.BrowserTable.groupBy, "typesub", "the saved view brings the grouping back")
+    B:ClearFilters()
   end)
 end)
 
@@ -879,3 +906,509 @@ test("browser: the History grip is Core.MakeResizable, not a hand-rolled copy", 
     "the save must not ride opts.onResize, which runs on every size step")
 end)
 
+
+-- ── Tab registry (timeline-ledger spec §8.0) ──────────────────────────────────────
+-- The pane strip is a registry each owning module adds a spec to, not a hard-coded pair. History
+-- and Insights register inside Browser.lua itself, so they always lead in order.
+
+test("Browser: tab registry orders History, Insights, then registered tabs", function()
+  local names = NS.Browser:Tabs()
+  assertEqual(names[1], "History"); assertEqual(names[2], "Insights")
+end)
+
+test("Browser: a registered tab builds lazily and refreshes on select", function()
+  -- Registered AFTER the window may already exist (earlier cases opened it), so this also pins the
+  -- late path: the pane and tab button are created on the fly.
+  -- red under: SelectTab looping a fixed TABS list, or rebuilding a built pane on every select.
+  local built, refreshed = 0, 0
+  local before = #NS.Browser:Tabs()   -- later modules (Holdings) register their own tabs too
+  NS.Browser:RegisterTab{ name = "ZTest", order = 99,
+    build = function() built = built + 1 end, refresh = function() refreshed = refreshed + 1 end }
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show()
+    NS.Browser:SelectTab("ZTest"); NS.Browser:SelectTab("History"); NS.Browser:SelectTab("ZTest")
+    assertEqual(built, 1); assertEqual(refreshed, 2)
+    assertEqual(NS.Browser:ActiveTab(), "ZTest")
+    NS.Browser:SelectTab("History")
+    NS.Browser:Hide()
+  end)
+  NS.Browser:_UnregisterTabForTest("ZTest")
+  if not ok then error(err, 0) end
+  assertEqual(#NS.Browser:Tabs(), before, "the test tab must leave no trace")
+end)
+
+-- ── Ledger direction + the minimum-quality view floor ──────────────────────────
+-- Each case parks the settings it flips and puts them back, so test order never matters.
+
+test("Browser: the stock view shows gains and losses, transfers per setting", function()
+  local s = NS.db.profile.settings
+  local savedShow = s.showTransfers
+  withFixture(FIXTURE, function()
+    B._dd = nil
+    s.showTransfers = false
+    B:ApplyView(B._stockView, "all")
+    local f = B:CurrentFilter()
+    assertTrue(f.dir.IN and f.dir.OUT); assertEqual(f.dir.MOVE, nil)
+    s.showTransfers = true
+    B:ApplyView(B._stockView, "all")
+    assertTrue(B:CurrentFilter().dir.MOVE)
+    s.showTransfers = false
+    B:ApplyView({ dir = {}, date = "all" }, "all")
+    assertEqual(B:CurrentFilter().dir, nil, "a saved empty set is All")
+  end)
+  s.showTransfers = savedShow
+end)
+
+test("Browser: the default view floors items at the minimum-quality setting", function()
+  local p = NS.db.profile
+  local savedT, savedWl = p.settings.qualityThreshold, p.whitelist
+  withFixture(FIXTURE, function()
+    B._dd = nil
+    p.settings.qualityThreshold = 2
+    p.whitelist = { [42] = true }
+    B:ApplyView(B._stockView, "all")
+    local f = B:CurrentFilter()
+    assertEqual(f.minQuality, 2); assertTrue(f.minQualityExempt[42])
+    B:ApplyView({ quality = { [0] = true }, date = "all" }, "all")
+    assertEqual(B:CurrentFilter().minQuality, nil, "an explicit quality selection replaces the floor")
+  end)
+  p.settings.qualityThreshold, p.whitelist = savedT, savedWl
+end)
+
+test("Browser: the Quality 'all' option names the floor", function()
+  local s = NS.db.profile.settings
+  local savedT = s.qualityThreshold
+  withFixture(FIXTURE, function()
+    s.qualityThreshold = 2
+    local all = B._options.quality()[1]
+    assertEqual(all.value, "all")
+    assertEqual(all.label, "Quality: " .. NS.Item.QualityLabel(2) .. "+")
+    s.qualityThreshold = 0
+    assertEqual(B._options.quality()[1].label, "Quality: All")
+  end)
+  s.qualityThreshold = savedT
+end)
+
+test("Browser: group options offer Direction and Holder", function()
+  local seen = {}
+  for _, o in ipairs(B._groupOptions) do seen[o.value] = true end
+  assertTrue(seen.dir and seen.holder)
+end)
+
+-- ── timeline ledger P3: date options, per-tab filters, holders, the remembered pick ────────────
+-- Every case that opens the window does it under visibility "always" (withSettings) and leaves
+-- History selected; savedView and global.holdings are parked and put back.
+
+test("Browser: date options offer 90 days and 1 year after 30 days", function()
+  local vals = {}
+  for _, o in ipairs(NS.Browser._dateOptions) do vals[#vals + 1] = o.value end
+  assertEqual(table.concat(vals, ","), "all,today,7d,30d,90d,1y")
+end)
+
+test("Browser: _filterHonored - no set honors everything, a set honors only its keys", function()
+  local f = NS.Browser._filterHonored
+  assertTrue(f(nil, "bound")); assertTrue(f({}, "bound"))
+  assertTrue(f({ filters = { date = true } }, "date"))
+  assertFalse(f({ filters = { date = true } }, "bound"))
+  assertFalse(f({ filters = { date = true } }, "search"))
+end)
+
+test("Browser: a tab grays the controls it does not honor, and History restores them", function()
+  NS.Browser:RegisterTab{ name = "ZGray", order = 98, filters = { date = true }, build = function() end }
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show()
+    NS.Browser:SelectTab("ZGray")
+    local dd = NS.Browser._dd
+    assertTrue(dd.date:IsEnabled())
+    assertFalse(dd.bound:IsEnabled()); assertFalse(dd.char:IsEnabled()); assertFalse(dd.group:IsEnabled())
+    assertFalse(NS.Browser._search:IsEnabled()); assertFalse(NS.Browser._exportBtn:IsEnabled())
+    assertTrue(dd.bound:IsShown(), "grayed, never hidden: the bar does not reflow between tabs")
+    NS.Browser:SelectTab("History")
+    assertTrue(dd.bound:IsEnabled()); assertTrue(NS.Browser._search:IsEnabled())
+    assertTrue(NS.Browser._exportBtn:IsEnabled())
+  end)
+  NS.Browser:SelectTab("History")
+  NS.Browser:_UnregisterTabForTest("ZGray")
+  NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: the Holdings tab grays Date, Source, Bound and Zone, and keeps Group live", function()
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show(); NS.Browser:SelectTab("Holdings")
+    local dd = NS.Browser._dd
+    for _, k in ipairs({ "date", "source", "bound", "zone", "dir" }) do
+      assertFalse(dd[k]:IsEnabled(), k .. " is not a Holdings filter")
+    end
+    for _, k in ipairs({ "quality", "type", "subtype", "char", "group" }) do
+      assertTrue(dd[k]:IsEnabled(), k .. " is a Holdings filter")
+    end
+  end)
+  NS.Browser:SelectTab("History")
+  NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: a holders tab lists holders, with the warband as Warband", function()
+  local savedHoldings = NS.db.global.holdings
+  NS.db.global.holdings = {}
+  local ok, err = pcall(function()
+    local W = NS.Constants.WARBAND_HOLDER
+    NS.Holdings:ApplyMoney(W, 5, 1)
+    NS.Holdings:ApplyMoney("Alt-Realm", 5, 1)
+    local labels = {}
+    for _, o in ipairs(NS.Browser._options.char(true)) do labels[o.value] = o.label end
+    assertTrue(labels[W] ~= nil and labels[W]:find("Warband", 1, true) ~= nil)
+    assertTrue(labels["Alt-Realm"] ~= nil)
+    assertTrue(labels["current"] ~= nil, "the Current preset stays")
+  end)
+  NS.db.global.holdings = savedHoldings
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: a holder picked on Holdings stays on Holdings; History keeps its own Character scope", function()
+  -- One Character control, two option sources. The warband is a holder and never a history row, so
+  -- carried to History it would filter every row out under a raw-key label. Since P11 each tab keeps
+  -- its own Character scope, so the pick never reaches History at all.
+  local g = NS.db.global
+  local savedHoldings, savedHistory = g.holdings, g.history
+  local savedChar = B.activeFilter and B.activeFilter.char
+  local W = NS.Constants.WARBAND_HOLDER
+  g.holdings = {}
+  g.history = {
+    { ts = 100, itemID = 1, quality = 2, source = "KILL", char = "Alt-Realm" },
+    { ts = 200, itemID = 2, quality = 2, source = "KILL", char = "Alt-Realm" },
+  }
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Holdings:ApplyMoney(W, 5, 1)
+    B:Show(); B:SelectTab("History")
+    B:SetCharSet(nil)
+    B:SelectTab("Holdings")
+    B:SetCharSet({ [W] = true })
+    assertTrue(B.activeFilter.char[W], "a Holdings pick")
+    B:SelectTab("History")
+    local char = B.activeFilter.char
+    assertTrue(char == nil or not char[W], "History's own scope comes back, without the warband")
+    assertFalse(NS.Browser._dd.char._selected[W], "and the dropdown follows")
+    local rows = NS.Database:QueryList(NS.BrowserTable:CurrentRecords(), NS.BrowserTable.filter)
+    assertEqual(#rows, 2, "the filter does not hide every row")
+    B:SelectTab("Holdings")
+    assertTrue(B.activeFilter.char and B.activeFilter.char[W], "Holdings keeps its pick")
+    B:SetCharSet(nil)
+  end)
+  B:SelectTab("History")
+  B:SetCharSet(savedChar)
+  B:Hide()
+  g.holdings, g.history = savedHoldings, savedHistory
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: SetViewField remembers a field with no Save, from a copy of the stock view", function()
+  local p = NS.db.profile
+  local saved = p.savedViews
+  p.savedViews = nil
+  local ok, err = pcall(function()
+    NS.Browser:SetViewField("timelineThing", "c:3008", "Timeline")
+    assertEqual(NS.Browser:ViewField("timelineThing", "Timeline"), "c:3008")
+    local slot = p.savedViews.Timeline
+    assertEqual(slot.groupBy, NS.Browser._stockView.groupBy, "everything else is stock")
+    assertTrue(slot ~= NS.Browser._stockView, "a copy, never the stock table itself")
+    assertEqual(NS.Browser._stockView.timelineThing, nil)
+    assertEqual(p.savedViews.History, nil, "only the named tab's view is written")
+  end)
+  p.savedViews = saved
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: CaptureView on the Timeline keeps its remembered pick", function()
+  local p = NS.db.profile
+  local saved = NS.Util.DeepCopy(p.savedViews)
+  p.savedViews = nil
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show(); NS.Browser:SelectTab("Timeline")
+    NS.Browser:SetViewField("timelineThing", "i:7", "Timeline")
+    assertEqual(NS.Browser:CaptureView().timelineThing, "i:7")
+    NS.Browser:SelectTab("History")
+    assertEqual(NS.Browser:CaptureView().timelineThing, nil, "History's view carries no Timeline field")
+  end)
+  NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  p.savedViews = saved
+  if not ok then error(err, 0) end
+end)
+
+test("Browser: DateRange reads the Date dropdown, all when there is none", function()
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show()
+    NS.Browser._dd.date:SelectValue("90d")
+    assertEqual(NS.Browser:DateRange(), "90d")
+    NS.Browser._dd.date:SelectValue("all")
+    assertEqual(NS.Browser:DateRange(), "all")
+  end)
+  NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)
+
+-- ── One-line filter controls (timeline-ledger P4 Task 1) ───────────────────────────────────────
+-- Owner feedback: "Direction: 2 selected" and "Quality: Common+" wrapped onto a second line inside
+-- their dropdowns. Each control is now as wide as the widest label it can show, its label never
+-- wraps, Direction and Bound share one width, and the window floor is what the two rows need.
+
+local FILTER_DD = { "group", "dir", "date", "bound", "quality", "type", "subtype", "source", "zone",
+                    "char" }
+local ROW2_DD = { "date", "bound", "quality", "type", "subtype", "source", "zone", "char" }
+
+test("filter bar: every dropdown label is one non-wrapping line", function()
+  -- red under: the library's collapsed label left at the client default, which wraps.
+  withGripWindow(function()
+    for _, k in ipairs(FILTER_DD) do
+      local fs = B._dd[k].text
+      assertEqual(fs:GetWordWrap(), false, k .. ": the label must not word-wrap")
+      assertEqual(fs:GetMaxLines(), 1, k .. ": the label is one line")
+    end
+  end)
+end)
+
+test("filter bar: Direction and Bound are the same width", function()
+  -- red under: the fixed 104 / 96 widths the bar was built with.
+  withGripWindow(function()
+    assertEqual(B._dd.dir:GetWidth(), B._dd.bound:GetWidth())
+    -- The mock's CreateTexture hands back the frame itself, so the library's 12px arrow lands on the
+    -- dropdown's own size; only a width set AFTER the build (the fit pass) reads back here.
+    assertTrue(B._dd.dir:GetWidth() >= 104, "Direction keeps at least its shipped width")
+  end)
+end)
+
+test("filter bar: each width covers the widest label that control can show", function()
+  -- A 6px-per-character measurer stands in for the client's font metrics, which the mock answers 0.
+  -- red under: widths that ignore the labels (the old fixed table).
+  local function measure(_, text) return #text * 6 end
+  local w, pad = B._filterWidths(measure), B._DD_PAD
+  local function covers(key, label)
+    assertTrue(w[key] >= #label * 6 + pad, key .. " must fit '" .. label .. "'")
+  end
+  covers("dir", "Direction: 3 selected")
+  covers("bound", "Warbound Until Equipped")
+  covers("quality", "Quality: " .. NS.Item.QualityLabel(2) .. "+")
+  covers("quality", "Quality: 9 selected")
+  covers("char", "Character: Current")
+  covers("group", "Group: Character")
+  covers("source", "Source: All")
+  assertEqual(w.dir, w.bound, "Direction and Bound share the larger width")
+  assertEqual(w.group, w.date, "Group stays aligned over the Date dropdown below it")
+  -- Never narrower than the widths the bar shipped with, even when the font measures nothing.
+  local floor = B._filterWidths(function() return 0 end)
+  for _, k in ipairs(FILTER_DD) do assertTrue(w[k] >= floor[k], k .. " never shrinks below its floor") end
+end)
+
+test("filter bar: the window floor fits both rows at the built widths", function()
+  withGripWindow(function()
+    local dd, gap, margins = B._dd, 8, 12
+    local row2 = 0
+    for _, k in ipairs(ROW2_DD) do row2 = row2 + dd[k]:GetWidth() end
+    row2 = row2 + (#ROW2_DD - 1) * gap + gap + B._exportBtn:GetWidth()
+    assertTrue(B._minW >= row2 + margins, "row 2 (eight dropdowns + Export) must fit the floor")
+    local row1 = dd.group:GetWidth() + gap + dd.dir:GetWidth() + gap + B._SEARCH_MIN
+      + gap + B._exportBtn:GetWidth()   -- the Save/Reset/Clear cluster spans Export's width
+    assertTrue(B._minW >= row1 + margins, "row 1 (Group, Direction, Search, the cluster) must fit")
+    assertEqual(B._minW, B:MinWidth(), "the frame floor is the measured toolbar floor")
+  end)
+end)
+
+test("filter bar: a saved window narrower than the floor is widened on restore", function()
+  -- An older build saved a smaller size; restoring it must clamp to the new minimum.
+  withGripWindow(function(f)
+    NS.db.profile.settings.window = { point = "CENTER", x = 0, y = 0, w = 600, h = 200 }
+    B:AdoptProfile()
+    assertEqual(f:GetWidth(), B._minW)
+    assertEqual(f:GetHeight(), B.SKIN.minH)
+  end)
+end)
+
+-- ── The filter bar fills the window (timeline-ledger P6 Task 3) ────────────────────────────────
+-- Owner feedback: the controls stopped ~120px short of the right border while the left gap was
+-- ~6px. Row 2 (eight dropdowns + Export) now spans the bar exactly: every control keeps its
+-- measured base width b_i and is scaled by ONE ratio r = A / sum(b_i), A = the bar width less the
+-- inter-control gaps, floored at 1; Export takes the rounding remainder. Row 1 sits on row 2's grid.
+
+local LAYOUT_ROW2 = { "date", "bound", "quality", "type", "subtype", "source", "zone", "char",
+                      "export" }
+local function sixPx(_, text) return #text * 6 end
+
+-- The bar width at which row 2 exactly fits its base widths (r == 1).
+local function baseBarWidth(widths)
+  local L = B._filterBarLayout(widths, 0)
+  local sum = 0
+  for _, k in ipairs(LAYOUT_ROW2) do sum = sum + L.base[k] end
+  return sum + (#LAYOUT_ROW2 - 1) * B._FILTER_GAP
+end
+
+local function rightEdge(L) return L.x.export + L.w.export end
+
+test("filter bar layout: at the base width r == 1 and row 2 ends at the bar's right edge", function()
+  -- red under: the static Export that stopped short of the right border.
+  local widths = B._filterWidths(sixPx)
+  local barW = baseBarWidth(widths)
+  local L = B._filterBarLayout(widths, barW)
+  assertEqual(L.r, 1)
+  for _, k in ipairs(LAYOUT_ROW2) do assertEqual(L.w[k], L.base[k], k .. " keeps its base width") end
+  assertEqual(L.x.date, 0, "row 2 starts at the bar's left edge (the window's left margin)")
+  assertEqual(rightEdge(L), barW, "row 2 ends at the bar's right edge: right gap == left gap")
+  assertEqual(L.base.export, 120, "Export's base width is its 120px floor")
+end)
+
+test("filter bar layout: a wider window scales every control by the same ratio", function()
+  local widths = B._filterWidths(sixPx)
+  local barW = baseBarWidth(widths) + 300
+  local L = B._filterBarLayout(widths, barW)
+  local gaps, sum = (#LAYOUT_ROW2 - 1) * B._FILTER_GAP, 0
+  for _, k in ipairs(LAYOUT_ROW2) do sum = sum + L.base[k] end
+  local r = (barW - gaps) / sum
+  assertTrue(math.abs(L.r - r) < 1e-9, "r = available / sum of base widths")
+  assertTrue(L.r > 1, "the controls grow")
+  for i, k in ipairs(LAYOUT_ROW2) do
+    if i < #LAYOUT_ROW2 then
+      assertEqual(L.w[k], math.floor(L.base[k] * r), k .. " is floor(b * r)")
+    else
+      assertTrue(L.w[k] >= math.floor(L.base[k] * r), "Export takes the rounding remainder")
+      assertTrue(L.w[k] - L.base[k] * r < #LAYOUT_ROW2, "the remainder is only rounding")
+    end
+  end
+  -- Each control starts one gap after the previous one ends; row 2 ends exactly at the right edge.
+  for i = 2, #LAYOUT_ROW2 do
+    local p, k = LAYOUT_ROW2[i - 1], LAYOUT_ROW2[i]
+    assertEqual(L.x[k], L.x[p] + L.w[p] + B._FILTER_GAP, k .. " sits one gap after " .. p)
+  end
+  assertEqual(L.x.date, 0)
+  assertEqual(rightEdge(L), barW, "right gap == left gap at any width")
+end)
+
+test("filter bar layout: row 1 sits on row 2's grid", function()
+  local widths = B._filterWidths(sixPx)
+  for _, extra in ipairs({ 0, 300, 457 }) do
+    local L = B._filterBarLayout(widths, baseBarWidth(widths) + extra)
+    local G = B._FILTER_GAP
+    assertEqual(L.x.group, L.x.date); assertEqual(L.w.group, L.w.date)
+    assertEqual(L.x.dir, L.x.bound); assertEqual(L.w.dir, L.w.bound)
+    -- Save · Reset · Clear span exactly Export's x-range, gaps G, the three widths equal (the
+    -- left-most absorbs at most 2px of rounding).
+    assertEqual(L.x.save, L.x.export)
+    assertEqual(L.x.reset, L.x.save + L.w.save + G)
+    assertEqual(L.x.clear, L.x.reset + L.w.reset + G)
+    assertEqual(L.x.clear + L.w.clear, rightEdge(L), "the cluster ends where Export ends")
+    assertEqual(L.w.reset, L.w.clear)
+    assertTrue(L.w.save - L.w.clear >= 0 and L.w.save - L.w.clear <= 2, "three equal buttons")
+    -- The search box fills between Direction and the cluster.
+    assertEqual(L.x.search, L.x.dir + L.w.dir + G)
+    assertEqual(L.x.search + L.w.search, L.x.save - G)
+    assertTrue(L.w.search >= B._SEARCH_MIN, "the search box keeps its minimum")
+  end
+end)
+
+test("filter bar layout: a bar narrower than the base never shrinks a control", function()
+  local widths = B._filterWidths(sixPx)
+  local L = B._filterBarLayout(widths, baseBarWidth(widths) - 200)
+  assertEqual(L.r, 1)
+  for _, k in ipairs(LAYOUT_ROW2) do assertEqual(L.w[k], L.base[k], k .. " stays at its base") end
+end)
+
+-- A fresh bar built into a scratch host, with every FontString measuring 6px a character (the
+-- mock's font measures 0), so the base widths are real measurements. The window's singleton bar
+-- state is put back afterwards.
+local function withMeasuredBar(fn)
+  local saved = {}
+  local KEYS = { "_dd", "_search", "_onSearchText", "_autocomplete", "_exportBtn", "_ddWidths", "_bar", "_barCtl",
+                 "_barW" }
+  for _, k in ipairs(KEYS) do saved[k] = B[k] end
+  local mocks = T.mocks
+  local realCreateFrame = mocks.CreateFrame
+  mocks.CreateFrame = function(...)
+    local f = realCreateFrame(...)
+    local realCFS = f.CreateFontString
+    f.CreateFontString = function(self, ...)
+      local fs = realCFS(self, ...)
+      fs.GetUnboundedStringWidth = function(s) return #(s:GetText() or "") * 6 end
+      return fs
+    end
+    return f
+  end
+  local ok, err = pcall(function()
+    local host = realCreateFrame("Frame")
+    B:BuildFilterBar(host)
+    mocks.CreateFrame = realCreateFrame
+    fn(host)
+  end)
+  mocks.CreateFrame = realCreateFrame
+  for _, k in ipairs(KEYS) do B[k] = saved[k] end
+  if not ok then error(err, 0) end
+end
+
+local function placed(ctl)
+  local p = ctl:__lastPoint()
+  return p.x, ctl:GetWidth(), p
+end
+
+test("filter bar: the built bar fills the bar width at the base width and 300px wider", function()
+  withMeasuredBar(function(host)
+    local widths = B._ddWidths
+    assertTrue(widths.char > 146, "the scratch build measured its labels (6px a character)")
+    for _, extra in ipairs({ 0, 300 }) do
+      local barW = baseBarWidth(widths) + extra
+      B:LayoutFilterBar(barW)
+      local L = B._filterBarLayout(widths, barW)
+      local ctl = { group = B._dd.group, dir = B._dd.dir, search = B._search,
+                    export = B._exportBtn }
+      for _, k in ipairs(LAYOUT_ROW2) do ctl[k] = ctl[k] or B._dd[k] end
+      for k, c in pairs(ctl) do
+        local x, w, p = placed(c)
+        assertEqual(p.point, "TOPLEFT", k .. " is anchored by its top-left corner")
+        assertEqual(p.relativeTo, host, k .. " is anchored to the bar itself")
+        assertEqual(x, L.x[k], k .. " x at +" .. extra)
+        assertEqual(w, L.w[k], k .. " width at +" .. extra)
+      end
+      local ex, ew = placed(B._exportBtn)
+      assertEqual(ex + ew, barW, "Export ends at the bar's right edge at +" .. extra)
+      local dx = placed(B._dd.date)
+      assertEqual(dx, 0, "Date starts at the bar's left edge")
+      if extra == 0 then assertEqual(L.r, 1) end
+    end
+  end)
+end)
+
+test("filter bar: resizing the window re-lays the bar out to its new width", function()
+  -- red under: a bar laid out once at build time, which leaves the gap on the right as it widens.
+  withGripWindow(function(f)
+    local w = B._minW + 300
+    f:SetSize(w, B.SKIN.minH)
+    f:__fire("OnSizeChanged", w, B.SKIN.minH)
+    local ex, ew = placed(B._exportBtn)
+    assertEqual(ex + ew, w - 12, "row 2 ends 6px in from the right border, as it starts on the left")
+    assertEqual((placed(B._dd.date)), 0)
+    local cx, cw = placed(B._barCtl.clear)
+    assertEqual(cx + cw, w - 12, "the Save/Reset/Clear cluster ends there too")
+  end)
+end)
+
+-- ── Timeline ledger Phase 7: the Character filter matches the row's holder (Review Focus 4) ──────
+test("Browser: Character Current shows the character's half of a warband move, Warband the other", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local me = NS.Util.PlayerKey()
+  local rows = {
+    { ts = 100, char = me, holder = W, dir = "OUT", kind = "GOLD", itemName = "Gold", quantity = 500,
+      source = "WARBAND_WITHDRAW", from = W .. "/tabs", to = me .. "/bags", pairId = "100:1" },
+    { ts = 100, char = me, holder = me, dir = "IN", kind = "GOLD", itemName = "Gold", quantity = 500,
+      source = "WARBAND_WITHDRAW", from = W .. "/tabs", to = me .. "/bags", pairId = "100:1" },
+  }
+  withFixture(rows, function()
+    -- The list offers the Warband, under the name a player reads.
+    local labels = {}
+    for _, o in ipairs(NS.Browser._options.char(false)) do labels[o.value] = o.label end
+    assertEqual(labels[W], "Warband")
+    assertTrue(labels[me] ~= nil)
+    -- "Character: Current" is the set { [me] = true }.
+    local mine = NS.Database:Query({ char = { [me] = true } })
+    assertEqual(#mine, 1); assertEqual(mine[1].holder, me); assertEqual(mine[1].dir, "IN")
+    local wb = NS.Database:Query({ char = { [W] = true } })
+    assertEqual(#wb, 1); assertEqual(wb[1].holder, W); assertEqual(wb[1].dir, "OUT")
+    assertEqual(#NS.Database:Query({}), 2, "Character: All shows both halves")
+  end)
+end)

@@ -401,4 +401,5 @@ function Analytics:HideAllCharts()
   self.zonePanel:Hide(); self.itemPanel:Hide(); self.itemValuePanel:Hide()
   self.currencyStrip:Hide()
   self.lootDivider:Hide(); self.currencyDivider:Hide()
+  if Analytics._ledger then Analytics._ledger.Hide(self) end
 end

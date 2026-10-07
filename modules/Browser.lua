@@ -12,7 +12,6 @@ local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-fr
 -- the debug console cannot drift apart. The seam stays because those four reach the edge through it.
 -- TODO (post-1.0.0): make the skin user-configurable (border color/size, background color/alpha,
 -- font) via settings. That now belongs at the LibKa0s seam, not here. Tracked as a GitHub issue.
-local WHITE = "Interface\\Buttons\\WHITE8X8"
 local SKIN = {
   tabActive   = { 1.0, 0.82, 0.0 },          -- active tab label (gold)
   tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (gray)
@@ -25,32 +24,24 @@ local SKIN = {
 B.SKIN = SKIN
 
 -- ── Toolbar geometry (single source of truth) ──────────────────────────────────
--- The 8 row-2 filter dropdowns pack left from the pane's left edge; their combined span
--- (fixed widths + inter-gaps) never changes. The row-2 Export button and the row-1
--- Save/Reset/Clear cluster above it fill the slack from the Character dropdown's right edge
--- to the window's right edge AT MIN WIDTH, and are STATIC — they don't grow when the window
--- widens (the extra space opens up on the right). Both EnsureFrame (the window floor) and
--- BuildFilterBar (Export/cluster sizing) read B:MinWidth() / DROPDOWNS_W here, so the window
--- floor and the toolbar packing can never drift apart.
---   Row-2 dropdowns: Date120 Bound96 Quality100 Type112 SubType100 Source100 Zone146 Character146
-local DROPDOWNS_W = 120 + 96 + 100 + 112 + 100 + 100 + 146 + 146 + 7 * 8   -- = 976 (widths + 7×8 gaps)
+-- The filter bar's controls are MEASURED, not fixed: modules/BrowserFilterBar.lua sizes every
+-- control from the widest label it can show, so no label wraps, and B:ToolbarSpan answers the span
+-- those widths need (row 2's eight dropdowns, or row 1's Group + Direction + a minimum Search if
+-- that is ever wider; the floor widths until the bar is built). The window floor adds an 8px gap,
+-- Export's EXPORT_MIN and the 12px pane margins, so at the toolbar floor row 2 fits exactly at its
+-- base widths. Wider than that, B:LayoutFilterBar scales every row-2 control by one ratio so the
+-- bar always ends 6px in from the right border, as it starts on the left (P6 Task 3).
 local EXPORT_MIN  = 120                                                    -- Export never narrower than this
-local TOOLBAR_MIN = DROPDOWNS_W + 8 + EXPORT_MIN + 12                      -- dropdowns + gap + min Export + pane margins = 1116
+B._EXPORT_MIN = EXPORT_MIN   -- Export's base width in the filter bar's layout
+local BAR_INSET   = 6        -- the filter bar host's left and right inset (EnsureFrame)
 
 -- Minimum (and default-open) window width: the wider of the column-derived table floor
--- (BrowserTable:MinFrameWidth) and the toolbar-fit floor (TOOLBAR_MIN). Shared by EnsureFrame
--- and the filter-bar builder so Export/cluster geometry stays consistent with the frame size.
+-- (BrowserTable:MinFrameWidth) and the toolbar-fit floor (the dropdown span + an 8px gap + a
+-- minimum Export + 12px pane margins). Shared by EnsureFrame and the resize grip.
 function B:MinWidth()
   local colW = (NS.BrowserTable and NS.BrowserTable.MinFrameWidth and NS.BrowserTable:MinFrameWidth())
     or 822
-  return math.max(colW, TOOLBAR_MIN)
-end
-
--- Static Export button width: fills from the Character dropdown's right edge (+8px gap) to the
--- bar's right edge at min width, clamped to EXPORT_MIN. (minW-12) is the bar inner width at min
--- (6px pane margin each side); minus the dropdown span + gap leaves exactly the Export width.
-function B:ExportWidth()
-  return math.max(EXPORT_MIN, (self:MinWidth() - 12) - (DROPDOWNS_W + 8))
+  return math.max(colW, self:ToolbarSpan() + 8 + EXPORT_MIN + 2 * BAR_INSET)
 end
 
 -- Wear the shared Ka0s window edge. Every value this used to spell out — the WHITE8x8 backdrop at
@@ -89,7 +80,7 @@ end
 -- ── Window position/size persistence ──────────────────────────────────────────
 -- settings.window = { point, x, y, w, h } relative to UIParent.
 --
--- NOTE: settings.window and savedView (see savedViewOrStock below) are named non-setting state
+-- NOTE: settings.window and savedViews (see savedViewOrStock below) are named non-setting state
 -- (architecture-§5): no control chooses them and no row addresses them, so this module owns them and
 -- writes them directly rather than through Schema:Set. Every writer and the act that reaches it are
 -- named in docs/ARCHITECTURE.md → Settings schema; a new writer goes on that list too.
@@ -115,77 +106,178 @@ local function RestoreWindow()
     -- Default (fresh install / after a settings reset): dead-center of the screen, H and V.
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
+  -- The client's OnSizeChanged re-lays the filter bar out too; this covers a size that did not
+  -- change (and is a no-op then).
+  B:LayoutFilterBar(frame:GetWidth() - 2 * BAR_INSET)
 end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
-local TABS = { "History", "Insights" }
+-- A registry, not a hard-coded pair (timeline-ledger spec §8.0): each tab is a spec its owning
+-- module registers -- { name, order, build(pane), refresh(), export(title), filters, suggest(text),
+-- pick(item) }, plus the optional view hooks `stock` (fields laid over the stock view),
+-- `captureView(v)` and `applyView(view)` (the tab's own fields, P11). The filter bar and footer are
+-- shared window chrome (EnsureFrame, issue #13); a pane holds only its view, and each tab keeps its
+-- own filter state on that one bar (see "Per-tab views" below).
+local tabSpecs, tabOrder = {}, {}
 local lastTab = "History"   -- remembered within a session
+local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18   -- shared chrome heights; panes sit between
 
--- Lazily let the owning modules build their pane content the first time it's shown. The filter bar
--- and footer are NOT here — they are shared window chrome built once in EnsureFrame (issue #13), so
--- both panes render off the same singleton filter. Each pane holds only its view: the table
--- (History) or the analytics charts (Insights).
+function B:Tabs() local out = {}; for i, n in ipairs(tabOrder) do out[i] = n end; return out end
+function B:ActiveTab() return lastTab end
+
+-- Lazily let the owning module build its pane content the first time it's shown.
 local function BuildPane(name)
   local pane = frame.panes[name]
-  if pane._built then return end
-  pane._built = true
-  if name == "History" then
-    B:BuildTable(pane)
-  elseif name == "Insights" and NS.Analytics and NS.Analytics.Attach then
-    NS.Analytics:Attach(pane)
-  end
+  if not pane._built then pane._built = true; tabSpecs[name].build(pane) end
+end
+
+-- One content pane, filling between the shared filter bar and the shared footer.
+local function CreatePane(name)
+  local top = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + FILTERBAR_H + FILTER_GAP
+  local pane = CreateFrame("Frame", nil, frame)
+  pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -top)
+  pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
+  pane:Hide(); frame.panes[name] = pane
 end
 
 function B:SelectTab(name)
-  if not frame then return end
-  lastTab = name
-  for _, t in ipairs(TABS) do
+  if not (frame and tabSpecs[name]) then return end
+  -- Per-tab views (P11): the outgoing tab's live state is parked and the incoming tab's put on the
+  -- shared bar before the tab's controls are grayed and its options rebuilt. A re-select of the
+  -- active tab (Show) keeps what is on the bar.
+  if name ~= lastTab then
+    B._stashLive(lastTab)
+    lastTab = name
+    B._restoreLive(name)
+  end
+  B:ApplyTabFilters(name)
+  for _, t in ipairs(tabOrder) do
     local active = (t == name)
     frame.panes[t]:SetShown(active)
     frame.tabs[t].label:SetTextColor(unpack(active and SKIN.tabActive or SKIN.tabIdle))
     frame.tabs[t].underline:SetShown(active)
   end
   BuildPane(name)
-  -- Refresh the newly shown view against the shared filter, then repaint the shared footer/DB size
-  -- (issue #13: both read the same filter, so they're kept current on either tab).
-  if name == "History" and NS.BrowserTable and NS.BrowserTable.Refresh then
-    NS.BrowserTable:Refresh()
-    B:RefreshFilterOptions()
-  elseif name == "Insights" and NS.Analytics and NS.Analytics.Refresh then
-    NS.Analytics:Refresh()
-  end
+  -- Refresh the shown view against the shared filter, then the shared footer/DB size (issue #13).
+  if tabSpecs[name].refresh then tabSpecs[name].refresh() end
   B:UpdateFooter()
   B:UpdateDbSize()
   if NS.State.debug and NS.Debug then NS.Debug("UI", "tab -> %s", tostring(name)) end
 end
 
-local function CreateTabStrip()
-  local strip = CreateFrame("Frame", nil, frame)
-  strip:SetPoint("TOPLEFT", frame.divider, "BOTTOMLEFT", 6, -2)
-  strip:SetPoint("TOPRIGHT", frame.divider, "BOTTOMRIGHT", -6, -2)
-  strip:SetHeight(SKIN.tabStripH)
-  frame.tabStrip = strip
-  frame.tabs = {}
+-- Per-tab filters (spec §8.0). The bar is one window-wide singleton; a tab that does not honor a
+-- control GRAYS it rather than hiding it, so the bar never reflows when the player switches tabs and
+-- the filter it still holds is visible. A spec with no `filters` set honors every control (History,
+-- Insights). Keys are B._dd's keys plus "search" and "export".
+local GRAY_ALPHA = 0.4
 
-  local x = 0
-  for _, name in ipairs(TABS) do
-    local tab = CreateFrame("Button", nil, strip)
-    tab:SetSize(90, SKIN.tabStripH)
-    tab:SetPoint("LEFT", x, 0)
-    local label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    label:SetPoint("CENTER")
-    label:SetText(name)
-    tab.label = label
-    local underline = tab:CreateTexture(nil, "ARTWORK")
-    underline:SetColorTexture(unpack(SKIN.tabActive))
-    underline:SetHeight(2)
-    underline:SetPoint("BOTTOMLEFT", 8, 0)
-    underline:SetPoint("BOTTOMRIGHT", -8, 0)
-    tab.underline = underline
-    tab:SetScript("OnClick", function() B:SelectTab(name) end)
-    frame.tabs[name] = tab
-    x = x + 94
+function B._filterHonored(spec, key)
+  if not (spec and spec.filters) then return true end
+  return spec.filters[key] == true
+end
+
+-- SetEnabled where the widget has it (Buttons: the dropdowns, Export); Enable/Disable otherwise
+-- (an EditBox), so a grayed control also stops taking input rather than only looking dim.
+local function setHonored(ctl, on)
+  if not ctl then return end
+  if ctl.SetEnabled then ctl:SetEnabled(on)
+  elseif on and ctl.Enable then ctl:Enable()
+  elseif not on and ctl.Disable then ctl:Disable() end
+  if ctl.SetAlpha then ctl:SetAlpha(on and 1 or GRAY_ALPHA) end
+end
+
+function B:ApplyTabFilters(name)
+  local spec = tabSpecs[name]
+  for key, ctl in pairs(self._dd or {}) do setHonored(ctl, B._filterHonored(spec, key)) end
+  setHonored(self._search, B._filterHonored(spec, "search"))
+  setHonored(self._exportBtn, B._filterHonored(spec, "export"))
+  -- The Search box's suggestion list belongs to the tab that filled it: a switch closes it, and the
+  -- next keystroke asks the new tab (B:Suggest).
+  if self._autocomplete then self._autocomplete:Close() end
+  self:SyncGroupControl()
+  self:RefreshFilterOptions()
+end
+
+-- Per-tab grouping (P6). A spec may own its group mode: `groups` (the modes it offers, in menu
+-- order), `group()` (its current mode) and `setGroup(mode)`. The one Group dropdown then offers
+-- only those modes and shows that tab's value while the tab is active, and a pick goes to the tab.
+-- A spec with none of that (History, Insights) drives the History table's groupBy, as always.
+function B:SetGroup(mode)
+  local spec = tabSpecs[lastTab]
+  if spec and spec.setGroup then return spec.setGroup(mode) end
+  if NS.BrowserTable then NS.BrowserTable:SetGroupBy(mode) end
+end
+
+-- Repaint the Group dropdown for the active tab: its option set and its value. SelectValue does
+-- not fire onSelect, so this never regroups anything.
+function B:SyncGroupControl()
+  local dd = self._dd and self._dd.group
+  if not dd then return end
+  local spec = tabSpecs[lastTab]
+  dd:SetOptions(B._groupOptionsFor(spec))
+  local mode = (spec and spec.group) and spec.group() or (NS.BrowserTable and NS.BrowserTable.groupBy)
+  dd:SelectValue(mode or "none")
+end
+
+-- Search autocomplete (P9). The Search box's suggestion list (NS.MakeAutocomplete, built in
+-- modules/BrowserFilterBar.lua) is one widget for every tab; what it offers and what a pick does are
+-- the ACTIVE tab's, through its spec's optional `suggest(text)` (an array of { text, value, color })
+-- and `pick(item)`. A tab with no `suggest` offers nothing, and a tab whose Search is grayed offers
+-- nothing either -- its box takes no input, so a list could only be stale.
+function B:Suggest(text)
+  local spec = tabSpecs[lastTab]
+  if not (spec and spec.suggest and B._filterHonored(spec, "search")) then return nil end
+  return spec.suggest(text)
+end
+
+function B:PickSuggestion(item)
+  local spec = tabSpecs[lastTab]
+  if spec and spec.pick and item then spec.pick(item) end
+end
+
+-- Strip on first call, missing buttons, then every button placed by index (late tabs re-flow it).
+local function LayoutTabButtons()
+  local strip = frame.tabStrip
+  if not strip then
+    strip = CreateFrame("Frame", nil, frame)
+    strip:SetPoint("TOPLEFT", frame.divider, "BOTTOMLEFT", 6, -2)
+    strip:SetPoint("TOPRIGHT", frame.divider, "BOTTOMRIGHT", -6, -2)
+    strip:SetHeight(SKIN.tabStripH)
+    frame.tabStrip, frame.tabs = strip, {}
   end
+  for i, name in ipairs(tabOrder) do
+    local tab = frame.tabs[name]
+    if not tab then
+      tab = CreateFrame("Button", nil, strip); tab:SetSize(90, SKIN.tabStripH)
+      tab.label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+      tab.label:SetPoint("CENTER"); tab.label:SetText(name)
+      tab.underline = tab:CreateTexture(nil, "ARTWORK")
+      tab.underline:SetColorTexture(unpack(SKIN.tabActive)); tab.underline:SetHeight(2)
+      tab.underline:SetPoint("BOTTOMLEFT", 8, 0); tab.underline:SetPoint("BOTTOMRIGHT", -8, 0)
+      tab:SetScript("OnClick", function() B:SelectTab(name) end)
+      frame.tabs[name] = tab
+    end
+    tab:ClearAllPoints(); tab:SetPoint("LEFT", (i - 1) * 94, 0)
+  end
+end
+
+-- Meant for file load, before the window is built; a later call creates the pane + button on the spot.
+function B:RegisterTab(spec)
+  if not tabSpecs[spec.name] then tabOrder[#tabOrder + 1] = spec.name end
+  tabSpecs[spec.name] = spec
+  table.sort(tabOrder, function(a, b) return tabSpecs[a].order < tabSpecs[b].order end)
+  if frame then if not frame.panes[spec.name] then CreatePane(spec.name) end; LayoutTabButtons() end
+end
+
+-- Test-only: drop a tab, its pane and its button; an active one falls back to History.
+function B:_UnregisterTabForTest(name)
+  for i, n in ipairs(tabOrder) do if n == name then table.remove(tabOrder, i); break end end
+  tabSpecs[name] = nil
+  if lastTab == name then lastTab = "History" end
+  B._forgetLive(name)
+  if not frame then return end
+  for _, set in ipairs({ frame.panes, frame.tabs }) do if set[name] then set[name]:Hide(); set[name] = nil end end
+  LayoutTabButtons()
 end
 
 -- ── Filter bar ──────────────────────────────────────────────────────────────────
@@ -206,8 +298,9 @@ B.activeFilter = {}
 -- lived here and has no library equivalent is `opt.icon`: a class icon is now folded into the
 -- option's LABEL as inline markup, which the library measures (see charOptions below).
 --
--- NS.MakeDropdown answers nil on an install with no library, and BuildFilterBar refuses to draw
--- rather than building dead controls -- see the guard at the top of it.
+-- NS.MakeDropdown answers nil on an install with no library, and BuildFilterBar
+-- (modules/BrowserFilterBar.lua) refuses to draw rather than building dead controls -- see the
+-- guard at the top of it.
 -- Item-quality color as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
 local function qualityColor(q)
   local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
@@ -215,25 +308,6 @@ local function qualityColor(q)
   return nil
 end
 
--- Static option sets. "all" is the sentinel for "no filter"; onSelect maps it to nil.
--- (Quality is data-driven — see qualityOptions below — so any quality the history actually contains,
--- Heirloom / Poor / Artifact included, shows up and absent ones don't clutter.)
--- Ordered to mirror the table's column layout: Date, Quality, Type, Source, Zone, Character.
-local GROUP_OPTIONS = {
-  { value = "none", label = "Group: None" },
-  { value = "day", label = "Group: Day" },
-  { value = "quality", label = "Group: Quality" },
-  { value = "type", label = "Group: Type" },
-  { value = "source", label = "Group: Source" },
-  { value = "zone", label = "Group: Zone" },
-  { value = "char", label = "Group: Character" },
-}
-local DATE_OPTIONS = {
-  { value = "all", label = "Date: All" },
-  { value = "today", label = "Today" },
-  { value = "7d", label = "Last 7 days" },
-  { value = "30d", label = "Last 30 days" },
-}
 -- Binding-state filter labels + fixed display order. "NONE" matches unbound records (r.bound == nil);
 -- the other tokens match their bound state. Labels mirror the Bound column's tooltip legend
 -- (BrowserTable BOUND_LEGEND). Data-driven like the other value filters (see boundOptions): only the
@@ -243,62 +317,40 @@ local BOUND_LABEL = {
   WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
 }
 local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
+B._boundLabel, B._boundOrder = BOUND_LABEL, BOUND_ORDER   -- the filter bar measures every label
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
--- session-only default of "current player"). This is the stock/reset baseline; the user's
--- saved view lives in the profile, NS.db.profile.savedView. `date` stores the range option (not an absolute
--- `from`) so it recomputes correctly on each load.
+-- session-only default of "current player"). This is the stock/Clear baseline; the user's saved
+-- views live in the profile, one per tab: NS.db.profile.savedViews[tab] (P11, schema v14). `date`
+-- stores the range option (not an absolute `from`) so it recomputes correctly on each load. `dir` is
+-- deliberately ABSENT: a view that never stored one takes the Direction default (defaultDirSet,
+-- settings.showTransfers) at apply time, and the minimum-quality floor (applyQualityFloor) rides on
+-- `quality` staying unselected.
 local STOCK_VIEW = {
   groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
   quality = "all", source = "all", itemType = "all", itemSubType = "all", zone = "all",
   date = "all", bound = "all", search = "",
 }
-local function savedViewOrStock()
-  local v = NS.db and NS.db.profile and NS.db.profile.savedView
-  if type(v) == "table" then return v end
-  return STOCK_VIEW
+
+-- A tab's stock view: STOCK_VIEW itself, or a copy with the tab spec's `stock` fields laid over it
+-- (Holdings sorts by name, not date).
+local function stockView(tab)
+  local spec = tabSpecs[tab or lastTab]
+  local extra = spec and spec.stock
+  if not extra then return STOCK_VIEW end
+  local v = {}
+  for k, x in pairs(STOCK_VIEW) do v[k] = x end
+  for k, x in pairs(extra) do v[k] = x end
+  return v
 end
 
--- A small flat-skin text button for the filter bar (Export / Clear / Save / Reset).
---
--- `icon` is a catalog name and is OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
--- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather
--- than off-center. Only buttons at least ~120px wide are given one -- a 14px mark plus a centered
--- five-letter word does not fit the 36px Clear/Reset cluster, and an off-center label is worse
--- than no mark (see docs/browser.md).
---
--- The existing `tooltip` stays and is NOT a tooltip on the mark: it predates the art, it is
--- anchored to the whole button, and it explains the ACTION rather than the picture.
-local function makeBarButton(parent, text, width, onClick, tooltip, icon)
-  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  b:SetSize(width, 20)
-  b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-  local path = icon and NS.Icon and NS.Icon(icon)
-  if path then
-    local tex = b:CreateTexture(nil, "OVERLAY")
-    tex:SetSize(14, 14)
-    tex:SetPoint("LEFT", 10, 0)
-    tex:SetTexture(path)
-    tex:SetVertexColor(0.85, 0.85, 0.85)
-    b.icon = tex
-  end
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  fs:SetPoint("CENTER")
-  fs:SetText(text)
-  b:SetScript("OnEnter", function(self2)
-    fs:SetTextColor(1, 0.82, 0)
-    if tooltip then
-      GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
-      GameTooltip:AddLine(tooltip, 0.9, 0.9, 0.9, true)
-      GameTooltip:Show()
-    end
-  end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(1, 1, 1); GameTooltip:Hide() end)
-  b:SetScript("OnClick", onClick)
-  return b
+-- A tab's saved view (the active tab's by default), or its stock view when it has none.
+local function savedViewOrStock(tab)
+  tab = tab or lastTab
+  local all = NS.db and NS.db.profile and NS.db.profile.savedViews
+  local v = type(all) == "table" and all[tab]
+  if type(v) == "table" then return v end
+  return stockView(tab)
 end
 
 -- The dataset the filter bar reflects: the table's current records (test data in test mode,
@@ -335,26 +387,53 @@ local function sourceOptions()
   end
   return withAll("Source: All", items)
 end
-local function charOptions()
+-- Keyed by each row's HOLDER (the Character column's value, timeline-ledger Phase 7): a legacy
+-- row's holder is its char, and the Warband half of a holder move lists the Warband, under the name
+-- a player reads and with no class art (BrowserTable:HolderClassFile, which the column reads too).
+local function historyCharItems()
   local seen, items = {}, {}
   for _, r in ipairs(dataset()) do
-    local c = r.char
+    local c = r.holder or r.char
     if c and not seen[c] then
       seen[c] = true
+      local cf = NS.BrowserTable and NS.BrowserTable.HolderClassFile and NS.BrowserTable:HolderClassFile(r)
       -- The class icon is FOLDED INTO THE LABEL, not carried in a field of its own. The widget is
       -- LibKa0s-Widgets-1.0's and it has no `icon` seam -- deliberately: inline |T...|t / |A...|a
       -- markup in a label is measured by its menuWidth (a class icon plus a Name-Realm is the
       -- example in its own comment), so a label is the supported way to put art on a row. The
       -- class color still rides in `color`, matching the Character column.
       local icon = (NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
-        and NS.BrowserTable:ClassIconMarkup(r.classFile)) or ""
-      local cc = r.classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[r.classFile]
+        and NS.BrowserTable:ClassIconMarkup(cf)) or ""
+      local cc = cf and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cf]
+      local name = NS.LedgerFormat.HolderLabel(c)
       items[#items + 1] = {
-        value = c, label = (icon ~= "" and (icon .. " " .. c) or c),
+        value = c, label = (icon ~= "" and (icon .. " " .. name) or name),
         color = cc and { cc.r, cc.g, cc.b } or nil,
       }
     end
   end
+  return items
+end
+
+-- The Character list for a tab whose rows are HOLDERS rather than history rows (Timeline, Holdings):
+-- every holder the ledger knows, and the warband under the name a player reads, "Warband".
+local function holderCharItems()
+  local items = {}
+  for _, h in ipairs(NS.Holdings and NS.Holdings:Holders() or {}) do
+    local e = NS.Holdings:View(h)
+    local cf = e and e.meta and e.meta.classFile
+    local icon = (cf and NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
+      and NS.BrowserTable:ClassIconMarkup(cf)) or ""
+    local cc = cf and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cf]
+    local name = NS.LedgerFormat.HolderLabel(h)
+    items[#items + 1] = { value = h, label = (icon ~= "" and (icon .. " " .. name) or name),
+      color = cc and { cc.r, cc.g, cc.b } or nil }
+  end
+  return items
+end
+
+local function charOptions(holdersMode)
+  local items = holdersMode and holderCharItems() or historyCharItems()
   -- Sorted on the character name, not on the icon-prefixed label -- see withAll's `sortText`.
   local opts = withAll("Character: All", items, function(o) return o.value end)
   -- "Character: Current" is a one-click preset (see dd.char.presets below), not a real char value —
@@ -425,7 +504,11 @@ local function qualityOptions()
     end
   end
   table.sort(items, function(a, b) return a.value < b.value end)
-  table.insert(items, 1, { value = "all", label = "Quality: All" })
+  -- With a minimum-quality setting above Poor, "all" is not all: the default view floors items at
+  -- it (applyQualityFloor), so the sentinel names the floor rather than promising every row.
+  local t = NS.db and NS.db.profile and NS.db.profile.settings and NS.db.profile.settings.qualityThreshold
+  local allLabel = (type(t) == "number" and t > 0) and ("Quality: " .. NS.Item.QualityLabel(t) .. "+") or "Quality: All"
+  table.insert(items, 1, { value = "all", label = allLabel })
   return items
 end
 -- Distinct binding states present in the dataset (nil → the "NONE" sentinel), kept in the fixed
@@ -463,40 +546,170 @@ local function asSet(v)
   return s
 end
 
+-- The Direction filter's default (spec §7): gains and losses; transfers only when the player asked
+-- for them in settings. Applied to a view that never stored a `dir` (the stock view, and every view
+-- saved before the ledger existed); a stored empty set means "All".
+local function defaultDirSet()
+  local s = NS.db and NS.db.profile and NS.db.profile.settings
+  return { IN = true, OUT = true, MOVE = (s and s.showTransfers) and true or nil }
+end
+
+-- The minimum-quality setting is also the default History view's floor (spec §5.3, F5): items
+-- below it are captured now, but hidden until the player picks qualities explicitly. Whitelisted
+-- ids are exempt, exactly as they were exempt from the capture gate.
+local function applyQualityFloor(f)
+  local p = NS.db and NS.db.profile
+  local t = p and p.settings and p.settings.qualityThreshold
+  if f.quality or type(t) ~= "number" or t <= 0 then
+    f.minQuality, f.minQualityExempt = nil, nil
+  else
+    f.minQuality, f.minQualityExempt = t, p.whitelist
+  end
+end
+
+local VIEW_DEFAULTS = { dir = defaultDirSet }
+
+-- A view field as a selection set: the stored set, or the field's default when the view never
+-- stored one.
+local function viewSet(view, key)
+  local v = view[key]
+  if v == nil and VIEW_DEFAULTS[key] then return VIEW_DEFAULTS[key]() end
+  return asSet(v)
+end
+
 -- Pure helpers published for the headless suite (tests/test_browser.lua). The UI binds through
 -- these exact functions, so a test that pins their behavior pins the shipped behavior. Read-only
 -- from outside the module — nothing here mutates browser state.
 B._stockView    = STOCK_VIEW
+B._stockViewFor = stockView
 B._savedViewOrStock = savedViewOrStock
 B._setToFilter  = setToFilter
 B._asSet        = asSet
 B._withAll      = withAll
+B._defaultDirSet = defaultDirSet
+B._applyQualityFloor = applyQualityFloor
 B._options = {
   source = sourceOptions, char = charOptions, itemType = typeOptions,
   itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
 }
 
--- Push the current filter to the table and refresh the footer count. The filter is a singleton
--- for the whole browser (issue #13): it always drives the table (keeping matchCount + the footer
--- current for both tabs), and it drives the Insights charts live while the Insights tab is the one
--- on screen. Switching to Insights re-runs Analytics:Refresh against this same filter (SelectTab),
--- so a filter changed while viewing History is already reflected when Insights is next shown —
--- without paying for an Insights relayout on every History-side keystroke.
+-- Push the current filter to the table and refresh the footer count. B.activeFilter is the ACTIVE
+-- tab's filter (P11: each tab keeps its own): it always drives the table (keeping matchCount + the
+-- footer current on every tab), and it live-refreshes any other built tab while it is on screen.
+-- While SelectTab is putting a tab's state on the bar (`switching`) the tab is not repainted here:
+-- SelectTab refreshes it once, after.
+local switching = false
 local function ApplyFilter()
   if NS.BrowserTable then NS.BrowserTable:SetFilter(B.activeFilter) end
   B:UpdateFooter()
-  if lastTab == "Insights" and NS.Analytics and NS.Analytics.Refresh and NS.Analytics.pane then
-    NS.Analytics:Refresh()
-  end
+  local s = tabSpecs[lastTab]
+  if switching or lastTab == "History" then return end
+  if s and s.refresh and frame and frame.panes[lastTab]._built then s.refresh() end
+end
+B._applyFilter = ApplyFilter   -- the filter bar's controls (modules/BrowserFilterBar.lua) push through it
+
+-- ── Per-tab views (P11, owner decision 2026-10-07) ─────────────────────────────────────────────
+-- Each tab keeps its OWN live filter state on the one shared bar: group, sort, date, search, every
+-- multi-select filter, the Character scope and its own fields (spec hooks). `live[tab]` parks a
+-- tab's state while another tab is on the bar: { view = CaptureView(), char = selection set }. A tab
+-- not yet shown this session opens on its saved view (or its stock view) scoped to the current
+-- player, or on the stock view over every character in test mode. Session only: a profile adopt or a
+-- dataset swap (test mode in or out) forgets every parked state.
+local function currentKey()
+  return NS.Util and NS.Util.PlayerKey and NS.Util.PlayerKey() or nil
+end
+B._currentKey = currentKey   -- the Character dropdown's "Current" preset (modules/BrowserFilterBar.lua)
+
+local live = {}
+
+local function initialFor(tab)
+  if NS.BrowserTable and NS.BrowserTable.testMode then return stockView(tab), "all" end
+  return savedViewOrStock(tab), "current"
 end
 
--- The active filter as a plain copy, for Analytics:Stats (issue #13). Shares the exact field shape
--- Database:QueryList consumes (quality/source/itemType/itemSubType/zone/bound/char/from/text), so
--- the Insights view and the History table always filter by identical criteria.
-function B:CurrentFilter()
+function B._forgetLive(tab)
+  if tab then live[tab] = nil else live = {} end
+end
+
+-- Park `tab`'s state as the bar holds it now (the tab is still the active one).
+function B._stashLive(tab)
+  if not (frame and tabSpecs[tab]) then return end
+  live[tab] = { view = B:CaptureView(), char = setToFilter(B.activeFilter and B.activeFilter.char) or {} }
+end
+
+-- Put `tab`'s parked state (or its opening state) on the bar. `tab` is already the active tab.
+function B._restoreLive(tab)
+  local e = live[tab]
+  switching = true
+  local ok, err
+  if e then ok, err = pcall(B.ApplyView, B, e.view, e.char)
+  else ok, err = pcall(B.ApplyView, B, initialFor(tab)) end
+  switching = false
+  if not ok then error(err, 0) end
+end
+
+-- The filter a parked (or never shown) tab would apply, built without touching the bar.
+local resolveInto   -- defined with ApplyView below
+local function parkedFilter(tab)
+  local e, view, char = live[tab]
+  if e then
+    view, char = e.view, e.char
+  else
+    local scope
+    view, scope = initialFor(tab)
+    local ck = currentKey()
+    char = (scope == "current" and ck) and { [ck] = true } or nil
+  end
+  local f = {}
+  resolveInto(f, view)
+  f.char = setToFilter(char)
+  return f
+end
+
+-- A tab's filter as a plain copy (issue #13; per tab since P11): the active tab's live filter, or,
+-- for `tab` naming another tab, that tab's own parked state. Shares the exact field shape
+-- Database:QueryList consumes (quality/source/itemType/itemSubType/zone/bound/char/from/text).
+function B:CurrentFilter(tab)
+  if tab and tab ~= lastTab then return parkedFilter(tab) end
   local out = {}
   for k, v in pairs(self.activeFilter or {}) do out[k] = v end
   return out
+end
+
+-- The Date dropdown's range KEY ("today", "7d", ...), not its resolved `from`: the Timeline draws
+-- intraday points for Today / 7d only, which a timestamp cannot tell it.
+function B:DateRange()
+  local dd = self._dd
+  return (dd and dd.date and dd.date._value) or "all"
+end
+
+-- One field of a tab's saved view (the active tab's by default), written without a Save (the
+-- Timeline's last pick, spec §8.1). With no saved view yet, the tab's view is materialized as a COPY
+-- of its stock one, which applies exactly as stock does, so remembering a pick never changes anything
+-- else a later Reset or Save would see.
+function B:SetViewField(k, v, tab)
+  local p = NS.db and NS.db.profile
+  if not p then return end
+  tab = tab or lastTab
+  if type(p.savedViews) ~= "table" then p.savedViews = {} end
+  if type(p.savedViews[tab]) ~= "table" then
+    local copy = {}
+    for kk, vv in pairs(stockView(tab)) do copy[kk] = vv end
+    p.savedViews[tab] = copy
+  end
+  p.savedViews[tab][k] = v
+end
+
+function B:ViewField(k, tab) return savedViewOrStock(tab)[k] end
+
+-- "Show in Timeline" from a History or Holdings row (spec §8.2).
+-- The Timeline keeps its own Search text (P11), so the thing's name is put there, as a pick would.
+function B:ShowTimeline(key)
+  if NS.Timeline and NS.Timeline.SetThing then NS.Timeline:SetThing(key, true) end
+  self:Show()
+  self:SelectTab("Timeline")
+  local d = key and NS.Holdings and NS.Holdings.Describe and NS.Holdings:Describe(key)
+  if lastTab == "Timeline" and d and d.name then self:SetSearchText(d.name) end
 end
 
 function B:UpdateFooter()
@@ -524,20 +737,24 @@ function B:RefreshFilterOptions()
   dd.source:SetOptions(sourceOptions())
   dd.type:SetOptions(typeOptions())
   dd.subtype:SetOptions(subtypeOptions())
-  dd.char:SetOptions(charOptions())
+  local spec = tabSpecs[lastTab]
+  local holders = spec ~= nil and spec.charSource == "holders"
+  local charOpts = charOptions(holders)
+  dd.char:SetOptions(charOpts)
+  -- One Character control, two option sources: on a source switch, drop picks the new list lacks.
+  if self._charHolders ~= nil and self._charHolders ~= holders then self:PruneCharSet(charOpts) end
+  self._charHolders = holders
   dd.zone:SetOptions(zoneOptions())
 end
 
 -- The table's dataset changed (entering/leaving test mode): rebuild the dropdowns from the new
 -- dataset. In test mode show everything (stock view, all players, since test chars differ);
--- leaving it, return to the saved view + current player.
+-- leaving it, return to the saved view + current player. Every tab's parked state is forgotten, so
+-- each opens the same way when next shown (B._restoreLive).
 function B:OnDatasetChanged()
   self:RefreshFilterOptions()
-  if NS.BrowserTable and NS.BrowserTable.testMode then
-    self:ApplyView(STOCK_VIEW, "all")
-  else
-    self:ApplyView(savedViewOrStock(), "current")
-  end
+  live = {}
+  self:ApplyView(initialFor(lastTab))
   self:UpdateFooter()
   self:UpdateDbSize()
   self:UpdateTestBadge()
@@ -551,10 +768,6 @@ function B:UpdateTestBadge()
   frame.testBadge:SetShown(NS.BrowserTable and NS.BrowserTable.testMode or false)
 end
 
-local function currentKey()
-  return NS.Util and NS.Util.PlayerKey and NS.Util.PlayerKey() or nil
-end
-
 -- The char filter is surfaced by two controls — the player toggle (Current/All) and the
 -- multi-select Character dropdown — so both funnel through here and stay in sync. `set` is a
 -- { [char] = true } selection set; nil/empty = all players.
@@ -566,13 +779,29 @@ function B:SetCharSet(set)
   ApplyFilter()
 end
 
--- The six multi-select column filters, as { view key, dropdown key } in the order the widgets are
--- laid out. One ordered descriptor drives all three passes — capture, the dropdown push and the
--- filter resolution — so a seventh column filter is one entry here rather than three edits. The
--- activeFilter key IS the view key for all six, which is why one list serves them all.
+-- A pick the shown option list does not offer (the warband or an alt with no history rows, carried
+-- from Holdings to History) would filter to nothing under a raw-key label; it goes through SetCharSet.
+-- The current player stays: "Character: Current" is a preset even before they have a history row.
+function B:PruneCharSet(opts)
+  local cur = self.activeFilter and self.activeFilter.char
+  if not cur then return end
+  local listed, keep, dropped, me = {}, {}, false, currentKey()
+  for _, o in ipairs(opts) do listed[o.value] = true end
+  for k in pairs(cur) do
+    if listed[k] or k == me then keep[k] = true else dropped = true end
+  end
+  if dropped then self:SetCharSet(keep) end
+end
+
+-- The seven multi-select filters (six column filters plus Direction), as { view key, dropdown key }
+-- in the order the widgets are laid out. One ordered descriptor drives all three passes — capture,
+-- the dropdown push and the filter resolution — so another filter is one entry here rather than
+-- three edits. The activeFilter key IS the view key for all seven, which is why one list serves
+-- them all. A field with a VIEW_DEFAULTS entry (Direction) takes that default when a view never
+-- stored it.
 local VIEW_FILTERS = {
   { "quality", "quality" }, { "itemType", "type" }, { "itemSubType", "subtype" },
-  { "source", "source" }, { "zone", "zone" }, { "bound", "bound" },
+  { "source", "source" }, { "zone", "zone" }, { "bound", "bound" }, { "dir", "dir" },
 }
 
 -- The table's own group/sort state. With no table yet (headless, pre-UI) every field reads its
@@ -595,14 +824,18 @@ local function captureFilters(dd, out)
   end
 end
 
--- Capture the current group/sort/column-filters as a view table (excludes the player scope).
--- Character scope is NOT part of the view (it's the session-only Current/All default).
+-- Capture the active tab's group/sort/column-filters as a view table (excludes the player scope).
+-- Character scope is NOT part of the view (it's the session-only Current/All default). A tab spec's
+-- `captureView(v)` then writes the tab's own fields over it (Holdings' group and sort, the
+-- Timeline's remembered pick).
 function B:CaptureView()
   local dd = self._dd
   local v = captureTableState(NS.BrowserTable)
   captureFilters(dd, v)
   v.date   = (dd and dd.date._value) or "all"
   v.search = (self._search and self._search:GetText()) or ""
+  local spec = tabSpecs[lastTab]
+  if spec and spec.captureView then spec.captureView(v) end
   return v
 end
 
@@ -625,53 +858,80 @@ local function applyDropdowns(dd, view)
   dd.group:SelectValue(view.groupBy or "none")
   for i = 1, #VIEW_FILTERS do
     local f = VIEW_FILTERS[i]
-    dd[f[2]]:SetSelected(asSet(view[f[1]]))
+    dd[f[2]]:SetSelected(viewSet(view, f[1]))
   end
   dd.date:SelectValue(view.date or "all")
 end
 
--- Resolve the view's stored fields into the query filter. Tolerates the legacy scalar form via
+-- Resolve the view's stored fields into the query filter `f`. Tolerates the legacy scalar form via
 -- asSet; an unselected column applies no filter at all (nil, not an empty set).
-local function resolveFilter(self, view)
+function resolveInto(f, view)
   for i = 1, #VIEW_FILTERS do
     local vk = VIEW_FILTERS[i][1]
-    self.activeFilter[vk] = setToFilter(asSet(view[vk]))
+    f[vk] = setToFilter(viewSet(view, vk))
   end
-  if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
-  if view.search and view.search ~= "" then self.activeFilter.text = view.search end
+  applyQualityFloor(f)
+  if view.date and view.date ~= "all" then f.from = NS.Util.RangeFrom(view.date) end
+  if view.search and view.search ~= "" then f.text = view.search end
 end
 
+-- Apply a view to the ACTIVE tab. A tab spec with `applyView` owns its group and sort (Holdings);
+-- every other tab's go onto the History table, as they always did.
 function B:ApplyView(view, scope)
-  view = view or STOCK_VIEW
+  view = view or stockView(lastTab)
   self.activeFilter = {}
-  applyTableState(view)
+  local spec = tabSpecs[lastTab]
+  if spec and spec.applyView then spec.applyView(view) else applyTableState(view) end
   local dd = self._dd
-  if dd then applyDropdowns(dd, view) end
+  if dd then applyDropdowns(dd, view); self:SyncGroupControl() end   -- a tab with its own group keeps it
   if self._search then self._search:SetText(view.search or "") end
-  resolveFilter(self, view)
-  -- Character scope resets to `scope` (default "current"). SetCharSet also calls ApplyFilter,
-  -- so it is the single refresh that paints all the filter fields set just above.
+  resolveInto(self.activeFilter, view)
+  -- Character scope resets to `scope`: "all", an explicit selection set (a parked tab's, P11), or
+  -- by default "current". SetCharSet also calls ApplyFilter, so it is the single refresh that
+  -- paints all the filter fields set just above.
   if scope == "all" then
     self:SetCharSet(nil)
+  elseif type(scope) == "table" then
+    self:SetCharSet(scope)
   else
     local ck = currentKey()
     self:SetCharSet(ck and { [ck] = true } or nil)
   end
 end
 
--- Save the current view as this profile's default; Reset drops it back to stock.
+-- The filter bar's Save / Reset / Clear (P11): each acts on the ACTIVE tab alone.
+--   Save  stores the tab's current state as its saved view (profile.savedViews[tab]).
+--   Reset deletes the tab's saved view and applies its stock view.
+--   Clear returns the tab's filters/group/sort to its saved view, or its stock view when it has
+--         none; the saved slot is kept. The Timeline's remembered thing and Total only are not
+--         filters and are untouched by Clear (it never applies them from a view).
+-- Test mode is session-only and never writes a saved view (Save refuses), and its Reset and Clear
+-- both land on the stock view over every character without writing.
 function B:SaveView()
-  if NS.db and NS.db.profile then
-    NS.db.profile.savedView = self:CaptureView()
-    print("view saved as default.")
+  if not (NS.db and NS.db.profile) then return end
+  if NS.BrowserTable and NS.BrowserTable.testMode then
+    print("test mode is a preview: the view was not saved.")
+    return
   end
+  local p = NS.db.profile
+  if type(p.savedViews) ~= "table" then p.savedViews = {} end
+  p.savedViews[lastTab] = self:CaptureView()
+  print(("%s view saved as default."):format(lastTab))
 end
--- Drop the saved view back to stock. `silent` suppresses the chat line when called programmatically;
--- the filter-bar Reset button calls it with no argument and keeps the message.
+
+-- `silent` suppresses the chat line when called programmatically; the filter-bar Reset button
+-- calls it with no argument and keeps the message.
 function B:ResetView(silent)
-  if NS.db and NS.db.profile then NS.db.profile.savedView = nil end
-  self:ApplyView(STOCK_VIEW, "current")
-  if not silent then print("view reset to stock defaults.") end
+  local p = NS.db and NS.db.profile
+  local testMode = NS.BrowserTable and NS.BrowserTable.testMode
+  if p and not testMode and type(p.savedViews) == "table" then
+    p.savedViews[lastTab] = nil
+    if next(p.savedViews) == nil then p.savedViews = nil end
+  end
+  self:ApplyView(stockView(lastTab), testMode and "all" or "current")
+  if not silent then
+    print(("%s view reset to stock defaults."):format(lastTab))
+  end
 end
 
 -- Reset the persisted window geometry (named non-setting state, see the NOTE above SaveWindow) and recenter the
@@ -688,8 +948,10 @@ function B:ResetWindow()
 end
 
 --- The History window's half of the profile adopt path (NS.OnProfileEvent, core/LootHistory.lua).
---- Everything the window draws from the profile is re-read from the NEW one: its geometry, its
---- saved view (or the stock view when the profile has none), its row height and its chrome. A
+--- Everything the window draws from the profile is re-read from the NEW one: its geometry, the
+--- active tab's saved view (or its stock view when the profile has none; every other tab's parked
+--- state is forgotten, so each opens on the new profile's view when next shown), its row height and
+--- its chrome. A
 --- window that was never built has nothing to re-read; its first build reads the new profile.
 --- Test mode keeps its stock view: the preview is session state, not the profile's.
 function B:AdoptProfile()
@@ -697,6 +959,7 @@ function B:AdoptProfile()
   frame:ClearAllPoints()
   RestoreWindow()
   if not (NS.BrowserTable and NS.BrowserTable.testMode) then
+    live = {}
     self:ApplyView(savedViewOrStock(), "current")
   end
   if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
@@ -704,220 +967,27 @@ function B:AdoptProfile()
   B:ApplyVisibility()
 end
 
--- Clear returns the filters/group/sort to the saved default (or stock), and the player scope
--- to "current player".
+-- Clear returns the active tab's filters/group/sort to its saved view (its stock view when it has
+-- none; the saved slot is kept), and the player scope to "current player" (every character in
+-- test mode). See SaveView above.
 function B:ClearFilters()
-  self:ApplyView(savedViewOrStock(), "current")
+  self:ApplyView(initialFor(lastTab))
 end
 
--- Build the SHARED, singleton filter bar (issue #13) into `bar` — a window-level host anchored
--- once in EnsureFrame, above both tab panes, so a single filter drives the History table AND the
--- Insights charts. The footer is shared window chrome too (built in EnsureFrame); this function
--- owns only the two rows of controls:
---   Row 1: Group by · [search…] · Save · Reset · Clear
---   Row 2: column filters in table order — Date · Bound · Quality · Type · SubType · Source ·
---          Zone · Character · Export
-function B:BuildFilterBar(bar)
-  local ROW1, ROW2 = 0, -24
-
-  -- REFUSE TO DRAW rather than build dead controls. The nine dropdowns below are the whole point
-  -- of this bar, and NS.MakeDropdown answers nil on an install with no LibKa0s: a bar of buttons
-  -- that open no menu is strictly worse than no bar. The FIRST dropdown is the probe -- one real
-  -- control, not a throwaway -- and `self._dd` is published only once it exists, so it stays nil
-  -- on a degraded install. That is the state every reader downstream (RefreshFilterOptions,
-  -- CaptureView, ApplyView, SetCharSet) has always had to tolerate, because the filter paths run
-  -- headlessly too.
-  local dd = { group = NS.MakeDropdown(bar, 120) }
-  if not dd.group then return end
-  self._dd = dd
-
-  -- ── Row 1: Group by · Search · Clear ──
-  -- Group width matches the Date dropdown directly below it (120); the Save+Reset+Clear cluster is
-  -- anchored above the Export button (not the bar's right edge) and resized so its span (three
-  -- buttons + two 6px gaps) exactly matches Export's width (B:ExportWidth), so the cluster sits
-  -- flush above it and both stay static as the window widens.
-  dd.group:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW1)
-  dd.group:SetOptions(GROUP_OPTIONS)
-  dd.group:SetValue("none", "Group: None")
-  dd.group.onSelect = function(v) if NS.BrowserTable then NS.BrowserTable:SetGroupBy(v) end end
-
-  -- Export button is created here (row 1, ahead of its row-2 position further down) so the
-  -- Save/Reset/Clear cluster below can anchor its top-right corner to it; SetPoint only needs the
-  -- frame to exist, not to be positioned yet — its own anchor (to dd.char) is set once dd.char
-  -- exists, in the Row 2 section below. Its width is static (B:ExportWidth): at min window width it
-  -- fills from the Character dropdown's right edge to the bar's right edge; it does NOT grow when
-  -- the window widens (no right anchor to the bar).
-  local exportW = B:ExportWidth()
-  --
-  -- NO MARK ON THIS ONE. The filter bar's Export button is one word in a row of four plain word
-  -- buttons (Save/Reset/Clear beside it), and a download arrow on the widest of them made the row
-  -- read as one decorated button among three bare ones. The mark stays where it explains
-  -- something: the export window's "Export to CSV" (modules/Export.lua), where the spreadsheet
-  -- says WHERE the result lands.
-  local exportBtn = makeBarButton(bar, "Export", exportW, function() B:OpenExport() end,
-    "Export the current tab — loot rows (History) or the analytics summary (Insights).")
-
-  -- Right cluster (row 1): Save · Reset · Clear, spanning exactly exportW so its right edge sits
-  -- flush above Export's. Three buttons + two 6px gaps = exportW: Clear/Reset each take
-  -- floor((exportW-12)/3); Save takes the remainder so the widths sum exactly. Static (no growth).
-  local btnW = math.floor((exportW - 12) / 3)
-  local clear = makeBarButton(bar, "Clear", btnW, function() B:ClearFilters() end,
-    "Clear filters and group/sort back to your saved view.")
-  clear:SetPoint("TOPRIGHT", exportBtn, "TOPRIGHT", 0, ROW1 - ROW2)
-  local resetBtn = makeBarButton(bar, "Reset", btnW, function() B:ResetView() end,
-    "Reset the saved view to stock defaults.")
-  resetBtn:SetPoint("RIGHT", clear, "LEFT", -6, 0)
-  local saveBtn = makeBarButton(bar, "Save", exportW - 12 - 2 * btnW, function() B:SaveView() end,
-    "Save the current group, sort and filters as your default view.")
-  saveBtn:SetPoint("RIGHT", resetBtn, "LEFT", -6, 0)
-
-  -- Item-name search box (row 1). Its LEFT sits beside Group; its RIGHT is pinned to the row-2
-  -- Character dropdown's right edge below it (set once dd.char exists) so the two right edges stay
-  -- aligned at every window width — top-corner anchoring keeps the box in row 1 despite the
-  -- row-2 reference (the -ROW2 y-offset lifts it back up). The Save/Reset/Clear cluster sits to
-  -- its right; the min window width guarantees they never overlap.
-  local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
-  search:SetHeight(20)
-  search:SetPoint("TOPLEFT", dd.group, "TOPRIGHT", 8, 0)
-  search:SetAutoFocus(false)
-  search:SetFontObject("GameFontHighlightSmall")
-  search:SetTextInsets(6, 6, 0, 0)
-  search:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                       insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  search:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  search:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-  local ph = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  ph:SetPoint("LEFT", 6, 0)
-  ph:SetText("Search items…")
-  search:SetScript("OnTextChanged", function(self2)
-    local t = self2:GetText()
-    ph:SetShown(t == "")
-    B.activeFilter.text = (t ~= "") and t or nil
-    ApplyFilter()
-  end)
-  search:SetScript("OnEscapePressed", function(self2) self2:ClearFocus() end)
-  search:SetScript("OnEnterPressed", function(self2) self2:ClearFocus() end)
-  self._search = search
-
-  -- ── Row 2: column filters, left→right in the same order the columns appear in the table:
-  --   Date · Bound · Quality · Type · SubType · Source · Zone · Character ──
-  dd.date = NS.MakeDropdown(bar, 120)
-  dd.date:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, ROW2)
-  dd.date:SetOptions(DATE_OPTIONS)
-  dd.date:SetValue("all", "Date: All")
-  dd.date.onSelect = function(v)
-    if v == "all" then B.activeFilter.from = nil else B.activeFilter.from = NS.Util.RangeFrom(v) end
-    ApplyFilter()
-  end
-
-  -- Bound (multi-select): binding-state filter. "NONE" matches unbound records.
-  dd.bound = NS.MakeDropdown(bar, 96)
-  dd.bound:SetPoint("LEFT", dd.date, "RIGHT", 8, 0)
-  dd.bound:SetMulti(true)
-  dd.bound:SetOptions(boundOptions())
-  dd.bound.onMultiSelect = function(set)
-    B.activeFilter.bound = setToFilter(set)
-    ApplyFilter()
-  end
-
-  -- Quality/Type/Source/Zone/Character are multi-select: their onMultiSelect receives the current
-  -- selection set (empty = All), copied into the matching filter field. The "all" menu item clears.
-  dd.quality = NS.MakeDropdown(bar, 100)
-  dd.quality:SetPoint("LEFT", dd.bound, "RIGHT", 8, 0)
-  dd.quality:SetMulti(true)
-  dd.quality:SetOptions(qualityOptions())
-  dd.quality.onMultiSelect = function(set)
-    B.activeFilter.quality = setToFilter(set)
-    ApplyFilter()
-  end
-
-  dd.type = NS.MakeDropdown(bar, 112)
-  dd.type:SetPoint("LEFT", dd.quality, "RIGHT", 8, 0)
-  dd.type:SetMulti(true)
-  dd.type.onMultiSelect = function(set)
-    B.activeFilter.itemType = setToFilter(set)
-    ApplyFilter()
-  end
-
-  dd.subtype = NS.MakeDropdown(bar, 100)
-  dd.subtype:SetPoint("LEFT", dd.type, "RIGHT", 8, 0)
-  dd.subtype:SetMulti(true)
-  dd.subtype.onMultiSelect = function(set)
-    B.activeFilter.itemSubType = setToFilter(set)
-    ApplyFilter()
-  end
-
-  dd.source = NS.MakeDropdown(bar, 100)
-  dd.source:SetPoint("LEFT", dd.subtype, "RIGHT", 8, 0)
-  dd.source:SetMulti(true)
-  dd.source.onMultiSelect = function(set)
-    B.activeFilter.source = setToFilter(set)
-    ApplyFilter()
-  end
-
-  dd.zone = NS.MakeDropdown(bar, 146)
-  dd.zone:SetPoint("LEFT", dd.source, "RIGHT", 8, 0)
-  dd.zone:SetMulti(true)
-  dd.zone.onMultiSelect = function(set)
-    B.activeFilter.zone = setToFilter(set)
-    ApplyFilter()
-  end
-
-  dd.char = NS.MakeDropdown(bar, 146)
-  dd.char:SetPoint("LEFT", dd.zone, "RIGHT", 8, 0)
-  dd.char:SetMulti(true)
-  -- "Current" is a preset, not a toggle: it REPLACES the selection with just the current player's
-  -- key (a one-click "only me"), nil-guarded so it's a no-op if PlayerKey() is unavailable.
-  dd.char.presets = {
-    current = function(ddSelf)
-      local ck = currentKey()
-      ddSelf._selected = ck and { [ck] = true } or {}
-    end,
-  }
-  -- SetCharSet keeps the char filter in sync (the window opens scoped to the current player).
-  dd.char.onMultiSelect = function(set) B:SetCharSet(set) end
-
-  -- Pin the row-1 Search box's right edge to the Character dropdown's right edge (see the search
-  -- box creation above). -ROW2 lifts the top-right corner from row 2 back up into row 1.
-  search:SetPoint("TOPRIGHT", dd.char, "TOPRIGHT", 0, -ROW2)
-
-  -- Export button (row 2): tab-aware (issue #15). On History it exports loot rows (All Data /
-  -- Current View → CSV); on Insights it exports the analytics summary (issue #15's Insights CSV).
-  -- Both respect the shared filter. Anchored immediately right of the Character
-  -- dropdown (8px gap) rather than the bar's far-right edge; the Save/Reset/Clear cluster above it
-  -- is re-anchored to Export's top-right corner (see `clear` above), so the two rows stay aligned.
-  exportBtn:SetPoint("LEFT", dd.char, "RIGHT", 8, 0)
-end
-
--- Route the Export button to the right modal for the active tab (issue #15). History exports the
--- loot rows; Insights exports the analytics summary computed off the SAME shared filter.
+-- Route the Export button to the active tab's modal (issue #15), titled after the tab ("Export
+-- Insights"). A spec carrying `export` owns its modal (Insights: the analytics summary off the SAME
+-- shared filter); every other tab gets the default below, the History loot rows.
 function B:OpenExport()
-  -- Title tracks the invoking tab ("Export History" / "Export Insights") and generalizes to any
-  -- future tab name — the tab that opens the modal supplies its own label. Export to CSV is
-  -- tab-specific: History exports the loot rows, Insights the analytics summary.
   local title = "Export " .. tostring(lastTab)
-  if lastTab == "Insights" then
-    NS.Export:Open({
-      title = title,
-      providers = {
-        allData     = function() return NS.Database:Stats({}) end,
-        currentView = function() return NS.Database:Stats(B:CurrentFilter()) end,
-      },
-      csv = function(stats) return NS.Export:InsightsCSV(stats) end,
-    })
-  else
-    NS.Export:Open({
-      title = title,
-      providers = {
-        allData     = function() return NS.Database:Export({}) end,
-        currentView = function()
-          return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
-            and NS.BrowserTable:OrderedFilteredRecords()) or {}
-        end,
-      },
-      csv = function(records) return NS.Export:CSV(records) end,
-    })
-  end
+  local s = tabSpecs[lastTab]
+  if s and s.export then return s.export(title) end
+  NS.Export:Open({ title = title,
+    providers = { allData = function() return NS.Database:Export({}) end,
+      currentView = function()
+        return (NS.BrowserTable and NS.BrowserTable.OrderedFilteredRecords
+          and NS.BrowserTable:OrderedFilteredRecords()) or {}
+      end },
+    csv = function(records) return NS.Export:CSV(records) end })
 end
 
 -- Attach the virtualized History table to its pane (issue #13: the pane now holds only the table;
@@ -932,6 +1002,24 @@ function B:BuildTable(pane)
   end
 end
 
+-- The built-in tabs. History's filter push stays ApplyFilter's unconditional half (the footer needs it).
+-- Both offer the item and currency names their rows hold, and a pick puts the name in Search
+-- (B.SuggestNames / B.PickName, modules/BrowserFilterBar.lua, which loads after this file).
+B:RegisterTab{ name = "History", order = 10,
+  suggest = function(text) return B.SuggestNames(text) end,
+  pick = function(item) B.PickName(item) end,
+  build = function(pane) B:BuildTable(pane) end,
+  refresh = function() if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh(); B:RefreshFilterOptions() end end }
+B:RegisterTab{ name = "Insights", order = 20,
+  suggest = function(text) return B.SuggestNames(text) end,
+  pick = function(item) B.PickName(item) end,
+  build = function(pane) if NS.Analytics and NS.Analytics.Attach then NS.Analytics:Attach(pane) end end,
+  refresh = function() if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end end,
+  export = function(title) NS.Export:Open({ title = title,   -- the analytics summary, same filter
+    providers = { allData = function() return NS.Database:Stats({}) end,
+                  currentView = function() return NS.Database:Stats(B:CurrentFilter("Insights")) end },
+    csv = function(stats) return NS.Export:InsightsCSV(stats) end }) end }
+
 -- ── Frame construction ─────────────────────────────────────────────────────────
 
 local function EnsureFrame()
@@ -940,12 +1028,11 @@ local function EnsureFrame()
   frame = CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")
   -- Default size == minimum size: wide enough for every column, so it can grow but never
   -- shrink into horizontal overflow. B:MinWidth() is the single source of truth — the wider of
-  -- the column-derived table floor (BrowserTable:MinFrameWidth) and the toolbar-fit floor
-  -- (TOOLBAR_MIN = the 8 row-2 dropdowns 976 + an 8px gap + a min Export 120 + 12px pane margins).
-  -- The old hard 1160 floor is gone: with the toolbar now packed left and the Export button + the
-  -- Save/Reset/Clear cluster filling the slack to the right edge (static), the window may shrink to
-  -- whichever floor is larger. The filter bar reads the SAME helper (B:ExportWidth), so the Export/
-  -- cluster geometry and this frame width can't drift.
+  -- the column-derived table floor (BrowserTable:MinFrameWidth) and the toolbar-fit floor (the
+  -- measured dropdown span + an 8px gap + a min Export 120 + 12px pane margins). The filter bar
+  -- scales to fill whatever width the window has (B:LayoutFilterBar), so the window may shrink to
+  -- whichever floor is larger. The floor is taken here from the bar's floor widths and taken AGAIN
+  -- once BuildFilterBar has measured its labels (below).
   local minW = B:MinWidth()
   local minH = SKIN.minH
   B._minW, B._minH = minW, minH
@@ -1005,26 +1092,15 @@ local function EnsureFrame()
   -- Shared window chrome (issue #13): one singleton filter bar above both panes, and one shared
   -- footer below them. Layout from the top: title bar · tab strip · content gap · FILTER BAR ·
   -- panes · FOOTER. The panes now hold only their view (table / charts).
-  local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18
-  local barTop  = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap
-  local paneTop = barTop + FILTERBAR_H + FILTER_GAP
-
-  -- Content panes, one per tab, filling between the shared filter bar and the shared footer.
+  local barTop = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap
   frame.panes = {}
-  for _, name in ipairs(TABS) do
-    local pane = CreateFrame("Frame", nil, frame)
-    pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -paneTop)
-    pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
-    pane:Hide()
-    frame.panes[name] = pane
-  end
-
-  CreateTabStrip()
+  for _, name in ipairs(tabOrder) do CreatePane(name) end   -- one content pane per registered tab
+  LayoutTabButtons()   -- builds the tab strip on its first call
 
   -- Shared singleton filter bar host, anchored below the tab strip and above the panes.
   local filterHost = CreateFrame("Frame", nil, frame)
-  filterHost:SetPoint("TOPLEFT",  frame, "TOPLEFT",   6, -barTop)
-  filterHost:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -barTop)
+  filterHost:SetPoint("TOPLEFT",  frame, "TOPLEFT",   BAR_INSET, -barTop)
+  filterHost:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -BAR_INSET, -barTop)
   filterHost:SetHeight(FILTERBAR_H)
   frame.filterHost = filterHost
 
@@ -1042,6 +1118,14 @@ local function EnsureFrame()
   -- Build the shared filter controls, populate their options, and apply the saved view (opens
   -- scoped to the current player). The table/charts attach lazily per tab and pick up this filter.
   B:BuildFilterBar(filterHost)
+  -- The bar has measured its labels, so the toolbar floor is final only now. The grip below and
+  -- RestoreWindow both clamp to it, which widens a size saved by a build with narrower controls.
+  -- The table's Qty column is measured here too (gold amounts at the row font), since the column
+  -- floor is summed from the column widths.
+  if NS.BrowserTable and NS.BrowserTable.MeasureColumns then NS.BrowserTable:MeasureColumns(frame) end
+  minW = B:MinWidth()
+  B._minW = minW
+  frame:SetWidth(minW)
   B:RefreshFilterOptions()
   B:ApplyView(savedViewOrStock(), "current")
   B:UpdateDbSize()
@@ -1064,6 +1148,11 @@ local function EnsureFrame()
       if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh() end
     end,
   })
+  -- The filter bar follows the window's width live, every frame of a drag (P6 Task 3): anchors and
+  -- widths only, skipped when the width did not change. Its own hook rather than MakeResizable's
+  -- opts.onResize (which the library also runs off a hooked OnSizeChanged): onResize stays unused,
+  -- per the note above, and this relayout is cheap enough for every size tick.
+  frame:HookScript("OnSizeChanged", function(_, w) B:LayoutFilterBar(w - 2 * BAR_INSET) end)
 
   -- Close any open dropdown menu whenever the window hides (covers the ESC/UISpecialFrames
   -- path, which calls frame:Hide() directly instead of B:Hide()). Also the single seam for the
@@ -1245,6 +1334,12 @@ function B:OnSettingsChanged()
   -- "Minimap button" row, and that row's set drives NS.Launcher:SetShown through this addon's
   -- single write seam (settings/Schema.lua) the instant it is flipped -- so re-asserting it on
   -- every unrelated chrome message would be a second writer of one state (launcher-§3).
+  -- The minimum-quality floor follows the setting live while the window is up.
+  if frame and frame:IsShown() and B.activeFilter then
+    applyQualityFloor(B.activeFilter)
+    if B._dd and B._dd.quality then B._dd.quality:SetOptions(qualityOptions()) end
+    ApplyFilter()
+  end
 end
 
 -- Keep the browser current when the underlying history changes (new loot, a row delete, retention
@@ -1309,6 +1404,9 @@ end
 --- B:VisibilityAllows. This function only stops the subscriptions.
 function B:Disable()
   if not self._enabled then return end
+  -- Nothing to unregister for the suggestion list (it holds no event, message or OnUpdate), but an
+  -- open one goes, and its pending debounce with it.
+  if self._autocomplete then self._autocomplete:Close() end
   if B.__ev then
     B.__ev:UnregisterAllMessages()
     B.__ev:UnregisterAllEvents()

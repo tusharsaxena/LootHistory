@@ -64,13 +64,15 @@ kick("NS.BindLifecycle", function() NS.BindLifecycle() end)
 -- docs/test-cases.md and nobody reading the inventory can tell whether it ran.
 local SUITES = {
   "test_constants", "test_mediasetup", "test_envsetup", "test_poolsetup", "test_itemsetup", "test_util",
-  "test_compat", "test_attribution",
-  "test_filters", "test_auctionprice", "test_collector", "test_database", "test_stats",
+  "test_ledger",
+  "test_ledgerformat",
+  "test_compat", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
+  "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
   "test_browser", "test_browsertable", "test_export", "test_debuglog",
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
-  "test_launcher", "test_slash", "test_slash_degraded",
-  "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_panel", "test_panel_filters", "test_panel_auction",
+  "test_launcher", "test_slash", "test_slash_degraded", "test_resetprompt",
+  "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",
@@ -83,6 +85,9 @@ local SUITES = {
   -- only suite that brings the WHOLE addon up through addon:OnEnable, and step 8 drives the LDB
   -- object test_launcher leaves registered.
   "test_disabled",
+  -- The LibKa0s-Perf wiring (core/PerfSetup.lua). After test_disabled, which leaves the whole addon
+  -- brought up: its suspend case asserts on the live registration set.
+  "test_perf",
   -- This addon's half of the diagnostics report (debug-logging-14): its sections, what they say
   -- and what they must not touch. After test_disabled, which leaves the addon brought up.
   "test_diagnostics",

@@ -112,7 +112,7 @@ test("Panel: the Master controls tab holds the canonical rows and the closing bu
       assertEqual(btn.type, "Button")
     end
     -- The half that makes this a partition rather than a list: another tab's rows must NOT be here.
-    for _, label in ipairs({ "Minimum quality", "Window scale", "Keep history for" }) do
+    for _, label in ipairs({ "Minimum quality (detailed records)", "Window scale", "Keep history for" }) do
       assertTrue(findByLabel(created, label) == nil,
         label .. " belongs to another tab and must not be drawn on Master controls")
     end
@@ -145,10 +145,10 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
   assertEqual(ctx.activeTab, "Capture", "tab 2 is Capture")
 
-  for _, label in ipairs({ "Minimum quality", "Record currency", "Exclude quest items" }) do
+  for _, label in ipairs({ "Minimum quality (detailed records)", "Record currency", "Exclude quest items" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
   end
-  local quality = findByLabel(created, "Minimum quality")
+  local quality = findByLabel(created, "Minimum quality (detailed records)")
   assertEqual(quality.relativeWidth, 0.5, "schema widgets take the honest half")
 
   -- MOVED, not copied: the master switch is on Master controls now and must not also be here.
@@ -179,7 +179,7 @@ test("Panel: the Interface tab holds the two size sliders, and the minimap toggl
   -- this whole pass exists to remove.
   assertTrue(findByLabel(created, "Debug console") == nil,
     "the debug console toggle belongs to Master controls now")
-  assertTrue(findByLabel(created, "Minimum quality") == nil,
+  assertTrue(findByLabel(created, "Minimum quality (detailed records)") == nil,
     "Capture's rows must not follow the reader onto Interface")
   homeTab(ctx)
 end)
@@ -264,7 +264,7 @@ test("Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slide
     assertEqual(findByLabel(master, "General visibility").type, "Dropdown")
     assertEqual(findByLabel(master, "Master scale").type, "Slider")
     assertEqual(findByLabel(clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture")),
-      "Minimum quality").type, "Dropdown")
+      "Minimum quality (detailed records)").type, "Dropdown")
     homeTab(ctx)
   end)
 
@@ -423,7 +423,7 @@ test("Panel: the Test mode checkbox starts test mode, and a refused start redraw
 test("Panel: choosing a dropdown entry writes the stored value", function()
   local ctx = NS.Panel.general
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
-  local dd = findByLabel(created, "Minimum quality")
+  local dd = findByLabel(created, "Minimum quality (detailed records)")
   dd:__fire("OnValueChanged", 4)
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 4)
   NS.Schema:Set("settings.qualityThreshold", 1)

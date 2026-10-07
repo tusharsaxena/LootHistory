@@ -77,6 +77,7 @@ end
 local installRecorders = loadRecorder("mock_record.lua")
 local Events = loadRecorder("mock_events.lua")  -- EventRegistry, C_EventUtils, frame __badEvents
 local Resize = loadRecorder("mock_resize.lua")  -- the resize grip's surface (revision 33)
+local Lines = loadRecorder("mock_lines.lua")    -- Line regions from CreateLine (revision 37)
 
 local function deepcopy(t)
   if type(t) ~= "table" then return t end
@@ -1040,6 +1041,7 @@ return function()
     f.__seq = frameSeq
     Events.decorateFrame(M, f)
     Resize.decorateFrame(f)
+    Lines.decorateFrame(f)
     frameSet[f] = true
     return f
   end

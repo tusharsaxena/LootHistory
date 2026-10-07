@@ -28,8 +28,8 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 | **Master controls** | The addon as a whole: recording on/off, when the window may be on screen, master scale and alpha, frame lock, the debug console, the minimap button, test mode, reset position, reset all settings |
 | **Capture** | What gets recorded: minimum quality, currency, quest items, and the per-source on/off picker |
 | **AH Price** | Where item values come from: the AH pricing master toggle and the ranked price-source table |
-| **Interface** | How much room the History window takes: window scale, row height |
-| **History** | What is kept and how to be rid of it: retention, the storage readout, purge |
+| **Interface** | How much room the History window takes, and how many lines the Timeline draws: window scale, row height, Timeline lines |
+| **History** | What is kept and how to be rid of it: retention, Timeline retention, transfers default, the storage readout, purge |
 | **Filters** | Items and currencies you never, or always, want tracked: blacklist, whitelist, currency blacklist |
 
 **Master controls** — the addon as a whole
@@ -39,14 +39,16 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 * **Master scale** / **Master alpha** — size and opacity for *everything* the addon draws, the History window and the export window alike. **Window scale** on the Interface tab is the History window's own and multiplies on top, so the relationship you set between that window and the rest of your UI survives a change here.
 * **Lock frame** — stop the History window and the export window being dragged, and stop the History window being resized from its corner grip.
 * **Debug console** — show or hide the on-screen debug console. Session-only; resets on reload.
-* **Test mode** — fill the History window and Insights with a sample loot history, so you can see and place the window before you have loot of your own. Ticking it opens the window; it stays on until you untick it, and it ends by itself when you enter combat. The same switch as `/lh test`. Session-only, never saved. If General visibility keeps the window hidden, or you are in combat, it refuses to start and the box stays unticked.
+* **Test mode** — fill the History window, Insights, Holdings and the Timeline with a sample loot history and sample holdings, so you can see and place the window before you have loot of your own. Ticking it opens the window; it stays on until you untick it, and it ends by itself when you enter combat. The same switch as `/lh test`. Session-only, never saved. If General visibility keeps the window hidden, or you are in combat, it refuses to start and the box stays unticked.
 * **Reset position** — put the History window back in the middle of the screen. Nothing else changes.
 * **Reset all settings** — puts this profile back the way it shipped: every setting, the filter lists, the AH price order, the saved view and the window position. Asks first. Your loot history and your other profiles are not touched (Purge history… on the History tab clears the history). The `/lh resetall` command and the page's **Defaults** button are the same act.
 
 **Capture** — what gets recorded
 
-* **Minimum quality** — only record items at or above this quality (default **Common**). Raising it never removes items you've already recorded.
+* **Minimum quality (detailed records)** — items at or above this quality get a detailed loot record (source, zone, encounter, price); default **Common**. Every item is still tracked in the ledger, and History hides items below this quality until you pick qualities in its Quality filter (whitelisted items are exempt). Raising it never removes anything already recorded.
 * **Record currency** — record looted currency (Valorstones, crests, and the like) as Currency rows. Obeys **Record data from**; ignores the quality threshold.
+* **Track holdings and losses** — keep the ledger: what every character and your warband holds, plus every gain, loss and transfer. Off records loot gains only.
+* **Record gold** — write a History row for every gold gain and loss (loot, vendor, repairs, auction house, mail, guild bank). Holdings keep counting gold either way. On by default.
 * **Exclude quest items** — skip the temporary items you pick up during quests. **On by default**; uncheck it to record them too.
 * **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here.
 
@@ -59,11 +61,14 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 
 * **Window scale** — resize the History window from 0.6× to 1.6×, on top of **Master scale**. Its position and size are remembered separately from this.
 * **Row height** — how tall one row of the History table is, from 14 to 28 pixels (default **18**). Lower fits more rows on screen.
+* **Timeline lines** — how many characters the Timeline draws as their own line besides the Total, from 2 to 16 (default **8**). The ones holding the most of the charted item, currency or gold are shown first; the Character filter narrows the field before the cap applies.
 
 **History** — what is kept, and how to be rid of it
 
 * **Keep history for** — how long to keep records. Older ones are cleared out once per session; choose **Always** to keep everything (default **30 days**). **Account-wide**: one value for every profile, and a profile switch, copy or reset never changes it (its tooltip says so).
+* **Keep Timeline days for** — how long the Timeline keeps its daily balances: **90 days**, **180 days**, **1 year**, **2 years** or **Always** (default **Always**). **Account-wide**, like the one above. Nothing is deleted when you change it: a shorter window is applied at your next login, about five seconds in, and each line still starts from its last known value. History rows are not affected (they obey **Keep history for**).
 * A live readout of how many items you have collected, over how many days, and roughly how much space they take.
+* **Show transfers by default** — include transfers (bank deposits, warband moves, mail to your alts) in History's default Direction filter. Takes effect the next time the default view is loaded (Clear, or reopening the window). Off by default.
 * **Purge history…** — delete every recorded item, and nothing else. Asks first.
 
 **Filters** — items you never, or always, want tracked
@@ -101,19 +106,19 @@ The **row vocabulary is LibKa0s's** (`Schema.lua:49`), and four names moved when
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Seventeen rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
+**Twenty-two rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
 | General | **Master controls** | 8 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole`, `minimap.shown`, `state.testMode` |
-| General | **Capture** | 4 | `settings.qualityThreshold`, `settings.recordCurrency`, `settings.excludeQuestItems`, `settings.excludedSources` |
+| General | **Capture** | 6 | `settings.qualityThreshold`, `settings.recordCurrency`, `settings.trackLedger`, `settings.recordGold`, `settings.excludeQuestItems`, `settings.excludedSources` |
 | General | **AH Price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
-| General | **Interface** | 2 | `settings.windowScale`, `settings.rowHeight` |
-| General | **History** | 1 | `settings.retentionDays` |
+| General | **Interface** | 3 | `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines` |
+| General | **History** | 3 | `settings.retentionDays`, `settings.rollupRetentionDays`, `settings.showTransfers` |
 
 The **Master controls** block is **composed, never hand-written**: `O.MasterControls` (`OptionsCompose.lua:458`) emits the canonical block — eight rows plus the closing button pair — from one declaration in `settings/Schema.lua`, which is what stops nine addons drifting into nine orders (options-ui-§15). This addon passes `prefix = "settings."`, its own `defaults` (so `defaults/Profile.lua` stays the one declaration site for every shipped value, and the two session rows default to `false`), both reset handlers, `minimapPath = "minimap.shown"` (verbatim and unprefixed; the row path is in the row's own sense and the one stored key underneath is `minimap.hide`, because LibDBIcon's own table lives in the **global** store outside the block's `settings.` prefix — launcher-§3) and `testModePath = "state.testMode"`, which are what add the `Minimap button` and `Test mode` rows; it is **not** `frameless`, because `modules/Browser.lua` and `modules/Export.lua` both call `SetMovable(true)`, so it draws all four of §15's frame-only controls — the `scale`, `alpha` and `locked` rows, plus the **Reset position** half of the closing button pair (the composer's `frameless` branch drops exactly those four together). What the composer does not know — this addon's `onChange` hooks, the `fmt` the CLI prints a scale with, the two session toggles' `get`/`set`, and the test-mode row's own tooltip — is stamped onto the emitted rows by path (`stamp`, `Schema.lua`), never typed into a second copy of the block.
 
-`settings.excludedSources` and `settings.auction.capture` are rows that draw no widget on the generic path (the first is `type = "table"`, the second carries `skipRender`); both are host-drawn from `afterGroup`. `settings.auction.capture` also **declares the "Price sources" subsection heading** — `startSubgroup` runs before the `skipRender` check, so a row that draws nothing still opens its subsection, which is how the price table gets a heading without a builder drawing one (options-ui-§7). The **History** tab is the sanctioned exemption from the two-controls-per-tab rule, exempted **by name** in `tests/test_schema.lua`: its one stored row shares the tab with two bespoke controls that have no path — the live storage readout and **Purge history…**.
+`settings.excludedSources` and `settings.auction.capture` are rows that draw no widget on the generic path (the first is `type = "table"`, the second carries `skipRender`); both are host-drawn from `afterGroup`. `settings.auction.capture` also **declares the "Price sources" subsection heading** — `startSubgroup` runs before the `skipRender` check, so a row that draws nothing still opens its subsection, which is how the price table gets a heading without a builder drawing one (options-ui-§7). The **History** tab was once the sanctioned exemption from the two-controls-per-tab rule, exempted by name in `tests/test_schema.lua`; with three stored rows it no longer needs one, and the rule binds every tab. Its rows share the tab with two bespoke controls that have no path — the live storage readout and **Purge history…**.
 
 **Session-only rows.** Most rows persist to the active profile (`NS.db.profile`), but a row marked `sessionOnly = true` carries `get`/`set` accessors and is **never written to the DB** — `Schema:Set` routes to `row.set` instead of a stored write, `Schema:Get` reads `row.get` (both `LibKa0s-Schema-1.0`'s rule, reached through `Schema.lua:723` and `:688`), and `Register` skips its default check. There are two. `state.testMode` (label "Test mode", given its accessors at `Schema.lua:245`) is the History window's test mode, described with the Master controls tab below. `state.debugConsole` (label "Debug console", declared by the composer and given its accessors at `Schema.lua:206`) is the other: it toggles the debug console **window's visibility** via `NS.DebugLog:Show/Hide/IsShown` — *not* the `NS.State.debug` logging flag (that stays non-schema, set via `/lh debug on|off`). It mirrors `/lh debug` (no-arg); the console's `onVisibilityChanged` seam calls back so the checkbox stays in sync when the window is toggled elsewhere — including with Esc or the × button, which never synced before the console moved onto `LibKa0s-DebugLog-1.0`. The register carried this row kind as an `architecture-§5` deviation until 2026-09-08. It was retired because options-ui-§15 now mandates the console toggle as a session-only row (see [ARCHITECTURE.md](ARCHITECTURE.md#documented-deviations)).
 
@@ -147,15 +152,15 @@ The General page is **six tabs**, and it is the whole panel: every page in this 
 | Tab | Body | Rows |
 |---|---|---|
 | **Master controls** | schema rows + the composer's closing button pair | 6 |
-| **Capture** | schema rows + the host-drawn inverted source picker | 4 |
+| **Capture** | schema rows + the host-drawn inverted source picker | 6 |
 | **AH Price** | schema toggle + the pooled price-source reorder table | 2 |
 | **Interface** | schema rows | 3 |
-| **History** | schema row + the storage readout and **Purge history…** | 1 |
+| **History** | schema rows + the storage readout and **Purge history…** | 3 |
 | **Filters** | bespoke: a **secondary strip** over three id-lists | 0 |
 
 | | Before R6 | After |
 |---|---|---|
-| **General** | strip: Collection (5) · Interface (4) · Maintenance (1) | strip: **Master controls** (6) · **Capture** (4) · **AH Price** (2) · **Interface** (3) · **History** (1) · **Filters** |
+| **General** | strip: Collection (5) · Interface (4) · Maintenance (1) | strip: **Master controls** (6) · **Capture** (6) · **AH Price** (2) · **Interface** (2) · **History** (2) · **Filters** |
 | **Filters** | its own sub-page, strip: Blacklist · Whitelist · Currencies | a **tab** on General, with those three as a **secondary** strip inside the scroll |
 | **AH Price** | its own sub-page, one group, **no strip** | a **tab** on General |
 | **Landing** | logo, tagline, slash rows | unchanged (exempt, options-ui-§13) |
@@ -202,10 +207,10 @@ Six of the eight rows and one of the two buttons are **new settings**, and each 
 Every setting mutation — panel widget and `/lh set` alike — routes through `NS.Schema:Set(path, value)` (`Schema.lua:723`), which delegates to the `LibKa0s-Schema-1.0` runtime instance `NS.SchemaRuntime`. The library never learns a path or a database: the descriptor hands it `get` / `set` / `applyDefault` closures over this seam (`OptionsSetup.lua:185`), which is what guarantees a panel click takes exactly the path a slash command does.
 
 1. **validate** — reject unknown paths; run the row's optional `validate`.
-2. **write** — for every stored row but two, into the active profile, `NS.db.profile` (the descriptor's `resolveRoot`, asked at call time so a profile switch retargets it), storing a deep copy of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`); the copy is the library's. `sessionOnly` rows skip this and apply through `row.set`, and so do the **two stored rows that carry a `get`/`set` of their own**, both of which live in `db.global`, not the profile: `minimap.shown`, which writes `db.global.minimap.hide` and whose boolean is the inverse of that key, so a straight `WritePath` would store the opposite of what was ticked (launcher-§3); and `settings.retentionDays`, which writes `db.global.retentionDays` because the history it prunes is shared by every profile (owner decision D6).
+2. **write** — for every stored row but three, into the active profile, `NS.db.profile` (the descriptor's `resolveRoot`, asked at call time so a profile switch retargets it), storing a deep copy of the value so a reset can't alias the DB to a shared default table (e.g. the `{}` default of `excludedSources`); the copy is the library's. `sessionOnly` rows skip this and apply through `row.set`, and so do the **three stored rows that carry a `get`/`set` of their own**, all of which live in `db.global`, not the profile: `minimap.shown`, which writes `db.global.minimap.hide` and whose boolean is the inverse of that key, so a straight `WritePath` would store the opposite of what was ticked (launcher-§3); `settings.retentionDays`, which writes `db.global.retentionDays` because the history it prunes is shared by every profile (owner decision D6); and `settings.rollupRetentionDays`, which writes `db.global.rollupRetentionDays` for the same reason (the Timeline's rollup is account-wide).
 3. **onChange** — fire the row's hook. Most publish a `Ka0s_LootHistory_SettingsChanged` bus message; `windowScale` reaches into the Browser and `retentionDays` asks before `Database:PruneOld` (see *The History tab's bespoke body*). `minimap.shown` has **no** `onChange`: its own `set` does all the work, because its value is the inverse of the stored key (step 2). `settings.retentionDays` keeps its `onChange` (the prune confirm) beside its own `set`.
 
-`Schema:Get` reads back from the active profile, or through the row's own `get` for those two global rows (`Schema.lua:720`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view and the auction `priority` cascade are the deliberate carve-outs. They persist straight to the active profile, not through `Schema:Set`. The `blacklist`/`whitelist`/`currencyBlacklist` id sets are a structural registry written only by `NS.Filters` (`architecture-§5`). See [schema.md](schema.md) and [common-tasks.md](common-tasks.md).)
+`Schema:Get` reads back from the active profile, or through the row's own `get` for those three global rows (`Schema.lua:720`). Because widgets never touch the DB directly, the CLI and the panel can never diverge. (The Browser's window geometry, saved view and the auction `priority` cascade are the deliberate carve-outs. They persist straight to the active profile, not through `Schema:Set`. The `blacklist`/`whitelist`/`currencyBlacklist` id sets are a structural registry written only by `NS.Filters` (`architecture-§5`). See [schema.md](schema.md) and [common-tasks.md](common-tasks.md).)
 
 ## Combat-locked, lazily rendered body
 
@@ -222,7 +227,7 @@ The combat lock is entirely the library's (options-ui-§2 / §13, LibKa0s v1.46.
 
 `renderHistory` (`Panel.lua`) draws the rest of the **History** tab, from `AFTER_GROUP["History"]` rather than from the page renderer (see the tab-strip section above for why that distinction is load-bearing): a live stats label paired with a **Purge history…** button. It draws **no `O.Section` heading** — the tab is the heading, and a "History" heading inside a tab called History is the page saying it twice.
 
-* **Keep history for** is the tab's one schema row, and the one setting here that can delete. It is one of the two stored rows that live outside the profile (the other is `minimap.shown`, in `db.global.minimap`): its own `get`/`set` read and write `db.global.retentionDays` (owner decision D6), because the history it prunes is shared by every profile. A shorter value that would drop records raises `KA0S_LOOTHISTORY_PRUNE` — *Shorten 'Keep history for' to 7 days? 3 older records will be deleted. This cannot be undone.* **Yes** prunes. **No** puts the dropdown back at the previous value, keeps every record and prints one line, `retention kept at 90 days; no records were deleted.` A change that would delete nothing (a longer value, or Always) asks nothing. `/lh set settings.retentionDays 7` raises the same confirm, because it writes through the same seam. See [schema.md → *Retention prune*](schema.md#retention-prune).
+* **Keep history for** is the tab's row that can delete. It is one of the three stored rows that live outside the profile (the others are `minimap.shown`, in `db.global.minimap`, and `settings.rollupRetentionDays`, which prunes the Timeline's rollup at the next login with no confirm because it never touches a history row): its own `get`/`set` read and write `db.global.retentionDays` (owner decision D6), because the history it prunes is shared by every profile. A shorter value that would drop records raises `KA0S_LOOTHISTORY_PRUNE` — *Shorten 'Keep history for' to 7 days? 3 older records will be deleted. This cannot be undone.* **Yes** prunes. **No** puts the dropdown back at the previous value, keeps every record and prints one line, `retention kept at 90 days; no records were deleted.` A change that would delete nothing (a longer value, or Always) asks nothing. `/lh set settings.retentionDays 7` raises the same confirm, because it writes through the same seam. See [schema.md → *Retention prune*](schema.md#retention-prune).
 * **Stats label** reads from `Database:StorageStats` (`Database.lua:915`) — record count, span in days since the earliest record, and an **estimated** SavedVariables byte size rendered via `Util.FormatBytes` (WoW gives addons no way to read the real on-disk size, hence the `≈` and "(estimated)").
 * **Purge history…** (the ellipsis signals a confirm) opens the `KA0S_LOOTHISTORY_PURGE` StaticPopup, which calls `Database:Purge` on accept (popup at `settings/Slash.lua:8`). It is a **purge**, deliberately not folded into *reset settings* — options-ui-§12 keeps the two separate acts separately confirmed.
 * **Reset Everything is gone from this tab.** It *was* the global reset, so options-ui-§15 puts it on the Master controls tab as **Reset all settings**, and two buttons over one act is exactly what this pass exists to remove. Since profiles arrived that reset no longer touches the history at all, which leaves **Purge history…** as the one control here that deletes records.

@@ -477,7 +477,7 @@ end)
 test("Database: RunMigrations sets schemaVersion when absent", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 14)
 end)
 
 -- savedvariables-§1 (v2.65.0): the defaults declare 0, the pre-migration floor, and never the
@@ -486,12 +486,12 @@ end)
 -- makes a legacy account read as partly migrated.
 test("Database: defaults declare schemaVersion 0, and the target is the ladder's highest step", function()
   assertEqual(NS.defaults.global.schemaVersion, 0)
-  assertEqual(NS.SCHEMA_VERSION, 10)
+  assertEqual(NS.SCHEMA_VERSION, 14)
 end)
 
 -- What AceDB hands a brand-new install: the declared default, 0. The runner walks every step and
--- each [Migrate] line names the step it ran, v1->v2 through v9->v10.
-test("Database: a fresh store at schemaVersion 0 walks every step to 10", function()
+-- each [Migrate] line names the step it ran, v1->v2 through v13->v14.
+test("Database: a fresh store at schemaVersion 0 walks every step to 14", function()
   local g = NS.db.global
   local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
   local savedDebug, savedFlag = NS.Debug, NS.State.debug
@@ -503,25 +503,25 @@ test("Database: a fresh store at schemaVersion 0 walks every step to 10", functi
   NS.Debug, NS.State.debug = savedDebug, savedFlag
   local stamp = g.schemaVersion
   g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView   -- restore shared state
-  assertEqual(stamp, 10)
+  assertEqual(stamp, 14)
   local steps = {}
   for _, l in ipairs(lines) do
     local from, to = l:match("^Migrate v(%d+) %-> v(%d+),")
     if from then steps[#steps + 1] = from .. "->" .. to end
   end
-  assertEqual(table.concat(steps, " "), "1->2 2->3 3->4 4->5 5->6 6->7 7->8 8->9 9->10")
+  assertEqual(table.concat(steps, " "), "1->2 2->3 3->4 4->5 5->6 6->7 7->8 8->9 9->10 10->11 11->12 12->13 13->14")
 end)
 
 test("Database: RunMigrations leaves an already-current DB unchanged", function()
   NS.db.global.schemaVersion = 6
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 14)
 end)
 
 test("Database: RunMigrations is idempotent across repeated runs", function()
   NS.db.global.schemaVersion = nil
   NS:RunMigrations(); NS:RunMigrations(); NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 14)
 end)
 
 test("Database: RunMigrations is a safe no-op when the DB is absent", function()
@@ -542,7 +542,7 @@ test("Database: RunMigrations v1->v2 strips viaWhitelist and bumps schemaVersion
     { ts = 2, itemID = 5, itemName = "Was via whitelist", quality = 0, viaWhitelist = true },
   }
   NS:RunMigrations()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 14)
   assertTrue(NS.db.global.history[2].viaWhitelist == nil)  -- field stripped
   assertEqual(#NS.db.global.history, 2)                    -- nothing deleted
 end)
@@ -552,7 +552,7 @@ test("Migrate: v2->v3 renames sellPrice to vendorPrice", function()
   g.schemaVersion = 2
   g.history = { { itemName = "X", sellPrice = 250, quantity = 1 } }
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 14)
   assertEqual(g.history[1].vendorPrice, 250)
   assertEqual(g.history[1].sellPrice, nil)
 end)
@@ -567,7 +567,7 @@ test("Migrations: v3->v4 backfills currency-record quality", function()
   }
   g.schemaVersion = 3
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 14)
   assertEqual(g.history[1].quality, 4)   -- backfilled from the mock (Epic)
   assertEqual(g.history[2].quality, 4)   -- item unchanged
   assertEqual(g.history[3].quality, 3)   -- already-set currency unchanged
@@ -585,7 +585,7 @@ test("Migrations: v4->v5 backfills currency-record bound", function()
   }
   g.schemaVersion = 4
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 14)
   assertEqual(g.history[1].bound, "WARBAND")  -- 3008 is Warband-transferable (mock)
   assertEqual(g.history[2].bound, "BOP")      -- 2914 is not -> soulbound
   assertEqual(g.history[3].bound, "BOE")      -- item unchanged
@@ -605,25 +605,25 @@ test("Migrations: v5->v6 parks the retired ACCOUNT rows on WARBAND", function()
     { itemID = 3, bound = "BOE" },
     { itemID = 4 },                                     -- unbound, untouched
   }
-  local savedProfileView = NS.db.profile.savedView
+  local savedProfileViews = NS.db.profile.savedViews
   g.savedView = { bound = { ACCOUNT = true, BOE = true } }
   g.schemaVersion = 5
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 14)
   assertEqual(g.history[1].bound, "WARBAND")
   assertEqual(g.history[2].bound, "WARBAND")
   assertEqual(g.history[3].bound, "BOE")
   assertEqual(g.history[4].bound, nil)
   -- A saved Bound filter naming the retired token must follow, or the view silently matches nothing.
   -- v6 reshapes it where it then lived, in global; v9 then carries it into the profile.
-  local view = NS.db.profile.savedView
+  local view = NS.db.profile.savedViews.History   -- and v14 copies it into every tab's slot
   assertTrue(view.bound.WARBAND)
   assertTrue(view.bound.WARBAND_UE)
   assertEqual(view.bound.ACCOUNT, nil)
   assertTrue(view.bound.BOE)
   g.boundRepairPending, g.boundRepairAttempts = nil, nil
   g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView
-  NS.db.profile.savedView = savedProfileView
+  NS.db.profile.savedViews = savedProfileViews
 end)
 
 test("Migrations: the warbound split is armed, never run inline", function()
@@ -634,7 +634,7 @@ test("Migrations: the warbound split is armed, never run inline", function()
   g.boundRepairPending, g.boundRepairRevision = nil, nil
   g.schemaVersion = 6
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
+  assertEqual(g.schemaVersion, 14)
   assertTrue(g.boundRepairPending, "the repair must still be pending after the migration")
   g.boundRepairPending, g.boundRepairAttempts = nil, nil
   g.schemaVersion, g.boundRepairRevision = savedVer, savedRev
@@ -651,19 +651,19 @@ test("Migrations: v7->v8 rewrites a saved mapID filter as the zone names those i
     { itemID = 3, mapID = 20, zone = "Oribos" },
     { itemID = 4, mapID = 30 },                         -- no captured name -> the Unknown bucket
   }
-  local savedProfileView = NS.db.profile.savedView
+  local savedProfileViews = NS.db.profile.savedViews
   g.savedView = { mapID = { [10] = true, [30] = true }, bound = { BOE = true } }
   g.schemaVersion = 7
   NS:RunMigrations()
-  assertEqual(g.schemaVersion, 10)
-  local view = NS.db.profile.savedView   -- reshaped by v8 in global, then carried over by v9
+  assertEqual(g.schemaVersion, 14)
+  local view = NS.db.profile.savedViews.History   -- reshaped by v8, carried over by v9, split by v14
   assertEqual(view.mapID, nil, "the retired field must not linger")
   assertTrue(view.zone["Dire Maul"])
   assertTrue(view.zone[""], "a nameless map resolves to the Unknown bucket")
   assertEqual(view.zone.Oribos, nil, "an unselected zone must not be pulled in")
   assertTrue(view.bound.BOE, "the rest of the view is untouched")
   g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView
-  NS.db.profile.savedView = savedProfileView
+  NS.db.profile.savedViews = savedProfileViews
 end)
 
 test("Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in the history", function()
@@ -671,15 +671,80 @@ test("Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in t
   local g = NS.db.global
   local savedVer, savedHist, savedView = g.schemaVersion, g.history, g.savedView
   g.history = { { itemID = 1, mapID = 10, zone = "Dire Maul" } }
-  local savedProfileView = NS.db.profile.savedView
+  local savedProfileViews = NS.db.profile.savedViews
   g.savedView = { mapID = { [999] = true } }
   g.schemaVersion = 7
   NS:RunMigrations()
-  local view = NS.db.profile.savedView
+  local view = NS.db.profile.savedViews.History
   assertEqual(view.zone, nil)
   assertEqual(view.mapID, nil)
   g.history, g.schemaVersion, g.savedView = savedHist, savedVer, savedView
-  NS.db.profile.savedView = savedProfileView
+  NS.db.profile.savedViews = savedProfileViews
+end)
+
+test("Migrate: v10->v11 creates the ledger stores and rewrites no rows", function()
+  local g = NS.db.global
+  local savedH, savedHold, savedDaily, savedSince = g.history, g.holdings, g.daily, g.ledgerSince
+  local row = { ts = 1, itemID = 4, char = "A-Realm", quantity = 1 }
+  g.history, g.holdings, g.daily, g.ledgerSince = { row }, nil, nil, nil
+  g.schemaVersion = 10
+  local savedPrompt, savedPending = g.resetPrompt, g.resetPromptPending
+  g.resetPrompt, g.resetPromptPending = nil, nil
+  NS:RunMigrations()
+  assertEqual(g.schemaVersion, 14)
+  assertEqual(type(g.holdings), "table")
+  assertEqual(type(g.daily), "table")
+  assertEqual(type(g.ledgerSince), "number")
+  assertEqual(g.resetPromptPending, true, "an upgrade with history must arm the reset prompt")
+  assertTrue(g.history[1] == row)
+  assertEqual(row.dir, nil); assertEqual(row.kind, nil); assertEqual(row.holder, nil)
+  g.history, g.holdings, g.daily, g.ledgerSince = savedH, savedHold, savedDaily, savedSince
+  g.resetPrompt, g.resetPromptPending = savedPrompt, savedPending
+end)
+
+test("Migrate: the v11 step does not arm the reset prompt on an empty (fresh-install) history", function()
+  local g = NS.db.global
+  local savedH, savedPending = g.history, g.resetPromptPending
+  g.history, g.resetPromptPending, g.schemaVersion = {}, nil, 10
+  NS:RunMigrations()
+  assertEqual(g.resetPromptPending, nil)
+  g.history, g.resetPromptPending = savedH, savedPending
+end)
+
+test("Migrate: v11 step is idempotent and keeps existing holdings", function()
+  local g = NS.db.global
+  local savedHold, savedSince = g.holdings, g.ledgerSince
+  g.holdings = { ["A-Realm"] = { money = 5 } }
+  g.ledgerSince = 123
+  g.schemaVersion = 10
+  NS:RunMigrations()
+  assertEqual(g.holdings["A-Realm"].money, 5)
+  assertEqual(g.ledgerSince, 123)
+  g.holdings, g.ledgerSince = savedHold, savedSince
+end)
+
+test("Migrate: an already-current DB does not arm the reset prompt", function()
+  local g = NS.db.global
+  local savedH, savedPending = g.history, g.resetPromptPending
+  g.history, g.resetPromptPending, g.schemaVersion = { {} }, nil, 13
+  NS:RunMigrations()
+  assertEqual(g.resetPromptPending, nil)
+  g.history, g.resetPromptPending = savedH, savedPending
+end)
+
+test("Database: Purge retires the pending reset prompt", function()
+  -- red under: Purge leaving the marker -- loot recorded after `/lh purge` re-arms the popup.
+  local g = NS.db.global
+  local savedH, savedPending = g.history, g.resetPromptPending
+  g.history, g.resetPromptPending = { { itemID = 1 } }, true
+  NS.Database:Purge()
+  assertEqual(g.resetPromptPending, nil)
+  g.history, g.resetPromptPending = savedH, savedPending
+end)
+
+test("Defaults: trackLedger defaults on; resetPrompt undeclared", function()
+  assertEqual(NS.defaults.profile.settings.trackLedger, true)
+  assertEqual(NS.defaults.global.resetPrompt, nil)
 end)
 
 test("Database: ArmBoundRepair re-arms on a revision bump, and only then", function()
@@ -849,4 +914,196 @@ test("Database: RepairBoundStates gives up after the attempt cap", function()
   assertEqual(g.boundRepairPending, nil)
   assertEqual(g.history[1].bound, "WARBAND")   -- never downgraded, just left as looted
   g.history = savedHist
+end)
+
+test("Database: OnWrite hooks see Add and Amend with the quantity delta", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {}
+  local seen = {}
+  local hook = NS.Database:OnWrite(function(r, d, isNew) seen[#seen + 1] = { r = r, d = d, n = isNew } end)
+  local row = { ts = 1, itemID = 7, quantity = 2, dir = "OUT", source = "CONSUME" }
+  local idx = NS.Database:Add(row)
+  NS.Database:Amend(idx, 3)
+  NS.Database:RemoveWriteHook(hook)
+  NS.Database:Add({ ts = 2, itemID = 8, quantity = 1 })
+  assertEqual(#seen, 2)
+  assertTrue(seen[1].r == row); assertEqual(seen[1].d, 2); assertTrue(seen[1].n)
+  assertEqual(seen[2].d, 3); assertFalse(seen[2].n)
+  assertEqual(row.quantity, 5)
+  g.history = saved
+end)
+
+test("Database: Amend re-sends RecordAdded with the same record and index", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {}
+  local got, orig = {}, NS.bus.SendMessage
+  NS.bus.SendMessage = function(_, msg, r, i) if msg == NS.MSG.RECORD_ADDED then got[#got + 1] = { r, i } end end
+  local idx = NS.Database:Add({ ts = 1, itemID = 7, quantity = 1 })
+  NS.Database:Amend(idx, 1)
+  NS.bus.SendMessage = orig
+  assertEqual(#got, 2); assertTrue(got[2][1] == g.history[idx]); assertEqual(got[2][2], idx)
+  assertEqual(NS.Database:Amend(99, 1), nil)
+  g.history = saved
+end)
+
+test("Database: QueryList dir clause treats legacy rows as gains", function()
+  local rows = { { itemID = 1 }, { itemID = 2, dir = "OUT" }, { itemID = 3, dir = "MOVE" } }
+  assertEqual(#NS.Database:QueryList(rows, { dir = "IN" }), 1)
+  assertEqual(#NS.Database:QueryList(rows, { dir = { IN = true, OUT = true } }), 2)
+  assertEqual(#NS.Database:QueryList(rows, {}), 3)
+end)
+
+test("Database: minQuality floors items only, whitelist exempt", function()
+  local rows = {
+    { itemID = 1, quality = 0 }, { itemID = 2, quality = 2 }, { itemID = 3, quality = 0 },
+    { currencyID = 3008, quality = 1 }, { kind = "GOLD", quantity = 100 },
+  }
+  local out = NS.Database:QueryList(rows, { minQuality = 1, minQualityExempt = { [3] = true } })
+  local ids = {}
+  for _, r in ipairs(out) do ids[#ids + 1] = tostring(r.itemID or r.currencyID or r.kind) end
+  assertEqual(table.concat(ids, ","), "2,3,3008,GOLD")
+end)
+
+test("Database: Export carries the ledger fields with legacy defaults", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {
+    { ts = 1, char = "A-Realm", itemID = 1, quantity = 1 },
+    { ts = 2, char = "A-Realm", kind = "GOLD", dir = "MOVE", holder = "§warband", quantity = 50,
+      from = "A-Realm/money", to = "§warband/money" },
+  }
+  local out = NS.Database:Export({})
+  assertEqual(out[1].dir, "IN"); assertEqual(out[1].kind, "ITEM"); assertEqual(out[1].holder, "A-Realm")
+  assertEqual(out[2].dir, "MOVE"); assertEqual(out[2].kind, "GOLD")
+  assertEqual(out[2].from, "A-Realm/money"); assertEqual(out[2].to, "§warband/money")
+  g.history = saved
+end)
+
+-- ── the v12 -> v13 migration: stored holder moves become a loss and a gain (Phase 7) ──────────────
+local V13_T = os.time({ year = 2026, month = 10, day = 4, hour = 12 })
+local V13_DAY = os.date("%Y-%m-%d", V13_T)
+local WB = "§warband"
+
+-- Runs the ladder from v12 over `history` and `daily`, and answers the row count the v13 step
+-- reported on its [Migrate] line (nil when the step did not run). Shared state is put back.
+local function runV13(history, daily)
+  local g = NS.db.global
+  local savedVer, savedH, savedDaily = g.schemaVersion, g.history, g.daily
+  local savedDebug, savedFlag = NS.Debug, NS.State.debug
+  local n
+  NS.Debug = function(tag, fmt, ...)
+    local line = tag .. " " .. fmt:format(...)
+    n = tonumber(line:match("^Migrate v12 %-> v13, (%d+) rows")) or n
+  end
+  NS.State.debug = true
+  g.schemaVersion, g.history, g.daily = 12, history, daily or {}
+  NS:RunMigrations()
+  local stamp = g.schemaVersion
+  NS.Debug, NS.State.debug = savedDebug, savedFlag
+  g.schemaVersion, g.history, g.daily = savedVer, savedH, savedDaily
+  return n, stamp
+end
+
+local function moveRow(holder, kind, from, to, qty, extra)
+  local r = { ts = V13_T, char = "A-R", holder = holder, dir = "MOVE", kind = kind, quantity = qty,
+    source = "TRANSFER", from = from, to = to }
+  if kind == "ITEM" then r.itemID = 7 elseif kind == "CURRENCY" then r.currencyID = 3008 end
+  for k, v in pairs(extra or {}) do r[k] = v end
+  return r
+end
+
+test("Migrate v12->v13: a warband deposit pair becomes OUT + IN WARBAND_DEPOSIT with one pairId", function()
+  -- red under: no v13 step (the rows stay MOVE), or a step that gives the two halves different ids.
+  local a = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local b = moveRow(WB, "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local n, stamp = runV13({ a, b })
+  assertEqual(stamp, 14)
+  assertEqual(n, 2, "both halves converted")
+  assertEqual(a.dir, "OUT"); assertEqual(b.dir, "IN")
+  assertEqual(a.source, "WARBAND_DEPOSIT"); assertEqual(b.source, "WARBAND_DEPOSIT")
+  assertTrue(a.pairId ~= nil and a.pairId == b.pairId, "the two halves share one pairId")
+  assertEqual(a.from, "A-R/bags"); assertEqual(b.to, WB .. "/tabs")   -- from/to kept for display
+end)
+
+test("Migrate v12->v13: a warband withdraw of gold becomes OUT on the Warband, IN on the character", function()
+  local w = moveRow(WB, "GOLD", WB .. "/money", "A-R/money", 500)
+  local c = moveRow("A-R", "GOLD", WB .. "/money", "A-R/money", 500)
+  runV13({ c, w })
+  assertEqual(w.dir, "OUT"); assertEqual(c.dir, "IN")
+  assertEqual(w.source, "WARBAND_WITHDRAW"); assertEqual(c.source, "WARBAND_WITHDRAW")
+  assertEqual(w.pairId, c.pairId)
+end)
+
+test("Migrate v12->v13: character-to-character pairs take ALT_MAIL / CURRENCY_TRANSFER / ALT_TRADE", function()
+  local mailOut = moveRow("A-R", "ITEM", "A-R/bags", "B-R/mail", 2)
+  local mailIn = moveRow("B-R", "ITEM", "A-R/bags", "B-R/mail", 2)
+  local goldOut = moveRow("A-R", "GOLD", "A-R/money", "B-R/mail", 900)
+  local curOut = moveRow("A-R", "CURRENCY", "A-R/currency", "B-R/currency", 30)
+  local curIn = moveRow("B-R", "CURRENCY", "A-R/currency", "B-R/currency", 30)
+  local other = moveRow("A-R", "ITEM", "A-R/bags", "B-R/bags", 1)          -- ambiguous: an item
+  runV13({ mailOut, mailIn, goldOut, curOut, curIn, other })
+  assertEqual(mailOut.source, "ALT_MAIL"); assertEqual(mailIn.source, "ALT_MAIL")
+  assertEqual(mailOut.dir, "OUT"); assertEqual(mailIn.dir, "IN")
+  assertEqual(goldOut.source, "ALT_MAIL"); assertEqual(goldOut.dir, "OUT")
+  assertEqual(curOut.source, "CURRENCY_TRANSFER"); assertEqual(curIn.source, "CURRENCY_TRANSFER")
+  assertEqual(other.source, "ALT_TRADE", "an unmarked item/gold move between characters reads as a trade")
+  assertEqual(mailOut.pairId, mailIn.pairId); assertEqual(curOut.pairId, curIn.pairId)
+  assertTrue(goldOut.pairId ~= nil and goldOut.pairId ~= mailOut.pairId, "an unpaired half gets its own id")
+  assertTrue(other.pairId ~= nil and other.pairId ~= goldOut.pairId)
+end)
+
+test("Migrate v12->v13: a move inside one holder stays a MOVE; an existing pairId is kept", function()
+  -- red under: a step that converts every MOVE, or one that overwrites a stored id.
+  local bank = moveRow("A-R", "ITEM", "A-R/bags", "A-R/bank", 3)
+  local mailMoney = moveRow("A-R", "GOLD", "A-R/mail", "A-R/money", 100)
+  local loot = { ts = V13_T, char = "A-R", itemID = 9, quantity = 1, source = "KILL" }
+  local keep = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 1, { pairId = "x:1" })
+  local n = runV13({ bank, mailMoney, loot, keep })
+  assertEqual(n, 1)
+  assertEqual(bank.dir, "MOVE"); assertEqual(bank.source, "TRANSFER"); assertEqual(bank.pairId, nil)
+  assertEqual(mailMoney.dir, "MOVE"); assertEqual(mailMoney.pairId, nil)
+  assertEqual(loot.dir, nil, "a legacy gain is not rewritten")
+  assertEqual(keep.dir, "OUT"); assertEqual(keep.pairId, "x:1")
+end)
+
+test("Migrate v12->v13: a second run changes nothing", function()
+  local a = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local b = moveRow(WB, "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local history = { a, b }
+  runV13(history)
+  local id = a.pairId
+  local n = runV13(history)
+  assertEqual(n, 0, "nothing left to convert")
+  assertEqual(a.pairId, id); assertEqual(a.dir, "OUT"); assertEqual(b.dir, "IN")
+end)
+
+test("Migrate v12->v13: the touched day's in/out tallies are rebuilt from the rows; closes stay", function()
+  -- red under: a step that rewrites the rows but leaves the rollup, so the Timeline strip shows no
+  -- loss on the character and no gain on the Warband for the converted pair.
+  local a = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local b = moveRow(WB, "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local gain = { ts = V13_T + 60, char = "A-R", itemID = 7, quantity = 5, source = "KILL" }
+  local daily = { [V13_DAY] = {
+    ["A-R"] = { ["i:7"] = { c = 6, i = 5 }, ["i:8"] = { c = 1, i = 99 } },
+    [WB] = { ["i:7"] = { c = 4 } },
+  } }
+  runV13({ a, b, gain }, daily)
+  local d = daily[V13_DAY]
+  assertEqual(d["A-R"]["i:7"].i, 5, "the loot gain still counts")
+  assertEqual(d["A-R"]["i:7"].o, 4, "the deposit is the character's loss")
+  assertEqual(d["A-R"]["i:7"].c, 6, "closes are Holdings' and stay")
+  assertEqual(d[WB]["i:7"].i, 4, "and the Warband's gain")
+  assertEqual(d[WB]["i:7"].o, nil)
+  assertEqual(d[WB]["i:7"].c, 4)
+  assertEqual(d["A-R"]["i:8"].i, 99, "a thing no converted row touched is left alone")
+end)
+
+test("Migrate v12->v13: a day the rollup no longer holds is not recreated", function()
+  local a = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local daily = {}
+  runV13({ a }, daily)
+  assertEqual(a.dir, "OUT")
+  assertEqual(next(daily), nil, "a pruned day stays pruned")
 end)

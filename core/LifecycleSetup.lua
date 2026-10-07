@@ -22,11 +22,9 @@ local _, NS = ...
 -- one hold is taken, stood up only when the last is released. There is deliberately no StandUp
 -- member on the library instance -- a bare stand-up is the bug the latch exists to prevent.
 --
--- THIS ADDON TAKES ONE HOLD TODAY. It declines LibKa0s-Perf (performance-§12, recorded in
--- ARCHITECTURE.md -> Documented deviations), so nothing here ever takes `perf`. The key is still
--- published and the latch still honors it, because the invariant is the library's and not this
--- addon's: tests/test_disabled.lua drives both holds through it, and the day the harness is armed
--- the wiring is a registration rather than a rewrite.
+-- THIS ADDON TAKES BOTH HOLDS. `disabled` from the stored switch, `perf` from LibKa0s-Perf's
+-- Suspend/Resume (core/PerfSetup.lua, wired for the timeline ledger, spec §13 F2).
+-- tests/test_disabled.lua and tests/test_perf.lua drive both through the latch.
 --
 -- ── WHAT STANDS DOWN, AND WHAT DOES NOT ───────────────────────────────────────────────────────
 --
@@ -40,9 +38,11 @@ local _, NS = ...
 -- launcher's registration. Without those, `/lh enable` would not exist and the switch would only
 -- go one way.
 --
--- The one carve-out on the teardown side is `hooksecurefunc`, which has no un-hook: the three
--- merchant/mail hooks and the two in core/Compat.lua gate their own bodies instead, at
--- NS.Attribution:Stamp, which is the single funnel every one of them lands in.
+-- The one carve-out on the teardown side is `hooksecurefunc`, which has no un-hook, so every hook
+-- gates its own body instead, through one of two funnels. The three merchant/mail hooks and the two
+-- in core/Compat.lua land in NS.Attribution:Stamp; the ledger's loss-side hooks (repair, buy, delete,
+-- mail, auction, craft, guild bank) land in NS.Attribution:StampOut or one of the On* bodies beside
+-- it in modules/AttributionOut.lua, each of which checks the latch first.
 
 local Lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 
@@ -118,9 +118,12 @@ function NS.StandDown()
   -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
   -- does not touch messages, and this target subscribes to none.
   if NS.addon and NS.addon.UnregisterAllEvents then NS.addon:UnregisterAllEvents() end
-  for _, m in ipairs({ NS.Collector, NS.Attribution, NS.Browser, NS.Analytics }) do
+  for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics, NS.HoldingsTab,
+                      NS.Timeline, NS.Rollup }) do
     if m and m.Disable then m:Disable() end
   end
+  if NS.Attribution and NS.Attribution.DisableOut then NS.Attribution:DisableOut() end
+  if NS.DropLedgerResetOffer then NS.DropLedgerResetOffer() end
   local dropped = NS.CancelDeferrals()
   if NS.State.debug and NS.Debug then
     NS.Debug("State", "stand-down: capture unregistered, %d deferral(s) canceled", dropped)
@@ -142,9 +145,14 @@ function NS.StandUp()
     NS.SafeRegisterEvent(NS.addon, "PLAYER_ENTERING_WORLD", "OnEnterWorld", NS.RejectedEvents)
   end
   if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
+  if NS.Attribution and NS.Attribution.EnableOut then NS.Attribution:EnableOut() end
   if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
+  if NS.Reconciler and NS.Reconciler.Enable then NS.Reconciler:Enable() end
+  if NS.Rollup and NS.Rollup.Enable then NS.Rollup:Enable() end
   if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
   if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
+  if NS.HoldingsTab and NS.HoldingsTab.Enable then NS.HoldingsTab:Enable() end
+  if NS.Timeline and NS.Timeline.Enable then NS.Timeline:Enable() end
   if NS.State.debug and NS.Debug then NS.Debug("State", "stand-up: capture registered") end
   if NS.DebugAtEnable then NS.DebugAtEnable("State", "dependencies: %s", dependencyText()) end
 end

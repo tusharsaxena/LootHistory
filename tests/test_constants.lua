@@ -72,7 +72,7 @@ end)
 test("Constants: the mute options are the implemented sources, in display order", function()
   local i = 0
   for _, s in ipairs(C.SourceOrder) do
-    if C.SOURCE_IMPLEMENTED[s] then
+    if C.SOURCE_IMPLEMENTED[s] and not C.LEDGER_REASON[s] then
       i = i + 1
       assertEqual(C.SOURCE_OPTIONS[i].value, s, "mute option " .. i .. " out of order")
       assertEqual(C.SOURCE_OPTIONS[i].text, C.SourceLabel[s])
@@ -268,18 +268,32 @@ test("bus: a settings write sends SettingsChanged with its reason", function()
   end
 end)
 
-test("bus: NS.MSG declares exactly the three wire names", function()
+test("bus: Reconciler:Flush sends HoldingsChanged once per holder that moved", function()
+  -- On a scratch holdings store, restored before asserting: later suites read the real one.
+  local g, m, Rc = NS.db.global, T.mocks, NS.Reconciler
+  local saved, savedMoney = g.holdings, m.__money
+  g.holdings, m.__money = {}, 4242
+  Rc.dirty, Rc.deferred = {}, nil
+  local sent = busSends(function() Rc:MarkDirty("money"); Rc:Flush() end)
+  g.holdings, m.__money = saved, savedMoney
+  assertEqual(#sent, 1)
+  assertEqual(sent[1].msg, "Ka0s_LootHistory_HoldingsChanged")
+  assertEqual(sent[1].a, NS.Util.PlayerKey())
+end)
+
+test("bus: NS.MSG declares exactly the four wire names", function()
   local want = {
     RECORD_ADDED     = "Ka0s_LootHistory_RecordAdded",
     HISTORY_CHANGED  = "Ka0s_LootHistory_HistoryChanged",
     SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
+    HOLDINGS_CHANGED = "Ka0s_LootHistory_HoldingsChanged",
   }
   local n = 0
   for k, v in pairs(NS.MSG) do
     n = n + 1
     assertEqual(v, want[k], "NS.MSG." .. tostring(k))
   end
-  assertEqual(n, 3, "no fourth key")
+  assertEqual(n, 4, "no fifth key")
 end)
 
 test("bus: NS.MSG is the library's strict catalog, so a mistyped key raises", function()
@@ -317,4 +331,40 @@ test("bus: the degraded build declares the same names, without the library", fun
   for k, v in pairs(NS.MSG) do
     assertEqual(ns.MSG[k], v, "degraded NS.MSG." .. k)
   end
+end)
+
+local LEDGER_KEYS = { "SELL", "BUY", "REPAIR", "MAIL_SEND", "TRADE_GIVE", "AH_POST_FEE", "AH_SOLD",
+  "AH_BUY", "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
+  "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED",
+  -- Phase 7 (2026-10-06): a move between two holders is a loss + gain under the action's reason.
+  "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE", "CURRENCY_TRANSFER" }
+
+test("Constants: ledger reasons are appended SourceType members with labels", function()
+  for _, k in ipairs(LEDGER_KEYS) do
+    assertEqual(C.SourceType[k], k)
+    assertTrue(C.LEDGER_REASON[k], k .. " missing from LEDGER_REASON")
+    assertTrue(type(C.SourceLabel[k]) == "string" and C.SourceLabel[k] ~= "", k .. " has no label")
+  end
+  local n = 0; for _ in pairs(C.LEDGER_REASON) do n = n + 1 end
+  assertEqual(n, #LEDGER_KEYS)
+end)
+
+test("Constants: existing sources keep their order positions (append-only)", function()
+  local legacy = { "KILL", "CONTAINER", "MPLUS", "BONUS_ROLL", "ROLL", "QUEST", "TRADE", "MAIL", "AH",
+    "VENDOR", "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "REFUND", "OTHER" }
+  for i, s in ipairs(legacy) do assertEqual(C.SourceOrder[i], s) end
+  for i, s in ipairs(LEDGER_KEYS) do assertEqual(C.SourceOrder[#legacy + i], s) end
+end)
+
+test("Constants: no ledger reason is offered as a capture mute", function()
+  for _, o in ipairs(C.SOURCE_OPTIONS) do assertFalse(C.LEDGER_REASON[o.value], o.value) end
+end)
+
+test("Constants: direction palette and glyphs", function()
+  for _, d in ipairs(C.DirOrder) do
+    assertEqual(#C.DirRGB[d], 3)
+    assertTrue(type(C.DirGlyph[d]) == "string" and #C.DirGlyph[d] >= 3, "glyph is a multibyte char")
+    assertTrue(type(C.DirLabel[d]) == "string")
+  end
+  assertEqual(C.GOLD_TYPE, "Gold")
 end)

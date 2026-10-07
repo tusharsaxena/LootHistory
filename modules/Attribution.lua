@@ -15,6 +15,7 @@ local Attribution = NS.Attribution
 -- (debug-logging). Turn it on and reproduce a loot to trace exactly which path attributes an item.
 
 local State = NS.State
+local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
 local Constants = NS.Constants
 
 -- Deconstruct abilities (Disenchant / Milling / Prospecting) each stamp their OWN source. Their
@@ -118,10 +119,10 @@ end
 -- within CONTEXT_TTL. Not cleared on consume: one loot window emits many lines sharing a source.
 -- `trigger` is an optional label for the debug trace only.
 function Attribution:Stamp(source, detail, confidence, trigger)
-  -- THE hooksecurefunc CARVE-OUT, and the only gate of its kind in this addon (slash-commands-§7).
-  -- Five hooks reach this funnel -- BuyMerchantItem, TakeInboxItem, AutoLootMailItem,
-  -- UseContainerItem and GetQuestReward -- and `hooksecurefunc` has no un-hook, so gating the body
-  -- and returning is the one move available. It MUST NOT be read as license to gate anything that
+  -- THE hooksecurefunc CARVE-OUT (slash-commands-§7), one of two funnels gated this way; the other
+  -- is the loss side's StampOut and On* bodies in modules/AttributionOut.lua. Five hooks reach this
+  -- one -- BuyMerchantItem, TakeInboxItem, AutoLootMailItem, UseContainerItem and GetQuestReward --
+  -- and `hooksecurefunc` has no un-hook, so gating the body and returning is the one move available. It MUST NOT be read as license to gate anything that
   -- has a real unregister: every event this module owns is torn out in Attribution:Disable.
   if NS.IsStoodDown and NS.IsStoodDown() then
     if NS.State.debug and NS.Debug then NS.Debug("Attr", "stamp %s ignored: stood down", tostring(source)) end
@@ -337,7 +338,7 @@ end
 -- rotation). Only conclusive results are cached (see DeconstructSource): a positive always, a
 -- negative only once the seed names have resolved, so a not-yet-cached name can't freeze a wrong miss.
 -- Debug logs ONLY the deconstruct hits (not the non-deconstruct majority) — no per-cast spam.
-function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
+local function spellCast(self, unit, spellID)
   if unit ~= "player" then return end
   local cache = self._deconCache
   if not cache then cache = {}; self._deconCache = cache end
@@ -360,9 +361,20 @@ function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
   end
 end
 
+-- Shape A bracket (performance-§2) around the body above, so its early return is measured too.
+function Attribution:OnSpellSucceeded(_, unit, _castGUID, spellID)
+  local t0 = Perf.on and debugprofilestop()
+  spellCast(self, unit, spellID)
+  if t0 then Perf.Note("spellCast", debugprofilestop() - t0) end
+end
+
+-- A trade with an own alt stamps ALT_TRADE (a holder move, timeline-ledger Phase 7), the same
+-- reason the giving side's loss carries (AttributionOut OnTradeAccept).
 function Attribution:OnTradeAcceptUpdate(_, playerAccepted, targetAccepted)
   if playerAccepted == 1 and targetAccepted == 1 then
-    self:Stamp(Constants.SourceType.TRADE, nil, Constants.Confidence.CERTAIN, "trade-complete")
+    local own = self.IsOwnAlt and self:IsOwnAlt(NS.Compat.TradeTargetKey())
+    local source = own and Constants.SourceType.ALT_TRADE or Constants.SourceType.TRADE
+    self:Stamp(source, nil, Constants.Confidence.CERTAIN, "trade-complete")
   end
 end
 

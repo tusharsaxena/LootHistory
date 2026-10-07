@@ -38,7 +38,7 @@ test("Export: CSV header order — ts,date,time first; computed + per-key auctio
     "auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg," ..
     "auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical," ..
     "auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region," ..
-    "wowheadLink")
+    "wowheadLink,dir,kind,holder,from,to")
 end)
 
 test("Export: CSV auction/value columns — auction present and vendor fallback", function()
@@ -295,4 +295,34 @@ test("Export: InsightsCSV over an empty history, a bare table and nil", function
   checkCsv("empty history", csvLines(NS.Export:InsightsCSV(FX.statsFor({}))))
   checkCsv("bare table", csvLines(NS.Export:InsightsCSV({})))
   checkCsv("nil", csvLines(NS.Export:InsightsCSV(nil)))
+end)
+
+test("Export: CSV ledger columns follow wowheadLink and default for legacy rows", function()
+  local csv = NS.Export:CSV({
+    { ts = 1, char = "A-Realm", itemID = 1, quantity = 1 },
+    { ts = 2, char = "A-Realm", kind = "GOLD", dir = "OUT", holder = "A-Realm", quantity = 5, source = "REPAIR" },
+  })
+  local lines = {}
+  for line in csv:gmatch("(.-)\r\n") do lines[#lines + 1] = line end
+  assertTrue(lines[2]:find(",IN,ITEM,A%-Realm,,$") ~= nil, lines[2])
+  assertTrue(lines[3]:find(",OUT,GOLD,A%-Realm,,$") ~= nil, lines[3])
+end)
+
+test("Export: InsightsCSV appends Ledger sections only when the range has losses", function()
+  local stats = NS.Database:Stats({})            -- whatever is loaded; force a ledger table below
+  stats.ledger = { gainedCount = 2, lostCount = 1, movedCount = 0, gainedValue = 800, lostValue = 300,
+    netCount = 1, netValue = 500, reasonIn = { KILL = 2 }, reasonOut = { REPAIR = 1 },
+    valueReasonIn = { KILL = 800 }, valueReasonOut = { REPAIR = 300 } }
+  local csv = NS.Export:InsightsCSV(stats)
+  assertTrue(csv:find("Ledger,Net,1,0g 5s 0c", 1, true) ~= nil)
+  assertTrue(csv:find("Losses by Reason,Repair,1,0g 3s 0c", 1, true) ~= nil)
+  stats.ledger.lostCount = 0
+  assertTrue(NS.Export:InsightsCSV(stats):find("Ledger,", 1, true) == nil)
+end)
+
+test("Export: InsightsCSV writes a negative copper value with a leading minus", function()
+  local stats = NS.Database:Stats({})
+  stats.ledger = { gainedCount = 1, lostCount = 1, movedCount = 0, gainedValue = 100, lostValue = 300,
+    netCount = 0, netValue = -200, reasonIn = {}, reasonOut = {}, valueReasonIn = {}, valueReasonOut = {} }
+  assertTrue(NS.Export:InsightsCSV(stats):find("Ledger,Net,0,-0g 2s 0c", 1, true) ~= nil)
 end)

@@ -49,6 +49,17 @@ local SOURCE_COLOR = {
   CRAFT       = { 0.00, 0.52, 0.36 }, DISENCHANT = { 0.52, 0.44, 0.90 },
   MILLING     = { 0.38, 0.46, 0.00 }, PROSPECTING= { 0.00, 0.49, 0.62 },
   REFUND      = { 0.83, 0.32, 0.51 }, OTHER      = { 0.58, 0.58, 0.62 },
+  SELL = { 0.80, 0.62, 0.20 }, BUY = { 0.70, 0.45, 0.25 }, REPAIR = { 0.55, 0.50, 0.45 },
+  MAIL_SEND = { 0.20, 0.45, 0.70 }, TRADE_GIVE = { 0.10, 0.50, 0.50 },
+  AH_POST_FEE = { 0.60, 0.30, 0.55 }, AH_SOLD = { 0.85, 0.45, 0.75 }, AH_BUY = { 0.55, 0.25, 0.50 },
+  DESTROY = { 0.45, 0.20, 0.20 }, CONSUME = { 0.30, 0.65, 0.55 }, CRAFT_REAGENT = { 0.20, 0.45, 0.30 },
+  DECONSTRUCT = { 0.42, 0.36, 0.72 }, GUILD_DEPOSIT = { 0.25, 0.60, 0.25 },
+  GUILD_WITHDRAW = { 0.40, 0.75, 0.40 }, TRAINING = { 0.75, 0.70, 0.30 }, TRAVEL = { 0.50, 0.65, 0.80 },
+  TRANSFER = { 0.62, 0.62, 0.66 }, UNTRACKED = { 0.40, 0.40, 0.44 },
+  -- Holder moves (timeline-ledger Phase 7): warband blues for the two Warband directions, the alt
+  -- reasons beside their mail/trade cousins, and currency in a muted gold.
+  WARBAND_DEPOSIT = { 0.35, 0.55, 0.85 }, WARBAND_WITHDRAW = { 0.55, 0.72, 0.95 },
+  ALT_MAIL = { 0.45, 0.62, 0.78 }, ALT_TRADE = { 0.35, 0.72, 0.68 }, CURRENCY_TRANSFER = { 0.78, 0.66, 0.45 },
 }
 
 -- Bound-type display labels + colors.

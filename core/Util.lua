@@ -43,7 +43,8 @@ end
 
 -- A date-range key → a `from` epoch timestamp (nil = no lower bound / "all"). "today" is the
 -- current calendar day; "7d"/"30d" are rolling windows. Shared by the Browser date filter and
--- the Insights range selector so the two can't drift.
+-- the Insights range selector so the two can't drift. 90d/1y were added for the Timeline (spec
+-- §8.1); History and Insights offer them too, since the filter is one singleton.
 function Util.RangeFrom(range)
   local now = time()
   if range == "today" then
@@ -53,6 +54,10 @@ function Util.RangeFrom(range)
     return now - 7 * 86400
   elseif range == "30d" then
     return now - 30 * 86400
+  elseif range == "90d" then
+    return now - 90 * 86400
+  elseif range == "1y" then
+    return now - 365 * 86400
   end
   return nil
 end
@@ -264,3 +269,56 @@ function Util.Coalesce(fn, delay)
 end
 
 NS.Coalesce = Util.Coalesce
+
+-- Row accessors (timeline-ledger spec §4.1). Rows written before schema v11 carry none of `dir`,
+-- `kind`, `holder`; they were all gains, recorded by `char`. No consumer reads the raw fields.
+function Util.RowDir(r) return r.dir or "IN" end
+function Util.RowKind(r)
+  if r.kind then return r.kind end
+  if r.itemID == nil and r.currencyID ~= nil then return "CURRENCY" end
+  return "ITEM"
+end
+function Util.RowHolder(r) return r.holder or r.char end
+
+-- CHAT_MSG_MONEY (timeline-ledger spec §5.4 "Gold gains"): the player's own looted money and their
+-- party share. The money text is the localized "1 Gold, 2 Silver, 3 Copper" built from
+-- GOLD_AMOUNT / SILVER_AMOUNT / COPPER_AMOUNT, any part omitted when zero.
+local moneyPatterns, coinPatterns
+function Util.BuildMoneyPatterns()
+  moneyPatterns, coinPatterns = {}, {}
+  for _, g in ipairs({ YOU_LOOT_MONEY_GUILD, LOOT_MONEY_SPLIT, YOU_LOOT_MONEY }) do
+    if type(g) == "string" then moneyPatterns[#moneyPatterns + 1] = toLootPattern(g) end
+  end
+  for mult, g in pairs({ [10000] = GOLD_AMOUNT, [100] = SILVER_AMOUNT, [1] = COPPER_AMOUNT }) do
+    if type(g) == "string" then
+      local p = g:gsub("([%^%$%(%)%.%[%]%*%+%-%?%%])", "%%%1"):gsub("%%%%d", "(%%d+)")
+      coinPatterns[#coinPatterns + 1] = { pattern = p, mult = mult }
+    end
+  end
+end
+
+function Util.ParseSelfMoney(msg)
+  if not msg then return nil end
+  if not moneyPatterns then Util.BuildMoneyPatterns() end
+  for _, p in ipairs(moneyPatterns) do
+    local text = msg:match(p)
+    if text then
+      local copper = 0
+      for _, c in ipairs(coinPatterns) do
+        local n = text:match(c.pattern)
+        if n then copper = copper + tonumber(n) * c.mult end
+      end
+      return copper > 0 and copper or nil
+    end
+  end
+  return nil
+end
+
+-- "Name" or "Name-Realm" -> "Name-Realm" on the player's own (normalized) realm. Mail recipients and
+-- trade partners are typed or shown without a realm when they share the player's.
+function Util.QualifyName(name)
+  if not name or name == "" then return nil end
+  if name:find("-", 1, true) then return (name:gsub("%s+", "")) end
+  local realm = (GetNormalizedRealmName and GetNormalizedRealmName()) or (GetRealmName and GetRealmName()) or ""
+  return name .. "-" .. tostring(realm):gsub("%s+", "")
+end

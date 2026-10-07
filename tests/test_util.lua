@@ -63,7 +63,7 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceType.REFUND, "REFUND")
   assertEqual(NS.Constants.SourceLabel.REFUND, "Refund")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
-  assertEqual(#NS.Constants.SourceOrder, 16)   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND
+  assertEqual(#NS.Constants.SourceOrder, 39)   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND + 23 ledger reasons
   -- Every enum member now has a live capture path, so all are offered in the mute list: CRAFT (from
   -- "You create"), REFUND (from "You are refunded") and ROLL (from the "You won:" roll line) joined
   -- the wired sources (deconstruct abilities, AH from mail, BONUS_ROLL from the bonus-roll line).
@@ -262,7 +262,7 @@ test("Util: FormatBytes scales B / kB / MB", function()
 end)
 
 test("Database: InitDB creates the account-wide store and the Default profile", function()
-  assertEqual(NS.db.global.schemaVersion, 10)
+  assertEqual(NS.db.global.schemaVersion, 14)
   assertTrue(type(NS.db.global.history) == "table")
   assertEqual(#NS.db.global.history, 0)
   assertEqual(NS.db:GetCurrentProfile(), "Default")
@@ -382,4 +382,17 @@ test("Coalesce: with no C_Timer it runs straight through", function()
   trigger()
   T.mocks.C_Timer = saved
   assertEqual(ran, 1, "it ran immediately rather than being dropped")
+end)
+
+test("Util: ParseSelfMoney reads looted and shared money", function()
+  assertEqual(NS.Util.ParseSelfMoney("You loot 1 Gold, 2 Silver, 3 Copper"), 10203)
+  assertEqual(NS.Util.ParseSelfMoney("You loot 45 Copper"), 45)
+  assertEqual(NS.Util.ParseSelfMoney("Your share of the loot is 2 Silver."), 200)
+  assertEqual(NS.Util.ParseSelfMoney("Bob loots 3 Gold"), nil)
+end)
+
+test("Util.RangeFrom: 90d and 1y are rolling windows", function()
+  local now = T.mocks.time()   -- the clock the addon chunks resolve (the kit binds os.time)
+  assertTrue(math.abs(NS.Util.RangeFrom("90d") - (now - 90 * 86400)) <= 1)
+  assertTrue(math.abs(NS.Util.RangeFrom("1y") - (now - 365 * 86400)) <= 1)
 end)

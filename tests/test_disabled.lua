@@ -69,6 +69,7 @@ local OWNED = {
   "event:PLAYER_ENTERING_WORLD:nil",
   "event:CHAT_MSG_LOOT:nil",
   "event:CHAT_MSG_CURRENCY:nil",
+  "event:CHAT_MSG_MONEY:nil",
   "event:LOOT_OPENED:nil",
   "event:ENCOUNTER_START:nil",
   "event:ENCOUNTER_END:nil",
@@ -84,6 +85,27 @@ local OWNED = {
   "message:Ka0s_LootHistory_SettingsChanged:nil",
   "message:Ka0s_LootHistory_HistoryChanged:nil",
   "message:Ka0s_LootHistory_RecordAdded:nil",
+  -- modules/Reconciler.lua (trackLedger defaults on): the holdings capture events. Its
+  -- SettingsChanged subscription is already named above, on its own private target.
+  "event:BAG_UPDATE:nil",
+  "event:BAG_UPDATE_DELAYED:nil",
+  "event:PLAYER_EQUIPMENT_CHANGED:nil",
+  "event:PLAYER_MONEY:nil",
+  "event:ACCOUNT_MONEY:nil",
+  "event:CURRENCY_DISPLAY_UPDATE:nil",
+  "event:PLAYERBANKSLOTS_CHANGED:nil",
+  "event:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED:nil",
+  "event:PLAYER_INTERACTION_MANAGER_FRAME_SHOW:nil",
+  "event:PLAYER_INTERACTION_MANAGER_FRAME_HIDE:nil",
+  "event:CURRENCY_TRANSFER_LOG_UPDATE:nil",
+  "event:MAIL_INBOX_UPDATE:nil",
+  "event:OWNED_AUCTIONS_UPDATED:nil",
+  -- modules/AttributionOut.lua: the ledger's loss-side mail and guild-bank events, on `__outEv`.
+  "event:MAIL_SEND_SUCCESS:nil",
+  "event:MAIL_FAILED:nil",
+  "event:ADDON_LOADED:nil",
+  -- modules/HoldingsTab.lua: repaints the Holdings pane when the Reconciler's flush lands.
+  "message:Ka0s_LootHistory_HoldingsChanged:nil",
 }
 
 --- WHAT SURVIVES, AND WHY THE SET IS NOT SIMPLY EMPTY. §7 exempts a short named list as SETUP
@@ -107,7 +129,8 @@ local OWNED = {
 local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
-                            NS.Attribution.__spellFrame }) do
+                            NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
+                            NS.HoldingsTab.__ev, NS.Timeline.__ev }) do
     if target then t[target] = true end
   end
   return t
@@ -205,6 +228,101 @@ test("slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event a
     setEnabled(true)
   end)
 
+--- A stable text form of a table, keys sorted, for "is this store byte-for-byte what it was".
+local function dump(v)
+  if type(v) ~= "table" then return tostring(v) end
+  local keys = {}
+  for k in pairs(v) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local out = {}
+  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. dump(v[k]) end
+  return "{" .. table.concat(out, ",") .. "}"
+end
+
+test("slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell", function()
+  -- The rollup's write hook (modules/Rollup.lua) is a NS.Database:OnWrite function, not an event or
+  -- message registration, so the survey above cannot see it: this proof is behavioral.
+  -- red under: drop NS.Rollup from NS.StandDown's Disable list -- the hook stays on the Database and
+  -- the stood-down Add below writes an in-tally for A-R.
+  bringUp()
+  local g, h = NS.db.global, NS.db.global.history
+  local savedDaily = g.daily
+  g.daily = {}
+  local n = #h
+  NS.Database:Add({ ts = os.time(), dir = "IN", kind = "GOLD", holder = "A-R", quantity = 1 })
+  assertTrue(next(g.daily) ~= nil, "precondition: with the addon up, the same Add does tally")
+  h[n + 1] = nil
+  g.daily = {}
+  local before = dump(g.daily)
+  setEnabled(false)
+  NS.Database:Add({ ts = os.time(), dir = "IN", kind = "GOLD", holder = "A-R", quantity = 1 })
+  assertEqual(dump(g.daily), before, "a stood-down addon wrote a daily rollup cell")
+  h[n + 1] = nil
+  g.daily = savedDaily
+  setEnabled(true)
+end)
+
+test("slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after", function()
+  -- red under: drop the NS.DropLedgerResetOffer call from NS.StandDown -- the one-shot
+  -- PLAYER_REGEN_ENABLED target survives and the popup appears from a game event while off.
+  bringUp()
+  local g, realCombat, realShow = NS.db.global, M.InCombatLockdown, M.StaticPopup_Show
+  local savedH, savedPending, savedPrompt = g.history, g.resetPromptPending, g.resetPrompt
+  local function regen()
+    local n = 0
+    for _, r in ipairs(M.__registrations()) do
+      if r.event == "PLAYER_REGEN_ENABLED" then n = n + 1 end
+    end
+    return n
+  end
+  local shown = {}
+  g.history, g.resetPrompt, g.resetPromptPending = { {} }, nil, true
+  M.StaticPopup_Show = function(which) shown[#shown + 1] = which end
+  M.InCombatLockdown = function() return true end
+  local before = regen()
+  NS.OfferLedgerReset()
+  assertEqual(regen(), before + 1, "the combat-held offer did not register its one-shot target")
+  setEnabled(false)
+  assertEqual(regen(), before - before, "the held offer survived NS.StandDown")
+  M.InCombatLockdown = function() return false end
+  M.__fire("PLAYER_REGEN_ENABLED")
+  assertEqual(#shown, 0, "the reset popup appeared while the addon was stood down")
+  setEnabled(true)
+  M.StaticPopup_Show, M.InCombatLockdown = realShow, realCombat
+  g.history, g.resetPromptPending, g.resetPrompt = savedH, savedPending, savedPrompt
+end)
+
+test("slash-commands-§7 step 3: an \"Export first\" re-ask does not pop the reset prompt during NS.StandDown", function()
+  -- red under: NS.DropLedgerResetOffer leaving NS._ledgerResetAfterExport set -- StandDown hides
+  -- the export window after dropping the offer, and its OnHide hook showed the popup on an addon
+  -- that had just been switched off. The kit's Hide fires no script, so the window's Hide is
+  -- wrapped to fire OnHide as the client does.
+  bringUp()
+  local g, realShow = NS.db.global, M.StaticPopup_Show
+  local savedH, savedPending, savedPrompt = g.history, g.resetPromptPending, g.resetPrompt
+  g.history, g.resetPrompt, g.resetPromptPending = { {} }, nil, true
+  local shown = {}
+  M.StaticPopup_Show = function(which) shown[#shown + 1] = which end
+  NS.Export:Open({ title = "Export History", providers = {}, csv = function() return "" end })
+  local win = NS.Export:Window()
+  local ok, err = pcall(function()
+    assertTrue(win ~= nil, "the export window did not open")
+    local realHide = win.Hide
+    win.Hide = function(self) realHide(self); self:__fire("OnHide") end
+    NS._ledgerResetAfterExport = true          -- the popup's "Export first" was clicked
+    setEnabled(false)
+    win.Hide = realHide
+    assertEqual(#shown, 0, "the reset popup appeared while the addon was being stood down")
+    assertEqual(NS._ledgerResetAfterExport, nil, "the re-ask flag survived the stand-down")
+  end)
+  setEnabled(true)
+  NS._ledgerResetAfterExport = nil
+  if win then win:Hide() end
+  M.StaticPopup_Show = realShow
+  g.history, g.resetPromptPending, g.resetPrompt = savedH, savedPending, savedPrompt
+  if not ok then error(err, 0) end
+end)
+
 -- ── 4. nothing is left to wake up ─────────────────────────────────────────────────────────────
 
 test("slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag",
@@ -216,9 +334,12 @@ test("slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not
     --
     -- MEASURED AS A DELTA. The kit's live-timer set is shared with every suite that ran before this
     -- one, so the absolute count is not this addon's to assert; what is this addon's is that the
-    -- deferrals it armed are gone again.
-    bringUp()
+    -- deferrals it armed are gone again. The baseline is read while the addon is DOWN: bringing it
+    -- up can itself arm one (the Reconciler's resume reconcile, once a session has logged in), and
+    -- that one has to be canceled by the stand-down too.
+    setEnabled(false)
     local before = #M.__timers()
+    bringUp()
     NS.State.cleanupDone = false
     assertTrue(M.__fire("PLAYER_ENTERING_WORLD") > 0, "the login handler must be registered")
     assertTrue(#M.__timers() > before, "PLAYER_ENTERING_WORLD must arm the retention deferrals")
@@ -562,9 +683,9 @@ test("slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon
     -- arm; `/lh enable` is live too. A resume that called a bare StandUp would bring the addon back
     -- mid-capture and silently ruin the run.
     --
-    -- This addon declines LibKa0s-Perf (performance-§12), so nothing in it takes the `perf` hold
-    -- today. The invariant is the latch's rather than the addon's, and it is driven here directly
-    -- so that arming the harness later is a registration and not a rewrite.
+    -- LibKa0s-Perf takes the `perf` hold through P.Suspend (core/PerfSetup.lua; tests/test_perf.lua
+    -- drives that route). The invariant is the latch's rather than the harness's, so it is driven
+    -- here directly, hold by hold.
     -- red under: an `enable` path that calls NS.StandUp() directly instead of releasing the hold,
     -- or a perf resume that does — either one stands the addon up under a player who switched it
     -- off, and the registration set below comes back non-empty.

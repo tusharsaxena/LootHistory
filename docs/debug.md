@@ -11,7 +11,7 @@ Loot History has two debug surfaces, and both write into the same window:
 
 The console itself is the library's, and its contract lives in LibKa0s's
 [`docs/api/DebugLog/version-19.2.1-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-19.2.1-docs.md)
-(DebugLog 19 with DebugLogDiagnostics 2 and DebugLogGates 1 is the vendored set, from LibKa0s v1.68.1). This page covers only what Loot History
+(DebugLog 19 with DebugLogDiagnostics 2 and DebugLogGates 1 is the vendored set, from LibKa0s v1.70.0). This page covers only what Loot History
 adds on top.
 
 ## The console
@@ -82,9 +82,10 @@ at once.
 | `Data` | `Database:Delete` / `Database:Purge` | each delete and each purge, with the rows removed |
 | `Loot` | `Collector:OnChatMsgLoot` | an item recorded: name, quality, item level, source, confidence |
 | `AHPrice` | `Collector:OnChatMsgLoot`; `AuctionPrice:GatherAll` | the prices gathered and picked for each recorded item; a provider fetch that raised, once per distinct provider and message through the console's `DebugOnce` gate, so a Clear or a fresh `debug on` re-arms it |
-| `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` | an item or currency not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, and for the player's own currency lines `recordCurrency-off` and `unresolved-link` |
+| `Drop` | `Collector:OnChatMsgLoot` / `OnChatMsgCurrency` / `OnChatMsgMoney` | an item, currency or gold line not recorded, with the guard: `blacklist`, `quality`, `source`, `quest`, for the player's own currency lines `recordCurrency-off` and `unresolved-link`, and for a money line `gold-off` (`trackLedger` or `recordGold` off) |
 | `Currency` | `Collector:OnChatMsgCurrency` | a currency recorded |
-| `Attr` | `modules/Attribution.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down` |
+| `Money` | `Collector:OnChatMsgMoney` | a looted-gold `GOLD` row recorded (copper and source) |
+| `Attr` | `modules/Attribution.lua`; `modules/AttributionOut.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down`; for the ledger's loss side, an outbound stamp and its trigger (`stamp-out <reason> via <trigger>`, or `stamp-out <reason> ignored: stood down`) and an interaction frame opening or closing (`scope <name> open` or `closed`) |
 | `Open` | `Attribution:OnLootOpened` / `OnContainerItemUse` | one summary per loot window (never per slot); a lootable bag item `ignored: spell targeting`. A bag item with no loot logs nothing: a merchant sale is one `UseContainerItem` per item |
 | `Cast` | `Attribution:OnSpellSucceeded` | a deconstruct cast only, never the rest of the rotation |
 | `Mail` | `Attribution:StampMail` | a mail attachment taken, with the AH-or-mail verdict |
@@ -95,6 +96,8 @@ at once.
 | `Cmd` | `LibKa0s-Slash-1.0` (minor 18), through the descriptor's `debug` in `settings/Slash.lua` | every refusal the dispatcher decides, after its chat line, `refused <verb>[ <arg>]: <guard>`: a feature verb while the addon is switched off (`disabled`), an unknown verb, `get` / `set` / `reset` usage, not found, parse or write refusal, a reset with no default, and the profile verb's `unavailable`, `already current`, `in combat` and `unknown profile`. A live verb that runs logs nothing |
 | `Cfg` | `LibKa0s-Options-1.0` (minor 27); `runRebuilders`, `settings/Panel.lua` | the panel registration parked in combat and its `register flushed (combat ended)`, the open refused in combat, and opened; each write, Defaults, button, toggle, tab or id-list change the combat lock refuses, `<what> refused (in combat)`, once per text per combat; a list rebuilder that raised, once per distinct message (`DebugOnce`, re-armed by a Clear) |
 | `Launcher` | `LibKa0s-Launcher-1.0` (minor 5) | registration, and the broker or minimap library missing, once at register; these are state lines on the descriptor's `debugAtEnable`, held for `debug on` because register runs at login with logging off |
+| `Rollup` | `Rollup:SeedOnce` / `Rollup:Prune`, `modules/Rollup.lua`, from the login deferral | the one-time seed, `seeded <n> cells`, once per account; each login's rollup prune, `retention <n>d: removed <n> days`, or `prune skipped: retention is Always` |
+| `Holdings` | `modules/Reconciler.lua`, `Flush` | `flush: <n> holder(s) changed`, once per flush that moved at least one holder; a flush that changed nothing writes nothing |
 | `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
 
 ### Deliberately not logged
@@ -178,7 +181,7 @@ cut out of a longer trace by tag alone.
 | history | Record count with the oldest and newest timestamps; counts by source, confidence, quality, item type and bound state; distinct characters; how many records carry an AH price |
 | tail | The newest 25 records, newest first: index, timestamp, stored name, id, quantity, quality, source, confidence, bound state, zone and character |
 | bound repair | Whether the deferred bound-state repair is pending, its attempt count and its revision |
-| browser | Whether the History window is built, shown and locked; the table's sort, grouping, match count and test-record count; the saved view's keys |
+| browser | Whether the History window is built, shown and locked; the table's sort, grouping, match count and test-record count; each tab's saved view keys (`saved views none` when no tab has one) |
 | launcher | Whether the launcher is present and whether the minimap button is hidden |
 | pools | The History row pool's free and active counts, and how many Insights chart pools exist |
 | (end) | `==== Ka0s Loot History diagnostics end: N line(s) ====`, with `N` counting both markers |

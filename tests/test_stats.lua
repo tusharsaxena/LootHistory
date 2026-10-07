@@ -327,3 +327,111 @@ test("Stats: the time buckets match a per-record date() across 10:00, 10:05 and 
     assertEqual(s.byHour[23], 1, "the second before midnight stays in hour 23")
     assertEqual(s.byHour[0], 2, "midnight and one second after land in hour 0")
   end)
+
+local function seedLedger()
+  NS.db.global.history = {
+    { ts = T1, char = "A-Realm", itemID = 10, itemName = "Sword", quality = 4, source = "KILL", quantity = 1, vendorPrice = 100 },
+    { ts = T1, char = "A-Realm", itemID = 11, itemName = "Potion", quality = 1, source = "CONSUME",
+      dir = "OUT", kind = "ITEM", quantity = 5, vendorPrice = 10 },
+    { ts = T2, char = "A-Realm", kind = "GOLD", itemName = "Gold", source = "SELL", dir = "IN", quantity = 700 },
+    { ts = T2, char = "B-Realm", kind = "GOLD", itemName = "Gold", source = "REPAIR", dir = "OUT", quantity = 300 },
+    { ts = T2, char = "A-Realm", itemID = 10, itemName = "Sword", quality = 4, source = "TRANSFER",
+      dir = "MOVE", kind = "ITEM", quantity = 1, from = "A-Realm/bags", to = "A-Realm/bank" },
+  }
+end
+
+test("Stats: legacy breakdowns count only gains of items and currency", function()
+  seedLedger()
+  local s = NS.Database:Stats({})
+  assertEqual(s.totals.records, 1)
+  assertEqual(s.bySource.KILL, 1)
+  assertEqual(s.bySource.CONSUME, nil)
+  assertEqual(s.bySource.SELL, nil)
+end)
+
+test("Stats: ledger gains, losses, net and transfers", function()
+  seedLedger()
+  local L = NS.Database:Stats({}).ledger
+  assertEqual(L.gainedCount, 2); assertEqual(L.lostCount, 2); assertEqual(L.movedCount, 1)
+  assertEqual(L.gainedValue, 100 + 700)           -- sword value + gold copper
+  assertEqual(L.lostValue, 5 * 10 + 300)
+  assertEqual(L.netValue, 800 - 350); assertEqual(L.netCount, 0)
+  assertEqual(L.reasonOut.CONSUME, 1); assertEqual(L.reasonIn.SELL, 1)
+  assertEqual(L.goldIn, 700); assertEqual(L.goldOut, 300)
+  assertEqual(L.charOut["B-Realm"], 300)
+  assertEqual(L.kindIn.GOLD, 1); assertEqual(L.kindOut.ITEM, 1)
+end)
+
+test("Stats: preLedgerRows counts rows older than ledgerSince", function()
+  seedLedger()
+  local g = NS.db.global
+  local saved = g.ledgerSince
+  g.ledgerSince = T2
+  assertEqual(NS.Database:Stats({}).ledger.preLedgerRows, 2)
+  g.ledgerSince = saved
+end)
+
+-- Timeline ledger Phase 7: a move between two holders is a loss on the sender and a gain on the
+-- receiver, under the action's own reason, and Insights counts it like any other gain or loss.
+test("Stats: a holder move is a loss and a gain under its own reason, per holder", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  NS.db.global.history = {
+    { ts = T1, char = "A-Realm", holder = W, kind = "GOLD", itemName = "Gold", source = "WARBAND_WITHDRAW",
+      dir = "OUT", quantity = 500, from = W .. "/tabs", to = "A-Realm/bags", pairId = "1:1" },
+    { ts = T1, char = "A-Realm", holder = "A-Realm", kind = "GOLD", itemName = "Gold", source = "WARBAND_WITHDRAW",
+      dir = "IN", quantity = 500, from = W .. "/tabs", to = "A-Realm/bags", pairId = "1:1" },
+    { ts = T2, char = "A-Realm", holder = "A-Realm", kind = "ITEM", itemID = 11, itemName = "Potion",
+      source = "ALT_MAIL", dir = "OUT", quantity = 3, vendorPrice = 10, from = "A-Realm/bags", to = "B-Realm/mail" },
+    { ts = T2, char = "B-Realm", holder = "B-Realm", kind = "ITEM", itemID = 11, itemName = "Potion",
+      source = "ALT_MAIL", dir = "IN", quantity = 3, vendorPrice = 10, from = "B-Realm/mail", to = "B-Realm/bags" },
+  }
+  local L = NS.Database:Stats({}).ledger
+  assertEqual(L.movedCount, 0)
+  assertEqual(L.gainedCount, 2); assertEqual(L.lostCount, 2)
+  assertEqual(L.reasonIn.WARBAND_WITHDRAW, 1); assertEqual(L.reasonOut.WARBAND_WITHDRAW, 1)
+  assertEqual(L.reasonIn.ALT_MAIL, 1); assertEqual(L.reasonOut.ALT_MAIL, 1)
+  assertEqual(L.netValue, 0)
+  -- By character reads the row's holder, so the Warband carries its own half.
+  assertEqual(L.charOut[W], 500); assertEqual(L.charIn["A-Realm"], 500)
+  assertEqual(L.charOut["A-Realm"], 30); assertEqual(L.charIn["B-Realm"], 30)
+end)
+
+-- Final review: the IN half of a holder move is written by the sender, so the gains-only legacy
+-- breakdowns (which have no OUT to offset it) leave both halves out — a Warband deposit or a
+-- currency transfer is not loot for the character who gave the things away.
+test("Stats: holder-move pairs stay out of the legacy loot breakdowns", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local kill = { ts = T1, char = "A-Realm", holder = "A-Realm", itemID = 10, itemName = "Sword", quality = 4,
+    source = "KILL", quantity = 1, vendorPrice = 100, zone = "Valley" }
+  NS.db.global.history = { kill }
+  local base = NS.Database:Stats({})
+  NS.db.global.history = {
+    kill,
+    { ts = T2, char = "A-Realm", holder = "A-Realm", kind = "ITEM", itemID = 11, itemName = "Potion",
+      quality = 1, source = "WARBAND_DEPOSIT", dir = "OUT", quantity = 50, vendorPrice = 10, zone = "Valley",
+      from = "A-Realm/bags", to = W .. "/tabs", pairId = "2:1" },
+    { ts = T2, char = "A-Realm", holder = W, kind = "ITEM", itemID = 11, itemName = "Potion",
+      quality = 1, source = "WARBAND_DEPOSIT", dir = "IN", quantity = 50, vendorPrice = 10, zone = "Valley",
+      from = "A-Realm/bags", to = W .. "/tabs", pairId = "2:1" },
+    { ts = T2, char = "A-Realm", holder = "A-Realm", kind = "CURRENCY", currencyID = 3008,
+      itemName = "Valorstones", source = "CURRENCY_TRANSFER", dir = "OUT", quantity = 40, zone = "Valley",
+      pairId = "2:2" },
+    { ts = T2, char = "A-Realm", holder = "B-Realm", kind = "CURRENCY", currencyID = 3008,
+      itemName = "Valorstones", source = "CURRENCY_TRANSFER", dir = "IN", quantity = 40, zone = "Valley",
+      pairId = "2:2" },
+  }
+  local s = NS.Database:Stats({})
+  assertEqual(s.totals.records, base.totals.records)
+  assertEqual(s.totals.totalValue, base.totals.totalValue)
+  assertEqual(s.totals.totalQuantity, base.totals.totalQuantity)
+  assertEqual(s.bySource.KILL, 1)
+  assertEqual(s.bySource.WARBAND_DEPOSIT, nil)
+  assertEqual(s.byItem[11], nil)
+  assertEqual(s.byChar["A-Realm"].count, base.byChar["A-Realm"].count)
+  assertEqual(s.byChar["A-Realm"].value, base.byChar["A-Realm"].value)
+  assertEqual(s.byCurrency["Valorstones"], nil)
+  assertEqual(s.currencyByChar["A-Realm"], nil)
+  assertEqual(s.byZone["Valley"], base.byZone["Valley"])
+  -- The ledger still sees both halves of each move.
+  assertEqual(s.ledger.reasonIn.WARBAND_DEPOSIT, 1); assertEqual(s.ledger.reasonOut.CURRENCY_TRANSFER, 1)
+end)

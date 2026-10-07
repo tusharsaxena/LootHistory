@@ -265,7 +265,7 @@ test("/lh resetall is the profile reset: every setting, list, view and window ba
     NS.Filters:AddBlacklist(102)
     NS.Filters:AddWhitelist(202)
     NS.Filters:AddCurrencyBlacklist(303)
-    NS.db.profile.savedView = { groupBy = "source" }
+    NS.db.profile.savedViews = { History = { groupBy = "source" } }
     NS.db.profile.settings.window = { point = "TOPLEFT", x = 5, y = 5, w = 800, h = 600 }
     local p = NS.AuctionPrice:GetPriority()
     p[1], p[2] = p[2], p[1]
@@ -277,7 +277,7 @@ test("/lh resetall is the profile reset: every setting, list, view and window ba
     assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
     assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")
     assertEqual(NS.Filters:Count(NS.Filters:CurrencyBlacklist()), 0, "currency blacklist cleared")
-    assertEqual(NS.db.profile.savedView, nil, "savedView cleared")
+    assertEqual(NS.db.profile.savedViews, nil, "savedViews cleared")
     assertEqual(next(NS.db.profile.settings.window), nil, "window geometry cleared")
     assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","),
       table.concat(NS.Constants.AUCTION_PRIORITY_DEFAULT, ","), "the cascade is back in shipped order")
@@ -923,8 +923,8 @@ end)
 
 --- slash-commands-§2's live list, verbatim and spelled out here rather than read off the
 --- implementation: a test that imported the addon's own set would agree with it however wrong it
---- got. `perf` is on the list and this addon does not register it (performance-§12), which is why
---- the loop below asks NS.COMMANDS which of these exist rather than assuming all thirteen do.
+--- got. The loop below asks NS.COMMANDS which of these exist rather than assuming all thirteen do;
+--- since core/PerfSetup.lua wired the harness, `perf` is among them.
 local LIVE_WHILE_DISABLED = {
   "help", "config", "version", "enable", "disable", "debug", "perf", "diagnostics",
   "get", "set", "list", "reset", "resetall",
@@ -1112,4 +1112,18 @@ test("Clear-blacklist confirm and /lh test print their exact lines through the p
   end)
   F.ClearList, BT.ToggleTestMode = realClear, realToggle
   if not ok then error(err, 0) end
+end)
+
+test("/lh holdings <query> prints the matching name and its account-wide total", function()
+  local saved = NS.db.global.holdings
+  NS.db.global.holdings = {}
+  NS.Holdings:ApplyContainer("A-Realm", "bags", { [7] = 2 }, { [7] = "|Hitem:7|h[Apple]|h" }, 100)
+  NS.Holdings:ApplyContainer("B-Realm", "bank", { [7] = 9 }, {}, 50)
+  local out = capture(function() Sl:Holdings("item name") end)
+  NS.db.global.holdings = {}
+  local none = capture(function() Sl:Holdings("item name") end)
+  NS.db.global.holdings = saved
+  assertEqual(#out, 1)
+  assertTrue(out[1]:find("Item Name: 11", 1, true) ~= nil, out[1])
+  assertTrue(none[1]:find("no holdings match 'item name'", 1, true) ~= nil, none[1])
 end)

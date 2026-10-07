@@ -19,6 +19,7 @@ function E:BoundLabel(token) return BOUND_LABEL[token or "NONE"] or tostring(tok
 local function money(copper)
   if copper == nil then return "" end
   copper = tonumber(copper) or 0
+  if copper < 0 then return "-" .. money(-copper) end
   return string.format("%dg %ds %dc",
     math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100)
 end
@@ -76,7 +77,8 @@ end
 -- (Pick's tag, e.g. "tsm:dbmarket", or "" when unpriced). After the vendor/source/zone block, one
 -- RAW `auc_<provider>_<key>` column is appended per NS.Constants.AUCTION_KEYS entry (deterministic,
 -- capture-config order) exposing every price the addon actually captured, independent of which one
--- Pick chose. `wowheadLink` (from the item's bonus IDs) is last.
+-- Pick chose. `wowheadLink` follows the auction columns; the five ledger columns (`dir, kind,
+-- holder, from, to`) are appended after it.
 -- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
 local COLUMNS = {
   { "ts",           function(r) return r.ts end },
@@ -105,13 +107,20 @@ local COLUMNS = {
   { "zone",         function(r) return r.zone end },
 }
 -- One raw column per captured provider:key (deterministic — Constants.AUCTION_KEYS order), inserted
--- here (before wowheadLink is appended below) so wowheadLink stays the final column.
+-- here (before wowheadLink is appended below) so wowheadLink follows them.
 for _, k in ipairs(NS.Constants.AUCTION_KEYS) do
   local prov, key = k.provider, k.key
   COLUMNS[#COLUMNS + 1] = { "auc_" .. prov .. "_" .. key,
     function(r) return r.auctionPrice and r.auctionPrice[prov] and r.auctionPrice[prov][key] or nil end }
 end
 COLUMNS[#COLUMNS + 1] = { "wowheadLink", function(r) return E:WowheadLink(r) end }
+-- Ledger columns (timeline-ledger spec §13 F4), APPENDED after wowheadLink so every earlier column
+-- keeps its index for existing spreadsheets. Legacy rows export their accessor defaults.
+COLUMNS[#COLUMNS + 1] = { "dir",    function(r) return NS.Util.RowDir(r) end }
+COLUMNS[#COLUMNS + 1] = { "kind",   function(r) return NS.Util.RowKind(r) end }
+COLUMNS[#COLUMNS + 1] = { "holder", function(r) return NS.Util.RowHolder(r) end }
+COLUMNS[#COLUMNS + 1] = { "from",   function(r) return r.from end }
+COLUMNS[#COLUMNS + 1] = { "to",     function(r) return r.to end }
 local HEADER = {}
 for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 
@@ -302,6 +311,20 @@ local function emitCurrency(row, stats)
   for _, day in ipairs(curDayKeys) do row("Currency by Day", day, stats.currencyByDay[day]) end
 end
 
+-- The ledger summary (timeline-ledger spec §6), appended LAST so every earlier row keeps its place
+-- for an existing spreadsheet, and only when the range holds a loss or transfer: a gains-only
+-- range (every legacy history) exports exactly as before.
+local function emitLedger(row, stats)
+  local L = stats.ledger
+  if not L or ((L.lostCount or 0) == 0 and (L.movedCount or 0) == 0) then return end
+  row("Ledger", "Gained", L.gainedCount, L.gainedValue)
+  row("Ledger", "Lost", L.lostCount, L.lostValue)
+  row("Ledger", "Net", L.netCount, L.netValue)
+  row("Ledger", "Transfers", L.movedCount)
+  emitSection(row, "Gains by Reason", rankedRows(L.reasonIn, insightsSourceLabel, L.valueReasonIn))
+  emitSection(row, "Losses by Reason", rankedRows(L.reasonOut, insightsSourceLabel, L.valueReasonOut))
+end
+
 function E:InsightsCSV(stats)
   stats = stats or {}
   local lines = { "Section,Label,Count,Value" }
@@ -311,6 +334,7 @@ function E:InsightsCSV(stats)
   emitCharactersAndTime(row, stats)
   emitListsAndDays(row, stats)
   emitCurrency(row, stats)
+  emitLedger(row, stats)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 
@@ -527,6 +551,13 @@ local function EnsureFrame()
   -- registration below) or the title-bar close left the Data Set menu floating over the game with
   -- nothing left to hide it. One hook covers both, because both route through Hide().
   frame:HookScript("OnHide", function() NS.CloseMenu() end)
+  -- "Export first" on the ledger reset prompt: once the copy window closes, ask again.
+  frame:HookScript("OnHide", function()
+    if NS._ledgerResetAfterExport then
+      NS._ledgerResetAfterExport = nil
+      if NS.OfferLedgerReset then NS.OfferLedgerReset() end
+    end
+  end)
   frame:Hide()
   if type(UISpecialFrames) == "table" then
     table.insert(UISpecialFrames, "LootHistoryExportWindow")
@@ -543,6 +574,11 @@ end
 function E:Hide()
   if frame then frame:Hide() end
 end
+
+--- Test seam: the modal once built (nil before the first Open, and on a degraded install). The
+--- frame is memoized for the session, so a suite that runs after another one opened it cannot
+--- catch it at CreateFrame.
+function E:Window() return frame end
 
 function E:Open(cfg)
   config = cfg or {}

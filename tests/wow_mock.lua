@@ -44,18 +44,6 @@ return function()
   M.__currencyNames = { [3008] = "Valorstones", [2914] = "Weathered Harbinger Crest" }
   M.__currencyTransferable = { [3008] = true }   -- 3008 is Warband-transferable; 2914 is not
   M.C_CurrencyInfo = {
-    GetCurrencyListSize = function() return 3 end,
-    GetCurrencyListInfo = function(i)
-      if i == 1 then return { name = "The War Within", isHeader = true } end
-      if i == 2 then return { name = M.__currencyNames[3008], isHeader = false } end
-      if i == 3 then return { name = M.__currencyNames[2914], isHeader = false } end
-      return nil
-    end,
-    GetCurrencyListLink = function(i)
-      if i == 2 then return "|Hcurrency:3008::|h[Valorstones]|h" end
-      if i == 3 then return "|Hcurrency:2914::|h[Weathered Harbinger Crest]|h" end
-      return nil
-    end,
     GetCurrencyInfoFromLink = function(link)
       local id = tonumber(link and link:match("|?H?currency:(%d+)"))
       if not id then return nil end
@@ -68,6 +56,68 @@ return function()
         isAccountTransferable = M.__currencyTransferable[id] or false }
     end,
   }
+
+  -- ── holdings reads (timeline ledger) ───────────────────────────────────────
+  -- Enum.BagIndex as 12.0.7 ships it, INCLUDING the two type constants (-2/-3) the name patterns
+  -- must not scoop up (BankLedger's double-count bug).
+  M.Enum = M.Enum or {}
+  M.Enum.BagIndex = {
+    Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, ReagentBag = 5,
+    CharacterBankTab_1 = 6, CharacterBankTab_2 = 7, CharacterBankTab_3 = 8,
+    CharacterBankTab_4 = 9, CharacterBankTab_5 = 10, CharacterBankTab_6 = 11,
+    AccountBankTab_1 = 12, AccountBankTab_2 = 13, AccountBankTab_3 = 14,
+    AccountBankTab_4 = 15, AccountBankTab_5 = 16,
+    Characterbanktab = -2, Accountbanktab = -3,
+  }
+  M.Enum.BankType = { Character = 0, Guild = 1, Account = 2 }
+  M.Enum.PlayerInteractionType = { Banker = 8, AccountBanker = 68, MailInfo = 17, Auctioneer = 21, Merchant = 5, GuildBanker = 10 }
+  M.__bags, M.__bagSlots = {}, {}
+  M.C_Container = M.C_Container or {}
+  M.C_Container.GetContainerNumSlots = function(bag) return M.__bagSlots[bag] or 0 end
+  M.C_Container.GetContainerItemInfo = function(bag, slot)
+    local s = M.__bags[bag] and M.__bags[bag][slot]
+    if not s then return nil end
+    return { itemID = s.itemID, hyperlink = s.link, stackCount = s.count }
+  end
+  M.C_Container.ContainerIDToInventoryID = function(bag) if bag >= 1 and bag <= 5 then return 30 + bag end end
+  M.__money, M.__cursorMoney, M.__tradeMoney, M.__warbandMoney = 0, 0, 0, 0
+  M.GetMoney = function() return M.__money end
+  M.GetCursorMoney = function() return M.__cursorMoney end
+  M.GetPlayerTradeMoney = function() return M.__tradeMoney end
+  M.C_Bank = { FetchDepositedMoney = function(t) if t == 2 then return M.__warbandMoney end end }
+  M.INVSLOT_FIRST_EQUIPPED, M.INVSLOT_LAST_EQUIPPED = 1, 19
+  M.__inventory = {}
+  M.GetInventoryItemID = function(_, slot) return M.__inventory[slot] and M.__inventory[slot].itemID end
+  M.GetInventoryItemLink = function(_, slot) return M.__inventory[slot] and M.__inventory[slot].link end
+  -- The currency LIST (the window), distinct from the by-id lookups above. Collapsed headers hide
+  -- their children from GetCurrencyListSize exactly as the client does. Seeded with the fixture the
+  -- category tests read: one expansion header ("The War Within") then two currencies under it.
+  M.__currencyList = {
+    { header = true, name = "The War Within" },
+    { id = 3008, name = M.__currencyNames[3008] },
+    { id = 2914, name = M.__currencyNames[2914] },
+  }
+  local function visible()
+    local out, hidden = {}, false
+    for _, e in ipairs(M.__currencyList) do
+      if e.header then out[#out + 1] = e; hidden = e.collapsed
+      elseif not hidden then out[#out + 1] = e end
+    end
+    return out
+  end
+  M.C_CurrencyInfo.GetCurrencyListSize = function() return #visible() end
+  M.C_CurrencyInfo.GetCurrencyListInfo = function(i)
+    local e = visible()[i]; if not e then return nil end
+    return { name = e.name, isHeader = e.header or false, isHeaderExpanded = not e.collapsed,
+             quantity = e.quantity, isAccountWide = e.accountWide }
+  end
+  M.C_CurrencyInfo.GetCurrencyListLink = function(i)
+    local e = visible()[i]
+    if e and e.id then return "|Hcurrency:" .. e.id .. "::|h[" .. (e.name or "x") .. "]|h" end
+  end
+  M.C_CurrencyInfo.ExpandCurrencyList = function(i, expand)
+    local e = visible()[i]; if e and e.header then e.collapsed = not expand end
+  end
 
   -- ── loot / currency global strings ─────────────────────────────────────────
   M.LOOT_ITEM_SELF = "You receive loot: %s."
@@ -261,6 +311,16 @@ return function()
       return c[1], c[2], c[3], c[4]
     end
     function fs:GetStringWidth() return 0 end
+    -- The filter bar sizes its dropdowns from GetUnboundedStringWidth (0 here, like GetStringWidth,
+    -- so a built bar keeps its floor widths in every suite) and pins each label to one line; both
+    -- setters are recorded so a case can see the label will not wrap. The client defaults to
+    -- wrapping, and so does this stub.
+    function fs:GetUnboundedStringWidth() return 0 end
+    fs.__wordWrap, fs.__maxLines = true, 0
+    function fs:SetWordWrap(v) self.__wordWrap = not not v; return self end
+    function fs:GetWordWrap() return self.__wordWrap end
+    function fs:SetMaxLines(n) self.__maxLines = n; return self end
+    function fs:GetMaxLines() return self.__maxLines end
     return fs
   end
   M.__stubFontString = stubFontString
@@ -323,6 +383,79 @@ return function()
   -- this file re-embedded AceEvent by hand. tests/test_harness.lua pins the result. Events are
   -- still recorded per target on `t.__events`, and `M.__fireEvent(event, ...)` dispatches one the
   -- way AceEvent's frame does.
+
+  -- ── ledger capture (timeline ledger P2) ────────────────────────────────────
+  M.Enum = M.Enum or {}
+  -- Member names as the 12.x client ships them (as recalled; verified by smoke LED-P2-14). The
+  -- numbers are arbitrary here on purpose: the addon reverse-looks-up by NAME.
+  M.Enum.CurrencySource = { Loot = 0, QuestReward = 1, Vendor = 3, Trade = 4, ItemRefund = 5, AccountTransfer = 50 }
+  M.Enum.CurrencyDestroyReason = { Vendor = 3, Trade = 4, Spell = 1, FulfillCraftingOrder = 9,
+    ConcentrationCast = 12, AccountTransfer = 13 }
+  M.Enum.AuctionStatus = { Active = 0, Sold = 1 }
+  M.Enum.PlayerInteractionType = M.Enum.PlayerInteractionType or {}
+  M.Enum.PlayerInteractionType.Trainer = 7
+  M.Enum.PlayerInteractionType.TaxiNode = 2
+  M.__currencyAccountWide = {}
+  local baseGetCurrencyInfo = M.C_CurrencyInfo.GetCurrencyInfo
+  M.C_CurrencyInfo.GetCurrencyInfo = function(id)
+    local info = baseGetCurrencyInfo(id)
+    if info then info.isAccountWide = M.__currencyAccountWide[id] or false; return info end
+    if M.__currencyAccountWide[id] then return { name = "currency " .. id, quantity = 0, isAccountWide = true } end
+    return nil
+  end
+  M.__currencyTransfers = {}
+  M.C_CurrencyInfo.FetchCurrencyTransferTransactions = function() return M.__currencyTransfers end
+
+  M.ATTACHMENTS_MAX_RECEIVE, M.ATTACHMENTS_MAX_SEND = 16, 12
+  M.__inbox = {}
+  M.GetInboxNumItems = function() return #M.__inbox end
+  M.GetInboxItem = function(i, a)
+    local att = M.__inbox[i] and M.__inbox[i].items and M.__inbox[i].items[a]
+    if not att then return nil end
+    return "name", att.itemID, nil, att.count
+  end
+  M.GetInboxItemLink = function(i, a)
+    local att = M.__inbox[i] and M.__inbox[i].items and M.__inbox[i].items[a]
+    return att and att.link
+  end
+  M.__sendMail = { items = {}, money = 0 }
+  M.GetSendMailItem = function(slot)
+    local it = M.__sendMail.items[slot]
+    if not it then return nil end
+    return "name", it.itemID, nil, it.count
+  end
+  M.GetSendMailItemLink = function(slot) local it = M.__sendMail.items[slot]; return it and it.link end
+  M.GetSendMailMoney = function() return M.__sendMail.money or 0 end
+
+  M.__ownedAuctions = {}
+  M.C_AuctionHouse = {
+    GetNumOwnedAuctions = function() return #M.__ownedAuctions end,
+    GetOwnedAuctionInfo = function(i)
+      local a = M.__ownedAuctions[i]
+      if not a then return nil end
+      return { itemKey = { itemID = a.itemID }, itemLink = a.link, quantity = a.quantity, status = a.status }
+    end,
+    PostItem = function() end, PostCommodity = function() end,
+    PlaceBid = function() end, ConfirmCommoditiesPurchase = function() end,
+  }
+  M.C_Item.GetItemID = function(loc) return loc and loc.__itemID end
+  M.C_TradeSkillUI = { CraftRecipe = function() end, CraftSalvage = function() end, CraftEnchant = function() end }
+
+  M.__tradeTarget = nil
+  local baseUnitName = M.UnitName
+  M.UnitName = function(unit)
+    if unit == "NPC" then return M.__tradeTarget end
+    return baseUnitName(unit)
+  end
+
+  M.YOU_LOOT_MONEY = "You loot %s"
+  M.LOOT_MONEY_SPLIT = "Your share of the loot is %s."
+  M.YOU_LOOT_MONEY_GUILD = "You loot %s (%s deposited to guild bank)"
+  M.GOLD_AMOUNT, M.SILVER_AMOUNT, M.COPPER_AMOUNT = "%d Gold", "%d Silver", "%d Copper"
+  M.AUCTION_SOLD_MAIL_SUBJECT = "Auction successful: %s"
+  M.AUCTION_EXPIRED_MAIL_SUBJECT = "Auction expired: %s"
+  M.AUCTION_REMOVED_MAIL_SUBJECT = "Auction cancelled: %s"
+  M.AUCTION_WON_MAIL_SUBJECT = "Auction won: %s"
 
   return M
 end

@@ -629,3 +629,187 @@ test("Collector: with logging off a loot line calls the debug sink not at all", 
   assertEqual(mine, 0)
 end)
 
+
+-- ── Ledger claims and gold (timeline-ledger spec §5.3, §5.4) ──────────────────
+
+local function claimsReset()
+  NS.Reconciler.claims = {}
+  NS.Reconciler._enabled = true
+end
+
+test("Collector: a recorded loot line claims its stack for the holdings diff", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  claimsReset()
+  NS.db.profile.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF_MULTIPLE, LINK, 3))
+  local list = NS.Reconciler.claims["i:211296"]
+  assertTrue(list ~= nil, "no claim posted")
+  assertEqual(list[1].qty, 3)
+  assertTrue(list[1].row == NS.Database:History()[NS.Database:Count()])
+  NS.Reconciler.claims = {}
+end)
+
+test("Collector: a gated-out loot line claims nothing", function()
+  local mocks = T.mocks
+  claimsReset()
+  NS.db.profile.settings.qualityThreshold = 5
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_SELF, LINK))
+  assertEqual(NS.Reconciler.claims["i:211296"], nil)
+  NS.db.profile.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+end)
+
+test("Collector: a recorded currency line claims its amount", function()
+  local mocks = T.mocks
+  claimsReset()
+  NS.db.profile.settings.recordCurrency = true
+  NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.CURRENCY_GAINED_MULTIPLE, CURRENCY_LINK, 25))
+  assertEqual(NS.Reconciler.claims["c:3008"][1].qty, 25)
+  NS.Reconciler.claims = {}
+end)
+
+test("Collector: CHAT_MSG_MONEY writes a GOLD gain and claims it", function()
+  claimsReset()
+  NS.db.profile.settings.recordGold, NS.db.profile.settings.trackLedger = true, true
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("KILL", { npcID = 5 }, "CERTAIN")
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgMoney(nil, "You loot 1 Gold, 2 Silver, 3 Copper")
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.kind, "GOLD"); assertEqual(r.dir, "IN"); assertEqual(r.quantity, 10203)
+  assertEqual(r.itemName, "Gold"); assertEqual(r.itemType, "Gold"); assertEqual(r.source, "KILL")
+  assertEqual(r.holder, NS.Util.PlayerKey())
+  assertEqual(NS.Reconciler.claims.g[1].qty, 10203)
+  NS.Reconciler.claims = {}
+end)
+
+test("Collector: CHAT_MSG_MONEY with recordGold or trackLedger off writes nothing", function()
+  claimsReset()
+  local s = NS.db.profile.settings
+  s.recordGold = false; NS.Collector:RefreshUpvalues()
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgMoney(nil, "You loot 5 Copper")
+  s.recordGold, s.trackLedger = true, false; NS.Collector:RefreshUpvalues()
+  NS.Collector:OnChatMsgMoney(nil, "You loot 5 Copper")
+  assertEqual(NS.Database:Count(), before)
+  assertEqual(NS.Reconciler.claims.g, nil)
+  s.trackLedger = true; NS.Collector:RefreshUpvalues()
+end)
+
+-- ── Hidden and tracking currencies (P7 Task 0) ───────────────────────────────────────────────
+-- A chat currency link can name a HIDDEN tracking currency the token list never shows (owner report
+-- 2026-10-06: "Nebulous Voidcore" as hidden 3513 and listed 3418). The chat row and its claim go to
+-- the listed same-name twin, or nowhere; the holdings diff stays list-only either way.
+local S = dofile("tests/ledger_support.lua")
+local VOIDCORE = "Nebulous Voidcore"
+local HIDDEN, LISTED = 3513, 3418
+
+local function voidcoreCase(name, body)
+  S.case(name, function()
+    local m = T.mocks
+    local savedList, savedNames = m.__currencyList, m.__currencyNames
+    m.__currencyNames = setmetatable({ [HIDDEN] = VOIDCORE, [LISTED] = VOIDCORE }, { __index = savedNames })
+    local ok, err = pcall(function()
+      S.reset()
+      NS.db.profile.settings.recordCurrency = true
+      NS.db.profile.currencyBlacklist = {}
+      NS.Collector:RefreshUpvalues()
+      body(m)
+    end)
+    m.__currencyList, m.__currencyNames = savedList, savedNames
+    NS.Compat.CurrencyListChanged()
+    if not ok then error(err, 0) end
+  end)
+end
+
+local function currencyGenesis(m, list)
+  m.__currencyList = list
+  NS.Compat.CurrencyListChanged()
+  local r = S.R()
+  for _, p in ipairs({ "bags", "equipped", "money", "currency" }) do r:MarkDirty(p) end
+  r.silent = true; r:Flush(); r.silent = nil
+  NS.Holdings:MarkGenesis(S.me(), m.__epoch)
+end
+
+local function chatCurrency(m, id, qty)
+  local link = "|cffffffff|Hcurrency:" .. id .. "::|h[" .. VOIDCORE .. "]|h|r"
+  NS.Collector:OnChatMsgCurrency(nil, string.format(m.CURRENCY_GAINED_MULTIPLE, link, qty))
+end
+
+local function currencyRows()
+  local out = {}
+  for _, r in ipairs(S.H()) do if r.itemType == "Currency" then out[#out + 1] = r end end
+  return out
+end
+
+voidcoreCase("Collector+Reconciler: a hidden currency with a listed twin records once, under the twin, claimed", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" },
+    { id = LISTED, name = VOIDCORE, quantity = 10 }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  chatCurrency(m, HIDDEN, 1)
+  assertEqual(NS.Reconciler.claims["c:" .. HIDDEN], nil)
+  assertEqual(NS.Reconciler.claims["c:" .. LISTED][1].qty, 1)
+  m.__currencyList[2].quantity = 11
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", HIDDEN, 1, 1, nil, nil)
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", LISTED, 11, 1, nil, nil)
+  S.R():Flush()
+  m.__now = 110; S.R():Flush()                          -- past any claim wait: no OTHER diff row
+  local rows = currencyRows()
+  assertEqual(#rows, 1)
+  assertEqual(rows[1].currencyID, LISTED); assertEqual(rows[1].itemSubType, "Midnight")
+  assertTrue(rows[1].claimed); assertEqual(rows[1].dir, "IN")
+  assertEqual(NS.Holdings:Get(S.me()).currency[HIDDEN], nil)
+end)
+
+voidcoreCase("Collector: a hidden currency with no listed twin records nothing and claims nothing", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  chatCurrency(m, HIDDEN, 1)
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", HIDDEN, 1, 1, nil, nil)
+  S.R():Flush(); m.__now = 110; S.R():Flush()
+  assertEqual(#currencyRows(), 0)
+  assertEqual(next(NS.Reconciler.claims), nil)
+  assertEqual(NS.Holdings:Get(S.me()).currency[HIDDEN], nil)
+end)
+
+voidcoreCase("Collector+Reconciler: a new listed currency already in the list records one claimed chat row", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  m.__currencyList[3] = { id = LISTED, name = VOIDCORE, quantity = 1 }   -- listed before the chat line
+  chatCurrency(m, LISTED, 1)
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", LISTED, 1, 1, nil, nil)
+  S.R():Flush(); m.__now = 110; S.R():Flush()
+  local rows = currencyRows()
+  assertEqual(#rows, 1); assertEqual(rows[1].currencyID, LISTED); assertTrue(rows[1].claimed)
+  assertEqual(NS.Holdings:Get(S.me()).currency[LISTED], 1)
+end)
+
+-- Final review: with the ledger off there is no current baseline and no diff to fall back on, so a
+-- currency the list walk misses (under a collapsed header) and the stale baseline lacks keeps the
+-- link's id rather than going unrecorded.
+voidcoreCase("Collector: with trackLedger off an unlisted, unheld currency with no twin records one chat row", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  local s = NS.db.profile.settings
+  s.trackLedger = false; NS.Collector:RefreshUpvalues()
+  local ok, err = pcall(chatCurrency, m, LISTED, 1)
+  s.trackLedger = true; NS.Collector:RefreshUpvalues()
+  if not ok then error(err, 0) end
+  local rows = currencyRows()
+  assertEqual(#rows, 1)
+  assertEqual(rows[1].currencyID, LISTED); assertEqual(rows[1].quantity, 1)
+end)
+
+voidcoreCase("Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan", function(m)
+  currencyGenesis(m, { { header = true, name = "Midnight" }, { id = 3008, name = "Valorstones", quantity = 5 } })
+  chatCurrency(m, LISTED, 1)
+  assertEqual(#currencyRows(), 0)
+  assertEqual(next(NS.Reconciler.claims), nil)
+  m.__currencyList[3] = { id = LISTED, name = VOIDCORE, quantity = 1 }
+  S.R():OnEvent("CURRENCY_DISPLAY_UPDATE", LISTED, 1, 1, nil, nil)
+  S.R():Flush(); m.__now = 110; S.R():Flush()
+  local rows = currencyRows()
+  assertEqual(#rows, 1)
+  assertEqual(rows[1].currencyID, LISTED); assertEqual(rows[1].dir, "IN"); assertEqual(rows[1].claimed, nil)
+end)

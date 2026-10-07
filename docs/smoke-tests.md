@@ -19,14 +19,22 @@ free number in its theme.
 | PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
+| TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
+| CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
-| HIST-1 to 34 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export |
+| HIST-1 to 36 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views |
+| FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
+| AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
+| LED-1 to 10 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon |
+| LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
+| TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
+| TL-1 to 17 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, and the legend tooltip and spacing |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -68,6 +76,12 @@ free number in its theme.
   HIST-12 to HIST-23, HIST-28 to HIST-34, STATE-12, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
   CAP-27, FILT-1, FILT-16 and FILT-24.
 - Diagnostics or debug logging: DIAG, COMBAT-8, DEGRADED-4, SLASH-2, SLASH-8 and PANEL-19.
+- Ledger or holdings (`core/Ledger.lua`, `modules/Scanner.lua`, `Holdings.lua`, `Reconciler.lua`,
+  `HoldingsTab.lua`, the v11 migration, the reset popup in `settings/Slash.lua`): LED, COMBAT-1,
+  HIST-1 to HIST-3, INSTALL (the upgrade checks), SLASH-2 and STATE-1 to STATE-4. The Phase 2 writers
+  (`core/Ledger.lua`, `modules/Reconciler.lua`, `Escrow.lua`, `AttributionOut.lua`, `LedgerFormat.lua`,
+  `AnalyticsLedger.lua`, `core/PerfSetup.lua`) add LED-P2 and COMBAT-1.
+- The Timeline (`modules/Rollup.lua`, `TimelineModel.lua`, `Timeline.lua`, the Browser's per-tab filters and Date options, `BrowserTable:ShowMenu`, `HoldingsTab.RowActions`, `Reconciler:ForgetHolder`, `core/WidgetsSetup.lua`'s `NS.MakeLineChart`): TL, LED-4, COMBAT-1 and HIST-12. A LibKa0s re-vendor that moves `WidgetsLineChart.lua` also needs TL-1, TL-3, TL-12 and TL-13.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
 
 ## Install and upgrade
@@ -121,7 +135,7 @@ window stays closed and nothing prints. Result:
 
 **SLASH-2. The help index.** `/lh help` → a header `v<version> — slash commands (/loothistory is an
 alias for /lh)`, then one row per command in this order: show, hide, toggle, config, enable, disable,
-version, get, set, list, reset, resetall, profile, debug, diagnostics, test, purge, help (eighteen).
+version, get, set, list, reset, resetall, profile, holdings, debug, diagnostics, test, purge, help (nineteen).
 Each row is a gold `/lh <verb>`, an em dash and a white description; every line carries `[LH]`; no
 raw key such as `HELP_HEADER` shows; the window does not open. Result:
 
@@ -376,6 +390,17 @@ settings** and confirm → test mode off, box unticked. Tick it again, `/reload`
 resize grip → the grip is still drawn, nothing resizes and no size is saved (`/reload`, `/lh show`
 keeps the old size); untick → the grip resizes again and `/reload` keeps the new size. Result:
 
+**TM-1. Test mode fills Holdings and Timeline too.** `/lh test`, open **Holdings** → sample things
+held by four sample characters and the Warband (expand one to see the holders; the Character list
+offers the same five); open **Timeline** → with no Timeline pick saved (or one the sample lacks) it
+opens on Everlight Crystal with lines already drawn, while a saved pick the sample holds (e.g. Gold)
+is kept, and picking Gold draws a line per holder plus Total across about 120 days, and picking
+another sample item (Sunwell Cinder) draws at least two lines. `/lh test` again → both tabs are back
+on your own holdings and Timeline (your own pick, not the sample's), and nothing of the sample is
+left in either. While test mode is on, hover a **History** row → a tooltip with the item name in its
+quality color, its `Type · SubType`, and a gray `Test-mode sample` line; `/lh test` off → hovering your
+own rows shows the real item tooltip as before. Result:
+
 ## Combat
 
 **COMBAT-1. The window works in combat.** With the window open, attack a dummy; click a row, drag and
@@ -536,6 +561,13 @@ reads 7 days; no Lua error. Result:
 **CAP-32. Always keeps everything.** Set **Keep history for** to *Always*, `/reload` → nothing is
 pruned. Result:
 
+**CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
+tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
+3418) → History shows **one** Gain row for it, SubType the Currency-tab header (here *Midnight*), not
+two a second apart with one SubType blank. With `/lh debug on` a line naming no listed currency logs
+`[Drop] currency line reason=unlisted` and writes nothing. Rows recorded under the hidden id before
+this fix stay: delete them from the row menu. Result:
+
 ## History window
 
 **HIST-1. Toggle, show and hide.** `/lh toggle` twice, then `/lh show`, `/lh hide` → toggle flips,
@@ -556,9 +588,11 @@ that fits every column), 1.3× scale. Result:
 Vendor, Character), twice each → each direction renders; the active header shows one shared up or
 down arrow, not Blizzard's spinner arrow. Result:
 
-**HIST-6. Group by.** Cycle **Group by** through None, Day, Quality, Type, Source, Zone, Character;
+**HIST-6. Group by.** Cycle **Group by** through None, Day, Quality, Type, Type & SubType, Source, Zone, Character;
 collapse and expand a header → each renders in column order; headers show a chevron right when
-collapsed and a chevron down when expanded, not `+` / `-`. Result:
+collapsed and a chevron down when expanded, not `+` / `-`. **Type & SubType** headers read
+"Type: Armor · Plate" (just "Type: Armor" when an item has no subtype, a currency as "Currency · <category>"),
+alphabetical by type then subtype; the same mode is offered on **Holdings**. Result:
 
 **HIST-7. Filters and the row count.** Use **Date** (All, Today, Last 7 days, Last 30 days) and pick two
 values in **Bound**, **Quality**, **Type**, **SubType**, **Source**, **Zone**, **Character** → rows narrow
@@ -609,10 +643,11 @@ opens on that same press (two presses is a regression). Result:
 name in class color (a character with no class token shows the bare name); a selected multi-select
 row shows a tick and goes gold; no row shows an empty box. Result:
 
-**HIST-18. Save, Clear, Reset.** Set a group, sort and filters including a **Bound** pick, **Save** →
-"view saved as default."; change filters, **Clear** → back to the saved view and the current player;
-**Reset** → "view reset to stock defaults.". Save again, Clear, `/reload` → the Bound pick survived.
-Result:
+**HIST-18. Save, Reset, Clear.** On History set a group, sort and filters including a **Bound**
+pick, **Save** → "History view saved as default."; change filters, **Clear** → back to the saved view
+and the current player; **Reset** → "History view reset to stock defaults." and the stock view (no
+group, newest first, no filters), and the saved view is deleted: **Clear** now also lands on stock.
+Save again, `/reload` → the Bound pick survived. Result:
 
 **HIST-19. The window opens on the current player.** `/reload`, `/lh show` → the saved view and the
 current player; **Character** reads "Character: Current" with that menu row gold. On a character with
@@ -640,7 +675,7 @@ three-line hatch, as on the rest of the collection. Result:
 click **Export** (right of filter row 2) → the modal opens centered on the History window, not the
 screen, and reads **Export History**; on Insights → **Export Insights**. Result:
 
-**HIST-25. History CSV.** Export **All Data** → the header `ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink`
+**HIST-25. History CSV.** Export **All Data** → the header `ts,date,time,char,classFile,itemID,currencyID,itemName,quality,qualityRaw,itemLevel,bound,vendorPrice,vendorPriceRaw,auctionPrice,auctionPriceRaw,value,valueRaw,auctionSource,itemType,itemSubType,quantity,source,zone,auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg,auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical,auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region,wowheadLink,dir,kind,holder,from,to`
 and one row per record: `date` DD-MMM-YYYY, `time` HH:MM; `quality` a label beside `qualityRaw`;
 prices as `Ng Ns Nc` beside copper `*Raw` (auction blank when no price is selectable); `value` the
 higher of the picked auction price and `vendorPrice`; `auctionSource` the provenance tag (e.g.
@@ -659,8 +694,8 @@ Character x Source rows also carry the value). Loot sections are items-only, so 
 tallies across them; no By Keystone, Attribution Confidence, Currency by Source, flat Currency by
 Character or currency Summary rows. Result:
 
-**HIST-27. All Data and Current View.** Apply a filter, export **Current View** from each tab → both
-CSVs honor the shared filter; **All Data** covers the whole visible history. Result:
+**HIST-27. All Data and Current View.** Apply a filter on each tab, export **Current View** from each →
+each CSV honors that tab's own filter; **All Data** covers the whole visible history. Result:
 
 **HIST-28. The copy window opens right.** History → Export → **Export to CSV** → the copy window opens
 centered on the History window, above the modal (visible underneath), CSV pre-selected; it looks as
@@ -689,13 +724,67 @@ button → the window resizes, the grip shows the pressed hatch while held and s
 460px), and the DB-size footer never sits under the grip. Release, `/reload`, `/lh show` → the same
 size. Right-click the grip → nothing resizes. Result:
 
+**HIST-35. The filter bar on one line (P4).** The widths come from the client's font metrics, and
+the headless mock measures every string as 0, so only the client can check this. `/lh show`, then
+drag the grip down to the minimum width. Check each of these:
+
+- Every filter control's label sits on one line, with no wrap and no clipped tail. Pick two
+  **Direction** options and read `Direction: 2 selected`. Pick **Common** in **Quality** and read
+  `Quality: Common+`. Check **Character: Current**, the **Bound** and **Source** summaries, and
+  `N selected` on each multi-select too.
+- **Direction** and **Bound** are the same width. Compare their right edges with `/fstack`, or by eye
+  against the controls stacked above or below them.
+- The window's minimum width grows when the measured span needs it: the grip stops where the last
+  control on each row still fits. An older saved size narrower than that opens widened to it after
+  `/reload`.
+- At the minimum width, **Export** is at least 120 px wide (`/fstack`, or `/dump` on the button's
+  `GetWidth()`), the **Save / Reset / Clear** cluster spans exactly Export's width above it, and
+  none overlaps the dropdown to its left.
+
+Result:
+
+**HIST-36. Per-tab views (P11).** `/lh show`. On **History** pick a Quality, type `ore` in Search and
+**Save**. Go to **Holdings** → the bar is Holdings' own: no Quality pick, Search empty. There, group by
+**Character**, click the **Total** header and **Save** → "Holdings view saved as default.". Change the
+group to None and sort by Name, **Clear** → the list regroups by Character, sorted by Total (the
+reported bug: Save, Reset and Clear did nothing here). **Reset** → None, sorted by Name, filters
+cleared, and Holdings' saved view is gone. Back on **History** → the Quality pick and `ore` are still there, the group is History's
+own. On **Insights** and **Timeline** set something different again and switch round all four tabs
+→ each comes back exactly as left, Character scope included. **Clear** on the Timeline → its Search
+and Date return to its saved view (stock if none) and the charted thing stays. `/reload`, `/lh show` → each tab opens on its own
+saved view (Insights and Timeline on stock if never saved). On a profile saved before this release,
+every tab first opens on the one view you had saved. Result:
+
+**FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
+→ both filter rows end the same distance in from the right border as they start from the left
+(about 6 px), with **Export** and **Clear** flush to that margin. Drag the window wider, then
+narrower again → every row-2 dropdown and Export grow and shrink together in proportion, both rows
+keep the same right margin as the left at every width, **Group** stays exactly over **Date**,
+**Direction** over **Bound**, and **Save / Reset / Clear** over **Export**. Open a dropdown's menu,
+then drag the grip → the menu closes rather than hanging off a moved control. Result:
+
+**AC-1. Search autocomplete on every tab (P9).** On each of **History**, **Insights**, **Timeline**
+and **Holdings**, type a few letters of something you hold or looted into Search → a list opens
+directly under the box, exactly as wide as it, in the same gray border (the two outlines read as one),
+each name in its quality color, at most eight rows. History and Insights offer item and currency
+names from the rows the other filters show (the sample under `/lh test`), never Gold; Holdings
+offers what it lists, Gold included; Timeline offers things with **Gold** first when "gol" is typed.
+**Keys:** Down / Up move the highlight, Enter picks it, Esc closes the list and keeps what you typed,
+Tab picks the highlighted or first row, and focus never leaves the box. **Pick:** on History,
+Insights and Holdings, Search reads exactly the picked name and the view filters to it; on Timeline,
+the chart switches to the thing and Search keeps its name. **Close:** click a table row, the chart,
+or another tab while the list is open → the list closes (if a row click leaves it open, note it: the
+host then needs to clear focus on its own clicks). Drag the window grip wider and narrower with the
+list open → it stays under the box at the box's width. Result:
+
 ## Insights
 
 Open `/lh show` → **Insights** on a history spanning several days with currency loot (or `/lh test`).
 
-**INS-1. The shared filter scopes everything.** Change the Date dropdown, a column filter and the
-search on Insights → every card and chart re-scopes live; switching tabs keeps the same slice; a
-filter matching nothing hides the charts cleanly. Insights has no range selector of its own.
+**INS-1. Insights' own filter scopes everything.** Change the Date dropdown, a column filter and the
+search on Insights → every card and chart re-scopes live; switch to History → it keeps its own,
+unchanged slice, and back on Insights the slice you set is still there; a filter matching nothing
+hides the charts cleanly. Insights has no range selector of its own.
 Result:
 
 **INS-2. KPI cards.** → records, distinct items, characters, value, active days, epic+ drops, best drop
@@ -1088,6 +1177,397 @@ registered` and `[State] dependencies: price providers: …; latch: LibKa0s-Life
 written at the enable although login ran them with logging off. `/lh debug off`, `/lh debug on` →
 neither line again. Result:
 
+## Ledger and holdings
+
+The timeline ledger's Phase 1 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`).
+Run LED-5 on an account that still holds a **schema 10** SavedVariables file with loot history in it
+(copy `LootHistory.lua` from before the upgrade into `WTF/Account/<account>/SavedVariables/`, then
+log in). Every other check runs on the live account, with the ledger tick left on (**Track
+holdings and losses** under Settings > General > Capture).
+
+**LED-1. Fresh login.** Log in a character with items in its bags and equipped, some gold and a few
+currencies, then open the window and select the **Holdings** tab → the tab lists the character's bag
+items, equipped items, gold and currencies, each with a total. Expand one item → one line for the
+character, class-colored, with `Bags n` (and `Equipped` where it applies) and an age of `now`. The
+bank has not been read yet, so a bank line, where shown, reads **never**. Result:
+
+**LED-2. Open the bank.** At a banker, open the bank and the warband bank, then close them → the
+`Bank` and `Warband` containers populate on the Holdings tab, warband gold appears on a **Warband**
+line, and the ages read `now`. `/reload`, reopen Holdings away from the bank → the same values are
+there, now with ages (`m`, `h` or `d`, rising with real time) and no bank line has gone to zero.
+Result:
+
+**LED-3. A second character.** Log in a second character, open Holdings, and clear the Character
+filter to **All** → both characters appear, each class-colored, and the Warband appears **once**,
+labeled `Warband` and never as `§warband`. The first character's lines keep the ages they had.
+Result:
+
+**LED-4. Potions in combat.** With 5 of one potion in your bags and the Holdings tab open, drink all
+five during a fight with a dummy (or in a dungeon) → no lag, stutter or Lua error while the events
+fire. Leave combat → the bag count drops by exactly 5, in one refresh (the tab repaints once, not
+five times). `/lh debug on` shows at most one `[Holdings] flush: 1 holder(s) changed` line for the
+whole fight. Result:
+
+**LED-5. Upgrade from schema 10.** Log in on the schema 10 file with history → about five seconds in,
+one popup with the reset recommendation, showing your record count. Run all four ways, restoring the
+saved copy each time. **Keep history** → prints `keeping your loot history.` and never asks again.
+**Esc** → closes without a choice and asks again at the next login. **Export first** → opens the
+window's export box; closing it shows the popup again. **Reset history** → asks `Delete N loot
+records permanently?`; **Yes** empties History (`/lh purge` would find nothing) and prints `history
+reset; the ledger starts now.`, and the Holdings tab still lists everything it held. A character
+already on schema 11 gets no popup. Result:
+
+**LED-6. Warband gold away from the bank.** Open the warband bank once, close it, walk away from any
+banker, `/reload`, and read the **Warband** line's gold on the Holdings tab → record whether the
+value is the last-read amount (the client answered `C_Bank.FetchDepositedMoney`) or the line shows
+an age far older than the others (it answered `nil`). Either is a valid outcome — this check
+**records** which one the client does, for spec §5.6's open question and ARCHITECTURE's known
+limitations. It must never show `0` that was not there. Result:
+
+**LED-7. `/lh holdings <name>`.** `/lh holdings hearthstone` (any item you hold) → up to ten lines
+`<name>: <total>`, each total matching the Holdings tab. A currency name prints the count. `/lh
+holdings zzzz` → `no holdings match 'zzzz'.` With the addon disabled (`/lh disable`), the verb answers
+the one disabled line. Result:
+
+**LED-8. The tracking switch.** Untick **Track holdings and losses**, then `/etrace` (filter on
+`BAG_UPDATE`) → no `BAG_UPDATE` handling by LootHistory, and drinking a potion changes nothing on the
+Holdings tab. Re-tick it → the events are handled again and the tab catches up on the next bag
+change. `/lh set settings.trackLedger false` and `true` do the same. Result:
+
+**LED-9. Holdings columns, banding, tooltips and the header row (P4).** Open the window at its
+minimum size on the **Holdings** tab with a few items of different qualities, one currency and gold
+listed, and check each of these:
+
+- The header row reads exactly `Name · iLvl · Quality · Type · SubType · AH Price · Total · Value`,
+  gold, one line each, over the right columns. **No other text sits in the header row.**
+- **No stray text after the Timeline (P5).** The owner saw faint green text (`Cou…`, `Coun… <Tr…`)
+  over the Holdings header near **Total** and over History rows (under Item on a Gain row, and near
+  Source), at different places on the two tabs. The suspected cause was a Timeline or Insights
+  region parented outside its pane. The headless suites rule out one form of that: creation-time
+  parenting of the Timeline tab and the Insights chart layout. `tests/region_trace.lua` records the
+  parent each frame, FontString, Texture and Line is given when it is created, and with the pane
+  hidden none of them reads as visible (the Timeline case visits Timeline, then History, then
+  Holdings). The trace does not cover a region re-parented after it is made (`SetParent`,
+  `SetScrollChild`), the Insights pane's own chain (`Analytics:Attach`, its scroll frame and the
+  stat cards; the test builds the chart layout under a stand-in root), or GameTooltip and other
+  shared frames, so a leak through any of those is still a lead. **The bug is still open: no fix
+  has shipped and the source is unconfirmed.** A fix waits on the in-game frame path below. To check: open the
+  **Timeline**, chart Gold, type in Search so the suggestion list opens, hover the chart, then
+  switch to **History** and to **Holdings**, and do the same from **Insights**. Neither tab shows
+  any green text that is not its own. If any appears, note its text, its color and the tab you came
+  from, then hover it with `/fstack` and record the frame path. That path names the FontString, and
+  it is the evidence the fix needs.
+- Widen and narrow the window. The optional columns hide right to left (AH Price first, iLvl
+  last), and Name, Total and Value always stay.
+- Every other item line has the faint stripe. Expand a striped item and the holder lines under it
+  have the same stripe. Expand an unstriped one and its holder lines are unstriped too.
+- Hovering an item's name shows its item tooltip, hovering the currency shows the currency tooltip,
+  and hovering Gold shows `Gold` with the total. Moving off the row hides the tooltip.
+- Clicking a header sorts by that column. Clicking it again reverses the order, and the arrow
+  moves to that header.
+
+Result:
+
+**LED-10. Bank drift from outside the addon (P4).** This is the answer to "what if I trade with the
+addon off, or on another PC?" The headless mock cannot reproduce the client's read of the bank as it
+opens, so run it in the client. Visit a banker once with the addon on (the bank and the warband tab
+now have a baseline), then leave. Change the bank and a warband tab with the addon off: `/lh
+disable` (or untick it in the AddOns list) and deposit or withdraw a few known items, or do the same
+from another PC that has no copy of this SavedVariables file. Turn the addon back on, `/reload`, and
+visit a banker. Check each of these:
+
+- History gets `UNTRACKED` rows for **exactly** the difference: one IN or OUT per item that changed,
+  each with the changed count, on the character for the bank and on **Warband** for the tab. No row
+  is a MOVE (⇄), and no row has a guessed reason such as Vendor or Loot.
+- Deposit one more item in the same visit → one MOVE row (bags → bank), not `UNTRACKED`.
+- The Holdings tab's bank and warband counts match the bank you see.
+- A bank never read before (a new character's first visit) writes no rows at all.
+
+Caveat: the opening read runs about 0.35 s after the bank frame shows (the flush debounce). A deposit
+made inside that window is folded into the drift read: its bank side lands as an `UNTRACKED` IN and
+its bags side is classified on its own, so it is not a MOVE row. Wait a moment after opening the
+bank before depositing, and record what a quick deposit shows if you test it.
+
+Result:
+
+**LED-11. History Direction column (P5).** Open History with the Direction dropdown on **All** so
+gains, losses and transfers all show. Check each of these:
+
+- The column header reads **Direction**, and the column is wide enough that `Transfer` is not cut off.
+- A gain reads `▲ Gain` in green, a loss `▼ Loss` in red, a transfer `⇄ Transfer` in gray. The glyph
+  and the label share one color, and the glyph is a real arrow, not a box.
+- A row recorded before the ledger existed (no direction stored) reads `▲ Gain` in green.
+- Scroll the list up and down several pages so rows are reused: every row keeps the glyph, label and
+  color that match its own direction, with no glyph left over from another row.
+- Pick **Group: Direction**: the group-header rows show no glyph, and the rows under each header
+  match it. Click the Direction header to sort: gains, losses, transfers (and the reverse).
+
+Result:
+
+**LED-12. History gold amounts and the Gold tooltip (P5).** With **Record gold** ticked, open History
+on rows that include gold gains and losses (a large one if you have it, six or seven digits of gold).
+
+- The Qty column shows every gold amount in full, sign included (`+1,521g 3s 7c`, `-9,661g …`), with no
+  `…` cut-off; item and currency counts still read as before.
+- Hover a gold row: the tooltip matches BankLedger's gold row: a `Gold` title in pale gold, an
+  `Amount` line with the signed coin string on the right, and a gray `Right-click for options` line.
+  It never shows an item tooltip. Moving off the row hides it.
+- Hover an item row and a currency row: their own tooltips are unchanged.
+- The window's minimum width still shows every column: drag the grip to the smallest size and no
+  column overlaps its neighbor.
+
+Result:
+
+## Ledger capture (timeline ledger Phase 2)
+
+The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`):
+every gain, loss and transfer written as History rows. Run on the live account with **Track holdings
+and losses** and **Record gold** ticked, History's Direction filter set to **All** (Direction
+dropdown, row 1 of the filter bar) so transfers show, and Quality left on its default. A move inside
+one holder is one `⇄` row; since Phase 7 a move between two holders is a loss on the sender and a
+gain on the receiver under the action's reason (TR-1 to TR-3). **Bracketed lines are API facts the headless suite could not verify**:
+when one fails, the fix is a Compat or mock correction in a follow-up commit, and the check is
+re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are recorded.
+
+**LED-P2-01. Bank deposit and withdraw.** At a banker, deposit a stack from your bags, then withdraw
+half of it → only `⇄` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
+row for the item, and the Holdings tab's bank column updates. Result:
+
+**LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → for each, an
+`OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `⇄`). [`ACCOUNT_MONEY` fires on a warband gold
+deposit; `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` answers while the bank is open.] Result:
+
+**LED-P2-03. Vendor.** Sell a junk item, repair, buy one item, buy one back → item `OUT SELL` and
+gold `IN SELL` (about 1.5 s later), gold `OUT REPAIR`, gold `OUT BUY` with item `IN VENDOR` (the item
+row chat-claimed), and the buyback as gold `OUT BUY`. [`RepairAllItems` and `BuybackItem` are
+hookable globals on 12.x.] Result:
+
+**LED-P2-04. Loot.** Kill a mob that drops gold and two items, one of them gray → one claimed row per
+item and one claimed gold row, `source=KILL`. The gray item appears in History only after Quality →
+Poor is selected (the minimum-quality view floor). [`CHAT_MSG_MONEY` arrives as "You loot ..." built
+from `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT`.] Result:
+
+**LED-P2-05. Combat potions.** Drink 3 potions in one pull → no hitch during the pull; after combat
+exactly one `OUT CONSUME` row with quantity 3. A second pull within 60 s amends that row instead of
+adding a second. Result:
+
+**LED-P2-06. Mail to your own alt.** Send items and gold to an alt → `OUT ALT_MAIL` rows on the
+sender (Phase 7), and a gold `OUT MAIL_SEND` for the postage. Log the alt in and take the mail →
+`IN ALT_MAIL` rows on the alt, no `⇄` and no second loss.
+[`SendMail` is a post-hook and `GetSendMailItem` / `GetSendMailMoney` still return the staged
+attachments when it runs; `MAIL_SEND_SUCCESS` fires after the bags change or within the 10 s window.]
+Result:
+
+**LED-P2-07. Mail from others and a won auction.** Take a mail from another player and an auction
+you won → `IN MAIL` and `IN AH`, chat-claimed when a loot line fires. [`GetInboxItem(i, a)` returns
+`name, itemID, texture, count`.] Result:
+
+**LED-P2-08. AH post.** Post one item and one commodity → `⇄` to `me/auctions` for each and gold
+`OUT AH_POST_FEE`. [`C_AuctionHouse.PostItem(itemLocation, duration, quantity, bid, buyout)` and
+`PostCommodity(itemLocation, duration, quantity, unitPrice)`: the third argument is the quantity;
+`C_Item.GetItemID(itemLocation)` resolves it.] Result:
+
+**LED-P2-09. AH outcomes.** Cancel one auction (the return, then taking it, is a `⇄`), let another
+sell (take the money: item `OUT AH_SOLD` and gold `IN AH_SOLD`). [`OWNED_AUCTIONS_UPDATED` fires after
+opening the Auctions tab; `GetOwnedAuctionInfo(i).status` uses `Enum.AuctionStatus.Active` / `Sold`;
+`AUCTION_SOLD_MAIL_SUBJECT` matches the sale mail subject and its `%s` is the item name only.]
+Result:
+
+**LED-P2-10. Guild bank.** Deposit and withdraw an item and some gold → `OUT GUILD_DEPOSIT` and
+`IN GUILD_WITHDRAW`. [`GuildBankFrame` exists after `Blizzard_GuildBankUI` loads and its `OnShow` /
+`OnHide` fire on open and close.] Result:
+
+**LED-P2-11. Crafting.** Craft 5 of a recipe → the reagents as `OUT CRAFT_REAGENT` rows and the
+product as `IN CRAFT`. [`C_TradeSkillUI.CraftRecipe` / `CraftSalvage` / `CraftEnchant` exist and are
+hookable.] Result:
+
+**LED-P2-12. Disenchant.** Disenchant one item → the item as `OUT DECONSTRUCT` and the materials as
+`IN DISENCHANT`. Result:
+
+**LED-P2-13. Warband currency transfer.** Transfer a transferable currency to an alt → an
+`OUT CURRENCY_TRANSFER` on you and an `IN CURRENCY_TRANSFER` on the alt (to `Alt/currency`, one shared
+`pairId`; Phase 7), and any fee as `OUT TRANSFER`. The alt's next login shows no `UNTRACKED` row for it.
+[`CURRENCY_TRANSFER_LOG_UPDATE` fires; `C_CurrencyInfo.FetchCurrencyTransferTransactions()` returns
+records with `currencyType`, `quantityTransferred` and `destinationCharacterName`;
+`CURRENCY_DISPLAY_UPDATE`'s `destroyReason` names `AccountTransfer`.] Result:
+
+**LED-P2-14. Currency spend.** Spend crests on an upgrade and currency at a vendor → `OUT` rows with
+mapped reasons (not `OTHER`). [`CURRENCY_DISPLAY_UPDATE`'s payload is `(currencyType, quantity,
+quantityChange, quantityGainSource, quantityLostSource)`; `/dump Enum.CurrencySource` and `/dump
+Enum.CurrencyDestroyReason` contain the member names in `C.CURRENCY_SOURCE_REASON`. Correct that table
+if they do not.] Result:
+
+**LED-P2-15. Login drift.** Disable the addon, log in, move items about, re-enable it and `/reload`
+→ `UNTRACKED` rows for the differences. A brand-new character's first login writes none. Result:
+
+**LED-P2-16. Resume drift.** `/lh disable`, loot something, `/lh enable` → the loot appears as
+`UNTRACKED` about one second after enabling. Result:
+
+**LED-P2-17. History display.** The glyphs ▲ ▼ ⇄ render (no boxes) in the mono face, colored (green,
+red, gray); Qty reads `+3` / `-3`; gold rows show in pale gold; the Direction filter defaults to Gains +
+Losses; ticking **Show transfers by default** then **Clear** includes transfers; Group by Direction and
+by Holder both work. [JetBrains Mono carries U+21C4.] Result:
+
+**LED-P2-18. Insights.** With losses in range: Gained, Lost, Net and Transfers cards, and the "Gains
+vs losses by reason / character / kind" charts above LOOT. Under the default Direction filter the
+Transfers card reads 0 (tick Transfers to count them). With kept history and a range before the
+upgrade date, the yellow pre-ledger caveat line shows. Result:
+
+**LED-P2-19. Exports.** The History CSV ends `...,wowheadLink,dir,kind,holder,from,to`; legacy rows
+read `IN,ITEM,<char>,,`; the Insights CSV ends with `Ledger` sections when losses are in range.
+Result:
+
+**LED-P2-20. Perf run.** `/lh perf` opens the step panel. Complete both arms on a training dummy with
+a loot-heavy pull, then `/lh perf finish` → a report whose `lootLine`, `spellCast` and `ledgerEvent`
+buckets are non-zero. Record it with `/dev-copilot:wow-perf-analysis`. Result:
+
+**LED-P2-21. Trainer and taxi.** Train a skill and take a flight → gold `OUT TRAINING` and
+`OUT TRAVEL`. [`Enum.PlayerInteractionType.Trainer` and `.TaxiNode` are the member names.] Result:
+
+**LED-P2-22. Party loot money.** In a group, loot gold that is split → "Your share of the loot is
+..." is parsed and claimed. With guild perks, note whether `YOU_LOOT_MONEY_GUILD`'s first amount is the
+pre- or post-cut figure (a known limitation if pre-cut). Result:
+
+**LED-P2-23. Trade.** Trade an item and gold to another player → `OUT TRADE_GIVE` rows. [`UnitName("NPC")`
+names the trade partner while the trade window is open.] Result:
+
+**LED-P2-24. Destroy.** Delete an item from your bags → `OUT DESTROY`. [`DeleteCursorItem` is a
+hookable global.] Result:
+
+### Holder moves (timeline ledger Phase 7)
+
+Owner decision 2026-10-06: a move between two **different** holders is a loss on the sender and a
+gain on the receiver, each under the action's reason; a move inside one holder stays one `⇄` row.
+History's **Character** column names the row's holder (the Warband reads **Warband**), and the
+Character filter matches it. Same setup as above (Direction **All**).
+
+**TR-1. Warband withdraw, gold and an item.** At a banker, withdraw some gold and one item stack from
+the warband bank → exactly two rows for each: a `▼ Loss` on **Warband** and a `▲ Gain` on the
+character, both reason **Warband Withdraw**, same quantity; no `⇄ Transfer` row. With the Character
+filter on **Character: Current** only the gains show; pick **Warband** and only the losses show.
+Insights → Gains Vs Losses By Reason has a **Warband Withdraw** row with both sides. Result:
+
+**TR-2. Bags to your own bank.** Deposit an item stack from your bags into your character bank →
+exactly one `⇄ Transfer` row (Bags to Bank) on the character, and no gain or loss. Result:
+
+**TR-3. Mail an item to an alt.** Send an item to an own alt → a `▼ Loss` on the sender, reason
+**Alt Mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt Mail**; no `⇄`
+row and no `UNTRACKED` row. Result:
+
+## Timeline
+
+The timeline ledger's Phase 3 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`): the
+daily rollup and the **Timeline** tab. Run on the live account with **Track holdings and losses** on,
+`/console scriptErrors 1`, and at least two characters that have logged in since the upgrade (the
+Timeline starts at the upgrade, so there is nothing to chart before it). The window opens scoped to
+the logged-in character: widen the **Character** filter to **All** wherever a check needs more than
+one holder. **Phase 3 is signed off only when all of TL-1 to TL-13 are recorded**, and a "no" in
+TL-13 is a stop-and-fix before the release.
+
+**TL-1. Line regions draw.** Open the Timeline on Gold with two or more characters known → lines, y
+labels in gold (a `g` suffix), date labels, and no Lua error. Result:
+
+**TL-2. Line cap.** Set **Timeline lines** (Settings > General > Interface) to 2, 8 and 16 → the line
+count follows (Total plus N), richest first. With the Character filter on one alt, only that alt and
+the Total draw. Result:
+
+**TL-3. Hover.** Move across the plot → the crosshair snaps per day and the tooltip lists each
+line's value and that day's Gained / Lost. Leaving the plot hides both. Hiding the window mid-hover
+leaves no tooltip behind. Result:
+
+**TL-4. Picker.** Type part of a potion's name in Search → the Search autocomplete (AC-1) offers
+matching things (Gold first when "gol" is typed). Pick one → the chart switches and Search keeps the
+thing's name. `/reload` → the pick is remembered. Result:
+
+**TL-5. Ranges.** **Today** and **Last 7 days** show intraday steps after a vendor sale and a loot.
+**Last 30 days**, **Last 90 days**, **Last year** and **All** show daily points. History and Insights
+also offer **Last 90 days** and **Last year**. Result:
+
+**TL-6. Partial and marker.** A character created after the upgrade draws dashed until its bank is
+first opened, and solid after. The dashed `ledgerSince` rule shows when **All** is selected. Result:
+
+**TL-7. Warband and colors.** **Warband** appears in the Character list on the Timeline and Holdings
+tabs, labeled "Warband", and draws in its own blue. Characters draw in class colors (one that has not
+logged in since the upgrade draws gray, which is expected). Result:
+
+**TL-8. Filter graying.** On the Timeline, Group, Bound, Quality, Type, SubType, Source, Zone and
+Export are grayed and **do not open** on click. On Holdings, Date, Direction, Source, Bound, Zone
+and Export are grayed; Group stays live and offers only None, Quality, Type, SubType, Type & SubType and Character,
+grouping the list under collapsible "<Prefix>: <Value> (N)" headers without changing History's own
+group. History and Insights gray nothing. Result:
+
+**TL-9. Show in Timeline.** Right-click a History row → **Show in Timeline**. Right-click a Holdings
+thing → **Show in Timeline**. Both land on the Timeline charting that thing. Result:
+
+**TL-10. Forget.** Right-click an alt's holder line on Holdings → **Forget this character** →
+confirm. The alt leaves Holdings and the Timeline; its History rows remain. The option is grayed on
+the logged-in character and on the Warband. Result:
+
+**TL-11. Rollup retention.** Set **Keep Timeline days for** to 90 days and `/reload` → after about
+five seconds the older days are gone (**All** starts no more than 90 days back) and every line still
+starts at its carried value. Result:
+
+**TL-12. Load.** **Last year** on Gold with 16 lines (**Timeline lines** 16, Character on **All**),
+then resize the window repeatedly → no visible hitch, and the in/out strip stays aligned under the
+plot. Result:
+
+**TL-13. WoW API facts.** The assumptions the headless suite cannot prove. Record each answer
+(yes, or what you saw) in the smoke log; any "no" is a stop-and-fix before the addon's release and,
+for 1 to 4, a LibKa0s patch release. Result:
+
+1. `Frame:CreateLine(name, drawLayer)` exists on a plain `Frame` and returns a `Line` region.
+2. `Line:SetStartPoint(relativePoint, relativeTo, offsetX, offsetY)` and `SetEndPoint(...)` take
+   that argument order, and the offsets are in the **relative frame's** coordinate space (the
+   chart's `BOTTOMLEFT`), so a chart inside a scaled window draws at the window's scale.
+3. `Line:SetThickness(n)` accepts a fractional thickness (1.5, 2.5), and
+   `Line:SetColorTexture(r, g, b, a)` colors a Line.
+4. Several hundred Lines on one frame (TL-12: 16 lines of up to about 300 segments, plus dashes)
+   render without a visible hitch, and hidden pooled Lines cost nothing per frame.
+5. `GetCursorPosition()` returns UI-scaled pixels that `/ frame:GetEffectiveScale() -
+   frame:GetLeft()` turns into a chart-local x, and an `OnUpdate` armed on `OnEnter` and cleared on
+   `OnLeave` fires only while hovered.
+6. A disabled LibKa0s dropdown (a `Button`, `SetEnabled(false)`) refuses `OnClick`;
+   `EditBox:SetEnabled(false)` blocks typing in the Search box; `SetAlpha(0.4)` reads as grayed
+   against the flat skin.
+7. `date("*t", ts)` and `time{...}` give local midnight across a daylight-saving change (EU
+   2026-10-25, US 2026-11-01): Timeline day labels stay on midnight and no day repeats or vanishes.
+8. `GameTooltip:AddDoubleLine` renders `GetCoinTextureString` coin markup on the right side.
+9. `StaticPopup_Show(name, text1, text2, data)` hands `data` to `OnAccept(self, data)` on 12.1.
+10. `RAID_CLASS_COLORS[classFile]` still carries `r, g, b` for every class, Evoker included.
+
+**TL-14. Line toggles.** On Gold with Character on **All** and three or more lines: click a holder's
+legend entry → its line goes, the entry dims in place, the y axis rescales to what is left, and the
+hover tooltip no longer lists it; click again → it is back. Hover an entry → "Click to hide/show".
+Hide one holder, then tick **Total only** → only the Total draws; untick → the lines from before come
+back with that one holder still hidden. Hide every holder by hand → **Total only** ticks itself. Hide
+the Total too → the plot says "All lines hidden — click a legend entry to show it." with no axes and no
+Lua error. Change the thing and the Date range → the hidden lines stay hidden. Tick **Total only** and
+`/reload` → it is still on. The in/out strip never changes with any of this. Result:
+
+**TL-15. Strip tooltips.** On Gold over **Last 30 days**, hover a day's column in the green/red strip
+under the chart (the gain bar, the loss bar and the gap between them) → a tooltip at the cursor titled
+`<day> · Total` (the hover's date format, e.g. `14 Aug 2026 · Total`) with **Gained** `+<coins>` in
+green, **Lost** `-<coins>` in red and **Net** signed in its sign's color (white `0` on an even day); a
+side with nothing reads `0`. A day with no bars shows nothing. Move off the strip → it hides. Move from
+the plot straight down onto the strip → the strip's tooltip stays up (the chart's crosshair hover
+ending does not hide it), and back up onto the plot → the day tooltip takes over. Hide every line with
+the legend → the strip tooltip still reads the Total. Pick a currency → counts, not coins. Result:
+
+**TL-16. Smoother lines.** On Gold over **Last year** with Character on **All**, look at a near-flat
+holder line and at the Total → the lines read as a few long segments with no stair-stepping, the
+holder lines 2 px and the Total slightly heavier. Hover along a line → the crosshair still lands on
+real days, and a one-day spike is still drawn. Result:
+
+**TL-17. Legend tooltip and spacing.** On Gold with Character on **All**, a Warband line and two or
+more characters: hover a character's legend entry → the title is the character in its class color,
+**Holding** shows its gold now as coins (matching the Holdings tab), and a gray "Click to hide/show"
+closes it. Hover **Warband** → the title is the Warband's blue. Hover **Total** → a gold title and the
+sum of the lines charted; narrow Character to one character → it reads **Holding (all shown
+characters)** with that character's gold. Pick a currency → counts with commas (`12,345`). With
+`/lh test` on, the holdings are the sample's. Look along the legend → the gap after **Warband** is
+the same as between two characters, the gap after **Total** is as before, and with **Timeline lines**
+at 16 the legend wraps to a second row instead of running off the pane, with no Lua error. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1249,6 +1729,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | STATE-7 to STATE-9, STATE-11 | § 8 | No result recorded |
 | STATE-10 | § 8 | No result recorded; SP-LH-03R restored the old step that sets General visibility back to *Always* |
 | STATE-12 | New | New with the library resize grip's `canResize` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
+| TM-1 | New | New with the timeline ledger P6 (test mode's Holdings and Timeline sample); extended in P9 with the History row tooltips; no result recorded |
 | COMBAT-1 | § 2 | No result recorded |
 | COMBAT-2 | § 2, § 9 and § 17d.2 `/lh config` in combat | No result recorded; expectation corrected by SP-LH-03R (the library's printed line) |
 | COMBAT-3 | § 17d.2 sidebar in combat | No result recorded; expectation rewritten by SP-LH-03 (Profiles covered too) |
@@ -1276,6 +1757,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | CAP-29, CAP-30 | § 13 retention confirm | No result recorded; the 2026-09-23 plan's LH.5 is owed; reordered by SP-LH-03R (the slash confirm is answered **No** before the **Yes** prune, and the no-op is `0`), because after the prune no record is older than 7 days and no confirm can appear |
 | CAP-31 | § 13 login prune | No result recorded; given a runnable step by SP-LH-03R (a `/run` ages a record past the retention) |
 | CAP-32 | § 13 | No result recorded |
+| CUR-1 | New | New with the timeline ledger P7 (hidden tracking currencies never record; a same-name twin takes the row); no result recorded |
 | HIST-1 to HIST-3 | § 2, § 17h.4, § 17h.5 | No result recorded |
 | HIST-4 | § 2 persistence | No result recorded; step corrected by SP-LH-03R (`settings.windowScale`) |
 | HIST-5 to HIST-21 | § 5, § 6, § 17g, § 17h | No result recorded |
@@ -1284,6 +1766,10 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | HIST-31 | § 17j.6 and § 17j.7 | No result recorded; given a runnable route by SP-LH-03R |
 | HIST-32, HIST-33 | § 17j.8, § 17h.6 | No result recorded |
 | HIST-34 | New | New with the History grip on `Core.MakeResizable` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
+| HIST-35 | New | New with the timeline ledger P4 polish (the one-line filter bar, equal Direction/Bound widths, the measured minimum width); no result recorded; the Export/cluster bullet corrected by P6 (the bar now scales) |
+| HIST-36 | New | New with the timeline ledger P11 (per-tab views; Holdings Save/Reset/Clear; schema v14); no result recorded; HIST-18 rewritten by P11 (Reset deletes the saved view for stock, Clear returns to it) |
+| FB-1 | New | New with the timeline ledger P6 (the filter bar fills the window and scales proportionally); no result recorded |
+| AC-1 | New | New with the timeline ledger P9 (the Search autocomplete on every tab, LibKa0s v1.70.0 `Autocomplete`); no result recorded |
 | INS-1 to INS-3 | § 7 | No result recorded |
 | INS-4 | § 7 coin glyphs | No result recorded; expectation corrected by SP-LH-03R (a fixed 10 px against the client's default of about 14 px, read beside the History price cells) |
 | INS-5 to INS-18 | § 7 | No result recorded |
@@ -1324,4 +1810,15 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-10 | New | New with `/lh profile` (SP-LH-02) |
 | DEGRADED-11 | § 17g ladder note | No result recorded; expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
 | DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
+| LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
+| LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); P5 widened the stray-text check to History and to a Timeline or Insights visit, after the headless trace ruled out creation-time pane parenting (re-parenting, the Insights Attach/scroll/card chain and shared frames are not traced); the stray-text bug stays open (no fix shipped, needs the `/fstack` frame path); no result recorded |
+| LED-10 | New | New with the timeline ledger P4 polish (bank and warband-tab drift on a visit's first read is `UNTRACKED`); no result recorded |
+| LED-11 | New | New with the timeline ledger P5 (History Direction column: glyph plus colored label); no result recorded |
+| LED-12 | New | New with the timeline ledger P5 (measured Qty width for gold, BankLedger-style Gold tooltip); no result recorded |
+| LED-P2-01 to LED-P2-24 | New | New with the timeline ledger, Phase 2 (ledger capture); no result recorded, and the bracketed API facts in each are the unverified assumptions; LED-P2-02, -06 and -13 rewritten by P7 (holder moves are a loss and a gain) |
+| TR-1 to TR-3 | New | New with the timeline ledger P7 (holder moves are a loss and a gain; the Character column and filter read the holder); no result recorded |
+| TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
+| TL-14 | New | New with the timeline ledger P8 (Total only and the click-to-toggle legend); no result recorded |
+| TL-15 | New | New with the timeline ledger P8 (tooltips on the in/out strip); no result recorded |
+| TL-17 | New | New with the timeline ledger P10 (legend tooltip in the line's color with the current holding; even legend spacing); no result recorded |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |

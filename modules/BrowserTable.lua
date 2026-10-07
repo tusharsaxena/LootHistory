@@ -34,6 +34,12 @@ local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
 -- The Bound lock, one size for the header and the rows. They were 14 and briefly disagreed; a
 -- column label and the cells beneath it drawing the same mark at two sizes reads as two marks.
 local LOCK_SIZE = 11
+-- The Direction cell's glyph (▲/▼/⇄) is its own FontString, drawn in the mono face at the left of
+-- the cell, with the label ("Gain"/"Loss"/"Transfer") in the row font beside it -- BankLedger's
+-- Direction column (LedgerTable.lua), same 12px glyph and 2px gap. The default font has none of the
+-- three glyphs and draws boxes, so only the glyph takes C.FONT_MONO; the label stays in the row font
+-- so it reads like every other cell. Both take one color (paintDirectionCell).
+local ARROW_SIZE, ARROW_GAP = 12, 2
 -- Every row shows a lock; color + opacity encode the binding state. {r, g, b, alpha}
 -- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
 local BOUND_STYLE = {
@@ -149,13 +155,28 @@ end
 -- icon the Character column renders.
 function BrowserTable:ClassIconMarkup(classFile) return classIconMarkup(classFile) end
 
--- Class-colored, icon-prefixed display value for a looter. Shows the full "Name-Realm" so
--- same-named characters on different realms stay distinct.
+-- The class of the row's HOLDER (timeline-ledger Phase 7: the Character column names the holder,
+-- not the character that wrote the row). A row on its writer is the row's own classFile; a row on
+-- another character (an alt's half of a currency transfer) reads that holder's stored class; the
+-- Warband has none.
+local function holderClassFile(r)
+  local h = r.holder or r.char
+  if h == r.char then return r.classFile end
+  local e = NS.Holdings and NS.Holdings:View(h)
+  return e and e.meta and e.meta.classFile or nil
+end
+function BrowserTable:HolderClassFile(r) return holderClassFile(r) end
+
+-- Class-colored, icon-prefixed display value for the row's holder. Shows the full "Name-Realm" so
+-- same-named characters on different realms stay distinct, and the Warband as "Warband".
 local function charDisplay(r)
-  local name = r.char or ""
-  local icon = classIconMarkup(r.classFile)
+  local name = NS.LedgerFormat.HolderLabel(r.holder or r.char)
+  local icon = classIconMarkup(holderClassFile(r))
   return icon ~= "" and (icon .. " " .. name) or name
 end
+
+-- Direction column sort order: gains, then losses, then transfers (C.DirOrder).
+local DIR_RANK = { IN = 1, OUT = 2, MOVE = 3 }
 
 -- Column model. width 0 + flex=true means "absorb the remaining width" (the Item column).
 -- Order note: the Character column is intentionally LAST, and Vendor second-last. Any new
@@ -174,6 +195,13 @@ BrowserTable.COLUMNS = {
     desc = "Time of day the item was looted.",
     valueFn = function(r) return NS.Util.FormatClock(r.ts) end,
     sortFn = function(r) return r.ts or 0 end },
+  -- Direction (timeline-ledger spec §7). The cell text is the LABEL; the glyph is a separate mono
+  -- FontString in front of it (BuildRow, paintDirectionCell). 86 = the 12px glyph + 2px gap + the
+  -- widest label ("Transfer") at the row font with room to spare; BankLedger's is 82.
+  { key = "dir", label = "Direction", width = 86, align = "LEFT",
+    desc = "Direction: green up = gain, red down = loss, gray arrows = transfer between your own containers or characters.",
+    valueFn = function(r) local d = NS.Util.RowDir(r); return C.DirLabel[d] or d end,
+    sortFn = function(r) return DIR_RANK[NS.Util.RowDir(r)] or 0 end },
   { key = "ilvl", label = "iLvl", width = 34, align = "RIGHT",
     desc = "Item level (equippable gear only).",
     valueFn = function(r) return r.itemLevel and tostring(r.itemLevel) or "" end,
@@ -191,10 +219,12 @@ BrowserTable.COLUMNS = {
       return r.itemName or (r.itemLink and r.itemLink:match("%[(.-)%]")) or "?"
     end,
     sortFn = function(r) return (r.itemName or ""):lower() end },
+  -- 34 is the FLOOR (an item or currency count). The column is widened to the widest signed gold
+  -- string once the window can measure fonts (BrowserTable:MeasureColumns, below).
   { key = "qty", label = "Qty", width = 34, align = "RIGHT",
-    desc = "Quantity looted in this event.",
-    valueFn = function(r) return tostring(r.quantity or 1) end,
-    sortFn = function(r) return r.quantity or 1 end },
+    desc = "Quantity: + gained, - lost, unsigned for a transfer. Gold rows show the amount.",
+    valueFn = function(r) return NS.LedgerFormat.QtyText(r) end,
+    sortFn = function(r) return NS.LedgerFormat.SignedQty(r) end },
   { key = "quality", label = "Quality", width = 64, align = "LEFT",
     desc = "Item quality (Poor → Legendary).",
     valueFn = function(r) return r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "" end,
@@ -225,13 +255,54 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return (NS.AuctionPrice:Pick(r.auctionPrice)) or 0 end },
   -- Character is always the last column (see order note above).
   { key = "char", label = "Character", width = 132, align = "LEFT",
-    desc = "Character who looted the item — full Name-Realm, class-colored.",
+    desc = "Character the row belongs to — full Name-Realm, class-colored; Warband for the warband's half of a move.",
     valueFn = function(r) return charDisplay(r) end,
-    sortFn = function(r) return (r.char or ""):lower() end },
+    sortFn = function(r) return NS.LedgerFormat.HolderLabel(r.holder or r.char):lower() end },
 }
 
 local COLUMN_BY_KEY = {}
 for _, col in ipairs(BrowserTable.COLUMNS) do COLUMN_BY_KEY[col.key] = col end
+
+-- ── Measured Qty width (P5 owner feedback) ───────────────────────────────────────
+-- A fixed 34px truncated gold amounts ("9661…"). The column is measured instead, at the row font,
+-- against the widest signed gold string the cell can show: the gold cap (9,999,999g 99s 99c) with
+-- either sign, rendered through the Qty column's own valueFn so the measured string IS the cell's.
+-- QTY_FLOOR is the width the column shipped with, so a font that measures 0 (headless) changes
+-- nothing; QTY_PAD absorbs the measurer's sub-pixel rounding.
+local QTY_FLOOR, QTY_PAD = COLUMN_BY_KEY.qty.width, 2
+local QTY_GOLD_CAP = 99999999999   -- copper
+
+local function qtySamples()
+  local out, valueFn = {}, COLUMN_BY_KEY.qty.valueFn
+  for _, dir in ipairs({ "IN", "OUT" }) do
+    out[#out + 1] = valueFn({ kind = C.Kind.GOLD, dir = dir, quantity = QTY_GOLD_CAP })
+  end
+  return out
+end
+
+-- The Qty width from `measure(text)` (pixels): the widest sample + QTY_PAD, never under the floor.
+local function qtyWidth(measure)
+  local widest = 0
+  for _, text in ipairs(qtySamples()) do widest = math.max(widest, measure(text) or 0) end
+  return math.max(QTY_FLOOR, math.ceil(widest) + QTY_PAD)
+end
+
+-- Measure with a throwaway FontString in the row font on `parent`. Browser calls this before it
+-- takes the window floor (B:MinWidth reads MinFrameWidth, which sums column widths).
+function BrowserTable:MeasureColumns(parent)
+  if not (parent and parent.CreateFontString) then return end
+  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetWordWrap(false)
+  fs:Hide()
+  COLUMN_BY_KEY.qty.width = qtyWidth(function(text)
+    fs:SetText(text)
+    local w = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+    return type(w) == "number" and w or 0
+  end)
+  fs:SetText("")
+end
+
+BrowserTable._qtySamples, BrowserTable._qtyWidth, BrowserTable._QTY_GOLD_CAP = qtySamples, qtyWidth, QTY_GOLD_CAP
 
 -- ── Pipeline ───────────────────────────────────────────────────────────────────
 BrowserTable.filter = {}
@@ -243,7 +314,7 @@ BrowserTable.sortAsc = false
 
 -- Columns whose sortFn yields a number. New sort on these starts descending (largest/
 -- newest first); text columns start ascending (A→Z). Re-clicking a column toggles.
-local NUMERIC_SORT = { date = true, time = true, ilvl = true, qty = true, quality = true, vendor = true, auction = true }
+local NUMERIC_SORT = { date = true, time = true, dir = true, ilvl = true, qty = true, quality = true, vendor = true, auction = true }
 
 -- The default WoW font has no ▲/▼/▶ glyphs, so all arrows use inline texture markup instead.
 -- ":0" sizes the texture to the surrounding line height.
@@ -266,10 +337,11 @@ BrowserTable.groupBy = "none"
 BrowserTable.collapsed = {}
 BrowserTable.groupAsc = true
 
--- One handler per group-by mode, returning (raw key part, display label) in that order. The
--- table and its closures are module-level, built once at load: groupOf runs once per record on
--- every group build, so nothing here may allocate per call. Adding a group mode is one entry
--- here plus one in GROUP_COLUMN/GROUP_PREFIX below.
+-- One handler per group-by mode, returning (raw key part, display label) in that order, plus an
+-- optional order value for a mode with no column to sort by (typesub). The table and its closures
+-- are module-level, built once at load: groupOf runs once per record on every group build, so
+-- nothing here may allocate per call. Adding a group mode is one entry here plus one in
+-- GROUP_COLUMN/GROUP_PREFIX below.
 local GROUP_OF = {
   source = function(r)
     local label = C.SourceLabel[r.source] or r.source or "Other"
@@ -281,13 +353,15 @@ local GROUP_OF = {
     return label, label
   end,
   char = function(r)
-    local raw = r.char or "Unknown"
-    return raw, raw
+    local raw = r.holder or r.char or "Unknown"
+    return raw, NS.LedgerFormat.HolderLabel(raw)
   end,
   type = function(r)
     local label = r.itemType or "Unknown"
     return label, label
   end,
+  -- "Type & SubType" (P9): "Armor · Cloth", "Armor" with no subtype, by type then subtype.
+  typesub = function(r) return NS.LedgerFormat.TypeSub(r.itemType, r.itemSubType) end,
   quality = function(r)
     return "q" .. tostring(r.quality or "-"),
            r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "\226\128\148"
@@ -296,6 +370,14 @@ local GROUP_OF = {
   day = function(r)
     return date("%Y-%m-%d", r.ts or 0), NS.Util.FormatDate(r.ts or 0)
   end,
+  dir = function(r)
+    local d = NS.Util.RowDir(r)
+    return d, C.DirLabel[d] or d
+  end,
+  holder = function(r)
+    local h = NS.Util.RowHolder(r) or "Unknown"
+    return h, NS.LedgerFormat.HolderLabel(h)
+  end,
 }
 
 -- Group identity + display label for a record under the active group-by. The key is
@@ -303,15 +385,17 @@ local GROUP_OF = {
 -- zone named "Kill" vs the Kill source). \001 is an unprintable separator.
 local function groupOf(groupBy, r)
   local fn = GROUP_OF[groupBy]
-  local raw, label = "?", "?"
-  if fn then raw, label = fn(r) end
-  return groupBy .. "\001" .. raw, label
+  local raw, label, order = "?", "?", nil
+  if fn then raw, label, order = fn(r) end
+  return groupBy .. "\001" .. raw, label, order
 end
 
 -- groupBy mode → the table column it corresponds to (drives the header arrow + group-order
 -- toggle) and the human prefix shown in each group header ("Quality: Poor").
-local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", type = "type", day = "date" }
-local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", type = "Type", day = "Day" }
+local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", type = "type", day = "date",
+                       dir = "dir" }
+local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", type = "Type", day = "Day",
+                       dir = "Direction", holder = "Holder", typesub = "Type" }
 
 -- Synthetic dataset for /lh test. A deliberately NON-uniform spread so the Insights charts read
 -- like real play: weighted-random sources/qualities/classes/zones/types/timestamps, a handful of
@@ -461,6 +545,44 @@ local function testSubType(ty, idBase)
   return list[(idBase % #list) + 1]
 end
 
+-- The sample's universe, shared with test mode's ledger half (modules/TestData.lua), so the Holdings
+-- and Timeline samples hold the same items, under the same names, as the History sample's rows.
+BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000 }
+
+-- Timeline ledger Phase 7: a move between two holders is an OUT on the sender and an IN on the
+-- receiver under the same reason and pairId, never a MOVE pair. Each holder-move row the seed walk
+-- wrote (an OUT on its character) is turned into that pair: the Warband is the other end of a
+-- warband move (the sender of a withdraw), the next sample class the other end of an alt move.
+-- Draws nothing from the PRNG, so the rows before it are the ones the walk always made.
+local function holderMoves(out)
+  local W, n = C.WARBAND_HOLDER, 0
+  for i = 1, #out do
+    local r = out[i]
+    if NS.Ledger.HOLDER_MOVE_REASON[r.source] then
+      n = n + 1
+      local other, otherClass = W, nil
+      if r.source ~= "WARBAND_DEPOSIT" and r.source ~= "WARBAND_WITHDRAW" then
+        local k = 1
+        while TEST_CLASSES[k] and TEST_CLASSES[k] ~= r.classFile do k = k + 1 end
+        otherClass = TEST_CLASSES[(k % #TEST_CLASSES) + 1]
+        other = otherClass:sub(1, 1) .. otherClass:sub(2):lower() .. "-Ravencrest"
+      end
+      local fromH, toH = r.char, other
+      if r.source == "WARBAND_WITHDRAW" then fromH, toH = W, r.char end
+      local CT = C.Container
+      local into = (toH == W) and CT.TABS or (r.source == "ALT_MAIL") and CT.MAIL or CT.BAGS
+      local gain = NS.Util.DeepCopy(r)
+      r.holder, gain.holder, gain.dir = fromH, toH, "IN"
+      if toH == other and otherClass then gain.char, gain.classFile = other, otherClass end
+      r.from, r.to = fromH .. "/" .. ((fromH == W) and CT.TABS or CT.BAGS), toH .. "/" .. into
+      gain.from, gain.to = r.from, r.to
+      r.pairId = r.ts .. ":" .. n
+      gain.pairId = r.pairId
+      out[#out + 1] = gain
+    end
+  end
+end
+
 function BrowserTable:BuildTestData()
   local now = time()
   local rng = testRng(0x10A75AFE)   -- fixed seed → identical dataset every run
@@ -503,6 +625,17 @@ function BrowserTable:BuildTestData()
       mapID = zone.mapID,
       confidence = conf,
     }
+    -- A ledger reason in the seed walk is a loss (TRANSFER a transfer within one character), so the
+    -- preview shows the Direction column and the gains-vs-losses charts with real shapes. A holder
+    -- move's receiving half is added by holderMoves below, once the walk is done.
+    if C.LEDGER_REASON[source] then
+      local rec = out[#out]
+      rec.dir = (source == "TRANSFER") and "MOVE" or "OUT"
+      rec.kind, rec.holder = "ITEM", rec.char
+      if source == "TRANSFER" then
+        rec.from, rec.to = rec.char .. "/" .. C.Container.BAGS, rec.char .. "/" .. C.Container.BANK
+      end
+    end
   end
 
   -- 1) Coverage seed: guarantee every source/quality/class/binding appears at least once and that
@@ -520,6 +653,7 @@ function BrowserTable:BuildTestData()
          testPick(rng, TEST_CLASS_W), rng(#TEST_BINDINGS))
   end
 
+  holderMoves(out)
   return out
 end
 
@@ -579,6 +713,8 @@ function BrowserTable:SetTestMode(on, why)
   self.testMode = on
   -- Publish to State so every read-path query (table + Insights) resolves against the same data.
   NS.State.testRecords = on and self:BuildTestData() or nil
+  -- ...and the Holdings / Timeline sample beside it (modules/TestData.lua), built from those rows.
+  if NS.TestData then NS.TestData.Publish(NS.State.testRecords) end
   traceTestMode(on, why)
   if on and NS.Browser and NS.Browser.Show then NS.Browser:Show() end
   -- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the
@@ -651,7 +787,7 @@ function BrowserTable:SetSort(key)
   self:Refresh()
 end
 
--- Set the active grouping ("none"/source/zone/char/quality/day) and repaint.
+-- Set the active grouping ("none"/source/zone/char/quality/type/typesub/day/dir/holder) and repaint.
 function BrowserTable:SetGroupBy(key)
   self.groupBy = key or "none"
   self:Refresh()
@@ -686,11 +822,11 @@ function BrowserTable:GroupRecords(records)
 
   local order, byKey = {}, {}
   for _, r in ipairs(records) do
-    local key, valueLabel = groupOf(groupBy, r)
+    local key, valueLabel, groupOrder = groupOf(groupBy, r)
     local g = byKey[key]
     if not g then
       g = { key = key, label = prefix .. ": " .. valueLabel, rows = {},
-            sortKey = sortFn and sortFn(r) or valueLabel }
+            sortKey = sortFn and sortFn(r) or groupOrder or valueLabel }
       byKey[key] = g
       order[#order + 1] = g
     end
@@ -757,6 +893,22 @@ local function qualityColor(q)
   return 1, 1, 1
 end
 
+-- Test mode's rows carry no item link (the sample's names are made up), so a hover gets a plain
+-- tooltip instead: the name in its quality color, "Type · SubType", the INFERRED note, a gray
+-- "Test-mode sample" and the menu hint (no link, so nothing to shift-click).
+function BrowserTable.ShowSampleTooltip(owner, r)
+  local qr, qg, qb = qualityColor(r.quality)
+  local lines = { { r.itemName or "?", qr, qg, qb } }
+  if r.itemType and r.itemType ~= "" then
+    local _, label = NS.LedgerFormat.TypeSub(r.itemType, r.itemSubType)
+    lines[#lines + 1] = { label, 0.9, 0.9, 0.9 }
+  end
+  if r.confidence == "INFERRED" then lines[#lines + 1] = { "Source inferred (uncertain).", 0.62, 0.62, 0.62 } end
+  lines[#lines + 1] = { "Test-mode sample", 0.5, 0.5, 0.5 }
+  lines[#lines + 1] = { "Right-click for options", 0.5, 0.5, 0.5 }
+  return NS.Compat.ShowTintedTooltip(owner, lines)
+end
+
 function BrowserTable:AcquireRow()
   return NS.Pool.Acquire(self.rowPool, function() return self:BuildRow() end)
 end
@@ -787,6 +939,16 @@ function BrowserTable:BuildRow()
     row.cells[col.key] = fs
   end
 
+  -- The direction glyph, drawn to the left of the Direction label and colored with it. Hidden until
+  -- paintDirectionCell shows it, so a row that is never bound as data never shows one.
+  local glyph = row:CreateFontString(nil, "OVERLAY")
+  glyph:SetFont(C.FONT_MONO, ARROW_SIZE, "")
+  glyph:SetJustifyH("CENTER")
+  glyph:SetWidth(ARROW_SIZE)
+  glyph:SetHeight(rowHeight())
+  glyph:Hide()
+  row.dirGlyph = glyph
+
   -- Bound-state lock icon (Bound column); tinted + shown per record in BindRow.
   local boundIcon = row:CreateTexture(nil, "OVERLAY")
   boundIcon:SetSize(LOCK_SIZE, LOCK_SIZE)
@@ -803,13 +965,19 @@ function BrowserTable:BuildRow()
 
   -- Hover → the full in-game item tooltip for this row's record (or the currency tooltip for
   -- currency rows); INFERRED rows get a note explaining the source is a guess. A hint line
-  -- advertises the click interactions.
+  -- advertises the click interactions. A gold row has no link to hover, so it gets BankLedger's
+  -- hand-built tooltip: a gold "Gold" title, the signed amount as "Amount", and the menu hint (gold
+  -- rows carry no link, so there is nothing to shift-click). A link-less test-mode row gets the
+  -- sample tooltip (ShowSampleTooltip above).
   row:SetScript("OnEnter", function(self2)
     local e = self2.entry
     if not (e and e.kind == "row") then return end
     local r = e.record
     local shown = false
-    if r.itemLink then
+    if NS.Util.RowKind(r) == C.Kind.GOLD then
+      NS.Compat.ShowAmountTooltip(self2, C.GOLD_TYPE, C.GOLD_RGB, "Amount",
+        NS.LedgerFormat.QtyText(r), "Right-click for options")
+    elseif r.itemLink then
       GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
       GameTooltip:SetHyperlink(r.itemLink)
       shown = true
@@ -817,6 +985,8 @@ function BrowserTable:BuildRow()
       GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
       GameTooltip:SetCurrencyByID(r.currencyID)
       shown = true
+    elseif BrowserTable.testMode then
+      BrowserTable.ShowSampleTooltip(self2, r)
     end
     if shown then
       if r.confidence == "INFERRED" then
@@ -826,7 +996,7 @@ function BrowserTable:BuildRow()
       GameTooltip:Show()
     end
   end)
-  row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  row:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
 
   -- Header left-click toggles collapse. Data rows: shift-left-click links the item to chat;
   -- right-click opens the row action menu.
@@ -885,8 +1055,17 @@ function BrowserTable:LayoutRowCells(row, rh)
     local w = col.flex and flexW or col.width
     local fs = row.cells[col.key]
     fs:ClearAllPoints()
-    fs:SetPoint("LEFT", row, "LEFT", x, 0)
-    fs:SetWidth(w)
+    -- The Direction cell gives its first ARROW_SIZE+ARROW_GAP pixels to the direction glyph.
+    if col.key == "dir" and row.dirGlyph then
+      row.dirGlyph:ClearAllPoints()
+      row.dirGlyph:SetPoint("LEFT", row, "LEFT", x, 0)
+      row.dirGlyph:SetHeight(rh)
+      fs:SetPoint("LEFT", row, "LEFT", x + ARROW_SIZE + ARROW_GAP, 0)
+      fs:SetWidth(math.max(1, w - ARROW_SIZE - ARROW_GAP))
+    else
+      fs:SetPoint("LEFT", row, "LEFT", x, 0)
+      fs:SetWidth(w)
+    end
     fs:SetHeight(rh)
     if col.icon and row.boundIcon then
       row.boundIcon:ClearAllPoints()
@@ -1104,6 +1283,46 @@ function BrowserTable:Bind()
   end
 end
 
+-- The only painter that SHOWS the row's glyph FontString, and it sets text, color AND shown-state
+-- every time: rows are pooled, so a glyph left over from the record that last used this row is the
+-- failure mode. A legacy row (no `dir`) reads as a gain through NS.Util.RowDir.
+local function paintDirectionCell(fs, r, glyphFS)
+  local dir = NS.Util.RowDir(r)
+  local cr, cg, cb = NS.LedgerFormat.Color(dir)
+  fs:SetTextColor(cr, cg, cb)
+  if glyphFS then
+    local glyph = C.DirGlyph[dir]
+    glyphFS:SetText(glyph or "")
+    glyphFS:SetTextColor(cr, cg, cb)
+    glyphFS:SetShown(glyph ~= nil)
+  end
+end
+
+-- Paint ONE data cell: its text from the column's valueFn, its color from the column's rule.
+-- `glyphFS` is the row's direction glyph; the Direction column shows it, and any other column that
+-- is handed it hides it, so no column but Direction can ever leave a glyph on screen.
+function BrowserTable:PaintCell(fs, colKey, r, glyphFS)
+  local col = COLUMN_BY_KEY[colKey]
+  if not (fs and col and r) then return end
+  fs:SetText(col.valueFn(r))
+  if colKey == "dir" then
+    paintDirectionCell(fs, r, glyphFS)
+    return
+  end
+  if glyphFS then glyphFS:Hide() end
+  if colKey == "item" or colKey == "quality" then
+    fs:SetTextColor(qualityColor(r.quality))
+  elseif colKey == "char" then
+    local cf = holderClassFile(r)
+    local cc = RAID_CLASS_COLORS and cf and RAID_CLASS_COLORS[cf]
+    if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
+  elseif colKey == "qty" then
+    fs:SetTextColor(NS.LedgerFormat.QtyColor(r))
+  else
+    fs:SetTextColor(0.9, 0.9, 0.9)
+  end
+end
+
 function BrowserTable:BindRow(row, entry, absIndex)
   row.entry = entry
   row.stripe:SetShown(absIndex % 2 == 0)
@@ -1111,6 +1330,7 @@ function BrowserTable:BindRow(row, entry, absIndex)
   if entry.kind == "header" then
     for _, col in ipairs(self.COLUMNS) do row.cells[col.key]:SetText("") end
     row.boundIcon:Hide()
+    row.dirGlyph:Hide()
     row.header:Show()
     -- The disclosure mark: chevron right when collapsed, chevron down when expanded. The catalog
     -- carries `add` (a plus) but no minus, so the Blizzard +/- pair cannot be reproduced in the
@@ -1128,18 +1348,9 @@ function BrowserTable:BindRow(row, entry, absIndex)
 
   row.header:Hide()
   local r = entry.record
+  -- (INFERRED rows no longer get a dot before the item name; the row tooltip still notes it.)
   for _, col in ipairs(self.COLUMNS) do
-    local fs = row.cells[col.key]
-    -- (INFERRED rows no longer get a dot before the item name; the row tooltip still notes it.)
-    fs:SetText(col.valueFn(r))
-    if col.key == "item" or col.key == "quality" then
-      fs:SetTextColor(qualityColor(r.quality))
-    elseif col.key == "char" then
-      local cc = RAID_CLASS_COLORS and r.classFile and RAID_CLASS_COLORS[r.classFile]
-      if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
-    else
-      fs:SetTextColor(0.9, 0.9, 0.9)
-    end
+    self:PaintCell(row.cells[col.key], col.key, r, col.key == "dir" and row.dirGlyph or nil)
   end
 
   -- Bound lock icon (always shown): blue = warbound, white = soulbound, faint gray = unbound.
@@ -1174,17 +1385,20 @@ local function EnsureRowMenu()
   return rowMenu
 end
 
-function BrowserTable:ShowRowMenu(anchor, record)
-  local m = EnsureRowMenu()
-  -- EVERY LABEL STAYS. A 150px row holds a 14px mark and the words after it, and three of these
-  -- four are hard to take back -- "which one deletes the row?" must never become a hover question.
-  -- `clear` for Delete rather than a bin of its own: the debug console already spells "remove this
-  -- data" that way, and one verb should not have two marks inside one addon.
-  local MENU_ROW_H, W = 18, 150
-  local items = {
+-- The History row's context entries, as data (tests/test_browsertable.lua reads them).
+-- EVERY LABEL STAYS. A 150px row holds a 14px mark and the words after it, and three of these
+-- five are hard to take back -- "which one deletes the row?" must never become a hover question.
+-- `clear` for Delete rather than a bin of its own: the debug console already spells "remove this
+-- data" that way, and one verb should not have two marks inside one addon.
+function BrowserTable:RowMenuItems(record)
+  local thing = NS.Ledger and NS.Ledger.RowThingKey and NS.Ledger.RowThingKey(record)
+  return {
     { label = "Link to chat", icon = "chat", enabled = record.itemLink ~= nil, fn = function()
         if record.itemLink and ChatEdit_InsertLink then ChatEdit_InsertLink(record.itemLink) end
       end },
+    -- Chart this row's item, currency or gold over time (timeline ledger P3, spec §8.2).
+    { label = "Show in Timeline", icon = "graph", enabled = thing ~= nil and NS.Timeline ~= nil,
+      fn = function() NS.Browser:ShowTimeline(thing) end },
     -- Blacklist this item: stop recording future loots of this id. Point-in-time — the row you
     -- clicked (and other existing rows of the same id) stay in the history; use Delete to remove
     -- them. Manage the list in Settings ▸ General ▸ Filters ▸ Blacklist.
@@ -1208,7 +1422,13 @@ function BrowserTable:ShowRowMenu(anchor, record)
         BrowserTable:Refresh() -- repaint immediately (in case nothing else listens)
       end },
   }
+end
 
+-- One flat context menu at `anchor`, from item data ({ label, icon, enabled, fn } each). Shared by
+-- the History table and the Holdings tab so the collection has one row-menu look, not two.
+function BrowserTable:ShowMenu(anchor, items)
+  local m = EnsureRowMenu()
+  local MENU_ROW_H, W = 18, 150
   for _, b in ipairs(m.buttons) do b:Hide() end
   for i, item in ipairs(items) do
     local b = m.buttons[i]
@@ -1249,4 +1469,8 @@ function BrowserTable:ShowRowMenu(anchor, record)
   m:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 4, 0)
   m.catcher:Show()
   m:Show()
+end
+
+function BrowserTable:ShowRowMenu(anchor, record)
+  self:ShowMenu(anchor, self:RowMenuItems(record))
 end

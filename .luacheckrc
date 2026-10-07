@@ -25,6 +25,7 @@ exclude_files = { "libs/", "docs/audits/", "docs/reviews/", "_dev/", "tests/_kit
 -- and one name, `212/self`, and they are below in per-file stanzas.
 -- tests/test_lintconfig.lua is what keeps the blanket from re-entering.
 read_globals = {
+  "GetInboxNumItems", "GetInboxItem", "GetInboxItemLink", "GetSendMailItem", "GetSendMailItemLink", "GetSendMailMoney", "ATTACHMENTS_MAX_RECEIVE", "ATTACHMENTS_MAX_SEND", "C_TradeSkillUI", "GuildBankFrame", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT", "YOU_LOOT_MONEY_GUILD", "GOLD_AMOUNT", "SILVER_AMOUNT", "COPPER_AMOUNT", "AUCTION_SOLD_MAIL_SUBJECT", "AUCTION_EXPIRED_MAIL_SUBJECT", "AUCTION_REMOVED_MAIL_SUBJECT", "AUCTION_WON_MAIL_SUBJECT", "debugprofilestop",
   "_G", "LibStub", "CreateFrame", "UIParent", "GetTime", "time", "date", "DEFAULT_CHAT_FRAME",
   "UnitName", "UnitGUID", "UnitClass", "GetRealmName", "GetNormalizedRealmName",
   "RAID_CLASS_COLORS", "CLASS_ICON_TCOORDS", "StaticPopup_Show", "YES", "NO",
@@ -32,6 +33,8 @@ read_globals = {
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
   "C_CurrencyInfo",
+  "GetMoney", "GetCursorMoney", "GetPlayerTradeMoney", "C_Bank", "Enum", "GetInventoryItemID", "GetInventoryItemLink",
+  "INVSLOT_FIRST_EQUIPPED", "INVSLOT_LAST_EQUIPPED",
   "C_Container", "UseContainerItem", "C_Spell", "GetSpellInfo",
   "C_AddOns",
   "Auctionator", "TSM_API", "OEMarketInfo",   -- third-party AH-pricing addon globals (presence-gated)
@@ -58,6 +61,7 @@ read_globals = {
 }
 globals = {
   "LootHistoryDB",     -- the SavedVariables write target
+  "LootHistoryPerfDB", -- the perf harness's capture ring (performance-§5), outside AceDB
   "StaticPopupDialogs", -- we register a purge-confirm dialog
 }
 
@@ -95,8 +99,8 @@ files["tests/"] = {
 --
 -- Every stanza below names ONE file, and every entry names the code AND the variable, in luacheck's
 -- `<code>/<variable>` form. Note precisely what changed, because the blanket this replaced ALSO
--- named its variables: the difference is SCOPE, not spelling. These thirteen stanzas answer for
--- thirteen files, so an unused `self` in any of the other 46 still reports, and so does an unused
+-- named its variables: the difference is SCOPE, not spelling. These fourteen stanzas answer for
+-- fourteen files, so an unused `self` in any of the other 46 still reports, and so does an unused
 -- argument under any other name anywhere at all.
 --
 -- Measured rather than assumed, and measured on that axis: an unused `self` and an unread
@@ -122,6 +126,7 @@ files["core/LootHistory.lua"] = { ignore = { "212/self" } }
 -- receiver: Database through `local Database`, Browser through `local B`, and so on.
 files["core/Database.lua"]        = { ignore = { "212/self" } }
 files["modules/Attribution.lua"]  = { ignore = { "212/self" } }
+files["modules/AttributionOut.lua"] = { ignore = { "212/self" } }
 files["modules/AuctionPrice.lua"] = { ignore = { "212/self" } }
 files["modules/Browser.lua"]      = { ignore = { "212/self" } }
 files["modules/BrowserTable.lua"] = { ignore = { "212/self" } }

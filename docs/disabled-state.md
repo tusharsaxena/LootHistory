@@ -34,7 +34,7 @@ addon is on.
 
 **A disabled addon refuses a feature verb** (slash-commands-§2's SHOULD, which survived the
 reversal and is the only refusal in the disabled state). While `settings.enabled` is `false`,
-`show` / `hide` / `toggle` / `test` / `purge` answer one tagged line naming `/lh enable` and do
+`show` / `hide` / `toggle` / `test` / `purge` / `holdings` answer one tagged line naming `/lh enable` and do
 nothing else. The gate is **one gate**, wrapped round each feature handler as `NS.COMMANDS` is built
 (`settings/Schema.lua`), so every route into a verb passes it — the library's dispatcher, the
 positional walk the library-less install falls back to, and a direct call on the triple — and a verb
@@ -60,11 +60,10 @@ is the one branch, and the checkbox, the `enable` / `disable` verbs, `/lh set se
 AceDB's profile callbacks all arrive at it through `NS.OnEnabledChanged` (the callbacks by way of the profile adopt path, `NS.OnProfileEvent`, because `settings.enabled` is per profile: switching to a profile where the addon is off stands it down). There is deliberately no
 bare stand-up: releasing one hold must not resurrect an addon another is still holding down.
 
-**This addon takes one hold today.** It declines `LibKa0s-Perf` (`performance-§12`, a ratified row in
-[§ Documented deviations](ARCHITECTURE.md#documented-deviations)), so nothing here takes `perf`. The key is
-published (`NS.HOLD_PERF`) and the latch honors it, because the invariant is the library's rather
-than this addon's — `tests/test_disabled.lua` drives both holds through it, so arming the harness
-later is a registration and not a rewrite.
+**This addon takes both holds.** `disabled` comes from the stored switch; `perf` comes from
+`LibKa0s-Perf`'s Suspend/Resume (`core/PerfSetup.lua`, wired for the timeline ledger, see
+[performance.md](performance.md)). `tests/test_disabled.lua` drives both holds through the latch,
+and `tests/test_perf.lua` drives the `perf` hold through the harness.
 
 ## What stands down
 
@@ -72,8 +71,17 @@ later is a registration and not a rewrite.
 |---|---|
 | The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's two chat events, Attribution's nine | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
 | The three private bus targets — `SettingsChanged`, `HistoryChanged`, `RecordAdded`, `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED` | `Collector:Disable` / `Browser:Disable` / `Analytics:Disable` |
+| The Reconciler's two private bus targets (the `SettingsChanged` listener and the fourteen capture events) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
+| The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
+| The Timeline tab's private bus target (`HOLDINGS_CHANGED` and `RECORD_ADDED`, one coalesced repaint) and any tooltip it owns | `Timeline:Disable`, from `NS.StandDown` |
+| The daily rollup's write hook (the `NS.Database:OnWrite` function; it holds no event and no bus target, so nothing in the event survey shows it, and the proof is behavioral: a row written while stood down tallies nothing) | `Rollup:Disable`, from `NS.StandDown`; `NS.StandUp` re-adds it. The login seed and prune are `NS.After` deferrals, so `NS.CancelDeferrals` drops them |
+| A held reset-recommendation popup (the `PLAYER_REGEN_ENABLED` one-shot, and the "Export first" re-ask the export window's `OnHide` would fire as `NS.StandDown` hides it) | `NS.DropLedgerResetOffer`, from `NS.StandDown` |
+| `CHAT_MSG_MONEY`, the Collector's third chat event | `Collector:Disable` (it unregisters `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` and `CHAT_MSG_MONEY`) |
+| The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop) |
+| The Reconciler's ledger state: claims, recent-row coalescing map, memoized reasons, settle hold and recheck, currency accumulators (`pendingCur`, `curGain`, `curLoss`), `pendingTransfer`, `loginPending` | `Reconciler:Disable` / `DisableCapture` |
+| The `perf` hold: LibKa0s-Perf's Suspend takes the latch, and everything above goes down with it; Resume stands it back up and the Reconciler schedules a resume scan, so changes made while held land as `UNTRACKED` | `NS.StandDown` / `NS.StandUp` |
 | Attribution's per-unit spell frame (`UNIT_SPELLCAST_SUCCEEDED`, `player`) | `Attribution:Disable` |
-| Every deferral the addon armed — the retention prune, the bound-state repair, both coalesced repaints | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
+| Every deferral the addon armed — the retention prune, the rollup seed and prune, the bound-state repair, the coalesced repaints (Browser, Insights, Timeline), the Reconciler's flush fuse and the five-second reset offer | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
 | The History window, the export modal and the debug console | `NS.StandDown`, and kept down by the first rung of `B:VisibilityAllows` |
 
 **Hidden AT THE SOURCE, not imperatively.** The first rung of `B:VisibilityAllows` answers `false`
@@ -86,6 +94,10 @@ claimed to be off.
 `Attribution:Stamp` — `BuyMerchantItem`, `TakeInboxItem`, `AutoLootMailItem`, `UseContainerItem` and
 `GetQuestReward` — and that one funnel gates its body and returns. It is not license to gate
 anything that has a real unregister.
+
+**The ledger's hooks are a second funnel, same rule.** `modules/AttributionOut.lua` installs its post-hooks once per session: `RepairAllItems`, `BuyMerchantItem` (a second hook beside the vendor one), `BuybackItem`, `DeleteCursorItem`, `SendMail`, `TakeInboxMoney`, `C_AuctionHouse.PostItem` / `PostCommodity` / `PlaceBid` / `ConfirmCommoditiesPurchase`, `C_TradeSkillUI.CraftRecipe` / `CraftSalvage` / `CraftEnchant`, and `GuildBankFrame`'s `OnShow` / `OnHide`. Each body checks the latch first (`StampOut`, or the `On*` body that owns the work) and returns, so a hook firing while the addon is down stamps nothing and sets no scope.
+
+**Modules that register nothing have no `Disable`, by ruling.** `modules/Escrow.lua` (which only appends Reconciler steps), `modules/LedgerFormat.lua` (pure helpers) and `modules/AnalyticsLedger.lua` (drawn by the Insights tab, owns no events) hold no registration, so `tests/test_disabled.lua` has nothing to survey for them; the Reconciler's `Disable` clears the escrow-related state they read.
 
 **`NS.After` replaced bare `C_Timer.After` for the addon's own deferrals**, and that is load-bearing
 rather than tidy: the retention prune is a SavedVariables write on a five-second fuse lit by

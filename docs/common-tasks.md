@@ -113,8 +113,8 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   D6: the setting that governs the recorded data, reached through its row's own `get`/`set`) and
   LibDBIcon's `minimap` table live in `NS.db.global` ([profiles.md](profiles.md)). A new setting that
   governs what is kept or deleted from the history belongs there too, not in the profile.
-- **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its saved table view
-  (`savedView`) and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
+- **Carve-outs.** The Browser's window geometry (`settings.window` — point/size), its per-tab saved views
+  (`savedViews`) and the `settings.auction.priority` cascade (owned by `NS.AuctionPrice`) are
   runtime/data state, not user settings. They are persisted straight to the profile, have **no**
   schema row and do **not** go through `Schema:Set`. The `architecture-§5` register row covers them.
   Don't "fix" this by adding rows for them. See [schema.md](schema.md) for the full carve-out list and

@@ -1,10 +1,16 @@
 # The combat-path sweep
 
-The committed evidence behind this addon's `performance-§12` no-combat-path exemption. The
-exemption itself, and the criteria it rests on, are on [performance.md](performance.md) and in the
-register row in [ARCHITECTURE.md § Documented deviations](ARCHITECTURE.md#documented-deviations).
-**Re-run the sweep before trusting this page**: a new hit that can run while the player is fighting
-is the change that ends the exemption.
+> **Retained as the event census. It no longer backs the `performance-§12` exemption (retired
+> 2026-10-06, timeline ledger F2).** The addon is now wired into LibKa0s-Perf; the buckets are on
+> [performance.md](performance.md). The tables below were written for the exemption and are kept
+> as the inventory of what runs per fire. The timeline-ledger registrations are in
+> [their own section](#timeline-ledger-registrations-phases-1-and-2). A new handler that can run in
+> combat needs a bucket in `core/PerfSetup.lua`.
+
+This page was the committed evidence behind the exemption. The criteria it rested on are in
+closed issue [LIBKA0S-17](https://github.com/tusharsaxena/LootHistory/issues/22), and the retirement
+is noted under [ARCHITECTURE.md § Documented deviations](ARCHITECTURE.md#documented-deviations).
+**Re-run the sweep before trusting this page.**
 
 ## Why `CHAT_MSG_LOOT` stays inside criterion (a)
 
@@ -45,7 +51,7 @@ a comment. The rows are in the order the grep prints them, so the two can be hel
 |---|---|---|
 | `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:142` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:130`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the two one-shot timers below. |
 | `CHAT_MSG_LOOT` | `modules/Collector.lua:254` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:157`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:160` having allocated nothing: the gate config it hands `ShouldRecord` is one module-level `gateCfg` table, refreshed with the settings and given only the line's `itemID` per call, not a table built per line (`LootHistory-R-16`). A **kept** line then runs `NS.Compat.GetItemExtras` (`:163`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:164`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
-| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:256` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, blacklist check, three `Compat.Currency*` lookups, one record insert. |
+| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:256` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, the listed-id check (`Compat.ListedCurrencyID`: one `GetCurrencyListSize` read, plus at most one list walk for an id seen for the first time since the list last changed), blacklist check, three `Compat.Currency*` lookups, one record insert. |
 | `LOOT_OPENED` | `modules/Attribution.lua:420` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
 | `ENCOUNTER_START` | `modules/Attribution.lua:421` | Two field writes, once per encounter. |
 | `ENCOUNTER_END` | `modules/Attribution.lua:422` | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
@@ -102,6 +108,29 @@ history to estimate bytes — `settings/Panel.lua:169`. `HistoryChanged` stays i
 delete or a prune is one deliberate action. Issue #27.
 
 The bus is therefore **in** the sweep's scope from now on, and the entry above is what it found.
+
+## Timeline-ledger registrations (phases 1 and 2)
+
+Added by the timeline ledger, after the sweep above was taken. All register one by one through
+`NS.SafeRegisterEvent` on private bus targets, and all go down with the latch.
+
+| Event | Registered at | Work done per fire |
+|---|---|---|
+| `CHAT_MSG_MONEY` | `modules/Collector.lua` (`Collector:Enable`) | Fires in combat on looted money. Parse, then one gold row and one claim (an accumulator add on the Reconciler). Bucket `moneyLine`. |
+| `BAG_UPDATE` | `modules/Reconciler.lua` (`R:Enable`, the `EVENTS` list) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
+| `BAG_UPDATE_DELAYED` | same | Arms the 0.35 s debounce (one `NS.After`, swallowed while one is pending). |
+| `PLAYER_EQUIPMENT_CHANGED`, `PLAYER_MONEY`, `ACCOUNT_MONEY`, `PLAYERBANKSLOTS_CHANGED`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | same | One dirty bit and the debounce. |
+| `CURRENCY_DISPLAY_UPDATE` | same | One accumulator add per currency id (the signed change and its gain/loss source), one dirty bit, the debounce. |
+| `CURRENCY_TRANSFER_LOG_UPDATE` | same | One flag, one dirty bit, the debounce. |
+| `MAIL_INBOX_UPDATE`, `OWNED_AUCTIONS_UPDATED` | same | Only while the mailbox / auction house is open: one dirty bit and the debounce. |
+| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | same, and `modules/AttributionOut.lua` (`EnableOut`) | Not a combat path (an NPC frame). Reconciler: readability flags, and on hide one final flush. AttributionOut: one scope stamp. |
+| `PLAYER_REGEN_ENABLED` | `modules/Reconciler.lua` | **Where the deferred work runs.** `R:Flush` returns at once in combat and sets `deferred`; this edge runs the one reconcile (or the deferred login scan). |
+| `MAIL_SEND_SUCCESS`, `MAIL_FAILED` | `modules/AttributionOut.lua` | Out of combat by construction. A stamp, or one field clear. |
+| `TRADE_ACCEPT_UPDATE` | `modules/AttributionOut.lua` | Out of combat by construction. One stamp on a completed trade. |
+| `ADDON_LOADED` | `modules/AttributionOut.lua` | Hooks the guild bank frame once when `Blizzard_GuildBankUI` loads; otherwise one string compare. |
+
+The reconcile itself (`Reconciler:Flush`: scan, plan, hold or commit) never runs in combat, so it is
+not a perf bucket. `tests/perf.lua` scenario 3 bounds it at one container scan per dirty group.
 
 ## The allocation that is not measured, and stays that way
 

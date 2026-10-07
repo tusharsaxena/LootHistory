@@ -341,12 +341,14 @@ end)
 -- The category cache is module-local, and the case above has already built it from the default mock.
 -- These cases do not reload core/Compat.lua: they use ids (100, 200, 999) no other case asks about,
 -- so each one is a fresh miss against the built cache, and they restore the default mock afterwards.
--- A swapped-in currency list: header "Season" followed by the ids in `ids`. Counts list walks.
+-- A swapped-in currency list: header "Season" followed by the ids in `ids`. Counts list walks (a
+-- read of the first row; the size alone is read on every lookup, to notice the list changing).
 local function seasonCurrencyList(ids)
   local walks = { n = 0 }
   local api = {
-    GetCurrencyListSize = function() walks.n = walks.n + 1; return 1 + #ids end,
+    GetCurrencyListSize = function() return 1 + #ids end,
     GetCurrencyListInfo = function(i)
+      if i == 1 then walks.n = walks.n + 1 end   -- a walk starts at the first row
       if i == 1 then return { name = "Season", isHeader = true } end
       if ids[i - 1] then return { name = "C" .. ids[i - 1], isHeader = false } end
       return nil
@@ -377,6 +379,8 @@ test("Compat: CurrencyCategory walks the list at most once for an id that is tru
   local api, walks = seasonCurrencyList({ 100 })
   T.mocks.C_CurrencyInfo = api
   local ok, err = pcall(function()
+    NS.Compat.CurrencyCategory(100)   -- the swapped list's own first build
+    walks.n = 0
     assertEqual(NS.Compat.CurrencyCategory(999), nil)
     assertEqual(NS.Compat.CurrencyCategory(999), nil)
     assertEqual(walks.n, 1)   -- one rebuild across two lookups of the same missing id
@@ -385,11 +389,107 @@ test("Compat: CurrencyCategory walks the list at most once for an id that is tru
   if not ok then error(err, 0) end
 end)
 
+-- P7 Task 0: an id that missed and is listed LATER still resolves its SubType, whether the list grew
+-- (a different size) or the client's bulk refresh said so (a nil-id CURRENCY_DISPLAY_UPDATE).
+test("Compat: CurrencyCategory resolves an id that missed once the list grows to include it", function()
+  local saved = T.mocks.C_CurrencyInfo
+  local ids = { 100 }
+  T.mocks.C_CurrencyInfo = seasonCurrencyList(ids)
+  local ok, err = pcall(function()
+    assertEqual(NS.Compat.CurrencyCategory(300), nil)   -- missed, and memoized
+    ids[2] = 300
+    assertEqual(NS.Compat.CurrencyCategory(300), "Season")
+  end)
+  T.mocks.C_CurrencyInfo = saved
+  NS.Compat.CurrencyListChanged()
+  if not ok then error(err, 0) end
+end)
+
+test("Compat: a nil-id currency refresh lets a missed id resolve when the list size is unchanged", function()
+  local saved = T.mocks.C_CurrencyInfo
+  local ids = { 100 }
+  T.mocks.C_CurrencyInfo = seasonCurrencyList(ids)
+  local savedEnabled = NS.Reconciler._enabled
+  local ok, err = pcall(function()
+    assertEqual(NS.Compat.CurrencyCategory(400), nil)
+    ids[1] = 400                                          -- same size, a different id
+    assertEqual(NS.Compat.CurrencyCategory(400), nil)    -- the memo holds
+    NS.Reconciler:OnCurrencyUpdate(nil)                   -- the client's bulk refresh
+    assertEqual(NS.Compat.CurrencyCategory(400), "Season")
+  end)
+  NS.Reconciler._enabled, NS.Reconciler.dirty = savedEnabled, {}
+  T.mocks.C_CurrencyInfo = saved
+  NS.Compat.CurrencyListChanged()
+  if not ok then error(err, 0) end
+end)
+
+-- Compat.ListedCurrencyID: the id a chat currency line records under (hidden ids remap or drop).
+local function withListed(list, holdings, body)
+  local m = T.mocks
+  local savedList, savedNames, savedHold = m.__currencyList, m.__currencyNames, NS.db.global.holdings
+  m.__currencyNames = setmetatable({ [3513] = "Nebulous Voidcore", [3418] = "Nebulous Voidcore",
+    [3419] = "Nebulous Voidcore" }, { __index = savedNames })
+  m.__currencyList, NS.db.global.holdings = list, holdings
+  NS.Compat.CurrencyListChanged()
+  local ok, err = pcall(body)
+  m.__currencyList, m.__currencyNames, NS.db.global.holdings = savedList, savedNames, savedHold
+  NS.Compat.CurrencyListChanged()
+  if not ok then error(err, 0) end
+end
+
+test("Compat: ListedCurrencyID keeps a listed id and remaps a hidden one to its one same-name twin", function()
+  withListed({ { header = true, name = "Midnight" }, { id = 3418, name = "Nebulous Voidcore" },
+    { id = 3008, name = "Valorstones" } }, {}, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), 3418)
+    assertEqual(NS.Compat.ListedCurrencyID(3008, "Valorstones"), 3008)
+    assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), 3418)
+    assertEqual(NS.Compat.ListedCurrencyID(3513, "Something Else"), nil)
+    assertEqual(NS.Compat.ListedCurrencyID(3513, nil), nil)
+    assertEqual(NS.Compat.ListedCurrencyID(nil, "Valorstones"), nil)
+  end)
+end)
+
+test("Compat: ListedCurrencyID drops a hidden id whose name matches two listed currencies", function()
+  withListed({ { header = true, name = "Midnight" }, { id = 3418, name = "Nebulous Voidcore" },
+    { id = 3419, name = "Nebulous Voidcore" } }, {}, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), nil)
+  end)
+end)
+
+test("Compat: ListedCurrencyID keeps an id under a collapsed header that the stored baseline holds", function()
+  local me = NS.Util.PlayerKey()
+  local list = { { header = true, name = "Midnight", collapsed = true }, { id = 3418, name = "Nebulous Voidcore" } }
+  withListed(list, { [me] = { meta = {}, scanned = { currency = 1 }, items = {}, currency = { [3418] = 5 }, links = {} } },
+    function()
+      assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), 3418)
+      assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), 3418)   -- the held twin
+    end)
+  withListed(list, { ["§warband"] = { meta = {}, scanned = { currency = 1 }, items = {}, currency = { [3418] = 5 },
+    links = {} } }, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), 3418)
+  end)
+  withListed(list, {}, function()
+    assertEqual(NS.Compat.ListedCurrencyID(3418, "Nebulous Voidcore"), nil)          -- neither listed nor held
+  end)
+end)
+
 test("Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)", function()
   -- ItemNameQuality and CurrencyName were written to label the Filters tab's rows. The tab is a
   -- LibKa0s IdList now, which resolves its own names, so a kept copy is a second answer nobody calls.
   assertEqual(NS.Compat.ItemNameQuality, nil)
-  assertEqual(NS.Compat.CurrencyName, nil)
+  -- Compat.CurrencyName returned later for the holdings search (a new caller); tested below.
+end)
+
+test("Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil", function()
+  assertEqual(NS.Compat.CurrencyName(3008), "Valorstones")
+  assertEqual(NS.Compat.CurrencyName(999999), nil)
+  assertEqual(NS.Compat.CurrencyName(nil), nil)
+  local a, b = NS.Compat.GetItemTypeInfo(nil)
+  assertEqual(a, nil); assertEqual(b, nil)
+end)
+
+test("Compat: GetItemSellPrice degrades to nil", function()
+  assertEqual(NS.Compat.GetItemSellPrice(nil), nil)
 end)
 
 test("Compat: CurrencyQuality returns the tier, nil when unknown", function()
@@ -474,4 +574,207 @@ test("Compat: the degraded build's GetSpellName answers nil even with C_Spell pr
     assertEqual(select("#", ns.Compat.GetSpellName(51005)), 1)
     assertEqual(ns.Compat.GetSpellName(51005), nil)
   end)
+end)
+
+test("Compat: bag-id groups come from Enum.BagIndex names, type constants excluded", function()
+  local C = NS.Constants
+  assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
+  assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
+  assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
+end)
+
+test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers", function()
+  -- red under: a numeric fallback such as { 0, 1, 2, 3, 4, 5 } when the enum is absent -- container
+  -- ids come from Enum.BagIndex member names only, and Blizzard has renumbered them before.
+  local Loader = dofile("tests/_kit/loader.lua")
+  Loader.addonName = "LootHistory"
+  local mocks = dofile("tests/wow_mock.lua")()
+  mocks.Enum.BagIndex = nil
+  -- core/ItemSetup.lua loads first in the TOC; only its quality label is read here.
+  local ns = { Item = { QualityLabel = function() return "" end } }
+  Loader.load("core/Constants.lua", ns, mocks)
+  assertEqual(#ns.Constants.BAG_IDS, 0)
+  assertEqual(#ns.Constants.BANK_IDS, 0)
+  assertEqual(#ns.Constants.WARBAND_TAB_IDS, 0)
+end)
+
+test("Compat: container slot read and empty slot", function()
+  local m = T.mocks
+  m.__bagSlots[0] = 2
+  m.__bags[0] = { [1] = { itemID = 7, link = "|Hitem:7|h[Seven]|h", count = 3 } }
+  assertEqual(NS.Compat.GetContainerNumSlots(0), 2)
+  local s = NS.Compat.GetContainerSlot(0, 1)
+  assertEqual(s.itemID, 7); assertEqual(s.count, 3)
+  assertEqual(NS.Compat.GetContainerSlot(0, 2), nil)
+  m.__bags[0], m.__bagSlots[0] = {}, 0
+end)
+
+test("Compat: GetMoney nets cursor and trade money", function()
+  local m = T.mocks
+  m.__money, m.__cursorMoney, m.__tradeMoney = 1000, 100, 50
+  assertEqual(NS.Compat.GetMoney(), 850)
+  m.__money, m.__cursorMoney, m.__tradeMoney = 0, 0, 0
+end)
+
+test("Compat: GetWarbandMoney reads the account bank, nil when API absent", function()
+  local m = T.mocks
+  m.__warbandMoney = 777
+  assertEqual(NS.Compat.GetWarbandMoney(), 777)
+  local saved = m.C_Bank; m.C_Bank = nil; rawset(_G, "C_Bank", nil)
+  assertEqual(NS.Compat.GetWarbandMoney(), nil)
+  m.C_Bank = saved; rawset(_G, "C_Bank", saved)
+  m.__warbandMoney = 0
+end)
+
+test("Compat: ListCurrencies expands collapsed headers and restores them", function()
+  local m = T.mocks
+  local saved = m.__currencyList
+  m.__currencyList = {
+    { header = true, collapsed = true, name = "Midnight" },
+    { id = 3008, quantity = 40, accountWide = false },
+    { id = 2032, quantity = 5, accountWide = true },
+  }
+  local list = NS.Compat.ListCurrencies()
+  assertEqual(#list, 2)
+  assertEqual(list[1].id, 3008); assertEqual(list[1].quantity, 40)
+  assertEqual(list[2].accountWide, true)
+  assertTrue(m.__currencyList[1].collapsed)   -- restored
+  m.__currencyList = saved
+end)
+
+test("Compat: IsConsumable reads the item class", function()
+  local m = T.mocks
+  m.__itemClassID = 0; assertTrue(NS.Compat.IsConsumable(211296))
+  m.__itemClassID = 4; assertFalse(NS.Compat.IsConsumable(211296))
+  m.__itemClassID = 0
+end)
+
+test("Compat: account-wide currency and currency-source names", function()
+  local m = T.mocks
+  m.__currencyAccountWide = { [2032] = true }
+  assertTrue(NS.Compat.CurrencyIsAccountWide(2032))
+  assertFalse(NS.Compat.CurrencyIsAccountWide(3008))
+  assertEqual(NS.Compat.CurrencySourceName(m.Enum.CurrencySource.Vendor, nil, 5), "Vendor")
+  assertEqual(NS.Compat.CurrencySourceName(nil, m.Enum.CurrencyDestroyReason.AccountTransfer, -5), "AccountTransfer")
+  assertEqual(NS.Compat.CurrencySourceName(nil, nil, 5), nil)
+end)
+
+test("Compat: inbox scan sums attachments by itemID", function()
+  local m = T.mocks
+  m.__inbox = {
+    { items = { { itemID = 9, count = 2, link = "L9" }, { itemID = 9, count = 1, link = "L9" } } },
+    { items = { { itemID = 4, count = 5, link = "L4" } } },
+  }
+  local c, l = NS.Compat.ScanInbox()
+  assertEqual(c[9], 3); assertEqual(c[4], 5); assertEqual(l[4], "L4")
+  m.__inbox = {}
+end)
+
+test("Compat: send-mail read returns attachments and money", function()
+  local m = T.mocks
+  m.__sendMail = { items = { [1] = { itemID = 7, count = 3, link = "L7" } }, money = 5000 }
+  local items, money = NS.Compat.ReadSendMail()
+  assertEqual(items[7], 3); assertEqual(money, 5000)
+  m.__sendMail = { items = {}, money = 0 }
+end)
+
+test("Compat: owned auctions count only active ones", function()
+  local m = T.mocks
+  m.__ownedAuctions = {
+    { itemID = 3, quantity = 2, link = "L3", status = 0 },
+    { itemID = 3, quantity = 1, link = "L3", status = 1 },
+  }
+  local c = NS.Compat.ScanOwnedAuctions()
+  assertEqual(c[3], 2)
+  m.__ownedAuctions = {}
+end)
+
+test("Compat: AuctionMailKind parses the localized subjects", function()
+  assertEqual((NS.Compat.AuctionMailKind("Auction successful: Herb")), "sold")
+  local kind, name = NS.Compat.AuctionMailKind("Auction expired: Herb")
+  assertEqual(kind, "expired"); assertEqual(name, "Herb")
+  assertEqual(NS.Compat.AuctionMailKind("Hello"), nil)
+end)
+
+test("Compat: TradeTargetKey appends the player's realm when missing", function()
+  T.mocks.__tradeTarget = "Alt"
+  assertEqual(NS.Compat.TradeTargetKey(), "Alt-Realm")
+  T.mocks.__tradeTarget = nil
+  assertEqual(NS.Compat.TradeTargetKey(), nil)
+end)
+
+test("Compat: LatestCurrencyTransfer appends the realm only when the client knows it", function()
+  local m = T.mocks
+  local savedRealm, savedXfer = m.GetNormalizedRealmName, m.__currencyTransfers
+  m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
+  assertEqual(NS.Compat.LatestCurrencyTransfer().toKey, "Alt-Realm")
+  m.GetNormalizedRealmName = function() return nil end   -- early in login
+  local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
+  m.GetNormalizedRealmName, m.__currencyTransfers = savedRealm, savedXfer
+  assertTrue(ok); assertEqual(t.toKey, "Alt")             -- never the bare "Alt-"
+end)
+
+test("Compat: HookSecure is presence-gated", function()
+  local m = T.mocks
+  local savedHook = m.hooksecurefunc
+  local hooked = {}
+  m.hooksecurefunc = function(a, b) hooked[#hooked + 1] = type(a) == "table" and b or a end
+  -- HookSecure resolves the target BY NAME through _G (as hooksecurefunc itself does), and the
+  -- loader env only falls through to _G after the mocks, so the stub goes on _G (core/Compat.lua's
+  -- IsAuctionHouseMail global-string lookup is exercised the same way).
+  rawset(_G, "RepairAllItems", function() end)
+  assertTrue(NS.Compat.HookSecure("RepairAllItems", function() end))
+  assertFalse(NS.Compat.HookSecure("NoSuchFunction", function() end))
+  assertTrue(NS.Compat.HookSecureMember(m.C_AuctionHouse, "PostItem", function() end))
+  assertEqual(table.concat(hooked, ","), "RepairAllItems,PostItem")
+  m.hooksecurefunc = savedHook
+  rawset(_G, "RepairAllItems", nil)
+end)
+
+test("Compat: ShowLinesTooltip draws a gold title and one colored double line per row", function()
+  local tt = T.mocks.GameTooltip
+  local saved, lines, doubles = { AddLine = rawget(tt, "AddLine"), AddDoubleLine = rawget(tt, "AddDoubleLine") }, {}, {}
+  tt.AddLine = function(_, text, r) lines[#lines + 1] = { text, r } end
+  tt.AddDoubleLine = function(_, l, v, lr, _, _, rr) doubles[#doubles + 1] = { l, v, lr, rr } end
+  local ok, err = pcall(function()
+    assertTrue(NS.Compat.ShowLinesTooltip({}, "Title", {
+      { label = "Gained", text = "+3", color = { 0.2, 1, 0.2 } }, { label = "Net", text = "0" } }))
+  end)
+  tt.AddLine, tt.AddDoubleLine = saved.AddLine, saved.AddDoubleLine
+  if not ok then error(err, 0) end
+  assertEqual(lines[1][1], "Title"); assertEqual(lines[1][2], 1)
+  assertEqual(#doubles, 2)
+  assertEqual(doubles[1][1], "Gained"); assertEqual(doubles[1][2], "+3")
+  assertEqual(doubles[1][3], 0.2); assertEqual(doubles[1][4], 0.2, "both sides in the row's color")
+  assertEqual(doubles[2][3], 1, "no color reads white")
+  tt:Hide()
+end)
+
+test("Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip", function()
+  local m, tt = T.mocks, T.mocks.GameTooltip
+  local saved, lines = rawget(tt, "AddLine"), {}
+  tt.AddLine = function(_, text, r, g, b) lines[#lines + 1] = { text, r, g, b } end
+  local ok, err = pcall(function()
+    assertTrue(NS.Compat.ShowTintedTooltip({}, { { "Name", 0.1, 0.2, 0.3 }, { "Plain" } }))
+    assertFalse(NS.Compat.ShowTintedTooltip({}, {}))
+  end)
+  tt.AddLine = saved
+  tt:Hide()
+  if not ok then error(err, 0) end
+  assertEqual(#lines, 2)
+  assertEqual(lines[1][1], "Name"); assertEqual(lines[1][2], 0.1); assertEqual(lines[1][4], 0.3)
+  assertEqual(lines[2][2], 1, "no color reads white")
+  m.GameTooltip = nil
+  local ok2, res = pcall(NS.Compat.ShowTintedTooltip, {}, { { "Name" } })
+  m.GameTooltip = tt
+  assertTrue(ok2, tostring(res)); assertFalse(res)
+end)
+
+test("Compat: ShowLinesTooltip answers false without a GameTooltip", function()
+  local m = T.mocks
+  local saved = m.GameTooltip
+  m.GameTooltip = nil
+  local ok, res = pcall(NS.Compat.ShowLinesTooltip, {}, "Title", {})
+  m.GameTooltip = saved
+  assertTrue(ok, tostring(res)); assertFalse(res)
 end)

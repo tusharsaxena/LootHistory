@@ -31,6 +31,11 @@ local CARD_DEFS = {
   { key = "richest", label = "richest drop", str = true, bigStr = true },
   { key = "span",    label = "date range", str = true, bigStr = true, wide = true },
   { key = "busy",    label = "busiest day", str = true, bigStr = true, wide = true },
+  -- The ledger row (timeline-ledger spec §6): value with the row count in the caption, signed.
+  { key = "gained", label = "gained", str = true, bigStr = true },
+  { key = "lost",   label = "lost",   str = true, bigStr = true },
+  { key = "net",    label = "net",    str = true, bigStr = true },
+  { key = "moved",  label = "transfers" },
 }
 
 -- ── Build ────────────────────────────────────────────────────────────────────────
@@ -72,7 +77,7 @@ function Analytics:Attach(pane)
     local cl = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     cl:SetPoint("BOTTOM", 0, 7)
     cl:SetText(def.label)
-    local entry = { frame = card, num = num, bigStr = def.bigStr }
+    local entry = { frame = card, num = num, bigStr = def.bigStr, caption = cl, captionBase = def.label }
     if def.bigStr then
       local file, size, flags = num:GetFont()
       entry.fontFile, entry.baseSize, entry.fontFlags = file, size, flags
@@ -104,9 +109,9 @@ end
 
 function Analytics:Refresh()
   if not self.content then return end
-  -- Scope by the browser's shared filter (issue #13) so the Insights view and the History table
-  -- always reflect the exact same criteria; empty filter = the whole (visible) history.
-  local filter = (NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter()) or {}
+  -- Scope by this tab's own filter (P11: every tab keeps its own on the shared bar), read as the
+  -- Insights state even when another tab is on the bar; empty filter = the whole (visible) history.
+  local filter = (NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter("Insights")) or {}
   local stats = NS.Database:Stats(filter)
   self.stats = stats
   self:UpdateCards(stats)
@@ -134,6 +139,15 @@ function Analytics:UpdateCards(stats)
   end
   self.cards.span.num:SetText(span)
   self.cards.busy.num:SetText(t.busiestDay and (t.busiestDay.day .. "  (" .. t.busiestDay.count .. ")") or dash)
+
+  -- The ledger row: signed copper headline, the row count in the caption (" · N").
+  local L, LF = stats.ledger or {}, NS.LedgerFormat
+  local function cap(key, n) local c = self.cards[key]; c.caption:SetText(c.captionBase .. " \194\183 " .. tostring(n or 0)) end
+  self.cards.gained.num:SetText(LF.SignedMoney(L.gainedValue or 0)); cap("gained", L.gainedCount)
+  self.cards.lost.num:SetText(LF.SignedMoney(-(L.lostValue or 0)));   cap("lost", L.lostCount)
+  self.cards.net.num:SetText(LF.SignedMoney(L.netValue or 0))
+  self.cards.net.caption:SetText("net \194\183 " .. LF.SignedCount(L.netCount or 0))
+  self.cards.moved.num:SetText(tostring(L.movedCount or 0))
 end
 
 -- Position everything top-down given the current content width; set the scroll child height.
@@ -233,6 +247,8 @@ function Analytics:BuildCharts(content)
     chtype = NS.Pool.New(), chtypeleg = NS.Pool.New(),
     chbound = NS.Pool.New(), chboundleg = NS.Pool.New(),
   }
+  -- The GAINS & LOSSES half (modules/AnalyticsLedger.lua): its own chrome, in self.ledgerUI.
+  Analytics._ledger.Build(self, content)
 
   -- Live-update while the Insights tab is visible (new loot / deletes / prune).
   Analytics:Enable()
@@ -624,7 +640,11 @@ function Analytics:LayoutCharts(y, w, pad)
     NS.Pool.ReleaseAll(P[name])
   end
 
-  if not stats or stats.totals.records == 0 then
+  -- Empty only when the range holds neither a gain nor a loss/transfer: a losses-only range still
+  -- draws the GAINS & LOSSES section, with no LOOT sections under it.
+  local AL = Analytics._ledger
+  local hasLoot = stats and stats.totals.records > 0
+  if not stats or (not hasLoot and not AL.HasLedger(stats)) then
     self:HideAllCharts()
     self.emptyText:ClearAllPoints()
     self.emptyText:SetPoint("TOP", self.content, "TOP", 0, y - 10)
@@ -633,9 +653,14 @@ function Analytics:LayoutCharts(y, w, pad)
   end
   self.emptyText:Hide()
 
-  y = placeDivider(self, self.lootDivider, y, pad)
-  for _, section in ipairs(LOOT_SECTIONS) do
-    y = section(self, stats, y, w, pad)
+  -- No gains: hide the LOOT chrome first; AL.Layout below re-shows its own.
+  if not hasLoot then self:HideAllCharts() end
+  y = AL.Layout(self, stats, y, w, pad)
+  if hasLoot then
+    y = placeDivider(self, self.lootDivider, y, pad)
+    for _, section in ipairs(LOOT_SECTIONS) do
+      y = section(self, stats, y, w, pad)
+    end
   end
 
   local ct = stats.currencyTotals or { distinct = 0, events = 0 }

@@ -6,7 +6,7 @@ badge and any count quoted in the docs must agree with it.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (32)
+### test_constants.lua (37)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member appears in the display order
@@ -36,10 +36,15 @@ badge and any count quoted in the docs must agree with it.
 - bus: Database:Add sends RecordAdded with the record and its index
 - bus: Database:FireHistoryChanged sends HistoryChanged with no payload
 - bus: a settings write sends SettingsChanged with its reason
-- bus: NS.MSG declares exactly the three wire names
+- bus: Reconciler:Flush sends HoldingsChanged once per holder that moved
+- bus: NS.MSG declares exactly the four wire names
 - bus: NS.MSG is the library's strict catalog, so a mistyped key raises
 - bus: no addon file but core/Constants.lua types a Ka0s_LootHistory_ literal
 - bus: the degraded build declares the same names, without the library
+- Constants: ledger reasons are appended SourceType members with labels
+- Constants: existing sources keep their order positions (append-only)
+- Constants: no ledger reason is offered as a capture mute
+- Constants: direction palette and glyphs
 
 ### test_mediasetup.lua (11)
 
@@ -85,7 +90,7 @@ badge and any count quoted in the docs must agree with it.
 - ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 
-### test_util.lua (40)
+### test_util.lua (42)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -127,8 +132,57 @@ badge and any count quoted in the docs must agree with it.
 - Coalesce: a later burst schedules a fresh run rather than being dropped
 - Coalesce: a raise inside the body does not wedge the trigger forever
 - Coalesce: with no C_Timer it runs straight through
+- Util: ParseSelfMoney reads looted and shared money
+- Util.RangeFrom: 90d and 1y are rolling windows
 
-### test_compat.lua (39)
+### test_ledger.lua (36)
+
+- Ledger: ThingKey round-trips for every kind
+- Ledger: Diff reports signed deltas, sorted, zeros omitted
+- Ledger: Diff treats nil maps as empty
+- Ledger: DirSign totals
+- Util: row accessors give legacy defaults
+- Constants: ledger enums and warband key
+- Ledger: ClassifyItems pairs a bag-to-bank deposit into one MOVE, no net
+- Ledger: ClassifyItems keeps the unpaired remainder as net change
+- Ledger: ClassifyItems ignores containers not rescanned on both sides
+- Ledger: mail taken is a gain unless it was own-origin
+- Ledger: escrow arrivals and auction exits never become net
+- Ledger: posting bags to auctions is a MOVE
+- Ledger: PairHolders turns a warband deposit into one pair and clears both nets
+- Ledger: PairHolders leaves same-sign changes alone
+- Ledger: claims consume fully, partially, and expire
+- Ledger: a late claim is still consumed inside its TTL
+- Ledger: coalesce key and the 60 s amend window
+- Ledger: ShouldHold — one-sided waits 6 s, unclaimed gain waits 1.5 s
+- Ledger: Signed applies DirSign
+- Ledger: PickReason — forced wins (login drift)
+- Ledger: PickReason — a fresh outbound stamp beats scopes, filtered by kind/dir
+- Ledger: PickReason — merchant scope
+- Ledger: PickReason — guild bank is outside the account
+- Ledger: PickReason — gold-out scopes
+- Ledger: PickReason — item losses by inference
+- Ledger: PickReason — gains read the inbound loot stamp, then mailbox/AH scope
+- Ledger: PickReason — currency source names map before scopes
+- Ledger: CurrencyReason maps known enum member names, nil otherwise
+- Ledger: DayKey is the local calendar day and sorts chronologically
+- Ledger: RowThingKey covers items, currencies, gold and legacy rows
+- Ledger: RollupClose overwrites the day's close; RollupFlow accumulates by direction
+- Ledger: a MOVE or a zero flow creates no cell (the rollup stays sparse)
+- Ledger: PruneDaily drops old days and folds each thing's last close onto the cutoff day
+- Ledger: PruneDaily never overwrites a close already on the cutoff day
+- Ledger: PruneDaily with nothing old is a no-op
+- Ledger: ForgetHolderDaily removes a holder's cells and days it leaves empty
+
+### test_ledgerformat.lua (5)
+
+- LedgerFormat: glyph and color per direction, legacy reads as a gain
+- LedgerFormat: quantity text is signed; transfers unsigned; gold as money
+- LedgerFormat: gold quantity is pale gold; others take the direction color
+- LedgerFormat: signed count and money; zero is a gray dash
+- LedgerFormat: the warband holder reads as Warband
+
+### test_compat.lua (64)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -160,7 +214,14 @@ badge and any count quoted in the docs must agree with it.
 - Compat: CurrencyCategory resolves a currency to its list header
 - Compat: CurrencyCategory rebuilds on a miss, so a currency first seen later resolves
 - Compat: CurrencyCategory walks the list at most once for an id that is truly absent
+- Compat: CurrencyCategory resolves an id that missed once the list grows to include it
+- Compat: a nil-id currency refresh lets a missed id resolve when the list size is unchanged
+- Compat: ListedCurrencyID keeps a listed id and remaps a hidden one to its one same-name twin
+- Compat: ListedCurrencyID drops a hidden id whose name matches two listed currencies
+- Compat: ListedCurrencyID keeps an id under a collapsed header that the stored baseline holds
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
+- Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil
+- Compat: GetItemSellPrice degrades to nil
 - Compat: CurrencyQuality returns the tier, nil when unknown
 - Compat: CurrencyBound is WARBAND when transferable, else BOP, nil when unknown
 - Compat: GetSpellName answers C_Spell.GetSpellName's name, as one value
@@ -169,6 +230,67 @@ badge and any count quoted in the docs must agree with it.
 - Compat: GetSpellName is LibKa0s-Compat-1.0's member on the live path
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
+- Compat: bag-id groups come from Enum.BagIndex names, type constants excluded
+- Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers
+- Compat: container slot read and empty slot
+- Compat: GetMoney nets cursor and trade money
+- Compat: GetWarbandMoney reads the account bank, nil when API absent
+- Compat: ListCurrencies expands collapsed headers and restores them
+- Compat: IsConsumable reads the item class
+- Compat: account-wide currency and currency-source names
+- Compat: inbox scan sums attachments by itemID
+- Compat: send-mail read returns attachments and money
+- Compat: owned auctions count only active ones
+- Compat: AuctionMailKind parses the localized subjects
+- Compat: TradeTargetKey appends the player's realm when missing
+- Compat: LatestCurrencyTransfer appends the realm only when the client knows it
+- Compat: HookSecure is presence-gated
+- Compat: ShowLinesTooltip draws a gold title and one colored double line per row
+- Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip
+- Compat: ShowLinesTooltip answers false without a GameTooltip
+
+### test_scanner.lua (5)
+
+- Scanner: variants sum by itemID across slots and bags
+- Scanner: equipped slots and equipped bags
+- Scanner: equipped bags come from the Enum.BagIndex-derived BAG_IDS, not a literal range
+- Scanner: currencies split account-wide to warband
+- Scanner: money reads
+
+### test_holdings.lua (8)
+
+- Holdings: ApplyContainer replaces one column and keeps others
+- Holdings: unchanged container reports no change
+- Holdings: Total sums holders and warband, sorted by count
+- Holdings: gold and currency totals
+- Holdings: genesis is set once; partial until bank seen
+- Holdings: Holders lists characters then warband
+- Holdings: Search keeps uncached items and filters by holder
+- Holdings: ForgetHolder drops the entry
+
+### test_rollup.lua (21)
+
+- Rollup: a holdings change writes that day's close for the thing that moved
+- Rollup: an unchanged thing writes no cell
+- Rollup: a thing leaving every container closes at 0
+- Rollup: currency and money changes write closes
+- Rollup: the write hook tallies gains and losses; transfers tally nothing
+- Rollup: an amend tallies only its delta, on the day it happens
+- Rollup: the gate container's first scan after genesis ends the partial window
+- Rollup: the warband's gate is its tabs
+- Rollup: wired through the write hook - Database:Add reaches the tally
+- Rollup: Keys indexes every thing in the rollup and learns new ones
+- Rollup: escrow and currency credits write closes too (Phase 2's direct holdings writes)
+- Rollup: Disable removes the write hook
+- Rollup: ForgetHolder drops every cell of that holder
+- Holdings: Describe names a thing by key, Gold included
+- Rollup: Prune with Always (0) keeps every day
+- Rollup: Prune drops days past the retention and carries their closes
+- Rollup: SeedOnce writes today's close for every held thing, once per account
+- Rollup: SeedOnce never overwrites a close already written today
+- Schema: rollupRetentionDays is account-wide, defaults to Always and is reset-exempt
+- Rollup: RecomputeFlows rebuilds only the touched cells from IN / OUT rows, closes untouched
+- Rollup: the suite restores the shared state it changed
 
 ### test_attribution.lua (37)
 
@@ -209,6 +331,22 @@ badge and any count quoted in the docs must agree with it.
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
 - Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
+
+### test_attribution_out.lua (13)
+
+- AttributionOut: StampOut writes the outbound slot with TTL and filters
+- AttributionOut: interaction show/hide toggles scopes
+- AttributionOut: ReasonContext exposes both slots and the scopes, resetting per-call fields
+- AttributionOut: SendMail to an own alt resolves the holder and stages attachments
+- AttributionOut: SendMail to a stranger leaves `to` nil
+- AttributionOut: posting records the item in flight and stamps the deposit
+- AttributionOut: taking AH sale money stamps AH_SOLD and names the item
+- AttributionOut: a completed trade stamps TRADE_GIVE and records the partner
+- AttributionOut: a trade with an own alt stamps ALT_TRADE on both halves
+- AttributionOut: a craft arms the reagent window
+- AttributionOut: guild bank frame OnShow/OnHide drive the guildBank scope
+- AttributionOut: stood down, stamps and scopes are ignored
+- AttributionOut: EnableOut registers on a private target; DisableOut unregisters and clears
 
 ### test_filters.lua (19)
 
@@ -262,7 +400,7 @@ badge and any count quoted in the docs must agree with it.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (38)
+### test_collector.lua (48)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -302,8 +440,79 @@ badge and any count quoted in the docs must agree with it.
 - Collector: with no price gathered the [AHPrice] line says none and picks nothing
 - Collector: a refused loot line logs one [Drop] line naming the reason, and nothing else
 - Collector: with logging off a loot line calls the debug sink not at all
+- Collector: a recorded loot line claims its stack for the holdings diff
+- Collector: a gated-out loot line claims nothing
+- Collector: a recorded currency line claims its amount
+- Collector: CHAT_MSG_MONEY writes a GOLD gain and claims it
+- Collector: CHAT_MSG_MONEY with recordGold or trackLedger off writes nothing
+- Collector+Reconciler: a hidden currency with a listed twin records once, under the twin, claimed
+- Collector: a hidden currency with no listed twin records nothing and claims nothing
+- Collector+Reconciler: a new listed currency already in the list records one claimed chat row
+- Collector: with trackLedger off an unlisted, unheld currency with no twin records one chat row
+- Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 
-### test_database.lua (65)
+### test_reconciler.lua (7)
+
+- Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
+- Reconciler: bag flush never touches bank column
+- Reconciler: bank is unreadable until the banker interaction shows
+- Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
+- Reconciler: LoginScan seeds genesis, partial until bank seen
+- Reconciler: account-wide currency lands on the warband holder
+- Reconciler: trackLedger off unregisters, on registers again
+
+### test_reconciler_rows.lua (31)
+
+- Reconciler: bag to bank deposit writes one MOVE and no gain or loss
+- Reconciler: a one-sided change at an open bank is held, then paired
+- Reconciler: vendor sale writes item OUT SELL and gold IN SELL
+- Reconciler: combat potion burst lands as one CONSUME row and coalesces
+- Reconciler: rows after the 60 s window append
+- Reconciler: a warband deposit is an OUT on the character and an IN on the warband
+- Reconciler: a warband withdraw of gold and an item is one OUT and one IN each, no MOVE
+- Reconciler: coalescing amends each half of a holder move separately
+- Reconciler: a posted claim absorbs the gain and stamps the chat row
+- Reconciler: blacklisted items never get a row but holdings still count them
+- Reconciler: recordGold off suppresses gold rows only
+- Reconciler: no genesis, no rows
+- Reconciler: an unexplained loss with no stamp is OTHER
+- Collector+Reconciler: a looted stack is counted once, chat first
+- Collector+Reconciler: a looted stack is counted once, delta first
+- Collector+Reconciler: a partial claim leaves the remainder as a diff row
+- Collector+Reconciler: looted gold is counted once
+- Reconciler: first login is genesis and writes nothing
+- Reconciler: login drift writes UNTRACKED rows, no holds, claims untouched
+- Reconciler: a login in combat waits for regen
+- Reconciler: a currency spend from the event args is an OUT with its mapped reason
+- Reconciler: currency events in combat accumulate, one row after regen
+- Reconciler: an account-wide currency change lands on the warband holder
+- Reconciler: an account currency transfer to an own alt is an OUT and an IN and credits the alt
+- Reconciler: changes made while stood down land as UNTRACKED on resume
+- Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing
+- Reconciler: bank drift since the last visit is UNTRACKED on the first read of the next
+- Reconciler: a currency delta pending when the banker opens survives the drift pass
+- Reconciler: a bank never read before is a silent first read that ends partial
+- Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
+- Reconciler: a deferred login with the banker open keeps its bags drift UNTRACKED
+
+### test_escrow.lua (14)
+
+- Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-origin are credited
+- Escrow: taking mail splits own-origin (MOVE) from outside gains (IN)
+- Escrow: taking an alt's mail is an ALT_MAIL gain; a returned auction stays a MOVE
+- Escrow: posting moves bags to auctions and credits the auctions column
+- Escrow: an auction that leaves and comes back by mail is a return, not a sale
+- Escrow: an AH sale mail books the pending exit as AH_SOLD
+- Escrow: an exit unresolved for 30 days is booked as sold
+- Escrow: mail money taken from an own alt's send is an ALT_MAIL gain
+- Escrow: mail money credited before Phase 7 (no mailMoneyAlt) is still a MOVE when taken
+- Escrow: mixed mail money: the alt-sent part is an ALT_MAIL gain, the pre-Phase 7 rest a MOVE
+- Escrow: the mailbox is unreadable once closed
+- Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the alt's gold is ALT_MAIL
+- Escrow: gold from another player is a gain even while an alt's gold waits
+- Escrow: a money-only pass leaves the staged items for the item pass; both are ALT_MAIL losses
+
+### test_database.lua (83)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -349,7 +558,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 10
+- Database: a fresh store at schemaVersion 0 walks every step to 14
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -362,6 +571,12 @@ badge and any count quoted in the docs must agree with it.
 - Migrations: the warbound split is armed, never run inline
 - Migrations: v7->v8 rewrites a saved mapID filter as the zone names those ids carried
 - Migrations: v7->v8 drops a saved mapID filter whose ids are no longer in the history
+- Migrate: v10->v11 creates the ledger stores and rewrites no rows
+- Migrate: the v11 step does not arm the reset prompt on an empty (fresh-install) history
+- Migrate: v11 step is idempotent and keeps existing holdings
+- Migrate: an already-current DB does not arm the reset prompt
+- Database: Purge retires the pending reset prompt
+- Defaults: trackLedger defaults on; resetPrompt undeclared
 - Database: ArmBoundRepair re-arms on a revision bump, and only then
 - Database: RepairBoundStates raises rows to the state the tooltip witnesses
 - Database: RepairBoundStates promotes a BOE row the bind type filed too loosely
@@ -370,8 +585,20 @@ badge and any count quoted in the docs must agree with it.
 - Database: RepairBoundStates warms the cache from the link when a row has no itemID
 - Database: RepairBoundStates resets the give-up budget on a pass that fixed something
 - Database: RepairBoundStates gives up after the attempt cap
+- Database: OnWrite hooks see Add and Amend with the quantity delta
+- Database: Amend re-sends RecordAdded with the same record and index
+- Database: QueryList dir clause treats legacy rows as gains
+- Database: minQuality floors items only, whitelist exempt
+- Database: Export carries the ledger fields with legacy defaults
+- Migrate v12->v13: a warband deposit pair becomes OUT + IN WARBAND_DEPOSIT with one pairId
+- Migrate v12->v13: a warband withdraw of gold becomes OUT on the Warband, IN on the character
+- Migrate v12->v13: character-to-character pairs take ALT_MAIL / CURRENCY_TRANSFER / ALT_TRADE
+- Migrate v12->v13: a move inside one holder stays a MOVE; an existing pairId is kept
+- Migrate v12->v13: a second run changes nothing
+- Migrate v12->v13: the touched day's in/out tallies are rebuilt from the rows; closes stay
+- Migrate v12->v13: a day the rollup no longer holds is not recreated
 
-### test_stats.lua (20)
+### test_stats.lua (25)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -393,12 +620,16 @@ badge and any count quoted in the docs must agree with it.
 - Stats: currencyCharMatrix splits each character's currency by type
 - Stats: per-character category matrices split each char by category
 - Stats: the time buckets match a per-record date() across 10:00, 10:05 and local midnight
+- Stats: legacy breakdowns count only gains of items and currency
+- Stats: ledger gains, losses, net and transfers
+- Stats: preLedgerRows counts rows older than ledgerSince
+- Stats: a holder move is a loss and a gain under its own reason, per holder
+- Stats: holder-move pairs stay out of the legacy loot breakdowns
 
-### test_browser.lua (67)
+### test_browser.lua (94)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
-- Browser.ExportWidth exactly consumes the bar remainder at minimum width
-- Browser.ExportWidth never falls below its floor
+- Browser: Export reaches the bar's right edge at minimum width, never below its floor
 - Browser.setToFilter turns a selection set into a filter value
 - Browser.setToFilter maps an empty selection to nil (no filter at all)
 - Browser.setToFilter copies rather than aliases the live selection
@@ -435,7 +666,8 @@ badge and any count quoted in the docs must agree with it.
 - Browser.CaptureView records the table's group and sort state
 - Browser.CaptureView stores unset column filters as empty sets, never nil
 - Browser.CaptureView omits the character scope (it is session-only)
-- Browser.SaveView then ResetView clears the stored default
+- Browser.SaveView stores the tab's view; ClearFilters restores it; ResetView drops it for stock
+- Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it
 - Browser: an empty multi-select reads as the All sentinel's own label
 - Browser: a dropdown with no options at all still labels itself All
 - Browser: one selected value reads as that option's label
@@ -463,8 +695,35 @@ badge and any count quoted in the docs must agree with it.
 - browser: a locked grip starts no sizing and its release saves nothing
 - browser: the resize grip is the Blizzard chat size grabber
 - browser: the History grip is Core.MakeResizable, not a hand-rolled copy
+- Browser: tab registry orders History, Insights, then registered tabs
+- Browser: a registered tab builds lazily and refreshes on select
+- Browser: the stock view shows gains and losses, transfers per setting
+- Browser: the default view floors items at the minimum-quality setting
+- Browser: the Quality 'all' option names the floor
+- Browser: group options offer Direction and Holder
+- Browser: date options offer 90 days and 1 year after 30 days
+- Browser: _filterHonored - no set honors everything, a set honors only its keys
+- Browser: a tab grays the controls it does not honor, and History restores them
+- Browser: the Holdings tab grays Date, Source, Bound and Zone, and keeps Group live
+- Browser: a holders tab lists holders, with the warband as Warband
+- Browser: a holder picked on Holdings stays on Holdings; History keeps its own Character scope
+- Browser: SetViewField remembers a field with no Save, from a copy of the stock view
+- Browser: CaptureView on the Timeline keeps its remembered pick
+- Browser: DateRange reads the Date dropdown, all when there is none
+- filter bar: every dropdown label is one non-wrapping line
+- filter bar: Direction and Bound are the same width
+- filter bar: each width covers the widest label that control can show
+- filter bar: the window floor fits both rows at the built widths
+- filter bar: a saved window narrower than the floor is widened on restore
+- filter bar layout: at the base width r == 1 and row 2 ends at the bar's right edge
+- filter bar layout: a wider window scales every control by the same ratio
+- filter bar layout: row 1 sits on row 2's grid
+- filter bar layout: a bar narrower than the base never shrinks a control
+- filter bar: the built bar fills the bar width at the base width and 300px wider
+- filter bar: resizing the window re-lays the bar out to its new width
+- Browser: Character Current shows the character's half of a warband move, Warband the other
 
-### test_browsertable.lua (63)
+### test_browsertable.lua (80)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -484,7 +743,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: OrderedFilteredRecords returns filtered rows in order, no headers
 - BrowserTable.RenderSummary is a single coalesced line
 - BrowserTable: auction column shows the picked price from the map
-- BrowserTable: MinFrameWidth accounts for the AH column (>= 1220)
+- BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1314)
 - BrowserTable: quality column is blank for a currency row
 - BrowserTable: group keys are namespaced, so a zone can share a source's name
 - BrowserTable: a missing zone/character/type groups under 'Unknown'
@@ -529,8 +788,25 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a refused start prints one line and leaves the box unticked
 - Test mode: a start in combat is refused from the player's combat flag, not the lockdown
 - Test mode: Reset all settings and /lh resetall both end it
+- BrowserTable: a Direction column follows Time, labeled and wide enough for glyph + Transfer
+- BrowserTable: the Direction cell paints glyph, label and color for IN/OUT/MOVE/legacy
+- BrowserTable: re-binding a pooled row from MOVE to IN leaves no stale glyph or color
+- BrowserTable: a non-direction cell never shows the glyph FontString
+- BrowserTable: the Qty column shows signed quantities
+- BrowserTable: the Qty column is measured wide enough for the widest signed gold amount
+- BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own
+- BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged
+- BrowserTable: group by Direction and by Holder
+- BrowserTable: group by Type & SubType orders by type, then subtype, alphabetically
+- BrowserTable: Type & SubType with no subtype reads 'Type: Armor' and leads its type
+- BrowserTable: Type & SubType reads a currency row as 'Currency · <category>'
+- BrowserTable: Type & SubType keys never collide with plain Type groups
+- History row menu: Show in Timeline opens the Timeline on that row's thing
+- History row menu: Show in Timeline is disabled for a row that names no thing
+- History row menu: the existing four entries keep their order around the new one
+- BrowserTable: the Character column shows the row's holder
 
-### test_export.lua (29)
+### test_export.lua (32)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -561,6 +837,9 @@ badge and any count quoted in the docs must agree with it.
 - Export: InsightsCSV over items and currency matches the golden document
 - Export: InsightsCSV over zero-value items with no currency matches the golden document
 - Export: InsightsCSV over an empty history, a bare table and nil
+- Export: CSV ledger columns follow wowheadLink and default for legacy rows
+- Export: InsightsCSV appends Ledger sections only when the range has losses
+- Export: InsightsCSV writes a negative copper value with a leading minus
 
 ### test_debuglog.lua (20)
 
@@ -610,7 +889,7 @@ badge and any count quoted in the docs must agree with it.
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
-### test_slash.lua (62)
+### test_slash.lua (63)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -674,8 +953,9 @@ badge and any count quoted in the docs must agree with it.
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 - /lh debug events prints the rejected event names, or none
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
+- /lh holdings <query> prints the matching name and its account-wide total
 
-### test_slash_degraded.lua (14)
+### test_slash_degraded.lua (15)
 
 - library-less install: the Slash under test is the degraded stub
 - library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
@@ -691,6 +971,17 @@ badge and any count quoted in the docs must agree with it.
 - library-less install: the degraded help does not offer /lh diagnostics
 - library-less install: /lh profile answers with the library-absent line and switches nothing
 - library-less install: the degraded help does not offer /lh profile
+- library-less install: NS.Perf is the degradation stub and /lh perf answers
+
+### test_resetprompt.lua (7)
+
+- Reset prompt: offered only for an upgraded (armed), non-empty, undecided DB
+- Reset prompt: an Esc on the upgrade login is asked again on the NEXT session
+- Reset prompt: dialogs are registered with three choices
+- Reset prompt: Keep stores the choice; Esc leaves it undecided
+- Reset prompt: confirmed reset purges history and keeps holdings
+- Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
+- Reset prompt: closing the export window after "Export first" asks again, once
 
 ### test_schema.lua (69)
 
@@ -776,7 +1067,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (64)
+### test_analytics.lua (69)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -842,8 +1133,13 @@ badge and any count quoted in the docs must agree with it.
 - Analytics: every pool goes through the LibKa0s seam
 - Analytics: the TOC loads Format, then Analytics, then Charts
 - Analytics: the module's function surface is exactly the published one
+- Insights ledger: the caveat shows only for kept history with pre-ledger rows
+- Insights ledger: back-to-back rows share one peak and sort by total
+- Insights ledger: HasLedger is false for gains-only ranges
+- Insights ledger: every ledger reason has its own chart color
+- Insights ledger: the by-character chart names a holder, the Warband as Warband
 
-### test_analytics_layout.lua (6)
+### test_analytics_layout.lua (9)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -851,6 +1147,163 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: items with no value and no currency, over a trimmed day range
 - Insights layout: an empty range hides every chart and shows the empty text
 - Insights layout: a nil stats table takes the empty branch too
+- Insights layout: a range with losses draws the gains-vs-losses section first
+- Insights layout: losses only — no empty text, no LOOT divider
+- Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
+
+### test_holdingstab.lua (33)
+
+- HoldingsTab: model lists things collapsed by default
+- HoldingsTab: expanding a thing adds one line per holder
+- HoldingsTab: character filter narrows holders
+- HoldingsTab: container and age formatting
+- HoldingsTab: tab is registered after History and Insights
+- HoldingsTab: attach builds rows and recycles them on refresh
+- HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is closed
+- Holdings row actions: a thing line offers Show in Timeline
+- Holdings row actions: Forget is offered for an alt, never for the warband or the logged-in character
+- Holdings row actions: Forget is disabled in test mode, even for an alt
+- Forget this character: drops holdings and rollup cells, keeps history rows, announces once
+- Forget this character: a holder with nothing stored is a no-op and announces nothing
+- Forget this character: refuses the logged-in character and the warband
+- Forget popup: registered, and its accept forgets the holder it carries
+- HoldingsTab: an item line carries iLvl, quality label, type, subtype and the AH unit price
+- HoldingsTab: a non-gear item has no iLvl
+- HoldingsTab: a currency line reads Currency / its category, with no iLvl or AH price
+- HoldingsTab: the gold line reads Gold with no subtype, quality, iLvl or AH price
+- HoldingsTab: stripes alternate per thing and an expanded thing's holders keep its stripe
+- HoldingsTab: header sorts by every column and a second click flips the direction
+- HoldingsTab: columns hide right to left as the pane narrows; Name, Total and Value stay
+- HoldingsTab: hovering a thing shows the right tooltip for an item, a currency and gold
+- HoldingsTab: the pane's rows hover and leave through the tooltip; the header holds exactly the column labels
+- HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise
+- HoldingsTab group: Quality headers by rank (highest first), N = things in the group
+- HoldingsTab group: Type and SubType headers are alphabetical
+- HoldingsTab group: Type & SubType reads 'Type: <Type> · <SubType>', a currency its category, gold bare
+- HoldingsTab group: Character lists a thing under every holder with that holder's count, Warband last
+- HoldingsTab group: under Character an expanded thing lists only that holder's containers
+- HoldingsTab group: a collapsed group keeps its header and count and hides its members
+- HoldingsTab group: stripes run per thing across groups; headers carry none; holders keep the parent's
+- HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
+- HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
+
+### test_timeline.lua (32)
+
+- Timeline model: NextDay and DayStart walk local calendar days
+- Timeline model: DailySeries carries the last close forward
+- Timeline model: DailySeries starts at genesis and picks up each day's close
+- Timeline model: a flow-only cell does not break the carry
+- Timeline model: ValueAt and TotalSeries treat a not-yet-started holder as 0
+- Timeline model: TotalSeries keeps an intraday step vertical
+- Timeline model: RankHolders applies the Character filter before the cap
+- Timeline model: Build draws Total plus at most maxLines holders, richest first
+- Timeline model: a holder with nothing now but a balance in range is still a candidate
+- Timeline model: ledgerSince inside the range is a dashed marker; outside it is not
+- Timeline model: a partial holder is dashed from genesis until its bank was first seen
+- Timeline model: Flows sum the shown holders' gains and losses per day
+- Timeline model: gold reaches the chart in gold units and stays copper in the model
+- Timeline model: IntradaySeries rebuilds steps from rows, newest backwards from now
+- Timeline model: IntradaySeries gives up when the rows disagree with the rollup
+- Timeline model: a MOVE row moves the holder's own balance by its side
+- Timeline model: intraday only for Today / 7d, inside retention, after the ledger began
+- Timeline model: HoverLines reads each line's value and that day's flows
+- Timeline model: Suggest puts Gold first, then the biggest totals, capped
+- Timeline model: Visible drops the hidden series and ignores keys it does not draw
+- Timeline model: YRange spans only the series it is handed
+- Timeline model: ChartData draws only the visible lines and scales y over them
+- Timeline model: HoverLines lists only the visible lines, flows unchanged
+- Timeline model: FlowLines titles the day as the Total's and signs Gained / Lost / Net
+- Timeline model: FlowLines counts a currency, shows a zero side as 0 and a negative net red
+- Timeline model: FlowLines answers nil for a day with no flow
+- Timeline model: FormatCount groups thousands, FormatHolding reads gold as coins
+- Timeline model: LegendTip colors the title by holder kind and reads the current holding
+- Timeline model: LegendTip's Total sums only the charted holders and says so
+- Timeline model: LegendTip counts currencies and items with separators, and a holder with none reads 0
+- Timeline model: LegendTip reads the test-mode store when it is on
+- Timeline model: LegendLayout keeps the Total's slot and one gap between the rest, wrapping rows
+
+### test_timelinetab.lua (31)
+
+- Timeline tab: registered between Insights and Holdings
+- Timeline tab: Total plus one line per holder; the Character filter narrows it
+- Timeline tab: refresh twice recycles Lines and pooled rows
+- Timeline tab: maxLines caps the holders drawn
+- Timeline tab: typing in Search offers matching things, Gold first
+- Timeline tab: the pick is remembered in the saved view
+- Timeline tab: grays every filter but Search, Date and Character
+- Timeline tab: a hover with no model or index hides the tooltip and does not raise
+- Schema: timelineMaxLines is a 2-16 slider under Interface, default 8
+- Timeline tab: a live repaint drops a hover left up, so the next tick re-hovers on the new data
+- Timeline tab: nothing it draws stays visible over History or Holdings (LED-9)
+- Timeline tab: one legend button per series, Total first, reused across rebuilds
+- Timeline tab: a legend click hides the line, dims its entry and a second click restores it
+- Timeline tab: Total only hides every holder; off restores the set shown before
+- Timeline tab: hiding every holder by hand reads as Total only, and showing one clears it
+- Timeline tab: every line hidden shows the empty state, not an axis
+- Timeline tab: the hidden set survives a change of thing and range, and ignores absent holders
+- Timeline tab: Total only is remembered in the saved view, the per-line set is not
+- Timeline tab: the hover tooltip lists only the visible lines
+- Timeline tab: hovering a day's strip column shows its Gained / Lost / Net, and OnLeave hides it
+- Timeline tab: the strip tooltip stays the Total's with lines hidden
+- Timeline tab: a day with no flow has no strip hit region; regions are pooled across redraws
+- Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it
+- Timeline tab: the chart's hover ending does not hide the strip's tooltip
+- Timeline tab: smoother lines -- 6 px per point reaches the chart and the lines are 2 px (Total 2.5)
+- Timeline tab: the wider point spacing thins a 120-day series to fewer points
+- Timeline tab: a legend entry's tooltip is the holder's color, its holding and the hint
+- Timeline tab: the Warband's legend tooltip wears the Warband's series color
+- Timeline tab: legend entries sit one even gap apart, the Total keeping its slot
+- Timeline tab: the Warband's legend entry takes the same gap as a character's
+- Timeline tab: a legend too wide for the pane wraps to a second row and the body makes room
+
+### test_autocomplete.lua (14)
+
+- Autocomplete: the seam answers a library handle on a real box, nil without one
+- Autocomplete: typing in Search opens the list directly under the box, as wide as it
+- Autocomplete: switching tabs closes the list
+- Autocomplete: History offers distinct item and currency names, prefix matches first, no Gold
+- Autocomplete: History rows carry their quality's color
+- Autocomplete: History's names follow the other filters, with the typed text set aside
+- Autocomplete: History reads the test-mode sample, not the live history
+- Autocomplete: a History pick puts exactly that name in Search and applies it
+- Autocomplete: Insights offers the same names and picks the same way
+- Autocomplete: Holdings offers what Holdings search finds, Gold included, and picks the name
+- Autocomplete: Timeline offers things, Gold first when it matches
+- Autocomplete: a Timeline pick charts the thing and keeps its name in Search
+- Autocomplete: the Timeline's own picker list is gone
+- Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
+
+### test_testdata.lua (10)
+
+- TestData: the sample holdings and daily stores build deterministically
+- TestData: a day's close is its flows applied to the day before
+- Test mode: Holdings and Timeline show the sample, and the real stores come back after
+- Test mode: ledger writes go to the real stores, never the sample
+- TestData: the History sample writes holder moves as a loss and a gain
+- TestData: the sample rollup books a holder move's loss and gain on each holder
+- TestData: the default Timeline thing is Everlight Crystal, nil without a sample
+- Test mode: the Timeline opens on the default sample item with lines drawn, saved view untouched
+- Test mode: a pick made in test mode survives refreshes and never reaches the saved view
+- Test mode: a pick of a thing the sample lacks falls back to the default
+
+### test_views.lua (16)
+
+- Views: Save on each tab writes only that tab's slot
+- Views: Clear on one tab applies its saved view, touching no other tab and no slot
+- Views: Reset deletes only the active tab's slot and applies its stock view
+- Views: a tab with no saved view clears and resets to its own stock view
+- Views: Holdings Save, Reset and Clear take effect on the Holdings view
+- Views: a view from another tab applies to Holdings as None, sorted by Name
+- Views: switching tabs back and forth restores each tab's own live state exactly
+- Views: Insights reads its own filter, even while another tab is on the bar
+- Views: a tab never shown opens on its saved view, scoped to the current player
+- Views: a profile adopt forgets every tab's parked state
+- Views: test mode never writes a saved view
+- Views: Clear on the Timeline keeps the remembered thing
+- Views: Reset on the Timeline turns Total only off at once; the charted thing lasts the session
+- Migrate v13->v14: a profile's saved view becomes four identical per-tab views, the old key goes
+- Migrate v13->v14: a second run changes nothing
+- Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
 ### test_panel.lua (43)
 
@@ -927,7 +1380,7 @@ badge and any count quoted in the docs must agree with it.
 - AH table: every provider present and nothing captured
 - AH table: no provider present
 
-### test_profiles.lua (28)
+### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
 - Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched
@@ -957,6 +1410,9 @@ badge and any count quoted in the docs must agree with it.
 - Profiles page: the global reset's veto keeps only the session-only rows, never the Profiles page
 - Profiles page: without AceDBOptions the page opts out, and nothing is registered
 - Profiles page: AceDBOptions' table over this db, drawn by AceConfigDialog into a Profiles canvas
+- Migrate v11->v12: an explicit showTransfers = false is dropped from every profile
+- Migrate v11->v12: a false set after the step stays false; a re-run changes nothing
+- Defaults: Show transfers is on for a new profile
 
 ### test_harness.lua (7)
 
@@ -968,7 +1424,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (27)
+### test_libka0s.lua (30)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -978,6 +1434,7 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the Core stub answers every member the addon calls
 - NS.MakeCloseButton hands the library this addon's FOLDER name as the third argument
 - every window this addon owns closes through that one wrapper
+- degraded install: NS.MakeLineChart answers nil rather than a dead frame
 - degraded install: NS.MakeResizable keeps today's grip, the floor, the lock and the save
 - degraded install: a bare /lh prints help listing the verbs that still work
 - degraded install: bare /lh skips the config verb, which cannot answer here, for help
@@ -997,6 +1454,8 @@ badge and any count quoted in the docs must agree with it.
 - the vendored info art the help mark points at is on disk
 - degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing
 - degraded install: the SafeRegister stubs isolate a refused name and record it once
+- v1.69.0: the line chart is vendored and attached to the Widgets major
+- v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
 
 ### test_surface_parity.lua (14)
 
@@ -1015,10 +1474,13 @@ badge and any count quoted in the docs must agree with it.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 
-### test_disabled.lua (14)
+### test_disabled.lua (17)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
+- slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell
+- slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
+- slash-commands-§7 step 3: an "Export first" re-ask does not pop the reset prompt during NS.StandDown
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
 - slash-commands-§7 step 5: the window goes down, and the SHOW LADDER is what keeps it down
 - slash-commands-§7 step 6: firing every event it used to watch writes nothing, prints nothing, draws nothing
@@ -1031,6 +1493,15 @@ badge and any count quoted in the docs must agree with it.
 - slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
+
+### test_perf.lua (6)
+
+- perf: the buckets are declared in report order
+- perf: every declared bucket is reached by a real bracket
+- perf: a dormant probe notes nothing
+- perf: suspend makes the addon inert and resume restores it
+- perf: suspend and resume log to the console whatever the debug flag says
+- perf: /lh perf dispatches to the harness
 
 ### test_diagnostics.lua (20)
 
@@ -1052,7 +1523,7 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 - diagnostics: the browser section with no window and no table module
-- diagnostics: the browser section with a shown window, test records and a saved view
+- diagnostics: the browser section with a shown window, test records and saved views
 - diagnostics: the browser section with a hidden window, a descending sort and no view
 
 ### test_debug_coverage.lua (21)
@@ -1165,7 +1636,7 @@ badge and any count quoted in the docs must agree with it.
 - lizard sighted: parity names every file whose counts differ, and only those
 - lizard sighted: lizard lists every function of a hazard fixture once it is sanitized
 
-### test_widgets.lua (17)
+### test_widgets.lua (20)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
 - Widgets: no option table in this addon sets a glyph
@@ -1174,7 +1645,7 @@ badge and any count quoted in the docs must agree with it.
 - Widgets: the Character preset row lights up through its own isActive
 - Widgets: the Character preset is a one-click 'only me', not a toggle of its own value
 - Widgets: a selected character with no option row still counts in the collapsed label
-- Widgets: the filter bar builds all nine of its dropdowns through the seam
+- Widgets: the filter bar builds all ten of its dropdowns through the seam
 - Widgets: the Character options fold the class icon into the label, not into an icon field
 - Widgets: the History window's OnHide closes the shared popup
 - Widgets: Browser:Hide closes the shared popup
@@ -1184,43 +1655,63 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the filter bar refuses to draw and the browser still comes up
 - degraded install: the export modal's refusal builds no frame, on the first Open or the tenth
 - degraded install: the export modal refuses rather than calling methods on a nil dropdown
+- seam: NS.MakeLineChart builds the library's chart and routes hover back to the host
+- seam: NS.MakeLineChart copies the host's opts rather than stamping them
+- seam: the chart draws Line regions, not textures
 
 ## Totals
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 32 |
+| test_constants.lua | 37 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
-| test_util.lua | 40 |
-| test_compat.lua | 39 |
+| test_util.lua | 42 |
+| test_ledger.lua | 36 |
+| test_ledgerformat.lua | 5 |
+| test_compat.lua | 64 |
+| test_scanner.lua | 5 |
+| test_holdings.lua | 8 |
+| test_rollup.lua | 21 |
 | test_attribution.lua | 37 |
+| test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 38 |
-| test_database.lua | 65 |
-| test_stats.lua | 20 |
-| test_browser.lua | 67 |
-| test_browsertable.lua | 63 |
-| test_export.lua | 29 |
+| test_collector.lua | 48 |
+| test_reconciler.lua | 7 |
+| test_reconciler_rows.lua | 31 |
+| test_escrow.lua | 14 |
+| test_database.lua | 83 |
+| test_stats.lua | 25 |
+| test_browser.lua | 94 |
+| test_browsertable.lua | 80 |
+| test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
-| test_slash.lua | 62 |
-| test_slash_degraded.lua | 14 |
+| test_slash.lua | 63 |
+| test_slash_degraded.lua | 15 |
+| test_resetprompt.lua | 7 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 64 |
-| test_analytics_layout.lua | 6 |
+| test_analytics.lua | 69 |
+| test_analytics_layout.lua | 9 |
+| test_holdingstab.lua | 33 |
+| test_timeline.lua | 32 |
+| test_timelinetab.lua | 31 |
+| test_autocomplete.lua | 14 |
+| test_testdata.lua | 10 |
+| test_views.lua | 16 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
-| test_profiles.lua | 28 |
+| test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 27 |
+| test_libka0s.lua | 30 |
 | test_surface_parity.lua | 14 |
-| test_disabled.lua | 14 |
+| test_disabled.lua | 17 |
+| test_perf.lua | 6 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_doc_structure.lua | 8 |
@@ -1231,5 +1722,5 @@ badge and any count quoted in the docs must agree with it.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
-| test_widgets.lua | 17 |
-| **Total** | **1050** |
+| test_widgets.lua | 20 |
+| **Total** | **1473** |

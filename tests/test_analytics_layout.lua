@@ -66,10 +66,14 @@ end
 
 local function layout(inst, stats)
   local savedCF = mocks.CreateFrame
+  local g = NS.db.global
+  local savedRP = g.resetPrompt
+  g.resetPrompt = nil                       -- the pre-ledger caveat is pinned by its own case
   mocks.CreateFrame = recordingCreateFrame()
   inst.stats = stats
   local ok, y = pcall(inst.LayoutCharts, inst, -100, 780, 8)
   mocks.CreateFrame = savedCF
+  g.resetPrompt = savedRP
   if not ok then error(y, 0) end
   return y
 end
@@ -239,3 +243,71 @@ test("Insights layout: a nil stats table takes the empty branch too", function()
   assertTrue(inst.emptyText.__shown, "the empty text is shown")
 end)
 
+
+test("Insights layout: a range with losses draws the gains-vs-losses section first", function()
+  local T1 = 1600000000
+  local stats = statsFor({
+    { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 10, itemName = "Sword", quality = 4, source = "KILL", quantity = 1, vendorPrice = 100 },
+    { ts = T1, char = "A-Realm", classFile = "MAGE", itemID = 11, itemName = "Potion", quality = 1, source = "CONSUME",
+      dir = "OUT", kind = "ITEM", quantity = 5, vendorPrice = 10 },
+    { ts = T1, char = "A-Realm", classFile = "MAGE", kind = "GOLD", itemName = "Gold", source = "REPAIR", dir = "OUT", quantity = 300 },
+  })
+  local inst = newInstance()
+  local y = layout(inst, stats)
+  local ui = inst.ledgerUI
+  assertTrue(ui.divider.__shown, "the GAINS & LOSSES divider is shown")
+  assertTrue(ui.headers.reason.__shown)
+  assertEqual(#ui.pools.reason.active, 3)                 -- KILL, CONSUME, REPAIR
+  assertTrue(inst.lootDivider.__shown, "the LOOT sections still draw for the gain")
+  assertTrue(y < -100)
+  -- Drawn above LOOT: the divider's anchor y is above the loot divider's.
+  assertTrue(ui.divider:__lastPoint().y > inst.lootDivider:__lastPoint().y)
+end)
+
+test("Insights layout: losses only — no empty text, no LOOT divider", function()
+  local stats = statsFor({
+    { ts = 1600000000, char = "A-Realm", classFile = "MAGE", kind = "GOLD", itemName = "Gold", source = "REPAIR", dir = "OUT", quantity = 300 },
+  })
+  local inst = newInstance()
+  layout(inst, stats)
+  assertTrue(not inst.emptyText.__shown)
+  assertTrue(not inst.lootDivider.__shown)
+  assertTrue(inst.ledgerUI.divider.__shown)
+end)
+
+-- Smoke LED-9, the Insights half: the same class of leak the Timeline case looks for. Every region
+-- the chart chrome and a full layout make (cards' strips, legends, panels, the gains-vs-losses
+-- section) is traced to its owner, and with the instance's root hidden none may still read visible.
+local RT = dofile("tests/region_trace.lua")
+
+test("Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)", function()
+  local T1 = 1600000000
+  local history = richHistory()
+  history[#history + 1] = { ts = T1, char = "Alpha-Realm", classFile = "WARRIOR", itemID = 11, itemName = "Potion",
+    quality = 1, source = "CONSUME", dir = "OUT", kind = "ITEM", quantity = 5, vendorPrice = 10 }
+  history[#history + 1] = { ts = T1, char = "Beta-Realm", classFile = "MAGE", kind = "GOLD", itemName = "Gold",
+    source = "REPAIR", dir = "OUT", quantity = 300 }
+  local stats = statsFor(history)
+  local inst = setmetatable({}, { __index = A })
+  local root
+  local savedEnable, savedCF, g = A.Enable, mocks.CreateFrame, NS.db.global
+  local savedRP = g.resetPrompt
+  -- The recording mock first, as newInstance builds on it (a templated face has the client's size).
+  A.Enable, g.resetPrompt, mocks.CreateFrame = function() end, nil, recordingCreateFrame()
+  local ok, err = pcall(function()
+    local made = RT.Trace(function()
+      root = mocks.CreateFrame("Frame")
+      inst.content = mocks.CreateFrame("Frame", nil, root)
+      inst:BuildCharts(inst.content)
+      inst.stats = stats
+      inst:LayoutCharts(-100, 780, 8)
+    end)
+    assertTrue(inst.ledgerUI.divider.__shown, "the gains-vs-losses section drew")
+    assertTrue(RT.ShownText(made) > 0, "Insights drew labels while its pane was shown")
+    root:Hide()
+    local leaks = RT.Leaks(made)
+    assertEqual(#leaks, 0, "pane hidden, still visible: " .. table.concat(leaks, ", "))
+  end)
+  A.Enable, g.resetPrompt, mocks.CreateFrame = savedEnable, savedRP, savedCF
+  if not ok then error(err, 0) end
+end)

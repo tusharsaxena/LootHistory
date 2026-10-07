@@ -33,6 +33,7 @@ Answer two questions equally well:
 | D7 | Holdings search lives in a **4th tab "Holdings"**. |
 | D8 | Timeline charts **one thing at a time** (Gold, one currency, or one item). Lines = **holders** (Total + up to *X* characters/Warband). |
 | D9 | On first load after upgrade with existing history, show a **reset recommendation popup** (§9). |
+| D10 | **Amendment 2026-10-06 (owner decision, Phase 7):** a move between two **different** holders is a **loss on the sender and a gain on the receiver**, each under the action's reason, not a `MOVE` pair. Moves inside one holder stay a single `MOVE`. Amends §4.1, §5.1 rule 2, §5.2, §5.4, §6 and §7 below; stored pairs are converted by the v13 migration. |
 
 ## 3. Concepts
 
@@ -73,7 +74,8 @@ New optional fields on every row; **absent on legacy rows, which read as default
 | `dir` | `"IN"` / `"OUT"` / `"MOVE"` | `"IN"` |
 | `kind` | `"ITEM"` / `"CURRENCY"` / `"GOLD"` | derived: `itemID` → ITEM, `currencyID` → CURRENCY |
 | `holder` | holder key | `char` |
-| `from`, `to` | `"<holder>/<container>"` (MOVE rows only) | — |
+| `from`, `to` | `"<holder>/<container>"` (MOVE rows, and both halves of a holder move — D10) | — |
+| `pairId` | shared by the `OUT` and `IN` of one holder move, `"<ts>:<n>"` (D10) | — |
 | `claimed` | `true` on rows written by the chat path that the diff matched | — |
 
 - Accessors `Util.RowDir(r)`, `Util.RowKind(r)`, `Util.RowHolder(r)` encapsulate the defaults;
@@ -84,6 +86,10 @@ New optional fields on every row; **absent on legacy rows, which read as default
   `SELL, BUY, REPAIR, MAIL_SEND, TRADE_GIVE, AH_POST_FEE, AH_SOLD, AH_BUY, DESTROY, CONSUME,
   CRAFT_REAGENT, DECONSTRUCT, GUILD_DEPOSIT, GUILD_WITHDRAW, TRAINING, TRAVEL, TRANSFER,
   UNTRACKED`. Existing members unchanged (`VENDOR` stays the gain-from-merchant source).
+  **Amendment 2026-10-06 (D10):** appended `WARBAND_DEPOSIT` (character → §warband),
+  `WARBAND_WITHDRAW` (§warband → character), `ALT_MAIL`, `ALT_TRADE`, `CURRENCY_TRANSFER` — the
+  reasons of a holder move; both halves carry the same one. `TRANSFER` stays the reason of a
+  single-holder `MOVE` and of currency a transfer consumed beyond what arrived.
 
 ### 4.2 Holdings (`global.holdings`)
 
@@ -111,7 +117,7 @@ global.daily["YYYY-MM-DD"][holder][thingKey] = { c=<close>, i=<in>, o=<out> }
 ```
 
 Sparse: a cell exists only for a (day, holder, thing) that changed. The Timeline carries the last
-`c` forward. Written by the reconciler alongside each row (O(1) per row). Own retention setting
+`c` forward. Closes are written from `NS.Holdings`' write methods and in/out tallies from the `NS.Database:OnWrite` hook (Phase 3 plan, 'Phase 2 contract') (O(1) per change). Own retention setting
 `rollupRetentionDays` (default **0 = Always**). Pruned with the existing once-per-session prune.
 
 ### 4.4 Bookkeeping
@@ -130,8 +136,11 @@ sorted by thingKey for testability — BankLedger pattern), then classifies each
 1. **Intra-holder** — the thing went down in one container and up in another of the **same
    holder** by a matching amount → `MOVE` row (`from`/`to`), net 0.
 2. **Inter-holder (own)** — char ↔ §warband (warband bank, warband gold deposit/withdraw,
-   account-currency transfer), or char → own alt (mail/trade to a known holder) → opposite
-   `MOVE` pair; recipient's `mail` container gets the in-flight count.
+   account-currency transfer), or char → own alt (mail/trade to a known holder) → **an `OUT` on
+   the sender and an `IN` on the receiver** under the action's reason (`WARBAND_DEPOSIT`,
+   `WARBAND_WITHDRAW`, `ALT_MAIL`, `ALT_TRADE`, `CURRENCY_TRANSFER`), one shared `pairId`
+   (amended 2026-10-06, D10; was an opposite `MOVE` pair). An alt mail's `IN` is written when the
+   alt takes it; the recipient's `mail` container holds the in-flight count meanwhile.
 3. **Net change** — whatever remains after (1)/(2) and after **claims** (5.3) → `IN` or `OUT`
    row with a reason from the context stamp (5.4).
 
@@ -149,7 +158,7 @@ last snapshot and is never inferred to be empty.
 | `PLAYERBANKSLOTS_CHANGED`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | rescan bank / tab |
 | `PLAYER_MONEY`, `ACCOUNT_MONEY` | money reconcile (`GetMoney() - GetCursorMoney() - GetPlayerTradeMoney()`) |
 | `CURRENCY_DISPLAY_UPDATE(id, qty, change, gainSrc, lostSrc)` | currency delta direct from args; `gainSrc`/`lostSrc` map to reasons |
-| `CURRENCY_TRANSFER_LOG_UPDATE` | currency transfer between holders → MOVE pair |
+| `CURRENCY_TRANSFER_LOG_UPDATE` | currency transfer between holders → `OUT` + `IN` `CURRENCY_TRANSFER` (D10; was a MOVE pair) |
 | `MAIL_INBOX_UPDATE` (debounced 0.3 s) | rescan `mail` |
 | `OWNED_AUCTIONS_UPDATED` | rescan `auctions` |
 | `PLAYER_REGEN_ENABLED` | run any reconcile deferred by combat |
@@ -189,8 +198,9 @@ Extend `Attribution` with **outbound** stamps using the same single-slot TTL eng
 | Reason | Stamp |
 |---|---|
 | `SELL` / `BUY` / `REPAIR` | merchant frame open + `hooksecurefunc` on `SellCursorItem`/`UseContainerItem` (sell), `BuyMerchantItem` (existing), `RepairAllItems` |
-| `MAIL_SEND` / own-alt `TRANSFER` | `SendMail` hook (recipient resolved against holders) + `MAIL_SEND_SUCCESS` |
-| `TRADE_GIVE` / own-alt `TRANSFER` | `TRADE_ACCEPT_UPDATE` (existing) + trade target name |
+| `MAIL_SEND` / own-alt `ALT_MAIL` (D10; was `TRANSFER`) | `SendMail` hook (recipient resolved against holders) + `MAIL_SEND_SUCCESS` |
+| `TRADE_GIVE` / own-alt `ALT_TRADE` (D10; was `TRANSFER`) | `TRADE_ACCEPT_UPDATE` (existing) + trade target name |
+| `WARBAND_DEPOSIT` / `WARBAND_WITHDRAW` (D10) | the direction of a paired move with `§warband` |
 | `AH_POST_FEE`, post (→ `auctions` MOVE), `AH_SOLD`, `AH_BUY` | AH frame + `C_AuctionHouse.PostItem/PostCommodity` hooks; sale detected when an auction leaves `auctions` without returning to mail as expired |
 | `DESTROY` | `DeleteCursorItem` hook |
 | `CONSUME` | unexplained decrease of a usable item (`C_Item.IsUsableItem` / consumable class) |
@@ -230,6 +240,10 @@ stored snapshot for this holder.
 - New section **Gains vs losses by reason**: back-to-back bars about a center axis, losses left in
   red, gains right in green, shared scale (`PeakShares`). Same treatment by character and by kind.
 - Existing gain-only charts filter to `dir == IN` so their meaning does not change.
+- **Amendment 2026-10-06 (D10):** a holder move's two halves count as a loss and a gain like any
+  other (the owner accepted that account-wide totals net out), under their own reasons with their own
+  chart colors; no special exclusion. The *by character* chart keys on the row's holder, so the
+  Warband carries its own half.
 - If the date range spans `ledgerSince` and history was kept, a one-line note:
   *"Before <date> only gains were recorded — totals for that period overstate net."*
 
@@ -241,6 +255,9 @@ stored snapshot for this holder.
 - Quantity column shows signed values; gold rows formatted as money (pale gold).
 - New **Direction** multi-select filter: Gains, Losses, Transfers — default Gains + Losses.
 - New group-by modes: Direction, Holder. Source filter/group lists the new reasons.
+- **Amendment 2026-10-06 (D10):** the **Character** column shows the row's **holder**
+  (`HolderLabel`, so `§warband` reads "Warband"), not the acting character, and the Character filter
+  matches the holder (Warband selectable). Quantities are signed as for any gain or loss.
 
 ## 8. New tabs
 
@@ -252,11 +269,24 @@ stored snapshot for this holder.
 register first; Timeline and Holdings live in their own modules. The filter bar remains the
 window-wide singleton; each tab declares which filters it honors (unused ones are greyed, not hidden).
 
+**Amendment 2026-10-07 (P11, owner decision): per-tab filter views.** The bar stays one set of
+controls, but its *state* is per tab: History, Insights, Timeline and Holdings each keep their own
+live group, sort, date, search, multi-select filters, Character scope and tab fields (Timeline's
+thing and Total only, Holdings' group and sort), and a tab switch parks the outgoing tab's state and
+puts the incoming tab's on the bar. This supersedes issue #13's one filter shared by History and
+Insights. Saved views are per tab too: `profile.savedViews = { History, Insights, Timeline,
+Holdings }`, and the schema step `to = 14` copies a stored `savedView` into every tab's slot and
+removes it. **Save** stores the active tab's state in its slot; **Reset** deletes the active tab's
+saved view and applies its stock view (Holdings: group None, sort Name); **Clear** returns the tab to
+its saved view (its stock view when none) and keeps the slot; the Timeline's Clear returns its filters
+and keeps the charted thing and Total only. These are the original meanings, applied per tab. None touches another tab. Holdings' group and sort join its view (the
+P6 "session-only" ruling is superseded). Test mode stays session-only and never writes a saved view.
+
 ### 8.1 Timeline (3rd tab)
 
 - **Thing picker** at the head of the pane: Gold, or one currency/item. Driven by the shared
   search box (type-ahead over things present in holdings or rollup); last pick remembered in
-  `savedView`. "Show in Timeline" from History/Holdings rows sets it.
+  `savedView` (since P11 the Timeline's own slot, `savedViews.Timeline`). "Show in Timeline" from History/Holdings rows sets it.
 - **Lines:** **Total** (sum over shown holders, thick) + one line per holder, capped at
   `timelineMaxLines` (default 8) ranked by latest balance; Character filter restricts holders;
   §warband is a selectable holder. Class colors for characters, warband in its own color.
@@ -269,6 +299,23 @@ window-wide singleton; each tab declares which filters it honors (unused ones ar
 - **Genesis / gaps:** a holder's line starts at its genesis; a vertical dashed marker at
   `ledgerSince`; a holder with `partial=true` draws dashed until its bank is first seen.
 - **Hover:** crosshair + tooltip per date with each line's value and that day's in/out.
+- **Line toggles (P8, owner feedback 2026-10-07):** each legend entry is a button that hides or shows
+  its line (hidden entries stay in place, dimmed); a header **Total only** toggle hides every holder
+  and keeps Total, and turning it off restores the lines shown before. The toggle reads as on exactly
+  when Total is visible and every holder hidden. Only visible lines are drawn, hovered and used for the
+  y range; the under-strip stays the Total's. With every line hidden the plot shows "All lines hidden
+  — click a legend entry to show it." and no axes. **Total only** persists in `savedView`
+  (`timelineTotalOnly`, default off; since P11 `savedViews.Timeline`); the per-holder hidden set is session-only, survives changing the
+  thing and range, and ignores holders not in the chart.
+- **Legend tooltip and spacing (P10, owner feedback 2026-10-07):** hovering a legend entry titles the
+  tooltip in the line's color (class color for a character, the Warband's series color, the Total in
+  the tooltip's gold), then **Holding** with the holder's current holding of the charted thing from the
+  active Holdings store (gold as coins, History's Qty formatter; currencies and items as counts with
+  thousands separators; `0` when none), then the gray hint "Click to hide/show". The Total's holding
+  is what its line sums, the charted holders; it reads **Holding (all shown characters)** when the
+  Character filter or the line cap leaves out a holder that holds some. Entries are as wide as their
+  labels and one even gap apart (Warband included); the Total keeps its fixed slot; a legend wider
+  than the pane wraps to another row.
 - **Primitive:** new pooled line-chart renderer using `Texture:CreateLine` (`SetStartPoint`,
   `SetEndPoint`, `SetThickness`) — none exists today. Built **in LibKa0s** (F3) as a pooled line-chart widget
   (lines, axes, ticks, crosshair hook), downsampled to ≤ 1 point per 2 px of width; reached here
@@ -293,14 +340,16 @@ window-wide singleton; each tab declares which filters it honors (unused ones ar
 ### 9.1 Migration step (appended to `MIGRATIONS`, `to = 11`)
 
 Creates `holdings = {}`, `daily = {}`, sets `ledgerSince = time()`; rewrites **no** rows (legacy
-defaults via accessors, §4.1). Idempotent; returns 0 rows changed. Records in-memory
-`NS.State.upgradedFrom = <old version>` for §9.2. Fresh installs (no history) skip §9.2.
+defaults via accessors, §4.1). Idempotent; returns 0 rows changed. Arms §9.2 by persisting
+`global.resetPromptPending = true` when the history is non-empty (persisted, not in-memory: the
+same load stamps schemaVersion 11, so a session-only marker could not re-ask after an Esc). Fresh
+installs (no history) skip §9.2.
 
 ### 9.2 Reset recommendation popup
 
 **When:** first `PLAYER_ENTERING_WORLD` (+5 s, out of combat — deferred to
-`PLAYER_REGEN_ENABLED` otherwise) of a session where `global.resetPrompt == nil`, the DB was
-migrated from < 11, and `#history > 0`. Shown **once per account**; the choice is stored in
+`PLAYER_REGEN_ENABLED` otherwise) of a session where `global.resetPrompt == nil`, `global.resetPromptPending` is set (the DB was
+migrated from < 11 with history; Keep, Reset and `/lh purge` clear it), and `#history > 0`. Shown **once per account**; the choice is stored in
 `global.resetPrompt`. Re-reachable later with `/lh purge` (unchanged).
 
 **Mechanism:** `StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"]`, alongside the existing

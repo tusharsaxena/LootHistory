@@ -19,7 +19,7 @@ test("BrowserTable: CellText renders each column", function()
   local r = { ts = 1000, itemName = "Sword", quantity = 3, quality = 4,
               source = "KILL", zone = "Valley", char = "Ka0z-Realm" }
   assertEqual(cell("item", r), "Sword")
-  assertEqual(cell("qty", r), "3")
+  assertEqual(cell("qty", r), "+3")
   assertEqual(cell("quality", r), "Epic")
   assertEqual(cell("source", r), "Kill")
   assertEqual(cell("zone", r), "Valley")
@@ -249,8 +249,20 @@ test("BrowserTable: test mode filters the synthetic dataset", function()
   assertEqual(BT.matchCount, #killed)
 
   -- Insights reads the same override: Stats aggregates the test dataset, not the live history.
+  -- totals.records counts gains of items and currency only (timeline-ledger spec §6), and the
+  -- preview seeds one loss/transfer per ledger reason, so it is the dataset less those rows. The IN
+  -- half of a holder move is a move, not loot, so it stays out of that count too.
   local stats = NS.Database:Stats({})
-  assertEqual(stats.totals.records, all)
+  local gains = 0
+  for _, r in ipairs(NS.State.testRecords) do
+    if NS.Util.RowDir(r) == "IN" and NS.Util.RowKind(r) ~= "GOLD"
+        and not NS.Ledger.HOLDER_MOVE_REASON[r.source] then
+      gains = gains + 1
+    end
+  end
+  assertTrue(gains < all)                   -- the preview really carries ledger rows
+  assertEqual(stats.totals.records, gains)
+  assertEqual(stats.ledger.gainedCount + stats.ledger.lostCount + stats.ledger.movedCount, all)
   assertTrue(stats.bySource.KILL and stats.bySource.KILL > 0)
 
   BT.testMode, NS.State.testRecords, BT.filter = false, nil, {} -- restore shared state
@@ -290,20 +302,24 @@ test("BrowserTable: auction column shows the picked price from the map", functio
   NS.db.profile.settings.auction = nil
 end)
 
-test("BrowserTable: MinFrameWidth accounts for the AH column (>= 1220)", function()
+test("BrowserTable: MinFrameWidth accounts for the AH and Direction columns (>= 1314)", function()
   -- R4-6 narrowed Date 76→66 and Time 38→32 (−16px), dropping the column-derived floor to 1196;
   -- widening Vendor Price and Auction Price 72→80 (+16px total) restored it to 1212. Time then went
   -- back to 40 — BankLedger's width for the same column, and the width "Time" plus a sort arrow
-  -- actually needs — which is the +8 that makes this 1220. Comfortably past the old 1160 toolbar
+  -- actually needs — which is the +8 that made it 1220. The ledger's Direction column (18 wide plus
+  -- its 8px gap) made it 1246, and P5 widened Direction to 86 (glyph + "Transfer", BankLedger
+  -- style; +68) for 1314. Comfortably past the old 1160 toolbar
   -- floor and wide enough for the money columns. B:MinWidth() takes the wider of this and the
-  -- toolbar-fit floor (TOOLBAR_MIN 1116), and the static Export button fills the slack to the bar's
-  -- right edge: (1220-12) - (976+8) = 224.
-  assertEqual(NS.BrowserTable:MinFrameWidth(), 1220)
+  -- toolbar-fit floor (the dropdown span + 8 + a 120 Export + 12), and the filter bar scales to
+  -- fill the bar (B:LayoutFilterBar). Headless the font measures 0, so the span is the floor
+  -- widths with Direction and Bound paired at 104 (P4).
+  assertEqual(NS.BrowserTable:MinFrameWidth(), 1314)
   assertTrue(NS.BrowserTable:MinFrameWidth() >= 1160,
     "AH column must keep the frame past the old 1160 floor")
-  assertEqual(NS.Browser:MinWidth(), 1220)
-  assertTrue(NS.Browser:MinWidth() >= 1116, "must be at least the toolbar-fit floor")
-  assertEqual(NS.Browser:ExportWidth(), 224)
+  assertEqual(NS.Browser:MinWidth(), 1314)
+  assertTrue(NS.Browser:MinWidth() >= NS.Browser:ToolbarSpan() + 8 + 120 + 12,
+    "must be at least the toolbar-fit floor")
+  assertEqual(NS.Browser:ToolbarSpan(), 984)
 end)
 
 test("BrowserTable: quality column is blank for a currency row", function()
@@ -514,7 +530,7 @@ test("BrowserTable: the auction column is blank when no price map was captured",
 end)
 
 test("BrowserTable: quantity defaults to 1 when a record omits it", function()
-  assertEqual(cell("qty", {}), "1")
+  assertEqual(cell("qty", {}), "+1")
 end)
 
 test("BrowserTable: type and subtype cells are blank rather than nil-crashing", function()
@@ -875,5 +891,357 @@ test("Test mode: Reset all settings and /lh resetall both end it", function()
     assertEqual(NS.Schema:Get("state.testMode"), false)
     for k in pairs(p) do p[k] = nil end
     for k, v in pairs(saved) do p[k] = v end
+  end)
+end)
+
+test("BrowserTable: a Direction column follows Time, labeled and wide enough for glyph + Transfer", function()
+  local cols = NS.BrowserTable.COLUMNS
+  assertEqual(cols[2].key, "time"); assertEqual(cols[3].key, "dir")
+  local dir = cols[3]
+  assertEqual(dir.label, "Direction")
+  assertEqual(dir.width, 86)
+  assertEqual(dir.align, "LEFT")
+  assertTrue(dir.desc ~= nil and dir.desc ~= "", "the header tooltip text stays")
+  assertEqual(dir.valueFn({ dir = "MOVE" }), NS.Constants.DirLabel.MOVE)
+  assertEqual(dir.valueFn({}), "Gain", "a legacy row reads as a gain")
+  -- Sort order is unchanged: gains, losses, transfers.
+  assertTrue(dir.sortFn({ dir = "IN" }) < dir.sortFn({ dir = "OUT" }))
+  assertTrue(dir.sortFn({ dir = "OUT" }) < dir.sortFn({ dir = "MOVE" }))
+end)
+
+-- The Direction cell is two FontStrings on one pooled row: the glyph (mono face) and the label
+-- (row font), both in the direction's color. Built and bound through the real BuildRow/BindRow.
+local function dataEntry(rec) return { kind = "row", record = rec } end
+local function sameColor(fs, dir)
+  local r, g, b = fs:GetTextColor()
+  local er, eg, eb = NS.LedgerFormat.Color(dir)
+  return r == er and g == eg and b == eb
+end
+
+test("BrowserTable: the Direction cell paints glyph, label and color for IN/OUT/MOVE/legacy", function()
+  local BT, C = NS.BrowserTable, NS.Constants
+  local row = BT:BuildRow()
+  assertTrue(row.dirGlyph ~= nil, "BuildRow made no direction glyph FontString")
+  assertTrue(row.dirGlyph ~= row.cells.dir, "glyph and label must be two FontStrings")
+  assertEqual(row.dirGlyph:GetFont(), C.FONT_MONO, "the glyph draws in the mono face")
+  assertTrue(row.cells.dir:GetFont() ~= C.FONT_MONO, "the label draws in the row font")
+  for _, case in ipairs({ { "IN", "IN" }, { "OUT", "OUT" }, { "MOVE", "MOVE" }, { nil, "IN" } }) do
+    local stored, dir = case[1], case[2]
+    BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = stored }), 1)
+    assertEqual(row.dirGlyph:GetText(), C.DirGlyph[dir])
+    assertTrue(row.dirGlyph:IsShown(), "glyph hidden for " .. dir)
+    assertEqual(row.cells.dir:GetText(), C.DirLabel[dir])
+    assertTrue(sameColor(row.dirGlyph, dir), "glyph color for " .. dir)
+    assertTrue(sameColor(row.cells.dir, dir), "label color for " .. dir)
+  end
+end)
+
+test("BrowserTable: re-binding a pooled row from MOVE to IN leaves no stale glyph or color", function()
+  local BT, C = NS.BrowserTable, NS.Constants
+  local row = BT:BuildRow()
+  BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = "MOVE" }), 1)
+  BT:BindRow(row, dataEntry({ itemName = "Y", quantity = 2, dir = "IN" }), 2)
+  assertEqual(row.dirGlyph:GetText(), C.DirGlyph.IN)
+  assertEqual(row.cells.dir:GetText(), "Gain")
+  assertTrue(sameColor(row.dirGlyph, "IN")); assertTrue(sameColor(row.cells.dir, "IN"))
+end)
+
+test("BrowserTable: a non-direction cell never shows the glyph FontString", function()
+  local BT = NS.BrowserTable
+  local row = BT:BuildRow()
+  assertFalse(row.dirGlyph:IsShown(), "a fresh row shows a glyph before any bind")
+  BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = "OUT" }), 1)
+  -- Painting any other column through the shared painter hides a glyph it is handed.
+  BT:PaintCell(row.cells.item, "item", { itemName = "X" }, row.dirGlyph)
+  assertFalse(row.dirGlyph:IsShown(), "the Item column showed the direction glyph")
+  -- A group-header bind on the same pooled row hides it too.
+  BT:BindRow(row, dataEntry({ itemName = "X", quantity = 1, dir = "OUT" }), 1)
+  BT:BindRow(row, { kind = "header", key = "k", label = "L", count = 1 }, 2)
+  assertFalse(row.dirGlyph:IsShown(), "a group-header row showed the direction glyph")
+end)
+
+test("BrowserTable: the Qty column shows signed quantities", function()
+  local qty
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do if c.key == "qty" then qty = c end end
+  assertEqual(qty.valueFn({ quantity = 2, dir = "OUT" }), "-2")
+  assertEqual(qty.sortFn({ quantity = 2, dir = "OUT" }), -2)
+end)
+
+-- P5 owner feedback: the Qty cell truncated gold amounts ("9661…"). The column is now measured at
+-- the row font against the widest signed gold string the cell can show (the gold cap, both signs).
+-- Headless fonts measure 0, so the kit's builds keep the 34px floor; a 6px-a-character measurer
+-- stands in for the client's font here.
+local function qtyColumn()
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do if c.key == "qty" then return c end end
+end
+local function fakeMeasurer(px)
+  local fs = { __text = "" }
+  function fs:SetText(t) self.__text = t or "" end
+  function fs:GetText() return self.__text end
+  function fs:GetUnboundedStringWidth() return #self.__text * px end
+  function fs.SetWordWrap() end
+  function fs.Hide() end
+  return { CreateFontString = function() return fs end }
+end
+
+test("BrowserTable: the Qty column is measured wide enough for the widest signed gold amount", function()
+  local BT, qty = NS.BrowserTable, qtyColumn()
+  local floorW, floorFrame = qty.width, BT:MinFrameWidth()
+  local measure = function(text) return #text * 6 end
+  local samples = BT._qtySamples()
+  assertTrue(#samples >= 2, "the gold cap with both signs")
+  for _, s in ipairs(samples) do
+    assertTrue(s:find(NS.Util.FormatMoney(BT._QTY_GOLD_CAP), 1, true) ~= nil,
+      "samples go through the cell's own money formatter: " .. s)
+  end
+  assertEqual(BT._qtyWidth(function() return 0 end), floorW, "a font that measures 0 keeps the floor")
+  local ok, err = pcall(function()
+    BT:MeasureColumns(fakeMeasurer(6))
+    for _, s in ipairs(samples) do
+      assertTrue(qty.width >= measure(s), "Qty " .. qty.width .. " < " .. s)
+    end
+    assertTrue(qty.width > floorW, "the measured width did not widen the column")
+    assertEqual(BT:MinFrameWidth(), floorFrame + (qty.width - floorW), "the window floor tracks it")
+  end)
+  BT:MeasureColumns(fakeMeasurer(0))
+  assertEqual(qty.width, floorW, "re-measuring at 0 restores the floor")
+  if not ok then error(err, 0) end
+end)
+
+-- Record GameTooltip's calls (method and first two args) for the length of `fn`.
+local TT_METHODS = { "SetOwner", "SetHyperlink", "SetCurrencyByID", "AddLine", "AddDoubleLine", "Show", "Hide" }
+local function recordTooltip(fn)
+  local tt, calls, saved = T.mocks.GameTooltip, {}, {}
+  for _, m in ipairs(TT_METHODS) do
+    saved[m] = rawget(tt, m)
+    tt[m] = function(_, a, b)
+      calls[#calls + 1] = m .. "(" .. tostring(a) .. (m == "AddDoubleLine" and ("," .. tostring(b)) or "") .. ")"
+      return tt
+    end
+  end
+  local ok, err = pcall(fn)
+  for _, m in ipairs(TT_METHODS) do tt[m] = saved[m] end
+  if not ok then error(err, 0) end
+  return table.concat(calls, " ")
+end
+
+test("BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own", function()
+  local BT = NS.BrowserTable
+  local row = BT:BuildRow()
+  local gold = { kind = "GOLD", itemName = "Gold", quantity = 1234567, dir = "OUT" }
+  BT:BindRow(row, dataEntry(gold), 1)
+  local got = recordTooltip(function()
+    row:GetScript("OnEnter")(row)
+    row:GetScript("OnLeave")(row)
+  end)
+  assertTrue(got:find("AddLine(" .. NS.Constants.GOLD_TYPE .. ")", 1, true) ~= nil, got)
+  assertTrue(got:find("AddDoubleLine(Amount," .. NS.LedgerFormat.QtyText(gold) .. ")", 1, true) ~= nil, got)
+  assertTrue(got:find("AddLine(Right-click for options)", 1, true) ~= nil, got)
+  assertTrue(got:find("Show(", 1, true) ~= nil, got)
+  assertTrue(got:find("SetHyperlink", 1, true) == nil, "a gold row has no hyperlink: " .. got)
+  assertTrue(got:find("Hide(", 1, true) ~= nil, "OnLeave hides: " .. got)
+
+  BT:BindRow(row, dataEntry({ itemName = "Apple", itemLink = "|Hitem:7|h[Apple]|h", quantity = 1 }), 2)
+  got = recordTooltip(function() row:GetScript("OnEnter")(row) end)
+  assertTrue(got:find("SetHyperlink(|Hitem:7|h[Apple]|h)", 1, true) ~= nil, got)
+  assertTrue(got:find("AddDoubleLine", 1, true) == nil, got)
+end)
+
+-- Test mode (timeline ledger P9): the sample's names are made up, so its rows carry no link; a hover
+-- draws a plain tooltip (name in its quality color, "Type · SubType", gray "Test-mode sample"). A
+-- row WITH a link still shows the item's own tooltip, and outside test mode a link-less row is as
+-- before (nothing drawn).
+test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged", function()
+  local BT = NS.BrowserTable
+  local row, tt = BT:BuildRow(), T.mocks.GameTooltip
+  local savedMode, savedColors = BT.testMode, T.mocks.ITEM_QUALITY_COLORS
+  local sample
+  for _, r in ipairs(BT:BuildTestData()) do
+    if not r.dir and r.quality == 4 and r.itemSubType then sample = r; break end
+  end
+  assertTrue(sample ~= nil, "the sample has an epic item row")
+  assertEqual(sample.itemLink, nil, "sample rows carry no link (their names are not real items)")
+  local lines, other = {}, {}
+  local saved = { AddLine = rawget(tt, "AddLine"), SetHyperlink = rawget(tt, "SetHyperlink") }
+  tt.AddLine = function(_, text, r, g, b) lines[#lines + 1] = { text, r, g, b } end
+  tt.SetHyperlink = function(_, link) other[#other + 1] = link end
+  local ok, err = pcall(function()
+    T.mocks.ITEM_QUALITY_COLORS = { [4] = { r = 0.64, g = 0.21, b = 0.93 } }
+    BT.testMode = true
+    BT:BindRow(row, dataEntry(sample), 1)
+    row:GetScript("OnEnter")(row)
+    assertEqual(lines[1][1], sample.itemName)
+    assertEqual(lines[1][2], 0.64); assertEqual(lines[1][4], 0.93, "the name is in its quality color")
+    assertEqual(lines[2][1], sample.itemType .. " \194\183 " .. sample.itemSubType)
+    local texts = {}
+    for i, l in ipairs(lines) do texts[i] = l[1] end
+    local joined = table.concat(texts, "|")
+    local at
+    for i, l in ipairs(lines) do if l[1] == "Test-mode sample" then at = i end end
+    assertTrue(at ~= nil, joined)
+    assertEqual(lines[at][2], 0.5, "the sample note is gray")
+    assertEqual(#other, 0, "no hyperlink for a link-less sample row")
+
+    -- a test-mode row with a real link: the item's own tooltip, as before
+    lines = {}
+    BT:BindRow(row, dataEntry({ itemName = "Apple", itemLink = "|Hitem:7|h[Apple]|h", quantity = 1 }), 2)
+    row:GetScript("OnEnter")(row)
+    assertEqual(other[1], "|Hitem:7|h[Apple]|h")
+    for _, l in ipairs(lines) do assertTrue(l[1] ~= "Test-mode sample", "a linked row is not a sample tooltip") end
+
+    -- live mode: a link-less row draws nothing (unchanged)
+    BT.testMode = false
+    lines, other = {}, {}
+    BT:BindRow(row, dataEntry(sample), 3)
+    row:GetScript("OnEnter")(row)
+    assertEqual(#lines, 0, "live link-less row: no tooltip"); assertEqual(#other, 0)
+  end)
+  tt.AddLine, tt.SetHyperlink = saved.AddLine, saved.SetHyperlink
+  BT.testMode = savedMode
+  T.mocks.ITEM_QUALITY_COLORS = savedColors
+  tt:Hide()
+  if not ok then error(err, 0) end
+end)
+
+test("BrowserTable: group by Direction and by Holder", function()
+  local BT = NS.BrowserTable
+  local saved = BT.groupBy
+  local rows = { { dir = "OUT", char = "A-Realm" }, { char = "A-Realm" },
+                 { dir = "MOVE", char = "A-Realm", holder = "§warband" } }
+  BT.groupBy = "dir"
+  local labels = {}
+  for _, e in ipairs(BT:GroupRecords(rows)) do if e.kind == "header" then labels[#labels + 1] = e.label end end
+  table.sort(labels)
+  assertEqual(table.concat(labels, "|"), "Direction: Gain|Direction: Loss|Direction: Transfer")
+  BT.groupBy = "holder"
+  labels = {}
+  for _, e in ipairs(BT:GroupRecords(rows)) do if e.kind == "header" then labels[#labels + 1] = e.label end end
+  table.sort(labels)
+  assertEqual(table.concat(labels, "|"), "Holder: A-Realm|Holder: Warband")
+  BT.groupBy = saved
+end)
+
+-- Group by "Type & SubType" (timeline ledger P9): one header per type/subtype pair, by type then
+-- subtype; a missing (or blank) subtype reads "Type: Armor" with no trailing separator, and a
+-- currency row reads "Currency · <category>".
+local MIDDOT = " \194\183 "
+local function typesubHeaders(recs)
+  local BT = NS.BrowserTable
+  local saved = { BT.groupBy, BT.collapsed, BT.groupAsc }
+  BT.groupBy, BT.collapsed, BT.groupAsc = "typesub", {}, true
+  local out = {}
+  local ok, err = pcall(function()
+    for _, e in ipairs(BT:GroupRecords(recs)) do
+      if e.kind == "header" then out[#out + 1] = e.label .. " (" .. e.count .. ")" end
+    end
+  end)
+  BT.groupBy, BT.collapsed, BT.groupAsc = saved[1], saved[2], saved[3]
+  if not ok then error(err, 0) end
+  return table.concat(out, " | ")
+end
+
+test("BrowserTable: group by Type & SubType orders by type, then subtype, alphabetically", function()
+  local got = typesubHeaders({
+    { itemType = "Weapon", itemSubType = "Sword" }, { itemType = "Armor", itemSubType = "Plate" },
+    { itemType = "Armor", itemSubType = "Cloth" }, { itemType = "Armor", itemSubType = "Cloth" },
+    { itemType = "Armor Kit", itemSubType = "Misc" }, { itemType = "armor", itemSubType = "Leather" },
+  })
+  assertEqual(got, "Type: Armor" .. MIDDOT .. "Cloth (2) | Type: armor" .. MIDDOT .. "Leather (1) | Type: Armor"
+    .. MIDDOT .. "Plate (1) | Type: Armor Kit" .. MIDDOT .. "Misc (1) | Type: Weapon" .. MIDDOT .. "Sword (1)")
+end)
+
+test("BrowserTable: Type & SubType with no subtype reads 'Type: Armor' and leads its type", function()
+  local got = typesubHeaders({
+    { itemType = "Armor", itemSubType = "Cloth" }, { itemType = "Armor" }, { itemType = "Armor", itemSubType = "" },
+    {},
+  })
+  assertEqual(got, "Type: Armor (2) | Type: Armor" .. MIDDOT .. "Cloth (1) | Type: Unknown (1)")
+end)
+
+test("BrowserTable: Type & SubType reads a currency row as 'Currency · <category>'", function()
+  local C = NS.Constants
+  local got = typesubHeaders({
+    { currencyID = 3008, itemType = C.CURRENCY_TYPE, itemSubType = "The War Within" },
+    { currencyID = 9, itemType = C.CURRENCY_TYPE },
+  })
+  assertEqual(got, "Type: Currency (1) | Type: Currency" .. MIDDOT .. "The War Within (1)")
+end)
+
+test("BrowserTable: Type & SubType keys never collide with plain Type groups", function()
+  local BT = NS.BrowserTable
+  local saved = BT.groupBy
+  BT.groupBy = "typesub"
+  local key = BT:GroupRecords({ { itemType = "Armor", itemSubType = "Cloth" } })[1].key
+  BT.groupBy = "type"
+  local typeKey = BT:GroupRecords({ { itemType = "Armor", itemSubType = "Cloth" } })[1].key
+  BT.groupBy = saved
+  assertEqual(key, "typesub\001Armor\001Cloth")
+  assertTrue(key ~= typeKey)
+end)
+
+-- ---------------------------------------------------------------------------
+-- "Show in Timeline" on the History row menu (timeline ledger P3, spec §8.2)
+-- ---------------------------------------------------------------------------
+-- Adapted from the plan's snippet: ShowTimeline opens the window and materializes the saved view
+-- (SetThing writes `timelineThing`), so the case puts back the saved view, the session pick and the
+-- tab, and closes the window, on every path. The chunk has no global `time`; os.time() stands in.
+
+test("History row menu: Show in Timeline opens the Timeline on that row's thing", function()
+  local p = NS.db.profile
+  local views = NS.Util.DeepCopy(p.savedViews)
+  local thing = NS.Timeline and NS.Timeline.thing
+  local ok, err = pcall(function()
+    local rec = { itemID = 7, itemName = "Apple", quantity = 1, ts = os.time(), char = "Mock-Realm" }
+    local show
+    for _, it in ipairs(NS.BrowserTable:RowMenuItems(rec)) do
+      if it.label == "Show in Timeline" then show = it end
+    end
+    assertTrue(show ~= nil and show.enabled)
+    show.fn()
+    assertEqual(NS.Browser:ActiveTab(), "Timeline")
+    assertEqual(NS.Timeline:Thing(), "i:7")
+  end)
+  NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Timeline"); NS.Browser:Hide()
+  p.savedViews = views
+  if NS.Timeline then NS.Timeline.thing = thing end
+  if not ok then error(err, 0) end
+end)
+
+test("History row menu: Show in Timeline is disabled for a row that names no thing", function()
+  local seen = false
+  for _, it in ipairs(NS.BrowserTable:RowMenuItems({ kind = "ITEM", quantity = 1 })) do
+    if it.label == "Show in Timeline" then seen = true; assertFalse(it.enabled) end
+  end
+  assertTrue(seen, "the row menu carries no Show in Timeline entry")
+end)
+
+test("History row menu: the existing four entries keep their order around the new one", function()
+  local labels = {}
+  for _, it in ipairs(NS.BrowserTable:RowMenuItems({ itemID = 7 })) do labels[#labels + 1] = it.label end
+  assertEqual(labels[1], "Link to chat"); assertEqual(labels[2], "Show in Timeline")
+  assertEqual(labels[3], "Blacklist item"); assertEqual(labels[4], "Blacklist currency")
+  assertEqual(labels[5], "|cffff5555Delete|r"); assertEqual(#labels, 5)
+end)
+
+-- Timeline ledger Phase 7: the Character column names the row's HOLDER, so the Warband half of a
+-- warband move reads "Warband" and the character's half reads the character.
+test("BrowserTable: the Character column shows the row's holder", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local wb = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = W, source = "WARBAND_DEPOSIT" }
+  local me = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = "Ka0z-Realm", source = "WARBAND_DEPOSIT" }
+  assertEqual(cell("char", wb), "Warband", "the Warband half carries no class icon")
+  assertTrue(cell("char", me):find("Ka0z-Realm", 1, true) ~= nil)
+  assertEqual(cell("char", { char = "Old-Realm" }), "Old-Realm", "a legacy row's holder is its char")
+  local sortFn
+  for _, col in ipairs(NS.BrowserTable.COLUMNS) do if col.key == "char" then sortFn = col.sortFn end end
+  assertEqual(sortFn(wb), "warband")
+  -- Group: Character follows the column.
+  withTableState(function()
+    local BT = NS.BrowserTable
+    BT.collapsed, BT.groupAsc, BT.groupBy = {}, true, "char"
+    local labels = {}
+    for _, e in ipairs(BT:GroupRecords({ wb, me })) do if e.kind == "header" then labels[#labels + 1] = e.label end end
+    table.sort(labels)
+    assertEqual(table.concat(labels, "|"), "Character: Ka0z-Realm|Character: Warband")
   end)
 end)

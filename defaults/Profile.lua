@@ -16,8 +16,10 @@ NS.defaults.profile = {
   blacklist = {},        -- { [itemID] = true } — drop on capture (stored rows stay visible)
   whitelist = {},        -- { [itemID] = true } — always record, even below the gates
   currencyBlacklist = {},  -- { [currencyID] = true } — currencies never recorded on capture
-  -- `savedView` (the remembered table view) is profile-scoped too, and deliberately undeclared: it
-  -- exists only once the player clicks the filter bar's Save (modules/Browser.lua).
+  -- `savedViews` (one remembered view per browser tab, { [tab] = view }; schema v14 split the single
+  -- `savedView` into it) is profile-scoped too, and deliberately undeclared: a tab's slot exists only
+  -- once the player clicks the filter bar's Save on that tab, or the Timeline remembers a pick
+  -- (modules/Browser.lua).
   settings = {
     enabled          = true,
     -- ── the Master controls tab (options-ui-§15) ──
@@ -36,6 +38,9 @@ NS.defaults.profile = {
     qualityThreshold = 1,      -- Common (white) and above
     excludeQuestItems = true,  -- on by default (opt-out): drop Quest-class items at capture
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
+    trackLedger      = true,   -- holdings + (Phase 2) gains/losses/transfers/gold; off = legacy gains-only
+    recordGold       = true,   -- gold gains/losses as ledger rows (holdings track gold regardless)
+    showTransfers    = true,   -- History's Direction filter includes transfers by default
     excludedSources  = {},     -- set of muted SourceType keys
     -- NO retentionDays here: it governs the account-wide history, so it is account-wide too
     -- (defaults/Global.lua, D6).
@@ -43,6 +48,7 @@ NS.defaults.profile = {
     -- History-table row height, in pixels. Was `local ROW_H = 18` in modules/BrowserTable.lua and
     -- ships as the same 18, so a player who never touches it sees the table it always drew.
     rowHeight        = 18,
+    timelineMaxLines = 8,      -- lines besides the Total on the Timeline (2-16)
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,

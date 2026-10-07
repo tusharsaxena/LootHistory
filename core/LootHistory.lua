@@ -138,8 +138,21 @@ function addon:OnEnterWorld()
   NS.After(5, function()
     if NS.Database and NS.Database.PruneOld then NS.Database:PruneOld() end
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
+    -- The Timeline's rollup: seed once (holdings that predate it), then prune by its own retention.
+    -- After the 3 s login scan, so the seed reads this login's holdings.
+    if NS.Rollup and NS.Rollup._hook then
+      NS.Rollup:SeedOnce(time())
+      NS.Rollup:Prune(time())
+    end
   end)
   NS.After(20, function()
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
   end)
+  -- Holdings genesis / login scan (timeline-ledger spec §5.6). Three seconds in, after the item
+  -- cache has had a moment; cancelable through NS.CancelDeferrals like the prune.
+  NS.After(3, function()
+    if NS.Reconciler and NS.Reconciler._enabled then NS.Reconciler:LoginScan() end
+  end)
+  -- One-time reset recommendation (spec 9.2); in combat it holds for PLAYER_REGEN_ENABLED.
+  NS.After(5, function() if NS.OfferLedgerReset then NS.OfferLedgerReset() end end)
 end

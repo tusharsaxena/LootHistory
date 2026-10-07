@@ -376,42 +376,95 @@ end
 -- Built by walking the currency list and tracking the most recent header, then cached. A miss
 -- rebuilds the cache once and looks again, so a currency first discovered mid-session (routine at a
 -- season start) still resolves; currencyCategoryMissed remembers each id that missed, so an id that
--- is truly absent costs at most one list walk per session. nil when the API is absent or the id isn't
--- in the list. Known gap: GetCurrencyListInfo enumerates only the children of EXPANDED headers, so a
--- currency under a header the player collapsed in the Currency tab is still missed. This deliberately
--- does not call C_CurrencyInfo.ExpandCurrencyList from a loot handler: that would rewrite the player's
--- Currency tab. See docs/midnight-quirks.md "Currency category".
-local currencyCategoryCache
+-- is truly absent costs at most one list walk -- until the list itself changes. A different
+-- GetCurrencyListSize, or the client's bulk refresh (Compat.CurrencyListChanged, called on a nil-id
+-- CURRENCY_DISPLAY_UPDATE), drops the cache and the memo, so an id that missed and is listed LATER
+-- still resolves. nil when the API is absent or the id isn't in the list. Known gap:
+-- GetCurrencyListInfo enumerates only the children of EXPANDED headers, so a currency under a
+-- header the player collapsed in the Currency tab is still missed. This deliberately does not call
+-- C_CurrencyInfo.ExpandCurrencyList from a loot handler: that would rewrite the player's Currency
+-- tab. See docs/midnight-quirks.md "Currency category". currencyListed (id -> list name) is the same
+-- walk's set of listed ids, which Compat.ListedCurrencyID tests a chat line against.
+local currencyCategoryCache, currencyListed, currencyListSize
 local currencyCategoryMissed = {}
-local function buildCurrencyCategoryCache()
-  currencyCategoryCache = {}
+local function listSize()
   local api = C_CurrencyInfo
-  if not (api and api.GetCurrencyListSize and api.GetCurrencyListInfo and api.GetCurrencyListLink) then
-    return
-  end
+  return (api and api.GetCurrencyListSize and api.GetCurrencyListSize()) or 0
+end
+local function buildCurrencyCategoryCache()
+  currencyCategoryCache, currencyListed, currencyListSize = {}, {}, listSize()
+  local api = C_CurrencyInfo
+  if not (api and api.GetCurrencyListInfo and api.GetCurrencyListLink) then return end
   local header
-  for i = 1, (api.GetCurrencyListSize() or 0) do
+  for i = 1, currencyListSize do
     local info = api.GetCurrencyListInfo(i)
     if info then
       if info.isHeader then
         header = info.name
       else
         local id = Compat.CurrencyLinkID(api.GetCurrencyListLink(i))
-        if id and header then currencyCategoryCache[id] = header end
+        if id then
+          currencyListed[id] = info.name or true
+          if header then currencyCategoryCache[id] = header end
+        end
       end
     end
   end
 end
-function Compat.CurrencyCategory(currencyID)
-  if not currencyID then return nil end
+function Compat.CurrencyListChanged()
+  currencyCategoryCache = nil
+  for k in pairs(currencyCategoryMissed) do currencyCategoryMissed[k] = nil end
+end
+-- The cache, fresh enough to answer for `currencyID`: rebuilt when absent or when the list changed
+-- size, and once more on an id's first miss.
+local function currencyCacheFor(currencyID)
+  if currencyCategoryCache and listSize() ~= currencyListSize then Compat.CurrencyListChanged() end
   if not currencyCategoryCache then buildCurrencyCategoryCache() end
-  local h = currencyCategoryCache[currencyID]
-  if h == nil and not currencyCategoryMissed[currencyID] then
+  if currencyListed[currencyID] == nil and not currencyCategoryMissed[currencyID] then
     currencyCategoryMissed[currencyID] = true
     buildCurrencyCategoryCache()
-    h = currencyCategoryCache[currencyID]
   end
-  return h
+end
+function Compat.CurrencyCategory(currencyID)
+  if not currencyID then return nil end
+  currencyCacheFor(currencyID)
+  return currencyCategoryCache[currencyID]
+end
+
+-- The currency id a chat currency line should record under, or nil to drop it. The chat link can
+-- name a HIDDEN tracking currency the token list never shows (owner report 2026-10-06: "Nebulous
+-- Voidcore" arrived as both hidden 3513 and listed 3418), and a row under that id is a duplicate no
+-- holdings delta ever claims. `id` stands when it is listed, or held in the current character's or
+-- the warband's stored currency baseline (which covers a currency under a collapsed header);
+-- otherwise exactly one listed or held currency of the same name is the one it stands for; anything
+-- else is nil.
+local function heldCurrency(holder)
+  local e = NS.Holdings and NS.Holdings.Get and NS.Holdings:Get(holder)
+  return e and e.currency
+end
+function Compat.ListedCurrencyID(id, name)
+  if not id then return nil end
+  currencyCacheFor(id)
+  local mine = heldCurrency(NS.Util.PlayerKey())
+  local warband = heldCurrency(NS.Constants.WARBAND_HOLDER)
+  if currencyListed[id] ~= nil or (mine and mine[id] ~= nil) or (warband and warband[id] ~= nil) then
+    return id
+  end
+  if not name then return nil end
+  local twin
+  local function consider(cid, cname)
+    if cid == twin then return true end
+    if cname == true or cname == nil then cname = Compat.CurrencyName(cid) end
+    if cname ~= name then return true end
+    if twin then twin = false; return false end   -- a second match: ambiguous
+    twin = cid
+    return true
+  end
+  for cid, cname in pairs(currencyListed) do if not consider(cid, cname) then return nil end end
+  for _, held in ipairs({ mine or {}, warband or {} }) do
+    for cid in pairs(held) do if not consider(cid, currencyListed[cid]) then return nil end end
+  end
+  return twin or nil
 end
 
 -- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.
@@ -423,6 +476,135 @@ function Compat.CurrencyQuality(currencyID)
     if info then return info.quality end
   end
   return nil
+end
+
+-- Localized currency name for a currency id, from C_CurrencyInfo; nil when uncached/absent. The
+-- holdings search names currency rows from this, so it must not throw headless.
+function Compat.CurrencyName(currencyID)
+  if not currencyID then return nil end
+  if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if info then return info.name end
+  end
+  return nil
+end
+
+-- Localized item type + subtype ("Armor", "Cloth") for an item id or link; nil, nil when the item
+-- is not cached or the API is absent. Kept apart from GetItemInfo, whose four-value shape other
+-- callers depend on.
+function Compat.GetItemTypeInfo(idOrLink)
+  if idOrLink and C_Item and C_Item.GetItemInfo then
+    local results = { C_Item.GetItemInfo(idOrLink) }
+    return results[6], results[7]
+  end
+  return nil, nil
+end
+
+-- Per-unit vendor sell price (copper) for an item id or link; nil when the item is not cached, the
+-- API is absent, or it cannot be sold. The holdings tab values a stack from this beside the picked
+-- auction price -- through here, not GetItemExtras, which also scans the tooltip for bind state.
+function Compat.GetItemSellPrice(idOrLink)
+  if idOrLink and C_Item and C_Item.GetItemInfo then
+    local results = { C_Item.GetItemInfo(idOrLink) }
+    return results[11]
+  end
+  return nil
+end
+
+-- Item level of a piece of gear (a weapon or armor with an equip slot) for an item id or link; nil
+-- for anything else, as GetItemExtras answers, but without its tooltip scan for bind state. The
+-- holdings tab's iLvl column reads it once per held item per refresh.
+function Compat.GearItemLevel(idOrLink)
+  if not (idOrLink and C_Item and C_Item.GetItemInfoInstant) then return nil end
+  local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(idOrLink)
+  if not ((classID == ITEMCLASS_WEAPON or classID == ITEMCLASS_ARMOR) and equipLoc and equipLoc ~= "") then
+    return nil
+  end
+  local ilvl = C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(idOrLink)
+  if not ilvl and C_Item.GetItemInfo then ilvl = select(4, C_Item.GetItemInfo(idOrLink)) end
+  return ilvl
+end
+
+-- GameTooltip, presence-gated: each Show* answers false (and draws nothing) when the tooltip or the
+-- method it needs is missing, so a hover never errors on a client or harness without them.
+local function tooltip(method)
+  local tt = GameTooltip
+  if type(tt) ~= "table" or (method and type(tt[method]) ~= "function") then return nil end
+  return tt
+end
+
+function Compat.ShowItemTooltip(owner, link, anchor)
+  local tt = tooltip("SetHyperlink")
+  if not (tt and link) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetHyperlink(link)
+  tt:Show()
+  return true
+end
+
+function Compat.ShowCurrencyTooltip(owner, currencyID, anchor)
+  local tt = tooltip("SetCurrencyByID")
+  if not (tt and currencyID) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetCurrencyByID(currencyID)
+  tt:Show()
+  return true
+end
+
+-- A plain tooltip: a gold title, then an optional wrapped body line.
+function Compat.ShowTextTooltip(owner, title, body, anchor)
+  local tt = tooltip("AddLine")
+  if not (tt and title) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:AddLine(title, 1, 0.82, 0)
+  if body and body ~= "" then tt:AddLine(body, 0.9, 0.9, 0.9, true) end
+  tt:Show()
+  return true
+end
+
+-- An amount tooltip (BankLedger's gold-row shape): a colored title, one "label .... value" double
+-- line, then an optional gray hint. `rgb` is the title color ({ r, g, b }); nil = header gold.
+function Compat.ShowAmountTooltip(owner, title, rgb, label, value, hint, anchor)
+  local tt = tooltip("AddDoubleLine")
+  if not (tt and title) then return false end
+  rgb = rgb or { 1, 0.82, 0 }
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:AddLine(title, rgb[1], rgb[2], rgb[3])
+  tt:AddDoubleLine(label or "", value or "", 0.9, 0.9, 0.9, 1, 1, 1)
+  if hint and hint ~= "" then tt:AddLine(hint, 0.5, 0.5, 0.5) end
+  tt:Show()
+  return true
+end
+
+-- A title over several "label .... value" lines, each pair in its row's color (the Timeline strip's
+-- Gained / Lost / Net). `rows` is { { label, text, color = { r, g, b } }, ... }; nil color = white.
+function Compat.ShowLinesTooltip(owner, title, rows, anchor)
+  local tt = tooltip("AddDoubleLine")
+  if not (tt and title) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:AddLine(title, 1, 0.82, 0)
+  for _, r in ipairs(rows or {}) do
+    local c = r.color or { 1, 1, 1 }
+    tt:AddDoubleLine(r.label or "", r.text or "", c[1], c[2], c[3], c[1], c[2], c[3])
+  end
+  tt:Show()
+  return true
+end
+
+-- Plain lines, each in its own color (test mode's History rows, which carry no item link): `lines`
+-- is { { text, r, g, b }, ... }, the first being the title; a nil color reads white.
+function Compat.ShowTintedTooltip(owner, lines, anchor)
+  local tt = tooltip("AddLine")
+  if not (tt and lines and lines[1]) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  for _, l in ipairs(lines) do tt:AddLine(l[1] or "", l[2] or 1, l[3] or 1, l[4] or 1) end
+  tt:Show()
+  return true
+end
+
+function Compat.HideTooltip()
+  local tt = tooltip("Hide")
+  if tt then tt:Hide() end
 end
 
 -- Bound state for a currency, from C_CurrencyInfo: "WARBAND" for a Warband-transferable currency
@@ -437,4 +619,245 @@ function Compat.CurrencyBound(currencyID)
     if info then return info.isAccountTransferable and "WARBAND" or "BOP" end
   end
   return nil
+end
+
+-- ── Holdings reads (timeline ledger, spec §3) ─────────────────────────────────────────────────
+function Compat.GetContainerNumSlots(bagID)
+  local fn = C_Container and C_Container.GetContainerNumSlots
+  return fn and (fn(bagID) or 0) or 0
+end
+
+function Compat.GetContainerSlot(bagID, slot)
+  local fn = C_Container and C_Container.GetContainerItemInfo
+  if not fn then return nil end
+  local info = fn(bagID, slot)
+  if not info or not info.itemID then return nil end
+  return { itemID = info.itemID, link = info.hyperlink, count = info.stackCount or 1 }
+end
+
+-- Purse money as the player owns it: copper on the cursor or staged in an open trade window is
+-- still theirs (BagSync events.lua's formula).
+function Compat.GetMoney()
+  if type(GetMoney) ~= "function" then return 0 end
+  local cursor = type(GetCursorMoney) == "function" and GetCursorMoney() or 0
+  local trade = type(GetPlayerTradeMoney) == "function" and GetPlayerTradeMoney() or 0
+  return (GetMoney() or 0) - (cursor or 0) - (trade or 0)
+end
+
+function Compat.GetWarbandMoney()
+  local fn = C_Bank and C_Bank.FetchDepositedMoney
+  local t = Enum and Enum.BankType and Enum.BankType.Account
+  if type(fn) ~= "function" or t == nil then return nil end
+  return fn(t)
+end
+
+function Compat.GetInventoryItem(slot)
+  if type(GetInventoryItemID) ~= "function" then return nil end
+  local id = GetInventoryItemID("player", slot)
+  if not id then return nil end
+  return id, type(GetInventoryItemLink) == "function" and GetInventoryItemLink("player", slot) or nil
+end
+
+function Compat.BagInventorySlot(bagID)
+  local fn = C_Container and C_Container.ContainerIDToInventoryID
+  return fn and fn(bagID) or nil
+end
+
+function Compat.InteractionType(name)
+  local e = Enum and Enum.PlayerInteractionType
+  return e and e[name] or nil
+end
+
+-- The Reconciler's combat gate. The LOCKDOWN flag and not UnitAffectingCombat on purpose: this
+-- decides whether a scan may run (events-frames-taint-§2), not whether something is displayed, and
+-- the deferred work resumes on the PLAYER_REGEN_ENABLED edge that clears it. Read at call time.
+function Compat.InCombatLockdown()
+  return type(InCombatLockdown) == "function" and InCombatLockdown() == true
+end
+
+-- The player's class token ("MAGE"), stamped on a holder's meta for the class-colored name.
+function Compat.PlayerClassFile()
+  if type(UnitClass) ~= "function" then return nil end
+  local _, classFile = UnitClass("player")
+  return classFile
+end
+
+-- Every currency the character has, with its quantity. The client's list hides the children of a
+-- collapsed header, so collapsed headers are expanded for the walk and collapsed again after,
+-- last-to-first so indices stay valid (BagSync scanner.lua does the same).
+function Compat.ListCurrencies()
+  local CI = C_CurrencyInfo
+  if not (CI and CI.GetCurrencyListSize and CI.GetCurrencyListInfo and CI.GetCurrencyListLink) then return {} end
+  local expanded = {}
+  local i = 1
+  while i <= CI.GetCurrencyListSize() do
+    local info = CI.GetCurrencyListInfo(i)
+    if info and info.isHeader and not info.isHeaderExpanded and CI.ExpandCurrencyList then
+      CI.ExpandCurrencyList(i, true); expanded[#expanded + 1] = i
+    end
+    i = i + 1
+  end
+  local out = {}
+  for j = 1, CI.GetCurrencyListSize() do
+    local info = CI.GetCurrencyListInfo(j)
+    if info and not info.isHeader then
+      local id = Compat.CurrencyLinkID(CI.GetCurrencyListLink(j))
+      if id then out[#out + 1] = { id = id, quantity = info.quantity or 0, accountWide = info.isAccountWide == true } end
+    end
+  end
+  for k = #expanded, 1, -1 do CI.ExpandCurrencyList(expanded[k], false) end
+  return out
+end
+
+-- ── Ledger capture (timeline ledger Phase 2) ─────────────────────────────────────────────────
+
+-- hooksecurefunc, presence-gated. A missing target (renamed between builds, absent on a flavor)
+-- returns false and installs nothing; the hook BODY must gate itself on NS.IsStoodDown (there is
+-- no un-hook — slash-commands-§7's carve-out).
+function Compat.HookSecure(name, fn)
+  if type(hooksecurefunc) ~= "function" or type(_G[name]) ~= "function" then return false end
+  hooksecurefunc(name, fn)
+  return true
+end
+
+function Compat.HookSecureMember(tbl, member, fn)
+  if type(hooksecurefunc) ~= "function" or type(tbl) ~= "table" or type(tbl[member]) ~= "function" then
+    return false
+  end
+  hooksecurefunc(tbl, member, fn)
+  return true
+end
+
+-- Consumable = Enum.ItemClass.Consumable (0), locale-independent.
+function Compat.IsConsumable(itemID)
+  local fn = C_Item and C_Item.GetItemInfoInstant
+  if not (fn and itemID) then return false end
+  local classID = select(6, fn(itemID))
+  return classID == 0
+end
+
+function Compat.CurrencyIsAccountWide(id)
+  local fn = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+  local info = fn and fn(id)
+  return info ~= nil and info.isAccountWide == true
+end
+
+local function enumName(enum, value)
+  if type(enum) ~= "table" or value == nil then return nil end
+  for name, v in pairs(enum) do if v == value then return name end end
+  return nil
+end
+
+-- CURRENCY_DISPLAY_UPDATE's 4th/5th args, as the Enum MEMBER NAME (C.CURRENCY_SOURCE_REASON keys).
+function Compat.CurrencySourceName(gainSource, destroyReason, change)
+  local E = Enum or {}
+  if (change or 0) > 0 then return enumName(E.CurrencySource, gainSource) end
+  if (change or 0) < 0 then return enumName(E.CurrencyDestroyReason, destroyReason) end
+  return nil
+end
+
+local function addCount(counts, links, id, n, link)
+  if not id or not n or n <= 0 then return end
+  counts[id] = (counts[id] or 0) + n
+  if link and not links[id] then links[id] = link end
+end
+
+-- Every attachment in the inbox the client has loaded (readable only while the mailbox is open).
+function Compat.ScanInbox()
+  local counts, links = {}, {}
+  if type(GetInboxNumItems) ~= "function" or type(GetInboxItem) ~= "function" then return counts, links end
+  local maxA = ATTACHMENTS_MAX_RECEIVE or 16
+  for i = 1, (GetInboxNumItems() or 0) do
+    for a = 1, maxA do
+      local _, itemID, _, count = GetInboxItem(i, a)
+      if itemID then
+        addCount(counts, links, itemID, count or 1, type(GetInboxItemLink) == "function" and GetInboxItemLink(i, a) or nil)
+      end
+    end
+  end
+  return counts, links
+end
+
+-- What is staged in the Send Mail frame right now (read from the SendMail post-hook).
+function Compat.ReadSendMail()
+  local items = {}
+  if type(GetSendMailItem) == "function" then
+    for slot = 1, (ATTACHMENTS_MAX_SEND or 12) do
+      local _, itemID, _, count = GetSendMailItem(slot)
+      if itemID then items[itemID] = (items[itemID] or 0) + (count or 1) end
+    end
+  end
+  local money = type(GetSendMailMoney) == "function" and (GetSendMailMoney() or 0) or 0
+  return items, money
+end
+
+-- Active owned auctions (sold-but-uncollected ones have left the player's escrow already).
+function Compat.ScanOwnedAuctions()
+  local counts, links = {}, {}
+  local AH = C_AuctionHouse
+  if not (AH and AH.GetNumOwnedAuctions and AH.GetOwnedAuctionInfo) then return counts, links end
+  local active = (Enum and Enum.AuctionStatus and Enum.AuctionStatus.Active) or 0
+  for i = 1, (AH.GetNumOwnedAuctions() or 0) do
+    local a = AH.GetOwnedAuctionInfo(i)
+    if a and a.status == active and a.itemKey then
+      addCount(counts, links, a.itemKey.itemID, a.quantity or 1, a.itemLink)
+    end
+  end
+  return counts, links
+end
+
+function Compat.ItemLocationID(loc)
+  local fn = C_Item and C_Item.GetItemID
+  return (fn and loc) and fn(loc) or nil
+end
+
+-- Auction-house mail subject -> kind, item name. Built from the localized global strings, so it
+-- follows the client language (the same rule as Compat.IsAuctionHouseMail).
+local AH_SUBJECTS
+local function ahSubjects()
+  if AH_SUBJECTS then return AH_SUBJECTS end
+  AH_SUBJECTS = {}
+  for kind, g in pairs({ sold = AUCTION_SOLD_MAIL_SUBJECT, expired = AUCTION_EXPIRED_MAIL_SUBJECT,
+                         cancelled = AUCTION_REMOVED_MAIL_SUBJECT, won = AUCTION_WON_MAIL_SUBJECT }) do
+    if type(g) == "string" then
+      local p = g:gsub("([%^%$%(%)%.%[%]%*%+%-%?%%])", "%%%1"):gsub("%%%%s", "(.+)")
+      AH_SUBJECTS[#AH_SUBJECTS + 1] = { kind = kind, pattern = "^" .. p .. "$" }
+    end
+  end
+  return AH_SUBJECTS
+end
+
+function Compat.AuctionMailKind(subject)
+  if type(subject) ~= "string" then return nil end
+  for _, s in ipairs(ahSubjects()) do
+    local name = subject:match(s.pattern)
+    if name then return s.kind, name end
+  end
+  return nil
+end
+
+-- The trade partner as a holder key. UnitName("NPC") is the open trade's other party.
+function Compat.TradeTargetKey()
+  if type(UnitName) ~= "function" then return nil end
+  local name, realm = UnitName("NPC")
+  if not name or name == "" then return nil end
+  if name:find("-", 1, true) then return name end
+  realm = (realm and realm ~= "") and realm
+    or (type(GetNormalizedRealmName) == "function" and GetNormalizedRealmName()) or nil
+  return realm and (name .. "-" .. realm) or name
+end
+
+-- The newest warband currency transfer this character made (CURRENCY_TRANSFER_LOG_UPDATE). Field
+-- names are the 11.x CurrencyTransferTransaction shape as recalled; smoke LED-P2-13 verifies them.
+function Compat.LatestCurrencyTransfer()
+  local fn = C_CurrencyInfo and C_CurrencyInfo.FetchCurrencyTransferTransactions
+  local list = fn and fn()
+  if type(list) ~= "table" or #list == 0 then return nil end
+  local t = list[#list]
+  local to = t.destinationCharacterName
+  if to and not to:find("-", 1, true) and type(GetNormalizedRealmName) == "function" then
+    local realm = GetNormalizedRealmName()                 -- nil early in login: never a bare "Name-"
+    if realm and realm ~= "" then to = to .. "-" .. realm end
+  end
+  return { currencyID = t.currencyType, quantity = t.quantityTransferred, toKey = to }
 end
