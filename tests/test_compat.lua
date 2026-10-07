@@ -750,6 +750,26 @@ test("Compat: ShowLinesTooltip draws a gold title and one colored double line pe
   tt:Hide()
 end)
 
+test("Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip", function()
+  local m, tt = T.mocks, T.mocks.GameTooltip
+  local saved, lines = rawget(tt, "AddLine"), {}
+  tt.AddLine = function(_, text, r, g, b) lines[#lines + 1] = { text, r, g, b } end
+  local ok, err = pcall(function()
+    assertTrue(NS.Compat.ShowTintedTooltip({}, { { "Name", 0.1, 0.2, 0.3 }, { "Plain" } }))
+    assertFalse(NS.Compat.ShowTintedTooltip({}, {}))
+  end)
+  tt.AddLine = saved
+  tt:Hide()
+  if not ok then error(err, 0) end
+  assertEqual(#lines, 2)
+  assertEqual(lines[1][1], "Name"); assertEqual(lines[1][2], 0.1); assertEqual(lines[1][4], 0.3)
+  assertEqual(lines[2][2], 1, "no color reads white")
+  m.GameTooltip = nil
+  local ok2, res = pcall(NS.Compat.ShowTintedTooltip, {}, { { "Name" } })
+  m.GameTooltip = tt
+  assertTrue(ok2, tostring(res)); assertFalse(res)
+end)
+
 test("Compat: ShowLinesTooltip answers false without a GameTooltip", function()
   local m = T.mocks
   local saved = m.GameTooltip

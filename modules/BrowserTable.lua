@@ -893,6 +893,22 @@ local function qualityColor(q)
   return 1, 1, 1
 end
 
+-- Test mode's rows carry no item link (the sample's names are made up), so a hover gets a plain
+-- tooltip instead: the name in its quality color, "Type · SubType", the INFERRED note, a gray
+-- "Test-mode sample" and the menu hint (no link, so nothing to shift-click).
+function BrowserTable.ShowSampleTooltip(owner, r)
+  local qr, qg, qb = qualityColor(r.quality)
+  local lines = { { r.itemName or "?", qr, qg, qb } }
+  if r.itemType and r.itemType ~= "" then
+    local _, label = NS.LedgerFormat.TypeSub(r.itemType, r.itemSubType)
+    lines[#lines + 1] = { label, 0.9, 0.9, 0.9 }
+  end
+  if r.confidence == "INFERRED" then lines[#lines + 1] = { "Source inferred (uncertain).", 0.62, 0.62, 0.62 } end
+  lines[#lines + 1] = { "Test-mode sample", 0.5, 0.5, 0.5 }
+  lines[#lines + 1] = { "Right-click for options", 0.5, 0.5, 0.5 }
+  return NS.Compat.ShowTintedTooltip(owner, lines)
+end
+
 function BrowserTable:AcquireRow()
   return NS.Pool.Acquire(self.rowPool, function() return self:BuildRow() end)
 end
@@ -951,7 +967,8 @@ function BrowserTable:BuildRow()
   -- currency rows); INFERRED rows get a note explaining the source is a guess. A hint line
   -- advertises the click interactions. A gold row has no link to hover, so it gets BankLedger's
   -- hand-built tooltip: a gold "Gold" title, the signed amount as "Amount", and the menu hint (gold
-  -- rows carry no link, so there is nothing to shift-click).
+  -- rows carry no link, so there is nothing to shift-click). A link-less test-mode row gets the
+  -- sample tooltip (ShowSampleTooltip above).
   row:SetScript("OnEnter", function(self2)
     local e = self2.entry
     if not (e and e.kind == "row") then return end
@@ -968,6 +985,8 @@ function BrowserTable:BuildRow()
       GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
       GameTooltip:SetCurrencyByID(r.currencyID)
       shown = true
+    elseif BrowserTable.testMode then
+      BrowserTable.ShowSampleTooltip(self2, r)
     end
     if shown then
       if r.confidence == "INFERRED" then

@@ -182,7 +182,7 @@ badge and any count quoted in the docs must agree with it.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (63)
+### test_compat.lua (64)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -246,6 +246,7 @@ badge and any count quoted in the docs must agree with it.
 - Compat: LatestCurrencyTransfer appends the realm only when the client knows it
 - Compat: HookSecure is presence-gated
 - Compat: ShowLinesTooltip draws a gold title and one colored double line per row
+- Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip
 - Compat: ShowLinesTooltip answers false without a GameTooltip
 
 ### test_scanner.lua (5)
@@ -722,7 +723,7 @@ badge and any count quoted in the docs must agree with it.
 - filter bar: resizing the window re-lays the bar out to its new width
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 
-### test_browsertable.lua (79)
+### test_browsertable.lua (80)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -794,6 +795,7 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: the Qty column shows signed quantities
 - BrowserTable: the Qty column is measured wide enough for the widest signed gold amount
 - BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own
+- BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged
 - BrowserTable: group by Direction and by Holder
 - BrowserTable: group by Type & SubType orders by type, then subtype, alphabetically
 - BrowserTable: Type & SubType with no subtype reads 'Type: Armor' and leads its type
@@ -1639,7 +1641,7 @@ badge and any count quoted in the docs must agree with it.
 | test_util.lua | 42 |
 | test_ledger.lua | 36 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 63 |
+| test_compat.lua | 64 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_rollup.lua | 21 |
@@ -1654,7 +1656,7 @@ badge and any count quoted in the docs must agree with it.
 | test_database.lua | 83 |
 | test_stats.lua | 25 |
 | test_browser.lua | 94 |
-| test_browsertable.lua | 79 |
+| test_browsertable.lua | 80 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1690,4 +1692,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1444** |
+| **Total** | **1446** |

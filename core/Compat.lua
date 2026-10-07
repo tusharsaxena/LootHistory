@@ -591,6 +591,17 @@ function Compat.ShowLinesTooltip(owner, title, rows, anchor)
   return true
 end
 
+-- Plain lines, each in its own color (test mode's History rows, which carry no item link): `lines`
+-- is { { text, r, g, b }, ... }, the first being the title; a nil color reads white.
+function Compat.ShowTintedTooltip(owner, lines, anchor)
+  local tt = tooltip("AddLine")
+  if not (tt and lines and lines[1]) then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  for _, l in ipairs(lines) do tt:AddLine(l[1] or "", l[2] or 1, l[3] or 1, l[4] or 1) end
+  tt:Show()
+  return true
+end
+
 function Compat.HideTooltip()
   local tt = tooltip("Hide")
   if tt then tt:Hide() end

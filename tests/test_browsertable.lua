@@ -1047,6 +1047,62 @@ test("BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item r
   assertTrue(got:find("AddDoubleLine", 1, true) == nil, got)
 end)
 
+-- Test mode (timeline ledger P9): the sample's names are made up, so its rows carry no link; a hover
+-- draws a plain tooltip (name in its quality color, "Type · SubType", gray "Test-mode sample"). A
+-- row WITH a link still shows the item's own tooltip, and outside test mode a link-less row is as
+-- before (nothing drawn).
+test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged", function()
+  local BT = NS.BrowserTable
+  local row, tt = BT:BuildRow(), T.mocks.GameTooltip
+  local savedMode, savedColors = BT.testMode, T.mocks.ITEM_QUALITY_COLORS
+  local sample
+  for _, r in ipairs(BT:BuildTestData()) do
+    if not r.dir and r.quality == 4 and r.itemSubType then sample = r; break end
+  end
+  assertTrue(sample ~= nil, "the sample has an epic item row")
+  assertEqual(sample.itemLink, nil, "sample rows carry no link (their names are not real items)")
+  local lines, other = {}, {}
+  local saved = { AddLine = rawget(tt, "AddLine"), SetHyperlink = rawget(tt, "SetHyperlink") }
+  tt.AddLine = function(_, text, r, g, b) lines[#lines + 1] = { text, r, g, b } end
+  tt.SetHyperlink = function(_, link) other[#other + 1] = link end
+  local ok, err = pcall(function()
+    T.mocks.ITEM_QUALITY_COLORS = { [4] = { r = 0.64, g = 0.21, b = 0.93 } }
+    BT.testMode = true
+    BT:BindRow(row, dataEntry(sample), 1)
+    row:GetScript("OnEnter")(row)
+    assertEqual(lines[1][1], sample.itemName)
+    assertEqual(lines[1][2], 0.64); assertEqual(lines[1][4], 0.93, "the name is in its quality color")
+    assertEqual(lines[2][1], sample.itemType .. " \194\183 " .. sample.itemSubType)
+    local texts = {}
+    for i, l in ipairs(lines) do texts[i] = l[1] end
+    local joined = table.concat(texts, "|")
+    local at
+    for i, l in ipairs(lines) do if l[1] == "Test-mode sample" then at = i end end
+    assertTrue(at ~= nil, joined)
+    assertEqual(lines[at][2], 0.5, "the sample note is gray")
+    assertEqual(#other, 0, "no hyperlink for a link-less sample row")
+
+    -- a test-mode row with a real link: the item's own tooltip, as before
+    lines = {}
+    BT:BindRow(row, dataEntry({ itemName = "Apple", itemLink = "|Hitem:7|h[Apple]|h", quantity = 1 }), 2)
+    row:GetScript("OnEnter")(row)
+    assertEqual(other[1], "|Hitem:7|h[Apple]|h")
+    for _, l in ipairs(lines) do assertTrue(l[1] ~= "Test-mode sample", "a linked row is not a sample tooltip") end
+
+    -- live mode: a link-less row draws nothing (unchanged)
+    BT.testMode = false
+    lines, other = {}, {}
+    BT:BindRow(row, dataEntry(sample), 3)
+    row:GetScript("OnEnter")(row)
+    assertEqual(#lines, 0, "live link-less row: no tooltip"); assertEqual(#other, 0)
+  end)
+  tt.AddLine, tt.SetHyperlink = saved.AddLine, saved.SetHyperlink
+  BT.testMode = savedMode
+  T.mocks.ITEM_QUALITY_COLORS = savedColors
+  tt:Hide()
+  if not ok then error(err, 0) end
+end)
+
 test("BrowserTable: group by Direction and by Holder", function()
   local BT = NS.BrowserTable
   local saved = BT.groupBy

@@ -19,7 +19,7 @@ free number in its theme.
 | PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
-| TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample |
+| TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
@@ -397,7 +397,9 @@ opens on Everlight Crystal with lines already drawn, while a saved pick the samp
 is kept, and picking Gold draws a line per holder plus Total across about 120 days, and picking
 another sample item (Sunwell Cinder) draws at least two lines. `/lh test` again → both tabs are back
 on your own holdings and Timeline (your own pick, not the sample's), and nothing of the sample is
-left in either. Result:
+left in either. While test mode is on, hover a **History** row → a tooltip with the item name in its
+quality color, its `Type · SubType`, and a gray `Test-mode sample` line; `/lh test` off → hovering your
+own rows shows the real item tooltip as before. Result:
 
 ## Combat
 
@@ -1701,7 +1703,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | STATE-7 to STATE-9, STATE-11 | § 8 | No result recorded |
 | STATE-10 | § 8 | No result recorded; SP-LH-03R restored the old step that sets General visibility back to *Always* |
 | STATE-12 | New | New with the library resize grip's `canResize` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
-| TM-1 | New | New with the timeline ledger P6 (test mode's Holdings and Timeline sample); no result recorded |
+| TM-1 | New | New with the timeline ledger P6 (test mode's Holdings and Timeline sample); extended in P9 with the History row tooltips; no result recorded |
 | COMBAT-1 | § 2 | No result recorded |
 | COMBAT-2 | § 2, § 9 and § 17d.2 `/lh config` in combat | No result recorded; expectation corrected by SP-LH-03R (the library's printed line) |
 | COMBAT-3 | § 17d.2 sidebar in combat | No result recorded; expectation rewritten by SP-LH-03 (Profiles covered too) |
