@@ -16,8 +16,10 @@ NS.defaults.profile = {
   blacklist = {},        -- { [itemID] = true } — drop on capture (stored rows stay visible)
   whitelist = {},        -- { [itemID] = true } — always record, even below the gates
   currencyBlacklist = {},  -- { [currencyID] = true } — currencies never recorded on capture
-  -- `savedView` (the remembered table view) is profile-scoped too, and deliberately undeclared: it
-  -- exists only once the player clicks the filter bar's Save (modules/Browser.lua).
+  -- `savedViews` (one remembered view per browser tab, { [tab] = view }; schema v14 split the single
+  -- `savedView` into it) is profile-scoped too, and deliberately undeclared: a tab's slot exists only
+  -- once the player clicks the filter bar's Save on that tab, or the Timeline remembers a pick
+  -- (modules/Browser.lua).
   settings = {
     enabled          = true,
     -- ── the Master controls tab (options-ui-§15) ──

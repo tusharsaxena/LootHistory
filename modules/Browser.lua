@@ -80,7 +80,7 @@ end
 -- ── Window position/size persistence ──────────────────────────────────────────
 -- settings.window = { point, x, y, w, h } relative to UIParent.
 --
--- NOTE: settings.window and savedView (see savedViewOrStock below) are named non-setting state
+-- NOTE: settings.window and savedViews (see savedViewOrStock below) are named non-setting state
 -- (architecture-§5): no control chooses them and no row addresses them, so this module owns them and
 -- writes them directly rather than through Schema:Set. Every writer and the act that reaches it are
 -- named in docs/ARCHITECTURE.md → Settings schema; a new writer goes on that list too.
@@ -114,8 +114,10 @@ end
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 -- A registry, not a hard-coded pair (timeline-ledger spec §8.0): each tab is a spec its owning
 -- module registers -- { name, order, build(pane), refresh(), export(title), filters, suggest(text),
--- pick(item) }. The filter bar and footer are shared window chrome (EnsureFrame, issue #13); a pane
--- holds only its view.
+-- pick(item) }, plus the optional view hooks `stock` (fields laid over the stock view),
+-- `captureView(v)` and `applyView(view)` (the tab's own fields, P11). The filter bar and footer are
+-- shared window chrome (EnsureFrame, issue #13); a pane holds only its view, and each tab keeps its
+-- own filter state on that one bar (see "Per-tab views" below).
 local tabSpecs, tabOrder = {}, {}
 local lastTab = "History"   -- remembered within a session
 local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18   -- shared chrome heights; panes sit between
@@ -140,7 +142,14 @@ end
 
 function B:SelectTab(name)
   if not (frame and tabSpecs[name]) then return end
-  lastTab = name
+  -- Per-tab views (P11): the outgoing tab's live state is parked and the incoming tab's put on the
+  -- shared bar before the tab's controls are grayed and its options rebuilt. A re-select of the
+  -- active tab (Show) keeps what is on the bar.
+  if name ~= lastTab then
+    B._stashLive(lastTab)
+    lastTab = name
+    B._restoreLive(name)
+  end
   B:ApplyTabFilters(name)
   for _, t in ipairs(tabOrder) do
     local active = (t == name)
@@ -265,6 +274,7 @@ function B:_UnregisterTabForTest(name)
   for i, n in ipairs(tabOrder) do if n == name then table.remove(tabOrder, i); break end end
   tabSpecs[name] = nil
   if lastTab == name then lastTab = "History" end
+  B._forgetLive(name)
   if not frame then return end
   for _, set in ipairs({ frame.panes, frame.tabs }) do if set[name] then set[name]:Hide(); set[name] = nil end end
   LayoutTabButtons()
@@ -310,20 +320,37 @@ local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
 B._boundLabel, B._boundOrder = BOUND_LABEL, BOUND_ORDER   -- the filter bar measures every label
 
 -- The saved "view" = group-by + sort + column filters (NOT the player scope, which is a
--- session-only default of "current player"). This is the stock/reset baseline; the user's
--- saved view lives in the profile, NS.db.profile.savedView. `date` stores the range option (not an absolute
--- `from`) so it recomputes correctly on each load. `dir` is deliberately ABSENT: a view that never
--- stored one takes the Direction default (defaultDirSet, settings.showTransfers) at apply time, and
--- the minimum-quality floor (applyQualityFloor) rides on `quality` staying unselected.
+-- session-only default of "current player"). This is the stock/Clear baseline; the user's saved
+-- views live in the profile, one per tab: NS.db.profile.savedViews[tab] (P11, schema v14). `date`
+-- stores the range option (not an absolute `from`) so it recomputes correctly on each load. `dir` is
+-- deliberately ABSENT: a view that never stored one takes the Direction default (defaultDirSet,
+-- settings.showTransfers) at apply time, and the minimum-quality floor (applyQualityFloor) rides on
+-- `quality` staying unselected.
 local STOCK_VIEW = {
   groupBy = "none", sortKey = "date", sortAsc = false, groupAsc = true,
   quality = "all", source = "all", itemType = "all", itemSubType = "all", zone = "all",
   date = "all", bound = "all", search = "",
 }
-local function savedViewOrStock()
-  local v = NS.db and NS.db.profile and NS.db.profile.savedView
+
+-- A tab's stock view: STOCK_VIEW itself, or a copy with the tab spec's `stock` fields laid over it
+-- (Holdings sorts by name, not date).
+local function stockView(tab)
+  local spec = tabSpecs[tab or lastTab]
+  local extra = spec and spec.stock
+  if not extra then return STOCK_VIEW end
+  local v = {}
+  for k, x in pairs(STOCK_VIEW) do v[k] = x end
+  for k, x in pairs(extra) do v[k] = x end
+  return v
+end
+
+-- A tab's saved view (the active tab's by default), or its stock view when it has none.
+local function savedViewOrStock(tab)
+  tab = tab or lastTab
+  local all = NS.db and NS.db.profile and NS.db.profile.savedViews
+  local v = type(all) == "table" and all[tab]
   if type(v) == "table" then return v end
-  return STOCK_VIEW
+  return stockView(tab)
 end
 
 -- The dataset the filter bar reflects: the table's current records (test data in test mode,
@@ -554,6 +581,7 @@ end
 -- these exact functions, so a test that pins their behavior pins the shipped behavior. Read-only
 -- from outside the module — nothing here mutates browser state.
 B._stockView    = STOCK_VIEW
+B._stockViewFor = stockView
 B._savedViewOrStock = savedViewOrStock
 B._setToFilter  = setToFilter
 B._asSet        = asSet
@@ -565,23 +593,84 @@ B._options = {
   itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
 }
 
--- Push the current filter to the table and refresh the footer count. The filter is a singleton
--- for the whole browser (issue #13): it always drives the table (keeping matchCount + the footer
--- current on every tab), and it live-refreshes any other built tab while it is on screen. SelectTab
--- re-runs a tab's refresh on switch, so a filter changed on History is already in Insights when
--- next shown — without an Insights relayout on every History-side keystroke.
+-- Push the current filter to the table and refresh the footer count. B.activeFilter is the ACTIVE
+-- tab's filter (P11: each tab keeps its own): it always drives the table (keeping matchCount + the
+-- footer current on every tab), and it live-refreshes any other built tab while it is on screen.
+-- While SelectTab is putting a tab's state on the bar (`switching`) the tab is not repainted here:
+-- SelectTab refreshes it once, after.
+local switching = false
 local function ApplyFilter()
   if NS.BrowserTable then NS.BrowserTable:SetFilter(B.activeFilter) end
   B:UpdateFooter()
   local s = tabSpecs[lastTab]
-  if lastTab ~= "History" and s and s.refresh and frame and frame.panes[lastTab]._built then s.refresh() end
+  if switching or lastTab == "History" then return end
+  if s and s.refresh and frame and frame.panes[lastTab]._built then s.refresh() end
 end
 B._applyFilter = ApplyFilter   -- the filter bar's controls (modules/BrowserFilterBar.lua) push through it
 
--- The active filter as a plain copy, for Analytics:Stats (issue #13). Shares the exact field shape
--- Database:QueryList consumes (quality/source/itemType/itemSubType/zone/bound/char/from/text), so
--- the Insights view and the History table always filter by identical criteria.
-function B:CurrentFilter()
+-- ── Per-tab views (P11, owner decision 2026-10-07) ─────────────────────────────────────────────
+-- Each tab keeps its OWN live filter state on the one shared bar: group, sort, date, search, every
+-- multi-select filter, the Character scope and its own fields (spec hooks). `live[tab]` parks a
+-- tab's state while another tab is on the bar: { view = CaptureView(), char = selection set }. A tab
+-- not yet shown this session opens on its saved view (or its stock view) scoped to the current
+-- player, or on the stock view over every character in test mode. Session only: a profile adopt or a
+-- dataset swap (test mode in or out) forgets every parked state.
+local function currentKey()
+  return NS.Util and NS.Util.PlayerKey and NS.Util.PlayerKey() or nil
+end
+B._currentKey = currentKey   -- the Character dropdown's "Current" preset (modules/BrowserFilterBar.lua)
+
+local live = {}
+
+local function initialFor(tab)
+  if NS.BrowserTable and NS.BrowserTable.testMode then return stockView(tab), "all" end
+  return savedViewOrStock(tab), "current"
+end
+
+function B._forgetLive(tab)
+  if tab then live[tab] = nil else live = {} end
+end
+
+-- Park `tab`'s state as the bar holds it now (the tab is still the active one).
+function B._stashLive(tab)
+  if not (frame and tabSpecs[tab]) then return end
+  live[tab] = { view = B:CaptureView(), char = setToFilter(B.activeFilter and B.activeFilter.char) or {} }
+end
+
+-- Put `tab`'s parked state (or its opening state) on the bar. `tab` is already the active tab.
+function B._restoreLive(tab)
+  local e = live[tab]
+  switching = true
+  local ok, err
+  if e then ok, err = pcall(B.ApplyView, B, e.view, e.char)
+  else ok, err = pcall(B.ApplyView, B, initialFor(tab)) end
+  switching = false
+  if not ok then error(err, 0) end
+end
+
+-- The filter a parked (or never shown) tab would apply, built without touching the bar.
+local resolveInto   -- defined with ApplyView below
+local function parkedFilter(tab)
+  local e, view, char = live[tab]
+  if e then
+    view, char = e.view, e.char
+  else
+    local scope
+    view, scope = initialFor(tab)
+    local ck = currentKey()
+    char = (scope == "current" and ck) and { [ck] = true } or nil
+  end
+  local f = {}
+  resolveInto(f, view)
+  f.char = setToFilter(char)
+  return f
+end
+
+-- A tab's filter as a plain copy (issue #13; per tab since P11): the active tab's live filter, or,
+-- for `tab` naming another tab, that tab's own parked state. Shares the exact field shape
+-- Database:QueryList consumes (quality/source/itemType/itemSubType/zone/bound/char/from/text).
+function B:CurrentFilter(tab)
+  if tab and tab ~= lastTab then return parkedFilter(tab) end
   local out = {}
   for k, v in pairs(self.activeFilter or {}) do out[k] = v end
   return out
@@ -594,27 +683,33 @@ function B:DateRange()
   return (dd and dd.date and dd.date._value) or "all"
 end
 
--- One field of the saved view, written without a Save (the Timeline's last pick, spec §8.1). With no
--- saved view yet, the view is materialized as a COPY of the stock one, which applies exactly as stock
--- does, so remembering a pick never changes anything else a later Reset or Save would see.
-function B:SetViewField(k, v)
+-- One field of a tab's saved view (the active tab's by default), written without a Save (the
+-- Timeline's last pick, spec §8.1). With no saved view yet, the tab's view is materialized as a COPY
+-- of its stock one, which applies exactly as stock does, so remembering a pick never changes anything
+-- else a later Reset or Save would see.
+function B:SetViewField(k, v, tab)
   local p = NS.db and NS.db.profile
   if not p then return end
-  if type(p.savedView) ~= "table" then
+  tab = tab or lastTab
+  if type(p.savedViews) ~= "table" then p.savedViews = {} end
+  if type(p.savedViews[tab]) ~= "table" then
     local copy = {}
-    for kk, vv in pairs(STOCK_VIEW) do copy[kk] = vv end
-    p.savedView = copy
+    for kk, vv in pairs(stockView(tab)) do copy[kk] = vv end
+    p.savedViews[tab] = copy
   end
-  p.savedView[k] = v
+  p.savedViews[tab][k] = v
 end
 
-function B:ViewField(k) return savedViewOrStock()[k] end
+function B:ViewField(k, tab) return savedViewOrStock(tab)[k] end
 
 -- "Show in Timeline" from a History or Holdings row (spec §8.2).
+-- The Timeline keeps its own Search text (P11), so the thing's name is put there, as a pick would.
 function B:ShowTimeline(key)
   if NS.Timeline and NS.Timeline.SetThing then NS.Timeline:SetThing(key, true) end
   self:Show()
   self:SelectTab("Timeline")
+  local d = key and NS.Holdings and NS.Holdings.Describe and NS.Holdings:Describe(key)
+  if lastTab == "Timeline" and d and d.name then self:SetSearchText(d.name) end
 end
 
 function B:UpdateFooter()
@@ -654,14 +749,12 @@ end
 
 -- The table's dataset changed (entering/leaving test mode): rebuild the dropdowns from the new
 -- dataset. In test mode show everything (stock view, all players, since test chars differ);
--- leaving it, return to the saved view + current player.
+-- leaving it, return to the saved view + current player. Every tab's parked state is forgotten, so
+-- each opens the same way when next shown (B._restoreLive).
 function B:OnDatasetChanged()
   self:RefreshFilterOptions()
-  if NS.BrowserTable and NS.BrowserTable.testMode then
-    self:ApplyView(STOCK_VIEW, "all")
-  else
-    self:ApplyView(savedViewOrStock(), "current")
-  end
+  live = {}
+  self:ApplyView(initialFor(lastTab))
   self:UpdateFooter()
   self:UpdateDbSize()
   self:UpdateTestBadge()
@@ -674,11 +767,6 @@ function B:UpdateTestBadge()
   if not (frame and frame.testBadge) then return end
   frame.testBadge:SetShown(NS.BrowserTable and NS.BrowserTable.testMode or false)
 end
-
-local function currentKey()
-  return NS.Util and NS.Util.PlayerKey and NS.Util.PlayerKey() or nil
-end
-B._currentKey = currentKey   -- the Character dropdown's "Current" preset (modules/BrowserFilterBar.lua)
 
 -- The char filter is surfaced by two controls — the player toggle (Current/All) and the
 -- multi-select Character dropdown — so both funnel through here and stay in sync. `set` is a
@@ -736,16 +824,18 @@ local function captureFilters(dd, out)
   end
 end
 
--- Capture the current group/sort/column-filters as a view table (excludes the player scope).
--- Character scope is NOT part of the view (it's the session-only Current/All default).
+-- Capture the active tab's group/sort/column-filters as a view table (excludes the player scope).
+-- Character scope is NOT part of the view (it's the session-only Current/All default). A tab spec's
+-- `captureView(v)` then writes the tab's own fields over it (Holdings' group and sort, the
+-- Timeline's remembered pick).
 function B:CaptureView()
   local dd = self._dd
   local v = captureTableState(NS.BrowserTable)
   captureFilters(dd, v)
   v.date   = (dd and dd.date._value) or "all"
   v.search = (self._search and self._search:GetText()) or ""
-  v.timelineThing = savedViewOrStock().timelineThing
-  v.timelineTotalOnly = savedViewOrStock().timelineTotalOnly
+  local spec = tabSpecs[lastTab]
+  if spec and spec.captureView then spec.captureView(v) end
   return v
 end
 
@@ -773,49 +863,70 @@ local function applyDropdowns(dd, view)
   dd.date:SelectValue(view.date or "all")
 end
 
--- Resolve the view's stored fields into the query filter. Tolerates the legacy scalar form via
+-- Resolve the view's stored fields into the query filter `f`. Tolerates the legacy scalar form via
 -- asSet; an unselected column applies no filter at all (nil, not an empty set).
-local function resolveFilter(self, view)
+function resolveInto(f, view)
   for i = 1, #VIEW_FILTERS do
     local vk = VIEW_FILTERS[i][1]
-    self.activeFilter[vk] = setToFilter(viewSet(view, vk))
+    f[vk] = setToFilter(viewSet(view, vk))
   end
-  applyQualityFloor(self.activeFilter)
-  if view.date and view.date ~= "all" then self.activeFilter.from = NS.Util.RangeFrom(view.date) end
-  if view.search and view.search ~= "" then self.activeFilter.text = view.search end
+  applyQualityFloor(f)
+  if view.date and view.date ~= "all" then f.from = NS.Util.RangeFrom(view.date) end
+  if view.search and view.search ~= "" then f.text = view.search end
 end
 
+-- Apply a view to the ACTIVE tab. A tab spec with `applyView` owns its group and sort (Holdings);
+-- every other tab's go onto the History table, as they always did.
 function B:ApplyView(view, scope)
-  view = view or STOCK_VIEW
+  view = view or stockView(lastTab)
   self.activeFilter = {}
-  applyTableState(view)
+  local spec = tabSpecs[lastTab]
+  if spec and spec.applyView then spec.applyView(view) else applyTableState(view) end
   local dd = self._dd
   if dd then applyDropdowns(dd, view); self:SyncGroupControl() end   -- a tab with its own group keeps it
   if self._search then self._search:SetText(view.search or "") end
-  resolveFilter(self, view)
-  -- Character scope resets to `scope` (default "current"). SetCharSet also calls ApplyFilter,
-  -- so it is the single refresh that paints all the filter fields set just above.
+  resolveInto(self.activeFilter, view)
+  -- Character scope resets to `scope`: "all", an explicit selection set (a parked tab's, P11), or
+  -- by default "current". SetCharSet also calls ApplyFilter, so it is the single refresh that
+  -- paints all the filter fields set just above.
   if scope == "all" then
     self:SetCharSet(nil)
+  elseif type(scope) == "table" then
+    self:SetCharSet(scope)
   else
     local ck = currentKey()
     self:SetCharSet(ck and { [ck] = true } or nil)
   end
 end
 
--- Save the current view as this profile's default; Reset drops it back to stock.
+-- The filter bar's Save / Reset / Clear (P11): each acts on the ACTIVE tab alone.
+--   Save  stores the tab's current state as its saved view (profile.savedViews[tab]).
+--   Reset restores the tab's saved view, or its stock view when it has none.
+--   Clear returns the tab to its stock view; its saved view is kept. The Timeline's remembered
+--         thing and Total only are not filters and are untouched (it never applies them from a view).
+-- Test mode is session-only and never writes a saved view (Save refuses), and its Reset and Clear
+-- both land on the stock view over every character.
 function B:SaveView()
-  if NS.db and NS.db.profile then
-    NS.db.profile.savedView = self:CaptureView()
-    print("view saved as default.")
+  if not (NS.db and NS.db.profile) then return end
+  if NS.BrowserTable and NS.BrowserTable.testMode then
+    print("test mode is a preview: the view was not saved.")
+    return
   end
+  local p = NS.db.profile
+  if type(p.savedViews) ~= "table" then p.savedViews = {} end
+  p.savedViews[lastTab] = self:CaptureView()
+  print(("%s view saved as default."):format(lastTab))
 end
--- Drop the saved view back to stock. `silent` suppresses the chat line when called programmatically;
--- the filter-bar Reset button calls it with no argument and keeps the message.
+
+-- `silent` suppresses the chat line when called programmatically; the filter-bar Reset button
+-- calls it with no argument and keeps the message.
 function B:ResetView(silent)
-  if NS.db and NS.db.profile then NS.db.profile.savedView = nil end
-  self:ApplyView(STOCK_VIEW, "current")
-  if not silent then print("view reset to stock defaults.") end
+  local all = NS.db and NS.db.profile and NS.db.profile.savedViews
+  local has = type(all) == "table" and type(all[lastTab]) == "table"
+  self:ApplyView(initialFor(lastTab))
+  if not silent then
+    print(("%s view reset to %s."):format(lastTab, has and "your saved view" or "stock defaults"))
+  end
 end
 
 -- Reset the persisted window geometry (named non-setting state, see the NOTE above SaveWindow) and recenter the
@@ -832,8 +943,10 @@ function B:ResetWindow()
 end
 
 --- The History window's half of the profile adopt path (NS.OnProfileEvent, core/LootHistory.lua).
---- Everything the window draws from the profile is re-read from the NEW one: its geometry, its
---- saved view (or the stock view when the profile has none), its row height and its chrome. A
+--- Everything the window draws from the profile is re-read from the NEW one: its geometry, the
+--- active tab's saved view (or its stock view when the profile has none; every other tab's parked
+--- state is forgotten, so each opens on the new profile's view when next shown), its row height and
+--- its chrome. A
 --- window that was never built has nothing to re-read; its first build reads the new profile.
 --- Test mode keeps its stock view: the preview is session state, not the profile's.
 function B:AdoptProfile()
@@ -841,6 +954,7 @@ function B:AdoptProfile()
   frame:ClearAllPoints()
   RestoreWindow()
   if not (NS.BrowserTable and NS.BrowserTable.testMode) then
+    live = {}
     self:ApplyView(savedViewOrStock(), "current")
   end
   if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
@@ -848,10 +962,11 @@ function B:AdoptProfile()
   B:ApplyVisibility()
 end
 
--- Clear returns the filters/group/sort to the saved default (or stock), and the player scope
--- to "current player".
+-- Clear returns the active tab's filters/group/sort to its stock view (its saved view is kept),
+-- and the player scope to "current player" (every character in test mode). See SaveView above.
 function B:ClearFilters()
-  self:ApplyView(savedViewOrStock(), "current")
+  local _, scope = initialFor(lastTab)
+  self:ApplyView(stockView(lastTab), scope)
 end
 
 -- Route the Export button to the active tab's modal (issue #15), titled after the tab ("Export
@@ -897,7 +1012,7 @@ B:RegisterTab{ name = "Insights", order = 20,
   refresh = function() if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end end,
   export = function(title) NS.Export:Open({ title = title,   -- the analytics summary, same filter
     providers = { allData = function() return NS.Database:Stats({}) end,
-                  currentView = function() return NS.Database:Stats(B:CurrentFilter()) end },
+                  currentView = function() return NS.Database:Stats(B:CurrentFilter("Insights")) end },
     csv = function(stats) return NS.Export:InsightsCSV(stats) end }) end }
 
 -- ── Frame construction ─────────────────────────────────────────────────────────

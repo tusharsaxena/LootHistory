@@ -71,7 +71,7 @@ local TALLIES = {
 }
 
 -- The two scopes: the account-wide store (the history, its repair bookkeeping, the schema stamp,
--- LibDBIcon's table) and the active profile (every setting, the id lists, the saved view).
+-- LibDBIcon's table) and the active profile (every setting, the id lists, the saved views).
 local function store() return NS.db and NS.db.global end
 local function profile() return NS.db and NS.db.profile end
 local function yn(v) return v and "yes" or "no" end
@@ -303,19 +303,26 @@ local function browserTable(out)
     type(NS.State.testRecords) == "table" and #NS.State.testRecords or "-")
 end
 
-local function browserSavedView(out)
+-- One line per tab with a saved view (P11: profile.savedViews[tab]), tabs in name order.
+local function browserSavedViews(out)
   local p = profile()
-  local view = p and type(p.savedView) == "table" and p.savedView or nil
-  local keys = {}
-  for k in pairs(view or {}) do keys[#keys + 1] = tostring(k) end
-  table.sort(keys)
-  if view then out:joined(TAG, "browser: saved view keys", keys) else out:add(TAG, "browser: saved view none") end
+  local views = p and type(p.savedViews) == "table" and p.savedViews or {}
+  local tabs = {}
+  for tab, view in pairs(views) do if type(view) == "table" then tabs[#tabs + 1] = tab end end
+  table.sort(tabs, function(a, b) return tostring(a) < tostring(b) end)
+  if #tabs == 0 then out:add(TAG, "browser: saved views none") return end
+  for _, tab in ipairs(tabs) do
+    local keys = {}
+    for k in pairs(views[tab]) do keys[#keys + 1] = tostring(k) end
+    table.sort(keys)
+    out:joined(TAG, "browser: saved view " .. tostring(tab) .. " keys", keys)
+  end
 end
 
 local function browser(out)
   browserWindow(out)
   browserTable(out)
-  browserSavedView(out)
+  browserSavedViews(out)
 end
 
 local function launcher(out)

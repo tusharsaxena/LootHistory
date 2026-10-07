@@ -361,7 +361,7 @@ local function browserSection()
   end
 end
 
-local function runBrowser(B, BT, testRecords, savedView)
+local function runBrowser(B, BT, testRecords, savedViews)
   local lines = {}
   local out = {}
   out.add = function(_, _, fmt, ...)
@@ -372,7 +372,7 @@ local function runBrowser(B, BT, testRecords, savedView)
   out.joined = function(_, _, lead, parts) lines[#lines + 1] = lead .. " " .. table.concat(parts, ", ") end
   local savedB, savedBT, savedRecords = NS.Browser, NS.BrowserTable, NS.State.testRecords
   local p = freshProfile()
-  p.savedView = savedView
+  p.savedViews = savedViews
   NS.Browser, NS.BrowserTable, NS.State.testRecords = B, BT, testRecords
   local ok, err = pcall(withProfile, p, function() browserSection()(out) end)
   NS.Browser, NS.BrowserTable, NS.State.testRecords = savedB, savedBT, savedRecords
@@ -385,17 +385,20 @@ local function fakeWindow(shown) return { IsShown = function() return shown end 
 test("diagnostics: the browser section with no window and no table module", function()
   assertEqual(runBrowser(nil, nil, nil, nil), table.concat({
     "browser: window built=no shown=no locked=no",
-    "browser: saved view none",
+    "browser: saved views none",
   }, "\n"))
 end)
 
-test("diagnostics: the browser section with a shown window, test records and a saved view", function()
+test("diagnostics: the browser section with a shown window, test records and saved views", function()
   local B = { GetWindow = function() return fakeWindow(true) end, IsLocked = function() return true end }
   local BT = { sortKey = "ts", sortAsc = true, groupBy = "none", matchCount = 42 }
-  assertEqual(runBrowser(B, BT, { {}, {}, {} }, { zeta = 1, alpha = true, [3] = "x" }), table.concat({
+  local views = { Timeline = { zeta = 1, alpha = true, [3] = "x" }, History = { groupBy = "zone" },
+                  Insights = "not a table" }
+  assertEqual(runBrowser(B, BT, { {}, {}, {} }, views), table.concat({
     "browser: window built=yes shown=yes locked=yes",
     "browser: sort ts asc, groupBy none, matched 42, test records 3",
-    "browser: saved view keys 3, alpha, zeta",
+    "browser: saved view History keys groupBy",
+    "browser: saved view Timeline keys 3, alpha, zeta",
   }, "\n"))
 end)
 
@@ -405,7 +408,7 @@ test("diagnostics: the browser section with a hidden window, a descending sort a
   assertEqual(runBrowser(B, BT, nil, "not a table"), table.concat({
     "browser: window built=yes shown=no locked=no",
     "browser: sort quality desc, groupBy item, matched -, test records -",
-    "browser: saved view none",
+    "browser: saved views none",
   }, "\n"))
 end)
 

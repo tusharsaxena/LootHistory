@@ -9,7 +9,7 @@ local TL = NS.Timeline
 -- The THING is picked with the browser's shared Search box: its autocomplete (P9, the same list
 -- every tab wears, modules/BrowserFilterBar.lua) offers matching things through this tab's
 -- `suggest` (what is held now, plus anything the rollup has a day for, Gold first), and a pick
--- charts it, leaves the thing's name in Search and is remembered in the saved view.
+-- charts it, leaves the thing's name in Search and is remembered in the Timeline's saved view.
 --
 -- Each line can be hidden (spec §8.1, P8): a legend entry is a button that toggles its line, and the
 -- header's "Total only" toggle hides every holder at once. The per-line hidden set is session-only and
@@ -45,13 +45,13 @@ end
 function TL:Thing()
   if NS.State.testDaily then
     if sampleHas(self.testThing) then return self.testThing end
-    local real = self.thing or (NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineThing"))
+    local real = self.thing or (NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineThing", "Timeline"))
     if sampleHas(real) then return real end
     return NS.TestData.DefaultTimelineThing() or "g"
   end
   self.testThing = nil
   if self.thing then return self.thing end
-  local v = NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineThing")
+  local v = NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineThing", "Timeline")
   return v or "g"
 end
 
@@ -60,7 +60,7 @@ function TL:SetThing(key, quiet)
     self.testThing = key
   else
     self.thing = key
-    if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineThing", key) end
+    if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineThing", key, "Timeline") end
   end
   if not quiet then self:RefreshIfShown() end
 end
@@ -70,11 +70,11 @@ end
 -- The remembered toggle. Under it every holder is hidden whatever the session set says, so turning it
 -- off hands back exactly the set that was shown before it went on.
 local function totalOnly()
-  return NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineTotalOnly") == true
+  return NS.Browser and NS.Browser.ViewField and NS.Browser:ViewField("timelineTotalOnly", "Timeline") == true
 end
 
 local function setTotalOnlyField(on)
-  if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineTotalOnly", on) end
+  if NS.Browser and NS.Browser.SetViewField then NS.Browser:SetViewField("timelineTotalOnly", on, "Timeline") end
 end
 
 function TL:IsHidden(key)
@@ -283,7 +283,7 @@ end
 
 function TL:Refresh()
   if not self.pane then return end
-  local f = NS.Browser:CurrentFilter()
+  local f = NS.Browser:CurrentFilter("Timeline")
   if not (self.chart and ledgerOn()) then
     self.model = nil
     self.title:SetText(self.chart and "Turn on ledger tracking (Settings, Capture) to see the Timeline." or "")
@@ -557,6 +557,12 @@ NS.Browser:RegisterTab{ name = "Timeline", order = 30,
   -- Character narrows the holders; nothing else describes it (spec §8.0).
   filters = { search = true, date = true, char = true },
   charSource = "holders",
+  -- The remembered pick and Total only are written to this tab's saved view as they change (spec
+  -- §8.1), so a Save carries them; no view applies them back, which keeps them through Clear (P11).
+  captureView = function(v)
+    v.timelineThing = NS.Browser:ViewField("timelineThing", "Timeline")
+    v.timelineTotalOnly = NS.Browser:ViewField("timelineTotalOnly", "Timeline")
+  end,
   suggest = function(text) return TL.Suggest(text) end,
   pick = function(item) TL:Pick(item) end,
   build = function(pane) TL:Attach(pane) end,

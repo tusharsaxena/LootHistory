@@ -57,11 +57,11 @@ test("HoldingsTab: attach builds rows and recycles them on refresh", function()
   -- The pool's free/active split is also pinned, since an equal row count alone passes a refresh
   -- that allocates a fresh frame per line every time. The window opens scoped to the logged-in
   -- character (Mock-Realm), who holds nothing in this seed, so the scope is widened for the case
-  -- and put back after.
+  -- and put back after. The scope is the Holdings tab's own (P11), so it is widened there, and the
+  -- tab's parked state is forgotten after.
   seed()
-  local savedChar = NS.Browser:CurrentFilter().char
   local ok, err = pcall(function()
-    NS.Browser:Show(); NS.Browser:SetCharSet(nil); NS.Browser:SelectTab("Holdings")
+    NS.Browser:Show(); NS.Browser:SelectTab("Holdings"); NS.Browser:SetCharSet(nil)
     local first = NS.HoldingsTab:VisibleRowCount()
     local _, active = NS.Pool.Counts(NS.HoldingsTab.rows)
     NS.HoldingsTab:Refresh()
@@ -70,7 +70,7 @@ test("HoldingsTab: attach builds rows and recycles them on refresh", function()
     local free2, active2 = NS.Pool.Counts(NS.HoldingsTab.rows)
     assertEqual(active2, active); assertEqual(free2, 0, "a refresh re-acquired every released row")
   end)
-  NS.Browser:SetCharSet(savedChar); NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Holdings"); NS.Browser:Hide()
   if not ok then error(err, 0) end
 end)
 
@@ -80,11 +80,10 @@ test("HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is
   -- full off-screen BuildModel (AH-price lookups included). The kit's IsVisible does not walk
   -- parents, so the pane is told what the client would answer: shown, but not visible.
   seed()
-  local savedChar = NS.Browser:CurrentFilter().char
   local realRefresh, calls = NS.HoldingsTab.Refresh, 0
   local pane, realVisible
   local ok, err = pcall(function()
-    NS.Browser:Show(); NS.Browser:SetCharSet(nil); NS.Browser:SelectTab("Holdings")
+    NS.Browser:Show(); NS.Browser:SelectTab("Holdings"); NS.Browser:SetCharSet(nil)
     pane = NS.HoldingsTab.pane
     assertTrue(pane ~= nil, "the Holdings pane was not attached")
     NS.HoldingsTab.Refresh = function(self, ...) calls = calls + 1; return realRefresh(self, ...) end
@@ -99,7 +98,7 @@ test("HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is
   end)
   NS.HoldingsTab.Refresh = realRefresh
   if pane and realVisible then pane.IsVisible = realVisible end
-  NS.Browser:Show(); NS.Browser:SetCharSet(savedChar); NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  NS.Browser:Show(); NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Holdings"); NS.Browser:Hide()
   if not ok then error(err, 0) end
 end)
 
@@ -374,11 +373,10 @@ end)
 test("HoldingsTab: the pane's rows hover and leave through the tooltip; the header holds exactly the column labels", function()
   seed()
   local HT = NS.HoldingsTab
-  local savedChar = NS.Browser:CurrentFilter().char
   local saved = { HT.sortKey, HT.sortAsc }
   local scroll, savedWidth
   local ok, err = pcall(function()
-    NS.Browser:Show(); NS.Browser:SetCharSet(nil); NS.Browser:SelectTab("Holdings")
+    NS.Browser:Show(); NS.Browser:SelectTab("Holdings"); NS.Browser:SetCharSet(nil)
     HT.sortKey, HT.sortAsc = "name", true
     scroll = HT.scroll; savedWidth = rawget(scroll, "GetWidth")
     -- The kit's frames measure 0 wide; a wide pane is asked for, so every column is laid out.
@@ -406,7 +404,7 @@ test("HoldingsTab: the pane's rows hover and leave through the tooltip; the head
   end)
   HT.sortKey, HT.sortAsc = saved[1], saved[2]
   if scroll then scroll.GetWidth = savedWidth end
-  NS.Browser:SetCharSet(savedChar); NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Holdings"); NS.Browser:Hide()
   if not ok then error(err, 0) end
 end)
 
@@ -592,7 +590,7 @@ test("HoldingsTab group: the Group dropdown is live on Holdings, offers only its
     seedGroups()
     B:Show(); B:SetCharSet(nil)
     BT:SetGroupBy("zone"); B._dd.group:SelectValue("zone")
-    B:SelectTab("Holdings")
+    B:SelectTab("Holdings"); B:SetCharSet(nil)
     local dd = B._dd.group
     assertTrue(dd:IsEnabled(), "Group is a Holdings control")
     local vals = {}
@@ -614,6 +612,7 @@ test("HoldingsTab group: the Group dropdown is live on Holdings, offers only its
     assertEqual(B._dd.group._value, "char"); assertEqual(HT:VisibleRowCount(), 5, "collapse is remembered")
   end) end)
   BT.groupBy, HT.groupBy, HT.collapsed = savedBT, savedHT, savedCollapsed
-  B:SetCharSet(savedChar); B:SelectTab("History"); B._dd.group:SelectValue(savedBT); B:Hide()
+  B:SetCharSet(savedChar); B:SelectTab("History"); B._forgetLive("Holdings")
+  B._dd.group:SelectValue(savedBT); B:Hide()
   if not ok then error(err, 0) end
 end)

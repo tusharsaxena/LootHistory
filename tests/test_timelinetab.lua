@@ -9,34 +9,27 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 --
 -- Every window case runs through `case`, which puts back what the plan's snippets would otherwise
 -- leave behind (addenda, Global): the holdings and daily stores, the Rollup key index, the saved
--- view's `timelineThing` and `timelineTotalOnly` (SetThing materializes the saved view), the session
--- pick, the session hidden-line set, the line cap and the Character scope. It then returns the
--- browser to History and closes it, because a window left on screen keeps repainting under the
--- suites that run next. The chunk has no global `time`, so the seeds read os.time().
+-- views (SetThing materializes the Timeline's), the session pick, the session hidden-line set and
+-- the line cap. It then returns the browser to History, forgets the Timeline's parked filter state
+-- (its own Character scope and Search, P11) and closes it, because a window left on screen keeps
+-- repainting under the suites that run next. The chunk has no global `time`, so the seeds read os.time().
 
 local function case(name, fn)
   test(name, function()
     local g, p = NS.db.global, NS.db.profile
     local holdings, daily, keys = g.holdings, g.daily, NS.Rollup and NS.Rollup._keys
-    local view = p.savedView
-    local hadView = type(view) == "table"
-    local viewThing = hadView and view.timelineThing or nil
-    local viewTotalOnly = hadView and view.timelineTotalOnly or nil
+    local views = NS.Util.DeepCopy(p.savedViews)
     local thing, maxLines = NS.Timeline and NS.Timeline.thing, p.settings.timelineMaxLines
     local hidden = NS.Timeline and NS.Timeline.hidden
     if NS.Timeline then NS.Timeline.hidden = {} end
-    local char = NS.Browser:CurrentFilter().char
     if NS.Rollup then NS.Rollup._keys = nil end
     local ok, err = pcall(fn)
     if NS.Browser._search then NS.Browser._search:SetText("") end
     if NS.Browser.activeFilter then NS.Browser.activeFilter.text = nil end
-    NS.Browser:SetCharSet(char)
-    NS.Browser:SelectTab("History"); NS.Browser:Hide()
+    NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Timeline"); NS.Browser:Hide()
     g.holdings, g.daily = holdings, daily
     if NS.Rollup then NS.Rollup._keys = keys end
-    if hadView then
-      p.savedView = view; view.timelineThing = viewThing; view.timelineTotalOnly = viewTotalOnly
-    else p.savedView = nil end
+    p.savedViews = views
     if NS.Timeline then NS.Timeline.thing, NS.Timeline.hidden = thing, hidden end
     p.settings.timelineMaxLines = maxLines
     if not ok then error(err, 0) end
@@ -53,8 +46,8 @@ end
 
 local function open()
   NS.Browser:Show()
-  NS.Browser:SetCharSet(nil)
   NS.Browser:SelectTab("Timeline")
+  NS.Browser:SetCharSet(nil)   -- the Timeline's own Character scope (P11)
   NS.Timeline:SetThing("g")
   NS.Timeline:Layout(640, 320)
 end
@@ -103,7 +96,7 @@ end)
 case("Timeline tab: the pick is remembered in the saved view", function()
   seed(); open()
   NS.Timeline:SetThing("c:3008")
-  assertEqual(NS.Browser:ViewField("timelineThing"), "c:3008")
+  assertEqual(NS.Browser:ViewField("timelineThing", "Timeline"), "c:3008")
   NS.Timeline.thing = nil
   assertEqual(NS.Timeline:Thing(), "c:3008")
 end)
@@ -246,10 +239,10 @@ case("Timeline tab: hiding every holder by hand reads as Total only, and showing
   legendButton("Alt-Realm"):__fire("OnClick")
   legendButton("Mock-Realm"):__fire("OnClick")
   assertTrue(NS.Timeline.totalOnlyBtn.checked)
-  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), true)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly", "Timeline"), true)
   legendButton("Mock-Realm"):__fire("OnClick")
   assertFalse(NS.Timeline.totalOnlyBtn.checked)
-  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), false)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly", "Timeline"), false)
   -- under Total only, clicking a holder shows that one line and leaves the rest hidden
   NS.Timeline:SetTotalOnly(true)
   legendButton("Alt-Realm"):__fire("OnClick")
@@ -315,14 +308,14 @@ case("Timeline tab: Total only is remembered in the saved view, the per-line set
   -- Review Focus 3
   seed(); open()
   NS.Timeline:SetTotalOnly(true)
-  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), true)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly", "Timeline"), true)
   assertEqual(NS.Browser:CaptureView().timelineTotalOnly, true, "a Save keeps it")
   NS.Timeline.hidden = {}   -- what a /reload leaves of the session set
   NS.Timeline:Refresh()
   assertEqual(NS.Timeline:VisibleSeriesCount(), 1)
   assertTrue(NS.Timeline.totalOnlyBtn.checked)
   NS.Timeline:SetTotalOnly(false)
-  assertEqual(NS.Browser:ViewField("timelineTotalOnly"), false)
+  assertEqual(NS.Browser:ViewField("timelineTotalOnly", "Timeline"), false)
   assertEqual(NS.Timeline:VisibleSeriesCount(), 3)
 end)
 

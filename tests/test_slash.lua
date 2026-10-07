@@ -265,7 +265,7 @@ test("/lh resetall is the profile reset: every setting, list, view and window ba
     NS.Filters:AddBlacklist(102)
     NS.Filters:AddWhitelist(202)
     NS.Filters:AddCurrencyBlacklist(303)
-    NS.db.profile.savedView = { groupBy = "source" }
+    NS.db.profile.savedViews = { History = { groupBy = "source" } }
     NS.db.profile.settings.window = { point = "TOPLEFT", x = 5, y = 5, w = 800, h = 600 }
     local p = NS.AuctionPrice:GetPriority()
     p[1], p[2] = p[2], p[1]
@@ -277,7 +277,7 @@ test("/lh resetall is the profile reset: every setting, list, view and window ba
     assertEqual(NS.Filters:Count(NS.Filters:Blacklist()), 0, "blacklist cleared")
     assertEqual(NS.Filters:Count(NS.Filters:Whitelist()), 0, "whitelist cleared")
     assertEqual(NS.Filters:Count(NS.Filters:CurrencyBlacklist()), 0, "currency blacklist cleared")
-    assertEqual(NS.db.profile.savedView, nil, "savedView cleared")
+    assertEqual(NS.db.profile.savedViews, nil, "savedViews cleared")
     assertEqual(next(NS.db.profile.settings.window), nil, "window geometry cleared")
     assertEqual(table.concat(NS.AuctionPrice:GetPriority(), ","),
       table.concat(NS.Constants.AUCTION_PRIORITY_DEFAULT, ","), "the cascade is back in shipped order")

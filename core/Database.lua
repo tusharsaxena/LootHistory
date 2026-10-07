@@ -185,6 +185,36 @@ local function convertHolderMoves(g)
   return n
 end
 
+-- v13 -> v14 helper (timeline-ledger Phase 11, owner decision 2026-10-07): every browser tab keeps
+-- its own saved view. The one `savedView` a profile stored is copied into each tab's slot of
+-- `savedViews`, so every tab opens exactly where the player left the window, and then removed. A
+-- slot the profile already holds is kept. The tab names are the four tabs as they stood at v14, a
+-- frozen list (a step is never re-derived from code that can move). Raw profiles, as the v9/v10/v12
+-- steps walk them. The row count is the profiles changed; a profile with no saved view gains
+-- nothing, and a second run finds no `savedView` left and changes nothing.
+local V14_TABS = { "History", "Insights", "Timeline", "Holdings" }
+
+local function splitSavedViewPerTab()
+  local n = 0
+  local sv = NS.db and NS.db.sv
+  local profiles = type(sv) == "table" and sv.profiles
+  if type(profiles) ~= "table" then return 0 end
+  for _, prof in pairs(profiles) do
+    local view = type(prof) == "table" and prof.savedView
+    if view ~= nil then
+      if type(view) == "table" then
+        if type(prof.savedViews) ~= "table" then prof.savedViews = {} end
+        for _, tab in ipairs(V14_TABS) do
+          if prof.savedViews[tab] == nil then prof.savedViews[tab] = NS.Util.DeepCopy(view) end
+        end
+      end
+      prof.savedView = nil
+      n = n + 1
+    end
+  end
+  return n
+end
+
 -- The schema-upgrade chain, in ascending order — one entry per step, `to` being the version the
 -- step stamps once it has run. Each `apply(g)` mutates db.global in place and returns the number
 -- of rows it touched (for the [Migrate] line). Array order IS the run order: a step sees every
@@ -192,7 +222,8 @@ end
 --
 -- Every step here is ACCOUNT-WIDE: each one runs once, against db.global, before anything has read
 -- a profile. The v6 and v8 steps reshape `savedView` while it still lives in global, v9 is the
--- step that moves it, and v10 lifts `retentionDays` out of the raw profiles back into global. No
+-- step that moves it, v10 lifts `retentionDays` out of the raw profiles back into global, and v14
+-- splits each raw profile's `savedView` into per-tab `savedViews`. No
 -- step is profile-scoped (savedvariables-§1), so a profile created, copied
 -- or switched to later has nothing to be carried through; the profile events' adopt path
 -- (core/LootHistory.lua) is where one would run if a step ever needs it.
@@ -333,6 +364,10 @@ local MIGRATIONS = {
   -- stored MOVE between two different holders to OUT + IN under its action's reason and rebuilds the
   -- touched days' rollup in/out. Idempotent.
   { to = 13, apply = function(g) return convertHolderMoves(g) end },
+
+  -- v13 -> v14: per-tab filter views (timeline-ledger Phase 11). Each stored profile's single
+  -- `savedView` becomes one copy per tab under `savedViews`, and the old key goes. Idempotent.
+  { to = 14, apply = function() return splitSavedViewPerTab() end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated

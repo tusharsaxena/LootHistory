@@ -125,14 +125,15 @@ test("Migrate v8->v9: every stored setting lands in the Default profile and leav
   assertEqual(d.settings.window.point, "TOP", "the window geometry moved with the settings")
   assertEqual(d.settings.auction.priority[1], "tsm:dbmarket", "the cascade order moved as stored")
   assertTrue(d.blacklist[5] and d.whitelist[6] and d.currencyBlacklist[7], "the three id lists moved")
-  assertEqual(d.savedView.groupBy, "source", "the saved view moved")
+  assertEqual(d.savedViews.History.groupBy, "source", "the saved view moved (one copy per tab, v14)")
+  assertEqual(d.savedView, nil, "and v14 retired the single view")
   for _, key in ipairs({ "settings", "blacklist", "whitelist", "currencyBlacklist", "savedView" }) do
     assertEqual(sv.global[key], nil, key .. " is cleared from global")
   end
   -- ...all but the retention, which v10 lifts straight back to the account (D6).
   assertEqual(d.settings.retentionDays, nil, "no profile holds the retention")
   assertEqual(sv.global.retentionDays, 90, "the stored retention is the account's")
-  assertEqual(sv.global.schemaVersion, 13)
+  assertEqual(sv.global.schemaVersion, 14)
 end)
 
 test("Migrate v8->v9: recorded data and the minimap table stay account-wide, untouched", function()
@@ -177,9 +178,9 @@ test("Migrate v8->v9: a second run is a no-op", function()
   local ok, err = pcall(migrate, db)
   NS.Debug, NS.State.debug = savedDebug, savedFlag
   if not ok then error(err, 0) end
-  assertEqual(sv.global.schemaVersion, 13)
+  assertEqual(sv.global.schemaVersion, 14)
   assertEqual(sv.profiles.Default.settings.qualityThreshold, after.Default.settings.qualityThreshold)
-  assertEqual(sv.profiles.Default.savedView.groupBy, "source")
+  assertEqual(sv.profiles.Default.savedViews.History.groupBy, "source")
   assertEqual(sv.global.retentionDays, 90, "the retention stayed the account's")
   local moved, lifted
   for _, l in ipairs(lines) do
@@ -214,7 +215,7 @@ test("Migrate v9->v10: a retention stored in the profiles moves to global and le
   assertEqual(sv.profiles.Raid.settings.retentionDays, nil, "nor does any other profile")
   assertEqual(sv.profiles.Default.settings.qualityThreshold, 3, "every other setting stays put")
   assertTrue(sv.global.history == history and #history == 1, "the history is untouched")
-  assertEqual(sv.global.schemaVersion, 13)
+  assertEqual(sv.global.schemaVersion, 14)
 end)
 
 test("Migrate v9->v10: keep Always (0) wins over any day count", function()
@@ -721,7 +722,7 @@ test("Migrate v11->v12: an explicit showTransfers = false is dropped from every 
   assertEqual(sv.profiles.Default.settings.showTransfers, nil, "the stored false is gone, the default applies")
   assertEqual(sv.profiles.Default.settings.qualityThreshold, 3, "every other setting stays put")
   assertEqual(sv.profiles.Raid.settings.showTransfers, true, "a stored true is kept")
-  assertEqual(sv.global.schemaVersion, 13)
+  assertEqual(sv.global.schemaVersion, 14)
 end)
 
 test("Migrate v11->v12: a false set after the step stays false; a re-run changes nothing", function()

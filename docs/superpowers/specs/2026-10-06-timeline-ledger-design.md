@@ -269,11 +269,24 @@ stored snapshot for this holder.
 register first; Timeline and Holdings live in their own modules. The filter bar remains the
 window-wide singleton; each tab declares which filters it honors (unused ones are greyed, not hidden).
 
+**Amendment 2026-10-07 (P11, owner decision): per-tab filter views.** The bar stays one set of
+controls, but its *state* is per tab: History, Insights, Timeline and Holdings each keep their own
+live group, sort, date, search, multi-select filters, Character scope and tab fields (Timeline's
+thing and Total only, Holdings' group and sort), and a tab switch parks the outgoing tab's state and
+puts the incoming tab's on the bar. This supersedes issue #13's one filter shared by History and
+Insights. Saved views are per tab too: `profile.savedViews = { History, Insights, Timeline,
+Holdings }`, and the schema step `to = 14` copies a stored `savedView` into every tab's slot and
+removes it. **Save** stores the active tab's state in its slot; **Reset** restores the active tab's
+saved view (its stock view when none); **Clear** applies the active tab's stock view (Holdings: group
+None, sort Name) and keeps its saved view; the Timeline's Clear resets its filters and keeps the
+charted thing and Total only. None touches another tab. Holdings' group and sort join its view (the
+P6 "session-only" ruling is superseded). Test mode stays session-only and never writes a saved view.
+
 ### 8.1 Timeline (3rd tab)
 
 - **Thing picker** at the head of the pane: Gold, or one currency/item. Driven by the shared
   search box (type-ahead over things present in holdings or rollup); last pick remembered in
-  `savedView`. "Show in Timeline" from History/Holdings rows sets it.
+  `savedView` (since P11 the Timeline's own slot, `savedViews.Timeline`). "Show in Timeline" from History/Holdings rows sets it.
 - **Lines:** **Total** (sum over shown holders, thick) + one line per holder, capped at
   `timelineMaxLines` (default 8) ranked by latest balance; Character filter restricts holders;
   §warband is a selectable holder. Class colors for characters, warband in its own color.
@@ -292,7 +305,7 @@ window-wide singleton; each tab declares which filters it honors (unused ones ar
   when Total is visible and every holder hidden. Only visible lines are drawn, hovered and used for the
   y range; the under-strip stays the Total's. With every line hidden the plot shows "All lines hidden
   — click a legend entry to show it." and no axes. **Total only** persists in `savedView`
-  (`timelineTotalOnly`, default off); the per-holder hidden set is session-only, survives changing the
+  (`timelineTotalOnly`, default off; since P11 `savedViews.Timeline`); the per-holder hidden set is session-only, survives changing the
   thing and range, and ignores holders not in the chart.
 - **Legend tooltip and spacing (P10, owner feedback 2026-10-07):** hovering a legend entry titles the
   tooltip in the line's color (class color for a character, the Warband's series color, the Total in

@@ -10,9 +10,9 @@ changes, and how the old account-wide settings got into a profile. The stored sh
 
 | Scope | Where | What |
 |---|---|---|
-| **Profile** (`db.profile`) | `defaults/Profile.lua` | Every schema row under `settings.*` except `settings.retentionDays` and `settings.rollupRetentionDays` (the Master controls, Capture, AH Price and Interface tabs), the AH price cascade (`settings.auction.priority`), the three id filter lists (`blacklist`, `whitelist`, `currencyBlacklist`), the saved table view (`savedView`, which can now also be created by the Timeline remembering its thing, as a copy of the stock view; see [schema.md](schema.md#state-outside-the-rows)) and the History window's geometry (`settings.window`) |
+| **Profile** (`db.profile`) | `defaults/Profile.lua` | Every schema row under `settings.*` except `settings.retentionDays` and `settings.rollupRetentionDays` (the Master controls, Capture, AH Price and Interface tabs), the AH price cascade (`settings.auction.priority`), the three id filter lists (`blacklist`, `whitelist`, `currencyBlacklist`), the saved views, one per browser tab (`savedViews[tab]`, schema v14; the Timeline's can also be created by it remembering its thing, as a copy of its stock view; see [schema.md](schema.md#state-outside-the-rows)) and the History window's geometry (`settings.window`) |
 | **Account-wide** (`db.global`) | `defaults/Global.lua` | The recorded loot history (`history`) and the warbound repair's bookkeeping beside it; **Keep history for** (`retentionDays`, the row `settings.retentionDays`), the setting that governs what the prune deletes from that history; the Timeline's daily rollup (`daily`, with its bookkeeping `rollupSeeded`) and **Keep Timeline days for** (`rollupRetentionDays`, the row `settings.rollupRetentionDays`), which governs it the same way; LibDBIcon's `minimap` table (whether the button is shown, and where), the `schemaVersion` stamp |
-| **Session only** | `NS.State`, the modules | Test mode, the debug console window, the debug logging flag, the character scope of the History window |
+| **Session only** | `NS.State`, the modules | Test mode, the debug console window, the debug logging flag, each browser tab's live filter state and character scope (P11) |
 
 The split is the owner's decision D5 (2026-09-29): **settings only**. Loot is collected across every
 character on the account and every record carries the looter in its `char` column, so the browser
@@ -62,8 +62,9 @@ reset. `NS.BindLifecycle` (`core/LifecycleSetup.lua`) registers all three onto *
    counts the rows off their default first; AceDBOptions' Reset Profile goes straight to the db, so
    its line carries no count.
 4. **Every setting's effect, re-applied**:
-   - **The History window** re-reads its geometry, its saved view (or the stock view), its row
-     height and its chrome (`B:AdoptProfile`, `modules/Browser.lua`).
+   - **The History window** re-reads its geometry, the active tab's saved view (or its stock view),
+     its row height and its chrome (`B:AdoptProfile`, `modules/Browser.lua`). Every other tab's parked
+     filter state is forgotten, so each opens on the new profile's saved view when next shown.
    - **The one message**, from `S:AdoptProfile` (`settings/Schema.lua`), the module that is
      `SettingsChanged`'s one sender: one `SettingsChanged("profile")`, which the Collector (its
      gates and id lists) and the Browser (chrome and visibility) already listen to
@@ -106,6 +107,13 @@ wrote it while it was per profile). Every value found is cleared from where it w
 deletes the least (`0`, keep Always, beats any day count; otherwise the longer window) becomes
 `global.retentionDays`, so the move can never shorten what is kept. A second run finds nothing and
 leaves the account's value alone.
+
+The v13→v14 migration (`splitSavedViewPerTab`, `core/Database.lua`, timeline-ledger P11) walks every
+raw profile too: a stored `savedView` table is deep-copied into each tab's slot of `savedViews`
+(History, Insights, Timeline, Holdings; a slot already there is kept), so every tab starts exactly
+where the player left the window, and `savedView` is removed. A profile with no saved view gains
+nothing, and a second run finds no `savedView` left. A profile copy carries `savedViews` whole, and a
+profile reset clears it, as it did the single view.
 
 ## The `profile` verb
 

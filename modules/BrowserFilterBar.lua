@@ -360,8 +360,8 @@ local function makeBarButton(parent, text, width, onClick, tooltip, icon)
 end
 
 -- Build the SHARED, singleton filter bar (issue #13) into `bar` — a window-level host anchored
--- once in EnsureFrame, above both tab panes, so a single filter drives the History table AND the
--- Insights charts. The footer is shared window chrome too (built in EnsureFrame); this function
+-- once in EnsureFrame, above every tab pane. One set of controls; each tab keeps its own state on
+-- them (P11, Browser.lua "Per-tab views"). The footer is shared window chrome too (built in EnsureFrame); this function
 -- owns only the two rows of controls:
 --   Row 1: Group by · Direction · [search…] · Save · Reset · Clear
 --   Row 2: column filters in table order — Date · Bound · Quality · Type · SubType · Source ·
@@ -530,12 +530,13 @@ function B:BuildFilterBar(bar)
   local exportBtn = makeBarButton(bar, "Export", exportW, function() B:OpenExport() end,
     "Export the current tab — loot rows (History) or the analytics summary (Insights).")
   self._exportBtn = exportBtn
+  -- All three act on the ACTIVE tab alone (P11): every tab keeps its own filters and saved view.
   local clear = makeBarButton(bar, "Clear", exportW, function() B:ClearFilters() end,
-    "Clear filters and group/sort back to your saved view.")
+    "Clear this tab's filters, group and sort to stock defaults. Its saved view is kept.")
   local resetBtn = makeBarButton(bar, "Reset", exportW, function() B:ResetView() end,
-    "Reset the saved view to stock defaults.")
+    "Restore this tab's saved view (stock defaults when none is saved).")
   local saveBtn = makeBarButton(bar, "Save", exportW, function() B:SaveView() end,
-    "Save the current group, sort and filters as your default view.")
+    "Save this tab's current group, sort and filters as its default view.")
 
   -- Every control B:LayoutFilterBar places, keyed like filterBarLayout's x / w tables.
   local ctl = { search = search, export = exportBtn, save = saveBtn, reset = resetBtn, clear = clear }

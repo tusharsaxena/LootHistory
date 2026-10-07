@@ -109,9 +109,9 @@ end
 
 function Analytics:Refresh()
   if not self.content then return end
-  -- Scope by the browser's shared filter (issue #13) so the Insights view and the History table
-  -- always reflect the exact same criteria; empty filter = the whole (visible) history.
-  local filter = (NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter()) or {}
+  -- Scope by this tab's own filter (P11: every tab keeps its own on the shared bar), read as the
+  -- Insights state even when another tab is on the bar; empty filter = the whole (visible) history.
+  local filter = (NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter("Insights")) or {}
   local stats = NS.Database:Stats(filter)
   self.stats = stats
   self:UpdateCards(stats)

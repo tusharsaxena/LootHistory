@@ -8,9 +8,9 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 --
 -- The list widget itself (keyboard, focus, debounce, pooling) is LibKa0s's and pinned by its own
 -- suite; this one pins what this addon feeds it and does with a pick. Every case runs through
--- `case`, which puts back what it touched: the Search text and the shared filter's text, the
--- Character scope, the loot sample, the holdings and daily stores, the Rollup key index, the saved
--- view's Timeline fields and the session pick; then it returns the browser to History and closes it.
+-- `case`, which puts back what it touched: the Search text and the filter's text, the loot sample,
+-- the holdings and daily stores, the Rollup key index, the saved views and the session pick; then it
+-- returns the browser to History, forgets every tab's parked filter state (P11) and closes it.
 
 local B = NS.Browser
 
@@ -19,21 +19,17 @@ local function case(name, fn)
     local g, p = NS.db.global, NS.db.profile
     local holdings, daily, keys = g.holdings, g.daily, NS.Rollup and NS.Rollup._keys
     local testRecords = NS.State.testRecords
-    local view = p.savedView
-    local hadView = type(view) == "table"
-    local viewThing = hadView and view.timelineThing or nil
+    local views = NS.Util.DeepCopy(p.savedViews)
     local thing = NS.Timeline and NS.Timeline.thing
-    local char = B:CurrentFilter().char
     if NS.Rollup then NS.Rollup._keys = nil end
     local ok, err = pcall(fn)
     if B._autocomplete then B._autocomplete:Close() end
     B:SetSearchText("")
-    B:SetCharSet(char)
-    B:SelectTab("History"); B:Hide()
+    B:SelectTab("History"); B._forgetLive(); B:Hide()
     NS.State.testRecords = testRecords
     g.holdings, g.daily = holdings, daily
     if NS.Rollup then NS.Rollup._keys = keys end
-    if hadView then p.savedView = view; view.timelineThing = viewThing else p.savedView = nil end
+    p.savedViews = views
     if NS.Timeline then NS.Timeline.thing = thing end
     if not ok then error(err, 0) end
   end)
@@ -222,7 +218,7 @@ case("Autocomplete: a Timeline pick charts the thing and keeps its name in Searc
   NS.Timeline:SetThing("g")
   B:PickSuggestion(B:Suggest("valor")[1])
   assertEqual(NS.Timeline:Thing(), "c:3008")
-  assertEqual(NS.Browser:ViewField("timelineThing"), "c:3008", "the pick was not remembered")
+  assertEqual(NS.Browser:ViewField("timelineThing", "Timeline"), "c:3008", "the pick was not remembered")
   assertEqual(B._search:GetText(), "Valorstones")
   assertEqual(NS.Timeline.model.key, "c:3008", "the chart was not repainted on the pick")
   -- The same name again changes no filter text, so the pick repaints the chart itself.

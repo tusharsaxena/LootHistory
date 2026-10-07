@@ -558,7 +558,7 @@ badge and any count quoted in the docs must agree with it.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 13
+- Database: a fresh store at schemaVersion 0 walks every step to 14
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -666,7 +666,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser.CaptureView records the table's group and sort state
 - Browser.CaptureView stores unset column filters as empty sets, never nil
 - Browser.CaptureView omits the character scope (it is session-only)
-- Browser.SaveView then ResetView clears the stored default
+- Browser.SaveView stores the tab's view; ResetView restores it; ClearFilters goes to stock
 - Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it
 - Browser: an empty multi-select reads as the All sentinel's own label
 - Browser: a dropdown with no options at all still labels itself All
@@ -706,9 +706,9 @@ badge and any count quoted in the docs must agree with it.
 - Browser: a tab grays the controls it does not honor, and History restores them
 - Browser: the Holdings tab grays Date, Source, Bound and Zone, and keeps Group live
 - Browser: a holders tab lists holders, with the warband as Warband
-- Browser: a holder picked on Holdings does not empty History
+- Browser: a holder picked on Holdings stays on Holdings; History keeps its own Character scope
 - Browser: SetViewField remembers a field with no Save, from a copy of the stock view
-- Browser: CaptureView keeps the remembered Timeline pick
+- Browser: CaptureView on the Timeline keeps its remembered pick
 - Browser: DateRange reads the Date dropdown, all when there is none
 - filter bar: every dropdown label is one non-wrapping line
 - filter bar: Direction and Bound are the same width
@@ -1286,6 +1286,23 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a pick made in test mode survives refreshes and never reaches the saved view
 - Test mode: a pick of a thing the sample lacks falls back to the default
 
+### test_views.lua (14)
+
+- Views: Save on each tab writes only that tab's slot
+- Views: Reset and Clear on one tab change only that tab's live state and no saved slot
+- Views: a tab with no saved view resets to its own stock view
+- Views: Holdings Save, Reset and Clear take effect on the Holdings view
+- Views: a view from another tab applies to Holdings as None, sorted by Name
+- Views: switching tabs back and forth restores each tab's own live state exactly
+- Views: Insights reads its own filter, even while another tab is on the bar
+- Views: a tab never shown opens on its saved view, scoped to the current player
+- Views: a profile adopt forgets every tab's parked state
+- Views: test mode never writes a saved view
+- Views: Clear on the Timeline keeps the remembered thing
+- Migrate v13->v14: a profile's saved view becomes four identical per-tab views, the old key goes
+- Migrate v13->v14: a second run changes nothing
+- Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
+
 ### test_panel.lua (43)
 
 - Panel: the parent category and its ONE sub-page are registered
@@ -1504,7 +1521,7 @@ badge and any count quoted in the docs must agree with it.
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
 - diagnostics: the browser section with no window and no table module
-- diagnostics: the browser section with a shown window, test records and a saved view
+- diagnostics: the browser section with a shown window, test records and saved views
 - diagnostics: the browser section with a hidden window, a descending sort and no view
 
 ### test_debug_coverage.lua (21)
@@ -1683,6 +1700,7 @@ badge and any count quoted in the docs must agree with it.
 | test_timelinetab.lua | 31 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
+| test_views.lua | 14 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1703,4 +1721,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1457** |
+| **Total** | **1471** |

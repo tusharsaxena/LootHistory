@@ -1188,9 +1188,7 @@ end)
 
 test("History row menu: Show in Timeline opens the Timeline on that row's thing", function()
   local p = NS.db.profile
-  local view = p.savedView
-  local hadView = type(view) == "table"
-  local viewThing = hadView and view.timelineThing or nil
+  local views = NS.Util.DeepCopy(p.savedViews)
   local thing = NS.Timeline and NS.Timeline.thing
   local ok, err = pcall(function()
     local rec = { itemID = 7, itemName = "Apple", quantity = 1, ts = os.time(), char = "Mock-Realm" }
@@ -1203,8 +1201,8 @@ test("History row menu: Show in Timeline opens the Timeline on that row's thing"
     assertEqual(NS.Browser:ActiveTab(), "Timeline")
     assertEqual(NS.Timeline:Thing(), "i:7")
   end)
-  NS.Browser:SelectTab("History"); NS.Browser:Hide()
-  if hadView then p.savedView = view; view.timelineThing = viewThing else p.savedView = nil end
+  NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Timeline"); NS.Browser:Hide()
+  p.savedViews = views
   if NS.Timeline then NS.Timeline.thing = thing end
   if not ok then error(err, 0) end
 end)

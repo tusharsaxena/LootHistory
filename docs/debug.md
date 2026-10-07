@@ -181,7 +181,7 @@ cut out of a longer trace by tag alone.
 | history | Record count with the oldest and newest timestamps; counts by source, confidence, quality, item type and bound state; distinct characters; how many records carry an AH price |
 | tail | The newest 25 records, newest first: index, timestamp, stored name, id, quantity, quality, source, confidence, bound state, zone and character |
 | bound repair | Whether the deferred bound-state repair is pending, its attempt count and its revision |
-| browser | Whether the History window is built, shown and locked; the table's sort, grouping, match count and test-record count; the saved view's keys |
+| browser | Whether the History window is built, shown and locked; the table's sort, grouping, match count and test-record count; each tab's saved view keys (`saved views none` when no tab has one) |
 | launcher | Whether the launcher is present and whether the minimap button is hidden |
 | pools | The History row pool's free and active counts, and how many Insights chart pools exist |
 | (end) | `==== Ka0s Loot History diagnostics end: N line(s) ====`, with `N` counting both markers |

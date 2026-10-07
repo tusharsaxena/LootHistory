@@ -142,7 +142,7 @@ Twenty-two rows ship today, on **one** schema-backed page: the General subcatego
 Master controls, Capture, AH Price, Interface, History and Filters, the last holding no rows.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
-non-setting state (window geometry and `savedView` in the profile; LibDBIcon's `minimap` table, the
+non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
 loot log and its repair bookkeeping in `db.global`) and the id filter sets, a structural registry in
 the profile whose one writer is `NS.Filters` and whose one load pass is the v8→v9 move
 (`core/Database.lua`). Each one's storage key, owner and

@@ -26,11 +26,11 @@ local FIXTURE = {
 -- Every option builder and the view helpers read the live dataset / db, so each case runs inside
 -- a park-and-restore. Test order must never matter.
 local function withFixture(records, fn)
-  local savedTest, savedView = NS.State.testRecords, NS.db.profile.savedView
+  local savedTest, savedViews = NS.State.testRecords, NS.Util.DeepCopy(NS.db.profile.savedViews)
   local savedFilter, savedDd = B.activeFilter, B._dd
   NS.State.testRecords = records
   local ok, err = pcall(fn)
-  NS.State.testRecords, NS.db.profile.savedView = savedTest, savedView
+  NS.State.testRecords, NS.db.profile.savedViews = savedTest, savedViews
   B.activeFilter, B._dd = savedFilter, savedDd
   if not ok then error(err, 0) end
 end
@@ -276,21 +276,24 @@ end)
 
 test("Browser: with no saved view, Clear falls back to the stock view", function()
   withFixture(FIXTURE, function()
-    NS.db.profile.savedView = nil
+    NS.db.profile.savedViews = nil
     assertEqual(B._savedViewOrStock(), B._stockView)
   end)
 end)
 
 test("Browser: a saved view wins over stock", function()
   withFixture(FIXTURE, function()
-    NS.db.profile.savedView = { groupBy = "zone", sortKey = "ilvl" }
+    NS.db.profile.savedViews = { History = { groupBy = "zone", sortKey = "ilvl" } }
     assertEqual(B._savedViewOrStock().groupBy, "zone")
+    assertEqual(B._savedViewOrStock("Insights"), B._stockView, "a tab's saved view is its own")
   end)
 end)
 
 test("Browser: a corrupt (non-table) saved view degrades to stock rather than erroring", function()
   withFixture(FIXTURE, function()
-    NS.db.profile.savedView = "garbage"
+    NS.db.profile.savedViews = { History = "garbage" }
+    assertEqual(B._savedViewOrStock(), B._stockView)
+    NS.db.profile.savedViews = "garbage"
     assertEqual(B._savedViewOrStock(), B._stockView)
   end)
 end)
@@ -416,15 +419,19 @@ test("Browser.CaptureView omits the character scope (it is session-only)", funct
   end)
 end)
 
-test("Browser.SaveView then ResetView clears the stored default", function()
+test("Browser.SaveView stores the tab's view; ResetView restores it; ClearFilters goes to stock", function()
+  -- P11: Reset no longer drops the saved view; Clear is the way back to stock, and keeps it.
   withFixture(FIXTURE, function()
     B._dd = nil
     B:ApplyView({ groupBy = "zone", date = "all" }, "all")
     B:SaveView()
-    assertEqual(NS.db.profile.savedView.groupBy, "zone")
+    assertEqual(NS.db.profile.savedViews.History.groupBy, "zone")
+    B:ApplyView({ groupBy = "source", date = "all" }, "all")
     B:ResetView(true)
-    assertEqual(NS.db.profile.savedView, nil, "reset drops back to stock")
-    assertEqual(NS.BrowserTable.groupBy, "none")
+    assertEqual(NS.BrowserTable.groupBy, "zone", "reset restores the saved view")
+    B:ClearFilters()
+    assertEqual(NS.BrowserTable.groupBy, "none", "clear goes to stock")
+    assertEqual(NS.db.profile.savedViews.History.groupBy, "zone", "and keeps the saved view")
   end)
 end)
 
@@ -441,11 +448,11 @@ test("Browser: History offers Group: Type & SubType right after Type, and a save
     B:ApplyView({ groupBy = "typesub", date = "all" }, "all")
     assertEqual(NS.BrowserTable.groupBy, "typesub")
     B:SaveView()
-    assertEqual(NS.db.profile.savedView.groupBy, "typesub")
+    assertEqual(NS.db.profile.savedViews.History.groupBy, "typesub")
     B:ApplyView({ groupBy = "zone", date = "all" }, "all")
     B:ApplyView(B._savedViewOrStock(), "all")
     assertEqual(NS.BrowserTable.groupBy, "typesub", "the saved view brings the grouping back")
-    B:ResetView(true)
+    B:ClearFilters()
   end)
 end)
 
@@ -1058,9 +1065,10 @@ test("Browser: a holders tab lists holders, with the warband as Warband", functi
   if not ok then error(err, 0) end
 end)
 
-test("Browser: a holder picked on Holdings does not empty History", function()
+test("Browser: a holder picked on Holdings stays on Holdings; History keeps its own Character scope", function()
   -- One Character control, two option sources. The warband is a holder and never a history row, so
-  -- carried to History it would filter every row out under a raw-key label.
+  -- carried to History it would filter every row out under a raw-key label. Since P11 each tab keeps
+  -- its own Character scope, so the pick never reaches History at all.
   local g = NS.db.global
   local savedHoldings, savedHistory = g.holdings, g.history
   local savedChar = B.activeFilter and B.activeFilter.char
@@ -1072,15 +1080,20 @@ test("Browser: a holder picked on Holdings does not empty History", function()
   }
   local ok, err = pcall(withSettings, { visibility = "always" }, function()
     NS.Holdings:ApplyMoney(W, 5, 1)
-    B:Show(); B:SelectTab("Holdings")
+    B:Show(); B:SelectTab("History")
+    B:SetCharSet(nil)
+    B:SelectTab("Holdings")
     B:SetCharSet({ [W] = true })
     assertTrue(B.activeFilter.char[W], "a Holdings pick")
     B:SelectTab("History")
     local char = B.activeFilter.char
-    assertTrue(char == nil or not char[W], "the warband is dropped on the switch to history rows")
+    assertTrue(char == nil or not char[W], "History's own scope comes back, without the warband")
     assertFalse(NS.Browser._dd.char._selected[W], "and the dropdown follows")
     local rows = NS.Database:QueryList(NS.BrowserTable:CurrentRecords(), NS.BrowserTable.filter)
     assertEqual(#rows, 2, "the filter does not hide every row")
+    B:SelectTab("Holdings")
+    assertTrue(B.activeFilter.char and B.activeFilter.char[W], "Holdings keeps its pick")
+    B:SetCharSet(nil)
   end)
   B:SelectTab("History")
   B:SetCharSet(savedChar)
@@ -1091,28 +1104,34 @@ end)
 
 test("Browser: SetViewField remembers a field with no Save, from a copy of the stock view", function()
   local p = NS.db.profile
-  local saved = p.savedView
-  p.savedView = nil
+  local saved = p.savedViews
+  p.savedViews = nil
   local ok, err = pcall(function()
-    NS.Browser:SetViewField("timelineThing", "c:3008")
-    assertEqual(NS.Browser:ViewField("timelineThing"), "c:3008")
-    assertEqual(p.savedView.groupBy, NS.Browser._stockView.groupBy, "everything else is stock")
-    assertTrue(p.savedView ~= NS.Browser._stockView, "a copy, never the stock table itself")
+    NS.Browser:SetViewField("timelineThing", "c:3008", "Timeline")
+    assertEqual(NS.Browser:ViewField("timelineThing", "Timeline"), "c:3008")
+    local slot = p.savedViews.Timeline
+    assertEqual(slot.groupBy, NS.Browser._stockView.groupBy, "everything else is stock")
+    assertTrue(slot ~= NS.Browser._stockView, "a copy, never the stock table itself")
     assertEqual(NS.Browser._stockView.timelineThing, nil)
+    assertEqual(p.savedViews.History, nil, "only the named tab's view is written")
   end)
-  p.savedView = saved
+  p.savedViews = saved
   if not ok then error(err, 0) end
 end)
 
-test("Browser: CaptureView keeps the remembered Timeline pick", function()
+test("Browser: CaptureView on the Timeline keeps its remembered pick", function()
   local p = NS.db.profile
-  local saved = p.savedView
-  p.savedView = nil
-  local ok, err = pcall(function()
-    NS.Browser:SetViewField("timelineThing", "i:7")
+  local saved = NS.Util.DeepCopy(p.savedViews)
+  p.savedViews = nil
+  local ok, err = pcall(withSettings, { visibility = "always" }, function()
+    NS.Browser:Show(); NS.Browser:SelectTab("Timeline")
+    NS.Browser:SetViewField("timelineThing", "i:7", "Timeline")
     assertEqual(NS.Browser:CaptureView().timelineThing, "i:7")
+    NS.Browser:SelectTab("History")
+    assertEqual(NS.Browser:CaptureView().timelineThing, nil, "History's view carries no Timeline field")
   end)
-  p.savedView = saved
+  NS.Browser:SelectTab("History"); NS.Browser:Hide()
+  p.savedViews = saved
   if not ok then error(err, 0) end
 end)
 

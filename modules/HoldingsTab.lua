@@ -132,9 +132,9 @@ local function sorter(key, asc)
   end
 end
 
--- Group-by (P6). Holdings keeps its OWN group value (HT.groupBy, session-only, outside the saved
--- view): the window's Group dropdown is shared, but a pick made here never moves History's
--- BrowserTable.groupBy, and History's pick never regroups this view. GROUPS is the set this tab
+-- Group-by (P6). Holdings keeps its OWN group value (HT.groupBy; since P11 it rides in this tab's
+-- own saved view, see the tab spec below): the window's Group dropdown is shared, but a pick made
+-- here never moves History's BrowserTable.groupBy, and History's pick never regroups this view. GROUPS is the set this tab
 -- offers, in menu order; any other mode (Day, Source, Zone, Direction, Holder) reads as None.
 HT.GROUPS = { "none", "quality", "type", "subtype", "typesub", "char" }
 local GROUP_PREFIX = { quality = "Quality", type = "Type", subtype = "SubType", typesub = "Type", char = "Character" }
@@ -294,7 +294,7 @@ end
 -- ── view ──────────────────────────────────────────────────────────────────────────────────────
 
 HT.expanded, HT.sortKey, HT.sortAsc = {}, "name", true
-HT.groupBy, HT.collapsed = "none", {}   -- this tab's own group mode and collapsed groups (session)
+HT.groupBy, HT.collapsed = "none", {}   -- this tab's own group mode (in its view) and collapsed groups
 
 -- The two color helpers Insights already publishes from modules/AnalyticsFormat.lua (loaded first):
 -- one answer for "what color is this quality / class" across both tabs.
@@ -500,7 +500,7 @@ end
 -- out again per line, so a refresh reuses the frames the last one made instead of adding to them.
 function HT:Refresh()
   if not self.pane then return end
-  local filter = NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter() or {}
+  local filter = NS.Browser and NS.Browser.CurrentFilter and NS.Browser:CurrentFilter("Holdings") or {}
   local lines = HT.BuildModel(filter, self.expanded, self.sortKey, self.sortAsc, self.groupBy, self.collapsed)
   NS.Pool.ReleaseAll(self.rows)
   local w = math.max(1, (self.scroll.GetWidth and self.scroll:GetWidth()) or 1)
@@ -577,13 +577,33 @@ end
 -- text under the tab's own filters (quality, type, subtype, character), so every name offered has a
 -- row here. Gold is a thing this tab lists, so it is offered too. A pick puts the name in Search.
 function HT.Suggest(text)
-  local f = NS.Browser:CurrentFilter()
+  local f = NS.Browser:CurrentFilter("Holdings")
   f.text = (text or ""):match("^%s*(.-)%s*$")
   local items = {}
   for _, t in ipairs(NS.Holdings:Search(f)) do
     items[#items + 1] = { text = t.name, value = t.key, color = NS.Browser._qualityColorOrNil(t.quality) }
   end
   return NS.Browser._rankSuggestions(items, text, NS.Browser._SUGGEST_MAX)
+end
+
+-- This tab's own view fields (P11): its group and sort ride in the Holdings view, so Save, Reset and
+-- Clear on this tab reach them (they were outside every view before, which is why the three buttons
+-- did nothing here). A stored mode or column this tab does not have (a view migrated from History's,
+-- schema v14) reads as None, and as Name in that column's own first-click direction.
+local function captureView(v)
+  v.groupBy, v.sortKey, v.sortAsc = HT.groupBy, HT.sortKey, HT.sortAsc
+end
+
+local function applyView(view)
+  HT.groupBy = HT.GroupMode(view.groupBy)
+  local key = SORT_VAL[view.sortKey] and view.sortKey or nil
+  if not key then
+    HT.sortKey, HT.sortAsc = "name", true
+  elseif view.sortAsc == nil then
+    HT.sortKey, HT.sortAsc = key, not NUMERIC[key]
+  else
+    HT.sortKey, HT.sortAsc = key, view.sortAsc == true
+  end
 end
 
 NS.Browser:RegisterTab{ name = "Holdings", order = 40,
@@ -595,6 +615,9 @@ NS.Browser:RegisterTab{ name = "Holdings", order = 40,
   groups = HT.GROUPS,
   group = function() return HT.groupBy end,
   setGroup = function(mode) HT:SetGroupBy(mode) end,
+  stock = { sortKey = "name", sortAsc = true },
+  captureView = captureView,
+  applyView = applyView,
   charSource = "holders",
   build = function(pane) HT:Attach(pane) end,
   refresh = function() HT:Refresh() end }
