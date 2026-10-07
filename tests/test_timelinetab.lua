@@ -532,6 +532,74 @@ case("Timeline tab: the Warband's legend tooltip wears the Warband's series colo
   assertEqual(got.doubles[1].r, NS.Util.FormatMoney(30000))
 end)
 
+-- A click or a repaint under a resting cursor sends no OnEnter, so the entry's tooltip is re-shown
+-- for the line the (pooled) entry names now, or hidden when the rebuild left it unbound.
+case("Timeline tab: a legend click under a resting cursor re-shows the entry's tooltip", function()
+  seed(); open()
+  local b = legendButton("Alt-Realm")
+  local got = spyTooltip(function(g)
+    b:__fire("OnEnter")
+    g.lines, g.doubles, g.owner = {}, {}, nil
+    b:__fire("OnClick")
+    assertTrue(NS.Timeline:IsHidden("Alt-Realm"), "the click hid the line")
+    local cur = legendButton("Alt-Realm")
+    local _, _, _, a = cur.fs:GetTextColor()
+    assertTrue(a < 1, "its entry is dimmed")
+    assertTrue(g.owner == cur, "the tooltip was re-shown on the entry under the cursor")
+    assertEqual(g.lines[1], "Alt-Realm")
+    assertEqual(g.doubles[1].r, NS.Util.FormatMoney(10000))
+    assertEqual(g.lines[2], "Click to hide/show")
+    g.lines = {}
+    cur:__fire("OnClick")
+    assertFalse(NS.Timeline:IsHidden("Alt-Realm"), "a second click shows it again")
+    assertEqual(g.lines[1], "Alt-Realm", "and the tooltip is re-shown again")
+    cur:__fire("OnLeave")
+  end)
+  assertTrue(got.hides >= 1, "OnLeave hides it")
+  assertEqual(NS.Timeline.legendTipOwner, nil)
+end)
+
+case("Timeline tab: a repaint that rebinds the hovered legend entry re-shows the new holder's tooltip", function()
+  seed(); open()
+  local b = NS.Timeline.legendButtons[2]
+  local was = b.key
+  local other = (was == "Mock-Realm") and "Alt-Realm" or "Mock-Realm"
+  local got = spyTooltip(function(g)
+    b:__fire("OnEnter")
+    assertEqual(g.lines[1], was)
+    g.lines, g.doubles = {}, {}
+    NS.Browser:SetCharSet({ [other] = true })
+    assertTrue(NS.Timeline.legendButtons[2] == b, "the pool handed the hovered frame back at its rank")
+    assertEqual(b.key, other, "bound to the other holder now")
+    assertTrue(g.owner == b)
+    assertEqual(g.lines[1], other, "the tooltip names the line the entry names now")
+    local want = (other == "Mock-Realm") and 70000 or 10000
+    assertEqual(g.doubles[1].r, NS.Util.FormatMoney(want))
+  end)
+  assertEqual(got.hides, 0, "a rebound entry keeps its tooltip up")
+  assertTrue(NS.Timeline.legendTipOwner == b)
+end)
+
+case("Timeline tab: a repaint that leaves the hovered legend entry unbound hides its tooltip", function()
+  seed(); open()
+  local b = NS.Timeline.legendButtons[3]
+  local got = spyTooltip(function(g)
+    b:__fire("OnEnter")
+    assertTrue(g.owner == b)
+    NS.Browser:SetCharSet({ ["Alt-Realm"] = true })
+    assertEqual(#NS.Timeline.legendButtons, 2, "one fewer line")
+    assertEqual(b.key, nil, "the parked entry names no line")
+  end)
+  assertTrue(got.hides >= 1, "its tooltip went with it")
+  assertEqual(NS.Timeline.legendTipOwner, nil)
+end)
+
+case("Timeline tab: a repaint nobody hovers leaves the tooltip alone", function()
+  seed(); open()
+  local got = spyTooltip(function() NS.Timeline:Refresh() end)
+  assertEqual(got.owner, nil); assertEqual(got.hides, 0)
+end)
+
 -- Gives every legend label a nonzero width (6 px a glyph; the mock's font measures 0) and lays the
 -- legend out again at `w`.
 local function measuredLegend(w)

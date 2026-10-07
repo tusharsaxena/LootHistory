@@ -1240,23 +1240,21 @@ listed, and check each of these:
 
 - The header row reads exactly `Name · iLvl · Quality · Type · SubType · AH Price · Total · Value`,
   gold, one line each, over the right columns. **No other text sits in the header row.**
-- **No stray text after the Timeline (P5).** The owner saw faint green text (`Cou…`, `Coun… <Tr…`)
-  over the Holdings header near **Total** and over History rows (under Item on a Gain row, and near
-  Source), at different places on the two tabs. The suspected cause was a Timeline or Insights
-  region parented outside its pane. The headless suites rule out one form of that: creation-time
-  parenting of the Timeline tab and the Insights chart layout. `tests/region_trace.lua` records the
+- **No stray text after the Timeline (P5); closed 2026-10-07, not an addon bug.** The owner saw
+  faint green text (`Cou…`, `Coun… <Tr…`) over the Holdings header near **Total** and over History
+  rows (under Item on a Gain row, and near Source), at different places on the two tabs. **Confirmed
+  cause (2026-10-07):** the owner toggled nameplates and the text went with them, so it was world UI
+  (nameplates and their names and guild tags) showing through the translucent window, which also
+  explains why it sat at different places on each tab. No addon region draws it, and no fix is
+  needed. The headless guard stays as a regression check: `tests/region_trace.lua` records the
   parent each frame, FontString, Texture and Line is given when it is created, and with the pane
-  hidden none of them reads as visible (the Timeline case visits Timeline, then History, then
-  Holdings). The trace does not cover a region re-parented after it is made (`SetParent`,
-  `SetScrollChild`), the Insights pane's own chain (`Analytics:Attach`, its scroll frame and the
-  stat cards; the test builds the chart layout under a stand-in root), or GameTooltip and other
-  shared frames, so a leak through any of those is still a lead. **The bug is still open: no fix
-  has shipped and the source is unconfirmed.** A fix waits on the in-game frame path below. To check: open the
-  **Timeline**, chart Gold, type in Search so the suggestion list opens, hover the chart, then
-  switch to **History** and to **Holdings**, and do the same from **Insights**. Neither tab shows
-  any green text that is not its own. If any appears, note its text, its color and the tab you came
-  from, then hover it with `/fstack` and record the frame path. That path names the FontString, and
-  it is the evidence the fix needs.
+  hidden none of the Timeline tab's or the Insights chart layout's regions reads as visible (the
+  Timeline case visits Timeline, then History, then Holdings). To check: open the **Timeline**,
+  chart Gold, type in Search so the suggestion list opens, hover the chart, then switch to
+  **History** and to **Holdings**, and do the same from **Insights**. Neither tab shows any text
+  that is not its own. Text that moves with the camera, or goes away when nameplates are toggled
+  off, is the world showing through the window, not a failure; anything else, hover it with
+  `/fstack` and record the frame path.
 - Widen and narrow the window. The optional columns hide right to left (AH Price first, iLvl
   last), and Name, Total and Value always stay.
 - Every other item line has the faint stripe. Expand a striped item and the holder lines under it
@@ -1566,7 +1564,13 @@ sum of the lines charted; narrow Character to one character → it reads **Holdi
 characters)** with that character's gold. Pick a currency → counts with commas (`12,345`). With
 `/lh test` on, the holdings are the sample's. Look along the legend → the gap after **Warband** is
 the same as between two characters, the gap after **Total** is as before, and with **Timeline lines**
-at 16 the legend wraps to a second row instead of running off the pane, with no Lua error. Result:
+at 16 the legend wraps to a second row instead of running off the pane, with no Lua error. Then,
+with the cursor resting on a character's entry and not moving: click → the line hides, the entry
+dims and the tooltip stays up, re-drawn for that same character; click again → it shows and the
+tooltip is still that character's. Still resting on an entry, let a live repaint land (loot gold on
+that character, or narrow Character from the filter bar by keyboard) → the tooltip names whatever
+line the entry under the cursor names now, and goes away if the entry under the cursor is gone.
+Result:
 
 ## Degraded install
 
@@ -1811,7 +1815,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | DEGRADED-11 | § 17g ladder note | No result recorded; expectation corrected by SP-LH-03R (only what a LibKa0s-less install draws) |
 | DEGRADED-12 | New | New with the `core/CoreSetup.lua` fallback grip (CA-LH-01, #33) |
 | LED-1 to LED-8 | New | New with the timeline ledger, Phase 1 (the Holdings tab, the Reconciler, the v11 migration and its reset popup); no result recorded |
-| LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the open `Cou…` header-overlap check); P5 widened the stray-text check to History and to a Timeline or Insights visit, after the headless trace ruled out creation-time pane parenting (re-parenting, the Insights Attach/scroll/card chain and shared frames are not traced); the stray-text bug stays open (no fix shipped, needs the `/fstack` frame path); no result recorded |
+| LED-9 | New | New with the timeline ledger P4 polish (Holdings columns, banding, tooltips, and the `Cou…` header-overlap check); P5 widened the stray-text check to History and to a Timeline or Insights visit, after the headless trace ruled out creation-time pane parenting; the stray text is closed 2026-10-07, confirmed by the owner toggling nameplates as world nameplates showing through the translucent window (no addon bug, no fix); the rest of LED-9 has no result recorded |
 | LED-10 | New | New with the timeline ledger P4 polish (bank and warband-tab drift on a visit's first read is `UNTRACKED`); no result recorded |
 | LED-11 | New | New with the timeline ledger P5 (History Direction column: glyph plus colored label); no result recorded |
 | LED-12 | New | New with the timeline ledger P5 (measured Qty width for gold, BankLedger-style Gold tooltip); no result recorded |
@@ -1820,5 +1824,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | TL-14 | New | New with the timeline ledger P8 (Total only and the click-to-toggle legend); no result recorded |
 | TL-15 | New | New with the timeline ledger P8 (tooltips on the in/out strip); no result recorded |
-| TL-17 | New | New with the timeline ledger P10 (legend tooltip in the line's color with the current holding; even legend spacing); no result recorded |
+| TL-17 | New | New with the timeline ledger P10 (legend tooltip in the line's color with the current holding; even legend spacing); widened 2026-10-07 to the tooltip re-showing under a resting cursor after a click or a live repaint; no result recorded |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
