@@ -694,8 +694,8 @@ Character x Source rows also carry the value). Loot sections are items-only, so 
 tallies across them; no By Keystone, Attribution Confidence, Currency by Source, flat Currency by
 Character or currency Summary rows. Result:
 
-**HIST-27. All Data and Current View.** Apply a filter, export **Current View** from each tab → both
-CSVs honor the shared filter; **All Data** covers the whole visible history. Result:
+**HIST-27. All Data and Current View.** Apply a filter on each tab, export **Current View** from each →
+each CSV honors that tab's own filter; **All Data** covers the whole visible history. Result:
 
 **HIST-28. The copy window opens right.** History → Export → **Export to CSV** → the copy window opens
 centered on the History window, above the modal (visible underneath), CSV pre-selected; it looks as
